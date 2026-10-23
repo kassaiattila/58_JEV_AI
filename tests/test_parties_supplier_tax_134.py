@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import parties
+from jav.app import parties
 from jav.ai import checks
 from jav.core import store
 from jav.domains import finance

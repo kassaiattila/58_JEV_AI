@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, work, work_readiness, work_recipes, work_runs
+from jav.app import app_settings, work, work_readiness, work_recipes, work_runs
 from jav.core import store
 from jav.domains.email import emails, ingest_server, mailbox
 from jav.ai import jev as jev_mod
@@ -293,7 +293,7 @@ def test_unreadable_file_gives_a_clear_error_and_no_empty_package(tmp_path, monk
     def locked(p, **_kw):
         raise PermissionError(13, "a fájlt egy másik folyamat zárolja", str(p))
 
-    from jav import source_instances
+    from jav.app import source_instances
 
     monkeypatch.setattr(source_instances, "freeze", locked)  # a document is read once, when its copy is kept
     c = TestClient(api.create_app(store_path=tmp_path / "w.sqlite"), base_url="http://127.0.0.1:8930")

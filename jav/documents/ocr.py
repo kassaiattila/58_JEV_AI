@@ -211,7 +211,7 @@ def _sidecar_relative(path: Path, data_root: Path) -> Path:
             raise
         original, sha256 = alias
         rel = original.resolve().relative_to(data_root.resolve())  # ValueError: not under it either
-        from jav import source_instances
+        from jav.app import source_instances
 
         if not source_instances.intact(original, sha256):
             raise ValueError(f"the original changed since it was added: {original}") from None

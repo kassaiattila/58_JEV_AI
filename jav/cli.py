@@ -43,7 +43,7 @@ def command_modules() -> tuple[str, ...]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    from jav import registrations
+    from jav.app import registrations
 
     registrations.load_all()  # 173 (plan 170 E2): every command, the worker included, with all the registrations
     ap = argparse.ArgumentParser(prog="jav", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

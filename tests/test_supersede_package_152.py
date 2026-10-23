@@ -8,7 +8,8 @@ are superseded. Synthetic data, no paid calls.
 
 from fastapi.testclient import TestClient
 
-from jav import api, work_runs, work_views
+from jav import api
+from jav.app import work_runs, work_views
 from tests.test_supersede_runs_151 import runs  # noqa: F401 - the shared fixture: one package, an older and a newer live run
 
 

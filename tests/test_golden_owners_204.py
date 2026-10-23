@@ -78,7 +78,7 @@ def test_the_business_modules_load_without_the_measurement_layer() -> None:
     """Importing the reconciliation and the quote package, and every domain's registrations, loads no measurement code
     (until 204 they loaded the registry, which loads the runners where they measure)."""
     code = ("import json, sys, jav.domains.quotes.quote_package, jav.domains.finance.reconcile_package\n"
-            "from jav import registrations\n"
+            "from jav.app import registrations\n"
             "registrations.load_all()\n"
             "print(json.dumps(sorted(m for m in ('jav.goldens', 'jav.domains.quotes.goldens', 'jav.domains.finance.goldens') "
             "if m in sys.modules)))")

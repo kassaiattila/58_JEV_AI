@@ -40,11 +40,11 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from jav import naming, package_release, work
+from jav.app import naming, package_release, work
 from jav.core import activity_kinds, cfg, decisions, store
 from jav.domains.quotes import quote_document, quote_request
 from jav.core.clock import utc_stamp as _now
-from jav.outputs import contract, docx, markers
+from jav.app.outputs import contract, docx, markers
 from jav.runtime import job_kinds
 from jav.core import calls
 from jav.core.user_messages import explained

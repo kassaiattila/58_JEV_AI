@@ -4,7 +4,7 @@ Plain-language summary: the owner asked that an approved quote becomes a Word do
 Hungarian or English or from a template of their own. The quote's data - its heading, its lines priced by code, its
 totals - is built here as the output contract's `quote` (`configs/outputs.json`), and laid out by the output layer:
 the package's chosen own Word template, or the built-in one (`configs/quote_documents.json`), filled the same way
-(`jav/outputs/docx.py`). No number is computed here: every amount is the approved quote's, priced by
+(`jav/app/outputs/docx.py`). No number is computed here: every amount is the approved quote's, priced by
 `jav/domains/quotes/quote_pricing.py`. The approval stores the document with its version (`package_release.store_own_files`), so the
 download of a version never changes; a reopened version keeps the document it was approved with. The draft can be
 downloaded too, marked as a draft.
@@ -28,10 +28,10 @@ import re
 import sqlite3
 from typing import Any
 
-from jav import naming, package_release
+from jav.app import naming, package_release
 from jav.core import cfg
 from jav.core.clock import utc_stamp as _now
-from jav.outputs import builtin, contract, templates
+from jav.app.outputs import builtin, contract, templates
 
 OUTPUT = "quote"
 TABLE = "lines"

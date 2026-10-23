@@ -1,10 +1,10 @@
-"""The email domain's tables on the interface (185, plan G-full-move T1b; until then in `jav/datasets.py`).
+"""The email domain's tables on the interface (185, plan G-full-move T1b; until then in `jav/app/datasets.py`).
 
 Plain-language summary: three tables of the shared data view are the email domain's: a run's or a package's emails
 (058 K5.1: the intent with its correction, the suggested next step, the attachments, how much of the email's text the
 recognition saw), their task proposals (058 K5.3: one per row, with the evidence and the person's decision), and the
 mailbox downloads (048 T2). Two label sets are the domain's too: the intents' names and the suggested next steps'.
-They moved here from `jav/datasets.py` as they were: the same columns, rows and order. The email domain module
+They moved here from `jav/app/datasets.py` as they were: the same columns, rows and order. The email domain module
 registers them (`jav/domains/email/__init__.py`), and the data view asks its registry.
 
 Layer: application operation (a read view) → `jav.domains.email.email_export`, `jav.domains.email.mailbox`, `jav.domains.email.intents`.
@@ -14,9 +14,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav import datasets
+from jav.app import datasets
 from jav.core import cfg
-from jav.datasets import Rows, col
+from jav.app.datasets import Rows, col
 
 
 def emails(scope: dict[str, str]) -> Rows:

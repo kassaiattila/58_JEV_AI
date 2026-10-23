@@ -31,7 +31,7 @@ from collections import Counter, defaultdict
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import work
+from jav.app import work
 from jav.ai import policy
 from jav.core import values
 from jav.domains.finance import reconcile, reconcile_package

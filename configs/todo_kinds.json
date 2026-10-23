@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "todo_kinds",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "description": "The kinds of to-do (review reason) a processing step can raise (177, plan 170 E6, jav/core/todo_kinds.py). A to-do's kind is the first two parts of its reason (`<prefix>:<name>`, as the interface's label reads it); `<prefix>:*` stands for a family whose second part varies (each validator check, each JEV error), `*:<name>` for one whose first part is a field. shape: the whole reason; owners: the modules that raise it (none: only earlier runs have it); example: one reason of the kind, for the label test (ui/src/todoKinds177.test.ts). The owner's decision of 2026-10-19 (177): only the tests and the before/after replay watch that a step raises registered kinds; the store accepts any reason, as before.",
     "changelog": [
+      {
+        "version": "1.0.9",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the application layer's modules moved into jav/app/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.8",
         "date": "2026-10-23",
@@ -110,7 +115,7 @@
     {"code": "no_invoice:", "shape": "no_invoice", "owners": ["jav/ai/policy.py"], "what": "the flow built no record from the document", "example": "no_invoice"},
     {"code": "parties:same_tax_id", "shape": "parties:same_tax_id", "owners": [], "what": "earlier runs: the supplier's and the buyer's tax numbers are the same", "example": "parties:same_tax_id"},
     {"code": "parties:same_name", "shape": "parties:same_name", "owners": [], "what": "earlier runs: the supplier's and the buyer's names are the same", "example": "parties:same_name"},
-    {"code": "parties:own_tax_as_supplier", "shape": "parties:own_tax_as_supplier", "owners": ["jav/parties.py"], "what": "the supplier's tax number is an own party's", "example": "parties:own_tax_as_supplier"},
+    {"code": "parties:own_tax_as_supplier", "shape": "parties:own_tax_as_supplier", "owners": ["jav/app/parties.py"], "what": "the supplier's tax number is an own party's", "example": "parties:own_tax_as_supplier"},
     {"code": "detect:low_conf", "shape": "detect:low_conf:<type>:<p>", "owners": ["jav/flows/flow_detect.py", "jav/ai/policy.py"], "what": "uncertain type recognition", "example": "detect:low_conf:invoice:0.71"},
     {"code": "detect:detail_open", "shape": "detect:detail_open:<category>", "owners": ["jav/flows/flow_detect.py"], "what": "the detailed type cannot be decided", "example": "detect:detail_open:invoice"},
     {"code": "detect:no_type_pack", "shape": "detect:no_type_pack:<type>", "owners": ["jav/flows/flow_detect.py", "jav/runtime/worker.py"], "what": "no extraction exists for the recognised type", "example": "detect:no_type_pack:meghivo"},

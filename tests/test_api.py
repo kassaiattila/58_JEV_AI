@@ -10,7 +10,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, cli, service_shared, work
+from jav import api, cli, service_shared
+from jav.app import work
 from jav.core import cfg, store
 from jav.ai import jev as jev_mod
 from jav.runtime import worker

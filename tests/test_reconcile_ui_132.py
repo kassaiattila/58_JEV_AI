@@ -16,7 +16,7 @@ import json
 
 import pytest
 
-from jav import work
+from jav.app import work
 from jav.documents import source_layer
 from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package as rp

@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from jav import datasets, work, work_readiness, work_recipes, work_runs, work_views
+from jav.app import datasets, work, work_readiness, work_recipes, work_runs, work_views
 from jav.core import store
-from jav.work_views import next_step
+from jav.app.work_views import next_step
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 WP = {"items": [{"item_id": "a"}], "assignment": {"recipe_id": "r"}}
@@ -86,7 +86,7 @@ def test_the_state_report_splits_the_open_reasons_by_run_kind(runs):
 
 
 def test_the_item_result_marks_the_earlier_trial_reasons(runs):
-    from jav import corrections
+    from jav.app import corrections
 
     result = corrections.item_result(runs["live"], runs["item"])
     marks = {r["reason"]: r["trial"] for r in result["earlier_open_reasons"]}

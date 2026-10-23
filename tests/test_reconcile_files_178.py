@@ -16,7 +16,8 @@ import io
 import pytest
 from openpyxl import load_workbook
 
-from jav import package_release, cli
+from jav import cli
+from jav.app import package_release
 from jav.core import store
 from jav.domains.finance import reconcile_statement as rs
 from tests.test_characterisation_178 import _parts

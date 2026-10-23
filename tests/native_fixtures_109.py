@@ -158,7 +158,7 @@ def runtime_source(tmp_path, monkeypatch, *, text="😀 Order code: 0012\n", ras
     """Construct actual saved evidence with an explicitly in-process test parser."""
     import base64
     import json
-    from jav import work  # noqa: F401 - register the actual work schema
+    from jav.app import work  # noqa: F401 - register the actual work schema
     from jav.documents import native_results  # noqa: F401 - register the actual work schema
     from jav.core import store  # noqa: F401 - register the actual work schema
     from jav.documents.readers import native, pipeline

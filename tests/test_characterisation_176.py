@@ -21,7 +21,8 @@ import pytest
 from fastapi.routing import APIRoute
 from starlette.routing import Match
 
-from jav import api, datasets, work, work_views
+from jav import api
+from jav.app import datasets, work, work_views
 from jav.core import store
 from jav.domains.finance import reconcile_statement as rs, statement_table as st
 from tests import test_reconcile_k2_129 as k2
@@ -177,7 +178,7 @@ def test_a_reconciliation_package_in_the_list(db) -> None:
 
 
 def test_a_reconciliation_package_is_released_in_its_own_statement(db) -> None:
-    from jav import package_release
+    from jav.app import package_release
 
     wp_id = _reconciliation(db)
     view = package_release.view(wp_id)

@@ -10,7 +10,7 @@ import io
 
 from openpyxl import load_workbook
 
-from jav import datasets, package_release, work
+from jav.app import datasets, package_release, work
 from jav.runtime import worker
 from tests import test_flexible_package_160c as fp
 from tests.pdfgen import INVOICE_LINES, write_text_pdf

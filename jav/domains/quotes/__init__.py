@@ -6,11 +6,11 @@ and approves it. The shared reading of a quote request (its type pack, its detec
 is configuration and needs no registration. What the domain adds to the shared code is registered here, in one call
 (`register`, from `registrations.load_all`):
 - (B3) the quote package as a logic pack, started from a request (`jav/domains/quotes/quote_package.py`), and its kind of work in the
-  new work wizard (`jav/workflow_steps.py`);
+  new work wizard (`jav/app/workflow_steps.py`);
 - (B4c) the worker's job that makes a quote's proposal (`jav/domains/quotes/quote_proposal.py`, `jav/runtime/job_kinds.py`);
-- (192, B6a) the quote request under its email in a mailbox package (`jav/item_kinds.py` item part);
+- (192, B6a) the quote request under its email in a mailbox package (`jav/app/item_kinds.py` item part);
 - (196) the approved quote's Word document: its built-in template and its labels for a template's markers
-  (`jav/domains/quotes/quote_document.py`, `jav/outputs/builtin.py`, `jav/outputs/parts.py`); the worker's job that asks GPT for the
+  (`jav/domains/quotes/quote_document.py`, `jav/app/outputs/builtin.py`, `jav/app/outputs/parts.py`); the worker's job that asks GPT for the
   reply letter's paragraph (`jav/domains/quotes/quote_letter.py`).
 The seller's price lists (B2) are a store of the domain's own with addresses of the local service (`SERVICE`).
 
@@ -36,9 +36,9 @@ GOLDENS = ("jav.domains.quotes.goldens",)
 
 def register() -> None:
     """Every registration of the quotes domain (`registrations.load_all`): the quote package and its kind of work."""
-    from jav import item_kinds, logic_packs, workflow_steps
+    from jav.app import item_kinds, logic_packs, workflow_steps
     from jav.domains.quotes import quote_document, quote_letter, quote_package, quote_proposal
-    from jav.outputs import builtin, parts
+    from jav.app.outputs import builtin, parts
     from jav.runtime import job_kinds
 
     logic_packs.register(quote_package.LOGIC)

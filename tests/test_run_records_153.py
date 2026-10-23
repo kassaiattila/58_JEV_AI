@@ -6,7 +6,7 @@ records now read the to-dos once for the run and keep each item's locations by t
 correction. Synthetic data, no paid calls.
 """
 
-from jav import corrections, export
+from jav.app import corrections, export
 from jav.core import store
 
 

@@ -10,7 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import before_after, work
+from jav import before_after
+from jav.app import work
 from jav.core import store
 from jav.core.config import PROJECT_ROOT
 

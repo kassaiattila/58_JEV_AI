@@ -24,8 +24,8 @@ In a run, the package's kind adds two rules (`work.PackageRule`, asked by the wo
 
 The same account's same days twice are decided by `jav/domains/finance/statement_months.py` (139), whichever package brought them.
 
-Layer: UI/CLI → **this** (application operation) → `jav.domains.finance.statement_table`, `jav.domains.finance.statement_months`, `jav.parties`,
-`jav.domains.finance.reconcile` (business modules) and `jav.work` (the package record and its log). No AI call here.
+Layer: UI/CLI → **this** (application operation) → `jav.domains.finance.statement_table`, `jav.domains.finance.statement_months`, `jav.app.parties`,
+`jav.domains.finance.reconcile` (business modules) and `jav.app.work` (the package record and its log). No AI call here.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import item_kinds, logic_packs, package_scope, parties, work, work_runs, workflow_steps
+from jav.app import item_kinds, logic_packs, package_scope, parties, work, work_runs, workflow_steps
 from jav.ai import typepack
 from jav.core import activity_kinds, cfg, store, values
 from jav.domains.finance import reconcile, statement_months, statement_table
@@ -57,7 +57,7 @@ def _older_scope(row: dict[str, Any]) -> dict[str, Any]:
             "set_by": row["actor"], "set_at": row["updated_at"]}
 
 
-# 186 (plan G-full-move T2b): the package's party and period are in the shared scope store (`jav/package_scope.py`); an
+# 186 (plan G-full-move T2b): the package's party and period are in the shared scope store (`jav/app/package_scope.py`); an
 # older store's `statement_scopes` is copied there once
 store.register_migration("statement_package_scope",
                          lambda conn: package_scope.copy_older(conn, "statement_scopes", _older_scope))
@@ -476,7 +476,7 @@ def _page(wp_id: str) -> dict[str, Any]:
     return {"statements": package_view(wp_id)}
 
 
-# --- a workflow's statements step (181, plan 170 L5; until then in `jav/workflows.py`) ----------------------------
+# --- a workflow's statements step (181, plan 170 L5; until then in `jav/app/workflows.py`) ----------------------------
 
 
 def workflow_start(ctx: workflow_steps.StepStart) -> None:
@@ -521,7 +521,7 @@ STEP = workflow_steps.StepKind("statements", __name__, (KIND,), start=workflow_s
 
 
 # 181 (plan 170 L5): a statement package's party and period, and the role of the packages that collect bank statements
-# (`jav/package_scope.py`; registered by the finance domain)
+# (`jav/app/package_scope.py`; registered by the finance domain)
 ROLE = "statements"
 
 
@@ -532,7 +532,7 @@ def own_scope(wp_id: str) -> dict[str, Any]:
 
 
 # --- 136 (E4): a plain package of a bank's tabular export's chosen accounts, the statement package's forerunner (185,
-# plan G-full-move T1a: until then in `jav/work.py`) ---------------------------------------------------------------------
+# plan G-full-move T1a: until then in `jav/app/work.py`) ---------------------------------------------------------------------
 
 
 def add_statement_tables(wp_id: str, export: Path, keys: list[str], *, expected_revision: int) -> dict[str, Any]:
@@ -570,7 +570,7 @@ def create_with_files(*, name: str, paths: list[Path], scope: dict[str, Any], ac
     return made["workpackage_id"]
 
 
-# 176 (plan 170 L3): the statement package as a logic pack (`jav/logic_packs.py`); 180 (plan 170 E7): registered by the
+# 176 (plan 170 L3): the statement package as a logic pack (`jav/app/logic_packs.py`); 180 (plan 170 E7): registered by the
 # finance domain (`jav/domains/finance/__init__.py`); 186: its scope's party reference and deletion are the shared scope's
 LOGIC = logic_packs.LogicPack(
     kind=KIND, module=__name__,

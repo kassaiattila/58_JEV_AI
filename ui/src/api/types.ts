@@ -201,7 +201,7 @@ export interface Extraction {
 export interface ItemResult {
   run_id: string; item_id: string; kind?: "document" | "email" | "statement_table"; email?: EmailItem; page_count?: number | null; extraction: Extraction | null; correction: Correction;
   attachment_items?: { item_id: string; filename: string }[]; // 058 K5.2: the email's attachments that ran as documents
-  /** 192: what other domains add to this kind's item (`jav/item_kinds.py` item parts), by name */
+  /** 192: what other domains add to this kind's item (`jav/app/item_kinds.py` item parts), by name */
   parts?: { quote_request?: QuoteEmailPart };
   effective: Record<string, unknown>; open_reasons: Reason[]; earlier_open_reasons: Reason[];
   provenance: Record<string, Provenance>;
@@ -220,7 +220,7 @@ export interface ItemResult {
    *  email intent taken from another run. */
   engine?: Engine | null;
 }
-/** 192: a logic pack's own approved version (`jav/package_release.py` `own_approval`; the reconciliation and the quote) */
+/** 192: a logic pack's own approved version (`jav/app/package_release.py` `own_approval`; the reconciliation and the quote) */
 export interface OwnVersion {
   version: number; fingerprint: string; approved_by: string; approved_at: string;
   reopened_by: string | null; reopened_at: string | null; reopen_note: string | null;

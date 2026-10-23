@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import admin, work_readiness, work_recipes
+from jav import admin
+from jav.app import work_readiness, work_recipes
 from jav.runtime import worker
 from jav import flows
 

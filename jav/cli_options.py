@@ -48,7 +48,7 @@ def engine_args(p: argparse.ArgumentParser, *, measurement: bool) -> None:
 def jev_on(args: argparse.Namespace) -> bool:
     engine = args.engine
     if engine is None:
-        from jav import app_settings
+        from jav.app import app_settings
 
         engine = app_settings.engine_default()
     return engine == "jev"

@@ -11,7 +11,7 @@
 - `GET /workpackages/{id}/output-templates` and `PUT /workpackages/{id}/output-templates/{output}`: the choice;
 - `GET /workpackages/{id}/result/utility-cost.xlsx`: the utility cost of the package's current result.
 
-Layer: UI/CLI gateway → `jav.outputs.templates` (application operation).
+Layer: UI/CLI gateway → `jav.app.outputs.templates` (application operation).
 """
 
 from __future__ import annotations
@@ -23,9 +23,9 @@ from fastapi import Path as PathParam
 from fastapi.responses import Response
 from pydantic import Field
 
-from jav import package_release, work_views
+from jav.app import package_release, work_views
 from jav.service_shared import DecisionState, Empty, In, WpId, attachment_header, checked_path, error, human_actor
-from jav.outputs import contract, samples, templates
+from jav.app.outputs import contract, samples, templates
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 TemplateId = Annotated[str, PathParam(pattern=r"^tpl-[0-9a-f]{10}$")]

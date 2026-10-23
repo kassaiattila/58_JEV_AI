@@ -15,7 +15,7 @@ from uuid import uuid4
 
 from pydantic import TypeAdapter
 
-from jav import item_kinds
+from jav.app import item_kinds
 from jav.core import store
 from jav.documents.native_contracts import (
     ArtifactRef, Failed, InterpretationOutcome, NativeCitation, NativeFact,
@@ -322,7 +322,7 @@ def publish(*, run_id: str, item_id: str, source_sha256: str, recipe_hash: str,
 def native_item(run_id: str, item: Mapping, c=None) -> bool:
     """Whether an item's result is a native publication: a native format, or (120) a PDF that continued into the
     native flow because its recognised type had no fitting type pack. The suffix alone no longer decides for a PDF.
-    177: only an item whose type is recognised from its content (a document, `jav/item_kinds.py`)."""
+    177: only an item whose type is recognised from its content (a document, `jav/app/item_kinds.py`)."""
     if not item_kinds.of(item).detected:
         return False
     suffix = Path(item["source_path"]).suffix.lower()

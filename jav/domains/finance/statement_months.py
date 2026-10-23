@@ -231,7 +231,7 @@ def resolve(statements: list[dict[str, Any]], choices: dict[str, str | None], *,
     def trusted(st: dict[str, Any]) -> bool:
         nonlocal trusted_runs
         if trusted_runs is None:
-            from jav import work
+            from jav.app import work
 
             trusted_runs = work.approved_runs(s.get("work_run") for s in statements)
         return st.get("work_run") in trusted_runs
@@ -370,7 +370,7 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, ac
     to-dos close on both documents. 187: a pair whose latest choice was made in another run that is approved by now is
     frozen, as a duplicate decision is (before, a later choice changed that run's reviewed version); the change goes
     into the decision journal, and a stale `expected_state` is refused."""
-    from jav import work, work_runs
+    from jav.app import work, work_runs
     from jav.domains.finance import reconcile
 
     if other_doc_id == item_id:
@@ -441,7 +441,7 @@ def item_view(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str,
     # 153 (review B6): only a stored statement has relations; a document of another kind returns before every stored
     # statement is built (0.10 s of each review page's 0.15-0.19 s, growing with the store; 102 s for a run's results)
     # 174 (plan 170 L2): by the document's counted result, as `reconcile.statements` reads it
-    from jav import package_result
+    from jav.app import package_result
 
     with store.connect() as c:
         rows = package_result.result_rows(c, package_result.counted_documents(c, [item_id]))

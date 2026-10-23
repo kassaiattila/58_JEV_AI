@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import corrections, work, work_runs
+from jav.app import corrections, work, work_runs
 from jav.ai import checks
 from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package as rp, statement_months as sm
@@ -96,7 +96,7 @@ def test_two_checked_statements_of_the_same_rank_both_stay_as_a_conflict(db):
 def test_the_month_view_counts_the_valid_statement_and_names_the_replaced(db):
     from datetime import date
 
-    from jav import parties
+    from jav.app import parties
     from jav.domains.finance import party_views
 
     party = parties.create("Example Home", identities=[("account", OWN_KEY, k2.OWN)], actor="t")

@@ -17,7 +17,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, backup, corrections, source_instances, work, work_readiness, work_recipes, work_runs
+from jav import api, backup
+from jav.app import corrections, source_instances, work, work_readiness, work_recipes, work_runs
 from jav.flows import flow_detect
 from jav.documents import ocr
 from jav.core import store

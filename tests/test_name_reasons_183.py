@@ -7,7 +7,7 @@ that the interface writes the mark in its own language. The text stays (the down
 Synthetic invoices and a fake model, no paid call.
 """
 
-from jav import naming
+from jav.app import naming
 
 from tests.test_unified_names_082 import _correct_first, _query, _run, env  # noqa: F401 - `env` is a fixture
 

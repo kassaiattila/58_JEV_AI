@@ -17,7 +17,7 @@ import copy
 
 import pytest
 
-from jav import parties
+from jav.app import parties
 from jav.core import cfg, store
 from jav.domains.finance import reconcile
 from jav.domains.finance import reconcile_package as rp

@@ -6,7 +6,7 @@ writing request must carry a JSON body (against simple form forgery), the body s
 checks the input's structure (unknown field = rejection). The limits are in `configs/service.json`.
 
 The endpoint names follow the calls of V4's `businessWorkflowApi.ts` (`workflow`, `readiness`, `start`, `runs`). The
-business rules live in `jav.work` and `jav.corrections`; the service only translates them to HTTP. This module holds
+business rules live in `jav.app.work` and `jav.app.corrections`; the service only translates them to HTTP. This module holds
 the gateway itself: the request checks, the error translation, and `create_app`. The endpoints live in modules by theme
 (195, plan G-tidy R4: `jav/api_workpackages.py`, `api_runs.py`, `api_results.py`, `api_items.py`, `api_workflows.py`,
 `api_system.py`, `api_settings.py`) and in the logic packs' and domains' own modules; each has a `routes(app, prefix)`,
@@ -36,7 +36,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import Field
 from starlette.routing import BaseRoute
 
-from jav import app_settings, corrections, local_picker, package_release, work, work_views
+from jav import local_picker
+from jav.app import app_settings, corrections, package_release, work, work_views
 from jav.ai import policy
 from jav.documents import isolated_pdf
 from jav.core import cfg, dates, numbers, store, version
@@ -199,7 +200,7 @@ def service_modules() -> list[str]:
     are registered; 185 (plan G-full-move T1a): then the modules of each domain's other addresses (its domain module's
     `SERVICE`). Each has a `routes(app, prefix)`; `create_app` adds them in this order, before the unknown address's
     answer. A test checks that every registered logic pack names its own."""
-    from jav import logic_packs, registrations
+    from jav.app import logic_packs, registrations
     from jav.domains import DOMAINS
 
     registrations.load_all()
@@ -330,7 +331,7 @@ def _add_error_handlers(app: FastAPI) -> None:
 
 def create_app(*, store_path: Path | None = None) -> FastAPI:
     """`store_path`: a store for this app instance (for tests); without it, the default `store/jav.sqlite`."""
-    from jav import registrations
+    from jav.app import registrations
 
     registrations.load_all()  # 173 (plan 170 E2): the package rules, delete guards and party references
     s = settings()
@@ -409,7 +410,7 @@ def serve(*, host: str | None = None, port: int | None = None) -> None:
     host = host or s["host"]
     if host not in LOOPBACK:
         raise ValueError(f"the local service binds only to a loopback address, not {host!r}")
-    from jav import datasets
+    from jav.app import datasets
     from jav.runtime import preload
     from jav.core import applog
 

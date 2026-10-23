@@ -89,7 +89,7 @@ rate; like a converted pair it is allocated only in whole. An account with such 
 foreign-currency invoice's card window, as a card statement does.
 
 **Accounts registered in advance** (138, DECISIONS 137): an own account or card can be registered with its party before
-any statement of it is processed (`jav/parties.py`); a reconciliation package passes its scope's registrations in the
+any statement of it is processed (`jav/app/parties.py`); a reconciliation package passes its scope's registrations in the
 snapshot (`own_accounts`: key, kind, currencies, the days it was open). Such an account has to be covered like one
 with statements, so an invoice it may have paid is never `no_payment_found` while its statements are missing; it is
 asked only for the part of a window it was open, and a registered forint card counts in the card window.
@@ -156,7 +156,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import package_result
+from jav.app import package_result
 from jav.ai import fact_checks
 from jav.core import cfg, store, type_roles, values
 from jav.domains.finance import duplicates, fx
@@ -1425,7 +1425,7 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
     as a snapshot for `propose`. `current` (doc_id, doc_type, values, validation): the document being processed, in
     place of its stored result. `fetch_rates`: fetch the missing MNB rates first (the processing and the command line);
     a view only reads the stored ones."""
-    from jav import parties  # 147: an invoice's direction from the own parties' identities
+    from jav.app import parties  # 147: an invoice's direction from the own parties' identities
 
     conf = _conf()
     f = conf["invoice_fields"]

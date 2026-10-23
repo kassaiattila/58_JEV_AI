@@ -5,7 +5,7 @@ choice is not "JEV only": the pre-start overview carries the chosen path, so tha
 and the help says the same. Synthetic PDFs, no paid calls.
 """
 
-from jav import work_readiness
+from jav.app import work_readiness
 from jav.ai import typepack
 from jav.core import cfg
 from tests import test_api

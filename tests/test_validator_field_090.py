@@ -6,7 +6,7 @@ while every field looked fine. A check of the whole record (totals, line items, 
 Synthetic data only.
 """
 
-from jav import corrections
+from jav.app import corrections
 from jav.ai import policy
 from jav.ai.models import CheckResult, FlowState, DocumentRecord
 from jav.ai.validators import run_checks

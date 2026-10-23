@@ -6,7 +6,7 @@ and starting or linking a step. A step's folder or files are checked like any ty
 `jav/api.py` as they were: the same paths, request models and answers, in the same order. `jav.api.create_app` adds
 this module after the output layer's one.
 
-Layer: UI/CLI (the local service) → `jav.workflows`.
+Layer: UI/CLI (the local service) → `jav.app.workflows`.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav import work_views, workflows
+from jav.app import work_views, workflows
 from jav.service_shared import In, IsoDay, PartyId, checked_path, human_actor
 
 
@@ -62,7 +62,7 @@ class CreateWorkflow(In):
 
 
 class WorkflowEstimate(In):
-    kind: Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]  # 181: a registered step kind (`jav/workflow_steps.py`)
+    kind: Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]  # 181: a registered step kind (`jav/app/workflow_steps.py`)
     source: WorkflowSource
     party_id: PartyId | None = None
     period_start: IsoDay | None = None

@@ -11,7 +11,7 @@ from __future__ import annotations
 import importlib
 from types import SimpleNamespace
 
-from jav import package_scope, registrations, workflows
+from jav.app import package_scope, registrations, workflows
 from jav.domains import DOMAINS
 from tests.test_dependency_direction import domain_modules
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 import pytest
 
-from jav import logic_packs as lp, work, work_views
+from jav.app import logic_packs as lp, work, work_views
 from jav.core import store
 from jav.core.config import PROJECT_ROOT
 
@@ -97,7 +97,7 @@ def test_a_package_of_an_unknown_kind_is_neither_shown_nor_deleted(db) -> None:
 
 # --- the shared code names no logic pack kind ---------------------------------------------------------------------------
 
-SHARED = ("jav/work.py", "jav/work_views.py", "jav/package_release.py", "jav/datasets.py", "jav/runtime/worker.py")
+SHARED = ("jav/app/work.py", "jav/app/work_views.py", "jav/app/package_release.py", "jav/app/datasets.py", "jav/runtime/worker.py")
 # a comparison of a package's kind with a logic pack's kind ("reconcile", "statements")
 NAMED = re.compile(r"source_kind[\"'\]]*\)?\s*(==|!=|in|not in)\s*\(?[\"'](reconcile|statements)[\"']")
 
@@ -111,7 +111,7 @@ def test_the_shared_code_asks_the_registry(path: str) -> None:
 def test_the_workflows_ask_the_registry_for_a_packages_state() -> None:
     """The package-level questions (is the step done, what is its next step) go through the registry; the step kinds
     of `configs/workflows.json` (documents, emails, statements, reconcile) stay the workflow's own (plan 170 L5)."""
-    text = (PROJECT_ROOT / "jav/workflows.py").read_text(encoding="utf-8")
+    text = (PROJECT_ROOT / "jav/app/workflows.py").read_text(encoding="utf-8")
     assert not NAMED.search(text)
 
 

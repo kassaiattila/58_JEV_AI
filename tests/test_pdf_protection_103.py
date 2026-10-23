@@ -291,7 +291,7 @@ def test_posix_helper_acknowledges_only_an_applied_memory_limit(monkeypatch, suc
 
 
 def test_strict_limit_failure_is_final_in_the_actual_worker(tmp_path, monkeypatch):
-    from jav import work, work_readiness, work_recipes, work_runs
+    from jav.app import work, work_readiness, work_recipes, work_runs
     from jav.core import store
     from jav.runtime import worker
     from tests.pdfgen import INVOICE_LINES, write_text_pdf

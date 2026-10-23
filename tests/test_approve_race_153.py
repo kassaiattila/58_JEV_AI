@@ -9,7 +9,7 @@ superseding is left to race the approval.
 
 import pytest
 
-from jav import work, work_runs
+from jav.app import work, work_runs
 from jav.core import store
 from tests.test_supersede_runs_151 import runs  # noqa: F401 - the shared fixture: one package, an older and a newer live run
 

@@ -37,11 +37,6 @@ ALLOWED = {layer: (*LAYERS[: i + 1], *(("evals", "devtools", "legacy") if layer 
 
 # not in its layer's folder yet: module (relative to jav) -> its layer ("domains.<domain>" for a domain's module)
 NOT_MOVED = {name: layer for layer, names in {
-    "app": "activity app_settings corrections costs datasets export item_kinds logic_packs naming outputs "
-        "outputs.builtin outputs.contract outputs.docx outputs.fill outputs.markers outputs.parts "
-        "outputs.samples outputs.templates outputs.xlsx package_release package_result package_scope parties "
-        "registrations reground scopes source_instances tablequery work work_readiness work_recipes work_runs "
-        "work_views workflow_steps workflows",
     "runtime": "backup deps_audit",
     "service": "api api_items api_outputs api_results api_runs api_settings api_system api_workflows "
         "api_workpackages local_picker picker_dialog service_shared",
@@ -61,12 +56,12 @@ KNOWN = {
     ("jav.documents.ocr", "jav.ai.policy"), ("jav.documents.pdf_input", "jav.ai.policy"), ("jav.documents.text_document", "jav.ai.typepack"),
     ("jav.documents.readers.interpretation", "jav.ai.fact_checks"), ("jav.documents.readers.providers", "jav.ai.jev"),
     # the registries load the domains' registrations themselves
-    ("jav.core.activity_kinds", "jav.registrations"), ("jav.ai.checks", "jav.registrations"),
+    ("jav.core.activity_kinds", "jav.app.registrations"), ("jav.ai.checks", "jav.app.registrations"),
     # the shared decision handler raises the work package's conflict error; a document's reading checks its item
-    ("jav.core.decisions", "jav.work"), ("jav.documents.native_results", "jav.item_kinds"), ("jav.documents.ocr", "jav.source_instances"),
-    ("jav.ai.party_history", "jav.package_result"),
+    ("jav.core.decisions", "jav.app.work"), ("jav.documents.native_results", "jav.app.item_kinds"), ("jav.documents.ocr", "jav.app.source_instances"),
+    ("jav.ai.party_history", "jav.app.package_result"),
     # the shared views show the worker's state
-    ("jav.work_views", "jav.runtime.worker"),
+    ("jav.app.work_views", "jav.runtime.worker"),
     # the operations log masks keys with the data guard's patterns
     ("jav.core.applog", "jav.data_guard"),
     # the quote's business modules read the invented price list of its golden set

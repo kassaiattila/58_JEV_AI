@@ -21,7 +21,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, backup, source_instances, work
+from jav import api, backup
+from jav.app import source_instances, work
 from jav.core import store
 from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf

@@ -13,7 +13,7 @@ import pytest
 from pydantic import ValidationError
 
 from jav.domains.email import emails, ingest_server, mailbox
-from jav import work, work_readiness, work_runs
+from jav.app import work, work_readiness, work_runs
 from jav.core import store
 from jav.ai import jev as jev_mod
 from jav.core.config import BRIDGE_ROOT, OLD_PROJECT_ROOT

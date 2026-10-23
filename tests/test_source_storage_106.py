@@ -15,7 +15,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, source_instances, work
+from jav import api
+from jav.app import source_instances, work
 from jav.core import store
 from jav.core import lock
 
@@ -224,7 +225,7 @@ def test_cleanup_after_a_real_process_exit_preserves_final_sources(source):
     data = final.read_bytes()
     script = """import os, sys
 from pathlib import Path
-from jav import source_instances
+from jav.app import source_instances
 from jav.core import store
 with store.use_store(Path(sys.argv[1])):
     source_instances.os.fsync = lambda fd: os._exit(17)

@@ -728,7 +728,7 @@ def _sync_review_item(c: sqlite3.Connection, review_id: int, closing_status: str
 
 # 066 Á06 (decision of 2026-09-29): the reasons of a live run that is not yet approved are pinned: another run neither
 # takes them over nor closes them, so the earlier live run cannot be approved without review. Runs are known to the work
-# layer (`jav/work.py`), so it registers the check: `(connection, run ID) -> pinned?`. Without it (old callers) nothing
+# layer (`jav/app/work.py`), so it registers the check: `(connection, run ID) -> pinned?`. Without it (old callers) nothing
 # is pinned.
 _pinned_run_check: Callable[[sqlite3.Connection, str], bool] | None = None
 

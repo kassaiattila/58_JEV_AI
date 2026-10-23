@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import work
+from jav.app import work
 from jav.domains.quotes import quote_draft, quote_letter
 from jav.runtime import worker
 from tests import test_quote_draft_192 as q192

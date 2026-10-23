@@ -14,7 +14,7 @@ import copy
 
 import pytest
 
-from jav import work
+from jav.app import work
 from jav.core import decisions, store
 from jav.domains.quotes import price_lists, quote_draft, invented_golden, quote_package, quote_proposal
 from jav.runtime import worker

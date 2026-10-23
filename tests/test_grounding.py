@@ -93,7 +93,7 @@ def test_manual_selection_is_validated():
 
 
 def test_flow_run_saves_provenance(tmp_path: Path):
-    from jav import work, work_readiness, work_recipes, work_runs
+    from jav.app import work, work_readiness, work_recipes, work_runs
     from jav.ai import jev as jev_mod
     from jav.runtime import worker
     from tests.test_runtime_worker import FakeClient

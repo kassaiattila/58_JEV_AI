@@ -3,12 +3,12 @@
 Plain-language summary: what the shared code does with emails beyond reading them is registered here, in one call
 (`register`, from `registrations.load_all`):
 - the rule run after every item of a run that marks the attachments of a suspicious email (154): each gets a to-do,
-  so the run cannot be approved before a person has looked at it (`jav/item_kinds.py`);
+  so the run cannot be approved before a person has looked at it (`jav/app/item_kinds.py`);
 - the mailbox package's part of its page: how many PDF attachments are not yet items, and (181) the routing of its
   attachments it offers;
 - (185) the emails and their task proposals in a result's downloads (`jav/domains/email/email_export.py`);
 - (185) how the review page shows an email item and a person corrects its intent (`mailbox.email_item_result`, `correct_email`);
-- (181) a workflow's emails step: the mailbox download, then its package's run (`jav/workflow_steps.py`);
+- (181) a workflow's emails step: the mailbox download, then its package's run (`jav/app/workflow_steps.py`);
 - (181) the email routing: a logic pack that proposes, for each emailed invoice, outgoing invoice and bank statement,
   the package it belongs to, and its workflow step (`jav/domains/email/email_routing.py`);
 - (185) a mailbox download as a workflow step's source, the worker's download job and the due schedules' tick
@@ -43,9 +43,9 @@ def mailbox_page(wp: Any) -> dict[str, Any]:
 
 def register() -> None:
     """Every registration of the email domain (`registrations.load_all`)."""
-    from jav import datasets, item_kinds, logic_packs, workflow_steps
+    from jav.app import datasets, item_kinds, logic_packs, workflow_steps
     from jav.domains.email import email_datasets, email_export, email_routing, mailbox
-    from jav.outputs import parts
+    from jav.app.outputs import parts
     from jav.runtime import job_kinds
 
     item_kinds.register_rule(item_kinds.ItemRule(kind=item_kinds.EMAIL, name="suspicious_email_source", module=__name__,

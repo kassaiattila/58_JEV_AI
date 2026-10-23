@@ -22,7 +22,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import activity, corrections, datasets, parties, work_readiness, work_recipes, work_runs
+from jav.app import activity, corrections, datasets, parties, work_readiness, work_recipes, work_runs
 from jav.ai import checks, policy
 from jav.documents import native_results
 from jav.core import activity_kinds, store

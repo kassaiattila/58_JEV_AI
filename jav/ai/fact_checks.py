@@ -82,7 +82,7 @@ def _ascii_words(value: str) -> list[str]:
 
 def significant_words(value: object) -> list[str]:
     """133: a party name's words in their order, without the legal forms and filler words (`parties.ignore_tokens`);
-    shared by `same_party` and the own parties (`jav.parties`)."""
+    shared by `same_party` and the own parties (`jav.app.parties`)."""
     ignore = set(_rules()["parties"]["ignore_tokens"])
     return [w for w in _ascii_words(str(value or "")) if w not in ignore]
 

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import parties
+from jav.app import parties
 from jav.core import store
 from jav.domains.finance import reconcile, statement_package as sp, statement_table as st
 from tests.test_flow_statement_table_136 import _run_all

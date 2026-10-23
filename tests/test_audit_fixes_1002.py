@@ -15,7 +15,7 @@ import json
 
 import pytest
 
-from jav import corrections, work, work_readiness, work_recipes, work_runs, work_views
+from jav.app import corrections, work, work_readiness, work_recipes, work_runs, work_views
 from jav.core import store
 from jav.domains.email import email_export, email_tasks, emails, ingest_server, mailbox
 from jav.runtime import worker
@@ -87,8 +87,8 @@ def test_a_task_decision_cannot_be_written_after_a_concurrent_approval(env, monk
 
 
 def test_a_result_table_carries_the_version_it_shows(env, monkeypatch):  # noqa: F811
-    from jav import datasets
-    from jav.tablequery import Query
+    from jav.app import datasets
+    from jav.app.tablequery import Query
 
     run_id, item = _reviewed_email(env, monkeypatch)
     page = datasets.query("emails", {"run_id": run_id}, Query())

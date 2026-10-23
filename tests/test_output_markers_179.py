@@ -10,7 +10,7 @@ store, no AI call.
 from __future__ import annotations
 
 from jav.ai import typepack
-from jav.outputs import contract, markers, samples
+from jav.app.outputs import contract, markers, samples
 
 
 def _inner(marker: str) -> str:

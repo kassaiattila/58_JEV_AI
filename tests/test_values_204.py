@@ -15,7 +15,7 @@ import pytest
 
 from jav.core import values
 from jav.domains.finance import report_utility
-from jav.outputs import fill, xlsx
+from jav.app.outputs import fill, xlsx
 
 
 def test_a_stored_day_is_read_from_a_date_or_a_date_time():

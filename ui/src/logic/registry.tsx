@@ -1,6 +1,6 @@
 // 176 (plan 170 L3): the logic packs on the interface - the kinds of work package that do a piece of work of their
 // own (a reconciliation, a statement package) - in one place, the counterpart of the local service's registry
-// (`jav/logic_packs.py`). The package's page, its menu and its item list ask this registry instead of naming the
+// (`jav/app/logic_packs.py`). The package's page, its menu and its item list ask this registry instead of naming the
 // kind; a package of a plain processing kind (a folder, a mailbox, chosen files) has no entry.
 import type { ReactNode } from "react";
 import type { QuoteEmailPart, Workpackage, WorkpackageView } from "../api";
@@ -101,7 +101,7 @@ export function logicOf(kind: string | undefined): LogicUi | undefined {
 }
 
 /** 192 (plan F-quote-package B6a): how an item part another domain adds to an item's result is shown, by its name
- *  (`jav/item_kinds.py` item parts): the quote request under its email. */
+ *  (`jav/app/item_kinds.py` item parts): the quote request under its email. */
 export const ITEM_PARTS: Record<string, (value: unknown) => ReactNode> = {
   quote_request: (value) => <QuoteOnEmail part={value as QuoteEmailPart} />,
 };

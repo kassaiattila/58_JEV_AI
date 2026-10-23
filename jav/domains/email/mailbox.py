@@ -30,7 +30,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from jav import item_kinds, work, work_recipes, work_runs, workflow_steps
+from jav.app import item_kinds, work, work_recipes, work_runs, workflow_steps
 from jav.core import decisions, store, todo_kinds
 from jav.domains.email import ingest_server
 from jav.runtime import job_kinds
@@ -247,7 +247,7 @@ def _request_of(wp_id: str) -> dict[str, Any] | None:
     return json.loads(row["request"]) if row else None
 
 
-# --- an attachment of a suspicious email (154; 177: the email domain's rule, `jav/item_kinds.py`; 180: registered by
+# --- an attachment of a suspicious email (154; 177: the email domain's rule, `jav/app/item_kinds.py`; 180: registered by
 # `jav/domains/email/__init__.py`) --------------------------------------------------------------------------------------------
 
 SUSPICIOUS_ATTACHMENT = todo_kinds.SUSPICIOUS_ATTACHMENT  # 154 (DECISIONS 154); 204: the shared code
@@ -539,7 +539,7 @@ def run_pull_job(payload: dict[str, Any], *, runner: Runner | None = None, inbox
     return {"status": status, **result}
 
 
-# --- a workflow's emails step (181, plan 170 L5; until then in `jav/workflows.py`) --------------------------------
+# --- a workflow's emails step (181, plan 170 L5; until then in `jav/app/workflows.py`) --------------------------------
 
 
 def workflow_start(ctx: workflow_steps.StepStart) -> None:
@@ -574,7 +574,7 @@ def workflow_poll(ctx: workflow_steps.StepStart) -> None:
 STEP = workflow_steps.StepKind("emails", __name__, ("mailbox",), start=workflow_start, poll=workflow_poll)
 
 # --- 185 (plan G-full-move T1c): a mailbox download as a workflow step's source (`workflow_steps.SourceKind`; until
-# then in `jav/workflows.py`) ---------------------------------------------------------------------------------------
+# then in `jav/app/workflows.py`) ---------------------------------------------------------------------------------------
 
 
 def _checked_source(raw: Mapping[str, Any]) -> dict[str, Any]:
@@ -590,7 +590,7 @@ def _shown_source(source: Mapping[str, Any]) -> dict[str, Any]:
 def _repeated_source(source: Mapping[str, Any], period: tuple[str, str] | None, wf: Mapping[str, Any]) -> dict[str, Any]:
     """The download's received range moves on with the workflow's period, or by its own length; a number of days stays
     as it is."""
-    from jav.workflows import next_period
+    from jav.app.workflows import next_period
 
     req = dict(source["request"])
     if req.get("received_from") or req.get("received_to"):
@@ -627,7 +627,7 @@ EMAIL_FIELDS = ("intent",)  # 058 K5.1: an email's intent is correctable (the em
 def item_titles(items: list[dict[str, Any]]) -> dict[str, str]:
     """048 T2: an email's title in the item list is its subject and sender (the file name is always `message.json`);
     058 K5.2: an attachment's title names the email it came from. 185 (plan G-full-move T1e): the email kind's handler
-    (until then in `jav/work_views.py` `item_titles`)."""
+    (until then in `jav/app/work_views.py` `item_titles`)."""
     from jav.domains.email.emails import message_version
 
     out, subjects = {}, {}
@@ -648,7 +648,7 @@ def item_titles(items: list[dict[str, Any]]) -> dict[str, str]:
 
 def parent_labels(items: list[dict[str, Any]]) -> dict[str, str]:
     """Subjects of the attachments' parent emails (only if the run has attachments), for the documents' source email
-    column. 185 (plan G-full-move T1e): the email kind's handler (until then in `jav/export.py` `_email_subjects`)."""
+    column. 185 (plan G-full-move T1e): the email kind's handler (until then in `jav/app/export.py` `_email_subjects`)."""
     from jav.domains.email.emails import message_version
 
     parents = {i.get("parent_item_id") for i in items if i.get("parent_item_id")}
@@ -665,8 +665,8 @@ def parent_labels(items: list[dict[str, Any]]) -> dict[str, str]:
 def email_item_result(run: dict[str, Any], item: dict[str, Any], engine: str | None) -> dict[str, Any]:
     """048 T2: an email item's result on the review page: no extraction or page image; the email, its intent and its
     tasks. 185 (plan G-full-move T1e): the email kind's handler (`item_kinds.ItemHandler`; until then in
-    `jav/corrections.py` `item_result`)."""
-    from jav import corrections
+    `jav/app/corrections.py` `item_result`)."""
+    from jav.app import corrections
 
     run_id, item_id = run["run_id"], item["item_id"]
     reasons = work_runs.item_reasons(run_id, item_id, item)
@@ -689,8 +689,8 @@ def correct_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], 
     """Manual correction of an email's intent (versioned, like a document's fields). The corrected intent settles the
     run's own intent to-dos (uncertain / unrecognised intent): the decision closes them; a to-do with another reason
     (e.g. suspicious content) stays open. 185 (plan G-full-move T1e): the email kind's handler (until then
-    `jav/corrections.py` `_save_email`)."""
-    from jav import corrections
+    `jav/app/corrections.py` `_save_email`)."""
+    from jav.app import corrections
     from jav.domains.email import intents
 
     if confirm:

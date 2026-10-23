@@ -23,7 +23,7 @@ from fastapi import Path as PathParam
 from fastapi.responses import Response
 from pydantic import Field
 
-from jav import work_views
+from jav.app import work_views
 from jav.domains.quotes import price_lists
 from jav.service_shared import Empty, In, attachment_header, checked_path, error, human_actor
 

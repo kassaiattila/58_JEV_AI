@@ -13,7 +13,7 @@ shown or read (075). A table or XML export without a PDF companion has no origin
 longer where it was is `MISSING`. Nothing is written but the fingerprint memo (`work.fingerprint`); the found path and
 the word layer are kept in memory.
 
-Layer: `jav.domains.finance.reconcile_package` (application operation) → **this** (business module) → `jav.work` (items, verified
+Layer: `jav.domains.finance.reconcile_package` (application operation) → **this** (business module) → `jav.app.work` (items, verified
 reads, fingerprints), `jav.documents.page_image`, `jav.documents.pdf` (the isolated PDF reader), `jav.documents.source_layer`, `jav.core.store`.
 """
 
@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from jav import work
+from jav.app import work
 from jav.documents import page_image, source_layer
 from jav.core import store
 

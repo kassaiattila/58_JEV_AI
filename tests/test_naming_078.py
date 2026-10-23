@@ -12,7 +12,8 @@ import zipfile
 
 import pytest
 
-from jav import cli, datasets, naming, work
+from jav import cli
+from jav.app import datasets, naming, work
 from jav.ai import typepack
 from jav.core import cfg, store
 from jav.runtime import worker

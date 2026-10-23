@@ -7,8 +7,8 @@ was written as is, and the manifest that travels in a ZIP carried each original'
 
 from openpyxl import Workbook
 
-from jav import export, naming
-from jav.outputs import xlsx
+from jav.app import export, naming
+from jav.app.outputs import xlsx
 
 
 def test_the_csv_guards_its_header_and_a_formula_after_spaces():

@@ -2,7 +2,7 @@
 // pack's own version, written once for the reconciliation and the quote. Approved: who and when, what the lock means, a
 // change since, and reopening with a reason. Not yet: what the approval records, what blocks it, and the approval
 // itself, the view's one solid action only when nothing blocks it. The earlier (reopened) versions are listed below.
-// Each pack gives its own texts, blockers and actions; the service checks everything (jav/package_release.py).
+// Each pack gives its own texts, blockers and actions; the service checks everything (jav/app/package_release.py).
 import { useState, type ReactNode } from "react";
 import type { OwnApproval, OwnVersion } from "../api";
 import { t, useLocale } from "../i18n";

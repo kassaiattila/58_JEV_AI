@@ -2,7 +2,7 @@
 
 import pytest
 
-from jav.tablequery import Column, Query, run_query
+from jav.app.tablequery import Column, Query, run_query
 
 COLS = [
     Column("name", "Név"),

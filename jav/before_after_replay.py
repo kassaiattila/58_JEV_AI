@@ -93,7 +93,7 @@ def _owner(flow_id: str, flow_ids: set[str]) -> str | None:
 def _facts(c: sqlite3.Connection, flow_ids: set[str]) -> dict[str, dict[str, set[str]]]:
     """Per item flow identifier: the paths of its data points, its cross-document to-do producers, email tasks and
     native facts."""
-    from jav import work_runs
+    from jav.app import work_runs
 
     facts: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
     for run_id, arm in c.execute("SELECT run_id, arm FROM datapoints"):
@@ -151,7 +151,7 @@ def sample(c: sqlite3.Connection, size: int = SAMPLE_SIZE, *, answered: set[tupl
     item): an older run's questions were asked in an earlier wording, and a changed question has a new key in the
     answer cache, so its earlier answers no longer count (173: of the 128 replayed items of runs before 2026-10-10, 106
     had an answer missing; of the 24 later ones, 1). `answered`: only these strata get units beyond their first."""
-    from jav import work_readiness, work_runs
+    from jav.app import work_readiness, work_runs
 
     runs = c.execute("SELECT r.run_id, r.mode, r.recipe, r.params, r.input, w.source_kind FROM runs r"
                      " LEFT JOIN workpackages w ON w.id = r.workpackage_id"
@@ -302,7 +302,7 @@ def _canon(value: Any) -> str:
 def _replay(units: list[Unit]) -> None:
     """A replayed run per original run (its recipe, settings with earlier answers, its whole input, no budget), and its
     chosen items processed one after the other with the worker's own processing; a retry runs at once."""
-    from jav import work
+    from jav.app import work
     from jav.core import store
     from jav.runtime import worker
     from jav.core import queue
@@ -381,7 +381,7 @@ def unregistered_todos(c: sqlite3.Connection, run_ids: list[str]) -> dict[str, s
 
 def _answered(c: sqlite3.Connection, unit: Unit) -> bool:
     """Whether every question of the replayed unit had an earlier answer (no to-do stands for a missing one)."""
-    from jav import work_runs
+    from jav.app import work_runs
 
     rid = replay_run_id(unit.run_id)
     for item_id in unit.item_ids:
@@ -405,7 +405,7 @@ def _clean(value: Any) -> Any:
 
 def _rows(c: sqlite3.Connection, run_id: str, item: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     """The item's stored rows, by its flow identifier and its stages (explicit columns, without times and row ids)."""
-    from jav import work_runs
+    from jav.app import work_runs
 
     fid = work_runs.flow_run_id(run_id, item["item_id"])
     own = "({col} = ? OR substr({col}, 1, ?) = ?)"
@@ -513,7 +513,7 @@ def running_snapshot(baseline: Path, work_dir: Path, out: Path, *, size: int = S
     (`live_calls`); the snapshot is written anyway, so that the call can be looked at."""
     from fastapi.testclient import TestClient
 
-    from jav import datasets, registrations
+    from jav.app import datasets, registrations
     from jav.core import store
     from jav.ai import jev
     from jav.api import create_app

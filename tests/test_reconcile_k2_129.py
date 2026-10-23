@@ -19,7 +19,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import cli, corrections, datasets, work_runs, work_views
+from jav import cli
+from jav.app import corrections, datasets, work_runs, work_views
 from jav.ai import policy
 from jav.core import store
 from jav.domains.finance import reconcile

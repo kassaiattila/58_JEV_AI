@@ -1,7 +1,7 @@
 // Translation completeness check (057, modelled on the legacy V4 `ui/scripts/check-i18n.mjs`, simplified).
 // An English translation is required for:
 //  - the string literal of every `t("…")` call in the interface (by TypeScript parsing, not by regex);
-//  - the labels coming from the service: the dataset column names (`jav/datasets.py` `_col(...)`), the enumerated
+//  - the labels coming from the service: the dataset column names (`jav/app/datasets.py` `_col(...)`), the enumerated
 //    labels (`configs/datasets.json` labels) and the field / column names (`configs/field_labels.json`).
 // Errors: a missing key, an empty translation, a differing placeholder ({{name}}), the same key translated differently
 // in two files.

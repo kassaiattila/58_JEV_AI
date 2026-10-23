@@ -87,7 +87,7 @@ def test_one_malformed_fact_is_left_out_with_a_review_item(isolated, monkeypatch
     assert [d.property for d in publication.interpretation.discarded_facts] == ["signature place"]
     assert "native:discarded_facts:1" in state.data.review_reasons
     assert state.data.final_status == "needs_review" and len(requests) == 1
-    # The service projection (jav/corrections.py) carries the left-out facts to the interface.
+    # The service projection (jav/app/corrections.py) carries the left-out facts to the interface.
     from jav.documents.native_contracts import InterpretationView
     view = InterpretationView.model_validate_json(json_bytes({
         "interpretation_id": "i0", "payload_sha256": "c" * 64, "status": "completed",

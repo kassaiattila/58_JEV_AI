@@ -27,7 +27,7 @@ from typing import Any
 
 from jav.core import cfg, type_roles, values
 from jav.domains.finance import duplicates
-from jav.outputs import contract
+from jav.app.outputs import contract
 
 CENT = Decimal("0.01")
 
@@ -196,7 +196,7 @@ def build(records: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 # --- the utility cost in the downloads (180, plan 170 E7: the finance domain's parts, `jav/domains/finance/__init__.py`; until
-# then in `jav/export.py`) ------------------------------------------------------------------------------------------
+# then in `jav/app/export.py`) ------------------------------------------------------------------------------------------
 
 STATUS_TEXT = {"missing": "hiányzik", "overlap": "átfedés", "partial": "részleges", "ok": ""}
 GRAND_TOTAL_LABEL = "Mindösszesen (a tájékoztató sorok nélkül)"

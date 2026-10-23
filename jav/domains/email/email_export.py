@@ -1,13 +1,13 @@
-"""The email domain's part of a result's downloads (185, plan G-full-move T1e; until then in `jav/export.py`).
+"""The email domain's part of a result's downloads (185, plan G-full-move T1e; until then in `jav/app/export.py`).
 
 Plain-language summary: a run's or a package's result holds its emails beside its documents. This module reads a run's
 email items as the downloads show them (058 K5.1: the email's data, the recognised intent with the manual correction,
 the suggested next step, the attachments' recognition and how much of the email's text the recognition saw), their
 task proposals one per row (058 K5.3, with the person's decision), and builds the two sheets of the result's workbook,
 the emails and the tasks, with their Hungarian headers. The email domain registers it as an item kind's part of a
-result (`jav/outputs/parts.py` `ItemPart`), so the shared export writes it before the documents as it always did.
+result (`jav/app/outputs/parts.py` `ItemPart`), so the shared export writes it before the documents as it always did.
 
-Layer: application operation (a read view) → `jav.domains.email.emails`, `jav.domains.email.mailbox`, `jav.corrections`, `jav.work`.
+Layer: application operation (a read view) → `jav.domains.email.emails`, `jav.domains.email.mailbox`, `jav.app.corrections`, `jav.app.work`.
 """
 
 from __future__ import annotations
@@ -15,9 +15,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from jav import corrections, item_kinds, work_runs
+from jav.app import corrections, item_kinds, work_runs
 from jav.core import cfg
-from jav.outputs import contract
+from jav.app.outputs import contract
 
 
 def email_records(run_id: str) -> list[dict[str, Any]]:

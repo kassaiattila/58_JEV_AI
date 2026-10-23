@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import logic_packs, package_scope, work, workflow_steps
+from jav.app import logic_packs, package_scope, work, workflow_steps
 from jav.core import store
 from jav.domains.quotes import price_lists, invented_golden, quote_package, quote_request
 from tests import test_document_result_174 as rows
@@ -158,7 +158,7 @@ def test_the_quote_is_a_registered_logic_pack_and_a_kind_of_work():
     assert pack is not None and not pack.has_runs and pack.service == "jav.domains.quotes.api_quote_package"
     assert [(r.name, r.source) for r in pack.roles] == [("request", "linked_package"), ("price_list", "master_data")]
     assert workflow_steps.of("quote").package_kinds == ("quote",)
-    templates = {t["id"]: t for t in __import__("jav.workflows", fromlist=["templates_view"]).templates_view()["templates"]}
+    templates = {t["id"]: t for t in __import__("jav.app.workflows", fromlist=["templates_view"]).templates_view()["templates"]}
     assert templates["quote"]["steps"] == [{"id": "quote", "kind": "quote"}]
 
 

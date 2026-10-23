@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import corrections, datasets, work, workflows
+from jav.app import corrections, datasets, work, workflows
 from jav.core import activity_kinds, store
 from jav.domains.email import email_tasks
 from tests.test_activity_labels_171 import _recorded_actions
@@ -51,8 +51,8 @@ def test_a_log_refuses_an_action_no_module_registered(db) -> None:  # noqa: F811
 
 def test_an_action_belongs_to_one_module(monkeypatch) -> None:
     monkeypatch.setattr(activity_kinds, "_EVENTS", {log: dict(codes) for log, codes in activity_kinds._EVENTS.items()})
-    activity_kinds.register_events("package", ("rename",), "jav.work")  # its own again: nothing changes
-    with pytest.raises(ValueError, match="registered by jav.work already"):
+    activity_kinds.register_events("package", ("rename",), "jav.app.work")  # its own again: nothing changes
+    with pytest.raises(ValueError, match="registered by jav.app.work already"):
         activity_kinds.register_events("package", ("rename",), "jav.elsewhere")
 
 
@@ -115,7 +115,7 @@ def test_my_work_today_shows_a_persons_duplicate_decision_statement_choice_and_w
     """175 (the owner's decision of 2026-10-19): a person's duplicate decision, choice between two statements and own
     workflow steps are rows of the day, with their run or package; a step the workflow started by itself (recorded for
     "<maker> (auto)") and another person's are not the person's."""
-    from jav import activity
+    from jav.app import activity
     from tests.test_characterisation_171 import ACTOR, DAY, DOC_A, DOC_B, DOC_C, WP
 
     _run()

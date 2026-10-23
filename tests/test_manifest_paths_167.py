@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import naming
+from jav.app import naming
 
 
 @pytest.mark.parametrize("paths", [

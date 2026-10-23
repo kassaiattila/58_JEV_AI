@@ -5,11 +5,11 @@ import json
 import pytest
 from openpyxl import load_workbook
 
-from jav import corrections, datasets, export, work, work_runs, work_views
+from jav.app import corrections, datasets, export, work, work_runs, work_views
 from jav.documents import native_results
 from jav.core import store
 from jav.documents.readers import native, pipeline
-from jav.tablequery import Query
+from jav.app.tablequery import Query
 from tests.test_native_review_api_109 import published_run
 
 

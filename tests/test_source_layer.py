@@ -74,7 +74,7 @@ def test_old_ocr_cache_without_words_gives_no_layer(tmp_path):
 
 
 def test_worker_run_saves_the_layer(tmp_path):
-    from jav import work, work_readiness, work_recipes, work_runs
+    from jav.app import work, work_readiness, work_recipes, work_runs
     from jav.ai import jev as jev_mod
     from jav.runtime import worker
     from tests.test_runtime_worker import FakeClient

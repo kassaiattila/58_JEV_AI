@@ -5,12 +5,12 @@ here, in one call (`register`, from `registrations.load_all`):
 - the cross-document checks, in the order they run: a duplicate invoice (126), an own tax number as the supplier's
   (134), a statement booking the same days as another one (139); the two scans that open the same to-dos on the
   stored results; and (185) the saved stage's direction check of an uncertain detailed type (149; `jav/ai/checks.py`);
-- the statement package and the reconciliation package as logic packs (`jav/logic_packs.py`; 186: their scopes, with
-  the reference that keeps a party in use from being deleted, are in the shared scope store, `jav/package_scope.py`),
-  and (181) as the statements and reconciliation steps of a workflow (`jav/workflow_steps.py`);
+- the statement package and the reconciliation package as logic packs (`jav/app/logic_packs.py`; 186: their scopes, with
+  the reference that keeps a party in use from being deleted, are in the shared scope store, `jav/app/package_scope.py`),
+  and (181) as the statements and reconciliation steps of a workflow (`jav/app/workflow_steps.py`);
 - (181) the package roles: incoming invoices, outgoing invoices and bank statements, and where an invoice or a
-  statement belongs (its role, party and day; `jav/package_scope.py`);
-- the finance parts of the downloads (`jav/outputs/parts.py`): the duplicate mark on a run's documents and its two
+  statement belongs (its role, party and day; `jav/app/package_scope.py`);
+- the finance parts of the downloads (`jav/app/outputs/parts.py`): the duplicate mark on a run's documents and its two
   columns, an invoice's direction, the utility cost's sheets, grand total and JSON section in the package's result,
   and the utility cost's own workbook;
 - (185) its tables on the interface: a reconciliation's inputs, the utility cost's grid and sources
@@ -21,7 +21,7 @@ here, in one call (`register`, from `registrations.load_all`):
 
 The check adapters below turn a document under check into the call of the module that does the work; the work itself
 stays in the domain's own modules, in this folder (`duplicates.py`, `statement_months.py`, `report_utility.py`), and in
-the shared `jav/parties.py`. 204: the reconciliation's golden sets in the shared measurement are described in
+the shared `jav/app/parties.py`. 204: the reconciliation's golden sets in the shared measurement are described in
 `jav/domains/finance/goldens.py` (208: until then `jav/reconcile_goldens.py`), named in `GOLDENS`. 208 (plan
 G-process-core R2): the domain's modules are the ones in this folder (until then `MODULES` named them); the shared code
 imports none of them (`tests/test_dependency_direction.py`).
@@ -31,10 +31,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav import item_kinds
+from jav.app import item_kinds
 from jav.ai import checks
 from jav.core import activity_kinds, type_roles
-from jav.outputs import parts
+from jav.app.outputs import parts
 
 # 185 (plan G-full-move T1a): the modules of the domain's addresses of the local service beyond its logic packs' own
 # (`LogicPack.service`); `jav.api.service_modules` adds them by name
@@ -62,11 +62,11 @@ def duplicate_check(subject: checks.Subject) -> list[str]:
 
 def own_tax_check(subject: checks.Subject) -> list[str]:
     """134 (DECISIONS 134): an incoming invoice whose supplier tax number is an own party's, while the buyer's is
-    another number or missing, gets a `parties:own_tax_as_supplier` to-do (`jav/parties.py`): the numbers are likely
+    another number or missing, gets a `parties:own_tax_as_supplier` to-do (`jav/app/parties.py`): the numbers are likely
     swapped, or it is an outgoing invoice."""
     if subject.record is None or not type_roles.has(subject.doc_type, "own_tax_check"):
         return []
-    from jav import parties
+    from jav.app import parties
     from jav.ai import typepack
 
     values = subject.record.to_datapoints(typepack.get(subject.doc_type).record_fields)  # the stored form
@@ -88,7 +88,7 @@ def statement_overlap_check(subject: checks.Subject) -> list[str]:
 
 
 # --- 185 (plan G-full-move T1d): the finance decisions a run's reviewed version is made of (`jav/core/activity_kinds.py`),
-# each after the part it follows, as they always nested; until 185 in `jav/corrections.py` -----------------------------
+# each after the part it follows, as they always nested; until 185 in `jav/app/corrections.py` -----------------------------
 
 
 def duplicate_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
@@ -125,8 +125,8 @@ def own_tax_scan(*, write: bool = False) -> dict[str, Any]:
 
 
 def direction_check(state: Any) -> None:
-    """149 (185: the saved stage): the own parties' direction settles an uncertain detailed type (`jav/parties.py`)."""
-    from jav import parties
+    """149 (185: the saved stage): the own parties' direction settles an uncertain detailed type (`jav/app/parties.py`)."""
+    from jav.app import parties
 
     parties.confirm_detail_by_direction(state)
 
@@ -142,8 +142,8 @@ CHECKS = (
 )
 
 
-# --- 181 (plan 170 L5): the package roles the finance domain adds (`jav/package_scope.py`): what a package collects, the
-# documents that fit it (by their type and direction, `jav/parties.py` `direction`) and the packages that can hold it ---
+# --- 181 (plan 170 L5): the package roles the finance domain adds (`jav/app/package_scope.py`): what a package collects, the
+# documents that fit it (by their type and direction, `jav/app/parties.py` `direction`) and the packages that can hold it ---
 
 # the plain processing packages a person adds documents to (not a mailbox's)
 DOCUMENT_PACKAGES = ("folder", "manual", "watch", "upload")
@@ -181,7 +181,7 @@ def place_document(doc_type: str | None, values: dict[str, Any], cache: dict[str
     """181: where a document belongs for the email routing (`package_scope.place`): a bank statement by its account's
     own party, on its period's last day; an invoice by its two sides (`parties.direction`: incoming to the buyer,
     outgoing from the supplier), on its fulfilment day, else its issue day. None for another kind of document."""
-    from jav import package_scope, parties
+    from jav.app import package_scope, parties
     from jav.core import cfg
     from jav.domains.finance import statement_package
     from jav.ai.models import account_key
@@ -205,7 +205,7 @@ def place_document(doc_type: str | None, values: dict[str, Any], cache: dict[str
 
 
 def _roles() -> tuple[Any, ...]:
-    from jav import package_scope
+    from jav.app import package_scope
     from jav.domains.finance import statement_package
 
     return (package_scope.Role("incoming_invoices", __name__, "Incoming invoices", _incoming, DOCUMENT_PACKAGES),
@@ -246,7 +246,7 @@ DIRECTION_COLUMNS = (parts.Column("direction", "Direction", "enum", "direction")
 
 def register() -> None:
     """Every registration of the finance domain, in the order the shared code lists them (`registrations.load_all`)."""
-    from jav import datasets, logic_packs, package_scope, parties, workflow_steps
+    from jav.app import datasets, logic_packs, package_scope, parties, workflow_steps
     from jav.domains.finance import duplicates, finance_datasets, reconcile_package, report_utility, statement_package
 
     for check in CHECKS:

@@ -12,7 +12,7 @@ import sqlite3
 
 import pytest
 
-from jav import work_readiness, work_runs, work_views
+from jav.app import work_readiness, work_runs, work_views
 from jav.core import store
 from tests.test_supersede_runs_151 import runs  # noqa: F401 - the shared fixture: one package, an older and a newer live run
 

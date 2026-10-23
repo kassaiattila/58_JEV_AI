@@ -174,7 +174,7 @@ def test_the_store_snapshot_drops_the_repeat_of_a_confirmed_copy(tmp_path):
 
 
 def test_a_persons_correction_is_the_invoices_value(tmp_path):
-    from jav import corrections
+    from jav.app import corrections
     from tests.test_duplicates_126 import _id, _run
     from tests.test_duplicates_126 import _save as _save_in_run
 

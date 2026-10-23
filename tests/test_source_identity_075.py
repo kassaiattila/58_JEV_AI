@@ -13,7 +13,8 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, api_workpackages, work
+from jav import api, api_workpackages
+from jav.app import work
 from jav.core import store
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 

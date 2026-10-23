@@ -7,7 +7,7 @@ from __future__ import annotations
 import pytest
 
 from jav.core import numbers
-from jav.tablequery import Column, Query, select
+from jav.app.tablequery import Column, Query, select
 
 COLS = [Column("name", "Name"), Column("amount", "Amount", "money"), Column("qty", "Quantity", "number")]
 ROWS = [{"_key": "a", "name": "a", "amount": "1000000.00", "qty": "1.5"},
@@ -53,7 +53,7 @@ def test_a_text_column_is_unchanged() -> None:
 
 def test_an_item_whose_to_dos_were_settled_reads_settled() -> None:
     """167 (review 153 E): the run page's result column after a person settled every to-do of an item."""
-    from jav.datasets import shown_final
+    from jav.app.datasets import shown_final
 
     assert shown_final("needs_review", 0) == "settled"
     assert shown_final("needs_review", 2) == "needs_review"
@@ -63,7 +63,7 @@ def test_an_item_whose_to_dos_were_settled_reads_settled() -> None:
 
 def test_the_yes_marks_of_the_data_points_are_enumerated() -> None:
     """167 (review 153 E): "igen" in the corrected and the to-do-on-the-field columns is translated like any label."""
-    from jav import datasets
+    from jav.app import datasets
 
     cols = {c.key: c for c in datasets._fixed(datasets._DP_KEYS)}
     assert cols["corrected"].labels == {"igen": "igen"}

@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from jav import app_settings
+from jav.app import app_settings
 from jav.core import cfg, store
 from jav.domains.quotes import price_lists, quote_match, quote_request
 from jav.runtime import job_kinds

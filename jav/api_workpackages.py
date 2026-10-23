@@ -7,7 +7,7 @@ and removing or restoring them, a document's page images and source file, and th
 from `jav/api.py` as they were: the same paths, request models and answers, in the same order. `jav.api.create_app`
 adds this module first among the shared ones.
 
-Layer: UI/CLI (the local service) → `jav.work`, `jav.work_views`, `jav.package_scope`, `jav.local_picker`.
+Layer: UI/CLI (the local service) → `jav.app.work`, `jav.app.work_views`, `jav.app.package_scope`, `jav.local_picker`.
 """
 
 from __future__ import annotations
@@ -20,7 +20,8 @@ from fastapi import Path as PathParam
 from fastapi.responses import Response
 from pydantic import Field
 
-from jav import app_settings, local_picker, package_scope, work, work_recipes, work_views
+from jav import local_picker
+from jav.app import app_settings, package_scope, work, work_recipes, work_views
 from jav.service_shared import Empty, In, IsoDay, ItemId, PartyId, Revision, WpId, checked_path, human_actor
 from jav.core.user_messages import explained
 
@@ -78,7 +79,7 @@ class RenameWorkpackage(In):
 
 
 class SetPackageScope(In):
-    """181: the party, the period and the role a person gives a package (`jav/package_scope.py`); any may be left out."""
+    """181: the party, the period and the role a person gives a package (`jav/app/package_scope.py`); any may be left out."""
     party_id: PartyId | None = None
     period_start: IsoDay | None = None
     period_end: IsoDay | None = None

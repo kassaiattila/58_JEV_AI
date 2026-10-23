@@ -12,7 +12,7 @@ import json
 import pytest
 
 from jav.domains.finance import statement_package as sp
-from jav import work
+from jav.app import work
 from tests import test_api
 from tests import test_statement_package_140 as sp140
 from tests.test_statement_package_140 import _folder, _party, _row, _survey

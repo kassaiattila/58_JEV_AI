@@ -8,7 +8,7 @@ Synthetic rows, no paid calls.
 
 from decimal import Decimal
 
-from jav import costs
+from jav.app import costs
 from tests import test_api
 from tests.test_cost_view_082 import _call, _queued_run, _reused
 

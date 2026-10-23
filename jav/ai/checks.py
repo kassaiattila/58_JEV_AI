@@ -89,7 +89,7 @@ def register(check: Check) -> None:
 def _load() -> None:
     global _loaded
     if not _loaded:
-        from jav import registrations
+        from jav.app import registrations
 
         for module in _OWNERS:
             importlib.import_module(module)

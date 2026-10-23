@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 import pytest
 
-from jav import work_readiness, work_recipes
+from jav.app import work_readiness, work_recipes
 from jav.documents import ocr
 from jav.core import store
 from jav.documents.pdf import PdfText

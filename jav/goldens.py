@@ -397,7 +397,7 @@ def logic_pack_goldens() -> list[Golden]:
     """The golden sets of the domains' measurement modules (204; until then each logic pack named its own in its
     registration, so its module imported this registry), in their logic packs' registration order as before. Each is a
     logic pack's, owned by a registered pack and named `<kind>:<name>`, or the registry refuses to list."""
-    from jav import logic_packs, registrations
+    from jav.app import logic_packs, registrations
 
     registrations.load_all()
     order = {pack.kind: i for i, pack in enumerate(logic_packs.packs())}
@@ -418,7 +418,7 @@ def logic_pack_goldens() -> list[Golden]:
 def sets() -> list[Golden]:
     """Every golden set: the type packs' data points, the two flows', then the logic packs' in their registration
     order."""
-    from jav import registrations
+    from jav.app import registrations
 
     registrations.load_all()
     return [*datapoint_goldens(), *QUOTE_GOLDENS, *fact_goldens(), *taught_goldens(), *FLOW_GOLDENS,

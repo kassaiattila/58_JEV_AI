@@ -12,7 +12,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import package_result, work, work_runs
+from jav.app import package_result, work, work_runs
 from jav.ai import party_history
 from jav.core import store
 from jav.domains.finance import duplicates, reconcile
@@ -145,7 +145,7 @@ def test_a_store_without_work_tables_reads_the_latest_row_as_before(tmp_path) ->
 
 
 def test_the_corrections_of_the_counted_run_item_apply(db) -> None:
-    from jav import corrections
+    from jav.app import corrections
 
     _run("run-live", {"invoice": _inv("INV-1", gross="999.00")}, at="2026-10-18T09:00:00+00:00")
     _run("run-trial", {"invoice": _inv("INV-1", gross="555.00")}, mode="shadow", at="2026-10-18T10:00:00+00:00", wp=OTHER)

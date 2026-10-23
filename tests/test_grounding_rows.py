@@ -3,7 +3,7 @@ likely place, the currency also matches the printed "Ft", and the rows of the it
 image. Synthetic word layer, no AI call."""
 
 from jav.ai import grounding
-from jav.reground import reground_provenance
+from jav.app.reground import reground_provenance
 from tests.test_grounding import layer_of
 
 

@@ -5,7 +5,7 @@ a live one), and following the runs: the package's runs and every run, one run's
 superseding of an older live run and the approval. They moved here from `jav/api.py` as they were: the same paths,
 request models and answers, in the same order. `jav.api.create_app` adds this module after the work packages' one.
 
-Layer: UI/CLI (the local service) → `jav.work`, `jav.work_views`.
+Layer: UI/CLI (the local service) → `jav.app.work`, `jav.app.work_views`.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from typing import Annotated, Any, Literal
 from fastapi import Depends, FastAPI, Query
 from pydantic import Field
 
-from jav import work_readiness, work_recipes, work_runs, work_views
+from jav.app import work_readiness, work_recipes, work_runs, work_views
 from jav.service_shared import Empty, In, JavJSONResponse, RunId, Text, WpId, human_actor
 
 

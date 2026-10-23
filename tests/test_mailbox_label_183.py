@@ -8,7 +8,7 @@ Synthetic messages, fake JEV, no paid call.
 """
 
 from jav.domains.email import ingest_server, mailbox
-from jav import work
+from jav.app import work
 from jav.runtime import worker
 
 from tests.test_mailbox import MAILS, REQ, FakeBridge, env  # noqa: F401 - `env` is a fixture

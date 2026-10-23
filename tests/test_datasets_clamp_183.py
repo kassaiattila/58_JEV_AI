@@ -5,8 +5,8 @@ to eight lines (64 of 129 rows taller than four lines at 1366 px, 61 of them by 
 document column now shows at most 2 lines, its source 3 and its value 4; no other dataset changes.
 """
 
-from jav import datasets
-from jav.datasets import col as _col  # 185: public, a domain's table uses it too
+from jav.app import datasets
+from jav.app.datasets import col as _col  # 185: public, a domain's table uses it too
 
 
 def test_a_column_can_limit_its_lines():

@@ -20,7 +20,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav import corrections, work_views
+from jav.app import corrections, work_views
 from jav.core import store
 from jav.domains.email import mailbox
 from jav.service_shared import DecisionState, Empty, In, ItemId, Revision, RunId, Text, WpId, error, human_actor

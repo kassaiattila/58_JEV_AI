@@ -16,7 +16,7 @@ Rules (the owner's decisions of 2026-10-09):
   blocker; the package's approval (E3) needs every one of them approved. Open lines do not block the approval.
 - Two writers are kept apart optimistically: a decision checks, in its writing transaction, that no other decision was
   recorded since it read the state (`work.RevisionConflict`, the interface reloads).
-- 133 (DECISIONS 133): a package is one own party's (`jav.parties`). Its invoices and the unassigned ones are its own;
+- 133 (DECISIONS 133): a package is one own party's (`jav.app.parties`). Its invoices and the unassigned ones are its own;
   another party's invoice is listed with its party for a person to pair on purpose, never proposed to the line's state
   or accepted in bulk (`other_candidates`). A package without a party (made before 133) takes every invoice as its own.
 - 135 (plan 134 P2): a line's partner is its counterparty name without its reference numbers (`reconcile.name_key`),
@@ -27,7 +27,7 @@ Rules (the owner's decisions of 2026-10-09):
 - 143 (DECISIONS 143): the finder of the two lists (`matches`) compares the selected line with every invoice of the
   page in code - name, invoice number, account, amount, timing - and orders them by how they fit; it decides nothing.
 - 145 (DECISIONS 132, 145; the result, `jav/domains/finance/reconcile_statement.py`): the approved versions of a package's statement
-  (186: the package's own versions in the shared version store, `jav/package_release.py`) lock their lines: no decision on them is made or revoked in any package, and the package's
+  (186: the package's own versions in the shared version store, `jav/app/package_release.py`) lock their lines: no decision on them is made or revoked in any package, and the package's
   scope does not change, until a person reopens the version (`Locked`). A source from an evaluation on the command line
   stops blocking once a person accepts its result as a source (`reconcile_source_acceptances`). A statement whose
   balances do not check out is a warning, not a blocker (DECISIONS 132).
@@ -39,7 +39,7 @@ Rules (the owner's decisions of 2026-10-09):
   left-out invoice is excluded from this package's pairing (`reconcile.prepare`). Files are added to an existing
   documents or statement package (`targets`), and processed there.
 
-Layer: UI/CLI → **this** (application operation) → `jav.domains.finance.reconcile` (the core and its store adapter) and `jav.work`
+Layer: UI/CLI → **this** (application operation) → `jav.domains.finance.reconcile` (the core and its store adapter) and `jav.app.work`
 (the package record and its log).
 """
 
@@ -55,7 +55,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import corrections, logic_packs, package_release, package_scope, parties, work, workflow_steps
+from jav.app import corrections, logic_packs, package_release, package_scope, parties, work, workflow_steps
 from jav.ai import grounding, typepack
 from jav.core import activity_kinds, cfg, decisions, store, values
 from jav.domains.finance import reconcile, reconcile_overview
@@ -71,9 +71,9 @@ KIND = "reconcile"
 REVOKE_KINDS = ("allocation", "mark", "decision")
 
 # 186 (plan G-full-move T2b): the package's scope (its own accounts as the further part `accounts`, the period and the
-# party; NULL: every invoice is the package's) is in the shared scope store (`jav/package_scope.py`)
+# party; NULL: every invoice is the package's) is in the shared scope store (`jav/app/package_scope.py`)
 # 186 (plan G-full-move T2d): an approved, unchangeable version of a package's statement (`jav/domains/finance/reconcile_statement.py`)
-# is the package's own version in the shared version store (`jav/package_release.py`), with the lines it locks while it
+# is the package's own version in the shared version store (`jav/app/package_release.py`), with the lines it locks while it
 # is not reopened; an older store's `reconcile_versions` and `reconcile_version_files` are copied there once
 store.register_migration("reconcile_package_versions",
                          lambda conn: package_release.copy_older_own(conn, "reconcile_versions", "reconcile_version_files"))
@@ -1557,7 +1557,7 @@ def _list_next(wp_id: str) -> dict[str, Any]:
 
 
 def _release_refusal() -> Exception:
-    from jav import package_release
+    from jav.app import package_release
 
     return explained(package_release.ReleaseError, "a reconciliation package is approved in its own statement")
 
@@ -1566,7 +1566,7 @@ def _list_mark() -> str:
     return inputs_mark(keep_seconds=LIST_KEEP_SECONDS)  # 159: the list's own safety bound (its next steps use the same)
 
 
-# --- a workflow's reconciliation step (181, plan 170 L5; until then in `jav/workflows.py`) -------------------------
+# --- a workflow's reconciliation step (181, plan 170 L5; until then in `jav/app/workflows.py`) -------------------------
 
 
 def workflow_start(ctx: workflow_steps.StepStart) -> None:
@@ -1594,7 +1594,7 @@ STEP = workflow_steps.StepKind(
                                          "reconcile_result": "pairing", "reconcile_empty": "pairing"})
 
 
-# 176 (plan 170 L3): the reconciliation package as a logic pack (`jav/logic_packs.py`; 180: registered by the finance
+# 176 (plan 170 L3): the reconciliation package as a logic pack (`jav/app/logic_packs.py`; 180: registered by the finance
 # domain, `jav/domains/finance/__init__.py`; 186: its scope's party reference and deletion are the shared scope's): no files and
 # no runs; its two input roles are the period's results in every package (DECISIONS 174, the package's current result);
 # 204 (R1h): its golden sets are the finance domain's measurement module's (`jav/domains/finance/goldens.py`)

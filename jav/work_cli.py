@@ -1,4 +1,4 @@
-"""Work package and run commands (040 K1): a thin command-line interface over `jav.work` and `jav.runtime`.
+"""Work package and run commands (040 K1): a thin command-line interface over `jav.app.work` and `jav.runtime`.
 
   recipes                                  every recipe with its status (080: the UI offers only the active one)
   processing-migrate [--write]             080: move packages and watched folders onto the default processing
@@ -19,7 +19,7 @@
                                                                (066 Á30)
 
 The commands call the same business operations as the UI; the rules (revision conflict, readiness, approval) live in
-`jav.work`, not here. `--json` gives machine-readable output.
+`jav.app.work`, not here. `--json` gives machine-readable output.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ def _usd(v: Decimal | str | None) -> str:
 
 def cmd_recipes(args):
     """080: every recipe with its status (the UI offers only the active one; `internal` is for the command line)."""
-    from jav import work_recipes, work_views
+    from jav.app import work_recipes, work_views
     rows = work_views.recipe_catalog(every_status=True)
     text = "\n".join(f"- {r['id']} v{r['version']} [{work_recipes.recipe_status(r)}]: {r['title']} — {r['description']}" for r in rows)
     return _out(args, rows, text)
@@ -51,7 +51,7 @@ def cmd_recipes(args):
 def cmd_processing_migrate(args):
     """080: moves every package and watched folder still on an internal or retired recipe onto the default processing,
     keeping its settings. Without --write it only lists them."""
-    from jav import app_settings, work_recipes
+    from jav.app import app_settings, work_recipes
     packages = work_recipes.migrate_assignments(write=args.write)
     folders = app_settings.migrate_folder_recipes(write=args.write)
     target, verb = work_recipes.default_recipe()["id"], "moved" if args.write else "would move"
@@ -62,7 +62,7 @@ def cmd_processing_migrate(args):
 
 
 def cmd_wp_create(args):
-    from jav import work
+    from jav.app import work
     if (args.folder is None) == (not args.files):
         print("Adj meg vagy egy mappát, vagy --files fájlokat (a kettő együtt nem).")
         return 2
@@ -77,13 +77,13 @@ def cmd_wp_create(args):
 
 def _output_folder() -> list[Path]:
     """081: with the subfolders, the output folder of the named copies is left out (as in the local service)."""
-    from jav import app_settings
+    from jav.app import app_settings
     out = app_settings.output_folder()
     return [Path(out)] if out else []
 
 
 def cmd_wp_list(args):
-    from jav import work_views
+    from jav.app import work_views
     rows = work_views.workpackage_list()
     lines = [f"{r['id']}  {r['name']}  tétel: {r['items']}  recept: {r['recipe_id'] or '-'}  utolsó futás: {r['last_run_id'] or '-'}"
              f"  nyitott teendő: {r['open_reasons']}" for r in rows]
@@ -91,7 +91,7 @@ def cmd_wp_list(args):
 
 
 def cmd_wp_show(args):
-    from jav import work_views
+    from jav.app import work_views
     view = work_views.workpackage_view(args.wp)
     wp, ready = view["workpackage"], view["readiness"]
     a = wp["assignment"]
@@ -111,7 +111,7 @@ def cmd_wp_show(args):
 def cmd_wp_assign(args):
     """160 (plan F-csak-gpt, L2): a reassignment of the same recipe keeps the settings it does not name (it used to
     reset them to the recipe's defaults, so a package without JEV silently got JEV back)."""
-    from jav import work_recipes
+    from jav.app import work_recipes
     current = work_recipes.current_assignment(args.wp)
     r = work_recipes.recipe(args.recipe)
     kept = current["params"] if current and current["recipe_id"] == args.recipe else {}
@@ -128,7 +128,7 @@ def cmd_wp_assign(args):
 
 
 def cmd_run_start(args):
-    from jav import work_readiness, work_runs
+    from jav.app import work_readiness, work_runs
     ready = work_readiness.readiness(args.wp)
     offer = ready
     if args.pending:  # 160-C S3: only the pending items, with their own budget and input
@@ -147,7 +147,7 @@ def cmd_run_start(args):
 
 
 def cmd_run_list(args):
-    from jav import work_views
+    from jav.app import work_views
     runs = work_views.run_list(args.wp)
     lines = [f"{r['run_id']}  {r['workpackage_id']}  {r['recipe_id']}  mód: {r['mode']}  állapot: {r['status']}"
              f"  jóváhagyás: {r['approval'] or '-'}  feladatok: {r['jobs']}" for r in runs]
@@ -155,7 +155,7 @@ def cmd_run_list(args):
 
 
 def cmd_run_show(args):
-    from jav import work_views
+    from jav.app import work_views
     view = work_views.run_view(args.run)
     run, usage = view["run"], view["budget"]
     lines = [f"{run['run_id']}  {run['recipe_id']} v{run['recipe_version']} {run['params']}  mód: {run['mode']}  állapot: {run['status']}",
@@ -176,7 +176,7 @@ def cmd_run_show(args):
 
 
 def cmd_run_cancel(args):
-    from jav import work, work_runs
+    from jav.app import work, work_runs
     try:
         res = work_runs.cancel_run(args.run)
     except work.RevisionConflict as exc:  # 160 (review R-3): a finished run is superseded, not stopped
@@ -186,14 +186,14 @@ def cmd_run_cancel(args):
 
 
 def cmd_run_approve(args):
-    from jav import work_runs
+    from jav.app import work_runs
     run = work_runs.approve_run(args.run, actor=args.actor, review_version=args.review_version)
     return _out(args, run, f"Jóváhagyva: {run['run_id']} ({run['approved_by']})")
 
 
 def cmd_run_names(args):
     """078: the content-based names of the run's documents; with `--zip` or `--to-output` also the copies."""
-    from jav import app_settings, naming
+    from jav.app import app_settings, naming
     if args.zip and args.to_output:
         print("Give either --zip or --to-output, not both.")
         return 2
@@ -231,7 +231,7 @@ def cmd_worker(args):
 
 
 def cmd_worker_status(args):
-    from jav import work_views
+    from jav.app import work_views
     st = work_views.worker_status()
     text = (f"Feldolgozó: {'fut' if st['running'] else 'nem fut'}"
             f"{', leállítás kérve' if st['stop_requested'] else ''}  feladatok: {st['jobs']}")
@@ -239,7 +239,7 @@ def cmd_worker_status(args):
 
 
 def cmd_worker_stop(args):
-    from jav import work_views
+    from jav.app import work_views
     from jav.runtime import worker
     worker.request_stop()
     st = work_views.worker_status()

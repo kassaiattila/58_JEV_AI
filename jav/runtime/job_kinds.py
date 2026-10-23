@@ -42,7 +42,7 @@ _TICKS: dict[str, Tick] = {}
 
 
 def _complete() -> None:
-    from jav import registrations
+    from jav.app import registrations
 
     registrations.load_all()
 

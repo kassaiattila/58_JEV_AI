@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from jav import datasets
+from jav.app import datasets
 from jav.core import activity_kinds
 
 JAV = Path(__file__).resolve().parents[1] / "jav"

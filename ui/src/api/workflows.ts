@@ -28,7 +28,7 @@ export interface RecipeHelp {
   params: Record<string, { help: string; options: Record<string, string> }>;
 }
 /** 146: the new work wizard's templates (`configs/workflows.json`); texts are English source strings. 181: a step kind
- * is any kind the service registered (`jav/workflow_steps.py`), so the interface names none. */
+ * is any kind the service registered (`jav/app/workflow_steps.py`), so the interface names none. */
 export type WorkKind = string;
 export type WorkSourceKind = "folder" | "files" | "mailbox" | "package" | "none";
 export interface WorkflowTemplateStep { id: string; kind: WorkKind; title?: string; after?: string[] }

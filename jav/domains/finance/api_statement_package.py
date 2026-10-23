@@ -15,7 +15,7 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI
 from pydantic import Field
 
-from jav import work_views
+from jav.app import work_views
 from jav.domains.finance import statement_package
 from jav.service_shared import In, IsoDay, PartyId, WpId, checked_path, human_actor
 

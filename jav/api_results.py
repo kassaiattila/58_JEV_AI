@@ -6,8 +6,8 @@ page of a dataset, a download from it); a run's data for download and the copies
 names. They moved here from `jav/api.py` as they were: the same paths, request models and answers, in the same order.
 `jav.api.create_app` adds this module after the runs' one.
 
-Layer: UI/CLI (the local service) → `jav.package_release`, `jav.datasets`, `jav.export`, `jav.naming`,
-`jav.corrections`, `jav.work`.
+Layer: UI/CLI (the local service) → `jav.app.package_release`, `jav.app.datasets`, `jav.app.export`, `jav.app.naming`,
+`jav.app.corrections`, `jav.app.work`.
 """
 
 from __future__ import annotations
@@ -22,10 +22,10 @@ from fastapi import Path as PathParam
 from fastapi.responses import Response, StreamingResponse
 from pydantic import Field
 
-from jav import app_settings, corrections, package_release, work_runs, work_views
+from jav.app import app_settings, corrections, package_release, work_runs, work_views
 from jav.core import store
 from jav.service_shared import Empty, In, RunId, WpId, attachment_header, human_actor
-from jav.tablequery import Query as TableQuery
+from jav.app.tablequery import Query as TableQuery
 from jav.core.user_messages import explained
 
 log = logging.getLogger("jav.api")
@@ -101,21 +101,21 @@ def routes(app: FastAPI, r: str) -> None:
     @app.get(r + "/datasets")
     def dataset_catalog() -> dict[str, Any]:
         """056 U1: names and scopes of the queryable datasets (lists and result tables)."""
-        from jav import datasets
+        from jav.app import datasets
 
         return {"datasets": datasets.catalog()}
 
     @app.post(r + "/datasets/{name}/query")
     def dataset_query(name: DatasetName, body: DatasetQuery) -> dict[str, Any]:
         """056 U1: one page of the dataset; filtering, sorting and paging run here, in the service."""
-        from jav import datasets
+        from jav.app import datasets
 
         return datasets.query(name, body.scope, body.query)
 
     @app.post(r + "/datasets/{name}/export")
     def dataset_export(name: DatasetName, body: DatasetExport) -> Response:
         """056 U1: download from the dataset (all / filtered / selected rows, chosen columns)."""
-        from jav import datasets
+        from jav.app import datasets
 
         data, media, fname, n = datasets.export_file(name, body.scope, body.query, body.rows, body.format, body.columns)
         return Response(data, media_type=media, headers={"Content-Disposition": attachment_header(fname),
@@ -127,7 +127,7 @@ def routes(app: FastAPI, r: str) -> None:
                    table: Literal["documents", "datapoints", "line_items", "native_facts"] = "documents") -> Response:
         """054 K4: the run's valid data for download (modelled on the legacy V4 export endpoint: attachment + row-count
         header)."""
-        from jav import export
+        from jav.app import export
 
         work_runs.get_run(run_id)  # unknown run: 404
         data, media, name, rows = export.render(run_id, format, table)
@@ -137,9 +137,9 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.get(r + "/runs/{run_id}/named-copies.zip")
     def named_copies_zip(run_id: RunId) -> StreamingResponse:
-        """078: copies of the run's documents under content-based names, with the manifest (`jav/naming.py`); the
+        """078: copies of the run's documents under content-based names, with the manifest (`jav/app/naming.py`); the
         originals are only read. Built into a temporary file first (large packages do not sit in memory)."""
-        from jav import naming
+        from jav.app import naming
 
         work_runs.get_run(run_id)  # unknown run: 404
         fh = tempfile.SpooledTemporaryFile(max_size=32 * 1024 * 1024)  # noqa: SIM115 - closed by the stream below
@@ -165,7 +165,7 @@ def routes(app: FastAPI, r: str) -> None:
     @app.post(r + "/runs/{run_id}/named-copies")
     def named_copies_write(run_id: RunId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """078: writes the named copies and the manifest into a new subfolder of the output folder (Settings)."""
-        from jav import naming
+        from jav.app import naming
 
         work_runs.get_run(run_id)
         folder = app_settings.output_folder()

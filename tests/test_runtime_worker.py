@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, SystemOneResponse
 
-from jav import corrections, work, work_readiness, work_recipes, work_runs
+from jav.app import corrections, work, work_readiness, work_recipes, work_runs
 from jav.documents import isolated_pdf, page_image, pdf
 from jav.core import store
 from jav.ai import jev as jev_mod

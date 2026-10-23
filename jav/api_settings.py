@@ -5,7 +5,7 @@ now), the output folder of the named copies, and the application's AI engine. A 
 path. They moved here from `jav/api.py` as they were: the same paths, request models and answers, in the same order.
 `jav.api.create_app` adds this module last, before the unknown address's answer.
 
-Layer: UI/CLI (the local service) → `jav.app_settings`.
+Layer: UI/CLI (the local service) → `jav.app.app_settings`.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav import app_settings, work_views
+from jav.app import app_settings, work_views
 from jav.service_shared import Empty, In, actor_unless_first_users, allowed_roots, checked_path, human_actor
 
 log = logging.getLogger("jav.api")

@@ -20,12 +20,12 @@ from decimal import Decimal
 
 import pytest
 
-from jav import datasets, export, package_release
+from jav.app import datasets, export, package_release
 from jav.ai import typepack
 from jav.core import store
 from jav.domains.finance import reconcile_statement as rs
-from jav.datasets import Column
-from jav.tablequery import Query
+from jav.app.datasets import Column
+from jav.app.tablequery import Query
 from tests.test_reconcile_statement_145 import _world
 
 

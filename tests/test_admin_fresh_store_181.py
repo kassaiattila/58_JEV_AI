@@ -22,7 +22,7 @@ with store.use_store(Path(sys.argv[1])):
     store.review_enqueue(subject_kind="document", subject_id="d" * 64, run_id="cli-x", reasons=["needs:look"])
     counts = admin.reasons_by_run_kind()
     admin.write_state(Path(sys.argv[2]))
-print(json.dumps({"counts": counts, "work_loaded": "jav.work" in sys.modules}))
+print(json.dumps({"counts": counts, "work_loaded": "jav.app.work" in sys.modules}))
 """
 
 

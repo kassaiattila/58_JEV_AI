@@ -94,7 +94,7 @@ def test_list_cells_are_checked_by_kind(env):
 def test_simple_list_and_row_list_columns():
     import pytest
 
-    from jav import corrections
+    from jav.app import corrections
     from jav.ai import typepack
 
     minutes = typepack.get("meeting_minutes")

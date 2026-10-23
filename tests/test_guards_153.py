@@ -10,7 +10,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, work, work_runs
+from jav import api
+from jav.app import work, work_runs
 from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package as rp
 from tests import test_reconcile_k2_129 as k2

@@ -56,7 +56,7 @@ def test_the_native_facts_are_published_on_both_engines(isolated, monkeypatch, e
 @pytest.mark.parametrize("engine", ENGINES)
 def test_a_multi_format_run_finishes_on_both_engines(isolated, monkeypatch, engine):
     """Through the worker: the run's budget names only the engine's providers, and the item is not failed."""
-    from jav import work, work_readiness, work_recipes, work_runs
+    from jav.app import work, work_readiness, work_recipes, work_runs
     from jav.documents.readers import native, pipeline
     from jav.runtime import worker
 

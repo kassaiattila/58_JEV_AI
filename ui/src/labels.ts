@@ -282,7 +282,7 @@ export function reasonText(code: string): string {
     case "no_invoice:": return t("No data was extracted from the document, so it has no values to check or download; its other to-dos show why");
     case "parties:same_tax_id": return t("A szállító és a vevő adószáma azonos");
     case "parties:same_name": return t("A szállító és a vevő neve azonos");
-    // 134: the supplier tax number is an own party's (jav/parties.py review_reasons)
+    // 134: the supplier tax number is an own party's (jav/app/parties.py review_reasons)
     case "parties:own_tax_as_supplier": return t("The supplier's tax number is an own party's: the two tax numbers may be swapped, or this is an outgoing invoice");
     case "detect:low_conf": return t("Bizonytalan típusfelismerés: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
     case "detect:detail_open": return t("A részletes típus nem dönthető el (kategória: {{type}}); válaszd ki kézzel", { type: docTypeLabel(p[2]) });

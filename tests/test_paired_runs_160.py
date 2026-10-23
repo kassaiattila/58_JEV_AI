@@ -13,7 +13,7 @@ import contextlib
 
 import pytest
 
-from jav import costs, work, work_readiness, work_recipes, work_runs
+from jav.app import costs, work, work_readiness, work_recipes, work_runs
 from jav.ai import detect_gpt, extract_llm, gpt_choice
 from jav.core import store
 from jav.domains.email import mailbox

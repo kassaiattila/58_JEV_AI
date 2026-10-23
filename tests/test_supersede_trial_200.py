@@ -10,7 +10,7 @@ supersedes a live run. Synthetic data, no paid calls.
 
 import pytest
 
-from jav import work, work_runs, work_views
+from jav.app import work, work_runs, work_views
 from jav.core import store
 from tests.test_supersede_runs_151 import _finish, _open, runs  # noqa: F401 - the shared fixture and helpers
 

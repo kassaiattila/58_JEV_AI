@@ -6,7 +6,7 @@ selecting on the page image, and saving a person's correction. They moved here f
 same paths, request models and answers, in the same order. `jav.api.create_app` adds this module after the results'
 one.
 
-Layer: UI/CLI (the local service) → `jav.corrections`, `jav.documents.native_results`.
+Layer: UI/CLI (the local service) → `jav.app.corrections`, `jav.documents.native_results`.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Annotated, Any, Literal
 from fastapi import Depends, FastAPI, Query
 from pydantic import Field
 
-from jav import corrections, work_views
+from jav.app import corrections, work_views
 from jav.service_shared import In, ItemId, RunId, Text, human_actor
 
 
@@ -26,7 +26,7 @@ _Row = Annotated[dict[Annotated[str, Field(max_length=64)], _Cell], Field(max_le
 
 class SaveCorrection(In):
     # 048: an itemised list = a list of rows (item field -> value) or a list of plain values; the kind-based check is in
-    # `jav.corrections` (that is where the rows' content is compared with the pack's item description)
+    # `jav.app.corrections` (that is where the rows' content is compared with the pack's item description)
     fields: dict[Annotated[str, Field(max_length=64)], _Cell | Annotated[list[_Row | _Cell], Field(max_length=2000)]] = Field(max_length=100)
     expected_revision: Annotated[int, Field(ge=0)]
     note: Text | None = None

@@ -39,7 +39,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from jav import work
+from jav.app import work
 from jav.core import store
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now

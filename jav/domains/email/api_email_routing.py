@@ -16,7 +16,7 @@ from fastapi import Depends, FastAPI
 from pydantic import Field
 
 from jav.domains.email import email_routing
-from jav import work_views
+from jav.app import work_views
 from jav.service_shared import DecisionState, In, WpId, human_actor
 
 WpIdField = Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")]  # a work package named in a request's body

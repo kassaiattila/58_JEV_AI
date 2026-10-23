@@ -20,7 +20,7 @@ def test_the_suspicious_attachment_code_is_a_shared_to_do_kind():
 
 
 def test_the_statement_package_takes_files_through_its_registry_entry():
-    from jav import logic_packs, registrations
+    from jav.app import logic_packs, registrations
 
     registrations.load_all()
     pack = logic_packs.of("statements")

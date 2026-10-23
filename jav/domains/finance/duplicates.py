@@ -38,7 +38,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Any, Iterable
 
-from jav import item_kinds, package_result
+from jav.app import item_kinds, package_result
 from jav.ai import fact_checks
 from jav.core import cfg, decisions, store, type_roles
 from jav.core.user_messages import explained
@@ -200,7 +200,7 @@ def documents(fields: Iterable[str] | None = None, types: Iterable[str] | None =
     """Every invoice-like document's effective values: its counted result (of any type; a document re-read as another
     type drops out), with the latest correction of the run item that produced it. 174 (plan 170 L2): the package's
     current result across every package (`package_result.counted_documents`); before, the store's latest result row.
-    157: another check can ask for its own fields and types (the own-tax scan of `jav/parties.py`); by default the
+    157: another check can ask for its own fields and types (the own-tax scan of `jav/app/parties.py`); by default the
     duplicates' key fields and types."""
     fields = tuple(key_fields() if fields is None else fields)
     types = tuple(family_types() if types is None else types)
@@ -278,7 +278,7 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor
     open to-dos close on both documents. Frozen on an approved run (`work.RevisionConflict`), checked again in the
     writing transaction, as the task decisions are. 187: the change goes into the decision journal in the same
     transaction (the pair's row keeps only the latest), and a stale `expected_state` is refused."""
-    from jav import work, work_runs
+    from jav.app import work, work_runs
 
     if decision not in DECISIONS:
         raise explained(DecisionError, "unknown duplicate decision: {{decision}}", decision=decision)
@@ -395,7 +395,7 @@ def marks(items: dict[str, list[str]]) -> dict[str, dict[str, Any]]:
 def mark_records(records: list[dict[str, Any]]) -> None:
     """126: the duplicate mark on each document record of a run's result (`duplicate`; a confirmed copy or modified
     version, a suspicion, the documents found different; None without one). 180 (plan 170 E7): the finance domain's
-    record mark (`jav/outputs/parts.py`), until then written in `jav/export.py`."""
+    record mark (`jav/app/outputs/parts.py`), until then written in `jav/app/export.py`."""
     found = marks({r["item_id"]: r["open_reasons"] for r in records})
     for r in records:
         r["duplicate"] = found.get(r["item_id"])
@@ -454,7 +454,7 @@ def scan(*, write: bool = False) -> dict[str, Any]:
     """The pairs already in the store (read only, no values printed), and with `write` the same to-do the processing
     would open, on the later processed document of each undecided pair, under the flow run that produced it. A document
     whose result is not from a work run, or whose run is approved, is skipped (an approved result never reopens)."""
-    from jav import work_runs
+    from jav.app import work_runs
 
     docs = documents()
     groups = _groups(docs)

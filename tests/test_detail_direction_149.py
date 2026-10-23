@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import parties
+from jav.app import parties
 from jav.ai import policy
 from jav.core import store  # 185: the direction rule is `parties.confirm_detail_by_direction`
 from jav.ai.models import FlowState, DocumentRecord

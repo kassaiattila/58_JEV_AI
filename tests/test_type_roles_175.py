@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import parties
+from jav.app import parties
 from jav.ai import doc_types, policy
 from jav.core import cfg, type_roles
 from jav.domains.finance import duplicates, reconcile, report_utility

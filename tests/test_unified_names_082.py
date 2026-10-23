@@ -5,7 +5,7 @@ run's and the package's item lists and the review queue can show it instead of t
 as a column. Synthetic PDFs and a fake JEV client, no paid calls.
 """
 
-from jav import naming, work
+from jav.app import naming, work
 from jav.core import cfg
 from jav.runtime import worker
 from tests import test_api

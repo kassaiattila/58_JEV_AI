@@ -17,7 +17,7 @@ from dataclasses import replace
 
 import pytest
 
-from jav import registrations, workflow_steps, workflows
+from jav.app import registrations, workflow_steps, workflows
 from jav.core import cfg
 from jav.core.config import PROJECT_ROOT
 
@@ -27,10 +27,10 @@ JAV = PROJECT_ROOT / "jav"
 _PROBE = """
 import json
 import jav.domains.email, jav.domains.finance, jav.domains.email.email_routing, jav.domains.email.mailbox, jav.domains.finance.reconcile_package, jav.domains.finance.statement_package
-import jav.workflows
-from jav import workflow_steps
+import jav.app.workflows
+from jav.app import workflow_steps
 before = sorted(workflow_steps._KINDS)
-from jav import registrations
+from jav.app import registrations
 registrations.load_all()
 print(json.dumps({"before": before, "after": [k.kind for k in workflow_steps.kinds()]}))
 """
@@ -48,7 +48,7 @@ def test_every_template_kind_is_registered_and_nothing_more() -> None:
     kinds = {k.kind: k for k in workflow_steps.kinds()}
     assert set(kinds) == set(cfg.load("workflows")["kinds"])
     assert {k: v.module for k, v in kinds.items()} == {
-        "documents": "jav.workflows", "emails": "jav.domains.email.mailbox",
+        "documents": "jav.app.workflows", "emails": "jav.domains.email.mailbox",
         "statements": "jav.domains.finance.statement_package", "reconcile": "jav.domains.finance.reconcile_package", "routing": "jav.domains.email.email_routing",
         "quote": "jav.domains.quotes.quote_package"}  # 191
 
@@ -98,7 +98,7 @@ def _strings_and_imports(path) -> tuple[set[str], set[str]]:
 
 
 def test_the_workflow_code_names_no_step_kind_and_no_finance_module() -> None:
-    strings, names = _strings_and_imports(PROJECT_ROOT / "jav/workflows.py")
+    strings, names = _strings_and_imports(PROJECT_ROOT / "jav/app/workflows.py")
     assert strings & {"emails", "statements", "reconcile"} == set()
     assert names & {"jav.domains.finance.statement_package", "jav.domains.finance.reconcile_package", "jav.domains.finance.reconcile"} == set()
 

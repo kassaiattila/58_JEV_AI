@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import work, work_readiness, work_recipes, work_runs
+from jav.app import work, work_readiness, work_recipes, work_runs
 from jav.core import store
 from jav.core import calls, queue
 

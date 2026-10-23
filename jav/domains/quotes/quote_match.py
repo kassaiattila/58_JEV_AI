@@ -39,7 +39,7 @@ from jav.ai.jev import get_adapter
 from jav.ai.jev import disabled as jev_disabled
 from jav.core.config import RUNS_DIR
 from jav.core import calls
-from jav.tablequery import fold
+from jav.app.tablequery import fold
 
 REQUEST_ID = "quote_match"
 CALLSITE = "quote.match"  # the policy bands' call site (the default set)

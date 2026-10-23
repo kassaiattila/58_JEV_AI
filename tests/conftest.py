@@ -7,7 +7,7 @@ the other tests' logs went there too. While the tests run, the log folder is tem
 
 import pytest
 
-from jav import registrations
+from jav.app import registrations
 from jav.ai import gpt_choice
 from jav.core import applog, calls
 

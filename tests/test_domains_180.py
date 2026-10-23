@@ -14,23 +14,23 @@ import subprocess
 import sys
 from dataclasses import replace
 
-from jav import export, item_kinds, logic_packs, registrations
+from jav.app import export, item_kinds, logic_packs, registrations
 from jav.ai import checks
 from jav.core.config import PROJECT_ROOT
 from jav.domains import DOMAINS
-from jav.outputs import contract, parts
+from jav.app.outputs import contract, parts
 
 JAV = PROJECT_ROOT / "jav"
 
 _PROBE = """
 import json
 import jav.domains.email, jav.domains.finance, jav.domains.quotes
-from jav import item_kinds, logic_packs; from jav.ai import checks
-from jav.outputs import parts
+from jav.app import item_kinds, logic_packs; from jav.ai import checks
+from jav.app.outputs import parts
 seen = lambda: {"checks": sorted(checks._CHECKS), "packs": sorted(logic_packs._PACKS), "rules": sorted(item_kinds._RULES),
                 "parts": sorted([*parts._MARKS, *parts._COLUMNS, *parts._RESULT, *parts._OWN])}
 before = seen()
-from jav import registrations
+from jav.app import registrations
 registrations.load_all()
 print(json.dumps({"before": before, "after": seen()}))
 """
@@ -93,13 +93,13 @@ def _imported(path) -> set[str]:
     return names
 
 
-FINANCE = {"jav.domains.finance.duplicates", "jav.parties", "jav.domains.finance.report_utility", "jav.core.type_roles", "jav.domains.finance.reconcile", "jav.domains.finance.reconcile_package",
+FINANCE = {"jav.domains.finance.duplicates", "jav.app.parties", "jav.domains.finance.report_utility", "jav.core.type_roles", "jav.domains.finance.reconcile", "jav.domains.finance.reconcile_package",
            "jav.domains.finance.statement_package", "jav.domains.finance.statement_months"}
 
 
 def test_the_shared_download_code_names_no_finance_module() -> None:
-    shared = [PROJECT_ROOT / name for name in ("jav/export.py", "jav/package_release.py", "jav/logic_packs.py",
-                                               "jav/ai/checks.py")] + sorted((PROJECT_ROOT / "jav/outputs").glob("*.py"))
+    shared = [PROJECT_ROOT / name for name in ("jav/app/export.py", "jav/app/package_release.py", "jav/app/logic_packs.py",
+                                               "jav/ai/checks.py")] + sorted((PROJECT_ROOT / "jav/app/outputs").glob("*.py"))
     named = {p.relative_to(JAV).as_posix(): sorted(_imported(p) & FINANCE) for p in shared}
     assert {k: v for k, v in named.items() if v} == {}
 

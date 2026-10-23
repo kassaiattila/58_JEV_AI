@@ -196,7 +196,7 @@ def test_a_later_reading_of_the_same_statement_replaces_the_earlier_with_its_dec
 
 
 def test_the_survey_offers_a_new_reading_of_a_stored_statement_in_its_place(tmp_path):
-    from jav import parties
+    from jav.app import parties
     from jav.core import store
     from jav.domains.finance import statement_package as sp
     from tests.test_flow_statement_table_136 import _run_all

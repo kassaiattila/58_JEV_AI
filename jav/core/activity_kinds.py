@@ -11,7 +11,7 @@ Plain-language summary: four lists that were written out by hand in several plac
   version: each part present wraps the earlier ones, in the order registered.
 - The task kinds an email's task proposal may name (`configs/email_tasks.json` `actions`) and the decisions a person
   makes on a proposal.
-A logic pack (`jav/logic_packs.py`) adds its own kinds the same way. The built-in ones are registered by the modules that own them; the
+A logic pack (`jav/app/logic_packs.py`) adds its own kinds the same way. The built-in ones are registered by the modules that own them; the
 registry loads those modules the first time a full list is read. 185 (plan G-full-move T1d): the shared modules only;
 a domain's kinds come from its domain module (`registrations.load_all`, which the registry calls too): the finance
 domain's duplicate, reconciliation and statement decisions, each placed after the part it follows (`after`), so the
@@ -33,7 +33,7 @@ LOGS: tuple[Log, ...] = ("package", "workflow")
 
 # the modules that register the built-in kinds: the package log's writers, the workflow log, "My work today", the
 # reviewed version's parts
-_OWNERS = ("jav.work", "jav.package_release", "jav.workflows", "jav.activity", "jav.corrections")
+_OWNERS = ("jav.app.work", "jav.app.package_release", "jav.app.workflows", "jav.app.activity", "jav.app.corrections")
 
 
 class UnknownEvent(ValueError):
@@ -77,7 +77,7 @@ def _load() -> None:
     """The shared modules' kinds, then the domains' (185: `registrations.load_all`)."""
     global _loaded
     if not _loaded:
-        from jav import registrations
+        from jav.app import registrations
 
         _load_owners()
         registrations.load_all()

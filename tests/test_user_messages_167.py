@@ -13,7 +13,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, work
+from jav import api
+from jav.app import work
 from jav.core.user_messages import explained, fill
 
 ROOT = Path(__file__).resolve().parents[1]

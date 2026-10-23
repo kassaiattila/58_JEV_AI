@@ -26,7 +26,7 @@ from fastapi import Path as PathParam
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from jav import app_settings
+from jav.app import app_settings
 from jav.core import cfg
 from jav.core.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.core.user_messages import explained
@@ -119,7 +119,7 @@ class Empty(In):
 IsoDay = Annotated[str, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")]
 
 
-PartyId = Annotated[str, Field(pattern=r"^party-[0-9a-f]{12}$")]  # 133: an own party (`jav/parties.py`)
+PartyId = Annotated[str, Field(pattern=r"^party-[0-9a-f]{12}$")]  # 133: an own party (`jav/app/parties.py`)
 
 
 # --- actor and download header --------------------------------------------------------------------------

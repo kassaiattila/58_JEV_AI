@@ -4,7 +4,7 @@ Plain-language summary (DECISIONS 191): a quote request arrives as an email, and
 text, in an attached request form (PDF) or request list (Excel, CSV), or in a document added on its own. Each part was
 extracted on its own by its package's processing (190), and each may lack what another part has: the text names the
 customer but not the items, the list has the items but not the customer. This module reads each part's counted result
-(`jav/package_result.py`; a document's latest correction over it) and puts the parts together into one request, saying
+(`jav/app/package_result.py`; a document's latest correction over it) and puts the parts together into one request, saying
 which part each value came from: a header field's first value, the email's text first, then the attachments in their
 order; the items of the first attachment that has rows, else the text's (the rule the measurement has used since 190).
 Whether a request has a gap is judged on the whole request, not on each part (backlog Q-quote-part-to-dos).
@@ -25,7 +25,7 @@ import sqlite3
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from jav import corrections, package_result, work
+from jav.app import corrections, package_result, work
 from jav.core import store
 from jav.ai.typepack import get as get_pack
 

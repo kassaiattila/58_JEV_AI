@@ -7,7 +7,7 @@ unexpected. Synthetic call-log rows, no paid call.
 
 from decimal import Decimal
 
-from jav import costs, work_runs
+from jav.app import costs, work_runs
 from tests import test_api, test_cost_view_082
 from tests.test_api import HUMAN, _start
 

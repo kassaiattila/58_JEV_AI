@@ -14,7 +14,8 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, corrections, datasets, work, work_runs
+from jav import api
+from jav.app import corrections, datasets, work, work_runs
 from jav.core import decisions, store
 from jav.domains.email import mailbox
 from tests.test_audit_fixes_1002 import _reviewed_email
@@ -208,7 +209,7 @@ def test_a_statement_choice_is_journaled_and_a_stale_one_refused(db) -> None:
 
 @pytest.fixture()
 def routing_db(tmp_path):
-    from jav import registrations
+    from jav.app import registrations
 
     registrations.load_all()
     with store.use_store(tmp_path / "s.sqlite"):
@@ -282,7 +283,7 @@ def test_a_routing_decision_from_a_stale_page_is_refused(routing_db) -> None:
 
 
 def test_a_template_choice_is_journaled_and_a_stale_one_refused(routing_db) -> None:
-    from jav.outputs import templates
+    from jav.app.outputs import templates
 
     wp = work.create_workpackage(name="Invoices", source_kind="manual", source_ref=None, owner="tester")["id"]
     output = next(iter(templates.choices(wp)["outputs"]))

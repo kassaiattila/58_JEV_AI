@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import corrections, work_readiness, work_recipes
+from jav.app import corrections, work_readiness, work_recipes
 from jav.ai import typepack
 from jav.ai.models import DocumentRecord, LineItem
 from jav.runtime import worker

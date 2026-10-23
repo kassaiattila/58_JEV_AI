@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Noul
 
-from jav import work, work_readiness, work_recipes, work_runs
+from jav.app import work, work_readiness, work_recipes, work_runs
 from jav.flows import flow_detect
 from jav.core import store
 from jav.ai import jev as jev_mod

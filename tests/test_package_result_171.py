@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from jav import package_result, work_runs
+from jav.app import package_result, work_runs
 from jav.core import store
 
 WP = "wp-000000000172"

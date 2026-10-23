@@ -6,7 +6,7 @@ invoice, and for every own account its statements' span and the holder text at t
 parties.json` `holder_zone`). The overview gives every party its invoices, their span and its accounts, beside what the
 data proposes; accepting a suggestion recomputes the proposal first, so a stale page cannot apply an old one.
 
-Layer: UI/CLI → **this** (application operation) → `jav.parties` (the parties and their identities) and
+Layer: UI/CLI → **this** (application operation) → `jav.app.parties` (the parties and their identities) and
 `jav.domains.finance.reconcile` (the store's documents). No AI call.
 """
 
@@ -18,7 +18,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
-from jav import parties, work, work_runs
+from jav.app import parties, work, work_runs
 from jav.documents import source_layer
 from jav.core import cfg, store, type_roles, values
 from jav.domains.finance import reconcile, statement_months
@@ -277,7 +277,7 @@ def scan_own_tax(*, write: bool = False) -> dict[str, Any]:
     only, counts only), and with `write` the same to-do the processing would open, once, under the flow run that
     produced the document. A document whose result is not from a work run, or whose run is approved, is skipped (an
     approved result never reopens), as in the duplicates' scan. 185 (plan G-full-move T1e): the finance domain's scan
-    (until then in `jav/parties.py`, which keeps the check itself, `own_tax_reasons`)."""
+    (until then in `jav/app/parties.py`, which keeps the check itself, `own_tax_reasons`)."""
     from jav.domains.finance import duplicates
 
     check = cfg.load("parties")["supplier_check"]

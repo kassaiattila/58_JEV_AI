@@ -9,7 +9,7 @@ from pathlib import Path
 
 def cmd_output_templates(args: argparse.Namespace) -> int:
     """178 (plan 170 L4): the own output templates with their versions."""
-    from jav.outputs import templates
+    from jav.app.outputs import templates
 
     for t in templates.listing(args.output):
         state = f"active: version {t['active']}" if t["active"] else "retired" if t["retired"] else "no active version"
@@ -21,7 +21,7 @@ def cmd_output_templates(args: argparse.Namespace) -> int:
 
 def cmd_output_template_add(args: argparse.Namespace) -> int:
     """178: checks a workbook as a template of an output and stores it as a draft version (exit code 2: refused)."""
-    from jav.outputs import templates
+    from jav.app.outputs import templates
 
     path = Path(args.file)
     try:
@@ -38,7 +38,7 @@ def cmd_output_template_add(args: argparse.Namespace) -> int:
 
 
 def cmd_output_template_activate(args: argparse.Namespace) -> int:
-    from jav.outputs import templates
+    from jav.app.outputs import templates
 
     v = templates.activate(args.template, args.version, actor=args.actor)
     print(f"{v['template']} version {v['version']} is active")
@@ -46,7 +46,7 @@ def cmd_output_template_activate(args: argparse.Namespace) -> int:
 
 
 def cmd_output_template_retire(args: argparse.Namespace) -> int:
-    from jav.outputs import templates
+    from jav.app.outputs import templates
 
     v = templates.retire(args.template, actor=args.actor)
     print(f"{v['template']} retired (version {v['version']})")
@@ -55,7 +55,7 @@ def cmd_output_template_retire(args: argparse.Namespace) -> int:
 
 def cmd_output_template_preview(args: argparse.Namespace) -> int:
     """178: a version filled with made-up data, written to a new file."""
-    from jav.outputs import templates
+    from jav.app.outputs import templates
 
     out = Path(args.out)
     if out.exists():
@@ -69,7 +69,7 @@ def cmd_output_template_preview(args: argparse.Namespace) -> int:
 
 def cmd_output_template_choose(args: argparse.Namespace) -> int:
     """178: the template a package's output is made with (--builtin: the built-in template)."""
-    from jav.outputs import templates
+    from jav.app.outputs import templates
 
     if (args.template is None) == (not args.builtin):
         print("give a template or --builtin")

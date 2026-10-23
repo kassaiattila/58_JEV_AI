@@ -17,7 +17,7 @@ from fastapi import Path as PathParam
 from fastapi.responses import Response
 from pydantic import Field
 
-from jav import work_views
+from jav.app import work_views
 from jav.domains.finance import reconcile_package, reconcile_review, reconcile_statement
 from jav.service_shared import (DecisionState, Empty, In, IsoDay, PartyId, Text, WpId, attachment_header, error,
                                 human_actor)

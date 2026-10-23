@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import parties
+from jav.app import parties
 from jav.ai import checks, validators
 from jav.core import cfg
 from jav.domains.finance import duplicates

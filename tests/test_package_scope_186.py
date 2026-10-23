@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 from jav.domains.email import email_routing
-from jav import package_scope, parties, registrations, work
+from jav.app import package_scope, parties, registrations, work
 from jav.core import store
 from jav.domains.finance import reconcile_package as rp, statement_package as sp, statement_table as st
 from tests import test_email_routing_181 as routing_base
@@ -100,7 +100,7 @@ def test_a_reconciliation_packages_scope_shows_as_before_and_changes_with_its_re
 
 
 def test_a_routing_packages_email_packages_show_as_before_and_are_in_the_shared_store(db) -> None:
-    from jav import work_views
+    from jav.app import work_views
 
     mails, _ = routing_base._mailbox(db, {"m1": ("invoice.pdf", "inbox")})
     routing = email_routing.create(name="June routing", sources=[mails], actor="tester")["workpackage_id"]

@@ -209,7 +209,7 @@ def cmd_before_after_diff(args: argparse.Namespace) -> int:
 def cmd_package_versions_backfill(args: argparse.Namespace) -> int:
     """171 (DECISIONS 171): the first released version of every package approved before v1.20.0, recorded now from its
     approved results and marked as recorded afterwards (idempotent; --dry-run writes nothing)."""
-    from jav import package_release
+    from jav.app import package_release
 
     done = package_release.backfill(dry_run=args.dry_run)
     for e in done:
@@ -260,7 +260,7 @@ def cmd_legacy_compare(args: argparse.Namespace) -> int:
 
 
 def cmd_reground(args: argparse.Namespace) -> int:
-    from jav import reground
+    from jav.app import reground
 
     for run_id in args.runs:
         print(run_id, json.dumps(reground.reground_run(run_id), ensure_ascii=False))

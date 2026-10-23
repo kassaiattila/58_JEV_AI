@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 from jav.domains.email import email_routing
-from jav import logic_packs, package_scope, parties, registrations, work, work_runs, workflow_steps
+from jav.app import logic_packs, package_scope, parties, registrations, work, work_runs, workflow_steps
 from jav.core import store
 from jav.domains.email.mailbox import SUSPICIOUS_ATTACHMENT
 from jav.ai.models import account_key
@@ -204,7 +204,7 @@ def test_a_routing_package_needs_an_email_package_and_refuses_documents(db) -> N
 
 
 def test_an_email_package_offers_its_routing_and_names_the_routing_packages(db) -> None:
-    from jav import work_views
+    from jav.app import work_views
 
     wp, _ = _mailbox(db, {"m1": ("invoice.pdf", "inbox"), "m2": ("other.pdf", "inbox")})
     assert work_views.workpackage_view(wp)["routing_offer"] == {"attachments": 2, "routings": []}
@@ -217,7 +217,7 @@ def test_an_email_package_offers_its_routing_and_names_the_routing_packages(db) 
 
 
 def test_a_workflows_routing_step_routes_the_email_package_of_the_step_it_waits_for(db) -> None:
-    from jav import workflows
+    from jav.app import workflows
 
     party = _party()
     wp, ids = _mailbox(db, {"m1": ("invoice.pdf", "inbox")})

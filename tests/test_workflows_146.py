@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import parties, work, work_readiness, work_runs, workflow_steps, workflows as wf
+from jav.app import parties, work, work_readiness, work_runs, workflow_steps, workflows as wf
 from jav.core import cfg, store
 from jav.domains.finance import statement_table as st
 from jav.domains.email import mailbox

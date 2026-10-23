@@ -16,7 +16,7 @@ Methods (`method`):
   column block; an identifier may be glued to a label word ("Ltd.ABN 80 …"), but never inside a longer number.
 - `search_parts` (092): several identifiers listed in one field ("ABN …, VAT …"), each found on its own; one box over
   all of them.
-- `manual`: a person selected the words on the image (saved by the correction, `jav/corrections.py`).
+- `manual`: a person selected the words on the image (saved by the correction, `jav/app/corrections.py`).
 
 Status (`status`): located | approximate | ambiguous | context_rejected | not_found | no_value | no_layer. The
 alternatives (S path) are the other JEV candidates with their probabilities, also with boxes: the UI shows them as

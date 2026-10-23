@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import parties, work, work_readiness, work_runs, workflows as wf
+from jav.app import parties, work, work_readiness, work_runs, workflows as wf
 from jav.core import store
 
 SEPT = ("2026-09-01", "2026-09-30")

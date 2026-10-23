@@ -10,7 +10,7 @@ GPT; no paid call.
 
 from __future__ import annotations
 
-from jav import corrections, item_kinds
+from jav.app import corrections, item_kinds
 from jav.domains.quotes import quote_package
 from jav.domains.email import mailbox
 from tests import test_email_text_follow_up_190 as follow

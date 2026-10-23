@@ -12,7 +12,7 @@ import io
 from openpyxl import load_workbook
 
 from jav.domains.email import email_export, mailbox
-from jav import export
+from jav.app import export
 from tests.test_audit_fixes_1002 import _reviewed_email
 from tests.test_mailbox import env  # noqa: F401 - `env` is a fixture
 

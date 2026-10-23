@@ -20,7 +20,7 @@ import pytest
 from typesafe_sdk import Choice, Score, SystemOneResponse
 
 from jav.domains.email import emails, ingest_server, mailbox
-from jav import work, work_readiness, work_recipes, work_runs
+from jav.app import work, work_readiness, work_recipes, work_runs
 from jav.ai import extract_llm
 from jav.documents import text_document
 from jav.core import store

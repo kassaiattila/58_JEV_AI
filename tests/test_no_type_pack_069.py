@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, SystemOneResponse
 
-from jav import work, work_readiness, work_recipes, work_runs
+from jav.app import work, work_readiness, work_recipes, work_runs
 from jav.core import store
 from jav.ai import jev as jev_mod
 from jav.ai.detect import DetectResult

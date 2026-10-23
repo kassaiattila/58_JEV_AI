@@ -8,7 +8,7 @@ import { fieldLabel } from "../labels";
 import { setNameMode, useNameMode } from "../names";
 import { linkOf } from "./DataTable";
 
-// 183: the reasons of an uncertain name (`jav/naming.py` `reason_text`'s codes) in the interface's language
+// 183: the reasons of an uncertain name (`jav/app/naming.py` `reason_text`'s codes) in the interface's language
 const REASON: Record<string, () => string> = {
   type: () => t("the type is unknown or uncertain"),
   not_done: () => t("the item's processing did not finish"),

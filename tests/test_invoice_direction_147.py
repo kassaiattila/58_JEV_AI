@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import export, parties
+from jav.app import export, parties
 from jav.core import store
 from jav.domains.finance import reconcile
 from tests import test_reconcile_k2_129 as k2

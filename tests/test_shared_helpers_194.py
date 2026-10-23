@@ -16,7 +16,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from jav import package_release, source_instances, work
+from jav.app import package_release, source_instances, work
 from jav.core import clock, digest
 from jav.domains.finance import fx
 from jav.core.config import PROJECT_ROOT

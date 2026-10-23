@@ -16,7 +16,7 @@ its counted result when that is of the same type (174, plan 170 L2: the package'
 
 from __future__ import annotations
 
-from jav import package_result
+from jav.app import package_result
 from jav.ai import fact_checks
 from jav.core import store
 

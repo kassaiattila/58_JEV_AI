@@ -6,7 +6,7 @@ backup now, and the paid calls with an uncertain outcome, listed and settled by 
 as they were: the same paths, request models and answers, in the same order. `jav.api.create_app` adds this module
 after the workflows' one.
 
-Layer: UI/CLI (the local service) → `jav.work`, `jav.backup`, `jav.deps_audit`, `jav.ai.jev_version`,
+Layer: UI/CLI (the local service) → `jav.app.work`, `jav.backup`, `jav.deps_audit`, `jav.ai.jev_version`,
 `jav.core.calls`, `jav.runtime.worker`.
 """
 
@@ -20,7 +20,8 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav import backup, deps_audit, work_runs, work_views
+from jav import backup, deps_audit
+from jav.app import work_runs, work_views
 from jav.ai import jev_version
 from jav.service_shared import Empty, In, Text, human_actor, settings
 from jav.runtime import worker

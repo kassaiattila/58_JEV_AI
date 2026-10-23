@@ -6,7 +6,7 @@ Plain-language summary: an email package downloads the emails of a mailbox; each
 that package, and its type and data are read there. A routing package looks at the attachments of one or more email
 packages. For each one whose result places it (an incoming invoice, an outgoing invoice, a bank statement of an own
 party, with a day), it proposes the open package whose scope fits it (the same role and party, the day in its period;
-`jav/package_scope.py`), or a new package for the party, the day's calendar month and the role. A person accepts the
+`jav/app/package_scope.py`), or a new package for the party, the day's calendar month and the role. A person accepts the
 proposals (one by one, or every clear one at once), rejects them or chooses another package. Accepting adds the
 document to the package; its run is started by a person, or by the workflow within its approved budget. An attachment
 the routing cannot place by itself is a blocker: not read yet, read but without data (183), no own party, an unclear
@@ -22,7 +22,7 @@ Code only, no AI call; the placement of a document is the domains' (`package_sco
 - `accept(wp_id, item_ids, actor, target=None)`, `reject(...)`, `undo(...)`: a person's decisions.
 - `LOGIC`, `STEP`: the logic pack and the workflow step (registered by the email domain, `jav/domains/email/__init__.py`).
 
-Layer: application operation (it adds documents to packages through `jav/work.py` and the statement package's own
+Layer: application operation (it adds documents to packages through `jav/app/work.py` and the statement package's own
 adding).
 """
 
@@ -34,7 +34,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from jav import logic_packs, package_result, package_scope, source_instances, work, workflow_steps
+from jav.app import logic_packs, package_result, package_scope, source_instances, work, workflow_steps
 from jav.core import activity_kinds, decisions, store
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
@@ -44,7 +44,7 @@ KIND = "email_routing"
 activity_kinds.register_events("package", ("routing_accept", "routing_reject", "routing_undo"), __name__)
 
 # 186 (plan G-full-move T2b): the email packages whose attachments it routes are its scope's further part `emails` (its
-# input role's name) in the shared scope store (`jav/package_scope.py`)
+# input role's name) in the shared scope store (`jav/app/package_scope.py`)
 EMAILS = "emails"
 
 store.register_schema("email_routing", """
@@ -164,7 +164,7 @@ def _file_of(item: dict[str, Any]) -> str:
 
 
 def _results(c: sqlite3.Connection, doc_ids: list[str]) -> dict[str, dict[str, Any]]:
-    """Each attachment's counted result (`jav/package_result.py`): its type, its effective values, its tier and whether
+    """Each attachment's counted result (`jav/app/package_result.py`): its type, its effective values, its tier and whether
     it came from a suspicious email (154: the attachment's to-do); `data`: it has data points.
 
     183 (the first real trial): an attachment the type recognition read but that left no data points (a document of
@@ -271,7 +271,7 @@ def _decisions(wp_id: str) -> dict[str, dict[str, Any]]:
 def view(wp_id: str) -> dict[str, Any]:
     """The routing package's attachments, each with its email, its result, its placement, the proposal, the decision
     and whether the decided package holds it; the counts and the email packages."""
-    from jav import parties
+    from jav.app import parties
 
     sources = sources_of(wp_id)
     atts = _attachments(sources)

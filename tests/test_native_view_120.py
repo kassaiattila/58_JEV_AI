@@ -1,7 +1,7 @@
 """120: the native facts table reads without the citation JSON, and its machine states have labels."""
-from jav import datasets, export
+from jav.app import datasets, export
 from jav.core import store
-from jav.tablequery import Query
+from jav.app.tablequery import Query
 from tests.test_native_review_api_109 import published_run
 
 

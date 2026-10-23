@@ -12,7 +12,7 @@ decision journal; a change from a stale page is a version conflict. What holds t
 line without an item or a price, without a quantity, a line outside the list or with a price or discount of a person's
 own without a note, and (the owner's choice, DECISIONS 192) a line the proposal marked "to check" with an item no
 person has confirmed or chosen. The approval records the priced quote as the package's own version
-(`jav/package_release.py`), with the price list version it was priced from and its request; while it stands the quote
+(`jav/app/package_release.py`), with the price list version it was priced from and its request; while it stands the quote
 is not changed, and reopening it needs a reason.
 
 - `view(wp_id)`: the draft with each line priced, the totals, what holds the approval, the warnings, the draft's state
@@ -38,7 +38,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from jav import package_release, work
+from jav.app import package_release, work
 from jav.core import activity_kinds, cfg, decisions, numbers, store
 from jav.domains.quotes import price_lists, quote_document, quote_pricing, quote_proposal, quote_request
 from jav.ai.typepack import get as get_pack

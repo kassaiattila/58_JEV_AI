@@ -20,16 +20,16 @@ its approval as an unchangeable version that locks its lines, and its download.
   heading block naming the package, its party, period, accounts and version (or "draft"). The labels are data
   (`configs/reports.json` `reconcile_statement`; the column names of the fields from `configs/field_labels.json`), and
   a text is never written as a formula. Since 178 the statement is built as the output contract's data
-  (`statement_data`, `configs/outputs.json`) and laid out by the built-in template (`jav/outputs/builtin.py`); an
+  (`statement_data`, `configs/outputs.json`) and laid out by the built-in template (`jav/app/outputs/builtin.py`); an
   approved version's file is stored when it is approved and again when it is reopened, and its download returns the
   stored bytes. A version approved before 178 is made from its stored statement until `backfill_files`
   (`reconcile-versions-backfill`) records its file.
 - 186 (plan G-full-move T2d): the versions and their files are the package's own versions in the shared version store
-  (`jav/package_release.py`: `record_own`, `reopen_own`, `store_own_files`, `own_version`, `own_file`); this module
+  (`jav/app/package_release.py`: `record_own`, `reopen_own`, `store_own_files`, `own_version`, `own_file`); this module
   decides what is approved, what blocks it, and how its file is made.
 
 Nothing here calls an AI model or the network. Layer: UI/CLI → **this** (application operation) →
-`jav.domains.finance.reconcile_package` (the workspace, the decisions and the approval tables) and `jav.work` (the package and its log).
+`jav.domains.finance.reconcile_package` (the workspace, the decisions and the approval tables) and `jav.app.work` (the package and its log).
 """
 
 from __future__ import annotations
@@ -40,10 +40,10 @@ from collections import Counter
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import naming, package_release, work
+from jav.app import naming, package_release, work
 from jav.core import activity_kinds, cfg, decisions, store, values
 from jav.domains.finance import reconcile_package as rp
-from jav.outputs import builtin, contract, templates
+from jav.app.outputs import builtin, contract, templates
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 
@@ -288,7 +288,7 @@ def _values(st: dict[str, Any], state: str, lab: dict[str, Any]) -> tuple[contra
 # 178 (plan 170 L4): the column keys of the statement's tables (`configs/outputs.json` `reconcile_statement`), in order
 def sample_heads() -> dict[str, dict[str, str]]:
     """185 (plan G-full-move T1e): the built-in headers of the statement's tables, for a template's marker list and
-    preview (`jav/outputs/samples.py`, through `parts.OutputLabels`; until then read there by name)."""
+    preview (`jav/app/outputs/samples.py`, through `parts.OutputLabels`; until then read there by name)."""
     lab = _labels()
     empty: dict[str, Any] = {"invoices": [], "lines": []}
     return {"invoices": dict(zip(INVOICE_COLUMNS, _invoice_table(empty, lab)[0])),

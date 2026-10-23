@@ -8,7 +8,7 @@ import { ConfirmButton } from "../../components/ConfirmButton";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 
-// 066 Á25: the same rule as the local service's (jav/app_settings.py ACTOR_RE): the name must also be usable in the
+// 066 Á25: the same rule as the local service's (jav/app/app_settings.py ACTOR_RE): the name must also be usable in the
 // author header, otherwise nothing could be done under the added name.
 export const ACTOR_NAME = /^[\p{L}\p{N}_.@ -]{1,64}$/u;
 

@@ -1,9 +1,9 @@
-"""The finance domain's tables on the interface (185, plan G-full-move T1b; until then in `jav/datasets.py`).
+"""The finance domain's tables on the interface (185, plan G-full-move T1b; until then in `jav/app/datasets.py`).
 
 Plain-language summary: three tables of the shared data view are the finance domain's: a reconciliation package's
 inputs as its item list (169: the scope's statements, then the invoices its pairing may take, with where each result
 comes from and where it stands in the pairing), and the utility cost of a run or of a package's current result, as a
-monthly grid (054 K4) and as the source invoices of each cell. They moved here from `jav/datasets.py` as they were:
+monthly grid (054 K4) and as the source invoices of each cell. They moved here from `jav/app/datasets.py` as they were:
 the same columns, rows and order. The finance domain module registers them (`jav/domains/finance/__init__.py`), and the data
 view asks its registry.
 
@@ -15,8 +15,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from jav import datasets, work
-from jav.datasets import Rows, col
+from jav.app import datasets, work
+from jav.app.datasets import Rows, col
 
 
 def reconcile_inputs(scope: dict[str, str]) -> Rows:

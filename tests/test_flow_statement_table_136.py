@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import work, work_readiness, work_runs
+from jav.app import work, work_readiness, work_runs
 from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package, statement_package, statement_table as st
 from jav.runtime import worker

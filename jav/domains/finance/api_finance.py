@@ -21,7 +21,7 @@ from typing import Annotated, Any, Literal
 from fastapi import Depends, FastAPI
 from pydantic import Field
 
-from jav import corrections, datasets, work, work_runs, work_views
+from jav.app import corrections, datasets, work, work_runs, work_views
 from jav.domains.finance import bank_files, duplicates, report_utility, statement_months, statement_package
 from jav.service_shared import DecisionState, In, ItemId, RunId, Text, WpId, checked_path, human_actor
 

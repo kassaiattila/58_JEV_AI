@@ -314,7 +314,7 @@ def static_snapshot(baseline: Path, work_dir: Path, out: Path, *, items: bool = 
     background rebuild started by a view cannot read the work store."""
     from fastapi.testclient import TestClient
 
-    from jav import datasets
+    from jav.app import datasets
     from jav.core import store
     from jav.api import create_app
 

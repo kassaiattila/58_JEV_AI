@@ -29,7 +29,7 @@ from typing import Any, Callable
 
 from burr.integrations.serde import pydantic as burr_pydantic
 
-from jav import app_settings, item_kinds, work, work_readiness, work_runs, workflows
+from jav.app import app_settings, item_kinds, work, work_readiness, work_runs, workflows
 from jav.documents import isolated_pdf, pdf
 from jav.core import store
 from jav.runtime import job_kinds, pdf_status
@@ -103,7 +103,7 @@ class StatePersister(ClosingSQLitePersister):
 def _attachment_reads(items: list[dict[str, Any]], email_item_id: str) -> dict[str, str]:
     """The email's attachments that are items of the run with an intact source instance: resolved original path ->
     instance. A damaged instance is left out (its own document item fails with `instance_damaged`)."""
-    from jav import source_instances
+    from jav.app import source_instances
 
     out = {}
     for i in items:

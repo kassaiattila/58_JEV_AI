@@ -6,7 +6,7 @@ import json
 
 from openpyxl import load_workbook
 
-from jav import datasets
+from jav.app import datasets
 from jav.runtime import worker
 from tests import test_api
 from tests.test_api import HUMAN, _ready_wp, _start
@@ -156,7 +156,7 @@ def test_export_guards_formulas(env):
 
 
 def test_utility_cost_long_form_and_sources(env, monkeypatch):
-    from jav import export
+    from jav.app import export
     from tests.test_reports import _bill
 
     c = env["client"]
