@@ -18,7 +18,8 @@ import pytest
 
 from jav.core import numbers
 from jav.ai.candidates import find_all
-from jav.ai.models import CellLayout, LineLayout, normalize_value, parse_money, record_from_llm
+from jav.ai.models import normalize_value, parse_money, record_from_llm
+from jav.documents.layout import CellLayout, LineLayout
 from jav.runtime import worker
 from tests.test_api import HUMAN, _ready_wp, _start, env  # noqa: F401 - the shared service fixture (`service` below)
 

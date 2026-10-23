@@ -22,7 +22,7 @@ from jav.core import store
 from jav.ai.detect import DetectResult
 from jav.ai.detect_detail import DetailResult
 from jav.ai.engine import with_engine
-from jav.ai.models import LineLayout
+from jav.documents.layout import LineLayout
 
 TERMINALS = ["done", "needs_ocr"]
 PARTITION = "doc_detect"  # partition of the durable state store (066 Á08: the worker finds the saved state by it)

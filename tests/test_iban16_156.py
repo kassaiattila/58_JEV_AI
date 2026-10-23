@@ -8,7 +8,8 @@ The numbers are invented with wrong check digits (the finder does not check them
 """
 
 from jav.ai.candidates import INTL, find_all
-from jav.ai.models import CellLayout, LineLayout, account_key
+from jav.ai.models import account_key
+from jav.documents.layout import CellLayout, LineLayout
 
 SHORT = "12345678-87654321"
 LONG = "12345678-87654321-00000000"

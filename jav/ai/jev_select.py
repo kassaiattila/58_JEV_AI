@@ -27,7 +27,8 @@ from jav.ai.candidates import MAX_OPTIONS, candidate_lines, find_currencies, fin
 from jav.ai.candidates import TOTAL_LINE_RE as _TOTAL_LINE_RE
 from jav.core.dates import read_date
 from jav.ai.jev_budget import ask_within_budget
-from jav.ai.models import Candidate, FieldPick, DocumentRecord, JevCall, LineLayout
+from jav.ai.models import Candidate, FieldPick, DocumentRecord, JevCall
+from jav.documents.layout import LineLayout
 from jav.core.numbers import is_whole_token
 from jav.ai.policy import NONE_LABEL, presence_probe_fields
 from jav.ai.typepack import CANDIDATE_KIND_OF, TypePack

@@ -9,7 +9,8 @@ from decimal import Decimal
 import pytest
 
 from jav.core.config import GOLDEN_EXPECTED_DIR, GOLDEN_MANIFEST
-from jav.ai.models import DocumentRecord, InvoiceLLM, record_from_llm
+from jav.ai.models import DocumentRecord, record_from_llm
+from jav.ai.invoice_models import InvoiceLLM
 from jav.ai.typepack import get as get_pack
 from jav.ai.validators import date_order, hu_tax_id, iban_check, run_all, vat_consistency
 

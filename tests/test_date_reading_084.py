@@ -241,7 +241,7 @@ def test_manual_input_refuses_text_that_is_not_one_date(raw):
 
 
 def _lines(*texts: str):
-    from jav.ai.models import CellLayout, LineLayout
+    from jav.documents.layout import CellLayout, LineLayout
 
     out = []
     for no, text in enumerate(texts, 1):

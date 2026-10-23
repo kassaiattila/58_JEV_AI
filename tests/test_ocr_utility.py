@@ -25,7 +25,8 @@ from typesafe_sdk import Choice, Noul
 from jav.evals import evals
 from jav.ai import candidates as cand, policy, typepack
 from jav.documents import ocr, pdf as pdfmod
-from jav.ai.models import Candidate, CellLayout, LineLayout
+from jav.ai.models import Candidate
+from jav.documents.layout import CellLayout, LineLayout
 
 UTILITY_TYPES = ("villamos_energia_szamla", "foldgaz_szamla", "viz_szamla", "mohu_szamla", "vizmuvek_szamla", "csatorna_szamla")
 

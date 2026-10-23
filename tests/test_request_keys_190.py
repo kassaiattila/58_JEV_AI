@@ -24,7 +24,7 @@ from typesafe_sdk import Noul
 from jav.ai import extract_llm, typepack
 from jav.ai.jev import request_hash
 from jav.ai.jev_verify import site_for
-from jav.ai.models import LineLayout
+from jav.documents.layout import LineLayout
 from jav.core import calls
 
 SAMPLE = {  # a printable synthetic value per field kind

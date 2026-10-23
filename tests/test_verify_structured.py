@@ -10,7 +10,7 @@ import json
 
 from jav.ai import policy
 from jav.evals.evals import perturb_extraction, probe_summary
-from jav.ai.models import LineLayout
+from jav.documents.layout import LineLayout
 
 
 def _lines(*texts: str) -> list[LineLayout]:
@@ -94,7 +94,7 @@ def test_build_questions_structured_instructions():
     from jav.ai.jev_verify import site_for as verify_site
 
     site = verify_site("invoice_hu")
-    from jav.ai.models import InvoiceLLM
+    from jav.ai.invoice_models import InvoiceLLM
 
     llm = InvoiceLLM(supplier_name="Teszt Kft.", supplier_tax_id="12345678-1-42", net_total="1000")
     evidence = {"supplier_name": ["L01: Teszt Kft."], "supplier_tax_id": ["L02: Adószám: 12345678-1-42"]}

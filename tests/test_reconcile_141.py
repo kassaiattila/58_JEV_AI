@@ -18,7 +18,7 @@ import pytest
 from jav.ai import candidates
 from jav.core import dates
 from jav.domains.finance import reconcile, reconcile_package as rp
-from jav.ai.models import LineLayout
+from jav.documents.layout import LineLayout
 from tests import test_reconcile_k2_129 as k2
 from tests import test_reconcile_package_131 as p131
 

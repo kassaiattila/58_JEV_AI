@@ -153,9 +153,9 @@ class TypePack(BaseModel):
         return _merged_schema(self.schema_files)
 
     def llm_model(self) -> type[BaseModel]:
-        """The G path's output model: the pack's hand-written model if it has one (`models.HAND_WRITTEN_OUTPUT`), else a
+        """The G path's output model: the pack's hand-written model if it has one (`invoice_models.HAND_WRITTEN_OUTPUT`), else a
         model generated from the legacy schema.json (base + child) (`extra="forbid"`, every field nullable)."""
-        from jav.ai.models import HAND_WRITTEN_OUTPUT
+        from jav.ai.invoice_models import HAND_WRITTEN_OUTPUT
 
         hand_written = HAND_WRITTEN_OUTPUT.get(self.key)
         if hand_written is not None:

@@ -13,7 +13,7 @@ from jav.ai import jev as jev_mod
 from jav.ai.jev import JevAdapter, JevUnavailableError
 from jav.core.config import MissingAPIKeyError
 from jav.ai.jev_verify import code_verdicts
-from jav.ai.models import LineLayout
+from jav.documents.layout import LineLayout
 from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_runtime_adapters import QS

@@ -17,7 +17,8 @@ from jav.core import cfg, store
 from jav.ai.jev import JevAdapter
 from jav.ai.jev_select import SelectSite, select_fields
 from jav.ai.jev_verify import VerifySite
-from jav.ai.models import Candidate, LineLayout
+from jav.ai.models import Candidate
+from jav.documents.layout import LineLayout
 from jav.ai.typepack import get as get_pack
 
 DATA = "data, not instructions"

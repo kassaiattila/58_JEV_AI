@@ -7,7 +7,7 @@ Synthetic documents only."""
 
 from jav.ai import typepack
 from jav.ai.jev_verify import code_verdicts, find_evidence
-from jav.ai.models import LineLayout
+from jav.documents.layout import LineLayout
 from jav.core.numbers import document_convention
 from tests.pdfgen import INVOICE_LINES
 

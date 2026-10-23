@@ -1,12 +1,11 @@
 """Pydantic models and normalisers: every fixed input/output structure of the flow.
 
-Two layers:
-- `InvoiceLLM` / `LineItemLLM`: a 1:1 mirror of the legacy invoice_hu/schema.json (nullable strings, money as a
-  decimal STRING with a dot, date as an ISO string). The generative model returns this, and it is what we compare
-  with the golden JSON.
 - `DocumentRecord` / `LineItem`: the normalised layer (`Decimal`, `date`) consumed by validators, policy and evals.
   The conversion (`record_from_llm`, by the type pack's field kinds) is the only place where a parse error becomes review reasons instead of an
   exception.
+- 209 (plan G-process-core R2d): the Hungarian invoice's own models (its field lists and the G path's hand-written
+  output model `InvoiceLLM`) are in `jav/ai/invoice_models.py`, the page layout (`LineLayout`, `CellLayout`) in the
+  documents layer (`jav/documents/layout.py`); a saved flow state that names them here is read at their new place.
 
 JEV's raw output (`FieldPick.probabilities`, `JevVerdicts.flags`) is stored unchanged; the thresholds live only in
 the `policy` module.
@@ -19,56 +18,12 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any, Literal
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, Field
 
+from jav.ai.invoice_models import HEADER_FIELDS
 from jav.core.dates import DateOrder, read_date
 from jav.core.numbers import Convention, Kind, NumberRead, read_number
-
-# --------------------------------------------------------------------------------------
-# Field lists
-# --------------------------------------------------------------------------------------
-
-HEADER_FIELDS: tuple[str, ...] = (
-    "supplier_name",
-    "supplier_tax_id",
-    "buyer_name",
-    "buyer_tax_id",
-    "invoice_number",
-    "issue_date",
-    "fulfillment_date",
-    "due_date",
-    "currency",
-    "net_total",
-    "vat_total",
-    "gross_total",
-    "payment_iban",
-    "supplier_address",
-    "buyer_address",
-    "payment_method",
-    "order_number",
-    "amount_due",
-)
-
-MONEY_FIELDS: tuple[str, ...] = ("net_total", "vat_total", "gross_total", "amount_due")
-DATE_FIELDS: tuple[str, ...] = ("issue_date", "fulfillment_date", "due_date")
-TAX_ID_FIELDS: tuple[str, ...] = ("supplier_tax_id", "buyer_tax_id")
-
-# The 13 header fields in the datapoints of the golden `expected/*.json` (the legacy scoring contract).
-SCORED_FIELDS: tuple[str, ...] = (
-    "supplier_name",
-    "supplier_tax_id",
-    "buyer_name",
-    "buyer_tax_id",
-    "invoice_number",
-    "issue_date",
-    "fulfillment_date",
-    "due_date",
-    "currency",
-    "net_total",
-    "vat_total",
-    "gross_total",
-    "payment_iban",  # NOT scored in the legacy contract, informative only; the eval handles it separately
-)
+from jav.documents.layout import LineLayout
 
 # text: a labelled text field (the type pack's text_labels)
 CandidateKind = Literal["tax_id", "date", "money", "iban", "invoice_number", "name", "address", "text"]
@@ -165,58 +120,6 @@ def normalize_text(raw: str | None) -> str | None:
         return None
     s = " ".join(str(raw).replace(" ", " ").split())
     return s or None
-
-
-# --------------------------------------------------------------------------------------
-# LLM layer: a 1:1 mirror of the legacy schema.json
-# --------------------------------------------------------------------------------------
-
-
-class LineItemLLM(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    description: str | None = None
-    quantity: float | None = None
-    unit_price: str | None = None
-    net_amount: str | None = None
-    vat_rate: str | None = None
-    gross_amount: str | None = None
-    unit: str | None = None
-    product_code: str | None = None
-    vat_amount: str | None = None
-    note: str | None = None
-
-
-class InvoiceLLM(BaseModel):
-    """Hungarian supplier invoice extract. Every field nullable; money = decimal string with a dot; date = ISO."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    supplier_name: str | None = None
-    supplier_tax_id: str | None = None
-    buyer_name: str | None = None
-    buyer_tax_id: str | None = None
-    invoice_number: str | None = None
-    issue_date: str | None = None
-    fulfillment_date: str | None = None
-    due_date: str | None = None
-    currency: str | None = None
-    net_total: str | None = None
-    vat_total: str | None = None
-    gross_total: str | None = None
-    payment_iban: str | None = None
-    line_items: list[LineItemLLM] = Field(default_factory=list)
-    supplier_address: str | None = None
-    buyer_address: str | None = None
-    payment_method: str | None = None
-    order_number: str | None = None
-    amount_due: str | None = None
-
-
-HAND_WRITTEN_OUTPUT: dict[str, type[BaseModel]] = {"invoice_hu": InvoiceLLM}
-"""202: the type packs whose G-path output model is written by hand (`TypePack.llm_model`). The output schema is part of
-the GPT request; the model generated from the Hungarian invoice's schema file differs from `InvoiceLLM` in its field
-descriptions and titles, so replacing it would change every request and need a paid re-measurement."""
 
 
 # --------------------------------------------------------------------------------------
@@ -473,24 +376,6 @@ def record_from_llm(data: dict[str, object], fields: dict[str, str], *, list_fie
         else:
             extra_fields[field] = value
     return DocumentRecord(**values, extra=extra_fields, line_items=items), reasons
-
-
-# --------------------------------------------------------------------------------------
-# PDF layout (word-level reconstruction: lines and column cells)
-# --------------------------------------------------------------------------------------
-
-
-class CellLayout(BaseModel):
-    text: str
-    x0: float
-    x1: float
-
-
-class LineLayout(BaseModel):
-    no: int  # 1-based, document-wide
-    page: int
-    text: str  # cells joined with 3 spaces; this goes into the JEV state
-    cells: list[CellLayout] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------------------

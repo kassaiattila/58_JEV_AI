@@ -27,12 +27,12 @@ from jav.ai.models import (
     DATE_NUMERIC_RE,
     Candidate,
     CandidateKind,
-    LineLayout,
     account_key,
     money_label,
     normalize_tax_id,
     parse_money,
 )
+from jav.documents.layout import LineLayout
 from jav.core.numbers import Convention, document_convention, has_decimal_dot_hint
 from jav.core.taxid import recognize as recognize_tax_id
 from jav.ai.validators import hu_tax_id

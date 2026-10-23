@@ -205,7 +205,8 @@ def test_detect_step_survives_jev_outage(isolated: Path, monkeypatch: pytest.Mon
 def test_invoice_steps_survive_jev_outage(isolated: Path, monkeypatch: pytest.MonkeyPatch):
     from jav.flows import flow
     from jav.ai import jev as jev_mod
-    from jav.ai.models import FlowState, InvoiceLLM
+    from jav.ai.models import FlowState
+    from jav.ai.invoice_models import InvoiceLLM
 
     monkeypatch.setattr(jev_mod, "get_adapter", lambda: _failing_adapter(isolated))
     s = flow.jev_select(FlowState(doc_type="invoice_hu", source_path="x.pdf", case_id="c", arm="S", candidates={"supplier_name": []}))

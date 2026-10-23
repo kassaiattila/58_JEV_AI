@@ -145,7 +145,7 @@ def test_the_billing_address_label_belongs_to_the_buyer():
 
 def _line_layout(layer):
     from jav.ai.grounding import _lines, _segments
-    from jav.ai.models import LineLayout
+    from jav.documents.layout import LineLayout
 
     return [LineLayout(no=n, page=1, text="   ".join(" ".join(w.text for w in seg) for seg in _segments(line)))
             for n, line in enumerate(_lines(layer), 1)]

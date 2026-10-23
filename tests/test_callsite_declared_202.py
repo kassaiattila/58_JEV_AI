@@ -18,7 +18,7 @@ import pytest
 
 from jav.ai import jev_select, jev_verify
 from jav.core import cfg
-from jav.ai.models import CellLayout, LineLayout
+from jav.documents.layout import CellLayout, LineLayout
 from jav.ai.typepack import get as get_pack
 
 SELECT_SITES = ("select", "select_foreign", "select_invoice_out", "select_utility")

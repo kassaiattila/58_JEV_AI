@@ -52,7 +52,7 @@ def test_callsite_questions_build_from_json():
     from jav.domains.email.intent import build_questions as intent_q, NOUL_KEYS
     from jav.ai.jev_select import site_for as select_site
     from jav.ai.jev_verify import site_for as verify_site
-    from jav.ai.models import InvoiceLLM
+    from jav.ai.invoice_models import InvoiceLLM
 
     select, verify = select_site("invoice_hu"), verify_site("invoice_hu")
 

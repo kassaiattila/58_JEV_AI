@@ -39,8 +39,6 @@ ALLOWED = {layer: (*LAYERS[: i + 1], *(("evals", "devtools", "legacy") if layer 
 
 # imports against the direction today, each with the step that takes it away
 KNOWN = {
-    # the general data model's page layout moves to the documents layer when the model splits (R2)
-    ("jav.documents.ocr", "jav.ai.models"), ("jav.documents.pdf", "jav.ai.models"),
     # reading asks the decision rules for its thresholds, and the native reader's interpretation the AI layer
     ("jav.documents.ocr", "jav.ai.policy"), ("jav.documents.pdf_input", "jav.ai.policy"),
     ("jav.documents.text_document", "jav.ai.typepack"),

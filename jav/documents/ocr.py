@@ -44,7 +44,7 @@ from jav.documents import pdf as pdfmod
 from jav.core import cfg
 from jav.documents import azure_di
 from jav.core.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, OLD_DATA_ROOT, PROJECT_ROOT
-from jav.ai.models import LineLayout
+from jav.documents.layout import LineLayout
 from jav.documents.pdf import PdfText, build_layout, text_layer_ok
 from jav.core.digest import file_sha256 as _sha256
 

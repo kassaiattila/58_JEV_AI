@@ -7,7 +7,7 @@ question (CLAUDE.md §4); a text value in the ISO date-time form now goes throug
 must stand on the same line. Synthetic lines only."""
 
 from jav.ai.jev_verify import find_evidence
-from jav.ai.models import LineLayout
+from jav.documents.layout import LineLayout
 
 
 def _lines(texts):

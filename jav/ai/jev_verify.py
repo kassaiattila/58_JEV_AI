@@ -32,14 +32,8 @@ from jav.ai.jev import JevAdapter
 from jav.ai.candidates import QUANTITY_RE, find_all, profile_of
 from jav.core.dates import find_dates_in, read_date
 from jav.ai.jev_budget import ask_within_budget, line_numbers
-from jav.ai.models import (
-    Candidate,
-    JevCall,
-    JevVerdicts,
-    LineLayout,
-    money_label,
-    parse_money,
-)
+from jav.ai.models import Candidate, JevCall, JevVerdicts, money_label, parse_money
+from jav.documents.layout import LineLayout
 from jav.core.numbers import Convention, document_convention
 from jav.documents.source_layer import SourceLayer
 from jav.ai.typepack import TypePack

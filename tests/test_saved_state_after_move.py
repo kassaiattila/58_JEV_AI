@@ -66,3 +66,34 @@ def test_a_stored_format_name_does_not_follow_its_module():
     from jav.domains.finance import statement_original, statement_table
 
     assert statement_table.FORMAT == statement_original.FORMAT == "jav.statement_table"
+
+
+def test_a_moved_class_is_read_at_its_new_place(tmp_path):
+    """209 (plan G-process-core R2d): the page layout's classes left the data model for the documents layer. A state
+    saved naming one at either earlier place (`jav.models` before 208, `jav.ai.models` on the branch since) is read
+    with the class at its new one (`MOVED_CLASSES`); the store held about 332,000 saved lines of layout in 208."""
+    from jav.documents.layout import CellLayout, LineLayout
+
+    line = LineLayout(no=1, page=1, text="Invented line", cells=[CellLayout(text="Invented line", x0=1.0, x1=2.0)])
+    persister = ClosingSQLitePersister(str(tmp_path / "burr.sqlite"))
+    persister.initialize()
+    for n, old in enumerate(("jav.models", "jav.ai.models", "jav.documents.layout")):
+        persister.save("doc_detect", f"run-{n}:item", 0, "detect", State({"layout": [line]}), "completed")
+        text = persister.connection.execute("SELECT state FROM burr_state WHERE app_id = ?", (f"run-{n}:item",)).fetchone()[0]
+        assert '"__pydantic_class": "jav.documents.layout.LineLayout"' in text
+        persister.connection.execute("UPDATE burr_state SET state = ? WHERE app_id = ?",
+                                     (text.replace('"jav.documents.layout.', f'"{old}.'), f"run-{n}:item"))
+        persister.connection.commit()
+        loaded = persister.load("doc_detect", f"run-{n}:item")["state"]
+        assert loaded["layout"] == [line] and isinstance(loaded["layout"][0], LineLayout), old
+    persister.cleanup()
+
+
+def test_every_moved_class_is_gone_from_its_old_module_and_lives_at_its_new_one():
+    from jav.flows.persistence import MOVED_CLASSES
+
+    for (old, name), new in MOVED_CLASSES.items():
+        moved = getattr(importlib.import_module(f"jav.{new}"), name)
+        assert moved.__module__ == f"jav.{new}", (new, name)
+        # the old module may still use it (the flow state holds its lines), but defines none of its own
+        assert getattr(importlib.import_module(f"jav.{MOVED_MODULES.get(old, old)}"), name, moved) is moved, (old, name)

@@ -5,7 +5,7 @@ word (the current results do not change); the en dash (13 occurrences inside a w
 deliberately kept."""
 
 from jav.ai.candidates import find_all
-from jav.ai.models import CellLayout, LineLayout
+from jav.documents.layout import CellLayout, LineLayout
 from jav.documents.ocr import parse_tsv
 from jav.documents.pdf import normalize_dashes
 

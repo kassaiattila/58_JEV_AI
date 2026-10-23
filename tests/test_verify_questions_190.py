@@ -17,7 +17,8 @@ import pytest
 from jav.ai import extract_llm, policy, typepack
 from jav.core import cfg
 from jav.ai.jev_verify import VerifySite, site_for
-from jav.ai.models import FlowState, JevVerdicts, LineLayout
+from jav.ai.models import FlowState, JevVerdicts
+from jav.documents.layout import LineLayout
 
 INVOICE_DOCUMENT_NOULS = ("parties_swapped", "line_items_missing_rows", "line_items_extra_rows")  # verify.json's, inherited
 LIST_NOULS = {

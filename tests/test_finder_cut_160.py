@@ -17,7 +17,8 @@ from jav.core import store
 from jav.ai.jev import JevAdapter
 from jav.ai.candidates import find_all
 from jav.ai.jev_select import select_fields
-from jav.ai.models import FlowState, LineLayout
+from jav.ai.models import FlowState
+from jav.documents.layout import LineLayout
 from jav.ai.typepack import get as get_pack
 from tests.test_select_presence import FakeClient
 

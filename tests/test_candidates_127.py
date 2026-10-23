@@ -12,7 +12,7 @@ The identifiers are made up; only their shape follows the documents seen.
 """
 
 from jav.ai.candidates import find_all
-from jav.ai.models import CellLayout, LineLayout
+from jav.documents.layout import CellLayout, LineLayout
 
 
 def _line(no: int, *cells: tuple[str, float]) -> LineLayout:

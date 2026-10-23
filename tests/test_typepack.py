@@ -23,7 +23,9 @@ from typesafe_sdk import Choice, Noul
 from jav.ai import policy, typepack
 from jav.core import cfg
 from jav.ai.candidates import find_all, find_currencies
-from jav.ai.models import HEADER_FIELDS, SCORED_FIELDS, CellLayout, FieldPick, FlowState, DocumentRecord, LineLayout, record_from_llm
+from jav.ai.models import FieldPick, FlowState, DocumentRecord, record_from_llm
+from jav.ai.invoice_models import HEADER_FIELDS, SCORED_FIELDS
+from jav.documents.layout import CellLayout, LineLayout
 
 
 def _line(no: int, *cells: tuple[str, float]) -> LineLayout:

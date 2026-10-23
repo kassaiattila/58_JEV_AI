@@ -2,7 +2,7 @@
 
 from jav.ai.detect import build_questions, build_state
 from jav.ai.doc_types import BY_KEY, DOC_TYPE_KEYS, OLD_TYPE_MAP, UNKNOWN, anchor_hits, choice_criteria
-from jav.ai.models import CellLayout, LineLayout
+from jav.documents.layout import CellLayout, LineLayout
 from jav.documents.pdf import PdfText
 
 

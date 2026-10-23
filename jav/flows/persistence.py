@@ -61,14 +61,27 @@ MOVED_MODULES: dict[str, str] = {
     "gpt_choice": "ai.gpt_choice", "typepack": "ai.typepack",
     "flow": "flows.flow", "flow_detect": "flows.flow_detect", "flow_native": "flows.flow_native",
 }
+# 209 (plan G-process-core R2d): the classes that left their module, by (module before 208, class) -> their module now,
+# relative to `jav`; a class first follows its module (`MOVED_MODULES`), then its own move. The page layout went from the
+# data model to the documents layer: every saved detection and extraction state holds its lines (about 332,000 in 208).
+MOVED_CLASSES: dict[tuple[str, str], str] = {
+    ("models", "LineLayout"): "documents.layout", ("models", "CellLayout"): "documents.layout",
+}
+
+
+_CLASS_MOVES = {(MOVED_MODULES.get(module, module), name): new for (module, name), new in MOVED_CLASSES.items()}
+_CLASS_MOVES |= {(module, name): new for (module, name), new in MOVED_CLASSES.items()}
 
 
 def _read_moved(value: dict, **kwargs: Any) -> Any:
-    """Burr's reading of a typed value (`deserialize_pydantic`), with the class of a moved module at its new place."""
+    """Burr's reading of a typed value (`deserialize_pydantic`), with the class of a moved module or a moved class at
+    its new place."""
     module, _, name = value["__pydantic_class"].rpartition(".")
-    moved = MOVED_MODULES.get(module.removeprefix("jav.")) if module.startswith("jav.") else None
-    if moved is not None:
-        value = {**value, "__pydantic_class": f"jav.{moved}.{name}"}
+    if module.startswith("jav."):
+        old = module.removeprefix("jav.")
+        moved = _CLASS_MOVES.get((old, name)) or MOVED_MODULES.get(old)
+        if moved is not None:
+            value = {**value, "__pydantic_class": f"jav.{moved}.{name}"}
     return burr_pydantic.deserialize_pydantic(value, **kwargs)
 
 

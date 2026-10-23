@@ -20,7 +20,8 @@ from jav.ai import policy
 from jav.core import cfg, store
 from jav.ai.jev import JevAdapter
 from jav.ai.jev_select import effective_conf, record_conf, select_fields, site_for
-from jav.ai.models import Candidate, CellLayout, FieldPick, FlowState, LineLayout
+from jav.ai.models import Candidate, FieldPick, FlowState
+from jav.documents.layout import CellLayout, LineLayout
 from jav.ai.typepack import get as get_pack
 
 

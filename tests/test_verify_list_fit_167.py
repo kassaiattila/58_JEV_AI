@@ -18,7 +18,8 @@ from typesafe_sdk import Noul
 from jav.ai import policy
 from jav.ai.jev import JevUnavailableError
 from jav.ai.jev_verify import site_for
-from jav.ai.models import FlowState, JevVerdicts, LineLayout
+from jav.ai.models import FlowState, JevVerdicts
+from jav.documents.layout import LineLayout
 from tests.test_no_jev_085 import GOOD
 
 TOKEN_ERROR = "TypeSafeBadRequestError:400:max_tokens_exceeded"

@@ -5,7 +5,7 @@ The real documents do not go into the test; the identifiers are made up, only th
 the trial."""
 
 from jav.ai.candidates import find_all
-from jav.ai.models import CellLayout, LineLayout
+from jav.documents.layout import CellLayout, LineLayout
 from jav.documents.pdf import fix_lost_glyphs
 
 
