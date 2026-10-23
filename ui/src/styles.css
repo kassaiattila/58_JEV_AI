@@ -436,6 +436,11 @@ body.dragging { cursor: col-resize; user-select: none; }
 .dt-table[data-dataset="workpackages"] th[data-col="source_kind"] { min-width: 112px; }
 /* 169: a reconciliation's inputs — a date is not broken inside (its period may wrap at the dash) */
 .dt-table[data-dataset="reconcile_inputs"] th[data-col="date"] { min-width: 96px; }
+/* 218 (P3e): Settings › Rules — the decision and its values lead; a row stays within four lines */
+.dt-table[data-dataset="rules"] th[data-col="area"] { min-width: 100px; }
+.dt-table[data-dataset="rules"] th[data-col="decision"] { min-width: 232px; }
+.dt-table[data-dataset="rules"] th[data-col="values"] { min-width: 248px; }
+.dt-table[data-dataset="rules"] th[data-col="files"] { min-width: 152px; }
 .dt-table[data-dataset="workpackages"] th:is([data-col="recipe_id"], [data-col="owner"]) { min-width: 108px; }
 @media (max-width: 1400px) {
   .dt-table[data-dataset="workpackages"] th[data-col="name"] { min-width: 168px; }
@@ -544,6 +549,17 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .recipe-kv { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: var(--sp-2) var(--sp-4); margin: 0; font-size: var(--fs-sm); }
 .recipe-kv dt { color: var(--muted); font-weight: 600; }
 .recipe-kv dd { margin: 0; }
+/* 218 (P3e): a decision's title in the rules' table opens its whole rule; its rule values read as a ledger: the
+   condition in secondary ink, the value in ink, tabular */
+.rule-open { display: block; color: var(--ink); font-weight: 600; text-decoration: none; }
+.rule-open:hover { color: var(--accent); text-decoration: underline; }
+.rule-open[aria-expanded="true"] { text-decoration: underline; text-decoration-color: currentColor; text-underline-offset: 3px; }
+.rule-sheet h3:focus { outline: none; } /* focused by the page so that it scrolls into view, not by the keyboard */
+.rule-what { margin: 0; max-width: 90ch; text-wrap: pretty; }
+.rule-values { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--sp-2) var(--sp-6); margin: 0; }
+.rule-values dt { color: var(--ink-2); }
+.rule-values dd { margin: 0; color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.rule-values dd .tight { font-weight: 400; }
 .tight { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
 .tight.columns { display: block; columns: 3 220px; margin-top: 6px; }
 .param-doc { border-top: 1px solid var(--line-soft); padding-top: 10px; display: grid; gap: 6px; font-size: var(--fs-sm); }

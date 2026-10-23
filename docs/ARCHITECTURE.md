@@ -815,3 +815,17 @@ inside the extraction's save). The rule keys of a band decision come from `polic
 `--subject KIND:ID`, `--run`, `--case`, `--last`; each row with `same`: its rule gives the stored outcome again); the
 status page counts it by point. Tests: `tests/test_decision_trace_218.py` (a new point must be listed there with its
 test).
+
+**The rules' read-only view (218, P3e).** Settings › Rules shows, per registered decision point, what it decides and
+what it is not for, the rule values it decides with, the version of each rule file it reads and since when that
+content is in use here, and how many decisions the trace holds (all, those made with the rule files in use now, the
+latest). `jav/app/rules_view.py` builds the `rules` dataset (`jav/app/datasets.py`): the plain texts and which keys
+to show come from `configs/rule_help.json` (English source, translated by the interface); each value is read from
+the rule file the process loaded (`rules_view.resolve`, a key as the trace names it, `recipes[processing]` naming a
+list's item by its id), a code given by the interface's own labels (a document type, a field, an intent) or, for an
+email's next step, by its code; a file's version from the process's calculation snapshot and its date from the
+file's changelog, the time it came into use from `rule_files.first_seen_at`; the counts from one grouped query of
+`decision_trace` (a row counts as made with the rules in use now when each file it names has the content in use now).
+It only reads; price lists and output templates keep their own pages. In the interface
+(`ui/src/views/settings/RulesPanel.tsx`) each decision is a table row of at most four lines, and its title opens the
+whole rule below the table. Tests: `tests/test_rules_view_218.py`, `ui/src/views/settings/rules218.test.tsx`.

@@ -1,6 +1,6 @@
 // Settings (057, decision of 2026-09-28): the things that rarely change, in one place — mailboxes, work folders, users,
-// appearance, language and the system (worker, all runs); 063: the description of the recipes. Sub-items on the left,
-// content on the right.
+// appearance, language and the system (worker, all runs); 063: the description of the recipes; 218: the rules, read only.
+// Sub-items on the left, content on the right.
 import { useState } from "react";
 import { api, ApiError } from "../api";
 import { Icon } from "../components/Icon";
@@ -22,6 +22,7 @@ import { LanguagePanel } from "./settings/LanguagePanel";
 import { OutputTemplatesPanel } from "./settings/OutputTemplatesPanel";
 import { PartiesPanel } from "./settings/PartiesPanel";
 import { PriceListsPanel } from "./settings/PriceListsPanel";
+import { RulesPanel } from "./settings/RulesPanel";
 import { UsersPanel } from "./settings/UsersPanel";
 import { VersionPanel } from "./settings/VersionPanel";
 import { PdfProtectionPanel } from "./settings/PdfProtectionPanel";
@@ -37,6 +38,8 @@ export const SETTINGS_SECTIONS: { key: SettingsSection; label: string; hint: str
   // 133: new labels have an English source (the Hungarian translation is in hu-native.json)
   { key: "parties", label: "Own parties", hint: "Whose money is reconciled: companies, associations and people, with their names, tax numbers and accounts" },
   { key: "recipes", label: "Feldolgozás", hint: "Hogyan dolgozza fel a rendszer az iratokat és a leveleket, mit jelentenek a beállítások, mennyibe kerülnek" },
+  // 218 (plan G-process-core P3e, DECISIONS 222): how the system decides on its own, read only
+  { key: "rules", label: "Rules", hint: "How the system decides on its own: each kind of decision, the values it decides with and the version of its rules in use" },
   // 179 (plan 170 L4, DECISIONS 178): own Excel templates of the downloads
   { key: "outputs", label: "Output templates", hint: "Your own Excel and Word templates for the downloads: upload, check, preview and make active; the markers to write in them" },
   // 191 (plan F-quote-package B2): the seller's price lists a quote is priced from
@@ -72,6 +75,7 @@ export function Settings({ section }: { section: SettingsSection }) {
               <BankFilesPanel />
             </>
           ) : null}
+          {current.key === "rules" ? <RulesPanel /> : null}
           {current.key === "outputs" ? <OutputTemplatesPanel /> : null}
           {current.key === "prices" ? <PriceListsPanel /> : null}
           {current.key === "users" ? <UsersPanel /> : null}
