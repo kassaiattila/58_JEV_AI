@@ -8,7 +8,8 @@ snapshot (`jav.core.rulebook`). So years later it can be told which rule of whic
 a changed rule can be tried on the stored inputs without processing anything again (plan P3d).
 
 - `register(point)`: a decision point: its code, what it decides and what it is not for, its owner module, the rule
-  files it reads and its rule: a pure function of the stored inputs that gives the stored outcome (`replay`).
+  files it reads (a pattern names a family, such as the type packs: `types/*.json`) and its rule: a pure function of
+  the stored inputs that gives the stored outcome (`replay`).
 - `record_in(c, point, subject=, inputs=, outcome=, keys=, ...)`: one trace row in the caller's write transaction.
 - `rows(...)`, `replay(row)`: reading the trace back, and the rule run again on a row's inputs.
 
@@ -20,6 +21,7 @@ Layer: shared core; it imports only the store and the calculation snapshot. The 
 
 from __future__ import annotations
 
+import fnmatch
 import hashlib
 import json
 import sqlite3
@@ -58,7 +60,7 @@ class UnknownPoint(ValueError):
 @dataclass(frozen=True)
 class Point:
     """A machine decision point. `rule(inputs)` is the pure function whose value for the stored inputs is the stored
-    outcome; `files` are the rule files under `configs/` it may read."""
+    outcome; `files` are the rule files under `configs/` it may read, by path or by a pattern (`fnmatch`)."""
 
     code: str
     what: str
@@ -96,7 +98,7 @@ def _json(value: Any) -> str:
 
 
 def _rules(p: Point, keys: Mapping[str, Iterable[str]], snapshot: rulebook.Snapshot) -> list[dict[str, Any]]:
-    if unknown := sorted(set(keys) - set(p.files)):
+    if unknown := sorted(name for name in keys if not any(fnmatch.fnmatchcase(name, f) for f in p.files)):
         raise UnknownPoint(f"the decision point {p.code} reads no rule file {unknown}")
     out = []
     for name in sorted(keys):

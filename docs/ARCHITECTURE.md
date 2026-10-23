@@ -792,8 +792,14 @@ issuer cross-check, `flow_detect.doc_type_rule` and `detail_type_rule`; the reco
 to-dos and both traces, is one write transaction, the store's own writes joining it as savepoints in `store.session`);
 `email.intent` and `email.next_flow` (M3: whether the recognised intent waits for a person with its signals' to-dos,
 and the email's next step, `flow_email.intent_rule` and `next_flow_rule`; the email's save, its row, its run's result
-row, its to-dos and the traces, is one write transaction too). The rule keys of a band decision come from
-`policy.band_keys`. `python -m jav.cli trace` reads it (`--points`, `--point`,
+row, its to-dos and the traces, is one write transaction too); `extract.route` (M2, one row per document and run:
+whether the extracted record is accepted or waits for a person, and the to-dos its decision raised;
+`policy.decision_inputs` keeps what the decision read in the flow state, `policy.route_rule` replays the decision checks
+of the check registry in its order, each through the pure rule it applies to the flow state (`Check.rule`: the picks,
+the verification, the GPT confidence, the failed record checks), with the cross-document checks' to-dos and the to-dos
+raised before the decision as inputs; the rule files are `policy.json` and the type pack, named by a pattern,
+`types/*.json`; the extraction's save, its document row, its record, its to-dos and the trace, is one write transaction,
+before four to six). The rule keys of a band decision come from `policy.band_keys`. `python -m jav.cli trace` reads it (`--points`, `--point`,
 `--subject KIND:ID`, `--run`, `--case`, `--last`; each row with `same`: its rule gives the stored outcome again); the
 status page counts it by point. Tests: `tests/test_decision_trace_218.py` (a new point must be listed there with its
 test).

@@ -13,7 +13,9 @@ check is one entry here, and that rule is one gate (`store_readable`).
 An entry (`Check`) names its stage and how it runs:
 - record: `run(inv, spec, *, doc_id, doc_type)` returns a check result, or None when the check does not apply; `kind`
   says what the pack's entry names: the whole record (`record`), one field (`field`), or two fields (`pair`);
-- decision: `run(state)` adds its to-dos to the flow state; `arms` names the paths it runs on (S or G);
+- decision: `run(state)` adds its to-dos to the flow state; `arms` names the paths it runs on (S or G); 218 (plan P3
+  P3b): `rule(inputs)` is the pure rule `run` applies, the to-dos for the decision's traced inputs (`policy.
+  decision_inputs`), so the extraction's decision trace replays the checks in this registry's order;
 - cross-document: `run(subject)` returns its to-dos for the document (`Subject`);
 - after-save: `run(write=...)` scans the stored results and returns counts; `producer` names who opens its to-dos and
   `opens` the cross-document check whose to-do it opens;
@@ -60,6 +62,7 @@ class Check:
     reads_store: bool = False
     producer: str | None = None
     opens: str | None = None
+    rule: Callable[..., list[str]] | None = None
 
 
 @dataclass(frozen=True)
@@ -81,6 +84,8 @@ def register(check: Check) -> None:
         raise ValueError(f"check {check.name}: unknown stage {check.stage!r}")
     if check.stage == "record" and check.kind not in KINDS:
         raise ValueError(f"check {check.name}: a record check names its kind, one of {KINDS}")
+    if check.stage == "decision" and check.rule is None:  # 218: the extraction's decision trace replays it
+        raise ValueError(f"check {check.name}: a decision check names its pure rule")
     if check.name in _CHECKS:
         raise ValueError(f"check {check.name} is registered twice")
     _CHECKS[check.name] = check

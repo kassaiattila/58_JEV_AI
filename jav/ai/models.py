@@ -502,5 +502,8 @@ class FlowState(BaseModel):
     needs_review: bool = False
     review_reasons: list[str] = Field(default_factory=list)
     route: Route | None = None
+    # 218 (plan P3 P3b): what the route's decision read (`policy.decision_inputs`), traced with the save; None: a state
+    # decided before the trace
+    route_inputs: dict[str, Any] | None = None
     jev_calls: list[JevCall] = Field(default_factory=list)
     final_status: str | None = None

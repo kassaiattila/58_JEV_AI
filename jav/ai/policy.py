@@ -15,7 +15,7 @@ from decimal import Decimal
 from typing import Any, Literal
 
 from jav.ai import checks
-from jav.core import cfg, type_roles
+from jav.core import cfg, trace, type_roles
 from jav.domains.email.emails import Attachment
 from jav.domains.email.intents import DOCUMENT_BEARING
 from jav.ai.models import CheckResult, FlowState
@@ -280,86 +280,151 @@ def presence_probe_fields(pack) -> set[str]:
     return pick_policy_fields(pack) - set(pack.required) - informational_only
 
 
-def apply_pick_policy(state: FlowState) -> None:
-    """S path: review reasons from the picks' band (confidence threshold, second-option gap) and the required fields
-    (the pack's lists)."""
-    pack = get_pack(state.doc_type)
+# --- 218 (plan P3 P3b): the extraction's decision as pure rules over its traced inputs. Each decision check of the
+# registry applies its rule to the flow state (`apply_*`); the route's rule (`route_rule`) replays them in the registry's
+# order, so the stored to-dos are the rule's value for the stored inputs. Ordered parts are lists (the trace stores its
+# JSON with sorted keys). ------------------------------------------------------------------------------------------------
+
+ROUTE_POINT = "extract.route"
+_CHOICE_FIELDS = ("choice_human_max_conf", "choice_second_min_gap", "uncertain_review")
+_NOUL_FIELDS = ("noul_no_max", "noul_yes_min", "uncertain_review")
+
+
+def _pick_inputs(field: str, pick: Any) -> dict[str, Any]:
+    """What the band reads of a pick: whether an option was chosen, its confidence, the two most likely options (the
+    second-option gap), the options sent and the candidates found (a cut list) and the presence Noul."""
+    top = sorted(pick.probabilities.items(), key=lambda kv: kv[1], reverse=True)[:2]
+    return {"field": field, "chosen": pick.label is not None, "confidence": pick.confidence, "probabilities": dict(top),
+            "n_options": pick.n_options, "n_candidates": pick.n_candidates, "present_p": pick.present_p}
+
+
+def _verdict_inputs(v: Any) -> dict[str, Any] | None:
+    if v is None:
+        return None
+    return {"source": v.source, "unsupported": list(v.unsupported), "omitted": list(v.omitted),
+            "flags": [[f, [[flag, p] for flag, p in flags.items()]] for f, flags in v.flags.items()],
+            "doc_flags": [[flag, p] for flag, p in v.doc_flags.items()]}
+
+
+def decision_inputs(state: FlowState) -> dict[str, Any]:
+    """What the extraction's decision reads of the flow state: the path and the type pack, the to-dos raised before it,
+    the S path's picks, the G path's verification and token probabilities, the record's unset and empty fields, the
+    failed record checks, and (filled in by `decide`) the cross-document checks' to-dos."""
+    pack, rec = get_pack(state.doc_type), state.record
+    values = rec.to_datapoints(pack.header_fields) if rec is not None else {}
+    return {
+        "arm": state.arm, "doc_type": state.doc_type, "jev": state.jev, "has_record": rec is not None,
+        "earlier": list(state.review_reasons),
+        "picks": [_pick_inputs(f, p) for f, p in state.picks.items()] if state.arm == "S" else [],
+        "verdicts": _verdict_inputs(state.verdicts) if state.arm == "G" else None,
+        "tokens": dict(state.llm_token_p or {}) if state.arm == "G" and not state.jev else {},
+        "unset": [f for f in pack.record_fields if rec.get_field(f) is None] if rec is not None else [],
+        "empty": [f for f in pack.header_fields if values.get(f) in (None, "", [])],
+        "checks": [{"name": c.name, "code": c.code, "advisory": c.advisory} for c in state.validation if not c.ok],
+        "cross_document": [],
+    }
+
+
+def pick_rule(inputs: dict[str, Any]) -> list[str]:
+    """S path: the to-dos of the picks' band (confidence threshold, second-option gap, the high-stakes threshold), the
+    presence Noul against the choice, a cut candidate list and the required fields (the pack's lists)."""
+    pack = get_pack(inputs["doc_type"])
     checked, required, high_stakes = pick_policy_fields(pack), set(pack.required), set(pack.high_stakes)
     informational = set(pack.informational_fields)
-    for field, pick in state.picks.items():
+    out: list[str] = []
+    for pick in inputs["picks"]:
+        field, present_p, conf, probs = pick["field"], pick["present_p"], pick["confidence"], pick["probabilities"]
         if field not in checked:
             continue
         if field in informational and field not in high_stakes:
             continue  # informational only (e.g. address): unscored, no manual queue; a high-stakes IBAN still counts
-        if pick.n_options == 0:
+        if pick["n_options"] == 0:
             if field in required:
-                require_review(state, f"pick:no_candidates:{field}")
-            elif pick.present_p is not None and noul_band(pick.present_p, "invoice.pick.presence") == "yes":
-                require_review(state, f"pick:present_no_candidates:{field}:{pick.present_p:.2f}")  # 069 Á11: none found
+                out.append(f"pick:no_candidates:{field}")
+            elif present_p is not None and noul_band(present_p, "invoice.pick.presence") == "yes":
+                out.append(f"pick:present_no_candidates:{field}:{present_p:.2f}")  # 069 Á11: none found
             continue
-        if pick.label is None and field in required:
-            require_review(state, f"pick:none:{field}")
-        if pick.label is None and pick.truncated:
+        if not pick["chosen"] and field in required:
+            out.append(f"pick:none:{field}")
+        if not pick["chosen"] and pick["n_candidates"] is not None and pick["n_candidates"] > pick["n_options"]:
             # 076 (candidate-list cut): JEV saw only part of the candidates; the right one may have been cut off
-            require_review(state, f"pick:none_on_cut_list:{field}:{pick.n_options}/{pick.n_candidates}")
-        if pick.present_p is not None:  # presence Noul vs Choice: a contradiction is a review reason (uncertain is not)
-            nb = noul_band(pick.present_p, "invoice.pick.presence")
-            if pick.label is not None and nb == "no":
-                require_review(state, f"pick:absent_but_chosen:{field}:{pick.present_p:.2f}")
-            elif pick.label is None and nb == "yes":
-                require_review(state, f"pick:present_but_none:{field}:{pick.present_p:.2f}")
-        base = choice_review_reason("pick", field, pick.confidence, pick.probabilities, "invoice.pick")
+            out.append(f"pick:none_on_cut_list:{field}:{pick['n_options']}/{pick['n_candidates']}")
+        if present_p is not None:  # presence Noul vs Choice: a contradiction is a review reason (uncertain is not)
+            nb = noul_band(present_p, "invoice.pick.presence")
+            if pick["chosen"] and nb == "no":
+                out.append(f"pick:absent_but_chosen:{field}:{present_p:.2f}")
+            elif not pick["chosen"] and nb == "yes":
+                out.append(f"pick:present_but_none:{field}:{present_p:.2f}")
+        base = choice_review_reason("pick", field, conf, probs, "invoice.pick")
         if base:
-            require_review(state, base)
-        elif field in high_stakes and choice_band(pick.confidence, pick.probabilities, "invoice.pick.high_stakes") == "human":
-            require_review(state, f"pick:high_stakes_conf:{field}:{pick.confidence:.2f}")
+            out.append(base)
+        elif field in high_stakes and choice_band(conf, probs, "invoice.pick.high_stakes") == "human":
+            out.append(f"pick:high_stakes_conf:{field}:{conf:.2f}")
+    return out
+
+
+def apply_pick_policy(state: FlowState) -> None:
+    """S path: the picks' to-dos (`pick_rule`)."""
+    require_review(state, *dict.fromkeys(pick_rule(decision_inputs(state))))
+
+
+def _required_missing(inputs: dict[str, Any]) -> list[str]:
+    """175: the pack's required fields the record leaves unset, in the pack's order (a set's order depended on the
+    process's hash seed)."""
+    if inputs["verdicts"] is None or not inputs["has_record"]:
+        return []
+    unset = set(inputs["unset"])
+    return [f for f in get_pack(inputs["doc_type"]).required if f in unset]
+
+
+def verdict_rule(inputs: dict[str, Any]) -> list[str]:
+    """G path: values without evidence, the lists left out of the verification, the `yes`-band JEV flags (uncertain
+    only if enabled) and the required fields the record leaves unset (192: unless the pack only notes them)."""
+    v = inputs["verdicts"]
+    if v is None:
+        return []
+    pack = get_pack(inputs["doc_type"])
+    skip = set(pack.informational_fields) - set(pack.high_stakes)  # informational only (address): flags not queued
+    # 085: the code's own check alone names what it found (the JEV path keeps its earlier reason code)
+    unsupported = "source:not_found" if v["source"] == "code" else "jev:unsupported"
+    out = [f"{unsupported}:{f}" for f in v["unsupported"] if f not in skip]
+    # 167 (AI-10): a list left out of the request to fit its size; its rows were never checked
+    out += [f"jev:list_omitted:{f}" for f in v["omitted"]]
+    for field, flags in v["flags"]:
+        if field in skip:
+            continue
+        out += [r for flag, p in flags if (r := noul_review_reason("jev", f"{flag}:{field}", p, "invoice.verify"))]
+    out += [r for flag, p in v["doc_flags"] if (r := noul_review_reason("jev", flag, p, "invoice.verify"))]
+    if pack.required_review:
+        out += [f"llm:required_missing:{f}" for f in _required_missing(inputs)]
+    return out
 
 
 def apply_verdict_policy(state: FlowState) -> None:
-    """G path: values without evidence and `yes`-band JEV flags are review reasons (uncertain only if enabled)."""
-    v = state.verdicts
-    if v is None:
-        return
-    pack = get_pack(state.doc_type)
-    skip = set(pack.informational_fields) - set(pack.high_stakes)  # informational only (address): flags not queued
-    # 085: the code's own check alone names what it found (the JEV path keeps its earlier reason code)
-    unsupported = "source:not_found" if v.source == "code" else "jev:unsupported"
-    for field in v.unsupported:
-        if field not in skip:
-            require_review(state, f"{unsupported}:{field}")
-    for field in v.omitted:  # 167 (AI-10): a list left out of the request to fit its size; its rows were never checked
-        require_review(state, f"jev:list_omitted:{field}")
-    for field, flags in v.flags.items():
-        if field in skip:
-            continue
-        for flag, p in flags.items():
-            reason = noul_review_reason("jev", f"{flag}:{field}", p, "invoice.verify")
-            if reason:
-                require_review(state, reason)
-    for flag, p in v.doc_flags.items():
-        reason = noul_review_reason("jev", flag, p, "invoice.verify")
-        if reason:
-            require_review(state, reason)
-    if state.record is not None:
-        pack = get_pack(state.doc_type)
-        # 175: in the pack's order (a set's order depended on the process's hash seed)
-        for field in pack.required:
-            if state.record.get_field(field) is not None:
-                continue
-            if pack.required_review:
-                require_review(state, f"llm:required_missing:{field}")
-            else:  # 192: a part of a whole judged elsewhere: the gap is shown, but opens no to-do
-                state.validation.append(CheckResult(name=f"required:{field}", ok=False, code="required_missing",
-                                                    advisory=True))
+    """G path: the verification's to-dos (`verdict_rule`). 192: a pack read as one part of a whole judged elsewhere
+    notes a missing required field as an advisory check instead (the gap is shown, but opens no to-do)."""
+    inputs = decision_inputs(state)
+    require_review(state, *dict.fromkeys(verdict_rule(inputs)))
+    if not get_pack(state.doc_type).required_review:
+        state.validation.extend(CheckResult(name=f"required:{f}", ok=False, code="required_missing", advisory=True)
+                                for f in _required_missing(inputs))
+
+
+def validation_rule(inputs: dict[str, Any]) -> list[str]:
+    """A failed check opens a to-do. 090: a field check (its name is `<check>:<field>`) names the field third, so the
+    to-do stands at that field in Review and the field's tick closes it; a check of the whole record keeps its code.
+    053: an advisory-only check opens no to-do."""
+    out = []
+    for check in inputs["checks"]:
+        if not check["advisory"]:
+            field = check["name"].split(":", 1)[1] if ":" in check["name"] else None
+            out.append(f"validator:{check['code']}:{field}" if field else f"validator:{check['code']}")
+    return out
 
 
 def apply_validation_policy(state: FlowState) -> None:
-    """A failed check opens a to-do. 090: a field check (its name is `<check>:<field>`) names the field third, so the
-    to-do stands at that field in Review and the field's tick closes it; a check of the whole record keeps its code."""
-    for check in state.validation:
-        if not check.ok and not check.advisory:  # 053: an advisory-only check opens no to-do
-            field = check.name.split(":", 1)[1] if ":" in check.name else None
-            require_review(state, f"validator:{check.code}:{field}" if field else f"validator:{check.code}")
+    """The failed record checks' to-dos (`validation_rule`)."""
+    require_review(state, *dict.fromkeys(validation_rule(decision_inputs(state))))
 
 
 def gpt_review_fields(pack_key: str) -> list[str]:
@@ -371,39 +436,47 @@ def gpt_review_fields(pack_key: str) -> list[str]:
     return [f for f in pack.header_fields if f in scope]
 
 
-def apply_gpt_confidence_policy(state: FlowState) -> None:
+def gpt_confidence_rule(inputs: dict[str, Any]) -> list[str]:
     """092 (the owner's decisions of 2026-10-02): on the G path without JEV, an accounting field GPT extracted with a
     token probability below `gpt_field_confidence.review_below` is a `gpt:low_conf:<field>:<p>` to-do. A field without
-    a value, or whose check already failed (it has its to-do), adds nothing; a run with JEV never gets it (`state.jev`),
-    not even when JEV does not answer and the code's own check stands in. 160 (review AI-6): a field without a token
+    a value, or whose check already failed (it has its to-do), adds nothing; a run with JEV never gets it (`jev`), not
+    even when JEV does not answer and the code's own check stands in. 160 (review AI-6): a field without a token
     probability (an answer without log-probabilities) is a `gpt:confidence_unavailable:<field>` to-do; it used to pass
     unchecked."""
     threshold = GPT_FIELD_CONFIDENCE.get("review_below")
-    if state.jev or state.arm != "G" or threshold is None or state.record is None:
-        return
+    if inputs["jev"] or inputs["arm"] != "G" or threshold is None or not inputs["has_record"]:
+        return []
     measure = GPT_FIELD_CONFIDENCE["measure"]
-    failed = {c.name.split(":", 1)[1] for c in state.validation if not c.ok and ":" in c.name}
-    fields = gpt_review_fields(state.doc_type)
-    values = state.record.to_datapoints(fields)
-    for field in fields:
-        token = ((state.llm_token_p or {}).get(field) or {}).get(measure)
-        if values.get(field) in (None, "", []) or field in failed:
+    failed = {c["name"].split(":", 1)[1] for c in inputs["checks"] if ":" in c["name"]}
+    empty = set(inputs["empty"])
+    out = []
+    for field in gpt_review_fields(inputs["doc_type"]):
+        token = (inputs["tokens"].get(field) or {}).get(measure)
+        if field in empty or field in failed:
             continue
         if token is None:
-            require_review(state, f"gpt:confidence_unavailable:{field}")
+            out.append(f"gpt:confidence_unavailable:{field}")
         elif float(token) < float(threshold):
-            require_review(state, f"gpt:low_conf:{field}:{float(token):.2f}")
+            out.append(f"gpt:low_conf:{field}:{float(token):.2f}")
+    return out
+
+
+def apply_gpt_confidence_policy(state: FlowState) -> None:
+    """The G path without JEV: the GPT confidence's to-dos (`gpt_confidence_rule`)."""
+    require_review(state, *dict.fromkeys(gpt_confidence_rule(decision_inputs(state))))
 
 
 # --- the cross-document checks: they read the store, so the check registry runs them in a worker run only (175, plan
 # 170 E3: `jav/ai/checks.py`); 180 (plan 170 E7): the finance domain registers them (`jav/domains/finance/__init__.py`) -----------
 
-def apply_cross_document_checks(state: FlowState) -> None:
+def apply_cross_document_checks(state: FlowState) -> list[list[str]]:
     """The cross-document stage on the record being processed: each check's to-dos in the registry's order, nothing
-    outside a worker run."""
+    outside a worker run. Returns them, one list per check that ran (218: an input of the route's trace)."""
     subject = checks.Subject(state.doc_id, state.doc_type, state.record, [v.model_dump() for v in state.validation])
-    for reasons in checks.cross_document(subject):
+    found = checks.cross_document(subject)
+    for reasons in found:
         require_review(state, *reasons)
+    return found
 
 
 def reconcile_fx_tolerance() -> tuple[Decimal, Decimal]:
@@ -423,22 +496,75 @@ def reconcile_fx_bank_tolerance(basis: str) -> tuple[Decimal, Decimal]:
 def decide(state: FlowState) -> str:
     """'auto' or 'human'. The latch already holds every earlier reason; here the decision's checks add theirs, in the
     check registry's order (175, `jav/ai/checks.py`): the path's own checks and the failed record checks, then the
-    cross-document checks (in a worker run only); a result without a record is a to-do."""
+    cross-document checks (in a worker run only); a result without a record is a to-do. 218 (P3b): what it read is
+    kept as `state.route_inputs`, traced with the save (`route_rule` replays it)."""
+    inputs = decision_inputs(state)
     for check in checks.stage("decision"):
         if not check.arms or state.arm in check.arms:
             check.run(state)
-    apply_cross_document_checks(state)
+    inputs["cross_document"] = apply_cross_document_checks(state)
     if state.record is None:
         require_review(state, "no_invoice")
+    state.route_inputs = inputs
     return "human" if state.needs_review else "auto"
 
 
+def route_rule(inputs: dict[str, Any]) -> dict[str, Any]:
+    """The extraction's route: the decision checks' rules in the registry's order (those of the record's path), then
+    the cross-document checks' to-dos and `no_invoice` for a result without a record; the to-dos it raised are the new
+    ones, in order, once each. A record waits for a person (`human`) when any to-do was raised, before or here;
+    otherwise it is accepted (`auto`)."""
+    reasons = list(inputs["earlier"])
+    for check in checks.stage("decision"):
+        if not check.arms or inputs["arm"] in check.arms:
+            _latch(reasons, *dict.fromkeys(check.rule(inputs)))  # type: ignore[misc] - `checks.register` requires it
+    for found in inputs["cross_document"]:
+        _latch(reasons, *found)
+    if not inputs["has_record"]:
+        _latch(reasons, "no_invoice")
+    return {"route": "human" if reasons else "auto", "reasons": reasons[len(inputs["earlier"]):]}
+
+
+def _latch(reasons: list[str], *found: str) -> None:
+    """`require_review` on a reason list: the reasons not there before the call are added."""
+    reasons.extend([r for r in found if r and r not in reasons])
+
+
+def route_keys(inputs: dict[str, Any]) -> dict[str, tuple[str, ...]]:
+    """The rule keys the route's decision reads, by rule file: the bands of its path's checks in `policy.json` and the
+    field roles of its type pack (with `extends`, the base pack's too: the lists are merged)."""
+    pack = get_pack(inputs["doc_type"])
+    if inputs["arm"] == "S":
+        policy_keys = (*band_keys("invoice.pick", *_CHOICE_FIELDS), *band_keys("invoice.pick.high_stakes", "choice_human_max_conf"),
+                       *band_keys("invoice.pick.presence", "noul_no_max", "noul_yes_min"))
+        roles: tuple[str, ...] = ("scored_fields", "required", "high_stakes", "informational_fields")
+    else:
+        policy_keys = band_keys("invoice.verify", *_NOUL_FIELDS)
+        roles = ("informational_fields", "high_stakes", "required", "required_review")
+        if not inputs["jev"]:
+            policy_keys += ("gpt_field_confidence.review_below", "gpt_field_confidence.measure", "gpt_field_confidence.info_only")
+            roles += ("scored_fields",)
+    keys = {"policy.json": policy_keys, f"types/{pack.key}.json": roles}
+    if pack.extends:
+        keys[f"types/_base/{pack.extends}.json"] = roles
+    return keys
+
+
 # The decision stage of the check registry (the S path's picks; the G path's verdicts and GPT confidence; the failed
-# record checks), in the order they run. 180: the cross-document and after-save stages are the finance domain's.
-checks.register(checks.Check("pick", "decision", apply_pick_policy, arms=("S",)))
-checks.register(checks.Check("verdict", "decision", apply_verdict_policy, arms=("G",)))
-checks.register(checks.Check("gpt_confidence", "decision", apply_gpt_confidence_policy, arms=("G",)))
-checks.register(checks.Check("validation", "decision", apply_validation_policy))
+# record checks), in the order they run, each with its pure rule. 180: the cross-document and after-save stages are the
+# finance domain's.
+checks.register(checks.Check("pick", "decision", apply_pick_policy, arms=("S",), rule=pick_rule))
+checks.register(checks.Check("verdict", "decision", apply_verdict_policy, arms=("G",), rule=verdict_rule))
+checks.register(checks.Check("gpt_confidence", "decision", apply_gpt_confidence_policy, arms=("G",), rule=gpt_confidence_rule))
+checks.register(checks.Check("validation", "decision", apply_validation_policy, rule=validation_rule))
+
+trace.register(trace.Point(
+    ROUTE_POINT, owner=__name__, files=("policy.json", "types/*.json"), rule=route_rule,
+    what="whether a document's extracted record is accepted or waits for a person, and the to-dos its decision raised: "
+         "the picks' bands and presence (S), a value without a source, a verification flag or a missing required field "
+         "(G), the GPT confidence without JEV, and the failed record checks",
+    not_for="the extraction itself (the AI's answers are inputs), the to-dos raised before the decision (text, OCR, a "
+            "failed question) or the cross-document checks (their to-dos are inputs)"))
 
 
 # --------------------------------------------------------------------------------------

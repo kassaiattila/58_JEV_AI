@@ -31,6 +31,7 @@ POINT_TESTS = {
     "detect.detail_type": "test_the_gpt_recognitions_contradiction_is_in_the_detailed_types_trace",
     "email.intent": "test_an_emails_intent_and_next_step_are_traced_with_its_save",
     "email.next_flow": "test_an_email_without_an_intent_traces_only_its_route",
+    "extract.route": "test_an_s_path_records_route_and_to_dos_are_traced_with_its_save",
 }
 
 
@@ -38,7 +39,7 @@ def test_every_decision_point_is_described_and_has_its_test():
     assert {p.code for p in trace.points()} == set(POINT_TESTS)
     for p in trace.points():
         assert p.what and p.not_for and p.owner and p.files and callable(p.rule), p.code
-        assert all(cfg.CONFIG_DIR.joinpath(f).is_file() for f in p.files), p.code
+        assert all(any(cfg.CONFIG_DIR.glob(f)) for f in p.files), p.code  # a file, or a pattern naming a family
         assert callable(globals()[POINT_TESTS[p.code]])
 
 
@@ -230,3 +231,151 @@ def test_an_email_whose_trace_cannot_be_written_saves_nothing(db, tmp_path, monk
     with store.connect() as c:  # the email, its run's result and its to-do are not written either
         for table in ("emails", "email_results", "review_reasons"):
             assert c.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
+
+
+# --- the extraction's point (M2) -----------------------------------------------------------------------------------
+
+
+def _extract_s(tmp_path):
+    from jav.ai import jev as jev_mod
+    from jav.flows.flow import run_one
+    from tests.pdfgen import INVOICE_LINES, write_text_pdf
+    from tests.test_runtime_worker import FakeClient
+
+    adapter = jev_mod.JevAdapter(client=FakeClient(), cache_dir=tmp_path / "cache", model="jev-1.13.0")
+    path = write_text_pdf(tmp_path / "invoice.pdf", INVOICE_LINES)
+    with jev_mod.use_adapter(adapter):
+        return run_one(str(path), "c1", "S", tracker=False, doc_type="invoice_hu")
+
+
+def _the_route_row(st_) -> dict:
+    from jav.ai import policy
+
+    (row,) = trace.rows(point=policy.ROUTE_POINT, subject=("document", st_.doc_id))
+    assert row["run_id"] == st_.run_id
+    # the to-dos raised before the decision and the ones it raised are the record's, in their stored order
+    assert row["inputs"]["earlier"] + row["outcome"]["reasons"] == st_.review_reasons
+    assert row["outcome"]["route"] == st_.route
+    assert trace.replay(row) == row["outcome"]
+    return row
+
+
+def test_an_s_path_records_route_and_to_dos_are_traced_with_its_save(db, tmp_path):  # noqa: F811
+    from jav.ai import typepack
+
+    st_ = _extract_s(tmp_path)
+    row = _the_route_row(st_)
+    inputs = row["inputs"]
+    assert (inputs["arm"], inputs["doc_type"], inputs["has_record"]) == ("S", "invoice_hu", True)
+    assert [p["field"] for p in inputs["picks"]] == list(st_.picks)  # in the order the to-dos are raised
+    for pick in inputs["picks"]:  # the two most likely options are all the band reads
+        assert len(pick["probabilities"]) <= 2
+        assert pick["confidence"] == st_.picks[pick["field"]].confidence
+    snapshot = rulebook.current()
+    files = {r["file"]: r for r in row["rules"]}
+    assert set(files) == {"policy.json", "types/invoice_hu.json"}
+    for name, r in files.items():
+        assert (r["version"], r["sha256"]) == (snapshot.files[name].version, snapshot.files[name].sha256)
+    assert "band_for.invoice.pick" in files["policy.json"]["keys"]
+    assert {"required", "high_stakes", "scored_fields"} <= set(files["types/invoice_hu.json"]["keys"])
+    assert typepack.get("invoice_hu").extends is None
+
+
+def test_a_g_path_without_jev_traces_its_gpt_confidence_to_dos(tmp_path):
+    from tests.test_no_jev_085 import GOOD, _run_g
+
+    st_ = _run_g(tmp_path, GOOD, jev=False)
+    with store.use_store(tmp_path / "f.sqlite"):
+        row = _the_route_row(st_)
+    inputs = row["inputs"]
+    assert (inputs["arm"], inputs["jev"], inputs["verdicts"]["source"]) == ("G", False, "code")
+    assert any(r.startswith("gpt:confidence_unavailable:") for r in row["outcome"]["reasons"])
+    assert {"gpt_field_confidence.review_below", "gpt_field_confidence.measure"} <= set(row["rules"][0]["keys"])
+
+
+def test_a_saved_state_decided_before_the_trace_is_saved_without_one(db, tmp_path):  # noqa: F811
+    from jav.flows import flow
+
+    st_ = _extract_s(tmp_path)
+    old = st_.model_copy(update={"route_inputs": None, "run_id": "r-old"})
+    flow.save(old)  # a run resumed at its save, decided by the code before the trace
+    assert [r["run_id"] for r in trace.rows(subject=("document", st_.doc_id))] == [st_.run_id]
+    with store.connect() as c:
+        assert c.execute("SELECT COUNT(*) FROM datapoints WHERE run_id='r-old'").fetchone()[0] == 1
+
+
+def test_an_extraction_whose_trace_cannot_be_written_saves_nothing(db, tmp_path, monkeypatch):  # noqa: F811
+    def broken(*args, **kwargs):
+        raise sqlite3.OperationalError("the trace could not be written")
+
+    monkeypatch.setattr(trace, "record_in", broken)
+    with pytest.raises(sqlite3.OperationalError):
+        _extract_s(tmp_path)
+    with store.connect() as c:  # the document, its record and its to-dos are not written either
+        for table in ("documents", "datapoints", "review_reasons"):
+            assert c.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
+
+
+_P = st.floats(min_value=0, max_value=1, allow_nan=False).map(lambda p: round(p, 4))
+_FIELDS = ("supplier_name", "supplier_tax_id", "buyer_name", "invoice_number", "issue_date", "gross_total", "payment_iban",
+           "supplier_address")
+
+
+@st.composite
+def _pick(draw, field: str):
+    from jav.ai.models import FieldPick
+
+    n = draw(st.integers(min_value=0, max_value=4))
+    probs = {f"c{i}": draw(_P) for i in range(n)}
+    chosen = draw(st.sampled_from(sorted(probs) + [None])) if probs else None
+    return FieldPick(field=field, label=chosen, confidence=(max(probs.values()) if probs else None), probabilities=probs,
+                     n_options=n, request_id="r", present_p=draw(st.none() | _P),
+                     n_candidates=draw(st.none() | st.integers(min_value=n, max_value=n + 2)))
+
+
+@st.composite
+def _s_state(draw):
+    from jav.ai.models import FlowState
+
+    fields = draw(st.lists(st.sampled_from(_FIELDS), unique=True, max_size=len(_FIELDS)))
+    earlier = draw(st.lists(st.sampled_from(["ocr:no_text", "pick:none:invoice_number"]), unique=True))
+    state = FlowState(doc_type="invoice_hu", source_path="synthetic.pdf", case_id="h", arm="S", review_reasons=earlier,
+                      needs_review=bool(earlier))  # the latch: a to-do raised before is a state waiting for a person
+    state.picks = {f: draw(_pick(f)) for f in fields}
+    return state
+
+
+@st.composite
+def _g_state(draw):
+    from jav.ai.models import CheckResult, DocumentRecord, FlowState, JevVerdicts
+
+    jev = draw(st.booleans())
+    state = FlowState(doc_type="invoice_hu", source_path="synthetic.pdf", case_id="h", arm="G", jev=jev)
+    if draw(st.booleans()):
+        state.record = DocumentRecord(supplier_name=draw(st.none() | st.just("Example Supplier Kft.")),
+                                      invoice_number=draw(st.none() | st.just("INV-1")), currency="HUF")
+    flags = draw(st.dictionaries(st.sampled_from(_FIELDS), st.dictionaries(st.sampled_from(["off_target", "wrong_kind"]), _P)))
+    state.verdicts = JevVerdicts(flags=flags, doc_flags=draw(st.dictionaries(st.just("parties_swapped"), _P)),
+                                 unsupported=draw(st.lists(st.sampled_from(_FIELDS), unique=True)),
+                                 source=draw(st.sampled_from(["jev", "code"])),
+                                 omitted=draw(st.lists(st.just("line_items"), unique=True)))
+    state.llm_token_p = draw(st.dictionaries(st.sampled_from(("supplier_name", "invoice_number", "currency")),
+                                             st.fixed_dictionaries({"joint": _P, "min": _P})))
+    state.validation = [CheckResult(name=n, ok=draw(st.booleans()), code="c.x", advisory=draw(st.booleans()))
+                        for n in draw(st.lists(st.sampled_from(["totals_consistency", "iban:payment_iban",
+                                                                "tax_id:supplier_tax_id"]), unique=True))]
+    return state
+
+
+@given(st.one_of(_s_state(), _g_state()))
+def test_the_traced_rule_is_the_decision_the_flow_makes_and_replays_the_same(state):
+    from jav.ai import policy
+
+    before = list(state.review_reasons)
+    route = policy.decide(state)  # outside a worker run: no cross-document check runs
+    inputs = state.route_inputs
+    assert inputs["earlier"] == before
+    # as the trace stores it: JSON with sorted keys
+    stored = json.loads(json.dumps({"inputs": inputs, "outcome": policy.route_rule(inputs)}, sort_keys=True))
+    assert stored["outcome"] == {"route": route, "reasons": state.review_reasons[len(before):]}
+    assert policy.route_rule(stored["inputs"]) == stored["outcome"]

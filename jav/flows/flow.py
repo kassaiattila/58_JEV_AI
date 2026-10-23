@@ -36,13 +36,14 @@ import logging
 import re
 import uuid
 from pathlib import Path
+from typing import Any
 
 from burr.core import ApplicationBuilder, action, default, expr, when
 from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 
 from jav.ai import checks, policy
-from jav.core import card_numbers, cfg, store
+from jav.core import card_numbers, cfg, store, trace
 from jav.core.config import TRACKER_PROJECTS
 from jav.ai.engine import with_engine
 from jav.ai.models import FlowState
@@ -260,10 +261,11 @@ def validate(state: FlowState) -> FlowState:
 @action.pydantic(
     reads=["arm", "picks", "verdicts", "validation", "record", "doc_type", "doc_id", "jev", "llm_token_p", "needs_review",
            "review_reasons"],
-    writes=["route", "needs_review", "review_reasons"],
+    writes=["route", "needs_review", "review_reasons", "route_inputs"],
 )
 def decide_route(state: FlowState) -> FlowState:
-    # 126: the duplicate check compares the document with the earlier ones in the store (worker runs only)
+    # 126: the duplicate check compares the document with the earlier ones in the store (worker runs only); 218 (P3b):
+    # what the decision read is kept for its trace (`route_inputs`)
     state.route = policy.decide(state)
     return state
 
@@ -321,11 +323,30 @@ def ground(state: FlowState) -> FlowState:
 
 @action.pydantic(
     reads=["run_id", "doc_id", "doc_type", "arm", "source_path", "has_text_layer", "text_source", "page_count", "record", "picks", "verdicts",
-           "validation", "route", "review_reasons", "needs_review", "provenance", "source_layer_id", "detail_probabilities"],
+           "validation", "route", "review_reasons", "needs_review", "provenance", "source_layer_id", "detail_probabilities",
+           "route_inputs"],
     writes=[],
 )
 def save(state: FlowState) -> FlowState:
-    """Durable save: documents + datapoints (+ review_queue if it goes to a person). Idempotent per run_id."""
+    """Durable save: documents + datapoints (+ review_queue if it goes to a person). Idempotent per run_id. 218 (P3b):
+    the document, its record, its to-dos and the route decision's trace in one write transaction: the store's own
+    writes join it as savepoints (`store.session`), so a stop in between leaves none of them (before: four to six)."""
+    with store.session(), store.connect() as c:
+        store.begin_immediate(c)
+        _save(state, c)
+    return state
+
+
+def _trace(c: Any, state: FlowState) -> None:
+    """The route's decision, in the save's transaction; a state decided before the trace (resumed at its save) has
+    none."""
+    if state.route_inputs is not None:
+        trace.record_in(c, policy.ROUTE_POINT, subject=("document", state.doc_id), inputs=state.route_inputs,
+                        outcome=policy.route_rule(state.route_inputs), keys=policy.route_keys(state.route_inputs),
+                        run_id=state.run_id)
+
+
+def _save(state: FlowState, c: Any) -> None:
     pack = get_pack(state.doc_type)
     store.upsert_document(
         doc_id=state.doc_id,
@@ -382,7 +403,7 @@ def save(state: FlowState) -> FlowState:
             payload={"arm": state.arm, "doc_type": state.doc_type, "datapoints": state.record.to_datapoints(pack.record_fields) if state.record else None},
         )
     checks.saved(state)  # 149 (185: the finance domain's check, `parties.confirm_detail_by_direction`)
-    return state
+    _trace(c, state)
 
 
 @action.pydantic(reads=[], writes=["final_status"])
@@ -474,7 +495,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/fl
         "validate": {"kind": "det", "note": "a csomag validátor-listája (a régi rules.json): áfa-egyenlet, dátumsorrend, adószám-ellenőrzőszám, IBAN mod-97, formátum-regexek"},
         "decide_route": {"kind": "det", "note": "policy.decide: küszöbök (configs/policy.json), a csomag kötelező / magas tétű mezői, additív review-latch -> auto | human"},
         "ground": {"kind": "det", "note": "mezőnkénti forráshely a szórétegen (S: a kiválasztott jelölt sora + a többi jelölt; G: kódos keresés címkével, configs/grounding.json); hiba esetén forráshely nélkül tovább"},
-        "save": {"kind": "store", "note": "documents + datapoints (mezőnkénti confidence, a hívási hely config_hash-e) + review_queue; 149: an uncertain detailed type between an outgoing and an incoming pack is settled by the own parties' direction (confirm_detail_by_direction)"},
+        "save": {"kind": "store", "note": "documents + datapoints (mezőnkénti confidence, a hívási hely config_hash-e) + review_queue; 149: an uncertain detailed type between an outgoing and an incoming pack is settled by the own parties' direction (confirm_detail_by_direction); 218: one write transaction with the route decision's trace (extract.route)"},
         "done": {"kind": "terminal", "note": "auto - elfogadva"},
         "needs_review": {"kind": "terminal", "note": "human - review-sorban, okokkal"},
         "needs_ocr": {"kind": "terminal", "note": "szöveg nélküli PDF, és az OCR sem adott használható szöveget (vagy nincs OCR-motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja"},
