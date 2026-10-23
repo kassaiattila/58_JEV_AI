@@ -12,7 +12,7 @@ import re
 
 import pytest
 
-from jav import data_guard
+from jav.devtools import data_guard
 from jav.core import card_numbers, cfg
 
 MC = ["5555", "5555", "5555", "4444"]  # Mastercard's published test number

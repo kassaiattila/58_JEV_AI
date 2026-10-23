@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import docsgen
+from jav.devtools import docsgen
 from jav.ai import policy, typepack
 from jav.core import cfg
 from jav.domains.email import email_tasks

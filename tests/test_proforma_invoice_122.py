@@ -43,7 +43,7 @@ def test_naming_labels_and_email_routing_know_the_type():
 
 
 def test_the_capability_catalog_covers_the_new_pack():
-    from jav.capability_catalog import build_catalog
+    from jav.devtools.capability_catalog import build_catalog
 
     keys = [d["key"] for d in build_catalog()["documents"]]
     assert "proforma_invoice" in keys

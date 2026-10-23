@@ -23,7 +23,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 from jav.core import cfg, devstate
-from jav.admin import STATE_PATH, flow_lint_summary, write_state
+from jav.devtools.admin import STATE_PATH, flow_lint_summary, write_state
 from jav.core.config import PROJECT_ROOT
 
 HANDOFFS = PROJECT_ROOT / "docs" / "handoffs"
@@ -172,7 +172,7 @@ def handoff_status() -> tuple[bool, str]:
 def data_guard_status() -> tuple[bool, str]:
     """071 S-adatőr: whether the versioned hooks are enabled, and whether the tracked files contain a blocking
     finding."""
-    from jav import data_guard
+    from jav.devtools import data_guard
 
     try:
         found = data_guard.scan_tracked(PROJECT_ROOT, data_guard.load_guard(PROJECT_ROOT))
@@ -190,7 +190,7 @@ def data_guard_status() -> tuple[bool, str]:
 
 def lang_guard_status() -> tuple[bool, str]:
     """073 language guard: no tracked file has more Hungarian lines than its baseline (configs/lang_guard.json)."""
-    from jav import lang_guard
+    from jav.devtools import lang_guard
 
     try:
         guard = lang_guard.load_guard(PROJECT_ROOT)
@@ -216,7 +216,7 @@ def preflight(*, skip_pytest: bool = False) -> int:
     lint = flow_lint_summary()
     results.append(("kontrakt-lint", all(ok for _, ok, _ in lint), ", ".join(f"{n}: {'PASS' if ok else f'FAIL({f})'}" for n, ok, f in lint)))
 
-    from jav import engine_matrix
+    from jav.devtools import engine_matrix
 
     ok, msg = engine_matrix.status()  # 160: every JEV call site has a counterpart without JEV or a stated exception
     results.append(("engine matrix", ok, msg))

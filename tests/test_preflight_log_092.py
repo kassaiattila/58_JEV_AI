@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from jav import preflight
+from jav.devtools import preflight
 
 OUT = ("..F.\n=========================== short test summary info ===========================\n"
        "FAILED tests/test_a.py::test_x - AssertionError: boom\n1 failed, 3 passed in 1.00s\n")

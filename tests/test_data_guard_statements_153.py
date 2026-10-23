@@ -6,7 +6,7 @@ paths and file types are now blocked (`requirements.txt` allowed), and a payment
 schemes' published test number stays allowed. Synthetic values only.
 """
 
-from jav import data_guard
+from jav.devtools import data_guard
 
 
 def _guard() -> data_guard.Guard:

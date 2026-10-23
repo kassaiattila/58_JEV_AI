@@ -21,7 +21,7 @@ re-check existing lines, so an old, tolerated value does not block an unrelated 
   files, binary files.
 - **On push**, a branch or tag built on a history listed under `forbidden_history` is also refused.
 
-Entry point for the hooks: `python -m jav.data_guard pre-commit | pre-push <remote> [url] | scan | install`.
+Entry point for the hooks: `python -m jav.devtools.data_guard pre-commit | pre-push <remote> [url] | scan | install`.
 The hooks: `scripts/githooks/` (`core.hooksPath`; installation: `python -m jav.cli hooks-install`).
 """
 

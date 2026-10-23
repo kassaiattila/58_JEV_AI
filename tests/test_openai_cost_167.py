@@ -63,11 +63,11 @@ def test_no_price_or_no_reported_usage_is_an_unknown_cost():
 
 
 def test_no_runtime_module_computes_an_openai_price_by_itself():
-    """The price table is read by the shared rule only (the admin report lists it; experiments are not runtime)."""
+    """The price table is read by the shared rule only (the admin report lists it)."""
     root = Path(config.PROJECT_ROOT)
-    readers = sorted(p.relative_to(root).as_posix() for p in (root / "jav").rglob("*.py")
-                     if "experiments" not in p.parts and re.search(r"\bOPENAI_USD_PER_MTOK\b", p.read_text(encoding="utf-8")))
-    assert readers == ["jav/admin.py", "jav/core/config.py"]
+    readers = {p.relative_to(root).as_posix() for p in (root / "jav").rglob("*.py")
+               if re.search(r"\bOPENAI_USD_PER_MTOK\b", p.read_text(encoding="utf-8"))}
+    assert readers == {"jav/devtools/admin.py", "jav/core/config.py"}
 
 
 class _Agent:

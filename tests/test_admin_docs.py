@@ -1,7 +1,7 @@
 """Administration plane - offline: models.json feeds the config, call-site catalogue generation, the admin report
 builds."""
 
-from jav import docsgen
+from jav.devtools import docsgen
 from jav.core import cfg, config
 
 
@@ -31,7 +31,7 @@ def test_callsite_docs_generate(tmp_path):
 
 
 def test_admin_report_sections():
-    from jav.admin import admin_report
+    from jav.devtools.admin import admin_report
 
     rep = admin_report()
     for head in ("## Konfigok", "## Modellek", "## Burr-kontraktok", "## Adattár", "## Utolsó golden", "## Nyitott review-sor"):
@@ -43,7 +43,7 @@ def test_admin_report_sections():
 def test_preflight_contract_gate_includes_native_and_rejects_its_drift(monkeypatch):
     import copy
 
-    from jav import preflight
+    from jav.devtools import preflight
     from jav.flows import flow_native
 
     summary = preflight.flow_lint_summary()
@@ -61,7 +61,7 @@ def test_preflight_contract_gate_includes_native_and_rejects_its_drift(monkeypat
 
 def test_write_state_is_generated_snapshot(tmp_path):
     """docs/STATE.md: generated header + the full admin report; the handoff references it."""
-    from jav.admin import write_state
+    from jav.devtools.admin import write_state
 
     out = write_state(tmp_path / "docs" / "STATE.md")
     text = out.read_text(encoding="utf-8")
@@ -70,7 +70,7 @@ def test_write_state_is_generated_snapshot(tmp_path):
 
 
 def test_preflight_handoff_status_reads_latest(tmp_path, monkeypatch):
-    from jav import preflight
+    from jav.devtools import preflight
 
     handoffs = tmp_path / "docs" / "handoffs"
     handoffs.mkdir(parents=True)
@@ -87,7 +87,7 @@ def test_preflight_handoff_status_reads_latest(tmp_path, monkeypatch):
 def test_preflight_without_local_handoffs_is_not_a_failure(tmp_path, monkeypatch):
     """070: the handoff is an internal working document; a fresh clone does not have it, which is a notice, not an
     error."""
-    from jav import preflight
+    from jav.devtools import preflight
 
     monkeypatch.setattr(preflight, "HANDOFFS", tmp_path / "nincs")
     ok, msg = preflight.handoff_status()
@@ -98,7 +98,7 @@ def test_preflight_names_the_failed_tests(monkeypatch, tmp_path):
     """086: an intermittent failure could not be identified from the summary line alone."""
     from types import SimpleNamespace
 
-    from jav import preflight
+    from jav.devtools import preflight
 
     monkeypatch.setattr(preflight, "PREFLIGHT_RUNS", tmp_path / "preflight")  # 092: the raw output is kept there
 

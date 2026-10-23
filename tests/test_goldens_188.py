@@ -358,7 +358,7 @@ def test_the_latest_result_of_each_golden_set_comes_from_the_receipts(tmp_path):
 
 
 def test_the_state_snapshot_shows_every_golden_set(monkeypatch, tmp_path):
-    from jav import admin
+    from jav.devtools import admin
 
     monkeypatch.setattr(goldens, "RUNS_DIR", tmp_path)
     head = {"receipt": "measure", "commit": "abc1234", "clean": True, "engine": "jev", "use_cache": True}

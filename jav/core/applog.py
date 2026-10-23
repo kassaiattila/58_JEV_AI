@@ -37,7 +37,7 @@ _SECRET_MIN_LEN = 12
 @lru_cache(maxsize=1)
 def _secret_pattern() -> re.Pattern[str] | None:
     """One pattern for every secret value (plain, JSON-escaped and bytes-repr forms), longest first."""
-    from jav.data_guard import read_env_secrets  # deferred: the data guard is a tool module, loaded only when logging
+    from jav.devtools.data_guard import read_env_secrets  # deferred: the data guard is a tool module, loaded only when logging
 
     values = set(read_env_secrets(ENV_FILE).values())
     values |= {v for name, v in os.environ.items() if _SECRET_NAME.search(name) and len(v) >= _SECRET_MIN_LEN}

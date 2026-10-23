@@ -41,7 +41,7 @@ def _refresh_deps_audit() -> None:
 
 def cmd_flows(args: argparse.Namespace) -> int:
     """Burr contracts: lint (contract <-> live graph <-> source) + FLOW.md / FLOW.mmd generation under docs/flows/."""
-    from jav import admin
+    from jav.devtools import admin
     from jav.flows import contract
 
     all_ok = True
@@ -58,7 +58,7 @@ def cmd_flows(args: argparse.Namespace) -> int:
 
 def cmd_docs(args: argparse.Namespace) -> int:
     """Generated docs: docs/flows (contracts) + docs/callsites (JEV call sites) + docs/BANK_FILES.md (146)."""
-    from jav import docsgen
+    from jav.devtools import docsgen
 
     for p in docsgen.write_callsite_docs():
         print(f"  -> {p}")
@@ -68,7 +68,7 @@ def cmd_docs(args: argparse.Namespace) -> int:
 
 
 def cmd_admin(args: argparse.Namespace) -> int:
-    from jav.admin import admin_report, write_state
+    from jav.devtools.admin import admin_report, write_state
 
     if args.write:
         print(f"  -> {write_state()}")
@@ -78,13 +78,13 @@ def cmd_admin(args: argparse.Namespace) -> int:
 
 
 def cmd_preflight(args: argparse.Namespace) -> int:
-    from jav.preflight import preflight
+    from jav.devtools.preflight import preflight
 
     return preflight(skip_pytest=args.skip_pytest)
 
 
 def cmd_data_guard(args: argparse.Namespace) -> int:
-    from jav import data_guard
+    from jav.devtools import data_guard
     from jav.core.config import PROJECT_ROOT
 
     found = data_guard.scan_tracked(PROJECT_ROOT, data_guard.load_guard(PROJECT_ROOT))
@@ -97,8 +97,8 @@ def cmd_data_guard(args: argparse.Namespace) -> int:
 
 
 def cmd_lang_guard(args: argparse.Namespace) -> int:
-    """073 language guard: no tracked file may gain Hungarian lines; see jav/lang_guard.py."""
-    from jav import lang_guard
+    """073 language guard: no tracked file may gain Hungarian lines; see jav/devtools/lang_guard.py."""
+    from jav.devtools import lang_guard
     from jav.core.config import PROJECT_ROOT
 
     if args.same_code:
@@ -220,7 +220,7 @@ def cmd_package_versions_backfill(args: argparse.Namespace) -> int:
 
 
 def cmd_hooks_install(args: argparse.Namespace) -> int:
-    from jav import data_guard
+    from jav.devtools import data_guard
     from jav.core.config import PROJECT_ROOT
 
     print(data_guard.install_hooks(PROJECT_ROOT))

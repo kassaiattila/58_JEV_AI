@@ -1,7 +1,7 @@
 """160 (plan F-csak-gpt, Sz0): every JEV call site has a counterpart without JEV, or a stated exception, and a test.
 
 `configs/engine_matrix.json` lists each JEV call site with its GPT (or code) counterpart or an exception of an allowed
-kind, and the tests that cover it; the preflight checks four rules (`jav/engine_matrix.py`): coverage (every call-site
+kind, and the tests that cover it; the preflight checks four rules (`jav/devtools/engine_matrix.py`): coverage (every call-site
 config and every module that asks JEV is listed), a counterpart or an exception (exactly one, with existing modules),
 existing tests, and nothing stale. The rules are checked here on small synthetic trees.
 """
@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from jav import engine_matrix
+from jav.devtools import engine_matrix
 
 JEV_CALLER = "from jav.ai.jev import JevAdapter\n\n\ndef ask(jev: JevAdapter):\n    return jev.ask('x', {}, {})\n"
 PASSED_ADAPTER = "def ask(adapter):\n    return adapter.ask('x', {}, {})\n"

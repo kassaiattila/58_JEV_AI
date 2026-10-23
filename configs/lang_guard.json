@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.119",
-    "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
+    "version": "1.0.120",
+    "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.120",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the developer tools' modules moved into jav/devtools/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.119",
         "date": "2026-10-23",
@@ -736,7 +741,6 @@
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
     "docs/guides/USER_GUIDE.md": 253,
-    "jav/admin.py": 15,
     "jav/ai/candidates.py": 66,
     "jav/ai/detect.py": 1,
     "jav/ai/detect_detail.py": 2,
@@ -772,8 +776,11 @@
     "jav/core/store.py": 27,
     "jav/core/taxid.py": 3,
     "jav/core/version.py": 1,
-    "jav/data_guard.py": 29,
-    "jav/docsgen.py": 48,
+    "jav/devtools/admin.py": 15,
+    "jav/devtools/data_guard.py": 29,
+    "jav/devtools/docsgen.py": 48,
+    "jav/devtools/lang_guard.py": 1,
+    "jav/devtools/preflight.py": 14,
     "jav/documents/ocr.py": 5,
     "jav/documents/pdf.py": 8,
     "jav/documents/synthetic_pdf.py": 3,
@@ -800,9 +807,7 @@
     "jav/flows/flow.py": 19,
     "jav/flows/flow_detect.py": 10,
     "jav/flows/persistence.py": 2,
-    "jav/lang_guard.py": 1,
     "jav/legacy_import.py": 4,
-    "jav/preflight.py": 14,
     "jav/prompts/altalanos_szerzodesi_feltetelek_prompt.md": 1,
     "jav/prompts/belepo_jegy_prompt.md": 7,
     "jav/prompts/belepo_jegy_taught_prompt.md": 9,

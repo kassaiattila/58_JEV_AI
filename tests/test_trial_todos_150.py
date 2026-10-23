@@ -80,7 +80,7 @@ def test_the_run_items_earlier_count_leaves_out_trial_reasons(runs):
 
 
 def test_the_state_report_splits_the_open_reasons_by_run_kind(runs):
-    from jav import admin
+    from jav.devtools import admin
 
     assert admin.reasons_by_run_kind() == {"live": 1, "trial": 1, "no_run": 1}
 

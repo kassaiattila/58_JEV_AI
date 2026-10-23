@@ -84,7 +84,7 @@ python -m jav.cli store | eval-report [runs/*.jsonl] [--out f] | admin [--write]
 python -m jav.cli backup [--with-docs] [--with-burr] [--copy-to <dir>] | burr-prune [--no-vacuum]   # store backup (daily: --scheduled) | thin out the Burr state store
 python -m jav.cli hooks-install | data-guard [--all]        # 071 data guard: enable the git hooks (once per clone) | scan the tracked tree
 python -m jav.cli deps-audit [--show]                       # 075 known vulnerabilities in the pinned packages (weekly with the daily backup)
-python -m jav.capability_catalog                  # deterministic inventory of types and intents
+python -m jav.devtools.capability_catalog                  # deterministic inventory of types and intents
 ```
 
 `JAV_OCR_ENGINE=azure_di <command>`: Azure DI, called directly when `AZURE_DI_ENDPOINT` and `AZURE_DI_KEY` are in `.env` (121, `jav/documents/azure_di.py`), otherwise through the legacy sidecar (only for PDFs under the legacy data folder). **Paid**, page-limited, never chosen by `auto`, but OCR escalation (`configs/ocr.json`) calls it automatically on weak local OCR; since 075 only within the run's Azure budget (recipe switch `azure_ocr`, 0.02 USD per document by default) and through the call log (`jav/documents/ocr.py` `azure_recognise`). Live Outlook download: from the UI (Settings › Mailboxes) or with the Outlook bridge ported into `scripts/outlook_bridge.ps1` (148: Sent Items too); the exact command is in the README's email section. Keys live in `.env` (`TypeSafeJAV_API_KEY`, `OPENAI_API_KEY`, optionally `AZURE_DI_ENDPOINT` + `AZURE_DI_KEY`; optional variables: `.env.example`); never print a value.

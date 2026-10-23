@@ -37,7 +37,6 @@ ALLOWED = {layer: (*LAYERS[: i + 1], *(("evals", "devtools", "legacy") if layer 
 
 # not in its layer's folder yet: module (relative to jav) -> its layer ("domains.<domain>" for a domain's module)
 NOT_MOVED = {name: layer for layer, names in {
-    "devtools": "admin capability_catalog data_guard docsgen engine_matrix lang_guard preflight",
     "legacy": "legacy_import legacy_packs typepack_convert",
 }.items() for name in names.split()}
 
@@ -56,7 +55,7 @@ KNOWN = {
     # the shared views show the worker's state
     ("jav.app.work_views", "jav.runtime.worker"),
     # the operations log masks keys with the data guard's patterns
-    ("jav.core.applog", "jav.data_guard"),
+    ("jav.core.applog", "jav.devtools.data_guard"),
     # the quote's business modules read the invented price list of its golden set
     ("jav.domains.quotes.quote_letter", "jav.domains.quotes.invented_golden"), ("jav.domains.quotes.quote_match", "jav.domains.quotes.invented_golden"),
 }

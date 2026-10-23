@@ -11,7 +11,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from jav import data_guard
+from jav.devtools import data_guard
 from jav.ai import validators
 from jav.ai.models import DocumentRecord
 from tests.test_properties_067 import hu_account

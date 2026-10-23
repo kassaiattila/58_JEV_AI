@@ -14,7 +14,7 @@ them hyphenated, `1234-5678-9012-3456`), and a 15-digit American Express number 
 masking recognises and what the guard stops cannot drift apart.
 
 Layer: a business helper without dependencies; `jav.domains.finance.statement_table` (the readers), `jav.domains.finance.reconcile` (the pairing
-views of a statement extracted by AI), the saving and the downloads of extracted data, and `jav.data_guard` use it.
+views of a statement extracted by AI), the saving and the downloads of extracted data, and `jav.devtools.data_guard` use it.
 """
 
 from __future__ import annotations

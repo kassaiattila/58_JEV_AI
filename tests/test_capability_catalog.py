@@ -1,4 +1,4 @@
-from jav.capability_catalog import build_catalog
+from jav.devtools.capability_catalog import build_catalog
 
 
 def test_catalog_covers_legacy_types_nested_datapoints_and_active_intents():

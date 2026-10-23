@@ -1,4 +1,4 @@
-"""071 S-adatőr (070 plan 2.1): the pre-commit and pre-push guard against personal data and keys (`jav/data_guard.py`).
+"""071 S-adatőr (070 plan 2.1): the pre-commit and pre-push guard against personal data and keys (`jav/devtools/data_guard.py`).
 
 This file deliberately contains no real-looking value: the tests compute the check-digit samples at run time and
 assemble the email addresses and keys from pieces. This way the test itself passes the data guard.
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import data_guard
+from jav.devtools import data_guard
 from jav.core import taxid
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -180,7 +180,7 @@ def test_blocked_paths(guard, rel):
     assert guard.check_path(rel) is not None
 
 
-@pytest.mark.parametrize("rel", [".env.example", "jav/data_guard.py", "docs/GLOSSARY.md", "configs/data_guard.json",
+@pytest.mark.parametrize("rel", [".env.example", "jav/devtools/data_guard.py", "docs/GLOSSARY.md", "configs/data_guard.json",
                                  "scripts/githooks/pre-commit", "ui/src/App.tsx"])
 def test_allowed_paths(guard, rel):
     assert guard.check_path(rel) is None
@@ -287,7 +287,7 @@ def test_report_gives_only_the_matching_advice():
 
 
 def test_preflight_flags_missing_hooks_and_blocking_findings(monkeypatch):
-    from jav import preflight
+    from jav.devtools import preflight
 
     monkeypatch.setattr(data_guard, "scan_tracked", lambda root, guard: [])
     monkeypatch.setattr(data_guard, "hooks_installed", lambda root: False)
@@ -304,4 +304,4 @@ def test_preflight_flags_missing_hooks_and_blocking_findings(monkeypatch):
 def test_versioned_hooks_exist_and_call_the_guard():
     for name, arg in (("pre-commit", "pre-commit"), ("pre-push", "pre-push")):
         text = (ROOT / data_guard.HOOKS_DIR / name).read_text(encoding="utf-8")
-        assert text.startswith("#!/bin/sh") and f"jav.data_guard {arg}" in text and "\r" not in text
+        assert text.startswith("#!/bin/sh") and f"jav.devtools.data_guard {arg}" in text and "\r" not in text

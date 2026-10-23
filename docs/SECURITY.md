@@ -183,7 +183,7 @@ The repository is private and has a single maintainer. Report security issues di
 
 | Protection | Code | Setting | Test |
 |---|---|---|---|
-| data guard | `jav/data_guard.py`, `scripts/githooks/pre-commit`, `scripts/githooks/pre-push`; enabling: `python -m jav.cli hooks-install` (`core.hooksPath`); whole tree: `python -m jav.cli data-guard [--all]` | `configs/data_guard.json`: `forbidden_history`, `blocked_paths`, `blocked_extensions`, `allow`, `known`, `deny` | `tests/test_data_guard_071.py` |
+| data guard | `jav/devtools/data_guard.py`, `scripts/githooks/pre-commit`, `scripts/githooks/pre-push`; enabling: `python -m jav.cli hooks-install` (`core.hooksPath`); whole tree: `python -m jav.cli data-guard [--all]` | `configs/data_guard.json`: `forbidden_history`, `blocked_paths`, `blocked_extensions`, `allow`, `known`, `deny` | `tests/test_data_guard_071.py` |
 | internal working documents | `jav/core/doc_scope.py` (`INTERNAL_DOC_PATTERNS`), `.gitignore` | – | `tests/test_doc_scope_070.py`, `tests/test_doc_links.py` |
 | backup | `jav/runtime/backup.py` (`Connection.backup`, `PRAGMA integrity_check`, the copy verified by content hash; `internal-docs.zip`; `_sync_sources`: every saved source instance checked by its content hash, a damaged one repaired; every instance the saved database refers to must be intact in the backup, or the backup fails) | `backup`: `keep` 14, `with_burr` false, `with_docs` true, `copy_to` | `tests/test_ops_064.py`, `tests/test_backup_docs_070.py` |
 

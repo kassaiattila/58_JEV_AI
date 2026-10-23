@@ -10,7 +10,7 @@ from __future__ import annotations
 import threading
 from types import SimpleNamespace
 
-from jav import preflight
+from jav.devtools import preflight
 
 DONE = SimpleNamespace(stdout="3 passed in 1.00s\n", stderr="", returncode=0)
 

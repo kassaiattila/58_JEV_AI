@@ -220,7 +220,7 @@ def callsite_md(name: str) -> str:
     spec = spec_for(name)
     data = cfg.load(f"callsite:{name}")
     lines = [f"# Jev-hívási hely — `{name}`", "",
-             "> Generálva a `configs/` tartalmából és a `ledger` táblából (`jav/docsgen.py`, `python -m jav.cli docs`). Ne szerkeszd kézzel.", "",
+             "> Generálva a `configs/` tartalmából és a `ledger` táblából (`jav/devtools/docsgen.py`, `python -m jav.cli docs`). Ne szerkeszd kézzel.", "",
              f"- **Flow / lépés:** {spec['flow']}",
              f"- **Konfig:** `configs/callsites/{name}.json` v{data['meta']['version']}" + (f" + regiszter `configs/{spec['registry']}.json` v{cfg.version(spec['registry'])}" if spec["registry"] else "") + f" → `config_hash` = {_hash_text(name)}",
              f"- **Ledger step-ek:** {', '.join(f'`{s}`' for s in spec['steps'])}; adapter: `jav/ai/jev.py` (kérés-hash cache, ledger)",
