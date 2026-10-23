@@ -311,6 +311,25 @@ def _activity(scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
+def _waiting(scope: dict[str, str]) -> Rows:
+    """216 (plan G-process-core P2e): what waits for a person ("Waiting for me", `jav/app/waiting.py`): their open human
+    tasks and anyone's, oldest first; only live work unless the scope's `all` is given (the owner's decision of
+    2026-10-23). The task's column links to where it is done (`next`: the row's package and stage)."""
+    from jav.app import waiting
+
+    cols = [
+        col("kind", "Kind", "enum", labels="task_kind"),
+        col("what", "What", link="next", wrap="anywhere", clamp=2),
+        col("workpackage_name", "Work package", link="workpackage"),
+        col("opened_at", "Waiting since", "datetime"),
+        col("origin", "Origin", "enum", labels="task_origin"),
+        col("assignee", "For", "enum", labels="task_assignee"),
+        col("reason", "First to-do", clamp=2),
+        col("reasons", "Open to-dos", "number"),
+    ]
+    return cols, waiting.rows(scope["actor"], every_origin=scope.get("all") == "true")
+
+
 def _item_name(item: dict[str, Any], titles: dict[str, str]) -> str:
     return titles.get(item["item_id"]) or Path(item["source_path"]).name
 
@@ -731,6 +750,7 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("file_names", "Fájlnevek", ("run_id",), _file_names, _run_fingerprint),
     Dataset("calls", "Hívásnapló", ("run_id",), _calls, _calls_fingerprint),
     Dataset("activity", "Tevékenységnapló", ("actor",), _activity, optional_scope=("day",)),
+    Dataset("waiting", "Waiting for me", ("actor",), _waiting, optional_scope=("all",)),  # 216
 ]}
 
 
