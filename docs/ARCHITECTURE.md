@@ -714,8 +714,9 @@ raised the item last (`store.run_of` of the item's run; a measurement's item has
 what it is about and the kind of run that opened it (live, trial, measurement); when another package's run raises the
 item, the task goes to that package's person. It is decided when a person resolves the item's last reason (the
 outcome lists the reasons people resolved) and withdrawn when a machine closes it. An item never reopens (the next
-to-do of its subject is a new item), so its task stays in its first round. A logic pack without runs (a
-reconciliation, a quote) waits for its own approval as `own_approval:<package>` from when the package is made
+to-do of its subject is a new item), so its task stays in its first round. A logic pack a person approves as its
+own version (`LogicPack.own_approval`: a reconciliation, a quote; the email routing is done when every attachment is
+decided and has none) waits for that approval as `own_approval:<package>` from when the package is made
 (`work.create_workpackage`, by the pack's kind), and again when its approved version is reopened
 (`package_release.reopen_own`); the approval decides it on the fingerprint the person approved
 (`package_release.record_own`) and, for a workflow step's package, sends the case the same `approval` event as a run's

@@ -18,11 +18,12 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from jav.app import human_tasks, work, work_readiness, work_recipes, work_runs, workflows as wf
+from jav.app import human_tasks, logic_packs, work, work_readiness, work_recipes, work_runs, workflows as wf
 from jav.core import store
 from jav.core.process import tasks
+from jav.domains.email import email_routing
 from jav.domains.finance import reconcile_package as rp, reconcile_statement as rs
-from jav.domains.quotes import quote_draft
+from jav.domains.quotes import quote_draft, quote_package
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_quote_draft_192 import _done, env, quote  # noqa: F401 - the fixtures are used by name
 from tests.test_reconcile_package_131 import _line, _stmt
@@ -211,6 +212,15 @@ def test_a_quotes_approval_is_its_task_too(quote):  # noqa: F811
     assert (tasks.get(tid).status, tasks.get(tid).outcome) == ("decided", {"version": 1})
     quote_draft.reopen(wp_id, note="The customer asked for four monitors", actor="bela")
     assert (tasks.get(tid).status, tasks.get(tid).round, tasks.get(tid).opened_by.id) == ("open", 2, "local:bela")
+
+
+def test_only_a_logic_pack_a_person_approves_as_its_own_version_waits_for_an_approval(db):  # noqa: F811
+    assert set(logic_packs.kinds_with_own_approval()) == {rp.KIND, quote_package.KIND}
+    routing = work.create_workpackage(name="Routing", source_kind=email_routing.KIND, source_ref=None, owner="t")["id"]
+    plain = work.create_workpackage(name="Plain", source_kind="manual", source_ref=None, owner="t")["id"]
+    assert [tasks.get(tasks.task_id(human_tasks.OWN_APPROVAL, wp)) for wp in (routing, plain)] == [None, None]
+    _next_start()  # nor does the adoption give them one
+    assert tasks.open_tasks(kind=human_tasks.OWN_APPROVAL) == []
 
 
 def test_a_deleted_package_withdraws_its_approval_task_and_an_archived_one_keeps_it(db):  # noqa: F811

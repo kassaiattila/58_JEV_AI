@@ -18,8 +18,9 @@ open tasks go to whom the rule names now (`package_owner_changed`).
   item has no package: anyone's), and goes to another person when another package's run raises it; it is decided when
   a person resolves the item's last reason, and withdrawn when a machine closes it (a re-run, a supersede, the step
   that no longer finds it). It keeps what it is about and the kind of run that opened it (live, trial, measurement).
-- `own_approval:<package>` (P2d): a logic pack without runs (a reconciliation, a quote) waits for its own approval
-  from when it is made (`work.create_workpackage`) and again when its approved version is reopened
+- `own_approval:<package>` (P2d): a logic pack a person approves as its own version (`LogicPack.own_approval`: a
+  reconciliation, a quote; not the email routing, which is done when every attachment is decided) waits for that
+  approval from when it is made (`work.create_workpackage`) and again when its approved version is reopened
   (`package_release.reopen_own`); the approval decides it (`package_release.record_own`), on the fingerprint of what
   the person approved, and a deleted package withdraws it. An archived one keeps it open: restoring it needs the same
   approval. In a workflow the approval sends its step the same event as a run's approval.
@@ -185,8 +186,9 @@ def own_approval_waits(c: sqlite3.Connection, wp_id: str, *, by: actors.Actor = 
 
 
 def package_made(c: sqlite3.Connection, wp_id: str, kind: str) -> None:
-    """A new package, in the transaction that writes it: a logic pack without runs waits for its own approval."""
-    if kind in logic_packs.kinds_without_runs():
+    """A new package, in the transaction that writes it: one of a logic pack a person approves as its own version
+    waits for that approval."""
+    if kind in logic_packs.kinds_with_own_approval():
         own_approval_waits(c, wp_id)
 
 
@@ -262,7 +264,7 @@ SETTLED_UNSEEN = "settled while no task was kept"
 
 
 def _missing(conn: sqlite3.Connection) -> tuple[list[sqlite3.Row], list[str], list[str], list[str]]:
-    kinds = logic_packs.kinds_without_runs()  # complete once the registrations are loaded; adopted at a later start
+    kinds = logic_packs.kinds_with_own_approval()  # complete once the registrations are loaded; else at a later start
     own = [r["id"] for r in conn.execute(_MISSING_OWN.format(kinds=", ".join("?" * len(kinds))), kinds)] if kinds else []
     return (conn.execute(_MISSING_REVIEWS).fetchall(), [r["run_id"] for r in conn.execute(_MISSING_RUNS)], own,
             [r["task_id"] for r in conn.execute(_STALE)])

@@ -215,6 +215,7 @@ LOGIC = logic_packs.LogicPack(
            logic_packs.InputRole("price_list", "master_data", "the seller's active price list")),
     has_runs=False, add_refusal="a quote package has no documents of its own: its request stays in its package",
     release_refusal=_release_refusal, delete_guard=quote_draft.delete_guard, page=_page, approved=_approved,
+    own_approval=True,  # 215: the quote is approved as the package's own version
     next_step=next_step, list_next=next_step,
     list_mark=lambda: (price_lists.mark(), quote_proposal.mark(), quote_draft.mark(), quote_letter.mark()),
     outputs=("quote",),  # 196: the approved quote's Word document (`jav/domains/quotes/quote_document.py`)
