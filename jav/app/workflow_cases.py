@@ -25,6 +25,12 @@ recorded, a failed step retried, a wait ended, a done step reopened; the start i
 run, which takes it once), a linked package (`person_links`, the same without the mark), the automatic chain switched
 on (`chain_on`: the steps waiting for a person go on).
 
+215 (P2b): a step over its budget asks a person as a human task in the case (`ask_budget`, `BUDGET_TASK`), and the
+person's start decides it (`person_starts`): its closing event ends the step's wait. When a run of a step's package is
+approved or withdrawn, the step waiting for its package's approval gets an event in that transaction
+(`package_settled`), so the chain moves on at once. The step's kind takes both events and refuses one of an earlier
+round of its task (`task_event`).
+
 The workflow's own data (its party, period, steps' sources, budgets, packages, and the step state the interface
 reads) stay in its own tables (`jav.app.workflows`).
 
@@ -43,7 +49,7 @@ from typing import Any
 
 from jav.core import store
 from jav.core.process import actor as actors
-from jav.core.process import cases
+from jav.core.process import cases, kinds, tasks
 from jav.core.process.cases import Adopted
 from jav.core.process.definition import ProcessDef, StepDef
 
@@ -58,6 +64,10 @@ FETCH, APPROVAL, BUDGET, PERSON = "fetch", "approval", "budget", "person"
 CHECK = "check"  # the timer of a step that waits for its fetch or its package's approval
 ADOPTION = "workflow-adoption"  # the machine that adopts the workflows made before
 GO = "go"  # a person's start, marked on the step's result until its next run takes it
+BUDGET_TASK = "workflow_budget"  # 215: the human task of a step over its budget, `workflow_budget:<workflow>:<step>`
+MACHINE = actors.machine("workflows")
+
+tasks.register_kind(tasks.TaskKind(BUDGET_TASK, __name__))
 
 # a workflow step's stored state -> the core's state and what a running step waits for (adoption)
 _ADOPTED: dict[str, tuple[str, str | None]] = {
@@ -186,12 +196,56 @@ def _open_for(c: sqlite3.Connection, wf_id: str, step: str, who: actors.Actor, r
         cases.reopen_in(c, wf_id, step, who, reason=reason)
 
 
-def person_starts(c: sqlite3.Connection, wf_id: str, step: str, actor: str) -> None:
+def budget_task(wf_id: str, step: str) -> str:
+    return tasks.task_id(BUDGET_TASK, f"{wf_id}:{step}")
+
+
+def ask_budget(c: sqlite3.Connection, wf_id: str, step: str, assignee: str | None, detail: dict[str, Any]) -> None:
+    """215: the step's package's estimate is over its budget: a person decides, in the caller's transaction that
+    records the wait. While the step runs in the case, the task is its wait (a person's start decides it); otherwise
+    (a step no turn of the case runs) it stands on its own and the start ends the wait as before."""
+    in_case = (c.execute("SELECT 1 FROM process_steps WHERE case_id=? AND step_id=? AND state=?",
+                         (wf_id, step, cases.RUNNING)).fetchone() is not None)
+    tasks.open_in(c, BUDGET_TASK, f"{wf_id}:{step}", MACHINE, assignee=assignee, detail=detail,
+                  **({"case_id": wf_id, "step_id": step, "waits": BUDGET} if in_case else {}))
+
+
+def person_starts(c: sqlite3.Connection, wf_id: str, step: str, actor: str, *, decision: Any = None) -> None:
     """A person starts the step now, in the caller's transaction: it runs at the case's next turn, and that run takes
-    the person's start once (`take_go`)."""
+    the person's start once (`take_go`). 215: a step waiting for a budget has its task decided by the start
+    (`decision`); the task's closing event ends the wait in the case."""
     adopt(c, wf_id)
-    _open_for(c, wf_id, step, maker(actor), "a person started the step")
+    who = maker(actor)
+    task = tasks.task_in(c, budget_task(wf_id, step))
+    asked = task is not None and task.status == tasks.OPEN
+    if asked:
+        tasks.decide_in(c, budget_task(wf_id, step), who, outcome=decision)
+    if not (asked and task is not None and task.case_id is not None):  # else the task's closing ends the wait
+        _open_for(c, wf_id, step, who, "a person started the step")
     cases.set_result(c, wf_id, step, {GO: actor})
+
+
+def package_settled(c: sqlite3.Connection, wp_id: str, event_id: str, payload: dict[str, Any],
+                    actor: actors.Actor) -> bool:
+    """215: a run of the package was approved or withdrawn, in that change's transaction: the workflow step whose
+    package it is, when it waits for its package's approval, gets the event (its next turn looks again). False when
+    no step waits."""
+    row = c.execute("SELECT workflow_id, step FROM workflow_steps WHERE workpackage_id=?", (wp_id,)).fetchone()
+    if row is None:
+        return False
+    st = c.execute("SELECT state, waiting_for FROM process_steps WHERE case_id=? AND step_id=?",
+                   (row["workflow_id"], row["step"])).fetchone()
+    if st is None or st["state"] != cases.RUNNING or st["waiting_for"] != APPROVAL:
+        return False
+    return cases.send_event_in(c, row["workflow_id"], event_id, APPROVAL, payload, actor,
+                               step_id=row["step"]) == "accepted"
+
+
+def task_event(ctx: object, c: sqlite3.Connection, event: cases.Event) -> str:
+    """215: the step's kind takes a task's closing (its budget decided, its package's run settled); one of an earlier
+    round of the task (the task opened again since) is refused."""
+    task = tasks.task_in(c, str(event.payload.get("task")))
+    return kinds.APPLIED if task is not None and task.round == event.payload.get("round") else kinds.REFUSED
 
 
 def person_links(c: sqlite3.Connection, wf_id: str, step: str, actor: str) -> None:

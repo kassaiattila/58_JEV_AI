@@ -26,6 +26,11 @@ workflow step kind (`_case_step`) does under the case's claim what the step's st
 woken turn of the case, `tick` the worker's turns; a person's start, link and the chain switched on reach the case in
 the transaction of the workflow's own change. The stored state stays what the interface reads.
 
+215 (P2b): a step over its budget asks a person as a human task, opened with the wait (`workflow_cases.ask_budget`)
+and decided by the person's start; the approval of a run of a step's package sends the case an event
+(`jav.app.human_tasks`), which the worker takes at each of its rounds (`take_events`, not throttled like `tick`), so the
+chain moves on at once. The check timer stays as the safety net.
+
 147 (DECISIONS 147): a workflow is repeated for the next period from a draft the wizard shows filled in
 (`repeat_draft`); a documents step may take only the documents no live run has processed yet (`only_new`), so the
 folder of a year's invoices does not bring last month's back. The two workflows are linked (`previous_id`).
@@ -55,8 +60,8 @@ from pathlib import Path
 from typing import Any
 
 from jav.app import (
-    app_settings, logic_packs, package_scope, parties, scopes, work, work_readiness, work_recipes, work_runs,
-    workflow_cases, workflow_steps,
+    app_settings, human_tasks, logic_packs, package_scope, parties, scopes, work, work_readiness, work_recipes,
+    work_runs, workflow_cases, workflow_steps,
 )
 from jav.core import activity_kinds, cfg, store
 from jav.core.process import engine as process_engine
@@ -748,7 +753,7 @@ def start_step(wf_id: str, step: str, *, actor: str, budget: dict[str, Any] | No
         if new is not None:
             _update_step(c, wf_id, step, budget=json.dumps(new))
             _event(c, wf_id, step, "budget", actor, {"from": st["budget"], "to": new})
-        workflow_cases.person_starts(c, wf_id, step, actor)
+        workflow_cases.person_starts(c, wf_id, step, actor, decision={"budget": new if new is not None else st["budget"]})
     _turn(wf_id, actor)
     return view(wf_id)
 
@@ -928,8 +933,11 @@ def _start_run(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], wp_
         over = {p: str(v) for p, v in estimate.items() if v > Decimal(budget.get(p, "0"))}
         if over:
             note = {"estimate": {p: str(v) for p, v in estimate.items()}, "budget": budget, "over": over}
-            _done(wf, step, actor, "needs_budget", state="needs_budget", workpackage_id=wp_id,
-                  note=json.dumps(note))
+            with store.connect() as c:  # 215: the wait, its event and the person's task in one transaction
+                store.begin_immediate(c)
+                if _update_step(c, wf["id"], step, state="needs_budget", workpackage_id=wp_id, note=json.dumps(note)):
+                    _event(c, wf["id"], step, "needs_budget", actor, {"workpackage_id": wp_id, "note": json.dumps(note)})
+                    workflow_cases.ask_budget(c, wf["id"], step, human_tasks.assignee_for(c, wp_id, wf["actor"]), note)
             return
         res = work_runs.start_run(wp_id, mode="apply", expected_assignment_revision=ready["assignment_revision"],
                              input_hash=ready["input_hash"], actor=actor)
@@ -990,6 +998,19 @@ def tick(now: float | None = None) -> int:
         except Exception:  # one workflow's trouble does not stop the others
             log.exception("workflow %s could not advance", case_id)
     return len(rows)
+
+
+def take_events() -> int:
+    """215 (P2b): the worker's look at each of its rounds, not throttled like `tick`: the workflow cases an event has
+    come for (a run of a step's package approved, a budget decided) get their turn now, so the chain moves on at once.
+    Returns how many it turned."""
+    moved = 0
+    for case_id in process_engine.cases_with_events(definition_prefix=workflow_cases.DEFINITION_PREFIX):
+        try:
+            moved += _turn(case_id, None, wake=False)
+        except Exception:  # one workflow's trouble does not stop the others
+            log.exception("workflow %s could not take its events", case_id)
+    return moved
 
 
 # --- the process core moves the steps on (214, plan G-process-core P1b-3) -------------------------------------------------
@@ -1090,8 +1111,11 @@ def _drive(ctx: process_engine.StepContext, wf: dict[str, Any], sdef: dict[str, 
 
 
 # 214: registered on import, not by `register`: a case whose step kind the running code lacks waits for a migration for
-# good, so any process that turns a workflow's case must know it
-process_kinds.register(process_kinds.StepKind(workflow_cases.STEP_KIND, __name__, _case_step))
+# good, so any process that turns a workflow's case must know it. 215: it takes a task's closing for the budget and the
+# package's approval it waits for (an earlier round's is refused); a case of before goes the same way
+process_kinds.register(process_kinds.StepKind(workflow_cases.STEP_KIND, __name__, _case_step,
+                                              events=(workflow_cases.BUDGET, workflow_cases.APPROVAL),
+                                              on_event=workflow_cases.task_event))
 
 
 # --- the wizard's estimate -----------------------------------------------------------------------------------------------

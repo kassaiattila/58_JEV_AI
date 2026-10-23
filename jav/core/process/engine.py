@@ -51,12 +51,14 @@ CREATE TABLE IF NOT EXISTS process_claims (
 );
 """)
 
-_DUE_WHERE = """c.status='open' AND c.waiting_for IS NULL AND (
+_OPEN_WHERE = "c.status='open' AND c.waiting_for IS NULL"
+_EVENT_TAKEN = """EXISTS (SELECT 1 FROM process_inbox e JOIN process_steps s ON s.case_id=e.case_id AND s.state='running'
+               AND s.waiting_for=e.kind AND (e.step_id IS NULL OR e.step_id=s.step_id)
+               WHERE e.case_id=c.case_id AND e.status='pending')"""
+_DUE_WHERE = f"""{_OPEN_WHERE} AND (
     EXISTS (SELECT 1 FROM process_steps s WHERE s.case_id=c.case_id
             AND (s.state='ready' OR (s.state='running' AND s.waiting_for IS NULL)))
-    OR EXISTS (SELECT 1 FROM process_inbox e JOIN process_steps s ON s.case_id=e.case_id AND s.state='running'
-               AND s.waiting_for=e.kind AND (e.step_id IS NULL OR e.step_id=s.step_id)
-               WHERE e.case_id=c.case_id AND e.status='pending')
+    OR {_EVENT_TAKEN}
     OR EXISTS (SELECT 1 FROM process_timers t WHERE t.case_id=c.case_id AND t.status='armed' AND t.due_at<=?))"""
 _DUE = f"SELECT c.case_id FROM process_cases c WHERE {_DUE_WHERE} ORDER BY c.updated_at, c.case_id"
 
@@ -213,10 +215,21 @@ def release(case_id: str) -> None:
 def due_cases(now: float | None = None, *, definition_prefix: str | None = None) -> list[str]:
     """214: the cases with something to do now, oldest change first; with `definition_prefix` only those whose process
     definition's id starts with it (one family of definitions, e.g. the workflows')."""
-    sql, args = f"SELECT c.case_id FROM process_cases c WHERE {_DUE_WHERE}", [time.time() if now is None else now]
+    return _cases(_DUE_WHERE, [time.time() if now is None else now], definition_prefix)
+
+
+def cases_with_events(*, definition_prefix: str | None = None) -> list[str]:
+    """215: the open cases, not on hold, with a pending event a waiting step of theirs takes (a human task's closing),
+    oldest change first; with `definition_prefix` only one family's. A cheap look for a caller that turns them at
+    once."""
+    return _cases(f"{_OPEN_WHERE} AND {_EVENT_TAKEN}", [], definition_prefix)
+
+
+def _cases(where: str, args: list[Any], definition_prefix: str | None) -> list[str]:
+    sql = f"SELECT c.case_id FROM process_cases c WHERE {where}"
     if definition_prefix is not None:
         sql += " AND substr(c.definition_id, 1, ?) = ?"
-        args += [len(definition_prefix), definition_prefix]
+        args = [*args, len(definition_prefix), definition_prefix]
     with store.connect() as c:
         return [r["case_id"] for r in c.execute(sql + " ORDER BY c.updated_at, c.case_id", args)]
 

@@ -489,9 +489,9 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
             # 048 T2: a download job for each due mailbox schedule (185: a domain's tick, `jav/runtime/job_kinds.py`);
             # 057: scan the watched work folders that are due. 063: a scheduler error does not stop the worker (the
             # error is logged and retried in the next round). 146: the workflows' automatic chain moves on (at most
-            # every workflows.TICK_EVERY_S)
+            # every workflows.TICK_EVERY_S); 215: and at once on an event for it (a run of a step's package approved)
             for name, tick in ((*((t.name, t.run) for t in job_kinds.ticks()), ("folders.tick", app_settings.tick),
-                                ("workflows.tick", workflows.tick))):
+                                ("workflows.tick", workflows.tick), ("workflows.take_events", workflows.take_events))):
                 try:
                     tick()
                 except Exception:  # noqa: BLE001 - operational safety net, logged
