@@ -55,8 +55,6 @@ NOT_MOVED = {name: layer for layer, names in {
         "registrations reground scopes source_instances tablequery work work_readiness work_recipes work_runs "
         "work_views workflow_steps workflows",
     "runtime": "backup deps_audit",
-    "domains.quotes": "api_price_lists api_quote_package price_lists quote_document quote_draft quote_golden "
-        "quote_goldens quote_letter quote_match quote_package quote_pricing quote_proposal quote_request",
     "service": "api api_items api_outputs api_results api_runs api_settings api_system api_workflows "
         "api_workpackages local_picker picker_dialog service_shared",
     "cli": "cli_options maintenance_cli measure_cli outputs_cli type_teaching_cli work_cli",
@@ -84,7 +82,7 @@ KNOWN = {
     # the operations log masks keys with the data guard's patterns
     ("jav.runtime.applog", "jav.data_guard"),
     # the quote's business modules read the invented price list of its golden set
-    ("jav.quote_letter", "jav.quote_golden"), ("jav.quote_match", "jav.quote_golden"),
+    ("jav.domains.quotes.quote_letter", "jav.domains.quotes.invented_golden"), ("jav.domains.quotes.quote_match", "jav.domains.quotes.invented_golden"),
 }
 # imports against the direction for good, each with its reason
 LASTING = {
@@ -109,13 +107,9 @@ MODULES = _modules()
 
 def domain_modules(domain: str) -> frozenset[str]:
     """The modules a domain (`jav.domains.<name>`) is made of, relative to jav: its package and the modules in its folder
-    (208), or, for a domain not in its folder yet, the ones its domain module names (`MODULES`)."""
-    import importlib
-
+    (208; until then its domain module named them in `MODULES`)."""
     name = domain.removeprefix("jav.")
-    if MODULES[name].name == "__init__.py":
-        return frozenset(m for m in MODULES if m == name or m.startswith(name + "."))
-    return frozenset(importlib.import_module(domain).MODULES)
+    return frozenset(m for m in MODULES if m == name or m.startswith(name + "."))
 
 
 def _resolve(dotted: str) -> str | None:
@@ -210,15 +204,3 @@ def test_no_domain_imports_another_domain():
                  and _place(a[4:])[1] != _place(b[4:])[1]}
     assert crossings == set()
 
-
-def test_a_domain_module_lists_exactly_its_not_moved_modules():
-    """Until a domain is in its folder, its domain module's `MODULES` and this test's list agree."""
-    import importlib
-
-    from jav.domains import DOMAINS
-
-    for domain in DOMAINS:
-        modules = getattr(importlib.import_module(domain), "MODULES", None)
-        if modules is not None:
-            listed = {n for n, layer in NOT_MOVED.items() if layer == domain.removeprefix("jav.")}
-            assert set(modules) - {domain.removeprefix("jav.")} == listed, domain

@@ -123,7 +123,7 @@ def code_hashes(name: str) -> dict[str, str]:
 
         return {"reconcile_line": reconcile_ai.jev_hash()}
     if name == "quote_match":  # 191: the quote's price list match
-        from jav import quote_match
+        from jav.domains.quotes import quote_match
 
         return {"quote_match": quote_match.jev_hash()}
     from jav import typepack

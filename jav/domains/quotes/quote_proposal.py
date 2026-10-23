@@ -4,7 +4,7 @@ F-quote-package B4c).
 Plain-language summary (DECISIONS 191): the owner asked that the system proposes the quote's content. On a quote
 package's page a person asks for the proposal; the button shows its cost cap (`configs/quotes.json`: a budget per
 requested item and provider). The local service only queues the request; the worker matches each requested item with
-the active price list (`jav/quote_match.py`), with the application's AI engine (JEV, or GPT without JEV), under that
+the active price list (`jav/domains/quotes/quote_match.py`), with the application's AI engine (JEV, or GPT without JEV), under that
 budget and through the call log, and stores each item's answer and mark. The latest proposal of a package is kept; it
 says which request and price list version it was made for, so the page can tell when the request or the list has
 changed since. Nothing is decided: a person reviews every line (B5).
@@ -24,7 +24,8 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from jav import app_settings, cfg, price_lists, quote_match, quote_request, store
+from jav import app_settings, cfg, store
+from jav.domains.quotes import price_lists, quote_match, quote_request
 from jav.runtime import calls, job_kinds
 from jav.user_messages import explained
 from jav.clock import utc_stamp as _now
@@ -79,7 +80,7 @@ def _active() -> price_lists.PriceList | None:
 
 
 def _source(wp_id: str) -> quote_request.Request:
-    from jav import quote_package
+    from jav.domains.quotes import quote_package
 
     ref = quote_package.request_of(wp_id)
     if not ref:

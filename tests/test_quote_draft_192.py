@@ -14,7 +14,8 @@ import copy
 
 import pytest
 
-from jav import decisions, price_lists, quote_draft, quote_golden, quote_package, quote_proposal, store, work
+from jav import decisions, store, work
+from jav.domains.quotes import price_lists, quote_draft, invented_golden, quote_package, quote_proposal
 from jav.runtime import worker
 from tests import test_email_text_follow_up_190 as follow
 from tests.test_email_text_follow_up_190 import OUT, _package, _run
@@ -39,7 +40,7 @@ def quote(env, tmp_path, monkeypatch):
     monkeypatch.setattr(quote_proposal.quote_match, "match", _answer)
     source = _package(env)
     _run_id, item = _run(source)
-    made = price_lists.add("Invented 2026", "p.xlsx", quote_golden.write_price_list(tmp_path / "p.xlsx").read_bytes(),
+    made = price_lists.add("Invented 2026", "p.xlsx", invented_golden.write_price_list(tmp_path / "p.xlsx").read_bytes(),
                            actor="anna")
     price_lists.activate(made["price_list"], 1, actor="anna")
     wp_id = quote_package.create(name="Office", source=source, item_id=item["item_id"], actor="anna")["workpackage_id"]

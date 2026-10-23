@@ -41,4 +41,4 @@ def test_every_domain_module_names_its_service_and_has_its_modules() -> None:
 def test_the_quotes_domain_is_the_third() -> None:
     assert DOMAINS[2] == "jav.domains.quotes"
     quotes = importlib.import_module("jav.domains.quotes")
-    assert {"domains.quotes", "quote_golden"} <= domain_modules(quotes.__name__)
+    assert {"domains.quotes", "domains.quotes.invented_golden"} <= domain_modules(quotes.__name__)

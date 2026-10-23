@@ -14,7 +14,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import quote_draft, quote_letter, work
+from jav import work
+from jav.domains.quotes import quote_draft, quote_letter
 from jav.runtime import worker
 from tests import test_quote_draft_192 as q192
 
@@ -205,10 +206,10 @@ class _ByLanguage:
 
 
 def test_the_golden_set_is_every_invented_request_with_a_quote_and_the_injection_probe():
-    from jav import quote_golden
+    from jav.domains.quotes import invented_golden
 
     cases = quote_letter.golden_cases()
-    expected = [c.id for c in quote_golden.load().cases if c.expected.request is not None and c.expected.quote is not None]
+    expected = [c.id for c in invented_golden.load().cases if c.expected.request is not None and c.expected.quote is not None]
     assert [c["id"] for c in cases] == [*expected, "probe_injection_hu"]
     assert {c["language"] for c in cases} == {"hu", "en"}
     assert all(c["lines"] and c["requested"] for c in cases)

@@ -10,7 +10,8 @@ GPT; no paid call.
 
 from __future__ import annotations
 
-from jav import corrections, item_kinds, quote_package
+from jav import corrections, item_kinds
+from jav.domains.quotes import quote_package
 from jav.domains.email import mailbox
 from tests import test_email_text_follow_up_190 as follow
 from tests.test_email_text_follow_up_190 import OUT, _package, _run
@@ -20,7 +21,7 @@ env = follow.env  # the 190 fixture: a mailbox package of one quote request emai
 
 def test_the_quotes_domain_adds_its_part_to_an_email_item():
     parts = item_kinds.item_parts("email")
-    assert [(p.name, p.module) for p in parts] == [("quote_request", "jav.quote_package")]
+    assert [(p.name, p.module) for p in parts] == [("quote_request", "jav.domains.quotes.quote_package")]
     assert item_kinds.item_parts("document") == []
 
 

@@ -57,7 +57,7 @@ export interface QuoteDraftLine extends QuoteLineIn {
   checked_by: string | null; checked_at: string | null; mark: QuoteLineMark | null; proposed_sku: string | null;
   candidates: string[];
 }
-/** A line priced by code (`jav/quote_pricing.py`): amounts as canonical text. */
+/** A line priced by code (`jav/domains/quotes/quote_pricing.py`): amounts as canonical text. */
 export interface QuotePricedLine {
   sku: string | null; name: string; quantity: string; unit: string; list_price: string | null; unit_price: string;
   manual_price: boolean; discount_percent: string; discount_from: "rule" | "manual" | null; net: string;
@@ -75,7 +75,7 @@ export type QuoteDraftBlockerCode = "quote:line_no_item" | "quote:line_no_descri
 export type QuoteDraftWarningCode = "quote:price_list_superseded" | "quote:request_changed" | "quote:request_missing";
 export interface QuoteListItem { sku: string; name: string; unit: string; unit_price: string; category: string | null }
 export interface QuoteTotals { net: string; vat: string; gross: string }
-/** The quote as an approval records it (`jav/quote_draft.py` `_content`). */
+/** The quote as an approval records it (`jav/domains/quotes/quote_draft.py` `_content`). */
 export interface QuoteApproved {
   header: Record<string, string | null>; totals: QuoteTotals | null; currency: string; vat_percent: string;
   lines: (Partial<Omit<QuotePricedLine, "sku" | "name">> & { id: string; row: number | null; requested: QuoteDraftLine["requested"];
@@ -96,14 +96,14 @@ export interface QuoteDraftView {
   /** 196: the language of the quote's documents, and the languages it can be */
   language: string | null; languages: string[];
 }
-/** 196 (plan F-Word-output W3): the reply letter of the approved version (`jav/quote_letter.py` `view`): GPT's
+/** 196 (plan F-Word-output W3): the reply letter of the approved version (`jav/domains/quotes/quote_letter.py` `view`): GPT's
  *  paragraph and its state, the code's check of it, the body to accept, the accepted one, and the cap of asking GPT. */
 export interface QuoteLetterView {
   version: number | null; state: "queued" | "running" | "done" | "failed" | null; paragraph: string | null;
   problems: string[]; error: string | null; body: string | null; accepted: { body: string; by: string; at: string } | null;
   decision_state: number; to: string | null; subject: string | null; cap: Record<string, string>; usage: unknown;
 }
-/** 192 (B6a): an email's quote request (`jav/quote_package.py` `email_part`): the request, what it lacks as a whole,
+/** 192 (B6a): an email's quote request (`jav/domains/quotes/quote_package.py` `email_part`): the request, what it lacks as a whole,
  *  the quotes already made from it and the item a quote starts from. */
 export interface QuoteEmailPart {
   request: QuoteRequest; gaps: { code: QuoteBlockerCode; message: string }[]; quotes: { id: string; name: string }[];

@@ -40,7 +40,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from jav import activity_kinds, cfg, decisions, naming, package_release, quote_document, quote_request, store, work
+from jav import activity_kinds, cfg, decisions, naming, package_release, store, work
+from jav.domains.quotes import quote_document, quote_request
 from jav.clock import utc_stamp as _now
 from jav.outputs import contract, docx, markers
 from jav.runtime import calls, job_kinds
@@ -452,9 +453,9 @@ INJECTION_PROBE = {
 def golden_cases() -> list[dict[str, Any]]:
     """The invented quote requests with their expected quote (`configs/golden_quotes.json`), each as the content a
     letter is written from, and the injection probe."""
-    from jav import quote_golden
+    from jav.domains.quotes import invented_golden
 
-    data = quote_golden.load()
+    data = invented_golden.load()
     names = {i.sku: i.name for i in data.price_list.items}
     out = []
     for case in data.cases:

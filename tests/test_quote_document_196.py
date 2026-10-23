@@ -16,7 +16,8 @@ from pathlib import Path
 import pytest
 from docx import Document
 
-from jav import package_release, quote_document, quote_draft, quote_golden, store
+from jav import package_release, store
+from jav.domains.quotes import quote_document, quote_draft, invented_golden
 from jav.outputs import builtin, docx, templates
 from tests import test_quote_draft_192 as q192
 
@@ -45,7 +46,7 @@ def _text(data: bytes) -> str:
 
 
 def test_the_language_of_every_invented_request_is_estimated_by_code():
-    golden = quote_golden.load()
+    golden = invented_golden.load()
     for case in golden.cases:
         items = case.expected.request.items if case.expected.request else ()
         texts = [case.message.subject, *(i.written for i in items)]

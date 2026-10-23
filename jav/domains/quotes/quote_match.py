@@ -6,7 +6,7 @@ three questions together (`configs/callsites/quote_match.json`): which item of t
 items, by name, code, unit and group, plus none), whether the list sells such a thing at all, and whether the request
 says enough to tell one item (several monitors, and no size asked). JEV answers them, or GPT with the same texts when
 the application runs without JEV (`configs/gpt_quote_match.json`, `jav/gpt_choice.py`). No price goes to the model: code
-prices the line (`jav/quote_pricing.py`).
+prices the line (`jav/domains/quotes/quote_pricing.py`).
 
 An answer is marked with the default policy bands (`jav/policy.py`, call site `quote.match`): `sure` (the list sells it,
 the request is specific, and the choice is clear), `not_listed` (the list sells nothing of the kind, or none is chosen),
@@ -32,7 +32,8 @@ from typing import Any
 
 from typesafe_sdk import Choice, Noul
 
-from jav import cfg, policy, price_lists
+from jav import cfg, policy
+from jav.domains.quotes import price_lists
 from jav.adapters.jev import get_adapter
 from jav.adapters.jev import disabled as jev_disabled
 from jav.config import RUNS_DIR
@@ -240,7 +241,7 @@ def golden(*, engine: str, limits: dict[str, Decimal], use_cache: bool = True, o
     set's price list with the engine and judged against its expected match, under the owner's sub-budget (`limits`; an
     engine without one is refused before any call; `earlier_only`: without a budget, earlier answers only). Raw rows:
     `runs/<stamp>_quote_matches.jsonl`."""
-    from jav import quote_golden, quote_pricing
+    from jav.domains.quotes import invented_golden, quote_pricing
 
     if earlier_only:
         if limits:
@@ -248,7 +249,7 @@ def golden(*, engine: str, limits: dict[str, Decimal], use_cache: bool = True, o
         print(calls.NO_BUDGET_NOTE)
     elif PROVIDERS[engine] not in limits:
         raise ValueError(f"no budget for: {engine}")
-    data = quote_golden.load()
+    data = invented_golden.load()
     prices = quote_pricing.golden_price_list(data)
     cases = [c for c in data.cases if c.expected.request is not None]
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")

@@ -15,10 +15,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import evals_quotes, goldens, quote_golden, typepack
+from jav import evals_quotes, goldens, typepack
+from jav.domains.quotes import invented_golden
 from jav.models import record_from_llm
 
-GOLDEN = quote_golden.load()
+GOLDEN = invented_golden.load()
 CASES = {c.id: c for c in GOLDEN.cases}
 
 

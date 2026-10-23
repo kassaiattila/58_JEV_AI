@@ -77,10 +77,10 @@ def test_no_business_module_of_a_domain_imports_the_measurement_registry() -> No
 def test_the_business_modules_load_without_the_measurement_layer() -> None:
     """Importing the reconciliation and the quote package, and every domain's registrations, loads no measurement code
     (until 204 they loaded the registry, which loads the runners where they measure)."""
-    code = ("import json, sys, jav.quote_package, jav.domains.finance.reconcile_package\n"
+    code = ("import json, sys, jav.domains.quotes.quote_package, jav.domains.finance.reconcile_package\n"
             "from jav import registrations\n"
             "registrations.load_all()\n"
-            "print(json.dumps(sorted(m for m in ('jav.goldens', 'jav.quote_goldens', 'jav.domains.finance.goldens') "
+            "print(json.dumps(sorted(m for m in ('jav.goldens', 'jav.domains.quotes.goldens', 'jav.domains.finance.goldens') "
             "if m in sys.modules)))")
     out = subprocess.run([sys.executable, "-c", code], cwd=PROJECT_ROOT, capture_output=True, text=True, check=True,
                          encoding="utf-8")
@@ -89,18 +89,18 @@ def test_the_business_modules_load_without_the_measurement_layer() -> None:
 
 def test_each_domain_names_its_own_measurement_modules() -> None:
     assert MEASUREMENT == {"jav.domains.finance": ("jav.domains.finance.goldens",), "jav.domains.email": (),  # names none
-                           "jav.domains.quotes": ("jav.quote_goldens",)}
+                           "jav.domains.quotes": ("jav.domains.quotes.goldens",)}
     for domain, names in MEASUREMENT.items():
         for name in names:
             assert name.removeprefix("jav.") in MODULES[domain], name
             assert _imports_goldens(name.removeprefix("jav.")), name  # a measurement module is the one that does
-    assert goldens.measurement_modules() == ["jav.domains.finance.goldens", "jav.quote_goldens"]
+    assert goldens.measurement_modules() == ["jav.domains.finance.goldens", "jav.domains.quotes.goldens"]
 
 
 def test_the_logic_packs_golden_sets_come_from_the_measurement_modules() -> None:
     found = goldens.logic_pack_goldens()
     assert [g.key for g in found] == LOGIC_PACKS
-    owner = {"reconcile": "jav.domains.finance.goldens", "quote": "jav.quote_goldens"}  # 208: each domain's goldens.py
+    owner = {"reconcile": "jav.domains.finance.goldens", "quote": "jav.domains.quotes.goldens"}  # 208: each domain's goldens.py
     assert {g.key: g.module for g in found} == {key: owner[key.split(":")[0]] for key in LOGIC_PACKS}
     assert {(g.layer, g.owner) for g in found} == {("logic_pack", "reconcile"), ("logic_pack", "quote")}
 

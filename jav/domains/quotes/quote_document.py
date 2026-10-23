@@ -5,7 +5,7 @@ Hungarian or English or from a template of their own. The quote's data - its hea
 totals - is built here as the output contract's `quote` (`configs/outputs.json`), and laid out by the output layer:
 the package's chosen own Word template, or the built-in one (`configs/quote_documents.json`), filled the same way
 (`jav/outputs/docx.py`). No number is computed here: every amount is the approved quote's, priced by
-`jav/quote_pricing.py`. The approval stores the document with its version (`package_release.store_own_files`), so the
+`jav/domains/quotes/quote_pricing.py`. The approval stores the document with its version (`package_release.store_own_files`), so the
 download of a version never changes; a reopened version keeps the document it was approved with. The draft can be
 downloaded too, marked as a draft.
 

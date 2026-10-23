@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.110",
+    "version": "1.0.111",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.111",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the quotes domain's modules moved into jav/domains/quotes/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.110",
         "date": "2026-10-23",
@@ -723,6 +728,8 @@
     "jav/domains/email/mailbox.py": 18,
     "jav/domains/finance/finance_datasets.py": 23,
     "jav/domains/finance/report_utility.py": 13,
+    "jav/domains/quotes/quote_document.py": 1,
+    "jav/domains/quotes/quote_letter.py": 3,
     "jav/eval_report.py": 21,
     "jav/evals.py": 29,
     "jav/evals_detect.py": 20,
@@ -770,8 +777,6 @@
     "jav/prompts/viz_szamla_prompt.md": 21,
     "jav/prompts/viz_szamla_schema.json": 2,
     "jav/prompts/vizmuvek_szamla_prompt.md": 17,
-    "jav/quote_document.py": 1,
-    "jav/quote_letter.py": 3,
     "jav/runtime/calls.py": 3,
     "jav/runtime/persistence.py": 2,
     "jav/runtime/worker.py": 1,

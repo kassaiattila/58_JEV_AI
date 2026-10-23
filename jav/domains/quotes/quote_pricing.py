@@ -11,7 +11,7 @@ editor records the note, B5); such a line says so, and a line outside the list a
 - `price(lines, price_list)`: the priced quote; `PricingError` when a line cannot be priced;
 - `price_line(line, price_list)`, `totals(lines, price_list)`: one line, and the totals of priced lines (192, the editor);
 - `golden_price_list(golden)`: the invented golden set's price list as a version; 204 (R1h): its quotes are priced and
-  compared in the quotes domain's measurement module (`jav/quote_goldens.py`, the code-only golden set `quote:lines`).
+  compared in the quotes domain's measurement module (`jav/domains/quotes/goldens.py`, the code-only golden set `quote:lines`).
 
 Layer: business module of the quotes domain; pure code, no store, no AI call.
 """
@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
-from jav import price_lists
+from jav.domains.quotes import price_lists
 
 HUNDRED = Decimal(100)
 
@@ -140,7 +140,7 @@ def price(lines: list[LineInput], prices: price_lists.PriceList) -> PricedQuote:
 
 
 def golden_price_list(golden: Any) -> price_lists.PriceList:
-    """The invented golden set's price list as a price list version (`jav/quote_golden.py`)."""
+    """The invented golden set's price list as a price list version (`jav/domains/quotes/invented_golden.py`)."""
     p = golden.price_list
     return price_lists.PriceList(
         price_list="golden", name="golden", version=1, state="active", currency=p.currency, vat_percent=p.vat_percent,

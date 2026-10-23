@@ -5,12 +5,12 @@ reconciliation or the data extraction can, that the system proposes the quote's 
 changes it beside the request. A quote package starts from one request: an email or a document already processed and
 read as a quote request, in any package (the owner's choice; uploading files into the quote is not part of it). Its
 processing stays in that package; the quote reads its counted result, put together from the email's text and its
-attachments (`jav/quote_request.py`), as the reconciliation reads the statements' results. Its gaps are judged on the
+attachments (`jav/domains/quotes/quote_request.py`), as the reconciliation reads the statements' results. Its gaps are judged on the
 whole request: no customer, no requested item, no active price list, or a request that can no longer be read.
 
-B3 made the package and shows its request; B4 proposes the quote's lines (`jav/quote_proposal.py`); B5 (192) is the
+B3 made the package and shows its request; B4 proposes the quote's lines (`jav/domains/quotes/quote_proposal.py`); B5 (192) is the
 page where a person composes the quote from the proposal and approves it as a version of the package's own
-(`jav/quote_draft.py`).
+(`jav/domains/quotes/quote_draft.py`).
 
 - `candidates(q)`: the requests a quote can start from, each with the quotes already made from it;
 - `create(name, source, item_id)`: a quote package naming its request (the shared package scope's `request` part);
@@ -27,8 +27,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav import (app_settings, item_kinds, logic_packs, package_release, package_scope, price_lists, quote_draft,
-                 quote_letter, quote_proposal, quote_request, store, work, workflow_steps)
+from jav import app_settings, item_kinds, logic_packs, package_release, package_scope, store, work, workflow_steps
+from jav.domains.quotes import price_lists, quote_draft, quote_letter, quote_proposal, quote_request
 from jav.tablequery import fold
 from jav.user_messages import explained
 
@@ -207,7 +207,7 @@ def _release_refusal() -> Exception:
     return explained(work.NotReady, "a quote package has no run result to release: its quote is approved on its own page")
 
 
-# 204 (R1h): the quote package's golden sets are the quotes domain's measurement module's (`jav/quote_goldens.py`)
+# 204 (R1h): the quote package's golden sets are the quotes domain's measurement module's (`jav/domains/quotes/goldens.py`)
 LOGIC = logic_packs.LogicPack(
     kind=KIND, module=__name__,
     roles=(logic_packs.InputRole(REQUEST, "linked_package", "the quote request: an email or a document read as one"),
@@ -216,8 +216,8 @@ LOGIC = logic_packs.LogicPack(
     release_refusal=_release_refusal, delete_guard=quote_draft.delete_guard, page=_page, approved=_approved,
     next_step=next_step, list_next=next_step,
     list_mark=lambda: (price_lists.mark(), quote_proposal.mark(), quote_draft.mark(), quote_letter.mark()),
-    outputs=("quote",),  # 196: the approved quote's Word document (`jav/quote_document.py`)
-    service="jav.api_quote_package")
+    outputs=("quote",),  # 196: the approved quote's Word document (`jav/domains/quotes/quote_document.py`)
+    service="jav.domains.quotes.api_quote_package")
 
 
 def _workflow_start(_ctx: workflow_steps.StepStart) -> None:

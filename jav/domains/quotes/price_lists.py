@@ -13,7 +13,7 @@ was priced from by its number and fingerprint (which covers the items, the rules
 An Excel file is read through the isolated native reader (`jav/readers/isolation.py`, its default limits); a CSV file
 with the standard library, its separator (semicolon, comma or tab) found from its first line. No AI call.
 
-Layer: business module of the quotes domain (`jav/domains/quotes.py`): the check and the store.
+Layer: business module of the quotes domain (`jav/domains/quotes/__init__.py`): the check and the store.
 """
 
 from __future__ import annotations

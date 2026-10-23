@@ -14,7 +14,8 @@ import importlib
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from jav import api, price_lists
+from jav import api
+from jav.domains.quotes import price_lists
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 BASE = "http://127.0.0.1:8930"

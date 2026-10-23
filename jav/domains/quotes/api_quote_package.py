@@ -9,17 +9,17 @@
   `PUT /workpackages/{id}/quote/draft`: the draft after a change (409 from a stale page, 422 for a number that cannot
   be read or an item the price list does not have); `POST .../quote/approve` (409 when it changed or is not ready),
   `POST .../quote/reopen` (422 without a reason), each returning the draft's view; `GET .../quote/versions/{n}`: an
-  approved version as it was approved (404 without one). `jav.quote_draft` answers a package that is not a quote's
+  approved version as it was approved (404 without one). `jav.domains.quotes.quote_draft` answers a package that is not a quote's
   with 404 itself.
 - (196) `GET .../quote/versions/{n}/quote.docx`: an approved version's Word document as it was stored;
   `GET .../quote/draft/quote.docx`: the draft's, marked as a draft (422 while a line is not priced);
-  `GET .../quote/letter`: the reply letter of the approved version (`jav.quote_letter`); `POST .../quote/letter/paragraph`:
+  `GET .../quote/letter`: the reply letter of the approved version (`jav.domains.quotes.quote_letter`); `POST .../quote/letter/paragraph`:
   queues GPT's paragraph for the worker (422 without an approved version); `PUT .../quote/letter`: the body a person
   accepts (409 from a stale page); `GET .../quote/versions/{n}/letter.eml`: the letter file (422 before it is accepted).
 
 The package's own part of its page comes with the work package's view (`LogicPack.page`).
 
-Layer: UI/CLI gateway → `jav.quote_package`, `jav.quote_proposal`, `jav.quote_draft` (application operations of the
+Layer: UI/CLI gateway → `jav.domains.quotes.quote_package`, `jav.domains.quotes.quote_proposal`, `jav.domains.quotes.quote_draft` (application operations of the
 quotes domain).
 """
 
@@ -33,7 +33,8 @@ from fastapi import Query as QueryParam
 from fastapi.responses import Response
 from pydantic import Field
 
-from jav import package_release, quote_draft, quote_letter, quote_package, quote_proposal, work, work_views
+from jav import package_release, work, work_views
+from jav.domains.quotes import quote_draft, quote_letter, quote_package, quote_proposal
 from jav.service_shared import Empty, In, WpId, attachment_header, human_actor
 
 

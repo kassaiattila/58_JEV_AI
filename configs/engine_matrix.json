@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "engine_matrix",
-    "version": "1.0.9",
+    "version": "1.0.10",
     "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
     "changelog": [
+      {
+        "version": "1.0.10",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the quotes domain's modules moved into jav/domains/quotes/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.9",
         "date": "2026-10-23",
@@ -110,10 +115,10 @@
     "quote_match": {
       "call_site": "quote_match",
       "modules": [
-        "jav/quote_match.py"
+        "jav/domains/quotes/quote_match.py"
       ],
       "gpt": {
-        "module": "jav/quote_match.py",
+        "module": "jav/domains/quotes/quote_match.py",
         "function": "ask_gpt",
         "config": "gpt_quote_match"
       },

@@ -10,7 +10,7 @@
 - `POST /price-lists/{id}/versions/{n}/activate`, `POST /price-lists/{id}/retire`;
 - `GET /price-lists/{id}/versions/{n}/file`: the file a version was read from.
 
-Layer: UI/CLI gateway → `jav.price_lists` (business module of the quotes domain).
+Layer: UI/CLI gateway → `jav.domains.quotes.price_lists` (business module of the quotes domain).
 """
 
 from __future__ import annotations
@@ -23,7 +23,8 @@ from fastapi import Path as PathParam
 from fastapi.responses import Response
 from pydantic import Field
 
-from jav import price_lists, work_views
+from jav import work_views
+from jav.domains.quotes import price_lists
 from jav.service_shared import Empty, In, attachment_header, checked_path, error, human_actor
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

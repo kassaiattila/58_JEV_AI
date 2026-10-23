@@ -12,7 +12,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from jav import quote_request, store, work, work_readiness, work_recipes, work_runs
+from jav import store, work, work_readiness, work_recipes, work_runs
+from jav.domains.quotes import quote_request
 from tests import test_email_text_follow_up_190 as follow
 from tests.test_email_text_follow_up_190 import _package, _run
 

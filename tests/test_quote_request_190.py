@@ -92,9 +92,9 @@ def test_the_intent_routes_to_the_quote_requests_extraction():
 
 
 def test_the_examples_are_not_the_invented_golden_emails():
-    from jav import quote_golden
+    from jav.domains.quotes import invented_golden
 
-    subjects = {c.message.subject.casefold() for c in quote_golden.load().cases}
+    subjects = {c.message.subject.casefold() for c in invented_golden.load().cases}
     assert not {e.casefold() for e in intents.BY_KEY[KEY].examples} & subjects
 
 

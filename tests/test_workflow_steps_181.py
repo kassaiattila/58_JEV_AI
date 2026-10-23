@@ -49,7 +49,7 @@ def test_every_template_kind_is_registered_and_nothing_more() -> None:
     assert {k: v.module for k, v in kinds.items()} == {
         "documents": "jav.workflows", "emails": "jav.domains.email.mailbox",
         "statements": "jav.domains.finance.statement_package", "reconcile": "jav.domains.finance.reconcile_package", "routing": "jav.domains.email.email_routing",
-        "quote": "jav.quote_package"}  # 191
+        "quote": "jav.domains.quotes.quote_package"}  # 191
 
 
 def test_a_one_step_templates_id_is_its_kind() -> None:

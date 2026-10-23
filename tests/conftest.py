@@ -96,10 +96,10 @@ def _no_live_gpt_choice():
 def _no_live_quote_letter():
     """196: a test never asks OpenAI for a reply letter's paragraph (a paid call); a test that needs one installs its
     own stand-in with `quote_letter.use_agent_factory`."""
-    from jav import quote_letter
+    from jav.domains.quotes import quote_letter
 
     def refuse(output_model, instructions):
-        raise AssertionError("a test tried a live GPT call (jav/quote_letter.py); install a stand-in with use_agent_factory")
+        raise AssertionError("a test tried a live GPT call (jav/domains/quotes/quote_letter.py); install a stand-in with use_agent_factory")
 
     with quote_letter.use_agent_factory(refuse):
         yield

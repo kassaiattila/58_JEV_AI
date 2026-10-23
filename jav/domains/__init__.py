@@ -9,11 +9,11 @@ the local service (`SERVICE`), which `jav.api.service_modules` adds. 191: any nu
 domain module names the modules of its golden sets (`GOLDENS`; a domain without any names none, as with `COMMANDS`),
 which the shared measurement command imports by name (`jav.goldens.logic_pack_goldens`), so a domain's business modules
 never import the measurement layer. 208 (plan G-process-core R2): a domain is a package, and its modules are the ones
-in its folder (until a domain is moved, its `MODULES` names them, 191).
+in its folder (until then its `MODULES` named them, 191).
 
 - `jav/domains/finance/__init__.py`: invoices, statements, the reconciliation and the utility cost;
 - `jav/domains/email/__init__.py`: emails and mailbox packages;
-- `jav/domains/quotes.py` (191): quote requests and quotes.
+- `jav/domains/quotes/__init__.py` (191): quote requests and quotes.
 """
 
 # the order `registrations.load_all` registers them in

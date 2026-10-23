@@ -5,41 +5,39 @@ becomes a quote: the requested items are matched with the seller's price list, a
 and approves it. The shared reading of a quote request (its type pack, its detection type and its email intent, 190)
 is configuration and needs no registration. What the domain adds to the shared code is registered here, in one call
 (`register`, from `registrations.load_all`):
-- (B3) the quote package as a logic pack, started from a request (`jav/quote_package.py`), and its kind of work in the
+- (B3) the quote package as a logic pack, started from a request (`jav/domains/quotes/quote_package.py`), and its kind of work in the
   new work wizard (`jav/workflow_steps.py`);
-- (B4c) the worker's job that makes a quote's proposal (`jav/quote_proposal.py`, `jav/runtime/job_kinds.py`);
+- (B4c) the worker's job that makes a quote's proposal (`jav/domains/quotes/quote_proposal.py`, `jav/runtime/job_kinds.py`);
 - (192, B6a) the quote request under its email in a mailbox package (`jav/item_kinds.py` item part);
 - (196) the approved quote's Word document: its built-in template and its labels for a template's markers
-  (`jav/quote_document.py`, `jav/outputs/builtin.py`, `jav/outputs/parts.py`); the worker's job that asks GPT for the
-  reply letter's paragraph (`jav/quote_letter.py`).
+  (`jav/domains/quotes/quote_document.py`, `jav/outputs/builtin.py`, `jav/outputs/parts.py`); the worker's job that asks GPT for the
+  reply letter's paragraph (`jav/domains/quotes/quote_letter.py`).
 The seller's price lists (B2) are a store of the domain's own with addresses of the local service (`SERVICE`).
 
-The work itself stays in the domain's own modules (`MODULES`): the price lists (`jav/price_lists.py`,
-`jav/api_price_lists.py`), the request read from its parts (`jav/quote_request.py`), the pricing (`jav/quote_pricing.py`), the
-match with the price list (`jav/quote_match.py`), the quote package
-(`jav/quote_package.py`, `jav/api_quote_package.py`), the quote's draft and approval (`jav/quote_draft.py`, 192), its
-Word document and reply letter (`jav/quote_document.py`, `jav/quote_letter.py`, 196), the invented golden set
-(`jav/quote_golden.py`) and (204) the quote package's golden sets in the shared measurement (`jav/quote_goldens.py`,
-named in `GOLDENS`).
+The work itself stays in the domain's own modules, in this folder (208, plan G-process-core R2; until then `MODULES`
+named them): the price lists (`price_lists.py`, `api_price_lists.py`), the request read from its parts
+(`quote_request.py`), the pricing (`quote_pricing.py`), the match with the price list (`quote_match.py`), the quote
+package (`quote_package.py`, `api_quote_package.py`), the quote's draft and approval (`quote_draft.py`, 192), its Word
+document and reply letter (`quote_document.py`, `quote_letter.py`, 196), the invented golden set
+(`invented_golden.py`; until 208 `jav/quote_golden.py`) and (204) the quote package's golden sets in the shared
+measurement (`goldens.py`; until 208 `jav/quote_goldens.py`), named in `GOLDENS`. The shared code imports none of them
+(`tests/test_dependency_direction.py`).
 """
 
 from __future__ import annotations
 
 # the modules of the domain's addresses of the local service beyond its logic pack's own (`LogicPack.service`);
 # `jav.api.service_modules` adds them by name
-SERVICE = ("jav.api_price_lists",)
-# the modules the domain is made of; the shared code imports none of them (`tests/test_dependency_direction.py`)
-MODULES = frozenset({"api_price_lists", "api_quote_package", "price_lists", "quote_document", "quote_draft",
-                     "quote_golden", "quote_goldens", "quote_letter", "quote_package", "quote_match", "quote_pricing",
-                     "quote_proposal", "quote_request", "domains.quotes"})
+SERVICE = ("jav.domains.quotes.api_price_lists",)
 # 204 (plan G-process-core R1h): the modules of the domain's golden sets (the quote package's), by name; the shared measurement
 # command imports them (`jav.goldens.logic_pack_goldens`), so the quote package imports no measurement code
-GOLDENS = ("jav.quote_goldens",)
+GOLDENS = ("jav.domains.quotes.goldens",)
 
 
 def register() -> None:
     """Every registration of the quotes domain (`registrations.load_all`): the quote package and its kind of work."""
-    from jav import item_kinds, logic_packs, quote_document, quote_letter, quote_package, quote_proposal, workflow_steps
+    from jav import item_kinds, logic_packs, workflow_steps
+    from jav.domains.quotes import quote_document, quote_letter, quote_package, quote_proposal
     from jav.outputs import builtin, parts
     from jav.runtime import job_kinds
 

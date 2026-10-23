@@ -9,7 +9,7 @@ was read with the expected request: the customer, its tax number, the contact's 
 the customer's reference, the number of requested items and each item's quantity. The text and the attachments of
 one email are put together field by field (the first value found, the email's text first; the items from an
 attachment that has rows, else from the text); 191: the quote package puts them together by the same rule, one
-function for both (`jav/quote_request.py` `merged`). Each request PDF's detected type is reported too.
+function for both (`jav/domains/quotes/quote_request.py` `merged`). Each request PDF's detected type is reported too.
 
 Raw rows: `runs/<stamp>_quote_intents.jsonl` and `runs/<stamp>_quote_requests.jsonl`. Budget (160): without one only
 earlier answers count; a paid round measures one of the two parts, under the owner's sub-budget.
@@ -29,10 +29,10 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav import quote_golden
+from jav.domains.quotes import invented_golden
 from jav.config import RUNS_DIR
 from jav.evals import field_equal
-from jav.quote_request import merged
+from jav.domains.quotes.quote_request import merged
 
 TYPE = "quote_request"
 TEXT_FIELDS = ("customer_name", "contact_name", "reference")
@@ -49,16 +49,16 @@ def _dump(rows: list[dict[str, Any]], name: str) -> Path:
     return path
 
 
-def _laid_out(root: Path) -> list[tuple[quote_golden.Case, Path]]:
-    golden = quote_golden.load()
-    return list(zip(golden.cases, quote_golden.lay_out_all(root, golden), strict=True))
+def _laid_out(root: Path) -> list[tuple[invented_golden.Case, Path]]:
+    golden = invented_golden.load()
+    return list(zip(golden.cases, invented_golden.lay_out_all(root, golden), strict=True))
 
 
 # --- the intent --------------------------------------------------------------------------------------------------------
 
 
 def count_intents() -> int:
-    return len(quote_golden.load().cases)
+    return len(invented_golden.load().cases)
 
 
 def quote_intents(*, use_cache: bool = True, jev: bool = True, budget_usd: Decimal | None = None,
@@ -99,7 +99,7 @@ def quote_intents(*, use_cache: bool = True, jev: bool = True, budget_usd: Decim
 
 
 def count_requests() -> int:
-    return sum(1 for c in quote_golden.load().cases if c.expected.request is not None)
+    return sum(1 for c in invented_golden.load().cases if c.expected.request is not None)
 
 
 def _digits(value: Any) -> str:
@@ -121,7 +121,7 @@ def field_right(field: str, got: Any, expected: Any) -> bool:
     return field_equal(field, got, expected, get_pack(TYPE).kind(field))
 
 
-def score(got: dict[str, Any], expected: quote_golden.Request) -> dict[str, Any]:
+def score(got: dict[str, Any], expected: invented_golden.Request) -> dict[str, Any]:
     """Per header field right or wrong; the number of items; each expected item's quantity in order (a missing row
     is wrong); the units as information only (the expected unit is the price list's, which matching decides)."""
     from jav.typepack import get as get_pack
@@ -152,7 +152,7 @@ def _reading(state) -> dict[str, Any] | None:
     return state.record.to_datapoints(get_pack(TYPE).record_fields)
 
 
-def _read_case(case: quote_golden.Case, folder: Path, *, use_cache: bool, jev: bool,
+def _read_case(case: invented_golden.Case, folder: Path, *, use_cache: bool, jev: bool,
                run_one: Callable[..., Any]) -> dict[str, Any]:
     from jav.domains.email import emails
     from jav import text_document

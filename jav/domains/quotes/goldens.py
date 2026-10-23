@@ -1,12 +1,12 @@
 """The quote package's golden sets in the shared measurement command (204, plan G-process-core R1h; until 204 in
-`jav/quote_package.py` and `jav/quote_pricing.py`).
+`jav/domains/quotes/quote_package.py` and `jav/domains/quotes/quote_pricing.py`).
 
 Plain-language summary: the quote package has three golden sets, built on the invented quote requests
-(`configs/golden_quotes.json`, read by `jav/quote_golden.py`): the quotes' lines and totals priced by code, the price
+(`configs/golden_quotes.json`, read by `jav/domains/quotes/invented_golden.py`): the quotes' lines and totals priced by code, the price
 list item proposed for each requested item, and the reply letter's paragraph GPT writes. The shared measurement
 command (`python -m jav.cli measure`, `jav/goldens.py`) measures them with every other golden set. They are described
 here, beside the quote package, so the quote package and its pricing never import the measurement layer; the quotes
-domain names this module (`jav/domains/quotes.py` `GOLDENS`) and the shared command finds it from there.
+domain names this module (`jav/domains/quotes/__init__.py` `GOLDENS`) and the shared command finds it from there.
 
 - `lines_outcome(golden)`: each invented request's expected matches priced by `quote_pricing.price`, compared with its
   expected quote (the code-only golden set `quote:lines`).
@@ -19,8 +19,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav import goldens, quote_letter, quote_pricing
-from jav.quote_package import KIND
+from jav import goldens
+from jav.domains.quotes import quote_letter, quote_pricing
+from jav.domains.quotes.quote_package import KIND
 
 
 def lines_outcome(golden: Any) -> goldens.Outcome:
@@ -47,28 +48,28 @@ def lines_outcome(golden: Any) -> goldens.Outcome:
 
 def _measure_lines(_options: goldens.Options) -> goldens.Outcome:
     """B4a: the invented quotes priced from their expected matches; code only, free."""
-    from jav import quote_golden
+    from jav.domains.quotes import invented_golden
 
-    return lines_outcome(quote_golden.load())
+    return lines_outcome(invented_golden.load())
 
 
 def _count_quotes() -> int:
-    from jav import quote_golden
+    from jav.domains.quotes import invented_golden
 
-    return sum(1 for c in quote_golden.load().cases if c.expected.quote is not None)
+    return sum(1 for c in invented_golden.load().cases if c.expected.quote is not None)
 
 
 def _count_matches() -> int:
-    from jav import quote_golden
+    from jav.domains.quotes import invented_golden
 
-    return sum(len(c.expected.matches) for c in quote_golden.load().cases)
+    return sum(len(c.expected.matches) for c in invented_golden.load().cases)
 
 
 def _measure_matches(options: goldens.Options) -> goldens.Outcome:
     """B4b: the invented requested items matched with the round's engine; without a budget, earlier answers only. A
     right item is one marked as expected; one a person would resolve (flagged), a missed and a silently wrong one are
     counted apart in the printed report."""
-    from jav import quote_match
+    from jav.domains.quotes import quote_match
 
     budget, refused = options.answering_budget("the quote matches")
     if refused:

@@ -54,15 +54,15 @@ ROUTE_COUNT = 178  # (method, path) pairs of 174 routes: the unknown-address ans
 # (`GET /api/package-roles`, `POST /api/workpackages/{wp_id}/scope`, `POST /api/workpackages/{wp_id}/scope/clear`), and
 # the email routing's five in its own module (`jav/domains/email/api_email_routing.py`: a routing package; accept, every clear one,
 # reject, undo)
-# 191 (plan F-quote-package B2): seven more on purpose - the price lists in their own module (`jav/api_price_lists.py`:
+# 191 (plan F-quote-package B2): seven more on purpose - the price lists in their own module (`jav/domains/quotes/api_price_lists.py`:
 # list, upload, a version, its settings, activate, retire, its file); B3: two more, the quote package's
-# (`jav/api_quote_package.py`: the requests a quote can start from, a quote package); B4c: one more, a quote's
+# (`jav/domains/quotes/api_quote_package.py`: the requests a quote can start from, a quote package); B4c: one more, a quote's
 # proposal queued for the worker
 # 192 (plan F-quote-package B5): five more on purpose - a quote's draft started and saved, its approval, its reopening
-# and an approved version (`jav/api_quote_package.py`)
+# and an approved version (`jav/domains/quotes/api_quote_package.py`)
 # 196 (plan F-Word-output W2, W3): seven more on purpose - a Word template's preview (`jav/api_outputs.py`), the quote's
 # Word document of the draft and of a version, and its reply letter: read, GPT's paragraph queued, the body accepted,
-# the letter file (`jav/api_quote_package.py`)
+# the letter file (`jav/domains/quotes/api_quote_package.py`)
 # 200 (the pinned JEV version): one more on purpose - the JEV version's last look (`GET /api/system/jev-version`,
 # `jav/api_system.py`)
 ROUTE_TABLE = "41cc565ef01319a4aa6e0c1f10a406a25c69424e6c4a3587ed769339463fb228"

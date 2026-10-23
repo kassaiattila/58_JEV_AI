@@ -7,7 +7,7 @@ customer, contact, deadline and reference, and a note) and its lines: a price li
 with its description, unit and price; each with a quantity, and optionally a price or a discount of a person's own.
 
 Every change is saved at once: the page sends the whole draft with the state it read, the service reads the numbers
-the Hungarian way (`jav/numbers.py`), prices every line by code (`jav/quote_pricing.py`) and records the change in the
+the Hungarian way (`jav/numbers.py`), prices every line by code (`jav/domains/quotes/quote_pricing.py`) and records the change in the
 decision journal; a change from a stale page is a version conflict. What holds the approval is said line by line: a
 line without an item or a price, without a quantity, a line outside the list or with a price or discount of a person's
 own without a note, and (the owner's choice, DECISIONS 192) a line the proposal marked "to check" with an item no
@@ -20,7 +20,7 @@ is not changed, and reopening it needs a reason.
 - `start(wp_id, source, actor, expected_state, replace)`, `save(wp_id, draft, actor, expected_state)`;
 - `approve(wp_id, fingerprint, actor)`, `reopen(wp_id, note, actor)`, `approved_version(wp_id, n)`;
 - (196) the quote's documents' language (estimated from the request at the start, changed by a person) and its Word
-  document: stored at the approval (`jav/quote_document.py`), `version_docx(wp_id, n)`, `draft_docx(wp_id)`;
+  document: stored at the approval (`jav/domains/quotes/quote_document.py`), `version_docx(wp_id, n)`, `draft_docx(wp_id)`;
 - `delete_guard(c, wp_id)`, `mark()`: for the quote package's logic pack.
 
 Layer: application operation of the quotes domain over the decision journal, the package versions, the price lists,
@@ -38,8 +38,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from jav import (activity_kinds, cfg, decisions, numbers, package_release, price_lists, quote_document, quote_pricing,
-                 quote_proposal, quote_request, store, work)
+from jav import activity_kinds, cfg, decisions, numbers, package_release, store, work
+from jav.domains.quotes import price_lists, quote_document, quote_pricing, quote_proposal, quote_request
 from jav.typepack import get as get_pack
 from jav.user_messages import explained
 from jav.clock import utc_stamp as _now
@@ -143,7 +143,7 @@ def _requested_quantity(raw: Any) -> str | None:
 
 
 def _quote_package() -> Any:
-    from jav import quote_package  # the package imports this module
+    from jav.domains.quotes import quote_package  # the package imports this module
 
     return quote_package
 

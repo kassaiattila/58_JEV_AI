@@ -435,7 +435,7 @@ const STEP_LABEL = tmap({
   reconcile_empty: "No statement line in the scope", reconcile_result: "Reconciliation result",
   // 181: an email routing package's steps (jav/domains/email/email_routing.py `_next`)
   routing_empty: "Nothing to route", routing_done: "Routed",
-  // 191: a quote package's steps (jav/quote_package.py `_next_of`)
+  // 191: a quote package's steps (jav/domains/quotes/quote_package.py `_next_of`)
   quote_request_missing: "The request cannot be read", quote_compose: "Compose the quote",
   quote_propose: "Ask for the proposal", quote_proposing: "The proposal is being made", // B4c
   quote_approve: "Approve the quote", // 192 B5
