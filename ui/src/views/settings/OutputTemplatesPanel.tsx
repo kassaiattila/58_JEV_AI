@@ -8,13 +8,14 @@
 import { useMemo, useState } from "react";
 import {
   api, ApiError, type OutputMarkerGroup, type OutputName, type OutputTemplate, type OutputTemplateCheck,
-  type OutputTemplateIssue, type OutputTemplateState, type OutputTemplateVersion,
+  type OutputTemplateIssue, type OutputTemplateVersion,
 } from "../../api";
 import { BlockerList } from "../../components/BlockerList";
 import { BrowseButton } from "../../components/BrowseButton";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Icon } from "../../components/Icon";
 import { Picker } from "../../components/Picker";
+import { VersionState } from "../../components/VersionState";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { when } from "../../labels";
@@ -28,10 +29,6 @@ export const OUTPUTS: { key: OutputName; label: string; hint: string; format: "x
 ];
 export const outputLabel = (o: OutputName) => t(OUTPUTS.find((x) => x.key === o)?.label ?? o);
 
-// a version's state as a state mark (DESIGN.md §4): active green, a draft a neutral ring, superseded a faint ring, retired a dash
-const STATE_MARK: Record<OutputTemplateState, string> = { active: "s-done", draft: "s-trial", superseded: "s-held", retired: "s-removed" };
-const stateLabel = (s: OutputTemplateState) =>
-  ({ active: t("Active"), draft: t("Draft"), superseded: t("Superseded"), retired: t("Retired") })[s];
 
 /** A check's problem or warning in words; the cell (`Sheet!B4`) and the detail are shown beside it. */
 export function issueText(code: string): string {
@@ -266,7 +263,7 @@ function OutputTemplates({ output, templates, onChanged, onNewVersion }: {
                   </td>
                 ) : null}
                 <td className="num tnum">{t("version {{n}}", { n: v.version })}</td>
-                <td><span className={`status ${STATE_MARK[v.state]}`}>{stateLabel(v.state)}</span></td>
+                <td><VersionState state={v.state} /></td>
                 <td className="template-uploaded"><span>{v.uploaded_by}</span><span className="muted tnum">{when(v.uploaded_at)}</span></td>
                 <td>
                   {v.check.warnings.length ? (

@@ -6,7 +6,7 @@
 // saving them makes a new draft version with the same items, so a version never changes and a quote names one.
 import { useMemo, useState } from "react";
 import {
-  api, ApiError, type OutputTemplateIssue, type OutputTemplateState, type PriceList, type PriceListCheck,
+  api, ApiError, type OutputTemplateIssue, type PriceList, type PriceListCheck,
   type PriceListColumn, type PriceListDetail, type PriceListVersion, type PriceListsListing, type PriceRule,
 } from "../../api";
 import { BlockerList } from "../../components/BlockerList";
@@ -14,6 +14,7 @@ import { BrowseButton } from "../../components/BrowseButton";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Icon } from "../../components/Icon";
 import { Picker } from "../../components/Picker";
+import { VersionState } from "../../components/VersionState";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { editNumber, fold, moneyText, numText, when } from "../../labels";
@@ -23,10 +24,6 @@ export const columnName = (c: PriceListColumn) => ({
   sku: t("Item code"), name: t("Item name"), unit: t("Unit"), unit_price: t("Net unit price"), category: t("Category"),
 })[c] ?? c;
 
-// a version's state as a state mark (DESIGN.md §4), as the output templates show theirs
-const STATE_MARK: Record<OutputTemplateState, string> = { active: "s-done", draft: "s-trial", superseded: "s-held", retired: "s-removed" };
-const stateLabel = (s: OutputTemplateState) =>
-  ({ active: t("Active"), draft: t("Draft"), superseded: t("Superseded"), retired: t("Retired") })[s];
 
 /** A check's problem or warning in words; where it is (`Sheet!5`, `rule 2`) and the detail are shown beside it. */
 export function priceIssueText(code: string): string {
@@ -283,7 +280,7 @@ function PriceListVersions({ list, open, onOpen, onNewVersion, onChanged }: {
             return (
               <tr key={v.version} className={isOpen ? "row-selected" : ""}>
                 <td className="num tnum">{t("version {{n}}", { n: v.version })}</td>
-                <td><span className={`status ${STATE_MARK[v.state]}`}>{stateLabel(v.state)}</span></td>
+                <td><VersionState state={v.state} /></td>
                 <td>{changeText(v)}{v.check.warnings.length ? <> <span className="status s-warn">{t("{{n}} warning(s)", { n: v.check.warnings.length })}</span></> : null}</td>
                 <td className="num tnum">{v.items}</td>
                 <td className="num tnum">{v.discounts.length}</td>
@@ -334,7 +331,7 @@ function VersionCard({ priceList, version, currencies, onClose, onSaved }: {
       <div className="card-head">
         <div className="price-version-title">
           <h3>{v ? t("{{name}}, version {{n}}", { name: v.name, n: v.version }) : t("Price list")}</h3>
-          {v ? <span className={`status ${STATE_MARK[v.state]}`}>{stateLabel(v.state)}</span> : null}
+          {v ? <VersionState state={v.state} /> : null}
           {v ? <a href={api.priceListFileUrl(v.price_list, v.version)} download title={v.file_name}>{t("The uploaded file")}</a> : null}
         </div>
         <button type="button" className="quiet small-btn" onClick={onClose}>{t("Close")}</button>

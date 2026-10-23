@@ -5,7 +5,7 @@ Plain-language summary (DECISIONS 191): a person uploads the seller's price list
 item with its code, name, unit, net unit price and (optionally) its category; the headers may be Hungarian or English
 (`configs/price_lists.json`). The upload is checked: a refused file is not stored, and the check names every problem
 with its row. A stored list is a version: a draft first, then made active (the active version before it is
-superseded); a list can be retired. The rules that change a price (a volume discount: a line of a category from a
+superseded); a list can be retired (224: the shared versions, `jav/core/versions.py`). The rules that change a price (a volume discount: a line of a category from a
 quantity on costs a percent less), the currency and the VAT rate are set on the settings page, not in the file, and
 changing them makes a new draft version with the same items. So a version never changes, and a quote names the one it
 was priced from by its number and fingerprint (which covers the items, the rules, the currency and the VAT rate).
@@ -30,12 +30,12 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from jav.core import cfg, store
+from jav.core import cfg, store, versions
 from jav.core.numbers import AmbiguousNumber, read_input
 from jav.core.clock import utc_stamp as _now
 
 CONFIG = "price_lists"
-STATES = ("draft", "active", "superseded", "retired")
+STATES = versions.STATES
 KEYS = ("sku", "name", "unit", "unit_price", "category")  # the columns, in the order a check names them
 
 store.register_schema("price_lists", """
@@ -115,13 +115,16 @@ class PriceListRefused(ValueError):
         self.check = check
 
 
-class PriceListNotFound(KeyError):
+class PriceListNotFound(versions.VersionNotFound):
     """No such price list or version."""
 
 
-class PriceListStateError(ValueError):
+class PriceListStateError(versions.VersionStateError):
     """The price list or version is not in a state that allows this (an active version made active again, a list
     without an active version retired, a change of the settings that changes nothing)."""
+
+
+VERSIONS = versions.VersionTable("price_lists", "price_list", not_found=PriceListNotFound, state_error=PriceListStateError)
 
 
 def config() -> dict[str, Any]:
@@ -376,10 +379,7 @@ def _view(row: Any) -> dict[str, Any]:
 
 
 def _row(c: Any, price_list: str, version: int) -> Any:
-    row = c.execute("SELECT * FROM price_lists WHERE price_list=? AND version=?", (price_list, version)).fetchone()
-    if row is None:
-        raise PriceListNotFound(f"{price_list} version {version}")
-    return row
+    return VERSIONS.row(c, price_list, version)
 
 
 def _insert(c: Any, values: dict[str, Any]) -> None:
@@ -409,10 +409,7 @@ def add(name: str, file_name: str, content: bytes, *, actor: str, price_list: st
             currency = currency or conf["currency"]["default"]
             vat_percent = conf["vat_percent"] if vat_percent is None else vat_percent
         else:
-            latest = c.execute("SELECT * FROM price_lists WHERE price_list=? ORDER BY version DESC LIMIT 1",
-                               (price_list,)).fetchone()
-            if latest is None:
-                raise PriceListNotFound(price_list)
+            latest = VERSIONS.latest(c, price_list)
             version = latest["version"] + 1
             currency = currency or latest["currency"]
             vat_percent = latest["vat_percent"] if vat_percent is None else vat_percent
@@ -451,7 +448,7 @@ def change_settings(price_list: str, version: int, *, discounts: list[dict[str, 
         fingerprint = _fingerprint(currency, vat, stored_items, stored_rules)
         if fingerprint == base["fingerprint"]:
             raise PriceListStateError(f"{price_list} version {version}: the settings are the same")
-        latest = c.execute("SELECT MAX(version) AS n FROM price_lists WHERE price_list=?", (price_list,)).fetchone()["n"]
+        latest = VERSIONS.latest(c, price_list)["version"]
         _insert(c, {"price_list": price_list, "name": base["name"], "version": latest + 1, "state": "draft",
                     "change": "settings", "based_on": version, "currency": currency, "vat_percent": _label(vat),
                     "items": base["items"], "discounts": json.dumps(stored_rules, ensure_ascii=False),
@@ -489,7 +486,7 @@ def version(price_list: str, version: int) -> PriceList:
 
 def active(price_list: str) -> PriceList | None:
     with store.connect() as c:
-        row = c.execute("SELECT * FROM price_lists WHERE price_list=? AND state='active'", (price_list,)).fetchone()
+        row = VERSIONS.active(c, price_list)
     return _model(row) if row is not None else None
 
 
@@ -520,17 +517,7 @@ def listing() -> list[dict[str, Any]]:
     retired."""
     with store.connect() as c:
         rows = c.execute("SELECT * FROM price_lists ORDER BY id DESC").fetchall()
-    out: dict[str, dict[str, Any]] = {}
-    for r in rows:
-        v = _view(r)
-        entry = out.setdefault(r["price_list"], {"price_list": r["price_list"], "name": r["name"], "active": None,
-                                                 "retired": False, "versions": []})
-        entry["versions"].append(v)
-        if v["state"] == "active":
-            entry["active"] = v["version"]
-        if v["state"] == "retired":
-            entry["retired"] = True
-    return list(out.values())
+    return VERSIONS.grouped(rows, lambda r: {"price_list": r["price_list"], "name": r["name"]}, _view)
 
 
 def activate(price_list: str, version: int, *, actor: str) -> dict[str, Any]:
@@ -538,12 +525,7 @@ def activate(price_list: str, version: int, *, actor: str) -> dict[str, Any]:
     superseded. A retired list comes back with it."""
     with store.connect() as c:
         store.begin_immediate(c)
-        if _row(c, price_list, version)["state"] == "active":
-            raise PriceListStateError(f"{price_list} version {version} is already active")
-        c.execute("UPDATE price_lists SET state='superseded' WHERE price_list=? AND state IN ('active', 'retired')",
-                  (price_list,))
-        c.execute("UPDATE price_lists SET state='active', activated_by=?, activated_at=?, retired_by=NULL, retired_at=NULL"
-                  " WHERE price_list=? AND version=?", (actor, _now(), price_list, version))
+        VERSIONS.activate(c, price_list, version, actor=actor)
     return get(price_list, version)
 
 
@@ -551,14 +533,10 @@ def retire(price_list: str, *, actor: str) -> dict[str, Any]:
     """Retires the list: its active version is no longer offered for a new quote."""
     with store.connect() as c:
         store.begin_immediate(c)
-        row = c.execute("SELECT version FROM price_lists WHERE price_list=? AND state='active'", (price_list,)).fetchone()
-        if row is None:
-            raise PriceListStateError(f"{price_list} has no active version")
-        c.execute("UPDATE price_lists SET state='retired', retired_by=?, retired_at=? WHERE price_list=? AND version=?",
-                  (actor, _now(), price_list, row["version"]))
-    return get(price_list, row["version"])
+        n = VERSIONS.retire(c, price_list, actor=actor)
+    return get(price_list, n)
 
 
-__all__ = ["CONFIG", "KEYS", "STATES", "Discount", "Item", "PriceList", "PriceListNotFound", "PriceListRefused",
+__all__ = ["CONFIG", "KEYS", "STATES", "VERSIONS", "Discount", "Item", "PriceList", "PriceListNotFound", "PriceListRefused",
            "PriceListStateError", "activate", "active", "active_lists", "add", "change_settings", "config", "content",
            "detail", "get", "listing", "mark", "read", "retire", "version"]
