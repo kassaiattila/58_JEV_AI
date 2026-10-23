@@ -363,13 +363,15 @@ CHOICE_KIND = "statement_choice"
 decisions.register(decisions.Kind(CHOICE_KIND, ("choose",), __name__))
 
 
+@store.one_connection
 def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, actor: str, note: str | None = None,
            expected_state: int | None = None) -> dict[str, Any]:
     """A person's choice on a pair of statements made on a run's item: which one stays valid (`keep`: one of the two;
     None: the rule decides again). Possible until the run is approved, as the duplicate decisions; the pair's overlap
     to-dos close on both documents. 187: a pair whose latest choice was made in another run that is approved by now is
     frozen, as a duplicate decision is (before, a later choice changed that run's reviewed version); the change goes
-    into the decision journal, and a stale `expected_state` is refused."""
+    into the decision journal, and a stale `expected_state` is refused. 215 (plan G-process-core P2c): the to-dos close
+    in the choice's transaction too, so a stop between the two keeps neither."""
     from jav.app import work, work_runs
     from jav.domains.finance import reconcile
 
@@ -405,12 +407,12 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, ac
                   (key, keep, run_id, actor, note, at))
         decisions.record(c, CHOICE_KIND, key, "choose", actor=actor, value={"keep": keep}, note=note,
                          workpackage_id=run["workpackage_id"], run_id=run_id, at=at)
-    resolution = {"statement_choice": keep, "pair": pair_key(item_id, other_doc_id)}
-    for subject, other in ((item_id, other_doc_id), (other_doc_id, item_id)):
-        for r in store.review_open_reasons("document", subject):
-            prefix = parse_reason(r["reason"])
-            if prefix is not None and other.startswith(prefix):
-                work_runs.resolve_reason(r["id"], actor=actor, resolution=resolution, note=note)
+        resolution = {"statement_choice": keep, "pair": pair_key(item_id, other_doc_id)}
+        for subject, other in ((item_id, other_doc_id), (other_doc_id, item_id)):
+            for r in store.review_open_reasons("document", subject):
+                prefix = parse_reason(r["reason"])
+                if prefix is not None and other.startswith(prefix):
+                    work_runs.resolve_reason(r["id"], actor=actor, resolution=resolution, note=note)
     return next(r for r in choice_rows() if r["pair_key"] == pair_key(item_id, other_doc_id))
 
 

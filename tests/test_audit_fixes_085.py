@@ -43,16 +43,21 @@ def _reviewed_run(service) -> tuple[TestClient, dict, str]:
 
 
 def test_a01_correction_cannot_commit_after_a_concurrent_approval(service, monkeypatch):
+    """215 (plan G-process-core P2c): the save takes the write lock before it writes the version and its to-dos, so an
+    approval can only land before the lock: after the save's first approval check, while it reads what it needs. A
+    request arriving while the save holds the lock waits for it."""
     client, wp, run_id = _reviewed_run(service)
     item_id = wp["items"][0]["item_id"]
-    insert = corrections.insert_revision
+    read = corrections.current
+    approved: list[str] = []
 
     def approve_in_between(*args, **kwargs):
         # another request approves the run after the correction's own approval check, before it writes
-        assert work_runs.approve_run(run_id, actor="teszt.elek")["approval"] == "approved"
-        insert(*args, **kwargs)
+        if not approved:
+            approved.append(work_runs.approve_run(run_id, actor="teszt.elek")["approval"])
+        return read(*args, **kwargs)
 
-    monkeypatch.setattr(corrections, "insert_revision", approve_in_between)
+    monkeypatch.setattr(corrections, "current", approve_in_between)
     r = client.post(f"/api/runs/{run_id}/items/{item_id}/correction", headers=HUMAN,
                     json={"fields": {"invoice_number": "CHANGED-AFTER-APPROVAL"}, "expected_revision": 0})
     assert r.status_code == 409, r.text

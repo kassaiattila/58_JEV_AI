@@ -7,6 +7,8 @@ confirmation lasts while the field's value stays the same. Each to-do carries th
 UI can show it at the field. Synthetic documents and a fake JEV, no paid calls.
 """
 
+import pytest
+
 from jav.app import work_runs
 from jav.core import store
 from jav.runtime import worker
@@ -105,3 +107,20 @@ def test_only_simple_fields_of_the_pack_can_be_confirmed(env):
         r = c.post(f"{url}/correction", headers=HUMAN, json={"fields": {}, "expected_revision": 0, "confirm": bad})
         assert r.status_code == 422, bad
     assert c.get(url).json()["correction"]["revision"] == 0
+
+
+def test_a_confirmation_stopped_at_its_to_do_keeps_no_new_version(env, monkeypatch):
+    """215 (plan G-process-core P2c): the new correction version and the to-dos it settles are one transaction; a stop
+    while the to-do is being closed keeps neither."""
+    from jav.app import corrections
+
+    c, run_id, item_id, url = _item(env, ["pick:low_conf:invoice_number:0.52"])
+
+    def stopped(*args, **kwargs):
+        raise RuntimeError("the process stopped while the to-do was closed")
+
+    monkeypatch.setattr(store, "review_resolve", stopped)
+    with pytest.raises(RuntimeError, match="process stopped"):
+        corrections.save(run_id, item_id, fields={}, expected_revision=0, actor="teszt.elek", confirm=["invoice_number"])
+    body = c.get(url).json()
+    assert body["correction"]["revision"] == 0 and "pick:low_conf:invoice_number:0.52" in _open(body)
