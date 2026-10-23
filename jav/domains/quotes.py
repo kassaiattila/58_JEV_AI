@@ -28,7 +28,7 @@ from __future__ import annotations
 # the modules of the domain's addresses of the local service beyond its logic pack's own (`LogicPack.service`);
 # `jav.api.service_modules` adds them by name
 SERVICE = ("jav.api_price_lists",)
-# the modules the domain is made of; the shared code imports none of them (`tests/test_domain_boundary_185.py`)
+# the modules the domain is made of; the shared code imports none of them (`tests/test_dependency_direction.py`)
 MODULES = frozenset({"api_price_lists", "api_quote_package", "price_lists", "quote_document", "quote_draft",
                      "quote_golden", "quote_goldens", "quote_letter", "quote_package", "quote_match", "quote_pricing",
                      "quote_proposal", "quote_request", "domains.quotes"})

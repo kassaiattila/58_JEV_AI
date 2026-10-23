@@ -37,7 +37,7 @@ SERVICE = ("jav.api_parties", "jav.api_finance")
 # 202 (plan G-core-generalisation M3a): the module of the domain's commands (`register(sub)`); `jav.cli` adds it by name
 COMMANDS = ("jav.finance_cli",)
 # 191 (plan F-quote-package B1): the modules the domain is made of (until 191 listed in the boundary test); the shared
-# code imports none of them (`tests/test_domain_boundary_185.py`)
+# code imports none of them (`tests/test_dependency_direction.py`)
 MODULES = frozenset({
     "api_finance", "api_parties", "api_reconcile", "api_statement_package", "bank_files", "duplicates", "finance_cli",
     "finance_datasets", "flow_statement_table", "fx", "party_views", "reconcile", "reconcile_ai", "reconcile_goldens",

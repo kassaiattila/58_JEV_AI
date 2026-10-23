@@ -130,7 +130,7 @@ def test_the_service_has_the_addresses_of_every_logic_pack_in_its_own_module() -
     assert all(callable(importlib.import_module(name).routes) for name in api.service_modules())
     text = (PROJECT_ROOT / "jav/api.py").read_text(encoding="utf-8")
     assert not re.search(r"\breconcile_package\.|\bstatement_package\.|/reconcile|/statement-packages", text)
-    # 185: nor a domain's other addresses (which modules it imports: `tests/test_domain_boundary_185.py`)
+    # 185: nor a domain's other addresses (which modules it imports: `tests/test_dependency_direction.py`)
     assert not re.search(r"\"/mailbox|\"/parties|\"/statement-tables|/utility-cost\"|\"/bank-files|/attachments\"|"
                          r"/tasks/|/duplicates/|/statements/", text)
 
