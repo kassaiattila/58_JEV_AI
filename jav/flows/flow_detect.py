@@ -323,8 +323,10 @@ def _save(state: DetectState, c: Any) -> None:
         # after a rerun the type is certain: detect's own earlier reasons (errors too) are obsolete; others' stay open
         store.review_close(subject_kind="document", subject_id=state.doc_id, producer="detect", run_id=state.run_id)
     # Partial OCR (F07): the type may be certain, but the skipped pages are still to-dos; a separate producer so that
-    # closing detect does not close it. 167 (AI-3): so are the pages without a text layer of their own.
-    coverage = [x for x in state.review_reasons if x.startswith(("ocr:partial_pages:", "pdf:pages_without_text:"))]
+    # closing detect does not close it. 167 (AI-3): so are the pages without a text layer of their own. 222 (the owner's
+    # decision): and an escalation the run's budget blocked (075), which only the extraction kept before
+    coverage = [x for x in state.review_reasons
+                if x.startswith(("ocr:partial_pages:", "pdf:pages_without_text:", "ocr:escalation_blocked:"))]
     if coverage:
         store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer="ocr_coverage", reasons=coverage)
     else:

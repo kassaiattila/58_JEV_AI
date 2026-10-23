@@ -439,6 +439,29 @@ def test_a_blocked_escalation_is_traced_with_the_recognitions_save(db, tmp_path,
     assert trace.replay(row) == row["outcome"]
 
 
+def test_the_recognition_keeps_the_to_do_of_a_blocked_escalation(db, tmp_path, monkeypatch):  # noqa: F811
+    """222 (the owner's decision): a document whose type is recognised kept no to-do for an escalation the run's
+    budget blocked; only the extraction stored it, so a document without one (an unknown type, an email's attachment)
+    lost it. It is kept beside the pages OCR left out, and a later recognition without a block closes it."""
+    from jav.ai import jev as jev_mod
+    from jav.documents import ocr
+    from jav.flows import flow_detect
+    from tests.test_runtime_worker import FakeClient
+
+    scan, ocr_pdf = _scan(tmp_path, mean_conf=0.5)
+    _escalating(monkeypatch, ocr_pdf)
+    adapter = jev_mod.JevAdapter(client=FakeClient(), cache_dir=tmp_path / "cache", model="jev-1.13.0")
+    with jev_mod.use_adapter(adapter):
+        st_ = flow_detect.run_detect(str(scan), run_id="r-scan")
+        assert st_.result is not None
+        opened = {r["reason"] for r in store.review_open_reasons("document", st_.doc_id)}
+        assert "ocr:escalation_blocked:budget_exceeded" in opened
+        monkeypatch.setattr(ocr, "ESCALATION", {"enabled": False, "engine": "azure_di"})  # nothing is blocked now
+        flow_detect.run_detect(str(scan), run_id="r-scan-2")
+    opened = {r["reason"] for r in store.review_open_reasons("document", st_.doc_id)}
+    assert "ocr:escalation_blocked:budget_exceeded" not in opened
+
+
 def test_a_document_ocr_could_not_read_is_traced_with_its_to_do_in_one_write(db, tmp_path, monkeypatch):  # noqa: F811
     from jav.documents import ocr
     from jav.flows.flow import run_one
