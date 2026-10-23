@@ -11,9 +11,9 @@ from __future__ import annotations
 import subprocess
 import sys
 
-from jav import store
-from jav.config import PROJECT_ROOT
-from jav.runtime.persistence import ClosingSQLitePersister
+from jav.core import store
+from jav.core.config import PROJECT_ROOT
+from jav.flows.persistence import ClosingSQLitePersister
 
 FULL, OFF = 2, 0  # `PRAGMA synchronous` values
 
@@ -23,7 +23,7 @@ def _synchronous(conn) -> int:
 
 
 def test_the_application_keeps_sqlites_own_setting() -> None:
-    code = "import jav.store as s; print(s.SYNCHRONOUS)"
+    code = "import jav.core.store as s; print(s.SYNCHRONOUS)"
     out = subprocess.run([sys.executable, "-c", code], cwd=PROJECT_ROOT, capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "None"
 

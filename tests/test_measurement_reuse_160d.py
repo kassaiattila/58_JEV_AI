@@ -17,8 +17,10 @@ from pathlib import Path
 
 import pytest
 
-from jav import cli, cli_options, store
-from jav.runtime import calls
+from jav import cli
+from jav.cli import cli_options
+from jav.core import store
+from jav.core import calls
 
 KEY = calls.answer_key("openai", "gpt-test", "instructions", "schema", "document text")
 OTHER = calls.answer_key("openai", "gpt-test", "instructions", "schema", "another document")
@@ -92,9 +94,9 @@ def test_a_command_reuses_unless_told_to_ask_again(isolated, no_cache, reuse):
 
 def test_a_determinism_command_always_asks_again(isolated, monkeypatch):
     seen: list[bool] = []
-    import jav.evals as evals
-    import jav.evals_detect as evals_detect
-    import jav.evals_email as evals_email
+    import jav.evals.evals as evals
+    import jav.evals.evals_detect as evals_detect
+    import jav.evals.evals_email as evals_email
 
     def record(*_a, **_k):
         seen.append(calls.current().reuse)
@@ -121,7 +123,8 @@ def test_the_golden_measurements_reuse_unless_told_to_ask_again(isolated, monkey
         raise _Stop
 
     monkeypatch.setattr(calls, "measurement", spy)
-    from jav import evals, evals_detect, evals_email, reconcile_ai
+    from jav.evals import evals, evals_detect, evals_email
+    from jav.domains.finance import reconcile_ai
 
     monkeypatch.setattr(evals_email, "_cases", lambda limit: [])
     runs = [

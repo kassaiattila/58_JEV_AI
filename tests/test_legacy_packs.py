@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from jav.legacy_packs import keys, load, schema_model, validate_record, PACK_ROOT
+from jav.legacy.legacy_packs import keys, load, schema_model, validate_record, PACK_ROOT
 import json
 
 

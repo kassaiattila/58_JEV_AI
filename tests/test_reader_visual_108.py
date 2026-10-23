@@ -7,8 +7,8 @@ import re
 from PIL import Image, ImageDraw, ImageFont
 import pytest
 
-from jav.readers import pipeline
-from jav.readers.limits import DEFAULT_LIMITS, ReadFailure
+from jav.documents.readers import pipeline
+from jav.documents.readers.limits import DEFAULT_LIMITS, ReadFailure
 from tests.pdfgen import write_text_pdf
 
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="Measured Windows reader boundary")
@@ -17,8 +17,8 @@ pytestmark = pytest.mark.skipif(os.name != "nt", reason="Measured Windows reader
 def _missing_ocr_models() -> list[str]:
     """The configured language models (`hun+eng`) absent from the local recogniser's folder. The models are local data,
     never in git: a clean copy has none unless `JAV_TESSDATA_DIR` names a folder that holds them (167, review T-3)."""
-    from jav import cfg
-    from jav.ocr import tessdata_dir
+    from jav.core import cfg
+    from jav.documents.ocr import tessdata_dir
 
     folder = tessdata_dir()
     return [f"{folder / lang}.traineddata" for lang in cfg.load("ocr")["tesseract"]["lang"].split("+")
@@ -51,7 +51,7 @@ def tsv(text="SYNTHETIC", left=40, top=60, width=220, height=42):
 
 @pytest.fixture
 def fake_ocr(monkeypatch):
-    from jav.readers import visual_ocr
+    from jav.documents.readers import visual_ocr
     calls = []
 
     class FakeOCR:
@@ -154,7 +154,7 @@ def test_identical_inputs_share_one_reading_and_one_recognition(tmp_path, fake_o
 
 
 def test_ocr_timeout_retains_original_and_explicit_unread_frame(tmp_path, monkeypatch):
-    from jav.readers import visual_ocr
+    from jav.documents.readers import visual_ocr
 
     class FailingOCR:
         fingerprint = "b" * 64
@@ -173,7 +173,7 @@ def test_ocr_timeout_retains_original_and_explicit_unread_frame(tmp_path, monkey
 
 
 def test_missing_local_ocr_does_not_use_remote_provider(tmp_path, monkeypatch):
-    from jav.readers import visual_ocr
+    from jav.documents.readers import visual_ocr
 
     def missing():
         raise ReadFailure("unsupported", "needs_ocr", "Local OCR is not installed")
@@ -185,7 +185,7 @@ def test_missing_local_ocr_does_not_use_remote_provider(tmp_path, monkeypatch):
 
 
 def test_ocr_out_of_bounds_coordinates_are_rejected(tmp_path, monkeypatch):
-    from jav.readers import visual_ocr
+    from jav.documents.readers import visual_ocr
 
     class InvalidOCR:
         fingerprint = "c" * 64
@@ -227,7 +227,7 @@ def test_pdf_pixels_are_bounded_before_rendering(tmp_path):
 
 @needs_local_ocr_models
 def test_real_local_recognition_returns_text_and_a_saved_region(tmp_path):
-    from jav.readers.visual_ocr import LocalOCR
+    from jav.documents.readers.visual_ocr import LocalOCR
     # A missing recogniser must remain visible in this host acceptance test; missing language data (local, never in
     # git) skips it with the folder named.
     LocalOCR.discover()
@@ -248,7 +248,7 @@ def test_the_language_data_check_follows_the_tessdata_setting(tmp_path, monkeypa
 
 def test_mixed_pdf_keeps_native_words_when_visual_recognition_fails(tmp_path, monkeypatch):
     import pypdfium2 as pdfium
-    from jav.readers import visual_ocr
+    from jav.documents.readers import visual_ocr
 
     native = write_text_pdf(tmp_path / "native.pdf", ["Order SYN-002", "Total 125.00 EUR"])
     scanned = tmp_path / "scanned.pdf"
@@ -295,7 +295,7 @@ def test_rotated_scanned_pdf_uses_actual_rotated_raster_dimensions(tmp_path, fak
 
 
 def test_blank_recognition_stays_partial(tmp_path, monkeypatch):
-    from jav.readers import visual_ocr
+    from jav.documents.readers import visual_ocr
 
     class EmptyOCR:
         fingerprint = "d" * 64
@@ -310,7 +310,7 @@ def test_blank_recognition_stays_partial(tmp_path, monkeypatch):
 
 
 def test_pdf_saved_word_reference_cannot_name_an_absent_word(tmp_path):
-    from jav.readers.visual import verify_layers
+    from jav.documents.readers.visual import verify_layers
     delivery = pipeline.read_files([write_text_pdf(tmp_path / "source.pdf", ["Order SYN-003"])])
     raw = raw_result(delivery)
     raw["elements"][0]["locator"]["word_ids"] = [99999]

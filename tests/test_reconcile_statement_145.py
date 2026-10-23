@@ -15,7 +15,9 @@ from decimal import Decimal
 import pytest
 from openpyxl import load_workbook
 
-from jav import reconcile, reconcile_package as rp, reconcile_statement as rs, store, work, work_views
+from jav.app import work, work_views
+from jav.core import store
+from jav.domains.finance import reconcile, reconcile_package as rp, reconcile_statement as rs
 from tests import test_api
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_package_131 import OWN_KEY, _ids, _line, _package, _stmt
@@ -238,7 +240,7 @@ def test_a_memo_that_looks_like_a_formula_is_written_as_text(db):
 
 
 def test_a_control_character_from_a_pdf_text_layer_does_not_fail_the_download(db):
-    from jav.outputs import xlsx
+    from jav.app.outputs import xlsx
 
     # found on the real store: a supplier's name read with a broken glyph; the workbook format refuses it (any download)
     assert xlsx.cell_value("Issued by: Spoti\x0bAB", None) == "Issued by: Spoti AB"

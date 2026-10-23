@@ -1,7 +1,8 @@
 """Field-name dictionary (058): every field and every line-item list column of every type pack has a Hungarian label,
 so no machine name appears in the UI or in the downloads. This test flags a newly added type or field."""
 
-from jav import cfg, typepack
+from jav.ai import typepack
+from jav.core import cfg
 
 
 def test_every_typepack_field_has_a_hungarian_label():

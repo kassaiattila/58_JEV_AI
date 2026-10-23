@@ -6,9 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from jav import source_layer, store
-from jav.ocr import _to_pdftext
-from jav.pdf import build_layout, read_pdf
+from jav.documents import source_layer
+from jav.core import store
+from jav.documents.ocr import _to_pdftext
+from jav.documents.pdf import build_layout, read_pdf
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 
@@ -73,8 +74,8 @@ def test_old_ocr_cache_without_words_gives_no_layer(tmp_path):
 
 
 def test_worker_run_saves_the_layer(tmp_path):
-    from jav import work, work_readiness, work_recipes, work_runs
-    from jav.adapters import jev as jev_mod
+    from jav.app import work, work_readiness, work_recipes, work_runs
+    from jav.ai import jev as jev_mod
     from jav.runtime import worker
     from tests.test_runtime_worker import FakeClient
 

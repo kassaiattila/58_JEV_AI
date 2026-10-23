@@ -9,9 +9,10 @@ from datetime import datetime
 from decimal import Decimal
 import pytest
 
-from jav import cfg, evals_facts, goldens, store
-from jav.evals import GoldenCase
-from jav.typepack import get as get_pack
+from jav.evals import evals_facts, goldens
+from jav.core import cfg, store
+from jav.evals.evals import GoldenCase
+from jav.ai.typepack import get as get_pack
 from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
 PACK = get_pack("belepo_jegy")

@@ -15,7 +15,9 @@ from pathlib import Path
 
 import pytest
 
-from jav import reconcile, statement_package, statement_table as st, store, work_runs
+from jav.app import work_runs
+from jav.core import store
+from jav.domains.finance import reconcile, statement_package, statement_table as st
 from tests.test_flow_statement_table_136 import _run_all
 
 OWN = "11112223-33334444-55556666"  # made up, wrong check digits
@@ -196,7 +198,7 @@ def test_the_months_run_free_and_a_month_without_pdf_has_one_to_do(db):
 def test_the_service_surveys_a_folder(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
     from tests.test_api import BASE, HUMAN
 
     folder = tmp_path / "erste"
@@ -212,7 +214,7 @@ def test_the_service_surveys_a_folder(tmp_path, monkeypatch):
 
 
 def test_a_card_purchase_pairs_with_the_dollar_invoice_on_its_original_amount(db):
-    from jav import reconcile_ai, reconcile_package
+    from jav.domains.finance import reconcile_ai, reconcile_package
     from tests import test_reconcile_k2_129 as k2
 
     folder = db / "erste"

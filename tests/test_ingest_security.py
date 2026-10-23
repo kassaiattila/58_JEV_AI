@@ -7,8 +7,8 @@ import threading
 
 import pytest
 
-from jav import ingest_server
-from jav.emails import load_message_dir
+from jav.domains.email import ingest_server
+from jav.domains.email.emails import load_message_dir
 
 
 def _payload(**over):
@@ -43,7 +43,7 @@ def test_container_path_cannot_escape_old_data_root(tmp_path, monkeypatch):
 
 
 def test_message_loader_refuses_external_attachment_paths(tmp_path, monkeypatch):
-    from jav import emails
+    from jav.domains.email import emails
     outside = tmp_path / "kint.pdf"
     outside.write_bytes(b"%PDF")
     folder = tmp_path / "inbox" / "box" / "m1"

@@ -14,7 +14,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import quote_draft, quote_letter, work
+from jav.app import work
+from jav.domains.quotes import quote_draft, quote_letter
 from jav.runtime import worker
 from tests import test_quote_draft_192 as q192
 
@@ -166,7 +167,7 @@ def test_a_reopened_quote_has_no_letter_until_it_is_approved_again(quote):
 def test_the_service_answers_the_letter(quote, tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav.api import create_app
+    from jav.service.api import create_app
 
     wp_id = quote["wp"]
     human = {"X-Actor": "teszt.elek"}
@@ -205,17 +206,17 @@ class _ByLanguage:
 
 
 def test_the_golden_set_is_every_invented_request_with_a_quote_and_the_injection_probe():
-    from jav import quote_golden
+    from jav.domains.quotes import invented_golden
 
     cases = quote_letter.golden_cases()
-    expected = [c.id for c in quote_golden.load().cases if c.expected.request is not None and c.expected.quote is not None]
+    expected = [c.id for c in invented_golden.load().cases if c.expected.request is not None and c.expected.quote is not None]
     assert [c["id"] for c in cases] == [*expected, "probe_injection_hu"]
     assert {c["language"] for c in cases} == {"hu", "en"}
     assert all(c["lines"] and c["requested"] for c in cases)
 
 
 def test_the_golden_set_judges_each_paragraph_by_the_codes_check_and_its_language(tmp_path):
-    from jav import store
+    from jav.core import store
 
     with store.use_store(tmp_path / "g.sqlite"), quote_letter.use_agent_factory(lambda m, i: _ByLanguage()):
         g = quote_letter.golden(limits={"openai": quote_letter.Decimal("0.5")}, out_dir=tmp_path)

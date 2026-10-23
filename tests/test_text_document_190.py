@@ -14,9 +14,12 @@ import pytest
 from openpyxl import Workbook
 from typesafe_sdk import Noul
 
-from jav import extract_llm, flow, store, text_document, typepack
-from jav.adapters import jev as jev_mod
-from jav.models import JevCall
+from jav.flows import flow
+from jav.ai import extract_llm, typepack
+from jav.documents import text_document
+from jav.core import store
+from jav.ai import jev as jev_mod
+from jav.ai.models import JevCall
 from tests.test_no_jev_085 import _FakeAgent
 
 MINUTES = ("Jegyzokonyv\n\nKeszult a Minta Hockey Club kozgyulesen.\nDatum:   2026-03-04\tHelyszin:   Budapest\n"
@@ -131,7 +134,7 @@ def test_every_pack_before_the_quote_request_reads_pdf_only():
 
 
 def test_an_unknown_input_kind_is_refused(monkeypatch):
-    from jav import cfg
+    from jav.core import cfg
 
     real = cfg.load
     monkeypatch.setattr(cfg, "load", lambda name: {**real(name), "inputs": ["pdf", "fax"]} if name == "type:meghivo" else real(name))

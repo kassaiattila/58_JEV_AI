@@ -14,10 +14,12 @@ from unittest.mock import patch
 
 import pytest
 
-from jav import flow_detect, ocr
-from jav.adapters import azure_di
-from jav.pdf import PdfText
-from jav.runtime import calls, worker
+from jav.flows import flow_detect
+from jav.documents import ocr
+from jav.documents import azure_di
+from jav.documents.pdf import PdfText
+from jav.runtime import worker
+from jav.core import calls
 from tests.test_azure_direct_121 import RESULT, FakeAzure, keys, weak_scan  # noqa: F401 - fixtures
 
 
@@ -51,7 +53,7 @@ SCAN_ITEM = {"kind": "document", "source_path": "C:/synthetic/scan.pdf"}
 
 @pytest.mark.parametrize("recognition", ["c" * 64, None])
 def test_the_worker_hands_the_named_recognition_to_the_native_stage(recognition, monkeypatch):
-    from jav import flow_native
+    from jav.flows import flow_native
 
     params = worker.native_fallback({"unknown_documents": "facts", "jev": "on", "arm": "auto"}, SCAN_ITEM,
                                     {**DETECTED_SCAN, "ocr_recognition": recognition})
@@ -64,7 +66,7 @@ def test_the_worker_hands_the_named_recognition_to_the_native_stage(recognition,
 
 
 def test_a_saved_native_state_without_a_recognition_still_loads():
-    from jav.flow_native import NativeState
+    from jav.flows.flow_native import NativeState
 
     saved = {"work_run_id": "r", "item_id": "i", "graph_id": "g", "source_path": "s.pdf", "read_path": "s.pdf",
              "original_name": "s.pdf", "expected_sha256": "a" * 64, "recipe_hash": "b" * 16, "jev": True,
@@ -112,7 +114,7 @@ SCAN_TEXT = azure_page(1, ("Declaration", 0.3, 0.4, 0.99), ("2026", 1.2, 0.4, 0.
 
 @pytest.fixture
 def no_local_ocr(monkeypatch):
-    from jav.readers import visual_ocr
+    from jav.documents.readers import visual_ocr
 
     def refuse():
         raise AssertionError("local OCR must not run when an Azure recognition is taken over")
@@ -121,7 +123,8 @@ def no_local_ocr(monkeypatch):
 
 
 def read_scan(folder, recognition: dict, *, pages: int = 1):
-    from jav import native_results, store
+    from jav.documents import native_results
+    from jav.core import store
 
     path, sha = scan_pdf(folder, pages)
     with store.use_store(folder / "native.sqlite"):
@@ -180,7 +183,8 @@ def test_a_recognition_that_does_not_fit_the_document_is_not_taken_over(tmp_path
 
 
 def test_a_changed_kept_recognition_is_refused_on_loading(tmp_path, no_local_ocr):
-    from jav import native_results, store
+    from jav.documents import native_results
+    from jav.core import store
 
     ref, _delivery, _sha, digest = read_scan(tmp_path, azure_recognition(SCAN_TEXT))
     with store.use_store(tmp_path / "native.sqlite"):
@@ -191,7 +195,8 @@ def test_a_changed_kept_recognition_is_refused_on_loading(tmp_path, no_local_ocr
 
 
 def test_the_recognition_is_part_of_the_reading_identity_and_must_exist(tmp_path, no_local_ocr):
-    from jav import native_results, store
+    from jav.documents import native_results
+    from jav.core import store
 
     ref, _delivery, _sha, _digest = read_scan(tmp_path, azure_recognition(SCAN_TEXT))
     other = azure_recognition(azure_page(1, ("Declaration", 0.3, 0.4, 0.5)))
@@ -206,10 +211,10 @@ def test_the_recognition_is_part_of_the_reading_identity_and_must_exist(tmp_path
 
 
 def test_the_source_contract_binds_an_external_recognition_to_its_source():
-    from jav.readers.contracts import ParseAttempt, Protections
-    from jav.readers.external_recognition import describe
-    from jav.readers.limits import DEFAULT_LIMITS
-    from jav.readers.pipeline import json_bytes
+    from jav.documents.readers.contracts import ParseAttempt, Protections
+    from jav.documents.readers.external_recognition import describe
+    from jav.documents.readers.limits import DEFAULT_LIMITS
+    from jav.documents.readers.pipeline import json_bytes
 
     enforced = Protections(**dict.fromkeys(Protections.model_fields, "enforced"))
     external = describe(json_bytes(azure_recognition(SCAN_TEXT)), "a" * 64)
@@ -226,7 +231,9 @@ def test_the_source_contract_binds_an_external_recognition_to_its_source():
 
 
 def test_the_native_graph_reads_the_handed_over_recognition(tmp_path, monkeypatch):
-    from jav import flow_native, native_results, store
+    from jav.flows import flow_native
+    from jav.documents import native_results
+    from jav.core import store
 
     asked = []
 
@@ -259,7 +266,7 @@ def scan_result(*pages: dict) -> dict:
 @pytest.fixture
 def scan_run(tmp_path, monkeypatch):
     """A scanned PDF as a frozen run item, an in-process reader and GPT; Azure needs `keys` and a budget."""
-    from jav import store
+    from jav.core import store
     from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
     monkeypatch.setattr(ocr, "CACHE_DIR", tmp_path / "ocr-cache")
@@ -281,7 +288,7 @@ class LocalScanOCR:
 
 
 def run_native(source, ref, *, budgets: dict, recognition: str | None = None, fake=None):
-    from jav import flow_native
+    from jav.flows import flow_native
 
     app = flow_native.build_app(work_run_id="native-run", item_id="native-item", graph_id="native-graph",
         source_path=str(source), read_path=str(source), original_name="original.pdf",
@@ -294,7 +301,7 @@ def run_native(source, ref, *, budgets: dict, recognition: str | None = None, fa
 
 
 def _azure_calls() -> list:
-    from jav import store
+    from jav.core import store
 
     with store.connect() as c:
         return [r[0] for r in c.execute("SELECT status FROM invocations WHERE provider='azure_di'")]
@@ -310,7 +317,7 @@ def test_a_scan_without_an_azure_text_is_recognised_within_the_run_budget(scan_r
 
 
 def test_without_an_azure_budget_the_scan_keeps_local_ocr_without_a_new_to_do(scan_run, keys, monkeypatch):  # noqa: F811
-    from jav.readers import visual_ocr
+    from jav.documents.readers import visual_ocr
 
     monkeypatch.setattr(visual_ocr.LocalOCR, "discover", lambda: LocalScanOCR())
     source, ref, _requests = scan_run
@@ -321,7 +328,7 @@ def test_without_an_azure_budget_the_scan_keeps_local_ocr_without_a_new_to_do(sc
 
 
 def test_an_azure_call_the_budget_does_not_allow_leaves_local_ocr_and_a_to_do(scan_run, keys, monkeypatch):  # noqa: F811
-    from jav.readers import visual_ocr
+    from jav.documents.readers import visual_ocr
 
     monkeypatch.setattr(visual_ocr.LocalOCR, "discover", lambda: LocalScanOCR())
     source, ref, _requests = scan_run
@@ -331,7 +338,7 @@ def test_an_azure_call_the_budget_does_not_allow_leaves_local_ocr_and_a_to_do(sc
 
 
 def test_a_weak_azure_recognition_is_complete_but_opens_a_to_do(scan_run):
-    from jav import store
+    from jav.core import store
 
     source, ref, _requests = scan_run
     weak = azure_recognition(azure_page(1, ("Declaration", 0.3, 0.4, 0.5), ("2026", 1.2, 0.4, 0.4)))

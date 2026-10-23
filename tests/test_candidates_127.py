@@ -11,8 +11,8 @@ sample, as general rules on synthetic lines.
 The identifiers are made up; only their shape follows the documents seen.
 """
 
-from jav.candidates import find_all
-from jav.models import CellLayout, LineLayout
+from jav.ai.candidates import find_all
+from jav.documents.layout import CellLayout, LineLayout
 
 
 def _line(no: int, *cells: tuple[str, float]) -> LineLayout:

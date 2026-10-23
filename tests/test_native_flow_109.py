@@ -3,8 +3,10 @@ from decimal import Decimal
 
 import pytest
 
-from jav import flow_native, native_results, store
-from jav.runtime import calls
+from jav.flows import flow_native
+from jav.documents import native_results
+from jav.core import store
+from jav.core import calls
 from jav.runtime.worker import StatePersister
 from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 

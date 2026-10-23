@@ -7,8 +7,9 @@ digits, so the short form and the long forms of one account became two candidate
 The numbers are invented with wrong check digits (the finder does not check them, and they cannot be real accounts).
 """
 
-from jav.candidates import INTL, find_all
-from jav.models import CellLayout, LineLayout, account_key
+from jav.ai.candidates import INTL, find_all
+from jav.ai.models import account_key
+from jav.documents.layout import CellLayout, LineLayout
 
 SHORT = "12345678-87654321"
 LONG = "12345678-87654321-00000000"

@@ -1,6 +1,6 @@
 # FLOW — native
 
-> Generated from the flow module's `CONTRACT` (`jav/contract.py`, `python -m jav.cli flows`).
+> Generated from the flow module's `CONTRACT` (`jav/flows/contract.py`, `python -m jav.cli flows`).
 > Regenerate this file instead of editing it. FLOW.mmd groups the graph by phase.
 
 ## Phases and steps

@@ -8,8 +8,9 @@ Synthetic PDFs, a fake JEV client, no paid calls."""
 
 import pytest
 
-from jav import work, work_runs
-from jav.runtime import queue, worker
+from jav.app import work, work_runs
+from jav.runtime import worker
+from jav.core import queue
 from tests.test_cancel_status_082 import env  # noqa: F401 - the fixture is used by name
 
 

@@ -14,8 +14,9 @@ from __future__ import annotations
 import re
 import pytest
 
-from jav import logic_packs as lp, store, work, work_views
-from jav.config import PROJECT_ROOT
+from jav.app import logic_packs as lp, work, work_views
+from jav.core import store
+from jav.core.config import PROJECT_ROOT
 
 
 @pytest.fixture
@@ -96,7 +97,7 @@ def test_a_package_of_an_unknown_kind_is_neither_shown_nor_deleted(db) -> None:
 
 # --- the shared code names no logic pack kind ---------------------------------------------------------------------------
 
-SHARED = ("jav/work.py", "jav/work_views.py", "jav/package_release.py", "jav/datasets.py", "jav/runtime/worker.py")
+SHARED = ("jav/app/work.py", "jav/app/work_views.py", "jav/app/package_release.py", "jav/app/datasets.py", "jav/runtime/worker.py")
 # a comparison of a package's kind with a logic pack's kind ("reconcile", "statements")
 NAMED = re.compile(r"source_kind[\"'\]]*\)?\s*(==|!=|in|not in)\s*\(?[\"'](reconcile|statements)[\"']")
 
@@ -110,7 +111,7 @@ def test_the_shared_code_asks_the_registry(path: str) -> None:
 def test_the_workflows_ask_the_registry_for_a_packages_state() -> None:
     """The package-level questions (is the step done, what is its next step) go through the registry; the step kinds
     of `configs/workflows.json` (documents, emails, statements, reconcile) stay the workflow's own (plan 170 L5)."""
-    text = (PROJECT_ROOT / "jav/workflows.py").read_text(encoding="utf-8")
+    text = (PROJECT_ROOT / "jav/app/workflows.py").read_text(encoding="utf-8")
     assert not NAMED.search(text)
 
 
@@ -119,18 +120,18 @@ def test_the_service_has_the_addresses_of_every_logic_pack_in_its_own_module() -
     in the order the packs are registered, then each domain's others."""
     import importlib
 
-    from jav import api
+    from jav.service import api
     from jav.domains import DOMAINS
 
     own = [p.service for p in lp.packs()]
-    assert own == ["jav.api_statement_package", "jav.api_reconcile", "jav.api_email_routing", "jav.api_quote_package"]
+    assert own == ["jav.domains.finance.api_statement_package", "jav.domains.finance.api_reconcile", "jav.domains.email.api_email_routing", "jav.domains.quotes.api_quote_package"]
     domains = [name for d in DOMAINS for name in importlib.import_module(d).SERVICE]
-    assert domains == ["jav.api_parties", "jav.api_finance", "jav.api_mailbox", "jav.api_price_lists"]  # 191: quotes
+    assert domains == ["jav.domains.finance.api_parties", "jav.domains.finance.api_finance", "jav.domains.email.api_mailbox", "jav.domains.quotes.api_price_lists"]  # 191: quotes
     assert api.service_modules() == [*own, *domains]
     assert all(callable(importlib.import_module(name).routes) for name in api.service_modules())
-    text = (PROJECT_ROOT / "jav/api.py").read_text(encoding="utf-8")
+    text = (PROJECT_ROOT / "jav/service/api.py").read_text(encoding="utf-8")
     assert not re.search(r"\breconcile_package\.|\bstatement_package\.|/reconcile|/statement-packages", text)
-    # 185: nor a domain's other addresses (which modules it imports: `tests/test_domain_boundary_185.py`)
+    # 185: nor a domain's other addresses (which modules it imports: `tests/test_dependency_direction.py`)
     assert not re.search(r"\"/mailbox|\"/parties|\"/statement-tables|/utility-cost\"|\"/bank-files|/attachments\"|"
                          r"/tasks/|/duplicates/|/statements/", text)
 

@@ -2,8 +2,8 @@
 import pytest
 import os
 
-from jav.readers.interpretation import ProposedExtraction, ground, score, source_view
-from jav.readers.pipeline import read_files
+from jav.documents.readers.interpretation import ProposedExtraction, ground, score, source_view
+from jav.documents.readers.pipeline import read_files
 
 pytest.importorskip("docx", reason="Native reader dependencies await integration")
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows Job Object reader boundary")

@@ -5,8 +5,9 @@ GPT is shown) does not change.
 Offline: the texts are read from the JSON; no model is called.
 """
 
-from jav import cfg, detect_gpt
-from jav.doc_types import DOC_TYPES
+from jav.ai import detect_gpt
+from jav.core import cfg
+from jav.ai.doc_types import DOC_TYPES
 
 BY_KEY = {t.key: t for t in DOC_TYPES}
 

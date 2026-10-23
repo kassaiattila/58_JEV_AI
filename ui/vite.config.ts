@@ -1,4 +1,4 @@
-// A felület buildje a ui/dist-be kerül; a helyi szolgáltatás (jav/api.py) ugyanazon a címen kiszolgálja.
+// A felület buildje a ui/dist-be kerül; a helyi szolgáltatás (jav/service/api.py) ugyanazon a címen kiszolgálja.
 // Fejlesztéskor (npm run dev) a Vite az /api hívásokat a futó szolgáltatáshoz továbbítja.
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";

@@ -14,7 +14,10 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, corrections, datasets, decisions, mailbox, store, work, work_runs
+from jav.service import api
+from jav.app import corrections, datasets, work, work_runs
+from jav.core import decisions, store
+from jav.domains.email import mailbox
 from tests.test_audit_fixes_1002 import _reviewed_email
 from tests.test_mailbox import env  # noqa: F401 - `env` is a fixture
 
@@ -147,7 +150,7 @@ def db(tmp_path):
 
 
 def test_a_duplicate_decision_is_journaled_and_a_stale_one_refused(db) -> None:
-    from jav import duplicates
+    from jav.domains.finance import duplicates
     from tests import test_duplicates_126 as d126
 
     earlier, now = d126._pair_in_run()
@@ -167,7 +170,7 @@ def test_a_duplicate_decision_is_journaled_and_a_stale_one_refused(db) -> None:
 def test_a_statement_pair_decided_in_an_approved_run_is_frozen_for_another_run(db) -> None:
     """Bug 3 of the survey (186): a later choice made in another run changed the reviewed version of the approved run
     that had decided the pair. Now it is refused, as a duplicate decision is."""
-    from jav import statement_months as sm
+    from jav.domains.finance import statement_months as sm
     from tests import test_reconcile_k2_129 as k2
     from tests.test_statement_months_store_139 import _pair_in_run
 
@@ -185,7 +188,7 @@ def test_a_statement_pair_decided_in_an_approved_run_is_frozen_for_another_run(d
 
 
 def test_a_statement_choice_is_journaled_and_a_stale_one_refused(db) -> None:
-    from jav import statement_months as sm
+    from jav.domains.finance import statement_months as sm
     from tests import test_reconcile_k2_129 as k2
     from tests.test_statement_months_store_139 import _pair_in_run
 
@@ -206,7 +209,7 @@ def test_a_statement_choice_is_journaled_and_a_stale_one_refused(db) -> None:
 
 @pytest.fixture()
 def routing_db(tmp_path):
-    from jav import registrations
+    from jav.app import registrations
 
     registrations.load_all()
     with store.use_store(tmp_path / "s.sqlite"):
@@ -214,7 +217,7 @@ def routing_db(tmp_path):
 
 
 def _routing(root):
-    from jav import email_routing
+    from jav.domains.email import email_routing
     from tests import test_email_routing_181 as r181
 
     r181._party()
@@ -228,7 +231,7 @@ def test_two_acceptances_at_once_make_one_package_and_one_decision(routing_db, m
     later one overwrote the first one's decision."""
     import contextvars
 
-    from jav import email_routing
+    from jav.domains.email import email_routing
 
     routing, item = _routing(routing_db)
     real_make = email_routing._make
@@ -260,7 +263,7 @@ def test_two_acceptances_at_once_make_one_package_and_one_decision(routing_db, m
 
 
 def test_a_routing_decision_from_a_stale_page_is_refused(routing_db) -> None:
-    from jav import email_routing
+    from jav.domains.email import email_routing
 
     routing, item = _routing(routing_db)
     [row] = email_routing.view(routing)["items"]
@@ -280,7 +283,7 @@ def test_a_routing_decision_from_a_stale_page_is_refused(routing_db) -> None:
 
 
 def test_a_template_choice_is_journaled_and_a_stale_one_refused(routing_db) -> None:
-    from jav.outputs import templates
+    from jav.app.outputs import templates
 
     wp = work.create_workpackage(name="Invoices", source_kind="manual", source_ref=None, owner="tester")["id"]
     output = next(iter(templates.choices(wp)["outputs"]))
@@ -307,7 +310,7 @@ def _reconciliation():
 
 
 def test_every_reconciliation_decision_goes_into_the_journal(db) -> None:
-    from jav import reconcile_package as rp
+    from jav.domains.finance import reconcile_package as rp
 
     wp, inv, pay, fee = _reconciliation()
     assert rp.page(wp)["journal_state"] == 0
@@ -333,13 +336,13 @@ def test_every_reconciliation_decision_goes_into_the_journal(db) -> None:
 
 
 def reconcile_pair(invoice: str, line: str) -> str:
-    from jav import reconcile
+    from jav.domains.finance import reconcile
 
     return reconcile.pair_key(invoice, line)
 
 
 def test_a_reconciliation_decision_from_a_stale_page_is_refused(db) -> None:
-    from jav import reconcile_package as rp
+    from jav.domains.finance import reconcile_package as rp
 
     wp, inv, pay, fee = _reconciliation()
     seen = rp.page(wp)["journal_state"]
@@ -358,7 +361,7 @@ def test_a_reconciliation_decision_from_a_stale_page_is_refused(db) -> None:
 
 def test_revoking_a_pair_rechecks_the_runs_approval_inside_the_transaction(db, monkeypatch) -> None:
     """Before, the frozen check ran before the write transaction, so a run approved in between was missed."""
-    from jav import reconcile_package as rp
+    from jav.domains.finance import reconcile_package as rp
     from tests import test_reconcile_k2_129 as k2
 
     wp, inv, pay, _fee = _reconciliation()
@@ -385,7 +388,7 @@ def test_revoking_a_pair_rechecks_the_runs_approval_inside_the_transaction(db, m
 
 def test_a_download_carries_no_decision_state(env, monkeypatch) -> None:  # noqa: F811
     """The state is for a page to send back; the run's JSON download of the emails has no page."""
-    from jav import email_export
+    from jav.domains.email import email_export
 
     run_id, item = _reviewed_email(env, monkeypatch)
     assert "decision_state" in _task(run_id, item["item_id"])

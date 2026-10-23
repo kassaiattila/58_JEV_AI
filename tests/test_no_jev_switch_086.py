@@ -11,10 +11,14 @@ from pathlib import Path
 
 import pytest
 
-from jav import detect_gpt, extract_llm, flow_email, store, typepack, work, work_readiness, work_recipes, work_runs
-from jav.adapters import jev as jev_mod
-from jav.emails import Attachment, EmailMessage
-from jav.runtime import calls, worker
+from jav.app import work, work_readiness, work_recipes, work_runs
+from jav.ai import detect_gpt, extract_llm, typepack
+from jav.core import store
+from jav.domains.email import flow_email
+from jav.ai import jev as jev_mod
+from jav.domains.email.emails import Attachment, EmailMessage
+from jav.runtime import worker
+from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_gpt_detect_086 import DETAIL_TOKENS, DETECT_TOKENS, _FakeAgent
 from tests.test_no_jev_085 import GOOD

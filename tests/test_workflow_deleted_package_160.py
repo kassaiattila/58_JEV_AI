@@ -5,7 +5,7 @@ workflow, the step still said "waits for a budget" or "started" without a packag
 and the chain stood still for good. Deleting the package now fails the step with the reason ("its package was
 deleted"), and a person can start it again. Synthetic documents; nothing is processed."""
 
-from jav import parties, work, workflows as wf
+from jav.app import parties, work, workflows as wf
 from tests.test_workflow_references_153 import _make
 from tests.test_workflows_146 import _steps, db  # noqa: F401 - the fixture is used by name
 

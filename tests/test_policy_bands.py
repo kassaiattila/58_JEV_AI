@@ -11,8 +11,9 @@ from __future__ import annotations
 
 import pytest
 
-from jav import cfg, policy
-from jav.models import FieldPick, FlowState, JevVerdicts
+from jav.ai import policy
+from jav.core import cfg
+from jav.ai.models import FieldPick, FlowState, JevVerdicts
 
 
 def _state(arm: str = "S", **kw) -> FlowState:
@@ -127,7 +128,7 @@ def test_high_stakes_field_outside_scored_fields_is_still_checked():
 
 
 def test_every_high_stakes_field_of_an_s_pack_is_checked_by_the_pick_policy():
-    from jav import typepack
+    from jav.ai import typepack
 
     for key in typepack.keys():
         pack = typepack.get(key)

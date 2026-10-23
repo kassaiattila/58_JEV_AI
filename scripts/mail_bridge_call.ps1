@@ -1,5 +1,5 @@
 # Calls the Outlook script (scripts/outlook_bridge.ps1, 148: ported from 10_AIFLOW_V4) from the local service
-# (048 T2, jav/mailbox.py). It only assembles the parameters and returns the count preview's result as JSON.
+# (048 T2, jav/domains/email/mailbox.py). It only assembles the parameters and returns the count preview's result as JSON.
 #   -Mode count : ingyenes előnézet (a régi -CountOnly), fájlt nem ír, semmit nem küld; kimenet: egy JSON-sor
 #   -Mode fetch : letöltés; a levelek a megadott fogadóra mennek (-OrchUrl, -ApiToken), a naplósorok a kimenetre
 # Mindig: -ManualRun (nincs régi beállításfájl), -ExistingOutlook (az Outlooknak futnia kell), -NoArchive, -AllEmails

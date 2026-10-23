@@ -128,13 +128,13 @@ const CHECK_TEXT: Record<string, string> = tmap({
   "lines.total_mismatch": "A tételek összege nem egyezik a számla végösszegével",
   "lines.incomplete": "Tételsoron hiányzik az összeg, ezért a tételösszeg nem ellenőrizhető",
   "lines.arithmetic_mismatch": "Tételsoron a mennyiség × egységár vagy a nettó + ÁFA nem adja ki a sor összegét",
-  // 190: the checks of any list field by its name (jav/validators.py list_rows, list_values, list_positive)
+  // 190: the checks of any list field by its name (jav/ai/validators.py list_rows, list_values, list_positive)
   "lines.too_few": "A list has fewer rows than it should (for example, no requested item at all)",
   "lines.value_missing": "A list row lacks a value it needs",
   "lines.not_positive": "A quantity in a list row is zero or less",
-  // 120: the role-pair check (jav/fact_checks.py); written with codepoints for the language guard
+  // 120: the role-pair check (jav/ai/fact_checks.py); written with codepoints for the language guard
   "parties.same_entity": "Ugyanaz a szerepl\u0151 k\u00e9t k\u00fcl\u00f6nb\u00f6z\u0151 szerepben",
-  // 121: the pair against the earlier documents of the same type (jav/party_history.py)
+  // 121: the pair against the earlier documents of the same type (jav/ai/party_history.py)
   "parties.orientation_reversed": "A k\u00e9t f\u00e9l szerepe ford\u00edtott ahhoz k\u00e9pest, ahogy a kor\u00e1bbi, azonos t\u00edpus\u00fa iratokon \u00e1lltak",
 });
 
@@ -208,7 +208,7 @@ export function reasonText(code: string): string {
     case "jev:unsupported": return t("A modell nem támasztja alá: {{field}}", { field: f });
     // 167 (review AI-10): a list left out of the JEV verification so that the request fits its size limit
     case "jev:list_omitted": return t("JEV did not check this list, to keep the request within its size limit: {{field}}; check its rows by hand", { field: f });
-    // 177 (plan 170 E6): the JEV verification's field and document flags (jav/policy.py); until now the raw code showed
+    // 177 (plan 170 E6): the JEV verification's field and document flags (jav/ai/policy.py); until now the raw code showed
     case "jev:absence_wrong": return t("JEV: the field was left empty, though it is on the document: {{field}} ({{p}})", { field: f, p: v });
     case "jev:off_target": return t("JEV: the value belongs to another field: {{field}} ({{p}})", { field: f, p: v });
     case "jev:wrong_kind": return t("JEV: the value is not of this field's kind: {{field}} ({{p}})", { field: f, p: v });
@@ -237,15 +237,15 @@ export function reasonText(code: string): string {
     // 167 (review AI-3): pages without a text layer of their own in a document that has one: neither read nor recognised
     case "pdf:pages_without_text": return t("Pages without a text layer of their own were not read ({{pages}} pages); look at them in the document", { pages: p[2] });
     case "ocr:no_text": return t("Az iratból nem sikerült szöveget kinyerni");
-    // 190: a document given as text (an email's own text) had no text at all (jav/flow.py load_text)
+    // 190: a document given as text (an email's own text) had no text at all (jav/flows/flow.py load_text)
     // 190: an item's follow-up stage (the extraction of an email's own text) ended without a to-do of its own
     case `follow_up:${p[1] ?? ""}`: return t("An item's follow-up step did not finish cleanly ({{status}}); look at the item by hand", { status: p[1] ?? "" });
     case "text:empty": return t("The text given as the document is empty, so nothing was extracted from it");
-    // 177: the text recognition itself could not run (jav/flow.py, jav/flow_detect.py)
+    // 177: the text recognition itself could not run (jav/flows/flow.py, jav/flows/flow_detect.py)
     case "ocr:unavailable": return t("Text recognition could not run ({{why}}); look at the document by hand", { why: p[2] ?? "" });
     case "ocr:low_confidence": return t("Gyenge szövegfelismerés ({{p}})", { p: num(p[2]) });
     case "ocr:low_conf_words": return t("Sok bizonytalan szó a felismerésben ({{p}})", { p: num(p[2]) });
-    // 075: the Azure escalation of a weak scan did not run (jav/ocr.py escalation_review_reasons); 121: no route, failed call
+    // 075: the Azure escalation of a weak scan did not run (jav/documents/ocr.py escalation_review_reasons); 121: no route, failed call
     case "ocr:escalation_blocked":
       if (p[2] === "uncertain_attempt") return t("Gyenge helyi felismerés; egy korábbi Azure-hívás kimenete bizonytalan, ezért nem ismételtük meg");
       if (p[2] === "unreachable") return t("Weak local recognition; Azure recognition is not set up for this document");
@@ -257,37 +257,37 @@ export function reasonText(code: string): string {
     case "attachment:suspicious_email": return t("An attachment of an email marked as suspicious (it may carry a hidden instruction): check the document and the email before relying on it");
     // 177: the email itself (the signal's yes band, policy email.signal_review)
     case "signal:prompt_injection": return t("The email may carry an injected instruction ({{p}}): read it before acting on it", { p: num(p[2]) });
-    // 126: a suspected duplicate invoice (jav/duplicates.py); decided in its own panel on the review page
+    // 126: a suspected duplicate invoice (jav/domains/finance/duplicates.py); decided in its own panel on the review page
     case "duplicate:copy": return t("Possible copy of an earlier document (same invoice number and supplier)");
     case "duplicate:variant": return t("Possible modified version of an earlier document (same invoice number and supplier, different values)");
     case "duplicate:undecidable": return t("Possible duplicate of an earlier document (same invoice number and supplier, a value is missing)");
     // 139: another statement books the same days of the account and neither replaces the other; chosen in its own panel
     case "statement:overlap": return t("Another statement books the same days of this account: choose the valid one");
-    // 129: a proposed invoice <-> statement line pair (jav/reconcile.py); decided in its own panel on the review page.
+    // 129: a proposed invoice <-> statement line pair (jav/domains/finance/reconcile.py); decided in its own panel on the review page.
     // 130: a card line is compared with the invoice amount converted at the MNB rate
     case "reconcile:proposed": return t("Possible payment: a statement line and an invoice have the same amount (for a card payment, the converted amount) and a shared detail");
     // 131: the same amount alone is never a proposal; the pair is listed for a person to decide
     case "reconcile:amount_only": return t("Possible payment to decide: a statement line has exactly the invoice's amount, but nothing else ties them");
-    // 136: a statement read by code from a bank's table export (jav/flow_statement_table.py)
+    // 136: a statement read by code from a bank's table export (jav/domains/finance/flow_statement_table.py)
     case "statement_table:unreadable_lines": return t("Some lines of the table export could not be read ({{n}}); they are left out of the statement", { n: p[2] ?? "" });
     case "statement_table:missing": return t("A required field is missing from the table export: {{field}}", { field: f });
     case "statement_table:balance_unchecked": return t("The balances cannot be checked: the export has none, and its PDF statement was not found next to it");
     // 174 (review 160 M-12): balances taken from the lines, with no total row
     case "statement_table:balance_from_lines": return t("The balances were taken from the export's own lines and it has no total row, so its first and last lines cannot be checked");
     case "statement_table:companion_mismatch": return t("The export and its PDF statement differ ({{n}}): a line is on one side only, or the PDF is of another account", { n: p[2] ?? "" });
-    // 140: a statement package (jav/statement_package.py)
+    // 140: a statement package (jav/domains/finance/statement_package.py)
     case "statements:not_a_statement": return t("This PDF is not a bank statement ({{type}}): the statement package extracts no data from it. Remove it from the package, or process it in a document package.", { type: docTypeLabel(p[2] ?? "") });
     case "statements:other_party": return t("The statement's account belongs to another own party, and it stayed there. If it is this package's party's, move it in Settings › Own parties.");
     // 171 (plan 170, K20): the flow built no record from the document (`policy.decide`); until now the raw code showed
     case "no_invoice:": return t("No data was extracted from the document, so it has no values to check or download; its other to-dos show why");
     case "parties:same_tax_id": return t("A szállító és a vevő adószáma azonos");
     case "parties:same_name": return t("A szállító és a vevő neve azonos");
-    // 134: the supplier tax number is an own party's (jav/parties.py review_reasons)
+    // 134: the supplier tax number is an own party's (jav/app/parties.py review_reasons)
     case "parties:own_tax_as_supplier": return t("The supplier's tax number is an own party's: the two tax numbers may be swapped, or this is an outgoing invoice");
     case "detect:low_conf": return t("Bizonytalan típusfelismerés: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
     case "detect:detail_open": return t("A részletes típus nem dönthető el (kategória: {{type}}); válaszd ki kézzel", { type: docTypeLabel(p[2]) });
     case "detect:no_type_pack": return t("Ehhez az irattípushoz nincs adatkinyerés ({{type}}); nézd meg kézzel", { type: docTypeLabel(p[2]) });
-    // 177: the recognition gave no result and named no reason of its own (jav/flow_detect.py)
+    // 177: the recognition gave no result and named no reason of its own (jav/flows/flow_detect.py)
     case "detect:no_result": return t("Type recognition gave no result; choose the type by hand");
     // 090: the type / issuer cross-check in code (configs/policy.json detect_issuer): the type is kept
     case "detect:issuer_mismatch": return t("A típus ({{type}}) magyar kiállítót feltételez, de a felismerés szerint a kiállító nem magyar; ellenőrizd a típust", { type: docTypeLabel(p[2]) });
@@ -308,16 +308,16 @@ export function reasonText(code: string): string {
     case "intent:confidence_unavailable": return t("A levél-szándék bizonyossága nem mérhető; ellenőrizd kézzel");
     // 086: processing without JEV, before 089 (older runs): the intent was not recognised at all
     case "intent:jev_off": return t("JEV nélküli feldolgozás: a levél szándékát a rendszer nem ismeri fel; olvasd el, és döntsd el kézzel");
-    // 073: task proposals from an e-mail (jav/flow_email.py); until now these showed the raw code
+    // 073: task proposals from an e-mail (jav/domains/email/flow_email.py); until now these showed the raw code
     case "tasks:proposed": return t("{{n}} feladatjavaslat vár döntésre", { n: p[2] ?? "" });
     case "tasks:failed": return t("A feladatjavaslat nem sikerült ({{why}})", { why: p[2] ?? "" });
-    // 120: the to-dos of Word, Excel, text and continuing PDF documents (jav/flow_native.py)
+    // 120: the to-dos of Word, Excel, text and continuing PDF documents (jav/flows/flow_native.py)
     case "native:reading": return t("Az irat nem teljesen olvashat\u00f3 ({{status}}); n\u00e9zd meg a forr\u00e1st \u00e9s a hi\u00e1nyokat", { status: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
     case "native:interpretation": return t("Az adatkinyer\u00e9s nem siker\u00fclt ({{status}}); n\u00e9zd meg az ok\u00e1t", { status: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
     case "native:no_facts": return t("Az iratb\u00f3l nem keletkezett adatjavaslat");
     case "native:interpretation_gaps": return t("Az adatkinyer\u00e9s hi\u00e1nyt jelzett");
     // 124: a scan read from its Azure recognition (weak word confidences), or the native step's own Azure call
-    // did not run (jav/flow_native.py review_native)
+    // did not run (jav/flows/flow_native.py review_native)
     case "native:recognition":
       if (p[2] === "low_confidence") return t("Weak Azure recognition ({{p}})", { p: num(p[3]) });
       if (p[2] === "low_conf_words") return t("Many uncertain words in the Azure recognition ({{p}})", { p: num(p[3]) });
@@ -343,9 +343,9 @@ export function reasonText(code: string): string {
   if (code === "jev_unavailable:disabled") return t("The JEV question was not sent: this processing runs without JEV, on GPT only; check by hand");
   if (p[0] === "jev_unavailable") return t("A JEV nem volt elérhető ({{why}}); ellenőrizd kézzel", { why: p.slice(1).join(":") });
   if (p[0] === "llm" && p[1] === "failed") return t("A GPT-kivonat nem sikerült ({{why}})", { why: p[2] ?? "" });
-  // 177: an amount or a quantity of the record that cannot be read as a number (`<field>:unparseable:<raw>`, jav/models.py)
+  // 177: an amount or a quantity of the record that cannot be read as a number (`<field>:unparseable:<raw>`, jav/ai/models.py)
   if (p[1] === "unparseable") return t("A number cannot be read: {{field}}", { field: fieldPathLabel(p[0]) });
-  // 177: a value the type pack does not allow for the field (`<field>:not_in_enum:<value>`, jav/models.py)
+  // 177: a value the type pack does not allow for the field (`<field>:not_in_enum:<value>`, jav/ai/models.py)
   if (p[1] === "not_in_enum") return t("The value is not one the field allows: {{field}}", { field: fieldPathLabel(p[0]) });
   return code;
 }
@@ -431,11 +431,11 @@ const STEP_LABEL = tmap({
   empty: "Üres csomag", start: "Próbafutás indítása", blocked: "Nem indítható",
   rerun: "Hibás vagy leállított futás: újrafuttatás", done: "Kiadva: eredmény letöltése", release: "Jóváhagyás és kiadás",
   go_live: "Próba rendben: éles futás",
-  // 132: a reconciliation package's steps (jav/reconcile_package.py `next_step`)
+  // 132: a reconciliation package's steps (jav/domains/finance/reconcile_package.py `next_step`)
   reconcile_empty: "No statement line in the scope", reconcile_result: "Reconciliation result",
-  // 181: an email routing package's steps (jav/email_routing.py `_next`)
+  // 181: an email routing package's steps (jav/domains/email/email_routing.py `_next`)
   routing_empty: "Nothing to route", routing_done: "Routed",
-  // 191: a quote package's steps (jav/quote_package.py `_next_of`)
+  // 191: a quote package's steps (jav/domains/quotes/quote_package.py `_next_of`)
   quote_request_missing: "The request cannot be read", quote_compose: "Compose the quote",
   quote_propose: "Ask for the proposal", quote_proposing: "The proposal is being made", // B4c
   quote_approve: "Approve the quote", // 192 B5

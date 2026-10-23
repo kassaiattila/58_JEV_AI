@@ -72,7 +72,7 @@ function Issues({ items, warning }: { items: OutputTemplateIssue[]; warning?: bo
   );
 }
 
-// the check's reason for a marker it does not know (`jav/outputs/markers.py`), in words: `{{x}}: <reason>`
+// the check's reason for a marker it does not know (`jav/app/outputs/markers.py`), in words: `{{x}}: <reason>`
 const MARKER_REASONS: [RegExp, (m: string[]) => string][] = [
   [/^not a marker name$/, () => t("it is not written as a marker")],
   [/^no value (\w+)$/, (m) => t("the output has no value {{name}}", { name: m[1] })],

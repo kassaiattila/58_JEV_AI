@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, store
+from jav.app import app_settings
+from jav.core import store
 from tests import test_api
 from tests.test_api import HUMAN, INVOICE_LINES, write_text_pdf
 
@@ -112,7 +113,7 @@ def test_tick_scans_only_due_enabled_folders(env):
 def test_new_files_go_to_a_new_package_after_the_old_one_is_archived(env):
     # 058: no new document goes into a hidden package; files already seen do not come back
     with store.use_store(env["db"]):
-        from jav import work
+        from jav.app import work
 
         [f] = app_settings.save_folders([app_settings.WatchedFolder(path=str(env["folder"]))], check_dir=_resolve)
         first = app_settings.scan(f["id"], now=LATER)

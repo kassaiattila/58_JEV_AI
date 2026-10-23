@@ -6,8 +6,9 @@ The package list's "incl. earlier runs" column, the package's to-dos and its ite
 another package's runs raised; a measurement's or the command line's still show (K3). Synthetic data, no paid calls.
 """
 
-from jav import datasets, store, work, work_views
-from jav.tablequery import Query
+from jav.app import datasets, work, work_views
+from jav.core import store
+from jav.app.tablequery import Query
 from tests.test_supersede_runs_151 import runs  # noqa: F401 - the shared fixture: one package, an older and a newer live run
 
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import statement_months as sm
+from jav.domains.finance import statement_months as sm
 
 def _st(sid: str, start: str, end: str, *, doc_type: str = "statement_table", verified: bool = True, currency: str = "HUF",
         account: str = "117730161234567800000000", lines: list[dict] | None = None, seq: int = 1) -> dict:

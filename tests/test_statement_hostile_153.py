@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import statement_table as st
+from jav.domains.finance import statement_table as st
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILES = {p["name"]: p for p in

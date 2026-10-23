@@ -73,7 +73,7 @@ Every text pair above reaches at least 4.5:1 contrast in both themes (the lowest
 
 - The header may wrap onto two lines; the filter icon floats over the header's corner and appears on hover, on focus and while a filter is active.
 - A date-time is drawn as its date and its time, so a narrow column puts the time under the date; its text stays one value.
-- Words wrap at spaces; only a name-like column may break inside a long unbroken value (a name, a file name, a path, an e-mail address). The dataset marks such columns (`wrap: "anywhere"`, by key in `jav/datasets.py`), so one long address cannot widen a whole table.
+- Words wrap at spaces; only a name-like column may break inside a long unbroken value (a name, a file name, a path, an e-mail address). The dataset marks such columns (`wrap: "anywhere"`, by key in `jav/app/datasets.py`), so one long address cannot widen a whole table.
 - A column whose values can run long may limit its cells to a number of lines (`clamp`, set by the dataset); the full value is the cell's tooltip. The facts table limits its document column to 2 lines, its source to 3 and its value to 4, so no row is taller than 4 lines (183).
 - A dataset can give its own columns a minimum width (`.dt-table[data-dataset="…"] th[data-col="…"]`). The work package list's default columns fit 1440 px and 1366 px without sideways scrolling.
 - A width a person dragged is kept per browser; the column menu resets it.

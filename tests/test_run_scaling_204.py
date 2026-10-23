@@ -26,9 +26,10 @@ from typing import Any
 
 import pytest
 
-from jav import store, work, work_readiness, work_recipes, work_runs
-from jav.clock import utc_stamp
-from jav.runtime import calls, queue
+from jav.app import work, work_readiness, work_recipes, work_runs
+from jav.core import store
+from jav.core.clock import utc_stamp
+from jav.core import calls, queue
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 # --- the rules before 204, kept as the reference ----------------------------------------------------------------

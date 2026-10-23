@@ -17,8 +17,13 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, backup, corrections, flow_detect, ocr, source_instances, store, work, work_readiness, work_recipes, work_runs
-from jav.adapters import jev as jev_mod
+from jav.service import api
+from jav.runtime import backup
+from jav.app import corrections, source_instances, work, work_readiness, work_recipes, work_runs
+from jav.flows import flow_detect
+from jav.documents import ocr
+from jav.core import store
+from jav.ai import jev as jev_mod
 from jav.runtime import worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_runtime_worker import FakeClient

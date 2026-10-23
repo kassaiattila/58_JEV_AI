@@ -2,8 +2,8 @@
 personal data). Two tests lived from it: on a clean copy of the repository they failed, and on this machine they
 added files to it. The shared test set-up points the cache at a temporary folder."""
 
-from jav import ocr
-from jav.config import PROJECT_ROOT
+from jav.documents import ocr
+from jav.core.config import PROJECT_ROOT
 
 
 def test_the_ocr_cache_is_a_temporary_folder_during_tests():

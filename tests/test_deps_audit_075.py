@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from jav import deps_audit
+from jav.runtime import deps_audit
 
 
 @pytest.fixture(autouse=True)
@@ -108,7 +108,7 @@ def test_no_audit_yet():
 def test_the_service_only_reads_the_last_result(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
 
     path = tmp_path / "deps-audit.json"
     monkeypatch.setattr(deps_audit, "STATUS_PATH", path)

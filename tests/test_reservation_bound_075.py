@@ -12,8 +12,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import store
-from jav.runtime import calls
+from jav.core import store
+from jav.core import calls
 
 PRICE = (Decimal("0.75"), Decimal("4.5"))
 
@@ -61,7 +61,9 @@ def test_cost_above_the_reservation_stops_further_reservations(isolated):
 
 def test_openai_client_does_not_retry_on_its_own(monkeypatch):
     """The transport retries of the OpenAI client would be unreserved paid requests; the queue retries instead."""
-    from jav import config, email_tasks, extract_llm
+    from jav.ai import extract_llm
+    from jav.core import config
+    from jav.domains.email import email_tasks
 
     monkeypatch.setattr(config, "get_openai_key", lambda: "synthetic-test-value")
     for agent_cache in (extract_llm.get_agent, email_tasks.get_agent):

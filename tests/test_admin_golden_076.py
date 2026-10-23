@@ -7,7 +7,7 @@ named next to the latest real run.
 
 import json
 
-from jav import admin
+from jav.devtools import admin
 
 
 def _write(path, rows):

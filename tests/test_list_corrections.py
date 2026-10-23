@@ -6,7 +6,7 @@ Synthetic data: in the store, the invoice run's result is replaced with a made-u
 
 import json
 
-from jav import store
+from jav.core import store
 from jav.runtime import worker
 from tests import test_api
 from tests.test_api import HUMAN, _ready_wp, _start
@@ -94,7 +94,8 @@ def test_list_cells_are_checked_by_kind(env):
 def test_simple_list_and_row_list_columns():
     import pytest
 
-    from jav import corrections, typepack
+    from jav.app import corrections
+    from jav.ai import typepack
 
     minutes = typepack.get("meeting_minutes")
     assert corrections.list_columns(minutes, "attendees") == [{"name": "*", "kind": "text"}]

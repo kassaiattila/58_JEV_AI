@@ -1,4 +1,4 @@
-// Datasets: the unified list query and download (056 U1, jav/api_datasets.py).
+// Datasets: the unified list query and download (056 U1, jav/service/api_results.py).
 import { downloadPost, enc, request } from "./client";
 import type { FilterOp } from "./types";
 

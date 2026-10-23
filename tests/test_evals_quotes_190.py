@@ -15,10 +15,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import evals_quotes, goldens, quote_golden, typepack
-from jav.models import record_from_llm
+from jav.evals import evals_quotes, goldens
+from jav.ai import typepack
+from jav.domains.quotes import invented_golden
+from jav.ai.models import record_from_llm
 
-GOLDEN = quote_golden.load()
+GOLDEN = invented_golden.load()
 CASES = {c.id: c for c in GOLDEN.cases}
 
 
@@ -91,7 +93,7 @@ def _perfect(source_path, case_id, arm, *, use_cache, doc_type, jev, source_text
 
 
 def test_a_perfect_reader_scores_every_judgement(tmp_path, monkeypatch):
-    from jav import flow_detect
+    from jav.flows import flow_detect
 
     monkeypatch.setattr(evals_quotes, "RUNS_DIR", tmp_path)
     monkeypatch.setattr(flow_detect, "run_detect", lambda *a, **k: SimpleNamespace(result=SimpleNamespace(doc_type="quote_request")))
@@ -105,7 +107,7 @@ def test_a_perfect_reader_scores_every_judgement(tmp_path, monkeypatch):
 
 
 def test_the_intents_are_counted_against_the_expected_ones(tmp_path, monkeypatch):
-    from jav import flow_email
+    from jav.domains.email import flow_email
 
     def run_email(source_dir, **_kw):
         case = CASES[source_dir.replace("\\", "/").rsplit("/", 1)[-1]]
@@ -129,9 +131,10 @@ def test_the_expected_dates_are_dates():
 def test_the_legacy_intent_golden_set_counts_an_unanswered_email_without_a_result(tmp_path, monkeypatch):
     """190: with a new intent every question is new; a round without a budget has no earlier answer, and an email
     without one is a row without a result (it stopped the whole set with an assertion before)."""
-    from jav import evals_email, store
-    from jav.adapters import jev as jev_mod
-    from jav.emails import EmailMessage, GoldenEmail
+    from jav.evals import evals_email
+    from jav.core import store
+    from jav.ai import jev as jev_mod
+    from jav.domains.email.emails import EmailMessage, GoldenEmail
     from tests.test_email_signals import FakeClient
 
     case = GoldenEmail(case_id="c1", expected="other", source="t", message=EmailMessage(message_id="golden:c1", subject="s", body="b"))

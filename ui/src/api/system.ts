@@ -29,7 +29,7 @@ export interface Health {
   /** Missing on older services: no evidence of PDF memory protection. */
   pdf_protection?: { service: PdfProtection; worker: PdfProtection };
 }
-/** 075: the last dependency audit (`runs/deps-audit.json`), as `jav/deps_audit.py` `status()` returns it. */
+/** 075: the last dependency audit (`runs/deps-audit.json`), as `jav/runtime/deps_audit.py` `status()` returns it. */
 export interface DepsAuditInfo {
   status: {
     checked_at: string; age_days: number; stale: boolean; finding_count: number; errors: string[];
@@ -40,12 +40,12 @@ export interface DepsAuditInfo {
   } | null;
   max_age_days: number;
 }
-/** 200: the pinned JEV version against the provider's moving name at its last look (`jav/jev_version.py` `status()`). */
+/** 200: the pinned JEV version against the provider's moving name at its last look (`jav/ai/jev_version.py` `status()`). */
 export interface JevVersionInfo {
   pinned: string; watch_alias: string; latest: string | null; checked_at: string | null;
   newer: boolean | null; stale: boolean; age_days: number | null;
 }
-/** 076: a paid call with an uncertain outcome, awaiting manual settlement (`jav/runtime/calls.py` `uncertain_list`). */
+/** 076: a paid call with an uncertain outcome, awaiting manual settlement (`jav/core/calls.py` `uncertain_list`). */
 export interface UncertainCall {
   id: number; run_id: string; step_id: string; attempt: number; provider: string; model_requested: string | null;
   budget_scope: string | null; max_cost_usd: string; created_at: string; status: string;

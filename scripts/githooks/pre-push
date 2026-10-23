@@ -7,4 +7,4 @@ root=$(git rev-parse --show-toplevel) || exit 1
 py="$root/.venv/Scripts/python.exe"
 [ -x "$py" ] || py="$root/.venv/bin/python"
 [ -x "$py" ] || py=python
-cd "$root" && exec "$py" -X utf8 -m jav.data_guard pre-push "$@"
+cd "$root" && exec "$py" -X utf8 -m jav.devtools.data_guard pre-push "$@"

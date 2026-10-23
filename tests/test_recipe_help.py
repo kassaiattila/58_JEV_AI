@@ -4,7 +4,9 @@ explanatory text, the service delivers them alongside the recipes, and they do n
 
 from fastapi.testclient import TestClient
 
-from jav import api, cfg, work_recipes, work_views
+from jav.service import api
+from jav.app import work_recipes, work_views
+from jav.core import cfg
 
 
 def test_every_recipe_param_and_option_is_explained():

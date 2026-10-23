@@ -15,7 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import parties, store, work, work_readiness, work_runs, workflows as wf
+from jav.app import parties, work, work_readiness, work_runs, workflows as wf
+from jav.core import store
 
 SEPT = ("2026-09-01", "2026-09-30")
 
@@ -104,7 +105,7 @@ def test_a_repeat_draft_carries_the_sources_budgets_and_name_into_the_next_perio
 
 
 def test_a_mailbox_period_moves_with_the_workflow_and_a_number_of_days_stays(db, monkeypatch):
-    from jav import mailbox
+    from jav.domains.email import mailbox
 
     monkeypatch.setattr(mailbox, "request_pull", lambda req, **kw: {"id": "p1", "status": "queued"})
     party = _party()
@@ -125,7 +126,7 @@ def test_a_mailbox_period_moves_with_the_workflow_and_a_number_of_days_stays(db,
 
 
 def test_a_linked_steps_draft_takes_its_packages_folder_or_asks_for_a_source(db, monkeypatch):
-    from jav import mailbox
+    from jav.domains.email import mailbox
 
     party = _party()
     invoices = db / "inv"
@@ -235,7 +236,7 @@ def test_a_repeat_links_the_two_workflows_both_ways(db):
 def test_the_service_gives_the_draft_and_makes_the_repeat(db):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
     from tests.test_api import BASE, HUMAN
 
     client = TestClient(api.create_app(store_path=db / "s.sqlite"), base_url=BASE)

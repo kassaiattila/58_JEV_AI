@@ -9,8 +9,10 @@ from decimal import Decimal
 
 import pytest
 
-from jav import api_system, cli, store
-from jav.runtime import calls
+from jav import cli
+from jav.service import api_system
+from jav.core import store
+from jav.core import calls
 
 
 def _uncertain(run_id: str = "r1", max_cost: str = "0.5", scope: str | None = None) -> int:

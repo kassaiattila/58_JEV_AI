@@ -18,7 +18,7 @@ from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls
 from docx.shared import Pt
 
-from jav.outputs import builtin, contract, docx, templates
+from jav.app.outputs import builtin, contract, docx, templates
 
 OUTPUT = "test_word"
 SPEC = {

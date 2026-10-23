@@ -3,7 +3,7 @@ item number. Synthetic data only."""
 
 from __future__ import annotations
 
-from jav import reconcile
+from jav.domains.finance import reconcile
 
 ACCOUNT = "Személyes számla"  # the synthetic Revolut export's account title and statement heading (document vocabulary)
 HEADING = "Tranzakciókivonat"
@@ -28,7 +28,7 @@ def _candidate(invoice: str, *, combined: list[str] | None = None, multiple: boo
 def test_m5_a_combined_payment_is_a_sure_pair_whole_or_not_at_all() -> None:
     """M-5: when one invoice of a combined payment (300 = 100 + 200) had another proposal too, the sure pairs held the
     other half alone; that pair left a rest on the line, needed a reason, and the whole bulk acceptance failed."""
-    from jav import reconcile_package as rp
+    from jav.domains.finance import reconcile_package as rp
 
     group = ["inv-a", "inv-b"]
     lines = [
@@ -51,7 +51,7 @@ def _line(lid: str, name: str | None, memo: str | None = None, day: str = "2026-
 def test_m6_repeated_lines_follow_their_partner_to_the_new_statement() -> None:
     """M-6: after a statement was replaced, the decisions of two lines of the same day, amount and direction moved to
     the new lines in their order, so ACME's decision could land on BETA's line."""
-    from jav import statement_months as sm
+    from jav.domains.finance import statement_months as sm
 
     old = [_line("o1", "ACME Kft."), _line("o2", "BETA Zrt."), _line("o3", "Unique", day="2026-04-11")]
     new = [_line("n1", "BETA ZRT", "inv 22"), _line("n2", "ACME KFT", "inv 11"), _line("n3", "Unique", day="2026-04-11")]
@@ -59,7 +59,7 @@ def test_m6_repeated_lines_follow_their_partner_to_the_new_statement() -> None:
 
 
 def test_m6_identical_lines_keep_their_order_and_an_unclear_pair_is_left_to_a_person() -> None:
-    from jav import statement_months as sm
+    from jav.domains.finance import statement_months as sm
 
     same = [_line("o1", "Card fee"), _line("o2", "Card fee")]
     assert sm.match_lines(same, [_line("n1", "Card fee"), _line("n2", "Card fee")], strict=True) == ({"o1": "n1", "o2": "n2"}, [])
@@ -75,7 +75,7 @@ def test_m7_a_folders_monthly_exports_of_one_account_are_all_kept_and_their_ids_
     statement read before stays the same."""
     import json
 
-    from jav import statement_table as st
+    from jav.domains.finance import statement_table as st
     from tests import test_statement_table_136 as t136
 
     folder = tmp_path / "exports"
@@ -97,7 +97,7 @@ def test_m8_a_very_long_cell_is_never_taken_for_an_account_title() -> None:
     131 000-character CSV cell about 40 s in the service's process). A title is short; a longer cell is no title."""
     import time
 
-    from jav import statement_table as st
+    from jav.domains.finance import statement_table as st
 
     profile = next(p for p in st._conf()["profiles"] if p["name"] == "revolut_consolidated_hu")
     started = time.perf_counter()
@@ -126,7 +126,7 @@ def test_m11_a_drift_built_from_allowed_daily_steps_is_refused() -> None:
 
     import pytest
 
-    from jav import fx
+    from jav.domains.finance import fx
 
     drift = _rows_of("2026-04-01", "400.00", "0.09", 11)
     assert drift[-1][3] > Decimal("940")
@@ -155,7 +155,7 @@ def test_m12_balances_taken_from_the_lines_without_a_total_cannot_vouch_for_the_
     missing. Such a statement says so (`balances` `lines`); a total row still vouches for the lines."""
     import json
 
-    from jav import statement_table as st
+    from jav.domains.finance import statement_table as st
 
     bare = st.read(_csv_export(tmp_path / "bare.csv", total=False)).accounts[0]
     totalled_reading = st.read(_csv_export(tmp_path / "totalled.csv", total=True))
@@ -167,7 +167,9 @@ def test_m12_balances_taken_from_the_lines_without_a_total_cannot_vouch_for_the_
 def test_m12_such_a_statement_is_a_to_do_and_not_checked_coverage(tmp_path) -> None:
     import json
 
-    from jav import reconcile, statement_package, store, work, work_runs
+    from jav.app import work, work_runs
+    from jav.core import store
+    from jav.domains.finance import reconcile, statement_package
     from tests.test_flow_statement_table_136 import _run_all
 
     with store.use_store(tmp_path / "s.sqlite"):
@@ -189,7 +191,9 @@ def test_m13_an_approval_that_lands_just_before_a_scope_change_stops_it(tmp_path
     between was overwritten by the new scope. The check now runs inside the transaction."""
     import pytest
 
-    from jav import package_release, reconcile_package as rp, store
+    from jav.app import package_release
+    from jav.core import store
+    from jav.domains.finance import reconcile_package as rp
     from tests.test_reconcile_package_131 import OWN_KEY, _line, _package, _stmt
 
     with store.use_store(tmp_path / "r.sqlite"):
@@ -214,7 +218,7 @@ def test_m14_the_ai_preselection_takes_a_forint_bank_line_in_the_invoices_paymen
     """M-14: the AI's preselection checked a forint bank line against an invoice of another currency in the card
     window around the issue date, and without the line's booking day, so the day's rate was never found; the engine
     has used the payment window and the booking day's rate for such a line since 149."""
-    from jav import reconcile_ai
+    from jav.domains.finance import reconcile_ai
 
     line = {"id": "line-1", "currency": "HUF", "statement_type": "bank_account", "booking_date": "2026-05-25",
             "direction": "debit", "amount": "39000.00", "rest": "39000.00", "candidates": [], "rejected": []}
@@ -229,7 +233,8 @@ def test_m15_the_finder_reads_the_kept_workspace_without_copying_it(tmp_path, mo
     reads it, so it reads the kept one. The kept workspace stays as it was."""
     import copy
 
-    from jav import reconcile_package as rp, store
+    from jav.core import store
+    from jav.domains.finance import reconcile_package as rp
     from tests.test_reconcile_finder_143 import _page
 
     with store.use_store(tmp_path / "r.sqlite"):
@@ -248,7 +253,7 @@ def test_m16_the_quick_review_never_marks_a_line_another_own_partys_invoice_may_
     """M-16: a line whose only candidate was another own party's invoice (133) went on to the groups that mark it as
     needing no invoice (an earlier reason of its partner, the bank's category, the salary rule, the AI); it stays with
     the rest, for a person."""
-    from jav import reconcile_review
+    from jav.domains.finance import reconcile_review
 
     line = {"id": "line-1", "candidates": [], "allocated": "0", "other_candidates": [{"invoice_id": "inv-club", "party": "Club"}],
             "earlier_marks": [{"category": "fee", "lines": 3}], "direction": "debit"}

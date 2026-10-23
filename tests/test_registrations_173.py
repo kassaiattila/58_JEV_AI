@@ -14,17 +14,19 @@ import json
 import subprocess
 import sys
 
-from jav import before_after_replay, cli, logic_packs, parties, registrations, work
-from jav.config import PROJECT_ROOT
+from jav import cli
+from jav.evals import before_after_replay
+from jav.app import logic_packs, parties, registrations, work
+from jav.core.config import PROJECT_ROOT
 
 _PROBE = """
 import json
-from jav import logic_packs, parties, work
-import jav.email_routing, jav.package_scope, jav.reconcile_package, jav.statement_package, jav.workflows
+from jav.app import logic_packs, parties, work
+import jav.domains.email.email_routing, jav.app.package_scope, jav.domains.finance.reconcile_package, jav.domains.finance.statement_package, jav.app.workflows
 seen = lambda: {"packages": [p.kind for p in logic_packs.packs()], "guards": len(work._DELETE_GUARDS),
                 "references": sorted(parties._REFERENCES)}
 before = seen()
-from jav import registrations
+from jav.app import registrations
 registrations.load_all()
 registrations.load_all()
 print(json.dumps({"before": before, "after": seen()}))
@@ -50,7 +52,7 @@ def test_in_this_process_everything_is_registered() -> None:
 
 
 def test_the_entry_points_call_it() -> None:
-    from jav import api
+    from jav.service import api
 
     assert "registrations.load_all()" in inspect.getsource(cli.main)
     assert "registrations.load_all()" in inspect.getsource(api.create_app)

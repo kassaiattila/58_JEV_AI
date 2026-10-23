@@ -16,8 +16,10 @@ from pathlib import Path
 import pytest
 from docx import Document
 
-from jav import package_release, quote_document, quote_draft, quote_golden, store
-from jav.outputs import builtin, docx, templates
+from jav.app import package_release
+from jav.core import store
+from jav.domains.quotes import quote_document, quote_draft, invented_golden
+from jav.app.outputs import builtin, docx, templates
 from tests import test_quote_draft_192 as q192
 
 env = q192.env
@@ -45,7 +47,7 @@ def _text(data: bytes) -> str:
 
 
 def test_the_language_of_every_invented_request_is_estimated_by_code():
-    golden = quote_golden.load()
+    golden = invented_golden.load()
     for case in golden.cases:
         items = case.expected.request.items if case.expected.request else ()
         texts = [case.message.subject, *(i.written for i in items)]
@@ -166,7 +168,7 @@ def test_an_own_word_template_chosen_for_the_package_makes_the_stored_document(q
 def test_the_service_gives_the_draft_and_the_versions_document(quote, tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav.api import create_app
+    from jav.service.api import create_app
 
     wp_id = quote["wp"]
     human = {"X-Actor": "teszt.elek"}

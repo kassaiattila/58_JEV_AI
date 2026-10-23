@@ -12,15 +12,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-from jav import policy
-from jav.models import FlowState, DocumentRecord, JevVerdicts
-from jav.typepack import get as get_pack
+from jav.ai import policy
+from jav.ai.models import FlowState, DocumentRecord, JevVerdicts
+from jav.ai.typepack import get as get_pack
 
 ROOT = Path(__file__).resolve().parents[1]
 _CODE = """
 import json
-from jav import policy
-from jav.models import FlowState, DocumentRecord, JevVerdicts
+from jav.ai import policy
+from jav.ai.models import FlowState, DocumentRecord, JevVerdicts
 state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", doc_type="statement_cib")
 state.record = DocumentRecord()
 state.verdicts = JevVerdicts(source="code")

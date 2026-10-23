@@ -3,7 +3,7 @@
 Plain-language summary: dates are stored as ISO text and amounts as plain decimal text. Eight modules had their own
 copy of the day reader, and three amount readers outside the reconciliation still took "NaN", "Infinity" or an
 exponent (the error the 153 review closed in the reconciliation): the utility cost report, the output templates and
-the Excel cells. Now they share `jav/values.py`. Synthetic values only.
+the Excel cells. Now they share `jav/core/values.py`. Synthetic values only.
 """
 
 from __future__ import annotations
@@ -13,8 +13,9 @@ from decimal import Decimal
 
 import pytest
 
-from jav import report_utility, values
-from jav.outputs import fill, xlsx
+from jav.core import values
+from jav.domains.finance import report_utility
+from jav.app.outputs import fill, xlsx
 
 
 def test_a_stored_day_is_read_from_a_date_or_a_date_time():

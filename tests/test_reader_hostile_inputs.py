@@ -5,8 +5,8 @@ import zipfile
 
 import pytest
 
-from jav.readers.limits import DEFAULT_LIMITS
-from jav.readers.pipeline import read_files
+from jav.documents.readers.limits import DEFAULT_LIMITS
+from jav.documents.readers.pipeline import read_files
 
 pytest.importorskip("docx", reason="Native reader dependencies await integration")
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows Job Object reader boundary")

@@ -13,9 +13,12 @@ from decimal import Decimal
 
 import pytest
 
-from jav import checks, corrections, duplicates, export, policy, report_utility, store, work, work_runs
-from jav.models import FlowState, DocumentRecord
-from jav.runtime import calls
+from jav.app import corrections, export, work, work_runs
+from jav.ai import checks, policy
+from jav.core import store
+from jav.domains.finance import duplicates, report_utility
+from jav.ai.models import FlowState, DocumentRecord
+from jav.core import calls
 from tests import test_api
 
 env = test_api.env
@@ -128,7 +131,7 @@ def test_the_to_do_names_the_kind_and_the_other_document():
 
 
 def test_every_family_type_is_a_type_pack():
-    from jav import typepack
+    from jav.ai import typepack
 
     for t in duplicates.family_types():
         assert typepack.get(t).key == t
@@ -352,7 +355,7 @@ def test_the_worker_flags_a_second_copy_and_the_service_records_the_decision(env
     assert r.json()["duplicates"][0]["decision"] == "copy" and not [x for x in r.json()["open_reasons"] if x["reason"].startswith("duplicate:")]
     bad = c.post(f"/api/runs/{run_id}/items/{repeat}/duplicates/{original}/decision", headers=HUMAN, json={"decision": "merge"})
     assert bad.status_code == 422
-    from jav import datasets
+    from jav.app import datasets
 
     _cols, rows = datasets.rows("documents", {"run_id": run_id})
     marks = {row["item_id"]: row.get("duplicate") for row in rows}

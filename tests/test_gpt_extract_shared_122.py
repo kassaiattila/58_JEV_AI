@@ -1,9 +1,10 @@
 """122 B (backlog S-injection extraction part, the shared extraction block of 092/093, the tax certificate's employer,
 Q-model-language-native): the G path's instructions and the native reader's instructions. Offline; no paid calls."""
 
-from jav import cfg, extract_llm, typepack
-from jav.config import load_prompt
-from jav.readers import providers
+from jav.ai import extract_llm, typepack
+from jav.core import cfg
+from jav.core.config import load_prompt
+from jav.documents.readers import providers
 
 
 def _shared() -> str:

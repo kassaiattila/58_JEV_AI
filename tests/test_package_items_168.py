@@ -10,7 +10,8 @@ live > trial; a stopped or superseded run does not count). Synthetic PDFs, a fak
 import json
 from pathlib import Path
 
-from jav import store, work, work_runs
+from jav.app import work, work_runs
+from jav.core import store
 from jav.runtime import worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests import test_flexible_package_160c as fp
@@ -79,7 +80,7 @@ def _tree(env) -> Path:
 
 
 def test_a_folder_is_previewed_with_or_without_its_subfolders_and_without_the_output_folder(env, monkeypatch):
-    from jav import app_settings
+    from jav.app import app_settings
 
     c = env["client"]
     wp = _package(c, env["folder"])

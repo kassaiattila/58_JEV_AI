@@ -1,5 +1,5 @@
 // 126 (backlog F-duplicate): a suspected duplicate invoice on the review page. The code found an earlier document with
-// the same invoice number and supplier (jav/duplicates.py); the two documents' compared values stand side by side, the
+// the same invoice number and supplier (jav/domains/finance/duplicates.py); the two documents' compared values stand side by side, the
 // differing ones highlighted, and a person decides: a copy, a modified version, or not the same invoice. The decision
 // belongs to the pair and closes its to-dos on both documents; it can be changed until the run is approved.
 import { useRef, useState } from "react";

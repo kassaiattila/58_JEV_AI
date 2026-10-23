@@ -1,6 +1,6 @@
 """167 (review R-7): a package deleted while a document is being added does not take the added document's copy.
 
-The same content is kept once (`jav/source_instances.py`). Adding a document copies it first and records the item
+The same content is kept once (`jav/app/source_instances.py`). Adding a document copies it first and records the item
 afterwards; a package deleted in between released the shared copy (no item referred to it at that moment), so the new
 item later stopped with "the copy kept when it was added is missing". The add now checks its copies inside the
 transaction that records the items and makes a missing one again; an original that changed meanwhile is refused.
@@ -15,7 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, source_instances, store, work, work_readiness  # noqa: F401  (app_settings: its tables, read by readiness)
+from jav.app import app_settings, source_instances, work, work_readiness  # noqa: F401  (app_settings: its tables, read by readiness)
+from jav.core import store  # noqa: F401  (app_settings: its tables, read by readiness)
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 

@@ -1,6 +1,6 @@
 """200 (Q-tul-nagy-keres): a JEV request the service refused as too large is remembered, so it is not sent again.
 
-A request over the service's token limit gets `max_tokens_exceeded`; the request-size frame (`jav/jev_budget.py`) then
+A request over the service's token limit gets `max_tokens_exceeded`; the request-size frame (`jav/ai/jev_budget.py`) then
 asks once with a tighter request, whose answer is cached. The full request had no answer to cache, so every later run
 sent it again: one failed call and one reservation kept in the run's budget each time, and a free round (earlier
 answers only) left the case without a result. The adapter now remembers that request's key, for the concrete model
@@ -14,9 +14,9 @@ import pytest
 from typesafe_sdk import Noul, SystemOneResponse
 from typesafe_sdk._core.errors import TypeSafeBadRequestError
 
-from jav import store
-from jav.adapters.jev import JevAdapter, JevUnavailableError
-from jav.jev_budget import ask_within_budget
+from jav.core import store
+from jav.ai.jev import JevAdapter, JevUnavailableError
+from jav.ai.jev_budget import ask_within_budget
 
 REASON = "TypeSafeBadRequestError:400:max_tokens_exceeded"
 

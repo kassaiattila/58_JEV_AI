@@ -11,10 +11,10 @@ from PIL import Image
 from pydantic import ValidationError
 import pytest
 
-from jav.readers import native, pipeline, visual_ocr
-from jav.readers.contracts import ParsedDocument
-from jav.readers.isolation import exchange
-from jav.readers.limits import DEFAULT_LIMITS
+from jav.documents.readers import native, pipeline, visual_ocr
+from jav.documents.readers.contracts import ParsedDocument
+from jav.documents.readers.isolation import exchange
+from jav.documents.readers.limits import DEFAULT_LIMITS
 
 
 def cropped_pdf() -> bytes:

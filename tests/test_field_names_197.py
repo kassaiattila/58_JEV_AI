@@ -7,8 +7,10 @@ page (the interface's test). Synthetic records only."""
 
 import pytest
 
-from jav import cfg, datasets, field_names, typepack
-from jav.outputs import parts, samples
+from jav.app import datasets
+from jav.ai import typepack
+from jav.core import cfg, field_names
+from jav.app.outputs import parts, samples
 
 
 def test_a_type_names_a_shared_field_its_own_way():

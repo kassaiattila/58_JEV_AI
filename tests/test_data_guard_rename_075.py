@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import data_guard
+from jav.devtools import data_guard
 
 MARKER = "syntheticprivatemarker"
 

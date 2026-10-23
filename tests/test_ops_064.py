@@ -14,8 +14,13 @@ import pytest
 from burr.core import State
 from fastapi.testclient import TestClient
 
-from jav import api, backup, store, work
-from jav.runtime import lock, persistence, worker
+from jav.service import api
+from jav.runtime import backup
+from jav.app import work
+from jav.core import store
+from jav.runtime import worker
+from jav.flows import persistence
+from jav.core import lock
 from tests.test_stability_063 import _start, wp_env  # noqa: F401 - the shared package fixture
 
 

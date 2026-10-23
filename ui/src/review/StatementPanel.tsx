@@ -1,7 +1,7 @@
 // 139 (DECISIONS 139): one valid statement per account and day, on the review page of a statement. Another statement
 // of the same account and days either replaced this one, was replaced by it (by the rule of ranks: read by code and
 // checked > extracted and checked > unchecked, or by a person's choice), or neither, and a person chooses
-// (jav/statement_months.py). The choice belongs to the pair, closes its to-dos on both documents and can be changed
+// (jav/domains/finance/statement_months.py). The choice belongs to the pair, closes its to-dos on both documents and can be changed
 // until the run is approved; "By the rule" undoes it.
 import { useRef, useState } from "react";
 import { api, ApiError, type ItemResult, type StatementKeep, type StatementRelation } from "../api";

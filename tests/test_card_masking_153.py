@@ -7,7 +7,8 @@ The text sent to the AI services is not masked here (that would change the reque
 values: the published Visa test number, built at run time.
 """
 
-from jav import card_numbers, export
+from jav.app import export
+from jav.core import card_numbers
 
 CARD = " ".join(["4111"] + ["1111"] * 3)  # the schemes' published test number
 

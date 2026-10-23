@@ -1,4 +1,4 @@
-// 190 (plan 189 A2c): the checks of any list field (jav/validators.py list_rows, list_values, list_positive) read as
+// 190 (plan 189 A2c): the checks of any list field (jav/ai/validators.py list_rows, list_values, list_positive) read as
 // everyday sentences, their rows named once each.
 import { describe, expect, it } from "vitest";
 import { checkText } from "./labels";

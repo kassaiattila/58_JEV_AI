@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import json
 
-from jav import policy
-from jav.evals import perturb_extraction, probe_summary
-from jav.models import LineLayout
+from jav.ai import policy
+from jav.evals.evals import perturb_extraction, probe_summary
+from jav.documents.layout import LineLayout
 
 
 def _lines(*texts: str) -> list[LineLayout]:
@@ -78,7 +78,7 @@ def test_probe_summary_counts_bands_per_variant():
 
 def test_verify_config_is_structured():
     """v1.1.0: every Noul gives a `question` text (without template placeholders); the code builds the object."""
-    from jav import cfg
+    from jav.core import cfg
 
     data = cfg.load("callsite:verify")
     assert tuple(int(x) for x in data["meta"]["version"].split(".")) >= (1, 1, 0)
@@ -90,11 +90,11 @@ def test_verify_config_is_structured():
 def test_build_questions_structured_instructions():
     """The instruction is an object (sde_cascade pattern): field_spec {name, meaning}, extracted_field raw, printed_on,
     question, glossary; 127: the document guard as `rule`."""
-    from jav.jev_select import site_for as select_site
-    from jav.jev_verify import site_for as verify_site
+    from jav.ai.jev_select import site_for as select_site
+    from jav.ai.jev_verify import site_for as verify_site
 
     site = verify_site("invoice_hu")
-    from jav.models import InvoiceLLM
+    from jav.ai.invoice_models import InvoiceLLM
 
     llm = InvoiceLLM(supplier_name="Teszt Kft.", supplier_tax_id="12345678-1-42", net_total="1000")
     evidence = {"supplier_name": ["L01: Teszt Kft."], "supplier_tax_id": ["L02: Adószám: 12345678-1-42"]}
@@ -119,7 +119,7 @@ def test_build_questions_structured_instructions():
 def test_eval_report_reads_probe_rows_with_truth(tmp_path):
     """The probe's raw run into the eval report: for a faulty variant the expected flag's truth is `yes`, for the
     perfect one the flags of the golden fields are `no`."""
-    from jav.eval_report import flow_of, judgments_from_file
+    from jav.evals.eval_report import flow_of, judgments_from_file
 
     rows = [
         {"case_id": "a", "variant": "perfect", "target": "(none)", "p": 0.1, "perfect_fields": ["supplier_name", "net_total"],

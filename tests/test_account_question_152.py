@@ -11,8 +11,8 @@ import re
 
 import pytest
 
-from jav import cfg
-from jav.candidates import find_all
+from jav.core import cfg
+from jav.ai.candidates import find_all
 from tests.test_candidates import _two_column_invoice
 
 SELECT_SITES = ("select", "select_foreign", "select_invoice_out", "select_utility")

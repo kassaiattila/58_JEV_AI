@@ -13,11 +13,12 @@ from pathlib import Path
 
 from typesafe_sdk import Noul
 
-from jav import policy, store
-from jav.adapters.jev import JevAdapter
-from jav.jev_select import field_confidence, select_fields
-from jav.models import FieldPick, FlowState
-from jav.typepack import get as get_pack
+from jav.ai import policy
+from jav.core import store
+from jav.ai.jev import JevAdapter
+from jav.ai.jev_select import field_confidence, select_fields
+from jav.ai.models import FieldPick, FlowState
+from jav.ai.typepack import get as get_pack
 from tests.test_select_presence import LINES, FakeClient, _cands
 
 

@@ -1,6 +1,6 @@
 """195 (plan G-tidy R4): the local service's addresses live in modules by theme, and `create_app` adds each once.
 
-The shared addresses used to be written inside `create_app`; they moved, as they were, into `jav/api_*.py` modules by
+The shared addresses used to be written inside `create_app`; they moved, as they were, into `jav/service/api_*.py` modules by
 theme. These checks keep the split whole: every such module is added, none twice, the shared themes stay around the
 logic packs' and domains' own modules in their old order, and no address is registered twice.
 """
@@ -9,15 +9,16 @@ from __future__ import annotations
 
 import importlib
 from collections import Counter
-from pathlib import Path
 
 from fastapi.routing import APIRoute
 
-from jav import api
+from jav.service import api
+from jav.core.config import PROJECT_ROOT
 
 
 def test_every_service_module_is_added_exactly_once():
-    on_disk = {f"jav.{p.stem}" for p in (Path(api.__file__).parent).glob("api_*.py")}
+    root = PROJECT_ROOT / "jav"  # 208: a domain's addresses are in its folder
+    on_disk = {".".join(p.relative_to(PROJECT_ROOT).with_suffix("").parts) for p in root.rglob("api_*.py")}
     added = api.route_modules()
     assert [name for name, n in Counter(added).items() if n > 1] == []
     assert set(added) == on_disk
@@ -26,10 +27,10 @@ def test_every_service_module_is_added_exactly_once():
 
 def test_the_shared_themes_stay_around_the_packs_and_domains_in_their_old_order():
     added = api.route_modules()
-    assert tuple(added[:4]) == api.SHARED_BEFORE == ("jav.api_workpackages", "jav.api_runs", "jav.api_results",
-                                                     "jav.api_items")
-    assert tuple(added[-4:]) == api.SHARED_AFTER == ("jav.api_outputs", "jav.api_workflows", "jav.api_system",
-                                                     "jav.api_settings")
+    assert tuple(added[:4]) == api.SHARED_BEFORE == ("jav.service.api_workpackages", "jav.service.api_runs", "jav.service.api_results",
+                                                     "jav.service.api_items")
+    assert tuple(added[-4:]) == api.SHARED_AFTER == ("jav.service.api_outputs", "jav.service.api_workflows", "jav.service.api_system",
+                                                     "jav.service.api_settings")
     assert added[4:-4] == api.service_modules()
 
 

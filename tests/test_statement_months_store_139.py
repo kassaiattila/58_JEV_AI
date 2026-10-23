@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import pytest
 
-from jav import checks, corrections, reconcile, reconcile_package as rp, statement_months as sm, store, work, work_runs
+from jav.app import corrections, work, work_runs
+from jav.ai import checks
+from jav.core import store
+from jav.domains.finance import reconcile, reconcile_package as rp, statement_months as sm
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_package_131 import OWN_KEY, _ids, _line, _line_row, _package, _stmt
 
@@ -93,7 +96,8 @@ def test_two_checked_statements_of_the_same_rank_both_stay_as_a_conflict(db):
 def test_the_month_view_counts_the_valid_statement_and_names_the_replaced(db):
     from datetime import date
 
-    from jav import parties, party_views
+    from jav.app import parties
+    from jav.domains.finance import party_views
 
     party = parties.create("Example Home", identities=[("account", OWN_KEY, k2.OWN)], actor="t")
     old = _stmt("old", _line(), verified=False)
@@ -165,8 +169,8 @@ def test_statements_of_different_days_cannot_be_chosen_between(db):
 
 
 def test_the_policy_step_opens_the_todo_for_an_extracted_statement(db):
-    from jav import policy, typepack
-    from jav.models import CheckResult, FlowState
+    from jav.ai import policy, typepack
+    from jav.ai.models import CheckResult, FlowState
 
     k2._save_statement("earlier", _line())  # an extracted CIB statement, checked
     values = {**k2._statement(_line(), FEE), "account_no": k2.OWN}

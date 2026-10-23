@@ -7,7 +7,8 @@ confirmation lasts while the field's value stays the same. Each to-do carries th
 UI can show it at the field. Synthetic documents and a fake JEV, no paid calls.
 """
 
-from jav import store, work_runs
+from jav.app import work_runs
+from jav.core import store
 from jav.runtime import worker
 from tests import test_api
 from tests.test_api import HUMAN, _ready_wp, _start

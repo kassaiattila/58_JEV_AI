@@ -8,10 +8,12 @@ value (the free coverage check of the paid measurement); the command runs them u
 import argparse
 from decimal import Decimal
 
-from jav import cfg, evals, measure_cli
-from jav.candidates import find_all
-from jav.pdf import read_pdf
-from jav.typepack import get as get_pack
+from jav.evals import evals
+from jav.cli import measure_cli
+from jav.core import cfg
+from jav.ai.candidates import find_all
+from jav.documents.pdf import read_pdf
+from jav.ai.typepack import get as get_pack
 
 
 def test_every_case_names_a_known_type_and_only_its_fields():

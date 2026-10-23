@@ -17,7 +17,9 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, emails, ingest_server, mailbox, store, work, work_readiness, work_recipes, work_runs, workflows as wf
+from jav.app import app_settings, work, work_readiness, work_recipes, work_runs, workflows as wf
+from jav.core import store
+from jav.domains.email import emails, ingest_server, mailbox
 from tests import test_api
 from tests.test_api import HUMAN, INVOICE_LINES, write_text_pdf
 from tests.test_mailbox import MAILS, REQ, FakeBridge

@@ -13,8 +13,10 @@ from decimal import Decimal
 
 import pytest
 
-from jav import price_lists, quote_golden, quote_package, quote_proposal, store
-from jav.runtime import job_kinds, queue, worker
+from jav.core import store
+from jav.domains.quotes import price_lists, invented_golden, quote_package, quote_proposal
+from jav.runtime import job_kinds, worker
+from jav.core import queue
 from tests import test_email_text_follow_up_190 as follow
 from tests.test_email_text_follow_up_190 import _package, _run
 
@@ -22,7 +24,7 @@ env = follow.env  # the 190 fixture: a mailbox package of one quote request emai
 
 
 def _price_list(tmp_path, name: str = "Invented 2026") -> str:
-    made = price_lists.add(name, "p.xlsx", quote_golden.write_price_list(tmp_path / "p.xlsx").read_bytes(), actor="anna")
+    made = price_lists.add(name, "p.xlsx", invented_golden.write_price_list(tmp_path / "p.xlsx").read_bytes(), actor="anna")
     price_lists.activate(made["price_list"], 1, actor="anna")
     return made["price_list"]
 
@@ -98,7 +100,7 @@ def test_the_cap_is_the_budget_per_item_times_the_items():
 def test_the_service_queues_a_proposal(env, tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav.api import create_app
+    from jav.service.api import create_app
 
     quote = _quote(env)
     _price_list(tmp_path)

@@ -5,14 +5,15 @@ emails comes from a domain. A domain module holds only registrations: the checks
 an item, the parts of the downloads, each pointing at the code that does the work in its own module. The shared code
 asks the registries and never names a domain. `registrations.load_all()` calls each domain's `register()` once per
 process; importing a domain module registers nothing. 185: a domain module also names the modules of its addresses of
-the local service (`SERVICE`), which `jav.api.service_modules` adds. 191: a domain module names the modules it is made
-of (`MODULES`), and any number of domains can register. 204: a domain module names the modules of its golden sets
-(`GOLDENS`; a domain without any names none, as with `COMMANDS`), which the shared measurement command imports by name
-(`jav.goldens.logic_pack_goldens`), so a domain's business modules never import the measurement layer.
+the local service (`SERVICE`), which `jav.service.api.service_modules` adds. 191: any number of domains can register. 204: a
+domain module names the modules of its golden sets (`GOLDENS`; a domain without any names none, as with `COMMANDS`),
+which the shared measurement command imports by name (`jav.evals.goldens.logic_pack_goldens`), so a domain's business modules
+never import the measurement layer. 208 (plan G-process-core R2): a domain is a package, and its modules are the ones
+in its folder (until then its `MODULES` named them, 191).
 
-- `jav/domains/finance.py`: invoices, statements, the reconciliation and the utility cost;
-- `jav/domains/email.py`: emails and mailbox packages;
-- `jav/domains/quotes.py` (191): quote requests and quotes.
+- `jav/domains/finance/__init__.py`: invoices, statements, the reconciliation and the utility cost;
+- `jav/domains/email/__init__.py`: emails and mailbox packages;
+- `jav/domains/quotes/__init__.py` (191): quote requests and quotes.
 """
 
 # the order `registrations.load_all` registers them in

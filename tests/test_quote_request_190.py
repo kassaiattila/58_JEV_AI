@@ -16,11 +16,16 @@ from types import SimpleNamespace
 import pytest
 from typesafe_sdk import Noul
 
-from jav import detect_detail, doc_types, extract_llm, flow, intents, naming, policy, store, text_document, typepack
-from jav.adapters import jev as jev_mod
-from jav.emails import Attachment
-from jav.jev_verify import site_for
-from jav.models import JevCall
+from jav.app import naming
+from jav.flows import flow
+from jav.ai import detect_detail, doc_types, extract_llm, policy, typepack
+from jav.documents import text_document
+from jav.core import store
+from jav.domains.email import intents
+from jav.ai import jev as jev_mod
+from jav.domains.email.emails import Attachment
+from jav.ai.jev_verify import site_for
+from jav.ai.models import JevCall
 from tests.test_no_jev_085 import _FakeAgent
 
 KEY = "quote_request"
@@ -91,9 +96,9 @@ def test_the_intent_routes_to_the_quote_requests_extraction():
 
 
 def test_the_examples_are_not_the_invented_golden_emails():
-    from jav import quote_golden
+    from jav.domains.quotes import invented_golden
 
-    subjects = {c.message.subject.casefold() for c in quote_golden.load().cases}
+    subjects = {c.message.subject.casefold() for c in invented_golden.load().cases}
     assert not {e.casefold() for e in intents.BY_KEY[KEY].examples} & subjects
 
 

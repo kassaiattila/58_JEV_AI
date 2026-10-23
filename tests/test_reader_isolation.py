@@ -2,8 +2,8 @@
 import pytest
 import os
 
-from jav.readers.isolation import run
-from jav.readers.limits import DEFAULT_LIMITS, ReadFailure
+from jav.documents.readers.isolation import run
+from jav.documents.readers.limits import DEFAULT_LIMITS, ReadFailure
 
 pytest.importorskip("docx", reason="Native reader dependencies await integration")
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows Job Object reader boundary")
@@ -24,7 +24,7 @@ def test_enforced_process_boundaries(operation, code):
 
 
 def test_missing_os_protection_prevents_parsing(monkeypatch):
-    from jav.readers import isolation
+    from jav.documents.readers import isolation
     def unavailable(*args):
         raise OSError("synthetic unavailable Job Object")
     monkeypatch.setattr(isolation, "Job", unavailable)

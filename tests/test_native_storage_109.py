@@ -6,9 +6,10 @@ import sqlite3
 from pydantic import ValidationError
 import pytest
 
-from jav.native_contracts import NativeItemResult, ReceiptRef, SourcePage
-from jav import native_results, store
-from jav.readers import pipeline
+from jav.documents.native_contracts import NativeItemResult, ReceiptRef, SourcePage
+from jav.documents import native_results
+from jav.core import store
+from jav.documents.readers import pipeline
 from tests.native_fixtures_109 import contract_examples, publish_runtime, runtime_source
 
 
@@ -180,8 +181,8 @@ def test_version_fingerprint_refuses_changed_evidence(isolated, monkeypatch):
 @pytest.mark.parametrize("extension", ["docx", "xlsx", "csv", "txt"])
 def test_all_native_formats_keep_full_structured_source_elements(isolated, monkeypatch, extension):
     from io import BytesIO
-    from jav.native_contracts import Succeeded
-    from jav.readers.interpretation import ProposedExtraction, ground
+    from jav.documents.native_contracts import Succeeded
+    from jav.documents.readers.interpretation import ProposedExtraction, ground
 
     content = b"Order code: 0012\n"
     if extension == "docx":

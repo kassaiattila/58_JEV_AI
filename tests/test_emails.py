@@ -2,10 +2,10 @@
 
 import json
 
-from jav import policy
-from jav.emails import OLD_INTENT_GOLDEN, Attachment, EmailMessage, clean_body, load_message_dir, load_old_golden, sender_domain
-from jav.intent import NOUL_KEYS, build_questions, build_state
-from jav.intents import BY_KEY, DOCUMENT_BEARING, INTENT_KEYS, OTHER, choice_criteria
+from jav.ai import policy
+from jav.domains.email.emails import OLD_INTENT_GOLDEN, Attachment, EmailMessage, clean_body, load_message_dir, load_old_golden, sender_domain
+from jav.domains.email.intent import NOUL_KEYS, build_questions, build_state
+from jav.domains.email.intents import BY_KEY, DOCUMENT_BEARING, INTENT_KEYS, OTHER, choice_criteria
 
 
 def test_registry_consistent():
@@ -83,7 +83,7 @@ def test_load_message_dir(tmp_path):
 
 
 def test_ingest_server_maps_bridge_payload(tmp_path):
-    from jav.ingest_server import host_path, short_hash, write_message
+    from jav.domains.email.ingest_server import host_path, short_hash, write_message
 
     assert short_hash("x") == "9dd4e461268c8034"  # md5("x")[:16] - identical to the bridge's Get-ShortHash
     assert len(short_hash("y")) == 16 and short_hash("x") != short_hash("y")

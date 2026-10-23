@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import store
+from jav.core import store
 
 
 @pytest.fixture()

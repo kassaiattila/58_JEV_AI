@@ -10,15 +10,15 @@ from pydantic_ai import Agent, NativeOutput
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from jav import store
-from jav.config import OPENAI_MODEL
-from jav.readers import native
-from jav.readers.interpretation import ProposedExtraction
-from jav.readers.limits import DEFAULT_LIMITS
-from jav.readers.pipeline import read_files
-from jav.readers.providers import extract_gpt
-from jav.readers.receipts import InterpretationRejected, run_gpt_once
-from jav.runtime import calls
+from jav.core import store
+from jav.core.config import OPENAI_MODEL
+from jav.documents.readers import native
+from jav.documents.readers.interpretation import ProposedExtraction
+from jav.documents.readers.limits import DEFAULT_LIMITS
+from jav.documents.readers.pipeline import read_files
+from jav.documents.readers.providers import extract_gpt
+from jav.documents.readers.receipts import InterpretationRejected, run_gpt_once
+from jav.core import calls
 
 
 @pytest.mark.parametrize("placement", ["body", "inline", "header"])

@@ -2,7 +2,7 @@
 
 A hotel invoice printed its issue date as "Issued : 04-DEC-22 21:52". Neither the machine path nor a selection on the
 page image could read it: the shared date reader knew only four-digit years and a few forms, and manual input took
-only YYYY-MM-DD. Every path now reads dates through `jav/dates.py`:
+only YYYY-MM-DD. Every path now reads dates through `jav/core/dates.py`:
 
 - month names and abbreviations in Hungarian, English, German, French, Spanish and Italian, in any letter case, with
   or without accents, with ordinal endings;
@@ -19,7 +19,7 @@ from datetime import date
 
 import pytest
 
-from jav import dates
+from jav.core import dates
 from jav.runtime import worker
 from tests.test_api import HUMAN, _ready_wp, _start, env  # noqa: F401 - the shared service fixture (`service` below)
 
@@ -241,7 +241,7 @@ def test_manual_input_refuses_text_that_is_not_one_date(raw):
 
 
 def _lines(*texts: str):
-    from jav.models import CellLayout, LineLayout
+    from jav.documents.layout import CellLayout, LineLayout
 
     out = []
     for no, text in enumerate(texts, 1):
@@ -251,7 +251,7 @@ def _lines(*texts: str):
 
 
 def _date_cands(profile, *texts):
-    from jav.candidates import find_all
+    from jav.ai.candidates import find_all
 
     return [(c.label, c.raw, c.ambiguous) for c in find_all(_lines(*texts), profile)["date"]]
 
@@ -291,7 +291,7 @@ def test_the_ocr_profile_still_reads_a_comma_as_a_dot():
 
 
 def test_a_gpt_date_in_any_common_form_is_read_and_an_ambiguous_one_gets_a_to_do():
-    from jav.models import normalize_value
+    from jav.ai.models import normalize_value
 
     reasons: list[str] = []
     assert normalize_value("date", "04-DEC-22", "issue_date", reasons) == date(2022, 12, 4)
@@ -306,7 +306,7 @@ def test_a_gpt_date_in_any_common_form_is_read_and_an_ambiguous_one_gets_a_to_do
 
 
 def test_the_g_path_reads_gpt_dates_with_the_documents_order():
-    from jav import typepack
+    from jav.ai import typepack
 
     inv, reasons = typepack.get("invoice_foreign").normalize({"issue_date": "04/12/2022"}, date_order="dmy")
     assert inv.issue_date == date(2022, 12, 4)
@@ -314,8 +314,8 @@ def test_the_g_path_reads_gpt_dates_with_the_documents_order():
 
 
 def test_a_picked_ambiguous_date_gets_a_to_do_on_the_s_path():
-    from jav.jev_select import site_for
-    from jav.models import Candidate, FieldPick
+    from jav.ai.jev_select import site_for
+    from jav.ai.models import Candidate, FieldPick
 
     lines = _lines("Date: 04/12/2022")
     cand = Candidate(kind="date", label="2022-04-12", raw="04/12/2022", line_no=1, context="L01", ambiguous=True)
@@ -327,8 +327,8 @@ def test_a_picked_ambiguous_date_gets_a_to_do_on_the_s_path():
 
 
 def test_an_ambiguous_date_candidate_does_not_change_the_jev_option_text():
-    from jav.jev_select import site_for
-    from jav.models import Candidate
+    from jav.ai.jev_select import site_for
+    from jav.ai.models import Candidate
 
     cand = Candidate(kind="date", label="2022-04-12", raw="04/12/2022", line_no=1, context="L01: 'Date: 04/12/2022'",
                      ambiguous=True)
@@ -337,7 +337,7 @@ def test_an_ambiguous_date_candidate_does_not_change_the_jev_option_text():
 
 
 def test_the_jev_check_finds_a_date_in_any_form_and_either_reading_of_an_ambiguous_one():
-    from jav.jev_verify import find_evidence
+    from jav.ai.jev_verify import find_evidence
 
     lines = _lines("Issued : 04-DEC-22 21:52", "Due: 04/12/2022", "Total 1 234.00")
     assert find_evidence("issue_date", "2022-12-04", lines, kind="date") == [
@@ -346,7 +346,7 @@ def test_the_jev_check_finds_a_date_in_any_form_and_either_reading_of_an_ambiguo
 
 
 def test_normalize_date_gives_only_an_unambiguous_value():
-    from jav.models import normalize_date
+    from jav.ai.models import normalize_date
 
     assert normalize_date("04-DEC-22") is not None
     assert normalize_date("04/12/2022") is None

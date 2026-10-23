@@ -10,10 +10,11 @@ from types import SimpleNamespace
 import pytest
 from typesafe_sdk import Choice, SystemOneResponse
 
-from jav import corrections, export, store, work, work_readiness, work_recipes, work_runs
-from jav.adapters import jev as jev_mod
-from jav.readers import providers
-from jav.readers.interpretation import ProposedExtraction
+from jav.app import corrections, export, work, work_readiness, work_recipes, work_runs
+from jav.core import store
+from jav.ai import jev as jev_mod
+from jav.documents.readers import providers
+from jav.documents.readers.interpretation import ProposedExtraction
 from jav.runtime import worker
 from tests.pdfgen import write_text_pdf
 
@@ -165,7 +166,7 @@ def test_a_scanned_pdf_continues_with_the_readers_local_ocr(text_source, ocr):
 
 
 def test_the_continuing_stage_asks_the_native_graph_for_local_ocr(monkeypatch):
-    from jav import flow_native
+    from jav.flows import flow_native
 
     seen = {}
 
@@ -183,10 +184,10 @@ def test_the_continuing_stage_asks_the_native_graph_for_local_ocr(monkeypatch):
 @pytest.mark.slow
 def test_an_ocr_reading_has_its_own_identity_and_a_plain_reading_keeps_its_old_one(tmp_path, monkeypatch):
     import hashlib
-    from jav import native_results
-    from jav.readers import pipeline
-    from jav.readers.limits import DEFAULT_LIMITS
-    from jav.readers.pipeline import digest, json_bytes
+    from jav.documents import native_results
+    from jav.documents.readers import pipeline
+    from jav.documents.readers.limits import DEFAULT_LIMITS
+    from jav.documents.readers.pipeline import digest, json_bytes
 
     source = tmp_path / "statement.txt"
     source.write_bytes(b"Statement: 0012\n")
@@ -204,7 +205,8 @@ def test_an_ocr_reading_has_its_own_identity_and_a_plain_reading_keeps_its_old_o
 
 
 def test_the_native_graph_reads_with_ocr_only_when_asked(tmp_path, monkeypatch):
-    from jav import flow_native, native_results
+    from jav.flows import flow_native
+    from jav.documents import native_results
 
     asked = []
 
@@ -230,8 +232,8 @@ def test_a_scan_read_with_local_ocr_is_partial_and_opens_a_to_do(tmp_path, monke
 
     from PIL import Image, ImageDraw, ImageFont
 
-    from jav import native_results
-    from jav.readers import visual_ocr
+    from jav.documents import native_results
+    from jav.documents.readers import visual_ocr
 
     class FakeOCR:
         fingerprint = "a" * 64

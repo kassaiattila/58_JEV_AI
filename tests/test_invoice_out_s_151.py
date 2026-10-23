@@ -12,10 +12,13 @@ import argparse
 import json
 from pathlib import Path
 
-from jav import cfg, evals, measure_cli, store, typepack
-from jav.adapters import jev as jev_mod
-from jav.jev_select import site_for
-from jav.jev_verify import VerifySite
+from jav.evals import evals
+from jav.cli import measure_cli
+from jav.ai import typepack
+from jav.core import cfg, store
+from jav.ai import jev as jev_mod
+from jav.ai.jev_select import site_for
+from jav.ai.jev_verify import VerifySite
 from tests.test_runtime_worker import FakeClient
 
 CASES = [c for c in cfg.load("golden_synthetic")["cases"] if c["type_key"] == "invoice_out"]
@@ -61,7 +64,7 @@ def test_the_candidates_hold_every_expected_value_but_a_private_persons_name(tmp
 
 
 def test_the_s_path_runs_on_an_outgoing_invoice(tmp_path):
-    from jav.flow import run_one
+    from jav.flows.flow import run_one
 
     (case,) = evals.load_synthetic_cases("invoice_out", out_dir=tmp_path)[:1]
     client = FakeClient()

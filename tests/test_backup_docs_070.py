@@ -11,7 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from jav import backup, store, work
+from jav.runtime import backup
+from jav.app import work
+from jav.core import store
 
 
 @pytest.fixture()

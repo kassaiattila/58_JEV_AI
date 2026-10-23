@@ -1,7 +1,7 @@
 """The package's "next step" (057): computed in one place, shown by both the list and the package header. Synthetic
 data."""
 
-from jav.work_views import next_step
+from jav.app.work_views import next_step
 from tests import test_api
 from tests.test_api import HUMAN, _ready_wp, _start
 

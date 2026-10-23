@@ -12,8 +12,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import numbers
-from jav.models import normalize_value, record_from_llm
+from jav.core import numbers
+from jav.ai.models import normalize_value, record_from_llm
 
 
 @pytest.mark.parametrize("raw", ["37.4510", "1.2345", "123.4567", "0.98531"])

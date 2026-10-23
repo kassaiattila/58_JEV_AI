@@ -9,7 +9,8 @@ import logging
 
 import pytest
 
-from jav import mailbox, store
+from jav.domains.email import mailbox
+from jav.core import store
 
 REQ = mailbox.MailboxRequest(accounts=["office@example.com"], since_days=3)
 
@@ -23,7 +24,7 @@ def test_the_creator_is_the_first_to_have_changed_it(tmp_path):
 def test_a_change_records_who_made_it(tmp_path, caplog):
     with store.use_store(tmp_path / "s.sqlite"):
         sch = mailbox.create_schedule(REQ, actor="anna")
-        with caplog.at_level(logging.INFO, logger="jav.mailbox"):
+        with caplog.at_level(logging.INFO, logger="jav.domains.email.mailbox"):
             after = mailbox.update_schedule(sch["id"], actor="bela", enabled=False)
         assert (after["actor"], after["changed_by"], after["enabled"]) == ("anna", "bela", False)
         assert f"mailbox schedule {sch['id']} changed by bela" in caplog.text
@@ -33,7 +34,7 @@ def test_a_change_records_who_made_it(tmp_path, caplog):
 def test_a_deletion_is_logged_with_who_made_it(tmp_path, caplog):
     with store.use_store(tmp_path / "s.sqlite"):
         sch = mailbox.create_schedule(REQ, actor="anna")
-        with caplog.at_level(logging.INFO, logger="jav.mailbox"):
+        with caplog.at_level(logging.INFO, logger="jav.domains.email.mailbox"):
             mailbox.delete_schedule(sch["id"], actor="bela")
         assert f"mailbox schedule {sch['id']} deleted by bela" in caplog.text
         with pytest.raises(KeyError):
@@ -52,7 +53,7 @@ def test_a_change_or_deletion_needs_a_name(tmp_path):
 def test_the_service_passes_the_chosen_name_on(tmp_path, caplog):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
 
     c = TestClient(api.create_app(store_path=tmp_path / "api.sqlite"), base_url="http://127.0.0.1:8930")
     sid = c.post("/api/mailbox/schedules", json={"request": {"accounts": ["office@example.com"], "since_days": 3}},
@@ -60,7 +61,7 @@ def test_the_service_passes_the_chosen_name_on(tmp_path, caplog):
     assert c.patch(f"/api/mailbox/schedules/{sid}", json={"enabled": False}).status_code == 422  # no name: refused
     changed = c.patch(f"/api/mailbox/schedules/{sid}", json={"enabled": False}, headers={"X-Actor": "bela"}).json()
     assert changed["changed_by"] == "bela"
-    with caplog.at_level(logging.INFO, logger="jav.mailbox"):
+    with caplog.at_level(logging.INFO, logger="jav.domains.email.mailbox"):
         assert c.post(f"/api/mailbox/schedules/{sid}/delete", json={}, headers={"X-Actor": "bela"}).status_code == 200
     assert f"mailbox schedule {sid} deleted by bela" in caplog.text
 

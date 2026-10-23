@@ -1,5 +1,5 @@
 """073 language guard (plan N-angol): tracked files may not gain Hungarian lines, and comment-only translations are
-verifiable (jav/lang_guard.py)."""
+verifiable (jav/devtools/lang_guard.py)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import lang_guard
+from jav.devtools import lang_guard
 
 ROOT = Path(__file__).resolve().parents[1]
 

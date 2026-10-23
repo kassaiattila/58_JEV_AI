@@ -59,10 +59,10 @@ def test_each_command_is_handled_in_the_module_that_registers_it():
 
 def test_a_domain_names_its_own_commands():
     domains = {name: importlib.import_module(name) for name in DOMAINS}
-    assert domains["jav.domains.finance"].COMMANDS == ("jav.finance_cli",)
-    assert domains["jav.domains.email"].COMMANDS == ("jav.email_cli",)
-    finance = _registered()["jav.finance_cli"]
+    assert domains["jav.domains.finance"].COMMANDS == ("jav.domains.finance.finance_cli",)
+    assert domains["jav.domains.email"].COMMANDS == ("jav.domains.email.email_cli",)
+    finance = _registered()["jav.domains.finance.finance_cli"]
     assert set(finance) == {"duplicates", "own-tax", "reconcile", "reconcile-ai", "statement-table",
                             "reconcile-versions-backfill", "fx-rates"}
-    assert set(_registered()["jav.email_cli"]) == {"email", "email-ingest-server"}
+    assert set(_registered()["jav.domains.email.email_cli"]) == {"email", "email-ingest-server"}
     assert cli.command_modules()[: len(cli.SHARED_COMMANDS)] == cli.SHARED_COMMANDS

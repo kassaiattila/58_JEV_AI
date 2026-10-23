@@ -14,8 +14,10 @@ import pytest
 from fastapi.testclient import TestClient
 from typesafe_sdk import SystemOneResponse
 
-from jav import api, config, jev_version, store
-from jav.adapters.jev import _CONCRETE_MODEL, MODEL_VERSIONS_FILE, JevAdapter
+from jav.service import api
+from jav.ai import jev_version
+from jav.core import config, store
+from jav.ai.jev import _CONCRETE_MODEL, MODEL_VERSIONS_FILE, JevAdapter
 
 
 def _versions(cache: Path, latest: str | None, *, hours_ago: float = 1) -> None:

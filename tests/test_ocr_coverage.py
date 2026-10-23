@@ -5,11 +5,12 @@ from unittest.mock import patch
 
 import pytest
 
-from jav import policy, store
-from jav.flow import ocr_pdf as invoice_ocr
-from jav.flow_detect import DetectState, ocr_pdf as detect_ocr
-from jav.models import FlowState
-from jav.pdf import PdfText
+from jav.ai import policy
+from jav.core import store
+from jav.flows.flow import ocr_pdf as invoice_ocr
+from jav.flows.flow_detect import DetectState, ocr_pdf as detect_ocr
+from jav.ai.models import FlowState
+from jav.documents.pdf import PdfText
 
 
 def _partial(pages_ocr: int, page_count: int = 13) -> PdfText:
@@ -23,19 +24,19 @@ def test_policy_coverage_reason():
 
 
 def test_invoice_ocr_step_marks_partial_pages():
-    with patch("jav.ocr.ocr_with_escalation", return_value=(_partial(12), False)):
+    with patch("jav.documents.ocr.ocr_with_escalation", return_value=(_partial(12), False)):
         state = invoice_ocr(FlowState(doc_type="invoice_hu", source_path="synthetic.pdf", case_id="t", arm="S", page_count=13))
     assert state.needs_review and "ocr:partial_pages:12/13" in state.review_reasons
 
 
 def test_detect_ocr_step_marks_partial_pages():
-    with patch("jav.ocr.ocr_with_escalation", return_value=(_partial(12), False)):
+    with patch("jav.documents.ocr.ocr_with_escalation", return_value=(_partial(12), False)):
         state = detect_ocr(DetectState(source_path="synthetic.pdf", page_count=13))
     assert "ocr:partial_pages:12/13" in state.review_reasons
 
 
 def test_full_coverage_adds_nothing():
-    with patch("jav.ocr.ocr_with_escalation", return_value=(_partial(13), False)):
+    with patch("jav.documents.ocr.ocr_with_escalation", return_value=(_partial(13), False)):
         state = invoice_ocr(FlowState(doc_type="invoice_hu", source_path="synthetic.pdf", case_id="t", arm="S", page_count=13))
     assert not any(r.startswith("ocr:partial_pages") for r in state.review_reasons)
 
@@ -48,8 +49,8 @@ def isolated(tmp_path: Path):
 
 def test_detect_save_keeps_coverage_reason_even_when_type_is_certain(isolated):
     """A certain type closes detect's own reasons, but the to-do for the skipped pages stays open."""
-    from jav.flow_detect import save
-    from jav.detect import DetectResult
+    from jav.flows.flow_detect import save
+    from jav.ai.detect import DetectResult
     result = DetectResult.model_construct(doc_type="invoice_hu", confidence=0.99, issuer_hu=0.9, probabilities={}, language="hu",
                                           parent=None, parent_prob=None)
     state = DetectState(source_path="synthetic.pdf", doc_id="d13", page_count=13, run_id="r1", text_source="ocr",

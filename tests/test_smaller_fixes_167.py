@@ -3,7 +3,7 @@ reaches the reconciliation without it; the result table showed it as it was."""
 
 from __future__ import annotations
 
-from jav.reconcile import printable
+from jav.domains.finance.reconcile import printable
 
 
 def test_control_characters_become_one_space() -> None:
@@ -21,7 +21,7 @@ def test_a_document_that_is_not_a_pdf_has_no_page_image(tmp_path) -> None:
     """167 (review 153 E): a Word, Excel, text or statement file is refused with its own message, not PDFium's error."""
     import pytest
 
-    from jav import page_image
+    from jav.documents import page_image
 
     path = tmp_path / "statement.xml"
     path.write_text("<Document/>", encoding="utf-8")
@@ -33,7 +33,7 @@ def test_a_document_that_is_not_a_pdf_has_no_page_image(tmp_path) -> None:
 
 def test_a_correction_in_the_activity_log_names_its_fields_not_their_values() -> None:
     """167 (review 153 E): the corrected fields' keys (the values never go into the log); before, an item hash."""
-    from jav.activity import _detail
+    from jav.app.activity import _detail
 
     assert _detail("correction", '{"net_total": "1000", "invoice_number": "INV-1"}') == "invoice_number,net_total"
     assert _detail("correction", "{}") is None
@@ -42,7 +42,7 @@ def test_a_correction_in_the_activity_log_names_its_fields_not_their_values() ->
 
 def test_a_reconciliation_package_shows_no_item_count(monkeypatch) -> None:
     """167 (review 153 E): its lines are not items, so the list leaves the count empty instead of 0."""
-    from jav import datasets, work_views
+    from jav.app import datasets, work_views
 
     row = {"id": "wp-1", "name": "x", "source_kind": "reconcile", "items": 0, "last_run_id": None,
            "next": {"stage": "process", "label": "", "code": "reconcile_pair", "params": {}}}

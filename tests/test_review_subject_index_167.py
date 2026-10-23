@@ -9,7 +9,8 @@ the join (`store.SUBJECT_REASONS`).
 import inspect
 import sqlite3
 
-from jav import store, work_runs
+from jav.app import work_runs
+from jav.core import store
 
 OPEN_REASONS = ("SELECT r.id, r.run_id FROM " + store.SUBJECT_REASONS
                 + " WHERE q.subject_kind=? AND q.subject_id=? AND r.status='open' ORDER BY r.id")

@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import parties, store, work_runs, workflows as wf
+from jav.app import parties, work_runs, workflows as wf
+from jav.core import store
 from tests.test_workflow_references_153 import MONTH, erste
 from tests.test_workflows_146 import _steps, db  # noqa: F401 - the fixture is used by name
 

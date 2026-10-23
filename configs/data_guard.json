@@ -1,9 +1,24 @@
 {
   "meta": {
     "name": "data_guard",
-    "version": "1.0.9",
-    "description": "Adatőr (070 terv 2.1 S-adatőr, jav/data_guard.py): commit és feltöltés előtti személyesadat- és kulcsőr. A mintát ellenőrzőszám szűri (adószám, IBAN, bankszámla); a kitalált és nyilvános céges értékek az allow listán olvashatóan, a 069-es döntés szerint maradó saját adat a known listán csak sha256-tal és fájlhoz kötve, a tiltott kifejezések (saját cégnév, felhasználónév) csak sha256-tal.",
+    "version": "1.0.12",
+    "description": "Adatőr (070 terv 2.1 S-adatőr, jav/devtools/data_guard.py): commit és feltöltés előtti személyesadat- és kulcsőr. A mintát ellenőrzőszám szűri (adószám, IBAN, bankszámla); a kitalált és nyilvános céges értékek az allow listán olvashatóan, a 069-es döntés szerint maradó saját adat a known listán csak sha256-tal és fájlhoz kötve, a tiltott kifejezések (saját cégnév, felhasználónév) csak sha256-tal.",
     "changelog": [
+      {
+        "version": "1.0.12",
+        "date": "2026-10-23",
+        "note": "209 (plan G-process-core R2b): the models' instructions and output schemas moved from jav/prompts/ to configs/prompts/; the known term's file list follows the path."
+      },
+      {
+        "version": "1.0.11",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the developer tools' modules moved into jav/devtools/; the paths here follow them, nothing else changed."
+      },
+      {
+        "version": "1.0.10",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the document reading's modules moved into jav/documents/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.9",
         "date": "2026-10-22",
@@ -222,10 +237,10 @@
         "configs/legacy_types/invoice_out/fixtures/synth_invoice_out.json",
         "configs/legacy_types/invoice_out/prompt.md",
         "configs/legacy_types/invoice_out/schema.json",
+        "configs/prompts/invoice_out_prompt.md",
+        "configs/prompts/invoice_out_schema.json",
         "configs/types/invoice_out.json",
-        "jav/pdf.py",
-        "jav/prompts/invoice_out_prompt.md",
-        "jav/prompts/invoice_out_schema.json",
+        "jav/documents/pdf.py",
         "tests/test_candidates.py",
         "tests/test_grounding.py",
         "tests/test_ocr_utility.py",

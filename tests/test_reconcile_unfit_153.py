@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import pytest
 
-from jav import reconcile, reconcile_package as rp, store, work
+from jav.app import work
+from jav.core import store
+from jav.domains.finance import reconcile, reconcile_package as rp
 from tests import test_reconcile_k2_129 as k2
 
 OWN_KEY = reconcile.account_key(k2.OWN)

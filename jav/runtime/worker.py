@@ -29,10 +29,15 @@ from typing import Any, Callable
 
 from burr.integrations.serde import pydantic as burr_pydantic
 
-from jav import app_settings, isolated_pdf, item_kinds, pdf, store, work, work_readiness, work_runs, workflows
-from jav.runtime import applog, calls, flows, job_kinds, lock, pdf_status, persistence, queue
-from jav.runtime.persistence import ClosingSQLitePersister
-from jav.digest import file_sha256 as _sha256_file
+from jav.app import app_settings, item_kinds, work, work_readiness, work_runs, workflows
+from jav.documents import isolated_pdf, pdf
+from jav.core import store
+from jav.runtime import job_kinds, pdf_status
+from jav import flows
+from jav.flows import persistence
+from jav.core import applog, calls, lock, queue
+from jav.flows.persistence import ClosingSQLitePersister
+from jav.core.digest import file_sha256 as _sha256_file
 
 log = logging.getLogger("jav.worker")
 
@@ -98,7 +103,7 @@ class StatePersister(ClosingSQLitePersister):
 def _attachment_reads(items: list[dict[str, Any]], email_item_id: str) -> dict[str, str]:
     """The email's attachments that are items of the run with an intact source instance: resolved original path ->
     instance. A damaged instance is left out (its own document item fails with `instance_damaged`)."""
-    from jav import source_instances
+    from jav.app import source_instances
 
     out = {}
     for i in items:
@@ -117,7 +122,7 @@ def _flow_module(name: str):
 def arm_for(doc_type: str, preferred: str) -> str:
     """The effective path (arm) for the type (the rule is in `typepack.resolve_arm`; 065: the budget reservation uses it
     too)."""
-    from jav import typepack
+    from jav.ai import typepack
 
     return typepack.resolve_arm(doc_type, preferred)
 
@@ -231,7 +236,7 @@ def native_fallback(params: dict[str, Any], item: dict[str, Any], detect_state) 
     a reading is always partial, so it keeps a to-do. It does not continue after a failed classification step (JEV
     or GPT unavailable), without any text, or for a type that has a fitting pack. Returns the native stage's
     parameters, or None."""
-    from jav.native_contracts import NATIVE_FALLBACK_SUFFIXES
+    from jav.documents.native_contracts import NATIVE_FALLBACK_SUFFIXES
 
     if params.get("unknown_documents") != "facts" or not item_kinds.of(item).detected:  # 177: a document only
         return None
@@ -406,7 +411,7 @@ def _prune_state(app_id: str) -> None:
 def startup() -> dict[str, int]:
     """Start-up: settles interrupted claims and marks unsettled paid calls. The result of an item that became dead or
     cancelled shows on the run too (063: otherwise the run's item would be left without a result)."""
-    from jav import native_results  # noqa: F401 - register native tables before the startup store connection
+    from jav.documents import native_results  # noqa: F401 - register native tables before the startup store connection
 
     rec = queue.recover_orphans()
     for job in [*rec.dead, *rec.cancelled]:

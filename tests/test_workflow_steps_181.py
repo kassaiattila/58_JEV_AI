@@ -17,19 +17,20 @@ from dataclasses import replace
 
 import pytest
 
-from jav import cfg, registrations, workflow_steps, workflows
-from jav.config import PROJECT_ROOT
+from jav.app import registrations, workflow_steps, workflows
+from jav.core import cfg
+from jav.core.config import PROJECT_ROOT
 
 JAV = PROJECT_ROOT / "jav"
 
 
 _PROBE = """
 import json
-import jav.domains.email, jav.domains.finance, jav.email_routing, jav.mailbox, jav.reconcile_package, jav.statement_package
-import jav.workflows
-from jav import workflow_steps
+import jav.domains.email, jav.domains.finance, jav.domains.email.email_routing, jav.domains.email.mailbox, jav.domains.finance.reconcile_package, jav.domains.finance.statement_package
+import jav.app.workflows
+from jav.app import workflow_steps
 before = sorted(workflow_steps._KINDS)
-from jav import registrations
+from jav.app import registrations
 registrations.load_all()
 print(json.dumps({"before": before, "after": [k.kind for k in workflow_steps.kinds()]}))
 """
@@ -47,9 +48,9 @@ def test_every_template_kind_is_registered_and_nothing_more() -> None:
     kinds = {k.kind: k for k in workflow_steps.kinds()}
     assert set(kinds) == set(cfg.load("workflows")["kinds"])
     assert {k: v.module for k, v in kinds.items()} == {
-        "documents": "jav.workflows", "emails": "jav.mailbox",
-        "statements": "jav.statement_package", "reconcile": "jav.reconcile_package", "routing": "jav.email_routing",
-        "quote": "jav.quote_package"}  # 191
+        "documents": "jav.app.workflows", "emails": "jav.domains.email.mailbox",
+        "statements": "jav.domains.finance.statement_package", "reconcile": "jav.domains.finance.reconcile_package", "routing": "jav.domains.email.email_routing",
+        "quote": "jav.domains.quotes.quote_package"}  # 191
 
 
 def test_a_one_step_templates_id_is_its_kind() -> None:
@@ -97,9 +98,9 @@ def _strings_and_imports(path) -> tuple[set[str], set[str]]:
 
 
 def test_the_workflow_code_names_no_step_kind_and_no_finance_module() -> None:
-    strings, names = _strings_and_imports(JAV / "workflows.py")
+    strings, names = _strings_and_imports(PROJECT_ROOT / "jav/app/workflows.py")
     assert strings & {"emails", "statements", "reconcile"} == set()
-    assert names & {"jav.statement_package", "jav.reconcile_package", "jav.reconcile"} == set()
+    assert names & {"jav.domains.finance.statement_package", "jav.domains.finance.reconcile_package", "jav.domains.finance.reconcile"} == set()
 
 
 def test_a_kind_registered_twice_differently_is_refused_and_an_unknown_one_stops(monkeypatch) -> None:
@@ -118,7 +119,7 @@ def test_a_kind_registered_twice_differently_is_refused_and_an_unknown_one_stops
 def test_a_step_of_an_unregistered_kind_fails_with_the_reason(tmp_path, monkeypatch) -> None:
     """A template naming a kind no module registered: its step fails with the reason instead of starting nothing."""
     registrations.load_all()
-    from jav import store
+    from jav.core import store
 
     monkeypatch.setattr(workflow_steps, "_KINDS", {k.kind: k for k in workflow_steps.kinds() if k.kind != "documents"})
     with store.use_store(tmp_path / "s.sqlite"):

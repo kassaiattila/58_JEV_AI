@@ -11,8 +11,8 @@ The package runs separately from application ingestion, workers, review and the 
 Use a separate Windows checkout and virtual environment. The shared `requirements.lock` pins the measured native dependencies: `python-docx==1.2.0`, `lxml==6.0.2` and `defusedxml==0.7.1`; install that lockfile as described in [Setup](SETUP.md). Missing reader dependencies produce a visible unsupported result. Installing the dependencies does not by itself connect these readers to the application workflow.
 
 ```powershell
-& .\.venv\Scripts\python.exe -m jav.readers .\synthetic-inbox --output .\runs\new-reading
-& .\.venv\Scripts\python.exe -m jav.readers .\synthetic-images --ocr --output .\runs\new-local-ocr
+& .\.venv\Scripts\python.exe -m jav.documents.readers .\synthetic-inbox --output .\runs\new-reading
+& .\.venv\Scripts\python.exe -m jav.documents.readers .\synthetic-images --ocr --output .\runs\new-local-ocr
 & .\.venv\Scripts\python.exe tests/export_native_corpus.py .\runs\new-synthetic-corpus
 ```
 
@@ -42,7 +42,7 @@ Local OCR is explicit and uses only installed Tesseract and configured local lan
 
 An OCR attempt records parser and recognition protections separately, with the weakest values reported in its aggregate protections. Python-parser protections must remain enforced; OCR does not claim filesystem or network isolation. Recognised text is retained with `partial` status and an explicit `protection_unavailable` issue. The typed scopes must agree with the aggregate and frozen evidence, and the recognition resource bounds remain mandatory. Older parser-only deliveries omit these optional scope fields, preserving their saved bundle bytes and digest on reload.
 
-A scanned PDF can instead take over an Azure Document Intelligence recognition that the application already obtained (124, `jav/readers/external_recognition.py`). The reader never calls Azure itself: it receives the kept original recognition, checks it against the frozen PDF (no more pages than the document, page size within one point, unit inch, every word box on its page, the word limit), and maps the word polygons onto the unread visual pages with the same word conversion and line tolerance as document detection. The result is a separate word layer with the engine `azure_di`. A page the recognition does not cover or does not fit stays unread with an explicit `needs_ocr` reason, and local OCR is never mixed in. The original is kept in the delivery under its digest (`recognitions/`), and the attempt records it as an `ExternalRecognition`. Loading a reading checks the kept recognition's digest, size and description and the saved layer's binding to it, without mapping it again: a later change to the shared word or line code must not make earlier readings unloadable. Such a reading has no local recognition boundary, so it can be complete.
+A scanned PDF can instead take over an Azure Document Intelligence recognition that the application already obtained (124, `jav/documents/readers/external_recognition.py`). The reader never calls Azure itself: it receives the kept original recognition, checks it against the frozen PDF (no more pages than the document, page size within one point, unit inch, every word box on its page, the word limit), and maps the word polygons onto the unread visual pages with the same word conversion and line tolerance as document detection. The result is a separate word layer with the engine `azure_di`. A page the recognition does not cover or does not fit stays unread with an explicit `needs_ocr` reason, and local OCR is never mixed in. The original is kept in the delivery under its digest (`recognitions/`), and the attempt records it as an `ExternalRecognition`. Loading a reading checks the kept recognition's digest, size and description and the saved layer's binding to it, without mapping it again: a later change to the shared word or line code must not make earlier readings unloadable. Such a reading has no local recognition boundary, so it can be complete.
 
 PDF and image text, coordinates, rasters and raw TSV belong to the same source reading. OCR failures keep the source and a visible reason; native PDF words remain available when local recognition fails. PDF OCR coordinates are mapped using the actual raster width and height rather than an assumed DPI. The experimental PDF bound is at most twelve pages, further restricted by the supplied inventory and pixel budgets. Reopening saved evidence never backfills missing OCR automatically.
 
@@ -68,7 +68,7 @@ For a like-for-like comparison with JEV selection, `extract_gpt(fields=..., enti
 
 ## Library references and provenance
 
-The native adapters use the provider/result boundary and library-opening/iteration/closing patterns documented in [NOTICE](../../jav/readers/NOTICE.md). They do not import the older runtime or implement an Office file format.
+The native adapters use the provider/result boundary and library-opening/iteration/closing patterns documented in [NOTICE](../../jav/documents/readers/NOTICE.md). They do not import the older runtime or implement an Office file format.
 
 Word order uses the documented [`iter_inner_content` API](https://python-docx.readthedocs.io/en/latest/api/document.html). Excel formula and saved-value views use [`load_workbook`](https://openpyxl.readthedocs.io/en/stable/api/openpyxl.reader.excel.html). The local comparison exercises [Docling conversion](https://docling-project.github.io/docling/usage/) and [Unstructured partitioning](https://docs.unstructured.io/open-source/core-functionality/partitioning) on identical artificial Office bytes, without runtime network access. This small comparison does not establish a final general-purpose library choice or image/OCR capability.
 

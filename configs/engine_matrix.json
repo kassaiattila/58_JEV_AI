@@ -1,9 +1,49 @@
 {
   "meta": {
     "name": "engine_matrix",
-    "version": "1.0.7",
-    "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
+    "version": "1.0.15",
+    "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/devtools/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
     "changelog": [
+      {
+        "version": "1.0.15",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the developer tools' modules moved into jav/devtools/; the paths here follow them, nothing else changed."
+      },
+      {
+        "version": "1.0.14",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the measurement's modules moved into jav/evals/, with the three stand-alone tools from jav/experiments/; the paths here follow them, nothing else changed."
+      },
+      {
+        "version": "1.0.13",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the flows' modules moved into jav/flows/; the paths here follow them, nothing else changed."
+      },
+      {
+        "version": "1.0.12",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the AI layer's modules moved into jav/ai/; the paths here follow them, nothing else changed."
+      },
+      {
+        "version": "1.0.11",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the document reading's modules moved into jav/documents/; the paths here follow them, nothing else changed."
+      },
+      {
+        "version": "1.0.10",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the quotes domain's modules moved into jav/domains/quotes/; the paths here follow them, nothing else changed."
+      },
+      {
+        "version": "1.0.9",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the finance domain's modules moved into jav/domains/finance/; the paths here follow them, nothing else changed."
+      },
+      {
+        "version": "1.0.8",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the email domain's modules moved into jav/domains/email/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.7",
         "date": "2026-10-22",
@@ -55,10 +95,10 @@
     "detect": {
       "call_site": "detect",
       "modules": [
-        "jav/detect.py"
+        "jav/ai/detect.py"
       ],
       "gpt": {
-        "module": "jav/detect_gpt.py",
+        "module": "jav/ai/detect_gpt.py",
         "function": "detect",
         "config": "gpt_detect"
       },
@@ -70,10 +110,10 @@
     "detect_detail": {
       "call_site": "detect_detail",
       "modules": [
-        "jav/detect_detail.py"
+        "jav/ai/detect_detail.py"
       ],
       "gpt": {
-        "module": "jav/detect_gpt.py",
+        "module": "jav/ai/detect_gpt.py",
         "function": "choose_detail",
         "config": "gpt_detect"
       },
@@ -85,10 +125,10 @@
     "email_intent": {
       "call_site": "email_intent",
       "modules": [
-        "jav/intent.py"
+        "jav/domains/email/intent.py"
       ],
       "gpt": {
-        "module": "jav/intent_gpt.py",
+        "module": "jav/domains/email/intent_gpt.py",
         "function": "classify",
         "config": "gpt_intent"
       },
@@ -100,10 +140,10 @@
     "quote_match": {
       "call_site": "quote_match",
       "modules": [
-        "jav/quote_match.py"
+        "jav/domains/quotes/quote_match.py"
       ],
       "gpt": {
-        "module": "jav/quote_match.py",
+        "module": "jav/domains/quotes/quote_match.py",
         "function": "ask_gpt",
         "config": "gpt_quote_match"
       },
@@ -115,10 +155,10 @@
     "reconcile_line": {
       "call_site": "reconcile_line",
       "modules": [
-        "jav/reconcile_ai.py"
+        "jav/domains/finance/reconcile_ai.py"
       ],
       "gpt": {
-        "module": "jav/reconcile_ai.py",
+        "module": "jav/domains/finance/reconcile_ai.py",
         "function": "ask_gpt",
         "config": "gpt_reconcile"
       },
@@ -130,7 +170,7 @@
     "select": {
       "call_site": "select",
       "modules": [
-        "jav/jev_select.py"
+        "jav/ai/jev_select.py"
       ],
       "exception": {
         "kind": "replaced",
@@ -144,7 +184,7 @@
     "select_foreign": {
       "call_site": "select_foreign",
       "modules": [
-        "jav/jev_select.py"
+        "jav/ai/jev_select.py"
       ],
       "exception": {
         "kind": "replaced",
@@ -158,7 +198,7 @@
     "select_invoice_out": {
       "call_site": "select_invoice_out",
       "modules": [
-        "jav/jev_select.py"
+        "jav/ai/jev_select.py"
       ],
       "exception": {
         "kind": "replaced",
@@ -172,7 +212,7 @@
     "select_utility": {
       "call_site": "select_utility",
       "modules": [
-        "jav/jev_select.py"
+        "jav/ai/jev_select.py"
       ],
       "exception": {
         "kind": "replaced",
@@ -186,12 +226,12 @@
     "verify": {
       "call_site": "verify",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -200,12 +240,12 @@
     "verify_altalanos_szerzodesi_feltetelek": {
       "call_site": "verify_altalanos_szerzodesi_feltetelek",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -214,12 +254,12 @@
     "verify_belepo_jegy": {
       "call_site": "verify_belepo_jegy",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -228,12 +268,12 @@
     "verify_belepo_jegy_taught": {
       "call_site": "verify_belepo_jegy_taught",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -242,12 +282,12 @@
     "verify_certificate": {
       "call_site": "verify_certificate",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -256,12 +296,12 @@
     "verify_csapatmenedzser_utasitas": {
       "call_site": "verify_csapatmenedzser_utasitas",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -270,12 +310,12 @@
     "verify_foreign": {
       "call_site": "verify_foreign",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -284,12 +324,12 @@
     "verify_id_document": {
       "call_site": "verify_id_document",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -298,12 +338,12 @@
     "verify_insurance_claim_form": {
       "call_site": "verify_insurance_claim_form",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -312,12 +352,12 @@
     "verify_invoice_out": {
       "call_site": "verify_invoice_out",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -326,12 +366,12 @@
     "verify_meeting_minutes": {
       "call_site": "verify_meeting_minutes",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -340,12 +380,12 @@
     "verify_quote_request": {
       "call_site": "verify_quote_request",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check with GPT's token confidence on the scored fields (jav/policy.py apply_gpt_confidence_policy); the list questions have no counterpart: the list checks of the pack's validators stand in"
+        "note": "the code's own source check with GPT's token confidence on the scored fields (jav/ai/policy.py apply_gpt_confidence_policy); the list questions have no counterpart: the list checks of the pack's validators stand in"
       },
       "tests": [
         "tests/test_quote_request_190.py::test_without_jev_the_code_checks_the_request"
@@ -354,12 +394,12 @@
     "verify_meghivo": {
       "call_site": "verify_meghivo",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -368,12 +408,12 @@
     "verify_nav_certificate": {
       "call_site": "verify_nav_certificate",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -382,12 +422,12 @@
     "verify_nav_receipt": {
       "call_site": "verify_nav_receipt",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -396,12 +436,12 @@
     "verify_nav_tax_return": {
       "call_site": "verify_nav_tax_return",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -410,12 +450,12 @@
     "verify_statement_cib": {
       "call_site": "verify_statement_cib",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -424,12 +464,12 @@
     "verify_statement_erste": {
       "call_site": "verify_statement_erste",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -438,12 +478,12 @@
     "verify_terkep_adat": {
       "call_site": "verify_terkep_adat",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -452,12 +492,12 @@
     "verify_utility": {
       "call_site": "verify_utility",
       "modules": [
-        "jav/jev_verify.py"
+        "jav/ai/jev_verify.py"
       ],
       "gpt": {
-        "module": "jav/jev_verify.py",
+        "module": "jav/ai/jev_verify.py",
         "function": "code_verdicts",
-        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/ai/policy.py apply_gpt_confidence_policy)"
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
@@ -465,8 +505,8 @@
     },
     "reader_semantic_support": {
       "modules": [
-        "jav/readers/providers.py",
-        "jav/native_processing.py"
+        "jav/documents/readers/providers.py",
+        "jav/ai/native_processing.py"
       ],
       "exception": {
         "kind": "skipped",
@@ -478,7 +518,7 @@
     },
     "verifier_probe": {
       "modules": [
-        "jav/evals.py"
+        "jav/evals/evals.py"
       ],
       "exception": {
         "kind": "measurement_only",
@@ -490,15 +530,15 @@
     }
   },
   "routing": {
-    "jav/flow.py": "the invoice flow: asks the select and verify call sites, turns a JEV failure into a to-do, and without JEV runs the G path with the code's check",
-    "jav/flow_detect.py": "the detection flow: asks detect and detect_detail, or GPT without JEV",
-    "jav/flow_email.py": "the email flow: asks email_intent, or GPT without JEV",
-    "jav/jev_budget.py": "fits a request to the call site's size budget and asks it once more on a token error",
-    "jav/engine.py": "switches JEV off in every step of a flow built without JEV",
-    "jav/evals.py": "the golden and determinism measurements of the invoice flow (and the verifier probe, a site of its own)",
-    "jav/evals_detect.py": "the detection measurements",
-    "jav/evals_email.py": "the email measurements",
-    "jav/before_after_replay.py": "the before/after replay: runs the existing processing with an adapter that reads the JEV answer cache; it asks nothing itself, and a question without an earlier answer is refused for want of a budget",
-    "jav/jev_version.py": "the pinned JEV version: resolves the provider's moving name (jev-latest) with the adapter's model probe for the daily look; it asks no judgement, and processing without JEV never calls it"
+    "jav/flows/flow.py": "the invoice flow: asks the select and verify call sites, turns a JEV failure into a to-do, and without JEV runs the G path with the code's check",
+    "jav/flows/flow_detect.py": "the detection flow: asks detect and detect_detail, or GPT without JEV",
+    "jav/domains/email/flow_email.py": "the email flow: asks email_intent, or GPT without JEV",
+    "jav/ai/jev_budget.py": "fits a request to the call site's size budget and asks it once more on a token error",
+    "jav/ai/engine.py": "switches JEV off in every step of a flow built without JEV",
+    "jav/evals/evals.py": "the golden and determinism measurements of the invoice flow (and the verifier probe, a site of its own)",
+    "jav/evals/evals_detect.py": "the detection measurements",
+    "jav/evals/evals_email.py": "the email measurements",
+    "jav/evals/before_after_replay.py": "the before/after replay: runs the existing processing with an adapter that reads the JEV answer cache; it asks nothing itself, and a question without an earlier answer is refused for want of a budget",
+    "jav/ai/jev_version.py": "the pinned JEV version: resolves the provider's moving name (jev-latest) with the adapter's model probe for the daily look; it asks no judgement, and processing without JEV never calls it"
   }
 }

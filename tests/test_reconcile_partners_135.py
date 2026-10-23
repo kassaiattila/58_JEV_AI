@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import reconcile_package as rp
+from jav.domains.finance import reconcile_package as rp
 from tests import test_api
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_package_131 import _ids, _line_row, _package, _stmt
@@ -28,7 +28,7 @@ LINES = (SHOP_1, SHOP_2, CAFE, CHEQUE_1, CHEQUE_2, SHOP_MAY)
 
 @pytest.fixture
 def db(tmp_path):
-    from jav import store
+    from jav.core import store
 
     with store.use_store(tmp_path / "r.sqlite"):
         yield

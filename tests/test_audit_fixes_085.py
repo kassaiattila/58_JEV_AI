@@ -10,9 +10,13 @@ import pytest
 from fastapi.testclient import TestClient
 from typesafe_sdk import TypeSafeAPITimeoutError
 
-from jav import api, backup, cfg, corrections, source_instances, store, work, work_runs
-from jav.adapters.jev import JevUnavailableError
-from jav.runtime import calls, worker
+from jav.service import api
+from jav.runtime import backup
+from jav.app import corrections, source_instances, work, work_runs
+from jav.core import cfg, store
+from jav.ai.jev import JevUnavailableError
+from jav.runtime import worker
+from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_api import BASE, HUMAN, _ready_wp, _start, env  # noqa: F401 - the shared service fixture (`service` below)
 

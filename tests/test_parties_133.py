@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import parties, store
+from jav.app import parties
+from jav.core import store
 
 COMPANY_TAX = "12121216-2-42"  # a sample number on the data guard's allow list
 CLUB_TAX = "13570008-1-13"  # a sample number on the data guard's allow list

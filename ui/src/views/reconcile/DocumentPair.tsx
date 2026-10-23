@@ -4,7 +4,7 @@
 // cannot be opened here.
 // 144 (DECISIONS 144): the statement pane shows the line's facts first, as the statement prints them. A statement read
 // by code (a CIB PDF's text, a bank's table or XML export) has no page of its own — the pane showed a broken image —
-// so its page is the bank's PDF behind it, found again by the service (jav/statement_original.py) and framed the same
+// so its page is the bank's PDF behind it, found again by the service (jav/domains/finance/statement_original.py) and framed the same
 // way; a table or XML export has no PDF, and the statement as read stands in its place, the line highlighted.
 import { useEffect, useRef, useState } from "react";
 import { api, type ReconcileInvoice, type ReconcileLine, type ReconcileLocation, type ReconcileOpen, type ReconcileStatementView } from "../../api";

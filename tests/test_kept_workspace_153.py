@@ -7,7 +7,7 @@ none of them changes it. Synthetic data, no AI call.
 
 import json
 
-from jav import reconcile_package as rp, reconcile_review
+from jav.domains.finance import reconcile_package as rp, reconcile_review
 from tests.test_list_speed_140 import _workspace_package, db, fresh_caches  # noqa: F401 - the shared fixtures
 
 

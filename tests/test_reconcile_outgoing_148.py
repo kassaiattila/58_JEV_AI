@@ -17,8 +17,10 @@ import copy
 
 import pytest
 
-from jav import cfg, parties, reconcile, store
-from jav import reconcile_package as rp
+from jav.app import parties
+from jav.core import cfg, store
+from jav.domains.finance import reconcile
+from jav.domains.finance import reconcile_package as rp
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_package_131 import _line as _pkg_line
 from tests.test_reconcile_package_131 import OWN_KEY, _stmt

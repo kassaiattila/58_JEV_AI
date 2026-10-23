@@ -16,10 +16,11 @@ from decimal import Decimal
 import pytest
 from hypothesis import HealthCheck, given, settings, strategies as st
 
-from jav.candidates import MAX_QUANTITY_OPTIONS, find_all, profile_of
-from jav.models import CellLayout, LineLayout, money_label, normalize_date, normalize_tax_id, parse_money
-from jav.pdf import build_layout, fix_lost_glyphs, text_layer_ok
-from jav.validators import HU_TAXID_WEIGHTS, hu_tax_id, iban_check
+from jav.ai.candidates import MAX_QUANTITY_OPTIONS, find_all, profile_of
+from jav.ai.models import money_label, normalize_date, normalize_tax_id, parse_money
+from jav.documents.layout import CellLayout, LineLayout
+from jav.documents.pdf import build_layout, fix_lost_glyphs, text_layer_ok
+from jav.ai.validators import HU_TAXID_WEIGHTS, hu_tax_id, iban_check
 
 PROFILES = ("hu", "intl", "utility")
 # 150 examples per test in the suite; deeper search: JAV_HYPOTHESIS_EXAMPLES=5000 pytest tests/test_properties_067.py

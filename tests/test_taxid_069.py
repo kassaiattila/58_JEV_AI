@@ -7,10 +7,10 @@ The survey (the extracted results in the local store, forms only): Hungarian tax
 
 import pytest
 
-from jav import taxid
-from jav.models import DocumentRecord, normalize_tax_id
-from jav.typepack import get as get_pack
-from jav.validators import run_all, tax_id
+from jav.core import taxid
+from jav.ai.models import DocumentRecord, normalize_tax_id
+from jav.ai.typepack import get as get_pack
+from jav.ai.validators import run_all, tax_id
 
 
 @pytest.mark.parametrize("value, code", [
@@ -75,7 +75,7 @@ def test_hungarian_invoice_checks_the_buyer_too():
 
 
 def _tax_labels(*rows: str) -> list[str]:
-    from jav.candidates import find_all
+    from jav.ai.candidates import find_all
     from tests.test_candidates_065 import _lines
 
     return [c.label for c in find_all(_lines(*rows), "intl")["tax_id"]]

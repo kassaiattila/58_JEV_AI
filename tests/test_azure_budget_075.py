@@ -16,9 +16,11 @@ from unittest.mock import patch
 
 import pytest
 
-from jav import ocr, store, work_readiness, work_recipes
-from jav.pdf import PdfText
-from jav.runtime import calls
+from jav.app import work_readiness, work_recipes
+from jav.documents import ocr
+from jav.core import store
+from jav.documents.pdf import PdfText
+from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 EVIDENCE = {"model_id": "prebuilt-read", "api_version": "2024-11-30", "pages": [{"unit": "inch", "words": [

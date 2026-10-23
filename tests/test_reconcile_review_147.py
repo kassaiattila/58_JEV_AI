@@ -13,7 +13,10 @@ from __future__ import annotations
 
 import pytest
 
-from jav import cfg, policy, reconcile, reconcile_ai, reconcile_package as rp, reconcile_review as rr, store, work
+from jav.app import work
+from jav.ai import policy
+from jav.core import cfg, store
+from jav.domains.finance import reconcile, reconcile_ai, reconcile_package as rp, reconcile_review as rr
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_package_131 import _line, _package, _stmt
 
@@ -182,7 +185,7 @@ def test_marking_several_reasons_at_once_is_all_or_none(db):
 def test_the_service_shows_the_review_and_accepts_a_group(db):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
     from tests.test_api import BASE, HUMAN
 
     wp_id, ids, _inv = _setup()

@@ -6,10 +6,10 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, SystemOneResponse
 
-from jav import store
-from jav.adapters.jev import JevAdapter, JevUnavailableError
-from jav.runtime import calls
-from jav.typepack import get as get_pack
+from jav.core import store
+from jav.ai.jev import JevAdapter, JevUnavailableError
+from jav.core import calls
+from jav.ai.typepack import get as get_pack
 
 
 class FakeClient:
@@ -90,7 +90,7 @@ def test_jev_sdk_failure_is_journaled_as_failed(isolated):
 def test_uncertain_prior_attempt_blocks_jev_call(isolated):
     client = FakeClient()
     jev = JevAdapter(client=client, cache_dir=isolated / "cache", model="jev-1.13.0")
-    from jav.adapters.jev import request_hash
+    from jav.ai.jev import request_hash
     key = request_hash("jev-1.13.0", {"x": 1}, QS)
     calls._reserve(run_id="run-1", step_id=f"jev:t:{key[:16]}", provider="jev", model="jev-1.13.0",
                    max_cost_usd=Decimal("0.01"), budget_scope=None, request_hash=key)
@@ -108,7 +108,7 @@ class _FailingAgent:
 
 def test_gpt_failure_is_ledgered_outside_run_context(isolated):
     """F05: a failed call of the normal GPT extract is also recorded in the ledger (with unknown cost, not zero)."""
-    from jav import extract_llm
+    from jav.ai import extract_llm
     with extract_llm.use_agent_factory(lambda pack: _FailingAgent()), pytest.raises(TimeoutError):
         extract_llm.extract("szöveg", pack=get_pack("invoice_hu"), run_id="g1")
     rows = store.ledger_for_run("g1")
@@ -116,7 +116,7 @@ def test_gpt_failure_is_ledgered_outside_run_context(isolated):
 
 
 def test_gpt_failure_in_run_context_keeps_reservation(isolated):
-    from jav import extract_llm
+    from jav.ai import extract_llm
     calls.set_budget("wp", "openai", Decimal("1"))
     with calls.use_run(budget_scope="wp"), extract_llm.use_agent_factory(lambda pack: _FailingAgent()), pytest.raises(TimeoutError):
         extract_llm.extract("szöveg", pack=get_pack("invoice_hu"), run_id="g2")
@@ -135,8 +135,9 @@ def test_unpriced_model_is_refused_under_a_budget(isolated, monkeypatch):
     """066 Á38: if the configured model has no price, the budget reservation would see zero and the budget would not
     stop the spending. In a worker run it therefore stops with a named error (the flow raises an
     `llm:failed:UnpricedModelError` to-do)."""
-    from jav import email_tasks, extract_llm
-    from jav.config import UnpricedModelError
+    from jav.domains.email import email_tasks
+    from jav.ai import extract_llm
+    from jav.core.config import UnpricedModelError
 
     monkeypatch.setattr(extract_llm, "OPENAI_MODEL", "gpt-kitalalt-modell")
     monkeypatch.setattr(email_tasks, "OPENAI_MODEL", "gpt-kitalalt-modell")

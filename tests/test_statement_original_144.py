@@ -15,7 +15,10 @@ from pathlib import Path
 
 import pytest
 
-from jav import grounding, reconcile, reconcile_package as rp, statement_original as so, store, work
+from jav.app import work
+from jav.ai import grounding
+from jav.core import store
+from jav.domains.finance import reconcile, reconcile_package as rp, statement_original as so
 from tests import test_api
 from tests import test_reconcile_k2_129 as k2
 from tests import test_reconcile_package_131 as e1

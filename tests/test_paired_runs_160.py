@@ -13,9 +13,13 @@ import contextlib
 
 import pytest
 
-from jav import costs, detect_gpt, extract_llm, gpt_choice, mailbox, store, work, work_readiness, work_recipes, work_runs
-from jav.adapters import jev as jev_mod
-from jav.runtime import calls, worker
+from jav.app import costs, work, work_readiness, work_recipes, work_runs
+from jav.ai import detect_gpt, extract_llm, gpt_choice
+from jav.core import store
+from jav.domains.email import email_store, mailbox
+from jav.ai import jev as jev_mod
+from jav.runtime import worker
+from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_gpt_detect_086 import _by_question, _factory
 from tests.test_gpt_intent_089 import _answer
@@ -90,5 +94,5 @@ def test_an_email_run_finishes_on_both_engines(env, tmp_path, engine):  # noqa: 
     with _models(engine, tmp_path, noul=0.05), gpt:
         run_id = _start_and_run(wp_id)
     _check_engine(run_id, engine)
-    results = [store.email_result(work_runs.flow_run_id(run_id, i["item_id"])) for i in work_runs.get_run(run_id)["input"]["items"]]
+    results = [email_store.email_result(work_runs.flow_run_id(run_id, i["item_id"])) for i in work_runs.get_run(run_id)["input"]["items"]]
     assert len(results) == len(MAILS) and all(r and r.get("intent") for r in results), results

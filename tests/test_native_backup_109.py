@@ -6,7 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from jav import backup, corrections, native_results, source_instances, store
+from jav.runtime import backup
+from jav.app import corrections, source_instances
+from jav.documents import native_results
+from jav.core import store
 from tests.test_native_review_api_109 import published_run
 
 
@@ -48,8 +51,8 @@ def test_source_release_preserves_frozen_run_reference(tmp_path):
 
 
 def test_tampered_native_artifact_blocks_approval_and_cached_result(tmp_path):
-    from jav import datasets, work_runs
-    from jav.tablequery import Query
+    from jav.app import datasets, work_runs
+    from jav.app.tablequery import Query
 
     with store.use_store(tmp_path / "damaged.sqlite"):
         rid, item, publication, _cite = published_run(tmp_path)

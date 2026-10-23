@@ -23,7 +23,9 @@ from __future__ import annotations
 
 import pytest
 
-from jav import parties, reconcile, store
+from jav.app import parties
+from jav.core import store
+from jav.domains.finance import reconcile
 from tests import test_reconcile_k2_129 as k2
 
 CLUB_TAX = "13570008-1-13"  # samples on the data guard's allow list

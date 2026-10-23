@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import eval_report as er
+from jav.evals import eval_report as er
 
 
 def _write(path: Path, rows: list[dict]) -> Path:

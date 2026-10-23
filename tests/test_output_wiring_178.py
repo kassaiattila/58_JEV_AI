@@ -12,9 +12,11 @@ import io
 
 from openpyxl import Workbook, load_workbook
 
-from jav import package_release, report_utility, store
-from jav import reconcile_statement as rs
-from jav.outputs import templates
+from jav.app import package_release
+from jav.core import store
+from jav.domains.finance import report_utility
+from jav.domains.finance import reconcile_statement as rs
+from jav.app.outputs import templates
 from tests import test_flexible_package_160c as fp
 from tests.test_characterisation_178 import _world
 from tests.test_flexible_package_160c import HUMAN, _assign, _package
@@ -131,7 +133,7 @@ def test_the_command_line_checks_stores_activates_and_chooses(tmp_path, capsys):
 def test_a_store_from_before_178_gets_the_template_columns_of_a_versions_files(tmp_path):
     import sqlite3
 
-    from jav import package_release
+    from jav.app import package_release
 
     path = tmp_path / "old.sqlite"
     conn = sqlite3.connect(path)

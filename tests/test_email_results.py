@@ -11,8 +11,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, corrections, datasets, emails, intent, mailbox, store, work, work_readiness, work_recipes, work_runs, work_views
-from jav.emails import EmailMessage
+from jav.service import api
+from jav.app import corrections, datasets, work, work_readiness, work_recipes, work_runs, work_views
+from jav.core import store
+from jav.domains.email import email_store, emails, intent, mailbox
+from jav.domains.email.emails import EmailMessage
 from jav.runtime import worker
 from tests.test_mailbox import MAILS, REQ, FakeBridge, env  # noqa: F401 - pytest fixture
 
@@ -49,15 +52,15 @@ def test_body_coverage_full_shortened_and_capped():
 
 def test_email_result_is_kept_per_run_and_not_overwritten(env):  # noqa: F811
     wp_id, run_id, items = _email_run(env)
-    first = {i["item_id"]: store.email_result(work_runs.flow_run_id(run_id, i["item_id"])) for i in items}
+    first = {i["item_id"]: email_store.email_result(work_runs.flow_run_id(run_id, i["item_id"])) for i in items}
     assert all(r and r["intent"] and r["body"]["status"] == "full" for r in first.values())
     ready = work_readiness.readiness(wp_id)
     second = work_runs.start_run(wp_id, mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="t",
                             rerun_of=run_id)["run_id"]
     worker.run_worker(once=True)
     for i in items:  # the new run gets its own row, the old one is kept
-        assert store.email_result(work_runs.flow_run_id(run_id, i["item_id"])) == first[i["item_id"]]
-        assert store.email_result(work_runs.flow_run_id(second, i["item_id"])) is not None
+        assert email_store.email_result(work_runs.flow_run_id(run_id, i["item_id"])) == first[i["item_id"]]
+        assert email_store.email_result(work_runs.flow_run_id(second, i["item_id"])) is not None
     view = corrections.item_result(run_id, items[0]["item_id"])["email"]
     assert view["result"]["from_this_run"] is True and view["body_coverage"]["status"] == "full"
 
@@ -156,7 +159,7 @@ def test_pdf_attachment_becomes_a_linked_document_and_runs_with_the_email_recipe
 def test_attachment_detection_inside_the_email_flow_stays_in_the_run(env, monkeypatch):  # noqa: F811
     """065: the email's own attachment detection also logs and records to-dos under the run's ID; otherwise the
     attachment's to-do looks "earlier" (the run does not count it) and its cost falls outside the run."""
-    from jav import policy
+    from jav.ai import policy
 
     monkeypatch.setattr(policy, "choice_needs_review", lambda *a, **k: True)  # every judgment is uncertain: there should be a to-do
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge([_mail_with_pdf(env), MAILS[1]]), inbox_root=env["inbox"])
@@ -188,7 +191,7 @@ def test_the_email_flow_reads_the_attachment_from_its_source_instance(env):  # n
     run_id = work_runs.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
     info = worker.run_worker(once=True)
     assert info["results"] == {"done": 3}, info
-    result = store.email_result(work_runs.flow_run_id(run_id, doc["parent_item_id"]))
+    result = email_store.email_result(work_runs.flow_run_id(run_id, doc["parent_item_id"]))
     pdf = next(a for a in result["attachments"] if a["filename"] == "szamla.pdf")
     assert pdf["doc_id"] == doc["sha256"] and pdf["status"] == "done"  # the kept copy, not the changed original
 
@@ -227,7 +230,7 @@ def _fake_tasks(snap, *, intent_hint, run_id):
 
 
 def test_task_proposals_go_through_the_gate_and_only_a_human_accepts_them(env, monkeypatch):  # noqa: F811
-    from jav import email_tasks
+    from jav.domains.email import email_tasks
 
     monkeypatch.setattr(email_tasks, "extract", _fake_tasks)
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge(MAILS), inbox_root=env["inbox"])
@@ -281,7 +284,8 @@ def test_task_proposals_go_through_the_gate_and_only_a_human_accepts_them(env, m
 
 
 def test_task_proposal_failure_becomes_a_todo_and_archived_mail_is_skipped(env, monkeypatch):  # noqa: F811
-    from jav import email_tasks, policy
+    from jav.domains.email import email_tasks
+    from jav.ai import policy
 
     def boom(snap, *, intent_hint, run_id):
         raise RuntimeError("nincs kapcsolat")

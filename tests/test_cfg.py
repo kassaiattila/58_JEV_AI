@@ -2,10 +2,10 @@
 
 import json
 
-from jav import cfg
-from jav.doc_types import BY_KEY as DOC_BY_KEY, DOC_TYPE_KEYS, UNKNOWN
-from jav.intents import INTENT_KEYS, OTHER
-from jav import policy
+from jav.core import cfg
+from jav.ai.doc_types import BY_KEY as DOC_BY_KEY, DOC_TYPE_KEYS, UNKNOWN
+from jav.domains.email.intents import INTENT_KEYS, OTHER
+from jav.ai import policy
 
 
 def test_all_configs_load_with_meta_and_stable_hash():
@@ -48,11 +48,11 @@ def test_policy_thresholds_come_from_json():
 
 
 def test_callsite_questions_build_from_json():
-    from jav.detect import build_questions as detect_q, CONFIG_HASH as detect_hash
-    from jav.intent import build_questions as intent_q, NOUL_KEYS
-    from jav.jev_select import site_for as select_site
-    from jav.jev_verify import site_for as verify_site
-    from jav.models import InvoiceLLM
+    from jav.ai.detect import build_questions as detect_q, CONFIG_HASH as detect_hash
+    from jav.domains.email.intent import build_questions as intent_q, NOUL_KEYS
+    from jav.ai.jev_select import site_for as select_site
+    from jav.ai.jev_verify import site_for as verify_site
+    from jav.ai.invoice_models import InvoiceLLM
 
     select, verify = select_site("invoice_hu"), verify_site("invoice_hu")
 

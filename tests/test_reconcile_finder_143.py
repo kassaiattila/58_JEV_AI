@@ -2,13 +2,13 @@
 
 The owner found the invoice list beside a selected statement line hard to read: nothing said which invoice is the
 line's payment and why. The finder compares the line with every invoice on the page in code - name, invoice number,
-account, amount and timing - and says which ones fit (`jav/reconcile.py` `compare`, `jav/reconcile_package.py`
+account, amount and timing - and says which ones fit (`jav/domains/finance/reconcile.py` `compare`, `jav/domains/finance/reconcile_package.py`
 `matches`). It decides nothing. Synthetic documents and made-up accounts only; no AI call.
 """
 
 from __future__ import annotations
 
-from jav import reconcile, reconcile_package as rp
+from jav.domains.finance import reconcile, reconcile_package as rp
 from tests import test_reconcile_k2_129 as k2
 from tests import test_reconcile_package_131 as p131
 

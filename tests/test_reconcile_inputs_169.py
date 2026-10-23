@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import pytest
 
-from jav import datasets, reconcile_package as rp, reconcile_statement as rs, store, work
-from jav.tablequery import Query
+from jav.app import datasets, work
+from jav.core import store
+from jav.domains.finance import reconcile_package as rp, reconcile_statement as rs
+from jav.app.tablequery import Query
 from tests import test_api
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_package_131 import OWN_KEY, _ids, _invoice_row, _line, _package, _stmt

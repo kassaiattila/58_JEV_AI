@@ -6,8 +6,9 @@ import time
 
 import pytest
 
-from jav import isolated_pdf
-from jav.runtime import lock, pdf_status
+from jav.documents import isolated_pdf
+from jav.runtime import pdf_status
+from jav.core import lock
 
 
 def _worker_report():

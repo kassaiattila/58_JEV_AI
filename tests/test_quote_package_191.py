@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import pytest
 
-from jav import logic_packs, package_scope, price_lists, quote_golden, quote_package, quote_request, store, work, workflow_steps
+from jav.app import logic_packs, package_scope, work, workflow_steps
+from jav.core import store
+from jav.domains.quotes import price_lists, invented_golden, quote_package, quote_request
 from tests import test_document_result_174 as rows
 from tests import test_email_text_follow_up_190 as follow
 from tests.test_email_text_follow_up_190 import OUT, _package, _run
@@ -103,7 +105,7 @@ def rows_db(tmp_path):
 
 
 def _price_list(tmp_path) -> None:
-    made = price_lists.add("Invented 2026", "p.xlsx", quote_golden.write_price_list(tmp_path / "p.xlsx").read_bytes(),
+    made = price_lists.add("Invented 2026", "p.xlsx", invented_golden.write_price_list(tmp_path / "p.xlsx").read_bytes(),
                            actor="anna")
     price_lists.activate(made["price_list"], 1, actor="anna")
 
@@ -153,17 +155,17 @@ def test_only_a_quote_request_can_start_a_quote(rows_db):
 
 def test_the_quote_is_a_registered_logic_pack_and_a_kind_of_work():
     pack = logic_packs.of("quote")
-    assert pack is not None and not pack.has_runs and pack.service == "jav.api_quote_package"
+    assert pack is not None and not pack.has_runs and pack.service == "jav.domains.quotes.api_quote_package"
     assert [(r.name, r.source) for r in pack.roles] == [("request", "linked_package"), ("price_list", "master_data")]
     assert workflow_steps.of("quote").package_kinds == ("quote",)
-    templates = {t["id"]: t for t in __import__("jav.workflows", fromlist=["templates_view"]).templates_view()["templates"]}
+    templates = {t["id"]: t for t in __import__("jav.app.workflows", fromlist=["templates_view"]).templates_view()["templates"]}
     assert templates["quote"]["steps"] == [{"id": "quote", "kind": "quote"}]
 
 
 def test_the_service_lists_the_requests_and_makes_a_quote(env, tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav.api import create_app
+    from jav.service.api import create_app
 
     wp_id = _package(env)
     _run_id, item = _run(wp_id)

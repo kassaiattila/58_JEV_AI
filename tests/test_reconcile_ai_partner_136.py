@@ -13,7 +13,9 @@ from decimal import Decimal
 
 import pytest
 
-from jav import gpt_choice, reconcile, reconcile_ai, reconcile_package, store
+from jav.ai import gpt_choice
+from jav.core import store
+from jav.domains.finance import reconcile, reconcile_ai, reconcile_package
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_ai_134 import ENERGY, TELECOM, FakeJev, _fake_gpt, _line
 

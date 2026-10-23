@@ -15,11 +15,12 @@ from types import SimpleNamespace
 import pytest
 from typesafe_sdk import Noul
 
-from jav import gpt_choice, quote_golden, quote_match, quote_pricing
-from jav.adapters import jev as jev_mod
+from jav.ai import gpt_choice
+from jav.domains.quotes import invented_golden, quote_match, quote_pricing
+from jav.ai import jev as jev_mod
 from tests.test_runtime_worker import FakeClient
 
-PRICES = quote_pricing.golden_price_list(quote_golden.load())
+PRICES = quote_pricing.golden_price_list(invented_golden.load())
 REQUESTED = {"description": "2 db monitor", "quantity": "2", "unit": "db"}
 
 
@@ -132,7 +133,7 @@ class Oracle(StandInJev):
 
     def __init__(self) -> None:
         super().__init__({})
-        self.expected = {i.written: m for c in quote_golden.load().cases for m in c.expected.matches
+        self.expected = {i.written: m for c in invented_golden.load().cases for m in c.expected.matches
                          for i in [c.expected.request.items[m.item]]}
 
     def ask(self, request_id, state, questions, *, run_id, use_cache=True, config_hash=None):

@@ -1,4 +1,4 @@
-// Output templates (jav/api_outputs.py).
+// Output templates (jav/service/api_outputs.py).
 import { enc, request } from "./client";
 
 /** 178/179 (plan 170 L4): the outputs a person may give an own Excel template. */
@@ -35,7 +35,7 @@ export interface OutputTemplatesListing {
 export interface PackageOutputChoice {
   chosen: { template: string; chosen_by: string; chosen_at: string; active: boolean; name: string | null; version: number | null } | null;
   templates: { template: string; name: string; version: number }[];
-  /** 187: the choice's state, sent back with a change (`jav/decisions.py`). */
+  /** 187: the choice's state, sent back with a change (`jav/core/decisions.py`). */
   decision_state?: number;
 }
 export interface PackageOutputChoices { workpackage_id: string; outputs: Partial<Record<OutputName, PackageOutputChoice>> }

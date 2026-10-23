@@ -15,7 +15,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api
+from jav.service import api
 from tests.test_api import BASE, _ready_wp, env  # noqa: F401  (the pytest fixture comes from here too)
 
 COMMON = {

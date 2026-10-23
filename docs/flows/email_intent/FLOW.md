@@ -1,6 +1,6 @@
 # FLOW — email_intent
 
-> Generated from the flow module's `CONTRACT` (`jav/contract.py`, `python -m jav.cli flows`).
+> Generated from the flow module's `CONTRACT` (`jav/flows/contract.py`, `python -m jav.cli flows`).
 > Regenerate this file instead of editing it. FLOW.mmd groups the graph by phase.
 
 ## Phases and steps
@@ -12,7 +12,7 @@
 - **classify_attachments** _(flow)_ — minden PDF-csatolmányon az M1 doc_detect gráf (a levél run_id-je alatt: <run_id>-doc_detect), eredmény a csatolmányra + documents.source_email; kép -> unsupported, névből ismert -> name_only; olvashatatlan PDF -> unreadable + teendő (attachment:unreadable), a levél tovább fut
 
 ### classify
-- **intent** _(jev)_ — egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben. Without JEV: the same questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/intent_gpt.py); a failed call is an intent:gpt_failed to-do (and no attachment recognition in this flow: the attachments are recognised as items of their own). A sent message (folder = sent, 149) is not asked: no call, no to-do
+- **intent** _(jev)_ — egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben. Without JEV: the same questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/domains/email/intent_gpt.py); a failed call is an intent:gpt_failed to-do (and no attachment recognition in this flow: the attachments are recognised as items of their own). A sent message (folder = sent, 149) is not asked: no call, no to-do
 
 ### route
 - **route** _(det)_ — policy.email_next_flow: conf küszöb -> csatolmány M1-típusa -> szándékonkénti alapértelmezés. A sent message (149): policy.email_sent_route, its attachments' types, else archive:sent. 190: a route to a type pack that reads text (the quote request), with the recipe's email_text setting on, names the follow-up stage: the extraction flow on the email's own text; 192: and one on each table attachment when the pack reads tables
@@ -28,7 +28,7 @@
 
 Terminal steps: done
 
-> M3 - a bemenet a régi outlook_bridge.ps1 -> jav/ingest_server.py -> inbox-mappa; a next_flow kódban dől el, nem Jev-kérdés.
+> M3 - a bemenet a régi outlook_bridge.ps1 -> jav/domains/email/ingest_server.py -> inbox-mappa; a next_flow kódban dől el, nem Jev-kérdés.
 
 ## Graph (Mermaid)
 

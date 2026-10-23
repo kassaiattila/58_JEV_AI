@@ -6,7 +6,7 @@ import json
 
 from openpyxl import load_workbook
 
-from jav import datasets
+from jav.app import datasets
 from jav.runtime import worker
 from tests import test_api
 from tests.test_api import HUMAN, _ready_wp, _start
@@ -97,7 +97,8 @@ def test_cache_is_refreshed_after_a_correction(env):
 
 def test_run_fingerprint_follows_only_this_runs_subjects_and_task_decisions(env):
     """062 (Q-ujjlenyomat): until then, a to-do change in any run invalidated the stored results of every run."""
-    from jav import store
+    from jav.core import store
+    from jav.domains.email import email_store
 
     c = env["client"]
     wp, run_id = _run(c, env["folder"])
@@ -110,10 +111,10 @@ def test_run_fingerprint_follows_only_this_runs_subjects_and_task_decisions(env)
     store.review_enqueue(subject_kind="document", subject_id=own, run_id="run-korabbi:" + own[:16], reasons=["pick:y"], producer="m2")
     fp2 = datasets._run_fingerprint({"run_id": run_id})
     assert fp2 != fp  # a to-do on the run's subject (even from an earlier run) counts, due to the "earlier" marker
-    store.email_task_decide(f"{run_id}:{own[:16]}", 0, decision="accepted", actor="Minta Anna", note=None)
+    email_store.email_task_decide(f"{run_id}:{own[:16]}", 0, decision="accepted", actor="Minta Anna", note=None)
     fp3 = datasets._run_fingerprint({"run_id": run_id})
     assert fp3 != fp2
-    store.email_task_decide(f"{run_id}:{own[:16]}", 0, decision="rejected", actor="Minta Anna", note=None)
+    email_store.email_task_decide(f"{run_id}:{own[:16]}", 0, decision="rejected", actor="Minta Anna", note=None)
     assert datasets._run_fingerprint({"run_id": run_id}) != fp3  # even when re-decided within the same second
 
 
@@ -156,7 +157,7 @@ def test_export_guards_formulas(env):
 
 
 def test_utility_cost_long_form_and_sources(env, monkeypatch):
-    from jav import export
+    from jav.app import export
     from tests.test_reports import _bill
 
     c = env["client"]

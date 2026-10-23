@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import isolated_pdf, statement_table as st
+from jav.documents import isolated_pdf
+from jav.domains.finance import statement_table as st
 from tests import test_statement_table_136 as t136
 
 
@@ -25,7 +26,7 @@ def test_the_parsing_runs_in_the_isolated_reader(tmp_path, monkeypatch):
 
     monkeypatch.setattr(isolated_pdf, "run", spy)
     reading = st.read(t136._workbook(tmp_path))
-    assert calls == [("jav.statement_table", "parse_rows", "read", ["data", "limits", "suffix"])]
+    assert calls == [("jav.domains.finance.statement_table", "parse_rows", "read", ["data", "limits", "suffix"])]
     assert len(reading.accounts) == 4
 
 

@@ -12,9 +12,11 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from jav import emails, ingest_server, mailbox, store, work, work_readiness, work_runs
-from jav.adapters import jev as jev_mod
-from jav.config import BRIDGE_ROOT, OLD_PROJECT_ROOT
+from jav.domains.email import emails, ingest_server, mailbox
+from jav.app import work, work_readiness, work_runs
+from jav.core import store
+from jav.ai import jev as jev_mod
+from jav.core.config import BRIDGE_ROOT, OLD_PROJECT_ROOT
 from jav.runtime import worker
 from tests.test_email_signals import FakeClient  # Choice + Noul + Score (the graded signals of the intent question)
 
@@ -139,7 +141,7 @@ def test_email_recipe_runs_in_the_worker(env):
 def test_schedule_tick_enqueues_once_per_slot(tmp_path):
     from datetime import datetime, timedelta, timezone
 
-    from jav.runtime import queue
+    from jav.core import queue
 
     with store.use_store(tmp_path / "s.sqlite"):
         with pytest.raises(ValueError):  # a schedule only makes sense with "last N days"
@@ -196,7 +198,7 @@ def test_manual_pull_goes_through_the_worker(env, monkeypatch):
 def test_service_endpoints(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
 
     db = tmp_path / "api.sqlite"
     monkeypatch.setattr(ingest_server, "INBOX_ROOT", tmp_path / "inbox")
@@ -241,7 +243,7 @@ def test_service_endpoints(tmp_path, monkeypatch):
 
 
 def test_bookkeeping_files_are_not_attachments(tmp_path):
-    from jav.emails import load_message_dir
+    from jav.domains.email.emails import load_message_dir
 
     d = tmp_path / "abc"
     d.mkdir()

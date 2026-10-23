@@ -12,10 +12,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import detect_detail, detect_gpt, flow_detect, store
-from jav.adapters import jev as jev_mod
-from jav.doc_types import BY_KEY, DOC_TYPE_KEYS
-from jav.runtime import calls
+from jav.flows import flow_detect
+from jav.ai import detect_detail, detect_gpt
+from jav.core import store
+from jav.ai import jev as jev_mod
+from jav.ai.doc_types import BY_KEY, DOC_TYPE_KEYS
+from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 
@@ -104,7 +106,7 @@ def test_the_short_description_is_the_first_clause():
 
 
 def _pdf(tmp_path):
-    from jav.pdf import read_pdf
+    from jav.documents.pdf import read_pdf
 
     path = write_text_pdf(tmp_path / "szamla.pdf", INVOICE_LINES)
     return path, read_pdf(path)

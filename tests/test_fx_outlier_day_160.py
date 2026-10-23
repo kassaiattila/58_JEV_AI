@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from jav import fx
+from jav.domains.finance import fx
 from tests.test_fx_130 import WEEK, Service, db  # noqa: F401 - the fixture is used by name
 
 

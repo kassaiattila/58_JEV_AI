@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import pytest
 
-from jav import corrections, parties, party_views, store, work_runs
+from jav.app import corrections, parties, work_runs
+from jav.core import store
+from jav.domains.finance import party_views
 from tests.test_duplicates_126 import _run, _save  # the scan follows the duplicates' scan
 
 BUYER, RAIL = "12121216-2-42", "13570008-1-13"  # made up (data guard allow list)

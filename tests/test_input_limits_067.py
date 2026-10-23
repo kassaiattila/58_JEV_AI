@@ -14,8 +14,9 @@ import pypdfium2 as pdfium
 import pytest
 from PIL import Image
 
-from jav import cfg, ocr, page_image, pdf
-from jav.pdf import DocumentTooLarge, InputLimits
+from jav.documents import ocr, page_image, pdf
+from jav.core import cfg
+from jav.documents.pdf import DocumentTooLarge, InputLimits
 
 
 def _blank_pdf(path, *, pages: int = 1, size_pt: float = 600.0):

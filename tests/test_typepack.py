@@ -20,9 +20,12 @@ from decimal import Decimal
 import pytest
 from typesafe_sdk import Choice, Noul
 
-from jav import cfg, policy, typepack
-from jav.candidates import find_all, find_currencies
-from jav.models import HEADER_FIELDS, SCORED_FIELDS, CellLayout, FieldPick, FlowState, DocumentRecord, LineLayout, record_from_llm
+from jav.ai import policy, typepack
+from jav.core import cfg
+from jav.ai.candidates import find_all, find_currencies
+from jav.ai.models import FieldPick, FlowState, DocumentRecord, record_from_llm
+from jav.ai.invoice_models import HEADER_FIELDS, SCORED_FIELDS
+from jav.documents.layout import CellLayout, LineLayout
 
 
 def _line(no: int, *cells: tuple[str, float]) -> LineLayout:
@@ -127,7 +130,7 @@ def test_hu_profile_is_default_and_unchanged():
 
 
 def test_select_foreign_site_builds_country_and_currency_questions():
-    from jav.jev_select import site_for
+    from jav.ai.jev_select import site_for
 
     site = site_for("invoice_foreign")
     assert site.request_order == ("foreign_parties", "foreign_header", "foreign_money")
@@ -142,8 +145,8 @@ def test_select_foreign_site_builds_country_and_currency_questions():
 
 
 def test_select_foreign_picks_to_record_by_kind():
-    from jav.jev_select import site_for
-    from jav.models import Candidate
+    from jav.ai.jev_select import site_for
+    from jav.ai.models import Candidate
 
     site = site_for("invoice_foreign")
     picks = {
@@ -159,7 +162,7 @@ def test_select_foreign_picks_to_record_by_kind():
 
 
 def test_verify_foreign_inherits_nouls_and_has_own_field_specs():
-    from jav.jev_verify import find_evidence, site_for
+    from jav.ai.jev_verify import find_evidence, site_for
 
     site = site_for("invoice_foreign")
     base = cfg.load("callsite:verify")["nouls"]
@@ -176,7 +179,7 @@ def test_verify_foreign_inherits_nouls_and_has_own_field_specs():
 
 
 def test_validators_are_pack_driven():
-    from jav.validators import run_all
+    from jav.ai.validators import run_all
 
     fo = typepack.get("invoice_foreign")
     inv = DocumentRecord(currency="EUR", supplier_country="IE", issue_date=date(2022, 11, 2), due_date=date(2022, 12, 2), gross_total=Decimal("108.38"))
@@ -204,7 +207,7 @@ def test_policy_uses_pack_required_and_high_stakes():
 
 
 def test_golden_compare_by_kind_and_case_loader_filters_type():
-    from jav.evals import field_equal
+    from jav.evals.evals import field_equal
 
     assert field_equal("supplier_country", "ie", "IE", "country") and field_equal("currency", "eur", "EUR", "currency")
     assert field_equal("supplier_tax_id", "IE8256796U", "IE8256796U", "tax_id") and not field_equal("supplier_tax_id", "IE8256796U", None, "tax_id")
@@ -213,7 +216,7 @@ def test_golden_compare_by_kind_and_case_loader_filters_type():
 
 
 def test_eval_report_and_admin_use_flow_label_and_doc_type(tmp_path):
-    from jav.eval_report import _from_invoice_S
+    from jav.evals.eval_report import _from_invoice_S
 
     row = {"case_id": "f1", "doc_type": "invoice_foreign", "flow_label": "invoice_foreign_S", "route": "auto", "scores": {"gross_total": True},
            "picks": {"gross_total": {"label": "108.38", "confidence": 0.95, "n_options": 3, "top3": {"108.38": 0.95, "0": 0.05}, "present_p": 0.9, "line_no": 6}}}
@@ -224,7 +227,7 @@ def test_eval_report_and_admin_use_flow_label_and_doc_type(tmp_path):
 
 
 def test_flow_contract_is_type_independent_and_tracker_per_type():
-    from jav import flow
+    from jav.flows import flow
 
     assert flow.CONTRACT["name"] == "invoice" and "invoice_foreign" in flow.CONTRACT["doc_note"]
     assert flow.tracker_project("invoice_hu") == "jav_invoice_hu" and flow.tracker_project("invoice_foreign") == "jav_invoice_foreign"

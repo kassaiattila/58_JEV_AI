@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from jav import activity
+from jav.app import activity
 
 
 def _change_days(year: int) -> list[date]:

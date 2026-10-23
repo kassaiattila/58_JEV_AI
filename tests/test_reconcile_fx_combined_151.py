@@ -16,8 +16,10 @@ from decimal import Decimal
 
 import pytest
 
-from jav import fx, parties, reconcile, store
-from jav import reconcile_package as rp
+from jav.app import parties
+from jav.core import store
+from jav.domains.finance import fx, reconcile
+from jav.domains.finance import reconcile_package as rp
 from tests import test_reconcile_k2_129 as k2
 from tests.test_fx_130 import Service
 from tests.test_reconcile_outgoing_148 import CLUB_TAX

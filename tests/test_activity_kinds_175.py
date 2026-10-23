@@ -1,5 +1,5 @@
 """175 (plan 170 E4, decision K18): the kinds of what people do and what the logs record, in one registry
-(`jav/activity_kinds.py`): the log events of packages and workflows, the sources of "My work today", the decisions a
+(`jav/core/activity_kinds.py`): the log events of packages and workflows, the sources of "My work today", the decisions a
 run's reviewed version is made of, and the task kinds of an email's task proposal. Synthetic data only; no AI call.
 """
 
@@ -12,7 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from jav import activity_kinds, corrections, datasets, email_tasks, store, work, workflows
+from jav.app import corrections, datasets, work, workflows
+from jav.core import activity_kinds, store
+from jav.domains.email import email_store, email_tasks
 from tests.test_activity_labels_171 import _recorded_actions
 from tests.test_characterisation_171 import RUN, _run, db  # noqa: F401  (the fixture)
 
@@ -49,8 +51,8 @@ def test_a_log_refuses_an_action_no_module_registered(db) -> None:  # noqa: F811
 
 def test_an_action_belongs_to_one_module(monkeypatch) -> None:
     monkeypatch.setattr(activity_kinds, "_EVENTS", {log: dict(codes) for log, codes in activity_kinds._EVENTS.items()})
-    activity_kinds.register_events("package", ("rename",), "jav.work")  # its own again: nothing changes
-    with pytest.raises(ValueError, match="registered by jav.work already"):
+    activity_kinds.register_events("package", ("rename",), "jav.app.work")  # its own again: nothing changes
+    with pytest.raises(ValueError, match="registered by jav.app.work already"):
         activity_kinds.register_events("package", ("rename",), "jav.elsewhere")
 
 
@@ -60,8 +62,10 @@ def test_the_reviewed_version_is_made_of_these_decisions_in_this_order() -> None
         ("corrections", None), ("tasks", "corrections"), ("native", "review"), ("duplicates", "result"),
         ("reconcile", "reviewed"), ("statements", "checked")]
     # 185 (plan G-full-move T1d): the dataset fingerprint reads the shared parts itself, every other through the
-    # registry; the finance parts are the finance domain's, placed after the part they follow
-    assert datasets._FINGERPRINTED == {"corrections", "tasks", "native"}
+    # registry; the finance parts are the finance domain's, placed after the part they follow. 209 (plan G-process-core
+    # R2c): the task decisions are the email domain's, fingerprinted in the form they always had
+    assert datasets._FINGERPRINTED == {"corrections", "native"}
+    assert [k.name for k in kinds if k.fingerprint is not None] == ["tasks"]
     from jav.domains import finance
 
     assert [(k.name, after) for k, after in finance.DECISIONS] == [
@@ -85,16 +89,17 @@ def test_a_decision_kind_a_logic_package_registers_joins_the_reviewed_version_an
 
 
 def test_the_task_kinds_come_from_the_settings_in_the_schemas_order() -> None:
-    from jav import cfg
+    from jav.core import cfg
 
     assert activity_kinds.task_kinds() == tuple(cfg.load("email_tasks")["actions"]) == email_tasks.ACTIONS
     assert email_tasks.Action.__args__ == email_tasks.ACTIONS  # the schema's bytes: `tests/test_characterisation_171.py`
 
 
 def test_the_decisions_on_a_task_proposal_and_a_duplicate_pair_are_one_list_each() -> None:
-    from jav import api_finance, api_mailbox, duplicates  # 185: the requests moved with their addresses
+    from jav.domains.finance import api_finance, duplicates
+    from jav.domains.email import api_mailbox  # 185: the requests moved with their addresses
 
-    assert api_mailbox.TaskDecision.model_fields["decision"].annotation.__args__ == store.TASK_DECISIONS == ("accepted", "rejected")
+    assert api_mailbox.TaskDecision.model_fields["decision"].annotation.__args__ == email_store.TASK_DECISIONS == ("accepted", "rejected")
     assert api_finance.DuplicateDecision.model_fields["decision"].annotation.__args__ == duplicates.DECISIONS
 
 
@@ -103,16 +108,22 @@ def test_a_source_and_its_order(monkeypatch) -> None:
     assert codes[0] == "event" and len(codes) == len(set(codes))
     assert [s.code for s in activity_kinds.sources() if not s.flow_run] == [
         "run_start", "run_approve", "correction", "duplicate_decision", "statement_choice", "workflow"]
+    # 209 (plan G-process-core R2c): the domains' sources keep the place they had among the shared ones
+    assert codes == ["event", "recipe", "run_start", "run_approve", "correction", "reason_resolve", "task_decision",
+                     "task_done", "mailbox_pull", "duplicate_decision", "statement_choice", "workflow"]
     monkeypatch.setattr(activity_kinds, "_SOURCES", dict(activity_kinds._SOURCES))
+    activity_kinds.register_source(replace(activity_kinds.sources()[0]))  # the same one again: nothing changes
     with pytest.raises(ValueError, match="registered twice"):
-        activity_kinds.register_source(replace(activity_kinds.sources()[0]))
+        activity_kinds.register_source(replace(activity_kinds.sources()[0], sql="SELECT 1"))
+    with pytest.raises(ValueError, match="no source 'nowhere'"):
+        activity_kinds.register_source(activity_kinds.Source("elsewhere", "SELECT 1"), after="nowhere")
 
 
 def test_my_work_today_shows_a_persons_duplicate_decision_statement_choice_and_workflow_steps(db) -> None:  # noqa: F811
     """175 (the owner's decision of 2026-10-19): a person's duplicate decision, choice between two statements and own
     workflow steps are rows of the day, with their run or package; a step the workflow started by itself (recorded for
     "<maker> (auto)") and another person's are not the person's."""
-    from jav import activity
+    from jav.app import activity
     from tests.test_characterisation_171 import ACTOR, DAY, DOC_A, DOC_B, DOC_C, WP
 
     _run()
@@ -142,7 +153,7 @@ def test_my_work_today_shows_a_persons_duplicate_decision_statement_choice_and_w
 
 def test_the_before_after_snapshot_reads_the_days_of_every_activity_source() -> None:
     """A day whose only action comes from one source is still a view of the before/after snapshot."""
-    from jav import before_after
+    from jav.evals import before_after
 
     tables = {t for t, _who, _when in before_after._ACTIVITY_TIMES}
     for source in activity_kinds.sources():

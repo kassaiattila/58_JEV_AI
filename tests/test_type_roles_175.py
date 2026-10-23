@@ -1,4 +1,4 @@
-"""175 (plan 170 E3): the roles of the document types, read from the lists that name them (`jav/type_roles.py`).
+"""175 (plan 170 E3): the roles of the document types, read from the lists that name them (`jav/core/type_roles.py`).
 
 A type's role (incoming or outgoing invoice, statement, utility, the checks that look at it) is written in several
 settings files. The adapter reads them unchanged; these tests check that the lists agree with each other and with the
@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import pytest
 
-from jav import cfg, doc_types, duplicates, parties, policy, reconcile, report_utility, type_roles
-from jav.typepack import get as get_pack
+from jav.app import parties
+from jav.ai import doc_types, policy
+from jav.core import cfg, type_roles
+from jav.domains.finance import duplicates, reconcile, report_utility
+from jav.ai.typepack import get as get_pack
 
 PACKS = sorted(p.stem for p in (cfg.path_of("policy").parent / "types").glob("*.json"))
 

@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import store
-from jav.runtime import calls
+from jav.core import store
+from jav.core import calls
 
 
 @pytest.fixture()

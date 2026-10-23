@@ -17,10 +17,12 @@ from unittest.mock import patch
 
 import pytest
 
-from jav import isolated_pdf, pdf, policy, store
-from jav.flow import load_pdf as invoice_load
-from jav.flow_detect import DetectState, load_pdf as detect_load, save as detect_save
-from jav.models import FlowState
+from jav.ai import policy
+from jav.documents import isolated_pdf, pdf
+from jav.core import store
+from jav.flows.flow import load_pdf as invoice_load
+from jav.flows.flow_detect import DetectState, load_pdf as detect_load, save as detect_save
+from jav.ai.models import FlowState
 from tests.pdfgen import _escape
 
 TEXT_PAGE = [
@@ -47,7 +49,7 @@ def _read(tmp_path: Path, pages: list[list[str]], shares: list[float]) -> pdf.Pd
     source = tmp_path / "synthetic.pdf"
     source.write_bytes(b"%PDF-1.4 synthetic")
     raw = [_words(p) for p in pages]
-    with patch("jav.isolated_pdf.run", return_value=(len(pages), [(595.0, 842.0)] * len(pages), raw, shares)):
+    with patch("jav.documents.isolated_pdf.run", return_value=(len(pages), [(595.0, 842.0)] * len(pages), raw, shares)):
         return pdf.read_pdf(source)
 
 
@@ -151,24 +153,24 @@ def isolated(tmp_path: Path):
 
 
 def test_the_extraction_flow_raises_the_to_do(isolated):
-    with patch("jav.pdf.read_pdf", return_value=_pdf_text([2, 3])), patch("jav.source_layer.save_from_pdftext", return_value="layer"):
+    with patch("jav.documents.pdf.read_pdf", return_value=_pdf_text([2, 3])), patch("jav.documents.source_layer.save_from_pdftext", return_value="layer"):
         state = invoice_load(FlowState(doc_type="invoice_hu", source_path=str(isolated), case_id="t", arm="S"))
     assert state.needs_review and "pdf:pages_without_text:2/3" in state.review_reasons
 
 
 def test_an_ordinary_document_and_a_scan_raise_nothing_here(isolated):
-    with patch("jav.pdf.read_pdf", return_value=_pdf_text([])), patch("jav.source_layer.save_from_pdftext", return_value="layer"):
+    with patch("jav.documents.pdf.read_pdf", return_value=_pdf_text([])), patch("jav.documents.source_layer.save_from_pdftext", return_value="layer"):
         state = invoice_load(FlowState(doc_type="invoice_hu", source_path=str(isolated), case_id="t", arm="S"))
     assert not state.needs_review and state.review_reasons == []
-    with patch("jav.pdf.read_pdf", return_value=_pdf_text([1, 2, 3], has_text=False)):
+    with patch("jav.documents.pdf.read_pdf", return_value=_pdf_text([1, 2, 3], has_text=False)):
         state = invoice_load(FlowState(doc_type="invoice_hu", source_path=str(isolated), case_id="t", arm="S"))
     assert state.review_reasons == []  # the whole document goes to OCR (ocr_pdf), which has its own to-dos
 
 
 def test_the_detection_flow_raises_the_to_do_and_keeps_it_when_the_type_is_certain(isolated):
-    from jav.detect import DetectResult
+    from jav.ai.detect import DetectResult
 
-    with patch("jav.pdf.read_pdf", return_value=_pdf_text([2, 3])):
+    with patch("jav.documents.pdf.read_pdf", return_value=_pdf_text([2, 3])):
         state = detect_load(DetectState(source_path=str(isolated)))
     assert state.review_reasons == ["pdf:pages_without_text:2/3"]
     result = DetectResult.model_construct(doc_type="invoice_hu", confidence=0.99, issuer_hu=0.9, probabilities={},

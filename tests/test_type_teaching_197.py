@@ -9,7 +9,9 @@ import json
 
 import pytest
 
-from jav import cli, store, type_teaching
+from jav import cli
+from jav.evals import type_teaching
+from jav.core import store
 
 
 def _fact(prop, value, *, entity="jegy", support=0.9):
@@ -46,13 +48,13 @@ def test_a_date_kind_needs_every_value_to_be_one_date():
 
 @pytest.fixture
 def isolated(tmp_path, monkeypatch):
-    from jav import cfg
+    from jav.core import cfg
 
     halves = {"families": {"demo": {"development": ["a" * 64, "b" * 64], "evaluation": ["c" * 64]}}}
     original = cfg.load
     monkeypatch.setattr(cfg, "load", lambda name: halves if name == "golden_facts" else original(name))
     with store.use_store(tmp_path / "teach.sqlite"):
-        from jav import native_results  # noqa: F401 - the native tables
+        from jav.documents import native_results  # noqa: F401 - the native tables
 
         yield tmp_path
 
@@ -184,8 +186,8 @@ def test_the_taught_tickets_files_are_what_its_draft_makes():
 
 
 def test_a_taught_candidate_is_measured_on_its_familys_evaluation_half_only(monkeypatch):
-    from jav import evals_facts, goldens
-    from jav.evals import GoldenCase
+    from jav.evals import evals_facts, goldens
+    from jav.evals.evals import GoldenCase
 
     def fact_case(name, half):
         return evals_facts.FactCase(case=GoldenCase(case_id=name, pdf=None, expected={}, expected_valid=True,
@@ -200,7 +202,7 @@ def test_a_taught_candidate_is_measured_on_its_familys_evaluation_half_only(monk
         seen.update(arm=arm, cases=[(c.case_id, c.type_key) for c in cases], type_key=type_key, label=label)
         return []
 
-    monkeypatch.setattr("jav.evals.golden", fake_golden)
+    monkeypatch.setattr("jav.evals.evals.golden", fake_golden)
     golden.measure(goldens.Options(engine="gpt"))
     assert seen == {"arm": "G", "cases": [("b", "belepo_jegy_taught")], "type_key": "belepo_jegy_taught", "label": "taught"}
     # its own development half, an in-sample check named as such

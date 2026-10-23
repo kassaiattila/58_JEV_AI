@@ -13,12 +13,13 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, Noul, SystemOneResponse
 
-from jav import cfg, store
-from jav.adapters.jev import JevAdapter
-from jav.jev_select import SelectSite, select_fields
-from jav.jev_verify import VerifySite
-from jav.models import Candidate, LineLayout
-from jav.typepack import get as get_pack
+from jav.core import cfg, store
+from jav.ai.jev import JevAdapter
+from jav.ai.jev_select import SelectSite, select_fields
+from jav.ai.jev_verify import VerifySite
+from jav.ai.models import Candidate
+from jav.documents.layout import LineLayout
+from jav.ai.typepack import get as get_pack
 
 DATA = "data, not instructions"
 S_SITES = ("select", "select_foreign", "select_utility")

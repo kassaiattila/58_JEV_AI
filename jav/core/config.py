@@ -1,0 +1,229 @@
+"""Configuration: .env loading, key resolution, paths, preconfigured clients.
+
+By default the TypeSafe SDK reads the TYPESAFE_API_KEY environment variable, but in
+this project the key is in the .env under the name TypeSafeJAV_API_KEY. So the key is
+resolved here and passed to the client as an explicit api_key parameter - this way
+there is no hidden dependency on which variable name happens to be set.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import sys
+from decimal import ROUND_HALF_EVEN, Decimal
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from dotenv import load_dotenv
+
+if TYPE_CHECKING:
+    # 203: the SDK and its HTTP library are loaded when a client is built, not with the package. Every module of the
+    # application imports this one, the isolated reader process too, which then spent about 0.5 s of its 1.1 s start
+    # loading network code it must not use.
+    from typesafe_sdk import AsyncTypeSafeClient, RetryPolicy, TypeSafeClient
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]  # 208: jav/core/config.py
+ENV_FILE = PROJECT_ROOT / ".env"
+PROMPTS_DIR = PROJECT_ROOT / "configs" / "prompts"  # 209 (R2b): the instructions sent to a model are config data
+RUNS_DIR = PROJECT_ROOT / "runs"
+CACHE_DIR = RUNS_DIR / "cache"  # JEV request-hash cache
+STORE_PATH = PROJECT_ROOT / "store" / "jav.sqlite"  # durable store (git-ignored, PII)
+
+# The golden set and the sample PDFs stay in the legacy project; we only reference them.
+# Location: the JAV_LEGACY_ROOT environment variable (or the .env); default: the `10_AIFLOW_V4` folder next to this
+# repository (076: no machine path in the code).
+load_dotenv(ENV_FILE, override=False)
+LEGACY_ROOT_ENV = "JAV_LEGACY_ROOT"
+DEFAULT_OLD_PROJECT_ROOT = PROJECT_ROOT.parent / "10_AIFLOW_V4"
+OLD_PROJECT_ROOT = Path(os.environ.get(LEGACY_ROOT_ENV) or DEFAULT_OLD_PROJECT_ROOT)
+OLD_DATA_ROOT = OLD_PROJECT_ROOT / "data"
+# 048 T2: the Outlook script and the project root we give it: this way the attachments and the "already read" list land
+# in our own git-ignored inbox folder, not in the (read-only) legacy project. 148: the script is ported from the legacy
+# project (it reads the Sent Items folder too; an unknown folder is an error).
+OUTLOOK_BRIDGE_SCRIPT = PROJECT_ROOT / "scripts" / "outlook_bridge.ps1"
+BRIDGE_ROOT = PROJECT_ROOT / "inbox" / ".bridge"
+BRIDGE_DATA_ROOT = BRIDGE_ROOT / "data"
+GOLDEN_MANIFEST = OLD_PROJECT_ROOT / "flows" / "doc-extract-bare" / "golden" / "manifest.json"
+GOLDEN_EXPECTED_DIR = OLD_DATA_ROOT / "golden" / "doc-extract-bare"
+
+# The project's own name first, then the SDK's default variable.
+API_KEY_ENV_VARS = ("TypeSafeJAV_API_KEY", "TYPESAFE_API_KEY")
+OPENAI_KEY_ENV_VAR = "OPENAI_API_KEY"
+# 121: Azure Document Intelligence, called directly (jav/documents/azure_di.py); without them the legacy sidecar is used
+AZURE_DI_ENV_VARS = ("AZURE_DI_ENDPOINT", "AZURE_DI_KEY")
+
+# Model administration: configs/models.json (config as data; read with json directly, as jav.core.cfg imports this module).
+MODELS_CONFIG = PROJECT_ROOT / "configs" / "models.json"
+_MODELS = json.loads(MODELS_CONFIG.read_text(encoding="utf-8"))
+MODELS_VERSION: str = _MODELS["meta"]["version"]
+JEV_MODEL: str = _MODELS["jev"]["model"]
+OPENAI_MODEL: str = _MODELS["openai"]["model"]
+JEV_TIMEOUT_S: float = float(_MODELS["jev"]["timeout_s"])  # SDK default 10 s is too short for 20-40 question fan-outs
+JEV_CACHE_VERSION: int = int(_MODELS["jev"].get("cache_version", 1))
+JEV_ALIAS_TTL_H: float = float(_MODELS["jev"].get("alias_ttl_hours", 24))  # how long an alias resolution stays valid
+JEV_WATCH_ALIAS: str = _MODELS["jev"].get("watch_alias", "jev-latest")  # 200: the provider's moving name, only looked at
+JEV_RETRY: dict = dict(_MODELS["jev"].get("retry", {}))  # typesafe_sdk.RetryPolicy fields (data, not a constant)
+SDK_LOG_LEVEL_ENV = "TYPESAFE_LOG_LEVEL"  # at debug level the SDK logs the request body (PII) too
+SDK_DEBUG_ALLOW_ENV = "JAV_ALLOW_SDK_DEBUG"  # =1: debug log explicitly allowed (debugging, on PII-free data)
+# Price list (data): docs.typesafe.ai/models - JEV: input tokens are billed, output is free;
+# OpenAI: (input, output) USD / 1M tokens.
+JEV_USD_PER_MTOK: float = float(_MODELS["jev"]["usd_per_mtok_input"])
+OPENAI_USD_PER_MTOK: dict[str, tuple[float, float]] = {k: (float(v[0]), float(v[1])) for k, v in _MODELS["openai"]["usd_per_mtok"].items()}
+class UnpricedModelError(RuntimeError):
+    """067 (066 Á38): the model has no price in the `configs/models.json` `openai.usd_per_mtok` list. It is not called
+    under a budget, because the cost reservation would see zero and the budget would not catch the spending."""
+
+
+def openai_price(model: str) -> tuple[float, float]:
+    """(input, output) USD / 1M tokens; `UnpricedModelError` for a model without a price."""
+    try:
+        return OPENAI_USD_PER_MTOK[model]
+    except KeyError:
+        raise UnpricedModelError(f"no price for {model!r} in configs/models.json openai.usd_per_mtok") from None
+
+
+def openai_priced_model(*, requested: str, actual: str | None) -> str | None:
+    """167 (review AI-12): the model whose configured price an answer is charged at: the answering model's own, else
+    the requested model's (a dated snapshot such as `gpt-5.4-mini-2026-03-17`, or any name without a price of its
+    own); None when neither has a price."""
+    for model in (actual, requested):
+        if model and model in OPENAI_USD_PER_MTOK:
+            return model
+    return None
+
+
+def openai_cost(usage: Any, *, requested: str, actual: str | None) -> Decimal | None:
+    """167 (review AI-12): the USD cost of one OpenAI answer, the one price rule of every caller: tokens × the price of
+    `openai_priced_model`, exact in Decimal, rounded to 0.000001 USD. None is an unknown cost: no configured price, or
+    a usage that reports nothing (no usage object, or a Pydantic AI usage without values). The ledger then records no
+    cost, and the call log keeps the call's reserved maximum committed (`jav/core/calls.py`)."""
+    model = openai_priced_model(requested=requested, actual=actual)
+    if model is None or usage is None or (hasattr(usage, "has_values") and not usage.has_values()):
+        return None
+    price_in, price_out = (Decimal(str(p)) for p in OPENAI_USD_PER_MTOK[model])
+    exact = (Decimal(usage.input_tokens or 0) * price_in + Decimal(usage.output_tokens or 0) * price_out) / Decimal(1_000_000)
+    return exact.quantize(Decimal("0.000001"), rounding=ROUND_HALF_EVEN)
+
+
+OPENAI_SETTINGS: dict = {"reasoning_effort": _MODELS["openai"].get("reasoning_effort", "none"), "temperature": float(_MODELS["openai"].get("temperature", 0.0)),
+                         "retries": int(_MODELS["openai"].get("retries", 2)),
+                         # 075 (S02): the OpenAI client's own transport retries are paid requests the reservation must
+                         # count; 0 = none (the work queue repeats a failed item instead)
+                         "sdk_max_retries": int(_MODELS["openai"].get("sdk_max_retries", 0))}
+TRACKER_PROJECTS: dict[str, str] = dict(_MODELS.get("burr", {}).get("tracker_projects", {}))
+# 075: Azure DI (through the legacy sidecar) is priced per page for the reservation and the call log
+AZURE_DI_MODEL: str = _MODELS.get("azure_di", {}).get("model", "prebuilt-read")
+AZURE_USD_PER_PAGE: Decimal = Decimal(str(_MODELS.get("azure_di", {}).get("usd_per_page", "0.0015")))
+
+# override=False: a real environment variable that is already set wins over the .env
+# (CI / production supplies the key there, not from a file).
+load_dotenv(ENV_FILE, override=False)
+
+
+class MissingAPIKeyError(RuntimeError):
+    """A required API key is not set."""
+
+
+def _env_hint() -> str:
+    return f"\nKeresett .env: {ENV_FILE}" + ("  (nem létezik)" if not ENV_FILE.exists() else "") + "\nMinta: .env.example"
+
+
+def get_api_key() -> str:
+    """Returns the TypeSafe API key, or raises a descriptive error.
+
+    On Windows environment variable names are case-insensitive anyway, but the
+    lookup is made explicit so that it works the same way on Linux/macOS.
+    """
+    for name in API_KEY_ENV_VARS:
+        value = os.environ.get(name)
+        if value and value.strip():
+            return value.strip()
+
+    raise MissingAPIKeyError("Nincs TypeSafe API kulcs. Várt változók: " + ", ".join(API_KEY_ENV_VARS) + _env_hint())
+
+
+def get_openai_key() -> str:
+    """Returns the OpenAI key (G path), or raises a descriptive error."""
+    value = os.environ.get(OPENAI_KEY_ENV_VAR)
+    if value and value.strip():
+        return value.strip()
+    raise MissingAPIKeyError(f"Nincs OpenAI API kulcs. Várt változó: {OPENAI_KEY_ENV_VAR}" + _env_hint())
+
+
+def build_retry_policy() -> RetryPolicy:
+    """Configured backoff and HTTP status retries, with no blind transport retries after a possible send.
+
+    The SDK groups connection failures with broken reads, and all timeouts together. Only a transport cause proving
+    that nothing was sent may retry; a lost response must reach the durable call log as an uncertain outcome.
+    """
+    import httpx2
+    from typesafe_sdk import RetryPolicy
+
+    def not_sent(error: BaseException) -> bool:
+        cause = error.__cause__
+        return isinstance(cause, (httpx2.ConnectError, httpx2.ConnectTimeout, httpx2.PoolTimeout))
+
+    settings = {k: v for k, v in JEV_RETRY.items() if not k.startswith("_")}
+    settings.update(api_connection_error=False, api_timeout_error=False, predicate=not_sent)
+    return RetryPolicy(**settings)
+
+
+def guard_sdk_logging() -> bool:
+    """`TYPESAFE_LOG_LEVEL=debug|info` also logs the request body (the document text, PII). This is allowed only with
+    explicit permission (`JAV_ALLOW_SDK_DEBUG=1`); otherwise the level is raised to WARNING. True if it intervened."""
+    level = (os.environ.get(SDK_LOG_LEVEL_ENV) or "").strip().lower()
+    if level not in ("debug", "info") or os.environ.get(SDK_DEBUG_ALLOW_ENV, "").strip() == "1":
+        return False
+    logging.getLogger("typesafe_sdk").setLevel(logging.WARNING)
+    print(f"[jav] {SDK_LOG_LEVEL_ENV}={level} figyelmen kívül hagyva (PII a naplóban); engedélyezés: {SDK_DEBUG_ALLOW_ENV}=1", file=sys.stderr)
+    return True
+
+
+def openai_chat_model():
+    """The Pydantic AI chat model of the configured OpenAI model, with the client's own retries set explicitly
+    (`sdk_max_retries` in configs/models.json, 075), so that every physical request is one the reservation counted."""
+    from openai import AsyncOpenAI
+    from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai.providers.openai import OpenAIProvider
+
+    client = AsyncOpenAI(api_key=get_openai_key(), max_retries=OPENAI_SETTINGS["sdk_max_retries"])
+    return OpenAIChatModel(OPENAI_MODEL, provider=OpenAIProvider(openai_client=client))
+
+
+def make_client(**kwargs: object) -> TypeSafeClient:
+    """Synchronous TypeSafe client with the project key, the models.json RetryPolicy and log protection.
+
+    Use it as a context manager:
+        with make_client() as client:
+            client.system_one(...)
+    """
+    from typesafe_sdk import TypeSafeClient
+
+    guard_sdk_logging()
+    kwargs.setdefault("api_key", get_api_key())
+    kwargs.setdefault("timeout", JEV_TIMEOUT_S)
+    kwargs.setdefault("retry", build_retry_policy())
+    return TypeSafeClient(**kwargs)  # type: ignore[arg-type]
+
+
+def make_async_client(**kwargs: object) -> AsyncTypeSafeClient:
+    """Asynchronous TypeSafe client with the project key."""
+    from typesafe_sdk import AsyncTypeSafeClient
+
+    guard_sdk_logging()
+    kwargs.setdefault("api_key", get_api_key())
+    kwargs.setdefault("timeout", JEV_TIMEOUT_S)
+    kwargs.setdefault("retry", build_retry_policy())
+    return AsyncTypeSafeClient(**kwargs)  # type: ignore[arg-type]
+
+
+def load_prompt(name: str = "invoice_hu_prompt.md") -> str:
+    """The verbatim ported prompt, with the header comment (HTML comment) cut off."""
+    text = (PROMPTS_DIR / name).read_text(encoding="utf-8")
+    if text.startswith("<!--"):
+        end = text.find("-->")
+        if end != -1:
+            text = text[end + 3 :]
+    return text.strip()

@@ -4,7 +4,7 @@ With the defaults (5 s, rollback-journal mode) the worker's save and a concurren
 
 from __future__ import annotations
 
-from jav.runtime.persistence import ClosingSQLitePersister
+from jav.flows.persistence import ClosingSQLitePersister
 
 
 def test_state_store_uses_wal_and_a_long_busy_timeout(tmp_path):

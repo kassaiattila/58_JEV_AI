@@ -9,8 +9,10 @@
 from __future__ import annotations
 
 
-from jav import cfg, doc_types, intents, policy
-from jav.registry import parent_summary
+from jav.ai import doc_types, policy
+from jav.core import cfg
+from jav.domains.email import intents
+from jav.core.registry import parent_summary
 
 
 def test_doc_types_json_v2_shape():
@@ -84,9 +86,9 @@ def test_policy_parent_fallback_band():
 
 
 def test_detect_and_intent_results_carry_parent():
-    from jav.detect import DetectResult
-    from jav.intent import IntentResult
-    from jav.models import JevCall
+    from jav.ai.detect import DetectResult
+    from jav.domains.email.intent import IntentResult
+    from jav.ai.models import JevCall
 
     call = JevCall(request_id="x", n_questions=1, state_chars=1)
     r = DetectResult(doc_type="invoice_hu", confidence=0.45, probabilities={"invoice_hu": 0.45, "invoice_foreign": 0.4, "contract": 0.15},
@@ -99,7 +101,7 @@ def test_detect_and_intent_results_carry_parent():
 def test_eval_report_parent_section(tmp_path):
     import json
 
-    from jav import eval_report as er
+    from jav.evals import eval_report as er
 
     rows = [
         {"case_id": "d1", "expected": "invoice_foreign", "got": "invoice_hu", "confidence": 0.45, "issuer_hu": 0.5, "language": "hu", "status": "done",

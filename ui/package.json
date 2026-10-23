@@ -1,9 +1,9 @@
 {
   "name": "jav-ui",
   "private": true,
-  "version": "1.33.0",
+  "version": "1.34.0",
   "type": "module",
-  "description": "JAV workspace: work packages, runs and reports on top of the local service (jav/api.py).",
+  "description": "JAV workspace: work packages, runs and reports on top of the local service (jav/service/api.py).",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

@@ -1,4 +1,4 @@
-"""188 (plan 185 T3a): every golden set in one registry, measured by one command (`measure`, `jav/goldens.py`).
+"""188 (plan 185 T3a): every golden set in one registry, measured by one command (`measure`, `jav/evals/goldens.py`).
 
 The data point golden sets come from the type packs, the type recognition and the email intent golden sets are the
 two flows', and a logic pack's come from its domain's measurement module (the reconciliation: the pairs proposed by
@@ -17,7 +17,9 @@ from decimal import Decimal
 
 import pytest
 
-from jav import cli, evals, evals_detect, evals_email, goldens, reconcile, reconcile_ai, reconcile_goldens
+from jav import cli
+from jav.evals import evals, evals_detect, evals_email, goldens
+from jav.domains.finance import reconcile, reconcile_ai, goldens as reconcile_goldens
 from tests.test_golden_commands_188 import (CREDIT_RESULT, credit_kinds_call, detect_call, email_call, golden_call,
                                             record)
 
@@ -106,7 +108,7 @@ def test_a_logic_pack_golden_set_must_be_named_after_the_pack(monkeypatch, key, 
     golden = goldens.Golden(key=key, layer=layer, owner=owner, what="w", engines=(),
                             count=lambda: 1, measure=lambda options: goldens.Outcome(), module=__name__)
     monkeypatch.setattr(reconcile_goldens, "GOLDENS", (*reconcile_goldens.GOLDENS, golden))
-    with pytest.raises(ValueError, match=f"jav.reconcile_goldens: its golden set '{key}'"):
+    with pytest.raises(ValueError, match=f"jav.domains.finance.goldens: its golden set '{key}'"):
         goldens.sets()
 
 
@@ -356,7 +358,7 @@ def test_the_latest_result_of_each_golden_set_comes_from_the_receipts(tmp_path):
 
 
 def test_the_state_snapshot_shows_every_golden_set(monkeypatch, tmp_path):
-    from jav import admin
+    from jav.devtools import admin
 
     monkeypatch.setattr(goldens, "RUNS_DIR", tmp_path)
     head = {"receipt": "measure", "commit": "abc1234", "clean": True, "engine": "jev", "use_cache": True}

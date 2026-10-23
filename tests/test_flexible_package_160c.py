@@ -11,8 +11,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, store, work, work_runs
-from jav.adapters import jev as jev_mod
+from jav.service import api
+from jav.app import work, work_runs
+from jav.core import store
+from jav.ai import jev as jev_mod
 from jav.runtime import worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_runtime_worker import FakeClient
@@ -397,7 +399,7 @@ def test_the_oldest_open_live_run_is_the_packages_current_one_and_the_others_sho
 def test_a_workflow_step_is_not_done_while_an_earlier_live_run_of_its_package_is_open(env):
     """160-C S3: an approved run over the pending items next to an earlier open live run does not make the step done
     (it looked only at the latest live run)."""
-    from jav import parties, workflows
+    from jav.app import parties, workflows
 
     c = env["client"]
     wp = _package(c, env["folder"])

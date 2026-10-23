@@ -22,9 +22,11 @@ from pathlib import Path
 
 import pytest
 
-from jav import email_routing, logic_packs, package_scope, parties, registrations, store, work, work_runs, workflow_steps
-from jav.mailbox import SUSPICIOUS_ATTACHMENT
-from jav.models import account_key
+from jav.domains.email import email_routing
+from jav.app import logic_packs, package_scope, parties, registrations, work, work_runs, workflow_steps
+from jav.core import store
+from jav.domains.email.mailbox import SUSPICIOUS_ATTACHMENT
+from jav.ai.models import account_key
 
 NOW = datetime(2026, 10, 20, tzinfo=timezone.utc).isoformat(timespec="seconds")
 OWN_TAX = "12345678-2-41"
@@ -100,7 +102,7 @@ def _items(view: dict) -> dict[str, dict]:
 def test_the_routing_is_a_logic_pack_and_a_step_kind_of_the_email_domain() -> None:
     registrations.load_all()
     pack = logic_packs.of("email_routing")
-    assert pack is not None and not pack.has_runs and pack.module == "jav.email_routing" and pack.outputs == ()
+    assert pack is not None and not pack.has_runs and pack.module == "jav.domains.email.email_routing" and pack.outputs == ()
     assert workflow_steps.of("routing").package_kinds == ("email_routing",) and not workflow_steps.of("routing").paid
 
 
@@ -202,7 +204,7 @@ def test_a_routing_package_needs_an_email_package_and_refuses_documents(db) -> N
 
 
 def test_an_email_package_offers_its_routing_and_names_the_routing_packages(db) -> None:
-    from jav import work_views
+    from jav.app import work_views
 
     wp, _ = _mailbox(db, {"m1": ("invoice.pdf", "inbox"), "m2": ("other.pdf", "inbox")})
     assert work_views.workpackage_view(wp)["routing_offer"] == {"attachments": 2, "routings": []}
@@ -215,7 +217,7 @@ def test_an_email_package_offers_its_routing_and_names_the_routing_packages(db) 
 
 
 def test_a_workflows_routing_step_routes_the_email_package_of_the_step_it_waits_for(db) -> None:
-    from jav import workflows
+    from jav.app import workflows
 
     party = _party()
     wp, ids = _mailbox(db, {"m1": ("invoice.pdf", "inbox")})

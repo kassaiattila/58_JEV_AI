@@ -12,9 +12,9 @@ from decimal import Decimal
 
 import pytest
 
-from jav import numbers
-from jav.jev_select import site_for
-from jav.models import Candidate, FieldPick, normalize_value
+from jav.core import numbers
+from jav.ai.jev_select import site_for
+from jav.ai.models import Candidate, FieldPick, normalize_value
 
 
 def _picked(raw: str, label: str) -> tuple[Decimal | None, list[str]]:

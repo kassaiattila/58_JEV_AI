@@ -19,10 +19,14 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, Score, SystemOneResponse
 
-from jav import emails, extract_llm, ingest_server, mailbox, store, text_document, work, work_readiness, work_recipes, work_runs
-from jav.adapters import jev as jev_mod
-from jav.emails import EmailMessage
-from jav.flow_email import text_follow_up
+from jav.domains.email import email_store, emails, ingest_server, mailbox
+from jav.app import work, work_readiness, work_recipes, work_runs
+from jav.ai import extract_llm
+from jav.documents import text_document
+from jav.core import store
+from jav.ai import jev as jev_mod
+from jav.domains.email.emails import EmailMessage
+from jav.domains.email.flow_email import text_follow_up
 from jav.runtime import worker
 from tests.test_mailbox import REQ, FakeBridge
 from tests.test_no_jev_085 import _FakeAgent
@@ -119,7 +123,7 @@ def test_a_quote_request_email_gets_its_text_extracted_and_its_to_dos(env):
     wp_id = _package(env)
     run_id, item = _run(wp_id)
     own = work_runs.flow_run_id(run_id, item["item_id"])
-    result = store.email_result(own)
+    result = email_store.email_result(own)
     assert result["intent"] == "quote_request" and result["next_flow"] == "m2:quote_request"
     text = emails.document_text(emails.load_message_dir(Path(item["source_path"]).parent))
     doc_id = text_document.text_digest(text)
@@ -158,7 +162,7 @@ def test_with_the_setting_off_the_text_is_not_extracted(env):
     run_id, item = _run(wp_id)
     with store.connect() as c:
         assert c.execute("SELECT COUNT(*) FROM datapoints").fetchone()[0] == 0
-    assert store.email_result(work_runs.flow_run_id(run_id, item["item_id"]))["next_flow"] == "m2:quote_request"
+    assert email_store.email_result(work_runs.flow_run_id(run_id, item["item_id"]))["next_flow"] == "m2:quote_request"
 
 
 def test_every_email_reserves_the_extraction_while_the_setting_is_on():

@@ -21,7 +21,10 @@ import pytest
 from fastapi.routing import APIRoute
 from starlette.routing import Match
 
-from jav import api, datasets, reconcile_statement as rs, statement_table as st, store, work, work_views
+from jav.service import api
+from jav.app import datasets, work, work_views
+from jav.core import store
+from jav.domains.finance import reconcile_statement as rs, statement_table as st
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_package_131 import _line, _package as _reconcile_package, _stmt
 from tests.test_statement_package_140 import _package as _statement_package, _party
@@ -48,22 +51,22 @@ def _routes() -> list[APIRoute]:
 
 ROUTE_COUNT = 178  # (method, path) pairs of 174 routes: the unknown-address answer has five methods
 # 178 (plan 170 L4): nine new addresses on purpose - the own output templates (list, upload, activate, retire, file,
-# preview), a package's choice of them (read, choose) and the utility cost's workbook (jav/api_outputs.py)
+# preview), a package's choice of them (read, choose) and the utility cost's workbook (jav/service/api_outputs.py)
 # 181 (plan 170 L5): three more on purpose - the package roles, and a package's scope given and taken away
 # (`GET /api/package-roles`, `POST /api/workpackages/{wp_id}/scope`, `POST /api/workpackages/{wp_id}/scope/clear`), and
-# the email routing's five in its own module (`jav/api_email_routing.py`: a routing package; accept, every clear one,
+# the email routing's five in its own module (`jav/domains/email/api_email_routing.py`: a routing package; accept, every clear one,
 # reject, undo)
-# 191 (plan F-quote-package B2): seven more on purpose - the price lists in their own module (`jav/api_price_lists.py`:
+# 191 (plan F-quote-package B2): seven more on purpose - the price lists in their own module (`jav/domains/quotes/api_price_lists.py`:
 # list, upload, a version, its settings, activate, retire, its file); B3: two more, the quote package's
-# (`jav/api_quote_package.py`: the requests a quote can start from, a quote package); B4c: one more, a quote's
+# (`jav/domains/quotes/api_quote_package.py`: the requests a quote can start from, a quote package); B4c: one more, a quote's
 # proposal queued for the worker
 # 192 (plan F-quote-package B5): five more on purpose - a quote's draft started and saved, its approval, its reopening
-# and an approved version (`jav/api_quote_package.py`)
-# 196 (plan F-Word-output W2, W3): seven more on purpose - a Word template's preview (`jav/api_outputs.py`), the quote's
+# and an approved version (`jav/domains/quotes/api_quote_package.py`)
+# 196 (plan F-Word-output W2, W3): seven more on purpose - a Word template's preview (`jav/service/api_outputs.py`), the quote's
 # Word document of the draft and of a version, and its reply letter: read, GPT's paragraph queued, the body accepted,
-# the letter file (`jav/api_quote_package.py`)
+# the letter file (`jav/domains/quotes/api_quote_package.py`)
 # 200 (the pinned JEV version): one more on purpose - the JEV version's last look (`GET /api/system/jev-version`,
-# `jav/api_system.py`)
+# `jav/service/api_system.py`)
 ROUTE_TABLE = "41cc565ef01319a4aa6e0c1f10a406a25c69424e6c4a3587ed769339463fb228"
 
 
@@ -175,7 +178,7 @@ def test_a_reconciliation_package_in_the_list(db) -> None:
 
 
 def test_a_reconciliation_package_is_released_in_its_own_statement(db) -> None:
-    from jav import package_release
+    from jav.app import package_release
 
     wp_id = _reconciliation(db)
     view = package_release.view(wp_id)

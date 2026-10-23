@@ -8,8 +8,10 @@ Synthetic documents and a stand-in model only; no paid call.
 
 import pytest
 
-from jav import detect_detail, detect_gpt, flow_detect, policy, store
-from jav.adapters import jev as jev_mod
+from jav.flows import flow_detect
+from jav.ai import detect_detail, detect_gpt, policy
+from jav.core import store
+from jav.ai import jev as jev_mod
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_gpt_detect_086 import DETAIL_TOKENS, _FakeAgent, _NoJev, _tokens
 

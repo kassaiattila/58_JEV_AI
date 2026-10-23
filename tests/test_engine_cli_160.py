@@ -14,7 +14,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import app_settings, cli, evals, evals_detect, evals_email, flow, flow_detect, flow_email, store
+from jav import cli
+from jav.evals import evals, evals_detect, evals_email
+from jav.app import app_settings
+from jav.flows import flow, flow_detect
+from jav.core import store
+from jav.domains.email import flow_email
 
 
 @pytest.fixture
@@ -141,7 +146,7 @@ def test_a_determinism_without_jev_names_its_run_file(db, monkeypatch, tmp_path)
 
 
 def _reconcile_run(monkeypatch):
-    from jav import reconcile_ai
+    from jav.domains.finance import reconcile_ai
 
     rec = Recorder({"lines": 0, "counts": {}, "scope": "s", "usage": {}, "raw": None, "jev_config": "j", "gpt_config": "g"})
     monkeypatch.setattr(reconcile_ai, "run", rec)
@@ -160,7 +165,7 @@ def test_the_reconciliation_proposals_follow_the_applications_engine(db, monkeyp
 
 
 def test_the_reconciliation_golden_measures_both_engines_unless_told(db, monkeypatch, capsys):
-    from jav import reconcile_ai
+    from jav.domains.finance import reconcile_ai
 
     rec = Recorder({"cases": 0, "golden_version": "x", "jev_config": "j", "gpt_config": "g", "engines": {}, "scope": "s",
                     "usage": {}, "raw": None})
@@ -175,7 +180,7 @@ def test_the_reconciliation_golden_measures_both_engines_unless_told(db, monkeyp
 def test_gpt_alone_never_makes_a_sure_ai_group():
     """Decision 163 (F-csak-gpt D4): with GPT only the quick review has no "AI sure" group; a sure proposal needs both
     engines to agree, so a confident GPT answer alone is still checked by a person."""
-    from jav import reconcile_review
+    from jav.domains.finance import reconcile_review
 
     line = {"id": "l1", "candidates": [], "allocated": None, "memo": "", "description": "",
             "ai": {"gpt": {"kind": "retail_purchase", "kind_probability": 0.9999, "suggested_mark": "retail"}}}

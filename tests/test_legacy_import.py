@@ -3,7 +3,8 @@
 import json
 from pathlib import Path
 
-from jav import legacy_import, store
+from jav.legacy import legacy_import
+from jav.core import store
 
 MANIFEST = "﻿document_id,doc_type,source_path,resolved_path,output_file,sha256\n" \
            "11,invoice_hu,/data/inbox/a.pdf,/data/inbox/_processed/a.pdf,documents/a.pdf," + "a" * 64 + "\n" \

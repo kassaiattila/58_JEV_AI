@@ -12,10 +12,10 @@ from __future__ import annotations
 
 import pytest
 
-from jav import typepack
-from jav.candidates import trim_after_legal_form
-from jav.jev_select import picks_to_record
-from jav.models import FieldPick, normalize_value
+from jav.ai import typepack
+from jav.ai.candidates import trim_after_legal_form
+from jav.ai.jev_select import picks_to_record
+from jav.ai.models import FieldPick, normalize_value
 
 
 @pytest.mark.parametrize("name,expected", [

@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import reconcile, reconcile_ai, reconcile_package as rp, store
+from jav.core import store
+from jav.domains.finance import reconcile, reconcile_ai, reconcile_package as rp
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_ai_134 import ENERGY, LINES, TELECOM
 

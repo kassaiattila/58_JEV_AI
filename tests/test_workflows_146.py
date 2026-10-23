@@ -16,8 +16,12 @@ from pathlib import Path
 
 import pytest
 
-from jav import cfg, mailbox, parties, statement_table as st, store, work, work_readiness, work_runs, workflow_steps, workflows as wf
-from jav.runtime import queue, worker
+from jav.app import parties, work, work_readiness, work_runs, workflow_steps, workflows as wf
+from jav.core import cfg, store
+from jav.domains.finance import statement_table as st
+from jav.domains.email import mailbox
+from jav.runtime import worker
+from jav.core import queue
 from tests import test_statement_erste_137 as erste
 
 MONTH = ("2026-06-01", "2026-06-30")
@@ -342,7 +346,7 @@ def test_the_estimate_is_the_recipes_item_budget_times_the_items(db):
 def test_the_service_offers_the_templates_estimates_makes_shows_and_moves_a_workflow(db):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
     from tests.test_api import BASE, HUMAN
 
     client = TestClient(api.create_app(store_path=db / "s.sqlite"), base_url=BASE)

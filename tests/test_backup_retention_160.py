@@ -11,7 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from jav import backup, store, work
+from jav.runtime import backup
+from jav.app import work
+from jav.core import store
 
 
 @pytest.fixture()
@@ -57,7 +59,7 @@ def test_a_persons_back_up_now_counts_with_the_manual_backups(db, monkeypatch):
     monkeypatch.setattr(backup, "backup", lambda **kw: seen.update(kw) or {"ok": True, "copy": None, "files": [], "dir": "x"})
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
 
     client = TestClient(api.create_app(store_path=db / "s.sqlite"), base_url="http://127.0.0.1:8930")
     assert client.post("/api/system/backup", headers={"X-Actor": "someone"}, json={}).status_code == 200

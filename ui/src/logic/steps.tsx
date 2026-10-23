@@ -1,5 +1,5 @@
 // 181 (plan 170 L5): the workflow step kinds' own forms on the interface, the counterpart of the local service's
-// registry (`jav/workflow_steps.py`). What a kind takes and needs (its packages, whether it is paid, its scope) comes
+// registry (`jav/app/workflow_steps.py`). What a kind takes and needs (its packages, whether it is paid, its scope) comes
 // from the service with the templates; only the form a single kind opens with is the interface's own. A kind without
 // an entry opens the documents form.
 import type { ReactNode } from "react";

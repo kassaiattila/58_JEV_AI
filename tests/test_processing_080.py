@@ -13,7 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, store, work, work_readiness, work_recipes, work_runs, work_views
+from jav.app import app_settings, work, work_readiness, work_recipes, work_runs, work_views
+from jav.core import store
 
 
 @pytest.fixture()
@@ -178,7 +179,7 @@ def test_cli_lists_every_status_and_migrates_on_request(isolated, capsys):
 def test_service_offers_active_processing_and_knows_every_title(isolated):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
 
     client = TestClient(api.create_app(store_path=isolated / "w.sqlite"), base_url="http://127.0.0.1:8930")
     body = client.get("/api/recipes").json()

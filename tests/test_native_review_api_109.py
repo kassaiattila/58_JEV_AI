@@ -4,10 +4,13 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, corrections, native_results, store, work, work_readiness, work_recipes, work_runs
-from jav.native_contracts import Failed, Succeeded
-from jav.readers.interpretation import Citation, ProposedExtraction, ProposedFact, ground
-from jav.runtime import queue
+from jav.service import api
+from jav.app import corrections, work, work_readiness, work_recipes, work_runs
+from jav.documents import native_results
+from jav.core import store
+from jav.documents.native_contracts import Failed, Succeeded
+from jav.documents.readers.interpretation import Citation, ProposedExtraction, ProposedFact, ground
+from jav.core import queue
 
 HUMAN = {"X-Actor": "native.reviewer"}
 
@@ -132,7 +135,7 @@ def test_empty_success_remains_distinct_from_failure(tmp_path):
 
 
 def test_unpublished_item_never_uses_pdf_reader_or_approves(tmp_path, monkeypatch):
-    from jav import page_image
+    from jav.documents import page_image
 
     with store.use_store(tmp_path / "unpublished.sqlite"):
         source = tmp_path / "pending.txt"

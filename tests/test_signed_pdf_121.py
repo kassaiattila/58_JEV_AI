@@ -17,7 +17,7 @@ import re
 
 import pytest
 
-from jav.readers import pipeline
+from jav.documents.readers import pipeline
 from tests.test_reader_visual_108 import pdf_with_catalog_entry
 
 SIGNATURE = (b"<< /FT /Sig /T (Signature1) /V << /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached"

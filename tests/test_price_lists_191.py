@@ -15,7 +15,8 @@ from decimal import Decimal
 import pytest
 from openpyxl import Workbook
 
-from jav import price_lists, quote_golden, store
+from jav.core import store
+from jav.domains.quotes import price_lists, invented_golden
 
 
 @pytest.fixture
@@ -39,7 +40,7 @@ HEAD = ["Item code", "Name", "Unit", "Unit price (EUR)", "Category"]
 
 
 def _invented(tmp_path) -> bytes:
-    return quote_golden.write_price_list(tmp_path / "invented.xlsx").read_bytes()
+    return invented_golden.write_price_list(tmp_path / "invented.xlsx").read_bytes()
 
 
 def _codes(check: dict) -> list[str]:
@@ -50,7 +51,7 @@ def _codes(check: dict) -> list[str]:
 
 
 def test_the_invented_price_list_reads_to_its_items(tmp_path):
-    golden = quote_golden.load().price_list
+    golden = invented_golden.load().price_list
     check, items = price_lists.read(_invented(tmp_path), "invented.xlsx")
     assert check["ok"] and check["problems"] == []
     assert [(i.sku, i.name, i.unit, i.unit_price, i.category) for i in items] == [
@@ -182,9 +183,9 @@ def test_a_new_upload_keeps_the_rules_whose_category_it_still_has(db, tmp_path):
 def test_the_service_uploads_changes_activates_and_hands_back_the_file(tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav.api import create_app
+    from jav.service.api import create_app
 
-    path = quote_golden.write_price_list(tmp_path / "invented.xlsx")
+    path = invented_golden.write_price_list(tmp_path / "invented.xlsx")
     bad = tmp_path / "bad.xlsx"
     bad.write_bytes(_bytes([HEAD]))
     human = {"X-Actor": "anna"}

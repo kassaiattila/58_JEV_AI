@@ -60,7 +60,7 @@ Optional environment variables (in `.env` or in the shell):
 
 ## 4. Dependency on the legacy project: what works in a fresh clone
 
-`jav/config.py` finds the golden sets, the legacy data folder and the Outlook bridge under `<legacy-root>`, the root folder of the legacy project. They are only read. `<legacy-root>` comes from the `JAV_LEGACY_ROOT` environment variable (or a line in `.env`); without it, `jav/config.py` falls back to a built-in default path (`DEFAULT_OLD_PROJECT_ROOT`), which is unlikely to exist on another machine, so set the variable there.
+`jav/core/config.py` finds the golden sets, the legacy data folder and the Outlook bridge under `<legacy-root>`, the root folder of the legacy project. They are only read. `<legacy-root>` comes from the `JAV_LEGACY_ROOT` environment variable (or a line in `.env`); without it, `jav/core/config.py` falls back to a built-in default path (`DEFAULT_OLD_PROJECT_ROOT`), which is unlikely to exist on another machine, so set the variable there.
 
 A fresh GitHub clone has neither the legacy project, nor the golden sets, nor the internal working documents. In that case:
 
@@ -81,7 +81,7 @@ The start-up check is green on a fresh clone too, once the hooks are installed (
 | `runs/` | raw runs, evidence, model and OCR caches, logs | No: it is the evidence of the completed measurements |
 | `store/` | the local SQLite database (personal data) and the backups | No |
 | `inbox/` | downloaded emails (personal data) | No |
-| the internal working documents: handoffs, plans, reports, the backlog, the decisions log and the rest (list of paths: `jav/doc_scope.py`) | the local records of how the development went; a fresh clone does not have them | No: they are not under version control; the only second copy is in the daily backup |
+| the internal working documents: handoffs, plans, reports, the backlog, the decisions log and the rest (list of paths: `jav/core/doc_scope.py`) | the local records of how the development went; a fresh clone does not have them | No: they are not under version control; the only second copy is in the daily backup |
 | `docs/STATE.md` | the generated state snapshot | Yes: `preflight` regenerates it |
 | `tools/tessdata*/` | OCR language packs | Yes, they can be downloaded again |
 | `ui/node_modules/`, `ui/dist/` | user-interface dependencies and build | Yes: `npm ci` and `npm run build` recreate them |

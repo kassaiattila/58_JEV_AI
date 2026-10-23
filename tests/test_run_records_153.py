@@ -6,7 +6,8 @@ records now read the to-dos once for the run and keep each item's locations by t
 correction. Synthetic data, no paid calls.
 """
 
-from jav import corrections, export, store
+from jav.app import corrections, export
+from jav.core import store
 
 
 def test_an_items_locations_are_built_again_only_when_its_result_or_correction_changes(monkeypatch, tmp_path):

@@ -1,5 +1,5 @@
 // 142 (DECISIONS 142, the reconciliation result's first part): the pairing page as cards. Each card is a group of
-// related statement lines and invoices (jav/reconcile_overview.py): a transfer with the invoices it pays, an invoice
+// related statement lines and invoices (jav/domains/finance/reconcile_overview.py): a transfer with the invoices it pays, an invoice
 // with the lines that paid it, or a line or an invoice standing alone. A card shows every fact of both sides; each pair
 // says how its booking day relates to the invoice's due date (every day after it is a delay); the lists a person checks
 // (to decide, transfers without an invoice, invoices without a payment, overdue, paid late, possible double payments,

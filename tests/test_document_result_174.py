@@ -12,8 +12,11 @@ from decimal import Decimal
 
 import pytest
 
-from jav import duplicates, package_result, party_history, reconcile, store, work, work_runs
-from jav.runtime import calls
+from jav.app import package_result, work, work_runs
+from jav.ai import party_history
+from jav.core import store
+from jav.domains.finance import duplicates, reconcile
+from jav.core import calls
 
 WP, OTHER = "wp-000000000174", "wp-000000000175"
 NOW = "2026-10-18T08:00:00+00:00"
@@ -142,7 +145,7 @@ def test_a_store_without_work_tables_reads_the_latest_row_as_before(tmp_path) ->
 
 
 def test_the_corrections_of_the_counted_run_item_apply(db) -> None:
-    from jav import corrections
+    from jav.app import corrections
 
     _run("run-live", {"invoice": _inv("INV-1", gross="999.00")}, at="2026-10-18T09:00:00+00:00")
     _run("run-trial", {"invoice": _inv("INV-1", gross="555.00")}, mode="shadow", at="2026-10-18T10:00:00+00:00", wp=OTHER)
@@ -163,7 +166,7 @@ def test_the_role_history_counts_each_earlier_document_by_its_counted_result(db)
 
 
 def test_the_workspace_mark_sees_a_removal_and_a_run_mode_or_state(db) -> None:
-    from jav import reconcile_package
+    from jav.domains.finance import reconcile_package
 
     _run("run-trial", {"invoice": _inv("INV-1")}, mode="shadow", at="2026-10-18T09:00:00+00:00")
     marks = [reconcile_package.inputs_mark(keep_seconds=10**9)]

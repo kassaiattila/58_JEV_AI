@@ -1,6 +1,6 @@
 """188 (plan 185 T3a): what each golden command measures, pinned before the shared measurement command.
 
-The shared command (`measure`, `jav/goldens.py`) has to run every golden set exactly as the set's own command does:
+The shared command (`measure`, `jav/evals/goldens.py`) has to run every golden set exactly as the set's own command does:
 the same measuring function with the same arguments, so the raw run files, their names and the reports stay
 comparable with the earlier measurements. These tests were written against the commands as they were before the
 shared command existed; `tests/test_goldens_188.py` checks the shared command against the same calls.
@@ -15,7 +15,9 @@ from typing import Any
 
 import pytest
 
-from jav import cli, evals, evals_detect, evals_email, reconcile, reconcile_ai
+from jav import cli
+from jav.evals import evals, evals_detect, evals_email
+from jav.domains.finance import reconcile, reconcile_ai
 
 
 class Recorder:
@@ -40,7 +42,7 @@ def golden_call(arm: str, type_key: str, *, cases: Any = None, use_cache: bool =
                 budget_usd: Decimal | None = None, jev_budget_usd: Decimal | None = None,
                 label: str = "golden") -> tuple[tuple[Any, ...], dict[str, Any]]:
     """The call of `evals.golden` that measures one type pack's data points on one path."""
-    from jav.flow import run_one
+    from jav.flows.flow import run_one
 
     return ((arm, run_one), {"cases": cases, "tracker": False, "use_cache": use_cache, "type_key": type_key, "jev": jev,
                              "budget_usd": budget_usd, "jev_budget_usd": jev_budget_usd, "label": label})

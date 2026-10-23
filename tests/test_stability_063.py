@@ -12,9 +12,12 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, emails, ingest_server, mailbox, store, work, work_readiness, work_recipes, work_runs
-from jav.adapters import jev as jev_mod
-from jav.runtime import queue, worker
+from jav.app import app_settings, work, work_readiness, work_recipes, work_runs
+from jav.core import store
+from jav.domains.email import emails, ingest_server, mailbox
+from jav.ai import jev as jev_mod
+from jav.runtime import worker
+from jav.core import queue
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_mailbox import MAILS, REQ, FakeBridge
 from tests.test_runtime_worker import FakeClient
@@ -241,7 +244,7 @@ def test_folder_scan_that_fails_to_add_keeps_files_for_the_next_scan(db, monkeyp
 def test_worker_log_is_a_persistent_rotating_file(tmp_path, monkeypatch):
     import logging
 
-    from jav.runtime import applog
+    from jav.core import applog
 
     monkeypatch.setattr(applog, "LOG_DIR", tmp_path / "logs")
     root = logging.getLogger()
@@ -262,7 +265,7 @@ def test_worker_log_is_a_persistent_rotating_file(tmp_path, monkeypatch):
 
 
 def test_backup_is_a_verified_copy_and_keeps_the_latest(db):
-    from jav import backup
+    from jav.runtime import backup
 
     work.create_workpackage(name="Mentendő", source_kind="manual", source_ref=None)
     out = db / "mentesek"
@@ -281,7 +284,7 @@ def test_backup_is_a_verified_copy_and_keeps_the_latest(db):
 def test_unreadable_file_gives_a_clear_error_and_no_empty_package(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
 
     folder = tmp_path / "gyoker" / "bejovo"
     folder.mkdir(parents=True)
@@ -290,7 +293,7 @@ def test_unreadable_file_gives_a_clear_error_and_no_empty_package(tmp_path, monk
     def locked(p, **_kw):
         raise PermissionError(13, "a fájlt egy másik folyamat zárolja", str(p))
 
-    from jav import source_instances
+    from jav.app import source_instances
 
     monkeypatch.setattr(source_instances, "freeze", locked)  # a document is read once, when its copy is kept
     c = TestClient(api.create_app(store_path=tmp_path / "w.sqlite"), base_url="http://127.0.0.1:8930")

@@ -3,8 +3,9 @@
 import json
 from pathlib import Path
 
-from jav import cli, store
-from jav.adapters import jev as jev_mod
+from jav import cli
+from jav.core import store
+from jav.ai import jev as jev_mod
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_runtime_worker import FakeClient
 
@@ -39,8 +40,8 @@ def test_cli_lifecycle(tmp_path: Path, capsys):
 
 def test_tests_never_write_the_ops_log():
     """065: the `worker` command switches on the operations log; in tests it points to a temporary folder (conftest)."""
-    from jav.config import PROJECT_ROOT
-    from jav.runtime import applog
+    from jav.core.config import PROJECT_ROOT
+    from jav.core import applog
 
     assert not applog.LOG_DIR.is_relative_to(PROJECT_ROOT / "runs")
 
@@ -76,7 +77,7 @@ def test_uncertain_calls_can_be_listed_and_resolved_from_the_cli(tmp_path: Path,
     resolved from the command line (with a known cost, or without one, when the maximum stays committed)."""
     from decimal import Decimal
 
-    from jav.runtime import calls
+    from jav.core import calls
 
     with store.use_store(tmp_path / "c.sqlite"):
         calls._reserve(run_id="r1", step_id="s1", provider="openai", model="m", max_cost_usd=Decimal("0.5"),
@@ -95,7 +96,7 @@ def test_uncertain_calls_can_be_listed_and_resolved_from_the_cli(tmp_path: Path,
 
 def test_cli_run_start_pending_takes_only_the_items_added_after_a_run(tmp_path: Path, capsys):
     """160-C S3: `run-start --pending` starts a run over only the package's pending items."""
-    from jav import work, work_runs
+    from jav.app import work, work_runs
 
     folder = tmp_path / "incoming"
     folder.mkdir()

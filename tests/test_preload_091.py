@@ -11,27 +11,29 @@ from pathlib import Path
 
 import pytest
 
-from jav import store
+from jav.core import store
+from jav.core.config import PROJECT_ROOT
 from jav.runtime import preload, worker
 
 
-def test_preload_imports_the_runtime_code_but_not_the_experiments():
+def test_preload_imports_the_runtime_code_but_not_the_measurement_tools():
     loaded = preload.preload()
-    for name in ("jav.flow", "jav.flow_detect", "jav.flow_email", "jav.extract_llm", "jav.token_confidence", "jav.grounding"):
+    for name in ("jav.flows.flow", "jav.flows.flow_detect", "jav.domains.email.flow_email", "jav.ai.extract_llm", "jav.ai.token_confidence", "jav.ai.grounding"):
         assert name in loaded and name in sys.modules
-    assert not any(m.startswith("jav.experiments") for m in loaded)
+    assert set(preload.EXCLUDED) and not set(preload.EXCLUDED) & set(loaded)
+    assert all((PROJECT_ROOT / (m.replace(".", "/") + ".py")).is_file() for m in preload.EXCLUDED)  # 208: they exist
 
 
 def test_a_module_that_fails_to_import_stops_the_start(monkeypatch):
     real = preload.importlib.import_module
 
     def broken(name: str):
-        if name == "jav.grounding":
+        if name == "jav.ai.grounding":
             raise ValueError("a broken module")
         return real(name)
 
     monkeypatch.setattr(preload.importlib, "import_module", broken)
-    with pytest.raises(preload.PreloadError, match="jav.grounding"):
+    with pytest.raises(preload.PreloadError, match="jav.ai.grounding"):
         preload.preload()
 
 
@@ -46,7 +48,7 @@ def test_the_worker_preloads_before_its_first_item(tmp_path: Path, monkeypatch):
 def test_the_service_preloads_before_it_serves(monkeypatch):
     import uvicorn
 
-    from jav import api
+    from jav.service import api
 
     order: list[str] = []
     monkeypatch.setattr(preload, "preload", lambda: order.append("preload") or [])

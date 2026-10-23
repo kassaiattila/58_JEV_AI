@@ -15,8 +15,9 @@ from decimal import Decimal
 
 import pytest
 
-from jav import goldens, quote_golden, quote_goldens, quote_pricing
-from jav.price_lists import Discount, Item, PriceList
+from jav.evals import goldens
+from jav.domains.quotes import invented_golden, goldens as quote_goldens, quote_pricing
+from jav.domains.quotes.price_lists import Discount, Item, PriceList
 
 
 def _list(currency: str = "HUF", vat: str = "27", rules: tuple[Discount, ...] = ()) -> PriceList:
@@ -71,7 +72,7 @@ def test_a_line_that_cannot_be_priced_is_refused(line, message):
 
 
 def test_the_invented_quotes_follow_from_their_price_list():
-    golden = quote_golden.load()
+    golden = invented_golden.load()
     outcome = quote_goldens.lines_outcome(golden)  # 204 (R1h): the quotes domain's measurement module
     assert (outcome.cases, outcome.right, outcome.scored, outcome.failures) == (10, 10, 10, ())
     registered = {g.key: g for g in goldens.sets()}["quote:lines"]

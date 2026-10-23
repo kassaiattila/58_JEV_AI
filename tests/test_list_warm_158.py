@@ -15,8 +15,10 @@ import threading
 
 import pytest
 
-from jav import api, datasets, store
-from jav.tablequery import Column, Query
+from jav.service import api
+from jav.app import datasets
+from jav.core import store
+from jav.app.tablequery import Column, Query
 
 
 @pytest.fixture(autouse=True)

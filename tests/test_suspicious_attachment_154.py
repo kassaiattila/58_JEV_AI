@@ -12,7 +12,11 @@ from __future__ import annotations
 
 import pytest
 
-from jav import mailbox, policy, reconcile, statement_months as sm, store, work, work_readiness, work_recipes, work_runs
+from jav.domains.email import mailbox
+from jav.app import work, work_readiness, work_recipes, work_runs
+from jav.ai import policy
+from jav.core import store
+from jav.domains.finance import reconcile, statement_months as sm
 from jav.runtime import worker
 from tests.test_email_results import _mail_with_pdf
 from tests.test_mailbox import MAILS, REQ, FakeBridge, env  # noqa: F401 - pytest fixture
@@ -43,7 +47,7 @@ def _open(run_id: str, item: dict) -> list[str]:
 
 def test_an_attachment_of_a_suspicious_email_is_processed_and_gets_a_todo(env, monkeypatch):  # noqa: F811
     run_id, doc, mail = _run(env, monkeypatch, suspicious=True)
-    from jav import corrections
+    from jav.app import corrections
 
     assert corrections.datapoints_row(run_id, doc["item_id"]) is not None  # still processed
     assert REASON in _open(run_id, doc)

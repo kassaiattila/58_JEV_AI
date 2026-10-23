@@ -15,7 +15,10 @@ from pathlib import Path
 
 import pytest
 
-from jav import mailbox, naming, native_results, store, work, work_readiness, work_recipes, work_runs, work_views
+from jav.domains.email import mailbox
+from jav.app import naming, work, work_readiness, work_recipes, work_runs, work_views
+from jav.documents import native_results
+from jav.core import store
 from jav.runtime import worker
 
 

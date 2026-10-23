@@ -4,9 +4,9 @@ lines.
 The real documents do not go into the test; the identifiers are made up, only their shape follows the pattern seen in
 the trial."""
 
-from jav.candidates import find_all
-from jav.models import CellLayout, LineLayout
-from jav.pdf import fix_lost_glyphs
+from jav.ai.candidates import find_all
+from jav.documents.layout import CellLayout, LineLayout
+from jav.documents.pdf import fix_lost_glyphs
 
 
 def _lines(*rows: str) -> list[LineLayout]:

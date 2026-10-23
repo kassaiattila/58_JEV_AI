@@ -8,9 +8,11 @@ did not hold. Now the GPT facts are published without JEV support, with that to-
 
 from decimal import Decimal
 
-from jav import flow_native, native_results, store
-from jav.adapters import jev as jev_mod
-from jav.runtime import calls
+from jav.flows import flow_native
+from jav.documents import native_results
+from jav.core import store
+from jav.ai import jev as jev_mod
+from jav.core import calls
 from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
 import pytest

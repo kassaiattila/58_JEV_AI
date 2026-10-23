@@ -12,7 +12,8 @@ from decimal import Decimal
 
 from openpyxl import load_workbook
 
-from jav import export, report_utility
+from jav.app import export
+from jav.domains.finance import report_utility
 from jav.runtime import worker
 from tests import test_api
 from tests.test_api import _ready_wp, _start

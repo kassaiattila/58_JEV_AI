@@ -2,7 +2,7 @@
 
 The owner asked for a transparent, recorded description of exactly which bank files the system can process today, in
 the user guide and in the interface, generated from the configuration so that it cannot go stale. The catalogue
-(`configs/bank_files.json`, `jav/bank_files.py`) names each kind of file's reader; these tests keep it honest:
+(`configs/bank_files.json`, `jav/domains/finance/bank_files.py`) names each kind of file's reader; these tests keep it honest:
 
 - every reader profile and every bank statement type pack has exactly one entry, and every entry's reader exists;
 - a code profile's listed statement and line facts are exactly what the reader gives on synthetic files (the readers'
@@ -20,7 +20,9 @@ from pathlib import Path
 
 import pytest
 
-from jav import bank_files as bf, cfg, statement_table as st, typepack
+from jav.ai import typepack
+from jav.core import cfg
+from jav.domains.finance import bank_files as bf, statement_table as st
 from tests import test_statement_camt_141 as camt
 from tests import test_statement_cib_141 as cib
 from tests import test_statement_erste_137 as erste
@@ -195,7 +197,7 @@ def test_the_document_names_every_file_its_reader_and_what_no_reader_knows():
 def test_the_service_serves_the_catalogue_with_the_field_labels(tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav.api import create_app
+    from jav.service.api import create_app
     from tests.test_api import BASE
 
     client = TestClient(create_app(store_path=tmp_path / "s.sqlite"), base_url=BASE)

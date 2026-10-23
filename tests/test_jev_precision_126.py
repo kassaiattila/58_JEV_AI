@@ -3,7 +3,7 @@ get the request-size budget the utility call site has had since 015.
 
 Without a budget a request over JEV's token limit was neither trimmed nor retried: the money question of five Hungarian
 invoices ended in a `jev_unavailable` to-do. With the budget, an oversized request is fitted, and a token error is
-retried once with a tighter request (`jav/jev_budget.py`). A request within the budget is sent exactly as before, so
+retried once with a tighter request (`jav/ai/jev_budget.py`). A request within the budget is sent exactly as before, so
 its cache key, and the stored answer, stay the same. Synthetic lines only; no AI call.
 """
 from __future__ import annotations
@@ -14,9 +14,9 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice
 
-from jav import candidates as cand, typepack
-from jav.adapters.jev import JevUnavailableError
-from jav.jev_select import site_for
+from jav.ai import candidates as cand, typepack
+from jav.ai.jev import JevUnavailableError
+from jav.ai.jev_select import site_for
 from tests.test_ocr_utility import FakeJev, _line
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -83,7 +83,8 @@ def test_a_token_error_is_retried_once_with_a_tighter_request(key):
 
 
 def test_an_attachment_shows_the_type_it_was_processed_as(tmp_path):
-    from jav import mailbox, store
+    from jav.domains.email import mailbox
+    from jav.core import store
 
     with store.use_store(tmp_path / "w.sqlite"):
         store.upsert_document(doc_id="d" * 64, source_path="C:/synthetic/receipt.pdf", has_text=True, doc_type="invoice_foreign")

@@ -1,6 +1,6 @@
 """The text-layer heuristic: a PDF with a broken font mapping ("accents only") must not count as having text."""
 
-from jav import pdf as pdfmod
+from jav.documents import pdf as pdfmod
 
 
 def _has_text(text: str) -> bool:

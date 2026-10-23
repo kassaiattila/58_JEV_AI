@@ -1,4 +1,4 @@
-"""177 (plan 170 E5): the item and source kind registry (`jav/item_kinds.py`).
+"""177 (plan 170 E5): the item and source kind registry (`jav/app/item_kinds.py`).
 
 What each kind of item and of package source means to the shared code is written once; the recipes, the workflows,
 the logic pack registry and the labels agree with it; the email domain's rule after every item (a suspicious email's
@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from jav import cfg, item_kinds as ik, logic_packs, mailbox, work_recipes, workflow_steps
+from jav.app import item_kinds as ik, logic_packs, work_recipes, workflow_steps
+from jav.core import cfg
+from jav.domains.email import mailbox
 from jav.domains import email as email_domain
 
 
@@ -82,11 +84,11 @@ def test_asking_before_the_email_domain_registered_is_an_error(monkeypatch):
 
 
 def test_a_rule_or_a_page_part_only_from_the_module_that_owes_it():
-    rule = ik.ItemRule(kind="email", name="masik", module="jav.work", after_item=lambda run, item: False)
+    rule = ik.ItemRule(kind="email", name="masik", module="jav.app.work", after_item=lambda run, item: False)
     with pytest.raises(ValueError, match="come from jav.domains.email"):
         ik.register_rule(rule)
     with pytest.raises(ValueError, match="comes from"):
-        ik.register_page("folder", "jav.work", lambda wp: {})
+        ik.register_page("folder", "jav.app.work", lambda wp: {})
     with pytest.raises(ValueError, match="registered already"):
         ik.register_rule(ik.ItemRule(kind="email", name="suspicious_email_source", module="jav.domains.email",
                                      after_item=lambda run, item: False))

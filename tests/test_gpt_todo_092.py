@@ -6,8 +6,8 @@ to-do, not even when JEV does not answer and the code's own check stands in. Sta
 
 from __future__ import annotations
 
-from jav import policy
-from jav.typepack import get as get_pack
+from jav.ai import policy
+from jav.ai.typepack import get as get_pack
 from tests.test_gpt_extract_logprobs_091 import _LogprobAgent
 from tests.test_no_jev_085 import GOOD
 

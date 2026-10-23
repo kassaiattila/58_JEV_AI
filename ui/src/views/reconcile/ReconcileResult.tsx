@@ -1,7 +1,7 @@
 // 145 (backlog F-reconciliation E3b; DECISIONS 131, 132, 145): the reconciliation package's Result stage - the statement
 // (every invoice and line with its result), what blocks or only warns its approval, accepting a command-line source, the
 // download as an Excel workbook, the approval as a version that locks the lines, reopening with a reason, and the
-// earlier versions. The service computes and checks everything (jav/reconcile_statement.py); this page shows it.
+// earlier versions. The service computes and checks everything (jav/domains/finance/reconcile_statement.py); this page shows it.
 import { useEffect, useMemo, useState } from "react";
 import {
   api, ApiError, type ReconcileStatement, type ReconcileStatementCurrent, type ReconcileWorkspace,

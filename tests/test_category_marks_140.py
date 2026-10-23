@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import cfg, reconcile, reconcile_package as rp
+from jav.core import cfg
+from jav.domains.finance import reconcile, reconcile_package as rp
 from tests import test_reconcile_package_131 as p131
 
 db = p131.db

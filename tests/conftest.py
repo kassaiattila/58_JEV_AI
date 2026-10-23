@@ -1,14 +1,15 @@
 """Shared test setup (065): the tests must not write to the operational log.
 
-The `worker` command (`jav/work_cli.py`) attaches the operational log (`runs/logs/worker.log`) to the root logger; in
+The `worker` command (`jav/cli/work_cli.py`) attaches the operational log (`runs/logs/worker.log`) to the root logger; in
 the test suite this left false "worker started / processed=1" lines in the real log on every run, and after attaching,
 the other tests' logs went there too. While the tests run, the log folder is temporary.
 """
 
 import pytest
 
-from jav import gpt_choice, registrations
-from jav.runtime import applog, calls
+from jav.app import registrations
+from jav.ai import gpt_choice
+from jav.core import applog, calls
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -23,7 +24,7 @@ def _registrations():
 def _no_disk_flush():
     """189: the tests' stores are temporary files, so SQLite need not wait for the disk after a write (`store.tune`).
     Creating a store with its schema took about 0.55 s, mostly that wait, and nearly every test creates one."""
-    from jav import store
+    from jav.core import store
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(store, "SYNCHRONOUS", "OFF")
@@ -35,7 +36,7 @@ def _commit_read_once():
     """203: a service records the repository's commit when it is built (`version.commit_info`: two git calls, about
     75 ms), and the tests build one about 450 times while the commit stays the same. The repository's own commit is read
     once; a look at another folder, and a test that replaces the function, are unaffected."""
-    from jav import version
+    from jav.core import version
 
     real = version.commit_info
     seen: dict[str, str | bool | None] = {}
@@ -65,7 +66,7 @@ def _no_default_store(tmp_path_factory, monkeypatch):
     service and worker). 38 tests did, through code that reads the default store (the call-site pages' ledger figures, a
     documents table's directions): they ran the schema set-up on it and read its ledger. The default store is now a
     temporary file per test; a test that needs a store names it (`store.use_store`) or uses this empty one."""
-    from jav import store
+    from jav.core import store
 
     monkeypatch.setattr(store, "STORE_PATH", tmp_path_factory.mktemp("default-store") / "jav.sqlite")
 
@@ -75,7 +76,7 @@ def _no_real_ocr_cache(tmp_path_factory, monkeypatch):
     """160 (review T-1): a test never reads or writes the real OCR cache (`runs/ocr/`: recognised text of real
     documents). Two tests lived from it, so they failed on a clean copy and added files to it here. The cache is an
     empty temporary folder per test."""
-    from jav import ocr
+    from jav.documents import ocr
 
     monkeypatch.setattr(ocr, "CACHE_DIR", tmp_path_factory.mktemp("ocr-cache"))
 
@@ -86,7 +87,7 @@ def _no_live_gpt_choice():
     call; a test that needs an answer installs its own stand-in with `gpt_choice.use_agent_factory`."""
 
     def refuse(output_model, instructions):
-        raise AssertionError("a test tried a live GPT call (jav/gpt_choice.py); install a stand-in with use_agent_factory")
+        raise AssertionError("a test tried a live GPT call (jav/ai/gpt_choice.py); install a stand-in with use_agent_factory")
 
     with gpt_choice.use_agent_factory(refuse):
         yield
@@ -96,10 +97,10 @@ def _no_live_gpt_choice():
 def _no_live_quote_letter():
     """196: a test never asks OpenAI for a reply letter's paragraph (a paid call); a test that needs one installs its
     own stand-in with `quote_letter.use_agent_factory`."""
-    from jav import quote_letter
+    from jav.domains.quotes import quote_letter
 
     def refuse(output_model, instructions):
-        raise AssertionError("a test tried a live GPT call (jav/quote_letter.py); install a stand-in with use_agent_factory")
+        raise AssertionError("a test tried a live GPT call (jav/domains/quotes/quote_letter.py); install a stand-in with use_agent_factory")
 
     with quote_letter.use_agent_factory(refuse):
         yield
@@ -112,7 +113,7 @@ def _no_jev_question_without_jev(request, monkeypatch):
     itself is marked `jev_refusal`."""
     if request.node.get_closest_marker("jev_refusal"):
         return
-    from jav.adapters import jev
+    from jav.ai import jev
 
     def fail(request_id):
         pytest.fail(f"a JEV question ({request_id}) was asked in processing without JEV")
@@ -124,10 +125,10 @@ def _no_jev_question_without_jev(request, monkeypatch):
 def _no_live_fx():
     """130: a test never asks the MNB rate service; a test that needs rates installs its own stand-in with
     `fx.use_transport`."""
-    from jav import fx
+    from jav.domains.finance import fx
 
     def refuse(url, body, headers, timeout):
-        raise AssertionError("a test tried a live exchange rate request (jav/fx.py); install a stand-in with use_transport")
+        raise AssertionError("a test tried a live exchange rate request (jav/domains/finance/fx.py); install a stand-in with use_transport")
 
     with fx.use_transport(refuse):
         yield
@@ -135,10 +136,10 @@ def _no_live_fx():
 
 @pytest.fixture(autouse=True)
 def _no_provider_keys(monkeypatch):
-    """120: no test reaches a paid provider. The keys are read when a call is built (`jav/config.py`), so without them
+    """120: no test reaches a paid provider. The keys are read when a call is built (`jav/core/config.py`), so without them
     an unpatched OpenAI or JEV call fails with `MissingAPIKeyError` (JEV: `missing_key`) instead of spending. A debug
     run that left the native GPT extraction and JEV support unpatched made three small live calls before this guard."""
-    from jav.config import API_KEY_ENV_VARS, AZURE_DI_ENV_VARS, OPENAI_KEY_ENV_VAR
+    from jav.core.config import API_KEY_ENV_VARS, AZURE_DI_ENV_VARS, OPENAI_KEY_ENV_VAR
 
     for name in (*API_KEY_ENV_VARS, OPENAI_KEY_ENV_VAR, *AZURE_DI_ENV_VARS):  # 121: Azure is called directly too
         monkeypatch.delenv(name, raising=False)
@@ -151,7 +152,7 @@ def _registered_todo_kinds(monkeypatch):
     label test covers it. A reason a test writes itself (synthetic) is the test's own and is not checked."""
     import sys
 
-    from jav import store, todo_kinds
+    from jav.core import store, todo_kinds
 
     real = store.review_enqueue
     found: dict[str, str] = {}
