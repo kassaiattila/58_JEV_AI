@@ -6,7 +6,7 @@ pack's `validators` list names which ones). The decision stage turns the AI's ju
 into to-dos. The cross-document stage compares the document with the other documents in the store: a duplicate
 invoice, an own tax number as the supplier's, a statement booking the same days as another one. The after-save stage
 looks over the stored results and opens the same to-dos afterwards (the duplicate and own-tax scans of the command
-line). Until now the record checks were a closed table in `jav/validators.py`, the decision steps a fixed list of calls
+line). Until now the record checks were a closed table in `jav/ai/validators.py`, the decision steps a fixed list of calls
 in `policy.decide`, and the rule that the store is read only in a worker run was written out in three modules. Now each
 check is one entry here, and that rule is one gate (`store_readable`).
 
@@ -24,7 +24,7 @@ An entry (`Check`) names its stage and how it runs:
 A check that reads other documents (`reads_store`) runs only in a worker run, so a measurement and the command line
 give results that do not depend on what the store holds. The stored order of to-dos is part of a result: the checks
 of a stage run in the order they are registered (the order `policy.decide` had; `tests/test_characterisation_171.py`).
-The built-in checks are registered by the modules that own them (`jav/validators.py`: record; `jav/policy.py`:
+The built-in checks are registered by the modules that own them (`jav/ai/validators.py`: record; `jav/ai/policy.py`:
 decision) when they are imported; 180 (plan 170 E7): the cross-document and after-save checks are the finance domain's
 (`jav/domains/finance/__init__.py`), registered by `registrations.load_all`. The registry imports the first two and calls
 `load_all` the first time it is read, so it is complete whichever module asks first.
@@ -43,7 +43,7 @@ Stage = Literal["record", "decision", "cross_document", "after_save", "saved"]
 STAGES: tuple[Stage, ...] = ("record", "decision", "cross_document", "after_save", "saved")
 KINDS = ("record", "field", "pair")
 
-_OWNERS = ("jav.validators", "jav.policy")  # the modules that register the record and decision checks on import
+_OWNERS = ("jav.ai.validators", "jav.ai.policy")  # the modules that register the record and decision checks on import
 
 
 class UnknownCheck(KeyError):

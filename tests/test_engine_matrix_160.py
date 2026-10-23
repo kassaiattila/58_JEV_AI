@@ -13,7 +13,7 @@ from pathlib import Path
 
 from jav import engine_matrix
 
-JEV_CALLER = "from jav.adapters.jev import JevAdapter\n\n\ndef ask(jev: JevAdapter):\n    return jev.ask('x', {}, {})\n"
+JEV_CALLER = "from jav.ai.jev import JevAdapter\n\n\ndef ask(jev: JevAdapter):\n    return jev.ask('x', {}, {})\n"
 PASSED_ADAPTER = "def ask(adapter):\n    return adapter.ask('x', {}, {})\n"
 
 

@@ -18,10 +18,10 @@ from pathlib import Path
 
 import pytest
 
-from jav import extract_llm, gpt_choice
+from jav.ai import extract_llm, gpt_choice
 from jav.core import store
 from jav.core import calls
-from jav.typepack import get as get_pack
+from jav.ai.typepack import get as get_pack
 from tests.test_gpt_extract_logprobs_091 import _LogprobAgent
 from tests.test_no_jev_085 import GOOD
 

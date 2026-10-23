@@ -70,6 +70,6 @@ def s_without_jev(args: argparse.Namespace) -> bool:
 
 def type_pack_help() -> str:
     """The `--type` option's help: every type pack and the reference default."""
-    from jav.typepack import keys as pack_keys
+    from jav.ai.typepack import keys as pack_keys
 
     return "típus-csomag (configs/types/<típus>.json): " + " | ".join(pack_keys()) + f" (alap: {REFERENCE_TYPE})"

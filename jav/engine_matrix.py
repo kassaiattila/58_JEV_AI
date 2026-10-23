@@ -36,8 +36,8 @@ def _asks_jev(tree: ast.AST) -> bool:
     """The module imports the JEV adapter, or asks an adapter (`jev.ask(`, `adapter.ask(`, `self.adapter.ask(`,
     `get_adapter().ask(`)."""
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and (node.module == "jav.adapters.jev"
-                                                 or (node.module == "jav.adapters" and any(a.name == "jev" for a in node.names))):
+        if isinstance(node, ast.ImportFrom) and (node.module == "jav.ai.jev"
+                                                 or (node.module == "jav.ai" and any(a.name == "jev" for a in node.names))):
             return True
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "ask":
             owner = node.func.value

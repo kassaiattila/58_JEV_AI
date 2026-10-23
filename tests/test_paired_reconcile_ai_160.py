@@ -13,9 +13,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import gpt_choice
+from jav.ai import gpt_choice
 from jav.domains.finance import reconcile_ai
-from jav.adapters import jev as jev_mod
+from jav.ai import jev as jev_mod
 from tests.test_incoming_kinds_158 import KindJev, _credit, _package, _stored, db  # noqa: F401 - pytest fixture
 from tests.test_runtime_worker import FakeClient
 from typesafe_sdk import Noul

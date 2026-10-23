@@ -55,9 +55,8 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import (
-    corrections, grounding, logic_packs, package_release, package_scope, parties, typepack, work, workflow_steps,
-)
+from jav import corrections, logic_packs, package_release, package_scope, parties, work, workflow_steps
+from jav.ai import grounding, typepack
 from jav.core import activity_kinds, cfg, decisions, store, values
 from jav.domains.finance import reconcile, reconcile_overview
 from jav.domains.finance.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money

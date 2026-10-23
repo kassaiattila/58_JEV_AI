@@ -34,11 +34,11 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav import policy, typepack
+from jav.ai import policy, typepack
 from jav.documents import text_document
 from jav.core import store
 from jav.domains.email.emails import DOC_EXTS, EmailMessage, body_coverage, document_text, load_message_dir
-from jav.engine import with_engine
+from jav.ai.engine import with_engine
 from jav.domains.email.intent import IntentResult
 
 log = logging.getLogger("jav.domains.email.flow_email")
@@ -131,7 +131,7 @@ def classify_attachments(state: EmailState) -> EmailState:
 
 @action.pydantic(reads=["message", "run_id", "use_cache", "jev", "review_reasons"], writes=["result", "uncertain", "review_reasons"])
 def intent(state: EmailState) -> EmailState:
-    from jav.adapters.jev import JevUnavailableError, get_adapter
+    from jav.ai.jev import JevUnavailableError, get_adapter
     from jav.domains.email.intent import classify
 
     assert state.message is not None

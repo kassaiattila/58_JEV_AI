@@ -3,7 +3,7 @@
 from datetime import date
 from decimal import Decimal
 
-from jav.models import record_from_llm
+from jav.ai.models import record_from_llm
 
 FIELDS = {"account_iban": "iban", "closing_balance": "money", "statement_type": "text", "is_blank_form": "boolean",
           "transactions": "list", "attendees": "list"}

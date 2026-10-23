@@ -6,7 +6,7 @@ legacy schema.json), for other types the Pydantic model generated from the pack'
 so it is not directly comparable with the legacy golden floor.
 
 091 (GPT field confidence): the answer is a native structured answer with token log-probabilities (pattern:
-`jav/gpt_choice.py`), so every top-level value gets a measured probability (`jav/token_confidence.py`). The saved
+`jav/ai/gpt_choice.py`), so every top-level value gets a measured probability (`jav/ai/token_confidence.py`). The saved
 answer carries a format mark; an answer saved before 091 (the plain extraction) is still read, without probabilities.
 """
 
@@ -29,11 +29,11 @@ from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.models.wrapper import WrapperModel
 from pydantic_ai.usage import UsageLimits
 
-from jav import token_confidence
+from jav.ai import token_confidence
 from jav.core import cfg, store
 from jav.core import calls
 from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, load_prompt, openai_chat_model, openai_cost, openai_price
-from jav.typepack import TypePack, get as get_pack
+from jav.ai.typepack import TypePack, get as get_pack
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 

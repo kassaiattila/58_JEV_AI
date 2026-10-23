@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 from jav import api, backup, corrections, flow_detect, source_instances, work, work_readiness, work_recipes, work_runs
 from jav.documents import ocr
 from jav.core import store
-from jav.adapters import jev as jev_mod
+from jav.ai import jev as jev_mod
 from jav.runtime import worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_runtime_worker import FakeClient

@@ -16,12 +16,12 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, Noul, SystemOneResponse
 
-from jav import policy
+from jav.ai import policy
 from jav.core import cfg, store
-from jav.adapters.jev import JevAdapter
-from jav.jev_select import effective_conf, record_conf, select_fields, site_for
-from jav.models import Candidate, CellLayout, FieldPick, FlowState, LineLayout
-from jav.typepack import get as get_pack
+from jav.ai.jev import JevAdapter
+from jav.ai.jev_select import effective_conf, record_conf, select_fields, site_for
+from jav.ai.models import Candidate, CellLayout, FieldPick, FlowState, LineLayout
+from jav.ai.typepack import get as get_pack
 
 
 class FakeClient:

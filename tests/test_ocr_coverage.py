@@ -5,11 +5,11 @@ from unittest.mock import patch
 
 import pytest
 
-from jav import policy
+from jav.ai import policy
 from jav.core import store
 from jav.flow import ocr_pdf as invoice_ocr
 from jav.flow_detect import DetectState, ocr_pdf as detect_ocr
-from jav.models import FlowState
+from jav.ai.models import FlowState
 from jav.documents.pdf import PdfText
 
 
@@ -50,7 +50,7 @@ def isolated(tmp_path: Path):
 def test_detect_save_keeps_coverage_reason_even_when_type_is_certain(isolated):
     """A certain type closes detect's own reasons, but the to-do for the skipped pages stays open."""
     from jav.flow_detect import save
-    from jav.detect import DetectResult
+    from jav.ai.detect import DetectResult
     result = DetectResult.model_construct(doc_type="invoice_hu", confidence=0.99, issuer_hu=0.9, probabilities={}, language="hu",
                                           parent=None, parent_prob=None)
     state = DetectState(source_path="synthetic.pdf", doc_id="d13", page_count=13, run_id="r1", text_source="ocr",

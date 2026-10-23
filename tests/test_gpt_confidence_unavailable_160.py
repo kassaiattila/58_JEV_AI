@@ -9,7 +9,7 @@ probability, so a normal answer gets none. Stand-in GPT only, no paid call.
 
 from __future__ import annotations
 
-from jav.typepack import get as get_pack
+from jav.ai.typepack import get as get_pack
 from tests.test_gpt_todo_092 import _run
 from tests.test_no_jev_085 import GOOD, _DownJev, _run_g
 

@@ -104,7 +104,7 @@ def _run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str,
     out: dict[str, Decimal] = {}
     for i, arm in zip(items, arms, strict=True):
         if native_flow(r, i):
-            from jav.native_processing import estimate_limits
+            from jav.ai.native_processing import estimate_limits
 
             per = dict(estimate_limits(params).provider_limits_usd) if params.get("arm") != "S" else {}
         else:
@@ -121,7 +121,7 @@ def _run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str,
 
 
 def _item_arms(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, Any]]) -> list[str | None]:
-    from jav import typepack
+    from jav.ai import typepack
 
     packs, known = set(typepack.keys()), _known_detail_types(items)
     return [_item_arm(r, params, i, known, packs) for i in items]
@@ -175,7 +175,7 @@ def _known_detail_types(items: list[dict[str, Any]]) -> dict[str, str]:
 
 def _item_arm(r: dict[str, Any], params: dict[str, Any], item: dict[str, Any], known: dict[str, str], packs: set[str]) -> str | None:
     """The item's path known in advance (S / G), or None if the type is not known before the run (065)."""
-    from jav import typepack
+    from jav.ai import typepack
 
     spec = flows.get(flow_for(r, item))
     if spec.native:

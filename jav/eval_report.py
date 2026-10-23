@@ -5,7 +5,7 @@ Flow-independent: the input is the four golden formats (invoice S / G, doc_detec
 injection probes, and the determinism files; the file-name pattern tells which flow. A **judgment** (`Judgment`) = one
 JEV question for one case: Choice (label, confidence, top prob, second option) or Noul (P(yes)); where the truth is
 known, also `expected` + `correct`. Every number is computed without calls, for $0; the bands come from the `bands`
-sets of `configs/policy.json` (`jav/policy.py`).
+sets of `configs/policy.json` (`jav/ai/policy.py`).
 
 Sections: per-question accuracy and band distribution (with per-band accuracy), calibration curve (per bin P vs. hit
 rate, ECE) by top prob and by confidence, top prob vs. confidence gap, policy-band re-evaluation (how many cases would
@@ -31,10 +31,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Literal
 
-from jav import policy
+from jav.ai import policy
 from jav.core import values
 from jav.core.config import RUNS_DIR
-from jav.typepack import LEGACY_DOC_TYPE
+from jav.ai.typepack import LEGACY_DOC_TYPE
 
 # score: conf / top_prob read as for a Choice, the label is the level; field (160-D): a GPT field's confidence
 Kind = Literal["choice", "noul", "score", "field"]
@@ -263,7 +263,7 @@ def _parent_fields(row: dict[str, Any], parent_of: dict[str, str]) -> dict[str, 
 
 
 def _from_detect(row: dict[str, Any], *, gpt: bool = False) -> list[Judgment]:
-    from jav.doc_types import PARENT_OF
+    from jav.ai.doc_types import PARENT_OF
 
     if row.get("got") is None:
         return []

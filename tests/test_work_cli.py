@@ -5,7 +5,7 @@ from pathlib import Path
 
 from jav import cli
 from jav.core import store
-from jav.adapters import jev as jev_mod
+from jav.ai import jev as jev_mod
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_runtime_worker import FakeClient
 

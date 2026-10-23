@@ -4,15 +4,15 @@ The duplicate check (126) and the party-role history (121) read the store only i
 measurement's result does not depend on what the store holds. Both keyed on "a budget scope is set", which a budgeted
 measurement has too: in a separate measurement store, without the work tables, the duplicate check stopped every
 invoice with `no such table: run_items` (found by the free pre-estimate of round B). 175 (plan 170 E3): one gate in
-front of every check that reads the store (`jav/checks.py` `store_readable`).
+front of every check that reads the store (`jav/ai/checks.py` `store_readable`).
 """
 
 from decimal import Decimal
 
-from jav import checks
+from jav.ai import checks
 from jav.core import store
 from jav.domains import finance
-from jav.models import DocumentRecord
+from jav.ai.models import DocumentRecord
 from jav.core import calls
 
 

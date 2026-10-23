@@ -22,12 +22,13 @@ from decimal import Decimal
 
 import pytest
 
-from jav import activity, checks, corrections, datasets, parties, policy, work_readiness, work_recipes, work_runs
+from jav import activity, corrections, datasets, parties, work_readiness, work_recipes, work_runs
+from jav.ai import checks, policy
 from jav.documents import native_results
 from jav.core import activity_kinds, store
 from jav.domains.finance import duplicates
 from jav.domains.email import email_tasks
-from jav.models import CheckResult, FlowState, DocumentRecord, JevVerdicts
+from jav.ai.models import CheckResult, FlowState, DocumentRecord, JevVerdicts
 from jav.runtime import worker
 from jav.core import calls
 
@@ -80,7 +81,7 @@ def _run(run_id: str = RUN, docs: tuple[str, ...] = (DOC_A, DOC_B), *, status: s
 ])
 def test_decide_applies_its_policies_in_a_fixed_order(monkeypatch, arm, expected) -> None:
     """Each policy step adds one marker reason; the markers come out in the order `policy.decide` calls the steps.
-    175 (plan 170 E3): the steps are the decision and cross-document checks of the check registry (`jav/checks.py`);
+    175 (plan 170 E3): the steps are the decision and cross-document checks of the check registry (`jav/ai/checks.py`);
     the cross-document ones run in a worker run only, so the decision runs in one. The pinned order is unchanged."""
     markers = {"pick": "pick", "verdict": "verdict", "gpt_confidence": "gpt_confidence", "validation": "validation",
                "duplicate": "duplicate", "own_tax": "party", "statement_overlap": "statement"}

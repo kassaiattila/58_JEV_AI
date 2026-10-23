@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from jav.core.config import PROJECT_ROOT
-from jav.models import money_label
+from jav.ai.models import money_label
 
 CONFIG = PROJECT_ROOT / "configs" / "experiments" / "document_injection.json"
 RUNS = PROJECT_ROOT / "runs"

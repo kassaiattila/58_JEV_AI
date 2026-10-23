@@ -120,7 +120,7 @@ def _flow_module(name: str):
 def arm_for(doc_type: str, preferred: str) -> str:
     """The effective path (arm) for the type (the rule is in `typepack.resolve_arm`; 065: the budget reservation uses it
     too)."""
-    from jav import typepack
+    from jav.ai import typepack
 
     return typepack.resolve_arm(doc_type, preferred)
 

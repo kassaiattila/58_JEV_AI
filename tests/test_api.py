@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from jav import api, cli, service_shared, work
 from jav.core import cfg, store
-from jav.adapters import jev as jev_mod
+from jav.ai import jev as jev_mod
 from jav.runtime import worker
 from jav.core import lock
 from tests.pdfgen import INVOICE_LINES, write_text_pdf

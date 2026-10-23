@@ -24,12 +24,12 @@ from pydantic_ai import Agent, NativeOutput
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIChatModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from jav import extract_llm
+from jav.ai import extract_llm
 from jav.core import cfg, store
 from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, OPENAI_USD_PER_MTOK
-from jav.models import FlowState
+from jav.ai.models import FlowState
 from jav.core import calls
-from jav.typepack import get as get_pack
+from jav.ai.typepack import get as get_pack
 from tests.test_no_jev_085 import GOOD
 
 PACK = get_pack("invoice_hu")

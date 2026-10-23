@@ -37,9 +37,6 @@ ALLOWED = {layer: (*LAYERS[: i + 1], *(("evals", "devtools", "legacy") if layer 
 
 # not in its layer's folder yet: module (relative to jav) -> its layer ("domains.<domain>" for a domain's module)
 NOT_MOVED = {name: layer for layer, names in {
-    "ai": "adapters adapters.jev candidates checks detect detect_detail detect_gpt doc_types engine extract_llm "
-        "fact_checks gpt_choice grounding jev_budget jev_select jev_verify jev_version legacy_validation "
-        "models native_processing party_history policy token_confidence typepack validators",
     "flows": "contract flow flow_detect flow_native runtime.flows runtime.persistence",
     "app": "activity app_settings corrections costs datasets export item_kinds logic_packs naming outputs "
         "outputs.builtin outputs.contract outputs.docx outputs.fill outputs.markers outputs.parts "
@@ -60,15 +57,15 @@ NOT_MOVED = {name: layer for layer, names in {
 # imports against the direction today, each with the step that takes it away
 KNOWN = {
     # the general data model's page layout moves to the documents layer when the model splits (R2)
-    ("jav.documents.ocr", "jav.models"), ("jav.documents.pdf", "jav.models"),
+    ("jav.documents.ocr", "jav.ai.models"), ("jav.documents.pdf", "jav.ai.models"),
     # reading asks the decision rules for its thresholds, and the native reader's interpretation the AI layer
-    ("jav.documents.ocr", "jav.policy"), ("jav.documents.pdf_input", "jav.policy"), ("jav.documents.text_document", "jav.typepack"),
-    ("jav.documents.readers.interpretation", "jav.fact_checks"), ("jav.documents.readers.providers", "jav.adapters.jev"),
+    ("jav.documents.ocr", "jav.ai.policy"), ("jav.documents.pdf_input", "jav.ai.policy"), ("jav.documents.text_document", "jav.ai.typepack"),
+    ("jav.documents.readers.interpretation", "jav.ai.fact_checks"), ("jav.documents.readers.providers", "jav.ai.jev"),
     # the registries load the domains' registrations themselves
-    ("jav.core.activity_kinds", "jav.registrations"), ("jav.checks", "jav.registrations"),
+    ("jav.core.activity_kinds", "jav.registrations"), ("jav.ai.checks", "jav.registrations"),
     # the shared decision handler raises the work package's conflict error; a document's reading checks its item
     ("jav.core.decisions", "jav.work"), ("jav.documents.native_results", "jav.item_kinds"), ("jav.documents.ocr", "jav.source_instances"),
-    ("jav.party_history", "jav.package_result"),
+    ("jav.ai.party_history", "jav.package_result"),
     # the shared views show the worker's state
     ("jav.work_views", "jav.runtime.worker"),
     # the operations log masks keys with the data guard's patterns
@@ -78,8 +75,8 @@ KNOWN = {
 }
 # imports against the direction for good, each with its reason
 LASTING = {
-    ("jav.policy", "jav.domains.email.emails"): "the routing rules of every flow are one module with their thresholds (CLAUDE.md §6)",
-    ("jav.policy", "jav.domains.email.intents"): "the routing rules of every flow are one module with their thresholds (CLAUDE.md §6)",
+    ("jav.ai.policy", "jav.domains.email.emails"): "the routing rules of every flow are one module with their thresholds (CLAUDE.md §6)",
+    ("jav.ai.policy", "jav.domains.email.intents"): "the routing rules of every flow are one module with their thresholds (CLAUDE.md §6)",
 }
 
 

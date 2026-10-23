@@ -10,9 +10,9 @@ Synthetic word layer and a fake JEV client, no paid call.
 from __future__ import annotations
 
 from jav.core import store
-from jav.adapters import jev as jev_mod
-from jav.jev_verify import verify
-from jav.typepack import get as get_pack
+from jav.ai import jev as jev_mod
+from jav.ai.jev_verify import verify
+from jav.ai.typepack import get as get_pack
 from tests.test_grounding import layer_of
 from tests.test_grounding_frames_092 import TWO_COLUMN_HEADER, _line_layout
 from tests.test_runtime_worker import FakeClient

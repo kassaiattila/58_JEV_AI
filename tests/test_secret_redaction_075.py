@@ -15,7 +15,7 @@ from typesafe_sdk._core.config import resolve_and_validate_api_key
 from typesafe_sdk._core.errors import TypeSafeError
 from typesafe_sdk._core.transport import RequestState, prepare
 
-from jav.adapters.jev import _error_slugs
+from jav.ai.jev import _error_slugs
 from jav.core import applog
 
 FAKE_KEY = "SYNTHETIC-NOT-A-REAL-KEY-0123456789"

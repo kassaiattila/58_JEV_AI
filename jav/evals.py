@@ -5,7 +5,7 @@ whitespace-collapsed, tolerant of trailing punctuation; tax number without space
 is a hit. `payment_iban` (and, for foreign invoices, the addresses) is NOT scored in the legacy contract - we report it
 separately as an informational column.
 
-Type-independent: the type pack under measurement (`jav/typepack.py`) supplies the field list, the kinds (comparator),
+Type-independent: the type pack under measurement (`jav/ai/typepack.py`) supplies the field list, the kinds (comparator),
 the scored / informational fields and the golden `type_key`; the raw run rows carry the `doc_type` and the
 `flow_label` (`invoice_S` for the Hungarian, `invoice_foreign_S` for the foreign invoice), which the eval report and
 the admin read.
@@ -26,9 +26,9 @@ from typing import Any, Callable, Iterable
 
 from jav.core.config import GOLDEN_EXPECTED_DIR, GOLDEN_MANIFEST, OLD_PROJECT_ROOT, RUNS_DIR
 from jav.core.dates import read_date
-from jav.models import Candidate, FlowState, money_label, normalize_tax_id
-from jav.typepack import CANDIDATE_KIND_OF, LEGACY_DOC_TYPE, TypePack
-from jav.typepack import get as get_pack
+from jav.ai.models import Candidate, FlowState, money_label, normalize_tax_id
+from jav.ai.typepack import CANDIDATE_KIND_OF, LEGACY_DOC_TYPE, TypePack
+from jav.ai.typepack import get as get_pack
 
 
 
@@ -209,7 +209,7 @@ def field_equal_lenient(field: str, got: Any, expected: Any, kind: str) -> bool:
 
 
 def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True, *, type_key: str) -> dict[str, tuple[int, int]]:
-    from jav.candidates import find_all, find_currencies
+    from jav.ai.candidates import find_all, find_currencies
     from jav.documents.pdf import read_document
 
     pack = get_pack(type_key)
@@ -280,7 +280,7 @@ def _score_state_lenient(state: FlowState, expected: dict[str, Any], pack: TypeP
 
 
 def _state_row(case: GoldenCase, state: FlowState, run_no: int, seconds: float, pack: TypePack) -> dict[str, Any]:
-    from jav.jev_select import record_conf
+    from jav.ai.jev_select import record_conf
 
     picks = {
         f: {
@@ -409,7 +409,7 @@ def determinism(
 ) -> list[dict[str, Any]]:
     """n runs per case without the cache. `jev=False` (160-D): the G path checked by the code alone, its run file
     named `_nojev` as the golden run's."""
-    from jav.adapters.jev import get_adapter
+    from jav.ai.jev import get_adapter
 
     pack = get_pack(type_key)
     cases = cases or load_cases(type_key)
@@ -535,7 +535,7 @@ def perturb_extraction(dp: dict[str, Any], lines: list[Any]) -> dict[str, dict[s
 def probe_summary(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Per variant: n, mean / min / max of the expected flag's P, two-sided band counts (policy `invoice.verify`), false
     positives."""
-    from jav.policy import noul_band
+    from jav.ai.policy import noul_band
 
     by: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for r in rows:
@@ -576,10 +576,10 @@ def verifier_probe(cases: list[GoldenCase] | None = None, use_cache: bool = True
 
 
 def _verifier_probe(cases: list[GoldenCase] | None, use_cache: bool, type_key: str) -> list[dict[str, Any]]:
-    from jav.adapters.jev import get_adapter
-    from jav.jev_verify import site_for
+    from jav.ai.jev import get_adapter
+    from jav.ai.jev_verify import site_for
     from jav.documents.pdf import read_document
-    from jav.policy import REVIEW_FLAG_P, noul_band
+    from jav.ai.policy import REVIEW_FLAG_P, noul_band
 
     pack = get_pack(type_key)
     site = site_for(pack.key)

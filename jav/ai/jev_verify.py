@@ -26,13 +26,13 @@ from typing import Any
 from pydantic import BaseModel
 from typesafe_sdk import Noul
 
-from jav import grounding
+from jav.ai import grounding
 from jav.core import cfg
-from jav.adapters.jev import JevAdapter
-from jav.candidates import QUANTITY_RE, find_all, profile_of
+from jav.ai.jev import JevAdapter
+from jav.ai.candidates import QUANTITY_RE, find_all, profile_of
 from jav.core.dates import find_dates_in, read_date
-from jav.jev_budget import ask_within_budget, line_numbers
-from jav.models import (
+from jav.ai.jev_budget import ask_within_budget, line_numbers
+from jav.ai.models import (
     Candidate,
     JevCall,
     JevVerdicts,
@@ -42,8 +42,8 @@ from jav.models import (
 )
 from jav.core.numbers import Convention, document_convention
 from jav.documents.source_layer import SourceLayer
-from jav.typepack import TypePack
-from jav.typepack import get as get_pack
+from jav.ai.typepack import TypePack
+from jav.ai.typepack import get as get_pack
 
 # Country code -> names / signs that can be printed on the document (evidence for the `country` kind: the code
 # searches for these signs, not for the code itself)
@@ -262,7 +262,7 @@ class VerifySite:
     """A type pack's G path verification call site: field descriptions + Noul questions (inheritable), `config_hash`."""
 
     def __init__(self, pack: TypePack) -> None:
-        from jav.jev_select import site_for as select_site_for
+        from jav.ai.jev_select import site_for as select_site_for
 
         self.pack = pack
         self.callsite = pack.verify_callsite
@@ -322,7 +322,7 @@ class VerifySite:
         self, state: dict[str, Any], questions: dict[str, Noul], lines: list[LineLayout], evidence: dict[str, list[str]], budget: int | None
     ) -> dict[str, Any]:
         """Request size budget for the verification request (call site `request_char_budget`, characters;
-        `jav/jev_budget.py`): the whole document's lines are only context - the Nouls judge from the `printed_on`
+        `jav/ai/jev_budget.py`): the whole document's lines are only context - the Nouls judge from the `printed_on`
         evidence lines. When over budget, (1) `source_lines` keeps only the evidence lines ± 1 (the 9-page Díjbeszedő
         bundle: max_tokens_exceeded with the full text), (2) if that does not fit either, `source_lines` is dropped.
         The questions do not change."""

@@ -27,7 +27,7 @@ from typing import Any
 
 from jav import corrections, package_result, work
 from jav.core import store
-from jav.typepack import get as get_pack
+from jav.ai.typepack import get as get_pack
 
 TYPE = "quote_request"  # the type pack, the detection type and the email intent (190)
 ITEMS = "requested_items"

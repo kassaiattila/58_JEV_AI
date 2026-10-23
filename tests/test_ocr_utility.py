@@ -22,9 +22,10 @@ from decimal import Decimal
 import pytest
 from typesafe_sdk import Choice, Noul
 
-from jav import candidates as cand, evals, policy, typepack
+from jav import evals
+from jav.ai import candidates as cand, policy, typepack
 from jav.documents import ocr, pdf as pdfmod
-from jav.models import Candidate, CellLayout, LineLayout
+from jav.ai.models import Candidate, CellLayout, LineLayout
 
 UTILITY_TYPES = ("villamos_energia_szamla", "foldgaz_szamla", "viz_szamla", "mohu_szamla", "vizmuvek_szamla", "csatorna_szamla")
 
@@ -237,7 +238,7 @@ class FakeJev:
 
 
 def test_select_utility_asks_only_pack_fields_and_closed_extras():
-    from jav.jev_select import site_for
+    from jav.ai.jev_select import site_for
 
     lines = [
         _line(1, ("Szolgáltató neve: MOHU MOL Hulladékgazdálkodási Zrt.", 20), ("Adószáma: 32197530-2-44", 400)),
@@ -264,7 +265,7 @@ def test_select_utility_asks_only_pack_fields_and_closed_extras():
 
 
 def test_select_utility_number_field_from_quantity_candidates():
-    from jav.jev_select import site_for
+    from jav.ai.jev_select import site_for
 
     lines = [_line(1, ("Fogyasztás összesen: 882 kWh", 20)), _line(2, ("Bruttó számlaérték összesen 54.732", 20))]
     v = typepack.get("villamos_energia_szamla")
@@ -276,7 +277,7 @@ def test_select_utility_number_field_from_quantity_candidates():
 
 
 def test_verify_utility_inherits_and_number_evidence():
-    from jav.jev_verify import find_evidence, site_for
+    from jav.ai.jev_verify import find_evidence, site_for
 
     site = site_for("foldgaz_szamla")
     assert site.request_id == "verify_utility" and "off_target" in site.nouls and "consumption_mj" in site.field_specs
@@ -287,7 +288,7 @@ def test_verify_utility_inherits_and_number_evidence():
 def test_evidence_reads_the_raw_value_like_the_record_does():
     # 054: GPT's raw value is "1.153" (Hungarian thousands separator); the record reads it as 1153, and the evidence
     # search must do the same
-    from jav.jev_verify import find_evidence
+    from jav.ai.jev_verify import find_evidence
 
     lines = [_line(1, ("Fogyasztás összesen: 1.153 kWh", 20))]
     assert find_evidence("consumption_kwh", "1.153", lines, kind="number")
@@ -300,7 +301,7 @@ def test_evidence_reads_the_raw_value_like_the_record_does():
 
 def test_evidence_tolerates_ocr_confusions_in_text():
     # 054: OCR read "A1" as "Al"; GPT correctly gave "A1" from the image
-    from jav.jev_verify import find_evidence
+    from jav.ai.jev_verify import find_evidence
 
     lines = [_line(1, ('Árszabás: ESZ "Al" Lakosság', 20))]
     assert find_evidence("tariff", 'ESZ "A1" Lakosság', lines, kind="text")
@@ -318,7 +319,7 @@ def test_lenient_equality_folds_ocr_accents_only_for_text_kinds():
 
 
 def test_error_slug_includes_server_error_type():
-    from jav.adapters.jev import _error_slugs
+    from jav.ai.jev import _error_slugs
 
     class Err(Exception):
         status = 400
@@ -397,7 +398,7 @@ def _many_names(n_far: int, wanted_line: int) -> list[Candidate]:
 
 
 def test_fit_budget_cap_keeps_document_order_so_top_block_names_survive():
-    from jav.jev_select import site_for
+    from jav.ai.jev_select import site_for
 
     site = site_for("viz_szamla")
     lines = [_line(i, (f"sor {i}", 20)) for i in range(1, 260)]
@@ -411,8 +412,8 @@ def test_fit_budget_cap_keeps_document_order_so_top_block_names_survive():
 
 
 def test_select_retries_once_with_tighter_budget_on_max_tokens_error():
-    from jav.adapters.jev import JevUnavailableError
-    from jav.jev_select import site_for
+    from jav.ai.jev import JevUnavailableError
+    from jav.ai.jev_select import site_for
 
     class TokenLimitJev(FakeJev):
         def __init__(self, fail_times: int) -> None:
@@ -441,8 +442,8 @@ def test_select_retries_once_with_tighter_budget_on_max_tokens_error():
 
 
 def test_verify_fits_budget_by_keeping_only_evidence_lines_and_retries_once():
-    from jav.adapters.jev import JevUnavailableError
-    from jav.jev_verify import site_for
+    from jav.ai.jev import JevUnavailableError
+    from jav.ai.jev_verify import site_for
 
     class RecordingJev(FakeJev):
         def __init__(self, fail_times: int = 0) -> None:

@@ -19,10 +19,11 @@ from decimal import Decimal
 
 import pytest
 
-from jav import cli, corrections, datasets, policy, work_runs, work_views
+from jav import cli, corrections, datasets, work_runs, work_views
+from jav.ai import policy
 from jav.core import store
 from jav.domains.finance import reconcile
-from jav.models import CheckResult, FlowState, DocumentRecord
+from jav.ai.models import CheckResult, FlowState, DocumentRecord
 from jav.core import calls
 from tests import test_api
 

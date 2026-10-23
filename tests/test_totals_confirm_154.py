@@ -13,9 +13,9 @@ from decimal import Decimal
 
 import pytest
 
-from jav import validators
-from jav.jev_select import site_for
-from jav.models import Candidate, FieldPick
+from jav.ai import validators
+from jav.ai.jev_select import site_for
+from jav.ai.models import Candidate, FieldPick
 
 VAT_SUM = ({"check": "vat_consistency"},)
 

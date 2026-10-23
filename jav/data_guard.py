@@ -37,7 +37,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from jav import validators
+from jav.ai import validators
 from jav.core import card_numbers, cfg, doc_scope, taxid
 from jav.core.config import PROJECT_ROOT
 

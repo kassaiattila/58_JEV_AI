@@ -14,7 +14,8 @@ import subprocess
 import sys
 from dataclasses import replace
 
-from jav import checks, export, item_kinds, logic_packs, registrations
+from jav import export, item_kinds, logic_packs, registrations
+from jav.ai import checks
 from jav.core.config import PROJECT_ROOT
 from jav.domains import DOMAINS
 from jav.outputs import contract, parts
@@ -24,7 +25,7 @@ JAV = PROJECT_ROOT / "jav"
 _PROBE = """
 import json
 import jav.domains.email, jav.domains.finance, jav.domains.quotes
-from jav import checks, item_kinds, logic_packs
+from jav import item_kinds, logic_packs; from jav.ai import checks
 from jav.outputs import parts
 seen = lambda: {"checks": sorted(checks._CHECKS), "packs": sorted(logic_packs._PACKS), "rules": sorted(item_kinds._RULES),
                 "parts": sorted([*parts._MARKS, *parts._COLUMNS, *parts._RESULT, *parts._OWN])}
@@ -97,8 +98,8 @@ FINANCE = {"jav.domains.finance.duplicates", "jav.parties", "jav.domains.finance
 
 
 def test_the_shared_download_code_names_no_finance_module() -> None:
-    shared = [JAV / "export.py", JAV / "package_release.py", JAV / "logic_packs.py", JAV / "checks.py",
-              *sorted((JAV / "outputs").glob("*.py"))]
+    shared = [PROJECT_ROOT / name for name in ("jav/export.py", "jav/package_release.py", "jav/logic_packs.py",
+                                               "jav/ai/checks.py")] + sorted((PROJECT_ROOT / "jav/outputs").glob("*.py"))
     named = {p.relative_to(JAV).as_posix(): sorted(_imported(p) & FINANCE) for p in shared}
     assert {k: v for k, v in named.items() if v} == {}
 

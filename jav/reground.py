@@ -16,7 +16,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav import grounding, typepack, work_runs
+from jav import work_runs
+from jav.ai import grounding, typepack
 from jav.documents import source_layer
 from jav.core import store
 

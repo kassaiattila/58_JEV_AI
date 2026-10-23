@@ -4,7 +4,7 @@ Plain-language summary: what the shared code does with invoices and bank stateme
 here, in one call (`register`, from `registrations.load_all`):
 - the cross-document checks, in the order they run: a duplicate invoice (126), an own tax number as the supplier's
   (134), a statement booking the same days as another one (139); the two scans that open the same to-dos on the
-  stored results; and (185) the saved stage's direction check of an uncertain detailed type (149; `jav/checks.py`);
+  stored results; and (185) the saved stage's direction check of an uncertain detailed type (149; `jav/ai/checks.py`);
 - the statement package and the reconciliation package as logic packs (`jav/logic_packs.py`; 186: their scopes, with
   the reference that keeps a party in use from being deleted, are in the shared scope store, `jav/package_scope.py`),
   and (181) as the statements and reconciliation steps of a workflow (`jav/workflow_steps.py`);
@@ -31,7 +31,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav import checks, item_kinds
+from jav import item_kinds
+from jav.ai import checks
 from jav.core import activity_kinds, type_roles
 from jav.outputs import parts
 
@@ -45,7 +46,7 @@ COMMANDS = ("jav.domains.finance.finance_cli",)
 GOLDENS = ("jav.domains.finance.goldens",)
 
 # --- the cross-document checks: they read the store, so the check registry runs them in a worker run only, and a
-# measurement's result never depends on what the store holds (175, plan 170 E3: `jav/checks.py`) ---------------------
+# measurement's result never depends on what the store holds (175, plan 170 E3: `jav/ai/checks.py`) ---------------------
 
 
 def duplicate_check(subject: checks.Subject) -> list[str]:
@@ -65,7 +66,8 @@ def own_tax_check(subject: checks.Subject) -> list[str]:
     swapped, or it is an outgoing invoice."""
     if subject.record is None or not type_roles.has(subject.doc_type, "own_tax_check"):
         return []
-    from jav import parties, typepack
+    from jav import parties
+    from jav.ai import typepack
 
     values = subject.record.to_datapoints(typepack.get(subject.doc_type).record_fields)  # the stored form
     return parties.review_reasons(subject.doc_type, values)
@@ -77,7 +79,7 @@ def statement_overlap_check(subject: checks.Subject) -> list[str]:
     (`jav/domains/finance/statement_months.py`)."""
     if subject.record is None or not subject.doc_id or not type_roles.has(subject.doc_type, "statement"):
         return []
-    from jav import typepack
+    from jav.ai import typepack
     from jav.domains.finance import statement_months
 
     values = subject.record.to_datapoints(typepack.get(subject.doc_type).record_fields)  # the stored form
@@ -182,7 +184,7 @@ def place_document(doc_type: str | None, values: dict[str, Any], cache: dict[str
     from jav import package_scope, parties
     from jav.core import cfg
     from jav.domains.finance import statement_package
-    from jav.models import account_key
+    from jav.ai.models import account_key
 
     if "finance:resolver" not in cache:  # the identities as they stand, read once per routing view
         cache["finance:resolver"] = parties.resolver()

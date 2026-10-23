@@ -1,6 +1,6 @@
 """160 (plan F-csak-gpt, L4): processing without JEV is a guarantee, not a convention.
 
-A flow application built without JEV runs every step inside `adapters.jev.disabled()`. A JEV question asked anyway (a
+A flow application built without JEV runs every step inside `jav.ai.jev.disabled()`. A JEV question asked anyway (a
 regression, a new call site that forgot the switch, the native reader's own adapter) is refused before anything
 happens: no model probe, no cache read, no call-log reservation. The flows' usual handling turns it into the
 `jev_unavailable:disabled` to-do. In the tests the refusal fails the test instead (conftest), so a forgotten JEV
@@ -14,8 +14,8 @@ from typesafe_sdk import Noul
 
 from jav import flow_detect, work, work_readiness, work_recipes, work_runs
 from jav.core import store
-from jav.adapters import jev as jev_mod
-from jav.adapters.jev import JevUnavailableError
+from jav.ai import jev as jev_mod
+from jav.ai.jev import JevUnavailableError
 from jav.runtime import worker
 from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
@@ -69,7 +69,7 @@ def test_an_adapter_built_by_hand_is_refused_too(env, tmp_path):
 
 @pytest.mark.jev_refusal
 def test_a_flow_without_jev_turns_a_forgotten_question_into_a_to_do(env, monkeypatch):
-    monkeypatch.setattr("jav.detect_gpt.detect", _forgetful_gpt_detect)
+    monkeypatch.setattr("jav.ai.detect_gpt.detect", _forgetful_gpt_detect)
     state = flow_detect.run_detect(str(env["pdf"]), jev=False)
     assert "jev_unavailable:disabled" in state.review_reasons
     assert env["client"].calls == 0
@@ -77,7 +77,7 @@ def test_a_flow_without_jev_turns_a_forgotten_question_into_a_to_do(env, monkeyp
 
 @pytest.mark.jev_refusal
 def test_a_run_without_jev_turns_a_forgotten_question_into_a_to_do(env, monkeypatch):
-    monkeypatch.setattr("jav.detect_gpt.detect", _forgetful_gpt_detect)
+    monkeypatch.setattr("jav.ai.detect_gpt.detect", _forgetful_gpt_detect)
     wp = work.create_from_folder(env["pdf"].parent, name="Without JEV")
     work_recipes.assign_recipe(wp["id"], "processing", params={"jev": "off", "azure_ocr": "off"}, expected_revision=0, actor="t")
     ready = work_readiness.readiness(wp["id"])

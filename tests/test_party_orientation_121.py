@@ -13,9 +13,9 @@ from decimal import Decimal
 
 import pytest
 
-from jav import fact_checks, party_history, policy, typepack, validators
+from jav.ai import fact_checks, party_history, policy, typepack, validators
 from jav.core import store
-from jav.models import FlowState, DocumentRecord
+from jav.ai.models import FlowState, DocumentRecord
 from jav.core import calls
 
 A, A_EU, B, C = "12121216-2-42", "HU12121216", "13570008-1-13", "12345676-2-41"  # made up (data guard allow list)

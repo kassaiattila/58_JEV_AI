@@ -12,11 +12,12 @@ import argparse
 import json
 from pathlib import Path
 
-from jav import evals, measure_cli, typepack
+from jav import evals, measure_cli
+from jav.ai import typepack
 from jav.core import cfg, store
-from jav.adapters import jev as jev_mod
-from jav.jev_select import site_for
-from jav.jev_verify import VerifySite
+from jav.ai import jev as jev_mod
+from jav.ai.jev_select import site_for
+from jav.ai.jev_verify import VerifySite
 from tests.test_runtime_worker import FakeClient
 
 CASES = [c for c in cfg.load("golden_synthetic")["cases"] if c["type_key"] == "invoice_out"]

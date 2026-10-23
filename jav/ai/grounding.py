@@ -33,9 +33,9 @@ from decimal import Decimal
 from typing import Any
 
 from jav.core import cfg
-from jav.models import normalize_date, normalize_iban, normalize_money, normalize_tax_id
+from jav.ai.models import normalize_date, normalize_iban, normalize_money, normalize_tax_id
 from jav.documents.source_layer import SourceLayer, Word
-from jav.typepack import CANDIDATE_KIND_OF
+from jav.ai.typepack import CANDIDATE_KIND_OF
 
 MAX_WINDOW = 12  # at most this many consecutive words for one value (name, address)
 # a shorter window per kind: numbers, dates and identifiers wrap onto a few words at most (search cost)
@@ -593,7 +593,7 @@ def ground_picks(layer: SourceLayer | None, *, fields: dict[str, str], values: d
     labels = Labels(layer) if layer is not None else None
     for field, kind in fields.items():
         pick = picks.get(field)
-        # the candidates grouped by kind (jav/jev_select.py `field_kind`); field kind → candidate kind
+        # the candidates grouped by kind (jav/ai/jev_select.py `field_kind`); field kind → candidate kind
         cands = {c.label: c for c in candidates.get(CANDIDATE_KIND_OF.get(kind, kind), [])}
         conf = confidence.get(field)
         if layer is None:

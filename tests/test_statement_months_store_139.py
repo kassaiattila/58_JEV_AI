@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import checks, corrections, work, work_runs
+from jav import corrections, work, work_runs
+from jav.ai import checks
 from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package as rp, statement_months as sm
 from tests import test_reconcile_k2_129 as k2
@@ -168,8 +169,8 @@ def test_statements_of_different_days_cannot_be_chosen_between(db):
 
 
 def test_the_policy_step_opens_the_todo_for_an_extracted_statement(db):
-    from jav import policy, typepack
-    from jav.models import CheckResult, FlowState
+    from jav.ai import policy, typepack
+    from jav.ai.models import CheckResult, FlowState
 
     k2._save_statement("earlier", _line())  # an extracted CIB statement, checked
     values = {**k2._statement(_line(), FEE), "account_no": k2.OWN}

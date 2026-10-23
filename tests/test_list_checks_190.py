@@ -15,8 +15,8 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from jav import policy, typepack, validators
-from jav.models import FlowState, record_from_llm
+from jav.ai import policy, typepack, validators
+from jav.ai.models import FlowState, record_from_llm
 
 FIELDS = {"customer_name": "name", "requested_items": "list"}
 ITEMS = {"description": "text", "quantity": "number", "unit": "text"}

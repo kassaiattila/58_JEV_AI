@@ -120,7 +120,7 @@ def import_batches(root: Path) -> dict[str, int]:
 
 def _canon(doc_type: str, dp: dict[str, Any]) -> dict[str, Any]:
     """Type-pack normalisation on both sides (money, dates, tax numbers in a uniform form); unknown type: raw."""
-    from jav import typepack
+    from jav.ai import typepack
 
     try:
         pack = typepack.get(doc_type)

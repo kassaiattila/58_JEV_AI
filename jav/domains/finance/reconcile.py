@@ -156,11 +156,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import fact_checks, package_result
+from jav import package_result
+from jav.ai import fact_checks
 from jav.core import cfg, store, type_roles, values
 from jav.domains.finance import duplicates, fx
-from jav.candidates import trim_after_legal_form
-from jav.models import account_key  # 156: shared with the candidate finder; callers keep using reconcile.account_key
+from jav.ai.candidates import trim_after_legal_form
+from jav.ai.models import account_key  # 156: shared with the candidate finder; callers keep using reconcile.account_key
 
 ENGINE_VERSION = "1.17.0"  # 154: the rule replaces a statement only when none of its lines is lost; 151: a forint bank line pays two or more invoices of another currency together; 1.15.0 (149): a forint bank line meets another currency; 1.14.0 (148): a credit line pays an outgoing invoice (its partner the buyer); 1.13.0: a known direction decides
 STATUSES = ("confirmed", "credited", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing",
@@ -825,7 +826,7 @@ def rate_need(invoice: dict[str, Any]) -> tuple[str, date] | None:
 def convert(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, Any] | None) -> tuple[str, dict[str, str] | None]:
     """The relation of a card line to an invoice of another currency (`fx_within`, `fx_outside` or `no_rate`) and the
     conversion behind it: the rate and its day, the converted amount and the line's deviation from it."""
-    from jav import policy
+    from jav.ai import policy
 
     if meets(invoice, payment) == "fx_bank":
         return _convert_bank(invoice, payment, rates)
@@ -847,7 +848,7 @@ def _convert_bank(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[
     """149: a forint bank line against an invoice of another currency, at the MNB rate of each `bank_rate_days` day in
     turn, each with its band (`policy.reconcile_fx_bank_tolerance`): the first within makes `fx_within`, otherwise the
     nearest is `fx_outside`; `no_rate` without any rate. The conversion names the day's kind (`basis`)."""
-    from jav import policy
+    from jav.ai import policy
 
     currency, amount, paid = str(invoice.get("currency")), money(str(invoice["amount"])), money(str(payment["amount"]))
     nearest: tuple[Decimal, dict[str, str]] | None = None
@@ -875,7 +876,7 @@ def convert_combined(invoices: list[dict[str, Any]], payment: dict[str, Any], ra
     line's booking day), each with its band: the first within makes `fx_within`, otherwise the nearest is `fx_outside`;
     `no_rate` unless every invoice has a rate on some day. The conversion: the day's kind (`basis`), the converted sum,
     the line's deviation from it, and each invoice's own conversion (`parts`, in the order given)."""
-    from jav import policy
+    from jav.ai import policy
 
     paid = money(str(payment["amount"]))
     nearest: tuple[Decimal, dict[str, Any]] | None = None
@@ -1277,7 +1278,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     excluded += [{"kind": "line", "id": pid, "reason": "not_outgoing_payment"} for pid in idle]
     paired = {c["line_id"] for c in candidates if c["proposed"]} | paid_lines | set(marked) | set(idle)
     repeats = _repeats(prepared, candidates, confirmed, rejected, marked, scope, (learned, common), set(paid_invoice), set(credited))
-    from jav import policy
+    from jav.ai import policy
 
     below, above = policy.reconcile_fx_tolerance()
     return {"engine_version": ENGINE_VERSION, "config_hash": config_hash(), "fx_tolerance": [str(below), str(above)],

@@ -16,10 +16,10 @@ import copy
 
 import pytest
 
-from jav import jev_select, jev_verify
+from jav.ai import jev_select, jev_verify
 from jav.core import cfg
-from jav.models import CellLayout, LineLayout
-from jav.typepack import get as get_pack
+from jav.ai.models import CellLayout, LineLayout
+from jav.ai.typepack import get as get_pack
 
 SELECT_SITES = ("select", "select_foreign", "select_invoice_out", "select_utility")
 
@@ -98,8 +98,8 @@ def test_a_type_without_an_s_path_gets_one_from_configuration_alone(monkeypatch,
     from typesafe_sdk import Choice
 
     from jav.core import store
-    from jav.adapters.jev import JevAdapter
-    from jav.candidates import find_all
+    from jav.ai.jev import JevAdapter
+    from jav.ai.candidates import find_all
     from tests.test_select_presence import FakeClient
 
     monkeypatch.setattr(store, "STORE_PATH", tmp_path / "t.sqlite")

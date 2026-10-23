@@ -165,7 +165,7 @@ def extract_gpt(delivery: Delivery, *, run_id: str, isolated_store: Path, max_tr
 def verify_jev(delivery: Delivery, interpretation: Interpretation, *, run_id: str, isolated_store: Path,
                max_transfer_bytes=80_000, adapter=None, use_cache: bool = False,
                receipt_observer: Callable | None = None) -> Interpretation:
-    from jav.adapters.jev import JevAdapter
+    from jav.ai.jev import JevAdapter
     from typesafe_sdk import Noul
     require_measurement("jev", isolated_store)
     if interpretation.source_bundle_sha256 != delivery.bundle.digest():

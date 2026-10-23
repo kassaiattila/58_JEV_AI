@@ -15,7 +15,7 @@ What the pack contains (a mirror of the legacy 10_AIFLOW_V4 `types/<key>/` pack,
 - `text_labels` (2026-09-20, utility round): the labels of the free-text fields (`text` kind) on the document (a regex
   list per field) - the labelled text finder (`candidates.find_labelled_text`) yields candidates from it, JEV chooses;
 - `prompt_note` (122): instructions added after the prompt file on the G path, so a variant pack (the pro forma
-  invoice) reuses another pack's verbatim prompt without copying it (`jav.extract_llm.instructions`);
+  invoice) reuses another pack's verbatim prompt without copying it (`jav.ai.extract_llm.instructions`);
 - `inputs` (190, plan 189 A2b): the kinds of input the pack takes: `pdf` (the default, every pack before 190), `text`
   (an email's own text or a text file) and `table` (an Excel or CSV file), each laid out as lines by
   `jav.documents.text_document`;
@@ -112,7 +112,7 @@ class TypePack(BaseModel):
         """Generative extract -> normalised record according to the pack's kinds, item descriptions and enumerations.
         081: `convention` is the document's number notation ("comma" / "dot", `jav.core.numbers.document_convention`); 084:
         `date_order` its day/month order ("dmy" / "mdy", `jav.core.dates.document_date_order`)."""
-        from jav.models import record_from_llm
+        from jav.ai.models import record_from_llm
 
         return record_from_llm(data, self.fields, list_fields=self.list_fields, enums={k: list(v) for k, v in self.enums.items()},
                                convention=convention, date_order=date_order)  # type: ignore[arg-type]
@@ -155,7 +155,7 @@ class TypePack(BaseModel):
     def llm_model(self) -> type[BaseModel]:
         """The G path's output model: the pack's hand-written model if it has one (`models.HAND_WRITTEN_OUTPUT`), else a
         model generated from the legacy schema.json (base + child) (`extra="forbid"`, every field nullable)."""
-        from jav.models import HAND_WRITTEN_OUTPUT
+        from jav.ai.models import HAND_WRITTEN_OUTPUT
 
         hand_written = HAND_WRITTEN_OUTPUT.get(self.key)
         if hand_written is not None:

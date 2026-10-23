@@ -36,7 +36,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import Field
 from starlette.routing import BaseRoute
 
-from jav import app_settings, corrections, local_picker, policy, package_release, work, work_views
+from jav import app_settings, corrections, local_picker, package_release, work, work_views
+from jav.ai import policy
 from jav.documents import isolated_pdf
 from jav.core import cfg, dates, numbers, store, version
 from jav.core.config import PROJECT_ROOT
@@ -356,8 +357,8 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def normalize(body: NormalizeValue) -> dict[str, Any]:
         """Selected text → a value according to the field's kind (045: selection on the image). Code decides the format,
         not the browser; for unparsable text, `ok=false` plus the reason, and the UI then does not offer saving."""
-        from jav import typepack
-        from jav.models import normalize_value
+        from jav.ai import typepack
+        from jav.ai.models import normalize_value
 
         pack = typepack.get(body.doc_type)
         if body.field not in pack.fields:

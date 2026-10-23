@@ -21,10 +21,10 @@ from typing import Any
 import pytest
 from typesafe_sdk import Noul
 
-from jav import extract_llm, typepack
-from jav.adapters.jev import request_hash
-from jav.jev_verify import site_for
-from jav.models import LineLayout
+from jav.ai import extract_llm, typepack
+from jav.ai.jev import request_hash
+from jav.ai.jev_verify import site_for
+from jav.ai.models import LineLayout
 from jav.core import calls
 
 SAMPLE = {  # a printable synthetic value per field kind

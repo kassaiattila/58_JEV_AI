@@ -34,7 +34,7 @@ from typing import Any
 
 from typesafe_sdk import Choice, Noul, SystemOneResponse
 
-from jav.adapters.jev import JevAdapter, use_adapter
+from jav.ai.jev import JevAdapter, use_adapter
 from jav.core.config import CACHE_DIR, JEV_RETRY, JEV_USD_PER_MTOK, RUNS_DIR
 
 TOKENS_PER_CHAR = Decimal("0.4")  # about 2.5 characters per token (JEV_PLAYBOOK §3)
@@ -105,7 +105,7 @@ class EstimatingAdapter(JevAdapter):
 
 def concrete_model(cache_dir: Path = CACHE_DIR) -> str:
     """The concrete version behind the configured alias, as the cache keys name it (`_model_versions.json`)."""
-    from jav.adapters.jev import MODEL_VERSIONS_FILE, _CONCRETE_MODEL
+    from jav.ai.jev import MODEL_VERSIONS_FILE, _CONCRETE_MODEL
     from jav.core.config import JEV_MODEL
 
     if _CONCRETE_MODEL.match(JEV_MODEL):
@@ -118,7 +118,7 @@ def concrete_model(cache_dir: Path = CACHE_DIR) -> str:
 def only_adapter(adapter: JevAdapter) -> Iterator[None]:
     """The stand-in is the only JEV adapter while the steps run: the scoped one, and the default one too (a context
     the scoped adapter does not reach still cannot send a question)."""
-    from jav.adapters import jev
+    from jav.ai import jev
 
     saved = jev._default_adapter
     jev._default_adapter = lambda: adapter  # type: ignore[assignment]

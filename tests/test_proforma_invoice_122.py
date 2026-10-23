@@ -3,10 +3,10 @@
 
 import json
 
-from jav import detect_detail, extract_llm, typepack
+from jav.ai import detect_detail, extract_llm, typepack
 from jav.core import cfg
 from jav.core.config import PROJECT_ROOT, load_prompt
-from jav.doc_types import BY_KEY, DOC_TYPE_KEYS
+from jav.ai.doc_types import BY_KEY, DOC_TYPE_KEYS
 
 
 def test_the_pro_forma_invoice_is_a_registered_type_of_the_invoice_family():

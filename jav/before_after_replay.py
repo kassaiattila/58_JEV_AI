@@ -255,7 +255,7 @@ def offline(work_dir: Path) -> Iterator[None]:
     operational log goes there too, so the real ones are not written. Everything is put back afterwards."""
     from jav.documents import ocr
     from jav.domains.finance import fx
-    from jav.adapters import jev
+    from jav.ai import jev
     from jav.core.config import API_KEY_ENV_VARS, AZURE_DI_ENV_VARS, OPENAI_KEY_ENV_VAR
     from jav.core import applog
 
@@ -496,7 +496,7 @@ def _same_as_original(c: sqlite3.Connection, units: list[Unit]) -> int:
 
 
 def _cache_facts(cache: Path) -> dict[str, Any]:
-    from jav.adapters import jev
+    from jav.ai import jev
 
     versions = cache / jev.MODEL_VERSIONS_FILE
     return {"path": str(cache), "files": sum(1 for _ in cache.glob("*.json")) if cache.is_dir() else 0,
@@ -515,7 +515,7 @@ def running_snapshot(baseline: Path, work_dir: Path, out: Path, *, size: int = S
 
     from jav import datasets, registrations
     from jav.core import store
-    from jav.adapters import jev
+    from jav.ai import jev
     from jav.api import create_app
     from jav.core.config import CACHE_DIR
     from jav.core import calls

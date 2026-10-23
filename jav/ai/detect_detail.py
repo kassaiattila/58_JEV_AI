@@ -1,6 +1,6 @@
 """047 T1.2: detailed type within the coarse detection category (e.g. bank statement → CIB or Erste).
 
-Detection (`jav/detect.py`, M1) yields the coarse categories; extraction asks for the pack of the detailed type. Steps:
+Detection (`jav/ai/detect.py`, M1) yields the coarse categories; extraction asks for the pack of the detailed type. Steps:
 0. 122: a category whose packs presume a Hungarian issuer, with an issuer the recogniser judged foreign → the pack the
    policy names (`issuer`; a foreign business's receipt → the foreign invoice pack), without a call;
 1. candidates: the category's packs (`parent`), without the dependent types (`auto_detect=false`, DECISIONS 047/3);
@@ -14,7 +14,7 @@ Detection (`jav/detect.py`, M1) yields the coarse categories; extraction asks fo
    (`anchors`), without a call;
 4. several possible → JEV Choice among the candidates with `none` (`jev`); the raw probability goes into the result,
    the threshold into the policy. Without JEV or on `none` the detailed type stays open (`key=None`); a human decides.
-   086: processing without JEV passes a `chooser` instead (`jav.detect_gpt.choose_detail`, method `gpt`): the same
+   086: processing without JEV passes a `chooser` instead (`jav.ai.detect_gpt.choose_detail`, method `gpt`): the same
    question to GPT, with the token log-probabilities as confidence.
 """
 
@@ -25,7 +25,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from jav import typepack
+from jav.ai import typepack
 from jav.core import cfg
 
 NONE = "none"
@@ -81,7 +81,7 @@ def _state(text: str, conf: dict[str, Any]) -> dict[str, Any]:
 def resolve(broad: str, text: str, *, jev: Any, run_id: str, use_cache: bool = True, chooser: Any = None,
             issuer_hu: float | None = None, engine: str = "jev") -> DetailResult:
     """`issuer_hu` / `engine` (122): the recogniser's P(issuer is Hungarian) and which recogniser gave it (its band)."""
-    from jav.policy import DETECT_DETAIL, foreign_issuer_pack
+    from jav.ai.policy import DETECT_DETAIL, foreign_issuer_pack
 
     routed = foreign_issuer_pack(broad, issuer_hu, engine=engine)
     if routed is not None:

@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import checks, parties
+from jav import parties
+from jav.ai import checks
 from jav.core import store
 from jav.domains import finance
 from jav.core import calls
@@ -81,7 +82,7 @@ def _own():
 def test_an_own_partys_number_as_the_suppliers_opens_a_to_do_in_a_worker_run(db, doc_type, supplier_tax, buyer_tax, wanted):
     _own()
     values = {"supplier_tax_id": supplier_tax, "buyer_tax_id": buyer_tax}
-    own_tax = checks.get("own_tax")  # 175: the check registry's gate in front of it (`jav/checks.py`)
+    own_tax = checks.get("own_tax")  # 175: the check registry's gate in front of it (`jav/ai/checks.py`)
     assert own_tax.reads_store and not checks.runs(own_tax)  # outside a worker run the store is not read
     with calls.use_run(budget_scope="run-000000000001"):
         assert checks.runs(own_tax) and parties.review_reasons(doc_type, values) == wanted

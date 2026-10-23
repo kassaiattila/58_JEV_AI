@@ -9,7 +9,7 @@ store, no AI call.
 
 from __future__ import annotations
 
-from jav import typepack
+from jav.ai import typepack
 from jav.outputs import contract, markers, samples
 
 

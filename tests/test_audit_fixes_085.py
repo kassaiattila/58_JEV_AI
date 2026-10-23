@@ -12,7 +12,7 @@ from typesafe_sdk import TypeSafeAPITimeoutError
 
 from jav import api, backup, corrections, source_instances, work, work_runs
 from jav.core import cfg, store
-from jav.adapters.jev import JevUnavailableError
+from jav.ai.jev import JevUnavailableError
 from jav.runtime import worker
 from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf

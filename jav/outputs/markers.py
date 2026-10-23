@@ -22,7 +22,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from jav import typepack
+from jav.ai import typepack
 from jav.outputs import contract
 
 ANY = re.compile(r"\{\{(.*?)\}\}", re.S)

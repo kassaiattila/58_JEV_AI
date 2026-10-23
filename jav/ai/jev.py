@@ -20,11 +20,11 @@ What it adds on top of the raw SDK:
 - **config_hash**: the call site's config version (`jav/core/cfg.py`) in the ledger row, so that a measurement can be
   traced back.
 - **refusal without JEV** (160, plan F-csak-gpt): inside `disabled()` (a flow built without JEV runs every step in it,
-  `jav/engine.py`) every question is refused with `JevUnavailableError("disabled")` before the model probe, the cache
+  `jav/ai/engine.py`) every question is refused with `JevUnavailableError("disabled")` before the model probe, the cache
   and the call log, so processing without JEV is a guarantee, not a convention.
 - **a request known to be too large** (200, Q-tul-nagy-keres): a request the service refused for its token limit
   (`max_tokens_exceeded`) has no answer to cache, so every later run sent it again (a failed call and a kept
-  reservation each time) before the request-size frame (`jav/jev_budget.py`) went on to its tighter request. Its key is
+  reservation each time) before the request-size frame (`jav/ai/jev_budget.py`) went on to its tighter request. Its key is
   remembered (`runs/cache/too_large/<sha256>.json`, under the concrete version that refused it), and the same request
   is refused again without a call, with the same reason and a ledger row. Read and written as the cache is: a
   determinism measurement asks live and remembers nothing; another model version tries the request again.
@@ -52,7 +52,7 @@ from pydantic import ValidationError
 
 from jav.core import store
 from jav.core.config import CACHE_DIR, JEV_ALIAS_TTL_H, JEV_CACHE_VERSION, JEV_MODEL, JEV_RETRY, JEV_USD_PER_MTOK, MissingAPIKeyError, make_client
-from jav.models import JevCall
+from jav.ai.models import JevCall
 
 Question = Choice | Noul | Score
 CACHE_VERSION = JEV_CACHE_VERSION  # configs/models.json - bumping it invalidates every cache key

@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import json
 
-from jav import policy
+from jav.ai import policy
 from jav.evals import perturb_extraction, probe_summary
-from jav.models import LineLayout
+from jav.ai.models import LineLayout
 
 
 def _lines(*texts: str) -> list[LineLayout]:
@@ -90,11 +90,11 @@ def test_verify_config_is_structured():
 def test_build_questions_structured_instructions():
     """The instruction is an object (sde_cascade pattern): field_spec {name, meaning}, extracted_field raw, printed_on,
     question, glossary; 127: the document guard as `rule`."""
-    from jav.jev_select import site_for as select_site
-    from jav.jev_verify import site_for as verify_site
+    from jav.ai.jev_select import site_for as select_site
+    from jav.ai.jev_verify import site_for as verify_site
 
     site = verify_site("invoice_hu")
-    from jav.models import InvoiceLLM
+    from jav.ai.models import InvoiceLLM
 
     llm = InvoiceLLM(supplier_name="Teszt Kft.", supplier_tax_id="12345678-1-42", net_total="1000")
     evidence = {"supplier_name": ["L01: Teszt Kft."], "supplier_tax_id": ["L02: Adószám: 12345678-1-42"]}

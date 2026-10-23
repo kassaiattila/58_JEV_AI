@@ -7,7 +7,8 @@ the other tests' logs went there too. While the tests run, the log folder is tem
 
 import pytest
 
-from jav import gpt_choice, registrations
+from jav import registrations
+from jav.ai import gpt_choice
 from jav.core import applog, calls
 
 
@@ -86,7 +87,7 @@ def _no_live_gpt_choice():
     call; a test that needs an answer installs its own stand-in with `gpt_choice.use_agent_factory`."""
 
     def refuse(output_model, instructions):
-        raise AssertionError("a test tried a live GPT call (jav/gpt_choice.py); install a stand-in with use_agent_factory")
+        raise AssertionError("a test tried a live GPT call (jav/ai/gpt_choice.py); install a stand-in with use_agent_factory")
 
     with gpt_choice.use_agent_factory(refuse):
         yield
@@ -112,7 +113,7 @@ def _no_jev_question_without_jev(request, monkeypatch):
     itself is marked `jev_refusal`."""
     if request.node.get_closest_marker("jev_refusal"):
         return
-    from jav.adapters import jev
+    from jav.ai import jev
 
     def fail(request_id):
         pytest.fail(f"a JEV question ({request_id}) was asked in processing without JEV")

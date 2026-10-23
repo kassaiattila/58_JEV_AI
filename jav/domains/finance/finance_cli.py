@@ -13,7 +13,7 @@ from jav.cli_options import jev_on
 def cmd_duplicates(args: argparse.Namespace) -> int:
     """126: the duplicate invoices already in the store (read only; counts and kinds, no values), and with --write the
     one-off to-do on the later document of each undecided pair in runs not yet approved (DECISIONS 126). Free."""
-    from jav import checks
+    from jav.ai import checks
 
     result = checks.get("duplicate_scan").run(write=args.write)
     print(f"documents compared: {result['documents']}")
@@ -28,7 +28,7 @@ def cmd_duplicates(args: argparse.Namespace) -> int:
 def cmd_own_tax(args: argparse.Namespace) -> int:
     """157: the incoming invoices already in the store whose supplier tax number is an own party's (read only; counts
     only, no values), and with --write the one-off to-do of 134 on runs not yet approved. Free."""
-    from jav import checks
+    from jav.ai import checks
 
     result = checks.get("own_tax_scan").run(write=args.write)
     print(f"incoming invoices checked: {result['documents']}")

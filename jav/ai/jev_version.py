@@ -8,7 +8,7 @@ say when it points to a newer version than the pinned one. Switching is a decisi
 on 2026-10-22 the moving name went from jev-1.13.0 to jev-1.14.0 without notice, and every golden set had to be
 measured again.
 
-Layer: business module over the JEV adapter (`jav.adapters.jev`), which keeps the resolution file.
+Layer: business module over the JEV adapter (`jav.ai.jev`), which keeps the resolution file.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from jav.adapters.jev import _CONCRETE_MODEL, MODEL_VERSIONS_FILE, JevAdapter
+from jav.ai.jev import _CONCRETE_MODEL, MODEL_VERSIONS_FILE, JevAdapter
 from jav.core.config import CACHE_DIR, JEV_MODEL, JEV_WATCH_ALIAS
 
 WATCH_ALIAS = JEV_WATCH_ALIAS

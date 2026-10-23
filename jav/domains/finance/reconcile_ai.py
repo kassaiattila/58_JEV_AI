@@ -15,7 +15,7 @@ app, so most of them stay without a candidate. Two judgements per line (`configs
   (`kind_marks`) or says that an invoice is expected (`kind_expects_invoice`).
 
 JEV gets both questions in one request (`JevAdapter.ask`, request-hash cache, ledger); GPT gets the same texts in one
-structured request (`jav/gpt_choice.py`, `configs/gpt_reconcile.json`). The raw answers (choice, probability,
+structured request (`jav/ai/gpt_choice.py`, `configs/gpt_reconcile.json`). The raw answers (choice, probability,
 distribution) are kept per line and engine in `reconcile_ai_proposals`; nothing is decided, no threshold is applied.
 `run` asks under the owner's sub-budget (`calls.measurement`: a provider without a limit is never called) and writes the
 raw answers to `runs/<stamp>_reconcile_ai.jsonl`; an engine's failure on a line is recorded and the run goes on.
@@ -48,14 +48,14 @@ from typesafe_sdk import Choice
 
 from jav.core import cfg, store, values
 from jav.domains.finance import reconcile, reconcile_package
-from jav.adapters.jev import JevUnavailableError, get_adapter
-from jav.adapters.jev import disabled as jev_disabled
-from jav.candidates import trim_after_legal_form
+from jav.ai.jev import JevUnavailableError, get_adapter
+from jav.ai.jev import disabled as jev_disabled
+from jav.ai.candidates import trim_after_legal_form
 from jav.core.config import JEV_USD_PER_MTOK, RUNS_DIR
 from jav.core import calls
 
 if TYPE_CHECKING:
-    from jav import gpt_choice
+    from jav.ai import gpt_choice
 
 ENGINES = ("jev", "gpt")
 NONE = "none"
@@ -110,9 +110,9 @@ def gpt_hash() -> str:
 
 
 def _gpt():
-    """151: `jav/gpt_choice.py` is loaded with the first GPT question. It brings openai and pydantic_ai (about 1.6 s),
+    """151: `jav/ai/gpt_choice.py` is loaded with the first GPT question. It brings openai and pydantic_ai (about 1.6 s),
     which the pairing page and the quick review never need; their first request after a restart loaded it before."""
-    from jav import gpt_choice
+    from jav.ai import gpt_choice
 
     return gpt_choice
 

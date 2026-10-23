@@ -14,7 +14,7 @@ from typing import Any
 from jav import contract
 from jav.core import cfg, config, store, values
 from jav.core.config import PROJECT_ROOT, RUNS_DIR
-from jav.typepack import LEGACY_DOC_TYPE
+from jav.ai.typepack import LEGACY_DOC_TYPE
 
 STATE_PATH = PROJECT_ROOT / "docs" / "STATE.md"  # generated state snapshot; the handoff links to it, never copies it
 
@@ -26,7 +26,7 @@ def score_text(ok: int, scored: int) -> str:
 
 def _low_conf(flow: str) -> float:
     """066 Á38: the "would go to manual review" threshold comes from the policy (configs/policy.json), not the code."""
-    from jav import policy
+    from jav.ai import policy
 
     return policy.DETECT_LOW_CONFIDENCE if flow == "doc_detect" else policy.INTENT_HUMAN_MAX_CONF
 
@@ -38,7 +38,7 @@ def _latest(pattern: str) -> Path | None:
 
 def _informational(doc_type: str) -> tuple[str, ...]:
     try:
-        from jav.typepack import get
+        from jav.ai.typepack import get
 
         return get(doc_type).informational_fields
     except Exception:  # noqa: BLE001 - unknown / deleted pack: every scored field counts

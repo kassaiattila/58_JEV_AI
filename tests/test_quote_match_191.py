@@ -15,9 +15,9 @@ from types import SimpleNamespace
 import pytest
 from typesafe_sdk import Noul
 
-from jav import gpt_choice
+from jav.ai import gpt_choice
 from jav.domains.quotes import invented_golden, quote_match, quote_pricing
-from jav.adapters import jev as jev_mod
+from jav.ai import jev as jev_mod
 from tests.test_runtime_worker import FakeClient
 
 PRICES = quote_pricing.golden_price_list(invented_golden.load())

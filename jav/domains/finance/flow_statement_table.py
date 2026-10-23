@@ -31,10 +31,10 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav import checks, policy
+from jav.ai import checks, policy
 from jav.core import store
 from jav.domains.finance import statement_table
-from jav.typepack import get as get_pack
+from jav.ai.typepack import get as get_pack
 
 PARTITION = "statement_table"
 TERMINALS = {"done", "needs_review"}
@@ -79,7 +79,7 @@ def load_table(state: TableState) -> TableState:
 def check_table(state: TableState) -> TableState:
     """The type pack's checks on the statement; a failed one, a missing required field and an unreadable line are
     to-dos (the additive latch of `policy.require_review`)."""
-    from jav.validators import run_all
+    from jav.ai.validators import run_all
 
     pack = get_pack(DOC_TYPE)
     record, reasons = pack.normalize(state.statement)

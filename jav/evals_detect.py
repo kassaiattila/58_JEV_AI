@@ -13,10 +13,10 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav.policy import DETECT_LOW_CONFIDENCE  # 066 Á38: the threshold comes from the policy
+from jav.ai.policy import DETECT_LOW_CONFIDENCE  # 066 Á38: the threshold comes from the policy
 from jav.core import store
 from jav.core.config import GOLDEN_MANIFEST, OLD_PROJECT_ROOT, RUNS_DIR
-from jav.doc_types import DOC_TYPE_KEYS, OLD_TYPE_MAP
+from jav.ai.doc_types import DOC_TYPE_KEYS, OLD_TYPE_MAP
 
 TRIAGE_MANIFEST = OLD_PROJECT_ROOT / "flows" / "doc-triage-bare" / "golden" / "manifest.json"
 
@@ -65,12 +65,12 @@ def load_detect_cases() -> list[DetectCase]:
 def detect_golden(use_cache: bool = True, *, jev: bool = True, descriptions: bool = True,
                   budget_usd: Decimal | None = None, cases: list[DetectCase] | None = None,
                   label: str = "golden") -> list[dict[str, Any]]:
-    """`jev=False` (086): GPT recognises the type (`jav/detect_gpt.py`); `descriptions=False` offers the types by their
+    """`jev=False` (086): GPT recognises the type (`jav/ai/detect_gpt.py`); `descriptions=False` offers the types by their
     keys only (the measured alternative). `budget_usd`: a hard budget for the whole measurement (the owner's
     sub-budget), for the engine that answers - OpenAI with `jev=False`, JEV otherwise (122); the other providers and
     Azure get none, so they cannot be called. A GPT call over it is a `detect:gpt_failed` row. `cases` / `label` (122):
     a local case list instead of the golden set (`load_case_file`), and the name of the output file."""
-    from jav import detect_gpt
+    from jav.ai import detect_gpt
     from jav.flow_detect import run_detect
     from jav.core import calls
 
@@ -114,7 +114,7 @@ def detect_determinism(n: int = 3, limit: int | None = None, *, jev: bool = True
     """n repeated runs WITHOUT cache on the detect golden set (under `no_cache_write()`, the reference cache is
     untouched): type flips per case, confidence spread. The rows fit the determinism section of the eval report.
     `jev=False` (160-D): GPT recognises the type, every run a live call (a measurement reuses no earlier answer)."""
-    from jav.adapters.jev import get_adapter
+    from jav.ai.jev import get_adapter
     from jav.flow_detect import run_detect
 
     cases = load_detect_cases()

@@ -15,7 +15,7 @@ from pydantic import ValidationError
 from jav.domains.email import emails, ingest_server, mailbox
 from jav import work, work_readiness, work_runs
 from jav.core import store
-from jav.adapters import jev as jev_mod
+from jav.ai import jev as jev_mod
 from jav.core.config import BRIDGE_ROOT, OLD_PROJECT_ROOT
 from jav.runtime import worker
 from tests.test_email_signals import FakeClient  # Choice + Noul + Score (the graded signals of the intent question)

@@ -26,7 +26,7 @@ on only with the latest shared measurement of its evaluation half on a clean wor
 on the files it has now (the legacy activation gate, `10_AIFLOW_V4/flows/DOCTYPE-ONBOARDING.md` §3); the result is
 shown, no threshold decides. With `--replace`, its family's pack it takes over is turned off in the same step. A pack
 without detection anchors is turned on only as its family's one pack, because the anchor score would pick it without a
-question next to another (`jav/detect_detail.py`).
+question next to another (`jav/ai/detect_detail.py`).
 
 Layer: business module (reads the measured facts from the store, writes the candidate's config files); no AI call.
 """
@@ -46,7 +46,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from jav import typepack
+from jav.ai import typepack
 from jav.core import cfg, store
 from jav.core.config import PROJECT_ROOT, PROMPTS_DIR
 
@@ -130,7 +130,7 @@ def development_facts(family: str) -> dict[str, list[dict[str, Any]]]:
 
 def propose(facts_by_document: dict[str, list[dict[str, Any]]], *, min_documents: int = MIN_DOCUMENTS) -> list[FieldProposal]:
     """The names that recur in at least `min_documents` documents, most frequent first (then by name)."""
-    from jav import policy
+    from jav.ai import policy
     from jav.flow_native import SUPPORT_BAND
 
     spellings: dict[str, Counter] = defaultdict(Counter)
@@ -217,7 +217,7 @@ class DraftField(BaseModel):
     @field_validator("kind")
     @classmethod
     def _kind(cls, kind: str) -> str:
-        from jav.typepack import KINDS
+        from jav.ai.typepack import KINDS
 
         if kind not in KINDS or kind == "list":
             raise ValueError(f"a taught field's kind is one of {[k for k in KINDS if k != 'list']}")
@@ -460,7 +460,7 @@ def _switchable(key: str) -> tuple[Path, dict[str, Any], typepack.TypePack]:
 
 def _family_guard(on: str, family: str, off: str | None) -> None:
     """A pack without detection anchors only as its family's one pack: next to another, the anchor score would pick it
-    without a question (`jav/detect_detail.py` step 3)."""
+    without a question (`jav/ai/detect_detail.py` step 3)."""
     after = {k for k in typepack.keys() if typepack.get(k).auto_detect and typepack.get(k).parent == family}
     after = (after | {on}) - {off}
     if not typepack.get(on).detect and len(after) > 1:

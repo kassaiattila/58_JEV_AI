@@ -4,8 +4,8 @@ lines.
 The real documents do not go into the test; the identifiers are made up, only their shape follows the pattern seen in
 the trial."""
 
-from jav.candidates import find_all
-from jav.models import CellLayout, LineLayout
+from jav.ai.candidates import find_all
+from jav.ai.models import CellLayout, LineLayout
 from jav.documents.pdf import fix_lost_glyphs
 
 

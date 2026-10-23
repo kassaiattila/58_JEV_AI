@@ -662,7 +662,7 @@ def _line_items(scope: dict[str, str]) -> Rows:
     head, rows = export.line_items_table(records)
     extra = head[len(_LI_KEYS):]
     list_kinds: dict[str, str] = {}
-    from jav import typepack
+    from jav.ai import typepack
 
     for r in records:
         for lf in typepack.get(r["doc_type"]).list_fields.values():

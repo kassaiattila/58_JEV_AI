@@ -5,7 +5,7 @@ state; only their interpretation happens here. Changing a threshold (in the JSON
 if the questions and the evidence have not changed (the raw runs can be re-evaluated from `runs/*.jsonl`).
 
 Type-dependent lists (required fields, high-stakes fields, scored fields) come from the type pack
-(`configs/types/<type>.json`, `jav/typepack.py`) according to `state.doc_type`; the thresholds (bands) are
+(`configs/types/<type>.json`, `jav/ai/typepack.py`) according to `state.doc_type`; the thresholds (bands) are
 type-independent and live here.
 """
 
@@ -14,12 +14,12 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any, Literal
 
-from jav import checks
+from jav.ai import checks
 from jav.core import cfg, type_roles
 from jav.domains.email.emails import Attachment
 from jav.domains.email.intents import DOCUMENT_BEARING
-from jav.models import CheckResult, FlowState
-from jav.typepack import get as get_pack
+from jav.ai.models import CheckResult, FlowState
+from jav.ai.typepack import get as get_pack
 
 _CFG = cfg.load("policy")
 _EMAIL = _CFG["email"]
@@ -386,7 +386,7 @@ def apply_gpt_confidence_policy(state: FlowState) -> None:
 
 
 # --- the cross-document checks: they read the store, so the check registry runs them in a worker run only (175, plan
-# 170 E3: `jav/checks.py`); 180 (plan 170 E7): the finance domain registers them (`jav/domains/finance/__init__.py`) -----------
+# 170 E3: `jav/ai/checks.py`); 180 (plan 170 E7): the finance domain registers them (`jav/domains/finance/__init__.py`) -----------
 
 def apply_cross_document_checks(state: FlowState) -> None:
     """The cross-document stage on the record being processed: each check's to-dos in the registry's order, nothing
@@ -412,7 +412,7 @@ def reconcile_fx_bank_tolerance(basis: str) -> tuple[Decimal, Decimal]:
 
 def decide(state: FlowState) -> str:
     """'auto' or 'human'. The latch already holds every earlier reason; here the decision's checks add theirs, in the
-    check registry's order (175, `jav/checks.py`): the path's own checks and the failed record checks, then the
+    check registry's order (175, `jav/ai/checks.py`): the path's own checks and the failed record checks, then the
     cross-document checks (in a worker run only); a result without a record is a to-do."""
     for check in checks.stage("decision"):
         if not check.arms or state.arm in check.arms:

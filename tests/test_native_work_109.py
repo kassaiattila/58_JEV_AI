@@ -61,7 +61,7 @@ def test_native_s_is_rejected_before_queue_and_provider_reservation(isolated):
 
 
 def test_native_budget_has_no_azure_and_jev_off_has_no_jev(isolated):
-    from jav.native_processing import estimate_limits
+    from jav.ai.native_processing import estimate_limits
 
     wp = mixed_package(isolated, params={"arm": "G", "jev": "off", "azure_ocr": "on"})
     ready = work_readiness.readiness(wp["id"])

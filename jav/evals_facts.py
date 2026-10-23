@@ -16,7 +16,7 @@ both, because a taught type may learn from the development half only and is meas
 Raw rows: `runs/<stamp>_facts_<family>[_gpt].jsonl`. Budget (160): without one only earlier answers count (the native
 path refuses a provider without a budget, so it gets a zero budget: an earlier answer is reused, a live call is
 refused); a paid round measures one family, under the owner's sub-budget. A document takes the native graph's reading
-and interpretation steps (`jav/documents/native_results.py` `prepare_reading`, `jav/native_processing.py` `interpret`: the
+and interpretation steps (`jav/documents/native_results.py` `prepare_reading`, `jav/ai/native_processing.py` `interpret`: the
 local reader, GPT's facts, the code's check and JEV's support), as an unknown document does in a run; it is not
 published and opens no to-do, because a publication belongs to a work run. The readings and outcomes stay in the store
 under the measurement's own scope, as every golden run keeps its results; no work package or run is touched.
@@ -35,12 +35,12 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav import policy
+from jav.ai import policy
 from jav.core import cfg
 from jav.core.config import RUNS_DIR
 from jav.evals import GoldenCase, field_equal, load_cases
-from jav.typepack import TypePack
-from jav.typepack import get as get_pack
+from jav.ai.typepack import TypePack
+from jav.ai.typepack import get as get_pack
 
 HALVES = ("development", "evaluation")
 
@@ -124,7 +124,7 @@ def _fact_counts(facts: list[dict[str, Any]]) -> dict[str, int]:
 def _run_case(fc: FactCase, *, scope: str, jev: bool, use_cache: bool) -> dict[str, Any]:
     """One document through the native graph's reading and interpretation, its pack withheld, as an unknown document
     continues (120): a text PDF read as it is."""
-    from jav import native_processing
+    from jav.ai import native_processing
     from jav.documents import native_results
 
     pdf = fc.case.pdf

@@ -20,10 +20,11 @@ import pytest
 from typesafe_sdk import Choice, Score, SystemOneResponse
 
 from jav.domains.email import emails, ingest_server, mailbox
-from jav import extract_llm, work, work_readiness, work_recipes, work_runs
+from jav import work, work_readiness, work_recipes, work_runs
+from jav.ai import extract_llm
 from jav.documents import text_document
 from jav.core import store
-from jav.adapters import jev as jev_mod
+from jav.ai import jev as jev_mod
 from jav.domains.email.emails import EmailMessage
 from jav.domains.email.flow_email import text_follow_up
 from jav.runtime import worker

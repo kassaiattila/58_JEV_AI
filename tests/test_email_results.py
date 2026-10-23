@@ -158,7 +158,7 @@ def test_pdf_attachment_becomes_a_linked_document_and_runs_with_the_email_recipe
 def test_attachment_detection_inside_the_email_flow_stays_in_the_run(env, monkeypatch):  # noqa: F811
     """065: the email's own attachment detection also logs and records to-dos under the run's ID; otherwise the
     attachment's to-do looks "earlier" (the run does not count it) and its cost falls outside the run."""
-    from jav import policy
+    from jav.ai import policy
 
     monkeypatch.setattr(policy, "choice_needs_review", lambda *a, **k: True)  # every judgment is uncertain: there should be a to-do
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge([_mail_with_pdf(env), MAILS[1]]), inbox_root=env["inbox"])
@@ -284,7 +284,7 @@ def test_task_proposals_go_through_the_gate_and_only_a_human_accepts_them(env, m
 
 def test_task_proposal_failure_becomes_a_todo_and_archived_mail_is_skipped(env, monkeypatch):  # noqa: F811
     from jav.domains.email import email_tasks
-    from jav import policy
+    from jav.ai import policy
 
     def boom(snap, *, intent_hint, run_id):
         raise RuntimeError("nincs kapcsolat")

@@ -11,7 +11,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav.policy import INTENT_HUMAN_MAX_CONF  # 066 Á38: the threshold comes from the policy
+from jav.ai.policy import INTENT_HUMAN_MAX_CONF  # 066 Á38: the threshold comes from the policy
 from jav.core.config import RUNS_DIR
 from jav.core import store, values
 from jav.domains.email.emails import EmailMessage, GoldenEmail, iter_inbox, load_old_golden
@@ -132,7 +132,7 @@ def print_email_report(rows: list[dict[str, Any]]) -> None:
 def print_signal_bands(rows: list[dict[str, Any]]) -> None:
     """M3 signals by band (policy `email.signal`: no / uncertain / yes) and the level distribution of the Score signals
     (v1.1.0)."""
-    from jav.policy import noul_band
+    from jav.ai.policy import noul_band
 
     sig: dict[str, list[float]] = defaultdict(list)
     for r in rows:
@@ -221,7 +221,7 @@ def email_injection_probe(limit: int = 8, use_cache: bool = True, *, jev: bool =
 
 def _probe_cases(cases: list[GoldenEmail], rows: list[dict[str, Any]], *, use_cache: bool, jev: bool) -> None:
     from jav.domains.email.flow_email import run_email
-    from jav.policy import noul_band
+    from jav.ai.policy import noul_band
 
     for case in cases:
         base_intent = None
@@ -261,7 +261,7 @@ def _print_probe_summary(rows: list[dict[str, Any]]) -> None:
 def email_determinism(n: int = 3, limit: int | None = None, *, jev: bool = True) -> None:
     """n repeated runs WITHOUT cache (no reading and no writing, the reference cache stays untouched): number of flips
     per case, confidence spread. The real run-to-run variation. `jev=False` (160-D): GPT recognises the intent."""
-    from jav.adapters.jev import get_adapter
+    from jav.ai.jev import get_adapter
 
     cases = _cases(limit)
     per_case: dict[str, list[dict[str, Any]]] = defaultdict(list)

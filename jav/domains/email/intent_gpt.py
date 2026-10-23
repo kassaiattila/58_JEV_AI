@@ -2,7 +2,7 @@
 recognises the email intent).
 
 The same judgements as the JEV recognition (`jav/domains/email/intent.py`), asked of GPT in one structured request
-(`jav/gpt_choice.py`): the intent among the registered intents, each yes/no signal and the urgency level. The email
+(`jav/ai/gpt_choice.py`): the intent among the registered intents, each yes/no signal and the urgency level. The email
 excerpt and the question texts are those of the JEV call site (`callsite:email_intent`), so the two recognitions are
 comparable; each intent is offered with its registry description and what it is not for. `configs/gpt_intent.json`
 holds the preamble and the limits.
@@ -19,7 +19,7 @@ import json
 
 from jav.core import cfg
 from jav.domains.email.emails import EmailMessage
-from jav.gpt_choice import OTHER_BRANCHES, GptAnswer, Limits, ask, yes_probability
+from jav.ai.gpt_choice import OTHER_BRANCHES, GptAnswer, Limits, ask, yes_probability
 from jav.domains.email.intent import NOUL_KEYS, SCORE_KEYS, IntentResult, ScoreSignal, build_state
 from jav.domains.email.intents import INTENTS
 

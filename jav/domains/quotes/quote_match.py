@@ -5,10 +5,10 @@ Code decides first: an item code written in the request is that item. Otherwise 
 three questions together (`configs/callsites/quote_match.json`): which item of the list it is (a Choice over the list's
 items, by name, code, unit and group, plus none), whether the list sells such a thing at all, and whether the request
 says enough to tell one item (several monitors, and no size asked). JEV answers them, or GPT with the same texts when
-the application runs without JEV (`configs/gpt_quote_match.json`, `jav/gpt_choice.py`). No price goes to the model: code
+the application runs without JEV (`configs/gpt_quote_match.json`, `jav/ai/gpt_choice.py`). No price goes to the model: code
 prices the line (`jav/domains/quotes/quote_pricing.py`).
 
-An answer is marked with the default policy bands (`jav/policy.py`, call site `quote.match`): `sure` (the list sells it,
+An answer is marked with the default policy bands (`jav/ai/policy.py`, call site `quote.match`): `sure` (the list sells it,
 the request is specific, and the choice is clear), `not_listed` (the list sells nothing of the kind, or none is chosen),
 or `check` (anything between: the likely items are named as candidates). Nothing is decided here: a person reviews every
 line of the quote (B5). The raw answer is kept with the mark, so a later band can be applied without asking again.
@@ -17,7 +17,7 @@ line of the quote (B5). The raw answer is kept with the mark, so a later band ca
 - `golden(engine, limits, ...)`: the invented golden set's 37 requested items, each judged against its expected match.
 
 Layer: business module of the quotes domain; its JEV questions go through the adapter (`ask`), its GPT ones through
-`jav/gpt_choice.py`, both under the caller's budget scope (`jav/core/calls.py`).
+`jav/ai/gpt_choice.py`, both under the caller's budget scope (`jav/core/calls.py`).
 """
 
 from __future__ import annotations
@@ -32,11 +32,11 @@ from typing import Any
 
 from typesafe_sdk import Choice, Noul
 
-from jav import policy
+from jav.ai import policy
 from jav.core import cfg
 from jav.domains.quotes import price_lists
-from jav.adapters.jev import get_adapter
-from jav.adapters.jev import disabled as jev_disabled
+from jav.ai.jev import get_adapter
+from jav.ai.jev import disabled as jev_disabled
 from jav.core.config import RUNS_DIR
 from jav.core import calls
 from jav.tablequery import fold
@@ -172,7 +172,7 @@ def ask_jev(requested: dict[str, Any], context: list[str], items: list[price_lis
 
 
 def _gpt():
-    from jav import gpt_choice  # loaded with the first GPT question (it brings openai and pydantic_ai)
+    from jav.ai import gpt_choice  # loaded with the first GPT question (it brings openai and pydantic_ai)
 
     return gpt_choice
 

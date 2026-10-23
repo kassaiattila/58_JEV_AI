@@ -12,7 +12,7 @@ import pytest
 from jav import evals_facts, goldens
 from jav.core import cfg, store
 from jav.evals import GoldenCase
-from jav.typepack import get as get_pack
+from jav.ai.typepack import get as get_pack
 from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
 PACK = get_pack("belepo_jegy")

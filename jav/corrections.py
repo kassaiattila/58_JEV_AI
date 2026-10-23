@@ -38,11 +38,12 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from jav import grounding, item_kinds, package_result, typepack, validators, work, work_readiness, work_runs
+from jav import item_kinds, package_result, work, work_readiness, work_runs
+from jav.ai import grounding, typepack, validators
 from jav.documents import native_results, source_layer
 from jav.core import activity_kinds, dates, numbers, store
 from jav.documents.native_contracts import Publication
-from jav.policy import reason_field
+from jav.ai.policy import reason_field
 from jav.core.user_messages import explained
 
 store.register_schema("corrections", """
@@ -346,7 +347,7 @@ def effective_checks(pack: typepack.TypePack, effective: dict[str, Any]) -> list
     """The pack's checks on the corrected (effective) data. A result pointing at rows (`line N`, possibly several) is
     also attached to the itemised list as `rows` if the pack has exactly one list (this is how the statement and
     line-item rules mark the faulty row)."""
-    from jav.models import record_from_llm
+    from jav.ai.models import record_from_llm
 
     rec, _ = record_from_llm(effective, pack.fields, list_fields=pack.list_fields,
                              enums={k: list(v) for k, v in pack.enums.items()}, origin="canonical")

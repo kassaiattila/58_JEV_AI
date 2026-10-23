@@ -19,9 +19,9 @@ from pydantic import BaseModel, Field, model_validator
 from typesafe_sdk import Choice, Noul
 
 from jav.core import cfg
-from jav.adapters.jev import JevAdapter
-from jav.doc_types import PARENT_OF, UNKNOWN, anchor_hits, choice_criteria
-from jav.models import DATE_NUMERIC_RE, DATE_TEXT_RE, JevCall
+from jav.ai.jev import JevAdapter
+from jav.ai.doc_types import PARENT_OF, UNKNOWN, anchor_hits, choice_criteria
+from jav.ai.models import DATE_NUMERIC_RE, DATE_TEXT_RE, JevCall
 from jav.documents.pdf import PdfText
 from jav.core.registry import parent_summary
 
@@ -55,7 +55,7 @@ class DetectResult(BaseModel):
     parent: str | None = None  # family of the most probable type (registry v2), summed in code
     parent_prob: float = 0.0  # summed probability of the family - parent label at low confidence (policy decides)
     call: JevCall
-    engine: str = "jev"  # 086: "jev" (this module) or "gpt" (`jav/detect_gpt.py`, processing without JEV)
+    engine: str = "jev"  # 086: "jev" (this module) or "gpt" (`jav/ai/detect_gpt.py`, processing without JEV)
     measured: bool = True  # 086: False = the confidence could not be measured (GPT without log-probabilities)
 
     @model_validator(mode="after")

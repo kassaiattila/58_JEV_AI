@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import pytest
 
-from jav import doc_types, parties, policy
+from jav import parties
+from jav.ai import doc_types, policy
 from jav.core import cfg, type_roles
 from jav.domains.finance import duplicates, reconcile, report_utility
-from jav.typepack import get as get_pack
+from jav.ai.typepack import get as get_pack
 
 PACKS = sorted(p.stem for p in (cfg.path_of("policy").parent / "types").glob("*.json"))
 

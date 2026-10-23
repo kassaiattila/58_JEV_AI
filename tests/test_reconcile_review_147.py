@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import policy, work
+from jav import work
+from jav.ai import policy
 from jav.core import cfg, store
 from jav.domains.finance import reconcile, reconcile_ai, reconcile_package as rp, reconcile_review as rr
 from tests import test_reconcile_k2_129 as k2

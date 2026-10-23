@@ -6,7 +6,7 @@ import pytest
 from typesafe_sdk import Choice, Noul, SystemOneResponse
 
 from jav.core import store
-from jav.adapters.jev import JevAdapter, request_hash
+from jav.ai.jev import JevAdapter, request_hash
 
 
 class FakeClient:

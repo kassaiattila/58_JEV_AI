@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import pytest
 
-from jav.candidates import find_all
+from jav.ai.candidates import find_all
 from jav.experiments import document_injection_probe as probe
 from jav.documents.synthetic_pdf import write_unicode_pdf
-from jav.validators import hu_tax_id, iban_check
+from jav.ai.validators import hu_tax_id, iban_check
 
 CFG = probe.load_config()
 # 076: the made-up HU IBANs (configs/experiments/document_injection.json 1.1.0) pass ISO mod-97 and the domestic

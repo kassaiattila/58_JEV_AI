@@ -22,16 +22,16 @@ from typing import Any
 from typesafe_sdk import Choice, Noul
 
 from jav.core import cfg
-from jav.adapters.jev import JevAdapter
-from jav.candidates import MAX_OPTIONS, candidate_lines, find_currencies, finder_cap, found_before_cut, payment_method_lines, trim_after_legal_form
-from jav.candidates import TOTAL_LINE_RE as _TOTAL_LINE_RE
+from jav.ai.jev import JevAdapter
+from jav.ai.candidates import MAX_OPTIONS, candidate_lines, find_currencies, finder_cap, found_before_cut, payment_method_lines, trim_after_legal_form
+from jav.ai.candidates import TOTAL_LINE_RE as _TOTAL_LINE_RE
 from jav.core.dates import read_date
-from jav.jev_budget import ask_within_budget
-from jav.models import Candidate, FieldPick, DocumentRecord, JevCall, LineLayout
+from jav.ai.jev_budget import ask_within_budget
+from jav.ai.models import Candidate, FieldPick, DocumentRecord, JevCall, LineLayout
 from jav.core.numbers import is_whole_token
-from jav.policy import NONE_LABEL, presence_probe_fields
-from jav.typepack import CANDIDATE_KIND_OF, TypePack
-from jav.typepack import get as get_pack
+from jav.ai.policy import NONE_LABEL, presence_probe_fields
+from jav.ai.typepack import CANDIDATE_KIND_OF, TypePack
+from jav.ai.typepack import get as get_pack
 
 PRESENCE_SUFFIX = "__present"  # question id of the presence Noul: <field>__present
 
@@ -136,7 +136,7 @@ class SelectSite:
         budget: int | None = None,
     ) -> tuple[dict[str, Any], dict[str, Choice | Noul]]:
         """Request size budget (call site `request_char_budget`, in chars; `budget` overrides it with the tighter budget
-        of the single retry, `jav/jev_budget.py`) against JEV's request token limit (max_tokens_exceeded). When it is
+        of the single retry, `jav/ai/jev_budget.py`) against JEV's request token limit (max_tokens_exceeded). When it is
         exceeded, step by step: (1) the state holds only the candidate lines of the asked fields (no margin, no top
         block), (2) the option context is shorter (80 chars), (3) the number of options per question is cut: candidates
         on total lines first, then in DOCUMENT ORDER (the candidate bucket's order is not that: names with a legal form
@@ -228,7 +228,7 @@ class SelectSite:
         def fit(budget: int | None) -> tuple[dict[str, Any], dict[str, Choice | Noul]]:
             return self._fit_budget(request_id, full_state, full_questions, lines, cands, fields, budget=budget)
 
-        # on a token error, retry once with a tighter budget (jav/jev_budget.py); read back the questions actually sent
+        # on a token error, retry once with a tighter budget (jav/ai/jev_budget.py); read back the questions actually sent
         result, _, questions = ask_within_budget(
             jev, request_id, fit, self.request_char_budget, self._size, run_id=run_id, use_cache=use_cache, config_hash=self.config_hash
         )
@@ -334,7 +334,7 @@ class SelectSite:
         if flagged:
             # 154: the invoice's own totals confirm an ambiguous reading ("486.00" on a dollar invoice whose net and
             # gross are printed unambiguously and add up exactly); the option text sent to JEV stays as it was
-            from jav.validators import confirmed_by_sum
+            from jav.ai.validators import confirmed_by_sum
 
             confirmed = confirmed_by_sum({**values, **extra}, flagged, self.pack.validators)
             drop = {flagged[f] for f in confirmed if flagged[f]}

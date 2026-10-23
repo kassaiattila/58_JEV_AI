@@ -12,7 +12,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import package_result, party_history, work, work_runs
+from jav import package_result, work, work_runs
+from jav.ai import party_history
 from jav.core import store
 from jav.domains.finance import duplicates, reconcile
 from jav.core import calls

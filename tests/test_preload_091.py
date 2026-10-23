@@ -17,7 +17,7 @@ from jav.runtime import preload, worker
 
 def test_preload_imports_the_runtime_code_but_not_the_experiments():
     loaded = preload.preload()
-    for name in ("jav.flow", "jav.flow_detect", "jav.domains.email.flow_email", "jav.extract_llm", "jav.token_confidence", "jav.grounding"):
+    for name in ("jav.flow", "jav.flow_detect", "jav.domains.email.flow_email", "jav.ai.extract_llm", "jav.ai.token_confidence", "jav.ai.grounding"):
         assert name in loaded and name in sys.modules
     assert not any(m.startswith("jav.experiments") for m in loaded)
 
@@ -26,12 +26,12 @@ def test_a_module_that_fails_to_import_stops_the_start(monkeypatch):
     real = preload.importlib.import_module
 
     def broken(name: str):
-        if name == "jav.grounding":
+        if name == "jav.ai.grounding":
             raise ValueError("a broken module")
         return real(name)
 
     monkeypatch.setattr(preload.importlib, "import_module", broken)
-    with pytest.raises(preload.PreloadError, match="jav.grounding"):
+    with pytest.raises(preload.PreloadError, match="jav.ai.grounding"):
         preload.preload()
 
 

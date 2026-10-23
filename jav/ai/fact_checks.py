@@ -14,7 +14,7 @@ are not used here; matching text is code's job.
 - `tax_party_key` (121): the identity of a party by its tax number, so that the
   domestic and the EU form of one Hungarian number are one party.
 - `orientation_issue` (121): a pair of parties standing the other way round than on
-  most earlier documents of the same type (`jav/party_history.py` counts them).
+  most earlier documents of the same type (`jav/ai/party_history.py` counts them).
 """
 from __future__ import annotations
 

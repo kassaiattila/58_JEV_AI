@@ -1,7 +1,7 @@
 """Candidate finders - offline, on synthetic layouts (independent of the legacy project's PDFs)."""
 
-from jav.candidates import find_all, find_currencies
-from jav.models import CellLayout, LineLayout
+from jav.ai.candidates import find_all, find_currencies
+from jav.ai.models import CellLayout, LineLayout
 
 
 def _line(no: int, *cells: tuple[str, float]) -> LineLayout:

@@ -1,5 +1,5 @@
 """Choice questions asked of GPT with a measured confidence (089: shared by the type recognition and the email intent
-without JEV; extracted from `jav/detect_gpt.py` of 086 once the second flow needed it).
+without JEV; extracted from `jav/ai/detect_gpt.py` of 086 once the second flow needed it).
 
 One structured request answers several fields, each with exactly one of its allowed values (structured output,
 temperature 0). The confidence of a field comes from the token log-probabilities of the answer (top alternatives per
@@ -32,7 +32,7 @@ from pydantic_ai.usage import UsageLimits
 
 from jav.core import store
 from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_chat_model, openai_cost, openai_price
-from jav.models import JevCall
+from jav.ai.models import JevCall
 from jav.core import calls
 
 OTHER_BRANCHES = "(other)"  # probability of alternative branches that do not lead to a single option

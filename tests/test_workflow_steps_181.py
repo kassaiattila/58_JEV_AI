@@ -98,7 +98,7 @@ def _strings_and_imports(path) -> tuple[set[str], set[str]]:
 
 
 def test_the_workflow_code_names_no_step_kind_and_no_finance_module() -> None:
-    strings, names = _strings_and_imports(JAV / "workflows.py")
+    strings, names = _strings_and_imports(PROJECT_ROOT / "jav/workflows.py")
     assert strings & {"emails", "statements", "reconcile"} == set()
     assert names & {"jav.domains.finance.statement_package", "jav.domains.finance.reconcile_package", "jav.domains.finance.reconcile"} == set()
 

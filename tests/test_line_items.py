@@ -5,10 +5,11 @@ from decimal import Decimal
 
 import pytest
 
-from jav import corrections, typepack, work_readiness, work_recipes
-from jav.models import DocumentRecord, LineItem
+from jav import corrections, work_readiness, work_recipes
+from jav.ai import typepack
+from jav.ai.models import DocumentRecord, LineItem
 from jav.runtime import worker
-from jav.validators import line_items_arithmetic, line_items_total, run_checks
+from jav.ai.validators import line_items_arithmetic, line_items_total, run_checks
 
 UTILITY = ("villamos_energia_szamla", "foldgaz_szamla", "viz_szamla", "vizmuvek_szamla", "csatorna_szamla", "mohu_szamla")
 
@@ -168,8 +169,8 @@ def test_list_columns_follow_the_schema_order():
 
 
 def test_advisory_check_is_marked_and_does_not_open_review():
-    from jav import policy
-    from jav.models import FlowState
+    from jav.ai import policy
+    from jav.ai.models import FlowState
 
     items = [_li(quantity="1", unit_price="592", net_amount="2572")]
     [adv] = run_checks(_inv(items), ({"check": "line_items_arithmetic", "review": False},))

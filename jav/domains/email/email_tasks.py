@@ -314,7 +314,7 @@ def skip_reason(next_flow: str | None, *, signals: dict[str, float] | None = Non
     injected-instruction signal, policy `email.signal_routes`) and without an intent result."""
     if next_flow and any(next_flow == p or next_flow.startswith(p + ":") for p in CFG["skip_route_prefixes"]):
         return "archived_route"
-    from jav.policy import email_signal_route
+    from jav.ai.policy import email_signal_route
 
     if email_signal_route(signals):
         return "suspicious_signal"

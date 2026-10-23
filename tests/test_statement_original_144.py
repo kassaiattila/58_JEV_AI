@@ -15,7 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import grounding, work
+from jav import work
+from jav.ai import grounding
 from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package as rp, statement_original as so
 from tests import test_api

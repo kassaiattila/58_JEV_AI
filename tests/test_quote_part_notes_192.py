@@ -8,9 +8,10 @@ its to-dos as before. Synthetic emails, a stand-in JEV and GPT; no paid call.
 
 from __future__ import annotations
 
-from jav import typepack, work_runs
-from jav.models import DocumentRecord, FlowState, JevVerdicts
-from jav.policy import apply_validation_policy, apply_verdict_policy
+from jav import work_runs
+from jav.ai import typepack
+from jav.ai.models import DocumentRecord, FlowState, JevVerdicts
+from jav.ai.policy import apply_validation_policy, apply_verdict_policy
 from tests import test_email_text_follow_up_190 as follow
 from tests.test_email_text_follow_up_190 import OUT, _package, _run
 

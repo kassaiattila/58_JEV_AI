@@ -44,7 +44,7 @@ from jav.documents import pdf as pdfmod
 from jav.core import cfg
 from jav.documents import azure_di
 from jav.core.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, OLD_DATA_ROOT, PROJECT_ROOT
-from jav.models import LineLayout
+from jav.ai.models import LineLayout
 from jav.documents.pdf import PdfText, build_layout, text_layer_ok
 from jav.core.digest import file_sha256 as _sha256
 
@@ -626,7 +626,7 @@ def ocr_with_escalation(path: str | Path, *, page_count: int | None = None, use_
     thresholds and escalation is enabled (configs/ocr.json), the text of the more accurate, paid engine (`azure_di`)
     goes on. Returns (PdfText, whether escalated). If escalation is unavailable, the local result stays; 121: the
     reason is kept in the signals (`escalation_blocked`), and the flow raises a to-do for it (`escalation_review_reasons`)."""
-    from jav.policy import ocr_should_escalate
+    from jav.ai.policy import ocr_should_escalate
 
     first = ocr_pdf(path, page_count=page_count, use_cache=use_cache)
     if os.environ.get(ENGINE_ENV) or not ESCALATION.get("enabled") or first.ocr is None or first.ocr.get("engine") == ESCALATION.get("engine"):

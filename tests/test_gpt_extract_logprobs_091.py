@@ -16,10 +16,10 @@ from types import SimpleNamespace
 import pytest
 from pydantic_ai import NativeOutput
 
-from jav import extract_llm
+from jav.ai import extract_llm
 from jav.core import store
 from jav.core import calls
-from jav.typepack import get as get_pack
+from jav.ai.typepack import get as get_pack
 from tests.test_no_jev_085 import GOOD
 
 

@@ -13,10 +13,11 @@ from decimal import Decimal
 
 import pytest
 
-from jav import checks, corrections, export, policy, work, work_runs
+from jav import corrections, export, work, work_runs
+from jav.ai import checks, policy
 from jav.core import store
 from jav.domains.finance import duplicates, report_utility
-from jav.models import FlowState, DocumentRecord
+from jav.ai.models import FlowState, DocumentRecord
 from jav.core import calls
 from tests import test_api
 
@@ -130,7 +131,7 @@ def test_the_to_do_names_the_kind_and_the_other_document():
 
 
 def test_every_family_type_is_a_type_pack():
-    from jav import typepack
+    from jav.ai import typepack
 
     for t in duplicates.family_types():
         assert typepack.get(t).key == t

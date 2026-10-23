@@ -18,7 +18,7 @@ import pytest
 from typesafe_sdk import Choice, RetryPolicy, SystemOneResponse, TypeSafeAPIConnectionError, TypeSafeRateLimitError
 
 from jav.core import config, store
-from jav.adapters.jev import MODEL_VERSIONS_FILE, JevAdapter, JevUnavailableError, request_hash
+from jav.ai.jev import MODEL_VERSIONS_FILE, JevAdapter, JevUnavailableError, request_hash
 
 
 class FakeClient:
@@ -172,7 +172,7 @@ def _failing_adapter(tmp: Path) -> JevAdapter:
 
 def test_email_flow_survives_jev_outage(isolated: Path, monkeypatch: pytest.MonkeyPatch):
     from jav.domains.email import flow_email
-    from jav.adapters import jev as jev_mod
+    from jav.ai import jev as jev_mod
     from jav.domains.email.emails import EmailMessage
 
     monkeypatch.setattr(jev_mod, "get_adapter", lambda: _failing_adapter(isolated))
@@ -191,7 +191,7 @@ def test_email_flow_survives_jev_outage(isolated: Path, monkeypatch: pytest.Monk
 
 def test_detect_step_survives_jev_outage(isolated: Path, monkeypatch: pytest.MonkeyPatch):
     from jav import flow_detect
-    from jav.adapters import jev as jev_mod
+    from jav.ai import jev as jev_mod
 
     monkeypatch.setattr(jev_mod, "get_adapter", lambda: _failing_adapter(isolated))
     st = flow_detect.DetectState(source_path="x.pdf", run_id="r", text="SZÁMLA", lines=["SZÁMLA"], page_count=1, has_text_layer=True, doc_id="d1")
@@ -204,8 +204,8 @@ def test_detect_step_survives_jev_outage(isolated: Path, monkeypatch: pytest.Mon
 
 def test_invoice_steps_survive_jev_outage(isolated: Path, monkeypatch: pytest.MonkeyPatch):
     from jav import flow
-    from jav.adapters import jev as jev_mod
-    from jav.models import FlowState, InvoiceLLM
+    from jav.ai import jev as jev_mod
+    from jav.ai.models import FlowState, InvoiceLLM
 
     monkeypatch.setattr(jev_mod, "get_adapter", lambda: _failing_adapter(isolated))
     s = flow.jev_select(FlowState(doc_type="invoice_hu", source_path="x.pdf", case_id="c", arm="S", candidates={"supplier_name": []}))

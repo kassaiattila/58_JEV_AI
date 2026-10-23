@@ -3,7 +3,7 @@
 Files: `configs/doc_types.json`, `configs/intents.json`, `configs/policy.json`, `configs/callsites/<call_site>.json`.
 Every file: `{"meta": {"name", "version", "changelog": [...]}, ...content}`. The `config_hash` is the sha256 of the
 content's canonical JSON (without `meta.changelog`, so that a note does not change it), shortened to 16 hex digits.
-The hash goes to the ledger with every JEV call (`adapters.jev.ask(config_hash=...)`), so a measurement can be traced
+The hash goes to the ledger with every JEV call (`jav.ai.jev.ask(config_hash=...)`), so a measurement can be traced
 back to the config version. On a content change `meta.version` must be bumped too (the `configs` CLI command shows
 the hashes).
 
@@ -26,7 +26,7 @@ CALLSITE_DIR = CONFIG_DIR / "callsites"
 HASH_LEN = 16
 
 
-TYPES_DIR = CONFIG_DIR / "types"  # type packs: all type data of one document type's extraction (jav/typepack.py)
+TYPES_DIR = CONFIG_DIR / "types"  # type packs: all type data of one document type's extraction (jav/ai/typepack.py)
 
 
 def path_of(name: str) -> Path:

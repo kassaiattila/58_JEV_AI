@@ -10,8 +10,8 @@ from typesafe_sdk import Choice, Noul, Score, SystemOneResponse
 
 from jav import evals
 from jav.core import store
-from jav.adapters import jev
-from jav.adapters.jev import JevAdapter, get_adapter
+from jav.ai import jev
+from jav.ai.jev import JevAdapter, get_adapter
 from jav.experiments import jev_estimate
 from jav.experiments.jev_estimate import EstimatingAdapter, only_adapter, runs_redirected, stand_in, summary
 

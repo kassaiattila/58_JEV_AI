@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS datapoints (
     config_hash   TEXT,
     record_conf   REAL,                      -- a rekord leggyengebb Jev-itelete (S-kar, jelenlet-Noullal)
     evidence      TEXT,                      -- JSON: mezo -> {line_no, present_p}
-    provenance    TEXT,                      -- JSON: mezo -> forráshely (045, jav/grounding.py)
+    provenance    TEXT,                      -- JSON: mezo -> forráshely (045, jav/ai/grounding.py)
     source_layer_id TEXT,                    -- a szóréteg (045, jav/documents/source_layer.py)
     created_at    TEXT NOT NULL,
     PRIMARY KEY (run_id, doc_id)

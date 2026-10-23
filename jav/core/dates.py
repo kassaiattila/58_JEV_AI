@@ -35,7 +35,7 @@ years before this year to the end of next year, while the day-first and the mont
 one outside (or invalid). Anything else stays as before: a single "26.06.24" (2026-06-24 or 2024-06-26) is still
 flagged, and a document's day/month order is still `document_date_order`.
 
-The two old Hungarian patterns in `jav/models.py` (`DATE_NUMERIC_RE`, `DATE_TEXT_RE`) stay unchanged: the type
+The two old Hungarian patterns in `jav/ai/models.py` (`DATE_NUMERIC_RE`, `DATE_TEXT_RE`) stay unchanged: the type
 recognition request counts their matches, and changing them would make every recognition a new, paid call.
 """
 

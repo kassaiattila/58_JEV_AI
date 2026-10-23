@@ -15,10 +15,10 @@ from types import SimpleNamespace
 import pytest
 from typesafe_sdk import Noul
 
-from jav import policy
-from jav.adapters.jev import JevUnavailableError
-from jav.jev_verify import site_for
-from jav.models import FlowState, JevVerdicts, LineLayout
+from jav.ai import policy
+from jav.ai.jev import JevUnavailableError
+from jav.ai.jev_verify import site_for
+from jav.ai.models import FlowState, JevVerdicts, LineLayout
 from tests.test_no_jev_085 import GOOD
 
 TOKEN_ERROR = "TypeSafeBadRequestError:400:max_tokens_exceeded"
@@ -75,7 +75,7 @@ def test_an_ordinary_request_is_unchanged(site):
 def test_an_ordinary_request_keeps_its_cache_key(site, with_rows, expected):
     """The request hash (the JEV cache key) of an ordinary request, recorded on the code before 167. A deliberate
     change to the `verify` call site or the invoice pack changes it too, and needs a paid golden run anyway."""
-    from jav.adapters.jev import request_hash
+    from jav.ai.jev import request_hash
 
     jev = _Jev()
     site.verify(jev, _lines(), {**GOOD, "line_items": ROWS} if with_rows else dict(GOOD), run_id="t")

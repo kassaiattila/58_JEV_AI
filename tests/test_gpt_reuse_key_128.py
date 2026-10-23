@@ -14,9 +14,9 @@ from pathlib import Path
 
 import pytest
 
-from jav import gpt_choice
+from jav.ai import gpt_choice
 from jav.core import store
-from jav.gpt_choice import Limits
+from jav.ai.gpt_choice import Limits
 from jav.core import calls
 from tests.test_gpt_detect_086 import _factory, _tokens
 

@@ -8,10 +8,10 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav import native_processing, policy
+from jav.ai import native_processing, policy
 from jav.documents import native_results
 from jav.core import store
-from jav.engine import with_engine
+from jav.ai.engine import with_engine
 from jav.documents.native_contracts import NativeLimits, NATIVE_CAPABLE_SUFFIXES
 from jav.documents.readers.pipeline import json_bytes
 

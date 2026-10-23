@@ -11,10 +11,10 @@ from pathlib import Path
 
 def _refresh_jev_version() -> None:
     """200: the daily backup looks where JEV's moving name points (one tiny probe a day); a failure never fails the
-    backup. The pinned version keeps answering; a newer one is only reported (`jav/jev_version.py`)."""
+    backup. The pinned version keeps answering; a newer one is only reported (`jav/ai/jev_version.py`)."""
     import logging
 
-    from jav import jev_version
+    from jav.ai import jev_version
 
     try:
         st = jev_version.refresh()

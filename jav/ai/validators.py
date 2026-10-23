@@ -12,7 +12,7 @@ A role-pair check names two fields: `{"check": "distinct_parties", "fields": [<f
 columns have a value in every row (`list_values`) and whether a quantity column is above zero (`list_positive`).
 121: `party_orientation` (same shape) compares the pair with the earlier documents of the same type; it needs the
 document's identifier and type (`run_checks(..., doc_id=, doc_type=)`) and runs only in a worker run.
-175 (plan 170 E3): each check is a record-stage entry of the check registry (`jav/checks.py`), registered below with
+175 (plan 170 E3): each check is a record-stage entry of the check registry (`jav/ai/checks.py`), registered below with
 what the pack's entry names (the whole record, one field, two fields); a check that reads other documents runs only
 where the registry's gate allows it.
 """
@@ -24,9 +24,9 @@ from collections.abc import Iterable, Mapping
 from decimal import Decimal
 from typing import Any
 
-from jav import checks, fact_checks, party_history
+from jav.ai import checks, fact_checks, party_history
 from jav.core import taxid
-from jav.models import CheckResult, DocumentRecord
+from jav.ai.models import CheckResult, DocumentRecord
 
 HU_TAXID_WEIGHTS = taxid.HU_WEIGHTS
 # space, TAB, NBSP, hyphen - routine in printed/PDF bank details
@@ -286,11 +286,11 @@ def list_positive(inv: DocumentRecord, field: str, columns: Iterable[str]) -> Ch
 
 
 def _statement_check(name: str):
-    """047: the legacy statement rules (`jav/legacy_validation.py`, a faithful port of the legacy rules.json) on the
+    """047: the legacy statement rules (`jav/ai/legacy_validation.py`, a faithful port of the legacy rules.json) on the
     whole record: running balance, closing balance, debit/credit totals, transactions within the period."""
     def check(inv: DocumentRecord) -> CheckResult:
-        from jav import legacy_validation
-        from jav.models import _plain
+        from jav.ai import legacy_validation
+        from jav.ai.models import _plain
 
         dp = {**{k: _plain(v) for k, v in inv.extra.items()},
               **{f: _plain(getattr(inv, f)) for f in type(inv).model_fields if f not in ("extra", "line_items")}}
@@ -317,7 +317,7 @@ def run_checks(inv: DocumentRecord, validators: tuple[dict[str, Any], ...] | lis
 
 
 def distinct_parties(inv: DocumentRecord, first: str, second: str) -> CheckResult | None:
-    """120: two role fields must not name one party (`jav.fact_checks.same_party`). The to-do stands at the second
+    """120: two role fields must not name one party (`jav.ai.fact_checks.same_party`). The to-do stands at the second
     field; the detail names only the fields, never their values. Skipped when either field is empty."""
     a, b = inv.get_field(first), inv.get_field(second)
     if a in (None, "") or b in (None, ""):
@@ -329,7 +329,7 @@ def distinct_parties(inv: DocumentRecord, first: str, second: str) -> CheckResul
 
 
 def party_orientation(inv: DocumentRecord, first: str, second: str, *, doc_id: str | None, doc_type: str | None) -> CheckResult | None:
-    """121: the pair against the earlier documents of the same type (`jav/party_history.py`). The to-do stands at the
+    """121: the pair against the earlier documents of the same type (`jav/ai/party_history.py`). The to-do stands at the
     second field; the detail holds counts only. Skipped outside a worker run, for a missing value, or when no earlier
     document names the same two parties."""
     counts = party_history.orientation(doc_id, doc_type, (first, second), (inv.get_field(first), inv.get_field(second)))
@@ -343,7 +343,7 @@ def party_orientation(inv: DocumentRecord, first: str, second: str, *, doc_id: s
 
 
 def _run_one(inv: DocumentRecord, spec: dict[str, Any], *, doc_id: str | None = None, doc_type: str | None = None) -> CheckResult | None:
-    """One entry of the pack's list through its record check (`jav/checks.py`); None when it does not apply, or when it
+    """One entry of the pack's list through its record check (`jav/ai/checks.py`); None when it does not apply, or when it
     reads other documents outside a worker run."""
     name = spec["check"]
     try:

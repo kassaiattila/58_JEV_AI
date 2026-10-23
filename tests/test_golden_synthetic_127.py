@@ -10,9 +10,9 @@ from decimal import Decimal
 
 from jav import evals, measure_cli
 from jav.core import cfg
-from jav.candidates import find_all
+from jav.ai.candidates import find_all
 from jav.documents.pdf import read_pdf
-from jav.typepack import get as get_pack
+from jav.ai.typepack import get as get_pack
 
 
 def test_every_case_names_a_known_type_and_only_its_fields():

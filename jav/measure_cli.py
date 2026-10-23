@@ -12,10 +12,10 @@ from jav.cli_options import REFERENCE_TYPE, budget_args, engine_args, jev_on, s_
 
 
 def cmd_candidates(args: argparse.Namespace) -> int:
-    from jav.candidates import find_all, find_currencies
+    from jav.ai.candidates import find_all, find_currencies
     from jav.documents.pdf import read_document
 
-    from jav.typepack import get as get_pack
+    from jav.ai.typepack import get as get_pack
 
     pack = get_pack(args.type)
     profile = pack.candidate_profile

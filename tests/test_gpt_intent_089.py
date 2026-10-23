@@ -13,9 +13,10 @@ from pathlib import Path
 import pytest
 
 from jav.domains.email import email_tasks, flow_email, intent_gpt
-from jav import evals_email, gpt_choice, work_readiness, work_recipes
+from jav import evals_email, work_readiness, work_recipes
+from jav.ai import gpt_choice
 from jav.core import store
-from jav.adapters import jev as jev_mod
+from jav.ai import jev as jev_mod
 from jav.domains.email.emails import Attachment, EmailMessage, GoldenEmail
 from jav.domains.email.intents import INTENT_KEYS
 from tests.test_gpt_detect_086 import _factory, _tokens

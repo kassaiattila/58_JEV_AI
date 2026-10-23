@@ -10,8 +10,8 @@ stay as they were. The eval report follows it: such a field never counts as a to
 from __future__ import annotations
 
 from jav import eval_report as er
-from jav import policy
-from jav.typepack import get as get_pack
+from jav.ai import policy
+from jav.ai.typepack import get as get_pack
 
 
 def test_the_outgoing_invoices_buyer_address_opens_no_gpt_to_do():
@@ -32,7 +32,7 @@ def test_the_gpt_extraction_text_does_not_change():
     """The setting is read by the to-do rule only: the instructions and the schema GPT is sent are those of the pack."""
     import json
 
-    from jav.extract_llm import instructions
+    from jav.ai.extract_llm import instructions
 
     pack = get_pack("invoice_out")
     assert "info_only" not in instructions(pack)

@@ -41,7 +41,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from jav import package_release, work
 from jav.core import activity_kinds, cfg, decisions, numbers, store
 from jav.domains.quotes import price_lists, quote_document, quote_pricing, quote_proposal, quote_request
-from jav.typepack import get as get_pack
+from jav.ai.typepack import get as get_pack
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 

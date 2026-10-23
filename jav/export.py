@@ -31,7 +31,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from jav import corrections, item_kinds, package_result, typepack, work_runs
+from jav import corrections, item_kinds, package_result, work_runs
+from jav.ai import typepack
 from jav.documents import native_results
 from jav.core import card_numbers, cfg, store
 from jav.outputs import builtin, contract, parts

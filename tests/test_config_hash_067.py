@@ -10,12 +10,13 @@ from __future__ import annotations
 
 import pytest
 
-from jav import docsgen, policy, typepack
+from jav import docsgen
+from jav.ai import policy, typepack
 from jav.core import cfg
 from jav.domains.email import email_tasks
 from jav.core.config import PROMPTS_DIR
-from jav.jev_select import site_for as select_site
-from jav.jev_verify import site_for as verify_site
+from jav.ai.jev_select import site_for as select_site
+from jav.ai.jev_verify import site_for as verify_site
 
 
 def test_combine_is_order_sensitive_and_short():
@@ -48,7 +49,7 @@ def test_select_and_verify_hashes_include_the_pack(key):
 
 
 def test_detail_question_hash_covers_the_pack_descriptions():
-    from jav import detect_detail
+    from jav.ai import detect_detail
 
     assert detect_detail.config_hash() == cfg.combine(cfg.config_hash("callsite:detect_detail"), typepack.catalog_hash())
     assert typepack.catalog_hash() == cfg.combine(*(typepack.get(k).config_hash for k in sorted(typepack.keys())))

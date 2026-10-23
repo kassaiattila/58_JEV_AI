@@ -60,6 +60,6 @@ def schema_model(name, schema):
 
 
 def validate_record(pack, record):
-    from jav.legacy_validation import run_validation
+    from jav.ai.legacy_validation import run_validation
     typed = schema_model('Legacy_'+pack['key'],pack['schema']).model_validate(record).model_dump(mode='json')
     return run_validation(typed,pack['rules'])

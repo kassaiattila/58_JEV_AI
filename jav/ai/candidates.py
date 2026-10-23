@@ -23,7 +23,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 
 from jav.core.dates import document_date_order, document_short_order, find_dates_in
-from jav.models import (
+from jav.ai.models import (
     DATE_NUMERIC_RE,
     Candidate,
     CandidateKind,
@@ -35,7 +35,7 @@ from jav.models import (
 )
 from jav.core.numbers import Convention, document_convention, has_decimal_dot_hint
 from jav.core.taxid import recognize as recognize_tax_id
-from jav.validators import hu_tax_id
+from jav.ai.validators import hu_tax_id
 
 MAX_OPTIONS = 250  # the 255-option Choice limit, minus "none" and a margin
 MAX_NAME_FALLBACK = 60

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from jav import work, work_readiness, work_recipes, work_runs
 from jav.core import store
-from jav.adapters import jev as jev_mod
+from jav.ai import jev as jev_mod
 from jav.runtime import worker
 from tests.pdfgen import write_text_pdf
 from tests.test_no_type_pack_069 import REMINDER_LINES, ReminderClient

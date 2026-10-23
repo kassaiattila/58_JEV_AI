@@ -37,7 +37,7 @@ from difflib import SequenceMatcher
 from itertools import combinations
 from typing import Any, Callable, Iterable
 
-from jav import fact_checks
+from jav.ai import fact_checks
 from jav.core import cfg, store, type_roles
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
@@ -577,7 +577,7 @@ def own_tax_reasons(doc_type: str | None, values: dict[str, Any], c=None) -> lis
 
 def review_reasons(doc_type: str | None, values: dict[str, Any]) -> list[str]:
     """134: the own-tax check in a flow (`own_tax_reasons`). It reads the store: the check registry runs it in a worker
-    run only, as the duplicates, so a measurement's result never depends on the store (175, `jav/checks.py`)."""
+    run only, as the duplicates, so a measurement's result never depends on the store (175, `jav/ai/checks.py`)."""
     return own_tax_reasons(doc_type, values)
 
 
@@ -586,10 +586,10 @@ def confirm_detail_by_direction(state: Any) -> None:
     own parties give the extracted invoice settles it (`policy.detail_direction`). The parties alone decide here: the
     outgoing type is evidence in `direction`, and would confirm itself. A match closes the detailed type's uncertainty
     to-do, a contradiction is a to-do of its own; anything else is left as it was. 185 (plan G-full-move T1f): the
-    finance domain's check of the saved stage (`jav/checks.py`; until then in `jav/flow.py`)."""
+    finance domain's check of the saved stage (`jav/ai/checks.py`; until then in `jav/flow.py`)."""
     if state.record is None or not state.detail_probabilities:
         return
-    from jav import policy
+    from jav.ai import policy
 
     found = direction(resolver(), None, state.record.model_dump())[0]
     verdict = policy.detail_direction(state.doc_type, state.detail_probabilities, found)

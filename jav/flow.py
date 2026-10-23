@@ -12,15 +12,15 @@
                                                                                   └─ needs_review
 
 One run takes exactly one path: `arm` is S or G, chosen by the recipe or the measurement. There is no agreement gate
-between the two paths; the route (auto or review) comes from the policy (`jav/policy.py`, thresholds in
+between the two paths; the route (auto or review) comes from the policy (`jav/ai/policy.py`, thresholds in
 `configs/policy.json`), the pack's required and high-stakes fields and the validators. `ground` (045) finds each
 field's source location on the word layer, in code, before the save.
 
 Typed Pydantic state (`FlowState`), `@action.pydantic` actions. Every AI call goes through the adapter layer
-(`jav.adapters`); the `run_id` is the backbone: the ledger, datapoints and review_queue refer to it. The review latch
+(`jav.ai.jev`); the `run_id` is the backbone: the ledger, datapoints and review_queue refer to it. The review latch
 is additive.
 
-The graph is type-independent: the type pack of `state.doc_type` (`jav/typepack.py`, `configs/types/<type>.json`)
+The graph is type-independent: the type pack of `state.doc_type` (`jav/ai/typepack.py`, `configs/types/<type>.json`)
 supplies the field list, the candidate profile, the call sites, the prompt / schema, the validators and the required /
 high-stakes fields. Every pack in `configs/types/` runs on it, e.g. `invoice_hu` (Hungarian invoice), `invoice_foreign`
 (foreign invoice, ported on 2026-09-20) and the utility-bill packs.
@@ -41,13 +41,13 @@ from burr.core import ApplicationBuilder, action, default, expr, when
 from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 
-from jav import checks, policy
+from jav.ai import checks, policy
 from jav.core import card_numbers, cfg, store
 from jav.core.config import TRACKER_PROJECTS
-from jav.engine import with_engine
-from jav.models import FlowState
+from jav.ai.engine import with_engine
+from jav.ai.models import FlowState
 from jav.runtime import persistence
-from jav.typepack import get as get_pack
+from jav.ai.typepack import get as get_pack
 from jav.core.digest import file_sha256 as _sha256
 
 TERMINALS = ["done", "needs_review", "needs_ocr"]
@@ -144,7 +144,7 @@ def ocr_pdf(state: FlowState) -> FlowState:
 
 @action.pydantic(reads=["layout", "doc_type"], writes=["candidates"])
 def find_candidates(state: FlowState) -> FlowState:
-    from jav.candidates import find_all
+    from jav.ai.candidates import find_all
 
     pack = get_pack(state.doc_type)
     state.candidates = find_all(state.layout, pack.candidate_profile, text_labels=pack.text_labels)
@@ -153,8 +153,8 @@ def find_candidates(state: FlowState) -> FlowState:
 
 @action.pydantic(reads=["layout", "candidates", "run_id", "use_cache", "doc_type", "needs_review", "review_reasons"], writes=["picks", "jev_calls", "needs_review", "review_reasons"])
 def jev_select(state: FlowState) -> FlowState:
-    from jav.adapters.jev import JevUnavailableError, get_adapter
-    from jav.jev_select import select_fields
+    from jav.ai.jev import JevUnavailableError, get_adapter
+    from jav.ai.jev_select import select_fields
 
     try:
         picks, calls = select_fields(get_adapter(), state.layout, state.candidates, run_id=state.run_id, use_cache=state.use_cache, pack=get_pack(state.doc_type))
@@ -168,7 +168,7 @@ def jev_select(state: FlowState) -> FlowState:
 
 @action.pydantic(reads=["layout", "picks", "candidates", "doc_type", "needs_review", "review_reasons"], writes=["record", "needs_review", "review_reasons"])
 def normalize_picks(state: FlowState) -> FlowState:
-    from jav.jev_select import picks_to_record
+    from jav.ai.jev_select import picks_to_record
 
     inv, reasons = picks_to_record(state.picks, state.candidates, pack=get_pack(state.doc_type), lines=state.layout)
     state.record = inv
@@ -178,7 +178,7 @@ def normalize_picks(state: FlowState) -> FlowState:
 
 @action.pydantic(reads=["text", "run_id", "doc_type", "needs_review", "review_reasons"], writes=["llm_output", "llm_token_p", "needs_review", "review_reasons"])
 def extract_llm(state: FlowState) -> FlowState:
-    from jav.extract_llm import OutputTruncated, extract_scored
+    from jav.ai.extract_llm import OutputTruncated, extract_scored
 
     try:
         scored = extract_scored(state.text, run_id=state.run_id, pack=get_pack(state.doc_type))
@@ -195,8 +195,8 @@ def extract_llm(state: FlowState) -> FlowState:
 @action.pydantic(reads=["layout", "llm_output", "run_id", "use_cache", "doc_type", "source_layer_id", "needs_review", "review_reasons"],
                  writes=["verdicts", "jev_calls", "needs_review", "review_reasons"])
 def jev_verify(state: FlowState) -> FlowState:
-    from jav.adapters.jev import JevUnavailableError, get_adapter
-    from jav.jev_verify import code_verdicts, verify
+    from jav.ai.jev import JevUnavailableError, get_adapter
+    from jav.ai.jev_verify import code_verdicts, verify
 
     try:
         verdicts, call = verify(get_adapter(), state.layout, state.llm_output or {}, run_id=state.run_id, use_cache=state.use_cache,
@@ -217,7 +217,7 @@ def code_verify(state: FlowState) -> FlowState:
     """085: the G path without JEV: only the code's own source check (every extracted value must be printed on the
     document); no JEV question, so the remaining checks are the pack's validators and its required fields. 092: the
     word layer too, by the box's rules, so a value with a box is never reported as not printed."""
-    from jav.jev_verify import code_verdicts
+    from jav.ai.jev_verify import code_verdicts
 
     state.verdicts = code_verdicts(state.layout or [], state.llm_output or {}, pack=get_pack(state.doc_type),
                                    layer=_word_layer(state))
@@ -249,7 +249,7 @@ def normalize_llm(state: FlowState) -> FlowState:
 
 @action.pydantic(reads=["record", "doc_type", "doc_id"], writes=["validation"])
 def validate(state: FlowState) -> FlowState:
-    from jav.validators import run_all
+    from jav.ai.validators import run_all
 
     # 121: the document's identity, for the checks that compare it with earlier documents (party_orientation)
     state.validation = (run_all(state.record, get_pack(state.doc_type).validators, doc_id=state.doc_id, doc_type=state.doc_type)
@@ -289,7 +289,7 @@ def ground(state: FlowState) -> FlowState:
     line, plus the other candidates with their probabilities; G path: the value is searched for with its label context.
     An error here does not stop the process: the field goes on without a source location (`status=error`), the reason
     is logged."""
-    from jav import grounding
+    from jav.ai import grounding
     from jav.documents import source_layer
 
     pack = get_pack(state.doc_type)
@@ -298,7 +298,7 @@ def ground(state: FlowState) -> FlowState:
     try:
         layer = source_layer.load(state.source_layer_id) if state.source_layer_id else None
         if state.arm == "S":
-            from jav.jev_select import field_confidence
+            from jav.ai.jev_select import field_confidence
 
             conf = field_confidence(state.picks)
             state.provenance = grounding.ground_picks(layer, fields=fields, values=values, picks=state.picks,
@@ -341,14 +341,14 @@ def save(state: FlowState) -> FlowState:
         rec_conf = None
         evidence = None
         if state.arm == "S":
-            from jav.jev_select import field_confidence, record_conf, site_for
+            from jav.ai.jev_select import field_confidence, record_conf, site_for
 
             field_conf = field_confidence(state.picks)
             rec_conf = record_conf(state.picks)
             evidence = {f: {"line_no": p.line_no, "present_p": p.present_p} for f, p in state.picks.items() if p.n_options > 0}
             config_hash = site_for(pack.key).config_hash
         else:
-            from jav.jev_verify import site_for as verify_site_for
+            from jav.ai.jev_verify import site_for as verify_site_for
 
             field_conf = {f: max(d.values()) for f, d in (state.verdicts.flags.items() if state.verdicts else [])}
             # 085: without a JEV verification the result rests on the pack (extraction, code checks), not on the call site

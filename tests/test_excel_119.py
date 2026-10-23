@@ -10,7 +10,7 @@ from openpyxl import Workbook
 
 from jav.documents.readers.native import read
 from jav.documents.readers.limits import DEFAULT_LIMITS, ReadFailure
-from jav import native_processing
+from jav.ai import native_processing
 from jav.documents import native_results
 from jav.core import store
 from jav.documents.readers import providers
@@ -81,7 +81,7 @@ def test_large_excel_reaches_provider_in_bounded_chunks_without_lost_cells(tmp_p
 
 
 def test_large_excel_jev_checks_every_fact_in_bounded_requests(tmp_path, monkeypatch):
-    from jav.adapters import jev
+    from jav.ai import jev
     from typesafe_sdk import SystemOneResponse
 
     requests = []

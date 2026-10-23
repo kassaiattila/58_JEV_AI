@@ -8,7 +8,7 @@ candidate finders, the GPT extraction and the JEV verification see a text exactl
 file (Excel, CSV) is opened by the isolated native reader (`jav/documents/readers/`) and each of its rows becomes one line, its
 cells three spaces apart.
 
-The kinds of input a type pack takes are its `inputs` (`jav/typepack.py`): `pdf` (the default), `text` (a given text
+The kinds of input a type pack takes are its `inputs` (`jav/ai/typepack.py`): `pdf` (the default), `text` (a given text
 or a `.txt` file) and `table` (`.xlsx`, `.csv`). There is no word layer: a text has no page image to point at, so the
 source location of its values stays without one.
 
@@ -21,7 +21,7 @@ import hashlib
 from pathlib import Path
 
 from jav.documents.pdf import PdfText, build_layout, normalize_dashes
-from jav.typepack import INPUTS  # the input kinds are the type pack's
+from jav.ai.typepack import INPUTS  # the input kinds are the type pack's
 
 TEXT_SUFFIXES = {".txt": "text", ".xlsx": "table", ".csv": "table"}
 CHAR_PT = 5.0  # the width of one character on the grid: three spaces are a gap over the column builder's 2.5 characters

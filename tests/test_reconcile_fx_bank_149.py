@@ -17,7 +17,7 @@ import copy
 from datetime import date
 from decimal import Decimal
 
-from jav import policy
+from jav.ai import policy
 from jav.domains.finance import reconcile
 
 CASES = {c["id"]: c for c in reconcile.golden_cases()}

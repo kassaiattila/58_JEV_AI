@@ -35,7 +35,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import item_kinds, logic_packs, package_scope, parties, typepack, work, work_runs, workflow_steps
+from jav import item_kinds, logic_packs, package_scope, parties, work, work_runs, workflow_steps
+from jav.ai import typepack
 from jav.core import activity_kinds, cfg, store, values
 from jav.domains.finance import reconcile, statement_months, statement_table
 from jav.core.user_messages import explained
@@ -185,7 +186,7 @@ def _sources(paths: Iterable[Path]) -> _Found:
 def _preview(reading: statement_table.Reading, account: statement_table.Account) -> dict[str, Any]:
     """The statement an export's account would become, in the reconciliation snapshot's shape, checked by the same
     type pack checks as in a run (so its rank is the one it will have)."""
-    from jav.validators import run_all
+    from jav.ai.validators import run_all
 
     doc_id = statement_table.derived_id(reading, account)
     pack = typepack.get(DOC_TYPE)

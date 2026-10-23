@@ -26,7 +26,7 @@ from jav.domains.email import email_routing
 from jav import logic_packs, package_scope, parties, registrations, work, work_runs, workflow_steps
 from jav.core import store
 from jav.domains.email.mailbox import SUSPICIOUS_ATTACHMENT
-from jav.models import account_key
+from jav.ai.models import account_key
 
 NOW = datetime(2026, 10, 20, tzinfo=timezone.utc).isoformat(timespec="seconds")
 OWN_TAX = "12345678-2-41"

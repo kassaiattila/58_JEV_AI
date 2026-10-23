@@ -21,7 +21,7 @@ CALLSITES_DOC_DIR = PROJECT_ROOT / "docs" / "callsites"
 # Call site -> (ledger steps, the state-building module.function, the consumers of the answers, the flow and step)
 CALLSITES: dict[str, dict[str, Any]] = {
     "detect": {
-        "steps": ["detect"], "registry": "doc_types", "flow": "doc_detect / detect", "state_fn": "jav.detect.build_state",
+        "steps": ["detect"], "registry": "doc_types", "flow": "doc_detect / detect", "state_fn": "jav.ai.detect.build_state",
         "consumers": {
             "doc_type": "documents.doc_type + type_conf; policy.detect.low_confidence alatt review_queue (M1); M3 route: m2:<típus>",
             "issuer_is_hungarian": "documents.issuer_hu (jel, küszöb nélkül)",
@@ -41,19 +41,19 @@ CALLSITES: dict[str, dict[str, Any]] = {
         },
     },
     "select": {
-        "steps": ["parties", "header", "money"], "registry": None, "flow": "invoice / jev_select (S-kar, típus-csomag: invoice_hu)", "state_fn": "jav.jev_select.SelectSite._select_request",
+        "steps": ["parties", "header", "money"], "registry": None, "flow": "invoice / jev_select (S-kar, típus-csomag: invoice_hu)", "state_fn": "jav.ai.jev_select.SelectSite._select_request",
         "consumers": {
             "*": "FieldPick mezőnként: label -> DocumentRecord; policy invoice.pick sáv (human 0,60) alatt review, a csomag high_stakes mezőinél invoice.pick.high_stakes sáv; a csomag required mezői none -> review",
         },
     },
     "verify": {
-        "steps": ["verify"], "registry": None, "flow": "invoice / jev_verify (G-kar, típus-csomag: invoice_hu)", "state_fn": "jav.jev_verify.verify",
+        "steps": ["verify"], "registry": None, "flow": "invoice / jev_verify (G-kar, típus-csomag: invoice_hu)", "state_fn": "jav.ai.jev_verify.verify",
         "consumers": {
             "*": "JevVerdicts.flags mezőnként (off_target, wrong_kind, incomplete, absence_wrong) és doc_flags; policy invoice.verify sáv (yes 0,70) fölött review; unsupported = kód döntötte (evidencia nélkül)",
         },
     },
     "select_foreign": {
-        "steps": ["foreign_parties", "foreign_header", "foreign_money"], "registry": None, "flow": "invoice / jev_select (S-kar, típus-csomag: invoice_foreign)", "state_fn": "jav.jev_select.SelectSite._select_request",
+        "steps": ["foreign_parties", "foreign_header", "foreign_money"], "registry": None, "flow": "invoice / jev_select (S-kar, típus-csomag: invoice_foreign)", "state_fn": "jav.ai.jev_select.SelectSite._select_request",
         "consumers": {
             "*": "FieldPick mezőnként: label -> DocumentRecord (supplier_country is); a csomag required (invoice_number, gross_total) és high_stakes mezői; a policy sávjai a magyar számláéval azonosak",
             "supplier_country": "Choice ISO-kódok közül (a szállító címe / adószám-előtagja alapján) - következtetett mező, jelölt nélkül",
@@ -61,7 +61,7 @@ CALLSITES: dict[str, dict[str, Any]] = {
         },
     },
     "verify_foreign": {
-        "steps": ["verify_foreign"], "registry": None, "flow": "invoice / jev_verify (G-kar, típus-csomag: invoice_foreign)", "state_fn": "jav.jev_verify.verify",
+        "steps": ["verify_foreign"], "registry": None, "flow": "invoice / jev_verify (G-kar, típus-csomag: invoice_foreign)", "state_fn": "jav.ai.jev_verify.verify",
         "consumers": {
             "*": "mint a `verify`: a Noul-kérdések a verify.json-ból öröklődnek (inherits), a mező-leírások a külföldi számláé; a country mező evidenciája az ország neve / jele a dokumentumon",
         },
@@ -69,7 +69,7 @@ CALLSITES: dict[str, dict[str, Any]] = {
     "select_utility": {
         "steps": ["utility_parties", "utility_header", "utility_money", "utility_meter"], "registry": None,
         "flow": "invoice / jev_select (S-kar, típus-csomagok: villamos_energia_szamla, foldgaz_szamla, viz_szamla, mohu_szamla, vizmuvek_szamla, csatorna_szamla - mind extends _base/utility_bill_hu; OCR-szöveg)",
-        "state_fn": "jav.jev_select.SelectSite._select_request",
+        "state_fn": "jav.ai.jev_select.SelectSite._select_request",
         "consumers": {
             "*": "FieldPick mezőnként: label -> DocumentRecord (+ extra: a csomag további mezői); EGY kérdéskészlet a hat csomag unió-mezőire, minden csomag csak a saját mezőit kérdezi; number fajta = a szám-jelöltek közül (mennyiség, mérőállás), text fajta = címkés szöveg-jelöltek (text_labels)",
             "payment_method": "zárt Choice (postai csekk / csoportos beszedés / átutalás / elektronikus / ...), a header kérésben",
@@ -78,7 +78,7 @@ CALLSITES: dict[str, dict[str, Any]] = {
         },
     },
     "verify_utility": {
-        "steps": ["verify_utility"], "registry": None, "flow": "invoice / jev_verify (G-kar, a hat közmű típus-csomag; OCR-szöveg)", "state_fn": "jav.jev_verify.verify",
+        "steps": ["verify_utility"], "registry": None, "flow": "invoice / jev_verify (G-kar, a hat közmű típus-csomag; OCR-szöveg)", "state_fn": "jav.ai.jev_verify.verify",
         "consumers": {
             "*": "mint a `verify`: a Noul-kérdések a verify.json-ból öröklődnek (inherits), a mező-leírások a közmű unió-mezőké; a number fajta evidenciája a szám-illesztés (mint a pénzé)",
         },
@@ -107,7 +107,7 @@ def code_hashes(name: str) -> dict[str, str]:
     email intent, the module's; for the S path and G path call sites, one per type pack (the pack's identifier is part
     of it, so a shared call site, e.g. the utility bills', has a different identifier per pack)."""
     if name == "detect":
-        from jav.detect import CONFIG_HASH
+        from jav.ai.detect import CONFIG_HASH
 
         return {"detect": CONFIG_HASH}
     if name == "email_intent":
@@ -115,7 +115,7 @@ def code_hashes(name: str) -> dict[str, str]:
 
         return {"email_intent": CONFIG_HASH}
     if name == "detect_detail":
-        from jav import detect_detail
+        from jav.ai import detect_detail
 
         return {"detect_detail": detect_detail.config_hash()}
     if name == "reconcile_line":
@@ -126,9 +126,9 @@ def code_hashes(name: str) -> dict[str, str]:
         from jav.domains.quotes import quote_match
 
         return {"quote_match": quote_match.jev_hash()}
-    from jav import typepack
-    from jav.jev_select import site_for as select_site
-    from jav.jev_verify import site_for as verify_site
+    from jav.ai import typepack
+    from jav.ai.jev_select import site_for as select_site
+    from jav.ai.jev_verify import site_for as verify_site
 
     out: dict[str, str] = {}
     for key in typepack.keys():
@@ -223,7 +223,7 @@ def callsite_md(name: str) -> str:
              "> Generálva a `configs/` tartalmából és a `ledger` táblából (`jav/docsgen.py`, `python -m jav.cli docs`). Ne szerkeszd kézzel.", "",
              f"- **Flow / lépés:** {spec['flow']}",
              f"- **Konfig:** `configs/callsites/{name}.json` v{data['meta']['version']}" + (f" + regiszter `configs/{spec['registry']}.json` v{cfg.version(spec['registry'])}" if spec["registry"] else "") + f" → `config_hash` = {_hash_text(name)}",
-             f"- **Ledger step-ek:** {', '.join(f'`{s}`' for s in spec['steps'])}; adapter: `jav/adapters/jev.py` (kérés-hash cache, ledger)",
+             f"- **Ledger step-ek:** {', '.join(f'`{s}`' for s in spec['steps'])}; adapter: `jav/ai/jev.py` (kérés-hash cache, ledger)",
              *([f"- **State ({spec['state_fn']}):** {_state_doc(spec['state_fn'])}"] if spec["state_fn"] else []), "",
              "## Kérdések", "", *_q_rows(name, data), "",
              "## A válaszok fogyasztói (küszöbök: `configs/policy.json`)", ""]

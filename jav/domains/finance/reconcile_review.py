@@ -22,7 +22,7 @@ only the lines still in it (a stale view is refused), all or none: a sure pair i
 the group as its `basis`. Agreement of the two models is not measured correctness; a person accepts each group.
 
 Layer: UI/CLI → **this** (application operation) → `jav.domains.finance.reconcile_package` (the workspace, the pairs, the marks),
-`jav.domains.finance.reconcile` (the salary rule) and `jav.policy` (the threshold). No AI call: it reads the answers already stored.
+`jav.domains.finance.reconcile` (the salary rule) and `jav.ai.policy` (the threshold). No AI call: it reads the answers already stored.
 """
 
 from __future__ import annotations
@@ -31,7 +31,8 @@ from collections import Counter, defaultdict
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import policy, work
+from jav import work
+from jav.ai import policy
 from jav.core import values
 from jav.domains.finance import reconcile, reconcile_package
 from jav.core.user_messages import explained

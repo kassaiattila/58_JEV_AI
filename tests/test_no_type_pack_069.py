@@ -10,8 +10,8 @@ from typesafe_sdk import Choice, SystemOneResponse
 
 from jav import work, work_readiness, work_recipes, work_runs
 from jav.core import store
-from jav.adapters import jev as jev_mod
-from jav.detect import DetectResult
+from jav.ai import jev as jev_mod
+from jav.ai.detect import DetectResult
 from jav.flow_detect import DetectState, _resolve_detail, save
 from jav.runtime import worker
 from tests.pdfgen import write_text_pdf

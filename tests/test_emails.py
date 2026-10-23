@@ -2,7 +2,7 @@
 
 import json
 
-from jav import policy
+from jav.ai import policy
 from jav.domains.email.emails import OLD_INTENT_GOLDEN, Attachment, EmailMessage, clean_body, load_message_dir, load_old_golden, sender_domain
 from jav.domains.email.intent import NOUL_KEYS, build_questions, build_state
 from jav.domains.email.intents import BY_KEY, DOCUMENT_BEARING, INTENT_KEYS, OTHER, choice_criteria

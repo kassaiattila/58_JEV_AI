@@ -171,7 +171,7 @@ def _datapoint_outcome(rows: list[dict[str, Any]], type_key: str) -> Outcome:
     """200: a case the budget refused has no result even when it returned data points (the S path goes on with every
     field empty when JEV is refused), as the golden command reports it (`eval_report.budget_skips`)."""
     from jav.eval_report import budget_skips
-    from jav.typepack import get as get_pack
+    from jav.ai.typepack import get as get_pack
 
     strict = get_pack(type_key).strict_scored
     skipped = set(budget_skips(rows))
@@ -212,7 +212,7 @@ def _datapoint_golden(type_key: str, arm: str, *, synthetic: bool) -> Golden:
 
 def datapoint_goldens() -> list[Golden]:
     """Every type pack with golden cases, on each of its paths: the legacy golden set first, then the synthetic cases."""
-    from jav import typepack
+    from jav.ai import typepack
 
     out: list[Golden] = []
     for type_key in typepack.extractable_keys():
@@ -374,7 +374,8 @@ def _taught_golden(key: str, half: str = "evaluation") -> Golden:
 
 def taught_goldens() -> list[Golden]:
     """Every taught draft whose candidate pack exists."""
-    from jav import type_teaching, typepack
+    from jav import type_teaching
+    from jav.ai import typepack
 
     packs = set(typepack.keys())
     keys = [p.stem for p in sorted(type_teaching.DRAFTS_DIR.glob("*.json")) if p.stem in packs]

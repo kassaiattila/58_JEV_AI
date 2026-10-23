@@ -13,7 +13,8 @@ from __future__ import annotations
 import pytest
 
 from jav.domains.email import mailbox
-from jav import policy, work, work_readiness, work_recipes, work_runs
+from jav import work, work_readiness, work_recipes, work_runs
+from jav.ai import policy
 from jav.core import store
 from jav.domains.finance import reconcile, statement_months as sm
 from jav.runtime import worker

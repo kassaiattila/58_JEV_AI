@@ -1,4 +1,4 @@
-"""175 (plan 170 E3): the checks a result goes through, in one registry with stages (`jav/checks.py`).
+"""175 (plan 170 E3): the checks a result goes through, in one registry with stages (`jav/ai/checks.py`).
 
 The record checks the type packs name, the decision's steps, the cross-document checks and the after-save scans are
 entries of one registry; a check that reads other documents runs only in a worker run, through one gate. Synthetic
@@ -11,12 +11,13 @@ from pathlib import Path
 
 import pytest
 
-from jav import checks, parties, validators
+from jav import parties
+from jav.ai import checks, validators
 from jav.core import cfg
 from jav.domains.finance import duplicates
-from jav.models import CheckResult, DocumentRecord
+from jav.ai.models import CheckResult, DocumentRecord
 from jav.core import calls
-from jav.typepack import get as get_pack
+from jav.ai.typepack import get as get_pack
 
 PACKS = sorted(p.stem for p in (cfg.path_of("policy").parent / "types").glob("*.json"))
 
@@ -97,7 +98,7 @@ def test_the_registry_is_complete_whichever_module_asks_first() -> None:
     import subprocess
     import sys
 
-    code = ("from jav import checks; print(len(checks.stage('record')), len(checks.stage('decision')),"
+    code = ("from jav.ai import checks; print(len(checks.stage('record')), len(checks.stage('decision')),"
             " len(checks.stage('cross_document')), len(checks.stage('after_save')), len(checks.stage('saved')))")
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True,
                          cwd=Path(__file__).resolve().parents[1]).stdout.split()

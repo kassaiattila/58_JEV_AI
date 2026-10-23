@@ -38,7 +38,8 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Any, Iterable
 
-from jav import fact_checks, item_kinds, package_result
+from jav import item_kinds, package_result
+from jav.ai import fact_checks
 from jav.core import cfg, decisions, store, type_roles
 from jav.core.user_messages import explained
 
@@ -239,7 +240,7 @@ def decisions_for(doc_ids: Iterable[str], c=None) -> list[dict[str, Any]]:
 def review_reasons(doc_id: str | None, doc_type: str | None, fields: dict[str, Any]) -> list[str]:
     """The duplicate to-dos of the document being processed: against every earlier document in the store; a pair a
     person has already decided adds nothing. It reads the store: the check registry runs it in a worker run only
-    (175, `jav/checks.py`)."""
+    (175, `jav/ai/checks.py`)."""
     if not doc_id or family(doc_type) is None or number_key(fields.get(_conf()["number_field"])) is None:
         return []
     found = matches(Document(doc_id, doc_type or "", fields), documents())

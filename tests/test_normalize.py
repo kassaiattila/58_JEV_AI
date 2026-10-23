@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav.models import (
+from jav.ai.models import (
     InvoiceLLM,
     money_label,
     normalize_date,
@@ -13,7 +13,7 @@ from jav.models import (
     parse_money,
     record_from_llm,
 )
-from jav.typepack import get as get_pack
+from jav.ai.typepack import get as get_pack
 
 
 @pytest.mark.parametrize(

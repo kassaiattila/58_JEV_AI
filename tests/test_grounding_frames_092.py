@@ -10,7 +10,7 @@ and a label with its own value on its line counted as the heading of the lines b
 
 from __future__ import annotations
 
-from jav import grounding
+from jav.ai import grounding
 from tests.test_grounding import layer_of
 
 LEFT, RIGHT = 20, 320
@@ -144,8 +144,8 @@ def test_the_billing_address_label_belongs_to_the_buyer():
 
 
 def _line_layout(layer):
-    from jav.grounding import _lines, _segments
-    from jav.models import LineLayout
+    from jav.ai.grounding import _lines, _segments
+    from jav.ai.models import LineLayout
 
     return [LineLayout(no=n, page=1, text="   ".join(" ".join(w.text for w in seg) for seg in _segments(line)))
             for n, line in enumerate(_lines(layer), 1)]
@@ -154,8 +154,8 @@ def _line_layout(layer):
 def test_a_value_with_a_box_gets_no_not_printed_to_do_without_jev():
     """The code's own source check (G path without JEV) and the box use the same rules: an address found on four lines
     of a two-column header is printed, so no `source:not_found` to-do."""
-    from jav.jev_verify import code_verdicts
-    from jav.typepack import get as get_pack
+    from jav.ai.jev_verify import code_verdicts
+    from jav.ai.typepack import get as get_pack
 
     layer = layer_of(TWO_COLUMN_HEADER)
     llm = {"supplier_address": "Szeged Fo utca 1. 2. em. 6720 Magyarorszag", "buyer_address": "Sopron Varkerulet 9."}

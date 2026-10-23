@@ -13,7 +13,7 @@ from jav import flow_detect
 from jav.documents import isolated_pdf, pdf
 from jav.core import store
 from jav.domains.email import flow_email
-from jav.adapters import jev as jev_mod
+from jav.ai import jev as jev_mod
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_email_signals import FakeClient  # answers the intent question (Choice + Noul + Score)
 

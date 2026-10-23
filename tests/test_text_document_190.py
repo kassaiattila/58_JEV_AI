@@ -14,11 +14,12 @@ import pytest
 from openpyxl import Workbook
 from typesafe_sdk import Noul
 
-from jav import extract_llm, flow, typepack
+from jav import flow
+from jav.ai import extract_llm, typepack
 from jav.documents import text_document
 from jav.core import store
-from jav.adapters import jev as jev_mod
-from jav.models import JevCall
+from jav.ai import jev as jev_mod
+from jav.ai.models import JevCall
 from tests.test_no_jev_085 import _FakeAgent
 
 MINUTES = ("Jegyzokonyv\n\nKeszult a Minta Hockey Club kozgyulesen.\nDatum:   2026-03-04\tHelyszin:   Budapest\n"

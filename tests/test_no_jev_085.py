@@ -6,13 +6,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import extract_llm, flow, typepack
+from jav import flow
+from jav.ai import extract_llm, typepack
 from jav.core import store
-from jav.adapters import jev as jev_mod
-from jav.adapters.jev import JevAdapter, JevUnavailableError
+from jav.ai import jev as jev_mod
+from jav.ai.jev import JevAdapter, JevUnavailableError
 from jav.core.config import MissingAPIKeyError
-from jav.jev_verify import code_verdicts
-from jav.models import LineLayout
+from jav.ai.jev_verify import code_verdicts
+from jav.ai.models import LineLayout
 from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_runtime_adapters import QS

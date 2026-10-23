@@ -16,14 +16,15 @@ from types import SimpleNamespace
 import pytest
 from typesafe_sdk import Noul
 
-from jav import detect_detail, doc_types, extract_llm, flow, naming, policy, typepack
+from jav import flow, naming
+from jav.ai import detect_detail, doc_types, extract_llm, policy, typepack
 from jav.documents import text_document
 from jav.core import store
 from jav.domains.email import intents
-from jav.adapters import jev as jev_mod
+from jav.ai import jev as jev_mod
 from jav.domains.email.emails import Attachment
-from jav.jev_verify import site_for
-from jav.models import JevCall
+from jav.ai.jev_verify import site_for
+from jav.ai.models import JevCall
 from tests.test_no_jev_085 import _FakeAgent
 
 KEY = "quote_request"

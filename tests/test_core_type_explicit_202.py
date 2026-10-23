@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import jev_select, jev_verify, policy, typepack
+from jav.ai import jev_select, jev_verify, policy, typepack
 from jav.core.config import PROJECT_ROOT
 
 JAV = PROJECT_ROOT / "jav"

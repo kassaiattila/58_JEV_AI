@@ -15,9 +15,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import evals_quotes, goldens, typepack
+from jav import evals_quotes, goldens
+from jav.ai import typepack
 from jav.domains.quotes import invented_golden
-from jav.models import record_from_llm
+from jav.ai.models import record_from_llm
 
 GOLDEN = invented_golden.load()
 CASES = {c.id: c for c in GOLDEN.cases}
@@ -132,7 +133,7 @@ def test_the_legacy_intent_golden_set_counts_an_unanswered_email_without_a_resul
     without one is a row without a result (it stopped the whole set with an assertion before)."""
     from jav import evals_email
     from jav.core import store
-    from jav.adapters import jev as jev_mod
+    from jav.ai import jev as jev_mod
     from jav.domains.email.emails import EmailMessage, GoldenEmail
     from tests.test_email_signals import FakeClient
 

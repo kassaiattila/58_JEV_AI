@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 
-from jav import doc_types, policy
+from jav.ai import doc_types, policy
 from jav.core import cfg
 from jav.domains.email import intents
 from jav.core.registry import parent_summary
@@ -86,9 +86,9 @@ def test_policy_parent_fallback_band():
 
 
 def test_detect_and_intent_results_carry_parent():
-    from jav.detect import DetectResult
+    from jav.ai.detect import DetectResult
     from jav.domains.email.intent import IntentResult
-    from jav.models import JevCall
+    from jav.ai.models import JevCall
 
     call = JevCall(request_id="x", n_questions=1, state_chars=1)
     r = DetectResult(doc_type="invoice_hu", confidence=0.45, probabilities={"invoice_hu": 0.45, "invoice_foreign": 0.4, "contract": 0.15},

@@ -17,12 +17,12 @@ from unittest.mock import patch
 
 import pytest
 
-from jav import policy
+from jav.ai import policy
 from jav.documents import isolated_pdf, pdf
 from jav.core import store
 from jav.flow import load_pdf as invoice_load
 from jav.flow_detect import DetectState, load_pdf as detect_load, save as detect_save
-from jav.models import FlowState
+from jav.ai.models import FlowState
 from tests.pdfgen import _escape
 
 TEXT_PAGE = [
@@ -168,7 +168,7 @@ def test_an_ordinary_document_and_a_scan_raise_nothing_here(isolated):
 
 
 def test_the_detection_flow_raises_the_to_do_and_keeps_it_when_the_type_is_certain(isolated):
-    from jav.detect import DetectResult
+    from jav.ai.detect import DetectResult
 
     with patch("jav.documents.pdf.read_pdf", return_value=_pdf_text([2, 3])):
         state = detect_load(DetectState(source_path=str(isolated)))

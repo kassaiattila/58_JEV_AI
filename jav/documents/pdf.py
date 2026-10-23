@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from jav.models import CellLayout, LineLayout
+from jav.ai.models import CellLayout, LineLayout
 
 # pdfminer warns on every line for broken font descriptors ("Could not get FontBBox") - noise, the text is still fine
 # (the in-process mode; the isolated reader sets the same in its helper)

@@ -11,8 +11,9 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from jav import data_guard, validators
-from jav.models import DocumentRecord
+from jav import data_guard
+from jav.ai import validators
+from jav.ai.models import DocumentRecord
 from tests.test_properties_067 import hu_account
 
 GOOD_16 = "1000000130000003"

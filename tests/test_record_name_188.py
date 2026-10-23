@@ -14,7 +14,7 @@ from __future__ import annotations
 from burr.core import State
 
 from jav import flow
-from jav.models import DocumentRecord, FlowState
+from jav.ai.models import DocumentRecord, FlowState
 from jav.runtime.worker import StatePersister
 
 RECORD = {"supplier_name": "Example Ltd", "invoice_number": "INV-1", "issue_date": "2026-10-01",

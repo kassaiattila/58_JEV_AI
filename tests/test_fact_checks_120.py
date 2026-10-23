@@ -9,10 +9,11 @@ from decimal import Decimal
 
 import pytest
 
-from jav import fact_checks, flow_native, policy, typepack, validators
+from jav import flow_native
+from jav.ai import fact_checks, policy, typepack, validators
 from jav.documents import native_results
 from jav.core import store
-from jav.models import FlowState, DocumentRecord
+from jav.ai.models import FlowState, DocumentRecord
 from jav.core import calls
 from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
@@ -24,7 +25,7 @@ AUTHORITY = "Nemzeti Ad\u00f3- \u00e9s V\u00e1mhivatal"
 def run_native(tmp_path, monkeypatch, *, value, prop="birth name", support=None):
     """Run the actual native graph with a scripted GPT answer and, optionally, a scripted JEV support."""
     if support is not None:
-        from jav.adapters import jev
+        from jav.ai import jev
         from typesafe_sdk import SystemOneResponse
 
         class Client:

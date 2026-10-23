@@ -394,7 +394,7 @@ def normalize_value(kind: str, raw: object, field: str, reasons: list[str], *, o
         reasons.append(f"{field}:unparseable:{raw!r}")
         return None
     if kind == "name":  # 129: a party name ends at its legal form (a tagline, an address or an ID after it is cut)
-        from jav.candidates import trim_after_legal_form
+        from jav.ai.candidates import trim_after_legal_form
 
         text = normalize_text(str(raw))
         return trim_after_legal_form(text) if text else text
@@ -600,13 +600,13 @@ class FlowState(BaseModel):
     ocr_engine: str | None = None  # native / docker / azure_di (the text's source, if OCR)
     ocr_escalated: bool = False  # the more accurate paid engine's text replaced weak local OCR (policy ocr.escalate_*)
     source_layer_id: str | None = None  # 045: word layer reference (jav/documents/source_layer.py); the words live in the store
-    provenance: dict[str, Any] = Field(default_factory=dict)  # 045: per-field source location (jav/grounding.py), saved
+    provenance: dict[str, Any] = Field(default_factory=dict)  # 045: per-field source location (jav/ai/grounding.py), saved
     # S path
     candidates: dict[str, list[Candidate]] = Field(default_factory=dict)
     picks: dict[str, FieldPick] = Field(default_factory=dict)
     # G path: the extract as a dict (keys per the type pack's schema; for the Hungarian invoice, the InvoiceLLM dump)
     llm_output: dict[str, Any] | None = None
-    # 091: the token probabilities of its top-level values (jav/token_confidence.py); None: not measurable
+    # 091: the token probabilities of its top-level values (jav/ai/token_confidence.py); None: not measurable
     llm_token_p: dict[str, dict[str, float | int]] | None = None
     verdicts: JevVerdicts | None = None
     # shared

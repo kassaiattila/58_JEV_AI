@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import policy
+from jav.ai import policy
 from tests.test_gpt_extract_logprobs_091 import _LogprobAgent
 from tests.test_no_jev_085 import GOOD
 

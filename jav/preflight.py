@@ -241,7 +241,7 @@ def preflight(*, skip_pytest: bool = False) -> int:
     ok, msg = deps_audit.verdict(deps_audit.status())
     results.append(("dependency audit", ok, msg))
 
-    from jav import jev_version
+    from jav.ai import jev_version
 
     ok, msg = jev_version.verdict(jev_version.status())  # 200: a newer version is a notice, the pinned one answers
     results.append(("JEV version", ok, msg))

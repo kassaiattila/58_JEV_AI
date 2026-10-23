@@ -20,10 +20,10 @@ from decimal import Decimal
 import pytest
 from typesafe_sdk import Choice, Noul
 
-from jav import policy, typepack
+from jav.ai import policy, typepack
 from jav.core import cfg
-from jav.candidates import find_all, find_currencies
-from jav.models import HEADER_FIELDS, SCORED_FIELDS, CellLayout, FieldPick, FlowState, DocumentRecord, LineLayout, record_from_llm
+from jav.ai.candidates import find_all, find_currencies
+from jav.ai.models import HEADER_FIELDS, SCORED_FIELDS, CellLayout, FieldPick, FlowState, DocumentRecord, LineLayout, record_from_llm
 
 
 def _line(no: int, *cells: tuple[str, float]) -> LineLayout:
@@ -128,7 +128,7 @@ def test_hu_profile_is_default_and_unchanged():
 
 
 def test_select_foreign_site_builds_country_and_currency_questions():
-    from jav.jev_select import site_for
+    from jav.ai.jev_select import site_for
 
     site = site_for("invoice_foreign")
     assert site.request_order == ("foreign_parties", "foreign_header", "foreign_money")
@@ -143,8 +143,8 @@ def test_select_foreign_site_builds_country_and_currency_questions():
 
 
 def test_select_foreign_picks_to_record_by_kind():
-    from jav.jev_select import site_for
-    from jav.models import Candidate
+    from jav.ai.jev_select import site_for
+    from jav.ai.models import Candidate
 
     site = site_for("invoice_foreign")
     picks = {
@@ -160,7 +160,7 @@ def test_select_foreign_picks_to_record_by_kind():
 
 
 def test_verify_foreign_inherits_nouls_and_has_own_field_specs():
-    from jav.jev_verify import find_evidence, site_for
+    from jav.ai.jev_verify import find_evidence, site_for
 
     site = site_for("invoice_foreign")
     base = cfg.load("callsite:verify")["nouls"]
@@ -177,7 +177,7 @@ def test_verify_foreign_inherits_nouls_and_has_own_field_specs():
 
 
 def test_validators_are_pack_driven():
-    from jav.validators import run_all
+    from jav.ai.validators import run_all
 
     fo = typepack.get("invoice_foreign")
     inv = DocumentRecord(currency="EUR", supplier_country="IE", issue_date=date(2022, 11, 2), due_date=date(2022, 12, 2), gross_total=Decimal("108.38"))

@@ -17,8 +17,8 @@ from decimal import Decimal
 import pytest
 
 from jav.core import numbers
-from jav.candidates import find_all
-from jav.models import CellLayout, LineLayout, normalize_value, parse_money, record_from_llm
+from jav.ai.candidates import find_all
+from jav.ai.models import CellLayout, LineLayout, normalize_value, parse_money, record_from_llm
 from jav.runtime import worker
 from tests.test_api import HUMAN, _ready_wp, _start, env  # noqa: F401 - the shared service fixture (`service` below)
 
@@ -224,8 +224,8 @@ def test_parse_money_keeps_its_old_signature():
 
 
 def test_a_picked_amount_that_is_a_piece_of_a_longer_number_gets_a_to_do():
-    from jav.jev_select import site_for
-    from jav.models import Candidate, FieldPick
+    from jav.ai.jev_select import site_for
+    from jav.ai.models import Candidate, FieldPick
 
     lines = _lines("Megnevezés   Nettó érték", "Billzone   28,000.00   7,560.00")
     cut = Candidate(kind="money", label="28", raw="28,00", line_no=2, context="L02")
@@ -236,8 +236,8 @@ def test_a_picked_amount_that_is_a_piece_of_a_longer_number_gets_a_to_do():
 
 
 def test_a_whole_picked_amount_passes_the_safety_net():
-    from jav.jev_select import site_for
-    from jav.models import Candidate, FieldPick
+    from jav.ai.jev_select import site_for
+    from jav.ai.models import Candidate, FieldPick
 
     lines = _lines("Megnevezés   Nettó érték", "Billzone   28,000.00   7,560.00")
     whole = Candidate(kind="money", label="28000", raw="28,000.00", line_no=2, context="L02")

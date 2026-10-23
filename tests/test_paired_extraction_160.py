@@ -16,10 +16,11 @@ from pathlib import Path
 
 import pytest
 
-from jav import extract_llm, flow, typepack
+from jav import flow
+from jav.ai import extract_llm, typepack
 from jav.core import store
-from jav.adapters import jev as jev_mod
-from jav.jev_verify import site_for
+from jav.ai import jev as jev_mod
+from jav.ai.jev_verify import site_for
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_no_jev_085 import _FakeAgent
 from tests.test_runtime_worker import FakeClient

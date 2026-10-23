@@ -2,7 +2,7 @@
 
 Processing without JEV ("GPT only") is a run setting since 086 (the recipes' `jev: off`); each flow takes it as
 `jev=False` and routes its questions to GPT and to the code's own checks. This module makes that a guarantee rather
-than a convention: a flow application built without JEV runs every step inside `adapters.jev.disabled()`, so a JEV
+than a convention: a flow application built without JEV runs every step inside `jav.ai.jev.disabled()`, so a JEV
 question asked anyway (a regression, a new call site that forgot the switch, the native reader's own adapter) is
 refused before anything leaves the machine and becomes the `jev_unavailable:disabled` to-do through the flows' usual
 handling. It covers every way a flow runs: the worker, the measurements and the tests.
@@ -15,7 +15,7 @@ from typing import Any
 
 from burr.lifecycle import PostRunStepHook, PreRunStepHook
 
-from jav.adapters import jev
+from jav.ai import jev
 
 
 class WithoutJev(PreRunStepHook, PostRunStepHook):

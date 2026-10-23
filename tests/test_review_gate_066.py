@@ -16,7 +16,7 @@ from typesafe_sdk import Choice, SystemOneResponse
 from jav import work, work_readiness, work_recipes, work_runs
 from jav.documents import ocr
 from jav.core import store
-from jav.adapters import jev as jev_mod
+from jav.ai import jev as jev_mod
 from jav.runtime import worker
 from jav.core import queue
 from tests.pdfgen import INVOICE_LINES, write_text_pdf

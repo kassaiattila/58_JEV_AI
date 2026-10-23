@@ -17,12 +17,12 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav import policy
+from jav.ai import policy
 from jav.core import store
-from jav.detect import DetectResult
-from jav.detect_detail import DetailResult
-from jav.engine import with_engine
-from jav.models import LineLayout
+from jav.ai.detect import DetectResult
+from jav.ai.detect_detail import DetailResult
+from jav.ai.engine import with_engine
+from jav.ai.models import LineLayout
 
 TERMINALS = ["done", "needs_ocr"]
 PARTITION = "doc_detect"  # partition of the durable state store (066 Á08: the worker finds the saved state by it)
@@ -35,7 +35,7 @@ class DetectState(BaseModel):
     read_path: str | None = None  # where the bytes are read from (the source instance); None: `source_path`
     run_id: str = ""
     use_cache: bool = True
-    jev: bool = True  # 086: False = processing without JEV, the type is recognised by GPT (`jav/detect_gpt.py`)
+    jev: bool = True  # 086: False = processing without JEV, the type is recognised by GPT (`jav/ai/detect_gpt.py`)
     doc_id: str = ""
     text: str = ""
     lines: list[str] = Field(default_factory=list)
@@ -107,8 +107,8 @@ def ocr_pdf(state: DetectState) -> DetectState:
 @action.pydantic(reads=["source_path", "text", "lines", "layout", "page_count", "run_id", "use_cache", "jev", "review_reasons"],
                  writes=["result", "uncertain", "review_reasons", "detail", "detail_reasons"])
 def detect(state: DetectState) -> DetectState:
-    from jav.adapters.jev import JevUnavailableError, get_adapter
-    from jav.detect import detect as _detect
+    from jav.ai.jev import JevUnavailableError, get_adapter
+    from jav.ai.detect import detect as _detect
     from jav.documents.pdf import PdfText
 
     pdf = PdfText(path=state.source_path, text=state.text, lines=state.lines, layout=state.layout, page_count=state.page_count, has_text_layer=True)
@@ -132,9 +132,9 @@ def detect(state: DetectState) -> DetectState:
 def _detect_gpt(state: DetectState, pdf) -> DetectState:
     """086: the type recognised by GPT (processing without JEV). A failed call (no budget, provider error) is a to-do,
     not the end of the item; an unmeasurable confidence makes the type uncertain. 160: a JEV question asked here
-    anyway is refused (`jav/engine.py`) and named as such."""
-    from jav.adapters.jev import JevUnavailableError
-    from jav.detect_gpt import choose_detail, detect as _detect
+    anyway is refused (`jav/ai/engine.py`) and named as such."""
+    from jav.ai.jev import JevUnavailableError
+    from jav.ai.detect_gpt import choose_detail, detect as _detect
 
     try:
         state.result = _detect(pdf, state.source_path, run_id=state.run_id)
@@ -163,11 +163,11 @@ def _check_issuer(state: DetectState, *, engine: str) -> None:
 
 
 def _resolve_detail(state: DetectState, jev, chooser=None) -> None:
-    """047 T1.2: the detailed type (`jav/detect_detail.py`). An open or uncertain detailed type is a to-do alongside
+    """047 T1.2: the detailed type (`jav/ai/detect_detail.py`). An open or uncertain detailed type is a to-do alongside
     the detection's own reasons; a JEV outage does not stop the process here either. `chooser` (086): the GPT
     question for processing without JEV; its failure is a to-do too."""
-    from jav.adapters.jev import JevUnavailableError
-    from jav.detect_detail import resolve
+    from jav.ai.jev import JevUnavailableError
+    from jav.ai.detect_detail import resolve
 
     broad = state.result.doc_type
     try:
@@ -273,7 +273,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
     "step_meta": {
         "load_pdf": {"kind": "det", "note": "pdfplumber word-level reconstruction, sha256 doc_id, year hint from the folder; the text-layer test of the document and of each page (167: scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do, kept open by the ocr_coverage producer)"},
         "ocr_pdf": {"kind": "det", "note": "szöveg nélküli PDF: OCR (jav/documents/ocr.py: oldalkép + tesseract, natív / régi sidecar-kép, lemez-gyorsítótár) ugyanarra az elrendezésre; minőségjelek a state-ben"},
-        "detect": {"kind": "jev", "note": "egy kérés, három ítélet: Choice doc_type (regiszter + unknown), Noul issuer_is_hungarian, Choice language; anchor-találatok feature-ként; utána részletes típus a kategória csomagjai közül (jav/detect_detail.py: régi horgony-pontszám, szükség esetén JEV Choice). Without JEV: the same three questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/detect_gpt.py); a failed call is a detect:gpt_failed to-do"},
+        "detect": {"kind": "jev", "note": "egy kérés, három ítélet: Choice doc_type (regiszter + unknown), Noul issuer_is_hungarian, Choice language; anchor-találatok feature-ként; utána részletes típus a kategória csomagjai közül (jav/ai/detect_detail.py: régi horgony-pontszám, szükség esetén JEV Choice). Without JEV: the same three questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/ai/detect_gpt.py); a failed call is a detect:gpt_failed to-do"},
         "save": {"kind": "store", "note": "documents tábla (részletes típus is; nyitva maradt részletes típus = detect_detail teendő; a típuscsomag nélküli kategória is); conf < policy.detect.low_confidence -> review_queue (okonként, additív), különben a detect saját korábbi okai zárulnak"},
         "done": {"kind": "terminal", "note": "kategorizálva"},
         "needs_ocr": {"kind": "terminal", "note": "szöveg nélküli / törött szövegrétegű PDF, és az OCR sem adott szöveget (vagy nincs motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja"},

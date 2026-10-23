@@ -40,7 +40,7 @@ export interface DepsAuditInfo {
   } | null;
   max_age_days: number;
 }
-/** 200: the pinned JEV version against the provider's moving name at its last look (`jav/jev_version.py` `status()`). */
+/** 200: the pinned JEV version against the provider's moving name at its last look (`jav/ai/jev_version.py` `status()`). */
 export interface JevVersionInfo {
   pinned: string; watch_alias: string; latest: string | null; checked_at: string | null;
   newer: boolean | null; stale: boolean; age_days: number | null;

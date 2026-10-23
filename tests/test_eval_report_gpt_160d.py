@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from jav import eval_report as er
-from jav import policy
+from jav.ai import policy
 
 
 def _write(path: Path, rows: list[dict]) -> Path:

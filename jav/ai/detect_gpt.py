@@ -1,6 +1,6 @@
 """Type recognition with GPT, for processing without JEV (086, backlog item F-jev, step K4).
 
-The same three judgements as the JEV detection (`jav/detect.py`), asked of GPT in one structured request:
+The same three judgements as the JEV detection (`jav/ai/detect.py`), asked of GPT in one structured request:
 `doc_type` (the registered types + `unknown`), `issuer_is_hungarian` (yes / no) and `language`. The document excerpt
 and the question texts are those of the JEV call site (`callsite:detect`), so the two recognitions are comparable;
 each type is offered with the first clause of its registry description (`configs/gpt_detect.json`).
@@ -11,7 +11,7 @@ credited to the one option it leads to. This is the model's own distribution, no
 JEV's, so it has its own band in `configs/policy.json` (`detect.doc_type.gpt`). Without log-probabilities the
 confidence is unknown (`measured=False`), never invented. Pattern: the legacy project's
 `sidecar/app/detect_engine/service.py` (`compute_detect_margin`) and `orchestrator/framework/sidecar.py` (`detect`).
-Since 089 the call and the probability arithmetic live in `jav/gpt_choice.py`, shared with the email intent.
+Since 089 the call and the probability arithmetic live in `jav/ai/gpt_choice.py`, shared with the email intent.
 
 The detailed type (`choose_detail`) is the same kind of question among the category's type packs, plus `none`.
 """
@@ -26,10 +26,10 @@ from pathlib import Path
 from typing import Any
 
 from jav.core import cfg
-from jav.detect import DetectResult, build_state
-from jav.doc_types import DOC_TYPES, UNKNOWN
-from jav.gpt_choice import GptAnswer, Limits, field_probabilities, use_agent_factory
-from jav.gpt_choice import ask as _ask
+from jav.ai.detect import DetectResult, build_state
+from jav.ai.doc_types import DOC_TYPES, UNKNOWN
+from jav.ai.gpt_choice import GptAnswer, Limits, field_probabilities, use_agent_factory
+from jav.ai.gpt_choice import ask as _ask
 from jav.documents.pdf import PdfText
 
 __all__ = ["GptAnswer", "choose_detail", "detect", "detect_instructions", "field_probabilities", "short_description",
@@ -70,7 +70,7 @@ def _type_lines() -> str:
 
 
 def ask(request_id: str, instructions: str, prompt: str, fields: dict[str, list[str]], *, run_id: str) -> GptAnswer:
-    """One structured GPT question with this module's limits (`jav/gpt_choice.py`)."""
+    """One structured GPT question with this module's limits (`jav/ai/gpt_choice.py`)."""
     return _ask(request_id, instructions, prompt, fields, run_id=run_id, limits=LIMITS)
 
 
@@ -88,7 +88,7 @@ def detect_instructions() -> str:
 
 
 def detect(pdf: PdfText, path: str | Path, *, run_id: str = "adhoc") -> DetectResult:
-    """The coarse type, the issuer's nationality and the language (the counterpart of `jav.detect.detect`)."""
+    """The coarse type, the issuer's nationality and the language (the counterpart of `jav.ai.detect.detect`)."""
     state = build_state(pdf, path)
     fields = {"doc_type": [t.key for t in DOC_TYPES] + [UNKNOWN], "issuer_is_hungarian": [YES, NO], "language": LANGUAGES}
     a = ask("detect", detect_instructions(), json.dumps(state, ensure_ascii=False), fields, run_id=run_id)

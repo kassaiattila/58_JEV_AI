@@ -4,8 +4,8 @@ negative amount was not negative. 067 measurement: in the 284 documents of the l
 word (the current results do not change); the en dash (13 occurrences inside a word, periods and times too) is
 deliberately kept."""
 
-from jav.candidates import find_all
-from jav.models import CellLayout, LineLayout
+from jav.ai.candidates import find_all
+from jav.ai.models import CellLayout, LineLayout
 from jav.documents.ocr import parse_tsv
 from jav.documents.pdf import normalize_dashes
 

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import native_processing
+from jav.ai import native_processing
 from jav.documents import native_results
 from jav.core import store
 from jav.documents.native_contracts import NativeLimits
@@ -132,7 +132,7 @@ def test_crash_between_paid_receipt_and_outcome_save_never_repeats_wire(isolated
 
 def test_actual_jev_adapter_cache_live_control_and_cost_receipts(isolated, monkeypatch):
     from typesafe_sdk import SystemOneResponse
-    from jav.adapters import jev
+    from jav.ai import jev
 
     _, ref = runtime_source(isolated, monkeypatch)
     synthetic_gpt(monkeypatch)

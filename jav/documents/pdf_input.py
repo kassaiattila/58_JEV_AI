@@ -7,7 +7,7 @@ write these steps out each; now each flow's step calls this module and keeps onl
 extraction saves the source layer and judges the OCR quality, the recognition remembers the Azure reading's
 fingerprint.
 
-Layer: a flow's step → **this** → `jav.documents.pdf`, `jav.documents.ocr`, `jav.policy`.
+Layer: a flow's step → **this** → `jav.documents.pdf`, `jav.documents.ocr`, `jav.ai.policy`.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from jav import policy
+from jav.ai import policy
 from jav.core.digest import file_sha256
 from jav.documents.pdf import PdfText
 

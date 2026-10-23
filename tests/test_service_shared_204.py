@@ -55,7 +55,7 @@ def test_every_module_of_addresses_takes_the_shared_rules_from_the_shared_module
 
 
 def test_the_shared_module_imports_no_service_module():
-    assert sorted(n for n in _imports(JAV / "service_shared.py") if _is_service(n)) == []
+    assert sorted(n for n in _imports(PROJECT_ROOT / "jav/service_shared.py") if _is_service(n)) == []
 
 
 def test_importing_the_shared_module_loads_no_service_module():

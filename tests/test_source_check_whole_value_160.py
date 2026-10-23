@@ -5,9 +5,9 @@ printed amount with another decimal place ("1250" for "12,50"). On the JEV path 
 truncated value; without JEV nothing did. A value found only in part now opens the same "not printed" to-do.
 Synthetic documents only."""
 
-from jav import typepack
-from jav.jev_verify import code_verdicts, find_evidence
-from jav.models import LineLayout
+from jav.ai import typepack
+from jav.ai.jev_verify import code_verdicts, find_evidence
+from jav.ai.models import LineLayout
 from jav.core.numbers import document_convention
 from tests.pdfgen import INVOICE_LINES
 
@@ -63,7 +63,7 @@ def test_a_thousands_dot_amount_is_still_found_by_its_digits():
 
 def _native_fact(tmp_path, monkeypatch, value):
     """The native path without JEV: one fact citing the quote "Order code: 0012"."""
-    from jav import native_processing
+    from jav.ai import native_processing
     from jav.documents import native_results
     from jav.core import store
     from jav.core import calls

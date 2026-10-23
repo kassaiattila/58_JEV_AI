@@ -256,7 +256,7 @@ SUSPICIOUS_ATTACHMENT = todo_kinds.SUSPICIOUS_ATTACHMENT  # 154 (DECISIONS 154);
 def suspicious_email(run_id: str, email_item_id: str) -> bool:
     """154: whether the run's email item was routed by a signal (an injected instruction -> `human:suspicious`,
     policy `email.signal_routes`)."""
-    from jav import policy
+    from jav.ai import policy
 
     result = store.email_result(work_runs.flow_run_id(run_id, email_item_id))
     return bool(result) and result.get("next_flow") in set(policy.EMAIL_SIGNAL_ROUTES.values())
@@ -742,7 +742,7 @@ def _message_tables(message_json: str, _mtime_ns: int) -> int:
 def reads_text(next_flow: str | None) -> bool:
     """192 (backlog Q-m2-label-text): whether the email's next step extracts data from the email's own text too (its
     type pack reads text: the quote request), so its name says so."""
-    from jav import typepack
+    from jav.ai import typepack
 
     if not next_flow or not next_flow.startswith("m2:"):
         return False
@@ -797,7 +797,7 @@ def effective_email_result(res: dict[str, Any], corrected_intent: str | None) ->
     """The email result with the manual correction (058 K5.1): the corrected intent wins and the routing is recomputed
     from it in code (the machine signals - e.g. an injected instruction - still count). The machine intent is kept
     (`machine_intent`)."""
-    from jav import policy
+    from jav.ai import policy
     from jav.domains.email.emails import Attachment, is_bookkeeping_file
 
     signals = {k: v for k, v in (res.get("signals") or {}).items() if k != "scores"}

@@ -10,7 +10,7 @@ import math
 
 import pytest
 
-from jav import token_confidence as tc
+from jav.ai import token_confidence as tc
 
 
 def _tokens(pieces: list[tuple[str, float]]) -> list[dict]:

@@ -5,7 +5,8 @@ import hashlib
 import json
 from pathlib import Path
 from jav.core.config import PROJECT_ROOT, PROMPTS_DIR
-from jav import typepack, legacy_packs
+from jav import legacy_packs
+from jav.ai import typepack
 
 
 def _read(path):

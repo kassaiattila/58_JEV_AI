@@ -116,7 +116,7 @@ def field_right(field: str, got: Any, expected: Any) -> bool:
         return a == b or (a.startswith("36") and "06" + a[2:] == b) or (b.startswith("36") and "06" + b[2:] == a)
     if field == "contact_email":
         return str(got).strip().casefold() == str(expected).strip().casefold()
-    from jav.typepack import get as get_pack
+    from jav.ai.typepack import get as get_pack
 
     return field_equal(field, got, expected, get_pack(TYPE).kind(field))
 
@@ -124,7 +124,7 @@ def field_right(field: str, got: Any, expected: Any) -> bool:
 def score(got: dict[str, Any], expected: invented_golden.Request) -> dict[str, Any]:
     """Per header field right or wrong; the number of items; each expected item's quantity in order (a missing row
     is wrong); the units as information only (the expected unit is the price list's, which matching decides)."""
-    from jav.typepack import get as get_pack
+    from jav.ai.typepack import get as get_pack
 
     exp = expected.model_dump(mode="json")
     fields = {f: field_right(f, got.get(f), exp.get(f)) for f in get_pack(TYPE).header_fields}
@@ -145,7 +145,7 @@ def _quantity(value: Any) -> Decimal | None:
 
 
 def _reading(state) -> dict[str, Any] | None:
-    from jav.typepack import get as get_pack
+    from jav.ai.typepack import get as get_pack
 
     if state.record is None:
         return None

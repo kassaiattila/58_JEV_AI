@@ -350,7 +350,7 @@ def parse_reason(code: str) -> str | None:
 def review_reasons(current: dict[str, Any]) -> list[str]:
     """The overlap to-dos of the statement being processed (`current`: the snapshot's statement shape), against the
     store's statements: one per live statement it books the same days with, undecided. It reads the store: the check
-    registry runs it in a worker run only (175, `jav/checks.py`)."""
+    registry runs it in a worker run only (175, `jav/ai/checks.py`)."""
     from jav.domains.finance import reconcile
 
     others = [s for s in reconcile.statements() if s["id"] != current["id"]]

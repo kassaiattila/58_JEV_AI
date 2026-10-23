@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from functools import cache
 from typing import Any
 
-from jav import typepack
+from jav.ai import typepack
 from jav.core import cfg
 
 KEY = re.compile(r"^[a-z][a-z0-9_]*$")

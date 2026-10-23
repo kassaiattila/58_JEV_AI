@@ -57,6 +57,8 @@ MOVED_MODULES: dict[str, str] = {
     "dates": "core.dates", "numbers": "core.numbers",
     "native_contracts": "documents.native_contracts", "source_layer": "documents.source_layer",
     "readers.contracts": "documents.readers.contracts", "readers.interpretation": "documents.readers.interpretation",
+    "models": "ai.models", "detect": "ai.detect", "detect_detail": "ai.detect_detail", "extract_llm": "ai.extract_llm",
+    "gpt_choice": "ai.gpt_choice", "typepack": "ai.typepack",
 }
 
 

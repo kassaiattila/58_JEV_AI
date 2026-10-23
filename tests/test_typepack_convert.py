@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from jav import typepack
+from jav.ai import typepack
 from jav.typepack_convert import LEGACY_DIR, PENDING, convert, guess_kind
 
 OLD_MAP = json.loads((LEGACY_DIR.parent / "doc_types.json").read_text(encoding="utf-8"))["old_type_map"]
@@ -52,7 +52,7 @@ def test_statement_keeps_transactions_rules_and_enums():
 def test_converted_pack_agrees_with_legacy_fixture_verdict(fixture):
     """The expected verdict of the legacy (synthetic) test document = the new pack's normalisation + rules; no data is
     lost."""
-    from jav.validators import run_all
+    from jav.ai.validators import run_all
 
     case = json.loads(fixture.read_text(encoding="utf-8"))
     pack = typepack.get(fixture.parent.parent.name)
@@ -66,7 +66,7 @@ def test_converted_pack_agrees_with_legacy_fixture_verdict(fixture):
 
 
 def test_broken_statement_is_flagged():
-    from jav.validators import run_all
+    from jav.ai.validators import run_all
 
     case = json.loads((LEGACY_DIR / "statement_cib" / "fixtures" / "synth_statement.json").read_text(encoding="utf-8"))
     case["datapoints"]["closing_balance"] = "999.00"

@@ -108,7 +108,7 @@ def _build_email(mod: ModuleType, b: Build) -> Any:
 def _build_native(mod: ModuleType, b: Build) -> Any:
     if b.run_id is None or b.item is None or b.recipe_hash is None:
         raise ValueError("Native processing requires the frozen run and item identities")
-    from jav.native_processing import estimate_limits
+    from jav.ai.native_processing import estimate_limits
 
     return mod.build_app(work_run_id=b.run_id, item_id=b.item["item_id"], graph_id=b.app_id,
                          source_path=b.source_path, read_path=b.read_path or b.source_path,

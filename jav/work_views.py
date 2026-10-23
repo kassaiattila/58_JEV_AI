@@ -13,7 +13,8 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from jav import item_kinds, logic_packs, typepack, work, work_readiness, work_recipes, work_runs
+from jav import item_kinds, logic_packs, work, work_readiness, work_recipes, work_runs
+from jav.ai import typepack
 from jav.core import cfg, store
 from jav.runtime import worker
 from jav.core import calls

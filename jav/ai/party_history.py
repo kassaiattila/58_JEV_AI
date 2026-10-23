@@ -3,20 +3,21 @@
 A model that swaps the supplier's and the buyer's tax numbers leaves two well-formed values that pass every field
 check. Within one document nothing shows the swap; across documents it does: the same two companies usually stand in
 the same roles. This module counts the earlier documents of the same type on which the pair stood the other way
-round, and on which it stood alike; `jav/validators.py` turns a clear majority the other way into a to-do.
+round, and on which it stood alike; `jav/ai/validators.py` turns a clear majority the other way into a to-do.
 
 A position-based rule (the tax number below the other party's name or heading) was measured first on the stored
 results and dropped: it flagged every invoice of some suppliers, including ones the owner had confirmed as correct.
 
 The store is read only inside a worker run: measurements and the command line keep giving results that do not depend
-on what the store holds (175: the check registry's gate, `jav/checks.py`, in front of the `party_orientation` check). Each earlier document counts once, by
+on what the store holds (175: the check registry's gate, `jav/ai/checks.py`, in front of the `party_orientation` check). Each earlier document counts once, by
 its counted result when that is of the same type (174, plan 170 L2: the package's current result across every package,
 `package_result.counted_documents`; before, its latest result of that type); the current document never counts.
 """
 
 from __future__ import annotations
 
-from jav import fact_checks, package_result
+from jav import package_result
+from jav.ai import fact_checks
 from jav.core import store
 
 

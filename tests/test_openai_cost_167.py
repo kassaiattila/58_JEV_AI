@@ -84,8 +84,8 @@ class _Agent:
 
 
 def test_the_extraction_charges_an_unlisted_answering_model_at_the_requested_price(isolated):
-    from jav import extract_llm
-    from jav.typepack import get as get_pack
+    from jav.ai import extract_llm
+    from jav.ai.typepack import get as get_pack
     from tests.test_no_jev_085 import GOOD
 
     pack = get_pack("invoice_hu")

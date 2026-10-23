@@ -68,7 +68,7 @@ def routes(app: FastAPI, r: str) -> None:
     @app.get(r + "/document-formats")
     def document_formats() -> dict[str, Any]:
         from jav.documents.native_contracts import DOCUMENT_FORMATS
-        from jav.native_processing import estimate_limits
+        from jav.ai.native_processing import estimate_limits
 
         limits = estimate_limits({"jev": "off"})
         return {"formats": [item.model_dump(mode="json") for item in DOCUMENT_FORMATS],

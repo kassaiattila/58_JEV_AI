@@ -15,9 +15,10 @@ from __future__ import annotations
 
 import pytest
 
-from jav import parties, policy
+from jav import parties
+from jav.ai import policy
 from jav.core import store  # 185: the direction rule is `parties.confirm_detail_by_direction`
-from jav.models import FlowState, DocumentRecord
+from jav.ai.models import FlowState, DocumentRecord
 
 OWN_TAX = "28642099-2-42"
 SURE = {"invoice_hu": 0.29, "invoice_out": 0.70, "none": 0.01}

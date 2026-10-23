@@ -152,7 +152,7 @@ def interpret(*, work_run_id: str, item_id: str, graph_id: str, reading_id: str,
                 max_transfer_bytes=limits.max_transfer_bytes, max_output_tokens=limits.max_output_tokens,
                 receipt_observer=gpt_receipt)
             if jev:
-                from jav.adapters.jev import JevAdapter, JevUnavailableError
+                from jav.ai.jev import JevAdapter, JevUnavailableError
                 try:
                     interpretation = providers.verify_jev(delivery, interpretation, run_id=graph_id,
                         isolated_store=store.active_path(), max_transfer_bytes=limits.max_transfer_bytes,
