@@ -21,6 +21,8 @@ module asks first.
 finance domain the statements and reconciliation steps, the email domain the emails step. The package scopes
 (`jav/app/package_scope.py`): the finance domain registers the package roles, the workflows a step's package's scope, the
 package scopes themselves their party reference and the removal of a deleted package's scope.
+218 (plan P3 P3b): the modules that register machine decision points on import (`jav.core.trace`) are imported, so the
+registry of points is complete in every process.
 """
 
 from __future__ import annotations
@@ -30,6 +32,8 @@ from typing import Any, Callable
 
 _loaded = False
 _loading = False
+# 218 (P3b): the modules that register decision points on import (the workflows' are imported by `order`)
+DECISION_POINT_MODULES = ("jav.flows.flow_detect",)
 
 
 def order(domains: list[Any]) -> list[Callable[[], None]]:
@@ -56,9 +60,11 @@ def load_all() -> None:
 
         for register in order([importlib.import_module(name) for name in DOMAINS]):
             register()
+        for name in DECISION_POINT_MODULES:
+            importlib.import_module(name)
         _loaded = True
     finally:
         _loading = False
 
 
-__all__ = ["load_all", "order"]
+__all__ = ["DECISION_POINT_MODULES", "load_all", "order"]

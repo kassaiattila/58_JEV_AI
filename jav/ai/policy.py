@@ -51,6 +51,16 @@ def band_name(callsite: str) -> str:
     return "default"
 
 
+def band_keys(callsite: str, *fields: str) -> tuple[str, ...]:
+    """218 (P3b): the `policy.json` keys a band decision of the call site reads, for the decision trace: the matched
+    `band_for` key and each field's set (the named set's own value, or the `default` it inherits)."""
+    parts = callsite.split(".")
+    matched = next((".".join(parts[:n]) for n in range(len(parts), 0, -1) if ".".join(parts[:n]) in BAND_FOR), None)
+    name = band_name(callsite)
+    return ((f"band_for.{matched}",) if matched else ()) + tuple(
+        f"bands.{name if field in BANDS.get(name, {}) else 'default'}.{field}" for field in fields)
+
+
 def band(callsite: str) -> dict[str, Any]:
     """The call site's resolved band set: the named set merged over `default` (a missing field is inherited)."""
     return {**BANDS["default"], **BANDS.get(band_name(callsite), {})}

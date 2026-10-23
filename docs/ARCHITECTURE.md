@@ -783,9 +783,14 @@ the run and the case, the inputs the rule read and their fingerprint, the outcom
 each file's version and content fingerprint, and the process's calculation snapshot. When the row cannot be written,
 the decision is not written either. `trace.replay(row)` runs the rule again on a row's inputs (the basis of the planned
 preview of a changed rule, P3d). A person's decision has its own journal (`jav.core.decisions`), whose state the pages
-send back against stale edits, so the machine's trace is a table of its own. Points so far: `workflow.budget_gate` (a
-workflow step's estimate per provider against its approved budget, `workflows.budget_gate`; traced with the step's wait
-for a budget, or with its start and the run it started). `python -m jav.cli trace` reads it (`--points`, `--point`,
+send back against stale edits, so the machine's trace is a table of its own. The modules that register points on import
+are listed in `registrations.DECISION_POINT_MODULES`, so the registry is complete in every process. Points so far:
+`workflow.budget_gate` (a workflow step's estimate per provider against its approved budget, `workflows.budget_gate`;
+traced with the step's wait for a budget, or with its start and the run it started); `detect.doc_type` and
+`detect.detail_type` (M1: whether the recognised type waits for a person, and the detailed type's to-dos including the
+issuer cross-check, `flow_detect.doc_type_rule` and `detail_type_rule`; the recognition's save, its document row, its
+to-dos and both traces, is one write transaction, the store's own writes joining it as savepoints in `store.session`).
+The rule keys of a band decision come from `policy.band_keys`. `python -m jav.cli trace` reads it (`--points`, `--point`,
 `--subject KIND:ID`, `--run`, `--case`, `--last`; each row with `same`: its rule gives the stored outcome again); the
 status page counts it by point. Tests: `tests/test_decision_trace_218.py` (a new point must be listed there with its
 test).

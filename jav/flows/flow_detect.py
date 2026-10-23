@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from burr.core import ApplicationBuilder, action, default, expr, when
 from burr.core.application import Application
@@ -18,7 +20,7 @@ from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
 from jav.ai import policy
-from jav.core import store
+from jav.core import store, trace
 from jav.ai.detect import DetectResult
 from jav.ai.detect_detail import DetailResult
 from jav.ai.engine import with_engine
@@ -122,10 +124,9 @@ def detect(state: DetectState) -> DetectState:
         state.review_reasons = state.review_reasons + [f"jev_unavailable:{exc.reason}"]
         return state
     r = state.result
-    state.uncertain = policy.choice_needs_review(r.confidence, r.probabilities, "detect.doc_type") or r.doc_type == "unknown"
+    state.uncertain = doc_type_rule(_type_inputs(state))["uncertain"]
     if r.doc_type != "unknown":
         _resolve_detail(state, get_adapter())
-        _check_issuer(state, engine="jev")
     return state
 
 
@@ -145,21 +146,106 @@ def _detect_gpt(state: DetectState, pdf) -> DetectState:
         state.review_reasons = state.review_reasons + [reason]
         return state
     r = state.result
-    state.uncertain = (not r.measured or r.doc_type == "unknown"
-                       or policy.choice_needs_review(r.confidence, r.probabilities, "detect.doc_type.gpt"))
+    state.uncertain = doc_type_rule(_type_inputs(state))["uncertain"]
     if r.doc_type != "unknown":
         _resolve_detail(state, None, chooser=choose_detail)
-        _check_issuer(state, engine="gpt")
     return state
 
 
-def _check_issuer(state: DetectState, *, engine: str) -> None:
-    """090: the type / issuer cross-check in code (`policy.issuer_mismatch_reason`; `configs/policy.json` names the
-    engines it applies to). A contradiction is a to-do beside the detailed type's; the recognised type stays."""
+# --- 218 (plan P3 P3b): the two decisions of the recognition as pure rules, traced with the document's save -----------
+
+DOC_TYPE_POINT, DETAIL_TYPE_POINT = "detect.doc_type", "detect.detail_type"
+_DETAIL_ERRORS = ("jev_unavailable:", "detect_detail:gpt_failed:")  # a question that failed, not a rule's to-do
+_CHOICE_FIELDS = ("choice_human_max_conf", "choice_second_min_gap", "uncertain_review")
+
+
+def _engine(state: DetectState) -> str:
+    return "jev" if state.jev else "gpt"
+
+
+def _type_inputs(state: DetectState) -> dict[str, Any]:
+    r = state.result
+    return {"engine": _engine(state), "doc_type": r.doc_type, "confidence": r.confidence, "probabilities": r.probabilities,
+            "measured": r.measured}
+
+
+def doc_type_rule(inputs: Mapping[str, Any]) -> dict[str, Any]:
+    """Whether the recognised type waits for a person: an unknown type, a confidence the GPT answer could not give, or a
+    confidence in the review band of the recogniser's call site (`detect.doc_type[.gpt]`). The type stays either way."""
+    callsite = "detect.doc_type" + (".gpt" if inputs["engine"] == "gpt" else "")
+    uncertain = (not inputs["measured"] or inputs["doc_type"] == "unknown"
+                 or policy.choice_needs_review(inputs["confidence"], inputs["probabilities"], callsite))
+    return {"doc_type": inputs["doc_type"], "uncertain": bool(uncertain)}
+
+
+def _detail_inputs(state: DetectState, errors: list[str]) -> dict[str, Any]:
     d = state.detail
-    reason = policy.issuer_mismatch_reason(state.result.doc_type, d.key if d else None, state.result.issuer_hu, engine=engine)
-    if reason:
-        state.detail_reasons = state.detail_reasons + [reason]
+    return {"engine": _engine(state), "doc_type": state.result.doc_type, "issuer_hu": state.result.issuer_hu,
+            "broad": d.broad, "key": d.key, "method": d.method, "confidence": d.confidence,
+            "probabilities": d.probabilities, "scores": d.scores, "errors": errors}
+
+
+def detail_type_rule(inputs: Mapping[str, Any]) -> dict[str, Any]:
+    """The detailed type's to-dos (047, 069, 086, 090): a failed question (`errors`), a category without a type pack,
+    an open detailed type, a GPT answer without a confidence, a JEV or GPT answer in the review band of
+    `detect.detail_type[.gpt]`, and the type / issuer cross-check in code (a type presuming a Hungarian issuer the
+    recogniser judged foreign). The detailed type stays either way."""
+    reasons = list(inputs["errors"])
+    key, method, broad = inputs["key"], inputs["method"], inputs["broad"]
+    if method == "no_candidate":  # 069: no type pack for the category (payment reminder, unknown): no extraction
+        reasons.append(f"detect:no_type_pack:{broad}")
+    elif key is None:
+        reasons.append(f"detect:detail_open:{broad}")
+    elif method == "gpt" and inputs["confidence"] is None:
+        reasons.append(f"detect_detail:confidence_unavailable:{key}")
+    elif method in ("jev", "gpt"):
+        callsite = "detect.detail_type" if method == "jev" else "detect.detail_type.gpt"
+        reason = policy.choice_review_reason("detect_detail", key, inputs["confidence"] or 0.0, inputs["probabilities"], callsite)
+        if reason:
+            reasons.append(reason)
+    issuer = policy.issuer_mismatch_reason(inputs["doc_type"], key, inputs["issuer_hu"], engine=inputs["engine"])
+    if issuer:  # 090: a contradiction is a to-do beside the detailed type's
+        reasons.append(issuer)
+    return {"key": key, "reasons": reasons}
+
+
+def _detail_keys(inputs: Mapping[str, Any]) -> tuple[str, ...]:
+    keys: tuple[str, ...] = ("detect_issuer.engines", "detect_issuer.hungarian_types")
+    keys += policy.band_keys(f"detect.issuer_is_hungarian.{inputs['engine']}", "noul_no_max")
+    if inputs["method"] == "issuer":
+        keys += ("detect_detail.foreign_issuer_pack",)
+    elif inputs["method"] == "anchors":
+        keys += ("detect_detail.anchor_margin",)
+    elif inputs["method"] in ("jev", "gpt"):
+        keys += policy.band_keys("detect.detail_type" + (".gpt" if inputs["method"] == "gpt" else ""), *_CHOICE_FIELDS)
+    return keys
+
+
+def _trace(c: Any, state: DetectState) -> None:
+    """The recognised type's and the detailed type's decisions, in the save's transaction."""
+    if state.result is None:  # no answer: nothing was decided (the to-do names the failure)
+        return
+    subject = ("document", state.doc_id)
+    inputs = _type_inputs(state)
+    callsite = "detect.doc_type" + (".gpt" if inputs["engine"] == "gpt" else "")
+    trace.record_in(c, DOC_TYPE_POINT, subject=subject, inputs=inputs, outcome=doc_type_rule(inputs),
+                    keys={"policy.json": policy.band_keys(callsite, *_CHOICE_FIELDS)}, run_id=state.run_id)
+    if state.detail is not None:
+        inputs = _detail_inputs(state, [r for r in state.detail_reasons if r.startswith(_DETAIL_ERRORS)])
+        trace.record_in(c, DETAIL_TYPE_POINT, subject=subject, inputs=inputs, outcome=detail_type_rule(inputs),
+                        keys={"policy.json": _detail_keys(inputs)}, run_id=state.run_id)
+
+
+trace.register(trace.Point(
+    DOC_TYPE_POINT, owner=__name__, files=("policy.json",), rule=doc_type_rule,
+    what="whether a document's recognised type waits for a person (unknown, unmeasured or in the review band)",
+    not_for="which type the recogniser chose (its answer is an input) or the detailed type within it"))
+trace.register(trace.Point(
+    DETAIL_TYPE_POINT, owner=__name__, files=("policy.json",), rule=detail_type_rule,
+    what="the to-dos of a document's detailed type: no type pack, still open, unmeasured, in the review band, or a "
+         "type presuming a Hungarian issuer the recogniser judged foreign",
+    not_for="how the detailed type was found (issuer, single pack, anchors or a question: its method is an input) or "
+            "its later check against the own parties' direction"))
 
 
 def _resolve_detail(state: DetectState, jev, chooser=None) -> None:
@@ -183,23 +269,23 @@ def _resolve_detail(state: DetectState, jev, chooser=None) -> None:
         d = DetailResult(broad=broad, key=None, method="gpt")
         state.detail_reasons = [f"detect_detail:gpt_failed:{type(exc).__name__}"]
     state.detail = d
-    if d.method == "no_candidate":  # 069: no type pack for the category (payment reminder, unknown): no extraction
-        state.detail_reasons = state.detail_reasons + [f"detect:no_type_pack:{broad}"]
-        return
-    if d.key is None:
-        state.detail_reasons = state.detail_reasons + [f"detect:detail_open:{broad}"]
-    elif d.method == "gpt" and d.confidence is None:
-        state.detail_reasons = state.detail_reasons + [f"detect_detail:confidence_unavailable:{d.key}"]
-    elif d.method in ("jev", "gpt"):
-        band = "detect.detail_type" if d.method == "jev" else "detect.detail_type.gpt"
-        reason = policy.choice_review_reason("detect_detail", d.key, d.confidence or 0.0, d.probabilities, band)
-        if reason:
-            state.detail_reasons = state.detail_reasons + [reason]
+    # 218 (P3b): the to-dos by the traced rule (090: the issuer cross-check is part of it)
+    state.detail_reasons = detail_type_rule(_detail_inputs(state, list(state.detail_reasons)))["reasons"]
 
 
 @action.pydantic(reads=["doc_id", "source_path", "has_text_layer", "text_source", "page_count", "year", "result", "run_id", "uncertain",
                         "review_reasons", "detail", "detail_reasons", "jev"], writes=["final_status"])
 def save(state: DetectState) -> DetectState:
+    """The document's type, its to-dos and (218, P3b) the traces of both decisions in one write transaction: the
+    store's own writes join it as savepoints (`store.session`), so a stop in between leaves none of them."""
+    with store.session(), store.connect() as c:
+        store.begin_immediate(c)
+        _save(state, c)
+    state.final_status = "done" if state.result is not None else ("jev_unavailable" if state.jev else "gpt_unavailable")
+    return state
+
+
+def _save(state: DetectState, c: Any) -> None:
     r, d = state.result, state.detail
     store.upsert_document(
         doc_id=state.doc_id, source_path=state.source_path, has_text=state.text_source is not None, page_count=state.page_count,
@@ -236,8 +322,7 @@ def save(state: DetectState) -> DetectState:
         store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer="ocr_coverage", reasons=coverage)
     else:
         store.review_close(subject_kind="document", subject_id=state.doc_id, producer="ocr_coverage", run_id=state.run_id)
-    state.final_status = "done" if r is not None else ("jev_unavailable" if state.jev else "gpt_unavailable")
-    return state
+    _trace(c, state)
 
 
 @action.pydantic(reads=[], writes=[])
