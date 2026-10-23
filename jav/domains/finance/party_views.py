@@ -20,7 +20,7 @@ from typing import Any
 
 from jav.app import parties, work, work_runs
 from jav.documents import source_layer
-from jav.core import cfg, store, type_roles, values
+from jav.core import cfg, store, trace, type_roles, values
 from jav.domains.finance import reconcile, statement_months
 
 
@@ -301,8 +301,13 @@ def scan_own_tax(*, write: bool = False) -> dict[str, Any]:
     written = 0
     if write:
         for d in pending:
-            store.review_enqueue(subject_kind="document", subject_id=d.doc_id, run_id=d.flow_run_id or "",
-                                 reasons=[parties.OWN_TAX_REASON], producer=parties.SCAN_PRODUCER)
+            with store.session(), store.connect() as c:  # 218 (P3b): the to-do and its decision's trace in one write
+                store.begin_immediate(c)
+                inputs = parties.own_tax_inputs(d.doc_type, d.fields, c)
+                store.review_enqueue(subject_kind="document", subject_id=d.doc_id, run_id=d.flow_run_id or "",
+                                     reasons=[parties.OWN_TAX_REASON], producer=parties.SCAN_PRODUCER)
+                trace.record_in(c, parties.OWN_TAX_POINT, subject=("document", d.doc_id), inputs=inputs,
+                                outcome=parties.own_tax_rule(inputs), keys=parties.OWN_TAX_KEYS, run_id=d.flow_run_id)
             written += 1
         for run_id in sorted({d.run_id for d in pending if d.run_id}):
             work_runs.refresh_run_status(run_id)

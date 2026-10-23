@@ -51,18 +51,19 @@ GOLDENS = ("jav.domains.finance.goldens",)
 # measurement's result never depends on what the store holds (175, plan 170 E3: `jav/ai/checks.py`) ---------------------
 
 
-def duplicate_check(subject: checks.Subject) -> list[str]:
+def duplicate_check(subject: checks.Subject) -> list[str] | checks.Traced:
     """126 (backlog F-duplicate, the owner's decisions of 2026-10-07): an invoice-like document that is the same
-    invoice as an earlier one in the store gets a `duplicate:<kind>:<other>` to-do (`jav/domains/finance/duplicates.py`)."""
+    invoice as an earlier one in the store gets a `duplicate:<kind>:<other>` to-do (`jav/domains/finance/duplicates.py`);
+    218: with its decision's trace."""
     from jav.domains.finance import duplicates
 
     if subject.record is None or duplicates.family(subject.doc_type) is None:
         return []
     fields = subject.record.to_datapoints(tuple(duplicates.key_fields()))  # the stored form, as the earlier ones are
-    return duplicates.review_reasons(subject.doc_id, subject.doc_type, fields)
+    return duplicates.traced(subject.doc_id, subject.doc_type, fields) or []
 
 
-def own_tax_check(subject: checks.Subject) -> list[str]:
+def own_tax_check(subject: checks.Subject) -> list[str] | checks.Traced:
     """134 (DECISIONS 134): an incoming invoice whose supplier tax number is an own party's, while the buyer's is
     another number or missing, gets a `parties:own_tax_as_supplier` to-do (`jav/app/parties.py`): the numbers are likely
     swapped, or it is an outgoing invoice."""
@@ -72,7 +73,7 @@ def own_tax_check(subject: checks.Subject) -> list[str]:
     from jav.ai import typepack
 
     values = subject.record.to_datapoints(typepack.get(subject.doc_type).record_fields)  # the stored form
-    return parties.review_reasons(subject.doc_type, values)
+    return parties.traced(subject.doc_type, values) or []  # 218: with its decision's trace
 
 
 def statement_overlap_check(subject: checks.Subject) -> list[str]:

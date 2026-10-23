@@ -21,7 +21,8 @@ person decides: copy, modified version or not the same (`decide`); the decision 
 to-dos on both documents, is part of the reviewed result (`corrections.review_version`), and the pair never comes up
 again. Nothing is deleted or merged: a confirmed copy is marked in the lists and the export (`marks`), and counts once
 in the totals (`jav/domains/finance/report_utility.py`). `scan` lists the pairs already in the store and, on request, opens the same
-to-do on documents of runs not yet approved (the owner's decision of 2026-10-07, DECISIONS 126).
+to-do on documents of runs not yet approved (the owner's decision of 2026-10-07, DECISIONS 126). 218 (plan P3 P3b): the
+decision is a pure rule (`duplicate_rule`) traced with the to-dos it opens (`finance.duplicate`, `jav.core.trace`).
 
 Reuse: the legacy `orchestrator/framework/payablesquality.py` (supplier + number grouping, "same" only when every other
 field matches, the differing fields listed) and `mattersuggest.py` (a human confirms; a rejected pair does not come up
@@ -40,7 +41,7 @@ from typing import Any, Iterable
 
 from jav.app import item_kinds, package_result
 from jav.ai import fact_checks
-from jav.core import cfg, decisions, store, type_roles
+from jav.core import cfg, decisions, store, trace, type_roles
 from jav.core.user_messages import explained
 
 REASON = "duplicate"
@@ -241,11 +242,61 @@ def review_reasons(doc_id: str | None, doc_type: str | None, fields: dict[str, A
     """The duplicate to-dos of the document being processed: against every earlier document in the store; a pair a
     person has already decided adds nothing. It reads the store: the check registry runs it in a worker run only
     (175, `jav/ai/checks.py`)."""
+    found = traced(doc_id, doc_type, fields)
+    return found.reasons if found is not None else []
+
+
+# --- 218 (plan P3 P3b): the duplicate decision as a pure rule, traced with the to-dos it opens --------------------
+
+DUPLICATE_POINT = "finance.duplicate"
+TRACE_KEYS = {"policy.json": ("duplicates.families", "duplicates.number_field", "duplicates.supplier_tax_field",
+                              "duplicates.supplier_name_field", "duplicates.compared_fields"),
+              "fact_checks.json": ("parties.domestic_tax_stem_digits", "parties.domestic_tax_prefixes",
+                                   "parties.ignore_tokens", "parties.min_subset_tokens")}
+
+
+def decision_inputs(current: Document, candidates: Iterable[Document], decided: set[str]) -> dict[str, Any]:
+    """What the duplicate decision reads: the document's key fields, and the other documents of its family with the
+    same invoice number (their key fields, their order of processing, and whether a person decided the pair)."""
+    number = number_key(current.fields.get(_conf()["number_field"]))
+    fam = family(current.doc_type)
+    others = sorted((d for d in candidates if d.doc_id != current.doc_id and family(d.doc_type) == fam
+                     and number_key(d.fields.get(_conf()["number_field"])) == number), key=lambda d: d.seq)
+    return {"doc_id": current.doc_id, "doc_type": current.doc_type, "fields": {f: current.fields.get(f) for f in key_fields()},
+            "others": [{"doc_id": d.doc_id, "doc_type": d.doc_type, "fields": d.fields, "seq": d.seq,
+                        "decided": pair_key(current.doc_id, d.doc_id) in decided} for d in others]}
+
+
+def duplicate_rule(inputs: dict[str, Any]) -> dict[str, Any]:
+    """The document's duplicate to-dos (`duplicate:<kind>:<other>`): each other document that is the same invoice by
+    the key (family, number, supplier), with its kind (copy, variant, undecidable), unless a person decided the pair;
+    `matches` lists every pair found, decided or not, with the differing and the missing fields."""
+    current = Document(inputs["doc_id"], inputs["doc_type"], inputs["fields"])
+    decided = {o["doc_id"] for o in inputs["others"] if o["decided"]}
+    found = matches(current, [Document(o["doc_id"], o["doc_type"], o["fields"], seq=o["seq"]) for o in inputs["others"]])
+    return {"reasons": [m.reason for m in found if m.other.doc_id not in decided],
+            "matches": [{"doc_id": m.other.doc_id[:PREFIX], "kind": m.kind, "differing": list(m.differing),
+                         "missing": list(m.missing), "decided": m.other.doc_id in decided} for m in found]}
+
+
+def traced(doc_id: str | None, doc_type: str | None, fields: dict[str, Any]) -> Any:
+    """The duplicate decision on the document being processed, against every other document in the store, as a
+    `checks.Traced`; None when it does not apply (no family, no invoice number)."""
+    from jav.ai import checks
+
     if not doc_id or family(doc_type) is None or number_key(fields.get(_conf()["number_field"])) is None:
-        return []
-    found = matches(Document(doc_id, doc_type or "", fields), documents())
+        return None
     decided = {d["pair_key"] for d in decisions_for([doc_id])}
-    return [m.reason for m in found if pair_key(doc_id, m.other.doc_id) not in decided]
+    inputs = decision_inputs(Document(doc_id, doc_type or "", fields), documents(), decided)
+    return checks.Traced(duplicate_rule(inputs)["reasons"], DUPLICATE_POINT, inputs, TRACE_KEYS)
+
+
+trace.register(trace.Point(
+    DUPLICATE_POINT, owner=__name__, files=("policy.json", "fact_checks.json"), rule=duplicate_rule,
+    what="whether an invoice-like document is the same invoice as another one in the store (the same family, number "
+         "and supplier), and of which kind: a copy, a modified version, or undecidable for a missing field",
+    not_for="a person's decision on the pair (copy, modified version, not the same: their own journal) or how the "
+            "totals count a confirmed copy"))
 
 
 def resolve_prefix(prefix: str) -> str | None:
@@ -484,9 +535,20 @@ def scan(*, write: bool = False) -> dict[str, Any]:
                     pending.setdefault(later.doc_id, (later, []))[1].append(m.reason)
     written = 0
     if write:
+        by_number: dict[tuple[str | None, str | None], list[Document]] = defaultdict(list)
+        for d in docs:
+            by_number[(family(d.doc_type), number_key(d.fields.get(_conf()["number_field"])))].append(d)
         for doc, reasons in pending.values():
-            store.review_enqueue(subject_kind="document", subject_id=doc.doc_id, run_id=doc.flow_run_id or "",
-                                 reasons=reasons, producer=PRODUCER)
+            # 218 (P3b): the to-dos and their decision's trace in one write; the others are the earlier documents
+            earlier = [d for d in by_number[(family(doc.doc_type), number_key(doc.fields.get(_conf()["number_field"])))]
+                       if d.seq < doc.seq]
+            inputs = decision_inputs(doc, earlier, decided)
+            with store.session(), store.connect() as c:
+                store.begin_immediate(c)
+                store.review_enqueue(subject_kind="document", subject_id=doc.doc_id, run_id=doc.flow_run_id or "",
+                                     reasons=reasons, producer=PRODUCER)
+                trace.record_in(c, DUPLICATE_POINT, subject=("document", doc.doc_id), inputs=inputs,
+                                outcome=duplicate_rule(inputs), keys=TRACE_KEYS, run_id=doc.flow_run_id)
             written += len(reasons)
         for run_id in sorted({doc.run_id for doc, _ in pending.values() if doc.run_id}):
             work_runs.refresh_run_status(run_id)

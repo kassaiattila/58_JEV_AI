@@ -38,7 +38,7 @@ from itertools import combinations
 from typing import Any, Callable, Iterable
 
 from jav.ai import fact_checks
-from jav.core import cfg, store, type_roles
+from jav.core import cfg, store, trace, type_roles
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 
@@ -561,24 +561,67 @@ def own_tax_reasons(doc_type: str | None, values: dict[str, Any], c=None) -> lis
     """134: an incoming invoice whose supplier tax number is an own party's (a given identity) while the buyer's is
     another number or missing: the two parties' numbers are likely swapped, or it is an outgoing invoice typed as an
     incoming one. A to-do for a person (`parties:own_tax_as_supplier`); the same number on both sides is the role-pair
-    check's (`validator:parties.same_entity`). 157: the check itself, shared by the flow and the store scan."""
-    check = _conf()["supplier_check"]
-    if doc_type not in supplier_check_types():
-        return []
-    st, bt = tax_key(values.get(check["supplier_tax_field"])), tax_key(values.get(check["buyer_tax_field"]))
-    if not st or st == bt:
-        return []
-    if c is None:
-        with store.connect() as own_conn:
-            return own_tax_reasons(doc_type, values, own_conn)
-    own = c.execute("SELECT 1 FROM own_party_identities WHERE kind='tax' AND key=? AND party_id IS NOT NULL", (st,)).fetchone()
-    return [OWN_TAX_REASON] if own else []
+    check's (`validator:parties.same_entity`). 157: the check itself, shared by the flow and the store scan; 218: by
+    the traced rule (`own_tax_rule`)."""
+    inputs = own_tax_inputs(doc_type, values, c)
+    return own_tax_rule(inputs)["reasons"] if inputs is not None else []
 
 
 def review_reasons(doc_type: str | None, values: dict[str, Any]) -> list[str]:
     """134: the own-tax check in a flow (`own_tax_reasons`). It reads the store: the check registry runs it in a worker
     run only, as the duplicates, so a measurement's result never depends on the store (175, `jav/ai/checks.py`)."""
-    return own_tax_reasons(doc_type, values)
+    found = traced(doc_type, values)
+    return found.reasons if found is not None else []
+
+
+def traced(doc_type: str | None, values: dict[str, Any]) -> Any:
+    """218 (P3b): the own-tax check in a flow with its decision's trace (`checks.Traced`); None for a type it does not
+    look at."""
+    from jav.ai import checks
+
+    inputs = own_tax_inputs(doc_type, values)
+    if inputs is None:
+        return None
+    return checks.Traced(own_tax_rule(inputs)["reasons"], OWN_TAX_POINT, inputs, OWN_TAX_KEYS)
+
+
+# --- 218 (plan P3 P3b): the own tax number as the supplier's, a pure rule traced with the to-do it opens -----------
+
+OWN_TAX_POINT = "parties.own_tax_as_supplier"
+OWN_TAX_KEYS = {"parties.json": ("supplier_check.doc_types", "supplier_check.supplier_tax_field", "supplier_check.buyer_tax_field"),
+                "fact_checks.json": ("parties.domestic_tax_stem_digits", "parties.domestic_tax_prefixes")}
+
+
+def own_tax_inputs(doc_type: str | None, values: dict[str, Any], c=None) -> dict[str, Any] | None:
+    """What the check reads: the two tax numbers as printed and as party keys, and the own party whose given identity
+    the supplier's key is (the store's identities); None for a type the check does not look at."""
+    if doc_type not in supplier_check_types():
+        return None
+    if c is None:
+        with store.connect() as own_conn:
+            return own_tax_inputs(doc_type, values, own_conn)
+    check = _conf()["supplier_check"]
+    supplier, buyer = values.get(check["supplier_tax_field"]), values.get(check["buyer_tax_field"])
+    st = tax_key(supplier)
+    own = c.execute("SELECT party_id FROM own_party_identities WHERE kind='tax' AND key=? AND party_id IS NOT NULL",
+                    (st,)).fetchone() if st else None
+    return {"doc_type": doc_type, "supplier_tax_id": supplier, "buyer_tax_id": buyer, "supplier_tax": st,
+            "buyer_tax": tax_key(buyer), "own_party": own["party_id"] if own else None}
+
+
+def own_tax_rule(inputs: dict[str, Any]) -> dict[str, Any]:
+    """The to-do when the supplier's number is an own party's while the buyer's is another number or missing."""
+    st, bt = inputs["supplier_tax"], inputs["buyer_tax"]
+    if inputs["doc_type"] not in supplier_check_types() or not st or st == bt:
+        return {"reasons": []}
+    return {"reasons": [OWN_TAX_REASON] if inputs["own_party"] else []}
+
+
+trace.register(trace.Point(
+    OWN_TAX_POINT, owner=__name__, files=("parties.json", "fact_checks.json"), rule=own_tax_rule,
+    what="whether an incoming invoice names an own party's tax number as the supplier's while the buyer's is another "
+         "number or missing (the numbers are likely swapped, or it is an outgoing invoice)",
+    not_for="the same number on both sides (the role-pair check's) or the invoice's direction by the own parties"))
 
 
 def confirm_detail_by_direction(state: Any) -> None:

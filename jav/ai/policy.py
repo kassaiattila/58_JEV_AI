@@ -471,12 +471,15 @@ def apply_gpt_confidence_policy(state: FlowState) -> None:
 
 def apply_cross_document_checks(state: FlowState) -> list[list[str]]:
     """The cross-document stage on the record being processed: each check's to-dos in the registry's order, nothing
-    outside a worker run. Returns them, one list per check that ran (218: an input of the route's trace)."""
+    outside a worker run. Returns them, one list per check that ran (218: an input of the route's trace); the traces of
+    the checks that give one are kept for the save (`state.check_traces`)."""
     subject = checks.Subject(state.doc_id, state.doc_type, state.record, [v.model_dump() for v in state.validation])
-    found = checks.cross_document(subject)
-    for reasons in found:
+    found = checks.cross_document_traced(subject)
+    for reasons, _ in found:
         require_review(state, *reasons)
-    return found
+    state.check_traces = [{"point": t.point, "inputs": t.inputs, "keys": {f: list(k) for f, k in t.keys.items()}}
+                          for _, t in found if t is not None]
+    return [reasons for reasons, _ in found]
 
 
 def reconcile_fx_tolerance() -> tuple[Decimal, Decimal]:

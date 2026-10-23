@@ -262,7 +262,7 @@ def validate(state: FlowState) -> FlowState:
 @action.pydantic(
     reads=["arm", "picks", "verdicts", "validation", "record", "doc_type", "doc_id", "jev", "llm_token_p", "needs_review",
            "review_reasons"],
-    writes=["route", "needs_review", "review_reasons", "route_inputs"],
+    writes=["route", "needs_review", "review_reasons", "route_inputs", "check_traces"],
 )
 def decide_route(state: FlowState) -> FlowState:
     # 126: the duplicate check compares the document with the earlier ones in the store (worker runs only); 218 (P3b):
@@ -325,7 +325,7 @@ def ground(state: FlowState) -> FlowState:
 @action.pydantic(
     reads=["run_id", "doc_id", "doc_type", "arm", "source_path", "has_text_layer", "text_source", "page_count", "record", "picks", "verdicts",
            "validation", "route", "review_reasons", "needs_review", "provenance", "source_layer_id", "detail_probabilities",
-           "route_inputs", "ocr_escalation"],
+           "route_inputs", "ocr_escalation", "check_traces"],
     writes=[],
 )
 def save(state: FlowState) -> FlowState:
@@ -344,6 +344,9 @@ def _trace(c: Any, state: FlowState) -> None:
     from jav.documents import ocr
 
     ocr.trace_escalation(c, state.ocr_escalation, doc_id=state.doc_id, run_id=state.run_id)
+    for t in state.check_traces:  # the cross-document checks' decisions, before the route they feed
+        trace.record_in(c, t["point"], subject=("document", state.doc_id), inputs=t["inputs"],
+                        outcome=trace.point(t["point"]).rule(t["inputs"]), keys=t["keys"], run_id=state.run_id)
     if state.route_inputs is not None:
         trace.record_in(c, policy.ROUTE_POINT, subject=("document", state.doc_id), inputs=state.route_inputs,
                         outcome=policy.route_rule(state.route_inputs), keys=policy.route_keys(state.route_inputs),

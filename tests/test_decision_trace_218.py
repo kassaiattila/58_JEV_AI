@@ -33,6 +33,8 @@ POINT_TESTS = {
     "email.next_flow": "test_an_email_without_an_intent_traces_only_its_route",
     "extract.route": "test_an_s_path_records_route_and_to_dos_are_traced_with_its_save",
     "ocr.escalation": "test_a_blocked_escalation_is_traced_with_the_recognitions_save",
+    "finance.duplicate": "test_a_duplicate_and_an_own_tax_number_are_traced_with_the_extractions_save",
+    "parties.own_tax_as_supplier": "test_the_store_scans_trace_the_to_dos_they_open",
 }
 
 
@@ -490,3 +492,66 @@ def test_the_escalation_rule_is_what_the_recognition_does_and_replays_the_same(c
     assert out["text"] == ("escalated" if escalated else "local") and (pdf.text == "paid") == escalated
     assert out["reasons"] == ocr.escalation_review_reasons(pdf.ocr)
     assert ocr.escalation_rule(stored["inputs"]) == out
+
+
+# --- the cross-document checks: a duplicate, an own tax number as the supplier's ----------------------------------
+
+
+def _own_party(tax: str) -> None:
+    from jav.app import parties
+
+    parties.create("Example Buyer Kft.", identities=[("tax", parties.tax_key(tax), tax)], actor="tester")
+
+
+def test_a_duplicate_and_an_own_tax_number_are_traced_with_the_extractions_save(db):  # noqa: F811
+    from jav.ai.models import DocumentRecord, FlowState
+    from jav.app import parties
+    from jav.domains.finance import duplicates
+    from jav.flows import flow
+    from tests.test_duplicates_126 import A, _id, _in_run, _inv, _save
+
+    earlier = _save("earlier", _inv())
+    _own_party(A)  # the supplier's number is an own party's: the numbers are likely swapped
+    state = FlowState(source_path="C:/synthetic/now.pdf", case_id="synthetic", arm="G", doc_type="invoice_hu",
+                      doc_id=_id("now"), run_id="r-now")
+    state.record = DocumentRecord(invoice_number="INV-2026/001", supplier_tax_id=A, supplier_name="Example Trading Ltd",
+                                  issue_date="2026-09-02", gross_total=Decimal("1270.00"), currency="HUF")
+    state = _in_run(lambda: flow.decide_route(state))  # the cross-document checks run in a worker run only
+    flow.save(state)
+    rows = {r["point"]: r for r in trace.rows(subject=("document", _id("now")))}
+    dup = rows[duplicates.DUPLICATE_POINT]
+    assert dup["run_id"] == "r-now" and [o["doc_id"] for o in dup["inputs"]["others"]] == [earlier]
+    assert dup["outcome"]["reasons"] == [f"duplicate:variant:{earlier[:16]}"]
+    assert dup["outcome"]["matches"] == [{"doc_id": earlier[:16], "kind": "variant", "differing": ["issue_date"],
+                                          "missing": [], "decided": False}]
+    own = rows[parties.OWN_TAX_POINT]
+    assert own["inputs"]["supplier_tax"] == parties.tax_key(A) and own["inputs"]["own_party"]
+    assert own["outcome"] == {"reasons": [parties.OWN_TAX_REASON]}
+    route = rows["extract.route"]  # their to-dos are the route's inputs, in the order they ran
+    assert route["inputs"]["cross_document"][:2] == [dup["outcome"]["reasons"], own["outcome"]["reasons"]]
+    assert {r["reason"] for r in store.review_open_reasons("document", _id("now"))} >= {
+        f"duplicate:variant:{earlier[:16]}", parties.OWN_TAX_REASON}
+    for row in (dup, own, route):
+        assert trace.replay(row) == row["outcome"]
+
+
+def test_the_store_scans_trace_the_to_dos_they_open(db):  # noqa: F811
+    from jav.app import parties, work_runs
+    from jav.domains.finance import duplicates, party_views
+    from tests.test_duplicates_126 import A, _inv, _run, _save
+
+    _own_party(A)
+    _run("run-1", ["earlier", "now"])
+    earlier = _save("earlier", {**_inv(), "supplier_tax_id": None}, run_id="run-1")
+    now = _save("now", {**_inv(), "supplier_tax_id": A, "supplier_name": "Example Trading Ltd"}, run_id="run-1")
+    assert duplicates.scan(write=True)["written"] == 1 and party_views.scan_own_tax(write=True)["written"] == 1
+    flow_run = work_runs.flow_run_id("run-1", now)
+    (dup,) = trace.rows(point=duplicates.DUPLICATE_POINT)
+    assert (dup["subject_id"], dup["run_id"]) == (now, flow_run)
+    assert dup["outcome"]["reasons"] == [f"duplicate:copy:{earlier[:16]}"]
+    (own,) = trace.rows(point=parties.OWN_TAX_POINT)
+    assert (own["subject_id"], own["run_id"], own["outcome"]) == (now, flow_run, {"reasons": [parties.OWN_TAX_REASON]})
+    for row in (dup, own):
+        assert trace.replay(row) == row["outcome"]
+    duplicates.scan(write=True), party_views.scan_own_tax(write=True)  # nothing more to open: nothing more traced
+    assert len(trace.rows(point=duplicates.DUPLICATE_POINT)) == len(trace.rows(point=parties.OWN_TAX_POINT)) == 1

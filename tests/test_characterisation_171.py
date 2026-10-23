@@ -109,9 +109,12 @@ PIN_G_REASONS = [
 
 def test_a_g_path_decision_without_jev_lists_its_reasons_in_this_order(monkeypatch) -> None:
     """The real policy steps on one G-path record without JEV; only the store readers of the cross-document checks
-    (duplicates, own tax number) are stand-ins, and the decision runs in a worker run, the only place they run."""
-    monkeypatch.setattr(duplicates, "review_reasons", lambda doc_id, doc_type, fields: [f"duplicate:copy:{DOC_C}"])
-    monkeypatch.setattr(parties, "review_reasons", lambda doc_type, values: ["parties:own_tax_as_supplier"])
+    (duplicates, own tax number) are stand-ins, and the decision runs in a worker run, the only place they run. 218:
+    the checks read the store through their traced decision (`traced`), so the stand-ins are those."""
+    monkeypatch.setattr(duplicates, "traced", lambda doc_id, doc_type, fields: checks.Traced(
+        [f"duplicate:copy:{DOC_C}"], duplicates.DUPLICATE_POINT, {}, {}))
+    monkeypatch.setattr(parties, "traced", lambda doc_type, values: checks.Traced(
+        ["parties:own_tax_as_supplier"], parties.OWN_TAX_POINT, {}, {}))
     state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", jev=False, doc_type="invoice_hu",
                       doc_id=DOC_A)
     state.record = DocumentRecord(supplier_name="Example Supplier Kft.", invoice_number="INV-0001", currency="HUF",

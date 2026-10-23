@@ -507,5 +507,8 @@ class FlowState(BaseModel):
     # 218 (plan P3 P3b): what the route's decision read (`policy.decision_inputs`), traced with the save; None: a state
     # decided before the trace
     route_inputs: dict[str, Any] | None = None
+    # 218 (P3b): the cross-document checks' decisions ({point, inputs, keys}: a duplicate, an own tax number), traced
+    # with the save
+    check_traces: list[dict[str, Any]] = Field(default_factory=list)
     jev_calls: list[JevCall] = Field(default_factory=list)
     final_status: str | None = None

@@ -802,7 +802,14 @@ raised before the decision as inputs; the rule files are `policy.json` and the t
 before four to six); `ocr.escalation` (whether a document's weak local OCR text is asked of the paid engine and which
 text goes on, `ocr.escalation_rule`: the escalation keeps what it read beside the text's signals, the attempt's outcome,
 blocked or read, as an input; traced by the recognition's and the extraction's save, and by their `needs_ocr` step,
-now one write transaction too). The rule keys of a band decision come from `policy.band_keys`. `python -m jav.cli trace` reads it (`--points`, `--point`,
+now one write transaction too); `finance.duplicate` and `parties.own_tax_as_supplier` (the cross-document checks: the
+same invoice as another document of the store, by family, number and supplier, with its kind; an own party's tax
+number as the supplier's; `duplicates.duplicate_rule` and `parties.own_tax_rule`, their inputs the document's key
+fields with the other documents of its family and number, and the two tax keys with the own party the supplier's key
+names; a cross-document check gives its trace as a `checks.Traced`, which the extraction keeps in its state,
+`check_traces`, and records in its save; the store scans of the command line, `duplicates --write` and
+`own-tax --write`, record it with each to-do they open, in one write). The rule keys of a band decision come from
+`policy.band_keys`. `python -m jav.cli trace` reads it (`--points`, `--point`,
 `--subject KIND:ID`, `--run`, `--case`, `--last`; each row with `same`: its rule gives the stored outcome again); the
 status page counts it by point. Tests: `tests/test_decision_trace_218.py` (a new point must be listed there with its
 test).
