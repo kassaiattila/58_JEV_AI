@@ -4,7 +4,7 @@
 // state but is not approved on its own. View switcher: Iratok · Adatpontok · Tételsorok · Közmű-költség · Fájlnevek
 // (Documents · Data points · Line items · Utility cost · File names, 078), with the shared table and download panel.
 import { useEffect, useRef, useState } from "react";
-import { api, ApiError, getActor, type PackageResult, type PackageVersion, type WorkpackageView } from "../api";
+import { api, ApiError, getActor, type PackageResult, type PackageVersion, type RuleChanges, type WorkpackageView } from "../api";
 import { DataTable } from "../components/DataTable";
 import { DatasetPicker, runOption } from "../components/DatasetPicker";
 import { ACTIVE_RUN, useLoad, useRunView } from "../hooks";
@@ -239,7 +239,7 @@ function PackageRelease({ wpId, data, running, mark, onReleased, onConflict }: {
       {line === "released" && latest ? (
         <a className="small" href={api.packageVersionFileUrl(wpId, latest.version, "result.xlsx")} download>{t("Download version {{n}} (Excel)", { n: latest.version })}</a>
       ) : null}
-      {data.open_live_runs.map((r) => <RunEngine key={r} runId={r} />)}
+      {data.open_live_runs.map((r) => <RunMarks key={r} runId={r} />)}
       {trial && line !== "trial" ? (
         <span className="release-removed">
           <span className="status s-trial">{t("{{n}} from a trial", { n: trial })}</span>
@@ -261,10 +261,16 @@ function PackageRelease({ wpId, data, running, mark, onReleased, onConflict }: {
   );
 }
 
-/** 160-D: the AI engine of an open live run, shown at its approval. */
-function RunEngine({ runId }: { runId: string }) {
+/** 160-D: the AI engine of an open live run, shown at its approval; 218: and the rules that changed during it. */
+function RunMarks({ runId }: { runId: string }) {
   const run = useRunView(runId);
-  return run.data ? <EngineMark engine={run.data.engine} /> : null;
+  if (!run.data) return null;
+  return (
+    <>
+      <EngineMark engine={run.data.engine} />
+      {run.data.rule_changes ? <RuleChangeNote changes={run.data.rule_changes} /> : null}
+    </>
+  );
 }
 
 // the stored downloads of a version, by their file names, the workbook first (a CSV table only when it has rows)
@@ -417,10 +423,31 @@ function RunState({ runId, wpId }: { runId: string; wpId: string }) {
             : t("removed from the package; left out of the released result")}</span>
         </span>
       ) : null}
+      {run.data.rule_changes ? <RuleChangeNote changes={run.data.rule_changes} /> : null}
       {state === "ready" ? (
         <a className="secondary small-btn" href={`#/workpackages/${encodeURIComponent(wpId)}/result`}>{t("To the package's result")}</a>
       ) : null}
     </div>
+  );
+}
+
+/** 218 (the owner's decision of 2026-10-23: shown at the approval, nothing stops): some items were processed with other
+ *  rules or another version of the program than the run started with, e.g. after a release during the run. */
+function RuleChangeNote({ changes }: { changes: RuleChanges }) {
+  const shown = changes.files.slice(0, 3).map((f) => `${f.path} ${f.before ?? "–"} → ${f.after ?? "–"}`).join(", ");
+  const more = changes.files.length - 3;
+  const files = more > 0 ? t("{{files}} and {{n}} more", { files: shown, n: more }) : shown;
+  const n = changes.items;
+  const detail = !changes.files.length
+    ? t("{{n}} item(s) processed with another version of the program than the run started with", { n })
+    : changes.code_changed
+      ? t("{{n}} item(s) processed with another version of the program and other rules than the run started with: {{files}}", { n, files })
+      : t("{{n}} item(s) processed with other rules than the run started with: {{files}}", { n, files });
+  return (
+    <span className="release-note">
+      <span className="status s-warn">{t("Rules changed")}</span>
+      <span className="release-detail">{detail}</span>
+    </span>
   );
 }
 

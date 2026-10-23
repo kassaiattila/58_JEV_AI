@@ -85,6 +85,14 @@ export function ApprovalPanel(p: {
   );
 }
 
+/** 218 (P3l): the reason the workflow's chain gives when it reopens a version (the service's `REAPPROVE_NOTE`) is the
+ *  interface's own text; a person's reason is shown as they wrote it. */
+const CHAIN_REOPEN_NOTE = "a step it builds on has a new result: check it and approve it again";
+
+function reopenNote(note: string | null | undefined): string {
+  return note === CHAIN_REOPEN_NOTE ? t(CHAIN_REOPEN_NOTE) : note ?? "";
+}
+
 /** The reopened versions, each with what the pack lets a person do with it (a download). */
 export function EarlierVersions({ versions, action }: { versions: OwnVersion[]; action?: (v: OwnVersion) => ReactNode }) {
   useLocale();
@@ -97,7 +105,7 @@ export function EarlierVersions({ versions, action }: { versions: OwnVersion[]; 
         {earlier.map((v) => (
           <li key={v.version} className="small">
             {t("Version {{n}}: approved by {{who}}, {{when}}; reopened by {{by}}, {{at}}: {{note}}",
-              { n: v.version, who: v.approved_by, when: when(v.approved_at), by: v.reopened_by ?? "", at: when(v.reopened_at), note: v.reopen_note ?? "" })}
+              { n: v.version, who: v.approved_by, when: when(v.approved_at), by: v.reopened_by ?? "", at: when(v.reopened_at), note: reopenNote(v.reopen_note) })}
             {action ? <>{" "}{action(v)}</> : null}
           </li>
         ))}

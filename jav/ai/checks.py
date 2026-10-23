@@ -13,8 +13,12 @@ check is one entry here, and that rule is one gate (`store_readable`).
 An entry (`Check`) names its stage and how it runs:
 - record: `run(inv, spec, *, doc_id, doc_type)` returns a check result, or None when the check does not apply; `kind`
   says what the pack's entry names: the whole record (`record`), one field (`field`), or two fields (`pair`);
-- decision: `run(state)` adds its to-dos to the flow state; `arms` names the paths it runs on (S or G);
-- cross-document: `run(subject)` returns its to-dos for the document (`Subject`);
+- decision: `run(state)` adds its to-dos to the flow state; `arms` names the paths it runs on (S or G); 218 (plan P3
+  P3b): `rule(inputs)` is the pure rule `run` applies, the to-dos for the decision's traced inputs (`policy.
+  decision_inputs`), so the extraction's decision trace replays the checks in this registry's order;
+- cross-document: `run(subject)` returns its to-dos for the document (`Subject`); 218 (plan P3 P3b): or, for a
+  traced decision point, a `Traced`: its to-dos with the point, what it read and the rule keys, so the extraction's
+  save records the decision with its to-dos;
 - after-save: `run(write=...)` scans the stored results and returns counts; `producer` names who opens its to-dos and
   `opens` the cross-document check whose to-do it opens;
 - saved (185, plan G-full-move T1f): `run(state)` looks at a document's flow state once its record is saved (the
@@ -60,6 +64,17 @@ class Check:
     reads_store: bool = False
     producer: str | None = None
     opens: str | None = None
+    rule: Callable[..., list[str]] | None = None
+
+
+@dataclass(frozen=True)
+class Traced:
+    """218 (plan P3 P3b): a cross-document check's to-dos with its decision's trace: the decision point, what its rule
+    read (`inputs`) and the rule keys it used, by rule file; the to-dos are the point's rule value for the inputs."""
+    reasons: list[str]
+    point: str
+    inputs: dict[str, Any]
+    keys: dict[str, tuple[str, ...]]
 
 
 @dataclass(frozen=True)
@@ -81,6 +96,8 @@ def register(check: Check) -> None:
         raise ValueError(f"check {check.name}: unknown stage {check.stage!r}")
     if check.stage == "record" and check.kind not in KINDS:
         raise ValueError(f"check {check.name}: a record check names its kind, one of {KINDS}")
+    if check.stage == "decision" and check.rule is None:  # 218: the extraction's decision trace replays it
+        raise ValueError(f"check {check.name}: a decision check names its pure rule")
     if check.name in _CHECKS:
         raise ValueError(f"check {check.name} is registered twice")
     _CHECKS[check.name] = check
@@ -130,10 +147,21 @@ def saved(state: Any) -> None:
             check.run(state)
 
 
+def cross_document_traced(subject: Subject) -> list[tuple[list[str], Traced | None]]:
+    """Each cross-document check's to-dos for the document, in order (one per check that ran), with its decision's
+    trace when the check gives one (`Traced`)."""
+    out: list[tuple[list[str], Traced | None]] = []
+    for check in stage("cross_document"):
+        if runs(check):
+            found = check.run(subject)
+            out.append((list(found.reasons), found) if isinstance(found, Traced) else (list(found), None))
+    return out
+
+
 def cross_document(subject: Subject) -> list[list[str]]:
     """Each cross-document check's to-dos for the document, in order (one list per check that ran)."""
-    return [list(check.run(subject)) for check in stage("cross_document") if runs(check)]
+    return [reasons for reasons, _ in cross_document_traced(subject)]
 
 
-__all__ = ["Check", "KINDS", "STAGES", "Stage", "Subject", "UnknownCheck", "cross_document", "get", "register", "runs", "saved",
-           "stage", "store_readable"]
+__all__ = ["Check", "KINDS", "STAGES", "Stage", "Subject", "Traced", "UnknownCheck", "cross_document", "cross_document_traced",
+           "get", "register", "runs", "saved", "stage", "store_readable"]

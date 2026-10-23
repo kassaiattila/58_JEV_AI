@@ -331,6 +331,8 @@ def _run_view(run_id: str, *, names: bool) -> dict[str, Any]:
                              "engine": work_readiness.run_engine(run),  # 160-D: the approval and the review show it
                              # 160-C (decision 163 D7): items removed from the package, left out of the release
                              "removed_items": work_runs.excluded_items(run)}
+    if changed := work_runs.rule_changes(run_id):  # 218: only when the rules or the code changed during the run
+        extra["rule_changes"] = changed
     if names:
         from jav.app import naming
 

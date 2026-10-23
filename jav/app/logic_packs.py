@@ -90,6 +90,9 @@ class LogicPack:
       version (`package_release.record_own`: a reconciliation's statement, a quote), so each of its packages waits
       for that approval as a human task (`jav/app/human_tasks.py`); only a pack without runs. A pack whose work is
       done without such an approval (the email routing: every attachment decided) leaves it False.
+    - `reopen(wp_id, *, note, actor)`: 218 (plan P3 P3l): reopens the package's approved own version with a reason in
+      the pack's own way (its event, its version's file), as a person's reopening does; needed with `own_approval`. A
+      workflow's chain calls it when the step built on another one is approved again (`jav/app/workflows.py`).
 
     188: a logic pack's golden sets (named `<kind>:<name>`) are measured by the shared measurement command like a type
     pack's; 204 (plan G-process-core R1h): its domain names the module that describes them (`GOLDENS` in `jav/domains/`, read by
@@ -115,6 +118,7 @@ class LogicPack:
     scope: Callable[[str], dict[str, Any]] | None = None
     service: str | None = None
     own_approval: bool = False
+    reopen: Callable[..., Any] | None = None
 
     def __post_init__(self) -> None:
         if self.kind in DATA_KINDS:
@@ -128,6 +132,8 @@ class LogicPack:
             raise ValueError(f"logic pack {self.kind!r} has no runs, so no rule in a run")
         if self.own_approval and self.has_runs:
             raise ValueError(f"logic pack {self.kind!r} has runs: its result is released, not approved as its own")
+        if self.own_approval and self.reopen is None:
+            raise ValueError(f"logic pack {self.kind!r} approves its own version, so it needs its reopening")
 
 
 _PACKS: dict[str, LogicPack] = {}

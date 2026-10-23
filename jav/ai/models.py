@@ -484,6 +484,8 @@ class FlowState(BaseModel):
     ocr_low_conf_ratio: float | None = None  # share of weak (< 60) words
     ocr_engine: str | None = None  # native / docker / azure_di (the text's source, if OCR)
     ocr_escalated: bool = False  # the more accurate paid engine's text replaced weak local OCR (policy ocr.escalate_*)
+    # 218 (plan P3 P3b): what the escalation's decision read (`ocr.escalation_rule`), traced with the save
+    ocr_escalation: dict[str, Any] | None = None
     source_layer_id: str | None = None  # 045: word layer reference (jav/documents/source_layer.py); the words live in the store
     provenance: dict[str, Any] = Field(default_factory=dict)  # 045: per-field source location (jav/ai/grounding.py), saved
     # S path
@@ -502,5 +504,11 @@ class FlowState(BaseModel):
     needs_review: bool = False
     review_reasons: list[str] = Field(default_factory=list)
     route: Route | None = None
+    # 218 (plan P3 P3b): what the route's decision read (`policy.decision_inputs`), traced with the save; None: a state
+    # decided before the trace
+    route_inputs: dict[str, Any] | None = None
+    # 218 (P3b): the cross-document checks' decisions ({point, inputs, keys}: a duplicate, an own tax number), traced
+    # with the save
+    check_traces: list[dict[str, Any]] = Field(default_factory=list)
     jev_calls: list[JevCall] = Field(default_factory=list)
     final_status: str | None = None

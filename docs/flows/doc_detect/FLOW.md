@@ -17,7 +17,7 @@
 
 ### terminal
 - **done** _(terminal)_ — kategorizálva
-- **needs_ocr** _(terminal)_ — szöveg nélküli / törött szövegrétegű PDF, és az OCR sem adott szöveget (vagy nincs motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja
+- **needs_ocr** _(terminal)_ — szöveg nélküli / törött szövegrétegű PDF, és az OCR sem adott szöveget (vagy nincs motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja; 218: one write transaction with the OCR escalation's trace (ocr.escalation)
 
 Terminal steps: done, needs_ocr
 

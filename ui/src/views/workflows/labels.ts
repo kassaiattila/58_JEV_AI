@@ -8,7 +8,7 @@ export const STEP_STATUS: Record<WorkflowStepStatus, string> = tmap({
   pulling: "downloading the emails…", needs_budget: "waits for a budget", nothing_new: "nothing new: done",
   failed: "did not start", running: "running", review: "to-dos in its package", approve: "awaiting approval",
   approved: "approved", pairing: "pairing in its package", attention: "needs a person in its package",
-  missing: "its package is missing",
+  missing: "its package is missing", stale: "out of date",
 }) as Record<WorkflowStepStatus, string>;
 
 /** 157: a step's state mark (`.status .s-<mark>`): done green, a person's turn orange (a budget, to-dos, an approval,
@@ -19,7 +19,7 @@ export function stepMark(status: WorkflowStepStatus): "done" | "review" | "faile
   if (["needs_budget", "review", "approve", "attention", "pairing"].includes(status)) return "review";
   if (status === "running" || status === "pulling") return "running";
   if (status === "starting") return "queued";
-  if (status === "waiting") return "waiting";
+  if (status === "waiting" || status === "stale") return "waiting";  // 218: out of date, it waits for its earlier steps
   return "startable";
 }
 

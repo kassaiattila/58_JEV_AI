@@ -114,6 +114,17 @@ export function serverKeys() {
   const bf = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "bank_files.json"), "utf8"));
   for (const v of [bf.intro, ...Object.values(bf.read_by ?? {}), ...Object.values(bf.checks ?? {}), ...(bf.not_read ?? [])]) if (v) keys.add(v);
   for (const f of bf.files ?? []) for (const v of [f.bank, f.statement, ...(f.formats ?? []), ...(f.notes ?? [])]) if (v) keys.add(v);
+  // 218 (P3e): the rules' plain description (Settings › Rules): the areas, the rule files, each decision's texts and
+  // the labels of its values
+  const rules = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "rule_help.json"), "utf8"));
+  for (const v of [...Object.values(rules.areas ?? {}), ...Object.values(rules.files ?? {})]) keys.add(v);
+  for (const p of Object.values(rules.points ?? {})) {
+    for (const v of [p.title, p.what, p.not_for]) if (v) keys.add(v);
+    for (const value of p.values ?? []) {
+      keys.add(value.label);
+      for (const v of Object.values(value.labels ?? {})) keys.add(v);
+    }
+  }
   // 146: the new work wizard's groups, kinds and templates (configs/workflows.json)
   const wf = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "workflows.json"), "utf8"));
   if (wf.intro) keys.add(wf.intro);

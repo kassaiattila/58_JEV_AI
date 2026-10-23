@@ -27,7 +27,9 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from burr.core import ApplicationBuilder, action
 from burr.core.application import Application
@@ -36,9 +38,9 @@ from pydantic import BaseModel, Field
 
 from jav.ai import policy, typepack
 from jav.documents import text_document
-from jav.core import store
+from jav.core import store, trace
 from jav.domains.email import email_store
-from jav.domains.email.emails import DOC_EXTS, EmailMessage, body_coverage, document_text, load_message_dir
+from jav.domains.email.emails import DOC_EXTS, Attachment, EmailMessage, body_coverage, document_text, load_message_dir
 from jav.ai.engine import with_engine
 from jav.domains.email.intent import IntentResult
 
@@ -148,10 +150,11 @@ def intent(state: EmailState) -> EmailState:
         state.uncertain = True
         state.review_reasons = state.review_reasons + [f"jev_unavailable:{exc.reason}"]
         return state
-    state.uncertain = policy.choice_needs_review(state.result.confidence, state.result.probabilities, "email.intent")
     # M3 signals (v1.1.0): the yes band of an injected instruction is a review reason (additive, the policy decides
-    # which signal)
-    state.review_reasons = state.review_reasons + [r for r in policy.email_signal_reasons(state.result.signals) if r not in state.review_reasons]
+    # which signal); 218 (P3b): by the traced rule
+    out = intent_rule(_intent_inputs(state.result))
+    state.uncertain = out["uncertain"]
+    state.review_reasons = state.review_reasons + [r for r in out["reasons"] if r not in state.review_reasons]
     return state
 
 
@@ -168,29 +171,104 @@ def _intent_gpt(state: EmailState) -> EmailState:
         state.uncertain = True
         state.review_reasons = state.review_reasons + [f"intent:gpt_failed:{type(exc).__name__}"]
         return state
-    r = state.result
-    reasons = [] if r.measured else ["intent:confidence_unavailable"]
-    state.uncertain = not r.measured or policy.choice_needs_review(r.confidence, r.probabilities, "email.intent.gpt")
-    reasons += [x for x in policy.email_signal_reasons(r.signals) if x not in state.review_reasons]
-    state.review_reasons = state.review_reasons + reasons
+    out = intent_rule(_intent_inputs(state.result))  # 218 (P3b): by the traced rule
+    state.uncertain = out["uncertain"]
+    state.review_reasons = state.review_reasons + [x for x in out["reasons"] if x not in state.review_reasons]
     return state
 
 
 @action.pydantic(reads=["message", "result", "extract_text"], writes=["next_flow", "follow_up", "attachment_follow_ups"])
 def route(state: EmailState) -> EmailState:
     assert state.message is not None
-    if state.message.folder == "sent":  # 149: its attachments decide
-        state.next_flow = policy.email_sent_route(state.message.attachments)
+    state.next_flow = next_flow_rule(_route_inputs(state))["next_flow"]  # 218 (P3b): by the traced rule
+    if state.message.folder == "sent" or state.result is None:
         return state
-    if state.result is None:
-        state.next_flow = policy.EMAIL_JEV_UNAVAILABLE_ROUTE
-        return state
-    state.next_flow = policy.email_next_flow(
-        state.result.intent, state.result.confidence, state.message.attachments, state.result.probabilities, state.result.signals
-    )
     state.follow_up = text_follow_up(state.message, state.next_flow) if state.extract_text else None
     state.attachment_follow_ups = table_follow_ups(state.message, state.next_flow) if state.extract_text else []
     return state
+
+
+# --- 218 (plan P3 P3b): the email's two decisions as pure rules, traced with its save ---------------------------------
+
+INTENT_POINT, NEXT_FLOW_POINT = "email.intent", "email.next_flow"
+_CHOICE_FIELDS = ("choice_human_max_conf", "choice_second_min_gap", "uncertain_review")
+_SIGNAL_FIELDS = ("noul_no_max", "noul_yes_min", "uncertain_review")
+
+
+def _intent_inputs(r: IntentResult) -> dict[str, Any]:
+    return {"engine": r.engine, "intent": r.intent, "confidence": r.confidence, "probabilities": r.probabilities,
+            "measured": r.measured, "signals": r.signals}
+
+
+def intent_rule(inputs: Mapping[str, Any]) -> dict[str, Any]:
+    """Whether the recognised intent waits for a person (089: a GPT answer without a measured confidence, or a
+    confidence in the review band of `email.intent[.gpt]`), and the to-dos of the M3 signals in the yes band of
+    `email.signal` (an injected instruction). The intent stays either way."""
+    callsite = "email.intent" + (".gpt" if inputs["engine"] == "gpt" else "")
+    measured = inputs["measured"]
+    uncertain = not measured or policy.choice_needs_review(inputs["confidence"], inputs["probabilities"], callsite)
+    reasons = ([] if measured else ["intent:confidence_unavailable"]) + policy.email_signal_reasons(inputs["signals"])
+    return {"intent": inputs["intent"], "uncertain": bool(uncertain), "reasons": reasons}
+
+
+def _route_inputs(state: EmailState) -> dict[str, Any]:
+    msg, r = state.message, state.result
+    assert msg is not None
+    return {"folder": msg.folder, "intent": r.intent if r else None, "confidence": r.confidence if r else None,
+            "probabilities": r.probabilities if r else {}, "signals": r.signals if r else {},
+            "attachments": [{"filename": a.filename, "doc_type": a.doc_type, "status": a.status} for a in msg.attachments]}
+
+
+def next_flow_rule(inputs: Mapping[str, Any]) -> dict[str, Any]:
+    """The email's next step (`policy.email_next_flow`): a message we sent goes by its attachments (149); without an
+    intent (the question failed) to the manual queue; otherwise a yes-band signal's route, the low-confidence route, a
+    document-bearing intent's attachment type, or the intent's own route."""
+    atts = [Attachment(filename=a["filename"], doc_type=a["doc_type"], status=a["status"]) for a in inputs["attachments"]]
+    if inputs["folder"] == "sent":
+        return {"next_flow": policy.email_sent_route(atts)}
+    if inputs["intent"] is None:
+        return {"next_flow": policy.EMAIL_JEV_UNAVAILABLE_ROUTE}
+    return {"next_flow": policy.email_next_flow(inputs["intent"], inputs["confidence"], atts, inputs["probabilities"],
+                                                inputs["signals"])}
+
+
+def _route_keys(inputs: Mapping[str, Any]) -> tuple[str, ...]:
+    attachment = ("email.m2_types", "email.needs_ocr_route", "email.detect_route")
+    if inputs["folder"] == "sent":
+        return ("email.sent_route", *attachment)
+    if inputs["intent"] is None:
+        return ("email.jev_unavailable_route",)
+    return ("email.signal_routes", *policy.band_keys("email.signal", "noul_yes_min"),
+            *policy.band_keys("email.intent", *_CHOICE_FIELDS), "email.low_conf_route", *attachment,
+            "email.intent_route", "email.default_route")
+
+
+def _trace(c: Any, state: EmailState) -> None:
+    """The intent's and the next step's decisions, in the save's transaction."""
+    msg, r = state.message, state.result
+    assert msg is not None
+    subject = ("email", msg.message_id)
+    if r is not None:
+        inputs = _intent_inputs(r)
+        callsite = "email.intent" + (".gpt" if r.engine == "gpt" else "")
+        trace.record_in(c, INTENT_POINT, subject=subject, inputs=inputs, outcome=intent_rule(inputs), run_id=state.run_id,
+                        keys={"policy.json": (*policy.band_keys(callsite, *_CHOICE_FIELDS), "email.signal_review",
+                                              *policy.band_keys("email.signal", *_SIGNAL_FIELDS))})
+    inputs = _route_inputs(state)
+    trace.record_in(c, NEXT_FLOW_POINT, subject=subject, inputs=inputs, outcome=next_flow_rule(inputs),
+                    keys={"policy.json": _route_keys(inputs)}, run_id=state.run_id)
+
+
+trace.register(trace.Point(
+    INTENT_POINT, owner=__name__, files=("policy.json",), rule=intent_rule,
+    what="whether an email's recognised intent waits for a person (unmeasured or in the review band), and the to-dos of "
+         "its signals (an injected instruction)",
+    not_for="which intent the recogniser chose (its answer is an input) or the email's next step"))
+trace.register(trace.Point(
+    NEXT_FLOW_POINT, owner=__name__, files=("policy.json",), rule=next_flow_rule,
+    what="an email's next step: a data extraction of an attachment's type, text or type recognition, a person's queue, "
+         "the route of a signal or of the intent, or archiving",
+    not_for="the extraction itself or a person's later routing of an attachment (the email routing package)"))
 
 
 def text_follow_up(msg: EmailMessage, next_flow: str) -> dict | None:
@@ -253,6 +331,15 @@ def tasks(state: EmailState) -> EmailState:
 @action.pydantic(reads=["message", "result", "next_flow", "uncertain", "run_id", "review_reasons", "tasks", "jev", "follow_up",
                          "source_dir"], writes=["final_status"])
 def save(state: EmailState) -> EmailState:
+    """The email's row, its run's result row, its to-dos and (218, P3b) the traces of its decisions in one write
+    transaction: the store's own writes join it as savepoints (`store.session`), so a stop in between leaves none."""
+    with store.session(), store.connect() as c:
+        store.begin_immediate(c)
+        _save(state, c)
+    return state
+
+
+def _save(state: EmailState, c: Any) -> None:
     msg, r = state.message, state.result
     assert msg is not None
     if state.follow_up:  # 190: the email's own text as a document of the email (the extraction fills in the rest)
@@ -297,7 +384,7 @@ def save(state: EmailState) -> EmailState:
         state.final_status = "jev_unavailable" if state.jev else "gpt_unavailable"
     else:
         state.final_status = "needs_review" if state.uncertain or state.review_reasons else "done"
-    return state
+    _trace(c, state)
 
 
 def _band(r: IntentResult) -> str:

@@ -691,6 +691,23 @@ Two behaviours differ on purpose: a start left by a stopped process fails at the
 chain was switched on). Tests: `tests/test_workflow_case_214.py`, `tests/test_workflow_core_steps_214.py`,
 `tests/test_process_turn_214.py`.
 
+**A step built on a reopened step (218, plan P3 P3l).** Rule 3 reaches the application: a done step's result names
+the approval its package was done with (`ref`: a logic pack's own version and fingerprint, a processing package's
+approved live runs; none for a step that found nothing new or a package done without an approval of its own, the email
+routing) and the approvals its earlier steps were done with (`built_on`); the core's `step_done` history row names
+their result versions. When the package of a done step is reopened, `workflow_cases.package_reopened` reopens the step
+in the transaction of that change (a new live run of the package, `work_runs.start_run`; its approved own version
+reopened, `package_release.reopen_own`), so the steps built on it go stale. The control view shows such a step as out of
+date (`stale`, with `stale_of`: the earlier steps whose result changed) and does not count it as done. The owner's
+decisions of 2026-10-23: the later step's approved version and its lock stay while the earlier step is open; once the
+earlier step is approved again, the step's first look keeps the approvals that no longer count (`old_approval`: the one
+it was done with and the one its package has then) and counts only another, so an approval given while the earlier step
+was open does not count either: a logic pack approved as its own version is reopened with a reason through its
+registered `LogicPack.reopen` (its approval task opens again), a processing package needs a new live run a person
+starts. A step that goes out of date before it was ever done keeps what its earlier steps had then (`built_on`, written
+by the core's `on_leave` in the transaction that marks it). A stopped new run leaves the earlier result, so the approval
+built on it counts again. Nothing runs by itself. Tests: `tests/test_workflow_reopen_chain_218.py`, `ui/src/views/workflows/staleChain218.test.tsx`.
+
 **Today's work as human tasks (215, P2b).** `jav/app/human_tasks.py` names whom a task is for (the owner's rule: the
 package's responsible person; without one, its creator when on the Users list; otherwise anyone) and keeps the run
 approval task `run_approval:<run>`: opened in the transaction in which a live run's status changes to a finished one
@@ -740,3 +757,75 @@ and a budget are live) and whether it is the person's own or anyone's. Each row'
 is done (a to-do's review page, a run approval's package result, the package page). By default only live work shows;
 the scope's `all` adds the to-dos of trial runs and measurements (the owner's decisions of 2026-10-23). The list reads
 only. Tests: `tests/test_waiting_list_216.py`, `ui/src/waiting216.test.tsx`.
+
+**Calculation snapshots (218, P3a).** `jav/core/rulebook.py`: every process takes one snapshot at start-up
+(`jav.runtime.preload`): the application's version, the commit and whether the working tree had uncommitted changes,
+and the content fingerprint of every file under `configs/` with each JSON config's `meta.version`; every JSON config is
+loaded through `cfg.load` at that moment, so the rules the process reads afterwards are the ones it names
+(`cfg.reload` takes a new one). Tables: `rule_files` (each distinct content once, by its sha256, with where and when it
+was first seen), `calc_snapshots` (the snapshot's id is the fingerprint of its version, commit, dirty flag and files) and
+`snapshot_links` (a subject's latest snapshot). Linked in the subject's own transaction: a run when it starts
+(`work_runs.start_run`, the service's snapshot), each finished item when the worker records it
+(`work_runs.record_item_result`), a case when it starts (`cases.start_in`), a package version when a person approves a
+logic pack's own version or releases a package (`package_release`). When some items of a run were processed with
+another snapshot than the run started with (a release during the run), `work_runs.rule_changes` says how many and which
+files changed with their versions, and the run's view carries it as `rule_changes` (only then, so other views are as
+before); the package's Approve and release and the run's own line show it, and nothing stops the approval (the owner's
+decision of 2026-10-23). `python -m jav.cli snapshot` reads them: this process's, `--id`, `--run`, `--diff A B`,
+`--restore <sha256> --out <file>`. Tests: `tests/test_rulebook_218.py`, `tests/test_calc_snapshot_links_218.py`,
+`ui/src/ruleChanges218.test.tsx`.
+
+**Decision trace (218, P3b).** `jav/core/trace.py`: a machine decision point is registered by its owner module
+(`trace.register(Point)`: its code, what it decides, what it is not for, the rule files under `configs/` it reads, and
+its rule: a pure function whose value for the stored inputs is the stored outcome). A decision writes one row of
+`decision_trace` in the transaction that records its result (`trace.record_in`): the point, its subject (kind and id),
+the run and the case, the inputs the rule read and their fingerprint, the outcome, the rule files and keys it used with
+each file's version and content fingerprint, and the process's calculation snapshot. When the row cannot be written,
+the decision is not written either. `trace.replay(row)` runs the rule again on a row's inputs (the basis of the planned
+preview of a changed rule, P3d). A person's decision has its own journal (`jav.core.decisions`), whose state the pages
+send back against stale edits, so the machine's trace is a table of its own. The modules that register points on import
+are listed in `registrations.DECISION_POINT_MODULES`, so the registry is complete in every process. Points so far:
+`workflow.budget_gate` (a workflow step's estimate per provider against its approved budget, `workflows.budget_gate`;
+traced with the step's wait for a budget, or with its start and the run it started); `detect.doc_type` and
+`detect.detail_type` (M1: whether the recognised type waits for a person, and the detailed type's to-dos including the
+issuer cross-check, `flow_detect.doc_type_rule` and `detail_type_rule`; the recognition's save, its document row, its
+to-dos and both traces, is one write transaction, the store's own writes joining it as savepoints in `store.session`);
+`email.intent` and `email.next_flow` (M3: whether the recognised intent waits for a person with its signals' to-dos,
+and the email's next step, `flow_email.intent_rule` and `next_flow_rule`; the email's save, its row, its run's result
+row, its to-dos and the traces, is one write transaction too); `extract.route` (M2, one row per document and run:
+whether the extracted record is accepted or waits for a person, and the to-dos its decision raised;
+`policy.decision_inputs` keeps what the decision read in the flow state, `policy.route_rule` replays the decision checks
+of the check registry in its order, each through the pure rule it applies to the flow state (`Check.rule`: the picks,
+the verification, the GPT confidence, the failed record checks), with the cross-document checks' to-dos and the to-dos
+raised before the decision as inputs; the rule files are `policy.json` and the type pack, named by a pattern,
+`types/*.json`; the extraction's save, its document row, its record, its to-dos and the trace, is one write transaction,
+before four to six); `ocr.escalation` (whether a document's weak local OCR text is asked of the paid engine and which
+text goes on, `ocr.escalation_rule`: the escalation keeps what it read beside the text's signals, the attempt's outcome,
+blocked or read, as an input; traced by the recognition's and the extraction's save, and by their `needs_ocr` step,
+now one write transaction too); `finance.duplicate` and `parties.own_tax_as_supplier` (the cross-document checks: the
+same invoice as another document of the store, by family, number and supplier, with its kind; an own party's tax
+number as the supplier's; `duplicates.duplicate_rule` and `parties.own_tax_rule`, their inputs the document's key
+fields with the other documents of its family and number, and the two tax keys with the own party the supplier's key
+names; a cross-document check gives its trace as a `checks.Traced`, which the extraction keeps in its state,
+`check_traces`, and records in its save; the store scans of the command line, `duplicates --write` and
+`own-tax --write`, record it with each to-do they open, in one write); `parties.detail_direction` (whether the
+direction the own parties give an extracted invoice settles its detailed type's uncertainty between an outgoing and an
+incoming pack, `parties.direction_rule`, the direction found an input; traced with the to-dos it closes or opens,
+inside the extraction's save). The rule keys of a band decision come from `policy.band_keys`. `python -m jav.cli trace` reads it (`--points`, `--point`,
+`--subject KIND:ID`, `--run`, `--case`, `--last`; each row with `same`: its rule gives the stored outcome again); the
+status page counts it by point. Tests: `tests/test_decision_trace_218.py` (a new point must be listed there with its
+test).
+
+**The rules' read-only view (218, P3e).** Settings › Rules shows, per registered decision point, what it decides and
+what it is not for, the rule values it decides with, the version of each rule file it reads and since when that
+content is in use here, and how many decisions the trace holds (all, those made with the rule files in use now, the
+latest). `jav/app/rules_view.py` builds the `rules` dataset (`jav/app/datasets.py`): the plain texts and which keys
+to show come from `configs/rule_help.json` (English source, translated by the interface); each value is read from
+the rule file the process loaded (`rules_view.resolve`, a key as the trace names it, `recipes[processing]` naming a
+list's item by its id), a code given by the interface's own labels (a document type, a field, an intent) or, for an
+email's next step, by its code; a file's version from the process's calculation snapshot and its date from the
+file's changelog, the time it came into use from `rule_files.first_seen_at`; the counts from one grouped query of
+`decision_trace` (a row counts as made with the rules in use now when each file it names has the content in use now).
+It only reads; price lists and output templates keep their own pages. In the interface
+(`ui/src/views/settings/RulesPanel.tsx`) each decision is a table row of at most four lines, and its title opens the
+whole rule below the table. Tests: `tests/test_rules_view_218.py`, `ui/src/views/settings/rules218.test.tsx`.

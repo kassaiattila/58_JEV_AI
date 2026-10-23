@@ -40,8 +40,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from jav.app import corrections, export, human_tasks, logic_packs, package_result, work, work_runs
-from jav.core import activity_kinds, card_numbers, store
+from jav.app import corrections, export, human_tasks, logic_packs, package_result, work, work_runs, workflow_cases
+from jav.core import activity_kinds, card_numbers, rulebook, store
 from jav.app.outputs import parts, templates
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
@@ -336,6 +336,8 @@ def _insert(wp: dict[str, Any], *, n: int, mark: str, released: dict[str, str], 
     cur = c.execute("INSERT INTO package_versions(workpackage_id, version, mark, items, runs, released_by, released_at,"
                     " backfilled_at) VALUES (?,?,?,?,?,?,?,?)",
                     (wp["id"], n, mark, json.dumps(sorted(released.items())), json.dumps(runs), actor, at, backfilled_at))
+    if backfilled_at is None:  # 218: the code and the rules of the release (a backfilled earlier release has none)
+        rulebook.link_in(c, rulebook.PACKAGE_VERSION, str(cur.lastrowid))
     for name, rows, content, made in files:
         c.execute("INSERT INTO package_version_files(version_id, name, media, rows, sha256, content, template, template_version)"
                   " VALUES (?,?,?,?,?,?,?,?)", (cur.lastrowid, name, media(name), rows, hashlib.sha256(content).hexdigest(), content,
@@ -512,16 +514,18 @@ def record_own(c: sqlite3.Connection, wp_id: str, *, content: dict[str, Any], fi
     with it): the content as the person approved it, its fingerprint and what it locks. Returns its number. 215: the
     package's approval task is decided by the approver (`human_tasks.own_approved`)."""
     n = (c.execute("SELECT MAX(version) FROM package_versions WHERE workpackage_id=?", (wp_id,)).fetchone()[0] or 0) + 1
-    c.execute("INSERT INTO package_versions(workpackage_id, version, mark, items, runs, released_by, released_at, content,"
-              " locks) VALUES (?,?,?,?,?,?,?,?,?)", (wp_id, n, fingerprint, "[]", "[]", actor, _now(),
-                                                     json.dumps(content, ensure_ascii=False, default=str), json.dumps(locks)))
+    cur = c.execute("INSERT INTO package_versions(workpackage_id, version, mark, items, runs, released_by, released_at, content,"
+                    " locks) VALUES (?,?,?,?,?,?,?,?,?)", (wp_id, n, fingerprint, "[]", "[]", actor, _now(),
+                                                           json.dumps(content, ensure_ascii=False, default=str), json.dumps(locks)))
+    rulebook.link_in(c, rulebook.PACKAGE_VERSION, str(cur.lastrowid))  # 218: the code and the rules of the approval
     human_tasks.own_approved(c, wp_id, actor, version=n, fingerprint=fingerprint)
     return n
 
 
 def reopen_own(c: sqlite3.Connection, wp_id: str, *, note: str, actor: str) -> int | None:
     """Reopens the package's own version that holds, in the caller's write transaction: its lock goes, it stays as an
-    earlier version. Returns its number; None when no version holds. 215: the package waits for its approval again."""
+    earlier version. Returns its number; None when no version holds. 215: the package waits for its approval again.
+    218 (P3l): a done workflow step whose package it is is reopened in its case (`workflow_cases.package_reopened`)."""
     row = c.execute("SELECT id, version FROM package_versions WHERE workpackage_id=? AND content IS NOT NULL"
                     " AND reopened_at IS NULL", (wp_id,)).fetchone()
     if row is None:
@@ -529,6 +533,7 @@ def reopen_own(c: sqlite3.Connection, wp_id: str, *, note: str, actor: str) -> i
     c.execute("UPDATE package_versions SET reopened_by=?, reopened_at=?, reopen_note=? WHERE id=?",
               (actor, _now(), note, row["id"]))
     human_tasks.own_approval_waits(c, wp_id, by=human_tasks.person(actor), reopened=row["version"])
+    workflow_cases.package_reopened(c, wp_id, human_tasks.person(actor), f"its approved version {row['version']} was reopened")
     return row["version"]
 
 

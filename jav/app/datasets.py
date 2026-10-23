@@ -330,6 +330,27 @@ def _waiting(scope: dict[str, str]) -> Rows:
     return cols, waiting.rows(scope["actor"], every_origin=scope.get("all") == "true")
 
 
+def _rules(scope: dict[str, str]) -> Rows:
+    """218 (plan G-process-core P3e): the read-only view of the rules (Settings › Rules, `jav/app/rules_view.py`): per
+    decision point what it decides and what it is not for, its rule values, its rule files' versions and the decisions
+    it has made. The decision, the values, the files and the count are set by the interface from the row's own parts;
+    the hidden columns are there to search, sort and download by."""
+    from jav.app import rules_view
+
+    cols = [
+        Column("area", "Area", "enum", labels=rules_view.area_labels()),
+        col("decision", "Decision"),
+        col("values", "Rule values"),
+        col("files", "Rule files"),
+        col("decisions", "Decisions", "number"),
+        col("what", "What it decides", hidden=True),
+        col("not_for", "What it is not for", hidden=True),
+        col("current", "With the rules in use now", "number", hidden=True),
+        col("last_at", "Last decision", "datetime", hidden=True),
+    ]
+    return cols, rules_view.rows()
+
+
 def _item_name(item: dict[str, Any], titles: dict[str, str]) -> str:
     return titles.get(item["item_id"]) or Path(item["source_path"]).name
 
@@ -751,6 +772,7 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("calls", "Hívásnapló", ("run_id",), _calls, _calls_fingerprint),
     Dataset("activity", "Tevékenységnapló", ("actor",), _activity, optional_scope=("day",)),
     Dataset("waiting", "Waiting for me", ("actor",), _waiting, optional_scope=("all",)),  # 216
+    Dataset("rules", "Rules", (), _rules),  # 218 (P3e)
 ]}
 
 

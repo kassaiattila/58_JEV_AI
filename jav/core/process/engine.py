@@ -373,6 +373,8 @@ def _run_step(case_id: str, step: StepDef, *, rerun: bool = False) -> bool:
                 return False
         elif not cases.begin(c, case_id, step.id, ctx.actor):
             return False
+        # 218: where the case's history stood when the step began; a wait it names may end before its outcome is in
+        began = c.execute("SELECT COALESCE(MAX(id), 0) FROM process_history WHERE case_id=?", (case_id,)).fetchone()[0]
     try:
         with hooks.measured(f"step:{step.kind}"):
             outcome = kinds.of(step.kind).run(ctx)
@@ -393,8 +395,12 @@ def _run_step(case_id: str, step: StepDef, *, rerun: bool = False) -> bool:
             cases.close(c, case_id, outcome.outcome, ctx.actor)
         elif isinstance(outcome, kinds.Fail):
             cases.fail(c, case_id, step.id, ctx.actor, outcome.note)
-        elif st["waiting_for"] is None:  # a wait for nothing named would never be woken
-            cases.fail(c, case_id, step.id, ctx.actor, "the step waited without naming what for")
+        elif st["waiting_for"] is None:
+            # 218: the wait the step named ended while it ran (a person settled an uncertain handover): it runs again,
+            # as after any ended wait; a wait for nothing named would never be woken
+            if c.execute("SELECT 1 FROM process_history WHERE case_id=? AND step_id=? AND kind='wait_ended' AND id>?",
+                         (case_id, step.id, began)).fetchone() is None:
+                cases.fail(c, case_id, step.id, ctx.actor, "the step waited without naming what for")
         else:
             return False
     return True
