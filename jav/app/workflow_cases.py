@@ -19,6 +19,12 @@ the state its steps reached (`adopt_missing`):
 An archived workflow's case is on hold (`ARCHIVED`); archiving and restoring a workflow hold and resume its case in
 the workflow's own transaction.
 
+214 (P1b-3): the core moves the steps on (`jav.app.workflows` registers the step kind). A person's actions reach the
+case in the transaction of the workflow's own change: a person's start (`person_starts`: the order overridden and
+recorded, a failed step retried, a wait ended, a done step reopened; the start itself is marked for the step's next
+run, which takes it once), a linked package (`person_links`, the same without the mark), the automatic chain switched
+on (`chain_on`: the steps waiting for a person go on).
+
 The workflow's own data (its party, period, steps' sources, budgets, packages, and the step state the interface
 reads) stay in its own tables (`jav.app.workflows`).
 
@@ -35,6 +41,7 @@ import time
 from collections.abc import Mapping
 from typing import Any
 
+from jav.core import store
 from jav.core.process import actor as actors
 from jav.core.process import cases
 from jav.core.process.cases import Adopted
@@ -43,10 +50,14 @@ from jav.core.process.definition import ProcessDef, StepDef
 log = logging.getLogger(__name__)
 
 STEP_KIND = "workflow_step"  # the core's one step kind for a workflow's steps; the step's own kind is its parameter
+DEFINITION_PREFIX = "workflow_"  # a workflow's process definition is `workflow_<template>`
 ARCHIVED = "archived"  # the hold of an archived workflow's case
-FETCH, APPROVAL, BUDGET = "fetch", "approval", "budget"  # what a running workflow step waits for
+# what a running workflow step waits for: its fetch, its package's approval, a person's budget, a person's start (the
+# automatic chain is off)
+FETCH, APPROVAL, BUDGET, PERSON = "fetch", "approval", "budget", "person"
 CHECK = "check"  # the timer of a step that waits for its fetch or its package's approval
 ADOPTION = "workflow-adoption"  # the machine that adopts the workflows made before
+GO = "go"  # a person's start, marked on the step's result until its next run takes it
 
 # a workflow step's stored state -> the core's state and what a running step waits for (adoption)
 _ADOPTED: dict[str, tuple[str, str | None]] = {
@@ -78,9 +89,24 @@ def _data(wf_id: str) -> dict[str, Any]:
     return {"workflow": wf_id}
 
 
-def start(c: sqlite3.Connection, wf_id: str, template: Mapping[str, Any], actor: str) -> str:
-    """The new workflow's case, in the caller's transaction that writes the workflow."""
-    return cases.start_in(c, wf_id, definition(template), _data(wf_id), maker(actor))
+def start(c: sqlite3.Connection, wf_id: str, template: Mapping[str, Any], actor: str, *,
+          linked: tuple[str, ...] = ()) -> str:
+    """The new workflow's case, in the caller's transaction that writes the workflow. A `linked` step (a person brought
+    its package) does not wait for its order: it waits for its package's approval at once, the override recorded."""
+    out = cases.start_in(c, wf_id, definition(template), _data(wf_id), maker(actor))
+    for step in linked:
+        if out == "started" and cases.step_row(c, wf_id, step)["state"] == cases.WAITING:
+            cases.override_order_in(c, wf_id, step, maker(actor), reason="its package was brought with the workflow")
+    return out
+
+
+def ensure(wf_id: str) -> None:
+    """The workflow's case, adopted now when a process started before the workflow was made had no case for it."""
+    with store.connect() as c:
+        if c.execute("SELECT 1 FROM process_cases WHERE case_id=?", (wf_id,)).fetchone() is not None:
+            return
+        store.begin_immediate(c)
+        adopt(c, wf_id)
 
 
 def _adopted(state: str, note: str | None, now: float) -> Adopted:
@@ -144,3 +170,49 @@ def set_archived(c: sqlite3.Connection, wf_id: str, archived: bool, actor: str) 
         cases.hold(c, wf_id, ARCHIVED, maker(actor))
     else:
         cases.resume(c, wf_id, ARCHIVED, maker(actor))
+
+
+def _open_for(c: sqlite3.Connection, wf_id: str, step: str, who: actors.Actor, reason: str) -> None:
+    """Whatever the step's state in the core, it runs at the case's next turn: its order overridden (recorded), a
+    failed one retried, a wait ended, a done one reopened (with its case when it was closed as done)."""
+    st = cases.step_row(c, wf_id, step)
+    if st["state"] in (cases.WAITING, cases.STALE):
+        cases.override_order_in(c, wf_id, step, who, reason=reason)
+    elif st["state"] == cases.FAILED:
+        cases.retry_in(c, wf_id, step, who)
+    elif st["state"] == cases.RUNNING and st["waiting_for"] is not None:
+        cases.end_wait(c, wf_id, step, who, reason)
+    elif st["state"] == cases.DONE:
+        cases.reopen_in(c, wf_id, step, who, reason=reason)
+
+
+def person_starts(c: sqlite3.Connection, wf_id: str, step: str, actor: str) -> None:
+    """A person starts the step now, in the caller's transaction: it runs at the case's next turn, and that run takes
+    the person's start once (`take_go`)."""
+    adopt(c, wf_id)
+    _open_for(c, wf_id, step, maker(actor), "a person started the step")
+    cases.set_result(c, wf_id, step, {GO: actor})
+
+
+def person_links(c: sqlite3.Connection, wf_id: str, step: str, actor: str) -> None:
+    """A person made an existing package the step's, in the caller's transaction: at the case's next turn the step
+    waits for the package's approval, whatever its order."""
+    adopt(c, wf_id)
+    _open_for(c, wf_id, step, maker(actor), "a person linked a package")
+
+
+def chain_on(c: sqlite3.Connection, wf_id: str, actor: str) -> None:
+    """The automatic chain is switched on, in the caller's transaction: the steps waiting for a person's start go on."""
+    adopt(c, wf_id)
+    for sid, st in cases.step_rows(c, wf_id).items():
+        if st["state"] == cases.RUNNING and st["waiting_for"] == PERSON:
+            cases.end_wait(c, wf_id, sid, maker(actor), "the automatic chain was switched on")
+
+
+def take_go(c: sqlite3.Connection, wf_id: str, step: str) -> str | None:
+    """Who started the step by hand since its last run (`person_starts`), taken once: the mark is cleared."""
+    result = cases.step_row(c, wf_id, step)["result"]
+    if not isinstance(result, dict) or GO not in result:
+        return None
+    cases.set_result(c, wf_id, step, None)
+    return str(result[GO])

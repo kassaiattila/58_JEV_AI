@@ -21,7 +21,10 @@ sees (`status`) adds the package's own next step. `advance` moves the chain on; 
 
 214 (plan G-process-core P1b-2): a workflow is a case of the process core under its own id (`jav.app.workflow_cases`):
 the case starts in the transaction that makes the workflow, a workflow made before is adopted from the state its steps
-reached, and archiving or restoring a workflow holds or resumes its case.
+reached, and archiving or restoring a workflow holds or resumes its case. P1b-3: the core moves the steps on. Its one
+workflow step kind (`_case_step`) does under the case's claim what the step's stored state asks for; `advance` is one
+woken turn of the case, `tick` the worker's turns; a person's start, link and the chain switched on reach the case in
+the transaction of the workflow's own change. The stored state stays what the interface reads.
 
 147 (DECISIONS 147): a workflow is repeated for the next period from a draft the wizard shows filled in
 (`repeat_draft`); a documents step may take only the documents no live run has processed yet (`only_new`), so the
@@ -45,6 +48,7 @@ import json
 import logging
 import time
 import uuid
+from contextvars import ContextVar
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -55,6 +59,8 @@ from jav.app import (
     workflow_cases, workflow_steps,
 )
 from jav.core import activity_kinds, cfg, store
+from jav.core.process import engine as process_engine
+from jav.core.process import kinds as process_kinds
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 
@@ -385,7 +391,8 @@ def create(*, template_id: str, party_id: str | None, period_start: Any, period_
                       " updated_at, engine) VALUES (?,?,?,?,?,?,?,?,?)",
                       (wf_id, sid, json.dumps(source, ensure_ascii=False), json.dumps(budget), step_name,
                        "linked" if linked else "waiting", source.get("workpackage_id"), now, engine))
-        workflow_cases.start(c, wf_id, t, actor)  # 214: its case, with its rows or neither
+        workflow_cases.start(c, wf_id, t, actor,  # 214: its case, with its rows or neither
+                             linked=tuple(sid for sid, source, *_ in rows if source["kind"] == "package"))
         _event(c, wf_id, None, "create", actor, {"template": t["id"], "party": scope.get(scopes.PARTY),
                                                   "period": [start, end] if start else None, "auto": bool(auto)}
                | ({"previous": previous} if previous else {}))
@@ -707,24 +714,23 @@ def repeat_draft(wf_id: str) -> dict[str, Any]:
 
 @store.one_connection
 def advance(wf_id: str, *, actor: str) -> dict[str, Any]:
-    """Moves the chain on: a finished mailbox download gets its package and run; a waiting step whose steps it waits for
-    are done starts (only while the workflow's chain is automatic). Idempotent; each start is claimed first."""
+    """Moves the chain on: one turn of the workflow's case on the process core (214), woken, so a finished mailbox
+    download or an approved package is seen at once. A finished download gets its package and run; a step whose steps it
+    waits for are done starts (only while the workflow's chain is automatic; otherwise it waits for a person). A case
+    another process is moving on is left to it. Idempotent."""
     wf = _row(wf_id)
     if wf["status"] != "open":
         return view(wf_id)
-    for sdef in wf["definition"]["steps"]:
-        steps = _steps(wf_id)
-        st = steps[sdef["id"]]
-        if st["state"] == "pulling":
-            _poll(wf, sdef, st, actor)
-        elif st["state"] == "waiting" and wf["auto"] and all(_satisfied(steps[a]) for a in sdef.get("after", [])):
-            _start(wf, sdef, actor=actor)
+    workflow_cases.ensure(wf_id)
+    _turn(wf_id, actor)
     return view(wf_id)
 
 
 def start_step(wf_id: str, step: str, *, actor: str, budget: dict[str, Any] | None = None) -> dict[str, Any]:
     """A person starts a step now (whatever the steps it waits for), retries a failed one, or starts one that waits for
-    a budget; a `budget` given here replaces the step's budget (the person's own decision, recorded)."""
+    a budget; a `budget` given here replaces the step's budget (the person's own decision, recorded). 214: the person's
+    start reaches the case in the same transaction (`workflow_cases.person_starts`: the order overridden and recorded,
+    a failed step retried, a wait ended), and the case's turn starts the step."""
     wf = _row(wf_id)
     if wf["status"] != "open":
         raise explained(WorkflowError, "the workflow is archived")
@@ -735,35 +741,41 @@ def start_step(wf_id: str, step: str, *, actor: str, budget: dict[str, Any] | No
     if st["state"] not in ("waiting", "failed", "needs_budget"):
         raise explained(WorkflowError, "step {{step}} is {{state}}: it cannot be started",
                         step=repr(step), state=st["state"])
-    if budget is not None:
-        new = _budget(budget)
-        _set_logged(wf_id, step, "budget", actor, {"from": st["budget"], "to": new}, budget=json.dumps(new))
-    st = _steps(wf_id)[step]
-    if st.get("workpackage_id") and st["state"] in ("needs_budget", "failed"):
-        if _set(wf_id, step, expect=("needs_budget", "failed"), state="starting"):
-            _start_run(wf, sdef, _steps(wf_id)[step], st["workpackage_id"], actor=actor)
-    else:
-        _start(wf, sdef, actor=actor, states=("waiting", "failed"))
+    new = _budget(budget) if budget is not None else None
+    with store.connect() as c:
+        store.begin_immediate(c)
+        if new is not None:
+            _update_step(c, wf_id, step, budget=json.dumps(new))
+            _event(c, wf_id, step, "budget", actor, {"from": st["budget"], "to": new})
+        workflow_cases.person_starts(c, wf_id, step, actor)
+    _turn(wf_id, actor)
     return view(wf_id)
 
 
 def link(wf_id: str, step: str, wp_id: str, *, actor: str) -> dict[str, Any]:
-    """A person makes an existing work package the step's package (the chain starts no run on it)."""
+    """A person makes an existing work package the step's package (the chain starts no run on it). 214: the step then
+    waits for the package's approval in the case, whatever its order (`workflow_cases.person_links`)."""
     wf = _row(wf_id)
     sdef = next((s for s in wf["definition"]["steps"] if s["id"] == step), None)
     if sdef is None:
         raise explained(WorkflowError, "unknown step {{step}}", step=repr(step))
     _check_package(sdef["kind"], wp_id)
-    if not _set_logged(wf_id, step, "link", actor, {"workpackage": wp_id}, expect=("waiting", "failed", "nothing_new"),
-                       state="linked", workpackage_id=wp_id, source=json.dumps({"kind": "package", "workpackage_id": wp_id}),
-                       note=None):
-        raise explained(WorkflowError, "step {{step}} has started already", step=repr(step))
+    with store.connect() as c:
+        store.begin_immediate(c)
+        if not _update_step(c, wf_id, step, expect=("waiting", "failed", "nothing_new"), state="linked",
+                            workpackage_id=wp_id, source=json.dumps({"kind": "package", "workpackage_id": wp_id}),
+                            note=None):
+            raise explained(WorkflowError, "step {{step}} has started already", step=repr(step))
+        _event(c, wf_id, step, "link", actor, {"workpackage": wp_id})
+        workflow_cases.person_links(c, wf_id, step, actor)
+    _turn(wf_id, actor)
     return view(wf_id)
 
 
 def update(wf_id: str, *, actor: str, auto: bool | None = None, name: str | None = None,
            archived: bool | None = None) -> dict[str, Any]:
-    """Switches the automatic chain, renames, archives or restores a workflow (its packages stay as they are)."""
+    """Switches the automatic chain, renames, archives or restores a workflow (its packages stay as they are). 214: its
+    case is held while it is archived, and the steps waiting for a person go on when the chain is switched on."""
     _row(wf_id)
     changes: dict[str, Any] = {}
     if auto is not None:
@@ -775,8 +787,10 @@ def update(wf_id: str, *, actor: str, auto: bool | None = None, name: str | None
     if changes:
         with store.connect() as c:
             store.begin_immediate(c)
-            if archived is not None:  # 214: its case is held while it is archived
+            if archived is not None:
                 workflow_cases.set_archived(c, wf_id, archived, actor)
+            if auto:
+                workflow_cases.chain_on(c, wf_id, actor)
             c.execute(f"UPDATE workflows SET {', '.join(f'{k}=?' for k in changes)}, updated_at=? WHERE id=?",
                       (*changes.values(), _now(), wf_id))
             _event(c, wf_id, None, "update", actor, changes)
@@ -948,7 +962,10 @@ def release_stale_starts(max_age_s: float = STALE_START_S) -> int:
 
 def tick(now: float | None = None) -> int:
     """The worker's turn (at most every `TICK_EVERY_S`): releases interrupted starts (153), then advances every open,
-    automatic workflow with a step still to move. Returns how many it looked at."""
+    automatic workflow with a step still to move (214: a woken turn of its case, so each looks at its waiting steps
+    every turn, as before), then turns the other workflow cases the process core has something for (a check timer that
+    came due, a step a person started while another process held the case). Returns how many automatic workflows it
+    advanced."""
     global _last_tick
     now = time.monotonic() if now is None else now
     if now - _last_tick < TICK_EVERY_S:
@@ -963,7 +980,117 @@ def tick(now: float | None = None) -> int:
             advance(r["id"], actor=auto_actor(r["actor"]))
         except Exception:  # one workflow's trouble does not stop the others
             log.exception("workflow %s could not advance", r["id"])
+    advanced = {r["id"] for r in rows}
+    for case_id in process_engine.due_cases(definition_prefix=workflow_cases.DEFINITION_PREFIX):
+        if case_id in advanced:
+            continue
+        try:
+            _turn(case_id, None, wake=False)
+        except Exception:  # one workflow's trouble does not stop the others
+            log.exception("workflow %s could not advance", case_id)
     return len(rows)
+
+
+# --- the process core moves the steps on (214, plan G-process-core P1b-3) -------------------------------------------------
+
+# who a turn acts for in the workflow's log and its runs: the caller of the turn (a person's start, the worker's turn as
+# the maker's automatic one); a turn of the core's own due cases acts as the maker, marked automatic
+_turn_actor: ContextVar[str | None] = ContextVar("workflow_turn_actor", default=None)
+_ROUNDS = 6  # a start moves a step to its next state in a round or two; a step still moving after these does not settle
+
+
+def _turn(wf_id: str, actor: str | None, *, wake: bool = True) -> bool:
+    """One turn of the workflow's case under its claim (`process_engine.turn`); False when another process or thread
+    holds it (that one moves it on)."""
+    token = _turn_actor.set(actor)
+    try:
+        return process_engine.turn(wf_id, wake=wake)
+    finally:
+        _turn_actor.reset(token)
+
+
+def _check() -> tuple[str, float]:
+    """The check timer of a step that waits for its fetch or its package's approval: the next look, as often as the
+    worker's turn."""
+    return workflow_cases.CHECK, time.time() + TICK_EVERY_S
+
+
+def _person_start(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor: str) -> None:
+    """A person's start: a step with a package that waits for a budget or failed starts its package's run (within the
+    budget, which the person may have raised); any other is started from its source again."""
+    if st.get("workpackage_id") and st["state"] in ("needs_budget", "failed"):
+        if _set(wf["id"], sdef["id"], expect=("needs_budget", "failed"), state="starting"):
+            _start_run(wf, sdef, _steps(wf["id"])[sdef["id"]], st["workpackage_id"], actor=actor)
+    else:
+        _start(wf, sdef, actor=actor, states=("waiting", "failed"))
+
+
+def _case_step(ctx: process_engine.StepContext) -> process_kinds.StepOutcome:
+    """The process core's workflow step (`workflow_cases.STEP_KIND`, 214): it runs under its case's claim and does what
+    the step's stored state asks for, until the step is done, waits or failed:
+    - nothing new: done; started or linked: done once its package's latest live run is approved (a reconciliation's
+      version), otherwise it waits for that with a check timer;
+    - pulling: its fetch is checked (a finished one gets its package and run), otherwise it waits with a check timer;
+    - starting: a start a stopped process left (the claim says nobody else is starting it): failed, to start again;
+    - a person's start (`workflow_cases.take_go`): started now, in the person's name;
+    - waiting for a budget: waits for a person; failed: failed with its note;
+    - waiting: started when the chain is automatic, otherwise it waits for a person.
+    An error while a step checks its download or its package's approval is logged and the step looks again at its next
+    check, as before 214 (the worker's next turn); a start's own error fails the step with it (`_start`)."""
+    wf = _row(ctx.case_id)
+    sdef = next(s for s in wf["definition"]["steps"] if s["id"] == ctx.step.id)
+    with ctx.transaction() as c:
+        go = workflow_cases.take_go(c, ctx.case_id, ctx.step.id)
+    actor = go or _turn_actor.get() or auto_actor(wf["actor"])
+    try:
+        return _drive(ctx, wf, sdef, go, actor)
+    except Exception:
+        waits = {"pulling": workflow_cases.FETCH, "started": workflow_cases.APPROVAL, "linked": workflow_cases.APPROVAL}
+        state = _steps(wf["id"])[sdef["id"]]["state"]
+        if state not in waits:
+            raise  # the case fails the step with the error; a person starts it again
+        log.exception("workflow %s step %s: its check failed; it looks again at its next check", wf["id"], sdef["id"])
+        return ctx.wait(waits[state], timer=_check())
+
+
+def _drive(ctx: process_engine.StepContext, wf: dict[str, Any], sdef: dict[str, Any], go: str | None,
+           actor: str) -> process_kinds.StepOutcome:
+    """`_case_step`'s rounds: until the step is done, waits or failed."""
+    polled = False
+    for _ in range(_ROUNDS):
+        st = _steps(wf["id"])[sdef["id"]]
+        state = st["state"]
+        if state == "nothing_new":
+            return process_kinds.Done({"state": state})
+        if state in ("started", "linked"):
+            if _satisfied(st):
+                return process_kinds.Done({"state": state, "workpackage_id": st["workpackage_id"], "run_id": st.get("run_id")})
+            return ctx.wait(workflow_cases.APPROVAL, timer=_check())
+        if state == "pulling":
+            if polled:
+                return ctx.wait(workflow_cases.FETCH, timer=_check())
+            _poll(wf, sdef, st, actor)
+            polled = True
+        elif state == "starting":
+            _set_logged(wf["id"], sdef["id"], "failed", auto_actor(wf["actor"]), {"note": INTERRUPTED},
+                        expect=("starting",), state="failed", note=INTERRUPTED)
+        elif go is not None:
+            go = None
+            _person_start(wf, sdef, st, actor)
+        elif state == "needs_budget":
+            return ctx.wait(workflow_cases.BUDGET)
+        elif state == "failed":
+            return process_kinds.Fail(st.get("note") or "the step failed")
+        elif not wf["auto"]:
+            return ctx.wait(workflow_cases.PERSON)
+        else:
+            _start(wf, sdef, actor=actor)
+    return process_kinds.Fail(f"the step did not settle: it is still {st['state']}")
+
+
+# 214: registered on import, not by `register`: a case whose step kind the running code lacks waits for a migration for
+# good, so any process that turns a workflow's case must know it
+process_kinds.register(process_kinds.StepKind(workflow_cases.STEP_KIND, __name__, _case_step))
 
 
 # --- the wizard's estimate -----------------------------------------------------------------------------------------------

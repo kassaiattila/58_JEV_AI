@@ -518,49 +518,71 @@ def cancel(case_id: str, actor: Actor) -> str:
         return str(case_row(c, case_id)["outcome"])
 
 
+def override_order_in(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, *,
+                      reason: str | None = None) -> None:
+    """`override_order` inside the caller's write transaction (214: with the caller's own change, or neither)."""
+    hooks.authorize(actor, "override_order", case_id)
+    defn = definition_of(require_open(c, case_id))
+    step = defn.step(step_id)
+    steps = step_rows(c, case_id)
+    if steps[step_id]["state"] not in (WAITING, STALE):
+        raise StepStateError(f"step {step_id!r} is {steps[step_id]['state']}, not waiting")
+    closed = [g for g in step.gates if steps[g]["state"] != DONE]
+    if closed:
+        raise StepStateError(f"step {step_id!r} has gates not done: {closed}; a gate cannot be overridden")
+    _set_step(c, case_id, step_id, state=READY)
+    record(c, case_id, step_id, "order_overridden", actor,
+           {"skipped": [a for a in step.after if steps[a]["state"] != DONE], "reason": reason})
+
+
 def override_order(case_id: str, step_id: str, actor: Actor, *, reason: str | None = None) -> None:
     """A person starts a waiting step before the steps of its order are done (rule 2, recorded); its gates must be done:
     nothing overrides a gate."""
-    hooks.authorize(actor, "override_order", case_id)
     with transaction() as c:
-        defn = definition_of(require_open(c, case_id))
-        step = defn.step(step_id)
-        steps = step_rows(c, case_id)
-        if steps[step_id]["state"] not in (WAITING, STALE):
-            raise StepStateError(f"step {step_id!r} is {steps[step_id]['state']}, not waiting")
-        closed = [g for g in step.gates if steps[g]["state"] != DONE]
-        if closed:
-            raise StepStateError(f"step {step_id!r} has gates not done: {closed}; a gate cannot be overridden")
-        _set_step(c, case_id, step_id, state=READY)
-        record(c, case_id, step_id, "order_overridden", actor,
-               {"skipped": [a for a in step.after if steps[a]["state"] != DONE], "reason": reason})
+        override_order_in(c, case_id, step_id, actor, reason=reason)
+
+
+def retry_in(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor) -> None:
+    """`retry` inside the caller's write transaction."""
+    hooks.authorize(actor, "retry", case_id)
+    require_open(c, case_id)
+    if step_row(c, case_id, step_id)["state"] != FAILED:
+        raise StepStateError(f"step {step_id!r} has not failed")
+    _set_step(c, case_id, step_id, state=READY, note=None)
+    record(c, case_id, step_id, "step_retried", actor)
 
 
 def retry(case_id: str, step_id: str, actor: Actor) -> None:
     """A person starts a failed step again."""
-    hooks.authorize(actor, "retry", case_id)
     with transaction() as c:
-        require_open(c, case_id)
-        if step_row(c, case_id, step_id)["state"] != FAILED:
-            raise StepStateError(f"step {step_id!r} has not failed")
-        _set_step(c, case_id, step_id, state=READY, note=None)
-        record(c, case_id, step_id, "step_retried", actor)
+        retry_in(c, case_id, step_id, actor)
+
+
+def reopen_in(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, *, reason: str) -> list[str]:
+    """`reopen` inside the caller's write transaction. 214: a step of a case closed as done reopens the case too (the
+    work turned out not to be finished: a package of a done workflow was deleted); a case closed otherwise stays
+    closed."""
+    hooks.authorize(actor, "reopen", case_id)
+    row = case_row(c, case_id)
+    if row["status"] == CLOSED and row["outcome"] == "done":
+        c.execute("UPDATE process_cases SET status=?, outcome=NULL, updated_at=? WHERE case_id=?", (OPEN, _now(), case_id))
+        record(c, case_id, None, "case_reopened", actor, {"because": step_id, "reason": reason})
+    defn = definition_of(require_open(c, case_id))
+    if step_row(c, case_id, step_id)["state"] != DONE:
+        raise StepStateError(f"step {step_id!r} is not done")
+    _set_step(c, case_id, step_id, state=RUNNING, waiting_for=None)
+    record(c, case_id, step_id, "reopened", actor, {"reason": reason})
+    steps = step_rows(c, case_id)
+    stale = [d for d in defn.dependants(step_id) if steps[d]["state"] != WAITING]
+    for sid in stale:
+        _set_step(c, case_id, sid, state=STALE, waiting_for=None)
+        timers.cancel(c, case_id, step_id=sid, effect=f"stale: {step_id} reopened")
+        record(c, case_id, sid, "stale", actor, {"because": step_id})
+    return stale
 
 
 def reopen(case_id: str, step_id: str, actor: Actor, *, reason: str) -> list[str]:
     """A person reopens a done step (rule 3): it runs again, and the steps built on it that are not waiting become
     stale (their timers cancelled); they run again once it is done. Returns the stale steps."""
-    hooks.authorize(actor, "reopen", case_id)
     with transaction() as c:
-        defn = definition_of(require_open(c, case_id))
-        if step_row(c, case_id, step_id)["state"] != DONE:
-            raise StepStateError(f"step {step_id!r} is not done")
-        _set_step(c, case_id, step_id, state=RUNNING, waiting_for=None)
-        record(c, case_id, step_id, "reopened", actor, {"reason": reason})
-        steps = step_rows(c, case_id)
-        stale = [d for d in defn.dependants(step_id) if steps[d]["state"] != WAITING]
-        for sid in stale:
-            _set_step(c, case_id, sid, state=STALE, waiting_for=None)
-            timers.cancel(c, case_id, step_id=sid, effect=f"stale: {step_id} reopened")
-            record(c, case_id, sid, "stale", actor, {"because": step_id})
-        return stale
+        return reopen_in(c, case_id, step_id, actor, reason=reason)

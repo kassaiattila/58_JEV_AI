@@ -10,13 +10,19 @@ definition's order; a step runs outside any transaction, and what it did is reco
 The durable workflow engine plug-in point (plan 212 P0 section 4) is the four operations `start`, `send_event`, `state`
 and `cancel`; only ids and states go into the engine, never a document, an AI call or a cost.
 
+214 (P1b-3): a caller can also move one named case on now (`turn`, under the same claim), and wake it: the retry
+timers of its waiting steps fire at once, a deadline (a timer its kind handles) only when due. A claim is exclusive
+between the threads of one process too (the local service answers requests on several threads).
+
 The engine does not use the job queue: the queue's start-up reset (`queue.recover_orphans`) assumes one worker.
 """
 
 from __future__ import annotations
 
 import logging
+import math
 import sqlite3
+import threading
 import time
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager
@@ -42,14 +48,19 @@ CREATE TABLE IF NOT EXISTS process_claims (
 );
 """)
 
-_DUE = """SELECT c.case_id FROM process_cases c WHERE c.status='open' AND c.waiting_for IS NULL AND (
+_DUE_WHERE = """c.status='open' AND c.waiting_for IS NULL AND (
     EXISTS (SELECT 1 FROM process_steps s WHERE s.case_id=c.case_id
             AND (s.state='ready' OR (s.state='running' AND s.waiting_for IS NULL)))
     OR EXISTS (SELECT 1 FROM process_inbox e JOIN process_steps s ON s.case_id=e.case_id AND s.state='running'
                AND s.waiting_for=e.kind AND (e.step_id IS NULL OR e.step_id=s.step_id)
                WHERE e.case_id=c.case_id AND e.status='pending')
-    OR EXISTS (SELECT 1 FROM process_timers t WHERE t.case_id=c.case_id AND t.status='armed' AND t.due_at<=?))
-    ORDER BY c.updated_at, c.case_id"""
+    OR EXISTS (SELECT 1 FROM process_timers t WHERE t.case_id=c.case_id AND t.status='armed' AND t.due_at<=?))"""
+_DUE = f"SELECT c.case_id FROM process_cases c WHERE {_DUE_WHERE} ORDER BY c.updated_at, c.case_id"
+
+# 214: the cases a thread of this process holds, so another thread of it never takes them (the claims table names the
+# process only)
+_held_here: set[str] = set()
+_here_lock = threading.Lock()
 
 # --- the plug-in point's four operations -----------------------------------------------------------------------------
 
@@ -126,36 +137,106 @@ def _alive(holder: str) -> bool:
     return lock.is_held(calls.holder_path(holder))
 
 
+def _take_here(case_id: str) -> bool:
+    with _here_lock:
+        if case_id in _held_here:
+            return False
+        _held_here.add(case_id)
+        return True
+
+
+def _leave_here(case_id: str) -> None:
+    with _here_lock:
+        _held_here.discard(case_id)
+
+
+def _claim_in(c: sqlite3.Connection, case_id: str, me: str) -> bool:
+    """Claims the case in the caller's write transaction unless a live process or another thread of this one holds it."""
+    if not _take_here(case_id):
+        return False
+    held = c.execute("SELECT holder FROM process_claims WHERE case_id=?", (case_id,)).fetchone()
+    if held is not None and held["holder"] != me and _alive(held["holder"]):
+        _leave_here(case_id)
+        return False
+    if held is not None and held["holder"] != me:
+        log.info("case %s: the claim of stopped holder %s is taken over", case_id, held["holder"])
+    c.execute("INSERT INTO process_claims(case_id, holder, claimed_at) VALUES (?,?,?) ON CONFLICT(case_id)"
+              " DO UPDATE SET holder=excluded.holder, claimed_at=excluded.claimed_at", (case_id, me, _now()))
+    return True
+
+
 def claim(now: float | None = None) -> str | None:
     """Claims the first case with something to do that no live process holds; None when there is none."""
     me, now = calls.holder(), time.time() if now is None else now
     with store.connect() as c:  # a look without the write lock first: an idle worker does not queue for it
         if c.execute(_DUE + " LIMIT 1", (now,)).fetchone() is None:
             return None
-    with cases.transaction() as c:
-        for row in c.execute(_DUE, (now,)).fetchall():
-            held = c.execute("SELECT holder FROM process_claims WHERE case_id=?", (row["case_id"],)).fetchone()
-            if held is not None and held["holder"] != me and _alive(held["holder"]):
-                continue
-            if held is not None and held["holder"] != me:
-                log.info("case %s: the claim of stopped holder %s is taken over", row["case_id"], held["holder"])
-            c.execute("INSERT INTO process_claims(case_id, holder, claimed_at) VALUES (?,?,?) ON CONFLICT(case_id)"
-                      " DO UPDATE SET holder=excluded.holder, claimed_at=excluded.claimed_at",
-                      (row["case_id"], me, _now()))
-            return str(row["case_id"])
-    return None
+    taken: str | None = None
+    try:
+        with cases.transaction() as c:
+            for row in c.execute(_DUE, (now,)).fetchall():
+                if _claim_in(c, row["case_id"], me):
+                    taken = str(row["case_id"])
+                    break
+    except BaseException:  # the claim was not written: this thread does not hold the case either
+        if taken is not None:
+            _leave_here(taken)
+        raise
+    return taken
+
+
+def claim_case(case_id: str) -> bool:
+    """214: claims this case, whatever it has to do, unless a live process or another thread of this one holds it."""
+    taken = False
+    try:
+        with cases.transaction() as c:
+            cases.case_row(c, case_id)  # an unknown case is an error, not a claim
+            taken = _claim_in(c, case_id, calls.holder())
+    except BaseException:  # the claim was not written: this thread does not hold the case either
+        if taken:
+            _leave_here(case_id)
+        raise
+    return taken
 
 
 def release(case_id: str) -> None:
+    try:
+        with store.connect() as c:
+            c.execute("DELETE FROM process_claims WHERE case_id=? AND holder=?", (case_id, calls.holder()))
+    finally:
+        _leave_here(case_id)
+
+
+def due_cases(now: float | None = None, *, definition_prefix: str | None = None) -> list[str]:
+    """214: the cases with something to do now, oldest change first; with `definition_prefix` only those whose process
+    definition's id starts with it (one family of definitions, e.g. the workflows')."""
+    sql, args = f"SELECT c.case_id FROM process_cases c WHERE {_DUE_WHERE}", [time.time() if now is None else now]
+    if definition_prefix is not None:
+        sql += " AND substr(c.definition_id, 1, ?) = ?"
+        args += [len(definition_prefix), definition_prefix]
     with store.connect() as c:
-        c.execute("DELETE FROM process_claims WHERE case_id=? AND holder=?", (case_id, calls.holder()))
+        return [r["case_id"] for r in c.execute(sql + " ORDER BY c.updated_at, c.case_id", args)]
+
+
+def turn(case_id: str, *, wake: bool = False, now: float | None = None) -> bool:
+    """214: the named case's turn now, under its claim (`advance`; with `wake` its retry timers fire at once). False
+    when a live process or another thread of this one holds it: that one moves it on."""
+    if not claim_case(case_id):
+        return False
+    try:
+        advance(case_id, now, wake=wake)
+    finally:
+        release(case_id)
+    return True
 
 
 # --- the turn ---------------------------------------------------------------------------------------------------------
 
 
-def advance(case_id: str, now: float | None = None) -> None:
-    """Everything the claimed case can do now: its due timers, the events its steps wait for, then its steps."""
+def advance(case_id: str, now: float | None = None, *, wake: bool = False) -> None:
+    """Everything the claimed case can do now: its due timers, the events its steps wait for, then its steps. With
+    `wake` (214) the retry timers of its waiting steps fire now too; a timer its step's kind handles (`on_timer`, e.g.
+    a deadline) still fires only when due."""
     row = cases.get(case_id)
     if row["status"] != cases.OPEN or row["waiting_for"] is not None:
         return
@@ -165,8 +246,12 @@ def advance(case_id: str, now: float | None = None) -> None:
         with cases.transaction() as c:
             cases.need_migration(c, case_id, missing, machine(on_behalf_of=Actor.from_json(row["started_by"])))
         return
+    kind_of = {s.id: s.kind for s in defn.steps}
     with store.connect() as c:
-        due = timers.due(c, case_id, time.time() if now is None else now)
+        due = timers.due(c, case_id, math.inf if wake else time.time() if now is None else now)
+    if wake:
+        when = time.time() if now is None else now
+        due = [t for t in due if t.due_at <= when or kinds.of(kind_of[t.step_id]).on_timer is None]
     rerun = [t.step_id for t in due if _fire(t)]
     for event in cases.pending_events(case_id):
         _take(event)

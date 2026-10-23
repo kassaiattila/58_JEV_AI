@@ -233,7 +233,7 @@ This glossary explains the project's technical terms in everyday language. Each 
 
 ## Processes and cases (planned)
 
-The concepts of a shared process core that lets the framework run long, multi-person business processes (for example a quotation from intake to handover) from a description instead of hand-written code per domain. Designed in the 204 framework assessment (the durable workflow engine, the engine trial, the plug-in point and observability in 212). Since 213 the core's first part exists (`jav/core/process/`: the case, the process definition, the timer, the event inbox, the handover record and the case claim, with the engine trial's failure tests); since 214 every workflow is a case of it, still moved on by today's workflow engine, and the terms still marked (planned) are not built.
+The concepts of a shared process core that lets the framework run long, multi-person business processes (for example a quotation from intake to handover) from a description instead of hand-written code per domain. Designed in the 204 framework assessment (the durable workflow engine, the engine trial, the plug-in point and observability in 212). Since 213 the core's first part exists (`jav/core/process/`: the case, the process definition, the timer, the event inbox, the handover record and the case claim, with the engine trial's failure tests); since 214 every workflow is a case of it and the core moves its steps on, and the terms still marked (planned) are not built.
 
 | Term | Hungarian | Meaning | Example |
 |---|---|---|---|
