@@ -544,12 +544,14 @@ def insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected_
                    json.dumps(confirmed, ensure_ascii=False, sort_keys=True) if confirmed else None))
 
 
+@store.one_connection
 def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision: int, actor: str,
          note: str | None = None, sources: dict[str, list[int]] | None = None, confirm: list[str] | None = None) -> dict[str, Any]:
     """Saves a new correction version. `fields` is the complete correction set (anything left out reverts to the machine
     value). `sources`: the words selected on the image per field (045); only for corrected fields, and only words of the
     item's word layer. `confirm` (083): simple fields a person checked; their values are recorded as confirmed and the
-    document's open to-dos on them are resolved (this run's and the earlier runs')."""
+    document's open to-dos on them are resolved (this run's and the earlier runs'). 215 (plan G-process-core P2c): the
+    new version and the to-dos it settles in one transaction, so a stop between the two keeps neither."""
     sources = dict(sources or {})
     confirm = list(dict.fromkeys(confirm or []))
     run = work_runs.get_run(run_id)
@@ -591,15 +593,17 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
     # the earlier confirmations whose value did not change stay; the fields confirmed now are added with their value
     confirmed = {f: v for f, v in current(run_id, item_id)["confirmed"].items() if _same_value(effective.get(f), v)}
     confirmed.update({f: effective.get(f) for f in confirm})
-    insert_revision(run_id, item_id, fields, expected_revision, actor, note, sources, confirmed)
-    if confirm:
-        # the run's own to-dos on the confirmed fields, and (the owner's decision, 083) the earlier runs' to-dos on the same
-        # fields of the same document: a person has now checked the field; the resolution names the run where it was
-        reasons = work_runs.item_reasons(run_id, item_id, item)
-        for r in reasons["run"] + reasons["earlier"]:
-            f = reason_field(r["reason"], simple)
-            if f in confirm:
-                work_runs.resolve_reason(r["id"], actor=actor, note="field checked by hand",
-                                    resolution={"field": f, "verdict": "confirmed", "value": confirmed[f], "run_id": run_id,
-                                                "revision": expected_revision + 1})
+    with store.connect() as c:
+        store.begin_immediate(c)
+        insert_revision(run_id, item_id, fields, expected_revision, actor, note, sources, confirmed)
+        if confirm:
+            # the run's own to-dos on the confirmed fields, and (the owner's decision, 083) the earlier runs' to-dos on the
+            # same fields of the same document: a person has now checked the field; the resolution names the run where it was
+            reasons = work_runs.item_reasons(run_id, item_id, item)
+            for r in reasons["run"] + reasons["earlier"]:
+                f = reason_field(r["reason"], simple)
+                if f in confirm:
+                    work_runs.resolve_reason(r["id"], actor=actor, note="field checked by hand",
+                                             resolution={"field": f, "verdict": "confirmed", "value": confirmed[f],
+                                                         "run_id": run_id, "revision": expected_revision + 1})
     return current(run_id, item_id)

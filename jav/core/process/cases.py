@@ -12,6 +12,10 @@ built on it become stale.
 each step in the state the work had reached (`adopt`). A whole case can be put on hold (a person put the work aside)
 and resumed; nothing in it moves meanwhile, and its events wait for it.
 
+215 (P2a): an event can be received inside the caller's transaction (`send_event_in`: a human task's closing sends it
+with the closing), and what else must change when a step stops running or the case closes registers here
+(`on_leave`: the human tasks withdraw the step's open tasks), so this module needs none of them.
+
 Tables:
 - `process_cases`: the case: its definition (copy, id, version, fingerprint), its data, status (open | closed) and
   outcome, and a case-wide wait (`migration`: its definition names a step kind the running code does not have; or the
@@ -32,7 +36,7 @@ import json
 import os
 import sqlite3
 import time
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -150,6 +154,22 @@ class Adopted:
     note: str | None = None
     result: Any = None
     timer: tuple[str, float] | None = None
+
+
+Leave = Callable[[sqlite3.Connection, str, str | None, Actor], None]
+_leave_hooks: list[Leave] = []
+
+
+def on_leave(fn: Leave) -> None:
+    """215: `fn(c, case_id, step_id, actor)` runs in the transaction in which a step stops running (done, failed,
+    stale) or, with `step_id` None, the case closes."""
+    if fn not in _leave_hooks:
+        _leave_hooks.append(fn)
+
+
+def _left(c: sqlite3.Connection, case_id: str, step_id: str | None, actor: Actor) -> None:
+    for fn in _leave_hooks:
+        fn(c, case_id, step_id, actor)
 
 
 def _json(value: Any) -> str:
@@ -333,6 +353,7 @@ def complete(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, re
     _set_step(c, case_id, step_id, **fields)
     timers.cancel(c, case_id, step_id=step_id, effect="step done")
     record(c, case_id, step_id, "step_done", actor, {"result_version": version})
+    _left(c, case_id, step_id, actor)
     promote(c, case_id)
     if all(s["state"] == DONE for s in step_rows(c, case_id).values()):
         close(c, case_id, "done", actor)
@@ -347,6 +368,7 @@ def fail(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, note: 
     _set_step(c, case_id, step_id, state=FAILED, waiting_for=None, note=note[:1000])
     timers.cancel(c, case_id, step_id=step_id, effect="step failed")
     record(c, case_id, step_id, "step_failed", actor, {"note": note[:1000]})
+    _left(c, case_id, step_id, actor)
 
 
 def close(c: sqlite3.Connection, case_id: str, outcome: str, actor: Actor) -> None:
@@ -359,6 +381,7 @@ def close(c: sqlite3.Connection, case_id: str, outcome: str, actor: Actor) -> No
     c.execute("UPDATE process_inbox SET status=?, applied_at=? WHERE case_id=? AND status=?",
               (IGNORED, _now(), case_id, PENDING))
     record(c, case_id, None, "closed", actor, {"outcome": outcome})
+    _left(c, case_id, None, actor)
 
 
 def need_migration(c: sqlite3.Connection, case_id: str, missing: list[str], actor: Actor) -> None:
@@ -483,31 +506,37 @@ def start(case_id: str, definition: ProcessDef, data: dict[str, Any], actor: Act
         return start_in(c, case_id, definition, data, actor)
 
 
+def send_event_in(c: sqlite3.Connection, case_id: str, event_id: str, kind: str, payload: dict[str, Any], actor: Actor,
+                  *, step_id: str | None = None) -> str:
+    """`send_event` inside the caller's write transaction (215: a human task's closing sends its event with it)."""
+    hooks.authorize(actor, "send_event", case_id)
+    sha = _sha({"case_id": case_id, "step_id": step_id, "kind": kind, "payload": payload})
+    row = case_row(c, case_id)
+    defn = definition_of(row)
+    if step_id is not None and step_id not in {s.id for s in defn.steps}:
+        raise UnknownEvent(f"case {case_id} has no step {step_id!r}")
+    if kind not in kinds.events_of(defn, [step_id] if step_id else None):
+        raise UnknownEvent(f"no step of case {case_id} takes {kind!r} events")
+    prior = c.execute("SELECT payload_sha FROM process_inbox WHERE event_id=?", (event_id,)).fetchone()
+    if prior is not None:
+        if prior["payload_sha"] == sha:
+            return "duplicate"
+        c.execute("UPDATE process_inbox SET conflicts=conflicts+1 WHERE event_id=?", (event_id,))
+        return "conflict"
+    c.execute("INSERT INTO process_inbox(event_id, case_id, step_id, kind, payload, payload_sha, status, sent_by,"
+              " received_at, applied_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+              (event_id, case_id, step_id, kind, _json(payload), sha, PENDING if row["status"] == OPEN else IGNORED,
+               actor.as_json(), _now(), None if row["status"] == OPEN else _now()))
+    return "accepted"
+
+
 def send_event(case_id: str, event_id: str, kind: str, payload: dict[str, Any], actor: Actor, *,
                step_id: str | None = None) -> str:
     """Receives an event (rule 5): "accepted" (new), "duplicate" (the same id and content again) or "conflict" (the
     same id with other content: nothing changes but its conflict count). An event for a closed case is kept as
     ignored. The kind must be one a step of the case takes."""
-    hooks.authorize(actor, "send_event", case_id)
-    sha = _sha({"case_id": case_id, "step_id": step_id, "kind": kind, "payload": payload})
     with transaction() as c:
-        row = case_row(c, case_id)
-        defn = definition_of(row)
-        if step_id is not None and step_id not in {s.id for s in defn.steps}:
-            raise UnknownEvent(f"case {case_id} has no step {step_id!r}")
-        if kind not in kinds.events_of(defn, [step_id] if step_id else None):
-            raise UnknownEvent(f"no step of case {case_id} takes {kind!r} events")
-        prior = c.execute("SELECT payload_sha FROM process_inbox WHERE event_id=?", (event_id,)).fetchone()
-        if prior is not None:
-            if prior["payload_sha"] == sha:
-                return "duplicate"
-            c.execute("UPDATE process_inbox SET conflicts=conflicts+1 WHERE event_id=?", (event_id,))
-            return "conflict"
-        c.execute("INSERT INTO process_inbox(event_id, case_id, step_id, kind, payload, payload_sha, status, sent_by,"
-                  " received_at, applied_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                  (event_id, case_id, step_id, kind, _json(payload), sha, PENDING if row["status"] == OPEN else IGNORED,
-                   actor.as_json(), _now(), None if row["status"] == OPEN else _now()))
-    return "accepted"
+        return send_event_in(c, case_id, event_id, kind, payload, actor, step_id=step_id)
 
 
 def cancel(case_id: str, actor: Actor) -> str:
@@ -578,6 +607,7 @@ def reopen_in(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, *
         _set_step(c, case_id, sid, state=STALE, waiting_for=None)
         timers.cancel(c, case_id, step_id=sid, effect=f"stale: {step_id} reopened")
         record(c, case_id, sid, "stale", actor, {"because": step_id})
+        _left(c, case_id, sid, actor)
     return stale
 
 

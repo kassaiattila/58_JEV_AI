@@ -566,16 +566,37 @@ def insert_datapoints(
         )
 
 
-def _sync_review_item(c: sqlite3.Connection, review_id: int, closing_status: str = "superseded") -> None:
+def _sync_review_item(c: sqlite3.Connection, review_id: int, closing_status: str = "superseded",
+                      actor: str | None = None) -> None:
     """The item's reason list = its open reasons (066: the same reason from two runs appears once); when no open reason
-    is left, the item is closed too."""
+    is left, the item is closed too (215: and its human task with it, `actor` being the person who resolved the last
+    reason, None when a machine closed it)."""
     open_reasons = list(dict.fromkeys(r["reason"] for r in c.execute(
         "SELECT reason FROM review_reasons WHERE review_id=? AND status='open' ORDER BY id", (review_id,))))
     if open_reasons:
         c.execute("UPDATE review_queue SET reasons=? WHERE id=?", (_json(open_reasons), review_id))
-    else:
-        c.execute("UPDATE review_queue SET reasons='[]', status=?, decided_at=? WHERE id=? AND status='open'",
-                  (closing_status, _now(), review_id))
+    elif c.execute("UPDATE review_queue SET reasons='[]', status=?, decided_at=? WHERE id=? AND status='open'",
+                   (closing_status, _now(), review_id)).rowcount:
+        _review_item_changed(c, review_id, REVIEW_CLOSED, actor)
+
+
+# 215 (plan G-process-core P2d): an open to-do item is a human task, and whom it is for is known to the application layer
+# (`jav/app/human_tasks.py`), so it registers the hook: `(connection, item ID, change, actor)`, called in the
+# transaction of the change. The change is `raised` (a run or a measurement raised the item's reasons; the item may
+# have closed in the same call) or `closed` (its last open reason closed; `actor` is the person who resolved it, None
+# when a machine closed it). Without it (old callers) no task is kept.
+REVIEW_RAISED, REVIEW_CLOSED = "raised", "closed"
+_review_item_hook: Callable[[sqlite3.Connection, int, str, str | None], None] | None = None
+
+
+def set_review_item_hook(fn: Callable[[sqlite3.Connection, int, str, str | None], None] | None) -> None:
+    global _review_item_hook
+    _review_item_hook = fn
+
+
+def _review_item_changed(c: sqlite3.Connection, review_id: int, change: str, actor: str | None = None) -> None:
+    if _review_item_hook is not None:
+        _review_item_hook(c, review_id, change, actor)
 
 
 # 066 Á06 (decision of 2026-09-29): the reasons of a live run that is not yet approved are pinned: another run neither
@@ -618,7 +639,7 @@ def set_pinned_run_check(fn: Callable[[sqlite3.Connection, str], bool] | None) -
     _pinned_run_check = fn
 
 
-def _run_of(flow_run_id: str | None) -> str:
+def run_of(flow_run_id: str | None) -> str:
     """The run ID from an item flow ID (`<run>:<item>[-stage]` → `<run>`)."""
     return (flow_run_id or "").split(":", 1)[0]
 
@@ -628,9 +649,9 @@ def _pinned_for(c: sqlite3.Connection, reason_run_id: str | None, acting_run_id:
     close it."""
     if _pinned_run_check is None or not reason_run_id:
         return False
-    if acting_run_id and _run_of(reason_run_id) == _run_of(acting_run_id):
+    if acting_run_id and run_of(reason_run_id) == run_of(acting_run_id):
         return False
-    return _pinned_run_check(c, _run_of(reason_run_id))
+    return _pinned_run_check(c, run_of(reason_run_id))
 
 
 def review_enqueue(
@@ -688,6 +709,7 @@ def review_enqueue(
                 c.execute("INSERT INTO review_reasons(review_id, reason, producer, run_id, status, created_at) VALUES (?,?,?,?,'open',?)",
                           (review_id, reason, who, run_id, _now()))
         _sync_review_item(c, review_id)
+        _review_item_changed(c, review_id, REVIEW_RAISED)
         return review_id
 
 
@@ -744,7 +766,7 @@ def review_resolve(reason_id: int, *, actor: str, resolution: dict[str, Any] | N
             raise ValueError(f"review reason {reason_id} is not open")
         c.execute("UPDATE review_reasons SET status='resolved', actor=?, resolution=?, note=?, closed_at=? WHERE id=?",
                   (actor, _json(resolution) if resolution is not None else None, note, _now(), reason_id))
-        _sync_review_item(c, int(row["review_id"]), closing_status="resolved")
+        _sync_review_item(c, int(row["review_id"]), closing_status="resolved", actor=actor)
 
 
 # 167 (review R-10): a subject's reasons, with the subject driving the join. Without table statistics SQLite started

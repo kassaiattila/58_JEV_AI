@@ -1603,6 +1603,7 @@ LOGIC = logic_packs.LogicPack(
     roles=(logic_packs.InputRole("statements", "period", "the bank and card statements of the scope's accounts and period"),
            logic_packs.InputRole("invoices", "period", "the invoices other packages processed, the own party's first")),
     has_runs=False, add_refusal="a reconciliation package has no documents", release_refusal=_release_refusal,
+    own_approval=True,  # 215: the statement is approved as the package's own version
     delete_guard=_delete_guard, page=_page, approved=_approved, next_step=_next, list_next=_list_next,
     list_mark=_list_mark, outputs=("reconcile_statement",), service="jav.domains.finance.api_reconcile")
 

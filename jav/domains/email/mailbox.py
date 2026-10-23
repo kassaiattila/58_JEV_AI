@@ -684,12 +684,14 @@ def email_item_result(run: dict[str, Any], item: dict[str, Any], engine: str | N
             "open_reasons": reasons["run"], "earlier_open_reasons": reasons["earlier"]}
 
 
+@store.one_connection
 def correct_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], expected_revision: int, actor: str,
                   note: str | None, sources: dict[str, list[int]], confirm: list[str]) -> dict[str, Any]:
     """Manual correction of an email's intent (versioned, like a document's fields). The corrected intent settles the
     run's own intent to-dos (uncertain / unrecognised intent): the decision closes them; a to-do with another reason
     (e.g. suspicious content) stays open. 185 (plan G-full-move T1e): the email kind's handler (until then
-    `jav/app/corrections.py` `_save_email`)."""
+    `jav/app/corrections.py` `_save_email`). 215 (plan G-process-core P2c): the new version and the to-dos it settles
+    in one transaction, so a stop between the two keeps neither."""
     from jav.app import corrections
     from jav.domains.email import intents
 
@@ -705,11 +707,13 @@ def correct_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], 
     if key is not None and key not in intents.BY_KEY:
         raise explained(ValueError, "unknown intent: {{key}}", key=key)
     item_id = item["item_id"]
-    corrections.insert_revision(run_id, item_id, fields, expected_revision, actor, note, None)
-    if key is not None:
-        for r in work_runs.item_reasons(run_id, item_id, item)["run"]:
-            if r["reason"].startswith("intent:"):
-                work_runs.resolve_reason(r["id"], actor=actor, resolution={"intent": key}, note="a szándék kézzel javítva")
+    with store.connect() as c:
+        store.begin_immediate(c)
+        corrections.insert_revision(run_id, item_id, fields, expected_revision, actor, note, None)
+        if key is not None:
+            for r in work_runs.item_reasons(run_id, item_id, item)["run"]:
+                if r["reason"].startswith("intent:"):
+                    work_runs.resolve_reason(r["id"], actor=actor, resolution={"intent": key}, note="a szándék kézzel javítva")
     return corrections.current(run_id, item_id)
 
 
@@ -848,6 +852,7 @@ def task_view(flow_run_id: str, raw: dict[str, Any] | None, *, with_state: bool 
             "rejected": tasks.get("rejected") or []}
 
 
+@store.one_connection
 def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: str, note: str | None = None,
                 expected_state: int | None = None) -> dict[str, Any]:
     """A human decision on a task proposal (accept / reject). Once every proposal of the message is decided, the run's
@@ -855,7 +860,8 @@ def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: 
     run: 086 (audit of 2026-10-02, N02) the writing transaction checks the approval again, so a decision checked before
     a concurrent approval is refused instead of being written after it (the decisions are part of the approved result,
     `corrections.review_version`). 187: the change goes into the decision journal in the same transaction (before, a
-    changed decision overwrote the earlier one with nothing kept), and a stale `expected_state` is refused."""
+    changed decision overwrote the earlier one with nothing kept), and a stale `expected_state` is refused. 215 (plan
+    G-process-core P2c): the "proposal awaits decision" to-do closes in the decision's transaction too."""
     run = work_runs.get_run(run_id)
     if run["approval"]:
         raise explained(work.RevisionConflict, "run {{run_id}} is approved; task decisions are frozen", run_id=run_id)
@@ -876,12 +882,12 @@ def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: 
         email_store.email_task_decide(flow_id, index, decision=decision, actor=actor, note=note, c=c)
         decisions.record(c, TASK_KIND, key, "decide", actor=actor, value={"decision": decision}, note=note,
                          workpackage_id=run["workpackage_id"], run_id=run_id)
-    view = task_view(flow_id, email_store.email_result(flow_id))
-    if all(t["decision"] for t in view["tasks"]):
-        summary = {"decisions": [{"index": t["index"], "decision": t["decision"]["decision"]} for t in view["tasks"]]}
-        for r in work_runs.item_reasons(run_id, item_id, item)["run"]:
-            if r["reason"].startswith("tasks:proposed"):
-                work_runs.resolve_reason(r["id"], actor=actor, resolution=summary, note="minden feladatjavaslatról döntöttek")
+        view = task_view(flow_id, email_store.email_result(flow_id))
+        if all(t["decision"] for t in view["tasks"]):
+            summary = {"decisions": [{"index": t["index"], "decision": t["decision"]["decision"]} for t in view["tasks"]]}
+            for r in work_runs.item_reasons(run_id, item_id, item)["run"]:
+                if r["reason"].startswith("tasks:proposed"):
+                    work_runs.resolve_reason(r["id"], actor=actor, resolution=summary, note="minden feladatjavaslatról döntöttek")
     return view
 
 

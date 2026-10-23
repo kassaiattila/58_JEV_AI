@@ -40,7 +40,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from jav.app import corrections, export, logic_packs, package_result, work, work_runs
+from jav.app import corrections, export, human_tasks, logic_packs, package_result, work, work_runs
 from jav.core import activity_kinds, card_numbers, store
 from jav.app.outputs import parts, templates
 from jav.core.user_messages import explained
@@ -152,6 +152,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
 
 
 store.register_migration("package_release", _migrate)
+# 215 (plan G-process-core P2d): the to-dos, runs and logic packs made before get their human tasks; after the
+# migrations of the tables it reads (the work tables, the versions' columns above)
+store.register_migration("human_tasks", human_tasks.adopt_missing)
 
 
 class ReleaseError(ValueError):
@@ -506,23 +509,26 @@ def active_own(c: sqlite3.Connection | None = None) -> dict[str, dict[str, Any]]
 def record_own(c: sqlite3.Connection, wp_id: str, *, content: dict[str, Any], fingerprint: str, locks: list[str],
                actor: str) -> int:
     """Records the package's next own version, in the caller's write transaction (its checks, files and log entry go
-    with it): the content as the person approved it, its fingerprint and what it locks. Returns its number."""
+    with it): the content as the person approved it, its fingerprint and what it locks. Returns its number. 215: the
+    package's approval task is decided by the approver (`human_tasks.own_approved`)."""
     n = (c.execute("SELECT MAX(version) FROM package_versions WHERE workpackage_id=?", (wp_id,)).fetchone()[0] or 0) + 1
     c.execute("INSERT INTO package_versions(workpackage_id, version, mark, items, runs, released_by, released_at, content,"
               " locks) VALUES (?,?,?,?,?,?,?,?,?)", (wp_id, n, fingerprint, "[]", "[]", actor, _now(),
                                                      json.dumps(content, ensure_ascii=False, default=str), json.dumps(locks)))
+    human_tasks.own_approved(c, wp_id, actor, version=n, fingerprint=fingerprint)
     return n
 
 
 def reopen_own(c: sqlite3.Connection, wp_id: str, *, note: str, actor: str) -> int | None:
     """Reopens the package's own version that holds, in the caller's write transaction: its lock goes, it stays as an
-    earlier version. Returns its number; None when no version holds."""
+    earlier version. Returns its number; None when no version holds. 215: the package waits for its approval again."""
     row = c.execute("SELECT id, version FROM package_versions WHERE workpackage_id=? AND content IS NOT NULL"
                     " AND reopened_at IS NULL", (wp_id,)).fetchone()
     if row is None:
         return None
     c.execute("UPDATE package_versions SET reopened_by=?, reopened_at=?, reopen_note=? WHERE id=?",
               (actor, _now(), note, row["id"]))
+    human_tasks.own_approval_waits(c, wp_id, by=human_tasks.person(actor), reopened=row["version"])
     return row["version"]
 
 

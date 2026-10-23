@@ -25,6 +25,7 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import uuid
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
@@ -103,17 +104,20 @@ def _iso(t: datetime) -> str:
 # --- users --------------------------------------------------------------------------------------------------
 
 
-def users() -> list[str]:
-    with store.connect() as c:
-        return [r["name"] for r in c.execute("SELECT name FROM app_users ORDER BY name COLLATE NOCASE")]
+def users(c: sqlite3.Connection | None = None) -> list[str]:
+    """The name list; with `c` (215) on the caller's connection, inside its transaction."""
+    if c is None:
+        with store.connect() as own:
+            return users(own)
+    return [r["name"] for r in c.execute("SELECT name FROM app_users ORDER BY name COLLATE NOCASE")]
 
 
-def canonical_user(name: str) -> str | None:
+def canonical_user(name: str, c: sqlite3.Connection | None = None) -> str | None:
     """061 (active user): the name in the form it has on the name list (ignoring case and the number of spaces);
     a name not on the list gives None. With an empty list any name is accepted (first setup: the list is not filled in
-    yet, but authorship is mandatory even then)."""
+    yet, but authorship is mandatory even then). With `c` (215) on the caller's connection."""
     wanted = " ".join(name.split()).casefold()
-    listed = users()
+    listed = users(c)
     if not listed:
         return " ".join(name.split())
     return next((u for u in listed if u.casefold() == wanted), None)

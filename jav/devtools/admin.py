@@ -172,7 +172,9 @@ def _report(have_store: bool) -> str:
         by_kind = reasons_by_run_kind()
         L += [f"- alany szerint: {dict(kinds) or '-'}", f"- fő ok szerint: {dict(reasons) or '-'}",
               f"- open reasons by the kind of run that raised them: live {by_kind['live']} · trial {by_kind['trial']}"
-              f" · without a run {by_kind['no_run']}"]
+              f" · without a run {by_kind['no_run']}",
+              "- open human tasks by kind (215: each open item above has one): "
+              + (" · ".join(f"{k} {n}" for k, n in open_tasks_by_kind().items()) or "-")]
     else:
         L.append(no_store)
     L += ["", "Parancsok: `configs`, `flows [--check]`, `docs`, `store`, golden / determinism / email-golden / detect-golden (README).", ""]
@@ -195,6 +197,16 @@ def reasons_by_run_kind() -> dict[str, int]:
                            " WHERE r.status='open' GROUP BY x.mode"):
             out[kind.get(r["mode"], "no_run")] += r["n"]
     return out
+
+
+def open_tasks_by_kind() -> dict[str, int]:
+    """215: the open human tasks of the process core by kind (a to-do item, a run's approval, a logic pack's own
+    approval, a workflow step's budget); empty for a store without the table yet."""
+    with store.connect() as c:
+        if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='process_tasks'").fetchone() is None:
+            return {}
+        return {r["kind"]: r["n"] for r in c.execute(
+            "SELECT kind, COUNT(*) AS n FROM process_tasks WHERE status='open' GROUP BY kind ORDER BY kind")}
 
 
 def write_state(path: Path = STATE_PATH) -> Path:

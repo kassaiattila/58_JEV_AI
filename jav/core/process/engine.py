@@ -14,6 +14,9 @@ and `cancel`; only ids and states go into the engine, never a document, an AI ca
 timers of its waiting steps fire at once, a deadline (a timer its kind handles) only when due. A claim is exclusive
 between the threads of one process too (the local service answers requests on several threads).
 
+215 (P2a): a human task's deadline is a timer of its case too: when due, it expires the task (`tasks.expire_in`),
+whose closing event the same turn then takes; a wake never fires it early.
+
 The engine does not use the job queue: the queue's start-up reset (`queue.recover_orphans`) assumes one worker.
 """
 
@@ -31,7 +34,7 @@ from typing import Any
 
 from jav.core import calls, lock, store
 from jav.core.clock import utc_stamp as _now
-from jav.core.process import cases, hooks, kinds, outbox, timers
+from jav.core.process import cases, hooks, kinds, outbox, tasks, timers
 from jav.core.process.actor import Actor, machine
 from jav.core.process.definition import ProcessDef, StepDef
 
@@ -48,12 +51,14 @@ CREATE TABLE IF NOT EXISTS process_claims (
 );
 """)
 
-_DUE_WHERE = """c.status='open' AND c.waiting_for IS NULL AND (
+_OPEN_WHERE = "c.status='open' AND c.waiting_for IS NULL"
+_EVENT_TAKEN = """EXISTS (SELECT 1 FROM process_inbox e JOIN process_steps s ON s.case_id=e.case_id AND s.state='running'
+               AND s.waiting_for=e.kind AND (e.step_id IS NULL OR e.step_id=s.step_id)
+               WHERE e.case_id=c.case_id AND e.status='pending')"""
+_DUE_WHERE = f"""{_OPEN_WHERE} AND (
     EXISTS (SELECT 1 FROM process_steps s WHERE s.case_id=c.case_id
             AND (s.state='ready' OR (s.state='running' AND s.waiting_for IS NULL)))
-    OR EXISTS (SELECT 1 FROM process_inbox e JOIN process_steps s ON s.case_id=e.case_id AND s.state='running'
-               AND s.waiting_for=e.kind AND (e.step_id IS NULL OR e.step_id=s.step_id)
-               WHERE e.case_id=c.case_id AND e.status='pending')
+    OR {_EVENT_TAKEN}
     OR EXISTS (SELECT 1 FROM process_timers t WHERE t.case_id=c.case_id AND t.status='armed' AND t.due_at<=?))"""
 _DUE = f"SELECT c.case_id FROM process_cases c WHERE {_DUE_WHERE} ORDER BY c.updated_at, c.case_id"
 
@@ -70,12 +75,12 @@ cancel = cases.cancel
 
 
 def state(case_id: str) -> dict[str, Any]:
-    """The case with its timers, its handovers and its claim."""
+    """The case with its timers, its handovers, its human tasks and its claim."""
     out = cases.view(case_id)
     with store.connect() as c:
         held = c.execute("SELECT holder FROM process_claims WHERE case_id=?", (case_id,)).fetchone()
         out |= {"timers": timers.of_case(c, case_id), "handovers": outbox.of_case(c, case_id),
-                "claimed_by": held["holder"] if held else None}
+                "tasks": tasks.of_case(c, case_id), "claimed_by": held["holder"] if held else None}
     return out
 
 
@@ -210,10 +215,21 @@ def release(case_id: str) -> None:
 def due_cases(now: float | None = None, *, definition_prefix: str | None = None) -> list[str]:
     """214: the cases with something to do now, oldest change first; with `definition_prefix` only those whose process
     definition's id starts with it (one family of definitions, e.g. the workflows')."""
-    sql, args = f"SELECT c.case_id FROM process_cases c WHERE {_DUE_WHERE}", [time.time() if now is None else now]
+    return _cases(_DUE_WHERE, [time.time() if now is None else now], definition_prefix)
+
+
+def cases_with_events(*, definition_prefix: str | None = None) -> list[str]:
+    """215: the open cases, not on hold, with a pending event a waiting step of theirs takes (a human task's closing),
+    oldest change first; with `definition_prefix` only one family's. A cheap look for a caller that turns them at
+    once."""
+    return _cases(f"{_OPEN_WHERE} AND {_EVENT_TAKEN}", [], definition_prefix)
+
+
+def _cases(where: str, args: list[Any], definition_prefix: str | None) -> list[str]:
+    sql = f"SELECT c.case_id FROM process_cases c WHERE {where}"
     if definition_prefix is not None:
         sql += " AND substr(c.definition_id, 1, ?) = ?"
-        args += [len(definition_prefix), definition_prefix]
+        args = [*args, len(definition_prefix), definition_prefix]
     with store.connect() as c:
         return [r["case_id"] for r in c.execute(sql + " ORDER BY c.updated_at, c.case_id", args)]
 
@@ -236,7 +252,7 @@ def turn(case_id: str, *, wake: bool = False, now: float | None = None) -> bool:
 def advance(case_id: str, now: float | None = None, *, wake: bool = False) -> None:
     """Everything the claimed case can do now: its due timers, the events its steps wait for, then its steps. With
     `wake` (214) the retry timers of its waiting steps fire now too; a timer its step's kind handles (`on_timer`, e.g.
-    a deadline) still fires only when due."""
+    a deadline) or a human task's deadline (215) still fires only when due."""
     row = cases.get(case_id)
     if row["status"] != cases.OPEN or row["waiting_for"] is not None:
         return
@@ -251,7 +267,8 @@ def advance(case_id: str, now: float | None = None, *, wake: bool = False) -> No
         due = timers.due(c, case_id, math.inf if wake else time.time() if now is None else now)
     if wake:
         when = time.time() if now is None else now
-        due = [t for t in due if t.due_at <= when or kinds.of(kind_of[t.step_id]).on_timer is None]
+        due = [t for t in due if t.due_at <= when
+               or (kinds.of(kind_of[t.step_id]).on_timer is None and not tasks.is_timer(t))]
     rerun = [t.step_id for t in due if _fire(t)]
     for event in cases.pending_events(case_id):
         _take(event)
@@ -262,11 +279,12 @@ def advance(case_id: str, now: float | None = None, *, wake: bool = False) -> No
 
 
 def _fire(timer: timers.Timer) -> bool:
-    """A due timer fires once: on a step still running, its kind's `on_timer` acts; on a step that has moved on or a
-    closed case, it only leaves a history row. Without `on_timer` the timer is a retry: the step runs again keeping its
-    wait (no history row per retry), and the timer is armed again `RETRY_SAFETY_S` ahead first, so a run cut off by a
-    stopped process is retried later; the step's own wait arms it anew. A retry leaves no history row (a budget wait
-    may be retried for days); the timer's row shows its latest effect. Returns True for a retry."""
+    """A due timer fires once: on a step still running, a human task's deadline expires the task (215), otherwise its
+    kind's `on_timer` acts; on a step that has moved on or a closed case, it only leaves a history row. Without
+    `on_timer` the timer is a retry: the step runs again keeping its wait (no history row per retry), and the timer is
+    armed again `RETRY_SAFETY_S` ahead first, so a run cut off by a stopped process is retried later; the step's own
+    wait arms it anew. A retry leaves no history row (a budget wait may be retried for days); the timer's row shows its
+    latest effect. Returns True for a retry."""
     with cases.transaction() as c:
         if not timers.close(c, timer.timer_id, timers.FIRED, None):
             return False
@@ -276,6 +294,8 @@ def _fire(timer: timers.Timer) -> bool:
         retry = False
         if row["status"] != cases.OPEN or st["state"] != cases.RUNNING:
             effect = "late"
+        elif tasks.is_timer(timer):
+            effect = "expired" if tasks.expire_in(c, tasks.of_timer(timer), ctx.actor) else "late"
         else:
             kind = kinds.of(ctx.step.kind)
             if kind.on_timer is not None:

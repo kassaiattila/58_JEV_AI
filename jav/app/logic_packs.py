@@ -86,6 +86,10 @@ class LogicPack:
       which a person cannot replace; None: a person may give one.
     - `service`: 185: the module of its own addresses of the local service, by name (a module with a
       `routes(app, prefix)`; `jav.service.api.service_modules`), so this registry imports no service code.
+    - `own_approval`: 215 (plan G-process-core P2d): a person approves its package's result as the package's own
+      version (`package_release.record_own`: a reconciliation's statement, a quote), so each of its packages waits
+      for that approval as a human task (`jav/app/human_tasks.py`); only a pack without runs. A pack whose work is
+      done without such an approval (the email routing: every attachment decided) leaves it False.
 
     188: a logic pack's golden sets (named `<kind>:<name>`) are measured by the shared measurement command like a type
     pack's; 204 (plan G-process-core R1h): its domain names the module that describes them (`GOLDENS` in `jav/domains/`, read by
@@ -110,6 +114,7 @@ class LogicPack:
     outputs: tuple[str, ...] | None = None  # None: a processing package's (`processing_outputs`)
     scope: Callable[[str], dict[str, Any]] | None = None
     service: str | None = None
+    own_approval: bool = False
 
     def __post_init__(self) -> None:
         if self.kind in DATA_KINDS:
@@ -121,6 +126,8 @@ class LogicPack:
             raise ValueError(f"logic pack {self.kind!r} without runs needs its approval, next steps and page")
         if not self.has_runs and self.rule is not None:
             raise ValueError(f"logic pack {self.kind!r} has no runs, so no rule in a run")
+        if self.own_approval and self.has_runs:
+            raise ValueError(f"logic pack {self.kind!r} has runs: its result is released, not approved as its own")
 
 
 _PACKS: dict[str, LogicPack] = {}
@@ -160,6 +167,11 @@ def kinds_without_runs() -> tuple[str, ...]:
     return tuple(p.kind for p in _PACKS.values() if not p.has_runs)
 
 
+def kinds_with_own_approval() -> tuple[str, ...]:
+    """215: the kinds whose packages a person approves as their own version (`LogicPack.own_approval`)."""
+    return tuple(p.kind for p in _PACKS.values() if p.own_approval)
+
+
 def outputs_of(kind: str) -> tuple[str, ...]:
     """178: the outputs of a work package of this kind (a plain processing kind, or a logic pack naming none: the package
     result and the domains' own outputs)."""
@@ -168,4 +180,4 @@ def outputs_of(kind: str) -> tuple[str, ...]:
 
 
 __all__ = ["DATA_KINDS", "PACKAGE_RESULT", "ROLE_SOURCES", "InputRole", "LogicPack", "UnknownKind", "has_runs",
-           "kinds_without_runs", "of", "outputs_of", "packs", "processing_outputs", "register"]
+           "kinds_with_own_approval", "kinds_without_runs", "of", "outputs_of", "packs", "processing_outputs", "register"]

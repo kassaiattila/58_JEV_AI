@@ -10,7 +10,7 @@ domain: the step kinds are registered by the layers above it.
 - `actor`: who acts (rule 8); `hooks`: the authorisation check and the observability sink (rule 9, plug-in points);
 - `kinds`: the step kinds' registry;
 - `cases`: the case, its steps, history and incoming events (rules 1, 3, 4, 5); `timers`: durable timers (rule 7);
-  `outbox`: outgoing handovers (rule 4);
+  `outbox`: outgoing handovers (rule 4); `tasks`: human tasks, in a case or outside one (215; rules 3, 7, 8, 9);
 - `engine`: the claim, the worker's turn and the four operations of the durable workflow engine plug-in point (rules 6,
   10).
 

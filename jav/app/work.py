@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from jav.app import item_kinds, logic_packs, source_instances
+from jav.app import human_tasks, item_kinds, logic_packs, source_instances
 from jav.core import activity_kinds, store
 from jav.documents.native_contracts import DOCUMENT_SUFFIXES
 from jav.core.user_messages import explained
@@ -263,13 +263,14 @@ def _canon(value: Any) -> str:
 @store.one_connection
 def create_workpackage(*, name: str, source_kind: str, source_ref: str | None, owner: str | None = None) -> dict[str, Any]:
     """`owner` (decision 065): the creator is responsible for the new package; a nameless (automated) creation has no
-    owner."""
+    owner. 215: a logic pack without runs waits for its own approval as a human task from now on."""
     if not name.strip():
         raise explained(ValueError, "name required")
     wp_id = f"wp-{uuid.uuid4().hex[:12]}"
     with store.connect() as c:
         c.execute("INSERT INTO workpackages(id, name, source_kind, source_ref, revision, created_at, updated_at, owner) VALUES (?,?,?,?,0,?,?,?)",
                   (wp_id, name.strip(), source_kind, source_ref, _now(), _now(), owner))
+        human_tasks.package_made(c, wp_id, source_kind)
     return get(wp_id)
 
 
@@ -795,12 +796,14 @@ def _set_wp(wp_id: str, action: str, actor: str, **fields: Any) -> dict[str, Any
             raise KeyError(wp_id)
         c.execute(f"UPDATE workpackages SET {cols}, updated_at=? WHERE id=?", (*fields.values(), _now(), wp_id))
         _event(c, wp_id, action, actor, {"before": dict(before), "after": fields})
+        if "owner" in fields:
+            human_tasks.package_owner_changed(c, wp_id)
     return get(wp_id)
 
 
 def set_owner(wp_id: str, owner: str | None, *, actor: str) -> dict[str, Any]:
     """061: the person responsible for the package (None: nobody). Not part of the run's input, so it does not bump
-    the revision; logged."""
+    the revision; logged. 215: the package's open human tasks go to whom the owner's rule names now."""
     return _set_wp(wp_id, "owner", actor, owner=owner)
 
 
@@ -848,4 +851,5 @@ def delete_workpackage(wp_id: str, *, actor: str) -> None:
             c.execute(f"DELETE FROM {table} WHERE workpackage_id=?", (wp_id,))
         c.execute("DELETE FROM workpackages WHERE id=?", (wp_id,))
         _event(c, wp_id, "delete", actor, {**dict(row), "items": len(rows)})
+        human_tasks.package_deleted(c, wp_id, actor)  # 215
     source_instances.release(r["instance"] for r in rows if r["instance"])

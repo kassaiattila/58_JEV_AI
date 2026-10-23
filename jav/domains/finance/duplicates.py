@@ -271,13 +271,15 @@ DECISION_KIND = "duplicate"
 decisions.register(decisions.Kind(DECISION_KIND, ("decide",), __name__))
 
 
+@store.one_connection
 def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor: str, note: str | None = None,
            expected_state: int | None = None) -> dict[str, Any]:
     """A person's decision on a pair, made on a run's item: `copy`, `variant` (a modified version) or `different` (not
     the same invoice). One decision per pair; it may be changed until the run it was made in is approved. The pair's
     open to-dos close on both documents. Frozen on an approved run (`work.RevisionConflict`), checked again in the
     writing transaction, as the task decisions are. 187: the change goes into the decision journal in the same
-    transaction (the pair's row keeps only the latest), and a stale `expected_state` is refused."""
+    transaction (the pair's row keeps only the latest), and a stale `expected_state` is refused. 215 (plan
+    G-process-core P2c): the to-dos close in the decision's transaction too, so a stop between the two keeps neither."""
     from jav.app import work, work_runs
 
     if decision not in DECISIONS:
@@ -314,12 +316,12 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor
                   (key, item_id, other_doc_id, decision, suggested, run_id, actor, note, at))
         decisions.record(c, DECISION_KIND, key, "decide", actor=actor, value={"decision": decision, "suggested": suggested},
                          note=note, workpackage_id=run["workpackage_id"], run_id=run_id, at=at)
-    resolution = {"duplicate": decision, "pair": key}
-    for subject, other in ((item_id, other_doc_id), (other_doc_id, item_id)):
-        for r in store.review_open_reasons("document", subject):
-            parsed = parse_reason(r["reason"])
-            if parsed is not None and other.startswith(parsed[1]):
-                work_runs.resolve_reason(r["id"], actor=actor, resolution=resolution, note=note)
+        resolution = {"duplicate": decision, "pair": key}
+        for subject, other in ((item_id, other_doc_id), (other_doc_id, item_id)):
+            for r in store.review_open_reasons("document", subject):
+                parsed = parse_reason(r["reason"])
+                if parsed is not None and other.startswith(parsed[1]):
+                    work_runs.resolve_reason(r["id"], actor=actor, resolution=resolution, note=note)
     return next(d for d in decisions_for([item_id]) if d["pair_key"] == key)
 
 

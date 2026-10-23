@@ -17,7 +17,7 @@ from jav.core import store
 from jav.core import calls, queue
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
-from jav.app import work, work_readiness, work_recipes
+from jav.app import human_tasks, work, work_readiness, work_recipes
 
 
 @store.one_connection
@@ -324,7 +324,10 @@ def refresh_run_status(run_id: str) -> str:
     (`get_run`). The worker refreshes the status after each item, so each item cost more than the one before: 31 ms per
     refresh in a synthetic run of 10,000 items. The run's size is read only once none of its jobs is queued or claimed
     (an item without a job, and the run's own open to-dos). The run's state is read and written through its index
-    (`ix_runs_state`): its row holds the frozen input before those columns, and an unchanged status is not written."""
+    (`ix_runs_state`): its row holds the frozen input before those columns, and an unchanged status is not written.
+
+    215 (plan G-process-core P2b): a live run whose status changes to a finished one unapproved gets its approval task
+    in the same transaction (`human_tasks.open_run_approval`; once), and a stopped one has its task withdrawn."""
     with store.connect() as c:
         row = c.execute(f"SELECT status, stopped_at FROM runs {_RUN_STATE} WHERE run_id=?", (run_id,)).fetchone()
     if row is None:
@@ -351,10 +354,15 @@ def refresh_run_status(run_id: str) -> str:
     with store.connect() as c:
         # 066 Á32: a run cancelled between computing and writing stays cancelled (condition in the write, not before);
         # 204: a write that would change nothing is left out (the status and whether it has finished are as they would be)
-        c.execute(f"UPDATE runs {_RUN_STATE} SET status=?1, finished_at=CASE WHEN ?1 IN ('queued','running') THEN NULL"
-                  " ELSE COALESCE(finished_at, ?2) END WHERE run_id=?3 AND (status <> 'cancelled' OR ?1 = 'cancelled')"
-                  " AND NOT (status = ?1 AND (finished_at IS NULL) = (?1 IN ('queued','running')))", (status, _now(), run_id))
-        return c.execute(f"SELECT status FROM runs {_RUN_STATE} WHERE run_id=?", (run_id,)).fetchone()["status"]
+        cur = c.execute(f"UPDATE runs {_RUN_STATE} SET status=?1, finished_at=CASE WHEN ?1 IN ('queued','running') THEN NULL"
+                        " ELSE COALESCE(finished_at, ?2) END WHERE run_id=?3 AND (status <> 'cancelled' OR ?1 = 'cancelled')"
+                        " AND NOT (status = ?1 AND (finished_at IS NULL) = (?1 IN ('queued','running')))", (status, _now(), run_id))
+        now = c.execute(f"SELECT status FROM runs {_RUN_STATE} WHERE run_id=?", (run_id,)).fetchone()["status"]
+        if cur.rowcount and now in human_tasks.FINISHED:  # 215: on the change, which holds the write lock: once
+            human_tasks.open_run_approval(c, run_id)
+        elif cur.rowcount and now == "cancelled":
+            human_tasks.run_withdrawn(c, run_id, None, "the run was stopped")
+        return now
 
 
 @store.one_connection
@@ -509,6 +517,7 @@ def supersede_run(run_id: str, *, actor: str) -> dict[str, Any]:
         closed = store.close_run_reasons(c, run_id, status="superseded")
         detail = {"run_id": run_id, "superseded_by": by, "reasons_closed": closed}
         work._event(c, run["workpackage_id"], "run_supersede", actor, detail)
+        human_tasks.run_withdrawn(c, run_id, actor, f"superseded by {by}")  # 215
     return detail
 
 
@@ -535,7 +544,10 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None,
     160-C (decision 163 D7): items removed from the package since the run started are left out of the approval: their
     results are not released and their to-dos do not block it. Then the approver confirms how many were removed
     (`confirm_removed`, the count shown); a missing or different count is `NotReady` (`removed_items`), so a removal
-    made after the page was loaded is never approved unseen. The left-out items are recorded with the approval."""
+    made after the page was loaded is never approved unseen. The left-out items are recorded with the approval.
+
+    215: the run's approval task is decided in the approval's transaction; a workflow step waiting for the package's
+    approval gets its event in it too (`human_tasks.run_approved`)."""
     from jav.app import corrections
 
     run = get_run(run_id)
@@ -588,8 +600,11 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None,
         if review_version is not None and corrections.review_version(run_id, c) != review_version:
             raise explained(work.RevisionConflict, "the result of run {{run_id}} changed since it was reviewed; review it again",
                             run_id=run_id)
-        c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_at=?, excluded_items=? WHERE run_id=?"
-                  " AND approval IS NULL AND status='done'", (actor, _now(), json.dumps(removed) if removed else None, run_id))
+        cur = c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_at=?, excluded_items=? WHERE run_id=?"
+                        " AND approval IS NULL AND status='done'", (actor, _now(), json.dumps(removed) if removed else None, run_id))
+        if cur.rowcount:  # 215: the run's approval task is decided by the approver, in the approval's transaction
+            human_tasks.run_approved(c, run_id, actor, {"approval": "approved", "excluded_items": removed,
+                                                        "review_version": review_version})
     approved = get_run(run_id)
     rule = work.package_rule(run["workpackage_id"])
     if rule is not None and rule.after_approval is not None and approved["approval"]:
