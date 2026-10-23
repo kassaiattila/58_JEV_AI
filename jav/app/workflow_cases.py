@@ -210,6 +210,15 @@ def ask_budget(c: sqlite3.Connection, wf_id: str, step: str, assignee: str | Non
                   **({"case_id": wf_id, "step_id": step, "waits": BUDGET} if in_case else {}))
 
 
+def budget_tasks_of(c: sqlite3.Connection, wp_id: str) -> list[tuple[str, str]]:
+    """215 (P2d): the open budget tasks of the steps whose package it is, each with the workflow's maker (the creator
+    the owner's rule falls back on)."""
+    return [(r["task_id"], r["actor"]) for r in c.execute(
+        "SELECT t.task_id, w.actor FROM process_tasks t JOIN workflow_steps s ON t.subject = s.workflow_id || ':' || s.step"
+        " JOIN workflows w ON w.id = s.workflow_id WHERE t.kind=? AND t.status=? AND s.workpackage_id=?",
+        (BUDGET_TASK, tasks.OPEN, wp_id))]
+
+
 def person_starts(c: sqlite3.Connection, wf_id: str, step: str, actor: str, *, decision: Any = None) -> None:
     """A person starts the step now, in the caller's transaction: it runs at the case's next turn, and that run takes
     the person's start once (`take_go`). 215: a step waiting for a budget has its task decided by the start

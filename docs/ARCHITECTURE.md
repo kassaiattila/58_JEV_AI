@@ -704,3 +704,28 @@ both events and refuses one of an earlier round of its task (`task_event`). The 
 such an event at each of its rounds (`workflows.take_events`, over `engine.cases_with_events`), not only when `tick`'s
 throttle allows; the check timer stays as the safety net (a run approved without its task, as by an earlier version).
 No task has a deadline (the owner's decision). Tests: `tests/test_workflow_tasks_215.py`.
+
+**To-dos and a logic pack's own approval as human tasks (215, P2d).** Every open to-do item is a task,
+`review:<item>`, its mirror: the store calls the hook the application registers (`store.set_review_item_hook`,
+`human_tasks.review_item_changed`) in the transaction that raises an item (`review_enqueue`) or closes it
+(`_sync_review_item`, from `review_close`, `close_run_reasons` and `review_resolve`), so an item and its task are
+written together or not at all, and `review_enqueue` keeps its signature. The task is for the package of the run that
+raised the item last (`store.run_of` of the item's run; a measurement's item has no package and is anyone's) and keeps
+what it is about and the kind of run that opened it (live, trial, measurement); when another package's run raises the
+item, the task goes to that package's person. It is decided when a person resolves the item's last reason (the
+outcome lists the reasons people resolved) and withdrawn when a machine closes it. An item never reopens (the next
+to-do of its subject is a new item), so its task stays in its first round. A logic pack without runs (a
+reconciliation, a quote) waits for its own approval as `own_approval:<package>` from when the package is made
+(`work.create_workpackage`, by the pack's kind), and again when its approved version is reopened
+(`package_release.reopen_own`); the approval decides it on the fingerprint the person approved
+(`package_release.record_own`) and, for a workflow step's package, sends the case the same `approval` event as a run's
+approval; deleting the package withdraws it, archiving it does not (restoring it needs the same approval). A package's
+new responsible person takes its open tasks (`work.set_owner` → `human_tasks.package_owner_changed`: its runs'
+approvals, the items its runs raised last, its own approval, its workflow step's budget), each move with its history
+row. The work made before has its tasks opened by the store's schema change helper (`human_tasks.adopt_missing`,
+registered after the version columns it reads by `jav/app/package_release.py`; opened by the machine
+`human-task-adoption`, by the same rule), and a task left open while a version that keeps none settled its subject (an
+item closed, a run approved or stopped, a package approved or deleted) is withdrawn by it; so a store that the code
+before 215 and this code both use comes back into step at the next start. The state page counts the open tasks by
+kind. Tests: `tests/test_review_tasks_215.py` (with a Hypothesis test that the open items and the open to-do tasks are
+always the same).
