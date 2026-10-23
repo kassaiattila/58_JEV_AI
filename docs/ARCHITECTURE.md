@@ -21,7 +21,8 @@ structure-checking capabilities serve both. OpenAI and JEV can both be used, for
 decided per task by measurement (section 3).
 
 **Package layout (208, plan G-process-core R2).** The code is in one folder per layer, lowest first:
-`jav/core/` (the store, the settings, the registries, the decisions log, the call log and the job queue),
+`jav/core/` (the store, the settings, the registries, the decisions log, the call log, the job queue and, since 213,
+the process core `jav/core/process/`, section 16),
 `jav/documents/` (reading, OCR and the native readers), `jav/ai/` (JEV, GPT, the candidates, the decision rules and the
 type packs), `jav/flows/` (the Burr graphs and their registry), `jav/app/` (work packages, runs, results, outputs and
 workflows), `jav/runtime/` (the worker), `jav/domains/<domain>/` (a domain's own modules), `jav/service/` (the local
@@ -622,3 +623,29 @@ the daily backup once each.
 | Backup | `jav/runtime/backup.py` (`_sync_sources`) | a shared `sources/` folder beside the timestamped backups, locally and in the second location; each instance is copied once and checked against the hash in its name, never pruned (instances never change); a copy already there is checked by its content hash on every backup, and a damaged one is replaced from the intact instance (`repaired`); a damaged instance is not copied and is named in the manifest (`damaged`); a damaged copy with no intact instance to replace it fails the backup; the check starts from the instances the saved store copy refers to (`_referenced_instances`, `_check_required`): one intact only in the backup is `preserved`, one intact nowhere is `missing`, which fails the backup and stops pruning in both locations, while the store copy still goes to the second location | a second backup adds nothing; pruning leaves the folder alone; a same-size corruption is found and repaired (`tests/test_audit_fixes_085.py`); a missing referenced instance fails the backup, and a restore from the backup alone opens every referenced document (`tests/test_audit_fixes_1002_n05_n03.py`) |
 
 Retention of the instances beyond package deletion (how long a hidden package's documents are kept) is not decided yet.
+
+## 16. The process core (213, plan G-process-core P1a)
+
+**Plain-language summary.** A case is one business matter followed from start to finish, possibly over days. Its
+process definition names its steps; the core keeps the case's steps, its history, the events it receives, the
+handovers it sends and its timers in the store, each change with its history row in one transaction, and workers move
+cases on under claims that no live process takes over. Today the core has its own tests only: the engine trial's
+failure tests (212) and a second invented case; the workflows (section 6) move onto it next (P1b). The core knows no
+domain: step kinds are registered by the layers above it.
+
+| part | module | rule (plan 212 P0) |
+|---|---|---|
+| Process definition | `jav/core/process/definition.py`: steps in order; a step names earlier steps by order (`after`, a person may override it, recorded) or by gate (`gates`, nobody may); a canonical form and its fingerprint | 1, 2 |
+| Who acts | `actor.py`: a stable id (`local:<name>` today), the name shown, human or machine, the organisation, the request; a machine names whom it acts for | 8 |
+| Authorisation and observability | `hooks.py`: one check per operation (allows everything today); one sink for duration, outcome category and attempts, off by default; a failing sink never stops work | 9 |
+| Step kinds | `kinds.py`: `run(ctx)` returns `Done(result)`, `WAIT`, `Close(outcome)` or `Fail(note)`, outside any transaction and repeatable; `events` + `on_event` (applied or refused) and `on_timer` inside the engine's transaction | — |
+| Case, steps, history, inbox | `cases.py`: tables `process_cases` (a copy of the definition the case started with), `process_steps` (waiting, ready, running, done, failed, stale; the result and its version), `process_history`, `process_inbox` (an event's id and content fingerprint: a repeat is a duplicate, other content a conflict, a closed case's event is ignored); reopening a done step makes the steps built on it stale | 1, 3, 4, 5 |
+| Timers | `timers.py`: `process_timers`, a stable id per case, step and name; armed with the wait, cancelled when the wait ends (in the event's transaction), fired once; a timer on a step that moved on only leaves a history row; a timer without `on_timer` is a retry that keeps the wait | 7 |
+| Handovers | `outbox.py`: `process_outbox`, recorded with the case, then sent under the same id; a handover found sent without an answer, or whose answer was lost, is uncertain, never sent again by itself, and settled by a person | 4 |
+| Engine | `engine.py`: `process_claims` (a claim names the process's call-log holder; a stopped process's claim is free at once); a turn fires due timers, takes the events steps wait for, then runs the runnable steps in order; a step's kind the running code lacks makes the case wait for a migration; `start`, `send_event`, `state` and `cancel` are the durable workflow engine's plug-in point | 6, 10 |
+
+The engine does not use the job queue, whose start-up reset assumes one worker. New SQL is portable (`ON CONFLICT`;
+the write lock only through `store.begin_immediate`). Tests: `tests/test_process_core_213.py` (each rule on its own,
+with a Hypothesis test of an event racing its deadline), `tests/test_process_trial_213.py` (T01 x3, T02, T03, T04, T06,
+T07 x2, T08 with separate worker processes over `tests/process_quote.py` and `tests/process_worker.py`) and
+`tests/test_process_claim_case_213.py` (parallel checks, a reminder and a deadline).
