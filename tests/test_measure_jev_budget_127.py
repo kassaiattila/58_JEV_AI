@@ -7,7 +7,8 @@ sub-budget. With a JEV budget only, OpenAI and Azure get none, so they cannot be
 import argparse
 from decimal import Decimal
 
-from jav import evals, evals_email, measure_cli
+from jav import evals, evals_email
+from jav.cli import measure_cli
 from jav.core import store
 from jav.core import calls
 

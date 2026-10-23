@@ -3,7 +3,7 @@
 In 122 a call's worst-case reservation (0.10-0.19 USD) did not fit a narrowing budget, so
 four documents got no result and silently counted against the measurement.
 """
-from jav import measure_cli
+from jav.cli import measure_cli
 from jav.eval_report import budget_skips, report_budget_skips
 
 

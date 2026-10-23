@@ -8,7 +8,8 @@ value (the free coverage check of the paid measurement); the command runs them u
 import argparse
 from decimal import Decimal
 
-from jav import evals, measure_cli
+from jav import evals
+from jav.cli import measure_cli
 from jav.core import cfg
 from jav.ai.candidates import find_all
 from jav.documents.pdf import read_pdf

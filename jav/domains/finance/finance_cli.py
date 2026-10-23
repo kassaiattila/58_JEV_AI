@@ -7,7 +7,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from jav.cli_options import jev_on
+from jav.cli.cli_options import jev_on
 
 
 def cmd_duplicates(args: argparse.Namespace) -> int:

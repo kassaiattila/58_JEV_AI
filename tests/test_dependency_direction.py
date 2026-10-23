@@ -37,7 +37,6 @@ ALLOWED = {layer: (*LAYERS[: i + 1], *(("evals", "devtools", "legacy") if layer 
 
 # not in its layer's folder yet: module (relative to jav) -> its layer ("domains.<domain>" for a domain's module)
 NOT_MOVED = {name: layer for layer, names in {
-    "cli": "cli_options maintenance_cli measure_cli outputs_cli type_teaching_cli work_cli",
     "evals": "before_after before_after_replay eval_report evals evals_detect evals_email evals_facts evals_quotes "
         "experiments experiments.document_injection_probe experiments.extract_cases experiments.jev_estimate "
         "goldens type_teaching",

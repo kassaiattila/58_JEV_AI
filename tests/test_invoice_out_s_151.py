@@ -12,7 +12,8 @@ import argparse
 import json
 from pathlib import Path
 
-from jav import evals, measure_cli
+from jav import evals
+from jav.cli import measure_cli
 from jav.ai import typepack
 from jav.core import cfg, store
 from jav.ai import jev as jev_mod

@@ -17,7 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import cli, cli_options
+from jav import cli
+from jav.cli import cli_options
 from jav.core import store
 from jav.core import calls
 

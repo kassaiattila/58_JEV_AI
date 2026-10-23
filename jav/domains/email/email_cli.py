@@ -7,7 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from jav.cli_options import budget_args, engine_args, jev_on, under_budget
+from jav.cli.cli_options import budget_args, engine_args, jev_on, under_budget
 
 
 def cmd_email(args: argparse.Namespace) -> int:

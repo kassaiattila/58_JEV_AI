@@ -71,7 +71,7 @@ python -m jav.cli measure [<golden set> ...] [--list] [--store <copy>]   # 188: 
 python -m jav.cli detect <pdf> | detect-golden | detect-determinism --n 3 | detect-corpus <folder> [--redo-unknown] | detect-sample <folder>
 python -m jav.cli email <folder> | email-golden | email-determinism --n 3 | email-inbox inbox/ | email-sample | email-injection-probe
 python -m jav.cli email-ingest-server --port 8931 --run   # receiver for scripts/outlook_bridge.ps1 (8901 = legacy Docker)
-python -m jav.cli recipes | wp-* | run-* | worker [--once] | worker-status | worker-stop   # work package → run (jav/work_cli.py)
+python -m jav.cli recipes | wp-* | run-* | worker [--once] | worker-status | worker-stop   # work package → run (jav/cli/work_cli.py)
 python -m jav.cli calls-uncertain | calls-resolve <id> [--cost USD] --note N   # settle a paid call with an uncertain outcome by hand
 python -m jav.cli duplicates [--write] | own-tax [--write] | reconcile [--golden]   # duplicate invoices | an own tax number as the supplier's (--write: open their to-dos) | invoice <-> statement line pairs (counts)
 python -m jav.cli reconcile-ai <package> [--engine jev|gpt|both (default: the application's engine)] [--jev-budget-usd X] [--budget-usd Y] [--redo | --stale] [--incoming] | --evaluate | --golden   # 134 AI proposals for a package's lines (without a budget: free estimate; 136: only the new lines, the kind once per partner; 158: incoming money its own kinds) | 135 their hits against a person's decisions (free) | 158 the incoming kinds on invented lines (with a budget)

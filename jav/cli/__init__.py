@@ -18,21 +18,20 @@
   docs                        generated docs: call-site catalogue + flow contracts
   admin [--write]             control screen: configs, models, lint, store, golden, review; --write -> docs/STATE.md
   preflight [--skip-pytest]   session-start check: pytest + lint + configs + handoff freshness + STATE.md
-  recipes | wp-* | run-* | worker   work package → run (040 K1; details: jav/work_cli.py)
+  recipes | wp-* | run-* | worker   work package → run (040 K1; details: jav/cli/work_cli.py)
 """
 
 from __future__ import annotations
 
 import argparse
 import importlib
-import sys
 
 import jav  # noqa: F401  - sets up UTF-8 output
 
 # 202 (plan G-core-generalisation M3a): the shared command modules, each with its `register(sub)`; a domain names its
 # own (`COMMANDS` in its domain module), so this module imports no domain's code
-SHARED_COMMANDS = ("jav.work_cli", "jav.measure_cli", "jav.maintenance_cli", "jav.outputs_cli",
-                   "jav.type_teaching_cli")
+SHARED_COMMANDS = ("jav.cli.work_cli", "jav.cli.measure_cli", "jav.cli.maintenance_cli", "jav.cli.outputs_cli",
+                   "jav.cli.type_teaching_cli")
 
 
 def command_modules() -> tuple[str, ...]:
@@ -53,6 +52,3 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     return args.fn(args)
 
-
-if __name__ == "__main__":
-    sys.exit(main())

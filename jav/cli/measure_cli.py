@@ -8,7 +8,7 @@ import argparse
 import json
 from pathlib import Path
 
-from jav.cli_options import REFERENCE_TYPE, budget_args, engine_args, jev_on, s_without_jev, type_pack_help, under_budget
+from jav.cli.cli_options import REFERENCE_TYPE, budget_args, engine_args, jev_on, s_without_jev, type_pack_help, under_budget
 
 
 def cmd_candidates(args: argparse.Namespace) -> int:
