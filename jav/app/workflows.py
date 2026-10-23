@@ -418,8 +418,9 @@ def _steps(wf_id: str) -> dict[str, dict[str, Any]]:
     return out
 
 
-def _set(wf_id: str, step: str, *, expect: tuple[str, ...] | None = None, **fields: Any) -> bool:
-    """Updates a step; with `expect` only from those states (the claim: False when another process got there first)."""
+def _update_step(c, wf_id: str, step: str, *, expect: tuple[str, ...] | None = None, **fields: Any) -> bool:
+    """Updates a step in the caller's write transaction; with `expect` only from those states (the claim: False when
+    another process got there first)."""
     fields["updated_at"] = _now()
     cols = ", ".join(f"{k}=?" for k in fields)
     sql = f"UPDATE workflow_steps SET {cols} WHERE workflow_id=? AND step=?"
@@ -427,12 +428,30 @@ def _set(wf_id: str, step: str, *, expect: tuple[str, ...] | None = None, **fiel
     if expect:
         sql += f" AND state IN ({','.join('?' * len(expect))})"
         args += list(expect)
+    changed = c.execute(sql, args).rowcount
+    if changed:
+        c.execute("UPDATE workflows SET updated_at=? WHERE id=?", (fields["updated_at"], wf_id))
+    return bool(changed)
+
+
+def _set(wf_id: str, step: str, *, expect: tuple[str, ...] | None = None, **fields: Any) -> bool:
+    """Updates a step in a write transaction of its own (`_update_step`)."""
     with store.connect() as c:
         store.begin_immediate(c)
-        changed = c.execute(sql, args).rowcount
-        if changed:
-            c.execute("UPDATE workflows SET updated_at=? WHERE id=?", (fields["updated_at"], wf_id))
-    return bool(changed)
+        return _update_step(c, wf_id, step, expect=expect, **fields)
+
+
+def _set_logged(wf_id: str, step: str, action: str, actor: str, detail: dict[str, Any] | None, *,
+                expect: tuple[str, ...] | None = None, **fields: Any) -> bool:
+    """213 (plan G-process-core P1b-1, rule 4 of plan 212 P0): a step's change and its event in one transaction; with
+    `expect` neither is written when another process got there first. Before, the event was a second transaction, so a
+    stop between the two left a change without its event."""
+    with store.connect() as c:
+        store.begin_immediate(c)
+        if not _update_step(c, wf_id, step, expect=expect, **fields):
+            return False
+        _event(c, wf_id, step, action, actor, detail)
+        return True
 
 
 def step_scope(wp_id: str) -> dict[str, Any] | None:
@@ -711,10 +730,7 @@ def start_step(wf_id: str, step: str, *, actor: str, budget: dict[str, Any] | No
                         step=repr(step), state=st["state"])
     if budget is not None:
         new = _budget(budget)
-        _set(wf_id, step, budget=json.dumps(new))
-        with store.connect() as c:
-            store.begin_immediate(c)
-            _event(c, wf_id, step, "budget", actor, {"from": st["budget"], "to": new})
+        _set_logged(wf_id, step, "budget", actor, {"from": st["budget"], "to": new}, budget=json.dumps(new))
     st = _steps(wf_id)[step]
     if st.get("workpackage_id") and st["state"] in ("needs_budget", "failed"):
         if _set(wf_id, step, expect=("needs_budget", "failed"), state="starting"):
@@ -731,12 +747,10 @@ def link(wf_id: str, step: str, wp_id: str, *, actor: str) -> dict[str, Any]:
     if sdef is None:
         raise explained(WorkflowError, "unknown step {{step}}", step=repr(step))
     _check_package(sdef["kind"], wp_id)
-    if not _set(wf_id, step, expect=("waiting", "failed", "nothing_new"), state="linked", workpackage_id=wp_id,
-                source=json.dumps({"kind": "package", "workpackage_id": wp_id}), note=None):
+    if not _set_logged(wf_id, step, "link", actor, {"workpackage": wp_id}, expect=("waiting", "failed", "nothing_new"),
+                       state="linked", workpackage_id=wp_id, source=json.dumps({"kind": "package", "workpackage_id": wp_id}),
+                       note=None):
         raise explained(WorkflowError, "step {{step}} has started already", step=repr(step))
-    with store.connect() as c:
-        store.begin_immediate(c)
-        _event(c, wf_id, step, "link", actor, {"workpackage": wp_id})
     return view(wf_id)
 
 
@@ -763,11 +777,9 @@ def update(wf_id: str, *, actor: str, auto: bool | None = None, name: str | None
 
 
 def _done(wf: dict[str, Any], step: str, actor: str, action: str, **fields: Any) -> None:
-    _set(wf["id"], step, **fields)
-    with store.connect() as c:
-        store.begin_immediate(c)
-        _event(c, wf["id"], step, action, actor,
-               {k: v for k, v in fields.items() if k in ("workpackage_id", "run_id", "pull_id", "note")})
+    """A step's outcome and its event, in one transaction (213, `_set_logged`)."""
+    _set_logged(wf["id"], step, action, actor,
+                {k: v for k, v in fields.items() if k in ("workpackage_id", "run_id", "pull_id", "note")}, **fields)
 
 
 def _start(wf: dict[str, Any], sdef: dict[str, Any], *, actor: str, states: tuple[str, ...] = ("waiting",)) -> None:
@@ -919,10 +931,8 @@ def release_stale_starts(max_age_s: float = STALE_START_S) -> int:
                           " WHERE s.state='starting' AND s.updated_at < ?", (cutoff,)).fetchall()
     released = 0
     for r in stale:
-        if _set(r["workflow_id"], r["step"], expect=("starting",), state="failed", note=INTERRUPTED):
-            with store.connect() as c:
-                store.begin_immediate(c)
-                _event(c, r["workflow_id"], r["step"], "failed", auto_actor(r["actor"]), {"note": INTERRUPTED})
+        if _set_logged(r["workflow_id"], r["step"], "failed", auto_actor(r["actor"]), {"note": INTERRUPTED},
+                       expect=("starting",), state="failed", note=INTERRUPTED):
             released += 1
     return released
 
