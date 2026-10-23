@@ -139,7 +139,7 @@ def test_store_keeps_record_conf_and_evidence(isolated: Path):
 def test_eval_report_presence_judgments(tmp_path: Path):
     import json
 
-    from jav import eval_report as er
+    from jav.evals import eval_report as er
 
     row = {"case_id": "c1", "arm": "S", "run_no": 1, "route": "auto", "review_reasons": [], "record_conf": 0.2,
            "scores": {"supplier_name": True, "invoice_number": True}, "expected_present": {"supplier_name": True, "invoice_number": False},

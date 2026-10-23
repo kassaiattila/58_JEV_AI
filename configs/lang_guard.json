@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.118",
+    "version": "1.0.119",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.119",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the measurement's modules moved into jav/evals/, with the three stand-alone tools from jav/experiments/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.118",
         "date": "2026-10-23",
@@ -785,11 +790,12 @@
     "jav/domains/finance/report_utility.py": 13,
     "jav/domains/quotes/quote_document.py": 1,
     "jav/domains/quotes/quote_letter.py": 3,
-    "jav/eval_report.py": 21,
-    "jav/evals.py": 29,
-    "jav/evals_detect.py": 20,
-    "jav/evals_email.py": 41,
-    "jav/experiments/document_injection_probe.py": 10,
+    "jav/evals/document_injection_probe.py": 10,
+    "jav/evals/eval_report.py": 21,
+    "jav/evals/evals.py": 29,
+    "jav/evals/evals_detect.py": 20,
+    "jav/evals/evals_email.py": 41,
+    "jav/evals/type_teaching.py": 2,
     "jav/flows/contract.py": 12,
     "jav/flows/flow.py": 19,
     "jav/flows/flow_detect.py": 10,
@@ -829,7 +835,6 @@
     "jav/service/api_settings.py": 1,
     "jav/service/api_system.py": 1,
     "jav/service/service_shared.py": 4,
-    "jav/type_teaching.py": 2,
     "jav/typepack_convert.py": 4,
     "pyproject.toml": 5,
     "requirements.txt": 9,

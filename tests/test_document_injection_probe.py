@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from jav.ai.candidates import find_all
-from jav.experiments import document_injection_probe as probe
+from jav.evals import document_injection_probe as probe
 from jav.documents.synthetic_pdf import write_unicode_pdf
 from jav.ai.validators import hu_tax_id, iban_check
 

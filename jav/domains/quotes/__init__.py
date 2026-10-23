@@ -30,7 +30,7 @@ from __future__ import annotations
 # `jav.service.api.service_modules` adds them by name
 SERVICE = ("jav.domains.quotes.api_price_lists",)
 # 204 (plan G-process-core R1h): the modules of the domain's golden sets (the quote package's), by name; the shared measurement
-# command imports them (`jav.goldens.logic_pack_goldens`), so the quote package imports no measurement code
+# command imports them (`jav.evals.goldens.logic_pack_goldens`), so the quote package imports no measurement code
 GOLDENS = ("jav.domains.quotes.goldens",)
 
 

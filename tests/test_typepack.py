@@ -205,7 +205,7 @@ def test_policy_uses_pack_required_and_high_stakes():
 
 
 def test_golden_compare_by_kind_and_case_loader_filters_type():
-    from jav.evals import field_equal
+    from jav.evals.evals import field_equal
 
     assert field_equal("supplier_country", "ie", "IE", "country") and field_equal("currency", "eur", "EUR", "currency")
     assert field_equal("supplier_tax_id", "IE8256796U", "IE8256796U", "tax_id") and not field_equal("supplier_tax_id", "IE8256796U", None, "tax_id")
@@ -214,7 +214,7 @@ def test_golden_compare_by_kind_and_case_loader_filters_type():
 
 
 def test_eval_report_and_admin_use_flow_label_and_doc_type(tmp_path):
-    from jav.eval_report import _from_invoice_S
+    from jav.evals.eval_report import _from_invoice_S
 
     row = {"case_id": "f1", "doc_type": "invoice_foreign", "flow_label": "invoice_foreign_S", "route": "auto", "scores": {"gross_total": True},
            "picks": {"gross_total": {"label": "108.38", "confidence": 0.95, "n_options": 3, "top3": {"108.38": 0.95, "0": 0.05}, "present_p": 0.9, "line_no": 6}}}

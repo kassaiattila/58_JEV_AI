@@ -37,7 +37,7 @@ def cmd_candidates(args: argparse.Namespace) -> int:
 
 
 def cmd_recall(args: argparse.Namespace) -> int:
-    from jav.evals import candidate_recall
+    from jav.evals.evals import candidate_recall
 
     candidate_recall(type_key=args.type)
     return 0
@@ -103,9 +103,9 @@ def cmd_detect_golden(args: argparse.Namespace) -> int:
 
     import contextlib
 
-    from jav import evals_detect
+    from jav.evals import evals_detect
     from jav.core import store
-    from jav.eval_report import report_budget_skips
+    from jav.evals.eval_report import report_budget_skips
 
     cases = evals_detect.load_case_file(args.cases) if args.cases else None
     # 122: a separate measurement store keeps the results, to-dos and call log of the measurement out of the work store
@@ -118,7 +118,7 @@ def cmd_detect_golden(args: argparse.Namespace) -> int:
 
 
 def cmd_detect_determinism(args: argparse.Namespace) -> int:
-    from jav.evals_detect import detect_determinism
+    from jav.evals.evals_detect import detect_determinism
 
     with under_budget(args, "detect-determinism", reuse=False):
         detect_determinism(n=args.n, limit=args.limit, jev=jev_on(args))
@@ -128,7 +128,7 @@ def cmd_detect_determinism(args: argparse.Namespace) -> int:
 def cmd_detect_corpus(args: argparse.Namespace) -> int:
     from pathlib import Path
 
-    from jav.evals_detect import detect_corpus, print_corpus_report
+    from jav.evals.evals_detect import detect_corpus, print_corpus_report
 
     root = Path(args.root)
     if args.report_only:
@@ -143,7 +143,7 @@ def cmd_detect_corpus(args: argparse.Namespace) -> int:
 def cmd_detect_sample(args: argparse.Namespace) -> int:
     from pathlib import Path
 
-    from jav.evals_detect import write_manual_sample
+    from jav.evals.evals_detect import write_manual_sample
 
     out = write_manual_sample(Path(args.root), n=args.n, seed=args.seed)
     print(f"kézi ellenőrző lista: {out}")
@@ -151,7 +151,7 @@ def cmd_detect_sample(args: argparse.Namespace) -> int:
 
 
 def cmd_email_golden(args: argparse.Namespace) -> int:
-    from jav.evals_email import email_golden
+    from jav.evals.evals_email import email_golden
 
     from decimal import Decimal
 
@@ -163,7 +163,7 @@ def cmd_email_golden(args: argparse.Namespace) -> int:
 
 
 def cmd_email_inbox(args: argparse.Namespace) -> int:
-    from jav.evals_email import email_inbox, print_inbox_report
+    from jav.evals.evals_email import email_inbox, print_inbox_report
 
     if args.report_only:
         print_inbox_report()
@@ -174,7 +174,7 @@ def cmd_email_inbox(args: argparse.Namespace) -> int:
 
 
 def cmd_email_sample(args: argparse.Namespace) -> int:
-    from jav.evals_email import email_manual_sample
+    from jav.evals.evals_email import email_manual_sample
 
     email_manual_sample()
     return 0
@@ -183,7 +183,7 @@ def cmd_email_sample(args: argparse.Namespace) -> int:
 def cmd_eval_report(args: argparse.Namespace) -> int:
     from pathlib import Path
 
-    from jav.eval_report import write_report
+    from jav.evals.eval_report import write_report
 
     md, out = write_report([Path(p) for p in args.paths] or None, out=Path(args.out) if args.out else None)
     print(md)
@@ -192,7 +192,7 @@ def cmd_eval_report(args: argparse.Namespace) -> int:
 
 
 def cmd_email_determinism(args: argparse.Namespace) -> int:
-    from jav.evals_email import email_determinism
+    from jav.evals.evals_email import email_determinism
 
     with under_budget(args, "email-determinism", reuse=False):
         email_determinism(n=args.n, limit=args.limit, jev=jev_on(args))
@@ -200,7 +200,7 @@ def cmd_email_determinism(args: argparse.Namespace) -> int:
 
 
 def cmd_email_injection_probe(args: argparse.Namespace) -> int:
-    from jav.evals_email import email_injection_probe
+    from jav.evals.evals_email import email_injection_probe
 
     from decimal import Decimal
 
@@ -210,7 +210,7 @@ def cmd_email_injection_probe(args: argparse.Namespace) -> int:
 
 
 def cmd_verifier_probe(args: argparse.Namespace) -> int:
-    from jav.evals import verifier_probe
+    from jav.evals.evals import verifier_probe
 
     from decimal import Decimal
 
@@ -225,9 +225,9 @@ def cmd_golden(args: argparse.Namespace) -> int:
     import contextlib
     from decimal import Decimal
 
-    from jav import evals
+    from jav.evals import evals
     from jav.core import store
-    from jav.eval_report import report_budget_skips
+    from jav.evals.eval_report import report_budget_skips
 
     # 122: a separate measurement store keeps the results, to-dos and call log of the measurement out of the work store
     with store.use_store(Path(args.store)) if args.store else contextlib.nullcontext():
@@ -253,13 +253,13 @@ def cmd_golden(args: argparse.Namespace) -> int:
 
 
 def cmd_measure(args: argparse.Namespace) -> int:
-    """188 (plan 185 T3a): every golden set with one command (`jav/goldens.py`): the type packs' data points, the type
+    """188 (plan 185 T3a): every golden set with one command (`jav/evals/goldens.py`): the type packs' data points, the type
     recognition, the email intent and the logic packs' golden sets, each as its own command measures it. Without a
     budget only earlier answers count (free); a paid measurement names exactly one golden set. Exit code: 1 a set broke
     off or a code-only set failed a case, 3 a case without a result, 2 nothing measured or refused."""
     from decimal import Decimal
 
-    from jav import goldens
+    from jav.evals import goldens
 
     if args.list:
         for g in goldens.sets():
@@ -278,7 +278,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
 
 
 def cmd_determinism(args: argparse.Namespace) -> int:
-    from jav.evals import determinism
+    from jav.evals.evals import determinism
     from jav.flows.flow import run_one
 
     if s_without_jev(args):

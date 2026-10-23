@@ -20,7 +20,7 @@ import json
 import subprocess
 import sys
 
-from jav import goldens
+from jav.evals import goldens
 from jav.core.config import PROJECT_ROOT
 from jav.domains import DOMAINS
 from tests.test_dependency_direction import domain_modules
@@ -60,11 +60,11 @@ def _imports_goldens(name: str) -> bool:
     path = JAV / (name.replace(".", "/") + ".py")
     path = path if path.is_file() else path.with_suffix("") / "__init__.py"  # 208: a domain's package
     for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-        if isinstance(node, ast.ImportFrom) and node.module == "jav" and any(a.name == "goldens" for a in node.names):
+        if isinstance(node, ast.ImportFrom) and node.module == "jav.evals" and any(a.name == "goldens" for a in node.names):
             return True
-        if isinstance(node, ast.ImportFrom) and node.module == "jav.goldens":
+        if isinstance(node, ast.ImportFrom) and node.module == "jav.evals.goldens":
             return True
-        if isinstance(node, ast.Import) and any(a.name == "jav.goldens" for a in node.names):
+        if isinstance(node, ast.Import) and any(a.name == "jav.evals.goldens" for a in node.names):
             return True
     return False
 
@@ -80,7 +80,7 @@ def test_the_business_modules_load_without_the_measurement_layer() -> None:
     code = ("import json, sys, jav.domains.quotes.quote_package, jav.domains.finance.reconcile_package\n"
             "from jav.app import registrations\n"
             "registrations.load_all()\n"
-            "print(json.dumps(sorted(m for m in ('jav.goldens', 'jav.domains.quotes.goldens', 'jav.domains.finance.goldens') "
+            "print(json.dumps(sorted(m for m in ('jav.evals.goldens', 'jav.domains.quotes.goldens', 'jav.domains.finance.goldens') "
             "if m in sys.modules)))")
     out = subprocess.run([sys.executable, "-c", code], cwd=PROJECT_ROOT, capture_output=True, text=True, check=True,
                          encoding="utf-8")

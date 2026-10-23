@@ -31,7 +31,7 @@ def _cases(limit: int | None = None) -> list[GoldenEmail]:
 
 
 def count_cases() -> int:
-    """188: the number of the legacy intent golden set's emails, without measuring (`jav/goldens.py`); 0 without the
+    """188: the number of the legacy intent golden set's emails, without measuring (`jav/evals/goldens.py`); 0 without the
     legacy project."""
     return len(load_old_golden())
 

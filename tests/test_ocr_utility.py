@@ -22,7 +22,7 @@ from decimal import Decimal
 import pytest
 from typesafe_sdk import Choice, Noul
 
-from jav import evals
+from jav.evals import evals
 from jav.ai import candidates as cand, policy, typepack
 from jav.documents import ocr, pdf as pdfmod
 from jav.ai.models import Candidate, CellLayout, LineLayout

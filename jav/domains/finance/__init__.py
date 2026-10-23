@@ -42,7 +42,7 @@ SERVICE = ("jav.domains.finance.api_parties", "jav.domains.finance.api_finance")
 # 202 (plan G-core-generalisation M3a): the module of the domain's commands (`register(sub)`); `jav.cli` adds it by name
 COMMANDS = ("jav.domains.finance.finance_cli",)
 # 204 (plan G-process-core R1h): the modules of the domain's golden sets (the reconciliation's), by name; the shared measurement
-# command imports them (`jav.goldens.logic_pack_goldens`), so the reconciliation imports no measurement code
+# command imports them (`jav.evals.goldens.logic_pack_goldens`), so the reconciliation imports no measurement code
 GOLDENS = ("jav.domains.finance.goldens",)
 
 # --- the cross-document checks: they read the store, so the check registry runs them in a worker run only, and a

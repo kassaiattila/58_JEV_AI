@@ -1,13 +1,13 @@
 """122 (GPT round, step M5): data extraction on a local case list, each document with its expected type pack.
 
-The case list is the detection measurement's (`jav.evals_detect.load_case_file`: `case_id`, `path`, `expected`,
+The case list is the detection measurement's (`jav.evals.evals_detect.load_case_file`: `case_id`, `path`, `expected`,
 `expected_detail`), kept outside git because it names real documents; only the cases with an `expected_detail` that
 is a type pack run. The run is a paid measurement under a hard budget in code (`calls.measurement`): the G path's
 OpenAI budget (plus JEV when it verifies with JEV), or the S path's JEV budget. Nothing is approved or corrected; the
 rows say what each pack extracted and which to-dos it raised.
 
-    python -m jav.experiments.extract_cases runs/quality_122/cases.json --arm S --budget-usd 0.03 --live
-    python -m jav.experiments.extract_cases runs/quality_122/cases.json --arm G --no-jev --budget-usd 0.05 \
+    python -m jav.evals.extract_cases runs/quality_122/cases.json --arm S --budget-usd 0.03 --live
+    python -m jav.evals.extract_cases runs/quality_122/cases.json --arm G --no-jev --budget-usd 0.05 \
         --only-detail proforma_invoice --live
 
 Output: `runs/<timestamp>_extract_cases_<arm>/rows.jsonl` (the extracted values, to-dos and status per case).
@@ -41,7 +41,7 @@ def run(case_file: Path, *, arm: str, jev: bool, budget_usd: Decimal, out_dir: P
         jev_budget_usd: Decimal | None = None, only_detail: str | None = None) -> list[dict[str, Any]]:
     from jav.flows import flow
     from jav.ai import typepack
-    from jav.evals_detect import load_case_file
+    from jav.evals.evals_detect import load_case_file
     from jav.core import calls
 
     packs = set(typepack.keys())
@@ -103,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
                                                      "jev": not args.no_jev, "budget_usd": args.budget_usd,
                                                      "rows": len(rows)}, indent=1), encoding="utf-8")
     print(f"output: {out}")
-    from jav.eval_report import report_budget_skips
+    from jav.evals.eval_report import report_budget_skips
 
     # 123: exit code 3 = the budget left cases without a result
     return 3 if report_budget_skips(rows) else 0

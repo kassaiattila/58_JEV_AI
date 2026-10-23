@@ -14,7 +14,8 @@ import json
 import subprocess
 import sys
 
-from jav import before_after_replay, cli
+from jav import cli
+from jav.evals import before_after_replay
 from jav.app import logic_packs, parties, registrations, work
 from jav.core.config import PROJECT_ROOT
 

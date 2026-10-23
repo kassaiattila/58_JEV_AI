@@ -4,7 +4,7 @@
 Plain-language summary: the quote package has three golden sets, built on the invented quote requests
 (`configs/golden_quotes.json`, read by `jav/domains/quotes/invented_golden.py`): the quotes' lines and totals priced by code, the price
 list item proposed for each requested item, and the reply letter's paragraph GPT writes. The shared measurement
-command (`python -m jav.cli measure`, `jav/goldens.py`) measures them with every other golden set. They are described
+command (`python -m jav.cli measure`, `jav/evals/goldens.py`) measures them with every other golden set. They are described
 here, beside the quote package, so the quote package and its pricing never import the measurement layer; the quotes
 domain names this module (`jav/domains/quotes/__init__.py` `GOLDENS`) and the shared command finds it from there.
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav import goldens
+from jav.evals import goldens
 from jav.domains.quotes import quote_letter, quote_pricing
 from jav.domains.quotes.quote_package import KIND
 
@@ -101,7 +101,7 @@ def _measure_letters(options: goldens.Options) -> goldens.Outcome:
                            unit="cases")
 
 
-# B4a: the quote package's golden sets, measured by the shared measurement command (`jav/goldens.py`)
+# B4a: the quote package's golden sets, measured by the shared measurement command (`jav/evals/goldens.py`)
 GOLDENS = (
     goldens.Golden(key=f"{KIND}:lines", layer="logic_pack", owner=KIND, engines=(), module=__name__,
                    what="the invented quotes' lines and totals priced by code from their expected matches "

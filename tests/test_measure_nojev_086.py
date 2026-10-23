@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import evals, evals_detect
+from jav.evals import evals, evals_detect
 from jav.ai import detect_gpt
 from jav.core import store
 from jav.ai import jev as jev_mod

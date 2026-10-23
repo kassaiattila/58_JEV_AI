@@ -551,7 +551,7 @@ def golden(*, engines: Iterable[str], limits: dict[str, Decimal], use_cache: boo
     owner's sub-budget (`limits` per provider; an engine without one is refused before any call). The raw answers go to
     `runs/<stamp>_credit_kinds_golden.jsonl`; nothing is stored. The score is against labels written for this
     measurement, not against a person's decisions on real lines. 188: `earlier_only` (the shared measurement command,
-    `jav/goldens.py`) measures without a budget: only earlier answers count (160), and a line without one is a failed
+    `jav/evals/goldens.py`) measures without a budget: only earlier answers count (160), and a line without one is a failed
     answer."""
     engines = [e for e in ENGINES if e in set(engines)]
     if earlier_only:

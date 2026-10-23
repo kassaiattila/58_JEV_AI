@@ -1,4 +1,4 @@
-"""127: the free pre-estimate of a paid JEV measurement (`jav/experiments/jev_estimate.py`).
+"""127: the free pre-estimate of a paid JEV measurement (`jav/evals/jev_estimate.py`).
 
 A cached question gets its saved answer; a missing one is counted with its size and answered by a stand-in, never
 sent, and nothing is written to the cache. Offline: the cache is seeded with a fake client.
@@ -8,12 +8,12 @@ from decimal import Decimal
 
 from typesafe_sdk import Choice, Noul, Score, SystemOneResponse
 
-from jav import evals
+from jav.evals import evals
 from jav.core import store
 from jav.ai import jev
 from jav.ai.jev import JevAdapter, get_adapter
-from jav.experiments import jev_estimate
-from jav.experiments.jev_estimate import EstimatingAdapter, only_adapter, runs_redirected, stand_in, summary
+from jav.evals import jev_estimate
+from jav.evals.jev_estimate import EstimatingAdapter, only_adapter, runs_redirected, stand_in, summary
 
 
 class _SeedClient:

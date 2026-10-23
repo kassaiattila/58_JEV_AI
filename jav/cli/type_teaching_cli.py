@@ -23,8 +23,8 @@ def _print_switches(switched: list) -> None:  # list[type_teaching.Switch]
 
 def cmd_type_propose(args: argparse.Namespace) -> int:
     """197 (plan 197 K2): field proposals for teaching a type, from a held-out family's development half's general facts
-    (`jav/type_teaching.py`); no AI call, names and counts only. Exit code 2: the half has no measured facts."""
-    from jav import type_teaching
+    (`jav/evals/type_teaching.py`); no AI call, names and counts only. Exit code 2: the half has no measured facts."""
+    from jav.evals import type_teaching
 
     try:
         report = type_teaching.proposal_report(args.family, min_documents=args.min_documents)
@@ -43,12 +43,12 @@ def cmd_type_propose(args: argparse.Namespace) -> int:
 
 
 def cmd_type_candidate(args: argparse.Namespace) -> int:
-    """197 (plan 197 K2b): the candidate type pack of an edited draft (`jav/type_teaching.py`): its pack, prompt, schema
+    """197 (plan 197 K2b): the candidate type pack of an edited draft (`jav/evals/type_teaching.py`): its pack, prompt, schema
     and verification call site, never picked by detection; then the shared registries' entries to add by hand. Exit
     code 2: no such draft, or a pack of that name that is not its candidate."""
     from pydantic import ValidationError
 
-    from jav import type_teaching
+    from jav.evals import type_teaching
     from jav.core.config import PROJECT_ROOT
 
     try:
@@ -65,10 +65,10 @@ def cmd_type_candidate(args: argparse.Namespace) -> int:
 
 
 def cmd_type_activate(args: argparse.Namespace) -> int:
-    """199 (plan 197 K2d): detection may pick a type pack in its family from now on (`jav/type_teaching.py`); a taught
+    """199 (plan 197 K2d): detection may pick a type pack in its family from now on (`jav/evals/type_teaching.py`); a taught
     pack only with a clean, complete measurement of its evaluation half on its current files. Exit code 2: refused,
     nothing written."""
-    from jav import type_teaching
+    from jav.evals import type_teaching
 
     try:
         switched = type_teaching.activate(args.key, replace=args.replace)
@@ -82,7 +82,7 @@ def cmd_type_activate(args: argparse.Namespace) -> int:
 def cmd_type_withdraw(args: argparse.Namespace) -> int:
     """199 (plan 197 K2d): detection no longer picks a type pack; its files stay for its earlier results. Exit code 2:
     refused, nothing written."""
-    from jav import type_teaching
+    from jav.evals import type_teaching
 
     try:
         switched = type_teaching.withdraw(args.key, restore=args.restore)

@@ -131,7 +131,7 @@ def test_policy_signal_reasons_and_route():
 def test_injection_probe_perturbation_is_pure_and_bilingual():
     """Injected-instruction probe: a sentence addressed to the processing system is appended to the end of the golden
     email's body; the original does not change."""
-    from jav.evals_email import INJECTIONS, inject_instruction
+    from jav.evals.evals_email import INJECTIONS, inject_instruction
 
     msg = _msg()
     original = msg.body
@@ -146,7 +146,7 @@ def test_injection_probe_perturbation_is_pure_and_bilingual():
 
 
 def test_eval_report_reads_scores_as_score_judgments(tmp_path: Path):
-    from jav.eval_report import band_of, determinism_summary, judgments_from_file, per_question
+    from jav.evals.eval_report import band_of, determinism_summary, judgments_from_file, per_question
 
     rows = [
         {"case_id": "e1", "expected": "szamlakuldes", "got": "szamlakuldes", "confidence": 0.99, "signals": {"prompt_injection": 0.05},

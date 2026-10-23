@@ -89,7 +89,7 @@ class LogicPack:
 
     188: a logic pack's golden sets (named `<kind>:<name>`) are measured by the shared measurement command like a type
     pack's; 204 (plan G-process-core R1h): its domain names the module that describes them (`GOLDENS` in `jav/domains/`, read by
-    `jav/goldens.py`), so the pack's own module never imports the measurement layer.
+    `jav/evals/goldens.py`), so the pack's own module never imports the measurement layer.
     """
 
     kind: str

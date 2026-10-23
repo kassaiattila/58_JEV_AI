@@ -110,7 +110,7 @@ powershell -File scripts\outlook_bridge.ps1 -RepoRoot inbox\.bridge -OrchUrl htt
 | Path | Contents |
 |---|---|
 | `jav/` | the Python package: flows (`flow*.py`), candidate search, JEV/GPT adapters (`adapters/`), validators, store, OCR, evaluation, command line |
-| `jav/experiments/`, `configs/experiments/` | three stand-alone measurement tools (free JEV estimate, extraction on a case list, injected-instruction probe); runtime code does not import them |
+| `jav/evals/` (`jev_estimate.py`, `extract_cases.py`, `document_injection_probe.py`), `configs/experiments/` | three stand-alone measurement tools (free JEV estimate, extraction on a case list, injected-instruction probe); runtime code does not import them |
 | `configs/` | configuration as data: type and intent registries, type packs, call sites, thresholds, models, OCR, the service's limits and backup, recipes, datasets, reports, the data guard ([guide](docs/guides/CONFIGS.md)) |
 | `ui/` | the browser workspace (React; build: `ui/dist/`, which the service serves at the root) |
 | `tests/` | offline tests (with synthetic data) |

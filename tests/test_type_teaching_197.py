@@ -9,7 +9,8 @@ import json
 
 import pytest
 
-from jav import cli, type_teaching
+from jav import cli
+from jav.evals import type_teaching
 from jav.core import store
 
 
@@ -185,8 +186,8 @@ def test_the_taught_tickets_files_are_what_its_draft_makes():
 
 
 def test_a_taught_candidate_is_measured_on_its_familys_evaluation_half_only(monkeypatch):
-    from jav import evals_facts, goldens
-    from jav.evals import GoldenCase
+    from jav.evals import evals_facts, goldens
+    from jav.evals.evals import GoldenCase
 
     def fact_case(name, half):
         return evals_facts.FactCase(case=GoldenCase(case_id=name, pdf=None, expected={}, expected_valid=True,
@@ -201,7 +202,7 @@ def test_a_taught_candidate_is_measured_on_its_familys_evaluation_half_only(monk
         seen.update(arm=arm, cases=[(c.case_id, c.type_key) for c in cases], type_key=type_key, label=label)
         return []
 
-    monkeypatch.setattr("jav.evals.golden", fake_golden)
+    monkeypatch.setattr("jav.evals.evals.golden", fake_golden)
     golden.measure(goldens.Options(engine="gpt"))
     assert seen == {"arm": "G", "cases": [("b", "belepo_jegy_taught")], "type_key": "belepo_jegy_taught", "label": "taught"}
     # its own development half, an in-sample check named as such

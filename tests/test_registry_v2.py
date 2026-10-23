@@ -101,7 +101,7 @@ def test_detect_and_intent_results_carry_parent():
 def test_eval_report_parent_section(tmp_path):
     import json
 
-    from jav import eval_report as er
+    from jav.evals import eval_report as er
 
     rows = [
         {"case_id": "d1", "expected": "invoice_foreign", "got": "invoice_hu", "confidence": 0.45, "issuer_hu": 0.5, "language": "hu", "status": "done",

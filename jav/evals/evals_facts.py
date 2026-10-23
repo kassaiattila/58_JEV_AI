@@ -5,7 +5,7 @@ facts, code checks each quote against the document's text, and JEV rates how wel
 set measured that until now. Here the legacy golden documents of a type pack (`configs/golden_facts.json`: the ticket)
 go straight to the general facts with their pack withheld, as a document of an unknown type would, and the pack's
 scored fields are looked for among the facts by value, with the same comparison as the data point golden sets
-(`jav/evals.py` `field_equal`). For each expected value the report says whether a fact that passed the code's check
+(`jav/evals/evals.py` `field_equal`). For each expected value the report says whether a fact that passed the code's check
 carries it (found), whether JEV supports that fact (supported), and whether only a fact the code rejected carries it.
 The fact's own name is free text, so a value is found by value, not by name; the names the facts used are kept in the
 raw rows for the taught type (K2) to start from. A file repeated in the manifest is measured once.
@@ -38,7 +38,7 @@ from typing import Any
 from jav.ai import policy
 from jav.core import cfg
 from jav.core.config import RUNS_DIR
-from jav.evals import GoldenCase, field_equal, load_cases
+from jav.evals.evals import GoldenCase, field_equal, load_cases
 from jav.ai.typepack import TypePack
 from jav.ai.typepack import get as get_pack
 

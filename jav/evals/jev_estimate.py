@@ -11,12 +11,12 @@ The cost of a live question is estimated from its request size: about 2.5 charac
 and at most 0.6 tokens per character (upper bound, measured in the call log; `jav/core/calls.py`). The worst-case
 reservation of the largest question is reported too: a hard budget has to leave at least that much room.
 
-    python -m jav.experiments.jev_estimate golden:invoice_hu synthetic:invoice_foreign detect-golden email-golden
-    python -m jav.experiments.jev_estimate detect-cases:runs/quality_122/cases.json extract-cases:runs/quality_127/sample.json
+    python -m jav.evals.jev_estimate golden:invoice_hu synthetic:invoice_foreign detect-golden email-golden
+    python -m jav.evals.jev_estimate detect-cases:runs/quality_122/cases.json extract-cases:runs/quality_127/sample.json
 
 Steps: `golden:<type>` (S path on the legacy golden set), `synthetic:<type>` (S path on the synthetic cases),
 `detect-golden`, `detect-cases:<case file>`, `email-golden`, `verifier-probe:<type>` (the G path's JEV check on the
-golden extracts), `extract-cases:<case file>` (S path on a local case list, `jav.experiments.extract_cases`). Output: `runs/<timestamp>_jev_estimate/` (`estimate.json`, `estimate.md`,
+golden extracts), `extract-cases:<case file>` (S path on a local case list, `jav.evals.extract_cases`). Output: `runs/<timestamp>_jev_estimate/` (`estimate.json`, `estimate.md`,
 the raw run files of the steps, which hold stand-in answers and are no measurement).
 """
 
@@ -40,7 +40,7 @@ from jav.core.config import CACHE_DIR, JEV_RETRY, JEV_USD_PER_MTOK, RUNS_DIR
 TOKENS_PER_CHAR = Decimal("0.4")  # about 2.5 characters per token (JEV_PLAYBOOK §3)
 TOKENS_PER_CHAR_MAX = Decimal("0.6")  # at most 0.60 of the request's characters (jav/core/calls.py, TOKEN_OVERHEAD)
 NO_LIMIT = Decimal("1000")  # the steps run under a JEV-only budget, as the paid measurement; nothing is reserved
-MODULES_WITH_RUNS_DIR = ("jav.evals", "jav.evals_detect", "jav.evals_email")
+MODULES_WITH_RUNS_DIR = ("jav.evals.evals", "jav.evals.evals_detect", "jav.evals.evals_email")
 
 
 @dataclass
@@ -149,29 +149,29 @@ def runs_redirected(out: Path) -> Iterator[None]:
 def run_step(step: str, out: Path) -> None:
     kind, _, arg = step.partition(":")
     if kind in ("golden", "synthetic"):
-        from jav import evals
+        from jav.evals import evals
         from jav.flows.flow import run_one
 
         cases = evals.load_synthetic_cases(arg, out_dir=out / "synthetic") if kind == "synthetic" else None
         evals.golden("S", run_one, cases=cases, type_key=arg, jev_budget_usd=NO_LIMIT, label=kind)
     elif kind == "detect-golden":
-        from jav import evals_detect
+        from jav.evals import evals_detect
 
         evals_detect.detect_golden(budget_usd=NO_LIMIT)
     elif kind == "detect-cases":
-        from jav import evals_detect
+        from jav.evals import evals_detect
 
         evals_detect.detect_golden(budget_usd=NO_LIMIT, cases=evals_detect.load_case_file(Path(arg)), label="cases")
     elif kind == "email-golden":
-        from jav import evals_email
+        from jav.evals import evals_email
 
         evals_email.email_golden(jev_budget_usd=NO_LIMIT)
     elif kind == "verifier-probe":
-        from jav import evals
+        from jav.evals import evals
 
         evals.verifier_probe(type_key=arg, jev_budget_usd=NO_LIMIT)
     elif kind == "extract-cases":
-        from jav.experiments import extract_cases
+        from jav.evals import extract_cases
 
         extract_cases.run(Path(arg), arm="S", jev=True, budget_usd=NO_LIMIT, out_dir=out / "extract_cases")
     else:

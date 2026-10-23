@@ -12,14 +12,16 @@ from pathlib import Path
 import pytest
 
 from jav.core import store
+from jav.core.config import PROJECT_ROOT
 from jav.runtime import preload, worker
 
 
-def test_preload_imports_the_runtime_code_but_not_the_experiments():
+def test_preload_imports_the_runtime_code_but_not_the_measurement_tools():
     loaded = preload.preload()
     for name in ("jav.flows.flow", "jav.flows.flow_detect", "jav.domains.email.flow_email", "jav.ai.extract_llm", "jav.ai.token_confidence", "jav.ai.grounding"):
         assert name in loaded and name in sys.modules
-    assert not any(m.startswith("jav.experiments") for m in loaded)
+    assert set(preload.EXCLUDED) and not set(preload.EXCLUDED) & set(loaded)
+    assert all((PROJECT_ROOT / (m.replace(".", "/") + ".py")).is_file() for m in preload.EXCLUDED)  # 208: they exist
 
 
 def test_a_module_that_fails_to_import_stops_the_start(monkeypatch):

@@ -1,6 +1,6 @@
 """Running before/after snapshot (plan 170, E0b): the processing itself, replayed from earlier answers.
 
-Plain-language summary: the static snapshot (`jav.before_after`) shows that a refactoring step left every list, page
+Plain-language summary: the static snapshot (`jav.evals.before_after`) shows that a refactoring step left every list, page
 and download the same, but it only reads results that are already stored. This one processes documents again: about
 150 items, chosen so that every way the processing can go is represented, run once more on a fresh copy of the
 backed-up store, from earlier answers only. Nothing can reach a provider: the keys are replaced by a placeholder, the
@@ -46,8 +46,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from jav import before_after
-from jav.before_after import SnapshotError
+from jav.evals import before_after
+from jav.evals.before_after import SnapshotError
 
 SAMPLE_SIZE = 150
 WORKER = "before.after.replay"

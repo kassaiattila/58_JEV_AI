@@ -90,8 +90,8 @@ def last_golden_results() -> list[dict[str, Any]]:
 
 def golden_set_lines() -> list[str]:
     """188: every registered golden set with its latest result from the shared measurement command's receipts
-    (`jav/goldens.py`), so a logic pack's golden set shows next to the type packs'."""
-    from jav import goldens
+    (`jav/evals/goldens.py`), so a logic pack's golden set shows next to the type packs'."""
+    from jav.evals import goldens
 
     latest = goldens.latest_results()
     lines = ["| golden set | cases | as expected | without a result | receipt (commit) |", "|---|---|---|---|---|"]

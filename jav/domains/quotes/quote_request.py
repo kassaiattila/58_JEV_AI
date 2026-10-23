@@ -93,7 +93,7 @@ def merge(parts: list[Part]) -> tuple[dict[str, Any], dict[str, int], list[dict[
 
 def merged(readings: list[dict[str, Any]]) -> dict[str, Any]:
     """The readings of an email's parts (its text first, then its attachments) put together, as `merge` does: the
-    header fields and the requested items (the measurement's comparison, `jav/evals_quotes.py`)."""
+    header fields and the requested items (the measurement's comparison, `jav/evals/evals_quotes.py`)."""
     parts = [Part("email_text" if n == 0 else "attachment", "", None, "", r or {}) for n, r in enumerate(readings)]
     fields, _sources, items, _items_from = merge(parts)
     return {**fields, ITEMS: items}

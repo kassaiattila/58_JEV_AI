@@ -3,7 +3,7 @@
 
 Plain-language summary: the reconciliation has two golden sets, lists of cases whose right answer is known in advance:
 the pairs, exclusions and statuses its code proposes on synthetic cases, and the kind of incoming money on invented
-statement lines. The shared measurement command (`python -m jav.cli measure`, `jav/goldens.py`) measures them with every
+statement lines. The shared measurement command (`python -m jav.cli measure`, `jav/evals/goldens.py`) measures them with every
 other golden set. They are described here, beside the reconciliation, so the reconciliation itself never imports the
 measurement layer; the finance domain names this module (`jav/domains/finance/__init__.py` `GOLDENS`) and the shared command
 finds it from there.
@@ -14,7 +14,7 @@ business module imports it.
 
 from __future__ import annotations
 
-from jav import goldens
+from jav.evals import goldens
 from jav.core import cfg
 from jav.domains.finance import reconcile
 from jav.domains.finance.reconcile_package import KIND
@@ -44,7 +44,7 @@ def _measure_credit_kinds(options: goldens.Options) -> goldens.Outcome:
     return goldens.Outcome(cases=s["cases"], answered=answered, right=s["right"], scored=answered)
 
 
-# 188 (plan 185 T3a): the reconciliation's golden sets, measured by the shared measurement command (`jav/goldens.py`)
+# 188 (plan 185 T3a): the reconciliation's golden sets, measured by the shared measurement command (`jav/evals/goldens.py`)
 GOLDENS = (
     goldens.Golden(key=f"{KIND}:pairs", layer="logic_pack", owner=KIND, engines=(), module=__name__,
                    what="the pairs, exclusions and statuses the code proposes on the synthetic reconciliation cases "

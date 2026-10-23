@@ -12,7 +12,8 @@ from datetime import date
 
 import pytest
 
-from jav import cli, goldens, type_teaching
+from jav import cli
+from jav.evals import goldens, type_teaching
 from jav.ai import detect_detail, typepack
 from jav.core import cfg
 

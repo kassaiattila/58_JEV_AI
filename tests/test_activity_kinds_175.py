@@ -145,7 +145,7 @@ def test_my_work_today_shows_a_persons_duplicate_decision_statement_choice_and_w
 
 def test_the_before_after_snapshot_reads_the_days_of_every_activity_source() -> None:
     """A day whose only action comes from one source is still a view of the before/after snapshot."""
-    from jav import before_after
+    from jav.evals import before_after
 
     tables = {t for t, _who, _when in before_after._ACTIVITY_TIMES}
     for source in activity_kinds.sources():

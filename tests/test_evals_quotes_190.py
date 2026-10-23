@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import evals_quotes, goldens
+from jav.evals import evals_quotes, goldens
 from jav.ai import typepack
 from jav.domains.quotes import invented_golden
 from jav.ai.models import record_from_llm
@@ -131,7 +131,7 @@ def test_the_expected_dates_are_dates():
 def test_the_legacy_intent_golden_set_counts_an_unanswered_email_without_a_result(tmp_path, monkeypatch):
     """190: with a new intent every question is new; a round without a budget has no earlier answer, and an email
     without one is a row without a result (it stopped the whole set with an assertion before)."""
-    from jav import evals_email
+    from jav.evals import evals_email
     from jav.core import store
     from jav.ai import jev as jev_mod
     from jav.domains.email.emails import EmailMessage, GoldenEmail

@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from jav.domains.email import email_tasks, flow_email, intent_gpt
-from jav import evals_email
+from jav.evals import evals_email
 from jav.app import work_readiness, work_recipes
 from jav.ai import gpt_choice
 from jav.core import store

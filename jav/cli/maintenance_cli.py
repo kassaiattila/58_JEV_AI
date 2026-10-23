@@ -147,7 +147,7 @@ def cmd_deps_audit(args: argparse.Namespace) -> int:
 def cmd_before_after_snapshot(args: argparse.Namespace) -> int:
     """171 (plan 170, E0): the service's read views on a fresh copy of a backed-up store, written to a JSON-lines file
     (free: no AI call, no network). The file holds personal data: keep it outside git."""
-    from jav import before_after
+    from jav.evals import before_after
 
     try:
         counts = before_after.static_snapshot(Path(args.baseline), Path(args.work), Path(args.out),
@@ -163,7 +163,7 @@ def cmd_before_after_snapshot(args: argparse.Namespace) -> int:
 def cmd_before_after_replay(args: argparse.Namespace) -> int:
     """173 (plan 170, E0b): a sample of the backed-up store's items processed again on a fresh copy, from earlier
     answers only (free: placeholder keys, closed network, no budget); exit code 3 if a replayed run made a live call."""
-    from jav import before_after, before_after_replay
+    from jav.evals import before_after, before_after_replay
 
     try:
         result = before_after_replay.running_snapshot(Path(args.baseline), Path(args.work), Path(args.out),
@@ -189,7 +189,7 @@ def cmd_before_after_replay(args: argparse.Namespace) -> int:
 
 def cmd_before_after_diff(args: argparse.Namespace) -> int:
     """171 (plan 170, E0): the views missing on one side or differing between two snapshots; exit code 1 if any."""
-    from jav import before_after
+    from jav.evals import before_after
 
     differences = before_after.diff(Path(args.before), Path(args.after), limit=args.places)
     if not differences:

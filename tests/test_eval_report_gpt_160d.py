@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import eval_report as er
+from jav.evals import eval_report as er
 from jav.ai import policy
 
 

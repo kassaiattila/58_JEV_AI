@@ -31,7 +31,7 @@ from typing import Any
 
 from jav.domains.quotes import invented_golden
 from jav.core.config import RUNS_DIR
-from jav.evals import field_equal
+from jav.evals.evals import field_equal
 from jav.domains.quotes.quote_request import merged
 
 TYPE = "quote_request"

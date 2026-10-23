@@ -68,7 +68,7 @@ def _expected_values(exp: dict[str, Any], fields: Iterable[str]) -> dict[str, An
 
 
 def count_cases(type_key: str) -> int:
-    """188: the number of the legacy manifest's cases for one type that `load_cases` can read (`jav/goldens.py`): their
+    """188: the number of the legacy manifest's cases for one type that `load_cases` can read (`jav/evals/goldens.py`): their
     expected file holds a value of one of the pack's fields. 197: the packs converted from legacy types (047) keep their
     expected values without a `datapoints` record, and count too; 0 without the legacy project."""
     if not GOLDEN_MANIFEST.exists():

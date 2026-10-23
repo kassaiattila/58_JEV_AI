@@ -14,7 +14,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import cli, evals, evals_detect, evals_email
+from jav import cli
+from jav.evals import evals, evals_detect, evals_email
 from jav.app import app_settings
 from jav.flows import flow, flow_detect
 from jav.core import store

@@ -1,4 +1,4 @@
-"""188 (plan 185 T3a): every golden set in one registry, measured by one command (`measure`, `jav/goldens.py`).
+"""188 (plan 185 T3a): every golden set in one registry, measured by one command (`measure`, `jav/evals/goldens.py`).
 
 The data point golden sets come from the type packs, the type recognition and the email intent golden sets are the
 two flows', and a logic pack's come from its domain's measurement module (the reconciliation: the pairs proposed by
@@ -17,7 +17,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import cli, evals, evals_detect, evals_email, goldens
+from jav import cli
+from jav.evals import evals, evals_detect, evals_email, goldens
 from jav.domains.finance import reconcile, reconcile_ai, goldens as reconcile_goldens
 from tests.test_golden_commands_188 import (CREDIT_RESULT, credit_kinds_call, detect_call, email_call, golden_call,
                                             record)

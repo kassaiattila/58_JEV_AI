@@ -1,6 +1,6 @@
 """188 (plan 185 T3a): what each golden command measures, pinned before the shared measurement command.
 
-The shared command (`measure`, `jav/goldens.py`) has to run every golden set exactly as the set's own command does:
+The shared command (`measure`, `jav/evals/goldens.py`) has to run every golden set exactly as the set's own command does:
 the same measuring function with the same arguments, so the raw run files, their names and the reports stay
 comparable with the earlier measurements. These tests were written against the commands as they were before the
 shared command existed; `tests/test_goldens_188.py` checks the shared command against the same calls.
@@ -15,7 +15,8 @@ from typing import Any
 
 import pytest
 
-from jav import cli, evals, evals_detect, evals_email
+from jav import cli
+from jav.evals import evals, evals_detect, evals_email
 from jav.domains.finance import reconcile, reconcile_ai
 
 

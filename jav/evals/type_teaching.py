@@ -181,7 +181,7 @@ def shape(value: Any) -> str:
 def expected_shapes(family: str) -> dict[str, dict[str, int]]:
     """The written forms of the development half's expected values, per field: what a taught field has to be written
     like to match its labels (the evaluation half is not read)."""
-    from jav import evals_facts
+    from jav.evals import evals_facts
 
     out: dict[str, Counter] = defaultdict(Counter)
     for fc in evals_facts.cases(family):
@@ -305,7 +305,7 @@ def candidate(draft: TaughtDraft, *, today: date | None = None) -> dict[str, Any
         "wrong_kind_fields": [f.key for f in draft.fields if f.kind in ("tax_id", "iban", "invoice_number")],
     }
     lines = [f"- `{f.key}`: {f.meaning.rstrip('.')}.{_WRITTEN.get(f.kind, '')}" for f in draft.fields]
-    prompt = (f"<!-- 197 (plan 197 K2): made from configs/type_drafts/{draft.key}.json by jav/type_teaching.py; "
+    prompt = (f"<!-- 197 (plan 197 K2): made from configs/type_drafts/{draft.key}.json by jav/evals/type_teaching.py; "
               "edit the draft, not this file. -->\n"
               f"You read {draft.document[0].lower()}{draft.document[1:]}. The source text is the document itself, one line "
               "per printed line.\n\nExtract these fields; leave a field null when the document does not state it:\n\n"
@@ -420,7 +420,7 @@ def evaluation_gate(key: str, *, latest: dict[str, dict[str, Any]] | None = None
                     files_then: Files | None = None) -> dict[str, Any]:
     """The measurement a taught pack's activation rests on: the latest shared measurement of its evaluation half
     (`measure taught:<key>:evaluation`), on a clean working tree, every case answered, on the files the pack has now."""
-    from jav import goldens
+    from jav.evals import goldens
 
     name = f"taught:{key}:evaluation"
     row = (goldens.latest_results() if latest is None else latest).get(name)

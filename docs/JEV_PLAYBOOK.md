@@ -117,7 +117,7 @@ The 15 type-specific call sites: `verify_altalanos_szerzodesi_feltetelek` (gener
 
 ### 4.6 Outside the catalogue
 
-The stand-alone measurement tools (`jav/experiments/`, for example the injected-instruction probe with `configs/experiments/document_injection.json`) run the production call sites; they add no question set of their own.
+The stand-alone measurement tools (`jav/evals/jev_estimate.py`, `extract_cases.py`, `document_injection_probe.py`; for example the injected-instruction probe with `configs/experiments/document_injection.json`) run the production call sites; they add no question set of their own.
 
 ## 5. Policy thresholds (`configs/policy.json`)
 
@@ -185,7 +185,7 @@ The first version of this playbook (2026-09-20) compared the docs' recommendatio
 |---|---|---|---|
 | 1 | adapter | concrete version in the cache key; explicit `RetryPolicy`; errors into the ledger and a to-do instead of a failed flow; SDK log guard | done (2026-09-20). A parallel worker pool for bulk runs was not built: the worker processes one item at a time. |
 | 2 | policy | two-sided Noul bands, second-option gap, stakes-based threshold, named band sets, coarser parent label when uncertain | done (policy 1.1.0–1.2.0) |
-| 3 | evaluation | per-question accuracy and bands, calibration curve (bin by bin: probability against hit rate), top probability against `confidence`, policy re-evaluation, determinism | done (`jav/eval_report.py`, `eval-report`). A version-independent entropy-based confidence is still open (section 8). |
+| 3 | evaluation | per-question accuracy and bands, calibration curve (bin by bin: probability against hit rate), top probability against `confidence`, policy re-evaluation, determinism | done (`jav/evals/eval_report.py`, `eval-report`). A version-independent entropy-based confidence is still open (section 8). |
 | 4 | registry schema | `what / not_for / examples / parent`; the Choice criteria are built from it | done (`jav/core/registry.py`) |
 | 5 | S path | presence Noul for every optional field; record confidence = minimum; line id of the evidence stored with the data point | done |
 | 6 | G path | structured Noul instruction; two-sided band for the flags | done (`verify` 1.1.0); checked with the verifier probe (deliberately corrupted values) |

@@ -37,9 +37,6 @@ ALLOWED = {layer: (*LAYERS[: i + 1], *(("evals", "devtools", "legacy") if layer 
 
 # not in its layer's folder yet: module (relative to jav) -> its layer ("domains.<domain>" for a domain's module)
 NOT_MOVED = {name: layer for layer, names in {
-    "evals": "before_after before_after_replay eval_report evals evals_detect evals_email evals_facts evals_quotes "
-        "experiments experiments.document_injection_probe experiments.extract_cases experiments.jev_estimate "
-        "goldens type_teaching",
     "devtools": "admin capability_catalog data_guard docsgen engine_matrix lang_guard preflight",
     "legacy": "legacy_import legacy_packs typepack_convert",
 }.items() for name in names.split()}

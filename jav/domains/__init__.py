@@ -7,7 +7,7 @@ asks the registries and never names a domain. `registrations.load_all()` calls e
 process; importing a domain module registers nothing. 185: a domain module also names the modules of its addresses of
 the local service (`SERVICE`), which `jav.service.api.service_modules` adds. 191: any number of domains can register. 204: a
 domain module names the modules of its golden sets (`GOLDENS`; a domain without any names none, as with `COMMANDS`),
-which the shared measurement command imports by name (`jav.goldens.logic_pack_goldens`), so a domain's business modules
+which the shared measurement command imports by name (`jav.evals.goldens.logic_pack_goldens`), so a domain's business modules
 never import the measurement layer. 208 (plan G-process-core R2): a domain is a package, and its modules are the ones
 in its folder (until then its `MODULES` named them, 191).
 

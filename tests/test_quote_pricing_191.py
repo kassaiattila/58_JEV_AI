@@ -15,7 +15,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import goldens
+from jav.evals import goldens
 from jav.domains.quotes import invented_golden, goldens as quote_goldens, quote_pricing
 from jav.domains.quotes.price_lists import Discount, Item, PriceList
 

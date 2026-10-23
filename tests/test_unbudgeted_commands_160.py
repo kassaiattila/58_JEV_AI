@@ -13,7 +13,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import cli, evals, evals_email
+from jav import cli
+from jav.evals import evals, evals_email
 from jav.core import store
 from jav.ai import jev as jev_mod
 from jav.core import calls
@@ -32,12 +33,12 @@ def _budgets(scope: str) -> dict[str, Decimal]:
 COMMANDS = [
     (["run", "x.pdf"], "jav.flows.flow.run_one"),
     (["detect", "x.pdf"], "jav.flows.flow_detect.run_detect"),
-    (["detect-corpus", "folder"], "jav.evals_detect.detect_corpus"),
-    (["detect-determinism"], "jav.evals_detect.detect_determinism"),
-    (["determinism", "--arm", "S"], "jav.evals.determinism"),
+    (["detect-corpus", "folder"], "jav.evals.evals_detect.detect_corpus"),
+    (["detect-determinism"], "jav.evals.evals_detect.detect_determinism"),
+    (["determinism", "--arm", "S"], "jav.evals.evals.determinism"),
     (["email", "folder"], "jav.domains.email.flow_email.run_email"),
-    (["email-inbox", "folder"], "jav.evals_email.email_inbox"),
-    (["email-determinism"], "jav.evals_email.email_determinism"),
+    (["email-inbox", "folder"], "jav.evals.evals_email.email_inbox"),
+    (["email-determinism"], "jav.evals.evals_email.email_determinism"),
 ]
 
 

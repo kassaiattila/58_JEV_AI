@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 
 from jav.ai import policy
-from jav.evals import perturb_extraction, probe_summary
+from jav.evals.evals import perturb_extraction, probe_summary
 from jav.ai.models import LineLayout
 
 
@@ -119,7 +119,7 @@ def test_build_questions_structured_instructions():
 def test_eval_report_reads_probe_rows_with_truth(tmp_path):
     """The probe's raw run into the eval report: for a faulty variant the expected flag's truth is `yes`, for the
     perfect one the flags of the golden fields are `no`."""
-    from jav.eval_report import flow_of, judgments_from_file
+    from jav.evals.eval_report import flow_of, judgments_from_file
 
     rows = [
         {"case_id": "a", "variant": "perfect", "target": "(none)", "p": 0.1, "perfect_fields": ["supplier_name", "net_total"],

@@ -9,7 +9,7 @@ stay as they were. The eval report follows it: such a field never counts as a to
 
 from __future__ import annotations
 
-from jav import eval_report as er
+from jav.evals import eval_report as er
 from jav.ai import policy
 from jav.ai.typepack import get as get_pack
 

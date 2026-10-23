@@ -11,11 +11,11 @@ Where the golden sets come from:
   (`configs/golden_synthetic.json`), on each of its paths (S, G); they follow from the type packs, so nothing is
   registered by hand;
 - the type recognition and the email intent: the two flows' golden sets, described here; 190: the quote request's
-  invented emails, their intent and the requests read from them (`jav/evals_quotes.py`);
+  invented emails, their intent and the requests read from them (`jav/evals/evals_quotes.py`);
 - a logic pack: the golden sets of its domain's measurement modules, which the domain module names (`GOLDENS`, 204),
   as the reconciliation's and the quote's (`jav/domains/finance/goldens.py`, `jav/domains/quotes/goldens.py`); this registry imports
   them by name, so a logic pack's own module never imports the measurement layer;
-- 197: the general facts of a held-out family (`configs/golden_facts.json`, `jav/evals_facts.py`): a type pack's
+- 197: the general facts of a held-out family (`configs/golden_facts.json`, `jav/evals/evals_facts.py`): a type pack's
   legacy golden documents with the pack withheld, as a document of an unknown type continues.
 
 A golden set is measured by the same function its own command calls, with the same arguments
@@ -170,7 +170,7 @@ class Golden:
 def _datapoint_outcome(rows: list[dict[str, Any]], type_key: str) -> Outcome:
     """200: a case the budget refused has no result even when it returned data points (the S path goes on with every
     field empty when JEV is refused), as the golden command reports it (`eval_report.budget_skips`)."""
-    from jav.eval_report import budget_skips
+    from jav.evals.eval_report import budget_skips
     from jav.ai.typepack import get as get_pack
 
     strict = get_pack(type_key).strict_scored
@@ -183,7 +183,7 @@ def _datapoint_outcome(rows: list[dict[str, Any]], type_key: str) -> Outcome:
 def _datapoint_golden(type_key: str, arm: str, *, synthetic: bool) -> Golden:
     """A type pack's data points on one path, on the legacy golden set or on its synthetic cases, measured as
     `golden --arm <arm> --type <type> [--synthetic]` measures them."""
-    from jav import evals
+    from jav.evals import evals
     from jav.core import cfg
 
     def count() -> int:
@@ -236,14 +236,14 @@ def _case_outcome(rows: list[dict[str, Any]]) -> Outcome:
 
 
 def _count_types() -> int:
-    from jav import evals_detect
+    from jav.evals import evals_detect
 
     return len(evals_detect.load_detect_cases())
 
 
 def _measure_types(options: Options) -> Outcome:
     """As `detect-golden` measures it: one budget, the answering engine's."""
-    from jav import evals_detect
+    from jav.evals import evals_detect
 
     budget, refused = options.answering_budget("the type recognition")
     if refused:
@@ -253,14 +253,14 @@ def _measure_types(options: Options) -> Outcome:
 
 
 def _count_intents() -> int:
-    from jav import evals_email
+    from jav.evals import evals_email
 
     return evals_email.count_cases()
 
 
 def _measure_intents(options: Options) -> Outcome:
     """As `email-golden` measures it."""
-    from jav import evals_email
+    from jav.evals import evals_email
 
     return _case_outcome(evals_email.email_golden(use_cache=options.use_cache, limit=None, jev=options.jev,
                                                   budget_usd=options.budget_usd,
@@ -268,26 +268,26 @@ def _measure_intents(options: Options) -> Outcome:
 
 
 def _count_quote_intents() -> int:
-    from jav import evals_quotes
+    from jav.evals import evals_quotes
 
     return evals_quotes.count_intents()
 
 
 def _measure_quote_intents(options: Options) -> Outcome:
-    from jav import evals_quotes
+    from jav.evals import evals_quotes
 
     return _case_outcome(evals_quotes.quote_intents(use_cache=options.use_cache, jev=options.jev,
                                                     budget_usd=options.budget_usd, jev_budget_usd=options.jev_budget_usd))
 
 
 def _count_quote_requests() -> int:
-    from jav import evals_quotes
+    from jav.evals import evals_quotes
 
     return evals_quotes.count_requests()
 
 
 def _measure_quote_requests(options: Options) -> Outcome:
-    from jav import evals_quotes
+    from jav.evals import evals_quotes
 
     rows = evals_quotes.quote_requests(use_cache=options.use_cache, jev=options.jev, budget_usd=options.budget_usd,
                                        jev_budget_usd=options.jev_budget_usd)
@@ -301,7 +301,7 @@ FLOW_GOLDENS = (
            "documents", engines=ENGINES, count=_count_types, measure=_measure_types, module=__name__),
     Golden(key="intents", layer="intent", owner="email_intent", what="the email intent on the legacy golden emails",
            engines=ENGINES, count=_count_intents, measure=_measure_intents, module=__name__),
-    # 190 (plan 189 A2g): the quote request's invented golden set (configs/golden_quotes.json, jav/evals_quotes.py)
+    # 190 (plan 189 A2g): the quote request's invented golden set (configs/golden_quotes.json, jav/evals/evals_quotes.py)
     Golden(key="quotes:intents", layer="intent", owner="email_intent", what="the email intent on the invented quote "
            "request emails", engines=ENGINES, count=_count_quote_intents, measure=_measure_quote_intents, module=__name__),
 )
@@ -317,7 +317,7 @@ QUOTE_GOLDENS = (
 
 
 def _fact_golden(family: str) -> Golden:
-    from jav import evals_facts
+    from jav.evals import evals_facts
 
     def measure(options: Options) -> Outcome:
         rows = evals_facts.measure(family, jev=options.jev, use_cache=options.use_cache, budget_usd=options.budget_usd,
@@ -331,7 +331,7 @@ def _fact_golden(family: str) -> Golden:
 
 
 def fact_goldens() -> list[Golden]:
-    from jav import evals_facts
+    from jav.evals import evals_facts
 
     return [g for g in (_fact_golden(family) for family in evals_facts.families()) if g.count()]
 
@@ -345,7 +345,7 @@ def fact_goldens() -> list[Golden]:
 def _taught_golden(key: str, half: str = "evaluation") -> Golden:
     from dataclasses import replace
 
-    from jav import evals, evals_facts, type_teaching
+    from jav.evals import evals, evals_facts, type_teaching
 
     family = type_teaching.load_draft(key).family
 
@@ -374,7 +374,7 @@ def _taught_golden(key: str, half: str = "evaluation") -> Golden:
 
 def taught_goldens() -> list[Golden]:
     """Every taught draft whose candidate pack exists."""
-    from jav import type_teaching
+    from jav.evals import type_teaching
     from jav.ai import typepack
 
     packs = set(typepack.keys())

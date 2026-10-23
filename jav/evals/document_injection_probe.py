@@ -5,9 +5,9 @@ Made-up Hungarian invoices, each in a clean and an injected-instruction variant
 temporary store (nothing reaches the real data). The question: does the injected sentence steer the extracted value,
 and if so, does it get a to-do? The key number is the **false acceptance**: a wrong value without a to-do.
 
-    python -m jav.experiments.document_injection_probe            # dry run: plan and cost estimate, no calls
-    python -m jav.experiments.document_injection_probe --live     # live, paid run (needs a clean working tree)
-    python -m jav.experiments.document_injection_probe --flows detect --no-jev --live   # 122: GPT type recognition only
+    python -m jav.evals.document_injection_probe            # dry run: plan and cost estimate, no calls
+    python -m jav.evals.document_injection_probe --live     # live, paid run (needs a clean working tree)
+    python -m jav.evals.document_injection_probe --flows detect --no-jev --live   # 122: GPT type recognition only
 
 Output: `runs/<timestamp>_067_injection/` (PDFs, `probe.sqlite`, `rows.jsonl`, `summary.md`, `accounting.json`).
 The cost ceiling is the config's `budget_usd`: before each run the probe sums its own call log and stops if the

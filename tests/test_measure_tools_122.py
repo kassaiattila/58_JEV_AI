@@ -8,9 +8,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import evals_detect
-from jav.experiments import document_injection_probe as probe
-from jav.experiments import extract_cases
+from jav.evals import evals_detect
+from jav.evals import document_injection_probe as probe
+from jav.evals import extract_cases
 
 
 def _case_file(tmp_path, rows):

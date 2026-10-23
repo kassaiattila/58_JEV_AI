@@ -4,8 +4,8 @@ The worker imported its flows only at the first item (they pull in heavy depende
 their modules inside the function. A module changed on disk after the process started (development in the same
 working tree) was then loaded against the code already in memory: every item of four runs failed at that import. The
 worker and the local service call `preload()` at start-up, so a running process is one consistent state of the code
-it started from; a module that cannot be imported stops the start instead of failing every item later. Experimental
-code (`jav.experiments`) is never loaded: the runtime does not use it.
+it started from; a module that cannot be imported stops the start instead of failing every item later. The three
+stand-alone measurement tools are never loaded: the runtime does not use them (until 208 `jav.experiments`).
 """
 
 from __future__ import annotations
@@ -15,7 +15,8 @@ import pkgutil
 
 import jav
 
-EXCLUDED = ("jav.experiments",)
+# the stand-alone measurement tools (208: in jav/evals/, until then jav/experiments/); the engine matrix skips them too
+EXCLUDED = ("jav.evals.jev_estimate", "jav.evals.extract_cases", "jav.evals.document_injection_probe")
 
 
 class PreloadError(RuntimeError):

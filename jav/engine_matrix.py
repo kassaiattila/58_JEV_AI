@@ -7,7 +7,7 @@ cover it (`tests/<file>.py::<test>`). `routing` names the modules that only rout
 failures. `problems()` checks four rules, and the preflight reports them:
 
 1. coverage: every `configs/callsites/*.json` is some site's `call_site`, and every module under `jav/` (outside the
-   adapters and the experiments) that imports the JEV adapter or asks an adapter (`jev.ask(`, `adapter.ask(`,
+   adapter itself and the stand-alone measurement tools) that imports the JEV adapter or asks an adapter (`jev.ask(`, `adapter.ask(`,
    `get_adapter().ask(`) is some site's module or a routing module;
 2. a counterpart or an exception: exactly one of the two, the counterpart's module existing, the exception's kind
    allowed and its reason given;
@@ -52,10 +52,14 @@ def _asks_jev(tree: ast.AST) -> bool:
 
 def jev_modules(root: Path = PROJECT_ROOT) -> set[str]:
     """The modules under `jav/` that ask JEV (rule 1), as repository paths."""
+    from jav.runtime.preload import EXCLUDED
+
+    # the JEV adapter itself and the stand-alone measurement tools (208: until then jav/adapters/, jav/experiments/)
+    skipped = {"jav/ai/jev.py", *(m.replace(".", "/") + ".py" for m in EXCLUDED)}
     found = set()
     for path in (root / "jav").rglob("*.py"):
         rel = path.relative_to(root)
-        if rel.parts[:2] in (("jav", "adapters"), ("jav", "experiments")):
+        if rel.as_posix() in skipped:
             continue
         if _asks_jev(ast.parse(path.read_text(encoding="utf-8"))):
             found.add(rel.as_posix())
