@@ -10,9 +10,10 @@ import json
 import sqlite3
 from typing import Any
 
-from jav import cfg, store, typepack
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
+from jav import typepack
+from jav.core import cfg, store
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
 from jav import work
 
 

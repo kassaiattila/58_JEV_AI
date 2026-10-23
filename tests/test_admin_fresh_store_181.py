@@ -11,12 +11,13 @@ import json
 import subprocess
 import sys
 
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 _PROBE = """
 import json, sys
 from pathlib import Path
-from jav import admin, store
+from jav import admin
+from jav.core import store
 with store.use_store(Path(sys.argv[1])):
     store.review_enqueue(subject_kind="document", subject_id="d" * 64, run_id="cli-x", reasons=["needs:look"])
     counts = admin.reasons_by_run_kind()

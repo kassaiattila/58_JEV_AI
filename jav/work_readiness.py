@@ -10,7 +10,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav import item_kinds, store
+from jav import item_kinds
+from jav.core import store
 from jav.native_contracts import NATIVE_SUFFIXES
 from jav.runtime import flows
 from jav import work, work_recipes, work_runs

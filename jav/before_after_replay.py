@@ -256,8 +256,8 @@ def offline(work_dir: Path) -> Iterator[None]:
     from jav import ocr
     from jav.domains.finance import fx
     from jav.adapters import jev
-    from jav.config import API_KEY_ENV_VARS, AZURE_DI_ENV_VARS, OPENAI_KEY_ENV_VAR
-    from jav.runtime import applog
+    from jav.core.config import API_KEY_ENV_VARS, AZURE_DI_ENV_VARS, OPENAI_KEY_ENV_VAR
+    from jav.core import applog
 
     values = {**dict.fromkeys((*API_KEY_ENV_VARS, OPENAI_KEY_ENV_VAR), PLACEHOLDER_KEY),
               **dict.fromkeys(_PROXY_VARS, CLOSED_PROXY), _OPENAI_BASE_URL: f"{CLOSED_PROXY}/v1"}
@@ -302,8 +302,10 @@ def _canon(value: Any) -> str:
 def _replay(units: list[Unit]) -> None:
     """A replayed run per original run (its recipe, settings with earlier answers, its whole input, no budget), and its
     chosen items processed one after the other with the worker's own processing; a retry runs at once."""
-    from jav import store, work
-    from jav.runtime import queue, worker
+    from jav import work
+    from jav.core import store
+    from jav.runtime import worker
+    from jav.core import queue
 
     runs = list(dict.fromkeys(u.run_id for u in units))
     now = datetime.now().astimezone().isoformat(timespec="seconds")
@@ -335,7 +337,7 @@ def _replay(units: list[Unit]) -> None:
 def live_calls(c: sqlite3.Connection, run_ids: list[str]) -> list[dict[str, Any]]:
     """The gate: every call of the replayed runs that was not an earlier answer, first in the call log (a call that
     was reserved, sent or failed), then in the ledger (an answer that was not cached)."""
-    from jav.runtime import calls
+    from jav.core import calls
 
     found: list[dict[str, Any]] = []
     for rid in run_ids:
@@ -369,7 +371,7 @@ def missing_answers(c: sqlite3.Connection, run_ids: list[str]) -> int:
 def unregistered_todos(c: sqlite3.Connection, run_ids: list[str]) -> dict[str, str]:
     """177 (plan 170 E6): the to-dos of the replayed runs of a kind `configs/todo_kinds.json` does not register (kind
     code -> the first such reason); the replay names them, the store accepts them (the owner's decision)."""
-    from jav import todo_kinds
+    from jav.core import todo_kinds
 
     reasons = [str(reason) for rid in run_ids
                for (reason,) in c.execute("SELECT reason FROM review_reasons WHERE substr(run_id, 1, ?) = ?",
@@ -511,11 +513,12 @@ def running_snapshot(baseline: Path, work_dir: Path, out: Path, *, size: int = S
     (`live_calls`); the snapshot is written anyway, so that the call can be looked at."""
     from fastapi.testclient import TestClient
 
-    from jav import datasets, registrations, store
+    from jav import datasets, registrations
+    from jav.core import store
     from jav.adapters import jev
     from jav.api import create_app
-    from jav.config import CACHE_DIR
-    from jav.runtime import calls
+    from jav.core.config import CACHE_DIR
+    from jav.core import calls
 
     registrations.load_all()  # 173 (plan 170 E2): the worker's registrations (a package kind's rule), as when it starts
     for path in (out, work_dir):

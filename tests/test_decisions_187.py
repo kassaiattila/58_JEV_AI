@@ -14,7 +14,8 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, corrections, datasets, decisions, store, work, work_runs
+from jav import api, corrections, datasets, work, work_runs
+from jav.core import decisions, store
 from jav.domains.email import mailbox
 from tests.test_audit_fixes_1002 import _reviewed_email
 from tests.test_mailbox import env  # noqa: F401 - `env` is a fixture

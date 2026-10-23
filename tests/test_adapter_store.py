@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, Noul, SystemOneResponse
 
-from jav import store
+from jav.core import store
 from jav.adapters.jev import JevAdapter, request_hash
 
 

@@ -16,10 +16,12 @@ from pathlib import Path
 
 import pytest
 
-from jav import cfg, parties, store, work, work_readiness, work_runs, workflow_steps, workflows as wf
+from jav import parties, work, work_readiness, work_runs, workflow_steps, workflows as wf
+from jav.core import cfg, store
 from jav.domains.finance import statement_table as st
 from jav.domains.email import mailbox
-from jav.runtime import queue, worker
+from jav.runtime import worker
+from jav.core import queue
 from tests import test_statement_erste_137 as erste
 
 MONTH = ("2026-06-01", "2026-06-30")

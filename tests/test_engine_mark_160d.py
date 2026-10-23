@@ -14,7 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import corrections, store, work, work_readiness, work_recipes, work_runs, work_views
+from jav import corrections, work, work_readiness, work_recipes, work_runs, work_views
+from jav.core import store
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_email_results import _email_run
 from tests.test_mailbox import env  # noqa: F401 - pytest fixture

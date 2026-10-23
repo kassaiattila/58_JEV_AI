@@ -28,8 +28,9 @@ import re
 import sqlite3
 from typing import Any
 
-from jav import cfg, naming, package_release
-from jav.clock import utc_stamp as _now
+from jav import naming, package_release
+from jav.core import cfg
+from jav.core.clock import utc_stamp as _now
 from jav.outputs import builtin, contract, templates
 
 OUTPUT = "quote"

@@ -17,8 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, ParamSpec, TypeVar
 
-from jav.config import STORE_PATH
-from jav.clock import utc_stamp as _now
+from jav.core.config import STORE_PATH
+from jav.core.clock import utc_stamp as _now
 
 SCHEMA_VERSION = 1
 P = ParamSpec("P")
@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS email_results (
 );
 
 -- 058 K5.3: a person's decision on a task proposal (one per proposal, the latest counts; 187: every change is also
--- in the decision journal, jav/decisions.py)
+-- in the decision journal, jav/core/decisions.py)
 CREATE TABLE IF NOT EXISTS email_task_decisions (
     run_id        TEXT NOT NULL,             -- a levél folyamat-azonosítója (email_results.run_id)
     task_index    INTEGER NOT NULL,
@@ -204,7 +204,7 @@ CREATE TABLE IF NOT EXISTS ledger (
     seconds       REAL,
     cached        INTEGER NOT NULL DEFAULT 0,
     cache_key     TEXT,
-    config_hash   TEXT,                      -- a hívási hely konfig-verziója (jav/cfg.py)
+    config_hash   TEXT,                      -- a hívási hely konfig-verziója (jav/core/cfg.py)
     error         TEXT,                      -- SDK-hiba rövid alakja (pl. TypeSafeRateLimitError:429:retry_after_ms=1500), különben NULL
     created_at    TEXT NOT NULL
 );
@@ -232,7 +232,7 @@ def register_migration(name: str, fn: Any) -> None:
 
 
 def register_schema(name: str, ddl: str) -> None:
-    """A module's own tables (e.g. jav.runtime.queue); runs idempotently when connecting (CREATE ... IF NOT EXISTS)."""
+    """A module's own tables (e.g. jav.core.queue); runs idempotently when connecting (CREATE ... IF NOT EXISTS)."""
     _EXTRA_SCHEMAS[name] = ddl
 
 
@@ -379,7 +379,7 @@ def one_connection(operation: Callable[P, R]) -> Callable[P, R]:
 
 @contextmanager
 def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
-    # resolved at call time so that tests can redirect it (monkeypatch jav.store.STORE_PATH)
+    # resolved at call time so that tests can redirect it (monkeypatch jav.core.store.STORE_PATH)
     path = path or _scoped_path.get() or STORE_PATH
     if _read_only.get():  # 187: before the shared connection, which may run the schema and the migrations
         if not path.is_file():

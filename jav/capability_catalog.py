@@ -4,7 +4,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-from jav.config import PROJECT_ROOT, PROMPTS_DIR
+from jav.core.config import PROJECT_ROOT, PROMPTS_DIR
 from jav import typepack, legacy_packs
 
 

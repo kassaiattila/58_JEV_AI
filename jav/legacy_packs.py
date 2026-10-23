@@ -5,7 +5,7 @@ import hashlib
 import json
 from typing import Literal
 from pydantic import ConfigDict, Field, create_model
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 PACK_ROOT = PROJECT_ROOT/'configs/legacy_types'
 

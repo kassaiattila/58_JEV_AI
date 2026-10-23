@@ -40,12 +40,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, pdf as pdfmod
+from jav import pdf as pdfmod
+from jav.core import cfg
 from jav.adapters import azure_di
-from jav.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, OLD_DATA_ROOT, PROJECT_ROOT
+from jav.core.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, OLD_DATA_ROOT, PROJECT_ROOT
 from jav.models import LineLayout
 from jav.pdf import PdfText, build_layout, text_layer_ok
-from jav.digest import file_sha256 as _sha256
+from jav.core.digest import file_sha256 as _sha256
 
 log = logging.getLogger("jav.ocr")
 
@@ -279,12 +280,12 @@ _ESCALATION_TODO = {"budget_exceeded", "uncertain_attempt", "unreachable", "unav
 
 def azure_recognise(path: Path) -> tuple[list[list[dict[str, Any]]], list[float], dict[str, Any]]:
     """075 (repeated security audit, S01): Azure DI through the shared call log. In a worker run
-    (`jav.runtime.calls.current()`) the document's page count is reserved at the Azure price from the run's Azure budget
+    (`jav.core.calls.current()`) the document's page count is reserved at the Azure price from the run's Azure budget
     before the sidecar is called; without an Azure budget, with too little of it, or after an attempt with an unknown
     outcome, the network is never reached (`AzureBlocked`). A repeated item gets the saved answer, not a second paid
     call. Every physical call also gets a ledger row, on the command-line path too."""
-    from jav import store
-    from jav.runtime import calls
+    from jav.core import store
+    from jav.core import calls
 
     ctx = calls.current()
     ledger_run = (ctx.budget_scope if ctx else None) or "jav-ocr"
@@ -344,7 +345,7 @@ def recognition_digest(evidence: dict[str, Any]) -> str:
 def save_recognition(evidence: dict[str, Any]) -> str:
     """123: keep the original recognition (word polygons, page size, unit, angle) once, under its digest, so that a
     later step can verify where each recognised word came from. Returns the digest."""
-    from jav import store
+    from jav.core import store
 
     sha = recognition_digest(evidence)
     store.save_artifact(AZURE_RECOGNITION_KIND, sha, evidence)
@@ -354,7 +355,7 @@ def save_recognition(evidence: dict[str, Any]) -> str:
 def load_recognition(sha: str) -> dict[str, Any]:
     """123: a kept original recognition; KeyError when it is missing, ValueError when its content no longer matches
     its digest."""
-    from jav import store
+    from jav.core import store
 
     evidence = store.load_artifact(AZURE_RECOGNITION_KIND, sha)
     if evidence is None:
@@ -533,8 +534,8 @@ def _note_azure_reuse(path: Path, key: str) -> None:
     flow identifier (`<run>:<fingerprint16>`; a document's identifier is its content fingerprint), so the cost view
     counts it among the answers reused from earlier, as it does an earlier JEV answer. Outside a run (measurements, the
     command line) nothing is written."""
-    from jav import store
-    from jav.runtime import calls
+    from jav.core import store
+    from jav.core import calls
 
     ctx = calls.current()
     if ctx is None or ctx.budget_scope is None:

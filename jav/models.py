@@ -21,8 +21,8 @@ from typing import Any, Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-from jav.dates import DateOrder, read_date
-from jav.numbers import Convention, Kind, NumberRead, read_number
+from jav.core.dates import DateOrder, read_date
+from jav.core.numbers import Convention, Kind, NumberRead, read_number
 
 # --------------------------------------------------------------------------------------
 # Field lists
@@ -83,7 +83,7 @@ MoneyParse = NumberRead  # the earlier name of the reader's result
 def parse_money(raw: str | None, *, intl: bool = False, kind: Kind = "money", convention: Convention | None = None,
                 dot_hint: bool | None = None) -> NumberRead:
     """A printed amount (or, with `kind="number"`, a quantity) read whole by the shared number reader
-    (`jav/numbers.py`, 081): the Hungarian and the English notations, money never with three decimals, a quantity by the
+    (`jav/core/numbers.py`, 081): the Hungarian and the English notations, money never with three decimals, a quantity by the
     document's notation. Neither computes nor rounds; when unsure, `ambiguous=True`. `intl=True` (international
     candidate profile): a decimal dot marked by a currency symbol / code ("$42.50", "42.50 USD") is not ambiguous."""
     return read_number(raw, kind=kind, convention=convention, intl=intl, dot_hint=dot_hint)
@@ -116,13 +116,13 @@ _HU_MONTHS = {
 _MONTH_ALT = "|".join(sorted(_HU_MONTHS, key=len, reverse=True))
 
 # 084: kept unchanged: the type recognition request counts their matches (`detect.build_state`, `features.dates`), so a
-# change would make every recognition a new, paid call. Dates are read by the shared reader (`jav/dates.py`).
+# change would make every recognition a new, paid call. Dates are read by the shared reader (`jav/core/dates.py`).
 DATE_NUMERIC_RE = re.compile(r"(?<!\d)(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})\.?(?!\d)")
 DATE_TEXT_RE = re.compile(rf"(?<!\d)(\d{{4}})\.?\s+({_MONTH_ALT})\.?\s+(\d{{1,2}})\.?(?!\d)", re.IGNORECASE)
 
 
 def normalize_date(raw: str | None) -> date | None:
-    """084: the shared date reader (`jav/dates.py`), value only: every common form ("2022.02.10.", "2022. február 10.",
+    """084: the shared date reader (`jav/core/dates.py`), value only: every common form ("2022.02.10.", "2022. február 10.",
     "04-DEC-22", "Dec 25, 2022", "07.03.2025"...), and None for text that is no date or whose day and month can be read
     two ways ("04/12/2022", "22.02.10"). A caller that can raise a to-do uses `dates.read_date` instead."""
     got = read_date(raw)
@@ -135,8 +135,8 @@ _DIGITS = re.compile(r"\D")
 def normalize_tax_id(raw: str | None) -> str | None:
     """Hungarian tax number -> `########-#-##`; a recognised EU / non-EU form -> compact spelling ("IE 8256796 U" ->
     "IE8256796U"); 069: the label and the superfluous prefix are cut off ("HU VAT HU12345678" -> "HU12345678",
-    `jav/taxid.py`). Anything unrecognised stays trimmed (the check raises a to-do for it)."""
-    from jav.taxid import clean
+    `jav/core/taxid.py`). Anything unrecognised stays trimmed (the check raises a to-do for it)."""
+    from jav.core.taxid import clean
 
     return clean(raw)
 

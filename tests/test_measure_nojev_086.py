@@ -7,9 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from jav import detect_gpt, evals, evals_detect, store
+from jav import detect_gpt, evals, evals_detect
+from jav.core import store
 from jav.adapters import jev as jev_mod
-from jav.runtime import calls
+from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_gpt_detect_086 import DETAIL_TOKENS, DETECT_TOKENS, _FakeAgent
 

@@ -13,10 +13,12 @@ import contextlib
 
 import pytest
 
-from jav import costs, detect_gpt, extract_llm, gpt_choice, store, work, work_readiness, work_recipes, work_runs
+from jav import costs, detect_gpt, extract_llm, gpt_choice, work, work_readiness, work_recipes, work_runs
+from jav.core import store
 from jav.domains.email import mailbox
 from jav.adapters import jev as jev_mod
-from jav.runtime import calls, worker
+from jav.runtime import worker
+from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_gpt_detect_086 import _by_question, _factory
 from tests.test_gpt_intent_089 import _answer

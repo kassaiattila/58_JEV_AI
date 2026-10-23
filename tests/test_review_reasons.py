@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import store
+from jav.core import store
 
 
 @pytest.fixture()
@@ -105,7 +105,7 @@ def test_legacy_open_rows_are_migrated_to_reasons(tmp_path):
 def test_reason_raised_again_by_a_new_run_belongs_to_the_new_run(tmp_path):
     """045: if a new run raises the same reason that is still open from an earlier run, the reason belongs to the new
     run (otherwise the new run would wrongly look free of to-dos and could be approved)."""
-    from jav import store
+    from jav.core import store
     with store.use_store(tmp_path / "r.sqlite"):
         store.review_enqueue(subject_kind="document", subject_id="d", run_id="regi:1", reasons=["pick:low_conf:x:0.5"], producer="m2:S")
         store.review_enqueue(subject_kind="document", subject_id="d", run_id="uj:1", reasons=["pick:low_conf:x:0.5"], producer="m2:S")

@@ -15,7 +15,7 @@ from decimal import Decimal
 import pytest
 from openpyxl import Workbook
 
-from jav import store
+from jav.core import store
 from jav.domains.quotes import price_lists, invented_golden
 
 

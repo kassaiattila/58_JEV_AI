@@ -43,10 +43,10 @@ from decimal import ROUND_CEILING, Decimal
 from pathlib import Path
 from typing import IO, Any, Callable
 
-from jav import store
-from jav.runtime import lock
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
+from jav.core import store
+from jav.core import lock
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
 
 log = logging.getLogger("jav.calls")
 

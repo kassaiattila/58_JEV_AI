@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import logic_packs, package_scope, store, work, workflow_steps
+from jav import logic_packs, package_scope, work, workflow_steps
+from jav.core import store
 from jav.domains.quotes import price_lists, invented_golden, quote_package, quote_request
 from tests import test_document_result_174 as rows
 from tests import test_email_text_follow_up_190 as follow

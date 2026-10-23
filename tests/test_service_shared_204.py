@@ -15,7 +15,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 JAV = PROJECT_ROOT / "jav"
 THEMES = sorted(JAV.rglob("api_*.py"))  # 208: a domain's are in its folder

@@ -12,7 +12,8 @@ import io
 
 from openpyxl import Workbook, load_workbook
 
-from jav import package_release, store
+from jav import package_release
+from jav.core import store
 from jav.domains.finance import report_utility
 from jav.domains.finance import reconcile_statement as rs
 from jav.outputs import templates

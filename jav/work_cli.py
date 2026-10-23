@@ -218,7 +218,8 @@ def cmd_run_names(args):
 
 
 def cmd_worker(args):
-    from jav.runtime import applog, lock, worker
+    from jav.runtime import worker
+    from jav.core import applog, lock
     applog.setup("worker")  # 063: persistent rotating log (runs/logs/worker.log): start, errors with traceback, stop
     try:
         info = worker.run_worker(once=args.once, max_jobs=args.max_jobs)
@@ -247,7 +248,7 @@ def cmd_worker_stop(args):
 
 
 def cmd_calls_uncertain(args):
-    from jav.runtime import calls
+    from jav.core import calls
     rows = calls.uncertain_list()
     lines = [f"{r['id']}  {r['run_id']} / {r['step_id']} ({r['provider']}, próbálkozás {r['attempt']}): lekötve {_usd(r['max_cost_usd'])}"
              for r in rows]
@@ -255,7 +256,7 @@ def cmd_calls_uncertain(args):
 
 
 def cmd_calls_resolve(args):
-    from jav.runtime import calls
+    from jav.core import calls
     try:
         cost = Decimal(args.cost) if args.cost is not None else None
     except InvalidOperation:

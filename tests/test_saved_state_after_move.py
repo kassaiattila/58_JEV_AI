@@ -15,7 +15,7 @@ from burr.core import State
 
 from jav.domains.email.emails import Attachment, EmailMessage
 from jav.runtime.persistence import MOVED_MODULES, ClosingSQLitePersister
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 
 def _saved_under_old_names(tmp_path, state: State) -> ClosingSQLitePersister:

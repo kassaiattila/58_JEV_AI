@@ -13,8 +13,8 @@ import inspect
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, store
-from jav.config import PROJECT_ROOT
+from jav.core import cfg, store
+from jav.core.config import PROJECT_ROOT
 
 CALLSITES_DOC_DIR = PROJECT_ROOT / "docs" / "callsites"
 

@@ -31,9 +31,10 @@ from collections import Counter, defaultdict
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import policy, values, work
+from jav import policy, work
+from jav.core import values
 from jav.domains.finance import reconcile, reconcile_package
-from jav.user_messages import explained
+from jav.core.user_messages import explained
 
 GROUPS = ("sure_pairs", "earlier", "bank_category", "salary_rule", "ai_sure", "ai_review", "expects_invoice", "rest")
 ACTIONS = {"sure_pairs": "pair", "expects_invoice": "none", "rest": "none"}  # every other group marks a reason

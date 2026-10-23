@@ -8,7 +8,7 @@ the other tests' logs went there too. While the tests run, the log folder is tem
 import pytest
 
 from jav import gpt_choice, registrations
-from jav.runtime import applog, calls
+from jav.core import applog, calls
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -23,7 +23,7 @@ def _registrations():
 def _no_disk_flush():
     """189: the tests' stores are temporary files, so SQLite need not wait for the disk after a write (`store.tune`).
     Creating a store with its schema took about 0.55 s, mostly that wait, and nearly every test creates one."""
-    from jav import store
+    from jav.core import store
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(store, "SYNCHRONOUS", "OFF")
@@ -35,7 +35,7 @@ def _commit_read_once():
     """203: a service records the repository's commit when it is built (`version.commit_info`: two git calls, about
     75 ms), and the tests build one about 450 times while the commit stays the same. The repository's own commit is read
     once; a look at another folder, and a test that replaces the function, are unaffected."""
-    from jav import version
+    from jav.core import version
 
     real = version.commit_info
     seen: dict[str, str | bool | None] = {}
@@ -65,7 +65,7 @@ def _no_default_store(tmp_path_factory, monkeypatch):
     service and worker). 38 tests did, through code that reads the default store (the call-site pages' ledger figures, a
     documents table's directions): they ran the schema set-up on it and read its ledger. The default store is now a
     temporary file per test; a test that needs a store names it (`store.use_store`) or uses this empty one."""
-    from jav import store
+    from jav.core import store
 
     monkeypatch.setattr(store, "STORE_PATH", tmp_path_factory.mktemp("default-store") / "jav.sqlite")
 
@@ -135,10 +135,10 @@ def _no_live_fx():
 
 @pytest.fixture(autouse=True)
 def _no_provider_keys(monkeypatch):
-    """120: no test reaches a paid provider. The keys are read when a call is built (`jav/config.py`), so without them
+    """120: no test reaches a paid provider. The keys are read when a call is built (`jav/core/config.py`), so without them
     an unpatched OpenAI or JEV call fails with `MissingAPIKeyError` (JEV: `missing_key`) instead of spending. A debug
     run that left the native GPT extraction and JEV support unpatched made three small live calls before this guard."""
-    from jav.config import API_KEY_ENV_VARS, AZURE_DI_ENV_VARS, OPENAI_KEY_ENV_VAR
+    from jav.core.config import API_KEY_ENV_VARS, AZURE_DI_ENV_VARS, OPENAI_KEY_ENV_VAR
 
     for name in (*API_KEY_ENV_VARS, OPENAI_KEY_ENV_VAR, *AZURE_DI_ENV_VARS):  # 121: Azure is called directly too
         monkeypatch.delenv(name, raising=False)
@@ -151,7 +151,7 @@ def _registered_todo_kinds(monkeypatch):
     label test covers it. A reason a test writes itself (synthetic) is the test's own and is not checked."""
     import sys
 
-    from jav import store, todo_kinds
+    from jav.core import store, todo_kinds
 
     real = store.review_enqueue
     found: dict[str, str] = {}

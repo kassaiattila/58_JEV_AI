@@ -31,7 +31,8 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav import checks, policy, store
+from jav import checks, policy
+from jav.core import store
 from jav.domains.finance import statement_table
 from jav.typepack import get as get_pack
 

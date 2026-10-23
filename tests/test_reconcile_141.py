@@ -15,7 +15,8 @@ from datetime import date
 
 import pytest
 
-from jav import candidates, dates
+from jav import candidates
+from jav.core import dates
 from jav.domains.finance import reconcile, reconcile_package as rp
 from jav.models import LineLayout
 from tests import test_reconcile_k2_129 as k2

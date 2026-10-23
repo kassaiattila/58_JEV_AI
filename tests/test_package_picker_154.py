@@ -11,7 +11,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, store, work_views
+from jav import api, work_views
+from jav.core import store
 from jav.domains.finance import reconcile_package
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 

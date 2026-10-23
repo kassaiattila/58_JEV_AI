@@ -8,7 +8,8 @@ from decimal import Decimal
 
 from typesafe_sdk import Choice, Noul, Score, SystemOneResponse
 
-from jav import evals, store
+from jav import evals
+from jav.core import store
 from jav.adapters import jev
 from jav.adapters.jev import JevAdapter, get_adapter
 from jav.experiments import jev_estimate

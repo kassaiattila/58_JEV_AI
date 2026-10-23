@@ -9,7 +9,7 @@ import sys
 
 from typesafe_sdk import Choice, Noul, Score, TypeSafeAuthenticationError, TypeSafeError
 
-from jav.config import ENV_FILE, MissingAPIKeyError, get_api_key, make_client
+from jav.core.config import ENV_FILE, MissingAPIKeyError, get_api_key, make_client
 
 
 def main() -> int:

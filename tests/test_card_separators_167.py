@@ -12,7 +12,8 @@ import re
 
 import pytest
 
-from jav import card_numbers, cfg, data_guard
+from jav import data_guard
+from jav.core import card_numbers, cfg
 
 MC = ["5555", "5555", "5555", "4444"]  # Mastercard's published test number
 AMEX = ["3782", "822463", "10005"]  # American Express's published test number

@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Any
 
 from jav.policy import INTENT_HUMAN_MAX_CONF  # 066 Á38: the threshold comes from the policy
-from jav.config import RUNS_DIR
-from jav import store, values
+from jav.core.config import RUNS_DIR
+from jav.core import store, values
 from jav.domains.email.emails import EmailMessage, GoldenEmail, iter_inbox, load_old_golden
 from jav.domains.email.intents import INTENT_KEYS
 
@@ -66,7 +66,7 @@ def email_golden(use_cache: bool = True, limit: int | None = None, *, jev: bool 
     whole measurement (the owner's sub-budget) - a call over it is an `intent:gpt_failed` row; `jev_budget_usd` (127):
     a hard JEV budget. With either one the measurement runs under a budget, and a provider without its own budget
     (Azure always) cannot be called."""
-    from jav.runtime import calls
+    from jav.core import calls
 
     cases = _cases(limit)
     rows: list[dict[str, Any]] = []
@@ -199,7 +199,7 @@ def email_injection_probe(limit: int = 8, use_cache: bool = True, *, jev: bool =
     golden emails; raw run `runs/*_email_injection_probe.jsonl`. Measures: the band of P(injection) per variant, intent
     flips, route changes (by the policy, the yes band is `human:suspicious`). `jev=False` / `budget_usd` (089): GPT
     answers the same question, under a hard OpenAI budget (as in `email_golden`); a failed call is named, not a crash."""
-    from jav.runtime import calls
+    from jav.core import calls
 
     cases = _cases(limit)
     rows: list[dict[str, Any]] = []

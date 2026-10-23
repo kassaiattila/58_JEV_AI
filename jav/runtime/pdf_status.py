@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from jav import isolated_pdf
-from jav.runtime import lock
+from jav.core import lock
 
 log = logging.getLogger(__name__)
 REPORT_INTERVAL_S = 2.0

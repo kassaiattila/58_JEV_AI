@@ -35,8 +35,9 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, policy
-from jav.config import RUNS_DIR
+from jav import policy
+from jav.core import cfg
+from jav.core.config import RUNS_DIR
 from jav.evals import GoldenCase, field_equal, load_cases
 from jav.typepack import TypePack
 from jav.typepack import get as get_pack
@@ -139,7 +140,7 @@ def _run_case(fc: FactCase, *, scope: str, jev: bool, use_cache: bool) -> dict[s
 def measure(family: str, *, jev: bool = True, use_cache: bool = True, budget_usd: Decimal | None = None,
             jev_budget_usd: Decimal | None = None) -> list[dict[str, Any]]:
     """Every distinct document of the family through the general facts, scored against its expected values."""
-    from jav.runtime import calls
+    from jav.core import calls
 
     pack = get_pack(family)
     if budget_usd is None and jev_budget_usd is None:

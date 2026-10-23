@@ -156,7 +156,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import cfg, fact_checks, package_result, store, type_roles, values
+from jav import fact_checks, package_result
+from jav.core import cfg, store, type_roles, values
 from jav.domains.finance import duplicates, fx
 from jav.candidates import trim_after_legal_form
 from jav.models import account_key  # 156: shared with the candidate finder; callers keep using reconcile.account_key
@@ -1335,7 +1336,7 @@ def _documents(c, counted: dict[str, Any], types: list[str]) -> list[dict[str, A
     and no corrections."""
     rows = package_result.result_rows(c, counted, "datapoints, validation", types=types)
     # 154 (DECISIONS 154): the documents that came as an attachment of an email routed as suspicious
-    from jav.todo_kinds import SUSPICIOUS_ATTACHMENT
+    from jav.core.todo_kinds import SUSPICIOUS_ATTACHMENT
 
     suspicious = ({r["run_id"] for r in c.execute("SELECT DISTINCT run_id FROM review_reasons WHERE reason=?",
                                                   (SUSPICIOUS_ATTACHMENT,))}
@@ -1493,7 +1494,7 @@ def _statement(d: dict[str, Any]) -> dict[str, Any]:
 def _masked(line: dict[str, Any]) -> dict[str, Any]:
     """144 (DECISIONS 144): a full card number in a line's texts is masked to its first six and last four digits for every
     view and request (a statement extracted by AI kept it). The id is taken first, so the decisions on the line stay."""
-    from jav import card_numbers
+    from jav.core import card_numbers
 
     return {**line, **{k: card_numbers.mask_text(line[k]) for k in ("memo", "description", "counterparty_name") if line.get(k)}}
 

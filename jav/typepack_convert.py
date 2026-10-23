@@ -27,7 +27,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from jav.config import PROJECT_ROOT, PROMPTS_DIR
+from jav.core.config import PROJECT_ROOT, PROMPTS_DIR
 
 LEGACY_DIR = PROJECT_ROOT / "configs" / "legacy_types"
 TYPES_DIR = PROJECT_ROOT / "configs" / "types"

@@ -20,12 +20,12 @@ from burr.core import State, serde
 from burr.core.persistence import SQLitePersister
 from burr.integrations.serde import pydantic as burr_pydantic
 
-from jav import store
+from jav.core import store
 
 TABLE = "burr_state"
 
 
-BUSY_TIMEOUT_S = 30  # same as the main store's (jav/store.py)
+BUSY_TIMEOUT_S = 30  # same as the main store's (jav/core/store.py)
 
 # 188 (plan 185 T3b): a flow's state keys renamed after states were saved under its partition (old -> new)
 _RENAMED: dict[str, dict[str, str]] = {}
@@ -54,6 +54,7 @@ def _renamed(partition: str, state: State) -> State:
 MOVED_MODULES: dict[str, str] = {
     "emails": "domains.email.emails", "email_tasks": "domains.email.email_tasks", "intent": "domains.email.intent",
     "flow_statement_table": "domains.finance.flow_statement_table",
+    "dates": "core.dates", "numbers": "core.numbers",
 }
 
 

@@ -9,7 +9,8 @@ import json
 
 import pytest
 
-from jav import cli, store, type_teaching
+from jav import cli, type_teaching
+from jav.core import store
 
 
 def _fact(prop, value, *, entity="jegy", support=0.9):
@@ -46,7 +47,7 @@ def test_a_date_kind_needs_every_value_to_be_one_date():
 
 @pytest.fixture
 def isolated(tmp_path, monkeypatch):
-    from jav import cfg
+    from jav.core import cfg
 
     halves = {"families": {"demo": {"development": ["a" * 64, "b" * 64], "evaluation": ["c" * 64]}}}
     original = cfg.load

@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import admin, cfg, docsgen
+from jav import admin, docsgen
+from jav.core import cfg
 
 ALL = [n.split(":", 1)[1] for n in cfg.all_names() if n.startswith("callsite:")]
 

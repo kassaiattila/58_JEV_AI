@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 MATRIX_PATH = PROJECT_ROOT / "configs" / "engine_matrix.json"
 _ADAPTER_NAMES = {"jev", "adapter"}

@@ -1,7 +1,8 @@
 """Administration plane - offline: models.json feeds the config, call-site catalogue generation, the admin report
 builds."""
 
-from jav import cfg, config, docsgen
+from jav import docsgen
+from jav.core import cfg, config
 
 
 def test_models_config_drives_config_module():

@@ -2,7 +2,7 @@
 
 Plain-language summary: every record of when something happened is written in UTC, to the second, in one form
 (`2026-10-21T18:09:02+00:00`). Each module used to carry its own two-line helper for it; now they all read this one.
-A module keeps its own `_now` name for it (`from jav.clock import utc_stamp as _now`), so a test can still stop the
+A module keeps its own `_now` name for it (`from jav.core.clock import utc_stamp as _now`), so a test can still stop the
 clock of that one module. Names a person reads beside the machine's own clock (the backup's folders and times, the
 files of a measurement) stay in local time; so does the email receiver's download time, which this step leaves as
 it was.

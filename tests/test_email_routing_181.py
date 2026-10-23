@@ -23,7 +23,8 @@ from pathlib import Path
 import pytest
 
 from jav.domains.email import email_routing
-from jav import logic_packs, package_scope, parties, registrations, store, work, work_runs, workflow_steps
+from jav import logic_packs, package_scope, parties, registrations, work, work_runs, workflow_steps
+from jav.core import store
 from jav.domains.email.mailbox import SUSPICIOUS_ATTACHMENT
 from jav.models import account_key
 

@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import store
-from jav.runtime import calls
+from jav.core import store
+from jav.core import calls
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -105,8 +105,7 @@ def test_a_reservation_of_another_running_process_is_kept_until_it_stops(db):
     script = ("import os, sys\n"
               "from decimal import Decimal\n"
               "from pathlib import Path\n"
-              "from jav import store\n"
-              "from jav.runtime import calls\n"
+              "from jav.core import calls, store\n"
               "with store.use_store(Path(sys.argv[1])):\n"
               "    calls._reserve(run_id='other', step_id='s1', provider='openai', model='m',\n"
               "                   max_cost_usd=Decimal('0.2'), budget_scope=None, request_hash=None)\n"

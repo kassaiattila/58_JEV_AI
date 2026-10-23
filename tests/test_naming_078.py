@@ -12,7 +12,8 @@ import zipfile
 
 import pytest
 
-from jav import cfg, cli, datasets, naming, store, typepack, work
+from jav import cli, datasets, naming, typepack, work
+from jav.core import cfg, store
 from jav.runtime import worker
 from tests import test_api
 from tests.test_api import HUMAN, _cli_json, _ready_wp, _start

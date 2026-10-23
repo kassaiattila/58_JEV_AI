@@ -45,19 +45,22 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from jav import (activity_kinds, app_settings, cfg, logic_packs, package_scope, parties, scopes, store, work,
-                 work_readiness, work_recipes, work_runs, workflow_steps)
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
+from jav import (
+    app_settings, logic_packs, package_scope, parties, scopes, work, work_readiness, work_recipes, work_runs,
+    workflow_steps,
+)
+from jav.core import activity_kinds, cfg, store
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
 
-# 175 (plan 170 E4): the actions a workflow's log records (`jav/activity_kinds.py`)
+# 175 (plan 170 E4): the actions a workflow's log records (`jav/core/activity_kinds.py`)
 activity_kinds.register_events("workflow", ("create", "update", "budget", "link", "pull", "pull_interrupted", "package", "run",
                                             "needs_budget", "nothing_new", "left_out", "failed"), __name__)
 
 log = logging.getLogger(__name__)
 
 CONFIG = "workflows"
-PROVIDERS = ("jev", "openai", "azure_di")  # the call log's providers (jav/runtime/calls.py)
+PROVIDERS = ("jev", "openai", "azure_di")  # the call log's providers (jav/core/calls.py)
 # 181: the documents step's key in the templates and the work package kinds a package of it may have (the plain
 # processing of a folder, files or uploads; not a mailbox's)
 DOCUMENTS = "documents"

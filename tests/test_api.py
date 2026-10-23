@@ -10,9 +10,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, cfg, cli, service_shared, store, work
+from jav import api, cli, service_shared, work
+from jav.core import cfg, store
 from jav.adapters import jev as jev_mod
-from jav.runtime import lock, worker
+from jav.runtime import worker
+from jav.core import lock
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_runtime_worker import FakeClient
 

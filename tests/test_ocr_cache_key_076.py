@@ -55,7 +55,7 @@ def test_settings_that_change_the_text_change_the_key(change):
 def _old_whole_hash(conf):
     import hashlib
 
-    from jav import cfg
+    from jav.core import cfg
 
     return hashlib.sha256(("ocr" + cfg.canonical(conf)).encode("utf-8")).hexdigest()[: cfg.HASH_LEN]
 

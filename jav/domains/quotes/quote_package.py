@@ -27,10 +27,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav import app_settings, item_kinds, logic_packs, package_release, package_scope, store, work, workflow_steps
+from jav import app_settings, item_kinds, logic_packs, package_release, package_scope, work, workflow_steps
+from jav.core import store
 from jav.domains.quotes import price_lists, quote_draft, quote_letter, quote_proposal, quote_request
 from jav.tablequery import fold
-from jav.user_messages import explained
+from jav.core.user_messages import explained
 
 KIND = "quote"
 REQUEST = "request"  # the scope part naming the request: {"workpackage_id", "item_id"}

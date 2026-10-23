@@ -26,9 +26,10 @@ from fastapi import Path as PathParam
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from jav import app_settings, cfg
-from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
-from jav.user_messages import explained
+from jav import app_settings
+from jav.core import cfg
+from jav.core.config import OLD_DATA_ROOT, PROJECT_ROOT
+from jav.core.user_messages import explained
 
 
 def settings() -> dict[str, Any]:
@@ -98,7 +99,7 @@ WpId = Annotated[str, PathParam(pattern=r"^wp-[0-9a-f]{12}$")]
 RunId = Annotated[str, PathParam(pattern=r"^run-[0-9a-f]{12}$")]
 ItemId = Annotated[str, PathParam(pattern=r"^[0-9a-f]{64}$")]
 Text = Annotated[str, Field(max_length=2000)]
-# 187: a decision's state as its page read it (`jav/decisions.py`); a change on a stale page is a 409
+# 187: a decision's state as its page read it (`jav/core/decisions.py`); a change on a stale page is a 409
 DecisionState = Annotated[int, Field(ge=0)]
 
 

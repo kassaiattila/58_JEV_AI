@@ -13,7 +13,8 @@ from unittest.mock import patch
 
 import pytest
 
-from jav import ocr, store
+from jav import ocr
+from jav.core import store
 from jav.adapters import azure_di
 from tests.test_azure_direct_121 import RESULT, FakeAzure, _escalate, keys, weak_scan  # noqa: F401 - fixtures
 

@@ -27,7 +27,7 @@ from decimal import Decimal
 from typing import Any
 
 from jav.outputs import contract, markers, xlsx
-from jav.values import stored_decimal
+from jav.core.values import stored_decimal
 
 ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DATE_FORMAT = "yyyy-mm-dd"

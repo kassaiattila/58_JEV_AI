@@ -8,15 +8,15 @@ import httpx2
 import pytest
 from typesafe_sdk import Noul, TypeSafeError
 
-from jav import store
-from jav.config import build_retry_policy, make_async_client, make_client
-from jav.runtime import calls
+from jav.core import store
+from jav.core.config import build_retry_policy, make_async_client, make_client
+from jav.core import calls
 
 
 @pytest.mark.parametrize("error_type", [httpx2.ReadTimeout, httpx2.WriteTimeout, httpx2.ReadError,
                                        httpx2.WriteError, httpx2.RemoteProtocolError])
 def test_jev_does_not_resend_after_a_possible_send(tmp_path, monkeypatch, error_type):
-    monkeypatch.setattr("jav.config.get_api_key", lambda: "synthetic-offline-key")
+    monkeypatch.setattr("jav.core.config.get_api_key", lambda: "synthetic-offline-key")
     requests = []
 
     def lost_response(request):
@@ -48,7 +48,7 @@ def test_jev_does_not_resend_after_a_possible_send(tmp_path, monkeypatch, error_
 
 
 def test_jev_can_retry_when_the_connection_was_never_established(monkeypatch):
-    monkeypatch.setattr("jav.config.get_api_key", lambda: "synthetic-offline-key")
+    monkeypatch.setattr("jav.core.config.get_api_key", lambda: "synthetic-offline-key")
     requests = []
 
     def connection_failed(request):
@@ -63,7 +63,7 @@ def test_jev_can_retry_when_the_connection_was_never_established(monkeypatch):
 
 
 def test_async_jev_does_not_resend_a_lost_response(monkeypatch):
-    monkeypatch.setattr("jav.config.get_api_key", lambda: "synthetic-offline-key")
+    monkeypatch.setattr("jav.core.config.get_api_key", lambda: "synthetic-offline-key")
     requests = []
 
     def response_lost(request):

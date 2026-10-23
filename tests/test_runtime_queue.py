@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import store
-from jav.runtime import queue
+from jav.core import store
+from jav.core import queue
 
 
 @pytest.fixture()

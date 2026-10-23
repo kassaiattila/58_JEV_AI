@@ -11,10 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from jav import cfg, checks, parties, validators
+from jav import checks, parties, validators
+from jav.core import cfg
 from jav.domains.finance import duplicates
 from jav.models import CheckResult, DocumentRecord
-from jav.runtime import calls
+from jav.core import calls
 from jav.typepack import get as get_pack
 
 PACKS = sorted(p.stem for p in (cfg.path_of("policy").parent / "types").glob("*.json"))

@@ -20,7 +20,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import datasets, export, package_release, store, typepack
+from jav import datasets, export, package_release, typepack
+from jav.core import store
 from jav.domains.finance import reconcile_statement as rs
 from jav.datasets import Column
 from jav.tablequery import Query

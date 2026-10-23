@@ -239,8 +239,9 @@ def test_report_does_not_claim_protection_with_inconsistent_limit(tmp_path, monk
 
 
 def test_api_reports_the_workers_own_settings_and_state(tmp_path, monkeypatch):
-    from jav import store
-    from jav.runtime import lock, pdf_status, worker
+    from jav.core import store
+    from jav.runtime import pdf_status, worker
+    from jav.core import lock
 
     path = tmp_path / "test.sqlite"
     monkeypatch.setattr(pdf_status, "REPORT_INTERVAL_S", 60)
@@ -289,7 +290,8 @@ def test_posix_helper_acknowledges_only_an_applied_memory_limit(monkeypatch, suc
 
 
 def test_strict_limit_failure_is_final_in_the_actual_worker(tmp_path, monkeypatch):
-    from jav import store, work, work_readiness, work_recipes, work_runs
+    from jav import work, work_readiness, work_recipes, work_runs
+    from jav.core import store
     from jav.runtime import worker
     from tests.pdfgen import INVOICE_LINES, write_text_pdf
 

@@ -84,7 +84,7 @@ def cmd_preflight(args: argparse.Namespace) -> int:
 
 def cmd_data_guard(args: argparse.Namespace) -> int:
     from jav import data_guard
-    from jav.config import PROJECT_ROOT
+    from jav.core.config import PROJECT_ROOT
 
     found = data_guard.scan_tracked(PROJECT_ROOT, data_guard.load_guard(PROJECT_ROOT))
     print(data_guard.report(found, "a kiadás") or "adatőr: a verziókövetett fájlokban nincs találat")
@@ -98,7 +98,7 @@ def cmd_data_guard(args: argparse.Namespace) -> int:
 def cmd_lang_guard(args: argparse.Namespace) -> int:
     """073 language guard: no tracked file may gain Hungarian lines; see jav/lang_guard.py."""
     from jav import lang_guard
-    from jav.config import PROJECT_ROOT
+    from jav.core.config import PROJECT_ROOT
 
     if args.same_code:
         changed = lang_guard.changed_python_code(PROJECT_ROOT, args.same_code)
@@ -220,14 +220,14 @@ def cmd_package_versions_backfill(args: argparse.Namespace) -> int:
 
 def cmd_hooks_install(args: argparse.Namespace) -> int:
     from jav import data_guard
-    from jav.config import PROJECT_ROOT
+    from jav.core.config import PROJECT_ROOT
 
     print(data_guard.install_hooks(PROJECT_ROOT))
     return 0
 
 
 def cmd_configs(args: argparse.Namespace) -> int:
-    from jav import cfg
+    from jav.core import cfg
 
     print("| konfig | verzió | hash | utolsó changelog |\n|---|---|---|---|")
     for r in cfg.report():
@@ -239,7 +239,7 @@ def cmd_legacy_import(args: argparse.Namespace) -> int:
     from pathlib import Path
 
     from jav import legacy_import
-    from jav.config import OLD_DATA_ROOT
+    from jav.core.config import OLD_DATA_ROOT
 
     print(json.dumps(legacy_import.import_batches(Path(args.root) if args.root else OLD_DATA_ROOT / "output"), ensure_ascii=False))
     return 0
@@ -267,7 +267,7 @@ def cmd_reground(args: argparse.Namespace) -> int:
 
 
 def cmd_store(args: argparse.Namespace) -> int:
-    from jav import store
+    from jav.core import store
 
     print(json.dumps(store.stats(), ensure_ascii=False, indent=2))
     return 0
@@ -275,7 +275,7 @@ def cmd_store(args: argparse.Namespace) -> int:
 
 def cmd_backup(args: argparse.Namespace) -> int:
     from jav import backup
-    from jav.runtime import applog
+    from jav.core import applog
 
     if args.scheduled:  # 064: the daily scheduled backup, per the `backup` section of configs/service.json
         applog.setup("backup")
@@ -298,7 +298,8 @@ def cmd_backup(args: argparse.Namespace) -> int:
 
 
 def cmd_burr_prune(args: argparse.Namespace) -> int:
-    from jav.runtime import lock, persistence, queue, worker
+    from jav.runtime import persistence, worker
+    from jav.core import lock, queue
 
     path = worker.persister_path()
     active = queue.active_run_ids()
@@ -341,7 +342,7 @@ def cmd_ocr_rekey(args: argparse.Namespace) -> int:
     import subprocess
 
     from jav import ocr
-    from jav.config import PROJECT_ROOT
+    from jav.core.config import PROJECT_ROOT
 
     shown = subprocess.run(["git", "show", f"{args.from_rev}:configs/ocr.json"], capture_output=True, text=True,
                            encoding="utf-8", cwd=PROJECT_ROOT, check=False)
@@ -426,7 +427,7 @@ def register(sub) -> None:
     p = sub.add_parser("backup", help="063: az adattár mentése futás közben is (SQLite-mentés + sértetlenség-ellenőrzés), store/backups/ alá")
     p.add_argument("--out", help="a mentések gyökere (alapból store/backups)")
     p.add_argument("--with-burr", action="store_true", help="a folyamat-állapotok tára (store/burr_state.sqlite, nagy) is")
-    p.add_argument("--with-docs", action="store_true", help="070: a belső munkaanyag (jav/doc_scope.py) is, internal-docs.zip")
+    p.add_argument("--with-docs", action="store_true", help="070: a belső munkaanyag (jav/core/doc_scope.py) is, internal-docs.zip")
     p.add_argument("--keep", type=int, default=None, help="ennyi legutóbbi mentés marad (alapból a napi mentésé: configs/service.json backup.keep)")
     p.add_argument("--copy-to", help="064: a kész mentés ellenőrzött másolata ide is (pl. NAS-mappa); ott is a --keep marad")
     p.add_argument("--scheduled", action="store_true", help="064: a napi ütemezett mentés a configs/service.json backup szakasza szerint")

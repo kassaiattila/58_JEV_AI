@@ -12,10 +12,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import detect_detail, detect_gpt, flow_detect, store
+from jav import detect_detail, detect_gpt, flow_detect
+from jav.core import store
 from jav.adapters import jev as jev_mod
 from jav.doc_types import BY_KEY, DOC_TYPE_KEYS
-from jav.runtime import calls
+from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 

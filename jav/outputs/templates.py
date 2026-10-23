@@ -18,11 +18,12 @@ import json
 import secrets
 from typing import Any
 
-from jav import activity_kinds, decisions, logic_packs, store, work
+from jav import logic_packs, work
+from jav.core import activity_kinds, decisions, store
 from jav.outputs import builtin, contract, docx, fill, samples
-from jav.clock import utc_stamp as _now
+from jav.core.clock import utc_stamp as _now
 
-# the package log's action of a person choosing a package's template (`jav/activity_kinds.py`)
+# the package log's action of a person choosing a package's template (`jav/core/activity_kinds.py`)
 activity_kinds.register_events("package", ("output_template_choose",), __name__)
 
 BUILTIN = "builtin"

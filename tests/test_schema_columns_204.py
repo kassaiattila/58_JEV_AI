@@ -15,10 +15,11 @@ import sqlite3
 
 import pytest
 
-from jav import corrections, store, work, workflows  # noqa: F401 - their tables and migrations
+from jav import corrections, work, workflows  # noqa: F401 - their tables and migrations
+from jav.core import store  # noqa: F401 - their tables and migrations
 from jav.domains.finance import reconcile_ai  # noqa: F401 - their tables and migrations
 from jav.domains.email import mailbox  # noqa: F401 - their tables and migrations
-from jav.runtime import calls  # noqa: F401
+from jav.core import calls  # noqa: F401
 
 
 def _db(tmp_path, ddl: str = "CREATE TABLE t (id INTEGER PRIMARY KEY)") -> sqlite3.Connection:

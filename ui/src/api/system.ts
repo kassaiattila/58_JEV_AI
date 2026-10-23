@@ -45,7 +45,7 @@ export interface JevVersionInfo {
   pinned: string; watch_alias: string; latest: string | null; checked_at: string | null;
   newer: boolean | null; stale: boolean; age_days: number | null;
 }
-/** 076: a paid call with an uncertain outcome, awaiting manual settlement (`jav/runtime/calls.py` `uncertain_list`). */
+/** 076: a paid call with an uncertain outcome, awaiting manual settlement (`jav/core/calls.py` `uncertain_list`). */
 export interface UncertainCall {
   id: number; run_id: string; step_id: string; attempt: number; provider: string; model_requested: string | null;
   budget_scope: string | null; max_cost_usd: string; created_at: string; status: string;

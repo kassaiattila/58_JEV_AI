@@ -8,7 +8,7 @@ type of the attached document.
 Schema v2 (2026-09-20): `what` (the content of the intent, in English), `not_for` (the NOT rules, pointing to sibling
 intents), `examples` (verbatim subject lines - only examples consistent with the golden set may stay: the 4 errors of
 M3 round 1 were caused by one inconsistent example), `parent` (family). The Choice criterion is the
-`{what, not_for, examples}` object (`jav/registry.py`). `next_flow` is NOT a JEV question: level 1 of the decision
+`{what, not_for, examples}` object (`jav/core/registry.py`). `next_flow` is NOT a JEV question: level 1 of the decision
 hierarchy (code) provides it (`policy.py`).
 """
 
@@ -17,8 +17,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from jav import cfg
-from jav.registry import criterion
+from jav.core import cfg
+from jav.core.registry import criterion
 
 _CFG = cfg.load("intents")
 OTHER: str = _CFG["other_key"]

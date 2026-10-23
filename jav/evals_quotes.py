@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from jav.domains.quotes import invented_golden
-from jav.config import RUNS_DIR
+from jav.core.config import RUNS_DIR
 from jav.evals import field_equal
 from jav.domains.quotes.quote_request import merged
 
@@ -66,7 +66,7 @@ def quote_intents(*, use_cache: bool = True, jev: bool = True, budget_usd: Decim
     """Every email's intent, asked as the email flow asks it (without the attachments' detection), against the
     expected one."""
     from jav.domains.email.flow_email import run_email
-    from jav.runtime import calls
+    from jav.core import calls
 
     limits = _budget(budget_usd, jev_budget_usd)
     if not limits:
@@ -180,7 +180,7 @@ def _read_case(case: invented_golden.Case, folder: Path, *, use_cache: bool, jev
 def quote_requests(*, use_cache: bool = True, jev: bool = True, budget_usd: Decimal | None = None,
                    jev_budget_usd: Decimal | None = None, run_one: Callable[..., Any] | None = None) -> list[dict[str, Any]]:
     """Every quote request read from its email's text and its attachments, against the expected request."""
-    from jav.runtime import calls
+    from jav.core import calls
 
     if run_one is None:
         from jav.flow import run_one

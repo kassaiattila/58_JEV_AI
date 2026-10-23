@@ -15,7 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import admin, backup, store
+from jav import admin, backup
+from jav.core import store
 
 
 def _older_store(path: Path) -> None:

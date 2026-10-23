@@ -2,7 +2,8 @@
 pack is no longer decided blind, a foreign receipt goes to the foreign invoice pack, and the type questions say that
 the document text is data. Synthetic text, a stand-in JEV and GPT; no paid calls."""
 
-from jav import cfg, detect_detail, detect_gpt, policy, store
+from jav import detect_detail, detect_gpt, policy
+from jav.core import cfg, store
 from jav.detect import DetectResult
 from jav.doc_types import BY_KEY
 from jav.flow_detect import DetectState, _resolve_detail, save

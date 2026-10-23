@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from jav import store
+from jav.core import store
 
 TERMINAL = ("done", "dead", "cancelled")
 ORPHAN_MAX_ATTEMPTS = 3  # 063: after this many interrupted attempts the job is dead (it does not repeat forever)

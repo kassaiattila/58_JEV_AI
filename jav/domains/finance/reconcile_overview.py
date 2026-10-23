@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav import values
+from jav.core import values
 
 KINDS = ("proposed", "paired", "line_only", "invoice_only", "credited", "marked", "excluded")
 LISTS = ("to_decide", "line_without_invoice", "invoice_without_payment", "overdue", "late", "double_payment", "clarify",

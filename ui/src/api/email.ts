@@ -20,7 +20,7 @@ export interface RoutingItem {
     decided_at: string } | null;
   /** whether the package it was accepted into still holds it */
   held?: boolean | null;
-  /** 187: the decision's state, sent back with a change (`jav/decisions.py`). */
+  /** 187: the decision's state, sent back with a change (`jav/core/decisions.py`). */
   decision_state?: number;
 }
 export interface RoutingView {
@@ -54,7 +54,7 @@ export interface EmailTask {
   decision: { decision: "accepted" | "rejected"; actor: string; decided_at: string; done_by?: string | null; done_at?: string | null } | null;
   /** 062: how many identical proposals were merged into it (within one email). */
   merged?: number;
-  /** 187: the decision's state, sent back with a change (`jav/decisions.py`). */
+  /** 187: the decision's state, sent back with a change (`jav/core/decisions.py`). */
   decision_state?: number;
 }
 /** A proposal dropped by the evidence check in code; since 062 with its content and the part that failed (for earlier

@@ -22,9 +22,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from jav import path_text
-from jav.config import BRIDGE_DATA_ROOT, OLD_DATA_ROOT
-from jav.digest import file_sha256 as _file_sha256
+from jav.core import path_text
+from jav.core.config import BRIDGE_DATA_ROOT, OLD_DATA_ROOT
+from jav.core.digest import file_sha256 as _file_sha256
 
 OLD_INTENT_GOLDEN = OLD_DATA_ROOT / "golden" / "email-intake-bare" / "intent-golden-s21.json"
 DOC_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".tif", ".tiff"}

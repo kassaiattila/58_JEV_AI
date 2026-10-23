@@ -31,7 +31,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from jav import card_numbers, cfg, corrections, item_kinds, native_results, package_result, store, typepack, work_runs
+from jav import corrections, item_kinds, native_results, package_result, typepack, work_runs
+from jav.core import card_numbers, cfg, store
 from jav.outputs import builtin, contract, parts
 
 NUMBER = re.compile(r"^-?\d[\d\s.,]*$")

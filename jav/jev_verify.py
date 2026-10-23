@@ -26,10 +26,11 @@ from typing import Any
 from pydantic import BaseModel
 from typesafe_sdk import Noul
 
-from jav import cfg, grounding
+from jav import grounding
+from jav.core import cfg
 from jav.adapters.jev import JevAdapter
 from jav.candidates import QUANTITY_RE, find_all, profile_of
-from jav.dates import find_dates_in, read_date
+from jav.core.dates import find_dates_in, read_date
 from jav.jev_budget import ask_within_budget, line_numbers
 from jav.models import (
     Candidate,
@@ -39,7 +40,7 @@ from jav.models import (
     money_label,
     parse_money,
 )
-from jav.numbers import Convention, document_convention
+from jav.core.numbers import Convention, document_convention
 from jav.source_layer import SourceLayer
 from jav.typepack import TypePack
 from jav.typepack import get as get_pack

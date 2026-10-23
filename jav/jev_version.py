@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from jav.adapters.jev import _CONCRETE_MODEL, MODEL_VERSIONS_FILE, JevAdapter
-from jav.config import CACHE_DIR, JEV_MODEL, JEV_WATCH_ALIAS
+from jav.core.config import CACHE_DIR, JEV_MODEL, JEV_WATCH_ALIAS
 
 WATCH_ALIAS = JEV_WATCH_ALIAS
 STALE_DAYS = 3  # the daily backup looks once a day; three days without a look is said

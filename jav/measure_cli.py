@@ -76,7 +76,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     print("--- jev_calls: " + "; ".join(
         f"{c.request_id}:{c.n_questions}q/{c.input_tokens}tok/{c.seconds}s{' [cache]' if c.cached else ''}" for c in state.jev_calls))
     print(f"--- run_id: {state.run_id}  doc_id: {state.doc_id[:12]}…")
-    from jav import store
+    from jav.core import store
 
     rows = store.ledger_for_run(state.run_id)
     print("--- ledger: " + "; ".join(f"{r['provider']}/{r['step']} {r['input_tokens'] or 0}tok ${r['cost_usd'] or 0:.4f}{' [cache]' if r['cached'] else ''}" for r in rows))
@@ -103,7 +103,8 @@ def cmd_detect_golden(args: argparse.Namespace) -> int:
 
     import contextlib
 
-    from jav import evals_detect, store
+    from jav import evals_detect
+    from jav.core import store
     from jav.eval_report import report_budget_skips
 
     cases = evals_detect.load_case_file(args.cases) if args.cases else None
@@ -224,7 +225,8 @@ def cmd_golden(args: argparse.Namespace) -> int:
     import contextlib
     from decimal import Decimal
 
-    from jav import evals, store
+    from jav import evals
+    from jav.core import store
     from jav.eval_report import report_budget_skips
 
     # 122: a separate measurement store keeps the results, to-dos and call log of the measurement out of the work store

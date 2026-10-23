@@ -63,7 +63,7 @@ class ReaderSettings:
 
 def settings() -> ReaderSettings:
     """The reader settings (077) from the `pdf_reader` section of `configs/service.json`."""
-    from jav import cfg
+    from jav.core import cfg
 
     return ReaderSettings(**cfg.load("service")["pdf_reader"])
 

@@ -34,9 +34,9 @@ from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.usage import UsageLimits
 
-from jav import activity_kinds, cfg, store
-from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, PROMPTS_DIR, load_prompt, openai_chat_model, openai_cost, openai_price
-from jav.runtime import calls
+from jav.core import activity_kinds, cfg, store
+from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, PROMPTS_DIR, load_prompt, openai_chat_model, openai_cost, openai_price
+from jav.core import calls
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 

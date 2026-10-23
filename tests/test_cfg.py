@@ -2,7 +2,7 @@
 
 import json
 
-from jav import cfg
+from jav.core import cfg
 from jav.doc_types import BY_KEY as DOC_BY_KEY, DOC_TYPE_KEYS, UNKNOWN
 from jav.domains.email.intents import INTENT_KEYS, OTHER
 from jav import policy

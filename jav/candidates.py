@@ -22,7 +22,7 @@ import re
 from collections import OrderedDict
 from dataclasses import dataclass, field
 
-from jav.dates import document_date_order, document_short_order, find_dates_in
+from jav.core.dates import document_date_order, document_short_order, find_dates_in
 from jav.models import (
     DATE_NUMERIC_RE,
     Candidate,
@@ -33,8 +33,8 @@ from jav.models import (
     normalize_tax_id,
     parse_money,
 )
-from jav.numbers import Convention, document_convention, has_decimal_dot_hint
-from jav.taxid import recognize as recognize_tax_id
+from jav.core.numbers import Convention, document_convention, has_decimal_dot_hint
+from jav.core.taxid import recognize as recognize_tax_id
 from jav.validators import hu_tax_id
 
 MAX_OPTIONS = 250  # the 255-option Choice limit, minus "none" and a margin
@@ -62,7 +62,7 @@ TAXID_EU_RE = re.compile(r"\bHU\d{8}\b")
 # 065: also the EU OSS registration number (EU + 9 digits, e.g. the EU VAT of US providers) and the Dutch "…B01" suffix
 _EU_CC = "AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|HR|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK|GB|XI|NO|CH|TR|UA|RS|EU"  # real country-code prefixes ("ID 512345678" is not a tax number)
 # 069 (066 Á27): the spaced Norwegian form with the MVA suffix; the separate trailing letter of the Irish form
-# ("IE 8256796 U") is part of the candidate. A match is a candidate only as a recognised form (jav/taxid.py), in its
+# ("IE 8256796 U") is part of the candidate. A match is a candidate only as a recognised form (jav/core/taxid.py), in its
 # canonical spelling; the spaced "NO …" without MVA is not ("INVOICE NO 123456789" is a serial number, not a Norwegian
 # tax number).
 TAXID_EU_INTL_RE = re.compile(
@@ -101,7 +101,7 @@ AMOUNT_TOKEN_RE = re.compile(r"-?\d{1,3}(?:[,.  ]\d{3})*[.,]\d{2}|-?\d+[.,]\d{2}
 
 # 081 (number reading): a number is matched whole, never a piece of it. The English thousands group ("28,000",
 # "28,000.00") is matched as one number in the Hungarian profile too (it was cut to "28,00" = 28), and no match may be
-# followed by a further digit of the same number. The reading itself is `jav/numbers.py`.
+# followed by a further digit of the same number. The reading itself is `jav/core/numbers.py`.
 MONEY_RE = re.compile(
     r"(?<![\d.,])"
     r"(-?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?"  # 28,000 / 28,000.00 (English notation on a Hungarian document)
@@ -453,7 +453,7 @@ def _label_spans(ln: LineLayout, label_re: re.Pattern[str]) -> list[tuple[int, i
 
 
 def find_dates(lines: list[LineLayout], work: list[str], profile: Profile = HU) -> list[Candidate]:
-    """084: every date of every line by the shared date reader (`jav/dates.py`), on every profile, with the document's
+    """084: every date of every line by the shared date reader (`jav/core/dates.py`), on every profile, with the document's
     own day/month order; a date whose day and month can be read two ways is a flagged candidate (picking it gives a
     to-do). A range like "11/25/2022 - 12/25/2022" stays two dates: the reader never lets one date overlap another.
     141: a document printing its two-digit-year dates year first ("26.06.24") has them read so, on every profile."""

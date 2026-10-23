@@ -18,7 +18,8 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
-from jav import cfg, parties, source_layer, store, type_roles, values, work, work_runs
+from jav import parties, source_layer, work, work_runs
+from jav.core import cfg, store, type_roles, values
 from jav.domains.finance import reconcile, statement_months
 
 

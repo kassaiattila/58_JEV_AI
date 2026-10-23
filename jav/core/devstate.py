@@ -14,7 +14,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 PYPROJECT = PROJECT_ROOT / "pyproject.toml"
 LINT_PATHS = ("jav", "tests", "scripts", "smoke_test.py")

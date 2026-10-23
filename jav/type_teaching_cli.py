@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 def _print_switches(switched: list) -> None:  # list[type_teaching.Switch]
-    from jav import cfg
+    from jav.core import cfg
 
     for s in switched:
         line = f"{s.key} {s.version}: {'on' if s.detected else 'off'}"
@@ -49,7 +49,7 @@ def cmd_type_candidate(args: argparse.Namespace) -> int:
     from pydantic import ValidationError
 
     from jav import type_teaching
-    from jav.config import PROJECT_ROOT
+    from jav.core.config import PROJECT_ROOT
 
     try:
         draft = type_teaching.load_draft(args.key)

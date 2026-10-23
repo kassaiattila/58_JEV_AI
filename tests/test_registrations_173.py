@@ -15,7 +15,7 @@ import subprocess
 import sys
 
 from jav import before_after_replay, cli, logic_packs, parties, registrations, work
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 _PROBE = """
 import json

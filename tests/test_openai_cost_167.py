@@ -1,7 +1,7 @@
 """167 (review AI-12): one OpenAI price rule for every caller.
 
 The cost of an OpenAI answer was computed in six places with different behaviour for a model without its own price:
-some charged the requested model's price, some recorded no cost at all. Now `jav.config.openai_cost` is the only rule:
+some charged the requested model's price, some recorded no cost at all. Now `jav.core.config.openai_cost` is the only rule:
 the answering model's configured price, else the requested model's, else None (an unknown cost: the call log keeps
 the reserved maximum committed). Money in Decimal. Stand-in answers only; no paid call.
 """
@@ -16,8 +16,8 @@ from types import SimpleNamespace
 import pytest
 from pydantic_ai.usage import RunUsage
 
-from jav import config, store
-from jav.config import OPENAI_MODEL, openai_cost, openai_priced_model
+from jav.core import config, store
+from jav.core.config import OPENAI_MODEL, openai_cost, openai_priced_model
 
 PRICE = config.OPENAI_USD_PER_MTOK[OPENAI_MODEL]
 
@@ -64,10 +64,10 @@ def test_no_price_or_no_reported_usage_is_an_unknown_cost():
 
 def test_no_runtime_module_computes_an_openai_price_by_itself():
     """The price table is read by the shared rule only (the admin report lists it; experiments are not runtime)."""
-    root = Path(config.PROJECT_ROOT) / "jav"
-    readers = sorted(p.relative_to(root).as_posix() for p in root.rglob("*.py")
+    root = Path(config.PROJECT_ROOT)
+    readers = sorted(p.relative_to(root).as_posix() for p in (root / "jav").rglob("*.py")
                      if "experiments" not in p.parts and re.search(r"\bOPENAI_USD_PER_MTOK\b", p.read_text(encoding="utf-8")))
-    assert readers == ["admin.py", "config.py"]
+    assert readers == ["jav/admin.py", "jav/core/config.py"]
 
 
 class _Agent:

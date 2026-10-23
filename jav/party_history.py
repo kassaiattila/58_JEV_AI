@@ -16,7 +16,8 @@ its counted result when that is of the same type (174, plan 170 L2: the package'
 
 from __future__ import annotations
 
-from jav import fact_checks, package_result, store
+from jav import fact_checks, package_result
+from jav.core import store
 
 
 def orientation(doc_id: str | None, doc_type: str | None, fields: tuple[str, str], values: tuple[object, object]) -> tuple[int, int] | None:

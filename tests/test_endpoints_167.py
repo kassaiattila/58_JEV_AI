@@ -16,7 +16,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, app_settings, store, work, work_runs
+from jav import api, app_settings, work, work_runs
+from jav.core import store
 from jav.domains.finance import fx
 from jav.domains.email import mailbox
 from jav.domains.finance import reconcile_package as rp

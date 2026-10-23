@@ -10,7 +10,7 @@ import logging
 import pytest
 
 from jav.domains.email import mailbox
-from jav import store
+from jav.core import store
 
 REQ = mailbox.MailboxRequest(accounts=["office@example.com"], since_days=3)
 

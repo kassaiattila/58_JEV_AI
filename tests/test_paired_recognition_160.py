@@ -15,7 +15,8 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, Score, SystemOneResponse
 
-from jav import detect_detail, detect_gpt, flow_detect, gpt_choice, store
+from jav import detect_detail, detect_gpt, flow_detect, gpt_choice
+from jav.core import store
 from jav.domains.email import flow_email
 from jav.adapters import jev as jev_mod
 from jav.adapters.jev import JevUnavailableError

@@ -24,7 +24,8 @@ from collections.abc import Iterable, Mapping
 from decimal import Decimal
 from typing import Any
 
-from jav import checks, fact_checks, party_history, taxid
+from jav import checks, fact_checks, party_history
+from jav.core import taxid
 from jav.models import CheckResult, DocumentRecord
 
 HU_TAXID_WEIGHTS = taxid.HU_WEIGHTS
@@ -103,7 +104,7 @@ def date_order(inv: DocumentRecord, optional: bool = False) -> CheckResult:
 def tax_id(value: str | None, name: str = "tax_id") -> CheckResult:
     """069 (066 Á05, decision of 2026-09-29): a recognised form, otherwise a to-do. Hungarian tax number and Hungarian
     EU VAT number: check digit (weighted), for the domestic one also VAT code 1-5 and county code 02-20 / 22-44 / 51; EU
-    and a few common non-EU forms: format (`jav/taxid.py`). A value written with its label is cleaned first; whatever is
+    and a few common non-EU forms: format (`jav/core/taxid.py`). A value written with its label is cleaned first; whatever is
     still not recognisable (a phone number, two identifiers in one field) is `taxid.unrecognized`. Before this, every
     value that was not 11 digits passed as "foreign"."""
     if not value:

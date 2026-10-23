@@ -1,5 +1,5 @@
 """175 (plan 170 E4, decision K18): the kinds of what people do and what the logs record, in one registry
-(`jav/activity_kinds.py`): the log events of packages and workflows, the sources of "My work today", the decisions a
+(`jav/core/activity_kinds.py`): the log events of packages and workflows, the sources of "My work today", the decisions a
 run's reviewed version is made of, and the task kinds of an email's task proposal. Synthetic data only; no AI call.
 """
 
@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import activity_kinds, corrections, datasets, store, work, workflows
+from jav import corrections, datasets, work, workflows
+from jav.core import activity_kinds, store
 from jav.domains.email import email_tasks
 from tests.test_activity_labels_171 import _recorded_actions
 from tests.test_characterisation_171 import RUN, _run, db  # noqa: F401  (the fixture)
@@ -86,7 +87,7 @@ def test_a_decision_kind_a_logic_package_registers_joins_the_reviewed_version_an
 
 
 def test_the_task_kinds_come_from_the_settings_in_the_schemas_order() -> None:
-    from jav import cfg
+    from jav.core import cfg
 
     assert activity_kinds.task_kinds() == tuple(cfg.load("email_tasks")["actions"]) == email_tasks.ACTIONS
     assert email_tasks.Action.__args__ == email_tasks.ACTIONS  # the schema's bytes: `tests/test_characterisation_171.py`

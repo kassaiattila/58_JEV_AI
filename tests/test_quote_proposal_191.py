@@ -13,9 +13,10 @@ from decimal import Decimal
 
 import pytest
 
-from jav import store
+from jav.core import store
 from jav.domains.quotes import price_lists, invented_golden, quote_package, quote_proposal
-from jav.runtime import job_kinds, queue, worker
+from jav.runtime import job_kinds, worker
+from jav.core import queue
 from tests import test_email_text_follow_up_190 as follow
 from tests.test_email_text_follow_up_190 import _package, _run
 

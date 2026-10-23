@@ -2,7 +2,7 @@
 
 Nothing new is stored: the view is read from what every paid call already leaves behind.
 
-- The call log (`invocations`, `jav/runtime/calls.py`): every paid call of a run (its budget scope) with its provider,
+- The call log (`invocations`, `jav/core/calls.py`): every paid call of a run (its budget scope) with its provider,
   model, state and cost. A document flow's call carries the item's flow identifier (`<run>:<item16>`, `work_runs.flow_run_id`);
   an Azure recognition carries the run and the document's fingerprint in its step (`azure_di:ocr:<sha16>`), and a
   document's identifier is its content fingerprint.
@@ -20,8 +20,9 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
-from jav import store, work, work_runs
-from jav.runtime import calls
+from jav import work, work_runs
+from jav.core import store
+from jav.core import calls
 
 AZURE_STEP = "azure_di:ocr:"
 PROVIDER_ORDER = ("jev", "openai", "azure_di")

@@ -6,9 +6,9 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, SystemOneResponse
 
-from jav import store
+from jav.core import store
 from jav.adapters.jev import JevAdapter, JevUnavailableError
-from jav.runtime import calls
+from jav.core import calls
 from jav.typepack import get as get_pack
 
 
@@ -137,7 +137,7 @@ def test_unpriced_model_is_refused_under_a_budget(isolated, monkeypatch):
     `llm:failed:UnpricedModelError` to-do)."""
     from jav.domains.email import email_tasks
     from jav import extract_llm
-    from jav.config import UnpricedModelError
+    from jav.core.config import UnpricedModelError
 
     monkeypatch.setattr(extract_llm, "OPENAI_MODEL", "gpt-kitalalt-modell")
     monkeypatch.setattr(email_tasks, "OPENAI_MODEL", "gpt-kitalalt-modell")

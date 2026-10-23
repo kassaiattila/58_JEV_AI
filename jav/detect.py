@@ -18,12 +18,12 @@ from pathlib import Path
 from pydantic import BaseModel, Field, model_validator
 from typesafe_sdk import Choice, Noul
 
-from jav import cfg
+from jav.core import cfg
 from jav.adapters.jev import JevAdapter
 from jav.doc_types import PARENT_OF, UNKNOWN, anchor_hits, choice_criteria
 from jav.models import DATE_NUMERIC_RE, DATE_TEXT_RE, JevCall
 from jav.pdf import PdfText
-from jav.registry import parent_summary
+from jav.core.registry import parent_summary
 
 _CFG = cfg.load("callsite:detect")
 CONFIG_HASH = cfg.config_hash("callsite:detect", "doc_types")  # the questions + the registry together

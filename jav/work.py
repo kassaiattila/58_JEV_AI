@@ -10,7 +10,7 @@ Rules:
 - The run stores a snapshot of the assignment and the input; later changes do not affect it.
 - Starting the same package + assignment revision + input + mode again returns the existing run (`deduped`).
 - Approval only in live mode, once every item has finished and with no open to-do.
-- The run's budget is the recipe's per-item maximum × the item count (`jav.runtime.calls`, scope = run_id).
+- The run's budget is the recipe's per-item maximum × the item count (`jav.core.calls`, scope = run_id).
 - 160-C S3: a run can take only the package's pending items (`scope="pending"`); its input, budget and plan are
   those items' alone, and the earlier runs stay as they are.
 """
@@ -26,11 +26,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from jav import activity_kinds, item_kinds, logic_packs, source_instances, store
+from jav import item_kinds, logic_packs, source_instances
+from jav.core import activity_kinds, store
 from jav.native_contracts import DOCUMENT_SUFFIXES
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
-from jav.digest import file_sha256 as sha256_file
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
+from jav.core.digest import file_sha256 as sha256_file
 from jav import work_recipes, work_runs
 
 
@@ -721,7 +722,7 @@ def approved_runs(runs: Iterable[str | None]) -> set[str]:
             f"SELECT run_id FROM runs WHERE approval IS NOT NULL AND run_id IN ({','.join('?' * len(ids))})", ids)}
 
 
-# 175 (plan 170 E4): the package log's own actions; the other modules register theirs (`jav/activity_kinds.py`)
+# 175 (plan 170 E4): the package log's own actions; the other modules register theirs (`jav/core/activity_kinds.py`)
 activity_kinds.register_events("package", ("rename", "owner", "archive", "restore", "delete", "items_add", "item_remove",
                                            "items_remove", "item_restore", "items_restore", "run_cancel", "run_supersede"),
                                __name__)

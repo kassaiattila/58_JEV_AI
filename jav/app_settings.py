@@ -33,11 +33,12 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from jav import store, work, work_recipes
+from jav import work, work_recipes
+from jav.core import store
 from jav.native_contracts import DOCUMENT_SUFFIXES
-from jav.runtime import lock
-from jav.user_messages import explained
-from jav.clock import utc_now as _now
+from jav.core import lock
+from jav.core.user_messages import explained
+from jav.core.clock import utc_now as _now
 
 log = logging.getLogger("jav.folders")
 
@@ -366,7 +367,7 @@ def check_output_folder(p: Path) -> Path:
     """The output folder may not lie inside a watched folder or contain one (the watcher would take the copies in
     again as new documents), nor overlap the store or the mailbox folders. Returns the resolved path; `ValueError`
     otherwise."""
-    from jav.config import PROJECT_ROOT
+    from jav.core.config import PROJECT_ROOT
 
     p = p.resolve()
     if not p.is_dir():

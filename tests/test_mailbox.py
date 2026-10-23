@@ -13,9 +13,10 @@ import pytest
 from pydantic import ValidationError
 
 from jav.domains.email import emails, ingest_server, mailbox
-from jav import store, work, work_readiness, work_runs
+from jav import work, work_readiness, work_runs
+from jav.core import store
 from jav.adapters import jev as jev_mod
-from jav.config import BRIDGE_ROOT, OLD_PROJECT_ROOT
+from jav.core.config import BRIDGE_ROOT, OLD_PROJECT_ROOT
 from jav.runtime import worker
 from tests.test_email_signals import FakeClient  # Choice + Noul + Score (the graded signals of the intent question)
 
@@ -140,7 +141,7 @@ def test_email_recipe_runs_in_the_worker(env):
 def test_schedule_tick_enqueues_once_per_slot(tmp_path):
     from datetime import datetime, timedelta, timezone
 
-    from jav.runtime import queue
+    from jav.core import queue
 
     with store.use_store(tmp_path / "s.sqlite"):
         with pytest.raises(ValueError):  # a schedule only makes sense with "last N days"

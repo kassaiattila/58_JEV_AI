@@ -11,8 +11,9 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, config, contract, store, values
-from jav.config import PROJECT_ROOT, RUNS_DIR
+from jav import contract
+from jav.core import cfg, config, store, values
+from jav.core.config import PROJECT_ROOT, RUNS_DIR
 from jav.typepack import LEGACY_DOC_TYPE
 
 STATE_PATH = PROJECT_ROOT / "docs" / "STATE.md"  # generated state snapshot; the handoff links to it, never copies it
@@ -204,7 +205,7 @@ def write_state(path: Path = STATE_PATH) -> Path:
     """
     from datetime import datetime
 
-    from jav.devstate import git_state
+    from jav.core.devstate import git_state
 
     g = git_state()
     head = [

@@ -14,7 +14,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import cfg, extract_llm, policy, typepack
+from jav import extract_llm, policy, typepack
+from jav.core import cfg
 from jav.jev_verify import VerifySite, site_for
 from jav.models import FlowState, JevVerdicts, LineLayout
 

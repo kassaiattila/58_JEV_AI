@@ -20,7 +20,7 @@ from pydantic import Field
 from jav import parties, work_views
 from jav.domains.finance import party_views
 from jav.service_shared import Empty, In, IsoDay, PartyId, human_actor
-from jav.user_messages import explained
+from jav.core.user_messages import explained
 
 PartyName = Annotated[str, Field(min_length=1, max_length=200)]
 

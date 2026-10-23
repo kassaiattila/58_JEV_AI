@@ -37,9 +37,6 @@ ALLOWED = {layer: (*LAYERS[: i + 1], *(("evals", "devtools", "legacy") if layer 
 
 # not in its layer's folder yet: module (relative to jav) -> its layer ("domains.<domain>" for a domain's module)
 NOT_MOVED = {name: layer for layer, names in {
-    "core": "activity_kinds card_numbers cfg clock config dates decisions devstate digest doc_scope field_names "
-        "numbers path_text registry runtime.applog runtime.calls runtime.lock runtime.queue store taxid "
-        "todo_kinds type_roles user_messages values version",
     "documents": "adapters.azure_di isolated_pdf native_contracts native_results ocr page_image pdf pdf_input readers "
         "readers.__main__ readers.chunks readers.contracts readers.external_recognition "
         "readers.interpretation readers.isolation readers.limits readers.native readers.pipeline "
@@ -73,14 +70,14 @@ KNOWN = {
     ("jav.ocr", "jav.policy"), ("jav.pdf_input", "jav.policy"), ("jav.text_document", "jav.typepack"),
     ("jav.readers.interpretation", "jav.fact_checks"), ("jav.readers.providers", "jav.adapters.jev"),
     # the registries load the domains' registrations themselves
-    ("jav.activity_kinds", "jav.registrations"), ("jav.checks", "jav.registrations"),
+    ("jav.core.activity_kinds", "jav.registrations"), ("jav.checks", "jav.registrations"),
     # the shared decision handler raises the work package's conflict error; a document's reading checks its item
-    ("jav.decisions", "jav.work"), ("jav.native_results", "jav.item_kinds"), ("jav.ocr", "jav.source_instances"),
+    ("jav.core.decisions", "jav.work"), ("jav.native_results", "jav.item_kinds"), ("jav.ocr", "jav.source_instances"),
     ("jav.party_history", "jav.package_result"),
     # the shared views show the worker's state
     ("jav.work_views", "jav.runtime.worker"),
     # the operations log masks keys with the data guard's patterns
-    ("jav.runtime.applog", "jav.data_guard"),
+    ("jav.core.applog", "jav.data_guard"),
     # the quote's business modules read the invented price list of its golden set
     ("jav.domains.quotes.quote_letter", "jav.domains.quotes.invented_golden"), ("jav.domains.quotes.quote_match", "jav.domains.quotes.invented_golden"),
 }

@@ -14,7 +14,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav import cfg, datasets
+from jav import datasets
+from jav.core import cfg
 from jav.datasets import Rows, col
 
 

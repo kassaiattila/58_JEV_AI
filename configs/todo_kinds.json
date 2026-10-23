@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "todo_kinds",
-    "version": "1.0.4",
-    "description": "The kinds of to-do (review reason) a processing step can raise (177, plan 170 E6, jav/todo_kinds.py). A to-do's kind is the first two parts of its reason (`<prefix>:<name>`, as the interface's label reads it); `<prefix>:*` stands for a family whose second part varies (each validator check, each JEV error), `*:<name>` for one whose first part is a field. shape: the whole reason; owners: the modules that raise it (none: only earlier runs have it); example: one reason of the kind, for the label test (ui/src/todoKinds177.test.ts). The owner's decision of 2026-10-19 (177): only the tests and the before/after replay watch that a step raises registered kinds; the store accepts any reason, as before.",
+    "version": "1.0.5",
+    "description": "The kinds of to-do (review reason) a processing step can raise (177, plan 170 E6, jav/core/todo_kinds.py). A to-do's kind is the first two parts of its reason (`<prefix>:<name>`, as the interface's label reads it); `<prefix>:*` stands for a family whose second part varies (each validator check, each JEV error), `*:<name>` for one whose first part is a field. shape: the whole reason; owners: the modules that raise it (none: only earlier runs have it); example: one reason of the kind, for the label test (ui/src/todoKinds177.test.ts). The owner's decision of 2026-10-19 (177): only the tests and the before/after replay watch that a step raises registered kinds; the store accepts any reason, as before.",
     "changelog": [
+      {
+        "version": "1.0.5",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the shared core's modules moved into jav/core/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.4",
         "date": "2026-10-23",

@@ -31,8 +31,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Literal
 
-from jav import policy, values
-from jav.config import RUNS_DIR
+from jav import policy
+from jav.core import values
+from jav.core.config import RUNS_DIR
 from jav.typepack import LEGACY_DOC_TYPE
 
 # score: conf / top_prob read as for a Choice, the label is the level; field (160-D): a GPT field's confidence

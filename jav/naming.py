@@ -41,7 +41,8 @@ from datetime import date
 from pathlib import Path
 from typing import IO, Any
 
-from jav import cfg, item_kinds, store, work, work_runs
+from jav import item_kinds, work, work_runs
+from jav.core import cfg, store
 
 log = logging.getLogger("jav.naming")
 

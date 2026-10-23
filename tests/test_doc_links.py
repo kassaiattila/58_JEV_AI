@@ -1,7 +1,7 @@
 """The documents' relative links resolve (040, K0; docs/guides/DOCUMENTATION.md).
 
 070 (decision of 2026-09-29): a codebase document must not link to an internal working document, because that is not
-in the repository (`jav/doc_scope.py`). The links of the internal entry documents can only be checked locally; on a
+in the repository (`jav/core/doc_scope.py`). The links of the internal entry documents can only be checked locally; on a
 fresh clone they are skipped.
 """
 
@@ -11,7 +11,7 @@ from urllib.parse import unquote
 
 import pytest
 
-from jav import doc_scope
+from jav.core import doc_scope
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_DOCS = sorted(

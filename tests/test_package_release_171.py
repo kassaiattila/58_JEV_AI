@@ -7,7 +7,8 @@ gets its first version recorded afterwards. Synthetic PDFs, a fake JEV client, n
 
 import hashlib
 
-from jav import package_release, store, work, work_runs
+from jav import package_release, work, work_runs
+from jav.core import store
 from jav.runtime import worker
 from tests import test_flexible_package_160c as fp
 from tests.pdfgen import INVOICE_LINES, write_text_pdf

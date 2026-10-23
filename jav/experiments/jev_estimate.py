@@ -8,7 +8,7 @@ files into the output folder. No API key is needed for JEV; OpenAI and Azure are
 run under a JEV-only budget, so no other provider can be called).
 
 The cost of a live question is estimated from its request size: about 2.5 characters per token on average (expected)
-and at most 0.6 tokens per character (upper bound, measured in the call log; `jav/runtime/calls.py`). The worst-case
+and at most 0.6 tokens per character (upper bound, measured in the call log; `jav/core/calls.py`). The worst-case
 reservation of the largest question is reported too: a hard budget has to leave at least that much room.
 
     python -m jav.experiments.jev_estimate golden:invoice_hu synthetic:invoice_foreign detect-golden email-golden
@@ -35,10 +35,10 @@ from typing import Any
 from typesafe_sdk import Choice, Noul, SystemOneResponse
 
 from jav.adapters.jev import JevAdapter, use_adapter
-from jav.config import CACHE_DIR, JEV_RETRY, JEV_USD_PER_MTOK, RUNS_DIR
+from jav.core.config import CACHE_DIR, JEV_RETRY, JEV_USD_PER_MTOK, RUNS_DIR
 
 TOKENS_PER_CHAR = Decimal("0.4")  # about 2.5 characters per token (JEV_PLAYBOOK §3)
-TOKENS_PER_CHAR_MAX = Decimal("0.6")  # at most 0.60 of the request's characters (jav/runtime/calls.py, TOKEN_OVERHEAD)
+TOKENS_PER_CHAR_MAX = Decimal("0.6")  # at most 0.60 of the request's characters (jav/core/calls.py, TOKEN_OVERHEAD)
 NO_LIMIT = Decimal("1000")  # the steps run under a JEV-only budget, as the paid measurement; nothing is reserved
 MODULES_WITH_RUNS_DIR = ("jav.evals", "jav.evals_detect", "jav.evals_email")
 
@@ -89,7 +89,7 @@ class EstimatingAdapter(JevAdapter):
         self.requests: list[Request] = []
 
     def ask(self, request_id: str, state: object, questions: dict[str, Any], **kwargs: Any):  # type: ignore[override]
-        from jav.runtime import calls
+        from jav.core import calls
 
         body = request_body(state, questions)
         result = super().ask(request_id, state, questions, **kwargs)
@@ -106,7 +106,7 @@ class EstimatingAdapter(JevAdapter):
 def concrete_model(cache_dir: Path = CACHE_DIR) -> str:
     """The concrete version behind the configured alias, as the cache keys name it (`_model_versions.json`)."""
     from jav.adapters.jev import MODEL_VERSIONS_FILE, _CONCRETE_MODEL
-    from jav.config import JEV_MODEL
+    from jav.core.config import JEV_MODEL
 
     if _CONCRETE_MODEL.match(JEV_MODEL):
         return JEV_MODEL
@@ -209,7 +209,7 @@ def report(result: dict[str, Any]) -> str:
 
 
 def estimate(steps: list[str], out: Path) -> dict[str, Any]:
-    from jav import store
+    from jav.core import store
 
     out.mkdir(parents=True, exist_ok=True)
     adapter = EstimatingAdapter(concrete_model())

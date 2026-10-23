@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from jav import store
+from jav.core import store
 
 
 def _count_inits(monkeypatch) -> list[int]:

@@ -29,8 +29,8 @@ Quote the saved value exactly when using it, retain its source cell and mark it 
 
 
 def require_measurement(provider: str, isolated_store: Path):
-    from jav import store
-    from jav.runtime import calls
+    from jav.core import store
+    from jav.core import calls
     ctx = calls.current()
     if ctx is None or not ctx.budget_scope or not calls.has_budget(ctx.budget_scope, provider):
         raise ValueError("An explicit provider sub-budget is required before interpretation")
@@ -52,7 +52,7 @@ LEDGER_STEP = "reader_gpt"
 def _ledgered_gpt(agent, prompt: str, settings, model: str, *, run_id: str, config_hash: str, cache_key: str):
     """167 (review R-8): one physical request, written to the ledger as every other AI call is, a failure too. A
     received answer that failed validation is a row with its tokens and cost and the failure's type."""
-    from jav import store
+    from jav.core import store
     t0 = time.perf_counter()
     try:
         out = run_gpt_once(agent, prompt, settings, model)
@@ -80,8 +80,8 @@ def gpt_response_format() -> dict:
 def extract_gpt(delivery: Delivery, *, run_id: str, isolated_store: Path, max_transfer_bytes=80_000,
                 max_output_tokens=4000, fields: dict[str, str] | None = None, entity: str | None = None,
                 agent=None, receipt_observer: Callable | None = None) -> Interpretation:
-    from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_chat_model, openai_price
-    from jav.runtime import calls
+    from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_chat_model, openai_price
+    from jav.core import calls
     from pydantic_ai import Agent, NativeOutput
     from pydantic_ai.models.openai import OpenAIChatModelSettings
     ctx = require_measurement("openai", isolated_store)

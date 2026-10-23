@@ -18,8 +18,9 @@ from pathlib import Path
 
 import pytest
 
-from jav import extract_llm, gpt_choice, store
-from jav.runtime import calls
+from jav import extract_llm, gpt_choice
+from jav.core import store
+from jav.core import calls
 from jav.typepack import get as get_pack
 from tests.test_gpt_extract_logprobs_091 import _LogprobAgent
 from tests.test_no_jev_085 import GOOD

@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from jav import api, work
-from jav.user_messages import explained, fill
+from jav.core.user_messages import explained, fill
 
 ROOT = Path(__file__).resolve().parents[1]
 I18N = ROOT / "ui" / "src" / "i18n"

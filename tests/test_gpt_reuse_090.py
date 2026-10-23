@@ -13,8 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from jav import extract_llm, store
-from jav.runtime import calls, worker
+from jav import extract_llm
+from jav.core import store
+from jav.runtime import worker
+from jav.core import calls
 from jav.typepack import get as get_pack
 from tests.test_no_jev_085 import GOOD, _FakeAgent
 

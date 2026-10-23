@@ -25,7 +25,8 @@ import sqlite3
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from jav import corrections, package_result, store, work
+from jav import corrections, package_result, work
+from jav.core import store
 from jav.typepack import get as get_pack
 
 TYPE = "quote_request"  # the type pack, the detection type and the email intent (190)

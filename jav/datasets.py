@@ -50,9 +50,10 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from jav import activity_kinds, cfg, costs, decisions, field_names, logic_packs, store, work, work_recipes, work_runs, work_views
+from jav import costs, logic_packs, work, work_recipes, work_runs, work_views
+from jav.core import activity_kinds, cfg, decisions, field_names, store
 from jav.outputs import parts
-from jav.runtime import calls
+from jav.core import calls
 from jav.tablequery import Column, Query, run_query, select, shown
 
 Rows = tuple[list[Column], list[dict[str, Any]]]
@@ -149,7 +150,7 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
 
         native = native_results.version_parts(run_id, c)
         # 126, 173 (plan 170, K20), 175 (plan 170 E4): every other decision kind of the reviewed version
-        # (`jav/activity_kinds.py`: a duplicate decision, a reconciliation decision, a statement choice, a logic pack's
+        # (`jav/core/activity_kinds.py`: a duplicate decision, a reconciliation decision, a statement choice, a logic pack's
         # own) on one of the run's items; 185 (plan G-full-move T1d): read through the registry, none by name
         subject_ids = [i for _k, i in subjects]
         extra = [[k.name, found] for k in activity_kinds.decisions() if k.name not in _FINGERPRINTED

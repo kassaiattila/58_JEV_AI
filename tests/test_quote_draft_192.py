@@ -14,7 +14,8 @@ import copy
 
 import pytest
 
-from jav import decisions, store, work
+from jav import work
+from jav.core import decisions, store
 from jav.domains.quotes import price_lists, quote_draft, invented_golden, quote_package, quote_proposal
 from jav.runtime import worker
 from tests import test_email_text_follow_up_190 as follow

@@ -16,7 +16,7 @@ import json
 
 import pytest
 
-from jav import config
+from jav.core import config
 from jav.domains.email import ingest_server
 
 

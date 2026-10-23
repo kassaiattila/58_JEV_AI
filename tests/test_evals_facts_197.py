@@ -9,7 +9,8 @@ from datetime import datetime
 from decimal import Decimal
 import pytest
 
-from jav import cfg, evals_facts, goldens, store
+from jav import evals_facts, goldens
+from jav.core import cfg, store
 from jav.evals import GoldenCase
 from jav.typepack import get as get_pack
 from tests.native_fixtures_109 import runtime_source, synthetic_gpt

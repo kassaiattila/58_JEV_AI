@@ -17,7 +17,8 @@ from unittest.mock import patch
 
 import pytest
 
-from jav import isolated_pdf, pdf, policy, store
+from jav import isolated_pdf, pdf, policy
+from jav.core import store
 from jav.flow import load_pdf as invoice_load
 from jav.flow_detect import DetectState, load_pdf as detect_load, save as detect_save
 from jav.models import FlowState

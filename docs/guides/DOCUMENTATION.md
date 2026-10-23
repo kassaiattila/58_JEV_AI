@@ -30,7 +30,7 @@ Since 2026-09-30 (the owner's decision) **everything that reaches GitHub is writ
    - names no part of the owner's infrastructure: local machine paths, backup locations, mailbox names, the story of the repository's history;
    - lists open security weaknesses only in the [security notes](../SECURITY.md), briefly; the README links there.
 
-   Release history goes into the changelog, in general terms. The link test (`tests/test_doc_links.py`) and the public-text test (`tests/test_public_docs_076.py`) enforce this; `CLAUDE.md` is outside the public-text test because it has to name the internal documents it tells the model to read. The single list of internal paths is `jav/doc_scope.py`; `.gitignore` matches it (`tests/test_doc_scope_070.py`), and the daily backup reads it too.
+   Release history goes into the changelog, in general terms. The link test (`tests/test_doc_links.py`) and the public-text test (`tests/test_public_docs_076.py`) enforce this; `CLAUDE.md` is outside the public-text test because it has to name the internal documents it tells the model to read. The single list of internal paths is `jav/core/doc_scope.py`; `.gitignore` matches it (`tests/test_doc_scope_070.py`), and the daily backup reads it too.
 
 ## 2. Document types
 

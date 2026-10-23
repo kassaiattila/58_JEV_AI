@@ -31,7 +31,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav import activity_kinds, checks, item_kinds, type_roles
+from jav import checks, item_kinds
+from jav.core import activity_kinds, type_roles
 from jav.outputs import parts
 
 # 185 (plan G-full-move T1a): the modules of the domain's addresses of the local service beyond its logic packs' own
@@ -84,7 +85,7 @@ def statement_overlap_check(subject: checks.Subject) -> list[str]:
     return statement_months.review_reasons(current)
 
 
-# --- 185 (plan G-full-move T1d): the finance decisions a run's reviewed version is made of (`jav/activity_kinds.py`),
+# --- 185 (plan G-full-move T1d): the finance decisions a run's reviewed version is made of (`jav/core/activity_kinds.py`),
 # each after the part it follows, as they always nested; until 185 in `jav/corrections.py` -----------------------------
 
 
@@ -163,7 +164,7 @@ def _day(raw: Any) -> str | None:
     """A stored date as an ISO day (a stored value is ISO; another form is read when it is sure)."""
     from datetime import date
 
-    from jav import dates
+    from jav.core import dates
 
     if raw in (None, ""):
         return None
@@ -178,7 +179,8 @@ def place_document(doc_type: str | None, values: dict[str, Any], cache: dict[str
     """181: where a document belongs for the email routing (`package_scope.place`): a bank statement by its account's
     own party, on its period's last day; an invoice by its two sides (`parties.direction`: incoming to the buyer,
     outgoing from the supplier), on its fulfilment day, else its issue day. None for another kind of document."""
-    from jav import cfg, package_scope, parties
+    from jav import package_scope, parties
+    from jav.core import cfg
     from jav.domains.finance import statement_package
     from jav.models import account_key
 

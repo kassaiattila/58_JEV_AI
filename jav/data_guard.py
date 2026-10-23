@@ -7,7 +7,7 @@ re-check existing lines, so an old, tolerated value does not block an unrelated 
 `scan` (and the test).
 
 - **Real shape** = passes the check: the check digit of the Hungarian tax number and the EU VAT number
-  (`jav/taxid.py`), the IBAN's mod-97, the two check digits of a domestic bank account number. A value with a wrong
+  (`jav/core/taxid.py`), the IBAN's mod-97, the two check digits of a domestic bank account number. A value with a wrong
   check digit cannot be real, so it does not stop anything. Foreign tax numbers, email addresses and phone numbers
   cannot be checked this way: they have an allow list.
 - **Exception** (`configs/data_guard.json` `allow`): a fictitious or public company value, in readable form.
@@ -17,7 +17,7 @@ re-check existing lines, so an old, tolerated value does not block an unrelated 
   fragments, so that the list itself does not carry them.
 - **Key:** known key shapes, and the secret values of the local `.env` verbatim (the output shows only the variable
   name).
-- **Path:** internal working documents (`jav/doc_scope.py`), `.env`, the local data folders, document and image
+- **Path:** internal working documents (`jav/core/doc_scope.py`), `.env`, the local data folders, document and image
   files, binary files.
 - **On push**, a branch or tag built on a history listed under `forbidden_history` is also refused.
 
@@ -37,8 +37,9 @@ from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from jav import card_numbers, cfg, doc_scope, taxid, validators
-from jav.config import PROJECT_ROOT
+from jav import validators
+from jav.core import card_numbers, cfg, doc_scope, taxid
+from jav.core.config import PROJECT_ROOT
 
 HOOKS_DIR = "scripts/githooks"
 ZERO_SHA = "0" * 40
@@ -146,7 +147,7 @@ def _real_account(value: str) -> bool:
 
 
 def _real_card(value: str) -> bool:
-    """153 (review C2): a payment card number (a scheme's first digit and a right check digit, `jav/card_numbers.py`)."""
+    """153 (review C2): a payment card number (a scheme's first digit and a right check digit, `jav/core/card_numbers.py`)."""
     return card_numbers.is_card_number(re.sub(r"\D", "", value))
 
 

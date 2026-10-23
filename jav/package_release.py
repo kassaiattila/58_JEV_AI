@@ -40,12 +40,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from jav import activity_kinds, card_numbers, corrections, export, logic_packs, package_result, store, work, work_runs
+from jav import corrections, export, logic_packs, package_result, work, work_runs
+from jav.core import activity_kinds, card_numbers, store
 from jav.outputs import parts, templates
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
 
-# 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
+# 175 (plan 170 E4): the actions this module records in the package log (`jav/core/activity_kinds.py`)
 activity_kinds.register_events("package", ("package_release",), __name__)
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

@@ -97,7 +97,7 @@ def test_cache_is_refreshed_after_a_correction(env):
 
 def test_run_fingerprint_follows_only_this_runs_subjects_and_task_decisions(env):
     """062 (Q-ujjlenyomat): until then, a to-do change in any run invalidated the stored results of every run."""
-    from jav import store
+    from jav.core import store
 
     c = env["client"]
     wp, run_id = _run(c, env["folder"])

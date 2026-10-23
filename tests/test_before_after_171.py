@@ -10,8 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from jav import before_after, store, work
-from jav.config import PROJECT_ROOT
+from jav import before_after, work
+from jav.core import store
+from jav.core.config import PROJECT_ROOT
 
 
 def _snapshot_file(path: Path, views: dict[str, object]) -> Path:

@@ -14,7 +14,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import cfg, gpt_choice, store
+from jav import gpt_choice
+from jav.core import cfg, store
 from jav.domains.finance import reconcile, reconcile_ai, reconcile_package
 from jav.adapters.jev import JevUnavailableError
 from tests import test_reconcile_k2_129 as k2

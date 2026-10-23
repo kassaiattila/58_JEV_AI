@@ -6,7 +6,7 @@ Synthetic data: in the store, the invoice run's result is replaced with a made-u
 
 import json
 
-from jav import store
+from jav.core import store
 from jav.runtime import worker
 from tests import test_api
 from tests.test_api import HUMAN, _ready_wp, _start

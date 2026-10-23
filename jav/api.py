@@ -36,12 +36,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import Field
 from starlette.routing import BaseRoute
 
-from jav import (app_settings, cfg, corrections, dates, isolated_pdf, local_picker, numbers, policy, package_release, store,
-                 version, work, work_views)
-from jav.config import PROJECT_ROOT
-from jav.runtime import lock, pdf_status, worker
+from jav import app_settings, corrections, isolated_pdf, local_picker, policy, package_release, work, work_views
+from jav.core import cfg, dates, numbers, store, version
+from jav.core.config import PROJECT_ROOT
+from jav.runtime import pdf_status, worker
+from jav.core import lock
 from jav.service_shared import ForbiddenPath, In, JavJSONResponse, UnknownUser, error, settings
-from jav.user_messages import explained, message_fields
+from jav.core.user_messages import explained, message_fields
 
 API_VERSION = "1"
 UI_DIST = PROJECT_ROOT / "ui" / "dist"  # the UI build (040 K3); if present, the service serves it at the root
@@ -407,7 +408,8 @@ def serve(*, host: str | None = None, port: int | None = None) -> None:
     if host not in LOOPBACK:
         raise ValueError(f"the local service binds only to a loopback address, not {host!r}")
     from jav import datasets
-    from jav.runtime import applog, preload
+    from jav.runtime import preload
+    from jav.core import applog
 
     preload.preload()  # 091: all the code now, so later changes on disk cannot mix into the running service
     datasets.warm_up()  # 158: the package list is built in the background, so its first request does not wait 5-8 s

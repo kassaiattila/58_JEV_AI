@@ -1,4 +1,4 @@
-"""177 (plan 170 E6): the to-do kind registry (`configs/todo_kinds.json`, `jav/todo_kinds.py`).
+"""177 (plan 170 E6): the to-do kind registry (`configs/todo_kinds.json`, `jav/core/todo_kinds.py`).
 
 Every kind is listed once with an example that maps back to it; its owners exist; a family covers its whole shape; the
 codes the interface's label function names are registered kinds. The label test itself is the interface's
@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from jav import todo_kinds as tk
+from jav.core import todo_kinds as tk
 
 ROOT = Path(__file__).resolve().parents[1]
 

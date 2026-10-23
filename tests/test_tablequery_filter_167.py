@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import numbers
+from jav.core import numbers
 from jav.tablequery import Column, Query, select
 
 COLS = [Column("name", "Name"), Column("amount", "Amount", "money"), Column("qty", "Quantity", "number")]

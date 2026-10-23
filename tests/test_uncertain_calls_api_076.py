@@ -11,8 +11,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, store
-from jav.runtime import calls
+from jav import api
+from jav.core import store
+from jav.core import calls
 
 BASE = "http://127.0.0.1:8930"
 HUMAN = {"X-Actor": "test.user"}

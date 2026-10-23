@@ -14,7 +14,7 @@ import pytest
 from typesafe_sdk import Noul, SystemOneResponse
 from typesafe_sdk._core.errors import TypeSafeBadRequestError
 
-from jav import store
+from jav.core import store
 from jav.adapters.jev import JevAdapter, JevUnavailableError
 from jav.jev_budget import ask_within_budget
 

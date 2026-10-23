@@ -30,11 +30,12 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from jav import decisions, item_kinds, store, todo_kinds, work, work_recipes, work_runs, workflow_steps
+from jav import item_kinds, work, work_recipes, work_runs, workflow_steps
+from jav.core import decisions, store, todo_kinds
 from jav.domains.email import ingest_server
 from jav.runtime import job_kinds
-from jav.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
-from jav.user_messages import explained
+from jav.core.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
+from jav.core.user_messages import explained
 
 log = logging.getLogger("jav.domains.email.mailbox")
 
@@ -423,7 +424,7 @@ def delete_schedule(schedule_id: str, *, actor: str) -> None:
 def request_pull(req: MailboxRequest, *, actor: str, schedule_id: str | None = None,
                  dedup_key: str | None = None) -> dict[str, Any]:
     """Queues a download (the worker runs it). A repeated `dedup_key` returns the existing download."""
-    from jav.runtime import queue
+    from jav.core import queue
 
     pid = f"pull-{uuid.uuid4().hex[:10]}"
     # 063: the download row is created before the job - the worker may claim the job the moment it is queued
@@ -441,7 +442,7 @@ def request_pull(req: MailboxRequest, *, actor: str, schedule_id: str | None = N
 def process_pull_job(job: Any) -> str:
     """The worker's mailbox download job (048 T2): the result or the error shows on the download and its schedule; the
     job is always completed. 185 (plan G-full-move T1c): until then the worker's `process_pull`."""
-    from jav.runtime import queue
+    from jav.core import queue
 
     run_pull_job(job.payload)
     return queue.complete(job.id)
@@ -753,7 +754,7 @@ def next_flow_labels() -> dict[str, str]:
     """Hungarian names of the proposed next steps (058 K5.1): the fixed codes from `configs/datasets.json`, and "data
     extraction from the attachment" per type, with the document type's name. The UI translates the same with its own
     dictionary."""
-    from jav import cfg
+    from jav.core import cfg
 
     out = dict(cfg.load("datasets")["labels"]["next_flow"])
     for key, name in cfg.load("field_labels")["doc_types"].items():

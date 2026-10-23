@@ -40,12 +40,14 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from jav import activity_kinds, cfg, decisions, naming, package_release, store, work
+from jav import naming, package_release, work
+from jav.core import activity_kinds, cfg, decisions, store
 from jav.domains.quotes import quote_document, quote_request
-from jav.clock import utc_stamp as _now
+from jav.core.clock import utc_stamp as _now
 from jav.outputs import contract, docx, markers
-from jav.runtime import calls, job_kinds
-from jav.user_messages import explained
+from jav.runtime import job_kinds
+from jav.core import calls
+from jav.core.user_messages import explained
 
 JOB_KIND = "quote_letter"
 KIND = "quote_letter"  # the decision kind: the accepted body of a version's letter, keyed by package and version
@@ -266,7 +268,7 @@ def _agent():
     from pydantic_ai import Agent, NativeOutput
     from pydantic_ai.models.openai import OpenAIChatModelSettings
 
-    from jav.config import OPENAI_SETTINGS, openai_chat_model
+    from jav.core.config import OPENAI_SETTINGS, openai_chat_model
 
     model_settings = OpenAIChatModelSettings(openai_reasoning_effort=OPENAI_SETTINGS["reasoning_effort"],
                                              temperature=OPENAI_SETTINGS["temperature"])
@@ -278,7 +280,7 @@ def _physical(agent: Any, prompt: str, *, run_id: str, rounds: int) -> calls.Out
     """One `run_sync` of at most `rounds` requests; into the ledger, errors too."""
     from pydantic_ai.usage import UsageLimits
 
-    from jav.config import OPENAI_MODEL, openai_cost
+    from jav.core.config import OPENAI_MODEL, openai_cost
 
     t0 = time.perf_counter()
     try:
@@ -302,7 +304,7 @@ def _physical(agent: Any, prompt: str, *, run_id: str, rounds: int) -> calls.Out
 
 
 def _max_cost(prompt: str, rounds: int) -> Decimal:
-    from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_price
+    from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_price
 
     price = openai_price(OPENAI_MODEL)
     site = _site()
@@ -315,7 +317,7 @@ def _max_cost(prompt: str, rounds: int) -> Decimal:
 def ask(prompt: str, *, run_id: str) -> str:
     """GPT's paragraph for the prompt, through the call log and the caller's OpenAI budget (a repeated question with
     the same text returns the saved answer). `calls.BudgetExceeded` without room in the budget."""
-    from jav.config import OPENAI_MODEL, OPENAI_SETTINGS
+    from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS
 
     ctx = calls.current()
     if ctx is None:
@@ -336,7 +338,7 @@ def ask(prompt: str, *, run_id: str) -> str:
 def request(wp_id: str, *, actor: str) -> dict[str, Any]:
     """Queues GPT's paragraph for the approved version that holds, under its cap; one already queued or running is
     returned as it is. `LetterError` without an approved version."""
-    from jav.runtime import queue
+    from jav.core import queue
 
     v = _active(wp_id)
     n = v["version"]
@@ -358,7 +360,7 @@ def request(wp_id: str, *, actor: str) -> dict[str, Any]:
 def process_job(job: Any) -> str:
     """The worker's job: GPT's paragraph under the letter's budget, checked by code; the job is always completed, a
     failure shows on the letter."""
-    from jav.runtime import queue
+    from jav.core import queue
 
     wp_id, n = job.payload["workpackage_id"], int(job.payload["version"])
     with store.connect() as c:
@@ -483,7 +485,7 @@ def golden(*, limits: dict[str, Decimal], use_cache: bool = True, earlier_only: 
     `runs/<stamp>_quote_letters.jsonl`."""
     from collections import Counter
 
-    from jav.config import RUNS_DIR
+    from jav.core.config import RUNS_DIR
 
     if earlier_only:
         if limits:

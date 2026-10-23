@@ -25,7 +25,7 @@ from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
-from jav import cfg, type_roles, values
+from jav.core import cfg, type_roles, values
 from jav.domains.finance import duplicates
 from jav.outputs import contract
 

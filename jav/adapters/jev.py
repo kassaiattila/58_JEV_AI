@@ -17,7 +17,7 @@ What it adds on top of the raw SDK:
   `error` + `JevUnavailableError`; the flows turn it into reviews (`jev_unavailable:<reason>`) and do not crash.
   A programming error (not an SDK exception) still propagates.
 - **token cost**: according to the model's price list (`config.JEV_USD_PER_MTOK`); only input tokens are billed.
-- **config_hash**: the call site's config version (`jav/cfg.py`) in the ledger row, so that a measurement can be
+- **config_hash**: the call site's config version (`jav/core/cfg.py`) in the ledger row, so that a measurement can be
   traced back.
 - **refusal without JEV** (160, plan F-csak-gpt): inside `disabled()` (a flow built without JEV runs every step in it,
   `jav/engine.py`) every question is refused with `JevUnavailableError("disabled")` before the model probe, the cache
@@ -50,8 +50,8 @@ from typing import NoReturn
 from typesafe_sdk import Choice, Noul, Score, SystemOneResponse, TypeSafeClient, TypeSafeError
 from pydantic import ValidationError
 
-from jav import store
-from jav.config import CACHE_DIR, JEV_ALIAS_TTL_H, JEV_CACHE_VERSION, JEV_MODEL, JEV_RETRY, JEV_USD_PER_MTOK, MissingAPIKeyError, make_client
+from jav.core import store
+from jav.core.config import CACHE_DIR, JEV_ALIAS_TTL_H, JEV_CACHE_VERSION, JEV_MODEL, JEV_RETRY, JEV_USD_PER_MTOK, MissingAPIKeyError, make_client
 from jav.models import JevCall
 
 Question = Choice | Noul | Score
@@ -270,11 +270,11 @@ class JevAdapter:
     def _live(
         self, request_id: str, state: object, questions: dict[str, Question], *, model: str, run_id: str, config_hash: str | None
     ) -> tuple[SystemOneResponse, float]:
-        """Physical call. In a worker run (`jav.runtime.calls.current()`) it goes through the call log and the budget
+        """Physical call. In a worker run (`jav.core.calls.current()`) it goes through the call log and the budget
         (040 K1): an overrun or an uncertain earlier attempt becomes `JevUnavailableError`, so the process continues
         with reviews. If the call log returned the step's saved answer (replay), `_REPLAYED` tells the calling `ask()`
         (066 Á16); the return shape (answer, seconds) stays because experimental and test adapters override it."""
-        from jav.runtime import calls  # deferred: the runtime builds on the store, the adapter is the lowest layer
+        from jav.core import calls  # deferred: the runtime builds on the store, the adapter is the lowest layer
 
         ctx = calls.current()
         if ctx is None:

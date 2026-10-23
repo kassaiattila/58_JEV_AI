@@ -10,7 +10,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import values
+from jav.core import values
 from jav.domains.finance import reconcile_ai, reconcile_review, statement_table as st
 
 

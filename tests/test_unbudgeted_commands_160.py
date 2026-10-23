@@ -13,9 +13,10 @@ from decimal import Decimal
 
 import pytest
 
-from jav import cli, evals, evals_email, store
+from jav import cli, evals, evals_email
+from jav.core import store
 from jav.adapters import jev as jev_mod
-from jav.runtime import calls
+from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_runtime_worker import FakeClient
 

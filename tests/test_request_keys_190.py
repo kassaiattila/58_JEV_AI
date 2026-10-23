@@ -25,7 +25,7 @@ from jav import extract_llm, typepack
 from jav.adapters.jev import request_hash
 from jav.jev_verify import site_for
 from jav.models import LineLayout
-from jav.runtime import calls
+from jav.core import calls
 
 SAMPLE = {  # a printable synthetic value per field kind
     "name": "Minta Kereskedo Kft.", "tax_id": "12345676-2-41", "date": "2026-03-04", "money": "12700",

@@ -23,7 +23,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from jav import store
+from jav.core import store
 
 PRODUCER = "legacy:10_AIFLOW_V4"
 

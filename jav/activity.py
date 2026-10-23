@@ -6,7 +6,7 @@ task-proposal decision, mailbox pull. Modelled on the legacy V4 "Mai munkám" vi
 
 The day is the machine's local calendar day; timestamps are stored as UTC ISO strings, so the day bounds are converted
 to UTC. Names match case-insensitively (rows from before 061 may spell the author differently). 175 (plan 170 E4): the
-sources are entries of the activity registry (`jav/activity_kinds.py`), registered here in their order; a logic
+sources are entries of the activity registry (`jav/core/activity_kinds.py`), registered here in their order; a logic
 package adds its own the same way.
 """
 
@@ -16,7 +16,7 @@ import json
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
-from jav import activity_kinds, store
+from jav.core import activity_kinds, store
 
 # every query returns the columns (at, actor, workpackage_id, run_id, detail), bound by the day; a run, a correction
 # and a run's approval name the run itself, the others an item's flow id

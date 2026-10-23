@@ -23,13 +23,14 @@ from decimal import Decimal
 import pytest
 
 from jav import (
-    activity, activity_kinds, checks, corrections, datasets, native_results, parties, policy, store, work_readiness,
-    work_recipes, work_runs,
+    activity, checks, corrections, datasets, native_results, parties, policy, work_readiness, work_recipes, work_runs,
 )
+from jav.core import activity_kinds, store
 from jav.domains.finance import duplicates
 from jav.domains.email import email_tasks
 from jav.models import CheckResult, FlowState, DocumentRecord, JevVerdicts
-from jav.runtime import calls, worker
+from jav.runtime import worker
+from jav.core import calls
 
 RUN = "run-000000000171"
 WP = "wp-000000000171"

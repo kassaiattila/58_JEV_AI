@@ -25,7 +25,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from jav import cfg, typepack
+from jav import typepack
+from jav.core import cfg
 
 NONE = "none"
 _WS = re.compile(r"\s+")

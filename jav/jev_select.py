@@ -21,14 +21,14 @@ from typing import Any
 
 from typesafe_sdk import Choice, Noul
 
-from jav import cfg
+from jav.core import cfg
 from jav.adapters.jev import JevAdapter
 from jav.candidates import MAX_OPTIONS, candidate_lines, find_currencies, finder_cap, found_before_cut, payment_method_lines, trim_after_legal_form
 from jav.candidates import TOTAL_LINE_RE as _TOTAL_LINE_RE
-from jav.dates import read_date
+from jav.core.dates import read_date
 from jav.jev_budget import ask_within_budget
 from jav.models import Candidate, FieldPick, DocumentRecord, JevCall, LineLayout
-from jav.numbers import is_whole_token
+from jav.core.numbers import is_whole_token
 from jav.policy import NONE_LABEL, presence_probe_fields
 from jav.typepack import CANDIDATE_KIND_OF, TypePack
 from jav.typepack import get as get_pack

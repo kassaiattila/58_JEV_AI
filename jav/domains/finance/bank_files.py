@@ -14,7 +14,7 @@ A reader with no entry is still listed, from its configuration alone, and named 
 empty and holds each code profile's listed facts to what the reader gives on synthetic files. The same catalogue is
 served to the interface (`GET /bank-files`) and written as `docs/BANK_FILES.md` (`python -m jav.cli docs`).
 
-Layer: UI/CLI → **this** (read only: no store, no AI call) → `jav.cfg`, `jav.typepack`.
+Layer: UI/CLI → **this** (read only: no store, no AI call) → `jav.core.cfg`, `jav.typepack`.
 """
 
 from __future__ import annotations
@@ -22,8 +22,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, typepack
-from jav.config import PROJECT_ROOT
+from jav import typepack
+from jav.core import cfg
+from jav.core.config import PROJECT_ROOT
 
 CONFIG = "bank_files"
 DOC = PROJECT_ROOT / "docs" / "BANK_FILES.md"

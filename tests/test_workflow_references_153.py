@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import parties, store, work, workflows as wf
+from jav import parties, work, workflows as wf
+from jav.core import store
 from jav.domains.finance import statement_table as st
 from tests import test_statement_erste_137 as erste
 

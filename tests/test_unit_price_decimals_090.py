@@ -12,7 +12,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import numbers
+from jav.core import numbers
 from jav.models import normalize_value, record_from_llm
 
 

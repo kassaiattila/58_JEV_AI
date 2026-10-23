@@ -8,10 +8,11 @@ from decimal import Decimal
 
 import pytest
 
-from jav import flow_native, native_results, store
+from jav import flow_native, native_results
+from jav.core import store
 from jav.readers.interpretation import DiscardedFact, Interpretation, ProposedExtraction, salvage
 from jav.readers.pipeline import digest, json_bytes
-from jav.runtime import calls
+from jav.core import calls
 from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
 VALID = {"entity": "order", "property": "code", "value": "0012", "state": "stated",

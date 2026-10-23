@@ -39,9 +39,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from jav import store, work
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
+from jav import work
+from jav.core import store
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
 
 store.register_schema("decisions", """
 CREATE TABLE IF NOT EXISTS decision_journal (

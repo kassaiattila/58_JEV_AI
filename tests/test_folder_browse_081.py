@@ -11,7 +11,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, app_settings, local_picker, service_shared, store, work, work_views
+from jav import api, app_settings, local_picker, service_shared, work, work_views
+from jav.core import store
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 BASE = "http://127.0.0.1:8930"

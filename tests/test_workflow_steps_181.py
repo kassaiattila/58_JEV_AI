@@ -17,8 +17,9 @@ from dataclasses import replace
 
 import pytest
 
-from jav import cfg, registrations, workflow_steps, workflows
-from jav.config import PROJECT_ROOT
+from jav import registrations, workflow_steps, workflows
+from jav.core import cfg
+from jav.core.config import PROJECT_ROOT
 
 JAV = PROJECT_ROOT / "jav"
 
@@ -118,7 +119,7 @@ def test_a_kind_registered_twice_differently_is_refused_and_an_unknown_one_stops
 def test_a_step_of_an_unregistered_kind_fails_with_the_reason(tmp_path, monkeypatch) -> None:
     """A template naming a kind no module registered: its step fails with the reason instead of starting nothing."""
     registrations.load_all()
-    from jav import store
+    from jav.core import store
 
     monkeypatch.setattr(workflow_steps, "_KINDS", {k.kind: k for k in workflow_steps.kinds() if k.kind != "documents"})
     with store.use_store(tmp_path / "s.sqlite"):

@@ -38,8 +38,9 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Any, Iterable
 
-from jav import cfg, decisions, fact_checks, item_kinds, package_result, store, type_roles
-from jav.user_messages import explained
+from jav import fact_checks, item_kinds, package_result
+from jav.core import cfg, decisions, store, type_roles
+from jav.core.user_messages import explained
 
 REASON = "duplicate"
 PRODUCER = "duplicates"  # the producer of the to-dos opened by `scan`; the flow's own ones are the M2 step's
@@ -77,7 +78,7 @@ def config_hash() -> str:
 
 
 def family(doc_type: str | None) -> str | None:
-    """The family of an invoice-like type; None for any other type (175: the type's role, `jav/type_roles.py`)."""
+    """The family of an invoice-like type; None for any other type (175: the type's role, `jav/core/type_roles.py`)."""
     return type_roles.duplicate_family(doc_type)
 
 

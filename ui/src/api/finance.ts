@@ -64,7 +64,7 @@ export interface StatementRelation {
   rank: string; other_rank: string; lines: number; other_lines: number;
   carried: number | null; left_over: number | null; reason_id: number | null;
   kept: string | null; decided_by: string | null; decided_at: string | null;
-  /** 187: the choice's state, sent back with a change (`jav/decisions.py`). */
+  /** 187: the choice's state, sent back with a change (`jav/core/decisions.py`). */
   decision_state?: number;
 }
 export type StatementKeep = "this" | "other" | "rule";
@@ -77,7 +77,7 @@ export interface DuplicatePair {
   kind: DuplicateKind; reason_id: number | null; repeat: boolean;
   fields: { field: string; value: unknown; other_value: unknown; differs: boolean; missing: boolean }[];
   decision: DuplicateDecision | null; decided_by: string | null; decided_at: string | null;
-  /** 187: the decision's state, sent back with a change (`jav/decisions.py`). */
+  /** 187: the decision's state, sent back with a change (`jav/core/decisions.py`). */
   decision_state?: number;
 }
 /** 131: the payment method (an invoice payable by cheque, a line through a cheque payment app) and a name learnt from an
@@ -301,7 +301,7 @@ export interface ReconcileUnfit {
 }
 export interface ReconcileWorkspace {
   workpackage_id: string; scope: ReconcileScope; lines: ReconcileLine[]; invoices: ReconcileInvoice[];
-  /** 187: the state of the package's decisions in the decision journal (`jav/decisions.py`), sent back with a change. */
+  /** 187: the state of the package's decisions in the decision journal (`jav/core/decisions.py`), sent back with a change. */
   journal_state?: number;
   left_over?: ReconcileLeftOver[];
   unfit?: ReconcileUnfit[];
@@ -410,7 +410,7 @@ const identityBody = (i: PartyIdentity) => ({ kind: i.kind, key: i.key, label: i
 
 /** 187: each reconciliation package's journal state (`journal_state`) as this page last read it. Every decision of the
  *  package sends it back, so the service refuses a decision made on a page that is stale by now (409; the shared
- *  decision handler, `jav/decisions.py`). Another browser tab keeps its own. */
+ *  decision handler, `jav/core/decisions.py`). Another browser tab keeps its own. */
 const reconcileSeen = new Map<string, number>();
 
 function seen<T>(wpId: string, answer: Promise<T>): Promise<T> {

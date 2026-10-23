@@ -7,7 +7,7 @@ The survey (the extracted results in the local store, forms only): Hungarian tax
 
 import pytest
 
-from jav import taxid
+from jav.core import taxid
 from jav.models import DocumentRecord, normalize_tax_id
 from jav.typepack import get as get_pack
 from jav.validators import run_all, tax_id

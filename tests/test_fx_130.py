@@ -14,7 +14,7 @@ from xml.sax.saxutils import escape
 
 import pytest
 
-from jav import cfg, store
+from jav.core import cfg, store
 from jav.domains.finance import fx
 
 NOW = datetime(2026, 10, 9, 10, 0, tzinfo=timezone.utc)

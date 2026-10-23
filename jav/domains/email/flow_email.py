@@ -34,7 +34,8 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav import policy, store, text_document, typepack
+from jav import policy, text_document, typepack
+from jav.core import store
 from jav.domains.email.emails import DOC_EXTS, EmailMessage, body_coverage, document_text, load_message_dir
 from jav.engine import with_engine
 from jav.domains.email.intent import IntentResult
@@ -220,7 +221,7 @@ def tasks(state: EmailState) -> EmailState:
     if not state.propose_tasks:
         return state
     from jav.domains.email import email_tasks
-    from jav.runtime.queue import JobCancelled
+    from jav.core.queue import JobCancelled
 
     msg = state.message
     assert msg is not None

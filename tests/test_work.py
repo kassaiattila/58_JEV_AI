@@ -5,8 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from jav import store, work, work_readiness, work_recipes, work_runs
-from jav.runtime import calls, queue
+from jav import work, work_readiness, work_recipes, work_runs
+from jav.core import store
+from jav.core import calls, queue
 
 
 @pytest.fixture()

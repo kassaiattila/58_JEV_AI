@@ -14,7 +14,8 @@ from datetime import date
 
 import pytest
 
-from jav import parties, store
+from jav import parties
+from jav.core import store
 from jav.domains.finance import party_views, reconcile, reconcile_package as rp
 from tests import test_api
 from tests import test_reconcile_k2_129 as k2

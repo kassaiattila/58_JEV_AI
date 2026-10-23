@@ -23,7 +23,8 @@ from dataclasses import dataclass, field
 from functools import cache
 from typing import Any
 
-from jav import cfg, typepack
+from jav import typepack
+from jav.core import cfg
 
 KEY = re.compile(r"^[a-z][a-z0-9_]*$")
 MONTH = re.compile(r"^month_\d{4}_\d{2}$")

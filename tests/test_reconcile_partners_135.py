@@ -28,7 +28,7 @@ LINES = (SHOP_1, SHOP_2, CAFE, CHEQUE_1, CHEQUE_2, SHOP_MAY)
 
 @pytest.fixture
 def db(tmp_path):
-    from jav import store
+    from jav.core import store
 
     with store.use_store(tmp_path / "r.sqlite"):
         yield

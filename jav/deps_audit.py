@@ -27,8 +27,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from jav.config import PROJECT_ROOT
-from jav.clock import utc_now as _now
+from jav.core.config import PROJECT_ROOT
+from jav.core.clock import utc_now as _now
 
 STATUS_PATH = PROJECT_ROOT / "runs" / "deps-audit.json"
 MAX_AGE_DAYS = 7

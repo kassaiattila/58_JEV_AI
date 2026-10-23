@@ -16,9 +16,11 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, SystemOneResponse
 
-from jav import before_after, before_after_replay, store, work, work_readiness, work_recipes, work_runs
+from jav import before_after, before_after_replay, work, work_readiness, work_recipes, work_runs
+from jav.core import store
 from jav.adapters import jev as jev_mod
-from jav.runtime import queue, worker
+from jav.runtime import worker
+from jav.core import queue
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 
@@ -129,7 +131,7 @@ def test_a_missing_earlier_answer_becomes_a_to_do_not_a_call(processed) -> None:
 def test_the_gate_names_every_call_that_was_not_an_earlier_answer(tmp_path) -> None:
     rid = "run-aaaaaaaaaaaa"
     with store.use_store(tmp_path / "s.sqlite"):
-        from jav.runtime import calls  # noqa: F401 - registers the call log's tables
+        from jav.core import calls  # noqa: F401 - registers the call log's tables
 
         with store.connect() as c:
             insert = ("INSERT INTO invocations(run_id, step_id, attempt, provider, request_hash, budget_scope, status,"
@@ -212,7 +214,7 @@ def test_the_sample_takes_every_stratum_once_then_shares_the_rest_by_size(tmp_pa
 
 def test_inside_offline_no_request_leaves_and_everything_is_put_back(tmp_path) -> None:
     from jav import ocr
-    from jav.config import API_KEY_ENV_VARS, OPENAI_KEY_ENV_VAR
+    from jav.core.config import API_KEY_ENV_VARS, OPENAI_KEY_ENV_VAR
 
     environment, cache = dict(os.environ), ocr.CACHE_DIR
     with before_after_replay.offline(tmp_path):  # the real check: a request to a provider fails at the closed port

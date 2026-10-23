@@ -56,15 +56,15 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from jav import (
-    activity_kinds, cfg, corrections, decisions, grounding, logic_packs, package_release, package_scope, parties,
-    store, typepack, values, work, workflow_steps,
+    corrections, grounding, logic_packs, package_release, package_scope, parties, typepack, work, workflow_steps,
 )
+from jav.core import activity_kinds, cfg, decisions, store, values
 from jav.domains.finance import reconcile, reconcile_overview
 from jav.domains.finance.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
 
-# 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
+# 175 (plan 170 E4): the actions this module records in the package log (`jav/core/activity_kinds.py`)
 activity_kinds.register_events("package", ("reconcile_scope", "reconcile_allocate", "reconcile_reject", "reconcile_mark",
                                            "reconcile_revoke", "reconcile_leave_out", "reconcile_restore"), __name__)
 

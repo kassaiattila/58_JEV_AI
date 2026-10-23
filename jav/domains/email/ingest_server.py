@@ -43,8 +43,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from jav import path_text
-from jav.config import BRIDGE_DATA_ROOT, OLD_DATA_ROOT, PROJECT_ROOT
+from jav.core import path_text
+from jav.core.config import BRIDGE_DATA_ROOT, OLD_DATA_ROOT, PROJECT_ROOT
 
 INBOX_ROOT = PROJECT_ROOT / "inbox"
 WORKFLOW_HASH = "jav-m3-email-intent"

@@ -9,9 +9,10 @@ from decimal import Decimal
 
 import pytest
 
-from jav import fact_checks, flow_native, native_results, policy, store, typepack, validators
+from jav import fact_checks, flow_native, native_results, policy, typepack, validators
+from jav.core import store
 from jav.models import FlowState, DocumentRecord
-from jav.runtime import calls
+from jav.core import calls
 from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
 BIRTH_NAME = "[Sz\u00fclet\u00e9si n\u00e9v]"

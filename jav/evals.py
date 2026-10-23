@@ -24,8 +24,8 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
-from jav.config import GOLDEN_EXPECTED_DIR, GOLDEN_MANIFEST, OLD_PROJECT_ROOT, RUNS_DIR
-from jav.dates import read_date
+from jav.core.config import GOLDEN_EXPECTED_DIR, GOLDEN_MANIFEST, OLD_PROJECT_ROOT, RUNS_DIR
+from jav.core.dates import read_date
 from jav.models import Candidate, FlowState, money_label, normalize_tax_id
 from jav.typepack import CANDIDATE_KIND_OF, LEGACY_DOC_TYPE, TypePack
 from jav.typepack import get as get_pack
@@ -102,7 +102,7 @@ def load_synthetic_cases(type_key: str, out_dir: Path = SYNTHETIC_DIR) -> list[G
     """127: the synthetic golden cases of one type (`configs/golden_synthetic.json`): each case's single-page PDF is
     written from its rows into `out_dir` (outside git); it is scored only on the fields its `expected` names. Kept apart
     from the legacy golden sets, so their results stay comparable."""
-    from jav import cfg
+    from jav.core import cfg
     from jav.synthetic_pdf import write_unicode_pdf
 
     cases: list[GoldenCase] = []
@@ -343,7 +343,7 @@ def golden(
     for the whole measurement (the owner's sub-budget); `jev_budget_usd` (127): a hard JEV budget. With either one the
     measurement runs under a budget, and a provider without its own budget (Azure always) cannot be called. `label`
     (127): the run file's name part (`synthetic` for the synthetic cases, so they never pass for a legacy golden run)."""
-    from jav.runtime import calls
+    from jav.core import calls
 
     pack = get_pack(type_key)
     cases = cases or load_cases(type_key)
@@ -565,7 +565,7 @@ def verifier_probe(cases: list[GoldenCase] | None = None, use_cache: bool = True
     (variant, expected flag, P, band, all flags); the summary also shows the two-sided bands. `jev_budget_usd` (127):
     a hard JEV budget for the whole probe; the other providers cannot be called then.
     """
-    from jav.runtime import calls
+    from jav.core import calls
 
     limits = {"jev": jev_budget_usd} if jev_budget_usd is not None else {}
     if not limits:  # 160 (review AI-8): without a budget only earlier answers count

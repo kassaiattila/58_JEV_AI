@@ -24,10 +24,11 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from typesafe_sdk import Noul
 
-from jav import extract_llm, store
+from jav import extract_llm
+from jav.core import store
 from jav.adapters.jev import JevAdapter, JevUnavailableError
-from jav.config import OPENAI_MODEL, OPENAI_USD_PER_MTOK
-from jav.runtime import calls
+from jav.core.config import OPENAI_MODEL, OPENAI_USD_PER_MTOK
+from jav.core import calls
 from jav.typepack import get as get_pack
 from tests.test_no_jev_085 import GOOD
 from tests.test_oversize_memory_200 import SizeLimitedClient

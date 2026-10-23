@@ -23,7 +23,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from jav.config import ENV_FILE, PROJECT_ROOT
+from jav.core.config import ENV_FILE, PROJECT_ROOT
 
 LOG_DIR = PROJECT_ROOT / "runs" / "logs"
 MAX_BYTES = 5_000_000

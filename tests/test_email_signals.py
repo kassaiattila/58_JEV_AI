@@ -13,7 +13,8 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, Noul, Score, SystemOneResponse
 
-from jav import cfg, policy, store
+from jav import policy
+from jav.core import cfg, store
 from jav.adapters.jev import JevAdapter
 from jav.domains.email.emails import Attachment, EmailMessage
 from jav.domains.email.intent import NOUL_KEYS, SCORE_KEYS, build_questions, classify

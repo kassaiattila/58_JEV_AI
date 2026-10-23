@@ -11,7 +11,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, corrections, datasets, store, work, work_readiness, work_recipes, work_runs, work_views
+from jav import api, corrections, datasets, work, work_readiness, work_recipes, work_runs, work_views
+from jav.core import store
 from jav.domains.email import emails, intent, mailbox
 from jav.domains.email.emails import EmailMessage
 from jav.runtime import worker

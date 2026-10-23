@@ -3,7 +3,7 @@
 Schema v2 (2026-09-20): every type has `what` (what the category covers, in English), `not_for` (what it does NOT cover,
 pointing to the sibling types), `examples` (short examples consistent with the golden set), `parent` (family:
 invoice_like / contract_like / bank_like / official_like / other) + anchor patterns (ported from the legacy
-10_AIFLOW_V4 `detect.json` files). The Choice criterion is the `{what, not_for, examples}` object (`jav/registry.py`).
+10_AIFLOW_V4 `detect.json` files). The Choice criterion is the `{what, not_for, examples}` object (`jav/core/registry.py`).
 The anchors are NOT gates here: they go into the JEV state as hit counts (`anchor_hits`), and JEV makes the decision
 with a calibrated confidence.
 
@@ -18,8 +18,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from jav import cfg
-from jav.registry import criterion
+from jav.core import cfg
+from jav.core.registry import criterion
 
 _CFG = cfg.load("doc_types")
 UNKNOWN: str = _CFG["unknown_key"]

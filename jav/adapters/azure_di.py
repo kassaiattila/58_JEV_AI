@@ -25,7 +25,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from jav.config import AZURE_DI_ENV_VARS
+from jav.core.config import AZURE_DI_ENV_VARS
 
 ENDPOINT_ENV, KEY_ENV = AZURE_DI_ENV_VARS
 _KEY_HEADER = "Ocp-Apim-Subscription-Key"

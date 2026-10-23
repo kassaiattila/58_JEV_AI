@@ -42,9 +42,9 @@ from difflib import SequenceMatcher
 from functools import lru_cache
 from typing import Any, Iterable
 
-from jav import cfg, decisions, store, type_roles, values
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
+from jav.core import cfg, decisions, store, type_roles, values
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
 
 REASON = "statement"
 OVERLAP = "overlap"

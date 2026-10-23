@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, store
+from jav import app_settings
+from jav.core import store
 from tests import test_api
 from tests.test_api import HUMAN, INVOICE_LINES, write_text_pdf
 

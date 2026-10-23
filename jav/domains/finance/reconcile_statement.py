@@ -40,13 +40,14 @@ from collections import Counter
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import activity_kinds, cfg, decisions, naming, package_release, store, values, work
+from jav import naming, package_release, work
+from jav.core import activity_kinds, cfg, decisions, store, values
 from jav.domains.finance import reconcile_package as rp
 from jav.outputs import builtin, contract, templates
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
 
-# 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
+# 175 (plan 170 E4): the actions this module records in the package log (`jav/core/activity_kinds.py`)
 activity_kinds.register_events("package", ("reconcile_approve", "reconcile_reopen", "reconcile_accept_sources"), __name__)
 
 FORMAT = 1  # the statement's content layout; a new layout bumps it (a stored version keeps its own)

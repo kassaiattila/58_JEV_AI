@@ -15,7 +15,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, corrections, item_kinds, work_runs
+from jav import corrections, item_kinds, work_runs
+from jav.core import cfg
 from jav.outputs import contract
 
 

@@ -14,7 +14,7 @@ longer where it was is `MISSING`. Nothing is written but the fingerprint memo (`
 the word layer are kept in memory.
 
 Layer: `jav.domains.finance.reconcile_package` (application operation) → **this** (business module) → `jav.work` (items, verified
-reads, fingerprints), `jav.page_image`, `jav.pdf` (the isolated PDF reader), `jav.source_layer`, `jav.store`.
+reads, fingerprints), `jav.page_image`, `jav.pdf` (the isolated PDF reader), `jav.source_layer`, `jav.core.store`.
 """
 
 from __future__ import annotations
@@ -30,7 +30,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from jav import page_image, source_layer, store, work
+from jav import page_image, source_layer, work
+from jav.core import store
 
 DOC_TYPE = "statement_table"  # the statements read by code (jav/domains/finance/flow_statement_table.py)
 FORMAT = "jav.domains.finance.statement_table"  # the statement file's `format`

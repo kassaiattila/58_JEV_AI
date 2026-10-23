@@ -11,7 +11,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import store
+from jav.core import store
 from jav.domains.finance import reconcile_ai
 from tests.test_reconcile_ai_134 import FakeJev, _line
 from tests.test_reconcile_ai_partner_136 import MARKET, _ids, _market, _package

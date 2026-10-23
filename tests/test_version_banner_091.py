@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from jav import api, version
+from jav import api
+from jav.core import version
 
 
 def test_ui_build_is_a_short_fingerprint_of_the_entry_page(tmp_path):

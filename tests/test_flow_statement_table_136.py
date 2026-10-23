@@ -11,9 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from jav import store, work, work_readiness, work_runs
+from jav import work, work_readiness, work_runs
+from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package, statement_package, statement_table as st
-from jav.runtime import queue, worker
+from jav.runtime import worker
+from jav.core import queue
 from tests.test_statement_table_136 import IBAN_EUR, IBAN_HUF, _records, _workbook
 
 HUF = IBAN_HUF.replace(" ", "") + ":HUF"

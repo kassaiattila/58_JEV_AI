@@ -78,7 +78,7 @@ def test_probe_summary_counts_bands_per_variant():
 
 def test_verify_config_is_structured():
     """v1.1.0: every Noul gives a `question` text (without template placeholders); the code builds the object."""
-    from jav import cfg
+    from jav.core import cfg
 
     data = cfg.load("callsite:verify")
     assert tuple(int(x) for x in data["meta"]["version"].split(".")) >= (1, 1, 0)

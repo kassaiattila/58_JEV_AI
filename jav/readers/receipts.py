@@ -11,8 +11,8 @@ from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.messages import ModelMessagesTypeAdapter, ModelResponse
 from pydantic_ai.usage import UsageLimits
 
-from jav.config import openai_cost
-from jav.runtime import calls
+from jav.core.config import openai_cost
+from jav.core import calls
 
 
 class InterpretationRejected(ValueError):

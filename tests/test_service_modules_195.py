@@ -13,7 +13,7 @@ from collections import Counter
 from fastapi.routing import APIRoute
 
 from jav import api
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 
 def test_every_service_module_is_added_exactly_once():

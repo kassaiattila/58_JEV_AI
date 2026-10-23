@@ -14,7 +14,8 @@ business module imports it.
 
 from __future__ import annotations
 
-from jav import cfg, goldens
+from jav import goldens
+from jav.core import cfg
 from jav.domains.finance import reconcile
 from jav.domains.finance.reconcile_package import KIND
 

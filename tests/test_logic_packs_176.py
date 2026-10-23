@@ -14,8 +14,9 @@ from __future__ import annotations
 import re
 import pytest
 
-from jav import logic_packs as lp, store, work, work_views
-from jav.config import PROJECT_ROOT
+from jav import logic_packs as lp, work, work_views
+from jav.core import store
+from jav.core.config import PROJECT_ROOT
 
 
 @pytest.fixture

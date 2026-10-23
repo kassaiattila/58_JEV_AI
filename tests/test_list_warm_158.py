@@ -15,7 +15,8 @@ import threading
 
 import pytest
 
-from jav import api, datasets, store
+from jav import api, datasets
+from jav.core import store
 from jav.tablequery import Column, Query
 
 

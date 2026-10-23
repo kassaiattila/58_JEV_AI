@@ -14,7 +14,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any, Literal
 
-from jav import cfg, checks, type_roles
+from jav import checks
+from jav.core import cfg, type_roles
 from jav.domains.email.emails import Attachment
 from jav.domains.email.intents import DOCUMENT_BEARING
 from jav.models import CheckResult, FlowState

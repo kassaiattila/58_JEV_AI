@@ -12,9 +12,10 @@ from decimal import Decimal
 
 import pytest
 
-from jav import package_result, party_history, store, work, work_runs
+from jav import package_result, party_history, work, work_runs
+from jav.core import store
 from jav.domains.finance import duplicates, reconcile
-from jav.runtime import calls
+from jav.core import calls
 
 WP, OTHER = "wp-000000000174", "wp-000000000175"
 NOW = "2026-10-18T08:00:00+00:00"

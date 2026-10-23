@@ -12,7 +12,8 @@ from datetime import date
 
 import pytest
 
-from jav import cfg, cli, detect_detail, goldens, type_teaching, typepack
+from jav import cli, detect_detail, goldens, type_teaching, typepack
+from jav.core import cfg
 
 KEY, OLD = "belepo_jegy_taught", "belepo_jegy"
 MEASURED = {f"taught:{KEY}:evaluation": {

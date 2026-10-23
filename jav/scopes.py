@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from jav.user_messages import explained
+from jav.core.user_messages import explained
 
 PARTY = "party"
 PERIOD = "period"
@@ -37,7 +37,7 @@ class Part:
     """One part of a scope: its `name`, the registering `module`, `check(value, error)` (the given value in its stored
     form; raises `error`, the caller's own error class), `label(value)` (the stored value in words) and
     `missing(error)`: the error when a workflow needs it and it was not given (each message an interface label,
-    `jav/user_messages.py`)."""
+    `jav/core/user_messages.py`)."""
 
     name: str
     module: str

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jav import version
+from jav.core import version
 
 ROOT = Path(__file__).resolve().parents[1]
 

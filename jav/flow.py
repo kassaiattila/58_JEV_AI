@@ -41,13 +41,14 @@ from burr.core import ApplicationBuilder, action, default, expr, when
 from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 
-from jav import card_numbers, cfg, checks, policy, store
-from jav.config import TRACKER_PROJECTS
+from jav import checks, policy
+from jav.core import card_numbers, cfg, store
+from jav.core.config import TRACKER_PROJECTS
 from jav.engine import with_engine
 from jav.models import FlowState
 from jav.runtime import persistence
 from jav.typepack import get as get_pack
-from jav.digest import file_sha256 as _sha256
+from jav.core.digest import file_sha256 as _sha256
 
 TERMINALS = ["done", "needs_review", "needs_ocr"]
 PARTITION = "invoice"  # partition of the durable state store (066 Á08: the worker finds the saved state by it)
@@ -232,8 +233,8 @@ def _word_layer(state: FlowState):
 
 @action.pydantic(reads=["layout", "llm_output", "doc_type", "needs_review", "review_reasons"], writes=["record", "needs_review", "review_reasons"])
 def normalize_llm(state: FlowState) -> FlowState:
-    from jav.dates import document_date_order
-    from jav.numbers import document_convention
+    from jav.core.dates import document_date_order
+    from jav.core.numbers import document_convention
 
     # 081: a value GPT copied in the document's own notation ("28.000") is read with that notation, never as 28; 084: a
     # date GPT copied as printed ("04/12/2022") follows the document's own day/month order, or gets a to-do

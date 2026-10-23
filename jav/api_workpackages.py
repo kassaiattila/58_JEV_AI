@@ -22,7 +22,7 @@ from pydantic import Field
 
 from jav import app_settings, local_picker, package_scope, work, work_recipes, work_views
 from jav.service_shared import Empty, In, IsoDay, ItemId, PartyId, Revision, WpId, checked_path, human_actor
-from jav.user_messages import explained
+from jav.core.user_messages import explained
 
 
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]

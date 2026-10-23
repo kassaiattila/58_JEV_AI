@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import checks, corrections, store, work, work_runs
+from jav import checks, corrections, work, work_runs
+from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package as rp, statement_months as sm
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_package_131 import OWN_KEY, _ids, _line, _line_row, _package, _stmt

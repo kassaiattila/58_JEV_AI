@@ -50,7 +50,7 @@ def _fake_state(doc_type, detail):
 @pytest.mark.parametrize("jev, provider", [(True, "jev"), (False, "openai")])
 def test_the_budget_goes_to_the_engine_that_answers(tmp_path, monkeypatch, jev, provider):
     from jav import flow_detect
-    from jav.runtime import calls
+    from jav.core import calls
 
     spy = _Spy()
     monkeypatch.setattr(calls, "measurement", spy.measurement)
@@ -76,7 +76,7 @@ def test_the_probe_can_run_detection_only_and_without_jev():
 
 def test_extraction_on_a_case_list_uses_the_expected_pack_and_a_budget(tmp_path, monkeypatch):
     from jav import flow
-    from jav.runtime import calls
+    from jav.core import calls
 
     pdf = tmp_path / "a.pdf"
     pdf.write_bytes(b"%PDF-1.4")

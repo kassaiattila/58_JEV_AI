@@ -48,8 +48,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
-from jav import values
-from jav.config import RUNS_DIR
+from jav.core import values
+from jav.core.config import RUNS_DIR
 
 LAYERS = ("datapoints", "type", "intent", "logic_pack")
 ENGINES = ("jev", "gpt")
@@ -183,7 +183,8 @@ def _datapoint_outcome(rows: list[dict[str, Any]], type_key: str) -> Outcome:
 def _datapoint_golden(type_key: str, arm: str, *, synthetic: bool) -> Golden:
     """A type pack's data points on one path, on the legacy golden set or on its synthetic cases, measured as
     `golden --arm <arm> --type <type> [--synthetic]` measures them."""
-    from jav import cfg, evals
+    from jav import evals
+    from jav.core import cfg
 
     def count() -> int:
         if synthetic:
@@ -515,7 +516,7 @@ def _exit_code(results: list[Result]) -> int:
 
 
 def _head(selected: list[Golden], options: Options, started: datetime, store_path: Path | None) -> dict[str, Any]:
-    from jav import devstate
+    from jav.core import devstate
 
     git = devstate.git_state()
     return {"receipt": RECEIPT, "started": started.isoformat(timespec="seconds"),
@@ -531,7 +532,7 @@ def measure_round(selected: list[Golden], options: Options, *, runs_dir: Path | 
     """Measures the golden sets one after the other: their own reports into the round's log, one line each on the
     screen, one receipt. `store_path` (122): a separate measurement store, so the results, to-dos and call log of the
     measurement stay out of the work store (without it they go into the work store, as with the sets' own commands)."""
-    from jav import store
+    from jav.core import store
 
     _check(selected, options)
     runs_dir = runs_dir or RUNS_DIR

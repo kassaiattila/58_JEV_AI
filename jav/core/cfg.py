@@ -19,7 +19,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 CONFIG_DIR = PROJECT_ROOT / "configs"
 CALLSITE_DIR = CONFIG_DIR / "callsites"

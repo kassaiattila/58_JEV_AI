@@ -12,10 +12,12 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, store, work, work_readiness, work_recipes, work_runs
+from jav import app_settings, work, work_readiness, work_recipes, work_runs
+from jav.core import store
 from jav.domains.email import emails, ingest_server, mailbox
 from jav.adapters import jev as jev_mod
-from jav.runtime import queue, worker
+from jav.runtime import worker
+from jav.core import queue
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_mailbox import MAILS, REQ, FakeBridge
 from tests.test_runtime_worker import FakeClient
@@ -242,7 +244,7 @@ def test_folder_scan_that_fails_to_add_keeps_files_for_the_next_scan(db, monkeyp
 def test_worker_log_is_a_persistent_rotating_file(tmp_path, monkeypatch):
     import logging
 
-    from jav.runtime import applog
+    from jav.core import applog
 
     monkeypatch.setattr(applog, "LOG_DIR", tmp_path / "logs")
     root = logging.getLogger()

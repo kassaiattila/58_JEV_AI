@@ -9,9 +9,10 @@
 from __future__ import annotations
 
 
-from jav import cfg, doc_types, policy
+from jav import doc_types, policy
+from jav.core import cfg
 from jav.domains.email import intents
-from jav.registry import parent_summary
+from jav.core.registry import parent_summary
 
 
 def test_doc_types_json_v2_shape():

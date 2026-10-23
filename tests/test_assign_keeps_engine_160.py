@@ -8,7 +8,8 @@ from the current assignment of the same recipe and changes only what it is told;
 import json
 from pathlib import Path
 
-from jav import cli, store
+from jav import cli
+from jav.core import store
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 

@@ -17,7 +17,7 @@ line of the quote (B5). The raw answer is kept with the mark, so a later band ca
 - `golden(engine, limits, ...)`: the invented golden set's 37 requested items, each judged against its expected match.
 
 Layer: business module of the quotes domain; its JEV questions go through the adapter (`ask`), its GPT ones through
-`jav/gpt_choice.py`, both under the caller's budget scope (`jav/runtime/calls.py`).
+`jav/gpt_choice.py`, both under the caller's budget scope (`jav/core/calls.py`).
 """
 
 from __future__ import annotations
@@ -32,12 +32,13 @@ from typing import Any
 
 from typesafe_sdk import Choice, Noul
 
-from jav import cfg, policy
+from jav import policy
+from jav.core import cfg
 from jav.domains.quotes import price_lists
 from jav.adapters.jev import get_adapter
 from jav.adapters.jev import disabled as jev_disabled
-from jav.config import RUNS_DIR
-from jav.runtime import calls
+from jav.core.config import RUNS_DIR
+from jav.core import calls
 from jav.tablequery import fold
 
 REQUEST_ID = "quote_match"

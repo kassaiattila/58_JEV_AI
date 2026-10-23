@@ -46,7 +46,7 @@ from typing import Any
 
 from jav.outputs import contract, markers
 from jav.outputs.fill import ISO_DATE, Lookup, TemplateCheck, TemplateError
-from jav.values import stored_decimal
+from jav.core.values import stored_decimal
 
 MEDIA = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"

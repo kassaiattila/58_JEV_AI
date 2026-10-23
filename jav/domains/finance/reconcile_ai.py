@@ -46,13 +46,13 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator
 
 from typesafe_sdk import Choice
 
-from jav import cfg, store, values
+from jav.core import cfg, store, values
 from jav.domains.finance import reconcile, reconcile_package
 from jav.adapters.jev import JevUnavailableError, get_adapter
 from jav.adapters.jev import disabled as jev_disabled
 from jav.candidates import trim_after_legal_form
-from jav.config import JEV_USD_PER_MTOK, RUNS_DIR
-from jav.runtime import calls
+from jav.core.config import JEV_USD_PER_MTOK, RUNS_DIR
+from jav.core import calls
 
 if TYPE_CHECKING:
     from jav import gpt_choice

@@ -17,7 +17,8 @@ import json
 import pytest
 
 from jav.domains.email import email_tasks, flow_email, intent_gpt, mailbox
-from jav import policy, store
+from jav import policy
+from jav.core import store
 from jav.adapters import jev as jev_mod
 from jav.domains.email.emails import Attachment, load_message_dir
 from tests.pdfgen import INVOICE_LINES, write_text_pdf

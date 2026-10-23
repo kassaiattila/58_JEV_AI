@@ -167,7 +167,8 @@ def test_m12_balances_taken_from_the_lines_without_a_total_cannot_vouch_for_the_
 def test_m12_such_a_statement_is_a_to_do_and_not_checked_coverage(tmp_path) -> None:
     import json
 
-    from jav import store, work, work_runs
+    from jav import work, work_runs
+    from jav.core import store
     from jav.domains.finance import reconcile, statement_package
     from tests.test_flow_statement_table_136 import _run_all
 
@@ -190,7 +191,8 @@ def test_m13_an_approval_that_lands_just_before_a_scope_change_stops_it(tmp_path
     between was overwritten by the new scope. The check now runs inside the transaction."""
     import pytest
 
-    from jav import package_release, store
+    from jav import package_release
+    from jav.core import store
     from jav.domains.finance import reconcile_package as rp
     from tests.test_reconcile_package_131 import OWN_KEY, _line, _package, _stmt
 
@@ -231,7 +233,7 @@ def test_m15_the_finder_reads_the_kept_workspace_without_copying_it(tmp_path, mo
     reads it, so it reads the kept one. The kept workspace stays as it was."""
     import copy
 
-    from jav import store
+    from jav.core import store
     from jav.domains.finance import reconcile_package as rp
     from tests.test_reconcile_finder_143 import _page
 

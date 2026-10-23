@@ -13,7 +13,7 @@ from __future__ import annotations
 
 
 def test_the_suspicious_attachment_code_is_a_shared_to_do_kind():
-    from jav import todo_kinds
+    from jav.core import todo_kinds
 
     assert todo_kinds.SUSPICIOUS_ATTACHMENT == "attachment:suspicious_email"
     assert any(k.code == todo_kinds.SUSPICIOUS_ATTACHMENT for k in todo_kinds.kinds())

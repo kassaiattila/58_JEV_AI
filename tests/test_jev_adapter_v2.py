@@ -17,7 +17,7 @@ import httpx2
 import pytest
 from typesafe_sdk import Choice, RetryPolicy, SystemOneResponse, TypeSafeAPIConnectionError, TypeSafeRateLimitError
 
-from jav import config, store
+from jav.core import config, store
 from jav.adapters.jev import MODEL_VERSIONS_FILE, JevAdapter, JevUnavailableError, request_hash
 
 

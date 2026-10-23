@@ -22,10 +22,11 @@ from fastapi import Path as PathParam
 from fastapi.responses import Response, StreamingResponse
 from pydantic import Field
 
-from jav import app_settings, corrections, package_release, store, work_runs, work_views
+from jav import app_settings, corrections, package_release, work_runs, work_views
+from jav.core import store
 from jav.service_shared import Empty, In, RunId, WpId, attachment_header, human_actor
 from jav.tablequery import Query as TableQuery
-from jav.user_messages import explained
+from jav.core.user_messages import explained
 
 log = logging.getLogger("jav.api")
 

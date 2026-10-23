@@ -20,8 +20,8 @@ import sys
 import threading
 from pathlib import Path
 
-from jav import cfg
-from jav.config import PROJECT_ROOT
+from jav.core import cfg
+from jav.core.config import PROJECT_ROOT
 
 log = logging.getLogger("jav.local_picker")
 

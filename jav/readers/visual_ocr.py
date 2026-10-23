@@ -12,7 +12,8 @@ from pathlib import Path
 import re
 import time
 
-from jav import cfg, pdf as pdfmod
+from jav import pdf as pdfmod
+from jav.core import cfg
 from .contracts import ImageLocator, Issue, ReadLimits, SourceElement
 from .isolation import exchange
 from .limits import ReadFailure, limited

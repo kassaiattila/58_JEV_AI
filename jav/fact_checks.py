@@ -23,7 +23,7 @@ import re
 import unicodedata
 from typing import Any
 
-from jav import cfg
+from jav.core import cfg
 
 CONFIG = "fact_checks"
 

@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import data_guard, taxid
+from jav import data_guard
+from jav.core import taxid
 
 ROOT = Path(__file__).resolve().parents[1]
 AT = "@"

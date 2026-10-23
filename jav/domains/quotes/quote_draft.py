@@ -7,7 +7,7 @@ customer, contact, deadline and reference, and a note) and its lines: a price li
 with its description, unit and price; each with a quantity, and optionally a price or a discount of a person's own.
 
 Every change is saved at once: the page sends the whole draft with the state it read, the service reads the numbers
-the Hungarian way (`jav/numbers.py`), prices every line by code (`jav/domains/quotes/quote_pricing.py`) and records the change in the
+the Hungarian way (`jav/core/numbers.py`), prices every line by code (`jav/domains/quotes/quote_pricing.py`) and records the change in the
 decision journal; a change from a stale page is a version conflict. What holds the approval is said line by line: a
 line without an item or a price, without a quantity, a line outside the list or with a price or discount of a person's
 own without a note, and (the owner's choice, DECISIONS 192) a line the proposal marked "to check" with an item no
@@ -38,11 +38,12 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from jav import activity_kinds, cfg, decisions, numbers, package_release, store, work
+from jav import package_release, work
+from jav.core import activity_kinds, cfg, decisions, numbers, store
 from jav.domains.quotes import price_lists, quote_document, quote_pricing, quote_proposal, quote_request
 from jav.typepack import get as get_pack
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
 
 KIND = "quote_draft"  # the decision kind: one draft per quote package, keyed by the package
 CHECK_MARKS = ("check", "failed")  # the proposal's marks a person confirms before the approval (DECISIONS 192)

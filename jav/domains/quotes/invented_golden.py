@@ -22,7 +22,7 @@ from typing import Literal
 from openpyxl import Workbook
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from jav import cfg
+from jav.core import cfg
 from jav.synthetic_pdf import write_unicode_pdf
 
 CONFIG = "golden_quotes"

@@ -24,7 +24,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from jav import store
+from jav.core import store
 
 TIERS = ("measurement", "trial", "live", "approved")  # in rising order; a measurement: a command-line result (174)
 

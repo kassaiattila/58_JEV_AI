@@ -21,8 +21,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from jav import numbers
-from jav.user_messages import explained
+from jav.core import numbers
+from jav.core.user_messages import explained
 
 Kind = Literal["text", "number", "money", "date", "datetime", "enum", "bool", "id"]
 NUMERIC = ("number", "money")

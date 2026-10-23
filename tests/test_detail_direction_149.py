@@ -15,7 +15,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import parties, policy, store  # 185: the direction rule is `parties.confirm_detail_by_direction`
+from jav import parties, policy
+from jav.core import store  # 185: the direction rule is `parties.confirm_detail_by_direction`
 from jav.models import FlowState, DocumentRecord
 
 OWN_TAX = "28642099-2-42"

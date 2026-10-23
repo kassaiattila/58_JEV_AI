@@ -10,9 +10,10 @@ import json
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from jav import costs, ocr, store, work, work_runs
-from jav.config import AZURE_DI_MODEL
-from jav.runtime import calls
+from jav import costs, ocr, work, work_runs
+from jav.core import store
+from jav.core.config import AZURE_DI_MODEL
+from jav.core import calls
 from tests import test_api
 from tests.test_api import _ready_wp, _start
 

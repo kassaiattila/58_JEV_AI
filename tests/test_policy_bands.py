@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import cfg, policy
+from jav import policy
+from jav.core import cfg
 from jav.models import FieldPick, FlowState, JevVerdicts
 
 

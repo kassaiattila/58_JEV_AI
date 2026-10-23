@@ -16,7 +16,8 @@ import json
 
 import pytest
 
-from jav import source_layer, store, work
+from jav import source_layer, work
+from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package as rp
 from tests import test_api
 from tests import test_reconcile_k2_129 as k2

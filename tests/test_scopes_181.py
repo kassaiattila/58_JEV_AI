@@ -18,7 +18,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import package_scope, parties, registrations, scopes, store, work, workflow_steps
+from jav import package_scope, parties, registrations, scopes, work, workflow_steps
+from jav.core import store
 from jav.domains.finance import statement_table as st
 from jav import workflows as wf
 from tests import test_workflows_146 as base

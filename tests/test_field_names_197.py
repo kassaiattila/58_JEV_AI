@@ -7,7 +7,8 @@ page (the interface's test). Synthetic records only."""
 
 import pytest
 
-from jav import cfg, datasets, field_names, typepack
+from jav import datasets, typepack
+from jav.core import cfg, field_names
 from jav.outputs import parts, samples
 
 

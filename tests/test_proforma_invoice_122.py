@@ -3,8 +3,9 @@
 
 import json
 
-from jav import cfg, detect_detail, extract_llm, typepack
-from jav.config import PROJECT_ROOT, load_prompt
+from jav import detect_detail, extract_llm, typepack
+from jav.core import cfg
+from jav.core.config import PROJECT_ROOT, load_prompt
 from jav.doc_types import BY_KEY, DOC_TYPE_KEYS
 
 

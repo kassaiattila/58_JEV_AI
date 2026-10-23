@@ -37,7 +37,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from jav.runtime import calls
+from jav.core import calls
 
 Stage = Literal["record", "decision", "cross_document", "after_save", "saved"]
 STAGES: tuple[Stage, ...] = ("record", "decision", "cross_document", "after_save", "saved")

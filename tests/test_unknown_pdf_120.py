@@ -10,7 +10,8 @@ from types import SimpleNamespace
 import pytest
 from typesafe_sdk import Choice, SystemOneResponse
 
-from jav import corrections, export, store, work, work_readiness, work_recipes, work_runs
+from jav import corrections, export, work, work_readiness, work_recipes, work_runs
+from jav.core import store
 from jav.adapters import jev as jev_mod
 from jav.readers import providers
 from jav.readers.interpretation import ProposedExtraction

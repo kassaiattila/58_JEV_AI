@@ -18,10 +18,11 @@ from unittest.mock import patch
 
 import pytest
 
-from jav import ocr, store
+from jav import ocr
+from jav.core import store
 from jav.adapters import azure_di
 from jav.pdf import PdfText
-from jav.runtime import calls
+from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 ENDPOINT = "https://example-di.cognitiveservices.azure.com/"

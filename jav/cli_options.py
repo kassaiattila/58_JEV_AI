@@ -17,7 +17,7 @@ def under_budget(args: argparse.Namespace, name: str, *, reuse: bool | None = No
     from datetime import datetime
     from decimal import Decimal
 
-    from jav.runtime import calls
+    from jav.core import calls
 
     limits = {p: Decimal(v) for p, v in (("jev", getattr(args, "jev_budget_usd", None)),
                                          ("openai", getattr(args, "budget_usd", None))) if v}

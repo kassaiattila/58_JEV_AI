@@ -52,7 +52,7 @@ _PACKAGE_DATASETS = ("emails", "email_tasks", "documents", "datapoints", "native
                      "utility_sources")
 
 # The tables whose (actor, time) pairs give the persons and days of the activity log (the sources of
-# `jav/activity_kinds.py`; a test checks that every registered source's table is here).
+# `jav/core/activity_kinds.py`; a test checks that every registered source's table is here).
 _ACTIVITY_TIMES = (
     ("workpackage_events", "actor", "created_at"), ("recipe_assignments", "actor", "created_at"),
     ("runs", "actor", "created_at"), ("runs", "approved_by", "approved_at"),
@@ -145,7 +145,7 @@ def fresh_copy(baseline: Path, work_dir: Path) -> Path:
 
     The folder is used by its full, resolved name: a short (8.3) Windows name would make the native readings' path
     check refuse every file."""
-    from jav import store
+    from jav.core import store
 
     source = _store_of(baseline)
     work_dir = work_dir.resolve()
@@ -292,7 +292,7 @@ def _reconcile_views(reader: _Reader, wid: str, *, matches: bool) -> Iterator[tu
 
 def _outside_git(path: Path) -> None:
     """A snapshot and its store copy hold personal data: only outside the repository or under its ignored `store/`."""
-    from jav.config import PROJECT_ROOT
+    from jav.core.config import PROJECT_ROOT
 
     full = path.resolve()
     if full.is_relative_to(PROJECT_ROOT.resolve()) and not full.is_relative_to((PROJECT_ROOT / "store").resolve()):
@@ -300,7 +300,7 @@ def _outside_git(path: Path) -> None:
 
 
 def _git_line() -> str:
-    from jav import devstate
+    from jav.core import devstate
 
     state = devstate.git_state()
     return state.line() if state else "no git"
@@ -314,7 +314,8 @@ def static_snapshot(baseline: Path, work_dir: Path, out: Path, *, items: bool = 
     background rebuild started by a view cannot read the work store."""
     from fastapi.testclient import TestClient
 
-    from jav import datasets, store
+    from jav import datasets
+    from jav.core import store
     from jav.api import create_app
 
     for path in (out, work_dir):

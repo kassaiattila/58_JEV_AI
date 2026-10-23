@@ -12,7 +12,7 @@ hash, and there too the latest `keep` backups are kept. A copy failure does not 
 visible. The result of every run (failed ones too) is written to `backup-status.json`, which the UI shows
 (Settings › System).
 
-070 D-mentés (decision of 2026-09-30): the internal working documents (`jav/doc_scope.py`: handoffs, plans, reports,
+070 D-mentés (decision of 2026-09-30): the internal working documents (`jav/core/doc_scope.py`: handoffs, plans, reports,
 backlog, decisions log…) have lived locally without version control since 2026-09-29, so with `with_docs` a compressed
 archive is also written into the backup folder (`internal-docs.zip`, with names relative to the project root). The
 archive's check decides the backup's validity just as the store's does; the hash check of the copy in the second
@@ -48,9 +48,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, doc_scope, source_instances, store
-from jav.config import PROJECT_ROOT
-from jav.digest import file_sha256 as _sha256
+from jav import source_instances
+from jav.core import cfg, doc_scope, store
+from jav.core.config import PROJECT_ROOT
+from jav.core.digest import file_sha256 as _sha256
 
 KEEP = 7
 STATUS_FILE = "backup-status.json"

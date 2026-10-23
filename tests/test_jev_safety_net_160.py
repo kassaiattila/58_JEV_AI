@@ -12,10 +12,12 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Noul
 
-from jav import flow_detect, store, work, work_readiness, work_recipes, work_runs
+from jav import flow_detect, work, work_readiness, work_recipes, work_runs
+from jav.core import store
 from jav.adapters import jev as jev_mod
 from jav.adapters.jev import JevUnavailableError
-from jav.runtime import calls, worker
+from jav.runtime import worker
+from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_runtime_worker import FakeClient
 

@@ -5,7 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from jav import policy, store
+from jav import policy
+from jav.core import store
 from jav.flow import ocr_pdf as invoice_ocr
 from jav.flow_detect import DetectState, ocr_pdf as detect_ocr
 from jav.models import FlowState

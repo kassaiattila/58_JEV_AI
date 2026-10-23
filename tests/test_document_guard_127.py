@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, Noul, SystemOneResponse
 
-from jav import cfg, store
+from jav.core import cfg, store
 from jav.adapters.jev import JevAdapter
 from jav.jev_select import SelectSite, select_fields
 from jav.jev_verify import VerifySite

@@ -1,7 +1,7 @@
 """The helpers written once (194, plan G-tidy R2, R3).
 
-Plain-language summary: every stored time is written by one shared clock (`jav/clock.py`), every file fingerprint by
-one shared digest (`jav/digest.py`), and both flows that start from a PDF read it through one shared step
+Plain-language summary: every stored time is written by one shared clock (`jav/core/clock.py`), every file fingerprint by
+one shared digest (`jav/core/digest.py`), and both flows that start from a PDF read it through one shared step
 (`jav/pdf_input.py`); the modules no longer carry their own copies. These tests keep it that way: no module writes its
 own `_now` again (the backup keeps its local time on purpose) or its own file digest, neither flow reads or OCRs a PDF
 by itself, and no two modules name their refusal the same.
@@ -16,9 +16,10 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from jav import clock, digest, package_release, source_instances, work
+from jav import package_release, source_instances, work
+from jav.core import clock, digest
 from jav.domains.finance import fx
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 JAV = PROJECT_ROOT / "jav"
 

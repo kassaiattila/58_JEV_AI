@@ -2,7 +2,8 @@
 the latest run in which the item finished (a later trial, or a stopped run), while the "Counting run" column showed the
 approved or live run. Synthetic PDFs, a fake JEV client, no paid calls."""
 
-from jav import naming, store, work, work_runs
+from jav import naming, work, work_runs
+from jav.core import store
 from jav.runtime import worker
 from tests import test_flexible_package_160c as fp
 from tests.test_flexible_package_160c import _assign, _package, _start

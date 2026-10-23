@@ -24,11 +24,13 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from jav import app_settings, cfg, store
+from jav import app_settings
+from jav.core import cfg, store
 from jav.domains.quotes import price_lists, quote_match, quote_request
-from jav.runtime import calls, job_kinds
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
+from jav.runtime import job_kinds
+from jav.core import calls
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
 
 JOB_KIND = "quote_propose"
 STATES = ("queued", "running", "done", "failed")
@@ -98,7 +100,7 @@ def _row(c: Any, wp_id: str) -> Any:
 def request(wp_id: str, *, actor: str) -> dict[str, Any]:
     """Queues the package's proposal with the application's engine and the cap for its requested items; a proposal
     already queued or running is returned as it is. `ProposalRefused` when it cannot be asked."""
-    from jav.runtime import queue
+    from jav.core import queue
 
     req = _source(wp_id)
     if not req.items:
@@ -140,7 +142,7 @@ def _ask(req: quote_request.Request, prices: price_lists.PriceList, engine: str,
 def process_job(job: Any) -> str:
     """The worker's proposal job: each requested item asked under the proposal's budget; the job is always completed,
     a failure shows on the proposal."""
-    from jav.runtime import queue
+    from jav.core import queue
 
     wp_id = job.payload["workpackage_id"]
     with store.connect() as c:

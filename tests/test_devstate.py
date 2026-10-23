@@ -1,6 +1,6 @@
 """Development state: Ruff ratchet and git line (040, K0)."""
 
-from jav import devstate
+from jav.core import devstate
 
 
 def test_lint_verdict_ratchet():

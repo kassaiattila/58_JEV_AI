@@ -39,11 +39,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from jav import activity_kinds, logic_packs, scopes, store, work
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
+from jav import logic_packs, scopes, work
+from jav.core import activity_kinds, store
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
 
-# 181: the actions this module records in a package's log (`jav/activity_kinds.py`)
+# 181: the actions this module records in a package's log (`jav/core/activity_kinds.py`)
 activity_kinds.register_events("package", ("scope_set", "scope_clear"), __name__)
 
 store.register_schema("package_scope", """

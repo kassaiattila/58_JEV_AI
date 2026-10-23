@@ -17,8 +17,9 @@ from pathlib import Path
 
 import pytest
 
-from jav import cli, cli_options, store
-from jav.runtime import calls
+from jav import cli, cli_options
+from jav.core import store
+from jav.core import calls
 
 KEY = calls.answer_key("openai", "gpt-test", "instructions", "schema", "document text")
 OTHER = calls.answer_key("openai", "gpt-test", "instructions", "schema", "another document")

@@ -16,7 +16,8 @@ from pathlib import Path
 import pytest
 from docx import Document
 
-from jav import package_release, store
+from jav import package_release
+from jav.core import store
 from jav.domains.quotes import quote_document, quote_draft, invented_golden
 from jav.outputs import builtin, docx, templates
 from tests import test_quote_draft_192 as q192

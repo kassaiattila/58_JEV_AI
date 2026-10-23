@@ -10,11 +10,12 @@ from openpyxl import Workbook
 
 from jav.readers.native import read
 from jav.readers.limits import DEFAULT_LIMITS, ReadFailure
-from jav import native_processing, native_results, store
+from jav import native_processing, native_results
+from jav.core import store
 from jav.readers import providers
 from jav.readers.interpretation import ProposedExtraction
 from jav.readers.interpretation import ground, source_view
-from jav.runtime import calls
+from jav.core import calls
 from tests.native_fixtures_109 import runtime_source
 from tests.native_fixtures_109 import synthetic_gpt
 
@@ -242,7 +243,7 @@ def test_chunked_requests_fit_the_actual_openai_wire_envelope(tmp_path, monkeypa
     from openai import AsyncOpenAI
     from pydantic_ai.models.openai import OpenAIChatModel
     from pydantic_ai.providers.openai import OpenAIProvider
-    from jav import config
+    from jav.core import config
 
     sizes, seen = [], set()
 

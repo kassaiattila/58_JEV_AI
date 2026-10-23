@@ -10,7 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import datasets, store, work, work_readiness, work_recipes, work_runs, work_views
+from jav import datasets, work, work_readiness, work_recipes, work_runs, work_views
+from jav.core import store
 from jav.work_views import next_step
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 

@@ -13,7 +13,8 @@ from pathlib import Path
 
 from typesafe_sdk import Noul
 
-from jav import policy, store
+from jav import policy
+from jav.core import store
 from jav.adapters.jev import JevAdapter
 from jav.jev_select import field_confidence, select_fields
 from jav.models import FieldPick, FlowState

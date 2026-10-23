@@ -22,9 +22,9 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from xml.etree import ElementTree
 
-from jav import cfg, devstate
+from jav.core import cfg, devstate
 from jav.admin import STATE_PATH, flow_lint_summary, write_state
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 HANDOFFS = PROJECT_ROOT / "docs" / "handoffs"
 UI_DIR = PROJECT_ROOT / "ui"

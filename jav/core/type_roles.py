@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav import cfg
+from jav.core import cfg
 
 
 class UnknownRole(KeyError):

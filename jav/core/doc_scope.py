@@ -17,7 +17,7 @@ from __future__ import annotations
 from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 # A pattern ending in `/` means the whole content of the folder; any other pattern means one file at the given depth
 # (`*` does not cross folders).

@@ -9,7 +9,7 @@ Synthetic word layer and a fake JEV client, no paid call.
 
 from __future__ import annotations
 
-from jav import store
+from jav.core import store
 from jav.adapters import jev as jev_mod
 from jav.jev_verify import verify
 from jav.typepack import get as get_pack

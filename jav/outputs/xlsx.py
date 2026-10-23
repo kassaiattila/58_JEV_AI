@@ -16,7 +16,7 @@ from collections.abc import Sequence
 from decimal import Decimal
 from typing import Any
 
-from jav.values import stored_decimal
+from jav.core.values import stored_decimal
 
 SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
 HEADER_FILL = "EEEEF2"

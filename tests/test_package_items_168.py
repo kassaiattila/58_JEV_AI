@@ -10,7 +10,8 @@ live > trial; a stopped or superseded run does not count). Synthetic PDFs, a fak
 import json
 from pathlib import Path
 
-from jav import store, work, work_runs
+from jav import work, work_runs
+from jav.core import store
 from jav.runtime import worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests import test_flexible_package_160c as fp

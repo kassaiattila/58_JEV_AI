@@ -28,7 +28,7 @@ const GROUPED: Record<string, RegExp> = { ".": /^[1-9]\d{0,2}(?:\.\d{3})+$/, ","
 
 /** What a person types → a scaled integer; null when it is not a number or can be read two ways (153, review A1: the
  *  page dropped every point in Hungarian, so "60.50" became 6050 and a pair was saved a hundred times too large). The
- *  rules of the service's reader of typed numbers (`jav/numbers.py` `read_input`), in the chosen language: the
+ *  rules of the service's reader of typed numbers (`jav/core/numbers.py` `read_input`), in the chosen language: the
  *  language's decimal mark (a comma in Hungarian, a point in English) alone is the decimal mark, but not before
  *  exactly three digits ("28,000" in Hungarian reads two ways); the other mark alone only groups thousands ("28.000",
  *  "1.234.567" in Hungarian), otherwise it reads two ways ("60.50" in Hungarian); with both marks the last one is the

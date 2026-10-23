@@ -216,7 +216,7 @@ def test_the_golden_set_is_every_invented_request_with_a_quote_and_the_injection
 
 
 def test_the_golden_set_judges_each_paragraph_by_the_codes_check_and_its_language(tmp_path):
-    from jav import store
+    from jav.core import store
 
     with store.use_store(tmp_path / "g.sqlite"), quote_letter.use_agent_factory(lambda m, i: _ByLanguage()):
         g = quote_letter.golden(limits={"openai": quote_letter.Decimal("0.5")}, out_dir=tmp_path)

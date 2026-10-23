@@ -15,7 +15,8 @@ from decimal import Decimal
 import pytest
 from openpyxl import load_workbook
 
-from jav import store, work, work_views
+from jav import work, work_views
+from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package as rp, reconcile_statement as rs
 from tests import test_api
 from tests import test_reconcile_k2_129 as k2

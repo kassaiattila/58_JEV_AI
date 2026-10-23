@@ -19,12 +19,12 @@ import re
 from pydantic import BaseModel, Field, model_validator
 from typesafe_sdk import Choice, Noul, Score
 
-from jav import cfg
+from jav.core import cfg
 from jav.adapters.jev import JevAdapter
 from jav.domains.email.emails import EmailMessage, clean_body, sender_domain
 from jav.domains.email.intents import OTHER, PARENT_OF, choice_criteria
 from jav.models import JevCall
-from jav.registry import parent_summary
+from jav.core.registry import parent_summary
 
 _CFG = cfg.load("callsite:email_intent")
 CONFIG_HASH = cfg.config_hash("callsite:email_intent", "intents")

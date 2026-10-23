@@ -23,7 +23,8 @@ from pathlib import Path
 import pytest
 
 from jav.domains.email import email_routing
-from jav import package_scope, parties, registrations, store, work
+from jav import package_scope, parties, registrations, work
+from jav.core import store
 from jav.domains.finance import reconcile_package as rp, statement_package as sp, statement_table as st
 from tests import test_email_routing_181 as routing_base
 from tests import test_reconcile_package_131 as p131

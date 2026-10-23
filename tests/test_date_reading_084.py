@@ -2,7 +2,7 @@
 
 A hotel invoice printed its issue date as "Issued : 04-DEC-22 21:52". Neither the machine path nor a selection on the
 page image could read it: the shared date reader knew only four-digit years and a few forms, and manual input took
-only YYYY-MM-DD. Every path now reads dates through `jav/dates.py`:
+only YYYY-MM-DD. Every path now reads dates through `jav/core/dates.py`:
 
 - month names and abbreviations in Hungarian, English, German, French, Spanish and Italian, in any letter case, with
   or without accents, with ordinal endings;
@@ -19,7 +19,7 @@ from datetime import date
 
 import pytest
 
-from jav import dates
+from jav.core import dates
 from jav.runtime import worker
 from tests.test_api import HUMAN, _ready_wp, _start, env  # noqa: F401 - the shared service fixture (`service` below)
 

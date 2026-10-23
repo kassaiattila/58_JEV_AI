@@ -15,7 +15,7 @@ for _stream in (sys.stdout, sys.stderr):
         except (OSError, ValueError):  # redirected or closed stream
             pass
 
-from jav.config import (  # noqa: E402  (the stream setup must precede the import)
+from jav.core.config import (  # noqa: E402  (the stream setup must precede the import)
     API_KEY_ENV_VARS,
     ENV_FILE,
     PROJECT_ROOT,

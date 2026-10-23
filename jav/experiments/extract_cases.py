@@ -22,7 +22,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 RUNS = PROJECT_ROOT / "runs"
 
@@ -41,7 +41,7 @@ def run(case_file: Path, *, arm: str, jev: bool, budget_usd: Decimal, out_dir: P
         jev_budget_usd: Decimal | None = None, only_detail: str | None = None) -> list[dict[str, Any]]:
     from jav import flow, typepack
     from jav.evals_detect import load_case_file
-    from jav.runtime import calls
+    from jav.core import calls
 
     packs = set(typepack.keys())
     cases = [c for c in load_case_file(case_file) if c.expected_detail in packs
@@ -84,7 +84,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.live:
         print("dry run: add --live for the paid run")
         return 0
-    from jav.devstate import git_state
+    from jav.core.devstate import git_state
 
     git = git_state()
     if git is None or git.dirty:
@@ -92,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     import contextlib
 
-    from jav import store
+    from jav.core import store
 
     out = RUNS / f"{datetime.now():%Y%m%d_%H%M%S}_extract_cases_{args.arm}{'_nojev' if args.no_jev else ''}"
     with store.use_store(args.store) if args.store else contextlib.nullcontext():

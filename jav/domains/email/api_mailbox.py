@@ -20,10 +20,11 @@ from fastapi import Depends, FastAPI, Request
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav import corrections, store, work_views
+from jav import corrections, work_views
+from jav.core import store
 from jav.domains.email import mailbox
 from jav.service_shared import DecisionState, Empty, In, ItemId, Revision, RunId, Text, WpId, error, human_actor
-from jav.user_messages import message_fields
+from jav.core.user_messages import message_fields
 
 ScheduleId = Annotated[str, PathParam(pattern=r"^mbx-[0-9a-f]{10}$")]
 PullId = Annotated[str, PathParam(pattern=r"^pull-[0-9a-f]{10}$")]
@@ -82,7 +83,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.get(r + "/mailbox")
     def mailbox_overview() -> dict[str, Any]:
-        from jav.config import OUTLOOK_BRIDGE_SCRIPT
+        from jav.core.config import OUTLOOK_BRIDGE_SCRIPT
 
         return work_views.jsonable({"schedules": mailbox.schedules(), "pulls": mailbox.pulls(), "accounts": mailbox.known_accounts(),
                                     "bridge_available": OUTLOOK_BRIDGE_SCRIPT.is_file(),

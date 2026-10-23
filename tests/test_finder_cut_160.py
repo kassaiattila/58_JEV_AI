@@ -12,7 +12,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jav import policy, store
+from jav import policy
+from jav.core import store
 from jav.adapters.jev import JevAdapter
 from jav.candidates import find_all
 from jav.jev_select import select_fields

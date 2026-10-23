@@ -9,10 +9,11 @@ front of every check that reads the store (`jav/checks.py` `store_readable`).
 
 from decimal import Decimal
 
-from jav import checks, store
+from jav import checks
+from jav.core import store
 from jav.domains import finance
 from jav.models import DocumentRecord
-from jav.runtime import calls
+from jav.core import calls
 
 
 def test_a_measurement_is_marked_as_one_and_a_worker_run_is_not(tmp_path):

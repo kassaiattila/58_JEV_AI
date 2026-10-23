@@ -16,7 +16,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav import grounding, source_layer, store, typepack, work_runs
+from jav import grounding, source_layer, typepack, work_runs
+from jav.core import store
 
 KEEP_METHODS = ("pick", "pick_line", "manual")
 

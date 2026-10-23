@@ -5,7 +5,7 @@ table's directions), so they ran the schema set-up on the store the service and 
 The shared fixture points the default store at a temporary file for every test.
 """
 
-from jav import config, store
+from jav.core import config, store
 
 
 def test_the_default_store_is_a_temporary_file():

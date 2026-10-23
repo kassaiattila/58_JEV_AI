@@ -16,7 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import extract_llm, flow, store, typepack
+from jav import extract_llm, flow, typepack
+from jav.core import store
 from jav.adapters import jev as jev_mod
 from jav.jev_verify import site_for
 from tests.pdfgen import INVOICE_LINES, write_text_pdf

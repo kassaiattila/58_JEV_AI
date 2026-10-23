@@ -15,7 +15,8 @@ from uuid import uuid4
 
 from pydantic import TypeAdapter
 
-from jav import item_kinds, store
+from jav import item_kinds
+from jav.core import store
 from jav.native_contracts import (
     ArtifactRef, Failed, InterpretationOutcome, NativeCitation, NativeFact,
     NativeProgress, NativeSourceElement, NATIVE_CAPABLE_SUFFIXES, NATIVE_FALLBACK_SUFFIXES, NATIVE_SUFFIXES,

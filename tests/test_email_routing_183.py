@@ -13,7 +13,7 @@ Synthetic files and results only; no AI call.
 from __future__ import annotations
 
 from jav.domains.email import email_routing
-from jav import store
+from jav.core import store
 
 from tests.test_email_routing_181 import _invoice, _items, _mailbox, _party, _result, db  # noqa: F401 (the fixture)
 

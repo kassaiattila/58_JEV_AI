@@ -13,9 +13,11 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, SystemOneResponse
 
-from jav import ocr, store, work, work_readiness, work_recipes, work_runs
+from jav import ocr, work, work_readiness, work_recipes, work_runs
+from jav.core import store
 from jav.adapters import jev as jev_mod
-from jav.runtime import queue, worker
+from jav.runtime import worker
+from jav.core import queue
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 

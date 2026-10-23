@@ -14,7 +14,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
-from jav import cfg, field_names, typepack
+from jav import typepack
+from jav.core import cfg, field_names
 from jav.outputs import contract, markers as marker_names, parts
 
 DEFAULT_PART = "invoice_hu"

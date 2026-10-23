@@ -12,7 +12,8 @@ import argparse
 import json
 from pathlib import Path
 
-from jav import cfg, evals, measure_cli, store, typepack
+from jav import evals, measure_cli, typepack
+from jav.core import cfg, store
 from jav.adapters import jev as jev_mod
 from jav.jev_select import site_for
 from jav.jev_verify import VerifySite

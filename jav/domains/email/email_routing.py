@@ -34,13 +34,13 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from jav import (activity_kinds, decisions, logic_packs, package_result, package_scope, source_instances, store, work,
-                 workflow_steps)
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
+from jav import logic_packs, package_result, package_scope, source_instances, work, workflow_steps
+from jav.core import activity_kinds, decisions, store
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
 
 KIND = "email_routing"
-# the actions this module records in a routing package's log (`jav/activity_kinds.py`)
+# the actions this module records in a routing package's log (`jav/core/activity_kinds.py`)
 activity_kinds.register_events("package", ("routing_accept", "routing_reject", "routing_undo"), __name__)
 
 # 186 (plan G-full-move T2b): the email packages whose attachments it routes are its scope's further part `emails` (its
@@ -171,7 +171,7 @@ def _results(c: sqlite3.Connection, doc_ids: list[str]) -> dict[str, dict[str, A
     an unknown kind goes the facts way; an invoice whose data could not be read) has no counted result. It is given its
     recognised type (the detailed one if decided), without values, so that it is placed by its kind and not reported
     as not read yet."""
-    from jav.todo_kinds import SUSPICIOUS_ATTACHMENT
+    from jav.core.todo_kinds import SUSPICIOUS_ATTACHMENT
 
     counted = package_result.counted_documents(c, doc_ids)
     rows = package_result.result_rows(c, counted, "datapoints")

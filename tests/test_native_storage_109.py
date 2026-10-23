@@ -7,7 +7,8 @@ from pydantic import ValidationError
 import pytest
 
 from jav.native_contracts import NativeItemResult, ReceiptRef, SourcePage
-from jav import native_results, store
+from jav import native_results
+from jav.core import store
 from jav.readers import pipeline
 from tests.native_fixtures_109 import contract_examples, publish_runtime, runtime_source
 

@@ -48,7 +48,7 @@ desktop.ini
 docs/STATE.md
 
 # Belső munkaanyag (070, döntés 2026-09-29): helyben marad, a GitHubra nem kerül, a napi mentés viszi.
-# A minták egy helye: jav/doc_scope.py (tests/test_doc_scope_070.py ellenőrzi az egyezést).
+# A minták egy helye: jav/core/doc_scope.py (tests/test_doc_scope_070.py ellenőrzi az egyezést).
 docs/handoffs/
 docs/plans/
 docs/reports/

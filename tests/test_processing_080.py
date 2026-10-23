@@ -13,7 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, store, work, work_readiness, work_recipes, work_runs, work_views
+from jav import app_settings, work, work_readiness, work_recipes, work_runs, work_views
+from jav.core import store
 
 
 @pytest.fixture()

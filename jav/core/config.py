@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     # loading network code it must not use.
     from typesafe_sdk import AsyncTypeSafeClient, RetryPolicy, TypeSafeClient
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]  # 208: jav/core/config.py
 ENV_FILE = PROJECT_ROOT / ".env"
 PROMPTS_DIR = PROJECT_ROOT / "jav" / "prompts"
 RUNS_DIR = PROJECT_ROOT / "runs"
@@ -54,7 +54,7 @@ OPENAI_KEY_ENV_VAR = "OPENAI_API_KEY"
 # 121: Azure Document Intelligence, called directly (jav/adapters/azure_di.py); without them the legacy sidecar is used
 AZURE_DI_ENV_VARS = ("AZURE_DI_ENDPOINT", "AZURE_DI_KEY")
 
-# Model administration: configs/models.json (config as data; read with json directly, as jav.cfg imports this module).
+# Model administration: configs/models.json (config as data; read with json directly, as jav.core.cfg imports this module).
 MODELS_CONFIG = PROJECT_ROOT / "configs" / "models.json"
 _MODELS = json.loads(MODELS_CONFIG.read_text(encoding="utf-8"))
 MODELS_VERSION: str = _MODELS["meta"]["version"]
@@ -98,7 +98,7 @@ def openai_cost(usage: Any, *, requested: str, actual: str | None) -> Decimal | 
     """167 (review AI-12): the USD cost of one OpenAI answer, the one price rule of every caller: tokens × the price of
     `openai_priced_model`, exact in Decimal, rounded to 0.000001 USD. None is an unknown cost: no configured price, or
     a usage that reports nothing (no usage object, or a Pydantic AI usage without values). The ledger then records no
-    cost, and the call log keeps the call's reserved maximum committed (`jav/runtime/calls.py`)."""
+    cost, and the call log keeps the call's reserved maximum committed (`jav/core/calls.py`)."""
     model = openai_priced_model(requested=requested, actual=actual)
     if model is None or usage is None or (hasattr(usage, "has_values") and not usage.has_values()):
         return None

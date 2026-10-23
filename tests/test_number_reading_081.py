@@ -1,7 +1,7 @@
 """081 number reading (the owner's report of 2026-10-01): one shared, safe number reader.
 
 A Billzone invoice printed in English notation ("28,000.00") was read as net 28 / VAT 7.56 / gross 35.56 on the S path:
-the Hungarian candidate pattern cut "28,000" to "28,00". Every path now reads numbers through `jav/numbers.py`:
+the Hungarian candidate pattern cut "28,000" to "28,00". Every path now reads numbers through `jav/core/numbers.py`:
 
 - a number is never cut apart;
 - money never has three decimals, so "28.000" and "28,000" are both 28 000;
@@ -16,7 +16,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import numbers
+from jav.core import numbers
 from jav.candidates import find_all
 from jav.models import CellLayout, LineLayout, normalize_value, parse_money, record_from_llm
 from jav.runtime import worker

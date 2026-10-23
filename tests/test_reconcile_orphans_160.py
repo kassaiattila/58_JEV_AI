@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import store, work
+from jav import work
+from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package as rp, reconcile_statement as rs
 from tests import test_reconcile_k2_129 as k2
 

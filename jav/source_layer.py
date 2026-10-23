@@ -20,7 +20,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from jav import store
+from jav.core import store
 
 store.register_schema("source_layer", """
 CREATE TABLE IF NOT EXISTS source_layers (

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from jav import cfg
+from jav.core import cfg
 
 
 def field_label(field: str, doc_type: str | None = None) -> str:

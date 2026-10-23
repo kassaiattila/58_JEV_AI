@@ -4,9 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, store, work, work_readiness, work_recipes, work_runs
+from jav import app_settings, work, work_readiness, work_recipes, work_runs
+from jav.core import store
 from jav.native_contracts import DOCUMENT_SUFFIXES
-from jav.runtime import queue, worker
+from jav.runtime import worker
+from jav.core import queue
 
 
 @pytest.fixture()

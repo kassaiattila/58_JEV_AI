@@ -17,7 +17,8 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav import policy, store
+from jav import policy
+from jav.core import store
 from jav.detect import DetectResult
 from jav.detect_detail import DetailResult
 from jav.engine import with_engine

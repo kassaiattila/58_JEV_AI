@@ -40,8 +40,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
-from jav import cfg
-from jav.config import PROMPTS_DIR
+from jav.core import cfg
+from jav.core.config import PROMPTS_DIR
 
 KINDS = ("name", "tax_id", "date", "money", "iban", "currency", "country", "invoice_number", "address", "text", "number",
          "boolean", "list")  # 047: yes/no field; itemised list (the kinds of the item fields are in `list_fields`)
@@ -110,8 +110,8 @@ class TypePack(BaseModel):
     def normalize(self, data: dict[str, Any], *, convention: str | None = None,
                   date_order: str | None = None) -> tuple[Any, list[str]]:
         """Generative extract -> normalised record according to the pack's kinds, item descriptions and enumerations.
-        081: `convention` is the document's number notation ("comma" / "dot", `jav.numbers.document_convention`); 084:
-        `date_order` its day/month order ("dmy" / "mdy", `jav.dates.document_date_order`)."""
+        081: `convention` is the document's number notation ("comma" / "dot", `jav.core.numbers.document_convention`); 084:
+        `date_order` its day/month order ("dmy" / "mdy", `jav.core.dates.document_date_order`)."""
         from jav.models import record_from_llm
 
         return record_from_llm(data, self.fields, list_fields=self.list_fields, enums={k: list(v) for k, v in self.enums.items()},

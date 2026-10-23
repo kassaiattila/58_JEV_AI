@@ -11,7 +11,7 @@ import re
 
 import pytest
 
-from jav import cfg
+from jav.core import cfg
 from jav.candidates import find_all
 from tests.test_candidates import _two_column_invoice
 

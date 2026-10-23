@@ -17,7 +17,7 @@ pytestmark = pytest.mark.skipif(os.name != "nt", reason="Measured Windows reader
 def _missing_ocr_models() -> list[str]:
     """The configured language models (`hun+eng`) absent from the local recogniser's folder. The models are local data,
     never in git: a clean copy has none unless `JAV_TESSDATA_DIR` names a folder that holds them (167, review T-3)."""
-    from jav import cfg
+    from jav.core import cfg
     from jav.ocr import tessdata_dir
 
     folder = tessdata_dir()

@@ -21,7 +21,7 @@ from jav import work_views
 from jav.domains.finance import reconcile_package, reconcile_review, reconcile_statement
 from jav.service_shared import (DecisionState, Empty, In, IsoDay, PartyId, Text, WpId, attachment_header, error,
                                 human_actor)
-from jav.user_messages import message_fields
+from jav.core.user_messages import message_fields
 
 # 131 (F-reconciliation E1): the reconciliation package (`jav/domains/finance/reconcile_package.py`)
 DocId = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]

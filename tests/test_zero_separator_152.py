@@ -12,7 +12,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import numbers
+from jav.core import numbers
 from jav.jev_select import site_for
 from jav.models import Candidate, FieldPick, normalize_value
 

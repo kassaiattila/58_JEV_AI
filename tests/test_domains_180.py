@@ -15,7 +15,7 @@ import sys
 from dataclasses import replace
 
 from jav import checks, export, item_kinds, logic_packs, registrations
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 from jav.domains import DOMAINS
 from jav.outputs import contract, parts
 
@@ -92,7 +92,7 @@ def _imported(path) -> set[str]:
     return names
 
 
-FINANCE = {"jav.domains.finance.duplicates", "jav.parties", "jav.domains.finance.report_utility", "jav.type_roles", "jav.domains.finance.reconcile", "jav.domains.finance.reconcile_package",
+FINANCE = {"jav.domains.finance.duplicates", "jav.parties", "jav.domains.finance.report_utility", "jav.core.type_roles", "jav.domains.finance.reconcile", "jav.domains.finance.reconcile_package",
            "jav.domains.finance.statement_package", "jav.domains.finance.statement_months"}
 
 

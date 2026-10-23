@@ -30,10 +30,10 @@ from pydantic_ai import Agent, NativeOutput
 from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.usage import UsageLimits
 
-from jav import store
-from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_chat_model, openai_cost, openai_price
+from jav.core import store
+from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_chat_model, openai_cost, openai_price
 from jav.models import JevCall
-from jav.runtime import calls
+from jav.core import calls
 
 OTHER_BRANCHES = "(other)"  # probability of alternative branches that do not lead to a single option
 

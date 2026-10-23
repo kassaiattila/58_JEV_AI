@@ -20,7 +20,8 @@ from decimal import Decimal
 import pytest
 from typesafe_sdk import Choice, Noul
 
-from jav import cfg, policy, typepack
+from jav import policy, typepack
+from jav.core import cfg
 from jav.candidates import find_all, find_currencies
 from jav.models import HEADER_FIELDS, SCORED_FIELDS, CellLayout, FieldPick, FlowState, DocumentRecord, LineLayout, record_from_llm
 

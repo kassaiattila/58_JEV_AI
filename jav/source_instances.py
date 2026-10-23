@@ -34,10 +34,10 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from jav import store
-from jav.runtime import lock
-from jav.user_messages import explained
-from jav.digest import file_sha256 as sha256_file
+from jav.core import store
+from jav.core import lock
+from jav.core.user_messages import explained
+from jav.core.digest import file_sha256 as sha256_file
 
 CHUNK = 1 << 20
 SPACE_HEADROOM = 1 << 20

@@ -158,7 +158,7 @@ def cmd_fx_rates(args: argparse.Namespace) -> int:
     request for the span. Free; only the dates and the currency codes leave the machine."""
     from datetime import date
 
-    from jav import cfg
+    from jav.core import cfg
     from jav.domains.finance import fx
 
     if args.fetch:

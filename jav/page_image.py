@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from jav import isolated_pdf, pdf
-from jav.user_messages import explained
+from jav.core.user_messages import explained
 
 IMAGE_TYPES = {".png": "PNG", ".jpg": "JPEG", ".jpeg": "JPEG"}
 

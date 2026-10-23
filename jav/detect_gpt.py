@@ -25,7 +25,7 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
-from jav import cfg
+from jav.core import cfg
 from jav.detect import DetectResult, build_state
 from jav.doc_types import DOC_TYPES, UNKNOWN
 from jav.gpt_choice import GptAnswer, Limits, field_probabilities, use_agent_factory

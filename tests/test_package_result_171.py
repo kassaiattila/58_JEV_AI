@@ -9,7 +9,8 @@ import json
 
 import pytest
 
-from jav import package_result, store, work_runs
+from jav import package_result, work_runs
+from jav.core import store
 
 WP = "wp-000000000172"
 OTHER = "wp-000000000173"

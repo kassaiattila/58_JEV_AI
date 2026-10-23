@@ -67,7 +67,7 @@ def test_a_statement_of_an_approved_live_run_replaces_even_when_it_lacks_a_line(
 
 
 def test_the_approval_is_looked_up_in_the_store(tmp_path):
-    from jav import store
+    from jav.core import store
     from tests import test_reconcile_k2_129 as k2
 
     old, new = _pair([_ln("new-", "2026-01-05", "100")])

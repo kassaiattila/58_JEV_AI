@@ -26,7 +26,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from jav import cfg
+from jav.core import cfg
 
 Log = Literal["package", "workflow"]
 LOGS: tuple[Log, ...] = ("package", "workflow")

@@ -12,7 +12,7 @@ import subprocess
 import sys
 import sysconfig
 
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 NETWORK_CLIENTS = ("typesafe_sdk", "httpx2", "httpx", "openai", "pydantic_ai")
 
@@ -43,7 +43,7 @@ def test_the_reader_process_imports_no_network_client():
 def test_the_jev_client_is_still_built_with_the_configured_retry_policy(monkeypatch):
     from typesafe_sdk import RetryPolicy, TypeSafeClient
 
-    from jav import config
+    from jav.core import config
 
     monkeypatch.setenv(config.API_KEY_ENV_VARS[0], "test-key")
     with config.make_client() as client:

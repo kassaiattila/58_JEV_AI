@@ -2,7 +2,7 @@
 
 Plain-language summary: a document, a frozen source copy, a backup file and an OCR cache entry are each known by the
 SHA-256 digest of their bytes. The modules used to carry their own copy of the few lines that compute it; now they
-read this one, under their own name (`from jav.digest import file_sha256 as sha256_file`). The file is read in
+read this one, under their own name (`from jav.core.digest import file_sha256 as sha256_file`). The file is read in
 chunks, so a large document is never held in memory whole.
 """
 

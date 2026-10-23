@@ -17,7 +17,7 @@ import subprocess
 import tomllib
 from pathlib import Path
 
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 VERSION: str = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
 

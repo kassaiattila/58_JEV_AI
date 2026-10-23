@@ -15,8 +15,9 @@ import threading
 
 import pytest
 
-from jav import store
-from jav.runtime import queue, worker
+from jav.core import store
+from jav.runtime import worker
+from jav.core import queue
 from tests.test_runtime_worker import _start, env  # noqa: F401 - the worker's fixture: a package of two invoices
 
 

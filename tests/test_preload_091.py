@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import store
+from jav.core import store
 from jav.runtime import preload, worker
 
 

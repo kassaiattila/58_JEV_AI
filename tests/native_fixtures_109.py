@@ -158,7 +158,8 @@ def runtime_source(tmp_path, monkeypatch, *, text="😀 Order code: 0012\n", ras
     """Construct actual saved evidence with an explicitly in-process test parser."""
     import base64
     import json
-    from jav import native_results, store, work  # noqa: F401 - register the actual work schema
+    from jav import native_results, work  # noqa: F401 - register the actual work schema
+    from jav.core import store  # noqa: F401 - register the actual work schema
     from jav.readers import native, pipeline
 
     source = tmp_path / name
@@ -208,7 +209,7 @@ def synthetic_gpt(monkeypatch, *, mode="valid", payload=None):
     from pydantic_ai.messages import ModelResponse, TextPart
     from pydantic_ai.models.function import FunctionModel
     from pydantic_ai.usage import RequestUsage
-    from jav.config import OPENAI_MODEL
+    from jav.core.config import OPENAI_MODEL
     from jav.readers import providers
     from jav.readers.interpretation import ProposedExtraction
 

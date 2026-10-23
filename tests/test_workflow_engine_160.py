@@ -14,7 +14,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import app_settings, store, work, work_recipes, work_runs, workflows as wf
+from jav import app_settings, work, work_recipes, work_runs, workflows as wf
+from jav.core import store
 from jav.domains.email import mailbox
 from tests import test_api, test_workflows_146
 from tests.test_api import HUMAN

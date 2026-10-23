@@ -7,7 +7,7 @@ document of another kind. Synthetic data, no paid calls.
 
 import pytest
 
-from jav import store
+from jav.core import store
 from jav.domains.finance import reconcile, statement_months
 from tests import test_reconcile_k2_129 as k2
 

@@ -20,7 +20,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import cfg, typepack
+from jav import typepack
+from jav.core import cfg
 from jav.domains.finance import bank_files as bf, statement_table as st
 from tests import test_statement_camt_141 as camt
 from tests import test_statement_cib_141 as cib

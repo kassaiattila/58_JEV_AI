@@ -27,7 +27,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 from jav.models import money_label
 
 CONFIG = PROJECT_ROOT / "configs" / "experiments" / "document_injection.json"
@@ -171,8 +171,8 @@ def run(cfg: dict[str, Any], out: Path, *, flows: set[str] | None = None, jev: b
         hard_limits: dict[str, Decimal] | None = None) -> list[dict[str, Any]]:
     import contextlib
 
-    from jav import store
-    from jav.runtime import calls
+    from jav.core import store
+    from jav.core import calls
     from jav.synthetic_pdf import write_unicode_pdf
 
     (out / "pdfs").mkdir(parents=True, exist_ok=True)
@@ -238,7 +238,7 @@ def main(argv: list[str] | None = None) -> int:
           f"plafon: {cfg['budget_usd']}; hard limit: {hard}")
     if not args.live:
         return 0
-    from jav.devstate import git_state
+    from jav.core.devstate import git_state
 
     git = git_state()
     if git is None or git.dirty:

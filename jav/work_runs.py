@@ -12,10 +12,11 @@ from collections.abc import Iterable
 from decimal import Decimal
 from typing import Any
 
-from jav import item_kinds, store
-from jav.runtime import calls, queue
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
+from jav import item_kinds
+from jav.core import store
+from jav.core import calls, queue
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
 from jav import work, work_readiness, work_recipes
 
 

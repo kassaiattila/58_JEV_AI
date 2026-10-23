@@ -14,8 +14,8 @@ from pathlib import Path
 from typing import Any
 
 from jav.policy import DETECT_LOW_CONFIDENCE  # 066 Á38: the threshold comes from the policy
-from jav import store
-from jav.config import GOLDEN_MANIFEST, OLD_PROJECT_ROOT, RUNS_DIR
+from jav.core import store
+from jav.core.config import GOLDEN_MANIFEST, OLD_PROJECT_ROOT, RUNS_DIR
 from jav.doc_types import DOC_TYPE_KEYS, OLD_TYPE_MAP
 
 TRIAGE_MANIFEST = OLD_PROJECT_ROOT / "flows" / "doc-triage-bare" / "golden" / "manifest.json"
@@ -72,7 +72,7 @@ def detect_golden(use_cache: bool = True, *, jev: bool = True, descriptions: boo
     a local case list instead of the golden set (`load_case_file`), and the name of the output file."""
     from jav import detect_gpt
     from jav.flow_detect import run_detect
-    from jav.runtime import calls
+    from jav.core import calls
 
     cases = load_detect_cases() if cases is None else cases
     rows: list[dict[str, Any]] = []

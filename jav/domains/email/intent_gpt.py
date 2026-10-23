@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 
-from jav import cfg
+from jav.core import cfg
 from jav.domains.email.emails import EmailMessage
 from jav.gpt_choice import OTHER_BRANCHES, GptAnswer, Limits, ask, yes_probability
 from jav.domains.email.intent import NOUL_KEYS, SCORE_KEYS, IntentResult, ScoreSignal, build_state

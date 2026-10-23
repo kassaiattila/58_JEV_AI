@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from jav import policy
-from jav.digest import file_sha256
+from jav.core.digest import file_sha256
 from jav.pdf import PdfText
 
 

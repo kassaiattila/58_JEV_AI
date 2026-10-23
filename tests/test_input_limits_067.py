@@ -14,7 +14,8 @@ import pypdfium2 as pdfium
 import pytest
 from PIL import Image
 
-from jav import cfg, ocr, page_image, pdf
+from jav import ocr, page_image, pdf
+from jav.core import cfg
 from jav.pdf import DocumentTooLarge, InputLimits
 
 

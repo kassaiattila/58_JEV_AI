@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import doc_scope
+from jav.core import doc_scope
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_DOCS = sorted(

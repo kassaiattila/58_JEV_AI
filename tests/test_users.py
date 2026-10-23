@@ -8,7 +8,8 @@ import itertools
 from datetime import datetime, timedelta, timezone
 from urllib.parse import unquote
 
-from jav import app_settings, store, work, work_recipes, work_runs
+from jav import app_settings, work, work_recipes, work_runs
+from jav.core import store
 from tests import test_api
 from tests.test_api import HUMAN, _ready_wp
 

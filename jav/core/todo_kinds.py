@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import cache
 
-from jav import cfg
+from jav.core import cfg
 
 # 204 (R1j): raised by the mailbox (email), read by the reconciliation (finance) and the email routing; a shared code,
 # so neither domain imports the other for it

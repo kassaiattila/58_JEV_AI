@@ -46,8 +46,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from jav import cfg, store, typepack
-from jav.config import PROJECT_ROOT, PROMPTS_DIR
+from jav import typepack
+from jav.core import cfg, store
+from jav.core.config import PROJECT_ROOT, PROMPTS_DIR
 
 MIN_DOCUMENTS = 3
 DRAFTS_DIR = PROJECT_ROOT / "configs" / "type_drafts"
@@ -94,7 +95,7 @@ def field_key(label: str) -> str:
 
 
 def _one_date(value: Any) -> bool:
-    from jav.dates import AmbiguousDate, read_date_input
+    from jav.core.dates import AmbiguousDate, read_date_input
 
     try:
         read_date_input(value)
@@ -109,7 +110,7 @@ def development_facts(family: str) -> dict[str, list[dict[str, Any]]]:
     """The checked facts of each development document of the family, from its latest measurement that gave an answer
     (`measure facts:<family>`); read only. A document without one is refused, so a proposal never rests on part of the
     half."""
-    from jav import cfg
+    from jav.core import cfg
 
     shas = cfg.load("golden_facts")["families"][family]["development"]
     out: dict[str, list[dict[str, Any]]] = {}

@@ -38,11 +38,14 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from jav import (activity_kinds, dates, grounding, item_kinds, native_results, numbers, package_result, source_layer, store,
-                 typepack, validators, work, work_readiness, work_runs)
+from jav import (
+    grounding, item_kinds, native_results, package_result, source_layer, typepack, validators, work, work_readiness,
+    work_runs,
+)
+from jav.core import activity_kinds, dates, numbers, store
 from jav.native_contracts import Publication
 from jav.policy import reason_field
-from jav.user_messages import explained
+from jav.core.user_messages import explained
 
 store.register_schema("corrections", """
 CREATE TABLE IF NOT EXISTS run_item_corrections (
@@ -95,7 +98,7 @@ def review_version(run_id: str, c: sqlite3.Connection | None = None) -> str:
     earlier version. 129: and so are the reconciliation decisions on pairs one of the run's documents is a side of.
     139: and so are the choices between two statements of the same days that include one of the run's documents.
 
-    175 (plan 170 E4): the parts are the decision kinds of the activity registry (`jav/activity_kinds.py`), registered
+    175 (plan 170 E4): the parts are the decision kinds of the activity registry (`jav/core/activity_kinds.py`), registered
     below in this order; each part present wraps the earlier ones, so a run without it keeps its earlier version, and a
     logic pack's own decision kind joins the same way."""
     if c is None:

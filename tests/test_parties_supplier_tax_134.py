@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import pytest
 
-from jav import checks, parties, store
+from jav import checks, parties
+from jav.core import store
 from jav.domains import finance
-from jav.runtime import calls
+from jav.core import calls
 
 BUYER, RAIL, SECOND, OTHER = "12121216-2-42", "13570008-1-13", "21357912-1-13", "12345676-2-41"
 

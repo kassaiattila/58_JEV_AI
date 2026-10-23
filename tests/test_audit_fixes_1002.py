@@ -15,7 +15,8 @@ import json
 
 import pytest
 
-from jav import corrections, store, work, work_readiness, work_recipes, work_runs, work_views
+from jav import corrections, work, work_readiness, work_recipes, work_runs, work_views
+from jav.core import store
 from jav.domains.email import email_export, email_tasks, emails, ingest_server, mailbox
 from jav.runtime import worker
 from tests.test_email_results import _fake_tasks

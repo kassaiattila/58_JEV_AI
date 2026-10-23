@@ -7,7 +7,7 @@ as they were: the same paths, request models and answers, in the same order. `ja
 after the workflows' one.
 
 Layer: UI/CLI (the local service) → `jav.work`, `jav.backup`, `jav.deps_audit`, `jav.jev_version`,
-`jav.runtime.calls`, `jav.runtime.worker`.
+`jav.core.calls`, `jav.runtime.worker`.
 """
 
 from __future__ import annotations
@@ -22,7 +22,8 @@ from pydantic import Field
 
 from jav import backup, deps_audit, jev_version, work_runs, work_views
 from jav.service_shared import Empty, In, Text, human_actor, settings
-from jav.runtime import calls, worker
+from jav.runtime import worker
+from jav.core import calls
 
 log = logging.getLogger("jav.api")
 

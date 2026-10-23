@@ -59,7 +59,7 @@ class InputLimits:
 
 def input_limits() -> InputLimits:
     """The input limits (067) from the `input_limits` section of `configs/service.json`."""
-    from jav import cfg
+    from jav.core import cfg
 
     return InputLimits(**cfg.load("service")["input_limits"])
 

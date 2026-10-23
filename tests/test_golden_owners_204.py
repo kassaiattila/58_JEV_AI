@@ -21,7 +21,7 @@ import subprocess
 import sys
 
 from jav import goldens
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 from jav.domains import DOMAINS
 from tests.test_dependency_direction import domain_modules
 

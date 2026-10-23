@@ -24,7 +24,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-from jav.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT
 
 FLOWS_DOC_DIR = PROJECT_ROOT / "docs" / "flows"
 KINDS = ("det", "jev", "llm", "store", "flow", "terminal")

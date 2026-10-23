@@ -3,10 +3,11 @@ from decimal import Decimal
 
 import pytest
 
-from jav import native_processing, native_results, store
+from jav import native_processing, native_results
+from jav.core import store
 from jav.native_contracts import NativeLimits
 from jav.readers import providers
-from jav.runtime import calls
+from jav.core import calls
 from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
 

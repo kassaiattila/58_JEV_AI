@@ -15,7 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, source_instances, store, work, work_readiness  # noqa: F401  (app_settings: its tables, read by readiness)
+from jav import app_settings, source_instances, work, work_readiness  # noqa: F401  (app_settings: its tables, read by readiness)
+from jav.core import store  # noqa: F401  (app_settings: its tables, read by readiness)
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 

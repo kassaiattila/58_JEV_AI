@@ -37,9 +37,10 @@ from difflib import SequenceMatcher
 from itertools import combinations
 from typing import Any, Callable, Iterable
 
-from jav import cfg, fact_checks, store, type_roles
-from jav.user_messages import explained
-from jav.clock import utc_stamp as _now
+from jav import fact_checks
+from jav.core import cfg, store, type_roles
+from jav.core.user_messages import explained
+from jav.core.clock import utc_stamp as _now
 
 KINDS = ("tax", "name", "account")
 NAME_MAX = 200
@@ -548,7 +549,7 @@ def _supplier_tax_numbers(invoices: list[dict[str, Any]]) -> set[int]:
 
 def supplier_check_types() -> frozenset[str]:
     """The incoming invoice types the supplier tax check looks at (`supplier_check.doc_types`; 175: the types' role,
-    `jav/type_roles.py`)."""
+    `jav/core/type_roles.py`)."""
     return frozenset(type_roles.types("own_tax_check"))
 
 

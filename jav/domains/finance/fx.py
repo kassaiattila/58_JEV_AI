@@ -33,8 +33,8 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Callable, Iterable, Iterator
 from xml.sax.saxutils import escape
 
-from jav import cfg, store
-from jav.clock import utc_now as _now
+from jav.core import cfg, store
+from jav.core.clock import utc_now as _now
 
 Transport = Callable[[str, bytes, dict[str, str], float], bytes]
 _SOAP_NS = "http://schemas.xmlsoap.org/soap/envelope/"

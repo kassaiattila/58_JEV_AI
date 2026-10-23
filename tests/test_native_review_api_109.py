@@ -4,10 +4,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, corrections, native_results, store, work, work_readiness, work_recipes, work_runs
+from jav import api, corrections, native_results, work, work_readiness, work_recipes, work_runs
+from jav.core import store
 from jav.native_contracts import Failed, Succeeded
 from jav.readers.interpretation import Citation, ProposedExtraction, ProposedFact, ground
-from jav.runtime import queue
+from jav.core import queue
 
 HUMAN = {"X-Actor": "native.reviewer"}
 

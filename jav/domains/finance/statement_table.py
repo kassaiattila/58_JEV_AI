@@ -88,9 +88,10 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav import card_numbers, cfg, isolated_pdf
-from jav.dates import read_date
-from jav.numbers import read_number
+from jav import isolated_pdf
+from jav.core import card_numbers, cfg
+from jav.core.dates import read_date
+from jav.core.numbers import read_number
 
 CONFIG = "statement_tables"
 SUFFIXES = (".xlsx", ".csv", ".xml")
@@ -1276,7 +1277,7 @@ _UNSAFE = re.compile(r'[<>:"/\|?*\x00-\x1f]+')
 
 def derived_dir() -> Path:
     """Where the accounts' statement files are written: next to the store in use (tests get their own folder)."""
-    from jav import store
+    from jav.core import store
 
     return store.current_path().parent / "statement_tables"
 

@@ -8,7 +8,7 @@ def _reload_config(monkeypatch, value):
         monkeypatch.delenv("JAV_LEGACY_ROOT", raising=False)
     else:
         monkeypatch.setenv("JAV_LEGACY_ROOT", value)
-    import jav.config as cfg_mod
+    import jav.core.config as cfg_mod
     return importlib.reload(cfg_mod)
 
 
