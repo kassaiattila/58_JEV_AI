@@ -8,9 +8,14 @@ event carries a stable id: a repeat is a duplicate, the same id with other conte
 closed case is kept but ignored. A step that is done gets a new result version; when a person reopens it, the steps
 built on it become stale.
 
+214 (P1b-2): work that ran before it was a case moves onto the core without starting again: the case is adopted with
+each step in the state the work had reached (`adopt`). A whole case can be put on hold (a person put the work aside)
+and resumed; nothing in it moves meanwhile, and its events wait for it.
+
 Tables:
 - `process_cases`: the case: its definition (copy, id, version, fingerprint), its data, status (open | closed) and
-  outcome, and a case-wide wait (`migration`: its definition names a step kind the running code does not have).
+  outcome, and a case-wide wait (`migration`: its definition names a step kind the running code does not have; or the
+  reason it is on hold).
 - `process_steps`: each step's state (waiting | ready | running | done | failed | stale), what a running step waits
   for, its result and result version.
 - `process_history`: the case's history, written in the transaction of the change it records; who acted (rule 8).
@@ -27,7 +32,7 @@ import json
 import os
 import sqlite3
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -41,6 +46,7 @@ from jav.core.process.definition import ProcessDef
 
 OPEN, CLOSED = "open", "closed"
 WAITING, READY, RUNNING, DONE, FAILED, STALE = "waiting", "ready", "running", "done", "failed", "stale"
+STATES = (WAITING, READY, RUNNING, DONE, FAILED, STALE)
 MIGRATION = "migration"
 PENDING, IGNORED = "pending", "ignored"
 
@@ -120,6 +126,11 @@ class StepStateError(ValueError):
     """The step is not in a state the operation can start from (e.g. a gate is not done)."""
 
 
+class AdoptionError(ValueError):
+    """An outside state the core cannot take: a step the definition lacks, an unknown state, a wait on a step not
+    running."""
+
+
 @dataclass(frozen=True)
 class Event:
     event_id: str
@@ -128,6 +139,17 @@ class Event:
     kind: str
     payload: dict[str, Any]
     sent_by: Actor
+
+
+@dataclass(frozen=True)
+class Adopted:
+    """A step's state as its case is adopted (`adopt`): a running step may wait, with a timer (name, epoch seconds)."""
+
+    state: str
+    waiting_for: str | None = None
+    note: str | None = None
+    result: Any = None
+    timer: tuple[str, float] | None = None
 
 
 def _json(value: Any) -> str:
@@ -351,31 +373,114 @@ def take_event(c: sqlite3.Connection, event_id: str, status: str) -> None:
     c.execute("UPDATE process_inbox SET status=?, applied_at=? WHERE event_id=?", (status, _now(), event_id))
 
 
+def hold(c: sqlite3.Connection, case_id: str, reason: str, actor: Actor) -> bool:
+    """The whole case waits for `reason` (214: a person put the work aside): none of its steps, events or timers moves
+    until it is resumed; events still arrive and wait for it. False when the case is closed or waits already."""
+    if reason == MIGRATION:
+        raise ValueError("the migration wait is the engine's own (`need_migration`), not a hold")
+    row = case_row(c, case_id)
+    if row["status"] != OPEN or row["waiting_for"] is not None:
+        return False
+    c.execute("UPDATE process_cases SET waiting_for=?, updated_at=? WHERE case_id=?", (reason, _now(), case_id))
+    record(c, case_id, None, "held", actor, {"for": reason})
+    return True
+
+
+def resume(c: sqlite3.Connection, case_id: str, reason: str, actor: Actor) -> bool:
+    """The case's hold for `reason` is over and it moves on; False when it does not wait for that."""
+    if reason == MIGRATION:
+        raise ValueError("the migration wait ends with the migration, not with a resume")
+    row = case_row(c, case_id)
+    if row["status"] != OPEN or row["waiting_for"] != reason:
+        return False
+    c.execute("UPDATE process_cases SET waiting_for=NULL, updated_at=? WHERE case_id=?", (_now(), case_id))
+    record(c, case_id, None, "resumed", actor, {"for": reason})
+    return True
+
+
+def _start_sha(definition: ProcessDef, data: dict[str, Any]) -> str:
+    return _sha({"definition": definition.fingerprint(), "data": data})
+
+
+def _prior_start(c: sqlite3.Connection, case_id: str, sha: str) -> bool:
+    """Whether the case was started already with this definition and data; another start under its id is a conflict."""
+    prior = c.execute("SELECT start_sha FROM process_cases WHERE case_id=?", (case_id,)).fetchone()
+    if prior is not None and prior["start_sha"] != sha:
+        raise CaseConflict(f"case {case_id} was started with another definition or other data")
+    return prior is not None
+
+
+def _insert_case(c: sqlite3.Connection, case_id: str, definition: ProcessDef, data: dict[str, Any], sha: str,
+                 started_by: Actor) -> str:
+    now = _now()
+    c.execute("INSERT INTO process_cases(case_id, definition_id, definition_version, definition_sha, definition, data,"
+              " start_sha, status, started_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+              (case_id, definition.id, definition.version, definition.fingerprint(), definition.canonical(),
+               _json(data), sha, OPEN, started_by.as_json(), now, now))
+    return now
+
+
+def start_in(c: sqlite3.Connection, case_id: str, definition: ProcessDef, data: dict[str, Any], actor: Actor) -> str:
+    """`start` inside the caller's write transaction (214: a case that starts with the caller's own rows, or neither)."""
+    hooks.authorize(actor, "start", case_id)
+    sha = _start_sha(definition, data)
+    if _prior_start(c, case_id, sha):
+        return "exists"
+    now = _insert_case(c, case_id, definition, data, sha, actor)
+    for step in definition.steps:
+        c.execute("INSERT INTO process_steps(case_id, step_id, state, updated_at) VALUES (?,?,?,?)",
+                  (case_id, step.id, WAITING if step.needs() else READY, now))
+    record(c, case_id, None, "started", actor, {"definition": definition.id, "version": definition.version,
+                                                "sha": definition.fingerprint()})
+    return "started"
+
+
+def adopt(c: sqlite3.Connection, case_id: str, definition: ProcessDef, data: dict[str, Any], started_by: Actor,
+          by: Actor, steps: Mapping[str, Adopted]) -> str:
+    """214 (P1b-2): a case started from a state reached outside the core (work that ran before it moves onto it), in
+    the caller's write transaction: each step in its given state (a step not given waits), a running step's wait with
+    its timer, a done step under result version 1. Then the steps whose order and gates are done become ready, and a
+    case whose steps are all done closes. One history row, by `by`, records the adoption and the states it took; the
+    case is `started_by`'s. "adopted"; a case already there answers "exists" and keeps its own state (once adopted, the
+    core's state counts); the same id with another definition or other data is a conflict, as for `start`."""
+    hooks.authorize(by, "adopt", case_id)
+    if unknown := sorted(set(steps) - {s.id for s in definition.steps}):
+        raise AdoptionError(f"the definition {definition.id} has no step {unknown}")
+    for sid, st in steps.items():
+        if st.state not in STATES:
+            raise AdoptionError(f"step {sid!r}: {st.state!r} is not a step state")
+        if st.state != RUNNING and (st.waiting_for is not None or st.timer is not None):
+            raise AdoptionError(f"step {sid!r} is {st.state}: only a running step waits")
+    sha = _start_sha(definition, data)
+    if _prior_start(c, case_id, sha):
+        return "exists"
+    now = _insert_case(c, case_id, definition, data, sha, started_by)
+    taken = {s.id: steps.get(s.id, Adopted(WAITING)) for s in definition.steps}
+    for sid, st in taken.items():
+        c.execute("INSERT INTO process_steps(case_id, step_id, state, waiting_for, result_version, result, note, updated_at)"
+                  " VALUES (?,?,?,?,?,?,?,?)",
+                  (case_id, sid, st.state, st.waiting_for, 1 if st.state == DONE else 0,
+                   None if st.result is None else _json(st.result), st.note, now))
+    record(c, case_id, None, "adopted", by, {
+        "definition": definition.id, "version": definition.version, "sha": definition.fingerprint(),
+        "steps": {sid: st.state if st.waiting_for is None else f"{st.state}:{st.waiting_for}" for sid, st in taken.items()}})
+    for sid, st in taken.items():
+        if st.timer is not None:
+            timers.arm(c, case_id, sid, st.timer[0], st.timer[1])
+    promote(c, case_id)
+    if all(st.state == DONE for st in taken.values()):
+        close(c, case_id, "done", by)
+    return "adopted"
+
+
 # --- operations with their own transaction ----------------------------------------------------------------------------
 
 
 def start(case_id: str, definition: ProcessDef, data: dict[str, Any], actor: Actor) -> str:
     """"started", or "exists" for a repeat of the same start; the same id with another definition or other data is a
     `CaseConflict` (rule 5 for the start). The steps that wait for nothing are ready at once."""
-    hooks.authorize(actor, "start", case_id)
-    sha = _sha({"definition": definition.fingerprint(), "data": data})
     with transaction() as c:
-        prior = c.execute("SELECT start_sha FROM process_cases WHERE case_id=?", (case_id,)).fetchone()
-        if prior is not None:
-            if prior["start_sha"] != sha:
-                raise CaseConflict(f"case {case_id} was started with another definition or other data")
-            return "exists"
-        now = _now()
-        c.execute("INSERT INTO process_cases(case_id, definition_id, definition_version, definition_sha, definition, data,"
-                  " start_sha, status, started_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                  (case_id, definition.id, definition.version, definition.fingerprint(), definition.canonical(),
-                   _json(data), sha, OPEN, actor.as_json(), now, now))
-        for step in definition.steps:
-            c.execute("INSERT INTO process_steps(case_id, step_id, state, updated_at) VALUES (?,?,?,?)",
-                      (case_id, step.id, WAITING if step.needs() else READY, now))
-        record(c, case_id, None, "started", actor, {"definition": definition.id, "version": definition.version,
-                                                    "sha": definition.fingerprint()})
-    return "started"
+        return start_in(c, case_id, definition, data, actor)
 
 
 def send_event(case_id: str, event_id: str, kind: str, payload: dict[str, Any], actor: Actor, *,

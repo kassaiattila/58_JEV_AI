@@ -19,6 +19,10 @@ time), `pulling` (a mailbox download queued), `started`, `linked`, `needs_budget
 sees (`status`) adds the package's own next step. `advance` moves the chain on; the worker calls `tick` in its loop
 (at most every `TICK_EVERY_S`), the service on creation and when a person starts a step.
 
+214 (plan G-process-core P1b-2): a workflow is a case of the process core under its own id (`jav.app.workflow_cases`):
+the case starts in the transaction that makes the workflow, a workflow made before is adopted from the state its steps
+reached, and archiving or restoring a workflow holds or resumes its case.
+
 147 (DECISIONS 147): a workflow is repeated for the next period from a draft the wizard shows filled in
 (`repeat_draft`); a documents step may take only the documents no live run has processed yet (`only_new`), so the
 folder of a year's invoices does not bring last month's back. The two workflows are linked (`previous_id`).
@@ -29,7 +33,8 @@ package's next step means. This module registers the documents step (the plain p
 email domain registers the emails step, the finance domain the statements and reconciliation steps. The workflow's
 code names none of them.
 
-Layer: UI/CLI → **this** (application operation) → `jav.app.work`, `jav.app.workflow_steps` (and through it the registered
+Layer: UI/CLI → **this** (application operation) → `jav.app.work`, `jav.app.workflow_cases` (214: the process core),
+`jav.app.workflow_steps` (and through it the registered
 kinds' modules; 185: a domain's source kind, the mailbox's), `jav.app.parties` and `jav.app.work_views.next_step`. No AI call here: the runs it starts call
 them, within their budgets.
 """
@@ -47,7 +52,7 @@ from typing import Any
 
 from jav.app import (
     app_settings, logic_packs, package_scope, parties, scopes, work, work_readiness, work_recipes, work_runs,
-    workflow_steps,
+    workflow_cases, workflow_steps,
 )
 from jav.core import activity_kinds, cfg, store
 from jav.core.user_messages import explained
@@ -157,6 +162,7 @@ def _migrate(conn) -> None:
 
 
 store.register_migration("workflows", _migrate)
+store.register_migration("workflow_cases", workflow_cases.adopt_missing)  # 214: the workflows made before get their case
 
 # 153 (review D1): a workflow names its own party and its steps' packages. A merge moves the party's workflows to the
 # party it was merged into, and a party a workflow names cannot be deleted (before, the workflow kept a deleted party's
@@ -379,6 +385,7 @@ def create(*, template_id: str, party_id: str | None, period_start: Any, period_
                       " updated_at, engine) VALUES (?,?,?,?,?,?,?,?,?)",
                       (wf_id, sid, json.dumps(source, ensure_ascii=False), json.dumps(budget), step_name,
                        "linked" if linked else "waiting", source.get("workpackage_id"), now, engine))
+        workflow_cases.start(c, wf_id, t, actor)  # 214: its case, with its rows or neither
         _event(c, wf_id, None, "create", actor, {"template": t["id"], "party": scope.get(scopes.PARTY),
                                                   "period": [start, end] if start else None, "auto": bool(auto)}
                | ({"previous": previous} if previous else {}))
@@ -768,6 +775,8 @@ def update(wf_id: str, *, actor: str, auto: bool | None = None, name: str | None
     if changes:
         with store.connect() as c:
             store.begin_immediate(c)
+            if archived is not None:  # 214: its case is held while it is archived
+                workflow_cases.set_archived(c, wf_id, archived, actor)
             c.execute(f"UPDATE workflows SET {', '.join(f'{k}=?' for k in changes)}, updated_at=? WHERE id=?",
                       (*changes.values(), _now(), wf_id))
             _event(c, wf_id, None, "update", actor, changes)
