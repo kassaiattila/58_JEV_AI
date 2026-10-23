@@ -632,18 +632,44 @@ def confirm_detail_by_direction(state: Any) -> None:
     finance domain's check of the saved stage (`jav/ai/checks.py`; until then in `jav/flows/flow.py`)."""
     if state.record is None or not state.detail_probabilities:
         return
+    inputs = {"doc_type": state.doc_type, "probabilities": dict(state.detail_probabilities),
+              "direction": direction(resolver(), None, state.record.model_dump())[0]}
+    out = direction_rule(inputs)
+    # 218 (P3b): its to-dos and its trace in one write (inside the extraction's save, a part of its transaction)
+    with store.session(), store.connect() as c:
+        store.begin_immediate(c)
+        for prefix in out["closes"]:
+            store.review_close(subject_kind="document", subject_id=state.doc_id, producer="detect_detail",
+                               reason_prefix=prefix, run_id=state.run_id)
+        if out["reasons"]:
+            store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id,
+                                 producer="detect_detail_direction", reasons=out["reasons"])
+        trace.record_in(c, DIRECTION_POINT, subject=("document", state.doc_id), inputs=inputs, outcome=out,
+                        keys={"policy.json": ("detect_detail.direction_sides",)}, run_id=state.run_id)
+
+
+DIRECTION_POINT = "parties.detail_direction"
+
+
+def direction_rule(inputs: dict[str, Any]) -> dict[str, Any]:
+    """149: whether the own parties' direction settles the detailed type's uncertainty between an outgoing and an
+    incoming pack (`policy.detail_direction`): a match closes the uncertainty's to-dos (`closes`: their prefixes), a
+    contradiction is a `detect_detail:direction_mismatch` to-do; otherwise nothing changes."""
     from jav.ai import policy
 
-    found = direction(resolver(), None, state.record.model_dump())[0]
-    verdict = policy.detail_direction(state.doc_type, state.detail_probabilities, found)
-    if verdict == "confirmed":
-        for kind in ("low_conf", "second_option"):
-            store.review_close(subject_kind="document", subject_id=state.doc_id, producer="detect_detail",
-                               reason_prefix=f"detect_detail:{kind}:{state.doc_type}:", run_id=state.run_id)
-    elif verdict == "contradicted":
-        store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id,
-                             producer="detect_detail_direction",
-                             reasons=[f"detect_detail:direction_mismatch:{state.doc_type}:{found}"])
+    doc_type = inputs["doc_type"]
+    verdict = policy.detail_direction(doc_type, inputs["probabilities"], inputs["direction"])
+    return {"verdict": verdict,
+            "closes": [f"detect_detail:{kind}:{doc_type}:" for kind in ("low_conf", "second_option")] if verdict == "confirmed" else [],
+            "reasons": [f"detect_detail:direction_mismatch:{doc_type}:{inputs['direction']}"] if verdict == "contradicted" else []}
+
+
+trace.register(trace.Point(
+    DIRECTION_POINT, owner=__name__, files=("policy.json",), rule=direction_rule,
+    what="whether the direction the own parties give an extracted invoice settles its detailed type's uncertainty "
+         "between an outgoing and an incoming pack: confirmed (the uncertainty's to-dos close) or contradicted (a to-do)",
+    not_for="the direction itself (the own parties' identities on its two sides: an input) or any other uncertainty "
+            "of the detailed type"))
 
 
 def suggest(invoices: Iterable[dict[str, Any]], accounts: Iterable[dict[str, Any]]) -> dict[str, Any]:

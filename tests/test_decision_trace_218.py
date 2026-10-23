@@ -35,6 +35,7 @@ POINT_TESTS = {
     "ocr.escalation": "test_a_blocked_escalation_is_traced_with_the_recognitions_save",
     "finance.duplicate": "test_a_duplicate_and_an_own_tax_number_are_traced_with_the_extractions_save",
     "parties.own_tax_as_supplier": "test_the_store_scans_trace_the_to_dos_they_open",
+    "parties.detail_direction": "test_the_parties_direction_on_an_uncertain_detailed_type_is_traced",
 }
 
 
@@ -555,3 +556,28 @@ def test_the_store_scans_trace_the_to_dos_they_open(db):  # noqa: F811
         assert trace.replay(row) == row["outcome"]
     duplicates.scan(write=True), party_views.scan_own_tax(write=True)  # nothing more to open: nothing more traced
     assert len(trace.rows(point=duplicates.DUPLICATE_POINT)) == len(trace.rows(point=parties.OWN_TAX_POINT)) == 1
+
+
+# --- the detailed type by the own parties' direction ------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("buyer_is_own, verdict", [(True, "contradicted"), (False, "confirmed")])
+def test_the_parties_direction_on_an_uncertain_detailed_type_is_traced(db, buyer_is_own, verdict):  # noqa: F811
+    from jav.app import parties
+    from tests.test_detail_direction_149 import OWN_TAX, SURE, _state, _uncertain
+
+    parties.create("Sample Own Company", identities=[("tax", parties.tax_key(OWN_TAX), OWN_TAX)], actor="t")
+    _uncertain()
+    own, other = {"name": "Sample Own Company Kft.", "tax_id": OWN_TAX}, {"name": "Northwind Trading Ltd.", "tax_id": None}
+    buyer, supplier = (own, other) if buyer_is_own else (other, own)
+    parties.confirm_detail_by_direction(_state(supplier_name=supplier["name"], supplier_tax_id=supplier["tax_id"],
+                                               buyer_name=buyer["name"], buyer_tax_id=buyer["tax_id"]))
+    (row,) = trace.rows(point=parties.DIRECTION_POINT, subject=("document", "d1"))
+    direction = "incoming" if buyer_is_own else "outgoing"
+    assert row["inputs"] == {"doc_type": "invoice_out", "probabilities": SURE, "direction": direction}
+    assert row["outcome"]["verdict"] == verdict and row["run_id"] == "run-a:item-1"
+    opened = [r["reason"] for r in store.review_open_reasons("document", "d1")]
+    assert ("detect_detail:low_conf:invoice_out:0.55" in opened) == (verdict == "contradicted")  # a match closes it
+    assert set(row["outcome"]["reasons"]) <= set(opened)
+    assert row["rules"][0]["keys"] == ["detect_detail.direction_sides"]
+    assert trace.replay(row) == row["outcome"]

@@ -808,8 +808,10 @@ number as the supplier's; `duplicates.duplicate_rule` and `parties.own_tax_rule`
 fields with the other documents of its family and number, and the two tax keys with the own party the supplier's key
 names; a cross-document check gives its trace as a `checks.Traced`, which the extraction keeps in its state,
 `check_traces`, and records in its save; the store scans of the command line, `duplicates --write` and
-`own-tax --write`, record it with each to-do they open, in one write). The rule keys of a band decision come from
-`policy.band_keys`. `python -m jav.cli trace` reads it (`--points`, `--point`,
+`own-tax --write`, record it with each to-do they open, in one write); `parties.detail_direction` (whether the
+direction the own parties give an extracted invoice settles its detailed type's uncertainty between an outgoing and an
+incoming pack, `parties.direction_rule`, the direction found an input; traced with the to-dos it closes or opens,
+inside the extraction's save). The rule keys of a band decision come from `policy.band_keys`. `python -m jav.cli trace` reads it (`--points`, `--point`,
 `--subject KIND:ID`, `--run`, `--case`, `--last`; each row with `same`: its rule gives the stored outcome again); the
 status page counts it by point. Tests: `tests/test_decision_trace_218.py` (a new point must be listed there with its
 test).
