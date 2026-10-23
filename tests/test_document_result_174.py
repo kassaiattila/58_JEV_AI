@@ -12,7 +12,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import duplicates, package_result, party_history, reconcile, store, work, work_runs
+from jav import package_result, party_history, store, work, work_runs
+from jav.domains.finance import duplicates, reconcile
 from jav.runtime import calls
 
 WP, OTHER = "wp-000000000174", "wp-000000000175"
@@ -163,7 +164,7 @@ def test_the_role_history_counts_each_earlier_document_by_its_counted_result(db)
 
 
 def test_the_workspace_mark_sees_a_removal_and_a_run_mode_or_state(db) -> None:
-    from jav import reconcile_package
+    from jav.domains.finance import reconcile_package
 
     _run("run-trial", {"invoice": _inv("INV-1")}, mode="shadow", at="2026-10-18T09:00:00+00:00")
     marks = [reconcile_package.inputs_mark(keep_seconds=10**9)]

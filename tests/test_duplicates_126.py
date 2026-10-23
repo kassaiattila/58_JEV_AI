@@ -13,7 +13,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import checks, corrections, duplicates, export, policy, report_utility, store, work, work_runs
+from jav import checks, corrections, export, policy, store, work, work_runs
+from jav.domains.finance import duplicates, report_utility
 from jav.models import FlowState, DocumentRecord
 from jav.runtime import calls
 from tests import test_api

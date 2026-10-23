@@ -1,6 +1,6 @@
 // 143 (DECISIONS 143): the finder of the pairing page's two lists. The owner found the invoice list beside a selected
 // statement line hard to read: nothing said which invoice is the line's payment and why. The service compares the
-// line with every invoice of the page in code (jav/reconcile_package.py `matches`); this module sorts the invoices
+// line with every invoice of the page in code (jav/domains/finance/reconcile_package.py `matches`); this module sorts the invoices
 // into three groups and says, per invoice, what matches the line — the name, the invoice number, the account, the
 // amount — in words a person checks at a glance.
 // - Fitting: the engine's candidates of the line, the invoices the AI chose for it, and those the service says fit.

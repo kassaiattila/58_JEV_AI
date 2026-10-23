@@ -10,7 +10,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import reconcile_ai, reconcile_review, statement_table as st, values
+from jav import values
+from jav.domains.finance import reconcile_ai, reconcile_review, statement_table as st
 
 
 @pytest.mark.parametrize("text", ["NaN", "Infinity", "1E+3", "12,5", "", None, "abc"])

@@ -4,10 +4,10 @@ Plain-language summary: three tables of the shared data view are the finance dom
 inputs as its item list (169: the scope's statements, then the invoices its pairing may take, with where each result
 comes from and where it stands in the pairing), and the utility cost of a run or of a package's current result, as a
 monthly grid (054 K4) and as the source invoices of each cell. They moved here from `jav/datasets.py` as they were:
-the same columns, rows and order. The finance domain module registers them (`jav/domains/finance.py`), and the data
+the same columns, rows and order. The finance domain module registers them (`jav/domains/finance/__init__.py`), and the data
 view asks its registry.
 
-Layer: application operation (a read view) → `jav.reconcile_package`, `jav.report_utility`.
+Layer: application operation (a read view) → `jav.domains.finance.reconcile_package`, `jav.domains.finance.report_utility`.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ def reconcile_inputs(scope: dict[str, str]) -> Rows:
     invoices its pairing may take (another party's only with `others`), each with the package and the run its result
     comes from, whether it blocks the approval, and where it stands in the pairing; with `left_out`, the documents left
     out of the package too, with who left them out, when and why. Read from the kept workspace."""
-    from jav import reconcile_package
+    from jav.domains.finance import reconcile_package
 
     ws = reconcile_package.kept_workspace(scope["workpackage_id"])
     refs = ws.get("open") or {}
@@ -94,7 +94,7 @@ def reconcile_inputs(scope: dict[str, str]) -> Rows:
 
 
 def _utility_report(scope: dict[str, str]) -> tuple[Callable[[str | None], dict[str, Any]], dict[str, Any]]:
-    from jav import report_utility
+    from jav.domains.finance import report_utility
 
     link, records = datasets.linked_records(scope)
     return link, report_utility.build(records)
@@ -163,7 +163,7 @@ def utility_sources(scope: dict[str, str]) -> Rows:
 
 
 # the tables, each with the table it follows in the catalogue (the order they always had); registered by
-# `jav/domains/finance.py`
+# `jav/domains/finance/__init__.py`
 DATASETS = (
     (datasets.Dataset("reconcile_inputs", "A reconciliation's inputs", ("workpackage_id",), reconcile_inputs,
                       optional_scope=("others", "left_out")), "workpackage_items"),

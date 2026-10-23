@@ -26,7 +26,7 @@ Rules (the owner's decisions of 2026-10-09):
 
 - 143 (DECISIONS 143): the finder of the two lists (`matches`) compares the selected line with every invoice of the
   page in code - name, invoice number, account, amount, timing - and orders them by how they fit; it decides nothing.
-- 145 (DECISIONS 132, 145; the result, `jav/reconcile_statement.py`): the approved versions of a package's statement
+- 145 (DECISIONS 132, 145; the result, `jav/domains/finance/reconcile_statement.py`): the approved versions of a package's statement
   (186: the package's own versions in the shared version store, `jav/package_release.py`) lock their lines: no decision on them is made or revoked in any package, and the package's
   scope does not change, until a person reopens the version (`Locked`). A source from an evaluation on the command line
   stops blocking once a person accepts its result as a source (`reconcile_source_acceptances`). A statement whose
@@ -39,7 +39,7 @@ Rules (the owner's decisions of 2026-10-09):
   left-out invoice is excluded from this package's pairing (`reconcile.prepare`). Files are added to an existing
   documents or statement package (`targets`), and processed there.
 
-Layer: UI/CLI → **this** (application operation) → `jav.reconcile` (the core and its store adapter) and `jav.work`
+Layer: UI/CLI → **this** (application operation) → `jav.domains.finance.reconcile` (the core and its store adapter) and `jav.work`
 (the package record and its log).
 """
 
@@ -55,9 +55,12 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import (activity_kinds, cfg, corrections, decisions, grounding, logic_packs, package_release, package_scope,
-                 parties, reconcile, reconcile_overview, store, typepack, values, work, workflow_steps)
-from jav.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
+from jav import (
+    activity_kinds, cfg, corrections, decisions, grounding, logic_packs, package_release, package_scope, parties,
+    store, typepack, values, work, workflow_steps,
+)
+from jav.domains.finance import reconcile, reconcile_overview
+from jav.domains.finance.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
 from jav.user_messages import explained
 from jav.clock import utc_stamp as _now
 
@@ -70,7 +73,7 @@ REVOKE_KINDS = ("allocation", "mark", "decision")
 
 # 186 (plan G-full-move T2b): the package's scope (its own accounts as the further part `accounts`, the period and the
 # party; NULL: every invoice is the package's) is in the shared scope store (`jav/package_scope.py`)
-# 186 (plan G-full-move T2d): an approved, unchangeable version of a package's statement (`jav/reconcile_statement.py`)
+# 186 (plan G-full-move T2d): an approved, unchangeable version of a package's statement (`jav/domains/finance/reconcile_statement.py`)
 # is the package's own version in the shared version store (`jav/package_release.py`), with the lines it locks while it
 # is not reopened; an older store's `reconcile_versions` and `reconcile_version_files` are copied there once
 store.register_migration("reconcile_package_versions",
@@ -420,7 +423,7 @@ LIST_KEEP_SECONDS = 900
 def _inputs(c) -> list[Any]:
     """140: what a workspace reads: the tables above, the configurations and the day."""
     # the modules whose tables the workspace reads register them on import (a later import would change the mark)
-    from jav import duplicates, fx, reconcile_ai, statement_months  # noqa: F401
+    from jav.domains.finance import duplicates, fx, reconcile_ai, statement_months  # noqa: F401
 
     return [store.table_marks(c, WORKSPACE_INPUTS), reconcile.config_hash(), parties.config_hash(), cfg.config_hash("fx"),
             reconcile.ENGINE_VERSION, date.today().isoformat()]
@@ -558,7 +561,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
                           "own_account_unregistered": lid in unregistered,  # 153: own transfer? no party holds the account
                           "locked": locked.get(lid)})
     line_ids = {ln["id"] for ln in lines}
-    from jav import reconcile_ai  # 134: the AI's stored answers per line (that module reads this workspace)
+    from jav.domains.finance import reconcile_ai  # 134: the AI's stored answers per line (that module reads this workspace)
 
     # 139: a line of a statement that replaced another keeps the answers given on the same line of the replaced one
     earlier = {new: old for old, new in snap.get("line_map", {}).items() if new in line_ids}
@@ -1354,7 +1357,7 @@ def targets(wp_id: str) -> dict[str, Any]:
     open documents packages, those already giving the package documents first, and the statement packages of the
     package's party (every one when it has none). Each with its item count and how many of this package's inputs come
     from it."""
-    from jav import statement_package
+    from jav.domains.finance import statement_package
 
     sc = scope(wp_id)
     ws = kept_workspace(wp_id)
@@ -1447,8 +1450,8 @@ def locate(wp_id: str, line_id: str) -> dict[str, Any]:
     the statement's own document; `original`, the bank's PDF behind a statement read by code; None), and the line's
     page and box on it (None when there is no word layer or the line's amount is not printed on it). 144: a statement
     read by code has no page of its own (its item is the reader's statement file); `original` says whether the bank's
-    PDF was found (`jav/statement_original.py`)."""
-    from jav import statement_original
+    PDF was found (`jav/domains/finance/statement_original.py`)."""
+    from jav.domains.finance import statement_original
 
     statement = _scope_statement(wp_id, line_id)
     coded = statement["doc_type"] == statement_original.DOC_TYPE
@@ -1478,7 +1481,7 @@ def locate(wp_id: str, line_id: str) -> dict[str, Any]:
 
 def original_page(wp_id: str, line_id: str, page: int, *, dpi: int) -> bytes:
     """144: a page of the bank's PDF behind the statement of a line in the scope, read by code (KeyError: none found)."""
-    from jav import statement_original
+    from jav.domains.finance import statement_original
 
     statement = _scope_statement(wp_id, line_id)
     if statement["doc_type"] != statement_original.DOC_TYPE or not statement.get("item_id"):
@@ -1584,7 +1587,7 @@ def workflow_repeat_from(wp_id: str) -> dict[str, Any]:
     return {"kind": "none"}
 
 
-# 181: the reconciliation step of a workflow (registered by the finance domain, `jav/domains/finance.py`): code only,
+# 181: the reconciliation step of a workflow (registered by the finance domain, `jav/domains/finance/__init__.py`): code only,
 # no engine; its package's next steps and what each means for the step
 STEP = workflow_steps.StepKind(
     KIND, __name__, (KIND,), start=workflow_start, paid=False, own_engine=False, repeat_from=workflow_repeat_from,
@@ -1593,14 +1596,14 @@ STEP = workflow_steps.StepKind(
 
 
 # 176 (plan 170 L3): the reconciliation package as a logic pack (`jav/logic_packs.py`; 180: registered by the finance
-# domain, `jav/domains/finance.py`; 186: its scope's party reference and deletion are the shared scope's): no files and
+# domain, `jav/domains/finance/__init__.py`; 186: its scope's party reference and deletion are the shared scope's): no files and
 # no runs; its two input roles are the period's results in every package (DECISIONS 174, the package's current result);
-# 204 (R1h): its golden sets are the finance domain's measurement module's (`jav/reconcile_goldens.py`)
+# 204 (R1h): its golden sets are the finance domain's measurement module's (`jav/domains/finance/goldens.py`)
 LOGIC = logic_packs.LogicPack(
     kind=KIND, module=__name__,
     roles=(logic_packs.InputRole("statements", "period", "the bank and card statements of the scope's accounts and period"),
            logic_packs.InputRole("invoices", "period", "the invoices other packages processed, the own party's first")),
     has_runs=False, add_refusal="a reconciliation package has no documents", release_refusal=_release_refusal,
     delete_guard=_delete_guard, page=_page, approved=_approved, next_step=_next, list_next=_list_next,
-    list_mark=_list_mark, outputs=("reconcile_statement",), service="jav.api_reconcile")
+    list_mark=_list_mark, outputs=("reconcile_statement",), service="jav.domains.finance.api_reconcile")
 

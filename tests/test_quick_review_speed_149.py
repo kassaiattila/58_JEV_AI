@@ -15,7 +15,8 @@ from typing import Any
 
 import pytest
 
-from jav import reconcile, reconcile_package as rp, reconcile_review as rr, store
+from jav import store
+from jav.domains.finance import reconcile, reconcile_package as rp, reconcile_review as rr
 from tests.test_reconcile_review_147 import _setup
 
 

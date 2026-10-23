@@ -3,7 +3,7 @@
 Plain-language summary: a package's downloads are built by shared code: its documents, data points, line items, emails
 and native facts. Some of their columns and sheets belong to the finance domain: the duplicate mark of a document,
 an invoice's direction, the utility cost's two sheets and its own workbook. Until now the shared code named the finance
-modules that make them. Now the finance domain registers them here (`jav/domains/finance.py`), and the shared code
+modules that make them. Now the finance domain registers them here (`jav/domains/finance/__init__.py`), and the shared code
 asks this registry, so a download looks exactly as before and the shared code knows nothing of invoices.
 
 Four kinds of part, each listed in the order it was registered (the order the downloads show them):

@@ -13,7 +13,7 @@ Where the golden sets come from:
 - the type recognition and the email intent: the two flows' golden sets, described here; 190: the quote request's
   invented emails, their intent and the requests read from them (`jav/evals_quotes.py`);
 - a logic pack: the golden sets of its domain's measurement modules, which the domain module names (`GOLDENS`, 204),
-  as the reconciliation's and the quote's (`jav/reconcile_goldens.py`, `jav/quote_goldens.py`); this registry imports
+  as the reconciliation's and the quote's (`jav/domains/finance/goldens.py`, `jav/quote_goldens.py`); this registry imports
   them by name, so a logic pack's own module never imports the measurement layer;
 - 197: the general facts of a held-out family (`configs/golden_facts.json`, `jav/evals_facts.py`): a type pack's
   legacy golden documents with the pack withheld, as a document of an unknown type continues.

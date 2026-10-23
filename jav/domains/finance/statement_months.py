@@ -29,7 +29,7 @@ The rule (the owner's decisions of 2026-10-10):
   whose line has no same line is left over, and the reconciliation package lists it.
 
 Nothing is deleted: a replaced statement keeps its document and run, the snapshot leaves it out (`reconcile.snapshot`)
-and says what replaced it. Reuse: the pair decision follows the duplicate decision of invoices (`jav/duplicates.py`).
+and says what replaced it. Reuse: the pair decision follows the duplicate decision of invoices (`jav/domains/finance/duplicates.py`).
 """
 
 from __future__ import annotations
@@ -173,7 +173,7 @@ CLOSE = 0.1  # 174: within this much of the best match, another line of a differ
 
 def _text(line: dict[str, Any]) -> str:
     """What tells two lines of the same day, amount and direction apart: the partner, the memo and the account."""
-    from jav import reconcile
+    from jav.domains.finance import reconcile
 
     return " ".join(x for x in (reconcile.normalize(f"{line.get('counterparty_name') or ''} {line.get('memo') or ''}"
                                                     f" {line.get('description') or ''}"),
@@ -216,7 +216,7 @@ def _keeps_lines(better: dict[str, Any], worse: dict[str, Any]) -> bool:
 
 
 def _group(statement: dict[str, Any]) -> tuple[str, str]:
-    from jav import reconcile
+    from jav.domains.finance import reconcile
 
     return reconcile.statement_account(statement), str(statement.get("currency") or "")
 
@@ -351,7 +351,7 @@ def review_reasons(current: dict[str, Any]) -> list[str]:
     """The overlap to-dos of the statement being processed (`current`: the snapshot's statement shape), against the
     store's statements: one per live statement it books the same days with, undecided. It reads the store: the check
     registry runs it in a worker run only (175, `jav/checks.py`)."""
-    from jav import reconcile
+    from jav.domains.finance import reconcile
 
     others = [s for s in reconcile.statements() if s["id"] != current["id"]]
     res = resolve([*others, current], choices())
@@ -370,7 +370,8 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, ac
     to-dos close on both documents. 187: a pair whose latest choice was made in another run that is approved by now is
     frozen, as a duplicate decision is (before, a later choice changed that run's reviewed version); the change goes
     into the decision journal, and a stale `expected_state` is refused."""
-    from jav import reconcile, work, work_runs
+    from jav import work, work_runs
+    from jav.domains.finance import reconcile
 
     if other_doc_id == item_id:
         raise explained(ChoiceError, "a statement does not overlap itself")
@@ -421,7 +422,7 @@ def choices_for(doc_ids: Iterable[str], c=None) -> list[dict[str, Any]]:
 
 def current(doc_id: str, doc_type: str, values: dict[str, Any], validation: list[dict[str, Any]]) -> dict[str, Any]:
     """The statement being processed in the snapshot's shape (its stored values and check results)."""
-    from jav import reconcile
+    from jav.domains.finance import reconcile
 
     return reconcile._statement({"doc_id": doc_id, "doc_type": doc_type, "values": values, "validation": validation})
 
@@ -435,7 +436,7 @@ def item_view(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str,
     """What the review page shows of a statement's relations: the statement that replaced it, the ones it replaced,
     and the ones it books the same days with undecided (with the open to-do), each with both periods and sources, how
     it was decided, and how many lines of the replaced statement found their same line."""
-    from jav import reconcile
+    from jav.domains.finance import reconcile
 
     # 153 (review B6): only a stored statement has relations; a document of another kind returns before every stored
     # statement is built (0.10 s of each review page's 0.15-0.19 s, growing with the store; 102 s for a run's results)

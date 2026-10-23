@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "todo_kinds",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "description": "The kinds of to-do (review reason) a processing step can raise (177, plan 170 E6, jav/todo_kinds.py). A to-do's kind is the first two parts of its reason (`<prefix>:<name>`, as the interface's label reads it); `<prefix>:*` stands for a family whose second part varies (each validator check, each JEV error), `*:<name>` for one whose first part is a field. shape: the whole reason; owners: the modules that raise it (none: only earlier runs have it); example: one reason of the kind, for the label test (ui/src/todoKinds177.test.ts). The owner's decision of 2026-10-19 (177): only the tests and the before/after replay watch that a step raises registered kinds; the store accepts any reason, as before.",
     "changelog": [
+      {
+        "version": "1.0.4",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the finance domain's modules moved into jav/domains/finance/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.3",
         "date": "2026-10-23",
@@ -69,19 +74,19 @@
     {"code": "attachment:unreadable", "shape": "attachment:unreadable:<file>", "owners": ["jav/domains/email/flow_email.py"], "what": "a PDF attachment of the email cannot be read", "example": "attachment:unreadable:szamla.pdf"},
     {"code": "attachment:suspicious_email", "shape": "attachment:suspicious_email", "owners": ["jav/domains/email/mailbox.py"], "what": "an attachment of an email routed as suspicious", "example": "attachment:suspicious_email"},
     {"code": "signal:prompt_injection", "shape": "signal:prompt_injection:<p>", "owners": ["jav/policy.py"], "what": "the email's text seems to carry an instruction to the system", "example": "signal:prompt_injection:0.93"},
-    {"code": "duplicate:copy", "shape": "duplicate:copy:<other document>", "owners": ["jav/duplicates.py"], "what": "a possible copy of an earlier document", "example": "duplicate:copy:0123456789abcdef"},
-    {"code": "duplicate:variant", "shape": "duplicate:variant:<other document>", "owners": ["jav/duplicates.py"], "what": "a possible modified version of an earlier document", "example": "duplicate:variant:0123456789abcdef"},
-    {"code": "duplicate:undecidable", "shape": "duplicate:undecidable:<other document>", "owners": ["jav/duplicates.py"], "what": "a possible duplicate with a value missing on one side", "example": "duplicate:undecidable:0123456789abcdef"},
-    {"code": "statement:overlap", "shape": "statement:overlap:<other document>", "owners": ["jav/statement_months.py"], "what": "another statement books the same days of the account", "example": "statement:overlap:0123456789abcdef"},
+    {"code": "duplicate:copy", "shape": "duplicate:copy:<other document>", "owners": ["jav/domains/finance/duplicates.py"], "what": "a possible copy of an earlier document", "example": "duplicate:copy:0123456789abcdef"},
+    {"code": "duplicate:variant", "shape": "duplicate:variant:<other document>", "owners": ["jav/domains/finance/duplicates.py"], "what": "a possible modified version of an earlier document", "example": "duplicate:variant:0123456789abcdef"},
+    {"code": "duplicate:undecidable", "shape": "duplicate:undecidable:<other document>", "owners": ["jav/domains/finance/duplicates.py"], "what": "a possible duplicate with a value missing on one side", "example": "duplicate:undecidable:0123456789abcdef"},
+    {"code": "statement:overlap", "shape": "statement:overlap:<other document>", "owners": ["jav/domains/finance/statement_months.py"], "what": "another statement books the same days of the account", "example": "statement:overlap:0123456789abcdef"},
     {"code": "reconcile:proposed", "shape": "reconcile:proposed:<line>", "owners": [], "what": "earlier runs (129): a proposed invoice and statement line pair", "example": "reconcile:proposed:0123456789abcdef"},
     {"code": "reconcile:amount_only", "shape": "reconcile:amount_only:<line>", "owners": [], "what": "earlier runs (131): a pair with the same amount and nothing else", "example": "reconcile:amount_only:0123456789abcdef"},
-    {"code": "statement_table:unreadable_lines", "shape": "statement_table:unreadable_lines:<n>", "owners": ["jav/flow_statement_table.py"], "what": "lines of a bank's table export could not be read", "example": "statement_table:unreadable_lines:3"},
-    {"code": "statement_table:missing", "shape": "statement_table:missing:<field>", "owners": ["jav/flow_statement_table.py"], "what": "a required field is missing from the table export", "example": "statement_table:missing:account_number"},
-    {"code": "statement_table:balance_unchecked", "shape": "statement_table:balance_unchecked", "owners": ["jav/flow_statement_table.py"], "what": "the balances cannot be checked", "example": "statement_table:balance_unchecked"},
-    {"code": "statement_table:balance_from_lines", "shape": "statement_table:balance_from_lines", "owners": ["jav/flow_statement_table.py"], "what": "the balances were taken from the export's lines, without a total row", "example": "statement_table:balance_from_lines"},
-    {"code": "statement_table:companion_mismatch", "shape": "statement_table:companion_mismatch:<n>", "owners": ["jav/flow_statement_table.py"], "what": "the export and its PDF statement differ", "example": "statement_table:companion_mismatch:2"},
-    {"code": "statements:not_a_statement", "shape": "statements:not_a_statement:<type>", "owners": ["jav/statement_package.py"], "what": "a statement package's PDF is not a bank statement", "example": "statements:not_a_statement:invoice_hu"},
-    {"code": "statements:other_party", "shape": "statements:other_party", "owners": ["jav/statement_package.py"], "what": "the statement's account belongs to another own party", "example": "statements:other_party"},
+    {"code": "statement_table:unreadable_lines", "shape": "statement_table:unreadable_lines:<n>", "owners": ["jav/domains/finance/flow_statement_table.py"], "what": "lines of a bank's table export could not be read", "example": "statement_table:unreadable_lines:3"},
+    {"code": "statement_table:missing", "shape": "statement_table:missing:<field>", "owners": ["jav/domains/finance/flow_statement_table.py"], "what": "a required field is missing from the table export", "example": "statement_table:missing:account_number"},
+    {"code": "statement_table:balance_unchecked", "shape": "statement_table:balance_unchecked", "owners": ["jav/domains/finance/flow_statement_table.py"], "what": "the balances cannot be checked", "example": "statement_table:balance_unchecked"},
+    {"code": "statement_table:balance_from_lines", "shape": "statement_table:balance_from_lines", "owners": ["jav/domains/finance/flow_statement_table.py"], "what": "the balances were taken from the export's lines, without a total row", "example": "statement_table:balance_from_lines"},
+    {"code": "statement_table:companion_mismatch", "shape": "statement_table:companion_mismatch:<n>", "owners": ["jav/domains/finance/flow_statement_table.py"], "what": "the export and its PDF statement differ", "example": "statement_table:companion_mismatch:2"},
+    {"code": "statements:not_a_statement", "shape": "statements:not_a_statement:<type>", "owners": ["jav/domains/finance/statement_package.py"], "what": "a statement package's PDF is not a bank statement", "example": "statements:not_a_statement:invoice_hu"},
+    {"code": "statements:other_party", "shape": "statements:other_party", "owners": ["jav/domains/finance/statement_package.py"], "what": "the statement's account belongs to another own party", "example": "statements:other_party"},
     {"code": "no_invoice:", "shape": "no_invoice", "owners": ["jav/policy.py"], "what": "the flow built no record from the document", "example": "no_invoice"},
     {"code": "parties:same_tax_id", "shape": "parties:same_tax_id", "owners": [], "what": "earlier runs: the supplier's and the buyer's tax numbers are the same", "example": "parties:same_tax_id"},
     {"code": "parties:same_name", "shape": "parties:same_name", "owners": [], "what": "earlier runs: the supplier's and the buyer's names are the same", "example": "parties:same_name"},
@@ -114,7 +119,7 @@
     {"code": "native:grounding", "shape": "native:grounding", "owners": ["jav/flow_native.py"], "what": "a proposed fact is not found word for word in the source", "example": "native:grounding"},
     {"code": "native:claim", "shape": "native:claim:<state>", "owners": ["jav/flow_native.py"], "what": "a proposed fact is not certain", "example": "native:claim:uncertain"},
     {"code": "native:fact", "shape": "native:fact:<index>:<verdict>:<p>", "owners": ["jav/flow_native.py"], "what": "JEV does not support a proposed fact, or is unsure of it", "example": "native:fact:0:unsupported:0.31"},
-    {"code": "validator:*", "shape": "validator:<check>[:<field> | :<detail>]", "owners": ["jav/policy.py", "jav/flow_statement_table.py"], "what": "a code check of the record failed (the check's own label, `CHECK_TEXT` in ui/src/labels.ts)", "example": "validator:totals.mismatch"},
+    {"code": "validator:*", "shape": "validator:<check>[:<field> | :<detail>]", "owners": ["jav/policy.py", "jav/domains/finance/flow_statement_table.py"], "what": "a code check of the record failed (the check's own label, `CHECK_TEXT` in ui/src/labels.ts)", "example": "validator:totals.mismatch"},
     {"code": "jev_unavailable:*", "shape": "jev_unavailable:<why>", "owners": ["jav/flow.py", "jav/flow_detect.py", "jav/domains/email/flow_email.py", "jav/flow_native.py", "jav/native_processing.py"], "what": "a JEV question could not be answered (or, without JEV, was not sent)", "example": "jev_unavailable:TypeSafeAPIConnectionError"}
   ]
 }

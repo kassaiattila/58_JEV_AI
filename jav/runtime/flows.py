@@ -145,6 +145,6 @@ register(FlowSpec("invoice", "jav.flow", _build_extraction, lambda m: m.build_ap
 register(FlowSpec("doc_detect", "jav.flow_detect", _build_detect, lambda m: m.build_app("lint.pdf", tracker=False)))
 register(FlowSpec("email", "jav.domains.email.flow_email", _build_email, lambda m: m.build_app(source_dir="lint", tracker=False)))
 register(FlowSpec("native", "jav.flow_native", _build_native, _lint_native, native=True))
-register(FlowSpec("statement_table", "jav.flow_statement_table", _build_statement_table, _lint_statement_table))
+register(FlowSpec("statement_table", "jav.domains.finance.flow_statement_table", _build_statement_table, _lint_statement_table))
 # 047 T1.3: the `document` recipe flow: detection, then extraction of the detected detailed type (worker `_stages`)
 register(FlowSpec("document", stages=("doc_detect", "invoice"), doc_type="detected"))

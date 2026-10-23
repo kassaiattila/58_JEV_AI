@@ -55,10 +55,6 @@ NOT_MOVED = {name: layer for layer, names in {
         "registrations reground scopes source_instances tablequery work work_readiness work_recipes work_runs "
         "work_views workflow_steps workflows",
     "runtime": "backup deps_audit",
-    "domains.finance": "api_finance api_parties api_reconcile api_statement_package bank_files duplicates finance_cli "
-        "finance_datasets flow_statement_table fx party_views reconcile reconcile_ai reconcile_goldens "
-        "reconcile_overview reconcile_package reconcile_review reconcile_statement report_utility "
-        "statement_months statement_original statement_package statement_table",
     "domains.quotes": "api_price_lists api_quote_package price_lists quote_document quote_draft quote_golden "
         "quote_goldens quote_letter quote_match quote_package quote_pricing quote_proposal quote_request",
     "service": "api api_items api_outputs api_results api_runs api_settings api_system api_workflows "

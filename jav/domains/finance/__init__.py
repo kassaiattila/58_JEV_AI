@@ -14,14 +14,17 @@ here, in one call (`register`, from `registrations.load_all`):
   columns, an invoice's direction, the utility cost's sheets, grand total and JSON section in the package's result,
   and the utility cost's own workbook;
 - (185) its tables on the interface: a reconciliation's inputs, the utility cost's grid and sources
-  (`jav/finance_datasets.py`);
-- (185) its addresses of the local service beyond its logic packs' own: the own parties (`jav/api_parties.py`) and the
+  (`jav/domains/finance/finance_datasets.py`);
+- (185) its addresses of the local service beyond its logic packs' own: the own parties (`jav/domains/finance/api_parties.py`) and the
   bank files, a tabular export's accounts, the utility cost and the duplicate and statement decisions
-  (`jav/api_finance.py`), named in `SERVICE`.
+  (`jav/domains/finance/api_finance.py`), named in `SERVICE`.
 
 The check adapters below turn a document under check into the call of the module that does the work; the work itself
-stays in `jav/duplicates.py`, `jav/parties.py`, `jav/statement_months.py` and `jav/report_utility.py`. 204: the
-reconciliation's golden sets in the shared measurement are described in `jav/reconcile_goldens.py`, named in `GOLDENS`.
+stays in the domain's own modules, in this folder (`duplicates.py`, `statement_months.py`, `report_utility.py`), and in
+the shared `jav/parties.py`. 204: the reconciliation's golden sets in the shared measurement are described in
+`jav/domains/finance/goldens.py` (208: until then `jav/reconcile_goldens.py`), named in `GOLDENS`. 208 (plan
+G-process-core R2): the domain's modules are the ones in this folder (until then `MODULES` named them); the shared code
+imports none of them (`tests/test_dependency_direction.py`).
 """
 
 from __future__ import annotations
@@ -33,20 +36,12 @@ from jav.outputs import parts
 
 # 185 (plan G-full-move T1a): the modules of the domain's addresses of the local service beyond its logic packs' own
 # (`LogicPack.service`); `jav.api.service_modules` adds them by name
-SERVICE = ("jav.api_parties", "jav.api_finance")
+SERVICE = ("jav.domains.finance.api_parties", "jav.domains.finance.api_finance")
 # 202 (plan G-core-generalisation M3a): the module of the domain's commands (`register(sub)`); `jav.cli` adds it by name
-COMMANDS = ("jav.finance_cli",)
-# 191 (plan F-quote-package B1): the modules the domain is made of (until 191 listed in the boundary test); the shared
-# code imports none of them (`tests/test_dependency_direction.py`)
-MODULES = frozenset({
-    "api_finance", "api_parties", "api_reconcile", "api_statement_package", "bank_files", "duplicates", "finance_cli",
-    "finance_datasets", "flow_statement_table", "fx", "party_views", "reconcile", "reconcile_ai", "reconcile_goldens",
-    "reconcile_overview", "reconcile_package", "reconcile_review", "reconcile_statement", "report_utility",
-    "statement_months", "statement_original", "statement_package", "statement_table", "domains.finance",
-})
+COMMANDS = ("jav.domains.finance.finance_cli",)
 # 204 (plan G-process-core R1h): the modules of the domain's golden sets (the reconciliation's), by name; the shared measurement
 # command imports them (`jav.goldens.logic_pack_goldens`), so the reconciliation imports no measurement code
-GOLDENS = ("jav.reconcile_goldens",)
+GOLDENS = ("jav.domains.finance.goldens",)
 
 # --- the cross-document checks: they read the store, so the check registry runs them in a worker run only, and a
 # measurement's result never depends on what the store holds (175, plan 170 E3: `jav/checks.py`) ---------------------
@@ -54,8 +49,8 @@ GOLDENS = ("jav.reconcile_goldens",)
 
 def duplicate_check(subject: checks.Subject) -> list[str]:
     """126 (backlog F-duplicate, the owner's decisions of 2026-10-07): an invoice-like document that is the same
-    invoice as an earlier one in the store gets a `duplicate:<kind>:<other>` to-do (`jav/duplicates.py`)."""
-    from jav import duplicates
+    invoice as an earlier one in the store gets a `duplicate:<kind>:<other>` to-do (`jav/domains/finance/duplicates.py`)."""
+    from jav.domains.finance import duplicates
 
     if subject.record is None or duplicates.family(subject.doc_type) is None:
         return []
@@ -78,10 +73,11 @@ def own_tax_check(subject: checks.Subject) -> list[str]:
 def statement_overlap_check(subject: checks.Subject) -> list[str]:
     """139 (DECISIONS 139): a statement that books the same days of an account as another one in the store, when
     neither replaces the other by the rule and no person has chosen, gets a `statement:overlap:<other>` to-do
-    (`jav/statement_months.py`)."""
+    (`jav/domains/finance/statement_months.py`)."""
     if subject.record is None or not subject.doc_id or not type_roles.has(subject.doc_type, "statement"):
         return []
-    from jav import statement_months, typepack
+    from jav import typepack
+    from jav.domains.finance import statement_months
 
     values = subject.record.to_datapoints(typepack.get(subject.doc_type).record_fields)  # the stored form
     current = statement_months.current(subject.doc_id, subject.doc_type, values, subject.validation)
@@ -94,33 +90,33 @@ def statement_overlap_check(subject: checks.Subject) -> list[str]:
 
 def duplicate_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
     """126: the duplicate decisions on pairs that include one of the run's documents."""
-    from jav import duplicates
+    from jav.domains.finance import duplicates
 
     return [[d["pair_key"], d["doc_id"], d["decision"], d["decided_at"]] for d in duplicates.decisions_for(items, c)]
 
 
 def reconcile_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
     """129: the reconciliation decisions on pairs one of the run's documents is a side of."""
-    from jav import reconcile
+    from jav.domains.finance import reconcile
 
     return [[d["pair_key"], d["decision"], d["decided_at"]] for d in reconcile.decisions_for(items, c)]
 
 
 def statement_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
     """139: the choices between two statements of the same days that include one of the run's documents."""
-    from jav import statement_months
+    from jav.domains.finance import statement_months
 
     return [[d["pair_key"], d["keep_doc_id"], d["decided_at"]] for d in statement_months.choices_for(items, c)]
 
 
 def duplicate_scan(*, write: bool = False) -> dict[str, Any]:
-    from jav import duplicates
+    from jav.domains.finance import duplicates
 
     return duplicates.scan(write=write)
 
 
 def own_tax_scan(*, write: bool = False) -> dict[str, Any]:
-    from jav import party_views  # 185: the scan is the finance domain's (`parties` keeps the check)
+    from jav.domains.finance import party_views  # 185: the scan is the finance domain's (`parties` keeps the check)
 
     return party_views.scan_own_tax(write=write)
 
@@ -182,7 +178,8 @@ def place_document(doc_type: str | None, values: dict[str, Any], cache: dict[str
     """181: where a document belongs for the email routing (`package_scope.place`): a bank statement by its account's
     own party, on its period's last day; an invoice by its two sides (`parties.direction`: incoming to the buyer,
     outgoing from the supplier), on its fulfilment day, else its issue day. None for another kind of document."""
-    from jav import cfg, package_scope, parties, statement_package
+    from jav import cfg, package_scope, parties
+    from jav.domains.finance import statement_package
     from jav.models import account_key
 
     if "finance:resolver" not in cache:  # the identities as they stand, read once per routing view
@@ -204,7 +201,8 @@ def place_document(doc_type: str | None, values: dict[str, Any], cache: dict[str
 
 
 def _roles() -> tuple[Any, ...]:
-    from jav import package_scope, statement_package
+    from jav import package_scope
+    from jav.domains.finance import statement_package
 
     return (package_scope.Role("incoming_invoices", __name__, "Incoming invoices", _incoming, DOCUMENT_PACKAGES),
             package_scope.Role("outgoing_invoices", __name__, "Outgoing invoices", _outgoing, DOCUMENT_PACKAGES),
@@ -213,14 +211,14 @@ def _roles() -> tuple[Any, ...]:
 
 def duplicate_pairs(item_id: str, reasons: list[dict[str, Any]]) -> Any:
     """126: the duplicate suspicions and decisions of the document, with the other document side by side."""
-    from jav import duplicates
+    from jav.domains.finance import duplicates
 
     return duplicates.item_pairs(item_id, reasons)
 
 
 def statement_replacements(item_id: str, reasons: list[dict[str, Any]]) -> Any:
     """139: the statement that replaced this one, the ones it replaced, and the undecided ones of the same days."""
-    from jav import statement_months
+    from jav.domains.finance import statement_months
 
     return statement_months.item_view(item_id, reasons)
 
@@ -244,8 +242,8 @@ DIRECTION_COLUMNS = (parts.Column("direction", "Direction", "enum", "direction")
 
 def register() -> None:
     """Every registration of the finance domain, in the order the shared code lists them (`registrations.load_all`)."""
-    from jav import (datasets, duplicates, finance_datasets, logic_packs, package_scope, parties, reconcile_package,
-                     report_utility, statement_package, workflow_steps)
+    from jav import datasets, logic_packs, package_scope, parties, workflow_steps
+    from jav.domains.finance import duplicates, finance_datasets, reconcile_package, report_utility, statement_package
 
     for check in CHECKS:
         checks.register(check)
@@ -253,7 +251,7 @@ def register() -> None:
         activity_kinds.register_decision(kind, after=after)
     for part in RECORD_PARTS:  # 185: the finance parts of a document's result on the review page
         item_kinds.register_record_part(part)
-    from jav import reconcile_statement  # 185: its package log events (until then the activity registry's own) and labels
+    from jav.domains.finance import reconcile_statement  # 185: its package log events (until then the activity registry's own) and labels
     logic_packs.register(statement_package.LOGIC)  # 186: their scopes' party reference is the shared scope's
     logic_packs.register(reconcile_package.LOGIC)
     workflow_steps.register(statement_package.STEP)  # 181: a workflow's statements and reconciliation steps

@@ -3,7 +3,7 @@ reaches the reconciliation without it; the result table showed it as it was."""
 
 from __future__ import annotations
 
-from jav.reconcile import printable
+from jav.domains.finance.reconcile import printable
 
 
 def test_control_characters_become_one_space() -> None:

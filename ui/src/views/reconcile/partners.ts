@@ -1,8 +1,8 @@
 // 135 (plan 134 P2): a statement line's partner and what is known about it, for the pairing page. The partner is the
-// line's counterparty name without its reference numbers (the service's `partner`, jav/reconcile.py `name_key`); its
+// line's counterparty name without its reference numbers (the service's `partner`, jav/domains/finance/reconcile.py `name_key`); its
 // lines are grouped and marked as needing no invoice in one step. A suggestion for the reason comes from a person's
 // earlier marks of the partner's lines first, then (140) from the lines' own category in the bank's export, then from
-// the AI's kind of payment (jav/reconcile_ai.py) — a suggestion only: a person chooses and saves it.
+// the AI's kind of payment (jav/domains/finance/reconcile_ai.py) — a suggestion only: a person chooses and saves it.
 import { OPEN_LINE_STATES, type ReconcileAiEngine, type ReconcileLine } from "../../api";
 import { parseCanonical } from "./money";
 

@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import parties, statement_table as st, store, work, workflows as wf
+from jav import parties, store, work, workflows as wf
+from jav.domains.finance import statement_table as st
 from tests import test_statement_erste_137 as erste
 
 MONTH = ("2026-06-01", "2026-06-30")

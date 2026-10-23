@@ -21,7 +21,7 @@ from decimal import Decimal
 import pytest
 
 from jav import datasets, export, package_release, store, typepack
-from jav import reconcile_statement as rs
+from jav.domains.finance import reconcile_statement as rs
 from jav.datasets import Column
 from jav.tablequery import Query
 from tests.test_reconcile_statement_145 import _world

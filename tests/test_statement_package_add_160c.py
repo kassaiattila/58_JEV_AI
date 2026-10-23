@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from jav import statement_package as sp
+from jav.domains.finance import statement_package as sp
 from jav import work
 from tests import test_api
 from tests import test_statement_package_140 as sp140

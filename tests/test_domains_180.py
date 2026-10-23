@@ -92,8 +92,8 @@ def _imported(path) -> set[str]:
     return names
 
 
-FINANCE = {"jav.duplicates", "jav.parties", "jav.report_utility", "jav.type_roles", "jav.reconcile", "jav.reconcile_package",
-           "jav.statement_package", "jav.statement_months"}
+FINANCE = {"jav.domains.finance.duplicates", "jav.parties", "jav.domains.finance.report_utility", "jav.type_roles", "jav.domains.finance.reconcile", "jav.domains.finance.reconcile_package",
+           "jav.domains.finance.statement_package", "jav.domains.finance.statement_months"}
 
 
 def test_the_shared_download_code_names_no_finance_module() -> None:

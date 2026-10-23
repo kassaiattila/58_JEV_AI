@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import parties, party_views, reconcile, reconcile_package as rp, store, work
+from jav import parties, store, work
+from jav.domains.finance import party_views, reconcile, reconcile_package as rp
 from tests import test_api
 from tests import test_reconcile_k2_129 as k2
 from tests import test_reconcile_package_131 as p131

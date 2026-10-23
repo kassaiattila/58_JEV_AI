@@ -13,7 +13,8 @@ import copy
 
 import pytest
 
-from jav import reconcile, reconcile_package, store
+from jav import store
+from jav.domains.finance import reconcile, reconcile_package
 from tests import test_reconcile_k2_129 as k2
 
 CASES = {c["id"]: c for c in reconcile.golden_cases()}

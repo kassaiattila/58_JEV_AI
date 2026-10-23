@@ -17,7 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import parties, reconcile, statement_package as sp, statement_table as st, store, work, work_readiness, work_runs
+from jav import parties, store, work, work_readiness, work_runs
+from jav.domains.finance import reconcile, statement_package as sp, statement_table as st
 from jav.runtime import queue, worker
 from tests import test_api
 from tests.test_flow_statement_table_136 import _run_all

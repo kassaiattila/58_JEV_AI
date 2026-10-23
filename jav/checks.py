@@ -26,7 +26,7 @@ give results that do not depend on what the store holds. The stored order of to-
 of a stage run in the order they are registered (the order `policy.decide` had; `tests/test_characterisation_171.py`).
 The built-in checks are registered by the modules that own them (`jav/validators.py`: record; `jav/policy.py`:
 decision) when they are imported; 180 (plan 170 E7): the cross-document and after-save checks are the finance domain's
-(`jav/domains/finance.py`), registered by `registrations.load_all`. The registry imports the first two and calls
+(`jav/domains/finance/__init__.py`), registered by `registrations.load_all`. The registry imports the first two and calls
 `load_all` the first time it is read, so it is complete whichever module asks first.
 """
 

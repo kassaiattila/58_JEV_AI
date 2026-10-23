@@ -1,11 +1,11 @@
 """The reconciliation's golden sets in the shared measurement command (204, plan G-process-core R1h; until 204 in
-`jav/reconcile_package.py`).
+`jav/domains/finance/reconcile_package.py`).
 
 Plain-language summary: the reconciliation has two golden sets, lists of cases whose right answer is known in advance:
 the pairs, exclusions and statuses its code proposes on synthetic cases, and the kind of incoming money on invented
 statement lines. The shared measurement command (`python -m jav.cli measure`, `jav/goldens.py`) measures them with every
 other golden set. They are described here, beside the reconciliation, so the reconciliation itself never imports the
-measurement layer; the finance domain names this module (`jav/domains/finance.py` `GOLDENS`) and the shared command
+measurement layer; the finance domain names this module (`jav/domains/finance/__init__.py` `GOLDENS`) and the shared command
 finds it from there.
 
 Layer: measurement of the finance domain: it imports the reconciliation and the shared measurement registry; no
@@ -14,8 +14,9 @@ business module imports it.
 
 from __future__ import annotations
 
-from jav import cfg, goldens, reconcile
-from jav.reconcile_package import KIND
+from jav import cfg, goldens
+from jav.domains.finance import reconcile
+from jav.domains.finance.reconcile_package import KIND
 
 
 def _measure_pairs(options: goldens.Options) -> goldens.Outcome:
@@ -28,7 +29,7 @@ def _measure_pairs(options: goldens.Options) -> goldens.Outcome:
 
 def _measure_credit_kinds(options: goldens.Options) -> goldens.Outcome:
     """As `reconcile-ai --golden` measures them, with the round's engine; without a budget from earlier answers only."""
-    from jav import reconcile_ai
+    from jav.domains.finance import reconcile_ai
 
     budget, refused = options.answering_budget("the incoming money kinds")
     if refused:

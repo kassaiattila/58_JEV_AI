@@ -13,7 +13,7 @@ them hyphenated, `1234-5678-9012-3456`), and a 15-digit American Express number 
 4-6-5 groups) counts too. A 19-digit number does not. The data guard uses the same pattern (`CARD`), so what the
 masking recognises and what the guard stops cannot drift apart.
 
-Layer: a business helper without dependencies; `jav.statement_table` (the readers), `jav.reconcile` (the pairing
+Layer: a business helper without dependencies; `jav.domains.finance.statement_table` (the readers), `jav.domains.finance.reconcile` (the pairing
 views of a statement extracted by AI), the saving and the downloads of extracted data, and `jav.data_guard` use it.
 """
 

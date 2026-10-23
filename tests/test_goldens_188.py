@@ -17,7 +17,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import cli, evals, evals_detect, evals_email, goldens, reconcile, reconcile_ai, reconcile_goldens
+from jav import cli, evals, evals_detect, evals_email, goldens
+from jav.domains.finance import reconcile, reconcile_ai, goldens as reconcile_goldens
 from tests.test_golden_commands_188 import (CREDIT_RESULT, credit_kinds_call, detect_call, email_call, golden_call,
                                             record)
 
@@ -106,7 +107,7 @@ def test_a_logic_pack_golden_set_must_be_named_after_the_pack(monkeypatch, key, 
     golden = goldens.Golden(key=key, layer=layer, owner=owner, what="w", engines=(),
                             count=lambda: 1, measure=lambda options: goldens.Outcome(), module=__name__)
     monkeypatch.setattr(reconcile_goldens, "GOLDENS", (*reconcile_goldens.GOLDENS, golden))
-    with pytest.raises(ValueError, match=f"jav.reconcile_goldens: its golden set '{key}'"):
+    with pytest.raises(ValueError, match=f"jav.domains.finance.goldens: its golden set '{key}'"):
         goldens.sets()
 
 

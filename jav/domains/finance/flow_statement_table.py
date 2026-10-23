@@ -31,7 +31,8 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav import checks, policy, statement_table, store
+from jav import checks, policy, store
+from jav.domains.finance import statement_table
 from jav.typepack import get as get_pack
 
 PARTITION = "statement_table"
@@ -150,7 +151,7 @@ CONTRACT = {
     "edges": [("load_table", "check_table"), ("check_table", "save_table"),
               ("save_table", "needs_review", "To-dos remain"), ("save_table", "done", "Every check passed")],
     "step_meta": {
-        "load_table": {"kind": "det", "note": "Verify the account's statement file against the run's frozen fingerprint and load the statement the reader built from the export (jav/statement_table.py)."},
+        "load_table": {"kind": "det", "note": "Verify the account's statement file against the run's frozen fingerprint and load the statement the reader built from the export (jav/domains/finance/statement_table.py)."},
         "check_table": {"kind": "det", "note": "The type pack's checks (running balance, closing balance, totals, period dates); a failed check, a missing required field and a line the reader could not read are to-dos; 137: a ledger export without its PDF statement has one to-do for its balances, and a line on one side only is a to-do."},
         "save_table": {"kind": "store", "note": "Save the statement as the item's document and data points, so the reconciliation reads it like an extracted statement; the to-dos go into the review queue."},
         "done": {"kind": "terminal", "note": "Every check passed; human approval remains separate."},

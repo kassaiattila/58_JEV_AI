@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "engine_matrix",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
     "changelog": [
+      {
+        "version": "1.0.9",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the finance domain's modules moved into jav/domains/finance/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.8",
         "date": "2026-10-23",
@@ -120,10 +125,10 @@
     "reconcile_line": {
       "call_site": "reconcile_line",
       "modules": [
-        "jav/reconcile_ai.py"
+        "jav/domains/finance/reconcile_ai.py"
       ],
       "gpt": {
-        "module": "jav/reconcile_ai.py",
+        "module": "jav/domains/finance/reconcile_ai.py",
         "function": "ask_gpt",
         "config": "gpt_reconcile"
       },

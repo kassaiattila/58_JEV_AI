@@ -28,7 +28,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import cfg, gpt_choice, reconcile, reconcile_ai, reconcile_package, reconcile_review, store
+from jav import cfg, gpt_choice, store
+from jav.domains.finance import reconcile, reconcile_ai, reconcile_package, reconcile_review
 from tests import test_reconcile_k2_129 as k2
 
 INCOMING = ["customer_payment", "own_transfer", "income", "interest", "refund", "owner_contribution", "other"]

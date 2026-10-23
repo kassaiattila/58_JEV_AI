@@ -148,7 +148,7 @@ def db(tmp_path):
 
 
 def test_a_duplicate_decision_is_journaled_and_a_stale_one_refused(db) -> None:
-    from jav import duplicates
+    from jav.domains.finance import duplicates
     from tests import test_duplicates_126 as d126
 
     earlier, now = d126._pair_in_run()
@@ -168,7 +168,7 @@ def test_a_duplicate_decision_is_journaled_and_a_stale_one_refused(db) -> None:
 def test_a_statement_pair_decided_in_an_approved_run_is_frozen_for_another_run(db) -> None:
     """Bug 3 of the survey (186): a later choice made in another run changed the reviewed version of the approved run
     that had decided the pair. Now it is refused, as a duplicate decision is."""
-    from jav import statement_months as sm
+    from jav.domains.finance import statement_months as sm
     from tests import test_reconcile_k2_129 as k2
     from tests.test_statement_months_store_139 import _pair_in_run
 
@@ -186,7 +186,7 @@ def test_a_statement_pair_decided_in_an_approved_run_is_frozen_for_another_run(d
 
 
 def test_a_statement_choice_is_journaled_and_a_stale_one_refused(db) -> None:
-    from jav import statement_months as sm
+    from jav.domains.finance import statement_months as sm
     from tests import test_reconcile_k2_129 as k2
     from tests.test_statement_months_store_139 import _pair_in_run
 
@@ -308,7 +308,7 @@ def _reconciliation():
 
 
 def test_every_reconciliation_decision_goes_into_the_journal(db) -> None:
-    from jav import reconcile_package as rp
+    from jav.domains.finance import reconcile_package as rp
 
     wp, inv, pay, fee = _reconciliation()
     assert rp.page(wp)["journal_state"] == 0
@@ -334,13 +334,13 @@ def test_every_reconciliation_decision_goes_into_the_journal(db) -> None:
 
 
 def reconcile_pair(invoice: str, line: str) -> str:
-    from jav import reconcile
+    from jav.domains.finance import reconcile
 
     return reconcile.pair_key(invoice, line)
 
 
 def test_a_reconciliation_decision_from_a_stale_page_is_refused(db) -> None:
-    from jav import reconcile_package as rp
+    from jav.domains.finance import reconcile_package as rp
 
     wp, inv, pay, fee = _reconciliation()
     seen = rp.page(wp)["journal_state"]
@@ -359,7 +359,7 @@ def test_a_reconciliation_decision_from_a_stale_page_is_refused(db) -> None:
 
 def test_revoking_a_pair_rechecks_the_runs_approval_inside_the_transaction(db, monkeypatch) -> None:
     """Before, the frozen check ran before the write transaction, so a run approved in between was missed."""
-    from jav import reconcile_package as rp
+    from jav.domains.finance import reconcile_package as rp
     from tests import test_reconcile_k2_129 as k2
 
     wp, inv, pay, _fee = _reconciliation()

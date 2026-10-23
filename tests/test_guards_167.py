@@ -16,9 +16,10 @@ from datetime import date
 
 import pytest
 
-from jav import fx, parties, reconcile, store, work, work_runs
-from jav import reconcile_package as rp
-from jav import reconcile_statement as rs
+from jav import parties, store, work, work_runs
+from jav.domains.finance import fx, reconcile
+from jav.domains.finance import reconcile_package as rp
+from jav.domains.finance import reconcile_statement as rs
 from tests import test_reconcile_k2_129 as k2
 from tests.test_approve_race_153 import _close_reasons
 from tests.test_fx_130 import Service

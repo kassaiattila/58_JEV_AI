@@ -124,10 +124,10 @@ def _no_jev_question_without_jev(request, monkeypatch):
 def _no_live_fx():
     """130: a test never asks the MNB rate service; a test that needs rates installs its own stand-in with
     `fx.use_transport`."""
-    from jav import fx
+    from jav.domains.finance import fx
 
     def refuse(url, body, headers, timeout):
-        raise AssertionError("a test tried a live exchange rate request (jav/fx.py); install a stand-in with use_transport")
+        raise AssertionError("a test tried a live exchange rate request (jav/domains/finance/fx.py); install a stand-in with use_transport")
 
     with fx.use_transport(refuse):
         yield

@@ -34,7 +34,7 @@ HEADER_FIELDS = ("account_no", "account_iban", "currency", "period_start", "peri
                  "closing_balance", "total_debit", "total_credit")
 # a line's direction and its original amount's currency go with the amount: never listed on their own
 IMPLIED_FIELDS = ("direction", "original_currency")
-# the file types each reader layout reads (jav/statement_table.py: SUFFIXES, TEXT_SUFFIXES and the layouts)
+# the file types each reader layout reads (jav/domains/finance/statement_table.py: SUFFIXES, TEXT_SUFFIXES and the layouts)
 LAYOUT_SUFFIXES = {"table": (".xlsx", ".csv"), "ledger": (".xml", ".pdf"), "camt053": (".xml",)}
 VALIDATOR_CHECKS = {"running_balance_check": "running_balance", "closing_balance_check": "closing_balance",
                     "totals_consistency": "totals", "period_dates": "period_dates"}

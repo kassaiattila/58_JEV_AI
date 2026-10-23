@@ -1,5 +1,5 @@
 // 132: the labels of the reconciliation package's pages, in the chosen language (English source text; the Hungarian
-// is in i18n/hu-native.json). The codes come from the local service (jav/reconcile_package.py, configs/reconcile.json).
+// is in i18n/hu-native.json). The codes come from the local service (jav/domains/finance/reconcile_package.py, configs/reconcile.json).
 import type {
   ReconcileBlocker, ReconcileFlag, ReconcileFx, ReconcileGroupKind, ReconcileInvoiceResult, ReconcileLineResult, ReconcileLineState, ReconcileList,
   ReconcileRelation, ReconcileSignal, ReconcileWarning,
@@ -25,7 +25,7 @@ export function fxText(fx: ReconcileFx, amount: string): string {
   return t("{{amount}} at the MNB rate of {{day}}", { amount, day: fx.rate_day });
 }
 
-/** Why the code left a line or an invoice out of the pairing (jav/reconcile.py `prepare`; the same labels as the run's
+/** Why the code left a line or an invoice out of the pairing (jav/domains/finance/reconcile.py `prepare`; the same labels as the run's
  *  reconciliation view, configs/datasets.json `reconcile_reason`). */
 export const EXCLUDED: Record<string, string> = tmap({
   missing_amount: "No amount", non_positive_amount: "Zero or negative amount", invalid_amount: "Unreadable amount",
@@ -36,7 +36,7 @@ export const EXCLUDED: Record<string, string> = tmap({
   left_out_by_person: "Left out of this package by a person", // 169
 });
 
-/** The invoice's state in the pairing (jav/reconcile.py STATUSES). */
+/** The invoice's state in the pairing (jav/domains/finance/reconcile.py STATUSES). */
 export const INVOICE_STATE: Record<string, string> = tmap({
   confirmed: "Paid",
   credited: "Cancelled by a credit note",
@@ -151,7 +151,7 @@ export function blockerText(b: ReconcileBlocker): string {
 
 export const STATEMENT_TYPE: Record<string, string> = tmap({ bank_account: "bank account", credit_card: "card" });
 
-/** 142: the kind of a card on the pairing page (jav/reconcile_overview.py `KINDS`). */
+/** 142: the kind of a card on the pairing page (jav/domains/finance/reconcile_overview.py `KINDS`). */
 export const GROUP_KIND: Record<ReconcileGroupKind, string> = tmap({
   proposed: "Proposal to decide",
   paired: "Paired",
@@ -162,7 +162,7 @@ export const GROUP_KIND: Record<ReconcileGroupKind, string> = tmap({
   excluded: "Left out",
 }) as Record<ReconcileGroupKind, string>;
 
-/** 142: the lists of the cards, as chips (jav/reconcile_overview.py `LISTS`). */
+/** 142: the lists of the cards, as chips (jav/domains/finance/reconcile_overview.py `LISTS`). */
 export const CARD_LIST: Record<ReconcileList | "all", string> = tmap({
   to_decide: "To decide",
   line_without_invoice: "Transfers without an invoice",
@@ -199,7 +199,7 @@ export function dueText(days: number | null | undefined): string {
   return t("{{n}} days before the due date", { n: -days });
 }
 
-/** 145: an invoice's result in the reconciliation statement (jav/reconcile_statement.py `INVOICE_RESULTS`). */
+/** 145: an invoice's result in the reconciliation statement (jav/domains/finance/reconcile_statement.py `INVOICE_RESULTS`). */
 export const INVOICE_RESULT: Record<ReconcileInvoiceResult, string> = tmap({
   paid: "Paid",
   partly_paid: "Partly paid",
@@ -209,7 +209,7 @@ export const INVOICE_RESULT: Record<ReconcileInvoiceResult, string> = tmap({
   not_covered: "Statements do not cover it",
 }) as Record<ReconcileInvoiceResult, string>;
 
-/** 145: a statement line's result in the reconciliation statement (jav/reconcile_statement.py `LINE_RESULTS`). */
+/** 145: a statement line's result in the reconciliation statement (jav/domains/finance/reconcile_statement.py `LINE_RESULTS`). */
 export const LINE_RESULT: Record<ReconcileLineResult, string> = tmap({
   paired: "Paired",
   partly_paired: "Partly paired",

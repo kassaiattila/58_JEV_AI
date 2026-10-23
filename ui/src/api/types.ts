@@ -226,7 +226,7 @@ export interface OwnVersion {
   reopened_by: string | null; reopened_at: string | null; reopen_note: string | null;
 }
 export interface OwnApproval { active: OwnVersion | null; versions: OwnVersion[] }
-/** 140: a statement of a statement package's survey or of the store, as a reference (jav/statement_package.py). */
+/** 140: a statement of a statement package's survey or of the store, as a reference (jav/domains/finance/statement_package.py). */
 export interface StatementRef {
   id: string; file: string | null; period_start: string | null; period_end: string | null; rank: string; in_store: boolean;
 }

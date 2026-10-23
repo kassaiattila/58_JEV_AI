@@ -1,7 +1,7 @@
 """134 (backlog F-pre-matching P3): AI proposals for the statement lines a reconciliation package still has to decide.
 
 The owner's decisions of 2026-10-10 (DECISIONS 134): pair the statement lines and the invoices in advance with code and
-with AI, JEV and GPT compared on the same lines, and let a person validate. Code (`jav/reconcile.py`) proposes a pair
+with AI, JEV and GPT compared on the same lines, and let a person validate. Code (`jav/domains/finance/reconcile.py`) proposes a pair
 only with an exactly equal amount and a signal; on a household's card statement most lines name a shop or a payment
 app, so most of them stay without a candidate. Two judgements per line (`configs/callsites/reconcile_line.json`):
 
@@ -46,7 +46,8 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator
 
 from typesafe_sdk import Choice
 
-from jav import cfg, reconcile, reconcile_package, store, values
+from jav import cfg, store, values
+from jav.domains.finance import reconcile, reconcile_package
 from jav.adapters.jev import JevUnavailableError, get_adapter
 from jav.adapters.jev import disabled as jev_disabled
 from jav.candidates import trim_after_legal_form

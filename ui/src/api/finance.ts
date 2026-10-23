@@ -14,7 +14,7 @@ export interface BankFilesCatalogue {
   version: string; intro: string; read_by: Record<"code" | "ai", string>; checks: Record<string, string>;
   files: BankFile[]; not_read: string[]; labels: Record<string, string>;
 }
-/** 147: the quick review of a reconciliation package (jav/reconcile_review.py): the lines to decide in groups by what
+/** 147: the quick review of a reconciliation package (jav/domains/finance/reconcile_review.py): the lines to decide in groups by what
  *  is known of them, each group accepted at once. */
 export type QuickReviewGroupId = "sure_pairs" | "earlier" | "bank_category" | "salary_rule" | "ai_sure" | "ai_review"
   | "expects_invoice" | "rest";
@@ -210,7 +210,7 @@ export interface StatementPackageView {
   statements: StatementPackageItem[];
 }
 export interface StatementPackageSources { paths: string[]; party_id: string; period_start: string; period_end: string }
-/** 134: JEV's or GPT's raw answer about a statement line (jav/reconcile_ai.py); a person decides. */
+/** 134: JEV's or GPT's raw answer about a statement line (jav/domains/finance/reconcile_ai.py); a person decides. */
 export type ReconcileAiEngine = "jev" | "gpt";
 export interface ReconcileAiProposal {
   pays: string | null; pays_probability: number | null; options: string[]; kind: string | null; kind_probability: number | null;
@@ -233,7 +233,7 @@ export interface ReconcileInvoice {
   fulfillment_date?: string | null; net_total?: string | null; vat_total?: string | null; duplicate?: string | null;
   checked_until?: string | null;
 }
-/** 142 (jav/reconcile_overview.py): the related lines and invoices as groups, with their pairs, kind, flags and lists. */
+/** 142 (jav/domains/finance/reconcile_overview.py): the related lines and invoices as groups, with their pairs, kind, flags and lists. */
 export type ReconcileGroupKind = "proposed" | "paired" | "line_only" | "invoice_only" | "credited" | "marked" | "excluded";
 export type ReconcileList = "to_decide" | "line_without_invoice" | "invoice_without_payment" | "overdue" | "late" | "double_payment"
   | "clarify" | "paired" | "marked" | "credited" | "excluded";
@@ -314,7 +314,7 @@ export interface ReconcileWorkspace {
   decision_state?: unknown; // what the decisions read (145: the result reloads when it changes)
 }
 /** 132: where a line stands on its statement page (box: 0–1 fractions of the page, x0 y0 x1 y1). */
-/** 144: a statement line as the statement prints it (the documents' statement pane, jav/reconcile_package.py `locate`). */
+/** 144: a statement line as the statement prints it (the documents' statement pane, jav/domains/finance/reconcile_package.py `locate`). */
 export type ReconcileStatementLine = {
   id?: string; booking_date: string | null; value_date?: string | null; direction: string | null; amount: string | null;
   original_amount?: string | null; original_currency?: string | null; counterparty_name: string | null;
@@ -343,10 +343,10 @@ export interface ReconcileLocation {
   original: ReconcileOriginal | null; statement: ReconcileStatementView;
 }
 export interface ReconcileAllocationPair { invoice_doc_id: string; line_id: string; line_amount?: string; invoice_amount?: string }
-/** 143 (jav/reconcile_package.py `matches`): how an invoice fits a line — proposed or listed by the engine for it, its
+/** 143 (jav/domains/finance/reconcile_package.py `matches`): how an invoice fits a line — proposed or listed by the engine for it, its
  *  number or reference in the line's text, tied by a signal in its payment window, or of the same amount there. */
 export type ReconcileFit = "proposed" | "candidate" | "named" | "tied" | "same_amount";
-/** 143: one invoice compared with the selected line in code (jav/reconcile.py `compare`), on what is left of both. */
+/** 143: one invoice compared with the selected line in code (jav/domains/finance/reconcile.py `compare`), on what is left of both. */
 export interface ReconcileMatch {
   invoice_id: string; fit: ReconcileFit | null; signals: ReconcileSignal[]; amount_relation: ReconcileRelation | null;
   fx: ReconcileFx | null;

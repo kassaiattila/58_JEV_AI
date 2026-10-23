@@ -13,7 +13,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import report_utility, values
+from jav import values
+from jav.domains.finance import report_utility
 from jav.outputs import fill, xlsx
 
 

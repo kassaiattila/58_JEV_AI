@@ -21,8 +21,8 @@ outgoing invoice whose kind the AI read as one that expects an invoice (a custom
 only the lines still in it (a stale view is refused), all or none: a sure pair is allocated, a reason is marked with
 the group as its `basis`. Agreement of the two models is not measured correctness; a person accepts each group.
 
-Layer: UI/CLI → **this** (application operation) → `jav.reconcile_package` (the workspace, the pairs, the marks),
-`jav.reconcile` (the salary rule) and `jav.policy` (the threshold). No AI call: it reads the answers already stored.
+Layer: UI/CLI → **this** (application operation) → `jav.domains.finance.reconcile_package` (the workspace, the pairs, the marks),
+`jav.domains.finance.reconcile` (the salary rule) and `jav.policy` (the threshold). No AI call: it reads the answers already stored.
 """
 
 from __future__ import annotations
@@ -31,7 +31,8 @@ from collections import Counter, defaultdict
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import policy, reconcile, reconcile_package, values, work
+from jav import policy, values, work
+from jav.domains.finance import reconcile, reconcile_package
 from jav.user_messages import explained
 
 GROUPS = ("sure_pairs", "earlier", "bank_category", "salary_rule", "ai_sure", "ai_review", "expects_invoice", "rest")

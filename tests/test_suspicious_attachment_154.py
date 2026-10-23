@@ -13,7 +13,8 @@ from __future__ import annotations
 import pytest
 
 from jav.domains.email import mailbox
-from jav import policy, reconcile, statement_months as sm, store, work, work_readiness, work_recipes, work_runs
+from jav import policy, store, work, work_readiness, work_recipes, work_runs
+from jav.domains.finance import reconcile, statement_months as sm
 from jav.runtime import worker
 from tests.test_email_results import _mail_with_pdf
 from tests.test_mailbox import MAILS, REQ, FakeBridge, env  # noqa: F401 - pytest fixture

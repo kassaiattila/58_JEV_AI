@@ -16,7 +16,8 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from jav import clock, digest, fx, package_release, source_instances, work
+from jav import clock, digest, package_release, source_instances, work
+from jav.domains.finance import fx
 from jav.config import PROJECT_ROOT
 
 JAV = PROJECT_ROOT / "jav"

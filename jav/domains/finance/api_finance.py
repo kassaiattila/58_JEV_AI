@@ -7,11 +7,11 @@ Plain-language summary: the addresses for what the finance domain adds to a work
 - the utility cost of a run or of a package's current result (054, 172);
 - a person's decision on a duplicate pair (126) and the choice between two statements of the same days (139).
 They moved here from `jav/api.py` as they were: the same paths, request models and answers. The finance domain names
-this module (`jav/domains/finance.py` `SERVICE`), and `jav.api.create_app` adds it. The reconciliation's and the
-statement package's own addresses are their logic packs' (`jav/api_reconcile.py`, `jav/api_statement_package.py`).
+this module (`jav/domains/finance/__init__.py` `SERVICE`), and `jav.api.create_app` adds it. The reconciliation's and the
+statement package's own addresses are their logic packs' (`jav/domains/finance/api_reconcile.py`, `jav/domains/finance/api_statement_package.py`).
 
-Layer: UI/CLI (the local service) → `jav.bank_files`, `jav.statement_table`, `jav.statement_package`,
-`jav.report_utility`, `jav.duplicates`, `jav.statement_months`.
+Layer: UI/CLI (the local service) → `jav.domains.finance.bank_files`, `jav.domains.finance.statement_table`, `jav.domains.finance.statement_package`,
+`jav.domains.finance.report_utility`, `jav.domains.finance.duplicates`, `jav.domains.finance.statement_months`.
 """
 
 from __future__ import annotations
@@ -21,7 +21,8 @@ from typing import Annotated, Any, Literal
 from fastapi import Depends, FastAPI
 from pydantic import Field
 
-from jav import bank_files, corrections, datasets, duplicates, report_utility, statement_months, statement_package, work, work_runs, work_views
+from jav import corrections, datasets, work, work_runs, work_views
+from jav.domains.finance import bank_files, duplicates, report_utility, statement_months, statement_package
 from jav.service_shared import DecisionState, In, ItemId, RunId, Text, WpId, checked_path, human_actor
 
 
@@ -67,7 +68,7 @@ def routes(app: FastAPI, r: str) -> None:
         """136 (E4): the accounts of a bank's tabular export with their line counts, dates and checks, for a person to
         choose from; no lines or balances, nothing is stored. 137: or of every export in a folder (the Erste XML files
         with their PDF statements), one statement per account and month."""
-        from jav import statement_table
+        from jav.domains.finance import statement_table
 
         return statement_table.survey(statement_table.read(checked_path(body.path, want_dir=None)))
 

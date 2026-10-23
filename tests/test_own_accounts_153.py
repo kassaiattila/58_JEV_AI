@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import parties, reconcile, reconcile_package as rp, store
+from jav import parties, store
+from jav.domains.finance import reconcile, reconcile_package as rp
 from tests import test_reconcile_k2_129 as k2
 
 ELSEWHERE = "12121212-34343434-56565656"  # made up: the account another stored statement prints

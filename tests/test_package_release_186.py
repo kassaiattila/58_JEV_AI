@@ -19,7 +19,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import package_release, reconcile_package as rp, reconcile_statement as rs, registrations, store
+from jav import package_release, registrations, store
+from jav.domains.finance import reconcile_package as rp, reconcile_statement as rs
 from tests.test_reconcile_statement_145 import _world
 
 

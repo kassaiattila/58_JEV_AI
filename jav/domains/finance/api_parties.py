@@ -5,9 +5,9 @@ from the data, accepting proposals, a new party, giving an identity (a tax numbe
 or taking it back, renaming, merging and deleting a party, an account or card registered with its details (138), and
 a party's data month by month. Every change answers with the whole overview, as the settings page shows it. They moved
 here from `jav/api.py` as they were: the same paths, request models and answers. The finance domain names this module
-(`jav/domains/finance.py` `SERVICE`), and `jav.api.create_app` adds it.
+(`jav/domains/finance/__init__.py` `SERVICE`), and `jav.api.create_app` adds it.
 
-Layer: UI/CLI (the local service) → `jav.parties`, `jav.party_views`.
+Layer: UI/CLI (the local service) → `jav.parties`, `jav.domains.finance.party_views`.
 """
 
 from __future__ import annotations
@@ -17,14 +17,15 @@ from typing import Annotated, Any, Literal
 from fastapi import Depends, FastAPI, Query
 from pydantic import Field
 
-from jav import parties, party_views, work_views
+from jav import parties, work_views
+from jav.domains.finance import party_views
 from jav.service_shared import Empty, In, IsoDay, PartyId, human_actor
 from jav.user_messages import explained
 
 PartyName = Annotated[str, Field(min_length=1, max_length=200)]
 
 
-# 133 (F-own-parties): the own parties (`jav/parties.py`, `jav/party_views.py`)
+# 133 (F-own-parties): the own parties (`jav/parties.py`, `jav/domains/finance/party_views.py`)
 class PartyIdentity(In):
     kind: Literal["tax", "name", "account"]
     key: Annotated[str, Field(min_length=1, max_length=300)]

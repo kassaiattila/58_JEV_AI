@@ -43,7 +43,7 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
     """128: invoice <-> bank statement line pairs proposed by code (read only; counts, no values), or with --golden the
     synthetic golden cases (configs/golden_reconcile.json). 137: the pairs are decided in a reconciliation package; the
     command opens no to-do. Free."""
-    from jav import reconcile
+    from jav.domains.finance import reconcile
 
     if args.golden:
         score = reconcile.golden_score()
@@ -72,7 +72,7 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
     measures the incoming money kind question on the invented lines instead. Counts only, no values printed."""
     from decimal import Decimal
 
-    from jav import reconcile_ai
+    from jav.domains.finance import reconcile_ai
 
     # 160-D (Sz7): without --engine the proposals follow the application's AI engine (JEV and GPT: both engines, GPT
     # only: GPT alone); the golden measurement asks both unless told, as every measurement does
@@ -125,7 +125,7 @@ def cmd_statement_table(args: argparse.Namespace) -> int:
     """136 (E4): a bank's tabular statement export (a workbook or a CSV file) read by code, free: the accounts found
     with their line counts, dates and checks; account numbers only by their last four characters, no lines or
     balances printed."""
-    from jav import statement_table
+    from jav.domains.finance import statement_table
 
     try:
         reading = statement_table.read(Path(args.file))
@@ -144,7 +144,7 @@ def cmd_statement_table(args: argparse.Namespace) -> int:
 def cmd_reconcile_versions_backfill(args: argparse.Namespace) -> int:
     """178 (plan 170 L4): the stored file of every approved reconciliation statement approved or reopened before 178,
     made now from its stored statement as the download made it (idempotent; --dry-run writes nothing)."""
-    from jav import reconcile_statement
+    from jav.domains.finance import reconcile_statement
 
     done = reconcile_statement.backfill_files(dry_run=args.dry_run)
     for e in done:
@@ -158,7 +158,8 @@ def cmd_fx_rates(args: argparse.Namespace) -> int:
     request for the span. Free; only the dates and the currency codes leave the machine."""
     from datetime import date
 
-    from jav import cfg, fx
+    from jav import cfg
+    from jav.domains.finance import fx
 
     if args.fetch:
         start, end = (date.fromisoformat(d) for d in args.fetch)

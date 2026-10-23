@@ -13,7 +13,7 @@ import pytest
 from openpyxl import Workbook
 
 from jav import export, store, typepack
-from jav import reconcile_statement as rs
+from jav.domains.finance import reconcile_statement as rs
 from jav.outputs import builtin, contract, xlsx
 from tests import test_characterisation_178 as c178
 

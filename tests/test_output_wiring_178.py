@@ -12,8 +12,9 @@ import io
 
 from openpyxl import Workbook, load_workbook
 
-from jav import package_release, report_utility, store
-from jav import reconcile_statement as rs
+from jav import package_release, store
+from jav.domains.finance import report_utility
+from jav.domains.finance import reconcile_statement as rs
 from jav.outputs import templates
 from tests import test_flexible_package_160c as fp
 from tests.test_characterisation_178 import _world

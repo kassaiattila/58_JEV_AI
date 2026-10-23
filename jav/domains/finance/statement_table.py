@@ -61,7 +61,7 @@ counterparty's account (the next unlabelled row is then the counterparty's name)
 (`original`) or the bank's own description of a fee; the labelled rows (`labels`) give the counterparty's name and
 account and the memo. The statement checks itself: the running balance line by line, the printed totals and the closing
 balance. A PDF no text profile knows is left alone when a folder is read: it may be another export's companion or a
-statement to extract (`jav/statement_package.py`).
+statement to extract (`jav/domains/finance/statement_package.py`).
 
 141 (DECISIONS 141, the Erste account's source): a **camt053** profile (`layout: camt053`) reads a bank's ISO 20022
 camt.053 statement (an XML file in the `urn:iso:std:iso:20022:tech:xsd:camt.053.` namespace, parsed with defusedxml in
@@ -186,7 +186,7 @@ def _spreadsheetml_rows(data: bytes, limits: dict[str, Any]) -> list[list[str]]:
 
     try:
         root = ElementTree.fromstring(data)
-    except Exception as exc:  # defusedxml raises its own and ElementTree's errors (as in jav/fx.py)
+    except Exception as exc:  # defusedxml raises its own and ElementTree's errors (as in jav/domains/finance/fx.py)
         raise StatementTableError(f"the XML workbook cannot be read: {type(exc).__name__}") from exc
     sheet = root.find(_SS + "Worksheet") if root.tag == _SS + "Workbook" else None
     table = sheet.find(_SS + "Table") if sheet is not None else None
@@ -1269,7 +1269,7 @@ def survey(reading: Reading) -> dict[str, Any]:
 
 # --- one file per chosen account ------------------------------------------------------------------------------------------
 
-FORMAT = "jav.statement_table"
+FORMAT = "jav.domains.finance.statement_table"
 FORMAT_VERSION = 1
 _UNSAFE = re.compile(r'[<>:"/\|?*\x00-\x1f]+')
 

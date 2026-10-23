@@ -25,7 +25,7 @@ JAV = PROJECT_ROOT / "jav"
 
 _PROBE = """
 import json
-import jav.domains.email, jav.domains.finance, jav.domains.email.email_routing, jav.domains.email.mailbox, jav.reconcile_package, jav.statement_package
+import jav.domains.email, jav.domains.finance, jav.domains.email.email_routing, jav.domains.email.mailbox, jav.domains.finance.reconcile_package, jav.domains.finance.statement_package
 import jav.workflows
 from jav import workflow_steps
 before = sorted(workflow_steps._KINDS)
@@ -48,7 +48,7 @@ def test_every_template_kind_is_registered_and_nothing_more() -> None:
     assert set(kinds) == set(cfg.load("workflows")["kinds"])
     assert {k: v.module for k, v in kinds.items()} == {
         "documents": "jav.workflows", "emails": "jav.domains.email.mailbox",
-        "statements": "jav.statement_package", "reconcile": "jav.reconcile_package", "routing": "jav.domains.email.email_routing",
+        "statements": "jav.domains.finance.statement_package", "reconcile": "jav.domains.finance.reconcile_package", "routing": "jav.domains.email.email_routing",
         "quote": "jav.quote_package"}  # 191
 
 
@@ -99,7 +99,7 @@ def _strings_and_imports(path) -> tuple[set[str], set[str]]:
 def test_the_workflow_code_names_no_step_kind_and_no_finance_module() -> None:
     strings, names = _strings_and_imports(JAV / "workflows.py")
     assert strings & {"emails", "statements", "reconcile"} == set()
-    assert names & {"jav.statement_package", "jav.reconcile_package", "jav.reconcile"} == set()
+    assert names & {"jav.domains.finance.statement_package", "jav.domains.finance.reconcile_package", "jav.domains.finance.reconcile"} == set()
 
 
 def test_a_kind_registered_twice_differently_is_refused_and_an_unknown_one_stops(monkeypatch) -> None:

@@ -14,7 +14,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import reconcile, store
+from jav import store
+from jav.domains.finance import reconcile
 
 CASES = {c["id"]: c for c in reconcile.golden_cases()}
 

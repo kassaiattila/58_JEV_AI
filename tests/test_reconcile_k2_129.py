@@ -19,7 +19,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import cli, corrections, datasets, policy, reconcile, store, work_runs, work_views
+from jav import cli, corrections, datasets, policy, store, work_runs, work_views
+from jav.domains.finance import reconcile
 from jav.models import CheckResult, FlowState, DocumentRecord
 from jav.runtime import calls
 from tests import test_api

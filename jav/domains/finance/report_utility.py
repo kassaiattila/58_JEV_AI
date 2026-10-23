@@ -9,7 +9,7 @@ total, because its partial invoices also come in as separate documents.
 
 Two general rules (054, from cases found in real data): (1) the same invoice counts only once (an invoice that arrives
 both in the Díjbeszedő batch and as a separate document); the others are `duplicates`. 126: the same invoice is the
-shared duplicate key (`jav/duplicates.py`: family, number, supplier), and a pair a person found different counts twice; (2) a
+shared duplicate key (`jav/domains/finance/duplicates.py`: family, number, supplier), and a pair a person found different counts twice; (2) a
 settlement invoice, whose period fully contains other invoices of the series, bills the difference: its amount goes
 to the last month of its period (`settlement`), and it does not affect coverage (missing / overlap).
 
@@ -25,7 +25,8 @@ from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
-from jav import cfg, duplicates, type_roles, values
+from jav import cfg, type_roles, values
+from jav.domains.finance import duplicates
 from jav.outputs import contract
 
 CENT = Decimal("0.01")
@@ -124,7 +125,7 @@ def build(records: list[dict[str, Any]]) -> dict[str, Any]:
                       "confirmed": mark.get("status") if mark.get("status") in ("copy", "variant") else None,
                       "different": set(mark.get("different") or ())})
 
-    # 126: the same invoice by the shared duplicate key (family, number, supplier; `jav/duplicates.py`) counts once
+    # 126: the same invoice by the shared duplicate key (family, number, supplier; `jav/domains/finance/duplicates.py`) counts once
     # until a person decides the two differ; the one a person confirmed as the repeat is the one left out
     duplicates_out: list[dict[str, Any]] = []
     unique: list[dict[str, Any]] = []
@@ -194,7 +195,7 @@ def build(records: list[dict[str, Any]]) -> dict[str, Any]:
             "config_version": cfg.load("reports")["meta"]["version"]}
 
 
-# --- the utility cost in the downloads (180, plan 170 E7: the finance domain's parts, `jav/domains/finance.py`; until
+# --- the utility cost in the downloads (180, plan 170 E7: the finance domain's parts, `jav/domains/finance/__init__.py`; until
 # then in `jav/export.py`) ------------------------------------------------------------------------------------------
 
 STATUS_TEXT = {"missing": "hiányzik", "overlap": "átfedés", "partial": "részleges", "ok": ""}

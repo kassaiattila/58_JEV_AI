@@ -10,7 +10,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, reconcile, reconcile_package as rp, store, work, work_runs
+from jav import api, store, work, work_runs
+from jav.domains.finance import reconcile, reconcile_package as rp
 from tests import test_reconcile_k2_129 as k2
 from tests.test_supersede_runs_151 import runs  # noqa: F401 - the shared fixture: one package, an older and a newer live run
 

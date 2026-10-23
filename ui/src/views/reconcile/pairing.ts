@@ -1,5 +1,5 @@
 // 132: what a selection of statement lines and invoices would pair, before anything is sent. It mirrors the service's
-// rules (jav/reconcile_package.py `allocate`), so the page can say in advance what is missing; the service checks
+// rules (jav/domains/finance/reconcile_package.py `allocate`), so the page can say in advance what is missing; the service checks
 // everything again.
 // - One line pays one or more invoices, or one invoice is paid by one or more lines (instalments); several on both
 //   sides at once is not a pairing a person can check.

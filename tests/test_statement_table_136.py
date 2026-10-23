@@ -16,7 +16,7 @@ from pathlib import Path
 import openpyxl
 import pytest
 
-from jav import statement_table as st
+from jav.domains.finance import statement_table as st
 
 IBAN_HUF = "HU88 9963 5873 0162 1314 9181 0034"  # synthetic, allowed by the data guard
 IBAN_EUR = "HU65 5763 4061 3447 7315 4358 0066"

@@ -5,7 +5,7 @@ invoices, mark and revoke, and approve, reopen and download its statement. They 
 were: the same paths, request models and answers. `jav.api.create_app` adds them (185: by its logic pack's
 `service`, `jav.api.service_modules`).
 
-Layer: UI/CLI (the local service) → `jav.reconcile_package`, `jav.reconcile_review`, `jav.reconcile_statement`.
+Layer: UI/CLI (the local service) → `jav.domains.finance.reconcile_package`, `jav.domains.finance.reconcile_review`, `jav.domains.finance.reconcile_statement`.
 """
 
 from __future__ import annotations
@@ -17,12 +17,13 @@ from fastapi import Path as PathParam
 from fastapi.responses import Response
 from pydantic import Field
 
-from jav import reconcile_package, reconcile_review, reconcile_statement, work_views
+from jav import work_views
+from jav.domains.finance import reconcile_package, reconcile_review, reconcile_statement
 from jav.service_shared import (DecisionState, Empty, In, IsoDay, PartyId, Text, WpId, attachment_header, error,
                                 human_actor)
 from jav.user_messages import message_fields
 
-# 131 (F-reconciliation E1): the reconciliation package (`jav/reconcile_package.py`)
+# 131 (F-reconciliation E1): the reconciliation package (`jav/domains/finance/reconcile_package.py`)
 DocId = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 LINE_ID = r"^[0-9A-Za-z_-]{1,16}:[0-9a-f]{12}:\d{1,5}$"
 LineId = Annotated[str, Field(pattern=LINE_ID)]  # the statement line's stable id
@@ -90,7 +91,7 @@ class ReconcileRevoke(Decided):
     note: Text | None = None
 
 
-# 145 (F-reconciliation E3b): the result (`jav/reconcile_statement.py`)
+# 145 (F-reconciliation E3b): the result (`jav/domains/finance/reconcile_statement.py`)
 class ReconcileApprove(In):
     fingerprint: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]  # the statement the person saw
 
@@ -123,7 +124,7 @@ def routes(app: FastAPI, r: str) -> None:
     async def reconcile_locked(_request: Request, exc: reconcile_package.Locked):
         return error(422, "reconcile_locked", str(exc), **message_fields(exc))  # 145: the UI names it in the display language
 
-    # --- 131: the reconciliation package (jav/reconcile_package.py): a scope, two lists, decisions per pair ---
+    # --- 131: the reconciliation package (jav/domains/finance/reconcile_package.py): a scope, two lists, decisions per pair ---
 
     @app.get(r + "/reconcile/accounts")
     def reconcile_accounts() -> dict[str, Any]:
@@ -177,7 +178,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.get(r + "/workpackages/{wp_id}/reconcile/quick-review")
     def reconcile_quick_review(wp_id: WpId) -> dict[str, Any]:
-        """147: the lines to decide in groups by what is known of them (jav/reconcile_review.py)."""
+        """147: the lines to decide in groups by what is known of them (jav/domains/finance/reconcile_review.py)."""
         return work_views.jsonable(reconcile_review.review(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/quick-review/accept")

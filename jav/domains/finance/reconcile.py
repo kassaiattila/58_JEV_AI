@@ -27,14 +27,14 @@ the synthetic golden cases are `configs/golden_reconcile.json`.
 **A person's decision** (129, K2): a person confirms a pair (`paid_by`, "this line paid it") or rejects it with a reason
 (`not_this`); the decision belongs to the pair (`reconcile_decisions`). In the core a rejected pair is never proposed
 again, and a confirmed pair makes its invoice `confirmed` and takes the line and the invoice out of every other
-proposal. 137 (DECISIONS 137): the decisions are made in the reconciliation package (`jav/reconcile_package.py`); the
+proposal. 137 (DECISIONS 137): the decisions are made in the reconciliation package (`jav/domains/finance/reconcile_package.py`); the
 processing no longer opens a to-do for a pair on the documents, and the review page's panel, the run's reconciliation
 view and `scan(write=True)` are gone. The panel's decisions (129-136) stay: the core honours them and they stay part of
 the reviewed result of their run (`decisions_for`, `corrections.review_version`).
 
 **Card payments in another currency** (130, K3; DECISIONS 128 variant C, DECISIONS 130): a credit card statement books
 in forints and does not print the original amount, so a forint line of a card statement (`fx.statement_types`) and an
-invoice in another currency are compared through the official MNB rate of the invoice's issue date (`jav/fx.py`). Such
+invoice in another currency are compared through the official MNB rate of the invoice's issue date (`jav/domains/finance/fx.py`). Such
 a pair needs a signal like any other and a line within `fx.window` around the issue date; it is proposed when the
 line's amount is within `policy.json` `reconcile.fx_tolerance` of the converted amount (`fx_within`), listed but not
 proposed outside it (`fx_outside`, status `amount_differs`) or without a known rate (`no_rate`, status
@@ -82,7 +82,7 @@ suffix ("EXAMPLETELECOMSZAML*12345") or with a misread letter, so the whole-word
   and says why. It is no threshold; what is proposed is unchanged.
 
 **A card purchase's original amount** (137, DECISIONS 137): a bank account's PDF statement (the Erste export completed
-by code, `jav/statement_table.py`) prints a card purchase's original amount and currency next to its forint line
+by code, `jav/domains/finance/statement_table.py`) prints a card purchase's original amount and currency next to its forint line
 (`original_amount`, `original_currency`). Such a line meets an invoice of that currency (`meets`: `original`) in the card
 window around the issue date and is compared on the original amount exactly (`equal` / `different`), without the MNB
 rate; like a converted pair it is allocated only in whole. An account with such lines counts in the coverage of a
@@ -94,7 +94,7 @@ snapshot (`own_accounts`: key, kind, currencies, the days it was open). Such an 
 with statements, so an invoice it may have paid is never `no_payment_found` while its statements are missing; it is
 asked only for the part of a window it was open, and a registered forint card counts in the card window.
 
-**Allocations and marks** (131 E1, the reconciliation package, `jav/reconcile_package.py`): a confirmation is an
+**Allocations and marks** (131 E1, the reconciliation package, `jav/domains/finance/reconcile_package.py`): a confirmation is an
 allocation of an amount (`reconcile_allocations`), several per line and per invoice, never over either amount; a
 `paid_by` decision counts as both whole amounts. The proposal compares what is left, so the rest of a split payment can
 be proposed (status `partly_paid` when nothing fits the rest); a converted card pair is compared only in whole. A line a
@@ -156,7 +156,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import cfg, duplicates, fact_checks, fx, package_result, store, type_roles, values
+from jav import cfg, fact_checks, package_result, store, type_roles, values
+from jav.domains.finance import duplicates, fx
 from jav.candidates import trim_after_legal_form
 from jav.models import account_key  # 156: shared with the candidate finder; callers keep using reconcile.account_key
 
@@ -1450,7 +1451,7 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
                              "direction": parties.direction(res, d["doc_type"], v)[0], **_origin(d)})
     # 139 (DECISIONS 139): one valid statement per account, currency and day; a replaced statement's decisions move to
     # the same lines of the one replacing it, and what has no same line is left over (`left_over`)
-    from jav import statement_months
+    from jav.domains.finance import statement_months
 
     resolution = statement_months.resolve(statements, statement_months.choices())
     every = {s["id"]: s for s in statements}
@@ -1498,7 +1499,7 @@ def _masked(line: dict[str, Any]) -> dict[str, Any]:
 
 
 def statements() -> list[dict[str, Any]]:
-    """139: every stored statement in the snapshot's shape, a replaced one too (`jav/statement_months.py` decides); 174:
+    """139: every stored statement in the snapshot's shape, a replaced one too (`jav/domains/finance/statement_months.py` decides); 174:
     each by its counted result."""
     return [_statement(d) for d in _counted(list(type_roles.types("statement")))]
 

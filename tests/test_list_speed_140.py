@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import datasets, parties, reconcile, reconcile_package as rp, store, work, work_views
+from jav import datasets, parties, store, work, work_views
+from jav.domains.finance import reconcile, reconcile_package as rp
 from jav.tablequery import Filter, Query
 from tests import test_reconcile_package_131 as p131
 from tests.test_reconcile_k2_129 import _save

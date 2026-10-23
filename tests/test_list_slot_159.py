@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import datasets, reconcile, reconcile_package as rp
+from jav import datasets
+from jav.domains.finance import reconcile, reconcile_package as rp
 from jav.tablequery import Query
 from tests import test_list_speed_140 as l140
 from tests import test_reconcile_package_131 as p131

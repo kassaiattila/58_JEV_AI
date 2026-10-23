@@ -12,7 +12,7 @@ items take the columns of the type packs' lists (`type_pack_lists`), and the uti
 (`month_<yyyy>_<mm>`).
 
 Layer: business module (configuration read; no rule of its own). The builders: `jav/export.py` (`result_data`) and
-`jav/reconcile_statement.py` (`statement_data`).
+`jav/domains/finance/reconcile_statement.py` (`statement_data`).
 """
 
 from __future__ import annotations

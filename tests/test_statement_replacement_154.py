@@ -12,7 +12,7 @@ so nothing changes there. Synthetic statements only.
 
 from __future__ import annotations
 
-from jav import statement_months as sm
+from jav.domains.finance import statement_months as sm
 from tests.test_statement_months_139 import _ln, _st
 
 

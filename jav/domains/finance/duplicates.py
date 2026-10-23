@@ -20,7 +20,7 @@ worker run (`review_reasons`, like `party_history`: measurements and the command
 person decides: copy, modified version or not the same (`decide`); the decision belongs to the pair, closes the pair's
 to-dos on both documents, is part of the reviewed result (`corrections.review_version`), and the pair never comes up
 again. Nothing is deleted or merged: a confirmed copy is marked in the lists and the export (`marks`), and counts once
-in the totals (`jav/report_utility.py`). `scan` lists the pairs already in the store and, on request, opens the same
+in the totals (`jav/domains/finance/report_utility.py`). `scan` lists the pairs already in the store and, on request, opens the same
 to-do on documents of runs not yet approved (the owner's decision of 2026-10-07, DECISIONS 126).
 
 Reuse: the legacy `orchestrator/framework/payablesquality.py` (supplier + number grouping, "same" only when every other
@@ -409,7 +409,7 @@ def duplicate_status(mark: dict[str, Any] | None) -> str | None:
 
 def column_values(records: list[dict[str, Any]]) -> list[tuple[str | None, str | None]]:
     """The documents table's two duplicate columns of each record: its mark (`duplicate_status`) and the other
-    document's file name while it has a mark (180: the finance domain's columns, `jav/domains/finance.py`)."""
+    document's file name while it has a mark (180: the finance domain's columns, `jav/domains/finance/__init__.py`)."""
     out = []
     for r in records:
         mark = r.get("duplicate")

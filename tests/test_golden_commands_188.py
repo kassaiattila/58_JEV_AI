@@ -15,7 +15,8 @@ from typing import Any
 
 import pytest
 
-from jav import cli, evals, evals_detect, evals_email, reconcile, reconcile_ai
+from jav import cli, evals, evals_detect, evals_email
+from jav.domains.finance import reconcile, reconcile_ai
 
 
 class Recorder:

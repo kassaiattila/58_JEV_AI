@@ -11,7 +11,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, reconcile_package, store, work_views
+from jav import api, store, work_views
+from jav.domains.finance import reconcile_package
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 BASE = "http://127.0.0.1:8930"

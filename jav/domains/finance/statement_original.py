@@ -1,6 +1,6 @@
 """144 (backlog F-finder-line-facts; DECISIONS 144): the bank's own document behind a statement read by code.
 
-A statement read by code (`jav/statement_table.py`: a CIB PDF's text, a bank's table or XML export) is stored as the
+A statement read by code (`jav/domains/finance/statement_table.py`: a CIB PDF's text, a bank's table or XML export) is stored as the
 statement file the reader builds, and that file, not the bank's PDF, is the package item: the pairing page's documents
 showed a broken image for it. The statement file names its source (`source.file`, `source.sha256`) and, for a ledger
 export, the month's PDF statement (`source.companion`). This module finds that PDF again and gives its verified bytes,
@@ -13,7 +13,7 @@ shown or read (075). A table or XML export without a PDF companion has no origin
 longer where it was is `MISSING`. Nothing is written but the fingerprint memo (`work.fingerprint`); the found path and
 the word layer are kept in memory.
 
-Layer: `jav.reconcile_package` (application operation) → **this** (business module) → `jav.work` (items, verified
+Layer: `jav.domains.finance.reconcile_package` (application operation) → **this** (business module) → `jav.work` (items, verified
 reads, fingerprints), `jav.page_image`, `jav.pdf` (the isolated PDF reader), `jav.source_layer`, `jav.store`.
 """
 
@@ -32,8 +32,8 @@ from typing import Any
 
 from jav import page_image, source_layer, store, work
 
-DOC_TYPE = "statement_table"  # the statements read by code (jav/flow_statement_table.py)
-FORMAT = "jav.statement_table"  # the statement file's `format`
+DOC_TYPE = "statement_table"  # the statements read by code (jav/domains/finance/flow_statement_table.py)
+FORMAT = "jav.domains.finance.statement_table"  # the statement file's `format`
 
 FOUND, EXPORT, MISSING = "found", "export", "missing"
 MAX_VISITED = 20_000  # the entries one name search visits under a package's folder (a folder tree may be large)

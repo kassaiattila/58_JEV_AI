@@ -11,7 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import cfg, checks, duplicates, parties, validators
+from jav import cfg, checks, parties, validators
+from jav.domains.finance import duplicates
 from jav.models import CheckResult, DocumentRecord
 from jav.runtime import calls
 from jav.typepack import get as get_pack

@@ -16,8 +16,9 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.styles import Font, PatternFill
 
-from jav import export, report_utility, store, work
-from jav import reconcile_statement as rs
+from jav import export, store, work
+from jav.domains.finance import report_utility
+from jav.domains.finance import reconcile_statement as rs
 from jav.outputs import contract, fill, markers, samples, templates
 from tests import test_characterisation_178 as c178
 

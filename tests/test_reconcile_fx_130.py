@@ -13,7 +13,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from jav import fx, reconcile, store, values
+from jav import store, values
+from jav.domains.finance import fx, reconcile
 from tests import test_reconcile_k2_129 as k2
 from tests.test_fx_130 import Service
 

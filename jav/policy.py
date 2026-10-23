@@ -385,7 +385,7 @@ def apply_gpt_confidence_policy(state: FlowState) -> None:
 
 
 # --- the cross-document checks: they read the store, so the check registry runs them in a worker run only (175, plan
-# 170 E3: `jav/checks.py`); 180 (plan 170 E7): the finance domain registers them (`jav/domains/finance.py`) -----------
+# 170 E3: `jav/checks.py`); 180 (plan 170 E7): the finance domain registers them (`jav/domains/finance/__init__.py`) -----------
 
 def apply_cross_document_checks(state: FlowState) -> None:
     """The cross-document stage on the record being processed: each check's to-dos in the registry's order, nothing

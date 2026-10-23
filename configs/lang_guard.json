@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.109",
+    "version": "1.0.110",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.110",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the finance domain's modules moved into jav/domains/finance/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.109",
         "date": "2026-10-23",
@@ -716,6 +721,8 @@
     "jav/domains/email/ingest_server.py": 8,
     "jav/domains/email/intent.py": 5,
     "jav/domains/email/mailbox.py": 18,
+    "jav/domains/finance/finance_datasets.py": 23,
+    "jav/domains/finance/report_utility.py": 13,
     "jav/eval_report.py": 21,
     "jav/evals.py": 29,
     "jav/evals_detect.py": 20,
@@ -723,7 +730,6 @@
     "jav/experiments/document_injection_probe.py": 10,
     "jav/export.py": 6,
     "jav/extract_llm.py": 1,
-    "jav/finance_datasets.py": 23,
     "jav/flow.py": 19,
     "jav/flow_detect.py": 10,
     "jav/grounding.py": 2,
@@ -766,7 +772,6 @@
     "jav/prompts/vizmuvek_szamla_prompt.md": 17,
     "jav/quote_document.py": 1,
     "jav/quote_letter.py": 3,
-    "jav/report_utility.py": 13,
     "jav/runtime/calls.py": 3,
     "jav/runtime/persistence.py": 2,
     "jav/runtime/worker.py": 1,

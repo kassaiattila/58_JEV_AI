@@ -21,7 +21,8 @@ import pytest
 from fastapi.routing import APIRoute
 from starlette.routing import Match
 
-from jav import api, datasets, reconcile_statement as rs, statement_table as st, store, work, work_views
+from jav import api, datasets, store, work, work_views
+from jav.domains.finance import reconcile_statement as rs, statement_table as st
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_package_131 import _line, _package as _reconcile_package, _stmt
 from tests.test_statement_package_140 import _package as _statement_package, _party

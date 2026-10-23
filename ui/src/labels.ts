@@ -257,25 +257,25 @@ export function reasonText(code: string): string {
     case "attachment:suspicious_email": return t("An attachment of an email marked as suspicious (it may carry a hidden instruction): check the document and the email before relying on it");
     // 177: the email itself (the signal's yes band, policy email.signal_review)
     case "signal:prompt_injection": return t("The email may carry an injected instruction ({{p}}): read it before acting on it", { p: num(p[2]) });
-    // 126: a suspected duplicate invoice (jav/duplicates.py); decided in its own panel on the review page
+    // 126: a suspected duplicate invoice (jav/domains/finance/duplicates.py); decided in its own panel on the review page
     case "duplicate:copy": return t("Possible copy of an earlier document (same invoice number and supplier)");
     case "duplicate:variant": return t("Possible modified version of an earlier document (same invoice number and supplier, different values)");
     case "duplicate:undecidable": return t("Possible duplicate of an earlier document (same invoice number and supplier, a value is missing)");
     // 139: another statement books the same days of the account and neither replaces the other; chosen in its own panel
     case "statement:overlap": return t("Another statement books the same days of this account: choose the valid one");
-    // 129: a proposed invoice <-> statement line pair (jav/reconcile.py); decided in its own panel on the review page.
+    // 129: a proposed invoice <-> statement line pair (jav/domains/finance/reconcile.py); decided in its own panel on the review page.
     // 130: a card line is compared with the invoice amount converted at the MNB rate
     case "reconcile:proposed": return t("Possible payment: a statement line and an invoice have the same amount (for a card payment, the converted amount) and a shared detail");
     // 131: the same amount alone is never a proposal; the pair is listed for a person to decide
     case "reconcile:amount_only": return t("Possible payment to decide: a statement line has exactly the invoice's amount, but nothing else ties them");
-    // 136: a statement read by code from a bank's table export (jav/flow_statement_table.py)
+    // 136: a statement read by code from a bank's table export (jav/domains/finance/flow_statement_table.py)
     case "statement_table:unreadable_lines": return t("Some lines of the table export could not be read ({{n}}); they are left out of the statement", { n: p[2] ?? "" });
     case "statement_table:missing": return t("A required field is missing from the table export: {{field}}", { field: f });
     case "statement_table:balance_unchecked": return t("The balances cannot be checked: the export has none, and its PDF statement was not found next to it");
     // 174 (review 160 M-12): balances taken from the lines, with no total row
     case "statement_table:balance_from_lines": return t("The balances were taken from the export's own lines and it has no total row, so its first and last lines cannot be checked");
     case "statement_table:companion_mismatch": return t("The export and its PDF statement differ ({{n}}): a line is on one side only, or the PDF is of another account", { n: p[2] ?? "" });
-    // 140: a statement package (jav/statement_package.py)
+    // 140: a statement package (jav/domains/finance/statement_package.py)
     case "statements:not_a_statement": return t("This PDF is not a bank statement ({{type}}): the statement package extracts no data from it. Remove it from the package, or process it in a document package.", { type: docTypeLabel(p[2] ?? "") });
     case "statements:other_party": return t("The statement's account belongs to another own party, and it stayed there. If it is this package's party's, move it in Settings › Own parties.");
     // 171 (plan 170, K20): the flow built no record from the document (`policy.decide`); until now the raw code showed
@@ -431,7 +431,7 @@ const STEP_LABEL = tmap({
   empty: "Üres csomag", start: "Próbafutás indítása", blocked: "Nem indítható",
   rerun: "Hibás vagy leállított futás: újrafuttatás", done: "Kiadva: eredmény letöltése", release: "Jóváhagyás és kiadás",
   go_live: "Próba rendben: éles futás",
-  // 132: a reconciliation package's steps (jav/reconcile_package.py `next_step`)
+  // 132: a reconciliation package's steps (jav/domains/finance/reconcile_package.py `next_step`)
   reconcile_empty: "No statement line in the scope", reconcile_result: "Reconciliation result",
   // 181: an email routing package's steps (jav/domains/email/email_routing.py `_next`)
   routing_empty: "Nothing to route", routing_done: "Routed",

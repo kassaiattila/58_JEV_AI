@@ -1,7 +1,7 @@
 """145 (backlog F-reconciliation E3b; DECISIONS 131, 132, 133, 145): a reconciliation package's result - its statement,
 its approval as an unchangeable version that locks its lines, and its download.
 
-- **The statement** (`build`) is computed in code from the package's workspace (`jav/reconcile_package.py`): every own
+- **The statement** (`build`) is computed in code from the package's workspace (`jav/domains/finance/reconcile_package.py`): every own
   invoice of the page with its result - paid, partly paid, settled by a credit note, a proposal still to decide, no
   payment found in the covered period, not covered by statements - and the lines that paid it; every statement line of
   the scope with its result - paired, partly paired, needs no invoice with its reason, left out by the code with its
@@ -12,7 +12,7 @@ its approval as an unchangeable version that locks its lines, and its download.
   since is a conflict) as the package's next version. It needs every source document from an approved run, or accepted
   by a person when it came from an evaluation on the command line (`accept_sources`, DECISIONS 132), and no decision
   left on a replaced statement (139). Open lines do not block it; the statement lists them (DECISIONS 131).
-- **The lock** (enforced by `jav/reconcile_package.py`): the lines of an approved version take no new decision and lose
+- **The lock** (enforced by `jav/domains/finance/reconcile_package.py`): the lines of an approved version take no new decision and lose
   none, in any package, and its package takes no decision and keeps its scope, until a person reopens the version with
   a reason (`reopen`); the version stays as an earlier one, and the next approval makes a new one (DECISIONS 132). An
   invoice is not locked: a payment from another account may still be recorded (an allocation never exceeds its amount).
@@ -29,7 +29,7 @@ its approval as an unchangeable version that locks its lines, and its download.
   decides what is approved, what blocks it, and how its file is made.
 
 Nothing here calls an AI model or the network. Layer: UI/CLI → **this** (application operation) →
-`jav.reconcile_package` (the workspace, the decisions and the approval tables) and `jav.work` (the package and its log).
+`jav.domains.finance.reconcile_package` (the workspace, the decisions and the approval tables) and `jav.work` (the package and its log).
 """
 
 from __future__ import annotations
@@ -40,7 +40,8 @@ from collections import Counter
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import activity_kinds, cfg, decisions, naming, package_release, reconcile_package as rp, store, values, work
+from jav import activity_kinds, cfg, decisions, naming, package_release, store, values, work
+from jav.domains.finance import reconcile_package as rp
 from jav.outputs import builtin, contract, templates
 from jav.user_messages import explained
 from jav.clock import utc_stamp as _now
@@ -55,7 +56,7 @@ FORMAT = 1  # the statement's content layout; a new layout bumps it (a stored ve
 # the shared version store's files (`package_release.store_own_files`, the states approved and earlier)
 INVOICE_RESULTS = ("paid", "partly_paid", "credited", "undecided", "no_payment_found", "not_covered")
 LINE_RESULTS = ("paired", "partly_paired", "needs_no_invoice", "left_out", "open")
-# the engine's invoice state (jav/reconcile.py STATUSES) -> the result, when no allocation decides it
+# the engine's invoice state (jav/domains/finance/reconcile.py STATUSES) -> the result, when no allocation decides it
 _INVOICE_RESULT = {"confirmed": "paid", "credited": "credited", "partly_paid": "partly_paid", "proposed": "undecided",
                    "amount_only": "undecided", "amount_differs": "undecided", "rate_missing": "undecided",
                    "no_payment_found": "no_payment_found", "partly_covered": "not_covered", "not_covered": "not_covered"}

@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import cfg, doc_types, duplicates, parties, policy, reconcile, report_utility, type_roles
+from jav import cfg, doc_types, parties, policy, type_roles
+from jav.domains.finance import duplicates, reconcile, report_utility
 from jav.typepack import get as get_pack
 
 PACKS = sorted(p.stem for p in (cfg.path_of("policy").parent / "types").glob("*.json"))

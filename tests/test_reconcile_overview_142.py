@@ -3,7 +3,7 @@
 The owner asked to see one transfer paying several invoices, or one invoice paid by several transfers, at once with
 every fact of both sides, and to have the lines without an invoice, the invoices without a payment, the overdue
 invoices, the possible double payments and every late payment stand out. The engine adds two facts (a possible double
-payment, the day an invoice's statements are checked until); `jav/reconcile_overview.py` builds the groups, the timing
+payment, the day an invoice's statements are checked until); `jav/domains/finance/reconcile_overview.py` builds the groups, the timing
 and the lists from the package's workspace. Synthetic documents and made-up accounts only; no AI call.
 """
 
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import copy
 
-from jav import reconcile, reconcile_overview as ov, reconcile_package as rp
+from jav.domains.finance import reconcile, reconcile_overview as ov, reconcile_package as rp
 from tests import test_reconcile_k2_129 as k2
 from tests import test_reconcile_package_131 as p131
 

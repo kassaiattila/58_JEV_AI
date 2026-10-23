@@ -5,7 +5,7 @@ period, to create a statement package of the ticked ones, and to survey and add 
 here from `jav/api.py` as they were: the same paths, request models and answers. `jav.api.create_app` adds them
 (185: by its logic pack's `service`, `jav.api.service_modules`).
 
-Layer: UI/CLI (the local service) → `jav.statement_package`.
+Layer: UI/CLI (the local service) → `jav.domains.finance.statement_package`.
 """
 
 from __future__ import annotations
@@ -15,7 +15,8 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI
 from pydantic import Field
 
-from jav import statement_package, work_views
+from jav import work_views
+from jav.domains.finance import statement_package
 from jav.service_shared import In, IsoDay, PartyId, WpId, checked_path, human_actor
 
 class StatementPackageSources(In):

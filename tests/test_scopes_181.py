@@ -18,7 +18,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import package_scope, parties, registrations, scopes, statement_table as st, store, work, workflow_steps
+from jav import package_scope, parties, registrations, scopes, store, work, workflow_steps
+from jav.domains.finance import statement_table as st
 from jav import workflows as wf
 from tests import test_workflows_146 as base
 
@@ -184,7 +185,7 @@ def test_a_workflow_steps_package_takes_its_workflows_party_period_and_the_steps
 
 def test_a_statement_packages_scope_is_its_own(db) -> None:
     party = _party()
-    from jav import statement_package
+    from jav.domains.finance import statement_package
 
     found = statement_package.survey([base._statements(db / "erste")], party_id=party, period_start="2026-01-01",
                                      period_end="2026-12-31")

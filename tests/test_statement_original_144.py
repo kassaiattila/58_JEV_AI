@@ -1,6 +1,6 @@
 """144 (DECISIONS 144): the bank's own PDF behind a statement read by code, on the pairing page's documents.
 
-A statement read by code is stored as the reader's statement file (`format: jav.statement_table`), which names the PDF
+A statement read by code is stored as the reader's statement file (`format: jav.domains.finance.statement_table`), which names the PDF
 it was read from (`source`) or, for a ledger export, the month's PDF (`source.companion`). The documents' statement pane
 showed a broken image for it; now the service finds the PDF again (in the folder of the package that brought the
 statement, or under any path the store fingerprinted with that content), frames the line on it and serves its pages
@@ -15,7 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import grounding, reconcile, reconcile_package as rp, statement_original as so, store, work
+from jav import grounding, store, work
+from jav.domains.finance import reconcile, reconcile_package as rp, statement_original as so
 from tests import test_api
 from tests import test_reconcile_k2_129 as k2
 from tests import test_reconcile_package_131 as e1

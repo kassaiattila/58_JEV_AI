@@ -93,7 +93,7 @@ def test_the_task_kinds_come_from_the_settings_in_the_schemas_order() -> None:
 
 
 def test_the_decisions_on_a_task_proposal_and_a_duplicate_pair_are_one_list_each() -> None:
-    from jav import api_finance, duplicates
+    from jav.domains.finance import api_finance, duplicates
     from jav.domains.email import api_mailbox  # 185: the requests moved with their addresses
 
     assert api_mailbox.TaskDecision.model_fields["decision"].annotation.__args__ == store.TASK_DECISIONS == ("accepted", "rejected")

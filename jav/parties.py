@@ -22,7 +22,7 @@ does not move the invoice), then a known name variant, then a name that holds ev
 variant, a misread letter allowed ("similar"); two parties' variants in one name decide nothing ("ambiguous").
 
 Layer: a business module with its store tables. The observations it works on (buyer names and tax numbers, the holder
-text of a statement) come from the application operation (`jav.party_views`). No AI call.
+text of a statement) come from the application operation (`jav.domains.finance.party_views`). No AI call.
 """
 
 from __future__ import annotations
@@ -431,7 +431,7 @@ DIRECTIONS = ("incoming", "outgoing", "internal", "not_own", "unclear")
 
 def direction_values(records: list[dict[str, Any]]) -> list[tuple[str | None]]:
     """147: the documents table's direction column of each record: an invoice's direction from the own parties
-    (`direction`); None for a document of another kind (180: the finance domain's column, `jav/domains/finance.py`;
+    (`direction`); None for a document of another kind (180: the finance domain's column, `jav/domains/finance/__init__.py`;
     until then in `jav/export.py`)."""
     kinds = {*type_roles.types("incoming_invoice"), *type_roles.types("outgoing_invoice")}
     if not any(r["doc_type"] in kinds for r in records):

@@ -253,7 +253,8 @@ def offline(work_dir: Path) -> Iterator[None]:
     earlier answer reaches the budget check, which refuses it), Azure is not configured, every HTTP request goes to a
     closed local port, the exchange rate service is not asked; the OCR cache is a copy in `work_dir` and the
     operational log goes there too, so the real ones are not written. Everything is put back afterwards."""
-    from jav import fx, ocr
+    from jav import ocr
+    from jav.domains.finance import fx
     from jav.adapters import jev
     from jav.config import API_KEY_ENV_VARS, AZURE_DI_ENV_VARS, OPENAI_KEY_ENV_VAR
     from jav.runtime import applog

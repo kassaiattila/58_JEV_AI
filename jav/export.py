@@ -10,7 +10,7 @@ Tables:
 - `line_items`: the rows of the itemised lists, with the page of each row.
 On top of these, the XLSX has a separate sheet per type. 180 (plan 170 E7): the parts a domain adds - the duplicate mark
 and an invoice's direction as columns of the documents table, the utility cost's sheets and JSON section - come from
-the output parts registry (`jav/outputs/parts.py`, registered by `jav/domains/finance.py`); this module names no domain.
+the output parts registry (`jav/outputs/parts.py`, registered by `jav/domains/finance/__init__.py`); this module names no domain.
 
 Reuse: the legacy project's `orchestrator/framework/tabular.py` helpers (sheet-name cleaning, header formatting,
 BOM + CRLF CSV) and the formula guard of `ui/src/utils/csv.ts` are ported; the old database loader is not (we read
@@ -101,7 +101,7 @@ def _run_records(run_id: str) -> list[dict[str, Any]]:
             "open_reasons": reasons,
             "source_email": subjects.get(item.get("parent_item_id") or ""),
         })
-    for part in parts.record_marks():  # 126: the duplicate mark (180: the finance domain's, `jav/domains/finance.py`)
+    for part in parts.record_marks():  # 126: the duplicate mark (180: the finance domain's, `jav/domains/finance/__init__.py`)
         part.mark(out)
     return out
 
@@ -190,7 +190,7 @@ DOC_HEAD = ["Irat", "Tétel-azonosító", "Típus", "Út", "Állapot", "Nyitott 
 
 def document_head() -> list[str]:
     """The documents table's fixed headers: the general ones, then each domain part's (180: the duplicate mark and the
-    direction, `jav/domains/finance.py`); the type's fields follow them."""
+    direction, `jav/domains/finance/__init__.py`); the type's fields follow them."""
     return DOC_HEAD + [c.head for part in parts.document_columns() for c in part.columns]
 
 
@@ -318,7 +318,7 @@ def result_data(records: list[dict[str, Any]], items: Mapping[str, list[dict[str
     """178 (plan 170 L4): the result's data as the output contract describes it (`package_result`): the native facts and
     readings, each item kind's part (185: `items`, by the part's name; the emails and their tasks, `jav/domains/email/email_export.py`),
     the documents by type, the data points, the line items, then each domain's result part (180: the utility cost's
-    sheets and its grand total, `jav/domains/finance.py`); `values`: the package's (`package_values`)."""
+    sheets and its grand total, `jav/domains/finance/__init__.py`); `values`: the package's (`package_values`)."""
     tables: list[contract.Table] = []
     if native:
         head, rows = native_facts_table(native)
@@ -402,7 +402,7 @@ def _json_export(run_id: str, records: list[dict[str, Any]] | None = None) -> tu
 
 
 def json_parts(records: list[dict[str, Any]]) -> dict[str, Any]:
-    """Each domain's section of a result's JSON, after its emails (180: the utility cost, `jav/domains/finance.py`)."""
+    """Each domain's section of a result's JSON, after its emails (180: the utility cost, `jav/domains/finance/__init__.py`)."""
     return {part.json_key: part.json(records) for part in parts.result_parts()}
 
 

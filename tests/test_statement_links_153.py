@@ -8,7 +8,7 @@ import os
 
 import pytest
 
-from jav import statement_package, statement_table
+from jav.domains.finance import statement_package, statement_table
 
 
 def _link(target, link):

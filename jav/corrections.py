@@ -133,7 +133,7 @@ def _native_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[A
 
 
 # 185 (plan G-full-move T1d): the finance domain's parts (the duplicate, reconciliation and statement decisions) are
-# registered by its domain module after "native" (`jav/domains/finance.py` `DECISIONS`)
+# registered by its domain module after "native" (`jav/domains/finance/__init__.py` `DECISIONS`)
 for _kind in (activity_kinds.DecisionKind("corrections", _correction_rows),
               activity_kinds.DecisionKind("tasks", _task_rows, wraps="corrections"),
               activity_kinds.DecisionKind("native", _native_rows, wraps="review")):

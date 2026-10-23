@@ -3,7 +3,7 @@
 // salary, the AI's sure kind, the AI's suggestion to look at, an expected invoice, the rest); a group's lines are ticked
 // and accepted at once. The AI counts as sure when both engines give the same kind and JEV is at least the policy's
 // threshold sure of it; its other suggestions start unticked. The service re-reads the group when a person accepts it
-// and takes only the lines still in it (jav/reconcile_review.py).
+// and takes only the lines still in it (jav/domains/finance/reconcile_review.py).
 import { useState } from "react";
 import { api, ApiError, type QuickReview, type QuickReviewGroup, type QuickReviewGroupId, type QuickReviewLine, type ReconcileWorkspace } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";

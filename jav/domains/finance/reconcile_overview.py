@@ -3,7 +3,7 @@
 The owner asked for a page where one transfer paying several invoices, or one invoice paid by several transfers, is
 seen at once with every fact of both sides; where the lines without an invoice, the invoices without a payment, the
 overdue invoices, the possible double payments and the late payments stand out. This module computes that view from
-the package's workspace (`jav/reconcile_package.py`) and the engine's `repeats`, in code; it decides nothing.
+the package's workspace (`jav/domains/finance/reconcile_package.py`) and the engine's `repeats`, in code; it decides nothing.
 
 - **Groups.** The statement lines and invoices joined by their pairs - allocated by a person or proposed by code - as
   far as the pairs reach: a transfer with the three invoices it pays, an invoice with the two lines that paid it in

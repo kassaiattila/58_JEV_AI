@@ -121,7 +121,8 @@ def test_the_golden_measurements_reuse_unless_told_to_ask_again(isolated, monkey
         raise _Stop
 
     monkeypatch.setattr(calls, "measurement", spy)
-    from jav import evals, evals_detect, evals_email, reconcile_ai
+    from jav import evals, evals_detect, evals_email
+    from jav.domains.finance import reconcile_ai
 
     monkeypatch.setattr(evals_email, "_cases", lambda limit: [])
     runs = [

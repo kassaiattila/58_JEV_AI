@@ -53,6 +53,7 @@ def _renamed(partition: str, state: State) -> State:
 # Every moved module that defines a model a flow's state can hold is listed.
 MOVED_MODULES: dict[str, str] = {
     "emails": "domains.email.emails", "email_tasks": "domains.email.email_tasks", "intent": "domains.email.intent",
+    "flow_statement_table": "domains.finance.flow_statement_table",
 }
 
 

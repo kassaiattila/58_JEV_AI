@@ -3,7 +3,7 @@
 A work package of its own kind (`source_kind = 'statements'`) for one own party and a period. Its items are the bank
 statements of a folder or of the given files:
 
-- a bank's export read by code (`jav/statement_table.py`): one statement item per account and month, the statement
+- a bank's export read by code (`jav/domains/finance/statement_table.py`): one statement item per account and month, the statement
   file the reader builds (a ledger export with the month's PDF statement as its companion);
 - a PDF no export uses as its companion: a document item, processed as any PDF (type recognition, then the extraction
   of the recognised bank statement type, paid within the run's budget).
@@ -22,10 +22,10 @@ In a run, the package's kind adds two rules (`work.PackageRule`, asked by the wo
   in a live run (the owner's decision of 2026-10-10, DECISIONS 139), in the package's log; another party's account is a
   `statements:other_party:<party>` to-do and stays where it is.
 
-The same account's same days twice are decided by `jav/statement_months.py` (139), whichever package brought them.
+The same account's same days twice are decided by `jav/domains/finance/statement_months.py` (139), whichever package brought them.
 
-Layer: UI/CLI → **this** (application operation) → `jav.statement_table`, `jav.statement_months`, `jav.parties`,
-`jav.reconcile` (business modules) and `jav.work` (the package record and its log). No AI call here.
+Layer: UI/CLI → **this** (application operation) → `jav.domains.finance.statement_table`, `jav.domains.finance.statement_months`, `jav.parties`,
+`jav.domains.finance.reconcile` (business modules) and `jav.work` (the package record and its log). No AI call here.
 """
 
 from __future__ import annotations
@@ -35,8 +35,11 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import (activity_kinds, cfg, item_kinds, logic_packs, package_scope, parties, reconcile, statement_months,
-                 statement_table, store, typepack, values, work, work_runs, workflow_steps)
+from jav import (
+    activity_kinds, cfg, item_kinds, logic_packs, package_scope, parties, store, typepack, values, work, work_runs,
+    workflow_steps,
+)
+from jav.domains.finance import reconcile, statement_months, statement_table
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
@@ -513,7 +516,7 @@ def workflow_repeat_from(wp_id: str) -> dict[str, Any] | None:
     return workflow_steps.folder_source(wp, (KIND,))
 
 
-# 181: the statements step of a workflow (registered by the finance domain, `jav/domains/finance.py`)
+# 181: the statements step of a workflow (registered by the finance domain, `jav/domains/finance/__init__.py`)
 STEP = workflow_steps.StepKind("statements", __name__, (KIND,), start=workflow_start, repeat_from=workflow_repeat_from,
                                estimate=workflow_estimate, needs=("party", "period"))
 
@@ -569,14 +572,14 @@ def create_with_files(*, name: str, paths: list[Path], scope: dict[str, Any], ac
 
 
 # 176 (plan 170 L3): the statement package as a logic pack (`jav/logic_packs.py`); 180 (plan 170 E7): registered by the
-# finance domain (`jav/domains/finance.py`); 186: its scope's party reference and deletion are the shared scope's
+# finance domain (`jav/domains/finance/__init__.py`); 186: its scope's party reference and deletion are the shared scope's
 LOGIC = logic_packs.LogicPack(
     kind=KIND, module=__name__,
     roles=(logic_packs.InputRole("statements", "own_items",
                                     "the party's bank statements and statement PDFs of the period, ticked in its survey"),),
     add_refusal="add statements to a statement package through its survey", take_files=take_files,
     create_with_files=create_with_files,
-    rule=RULE, page=_page, scope=own_scope, service="jav.api_statement_package")
+    rule=RULE, page=_page, scope=own_scope, service="jav.domains.finance.api_statement_package")
 
 
 __all__ = ["KIND", "LOGIC", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "STEP", "StatementPackageError", "add_statement_tables",
