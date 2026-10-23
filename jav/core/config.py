@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]  # 208: jav/core/config.py
 ENV_FILE = PROJECT_ROOT / ".env"
-PROMPTS_DIR = PROJECT_ROOT / "jav" / "prompts"
+PROMPTS_DIR = PROJECT_ROOT / "configs" / "prompts"  # 209 (R2b): the instructions sent to a model are config data
 RUNS_DIR = PROJECT_ROOT / "runs"
 CACHE_DIR = RUNS_DIR / "cache"  # JEV request-hash cache
 STORE_PATH = PROJECT_ROOT / "store" / "jav.sqlite"  # durable store (git-ignored, PII)

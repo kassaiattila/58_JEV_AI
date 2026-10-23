@@ -4,7 +4,7 @@ The owner's decision (2026-09-28, `docs/DECISIONS.md` "047"): the 15 legacy type
 packs, so that after detection they run on the same flow, UI and review path as the invoices.
 
 What it does (deterministic, without AI calls):
-- the legacy `schema.json` and `prompt.md` go VERBATIM into `jav/prompts/` (the G path's output model and prompt are
+- the legacy `schema.json` and `prompt.md` go VERBATIM into `configs/prompts/` (the G path's output model and prompt are
   unchanged);
 - a KIND per field from the name, the JSON type, the description and the legacy `rules.json` `money_fields` list
   (`guess_kind`); itemised lists (`list_fields`) and enumerated values (`enums`) from the schema;

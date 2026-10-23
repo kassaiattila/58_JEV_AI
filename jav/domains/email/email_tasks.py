@@ -1,7 +1,7 @@
 """Task proposal from an email (058 K5.3): the business part of the legacy `10_AIFLOW_V4/flows/email-actions-bare`.
 
 - **Proposal (GPT, Pydantic AI):** at most a few concrete human to-dos per email from the legacy action vocabulary, with
-  the legacy v1.3.0 instruction verbatim (`jav/prompts/email_tasks_prompt.md`). Every to-do needs evidence: a JSON
+  the legacy v1.3.0 instruction verbatim (`configs/prompts/email_tasks_prompt.md`). Every to-do needs evidence: a JSON
   pointer into the input + a verbatim quote. The intent-recognition result is only a fallible hint (`intent_proposals`).
 - **Gate (code):** the rules of the legacy `flow.py` `gate_result` / `_message_evidence` / `_field_claim` and of
   `shadowanalysis.evidence`. The evidence quote appears verbatim at the location pointed to, which can only be the

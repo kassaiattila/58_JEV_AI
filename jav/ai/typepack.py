@@ -7,7 +7,7 @@ What the pack contains (a mirror of the legacy 10_AIFLOW_V4 `types/<key>/` pack,
   the candidate kind (S path) and evidence matching (G path);
 - `scored_fields` / `informational_fields` (the legacy `_compare_contract` and `rules.json non_scored_fields`),
   `required` (rules.json), `high_stakes` (policy), `validators` (rules.json `named` + `fields` format rules);
-- `prompt_file` + `schema_file` (the legacy prompt.md and schema.json verbatim, `jav/prompts/`), from which the G path's
+- `prompt_file` + `schema_file` (the legacy prompt.md and schema.json verbatim, `configs/prompts/`), from which the G path's
   output model is built (`llm_model()`: a Pydantic model from the JSON schema, `extra="forbid"`);
 - `select_callsite` / `verify_callsite`: the settings files of the JEV call sites; `candidate_profile`: the regex set of
   the candidate finders (`hu` = the Hungarian invoice's existing behaviour, bit for bit, `intl` = international
