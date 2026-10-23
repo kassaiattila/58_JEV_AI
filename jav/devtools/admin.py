@@ -174,7 +174,8 @@ def _report(have_store: bool) -> str:
               f"- open reasons by the kind of run that raised them: live {by_kind['live']} · trial {by_kind['trial']}"
               f" · without a run {by_kind['no_run']}",
               "- open human tasks by kind (215: each open item above has one): "
-              + (" · ".join(f"{k} {n}" for k, n in open_tasks_by_kind().items()) or "-")]
+              + (" · ".join(f"{k} {n}" for k, n in open_tasks_by_kind().items()) or "-"),
+              snapshot_line()]
     else:
         L.append(no_store)
     L += ["", "Parancsok: `configs`, `flows [--check]`, `docs`, `store`, golden / determinism / email-golden / detect-golden (README).", ""]
@@ -207,6 +208,17 @@ def open_tasks_by_kind() -> dict[str, int]:
             return {}
         return {r["kind"]: r["n"] for r in c.execute(
             "SELECT kind, COUNT(*) AS n FROM process_tasks WHERE status='open' GROUP BY kind ORDER BY kind")}
+
+
+def snapshot_line() -> str:
+    """218: the calculation snapshots stored and what they are linked to; "-" for a store without them yet."""
+    with store.connect() as c:
+        if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='calc_snapshots'").fetchone() is None:
+            return "- calculation snapshots (218): -"
+        n = c.execute("SELECT COUNT(*) FROM calc_snapshots").fetchone()[0]
+        links = " · ".join(f"{r['subject_kind']} {r['n']}" for r in c.execute(
+            "SELECT subject_kind, COUNT(*) AS n FROM snapshot_links GROUP BY subject_kind ORDER BY subject_kind"))
+    return f"- calculation snapshots (218): {n} stored · linked: {links or '-'}"
 
 
 def write_state(path: Path = STATE_PATH) -> Path:

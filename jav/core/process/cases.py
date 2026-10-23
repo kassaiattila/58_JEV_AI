@@ -41,7 +41,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from jav.core import store
+from jav.core import rulebook, store
 from jav.core.clock import utc_stamp as _now
 from jav.core.process import definition as definitions
 from jav.core.process import hooks, kinds, timers
@@ -450,6 +450,7 @@ def start_in(c: sqlite3.Connection, case_id: str, definition: ProcessDef, data: 
     if _prior_start(c, case_id, sha):
         return "exists"
     now = _insert_case(c, case_id, definition, data, sha, actor)
+    rulebook.link_in(c, rulebook.CASE, case_id)  # 218: the code and the rules the case started with
     for step in definition.steps:
         c.execute("INSERT INTO process_steps(case_id, step_id, state, updated_at) VALUES (?,?,?,?)",
                   (case_id, step.id, WAITING if step.needs() else READY, now))

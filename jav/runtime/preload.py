@@ -6,6 +6,9 @@ working tree) was then loaded against the code already in memory: every item of 
 worker and the local service call `preload()` at start-up, so a running process is one consistent state of the code
 it started from; a module that cannot be imported stops the start instead of failing every item later. The three
 stand-alone measurement tools are never loaded: the runtime does not use them (until 208 `jav.experiments`).
+
+218: after the code, the process takes its calculation snapshot (`jav.core.rulebook.current`): every config is loaded
+then, so the rules the process uses are the ones its runs, items and cases are linked to.
 """
 
 from __future__ import annotations
@@ -34,6 +37,9 @@ def preload() -> list[str]:
         except Exception as exc:  # the start stops with the module's name; the cause is chained
             raise PreloadError(f"{info.name} could not be imported at start-up: {type(exc).__name__}: {exc}") from exc
         loaded.append(info.name)
+    from jav.core import rulebook
+
+    rulebook.current()
     return loaded
 
 

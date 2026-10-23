@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -103,8 +104,20 @@ def report() -> list[dict[str, str]]:
     return rows
 
 
+_ON_RELOAD: list[Callable[[], None]] = []
+
+
+def on_reload(fn: Callable[[], None]) -> None:
+    """218: a module whose state follows the loaded configs (the calculation snapshot, `jav.core.rulebook`) is told
+    when `reload` clears them."""
+    if fn not in _ON_RELOAD:
+        _ON_RELOAD.append(fn)
+
+
 def reload() -> None:
     """For tests / config changes at run time: clears the cache."""
     load.cache_clear()
     config_hash.cache_clear()
     file_digest.cache_clear()
+    for fn in _ON_RELOAD:
+        fn()

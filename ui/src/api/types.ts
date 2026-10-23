@@ -142,6 +142,13 @@ export interface RunView {
   superseded?: { by: string; actor: string; at: string; reasons_closed: number } | null; // 151: who superseded it
   engine?: Engine | null; // 160-D: the AI engine the run ran with (absent from an older service)
   removed_items?: string[]; // 160-C (decision 163 D7): items removed from the package, left out of the release
+  rule_changes?: RuleChanges; // 218: only when some items were processed with other rules or code than the run started with
+}
+/** 218: what changed during a run (a release meanwhile): how many items, the rule files with their versions, and whether
+ *  the program changed too; shown at the run's approval, nothing stops (the owner's decision of 2026-10-23). */
+export interface RuleChanges {
+  items: number; snapshots: number; code_changed: boolean;
+  files: { path: string; before: string | null; after: string | null }[];
 }
 /** 151: the later live run that repeated this one, its own open to-dos that would close, and the human work done on it. */
 export interface SupersedeInfo { by: string; open_reasons: number; resolved_reasons: number; corrected_items: number }

@@ -14,7 +14,7 @@ from typing import Any
 
 from jav.app import item_kinds
 from jav.core import store
-from jav.core import calls, queue
+from jav.core import calls, queue, rulebook
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 from jav.app import human_tasks, work, work_readiness, work_recipes
@@ -97,6 +97,7 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
                       " recipe, params, input, input_hash, status, actor, created_at, plan, scope) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'queued',?,?,?,?)",
                       (run_id, wp_id, dedup, mode, a["revision"], r["id"], r["version"], work_recipes.recipe_hash(r), work._canon(r), work._canon(a["params"]),
                        work._canon(snapshot), input_hash, actor, _now(), work._canon(ready["plan"]), "pending" if scope == "pending" else None))
+            rulebook.link_in(c, rulebook.RUN, run_id)  # 218: the code and the rules the run started with
     if existing:
         # 063: if the previous start broke off after the run row, the repeated start fills in the budget and the jobs
         _ensure_run_work(existing["run_id"], json.loads(existing["input"])["items"], ready["budget"], replace_budget=False)
@@ -207,11 +208,39 @@ def runs(wp_id: str) -> list[dict[str, Any]]:
 
 def record_item_result(run_id: str, item_id: str, *, status: str, final_status: str | None = None,
                        flow_run_id: str | None = None, error: str | None = None) -> None:
+    """The item's result in the run. 218: a finished item is linked to the snapshot of the process that processed it
+    (the worker's), in the same write."""
     with store.connect() as c:
         c.execute("INSERT INTO run_items(run_id, item_id, status, final_status, flow_run_id, error, updated_at) VALUES (?,?,?,?,?,?,?)"
                   " ON CONFLICT(run_id, item_id) DO UPDATE SET status=excluded.status, final_status=excluded.final_status,"
                   " flow_run_id=excluded.flow_run_id, error=excluded.error, updated_at=excluded.updated_at",
                   (run_id, item_id, status, final_status, flow_run_id, error, _now()))
+        if status == "done":
+            rulebook.link_in(c, rulebook.RUN_ITEM, rulebook.run_item_subject(run_id, item_id))
+
+
+def rule_changes(run_id: str) -> dict[str, Any] | None:
+    """218 (the owner's decision: shown at the approval, nothing stops): when some of the run's items were processed
+    with other code or rules than the run started with (a release meanwhile), how many and which files differ, with
+    their versions; None when one snapshot holds, or the run is older than snapshots."""
+    with store.connect() as c:
+        links = rulebook.of_run_in(c, run_id)
+        start = links["start"]
+        others = sorted(i for i, s in links["items"].items() if s != start)
+        if start is None or not others:
+            return None
+        base = rulebook.get_in(c, start)
+        later = [s for s in (rulebook.get_in(c, sid) for sid in sorted({links["items"][i] for i in others})) if s]
+    if base is None or not later:
+        return None
+    files: dict[str, dict[str, Any]] = {}
+    for snap in later:
+        for ch in rulebook.changes(base, snap):
+            files.setdefault(ch["path"], {"path": ch["path"], "before": ch["before"], "after": ch["after"]})
+    code = any(tuple(s[k] for k in ("app_version", "commit", "dirty")) != tuple(base[k] for k in ("app_version", "commit", "dirty"))
+               for s in later)
+    return {"items": len(others), "snapshots": 1 + len(later), "code_changed": code,
+            "files": [files[p] for p in sorted(files)]}
 
 
 def flow_run_id(run_id: str, item_id: str) -> str:

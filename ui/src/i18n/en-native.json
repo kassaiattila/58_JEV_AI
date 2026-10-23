@@ -2319,5 +2319,10 @@
   "Waiting for me": "Waiting for me",
   "Waiting since": "Waiting since",
   "What waits for {{name}}: the to-dos to check, the runs and reconciliations to approve, the budgets to decide, and the ones no one is assigned to.": "What waits for {{name}}: the to-dos to check, the runs and reconciliations to approve, the budgets to decide, and the ones no one is assigned to.",
-  "You": "You"
+  "You": "You",
+  "Rules changed": "Rules changed",
+  "{{files}} and {{n}} more": "{{files}} and {{n}} more",
+  "{{n}} item(s) processed with another version of the program than the run started with": "{{n}} item(s) processed with another version of the program than the run started with",
+  "{{n}} item(s) processed with another version of the program and other rules than the run started with: {{files}}": "{{n}} item(s) processed with another version of the program and other rules than the run started with: {{files}}",
+  "{{n}} item(s) processed with other rules than the run started with: {{files}}": "{{n}} item(s) processed with other rules than the run started with: {{files}}"
 }

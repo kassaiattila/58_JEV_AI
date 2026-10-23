@@ -267,6 +267,51 @@ def cmd_reground(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_snapshot(args: argparse.Namespace) -> int:
+    """218: the calculation snapshots - this process's, a stored one, a run's, the difference of two, a stored file."""
+    from jav.app import work_runs
+    from jav.core import rulebook, store
+
+    with store.connect() as c:
+        if args.restore:
+            if not args.out:
+                print("--restore needs --out")
+                return 2
+            data = rulebook.content_in(c, args.restore)
+            if data is None:
+                print(f"no stored file with fingerprint {args.restore}")
+                return 1
+            Path(args.out).write_bytes(data)
+            print(f"{len(data)} bytes written to {args.out}")
+            return 0
+        if args.diff:
+            a, b = (rulebook.get_in(c, s) for s in args.diff)
+            if a is None or b is None:
+                print("unknown snapshot")
+                return 1
+            print(json.dumps({"code": {k: [a[k], b[k]] for k in ("app_version", "commit", "dirty") if a[k] != b[k]},
+                              "files": rulebook.changes(a, b)}, ensure_ascii=False, indent=2))
+            return 0
+        if args.run:
+            print(json.dumps({**rulebook.of_run_in(c, args.run), "rule_changes": work_runs.rule_changes(args.run)},
+                             ensure_ascii=False, indent=2))
+            return 0
+        sid = args.id or rulebook.current().snapshot_id
+        snap = rulebook.get_in(c, sid)
+        if snap is None and args.id is None:  # this process's, not linked to anything yet
+            here = rulebook.current()
+            snap = {"snapshot_id": sid, "stored": False, "app_version": here.app_version, "commit": here.commit,
+                    "dirty": here.dirty, "files": here.files}
+        if snap is None:
+            print(f"unknown snapshot {sid}")
+            return 1
+        links = dict(c.execute("SELECT subject_kind, COUNT(*) FROM snapshot_links WHERE snapshot_id=? GROUP BY subject_kind",
+                               (sid,)).fetchall())
+    files = snap.pop("files", {})
+    print(json.dumps({**snap, "files": len(files), "linked": links}, ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_store(args: argparse.Namespace) -> int:
     from jav.core import store
 
@@ -424,6 +469,14 @@ def register(sub) -> None:
     p = sub.add_parser("reground", help="053: a futás(ok) forráshelyének újraszámolása (mező- és tételsor-keretek; AI-hívás nélkül)")
     p.add_argument("runs", nargs="+")
     p.set_defaults(fn=cmd_reground)
+    p = sub.add_parser("snapshot", help="218: calculation snapshots - the code and the rules a run, an item, a case or an"
+                                        " approval was computed with (without an option: this process's)")
+    p.add_argument("--id", help="a stored snapshot")
+    p.add_argument("--run", help="a run's snapshots and what changed during it")
+    p.add_argument("--diff", nargs=2, metavar=("A", "B"), help="the files and the code that differ between two snapshots")
+    p.add_argument("--restore", metavar="SHA256", help="write a stored rule file's content (with --out)")
+    p.add_argument("--out", help="where --restore writes")
+    p.set_defaults(fn=cmd_snapshot)
     p = sub.add_parser("store", help="adattár statisztika (documents, datapoints, review_queue, ledger)")
     p.set_defaults(fn=cmd_store)
     p = sub.add_parser("backup", help="063: az adattár mentése futás közben is (SQLite-mentés + sértetlenség-ellenőrzés), store/backups/ alá")

@@ -740,3 +740,20 @@ and a budget are live) and whether it is the person's own or anyone's. Each row'
 is done (a to-do's review page, a run approval's package result, the package page). By default only live work shows;
 the scope's `all` adds the to-dos of trial runs and measurements (the owner's decisions of 2026-10-23). The list reads
 only. Tests: `tests/test_waiting_list_216.py`, `ui/src/waiting216.test.tsx`.
+
+**Calculation snapshots (218, P3a).** `jav/core/rulebook.py`: every process takes one snapshot at start-up
+(`jav.runtime.preload`): the application's version, the commit and whether the working tree had uncommitted changes,
+and the content fingerprint of every file under `configs/` with each JSON config's `meta.version`; every JSON config is
+loaded through `cfg.load` at that moment, so the rules the process reads afterwards are the ones it names
+(`cfg.reload` takes a new one). Tables: `rule_files` (each distinct content once, by its sha256, with where and when it
+was first seen), `calc_snapshots` (the snapshot's id is the fingerprint of its version, commit, dirty flag and files) and
+`snapshot_links` (a subject's latest snapshot). Linked in the subject's own transaction: a run when it starts
+(`work_runs.start_run`, the service's snapshot), each finished item when the worker records it
+(`work_runs.record_item_result`), a case when it starts (`cases.start_in`), a package version when a person approves a
+logic pack's own version or releases a package (`package_release`). When some items of a run were processed with
+another snapshot than the run started with (a release during the run), `work_runs.rule_changes` says how many and which
+files changed with their versions, and the run's view carries it as `rule_changes` (only then, so other views are as
+before); the package's Approve and release and the run's own line show it, and nothing stops the approval (the owner's
+decision of 2026-10-23). `python -m jav.cli snapshot` reads them: this process's, `--id`, `--run`, `--diff A B`,
+`--restore <sha256> --out <file>`. Tests: `tests/test_rulebook_218.py`, `tests/test_calc_snapshot_links_218.py`,
+`ui/src/ruleChanges218.test.tsx`.

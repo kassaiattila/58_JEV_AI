@@ -2325,5 +2325,10 @@
   "Nothing waits for you.": "Semmi nem vár rád.",
   "No live work waits for you.": "Éles munka nem vár rád.",
   "Choose your name in the “Who is working?” field above; here you see what waits for you.": "Válaszd ki fent a neved a „Ki dolgozik?” mezőben; itt azt látod, mi vár rád.",
-  "What waits for {{name}}: the to-dos to check, the runs and reconciliations to approve, the budgets to decide, and the ones no one is assigned to.": "Ami {{name}} munkájára vár: az átnézendő teendők, a jóváhagyandó futások és egyeztetések, az eldöntendő keretek, és ami senkihez nincs rendelve."
+  "What waits for {{name}}: the to-dos to check, the runs and reconciliations to approve, the budgets to decide, and the ones no one is assigned to.": "Ami {{name}} munkájára vár: az átnézendő teendők, a jóváhagyandó futások és egyeztetések, az eldöntendő keretek, és ami senkihez nincs rendelve.",
+  "Rules changed": "Szabályváltozás",
+  "{{files}} and {{n}} more": "{{files}} és még {{n}}",
+  "{{n}} item(s) processed with another version of the program than the run started with": "{{n}} tétel más programváltozattal készült, mint amivel a futás indult",
+  "{{n}} item(s) processed with another version of the program and other rules than the run started with: {{files}}": "{{n}} tétel más programváltozattal és más szabályokkal készült, mint amivel a futás indult: {{files}}",
+  "{{n}} item(s) processed with other rules than the run started with: {{files}}": "{{n}} tétel más szabályokkal készült, mint amivel a futás indult: {{files}}"
 }

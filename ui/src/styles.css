@@ -590,8 +590,8 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .release-detail { color: var(--muted); min-width: 0; font-variant-numeric: tabular-nums; }
 .release-line > button { margin-left: auto; }
 /* 160-C (decision 163 D7): items removed from the package, left out of the release: a second, quieter mark */
-.release-removed { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }
-.release-line .release-removed .status { font-size: var(--fs-xs); font-weight: 500; }
+.release-removed, .release-note { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.release-line .release-removed .status, .release-line .release-note .status { font-size: var(--fs-xs); font-weight: 500; }
 /* 160-C: a form above the package's documents (the reason for a removal, documents or statements to add); a removed
    item's name is muted */
 .inline-form { padding: var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--paper); }

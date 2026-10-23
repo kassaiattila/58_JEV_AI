@@ -81,6 +81,7 @@ python -m jav.cli statement-table <file.xlsx|file.csv|file.pdf|folder>  # 136 a 
 cd ui; npm run build | npm test | npm run dev             # UI (ui/): build into ui/dist, vitest, dev server :5173
 python -m jav.cli ocr [<pdf>] [--force] [--psm N] [--limit N]   # without a PDF: status of the OCR engine
 python -m jav.cli store | eval-report [runs/*.jsonl] [--out f] | admin [--write] | configs | flows [--check] | docs
+python -m jav.cli snapshot [--id S | --run R | --diff A B | --restore SHA --out F]   # 218 calculation snapshots: the code and the rules a run, item, case or approval was computed with
 python -m jav.cli backup [--with-docs] [--with-burr] [--copy-to <dir>] | burr-prune [--no-vacuum]   # store backup (daily: --scheduled) | thin out the Burr state store
 python -m jav.cli hooks-install | data-guard [--all]        # 071 data guard: enable the git hooks (once per clone) | scan the tracked tree
 python -m jav.cli deps-audit [--show]                       # 075 known vulnerabilities in the pinned packages (weekly with the daily backup)
@@ -104,6 +105,7 @@ python -m jav.devtools.capability_catalog                  # deterministic inven
 - **Registries:** `doc_types.py` (14 types + unknown; 190: the quote request), `intents.py` (the 11 legacy intents and, since 190, the quote request); per element `what / not_for / examples / parent`. Routing in code: `policy.py` (`decide`, `email_next_flow`). Detailed type inventory: `configs/capability_catalog.json` (25 schemas, 12 active intents).
 - **Store:** `store/jav.sqlite`. Tables by owning module:
   - `core/store.py`: documents · datapoints · review_queue · review_reasons · ledger · golden_labels · artifacts · meta; `domains/email/email_store.py` (209): emails · email_results · email_task_decisions;
+  - `core/rulebook.py` (218): rule_files · calc_snapshots · snapshot_links (the calculation snapshot);
   - `work.py`: workpackages · workpackage_items · workpackage_events · recipe_assignments · runs · run_items · file_fingerprints;
   - `runtime/queue.py`: jobs · queue_control; `runtime/calls.py`: invocations · budgets;
   - `app_settings.py`: app_users · watched_folders · watched_packages · watched_seen · app_options (output folder, AI engine); `mailbox.py`: mailbox_schedules · mailbox_pulls;
