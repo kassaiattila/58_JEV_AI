@@ -17,7 +17,9 @@ here, in one call (`register`, from `registrations.load_all`):
   (`jav/domains/finance/finance_datasets.py`);
 - (185) its addresses of the local service beyond its logic packs' own: the own parties (`jav/domains/finance/api_parties.py`) and the
   bank files, a tabular export's accounts, the utility cost and the duplicate and statement decisions
-  (`jav/domains/finance/api_finance.py`), named in `SERVICE`.
+  (`jav/domains/finance/api_finance.py`), named in `SERVICE`;
+- (209, plan G-process-core R2c) its duplicate decisions and statement choices in "My work today" (until then read by
+  `jav/app/activity.py` by name).
 
 The check adapters below turn a document under check into the call of the module that does the work; the work itself
 stays in the domain's own modules, in this folder (`duplicates.py`, `statement_months.py`, `report_utility.py`), and in
@@ -231,6 +233,15 @@ def statement_replacements(item_id: str, reasons: list[dict[str, Any]]) -> Any:
 RECORD_PARTS = (item_kinds.RecordPart("duplicates", __name__, duplicate_pairs),
                 item_kinds.RecordPart("statements", __name__, statement_replacements))
 
+# 209 (plan G-process-core R2c): the sources of "My work today" that read the domain's tables, right before the
+# workflows' (where `jav/app/activity.py` had them; 175, the owner's decision of 2026-10-19)
+SOURCES = (
+    activity_kinds.Source("duplicate_decision", "SELECT decided_at at, actor, NULL workpackage_id, run_id, decision detail"
+                                                " FROM duplicate_decisions WHERE decided_at >= ? AND decided_at < ?", flow_run=False),
+    activity_kinds.Source("statement_choice", "SELECT decided_at at, actor, NULL workpackage_id, run_id, NULL detail"
+                                              " FROM statement_choices WHERE decided_at >= ? AND decided_at < ?", flow_run=False),
+)
+
 DECISIONS = (
     (activity_kinds.DecisionKind("duplicates", duplicate_rows, wraps="result"), "native"),
     (activity_kinds.DecisionKind("reconcile", reconcile_rows, wraps="reviewed"), "duplicates"),
@@ -253,6 +264,8 @@ def register() -> None:
         checks.register(check)
     for kind, after in DECISIONS:  # 185: the reviewed version's finance parts
         activity_kinds.register_decision(kind, after=after)
+    for source in SOURCES:  # 209: its parts of "My work today"
+        activity_kinds.register_source(source, before="workflow")
     for part in RECORD_PARTS:  # 185: the finance parts of a document's result on the review page
         item_kinds.register_record_part(part)
     from jav.domains.finance import reconcile_statement  # 185: its package log events (until then the activity registry's own) and labels
@@ -279,5 +292,5 @@ def register() -> None:
                                               value_labels=report_utility.OUTPUT_VALUE_LABELS))
 
 
-__all__ = ["CHECKS", "DIRECTION_COLUMNS", "DUPLICATE_COLUMNS", "duplicate_check", "duplicate_scan", "own_tax_check",
+__all__ = ["CHECKS", "DIRECTION_COLUMNS", "DUPLICATE_COLUMNS", "SOURCES", "duplicate_check", "duplicate_scan", "own_tax_check",
            "own_tax_scan", "register", "statement_overlap_check"]

@@ -17,7 +17,7 @@ import pytest
 
 from jav.app import corrections, work, work_readiness, work_recipes, work_runs, work_views
 from jav.core import store
-from jav.domains.email import email_export, email_tasks, emails, ingest_server, mailbox
+from jav.domains.email import email_export, email_store, email_tasks, emails, ingest_server, mailbox
 from jav.runtime import worker
 from tests.test_email_results import _fake_tasks
 from tests.test_mailbox import MAILS, REQ, FakeBridge, env  # noqa: F401 - `env` is a fixture
@@ -80,7 +80,7 @@ def test_a_task_decision_cannot_be_written_after_a_concurrent_approval(env, monk
         mailbox.decide_task(run_id, item["item_id"], 0, decision="rejected", actor="t")
     assert approved == ["approved"]
     flow_id = work_runs.flow_run_id(run_id, item["item_id"])
-    assert store.email_task_decisions(flow_id)[0]["decision"] == "accepted"  # the approved decision stands
+    assert email_store.email_task_decisions(flow_id)[0]["decision"] == "accepted"  # the approved decision stands
 
 
 # --- N01: a run's table names the version of the result it shows ------------------------------------------------

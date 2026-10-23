@@ -37,6 +37,7 @@ from pydantic import BaseModel, Field
 from jav.ai import policy, typepack
 from jav.documents import text_document
 from jav.core import store
+from jav.domains.email import email_store
 from jav.domains.email.emails import DOC_EXTS, EmailMessage, body_coverage, document_text, load_message_dir
 from jav.ai.engine import with_engine
 from jav.domains.email.intent import IntentResult
@@ -258,7 +259,7 @@ def save(state: EmailState) -> EmailState:
         text = state.follow_up["params"]["source_text"]
         store.upsert_document(doc_id=text_document.text_digest(text), source_email=msg.message_id, run_id=state.run_id,
                               source_path=str(Path(state.source_dir) / "message.json") if state.source_dir else msg.message_id)
-    store.upsert_email(
+    email_store.upsert_email(
         message_id=msg.message_id, mailbox=msg.mailbox, sender=msg.sender, subject=msg.subject, received_at=msg.received_at,
         body_excerpt=(r.body_clean if r else msg.body)[:600],
         attachments=[a.model_dump(exclude={"path"}) for a in msg.attachments],
@@ -269,7 +270,7 @@ def save(state: EmailState) -> EmailState:
         next_flow=state.next_flow, run_id=state.run_id,
     )
     # 058 K5.1: the run's own result row (the `emails` row stays the latest per email); the part of the email text seen
-    store.upsert_email_result(
+    email_store.upsert_email_result(
         run_id=state.run_id, message_id=msg.message_id, intent=r.intent if r else None, intent_conf=r.confidence if r else None,
         signals=({**r.signals, "scores": {k: s.model_dump() for k, s in r.scores.items()}} if r else None),
         next_flow=state.next_flow, attachments=[a.model_dump(exclude={"path"}) for a in msg.attachments],

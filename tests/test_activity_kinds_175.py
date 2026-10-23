@@ -14,7 +14,7 @@ import pytest
 
 from jav.app import corrections, datasets, work, workflows
 from jav.core import activity_kinds, store
-from jav.domains.email import email_tasks
+from jav.domains.email import email_store, email_tasks
 from tests.test_activity_labels_171 import _recorded_actions
 from tests.test_characterisation_171 import RUN, _run, db  # noqa: F401  (the fixture)
 
@@ -62,8 +62,10 @@ def test_the_reviewed_version_is_made_of_these_decisions_in_this_order() -> None
         ("corrections", None), ("tasks", "corrections"), ("native", "review"), ("duplicates", "result"),
         ("reconcile", "reviewed"), ("statements", "checked")]
     # 185 (plan G-full-move T1d): the dataset fingerprint reads the shared parts itself, every other through the
-    # registry; the finance parts are the finance domain's, placed after the part they follow
-    assert datasets._FINGERPRINTED == {"corrections", "tasks", "native"}
+    # registry; the finance parts are the finance domain's, placed after the part they follow. 209 (plan G-process-core
+    # R2c): the task decisions are the email domain's, fingerprinted in the form they always had
+    assert datasets._FINGERPRINTED == {"corrections", "native"}
+    assert [k.name for k in kinds if k.fingerprint is not None] == ["tasks"]
     from jav.domains import finance
 
     assert [(k.name, after) for k, after in finance.DECISIONS] == [
@@ -97,7 +99,7 @@ def test_the_decisions_on_a_task_proposal_and_a_duplicate_pair_are_one_list_each
     from jav.domains.finance import api_finance, duplicates
     from jav.domains.email import api_mailbox  # 185: the requests moved with their addresses
 
-    assert api_mailbox.TaskDecision.model_fields["decision"].annotation.__args__ == store.TASK_DECISIONS == ("accepted", "rejected")
+    assert api_mailbox.TaskDecision.model_fields["decision"].annotation.__args__ == email_store.TASK_DECISIONS == ("accepted", "rejected")
     assert api_finance.DuplicateDecision.model_fields["decision"].annotation.__args__ == duplicates.DECISIONS
 
 
@@ -106,9 +108,15 @@ def test_a_source_and_its_order(monkeypatch) -> None:
     assert codes[0] == "event" and len(codes) == len(set(codes))
     assert [s.code for s in activity_kinds.sources() if not s.flow_run] == [
         "run_start", "run_approve", "correction", "duplicate_decision", "statement_choice", "workflow"]
+    # 209 (plan G-process-core R2c): the domains' sources keep the place they had among the shared ones
+    assert codes == ["event", "recipe", "run_start", "run_approve", "correction", "reason_resolve", "task_decision",
+                     "task_done", "mailbox_pull", "duplicate_decision", "statement_choice", "workflow"]
     monkeypatch.setattr(activity_kinds, "_SOURCES", dict(activity_kinds._SOURCES))
+    activity_kinds.register_source(replace(activity_kinds.sources()[0]))  # the same one again: nothing changes
     with pytest.raises(ValueError, match="registered twice"):
-        activity_kinds.register_source(replace(activity_kinds.sources()[0]))
+        activity_kinds.register_source(replace(activity_kinds.sources()[0], sql="SELECT 1"))
+    with pytest.raises(ValueError, match="no source 'nowhere'"):
+        activity_kinds.register_source(activity_kinds.Source("elsewhere", "SELECT 1"), after="nowhere")
 
 
 def test_my_work_today_shows_a_persons_duplicate_decision_statement_choice_and_workflow_steps(db) -> None:  # noqa: F811

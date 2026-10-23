@@ -142,9 +142,9 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
                     "SELECT COUNT(*), SUM(r.status='open'), MAX(r.id), MAX(r.closed_at) FROM review_reasons r"
                     f" JOIN review_queue q ON q.id = r.review_id WHERE q.subject_kind=? AND q.subject_id IN ({','.join('?' * len(chunk))})",
                     (kind, *chunk)).fetchone()
-        # an email's flow id is `<run>:<item>`; a range condition, so that the key index can be used
-        dec = c.execute("SELECT COUNT(*), GROUP_CONCAT(k) FROM (SELECT run_id || '#' || task_index || '=' || decision || '@' || decided_at AS k"
-                        " FROM email_task_decisions WHERE run_id >= ? AND run_id < ? ORDER BY k)", (run_id + ":", run_id + ";")).fetchone()
+        # 209 (plan G-process-core R2c): a decision kind's own part, in the form it always had (the email domain's task
+        # decisions: their count and digest, `jav/domains/email/email_store.py` `task_fingerprint`)
+        own = [part for k in activity_kinds.decisions() if k.fingerprint is not None for part in k.fingerprint(run_id, c)]
         items = c.execute("SELECT COUNT(*), MAX(updated_at) FROM run_items WHERE run_id=?", (run_id,)).fetchone()
         from jav.documents import native_results
 
@@ -154,10 +154,9 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
         # own) on one of the run's items; 185 (plan G-full-move T1d): read through the registry, none by name
         subject_ids = [i for _k, i in subjects]
         extra = [[k.name, found] for k in activity_kinds.decisions() if k.name not in _FINGERPRINTED
-                 and (found := k.rows(run_id, subject_ids, c))]
+                 and k.fingerprint is None and (found := k.rows(run_id, subject_ids, c))]
         journal = decisions.run_state(c, run_id)  # 187: e.g. a task's done mark, which the parts above leave out
-    digest = hashlib.sha256(str(dec[1]).encode("utf-8")).hexdigest()[:16]
-    parts = [*corr, *rsn, dec[0], digest, *items, row["status"], row["approval"], native,
+    parts = [*corr, *rsn, *own, *items, row["status"], row["approval"], native,
              hashlib.sha256(str(left_out).encode("utf-8")).hexdigest()[:16]]
     if extra:  # a run without any keeps the fingerprint of its other parts
         parts.append(hashlib.sha256(json.dumps(extra).encode("utf-8")).hexdigest()[:16])
@@ -166,8 +165,9 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
     return "|".join(str(x) for x in parts)
 
 
-# the decision kinds `_run_fingerprint` reads by itself (the shared parts of the reviewed version)
-_FINGERPRINTED = frozenset({"corrections", "tasks", "native"})
+# the decision kinds `_run_fingerprint` reads by itself (the shared parts of the reviewed version); a kind with its own
+# fingerprint part is read through it (209)
+_FINGERPRINTED = frozenset({"corrections", "native"})
 
 
 def _package_fingerprint(scope: dict[str, str]) -> str:

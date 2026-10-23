@@ -21,8 +21,7 @@ from fastapi import Path as PathParam
 from pydantic import Field
 
 from jav.app import corrections, work_views
-from jav.core import store
-from jav.domains.email import mailbox
+from jav.domains.email import email_store, mailbox
 from jav.service.service_shared import DecisionState, Empty, In, ItemId, Revision, RunId, Text, WpId, error, human_actor
 from jav.core.user_messages import message_fields
 
@@ -31,7 +30,7 @@ PullId = Annotated[str, PathParam(pattern=r"^pull-[0-9a-f]{10}$")]
 
 
 class TaskDecision(In):
-    decision: Literal[store.TASK_DECISIONS]  # type: ignore[valid-type]
+    decision: Literal[email_store.TASK_DECISIONS]  # type: ignore[valid-type]
     note: Text | None = None
     expected_state: DecisionState | None = None  # 187: the task's `decision_state` as the page read it
 

@@ -133,7 +133,12 @@ class ItemHandler:
     not a document record. `result(run, item, engine)`: the item's result as the page shows it; `correct(run_id, item,
     *, fields, expected_revision, actor, note, sources, confirm)`: a person's correction, returning the new one;
     `titles(items)`: the list's titles of its items and of their attachments (by item id); `parent_labels(items)`: the
-    label of each of its items an attachment came from, for the documents' source column (by item id)."""
+    label of each of its items an attachment came from, for the documents' source column (by item id).
+
+    209 (plan G-process-core R2c): what another domain reads of an item's stored result, so that it names none of the
+    kind's tables. `reading(flow_run_id, c)`: what the item was read as (`read_as`: an email's intent), its `title`,
+    `sender` and `received_at` (None before the run saved it); `found_as(value, c)`: (package, item) of every item a
+    run read as `value`."""
 
     kind: str
     module: str
@@ -141,6 +146,8 @@ class ItemHandler:
     correct: Callable[..., dict[str, Any]]
     titles: Callable[[list[dict[str, Any]]], dict[str, str]]
     parent_labels: Callable[[list[dict[str, Any]]], dict[str, str]]
+    reading: Callable[[str, Any], dict[str, Any] | None]
+    found_as: Callable[[str, Any], list[tuple[str, str]]]
 
 
 @dataclass(frozen=True)

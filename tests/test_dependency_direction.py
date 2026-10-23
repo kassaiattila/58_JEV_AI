@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import ast
 import functools
+import re
 from pathlib import Path
 
 JAV = Path(__file__).resolve().parents[1] / "jav"
@@ -168,4 +169,42 @@ def test_no_domain_imports_another_domain():
     crossings = {(a, b) for a, b in _against() if _place(a[4:])[1] and _place(b[4:])[1]
                  and _place(a[4:])[1] != _place(b[4:])[1]}
     assert crossings == set()
+
+
+# --- the tables (209, plan G-process-core R2c) ------------------------------------------------------------------------
+
+_SQL_TABLE = re.compile(r"\b(?:FROM|JOIN|INTO|UPDATE|TABLE(?:\s+IF\s+NOT\s+EXISTS)?)\s+(\w+)")
+_CREATED = re.compile(r"CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+(\w+)")
+
+
+@functools.cache
+def _tables() -> dict[str, str]:
+    """Every table by the module that creates it."""
+    owners: dict[str, list[str]] = {}
+    for name, path in MODULES.items():
+        for table in _CREATED.findall(path.read_text(encoding="utf-8")):
+            owners.setdefault(table, []).append(name)
+    assert {t: m for t, m in owners.items() if len(m) > 1} == {}, "a table is created in one module only"
+    return {table: modules[0] for table, modules in owners.items()}
+
+
+def test_a_domains_tables_are_named_by_its_own_modules_and_the_measurement_only():
+    """A shared module or another domain reaches a domain's tables through the domain's registrations, never by naming
+    them in its SQL (the measurement, the developer tools and the command line may read any table)."""
+    found = set()
+    for name, path in MODULES.items():
+        layer, domain = _place(name) if name else ("core", None)
+        if layer in ("evals", "devtools", "cli", "legacy"):
+            continue
+        for table in set(_SQL_TABLE.findall(path.read_text(encoding="utf-8"))) & set(_tables()):
+            owner = _place(_tables()[table])[1]
+            if owner and owner != domain:
+                found.add((f"jav.{name}", table))
+    assert found == set()
+
+
+def test_the_email_tables_belong_to_the_email_domain():
+    """209 (R2c): until then the shared store created them."""
+    assert {t: _tables()[t] for t in ("emails", "email_results", "email_task_decisions")} == dict.fromkeys(
+        ("emails", "email_results", "email_task_decisions"), "domains.email.email_store")
 

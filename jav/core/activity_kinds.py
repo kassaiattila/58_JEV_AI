@@ -5,7 +5,8 @@ Plain-language summary: four lists that were written out by hand in several plac
   approved", "its live run started"). Each module names the actions it records, and a log refuses an action no module
   named, so a test can check that every action has a label in the interface.
 - The sources of "My work today": where a person's actions of the day are read from (package events, runs started
-  and approved, corrections, closed to-dos, task decisions, mailbox downloads), in their order.
+  and approved, corrections, closed to-dos, task decisions, mailbox downloads), in their order; 209 (plan
+  G-process-core R2c): a domain registers the sources that read its tables, in the place they always had.
 - The decisions a person makes on a run's results (corrections, decisions on an email's task proposals, a native
   result's publication, duplicate, reconciliation and statement decisions). Together they make the run's reviewed
   version: each part present wraps the earlier ones, in the order registered.
@@ -45,21 +46,26 @@ class Source:
     """Where "My work today" reads one kind of action: `sql` returns the columns (at, actor, workpackage_id, run_id,
     detail) of the rows between two times; `flow_run`: the run column holds an item's flow id (`<run>:<item>`);
     `action_prefix`: the action is the detail column after this prefix (a log's own action, labelled as such), else the
-    source's code."""
+    source's code; `detail`: 209 (plan G-process-core R2c): the row's short detail made from its detail column (without
+    personal data), for a source whose detail column is not shown as it is."""
     code: str
     sql: str
     flow_run: bool = True
     action_prefix: str | None = None
+    detail: Callable[[Any], str | None] | None = None
 
 
 @dataclass(frozen=True)
 class DecisionKind:
     """A kind of decision on a run's results. `rows(run_id, items, c)`: the run's decisions of this kind in the form
     the reviewed version digests (empty: none); `wraps`: the key the earlier parts go under when this part is present
-    (None only for the first part, which is the payload itself)."""
+    (None only for the first part, which is the payload itself). `fingerprint(run_id, c)`: 209 (plan G-process-core
+    R2c): the kind's own part of a run's result fingerprint, for a kind the fingerprint read in its own form before
+    the registry (the email domain's task decisions); a kind without one is fingerprinted by its rows."""
     name: str
     rows: Callable[[str, list[str], sqlite3.Connection], list[Any]]
     wraps: str | None = None
+    fingerprint: Callable[[str, sqlite3.Connection], list[Any]] | None = None
 
 
 _EVENTS: dict[str, dict[str, str]] = {log: {} for log in LOGS}
@@ -110,10 +116,28 @@ def events(log: Log) -> dict[str, str]:
 
 # --- the sources of "My work today" ------------------------------------------------------------------------------------
 
-def register_source(source: Source) -> None:
-    if source.code in _SOURCES:
+def register_source(source: Source, *, after: str | None = None, before: str | None = None) -> None:
+    """A source, last or (209, plan G-process-core R2c) right after the source `after` or right before the source
+    `before`: a domain's sources keep the place they always had among the shared ones (the shared modules' sources are
+    loaded first), whichever domain registers first. The same source again adds nothing; another one of the same code
+    is an error."""
+    anchor = after or before
+    if anchor is not None and anchor not in _SOURCES:
+        _load_owners()
+    known = _SOURCES.get(source.code)
+    if known is not None:
+        if known == source:
+            return
         raise ValueError(f"activity source {source.code} is registered twice")
-    _SOURCES[source.code] = source
+    if anchor is None:
+        _SOURCES[source.code] = source
+        return
+    if anchor not in _SOURCES:
+        raise ValueError(f"activity source {source.code}: no source {anchor!r} to place it by")
+    items = list(_SOURCES.items())
+    items.insert([code for code, _s in items].index(anchor) + (1 if after else 0), (source.code, source))
+    _SOURCES.clear()
+    _SOURCES.update(items)
 
 
 def sources() -> list[Source]:

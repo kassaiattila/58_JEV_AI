@@ -103,7 +103,7 @@ python -m jav.devtools.capability_catalog                  # deterministic inven
 - **OCR:** the `ocr_pdf` step (`jav/documents/ocr.py`, `configs/ocr.json`): native tesseract, Azure escalation on a weak result (`ocr_with_escalation`; an escalation that cannot run raises an `ocr:escalation_blocked:*` to-do, except when the recipe switch is off). Evals use `jav/documents/pdf.py: read_document()`, without escalation.
 - **Registries:** `doc_types.py` (14 types + unknown; 190: the quote request), `intents.py` (the 11 legacy intents and, since 190, the quote request); per element `what / not_for / examples / parent`. Routing in code: `policy.py` (`decide`, `email_next_flow`). Detailed type inventory: `configs/capability_catalog.json` (25 schemas, 12 active intents).
 - **Store:** `store/jav.sqlite`. Tables by owning module:
-  - `store.py`: documents · datapoints · emails · email_results · email_task_decisions · review_queue · review_reasons · ledger · golden_labels · artifacts · meta;
+  - `core/store.py`: documents · datapoints · review_queue · review_reasons · ledger · golden_labels · artifacts · meta; `domains/email/email_store.py` (209): emails · email_results · email_task_decisions;
   - `work.py`: workpackages · workpackage_items · workpackage_events · recipe_assignments · runs · run_items · file_fingerprints;
   - `runtime/queue.py`: jobs · queue_control; `runtime/calls.py`: invocations · budgets;
   - `app_settings.py`: app_users · watched_folders · watched_packages · watched_seen · app_options (output folder, AI engine); `mailbox.py`: mailbox_schedules · mailbox_pulls;

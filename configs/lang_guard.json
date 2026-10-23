@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.122",
+    "version": "1.0.123",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.123",
+        "date": "2026-10-23",
+        "note": "209 (plan G-process-core R2c): the email tables left jav/core/store.py with their comments, now in English in jav/domains/email/email_store.py; its baseline drops 27 -> 19; 6046 -> 6038."
+      },
       {
         "version": "1.0.122",
         "date": "2026-10-23",
@@ -809,7 +814,7 @@
     "jav/core/config.py": 5,
     "jav/core/dates.py": 9,
     "jav/core/devstate.py": 7,
-    "jav/core/store.py": 27,
+    "jav/core/store.py": 19,
     "jav/core/taxid.py": 3,
     "jav/core/version.py": 1,
     "jav/devtools/admin.py": 15,

@@ -1,6 +1,8 @@
 """Durable store: SQLite (`store/jav.sqlite`, git-ignored - contains PII).
 
-Core tables (ROADMAP §2): documents, datapoints, emails, review_queue, ledger, golden_labels.
+Core tables (ROADMAP §2): documents, datapoints, review_queue, ledger, golden_labels. A module's own tables are
+registered by it (`register_schema`); 209 (plan G-process-core R2c): the email domain's too
+(`jav/domains/email/email_store.py`).
 Schema version in the `meta` table; extensions are additive only (new column / table), never a destructive migration.
 Simple function API, no ORM: every writer function is one transaction.
 """
@@ -111,52 +113,6 @@ CREATE TABLE IF NOT EXISTS datapoints (
     PRIMARY KEY (run_id, doc_id)
 );
 CREATE INDEX IF NOT EXISTS ix_datapoints_doc ON datapoints(doc_id, created_at);
-
-CREATE TABLE IF NOT EXISTS emails (
-    message_id    TEXT PRIMARY KEY,
-    mailbox       TEXT,
-    sender        TEXT,
-    subject       TEXT,
-    received_at   TEXT,
-    body_excerpt  TEXT,
-    attachments   TEXT NOT NULL,             -- JSON: doc_id lista
-    intent        TEXT,
-    intent_conf   REAL,
-    signals       TEXT,                      -- JSON: Noul-jelek
-    next_flow     TEXT,
-    run_id        TEXT,
-    created_at    TEXT NOT NULL
-);
-
--- 058 K5.1: a levél-eredmény futásonként (a folyamat-azonosítóval), mint a datapoints az iratoknál; az `emails` sor
--- levelenként a legutóbbi eredmény marad
-CREATE TABLE IF NOT EXISTS email_results (
-    run_id        TEXT PRIMARY KEY,          -- a tétel folyamat-azonosítója (<futás>:<tétel>)
-    message_id    TEXT NOT NULL,
-    intent        TEXT,
-    intent_conf   REAL,
-    signals       TEXT,                      -- JSON
-    next_flow     TEXT,
-    attachments   TEXT NOT NULL,             -- JSON: csatolmányok felismeréssel (doc_id, doc_type, status)
-    body          TEXT,                      -- JSON: a levél szövegéből látott rész (emails.body_coverage)
-    tasks         TEXT,                      -- JSON: 058 K5.3 feladatjavaslat a kapu után (NULL = nem kértük)
-    created_at    TEXT NOT NULL,
-    folder        TEXT                       -- 149: 'sent' for a message read from the Sent Items folder, else NULL
-);
-
--- 058 K5.3: a person's decision on a task proposal (one per proposal, the latest counts; 187: every change is also
--- in the decision journal, jav/core/decisions.py)
-CREATE TABLE IF NOT EXISTS email_task_decisions (
-    run_id        TEXT NOT NULL,             -- a levél folyamat-azonosítója (email_results.run_id)
-    task_index    INTEGER NOT NULL,
-    decision      TEXT NOT NULL,             -- accepted | rejected
-    actor         TEXT NOT NULL,
-    note          TEXT,
-    decided_at    TEXT NOT NULL,
-    done_by       TEXT,                      -- 062: az elfogadott feladatot ki jelölte elvégzettnek
-    done_at       TEXT,
-    PRIMARY KEY (run_id, task_index)
-);
 
 CREATE TABLE IF NOT EXISTS review_queue (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -466,12 +422,6 @@ def _migrate(conn: sqlite3.Connection) -> None:
         "provenance": "TEXT",  # 045: per-field source location (page, boxes, alternatives)
         "source_layer_id": "TEXT",  # 045: which word layer the boxes refer to
     })
-    # 062: manual "done" mark on an accepted task
-    add_columns(conn, "email_task_decisions", {"done_by": "TEXT", "done_at": "TEXT"})
-    add_columns(conn, "email_results", {
-        "tasks": "TEXT",  # 058 K5.3: the task proposal next to the email result
-        "folder": "TEXT",  # 149: a sent message has no intent; the result says why
-    })
     # 047 T1.2: detailed type
     add_columns(conn, "documents", {"detail_type": "TEXT", "detail_conf": "REAL", "detail_method": "TEXT"})
     # Take over the reasons of old review items (no per-reason rows); a closed item's reasons get the item's status.
@@ -613,104 +563,6 @@ def insert_datapoints(
             " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (run_id, doc_id, doc_type, arm, _json(datapoints), _json(field_conf), _json(validation), route, _json(review_reasons), final_status, config_hash,
              record_conf, _json(evidence) if evidence is not None else None, _json(provenance) if provenance is not None else None, source_layer_id, _now()),
-        )
-
-
-def upsert_email_result(*, run_id: str, message_id: str, intent: str | None, intent_conf: float | None,
-                        signals: dict[str, Any] | None, next_flow: str | None, attachments: list[dict[str, Any]],
-                        body: dict[str, Any] | None, tasks: dict[str, Any] | None = None, folder: str = "inbox") -> None:
-    """058 K5.1: the email result as the run's own row (a repeated run does not overwrite the earlier one); K5.3: the
-    task proposal; 149: the mail folder, stored only for a sent message."""
-    with connect() as c:
-        c.execute("INSERT INTO email_results(run_id, message_id, intent, intent_conf, signals, next_flow, attachments, body, tasks, created_at, folder)"
-                  " VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(run_id) DO UPDATE SET message_id=excluded.message_id,"
-                  " intent=excluded.intent, intent_conf=excluded.intent_conf, signals=excluded.signals, next_flow=excluded.next_flow,"
-                  " attachments=excluded.attachments, body=excluded.body, tasks=excluded.tasks, created_at=excluded.created_at,"
-                  " folder=excluded.folder",
-                  (run_id, message_id, intent, intent_conf, _json(signals) if signals is not None else None, next_flow,
-                   _json(attachments), _json(body) if body is not None else None, _json(tasks) if tasks is not None else None, _now(),
-                   folder if folder == "sent" else None))
-
-
-TASK_DECISIONS = ("accepted", "rejected")  # a person's decisions on an email's task proposal (175: the one list)
-
-
-def email_task_decide(run_id: str, index: int, *, decision: str, actor: str, note: str | None,
-                      c: sqlite3.Connection | None = None) -> None:
-    """`c` (086, audit N02): write inside the caller's transaction (which checks the approval first)."""
-    if decision not in TASK_DECISIONS:
-        raise ValueError(f"unknown decision: {decision}")
-    if c is None:
-        with connect() as own:
-            _email_task_decide(own, run_id, index, decision=decision, actor=actor, note=note)
-    else:
-        _email_task_decide(c, run_id, index, decision=decision, actor=actor, note=note)
-
-
-def _email_task_decide(c: sqlite3.Connection, run_id: str, index: int, *, decision: str, actor: str, note: str | None) -> None:
-    c.execute("INSERT INTO email_task_decisions(run_id, task_index, decision, actor, note, decided_at) VALUES (?,?,?,?,?,?)"
-              " ON CONFLICT(run_id, task_index) DO UPDATE SET decision=excluded.decision, actor=excluded.actor,"
-              " note=excluded.note, decided_at=excluded.decided_at,"
-              # 062: rejecting also clears the done mark (only an accepted task can be done)
-              " done_by=CASE WHEN excluded.decision='accepted' THEN done_by END,"
-              " done_at=CASE WHEN excluded.decision='accepted' THEN done_at END", (run_id, index, decision, actor, note, _now()))
-
-
-def email_task_done(run_id: str, index: int, *, actor: str, done: bool, c: sqlite3.Connection | None = None) -> bool:
-    """062: marks an accepted task as done (or undoes it); False if the task is not accepted. `c` (187): inside the
-    caller's transaction, with its journal row."""
-    if c is None:
-        with connect() as own:
-            return email_task_done(run_id, index, actor=actor, done=done, c=own)
-    cur = c.execute("UPDATE email_task_decisions SET done_by=?, done_at=? WHERE run_id=? AND task_index=? AND decision='accepted'",
-                    (actor if done else None, _now() if done else None, run_id, index))
-    return cur.rowcount == 1
-
-
-def email_task_decisions(run_id: str) -> dict[int, dict[str, Any]]:
-    with connect() as c:
-        return {r["task_index"]: dict(r) for r in c.execute("SELECT * FROM email_task_decisions WHERE run_id=?", (run_id,))}
-
-
-def email_result(run_id: str) -> dict[str, Any] | None:
-    """The email result of one flow run (None if the run has not saved it yet, or it predates 058)."""
-    with connect() as c:
-        row = c.execute("SELECT * FROM email_results WHERE run_id=?", (run_id,)).fetchone()
-    if row is None:
-        return None
-    out = dict(row)
-    for k in ("signals", "attachments", "body", "tasks"):
-        out[k] = json.loads(out[k]) if out.get(k) is not None else None
-    return out
-
-
-def upsert_email(
-    *,
-    message_id: str,
-    mailbox: str | None,
-    sender: str | None,
-    subject: str | None,
-    received_at: str | None,
-    body_excerpt: str | None,
-    attachments: list[dict[str, Any]],
-    intent: str | None,
-    intent_conf: float | None,
-    signals: dict[str, float] | None,
-    next_flow: str | None,
-    run_id: str | None,
-) -> None:
-    """M3: one row per email; overwritten on a re-run (run_id shows which run it came from)."""
-    with connect() as c:
-        c.execute(
-            "INSERT INTO emails(message_id, mailbox, sender, subject, received_at, body_excerpt, attachments, intent, intent_conf,"
-            " signals, next_flow, run_id, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)"
-            " ON CONFLICT(message_id) DO UPDATE SET"
-            "  mailbox=excluded.mailbox, sender=excluded.sender, subject=excluded.subject, received_at=excluded.received_at,"
-            "  body_excerpt=excluded.body_excerpt, attachments=excluded.attachments, intent=excluded.intent,"
-            "  intent_conf=excluded.intent_conf, signals=excluded.signals, next_flow=excluded.next_flow, run_id=excluded.run_id,"
-            "  created_at=excluded.created_at",
-            (message_id, mailbox, sender, subject, received_at, body_excerpt, _json(attachments), intent, intent_conf,
-             _json(signals) if signals is not None else None, next_flow, run_id, _now()),
         )
 
 
@@ -934,10 +786,22 @@ def review_open_reasons_many(subjects: list[tuple[str, str]]) -> dict[tuple[str,
 # --- readers ------------------------------------------------------------------------------
 
 
+_SUMMARY_PARTS: dict[str, tuple[Callable[[sqlite3.Connection], dict[str, Any]], str]] = {}
+
+
+def register_summary(name: str, part: Callable[[sqlite3.Connection], dict[str, Any]], *, after: str) -> None:
+    """209 (plan G-process-core R2c): a module's own lines of the store summary (`stats`), placed right after the line
+    `after`, so a domain counts its tables without the shared store naming them (the email domain: its emails and their
+    intents, where the summary always had them). The same part again replaces it."""
+    _SUMMARY_PARTS[name] = (part, after)
+
+
 def stats() -> dict[str, Any]:
+    """The store summary: the shared tables' counts, the open to-dos, the call log by provider and the documents by
+    type, with the registered modules' lines (`register_summary`) where they belong."""
     with connect() as c:
         out: dict[str, Any] = {}
-        for t in ("documents", "datapoints", "emails", "review_queue", "ledger", "golden_labels", "artifacts"):
+        for t in ("documents", "datapoints", "review_queue", "ledger", "golden_labels", "artifacts"):
             out[t] = c.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
         out["review_open"] = c.execute("SELECT COUNT(*) FROM review_queue WHERE status='open'").fetchone()[0]
         row = c.execute(
@@ -946,7 +810,10 @@ def stats() -> dict[str, Any]:
         out["ledger_by_provider"] = [dict(r) for r in row]
         out["ledger_errors"] = c.execute("SELECT COUNT(*) FROM ledger WHERE error IS NOT NULL").fetchone()[0]
         out["doc_types"] = [dict(r) for r in c.execute("SELECT doc_type, COUNT(*) n FROM documents GROUP BY doc_type ORDER BY n DESC").fetchall()]
-        out["intents"] = [dict(r) for r in c.execute("SELECT intent, COUNT(*) n FROM emails GROUP BY intent ORDER BY n DESC").fetchall()]
+        for part, after in _SUMMARY_PARTS.values():
+            lines = list(out.items())
+            at = [key for key, _value in lines].index(after) + 1
+            out = dict([*lines[:at], *part(c).items(), *lines[at:]])
         return out
 
 

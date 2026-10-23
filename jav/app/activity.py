@@ -7,11 +7,12 @@ task-proposal decision, mailbox pull. Modelled on the legacy V4 "Mai munkám" vi
 The day is the machine's local calendar day; timestamps are stored as UTC ISO strings, so the day bounds are converted
 to UTC. Names match case-insensitively (rows from before 061 may spell the author differently). 175 (plan 170 E4): the
 sources are entries of the activity registry (`jav/core/activity_kinds.py`), registered here in their order; a logic
-package adds its own the same way.
+package adds its own the same way, and (209) a domain the ones that read its tables.
 """
 
 from __future__ import annotations
 
+import functools
 import json
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
@@ -34,18 +35,11 @@ for _source in (
                                         " WHERE k.created_at >= ? AND k.created_at < ?", flow_run=False),
     activity_kinds.Source("reason_resolve", "SELECT closed_at at, actor, NULL workpackage_id, run_id, reason detail FROM review_reasons"
                                             " WHERE status='resolved' AND closed_at >= ? AND closed_at < ?"),
-    activity_kinds.Source("task_decision", "SELECT d.decided_at at, d.actor, NULL workpackage_id, d.run_id, d.decision detail"
-                                           " FROM email_task_decisions d WHERE d.decided_at >= ? AND d.decided_at < ?"),
-    activity_kinds.Source("task_done", "SELECT d.done_at at, d.done_by actor, NULL workpackage_id, d.run_id, NULL detail"
-                                       " FROM email_task_decisions d WHERE d.done_at >= ? AND d.done_at < ?"),  # 062
-    activity_kinds.Source("mailbox_pull", "SELECT created_at at, actor, NULL workpackage_id, NULL run_id, request detail FROM mailbox_pulls"
-                                          " WHERE created_at >= ? AND created_at < ?"),
-    # 175 (the owner's decision of 2026-10-19): a person's duplicate decisions, statement choices and own steps of a
-    # workflow (a step the workflow starts by itself is recorded for "<maker> (auto)", so it is not the person's)
-    activity_kinds.Source("duplicate_decision", "SELECT decided_at at, actor, NULL workpackage_id, run_id, decision detail"
-                                                " FROM duplicate_decisions WHERE decided_at >= ? AND decided_at < ?", flow_run=False),
-    activity_kinds.Source("statement_choice", "SELECT decided_at at, actor, NULL workpackage_id, run_id, NULL detail"
-                                              " FROM statement_choices WHERE decided_at >= ? AND decided_at < ?", flow_run=False),
+    # 175 (the owner's decision of 2026-10-19): a person's own steps of a workflow (a step the workflow starts by itself
+    # is recorded for "<maker> (auto)", so it is not the person's). 209 (plan G-process-core R2c): the sources that read
+    # a domain's tables are the domain's, in their place among these (the email domain's task decisions, done marks and
+    # mailbox downloads after the closed to-dos; the finance domain's duplicate decisions and statement choices before
+    # the workflows)
     activity_kinds.Source("workflow", "SELECT created_at at, actor, COALESCE(json_extract(detail, '$.workpackage_id'),"
                                       " json_extract(detail, '$.workpackage')) workpackage_id, json_extract(detail, '$.run_id') run_id,"
                                       " action detail FROM workflow_events WHERE created_at >= ? AND created_at < ?",
@@ -90,7 +84,8 @@ def entries(actor: str, day: str | None = None) -> list[dict[str, Any]]:
                 wp_id = r["workpackage_id"] or (run_wp.get(run_id) if run_id else None)
                 own_action = source.action_prefix is not None
                 action = f"{source.action_prefix}{r['detail']}" if own_action else code
-                out.append({"at": r["at"], "action": action, "detail": None if own_action else _detail(code, r["detail"]),
+                detail = None if own_action else (source.detail or functools.partial(_detail, code))(r["detail"])
+                out.append({"at": r["at"], "action": action, "detail": detail,
                             "workpackage_id": wp_id, "workpackage_name": names.get(wp_id) if wp_id else None, "run_id": run_id})
     out.sort(key=lambda e: e["at"], reverse=True)
     return out
@@ -100,12 +95,6 @@ def _detail(code: str, raw: Any) -> str | None:
     """Short detail for the action without personal data (field values and email content never go here)."""
     if raw is None or code == "event":
         return None
-    if code == "mailbox_pull":
-        try:
-            req = json.loads(raw)
-        except (TypeError, ValueError):
-            return None
-        return req.get("mailbox") if isinstance(req, dict) else None
     if code == "correction":
         # 167 (review 153 E): which fields were corrected (their keys; the values never go here), so the row says what
         # was done; the item id it showed before is a hash and said nothing

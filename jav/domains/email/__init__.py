@@ -16,7 +16,11 @@ Plain-language summary: what the shared code does with emails beyond reading the
 - (185) its tables on the interface: the emails, their task proposals and the mailbox downloads, and the label sets
   of the intents, the task actions and the next steps (`jav/domains/email/email_datasets.py`);
 - (185) its addresses of the local service beyond the email routing's own: the mailboxes, an email package's
-  attachments and the task proposals' decisions (`jav/domains/email/api_mailbox.py`), named in `SERVICE`.
+  attachments and the task proposals' decisions (`jav/domains/email/api_mailbox.py`), named in `SERVICE`;
+- (209, plan G-process-core R2c) what the shared code read of its tables by name until then: the task decisions, done
+  marks and mailbox downloads in "My work today", the task decisions in a run's reviewed version and its result
+  fingerprint, and an email item's stored reading for another domain (the quote request); the tables themselves are
+  in `jav/domains/email/email_store.py`.
 
 The work itself stays in the domain's own modules, in this folder (208, plan G-process-core R2; until then `MODULES`
 named them): the shared code imports none of them (`tests/test_dependency_direction.py`).
@@ -24,7 +28,10 @@ named them): the shared code imports none of them (`tests/test_dependency_direct
 
 from __future__ import annotations
 
+import json
 from typing import Any
+
+from jav.core import activity_kinds
 
 # 185 (plan G-full-move T1a): the module of the domain's addresses of the local service beyond its logic pack's own
 # (`LogicPack.service`); `jav.service.api.service_modules` adds it by name
@@ -41,10 +48,31 @@ def mailbox_page(wp: Any) -> dict[str, Any]:
     return {**mailbox.page_part(wp), **email_routing.offer(dict(wp))}
 
 
+def mailbox_pull_detail(raw: Any) -> str | None:
+    """A mailbox download's detail in "My work today": the mailbox's name (until 209 in `jav/app/activity.py`)."""
+    try:
+        req = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    return req.get("mailbox") if isinstance(req, dict) else None
+
+
+# 209 (plan G-process-core R2c): the sources of "My work today" that read the domain's tables, right after the closed
+# to-dos (where `jav/app/activity.py` had them), each after the one before
+SOURCES = (
+    activity_kinds.Source("task_decision", "SELECT d.decided_at at, d.actor, NULL workpackage_id, d.run_id, d.decision detail"
+                                           " FROM email_task_decisions d WHERE d.decided_at >= ? AND d.decided_at < ?"),
+    activity_kinds.Source("task_done", "SELECT d.done_at at, d.done_by actor, NULL workpackage_id, d.run_id, NULL detail"
+                                       " FROM email_task_decisions d WHERE d.done_at >= ? AND d.done_at < ?"),  # 062
+    activity_kinds.Source("mailbox_pull", "SELECT created_at at, actor, NULL workpackage_id, NULL run_id, request detail FROM mailbox_pulls"
+                                          " WHERE created_at >= ? AND created_at < ?", detail=mailbox_pull_detail),
+)
+
+
 def register() -> None:
     """Every registration of the email domain (`registrations.load_all`)."""
     from jav.app import datasets, item_kinds, logic_packs, workflow_steps
-    from jav.domains.email import email_datasets, email_export, email_routing, mailbox
+    from jav.domains.email import email_datasets, email_export, email_routing, email_store, mailbox
     from jav.app.outputs import parts
     from jav.runtime import job_kinds
 
@@ -57,7 +85,16 @@ def register() -> None:
     # 185: how the review page shows an email item, and a person corrects its intent
     item_kinds.register_handler(item_kinds.ItemHandler(kind=item_kinds.EMAIL, module=__name__, result=mailbox.email_item_result,
                                                        correct=mailbox.correct_email, titles=mailbox.item_titles,
-                                                       parent_labels=mailbox.parent_labels))
+                                                       parent_labels=mailbox.parent_labels, reading=email_store.reading,
+                                                       found_as=email_store.found_as))
+    # 209: "My work today"'s task decisions, done marks and mailbox downloads, and the reviewed version's task decisions
+    after = "reason_resolve"
+    for source in SOURCES:
+        activity_kinds.register_source(source, after=after)
+        after = source.code
+    activity_kinds.register_decision(activity_kinds.DecisionKind("tasks", email_store.task_rows, wraps="corrections",
+                                                                 fingerprint=email_store.task_fingerprint),
+                                     after="corrections")
     # 185: the emails and their tasks in a result's downloads, before the documents
     parts.register_item_part(parts.ItemPart("emails", __name__, item_kinds.EMAIL, read=email_export.email_records,
                                             data=email_export.result_tables, json_key="emails",
@@ -74,4 +111,4 @@ def register() -> None:
     job_kinds.register_tick(mailbox.TICK)
 
 
-__all__ = ["mailbox_page", "register"]
+__all__ = ["SOURCES", "mailbox_page", "mailbox_pull_detail", "register"]

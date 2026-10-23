@@ -16,7 +16,7 @@ import json
 
 import pytest
 
-from jav.domains.email import email_tasks, flow_email, intent_gpt, mailbox
+from jav.domains.email import email_store, email_tasks, flow_email, intent_gpt, mailbox
 from jav.ai import policy
 from jav.core import store
 from jav.ai import jev as jev_mod
@@ -91,7 +91,7 @@ def test_no_task_proposal_is_made_for_a_sent_message(env, monkeypatch):
 def test_the_email_result_records_the_folder_and_says_why_there_is_no_intent(env):
     app = flow_email.build_app(source_dir=str(_email_dir(env)), run_id="run-x:item-1")
     app.run(halt_after=flow_email.TERMINALS)
-    res = store.email_result("run-x:item-1")
+    res = email_store.email_result("run-x:item-1")
     assert res["folder"] == "sent" and res["intent"] is None
     view = mailbox.effective_email_result(res, None)
     assert view["sent"] is True and view["intent_label"] is None  # the UI names the reason

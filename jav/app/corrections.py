@@ -122,22 +122,14 @@ def _correction_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> li
         "SELECT item_id, MAX(revision) r FROM run_item_corrections WHERE run_id=? GROUP BY item_id ORDER BY item_id", (run_id,))]
 
 
-def _task_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]:
-    """086: the decisions on an email's task proposals (the flow runs of a run are `<run_id>:<item_id>`)."""
-    prefix = f"{run_id}:"
-    return [[d["run_id"], d["task_index"], d["decision"]] for d in c.execute(
-        "SELECT run_id, task_index, decision FROM email_task_decisions WHERE substr(run_id, 1, ?) = ?"
-        " ORDER BY run_id, task_index", (len(prefix), prefix))]
-
-
 def _native_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]:
     return native_results.version_parts(run_id, c)
 
 
 # 185 (plan G-full-move T1d): the finance domain's parts (the duplicate, reconciliation and statement decisions) are
-# registered by its domain module after "native" (`jav/domains/finance/__init__.py` `DECISIONS`)
+# registered by its domain module after "native" (`jav/domains/finance/__init__.py` `DECISIONS`); 209 (plan
+# G-process-core R2c): the email domain's task decisions after "corrections" (`jav/domains/email/__init__.py`)
 for _kind in (activity_kinds.DecisionKind("corrections", _correction_rows),
-              activity_kinds.DecisionKind("tasks", _task_rows, wraps="corrections"),
               activity_kinds.DecisionKind("native", _native_rows, wraps="review")):
     activity_kinds.register_decision(_kind)
 

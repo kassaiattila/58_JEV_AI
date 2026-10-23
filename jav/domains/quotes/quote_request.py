@@ -25,7 +25,7 @@ import sqlite3
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from jav.app import corrections, package_result, work
+from jav.app import corrections, item_kinds, package_result, registrations, work
 from jav.core import store
 from jav.ai.typepack import get as get_pack
 
@@ -139,14 +139,25 @@ def _table_parts(c: sqlite3.Connection, flow_run_id: str) -> list[Part]:
                  json.loads(r["datapoints"] or "{}")) for r in sorted(rows, key=stage)]
 
 
-def _email(c: sqlite3.Connection, counted: package_result.Counted) -> tuple[dict[str, Any], str | None]:
-    """The email's stored result and its intent as it counts now (a person's correction over the machine's)."""
-    row = c.execute("SELECT e.message_id, e.intent, m.subject, m.sender, m.received_at FROM email_results e"
-                    " LEFT JOIN emails m ON m.message_id = e.message_id WHERE e.run_id=?", (counted.flow_run_id,)).fetchone()
-    if row is None:
+def _email_handler() -> item_kinds.ItemHandler:
+    """209 (plan G-process-core R2c): the email kind's handler reads an email's stored result, so the quote names none
+    of the email domain's tables; the domains' registrations come first, so any process can ask."""
+    registrations.load_all()
+    own = item_kinds.handler(item_kinds.EMAIL)
+    if own is None:  # the email kind names its handler's module (`handler_from`)
+        raise item_kinds.NotRegistered("the email item kind has no handler")
+    return own
+
+
+def _email(c: sqlite3.Connection, handler: item_kinds.ItemHandler,
+           counted: package_result.Counted) -> tuple[dict[str, Any], str | None]:
+    """The email's stored head (title, sender, arrival) and its intent as it counts now (a person's correction over the
+    machine's)."""
+    head = handler.reading(counted.flow_run_id, c)
+    if head is None:
         return {}, None
     corrected = corrections.current(counted.run_id, counted.item_id, c)["fields"].get("intent")
-    return dict(row), corrected or row["intent"]
+    return head, corrected or head["read_as"]
 
 
 def read(wp_id: str, item_id: str) -> Request:
@@ -157,6 +168,7 @@ def read(wp_id: str, item_id: str) -> Request:
     item = next((i for i in wp["items"] if i["item_id"] == item_id), None)
     if item is None:
         raise RequestNotFound(f"{wp_id} has no item {item_id[:12]}")
+    handler = _email_handler()
     with store.connect() as c:
         counted = package_result.counted_results(wp_id, c)
         if item["kind"] != "email":
@@ -169,9 +181,9 @@ def read(wp_id: str, item_id: str) -> Request:
             own = counted.get(item_id)
             if own is None or own.flow_run_id is None:
                 raise RequestNotFound(f"{item_id[:12]} has no counted result")
-            email, intent = _email(c, own)
+            email, intent = _email(c, handler, own)
             text = _values(c, f"{own.flow_run_id}-{TEXT_STAGE}")
-            parts = [Part("email_text", email.get("subject") or "", None, text[0], text[1])] if text else []
+            parts = [Part("email_text", email.get("title") or "", None, text[0], text[1])] if text else []
             parts += _table_parts(c, own.flow_run_id)  # 192 (B6c): an Excel or CSV request list read in the follow-up
             for attachment in wp["items"]:
                 if attachment.get("parent_item_id") == item_id:
@@ -180,7 +192,7 @@ def read(wp_id: str, item_id: str) -> Request:
                         parts.append(part)
             if intent != TYPE and not any(p.kind == "attachment" for p in parts):
                 raise RequestNotFound(f"{item_id[:12]} is not a quote request")
-            head = {"title": email.get("subject") or "", "sender": email.get("sender"), "received_at": email.get("received_at")}
+            head = {"title": email.get("title") or "", "sender": email.get("sender"), "received_at": email.get("received_at")}
     fields, sources, items, items_from = merge(parts)
     return Request(workpackage_id=wp_id, item_id=item_id, kind="email" if item["kind"] == "email" else "document",
                    parts=tuple(parts), fields=fields, sources=sources, items=items, items_from=items_from, **head)
@@ -190,10 +202,9 @@ def found() -> list[tuple[str, str]]:
     """Every (package, item) a quote may start from, as its package's processing left it: an email whose intent was
     read or corrected as a quote request, an email with an attachment read as one, and a document read as one that came
     on its own. The caller reads each one (`read`), which also leaves out what no longer counts."""
+    handler = _email_handler()
     with store.connect() as c:
-        out = [(r[0], r[1]) for r in c.execute(
-            "SELECT DISTINCT r.workpackage_id, ri.item_id FROM email_results e JOIN run_items ri ON ri.flow_run_id = e.run_id"
-            " JOIN runs r ON r.run_id = ri.run_id WHERE e.intent = ?", (TYPE,))]
+        out = list(handler.found_as(TYPE, c))
         out += [(r[0], r[1]) for r in c.execute(
             "SELECT DISTINCT r.workpackage_id, c.item_id FROM run_item_corrections c JOIN runs r ON r.run_id = c.run_id"
             " WHERE json_extract(c.fields, '$.intent') = ?", (TYPE,))]

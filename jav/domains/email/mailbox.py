@@ -32,7 +32,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from jav.app import item_kinds, work, work_recipes, work_runs, workflow_steps
 from jav.core import decisions, store, todo_kinds
-from jav.domains.email import ingest_server
+from jav.domains.email import email_store, ingest_server
 from jav.runtime import job_kinds
 from jav.core.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
 from jav.core.user_messages import explained
@@ -258,7 +258,7 @@ def suspicious_email(run_id: str, email_item_id: str) -> bool:
     policy `email.signal_routes`)."""
     from jav.ai import policy
 
-    result = store.email_result(work_runs.flow_run_id(run_id, email_item_id))
+    result = email_store.email_result(work_runs.flow_run_id(run_id, email_item_id))
     return bool(result) and result.get("next_flow") in set(policy.EMAIL_SIGNAL_ROUTES.values())
 
 
@@ -768,7 +768,7 @@ def email_result_for(flow_run_id: str, message_id: str) -> tuple[dict[str, Any] 
     """The run's email result and whether it comes from this run. First the run's own row (058); for a pre-058 run the
     `emails` row if it comes from this run; otherwise the message's latest result (`from_this_run=False`, flagged in the
     UI)."""
-    own = store.email_result(flow_run_id)
+    own = email_store.email_result(flow_run_id)
     if own is not None:
         return own, True
     with store.connect() as c:
@@ -837,7 +837,7 @@ def task_view(flow_run_id: str, raw: dict[str, Any] | None, *, with_state: bool 
     tasks = (raw or {}).get("tasks")
     if not tasks:
         return None
-    decided = store.email_task_decisions(flow_run_id)
+    decided = email_store.email_task_decisions(flow_run_id)
     proposed = tasks.get("tasks") or []
     items = [{**t, "index": n, "decision": decided.get(n)} for n, t in enumerate(proposed)]
     if with_state:
@@ -863,7 +863,7 @@ def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: 
     if item is None:
         raise KeyError(item_id)
     flow_id = work_runs.flow_run_id(run_id, item_id)
-    view = task_view(flow_id, store.email_result(flow_id))
+    view = task_view(flow_id, email_store.email_result(flow_id))
     if view is None or not 0 <= index < len(view["tasks"]):
         raise KeyError(f"task {index}")
     key = _task_key(flow_id, index)
@@ -873,10 +873,10 @@ def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: 
             raise explained(work.RevisionConflict, "run {{run_id}} is approved; task decisions are frozen",
                             run_id=run_id)
         decisions.check(c, TASK_KIND, key, expected_state)
-        store.email_task_decide(flow_id, index, decision=decision, actor=actor, note=note, c=c)
+        email_store.email_task_decide(flow_id, index, decision=decision, actor=actor, note=note, c=c)
         decisions.record(c, TASK_KIND, key, "decide", actor=actor, value={"decision": decision}, note=note,
                          workpackage_id=run["workpackage_id"], run_id=run_id)
-    view = task_view(flow_id, store.email_result(flow_id))
+    view = task_view(flow_id, email_store.email_result(flow_id))
     if all(t["decision"] for t in view["tasks"]):
         summary = {"decisions": [{"index": t["index"], "decision": t["decision"]["decision"]} for t in view["tasks"]]}
         for r in work_runs.item_reasons(run_id, item_id, item)["run"]:
@@ -895,19 +895,19 @@ def mark_task_done(run_id: str, item_id: str, index: int, *, done: bool, actor: 
     if item is None:
         raise KeyError(item_id)
     flow_id = work_runs.flow_run_id(run_id, item_id)
-    view = task_view(flow_id, store.email_result(flow_id))
+    view = task_view(flow_id, email_store.email_result(flow_id))
     if view is None or not 0 <= index < len(view["tasks"]):
         raise KeyError(f"task {index}")
     key = _task_key(flow_id, index)
     with store.connect() as c:
         store.begin_immediate(c)
         decisions.check(c, TASK_KIND, key, expected_state)
-        if not store.email_task_done(flow_id, index, actor=actor, done=done, c=c):
+        if not email_store.email_task_done(flow_id, index, actor=actor, done=done, c=c):
             raise explained(work.RevisionConflict, "task {{index}} is not accepted; only an accepted task can be marked done",
                             index=index)
         decisions.record(c, TASK_KIND, key, "done" if done else "undone", actor=actor,
                          workpackage_id=run["workpackage_id"], run_id=run_id)
-    return task_view(flow_id, store.email_result(flow_id))  # type: ignore[return-value]
+    return task_view(flow_id, email_store.email_result(flow_id))  # type: ignore[return-value]
 
 
 def email_item_view(item: dict[str, Any], flow_run_id: str, corrected_intent: str | None = None) -> dict[str, Any]:
