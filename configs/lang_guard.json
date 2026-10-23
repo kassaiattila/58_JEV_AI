@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.123",
+    "version": "1.0.124",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.124",
+        "date": "2026-10-23",
+        "note": "212 (plan G-process-core P0): the glossary's Hungarian column for the engine trial, the plug-in point and observability (the durable workflow engine's Hungarian name has no accented letter; docs/GLOSSARY.md 321 -> 324); 6038 -> 6041."
+      },
       {
         "version": "1.0.123",
         "date": "2026-10-23",
@@ -773,7 +778,7 @@
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
     "docs/BANK_FILES.md": 2,
-    "docs/GLOSSARY.md": 321,
+    "docs/GLOSSARY.md": 324,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 9,
     "docs/flows/doc_detect/FLOW.mmd": 3,
