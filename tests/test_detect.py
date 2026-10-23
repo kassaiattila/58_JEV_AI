@@ -3,7 +3,7 @@
 from jav.detect import build_questions, build_state
 from jav.doc_types import BY_KEY, DOC_TYPE_KEYS, OLD_TYPE_MAP, UNKNOWN, anchor_hits, choice_criteria
 from jav.models import CellLayout, LineLayout
-from jav.pdf import PdfText
+from jav.documents.pdf import PdfText
 
 
 def _pdf(lines: list[str]) -> PdfText:

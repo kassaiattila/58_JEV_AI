@@ -28,7 +28,7 @@ from typing import Any
 
 from jav import item_kinds, logic_packs, source_instances
 from jav.core import activity_kinds, store
-from jav.native_contracts import DOCUMENT_SUFFIXES
+from jav.documents.native_contracts import DOCUMENT_SUFFIXES
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 from jav.core.digest import file_sha256 as sha256_file
@@ -189,7 +189,7 @@ store.set_pinned_run_check(_pinned_run)
 
 def max_source_bytes() -> int:
     """075: a source larger than the input limit is never read into memory (it could not have been added anyway)."""
-    from jav import pdf
+    from jav.documents import pdf
 
     return int(pdf.input_limits().max_document_mb * 1_000_000)
 

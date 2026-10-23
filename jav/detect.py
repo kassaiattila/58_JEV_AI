@@ -22,7 +22,7 @@ from jav.core import cfg
 from jav.adapters.jev import JevAdapter
 from jav.doc_types import PARENT_OF, UNKNOWN, anchor_hits, choice_criteria
 from jav.models import DATE_NUMERIC_RE, DATE_TEXT_RE, JevCall
-from jav.pdf import PdfText
+from jav.documents.pdf import PdfText
 from jav.core.registry import parent_summary
 
 _CFG = cfg.load("callsite:detect")

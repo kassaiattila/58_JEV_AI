@@ -255,7 +255,7 @@ def print_corpus_report(root: Path) -> None:
 
 def write_manual_sample(root: Path, n: int = 40, seed: int = 1) -> Path:
     """Manual check list in Markdown: stratified random sample (proportional per type, at least 2)."""
-    from jav.pdf import read_document
+    from jav.documents.pdf import read_document
 
     with store.connect() as c:
         rows = [dict(r) for r in c.execute("SELECT * FROM documents WHERE doc_type IS NOT NULL AND source_path LIKE ?", (str(root) + "%",))]

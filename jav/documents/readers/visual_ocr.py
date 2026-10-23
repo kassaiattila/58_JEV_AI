@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 import time
 
-from jav import pdf as pdfmod
+from jav.documents import pdf as pdfmod
 from jav.core import cfg
 from .contracts import ImageLocator, Issue, ReadLimits, SourceElement
 from .isolation import exchange
@@ -37,7 +37,7 @@ class LocalOCR:
 
     @classmethod
     def discover(cls) -> LocalOCR:
-        from jav.ocr import native_exe, tessdata_dir
+        from jav.documents.ocr import native_exe, tessdata_dir
         executable = native_exe()
         if not executable:
             raise ReadFailure("unsupported", "needs_ocr", "Local Tesseract is not installed")
@@ -69,7 +69,7 @@ class LocalOCR:
 
 
 def _words(tsv: str, width: int, height: int, bound: int) -> list[dict]:
-    from jav.ocr import parse_tsv
+    from jav.documents.ocr import parse_tsv
     rows = csv.DictReader(StringIO(tsv), delimiter="\t", quoting=csv.QUOTE_NONE)
     required = {"level", "left", "top", "width", "height", "conf", "text"}
     if not required <= set(rows.fieldnames or ()):

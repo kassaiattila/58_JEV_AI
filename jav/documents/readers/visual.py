@@ -15,7 +15,7 @@ from pdfminer.pdftypes import PDFObjectNotFound, PDFStream, resolve1
 from pdfminer.psparser import PSLiteral
 import pypdfium2 as pdfium
 
-from jav import pdf as pdfmod, source_layer
+from jav.documents import pdf as pdfmod, source_layer
 from .contracts import PdfLocator
 from .limits import ReadFailure, limited
 

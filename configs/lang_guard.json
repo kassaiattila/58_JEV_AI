@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.112",
+    "version": "1.0.113",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.113",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the document reading's modules moved into jav/documents/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.112",
         "date": "2026-10-23",
@@ -726,6 +731,9 @@
     "jav/detect.py": 1,
     "jav/detect_detail.py": 2,
     "jav/docsgen.py": 48,
+    "jav/documents/ocr.py": 5,
+    "jav/documents/pdf.py": 8,
+    "jav/documents/synthetic_pdf.py": 3,
     "jav/domains/email/email_cli.py": 6,
     "jav/domains/email/email_datasets.py": 37,
     "jav/domains/email/email_export.py": 5,
@@ -756,8 +764,6 @@
     "jav/maintenance_cli.py": 38,
     "jav/measure_cli.py": 25,
     "jav/models.py": 10,
-    "jav/ocr.py": 5,
-    "jav/pdf.py": 8,
     "jav/policy.py": 4,
     "jav/preflight.py": 14,
     "jav/prompts/altalanos_szerzodesi_feltetelek_prompt.md": 1,
@@ -789,7 +795,6 @@
     "jav/runtime/persistence.py": 2,
     "jav/runtime/worker.py": 1,
     "jav/service_shared.py": 4,
-    "jav/synthetic_pdf.py": 3,
     "jav/tablequery.py": 6,
     "jav/type_teaching.py": 2,
     "jav/typepack.py": 8,

@@ -7,7 +7,7 @@ write these steps out each; now each flow's step calls this module and keeps onl
 extraction saves the source layer and judges the OCR quality, the recognition remembers the Azure reading's
 fingerprint.
 
-Layer: a flow's step → **this** → `jav.pdf`, `jav.ocr`, `jav.policy`.
+Layer: a flow's step → **this** → `jav.documents.pdf`, `jav.documents.ocr`, `jav.policy`.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from typing import Any
 
 from jav import policy
 from jav.core.digest import file_sha256
-from jav.pdf import PdfText
+from jav.documents.pdf import PdfText
 
 
 @dataclass(frozen=True)
@@ -35,7 +35,7 @@ def read_source(source_path: str, read_path: str | None) -> tuple[PdfText, str, 
     """The PDF's text layer (from the frozen copy `read_path` when given), its identity (the digest of the file read)
     and the to-dos of its pages without a text layer of their own (167, AI-3: those pages were neither read nor sent
     to OCR; none for a PDF without any text layer, which goes to OCR whole)."""
-    from jav.pdf import read_pdf
+    from jav.documents.pdf import read_pdf
 
     path = read_path or source_path
     pdf = read_pdf(path)
@@ -44,11 +44,11 @@ def read_source(source_path: str, read_path: str | None) -> tuple[PdfText, str, 
 
 
 def recognise(source_path: str, read_path: str | None, doc_id: str, page_count: int | None) -> Recognised:
-    """OCR of a PDF without text (`jav.ocr`, cached), escalated to Azure on a weak local result within the run's
+    """OCR of a PDF without text (`jav.documents.ocr`, cached), escalated to Azure on a weak local result within the run's
     budget. While the flow reads the frozen copy, which the legacy sidecar cannot see, the Azure call may use the
     unchanged original instead (`azure_alias`). No engine: no text and an `ocr:unavailable:<reason>` to-do; the flow
     goes on."""
-    from jav.ocr import OcrUnavailableError, azure_alias, ocr_with_escalation
+    from jav.documents.ocr import OcrUnavailableError, azure_alias, ocr_with_escalation
 
     try:
         with azure_alias(source_path if read_path else None, doc_id):

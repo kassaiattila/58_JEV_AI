@@ -9,7 +9,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import fact_checks, flow_native, native_results, policy, typepack, validators
+from jav import fact_checks, flow_native, policy, typepack, validators
+from jav.documents import native_results
 from jav.core import store
 from jav.models import FlowState, DocumentRecord
 from jav.core import calls

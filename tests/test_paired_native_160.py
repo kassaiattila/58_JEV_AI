@@ -12,7 +12,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import flow_native, native_results
+from jav import flow_native
+from jav.documents import native_results
 from jav.core import store
 from jav.adapters import jev as jev_mod
 from jav.core import calls
@@ -56,7 +57,7 @@ def test_the_native_facts_are_published_on_both_engines(isolated, monkeypatch, e
 def test_a_multi_format_run_finishes_on_both_engines(isolated, monkeypatch, engine):
     """Through the worker: the run's budget names only the engine's providers, and the item is not failed."""
     from jav import work, work_readiness, work_recipes, work_runs
-    from jav.readers import native, pipeline
+    from jav.documents.readers import native, pipeline
     from jav.runtime import worker
 
     monkeypatch.setattr(pipeline, "run", lambda data, name, limits, **kw: native.read(data, name, limits, **kw))

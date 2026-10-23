@@ -292,8 +292,8 @@ def result_tables(run_id: str | None = None, *, workpackage_id: str | None = Non
         if any(i.get("kind") == part.kind for i in items):
             out += part.views([m for run, keep in parts for m in part.read(run["run_id"]) if keep is None or m["item_id"] in keep])
     out += ["documents", "datapoints"] if records else []
-    from jav import native_results
-    from jav.native_contracts import NATIVE_SUFFIXES
+    from jav.documents import native_results
+    from jav.documents.native_contracts import NATIVE_SUFFIXES
 
     if any(native_results.native_item(r, i) for r, i in shown):  # 120: a continuing PDF too
         out.append("native_facts")

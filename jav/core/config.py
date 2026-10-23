@@ -51,7 +51,7 @@ GOLDEN_EXPECTED_DIR = OLD_DATA_ROOT / "golden" / "doc-extract-bare"
 # The project's own name first, then the SDK's default variable.
 API_KEY_ENV_VARS = ("TypeSafeJAV_API_KEY", "TYPESAFE_API_KEY")
 OPENAI_KEY_ENV_VAR = "OPENAI_API_KEY"
-# 121: Azure Document Intelligence, called directly (jav/adapters/azure_di.py); without them the legacy sidecar is used
+# 121: Azure Document Intelligence, called directly (jav/documents/azure_di.py); without them the legacy sidecar is used
 AZURE_DI_ENV_VARS = ("AZURE_DI_ENDPOINT", "AZURE_DI_KEY")
 
 # Model administration: configs/models.json (config as data; read with json directly, as jav.core.cfg imports this module).

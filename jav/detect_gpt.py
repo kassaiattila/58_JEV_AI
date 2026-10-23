@@ -30,7 +30,7 @@ from jav.detect import DetectResult, build_state
 from jav.doc_types import DOC_TYPES, UNKNOWN
 from jav.gpt_choice import GptAnswer, Limits, field_probabilities, use_agent_factory
 from jav.gpt_choice import ask as _ask
-from jav.pdf import PdfText
+from jav.documents.pdf import PdfText
 
 __all__ = ["GptAnswer", "choose_detail", "detect", "detect_instructions", "field_probabilities", "short_description",
            "use_agent_factory", "use_type_descriptions"]

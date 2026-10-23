@@ -10,8 +10,8 @@ from decimal import Decimal
 import pytest
 
 from jav.core import store
-from jav.readers import pipeline, providers
-from jav.readers.pipeline import read_files
+from jav.documents.readers import pipeline, providers
+from jav.documents.readers.pipeline import read_files
 from jav.core import calls
 from tests.native_fixtures_109 import synthetic_gpt
 

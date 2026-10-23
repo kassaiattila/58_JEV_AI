@@ -34,7 +34,8 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav import policy, text_document, typepack
+from jav import policy, typepack
+from jav.documents import text_document
 from jav.core import store
 from jav.domains.email.emails import DOC_EXTS, EmailMessage, body_coverage, document_text, load_message_dir
 from jav.engine import with_engine
@@ -90,8 +91,8 @@ def classify_attachments(state: EmailState) -> EmailState:
     the intent still run. Until 078 the error failed the whole email item. Any other error still fails it.
     An attachment that is an item of the package is read from its source instance (`attachment_reads`), the same bytes
     its document item is processed from."""
-    from jav.isolated_pdf import PdfReaderError, PdfReaderLimit
-    from jav.pdf import DocumentTooLarge
+    from jav.documents.isolated_pdf import PdfReaderError, PdfReaderLimit
+    from jav.documents.pdf import DocumentTooLarge
 
     msg = state.message
     assert msg is not None

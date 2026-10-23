@@ -37,11 +37,6 @@ ALLOWED = {layer: (*LAYERS[: i + 1], *(("evals", "devtools", "legacy") if layer 
 
 # not in its layer's folder yet: module (relative to jav) -> its layer ("domains.<domain>" for a domain's module)
 NOT_MOVED = {name: layer for layer, names in {
-    "documents": "adapters.azure_di isolated_pdf native_contracts native_results ocr page_image pdf pdf_input readers "
-        "readers.__main__ readers.chunks readers.contracts readers.external_recognition "
-        "readers.interpretation readers.isolation readers.limits readers.native readers.pipeline "
-        "readers.providers readers.receipts readers.visual readers.visual_ocr readers.worker source_layer "
-        "synthetic_pdf text_document",
     "ai": "adapters adapters.jev candidates checks detect detect_detail detect_gpt doc_types engine extract_llm "
         "fact_checks gpt_choice grounding jev_budget jev_select jev_verify jev_version legacy_validation "
         "models native_processing party_history policy token_confidence typepack validators",
@@ -65,14 +60,14 @@ NOT_MOVED = {name: layer for layer, names in {
 # imports against the direction today, each with the step that takes it away
 KNOWN = {
     # the general data model's page layout moves to the documents layer when the model splits (R2)
-    ("jav.ocr", "jav.models"), ("jav.pdf", "jav.models"),
+    ("jav.documents.ocr", "jav.models"), ("jav.documents.pdf", "jav.models"),
     # reading asks the decision rules for its thresholds, and the native reader's interpretation the AI layer
-    ("jav.ocr", "jav.policy"), ("jav.pdf_input", "jav.policy"), ("jav.text_document", "jav.typepack"),
-    ("jav.readers.interpretation", "jav.fact_checks"), ("jav.readers.providers", "jav.adapters.jev"),
+    ("jav.documents.ocr", "jav.policy"), ("jav.documents.pdf_input", "jav.policy"), ("jav.documents.text_document", "jav.typepack"),
+    ("jav.documents.readers.interpretation", "jav.fact_checks"), ("jav.documents.readers.providers", "jav.adapters.jev"),
     # the registries load the domains' registrations themselves
     ("jav.core.activity_kinds", "jav.registrations"), ("jav.checks", "jav.registrations"),
     # the shared decision handler raises the work package's conflict error; a document's reading checks its item
-    ("jav.core.decisions", "jav.work"), ("jav.native_results", "jav.item_kinds"), ("jav.ocr", "jav.source_instances"),
+    ("jav.core.decisions", "jav.work"), ("jav.documents.native_results", "jav.item_kinds"), ("jav.documents.ocr", "jav.source_instances"),
     ("jav.party_history", "jav.package_result"),
     # the shared views show the worker's state
     ("jav.work_views", "jav.runtime.worker"),

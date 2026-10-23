@@ -6,7 +6,7 @@ A source object describes original bytes, while an occurrence records where thos
 
 ## Model boundaries
 
-`jav/readers/contracts.py` is independent of the store, application operations and
+`jav/documents/readers/contracts.py` is independent of the store, application operations and
 provider clients. Its immutable Pydantic models reject unknown fields. External
 JSON enters through `read_bundle`, which bounds its size, depth and node count,
 rejects duplicate keys and uses strict types. These are envelope-validation
@@ -86,4 +86,4 @@ same reading and reconcile output with a bounded source inventory. `Delivery.sav
 and `Delivery.load` preserve isolated reading evidence without reparsing. Integration
 with the application store, atomic publication, application routing, UI preview
 and schema activation remains separate work. See the package
-[provenance notice](../../jav/readers/NOTICE.md).
+[provenance notice](../../jav/documents/readers/NOTICE.md).

@@ -17,9 +17,9 @@ import pypdfium2 as pdfium
 import pytest
 from PIL import Image
 
-from jav import isolated_pdf, ocr, page_image, pdf
+from jav.documents import isolated_pdf, ocr, page_image, pdf
 from jav.core import cfg
-from jav.isolated_pdf import PdfReaderError, PdfReaderLimit, Reader, ReaderSettings
+from jav.documents.isolated_pdf import PdfReaderError, PdfReaderLimit, Reader, ReaderSettings
 from tests import pdf_reader_probe as probe
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 

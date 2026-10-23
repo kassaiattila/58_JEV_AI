@@ -157,4 +157,4 @@ threshold. Older saved interpretation hashes remain unchanged on reload, and
 earlier results are not re-checked automatically.
 
 The provenance and parser limitations remain documented in
-[Native readers](NATIVE_READERS.md) and [Reader provenance](../../jav/readers/NOTICE.md).
+[Native readers](NATIVE_READERS.md) and [Reader provenance](../../jav/documents/readers/NOTICE.md).

@@ -36,7 +36,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import Field
 from starlette.routing import BaseRoute
 
-from jav import app_settings, corrections, isolated_pdf, local_picker, policy, package_release, work, work_views
+from jav import app_settings, corrections, local_picker, policy, package_release, work, work_views
+from jav.documents import isolated_pdf
 from jav.core import cfg, dates, numbers, store, version
 from jav.core.config import PROJECT_ROOT
 from jav.runtime import pdf_status, worker

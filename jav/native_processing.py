@@ -6,12 +6,12 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from jav import native_results
+from jav.documents import native_results
 from jav.core import store
-from jav.native_contracts import Failed, NativeLimits, ReceiptRef, Rejected, Succeeded, Uncertain
-from jav.readers import providers
-from jav.readers.pipeline import digest, json_bytes
-from jav.readers.receipts import InterpretationRejected
+from jav.documents.native_contracts import Failed, NativeLimits, ReceiptRef, Rejected, Succeeded, Uncertain
+from jav.documents.readers import providers
+from jav.documents.readers.pipeline import digest, json_bytes
+from jav.documents.readers.receipts import InterpretationRejected
 from jav.core import calls
 
 
@@ -40,9 +40,9 @@ def azure_recognition(read_path: Path, *, source_path: str, sha256: str) -> tupl
     detection is recognised by Azure here, but only in a run whose budget has an Azure part (the recipe's Azure
     switch); an earlier recognition of the same document is reused from the OCR cache at no cost. The reader itself
     never calls a provider. Returns (the kept recognition's digest, None), or (None, why there is none): `off` (no
-    Azure budget: local OCR, as chosen), a blocked or failed call (`jav.ocr.escalation_review_reasons`), or
+    Azure budget: local OCR, as chosen), a blocked or failed call (`jav.documents.ocr.escalation_review_reasons`), or
     `no_original` (an Azure text cached before 123, kept without its original; it is not taken over or paid again)."""
-    from jav import ocr
+    from jav.documents import ocr
 
     ctx = calls.current()
     if ctx is None or ctx.budget_scope is None or not calls.has_budget(ctx.budget_scope, ocr.AZURE_PROVIDER):

@@ -14,7 +14,7 @@ longer where it was is `MISSING`. Nothing is written but the fingerprint memo (`
 the word layer are kept in memory.
 
 Layer: `jav.domains.finance.reconcile_package` (application operation) → **this** (business module) → `jav.work` (items, verified
-reads, fingerprints), `jav.page_image`, `jav.pdf` (the isolated PDF reader), `jav.source_layer`, `jav.core.store`.
+reads, fingerprints), `jav.documents.page_image`, `jav.documents.pdf` (the isolated PDF reader), `jav.documents.source_layer`, `jav.core.store`.
 """
 
 from __future__ import annotations
@@ -30,7 +30,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from jav import page_image, source_layer, work
+from jav import work
+from jav.documents import page_image, source_layer
 from jav.core import store
 
 DOC_TYPE = "statement_table"  # the statements read by code (jav/domains/finance/flow_statement_table.py)
@@ -197,7 +198,7 @@ def page(original: Original, number: int, *, dpi: int) -> bytes:
 def layer(original: Original) -> source_layer.SourceLayer | None:
     """The original's word layer from its text layer (None: a scanned PDF without one; no OCR runs here). The verified
     bytes are read from a temporary copy, which is removed at once."""
-    from jav import pdf
+    from jav.documents import pdf
 
     key = (str(store.active_path()), original.sha256 or "")
     hit, found = _cached(_layers, key)

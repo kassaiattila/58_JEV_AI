@@ -28,7 +28,7 @@ from dataclasses import asdict, dataclass
 from multiprocessing.connection import Connection
 from typing import Any, Callable, Literal
 
-log = logging.getLogger("jav.isolated_pdf")
+log = logging.getLogger("jav.documents.isolated_pdf")
 
 Kind = Literal["read", "render", "page_image"]
 
@@ -459,7 +459,7 @@ def render_pages(path: str, *, out_dir: str, dpi: int, max_pages: int, grayscale
     at `dpi`, no image is made: {"too_large": [page number, width, height]}."""
     import pypdfium2 as pdfium
 
-    from jav.pdf import fit_scale
+    from jav.documents.pdf import fit_scale
 
     scale = dpi / 72.0
     doc = pdfium.PdfDocument(path)
@@ -491,7 +491,7 @@ def render_page_png(source: str | bytes, *, page: int, dpi: int, max_megapixels:
 
     import pypdfium2 as pdfium
 
-    from jav.pdf import fit_scale
+    from jav.documents.pdf import fit_scale
 
     doc = pdfium.PdfDocument(source)
     try:

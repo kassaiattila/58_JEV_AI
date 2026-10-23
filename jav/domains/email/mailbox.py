@@ -733,7 +733,7 @@ def table_attachments(item: dict[str, Any]) -> int:
 @functools.lru_cache(maxsize=4096)
 def _message_tables(message_json: str, _mtime_ns: int) -> int:
     from jav.domains.email import emails
-    from jav import text_document
+    from jav.documents import text_document
 
     msg = emails.load_message_dir(Path(message_json).parent)
     return sum(1 for a in msg.attachments if a.path and text_document.input_kind(a.path) == "table")

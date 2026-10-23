@@ -22,9 +22,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import (
-    activity, checks, corrections, datasets, native_results, parties, policy, work_readiness, work_recipes, work_runs,
-)
+from jav import activity, checks, corrections, datasets, parties, policy, work_readiness, work_recipes, work_runs
+from jav.documents import native_results
 from jav.core import activity_kinds, store
 from jav.domains.finance import duplicates
 from jav.domains.email import email_tasks

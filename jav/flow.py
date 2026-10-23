@@ -72,7 +72,7 @@ def _year_hint(path: str) -> int | None:
                  writes=["text", "lines", "page_count", "has_text_layer", "layout", "doc_id", "text_source", "source_layer_id",
                          "needs_review", "review_reasons"])
 def load_pdf(state: FlowState) -> FlowState:
-    from jav import pdf_input, source_layer
+    from jav.documents import pdf_input, source_layer
 
     pdf, state.doc_id, coverage = pdf_input.read_source(state.source_path, state.read_path)
     state.text = pdf.text
@@ -93,9 +93,9 @@ def load_pdf(state: FlowState) -> FlowState:
 def load_text(state: FlowState) -> FlowState:
     """190 (plan 189 A2b): a document given as text (`source_text`, an email's own text; its identity is the text's
     digest) or a text or table file (its identity is the file's digest, as a PDF's), laid out by the PDF reader's line
-    and cell builder (`jav.text_document`). No word layer. An empty text has nothing to extract: a `text:empty` to-do,
+    and cell builder (`jav.documents.text_document`). No word layer. An empty text has nothing to extract: a `text:empty` to-do,
     straight to the decision."""
-    from jav import text_document
+    from jav.documents import text_document
 
     if state.source_text is not None:
         doc, state.doc_id = text_document.layout_text(state.source_text), text_document.text_digest(state.source_text)
@@ -115,11 +115,11 @@ def load_text(state: FlowState) -> FlowState:
             "source_layer_id"],
 )
 def ocr_pdf(state: FlowState) -> FlowState:
-    """PDF without text: OCR (jav/ocr.py, with a disk cache) -> the same layout (lines, cells) as for a text layer.
+    """PDF without text: OCR (jav/documents/ocr.py, with a disk cache) -> the same layout (lines, cells) as for a text layer.
     The OCR quality signals go into the state raw; weak OCR raises reviews per the policy's `ocr` thresholds. No
     engine / no usable text: `text_source` stays None -> `needs_ocr` terminal (the flow does not crash)."""
-    from jav import pdf_input, source_layer
-    from jav.ocr import escalation_review_reasons
+    from jav.documents import pdf_input, source_layer
+    from jav.documents.ocr import escalation_review_reasons
 
     recognised = pdf_input.recognise(state.source_path, state.read_path, state.doc_id, state.page_count)
     if recognised.pdf is None:
@@ -226,7 +226,7 @@ def code_verify(state: FlowState) -> FlowState:
 
 def _word_layer(state: FlowState):
     """The item's word layer for the code's source check (None: an item without one, e.g. an old state)."""
-    from jav import source_layer
+    from jav.documents import source_layer
 
     return source_layer.load(state.source_layer_id) if state.source_layer_id else None
 
@@ -289,7 +289,8 @@ def ground(state: FlowState) -> FlowState:
     line, plus the other candidates with their probabilities; G path: the value is searched for with its label context.
     An error here does not stop the process: the field goes on without a source location (`status=error`), the reason
     is logged."""
-    from jav import grounding, source_layer
+    from jav import grounding
+    from jav.documents import source_layer
 
     pack = get_pack(state.doc_type)
     fields = {f: pack.kind(f) for f in pack.header_fields}
@@ -505,7 +506,7 @@ def build_app(
     `detail_probabilities` (149): the detection's answer on the detailed type, for the saved stage's direction check
     (`parties.confirm_detail_by_direction`). `source_text` (190): the document is this text (an email's own text), not
     the file; a text or table file is read as text too. Either needs a pack that takes that input (`inputs`)."""
-    from jav import text_document
+    from jav.documents import text_document
 
     pack = get_pack(doc_type)  # unknown type pack -> error right here, not in the middle of the graph
     kind = "text" if source_text is not None else text_document.input_kind(source_path)

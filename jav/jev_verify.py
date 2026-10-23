@@ -41,7 +41,7 @@ from jav.models import (
     parse_money,
 )
 from jav.core.numbers import Convention, document_convention
-from jav.source_layer import SourceLayer
+from jav.documents.source_layer import SourceLayer
 from jav.typepack import TypePack
 from jav.typepack import get as get_pack
 

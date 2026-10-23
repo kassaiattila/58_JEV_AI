@@ -6,7 +6,7 @@ font (no font file) with the Windows code page, in which "ő, ű, Ő, Ű" replac
 the plain hyphen. (The embedded TrueType font route returned the hyphen as a soft hyphen or a typographic dash, because
 of PDFium's ToUnicode table, which does not happen in real documents.)
 
-The candidate finder's row and cell builder (`jav/pdf.py: build_layout`) splits the rows into cells exactly as for a
+The candidate finder's row and cell builder (`jav/documents/pdf.py: build_layout`) splits the rows into cells exactly as for a
 real invoice: the parts separated by three spaces go into separate columns. It produces no real document; it only
 writes out the given, fictitious text.
 """

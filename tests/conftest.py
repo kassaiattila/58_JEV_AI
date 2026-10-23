@@ -75,7 +75,7 @@ def _no_real_ocr_cache(tmp_path_factory, monkeypatch):
     """160 (review T-1): a test never reads or writes the real OCR cache (`runs/ocr/`: recognised text of real
     documents). Two tests lived from it, so they failed on a clean copy and added files to it here. The cache is an
     empty temporary folder per test."""
-    from jav import ocr
+    from jav.documents import ocr
 
     monkeypatch.setattr(ocr, "CACHE_DIR", tmp_path_factory.mktemp("ocr-cache"))
 

@@ -245,7 +245,7 @@ export function reasonText(code: string): string {
     case "ocr:unavailable": return t("Text recognition could not run ({{why}}); look at the document by hand", { why: p[2] ?? "" });
     case "ocr:low_confidence": return t("Gyenge szövegfelismerés ({{p}})", { p: num(p[2]) });
     case "ocr:low_conf_words": return t("Sok bizonytalan szó a felismerésben ({{p}})", { p: num(p[2]) });
-    // 075: the Azure escalation of a weak scan did not run (jav/ocr.py escalation_review_reasons); 121: no route, failed call
+    // 075: the Azure escalation of a weak scan did not run (jav/documents/ocr.py escalation_review_reasons); 121: no route, failed call
     case "ocr:escalation_blocked":
       if (p[2] === "uncertain_attempt") return t("Gyenge helyi felismerés; egy korábbi Azure-hívás kimenete bizonytalan, ezért nem ismételtük meg");
       if (p[2] === "unreachable") return t("Weak local recognition; Azure recognition is not set up for this document");

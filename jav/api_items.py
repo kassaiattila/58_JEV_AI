@@ -6,7 +6,7 @@ selecting on the page image, and saving a person's correction. They moved here f
 same paths, request models and answers, in the same order. `jav.api.create_app` adds this module after the results'
 one.
 
-Layer: UI/CLI (the local service) → `jav.corrections`, `jav.native_results`.
+Layer: UI/CLI (the local service) → `jav.corrections`, `jav.documents.native_results`.
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.get(r + "/document-formats")
     def document_formats() -> dict[str, Any]:
-        from jav.native_contracts import DOCUMENT_FORMATS
+        from jav.documents.native_contracts import DOCUMENT_FORMATS
         from jav.native_processing import estimate_limits
 
         limits = estimate_limits({"jev": "off"})
@@ -79,7 +79,7 @@ def routes(app: FastAPI, r: str) -> None:
                        limit: Annotated[int, Query(ge=1, le=500)] = 100,
                        occurrence_id: Annotated[str | None, Query(max_length=256)] = None,
                        expected_result_version: Annotated[str | None, Query(pattern=r"^[0-9a-f]{64}$")] = None) -> dict[str, Any]:
-        from jav import native_results
+        from jav.documents import native_results
 
         publication = corrections.native_publication(run_id, item_id, expected_result_version=expected_result_version)
         return native_results.source_elements(publication, offset=offset, limit=limit,
@@ -87,7 +87,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/runs/{run_id}/items/{item_id}/citations/resolve")
     def resolve_native_citations(run_id: RunId, item_id: ItemId, body: ResolveNativeCitations) -> dict[str, Any]:
-        from jav import native_results
+        from jav.documents import native_results
 
         publication = corrections.native_publication(run_id, item_id, expected_result_version=body.expected_result_version)
         return {"result_version": publication.result_version,

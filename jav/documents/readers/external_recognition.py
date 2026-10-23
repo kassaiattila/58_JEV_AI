@@ -2,7 +2,7 @@
 
 Document detection may already have paid for an Azure Document Intelligence recognition of a scanned PDF, and the
 native step may ask for one itself within the run's Azure budget. The reader never calls a provider: it receives the
-kept original recognition (`jav.ocr.save_recognition`), checks it against the frozen PDF pages and maps its word
+kept original recognition (`jav.documents.ocr.save_recognition`), checks it against the frozen PDF pages and maps its word
 polygons onto them, with the same word conversion and line tolerance as document detection. A page the recognition
 does not cover, or does not fit, stays explicitly unread; local recognition is never mixed in. The original stays in
 the Delivery under its digest, and loading a reading checks the saved word layer's binding to it (`verify`).
@@ -13,7 +13,7 @@ import hashlib
 import json
 import math
 
-from jav import pdf as pdfmod
+from jav.documents import pdf as pdfmod
 from .contracts import ExternalRecognition, Issue, ReadLimits, SourceElement
 from .limits import ReadFailure, limited
 from .native import Reading
@@ -77,7 +77,7 @@ def _page_words(page: dict, words: list[dict], size: tuple[float, float], limits
 def map_pages(evidence: dict, sizes: list[tuple[float, float]], wanted: list[int],
               limits: ReadLimits) -> tuple[dict[int, list[dict]], dict[int, str]]:
     """The words of every wanted page the recognition fits, and the reason for every other wanted page."""
-    from jav.ocr import azure_evidence_words
+    from jav.documents.ocr import azure_evidence_words
 
     pages = evidence["pages"]
     numbers = [page.get("page_number") if isinstance(page, dict) else None for page in pages]
@@ -98,8 +98,8 @@ def map_pages(evidence: dict, sizes: list[tuple[float, float]], wanted: list[int
 
 
 def recognised_layer(source_sha: str, accepted: dict[int, list[dict]], sizes: list[tuple[float, float]]):
-    """One word layer for every taken-over page; lines with detection's tolerance (`jav.ocr.line_tolerance`)."""
-    from jav.ocr import confidence_signals, line_tolerance
+    """One word layer for every taken-over page; lines with detection's tolerance (`jav.documents.ocr.line_tolerance`)."""
+    from jav.documents.ocr import confidence_signals, line_tolerance
 
     pages = [[dict(word) for word in accepted.get(number, [])] for number in range(1, len(sizes) + 1)]
     pdfmod.build_layout(pages, y_tol=line_tolerance(pages))
@@ -154,7 +154,7 @@ def verify(raw: dict, recognition: bytes | None, source_sha: str, external: Exte
     """Check the binding of a saved reading to its kept recognition from the saved data alone.
 
     The mapping is not recomputed on loading: that would tie every earlier reading to today's word and line code
-    (`jav/ocr.py`, `jav/pdf.py`), and a later change there would make old readings, and the backup listing them,
+    (`jav/documents/ocr.py`, `jav/documents/pdf.py`), and a later change there would make old readings, and the backup listing them,
     unloadable. The reading's identity already names the reader code that produced it (`implementation_version`).
     """
     if recognition is None or describe(recognition, source_sha) != external:

@@ -10,7 +10,7 @@ import json
 
 from PIL import Image, ImageDraw
 
-from jav.readers.contracts import (
+from jav.documents.readers.contracts import (
     CellContent,
     CellLocator,
     ChildInventory,

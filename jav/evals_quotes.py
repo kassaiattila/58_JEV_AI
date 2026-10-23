@@ -155,7 +155,7 @@ def _reading(state) -> dict[str, Any] | None:
 def _read_case(case: invented_golden.Case, folder: Path, *, use_cache: bool, jev: bool,
                run_one: Callable[..., Any]) -> dict[str, Any]:
     from jav.domains.email import emails
-    from jav import text_document
+    from jav.documents import text_document
     from jav.flow_detect import run_detect
 
     msg = emails.load_message_dir(folder)

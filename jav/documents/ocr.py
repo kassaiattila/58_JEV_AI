@@ -3,7 +3,7 @@
 Reuse (CLAUDE.md §3): follows the legacy sidecar (`10_AIFLOW_V4/sidecar/app/providers/tesseract_ocr.py`) - PDF to page
 image (there pdf2image + poppler, here pypdfium2, already in the venv), tesseract `image_to_data` (here the CLI's TSV:
 the same table, with word-level confidence), the mean word confidence as a quality signal. What is new: the word boxes
-go through the same line and cell reconstruction as a PDF with a text layer (`jav/pdf.py: build_layout`), so the
+go through the same line and cell reconstruction as a PDF with a text layer (`jav/documents/pdf.py: build_layout`), so the
 candidate finders, the JEV state and the verification questions work regardless of the source. The Hungarian + English
 language packs came from the legacy sidecar's Docker image (`tools/tessdata`, tessdata_fast).
 
@@ -40,15 +40,15 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from jav import pdf as pdfmod
+from jav.documents import pdf as pdfmod
 from jav.core import cfg
-from jav.adapters import azure_di
+from jav.documents import azure_di
 from jav.core.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, OLD_DATA_ROOT, PROJECT_ROOT
 from jav.models import LineLayout
-from jav.pdf import PdfText, build_layout, text_layer_ok
+from jav.documents.pdf import PdfText, build_layout, text_layer_ok
 from jav.core.digest import file_sha256 as _sha256
 
-log = logging.getLogger("jav.ocr")
+log = logging.getLogger("jav.documents.ocr")
 
 _CFG = cfg.load("ocr")
 CONFIG_HASH = cfg.config_hash("ocr")  # the whole file's identity (call log, quality signals)
@@ -112,7 +112,7 @@ class PageTooLarge(OcrUnavailableError):
 
 
 class PdfRenderLimit(OcrUnavailableError):
-    """077: rendering the page images went over the isolated PDF reader's time or memory limit (`jav/isolated_pdf.py`,
+    """077: rendering the page images went over the isolated PDF reader's time or memory limit (`jav/documents/isolated_pdf.py`,
     `pdf_reader` in `configs/service.json`); the process raises a to-do (`ocr:unavailable:PdfRenderLimit`)."""
 
 
@@ -238,7 +238,7 @@ def azure_route(path: Path) -> str:
 
 def azure_words(path: Path, *, run_id: str = "jav-ocr") -> tuple[list[list[dict[str, Any]]], list[float], dict[str, Any]]:
     """The word boxes of an Azure recognition, in points (inch × 72), with confidence on a 0-100 scale (the same
-    signals as tesseract). 121: directly over the REST API when it is configured (`jav/adapters/azure_di.py`);
+    signals as tesseract). 121: directly over the REST API when it is configured (`jav/documents/azure_di.py`);
     otherwise the legacy sidecar's `/parse` (chain: azure_di) and the evidence file it saves, for a PDF under the
     sidecar's `/data` mount."""
     import json as _json
@@ -419,9 +419,9 @@ def _run_tesseract(png: Path, out_base: Path, *, psm: int | None = None, eng: st
 
 def render_pages(path: str | Path, out_dir: Path, *, dpi: int = DPI, max_pages: int | None = None) -> list[Path]:
     """PDF -> page images (PNG) with pypdfium2 (no poppler). Greyscale by default, `dpi` resolution; at most
-    `max_pages` pages. 077: rendered in the isolated PDF reader (`jav/isolated_pdf.py`); over its time or memory limit
+    `max_pages` pages. 077: rendered in the isolated PDF reader (`jav/documents/isolated_pdf.py`); over its time or memory limit
     `PdfRenderLimit` (a to-do, like `PageTooLarge`)."""
-    from jav import isolated_pdf
+    from jav.documents import isolated_pdf
 
     max_pages = max_pages or int(_CFG["max_pages"])
     max_mp = pdfmod.input_limits().max_page_megapixels
@@ -440,7 +440,7 @@ def page_sizes(path: str | Path) -> list[tuple[float, float]]:
     """Page sizes in points (pypdfium2), for normalising the word layer; the same reference for every OCR engine.
     Unreadable PDF (e.g. an image file, corrupt, or over the isolated reader's limits): [] — no word layer, the OCR
     result still stands."""
-    from jav import isolated_pdf
+    from jav.documents import isolated_pdf
 
     try:
         sizes = isolated_pdf.run(isolated_pdf.page_sizes, kind="read", path=str(path))
@@ -670,7 +670,7 @@ def status() -> dict[str, Any]:
     return out
 
 
-if __name__ == "__main__":  # quick manual test: python -m jav.ocr <pdf>
+if __name__ == "__main__":  # quick manual test: python -m jav.documents.ocr <pdf>
     r = ocr_pdf(sys.argv[1], use_cache=False)
     print(json.dumps(r.ocr, ensure_ascii=False))
     print("\n".join(r.lines[:80]))

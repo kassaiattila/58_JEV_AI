@@ -23,7 +23,7 @@ from openpyxl import Workbook
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from jav.core import cfg
-from jav.synthetic_pdf import write_unicode_pdf
+from jav.documents.synthetic_pdf import write_unicode_pdf
 
 CONFIG = "golden_quotes"
 QUOTE_REQUEST = "quote_request"  # the intent the requests expect (registered with the logic pack's intent, A2)

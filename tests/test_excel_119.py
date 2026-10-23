@@ -8,13 +8,14 @@ import pytest
 
 from openpyxl import Workbook
 
-from jav.readers.native import read
-from jav.readers.limits import DEFAULT_LIMITS, ReadFailure
-from jav import native_processing, native_results
+from jav.documents.readers.native import read
+from jav.documents.readers.limits import DEFAULT_LIMITS, ReadFailure
+from jav import native_processing
+from jav.documents import native_results
 from jav.core import store
-from jav.readers import providers
-from jav.readers.interpretation import ProposedExtraction
-from jav.readers.interpretation import ground, source_view
+from jav.documents.readers import providers
+from jav.documents.readers.interpretation import ProposedExtraction
+from jav.documents.readers.interpretation import ground, source_view
 from jav.core import calls
 from tests.native_fixtures_109 import runtime_source
 from tests.native_fixtures_109 import synthetic_gpt
@@ -126,7 +127,7 @@ def formula_workbook():
 
 
 def test_saved_formula_result_reaches_interpretation_and_resolves_to_original_cell(tmp_path, monkeypatch):
-    from jav.native_contracts import Succeeded
+    from jav.documents.native_contracts import Succeeded
 
     with store.use_store(tmp_path / "native.sqlite"):
         _, ref = runtime_source(tmp_path, monkeypatch, name="formula.xlsx", content=formula_workbook())
@@ -167,8 +168,8 @@ def test_currency_cannot_silently_be_accepted_as_hours(tmp_path, monkeypatch, pr
 
 
 def test_legacy_interpretation_digest_does_not_gain_new_optional_fields(tmp_path, monkeypatch):
-    from jav.readers.interpretation import Interpretation
-    from jav.readers.pipeline import digest, json_bytes
+    from jav.documents.readers.interpretation import Interpretation
+    from jav.documents.readers.pipeline import digest, json_bytes
     from tests.native_fixtures_109 import publish_runtime
 
     with store.use_store(tmp_path / "native.sqlite"):

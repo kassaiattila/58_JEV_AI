@@ -146,7 +146,7 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
         dec = c.execute("SELECT COUNT(*), GROUP_CONCAT(k) FROM (SELECT run_id || '#' || task_index || '=' || decision || '@' || decided_at AS k"
                         " FROM email_task_decisions WHERE run_id >= ? AND run_id < ? ORDER BY k)", (run_id + ":", run_id + ";")).fetchone()
         items = c.execute("SELECT COUNT(*), MAX(updated_at) FROM run_items WHERE run_id=?", (run_id,)).fetchone()
-        from jav import native_results
+        from jav.documents import native_results
 
         native = native_results.version_parts(run_id, c)
         # 126, 173 (plan 170, K20), 175 (plan 170 E4): every other decision kind of the reviewed version

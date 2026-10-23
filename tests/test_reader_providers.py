@@ -8,10 +8,10 @@ import pytest
 
 from jav.core import store
 from jav.core.config import OPENAI_MODEL
-from jav.readers.interpretation import ProposedExtraction, ground
-from jav.readers.pipeline import read_files
-from jav.readers.providers import extract_gpt, verify_jev
-from jav.readers.receipts import InterpretationRejected
+from jav.documents.readers.interpretation import ProposedExtraction, ground
+from jav.documents.readers.pipeline import read_files
+from jav.documents.readers.providers import extract_gpt, verify_jev
+from jav.documents.readers.receipts import InterpretationRejected
 from jav.core import calls
 
 pytest.importorskip("docx", reason="Native reader dependencies await integration")
@@ -134,7 +134,7 @@ def test_production_gpt_factory_sends_strict_native_schema(source, tmp_path, mon
     assert estimated[0] >= sizes[0]
     wire = requests[0]["response_format"]["json_schema"]
     assert wire["strict"] is True
-    from jav.readers.providers import gpt_response_format
+    from jav.documents.readers.providers import gpt_response_format
     assert requests[0]["response_format"] == gpt_response_format()
     schema = wire["schema"]
     assert set(schema["properties"]) == {"facts", "gaps"}

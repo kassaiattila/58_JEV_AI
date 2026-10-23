@@ -270,7 +270,7 @@ def routes(app: FastAPI, r: str) -> None:
                   dpi: Annotated[int, Query(ge=72, le=200)] = 144) -> Response:
         """The image of one page (045 K3b) — the boxes are drawn on it. 071: document content, so the browser does not
         store it (`no-store`, added by the security-header layer; previously it stayed in the disk cache for a day)."""
-        from jav import page_image
+        from jav.documents import page_image
 
         path, data = _item_source(wp_id, item_id)
         png = page_image.render(path, page, dpi=dpi, data=data)

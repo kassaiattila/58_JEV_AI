@@ -244,7 +244,7 @@ OUTCOME_UNKNOWN = frozenset({"TimeoutError", "TimeoutException", "ReadTimeout", 
                              "AzureOutcomeUnknown"})
 """Errors after the request was handed over and before the answer arrived. Class names, so that the run time imports
 no provider SDK; the SDKs' own wrappers keep the transport error as the cause (httpx / httpx2, openai, typesafe_sdk).
-121: `AzureOutcomeUnknown` (jav/adapters/azure_di.py): Azure accepted the analysis, but its result could not be read."""
+121: `AzureOutcomeUnknown` (jav/documents/azure_di.py): Azure accepted the analysis, but its result could not be read."""
 
 
 def _chain(exc: BaseException):

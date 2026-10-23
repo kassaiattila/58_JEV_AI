@@ -3,9 +3,9 @@
 Plain-language summary: the data extraction of a type pack used to read PDFs only, so a quote request written in the
 body of an email could not reach it. Now a text becomes a document of the same shape as a PDF: numbered lines, split
 into column cells where three or more spaces (or a tab) stand between two words. The shape is built by the PDF
-reader's own line and cell builder (`jav.pdf.build_layout`) from word boxes placed on a fixed character grid, so the
+reader's own line and cell builder (`jav.documents.pdf.build_layout`) from word boxes placed on a fixed character grid, so the
 candidate finders, the GPT extraction and the JEV verification see a text exactly as they see a PDF's lines. A table
-file (Excel, CSV) is opened by the isolated native reader (`jav/readers/`) and each of its rows becomes one line, its
+file (Excel, CSV) is opened by the isolated native reader (`jav/documents/readers/`) and each of its rows becomes one line, its
 cells three spaces apart.
 
 The kinds of input a type pack takes are its `inputs` (`jav/typepack.py`): `pdf` (the default), `text` (a given text
@@ -20,7 +20,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from jav.pdf import PdfText, build_layout, normalize_dashes
+from jav.documents.pdf import PdfText, build_layout, normalize_dashes
 from jav.typepack import INPUTS  # the input kinds are the type pack's
 
 TEXT_SUFFIXES = {".txt": "text", ".xlsx": "table", ".csv": "table"}
@@ -101,15 +101,15 @@ def _table_lines(response: dict) -> list[str]:
 
 def read_file(path: str | Path) -> str:
     """The text of a text or table file: a `.txt` file as it is (UTF-8), a table's rows as lines. The table goes
-    through the isolated native reader with its default limits (`jav.readers.isolation`)."""
+    through the isolated native reader with its default limits (`jav.documents.readers.isolation`)."""
     path = Path(path)
     kind = input_kind(path)
     if kind == "text":
         return path.read_bytes().decode("utf-8-sig")
     if kind != "table":
         raise TextDocumentError(f"{path.name}: not a text or table file")
-    from jav.readers.isolation import run
-    from jav.readers.limits import DEFAULT_LIMITS, ReadFailure
+    from jav.documents.readers.isolation import run
+    from jav.documents.readers.limits import DEFAULT_LIMITS, ReadFailure
 
     try:
         response = run(path.read_bytes(), path.name, DEFAULT_LIMITS)

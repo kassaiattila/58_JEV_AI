@@ -42,9 +42,9 @@ normal application configuration loading is unchanged.
 
 ## PDF and local recognition extension
 
-`visual.py` reuses this repository's `jav/pdf.py:build_layout` and
-`jav/source_layer.py:build` without persisting into the application store.
-`visual_ocr.py` reuses `jav/ocr.py:parse_tsv` at pixel scale. These preserve the
+`visual.py` reuses this repository's `jav/documents/pdf.py:build_layout` and
+`jav/documents/source_layer.py:build` without persisting into the application store.
+`visual_ocr.py` reuses `jav/documents/ocr.py:parse_tsv` at pixel scale. These preserve the
 same-reading text/geometry pattern referenced above; no legacy runtime is loaded.
 
 PDF parsing uses the existing pdfplumber dependency (MIT); page rendering uses

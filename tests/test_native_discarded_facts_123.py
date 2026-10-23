@@ -8,10 +8,11 @@ from decimal import Decimal
 
 import pytest
 
-from jav import flow_native, native_results
+from jav import flow_native
+from jav.documents import native_results
 from jav.core import store
-from jav.readers.interpretation import DiscardedFact, Interpretation, ProposedExtraction, salvage
-from jav.readers.pipeline import digest, json_bytes
+from jav.documents.readers.interpretation import DiscardedFact, Interpretation, ProposedExtraction, salvage
+from jav.documents.readers.pipeline import digest, json_bytes
 from jav.core import calls
 from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
@@ -70,7 +71,7 @@ def test_interpretation_without_left_out_facts_keeps_its_serialised_identity():
 
 def test_the_schema_sent_to_the_model_is_unchanged():
     # Pinned: a different schema means new answer keys and a paid re-measurement.
-    from jav.readers.providers import gpt_response_format
+    from jav.documents.readers.providers import gpt_response_format
     assert digest(json_bytes(gpt_response_format())) == "94a056bf1a6da4a6c5bb80474f3260f8a2596a3db4e0eb81d2cf5e3e5ce5f958"
     assert ProposedExtraction.model_json_schema()["$defs"]["ProposedFact"]["title"] == "ProposedFact"
 
@@ -87,7 +88,7 @@ def test_one_malformed_fact_is_left_out_with_a_review_item(isolated, monkeypatch
     assert "native:discarded_facts:1" in state.data.review_reasons
     assert state.data.final_status == "needs_review" and len(requests) == 1
     # The service projection (jav/corrections.py) carries the left-out facts to the interface.
-    from jav.native_contracts import InterpretationView
+    from jav.documents.native_contracts import InterpretationView
     view = InterpretationView.model_validate_json(json_bytes({
         "interpretation_id": "i0", "payload_sha256": "c" * 64, "status": "completed",
         **publication.interpretation.model_dump(mode="json", include={
@@ -106,8 +107,8 @@ def test_only_malformed_facts_give_an_empty_interpretation_not_a_rejection(isola
 
 
 def test_a_saved_answer_with_a_malformed_fact_is_salvaged_without_a_second_call(isolated, monkeypatch):
-    from jav.readers import providers
-    from jav.readers.pipeline import read_files
+    from jav.documents.readers import providers
+    from jav.documents.readers.pipeline import read_files
     path = isolated / "source.txt"
     path.write_text("Order code: 0012", encoding="utf-8")
     source = read_files([path])

@@ -320,12 +320,12 @@ def cmd_burr_prune(args: argparse.Namespace) -> int:
 def cmd_ocr(args: argparse.Namespace) -> int:
     """OCR on one PDF (or the engine status): text source, quality signals, lines. For diagnosis: what the flow sees
     on a scanned invoice."""
-    from jav import ocr
+    from jav.documents import ocr
 
     if not args.pdf:
         print(json.dumps(ocr.status(), ensure_ascii=False, indent=2))
         return 0
-    from jav.pdf import read_document
+    from jav.documents.pdf import read_document
 
     pdf = read_document(args.pdf) if not args.force else ocr.ocr_pdf(args.pdf, use_cache=False, psm=args.psm)
     print(f"{pdf.path}: {pdf.page_count} oldal, {len(pdf.lines)} sor, szövegréteg={pdf.has_text_layer}, szöveg-forrás={pdf.text_source}")
@@ -337,11 +337,11 @@ def cmd_ocr(args: argparse.Namespace) -> int:
 
 
 def cmd_ocr_rekey(args: argparse.Namespace) -> int:
-    """076: a one-off move of the OCR cache to the current key (`jav/ocr.py` `rekey_cache`); refuses if the older
+    """076: a one-off move of the OCR cache to the current key (`jav/documents/ocr.py` `rekey_cache`); refuses if the older
     config differs in a setting that changes the recognised text."""
     import subprocess
 
-    from jav import ocr
+    from jav.documents import ocr
     from jav.core.config import PROJECT_ROOT
 
     shown = subprocess.run(["git", "show", f"{args.from_rev}:configs/ocr.json"], capture_output=True, text=True,

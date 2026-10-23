@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from jav import source_layer
+from jav.documents import source_layer
 from jav.core import store
-from jav.ocr import _to_pdftext
-from jav.pdf import build_layout, read_pdf
+from jav.documents.ocr import _to_pdftext
+from jav.documents.pdf import build_layout, read_pdf
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 

@@ -14,7 +14,8 @@ import pytest
 from openpyxl import Workbook
 from typesafe_sdk import Noul
 
-from jav import extract_llm, flow, text_document, typepack
+from jav import extract_llm, flow, typepack
+from jav.documents import text_document
 from jav.core import store
 from jav.adapters import jev as jev_mod
 from jav.models import JevCall

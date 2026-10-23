@@ -11,7 +11,8 @@ import json
 
 from openpyxl import load_workbook
 
-from jav import corrections, export, native_results
+from jav import corrections, export
+from jav.documents import native_results
 from jav.core import card_numbers, store
 from tests.test_native_review_api_109 import published_run
 

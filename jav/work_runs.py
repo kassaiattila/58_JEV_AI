@@ -550,7 +550,7 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None,
         raise explained(work.NotReady, "run has input items without a finished result")
     with store.connect() as c:
         work._begin(c)
-        from jav import native_results
+        from jav.documents import native_results
 
         # Recheck the run, its items and its open reasons under the approval's write lock (153, review: the check above
         # ran before it, so a run superseded or stopped in between ended both cancelled and approved)

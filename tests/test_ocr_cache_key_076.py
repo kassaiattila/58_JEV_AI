@@ -10,7 +10,7 @@ import copy
 
 import pytest
 
-from jav import ocr
+from jav.documents import ocr
 
 
 def _conf():

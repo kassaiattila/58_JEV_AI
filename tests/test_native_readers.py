@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from jav.readers.pipeline import read_files
+from jav.documents.readers.pipeline import read_files
 
 pytest.importorskip("docx", reason="Native reader dependencies await their shared integration window")
 pytest.importorskip("defusedxml")
@@ -136,7 +136,7 @@ def test_archive_path_escape_is_excluded(tmp_path):
 
 
 def test_limited_cells_fail_visibly(tmp_path):
-    from jav.readers.limits import DEFAULT_LIMITS
+    from jav.documents.readers.limits import DEFAULT_LIMITS
     path = tmp_path / "orders.xlsx"
     path.write_bytes(workbook_bytes())
     delivery = read_files([path], limits=DEFAULT_LIMITS.model_copy(update={"visited_cells": 2}))
@@ -147,7 +147,7 @@ def test_frozen_delivery_cannot_be_overwritten_or_reparsed(tmp_path):
     delivery = read_one(tmp_path, "data.txt", b"Code: 0007\nQuantity: 3")
     output = tmp_path / "evidence"
     delivery.save(output)
-    from jav.readers.pipeline import Delivery
+    from jav.documents.readers.pipeline import Delivery
     loaded = Delivery.load(output)
     assert loaded.bundle == delivery.bundle
     object_file = next((output / "objects").iterdir())
@@ -172,7 +172,7 @@ def test_symlink_outside_folder_is_not_read(tmp_path):
 
 def test_loaded_bundle_cannot_change_values_without_changing_evidence(tmp_path):
     import json
-    from jav.readers.pipeline import Delivery
+    from jav.documents.readers.pipeline import Delivery
     delivery = read_one(tmp_path, "input.txt", b"Literal source")
     output = tmp_path / "saved"
     delivery.save(output)
@@ -186,7 +186,7 @@ def test_loaded_bundle_cannot_change_values_without_changing_evidence(tmp_path):
 
 def test_saved_metadata_cannot_request_unbounded_object_loading(tmp_path):
     import json
-    from jav.readers.pipeline import Delivery
+    from jav.documents.readers.pipeline import Delivery
     delivery = read_one(tmp_path, "input.txt", b"Literal source")
     output = tmp_path / "saved"
     delivery.save(output)

@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import sys
 
-from jav.native_contracts import DOCUMENT_FORMATS, DOCUMENT_SUFFIXES
+from jav.documents.native_contracts import DOCUMENT_FORMATS, DOCUMENT_SUFFIXES
 
 
 def main(argv: list[str]) -> int:

@@ -34,7 +34,7 @@ from typing import Any
 
 from jav.core import cfg
 from jav.models import normalize_date, normalize_iban, normalize_money, normalize_tax_id
-from jav.source_layer import SourceLayer, Word
+from jav.documents.source_layer import SourceLayer, Word
 from jav.typepack import CANDIDATE_KIND_OF
 
 MAX_WINDOW = 12  # at most this many consecutive words for one value (name, address)

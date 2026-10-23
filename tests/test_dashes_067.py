@@ -6,8 +6,8 @@ deliberately kept."""
 
 from jav.candidates import find_all
 from jav.models import CellLayout, LineLayout
-from jav.ocr import parse_tsv
-from jav.pdf import normalize_dashes
+from jav.documents.ocr import parse_tsv
+from jav.documents.pdf import normalize_dashes
 
 
 def _lines(*rows):

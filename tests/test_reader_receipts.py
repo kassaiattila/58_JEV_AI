@@ -10,8 +10,8 @@ from pydantic_ai.usage import RequestUsage
 
 from jav.core import store
 from jav.core.config import OPENAI_MODEL
-from jav.readers.interpretation import ProposedExtraction
-from jav.readers.receipts import run_gpt_once
+from jav.documents.readers.interpretation import ProposedExtraction
+from jav.documents.readers.receipts import run_gpt_once
 from jav.core import calls
 
 

@@ -53,7 +53,7 @@ def isolated(tmp_path, monkeypatch):
     original = cfg.load
     monkeypatch.setattr(cfg, "load", lambda name: halves if name == "golden_facts" else original(name))
     with store.use_store(tmp_path / "teach.sqlite"):
-        from jav import native_results  # noqa: F401 - the native tables
+        from jav.documents import native_results  # noqa: F401 - the native tables
 
         yield tmp_path
 

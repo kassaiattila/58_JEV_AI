@@ -17,17 +17,17 @@ from pydantic import TypeAdapter
 
 from jav import item_kinds
 from jav.core import store
-from jav.native_contracts import (
+from jav.documents.native_contracts import (
     ArtifactRef, Failed, InterpretationOutcome, NativeCitation, NativeFact,
     NativeProgress, NativeSourceElement, NATIVE_CAPABLE_SUFFIXES, NATIVE_FALLBACK_SUFFIXES, NATIVE_SUFFIXES,
     Publication, ReadingRef,
     ReadingResult, ReadingSummary, RecognitionSummary, Running, SourcePage,
 )
-from jav.readers.contracts import ReadLimits, SourceBundle, TextLocator, canonical_bytes
-from jav.readers.interpretation import Citation, Interpretation
-from jav.readers.limits import DEFAULT_LIMITS
-from jav.readers import pipeline
-from jav.readers.pipeline import Delivery, digest, json_bytes
+from jav.documents.readers.contracts import ReadLimits, SourceBundle, TextLocator, canonical_bytes
+from jav.documents.readers.interpretation import Citation, Interpretation
+from jav.documents.readers.limits import DEFAULT_LIMITS
+from jav.documents.readers import pipeline
+from jav.documents.readers.pipeline import Delivery, digest, json_bytes
 
 
 class NativeIntegrityError(ValueError):
@@ -135,7 +135,7 @@ def prepare_reading(read_path: Path, *, original_name: str, expected_sha256: str
         raise NativeIntegrityError("Source differs from the frozen work item")
     recognised = None
     if recognition is not None:
-        from jav import ocr as ocrmod
+        from jav.documents import ocr as ocrmod
 
         try:
             recognised = json_bytes(ocrmod.load_recognition(recognition))
@@ -406,7 +406,7 @@ def resolve_citations(publication: Publication, citations: Sequence[Citation | d
 
 
 def _resolve(publication, citations, delivery):
-    from jav.readers.interpretation import citation_text
+    from jav.documents.readers.interpretation import citation_text
 
     elements = {(r.attempt.occurrence_id, e.element_id): (r.attempt, e) for r in delivery.bundle.results for e in r.elements}
     result = []

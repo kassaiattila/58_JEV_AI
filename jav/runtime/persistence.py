@@ -55,6 +55,8 @@ MOVED_MODULES: dict[str, str] = {
     "emails": "domains.email.emails", "email_tasks": "domains.email.email_tasks", "intent": "domains.email.intent",
     "flow_statement_table": "domains.finance.flow_statement_table",
     "dates": "core.dates", "numbers": "core.numbers",
+    "native_contracts": "documents.native_contracts", "source_layer": "documents.source_layer",
+    "readers.contracts": "documents.readers.contracts", "readers.interpretation": "documents.readers.interpretation",
 }
 
 

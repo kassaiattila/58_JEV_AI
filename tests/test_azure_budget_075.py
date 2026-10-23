@@ -16,9 +16,10 @@ from unittest.mock import patch
 
 import pytest
 
-from jav import ocr, work_readiness, work_recipes
+from jav import work_readiness, work_recipes
+from jav.documents import ocr
 from jav.core import store
-from jav.pdf import PdfText
+from jav.documents.pdf import PdfText
 from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 

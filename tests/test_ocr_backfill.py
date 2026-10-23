@@ -2,8 +2,8 @@
 
 import json
 
-from jav import ocr
-from jav.pdf import PdfText
+from jav.documents import ocr
+from jav.documents.pdf import PdfText
 
 WORDS = [[{"text": "Számla", "x0": 10.0, "x1": 50.0, "top": 10.0, "bottom": 20.0, "line_no": 0}]]
 

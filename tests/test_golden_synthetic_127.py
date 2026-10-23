@@ -11,7 +11,7 @@ from decimal import Decimal
 from jav import evals, measure_cli
 from jav.core import cfg
 from jav.candidates import find_all
-from jav.pdf import read_pdf
+from jav.documents.pdf import read_pdf
 from jav.typepack import get as get_pack
 
 

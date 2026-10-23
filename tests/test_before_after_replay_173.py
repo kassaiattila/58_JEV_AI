@@ -213,7 +213,7 @@ def test_the_sample_takes_every_stratum_once_then_shares_the_rest_by_size(tmp_pa
 
 
 def test_inside_offline_no_request_leaves_and_everything_is_put_back(tmp_path) -> None:
-    from jav import ocr
+    from jav.documents import ocr
     from jav.core.config import API_KEY_ENV_VARS, OPENAI_KEY_ENV_VAR
 
     environment, cache = dict(os.environ), ocr.CACHE_DIR
@@ -228,8 +228,8 @@ def test_inside_offline_no_request_leaves_and_everything_is_put_back(tmp_path) -
 def test_random_identifiers_repeat_per_item_inside_a_replay_only() -> None:
     import uuid
 
-    from jav import native_results
-    from jav.readers import pipeline
+    from jav.documents import native_results
+    from jav.documents.readers import pipeline
 
     real = uuid.uuid4
     with before_after_replay._fixed_ids() as ids:

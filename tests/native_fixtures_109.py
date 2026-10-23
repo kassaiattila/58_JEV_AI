@@ -9,16 +9,16 @@ from copy import deepcopy
 from decimal import Decimal
 import hashlib
 
-from jav.native_contracts import (
+from jav.documents.native_contracts import (
     DOCUMENT_FORMATS, Failed, InterpretationView, NativeCitation, NativeCorrection,
     NativeFact, NativeItemResult, NativeSource, NativeSourceElement, NotStarted,
     ReadingResult, ReadingSummary, ReceiptRef, Rejected, Running, SourcePage,
     Succeeded, Uncertain,
 )
-from jav.readers.contracts import (
+from jav.documents.readers.contracts import (
     CellContent, CellLocator, Issue, NativeValue, SheetLocator, SourceOccurrence, TextLocator,
 )
-from jav.readers.interpretation import Citation, ProposedFact
+from jav.documents.readers.interpretation import Citation, ProposedFact
 
 
 def sha(value: str) -> str:
@@ -158,9 +158,10 @@ def runtime_source(tmp_path, monkeypatch, *, text="😀 Order code: 0012\n", ras
     """Construct actual saved evidence with an explicitly in-process test parser."""
     import base64
     import json
-    from jav import native_results, work  # noqa: F401 - register the actual work schema
+    from jav import work  # noqa: F401 - register the actual work schema
+    from jav.documents import native_results  # noqa: F401 - register the actual work schema
     from jav.core import store  # noqa: F401 - register the actual work schema
-    from jav.readers import native, pipeline
+    from jav.documents.readers import native, pipeline
 
     source = tmp_path / name
     source.write_bytes(text.encode("utf-8") if content is None else content)
@@ -190,8 +191,8 @@ def runtime_source(tmp_path, monkeypatch, *, text="😀 Order code: 0012\n", ras
 
 
 def publish_runtime(ref, *, value="0012", quote="Order code: 0012", c=None):
-    from jav import native_results
-    from jav.readers.interpretation import Citation, ProposedExtraction, ProposedFact, ground
+    from jav.documents import native_results
+    from jav.documents.readers.interpretation import Citation, ProposedExtraction, ProposedFact, ground
 
     delivery = native_results.load_reading(ref.reading_id, c=c)
     element = delivery.bundle.results[0].elements[0]
@@ -210,8 +211,8 @@ def synthetic_gpt(monkeypatch, *, mode="valid", payload=None):
     from pydantic_ai.models.function import FunctionModel
     from pydantic_ai.usage import RequestUsage
     from jav.core.config import OPENAI_MODEL
-    from jav.readers import providers
-    from jav.readers.interpretation import ProposedExtraction
+    from jav.documents.readers import providers
+    from jav.documents.readers.interpretation import ProposedExtraction
 
     requests = []
     value = payload or {"facts": [{"entity": "order", "property": "code", "value": "0012", "state": "stated",

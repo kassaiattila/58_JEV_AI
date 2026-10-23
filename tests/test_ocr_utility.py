@@ -22,7 +22,8 @@ from decimal import Decimal
 import pytest
 from typesafe_sdk import Choice, Noul
 
-from jav import candidates as cand, evals, ocr, pdf as pdfmod, policy, typepack
+from jav import candidates as cand, evals, policy, typepack
+from jav.documents import ocr, pdf as pdfmod
 from jav.models import Candidate, CellLayout, LineLayout
 
 UTILITY_TYPES = ("villamos_energia_szamla", "foldgaz_szamla", "viz_szamla", "mohu_szamla", "vizmuvek_szamla", "csatorna_szamla")

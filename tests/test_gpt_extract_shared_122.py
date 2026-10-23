@@ -4,7 +4,7 @@ Q-model-language-native): the G path's instructions and the native reader's inst
 from jav import extract_llm, typepack
 from jav.core import cfg
 from jav.core.config import load_prompt
-from jav.readers import providers
+from jav.documents.readers import providers
 
 
 def _shared() -> str:

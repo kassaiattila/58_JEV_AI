@@ -13,6 +13,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_importing_the_reader_entry_keeps_the_import_path():
     code = ("import sys; sys.argv = ['worker', 'elsewhere']; before = list(sys.path); "
-            "import jav.readers.worker; print(sys.path == before)")
+            "import jav.documents.readers.worker; print(sys.path == before)")
     done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=ROOT, check=True)
     assert done.stdout.strip() == "True"

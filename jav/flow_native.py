@@ -8,11 +8,12 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav import native_processing, native_results, policy
+from jav import native_processing, policy
+from jav.documents import native_results
 from jav.core import store
 from jav.engine import with_engine
-from jav.native_contracts import NativeLimits, NATIVE_CAPABLE_SUFFIXES
-from jav.readers.pipeline import json_bytes
+from jav.documents.native_contracts import NativeLimits, NATIVE_CAPABLE_SUFFIXES
+from jav.documents.readers.pipeline import json_bytes
 
 PARTITION = "native"
 TERMINALS = {"done", "needs_review"}
@@ -100,7 +101,7 @@ def publish_native(state: NativeState) -> NativeState:
 @action.pydantic(reads=_INPUTS + ["publication_id", "result_version", "review_reasons", "recognition_blocked"],
                  writes=["review_reasons", "final_status"])
 def review_native(state: NativeState) -> NativeState:
-    from jav.ocr import escalation_review_reasons
+    from jav.documents.ocr import escalation_review_reasons
 
     publication = native_results.get_publication(state.work_run_id, state.item_id)
     if publication is None or publication.result_version != state.result_version:

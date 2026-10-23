@@ -10,7 +10,7 @@ quantity on costs a percent less), the currency and the VAT rate are set on the 
 changing them makes a new draft version with the same items. So a version never changes, and a quote names the one it
 was priced from by its number and fingerprint (which covers the items, the rules, the currency and the VAT rate).
 
-An Excel file is read through the isolated native reader (`jav/readers/isolation.py`, its default limits); a CSV file
+An Excel file is read through the isolated native reader (`jav/documents/readers/isolation.py`, its default limits); a CSV file
 with the standard library, its separator (semicolon, comma or tab) found from its first line. No AI call.
 
 Layer: business module of the quotes domain (`jav/domains/quotes/__init__.py`): the check and the store.
@@ -149,7 +149,7 @@ class _Unreadable(Exception):
         self.code, self.detail = code, detail
 
 
-# a sheet's cells: row -> column -> (kind, text), the kinds of the native reader (`jav/readers/contracts.py`)
+# a sheet's cells: row -> column -> (kind, text), the kinds of the native reader (`jav/documents/readers/contracts.py`)
 Cells = dict[int, dict[int, tuple[str, str]]]
 
 
@@ -167,8 +167,8 @@ def _csv_cells(content: bytes) -> dict[str, Cells]:
 
 
 def _xlsx_cells(content: bytes, file_name: str) -> dict[str, Cells]:
-    from jav.readers.isolation import run
-    from jav.readers.limits import DEFAULT_LIMITS, ReadFailure
+    from jav.documents.readers.isolation import run
+    from jav.documents.readers.limits import DEFAULT_LIMITS, ReadFailure
 
     try:
         response = run(content, file_name, DEFAULT_LIMITS)

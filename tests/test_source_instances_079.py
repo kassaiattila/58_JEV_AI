@@ -17,9 +17,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import (
-    api, backup, corrections, flow_detect, ocr, source_instances, work, work_readiness, work_recipes, work_runs,
-)
+from jav import api, backup, corrections, flow_detect, source_instances, work, work_readiness, work_recipes, work_runs
+from jav.documents import ocr
 from jav.core import store
 from jav.adapters import jev as jev_mod
 from jav.runtime import worker

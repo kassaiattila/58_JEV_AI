@@ -11,12 +11,12 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
-from jav.readers.contracts import (
+from jav.documents.readers.contracts import (
     ContractModel, Digest, Identifier, Issue, Label, Locator, ReadLimits,
     SourceElement, SourceOccurrence, Text, TextLocator,
 )
-from jav.readers.interpretation import Citation, DiscardedFact, Interpretation, ProposedFact
-from jav.readers.limits import DEFAULT_LIMITS
+from jav.documents.readers.interpretation import Citation, DiscardedFact, Interpretation, ProposedFact
+from jav.documents.readers.limits import DEFAULT_LIMITS
 
 
 class DocumentFormat(ContractModel):

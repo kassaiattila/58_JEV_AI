@@ -35,7 +35,7 @@ from pydantic import BaseModel, Field
 
 from jav import work, work_recipes
 from jav.core import store
-from jav.native_contracts import DOCUMENT_SUFFIXES
+from jav.documents.native_contracts import DOCUMENT_SUFFIXES
 from jav.core import lock
 from jav.core.user_messages import explained
 from jav.core.clock import utc_now as _now

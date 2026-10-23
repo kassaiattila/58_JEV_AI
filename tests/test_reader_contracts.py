@@ -6,7 +6,7 @@ import socket
 import pytest
 from pydantic import ValidationError
 
-from jav.readers.contracts import SourceContractError, ParseAttempt, SourceBundle, canonical_bytes, read_bundle, verify_evidence
+from jav.documents.readers.contracts import SourceContractError, ParseAttempt, SourceBundle, canonical_bytes, read_bundle, verify_evidence
 from tests.reader_samples import raw_evidence_payload, sample_bundles, synthetic_payloads
 
 

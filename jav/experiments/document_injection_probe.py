@@ -173,7 +173,7 @@ def run(cfg: dict[str, Any], out: Path, *, flows: set[str] | None = None, jev: b
 
     from jav.core import store
     from jav.core import calls
-    from jav.synthetic_pdf import write_unicode_pdf
+    from jav.documents.synthetic_pdf import write_unicode_pdf
 
     (out / "pdfs").mkdir(parents=True, exist_ok=True)
     db = out / "probe.sqlite"

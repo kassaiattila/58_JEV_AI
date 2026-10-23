@@ -21,7 +21,7 @@ def test_a_document_that_is_not_a_pdf_has_no_page_image(tmp_path) -> None:
     """167 (review 153 E): a Word, Excel, text or statement file is refused with its own message, not PDFium's error."""
     import pytest
 
-    from jav import page_image
+    from jav.documents import page_image
 
     path = tmp_path / "statement.xml"
     path.write_text("<Document/>", encoding="utf-8")

@@ -6,7 +6,7 @@ the trial."""
 
 from jav.candidates import find_all
 from jav.models import CellLayout, LineLayout
-from jav.pdf import fix_lost_glyphs
+from jav.documents.pdf import fix_lost_glyphs
 
 
 def _lines(*rows: str) -> list[LineLayout]:

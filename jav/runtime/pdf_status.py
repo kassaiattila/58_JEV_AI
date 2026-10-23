@@ -19,7 +19,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
-from jav import isolated_pdf
+from jav.documents import isolated_pdf
 from jav.core import lock
 
 log = logging.getLogger(__name__)

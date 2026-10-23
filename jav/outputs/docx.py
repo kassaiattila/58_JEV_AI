@@ -13,7 +13,7 @@ marker.
 
 The check refuses a template that would not fill safely or correctly:
 - not a Word document (.docx), or too large;
-- macros, embedded objects or programs (the package check of `jav/readers/limits.py`), or another file's content
+- macros, embedded objects or programs (the package check of `jav/documents/readers/limits.py`), or another file's content
   imported (`altChunk`);
 - a link to another file: an external relationship other than a web link or the attached template;
 - a field that computes or imports: only the fields of `configs/outputs.json` `templates.word_fields` stay (page
@@ -57,7 +57,7 @@ SETTINGS = "word/settings.xml"
 SETTINGS_RELS = "word/_rels/settings.xml.rels"
 # the parts that hold a document's text: the body, the headers and footers, the notes (text boxes are inside them)
 STORY = re.compile(r"^word/(document|header\d*|footer\d*|footnotes|endnotes)\.xml$")
-# jav/readers/limits.py raises this after every member of the package passed its checks; a Word template's web links
+# jav/documents/readers/limits.py raises this after every member of the package passed its checks; a Word template's web links
 # and attached template are then judged here (the readers' rule for documents read as input stays as it is)
 EXTERNAL_REFUSAL = "External Office relationship is not followed"
 INERT = ("hyperlink",)  # an external relationship that stays: a web link a person may click
@@ -205,7 +205,7 @@ def _members(data: bytes) -> dict[str, bytes]:
 def _package(data: bytes, check: TemplateCheck) -> dict[str, bytes] | None:
     """The file's parts when it is a Word document without active content or links to other files (a web link and
     the attached template stay); None when it is refused."""
-    from jav.readers.limits import DEFAULT_LIMITS, ReadFailure, inspect_package, xml
+    from jav.documents.readers.limits import DEFAULT_LIMITS, ReadFailure, inspect_package, xml
 
     if len(data) > contract.templates()["max_bytes"]:
         check.add("too_large", detail=str(len(data)))

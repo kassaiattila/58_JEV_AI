@@ -9,7 +9,8 @@ import json
 
 import pytest
 
-from jav import flow_detect, isolated_pdf, pdf
+from jav import flow_detect
+from jav.documents import isolated_pdf, pdf
 from jav.core import store
 from jav.domains.email import flow_email
 from jav.adapters import jev as jev_mod

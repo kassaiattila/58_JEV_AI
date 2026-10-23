@@ -105,7 +105,7 @@ def test_the_short_description_is_the_first_clause():
 
 
 def _pdf(tmp_path):
-    from jav.pdf import read_pdf
+    from jav.documents.pdf import read_pdf
 
     path = write_text_pdf(tmp_path / "szamla.pdf", INVOICE_LINES)
     return path, read_pdf(path)

@@ -594,12 +594,12 @@ class FlowState(BaseModel):
     layout: list[LineLayout] = Field(default_factory=list)
     page_count: int = 0
     has_text_layer: bool = False
-    text_source: str | None = None  # "pdf" (text layer) | "ocr" (jav/ocr.py) | "text" (190) | None (no usable text -> needs_ocr)
+    text_source: str | None = None  # "pdf" (text layer) | "ocr" (jav/documents/ocr.py) | "text" (190) | None (no usable text -> needs_ocr)
     ocr_conf: float | None = None  # OCR mean word confidence (0-1), raw; threshold in the `ocr` block of policy.json
     ocr_low_conf_ratio: float | None = None  # share of weak (< 60) words
     ocr_engine: str | None = None  # native / docker / azure_di (the text's source, if OCR)
     ocr_escalated: bool = False  # the more accurate paid engine's text replaced weak local OCR (policy ocr.escalate_*)
-    source_layer_id: str | None = None  # 045: word layer reference (jav/source_layer.py); the words live in the store
+    source_layer_id: str | None = None  # 045: word layer reference (jav/documents/source_layer.py); the words live in the store
     provenance: dict[str, Any] = Field(default_factory=dict)  # 045: per-field source location (jav/grounding.py), saved
     # S path
     candidates: dict[str, list[Candidate]] = Field(default_factory=dict)

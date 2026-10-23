@@ -10,7 +10,8 @@ import json
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from jav import costs, ocr, work, work_runs
+from jav import costs, work, work_runs
+from jav.documents import ocr
 from jav.core import store
 from jav.core.config import AZURE_DI_MODEL
 from jav.core import calls

@@ -16,7 +16,8 @@ from types import SimpleNamespace
 import pytest
 from typesafe_sdk import Noul
 
-from jav import detect_detail, doc_types, extract_llm, flow, naming, policy, text_document, typepack
+from jav import detect_detail, doc_types, extract_llm, flow, naming, policy, typepack
+from jav.documents import text_document
 from jav.core import store
 from jav.domains.email import intents
 from jav.adapters import jev as jev_mod

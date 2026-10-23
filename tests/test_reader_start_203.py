@@ -1,6 +1,6 @@
 """203 (speed-up by measurement): the isolated reader process loads no network client.
 
-Every native read starts a fresh process (`jav/readers/isolation.py`). Its start took about 1.1 s, more than half of it
+Every native read starts a fresh process (`jav/documents/readers/isolation.py`). Its start took about 1.1 s, more than half of it
 in the JEV SDK and its HTTP library, which the package's configuration module imported for the client it can build.
 A reader never builds one, and a process that parses untrusted files should not carry network code either.
 """
@@ -16,14 +16,14 @@ from jav.core.config import PROJECT_ROOT
 
 NETWORK_CLIENTS = ("typesafe_sdk", "httpx2", "httpx", "openai", "pydantic_ai")
 
-# the trusted imports of `jav/readers/worker.py`, in its order, before it installs its policy
+# the trusted imports of `jav/documents/readers/worker.py`, in its order, before it installs its policy
 WORKER_IMPORTS = """
 import sys
 sys.path.insert(0, sys.argv[1]); sys.path.insert(0, sys.argv[2])
-from jav.readers.contracts import ReadLimits
-from jav.readers.limits import ReadFailure
-from jav.readers.native import evidence_view, read
-from jav.readers import visual
+from jav.documents.readers.contracts import ReadLimits
+from jav.documents.readers.limits import ReadFailure
+from jav.documents.readers.native import evidence_view, read
+from jav.documents.readers import visual
 import docx, openpyxl
 from PIL import Image
 import json

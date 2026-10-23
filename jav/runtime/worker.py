@@ -29,7 +29,8 @@ from typing import Any, Callable
 
 from burr.integrations.serde import pydantic as burr_pydantic
 
-from jav import app_settings, isolated_pdf, item_kinds, pdf, work, work_readiness, work_runs, workflows
+from jav import app_settings, item_kinds, work, work_readiness, work_runs, workflows
+from jav.documents import isolated_pdf, pdf
 from jav.core import store
 from jav.runtime import flows, job_kinds, pdf_status, persistence
 from jav.core import applog, calls, lock, queue
@@ -233,7 +234,7 @@ def native_fallback(params: dict[str, Any], item: dict[str, Any], detect_state) 
     a reading is always partial, so it keeps a to-do. It does not continue after a failed classification step (JEV
     or GPT unavailable), without any text, or for a type that has a fitting pack. Returns the native stage's
     parameters, or None."""
-    from jav.native_contracts import NATIVE_FALLBACK_SUFFIXES
+    from jav.documents.native_contracts import NATIVE_FALLBACK_SUFFIXES
 
     if params.get("unknown_documents") != "facts" or not item_kinds.of(item).detected:  # 177: a document only
         return None
@@ -408,7 +409,7 @@ def _prune_state(app_id: str) -> None:
 def startup() -> dict[str, int]:
     """Start-up: settles interrupted claims and marks unsettled paid calls. The result of an item that became dead or
     cancelled shows on the run too (063: otherwise the run's item would be left without a result)."""
-    from jav import native_results  # noqa: F401 - register native tables before the startup store connection
+    from jav.documents import native_results  # noqa: F401 - register native tables before the startup store connection
 
     rec = queue.recover_orphans()
     for job in [*rec.dead, *rec.cancelled]:

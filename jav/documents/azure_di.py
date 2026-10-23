@@ -6,8 +6,8 @@ straight to the service: one request starts the analysis, then its result is rea
 
 Reuse (CLAUDE.md §3): ported from the legacy sidecar (`10_AIFLOW_V4/sidecar/app/providers/azure_di.py`, which uses the
 azure-ai-documentintelligence 1.0.2 SDK, and `sidecar/app/ocr_evidence.py` `capture_azure`). The standard library's HTTP
-client replaces the SDK, and the result becomes the same evidence dictionary the sidecar saves, so `jav/ocr.py`
-`azure_evidence_words` reads both. The cost, the budget and the call log stay in `jav/ocr.py` `azure_recognise`.
+client replaces the SDK, and the result becomes the same evidence dictionary the sidecar saves, so `jav/documents/ocr.py`
+`azure_evidence_words` reads both. The cost, the budget and the call log stay in `jav/documents/ocr.py` `azure_recognise`.
 
 Errors: `AzureDiError` is a definite failure (not configured, refused, an error answer, a failed analysis); the
 service did not produce a result to pay for. `AzureOutcomeUnknown` means the analysis was accepted, so it may be billed,

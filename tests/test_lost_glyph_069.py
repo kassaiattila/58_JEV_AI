@@ -3,7 +3,7 @@ word that contains digits. In the 988 local documents the NUL almost always sat 
 (163 times between two digits, 61 times between a letter and a digit), 0 times between two letters or between a
 currency and an amount. The examples are fictitious; only their shape follows the survey."""
 
-from jav.pdf import fix_lost_glyphs
+from jav.documents.pdf import fix_lost_glyphs
 
 
 def test_identifier_shaped_words_keep_the_hyphen():

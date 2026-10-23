@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import backup, corrections, native_results, source_instances
+from jav import backup, corrections, source_instances
+from jav.documents import native_results
 from jav.core import store
 from tests.test_native_review_api_109 import published_run
 

@@ -13,7 +13,8 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, SystemOneResponse
 
-from jav import ocr, work, work_readiness, work_recipes, work_runs
+from jav import work, work_readiness, work_recipes, work_runs
+from jav.documents import ocr
 from jav.core import store
 from jav.adapters import jev as jev_mod
 from jav.runtime import worker

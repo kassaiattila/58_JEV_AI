@@ -1,4 +1,4 @@
-"""Reading the PDF text layer (pdfplumber) and the shared line / cell builder that OCR (`jav/ocr.py`) uses too.
+"""Reading the PDF text layer (pdfplumber) and the shared line / cell builder that OCR (`jav/documents/ocr.py`) uses too.
 
 A PDF without text -> `has_text_layer=False`; OCR is not called here but in a separate flow step (`ocr_pdf`), so
 that it shows in the contract and the decision (whether to go to OCR) is data. `read_document()` does both
@@ -89,9 +89,9 @@ class PdfText:
     page_count: int = 0
     has_text_layer: bool = False
     text_source: str | None = None  # "pdf" (text layer) | "ocr" | None (no usable text)
-    ocr: dict[str, Any] | None = None  # OCR quality (jav/ocr.py: mean_conf, low_conf_ratio, words, engine, cached)
+    ocr: dict[str, Any] | None = None  # OCR quality (jav/documents/ocr.py: mean_conf, low_conf_ratio, words, engine, cached)
     # 045: the word boxes (per page `{text, x0, x1, top, bottom, line_no}` in points) and the page sizes (width,
-    # height in points) — the word layer is built from these (jav/source_layer.py). The lines (`layout`) are
+    # height in points) — the word layer is built from these (jav/documents/source_layer.py). The lines (`layout`) are
     # independent of them and unchanged.
     words: list[list[dict[str, Any]]] = field(default_factory=list)
     page_sizes: list[tuple[float, float]] = field(default_factory=list)
@@ -242,10 +242,10 @@ def pages_without_text(layout: list[LineLayout], page_count: int, image_shares: 
 
 
 def read_pdf(path: str | Path) -> PdfText:
-    """The text layer with lines and cells. 077: pdfplumber runs in the isolated PDF reader (`jav/isolated_pdf.py`,
+    """The text layer with lines and cells. 077: pdfplumber runs in the isolated PDF reader (`jav/documents/isolated_pdf.py`,
     time and memory limit: `PdfReaderLimit`; a parser error: `PdfReaderError`); the words are cleaned and laid out
     here."""
-    from jav import isolated_pdf
+    from jav.documents import isolated_pdf
 
     path = Path(path)
     check_document_size(path)
@@ -280,7 +280,7 @@ def read_document(path: str | Path, *, ocr: bool = True) -> PdfText:
     pdf = read_pdf(path)
     if pdf.has_text_layer or not ocr:
         return pdf
-    from jav.ocr import OcrUnavailableError, ocr_pdf
+    from jav.documents.ocr import OcrUnavailableError, ocr_pdf
 
     try:
         return ocr_pdf(path, page_count=pdf.page_count)

@@ -18,7 +18,7 @@ What the pack contains (a mirror of the legacy 10_AIFLOW_V4 `types/<key>/` pack,
   invoice) reuses another pack's verbatim prompt without copying it (`jav.extract_llm.instructions`);
 - `inputs` (190, plan 189 A2b): the kinds of input the pack takes: `pdf` (the default, every pack before 190), `text`
   (an email's own text or a text file) and `table` (an Excel or CSV file), each laid out as lines by
-  `jav.text_document`;
+  `jav.documents.text_document`;
 - `source_prefix` (190, plan 189 A2d): the words that introduce the source text in the G path's request; without it
   (every pack before 190) "SOURCE TEXT extracted from the invoice PDF ...", so a quote request is not called an invoice;
 - `plain_list_items` (190, plan 189 A2c): a list of plain values (`"items": {"type": "string"}` in the schema) becomes a
@@ -54,7 +54,7 @@ LEGACY_DOC_TYPE = "invoice_hu"
 recorded name no type, and all of them were Hungarian invoices. Never a processing default: the shared code always
 takes the type explicitly."""
 BASE_PREFIX = "_base/"
-INPUTS = ("pdf", "text", "table")  # 190: the input kinds a pack may take (`jav.text_document`)
+INPUTS = ("pdf", "text", "table")  # 190: the input kinds a pack may take (`jav.documents.text_document`)
 
 
 class TypePack(BaseModel):
@@ -75,7 +75,7 @@ class TypePack(BaseModel):
     verify_callsite: str
     arms: tuple[str, ...] = ("S", "G")  # the paths runnable with the pack
     default_arm: str | None = None  # 053 T3: pack's path for an `auto` recipe (utility: G, it also yields line items)
-    inputs: tuple[str, ...] = ("pdf",)  # 190: what the pack reads (`jav.text_document.INPUTS`)
+    inputs: tuple[str, ...] = ("pdf",)  # 190: what the pack reads (`jav.documents.text_document.INPUTS`)
     plain_list_items: bool = False  # 190: a list of plain values is such a list in the output model, not empty objects
     parent: str | None = None  # 047: the coarse detection category (configs/doc_types.json) of this detailed type
     auto_detect: bool = True  # 047: may detection pick it (no for types that were dependent in the legacy project too)

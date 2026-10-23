@@ -10,10 +10,10 @@ import pytest
 
 from jav.core import store
 from jav.core.config import OPENAI_MODEL
-from jav.readers.interpretation import ProposedExtraction
-from jav.readers.pipeline import read_files
-from jav.readers.providers import extract_gpt
-from jav.readers.receipts import InterpretationRejected
+from jav.documents.readers.interpretation import ProposedExtraction
+from jav.documents.readers.pipeline import read_files
+from jav.documents.readers.providers import extract_gpt
+from jav.documents.readers.receipts import InterpretationRejected
 from jav.core import calls
 
 pytest.importorskip("docx", reason="Native reader dependencies await integration")

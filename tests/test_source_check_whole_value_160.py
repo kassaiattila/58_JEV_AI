@@ -63,7 +63,8 @@ def test_a_thousands_dot_amount_is_still_found_by_its_digits():
 
 def _native_fact(tmp_path, monkeypatch, value):
     """The native path without JEV: one fact citing the quote "Order code: 0012"."""
-    from jav import native_processing, native_results
+    from jav import native_processing
+    from jav.documents import native_results
     from jav.core import store
     from jav.core import calls
     from tests.native_fixtures_109 import runtime_source, synthetic_gpt

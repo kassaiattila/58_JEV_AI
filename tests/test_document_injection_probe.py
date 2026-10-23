@@ -10,7 +10,7 @@ import pytest
 
 from jav.candidates import find_all
 from jav.experiments import document_injection_probe as probe
-from jav.synthetic_pdf import write_unicode_pdf
+from jav.documents.synthetic_pdf import write_unicode_pdf
 from jav.validators import hu_tax_id, iban_check
 
 CFG = probe.load_config()
@@ -49,7 +49,7 @@ def test_every_variant_is_placed_where_planned():
 
 @pytest.mark.parametrize("inv", CFG["invoices"], ids=lambda i: i["id"])
 def test_clean_pdf_reads_back_and_the_truth_is_among_the_candidates(tmp_path, inv):
-    from jav.pdf import read_pdf
+    from jav.documents.pdf import read_pdf
 
     got = read_pdf(write_unicode_pdf(tmp_path / "clean.pdf", inv["rows"]))
     assert got.has_text_layer and any(ch in got.text for ch in "őó")  # the accents survive too
@@ -62,7 +62,7 @@ def test_clean_pdf_reads_back_and_the_truth_is_among_the_candidates(tmp_path, in
 
 
 def test_injected_rows_survive_the_pdf_round_trip(tmp_path):
-    from jav.pdf import read_pdf
+    from jav.documents.pdf import read_pdf
 
     inv = CFG["invoices"][1]
     for name, v in CFG["variants"].items():

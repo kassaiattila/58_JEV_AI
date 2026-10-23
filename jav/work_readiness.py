@@ -12,7 +12,7 @@ from typing import Any
 
 from jav import item_kinds
 from jav.core import store
-from jav.native_contracts import NATIVE_SUFFIXES
+from jav.documents.native_contracts import NATIVE_SUFFIXES
 from jav.runtime import flows
 from jav import work, work_recipes, work_runs
 

@@ -103,7 +103,7 @@ def load_synthetic_cases(type_key: str, out_dir: Path = SYNTHETIC_DIR) -> list[G
     written from its rows into `out_dir` (outside git); it is scored only on the fields its `expected` names. Kept apart
     from the legacy golden sets, so their results stay comparable."""
     from jav.core import cfg
-    from jav.synthetic_pdf import write_unicode_pdf
+    from jav.documents.synthetic_pdf import write_unicode_pdf
 
     cases: list[GoldenCase] = []
     for c in cfg.load("golden_synthetic")["cases"]:
@@ -126,7 +126,7 @@ def _run_name(type_key: str, base: str) -> str:
     (`azure_di_<type>_golden_S`) so that measurements do not get mixed up."""
     import os
 
-    from jav.ocr import ENGINE_ENV
+    from jav.documents.ocr import ENGINE_ENV
 
     name = base if type_key == LEGACY_DOC_TYPE else f"{type_key}_{base}"
     forced = os.environ.get(ENGINE_ENV)
@@ -210,7 +210,7 @@ def field_equal_lenient(field: str, got: Any, expected: Any, kind: str) -> bool:
 
 def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True, *, type_key: str) -> dict[str, tuple[int, int]]:
     from jav.candidates import find_all, find_currencies
-    from jav.pdf import read_document
+    from jav.documents.pdf import read_document
 
     pack = get_pack(type_key)
     cases = cases or load_cases(type_key)
@@ -578,7 +578,7 @@ def verifier_probe(cases: list[GoldenCase] | None = None, use_cache: bool = True
 def _verifier_probe(cases: list[GoldenCase] | None, use_cache: bool, type_key: str) -> list[dict[str, Any]]:
     from jav.adapters.jev import get_adapter
     from jav.jev_verify import site_for
-    from jav.pdf import read_document
+    from jav.documents.pdf import read_document
     from jav.policy import REVIEW_FLAG_P, noul_band
 
     pack = get_pack(type_key)

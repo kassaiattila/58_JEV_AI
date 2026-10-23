@@ -65,7 +65,7 @@ class TemplateCheck:
 
 def _package(data: bytes, check: TemplateCheck) -> bool:
     """The file as a package: an Excel workbook, without active content, links to other files or data connections."""
-    from jav.readers.limits import DEFAULT_LIMITS, ReadFailure, inspect_package
+    from jav.documents.readers.limits import DEFAULT_LIMITS, ReadFailure, inspect_package
 
     if len(data) > contract.templates()["max_bytes"]:
         check.add("too_large", detail=str(len(data)))

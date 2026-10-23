@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import sys
 
-CHECKOUT = Path(__file__).resolve().parents[2]
+CHECKOUT = Path(__file__).resolve().parents[3]  # 208: jav/documents/readers/worker.py
 
 
 def install_paths() -> Path:
@@ -52,10 +52,10 @@ def main(dependencies: Path):
     # The parent assigns the Job Object before releasing this bounded request.
     request_bytes = sys.stdin.buffer.read(12_000_000)
     request = json.loads(request_bytes)
-    from jav.readers.contracts import ReadLimits
-    from jav.readers.limits import ReadFailure
-    from jav.readers.native import evidence_view, read
-    from jav.readers import visual  # noqa: F401 - trusted PDF/native imports before restrictions
+    from jav.documents.readers.contracts import ReadLimits
+    from jav.documents.readers.limits import ReadFailure
+    from jav.documents.readers.native import evidence_view, read
+    from jav.documents.readers import visual  # noqa: F401 - trusted PDF/native imports before restrictions
     import docx  # noqa: F401 - trusted imports before filesystem restrictions
     import openpyxl  # noqa: F401
     from PIL import Image

@@ -88,7 +88,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav import isolated_pdf
+from jav.documents import isolated_pdf
 from jav.core import card_numbers, cfg
 from jav.core.dates import read_date
 from jav.core.numbers import read_number
@@ -151,8 +151,8 @@ def _text(value: Any) -> str:
 def _workbook_rows(data: bytes, limits: dict[str, Any]) -> list[list[str]]:
     import openpyxl
 
-    from jav.readers.contracts import ReadLimits
-    from jav.readers.limits import DEFAULT_LIMITS, ReadFailure, inspect_package
+    from jav.documents.readers.contracts import ReadLimits
+    from jav.documents.readers.limits import DEFAULT_LIMITS, ReadFailure, inspect_package
 
     archive = limits["archive"]
     try:  # the shared ZIP inspection: no unsafe member, no expansion beyond the bounds, external parts inert
@@ -268,7 +268,7 @@ def _unmangled(rows: list[list[str]], conf: dict[str, Any]) -> list[list[str]] |
 
 def parse_rows(suffix: str, data: bytes, limits: dict[str, Any]) -> list[list[str]]:
     """The rows of cell texts of an export's bytes: the third-party parsing (openpyxl, defusedxml, the CSV reader). 138
-    (Q-table-reader-isolation): it runs in the isolated reader's helper process (`jav/isolated_pdf.py`), within its time
+    (Q-table-reader-isolation): it runs in the isolated reader's helper process (`jav/documents/isolated_pdf.py`), within its time
     and memory limits, every setting a parameter."""
     if suffix == ".csv":
         return _csv_rows(data, limits)
@@ -529,8 +529,8 @@ def _within_size(path: Path, limits: dict[str, Any]) -> None:
 
 
 def _pdf_lines(path: Path) -> list[str]:
-    """The PDF's text layer as lines (the isolated PDF reader, jav/pdf.py); the tests replace it."""
-    from jav import pdf
+    """The PDF's text layer as lines (the isolated PDF reader, jav/documents/pdf.py); the tests replace it."""
+    from jav.documents import pdf
 
     return pdf.read_pdf(path).lines
 

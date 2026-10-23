@@ -38,12 +38,10 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from jav import (
-    grounding, item_kinds, native_results, package_result, source_layer, typepack, validators, work, work_readiness,
-    work_runs,
-)
+from jav import grounding, item_kinds, package_result, typepack, validators, work, work_readiness, work_runs
+from jav.documents import native_results, source_layer
 from jav.core import activity_kinds, dates, numbers, store
-from jav.native_contracts import Publication
+from jav.documents.native_contracts import Publication
 from jav.policy import reason_field
 from jav.core.user_messages import explained
 
@@ -377,7 +375,7 @@ def native_publication(run_id: str, item_id: str, *, expected_result_version: st
 
 def _native_item_result(run: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
     """Merge manual values without changing the original proposal or its machine grounding claim."""
-    from jav.native_contracts import NativeItemResult
+    from jav.documents.native_contracts import NativeItemResult
 
     run_id, item_id = run["run_id"], item["item_id"]
     reasons = work_runs.item_reasons(run_id, item_id, item)
@@ -504,7 +502,7 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     lists = {f: {"columns": list_columns(pack, f, machine.get(f))} for f, k in pack.fields.items() if k == "list"} if pack else {}
     simple = {f for f, k in pack.fields.items() if k != "list"} if pack else set()
     reasons = work_runs.item_reasons(run_id, item_id)
-    from jav import isolated_pdf, page_image
+    from jav.documents import isolated_pdf, page_image
 
     src = work.source_file(item)  # the source instance if the item has one
     kind = item_kinds.of(item)  # 136: a statement read from a tabular export has no page image (177: the kind says)

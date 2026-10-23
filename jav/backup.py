@@ -224,7 +224,7 @@ def _archive_docs(docs_root: Path, target: Path) -> dict[str, Any] | None:
 
 def _archive_native(saved_store: Path, source_root: Path, target: Path) -> dict[str, Any] | None:
     """Archive the complete immutable reader artifacts referenced by the saved database snapshot."""
-    from jav import native_results
+    from jav.documents import native_results
 
     try:
         with closing(sqlite3.connect(str(saved_store))) as c:

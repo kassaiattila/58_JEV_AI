@@ -2,7 +2,7 @@
 
 Plain-language summary: every stored time is written by one shared clock (`jav/core/clock.py`), every file fingerprint by
 one shared digest (`jav/core/digest.py`), and both flows that start from a PDF read it through one shared step
-(`jav/pdf_input.py`); the modules no longer carry their own copies. These tests keep it that way: no module writes its
+(`jav/documents/pdf_input.py`); the modules no longer carry their own copies. These tests keep it that way: no module writes its
 own `_now` again (the backup keeps its local time on purpose) or its own file digest, neither flow reads or OCRs a PDF
 by itself, and no two modules name their refusal the same.
 

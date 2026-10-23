@@ -77,7 +77,7 @@ class Job:
 def exchange(command: list[str], request: bytes, limits: ReadLimits, *, output_bound: int,
              timeout: float | None = None) -> bytes:
     """Send bounded input only after a trusted worker has joined its Job Object."""
-    root = Path(__file__).resolve().parents[2]
+    root = Path(__file__).resolve().parents[3]  # 208: jav/documents/readers/isolation.py
     environment = {key: os.environ[key] for key in ("SYSTEMROOT", "WINDIR") if key in os.environ}
     environment["PYTHONUTF8"] = "1"
     environment["PYTHON_DOTENV_DISABLED"] = "1"

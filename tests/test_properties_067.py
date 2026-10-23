@@ -18,7 +18,7 @@ from hypothesis import HealthCheck, given, settings, strategies as st
 
 from jav.candidates import MAX_QUANTITY_OPTIONS, find_all, profile_of
 from jav.models import CellLayout, LineLayout, money_label, normalize_date, normalize_tax_id, parse_money
-from jav.pdf import build_layout, fix_lost_glyphs, text_layer_ok
+from jav.documents.pdf import build_layout, fix_lost_glyphs, text_layer_ok
 from jav.validators import HU_TAXID_WEIGHTS, hu_tax_id, iban_check
 
 PROFILES = ("hu", "intl", "utility")

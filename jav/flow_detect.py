@@ -69,7 +69,7 @@ def _year_hint(path: str) -> int | None:
                  writes=["text", "lines", "layout", "page_count", "has_text_layer", "text_source", "doc_id", "year",
                          "review_reasons"])
 def load_pdf(state: DetectState) -> DetectState:
-    from jav import pdf_input
+    from jav.documents import pdf_input
 
     pdf, state.doc_id, coverage = pdf_input.read_source(state.source_path, state.read_path)
     state.text, state.lines, state.layout = pdf.text, pdf.lines, pdf.layout
@@ -83,9 +83,9 @@ def load_pdf(state: DetectState) -> DetectState:
                  writes=["text", "lines", "layout", "text_source", "ocr_conf", "ocr_low_conf_ratio", "ocr_recognition",
                          "review_reasons"])
 def ocr_pdf(state: DetectState) -> DetectState:
-    """PDF without text: OCR (jav/ocr.py, cached) onto the same layout; no engine / no text -> `needs_ocr`."""
-    from jav import pdf_input
-    from jav.ocr import AZURE_PROVIDER, escalation_review_reasons
+    """PDF without text: OCR (jav/documents/ocr.py, cached) onto the same layout; no engine / no text -> `needs_ocr`."""
+    from jav.documents import pdf_input
+    from jav.documents.ocr import AZURE_PROVIDER, escalation_review_reasons
 
     recognised = pdf_input.recognise(state.source_path, state.read_path, state.doc_id, state.page_count)
     if recognised.pdf is None:
@@ -109,7 +109,7 @@ def ocr_pdf(state: DetectState) -> DetectState:
 def detect(state: DetectState) -> DetectState:
     from jav.adapters.jev import JevUnavailableError, get_adapter
     from jav.detect import detect as _detect
-    from jav.pdf import PdfText
+    from jav.documents.pdf import PdfText
 
     pdf = PdfText(path=state.source_path, text=state.text, lines=state.lines, layout=state.layout, page_count=state.page_count, has_text_layer=True)
     if not state.jev:
@@ -272,7 +272,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
               ("detect", "save"), ("save", "done")],
     "step_meta": {
         "load_pdf": {"kind": "det", "note": "pdfplumber word-level reconstruction, sha256 doc_id, year hint from the folder; the text-layer test of the document and of each page (167: scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do, kept open by the ocr_coverage producer)"},
-        "ocr_pdf": {"kind": "det", "note": "szöveg nélküli PDF: OCR (jav/ocr.py: oldalkép + tesseract, natív / régi sidecar-kép, lemez-gyorsítótár) ugyanarra az elrendezésre; minőségjelek a state-ben"},
+        "ocr_pdf": {"kind": "det", "note": "szöveg nélküli PDF: OCR (jav/documents/ocr.py: oldalkép + tesseract, natív / régi sidecar-kép, lemez-gyorsítótár) ugyanarra az elrendezésre; minőségjelek a state-ben"},
         "detect": {"kind": "jev", "note": "egy kérés, három ítélet: Choice doc_type (regiszter + unknown), Noul issuer_is_hungarian, Choice language; anchor-találatok feature-ként; utána részletes típus a kategória csomagjai közül (jav/detect_detail.py: régi horgony-pontszám, szükség esetén JEV Choice). Without JEV: the same three questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/detect_gpt.py); a failed call is a detect:gpt_failed to-do"},
         "save": {"kind": "store", "note": "documents tábla (részletes típus is; nyitva maradt részletes típus = detect_detail teendő; a típuscsomag nélküli kategória is); conf < policy.detect.low_confidence -> review_queue (okonként, additív), különben a detect saját korábbi okai zárulnak"},
         "done": {"kind": "terminal", "note": "kategorizálva"},

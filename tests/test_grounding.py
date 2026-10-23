@@ -6,7 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import grounding, source_layer
+from jav import grounding
+from jav.documents import source_layer
 from jav.core import store
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 

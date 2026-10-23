@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import isolated_pdf
+from jav.documents import isolated_pdf
 from jav.domains.finance import statement_table as st
 from tests import test_statement_table_136 as t136
 
