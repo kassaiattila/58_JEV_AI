@@ -273,11 +273,12 @@ def test_reopening_a_step_makes_the_steps_built_on_it_stale_until_it_is_done_aga
 
 def test_the_deadline_closes_a_waiting_case_and_an_early_event_cancels_it() -> None:
     for case_id in ("late", "early"):
-        cases.start(case_id, define(StepDef(id="document", kind="document")), {"deadline_s": 0.2}, ME)
+        cases.start(case_id, define(StepDef(id="document", kind="document")), {"deadline_s": 3600}, ME)
     turns()
     cases.send_event("early", "doc", "document", {"name": "a.pdf"}, ME)
     turns()
-    time.sleep(0.3)
+    with cases.transaction() as c:  # both deadlines are due now (the test does not wait for the clock)
+        c.execute("UPDATE process_timers SET due_at=0 WHERE name='deadline'")
     turns()
     late, early = engine.state("late"), engine.state("early")
     assert late["outcome"] == "expired" and late["timers"][0]["status"] == "fired"

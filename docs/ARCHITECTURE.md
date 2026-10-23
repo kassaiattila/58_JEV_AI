@@ -633,7 +633,14 @@ cases on under claims that no live process takes over. Today the core has its ow
 failure tests (212) and a second invented case; the workflows (section 6) move onto it next (P1b). The core knows no
 domain: step kinds are registered by the layers above it.
 
-| part | module | rule (plan 212 P0) |
+The last column names the process core's ten operating rules (written down before the engine was chosen): 1 a case
+runs on the definition version it started with; 2 a person may override the order, never a gate; 3 a step builds on a
+named result version; 4 a change, its history and its outgoing handover in one transaction; 5 every incoming event has
+a stable id; 6 a paid call keeps its id and an unknown outcome is not repeated; 7 an event and a deadline never both
+win; 8 who acts is recorded; 9 authorisation at the moment of the operation; 10 one owner for every task, timer and
+recovery.
+
+| part | module | rule |
 |---|---|---|
 | Process definition | `jav/core/process/definition.py`: steps in order; a step names earlier steps by order (`after`, a person may override it, recorded) or by gate (`gates`, nobody may); a canonical form and its fingerprint | 1, 2 |
 | Who acts | `actor.py`: a stable id (`local:<name>` today), the name shown, human or machine, the organisation, the request; a machine names whom it acts for | 8 |
