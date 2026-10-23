@@ -33,7 +33,7 @@ from typing import Any, Callable
 _loaded = False
 _loading = False
 # 218 (P3b): the modules that register decision points on import (the workflows' are imported by `order`)
-DECISION_POINT_MODULES = ("jav.flows.flow_detect",)
+DECISION_POINT_MODULES = ("jav.flows.flow_detect", "jav.domains.email.flow_email")
 
 
 def order(domains: list[Any]) -> list[Callable[[], None]]:

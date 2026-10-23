@@ -29,6 +29,8 @@ POINT_TESTS = {
     wf.BUDGET_GATE: "test_a_step_over_its_budget_traces_the_gate_with_the_wait",
     "detect.doc_type": "test_a_documents_type_and_detailed_type_are_traced_with_its_save",
     "detect.detail_type": "test_the_gpt_recognitions_contradiction_is_in_the_detailed_types_trace",
+    "email.intent": "test_an_emails_intent_and_next_step_are_traced_with_its_save",
+    "email.next_flow": "test_an_email_without_an_intent_traces_only_its_route",
 }
 
 
@@ -169,3 +171,62 @@ def test_a_recognition_whose_trace_cannot_be_written_saves_nothing(db, tmp_path,
     with store.connect() as c:  # the document, its type and its to-dos are not written either
         assert c.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 0
         assert c.execute("SELECT COUNT(*) FROM review_reasons").fetchone()[0] == 0
+
+
+# --- the email's two points (M3) -----------------------------------------------------------------------------------
+
+
+def test_an_emails_intent_and_next_step_are_traced_with_its_save(db, monkeypatch):  # noqa: F811
+    from jav.ai.models import JevCall
+    from jav.domains.email import flow_email, intent as intent_mod
+    from jav.domains.email.emails import Attachment, EmailMessage
+
+    answer = intent_mod.IntentResult(intent="szamlakuldes", confidence=0.62, probabilities={"szamlakuldes": 0.62, "other": 0.38},
+                                     signals={"injected_instruction": 0.01}, call=JevCall(request_id="x", n_questions=1, state_chars=1))
+    monkeypatch.setattr(intent_mod, "classify", lambda *a, **kw: answer)  # an invented answer: no JEV call
+    msg = EmailMessage(message_id="m-1", subject="Invoice", body="Please find the invoice attached.",
+                       attachments=[Attachment(filename="invoice.pdf", doc_type="invoice_hu", status="done")])
+    st_ = flow_email.run_email(message=msg, detect_attachments=False)
+    rows = {r["point"]: r for r in trace.rows(subject=("email", "m-1"))}
+    intent = rows[flow_email.INTENT_POINT]
+    assert intent["inputs"]["intent"] == st_.result.intent and intent["outcome"]["uncertain"] == st_.uncertain
+    assert set(intent["outcome"]["reasons"]) <= set(st_.review_reasons)
+    route = rows[flow_email.NEXT_FLOW_POINT]
+    assert route["outcome"] == {"next_flow": st_.next_flow}
+    assert route["inputs"]["attachments"] == [{"filename": "invoice.pdf", "doc_type": "invoice_hu",
+                                               "status": st_.message.attachments[0].status}]  # what the rule read
+    assert "email.signal_routes" in route["rules"][0]["keys"]
+    for row in rows.values():
+        assert trace.replay(row) == row["outcome"]
+
+
+def test_an_email_without_an_intent_traces_only_its_route(db, tmp_path, monkeypatch):  # noqa: F811
+    from jav.ai import jev as jev_mod
+    from jav.domains.email import flow_email
+    from jav.domains.email.emails import EmailMessage
+    from tests.test_jev_adapter_v2 import _failing_adapter
+
+    monkeypatch.setattr(jev_mod, "get_adapter", lambda: _failing_adapter(tmp_path))
+    st_ = flow_email.run_email(message=EmailMessage(message_id="m-2", subject="?", body="?"), detect_attachments=False)
+    rows = trace.rows(subject=("email", "m-2"))
+    assert [r["point"] for r in rows] == [flow_email.NEXT_FLOW_POINT]
+    assert rows[0]["outcome"] == {"next_flow": st_.next_flow} == {"next_flow": "human:jev_unavailable"}
+    assert rows[0]["rules"][0]["keys"] == ["email.jev_unavailable_route"]
+
+
+def test_an_email_whose_trace_cannot_be_written_saves_nothing(db, tmp_path, monkeypatch):  # noqa: F811
+    from jav.ai import jev as jev_mod
+    from jav.domains.email import flow_email
+    from jav.domains.email.emails import EmailMessage
+    from tests.test_jev_adapter_v2 import _failing_adapter
+
+    def broken(*args, **kwargs):
+        raise sqlite3.OperationalError("the trace could not be written")
+
+    monkeypatch.setattr(jev_mod, "get_adapter", lambda: _failing_adapter(tmp_path))
+    monkeypatch.setattr(trace, "record_in", broken)
+    with pytest.raises(sqlite3.OperationalError):
+        flow_email.run_email(message=EmailMessage(message_id="m-3", subject="?", body="?"), detect_attachments=False)
+    with store.connect() as c:  # the email, its run's result and its to-do are not written either
+        for table in ("emails", "email_results", "review_reasons"):
+            assert c.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table

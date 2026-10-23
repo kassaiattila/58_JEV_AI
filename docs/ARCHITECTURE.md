@@ -789,8 +789,11 @@ are listed in `registrations.DECISION_POINT_MODULES`, so the registry is complet
 traced with the step's wait for a budget, or with its start and the run it started); `detect.doc_type` and
 `detect.detail_type` (M1: whether the recognised type waits for a person, and the detailed type's to-dos including the
 issuer cross-check, `flow_detect.doc_type_rule` and `detail_type_rule`; the recognition's save, its document row, its
-to-dos and both traces, is one write transaction, the store's own writes joining it as savepoints in `store.session`).
-The rule keys of a band decision come from `policy.band_keys`. `python -m jav.cli trace` reads it (`--points`, `--point`,
+to-dos and both traces, is one write transaction, the store's own writes joining it as savepoints in `store.session`);
+`email.intent` and `email.next_flow` (M3: whether the recognised intent waits for a person with its signals' to-dos,
+and the email's next step, `flow_email.intent_rule` and `next_flow_rule`; the email's save, its row, its run's result
+row, its to-dos and the traces, is one write transaction too). The rule keys of a band decision come from
+`policy.band_keys`. `python -m jav.cli trace` reads it (`--points`, `--point`,
 `--subject KIND:ID`, `--run`, `--case`, `--last`; each row with `same`: its rule gives the stored outcome again); the
 status page counts it by point. Tests: `tests/test_decision_trace_218.py` (a new point must be listed there with its
 test).
