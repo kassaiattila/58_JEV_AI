@@ -8,10 +8,10 @@ checks the input's structure (unknown field = rejection). The limits are in `con
 The endpoint names follow the calls of V4's `businessWorkflowApi.ts` (`workflow`, `readiness`, `start`, `runs`). The
 business rules live in `jav.app.work` and `jav.app.corrections`; the service only translates them to HTTP. This module holds
 the gateway itself: the request checks, the error translation, and `create_app`. The endpoints live in modules by theme
-(195, plan G-tidy R4: `jav/api_workpackages.py`, `api_runs.py`, `api_results.py`, `api_items.py`, `api_workflows.py`,
+(195, plan G-tidy R4: `jav/service/api_workpackages.py`, `api_runs.py`, `api_results.py`, `api_items.py`, `api_workflows.py`,
 `api_system.py`, `api_settings.py`) and in the logic packs' and domains' own modules; each has a `routes(app, prefix)`,
 and `create_app` adds them in a fixed order (`route_modules`). 204 (R1g): the shared input types, the actor rules, the
-path check and the error answer's shape are in `jav/service_shared.py`, which every module of addresses imports instead
+path check and the error answer's shape are in `jav/service/service_shared.py`, which every module of addresses imports instead
 of this one. The status codes:
 
   404 unknown id · 409 revision conflict / cannot be started / cannot be approved · 413 body too large ·
@@ -36,7 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import Field
 from starlette.routing import BaseRoute
 
-from jav import local_picker
+from jav.service import local_picker
 from jav.app import app_settings, corrections, package_release, work, work_views
 from jav.ai import policy
 from jav.documents import isolated_pdf
@@ -44,13 +44,13 @@ from jav.core import cfg, dates, numbers, store, version
 from jav.core.config import PROJECT_ROOT
 from jav.runtime import pdf_status, worker
 from jav.core import lock
-from jav.service_shared import ForbiddenPath, In, JavJSONResponse, UnknownUser, error, settings
+from jav.service.service_shared import ForbiddenPath, In, JavJSONResponse, UnknownUser, error, settings
 from jav.core.user_messages import explained, message_fields
 
 API_VERSION = "1"
 UI_DIST = PROJECT_ROOT / "ui" / "dist"  # the UI build (040 K3); if present, the service serves it at the root
 LOOPBACK = {"127.0.0.1", "localhost", "::1"}
-log = logging.getLogger("jav.api")
+log = logging.getLogger("jav.service.api")
 
 
 # --- responses and errors ------------------------------------------------------------------------------
@@ -211,8 +211,8 @@ def service_modules() -> list[str]:
 # 195 (plan G-tidy R4): the shared addresses, split by theme out of `create_app`. Before the logic packs' and domains'
 # modules: the work packages, the runs, the results and one item's; after them: the output layer (178), the workflows
 # (146), the to-dos and the system, and the settings (057).
-SHARED_BEFORE = ("jav.api_workpackages", "jav.api_runs", "jav.api_results", "jav.api_items")
-SHARED_AFTER = ("jav.api_outputs", "jav.api_workflows", "jav.api_system", "jav.api_settings")
+SHARED_BEFORE = ("jav.service.api_workpackages", "jav.service.api_runs", "jav.service.api_results", "jav.service.api_items")
+SHARED_AFTER = ("jav.service.api_outputs", "jav.service.api_workflows", "jav.service.api_system", "jav.service.api_settings")
 
 
 def route_modules() -> list[str]:

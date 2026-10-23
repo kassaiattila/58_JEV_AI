@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from jav import deps_audit
+from jav.runtime import deps_audit
 from tests.test_deps_audit_075 import NPM_CLEAN, PIP_CLEAN, _fake_run
 
 RELEASES = {"schema_version": "1.2.1", "result": {"name": "3.12", "isMaintained": True, "eolFrom": "2028-10-31",

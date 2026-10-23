@@ -265,7 +265,7 @@ def test_worker_log_is_a_persistent_rotating_file(tmp_path, monkeypatch):
 
 
 def test_backup_is_a_verified_copy_and_keeps_the_latest(db):
-    from jav import backup
+    from jav.runtime import backup
 
     work.create_workpackage(name="Mentendő", source_kind="manual", source_ref=None)
     out = db / "mentesek"
@@ -284,7 +284,7 @@ def test_backup_is_a_verified_copy_and_keeps_the_latest(db):
 def test_unreadable_file_gives_a_clear_error_and_no_empty_package(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
 
     folder = tmp_path / "gyoker" / "bejovo"
     folder.mkdir(parents=True)

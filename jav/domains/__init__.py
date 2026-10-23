@@ -5,7 +5,7 @@ emails comes from a domain. A domain module holds only registrations: the checks
 an item, the parts of the downloads, each pointing at the code that does the work in its own module. The shared code
 asks the registries and never names a domain. `registrations.load_all()` calls each domain's `register()` once per
 process; importing a domain module registers nothing. 185: a domain module also names the modules of its addresses of
-the local service (`SERVICE`), which `jav.api.service_modules` adds. 191: any number of domains can register. 204: a
+the local service (`SERVICE`), which `jav.service.api.service_modules` adds. 191: any number of domains can register. 204: a
 domain module names the modules of its golden sets (`GOLDENS`; a domain without any names none, as with `COMMANDS`),
 which the shared measurement command imports by name (`jav.goldens.logic_pack_goldens`), so a domain's business modules
 never import the measurement layer. 208 (plan G-process-core R2): a domain is a package, and its modules are the ones

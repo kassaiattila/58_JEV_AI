@@ -2,8 +2,8 @@
 
 Plain-language summary: the addresses the interface uses to survey a folder's bank statements for a party and a
 period, to create a statement package of the ticked ones, and to survey and add more to an existing one. They moved
-here from `jav/api.py` as they were: the same paths, request models and answers. `jav.api.create_app` adds them
-(185: by its logic pack's `service`, `jav.api.service_modules`).
+here from `jav/service/api.py` as they were: the same paths, request models and answers. `jav.service.api.create_app` adds them
+(185: by its logic pack's `service`, `jav.service.api.service_modules`).
 
 Layer: UI/CLI (the local service) → `jav.domains.finance.statement_package`.
 """
@@ -17,7 +17,7 @@ from pydantic import Field
 
 from jav.app import work_views
 from jav.domains.finance import statement_package
-from jav.service_shared import In, IsoDay, PartyId, WpId, checked_path, human_actor
+from jav.service.service_shared import In, IsoDay, PartyId, WpId, checked_path, human_actor
 
 class StatementPackageSources(In):
     """140: a statement package's party, period and files (one folder, or files: exports and PDFs)."""

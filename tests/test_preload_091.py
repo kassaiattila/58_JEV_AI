@@ -46,7 +46,7 @@ def test_the_worker_preloads_before_its_first_item(tmp_path: Path, monkeypatch):
 def test_the_service_preloads_before_it_serves(monkeypatch):
     import uvicorn
 
-    from jav import api
+    from jav.service import api
 
     order: list[str] = []
     monkeypatch.setattr(preload, "preload", lambda: order.append("preload") or [])

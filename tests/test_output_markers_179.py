@@ -109,7 +109,7 @@ def test_an_unknown_markers_reason_has_one_of_the_forms_the_settings_page_puts_i
 def test_the_service_lists_the_markers_with_each_output(tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav.api import create_app
+    from jav.service.api import create_app
 
     with TestClient(create_app(store_path=tmp_path / "t179.sqlite"), base_url="http://127.0.0.1:8930") as c:
         outputs = c.get("/api/output-templates").json()["outputs"]

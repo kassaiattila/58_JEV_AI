@@ -198,7 +198,7 @@ def test_manual_pull_goes_through_the_worker(env, monkeypatch):
 def test_service_endpoints(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
 
     db = tmp_path / "api.sqlite"
     monkeypatch.setattr(ingest_server, "INBOX_ROOT", tmp_path / "inbox")

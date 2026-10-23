@@ -1,9 +1,9 @@
-"""The settings' addresses of the local service (195, plan G-tidy R4; 057: until then in `jav/api.py` `create_app`).
+"""The settings' addresses of the local service (195, plan G-tidy R4; 057: until then in `jav/service/api.py` `create_app`).
 
 Plain-language summary: the addresses of the settings pages: the user list, the watched work folders (and scanning one
 now), the output folder of the named copies, and the application's AI engine. A folder is checked like any typed
-path. They moved here from `jav/api.py` as they were: the same paths, request models and answers, in the same order.
-`jav.api.create_app` adds this module last, before the unknown address's answer.
+path. They moved here from `jav/service/api.py` as they were: the same paths, request models and answers, in the same order.
+`jav.service.api.create_app` adds this module last, before the unknown address's answer.
 
 Layer: UI/CLI (the local service) → `jav.app.app_settings`.
 """
@@ -18,9 +18,9 @@ from fastapi import Path as PathParam
 from pydantic import Field
 
 from jav.app import app_settings, work_views
-from jav.service_shared import Empty, In, actor_unless_first_users, allowed_roots, checked_path, human_actor
+from jav.service.service_shared import Empty, In, actor_unless_first_users, allowed_roots, checked_path, human_actor
 
-log = logging.getLogger("jav.api")
+log = logging.getLogger("jav.service.api")
 
 
 class SaveUsers(In):

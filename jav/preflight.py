@@ -236,7 +236,7 @@ def preflight(*, skip_pytest: bool = False) -> int:
     ok, msg = lang_guard_status()
     results.append(("language guard", ok, msg))
 
-    from jav import deps_audit
+    from jav.runtime import deps_audit
 
     ok, msg = deps_audit.verdict(deps_audit.status())
     results.append(("dependency audit", ok, msg))

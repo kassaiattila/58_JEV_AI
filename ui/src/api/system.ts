@@ -29,7 +29,7 @@ export interface Health {
   /** Missing on older services: no evidence of PDF memory protection. */
   pdf_protection?: { service: PdfProtection; worker: PdfProtection };
 }
-/** 075: the last dependency audit (`runs/deps-audit.json`), as `jav/deps_audit.py` `status()` returns it. */
+/** 075: the last dependency audit (`runs/deps-audit.json`), as `jav/runtime/deps_audit.py` `status()` returns it. */
 export interface DepsAuditInfo {
   status: {
     checked_at: string; age_days: number; stale: boolean; finding_count: number; errors: string[];

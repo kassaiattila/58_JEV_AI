@@ -14,7 +14,8 @@ import pytest
 from burr.core import State
 from fastapi.testclient import TestClient
 
-from jav import api, backup
+from jav.service import api
+from jav.runtime import backup
 from jav.app import work
 from jav.core import store
 from jav.runtime import worker

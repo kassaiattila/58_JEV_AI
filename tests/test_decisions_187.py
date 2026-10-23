@@ -14,7 +14,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api
+from jav.service import api
 from jav.app import corrections, datasets, work, work_runs
 from jav.core import decisions, store
 from jav.domains.email import mailbox

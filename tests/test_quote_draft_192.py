@@ -234,7 +234,7 @@ def test_a_quote_without_an_approved_version_is_deleted_with_its_draft(quote):
 def test_the_service_composes_approves_and_reopens_the_quote(quote, tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav.api import create_app
+    from jav.service.api import create_app
 
     wp_id = quote["wp"]
     _proposed(wp_id)

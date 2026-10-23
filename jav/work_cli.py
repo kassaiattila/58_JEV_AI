@@ -276,7 +276,7 @@ def cmd_calls_resolve(args):
 
 
 def cmd_serve(args):
-    from jav import api
+    from jav.service import api
     api.serve(port=args.port)
     return 0
 

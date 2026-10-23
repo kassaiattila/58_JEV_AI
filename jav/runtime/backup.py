@@ -59,7 +59,7 @@ DOCS_ARCHIVE = "internal-docs.zip"
 SOURCES_DIR = "sources"
 NATIVE_ARCHIVE = "native-artifacts.zip"
 _STAMP = re.compile(r"^\d{8}-\d{6}(-\d+)?$")
-log = logging.getLogger("jav.backup")
+log = logging.getLogger("jav.runtime.backup")
 
 
 def default_root() -> Path:

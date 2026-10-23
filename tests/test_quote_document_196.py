@@ -168,7 +168,7 @@ def test_an_own_word_template_chosen_for_the_package_makes_the_stored_document(q
 def test_the_service_gives_the_draft_and_the_versions_document(quote, tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav.api import create_app
+    from jav.service.api import create_app
 
     wp_id = quote["wp"]
     human = {"X-Actor": "teszt.elek"}

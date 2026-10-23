@@ -10,7 +10,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, cli, service_shared
+from jav import cli
+from jav.service import api, service_shared
 from jav.app import work
 from jav.core import cfg, store
 from jav.ai import jev as jev_mod
@@ -266,7 +267,7 @@ def test_schema_rejects_unknown_fields_and_bad_ids(env):
 
 def restrict_paths(monkeypatch) -> None:
     """Switches the folder restriction on (off by default since 061: the owner allowed any existing folder)."""
-    # 204 (R1g): the folder check reads the service settings in `jav/service_shared.py`
+    # 204 (R1g): the folder check reads the service settings in `jav/service/service_shared.py`
     monkeypatch.setattr(service_shared, "settings", lambda: {**cfg.load("service"), "restrict_paths": True})
 
 

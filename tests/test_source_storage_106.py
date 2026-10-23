@@ -15,7 +15,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api
+from jav.service import api
 from jav.app import source_instances, work
 from jav.core import store
 from jav.core import lock

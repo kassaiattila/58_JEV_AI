@@ -1,6 +1,6 @@
-"""204 (R1g): the modules of addresses take the shared request handling from `jav/service_shared.py`, not the gateway.
+"""204 (R1g): the modules of addresses take the shared request handling from `jav/service/service_shared.py`, not the gateway.
 
-Plain-language summary: the local service's gateway (`jav/api.py`) loads the modules of addresses by theme
+Plain-language summary: the local service's gateway (`jav/service/api.py`) loads the modules of addresses by theme
 (`jav/api_*.py`). Those modules used to take the shared rules (the request body's strictness, the actor check, the path
 check, the error answer's shape) from the gateway itself, a hidden loop, and used its private names. The rules now live
 in one shared module. These checks keep it so: no module of addresses imports the gateway, and the shared module imports
@@ -36,7 +36,7 @@ def _imports(path: Path) -> set[str]:
 
 def _is_service(name: str) -> bool:
     """The gateway or one of its modules of addresses."""
-    return name == "jav.api" or name.startswith("jav.api.") or (name.startswith("jav.") and name.rsplit(".", 1)[-1].startswith("api_"))
+    return name == "jav.service.api" or name.startswith("jav.service.api.") or (name.startswith("jav.") and name.rsplit(".", 1)[-1].startswith("api_"))
 
 
 def test_there_are_modules_of_addresses_to_check():
@@ -45,22 +45,22 @@ def test_there_are_modules_of_addresses_to_check():
 
 
 def test_no_module_of_addresses_imports_the_gateway():
-    found = {p.name: sorted(n for n in _imports(p) if n == "jav.api" or n.startswith("jav.api."))
+    found = {p.name: sorted(n for n in _imports(p) if n == "jav.service.api" or n.startswith("jav.service.api."))
              for p in THEMES}
     assert {name: names for name, names in found.items() if names} == {}
 
 
 def test_every_module_of_addresses_takes_the_shared_rules_from_the_shared_module():
-    assert [p.name for p in THEMES if "jav.service_shared" not in _imports(p)] == []
+    assert [p.name for p in THEMES if "jav.service.service_shared" not in _imports(p)] == []
 
 
 def test_the_shared_module_imports_no_service_module():
-    assert sorted(n for n in _imports(PROJECT_ROOT / "jav/service_shared.py") if _is_service(n)) == []
+    assert sorted(n for n in _imports(PROJECT_ROOT / "jav/service/service_shared.py") if _is_service(n)) == []
 
 
 def test_importing_the_shared_module_loads_no_service_module():
-    code = ("import sys, jav.service_shared; "
-            "print(sorted(m for m in sys.modules if m == 'jav.api' or m.startswith('jav.api.')"
+    code = ("import sys, jav.service.service_shared; "
+            "print(sorted(m for m in sys.modules if m == 'jav.service.api' or m.startswith('jav.service.api.')"
             " or (m.startswith('jav.') and m.rsplit('.', 1)[-1].startswith('api_'))))")
     done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=PROJECT_ROOT, check=True)
     assert done.stdout.strip() == "[]"

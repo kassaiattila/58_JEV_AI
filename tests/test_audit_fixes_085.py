@@ -10,7 +10,8 @@ import pytest
 from fastapi.testclient import TestClient
 from typesafe_sdk import TypeSafeAPITimeoutError
 
-from jav import api, backup
+from jav.service import api
+from jav.runtime import backup
 from jav.app import corrections, source_instances, work, work_runs
 from jav.core import cfg, store
 from jav.ai.jev import JevUnavailableError

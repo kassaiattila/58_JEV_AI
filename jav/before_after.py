@@ -5,7 +5,7 @@ service's own read views (the same lists, pages and downloads the interface show
 After the step, a fresh copy of the same backup is read the same way with the new code. The two records are compared
 view by view: a difference is allowed only where the step said it would change something.
 
-- `static_snapshot` reads a fresh copy of the backed-up store through `jav.api.create_app` (in process, no network,
+- `static_snapshot` reads a fresh copy of the backed-up store through `jav.service.api.create_app` (in process, no network,
   no AI call) and writes one JSON line per view: the packages, their items, runs, reviews and next steps, each
   package's current result with its tables and downloads (172), every run's item results, journal and downloads, the
   datasets behind the tables, the reconciliation views, the parties, the workflows and the activity log of every
@@ -316,7 +316,7 @@ def static_snapshot(baseline: Path, work_dir: Path, out: Path, *, items: bool = 
 
     from jav.app import datasets
     from jav.core import store
-    from jav.api import create_app
+    from jav.service.api import create_app
 
     for path in (out, work_dir):
         _outside_git(path)

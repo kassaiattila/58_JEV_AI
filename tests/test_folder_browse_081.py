@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, local_picker, service_shared
+from jav.service import api, local_picker, service_shared
 from jav.app import app_settings, work, work_views
 from jav.core import store
 from tests.pdfgen import INVOICE_LINES, write_text_pdf

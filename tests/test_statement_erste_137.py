@@ -198,7 +198,7 @@ def test_the_months_run_free_and_a_month_without_pdf_has_one_to_do(db):
 def test_the_service_surveys_a_folder(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
     from tests.test_api import BASE, HUMAN
 
     folder = tmp_path / "erste"

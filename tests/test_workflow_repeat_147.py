@@ -236,7 +236,7 @@ def test_a_repeat_links_the_two_workflows_both_ways(db):
 def test_the_service_gives_the_draft_and_makes_the_repeat(db):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
     from tests.test_api import BASE, HUMAN
 
     client = TestClient(api.create_app(store_path=db / "s.sqlite"), base_url=BASE)

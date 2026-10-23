@@ -32,7 +32,7 @@ A round writes the sets' own reports into one log (`runs/<stamp>_measure.log`) a
 with its counts and the raw run files it wrote), and prints one line per set.
 
 Layer: business module (the registry and the round); the measuring functions are imported where they run, a domain's
-measurement module by its name (204, as `jav.api.service_modules` adds a domain's service modules).
+measurement module by its name (204, as `jav.service.api.service_modules` adds a domain's service modules).
 """
 
 from __future__ import annotations

@@ -7,7 +7,7 @@ from dataclasses import replace
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api
+from jav.service import api
 from jav.documents import isolated_pdf
 from tests import pdf_reader_probe as probe
 

@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import Any
 
 # 185 (plan G-full-move T1a): the module of the domain's addresses of the local service beyond its logic pack's own
-# (`LogicPack.service`); `jav.api.service_modules` adds it by name
+# (`LogicPack.service`); `jav.service.api.service_modules` adds it by name
 SERVICE = ("jav.domains.email.api_mailbox",)
 # 202 (plan G-core-generalisation M3a): the module of the domain's commands (`register(sub)`); `jav.cli` adds it by name
 COMMANDS = ("jav.domains.email.email_cli",)

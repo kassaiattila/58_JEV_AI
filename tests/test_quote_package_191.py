@@ -165,7 +165,7 @@ def test_the_quote_is_a_registered_logic_pack_and_a_kind_of_work():
 def test_the_service_lists_the_requests_and_makes_a_quote(env, tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav.api import create_app
+    from jav.service.api import create_app
 
     wp_id = _package(env)
     _run_id, item = _run(wp_id)

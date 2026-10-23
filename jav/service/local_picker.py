@@ -3,7 +3,7 @@
 The local service and the browser run on the same machine (the service listens on the loopback address only), so the
 service can open the system's picker and hand the chosen path back to the UI; a path can still be typed instead.
 
-- The dialog runs in a separate Python process (`jav/picker_dialog.py`): the window toolkit needs its own main thread,
+- The dialog runs in a separate Python process (`jav/service/picker_dialog.py`): the window toolkit needs its own main thread,
   and a dialog nobody closes must not hold the service.
 - One dialog is open at a time; a second request gets `PickerBusy`.
 - A dialog left open longer than `picker.timeout_s` (`configs/service.json`) is closed and counts as cancelled.
@@ -23,7 +23,7 @@ from pathlib import Path
 from jav.core import cfg
 from jav.core.config import PROJECT_ROOT
 
-log = logging.getLogger("jav.local_picker")
+log = logging.getLogger("jav.service.local_picker")
 
 _LOCK = threading.Lock()
 _run = subprocess.run  # the dialog process; replaced by a fake runner in the tests
@@ -72,7 +72,7 @@ def _ask(kind: str, title: str, initial: str | None) -> list[str]:
         raise PickerBusy("a picker dialog is already open")
     try:
         request = {"kind": kind, "title": title, "initial": _start_folder(initial)}
-        args = [sys.executable, "-X", "utf8", "-m", "jav.picker_dialog", json.dumps(request, ensure_ascii=False)]
+        args = [sys.executable, "-X", "utf8", "-m", "jav.service.picker_dialog", json.dumps(request, ensure_ascii=False)]
         extra = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
         try:
             done = _run(args, capture_output=True, text=True, encoding="utf-8", timeout=_timeout(), cwd=PROJECT_ROOT,

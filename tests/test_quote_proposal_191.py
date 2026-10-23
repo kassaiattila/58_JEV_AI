@@ -100,7 +100,7 @@ def test_the_cap_is_the_budget_per_item_times_the_items():
 def test_the_service_queues_a_proposal(env, tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav.api import create_app
+    from jav.service.api import create_app
 
     quote = _quote(env)
     _price_list(tmp_path)

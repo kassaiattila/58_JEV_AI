@@ -1,13 +1,13 @@
-"""The work packages' addresses of the local service (195, plan G-tidy R4; until then in `jav/api.py` `create_app`).
+"""The work packages' addresses of the local service (195, plan G-tidy R4; until then in `jav/service/api.py` `create_app`).
 
 Plain-language summary: the addresses the package pages use for the packages themselves and their documents: the
 recipes, the package list, creating a package from a folder or from files, the system's folder and file pickers, one
 package's view, hiding, restoring, renaming and deleting it, its scope and owner, adding documents (with a preview first)
 and removing or restoring them, a document's page images and source file, and the package's to-dos. They moved here
-from `jav/api.py` as they were: the same paths, request models and answers, in the same order. `jav.api.create_app`
+from `jav/service/api.py` as they were: the same paths, request models and answers, in the same order. `jav.service.api.create_app`
 adds this module first among the shared ones.
 
-Layer: UI/CLI (the local service) → `jav.app.work`, `jav.app.work_views`, `jav.app.package_scope`, `jav.local_picker`.
+Layer: UI/CLI (the local service) → `jav.app.work`, `jav.app.work_views`, `jav.app.package_scope`, `jav.service.local_picker`.
 """
 
 from __future__ import annotations
@@ -20,9 +20,9 @@ from fastapi import Path as PathParam
 from fastapi.responses import Response
 from pydantic import Field
 
-from jav import local_picker
+from jav.service import local_picker
 from jav.app import app_settings, package_scope, work, work_recipes, work_views
-from jav.service_shared import Empty, In, IsoDay, ItemId, PartyId, Revision, WpId, checked_path, human_actor
+from jav.service.service_shared import Empty, In, IsoDay, ItemId, PartyId, Revision, WpId, checked_path, human_actor
 from jav.core.user_messages import explained
 
 

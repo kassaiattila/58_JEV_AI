@@ -27,7 +27,7 @@ measurement (`goldens.py`; until 208 `jav/quote_goldens.py`), named in `GOLDENS`
 from __future__ import annotations
 
 # the modules of the domain's addresses of the local service beyond its logic pack's own (`LogicPack.service`);
-# `jav.api.service_modules` adds them by name
+# `jav.service.api.service_modules` adds them by name
 SERVICE = ("jav.domains.quotes.api_price_lists",)
 # 204 (plan G-process-core R1h): the modules of the domain's golden sets (the quote package's), by name; the shared measurement
 # command imports them (`jav.goldens.logic_pack_goldens`), so the quote package imports no measurement code

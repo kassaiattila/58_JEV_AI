@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api
+from jav.service import api
 from jav.app import corrections, work, work_readiness, work_recipes, work_runs
 from jav.documents import native_results
 from jav.core import store

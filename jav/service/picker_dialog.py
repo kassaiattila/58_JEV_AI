@@ -1,7 +1,7 @@
-"""The dialog process of `jav/local_picker.py` (081): opens the system's folder or file picker above the other windows
+"""The dialog process of `jav/service/local_picker.py` (081): opens the system's folder or file picker above the other windows
 and prints the chosen paths as one JSON line.
 
-Run as `python -m jav.picker_dialog '<request JSON>'`, where the request is
+Run as `python -m jav.service.picker_dialog '<request JSON>'`, where the request is
 `{"kind": "folder" | "files", "title": str, "initial": str | null}`. Cancelling prints `[]`. Any failure (no window
 toolkit, no desktop session) ends with a non-zero exit code and the error on stderr.
 """

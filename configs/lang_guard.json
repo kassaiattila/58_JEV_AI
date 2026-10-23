@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.116",
+    "version": "1.0.117",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.117",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the local service's modules moved into jav/service/, the backup and the dependency audit into jav/runtime/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.116",
         "date": "2026-10-23",
@@ -734,9 +739,6 @@
     "jav/ai/policy.py": 4,
     "jav/ai/typepack.py": 8,
     "jav/ai/validators.py": 1,
-    "jav/api.py": 5,
-    "jav/api_settings.py": 1,
-    "jav/api_system.py": 1,
     "jav/app/activity.py": 2,
     "jav/app/app_settings.py": 6,
     "jav/app/corrections.py": 1,
@@ -748,7 +750,6 @@
     "jav/app/work_recipes.py": 2,
     "jav/app/work_runs.py": 5,
     "jav/app/work_views.py": 8,
-    "jav/backup.py": 2,
     "jav/cli_options.py": 1,
     "jav/core/calls.py": 3,
     "jav/core/cfg.py": 3,
@@ -816,8 +817,12 @@
     "jav/prompts/viz_szamla_prompt.md": 21,
     "jav/prompts/viz_szamla_schema.json": 2,
     "jav/prompts/vizmuvek_szamla_prompt.md": 17,
+    "jav/runtime/backup.py": 2,
     "jav/runtime/worker.py": 1,
-    "jav/service_shared.py": 4,
+    "jav/service/api.py": 5,
+    "jav/service/api_settings.py": 1,
+    "jav/service/api_system.py": 1,
+    "jav/service/service_shared.py": 4,
     "jav/type_teaching.py": 2,
     "jav/typepack_convert.py": 4,
     "jav/work_cli.py": 57,

@@ -24,7 +24,7 @@ from fastapi.responses import Response
 from pydantic import Field
 
 from jav.app import package_release, work_views
-from jav.service_shared import DecisionState, Empty, In, WpId, attachment_header, checked_path, error, human_actor
+from jav.service.service_shared import DecisionState, Empty, In, WpId, attachment_header, checked_path, error, human_actor
 from jav.app.outputs import contract, samples, templates
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

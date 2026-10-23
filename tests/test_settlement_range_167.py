@@ -9,7 +9,8 @@ from decimal import Decimal
 
 import pytest
 
-from jav import api_system, cli
+from jav import cli
+from jav.service import api_system
 from jav.core import store
 from jav.core import calls
 

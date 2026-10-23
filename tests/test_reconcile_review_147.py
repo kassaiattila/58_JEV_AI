@@ -185,7 +185,7 @@ def test_marking_several_reasons_at_once_is_all_or_none(db):
 def test_the_service_shows_the_review_and_accepts_a_group(db):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
     from tests.test_api import BASE, HUMAN
 
     wp_id, ids, _inv = _setup()

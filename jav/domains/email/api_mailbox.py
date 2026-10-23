@@ -5,9 +5,9 @@ Plain-language summary: the addresses for the mailboxes and an email's task prop
   (run by the worker) and its state; a schedule made, changed or deleted (048 T2);
 - an email package's PDF attachments taken in as documents (058 K5.2);
 - a person's decision on a task proposal, and marking an accepted task done by hand (058 K5.3, 062).
-They moved here from `jav/api.py` as they were: the same paths, request models, answers and error answer (a mailbox
+They moved here from `jav/service/api.py` as they were: the same paths, request models, answers and error answer (a mailbox
 bridge that cannot run is a 503). The email domain names this module (`jav/domains/email/__init__.py` `SERVICE`), and
-`jav.api.create_app` adds it. The email routing's own addresses are its logic pack's (`jav/domains/email/api_email_routing.py`).
+`jav.service.api.create_app` adds it. The email routing's own addresses are its logic pack's (`jav/domains/email/api_email_routing.py`).
 
 Layer: UI/CLI (the local service) → `jav.domains.email.mailbox`.
 """
@@ -23,7 +23,7 @@ from pydantic import Field
 from jav.app import corrections, work_views
 from jav.core import store
 from jav.domains.email import mailbox
-from jav.service_shared import DecisionState, Empty, In, ItemId, Revision, RunId, Text, WpId, error, human_actor
+from jav.service.service_shared import DecisionState, Empty, In, ItemId, Revision, RunId, Text, WpId, error, human_actor
 from jav.core.user_messages import message_fields
 
 ScheduleId = Annotated[str, PathParam(pattern=r"^mbx-[0-9a-f]{10}$")]

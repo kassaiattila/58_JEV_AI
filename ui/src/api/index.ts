@@ -1,4 +1,4 @@
-// Client of the local service (jav/api.py), split by theme (202, plan G-core-generalisation M3c): the connection
+// Client of the local service (jav/service/api.py), split by theme (202, plan G-core-generalisation M3c): the connection
 // (client.ts), the shared records and calls, and each domain's own (finance, quotes, email). `api` puts every
 // theme's calls together, so a caller keeps using `api.<call>`.
 export * from "./types";

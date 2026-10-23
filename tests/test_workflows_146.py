@@ -346,7 +346,7 @@ def test_the_estimate_is_the_recipes_item_budget_times_the_items(db):
 def test_the_service_offers_the_templates_estimates_makes_shows_and_moves_a_workflow(db):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
     from tests.test_api import BASE, HUMAN
 
     client = TestClient(api.create_app(store_path=db / "s.sqlite"), base_url=BASE)

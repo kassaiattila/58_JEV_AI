@@ -85,7 +85,7 @@ class LogicPack:
     - `scope(wp_id)`: 181: its package's own scope ({party_id, period_start, period_end, role}, `jav/app/package_scope.py`),
       which a person cannot replace; None: a person may give one.
     - `service`: 185: the module of its own addresses of the local service, by name (a module with a
-      `routes(app, prefix)`; `jav.api.service_modules`), so this registry imports no service code.
+      `routes(app, prefix)`; `jav.service.api.service_modules`), so this registry imports no service code.
 
     188: a logic pack's golden sets (named `<kind>:<name>`) are measured by the shared measurement command like a type
     pack's; 204 (plan G-process-core R1h): its domain names the module that describes them (`GOLDENS` in `jav/domains/`, read by

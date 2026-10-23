@@ -1,9 +1,9 @@
-"""The workflows' addresses of the local service (195, plan G-tidy R4; 146: until then in `jav/api.py` `create_app`).
+"""The workflows' addresses of the local service (195, plan G-tidy R4; 146: until then in `jav/service/api.py` `create_app`).
 
 Plain-language summary: a workflow chains the work packages of one job. These are the addresses of the workflow pages:
 the templates, the cost estimate of a step, the list, creating and changing a workflow, the draft for the next period,
 and starting or linking a step. A step's folder or files are checked like any typed path. They moved here from
-`jav/api.py` as they were: the same paths, request models and answers, in the same order. `jav.api.create_app` adds
+`jav/service/api.py` as they were: the same paths, request models and answers, in the same order. `jav.service.api.create_app` adds
 this module after the output layer's one.
 
 Layer: UI/CLI (the local service) → `jav.app.workflows`.
@@ -18,7 +18,7 @@ from fastapi import Path as PathParam
 from pydantic import Field
 
 from jav.app import work_views, workflows
-from jav.service_shared import In, IsoDay, PartyId, checked_path, human_actor
+from jav.service.service_shared import In, IsoDay, PartyId, checked_path, human_actor
 
 
 WfId = Annotated[str, PathParam(pattern=r"^wf-[0-9a-f]{12}$")]  # 146: a workflow

@@ -516,7 +516,7 @@ def running_snapshot(baseline: Path, work_dir: Path, out: Path, *, size: int = S
     from jav.app import datasets, registrations
     from jav.core import store
     from jav.ai import jev
-    from jav.api import create_app
+    from jav.service.api import create_app
     from jav.core.config import CACHE_DIR
     from jav.core import calls
 

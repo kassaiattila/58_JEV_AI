@@ -140,7 +140,7 @@ The repository is private and has a single maintainer. Report security issues di
 
 ## Technical details
 
-**Local service** (`jav/api.py`; the input types, the actor and path checks: `jav/service_shared.py`; settings: `configs/service.json` 1.8.0):
+**Local service** (`jav/service/api.py`; the input types, the actor and path checks: `jav/service/service_shared.py`; settings: `configs/service.json` 1.8.0):
 
 | Protection | Code | Setting | Test |
 |---|---|---|---|
@@ -185,7 +185,7 @@ The repository is private and has a single maintainer. Report security issues di
 |---|---|---|---|
 | data guard | `jav/data_guard.py`, `scripts/githooks/pre-commit`, `scripts/githooks/pre-push`; enabling: `python -m jav.cli hooks-install` (`core.hooksPath`); whole tree: `python -m jav.cli data-guard [--all]` | `configs/data_guard.json`: `forbidden_history`, `blocked_paths`, `blocked_extensions`, `allow`, `known`, `deny` | `tests/test_data_guard_071.py` |
 | internal working documents | `jav/core/doc_scope.py` (`INTERNAL_DOC_PATTERNS`), `.gitignore` | – | `tests/test_doc_scope_070.py`, `tests/test_doc_links.py` |
-| backup | `jav/backup.py` (`Connection.backup`, `PRAGMA integrity_check`, the copy verified by content hash; `internal-docs.zip`; `_sync_sources`: every saved source instance checked by its content hash, a damaged one repaired; every instance the saved database refers to must be intact in the backup, or the backup fails) | `backup`: `keep` 14, `with_burr` false, `with_docs` true, `copy_to` | `tests/test_ops_064.py`, `tests/test_backup_docs_070.py` |
+| backup | `jav/runtime/backup.py` (`Connection.backup`, `PRAGMA integrity_check`, the copy verified by content hash; `internal-docs.zip`; `_sync_sources`: every saved source instance checked by its content hash, a damaged one repaired; every instance the saved database refers to must be intact in the backup, or the backup fails) | `backup`: `keep` 14, `with_burr` false, `with_docs` true, `copy_to` | `tests/test_ops_064.py`, `tests/test_backup_docs_070.py` |
 
 **Data locations** (section 7): store `store/jav.sqlite`; flow-state store `store/burr_state.sqlite`; backups `store/backups/`; raw runs `runs/`; JEV cache `runs/cache/`; OCR cache `runs/ocr/`; service log `runs/logs/` (`jav/core/applog.py`: `MAX_BYTES` 5 000 000, `BACKUPS` 5); the output of the processes `scripts/dev.ps1` starts, `runs/dev/` (`<name>.log`, `<name>.err.log`, the previous start's as `.prev`; not rotated; since 167 the email receiver's lines name a message by its folder, not its subject); emails `inbox/`, attachments `inbox/.bridge/data/`; keys `.env`; Burr's tracker `~/.burr` (the library's default; the worker runs with `tracker=False`).
 
@@ -193,4 +193,4 @@ The repository is private and has a single maintainer. Report security issues di
 - Documents: `python -m jav.experiments.document_injection_probe --live`, `configs/experiments/document_injection.json` 1.0.0. The S path's JEV request is narrowed to ±1 line around the candidates, so it sees the sentence below the heading only partly; the G path gets the full text. Offline parts: `tests/test_document_injection_probe.py`.
 - Emails: `python -m jav.cli email-injection-probe` (`jav/evals_email.py` `INJECTIONS`: `clean`, `en_override_top`, `hu_override_top`, `hu_reroute_top`, `en_override_end`); call site: `configs/callsites/email_intent.json` 1.1.0.
 
-**Dependency audit** ([development guide, section 6](guides/DEVELOPMENT.md)): `python -m jav.cli deps-audit` (`jav/deps_audit.py`: `pip-audit -r requirements.lock --no-deps` and `npm audit --json` in `ui/`; result in `runs/deps-audit.json`; refreshed by `backup --scheduled` when older than 7 days; `GET /api/system/deps-audit`). GitHub's vulnerability alerts are the repository's Dependabot alerts (on since 2026-09-30); automatic fix pull requests are not enabled.
+**Dependency audit** ([development guide, section 6](guides/DEVELOPMENT.md)): `python -m jav.cli deps-audit` (`jav/runtime/deps_audit.py`: `pip-audit -r requirements.lock --no-deps` and `npm audit --json` in `ui/`; result in `runs/deps-audit.json`; refreshed by `backup --scheduled` when older than 7 days; `GET /api/system/deps-audit`). GitHub's vulnerability alerts are the repository's Dependabot alerts (on since 2026-09-30); automatic fix pull requests are not enabled.

@@ -197,7 +197,7 @@ def test_the_document_names_every_file_its_reader_and_what_no_reader_knows():
 def test_the_service_serves_the_catalogue_with_the_field_labels(tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav.api import create_app
+    from jav.service.api import create_app
     from tests.test_api import BASE
 
     client = TestClient(create_app(store_path=tmp_path / "s.sqlite"), base_url=BASE)

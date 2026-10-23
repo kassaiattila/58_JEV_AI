@@ -1,10 +1,10 @@
-"""The results' addresses of the local service (195, plan G-tidy R4; until then in `jav/api.py` `create_app`).
+"""The results' addresses of the local service (195, plan G-tidy R4; until then in `jav/service/api.py` `create_app`).
 
 Plain-language summary: the addresses for what processing produced: a package's current result, its workbook, its
 release and a released version's files; a run's results per item; the datasets behind every table (their list, one
 page of a dataset, a download from it); a run's data for download and the copies of its documents under content-based
-names. They moved here from `jav/api.py` as they were: the same paths, request models and answers, in the same order.
-`jav.api.create_app` adds this module after the runs' one.
+names. They moved here from `jav/service/api.py` as they were: the same paths, request models and answers, in the same order.
+`jav.service.api.create_app` adds this module after the runs' one.
 
 Layer: UI/CLI (the local service) → `jav.app.package_release`, `jav.app.datasets`, `jav.app.export`, `jav.app.naming`,
 `jav.app.corrections`, `jav.app.work`.
@@ -24,11 +24,11 @@ from pydantic import Field
 
 from jav.app import app_settings, corrections, package_release, work_runs, work_views
 from jav.core import store
-from jav.service_shared import Empty, In, RunId, WpId, attachment_header, human_actor
+from jav.service.service_shared import Empty, In, RunId, WpId, attachment_header, human_actor
 from jav.app.tablequery import Query as TableQuery
 from jav.core.user_messages import explained
 
-log = logging.getLogger("jav.api")
+log = logging.getLogger("jav.service.api")
 
 
 DatasetName = Annotated[str, PathParam(pattern=r"^[a-z_]{1,40}$")]

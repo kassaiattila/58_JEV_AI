@@ -80,7 +80,7 @@ def test_a_value_not_on_the_document_keeps_its_token_probability(tmp_path, monke
 def test_the_gpt_band_is_served_with_the_settings(tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
 
     c = TestClient(api.create_app(store_path=tmp_path / "w.sqlite"), base_url="http://127.0.0.1:8930")
     bands = c.get("/api/settings").json()["confidence_bands"]

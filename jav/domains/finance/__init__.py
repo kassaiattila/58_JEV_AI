@@ -37,7 +37,7 @@ from jav.core import activity_kinds, type_roles
 from jav.app.outputs import parts
 
 # 185 (plan G-full-move T1a): the modules of the domain's addresses of the local service beyond its logic packs' own
-# (`LogicPack.service`); `jav.api.service_modules` adds them by name
+# (`LogicPack.service`); `jav.service.api.service_modules` adds them by name
 SERVICE = ("jav.domains.finance.api_parties", "jav.domains.finance.api_finance")
 # 202 (plan G-core-generalisation M3a): the module of the domain's commands (`register(sub)`); `jav.cli` adds it by name
 COMMANDS = ("jav.domains.finance.finance_cli",)

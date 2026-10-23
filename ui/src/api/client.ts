@@ -1,4 +1,4 @@
-// The connection to the local service (jav/api.py): one address (/api), so no cross-origin request; on error an
+// The connection to the local service (jav/service/api.py): one address (/api), so no cross-origin request; on error an
 // `ApiError` with the service's error code and message. The person working, sent with every request.
 import { t } from "../i18n";
 import type { Blocker } from "./types";

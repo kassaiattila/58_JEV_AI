@@ -1,9 +1,9 @@
-"""The runs' addresses of the local service (195, plan G-tidy R4; until then in `jav/api.py` `create_app`).
+"""The runs' addresses of the local service (195, plan G-tidy R4; until then in `jav/service/api.py` `create_app`).
 
 Plain-language summary: the addresses for a package's processing setting and its readiness, starting a run (a trial or
 a live one), and following the runs: the package's runs and every run, one run's view and journal, cancelling, the
-superseding of an older live run and the approval. They moved here from `jav/api.py` as they were: the same paths,
-request models and answers, in the same order. `jav.api.create_app` adds this module after the work packages' one.
+superseding of an older live run and the approval. They moved here from `jav/service/api.py` as they were: the same paths,
+request models and answers, in the same order. `jav.service.api.create_app` adds this module after the work packages' one.
 
 Layer: UI/CLI (the local service) → `jav.app.work`, `jav.app.work_views`.
 """
@@ -16,7 +16,7 @@ from fastapi import Depends, FastAPI, Query
 from pydantic import Field
 
 from jav.app import work_readiness, work_recipes, work_runs, work_views
-from jav.service_shared import Empty, In, JavJSONResponse, RunId, Text, WpId, human_actor
+from jav.service.service_shared import Empty, In, JavJSONResponse, RunId, Text, WpId, human_actor
 
 
 class SaveWorkflow(In):

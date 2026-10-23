@@ -1,12 +1,12 @@
-"""The to-dos' and the system's addresses of the local service (195, plan G-tidy R4; until then in `jav/api.py`).
+"""The to-dos' and the system's addresses of the local service (195, plan G-tidy R4; until then in `jav/service/api.py`).
 
 Plain-language summary: closing a to-do, and the addresses of the system page: the worker's state and stopping it, the
 last dependency audit, the pinned JEV version against the provider's moving name (200), the store backup's state and a
-backup now, and the paid calls with an uncertain outcome, listed and settled by hand. They moved here from `jav/api.py`
-as they were: the same paths, request models and answers, in the same order. `jav.api.create_app` adds this module
+backup now, and the paid calls with an uncertain outcome, listed and settled by hand. They moved here from `jav/service/api.py`
+as they were: the same paths, request models and answers, in the same order. `jav.service.api.create_app` adds this module
 after the workflows' one.
 
-Layer: UI/CLI (the local service) → `jav.app.work`, `jav.backup`, `jav.deps_audit`, `jav.ai.jev_version`,
+Layer: UI/CLI (the local service) → `jav.app.work`, `jav.runtime.backup`, `jav.runtime.deps_audit`, `jav.ai.jev_version`,
 `jav.core.calls`, `jav.runtime.worker`.
 """
 
@@ -20,14 +20,14 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav import backup, deps_audit
+from jav.runtime import backup, deps_audit
 from jav.app import work_runs, work_views
 from jav.ai import jev_version
-from jav.service_shared import Empty, In, Text, human_actor, settings
+from jav.service.service_shared import Empty, In, Text, human_actor, settings
 from jav.runtime import worker
 from jav.core import calls
 
-log = logging.getLogger("jav.api")
+log = logging.getLogger("jav.service.api")
 
 
 class ResolveReason(In):

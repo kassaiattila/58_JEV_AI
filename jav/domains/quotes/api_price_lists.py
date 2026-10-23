@@ -25,7 +25,7 @@ from pydantic import Field
 
 from jav.app import work_views
 from jav.domains.quotes import price_lists
-from jav.service_shared import Empty, In, attachment_header, checked_path, error, human_actor
+from jav.service.service_shared import Empty, In, attachment_header, checked_path, error, human_actor
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 PriceListId = Annotated[str, PathParam(pattern=r"^pl-[0-9a-f]{10}$")]

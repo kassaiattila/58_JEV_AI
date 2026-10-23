@@ -51,7 +51,7 @@ def test_in_this_process_everything_is_registered() -> None:
 
 
 def test_the_entry_points_call_it() -> None:
-    from jav import api
+    from jav.service import api
 
     assert "registrations.load_all()" in inspect.getsource(cli.main)
     assert "registrations.load_all()" in inspect.getsource(api.create_app)

@@ -167,7 +167,7 @@ def test_a_reopened_quote_has_no_letter_until_it_is_approved_again(quote):
 def test_the_service_answers_the_letter(quote, tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav.api import create_app
+    from jav.service.api import create_app
 
     wp_id = quote["wp"]
     human = {"X-Actor": "teszt.elek"}

@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api
+from jav.service import api
 from jav.app import work, work_runs
 from jav.core import store
 from jav.ai import jev as jev_mod

@@ -1,4 +1,4 @@
-// Output templates (jav/api_outputs.py).
+// Output templates (jav/service/api_outputs.py).
 import { enc, request } from "./client";
 
 /** 178/179 (plan 170 L4): the outputs a person may give an own Excel template. */

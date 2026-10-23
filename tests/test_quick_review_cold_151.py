@@ -14,7 +14,7 @@ from jav.domains.finance import reconcile
 
 
 def test_the_ai_proposal_module_does_not_load_the_gpt_libraries():
-    code = "import sys, jav.api, jav.domains.finance.reconcile_ai; print('jav.ai.gpt_choice' in sys.modules, 'openai' in sys.modules)"
+    code = "import sys, jav.service.api, jav.domains.finance.reconcile_ai; print('jav.ai.gpt_choice' in sys.modules, 'openai' in sys.modules)"
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.split() == ["False", "False"]
 

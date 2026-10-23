@@ -19,24 +19,24 @@ def _refresh_jev_version() -> None:
     try:
         st = jev_version.refresh()
     except Exception:  # noqa: BLE001 - the look is a side task of the backup; logged with its traceback
-        logging.getLogger("jav.backup").exception("JEV version look failed")
+        logging.getLogger("jav.runtime.backup").exception("JEV version look failed")
         return
-    logging.getLogger("jav.backup").info("JEV version: %s", jev_version.verdict(st)[1])
+    logging.getLogger("jav.runtime.backup").info("JEV version: %s", jev_version.verdict(st)[1])
 
 
 def _refresh_deps_audit() -> None:
     """075: the daily backup also renews the dependency audit once it is a week old; a failure never fails the backup."""
     import logging
 
-    from jav import deps_audit
+    from jav.runtime import deps_audit
 
     try:
         fresh = deps_audit.refresh_if_stale()
     except Exception:  # noqa: BLE001 - the audit is a side task of the backup; logged with its traceback
-        logging.getLogger("jav.backup").exception("dependency audit failed")
+        logging.getLogger("jav.runtime.backup").exception("dependency audit failed")
         return
     if fresh is not None:
-        logging.getLogger("jav.backup").info("dependency audit: %s", deps_audit.verdict(deps_audit.status())[1])
+        logging.getLogger("jav.runtime.backup").info("dependency audit: %s", deps_audit.verdict(deps_audit.status())[1])
 
 
 def cmd_flows(args: argparse.Namespace) -> int:
@@ -130,8 +130,8 @@ def cmd_lang_guard(args: argparse.Namespace) -> int:
 
 
 def cmd_deps_audit(args: argparse.Namespace) -> int:
-    """075: known vulnerabilities in the pinned Python and UI packages (free; needs network); see jav/deps_audit.py."""
-    from jav import deps_audit
+    """075: known vulnerabilities in the pinned Python and UI packages (free; needs network); see jav/runtime/deps_audit.py."""
+    from jav.runtime import deps_audit
 
     if not args.show:
         deps_audit.run()
@@ -275,7 +275,7 @@ def cmd_store(args: argparse.Namespace) -> int:
 
 
 def cmd_backup(args: argparse.Namespace) -> int:
-    from jav import backup
+    from jav.runtime import backup
     from jav.core import applog
 
     if args.scheduled:  # 064: the daily scheduled backup, per the `backup` section of configs/service.json

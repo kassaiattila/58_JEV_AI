@@ -1,9 +1,9 @@
-"""One item's addresses of the local service (195, plan G-tidy R4; until then in `jav/api.py` `create_app`).
+"""One item's addresses of the local service (195, plan G-tidy R4; until then in `jav/service/api.py` `create_app`).
 
 Plain-language summary: the addresses the review page uses for one document of a run: its result, the document formats
 the native reader knows, the native reader's source elements and the resolving of its citations, the word layer for
-selecting on the page image, and saving a person's correction. They moved here from `jav/api.py` as they were: the
-same paths, request models and answers, in the same order. `jav.api.create_app` adds this module after the results'
+selecting on the page image, and saving a person's correction. They moved here from `jav/service/api.py` as they were: the
+same paths, request models and answers, in the same order. `jav.service.api.create_app` adds this module after the results'
 one.
 
 Layer: UI/CLI (the local service) → `jav.app.corrections`, `jav.documents.native_results`.
@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, Query
 from pydantic import Field
 
 from jav.app import corrections, work_views
-from jav.service_shared import In, ItemId, RunId, Text, human_actor
+from jav.service.service_shared import In, ItemId, RunId, Text, human_actor
 
 
 _Cell = Annotated[str, Field(max_length=500)] | int | None

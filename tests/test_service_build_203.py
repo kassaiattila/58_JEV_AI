@@ -14,7 +14,7 @@ import importlib
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from jav import api
+from jav.service import api
 from jav.domains.quotes import price_lists
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 

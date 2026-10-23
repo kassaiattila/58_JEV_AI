@@ -1,4 +1,4 @@
-// Recipes and workflows (jav/api_workflows.py).
+// Recipes and workflows (jav/service/api_workflows.py).
 import { enc, request } from "./client";
 import type { Assignment, NextStep } from "./types";
 import type { Engine } from "./system";

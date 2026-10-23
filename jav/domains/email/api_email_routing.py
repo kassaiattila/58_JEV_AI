@@ -2,8 +2,8 @@
 
 Plain-language summary: the addresses the interface uses to make a routing package over email packages and to decide
 its attachments: accept the proposals (one, several, or every clear one), put an attachment into a package a person
-chose, leave it unrouted, or take a decision back. `jav.api.create_app` adds them (185: by its logic pack's
-`service`, `jav.api.service_modules`).
+chose, leave it unrouted, or take a decision back. `jav.service.api.create_app` adds them (185: by its logic pack's
+`service`, `jav.service.api.service_modules`).
 
 Layer: UI/CLI (the local service) → `jav.domains.email.email_routing`.
 """
@@ -17,7 +17,7 @@ from pydantic import Field
 
 from jav.domains.email import email_routing
 from jav.app import work_views
-from jav.service_shared import DecisionState, In, WpId, human_actor
+from jav.service.service_shared import DecisionState, In, WpId, human_actor
 
 WpIdField = Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")]  # a work package named in a request's body
 ItemId = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]  # an attachment: its content hash

@@ -15,7 +15,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from jav import api
+from jav.service import api
 from jav.core import version
 
 ROOT = Path(__file__).resolve().parents[1]

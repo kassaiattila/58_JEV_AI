@@ -53,7 +53,7 @@ def test_a_change_or_deletion_needs_a_name(tmp_path):
 def test_the_service_passes_the_chosen_name_on(tmp_path, caplog):
     from fastapi.testclient import TestClient
 
-    from jav import api
+    from jav.service import api
 
     c = TestClient(api.create_app(store_path=tmp_path / "api.sqlite"), base_url="http://127.0.0.1:8930")
     sid = c.post("/api/mailbox/schedules", json={"request": {"accounts": ["office@example.com"], "since_days": 3}},

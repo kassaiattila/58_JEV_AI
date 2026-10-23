@@ -80,7 +80,7 @@ class ClosingSQLitePersister(SQLitePersister):
 
     066 Á31: without a connection of its own, the store opens like the main store: concurrent reads (WAL) and a 30 s
     wait on a locked database (Burr's default is 5 s and journal-file mode; the worker's save and a concurrent thinning
-    could collide). The backup (`jav/backup.py`) uses SQLite's own backup routine, which gives a full copy in WAL mode
+    could collide). The backup (`jav/runtime/backup.py`) uses SQLite's own backup routine, which gives a full copy in WAL mode
     too."""
 
     def __init__(self, db_path: str, table_name: str = "burr_state", serde_kwargs: dict | None = None,

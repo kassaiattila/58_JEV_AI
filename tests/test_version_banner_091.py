@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from jav import api
+from jav.service import api
 from jav.core import version
 
 

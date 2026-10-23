@@ -1,11 +1,11 @@
-"""The own parties' addresses of the local service (185, plan G-full-move T1a; 133: until then in `jav/api.py`).
+"""The own parties' addresses of the local service (185, plan G-full-move T1a; 133: until then in `jav/service/api.py`).
 
 Plain-language summary: the addresses the settings page uses for the own parties: the overview with the proposals
 from the data, accepting proposals, a new party, giving an identity (a tax number, a buyer name, an account) to a party
 or taking it back, renaming, merging and deleting a party, an account or card registered with its details (138), and
 a party's data month by month. Every change answers with the whole overview, as the settings page shows it. They moved
-here from `jav/api.py` as they were: the same paths, request models and answers. The finance domain names this module
-(`jav/domains/finance/__init__.py` `SERVICE`), and `jav.api.create_app` adds it.
+here from `jav/service/api.py` as they were: the same paths, request models and answers. The finance domain names this module
+(`jav/domains/finance/__init__.py` `SERVICE`), and `jav.service.api.create_app` adds it.
 
 Layer: UI/CLI (the local service) → `jav.app.parties`, `jav.domains.finance.party_views`.
 """
@@ -19,7 +19,7 @@ from pydantic import Field
 
 from jav.app import parties, work_views
 from jav.domains.finance import party_views
-from jav.service_shared import Empty, In, IsoDay, PartyId, human_actor
+from jav.service.service_shared import Empty, In, IsoDay, PartyId, human_actor
 from jav.core.user_messages import explained
 
 PartyName = Annotated[str, Field(min_length=1, max_length=200)]

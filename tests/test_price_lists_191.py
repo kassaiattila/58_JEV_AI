@@ -183,7 +183,7 @@ def test_a_new_upload_keeps_the_rules_whose_category_it_still_has(db, tmp_path):
 def test_the_service_uploads_changes_activates_and_hands_back_the_file(tmp_path):
     from fastapi.testclient import TestClient
 
-    from jav.api import create_app
+    from jav.service.api import create_app
 
     path = invented_golden.write_price_list(tmp_path / "invented.xlsx")
     bad = tmp_path / "bad.xlsx"

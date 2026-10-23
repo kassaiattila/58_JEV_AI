@@ -1,9 +1,9 @@
 """The reconciliation package's addresses of the local service (176, plan 170 L3: each logic pack its own).
 
 Plain-language summary: the addresses the interface uses to build a reconciliation package, pair its lines with
-invoices, mark and revoke, and approve, reopen and download its statement. They moved here from `jav/api.py` as they
-were: the same paths, request models and answers. `jav.api.create_app` adds them (185: by its logic pack's
-`service`, `jav.api.service_modules`).
+invoices, mark and revoke, and approve, reopen and download its statement. They moved here from `jav/service/api.py` as they
+were: the same paths, request models and answers. `jav.service.api.create_app` adds them (185: by its logic pack's
+`service`, `jav.service.api.service_modules`).
 
 Layer: UI/CLI (the local service) → `jav.domains.finance.reconcile_package`, `jav.domains.finance.reconcile_review`, `jav.domains.finance.reconcile_statement`.
 """
@@ -19,7 +19,7 @@ from pydantic import Field
 
 from jav.app import work_views
 from jav.domains.finance import reconcile_package, reconcile_review, reconcile_statement
-from jav.service_shared import (DecisionState, Empty, In, IsoDay, PartyId, Text, WpId, attachment_header, error,
+from jav.service.service_shared import (DecisionState, Empty, In, IsoDay, PartyId, Text, WpId, attachment_header, error,
                                 human_actor)
 from jav.core.user_messages import message_fields
 

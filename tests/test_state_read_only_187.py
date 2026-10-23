@@ -15,7 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import admin, backup
+from jav import admin
+from jav.runtime import backup
 from jav.core import store
 
 

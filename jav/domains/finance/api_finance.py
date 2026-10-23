@@ -6,8 +6,8 @@ Plain-language summary: the addresses for what the finance domain adds to a work
   (136);
 - the utility cost of a run or of a package's current result (054, 172);
 - a person's decision on a duplicate pair (126) and the choice between two statements of the same days (139).
-They moved here from `jav/api.py` as they were: the same paths, request models and answers. The finance domain names
-this module (`jav/domains/finance/__init__.py` `SERVICE`), and `jav.api.create_app` adds it. The reconciliation's and the
+They moved here from `jav/service/api.py` as they were: the same paths, request models and answers. The finance domain names
+this module (`jav/domains/finance/__init__.py` `SERVICE`), and `jav.service.api.create_app` adds it. The reconciliation's and the
 statement package's own addresses are their logic packs' (`jav/domains/finance/api_reconcile.py`, `jav/domains/finance/api_statement_package.py`).
 
 Layer: UI/CLI (the local service) → `jav.domains.finance.bank_files`, `jav.domains.finance.statement_table`, `jav.domains.finance.statement_package`,
@@ -23,7 +23,7 @@ from pydantic import Field
 
 from jav.app import corrections, datasets, work, work_runs, work_views
 from jav.domains.finance import bank_files, duplicates, report_utility, statement_months, statement_package
-from jav.service_shared import DecisionState, In, ItemId, RunId, Text, WpId, checked_path, human_actor
+from jav.service.service_shared import DecisionState, In, ItemId, RunId, Text, WpId, checked_path, human_actor
 
 
 class StatementTableFile(In):

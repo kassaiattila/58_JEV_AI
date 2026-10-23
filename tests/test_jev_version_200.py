@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 from typesafe_sdk import SystemOneResponse
 
-from jav import api
+from jav.service import api
 from jav.ai import jev_version
 from jav.core import config, store
 from jav.ai.jev import _CONCRETE_MODEL, MODEL_VERSIONS_FILE, JevAdapter

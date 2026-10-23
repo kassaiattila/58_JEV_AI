@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import backup
+from jav.runtime import backup
 from jav.app import corrections, source_instances
 from jav.documents import native_results
 from jav.core import store

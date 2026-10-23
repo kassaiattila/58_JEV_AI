@@ -120,7 +120,7 @@ def test_the_service_has_the_addresses_of_every_logic_pack_in_its_own_module() -
     in the order the packs are registered, then each domain's others."""
     import importlib
 
-    from jav import api
+    from jav.service import api
     from jav.domains import DOMAINS
 
     own = [p.service for p in lp.packs()]
@@ -129,7 +129,7 @@ def test_the_service_has_the_addresses_of_every_logic_pack_in_its_own_module() -
     assert domains == ["jav.domains.finance.api_parties", "jav.domains.finance.api_finance", "jav.domains.email.api_mailbox", "jav.domains.quotes.api_price_lists"]  # 191: quotes
     assert api.service_modules() == [*own, *domains]
     assert all(callable(importlib.import_module(name).routes) for name in api.service_modules())
-    text = (PROJECT_ROOT / "jav/api.py").read_text(encoding="utf-8")
+    text = (PROJECT_ROOT / "jav/service/api.py").read_text(encoding="utf-8")
     assert not re.search(r"\breconcile_package\.|\bstatement_package\.|/reconcile|/statement-packages", text)
     # 185: nor a domain's other addresses (which modules it imports: `tests/test_dependency_direction.py`)
     assert not re.search(r"\"/mailbox|\"/parties|\"/statement-tables|/utility-cost\"|\"/bank-files|/attachments\"|"

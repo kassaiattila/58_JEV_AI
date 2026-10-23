@@ -3,7 +3,7 @@
 **Internal working material** is the local record of how development proceeds: handoffs, plans, reports, the old
 dated root reports, the continuation instructions, the backlog, the decisions log, the roadmap, the internal landing
 page, and the call-site catalogue generated from the local call log. Git does not track it (`.gitignore`), it never
-goes to GitHub, and the daily backup carries it (`jav/backup.py`). The paths have not changed: links in the old
+goes to GitHub, and the daily backup carries it (`jav/runtime/backup.py`). The paths have not changed: links in the old
 handoffs and the hooks point to the same places.
 
 A **codebase document** is every other, version-controlled description (README, architecture, glossary, guides,

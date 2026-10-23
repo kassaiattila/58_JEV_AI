@@ -35,7 +35,7 @@ from pydantic import Field
 
 from jav.app import package_release, work, work_views
 from jav.domains.quotes import quote_draft, quote_letter, quote_package, quote_proposal
-from jav.service_shared import Empty, In, WpId, attachment_header, human_actor
+from jav.service.service_shared import Empty, In, WpId, attachment_header, human_actor
 
 
 class QuotePackageIn(In):
