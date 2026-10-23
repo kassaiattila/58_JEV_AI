@@ -1,7 +1,7 @@
 """130 (backlog F-reconciliation, K3): a forint card line and an invoice in another currency, through the MNB rate.
 
 The owner's decisions (DECISIONS 128 variant C, DECISIONS 130): a card line is compared with the invoice amount converted
-at the MNB rate of the issue date; the pair is proposed within -2% ... +5% (`reconcile.json` `fx_tolerance`; until 224 `policy.json`), and
+at the MNB rate of the issue date; the pair is proposed within -2% ... +5% (`finance.json` `reconcile.fx_tolerance`; until 224 `policy.json`), and
 a person decides on it as on any other pair. The processing fetches a missing rate, a view only reads the stored ones.
 Synthetic documents, made-up accounts and invented rates only; no AI call, no network.
 """

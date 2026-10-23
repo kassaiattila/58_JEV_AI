@@ -53,8 +53,8 @@ DUPLICATE_PREFIX = "duplicate:"
 
 
 def duplicate_families() -> dict[str, list[str]]:
-    """The duplicate search's families in their order (`duplicates.json` `families`): family -> its types."""
-    return {name: list(types) for name, types in cfg.load("duplicates")["families"].items()}
+    """The duplicate search's families in their order (`finance.json` `duplicates.families`): family -> its types."""
+    return {name: list(types) for name, types in cfg.load("finance")["duplicates"]["families"].items()}
 
 
 def names() -> list[str]:
@@ -65,7 +65,7 @@ def names() -> list[str]:
 def source(role: str) -> str:
     """Where a role's list is written."""
     if role.startswith(DUPLICATE_PREFIX) and role[len(DUPLICATE_PREFIX):] in duplicate_families():
-        return f"duplicates.json families.{role[len(DUPLICATE_PREFIX):]}"
+        return f"finance.json duplicates.families.{role[len(DUPLICATE_PREFIX):]}"
     if role not in ROLES:
         raise UnknownRole(f"no type role is defined as {role!r}")
     return ROLES[role][0]

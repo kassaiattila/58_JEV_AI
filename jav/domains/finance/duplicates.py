@@ -12,7 +12,7 @@ AI call, and names three kinds of suspicion (the owner's decisions of 2026-10-07
 The supplier is the same when the tax-number keys match (`fact_checks.tax_party_key`, so the domestic and the EU form of
 a Hungarian number are one party); without a tax number on either side, by the significant words of the name
 (`fact_checks.same_party`). An invoice number without a digit ("N/A") never matches. The families and the compared
-fields are data (`configs/duplicates.json`; until 224 `configs/policy.json` `duplicates`); a pro forma invoice is its own family, so it is never a copy of a
+fields are data (`configs/finance.json` `duplicates`; until 224 in `configs/policy.json`); a pro forma invoice is its own family, so it is never a copy of a
 final invoice.
 
 Where it shows: the later processed document gets a `duplicate:<kind>:<the other document's id prefix>` to-do in a
@@ -72,11 +72,11 @@ class DecisionError(ValueError):
 
 @lru_cache(maxsize=None)
 def _conf() -> dict[str, Any]:
-    return {k: v for k, v in cfg.load("duplicates").items() if k != "meta"}
+    return dict(cfg.load("finance")["duplicates"])
 
 
 def config_hash() -> str:
-    return cfg.config_hash("duplicates")
+    return cfg.config_hash("finance")
 
 
 def family(doc_type: str | None) -> str | None:
@@ -249,8 +249,8 @@ def review_reasons(doc_id: str | None, doc_type: str | None, fields: dict[str, A
 # --- 218 (plan P3 P3b): the duplicate decision as a pure rule, traced with the to-dos it opens --------------------
 
 DUPLICATE_POINT = "finance.duplicate"
-TRACE_KEYS = {"duplicates.json": ("families", "number_field", "supplier_tax_field", "supplier_name_field",
-                                  "compared_fields"),
+TRACE_KEYS = {"finance.json": ("duplicates.families", "duplicates.number_field", "duplicates.supplier_tax_field",
+                               "duplicates.supplier_name_field", "duplicates.compared_fields"),
               "fact_checks.json": ("parties.domestic_tax_stem_digits", "parties.domestic_tax_prefixes",
                                    "parties.ignore_tokens", "parties.min_subset_tokens")}
 
@@ -292,7 +292,7 @@ def traced(doc_id: str | None, doc_type: str | None, fields: dict[str, Any]) -> 
 
 
 trace.register(trace.Point(
-    DUPLICATE_POINT, owner=__name__, files=("duplicates.json", "fact_checks.json"), rule=duplicate_rule,
+    DUPLICATE_POINT, owner=__name__, files=("finance.json", "fact_checks.json"), rule=duplicate_rule,
     what="whether an invoice-like document is the same invoice as another one in the store (the same family, number "
          "and supplier), and of which kind: a copy, a modified version, or undecidable for a missing field",
     not_for="a person's decision on the pair (copy, modified version, not the same: their own journal) or how the "

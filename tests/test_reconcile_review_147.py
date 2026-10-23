@@ -101,7 +101,7 @@ def test_each_line_to_decide_is_in_the_first_group_that_fits(db):
 
 def test_the_ai_threshold_comes_from_the_policy(db, monkeypatch):
     wp_id, ids, _inv = _setup()
-    monkeypatch.setitem(cfg.load("reconcile")["ai_sure"], "min_jev_probability", 0.99)
+    monkeypatch.setitem(cfg.load("finance")["reconcile"]["ai_sure"], "min_jev_probability", 0.99)
     members = _members(rr.review(wp_id), ids)
     assert members["ai_sure"] == [] and members["ai_review"] == ["ai_sure", "ai_low", "ai_one"]
 

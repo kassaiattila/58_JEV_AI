@@ -424,7 +424,9 @@ def _inputs(c) -> list[Any]:
     # the modules whose tables the workspace reads register them on import (a later import would change the mark)
     from jav.domains.finance import duplicates, fx, reconcile_ai, statement_months  # noqa: F401
 
+    # 224: and the finance domain's rules (the reconciliation's bands, the duplicate search), until then in policy.json
     return [store.table_marks(c, WORKSPACE_INPUTS), reconcile.config_hash(), parties.config_hash(), cfg.config_hash("fx"),
+            cfg.config_hash("finance"),
             reconcile.ENGINE_VERSION, date.today().isoformat()]
 
 

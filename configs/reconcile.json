@@ -1,14 +1,9 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.15.0",
+    "version": "1.14.0",
     "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person, when a statement counts as verified coverage and how a candidate's strength is weighed. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131, DECISIONS 134.",
     "changelog": [
-      {
-        "version": "1.15.0",
-        "date": "2026-10-24",
-        "note": "224 (plan G-process-core P3c, DECISIONS 218): the reconciliation's bands moved here unchanged from configs/policy.json 1.25.0 (its reconcile section): fx_tolerance (130, a card line around the converted amount), fx_bank_tolerance (149, a bank line per rate day), ai_sure (147, the quick review's sure AI kind). The reconciliation's fingerprint (config_hash: its workspace's inputs, a statement's heading) now covers them; before, a change to them did not change it."
-      },
       {
         "version": "1.14.0",
         "date": "2026-10-13",
@@ -150,9 +145,6 @@
     },
     "bank": {"statement_types": ["bank_account"], "rate_days": ["fulfillment", "booking"]}
   },
-  "fx_tolerance": {"below": "0.02", "above": "0.05"},
-  "fx_bank_tolerance": {"fulfillment": {"below": "0.005", "above": "0.005"}, "booking": {"below": "0.02", "above": "0.02"}},
-  "ai_sure": {"min_jev_probability": 0.95},
   "payment_review_pattern": "hitelkartya|torleszt|jutalek|kamat|szamlavezetesi dij|kartyadij",
   "replacement": {
     "ranks": [

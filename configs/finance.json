@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "name": "finance",
+    "version": "1.0.0",
+    "description": "The finance domain's own rules beyond the reconciliation's engine (configs/reconcile.json): the duplicate invoice search (duplicates, read by jav/domains/finance/duplicates.py: the families of invoice-like types, a document compared only with the earlier ones of its own family and a pro forma invoice its own; the fields that name the invoice number and the supplier; the values compared to tell a copy from a modified version) and the reconciliation's bands (reconcile, read by jav/domains/finance/reconcile.py: a forint card line around the invoice amount converted at the MNB rate, a forint bank line per rate day, the quick review's sure AI kind). All proposals only; a person decides.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-24",
+        "note": "224 (plan G-process-core P3c, DECISIONS 218): moved unchanged from configs/policy.json 1.25.0 (its duplicates and reconcile sections), so a change to them no longer changes the shared rule file's fingerprint. Not into configs/reconcile.json: its fingerprint is printed on a reconciliation's statement, so moving them there would have shown every approved statement as changed. Earlier history: the policy.json changelog (1.18.0, 126: the duplicate search; 1.19.0, 130: reconcile.fx_tolerance; 1.20.0, 147: reconcile.ai_sure; 1.22.0, 149: reconcile.fx_bank_tolerance)."
+      }
+    ]
+  },
+  "duplicates": {
+    "families": {
+      "invoice": ["invoice_hu", "invoice_foreign", "invoice_out", "csatorna_szamla", "foldgaz_szamla", "mohu_szamla",
+                  "villamos_energia_szamla", "viz_szamla", "vizmuvek_szamla"],
+      "proforma": ["proforma_invoice"]
+    },
+    "number_field": "invoice_number",
+    "supplier_tax_field": "supplier_tax_id",
+    "supplier_name_field": "supplier_name",
+    "compared_fields": ["issue_date", "gross_total", "currency"]
+  },
+  "reconcile": {
+    "fx_tolerance": {"below": "0.02", "above": "0.05"},
+    "fx_bank_tolerance": {"fulfillment": {"below": "0.005", "above": "0.005"}, "booking": {"below": "0.02", "above": "0.02"}},
+    "ai_sure": {"min_jev_probability": 0.95}
+  }
+}

@@ -33,7 +33,7 @@ def test_each_role_reads_its_list_in_order() -> None:
     assert type_roles.types("email_extraction") == tuple(cfg.load("email")["m2_types"])
     for side in ("incoming", "outgoing"):
         assert type_roles.types(f"direction:{side}") == tuple(cfg.load("policy")["detect_detail"]["direction_sides"][side])
-    for family, members in cfg.load("duplicates")["families"].items():
+    for family, members in cfg.load("finance")["duplicates"]["families"].items():
         assert type_roles.types(f"duplicate:{family}") == tuple(members)
 
 
@@ -41,7 +41,7 @@ def test_a_type_answers_its_roles_and_an_unknown_role_is_named() -> None:
     assert type_roles.roles("invoice_out") == ("outgoing_invoice", "direction:outgoing", "duplicate:invoice")
     assert type_roles.has("statement_table", "statement") and not type_roles.has(None, "statement")
     assert type_roles.duplicate_family("proforma_invoice") == "proforma" and type_roles.duplicate_family("statement_cib") is None
-    assert type_roles.source("duplicate:invoice") == "duplicates.json families.invoice"
+    assert type_roles.source("duplicate:invoice") == "finance.json duplicates.families.invoice"
     with pytest.raises(type_roles.UnknownRole):
         type_roles.types("invoice")
     with pytest.raises(type_roles.UnknownRole):

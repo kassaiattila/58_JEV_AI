@@ -84,8 +84,8 @@ def test_the_view_shows_the_running_rules_in_their_areas(db, monkeypatch):  # no
     hungarian = _value(rows["detect.detail_type"], "detect_issuer.hungarian_types")
     assert hungarian["value"] == [doc_types[k] for k in cfg.load("policy")["detect_issuer"]["hungarian_types"]]
     fields = cfg.load("field_labels")["fields"]
-    assert _value(rows["finance.duplicate"], "compared_fields")["value"] == [
-        fields[k] for k in cfg.load("duplicates")["compared_fields"]]
+    assert _value(rows["finance.duplicate"], "duplicates.compared_fields")["value"] == [
+        fields[k] for k in cfg.load("finance")["duplicates"]["compared_fields"]]
     # an email's next step by its code, as the interface names steps everywhere; the quote request's reads the text too
     sent = _value(rows["email.next_flow"], "sent_route")
     assert (sent["format"], sent["value"]) == ("route", {"code": "archive:sent", "reads_text": False})

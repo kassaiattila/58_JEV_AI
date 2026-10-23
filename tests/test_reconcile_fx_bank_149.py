@@ -5,7 +5,7 @@ Measured on their 11 named payments of 2022-2026: a Hungarian buyer pays the for
 invoice's fulfilment day (5 of 5 to the forint), and a bank converts foreign money at its own rate on the booking day
 (6 of 6 within 0.6-1.1% below the MNB rate); at the issue day's rate, as a card line is compared, they scatter from -6%
 to +4%. So a forint bank line is compared at the rate of the fulfilment day, then of the booking day, each with its own
-band (`reconcile.json` `fx_bank_tolerance`; until 224 `policy.json`), in the invoice's payment window; CHF is handled, and the forint bank
+band (`finance.json` `reconcile.fx_bank_tolerance`; until 224 `policy.json`), in the invoice's payment window; CHF is handled, and the forint bank
 accounts count in such an invoice's coverage. A card line is compared as before.
 
 Synthetic documents, made-up accounts and invented rates only; no AI call, no network.

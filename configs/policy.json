@@ -6,7 +6,7 @@
    {
     "version": "1.26.0",
     "date": "2026-10-24",
-    "note": "224 (plan G-process-core P3c, DECISIONS 218): the shared rules only. The email flow's routes (email) moved to configs/email.json, the duplicate search's families and fields (duplicates) to configs/duplicates.json, the reconciliation's currency bands and its sure AI threshold (reconcile) to configs/reconcile.json, each read by its domain's own module; the values are unchanged. A domain's rule change no longer changes this file's fingerprint (a data point's config_hash names it)."
+    "note": "224 (plan G-process-core P3c, DECISIONS 218): the shared rules only. The email flow's routes (email) moved to configs/email.json, the duplicate search's families and fields (duplicates) and the reconciliation's currency bands and its sure AI threshold (reconcile) to configs/finance.json, each read by its domain's own module; the values are unchanged. A domain's rule change no longer changes this file's fingerprint (a data point's config_hash names it)."
    },
    {
     "version": "1.25.0",

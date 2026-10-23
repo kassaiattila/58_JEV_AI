@@ -7,7 +7,7 @@
       {
         "version": "1.1.0",
         "date": "2026-10-24",
-        "note": "224 (plan G-process-core P3c): the values follow the split of the shared rule file - the email routes from email.json, the duplicate search from duplicates.json; their titles. Only the file and the key of a shown value changed, not its label."
+        "note": "224 (plan G-process-core P3c): the values follow the split of the shared rule file - the email routes from email.json, the duplicate search from finance.json; their titles. Only the file and the key of a shown value changed, not its label."
       },
       {
         "version": "1.0.0",
@@ -26,7 +26,7 @@
   "files": {
     "policy.json": "Shared decision thresholds",
     "email.json": "Email routes",
-    "duplicates.json": "Duplicate invoice search",
+    "finance.json": "Finance rules",
     "ocr.json": "Text recognition settings",
     "recipes.json": "Processing recipes and their cost caps",
     "parties.json": "Own parties' checks",
@@ -132,9 +132,9 @@
       "what": "Whether an invoice is the same invoice as another one in the store (the same kind, number and supplier), and of which kind: an exact copy, a modified version, or undecidable because a field is missing.",
       "not_for": "A person's decision on the pair, or how the totals count a confirmed copy.",
       "values": [
-        {"file": "duplicates.json", "key": "families.invoice", "label": "Invoice types compared with one another", "format": "doc_types"},
-        {"file": "duplicates.json", "key": "families.proforma", "label": "Pro forma invoices compared with one another", "format": "doc_types"},
-        {"file": "duplicates.json", "key": "compared_fields", "label": "An exact copy when these match too (otherwise a modified version)", "format": "fields"},
+        {"file": "finance.json", "key": "duplicates.families.invoice", "label": "Invoice types compared with one another", "format": "doc_types"},
+        {"file": "finance.json", "key": "duplicates.families.proforma", "label": "Pro forma invoices compared with one another", "format": "doc_types"},
+        {"file": "finance.json", "key": "duplicates.compared_fields", "label": "An exact copy when these match too (otherwise a modified version)", "format": "fields"},
         {"file": "fact_checks.json", "key": "parties.domestic_tax_stem_digits", "label": "Leading digits compared in a Hungarian tax number", "format": "number"}
       ]
     },

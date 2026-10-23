@@ -2,11 +2,12 @@
 
 Plain-language summary: `configs/policy.json` keeps what every flow shares (the bands, the "none of these" label, the
 OCR thresholds, the type details, a GPT field's confidence). The email flow's routes are in `configs/email.json`, read
-by the email domain (`jav/domains/email/email_rules.py`); the duplicate search's families and fields in
-`configs/duplicates.json`, read by `jav/domains/finance/duplicates.py`; the reconciliation's currency bands and its
-sure AI threshold in `configs/reconcile.json`, read by `jav/domains/finance/reconcile.py`. So a change to one domain's
-rules no longer changes the fingerprint of another's results, and the shared AI layer no longer imports the email
-domain. The values themselves did not change.
+by the email domain (`jav/domains/email/email_rules.py`); the duplicate search and the reconciliation's currency
+bands and sure AI threshold in the finance domain's `configs/finance.json`, read by `jav/domains/finance/duplicates.py`
+and `jav/domains/finance/reconcile.py`. So a change to one domain's rules no longer changes the fingerprint of another's
+results, and the shared AI layer no longer imports the email domain. The values themselves did not change, and neither
+did `configs/reconcile.json`, whose fingerprint a reconciliation's statement prints: an approved statement does not
+read as changed.
 """
 
 from __future__ import annotations
@@ -45,37 +46,38 @@ def test_the_email_routes_are_the_email_domains_with_their_values():
     assert email_rules.INTENT_ROUTE == e["intent_route"] and email_rules.CONFIG_HASH == cfg.config_hash("email")
 
 
-def test_the_duplicate_rules_are_the_duplicate_searchs_with_their_values():
+def test_the_duplicate_rules_are_the_finance_domains_with_their_values():
     from jav.domains.finance import duplicates
 
-    d = cfg.load("duplicates")
-    assert d["meta"]["version"] == "1.0.0"
+    f = cfg.load("finance")
+    assert f["meta"]["version"] == "1.0.0"
+    d = f["duplicates"]
     assert list(d["families"]) == ["invoice", "proforma"] and d["families"]["proforma"] == ["proforma_invoice"]
     assert (d["number_field"], d["supplier_tax_field"], d["supplier_name_field"]) == (
         "invoice_number", "supplier_tax_id", "supplier_name")
     assert d["compared_fields"] == ["issue_date", "gross_total", "currency"]
-    assert duplicates.config_hash() == cfg.config_hash("duplicates")
+    assert duplicates.config_hash() == cfg.config_hash("finance")
 
 
-def test_the_reconciliations_bands_are_in_its_own_file_and_its_fingerprint():
-    from jav.domains.finance import reconcile, reconcile_review  # noqa: F401 - reconcile_review reads the threshold
+def test_the_reconciliations_bands_are_the_finance_domains_and_its_statement_is_unchanged():
+    from jav.domains.finance import reconcile
 
-    r = cfg.load("reconcile")
+    r = cfg.load("finance")["reconcile"]
     assert r["fx_tolerance"] == {"below": "0.02", "above": "0.05"} and r["ai_sure"] == {"min_jev_probability": 0.95}
     assert reconcile.fx_tolerance() == (Decimal("0.02"), Decimal("0.05"))
     assert reconcile.fx_bank_tolerance("fulfillment") == (Decimal("0.005"), Decimal("0.005"))
     assert reconcile.fx_bank_tolerance("booking") == (Decimal("0.02"), Decimal("0.02"))
     assert reconcile.ai_sure_probability() == 0.95
-    # the reconciliation's fingerprint covers its bands now (before 224 they were in the shared file, outside it)
-    body = {k: v for k, v in r.items() if k != "meta"}
-    assert cfg.canonical(r) != cfg.canonical({**body, "fx_tolerance": {"below": "0.03", "above": "0.05"}, "meta": r["meta"]})
+    # not in the reconciliation's own file: its fingerprint is printed on a statement (`tests/test_characterisation_176.py`
+    # fixes an approval's fingerprint), so an approved statement does not read as changed
+    assert not {"fx_tolerance", "fx_bank_tolerance", "ai_sure"} & set(cfg.load("reconcile"))
 
 
 def test_each_domain_file_is_read_by_its_owner_and_the_type_roles_only():
     roles = "jav/core/type_roles.py"
     assert _readers("policy") == {"jav/ai/policy.py", roles}
     assert _readers("email") == {"jav/domains/email/email_rules.py", roles}
-    assert _readers("duplicates") == {"jav/domains/finance/duplicates.py", roles}
+    assert _readers("finance") == {"jav/domains/finance/duplicates.py", "jav/domains/finance/reconcile.py", roles}
 
 
 def test_the_shared_ai_layer_no_longer_holds_the_email_routes():
@@ -96,6 +98,6 @@ def test_the_decision_points_name_the_files_they_read_now():
     registrations.load_all()
     assert trace.point("email.intent").files == ("policy.json", "email.json")
     assert trace.point("email.next_flow").files == ("policy.json", "email.json")
-    assert trace.point("finance.duplicate").files == ("duplicates.json", "fact_checks.json")
+    assert trace.point("finance.duplicate").files == ("finance.json", "fact_checks.json")
     help_ = cfg.load("rule_help")
-    assert {"email.json", "duplicates.json"} <= set(help_["files"])
+    assert {"email.json", "finance.json"} <= set(help_["files"])

@@ -1,9 +1,9 @@
 """Decision rules - the shared thresholds come from `configs/policy.json` (config as data), the logic is here.
 
 224 (plan G-process-core P3c): a domain's own rules are in its own file, read by its own module: the email routes
-(`configs/email.json`, `jav/domains/email/email_rules.py`), the duplicate search (`configs/duplicates.json`,
-`jav/domains/finance/duplicates.py`), the reconciliation's bands (`configs/reconcile.json`,
-`jav/domains/finance/reconcile.py`). They judge with the bands here.
+(`configs/email.json`, `jav/domains/email/email_rules.py`), the duplicate search and the reconciliation's bands
+(`configs/finance.json`, `jav/domains/finance/duplicates.py`, `jav/domains/finance/reconcile.py`). They judge with the
+bands here.
 
 JEV's raw probabilities (`FieldPick.probabilities`, `JevVerdicts.flags`, `IntentResult.signals`) stay untouched in the
 state; only their interpretation happens here. Changing a threshold (in the JSON, with a version bump) needs no re-run
