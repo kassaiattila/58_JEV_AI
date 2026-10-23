@@ -146,7 +146,7 @@ def convert(key: str, *, old_type_map: dict[str, str]) -> dict[str, Any]:
             "name": f"type:{key}",
             "version": "1.0.0",
             "changelog": [{"version": "1.0.0", "date": "2026-09-28",
-                           "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"}],
+                           "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/legacy/typepack_convert.py); séma és prompt verbatim; csak G-kar"}],
             "source": {"path": f"10_AIFLOW_V4/flows/doc-extract-bare/types/{key}", "via": f"configs/legacy_types/{key}",
                        "sha256": manifest["files"]},
         },

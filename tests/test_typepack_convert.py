@@ -5,7 +5,7 @@ import json
 import pytest
 
 from jav.ai import typepack
-from jav.typepack_convert import LEGACY_DIR, PENDING, convert, guess_kind
+from jav.legacy.typepack_convert import LEGACY_DIR, PENDING, convert, guess_kind
 
 OLD_MAP = json.loads((LEGACY_DIR.parent / "doc_types.json").read_text(encoding="utf-8"))["old_type_map"]
 KEYS = sorted(p.name for p in LEGACY_DIR.iterdir() if p.is_dir())

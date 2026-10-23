@@ -1,12 +1,13 @@
 """The direction of the dependencies between the code's layers (208, plan G-process-core R2).
 
-Plain-language summary: the code is being put into one folder per layer: the shared core, document reading, the AI
-questions, the flows, the application (work packages, runs, results, outputs, workflows), the worker, the domains,
-the local service and the command line, with the measurement, the developer tools and the port of the legacy project
-beside them. A layer may use the layers below it, never the ones above, and a domain never uses another domain. This
-test reads every module's imports, inside functions too, and fails on a new import against the direction.
-`KNOWN` lists the ones that exist today, each to go with a later step; `NOT_MOVED` names the layer of each module that
-is not in its layer's folder yet. Both lists can only shrink: the test also fails when a listed entry has gone.
+Plain-language summary: the code is in one folder per layer: the shared core, document reading, the AI questions, the
+flows, the application (work packages, runs, results, outputs, workflows), the worker, the domains, the local service
+and the command line, with the measurement, the developer tools and the port of the legacy project beside them. A
+layer may use the layers below it, never the ones above, and a domain never uses another domain. This test reads every
+module's imports, inside functions too, and fails on a new import against the direction and on a module outside the
+layers' folders. `KNOWN` lists the imports against the direction that exist today, each to go with a later step; it
+can only shrink: the test also fails when a listed entry has gone. (Until the move was finished, a list named the
+layer of each module not yet in its folder.)
 
 This replaces the earlier boundary tests: the shared code imports no domain (185), no domain imports another (204,
 R1j) and nothing imports the measurement tools (040, K0).
@@ -35,29 +36,27 @@ BESIDE = {
 ALLOWED = {layer: (*LAYERS[: i + 1], *(("evals", "devtools", "legacy") if layer == "cli" else ())) for i, layer in
            enumerate(LAYERS)} | BESIDE
 
-# not in its layer's folder yet: module (relative to jav) -> its layer ("domains.<domain>" for a domain's module)
-NOT_MOVED = {name: layer for layer, names in {
-    "legacy": "legacy_import legacy_packs typepack_convert",
-}.items() for name in names.split()}
-
 # imports against the direction today, each with the step that takes it away
 KNOWN = {
     # the general data model's page layout moves to the documents layer when the model splits (R2)
     ("jav.documents.ocr", "jav.ai.models"), ("jav.documents.pdf", "jav.ai.models"),
     # reading asks the decision rules for its thresholds, and the native reader's interpretation the AI layer
-    ("jav.documents.ocr", "jav.ai.policy"), ("jav.documents.pdf_input", "jav.ai.policy"), ("jav.documents.text_document", "jav.ai.typepack"),
+    ("jav.documents.ocr", "jav.ai.policy"), ("jav.documents.pdf_input", "jav.ai.policy"),
+    ("jav.documents.text_document", "jav.ai.typepack"),
     ("jav.documents.readers.interpretation", "jav.ai.fact_checks"), ("jav.documents.readers.providers", "jav.ai.jev"),
     # the registries load the domains' registrations themselves
     ("jav.core.activity_kinds", "jav.app.registrations"), ("jav.ai.checks", "jav.app.registrations"),
     # the shared decision handler raises the work package's conflict error; a document's reading checks its item
-    ("jav.core.decisions", "jav.app.work"), ("jav.documents.native_results", "jav.app.item_kinds"), ("jav.documents.ocr", "jav.app.source_instances"),
+    ("jav.core.decisions", "jav.app.work"), ("jav.documents.native_results", "jav.app.item_kinds"),
+    ("jav.documents.ocr", "jav.app.source_instances"),
     ("jav.ai.party_history", "jav.app.package_result"),
     # the shared views show the worker's state
     ("jav.app.work_views", "jav.runtime.worker"),
     # the operations log masks keys with the data guard's patterns
     ("jav.core.applog", "jav.devtools.data_guard"),
     # the quote's business modules read the invented price list of its golden set
-    ("jav.domains.quotes.quote_letter", "jav.domains.quotes.invented_golden"), ("jav.domains.quotes.quote_match", "jav.domains.quotes.invented_golden"),
+    ("jav.domains.quotes.quote_letter", "jav.domains.quotes.invented_golden"),
+    ("jav.domains.quotes.quote_match", "jav.domains.quotes.invented_golden"),
 }
 # imports against the direction for good, each with its reason
 LASTING = {
@@ -82,7 +81,7 @@ MODULES = _modules()
 
 def domain_modules(domain: str) -> frozenset[str]:
     """The modules a domain (`jav.domains.<name>`) is made of, relative to jav: its package and the modules in its folder
-    (208; until then its domain module named them in `MODULES`)."""
+    (208; until then its domain module named them, `MODULES`)."""
     name = domain.removeprefix("jav.")
     return frozenset(m for m in MODULES if m == name or m.startswith(name + "."))
 
@@ -124,19 +123,13 @@ def _place(name: str) -> tuple[str, str | None]:
     """A module's layer and its domain (None outside the domains). A domain's addresses of the local service
     (`api_*`), its commands (`*_cli`) and its golden sets (`*golden`, `*goldens`) follow the rules of the service, the
     command line and the measurement layer; the package of the domains itself is only their list."""
-    if name in NOT_MOVED:
-        layer, _, domain = NOT_MOVED[name].partition(".")
-        if not domain:
-            return layer, None
-        parts = [layer, domain]
-    else:
-        parts = name.split(".")
-        if name == "domains":
-            return "core", None
-        if parts[0] not in ALLOWED:
-            raise AssertionError(f"jav/{name.replace('.', '/')} is in no layer's folder and not in NOT_MOVED")
-        if parts[0] != "domains":
-            return parts[0], None
+    parts = name.split(".")
+    if name == "domains":
+        return "core", None
+    if parts[0] not in ALLOWED or len(parts) == 1 and not MODULES[name].name == "__init__.py":
+        raise AssertionError(f"{MODULES[name].relative_to(JAV.parent).as_posix()} is in no layer's folder")
+    if parts[0] != "domains":
+        return parts[0], None
     leaf = name.rsplit(".", 1)[-1]
     role = ("service" if leaf.startswith("api_") else "cli" if leaf.endswith("_cli")
             else "evals" if leaf.endswith(("golden", "goldens")) else "domains")
@@ -158,14 +151,11 @@ def _against() -> frozenset[tuple[str, str]]:
     return frozenset(edges)
 
 
-def test_every_module_has_a_layer_and_no_listed_one_is_in_its_folder_already():
+def test_every_module_is_in_a_layers_folder():
     for name in MODULES:
         if name:
             _place(name)
-    for name, layer in NOT_MOVED.items():
-        assert name in MODULES, f"jav.{name} is listed as not moved, but there is no such module"
-        folder = MODULES[name].relative_to(JAV).parts
-        assert not (len(folder) > 1 and folder[0] == layer.split(".")[0]), f"jav.{name} is in its folder: take it off NOT_MOVED"
+    assert sorted(p.name for p in JAV.glob("*.py")) == ["__init__.py"]
 
 
 def test_no_import_against_the_direction_beyond_the_known_ones():

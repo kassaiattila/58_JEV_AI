@@ -239,7 +239,7 @@ def cmd_configs(args: argparse.Namespace) -> int:
 def cmd_legacy_import(args: argparse.Namespace) -> int:
     from pathlib import Path
 
-    from jav import legacy_import
+    from jav.legacy import legacy_import
     from jav.core.config import OLD_DATA_ROOT
 
     print(json.dumps(legacy_import.import_batches(Path(args.root) if args.root else OLD_DATA_ROOT / "output"), ensure_ascii=False))
@@ -249,7 +249,7 @@ def cmd_legacy_import(args: argparse.Namespace) -> int:
 def cmd_legacy_compare(args: argparse.Namespace) -> int:
     from pathlib import Path
 
-    from jav import legacy_import
+    from jav.legacy import legacy_import
 
     rep = legacy_import.compare()
     text = json.dumps(rep, ensure_ascii=False, indent=1)

@@ -1,7 +1,7 @@
 """The local service's shared request handling (204, plan G-process-core R1g): what every module of addresses uses.
 
 Plain-language summary: the local service is put together from one gateway module (`jav/service/api.py`) and modules of
-addresses by theme (`jav/api_*.py`). They all check a request the same way: the same rules for an id in the address,
+addresses by theme (`jav/service/api_*.py`). They all check a request the same way: the same rules for an id in the address,
 for a request body (an unknown field is refused), for the person named in the `X-Actor` header and for a folder or file
 given by path, and they answer an error in the same JSON shape. Those rules live here, so the modules of addresses no
 longer import the gateway that loads them, and nothing here imports a module of addresses.

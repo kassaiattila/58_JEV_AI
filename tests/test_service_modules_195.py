@@ -1,6 +1,6 @@
 """195 (plan G-tidy R4): the local service's addresses live in modules by theme, and `create_app` adds each once.
 
-The shared addresses used to be written inside `create_app`; they moved, as they were, into `jav/api_*.py` modules by
+The shared addresses used to be written inside `create_app`; they moved, as they were, into `jav/service/api_*.py` modules by
 theme. These checks keep the split whole: every such module is added, none twice, the shared themes stay around the
 logic packs' and domains' own modules in their old order, and no address is registered twice.
 """

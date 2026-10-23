@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from jav import legacy_import
+from jav.legacy import legacy_import
 from jav.core import store
 
 MANIFEST = "﻿document_id,doc_type,source_path,resolved_path,output_file,sha256\n" \

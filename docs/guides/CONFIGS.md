@@ -105,7 +105,7 @@ A call site ([glossary](../GLOSSARY.md)) is a point in a flow where JEV is asked
 
 - The `select_callsite` and `verify_callsite` fields of a type pack name the call sites it uses.
 - 202: an S call site states its document description (`document`), the request each extra question belongs to (`request`) and, per request, the lines it takes besides its candidates' (`extra_lines`: `top_fraction`, `bottom_lines`; `payment_method_lines`). Nothing is inferred from a request's name, so a new type's S call site is configuration only.
-- A `verify_<key>.json` inherits the shared error questions through `"inherits": "verify"`, and mainly adds the type's field descriptions (`field_specs`), glossary and request-size budget. The verification call sites of the types taken over from the legacy project were built this way (`jav/typepack_convert.py`).
+- A `verify_<key>.json` inherits the shared error questions through `"inherits": "verify"`, and mainly adds the type's field descriptions (`field_specs`), glossary and request-size budget. The verification call sites of the types taken over from the legacy project were built this way (`jav/legacy/typepack_convert.py`).
 - 190: a verification call site names its document-level questions (`document_nouls`; 202: `verify.json` states the three invoice questions - swapped parties, missing and extra line items - and its document description, which every other call site inherits unless it names its own; a call site without them is refused) and the questions asked of each list field of the pack (`list_nouls`, each sent with the list's name as `list_field`; none without the key). A question named there needs its text under `nouls`. A call site that does not inherit `verify` writes its own question texts, so a document that is not an invoice is not asked about an invoice's parties. A pack's `source_prefix` names the words before the source text in the GPT request (without it: the invoice PDF's).
 - `request_char_budget` and `option_context_max` make up the request-size budget ([glossary](../GLOSSARY.md)): for an oversized request, the code trims first the text, then the descriptions, and finally the number of candidates.
 
@@ -153,9 +153,9 @@ The synthetic cases of the injected-instruction probe (`document_injection.json`
 
 A verbatim copy, per type, of the legacy project's type folders: schema, instruction, rules, detection keywords and the old descriptor. Alongside them is a `manifest.json` with the source path and the sha256 of every file. Some folders also contain `fixtures/synth_*.json`; these are purely synthetic samples. They are read by:
 
-- `jav/legacy_packs.py`: checks the fingerprints on loading and raises an error on a mismatch;
+- `jav/legacy/legacy_packs.py`: checks the fingerprints on loading and raises an error on a mismatch;
 - `jav/devtools/capability_catalog.py`: coverage;
-- `jav/typepack_convert.py`: the one-off converter that built the corresponding type packs and verification call sites from them.
+- `jav/legacy/typepack_convert.py`: the one-off converter that built the corresponding type packs and verification call sites from them.
 
 These files are not edited, because they are source copies. Behaviour is changed in the type pack or call site built from them. They have no `meta` block, they are not in the `configs` list, and automatic routing is switched off for them (`automatic_routing_enabled: false`).
 

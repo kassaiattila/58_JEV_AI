@@ -13,7 +13,7 @@ counts.
 
 The edited draft (K2b, `configs/type_drafts/<key>.json`) names the type, its detection category, an English
 description and its fields: each with its Hungarian label, kind, English meaning and whether it is scored. From it code
-makes a candidate type pack the way the legacy converter made the converted packs (`jav/typepack_convert.py`, 047): the
+makes a candidate type pack the way the legacy converter made the converted packs (`jav/legacy/typepack_convert.py`, 047): the
 pack, its extraction prompt and schema, and a verification call site that inherits the shared questions. A candidate
 is never picked by detection (`auto_detect` false), so it changes no processing; it is measured on the family's
 evaluation half only (its golden type key is its own, so no legacy case measures it in-sample). The entries of the

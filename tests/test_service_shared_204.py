@@ -1,7 +1,7 @@
 """204 (R1g): the modules of addresses take the shared request handling from `jav/service/service_shared.py`, not the gateway.
 
 Plain-language summary: the local service's gateway (`jav/service/api.py`) loads the modules of addresses by theme
-(`jav/api_*.py`). Those modules used to take the shared rules (the request body's strictness, the actor check, the path
+(`jav/service/api_*.py`). Those modules used to take the shared rules (the request body's strictness, the actor check, the path
 check, the error answer's shape) from the gateway itself, a hidden loop, and used its private names. The rules now live
 in one shared module. These checks keep it so: no module of addresses imports the gateway, and the shared module imports
 neither the gateway nor any module of addresses, not even indirectly. No AI call, no store: the modules are read as
