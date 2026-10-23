@@ -76,10 +76,11 @@ PROVIDERS = ("jev", "openai", "azure_di")  # the call log's providers (jav/core/
 # processing of a folder, files or uploads; not a mailbox's)
 DOCUMENTS = "documents"
 DOCUMENT_PACKAGES = ("folder", "manual", "watch", "upload")
-OPEN_STATES = ("waiting", "pulling", "needs_budget", "failed")
 TICK_EVERY_S = 10.0
 # 153 (review D2): a start claimed this long ago and still not finished was interrupted (a service stopped while a
-# large folder was fingerprinted): the step goes to `failed`, so a person can start it again
+# large folder was fingerprinted): the step goes to `failed`, so a person can start it again. 214: the case's next turn
+# finds such a start at once (`_case_step`); this stays the safety net for a start no turn reaches (an archived
+# workflow's)
 STALE_START_S = 3600
 
 store.register_schema("workflows", """
