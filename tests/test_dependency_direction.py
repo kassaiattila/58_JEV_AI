@@ -57,11 +57,9 @@ KNOWN = {
     ("jav.domains.quotes.quote_letter", "jav.domains.quotes.invented_golden"),
     ("jav.domains.quotes.quote_match", "jav.domains.quotes.invented_golden"),
 }
-# imports against the direction for good, each with its reason
-LASTING = {
-    ("jav.ai.policy", "jav.domains.email.emails"): "the routing rules of every flow are one module with their thresholds (CLAUDE.md §6)",
-    ("jav.ai.policy", "jav.domains.email.intents"): "the routing rules of every flow are one module with their thresholds (CLAUDE.md §6)",
-}
+# imports against the direction for good, each with its reason (224: the shared decision rules no longer import the
+# email domain; its routes are the domain's own, `jav/domains/email/email_rules.py`)
+LASTING: dict[tuple[str, str], str] = {}
 
 
 def _modules() -> dict[str, Path]:

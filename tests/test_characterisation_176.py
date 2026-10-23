@@ -200,7 +200,10 @@ def test_neither_kind_takes_documents_the_shared_way(db) -> None:
 
 # --- the fingerprint a reconciliation's approval records -------------------------------------------------------------------
 
-APPROVAL_FINGERPRINT = "60e7c20bbd733e5c279373b003dbb9a61d677ce2799dfe2b43fa6779746b9455"
+# 224 (P3c): the statement names the reconciliation's rule fingerprint, which now covers its currency bands (moved from
+# policy.json to reconcile.json); with the earlier fingerprint (78cf12ead217d5e4) the content is the one fixed before
+# (60e7c20bbd733e5c279373b003dbb9a61d677ce2799dfe2b43fa6779746b9455)
+APPROVAL_FINGERPRINT = "d5b72fd6d8ff0375f4e9f6dc799dc176fb332f78021232164906f8d4f10c3951"
 
 
 def test_the_statement_a_reconciliation_approves_has_this_fingerprint(db) -> None:

@@ -39,7 +39,7 @@ def test_naming_labels_and_email_routing_know_the_type():
     label = cfg.load("field_labels")["doc_types"]["proforma_invoice"]  # the Hungarian UI label
     english = json.loads((PROJECT_ROOT / "ui" / "src" / "i18n" / "en-server.json").read_text(encoding="utf-8"))
     assert label != "proforma_invoice" and english[label] == "Pro forma invoice"
-    assert "proforma_invoice" in cfg.load("policy")["email"]["m2_types"]
+    assert "proforma_invoice" in cfg.load("email")["m2_types"]
 
 
 def test_the_capability_catalog_covers_the_new_pack():

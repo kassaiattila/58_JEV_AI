@@ -255,11 +255,11 @@ SUSPICIOUS_ATTACHMENT = todo_kinds.SUSPICIOUS_ATTACHMENT  # 154 (DECISIONS 154);
 
 def suspicious_email(run_id: str, email_item_id: str) -> bool:
     """154: whether the run's email item was routed by a signal (an injected instruction -> `human:suspicious`,
-    policy `email.signal_routes`)."""
-    from jav.ai import policy
+    `email.json` `signal_routes`)."""
+    from jav.domains.email import email_rules
 
     result = email_store.email_result(work_runs.flow_run_id(run_id, email_item_id))
-    return bool(result) and result.get("next_flow") in set(policy.EMAIL_SIGNAL_ROUTES.values())
+    return bool(result) and result.get("next_flow") in set(email_rules.EMAIL_SIGNAL_ROUTES.values())
 
 
 def mark_suspicious_source(run: dict[str, Any], item: dict[str, Any]) -> bool:
@@ -801,7 +801,7 @@ def effective_email_result(res: dict[str, Any], corrected_intent: str | None) ->
     """The email result with the manual correction (058 K5.1): the corrected intent wins and the routing is recomputed
     from it in code (the machine signals - e.g. an injected instruction - still count). The machine intent is kept
     (`machine_intent`)."""
-    from jav.ai import policy
+    from jav.domains.email import email_rules
     from jav.domains.email.emails import Attachment, is_bookkeeping_file
 
     signals = {k: v for k, v in (res.get("signals") or {}).items() if k != "scores"}
@@ -819,7 +819,7 @@ def effective_email_result(res: dict[str, Any], corrected_intent: str | None) ->
     if corrected_intent and corrected_intent != res.get("intent"):
         atts = [Attachment.model_validate(a) for a in out["attachments"]]
         out.update(intent=corrected_intent, intent_label=intent_name(corrected_intent), corrected=True,
-                   next_flow=policy.email_next_flow(corrected_intent, 1.0, atts, {corrected_intent: 1.0}, signals))
+                   next_flow=email_rules.email_next_flow(corrected_intent, 1.0, atts, {corrected_intent: 1.0}, signals))
     elif corrected_intent:
         out["corrected"] = True  # a person confirmed the machine intent
     out["next_flow_reads_text"] = reads_text(out["next_flow"])  # 192: its name says the email's text is read too

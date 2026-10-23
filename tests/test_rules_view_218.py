@@ -84,18 +84,18 @@ def test_the_view_shows_the_running_rules_in_their_areas(db, monkeypatch):  # no
     hungarian = _value(rows["detect.detail_type"], "detect_issuer.hungarian_types")
     assert hungarian["value"] == [doc_types[k] for k in cfg.load("policy")["detect_issuer"]["hungarian_types"]]
     fields = cfg.load("field_labels")["fields"]
-    assert _value(rows["finance.duplicate"], "duplicates.compared_fields")["value"] == [
-        fields[k] for k in cfg.load("policy")["duplicates"]["compared_fields"]]
+    assert _value(rows["finance.duplicate"], "compared_fields")["value"] == [
+        fields[k] for k in cfg.load("duplicates")["compared_fields"]]
     # an email's next step by its code, as the interface names steps everywhere; the quote request's reads the text too
-    sent = _value(rows["email.next_flow"], "email.sent_route")
+    sent = _value(rows["email.next_flow"], "sent_route")
     assert (sent["format"], sent["value"]) == ("route", {"code": "archive:sent", "reads_text": False})
-    by_intent = _value(rows["email.next_flow"], "email.intent_route")
+    by_intent = _value(rows["email.next_flow"], "intent_route")
     intents = datasets.label_set("intent")
     assert by_intent["format"] == "routes"
     assert by_intent["value"][0] == [intents["quote_request"], {"code": "m2:quote_request", "reads_text": True}]
     assert by_intent["value"][1] == [intents["szamlakuldes"], {"code": "human:fetch_document", "reads_text": False}]
     assert datasets.label_set("next_flow")["archive:sent"] in rows["email.next_flow"]["values"]
-    assert _value(rows["email.intent"], "email.signal_review")["value"] == ["An instruction hidden in the email"]
+    assert _value(rows["email.intent"], "signal_review")["value"] == ["An instruction hidden in the email"]
     engine = _value(rows["ocr.escalation"], "escalation.engine")
     assert (engine["format"], engine["value"]) == ("name", "Azure DI")
     email = _value(rows["workflow.budget_gate"], "recipes[processing].max_item_usd_by_kind.email.*")

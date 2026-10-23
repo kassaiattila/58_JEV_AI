@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.25.0",
+  "version": "1.26.0",
   "changelog": [
+   {
+    "version": "1.26.0",
+    "date": "2026-10-24",
+    "note": "224 (plan G-process-core P3c, DECISIONS 218): the shared rules only. The email flow's routes (email) moved to configs/email.json, the duplicate search's families and fields (duplicates) to configs/duplicates.json, the reconciliation's currency bands and its sure AI threshold (reconcile) to configs/reconcile.json, each read by its domain's own module; the values are unchanged. A domain's rule change no longer changes this file's fingerprint (a data point's config_hash names it)."
+   },
    {
     "version": "1.25.0",
     "date": "2026-10-21",
@@ -175,42 +180,6 @@
   "email.intent.gpt": "gpt_intent",
   "native.support": "default"
  },
- "email": {
-  "m2_types": [
-   "invoice_foreign",
-   "invoice_hu",
-   "proforma_invoice",
-   "quote_request",
-   "receipt",
-   "utility_bill_hu"
-  ],
-  "intent_route": {
-   "quote_request": "m2:quote_request",
-   "szamlakuldes": "human:fetch_document",
-   "fizetesi_visszaigazolas": "archive:payment_proof",
-   "business_correspondence": "human:inbox",
-   "esemeny_tajekoztatas": "archive:calendar",
-   "sportesemeny_tamogatas": "archive:calendar",
-   "megrendeles_statusz_ertesites": "archive:order_status",
-   "system_notification": "archive",
-   "newsletter_marketing": "archive",
-   "job_posting": "archive",
-   "social_network_notification": "archive",
-   "other": "human:inbox"
-  },
-  "low_conf_route": "human:low_confidence",
-  "needs_ocr_route": "m2:needs_ocr",
-  "detect_route": "m1:detect",
-  "default_route": "human:inbox",
-  "jev_unavailable_route": "human:jev_unavailable",
-  "sent_route": "archive:sent",
-  "signal_review": [
-   "prompt_injection"
-  ],
-  "signal_routes": {
-   "prompt_injection": "human:suspicious"
-  }
- },
  "detect_detail": {
   "anchor_margin": 0.75,
   "foreign_issuer_pack": {"receipt": "invoice_foreign"},
@@ -229,21 +198,5 @@
   "bands": {"confident": 0.98, "check": 0.5},
   "review_below": 0.98,
   "info_only": {"invoice_out": ["buyer_address"]}
- },
- "duplicates": {
-  "families": {
-   "invoice": ["invoice_hu", "invoice_foreign", "invoice_out", "csatorna_szamla", "foldgaz_szamla", "mohu_szamla",
-               "villamos_energia_szamla", "viz_szamla", "vizmuvek_szamla"],
-   "proforma": ["proforma_invoice"]
-  },
-  "number_field": "invoice_number",
-  "supplier_tax_field": "supplier_tax_id",
-  "supplier_name_field": "supplier_name",
-  "compared_fields": ["issue_date", "gross_total", "currency"]
- },
- "reconcile": {
-  "fx_tolerance": {"below": "0.02", "above": "0.05"},
-  "fx_bank_tolerance": {"fulfillment": {"below": "0.005", "above": "0.005"}, "booking": {"below": "0.02", "above": "0.02"}},
-  "ai_sure": {"min_jev_probability": 0.95}
  }
 }

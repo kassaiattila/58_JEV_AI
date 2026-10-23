@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, Noul, Score, SystemOneResponse
 
-from jav.ai import policy
+from jav.domains.email import email_rules
 from jav.core import cfg, store
 from jav.ai.jev import JevAdapter
 from jav.domains.email.emails import Attachment, EmailMessage
@@ -114,18 +114,18 @@ def test_adapter_cache_roundtrip_keeps_score_answers(isolated: Path):
 def test_policy_signal_reasons_and_route():
     """An injected instruction in the yes band: a review reason + the `human:suspicious` route ahead of everything else;
     the multiple-requests signal is only measured, not a review reason."""
-    assert policy.email_signal_reasons({"prompt_injection": 0.9, "multiple_requests": 0.9}) == ["signal:prompt_injection:0.90"]
-    assert policy.email_signal_reasons({"prompt_injection": 0.2, "multiple_requests": 0.95}) == []
-    assert policy.email_signal_reasons({"prompt_injection": 0.5}) == []  # uncertain band: uncertain_review false
+    assert email_rules.email_signal_reasons({"prompt_injection": 0.9, "multiple_requests": 0.9}) == ["signal:prompt_injection:0.90"]
+    assert email_rules.email_signal_reasons({"prompt_injection": 0.2, "multiple_requests": 0.95}) == []
+    assert email_rules.email_signal_reasons({"prompt_injection": 0.5}) == []  # uncertain band: uncertain_review false
     pdf_typed = [Attachment(filename="a.pdf", path="a.pdf", doc_type="invoice_hu", type_conf=0.98, status="done")]
-    assert policy.email_next_flow("szamlakuldes", 0.9, pdf_typed, signals={"prompt_injection": 0.9}) == "human:suspicious"
-    assert policy.email_next_flow("szamlakuldes", 0.9, pdf_typed, signals={"prompt_injection": 0.2}) == "m2:invoice_hu"
-    assert policy.email_next_flow("szamlakuldes", 0.9, pdf_typed, signals=None) == "m2:invoice_hu"
+    assert email_rules.email_next_flow("szamlakuldes", 0.9, pdf_typed, signals={"prompt_injection": 0.9}) == "human:suspicious"
+    assert email_rules.email_next_flow("szamlakuldes", 0.9, pdf_typed, signals={"prompt_injection": 0.2}) == "m2:invoice_hu"
+    assert email_rules.email_next_flow("szamlakuldes", 0.9, pdf_typed, signals=None) == "m2:invoice_hu"
     # the injection comes before low_conf
-    assert policy.email_next_flow("szamlakuldes", 0.3, pdf_typed, signals={"prompt_injection": 0.9}) == "human:suspicious"
-    p = cfg.load("policy")
-    assert p["email"]["signal_review"] == ["prompt_injection"] and p["email"]["signal_routes"] == {"prompt_injection": "human:suspicious"}
-    assert "email.urgency" in p["band_for"]
+    assert email_rules.email_next_flow("szamlakuldes", 0.3, pdf_typed, signals={"prompt_injection": 0.9}) == "human:suspicious"
+    e = cfg.load("email")  # 224: the email domain's own rule file; the bands stay shared
+    assert e["signal_review"] == ["prompt_injection"] and e["signal_routes"] == {"prompt_injection": "human:suspicious"}
+    assert "email.urgency" in cfg.load("policy")["band_for"]
 
 
 def test_injection_probe_perturbation_is_pure_and_bilingual():

@@ -200,7 +200,8 @@ def test_an_emails_intent_and_next_step_are_traced_with_its_save(db, monkeypatch
     assert route["outcome"] == {"next_flow": st_.next_flow}
     assert route["inputs"]["attachments"] == [{"filename": "invoice.pdf", "doc_type": "invoice_hu",
                                                "status": st_.message.attachments[0].status}]  # what the rule read
-    assert "email.signal_routes" in route["rules"][0]["keys"]
+    assert route["rules"][0]["file"] == "email.json" and "signal_routes" in route["rules"][0]["keys"]  # 224: its own file
+    assert route["rules"][1]["file"] == "policy.json" and "band_for.email.intent" in route["rules"][1]["keys"]
     for row in rows.values():
         assert trace.replay(row) == row["outcome"]
 
@@ -216,7 +217,7 @@ def test_an_email_without_an_intent_traces_only_its_route(db, tmp_path, monkeypa
     rows = trace.rows(subject=("email", "m-2"))
     assert [r["point"] for r in rows] == [flow_email.NEXT_FLOW_POINT]
     assert rows[0]["outcome"] == {"next_flow": st_.next_flow} == {"next_flow": "human:jev_unavailable"}
-    assert rows[0]["rules"][0]["keys"] == ["email.jev_unavailable_route"]
+    assert [(r["file"], r["keys"]) for r in rows[0]["rules"]] == [("email.json", ["jev_unavailable_route"])]
 
 
 def test_an_email_whose_trace_cannot_be_written_saves_nothing(db, tmp_path, monkeypatch):  # noqa: F811

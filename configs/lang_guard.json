@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.127",
+    "version": "1.0.128",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.128",
+        "date": "2026-10-24",
+        "note": "224 (plan G-process-core P3c): three lines naming the moved email rules rewritten in English (the email flow's route step note and its generated map, two consumer notes of the call-site catalogue); 6049 -> 6046."
+      },
       {
         "version": "1.0.127",
         "date": "2026-10-23",
@@ -797,7 +802,7 @@
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 9,
     "docs/flows/doc_detect/FLOW.mmd": 3,
-    "docs/flows/email_intent/FLOW.md": 8,
+    "docs/flows/email_intent/FLOW.md": 7,
     "docs/flows/invoice/FLOW.md": 15,
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
@@ -839,7 +844,7 @@
     "jav/core/version.py": 1,
     "jav/devtools/admin.py": 15,
     "jav/devtools/data_guard.py": 29,
-    "jav/devtools/docsgen.py": 48,
+    "jav/devtools/docsgen.py": 47,
     "jav/devtools/lang_guard.py": 1,
     "jav/devtools/preflight.py": 14,
     "jav/documents/ocr.py": 5,
@@ -850,7 +855,7 @@
     "jav/domains/email/email_export.py": 5,
     "jav/domains/email/email_tasks.py": 4,
     "jav/domains/email/emails.py": 4,
-    "jav/domains/email/flow_email.py": 9,
+    "jav/domains/email/flow_email.py": 8,
     "jav/domains/email/ingest_server.py": 8,
     "jav/domains/email/intent.py": 5,
     "jav/domains/email/mailbox.py": 18,

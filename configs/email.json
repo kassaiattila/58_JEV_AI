@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "name": "email",
+    "version": "1.0.0",
+    "description": "The email flow's own rules (jav/domains/email/email_rules.py): an email's next step after its intent is recognised - the route of each intent, of a low confidence, of a message we sent and of an unanswered question, the attachment types that go to their data extraction, and the signals whose yes band means a to-do and their routes. The bands the confidence and the signals are judged with are the shared ones (configs/policy.json band_for email.*).",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-24",
+        "note": "224 (plan G-process-core P3c, DECISIONS 218): moved unchanged from configs/policy.json 1.25.0 (its email section), so a change to the email routes no longer changes the shared rule file's fingerprint. Earlier history: the policy.json changelog (1.4.0: signal_review and signal_routes; 1.21.0, 149: sent_route; 1.25.0, 190: the quote request's route and m2_types entry)."
+      }
+    ]
+  },
+  "m2_types": [
+    "invoice_foreign",
+    "invoice_hu",
+    "proforma_invoice",
+    "quote_request",
+    "receipt",
+    "utility_bill_hu"
+  ],
+  "intent_route": {
+    "quote_request": "m2:quote_request",
+    "szamlakuldes": "human:fetch_document",
+    "fizetesi_visszaigazolas": "archive:payment_proof",
+    "business_correspondence": "human:inbox",
+    "esemeny_tajekoztatas": "archive:calendar",
+    "sportesemeny_tamogatas": "archive:calendar",
+    "megrendeles_statusz_ertesites": "archive:order_status",
+    "system_notification": "archive",
+    "newsletter_marketing": "archive",
+    "job_posting": "archive",
+    "social_network_notification": "archive",
+    "other": "human:inbox"
+  },
+  "low_conf_route": "human:low_confidence",
+  "needs_ocr_route": "m2:needs_ocr",
+  "detect_route": "m1:detect",
+  "default_route": "human:inbox",
+  "jev_unavailable_route": "human:jev_unavailable",
+  "sent_route": "archive:sent",
+  "signal_review": [
+    "prompt_injection"
+  ],
+  "signal_routes": {
+    "prompt_injection": "human:suspicious"
+  }
+}

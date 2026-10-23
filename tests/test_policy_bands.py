@@ -32,9 +32,10 @@ def test_policy_json_v110_has_bands_and_no_legacy_thresholds():
     d = p["bands"]["default"]
     assert {"noul_no_max", "noul_yes_min", "choice_human_max_conf", "choice_second_min_gap", "uncertain_review"} <= set(d)
     assert d["noul_no_max"] < d["noul_yes_min"] and d["uncertain_review"] is False
-    # 1.5.0: the required / high_stakes lists are in the type packs (configs/types/); policy = bands + email
-    assert "invoice" not in p
-    assert "low_confidence" not in p.get("detect", {}) and "intent_human_max_conf" not in p["email"]
+    # 1.5.0: the required / high_stakes lists are in the type packs (configs/types/); 1.26.0 (224): the email routes
+    # are the email domain's own file
+    assert "invoice" not in p and "email" not in p
+    assert "low_confidence" not in p.get("detect", {}) and "intent_human_max_conf" not in cfg.load("email")
     assert set(p["band_for"]) >= {"invoice.pick", "invoice.pick.high_stakes", "invoice.verify", "detect.doc_type", "email.intent", "email.signal"}
 
 
@@ -114,8 +115,10 @@ def test_legacy_constants_derive_from_bands():
 
 
 def test_email_next_flow_accepts_probabilities():
-    assert policy.email_next_flow("szamlakuldes", 0.9, [], probabilities={"szamlakuldes": 0.9, "other": 0.1}) == "human:fetch_document"
-    assert policy.email_next_flow("szamlakuldes", 0.5, []) == "human:low_confidence"
+    from jav.domains.email import email_rules
+
+    assert email_rules.email_next_flow("szamlakuldes", 0.9, [], probabilities={"szamlakuldes": 0.9, "other": 0.1}) == "human:fetch_document"
+    assert email_rules.email_next_flow("szamlakuldes", 0.5, []) == "human:low_confidence"
 
 
 def test_high_stakes_field_outside_scored_fields_is_still_checked():

@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "rule_help",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "218 (plan G-process-core P3e, the owner's request and decisions of 2026-10-23): the plain-language description of the rules for the read-only view in Settings › Rules. For every machine decision point of the decision trace (jav/core/trace.py): its area, a short title, what it decides and what it is not for, and the rule values the view shows (file, key, label, format; a percentage's label reads on into its value, as in 'below 60 %'); the values themselves are read from the rule files the running process loaded (jav/app/rules_view.py). Kept apart from the rule files, so their fingerprints and the AI requests do not change. Texts are English; the interface translates them (ui/src/i18n/hu-native.json). A test asks that every decision point has an entry and that every value's key is in a file its point reads.",
     "changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-10-24",
+        "note": "224 (plan G-process-core P3c): the values follow the split of the shared rule file - the email routes from email.json, the duplicate search from duplicates.json; their titles. Only the file and the key of a shown value changed, not its label."
+      },
       {
         "version": "1.0.0",
         "date": "2026-10-23",
@@ -20,6 +25,8 @@
   },
   "files": {
     "policy.json": "Shared decision thresholds",
+    "email.json": "Email routes",
+    "duplicates.json": "Duplicate invoice search",
     "ocr.json": "Text recognition settings",
     "recipes.json": "Processing recipes and their cost caps",
     "parties.json": "Own parties' checks",
@@ -98,7 +105,7 @@
         {"file": "policy.json", "key": "bands.default.choice_human_max_conf", "label": "Waits for a person when the intent's probability is below", "format": "percent"},
         {"file": "policy.json", "key": "bands.default.choice_second_min_gap", "label": "A second intent counts as close within", "format": "points"},
         {"file": "policy.json", "key": "bands.default.uncertain_review", "label": "A close second intent also waits for a person", "format": "yes_no"},
-        {"file": "policy.json", "key": "email.signal_review", "label": "Warning signs that always wait for a person", "format": "labels", "labels": {"prompt_injection": "An instruction hidden in the email"}},
+        {"file": "email.json", "key": "signal_review", "label": "Warning signs that always wait for a person", "format": "labels", "labels": {"prompt_injection": "An instruction hidden in the email"}},
         {"file": "policy.json", "key": "bands.default.noul_yes_min", "label": "A warning sign counts when its probability is at least", "format": "percent"}
       ]
     },
@@ -108,15 +115,15 @@
       "what": "Where an email goes next, by its intent, its warning signs and its attachments: data extraction of an attachment, text or type recognition, a person's queue, or archiving.",
       "not_for": "The data extraction itself, or a person's later routing of an attachment.",
       "values": [
-        {"file": "policy.json", "key": "email.intent_route", "label": "By intent", "format": "intent_routes"},
-        {"file": "policy.json", "key": "email.m2_types", "label": "Attachment types that go to data extraction", "format": "doc_types"},
-        {"file": "policy.json", "key": "email.detect_route", "label": "Any other attachment", "format": "route"},
-        {"file": "policy.json", "key": "email.needs_ocr_route", "label": "An attachment without text", "format": "route"},
-        {"file": "policy.json", "key": "email.low_conf_route", "label": "An uncertain intent", "format": "route"},
-        {"file": "policy.json", "key": "email.signal_routes.prompt_injection", "label": "An email with a hidden instruction", "format": "route"},
-        {"file": "policy.json", "key": "email.jev_unavailable_route", "label": "When JEV did not answer", "format": "route"},
-        {"file": "policy.json", "key": "email.sent_route", "label": "An email from the Sent Items folder", "format": "route"},
-        {"file": "policy.json", "key": "email.default_route", "label": "Any other email", "format": "route"}
+        {"file": "email.json", "key": "intent_route", "label": "By intent", "format": "intent_routes"},
+        {"file": "email.json", "key": "m2_types", "label": "Attachment types that go to data extraction", "format": "doc_types"},
+        {"file": "email.json", "key": "detect_route", "label": "Any other attachment", "format": "route"},
+        {"file": "email.json", "key": "needs_ocr_route", "label": "An attachment without text", "format": "route"},
+        {"file": "email.json", "key": "low_conf_route", "label": "An uncertain intent", "format": "route"},
+        {"file": "email.json", "key": "signal_routes.prompt_injection", "label": "An email with a hidden instruction", "format": "route"},
+        {"file": "email.json", "key": "jev_unavailable_route", "label": "When JEV did not answer", "format": "route"},
+        {"file": "email.json", "key": "sent_route", "label": "An email from the Sent Items folder", "format": "route"},
+        {"file": "email.json", "key": "default_route", "label": "Any other email", "format": "route"}
       ]
     },
     "finance.duplicate": {
@@ -125,9 +132,9 @@
       "what": "Whether an invoice is the same invoice as another one in the store (the same kind, number and supplier), and of which kind: an exact copy, a modified version, or undecidable because a field is missing.",
       "not_for": "A person's decision on the pair, or how the totals count a confirmed copy.",
       "values": [
-        {"file": "policy.json", "key": "duplicates.families.invoice", "label": "Invoice types compared with one another", "format": "doc_types"},
-        {"file": "policy.json", "key": "duplicates.families.proforma", "label": "Pro forma invoices compared with one another", "format": "doc_types"},
-        {"file": "policy.json", "key": "duplicates.compared_fields", "label": "An exact copy when these match too (otherwise a modified version)", "format": "fields"},
+        {"file": "duplicates.json", "key": "families.invoice", "label": "Invoice types compared with one another", "format": "doc_types"},
+        {"file": "duplicates.json", "key": "families.proforma", "label": "Pro forma invoices compared with one another", "format": "doc_types"},
+        {"file": "duplicates.json", "key": "compared_fields", "label": "An exact copy when these match too (otherwise a modified version)", "format": "fields"},
         {"file": "fact_checks.json", "key": "parties.domestic_tax_stem_digits", "label": "Leading digits compared in a Hungarian tax number", "format": "number"}
       ]
     },

@@ -36,7 +36,7 @@ the reviewed result of their run (`decisions_for`, `corrections.review_version`)
 in forints and does not print the original amount, so a forint line of a card statement (`fx.statement_types`) and an
 invoice in another currency are compared through the official MNB rate of the invoice's issue date (`jav/domains/finance/fx.py`). Such
 a pair needs a signal like any other and a line within `fx.window` around the issue date; it is proposed when the
-line's amount is within `policy.json` `reconcile.fx_tolerance` of the converted amount (`fx_within`), listed but not
+line's amount is within `fx_tolerance` of the converted amount (`fx_within`), listed but not
 proposed outside it (`fx_outside`, status `amount_differs`) or without a known rate (`no_rate`, status
 `rate_missing`). The card accounts also count in the coverage of a foreign-currency invoice, so "no payment found"
 needs them covered too. The rates come in the snapshot (`fx_rates`), so the core stays pure; only the processing and
@@ -47,7 +47,7 @@ the command line fetch missing rates, a view reads the store.
 payments of 2022-2026: a Hungarian buyer pays the forint value at the MNB rate of the invoice's fulfilment day (5 of
 5 to the forint), and a bank converts foreign money at its own rate on the booking day (6 of 6 within 0.6-1.1% below
 the MNB rate). So the line is compared at the MNB rate of each day in `fx.bank.rate_days` in turn (`bank_rate_days`),
-each with its own band (`policy.json` `reconcile.fx_bank_tolerance`); the first within its band makes the pair
+each with its own band (`fx_bank_tolerance`); the first within its band makes the pair
 `fx_within`, otherwise the nearest is `fx_outside`, listed only when the line names the invoice (a payment service
 converting above the rate and a name alone gave 56 such listings on the store). The line is searched in the invoice's
 payment window, as in one currency, and the forint bank accounts count in the coverage of an outgoing invoice in
@@ -242,6 +242,28 @@ def _conf() -> dict[str, Any]:
 
 def config_hash() -> str:
     return cfg.config_hash("reconcile")
+
+
+def fx_tolerance() -> tuple[Decimal, Decimal]:
+    """130 (DECISIONS 130): how far below and above the invoice amount converted at the MNB rate a forint card line may
+    be for the pair to be proposed, as fractions (0.02, 0.05: -2% ... +5%). A proposal only; a person decides. 224:
+    `configs/reconcile.json` `fx_tolerance` (until then `policy.json` `reconcile.fx_tolerance`)."""
+    band = _conf()["fx_tolerance"]
+    return Decimal(str(band["below"])), Decimal(str(band["above"]))
+
+
+def fx_bank_tolerance(basis: str) -> tuple[Decimal, Decimal]:
+    """149: how far below and above the invoice amount converted at the MNB rate of the `basis` day (fulfilment or
+    booking) a forint bank line may be for the pair to be proposed, as fractions. A proposal only; a person decides.
+    224: `configs/reconcile.json` `fx_bank_tolerance`."""
+    band = _conf()["fx_bank_tolerance"][basis]
+    return Decimal(str(band["below"])), Decimal(str(band["above"]))
+
+
+def ai_sure_probability() -> float:
+    """147 (the owner's decision: 0.95): in the quick review, the AI's kind of payment counts as sure when both engines
+    give the same kind and JEV's probability is at least this. 224: `configs/reconcile.json` `ai_sure`."""
+    return float(_conf()["ai_sure"]["min_jev_probability"])
 
 
 @lru_cache(maxsize=None)
@@ -826,8 +848,6 @@ def rate_need(invoice: dict[str, Any]) -> tuple[str, date] | None:
 def convert(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, Any] | None) -> tuple[str, dict[str, str] | None]:
     """The relation of a card line to an invoice of another currency (`fx_within`, `fx_outside` or `no_rate`) and the
     conversion behind it: the rate and its day, the converted amount and the line's deviation from it."""
-    from jav.ai import policy
-
     if meets(invoice, payment) == "fx_bank":
         return _convert_bank(invoice, payment, rates)
     need = rate_need(invoice)
@@ -837,7 +857,7 @@ def convert(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, A
     per_unit = Decimal(str(entry["rate"]))
     expected = money(str(invoice["amount"])) * per_unit
     deviation = money(str(payment["amount"])) / expected - 1
-    below, above = policy.reconcile_fx_tolerance()
+    below, above = fx_tolerance()
     relation = "fx_within" if -below <= deviation <= above else "fx_outside"
     return relation, {"rate": str(entry["rate"]), "rate_day": str(entry["rate_day"]), "source": str(entry.get("source") or "mnb"),
                       "converted": str(expected.quantize(Decimal("0.01"))), "deviation": str(deviation.quantize(Decimal("0.0001")))}
@@ -846,10 +866,8 @@ def convert(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, A
 def _convert_bank(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, Any] | None
                   ) -> tuple[str, dict[str, str] | None]:
     """149: a forint bank line against an invoice of another currency, at the MNB rate of each `bank_rate_days` day in
-    turn, each with its band (`policy.reconcile_fx_bank_tolerance`): the first within makes `fx_within`, otherwise the
+    turn, each with its band (`fx_bank_tolerance`): the first within makes `fx_within`, otherwise the
     nearest is `fx_outside`; `no_rate` without any rate. The conversion names the day's kind (`basis`)."""
-    from jav.ai import policy
-
     currency, amount, paid = str(invoice.get("currency")), money(str(invoice["amount"])), money(str(payment["amount"]))
     nearest: tuple[Decimal, dict[str, str]] | None = None
     for basis, day in bank_rate_days(invoice, payment):
@@ -861,7 +879,7 @@ def _convert_bank(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[
         conversion = {"rate": str(entry["rate"]), "rate_day": str(entry["rate_day"]), "source": str(entry.get("source") or "mnb"),
                       "basis": basis, "converted": str(expected.quantize(Decimal("0.01"))),
                       "deviation": str(deviation.quantize(Decimal("0.0001")))}
-        below, above = policy.reconcile_fx_bank_tolerance(basis)
+        below, above = fx_bank_tolerance(basis)
         if -below <= deviation <= above:
             return "fx_within", conversion
         if nearest is None or abs(deviation) < nearest[0]:
@@ -876,8 +894,6 @@ def convert_combined(invoices: list[dict[str, Any]], payment: dict[str, Any], ra
     line's booking day), each with its band: the first within makes `fx_within`, otherwise the nearest is `fx_outside`;
     `no_rate` unless every invoice has a rate on some day. The conversion: the day's kind (`basis`), the converted sum,
     the line's deviation from it, and each invoice's own conversion (`parts`, in the order given)."""
-    from jav.ai import policy
-
     paid = money(str(payment["amount"]))
     nearest: tuple[Decimal, dict[str, Any]] | None = None
     for basis in _conf()["fx"]["bank"]["rate_days"]:
@@ -896,7 +912,7 @@ def convert_combined(invoices: list[dict[str, Any]], payment: dict[str, Any], ra
         deviation = paid / total - 1
         conversion = {"basis": basis, "converted": str(total.quantize(Decimal("0.01"))),
                       "deviation": str(deviation.quantize(Decimal("0.0001"))), "parts": parts}
-        below, above = policy.reconcile_fx_bank_tolerance(basis)
+        below, above = fx_bank_tolerance(basis)
         if -below <= deviation <= above:
             return "fx_within", conversion
         if nearest is None or abs(deviation) < nearest[0]:
@@ -1278,9 +1294,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     excluded += [{"kind": "line", "id": pid, "reason": "not_outgoing_payment"} for pid in idle]
     paired = {c["line_id"] for c in candidates if c["proposed"]} | paid_lines | set(marked) | set(idle)
     repeats = _repeats(prepared, candidates, confirmed, rejected, marked, scope, (learned, common), set(paid_invoice), set(credited))
-    from jav.ai import policy
-
-    below, above = policy.reconcile_fx_tolerance()
+    below, above = fx_tolerance()
     return {"engine_version": ENGINE_VERSION, "config_hash": config_hash(), "fx_tolerance": [str(below), str(above)],
             "candidates": candidates, "learned_names": len(learned),
             "confirmed": confirmed, "excluded": excluded, "unfit": unfit,  # 153: allocations that no longer fit

@@ -31,13 +31,13 @@ CALLSITES: dict[str, dict[str, Any]] = {
     "email_intent": {
         "steps": ["email_intent"], "registry": "intents", "flow": "email_intent / intent", "state_fn": "jav.domains.email.intent.build_state",
         "consumers": {
-            "intent": "emails.intent + intent_conf; policy.email.intent_human_max_conf alatt human:low_confidence, különben policy.email.intent_route / csatolmány-típus",
+            "intent": "emails.intent + intent_conf; in the review band of policy.json band_for email.intent human:low_confidence, otherwise email.json intent_route / the attachment's type",
             "requires_action": "emails.signals (jel; még nem küszöbölt)",
             "mentions_deadline": "emails.signals (jel)",
             "attachment_is_the_subject": "emails.signals (jel)",
             "urgency": "emails.signals.scores (Score: szint + várható érték + eloszlás; jel, küszöb nélkül)",
             "multiple_requests": "emails.signals (jel; csak mérhető, nem review-ok)",
-            "prompt_injection": "emails.signals; policy.email.signal_review -> review-ok `signal:prompt_injection`, policy.email.signal_routes -> human:suspicious",
+            "prompt_injection": "emails.signals; email.json signal_review -> the to-do `signal:prompt_injection`, email.json signal_routes -> human:suspicious",
         },
     },
     "select": {
@@ -180,6 +180,8 @@ def _state_doc(dotted: str) -> str:
 
 
 def _q_rows(name: str, data: dict[str, Any]) -> list[str]:
+    from jav.ai import policy
+
     rows = ["| kulcs | fajta | instrukció (eleje) | kritériumok |", "|---|---|---|---|"]
     if name in ("detect", "email_intent"):
         for key, q in data["questions"].items():
@@ -199,7 +201,7 @@ def _q_rows(name: str, data: dict[str, Any]) -> list[str]:
     elif name.startswith("select"):
         for rid, r in data["requests"].items():
             for f in r["fields"]:
-                rows.append(f"| `{f}` ({rid}) | choice | {data['instructions'][f][:140]}… | jelöltek (kód, max 250) + `{cfg.load('policy')['none_label']}` |")
+                rows.append(f"| `{f}` ({rid}) | choice | {data['instructions'][f][:140]}… | jelöltek (kód, max 250) + `{policy.NONE_LABEL}` |")
         for key, q in data["extra_questions"].items():
             crit = ", ".join(q["criteria"])
             rows.append(f"| `{key}` ({q.get('request', 'money')}) | choice | {q['instructions'][:140]}… | {crit[:160] + ('…' if len(crit) > 160 else '')} |")
