@@ -1,10 +1,11 @@
-// 216 (plan G-process-core P2e): "Waiting for me" — the header shows the person's count beside "Mai munkám", and the
+// 216 (plan G-process-core P2e): "Waiting for me" — the header shows the person's count beside "My work today", and the
 // page lists their open tasks and anyone's with where each is done; the switch adds trial runs and measurements.
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { api, setActor, type DsColumn, type DsPage, type DsRow } from "./api";
+import { setLanguage } from "./i18n";
 import { parseRoute, routeHash } from "./route";
 import { Waiting } from "./views/Waiting";
 
@@ -28,10 +29,12 @@ function page(name: string, rows: DsRow[], total = rows.length): DsPage {
     matched: rows.length, offset: 0, limit: 50, facets: {} };
 }
 
-afterEach(() => {
+beforeEach(async () => { await setLanguage("en"); });
+afterEach(async () => {
   vi.restoreAllMocks();
   setActor("");
   window.location.hash = "";
+  await setLanguage("hu");
 });
 
 describe("Waiting for me (216)", () => {
@@ -42,17 +45,17 @@ describe("Waiting for me (216)", () => {
     expect(routeHash({ view: "waiting", all: true })).toBe("#/waiting?all=1");
   });
 
-  it("shows the person's count in the header before „Mai munkám”", async () => {
+  it("shows the person's count in the header before My work today", async () => {
     setActor("Teszt Elek");
     vi.spyOn(api, "users").mockResolvedValue({ users: ["Teszt Elek"] });
     vi.spyOn(api, "worker").mockResolvedValue({ running: true, stop_requested: false, jobs: {} });
     const query = vi.spyOn(api, "datasetQuery").mockImplementation(async (name) => page(name, name === "waiting" ? ROWS : [], name === "waiting" ? 3 : 0));
     render(<App />);
-    const link = await screen.findByRole("link", { name: /Rám vár/ });
+    const link = await screen.findByRole("link", { name: /Waiting for me/ });
     expect(link.getAttribute("href")).toBe("#/waiting");
     await waitFor(() => expect(link.querySelector(".count-alert")?.textContent).toBe("3"));
     expect(query).toHaveBeenCalledWith("waiting", { actor: "Teszt Elek" }, { limit: 1 });
-    const today = screen.getByRole("link", { name: "Mai munkám" });
+    const today = screen.getByRole("link", { name: "My work today" });
     expect(link.compareDocumentPosition(today) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
@@ -62,15 +65,15 @@ describe("Waiting for me (216)", () => {
     const user = userEvent.setup();
     render(<Waiting all={false} />);
     expect(await screen.findByRole("link", { name: "szamla_12.pdf" })).toHaveProperty("hash", "#/workpackages/wp-1/review/abc");
-    expect(screen.getByRole("link", { name: "Éles futás" })).toHaveProperty("hash", "#/workpackages/wp-1/result");
-    expect(screen.getByText("Bárki")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Live run" })).toHaveProperty("hash", "#/workpackages/wp-1/result");
+    expect(screen.getByText("Anyone")).toBeTruthy();
     expect(query.mock.calls[0].slice(0, 2)).toEqual(["waiting", { actor: "Teszt Elek" }]);
-    await user.click(screen.getByRole("checkbox", { name: "Próbafutások és mérések is" }));
+    await user.click(screen.getByRole("checkbox", { name: "Trial runs and measurements too" }));
     expect(window.location.hash).toBe("#/waiting?all=1");
   });
 
   it("asks for a name first", () => {
     render(<Waiting all={false} />);
-    expect(screen.getByText(/Válaszd ki fent a neved/)).toBeTruthy();
+    expect(screen.getByText(/Choose your name in the/)).toBeTruthy();
   });
 });
