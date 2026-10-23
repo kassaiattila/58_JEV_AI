@@ -344,15 +344,19 @@ def set_result(c: sqlite3.Connection, case_id: str, step_id: str, result: Any) -
 
 def complete(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, result: Any = None) -> int:
     """The running step is done under a new result version (rule 3); the steps it unblocks become ready, and a case
-    whose steps are all done closes as done. Returns the result version."""
+    whose steps are all done closes as done. Returns the result version. 218 (P3l): its history row names the result
+    versions of the steps it waits for (`built_on`), as they were when it was done."""
     st = _require_running(c, case_id, step_id)
     version = int(st["result_version"]) + 1
     fields: dict[str, Any] = {"state": DONE, "waiting_for": None, "result_version": version, "note": None}
     if result is not None:
         fields["result"] = _json(result)
+    needs = definition_of(case_row(c, case_id)).step(step_id).needs()
+    steps = step_rows(c, case_id)
     _set_step(c, case_id, step_id, **fields)
     timers.cancel(c, case_id, step_id=step_id, effect="step done")
-    record(c, case_id, step_id, "step_done", actor, {"result_version": version})
+    record(c, case_id, step_id, "step_done", actor,
+           {"result_version": version, "built_on": {n: int(steps[n]["result_version"]) for n in needs}})
     _left(c, case_id, step_id, actor)
     promote(c, case_id)
     if all(s["state"] == DONE for s in step_rows(c, case_id).values()):

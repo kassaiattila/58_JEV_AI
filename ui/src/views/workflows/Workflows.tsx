@@ -226,6 +226,10 @@ function StepCard({ step, steps, open, isNext, busy, onStart, onLink }: {
       </div>
       <div className="small muted">{t(step.kind_title)} · {sourceText(step)}</div>
       {step.status === "waiting" && waitsFor.length ? <div className="small">{t("Waits for: {{steps}}", { steps: waitsFor.join(", ") })}</div> : null}
+      {step.stale_of?.length ? (  // 218 (P3l): built on an earlier result of a step reopened since
+        <div className="small">{t("Built on an earlier result of {{steps}}: approve it again after them.",
+          { steps: step.stale_of.map((id) => t(steps.find((s) => s.id === id)?.title ?? id)).join(", ") })}</div>
+      ) : null}
       {step.package ? (
         <div className="small">
           <a href={wpHash(step.package.id, step.package.next?.stage)}>{step.package.name ?? step.package.id}</a>

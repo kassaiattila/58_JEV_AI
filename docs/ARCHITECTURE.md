@@ -691,6 +691,23 @@ Two behaviours differ on purpose: a start left by a stopped process fails at the
 chain was switched on). Tests: `tests/test_workflow_case_214.py`, `tests/test_workflow_core_steps_214.py`,
 `tests/test_process_turn_214.py`.
 
+**A step built on a reopened step (218, plan P3 P3l).** Rule 3 reaches the application: a done step's result names
+the approval its package was done with (`ref`: a logic pack's own version and fingerprint, a processing package's
+approved live runs; none for a step that found nothing new or a package done without an approval of its own, the email
+routing) and the approvals its earlier steps were done with (`built_on`); the core's `step_done` history row names
+their result versions. When the package of a done step is reopened, `workflow_cases.package_reopened` reopens the step
+in the transaction of that change (a new live run of the package, `work_runs.start_run`; its approved own version
+reopened, `package_release.reopen_own`), so the steps built on it go stale. The control view shows such a step as out of
+date (`stale`, with `stale_of`: the earlier steps whose result changed) and does not count it as done. The owner's
+decisions of 2026-10-23: the later step's approved version and its lock stay while the earlier step is open; once the
+earlier step is approved again, the step's first look keeps the approvals that no longer count (`old_approval`: the one
+it was done with and the one its package has then) and counts only another, so an approval given while the earlier step
+was open does not count either: a logic pack approved as its own version is reopened with a reason through its
+registered `LogicPack.reopen` (its approval task opens again), a processing package needs a new live run a person
+starts. A step that goes out of date before it was ever done keeps what its earlier steps had then (`built_on`, written
+by the core's `on_leave` in the transaction that marks it). A stopped new run leaves the earlier result, so the approval
+built on it counts again. Nothing runs by itself. Tests: `tests/test_workflow_reopen_chain_218.py`, `ui/src/views/workflows/staleChain218.test.tsx`.
+
 **Today's work as human tasks (215, P2b).** `jav/app/human_tasks.py` names whom a task is for (the owner's rule: the
 package's responsible person; without one, its creator when on the Users list; otherwise anyone) and keeps the run
 approval task `run_approval:<run>`: opened in the transaction in which a live run's status changes to a finished one

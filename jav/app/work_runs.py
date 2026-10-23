@@ -17,7 +17,7 @@ from jav.core import store
 from jav.core import calls, queue, rulebook
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
-from jav.app import human_tasks, work, work_readiness, work_recipes
+from jav.app import human_tasks, work, work_readiness, work_recipes, workflow_cases
 
 
 @store.one_connection
@@ -98,6 +98,8 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
                       (run_id, wp_id, dedup, mode, a["revision"], r["id"], r["version"], work_recipes.recipe_hash(r), work._canon(r), work._canon(a["params"]),
                        work._canon(snapshot), input_hash, actor, _now(), work._canon(ready["plan"]), "pending" if scope == "pending" else None))
             rulebook.link_in(c, rulebook.RUN, run_id)  # 218: the code and the rules the run started with
+            if mode == "apply":  # 218 (P3l): a new live run reopens the done workflow step whose package it is
+                workflow_cases.package_reopened(c, wp_id, human_tasks.person(actor), "a new live run of its package")
     if existing:
         # 063: if the previous start broke off after the run row, the repeated start fills in the budget and the jobs
         _ensure_run_work(existing["run_id"], json.loads(existing["input"])["items"], ready["budget"], replace_budget=False)

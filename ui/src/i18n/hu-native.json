@@ -2330,5 +2330,8 @@
   "{{files}} and {{n}} more": "{{files}} és még {{n}}",
   "{{n}} item(s) processed with another version of the program than the run started with": "{{n}} tétel más programváltozattal készült, mint amivel a futás indult",
   "{{n}} item(s) processed with another version of the program and other rules than the run started with: {{files}}": "{{n}} tétel más programváltozattal és más szabályokkal készült, mint amivel a futás indult: {{files}}",
-  "{{n}} item(s) processed with other rules than the run started with: {{files}}": "{{n}} tétel más szabályokkal készült, mint amivel a futás indult: {{files}}"
+  "{{n}} item(s) processed with other rules than the run started with: {{files}}": "{{n}} tétel más szabályokkal készült, mint amivel a futás indult: {{files}}",
+  "out of date": "elavult",
+  "Built on an earlier result of {{steps}}: approve it again after them.": "{{steps}} korábbi eredményére épül: utánuk újra jóvá kell hagyni.",
+  "a step it builds on has a new result: check it and approve it again": "egy lépés, amelyre épül, új eredményt kapott: ellenőrizd, és hagyd jóvá újra"
 }

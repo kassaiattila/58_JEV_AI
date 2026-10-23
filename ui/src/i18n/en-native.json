@@ -2324,5 +2324,8 @@
   "{{files}} and {{n}} more": "{{files}} and {{n}} more",
   "{{n}} item(s) processed with another version of the program than the run started with": "{{n}} item(s) processed with another version of the program than the run started with",
   "{{n}} item(s) processed with another version of the program and other rules than the run started with: {{files}}": "{{n}} item(s) processed with another version of the program and other rules than the run started with: {{files}}",
-  "{{n}} item(s) processed with other rules than the run started with: {{files}}": "{{n}} item(s) processed with other rules than the run started with: {{files}}"
+  "{{n}} item(s) processed with other rules than the run started with: {{files}}": "{{n}} item(s) processed with other rules than the run started with: {{files}}",
+  "out of date": "out of date",
+  "Built on an earlier result of {{steps}}: approve it again after them.": "Built on an earlier result of {{steps}}: approve it again after them.",
+  "a step it builds on has a new result: check it and approve it again": "a step it builds on has a new result: check it and approve it again"
 }

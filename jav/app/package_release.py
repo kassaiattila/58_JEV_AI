@@ -40,7 +40,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from jav.app import corrections, export, human_tasks, logic_packs, package_result, work, work_runs
+from jav.app import corrections, export, human_tasks, logic_packs, package_result, work, work_runs, workflow_cases
 from jav.core import activity_kinds, card_numbers, rulebook, store
 from jav.app.outputs import parts, templates
 from jav.core.user_messages import explained
@@ -524,7 +524,8 @@ def record_own(c: sqlite3.Connection, wp_id: str, *, content: dict[str, Any], fi
 
 def reopen_own(c: sqlite3.Connection, wp_id: str, *, note: str, actor: str) -> int | None:
     """Reopens the package's own version that holds, in the caller's write transaction: its lock goes, it stays as an
-    earlier version. Returns its number; None when no version holds. 215: the package waits for its approval again."""
+    earlier version. Returns its number; None when no version holds. 215: the package waits for its approval again.
+    218 (P3l): a done workflow step whose package it is is reopened in its case (`workflow_cases.package_reopened`)."""
     row = c.execute("SELECT id, version FROM package_versions WHERE workpackage_id=? AND content IS NOT NULL"
                     " AND reopened_at IS NULL", (wp_id,)).fetchone()
     if row is None:
@@ -532,6 +533,7 @@ def reopen_own(c: sqlite3.Connection, wp_id: str, *, note: str, actor: str) -> i
     c.execute("UPDATE package_versions SET reopened_by=?, reopened_at=?, reopen_note=? WHERE id=?",
               (actor, _now(), note, row["id"]))
     human_tasks.own_approval_waits(c, wp_id, by=human_tasks.person(actor), reopened=row["version"])
+    workflow_cases.package_reopened(c, wp_id, human_tasks.person(actor), f"its approved version {row['version']} was reopened")
     return row["version"]
 
 

@@ -31,6 +31,14 @@ and decided by the person's start; the approval of a run of a step's package sen
 (`jav.app.human_tasks`), which the worker takes at each of its rounds (`take_events`, not throttled like `tick`), so the
 chain moves on at once. The check timer stays as the safety net.
 
+218 (plan P3 P3l; DECISIONS 218): a step builds on the approved result of its earlier steps. A done step's result
+names the approval its package was done with (`_approval`) and those its earlier steps were done with (`built_on`).
+When an earlier step is reopened (a new live run of its package, its own version reopened:
+`workflow_cases.package_reopened`), the steps built on it are out of date: the control view shows them so (`stale_of`)
+and they do not count as done; once the earlier step is approved again, a step's old approval does not count either
+(`_counts`): the chain reopens a logic pack's own version with a reason, so a person approves it again. Nothing runs
+by itself.
+
 147 (DECISIONS 147): a workflow is repeated for the next period from a draft the wizard shows filled in
 (`repeat_draft`); a documents step may take only the documents no live run has processed yet (`only_new`), so the
 folder of a year's invoices does not bring last month's back. The two workflows are linked (`previous_id`).
@@ -60,10 +68,11 @@ from pathlib import Path
 from typing import Any
 
 from jav.app import (
-    app_settings, human_tasks, logic_packs, package_scope, parties, scopes, work, work_readiness, work_recipes,
-    work_runs, workflow_cases, workflow_steps,
+    app_settings, human_tasks, logic_packs, package_release, package_scope, parties, scopes, work, work_readiness,
+    work_recipes, work_runs, workflow_cases, workflow_steps,
 )
 from jav.core import activity_kinds, cfg, store
+from jav.core.process import cases as process_cases
 from jav.core.process import engine as process_engine
 from jav.core.process import kinds as process_kinds
 from jav.core.user_messages import explained
@@ -531,19 +540,69 @@ def _live_run_approved(wp_id: str) -> bool:
     return not work_runs.open_live_runs(wp_id)
 
 
-def _satisfied(st: dict[str, Any]) -> bool:
-    if st["state"] == "nothing_new":
-        return True
-    if not st.get("workpackage_id") or st["state"] not in ("started", "linked"):
-        return False
+def _approved_runs(wp_id: str) -> list[str]:
+    with store.connect() as c:
+        return [r["run_id"] for r in c.execute("SELECT run_id FROM runs WHERE workpackage_id=? AND mode='apply'"
+                                               " AND status != 'cancelled' AND approval IS NOT NULL ORDER BY run_id",
+                                               (wp_id,))]
+
+
+def _pack(st: dict[str, Any]) -> tuple[bool, logic_packs.LogicPack | None]:
+    """Whether the step's package still exists, and the logic pack it runs (None: a processing package)."""
     with store.connect() as c:
         kind = c.execute("SELECT source_kind FROM workpackages WHERE id=?", (st["workpackage_id"],)).fetchone()
-    if kind is None:
-        return False
-    pack = logic_packs.of(kind["source_kind"])
+    return (False, None) if kind is None else (True, logic_packs.of(kind["source_kind"]))
+
+
+def _approval(st: dict[str, Any]) -> tuple[bool, Any]:
+    """Whether the step is satisfied, and (218, P3l) by which approval of its package: a logic pack's own version
+    ({version, fingerprint}), a processing package's approved live runs ({runs}); None for a step that found nothing
+    new or a package done without an approval of its own (the email routing: every attachment decided)."""
+    if st["state"] == "nothing_new":
+        return True, None
+    if not st.get("workpackage_id") or st["state"] not in ("started", "linked"):
+        return False, None
+    exists, pack = _pack(st)
+    if not exists:
+        return False, None
+    wp_id = st["workpackage_id"]
     if pack is not None and not pack.has_runs:  # 176: a reconciliation step: a version of it is approved
-        return pack.approved(st["workpackage_id"])
-    return _live_run_approved(st["workpackage_id"])
+        if not pack.approved(wp_id):
+            return False, None
+        active = package_release.own_approval(wp_id)["active"] if pack.own_approval else None
+        return True, {"version": active["version"], "fingerprint": active["fingerprint"]} if active else None
+    if not _live_run_approved(wp_id):
+        return False, None
+    return True, {"runs": _approved_runs(wp_id)}
+
+
+def _satisfied(st: dict[str, Any]) -> bool:
+    return _approval(st)[0]
+
+
+# 218 (P3l): what a step done before keeps in its result once its earlier steps have another result: the approval its
+# package had then, which no longer counts for the chain
+OLD_APPROVAL = "old_approval"
+REAPPROVE_NOTE = "a step it builds on has a new result: check it and approve it again"
+
+
+def _ref_of(result: Any) -> Any:
+    return result.get("ref") if isinstance(result, dict) else None
+
+
+def _out_of_date(sdef: dict[str, Any], core: dict[str, dict[str, Any]]) -> list[str]:
+    """218 (P3l): the earlier steps whose result changed since the step was built on them, while the step does not
+    count for the chain (it went out of date when one of them was reopened, or the chain asks for its approval again);
+    none for a step that is done or not out of date."""
+    row = core.get(sdef["id"])
+    if row is None or row["state"] == process_cases.DONE or not isinstance(row["result"], dict):
+        return []
+    result = row["result"]
+    if row["state"] != process_cases.STALE and OLD_APPROVAL not in result:
+        return []
+    before = result.get("built_on")
+    return [n for n in sdef.get("after", []) if not isinstance(before, dict) or n not in core
+            or core[n]["state"] != process_cases.DONE or _ref_of(core[n]["result"]) != before.get(n)]
 
 
 # a processing package's next step and what it means for its step; a step kind adds its own package's (181)
@@ -573,11 +632,18 @@ def view(wf_id: str) -> dict[str, Any]:
     steps = _steps(wf_id)
     kinds = config()["kinds"]
     party_names = {p["id"]: p["name"] for p in parties.parties()}
-    done = {sid: _satisfied(st) for sid, st in steps.items()}
+    with store.connect() as c:
+        core = process_cases.step_rows(c, wf_id)  # 218: none for a workflow an older process made, until its first turn
+    # 218 (P3l): a step out of date does not count as done; it names the earlier steps it was built on
+    stale_of = {s["id"]: _out_of_date(s, core) for s in wf["definition"]["steps"]}
+    done = {sid: _satisfied(st) and not stale_of.get(sid) for sid, st in steps.items()}
     out_steps = []
     for sdef in wf["definition"]["steps"]:
         st = steps[sdef["id"]]
         status, nxt = _status(sdef, st, done)
+        stale = stale_of[sdef["id"]]
+        if stale and (core[sdef["id"]]["state"] == process_cases.STALE or status == "approved"):
+            status = "stale"
         package = None
         if st.get("workpackage_id"):
             try:
@@ -593,7 +659,7 @@ def view(wf_id: str) -> dict[str, Any]:
                           "name": st["name"],
                           "state": st["state"], "status": status, "done": done[sdef["id"]], "note": note,
                           "package": package, "run_id": st.get("run_id"), "pull_id": st.get("pull_id"),
-                          "updated_at": st["updated_at"]})
+                          "updated_at": st["updated_at"]} | ({"stale_of": stale} if stale else {}))
     attention = ("failed", "needs_budget", "review", "approve", "attention", "pairing", "missing", "ready")
     first = next((s for s in out_steps if s["status"] in attention
                   and (s["status"] != "ready" or not wf["auto"])), None)
@@ -1083,10 +1149,12 @@ def _drive(ctx: process_engine.StepContext, wf: dict[str, Any], sdef: dict[str, 
         st = _steps(wf["id"])[sdef["id"]]
         state = st["state"]
         if state == "nothing_new":
-            return process_kinds.Done({"state": state})
+            return process_kinds.Done({"state": state, "ref": None, "built_on": _built_on(ctx)})
         if state in ("started", "linked"):
-            if _satisfied(st):
-                return process_kinds.Done({"state": state, "workpackage_id": st["workpackage_id"], "run_id": st.get("run_id")})
+            approved, ref = _approval(st)
+            if _counts(ctx, wf, st, approved, ref):
+                return process_kinds.Done({"state": state, "workpackage_id": st["workpackage_id"], "run_id": st.get("run_id"),
+                                           "ref": ref, "built_on": _built_on(ctx)})
             return ctx.wait(workflow_cases.APPROVAL, timer=_check())
         if state == "pulling":
             if polled:
@@ -1108,6 +1176,74 @@ def _drive(ctx: process_engine.StepContext, wf: dict[str, Any], sdef: dict[str, 
         else:
             _start(wf, sdef, actor=actor)
     return process_kinds.Fail(f"the step did not settle: it is still {st['state']}")
+
+
+def _built_on(ctx: process_engine.StepContext) -> dict[str, Any]:
+    """218 (P3l, rule 3): the approval each of the step's earlier steps was done with, as their results name it now."""
+    return {n: _ref_of(ctx.result_of(n)[1]) for n in ctx.step.needs()}
+
+
+def _old_approvals(last: dict[str, Any], found: Any) -> list[Any]:
+    """The approvals that no longer count for a step out of date: the one it was done with and the one its package had
+    at its first look after its earlier steps were done again."""
+    old: list[Any] = []
+    for r in (last.get("ref"), found):
+        if r is not None and r not in old:
+            old.append(r)
+    return old
+
+
+def _counts(ctx: process_engine.StepContext, wf: dict[str, Any], st: dict[str, Any], approved: bool, ref: Any) -> bool:
+    """218 (P3l; DECISIONS 218): whether the step's package's approval counts for the chain now. A step whose earlier
+    steps have another result than it was built on (`built_on`: kept when it was done, or when it went out of date
+    before it was ever done) keeps, at its first look after them, the approvals that no longer count (`OLD_APPROVAL`):
+    the one it was done with and the one its package has then. Only another approval counts, so one given before the
+    earlier step's new approval does not either, nor the old one coming back (a later run stopped). A logic pack's own
+    version still holding is reopened with a reason (its approval waits for a person again); a processing package needs
+    a new live run a person starts. A package done without an approval of its own (the email routing: a person decides
+    each attachment) counts as it stands. Nothing runs by itself."""
+    row = ctx.row()
+    last = row["result"] if isinstance(row["result"], dict) else {}
+    before = last.get("built_on")
+    if before is None or before == _built_on(ctx):  # never out of date, or built on what its earlier steps have now
+        return approved
+    _, pack = _pack(st)
+    if pack is not None and not pack.has_runs and not pack.own_approval:
+        return approved
+    if OLD_APPROVAL not in last:
+        old = _old_approvals(last, ref if approved else None)
+        with ctx.transaction() as c:
+            process_cases.set_result(c, ctx.case_id, ctx.step.id, {**last, OLD_APPROVAL: old})
+    else:
+        old = last[OLD_APPROVAL]
+    if not approved or ref not in old:
+        return approved
+    if pack is not None and pack.own_approval and pack.reopen is not None:
+        pack.reopen(st["workpackage_id"], note=REAPPROVE_NOTE, actor=auto_actor(wf["actor"]))
+    return False
+
+
+def _went_stale(c: Any, case_id: str, step_id: str | None, actor: Any) -> None:
+    """218 (P3l): a workflow step that goes out of date before it was ever done keeps what its earlier steps' results
+    were then (`built_on`), in the transaction that marks it, so its first look after them knows they changed. A done
+    step keeps the one it was done with. Registered with the core's `on_leave`; nothing for another case."""
+    if step_id is None:
+        return
+    row = c.execute("SELECT s.state, s.result FROM process_steps s JOIN process_cases k ON k.case_id = s.case_id"
+                    " WHERE s.case_id=? AND s.step_id=? AND substr(k.definition_id, 1, ?) = ?",
+                    (case_id, step_id, len(workflow_cases.DEFINITION_PREFIX), workflow_cases.DEFINITION_PREFIX)).fetchone()
+    if row is None or row["state"] != process_cases.STALE:
+        return
+    result = json.loads(row["result"]) if row["result"] else None
+    if isinstance(result, dict) and "built_on" in result:
+        return
+    needs = process_cases.definition_of(process_cases.case_row(c, case_id)).step(step_id).needs()
+    rows = process_cases.step_rows(c, case_id)
+    process_cases.set_result(c, case_id, step_id, {**(result if isinstance(result, dict) else {}),
+                                                   "built_on": {n: _ref_of(rows[n]["result"]) for n in needs}})
+
+
+process_cases.on_leave(_went_stale)
 
 
 # 214: registered on import, not by `register`: a case whose step kind the running code lacks waits for a migration for

@@ -66,7 +66,7 @@ export interface WorkflowEstimate {
 }
 /** What a person sees of a step: the stored automation state and the package's own next step. */
 export type WorkflowStepStatus = "waiting" | "ready" | "starting" | "pulling" | "needs_budget" | "nothing_new" | "failed"
-  | "running" | "review" | "approve" | "approved" | "pairing" | "attention" | "missing";
+  | "running" | "review" | "approve" | "approved" | "pairing" | "attention" | "missing" | "stale";
 export interface WorkflowStep {
   id: string; kind: WorkKind; title: string; kind_title: string; after: string[];
   source: { kind: WorkSourceKind; folder?: string; recursive?: boolean; count?: number; first?: string; accounts?: string[];
@@ -77,6 +77,8 @@ export interface WorkflowStep {
   note: string | { estimate: WorkflowBudget; budget: WorkflowBudget; over: WorkflowBudget } | null;
   package: { id: string; name: string | null; next: NextStep | null } | null; run_id: string | null; pull_id: string | null;
   updated_at: string;
+  /** 218 (P3l): the earlier steps whose result changed since this step was approved; only on a step out of date */
+  stale_of?: string[];
 }
 /** 181: a workflow has a party and a period only when its steps need them (or they were given). */
 export interface WorkflowInfo {

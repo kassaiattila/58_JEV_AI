@@ -1548,6 +1548,13 @@ def _approved(wp_id: str) -> bool:
     return approval(wp_id)["active"] is not None
 
 
+def _reopen(wp_id: str, *, note: str, actor: str) -> dict[str, Any]:
+    """218 (P3l): the approved statement reopened with a reason, as a person's reopening (`reconcile_statement.reopen`)."""
+    from jav.domains.finance import reconcile_statement  # lazy: that module builds on this one
+
+    return reconcile_statement.reopen(wp_id, note=note, actor=actor)
+
+
 def _next(wp_id: str) -> dict[str, Any]:
     return package_view(wp_id)["next"]
 
@@ -1603,7 +1610,7 @@ LOGIC = logic_packs.LogicPack(
     roles=(logic_packs.InputRole("statements", "period", "the bank and card statements of the scope's accounts and period"),
            logic_packs.InputRole("invoices", "period", "the invoices other packages processed, the own party's first")),
     has_runs=False, add_refusal="a reconciliation package has no documents", release_refusal=_release_refusal,
-    own_approval=True,  # 215: the statement is approved as the package's own version
+    own_approval=True, reopen=_reopen,  # 215: the statement is approved as the package's own version
     delete_guard=_delete_guard, page=_page, approved=_approved, next_step=_next, list_next=_list_next,
     list_mark=_list_mark, outputs=("reconcile_statement",), service="jav.domains.finance.api_reconcile")
 

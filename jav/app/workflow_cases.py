@@ -31,6 +31,10 @@ approved or withdrawn, the step waiting for its package's approval gets an event
 (`package_settled`), so the chain moves on at once. The step's kind takes both events and refuses one of an earlier
 round of its task (`task_event`).
 
+218 (plan P3 P3l): when the package of a done step is reopened (a new live run of it, its approved own version
+reopened), the step is reopened in the case in that change's transaction (`package_reopened`), so the steps built on it
+go out of date.
+
 The workflow's own data (its party, period, steps' sources, budgets, packages, and the step state the interface
 reads) stay in its own tables (`jav.app.workflows`).
 
@@ -248,6 +252,25 @@ def package_settled(c: sqlite3.Connection, wp_id: str, event_id: str, payload: d
         return False
     return cases.send_event_in(c, row["workflow_id"], event_id, APPROVAL, payload, actor,
                                step_id=row["step"]) == "accepted"
+
+
+def package_reopened(c: sqlite3.Connection, wp_id: str, actor: actors.Actor, reason: str) -> list[str]:
+    """218 (plan P3 P3l; DECISIONS 218): the package of a done workflow step was reopened (a new live run of it, its
+    approved own version reopened), in that change's transaction: the step is reopened in its case (a case closed as
+    done opens again) and the steps built on it go out of date (rule 3). Returns them. Nothing happens for a package
+    of no workflow, a step that is not done (its own start's run, a step waiting for its approval) or a case closed
+    otherwise."""
+    row = c.execute("SELECT workflow_id, step FROM workflow_steps WHERE workpackage_id=?", (wp_id,)).fetchone()
+    if row is None:
+        return []
+    case = c.execute("SELECT status, outcome FROM process_cases WHERE case_id=?", (row["workflow_id"],)).fetchone()
+    if case is None or (case["status"] == cases.CLOSED and case["outcome"] != "done"):
+        return []
+    st = c.execute("SELECT state FROM process_steps WHERE case_id=? AND step_id=?",
+                   (row["workflow_id"], row["step"])).fetchone()
+    if st is None or st["state"] != cases.DONE:
+        return []
+    return cases.reopen_in(c, row["workflow_id"], row["step"], actor, reason=reason)
 
 
 def task_event(ctx: object, c: sqlite3.Connection, event: cases.Event) -> str:
