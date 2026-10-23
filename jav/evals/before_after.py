@@ -8,8 +8,8 @@ view by view: a difference is allowed only where the step said it would change s
 - `static_snapshot` reads a fresh copy of the backed-up store through `jav.service.api.create_app` (in process, no network,
   no AI call) and writes one JSON line per view: the packages, their items, runs, reviews and next steps, each
   package's current result with its tables and downloads (172), every run's item results, journal and downloads, the
-  datasets behind the tables, the reconciliation views, the parties, the workflows and the activity log of every
-  person and day found in the store.
+  datasets behind the tables, the reconciliation views, the parties, the workflows, the activity log of every
+  person and day found in the store, and (218) every person's "Waiting for me" list, by default and with every origin.
 - `diff` compares two snapshots and lists the views that are missing on one side or differ, with the first differing
   places inside each view.
 
@@ -182,6 +182,21 @@ def _activity_pairs(store_path: Path) -> list[tuple[str, str]]:
     return sorted(pairs)
 
 
+def _waiting_people(store_path: Path) -> list[str]:
+    """218: whose "Waiting for me" list is read: every person a task is assigned to (`local:<name>`), the people on
+    the user list, and the snapshot's own name, which has no task of its own and sees only anyone's."""
+    people = {ACTOR}
+    with closing(sqlite3.connect(f"file:{store_path.as_posix()}?mode=ro", uri=True)) as c:  # `with` alone does not close
+        tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "process_tasks" in tables:
+            prefix = "local:"
+            people |= {a[len(prefix):] for (a,) in c.execute("SELECT DISTINCT assignee FROM process_tasks")
+                       if a and a.startswith(prefix)}
+        if "app_users" in tables:
+            people |= {n for (n,) in c.execute("SELECT name FROM app_users")}
+    return sorted({" ".join(p.split()) for p in people if p.strip()})
+
+
 class _Reader:
     """Reads the service's views in process and yields (key, value) pairs."""
 
@@ -273,6 +288,9 @@ def _views(reader: _Reader, store_path: Path, *, items: bool, matches: bool) -> 
     yield reader.dataset("mailbox_pulls", {})
     for actor, day in _activity_pairs(store_path):
         yield reader.dataset("activity", {"actor": actor, "day": day})
+    for person in _waiting_people(store_path):
+        yield reader.dataset("waiting", {"actor": person})
+        yield reader.dataset("waiting", {"actor": person, "all": "true"})
 
 
 def _reconcile_views(reader: _Reader, wid: str, *, matches: bool) -> Iterator[tuple[str, Any]]:
