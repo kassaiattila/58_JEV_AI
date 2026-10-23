@@ -799,7 +799,10 @@ of the check registry in its order, each through the pure rule it applies to the
 the verification, the GPT confidence, the failed record checks), with the cross-document checks' to-dos and the to-dos
 raised before the decision as inputs; the rule files are `policy.json` and the type pack, named by a pattern,
 `types/*.json`; the extraction's save, its document row, its record, its to-dos and the trace, is one write transaction,
-before four to six). The rule keys of a band decision come from `policy.band_keys`. `python -m jav.cli trace` reads it (`--points`, `--point`,
+before four to six); `ocr.escalation` (whether a document's weak local OCR text is asked of the paid engine and which
+text goes on, `ocr.escalation_rule`: the escalation keeps what it read beside the text's signals, the attempt's outcome,
+blocked or read, as an input; traced by the recognition's and the extraction's save, and by their `needs_ocr` step,
+now one write transaction too). The rule keys of a band decision come from `policy.band_keys`. `python -m jav.cli trace` reads it (`--points`, `--point`,
 `--subject KIND:ID`, `--run`, `--case`, `--last`; each row with `same`: its rule gives the stored outcome again); the
 status page counts it by point. Tests: `tests/test_decision_trace_218.py` (a new point must be listed there with its
 test).

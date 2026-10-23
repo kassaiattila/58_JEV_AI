@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Any
 
 from jav.documents import pdf as pdfmod
-from jav.core import cfg
+from jav.core import cfg, trace
 from jav.documents import azure_di
 from jav.core.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, OLD_DATA_ROOT, PROJECT_ROOT
 from jav.documents.layout import LineLayout
@@ -626,23 +626,30 @@ def ocr_with_escalation(path: str | Path, *, page_count: int | None = None, use_
     thresholds and escalation is enabled (configs/ocr.json), the text of the more accurate, paid engine (`azure_di`)
     goes on. Returns (PdfText, whether escalated). If escalation is unavailable, the local result stays; 121: the
     reason is kept in the signals (`escalation_blocked`), and the flow raises a to-do for it (`escalation_review_reasons`)."""
-    from jav.ai.policy import ocr_should_escalate
-
     first = ocr_pdf(path, page_count=page_count, use_cache=use_cache)
-    if os.environ.get(ENGINE_ENV) or not ESCALATION.get("enabled") or first.ocr is None or first.ocr.get("engine") == ESCALATION.get("engine"):
+    if first.ocr is None:
         return first, False
-    if not ocr_should_escalate(first.ocr.get("mean_conf"), first.ocr.get("low_conf_ratio")):
+    # 218 (P3b): what the decision reads goes with the text that goes on (`escalation`), traced with the document's save
+    inputs: dict[str, Any] = {"forced": bool(os.environ.get(ENGINE_ENV)), "enabled": bool(ESCALATION.get("enabled")),
+                              "engine": ESCALATION.get("engine"), "attempt": None,
+                              "first": {k: first.ocr.get(k) for k in ("engine", "mean_conf", "low_conf_ratio")}}
+    first.ocr["escalation"] = inputs
+    if not escalation_rule(inputs)["attempt"]:
         return first, False
     try:
         second = ocr_pdf(path, page_count=page_count, use_cache=use_cache, engine_name=ESCALATION["engine"])
     except AzureBlocked as exc:  # 075: kept in the signals; the flow raises a to-do for a budget or uncertainty block
         first.ocr["escalation_blocked"] = exc.reason
+        inputs["attempt"] = {"blocked": exc.reason}
         return first, False
     except OcrUnavailableError:  # 121: the call failed or its outcome is unknown; before 121 this was silent
         first.ocr["escalation_blocked"] = "unavailable"
+        inputs["attempt"] = {"blocked": "unavailable"}
         return first, False
-    if second.ocr and (second.ocr.get("mean_conf") or 0) >= (first.ocr.get("mean_conf") or 0):
+    inputs["attempt"] = {"read": bool(second.ocr), "mean_conf": second.ocr.get("mean_conf") if second.ocr else None}
+    if escalation_rule(inputs)["text"] == "escalated":
         second.ocr["escalated_from"] = first.ocr.get("engine")
+        second.ocr["escalation"] = inputs
         if not second.words and first.words:
             # 049: the old Azure cache has no word data (calling it again is paid). The text stays Azure's; the word
             # layer (boxes, paging to the field) is built from the local OCR's word positions; anything not found there
@@ -651,6 +658,54 @@ def ocr_with_escalation(path: str | Path, *, page_count: int | None = None, use_
             second.ocr["words_from"] = first.ocr.get("engine")
         return second, True
     return first, False
+
+
+# --- 218 (plan P3 P3b): the escalation as a pure rule, traced with the document's save --------------------------------
+
+ESCALATION_POINT = "ocr.escalation"
+
+
+def escalation_rule(inputs: dict[str, Any]) -> dict[str, Any]:
+    """Whether a document's local OCR text is asked of the more accurate, paid engine, and which text goes on: not
+    when an engine is forced for a measurement (`forced`), escalation is off (`configs/ocr.json` `escalation`) or the
+    local text came from the paid engine already; otherwise when the local text is weak by the policy's
+    `ocr.escalate_*` thresholds. The attempt's outcome is an input (`attempt`): blocked (the run's budget, an uncertain
+    earlier attempt, unreachable: the local text goes on, with a to-do for a block that is not the recipe switch), or
+    read: the paid text goes on unless it is weaker. `text` is None when the rule asks for an attempt that was not made
+    (a changed rule replayed on a document the earlier one did not escalate)."""
+    from jav.ai.policy import ocr_should_escalate
+
+    first, tried = inputs["first"], inputs["attempt"]
+    attempt = (not inputs["forced"] and inputs["enabled"] and first["engine"] != inputs["engine"]
+               and ocr_should_escalate(first["mean_conf"], first["low_conf_ratio"]))
+    if not attempt:
+        return {"attempt": False, "text": "local", "reasons": []}
+    if tried is None:
+        return {"attempt": True, "text": None, "reasons": []}
+    if "blocked" in tried:
+        return {"attempt": True, "text": "local", "reasons": escalation_review_reasons({"escalation_blocked": tried["blocked"]})}
+    better = tried["read"] and (tried["mean_conf"] or 0) >= (first["mean_conf"] or 0)
+    return {"attempt": True, "text": "escalated" if better else "local", "reasons": []}
+
+
+ESCALATION_KEYS = {"ocr.json": ("escalation.enabled", "escalation.engine"),
+                   "policy.json": ("ocr.escalate_min_mean_conf", "ocr.escalate_max_low_conf_ratio")}
+
+
+def trace_escalation(c: Any, inputs: dict[str, Any] | None, *, doc_id: str, run_id: str | None) -> None:
+    """The escalation's decision in the caller's write transaction (the document's save); nothing for a text that was
+    not recognised here (a text layer, no engine, or a state recognised before the trace)."""
+    if inputs is not None:
+        trace.record_in(c, ESCALATION_POINT, subject=("document", doc_id), inputs=inputs, outcome=escalation_rule(inputs),
+                        keys=ESCALATION_KEYS, run_id=run_id)
+
+
+trace.register(trace.Point(
+    ESCALATION_POINT, owner=__name__, files=("ocr.json", "policy.json"), rule=escalation_rule,
+    what="whether a document's weak local OCR text is asked of the more accurate, paid engine, which text goes on, and "
+         "the to-do of an escalation the run's budget or an uncertain earlier attempt blocked",
+    not_for="the recognition itself (the engines' confidences are inputs) or the to-dos of the text that goes on (weak "
+            "words, pages left out: the extraction's earlier to-dos)"))
 
 
 def status() -> dict[str, Any]:

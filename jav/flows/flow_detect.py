@@ -49,6 +49,8 @@ class DetectState(BaseModel):
     ocr_low_conf_ratio: float | None = None
     # 124: the digest of the kept original Azure recognition, when its text went on; the native reader takes it over
     ocr_recognition: str | None = None
+    # 218 (plan P3 P3b): what the OCR escalation's decision read (`ocr.escalation_rule`), traced with the save
+    ocr_escalation: dict[str, Any] | None = None
     year: int | None = None
     result: DetectResult | None = None
     detail: DetailResult | None = None  # 047 T1.2: detailed type within the coarse category
@@ -83,7 +85,7 @@ def load_pdf(state: DetectState) -> DetectState:
 
 @action.pydantic(reads=["source_path", "read_path", "doc_id", "page_count", "review_reasons"],
                  writes=["text", "lines", "layout", "text_source", "ocr_conf", "ocr_low_conf_ratio", "ocr_recognition",
-                         "review_reasons"])
+                         "ocr_escalation", "review_reasons"])
 def ocr_pdf(state: DetectState) -> DetectState:
     """PDF without text: OCR (jav/documents/ocr.py, cached) onto the same layout; no engine / no text -> `needs_ocr`."""
     from jav.documents import pdf_input
@@ -96,6 +98,7 @@ def ocr_pdf(state: DetectState) -> DetectState:
     pdf, signals = recognised.pdf, recognised.signals
     state.text, state.lines, state.layout, state.text_source = pdf.text, pdf.lines, pdf.layout, pdf.text_source
     state.ocr_conf, state.ocr_low_conf_ratio = signals.get("mean_conf"), signals.get("low_conf_ratio")
+    state.ocr_escalation = signals.get("escalation")
     # 124: an Azure text cached before 123 has no kept original, so it names nothing and is not taken over
     state.ocr_recognition = signals.get("recognition_sha256") if signals.get("engine") == AZURE_PROVIDER else None
     if pdf.text_source is None:
@@ -222,7 +225,11 @@ def _detail_keys(inputs: Mapping[str, Any]) -> tuple[str, ...]:
 
 
 def _trace(c: Any, state: DetectState) -> None:
-    """The recognised type's and the detailed type's decisions, in the save's transaction."""
+    """The recognised type's and the detailed type's decisions, in the save's transaction (and the OCR escalation's of a
+    document without a text layer)."""
+    from jav.documents import ocr
+
+    ocr.trace_escalation(c, state.ocr_escalation, doc_id=state.doc_id, run_id=state.run_id)
     if state.result is None:  # no answer: nothing was decided (the to-do names the failure)
         return
     subject = ("document", state.doc_id)
@@ -274,7 +281,7 @@ def _resolve_detail(state: DetectState, jev, chooser=None) -> None:
 
 
 @action.pydantic(reads=["doc_id", "source_path", "has_text_layer", "text_source", "page_count", "year", "result", "run_id", "uncertain",
-                        "review_reasons", "detail", "detail_reasons", "jev"], writes=["final_status"])
+                        "review_reasons", "detail", "detail_reasons", "jev", "ocr_escalation"], writes=["final_status"])
 def save(state: DetectState) -> DetectState:
     """The document's type, its to-dos and (218, P3b) the traces of both decisions in one write transaction: the
     store's own writes join it as savepoints (`store.session`), so a stop in between leaves none of them."""
@@ -330,12 +337,19 @@ def done(state: DetectState) -> DetectState:
     return state
 
 
-@action.pydantic(reads=["doc_id", "source_path", "page_count", "year", "run_id", "review_reasons"], writes=["final_status"])
+@action.pydantic(reads=["doc_id", "source_path", "page_count", "year", "run_id", "review_reasons", "ocr_escalation"],
+                 writes=["final_status"])
 def needs_ocr(state: DetectState) -> DetectState:
-    store.upsert_document(doc_id=state.doc_id, source_path=state.source_path, has_text=False, page_count=state.page_count, year=state.year, run_id=state.run_id)
-    # 066 Á01: a document without text is a to-do (producer shared with M2; closed once there is text)
-    store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer=policy.OCR_REVIEW_PRODUCER,
-                         reasons=[r for r in state.review_reasons if r.startswith("ocr:")] or ["ocr:no_text"])
+    """218 (P3b): the document, its to-do and the OCR escalation's trace in one write transaction."""
+    from jav.documents import ocr
+
+    with store.session(), store.connect() as c:
+        store.begin_immediate(c)
+        store.upsert_document(doc_id=state.doc_id, source_path=state.source_path, has_text=False, page_count=state.page_count, year=state.year, run_id=state.run_id)
+        # 066 Á01: a document without text is a to-do (producer shared with M2; closed once there is text)
+        store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer=policy.OCR_REVIEW_PRODUCER,
+                             reasons=[r for r in state.review_reasons if r.startswith("ocr:")] or ["ocr:no_text"])
+        ocr.trace_escalation(c, state.ocr_escalation, doc_id=state.doc_id, run_id=state.run_id)
     state.final_status = "needs_ocr"
     return state
 
@@ -361,7 +375,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/fl
         "detect": {"kind": "jev", "note": "egy kérés, három ítélet: Choice doc_type (regiszter + unknown), Noul issuer_is_hungarian, Choice language; anchor-találatok feature-ként; utána részletes típus a kategória csomagjai közül (jav/ai/detect_detail.py: régi horgony-pontszám, szükség esetén JEV Choice). Without JEV: the same three questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/ai/detect_gpt.py); a failed call is a detect:gpt_failed to-do"},
         "save": {"kind": "store", "note": "documents tábla (részletes típus is; nyitva maradt részletes típus = detect_detail teendő; a típuscsomag nélküli kategória is); conf < policy.detect.low_confidence -> review_queue (okonként, additív), különben a detect saját korábbi okai zárulnak"},
         "done": {"kind": "terminal", "note": "kategorizálva"},
-        "needs_ocr": {"kind": "terminal", "note": "szöveg nélküli / törött szövegrétegű PDF, és az OCR sem adott szöveget (vagy nincs motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja"},
+        "needs_ocr": {"kind": "terminal", "note": "szöveg nélküli / törött szövegrétegű PDF, és az OCR sem adott szöveget (vagy nincs motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja; 218: one write transaction with the OCR escalation's trace (ocr.escalation)"},
     },
     "terminals": TERMINALS,
     "doc_note": "M1 - a típus a documents táblába kerül; a típus szerinti M2-flow onnan indul. A run_id a gerinc, a Jev-hívás az adapteren megy (cache + ledger + config_hash).",

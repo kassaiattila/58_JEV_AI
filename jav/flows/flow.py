@@ -113,7 +113,7 @@ def load_text(state: FlowState) -> FlowState:
 @action.pydantic(
     reads=["source_path", "read_path", "page_count", "doc_id", "needs_review", "review_reasons"],
     writes=["text", "lines", "layout", "text_source", "ocr_conf", "ocr_low_conf_ratio", "ocr_engine", "ocr_escalated", "needs_review", "review_reasons",
-            "source_layer_id"],
+            "source_layer_id", "ocr_escalation"],
 )
 def ocr_pdf(state: FlowState) -> FlowState:
     """PDF without text: OCR (jav/documents/ocr.py, with a disk cache) -> the same layout (lines, cells) as for a text layer.
@@ -133,6 +133,7 @@ def ocr_pdf(state: FlowState) -> FlowState:
     state.ocr_low_conf_ratio = signals.get("low_conf_ratio")
     state.ocr_engine = signals.get("engine")
     state.ocr_escalated = recognised.escalated
+    state.ocr_escalation = signals.get("escalation")  # 218 (P3b): what the escalation's decision read, traced with the save
 
     state.source_layer_id = source_layer.save_from_pdftext(state.doc_id, pdf) if pdf.text_source else None
     if pdf.text_source is None:
@@ -324,7 +325,7 @@ def ground(state: FlowState) -> FlowState:
 @action.pydantic(
     reads=["run_id", "doc_id", "doc_type", "arm", "source_path", "has_text_layer", "text_source", "page_count", "record", "picks", "verdicts",
            "validation", "route", "review_reasons", "needs_review", "provenance", "source_layer_id", "detail_probabilities",
-           "route_inputs"],
+           "route_inputs", "ocr_escalation"],
     writes=[],
 )
 def save(state: FlowState) -> FlowState:
@@ -338,8 +339,11 @@ def save(state: FlowState) -> FlowState:
 
 
 def _trace(c: Any, state: FlowState) -> None:
-    """The route's decision, in the save's transaction; a state decided before the trace (resumed at its save) has
-    none."""
+    """The route's decision, in the save's transaction (and the OCR escalation's of a document without a text layer); a
+    state decided before the trace (resumed at its save) has none."""
+    from jav.documents import ocr
+
+    ocr.trace_escalation(c, state.ocr_escalation, doc_id=state.doc_id, run_id=state.run_id)
     if state.route_inputs is not None:
         trace.record_in(c, policy.ROUTE_POINT, subject=("document", state.doc_id), inputs=state.route_inputs,
                         outcome=policy.route_rule(state.route_inputs), keys=policy.route_keys(state.route_inputs),
@@ -418,17 +422,24 @@ def needs_review(state: FlowState) -> FlowState:
     return state
 
 
-@action.pydantic(reads=["run_id", "doc_id", "source_path", "page_count", "doc_type", "review_reasons"], writes=["final_status", "route"])
+@action.pydantic(reads=["run_id", "doc_id", "source_path", "page_count", "doc_type", "review_reasons", "ocr_escalation"],
+                 writes=["final_status", "route"])
 def needs_ocr(state: FlowState) -> FlowState:
+    """218 (P3b): the document, its to-do and the OCR escalation's trace in one write transaction."""
+    from jav.documents import ocr
+
     state.final_status = "needs_ocr"
     state.route = "ocr"
-    store.upsert_document(
-        doc_id=state.doc_id, source_path=state.source_path, has_text=False, page_count=state.page_count,
-        year=_year_hint(state.source_path), doc_type=get_pack(state.doc_type).parent or state.doc_type, run_id=state.run_id,
-    )
-    # 066 Á01: a document without text is a to-do, else the run would be "done" and approvable with nothing extracted
-    store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer=policy.OCR_REVIEW_PRODUCER,
-                         reasons=[r for r in state.review_reasons if r.startswith("ocr:")] or ["ocr:no_text"])
+    with store.session(), store.connect() as c:
+        store.begin_immediate(c)
+        store.upsert_document(
+            doc_id=state.doc_id, source_path=state.source_path, has_text=False, page_count=state.page_count,
+            year=_year_hint(state.source_path), doc_type=get_pack(state.doc_type).parent or state.doc_type, run_id=state.run_id,
+        )
+        # 066 Á01: a document without text is a to-do, else the run would be "done" and approvable with nothing extracted
+        store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer=policy.OCR_REVIEW_PRODUCER,
+                             reasons=[r for r in state.review_reasons if r.startswith("ocr:")] or ["ocr:no_text"])
+        ocr.trace_escalation(c, state.ocr_escalation, doc_id=state.doc_id, run_id=state.run_id)
     return state
 
 
@@ -495,10 +506,10 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/fl
         "validate": {"kind": "det", "note": "a csomag validátor-listája (a régi rules.json): áfa-egyenlet, dátumsorrend, adószám-ellenőrzőszám, IBAN mod-97, formátum-regexek"},
         "decide_route": {"kind": "det", "note": "policy.decide: küszöbök (configs/policy.json), a csomag kötelező / magas tétű mezői, additív review-latch -> auto | human"},
         "ground": {"kind": "det", "note": "mezőnkénti forráshely a szórétegen (S: a kiválasztott jelölt sora + a többi jelölt; G: kódos keresés címkével, configs/grounding.json); hiba esetén forráshely nélkül tovább"},
-        "save": {"kind": "store", "note": "documents + datapoints (mezőnkénti confidence, a hívási hely config_hash-e) + review_queue; 149: an uncertain detailed type between an outgoing and an incoming pack is settled by the own parties' direction (confirm_detail_by_direction); 218: one write transaction with the route decision's trace (extract.route)"},
+        "save": {"kind": "store", "note": "documents + datapoints (mezőnkénti confidence, a hívási hely config_hash-e) + review_queue; 149: an uncertain detailed type between an outgoing and an incoming pack is settled by the own parties' direction (confirm_detail_by_direction); 218: one write transaction with the route decision's trace (extract.route) and the OCR escalation's (ocr.escalation)"},
         "done": {"kind": "terminal", "note": "auto - elfogadva"},
         "needs_review": {"kind": "terminal", "note": "human - review-sorban, okokkal"},
-        "needs_ocr": {"kind": "terminal", "note": "szöveg nélküli PDF, és az OCR sem adott használható szöveget (vagy nincs OCR-motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja"},
+        "needs_ocr": {"kind": "terminal", "note": "szöveg nélküli PDF, és az OCR sem adott használható szöveget (vagy nincs OCR-motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja; 218: one write transaction with the OCR escalation's trace (ocr.escalation)"},
     },
     "terminals": TERMINALS,
     "doc_note": "M2 data-point extraction - one graph with two extraction paths, and every run takes exactly one of them (arm S: code candidates + JEV Choice; arm G: GPT extraction + JEV Noul verification, or the code's own source check without JEV). There is no agreement gate between the paths: the route (auto or review) comes from the policy's thresholds (configs/policy.json), the pack's required and high-stakes fields, the validators and the additive review latch. Type-independent: the type pack (configs/types/<type>.json: invoice_hu, invoice_foreign, the utility bills, ...) supplies the fields, questions, prompt and validators. A PDF without a text layer goes through the OCR step (ocr_pdf) onto the same layout. Every AI call goes through the adapter layer (cache + ledger + config_hash).",

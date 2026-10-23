@@ -27,12 +27,12 @@
 
 ### persist
 - **ground** _(det)_ — mezőnkénti forráshely a szórétegen (S: a kiválasztott jelölt sora + a többi jelölt; G: kódos keresés címkével, configs/grounding.json); hiba esetén forráshely nélkül tovább
-- **save** _(store)_ — documents + datapoints (mezőnkénti confidence, a hívási hely config_hash-e) + review_queue; 149: an uncertain detailed type between an outgoing and an incoming pack is settled by the own parties' direction (confirm_detail_by_direction); 218: one write transaction with the route decision's trace (extract.route)
+- **save** _(store)_ — documents + datapoints (mezőnkénti confidence, a hívási hely config_hash-e) + review_queue; 149: an uncertain detailed type between an outgoing and an incoming pack is settled by the own parties' direction (confirm_detail_by_direction); 218: one write transaction with the route decision's trace (extract.route) and the OCR escalation's (ocr.escalation)
 
 ### terminal
 - **done** _(terminal)_ — auto - elfogadva
 - **needs_review** _(terminal)_ — human - review-sorban, okokkal
-- **needs_ocr** _(terminal)_ — szöveg nélküli PDF, és az OCR sem adott használható szöveget (vagy nincs OCR-motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja
+- **needs_ocr** _(terminal)_ — szöveg nélküli PDF, és az OCR sem adott használható szöveget (vagy nincs OCR-motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja; 218: one write transaction with the OCR escalation's trace (ocr.escalation)
 
 Terminal steps: done, needs_review, needs_ocr
 

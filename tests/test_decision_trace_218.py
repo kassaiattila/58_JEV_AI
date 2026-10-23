@@ -32,6 +32,7 @@ POINT_TESTS = {
     "email.intent": "test_an_emails_intent_and_next_step_are_traced_with_its_save",
     "email.next_flow": "test_an_email_without_an_intent_traces_only_its_route",
     "extract.route": "test_an_s_path_records_route_and_to_dos_are_traced_with_its_save",
+    "ocr.escalation": "test_a_blocked_escalation_is_traced_with_the_recognitions_save",
 }
 
 
@@ -379,3 +380,113 @@ def test_the_traced_rule_is_the_decision_the_flow_makes_and_replays_the_same(sta
     stored = json.loads(json.dumps({"inputs": inputs, "outcome": policy.route_rule(inputs)}, sort_keys=True))
     assert stored["outcome"] == {"route": route, "reasons": state.review_reasons[len(before):]}
     assert policy.route_rule(stored["inputs"]) == stored["outcome"]
+
+
+# --- the recognition's escalation (OCR) ----------------------------------------------------------------------------
+
+
+def _scan(tmp_path, *, mean_conf: float, low: float = 0.5, text: bool = True):
+    """A PDF without a text layer, and a local OCR engine that reads it with `mean_conf` and a `low` share of weak
+    words (the invoice's lines when `text`, nothing otherwise); the paid engine is blocked by the run's budget."""
+    from dataclasses import replace
+
+    from jav.documents import ocr
+    from jav.documents.pdf import read_document
+    from tests.pdfgen import INVOICE_LINES, write_text_pdf
+
+    scan = write_text_pdf(tmp_path / "scan.pdf", [])
+    printed = read_document(str(write_text_pdf(tmp_path / "printed.pdf", INVOICE_LINES)))
+    signals = {"engine": "native", "mean_conf": mean_conf, "low_conf_ratio": low}
+
+    def ocr_pdf(path, **kwargs):
+        if kwargs.get("engine_name") == "azure_di":
+            raise ocr.AzureBlocked("budget_exceeded")
+        if not text:
+            return ocr.PdfText(path=str(path), text="", page_count=1, ocr=dict(signals))
+        return replace(printed, path=str(path), has_text_layer=False, text_source="ocr", ocr=dict(signals))
+
+    return scan, ocr_pdf
+
+
+def _escalating(monkeypatch, ocr_pdf):
+    from jav.documents import ocr
+
+    monkeypatch.delenv(ocr.ENGINE_ENV, raising=False)
+    monkeypatch.setattr(ocr, "ESCALATION", {"enabled": True, "engine": "azure_di"})
+    monkeypatch.setattr(ocr, "ocr_pdf", ocr_pdf)
+
+
+def test_a_blocked_escalation_is_traced_with_the_recognitions_save(db, tmp_path, monkeypatch):  # noqa: F811
+    from jav.ai import jev as jev_mod
+    from jav.documents import ocr
+    from jav.flows import flow_detect
+    from tests.test_runtime_worker import FakeClient
+
+    scan, ocr_pdf = _scan(tmp_path, mean_conf=0.5)
+    _escalating(monkeypatch, ocr_pdf)
+    adapter = jev_mod.JevAdapter(client=FakeClient(), cache_dir=tmp_path / "cache", model="jev-1.13.0")
+    with jev_mod.use_adapter(adapter):
+        st_ = flow_detect.run_detect(str(scan), run_id="r-scan")
+    (row,) = trace.rows(point=ocr.ESCALATION_POINT, subject=("document", st_.doc_id))
+    assert row["run_id"] == "r-scan" and row["inputs"]["first"] == {"engine": "native", "mean_conf": 0.5, "low_conf_ratio": 0.5}
+    assert row["inputs"]["attempt"] == {"blocked": "budget_exceeded"}
+    assert row["outcome"] == {"attempt": True, "text": "local", "reasons": ["ocr:escalation_blocked:budget_exceeded"]}
+    assert "ocr:escalation_blocked:budget_exceeded" in st_.review_reasons
+    assert {r["file"] for r in row["rules"]} == {"ocr.json", "policy.json"}
+    assert trace.replay(row) == row["outcome"]
+
+
+def test_a_document_ocr_could_not_read_is_traced_with_its_to_do_in_one_write(db, tmp_path, monkeypatch):  # noqa: F811
+    from jav.documents import ocr
+    from jav.flows.flow import run_one
+
+    scan, ocr_pdf = _scan(tmp_path, mean_conf=0.99, low=0.0, text=False)
+    _escalating(monkeypatch, ocr_pdf)
+    st_ = run_one(str(scan), "c1", "S", tracker=False, doc_type="invoice_hu")
+    assert st_.final_status == "needs_ocr"
+    (row,) = trace.rows(point=ocr.ESCALATION_POINT, subject=("document", st_.doc_id))
+    assert row["outcome"] == {"attempt": False, "text": "local", "reasons": []}  # good enough: no paid engine asked
+
+    def broken(*args, **kwargs):
+        raise sqlite3.OperationalError("the trace could not be written")
+
+    monkeypatch.setattr(trace, "record_in", broken)
+    with store.use_store(tmp_path / "second.sqlite"):
+        with pytest.raises(sqlite3.OperationalError):
+            run_one(str(scan), "c2", "S", tracker=False, doc_type="invoice_hu")
+        with store.connect() as c:  # the document and its to-do are not written either
+            for table in ("documents", "review_reasons"):
+                assert c.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
+
+
+_OUTCOME = st.one_of(st.none(), st.sampled_from(["off", "budget_exceeded", "uncertain_attempt", "unavailable"]), _P)
+
+
+@given(_P, _P, st.sampled_from(["native", "azure_di"]), st.booleans(), st.booleans(), _OUTCOME)
+def test_the_escalation_rule_is_what_the_recognition_does_and_replays_the_same(conf, ratio, engine, forced, enabled, then):
+    """`then`: what the paid engine does when asked: blocked (a reason), reads with a confidence, or reads nothing."""
+    import os
+    from unittest.mock import patch
+
+    from jav.documents import ocr
+
+    first = ocr.PdfText(path="x.pdf", text="local", ocr={"engine": engine, "mean_conf": conf, "low_conf_ratio": ratio})
+
+    def ocr_pdf(path, **kwargs):
+        if kwargs.get("engine_name") != "azure_di":
+            return ocr.PdfText(path="x.pdf", text="local", ocr=dict(first.ocr))
+        if isinstance(then, str):
+            raise (ocr.AzureBlocked(then) if then != "unavailable" else ocr.OcrUnavailableError("down"))
+        return ocr.PdfText(path="x.pdf", text="paid", ocr=None if then is None else {"engine": "azure_di", "mean_conf": then})
+
+    env = {ocr.ENGINE_ENV: "native"} if forced else {}
+    with patch.object(ocr, "ocr_pdf", ocr_pdf), patch.object(ocr, "ESCALATION", {"enabled": enabled, "engine": "azure_di"}),             patch.dict(os.environ, env, clear=False):
+        if not forced:
+            os.environ.pop(ocr.ENGINE_ENV, None)
+        pdf, escalated = ocr.ocr_with_escalation("x.pdf")
+    inputs = pdf.ocr["escalation"]
+    stored = json.loads(json.dumps({"inputs": inputs, "outcome": ocr.escalation_rule(inputs)}, sort_keys=True))
+    out = stored["outcome"]
+    assert out["text"] == ("escalated" if escalated else "local") and (pdf.text == "paid") == escalated
+    assert out["reasons"] == ocr.escalation_review_reasons(pdf.ocr)
+    assert ocr.escalation_rule(stored["inputs"]) == out
