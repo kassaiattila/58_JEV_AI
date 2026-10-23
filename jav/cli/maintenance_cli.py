@@ -312,6 +312,27 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_trace(args: argparse.Namespace) -> int:
+    """218 (P3b): the decision trace - the registered decision points, or the trace rows of a subject, a run, a case or
+    a point, each with its rule run again on its stored inputs (`same`: the stored outcome)."""
+    from jav.core import trace
+
+    if args.points:
+        print(json.dumps([{"code": p.code, "what": p.what, "not_for": p.not_for, "owner": p.owner, "files": list(p.files)}
+                          for p in trace.points()], ensure_ascii=False, indent=2))
+        return 0
+    subject = tuple(args.subject.split(":", 1)) if args.subject else None
+    if subject is not None and len(subject) != 2:
+        print("--subject is KIND:ID")
+        return 2
+    rows = trace.rows(point=args.point, subject=subject, run_id=args.run, case_id=args.case, last=args.last)
+    for row in rows:
+        known = any(p.code == row["point"] for p in trace.points())
+        row["same"] = trace.replay(row) == row["outcome"] if known else None
+    print(json.dumps(rows, ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_store(args: argparse.Namespace) -> int:
     from jav.core import store
 
@@ -477,6 +498,15 @@ def register(sub) -> None:
     p.add_argument("--restore", metavar="SHA256", help="write a stored rule file's content (with --out)")
     p.add_argument("--out", help="where --restore writes")
     p.set_defaults(fn=cmd_snapshot)
+    p = sub.add_parser("trace", help="218: the decision trace - which rule decided, with what, in which version (the latest"
+                                     " 20 rows without a filter)")
+    p.add_argument("--points", action="store_true", help="the registered decision points")
+    p.add_argument("--point", help="one decision point's rows")
+    p.add_argument("--subject", metavar="KIND:ID", help="the rows about one subject (e.g. workflow_step:wf-...:invoices)")
+    p.add_argument("--run", help="the rows made in one run")
+    p.add_argument("--case", help="the rows made in one case")
+    p.add_argument("--last", type=int, default=20, help="only the latest this many rows (default 20)")
+    p.set_defaults(fn=cmd_trace)
     p = sub.add_parser("store", help="adattár statisztika (documents, datapoints, review_queue, ledger)")
     p.set_defaults(fn=cmd_store)
     p = sub.add_parser("backup", help="063: az adattár mentése futás közben is (SQLite-mentés + sértetlenség-ellenőrzés), store/backups/ alá")

@@ -61,6 +61,7 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import Mapping
 from contextvars import ContextVar
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
@@ -71,7 +72,7 @@ from jav.app import (
     app_settings, human_tasks, logic_packs, package_release, package_scope, parties, scopes, work, work_readiness,
     work_recipes, work_runs, workflow_cases, workflow_steps,
 )
-from jav.core import activity_kinds, cfg, store
+from jav.core import activity_kinds, cfg, store, trace
 from jav.core.process import cases as process_cases
 from jav.core.process import engine as process_engine
 from jav.core.process import kinds as process_kinds
@@ -986,8 +987,28 @@ def _give_engine(wp_id: str, engine: str | None, *, actor: str) -> None:
                        note=f"workflow step: engine {engine}")
 
 
+BUDGET_GATE = "workflow.budget_gate"  # 218 (P3b): the decision point of a step's budget gate
+
+
+def budget_gate(inputs: Mapping[str, Any]) -> dict[str, Any]:
+    """218 (P3b): a workflow step's budget gate, a pure rule: each provider whose estimate (`estimate`, USD as text) is
+    over the step's approved budget (`budget`; a provider without one has none); the step's package starts its live
+    run only when none is, otherwise the step waits for a person's budget."""
+    budget = inputs["budget"]
+    over = {p: str(Decimal(v)) for p, v in sorted(inputs["estimate"].items()) if Decimal(v) > Decimal(budget.get(p, "0"))}
+    return {"over": over, "decision": "needs_budget" if over else "start"}
+
+
+def _gate_keys(wp_id: str) -> dict[str, tuple[str, ...]]:
+    """The rule keys the estimate of the gate was made with: the item budgets of the package's recipe."""
+    a = work_recipes.current_assignment(wp_id)
+    rid = a["recipe_id"] if a else work_recipes.default_recipe()["id"]
+    return {"recipes.json": (f"recipes[{rid}].max_item_usd", f"recipes[{rid}].max_item_usd_by_kind")}
+
+
 def _start_run(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], wp_id: str, *, actor: str) -> None:
-    """The package's live run, when its own estimate fits the step's budget; otherwise the step waits for a person."""
+    """The package's live run, when its own estimate fits the step's budget; otherwise the step waits for a person.
+    218 (P3b): the gate's decision is traced in the transaction that records it on the step."""
     step = sdef["id"]
     try:
         _give_engine(wp_id, st.get("engine"), actor=actor)
@@ -996,18 +1017,29 @@ def _start_run(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], wp_
             raise WorkflowError("; ".join(b["message"] for b in ready["blockers"]) or "the package cannot start")
         budget = _steps(wf["id"])[step]["budget"]
         estimate = {p: Decimal(str(v)) for p, v in (ready.get("budget") or {}).items()}
-        over = {p: str(v) for p, v in estimate.items() if v > Decimal(budget.get(p, "0"))}
-        if over:
-            note = {"estimate": {p: str(v) for p, v in estimate.items()}, "budget": budget, "over": over}
+        inputs = {"estimate": {p: str(v) for p, v in estimate.items()}, "budget": budget}
+        gate = budget_gate(inputs)
+
+        def traced(c: Any, run_id: str | None = None) -> None:
+            trace.record_in(c, BUDGET_GATE, subject=("workflow_step", f"{wf['id']}:{step}"), inputs=inputs,
+                            outcome=gate, keys=_gate_keys(wp_id), run_id=run_id, case_id=wf["id"])
+
+        if gate["over"]:
+            note = {**inputs, "over": gate["over"]}
             with store.connect() as c:  # 215: the wait, its event and the person's task in one transaction
                 store.begin_immediate(c)
                 if _update_step(c, wf["id"], step, state="needs_budget", workpackage_id=wp_id, note=json.dumps(note)):
                     _event(c, wf["id"], step, "needs_budget", actor, {"workpackage_id": wp_id, "note": json.dumps(note)})
                     workflow_cases.ask_budget(c, wf["id"], step, human_tasks.assignee_for(c, wp_id, wf["actor"]), note)
+                    traced(c)
             return
         res = work_runs.start_run(wp_id, mode="apply", expected_assignment_revision=ready["assignment_revision"],
                              input_hash=ready["input_hash"], actor=actor)
-        _done(wf, step, actor, "run", state="started", workpackage_id=wp_id, run_id=res["run_id"])
+        with store.connect() as c:  # the step's start, its event and the gate's trace in one transaction
+            store.begin_immediate(c)
+            _update_step(c, wf["id"], step, state="started", workpackage_id=wp_id, run_id=res["run_id"])
+            _event(c, wf["id"], step, "run", actor, {"workpackage_id": wp_id, "run_id": res["run_id"]})
+            traced(c, res["run_id"])
     except Exception as exc:
         log.warning("workflow %s step %s: run not started: %s", wf["id"], step, exc)
         _done(wf, step, actor, "failed", state="failed", workpackage_id=wp_id, note=str(exc)[:1000])
@@ -1252,6 +1284,12 @@ process_cases.on_leave(_went_stale)
 process_kinds.register(process_kinds.StepKind(workflow_cases.STEP_KIND, __name__, _case_step,
                                               events=(workflow_cases.BUDGET, workflow_cases.APPROVAL),
                                               on_event=workflow_cases.task_event))
+# 218 (P3b): the budget gate's decision point
+trace.register(trace.Point(
+    BUDGET_GATE, owner=__name__, files=("recipes.json",), rule=budget_gate,
+    what="whether a workflow step's package starts its live run or the step waits for a person's budget: the run's "
+         "estimate per provider against the budget a person approved for the step",
+    not_for="the run's reservations while it runs (the call log keeps those)"))
 
 
 # --- the wizard's estimate -----------------------------------------------------------------------------------------------

@@ -774,3 +774,18 @@ before); the package's Approve and release and the run's own line show it, and n
 decision of 2026-10-23). `python -m jav.cli snapshot` reads them: this process's, `--id`, `--run`, `--diff A B`,
 `--restore <sha256> --out <file>`. Tests: `tests/test_rulebook_218.py`, `tests/test_calc_snapshot_links_218.py`,
 `ui/src/ruleChanges218.test.tsx`.
+
+**Decision trace (218, P3b).** `jav/core/trace.py`: a machine decision point is registered by its owner module
+(`trace.register(Point)`: its code, what it decides, what it is not for, the rule files under `configs/` it reads, and
+its rule: a pure function whose value for the stored inputs is the stored outcome). A decision writes one row of
+`decision_trace` in the transaction that records its result (`trace.record_in`): the point, its subject (kind and id),
+the run and the case, the inputs the rule read and their fingerprint, the outcome, the rule files and keys it used with
+each file's version and content fingerprint, and the process's calculation snapshot. When the row cannot be written,
+the decision is not written either. `trace.replay(row)` runs the rule again on a row's inputs (the basis of the planned
+preview of a changed rule, P3d). A person's decision has its own journal (`jav.core.decisions`), whose state the pages
+send back against stale edits, so the machine's trace is a table of its own. Points so far: `workflow.budget_gate` (a
+workflow step's estimate per provider against its approved budget, `workflows.budget_gate`; traced with the step's wait
+for a budget, or with its start and the run it started). `python -m jav.cli trace` reads it (`--points`, `--point`,
+`--subject KIND:ID`, `--run`, `--case`, `--last`; each row with `same`: its rule gives the stored outcome again); the
+status page counts it by point. Tests: `tests/test_decision_trace_218.py` (a new point must be listed there with its
+test).
