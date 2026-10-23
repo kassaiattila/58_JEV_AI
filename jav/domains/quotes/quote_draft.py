@@ -507,11 +507,10 @@ def approve(wp_id: str, *, fingerprint: str, actor: str) -> dict[str, Any]:
         if decisions.state(c, KIND, wp_id) != state:
             raise explained(work.RevisionConflict, "the quote changed since it was shown; reload it and check it again")
         _refuse_if_approved(c, wp_id)
-        n = package_release.record_own(c, wp_id, content=content, fingerprint=fingerprint, locks=[], actor=actor)
-        quote_document.store(c, wp_id, n, content, package=package, actor=actor)  # 196: its Word document
-        work.record_event(c, wp_id, "quote_approve", actor, {"version": n, "fingerprint": fingerprint,
-                                                             "lines": len(content["lines"]),
-                                                             "gross": content["totals"]["gross"]})
+        n = package_release.approve_own(
+            c, wp_id, event="quote", content=content, fingerprint=fingerprint, locks=[], actor=actor,
+            files=lambda c, n: quote_document.store(c, wp_id, n, content, package=package, actor=actor),  # 196: its Word document
+            details={"lines": len(content["lines"]), "gross": content["totals"]["gross"]})
     return approved_version(wp_id, n, with_quote=False)
 
 
@@ -531,10 +530,8 @@ def reopen(wp_id: str, *, note: str, actor: str) -> dict[str, Any]:
         raise explained(QuoteDraftError, "reopening needs a reason")
     with store.connect() as c:
         store.begin_immediate(c)
-        n = package_release.reopen_own(c, wp_id, note=note, actor=actor)
-        if n is None:
+        if package_release.reopen_logged(c, wp_id, event="quote", note=note, actor=actor) is None:
             raise explained(QuoteDraftError, "the quote has no approved version to reopen")
-        work.record_event(c, wp_id, "quote_reopen", actor, {"version": n, "note": note})
     return view(wp_id)
 
 

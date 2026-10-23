@@ -1491,6 +1491,7 @@
   "the statement changed since it was shown; reload it and check it again": "A kivonat a megjelenítése óta megváltozott; töltsd be újra, és nézd át ismét",
   "the statement cannot be approved yet": "A kivonat még nem hagyható jóvá",
   "version {{version}} is approved; reopen it before approving again": "A(z) {{version}}. változat jóváhagyott; újabb jóváhagyás előtt nyisd újra",
+  "version {{version}} was approved meanwhile; reload the package": "A(z) {{version}}. változatot közben jóváhagyták; töltsd be újra a csomagot",
   "Back to the work packages": "Vissza a munkacsomagokhoz",
   "The run cannot be approved: {{reason}}": "A futás nem hagyható jóvá: {{reason}}",
   "Stopped": "Leállítva",
