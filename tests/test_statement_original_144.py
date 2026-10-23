@@ -1,6 +1,6 @@
 """144 (DECISIONS 144): the bank's own PDF behind a statement read by code, on the pairing page's documents.
 
-A statement read by code is stored as the reader's statement file (`format: jav.domains.finance.statement_table`), which names the PDF
+A statement read by code is stored as the reader's statement file (`format: jav.statement_table`), which names the PDF
 it was read from (`source`) or, for a ledger export, the month's PDF (`source.companion`). The documents' statement pane
 showed a broken image for it; now the service finds the PDF again (in the folder of the package that brought the
 statement, or under any path the store fingerprinted with that content), frames the line on it and serves its pages

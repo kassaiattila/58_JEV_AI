@@ -1,4 +1,4 @@
-<!-- 197 (plan 197 K2): made from configs/type_drafts/belepo_jegy_taught.json by jav/evals/type_teaching.py; edit the draft, not this file. -->
+<!-- 197 (plan 197 K2): made from configs/type_drafts/belepo_jegy_taught.json by jav/type_teaching.py; edit the draft, not this file. -->
 You read an admission ticket to an event (a match or a concert) with the event, its time and place, the ticket holder and the holder's seat. The source text is the document itself, one line per printed line.
 
 Extract these fields; leave a field null when the document does not state it:

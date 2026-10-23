@@ -305,7 +305,9 @@ def candidate(draft: TaughtDraft, *, today: date | None = None) -> dict[str, Any
         "wrong_kind_fields": [f.key for f in draft.fields if f.kind in ("tax_id", "iban", "invoice_number")],
     }
     lines = [f"- `{f.key}`: {f.meaning.rstrip('.')}.{_WRITTEN.get(f.kind, '')}" for f in draft.fields]
-    prompt = (f"<!-- 197 (plan 197 K2): made from configs/type_drafts/{draft.key}.json by jav/evals/type_teaching.py; "
+    # the header is part of the text sent to the model and of the prompt's fingerprint, so it keeps the generator's path
+    # as it was written before the module moved (208, plan G-process-core R2)
+    prompt = (f"<!-- 197 (plan 197 K2): made from configs/type_drafts/{draft.key}.json by jav/type_teaching.py; "
               "edit the draft, not this file. -->\n"
               f"You read {draft.document[0].lower()}{draft.document[1:]}. The source text is the document itself, one line "
               "per printed line.\n\nExtract these fields; leave a field null when the document does not state it:\n\n"

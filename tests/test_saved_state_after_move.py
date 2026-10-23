@@ -58,3 +58,11 @@ def test_every_moved_module_is_gone_from_its_old_place_and_imports_at_its_new_on
     for old, new in MOVED_MODULES.items():
         assert not (PROJECT_ROOT / "jav" / (old.replace(".", "/") + ".py")).exists(), old
         importlib.import_module(f"jav.{new}")
+
+
+def test_a_stored_format_name_does_not_follow_its_module():
+    """A statement file names its format in the file itself (133 statement files and 200 source copies in the store,
+    208); the name looks like the reader's old module path but is a stored name, so it never follows a move."""
+    from jav.domains.finance import statement_original, statement_table
+
+    assert statement_table.FORMAT == statement_original.FORMAT == "jav.statement_table"

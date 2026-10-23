@@ -1270,7 +1270,9 @@ def survey(reading: Reading) -> dict[str, Any]:
 
 # --- one file per chosen account ------------------------------------------------------------------------------------------
 
-FORMAT = "jav.domains.finance.statement_table"
+# the stored statement file's format name, written into every file: not the module's path, so it stays as it was
+# written when the module moves (208, plan G-process-core R2)
+FORMAT = "jav.statement_table"
 FORMAT_VERSION = 1
 _UNSAFE = re.compile(r'[<>:"/\|?*\x00-\x1f]+')
 

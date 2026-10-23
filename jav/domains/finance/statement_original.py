@@ -35,7 +35,7 @@ from jav.documents import page_image, source_layer
 from jav.core import store
 
 DOC_TYPE = "statement_table"  # the statements read by code (jav/domains/finance/flow_statement_table.py)
-FORMAT = "jav.domains.finance.statement_table"  # the statement file's `format`
+FORMAT = "jav.statement_table"  # the statement file's `format` (a stored name, not the module's path; 208)
 
 FOUND, EXPORT, MISSING = "found", "export", "missing"
 MAX_VISITED = 20_000  # the entries one name search visits under a package's folder (a folder tree may be large)
