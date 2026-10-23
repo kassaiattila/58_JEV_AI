@@ -55,8 +55,6 @@ NOT_MOVED = {name: layer for layer, names in {
         "registrations reground scopes source_instances tablequery work work_readiness work_recipes work_runs "
         "work_views workflow_steps workflows",
     "runtime": "backup deps_audit",
-    "domains.email": "api_email_routing api_mailbox email_cli email_datasets email_export email_routing email_tasks "
-        "emails flow_email ingest_server intent intent_gpt intents mailbox",
     "domains.finance": "api_finance api_parties api_reconcile api_statement_package bank_files duplicates finance_cli "
         "finance_datasets flow_statement_table fx party_views reconcile reconcile_ai reconcile_goldens "
         "reconcile_overview reconcile_package reconcile_review reconcile_statement report_utility "
@@ -94,8 +92,8 @@ KNOWN = {
 }
 # imports against the direction for good, each with its reason
 LASTING = {
-    ("jav.policy", "jav.emails"): "the routing rules of every flow are one module with their thresholds (CLAUDE.md §6)",
-    ("jav.policy", "jav.intents"): "the routing rules of every flow are one module with their thresholds (CLAUDE.md §6)",
+    ("jav.policy", "jav.domains.email.emails"): "the routing rules of every flow are one module with their thresholds (CLAUDE.md §6)",
+    ("jav.policy", "jav.domains.email.intents"): "the routing rules of every flow are one module with their thresholds (CLAUDE.md §6)",
 }
 
 
@@ -111,6 +109,17 @@ def _modules() -> dict[str, Path]:
 
 
 MODULES = _modules()
+
+
+def domain_modules(domain: str) -> frozenset[str]:
+    """The modules a domain (`jav.domains.<name>`) is made of, relative to jav: its package and the modules in its folder
+    (208), or, for a domain not in its folder yet, the ones its domain module names (`MODULES`)."""
+    import importlib
+
+    name = domain.removeprefix("jav.")
+    if MODULES[name].name == "__init__.py":
+        return frozenset(m for m in MODULES if m == name or m.startswith(name + "."))
+    return frozenset(importlib.import_module(domain).MODULES)
 
 
 def _resolve(dotted: str) -> str | None:

@@ -5,7 +5,7 @@ its attachments: accept the proposals (one, several, or every clear one), put an
 chose, leave it unrouted, or take a decision back. `jav.api.create_app` adds them (185: by its logic pack's
 `service`, `jav.api.service_modules`).
 
-Layer: UI/CLI (the local service) → `jav.email_routing`.
+Layer: UI/CLI (the local service) → `jav.domains.email.email_routing`.
 """
 
 from __future__ import annotations
@@ -15,7 +15,8 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI
 from pydantic import Field
 
-from jav import email_routing, work_views
+from jav.domains.email import email_routing
+from jav import work_views
 from jav.service_shared import DecisionState, In, WpId, human_actor
 
 WpIdField = Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")]  # a work package named in a request's body

@@ -16,9 +16,10 @@ from types import SimpleNamespace
 import pytest
 from typesafe_sdk import Noul
 
-from jav import detect_detail, doc_types, extract_llm, flow, intents, naming, policy, store, text_document, typepack
+from jav import detect_detail, doc_types, extract_llm, flow, naming, policy, store, text_document, typepack
+from jav.domains.email import intents
 from jav.adapters import jev as jev_mod
-from jav.emails import Attachment
+from jav.domains.email.emails import Attachment
 from jav.jev_verify import site_for
 from jav.models import JevCall
 from tests.test_no_jev_085 import _FakeAgent

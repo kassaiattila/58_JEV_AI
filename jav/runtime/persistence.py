@@ -16,8 +16,9 @@ from contextlib import closing
 from pathlib import Path
 from typing import Any
 
-from burr.core import State
+from burr.core import State, serde
 from burr.core.persistence import SQLitePersister
+from burr.integrations.serde import pydantic as burr_pydantic
 
 from jav import store
 
@@ -44,6 +45,27 @@ def _renamed(partition: str, state: State) -> State:
         return state
     # a state that has the new key too keeps it
     return State({renamed.get(k, k): v for k, v in values.items() if not (k in renamed and renamed[k] in values)})
+
+
+# 208 (plan G-process-core R2): the modules moved since states were saved, relative to `jav` (old -> new). A saved state
+# names each typed value's class by its module, and Burr imports that module to read the value back; a state saved
+# before a move is read with the class at its new place, so an item interrupted before the move resumes as it was.
+# Every moved module that defines a model a flow's state can hold is listed.
+MOVED_MODULES: dict[str, str] = {
+    "emails": "domains.email.emails", "email_tasks": "domains.email.email_tasks", "intent": "domains.email.intent",
+}
+
+
+def _read_moved(value: dict, **kwargs: Any) -> Any:
+    """Burr's reading of a typed value (`deserialize_pydantic`), with the class of a moved module at its new place."""
+    module, _, name = value["__pydantic_class"].rpartition(".")
+    moved = MOVED_MODULES.get(module.removeprefix("jav.")) if module.startswith("jav.") else None
+    if moved is not None:
+        value = {**value, "__pydantic_class": f"jav.{moved}.{name}"}
+    return burr_pydantic.deserialize_pydantic(value, **kwargs)
+
+
+serde.deserializer.register("pydantic")(_read_moved)
 
 
 class ClosingSQLitePersister(SQLitePersister):

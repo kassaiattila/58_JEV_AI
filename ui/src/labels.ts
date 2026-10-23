@@ -308,7 +308,7 @@ export function reasonText(code: string): string {
     case "intent:confidence_unavailable": return t("A levél-szándék bizonyossága nem mérhető; ellenőrizd kézzel");
     // 086: processing without JEV, before 089 (older runs): the intent was not recognised at all
     case "intent:jev_off": return t("JEV nélküli feldolgozás: a levél szándékát a rendszer nem ismeri fel; olvasd el, és döntsd el kézzel");
-    // 073: task proposals from an e-mail (jav/flow_email.py); until now these showed the raw code
+    // 073: task proposals from an e-mail (jav/domains/email/flow_email.py); until now these showed the raw code
     case "tasks:proposed": return t("{{n}} feladatjavaslat vár döntésre", { n: p[2] ?? "" });
     case "tasks:failed": return t("A feladatjavaslat nem sikerült ({{why}})", { why: p[2] ?? "" });
     // 120: the to-dos of Word, Excel, text and continuing PDF documents (jav/flow_native.py)
@@ -433,7 +433,7 @@ const STEP_LABEL = tmap({
   go_live: "Próba rendben: éles futás",
   // 132: a reconciliation package's steps (jav/reconcile_package.py `next_step`)
   reconcile_empty: "No statement line in the scope", reconcile_result: "Reconciliation result",
-  // 181: an email routing package's steps (jav/email_routing.py `_next`)
+  // 181: an email routing package's steps (jav/domains/email/email_routing.py `_next`)
   routing_empty: "Nothing to route", routing_done: "Routed",
   // 191: a quote package's steps (jav/quote_package.py `_next_of`)
   quote_request_missing: "The request cannot be read", quote_compose: "Compose the quote",

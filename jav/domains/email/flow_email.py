@@ -6,7 +6,7 @@
   table (with a source_email reference). An attachment known by name only (legacy golden set) -> `name_only`; image ->
   `unsupported` (OCR = extension B5); a PDF the reader cannot read -> `unreadable` + an email to-do (078).
 - `intent`: one JEV request (Choice + 4 Nouls) through the adapter (cache + ledger); without JEV (089) the same
-  questions in one GPT request (`jav/intent_gpt.py`), its confidence from the answer's token log-probabilities.
+  questions in one GPT request (`jav/domains/email/intent_gpt.py`), its confidence from the answer's token log-probabilities.
 - `route`: `policy.email_next_flow` - code decides from the intent, the confidence and the attachment types.
 - 149: a sent message (`folder = 'sent'`) is not asked about its intent (the question reads the sender's aim, and the
   call is paid): its attachments still run and decide the route (`policy.email_sent_route`), no task proposal is made,
@@ -35,11 +35,11 @@ from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
 from jav import policy, store, text_document, typepack
-from jav.emails import DOC_EXTS, EmailMessage, body_coverage, document_text, load_message_dir
+from jav.domains.email.emails import DOC_EXTS, EmailMessage, body_coverage, document_text, load_message_dir
 from jav.engine import with_engine
-from jav.intent import IntentResult
+from jav.domains.email.intent import IntentResult
 
-log = logging.getLogger("jav.flow_email")
+log = logging.getLogger("jav.domains.email.flow_email")
 
 TERMINALS = ["done"]
 PARTITION = "email_intent"  # partition of the durable state persistence (066 Á08: the worker looks up the saved state with it)
@@ -130,7 +130,7 @@ def classify_attachments(state: EmailState) -> EmailState:
 @action.pydantic(reads=["message", "run_id", "use_cache", "jev", "review_reasons"], writes=["result", "uncertain", "review_reasons"])
 def intent(state: EmailState) -> EmailState:
     from jav.adapters.jev import JevUnavailableError, get_adapter
-    from jav.intent import classify
+    from jav.domains.email.intent import classify
 
     assert state.message is not None
     if state.message.folder == "sent":  # 149: no sender's aim to recognise in a message we sent
@@ -155,7 +155,7 @@ def intent(state: EmailState) -> EmailState:
 def _intent_gpt(state: EmailState) -> EmailState:
     """089: the intent recognised by GPT (processing without JEV). A failed call (no budget, provider error) is a to-do,
     not the end of the item; an unmeasurable confidence makes the intent uncertain. The signals act as with JEV."""
-    from jav.intent_gpt import classify
+    from jav.domains.email.intent_gpt import classify
 
     assert state.message is not None
     try:
@@ -219,7 +219,7 @@ def tasks(state: EmailState) -> EmailState:
     proposal also becomes a to-do, because only a person accepts a proposal."""
     if not state.propose_tasks:
         return state
-    from jav import email_tasks
+    from jav.domains.email import email_tasks
     from jav.runtime.queue import JobCancelled
 
     msg = state.message
@@ -325,14 +325,14 @@ CONTRACT = {  # the graph declaration: FLOW.md + Mermaid + lint come from it (ja
     "step_meta": {
         "load_message": {"kind": "det", "note": "inbox/<mailbox>/<msgid>/message.json + fájlok, vagy kész EmailMessage (golden)"},
         "classify_attachments": {"kind": "flow", "note": "minden PDF-csatolmányon az M1 doc_detect gráf (a levél run_id-je alatt: <run_id>-doc_detect), eredmény a csatolmányra + documents.source_email; kép -> unsupported, névből ismert -> name_only; olvashatatlan PDF -> unreadable + teendő (attachment:unreadable), a levél tovább fut"},
-        "intent": {"kind": "jev", "note": "egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben. Without JEV: the same questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/intent_gpt.py); a failed call is an intent:gpt_failed to-do (and no attachment recognition in this flow: the attachments are recognised as items of their own). A sent message (folder = sent, 149) is not asked: no call, no to-do"},
+        "intent": {"kind": "jev", "note": "egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben. Without JEV: the same questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/domains/email/intent_gpt.py); a failed call is an intent:gpt_failed to-do (and no attachment recognition in this flow: the attachments are recognised as items of their own). A sent message (folder = sent, 149) is not asked: no call, no to-do"},
         "route": {"kind": "det", "note": "policy.email_next_flow: conf küszöb -> csatolmány M1-típusa -> szándékonkénti alapértelmezés. A sent message (149): policy.email_sent_route, its attachments' types, else archive:sent. 190: a route to a type pack that reads text (the quote request), with the recipe's email_text setting on, names the follow-up stage: the extraction flow on the email's own text; 192: and one on each table attachment when the pack reads tables"},
         "tasks": {"kind": "llm", "note": "feladatjavaslat (GPT, a régi email-actions v1.3.0 utasítása) + kódos bizonyíték-kapu; csak ha a recept kéri, archiválandó levélen nem; javaslat -> teendő (ember fogadja el). Not for a sent message (149)"},
         "save": {"kind": "store", "note": "emails + email_results (a futás sora, a feladatjavaslat is); bizonytalan intent / javaslat -> review_queue (additív), különben a korábbi tétel zárul; 190: the email's own text as a document tied to the email (documents.source_email), when a follow-up extracts it"},
         "done": {"kind": "terminal", "note": "szándék + next_flow mentve"},
     },
     "terminals": TERMINALS,
-    "doc_note": "M3 - a bemenet a régi outlook_bridge.ps1 -> jav/ingest_server.py -> inbox-mappa; a next_flow kódban dől el, nem Jev-kérdés.",
+    "doc_note": "M3 - a bemenet a régi outlook_bridge.ps1 -> jav/domains/email/ingest_server.py -> inbox-mappa; a next_flow kódban dől el, nem Jev-kérdés.",
 }
 
 

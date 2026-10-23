@@ -1,7 +1,7 @@
 """M3 - email intent recognition with JEV: one request, one Choice + Nouls + a Score.
 Question set: `configs/callsites/email_intent.json`.
 
-- Choice `intent` over the registered intents (`jav/intents.py` <- `configs/intents.json`; the axis is the sender's
+- Choice `intent` over the registered intents (`jav/domains/email/intents.py` <- `configs/intents.json`; the axis is the sender's
   GOAL);
 - Noul `requires_action`, `mentions_deadline`, `attachment_is_the_subject`, `multiple_requests`, `prompt_injection` and
   Score `urgency` (v1.1.0, replacing the former `tone_urgent` Noul) - routing and review signals, put into the state
@@ -21,8 +21,8 @@ from typesafe_sdk import Choice, Noul, Score
 
 from jav import cfg
 from jav.adapters.jev import JevAdapter
-from jav.emails import EmailMessage, clean_body, sender_domain
-from jav.intents import OTHER, PARENT_OF, choice_criteria
+from jav.domains.email.emails import EmailMessage, clean_body, sender_domain
+from jav.domains.email.intents import OTHER, PARENT_OF, choice_criteria
 from jav.models import JevCall
 from jav.registry import parent_summary
 
@@ -63,7 +63,7 @@ class IntentResult(BaseModel):
     parent_prob: float = 0.0  # total probability of the family - parent label at low confidence (the policy decides)
     body_clean: str = ""
     call: JevCall
-    engine: str = "jev"  # 089: "gpt" when GPT recognised the intent (processing without JEV, `jav/intent_gpt.py`)
+    engine: str = "jev"  # 089: "gpt" when GPT recognised the intent (processing without JEV, `jav/domains/email/intent_gpt.py`)
     measured: bool = True  # 089: False when GPT's confidence could not be measured (never invented)
 
     @model_validator(mode="after")

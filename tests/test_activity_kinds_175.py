@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import activity_kinds, corrections, datasets, email_tasks, store, work, workflows
+from jav import activity_kinds, corrections, datasets, store, work, workflows
+from jav.domains.email import email_tasks
 from tests.test_activity_labels_171 import _recorded_actions
 from tests.test_characterisation_171 import RUN, _run, db  # noqa: F401  (the fixture)
 
@@ -92,7 +93,8 @@ def test_the_task_kinds_come_from_the_settings_in_the_schemas_order() -> None:
 
 
 def test_the_decisions_on_a_task_proposal_and_a_duplicate_pair_are_one_list_each() -> None:
-    from jav import api_finance, api_mailbox, duplicates  # 185: the requests moved with their addresses
+    from jav import api_finance, duplicates
+    from jav.domains.email import api_mailbox  # 185: the requests moved with their addresses
 
     assert api_mailbox.TaskDecision.model_fields["decision"].annotation.__args__ == store.TASK_DECISIONS == ("accepted", "rejected")
     assert api_finance.DuplicateDecision.model_fields["decision"].annotation.__args__ == duplicates.DECISIONS

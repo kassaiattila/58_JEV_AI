@@ -14,8 +14,8 @@ from typing import Any
 from jav.policy import INTENT_HUMAN_MAX_CONF  # 066 Á38: the threshold comes from the policy
 from jav.config import RUNS_DIR
 from jav import store, values
-from jav.emails import EmailMessage, GoldenEmail, iter_inbox, load_old_golden
-from jav.intents import INTENT_KEYS
+from jav.domains.email.emails import EmailMessage, GoldenEmail, iter_inbox, load_old_golden
+from jav.domains.email.intents import INTENT_KEYS
 
 OLD_GPT_ACCURACY = 0.958  # golden result of the legacy email-intake-bare (gpt-4o-mini, 2026-07-05, after the 72/96 relabel)
 
@@ -23,7 +23,7 @@ OLD_GPT_ACCURACY = 0.958  # golden result of the legacy email-intake-bare (gpt-4
 def _cases(limit: int | None = None) -> list[GoldenEmail]:
     cases = load_old_golden()
     if not cases:
-        raise SystemExit("A régi intent-golden nem található (jav.emails.OLD_INTENT_GOLDEN).")
+        raise SystemExit("A régi intent-golden nem található (jav.domains.email.emails.OLD_INTENT_GOLDEN).")
     unknown = {c.expected for c in cases} - set(INTENT_KEYS)
     if unknown:
         raise SystemExit(f"A golden ismeretlen szándékokat tartalmaz: {sorted(unknown)}")
@@ -37,7 +37,7 @@ def count_cases() -> int:
 
 
 def _run_case(case: GoldenEmail, *, use_cache: bool, jev: bool = True) -> dict[str, Any]:
-    from jav.flow_email import run_email
+    from jav.domains.email.flow_email import run_email
 
     t0 = time.perf_counter()
     st = run_email(message=case.message.model_copy(deep=True), use_cache=use_cache, detect_attachments=False, jev=jev)
@@ -62,7 +62,7 @@ def _run_case(case: GoldenEmail, *, use_cache: bool, jev: bool = True) -> dict[s
 
 def email_golden(use_cache: bool = True, limit: int | None = None, *, jev: bool = True,
                  budget_usd: Decimal | None = None, jev_budget_usd: Decimal | None = None) -> list[dict[str, Any]]:
-    """`jev=False` (089): GPT recognises the intent (`jav/intent_gpt.py`). `budget_usd`: a hard OpenAI budget for the
+    """`jev=False` (089): GPT recognises the intent (`jav/domains/email/intent_gpt.py`). `budget_usd`: a hard OpenAI budget for the
     whole measurement (the owner's sub-budget) - a call over it is an `intent:gpt_failed` row; `jev_budget_usd` (127):
     a hard JEV budget. With either one the measurement runs under a budget, and a provider without its own budget
     (Azure always) cannot be called."""
@@ -220,7 +220,7 @@ def email_injection_probe(limit: int = 8, use_cache: bool = True, *, jev: bool =
 
 
 def _probe_cases(cases: list[GoldenEmail], rows: list[dict[str, Any]], *, use_cache: bool, jev: bool) -> None:
-    from jav.flow_email import run_email
+    from jav.domains.email.flow_email import run_email
     from jav.policy import noul_band
 
     for case in cases:
@@ -315,7 +315,7 @@ def _already_classified() -> set[str]:
 def email_inbox(root: str | Path, *, limit: int | None = None, force: bool = False, use_cache: bool = True,
                 jev: bool = True) -> list[dict[str, Any]]:
     """Runs the `inbox/<mailbox>/<msgid>/` folders through the M3 graph (attachment detection too); resumable."""
-    from jav.flow_email import run_email
+    from jav.domains.email.flow_email import run_email
 
     folders = iter_inbox(root)
     done = set() if force else _already_classified()

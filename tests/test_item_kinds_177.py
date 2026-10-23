@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import cfg, item_kinds as ik, logic_packs, mailbox, work_recipes, workflow_steps
+from jav import cfg, item_kinds as ik, logic_packs, work_recipes, workflow_steps
+from jav.domains.email import mailbox
 from jav.domains import email as email_domain
 
 

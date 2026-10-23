@@ -2,7 +2,7 @@
 
 Two sources, one model:
 - **inbox folder** (the file model of the legacy `email-intake-bare`): `inbox/<mailbox>/<message_id>/message.json` +
-  the attachment files in the same folder. It is written by the local receiver `jav/ingest_server.py` for the legacy
+  the attachment files in the same folder. It is written by the local receiver `jav/domains/email/ingest_server.py` for the legacy
   `outlook_bridge.ps1` (desktop Outlook, read-only).
 - **legacy intent golden set** (`10_AIFLOW_V4/data/golden/email-intake-bare/intent-golden-s21.json`): 96 real emails,
   with a 600-character body preview and attachment file names (no files). PII: it stays in the legacy project,
@@ -29,7 +29,7 @@ from jav.digest import file_sha256 as _file_sha256
 OLD_INTENT_GOLDEN = OLD_DATA_ROOT / "golden" / "email-intake-bare" / "intent-golden-s21.json"
 DOC_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 MAX_BODY_CHARS = 4000
-BRIDGE_BODY_LIMIT = 20_000  # the legacy Outlook script sends the email text up to this many characters (jav/ingest_server.py)
+BRIDGE_BODY_LIMIT = 20_000  # the legacy Outlook script sends the email text up to this many characters (jav/domains/email/ingest_server.py)
 
 # start of a quoted / forwarded email: from here on it is NOT the sender's own text
 _QUOTE_HEAD = re.compile(
@@ -101,7 +101,7 @@ def body_coverage(msg: EmailMessage) -> dict[str, Any]:
     `status`: `full` = all of the email's own text; `shortened` = only the beginning (line or length limit);
     `capped` = it may already have been cut off at download (the legacy script's limit). Dropping the quoted history is
     not shortening; it is flagged separately (`quoted_removed`)."""
-    from jav.intent import MAX_BODY_LINES, MAX_LINE_CHARS
+    from jav.domains.email.intent import MAX_BODY_LINES, MAX_LINE_CHARS
 
     own = [ln for ln in clean_body(msg.body, max_chars=10**9).split("\n") if ln.strip()]
     seen = [ln[:MAX_LINE_CHARS] for ln in clean_body(msg.body).split("\n") if ln.strip()][:MAX_BODY_LINES]

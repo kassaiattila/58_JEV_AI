@@ -95,7 +95,7 @@ python -m jav.capability_catalog                  # deterministic inventory of t
 - **Burr graphs** (`@action.pydantic`, local tracker, `run_id` = app_id):
   - `jav/flow.py` (M2, S and G paths, type-agnostic; the type pack is `configs/types/<type>.json` + `jav/typepack.py`, inheritance via `extends`);
   - `jav/flow_detect.py` (M1);
-  - `jav/flow_email.py` (M3, calls M1 on the attachments);
+  - `jav/domains/email/flow_email.py` (M3, calls M1 on the attachments);
   - `jav/flow_native.py` (native reading of non-PDF inputs: interpretation, publication, review; resumable);
   - `jav/flow_statement_table.py` (136: an account's statement from a bank's tabular export, code only).
 - **S path (S arm):** code finds candidates (`candidates.py`), a JEV Choice picks one, with a presence Noul per field (`jev_select.py`). **G path (G arm):** GPT extraction (`extract_llm.py`) + JEV Noul verification (`jev_verify.py`). A run takes one path (`arm` = S or G, chosen by the recipe or the eval); an agreement gate comparing the two paths is not built — the planned second opinion (H-065: the G path only on documents the S path left with to-dos) is the first combination. The safety net is `validators.py`.
@@ -112,8 +112,8 @@ python -m jav.capability_catalog                  # deterministic inventory of t
   Burr state: `store/burr_state.sqlite` (thinned out by `burr-prune`). Backups: `store/backups/` (daily, `configs/service.json` `backup`). The golden sets stay in the legacy project and are only referenced.
 - **Evals:** `evals*.py`, shared report `eval_report.py`; raw runs in `runs/*.jsonl`. Three stand-alone measurement tools: `jav/experiments/` (JEV estimate, extraction on a case list, injection probe); the September experiments and learning branches were removed in 204 (local tag `archive/kiserletek-204`).
 - **Email input** (both paths write `inbox/<mailbox>/<msgid>/message.json`):
-  - from the UI or a schedule: `jav/mailbox.py` → `scripts/mail_bridge_call.ps1` → `scripts/outlook_bridge.ps1` (148: ported from the legacy project; the Inbox, its direct subfolders and Sent Items) → a temporary receiver with a one-time token (`jav/ingest_server.py`) → a new work package with the email intent recipe (no paid run starts by itself);
-  - standalone: `scripts/outlook_bridge.ps1` → `python -m jav.cli email-ingest-server` (`jav/ingest_server.py`).
+  - from the UI or a schedule: `jav/domains/email/mailbox.py` → `scripts/mail_bridge_call.ps1` → `scripts/outlook_bridge.ps1` (148: ported from the legacy project; the Inbox, its direct subfolders and Sent Items) → a temporary receiver with a one-time token (`jav/domains/email/ingest_server.py`) → a new work package with the email intent recipe (no paid run starts by itself);
+  - standalone: `scripts/outlook_bridge.ps1` → `python -m jav.cli email-ingest-server` (`jav/domains/email/ingest_server.py`).
 
 ## 7. Pitfalls
 

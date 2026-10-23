@@ -9,7 +9,8 @@
 from __future__ import annotations
 
 
-from jav import cfg, doc_types, intents, policy
+from jav import cfg, doc_types, policy
+from jav.domains.email import intents
 from jav.registry import parent_summary
 
 
@@ -85,7 +86,7 @@ def test_policy_parent_fallback_band():
 
 def test_detect_and_intent_results_carry_parent():
     from jav.detect import DetectResult
-    from jav.intent import IntentResult
+    from jav.domains.email.intent import IntentResult
     from jav.models import JevCall
 
     call = JevCall(request_id="x", n_questions=1, state_chars=1)

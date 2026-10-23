@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import cfg, docsgen, email_tasks, policy, typepack
+from jav import cfg, docsgen, policy, typepack
+from jav.domains.email import email_tasks
 from jav.config import PROMPTS_DIR
 from jav.jev_select import site_for as select_site
 from jav.jev_verify import site_for as verify_site

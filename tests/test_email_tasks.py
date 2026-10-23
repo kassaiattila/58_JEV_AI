@@ -1,7 +1,7 @@
 """K5.3 (058): the code gate of the task proposal - the legacy `email-actions-bare` counterexamples
 (fixtures/synth_evidence_counterexamples.json) and rules on a synthetic email, without a GPT call."""
 
-from jav import email_tasks as et
+from jav.domains.email import email_tasks as et
 
 SNAP = et.snapshot(message_id="m1", subject="Számla 2026-09 — fizetési határidő",
                    body="Kérjük, a mellékelt számlát 2026-09-20-ig egyenlítsék ki. Kapcsolattartó: Minta Anna.\nÜdv, Pénzügy",

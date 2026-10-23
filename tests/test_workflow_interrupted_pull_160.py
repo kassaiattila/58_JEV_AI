@@ -8,7 +8,8 @@ Synthetic documents, stand-in downloads."""
 
 from __future__ import annotations
 
-from jav import mailbox, work, workflows as wf
+from jav.domains.email import mailbox
+from jav import work, workflows as wf
 from tests.test_workflows_146 import MONTH, _invoices, _party, _steps, db  # noqa: F401 - the fixture is used by name
 
 

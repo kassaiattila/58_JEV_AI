@@ -214,7 +214,7 @@ def _write_attachment(attachment: SampleAttachment, folder: Path) -> Path:
 
 def lay_out(case: Case, root: Path, *, mailbox: str) -> Path:
     """The case as a downloaded email's folder (`<root>/<case id>/`): its attachments and the `message.json` the mailbox
-    reader reads (`jav.emails.load_message_dir`). Returns the folder."""
+    reader reads (`jav.domains.email.emails.load_message_dir`). Returns the folder."""
     folder = root / case.id
     folder.mkdir(parents=True, exist_ok=True)
     for attachment in case.message.attachments:

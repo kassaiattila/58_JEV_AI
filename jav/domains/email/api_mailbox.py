@@ -6,10 +6,10 @@ Plain-language summary: the addresses for the mailboxes and an email's task prop
 - an email package's PDF attachments taken in as documents (058 K5.2);
 - a person's decision on a task proposal, and marking an accepted task done by hand (058 K5.3, 062).
 They moved here from `jav/api.py` as they were: the same paths, request models, answers and error answer (a mailbox
-bridge that cannot run is a 503). The email domain names this module (`jav/domains/email.py` `SERVICE`), and
-`jav.api.create_app` adds it. The email routing's own addresses are its logic pack's (`jav/api_email_routing.py`).
+bridge that cannot run is a 503). The email domain names this module (`jav/domains/email/__init__.py` `SERVICE`), and
+`jav.api.create_app` adds it. The email routing's own addresses are its logic pack's (`jav/domains/email/api_email_routing.py`).
 
-Layer: UI/CLI (the local service) → `jav.mailbox`.
+Layer: UI/CLI (the local service) → `jav.domains.email.mailbox`.
 """
 
 from __future__ import annotations
@@ -20,7 +20,8 @@ from fastapi import Depends, FastAPI, Request
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav import corrections, mailbox, store, work_views
+from jav import corrections, store, work_views
+from jav.domains.email import mailbox
 from jav.service_shared import DecisionState, Empty, In, ItemId, Revision, RunId, Text, WpId, error, human_actor
 from jav.user_messages import message_fields
 

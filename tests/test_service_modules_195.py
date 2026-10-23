@@ -9,15 +9,16 @@ from __future__ import annotations
 
 import importlib
 from collections import Counter
-from pathlib import Path
 
 from fastapi.routing import APIRoute
 
 from jav import api
+from jav.config import PROJECT_ROOT
 
 
 def test_every_service_module_is_added_exactly_once():
-    on_disk = {f"jav.{p.stem}" for p in (Path(api.__file__).parent).glob("api_*.py")}
+    root = PROJECT_ROOT / "jav"  # 208: a domain's addresses are in its folder
+    on_disk = {".".join(p.relative_to(PROJECT_ROOT).with_suffix("").parts) for p in root.rglob("api_*.py")}
     added = api.route_modules()
     assert [name for name, n in Counter(added).items() if n > 1] == []
     assert set(added) == on_disk

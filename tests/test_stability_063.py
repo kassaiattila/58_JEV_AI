@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, emails, ingest_server, mailbox, store, work, work_readiness, work_recipes, work_runs
+from jav import app_settings, store, work, work_readiness, work_recipes, work_runs
+from jav.domains.email import emails, ingest_server, mailbox
 from jav.adapters import jev as jev_mod
 from jav.runtime import queue, worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf

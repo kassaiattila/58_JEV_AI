@@ -4,7 +4,7 @@ The Outlook script (`OUTLOOK_BRIDGE_SCRIPT`; 148: ported from the legacy project
 an unknown folder is an error) is called via the `scripts/mail_bridge_call.ps1` wrapper:
 - **preview** (`count`): the legacy `-CountOnly`; free of charge, writes no file, marks nothing as read;
 - **download** (`fetch`): for the duration of the download we start our own email receiver on a free port with a
-  one-off key (`jav.ingest_server.make_server`) and the script sends the messages there; the receiver writes them into
+  one-off key (`jav.domains.email.ingest_server.make_server`) and the script sends the messages there; the receiver writes them into
   the inbox folder with the existing repeat protection. The script's project root is our own `BRIDGE_ROOT`
   (attachments, "already read" list), not the legacy project.
 
@@ -30,13 +30,13 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from jav import (decisions, ingest_server, item_kinds, store, todo_kinds, work, work_recipes, work_runs,
-                 workflow_steps)
+from jav import decisions, item_kinds, store, todo_kinds, work, work_recipes, work_runs, workflow_steps
+from jav.domains.email import ingest_server
 from jav.runtime import job_kinds
 from jav.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
 from jav.user_messages import explained
 
-log = logging.getLogger("jav.mailbox")
+log = logging.getLogger("jav.domains.email.mailbox")
 
 WRAPPER = PROJECT_ROOT / "scripts" / "mail_bridge_call.ps1"
 COUNT_TIMEOUT_S = 180
@@ -200,7 +200,7 @@ def pdf_attachments(messages: list[Path]) -> dict[Path, Path]:
     """058 K5.2: the messages' PDF attachments that exist as files (attachment → the message's `message.json`). An
     attachment is read only from the permitted location (checked by `emails.load_message_dir`); image attachments are
     not included for now."""
-    from jav import emails
+    from jav.domains.email import emails
 
     out: dict[Path, Path] = {}
     for m in messages:
@@ -233,7 +233,7 @@ def add_attachments(wp_id: str, *, expected_revision: int) -> dict[str, Any]:
 
 def page_part(wp: Mapping[str, Any]) -> dict[str, Any]:
     """058 K5.2: a mailbox package's part of its page: how many PDF attachments are not yet items (they can be added
-    later to a pre-058 email package). 180: registered by the email domain (`jav/domains/email.py`). 183: the request
+    later to a pre-058 email package). 180: registered by the email domain (`jav/domains/email/__init__.py`). 183: the request
     of the download that made it (None if no recorded download did), so that the interface names its source in its own
     language instead of the stored label."""
     return {"attachments_missing": len(missing_attachments(dict(wp))), "mailbox_request": _request_of(wp["id"])}
@@ -247,7 +247,7 @@ def _request_of(wp_id: str) -> dict[str, Any] | None:
 
 
 # --- an attachment of a suspicious email (154; 177: the email domain's rule, `jav/item_kinds.py`; 180: registered by
-# `jav/domains/email.py`) --------------------------------------------------------------------------------------------
+# `jav/domains/email/__init__.py`) --------------------------------------------------------------------------------------------
 
 SUSPICIOUS_ATTACHMENT = todo_kinds.SUSPICIOUS_ATTACHMENT  # 154 (DECISIONS 154); 204: the shared code
 
@@ -569,7 +569,7 @@ def workflow_poll(ctx: workflow_steps.StepStart) -> None:
         ctx.run(result["workpackage"])
 
 
-# 181: the emails step of a workflow (registered by the email domain, `jav/domains/email.py`)
+# 181: the emails step of a workflow (registered by the email domain, `jav/domains/email/__init__.py`)
 STEP = workflow_steps.StepKind("emails", __name__, ("mailbox",), start=workflow_start, poll=workflow_poll)
 
 # --- 185 (plan G-full-move T1c): a mailbox download as a workflow step's source (`workflow_steps.SourceKind`; until
@@ -627,7 +627,7 @@ def item_titles(items: list[dict[str, Any]]) -> dict[str, str]:
     """048 T2: an email's title in the item list is its subject and sender (the file name is always `message.json`);
     058 K5.2: an attachment's title names the email it came from. 185 (plan G-full-move T1e): the email kind's handler
     (until then in `jav/work_views.py` `item_titles`)."""
-    from jav.emails import message_version
+    from jav.domains.email.emails import message_version
 
     out, subjects = {}, {}
     for i in items:
@@ -648,7 +648,7 @@ def item_titles(items: list[dict[str, Any]]) -> dict[str, str]:
 def parent_labels(items: list[dict[str, Any]]) -> dict[str, str]:
     """Subjects of the attachments' parent emails (only if the run has attachments), for the documents' source email
     column. 185 (plan G-full-move T1e): the email kind's handler (until then in `jav/export.py` `_email_subjects`)."""
-    from jav.emails import message_version
+    from jav.domains.email.emails import message_version
 
     parents = {i.get("parent_item_id") for i in items if i.get("parent_item_id")}
     out = {}
@@ -689,7 +689,8 @@ def correct_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], 
     run's own intent to-dos (uncertain / unrecognised intent): the decision closes them; a to-do with another reason
     (e.g. suspicious content) stays open. 185 (plan G-full-move T1e): the email kind's handler (until then
     `jav/corrections.py` `_save_email`)."""
-    from jav import corrections, intents
+    from jav import corrections
+    from jav.domains.email import intents
 
     if confirm:
         raise explained(ValueError, "fields cannot be confirmed on an email; correct its intent instead")
@@ -713,7 +714,7 @@ def correct_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], 
 
 def intent_name(key: str | None) -> str | None:
     """The intent's Hungarian name from the registry (the key itself for an unknown key)."""
-    from jav import intents
+    from jav.domains.email import intents
 
     return (intents.BY_KEY[key].display_name if key in intents.BY_KEY else key) if key else None
 
@@ -730,7 +731,8 @@ def table_attachments(item: dict[str, Any]) -> int:
 
 @functools.lru_cache(maxsize=4096)
 def _message_tables(message_json: str, _mtime_ns: int) -> int:
-    from jav import emails, text_document
+    from jav.domains.email import emails
+    from jav import text_document
 
     msg = emails.load_message_dir(Path(message_json).parent)
     return sum(1 for a in msg.attachments if a.path and text_document.input_kind(a.path) == "table")
@@ -795,7 +797,7 @@ def effective_email_result(res: dict[str, Any], corrected_intent: str | None) ->
     from it in code (the machine signals - e.g. an injected instruction - still count). The machine intent is kept
     (`machine_intent`)."""
     from jav import policy
-    from jav.emails import Attachment, is_bookkeeping_file
+    from jav.domains.email.emails import Attachment, is_bookkeeping_file
 
     signals = {k: v for k, v in (res.get("signals") or {}).items() if k != "scores"}
     # pre-048 runs also stored the message folder's bookkeeping file as an attachment: it is not one
@@ -912,7 +914,7 @@ def email_item_view(item: dict[str, Any], flow_run_id: str, corrected_intent: st
     detection result with the manual correction, and how much of the message text the detection saw (`body_coverage`,
     058 K5.1). `source_status` says whether the email has changed since (`earlier`) or that version is gone
     (`changed`: no text is shown)."""
-    from jav.emails import EmailMessage, body_coverage, message_version
+    from jav.domains.email.emails import EmailMessage, body_coverage, message_version
 
     path = Path(item["source_path"])
     msg, source_status = message_version(item)

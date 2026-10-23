@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import emails
+from jav.domains.email import emails
 
 UNC = "\\\\attacker.example\\share\\invoice.pdf"  # two leading backslashes
 

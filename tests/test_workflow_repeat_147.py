@@ -104,7 +104,7 @@ def test_a_repeat_draft_carries_the_sources_budgets_and_name_into_the_next_perio
 
 
 def test_a_mailbox_period_moves_with_the_workflow_and_a_number_of_days_stays(db, monkeypatch):
-    from jav import mailbox
+    from jav.domains.email import mailbox
 
     monkeypatch.setattr(mailbox, "request_pull", lambda req, **kw: {"id": "p1", "status": "queued"})
     party = _party()
@@ -125,7 +125,7 @@ def test_a_mailbox_period_moves_with_the_workflow_and_a_number_of_days_stays(db,
 
 
 def test_a_linked_steps_draft_takes_its_packages_folder_or_asks_for_a_source(db, monkeypatch):
-    from jav import mailbox
+    from jav.domains.email import mailbox
 
     party = _party()
     invoices = db / "inv"

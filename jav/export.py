@@ -316,7 +316,7 @@ def xlsx_bytes(run_id: str, records: list[dict[str, Any]] | None = None) -> byte
 def result_data(records: list[dict[str, Any]], items: Mapping[str, list[dict[str, Any]]], native: list[dict[str, Any]],
                 values: tuple[contract.Value, ...] = ()) -> contract.OutputData:
     """178 (plan 170 L4): the result's data as the output contract describes it (`package_result`): the native facts and
-    readings, each item kind's part (185: `items`, by the part's name; the emails and their tasks, `jav/email_export.py`),
+    readings, each item kind's part (185: `items`, by the part's name; the emails and their tasks, `jav/domains/email/email_export.py`),
     the documents by type, the data points, the line items, then each domain's result part (180: the utility cost's
     sheets and its grand total, `jav/domains/finance.py`); `values`: the package's (`package_values`)."""
     tables: list[contract.Table] = []

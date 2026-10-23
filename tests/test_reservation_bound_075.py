@@ -61,7 +61,8 @@ def test_cost_above_the_reservation_stops_further_reservations(isolated):
 
 def test_openai_client_does_not_retry_on_its_own(monkeypatch):
     """The transport retries of the OpenAI client would be unreserved paid requests; the queue retries instead."""
-    from jav import config, email_tasks, extract_llm
+    from jav import config, extract_llm
+    from jav.domains.email import email_tasks
 
     monkeypatch.setattr(config, "get_openai_key", lambda: "synthetic-test-value")
     for agent_cache in (extract_llm.get_agent, email_tasks.get_agent):

@@ -17,8 +17,8 @@ import pytest
 from openpyxl import load_workbook
 
 from jav import quote_golden
-from jav.emails import load_message_dir
-from jav.intents import INTENT_KEYS
+from jav.domains.email.emails import load_message_dir
+from jav.domains.email.intents import INTENT_KEYS
 
 
 @pytest.fixture(scope="module")

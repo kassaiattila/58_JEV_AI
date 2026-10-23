@@ -18,8 +18,8 @@ belongs to the email domain and names the kind by `EMAIL`.
 A domain may add a rule that runs after every item of a run (`ItemRule`), and a part of a package's page for a source
 kind (`register_page`); both through its domain module's `register()`, called by `registrations.load_all`. Each kind
 names the module that owes them (`rules_from`, `page_from`): the email domain's rule that marks the attachments of a
-suspicious email, and the mailbox package's missing attachments (180: `jav/domains/email.py`; the work itself in
-`jav/mailbox.py`). Asking for them before that module registered is an error (`NotRegistered`), so a process that
+suspicious email, and the mailbox package's missing attachments (180: `jav/domains/email/__init__.py`; the work itself in
+`jav/domains/email/mailbox.py`). Asking for them before that module registered is an error (`NotRegistered`), so a process that
 missed `load_all` stops instead of skipping a safety rule.
 
 185 (plan G-full-move T1e): a kind whose result is not a document record names the module that shows and corrects

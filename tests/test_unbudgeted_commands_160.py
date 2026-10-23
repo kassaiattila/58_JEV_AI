@@ -34,7 +34,7 @@ COMMANDS = [
     (["detect-corpus", "folder"], "jav.evals_detect.detect_corpus"),
     (["detect-determinism"], "jav.evals_detect.detect_determinism"),
     (["determinism", "--arm", "S"], "jav.evals.determinism"),
-    (["email", "folder"], "jav.flow_email.run_email"),
+    (["email", "folder"], "jav.domains.email.flow_email.run_email"),
     (["email-inbox", "folder"], "jav.evals_email.email_inbox"),
     (["email-determinism"], "jav.evals_email.email_determinism"),
 ]

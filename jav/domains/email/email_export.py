@@ -7,7 +7,7 @@ task proposals one per row (058 K5.3, with the person's decision), and builds th
 the emails and the tasks, with their Hungarian headers. The email domain registers it as an item kind's part of a
 result (`jav/outputs/parts.py` `ItemPart`), so the shared export writes it before the documents as it always did.
 
-Layer: application operation (a read view) → `jav.emails`, `jav.mailbox`, `jav.corrections`, `jav.work`.
+Layer: application operation (a read view) → `jav.domains.email.emails`, `jav.domains.email.mailbox`, `jav.corrections`, `jav.work`.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ def email_records(run_id: str) -> list[dict[str, Any]]:
     suggested next step (computed in code from the corrected intent), the recognition of the attachments, and how much
     of the email text the recognition saw. For an old run without its own result row, the email's latest result
     (`from_this_run=False`)."""
-    from jav import emails, mailbox
+    from jav.domains.email import emails, mailbox
 
     out = []
     items = work_runs.released_items(work_runs.get_run(run_id))  # 160-C: not the items removed from the package (decision 163 D7)
@@ -82,7 +82,7 @@ TASK_HEAD = ("Levél", "Akció", "Feladat", "Határidő", "Felelős", "Bizonyít
 
 def emails_table(records: list[dict[str, Any]]) -> tuple[list[str], list[list[Any]]]:
     """The email table with Hungarian captions (intent, next step, the part of the text seen, attachment type)."""
-    from jav import mailbox
+    from jav.domains.email import mailbox
 
     flows = mailbox.next_flow_labels()
     body = cfg.load("datasets")["labels"]["body_status"]

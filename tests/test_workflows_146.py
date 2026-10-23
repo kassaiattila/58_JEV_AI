@@ -16,7 +16,10 @@ from pathlib import Path
 
 import pytest
 
-from jav import cfg, mailbox, parties, statement_table as st, store, work, work_readiness, work_runs, workflow_steps, workflows as wf
+from jav import (
+    cfg, parties, statement_table as st, store, work, work_readiness, work_runs, workflow_steps, workflows as wf,
+)
+from jav.domains.email import mailbox
 from jav.runtime import queue, worker
 from tests import test_statement_erste_137 as erste
 

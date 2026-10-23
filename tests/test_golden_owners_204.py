@@ -23,9 +23,10 @@ import sys
 from jav import goldens
 from jav.config import PROJECT_ROOT
 from jav.domains import DOMAINS
+from tests.test_dependency_direction import domain_modules
 
 JAV = PROJECT_ROOT / "jav"
-MODULES = {name: importlib.import_module(name).MODULES for name in DOMAINS}
+MODULES = {name: domain_modules(name) for name in DOMAINS}
 MEASUREMENT = {name: getattr(importlib.import_module(name), "GOLDENS", ()) for name in DOMAINS}
 # every module of the domains but their measurement modules
 BUSINESS = sorted(frozenset().union(*MODULES.values())
@@ -57,6 +58,7 @@ def _legacy_only(key: str) -> bool:
 def _imports_goldens(name: str) -> bool:
     """Whether the module imports the measurement registry, at its top or inside a function."""
     path = JAV / (name.replace(".", "/") + ".py")
+    path = path if path.is_file() else path.with_suffix("") / "__init__.py"  # 208: a domain's package
     for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
         if isinstance(node, ast.ImportFrom) and node.module == "jav" and any(a.name == "goldens" for a in node.names):
             return True

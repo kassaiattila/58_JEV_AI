@@ -14,7 +14,8 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, corrections, datasets, decisions, mailbox, store, work, work_runs
+from jav import api, corrections, datasets, decisions, store, work, work_runs
+from jav.domains.email import mailbox
 from tests.test_audit_fixes_1002 import _reviewed_email
 from tests.test_mailbox import env  # noqa: F401 - `env` is a fixture
 
@@ -214,7 +215,7 @@ def routing_db(tmp_path):
 
 
 def _routing(root):
-    from jav import email_routing
+    from jav.domains.email import email_routing
     from tests import test_email_routing_181 as r181
 
     r181._party()
@@ -228,7 +229,7 @@ def test_two_acceptances_at_once_make_one_package_and_one_decision(routing_db, m
     later one overwrote the first one's decision."""
     import contextvars
 
-    from jav import email_routing
+    from jav.domains.email import email_routing
 
     routing, item = _routing(routing_db)
     real_make = email_routing._make
@@ -260,7 +261,7 @@ def test_two_acceptances_at_once_make_one_package_and_one_decision(routing_db, m
 
 
 def test_a_routing_decision_from_a_stale_page_is_refused(routing_db) -> None:
-    from jav import email_routing
+    from jav.domains.email import email_routing
 
     routing, item = _routing(routing_db)
     [row] = email_routing.view(routing)["items"]
@@ -385,7 +386,7 @@ def test_revoking_a_pair_rechecks_the_runs_approval_inside_the_transaction(db, m
 
 def test_a_download_carries_no_decision_state(env, monkeypatch) -> None:  # noqa: F811
     """The state is for a page to send back; the run's JSON download of the emails has no page."""
-    from jav import email_export
+    from jav.domains.email import email_export
 
     run_id, item = _reviewed_email(env, monkeypatch)
     assert "decision_state" in _task(run_id, item["item_id"])

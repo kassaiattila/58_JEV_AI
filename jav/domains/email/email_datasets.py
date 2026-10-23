@@ -5,9 +5,9 @@ Plain-language summary: three tables of the shared data view are the email domai
 recognition saw), their task proposals (058 K5.3: one per row, with the evidence and the person's decision), and the
 mailbox downloads (048 T2). Two label sets are the domain's too: the intents' names and the suggested next steps'.
 They moved here from `jav/datasets.py` as they were: the same columns, rows and order. The email domain module
-registers them (`jav/domains/email.py`), and the data view asks its registry.
+registers them (`jav/domains/email/__init__.py`), and the data view asks its registry.
 
-Layer: application operation (a read view) → `jav.email_export`, `jav.mailbox`, `jav.intents`.
+Layer: application operation (a read view) → `jav.domains.email.email_export`, `jav.domains.email.mailbox`, `jav.domains.email.intents`.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from jav.datasets import Rows, col
 def emails(scope: dict[str, str]) -> Rows:
     """058 K5.1: the run's emails — intent (with the manual correction), suggested next step, attachments, and how much
     of the email's text the recognition saw."""
-    from jav import email_export, mailbox
+    from jav.domains.email import email_export, mailbox
 
     doc_types = datasets.label_set("doc_type")
     records, run_of = datasets.merged(scope, email_export.email_records)
@@ -65,7 +65,7 @@ def emails(scope: dict[str, str]) -> Rows:
 
 def email_tasks(scope: dict[str, str]) -> Rows:
     """058 K5.3: the task proposals, one per row, with the evidence and the human decision (only a person accepts)."""
-    from jav import email_export
+    from jav.domains.email import email_export
 
     records, run_of = datasets.merged(scope, email_export.email_records)
     link = datasets.linker(scope, run_of)
@@ -88,7 +88,7 @@ def email_tasks(scope: dict[str, str]) -> Rows:
 
 
 def mailbox_pulls(_scope: dict[str, str]) -> Rows:
-    from jav import mailbox
+    from jav.domains.email import mailbox
 
     cols = [
         col("created_at", "Indítva", "datetime"),
@@ -115,7 +115,7 @@ def mailbox_pulls(_scope: dict[str, str]) -> Rows:
 
 def intent_labels() -> dict[str, str]:
     """058 K5.1: the names of the email intents, from the registry."""
-    from jav import intents
+    from jav.domains.email import intents
 
     return {k: v.display_name for k, v in intents.BY_KEY.items()}
 
@@ -126,13 +126,13 @@ def task_action_labels() -> dict[str, str]:
 
 
 def next_flow_labels() -> dict[str, Any]:
-    from jav import mailbox
+    from jav.domains.email import mailbox
 
     return mailbox.next_flow_labels()
 
 
 # the tables, each with the table it follows in the catalogue (the order they always had), and the label sets;
-# registered by `jav/domains/email.py`
+# registered by `jav/domains/email/__init__.py`
 DATASETS = (
     (datasets.Dataset("emails", "Levelek", (), emails, datasets.result_fingerprint, one_of=datasets.RESULT_SCOPE), "package_costs"),
     (datasets.Dataset("email_tasks", "Feladatjavaslatok", (), email_tasks, datasets.result_fingerprint,

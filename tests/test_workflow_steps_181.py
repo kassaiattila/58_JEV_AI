@@ -25,7 +25,7 @@ JAV = PROJECT_ROOT / "jav"
 
 _PROBE = """
 import json
-import jav.domains.email, jav.domains.finance, jav.email_routing, jav.mailbox, jav.reconcile_package, jav.statement_package
+import jav.domains.email, jav.domains.finance, jav.domains.email.email_routing, jav.domains.email.mailbox, jav.reconcile_package, jav.statement_package
 import jav.workflows
 from jav import workflow_steps
 before = sorted(workflow_steps._KINDS)
@@ -47,8 +47,8 @@ def test_every_template_kind_is_registered_and_nothing_more() -> None:
     kinds = {k.kind: k for k in workflow_steps.kinds()}
     assert set(kinds) == set(cfg.load("workflows")["kinds"])
     assert {k: v.module for k, v in kinds.items()} == {
-        "documents": "jav.workflows", "emails": "jav.mailbox",
-        "statements": "jav.statement_package", "reconcile": "jav.reconcile_package", "routing": "jav.email_routing",
+        "documents": "jav.workflows", "emails": "jav.domains.email.mailbox",
+        "statements": "jav.statement_package", "reconcile": "jav.reconcile_package", "routing": "jav.domains.email.email_routing",
         "quote": "jav.quote_package"}  # 191
 
 

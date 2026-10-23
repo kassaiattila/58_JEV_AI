@@ -20,7 +20,7 @@ Code only, no AI call; the placement of a document is the domains' (`package_sco
 - `create(name, sources, actor)`: a routing package over email packages.
 - `view(wp_id)`: every attachment with its email, its placement, the proposal and the decision; the counts.
 - `accept(wp_id, item_ids, actor, target=None)`, `reject(...)`, `undo(...)`: a person's decisions.
-- `LOGIC`, `STEP`: the logic pack and the workflow step (registered by the email domain, `jav/domains/email.py`).
+- `LOGIC`, `STEP`: the logic pack and the workflow step (registered by the email domain, `jav/domains/email/__init__.py`).
 
 Layer: application operation (it adds documents to packages through `jav/work.py` and the statement package's own
 adding).
@@ -123,7 +123,7 @@ def sources_of(wp_id: str) -> list[str]:
 
 def _email_of(item: dict[str, Any]) -> dict[str, Any]:
     """The email an attachment came with: its subject, sender, day and folder (the message as downloaded)."""
-    from jav import emails
+    from jav.domains.email import emails
 
     try:
         msg = emails.load_message_dir(Path(item["source_path"]).parent)
@@ -545,7 +545,7 @@ LOGIC = logic_packs.LogicPack(
            logic_packs.InputRole("targets", "linked_package", "the open packages whose scope fits a document")),
     has_runs=False, add_refusal="a routing package has no documents of its own: it routes its email packages' attachments",
     release_refusal=_release_refusal, delete_guard=_delete_guard, page=_page, approved=_approved, next_step=_next,
-    list_next=_next, list_mark=_list_mark, outputs=(), service="jav.api_email_routing")
+    list_next=_next, list_mark=_list_mark, outputs=(), service="jav.domains.email.api_email_routing")
 
 
 # --- the workflow step -----------------------------------------------------------------------------------------------------

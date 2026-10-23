@@ -65,7 +65,7 @@ def quote_intents(*, use_cache: bool = True, jev: bool = True, budget_usd: Decim
                   jev_budget_usd: Decimal | None = None) -> list[dict[str, Any]]:
     """Every email's intent, asked as the email flow asks it (without the attachments' detection), against the
     expected one."""
-    from jav.flow_email import run_email
+    from jav.domains.email.flow_email import run_email
     from jav.runtime import calls
 
     limits = _budget(budget_usd, jev_budget_usd)
@@ -154,7 +154,8 @@ def _reading(state) -> dict[str, Any] | None:
 
 def _read_case(case: quote_golden.Case, folder: Path, *, use_cache: bool, jev: bool,
                run_one: Callable[..., Any]) -> dict[str, Any]:
-    from jav import emails, text_document
+    from jav.domains.email import emails
+    from jav import text_document
     from jav.flow_detect import run_detect
 
     msg = emails.load_message_dir(folder)

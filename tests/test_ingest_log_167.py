@@ -12,7 +12,7 @@ import urllib.request
 
 import pytest
 
-from jav import ingest_server
+from jav.domains.email import ingest_server
 
 SUBJECT = "Private matter 4417 about Someone"
 

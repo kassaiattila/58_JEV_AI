@@ -22,8 +22,9 @@ from pathlib import Path
 
 import pytest
 
-from jav import email_routing, logic_packs, package_scope, parties, registrations, store, work, work_runs, workflow_steps
-from jav.mailbox import SUSPICIOUS_ATTACHMENT
+from jav.domains.email import email_routing
+from jav import logic_packs, package_scope, parties, registrations, store, work, work_runs, workflow_steps
+from jav.domains.email.mailbox import SUSPICIOUS_ATTACHMENT
 from jav.models import account_key
 
 NOW = datetime(2026, 10, 20, tzinfo=timezone.utc).isoformat(timespec="seconds")
@@ -100,7 +101,7 @@ def _items(view: dict) -> dict[str, dict]:
 def test_the_routing_is_a_logic_pack_and_a_step_kind_of_the_email_domain() -> None:
     registrations.load_all()
     pack = logic_packs.of("email_routing")
-    assert pack is not None and not pack.has_runs and pack.module == "jav.email_routing" and pack.outputs == ()
+    assert pack is not None and not pack.has_runs and pack.module == "jav.domains.email.email_routing" and pack.outputs == ()
     assert workflow_steps.of("routing").package_kinds == ("email_routing",) and not workflow_steps.of("routing").paid
 
 

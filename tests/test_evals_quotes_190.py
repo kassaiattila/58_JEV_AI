@@ -105,7 +105,7 @@ def test_a_perfect_reader_scores_every_judgement(tmp_path, monkeypatch):
 
 
 def test_the_intents_are_counted_against_the_expected_ones(tmp_path, monkeypatch):
-    from jav import flow_email
+    from jav.domains.email import flow_email
 
     def run_email(source_dir, **_kw):
         case = CASES[source_dir.replace("\\", "/").rsplit("/", 1)[-1]]
@@ -131,7 +131,7 @@ def test_the_legacy_intent_golden_set_counts_an_unanswered_email_without_a_resul
     without one is a row without a result (it stopped the whole set with an assertion before)."""
     from jav import evals_email, store
     from jav.adapters import jev as jev_mod
-    from jav.emails import EmailMessage, GoldenEmail
+    from jav.domains.email.emails import EmailMessage, GoldenEmail
     from tests.test_email_signals import FakeClient
 
     case = GoldenEmail(case_id="c1", expected="other", source="t", message=EmailMessage(message_id="golden:c1", subject="s", body="b"))

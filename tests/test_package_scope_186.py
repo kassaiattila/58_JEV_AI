@@ -22,8 +22,11 @@ from pathlib import Path
 
 import pytest
 
-from jav import (email_routing, package_scope, parties, reconcile_package as rp, registrations, statement_package as sp,
-                 statement_table as st, store, work)
+from jav.domains.email import email_routing
+from jav import (
+    package_scope, parties, reconcile_package as rp, registrations, statement_package as sp, statement_table as st,
+    store, work,
+)
 from tests import test_email_routing_181 as routing_base
 from tests import test_reconcile_package_131 as p131
 from tests import test_statement_package_140 as sp140

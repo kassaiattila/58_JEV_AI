@@ -15,7 +15,8 @@ import sqlite3
 
 import pytest
 
-from jav import corrections, mailbox, reconcile_ai, store, work, workflows  # noqa: F401 - their tables and migrations
+from jav import corrections, reconcile_ai, store, work, workflows  # noqa: F401 - their tables and migrations
+from jav.domains.email import mailbox  # noqa: F401 - their tables and migrations
 from jav.runtime import calls  # noqa: F401
 
 

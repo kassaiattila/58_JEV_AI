@@ -83,7 +83,8 @@ def test_a_token_error_is_retried_once_with_a_tighter_request(key):
 
 
 def test_an_attachment_shows_the_type_it_was_processed_as(tmp_path):
-    from jav import mailbox, store
+    from jav.domains.email import mailbox
+    from jav import store
 
     with store.use_store(tmp_path / "w.sqlite"):
         store.upsert_document(doc_id="d" * 64, source_path="C:/synthetic/receipt.pdf", has_text=True, doc_type="invoice_foreign")

@@ -219,7 +219,7 @@ def record_run(folder: Path, run_id: str | None) -> None:
 
 
 def _run_flow(folder: Path) -> dict[str, Any]:
-    from jav.flow_email import run_email
+    from jav.domains.email.flow_email import run_email
 
     st = run_email(str(folder))
     r = st.result

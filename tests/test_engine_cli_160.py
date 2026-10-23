@@ -14,7 +14,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import app_settings, cli, evals, evals_detect, evals_email, flow, flow_detect, flow_email, store
+from jav import app_settings, cli, evals, evals_detect, evals_email, flow, flow_detect, store
+from jav.domains.email import flow_email
 
 
 @pytest.fixture

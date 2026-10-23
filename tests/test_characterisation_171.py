@@ -22,7 +22,11 @@ from decimal import Decimal
 
 import pytest
 
-from jav import activity, activity_kinds, checks, corrections, datasets, duplicates, email_tasks, native_results, parties, policy, store, work_readiness, work_recipes, work_runs
+from jav import (
+    activity, activity_kinds, checks, corrections, datasets, duplicates, native_results, parties, policy, store,
+    work_readiness, work_recipes, work_runs,
+)
+from jav.domains.email import email_tasks
 from jav.models import CheckResult, FlowState, DocumentRecord, JevVerdicts
 from jav.runtime import calls, worker
 
@@ -42,7 +46,8 @@ DOC_A, DOC_B, DOC_C = _id("a"), _id("b"), _id("c")
 
 @pytest.fixture
 def db(tmp_path):
-    from jav import mailbox, reconcile, statement_months  # noqa: F401  (their tables are registered on import)
+    from jav import reconcile, statement_months  # noqa: F401  (their tables are registered on import)
+    from jav.domains.email import mailbox  # noqa: F401  (its tables are registered on import)
 
     with store.use_store(tmp_path / "characterisation.sqlite"):
         yield
@@ -296,7 +301,7 @@ def test_a_day_of_activity_in_this_order_and_shape(db) -> None:
 PIN_FLOW_MODULES = {  # flow name -> (module, Burr partition, terminal states)
     "invoice": ("jav.flow", "invoice", ["done", "needs_ocr", "needs_review"]),
     "doc_detect": ("jav.flow_detect", "doc_detect", ["done", "needs_ocr"]),
-    "email": ("jav.flow_email", "email_intent", ["done"]),
+    "email": ("jav.domains.email.flow_email", "email_intent", ["done"]),
     "native": ("jav.flow_native", "native", ["done", "needs_review"]),
     "statement_table": ("jav.flow_statement_table", "statement_table", ["done", "needs_review"]),
 }

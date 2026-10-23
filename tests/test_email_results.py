@@ -11,8 +11,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, corrections, datasets, emails, intent, mailbox, store, work, work_readiness, work_recipes, work_runs, work_views
-from jav.emails import EmailMessage
+from jav import api, corrections, datasets, store, work, work_readiness, work_recipes, work_runs, work_views
+from jav.domains.email import emails, intent, mailbox
+from jav.domains.email.emails import EmailMessage
 from jav.runtime import worker
 from tests.test_mailbox import MAILS, REQ, FakeBridge, env  # noqa: F401 - pytest fixture
 
@@ -227,7 +228,7 @@ def _fake_tasks(snap, *, intent_hint, run_id):
 
 
 def test_task_proposals_go_through_the_gate_and_only_a_human_accepts_them(env, monkeypatch):  # noqa: F811
-    from jav import email_tasks
+    from jav.domains.email import email_tasks
 
     monkeypatch.setattr(email_tasks, "extract", _fake_tasks)
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge(MAILS), inbox_root=env["inbox"])
@@ -281,7 +282,8 @@ def test_task_proposals_go_through_the_gate_and_only_a_human_accepts_them(env, m
 
 
 def test_task_proposal_failure_becomes_a_todo_and_archived_mail_is_skipped(env, monkeypatch):  # noqa: F811
-    from jav import email_tasks, policy
+    from jav.domains.email import email_tasks
+    from jav import policy
 
     def boom(snap, *, intent_hint, run_id):
         raise RuntimeError("nincs kapcsolat")

@@ -4,7 +4,7 @@ import json
 
 from jav import cfg
 from jav.doc_types import BY_KEY as DOC_BY_KEY, DOC_TYPE_KEYS, UNKNOWN
-from jav.intents import INTENT_KEYS, OTHER
+from jav.domains.email.intents import INTENT_KEYS, OTHER
 from jav import policy
 
 
@@ -49,7 +49,7 @@ def test_policy_thresholds_come_from_json():
 
 def test_callsite_questions_build_from_json():
     from jav.detect import build_questions as detect_q, CONFIG_HASH as detect_hash
-    from jav.intent import build_questions as intent_q, NOUL_KEYS
+    from jav.domains.email.intent import build_questions as intent_q, NOUL_KEYS
     from jav.jev_select import site_for as select_site
     from jav.jev_verify import site_for as verify_site
     from jav.models import InvoiceLLM

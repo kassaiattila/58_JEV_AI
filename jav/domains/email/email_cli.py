@@ -11,7 +11,7 @@ from jav.cli_options import budget_args, engine_args, jev_on, under_budget
 
 
 def cmd_email(args: argparse.Namespace) -> int:
-    from jav.flow_email import run_email
+    from jav.domains.email.flow_email import run_email
 
     with under_budget(args, "email"):
         st = run_email(args.folder, tracker=not args.no_tracker, use_cache=not args.no_cache, jev=jev_on(args))
@@ -30,7 +30,7 @@ def cmd_email(args: argparse.Namespace) -> int:
 def cmd_email_ingest_server(args: argparse.Namespace) -> int:
     from pathlib import Path
 
-    from jav.ingest_server import INBOX_ROOT, serve
+    from jav.domains.email.ingest_server import INBOX_ROOT, serve
 
     serve(port=args.port, run_flow=args.run, inbox_root=Path(args.inbox) if args.inbox else INBOX_ROOT, token=args.token)
     return 0

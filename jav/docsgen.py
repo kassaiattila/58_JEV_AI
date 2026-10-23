@@ -29,7 +29,7 @@ CALLSITES: dict[str, dict[str, Any]] = {
         },
     },
     "email_intent": {
-        "steps": ["email_intent"], "registry": "intents", "flow": "email_intent / intent", "state_fn": "jav.intent.build_state",
+        "steps": ["email_intent"], "registry": "intents", "flow": "email_intent / intent", "state_fn": "jav.domains.email.intent.build_state",
         "consumers": {
             "intent": "emails.intent + intent_conf; policy.email.intent_human_max_conf alatt human:low_confidence, különben policy.email.intent_route / csatolmány-típus",
             "requires_action": "emails.signals (jel; még nem küszöbölt)",
@@ -111,7 +111,7 @@ def code_hashes(name: str) -> dict[str, str]:
 
         return {"detect": CONFIG_HASH}
     if name == "email_intent":
-        from jav.intent import CONFIG_HASH
+        from jav.domains.email.intent import CONFIG_HASH
 
         return {"email_intent": CONFIG_HASH}
     if name == "detect_detail":

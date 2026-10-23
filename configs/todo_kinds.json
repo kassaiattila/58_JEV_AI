@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "todo_kinds",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "The kinds of to-do (review reason) a processing step can raise (177, plan 170 E6, jav/todo_kinds.py). A to-do's kind is the first two parts of its reason (`<prefix>:<name>`, as the interface's label reads it); `<prefix>:*` stands for a family whose second part varies (each validator check, each JEV error), `*:<name>` for one whose first part is a field. shape: the whole reason; owners: the modules that raise it (none: only earlier runs have it); example: one reason of the kind, for the label test (ui/src/todoKinds177.test.ts). The owner's decision of 2026-10-19 (177): only the tests and the before/after replay watch that a step raises registered kinds; the store accepts any reason, as before.",
     "changelog": [
+      {
+        "version": "1.0.3",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the email domain's modules moved into jav/domains/email/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.2",
         "date": "2026-10-21",
@@ -61,8 +66,8 @@
     {"code": "ocr:escalation_blocked", "shape": "ocr:escalation_blocked:<why>", "owners": ["jav/ocr.py"], "what": "the Azure recognition of a weak scan did not run", "example": "ocr:escalation_blocked:budget"},
     {"code": "ocr:unavailable", "shape": "ocr:unavailable:<error>", "owners": ["jav/flow.py", "jav/flow_detect.py"], "what": "the text recognition could not run", "example": "ocr:unavailable:TesseractNotFoundError"},
     {"code": "pdf:pages_without_text", "shape": "pdf:pages_without_text:<pages>", "owners": ["jav/flow_detect.py", "jav/policy.py"], "what": "pages without a text layer of their own were neither read nor recognised", "example": "pdf:pages_without_text:2"},
-    {"code": "attachment:unreadable", "shape": "attachment:unreadable:<file>", "owners": ["jav/flow_email.py"], "what": "a PDF attachment of the email cannot be read", "example": "attachment:unreadable:szamla.pdf"},
-    {"code": "attachment:suspicious_email", "shape": "attachment:suspicious_email", "owners": ["jav/mailbox.py"], "what": "an attachment of an email routed as suspicious", "example": "attachment:suspicious_email"},
+    {"code": "attachment:unreadable", "shape": "attachment:unreadable:<file>", "owners": ["jav/domains/email/flow_email.py"], "what": "a PDF attachment of the email cannot be read", "example": "attachment:unreadable:szamla.pdf"},
+    {"code": "attachment:suspicious_email", "shape": "attachment:suspicious_email", "owners": ["jav/domains/email/mailbox.py"], "what": "an attachment of an email routed as suspicious", "example": "attachment:suspicious_email"},
     {"code": "signal:prompt_injection", "shape": "signal:prompt_injection:<p>", "owners": ["jav/policy.py"], "what": "the email's text seems to carry an instruction to the system", "example": "signal:prompt_injection:0.93"},
     {"code": "duplicate:copy", "shape": "duplicate:copy:<other document>", "owners": ["jav/duplicates.py"], "what": "a possible copy of an earlier document", "example": "duplicate:copy:0123456789abcdef"},
     {"code": "duplicate:variant", "shape": "duplicate:variant:<other document>", "owners": ["jav/duplicates.py"], "what": "a possible modified version of an earlier document", "example": "duplicate:variant:0123456789abcdef"},
@@ -93,13 +98,13 @@
     {"code": "detect_detail:direction_mismatch", "shape": "detect_detail:direction_mismatch:<type>:<direction>", "owners": ["jav/flow.py"], "what": "the detailed type contradicts the direction the own parties give", "example": "detect_detail:direction_mismatch:invoice_hu:outgoing"},
     {"code": "detect_detail:gpt_failed", "shape": "detect_detail:gpt_failed:<error>", "owners": ["jav/flow_detect.py", "jav/runtime/worker.py"], "what": "the GPT recognition of the detailed type failed", "example": "detect_detail:gpt_failed:APITimeoutError"},
     {"code": "detect_detail:confidence_unavailable", "shape": "detect_detail:confidence_unavailable:<type>", "owners": ["jav/flow_detect.py"], "what": "the detailed type's confidence cannot be measured", "example": "detect_detail:confidence_unavailable:invoice_hu"},
-    {"code": "intent:low_conf", "shape": "intent:low_conf:<intent>:<p>", "owners": ["jav/flow_email.py"], "what": "uncertain email intent", "example": "intent:low_conf:invoice:0.58"},
-    {"code": "intent:no_result", "shape": "intent:no_result", "owners": ["jav/flow_email.py"], "what": "the email's intent was not recognised", "example": "intent:no_result"},
-    {"code": "intent:gpt_failed", "shape": "intent:gpt_failed:<error>", "owners": ["jav/flow_email.py"], "what": "the GPT intent recognition failed", "example": "intent:gpt_failed:APITimeoutError"},
-    {"code": "intent:confidence_unavailable", "shape": "intent:confidence_unavailable", "owners": ["jav/flow_email.py"], "what": "the intent's confidence cannot be measured", "example": "intent:confidence_unavailable"},
+    {"code": "intent:low_conf", "shape": "intent:low_conf:<intent>:<p>", "owners": ["jav/domains/email/flow_email.py"], "what": "uncertain email intent", "example": "intent:low_conf:invoice:0.58"},
+    {"code": "intent:no_result", "shape": "intent:no_result", "owners": ["jav/domains/email/flow_email.py"], "what": "the email's intent was not recognised", "example": "intent:no_result"},
+    {"code": "intent:gpt_failed", "shape": "intent:gpt_failed:<error>", "owners": ["jav/domains/email/flow_email.py"], "what": "the GPT intent recognition failed", "example": "intent:gpt_failed:APITimeoutError"},
+    {"code": "intent:confidence_unavailable", "shape": "intent:confidence_unavailable", "owners": ["jav/domains/email/flow_email.py"], "what": "the intent's confidence cannot be measured", "example": "intent:confidence_unavailable"},
     {"code": "intent:jev_off", "shape": "intent:jev_off", "owners": [], "what": "earlier runs (086, before 089): processing without JEV did not recognise the intent", "example": "intent:jev_off"},
-    {"code": "tasks:proposed", "shape": "tasks:proposed:<n>", "owners": ["jav/flow_email.py", "jav/mailbox.py"], "what": "task proposals of the email wait for a decision", "example": "tasks:proposed:2"},
-    {"code": "tasks:failed", "shape": "tasks:failed:<why>", "owners": ["jav/flow_email.py"], "what": "the task proposal failed", "example": "tasks:failed:APITimeoutError"},
+    {"code": "tasks:proposed", "shape": "tasks:proposed:<n>", "owners": ["jav/domains/email/flow_email.py", "jav/domains/email/mailbox.py"], "what": "task proposals of the email wait for a decision", "example": "tasks:proposed:2"},
+    {"code": "tasks:failed", "shape": "tasks:failed:<why>", "owners": ["jav/domains/email/flow_email.py"], "what": "the task proposal failed", "example": "tasks:failed:APITimeoutError"},
     {"code": "native:reading", "shape": "native:reading:<status>", "owners": ["jav/flow_native.py"], "what": "the document could not be read fully", "example": "native:reading:partial"},
     {"code": "native:interpretation", "shape": "native:interpretation:<status>", "owners": ["jav/flow_native.py"], "what": "the extraction of facts failed", "example": "native:interpretation:failed"},
     {"code": "native:no_facts", "shape": "native:no_facts", "owners": ["jav/flow_native.py"], "what": "no fact was proposed from the document", "example": "native:no_facts"},
@@ -110,6 +115,6 @@
     {"code": "native:claim", "shape": "native:claim:<state>", "owners": ["jav/flow_native.py"], "what": "a proposed fact is not certain", "example": "native:claim:uncertain"},
     {"code": "native:fact", "shape": "native:fact:<index>:<verdict>:<p>", "owners": ["jav/flow_native.py"], "what": "JEV does not support a proposed fact, or is unsure of it", "example": "native:fact:0:unsupported:0.31"},
     {"code": "validator:*", "shape": "validator:<check>[:<field> | :<detail>]", "owners": ["jav/policy.py", "jav/flow_statement_table.py"], "what": "a code check of the record failed (the check's own label, `CHECK_TEXT` in ui/src/labels.ts)", "example": "validator:totals.mismatch"},
-    {"code": "jev_unavailable:*", "shape": "jev_unavailable:<why>", "owners": ["jav/flow.py", "jav/flow_detect.py", "jav/flow_email.py", "jav/flow_native.py", "jav/native_processing.py"], "what": "a JEV question could not be answered (or, without JEV, was not sent)", "example": "jev_unavailable:TypeSafeAPIConnectionError"}
+    {"code": "jev_unavailable:*", "shape": "jev_unavailable:<why>", "owners": ["jav/flow.py", "jav/flow_detect.py", "jav/domains/email/flow_email.py", "jav/flow_native.py", "jav/native_processing.py"], "what": "a JEV question could not be answered (or, without JEV, was not sent)", "example": "jev_unavailable:TypeSafeAPIConnectionError"}
   ]
 }

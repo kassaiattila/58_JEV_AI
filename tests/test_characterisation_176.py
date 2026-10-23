@@ -51,7 +51,7 @@ ROUTE_COUNT = 178  # (method, path) pairs of 174 routes: the unknown-address ans
 # preview), a package's choice of them (read, choose) and the utility cost's workbook (jav/api_outputs.py)
 # 181 (plan 170 L5): three more on purpose - the package roles, and a package's scope given and taken away
 # (`GET /api/package-roles`, `POST /api/workpackages/{wp_id}/scope`, `POST /api/workpackages/{wp_id}/scope/clear`), and
-# the email routing's five in its own module (`jav/api_email_routing.py`: a routing package; accept, every clear one,
+# the email routing's five in its own module (`jav/domains/email/api_email_routing.py`: a routing package; accept, every clear one,
 # reject, undo)
 # 191 (plan F-quote-package B2): seven more on purpose - the price lists in their own module (`jav/api_price_lists.py`:
 # list, upload, a version, its settings, activate, retire, its file); B3: two more, the quote package's

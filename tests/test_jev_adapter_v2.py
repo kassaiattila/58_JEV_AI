@@ -171,9 +171,9 @@ def _failing_adapter(tmp: Path) -> JevAdapter:
 
 
 def test_email_flow_survives_jev_outage(isolated: Path, monkeypatch: pytest.MonkeyPatch):
-    from jav import flow_email
+    from jav.domains.email import flow_email
     from jav.adapters import jev as jev_mod
-    from jav.emails import EmailMessage
+    from jav.domains.email.emails import EmailMessage
 
     monkeypatch.setattr(jev_mod, "get_adapter", lambda: _failing_adapter(isolated))
     msg = EmailMessage(message_id="m-1", subject="Számla", body="Mellékelten küldöm a számlát.")

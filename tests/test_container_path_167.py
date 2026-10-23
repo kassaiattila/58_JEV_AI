@@ -11,7 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from jav import emails, ingest_server, path_text
+from jav.domains.email import emails, ingest_server
+from jav import path_text
 
 REFUSED = [
     "/data///attacker.example/share/x.pdf",

@@ -15,10 +15,11 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, Score, SystemOneResponse
 
-from jav import detect_detail, detect_gpt, flow_detect, flow_email, gpt_choice, store
+from jav import detect_detail, detect_gpt, flow_detect, gpt_choice, store
+from jav.domains.email import flow_email
 from jav.adapters import jev as jev_mod
 from jav.adapters.jev import JevUnavailableError
-from jav.emails import EmailMessage
+from jav.domains.email.emails import EmailMessage
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_gpt_detect_086 import DETECT_TOKENS, _by_question, _factory
 from tests.test_gpt_intent_089 import _answer

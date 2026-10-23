@@ -15,7 +15,7 @@ import time
 
 import pytest
 
-from jav import ingest_server
+from jav.domains.email import ingest_server
 
 CLIENT_PATIENCE_S = 20.0
 

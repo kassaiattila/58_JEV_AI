@@ -19,10 +19,11 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, Score, SystemOneResponse
 
-from jav import emails, extract_llm, ingest_server, mailbox, store, text_document, work, work_readiness, work_recipes, work_runs
+from jav.domains.email import emails, ingest_server, mailbox
+from jav import extract_llm, store, text_document, work, work_readiness, work_recipes, work_runs
 from jav.adapters import jev as jev_mod
-from jav.emails import EmailMessage
-from jav.flow_email import text_follow_up
+from jav.domains.email.emails import EmailMessage
+from jav.domains.email.flow_email import text_follow_up
 from jav.runtime import worker
 from tests.test_mailbox import REQ, FakeBridge
 from tests.test_no_jev_085 import _FakeAgent

@@ -16,7 +16,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, app_settings, fx, mailbox, store, work, work_runs
+from jav import api, app_settings, fx, store, work, work_runs
+from jav.domains.email import mailbox
 from jav import reconcile_package as rp
 from jav import workflows as wf
 from tests import test_reconcile_k2_129 as k2

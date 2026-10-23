@@ -15,8 +15,8 @@ from decimal import Decimal
 from typing import Any, Literal
 
 from jav import cfg, checks, type_roles
-from jav.emails import Attachment
-from jav.intents import DOCUMENT_BEARING
+from jav.domains.email.emails import Attachment
+from jav.domains.email.intents import DOCUMENT_BEARING
 from jav.models import CheckResult, FlowState
 from jav.typepack import get as get_pack
 

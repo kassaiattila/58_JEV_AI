@@ -135,7 +135,8 @@ def test_unpriced_model_is_refused_under_a_budget(isolated, monkeypatch):
     """066 Á38: if the configured model has no price, the budget reservation would see zero and the budget would not
     stop the spending. In a worker run it therefore stops with a named error (the flow raises an
     `llm:failed:UnpricedModelError` to-do)."""
-    from jav import email_tasks, extract_llm
+    from jav.domains.email import email_tasks
+    from jav import extract_llm
     from jav.config import UnpricedModelError
 
     monkeypatch.setattr(extract_llm, "OPENAI_MODEL", "gpt-kitalalt-modell")

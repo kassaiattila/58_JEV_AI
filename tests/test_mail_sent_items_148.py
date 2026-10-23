@@ -16,7 +16,8 @@ import json
 
 import pytest
 
-from jav import config, ingest_server
+from jav import config
+from jav.domains.email import ingest_server
 
 
 def _payload(**over):

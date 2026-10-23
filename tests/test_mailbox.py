@@ -12,7 +12,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from jav import emails, ingest_server, mailbox, store, work, work_readiness, work_runs
+from jav.domains.email import emails, ingest_server, mailbox
+from jav import store, work, work_readiness, work_runs
 from jav.adapters import jev as jev_mod
 from jav.config import BRIDGE_ROOT, OLD_PROJECT_ROOT
 from jav.runtime import worker
@@ -241,7 +242,7 @@ def test_service_endpoints(tmp_path, monkeypatch):
 
 
 def test_bookkeeping_files_are_not_attachments(tmp_path):
-    from jav.emails import load_message_dir
+    from jav.domains.email.emails import load_message_dir
 
     d = tmp_path / "abc"
     d.mkdir()

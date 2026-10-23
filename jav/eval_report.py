@@ -282,7 +282,7 @@ def _from_detect(row: dict[str, Any], *, gpt: bool = False) -> list[Judgment]:
 
 
 def _from_email(row: dict[str, Any], *, gpt: bool = False) -> list[Judgment]:
-    from jav.intents import PARENT_OF
+    from jav.domains.email.intents import PARENT_OF
 
     if row.get("got") is None:
         return []

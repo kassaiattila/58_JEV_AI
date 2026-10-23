@@ -18,7 +18,7 @@ from pathlib import Path
 from jav.config import PROJECT_ROOT
 
 JAV = PROJECT_ROOT / "jav"
-THEMES = sorted(JAV.glob("api_*.py"))
+THEMES = sorted(JAV.rglob("api_*.py"))  # 208: a domain's are in its folder
 
 
 def _imports(path: Path) -> set[str]:
@@ -36,7 +36,7 @@ def _imports(path: Path) -> set[str]:
 
 def _is_service(name: str) -> bool:
     """The gateway or one of its modules of addresses."""
-    return name == "jav.api" or name.startswith(("jav.api.", "jav.api_"))
+    return name == "jav.api" or name.startswith("jav.api.") or (name.startswith("jav.") and name.rsplit(".", 1)[-1].startswith("api_"))
 
 
 def test_there_are_modules_of_addresses_to_check():
@@ -60,6 +60,7 @@ def test_the_shared_module_imports_no_service_module():
 
 def test_importing_the_shared_module_loads_no_service_module():
     code = ("import sys, jav.service_shared; "
-            "print(sorted(m for m in sys.modules if m == 'jav.api' or m.startswith(('jav.api.', 'jav.api_'))))")
+            "print(sorted(m for m in sys.modules if m == 'jav.api' or m.startswith('jav.api.')"
+            " or (m.startswith('jav.') and m.rsplit('.', 1)[-1].startswith('api_'))))")
     done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=PROJECT_ROOT, check=True)
     assert done.stdout.strip() == "[]"
