@@ -60,23 +60,20 @@ def _run(ctx: StepContext, params: WaitReply) -> kinds.StepOutcome:
     gathered = _gathered(ctx.row())
     if REPLY in gathered:
         return kinds.Done(gathered)
-    with ctx.transaction() as c:
-        task = tasks.task_in(c, _task_id(ctx.case_id, ctx.step.id))
-        if task is not None and task.status == tasks.OPEN:
-            return kinds.WAIT
-        if task is not None and task.status == tasks.DECIDED:
-            answer = (task.outcome or {}).get(REPLY)
-            if answer in (REPLIED, NOT_NEEDED):
-                return kinds.Done({**gathered, REPLY: answer, "by": task.closed_by.name if task.closed_by else None,
-                                   "at": task.closed_at, "note": task.note, "reminded": True})
-            cases.wait(c, ctx.case_id, ctx.step.id, REPLY, ctx.actor)  # reminded: no further follow-up
-            return kinds.WAIT
-        if "since" not in gathered:
-            gathered["since"] = time.time()
+    task = tasks.get(_task_id(ctx.case_id, ctx.step.id))
+    if task is not None and task.status == tasks.OPEN:
+        return kinds.WAIT
+    if task is not None and task.status == tasks.DECIDED:
+        answer = (task.outcome or {}).get(REPLY)
+        if answer in (REPLIED, NOT_NEEDED):
+            return kinds.Done({**gathered, REPLY: answer, "by": task.closed_by.name if task.closed_by else None,
+                               "at": task.closed_at, "note": task.note, "reminded": True})
+        return ctx.wait(REPLY)  # reminded: no further follow-up
+    if "since" not in gathered:
+        gathered["since"] = time.time()
+        with ctx.transaction() as c:
             cases.set_result(c, ctx.case_id, ctx.step.id, gathered)
-        cases.wait(c, ctx.case_id, ctx.step.id, REPLY, ctx.actor,
-                   timer=(REMIND, gathered["since"] + params.remind_after_days * DAY_S))
-    return kinds.WAIT
+    return ctx.wait(REPLY, timer=(REMIND, gathered["since"] + params.remind_after_days * DAY_S))
 
 
 def _on_event(ctx: StepContext, c: Any, event: cases.Event) -> str:
