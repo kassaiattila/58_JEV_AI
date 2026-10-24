@@ -8,6 +8,10 @@ import { PageHeader } from "../components/PageHeader";
 import { ELEMENTS, type ElementProps } from "../elements/registry";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
+import { stepLabel } from "../labels";
+import { go } from "../route";
+import { WorkpackageActions } from "./WorkpackageActions";
+import { OwnerPicker } from "./WorkpackageDetail";
 
 /** The tab a case opens on: the tab of its first step not done yet (its last tab when every step is done). */
 function defaultTab(page: CaseView): string {
@@ -24,6 +28,8 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
   useLocale();
   const [poll, setPoll] = useState(false);
   const page = useLoad(`case:${caseId}`, () => api.casePage(caseId), poll ? 3000 : undefined);
+  // the case's container is a work package: its owner and its actions menu, as on a work package's page
+  const container = useLoad(`wp:${caseId}`, () => api.workpackage(caseId));
   const active = page.data ? moving(page.data) : false;
   useEffect(() => setPoll(active), [active]);
 
@@ -41,12 +47,19 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
   const all = view.tabs.flatMap((x) => x.elements);
   const summary: ReactNode = all.map((e) => ELEMENTS[e.type]?.summary?.(props(e))).find(Boolean) ?? t(view.case.title);
   const statusOf = (elements: ElementProps["element"][]) => elements.map((e) => ELEMENTS[e.type]?.status?.(props(e))).find(Boolean) ?? "";
-  const next = defaultTab(view);
+  const next = view.next?.tab ?? defaultTab(view);
+  const reload = () => { page.reload(); container.reload(); };
+  // the next-step button; a hint instead when its tab is the one shown (as on a work package's page)
+  const nextStep = view.next ? stepLabel(view.next.code, view.next.params, view.next.label) : null;
+  const nextButton = !view.next || !nextStep ? null : view.next.tab !== shown.id || tab === undefined ? (
+    <button type="button" className="primary" onClick={() => go({ view: "cases", caseId, tab: view.next!.tab })}>{nextStep} →</button>
+  ) : <span className="next-hint">{t("Következő lépés: {{step}}", { step: nextStep })}</span>;
 
   return (
     <>
       <PageHeader compact crumbs={[{ label: t("Work packages"), href: "#/workpackages" }]} title={view.case.name ?? t(view.case.title)}
-        summary={summary} />
+        summary={summary}
+        actions={container.data ? <><OwnerPicker view={container.data} onChanged={reload} />{nextButton}<WorkpackageActions view={container.data} onChanged={reload} /></> : nextButton} />
       <div className="stage-tabs" role="tablist" aria-label={t("The case's steps")}>
         {view.tabs.map((x, i) => (
           <a key={x.id} role="tab" aria-selected={shown.id === x.id} className={`stage-tab ${next === x.id ? "is-next" : ""}`}

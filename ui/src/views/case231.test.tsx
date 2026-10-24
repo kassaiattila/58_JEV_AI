@@ -38,6 +38,7 @@ const PAGE: CaseView = {
                                                { type: "line_editor", step: "compose", data: { quote: QUOTE } }] },
     { id: "approval", label: "Approval", elements: [{ type: "approval", step: "compose", letter_step: "letter", data: { quote: QUOTE } }] },
   ],
+  next: { code: "quote_propose", label: "Ask for the proposal", stage: "review", tab: "quote" },
 };
 
 describe("a process pack's case (231)", () => {
@@ -51,6 +52,8 @@ describe("a process pack's case (231)", () => {
     expect(tabs[0].textContent).toContain("1 part(s), 1 requested item(s)");
     expect(tabs[1].getAttribute("aria-selected")).toBe("true");
     expect(await screen.findByRole("button", { name: /Ask for the proposal/ })).toBeTruthy();
+    // the header's next step, as on a work package's page: a button beside the panel's own, until a tab is chosen
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /Ask for the proposal/ })).toHaveLength(2));
   });
 
   it("asks for the proposal by starting the case's step", async () => {
@@ -58,6 +61,8 @@ describe("a process pack's case (231)", () => {
     const start = vi.spyOn(api, "startCaseStep").mockResolvedValue(PAGE);
     const direct = vi.spyOn(api, "requestQuoteProposal");
     render(<CasePage caseId="wp-000000000231" tab="quote" />);
+    // on the next step's own tab the header only names it
+    expect(await screen.findByText(/Ask for the proposal/, { selector: ".next-hint" })).toBeTruthy();
     fireEvent.click(await screen.findByRole("button", { name: /Ask for the proposal/ }));
     await waitFor(() => expect(start).toHaveBeenCalledWith("wp-000000000231", "match"));
     expect(direct).not.toHaveBeenCalled();

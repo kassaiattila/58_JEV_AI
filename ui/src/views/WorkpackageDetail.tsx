@@ -58,7 +58,7 @@ export function nextStepText(view: WorkpackageView): string {
 }
 
 /** 061: the work package's owner, from the list of names (the „Saját csomagjaim” (My work packages) filter uses it). */
-function OwnerPicker({ view, onChanged }: { view: WorkpackageView; onChanged: () => void }) {
+export function OwnerPicker({ view, onChanged }: { view: WorkpackageView; onChanged: () => void }) {
   useLocale();
   const users = useLoad("users", api.users);
   useEvent(USERS_EVENT, users.reload);

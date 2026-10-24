@@ -27,7 +27,7 @@ from jav.core import completion, identity
 from jav.core.process import engine, tasks
 from jav.core.user_messages import explained
 
-__all__ = ["CaseError", "ElementData", "register", "start_step", "view"]
+__all__ = ["CaseError", "ElementData", "next_of", "register", "start_step", "view"]
 
 
 class CaseError(ValueError):
@@ -90,7 +90,24 @@ def view(case_id: str) -> dict[str, Any]:
         tabs.append({"id": tab.id, "label": tab.label, "elements": elements})
     return {"case": {"id": case_id, "pack": pack.id, "version": pack.version, "title": pack.title,
                      "name": state.get("data", {}).get("name"), "status": state["status"]},
-            "steps": {s.id: _step_view(s, rows.get(s.id, {})) for s in pack.steps}, "tabs": tabs}
+            "steps": {s.id: _step_view(s, rows.get(s.id, {})) for s in pack.steps}, "tabs": tabs,
+            "next": _next(tabs)}
+
+
+def _next(tabs: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The case's next step: the first element whose data names one, with the tab of the element it is done on."""
+    for tab in tabs:
+        for element in tab["elements"]:
+            nxt = element["data"].get("next") if isinstance(element["data"], dict) else None
+            if nxt:
+                where = next((x["id"] for x in tabs if any(e["type"] == nxt.get("element") for e in x["elements"])), tab["id"])
+                return {k: v for k, v in nxt.items() if k != "element"} | {"tab": where}
+    return None
+
+
+def next_of(case_id: str) -> dict[str, Any] | None:
+    """The case's next step as its page names it (the work package list's next step of its container)."""
+    return view(case_id)["next"]
 
 
 def start_step(case_id: str, step_id: str, actor: identity.Who) -> dict[str, Any]:

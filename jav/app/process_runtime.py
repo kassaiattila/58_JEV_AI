@@ -65,8 +65,13 @@ def _page(case_id: str) -> dict[str, Any]:
 
 
 def _next(case_id: str) -> dict[str, Any]:
+    """The container's next step: the case page's (its elements name it), else whether the case is open."""
+    from jav.app import case_views  # the case page reads this module
+
     with store.connect() as c:
         row = cases.find_case_in(c, case_id)
+    if row is not None and row["status"] == cases.OPEN and (nxt := case_views.next_of(case_id)):
+        return {**{k: v for k, v in nxt.items() if k != "tab"}, "stage": "process"}
     done = row is not None and row["status"] != cases.OPEN
     return {"code": "case_closed" if done else "case_open", "label": "The case is closed" if done else "Open the case",
             "stage": "process"}

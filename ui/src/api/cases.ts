@@ -16,6 +16,8 @@ export interface CaseView {
   case: { id: string; pack: string; version: string; title: string; name: string | null; status: string };
   steps: Record<string, CaseStep>;
   tabs: CaseTab[];
+  /** the case's next step, named by its elements, and the tab it is done on */
+  next: { code: string; label: string; stage: string; tab: string; params?: Record<string, number> } | null;
 }
 
 export const casesApi = {

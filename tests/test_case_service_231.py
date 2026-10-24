@@ -52,5 +52,8 @@ def test_a_case_starts_from_its_record_and_its_page_is_its_packs_tabs(golden, tm
         assert c.get("/api/workpackages").status_code == 200
         wp = c.get(f"/api/workpackages/{case_id}").json()
         assert wp["case"] == {"id": case_id, "pack": "it_quote", "version": "1.0.0"}
-        assert wp["next"]["code"] == "case_open"
+        # the container's next step is its case page's: the quote's own wording (as the quote package's was)
+        assert wp["next"]["code"] == "quote_approve"
+        assert c.get(f"/api/cases/{case_id}").json()["next"] | {"label": None} == {
+            "code": "quote_approve", "label": None, "stage": "result", "tab": "approval"}
         assert list(c.get(f"/api/workpackages/{case_id}/output-templates").json()["outputs"]) == ["quote"]

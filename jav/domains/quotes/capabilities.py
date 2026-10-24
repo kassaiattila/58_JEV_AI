@@ -185,7 +185,12 @@ def _quote_view(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict
 
     if "quote" not in shared:
         shared["quote"] = quote_package.view(case_id)
-    return {"quote": shared["quote"]}
+    nxt = quote_package._next_of(shared["quote"])
+    # the next step, and the element whose tab it is done on (the quote package's stages: request, quote, approval)
+    return {"quote": shared["quote"], "next": {**nxt, "element": _NEXT_ELEMENT[nxt["stage"]]}}
+
+
+_NEXT_ELEMENT = {"process": "record_view", "review": "match_proposal", "result": "approval"}
 
 
 # 231 (A6): the elements a step of these capabilities shows, each with the quote view

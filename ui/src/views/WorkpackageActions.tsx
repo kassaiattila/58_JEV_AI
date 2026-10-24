@@ -15,7 +15,8 @@ type Mode = "menu" | "rename" | "delete" | "scope";
 export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView; onChanged: () => void }) {
   useLocale();
   const wp = view.workpackage;
-  const adds = logicOf(wp.source_kind)?.adds;
+  // 231 (A6): a case's container takes no documents (its case reads its record)
+  const adds = wp.source_kind === "case" ? "nothing" : logicOf(wp.source_kind)?.adds;
   const archived = wp.status === "archived";
   const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
