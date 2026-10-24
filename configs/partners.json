@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "name": "partners",
+    "version": "1.0.0",
+    "description": "231 (plan stage B, B1; DECISIONS 231): the roles an outside party may play in the shared partner register (jav/app/partners.py). One partner may play several roles; a process names the role its partners play. The labels are English; the interface translates them.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-24",
+        "note": "231 (B1): the first roles: customer, supplier, insured, broker."
+      }
+    ]
+  },
+  "roles": {
+    "customer": {
+      "label": "Customer",
+      "what": "Asks for a quote or buys: a quote's requester, an outgoing invoice's buyer."
+    },
+    "supplier": {
+      "label": "Supplier",
+      "what": "Sells to the own party: an incoming invoice's supplier."
+    },
+    "insured": {
+      "label": "Insured",
+      "what": "A person or company an insurance quote is made for."
+    },
+    "broker": {
+      "label": "Broker",
+      "what": "Brings an insurance case on behalf of the insured."
+    }
+  }
+}

@@ -96,7 +96,10 @@ def test_fresh_file_waits_and_daily_mode_makes_a_package_per_day(env):
         day1 = app_settings.scan(f["id"], now=LATER)
         assert day1["new"] == 2
         write_text_pdf(env["folder"] / "szamla_4.pdf", [line.replace("MINTA-2026-001", "MINTA-2026-004") for line in INVOICE_LINES])
-        day2 = app_settings.scan(f["id"], now=LATER + timedelta(days=1))
+        # noon of the next local day: 24 hours on from just after midnight of a 25-hour day (the end of summer time) is
+        # still the same day
+        next_day = (LATER.astimezone() + timedelta(days=1)).replace(hour=12)
+        day2 = app_settings.scan(f["id"], now=next_day)
         assert day2["new"] == 1 and day2["workpackage"] != day1["workpackage"]
 
 

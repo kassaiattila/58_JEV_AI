@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.134",
+    "version": "1.0.135",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.135",
+        "date": "2026-10-25",
+        "note": "231 (plan stage B, v1.44.0): the user guide's section on the partner register quotes the Hungarian labels of the interface (docs/guides/USER_GUIDE.md 253 -> 260); 6060 -> 6067."
+      },
       {
         "version": "1.0.134",
         "date": "2026-10-24",
@@ -836,7 +841,7 @@
     "docs/flows/invoice/FLOW.md": 15,
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 253,
+    "docs/guides/USER_GUIDE.md": 260,
     "jav/ai/candidates.py": 66,
     "jav/ai/detect.py": 1,
     "jav/ai/detect_detail.py": 2,

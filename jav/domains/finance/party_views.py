@@ -67,6 +67,26 @@ def observations(snap: dict[str, Any] | None = None, *, holder_text: bool = True
     return invoices, accounts
 
 
+def partner_suggestions() -> list[dict[str, Any]]:
+    """231 (B1): the partner register's proposals from the invoices read: an incoming invoice's supplier as a supplier,
+    an outgoing invoice's buyer as a customer; an own party is never one (`jav/app/partners.py` `suggestions`)."""
+    snap = reconcile.snapshot()
+    outgoing = set(type_roles.types("outgoing_invoice"))
+    own = parties.resolver()
+    seen: dict[tuple[str, str], dict[str, Any]] = {}
+    for inv in snap["invoices"]:
+        out = inv.get("doc_type") in outgoing
+        name, tax = (inv.get("buyer_name"), inv.get("buyer_tax_id")) if out else (inv.get("supplier_name"), inv.get("supplier_tax_id"))
+        if not name or own.by_tax(tax) or own.by_name(name)[0]:
+            continue
+        role = "customer" if out else "supplier"
+        entry = seen.setdefault((parties.tax_key(tax) or parties.name_key(name) or name, role),
+                                {"name": name, "tax_number": tax, "role": role, "seen": 0, "last": None})
+        entry["seen"] += 1
+        entry["last"] = max(filter(None, (entry["last"], inv.get("issue_date"))), default=None)
+    return list(seen.values())
+
+
 def overview() -> dict[str, Any]:
     """The settings page: every party with its invoices (count and span), identities (with counts) and accounts;
     the suggestions and the unassigned identities; the dismissed ones; how many invoices no party claims."""

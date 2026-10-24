@@ -81,11 +81,13 @@ CREATE TABLE IF NOT EXISTS quote_letters (
     accepted_by    TEXT,
     accepted_by_id TEXT,
     accepted_at    TEXT,
+    frame          TEXT,               -- 231 (B0): the letter frame's key it is written with (NULL: the default)
     PRIMARY KEY (workpackage_id, version)
 );
 """)
 store.register_migration("quote_letters_actor_ids",
                          lambda conn: store.add_actor_ids(conn, "quote_letters", ("requested_by", "accepted_by")))  # 229
+store.register_migration("quote_letters_frame", lambda conn: store.add_columns(conn, "quote_letters", {"frame": "TEXT"}))
 
 _agent_factory: ContextVar = ContextVar("quote_letter_agent_factory", default=None)
 
@@ -168,8 +170,8 @@ def compose(content: dict[str, Any], *, package: str, n: int, paragraph: str | N
     return "\n\n".join(parts) + "\n"
 
 
-def subject(content: dict[str, Any]) -> str:
-    frame = _frame(content.get("language") or quote_document.default_language())
+def subject(content: dict[str, Any], frame_key: str = FRAME) -> str:
+    frame = _frame(content.get("language") or quote_document.default_language(), frame_key)
     title = ((content.get("request") or {}).get("title") or "").strip()
     if not title:
         return frame["subject_none"]
@@ -244,11 +246,12 @@ def view(wp_id: str) -> dict[str, Any]:
     accepted = None
     if row is not None and row["body"] is not None:
         accepted = {"body": row["body"], "by": row["accepted_by"], "at": row["accepted_at"]}
+    frame = _frame_of(row)
     out.update(version=n, state=row["state"] if row is not None else None, paragraph=row["paragraph"] if row is not None else None,
                problems=problems, error=row["error"] if row is not None else None,
                usage=json.loads(row["usage"]) if row is not None and row["usage"] else None,
-               body=accepted["body"] if accepted else compose(content, package=package, n=n, paragraph=usable),
-               accepted=accepted, to=recipient(content, _request(content)), subject=subject(content))
+               body=accepted["body"] if accepted else compose(content, package=package, n=n, paragraph=usable, frame_key=frame),
+               accepted=accepted, to=recipient(content, _request(content)), subject=subject(content, frame))
     return out
 
 
@@ -343,11 +346,19 @@ def ask(prompt: str, *, run_id: str) -> str:
     return str(saved["output"]["paragraph"])
 
 
-def request(wp_id: str, *, actor: identity.Who) -> dict[str, Any]:
+def _frame_of(row: Any) -> str:
+    """231 (B0): the frame a letter is written with: the one asked for, else the default."""
+    return (row["frame"] if row is not None and row["frame"] else None) or FRAME
+
+
+def request(wp_id: str, *, actor: identity.Who, frame: str = FRAME) -> dict[str, Any]:
     """Queues GPT's paragraph for the approved version that holds, under its cap; one already queued or running is
-    returned as it is. `LetterError` without an approved version."""
+    returned as it is. 231 (B0): `frame` names the letter frame (a process pack's resource) the letter is written with.
+    `LetterError` without an approved version or for a frame the documents' settings do not have."""
     from jav.core import queue
 
+    if frame not in quote_document.settings() or not isinstance(quote_document.settings()[frame], dict):
+        raise explained(LetterError, "there is no letter frame {{frame}}", frame=frame)
     v = _active(wp_id)
     n = v["version"]
     with store.connect() as c:
@@ -357,11 +368,12 @@ def request(wp_id: str, *, actor: identity.Who) -> dict[str, Any]:
             return view(wp_id)
         limits = json.dumps({k: str(x) for k, x in cap().items()})
         c.execute("INSERT INTO quote_letters(workpackage_id, version, state, limits, requested_by, requested_by_id,"
-                  " requested_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, version) DO UPDATE SET"
+                  " requested_at, frame) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, version) DO UPDATE SET"
                   " state=excluded.state, limits=excluded.limits, paragraph=NULL, problems=NULL, usage=NULL, error=NULL,"
                   " scope=NULL, requested_by=excluded.requested_by, requested_by_id=excluded.requested_by_id,"
-                  " requested_at=excluded.requested_at, finished_at=NULL",
-                  (wp_id, n, "queued", limits, identity.name_of(actor), identity.id_of(actor), _now()))
+                  " requested_at=excluded.requested_at, finished_at=NULL, frame=excluded.frame",
+                  (wp_id, n, "queued", limits, identity.name_of(actor), identity.id_of(actor), _now(),
+                   None if frame == FRAME else frame))
     queue.enqueue(JOB_KIND, run_id=None, payload={"workpackage_id": wp_id, "version": n, "requested_at": _now()})
     return view(wp_id)
 
@@ -441,12 +453,12 @@ def eml(wp_id: str, n: int) -> tuple[bytes, str]:
     msg = EmailMessage(policy=SMTP)
     if to := recipient(content, _request(content)):
         msg["To"] = to
-    msg["Subject"] = subject(content)
+    msg["Subject"] = subject(content, _frame_of(row))
     msg["X-Unsent"] = "1"  # Outlook opens the file as a message to send, not as a received one
     msg.set_content(row["body"])
     maintype, subtype = package_release.DOCX.split("/", 1)
     msg.add_attachment(document, maintype=maintype, subtype=subtype, filename=document_name)
-    frame = _frame(content.get("language") or quote_document.default_language())
+    frame = _frame(content.get("language") or quote_document.default_language(), _frame_of(row))
     return msg.as_bytes(), f"{frame['file']}-{naming.safe_part(package, limit=40) or 'quote'}-v{n}.eml"
 
 

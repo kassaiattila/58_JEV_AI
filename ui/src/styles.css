@@ -1056,3 +1056,15 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 /* 231 (A7e): the case list's handovers to check, above the cases while there are some */
 .case-list-check { margin-bottom: var(--sp-6); }
 .case-list-check h2 { font-size: var(--fs-md); margin: 0 0 var(--sp-2); }
+/* 231 (B1): the partner register (Settings › Partners) */
+.partners-tools { margin-bottom: var(--sp-3); }
+.partners-tools .partners-retired { padding-bottom: var(--sp-3); }
+.partner-open { color: var(--ink); font-weight: 500; text-decoration: none; }
+.partner-open:hover { color: var(--accent); text-decoration: underline; }
+.partners-table tr[aria-selected="true"] td { background: var(--tint); }
+.partner-card { margin-top: var(--sp-4); }
+.partner-roles { border: 0; padding: 0; margin: 0 0 var(--sp-3); display: flex; gap: var(--sp-4); flex-wrap: wrap; }
+.partner-roles legend { font-size: var(--fs-xs); font-weight: 600; padding: 0; margin-bottom: 6px; }
+.partner-suggestions { margin-top: var(--sp-6); }
+.partner-suggestions h3 { margin: 0; }
+.partner-link + .partner-link { border-top: 1px solid var(--line-soft); padding-top: var(--sp-3); }

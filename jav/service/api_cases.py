@@ -31,6 +31,11 @@ class Record(In):
     item_id: Annotated[str, Field(min_length=1, max_length=200)]
 
 
+class PartnerLinkIn(In):
+    role: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,39}$")]
+    partner_id: Annotated[str, Field(pattern=r"^partner-[0-9a-f]{12}$")]
+
+
 class ActionIn(In):
     note: Annotated[str | None, Field(max_length=2000)] = None
 
@@ -62,3 +67,9 @@ def routes(app: FastAPI, r: str) -> None:
     def case_step_action(case_id: CaseId, step_id: CaseStep, name: ActionName, body: ActionIn,
                          who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(case_views.act(case_id, step_id, name, who, body.note))
+
+    @app.post(r + "/cases/{case_id}/partners")
+    def case_partner_link(case_id: CaseId, body: PartnerLinkIn,
+                          who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        """231 (B1): a person links a partner to the case in one of its pack's partner roles."""
+        return work_views.jsonable(case_views.link_partner(case_id, body.role, body.partner_id, who))

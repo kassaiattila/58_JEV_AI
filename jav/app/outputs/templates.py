@@ -275,8 +275,15 @@ def builtin_version(output: str) -> str:
 
 
 def _chosen(c: Any, wp_id: str, output: str) -> Any:
+    """The package's chosen template's active version; without a choice, (231 B2) a case's own default from its
+    process's resource `template:<output>` (the built-in one unless the process set one)."""
     ch = c.execute("SELECT template FROM output_template_choices WHERE workpackage_id=? AND output=?", (wp_id, output)).fetchone()
-    return _active(c, ch["template"]) if ch else None
+    if ch:
+        return _active(c, ch["template"])
+    from jav.app import process_runtime  # the process runtime imports the release, which imports this module
+
+    default = process_runtime.resource_of(c, wp_id, f"template:{output}")
+    return _active(c, default) if default and default != BUILTIN else None
 
 
 def render(data: contract.OutputData, wp_id: str | None = None, c: Any = None) -> tuple[bytes, dict[str, str]]:

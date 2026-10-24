@@ -76,7 +76,7 @@ def test_the_it_quote_runs_as_cases_with_the_recorded_results(golden, out) -> No
         seen.clear()
         case_id = process_runtime.start_case("it_quote", {"record": {"workpackage_id": rows.WP, "item_id": rows._id(case.id)}},
                                              name=f"Quote {case.id}", actor=ACTOR)
-        assert process_runtime.pack_of(case_id) == ("it_quote", "1.1.0")
+        assert process_runtime.pack_of(case_id) == ("it_quote", "1.2.0")
         state, letter = _drive(case_id)
         want = record[case.id]
         steps = state["steps"]  # by step id

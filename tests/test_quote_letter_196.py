@@ -228,3 +228,25 @@ def test_the_golden_set_judges_each_paragraph_by_the_codes_check_and_its_languag
     with store.use_store(tmp_path / "empty.sqlite"):
         none = quote_letter.golden(data, limits={}, earlier_only=True, out_dir=tmp_path)
     assert none["tally"] == {"failed": g["cases"]}  # without a budget nothing new is asked
+
+
+def test_the_letter_is_written_with_the_frame_its_process_names(quote, monkeypatch):
+    """231 (B0): the letter step's frame (a process pack's resource) reaches the letter: its body, subject and file."""
+    from jav.domains.quotes import quote_document
+
+    shipped = quote_document.settings()
+    formal = {lang: {**frame, "fallback": "Formal paragraph.", "file": "formal-reply"}
+              for lang, frame in shipped["letter"].items()}
+    monkeypatch.setattr(quote_document, "settings", lambda: {**shipped, "formal": formal})
+    wp_id = quote["wp"]
+    _approved(wp_id)
+    with pytest.raises(quote_letter.LetterError):
+        quote_letter.request(wp_id, actor="anna", frame="nowhere")
+    with quote_letter.use_agent_factory(lambda: _Agent("Thank you for asking about 3 monitors.")):  # a number: not used
+        quote_letter.request(wp_id, actor="anna", frame="formal")
+        worker.run_worker(once=True)
+    shown = quote_letter.view(wp_id)
+    assert "Formal paragraph." in shown["body"]  # the formal frame's own paragraph stands in for the refused one
+    quote_letter.accept(wp_id, shown["body"], actor="anna", expected_state=shown["decision_state"])
+    _data, name = quote_letter.eml(wp_id, shown["version"])
+    assert name.startswith("formal-reply-")

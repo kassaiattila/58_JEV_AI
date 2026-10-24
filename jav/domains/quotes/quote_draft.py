@@ -228,10 +228,11 @@ def _from_request(row: int, item: dict[str, Any]) -> dict[str, Any]:
 
 
 def start(wp_id: str, *, source: Literal["proposal", "request"], actor: identity.Who, expected_state: int | None,
-          replace: bool = False) -> dict[str, Any]:
+          replace: bool = False, catalogue: str = price_lists.NEWEST_ACTIVE) -> dict[str, Any]:
     """The package's draft from its latest proposal (`proposal`, priced from the list version the proposal used) or
-    from its requested items alone (`request`, priced from the newest active list); a draft already there is replaced
-    only with `replace`. Returns the view."""
+    from its requested items alone (`request`, priced from the list `catalogue` names: 231 B0, a process pack's
+    resource, by default the newest active one); a draft already there is replaced only with `replace`. Returns the
+    view."""
     _package(wp_id)
     req = _request(wp_id)
     if req is None:
@@ -244,7 +245,7 @@ def start(wp_id: str, *, source: Literal["proposal", "request"], actor: identity
         prices = price_lists.version(proposal["price_list"], proposal["version"])
         lines = [_from_proposal(line) for line in proposal["lines"]]
     else:
-        chosen = price_lists.chosen()  # 231 (A3b): the same choice as the proposal's
+        chosen = price_lists.chosen(catalogue)  # 231 (A3b): the same choice as the proposal's; (B0) the step's
         if chosen is None:
             raise explained(QuoteDraftError, "there is no active price list")
         prices = chosen

@@ -36,17 +36,33 @@ CONTAINER = "case"  # the container work package's kind
 
 
 def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identity.Who) -> str:
-    """Starts a case of the pack's current version with this scope (checked by its parts); returns its id."""
+    """Starts a case of the pack's current version with this scope (checked by its parts); returns its id. 231 (B2):
+    with the process's own active values over the file's resources, kept in the case's data (a later change reaches
+    only the cases started after it)."""
+    from jav.app import process_settings
+
     pack = process_packs.load(pack_id)
     checked = scopes.check(pack.scope.parts, scope)
-    definition = process_packs.definition(pack)
+    resources = process_settings.effective_resources(pack)
+    definition = process_packs.definition(pack.model_copy(update={"resources": resources}))
     wp = work.create_workpackage(name=name, source_kind=CONTAINER, source_ref=f"pack:{pack.id}@{pack.version}", owner=actor)
     case_id = wp["id"]
-    data = {"pack": pack.id, "pack_version": pack.version, "container": case_id, "name": wp["name"], "scope": checked}
+    data = {"pack": pack.id, "pack_version": pack.version, "container": case_id, "name": wp["name"], "scope": checked,
+            "resources": resources}
     with cases.transaction() as c:
         package_scope.save(c, case_id, parts=checked, actor=actor)
         cases.start_in(c, case_id, definition, data, identity.who(actor))
     return case_id
+
+
+def resource_of(c: Any, case_id: str, key: str) -> str | None:
+    """231 (B2): a resource of the case as it started (its pack's, with the process's own values then); None for a
+    package that is no case or a resource it does not have. `c`: an open connection."""
+    row = cases.find_case_in(c, case_id)
+    if row is None:
+        return None
+    value = (json.loads(row["data"]) if isinstance(row["data"], str) else row["data"] or {}).get("resources", {}).get(key)
+    return str(value) if value is not None else None
 
 
 def pack_of(case_id: str) -> tuple[str, str] | None:

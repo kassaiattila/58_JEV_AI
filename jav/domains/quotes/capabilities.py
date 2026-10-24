@@ -19,7 +19,7 @@ import time
 from collections import Counter
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from jav.app import human_tasks
 from jav.app.capabilities import Capability
@@ -39,15 +39,26 @@ class RecordAssembly(_Params):
     items_field: str = Field(min_length=1)
 
 
+def _catalogue(value: str) -> str:
+    """231 (B2): `newest_active`, or a price list that has an active version (a process's own value is checked so)."""
+    from jav.domains.quotes import price_lists
+
+    if value != price_lists.NEWEST_ACTIVE and price_lists.active(value) is None:
+        raise ValueError(f"no active price list {value!r}")
+    return value
+
+
 class CatalogueMatch(_Params):
     """Which catalogue the items are matched with (`newest_active` or a named price list), and the call site that asks."""
 
     catalogue: str = Field(min_length=1)
     callsite: str = Field(min_length=1)
+    _catalogue = field_validator("catalogue")(lambda cls, v: _catalogue(v))
 
 
 class LinePricing(_Params):
     catalogue: str = Field(min_length=1)
+    _catalogue = field_validator("catalogue")(lambda cls, v: _catalogue(v))
 
 
 class LineDraft(_Params):
@@ -55,6 +66,7 @@ class LineDraft(_Params):
 
     catalogue: str = Field(min_length=1)
     approval: Literal["own_version"] = "own_version"
+    _catalogue = field_validator("catalogue")(lambda cls, v: _catalogue(v))
 
 
 class PricedDocument(_Params):
@@ -63,12 +75,30 @@ class PricedDocument(_Params):
     output: str = Field(min_length=1)
     from_step: str = Field(min_length=1)
 
+    @field_validator("output")
+    @classmethod
+    def _known_output(cls, value: str) -> str:
+        from jav.core import cfg
+
+        if value not in (cfg.load("outputs").get("outputs") or {}):
+            raise ValueError(f"no output {value!r}")
+        return value
+
 
 class LetterDraft(_Params):
     """The letter frame's key and the call site that asks for the paragraph."""
 
     frame: str = Field(min_length=1)
     callsite: str = Field(min_length=1)
+
+    @field_validator("frame")
+    @classmethod
+    def _known_frame(cls, value: str) -> str:
+        from jav.domains.quotes import quote_document
+
+        if not isinstance(quote_document.settings().get(value), dict):
+            raise ValueError(f"no letter frame {value!r}")
+        return value
 
 
 def _container(ctx: Any) -> str:
@@ -88,7 +118,9 @@ def _record_assembly(ctx: Any, params: RecordAssembly) -> kinds.StepOutcome:
                                  items_field=params.items_field)
     except quote_request.RequestNotFound as exc:
         return kinds.Fail(f"the record can no longer be read: {exc}")
-    return kinds.Done({"kind": req.kind, "items": len(req.items),
+    # 231 (B1): the record's own fields (its header, not its list), which a pack's partner link reads
+    fields = {k: v for k, v in req.fields.items() if isinstance(v, (str, int, float)) and not isinstance(v, bool)}
+    return kinds.Done({"kind": req.kind, "items": len(req.items), "fields": fields,
                        "gaps": [g["code"] for g in quote_package.request_gaps(req)]})
 
 
@@ -117,7 +149,7 @@ def _line_draft(ctx: Any, params: LineDraft) -> kinds.StepOutcome:
     wp = _container(ctx)
     view = quote_draft.view(wp)
     if view["draft"] is None:
-        quote_draft.start(wp, source="proposal", actor=ctx.actor, expected_state=None)
+        quote_draft.start(wp, source="proposal", actor=ctx.actor, expected_state=None, catalogue=params.catalogue)
         with ctx.transaction() as c:
             human_tasks.own_approval_waits(c, wp)  # a person approves it, from the waiting list
         return _again(ctx, "approval")
@@ -146,7 +178,7 @@ def _letter_draft(ctx: Any, params: LetterDraft) -> kinds.StepOutcome:
     view = quote_letter.view(wp)
     if view["state"] is None:
         try:
-            quote_letter.request(wp, actor=ctx.actor)
+            quote_letter.request(wp, actor=ctx.actor, frame=params.frame)  # 231 (B0): the pack's letter frame
         except quote_letter.LetterError as exc:
             return kinds.Fail(str(exc))
         return _again(ctx, "letter")

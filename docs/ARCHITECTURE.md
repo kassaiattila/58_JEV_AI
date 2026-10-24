@@ -1064,3 +1064,54 @@ process packs themselves. The quote's
 status lines read the quote view (`ui/src/views/quotes/quoteStatus.ts`). The recorded path of stage A runs on a case's
 container now, with the same record (`tests/test_quote_path_231.py`). The frozen list of process-specific parts lost
 the logic pack `quote` and its interface entry (`tests/test_process_strictness_231.py`).
+
+**A pack's parameters reach the code (231, plan stage B, B0).** The draft step's catalogue and the letter step's frame
+were declared in the IT quote's pack but not passed on (the defaults happened to be the same): `quote_draft.start`
+takes `catalogue` (a draft from the request is priced from the list it names) and `quote_letter.request` takes
+`frame`, kept with the letter (`quote_letters.frame`, an additive column) and used for its body, subject and file
+name; an unknown frame is refused. Tests: `tests/test_quote_draft_192.py`, `tests/test_quote_letter_196.py`.
+
+**The partner register (231, plan stage B, B1).** The shared register of the outside parties the processes deal with
+(`jav/app/partners.py`; tables `partners`, `partner_versions`): each partner with the roles it plays
+(`configs/partners.json`: customer, supplier, insured, broker), every change a version through the shared versioning
+(`jav/core/versions.py`: a save inserts a draft and makes it active, the one before is superseded; retired rather than
+deleted, restored with the version it was retired with). The same tax number (its party key) or, without one, the same
+name (its significant words, the own parties' rule) as another active partner is a `PartnerConflict` naming it; a save
+from a page that shows an older version is one too. The register starts empty (the owner's decision of 2026-10-24);
+a domain proposes partners through a registered suggestion source (`SuggestionSource`): the finance domain gives an
+incoming invoice's supplier and an outgoing invoice's buyer, never an own party (`party_views.partner_suggestions`),
+and the register leaves out the parties already recorded. The service: `GET/POST /api/partners`, `GET
+/api/partners/suggestions`, `GET/PUT /api/partners/{id}`, `POST /api/partners/{id}/retire|restore`
+(`jav/service/api_partners.py`; a conflict is 409 with the other partner's id). Tests: `tests/test_partners_231.py`.
+
+**A case's partners and the register's page (231, plan stage B, B1).** A process pack names the partners its cases are
+about (`ProcessPack.partners`, `PartnerLink`: a role, the step whose result holds the record's fields, and which fields
+give the partner's name, tax number, email, phone or address; the pack check refuses an unknown role, a missing step
+or a link without a name). The IT quote's pack 1.2.0: the request's customer in the customer role, from the request
+step, whose result now carries the record's own fields. The shared element `partner_link` (`case_views._partner_link`)
+shows each link: the linked partner, or the values the record gives with the active partner they seem to be
+(`partners.match`); a person links one (`case_views.link_partner`, `POST /api/cases/{case_id}/partners`), which the
+case's scope names in the general part `partners` (`scopes.PARTNERS`, {role: partner id}). The interface: Settings ›
+Partners (`ui/src/views/settings/PartnersPanel.tsx`: the list with search and a role filter, a partner's values saved
+as a new version, its versions, retire and restore, a conflict leading to the other partner, the domains' proposals
+on request) and the case page's partner card (`ui/src/elements/CaseElements.tsx` `PartnerLink`: link the partner it
+seems to be, or record the values as a partner and link it). The client reads a conflict's `other_id`
+(`ApiError.detail.other`). Tests: `tests/test_case_partners_231.py`, `ui/src/views/settings/partners231.test.tsx`.
+
+**A process's own values (231, plan stage B, B2).** A process pack names its resources in its file (which price list,
+the letter frame, the output, the send mode, and `template:<output>`, the output template its cases use); a process
+may set its own value over any of them, kept in the store (`jav/app/process_settings.py`, table
+`process_setting_versions`, keyed `<pack>/<kind>/<key>`, every change a version through the shared versioning). A
+person saves a value as a draft (`propose`), checked as the pack would be with it: the pack check runs with the value
+over the resources, so the capabilities' own checks refuse a price list with no active version, an unknown letter frame
+or an unknown output (their parameter validators, `jav/domains/quotes/capabilities.py`); a template must be an active
+own template of that output or the built-in one. A draft changes nothing until it is made active (`activate`, checked
+again); retiring the process's value brings the file's back. Who may make a value active is a rule
+(`configs/process_settings.json`: `editor` by default, the owner's decision of 2026-10-24; `owner`, the listed owners;
+`second_person`, anyone but the one who saved the draft), refused with `SettingRefused` (403). A case takes the values
+active when it starts (`process_runtime.start_case` builds its definition from `effective_resources`, and keeps them in
+its data, `resource_of`), so a change reaches the cases started after it; an output with no template chosen on the
+package takes the one the process set (`outputs.templates._chosen`). The service: `GET /api/processes`, `GET
+/api/processes/{pack_id}/settings`, `POST /api/processes/{pack_id}/settings/{key}`, `POST
+.../{key}/versions/{version}/activate`, `POST .../{key}/retire` (`jav/service/api_processes.py`; an unknown pack is 404).
+Stage B3 adds a rule's values under the same table (kind `rule`). Tests: `tests/test_process_settings_231.py`.

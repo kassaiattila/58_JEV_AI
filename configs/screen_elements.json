@@ -1,11 +1,12 @@
 {
   "meta": {
     "name": "screen_elements",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "231 (plan stage A, A4; DECISIONS 231): the screen elements a process pack's tabs are built from. A shared element is one any process may use; a special element is registered once (with the capability whose step it shows) and from then on any process may use it too. A process pack naming an element not listed here is refused (jav/app/process_packs.py). The interface renders each type with one component (A6).",
     "changelog": [
       {"version": "1.0.0", "date": "2026-10-24", "note": "231 (A4): the first set: the shared elements of the process packs and the three special elements of the quote's back half."},
-      {"version": "1.1.0", "date": "2026-10-24", "note": "231 (A7e): the send step's handovers and the reply step's wait as special elements; the timeline and the cost shared elements get their data."}
+      {"version": "1.1.0", "date": "2026-10-24", "note": "231 (A7e): the send step's handovers and the reply step's wait as special elements; the timeline and the cost shared elements get their data."},
+      {"version": "1.2.0", "date": "2026-10-24", "note": "231 (B1): the partner link, a shared element: the partners a case is about, linked or proposed from its record."}
     ]
   },
   "elements": {
@@ -18,6 +19,7 @@
     "actions": {"kind": "shared", "what": "The step's actions, each with its cost cap when it may spend."},
     "timeline": {"kind": "shared", "what": "The case's events in order: who did what and when."},
     "cost": {"kind": "shared", "what": "What the case's steps spent, by step and service."},
+    "partner_link": {"kind": "shared", "what": "The partners a case is about, by its pack's partner links: linked, or proposed from its record with the partner they seem to be."},
     "record_view": {"kind": "special", "capability": "record_assembly", "what": "A record put together from its parts, with the part each value came from and its gaps."},
     "match_proposal": {"kind": "special", "capability": "catalogue_match", "what": "Each requested item's proposed catalogue item: sure, to check or not listed."},
     "line_editor": {"kind": "special", "capability": "line_draft", "what": "The lines a person composes from the match, priced by code, with own prices and notes."},

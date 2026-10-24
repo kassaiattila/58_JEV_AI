@@ -274,8 +274,8 @@ def _lint_statement_table(mod: Any) -> Any:
 def register() -> None:
     """Every registration of the finance domain, in the order the shared code lists them (`registrations.load_all`)."""
     from jav import flows
-    from jav.app import datasets, logic_packs, package_scope, workflow_steps
-    from jav.domains.finance import own_parties  # its two decision points too
+    from jav.app import datasets, logic_packs, package_scope, partners, workflow_steps
+    from jav.domains.finance import own_parties, party_views  # its two decision points too
     from jav.domains.finance import duplicates, finance_datasets, reconcile_package, report_utility, statement_package
 
     # 229 (MD1): its bank table flow; importing `duplicates` registers its decision point
@@ -284,6 +284,8 @@ def register() -> None:
 
     for check in CHECKS:
         checks.register(check)
+    # 231 (B1): the invoices' suppliers and buyers as the partner register's proposals
+    partners.register_suggestions(partners.SuggestionSource("invoices", __name__, party_views.partner_suggestions))
     for kind, after in DECISIONS:  # 185: the reviewed version's finance parts
         activity_kinds.register_decision(kind, after=after)
     for source in SOURCES:  # 209: its parts of "My work today"

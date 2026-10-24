@@ -3,7 +3,7 @@
 // spent (cost). Each renders the data its step's capability gives (jav/app/sending.py, jav/app/replies.py,
 // jav/app/case_views.py); a person's actions are the step's own (`actions`), and the send itself is the step's start.
 import { useState, type ReactNode } from "react";
-import { api, type CaseCost, type CaseEvent, type HandoverAttempt, type HandoverData, type ReplyData } from "../api";
+import { api, ApiError, type CaseCost, type CaseEvent, type CasePartnerLink, type HandoverAttempt, type HandoverData, type ReplyData } from "../api";
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { fileName, moneyText, providerName, tmap, when } from "../labels";
@@ -238,3 +238,74 @@ export function CostView(p: ElementProps) {
     </section>
   );
 }
+
+/** 231 (B1): the partners the case is about (its pack's partner links): linked, or what its record gives with the
+ *  partner it seems to be; a person links that one, or records the values as a new partner and links it. */
+export function PartnerLink(p: ElementProps) {
+  useLocale();
+  const d = p.element.data as { links: CasePartnerLink[] } | null;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<{ text: string; other: string | null } | null>(null);
+  if (!d) return loading;
+  if (!d.links.length) return null;
+  const act = async (fn: () => Promise<unknown>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+      p.onChanged();
+    } catch (e) {
+      setError(e instanceof ApiError ? { text: e.message, other: e.code === "partner_conflict" ? e.detail.other ?? null : null }
+        : { text: String(e), other: null });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const record = (link: CasePartnerLink) => act(async () => {
+    const made = await api.createPartner({ name: link.proposal!.name, tax_number: link.proposal!.tax_number ?? null,
+      email: link.proposal!.email ?? null, phone: link.proposal!.phone ?? null, address: link.proposal!.address ?? null,
+      note: null, roles: [link.role] });
+    await api.linkCasePartner(p.caseId, link.role, made.partner_id);
+  });
+  return (
+    <section className="card" aria-label={t("Partners")}>
+      <div className="card-head"><h2>{t("Partners")}</h2><a className="small" href="#/settings/partners">{t("The partner register")}</a></div>
+      {d.links.map((link) => (
+        <div key={link.role} className="partner-link">
+          <dl className="kv">
+            <dt>{t(link.role_label)}</dt>
+            <dd>
+              {link.partner ? (
+                <><strong>{link.partner.name}</strong>{link.partner.tax_number ? <span className="mono muted"> · {link.partner.tax_number}</span> : null}
+                  {" "}<span className="status s-done">{t("Linked")}</span></>
+              ) : link.proposal ? (
+                <><strong>{link.proposal.name}</strong>{link.proposal.tax_number ? <span className="mono muted"> · {link.proposal.tax_number}</span> : null}
+                  {link.proposal.email ? <span className="muted"> · {link.proposal.email}</span> : null}</>
+              ) : <span className="muted">{t("The record names none.")}</span>}
+            </dd>
+          </dl>
+          {!link.partner && link.match ? (
+            <div className="button-row">
+              <span className="small">{t("It seems to be {{name}} in the partner register.", { name: link.match.name })}</span>
+              <button type="button" className="secondary small-btn" disabled={busy}
+                onClick={() => void act(() => api.linkCasePartner(p.caseId, link.role, link.match!.partner_id))}>{t("Link it")}</button>
+            </div>
+          ) : !link.partner && link.proposal ? (
+            <div className="button-row">
+              <span className="muted small">{t("Not in the partner register yet.")}</span>
+              <button type="button" className="secondary small-btn" disabled={busy} onClick={() => void record(link)}>{t("Record as a partner")}</button>
+            </div>
+          ) : null}
+          {error ? (
+            <p className="notice error small" role="alert">
+              {error.text}
+              {error.other ? <> {" "}<button type="button" className="link-btn" disabled={busy}
+                onClick={() => void act(() => api.linkCasePartner(p.caseId, link.role, error.other!))}>{t("Link that one")}</button></> : null}
+            </p>
+          ) : null}
+        </div>
+      ))}
+    </section>
+  );
+}
+

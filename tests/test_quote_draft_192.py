@@ -263,3 +263,14 @@ def test_the_service_composes_approves_and_reopens_the_quote(quote, tmp_path):
         reopened = c.post(f"/api/workpackages/{wp_id}/quote/reopen", headers=human, json={"note": "New quantities"})
         assert reopened.status_code == 200 and reopened.json()["approval"]["active"] is None
         assert c.get(f"/api/workpackages/{wp_id}/quote/versions/9").status_code == 404
+
+
+def test_a_draft_from_the_request_is_priced_from_the_list_its_process_names(quote, tmp_path):
+    """231 (B0): the draft step's catalogue (a process pack's resource) names the list; by default the newest one."""
+    newer = price_lists.add("Newer 2027", "n.xlsx", invented_golden.write_price_list(tmp_path / "n.xlsx").read_bytes(),
+                            actor="anna")
+    price_lists.activate(newer["price_list"], 1, actor="anna")
+    named = quote_draft.start(quote["wp"], source="request", actor="anna", expected_state=0, catalogue=quote["price_list"])
+    assert named["draft"]["price_list"] == quote["price_list"]
+    newest = quote_draft.start(quote["wp"], source="request", actor="anna", expected_state=named["state"], replace=True)
+    assert newest["draft"]["price_list"] == newer["price_list"]
