@@ -6,7 +6,7 @@ command module in its domain module (`COMMANDS`), as it names its service addres
 them together and imports no domain's code. The commands are the same 83 as before the split, each with the same
 arguments, defaults and help (checked once against a dump of the old parser); this test keeps the list and shows where
 each command lives. 204 (R1b): the seven learning commands left with the archived learning branches (76). 218: the
-calculation snapshots' `snapshot` (77); the decision trace's `trace` (78).
+calculation snapshots' `snapshot` (77); the decision trace's `trace` (78). 224: the rule preview's `rules-preview` (79).
 
 No AI call, no store.
 """
@@ -29,7 +29,8 @@ COMMANDS = {
     "output-template-activate", "output-template-add", "output-template-choose", "output-template-preview",
     "output-template-retire", "output-templates", "own-tax", "package-versions-backfill", "preflight",
     "processing-migrate", "recall", "recipes", "reconcile", "reconcile-ai", "reconcile-versions-backfill", "reground",
-    "run", "run-approve", "run-cancel", "run-list", "run-names", "run-show", "run-start", "serve", "snapshot", "statement-table",
+    "rules-preview", "run", "run-approve", "run-cancel", "run-list", "run-names", "run-show", "run-start", "serve", "snapshot",
+    "statement-table",
     "store", "trace", "type-activate", "type-candidate", "type-propose", "type-withdraw",
     "verifier-probe", "worker", "worker-status", "worker-stop", "wp-assign", "wp-create", "wp-list", "wp-show",
 }
@@ -48,7 +49,7 @@ def _registered() -> dict[str, dict[str, argparse.ArgumentParser]]:
 def test_the_command_line_has_the_same_commands_as_before_the_split():
     registered = _registered()
     names = [c for commands in registered.values() for c in commands]
-    assert len(names) == len(set(names)) == 78
+    assert len(names) == len(set(names)) == 79
     assert set(names) == COMMANDS
 
 

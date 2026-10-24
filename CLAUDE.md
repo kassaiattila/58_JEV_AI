@@ -83,6 +83,7 @@ python -m jav.cli ocr [<pdf>] [--force] [--psm N] [--limit N]   # without a PDF:
 python -m jav.cli store | eval-report [runs/*.jsonl] [--out f] | admin [--write] | configs | flows [--check] | docs
 python -m jav.cli snapshot [--id S | --run R | --diff A B | --restore SHA --out F]   # 218 calculation snapshots: the code and the rules a run, item, case or approval was computed with
 python -m jav.cli trace [--points | --point P | --subject KIND:ID | --run R | --case C] [--last N]   # 218 the decision trace: which rule decided, with what, in which version
+python -m jav.cli rules-preview <file> --candidate F | --ref REF [--store COPY] [--replay BACKUP --work W --out-dir D]   # 224 a rule file's proposed version tried on the traced decisions (free)
 python -m jav.cli backup [--with-docs] [--with-burr] [--copy-to <dir>] | burr-prune [--no-vacuum]   # store backup (daily: --scheduled) | thin out the Burr state store
 python -m jav.cli hooks-install | data-guard [--all]        # 071 data guard: enable the git hooks (once per clone) | scan the tracked tree
 python -m jav.cli deps-audit [--show]                       # 075 known vulnerabilities in the pinned packages (weekly with the daily backup)

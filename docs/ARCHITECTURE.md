@@ -847,3 +847,18 @@ so moving them there would have marked every approved statement; the reconciliat
 `finance.json` among its inputs. The decision points name
 the files they read (`email.intent`, `email.next_flow`: `policy.json` and `email.json`; `finance.duplicate`:
 `finance.json` and `fact_checks.json`). Tests: `tests/test_rule_files_split_224.py`.
+
+**The rule preview (224, P3d).** `jav/evals/rules_preview.py` tries a rule file's proposed version on the decisions
+the trace holds, for free (`python -m jav.cli rules-preview <file> --candidate F | --ref REF`). It takes every decision
+point whose files match the rule file (`trace.Point.files`), reads its rows read-only (the active store or `--store`),
+and runs each row's rule (`trace.replay`) twice, each time in a process of its own: with the rule files in use now, and
+with a copy of `configs/` in which the candidate takes the file's place (the child sets the config loader's folders
+before any rule module is loaded, because the modules read their rules when they are loaded). It reports per point the
+decisions, how many would change, how many were made with other rules or code than today's (the stored outcome differs
+from today's rule, `differs_from_stored`), the to-dos that would open or close by kind (`todo_kinds.code_of` of an
+outcome's `reasons`) and a few examples (each differing part of the outcome). A rule that raises is reported per row.
+Nothing is written and no AI is asked; a decision the trace does not hold is not counted. `--replay` shows a whole
+item's effect: the replay of a sample of a backup (`before_after_replay.running_snapshot`, earlier answers only) twice
+on the same fresh copy, with the rules now and with the candidate, each in its own process, and the views that differ
+(`before_after.diff`). Only JSON rule files read through the config loader are honoured, which is what the decision
+points read. Tests: `tests/test_rules_preview_224.py`.

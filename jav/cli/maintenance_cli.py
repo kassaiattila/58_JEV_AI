@@ -333,6 +333,38 @@ def cmd_trace(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_rules_preview(args: argparse.Namespace) -> int:
+    """224 (P3d): a rule file's candidate version tried on the decisions the trace holds (free, read only)."""
+    from jav.evals import rules_preview
+
+    from jav.evals.before_after import SnapshotError
+
+    if args.replay and not (args.work and args.out_dir):
+        print("no preview: --replay needs --work and --out-dir")
+        return 2
+    try:
+        candidate = (Path(args.candidate).read_bytes() if args.candidate
+                     else rules_preview.from_ref(args.ref, args.file))
+        if args.replay:
+            report = rules_preview.replay(args.file, candidate, baseline=Path(args.replay), work_dir=Path(args.work),
+                                          out_dir=Path(args.out_dir), size=args.size,
+                                          jev_cache=Path(args.jev_cache) if args.jev_cache else None)
+        else:
+            report = rules_preview.preview(args.file, candidate, store_path=Path(args.store) if args.store else None,
+                                           point=args.point, examples=args.examples)
+    except (OSError, SnapshotError, rules_preview.PreviewError) as exc:
+        print(f"no preview: {exc}")
+        return 2
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        for line in (rules_preview.replay_text(report) if args.replay else rules_preview.text(report)):
+            print(line)
+    if args.replay and not all(r["passed"] for r in report["replays"].values()):
+        return 3  # a replay made a call that was not an earlier answer (the replay's own gate)
+    return 0
+
+
 def cmd_store(args: argparse.Namespace) -> int:
     from jav.core import store
 
@@ -507,6 +539,23 @@ def register(sub) -> None:
     p.add_argument("--case", help="the rows made in one case")
     p.add_argument("--last", type=int, default=20, help="only the latest this many rows (default 20)")
     p.set_defaults(fn=cmd_trace)
+    p = sub.add_parser("rules-preview", help="224: a rule file's candidate version tried on the decisions the trace holds: "
+                                             "how many would change, and which to-dos would open or close (free, read only)")
+    p.add_argument("file", help="the rule file under configs/ (e.g. policy.json, types/invoice_hu.json)")
+    which = p.add_mutually_exclusive_group(required=True)
+    which.add_argument("--candidate", help="a file with the candidate content")
+    which.add_argument("--ref", help="a git reference whose configs/<file> is the candidate (e.g. a branch or a commit)")
+    p.add_argument("--store", help="a store copy to read instead of the active store (read only)")
+    p.add_argument("--point", help="only this decision point")
+    p.add_argument("--examples", type=int, default=5, help="the changed decisions shown per point (default 5)")
+    p.add_argument("--json", action="store_true", help="the whole report as JSON")
+    p.add_argument("--replay", metavar="BACKUP", help="instead: a sample of this backup's items replayed twice (with the "
+                                                      "rules in use now and with the candidate) and the views that differ")
+    p.add_argument("--work", help="with --replay: the folder of the fresh copy (replaced; outside git)")
+    p.add_argument("--out-dir", help="with --replay: where the two replays are written (outside git)")
+    p.add_argument("--size", type=int, default=150, help="with --replay: about how many units (default 150)")
+    p.add_argument("--jev-cache", help="with --replay: the JEV answer cache to read (default: runs/cache)")
+    p.set_defaults(fn=cmd_rules_preview)
     p = sub.add_parser("store", help="adattár statisztika (documents, datapoints, review_queue, ledger)")
     p.set_defaults(fn=cmd_store)
     p = sub.add_parser("backup", help="063: az adattár mentése futás közben is (SQLite-mentés + sértetlenség-ellenőrzés), store/backups/ alá")

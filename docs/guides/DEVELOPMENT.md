@@ -68,6 +68,10 @@ Types: `feat` (new capability), `fix` (bug), `refactor` (no behaviour change), `
   - The record holds each item's end state, its stored rows (data points, documents, to-dos in order, email result, native facts, ledger, call log) and its view, and each replayed run's views and tables, without times and process names.
   - Run both replays from the main folder, not from a worktree: the replay reads the code root's untracked JEV and OCR caches, OCR language pack and mailbox folders. Do not edit Python code while a replay runs, because the processing imports modules late.
   - Two replays of the same backup with the same code are identical: that is the tool's own check.
+- **Rule preview** (free; 224, `jav/evals/rules_preview.py`). Before a rule file changes (a threshold in `policy.json`, a route in `email.json`, a family in `finance.json`), try the proposed version on the decisions the trace holds: `python -m jav.cli rules-preview <file under configs/> --candidate <proposed file>` (or `--ref <git reference>`), on the active store or a copy (`--store`).
+  - For every decision point that reads the file: how many decisions the trace holds, how many would change, a few of them (each part of the outcome now and with the candidate), and the to-dos that would open or close, by kind. A decision whose stored outcome differs from today's rule was made with other rules or code; it is counted and compared from today's outcome.
+  - Each rule runs in a process of its own, once with the rule files in use now and once with a copy of `configs/` holding the candidate; nothing is written and no AI is asked. The candidate must be a rule file some decision point reads; a broken one is refused with its error.
+  - The effect on whole items (the steps after a changed decision): `--replay <backup folder> --work <folder> --out-dir <folder>` replays a sample twice, with the rules in use now and with the candidate, under the replay's rules above, and lists the views that differ (exit code 3 if a replay made a live call).
 
 ## 4. How a session runs
 
