@@ -9,6 +9,9 @@ person starts waits for that person's start task.
 
 - `start_case(pack_id, scope, name, actor)`: the case's id (its container's).
 - `pack_of(case_id)`: the pack id and version a case runs on.
+- `CONTAINER_PACK`: how the work package registry knows a container (A6): a package without runs whose page names its
+  case (the interface opens the case's page), whose next step is the case's state, whose outputs are its pack's, and
+  which is neither released the shared way nor deleted while its case exists. It is general, the same for every pack.
 
 Layer: application; it uses the process packs, the scope parts, the work packages, the package scopes and the process
 core's public operations.
@@ -18,11 +21,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav.app import package_scope, process_packs, scopes, work
+from jav.app import logic_packs, package_release, package_scope, process_packs, scopes, work
 from jav.core import identity, store
 from jav.core.process import cases
+from jav.core.user_messages import explained
 
-__all__ = ["CONTAINER", "start_case", "pack_of"]
+__all__ = ["CONTAINER", "CONTAINER_PACK", "outputs_of", "pack_of", "register", "start_case"]
 
 CONTAINER = "case"  # the container work package's kind
 
@@ -47,3 +51,47 @@ def pack_of(case_id: str) -> tuple[str, str] | None:
         row = cases.find_case_in(c, case_id)
     data = (row or {}).get("data") or {}
     return (data["pack"], data["pack_version"]) if "pack" in data else None
+
+
+def outputs_of(case_id: str) -> tuple[str, ...]:
+    """The outputs a case's container has: its pack's (a template is chosen for each of them)."""
+    pinned = pack_of(case_id)
+    return process_packs.load(pinned[0]).outputs if pinned else ()
+
+
+def _page(case_id: str) -> dict[str, Any]:
+    pinned = pack_of(case_id)
+    return {"case": {"id": case_id, "pack": pinned[0], "version": pinned[1]} if pinned else None, "next": _next(case_id)}
+
+
+def _next(case_id: str) -> dict[str, Any]:
+    with store.connect() as c:
+        row = cases.find_case_in(c, case_id)
+    done = row is not None and row["status"] != cases.OPEN
+    return {"code": "case_closed" if done else "case_open", "label": "The case is closed" if done else "Open the case",
+            "stage": "process"}
+
+
+def _approved(case_id: str) -> bool:
+    return package_release.own_approval(case_id)["active"] is not None
+
+
+def _release_refusal() -> Exception:
+    return explained(package_release.ReleaseError, "a case's result is approved on its own page, step by step")
+
+
+def _delete_guard(c: Any, case_id: str) -> None:
+    if cases.find_case_in(c, case_id) is not None:
+        raise explained(work.NotReady, "a case's container is not deleted while its case exists")
+
+
+CONTAINER_PACK = logic_packs.LogicPack(
+    kind=CONTAINER, module=__name__,
+    roles=(logic_packs.InputRole("record", "linked_package", "the package item the case starts from"),), has_runs=False, page=_page, approved=_approved, next_step=_next,
+    list_next=_next, outputs=(), release_refusal=_release_refusal, delete_guard=_delete_guard,
+    approval_what="Approval of a case's result")
+
+
+def register() -> None:
+    """231 (A6): the container kind in the work package registry (`registrations.load_all`)."""
+    logic_packs.register_container(CONTAINER_PACK)

@@ -62,6 +62,8 @@ export interface WorkpackageView {
   mailbox_request?: MailboxRequest | null;
   /** 191: a quote package's request, where it came from, the active price lists and its gaps */
   quote?: QuoteView;
+  /** 231 (A6): a process pack's case container names its case (the interface opens the case's page) */
+  case?: { id: string; pack: string; version: string } | null;
 }
 /** 181: what a work package belongs to and collects, and where that comes from: `own` (a person gave it), `logic_pack`
  *  (a statement package's own) or `workflow` (its workflow step's). */

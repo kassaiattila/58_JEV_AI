@@ -2448,5 +2448,10 @@
   "IT quote": "IT quote",
   "Word quote": "Word quote",
   "Reply letter": "Reply letter",
-  "Work packages": "Work packages"
+  "Work packages": "Work packages",
+  "Open the case": "Open the case",
+  "The case is closed": "The case is closed",
+  "a case's result is approved on its own page, step by step": "a case's result is approved on its own page, step by step",
+  "a case's container is not deleted while its case exists": "a case's container is not deleted while its case exists",
+  "Approval of a case's result": "Approval of a case's result"
 }

@@ -204,6 +204,11 @@ def preview(template: str, version: int) -> tuple[bytes, str]:
 
 
 def outputs_for(wp: dict[str, Any]) -> tuple[str, ...]:
+    """The outputs a package has; 231 (A6): a case's container has its process pack's."""
+    from jav.app import process_runtime
+
+    if wp["source_kind"] == process_runtime.CONTAINER:
+        return process_runtime.outputs_of(wp["id"])
     return logic_packs.outputs_of(wp["source_kind"])
 
 

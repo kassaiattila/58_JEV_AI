@@ -47,3 +47,10 @@ def test_a_case_starts_from_its_record_and_its_page_is_its_packs_tabs(golden, tm
         again = c.post(f"/api/cases/{case_id}/steps/match/start", headers=HUMAN, json={})
         assert again.status_code == 422
         assert c.get("/api/cases/wp-000000000000").status_code == 404
+        # the case's container is a work package like any: the list, its page (which names the case) and its output
+        # template choice answer (a store with a case once broke the package list)
+        assert c.get("/api/workpackages").status_code == 200
+        wp = c.get(f"/api/workpackages/{case_id}").json()
+        assert wp["case"] == {"id": case_id, "pack": "it_quote", "version": "1.0.0"}
+        assert wp["next"]["code"] == "case_open"
+        assert list(c.get(f"/api/workpackages/{case_id}/output-templates").json()["outputs"]) == ["quote"]
