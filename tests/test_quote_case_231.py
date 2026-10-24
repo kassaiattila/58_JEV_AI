@@ -45,7 +45,7 @@ def _drive(case_id: str, rounds: int = 40) -> dict:
     return engine.state(case_id)
 
 
-def test_the_it_quote_runs_as_cases_with_the_recorded_results(golden) -> None:
+def test_the_it_quote_runs_as_cases_with_the_recorded_results(golden) -> None:  # noqa: F811 - the shared fixture
     cases, seen = golden
     record = json.loads(FIXTURE.read_text(encoding="utf-8"))
     for case in cases:
