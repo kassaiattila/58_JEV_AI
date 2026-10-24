@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import Any
 
 from jav.app import corrections, export, human_tasks, logic_packs, package_result, work, work_runs, workflow_cases
-from jav.core import activity_kinds, card_numbers, rulebook, store
+from jav.core import activity_kinds, card_numbers, identity, rulebook, store
 from jav.app.outputs import parts, templates
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
@@ -88,11 +88,13 @@ CREATE TABLE IF NOT EXISTS package_versions (
     items          TEXT NOT NULL,      -- JSON: [[item_id, run_id], ...]: each released item and the run it came from
     runs           TEXT NOT NULL,      -- JSON: the live runs this release approved (none for a version recorded afterwards)
     released_by    TEXT NOT NULL,
+    released_by_id TEXT,               -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
     released_at    TEXT NOT NULL,
     backfilled_at  TEXT,               -- DECISIONS 171: recorded afterwards for a package approved before v1.20.0
     content        TEXT,               -- 186: JSON, a logic pack's own version's content; NULL: a package's release
     locks          TEXT,               -- 186: JSON, what a logic pack's own version locks while it is not reopened
     reopened_by    TEXT,               -- 186: a logic pack's own version reopened, by whom, when and why
+    reopened_by_id TEXT,
     reopened_at    TEXT,
     reopen_note    TEXT,
     UNIQUE (workpackage_id, version)
@@ -154,6 +156,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
     released before 178 - the built-in template). 186: a logic pack's own versions, and the files' state."""
     store.add_columns(conn, "package_version_files", {"template": "TEXT", "template_version": "TEXT"})
     store.add_columns(conn, "package_versions", dict.fromkeys(_VERSION_COLUMNS, "TEXT"))
+    store.add_actor_ids(conn, "package_versions", ("released_by", "reopened_by"))  # 229 (SZ2c)
     _file_states(conn)
 
 
@@ -332,16 +335,17 @@ def _next_version(wp_id: str) -> int:
         return (c.execute("SELECT MAX(version) FROM package_versions WHERE workpackage_id=?", (wp_id,)).fetchone()[0] or 0) + 1
 
 
-def _insert(wp: dict[str, Any], *, n: int, mark: str, released: dict[str, str], runs: list[str], actor: str, at: str,
+def _insert(wp: dict[str, Any], *, n: int, mark: str, released: dict[str, str], runs: list[str], actor: identity.Who, at: str,
             backfilled_at: str | None, files: list[tuple[str, int, bytes, dict[str, str] | None]], c: sqlite3.Connection) -> int:
     """Records version `n` with its rendered files, in the caller's write transaction; `RevisionConflict` if another
     version took the number meanwhile."""
     latest = c.execute("SELECT MAX(version) FROM package_versions WHERE workpackage_id=?", (wp["id"],)).fetchone()[0] or 0
     if latest + 1 != n:
         raise explained(work.RevisionConflict, "another version of the package was released meanwhile; reload it")
-    cur = c.execute("INSERT INTO package_versions(workpackage_id, version, mark, items, runs, released_by, released_at,"
-                    " backfilled_at) VALUES (?,?,?,?,?,?,?,?)",
-                    (wp["id"], n, mark, json.dumps(sorted(released.items())), json.dumps(runs), actor, at, backfilled_at))
+    cur = c.execute("INSERT INTO package_versions(workpackage_id, version, mark, items, runs, released_by, released_by_id,"
+                    " released_at, backfilled_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                    (wp["id"], n, mark, json.dumps(sorted(released.items())), json.dumps(runs), identity.name_of(actor),
+                     identity.id_of(actor), at, backfilled_at))
     if backfilled_at is None:  # 218: the code and the rules of the release (a backfilled earlier release has none)
         rulebook.link_in(c, rulebook.PACKAGE_VERSION, str(cur.lastrowid))
     for name, rows, content, made in files:
@@ -353,7 +357,7 @@ def _insert(wp: dict[str, Any], *, n: int, mark: str, released: dict[str, str], 
 
 # --- the release -------------------------------------------------------------------------------------------------
 
-def release(wp_id: str, *, actor: str, expected_mark: str, confirm_removed: int | None = None) -> dict[str, Any]:
+def release(wp_id: str, *, actor: identity.Who, expected_mark: str, confirm_removed: int | None = None) -> dict[str, Any]:
     """Approves the package's open live runs and records its next released version.
 
     `expected_mark`: the mark of the result the person saw (`view`); a different one is `RevisionConflict`. Every open
@@ -386,7 +390,8 @@ def release(wp_id: str, *, actor: str, expected_mark: str, confirm_removed: int 
         if not releasable or (versions and dict(versions[0]["items"]) == releasable and not approved):
             raise explained(ReleaseError, "the package has nothing new to release")
         n, at = _next_version(wp_id), _now()
-        files = _files(wp, {"version": n, "released_by": actor, "released_at": at, "backfilled_at": None}, releasable)
+        files = _files(wp, {"version": n, "released_by": identity.name_of(actor), "released_at": at, "backfilled_at": None},
+                       releasable)
     with store.connect() as c:
         store.begin_immediate(c)
         if _result(wp, c)[0] != mark:  # a correction, a run or an item changed while the files were made
@@ -519,7 +524,7 @@ class OwnVersionHolds(work.RevisionConflict):
 
 
 def record_own(c: sqlite3.Connection, wp_id: str, *, content: dict[str, Any], fingerprint: str, locks: list[str],
-               actor: str) -> int:
+               actor: identity.Who) -> int:
     """Records the package's next own version, in the caller's write transaction (its checks, files and log entry go
     with it): the content as the person approved it, its fingerprint and what it locks. Returns its number. 215: the
     package's approval task is decided by the approver (`human_tasks.own_approved`). 224: `OwnVersionHolds` while
@@ -530,15 +535,16 @@ def record_own(c: sqlite3.Connection, wp_id: str, *, content: dict[str, Any], fi
         raise explained(OwnVersionHolds, "version {{version}} was approved meanwhile; reload the package",
                         version=held["version"])
     n = (c.execute("SELECT MAX(version) FROM package_versions WHERE workpackage_id=?", (wp_id,)).fetchone()[0] or 0) + 1
-    cur = c.execute("INSERT INTO package_versions(workpackage_id, version, mark, items, runs, released_by, released_at, content,"
-                    " locks) VALUES (?,?,?,?,?,?,?,?,?)", (wp_id, n, fingerprint, "[]", "[]", actor, _now(),
-                                                           json.dumps(content, ensure_ascii=False, default=str), json.dumps(locks)))
+    cur = c.execute("INSERT INTO package_versions(workpackage_id, version, mark, items, runs, released_by, released_by_id,"
+                    " released_at, content, locks) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    (wp_id, n, fingerprint, "[]", "[]", identity.name_of(actor), identity.id_of(actor), _now(),
+                     json.dumps(content, ensure_ascii=False, default=str), json.dumps(locks)))
     rulebook.link_in(c, rulebook.PACKAGE_VERSION, str(cur.lastrowid))  # 218: the code and the rules of the approval
     human_tasks.own_approved(c, wp_id, actor, version=n, fingerprint=fingerprint)
     return n
 
 
-def reopen_own(c: sqlite3.Connection, wp_id: str, *, note: str, actor: str) -> int | None:
+def reopen_own(c: sqlite3.Connection, wp_id: str, *, note: str, actor: identity.Who) -> int | None:
     """Reopens the package's own version that holds, in the caller's write transaction: its lock goes, it stays as an
     earlier version. Returns its number; None when no version holds. 215: the package waits for its approval again.
     218 (P3l): a done workflow step whose package it is is reopened in its case (`workflow_cases.package_reopened`)."""
@@ -546,15 +552,15 @@ def reopen_own(c: sqlite3.Connection, wp_id: str, *, note: str, actor: str) -> i
                     " AND reopened_at IS NULL", (wp_id,)).fetchone()
     if row is None:
         return None
-    c.execute("UPDATE package_versions SET reopened_by=?, reopened_at=?, reopen_note=? WHERE id=?",
-              (actor, _now(), note, row["id"]))
+    c.execute("UPDATE package_versions SET reopened_by=?, reopened_by_id=?, reopened_at=?, reopen_note=? WHERE id=?",
+              (identity.name_of(actor), identity.id_of(actor), _now(), note, row["id"]))
     human_tasks.own_approval_waits(c, wp_id, by=human_tasks.person(actor), reopened=row["version"])
     workflow_cases.package_reopened(c, wp_id, human_tasks.person(actor), f"its approved version {row['version']} was reopened")
     return row["version"]
 
 
 def approve_own(c: sqlite3.Connection, wp_id: str, *, event: str, content: dict[str, Any], fingerprint: str,
-                locks: list[str], actor: str, files: Callable[[sqlite3.Connection, int], None],
+                locks: list[str], actor: identity.Who, files: Callable[[sqlite3.Connection, int], None],
                 details: dict[str, Any]) -> int:
     """224 (plan G-process-core P3c): a logic pack's approval of its package as its next own version, in the caller's
     write transaction and in the same order for every kind (the reconciliation's statement, the quote): the version
@@ -567,7 +573,7 @@ def approve_own(c: sqlite3.Connection, wp_id: str, *, event: str, content: dict[
     return n
 
 
-def reopen_logged(c: sqlite3.Connection, wp_id: str, *, event: str, note: str, actor: str,
+def reopen_logged(c: sqlite3.Connection, wp_id: str, *, event: str, note: str, actor: identity.Who,
                   files: Callable[[sqlite3.Connection, int], None] | None = None) -> int | None:
     """224: reopens the package's own version that holds, with the person's reason, in the caller's write transaction
     (`reopen_own`): its files as the kind makes them for an earlier version (`files(c, n)`), and the package log's
@@ -646,11 +652,11 @@ def copy_older_own(conn: sqlite3.Connection, versions: str, files: str) -> None:
             has_files = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (files,)).fetchone()
             for v in conn.execute(f"SELECT * FROM {versions} ORDER BY id").fetchall():
                 cur = conn.execute("INSERT INTO package_versions(workpackage_id, version, mark, items, runs, released_by,"
-                                   " released_at, content, locks, reopened_by, reopened_at, reopen_note)"
-                                   " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                                   " released_by_id, released_at, content, locks, reopened_by, reopened_by_id, reopened_at,"
+                                   " reopen_note) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                                    (v["workpackage_id"], v["version"], v["fingerprint"], "[]", "[]", v["approved_by"],
-                                    v["approved_at"], v["content"], v["line_ids"], v["reopened_by"], v["reopened_at"],
-                                    v["reopen_note"]))
+                                    identity.id_of(v["approved_by"]), v["approved_at"], v["content"], v["line_ids"],
+                                    v["reopened_by"], identity.id_of(v["reopened_by"]), v["reopened_at"], v["reopen_note"]))
                 if not has_files:
                     continue
                 for f in conn.execute(f"SELECT * FROM {files} WHERE version_id=? ORDER BY rowid", (v["id"],)).fetchall():
@@ -699,7 +705,8 @@ def backfill(*, dry_run: bool = False) -> list[dict[str, Any]]:
             store.begin_immediate(c)
             if _result(wp, c)[0] != mark:
                 continue  # changed while its files were made: the next backfill takes it
-            entry["version"] = _insert(wp, n=1, mark=mark, released=releasable, runs=[], actor=last["approved_by"],
+            approver = identity.recorded(last["approved_by"], last.get("approved_by_id"))
+            entry["version"] = _insert(wp, n=1, mark=mark, released=releasable, runs=[], actor=approver,
                                        at=last["approved_at"], backfilled_at=at, files=files, c=c)
         out.append(entry)
     return out

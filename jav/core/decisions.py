@@ -40,7 +40,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from jav.core import store
+from jav.core import identity, store
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 
@@ -60,12 +60,16 @@ CREATE TABLE IF NOT EXISTS decision_journal (
     workpackage_id TEXT,              -- the package it was made in
     run_id         TEXT,              -- the run it was made on (NULL: a logic pack's decision)
     actor          TEXT NOT NULL,
+    actor_id       TEXT,              -- 229 (SZ2c): the actor's stable id (`jav.core.identity`)
     note           TEXT,
     at             TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS decision_journal_key ON decision_journal(kind, key, id);
 CREATE INDEX IF NOT EXISTS decision_journal_run ON decision_journal(run_id, id);
 """)
+
+store.register_migration("decision_journal_actor_ids",
+                         lambda conn: store.add_actor_ids(conn, "decision_journal", ("actor",)))  # 229 (SZ2c)
 
 
 @dataclass(frozen=True)
@@ -94,21 +98,22 @@ def kinds() -> list[Kind]:
     return list(_KINDS.values())
 
 
-def record(c: sqlite3.Connection, kind: str, key: str, action: str, *, actor: str, value: Any = None,
+def record(c: sqlite3.Connection, kind: str, key: str, action: str, *, actor: identity.Who, value: Any = None,
            note: str | None = None, workpackage_id: str | None = None, run_id: str | None = None,
            at: str | None = None) -> int:
     """One journal row for a change of a decision, in the caller's write transaction (so the change and its journal
-    row are written together or not at all). An unknown kind or action is a programming error (`ValueError`)."""
+    row are written together or not at all). An unknown kind or action is a programming error (`ValueError`). 229: the
+    actor's name and stable id."""
     registered = _KINDS.get(kind)
     if registered is None:
         raise ValueError(f"no module registered the decision kind {kind!r}")
     if action not in registered.actions:
         raise ValueError(f"the decision kind {kind} records no action {action!r}")
     cur = c.execute(
-        "INSERT INTO decision_journal(kind, key, action, value, workpackage_id, run_id, actor, note, at)"
-        " VALUES (?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO decision_journal(kind, key, action, value, workpackage_id, run_id, actor, actor_id, note, at)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?)",
         (kind, key, action, None if value is None else json.dumps(value, ensure_ascii=False, sort_keys=True),
-         workpackage_id, run_id, actor, note, at or _now()))
+         workpackage_id, run_id, identity.name_of(actor), identity.id_of(actor), note, at or _now()))
     return int(cur.lastrowid)
 
 

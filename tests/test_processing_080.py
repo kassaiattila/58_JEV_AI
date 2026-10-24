@@ -113,7 +113,8 @@ def _assign_raw(wp_id: str, recipe_id: str, params: dict) -> None:
     r = work_recipes.recipe(recipe_id)
     with store.connect() as c:
         rev = (c.execute("SELECT MAX(revision) m FROM recipe_assignments WHERE workpackage_id=?", (wp_id,)).fetchone()["m"] or 0) + 1
-        c.execute("INSERT INTO recipe_assignments VALUES (?,?,?,?,?,?,?,?,?)",
+        c.execute("INSERT INTO recipe_assignments(workpackage_id, revision, recipe_id, recipe_version, recipe_hash, params,"
+                  " actor, note, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
                   (wp_id, rev, recipe_id, r["version"], work_recipes.recipe_hash(r), json.dumps(params), "régi", None, "2026-09-28T10:00:00"))
 
 

@@ -107,16 +107,17 @@ def definition(template: Mapping[str, Any]) -> ProcessDef:
                             params={"kind": s["kind"]}) for s in template["steps"]))
 
 
-def maker(name: str) -> actors.Actor:
-    """The person who made the workflow (its `actor`) or acts on it, as the core records them."""
-    return actors.person(name)
+def maker(actor: actors.Who) -> actors.Actor:
+    """The person who made the workflow (its `actor`) or acts on it, as the core records them (229: the actor itself
+    when the caller has one; a name is the local person of that name)."""
+    return actor if isinstance(actor, actors.Actor) else actors.person(actor)
 
 
 def _data(wf_id: str) -> dict[str, Any]:
     return {"workflow": wf_id}
 
 
-def start(c: sqlite3.Connection, wf_id: str, template: Mapping[str, Any], actor: str, *,
+def start(c: sqlite3.Connection, wf_id: str, template: Mapping[str, Any], actor: actors.Who, *,
           linked: tuple[str, ...] = ()) -> str:
     """The new workflow's case, in the caller's transaction that writes the workflow. A `linked` step (a person brought
     its package) does not wait for its order: it waits for its package's approval at once, the override recorded.
@@ -242,7 +243,7 @@ def fail_outside(c: sqlite3.Connection, wf_id: str, step: str, note: str) -> Non
         cases.fail(c, wf_id, step, MACHINE, note)
 
 
-def set_archived(c: sqlite3.Connection, wf_id: str, archived: bool, actor: str) -> None:
+def set_archived(c: sqlite3.Connection, wf_id: str, archived: bool, actor: actors.Who) -> None:
     """Holds the workflow's case when it is archived and resumes it when it is restored, in the caller's transaction
     that changes the workflow (a workflow without a case is adopted first)."""
     adopt(c, wf_id)
@@ -290,7 +291,7 @@ def budget_tasks_of(c: sqlite3.Connection, wp_id: str) -> list[tuple[str, str]]:
             if t.subject in makers]
 
 
-def person_starts(c: sqlite3.Connection, wf_id: str, step: str, actor: str, *, decision: Any = None) -> None:
+def person_starts(c: sqlite3.Connection, wf_id: str, step: str, actor: actors.Who, *, decision: Any = None) -> None:
     """A person starts the step now, in the caller's transaction: it runs at the case's next turn, and that run takes
     the person's start once (`take_go`). 215: a step waiting for a budget has its task decided by the start
     (`decision`); the task's closing event ends the wait in the case."""
@@ -345,14 +346,14 @@ def task_event(ctx: object, c: sqlite3.Connection, event: cases.Event) -> str:
     return kinds.APPLIED if task is not None and task.round == event.payload.get("round") else kinds.REFUSED
 
 
-def person_links(c: sqlite3.Connection, wf_id: str, step: str, actor: str) -> None:
+def person_links(c: sqlite3.Connection, wf_id: str, step: str, actor: actors.Who) -> None:
     """A person made an existing package the step's, in the caller's transaction: at the case's next turn the step
     waits for the package's approval, whatever its order."""
     adopt(c, wf_id)
     _open_for(c, wf_id, step, maker(actor), "a person linked a package")
 
 
-def chain_on(c: sqlite3.Connection, wf_id: str, actor: str) -> None:
+def chain_on(c: sqlite3.Connection, wf_id: str, actor: actors.Who) -> None:
     """The automatic chain is switched on, in the caller's transaction: the steps waiting for a person's start go on."""
     adopt(c, wf_id)
     for sid, st in cases.step_rows(c, wf_id).items():

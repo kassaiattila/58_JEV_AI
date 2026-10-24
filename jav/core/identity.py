@@ -62,3 +62,35 @@ def machine(name: str = "process-core", *, on_behalf_of: Actor | None = None) ->
     """The machine, acting for itself or for the person who set the work going."""
     return Actor(id=f"machine:{name}", name=name, kind=MACHINE,
                  on_behalf_of=on_behalf_of.id if on_behalf_of is not None else None)
+
+
+# 229 (SZ2c): what a business operation takes as who acts. The service passes the actor its shared entrance knows; a
+# bare name (the command line, a test, an internal caller) is a local person of that name.
+Who = Actor | str
+
+
+def who(actor: Who) -> Actor:
+    """229 (SZ2c): the actor an operation records beside the name. A name is taken as given, so the id of a row
+    written now and of one filled from its name later (`store.add_actor_ids`) are the same: `local:<name>`."""
+    if isinstance(actor, Actor):
+        return actor
+    return Actor(id=f"{LOCAL}:{actor}", name=actor, kind=HUMAN)
+
+
+def id_of(actor: Who | None) -> str | None:
+    """The stable id to store beside the name (None stays None: nobody acted yet)."""
+    return None if actor is None else who(actor).id
+
+
+def name_of(actor: Who | None) -> str | None:
+    """The name to store and show (None stays None)."""
+    return None if actor is None else who(actor).name
+
+
+def recorded(name: str, actor_id: str | None) -> Actor:
+    """229 (SZ2c): the actor a row recorded (its name and stable id), when code records something again as them (a
+    version backfilled with the approver of its runs, a workflow's packages owned by its maker). A row without an id
+    is the local person of its name; an id from the machine is the machine's."""
+    if actor_id is None:
+        return who(name)
+    return Actor(id=actor_id, name=name, kind=MACHINE if actor_id.startswith("machine:") else HUMAN)

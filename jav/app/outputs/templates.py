@@ -19,7 +19,7 @@ import secrets
 from typing import Any
 
 from jav.app import logic_packs, work
-from jav.core import activity_kinds, decisions, store, versions
+from jav.core import activity_kinds, decisions, identity, store, versions
 from jav.app.outputs import builtin, contract, docx, fill, samples
 from jav.core.clock import utc_stamp as _now
 
@@ -60,10 +60,13 @@ CREATE TABLE IF NOT EXISTS output_templates (
     content       BLOB NOT NULL,
     checks        TEXT NOT NULL,      -- JSON: the upload's check (warnings, the values and tables it uses)
     uploaded_by   TEXT NOT NULL,
+    uploaded_by_id TEXT,              -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
     uploaded_at   TEXT NOT NULL,
     activated_by  TEXT,
+    activated_by_id TEXT,
     activated_at  TEXT,
     retired_by    TEXT,
+    retired_by_id TEXT,
     retired_at    TEXT,
     UNIQUE (template, version)
 );
@@ -73,10 +76,20 @@ CREATE TABLE IF NOT EXISTS output_template_choices (
     output         TEXT NOT NULL,
     template       TEXT NOT NULL,
     chosen_by      TEXT NOT NULL,
+    chosen_by_id   TEXT,
     chosen_at      TEXT NOT NULL,
     PRIMARY KEY (workpackage_id, output)
 );
 """)
+
+
+def _actor_ids(conn) -> None:
+    """229 (SZ2c): the stable id beside every name of who acted; the earlier rows' from their names."""
+    store.add_actor_ids(conn, "output_templates", ("uploaded_by", "activated_by", "retired_by"))
+    store.add_actor_ids(conn, "output_template_choices", ("chosen_by",))
+
+
+store.register_migration("output_templates_actor_ids", _actor_ids)
 
 
 class TemplateRefused(ValueError):
@@ -110,7 +123,7 @@ def _view(row: Any) -> dict[str, Any]:
 # --- the store ------------------------------------------------------------------------------------------------------
 
 
-def add(output: str, name: str, file_name: str, content: bytes, *, actor: str, template: str | None = None) -> dict[str, Any]:
+def add(output: str, name: str, file_name: str, content: bytes, *, actor: identity.Who, template: str | None = None) -> dict[str, Any]:
     """Checks and stores an upload as a draft version: of `template` (its next version), or of a new template.
     `TemplateRefused` with the check when it has problems."""
     name = (name or "").strip()
@@ -129,9 +142,9 @@ def add(output: str, name: str, file_name: str, content: bytes, *, actor: str, t
                 raise TemplateStateError(f"template {template} is a template of {latest['output']}")
             version = latest["version"] + 1
         c.execute("INSERT INTO output_templates(template, output, name, version, state, file_name, sha256, content, checks,"
-                  " uploaded_by, uploaded_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                  " uploaded_by, uploaded_by_id, uploaded_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                   (template, output, name, version, "draft", file_name, hashlib.sha256(content).hexdigest(), content,
-                   json.dumps(check, ensure_ascii=False), actor, _now()))
+                   json.dumps(check, ensure_ascii=False), identity.name_of(actor), identity.id_of(actor), _now()))
     return get(template, version)
 
 
@@ -158,7 +171,7 @@ def listing(output: str | None = None) -> list[dict[str, Any]]:
                             lambda r: _view(r) | {"size": r["size"]})
 
 
-def activate(template: str, version: int, *, actor: str) -> dict[str, Any]:
+def activate(template: str, version: int, *, actor: identity.Who) -> dict[str, Any]:
     """Makes the version the template's active one (a draft, or an earlier version again); the active one before it is
     superseded. A retired template comes back with it."""
     with store.connect() as c:
@@ -167,7 +180,7 @@ def activate(template: str, version: int, *, actor: str) -> dict[str, Any]:
     return get(template, version)
 
 
-def retire(template: str, *, actor: str) -> dict[str, Any]:
+def retire(template: str, *, actor: identity.Who) -> dict[str, Any]:
     """Retires the template: its active version is no longer chosen; a package that chose it gets the built-in template."""
     with store.connect() as c:
         store.begin_immediate(c)
@@ -224,7 +237,7 @@ def choices(wp_id: str) -> dict[str, Any]:
     return {"workpackage_id": wp_id, "outputs": out}
 
 
-def choose(wp_id: str, output: str, template: str | None, *, actor: str, expected_state: int | None = None) -> dict[str, Any]:
+def choose(wp_id: str, output: str, template: str | None, *, actor: identity.Who, expected_state: int | None = None) -> dict[str, Any]:
     """Chooses the template of a package's output (None: the built-in template); the template must be active. 187: in
     the decision journal, under the page's `expected_state`."""
     wp = work.get(wp_id)
@@ -239,9 +252,10 @@ def choose(wp_id: str, output: str, template: str | None, *, actor: str, expecte
             row = _active(c, template)
             if row is None or row["output"] != output:
                 raise TemplateStateError(f"{template} is not an active template of {output}")
-            c.execute("INSERT INTO output_template_choices(workpackage_id, output, template, chosen_by, chosen_at) VALUES (?,?,?,?,?)"
-                      " ON CONFLICT(workpackage_id, output) DO UPDATE SET template=excluded.template, chosen_by=excluded.chosen_by,"
-                      " chosen_at=excluded.chosen_at", (wp_id, output, template, actor, _now()))
+            c.execute("INSERT INTO output_template_choices(workpackage_id, output, template, chosen_by, chosen_by_id, chosen_at)"
+                      " VALUES (?,?,?,?,?,?) ON CONFLICT(workpackage_id, output) DO UPDATE SET template=excluded.template,"
+                      " chosen_by=excluded.chosen_by, chosen_by_id=excluded.chosen_by_id, chosen_at=excluded.chosen_at",
+                      (wp_id, output, template, identity.name_of(actor), identity.id_of(actor), _now()))
         work.record_event(c, wp_id, "output_template_choose", actor, {"output": output, "template": template})
         decisions.record(c, CHOICE_KIND, _choice_key(wp_id, output), "choose", actor=actor, value={"template": template},
                          workpackage_id=wp_id)

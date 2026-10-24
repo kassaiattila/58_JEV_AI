@@ -38,7 +38,7 @@ from itertools import combinations
 from typing import Any, Callable, Iterable
 
 from jav.ai import fact_checks
-from jav.core import cfg, store, trace, type_roles
+from jav.core import cfg, identity, store, trace, type_roles
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 
@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS own_parties (
     id          TEXT PRIMARY KEY,   -- 'party-' + 12 hex digits
     name        TEXT NOT NULL,
     created_by  TEXT NOT NULL,
+    created_by_id TEXT,             -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
 );
@@ -59,6 +60,7 @@ CREATE TABLE IF NOT EXISTS own_party_identities (
     label       TEXT NOT NULL,      -- the form printed most often
     party_id    TEXT,               -- NULL: dismissed, no own party's
     actor       TEXT NOT NULL,
+    actor_id    TEXT,
     updated_at  TEXT NOT NULL,
     PRIMARY KEY (kind, key)
 );
@@ -75,9 +77,20 @@ CREATE TABLE IF NOT EXISTS own_accounts (
     valid_from  TEXT,               -- ISO date it was opened; NULL: since its first statement
     valid_to    TEXT,               -- ISO date it was closed; NULL: still open
     actor       TEXT NOT NULL,
+    actor_id    TEXT,               -- 229 (SZ2c)
     updated_at  TEXT NOT NULL
 );
 """)
+
+
+def _actor_ids(conn) -> None:
+    """229 (SZ2c): the stable id beside every name of who acted; the earlier rows' from their names."""
+    store.add_actor_ids(conn, "own_parties", ("created_by",))
+    store.add_actor_ids(conn, "own_party_identities", ("actor",))
+    store.add_actor_ids(conn, "own_accounts", ("actor",))
+
+
+store.register_migration("parties_actor_ids", _actor_ids)
 ACCOUNT_KINDS = ("account", "card")
 BANK_MAX = 100
 
@@ -219,14 +232,15 @@ def _exists(c, party_id: str) -> None:
         raise KeyError(party_id)
 
 
-def _put(c, kind: str, key: str, label: str, party_id: str | None, actor: str) -> None:
-    c.execute("INSERT INTO own_party_identities(kind, key, label, party_id, actor, updated_at) VALUES (?,?,?,?,?,?)"
+def _put(c, kind: str, key: str, label: str, party_id: str | None, actor: identity.Who) -> None:
+    c.execute("INSERT INTO own_party_identities(kind, key, label, party_id, actor, actor_id, updated_at) VALUES (?,?,?,?,?,?,?)"
               " ON CONFLICT(kind, key) DO UPDATE SET label=excluded.label, party_id=excluded.party_id,"
-              " actor=excluded.actor, updated_at=excluded.updated_at",
-              (kind, key, " ".join(str(label or key).split())[:NAME_MAX] or key, party_id, actor, _now()))
+              " actor=excluded.actor, actor_id=excluded.actor_id, updated_at=excluded.updated_at",
+              (kind, key, " ".join(str(label or key).split())[:NAME_MAX] or key, party_id, identity.name_of(actor),
+               identity.id_of(actor), _now()))
 
 
-def create(name: str, *, identities: Iterable[tuple[str, str, str]], actor: str) -> dict[str, Any]:
+def create(name: str, *, identities: Iterable[tuple[str, str, str]], actor: identity.Who) -> dict[str, Any]:
     """A new own party with its identities (kind, key, label); an identity of another party moves over."""
     clean = _name(name)
     rows = [(kind, _canonical(kind, key), label) for kind, key, label in identities]
@@ -234,14 +248,14 @@ def create(name: str, *, identities: Iterable[tuple[str, str, str]], actor: str)
     with store.connect() as c:
         store.begin_immediate(c)
         now = _now()
-        c.execute("INSERT INTO own_parties(id, name, created_by, created_at, updated_at) VALUES (?,?,?,?,?)",
-                  (party_id, clean, actor, now, now))
+        c.execute("INSERT INTO own_parties(id, name, created_by, created_by_id, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                  (party_id, clean, identity.name_of(actor), identity.id_of(actor), now, now))
         for kind, key, label in rows:
             _put(c, kind, key, label, party_id, actor)
     return get(party_id)
 
 
-def rename(party_id: str, name: str, *, actor: str) -> dict[str, Any]:
+def rename(party_id: str, name: str, *, actor: identity.Who) -> dict[str, Any]:
     clean = _name(name)
     with store.connect() as c:
         store.begin_immediate(c)
@@ -250,7 +264,7 @@ def rename(party_id: str, name: str, *, actor: str) -> dict[str, Any]:
     return get(party_id)
 
 
-def assign(kind: str, key: str, label: str, party_id: str | None, *, actor: str) -> None:
+def assign(kind: str, key: str, label: str, party_id: str | None, *, actor: identity.Who) -> None:
     """Gives an identity to a party, moving it from another one; `party_id=None` dismisses it (no own party's)."""
     canon = _canonical(kind, key)
     with store.connect() as c:
@@ -260,14 +274,14 @@ def assign(kind: str, key: str, label: str, party_id: str | None, *, actor: str)
         _put(c, kind, canon, label, party_id, actor)
 
 
-def release(kind: str, key: str, *, actor: str) -> None:
+def release(kind: str, key: str, *, actor: identity.Who) -> None:
     """Takes an identity back from its party or from the dismissed ones: it is unassigned again (proposed anew)."""
     canon = _canonical(kind, key)
     with store.connect() as c:
         c.execute("DELETE FROM own_party_identities WHERE kind=? AND key=?", (kind, canon))
 
 
-def merge(source_id: str, target_id: str, *, actor: str) -> dict[str, Any]:
+def merge(source_id: str, target_id: str, *, actor: identity.Who) -> dict[str, Any]:
     """The source party's identities go to the target and the source is deleted; its users follow (`repoint`)."""
     if source_id == target_id:
         raise explained(PartyError, "a party cannot be merged into itself")
@@ -275,8 +289,8 @@ def merge(source_id: str, target_id: str, *, actor: str) -> dict[str, Any]:
         store.begin_immediate(c)
         _exists(c, source_id)
         _exists(c, target_id)
-        c.execute("UPDATE own_party_identities SET party_id=?, actor=?, updated_at=? WHERE party_id=?",
-                  (target_id, actor, _now(), source_id))
+        c.execute("UPDATE own_party_identities SET party_id=?, actor=?, actor_id=?, updated_at=? WHERE party_id=?",
+                  (target_id, identity.name_of(actor), identity.id_of(actor), _now(), source_id))
         for _count, repoint in _REFERENCES.values():
             repoint(c, source_id, target_id)
         c.execute("UPDATE own_parties SET updated_at=? WHERE id=?", (_now(), target_id))
@@ -284,7 +298,7 @@ def merge(source_id: str, target_id: str, *, actor: str) -> dict[str, Any]:
     return get(target_id)
 
 
-def delete(party_id: str, *, actor: str) -> None:
+def delete(party_id: str, *, actor: identity.Who) -> None:
     """Deletes a party no record names; its identities are unassigned again."""
     with store.connect() as c:
         store.begin_immediate(c)
@@ -320,15 +334,16 @@ def _account_details(kind: str, bank: str | None, currencies: Iterable[str], val
     return kind, clean_bank, json.dumps(codes), days[0], days[1]
 
 
-def _put_account(c, key: str, details: tuple[str, str | None, str, str | None, str | None], actor: str) -> None:
-    c.execute("INSERT INTO own_accounts(key, kind, bank, currencies, valid_from, valid_to, actor, updated_at)"
-              " VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET kind=excluded.kind, bank=excluded.bank,"
+def _put_account(c, key: str, details: tuple[str, str | None, str, str | None, str | None], actor: identity.Who) -> None:
+    c.execute("INSERT INTO own_accounts(key, kind, bank, currencies, valid_from, valid_to, actor, actor_id, updated_at)"
+              " VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET kind=excluded.kind, bank=excluded.bank,"
               " currencies=excluded.currencies, valid_from=excluded.valid_from, valid_to=excluded.valid_to,"
-              " actor=excluded.actor, updated_at=excluded.updated_at", (key, *details, actor, _now()))
+              " actor=excluded.actor, actor_id=excluded.actor_id, updated_at=excluded.updated_at",
+              (key, *details, identity.name_of(actor), identity.id_of(actor), _now()))
 
 
 def register_account(party_id: str, key: str, label: str, *, kind: str, currencies: Iterable[str], bank: str | None = None,
-                     valid_from: str | None = None, valid_to: str | None = None, actor: str) -> dict[str, Any]:
+                     valid_from: str | None = None, valid_to: str | None = None, actor: identity.Who) -> dict[str, Any]:
     """An own account or card given to a party with its details, whether its statements are processed yet or not; a
     dismissed or unassigned account is taken, another party's is refused (a person moves it on purpose)."""
     canon = _canonical("account", key)
@@ -346,7 +361,7 @@ def register_account(party_id: str, key: str, label: str, *, kind: str, currenci
 
 
 def set_account(key: str, *, kind: str, currencies: Iterable[str], bank: str | None = None, valid_from: str | None = None,
-                valid_to: str | None = None, actor: str) -> None:
+                valid_to: str | None = None, actor: identity.Who) -> None:
     """The details of an account a party holds (one found on statements included)."""
     canon = _canonical("account", key)
     details = _account_details(kind, bank, currencies, valid_from, valid_to)
@@ -823,7 +838,7 @@ def suggest(invoices: Iterable[dict[str, Any]], accounts: Iterable[dict[str, Any
             "buyer_is_supplier": supplier_named, "no_buyer": no_buyer}
 
 
-def apply(suggestion: dict[str, Any], *, actor: str, name: str | None = None) -> dict[str, Any]:
+def apply(suggestion: dict[str, Any], *, actor: identity.Who, name: str | None = None) -> dict[str, Any]:
     """Carries out one suggestion of `suggest`: a new party with its identities, or what an existing one gains."""
     idents = [(i["kind"], i["key"], i["label"]) for i in suggestion["identities"]]
     if suggestion["party_id"] is None:

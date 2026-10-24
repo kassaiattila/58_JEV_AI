@@ -679,6 +679,17 @@ are read through their registrations (211). The two tools that read a store copy
 (`jav/devtools/admin.py`, `jav/evals/before_after.py`) are the stated exceptions. Tests:
 `tests/test_process_worker_229.py`, `tests/test_process_boundary_229.py`.
 
+**Who acted, by a stable id (229, plan structure stage 1, SZ2c).** Every column of the store that names who acted (a
+decision, an approval, a correction, a closed to-do, a setting changed) has the actor's stable id beside it
+(`<column>_id`). A business operation takes who acts as `identity.Who`: the actor the shared entrance knows, or a name,
+which is the local person of that name; it writes the name and the id (`identity.name_of`, `identity.id_of`). Code that
+acts again as someone a row recorded (a version backfilled with its runs' approver, a workflow's packages owned by its
+maker) takes both back (`identity.recorded`). When an id column is added to an older store, its earlier rows get
+`local:<name>` from their names once (`store.add_actor_ids`); a row written afterwards keeps its own id. The process
+core keeps the whole actor already, and a worker's claim names a process, not a person. A human task's assignee is the
+package owner's stored id. Guard tests (`tests/test_actor_ids_229.py`): every such column has its id column, every
+statement that writes one writes the id too, and an insert into such a table names its columns.
+
 **Workflows as cases (214).** `jav/app/workflow_cases.py`: a workflow's case has the workflow's id; its process
 definition is the workflow's saved template (one step per template step, all of the core step kind `workflow_step`
 with the template's step kind as its parameter, the template's `after` as the order), versioned by the saved

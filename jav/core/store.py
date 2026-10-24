@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, ParamSpec, TypeVar
 
+from jav.core import identity
 from jav.core.config import STORE_PATH
 from jav.core.clock import utc_stamp as _now
 
@@ -140,6 +141,7 @@ CREATE TABLE IF NOT EXISTS review_reasons (
     run_id        TEXT,
     status        TEXT NOT NULL DEFAULT 'open',   -- open | resolved | superseded
     actor         TEXT,                          -- emberi döntésnél ki döntött
+    actor_id      TEXT,                          -- 229 (SZ2c): that person's stable id (`jav.core.identity`)
     resolution    TEXT,                          -- JSON: a döntés tartalma
     note          TEXT,
     created_at    TEXT NOT NULL,
@@ -216,6 +218,18 @@ def add_columns(conn: sqlite3.Connection, table: str, columns: dict[str, str]) -
                 raise
             continue
         added.append(name)
+    return added
+
+
+def add_actor_ids(conn: sqlite3.Connection, table: str, columns: tuple[str, ...]) -> list[str]:
+    """229 (SZ2c): beside each column naming who acted, the stable id of that actor (`<column>_id`, `jav.core.identity`).
+    When this call adds an id column, the rows already there get `local:<name>` from their name, the id a local person
+    of that name gets now; a row without a name keeps no id. Filled only when added, so a later row's own id (from the
+    company sign-in) is never overwritten. Idempotent, like `add_columns`. Returns the id columns this call added."""
+    added = add_columns(conn, table, {f"{col}_id": "TEXT" for col in columns})
+    for id_column in added:
+        name = id_column.removesuffix("_id")
+        conn.execute(f"UPDATE {table} SET {id_column} = ? || {name} WHERE {name} IS NOT NULL", (f"{identity.LOCAL}:",))
     return added
 
 
@@ -424,6 +438,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
     })
     # 047 T1.2: detailed type
     add_columns(conn, "documents", {"detail_type": "TEXT", "detail_conf": "REAL", "detail_method": "TEXT"})
+    add_actor_ids(conn, "review_reasons", ("actor",))  # 229 (SZ2c)
     # Take over the reasons of old review items (no per-reason rows); a closed item's reasons get the item's status.
     legacy = conn.execute(
         "SELECT q.id, q.reasons, q.status, q.run_id, q.created_at, q.decided_at FROM review_queue q"
@@ -567,7 +582,7 @@ def insert_datapoints(
 
 
 def _sync_review_item(c: sqlite3.Connection, review_id: int, closing_status: str = "superseded",
-                      actor: str | None = None) -> None:
+                      actor: identity.Who | None = None) -> None:
     """The item's reason list = its open reasons (066: the same reason from two runs appears once); when no open reason
     is left, the item is closed too (215: and its human task with it, `actor` being the person who resolved the last
     reason, None when a machine closed it)."""
@@ -586,15 +601,15 @@ def _sync_review_item(c: sqlite3.Connection, review_id: int, closing_status: str
 # have closed in the same call) or `closed` (its last open reason closed; `actor` is the person who resolved it, None
 # when a machine closed it). Without it (old callers) no task is kept.
 REVIEW_RAISED, REVIEW_CLOSED = "raised", "closed"
-_review_item_hook: Callable[[sqlite3.Connection, int, str, str | None], None] | None = None
+_review_item_hook: Callable[[sqlite3.Connection, int, str, identity.Who | None], None] | None = None
 
 
-def set_review_item_hook(fn: Callable[[sqlite3.Connection, int, str, str | None], None] | None) -> None:
+def set_review_item_hook(fn: Callable[[sqlite3.Connection, int, str, identity.Who | None], None] | None) -> None:
     global _review_item_hook
     _review_item_hook = fn
 
 
-def _review_item_changed(c: sqlite3.Connection, review_id: int, change: str, actor: str | None = None) -> None:
+def _review_item_changed(c: sqlite3.Connection, review_id: int, change: str, actor: identity.Who | None = None) -> None:
     if _review_item_hook is not None:
         _review_item_hook(c, review_id, change, actor)
 
@@ -756,16 +771,18 @@ def close_run_reasons(c: sqlite3.Connection, run_id: str, *, status: str = "supe
     return len(rows)
 
 
-def review_resolve(reason_id: int, *, actor: str, resolution: dict[str, Any] | None = None, note: str | None = None) -> None:
-    """Human decision on a single reason: author, content, note. A reason already closed cannot be closed again
-    (ValueError)."""
+def review_resolve(reason_id: int, *, actor: identity.Who, resolution: dict[str, Any] | None = None,
+                   note: str | None = None) -> None:
+    """Human decision on a single reason: author (229: with the author's id), content, note. A reason already closed
+    cannot be closed again (ValueError)."""
     with connect() as c:
         begin_immediate(c)
         row = c.execute("SELECT review_id, status FROM review_reasons WHERE id=?", (reason_id,)).fetchone()
         if row is None or row["status"] != "open":
             raise ValueError(f"review reason {reason_id} is not open")
-        c.execute("UPDATE review_reasons SET status='resolved', actor=?, resolution=?, note=?, closed_at=? WHERE id=?",
-                  (actor, _json(resolution) if resolution is not None else None, note, _now(), reason_id))
+        c.execute("UPDATE review_reasons SET status='resolved', actor=?, actor_id=?, resolution=?, note=?, closed_at=?"
+                  " WHERE id=?", (identity.name_of(actor), identity.id_of(actor),
+                                  _json(resolution) if resolution is not None else None, note, _now(), reason_id))
         _sync_review_item(c, int(row["review_id"]), closing_status="resolved", actor=actor)
 
 

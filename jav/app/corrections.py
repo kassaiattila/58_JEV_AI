@@ -41,7 +41,7 @@ from typing import Any
 from jav.app import item_kinds, package_result, work, work_readiness, work_runs
 from jav.ai import grounding, typepack, validators
 from jav.documents import native_results, source_layer
-from jav.core import activity_kinds, dates, numbers, store
+from jav.core import activity_kinds, dates, identity, numbers, store
 from jav.documents.native_contracts import Publication
 from jav.ai.policy import reason_field
 from jav.core.user_messages import explained
@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS run_item_corrections (
     revision    INTEGER NOT NULL,
     fields      TEXT NOT NULL,                 -- JSON: mező -> javított érték (a teljes javításhalmaz, nem különbség)
     actor       TEXT NOT NULL,
+    actor_id    TEXT,                          -- 229 (SZ2c): the actor's stable id (`jav.core.identity`)
     note        TEXT,
     created_at  TEXT NOT NULL,
     PRIMARY KEY (run_id, item_id, revision)
@@ -66,6 +67,7 @@ def _migrate(conn) -> None:
         "confirmed": "TEXT",  # 083: field -> the value a person confirmed
         "native_sources": "TEXT", "result_version": "TEXT",
     })
+    store.add_actor_ids(conn, "run_item_corrections", ("actor",))  # 229 (SZ2c)
 
 
 store.register_migration("corrections", _migrate)
@@ -142,7 +144,7 @@ def current(run_id: str, item_id: str, c: sqlite3.Connection | None = None) -> d
     row = c.execute("SELECT * FROM run_item_corrections WHERE run_id=? AND item_id=? ORDER BY revision DESC LIMIT 1",
                     (run_id, item_id)).fetchone()
     if row is None:
-        return {"run_id": run_id, "item_id": item_id, "revision": 0, "fields": {}, "sources": {}, "confirmed": {}, "actor": None,
+        return {"run_id": run_id, "item_id": item_id, "revision": 0, "fields": {}, "sources": {}, "confirmed": {}, "actor": None, "actor_id": None,
                 "note": None, "created_at": None, "native_sources": {}, "result_version": None}
     return {**dict(row), "fields": json.loads(row["fields"]), "sources": json.loads(row["sources"] or "{}"),
             "confirmed": json.loads(row["confirmed"] or "{}"), "native_sources": json.loads(row["native_sources"] or "{}")}
@@ -418,7 +420,7 @@ def _native_item_result(run: dict[str, Any], item: dict[str, Any]) -> dict[str, 
 
 
 def save_native(run_id: str, item_id: str, *, values: dict[str, str | None], native_sources: dict[str, Any],
-                expected_revision: int, expected_result_version: str, actor: str,
+                expected_revision: int, expected_result_version: str, actor: identity.Who,
                 confirm: list[str] | None = None, note: str | None = None) -> dict[str, Any]:
     """Validate and save a full native override set against immutable result identity under one write lock."""
     if not isinstance(expected_result_version, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_result_version):
@@ -460,10 +462,10 @@ def save_native(run_id: str, item_id: str, *, values: dict[str, str | None], nat
                      if key in effective and effective[key] == value
                      and previous["native_sources"].get(key) == native_sources.get(key)}
         confirmed.update({key: effective[key] for key in confirmed_now})
-        c.execute("INSERT INTO run_item_corrections(run_id,item_id,revision,fields,actor,note,created_at,"
-                  "native_sources,result_version,confirmed) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        c.execute("INSERT INTO run_item_corrections(run_id,item_id,revision,fields,actor,actor_id,note,created_at,"
+                  "native_sources,result_version,confirmed) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                   (run_id, item_id, expected_revision + 1, json.dumps(values, ensure_ascii=False, sort_keys=True),
-                   actor, note, datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                   identity.name_of(actor), identity.id_of(actor), note, datetime.now(timezone.utc).isoformat(timespec="seconds"),
                    json.dumps(native_sources, ensure_ascii=False, sort_keys=True), publication.result_version,
                    json.dumps(confirmed, ensure_ascii=False, sort_keys=True)))
     # Native confirmations are value decisions, not a resolution of reading gaps or unsupported claims.
@@ -521,7 +523,7 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
             **{part.name: part.build(item_id, reasons["run"] + reasons["earlier"]) for part in item_kinds.record_parts()}}
 
 
-def insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected_revision: int, actor: str, note: str | None,
+def insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected_revision: int, actor: identity.Who, note: str | None,
                     sources: dict[str, list[int]] | None, confirmed: dict[str, Any] | None = None) -> None:
     """A new correction version, checked against the run's approval and the version the person saw, in one writing
     transaction. 185: public, an item kind's own correction writes through it (`item_kinds.ItemHandler`)."""
@@ -537,15 +539,16 @@ def insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected_
         if cur != expected_revision:
             raise explained(work.RevisionConflict, "correction of {{item_id_12}} is at revision {{cur}}, not {{expected_revision}}",
                             item_id_12=item_id[:12], cur=cur, expected_revision=expected_revision)
-        c.execute("INSERT INTO run_item_corrections(run_id, item_id, revision, fields, actor, note, created_at, sources, confirmed)"
-                  " VALUES (?,?,?,?,?,?,?,?,?)",
-                  (run_id, item_id, cur + 1, json.dumps(fields, ensure_ascii=False, sort_keys=True), actor, note,
+        c.execute("INSERT INTO run_item_corrections(run_id, item_id, revision, fields, actor, actor_id, note, created_at, sources,"
+                  " confirmed) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                  (run_id, item_id, cur + 1, json.dumps(fields, ensure_ascii=False, sort_keys=True), identity.name_of(actor),
+                   identity.id_of(actor), note,
                    datetime.now(timezone.utc).isoformat(timespec="seconds"), json.dumps(sources, sort_keys=True) if sources else None,
                    json.dumps(confirmed, ensure_ascii=False, sort_keys=True) if confirmed else None))
 
 
 @store.one_connection
-def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision: int, actor: str,
+def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision: int, actor: identity.Who,
          note: str | None = None, sources: dict[str, list[int]] | None = None, confirm: list[str] | None = None) -> dict[str, Any]:
     """Saves a new correction version. `fields` is the complete correction set (anything left out reverts to the machine
     value). `sources`: the words selected on the image per field (045); only for corrected fields, and only words of the

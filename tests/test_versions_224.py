@@ -32,7 +32,8 @@ def c():
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
     conn.execute("CREATE TABLE things (id INTEGER PRIMARY KEY, thing TEXT, name TEXT, version INTEGER, state TEXT,"
-                 " activated_by TEXT, activated_at TEXT, retired_by TEXT, retired_at TEXT)")
+                 " activated_by TEXT, activated_by_id TEXT, activated_at TEXT, retired_by TEXT, retired_by_id TEXT,"
+                 " retired_at TEXT)")
     for thing, n in (("a", 1), ("a", 2), ("a", 3), ("b", 1)):
         conn.execute("INSERT INTO things(thing, name, version, state) VALUES (?,?,?,?)", (thing, thing.upper(), n, "draft"))
     yield conn
@@ -46,6 +47,7 @@ def _states(c, thing: str) -> list[str]:
 def test_activating_supersedes_the_active_one_and_brings_a_retired_one_back(c):
     TABLE.activate(c, "a", 1, actor="anna")
     assert _states(c, "a") == ["active", "draft", "draft"] and TABLE.active(c, "a")["activated_by"] == "anna"
+    assert TABLE.active(c, "a")["activated_by_id"] == "local:anna"  # 229 (SZ2c): the stable id beside the name
     TABLE.activate(c, "a", 2, actor="bela")
     assert _states(c, "a") == ["superseded", "active", "draft"]
     assert TABLE.retire(c, "a", actor="anna") == 2

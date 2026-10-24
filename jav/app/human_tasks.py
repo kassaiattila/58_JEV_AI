@@ -63,9 +63,9 @@ def assignee_for(c: sqlite3.Connection, wp_id: str | None, creator: str | None) 
     from jav.app import app_settings  # lazy: app_settings imports the work package module
 
     if wp_id is not None:
-        row = c.execute("SELECT owner FROM workpackages WHERE id=?", (wp_id,)).fetchone()
+        row = c.execute("SELECT owner, owner_id FROM workpackages WHERE id=?", (wp_id,)).fetchone()
         if row is not None and row["owner"] and row["owner"].strip():
-            return actors.person(row["owner"]).id
+            return row["owner_id"] or actors.person(row["owner"]).id  # 229 (SZ2c): the owner's stable id
     if not creator or not creator.strip():
         return None
     # on the caller's connection, inside its write transaction (another connection would wait for its lock); a store
@@ -75,9 +75,12 @@ def assignee_for(c: sqlite3.Connection, wp_id: str | None, creator: str | None) 
     return actors.person(name).id if name else None
 
 
-def person(name: str | None) -> actors.Actor:
-    """Who acts on a task: the named person, or the machine when no name came with the change."""
-    return actors.person(name) if name and name.strip() else MACHINE
+def person(actor: actors.Who | None) -> actors.Actor:
+    """Who acts on a task: the actor the change came with (229: as the shared entrance knows it; a name is the local
+    person of that name), or the machine when no name came with the change."""
+    if isinstance(actor, actors.Actor):
+        return actor
+    return actors.person(actor) if actor and actor.strip() else MACHINE
 
 
 # --- a live run's approval ----------------------------------------------------------------------------------------------
@@ -114,12 +117,12 @@ def _settle(c: sqlite3.Connection, run_id: str, actor: actors.Actor, *, approved
                  actor)
 
 
-def run_approved(c: sqlite3.Connection, run_id: str, actor: str, outcome: dict[str, Any]) -> None:
+def run_approved(c: sqlite3.Connection, run_id: str, actor: actors.Who, outcome: dict[str, Any]) -> None:
     """The run was approved, in the approval's transaction: its task is decided by the approver."""
     _settle(c, run_id, person(actor), approved=outcome)
 
 
-def run_withdrawn(c: sqlite3.Connection, run_id: str, actor: str | None, note: str) -> None:
+def run_withdrawn(c: sqlite3.Connection, run_id: str, actor: actors.Who | None, note: str) -> None:
     """The run no longer waits for an approval (superseded, stopped), in that change's transaction."""
     _settle(c, run_id, person(actor), approved=None, note=note)
 
@@ -143,7 +146,7 @@ def _open_review(c: sqlite3.Connection, item: sqlite3.Row, by: actors.Actor) -> 
                                  "run": store.run_of(item["run_id"]), "origin": origin})
 
 
-def review_item_changed(c: sqlite3.Connection, review_id: int, change: str, actor: str | None) -> None:
+def review_item_changed(c: sqlite3.Connection, review_id: int, change: str, actor: actors.Who | None) -> None:
     """The store's hook, in the transaction of the change. An item raised and still open: its task opens, or (open)
     goes to whom the rule names for the run that raised it now. An item closed: its task is decided when a person
     resolved its last reason (the outcome lists the reasons people resolved), withdrawn otherwise."""
@@ -163,7 +166,7 @@ def review_item_changed(c: sqlite3.Connection, review_id: int, change: str, acto
         return
     if task is None or task.status != tasks.OPEN:
         return
-    if item["status"] == "resolved" and actor and actor.strip():
+    if item["status"] == "resolved" and person(actor) != MACHINE:
         resolved = [r["id"] for r in c.execute("SELECT id FROM review_reasons WHERE review_id=? AND status='resolved'"
                                                " ORDER BY id", (review_id,))]
         tasks.decide_in(c, tid, person(actor), outcome={"resolved": resolved})
@@ -192,7 +195,7 @@ def package_made(c: sqlite3.Connection, wp_id: str, kind: str) -> None:
         own_approval_waits(c, wp_id)
 
 
-def own_approved(c: sqlite3.Connection, wp_id: str, actor: str, *, version: int, fingerprint: str) -> None:
+def own_approved(c: sqlite3.Connection, wp_id: str, actor: actors.Who, *, version: int, fingerprint: str) -> None:
     """The package's own version `version` was approved, in that transaction: its task is decided by the approver on
     what they approved, and its workflow step hears of it."""
     tid = tasks.task_id(OWN_APPROVAL, wp_id)
@@ -203,7 +206,7 @@ def own_approved(c: sqlite3.Connection, wp_id: str, actor: str, *, version: int,
     _settled(c, wp_id, tid, task.round, tasks.DECIDED, person(actor))
 
 
-def package_deleted(c: sqlite3.Connection, wp_id: str, actor: str) -> None:
+def package_deleted(c: sqlite3.Connection, wp_id: str, actor: actors.Who) -> None:
     """The package was deleted, in that transaction: nothing waits for its own approval any more."""
     tid = tasks.task_id(OWN_APPROVAL, wp_id)
     if (task := tasks.task_in(c, tid)) is not None and task.status == tasks.OPEN:

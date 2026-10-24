@@ -79,7 +79,7 @@ from jav.app import (
     app_settings, human_tasks, logic_packs, package_release, package_scope, parties, scopes, work, work_readiness,
     work_recipes, work_runs, workflow_cases, workflow_steps,
 )
-from jav.core import activity_kinds, cfg, store, trace
+from jav.core import activity_kinds, cfg, identity, store, trace
 from jav.core.process import cases as process_cases
 from jav.core.process import engine as process_engine
 from jav.core.process import kinds as process_kinds
@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS workflows (
     auto          INTEGER NOT NULL DEFAULT 1,   -- the chain starts the next step by itself
     status        TEXT NOT NULL DEFAULT 'open', -- open | archived
     actor         TEXT NOT NULL,       -- who made it: the owner of its packages
+    actor_id      TEXT,                -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
     created_at    TEXT NOT NULL,
     updated_at    TEXT NOT NULL,
     previous_id   TEXT,                -- 147: the workflow this one repeats for the next period
@@ -143,6 +144,7 @@ CREATE TABLE IF NOT EXISTS workflow_events (
     step        TEXT,
     action      TEXT NOT NULL,
     actor       TEXT NOT NULL,
+    actor_id    TEXT,
     detail      TEXT,
     created_at  TEXT NOT NULL
 );
@@ -186,6 +188,8 @@ def _general_scope(conn) -> None:
 def _migrate(conn) -> None:
     store.add_columns(conn, "workflows", {"previous_id": "TEXT"})  # 147: a workflow repeated for the next period
     _general_scope(conn)  # a missing table has no required party, so nothing is rebuilt
+    store.add_actor_ids(conn, "workflows", ("actor",))  # 229 (SZ2c): after the rebuild, which keeps the names
+    store.add_actor_ids(conn, "workflow_events", ("actor",))
     store.add_columns(conn, "workflow_steps", {"engine": "TEXT"})  # 160-D: a step's own AI engine
 
 
@@ -238,6 +242,11 @@ def register() -> None:
 
 class WorkflowError(ValueError):
     """A workflow request that cannot be met: an unknown template, step or source, or a step in the wrong state."""
+
+
+def _maker(wf: dict[str, Any]) -> identity.Actor:
+    """229 (SZ2c): who made the workflow, by the name and id it recorded (the owner of its steps' packages)."""
+    return identity.recorded(wf["actor"], wf.get("actor_id"))
 
 
 def auto_actor(actor: str) -> str:
@@ -372,7 +381,7 @@ def _check_package(kind: str, wp_id: str) -> None:
 
 @store.one_connection
 def create(*, template_id: str, party_id: str | None, period_start: Any, period_end: Any,
-           steps: dict[str, dict[str, Any]], actor: str, name: str | None = None, names: dict[str, str] | None = None,
+           steps: dict[str, dict[str, Any]], actor: identity.Who, name: str | None = None, names: dict[str, str] | None = None,
            auto: bool = True, advance_now: bool = True, previous: str | None = None) -> dict[str, Any]:
     """A new workflow of a template of several steps: every step needs its source (`steps[step]["source"]`) and may
     have a budget (`steps[step]["budget"]`, {provider: usd}); `names` are the steps' package names (the interface
@@ -407,9 +416,10 @@ def create(*, template_id: str, party_id: str | None, period_start: Any, period_
         store.begin_immediate(c)
         other = {k: v for k, v in scope.items() if k not in (scopes.PARTY, scopes.PERIOD)}  # 181: a further part
         c.execute("INSERT INTO workflows(id, template, definition, name, party_id, period_start, period_end, auto, actor,"
-                  " created_at, updated_at, previous_id, scope) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                  " actor_id, created_at, updated_at, previous_id, scope) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                   (wf_id, t["id"], json.dumps(t, ensure_ascii=False), title[:200], scope.get(scopes.PARTY), start, end,
-                   int(auto), actor, now, now, previous, json.dumps(other, ensure_ascii=False)))
+                   int(auto), identity.name_of(actor), identity.id_of(actor), now, now, previous,
+                   json.dumps(other, ensure_ascii=False)))
         for sid, source, budget, step_name, engine in rows:
             c.execute("INSERT INTO workflow_steps(workflow_id, step, source, budget, name, workpackage_id, updated_at,"
                       " engine) VALUES (?,?,?,?,?,?,?,?)",
@@ -425,10 +435,12 @@ def create(*, template_id: str, party_id: str | None, period_start: Any, period_
     return view(wf_id)
 
 
-def _event(c, wf_id: str, step: str | None, action: str, actor: str, detail: dict[str, Any] | None = None) -> None:
+def _event(c, wf_id: str, step: str | None, action: str, actor: identity.Who,
+           detail: dict[str, Any] | None = None) -> None:
     activity_kinds.check_event("workflow", action)
-    c.execute("INSERT INTO workflow_events(workflow_id, step, action, actor, detail, created_at) VALUES (?,?,?,?,?,?)",
-              (wf_id, step, action, actor, json.dumps(detail or {}, ensure_ascii=False, default=str), _now()))
+    c.execute("INSERT INTO workflow_events(workflow_id, step, action, actor, actor_id, detail, created_at)"
+              " VALUES (?,?,?,?,?,?,?)", (wf_id, step, action, identity.name_of(actor), identity.id_of(actor),
+                                          json.dumps(detail or {}, ensure_ascii=False, default=str), _now()))
 
 
 # --- reading ------------------------------------------------------------------------------------------------------------
@@ -483,7 +495,7 @@ def _set(wf_id: str, step: str, *, expect: tuple[str, ...] | None = None, **fiel
         return _update_step(c, wf_id, step, expect=expect, **fields)
 
 
-def _set_logged(wf_id: str, step: str, action: str, actor: str, detail: dict[str, Any] | None, *,
+def _set_logged(wf_id: str, step: str, action: str, actor: identity.Who, detail: dict[str, Any] | None, *,
                 expect: tuple[str, ...] | None = None, **fields: Any) -> bool:
     """213 (plan G-process-core P1b-1, rule 4 of plan 212 P0): a step's change and its event in one transaction; with
     `expect` neither is written when another process got there first. Before, the event was a second transaction, so a
@@ -798,7 +810,7 @@ def repeat_draft(wf_id: str) -> dict[str, Any]:
 
 
 @store.one_connection
-def advance(wf_id: str, *, actor: str) -> dict[str, Any]:
+def advance(wf_id: str, *, actor: identity.Who) -> dict[str, Any]:
     """Moves the chain on: one turn of the workflow's case on the process core (214), woken, so a finished mailbox
     download or an approved package is seen at once. A finished download gets its package and run; a step whose steps it
     waits for are done starts (only while the workflow's chain is automatic; otherwise it waits for a person). A case
@@ -811,7 +823,7 @@ def advance(wf_id: str, *, actor: str) -> dict[str, Any]:
     return view(wf_id)
 
 
-def start_step(wf_id: str, step: str, *, actor: str, budget: dict[str, Any] | None = None) -> dict[str, Any]:
+def start_step(wf_id: str, step: str, *, actor: identity.Who, budget: dict[str, Any] | None = None) -> dict[str, Any]:
     """A person starts a step now (whatever the steps it waits for), retries a failed one, or starts one that waits for
     a budget; a `budget` given here replaces the step's budget (the person's own decision, recorded). 214: the person's
     start reaches the case in the same transaction (`workflow_cases.person_starts`: the order overridden and recorded,
@@ -837,7 +849,7 @@ def start_step(wf_id: str, step: str, *, actor: str, budget: dict[str, Any] | No
     return view(wf_id)
 
 
-def link(wf_id: str, step: str, wp_id: str, *, actor: str) -> dict[str, Any]:
+def link(wf_id: str, step: str, wp_id: str, *, actor: identity.Who) -> dict[str, Any]:
     """A person makes an existing work package the step's package (the chain starts no run on it). 214: the step then
     waits for the package's approval in the case, whatever its order (`workflow_cases.person_links`)."""
     wf = _row(wf_id)
@@ -857,7 +869,7 @@ def link(wf_id: str, step: str, wp_id: str, *, actor: str) -> dict[str, Any]:
     return view(wf_id)
 
 
-def update(wf_id: str, *, actor: str, auto: bool | None = None, name: str | None = None,
+def update(wf_id: str, *, actor: identity.Who, auto: bool | None = None, name: str | None = None,
            archived: bool | None = None) -> dict[str, Any]:
     """Switches the automatic chain, renames, archives or restores a workflow (its packages stay as they are). 214: its
     case is held while it is archived, and the steps waiting for a person go on when the chain is switched on."""
@@ -884,13 +896,13 @@ def update(wf_id: str, *, actor: str, auto: bool | None = None, name: str | None
     return view(wf_id)
 
 
-def _done(wf: dict[str, Any], step: str, actor: str, action: str, **fields: Any) -> None:
+def _done(wf: dict[str, Any], step: str, actor: identity.Who, action: str, **fields: Any) -> None:
     """A step's outcome and its event, in one transaction (213, `_set_logged`)."""
     _set_logged(wf["id"], step, action, actor,
                 {k: v for k, v in fields.items() if k in ("workpackage_id", "run_id", "pull_id", "note")}, **fields)
 
 
-def _start(wf: dict[str, Any], sdef: dict[str, Any], *, actor: str, states: tuple[str, ...] = ("waiting",)) -> None:
+def _start(wf: dict[str, Any], sdef: dict[str, Any], *, actor: identity.Who, states: tuple[str, ...] = ("waiting",)) -> None:
     """Makes the step's package (or queues its mailbox download) and starts its run; a failure stays on the step. 160
     (review R-2): the package is noted on the step as soon as it exists, so a start interrupted later (before or after
     the run was made) is started again with that package (`start_step`), never with a second one."""
@@ -923,7 +935,7 @@ def _documents(source: dict[str, Any]) -> tuple[list[Path], list[Path]]:
     return work.unprocessed(files) if source.get("only_new") else (files, [])
 
 
-def _context(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor: str) -> workflow_steps.StepStart:
+def _context(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor: identity.Who) -> workflow_steps.StepStart:
     """181: the workflow's shared operations for a step kind's start or fetch check, each recording its event."""
     wf_id, step = wf["id"], sdef["id"]
 
@@ -947,7 +959,7 @@ def _context(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor
         event=event)
 
 
-def _poll(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor: str) -> None:
+def _poll(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor: identity.Who) -> None:
     """A step whose source is being fetched (a mailbox download) goes on once the fetch has finished (181: the kind's
     own check)."""
     kind = workflow_steps.of(sdef["kind"])
@@ -962,11 +974,11 @@ def _start_documents(ctx: workflow_steps.StepStart) -> None:
     files, left_out = _documents(source)
     wp = None
     if files and source["kind"] == "folder":
-        wp = work.create_from_folder(Path(source["folder"]), name=ctx.state["name"], owner=wf["actor"],
+        wp = work.create_from_folder(Path(source["folder"]), name=ctx.state["name"], owner=_maker(wf),
                                      recursive=source["recursive"], exclude=_exclude(source),
                                      only=files if left_out else None)
     elif files:
-        wp = work.create_from_files(files, name=ctx.state["name"], owner=wf["actor"])
+        wp = work.create_from_files(files, name=ctx.state["name"], owner=_maker(wf))
     if wp is None or not work.get(wp["id"])["items"]:
         if wp is not None:
             work.delete_workpackage(wp["id"], actor=ctx.actor)
@@ -983,7 +995,7 @@ DOCUMENTS_STEP = workflow_steps.StepKind(DOCUMENTS, __name__, DOCUMENT_PACKAGES,
                                          subfolders=True, repeat_from=_repeat_from_folder)
 
 
-def _give_engine(wp_id: str, engine: str | None, *, actor: str) -> None:
+def _give_engine(wp_id: str, engine: str | None, *, actor: identity.Who) -> None:
     """160-D: the step's own engine on its package (keeping the package's other settings), before the readiness check
     sizes the run's budget. Without one the package keeps the engine it got: the application's when it was made, or
     when the run starts for a package without saved settings."""
@@ -1018,7 +1030,7 @@ def _gate_keys(wp_id: str) -> dict[str, tuple[str, ...]]:
     return {"recipes.json": (f"recipes[{rid}].max_item_usd", f"recipes[{rid}].max_item_usd_by_kind")}
 
 
-def _start_run(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], wp_id: str, *, actor: str) -> None:
+def _start_run(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], wp_id: str, *, actor: identity.Who) -> None:
     """The package's live run, when its own estimate fits the step's budget; otherwise the step waits for a person.
     218 (P3b): the gate's decision is traced in the transaction that records it on the step."""
     step = sdef["id"]
@@ -1118,11 +1130,11 @@ def tick(now: float | None = None) -> int:
 
 # who a turn acts for in the workflow's log and its runs: the caller of the turn (a person's start, the worker's turn as
 # the maker's automatic one); a turn of the core's own due cases acts as the maker, marked automatic
-_turn_actor: ContextVar[str | None] = ContextVar("workflow_turn_actor", default=None)
+_turn_actor: ContextVar[identity.Who | None] = ContextVar("workflow_turn_actor", default=None)
 _ROUNDS = 6  # a start moves a step to its next state in a round or two; a step still moving after these does not settle
 
 
-def _turn(wf_id: str, actor: str | None, *, wake: bool = True) -> bool:
+def _turn(wf_id: str, actor: identity.Who | None, *, wake: bool = True) -> bool:
     """One turn of the workflow's case under its claim (`process_engine.turn`); False when another process or thread
     holds it (that one moves it on)."""
     token = _turn_actor.set(actor)
@@ -1138,7 +1150,7 @@ def _check() -> tuple[str, float]:
     return workflow_cases.CHECK, time.time() + TICK_EVERY_S
 
 
-def _person_start(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor: str) -> None:
+def _person_start(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor: identity.Who) -> None:
     """A person's start: a step with a package that waits for a budget or failed starts its package's run (within the
     budget, which the person may have raised); any other is started from its source again."""
     if st.get("workpackage_id") and st["phase"] in ("needs_budget", "failed"):
@@ -1177,7 +1189,7 @@ def _case_step(ctx: process_engine.StepContext) -> process_kinds.StepOutcome:
 
 
 def _drive(ctx: process_engine.StepContext, wf: dict[str, Any], sdef: dict[str, Any], go: str | None,
-           actor: str) -> process_kinds.StepOutcome:
+           actor: identity.Who) -> process_kinds.StepOutcome:
     """`_case_step`'s rounds: until the step is done, waits or failed."""
     polled = False
     for _ in range(_ROUNDS):
