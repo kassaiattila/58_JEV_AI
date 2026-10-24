@@ -1034,3 +1034,12 @@ has an unknown outcome). The interface: a "Cases" entry in the side rail (`#/cas
 handovers to check above the cases while there are some), and the general elements (`ui/src/elements/CaseElements.tsx`,
 their status lines in `caseStatus.ts`). Tests: `tests/test_case_send_231.py`, `tests/test_quote_case_231.py`,
 `ui/src/views/case231e.test.tsx`.
+
+**The send's Outlook ways (231, plan stage A, A8).** The email domain registers the senders of the `outlook_draft` and
+`outlook_send` modes (`jav/domains/email/outlook_drafts.py`): the recorded email file is unpacked into a temporary
+folder (its attachments by name only) and handed to `scripts/outlook_draft.ps1`, which puts it into the desktop
+Outlook already running as a draft in the Drafts folder, or with `-Send` sends it (the sender asks for that only on the
+real send's mode and checks the allowlist again). Outlook not running: nothing is written, exit code 3, the handover is
+refused. A script that stopped midway or did not answer in 90 s leaves the outcome unknown, and a person checks the
+Drafts folder. The mailbox download (`outlook_bridge.ps1`, `mail_bridge_call.ps1`) stays read-only, which a test checks
+in their text. Tests: `tests/test_outlook_draft_231.py`.

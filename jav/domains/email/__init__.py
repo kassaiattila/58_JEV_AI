@@ -100,6 +100,10 @@ def register() -> None:
     item_kinds.register_rule(item_kinds.ItemRule(kind=item_kinds.EMAIL, name="suspicious_email_source", module=__name__,
                                                  after_item=mailbox.mark_suspicious_source))
     item_kinds.register_page("mailbox", __name__, mailbox_page)
+    # 231 (A8): the send capability's Outlook ways (a draft in the person's Outlook; the real send, allowlist only)
+    from jav.domains.email import outlook_drafts
+
+    outlook_drafts.register()
     # 192 (B6c): an email's table attachments, each one extraction of a quote request's part, in the run's budget
     item_kinds.register_item_extra(item_kinds.ItemExtra(kind=item_kinds.EMAIL, extra="email_table", plan_key="text_tables",
                                                         module=__name__, count=mailbox.table_attachments))

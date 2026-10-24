@@ -128,6 +128,7 @@ def test_the_real_send_reaches_only_the_allowlist(senders, monkeypatch) -> None:
 
 
 def test_a_mode_without_its_sender_or_an_unknown_message_fails_the_step(senders) -> None:
+    sending._SENDERS.pop(sending.OUTLOOK_DRAFT)  # a version without the Outlook ways (the email domain registers them)
     assert _state(_case("case-send-6", mode="outlook_draft"))["steps"]["send"]["note"] == \
         "the outlook_draft mode is not available in this version"
     refused = _state(_case("case-send-7", message="nothing"))["steps"]["send"]["note"]
