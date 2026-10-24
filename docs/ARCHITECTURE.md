@@ -948,4 +948,4 @@ work run spends from its own budget scope per case, step and round (`step_budget
 business work through the call log, not as a measurement. Before the process core calls a step kind unknown
 (`kinds.unknown`), it makes the application's registrations (`jav.core.completion`), since the capabilities register
 there. Today's process-specific parts are a frozen list that may only shrink (`tests/test_process_strictness_231.py`).
-Tests: `tests/test_capabilities_231.py`.
+The first six are the quote's back half, described but not yet runnable as a pack's step (231 A3c, `jav/domains/quotes/capabilities.py`): `record_assembly`, `catalogue_match`, `line_pricing`, `line_draft`, `priced_document`, `letter_draft`; their fixed values became parameters with today's values as the defaults (A3b: the request's type and list field, `price_lists.chosen`, the output, the letter frame). Tests: `tests/test_capabilities_231.py`.

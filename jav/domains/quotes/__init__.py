@@ -9,6 +9,7 @@ is configuration and needs no registration. What the domain adds to the shared c
   new work wizard (`jav/app/workflow_steps.py`);
 - (B4c) the worker's job that makes a quote's proposal (`jav/domains/quotes/quote_proposal.py`, `jav/runtime/job_kinds.py`);
 - (192, B6a) the quote request under its email in a mailbox package (`jav/app/item_kinds.py` item part);
+- (231, A3c) the back half's six general capabilities, described (`jav/domains/quotes/capabilities.py`);
 - (196) the approved quote's Word document: its built-in template and its labels for a template's markers
   (`jav/domains/quotes/quote_document.py`, `jav/app/outputs/builtin.py`, `jav/app/outputs/parts.py`); the worker's job that asks GPT for the
   reply letter's paragraph (`jav/domains/quotes/quote_letter.py`).
@@ -37,7 +38,7 @@ GOLDENS = ("jav.domains.quotes.goldens",)
 def register() -> None:
     """Every registration of the quotes domain (`registrations.load_all`): the quote package and its kind of work."""
     from jav.app import item_kinds, logic_packs, workflow_steps
-    from jav.domains.quotes import quote_document, quote_letter, quote_package, quote_proposal
+    from jav.domains.quotes import capabilities, quote_document, quote_letter, quote_package, quote_proposal
     from jav.app.outputs import builtin, parts
     from jav.runtime import job_kinds
 
@@ -49,6 +50,7 @@ def register() -> None:
     builtin.register_word(quote_document.OUTPUT, quote_document.builtin_template)  # 196: the quote's Word document
     parts.register_output_labels(parts.OutputLabels(quote_document.OUTPUT, __name__, quote_document.sample_heads,
                                                     quote_document.sample_values))
+    capabilities.register()  # 231 (A3c): the back half's general capabilities, described
 
 
 __all__ = ["register"]

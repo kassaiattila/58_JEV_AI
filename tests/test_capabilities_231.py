@@ -126,3 +126,12 @@ def test_every_registered_capability_fits_the_rules() -> None:
         assert not cap.invocable or kinds.known(cap.step_kind), cap.key
         if cap.providers:
             assert cap.rule_files, f"{cap.key}: a paid capability names the rule files it reads"
+
+
+def test_the_quotes_back_half_is_six_described_general_capabilities() -> None:
+    registrations.load_all()
+    keys = {c.key: c for c in capabilities.catalogue() if c.module == "jav.domains.quotes.capabilities"}
+    assert set(keys) == {"record_assembly@1", "catalogue_match@1", "line_pricing@1", "line_draft@1", "priced_document@1",
+                         "letter_draft@1"}
+    assert not any(c.invocable for c in keys.values())  # they run as the quote package's parts until A5
+    assert keys["catalogue_match@1"].providers == ("jev", "openai") and keys["letter_draft@1"].providers == ("openai",)
