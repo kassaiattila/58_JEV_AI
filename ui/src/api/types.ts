@@ -26,7 +26,7 @@ export interface WorkpackageRow {
 /** 154: a package as stored, without its to-dos and next step (the workflow pickers need the name and the kind). */
 export type WorkpackageBrief = Omit<WorkpackageRow, "open_reasons">;
 /** 057: the package's next step (the service computes it in one place; both the list and the header button show it). */
-export interface NextStep { code: string; label: string; stage: "process" | "review" | "result"; params?: Record<string, number> }
+export interface NextStep { code: string; label: string; stage: string; params?: Record<string, number> }  // 231: a tab's id
 export interface RunRow {
   run_id: string; workpackage_id: string; workpackage_name: string; recipe_id: string; recipe_version: number; mode: "shadow" | "apply";
   status: string; approval: string | null; approved_by: string | null; actor: string; created_at: string; finished_at: string | null;

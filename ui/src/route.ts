@@ -6,7 +6,9 @@
 // (process), Review (review), Result (result). The old addresses (items, to-dos, workflow, reports, data, mailbox,
 // run list) lead to their new place, so bookmarks are not lost.
 
-export type Stage = "process" | "review" | "result";
+/** 231 (plan stage A, A1): a page's tab is named by its id; a work package has the three below, a case the tabs its
+ *  process pack describes, so the number of tabs is not fixed in the code. */
+export type Stage = string;
 export type SettingsSection = "mailboxes" | "folders" | "parties" | "recipes" | "rules" | "outputs" | "prices" | "users" | "appearance" | "language" | "system";
 export type ResultTable = "emails" | "tasks" | "documents" | "datapoints" | "line_items" | "utility" | "file_names" | "native_facts";
 
@@ -29,6 +31,7 @@ export type Route =
    *  from the run) */
   | { view: "legacy-result"; runId?: string; table?: ResultTable };
 
+/** A work package's three sections (057). */
 export const STAGES: Stage[] = ["process", "review", "result"];
 export const SECTIONS: SettingsSection[] = ["mailboxes", "folders", "parties", "recipes", "rules", "outputs", "prices", "users", "appearance", "language", "system"];
 export const RESULT_TABLES: ResultTable[] = ["emails", "tasks", "documents", "datapoints", "line_items", "utility", "file_names", "native_facts"];
