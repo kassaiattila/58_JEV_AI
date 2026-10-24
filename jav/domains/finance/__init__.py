@@ -69,11 +69,11 @@ def own_tax_check(subject: checks.Subject) -> list[str] | checks.Traced:
     swapped, or it is an outgoing invoice."""
     if subject.record is None or not type_roles.has(subject.doc_type, "own_tax_check"):
         return []
-    from jav.app import parties
+    from jav.domains.finance import own_parties
     from jav.ai import typepack
 
     values = subject.record.to_datapoints(typepack.get(subject.doc_type).record_fields)  # the stored form
-    return parties.traced(subject.doc_type, values) or []  # 218: with its decision's trace
+    return own_parties.traced(subject.doc_type, values) or []  # 218: with its decision's trace
 
 
 def statement_overlap_check(subject: checks.Subject) -> list[str]:
@@ -128,10 +128,10 @@ def own_tax_scan(*, write: bool = False) -> dict[str, Any]:
 
 
 def direction_check(state: Any) -> None:
-    """149 (185: the saved stage): the own parties' direction settles an uncertain detailed type (`jav/app/parties.py`)."""
-    from jav.app import parties
+    """149 (185: the saved stage): the own parties' direction settles an uncertain detailed type (`jav/domains/finance/own_parties.py`)."""
+    from jav.domains.finance import own_parties
 
-    parties.confirm_detail_by_direction(state)
+    own_parties.confirm_detail_by_direction(state)
 
 
 CHECKS = (
@@ -182,9 +182,10 @@ def _day(raw: Any) -> str | None:
 
 def place_document(doc_type: str | None, values: dict[str, Any], cache: dict[str, Any]) -> Any:
     """181: where a document belongs for the email routing (`package_scope.place`): a bank statement by its account's
-    own party, on its period's last day; an invoice by its two sides (`parties.direction`: incoming to the buyer,
+    own party, on its period's last day; an invoice by its two sides (`own_parties.direction`: incoming to the buyer,
     outgoing from the supplier), on its fulfilment day, else its issue day. None for another kind of document."""
     from jav.app import package_scope, parties
+    from jav.domains.finance import own_parties
     from jav.core import cfg
     from jav.domains.finance import statement_package
     from jav.ai.models import account_key
@@ -199,7 +200,7 @@ def place_document(doc_type: str | None, values: dict[str, Any], cache: dict[str
                                        None, None if party else "unknown_party")
     if not (type_roles.has(doc_type, "incoming_invoice") or type_roles.has(doc_type, "outgoing_invoice")):
         return None
-    direction, party = parties.direction(res, doc_type, values)
+    direction, party = own_parties.direction(res, doc_type, values)
     role = next((r.name for r in _roles() if r.name != statement_package.ROLE and r.fits(doc_type, direction)), None)
     problem = {"internal": "internal", "not_own": "not_own", "unclear": "unclear_direction"}.get(direction)
     fields = cfg.load("reconcile")["invoice_fields"]
@@ -273,7 +274,8 @@ def _lint_statement_table(mod: Any) -> Any:
 def register() -> None:
     """Every registration of the finance domain, in the order the shared code lists them (`registrations.load_all`)."""
     from jav import flows
-    from jav.app import datasets, logic_packs, package_scope, parties, workflow_steps
+    from jav.app import datasets, logic_packs, package_scope, workflow_steps
+    from jav.domains.finance import own_parties  # its two decision points too
     from jav.domains.finance import duplicates, finance_datasets, reconcile_package, report_utility, statement_package
 
     # 229 (MD1): its bank table flow; importing `duplicates` registers its decision point
@@ -298,11 +300,12 @@ def register() -> None:
     package_scope.register_reader("finance", place_document)
     parts.register_record_mark(parts.RecordMark("duplicate", __name__, duplicates.mark_records))
     parts.register_document_columns(parts.DocumentColumns("duplicate", __name__, DUPLICATE_COLUMNS, duplicates.column_values))
-    parts.register_document_columns(parts.DocumentColumns("direction", __name__, DIRECTION_COLUMNS, parties.direction_values))
+    parts.register_document_columns(parts.DocumentColumns("direction", __name__, DIRECTION_COLUMNS, own_parties.direction_values))
     parts.register_result_part(parts.ResultPart("utility_cost", __name__, report_utility.result_part, "utility_cost",
                                                  report_utility.build, heads=report_utility.HEADS,
                                                  value_labels=report_utility.RESULT_VALUE_LABELS,
                                                  view="utility", shown=report_utility.has_utility))  # 185: its result view
+    parts.register_sample_type("invoice_hu")  # 229 (MD2): a template preview's made-up rows, by default the invoice's
     parts.register_output_labels(parts.OutputLabels("reconcile_statement", __name__, reconcile_statement.sample_heads,
                                                     reconcile_statement.sample_values))  # 185: for a template's preview
     for dataset, after in finance_datasets.DATASETS:  # 185: its tables on the interface

@@ -11,7 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from jav.app import parties
+
+from jav.domains.finance import own_parties
 from jav.ai import checks, validators
 from jav.core import cfg
 from jav.domains.finance import duplicates
@@ -32,7 +33,7 @@ def test_the_stages_and_their_order() -> None:
     assert all(c.reads_store for c in checks.stage("cross_document"))
     scans = checks.stage("after_save")
     assert [(c.name, c.producer, c.opens) for c in scans] == [("duplicate_scan", duplicates.PRODUCER, "duplicate"),
-                                                              ("own_tax_scan", parties.SCAN_PRODUCER, "own_tax")]
+                                                              ("own_tax_scan", own_parties.SCAN_PRODUCER, "own_tax")]
     assert all(checks.get(c.opens).stage == "cross_document" for c in scans)
 
 

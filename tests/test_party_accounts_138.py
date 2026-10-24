@@ -15,6 +15,8 @@ from datetime import date
 import pytest
 
 from jav.app import parties
+
+from jav.domains.finance import own_parties
 from jav.core import store
 from jav.domains.finance import party_views, reconcile, reconcile_package as rp
 from tests import test_api
@@ -80,7 +82,7 @@ def test_wrong_details_are_refused(db, over):
     home = _home()
     with pytest.raises(parties.PartyError):
         party_views.register_account(home, OTHER, **{"kind": "account", "currencies": ["HUF"], **over}, actor="t")
-    assert parties.accounts() == {}
+    assert own_parties.accounts() == {}
 
 
 def test_a_short_number_and_another_partys_account_are_refused_a_dismissed_one_is_taken(db):
@@ -98,11 +100,11 @@ def test_a_short_number_and_another_partys_account_are_refused_a_dismissed_one_i
 def test_the_details_of_an_account_found_on_statements_can_be_set(db):
     p131._stmt("stmt", p131._line())
     _home(("account", OWN_KEY, k2.OWN))
-    parties.set_account(OWN_KEY, kind="card", currencies=["HUF"], bank="Example Bank", actor="t")
+    own_parties.set_account(OWN_KEY, kind="card", currencies=["HUF"], bank="Example Bank", actor="t")
     [acct] = party_views.overview()["parties"][0]["accounts"]
     assert (acct["statements"], acct["registered"]["kind"], acct["currencies"]) == (1, "card", ["HUF"])
     with pytest.raises(KeyError):
-        parties.set_account(OTHER_KEY, kind="account", currencies=["HUF"], actor="t")
+        own_parties.set_account(OTHER_KEY, kind="account", currencies=["HUF"], actor="t")
 
 
 # --- a registered account in a reconciliation package -------------------------------------------------------------------

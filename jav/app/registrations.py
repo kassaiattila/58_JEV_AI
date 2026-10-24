@@ -37,7 +37,7 @@ _loaded = False
 _loading = False
 # 218 (P3b): the shared modules that register decision points on import (the workflows' are imported by `order`; 229: a
 # domain's by its own `register()`)
-DECISION_POINT_MODULES = ("jav.flows.flow_detect", "jav.ai.policy", "jav.documents.ocr", "jav.app.parties")
+DECISION_POINT_MODULES = ("jav.flows.flow_detect", "jav.ai.policy", "jav.documents.ocr")
 # 229 (MD1): the application modules that register log events, sources of the day's work and decision kinds on import;
 # loaded first, so a domain's entry finds the shared one it is placed by (until 229 the activity registry named them)
 ACTIVITY_MODULES = ("jav.app.work", "jav.app.package_release", "jav.app.workflows", "jav.app.activity", "jav.app.corrections")

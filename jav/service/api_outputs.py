@@ -8,8 +8,9 @@
 - `POST /output-templates/{template}/versions/{n}/activate`, `POST /output-templates/{template}/retire`;
 - `GET /output-templates/{template}/versions/{n}/file` and `/preview.xlsx` (filled with made-up data; 196: a Word
   template's `/preview.docx`, each file with its own media type);
-- `GET /workpackages/{id}/output-templates` and `PUT /workpackages/{id}/output-templates/{output}`: the choice;
-- `GET /workpackages/{id}/result/utility-cost.xlsx`: the utility cost of the package's current result.
+- `GET /workpackages/{id}/output-templates` and `PUT /workpackages/{id}/output-templates/{output}`: the choice.
+229 (plan structure stage 1, MD2): a domain's own output's workbook is the domain's address (the utility cost's:
+`jav/domains/finance/api_finance.py`).
 
 Layer: UI/CLI gateway → `jav.app.outputs.templates` (application operation).
 """
@@ -107,11 +108,6 @@ def routes(app: FastAPI, r: str) -> None:
     def choose_output_template(wp_id: WpId, output: OutputName, body: TemplateChoice,
                                who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(templates.choose(wp_id, output, body.template, actor=who, expected_state=body.expected_state))
-
-    @app.get(r + "/workpackages/{wp_id}/result/utility-cost.xlsx")
-    def package_utility_cost_xlsx(wp_id: WpId) -> Response:
-        """178 (DECISIONS 178): the utility cost of the package's current result, with its chosen template."""
-        return _file(*package_release.current_output_workbook(wp_id, "utility_cost"))
 
 
 __all__ = ["routes"]

@@ -34,7 +34,12 @@ from typing import Any, Callable, Literal
 from jav.ai import policy
 from jav.core import values
 from jav.core.config import RUNS_DIR
-from jav.ai.typepack import LEGACY_DOC_TYPE
+
+LEGACY_DOC_TYPE = "invoice_hu"
+"""202: the type of the first reference flow, for old data only. Rows, raw runs and file names saved before the type was
+recorded name no type, and all of them were Hungarian invoices. Never a processing default: the shared code always
+takes the type explicitly. 229 (plan structure stage 1, MD2): the measurement's, which alone reads such rows (until
+then the type pack registry's, `jav/ai/typepack.py`)."""
 
 # score: conf / top_prob read as for a Choice, the label is the level; field (160-D): a GPT field's confidence
 Kind = Literal["choice", "noul", "score", "field"]

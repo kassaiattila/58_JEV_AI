@@ -163,6 +163,23 @@ def register_output_labels(part: OutputLabels) -> None:
     _add(_LABELS, part.output, part)
 
 
+_SAMPLE_TYPES: list[str] = []
+
+
+def register_sample_type(doc_type: str) -> None:
+    """229 (plan structure stage 1, MD2): a domain's document type whose made-up rows a template's preview shows when the
+    template names no type's table of its own (the finance domain's: the Hungarian invoice; until 229 the preview's
+    own default). The first registered is used; the same one again adds nothing."""
+    if doc_type not in _SAMPLE_TYPES:
+        _SAMPLE_TYPES.append(doc_type)
+
+
+def sample_types() -> tuple[str, ...]:
+    """The registered preview type, first registered first (empty: none registered)."""
+    _load()
+    return tuple(_SAMPLE_TYPES[:1])
+
+
 def _load() -> None:
     from jav.app import registrations
 
@@ -210,4 +227,4 @@ def own_output(output: str) -> OwnOutput:
 __all__ = ["Column", "DocumentColumns", "ItemPart", "OutputLabels", "OwnOutput", "RecordMark", "ResultPart", "UnknownOutput",
            "document_columns", "item_parts", "output_labels", "own_output", "own_outputs", "record_marks",
            "register_document_columns", "register_item_part", "register_output_labels", "register_own_output",
-           "register_record_mark", "register_result_part", "result_parts"]
+           "register_record_mark", "register_result_part", "register_sample_type", "result_parts", "sample_types"]

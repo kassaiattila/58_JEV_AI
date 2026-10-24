@@ -50,10 +50,6 @@ CANDIDATE_KIND_OF = {  # field kind -> candidate kind (S path); others: no candi
     "name": "name", "tax_id": "tax_id", "date": "date", "money": "money", "iban": "iban", "invoice_number": "invoice_number", "address": "address",
     "number": "quantity",  # kWh, m3, MJ, meter reading: numbers of unit/meter-labelled rows (candidates.find_quantities)
 }
-LEGACY_DOC_TYPE = "invoice_hu"
-"""202: the type of the first reference flow, for old data only. Rows, raw runs and file names saved before the type was
-recorded name no type, and all of them were Hungarian invoices. Never a processing default: the shared code always
-takes the type explicitly."""
 BASE_PREFIX = "_base/"
 
 
@@ -343,4 +339,4 @@ def reload() -> None:
     _merged_schema.cache_clear()
 
 
-__all__ = ["KINDS", "CANDIDATE_KIND_OF", "LEGACY_DOC_TYPE", "BASE_PREFIX", "INPUTS", "TypePack", "get", "keys", "resolve_arm", "reload"]
+__all__ = ["KINDS", "CANDIDATE_KIND_OF", "BASE_PREFIX", "INPUTS", "TypePack", "get", "keys", "resolve_arm", "reload"]

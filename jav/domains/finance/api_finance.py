@@ -4,7 +4,8 @@ Plain-language summary: the addresses for what the finance domain adds to a work
 - the bank files the system reads, and how (146);
 - a bank's tabular export: its accounts surveyed, a new package of the chosen ones, or more of them added to a package
   (136);
-- the utility cost of a run or of a package's current result (054, 172);
+- the utility cost of a run or of a package's current result (054, 172), and its workbook with the package's chosen
+  template (178; 229, plan structure stage 1, MD2: until then the output layer's address, the same path);
 - a person's decision on a duplicate pair (126) and the choice between two statements of the same days (139).
 They moved here from `jav/service/api.py` as they were: the same paths, request models and answers. The finance domain names
 this module (`jav/domains/finance/__init__.py` `SERVICE`), and `jav.service.api.create_app` adds it. The reconciliation's and the
@@ -19,12 +20,14 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI
+from fastapi.responses import Response
 from pydantic import Field
 
 from jav.core import identity
-from jav.app import corrections, datasets, work, work_runs, work_views
+from jav.app import corrections, datasets, package_release, work, work_runs, work_views
 from jav.domains.finance import bank_files, duplicates, report_utility, statement_months, statement_package
-from jav.service.service_shared import DecisionState, In, ItemId, RunId, Text, WpId, checked_path, human_actor
+from jav.service.service_shared import (DecisionState, In, ItemId, RunId, Text, WpId, attachment_header, checked_path,
+                                        human_actor)
 
 
 class StatementTableFile(In):
@@ -93,6 +96,13 @@ def routes(app: FastAPI, r: str) -> None:
         work.get(wp_id)
         return work_views.jsonable({"workpackage_id": wp_id,
                                     **report_utility.build(datasets.result_records({"workpackage_id": wp_id}))})
+
+    @app.get(r + "/workpackages/{wp_id}/result/utility-cost.xlsx")
+    def package_utility_cost_xlsx(wp_id: WpId) -> Response:
+        """178 (DECISIONS 178): the utility cost of the package's current result, with its chosen template."""
+        content, name = package_release.current_output_workbook(wp_id, "utility_cost")
+        return Response(content, media_type=package_release.XLSX, headers={
+            "Content-Disposition": attachment_header(name), "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
 
     @app.get(r + "/runs/{run_id}/reports/utility-cost")
     def utility_cost(run_id: RunId) -> dict[str, Any]:

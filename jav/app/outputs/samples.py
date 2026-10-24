@@ -18,7 +18,6 @@ from jav.ai import typepack
 from jav.core import cfg, field_names
 from jav.app.outputs import contract, markers as marker_names, parts
 
-DEFAULT_PART = "invoice_hu"
 SAMPLE_MONTHS = ("2026-01", "2026-02", "2026-03")
 
 
@@ -125,8 +124,16 @@ def _sample(kind: str, label: str, i: int) -> Any:
     return f"{label} {i + 1}"
 
 
-def data(output: str, parts: tuple[str, ...] = (DEFAULT_PART,)) -> contract.OutputData:
-    """Made-up data of every value and table of the output (the tables per document type for `parts`)."""
+def default_parts() -> tuple[str, ...]:
+    """229 (MD2): the type whose made-up rows a preview shows by default: the one a domain registers
+    (`parts.register_sample_type`), else the first type pack."""
+    return parts.sample_types() or tuple(typepack.keys()[:1])
+
+
+def data(output: str, parts: tuple[str, ...] | None = None) -> contract.OutputData:
+    """Made-up data of every value and table of the output (the tables per document type for `parts`; None: the
+    default type, `default_parts`)."""
+    parts = default_parts() if parts is None else parts
     spec, names = contract.spec(output), labels(output)
     n = contract.templates()["sample_rows"]
     values = tuple(contract.Value(k, names["values"][k], _sample(kind, names["values"][k], 0)) for k, kind in spec["values"].items())

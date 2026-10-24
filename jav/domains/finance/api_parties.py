@@ -19,6 +19,7 @@ from pydantic import Field
 
 from jav.core import identity
 from jav.app import parties, work_views
+from jav.domains.finance import own_parties as finance_parties  # its address `own_parties` keeps its name
 from jav.domains.finance import party_views
 from jav.service.service_shared import Empty, In, IsoDay, PartyId, human_actor
 from jav.core.user_messages import explained
@@ -131,7 +132,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/parties/accounts/details")
     def set_party_account(body: SetPartyAccount, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
-        parties.set_account(body.key, kind=body.kind, currencies=body.currencies, bank=body.bank, valid_from=body.valid_from,
+        finance_parties.set_account(body.key, kind=body.kind, currencies=body.currencies, bank=body.bank, valid_from=body.valid_from,
                             valid_to=body.valid_to, actor=who)
         return work_views.jsonable(party_views.overview())
 

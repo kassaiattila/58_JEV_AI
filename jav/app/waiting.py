@@ -21,16 +21,13 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from jav.app import human_tasks, item_kinds, work_views, workflow_cases
+from jav.app import human_tasks, item_kinds, logic_packs, work_views, workflow_cases
 from jav.core import store
 from jav.core import identity as actors
 from jav.core.process import tasks
 
 LIVE, TRIAL, MEASUREMENT = "live", "trial", "measurement"  # where a task comes from
 MINE, ANYONE = "mine", "anyone"  # whom it is for, seen from the person
-
-# what a logic pack's own approval is about, by the pack's kind (English source text, translated by the interface)
-_OWN_WHAT = {"reconcile": "Reconciliation statement", "quote": "Quote"}
 
 Row = dict[str, Any]
 
@@ -86,8 +83,8 @@ def _run_approval(packages: _Packages, task: tasks.Task) -> Row:
 def _own_approval(packages: _Packages, task: tasks.Task) -> Row:
     """A logic pack waiting for a person's approval of its own version: the package's page."""
     wp = packages.rows.get(task.subject)
-    return {"what": _OWN_WHAT.get(wp["source_kind"], "Approval") if wp else "Approval", "origin": LIVE, "_wp": task.subject,
-            "_stage": None}
+    pack = logic_packs.of(wp["source_kind"]) if wp else None  # 229 (MD2): what its approval is about, the pack's own
+    return {"what": pack.approval_what if pack else "Approval", "origin": LIVE, "_wp": task.subject, "_stage": None}
 
 
 def _budget(packages: _Packages, task: tasks.Task) -> Row:

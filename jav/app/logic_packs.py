@@ -90,6 +90,8 @@ class LogicPack:
       version (`package_release.record_own`: a reconciliation's statement, a quote), so each of its packages waits
       for that approval as a human task (`jav/app/human_tasks.py`); only a pack without runs. A pack whose work is
       done without such an approval (the email routing: every attachment decided) leaves it False.
+    - `approval_what`: 229 (plan structure stage 1, MD2): what its own approval is about in a person's "Waiting for me"
+      list (English source text the interface translates; until 229 the list named the kinds).
     - `reopen(wp_id, *, note, actor)`: 218 (plan P3 P3l): reopens the package's approved own version with a reason in
       the pack's own way (its event, its version's file), as a person's reopening does; needed with `own_approval`. A
       workflow's chain calls it when the step built on another one is approved again (`jav/app/workflows.py`).
@@ -119,6 +121,7 @@ class LogicPack:
     service: str | None = None
     own_approval: bool = False
     reopen: Callable[..., Any] | None = None
+    approval_what: str = "Approval"
 
     def __post_init__(self) -> None:
         if self.kind in DATA_KINDS:

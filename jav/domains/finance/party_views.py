@@ -19,6 +19,8 @@ from decimal import Decimal
 from typing import Any
 
 from jav.app import parties, work, work_runs
+
+from jav.domains.finance import own_parties
 from jav.documents import source_layer
 from jav.core import cfg, identity, store, trace, type_roles, values
 from jav.domains.finance import reconcile, statement_months
@@ -43,7 +45,7 @@ def _span(values: list[str]) -> tuple[str | None, str | None]:
 
 
 def observations(snap: dict[str, Any] | None = None, *, holder_text: bool = True) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """The buyer side of every incoming invoice, and every own account with its statements (`parties.suggest`'s input)."""
+    """The buyer side of every incoming invoice, and every own account with its statements (`own_parties.suggest`'s input)."""
     snap = snap if snap is not None else reconcile.snapshot()
     outgoing = set(type_roles.types("outgoing_invoice"))
     invoices = [{"doc_id": i["id"], "name": i.get("buyer_name"), "tax_id": i.get("buyer_tax_id"),
@@ -85,7 +87,7 @@ def overview() -> dict[str, Any]:
             unclaimed += 1
             ambiguous += how == "ambiguous"
     acct = {a["key"]: a for a in accounts}
-    registered = parties.accounts()
+    registered = own_parties.accounts()
 
     def counted(i: dict[str, Any]) -> dict[str, Any]:
         n = name_n[i["key"]] if i["kind"] == "name" else tax_n[i["key"]] if i["kind"] == "tax" else acct.get(i["key"], {}).get("statements", 0)
@@ -106,7 +108,7 @@ def overview() -> dict[str, Any]:
         out.append({"id": p["id"], "name": p["name"], "invoices": len(held.get(p["id"], [])), "first": first, "last": last,
                     "statements_first": _span([a["first"] or "" for a in own])[0], "statements_last": _span([a["last"] or "" for a in own])[1],
                     "accounts": own, "identities": [counted(i) for i in p["identities"]], "updated_at": p["updated_at"]})
-    proposal = parties.suggest(invoices, accounts)
+    proposal = own_parties.suggest(invoices, accounts)
     return {"parties": out, "suggestions": proposal["suggestions"], "unassigned": proposal["unassigned"],
             "dismissed": [counted(i) for i in parties.dismissed()], "invoices": len(invoices), "unclaimed_invoices": unclaimed,
             "ambiguous_invoices": ambiguous, "buyer_is_supplier": proposal["buyer_is_supplier"], "no_buyer": proposal["no_buyer"],
@@ -125,7 +127,7 @@ def account_key(number: str) -> str:
 def register_account(party_id: str, number: str, *, kind: str, currencies: list[str], bank: str | None = None,
                      valid_from: str | None = None, valid_to: str | None = None, actor: identity.Who) -> dict[str, Any]:
     """138: an own account or card registered with its party by its number, before or after its statements."""
-    parties.register_account(party_id, account_key(number), " ".join(number.split()), kind=kind, currencies=currencies,
+    own_parties.register_account(party_id, account_key(number), " ".join(number.split()), kind=kind, currencies=currencies,
                              bank=bank, valid_from=valid_from, valid_to=valid_to, actor=actor)
     return overview()
 
@@ -133,10 +135,10 @@ def register_account(party_id: str, number: str, *, kind: str, currencies: list[
 def accept(ids: list[str], *, names: dict[str, str] | None = None, actor: identity.Who) -> list[dict[str, Any]]:
     """Carries out the chosen suggestions, as the data proposes them now; one that has changed refuses them all."""
     invoices, accounts = observations()
-    current = {s["id"]: s for s in parties.suggest(invoices, accounts)["suggestions"]}
+    current = {s["id"]: s for s in own_parties.suggest(invoices, accounts)["suggestions"]}
     if missing := [i for i in ids if i not in current]:
         raise work.RevisionConflict(f"{len(missing)} suggestion(s) changed meanwhile; reload them")
-    return [parties.apply(current[i], actor=actor, name=(names or {}).get(i)) for i in ids]
+    return [own_parties.apply(current[i], actor=actor, name=(names or {}).get(i)) for i in ids]
 
 
 # --- the monthly data status (138) ---------------------------------------------------------------------------------------
@@ -227,7 +229,7 @@ def months(party_id: str, start: str | None = None, end: str | None = None, *, t
     party = parties.get(party_id)
     wanted = reconcile.months(start, end)
     snap = reconcile.snapshot()
-    registered = parties.accounts()
+    registered = own_parties.accounts()
     conf = cfg.load("reconcile")
     by_column: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for st in snap["statements"]:
@@ -281,10 +283,10 @@ def scan_own_tax(*, write: bool = False) -> dict[str, Any]:
     from jav.domains.finance import duplicates
 
     check = cfg.load("parties")["supplier_check"]
-    docs = duplicates.documents((check["supplier_tax_field"], check["buyer_tax_field"]), parties.supplier_check_types())
+    docs = duplicates.documents((check["supplier_tax_field"], check["buyer_tax_field"]), own_parties.supplier_check_types())
     with store.connect() as c:
         approved = {r["run_id"] for r in c.execute("SELECT run_id FROM runs WHERE approval IS NOT NULL")}
-        flagged = [d for d in docs if parties.own_tax_reasons(d.doc_type, d.fields, c)]
+        flagged = [d for d in docs if own_parties.own_tax_reasons(d.doc_type, d.fields, c)]
     already = {(subject, r["reason"], r["run_id"]) for (_kind, subject), rs in
                store.review_open_reasons_many([("document", d.doc_id) for d in flagged]).items() for r in rs}
     pending = []
@@ -294,7 +296,7 @@ def scan_own_tax(*, write: bool = False) -> dict[str, Any]:
             skipped["no_work_run"] += 1
         elif d.run_id in approved:
             skipped["approved_run"] += 1
-        elif (d.doc_id, parties.OWN_TAX_REASON, d.flow_run_id) in already:
+        elif (d.doc_id, own_parties.OWN_TAX_REASON, d.flow_run_id) in already:
             skipped["already_open"] += 1  # an earlier --write (or the processing) opened it
         else:
             pending.append(d)
@@ -303,11 +305,11 @@ def scan_own_tax(*, write: bool = False) -> dict[str, Any]:
         for d in pending:
             with store.session(), store.connect() as c:  # 218 (P3b): the to-do and its decision's trace in one write
                 store.begin_immediate(c)
-                inputs = parties.own_tax_inputs(d.doc_type, d.fields, c)
+                inputs = own_parties.own_tax_inputs(d.doc_type, d.fields, c)
                 store.review_enqueue(subject_kind="document", subject_id=d.doc_id, run_id=d.flow_run_id or "",
-                                     reasons=[parties.OWN_TAX_REASON], producer=parties.SCAN_PRODUCER)
-                trace.record_in(c, parties.OWN_TAX_POINT, subject=("document", d.doc_id), inputs=inputs,
-                                outcome=parties.own_tax_rule(inputs), keys=parties.OWN_TAX_KEYS, run_id=d.flow_run_id)
+                                     reasons=[own_parties.OWN_TAX_REASON], producer=own_parties.SCAN_PRODUCER)
+                trace.record_in(c, own_parties.OWN_TAX_POINT, subject=("document", d.doc_id), inputs=inputs,
+                                outcome=own_parties.own_tax_rule(inputs), keys=own_parties.OWN_TAX_KEYS, run_id=d.flow_run_id)
             written += 1
         for run_id in sorted({d.run_id for d in pending if d.run_id}):
             work_runs.refresh_run_status(run_id)

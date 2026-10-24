@@ -1455,6 +1455,7 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
     place of its stored result. `fetch_rates`: fetch the missing MNB rates first (the processing and the command line);
     a view only reads the stored ones."""
     from jav.app import parties  # 147: an invoice's direction from the own parties' identities
+    from jav.domains.finance import own_parties
 
     conf = _conf()
     f = conf["invoice_fields"]
@@ -1479,7 +1480,7 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
                              "due_date": v.get(f["due_date"]), "duplicate": marks.get(d["doc_id"]),
                              **{k: v.get(f[k]) for k in ("fulfillment_date", "net_total", "vat_total")},  # 142: shown only
                              "buyer_name": printable(_first(v, f["buyer_name"])), "buyer_tax_id": _first(v, f["buyer_tax_id"]),
-                             "direction": parties.direction(res, d["doc_type"], v)[0], **_origin(d)})
+                             "direction": own_parties.direction(res, d["doc_type"], v)[0], **_origin(d)})
     # 139 (DECISIONS 139): one valid statement per account, currency and day; a replaced statement's decisions move to
     # the same lines of the one replacing it, and what has no same line is left over (`left_over`)
     from jav.domains.finance import statement_months

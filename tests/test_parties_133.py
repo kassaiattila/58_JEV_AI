@@ -9,6 +9,8 @@ from __future__ import annotations
 import pytest
 
 from jav.app import parties
+
+from jav.domains.finance import own_parties
 from jav.core import store
 
 COMPANY_TAX = "12121216-2-42"  # a sample number on the data guard's allow list
@@ -145,7 +147,7 @@ def test_the_proposal_groups_by_tax_number_and_by_name(db):
     ]
     accounts = [{"key": "acct-1", "label": "1111-2222", "holder_text": "Bank statement Example Jane 1141 Budapest"},
                 {"key": "acct-2", "label": "3333-4444", "holder_text": "Bank statement page 1"}]
-    result = parties.suggest(invoices, accounts)
+    result = own_parties.suggest(invoices, accounts)
     s = _by_name(result)
     assert set(s) == {"Exampletrade Kft.", "Jane Example", "Dr. Mary Sample", "Sporting Club"}
     company = s["Exampletrade Kft."]
@@ -166,7 +168,7 @@ def test_tax_numbers_under_one_name_are_one_party_and_its_name_without_a_tax_num
     invoices = [*_inv("Exampletrade Kft.", COMPANY_TAX, n=6), *_inv("Exampletrade Kft.", other_tax, n=2),
                 *_inv("Jane Example", COMPANY_TAX, n=2), *_inv("Jane Example", None, n=2),
                 *_inv("Sporting Club", CLUB_TAX, n=3), *_inv("Sporting Club", None, n=1)]
-    s = _by_name(parties.suggest(invoices, []))
+    s = _by_name(own_parties.suggest(invoices, []))
     assert set(s) == {"Exampletrade Kft.", "Jane Example", "Sporting Club"}
     assert _keys(s["Exampletrade Kft."], "tax") == sorted([parties.tax_key(COMPANY_TAX), parties.tax_key(other_tax)])
     assert s["Exampletrade Kft."]["invoices"] == 10
@@ -177,7 +179,7 @@ def test_tax_numbers_under_one_name_are_one_party_and_its_name_without_a_tax_num
 def test_a_new_tax_number_under_a_known_name_goes_to_its_party(db):
     company = parties.create("Exampletrade Kft.", identities=[("tax", parties.tax_key(COMPANY_TAX), COMPANY_TAX),
                                                               ("name", "exampletrade", "Exampletrade Kft.")], actor="t")
-    [only] = parties.suggest(_inv("Exampletrade Kft.", "21357912-1-13", n=2), [])["suggestions"]
+    [only] = own_parties.suggest(_inv("Exampletrade Kft.", "21357912-1-13", n=2), [])["suggestions"]
     assert only["party_id"] == company["id"] and _keys(only, "tax") == [parties.tax_key("21357912-1-13")]
 
 
@@ -187,19 +189,19 @@ def test_the_proposal_builds_on_the_parties_already_there(db):
     parties.assign("name", "lonely name", "Lonely Name Bt.", None, actor="t")
     invoices = [*_inv("Exampletrade Kft.", COMPANY_TAX, n=3), *_inv("Exampletrade Kft. Main street 1", None, n=1),
                 *_inv("Lonely Name Bt.", None, n=3)]
-    result = parties.suggest(invoices, [])
+    result = own_parties.suggest(invoices, [])
     [only] = result["suggestions"]
     assert only["party_id"] == company["id"] and only["name"] == "Exampletrade Kft."
     assert [(i["kind"], i["key"]) for i in only["identities"]] == [("name", "exampletrade main street")]
     assert result["unassigned"] == []  # the dismissed name stays dismissed
-    parties.apply(only, actor="t")
-    assert parties.suggest(invoices, [])["suggestions"] == []
+    own_parties.apply(only, actor="t")
+    assert own_parties.suggest(invoices, [])["suggestions"] == []
     assert parties.resolver().invoice("Exampletrade Kft. Main street 1", None) == (company["id"], "name")
 
 
 def test_a_suggestion_is_identified_by_what_it_holds(db):
     invoices = [*_inv("Jane Example", None, n=2)]
-    first = parties.suggest(invoices, [])["suggestions"][0]["id"]
-    assert parties.suggest(list(reversed(invoices)), [])["suggestions"][0]["id"] == first
-    assert parties.suggest([*invoices, *_inv("Example Jane", None, n=1)], [])["suggestions"][0]["id"] == first  # one variant
-    assert parties.suggest([*invoices, *_inv("Jane Example Budapest", None, n=1)], [])["suggestions"][0]["id"] != first
+    first = own_parties.suggest(invoices, [])["suggestions"][0]["id"]
+    assert own_parties.suggest(list(reversed(invoices)), [])["suggestions"][0]["id"] == first
+    assert own_parties.suggest([*invoices, *_inv("Example Jane", None, n=1)], [])["suggestions"][0]["id"] == first  # one variant
+    assert own_parties.suggest([*invoices, *_inv("Jane Example Budapest", None, n=1)], [])["suggestions"][0]["id"] != first

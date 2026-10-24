@@ -24,6 +24,8 @@ from __future__ import annotations
 import pytest
 
 from jav.app import parties
+
+from jav.domains.finance import own_parties
 from jav.core import store
 from jav.domains.finance import reconcile
 from tests import test_reconcile_k2_129 as k2
@@ -46,7 +48,7 @@ def _parties() -> tuple[str, str]:
 
 
 def _direction(**values) -> tuple[str, str | None]:
-    return parties.direction(parties.resolver(), values.pop("doc_type", "invoice_hu"), values)
+    return own_parties.direction(parties.resolver(), values.pop("doc_type", "invoice_hu"), values)
 
 
 def test_a_side_with_evidence_against_the_party_gives_way_to_a_clean_one(db):

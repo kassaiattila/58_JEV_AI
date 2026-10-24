@@ -43,7 +43,7 @@ def _type_defaults(path: Path, keys: set[str]) -> list[str]:
         pairs += [(a, d) for a, d in zip(args.kwonlyargs, args.kw_defaults) if d is not None]
         for arg, default in pairs:
             literal = isinstance(default, ast.Constant) and default.value in keys
-            named = isinstance(default, (ast.Name, ast.Attribute)) and ast.unparse(default).split(".")[-1] in {"DEFAULT_KEY", "LEGACY_DOC_TYPE"}
+            named = isinstance(default, (ast.Name, ast.Attribute)) and ast.unparse(default).split(".")[-1] in {"DEFAULT_KEY", "LEGACY_DOC_TYPE", "DEFAULT_PART"}
             if literal or named:
                 found.append(f"{path.relative_to(JAV)}:{default.lineno} {arg.arg}={ast.unparse(default)}")
     return found
@@ -63,8 +63,12 @@ def test_the_type_pack_loader_needs_a_key():
 
 
 def test_old_data_names_its_type_through_one_constant():
-    assert typepack.LEGACY_DOC_TYPE == "invoice_hu"
-    assert typepack.LEGACY_DOC_TYPE in typepack.keys()
+    """229 (MD2): the measurement's constant, which alone reads rows saved before the type was recorded."""
+    from jav.evals import eval_report
+
+    assert eval_report.LEGACY_DOC_TYPE == "invoice_hu"
+    assert eval_report.LEGACY_DOC_TYPE in typepack.keys()
+    assert not hasattr(typepack, "LEGACY_DOC_TYPE")
 
 
 @pytest.mark.parametrize("module", [jev_select, jev_verify])

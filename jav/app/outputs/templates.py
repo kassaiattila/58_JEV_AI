@@ -196,7 +196,7 @@ def preview(template: str, version: int) -> tuple[bytes, str]:
     """The version filled with made-up data (never a person's): the document types it names, a few rows of each."""
     v = get(template, version)
     data, file_name = content(template, version)
-    parts = tuple(name for name in v["check"]["tables"] if name not in contract.spec(v["output"])["tables"]) or (samples.DEFAULT_PART,)
+    parts = tuple(name for name in v["check"]["tables"] if name not in contract.spec(v["output"])["tables"]) or samples.default_parts()
     return engine(v["output"]).fill(samples.data(v["output"], parts), data), f"preview-{file_name}"
 
 

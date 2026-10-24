@@ -16,8 +16,10 @@ from __future__ import annotations
 import pytest
 
 from jav.app import parties
+
+from jav.domains.finance import own_parties
 from jav.ai import policy
-from jav.core import store  # 185: the direction rule is `parties.confirm_detail_by_direction`
+from jav.core import store  # 185: the direction rule is `own_parties.confirm_detail_by_direction`
 from jav.ai.models import FlowState, DocumentRecord
 
 OWN_TAX = "28642099-2-42"
@@ -63,14 +65,14 @@ def _open() -> list[str]:
 
 def test_the_own_party_as_supplier_closes_the_uncertainty(db):
     _uncertain()
-    parties.confirm_detail_by_direction(_state(supplier_name="Sample Own Company Kft.", supplier_tax_id=OWN_TAX,
+    own_parties.confirm_detail_by_direction(_state(supplier_name="Sample Own Company Kft.", supplier_tax_id=OWN_TAX,
                                             buyer_name="Northwind Trading Ltd."))
     assert _open() == []
 
 
 def test_the_own_party_as_buyer_is_a_to_do_and_the_uncertainty_stays(db):
     _uncertain()
-    parties.confirm_detail_by_direction(_state(supplier_name="Northwind Trading Ltd.", buyer_name="Sample Own Company Kft.",
+    own_parties.confirm_detail_by_direction(_state(supplier_name="Northwind Trading Ltd.", buyer_name="Sample Own Company Kft.",
                                             buyer_tax_id=OWN_TAX))
     assert _open() == ["detect_detail:low_conf:invoice_out:0.55", "detect_detail:direction_mismatch:invoice_out:incoming"]
 
@@ -78,7 +80,7 @@ def test_the_own_party_as_buyer_is_a_to_do_and_the_uncertainty_stays(db):
 def test_the_type_alone_is_no_evidence(db):
     # neither side is an own party: the outgoing type would make it outgoing, but that would confirm itself
     _uncertain()
-    parties.confirm_detail_by_direction(_state(supplier_name="Somebody Kft.", buyer_name="Northwind Trading Ltd."))
+    own_parties.confirm_detail_by_direction(_state(supplier_name="Somebody Kft.", buyer_name="Northwind Trading Ltd."))
     assert _open() == ["detect_detail:low_conf:invoice_out:0.55"]
 
 
@@ -86,7 +88,7 @@ def test_without_the_detection_probabilities_nothing_changes(db):
     _uncertain()
     state = _state(supplier_name="Sample Own Company Kft.", supplier_tax_id=OWN_TAX, buyer_name="Northwind Trading Ltd.")
     state.detail_probabilities = {}
-    parties.confirm_detail_by_direction(state)
+    own_parties.confirm_detail_by_direction(state)
     assert _open() == ["detect_detail:low_conf:invoice_out:0.55"]
 
 

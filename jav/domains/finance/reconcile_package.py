@@ -56,6 +56,8 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from jav.app import corrections, logic_packs, package_release, package_scope, parties, work, workflow_steps
+
+from jav.domains.finance import own_parties
 from jav.ai import grounding, typepack
 from jav.core import activity_kinds, cfg, decisions, identity, store, values
 from jav.domains.finance import reconcile, reconcile_overview
@@ -187,7 +189,7 @@ def accounts() -> list[dict[str, Any]]:
 def _registered() -> dict[str, dict[str, Any]]:
     """138: the accounts registered with a party, with their details and the label the party knows them by."""
     labels = {i["key"]: i["label"] for p in parties.parties() for i in p["identities"] if i["kind"] == "account"}
-    return {k: {**d, "label": labels[k]} for k, d in parties.accounts().items() if k in labels}
+    return {k: {**d, "label": labels[k]} for k, d in own_parties.accounts().items() if k in labels}
 
 
 def _party_names() -> dict[str, str]:
@@ -302,7 +304,7 @@ def scoped_snapshot(wp_id: str, *, fetch_rates: bool = False) -> tuple[dict[str,
     snap = reconcile.snapshot(fetch_rates=fetch_rates)
     gone = left_out(wp_id)
     own = [{"key": k, **{f: d[f] for f in ("kind", "currencies", "valid_from", "valid_to")}}
-           for k, d in sorted(parties.accounts().items()) if k in sc["accounts"]]
+           for k, d in sorted(own_parties.accounts().items()) if k in sc["accounts"]]
     return {**snap, "scope_statements": [st["id"] for st in snap["statements"] if _in_scope(st, sc) and st["id"] not in gone],
             "own_accounts": own, "left_out": sorted(gone)}, sc
 
@@ -1628,6 +1630,7 @@ LOGIC = logic_packs.LogicPack(
            logic_packs.InputRole("invoices", "period", "the invoices other packages processed, the own party's first")),
     has_runs=False, add_refusal="a reconciliation package has no documents", release_refusal=_release_refusal,
     own_approval=True, reopen=_reopen,  # 215: the statement is approved as the package's own version
+    approval_what="Reconciliation statement",  # 229: in a person's "Waiting for me" list (translated by the interface)
     delete_guard=_delete_guard, page=_page, approved=_approved, next_step=_next, list_next=_list_next,
     list_mark=_list_mark, outputs=("reconcile_statement",), service="jav.domains.finance.api_reconcile")
 

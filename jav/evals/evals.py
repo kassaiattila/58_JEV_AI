@@ -27,7 +27,8 @@ from typing import Any, Callable, Iterable
 from jav.core.config import GOLDEN_EXPECTED_DIR, GOLDEN_MANIFEST, OLD_PROJECT_ROOT, RUNS_DIR
 from jav.core.dates import read_date
 from jav.ai.models import Candidate, FlowState, money_label, normalize_tax_id
-from jav.ai.typepack import CANDIDATE_KIND_OF, LEGACY_DOC_TYPE, TypePack
+from jav.ai.typepack import CANDIDATE_KIND_OF, TypePack
+from jav.evals.eval_report import LEGACY_DOC_TYPE
 from jav.ai.typepack import get as get_pack
 
 
