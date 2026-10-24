@@ -185,6 +185,7 @@ CREATE TABLE IF NOT EXISTS reconcile_decisions (
     amount_relation   TEXT,               -- equal | different: the amounts when the person decided
     run_id            TEXT,               -- the run in which the person decided
     actor             TEXT NOT NULL,
+    actor_id          TEXT,               -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
     note              TEXT,
     decided_at        TEXT NOT NULL
 );
@@ -199,10 +200,12 @@ CREATE TABLE IF NOT EXISTS reconcile_allocations (
     invoice_amount    TEXT NOT NULL,      -- canonical decimal, in the invoice's currency (equal in one currency)
     workpackage_id    TEXT NOT NULL,      -- the reconciliation package it was made in
     actor             TEXT NOT NULL,
+    actor_id          TEXT,
     note              TEXT,
     created_at        TEXT NOT NULL,
     revoked_at        TEXT,
     revoked_by        TEXT,
+    revoked_by_id     TEXT,
     revoke_note       TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_reconcile_allocations_line ON reconcile_allocations(line_id);
@@ -216,9 +219,11 @@ CREATE TABLE IF NOT EXISTS reconcile_line_marks (
     note              TEXT,
     workpackage_id    TEXT NOT NULL,
     actor             TEXT NOT NULL,
+    actor_id          TEXT,
     created_at        TEXT NOT NULL,
     revoked_at        TEXT,
     revoked_by        TEXT,
+    revoked_by_id     TEXT,
     basis             TEXT                -- 147: the quick review's suggestion it accepted (NULL: a person's own choice)
 );
 CREATE INDEX IF NOT EXISTS ix_reconcile_line_marks_line ON reconcile_line_marks(line_id);
@@ -230,6 +235,10 @@ def _migrate(conn) -> None:
     store.add_columns(conn, "reconcile_decisions", {"workpackage_id": "TEXT"})
     # 147: the suggestion a mark accepted in the quick review came from
     store.add_columns(conn, "reconcile_line_marks", {"basis": "TEXT"})
+    # 229 (SZ2c): the stable id beside every name of who acted; the earlier rows' from their names
+    store.add_actor_ids(conn, "reconcile_decisions", ("actor",))
+    store.add_actor_ids(conn, "reconcile_allocations", ("actor", "revoked_by"))
+    store.add_actor_ids(conn, "reconcile_line_marks", ("actor", "revoked_by"))
 
 
 store.register_migration("reconcile", _migrate)

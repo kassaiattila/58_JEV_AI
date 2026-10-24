@@ -41,7 +41,7 @@ from typing import Any, Iterable
 
 from jav.app import item_kinds, package_result
 from jav.ai import fact_checks
-from jav.core import cfg, decisions, store, trace, type_roles
+from jav.core import cfg, decisions, identity, store, trace, type_roles
 from jav.core.user_messages import explained
 
 REASON = "duplicate"
@@ -60,10 +60,13 @@ CREATE TABLE IF NOT EXISTS duplicate_decisions (
     suggested     TEXT,               -- the code's kind when the person decided
     run_id        TEXT,               -- the run in which the person decided
     actor         TEXT NOT NULL,
+    actor_id      TEXT,               -- 229 (SZ2c): the stable id beside the name (`jav.core.identity`)
     note          TEXT,
     decided_at    TEXT NOT NULL
 );
 """)
+store.register_migration("duplicate_actor_ids",
+                         lambda conn: store.add_actor_ids(conn, "duplicate_decisions", ("actor",)))  # 229 (SZ2c)
 
 
 class DecisionError(ValueError):
@@ -323,7 +326,7 @@ decisions.register(decisions.Kind(DECISION_KIND, ("decide",), __name__))
 
 
 @store.one_connection
-def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor: str, note: str | None = None,
+def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor: identity.Who, note: str | None = None,
            expected_state: int | None = None) -> dict[str, Any]:
     """A person's decision on a pair, made on a run's item: `copy`, `variant` (a modified version) or `different` (not
     the same invoice). One decision per pair; it may be changed until the run it was made in is approved. The pair's
@@ -359,12 +362,12 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor
             raise explained(work.RevisionConflict, "the pair was decided in an approved run; the decision is frozen")
         decisions.check(c, DECISION_KIND, key, expected_state)
         at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        c.execute("INSERT INTO duplicate_decisions(pair_key, doc_id, other_doc_id, decision, suggested, run_id, actor, note, decided_at)"
+        c.execute("INSERT INTO duplicate_decisions(pair_key, doc_id, other_doc_id, decision, suggested, run_id, actor, actor_id,"
                   # a changed decision keeps the pair's direction: the repeat stays the document the to-do stood on
-                  " VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(pair_key) DO UPDATE SET decision=excluded.decision,"
-                  " suggested=excluded.suggested, run_id=excluded.run_id, actor=excluded.actor, note=excluded.note,"
-                  " decided_at=excluded.decided_at",
-                  (key, item_id, other_doc_id, decision, suggested, run_id, actor, note, at))
+                  " note, decided_at) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(pair_key) DO UPDATE SET decision=excluded.decision,"
+                  " suggested=excluded.suggested, run_id=excluded.run_id, actor=excluded.actor, actor_id=excluded.actor_id,"
+                  " note=excluded.note, decided_at=excluded.decided_at",
+                  (key, item_id, other_doc_id, decision, suggested, run_id, identity.name_of(actor), identity.id_of(actor), note, at))
         decisions.record(c, DECISION_KIND, key, "decide", actor=actor, value={"decision": decision, "suggested": suggested},
                          note=note, workpackage_id=run["workpackage_id"], run_id=run_id, at=at)
         resolution = {"duplicate": decision, "pair": key}

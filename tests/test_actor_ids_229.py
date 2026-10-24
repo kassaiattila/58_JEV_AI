@@ -29,13 +29,6 @@ STRUCTURED = {
     ("process_tasks", "assignee"), ("process_tasks", "opened_by"), ("process_tasks", "closed_by"),
     ("process_task_history", "actor"), ("jobs", "claimed_by"),
 }
-# 229 SZ2c-2: the domains' tables get their ids in the next slice; this list only shrinks.
-PENDING = {
-    "email_routing_decisions", "email_task_decisions", "mailbox_schedules", "mailbox_pulls",
-    "duplicate_decisions", "reconcile_decisions", "reconcile_allocations", "reconcile_line_marks",
-    "reconcile_source_acceptances", "reconcile_exclusions", "statement_choices",
-    "quote_drafts", "quote_letters", "quote_proposals",
-}
 
 
 def _schema(tmp_path: Path) -> dict[str, list[str]]:
@@ -45,8 +38,7 @@ def _schema(tmp_path: Path) -> dict[str, list[str]]:
 
 
 def _who_columns(schema: dict[str, list[str]]) -> dict[str, set[str]]:
-    return {t: {col for col in cols if WHO.match(col) and (t, col) not in STRUCTURED}
-            for t, cols in schema.items() if t not in PENDING}
+    return {t: {col for col in cols if WHO.match(col) and (t, col) not in STRUCTURED} for t, cols in schema.items()}
 
 
 # --- the shared helpers --------------------------------------------------------------------------------------------
@@ -82,7 +74,7 @@ def test_every_column_naming_who_acted_has_its_id_column(tmp_path: Path) -> None
     missing = sorted(f"{t}.{col}" for t, cols in _who_columns(schema).items() for col in cols
                      if f"{col}_id" not in schema[t])
     assert missing == []
-    assert PENDING <= set(schema), "a pending table that no longer exists leaves the list"
+    assert sum(len(cols) for cols in _who_columns(schema).values()) >= 47, "the columns the mapping found (DECISIONS 229)"
 
 
 def _sql_texts(tree: ast.Module) -> list[str]:

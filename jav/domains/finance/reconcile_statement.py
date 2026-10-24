@@ -46,7 +46,7 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from jav.app import naming, package_release, work
-from jav.core import activity_kinds, cfg, decisions, store, values
+from jav.core import activity_kinds, cfg, decisions, identity, store, values
 from jav.domains.finance import reconcile_package as rp
 from jav.app.outputs import builtin, contract, templates
 from jav.core.user_messages import explained
@@ -186,7 +186,7 @@ def approved_version(wp_id: str, n: int, c: Any = None) -> dict[str, Any]:
 # --- the approval -------------------------------------------------------------------------------------------------------
 
 
-def approve(wp_id: str, *, fingerprint: str, actor: str) -> dict[str, Any]:
+def approve(wp_id: str, *, fingerprint: str, actor: identity.Who) -> dict[str, Any]:
     """Approves the statement the person saw (its `fingerprint`) as the package's next version and locks its lines.
     `work.NotReady` with the blockers; `work.RevisionConflict` when the statement or a decision changed meanwhile."""
     state = rp._decision_state()  # read before the statement: a decision recorded after it is a conflict
@@ -211,7 +211,7 @@ def approve(wp_id: str, *, fingerprint: str, actor: str) -> dict[str, Any]:
     return {k: v for k, v in approved_version(wp_id, n).items() if k != "statement"}
 
 
-def reopen(wp_id: str, *, note: str, actor: str) -> dict[str, Any]:
+def reopen(wp_id: str, *, note: str, actor: identity.Who) -> dict[str, Any]:
     """Reopens the approved version with a reason: its lock goes, it stays as an earlier version."""
     note = (note or "").strip()
     if not note:
@@ -230,7 +230,7 @@ def reopen(wp_id: str, *, note: str, actor: str) -> dict[str, Any]:
     return rp.approval(wp_id)
 
 
-def accept_sources(wp_id: str, doc_ids: Iterable[str], *, actor: str, expected_state: int | None = None) -> int:
+def accept_sources(wp_id: str, doc_ids: Iterable[str], *, actor: identity.Who, expected_state: int | None = None) -> int:
     """Accepts the current results of source documents from an evaluation on the command line as sources (DECISIONS
     132): each must be such a blocker of the package; who and when is recorded. Returns how many were accepted. 187: a
     newly accepted result goes into the decision journal (one accepted before, in any package, stays as it was)."""
@@ -249,8 +249,8 @@ def accept_sources(wp_id: str, doc_ids: Iterable[str], *, actor: str, expected_s
         decisions.check_package(c, wp_id, rp.DECISION_KINDS, expected_state)
         now = _now()
         for d in ids:
-            if c.execute("INSERT OR IGNORE INTO reconcile_source_acceptances(doc_id, flow_run_id, workpackage_id, actor, accepted_at)"
-                         " VALUES (?,?,?,?,?)", (d, results[d], wp_id, actor, now)).rowcount:
+            if c.execute("INSERT OR IGNORE INTO reconcile_source_acceptances(doc_id, flow_run_id, workpackage_id, actor,"
+                         " actor_id, accepted_at) VALUES (?,?,?,?,?,?)", (d, results[d], wp_id, identity.name_of(actor), identity.id_of(actor), now)).rowcount:
                 decisions.record(c, rp.SOURCE_KIND, f"{d}#{results[d]}", "accept", actor=actor, workpackage_id=wp_id, at=now)
         work.record_event(c, wp_id, "reconcile_accept_sources", actor, {"documents": ids})
     return len(ids)

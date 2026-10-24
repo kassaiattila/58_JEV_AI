@@ -42,7 +42,7 @@ from difflib import SequenceMatcher
 from functools import lru_cache
 from typing import Any, Iterable
 
-from jav.core import cfg, decisions, store, type_roles, values
+from jav.core import cfg, decisions, identity, store, type_roles, values
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 
@@ -58,11 +58,14 @@ CREATE TABLE IF NOT EXISTS statement_choices (
     keep_doc_id  TEXT,            -- the statement a person keeps valid; NULL: the rule decides again
     run_id       TEXT,            -- the run in which the person chose
     actor        TEXT NOT NULL,
+    actor_id     TEXT,            -- 229 (SZ2c): the stable id beside the name (`jav.core.identity`)
     note         TEXT,
     decided_at   TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS statement_choices_pair ON statement_choices(pair_key, seq);
 """)
+store.register_migration("statement_choices_actor_ids",
+                         lambda conn: store.add_actor_ids(conn, "statement_choices", ("actor",)))  # 229 (SZ2c)
 
 
 class ChoiceError(ValueError):
@@ -364,7 +367,7 @@ decisions.register(decisions.Kind(CHOICE_KIND, ("choose",), __name__))
 
 
 @store.one_connection
-def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, actor: str, note: str | None = None,
+def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, actor: identity.Who, note: str | None = None,
            expected_state: int | None = None) -> dict[str, Any]:
     """A person's choice on a pair of statements made on a run's item: which one stays valid (`keep`: one of the two;
     None: the rule decides again). Possible until the run is approved, as the duplicate decisions; the pair's overlap
@@ -403,8 +406,8 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, ac
             raise explained(work.RevisionConflict, "the pair was decided in an approved run; the decision is frozen")
         decisions.check(c, CHOICE_KIND, key, expected_state)
         at = _now()
-        c.execute("INSERT INTO statement_choices(pair_key, keep_doc_id, run_id, actor, note, decided_at) VALUES (?,?,?,?,?,?)",
-                  (key, keep, run_id, actor, note, at))
+        c.execute("INSERT INTO statement_choices(pair_key, keep_doc_id, run_id, actor, actor_id, note, decided_at)"
+                  " VALUES (?,?,?,?,?,?,?)", (key, keep, run_id, identity.name_of(actor), identity.id_of(actor), note, at))
         decisions.record(c, CHOICE_KIND, key, "choose", actor=actor, value={"keep": keep}, note=note,
                          workpackage_id=run["workpackage_id"], run_id=run_id, at=at)
         resolution = {"statement_choice": keep, "pair": pair_key(item_id, other_doc_id)}

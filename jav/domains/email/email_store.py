@@ -17,7 +17,7 @@ import json
 import sqlite3
 from typing import Any
 
-from jav.core import store
+from jav.core import identity, store
 from jav.core.clock import utc_stamp as _now
 
 store.register_schema("emails", """
@@ -60,9 +60,11 @@ CREATE TABLE IF NOT EXISTS email_task_decisions (
     task_index    INTEGER NOT NULL,
     decision      TEXT NOT NULL,             -- accepted | rejected
     actor         TEXT NOT NULL,
+    actor_id      TEXT,                      -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
     note          TEXT,
     decided_at    TEXT NOT NULL,
     done_by       TEXT,                      -- 062: who marked the accepted task as done
+    done_by_id    TEXT,
     done_at       TEXT,
     PRIMARY KEY (run_id, task_index)
 );
@@ -73,6 +75,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
     """Additive columns on a store made before them."""
     # 062: manual "done" mark on an accepted task
     store.add_columns(conn, "email_task_decisions", {"done_by": "TEXT", "done_at": "TEXT"})
+    store.add_actor_ids(conn, "email_task_decisions", ("actor", "done_by"))  # 229 (SZ2c)
     store.add_columns(conn, "email_results", {
         "tasks": "TEXT",  # 058 K5.3: the task proposal next to the email result
         "folder": "TEXT",  # 149: a sent message has no intent; the result says why
@@ -138,7 +141,7 @@ def upsert_email_result(*, run_id: str, message_id: str, intent: str | None, int
 TASK_DECISIONS = ("accepted", "rejected")  # a person's decisions on an email's task proposal (175: the one list)
 
 
-def email_task_decide(run_id: str, index: int, *, decision: str, actor: str, note: str | None,
+def email_task_decide(run_id: str, index: int, *, decision: str, actor: identity.Who, note: str | None,
                       c: sqlite3.Connection | None = None) -> None:
     """`c` (086, audit N02): write inside the caller's transaction (which checks the approval first)."""
     if decision not in TASK_DECISIONS:
@@ -150,23 +153,26 @@ def email_task_decide(run_id: str, index: int, *, decision: str, actor: str, not
         _email_task_decide(c, run_id, index, decision=decision, actor=actor, note=note)
 
 
-def _email_task_decide(c: sqlite3.Connection, run_id: str, index: int, *, decision: str, actor: str, note: str | None) -> None:
-    c.execute("INSERT INTO email_task_decisions(run_id, task_index, decision, actor, note, decided_at) VALUES (?,?,?,?,?,?)"
-              " ON CONFLICT(run_id, task_index) DO UPDATE SET decision=excluded.decision, actor=excluded.actor,"
-              " note=excluded.note, decided_at=excluded.decided_at,"
+def _email_task_decide(c: sqlite3.Connection, run_id: str, index: int, *, decision: str, actor: identity.Who, note: str | None) -> None:
+    c.execute("INSERT INTO email_task_decisions(run_id, task_index, decision, actor, actor_id, note, decided_at)"
+              " VALUES (?,?,?,?,?,?,?) ON CONFLICT(run_id, task_index) DO UPDATE SET decision=excluded.decision,"
+              " actor=excluded.actor, actor_id=excluded.actor_id, note=excluded.note, decided_at=excluded.decided_at,"
               # 062: rejecting also clears the done mark (only an accepted task can be done)
               " done_by=CASE WHEN excluded.decision='accepted' THEN done_by END,"
-              " done_at=CASE WHEN excluded.decision='accepted' THEN done_at END", (run_id, index, decision, actor, note, _now()))
+              " done_by_id=CASE WHEN excluded.decision='accepted' THEN done_by_id END,"
+              " done_at=CASE WHEN excluded.decision='accepted' THEN done_at END",
+              (run_id, index, decision, identity.name_of(actor), identity.id_of(actor), note, _now()))
 
 
-def email_task_done(run_id: str, index: int, *, actor: str, done: bool, c: sqlite3.Connection | None = None) -> bool:
+def email_task_done(run_id: str, index: int, *, actor: identity.Who, done: bool, c: sqlite3.Connection | None = None) -> bool:
     """062: marks an accepted task as done (or undoes it); False if the task is not accepted. `c` (187): inside the
     caller's transaction, with its journal row."""
     if c is None:
         with store.connect() as own:
             return email_task_done(run_id, index, actor=actor, done=done, c=own)
-    cur = c.execute("UPDATE email_task_decisions SET done_by=?, done_at=? WHERE run_id=? AND task_index=? AND decision='accepted'",
-                    (actor if done else None, _now() if done else None, run_id, index))
+    cur = c.execute("UPDATE email_task_decisions SET done_by=?, done_by_id=?, done_at=? WHERE run_id=? AND task_index=?"
+                    " AND decision='accepted'",
+                    (identity.name_of(actor) if done else None, identity.id_of(actor) if done else None, _now() if done else None, run_id, index))
     return cur.rowcount == 1
 
 

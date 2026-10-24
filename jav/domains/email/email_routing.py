@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any
 
 from jav.app import logic_packs, package_result, package_scope, source_instances, work, workflow_steps
-from jav.core import activity_kinds, decisions, store
+from jav.core import activity_kinds, decisions, identity, store
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 
@@ -55,10 +55,13 @@ CREATE TABLE IF NOT EXISTS email_routing_decisions (
     target         TEXT,               -- accepted: the package it was added to
     made           INTEGER NOT NULL DEFAULT 0,  -- accepted: the package was made for it
     actor          TEXT NOT NULL,
+    actor_id       TEXT,               -- 229 (SZ2c): the stable id beside the name (`jav.core.identity`)
     decided_at     TEXT NOT NULL,
     PRIMARY KEY (workpackage_id, item_id)
 );
 """)
+store.register_migration("email_routing_actor_ids",
+                         lambda conn: store.add_actor_ids(conn, "email_routing_decisions", ("actor",)))  # 229 (SZ2c)
 
 
 
@@ -101,7 +104,7 @@ def _email_packages(sources: list[str]) -> list[str]:
     return out
 
 
-def create(*, name: str, sources: list[str], actor: str) -> dict[str, Any]:
+def create(*, name: str, sources: list[str], actor: identity.Who) -> dict[str, Any]:
     """A routing package over the given email packages (their attachments as they are now and as they come later)."""
     chosen = _email_packages(sources)
     wp = work.create_workpackage(name=name, source_kind=KIND, source_ref=None, owner=actor)
@@ -338,7 +341,7 @@ def _row(rows: list[dict[str, Any]], item_id: str) -> dict[str, Any]:
     raise explained(RoutingError, "no attachment {{item_id}} in the routing package", item_id=repr(item_id))
 
 
-def _add(target: str, att: dict[str, Any], role: str | None, actor: str) -> None:
+def _add(target: str, att: dict[str, Any], role: str | None, actor: identity.Who) -> None:
     """Adds the attachment to an existing package: a logic pack that adds in its own way through its registry entry
     (the statement package, 204: without importing it), any other the shared way."""
     wp = work.get(target)
@@ -355,7 +358,7 @@ def _add(target: str, att: dict[str, Any], role: str | None, actor: str) -> None
         work.add_to_package(target, [path], expected_revision=wp["revision"], actor=actor)
 
 
-def _make(new: dict[str, Any], att: dict[str, Any], actor: str) -> str:
+def _make(new: dict[str, Any], att: dict[str, Any], actor: identity.Who) -> str:
     """Makes the proposed new package with the attachment, and gives it its scope: a role collected by a logic pack
     that makes its packages in its own way (the statement package) through its registry entry, any other the shared
     way."""
@@ -379,7 +382,7 @@ def _stale(row: dict[str, Any], expected_states: dict[str, int] | None) -> None:
         raise explained(work.RevisionConflict, "the decision was changed meanwhile; reload the page")
 
 
-def _record(wp_id: str, item_id: str, decision: str, target: str | None, made: bool, actor: str) -> None:
+def _record(wp_id: str, item_id: str, decision: str, target: str | None, made: bool, actor: identity.Who) -> None:
     """187 (survey 186, bug 2): the attachment must still be undecided inside the writing transaction; before, a second
     acceptance overwrote the first one's decision. The service runs a package's changes one at a time
     (`decisions.one_at_a_time`), so this refuses only a change made outside it."""
@@ -388,8 +391,8 @@ def _record(wp_id: str, item_id: str, decision: str, target: str | None, made: b
         if c.execute("SELECT 1 FROM email_routing_decisions WHERE workpackage_id=? AND item_id=?", (wp_id, item_id)).fetchone():
             raise explained(work.RevisionConflict, "the decision was changed meanwhile; reload the page")
         at = _now()
-        c.execute("INSERT INTO email_routing_decisions(workpackage_id, item_id, decision, target, made, actor, decided_at)"
-                  " VALUES (?,?,?,?,?,?,?)", (wp_id, item_id, decision, target, int(made), actor, at))
+        c.execute("INSERT INTO email_routing_decisions(workpackage_id, item_id, decision, target, made, actor, actor_id,"
+                  " decided_at) VALUES (?,?,?,?,?,?,?,?)", (wp_id, item_id, decision, target, int(made), identity.name_of(actor), identity.id_of(actor), at))
         detail = {"item_id": item_id, "target": target, "made": made}
         if decision == "accepted":
             work.record_event(c, wp_id, "routing_accept", actor, detail)
@@ -399,7 +402,7 @@ def _record(wp_id: str, item_id: str, decision: str, target: str | None, made: b
                          actor=actor, value={"target": target, "made": made}, workpackage_id=wp_id, at=at)
 
 
-def accept(wp_id: str, item_ids: list[str], *, actor: str, target: str | None = None,
+def accept(wp_id: str, item_ids: list[str], *, actor: identity.Who, target: str | None = None,
            titles: dict[str, str] | None = None, expected_states: dict[str, int] | None = None) -> dict[str, Any]:
     """Accepts the proposals of the given attachments (or puts each into `target`, a person's choice): the document is
     added to the package, or the proposed new package is made with it, named with its role's title in `titles` (the
@@ -411,7 +414,7 @@ def accept(wp_id: str, item_ids: list[str], *, actor: str, target: str | None = 
     return view(wp_id)
 
 
-def _accept(wp_id: str, item_ids: list[str], *, actor: str, target: str | None, titles: dict[str, str] | None,
+def _accept(wp_id: str, item_ids: list[str], *, actor: identity.Who, target: str | None, titles: dict[str, str] | None,
             expected_states: dict[str, int] | None) -> None:
     rows = view(wp_id)["items"]
     files = {a["item_id"]: a for a in _attachments(sources_of(wp_id))}
@@ -449,13 +452,13 @@ def _accept(wp_id: str, item_ids: list[str], *, actor: str, target: str | None, 
             _record(wp_id, item_id, "accepted", made_now[key], True, actor)
 
 
-def accept_clear(wp_id: str, *, actor: str, titles: dict[str, str] | None = None) -> dict[str, Any]:
+def accept_clear(wp_id: str, *, actor: identity.Who, titles: dict[str, str] | None = None) -> dict[str, Any]:
     """Accepts every proposal without a blocker that is not decided yet."""
     rows = view(wp_id)["items"]
     return accept(wp_id, [r["item_id"] for r in rows if r["proposal"] and not r["decision"]], actor=actor, titles=titles)
 
 
-def reject(wp_id: str, item_ids: list[str], *, actor: str, expected_states: dict[str, int] | None = None) -> dict[str, Any]:
+def reject(wp_id: str, item_ids: list[str], *, actor: identity.Who, expected_states: dict[str, int] | None = None) -> dict[str, Any]:
     """The attachments are not routed (decided: they stay only in their email package)."""
     with decisions.one_at_a_time(ROUTING_KIND, wp_id):
         rows = view(wp_id)["items"]
@@ -468,7 +471,7 @@ def reject(wp_id: str, item_ids: list[str], *, actor: str, expected_states: dict
     return view(wp_id)
 
 
-def undo(wp_id: str, item_id: str, *, actor: str, expected_state: int | None = None) -> dict[str, Any]:
+def undo(wp_id: str, item_id: str, *, actor: identity.Who, expected_state: int | None = None) -> dict[str, Any]:
     """A decision is taken back; an accepted document stays in its package (a person removes it there if it should go)."""
     with decisions.one_at_a_time(ROUTING_KIND, wp_id), store.connect() as c:
         store.begin_immediate(c)
