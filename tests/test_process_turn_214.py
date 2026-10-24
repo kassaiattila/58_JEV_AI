@@ -103,11 +103,12 @@ def test_a_wake_fires_a_retry_timer_at_once_but_a_deadline_only_when_due() -> No
     assert cases.get("deadline")["status"] == "open" and engine.state("deadline")["timers"][0]["status"] == "armed"
 
 
-def test_the_due_cases_can_be_narrowed_to_one_family_of_definitions() -> None:
+def test_the_due_cases_are_those_of_every_definition() -> None:
     cases.start("w1", define(StepDef(id="a", kind="turn_note"), name="family_one"), {}, ME)
     cases.start("w2", define(StepDef(id="a", kind="turn_note"), name="family_two"), {}, ME)
     assert engine.due_cases() == ["w1", "w2"]
-    assert engine.due_cases(definition_prefix="family_one") == ["w1"]
+    assert engine.turn_due() == 2  # 229: the round turns them all
+    assert engine.due_cases() == [] and cases.get("w1")["outcome"] == cases.get("w2")["outcome"] == "done"
 
 
 def test_a_persons_overrides_can_share_the_callers_transaction() -> None:

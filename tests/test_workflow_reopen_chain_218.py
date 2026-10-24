@@ -16,7 +16,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from jav.app import package_release, work_readiness, work_runs, workflows as wf
-from jav.core.process import cases, tasks
+from jav.core.process import cases, engine, tasks
 from jav.domains.finance import reconcile_statement as rs
 from tests.test_workflow_core_steps_214 import _core
 from tests.test_workflow_tasks_215 import _finish, _monthly
@@ -28,9 +28,10 @@ PERSON = "Example Person"
 
 
 def _turns() -> None:
-    """The worker's looks: the events taken and the due cases turned (as after a restart, too)."""
-    wf.take_events()
+    """The worker's looks: the workflows' own tick, then every due case turned (229: the core's round; as after a
+    restart, too)."""
     wf.tick(now=float("inf"))
+    engine.turn_due()
 
 
 def _view(wf_id: str) -> dict[str, dict]:

@@ -17,6 +17,10 @@ between the threads of one process too (the local service answers requests on se
 215 (P2a): a human task's deadline is a timer of its case too: when due, it expires the task (`tasks.expire_in`),
 whose closing event the same turn then takes; a wake never fires it early.
 
+229 (plan structure stage 1, SZ1a): the worker's round turns every case with something to do now, of any process
+definition (`turn_due`); before, it looked only at the workflows' cases, so a case of another kind never started. A
+case whose turn raises is logged and left to the next round, so it never holds the others up.
+
 The engine does not use the job queue: the queue's start-up reset (`queue.recover_orphans`) assumes one worker.
 """
 
@@ -42,6 +46,7 @@ log = logging.getLogger(__name__)
 
 POLL_S = 0.5
 RETRY_SAFETY_S = 30.0  # a retry timer is armed again this far ahead before its step runs, in case the run is cut off
+DUE_PASSES = 3  # 229: a round looks again this often for cases a turn made due (a retry timer due at once)
 
 store.register_schema("process.engine", """
 CREATE TABLE IF NOT EXISTS process_claims (
@@ -212,26 +217,31 @@ def release(case_id: str) -> None:
         _leave_here(case_id)
 
 
-def due_cases(now: float | None = None, *, definition_prefix: str | None = None) -> list[str]:
-    """214: the cases with something to do now, oldest change first; with `definition_prefix` only those whose process
-    definition's id starts with it (one family of definitions, e.g. the workflows')."""
-    return _cases(_DUE_WHERE, [time.time() if now is None else now], definition_prefix)
-
-
-def cases_with_events(*, definition_prefix: str | None = None) -> list[str]:
-    """215: the open cases, not on hold, with a pending event a waiting step of theirs takes (a human task's closing),
-    oldest change first; with `definition_prefix` only one family's. A cheap look for a caller that turns them at
-    once."""
-    return _cases(f"{_OPEN_WHERE} AND {_EVENT_TAKEN}", [], definition_prefix)
-
-
-def _cases(where: str, args: list[Any], definition_prefix: str | None) -> list[str]:
-    sql = f"SELECT c.case_id FROM process_cases c WHERE {where}"
-    if definition_prefix is not None:
-        sql += " AND substr(c.definition_id, 1, ?) = ?"
-        args = [*args, len(definition_prefix), definition_prefix]
+def due_cases(now: float | None = None) -> list[str]:
+    """214: the cases with something to do now (a ready step, an event a waiting step takes, a due timer), of any
+    process definition, oldest change first."""
     with store.connect() as c:
-        return [r["case_id"] for r in c.execute(sql + " ORDER BY c.updated_at, c.case_id", args)]
+        return [r["case_id"] for r in c.execute(_DUE, (time.time() if now is None else now,))]
+
+
+def turn_due(now: float | None = None, *, passes: int = DUE_PASSES) -> int:
+    """229 (SZ1a): the worker's round: a turn for every case with something to do now, of any process definition, and
+    again for those a turn made due, at most `passes` looks. A case a live process or another thread holds is left to
+    that one; a case whose turn raises is logged and left to the next round, so the others still move. Returns how many
+    turns it made."""
+    failed: set[str] = set()
+    moved = 0
+    for _ in range(passes):
+        todo = [case_id for case_id in due_cases(now) if case_id not in failed]
+        if not todo:
+            break
+        for case_id in todo:
+            try:
+                moved += turn(case_id, now=now)
+            except Exception:  # noqa: BLE001 - operational safety net: logged, the case is turned again next round
+                log.exception("case %s could not take its turn", case_id)
+                failed.add(case_id)
+    return moved
 
 
 def turn(case_id: str, *, wake: bool = False, now: float | None = None) -> bool:

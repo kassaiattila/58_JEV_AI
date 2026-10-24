@@ -36,6 +36,7 @@ from jav.runtime import job_kinds, pdf_status
 from jav import flows
 from jav.flows import persistence
 from jav.core import applog, calls, lock, queue
+from jav.core.process import engine as process_engine
 from jav.flows.persistence import ClosingSQLitePersister
 from jav.core.digest import file_sha256 as _sha256_file
 
@@ -489,9 +490,10 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
             # 048 T2: a download job for each due mailbox schedule (185: a domain's tick, `jav/runtime/job_kinds.py`);
             # 057: scan the watched work folders that are due. 063: a scheduler error does not stop the worker (the
             # error is logged and retried in the next round). 146: the workflows' automatic chain moves on (at most
-            # every workflows.TICK_EVERY_S); 215: and at once on an event for it (a run of a step's package approved)
+            # every workflows.TICK_EVERY_S); 229: then every case of the process core with something to do now (an
+            # event, a due timer, a ready step), of any process definition (before, only the workflows' cases)
             for name, tick in ((*((t.name, t.run) for t in job_kinds.ticks()), ("folders.tick", app_settings.tick),
-                                ("workflows.tick", workflows.tick), ("workflows.take_events", workflows.take_events))):
+                                ("workflows.tick", workflows.tick), ("process.turn_due", process_engine.turn_due))):
                 try:
                     tick()
                 except Exception:  # noqa: BLE001 - operational safety net, logged

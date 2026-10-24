@@ -54,6 +54,7 @@ def test_the_case_runs_the_steps_and_its_history_shows_their_way(db):  # noqa: F
     statements = _steps(wf.view(wf_id))["statements"]
     work_runs.approve_run(statements["run_id"], actor="tester")
     wf.tick(now=1e9)
+    engine.turn_due()  # 229: the core's round turns the due case
     assert _core(wf_id)["statements"] == "done"
     estimate = _steps(wf.view(wf_id))["invoices"]["note"]["estimate"]
     wf.start_step(wf_id, "invoices", actor="Example Person", budget={p: str(Decimal(v) + 1) for p, v in estimate.items()})
@@ -61,6 +62,7 @@ def test_the_case_runs_the_steps_and_its_history_shows_their_way(db):  # noqa: F
     assert ("invoices", "wait_ended", "local:Example Person") in _history(wf_id)
     _approve_by_hand(_steps(wf.view(wf_id))["invoices"]["run_id"])
     wf.tick(now=2e9)
+    engine.turn_due()  # 229: the core's round turns the due case
     assert _core(wf_id) == {"invoices": "done", "statements": "done", "reconcile": "running:approval"}
     kinds = [k for _, k, _ in _history(wf_id)]
     assert kinds.count("step_started") == 3 and kinds.count("step_done") == 2 and "timer_fired" not in kinds
@@ -108,6 +110,7 @@ def test_a_download_a_person_started_finishes_its_step_while_the_chain_is_off(db
     assert _steps(wf.view(wf_id))["emails"]["state"] == "pulling"
     _due_now(wf_id)
     wf.tick(now=2e9)
+    engine.turn_due()  # 229: the core's round turns the due case
     emails = _steps(wf.view(wf_id))["emails"]
     assert emails["state"] == "started" and emails["package"]["id"] == package["id"]
     assert work_runs.get_run(emails["run_id"])["actor"] == "tester (auto)"
@@ -144,6 +147,7 @@ def test_an_approval_in_a_workflow_with_the_chain_off_is_seen_by_its_check_timer
     assert _core(wf_id)["invoices"] == "running:approval"
     _due_now(wf_id)
     wf.tick(now=1e9)
+    engine.turn_due()  # 229: the core's round turns the due case
     assert _core(wf_id)["invoices"] == "done" and _steps(wf.view(wf_id))["invoices"]["done"]
 
 

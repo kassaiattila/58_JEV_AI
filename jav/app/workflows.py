@@ -34,8 +34,9 @@ column of that table (`state`), kept beside the core's state.
 
 215 (P2b): a step over its budget asks a person as a human task, opened with the wait (`workflow_cases.ask_budget`)
 and decided by the person's start; the approval of a run of a step's package sends the case an event
-(`jav.app.human_tasks`), which the worker takes at each of its rounds (`take_events`, not throttled like `tick`), so the
-chain moves on at once. The check timer stays as the safety net.
+(`jav.app.human_tasks`), which the worker takes at each of its rounds (229: the process core's own round,
+`process_engine.turn_due`, which turns every case with something to do, not throttled like `tick`), so the chain moves
+on at once. The check timer stays as the safety net.
 
 218 (plan P3 P3l; DECISIONS 218): a step builds on the approved result of its earlier steps. A done step's result
 names the approval its package was done with (`_approval`) and those its earlier steps were done with (`built_on`).
@@ -1090,9 +1091,9 @@ def release_stale_starts(max_age_s: float = STALE_START_S) -> int:
 def tick(now: float | None = None) -> int:
     """The worker's turn (at most every `TICK_EVERY_S`): releases interrupted starts (153), then advances every open,
     automatic workflow with a step still to move (214: a woken turn of its case, so each looks at its waiting steps
-    every turn, as before), then turns the other workflow cases the process core has something for (a check timer that
-    came due, a step a person started while another process held the case). Returns how many automatic workflows it
-    advanced."""
+    every turn, as before). 229: the other workflow cases the process core has something for (a check timer that came
+    due, an event, a step a person started while another process held the case) are turned by the core's own round
+    (`process_engine.turn_due`), with every other case. Returns how many automatic workflows it advanced."""
     global _last_tick
     now = time.monotonic() if now is None else now
     if now - _last_tick < TICK_EVERY_S:
@@ -1107,28 +1108,7 @@ def tick(now: float | None = None) -> int:
             advance(r["id"], actor=auto_actor(r["actor"]))
         except Exception:  # one workflow's trouble does not stop the others
             log.exception("workflow %s could not advance", r["id"])
-    advanced = {r["id"] for r in rows}
-    for case_id in process_engine.due_cases(definition_prefix=workflow_cases.DEFINITION_PREFIX):
-        if case_id in advanced:
-            continue
-        try:
-            _turn(case_id, None, wake=False)
-        except Exception:  # one workflow's trouble does not stop the others
-            log.exception("workflow %s could not advance", case_id)
     return len(rows)
-
-
-def take_events() -> int:
-    """215 (P2b): the worker's look at each of its rounds, not throttled like `tick`: the workflow cases an event has
-    come for (a run of a step's package approved, a budget decided) get their turn now, so the chain moves on at once.
-    Returns how many it turned."""
-    moved = 0
-    for case_id in process_engine.cases_with_events(definition_prefix=workflow_cases.DEFINITION_PREFIX):
-        try:
-            moved += _turn(case_id, None, wake=False)
-        except Exception:  # one workflow's trouble does not stop the others
-            log.exception("workflow %s could not take its events", case_id)
-    return moved
 
 
 # --- the process core moves the steps on (214, plan G-process-core P1b-3) -------------------------------------------------
