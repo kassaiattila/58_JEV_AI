@@ -140,6 +140,7 @@ class LogicPack:
 
 
 _PACKS: dict[str, LogicPack] = {}
+_CONTAINERS: dict[str, LogicPack] = {}  # 231 (A6): the general container kinds (a process pack's case)
 
 
 def register(pack: LogicPack) -> None:
@@ -154,11 +155,22 @@ def of(kind: str) -> LogicPack | None:
     """The logic pack a work package of this kind runs; None for a plain processing kind; `UnknownKind` otherwise."""
     if kind in DATA_KINDS:
         return None
+    if kind in _CONTAINERS:
+        return _CONTAINERS[kind]
     try:
         return _PACKS[kind]
     except KeyError:
         raise UnknownKind(f"unknown work package kind {kind!r}: not a processing kind and no logic pack "
                           "(was registrations.load_all called?)") from None
+
+
+def register_container(pack: LogicPack) -> None:
+    """231 (A6): a general container kind (a process pack's case): known by `of` like a logic pack, but not one of the
+    logic packs (`packs`), which are the process-specific kinds of work."""
+    prior = _CONTAINERS.get(pack.kind)
+    if prior is not None and prior.module != pack.module:
+        raise ValueError(f"container kind {pack.kind!r} is registered by {prior.module}")
+    _CONTAINERS[pack.kind] = pack
 
 
 def has_runs(kind: str) -> bool:
@@ -189,4 +201,5 @@ def outputs_of(kind: str) -> tuple[str, ...]:
 
 
 __all__ = ["DATA_KINDS", "PACKAGE_RESULT", "ROLE_SOURCES", "InputRole", "LogicPack", "UnknownKind", "has_runs",
-           "kinds_with_own_approval", "kinds_without_runs", "of", "outputs_of", "packs", "processing_outputs", "register"]
+           "kinds_with_own_approval", "kinds_without_runs", "of", "outputs_of", "packs", "processing_outputs", "register",
+           "register_container"]

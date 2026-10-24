@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "name": "process:it_quote",
+    "version": "1.0.0",
+    "description": "231 (plan stage A, A4; DECISIONS 231): the IT quote as a process pack. A quote request read from an email (its text, its table attachments, its attachments) or from a document becomes a case: the request put together, each requested item matched with the active price list, a person composes and approves the lines, the priced Word quote and the reply letter. The send step, the reply wait and the reminder come in A7. Every step names a general capability; the pack holds no code.",
+    "changelog": [
+      {"version": "1.0.0", "date": "2026-10-24", "note": "231 (A4): the first version: the quote package's path as capability steps, with its three tabs."}
+    ]
+  },
+  "id": "it_quote",
+  "title": "IT quote",
+  "scope": {"parts": ["record"]},
+  "intake": [
+    {"on": "email_intent", "intent": "quote_request", "starts": "offer"},
+    {"on": "manual", "starts": "manual"}
+  ],
+  "resources": {"price_list": "newest_active", "letter_frame": "letter", "quote_output": "quote"},
+  "steps": [
+    {"id": "request", "uses": "record_assembly@1", "title": "Request",
+     "params": {"record_type": "quote_request", "items_field": "requested_items"}},
+    {"id": "match", "uses": "catalogue_match@1", "title": "Proposal", "gates": ["request"], "start": "person",
+     "params": {"catalogue": "@price_list", "callsite": "quote_match"}},
+    {"id": "compose", "uses": "line_draft@1", "title": "Quote", "gates": ["request"], "after": ["match"],
+     "params": {"catalogue": "@price_list"}},
+    {"id": "document", "uses": "priced_document@1", "title": "Word quote", "gates": ["compose"],
+     "params": {"output": "@quote_output", "from_step": "compose"}},
+    {"id": "letter", "uses": "letter_draft@1", "title": "Reply letter", "gates": ["document"], "start": "person",
+     "params": {"frame": "@letter_frame", "callsite": "quote_letter"}}
+  ],
+  "screens": {
+    "tabs": [
+      {"id": "request", "label": "Request", "elements": [{"type": "record_view", "step": "request"}]},
+      {"id": "quote", "label": "Quote", "elements": [{"type": "match_proposal", "step": "match"}, {"type": "line_editor", "step": "compose"}]},
+      {"id": "approval", "label": "Approval", "elements": [{"type": "approval", "step": "compose", "letter_step": "letter"}]}
+    ]
+  },
+  "outputs": ["quote"],
+  "goldens": ["quote:lines", "quote:matches", "quote:letters", "quotes:intents", "quotes:requests"]
+}

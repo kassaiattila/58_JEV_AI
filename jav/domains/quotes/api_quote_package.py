@@ -39,12 +39,6 @@ from jav.domains.quotes import quote_draft, quote_letter, quote_package, quote_p
 from jav.service.service_shared import Empty, In, WpId, attachment_header, human_actor
 
 
-class QuotePackageIn(In):
-    name: Annotated[str, Field(min_length=1, max_length=200)]
-    source: Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")]
-    item_id: Annotated[str, Field(min_length=1, max_length=128)]
-
-
 class QuoteDraftStartIn(In):
     source: Literal["proposal", "request"]
     expected_state: Annotated[int, Field(ge=0)]
@@ -70,7 +64,8 @@ class QuoteLetterIn(In):
 
 
 def _quote(wp_id: str) -> None:
-    if work.get(wp_id)["source_kind"] != quote_package.KIND:  # an unknown package: 404
+    # an unknown package: 404; 231 (A6): a case's container holds a quote too
+    if work.get(wp_id)["source_kind"] not in (quote_package.KIND, quote_package.CONTAINER):
         raise KeyError(wp_id)
 
 
@@ -81,9 +76,7 @@ def routes(app: FastAPI, r: str) -> None:
     def quote_requests(q: Annotated[str | None, QueryParam(max_length=200)] = None) -> dict[str, Any]:
         return work_views.jsonable({"requests": quote_package.candidates(q)})
 
-    @app.post(r + "/quote-packages", status_code=201)
-    def create_quote_package(body: QuotePackageIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
-        return work_views.jsonable(quote_package.create(name=body.name, source=body.source, item_id=body.item_id, actor=who))
+    # 231 (A6c): a quote starts as a case of the IT quote's process pack (`POST /api/cases`), no longer as a package
 
     @app.post(r + "/workpackages/{wp_id}/quote/proposal", status_code=202)
     def request_quote_proposal(wp_id: WpId, _body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:

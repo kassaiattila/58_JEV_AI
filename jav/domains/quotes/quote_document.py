@@ -90,9 +90,10 @@ def _language(content: dict[str, Any]) -> str:
 
 
 def data(content: dict[str, Any], *, package: str, version: int | None = None, approved_by: str | None = None,
-         approved_at: str | None = None) -> contract.OutputData:
+         approved_at: str | None = None, output: str = OUTPUT) -> contract.OutputData:
     """The quote's output data from its approved content (or a draft's priced content, `version` None: marked a draft).
-    `QuoteDocumentError` when a line or the totals are not priced."""
+    `QuoteDocumentError` when a line or the totals are not priced. 231 (A3b): `output` names the output contract the
+    priced document fills; the default is the quote's."""
     totals = content.get("totals")
     if not totals or any("net" not in line for line in content["lines"]):
         raise QuoteDocumentError("the quote has a line that is not priced yet")
@@ -111,10 +112,10 @@ def data(content: dict[str, Any], *, package: str, version: int | None = None, a
     rows = [[n, line.get("sku"), line.get("name"), line.get("quantity"), line.get("unit"), line.get("list_price"),
              line.get("unit_price"), line.get("discount_percent"), line.get("net")]
             for n, line in enumerate(content["lines"], start=1)]
-    spec = contract.spec(OUTPUT)["tables"][TABLE]["columns"]
+    spec = contract.spec(output)["tables"][TABLE]["columns"]
     heads = _heads()
     table = contract.table(TABLE, TABLE, COLUMNS, tuple(heads[c] for c in COLUMNS), rows, tuple(spec[c] for c in COLUMNS))
-    return contract.OutputData(OUTPUT, tuple(contract.Value(k, labels.get(k, k), v) for k, v in values.items()), (table,))
+    return contract.OutputData(output, tuple(contract.Value(k, labels.get(k, k), v) for k, v in values.items()), (table,))
 
 
 def _value_labels() -> dict[str, str]:

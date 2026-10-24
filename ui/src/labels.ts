@@ -439,6 +439,8 @@ const STEP_LABEL = tmap({
   quote_request_missing: "The request cannot be read", quote_compose: "Compose the quote",
   quote_propose: "Ask for the proposal", quote_proposing: "The proposal is being made", // B4c
   quote_approve: "Approve the quote", // 192 B5
+  // 231 (A6): a process pack's case container (jav/app/process_runtime.py `_next`)
+  case_open: "Open the case", case_closed: "The case is closed",
 });
 
 /** The package's next step in the chosen language (057): from the service's code and parameters; for an unknown code,

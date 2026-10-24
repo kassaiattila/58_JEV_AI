@@ -53,11 +53,11 @@ def test_the_ui_checks_run_while_the_tests_do(tmp_path, monkeypatch):
     """Each stand-in waits until the other has started: run one after the other, the first would wait in vain."""
     started = {"tests": threading.Event(), "ui": threading.Event()}
 
-    def tests(folder):
+    def tests(folder, **_where):
         started["tests"].set()
         return started["ui"].wait(timeout=10), "tests"
 
-    def ui(folder):
+    def ui(folder, **_where):
         started["ui"].set()
         return started["tests"].wait(timeout=10), "ui"
 

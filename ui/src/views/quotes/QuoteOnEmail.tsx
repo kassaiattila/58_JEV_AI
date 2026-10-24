@@ -21,8 +21,9 @@ export function QuoteOnEmail({ part }: { part: QuoteEmailPart }) {
     setError(null);
     try {
       const name = t("Quote: {{name}}", { name: customer || r.title || t("(no subject)") }).slice(0, 200);
-      const made = await api.createQuotePackage({ name, source: part.source.workpackage_id, item_id: part.source.item_id });
-      go({ view: "workpackages", wpId: made.workpackage_id, stage: "review" });
+      // 231 (A6): a case of the IT quote's process pack, started from the email's record
+      const made = await api.startCase({ pack: "it_quote", name, record: { workpackage_id: part.source.workpackage_id, item_id: part.source.item_id } });
+      go({ view: "cases", caseId: made.case_id });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
       setBusy(false);
@@ -47,7 +48,7 @@ export function QuoteOnEmail({ part }: { part: QuoteEmailPart }) {
         <p className="small">
           {t("Quotes already made from it:")}{" "}
           {part.quotes.map((x, i) => (
-            <span key={x.id}>{i ? ", " : ""}<a href={`#/workpackages/${encodeURIComponent(x.id)}/review`}>{x.name}</a></span>
+            <span key={x.id}>{i ? ", " : ""}<a href={x.case ? `#/cases/${encodeURIComponent(x.id)}` : `#/workpackages/${encodeURIComponent(x.id)}/review`}>{x.name}</a></span>
           ))}
         </p>
       ) : null}

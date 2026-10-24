@@ -21,8 +21,8 @@ const PROBLEM: Record<string, string> = {
   marker: "it holds a marker", empty: "it is empty", too_long: "it is too long",
 };
 
-export function QuoteLetterCard({ wpId, letter, archived, onChanged }: {
-  wpId: string; letter: QuoteLetterView; archived: boolean; onChanged: () => void;
+export function QuoteLetterCard({ wpId, letter, archived, onChanged, askLetter }: {
+  wpId: string; letter: QuoteLetterView; archived: boolean; onChanged: () => void; askLetter?: () => Promise<unknown>;
 }) {
   useLocale();
   const { busy, error, notice, run } = useAction();
@@ -42,7 +42,7 @@ export function QuoteLetterCard({ wpId, letter, archived, onChanged }: {
   const accepted = letter.accepted;
   const changed = !accepted || body.trim() !== accepted.body.trim();
 
-  const ask = () => run(() => api.requestQuoteLetterParagraph(wpId), { then: () => { setEdited(false); onChanged(); } });
+  const ask = () => run(askLetter ?? (() => api.requestQuoteLetterParagraph(wpId)), { then: () => { setEdited(false); onChanged(); } });
   const accept = () => run(() => api.acceptQuoteLetter(wpId, body, letter.decision_state), {
     then: () => { setEdited(false); onChanged(); },
     done: t("The letter has been accepted; download it and send it from Outlook."),

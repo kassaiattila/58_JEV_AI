@@ -22,6 +22,7 @@ import { WorkpackageActions } from "./WorkpackageActions";
 
 // 195 (plan G-tidy R5): the routing offer (a mailbox package's result) loads with the routing pages
 const RoutingOffer = lazyPage(() => import("./routing/Routing").then((m) => m.RoutingOffer));
+const CasePage = lazyPage(() => import("./CasePage").then((m) => m.CasePage));  // 231 (A6)
 const STAGE_LABEL = tmap({ process: "Feldolgozás", review: "Ellenőrzés", result: "Eredmény" }) as Record<Stage, string>;
 // 181: a released package's release state on the stage bar, as its release line says it
 const RELEASE_STATE = tmap({ released: "released", partly_released: "partly released",
@@ -57,7 +58,7 @@ export function nextStepText(view: WorkpackageView): string {
 }
 
 /** 061: the work package's owner, from the list of names (the „Saját csomagjaim” (My work packages) filter uses it). */
-function OwnerPicker({ view, onChanged }: { view: WorkpackageView; onChanged: () => void }) {
+export function OwnerPicker({ view, onChanged }: { view: WorkpackageView; onChanged: () => void }) {
   useLocale();
   const users = useLoad("users", api.users);
   useEvent(USERS_EVENT, users.reload);
@@ -101,6 +102,7 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   if (wp.error) return <p className="notice error" role="alert">{wp.error.message}</p>;
   if (!wp.data) return <p className="muted">{t("Betöltés…")}</p>;
   const view = wp.data;
+  if (view.case) return <CasePage caseId={view.case.id} />;  // 231 (A6): a case's container shows its case
   const { workpackage, next, last_run: last } = view;
   const stage: Stage = route.stage ?? next.stage;
   const status = stageStatus(view);

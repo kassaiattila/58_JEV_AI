@@ -83,6 +83,21 @@ def cmd_preflight(args: argparse.Namespace) -> int:
     return preflight(skip_pytest=args.skip_pytest)
 
 
+def cmd_test_worktree(args: argparse.Namespace) -> int:
+    """231: the full test suite in the separate test worktree, so the main working tree stays free meanwhile."""
+    from jav.devtools import test_worktree
+
+    try:
+        ok, lines, folder = test_worktree.run(ui=not args.no_ui)
+    except test_worktree.WorktreeError as exc:
+        print(f"no test run: {exc}")
+        return 2
+    for line in lines:
+        print(line)
+    print(f"log: {folder}")
+    return 0 if ok else 1
+
+
 def cmd_data_guard(args: argparse.Namespace) -> int:
     from jav.devtools import data_guard
     from jav.core.config import PROJECT_ROOT
@@ -470,6 +485,9 @@ def register(sub) -> None:
     p = sub.add_parser("preflight", help="session-indító ellenőrzés API nélkül: pytest, kontrakt-lint, konfigok, handoff-frissesség, STATE.md")
     p.add_argument("--skip-pytest", action="store_true")
     p.set_defaults(fn=cmd_preflight)
+    p = sub.add_parser("test-worktree", help="231: the full test suite (pytest + UI) in a separate git worktree, with the uncommitted changes, so the main working tree stays free meanwhile")
+    p.add_argument("--no-ui", action="store_true", help="pytest only")
+    p.set_defaults(fn=cmd_test_worktree)
     p = sub.add_parser("data-guard", help="071 adatőr: a verziókövetett fájlok átnézése (személyes adat, kulcs, belső anyag)")
     p.add_argument("--all", action="store_true", help="a tűrt ismert értékek helyét is kiírja (maszkolva)")
     p.set_defaults(fn=cmd_data_guard)

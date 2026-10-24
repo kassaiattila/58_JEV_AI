@@ -27,13 +27,14 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav.app import app_settings, item_kinds, logic_packs, package_release, package_scope, work, workflow_steps
+from jav.app import app_settings, item_kinds, logic_packs, package_release, package_scope, scopes, work, workflow_steps
 from jav.core import identity, store
 from jav.domains.quotes import price_lists, quote_draft, quote_letter, quote_proposal, quote_request
 from jav.app.tablequery import fold
 from jav.core.user_messages import explained
 
 KIND = "quote"
+CONTAINER = "case"  # 231 (A5): the general container of a process pack's case (`jav/app/process_runtime.py`)
 REQUEST = "request"  # the scope part naming the request: {"workpackage_id", "item_id"}
 MAX_CANDIDATES = 50
 
@@ -45,14 +46,18 @@ class QuoteError(ValueError):
 # --- the requests a quote can start from -----------------------------------------------------------------------------
 
 
-def _quotes_by_request() -> dict[tuple[str, str], list[dict[str, str]]]:
+def _quotes_by_request() -> dict[tuple[str, str], list[dict[str, Any]]]:
+    """The quotes made from each request: quote packages and (231, A6) cases started from it as their record."""
     with store.connect() as c:
-        rows = c.execute("SELECT s.workpackage_id, s.parts, w.name FROM workpackage_scopes s JOIN workpackages w"
-                         " ON w.id = s.workpackage_id WHERE w.source_kind = ? ORDER BY w.created_at", (KIND,)).fetchall()
-    out: dict[tuple[str, str], list[dict[str, str]]] = {}
+        rows = c.execute("SELECT s.workpackage_id, s.parts, w.name, w.source_kind FROM workpackage_scopes s JOIN workpackages w"
+                         " ON w.id = s.workpackage_id WHERE w.source_kind IN (?, ?) ORDER BY w.created_at",
+                         (KIND, CONTAINER)).fetchall()
+    out: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for r in rows:
-        ref = json.loads(r["parts"]).get(REQUEST) or {}
-        out.setdefault((ref.get("workpackage_id", ""), ref.get("item_id", "")), []).append({"id": r["workpackage_id"], "name": r["name"]})
+        parts = json.loads(r["parts"])
+        ref = parts.get(REQUEST) or parts.get(scopes.RECORD) or {}
+        out.setdefault((ref.get("workpackage_id", ""), ref.get("item_id", "")), []).append(
+            {"id": r["workpackage_id"], "name": r["name"], **({"case": True} if r["source_kind"] == CONTAINER else {})})
     return out
 
 
@@ -99,9 +104,10 @@ def create(*, name: str, source: str, item_id: str, actor: identity.Who) -> dict
 
 
 def request_of(wp_id: str) -> dict[str, str] | None:
-    """The request the package was made from: {"workpackage_id", "item_id"}; None when it names none."""
-    stored = package_scope.stored(wp_id)
-    return (stored or {}).get("parts", {}).get(REQUEST)
+    """The request the package was made from: {"workpackage_id", "item_id"}; None when it names none. 231 (A5): a
+    case's container names it as its record (the general scope part)."""
+    parts = (package_scope.stored(wp_id) or {}).get("parts", {})
+    return parts.get(REQUEST) or parts.get(scopes.RECORD)
 
 
 def _blocker(code: str, message: str) -> dict[str, str]:

@@ -498,8 +498,10 @@ function preview(dv: QuoteDraftView): QuoteApproved | null {
 }
 
 /** The Approval stage: the shared approval element, the quote it records, the earlier versions. */
-export function QuoteApprovalStage({ wpId, view, archived, onChanged }: {
+export function QuoteApprovalStage({ wpId, view, archived, onChanged, askLetter }: {
   wpId: string; view: QuoteView; archived: boolean; onChanged: () => void;
+  /** 231 (A6): on a case's page, asking for the letter starts the case's step */
+  askLetter?: () => Promise<unknown>;
 }) {
   useLocale();
   const [dv, setDv] = useState<QuoteDraftView>(view.draft);
@@ -559,7 +561,7 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged }: {
         </section>
       ) : null}
       {/* 196: the approved version's reply letter */}
-      {dv.approval.active && view.letter ? <QuoteLetterCard wpId={wpId} letter={view.letter} archived={archived} onChanged={onChanged} /> : null}
+      {dv.approval.active && view.letter ? <QuoteLetterCard wpId={wpId} letter={view.letter} archived={archived} onChanged={onChanged} askLetter={askLetter} /> : null}
       {shown ? (
         <section className="card wide" aria-label={t("Version {{n}}", { n: shown.n })}>
           <div className="card-head">

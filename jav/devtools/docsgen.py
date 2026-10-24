@@ -148,14 +148,20 @@ def _hash_text(name: str) -> str:
 
 
 def _ledger_stats(steps: list[str]) -> list[dict[str, Any]]:
+    """231 (backlog R-docs-live-store): the store is only read (`store.read_only`, as the state snapshot since 187), so
+    generating the pages never runs the checked-out code's schema or migrations on the real store, and a store that
+    does not exist yet is not created (no statistics then)."""
     marks = ",".join("?" * len(steps))
-    with store.connect() as c:
-        rows = c.execute(
-            f"SELECT COALESCE(config_hash, '(hash előtti)') h, COUNT(*) n, SUM(cached) cached, ROUND(SUM(cost_usd), 4) usd,"
-            f" ROUND(AVG(CASE WHEN cached=0 THEN seconds END), 2) live_s, ROUND(AVG(input_tokens), 0) tok, MIN(created_at) first, MAX(created_at) last"
-            f" FROM ledger WHERE step IN ({marks}) AND provider='jev' GROUP BY h ORDER BY first",
-            steps,
-        ).fetchall()
+    try:
+        with store.read_only(), store.connect() as c:
+            rows = c.execute(
+                f"SELECT COALESCE(config_hash, '(hash előtti)') h, COUNT(*) n, SUM(cached) cached, ROUND(SUM(cost_usd), 4) usd,"
+                f" ROUND(AVG(CASE WHEN cached=0 THEN seconds END), 2) live_s, ROUND(AVG(input_tokens), 0) tok, MIN(created_at) first, MAX(created_at) last"
+                f" FROM ledger WHERE step IN ({marks}) AND provider='jev' GROUP BY h ORDER BY first",
+                steps,
+            ).fetchall()
+    except store.StoreMissing:
+        return []
     return [dict(r) for r in rows]
 
 

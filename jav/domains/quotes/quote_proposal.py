@@ -78,10 +78,10 @@ def cap(n_items: int, engine: str) -> dict[str, Decimal]:
     return {provider: Decimal(settings()["max_item_usd"][provider]) * n_items}
 
 
-def _active() -> price_lists.PriceList | None:
-    """The price list a proposal uses: the newest list's active version (B5 lets a quote choose another)."""
-    lists = price_lists.active_lists()
-    return price_lists.active(lists[0]["price_list"]) if lists else None
+def _active(selection: str = price_lists.NEWEST_ACTIVE) -> price_lists.PriceList | None:
+    """The price list a proposal uses: by default the newest list's active version (B5 lets a quote choose another;
+    231, A3b: a process names its own)."""
+    return price_lists.chosen(selection)
 
 
 def _source(wp_id: str) -> quote_request.Request:
@@ -100,9 +100,10 @@ def _row(c: Any, wp_id: str) -> Any:
     return c.execute("SELECT * FROM quote_proposals WHERE workpackage_id=?", (wp_id,)).fetchone()
 
 
-def request(wp_id: str, *, actor: identity.Who) -> dict[str, Any]:
+def request(wp_id: str, *, actor: identity.Who, selection: str = price_lists.NEWEST_ACTIVE) -> dict[str, Any]:
     """Queues the package's proposal with the application's engine and the cap for its requested items; a proposal
-    already queued or running is returned as it is. `ProposalRefused` when it cannot be asked."""
+    already queued or running is returned as it is. `ProposalRefused` when it cannot be asked. 231 (A5): `selection`
+    is the process's price list choice (`price_lists.chosen`)."""
     from jav.core import queue
 
     req = _source(wp_id)
@@ -110,7 +111,7 @@ def request(wp_id: str, *, actor: identity.Who) -> dict[str, Any]:
         raise explained(ProposalRefused, "the request names no item")
     if len(req.items) > int(settings()["max_items"]):
         raise explained(ProposalRefused, "the request names more items than a proposal asks about: {{n}}", n=len(req.items))
-    prices = _active()
+    prices = _active(selection)
     if prices is None:
         raise explained(ProposalRefused, "there is no active price list")
     engine = app_settings.engine_default()
@@ -159,7 +160,7 @@ def process_job(job: Any) -> str:
         prices = price_lists.version(row["price_list"], row["version"])
         limits = {k: Decimal(v) for k, v in json.loads(row["limits"]).items()}
         scope = f"quote-{wp_id}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
-        with calls.measurement(scope, limits, reuse=True) as scope:
+        with calls.outside_run(scope, limits) as scope:  # 231 (A3a): business work, not a measurement
             lines = _ask(req, prices, row["engine"], scope)
         failed = all(line["answer"].get("error") for line in lines)
         with store.connect() as c:

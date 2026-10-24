@@ -26,7 +26,7 @@ export interface WorkpackageRow {
 /** 154: a package as stored, without its to-dos and next step (the workflow pickers need the name and the kind). */
 export type WorkpackageBrief = Omit<WorkpackageRow, "open_reasons">;
 /** 057: the package's next step (the service computes it in one place; both the list and the header button show it). */
-export interface NextStep { code: string; label: string; stage: "process" | "review" | "result"; params?: Record<string, number> }
+export interface NextStep { code: string; label: string; stage: string; params?: Record<string, number> }  // 231: a tab's id
 export interface RunRow {
   run_id: string; workpackage_id: string; workpackage_name: string; recipe_id: string; recipe_version: number; mode: "shadow" | "apply";
   status: string; approval: string | null; approved_by: string | null; actor: string; created_at: string; finished_at: string | null;
@@ -62,6 +62,8 @@ export interface WorkpackageView {
   mailbox_request?: MailboxRequest | null;
   /** 191: a quote package's request, where it came from, the active price lists and its gaps */
   quote?: QuoteView;
+  /** 231 (A6): a process pack's case container names its case (the interface opens the case's page) */
+  case?: { id: string; pack: string; version: string } | null;
 }
 /** 181: what a work package belongs to and collects, and where that comes from: `own` (a person gave it), `logic_pack`
  *  (a statement package's own) or `workflow` (its workflow step's). */

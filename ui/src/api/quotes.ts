@@ -106,14 +106,14 @@ export interface QuoteLetterView {
 /** 192 (B6a): an email's quote request (`jav/domains/quotes/quote_package.py` `email_part`): the request, what it lacks as a whole,
  *  the quotes already made from it and the item a quote starts from. */
 export interface QuoteEmailPart {
-  request: QuoteRequest; gaps: { code: QuoteBlockerCode; message: string }[]; quotes: { id: string; name: string }[];
+  request: QuoteRequest; gaps: { code: QuoteBlockerCode; message: string }[]; quotes: { id: string; name: string; case?: boolean }[];  // 231: a case's link
   source: { workpackage_id: string; item_id: string };
 }
 /** A request a quote can start from, with the quotes already made from it. */
 export interface QuoteRequestCandidate {
   workpackage_id: string; workpackage_name: string; item_id: string; kind: "email" | "document"; title: string;
   sender: string | null; received_at: string | null; customer_name: string | null; items: number;
-  quotes: { id: string; name: string }[];
+  quotes: { id: string; name: string; case?: boolean }[];  // 231: a case's link
 }
 /** 191 (plan F-quote-package B2): the columns of a price list file (`configs/price_lists.json`). */
 export type PriceListColumn = "sku" | "name" | "unit" | "unit_price" | "category";
@@ -144,8 +144,6 @@ export interface PriceListsListing {
 
 export const quotesApi = {
   quoteRequests: (q?: string) => request<{ requests: QuoteRequestCandidate[] }>("GET", `/quote-requests${q ? `?q=${enc(q)}` : ""}`),
-  createQuotePackage: (body: { name: string; source: string; item_id: string }) =>
-    request<{ workpackage_id: string }>("POST", "/quote-packages", body),
   /** 191 B4c: queues the quote's proposal (the worker makes it) */
   requestQuoteProposal: (wpId: string) => request<QuoteProposal>("POST", `/workpackages/${enc(wpId)}/quote/proposal`, {}),
   /** 192 B5: the quote's draft started, saved after a change (with the state the page read), approved and reopened */

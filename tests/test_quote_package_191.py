@@ -174,11 +174,11 @@ def test_the_service_lists_the_requests_and_makes_a_quote(env, tmp_path):
     with TestClient(create_app(store_path=tmp_path / "q.sqlite"), base_url="http://127.0.0.1:8930") as c:
         listed = c.get("/api/quote-requests", params={"q": "monitor"}).json()["requests"]
         assert [r["item_id"] for r in listed] == [item["item_id"]]
-        made = c.post("/api/quote-packages", headers=human, json={"name": "Monitors", "source": wp_id,
-                                                                  "item_id": item["item_id"]})
+        # 231 (A6c): a quote starts as a case of the IT quote's process pack; the package address is gone
+        made = c.post("/api/cases", headers=human, json={"pack": "it_quote", "name": "Monitors",
+                                                          "record": {"workpackage_id": wp_id, "item_id": item["item_id"]}})
         assert made.status_code == 201
-        page = c.get(f"/api/workpackages/{made.json()['workpackage_id']}").json()
-        assert page["quote"]["request"]["title"] == "Ajanlatkeres monitorra"
-        assert page["next"]["code"] == "quote_request_check"
-        bad = c.post("/api/quote-packages", headers=human, json={"name": "x", "source": wp_id, "item_id": "nope"})
-        assert bad.status_code == 422
+        page = c.get(f"/api/cases/{made.json()['case_id']}").json()
+        assert page["tabs"][0]["elements"][0]["data"]["quote"]["request"]["title"] == "Ajanlatkeres monitorra"
+        gone = c.post("/api/quote-packages", headers=human, json={"name": "x", "source": wp_id, "item_id": "nope"})
+        assert gone.status_code == 404

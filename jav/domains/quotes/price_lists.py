@@ -497,6 +497,18 @@ def active(price_list: str) -> PriceList | None:
     return _model(row) if row is not None else None
 
 
+NEWEST_ACTIVE = "newest_active"
+
+
+def chosen(selection: str = NEWEST_ACTIVE) -> PriceList | None:
+    """231 (A3b): the price list a process uses: `newest_active` (the newest list's active version, the quote's rule
+    until now) or a named list's active version; None when there is none."""
+    if selection != NEWEST_ACTIVE:
+        return active(selection)
+    lists = active_lists()
+    return version(lists[0]["price_list"], lists[0]["version"]) if lists else None
+
+
 def active_lists() -> list[dict[str, Any]]:
     """The active version of every list a quote can be priced from, newest list first: its identifier, name, version,
     currency, VAT rate, items and rules (191, B3)."""
@@ -544,6 +556,6 @@ def retire(price_list: str, *, actor: identity.Who) -> dict[str, Any]:
     return get(price_list, n)
 
 
-__all__ = ["CONFIG", "KEYS", "STATES", "VERSIONS", "Discount", "Item", "PriceList", "PriceListNotFound", "PriceListRefused",
-           "PriceListStateError", "activate", "active", "active_lists", "add", "change_settings", "config", "content",
+__all__ = ["CONFIG", "KEYS", "NEWEST_ACTIVE", "STATES", "VERSIONS", "Discount", "Item", "PriceList", "PriceListNotFound", "PriceListRefused",
+           "PriceListStateError", "activate", "active", "active_lists", "add", "change_settings", "chosen", "config", "content",
            "detail", "get", "listing", "mark", "read", "retire", "version"]

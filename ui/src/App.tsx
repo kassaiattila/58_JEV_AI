@@ -20,6 +20,7 @@ const Waiting = lazyPage(() => import("./views/Waiting").then((m) => m.Waiting))
 const LegacyResult = lazyPage(() => import("./views/LegacyResult").then((m) => m.LegacyResult));
 const Settings = lazyPage(() => import("./views/Settings").then((m) => m.Settings));
 const Workflows = lazyPage(() => import("./views/workflows/Workflows").then((m) => m.Workflows));
+const CasePage = lazyPage(() => import("./views/CasePage").then((m) => m.CasePage));  // 231 (A6)
 
 // the label is the Hungarian source, translated at render time (058: the rail is wide enough for the label to fit
 // without hyphenation)
@@ -67,6 +68,7 @@ export function App() {
             {route.view === "workpackages" ? <Workpackages route={route} /> : null}
             {route.view === "run" ? <RunDetail runId={route.runId} /> : null}
             {route.view === "workflows" ? <Workflows route={route} /> : null}
+            {route.view === "cases" ? <CasePage caseId={route.caseId} tab={route.tab} /> : null}
             {route.view === "settings" ? <Settings section={route.section} /> : null}
             {route.view === "legacy-result" ? <LegacyResult runId={route.runId} table={route.table} /> : null}
             {route.view === "activity" ? <Activity day={route.day} /> : null}

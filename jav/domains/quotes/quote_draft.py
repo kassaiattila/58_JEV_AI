@@ -154,8 +154,8 @@ def _quote_package() -> Any:
 
 
 def _package(wp_id: str) -> None:
-    """KeyError for a package that is not a quote's (the service's 404)."""
-    if work.get(wp_id)["source_kind"] != _quote_package().KIND:
+    """KeyError for a package that is not a quote's (the service's 404); 231 (A5): a case's container may hold a quote."""
+    if work.get(wp_id)["source_kind"] not in (_quote_package().KIND, _quote_package().CONTAINER):
         raise KeyError(wp_id)
 
 
@@ -244,10 +244,10 @@ def start(wp_id: str, *, source: Literal["proposal", "request"], actor: identity
         prices = price_lists.version(proposal["price_list"], proposal["version"])
         lines = [_from_proposal(line) for line in proposal["lines"]]
     else:
-        lists = price_lists.active_lists()
-        if not lists:
+        chosen = price_lists.chosen()  # 231 (A3b): the same choice as the proposal's
+        if chosen is None:
             raise explained(QuoteDraftError, "there is no active price list")
-        prices = price_lists.version(lists[0]["price_list"], lists[0]["version"])
+        prices = chosen
         lines = [_from_request(n, item) for n, item in enumerate(req.items)]
     content = {"price_list": prices.price_list, "version": prices.version,
                "header": {name: _text(req.fields.get(name)) for name in header_fields()}, "lines": lines[:max_lines()],
