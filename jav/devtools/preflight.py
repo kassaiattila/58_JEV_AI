@@ -56,10 +56,11 @@ def log_folder() -> Path:
     return folder
 
 
-def run_pytest(folder: Path | None = None) -> tuple[bool, str]:
+def run_pytest(folder: Path | None = None, *, root: Path = PROJECT_ROOT, env: dict[str, str] | None = None) -> tuple[bool, str]:
     """`pytest tests/ -q` in a subprocess; returns the summary line, and on a failure the failed tests' names too (086:
     an intermittent failure could not be identified from the summary line alone). 092 (audit T1): the raw output and a
-    JUnit file are kept under `runs/preflight/<timestamp>/` (the latest `KEEP_LOGS`); a failure names the folder."""
+    JUnit file are kept under `runs/preflight/<timestamp>/` (the latest `KEEP_LOGS`); a failure names the folder. 231: `root`
+    and `env` run it in another working tree (`jav/devtools/test_worktree.py`)."""
     folder = folder or log_folder()
     workers = parallel_workers()
     # 189: in several processes, each free test going to the first idle one, and with the slowest tests listed
@@ -67,10 +68,10 @@ def run_pytest(folder: Path | None = None) -> tuple[bool, str]:
     r = subprocess.run(
         [sys.executable, "-m", "pytest", "tests/", "-q", "-p", "no:cacheprovider", "-rfE", *parallel,
          f"--durations={SLOWEST_SHOWN}", f"--junitxml={folder / 'junit.xml'}"],
-        cwd=PROJECT_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace",
+        cwd=root, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     (folder / "pytest.txt").write_text((r.stdout or "") + (f"\n--- stderr ---\n{r.stderr}" if r.stderr else ""), encoding="utf-8")
-    _prune_logs(PREFLIGHT_RUNS)
+    _prune_logs(folder.parent)
     lines = [ln for ln in (r.stdout or "").splitlines() if ln.strip()]
     summary = lines[-1] if lines else (r.stderr or "").strip()[-200:]
     failed = [ln.split(" - ")[0] for ln in lines if ln.startswith(("FAILED ", "ERROR "))]
@@ -98,15 +99,15 @@ def _failed_ui_tests(junit: Path) -> list[str]:
             if case.find("failure") is not None or case.find("error") is not None]
 
 
-def run_ui_checks(folder: Path | None = None) -> tuple[bool, str] | None:
+def run_ui_checks(folder: Path | None = None, *, ui_dir: Path = UI_DIR) -> tuple[bool, str] | None:
     """The UI (040 K3): `tsc --noEmit` + `vitest run` + (057) translation completeness (`scripts/check-i18n.mjs` and
     `--audit`). Skipped (None) if the Node dependencies are not installed. 149: the vitest output and a JUnit file are
     kept next to the pytest log, and a failure names the failed tests and the folder (an intermittent UI failure could
     not be identified before)."""
     npx = shutil.which("npx")
-    if npx is None or not (UI_DIR / "node_modules").is_dir():
+    if npx is None or not (ui_dir / "node_modules").is_dir():
         return None
-    tsc = subprocess.run([npx, "tsc", "--noEmit"], cwd=UI_DIR, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    tsc = subprocess.run([npx, "tsc", "--noEmit"], cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if tsc.returncode != 0:
         first = next((ln for ln in (tsc.stdout or "").splitlines() if ln.strip()), "tsc hiba")
         return False, f"típusellenőrzés: {first[:160]}"
@@ -114,7 +115,7 @@ def run_ui_checks(folder: Path | None = None) -> tuple[bool, str] | None:
     for extra in (["--audit"], []):
         if node is None:
             break
-        i18n = subprocess.run([node, "scripts/check-i18n.mjs", *extra], cwd=UI_DIR, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        i18n = subprocess.run([node, "scripts/check-i18n.mjs", *extra], cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace")
         if i18n.returncode != 0:
             last = [ln for ln in (i18n.stderr or "").splitlines() if ln.strip()]
             return False, f"fordítás: {(last[-1] if last else 'check-i18n hiba')[:160]}"
@@ -122,7 +123,7 @@ def run_ui_checks(folder: Path | None = None) -> tuple[bool, str] | None:
     junit = folder / "vitest-junit.xml"
     r = subprocess.run(
         [npx, "vitest", "run", "--reporter=default", "--reporter=junit", f"--outputFile.junit={junit}"],
-        cwd=UI_DIR, capture_output=True, text=True, encoding="utf-8", errors="replace",
+        cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     (folder / "vitest.txt").write_text((r.stdout or "") + (f"\n--- stderr ---\n{r.stderr}" if r.stderr else ""), encoding="utf-8")
     tests = next((ln.strip() for ln in (r.stdout or "").splitlines() if ln.strip().startswith("Tests")), "")
@@ -135,12 +136,13 @@ def run_ui_checks(folder: Path | None = None) -> tuple[bool, str] | None:
     return r.returncode == 0, summary
 
 
-def run_tests(folder: Path) -> tuple[tuple[bool, str], tuple[bool, str] | None]:
+def run_tests(folder: Path, *, root: Path = PROJECT_ROOT, env: dict[str, str] | None = None) -> tuple[tuple[bool, str], tuple[bool, str] | None]:
     """189: pytest and the UI checks at the same time (both are subprocesses, each waited for in its own thread), their
-    raw outputs in the same folder: (pytest's result, the UI's result or None when it is not installed)."""
+    raw outputs in the same folder: (pytest's result, the UI's result or None when it is not installed). 231: `root`
+    and `env` run both in another working tree."""
     with ThreadPoolExecutor(max_workers=2) as pool:
-        tests = pool.submit(run_pytest, folder)
-        ui = pool.submit(run_ui_checks, folder)
+        tests = pool.submit(run_pytest, folder, root=root, env=env)
+        ui = pool.submit(run_ui_checks, folder, ui_dir=root / "ui")
         return tests.result(), ui.result()
 
 

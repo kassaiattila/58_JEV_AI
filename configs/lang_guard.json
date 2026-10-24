@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.132",
+    "version": "1.0.133",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.133",
+        "date": "2026-10-24",
+        "note": "231 (the autopilot): the Hungarian heading of the internal plans' progress section, which the autopilot hook looks for and CLAUDE.md names (document vocabulary; CLAUDE.md 4 -> 5, scripts/hooks/handoff_guard.py 17 -> 18); 6055 -> 6057."
+      },
       {
         "version": "1.0.132",
         "date": "2026-10-24",
@@ -678,7 +683,7 @@
     ".claude/settings.json": 5,
     ".gitattributes": 1,
     ".gitignore": 13,
-    "CLAUDE.md": 4,
+    "CLAUDE.md": 5,
     "configs/bank_files.json": 1,
     "configs/callsites/detect.json": 1,
     "configs/callsites/detect_detail.json": 1,
@@ -905,7 +910,7 @@
     "requirements.txt": 9,
     "scripts/dev.ps1": 1,
     "scripts/githooks/pre-commit": 3,
-    "scripts/hooks/handoff_guard.py": 17,
+    "scripts/hooks/handoff_guard.py": 18,
     "scripts/mail_bridge_call.ps1": 6,
     "smoke_test.py": 11,
     "tests/test_admin_docs.py": 5,

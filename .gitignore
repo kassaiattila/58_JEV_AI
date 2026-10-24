@@ -35,6 +35,7 @@ tools/tessdata_best/
 
 # Claude Code helyi beállítás (gépenkénti)
 .claude/settings.local.json
+.claude/autopilot/
 
 # Frontend (később)
 node_modules/
@@ -53,6 +54,7 @@ docs/handoffs/
 docs/plans/
 docs/reports/
 docs/callsites/
+docs/archive/
 docs/BACKLOG.md
 docs/DECISIONS.md
 docs/ROADMAP.md

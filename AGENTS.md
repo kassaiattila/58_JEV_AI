@@ -12,7 +12,7 @@ Read [CLAUDE.md](CLAUDE.md) for the shared project rules, architecture, commands
 ## Codex and Windows
 
 - Codex reads AGENTS.md. Do not assume it loads CLAUDE.md or `.claude/settings.json` automatically; read the shared rules explicitly.
-- Claude Code hooks and review agents are host-specific. When the Claude-only review agent is unavailable, check handoffs directly against the local template and existing evidence.
+- Claude Code hooks and review agents are host-specific. The autopilot (CLAUDE.md §2.7) is Claude-only: only the Claude hooks pass `--host claude`, so the Codex Stop hook never blocks. When the Claude-only review agent is unavailable, check handoffs directly against the local template and existing evidence.
 - Codex hooks use a separate configuration. Reproduce failures with synthetic input before changing them. Keep machine-specific paths, diagnostics and configuration backups outside tracked files.
 - The versioned project lifecycle configuration is [scripts/hooks/codex-hooks.json](scripts/hooks/codex-hooks.json). Install a local copy at `.codex/hooks.json`, preserving any existing local hooks, then review it in Codex. It reuses the handoff guard for SessionStart, PreCompact and non-blocking Stop; Windows commands resolve the repository root and virtual environment even from a subdirectory. `additionalContextLimit` bounds startup context, so read the full local handoff if the host supplies a shortened preview.
 - In PowerShell, invoke a quoted executable path with the `&` call operator. Resolve Git Bash explicitly when required; bare `bash` may resolve to the WSL launcher. Use the repository virtual environment for Python.

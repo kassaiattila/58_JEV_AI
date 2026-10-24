@@ -2,7 +2,8 @@
 
 **Internal working material** is the local record of how development proceeds: handoffs, plans, reports, the old
 dated root reports, the continuation instructions, the backlog, the decisions log, the roadmap, the internal landing
-page, and the call-site catalogue generated from the local call log. Git does not track it (`.gitignore`), it never
+page, the call-site catalogue generated from the local call log, and (231) the archive of the backlog's and the
+decisions log's closed parts. Git does not track it (`.gitignore`), it never
 goes to GitHub, and the daily backup carries it (`jav/runtime/backup.py`). The paths have not changed: links in the old
 handoffs and the hooks point to the same places.
 
@@ -26,6 +27,7 @@ INTERNAL_DOC_PATTERNS: tuple[str, ...] = (
     "docs/plans/",
     "docs/reports/",
     "docs/callsites/",
+    "docs/archive/",  # 231: the closed parts of the backlog and the decisions log
     "docs/BACKLOG.md",
     "docs/DECISIONS.md",
     "docs/ROADMAP.md",
