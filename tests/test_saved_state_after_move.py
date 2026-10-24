@@ -97,3 +97,33 @@ def test_every_moved_class_is_gone_from_its_old_module_and_lives_at_its_new_one(
         assert moved.__module__ == f"jav.{new}", (new, name)
         # the old module may still use it (the flow state holds its lines), but defines none of its own
         assert getattr(importlib.import_module(f"jav.{MOVED_MODULES.get(old, old)}"), name, moved) is moved, (old, name)
+
+
+def test_a_renamed_class_is_read_under_its_new_name(tmp_path):
+    """227 (backlog Q-old-state-InvoiceHU, plan R3a): the record of a document's data points was named `InvoiceHU`
+    until 188, in `jav.models`; a state saved naming it so is read as the `DocumentRecord` of the AI layer
+    (`RENAMED_CLASSES`; the fields are the same). 2 774 saved states of the store named it so in 208."""
+    from jav.ai.models import DocumentRecord, LineItem
+
+    record = DocumentRecord(supplier_name="Invented Kft.", currency="HUF", extra={"note": "invented"},
+                            line_items=[LineItem(description="Invented line", unit="db")])
+    persister = ClosingSQLitePersister(str(tmp_path / "burr.sqlite"))
+    persister.initialize()
+    persister.save("invoice", "run-1:item", 0, "extract", State({"record": record}), "completed")
+    text = persister.connection.execute("SELECT state FROM burr_state").fetchone()[0]
+    assert '"__pydantic_class": "jav.ai.models.DocumentRecord"' in text
+    old = text.replace('"jav.ai.models.DocumentRecord"', '"jav.models.InvoiceHU"').replace('"jav.ai.models.', '"jav.models.')
+    persister.connection.execute("UPDATE burr_state SET state = ?", (old,))
+    persister.connection.commit()
+    loaded = persister.load("invoice", "run-1:item")["state"]
+    persister.cleanup()
+    assert isinstance(loaded["record"], DocumentRecord) and loaded["record"] == record
+
+
+def test_every_renamed_class_lives_under_its_new_name_and_not_its_old_one():
+    from jav.flows.persistence import RENAMED_CLASSES
+
+    for (old, name), (new, new_name) in RENAMED_CLASSES.items():
+        moved = getattr(importlib.import_module(f"jav.{new}"), new_name)
+        assert moved.__module__ == f"jav.{new}", (new, new_name)
+        assert not hasattr(importlib.import_module(f"jav.{MOVED_MODULES.get(old, old)}"), name), (old, name)

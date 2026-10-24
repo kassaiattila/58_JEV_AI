@@ -35,7 +35,8 @@ and the measurement. `tests/test_dependency_direction.py` reads every module's i
 on a module outside the layers' folders and on a new import against the direction, and lists the ones that exist
 today, each with the step that takes it away (the list can only shrink). A module that moved keeps a saved flow state
 readable: the state persister reads its classes at their new place (`jav/flows/persistence.py` `MOVED_MODULES`; 209: a
-class that left its module, `MOVED_CLASSES`). The data model is the AI layer's general one (`jav/ai/models.py`); the
+class that left its module, `MOVED_CLASSES`; 227: a renamed class under its new name, `RENAMED_CLASSES`, so the 2 774
+states saved before 188 with the record's old name `InvoiceHU` load as `DocumentRecord`). The data model is the AI layer's general one (`jav/ai/models.py`); the
 Hungarian invoice's own field lists and G-path output model are beside it (`jav/ai/invoice_models.py`), and the page
 layout that reading makes is the documents layer's (`jav/documents/layout.py`, 209). The
 instructions and output schemas sent to the models are config data in `configs/prompts/` (209), not code. A domain's
