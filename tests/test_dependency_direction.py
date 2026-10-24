@@ -37,19 +37,12 @@ BESIDE = {
 ALLOWED = {layer: (*LAYERS[: i + 1], *(("evals", "devtools", "legacy") if layer == "cli" else ())) for i, layer in
            enumerate(LAYERS)} | BESIDE
 
-# imports against the direction today, each with the step that takes it away
-KNOWN = {
-    # the native reader's interpretation asks the AI layer (227, plan R3c: the reading's own thresholds and input kinds
-    # are the documents layer's now)
-    ("jav.documents.readers.interpretation", "jav.ai.fact_checks"), ("jav.documents.readers.providers", "jav.ai.jev"),
-    # the registries load the domains' registrations themselves
-    ("jav.core.activity_kinds", "jav.app.registrations"), ("jav.ai.checks", "jav.app.registrations"),
-    # a document's reading checks its item (227: the conflict error is the shared core's now)
-    ("jav.documents.native_results", "jav.app.item_kinds"), ("jav.documents.ocr", "jav.app.source_instances"),
-    ("jav.ai.party_history", "jav.app.package_result"),
-    # 227 (plan R3c): the worker's state is shown by the service and the command line; the operations log reads the
-    # keys to mask from the core; the quote's measurements are its golden module's
-}
+# imports against the direction today, each with the step that takes it away. 229 (plan structure stage 1, MD1): none
+# left: the value checks and the source instances are the documents layer's, the JEV check of the native facts the AI
+# layer's, and the shared registries, the native result and the role-swap check get what the application knows through
+# what it hands over when it is loaded (`jav.core.completion`, `native_results.set_document_check`,
+# `party_history.set_results`).
+KNOWN: set[tuple[str, str]] = set()
 # imports against the direction for good, each with its reason (224: the shared decision rules no longer import the
 # email domain; its routes are the domain's own, `jav/domains/email/email_rules.py`)
 LASTING: dict[tuple[str, str], str] = {}
@@ -197,3 +190,33 @@ def test_the_email_tables_belong_to_the_email_domain():
     assert {t: _tables()[t] for t in ("emails", "email_results", "email_task_decisions")} == dict.fromkeys(
         ("emails", "email_results", "email_task_decisions"), "domains.email.email_store")
 
+
+# --- 229 (MD1): a lower layer names no module of a higher layer as text --------------------------------------------
+
+_DOTTED = re.compile(r"(?<!-m )\bjav\.([a-z_]+)(?:\.[a-z_]+)*")
+
+
+def _strings(tree: ast.Module) -> list[tuple[int, str]]:
+    """The module's strings that are not docstrings (a module named in a description is no reference)."""
+    docs = {id(node.body[0].value) for node in ast.walk(tree)
+            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and node.body
+            and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant)}
+    return [(node.lineno, node.value) for node in ast.walk(tree)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docs]
+
+
+def test_a_lower_layer_names_no_module_of_a_higher_layer_as_text():
+    """An import by name (`importlib.import_module("jav.domains....")`, a registry entry naming the module that owes it)
+    is a dependency the import test cannot see; the layer above registers itself instead. A command line in a message
+    (`python -m jav.cli ...`) names no module to import."""
+    wrong = []
+    for name, path in sorted(MODULES.items()):
+        layer = name.split(".")[0]
+        if layer not in LAYERS:
+            continue
+        for line, text in _strings(ast.parse(path.read_text(encoding="utf-8"))):
+            for m in _DOTTED.finditer(text):
+                target = m.group(1)
+                if target in LAYERS and LAYERS.index(target) > LAYERS.index(layer) and target not in ALLOWED[layer]:
+                    wrong.append(f"{name}:{line}: {m.group(0)}")
+    assert wrong == []

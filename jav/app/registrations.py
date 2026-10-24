@@ -14,9 +14,10 @@ still registered on import (`store.register_schema`), because a module's tables 
 177 (plan 170 E5): the email domain registers its rule run after every item (an attachment of a suspicious email) and
 the mailbox package's part of its page (`jav/app/item_kinds.py`).
 180 (plan 170 E7): a domain's registrations are in its domain module (`jav/domains/`): the finance domain's checks,
-logic packs, party references and download parts, the email domain's item rule and page part. The check registry and
-the output parts registry call `load_all` themselves the first time they are read, so they are complete whichever
-module asks first.
+logic packs, party references and download parts, the email domain's item rule and page part. The registries call
+`load_all` themselves the first time they are read, so they are complete whichever module asks first: the
+application's own ones directly, the shared core's and the AI layer's through the call this module hands over on
+import (229, plan structure stage 1, MD1: `jav.core.completion`), so they name no module above them.
 181 (plan 170 L5): the workflow step kinds (`jav/app/workflow_steps.py`): the workflows register the documents step, the
 finance domain the statements and reconciliation steps, the email domain the emails step. The package scopes
 (`jav/app/package_scope.py`): the finance domain registers the package roles, the workflows a step's package's scope, the
@@ -30,11 +31,16 @@ from __future__ import annotations
 import importlib
 from typing import Any, Callable
 
+from jav.core import completion
+
 _loaded = False
 _loading = False
-# 218 (P3b): the modules that register decision points on import (the workflows' are imported by `order`)
-DECISION_POINT_MODULES = ("jav.flows.flow_detect", "jav.ai.policy", "jav.documents.ocr", "jav.domains.finance.duplicates",
-                          "jav.app.parties", "jav.domains.email.flow_email")
+# 218 (P3b): the shared modules that register decision points on import (the workflows' are imported by `order`; 229: a
+# domain's by its own `register()`)
+DECISION_POINT_MODULES = ("jav.flows.flow_detect", "jav.ai.policy", "jav.documents.ocr", "jav.app.parties")
+# 229 (MD1): the application modules that register log events, sources of the day's work and decision kinds on import;
+# loaded first, so a domain's entry finds the shared one it is placed by (until 229 the activity registry named them)
+ACTIVITY_MODULES = ("jav.app.work", "jav.app.package_release", "jav.app.workflows", "jav.app.activity", "jav.app.corrections")
 
 
 def order(domains: list[Any]) -> list[Callable[[], None]]:
@@ -59,6 +65,8 @@ def load_all() -> None:
     try:
         from jav.domains import DOMAINS
 
+        for name in ACTIVITY_MODULES:
+            importlib.import_module(name)
         for register in order([importlib.import_module(name) for name in DOMAINS]):
             register()
         for name in DECISION_POINT_MODULES:
@@ -68,4 +76,7 @@ def load_all() -> None:
         _loading = False
 
 
-__all__ = ["DECISION_POINT_MODULES", "load_all", "order"]
+completion.set_completer(load_all)  # 229 (MD1): the shared registries complete themselves through it
+
+
+__all__ = ["ACTIVITY_MODULES", "DECISION_POINT_MODULES", "load_all", "order"]

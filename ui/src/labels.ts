@@ -132,7 +132,7 @@ const CHECK_TEXT: Record<string, string> = tmap({
   "lines.too_few": "A list has fewer rows than it should (for example, no requested item at all)",
   "lines.value_missing": "A list row lacks a value it needs",
   "lines.not_positive": "A quantity in a list row is zero or less",
-  // 120: the role-pair check (jav/ai/fact_checks.py); written with codepoints for the language guard
+  // 120: the role-pair check (jav/documents/fact_checks.py); written with codepoints for the language guard
   "parties.same_entity": "Ugyanaz a szerepl\u0151 k\u00e9t k\u00fcl\u00f6nb\u00f6z\u0151 szerepben",
   // 121: the pair against the earlier documents of the same type (jav/ai/party_history.py)
   "parties.orientation_reversed": "A k\u00e9t f\u00e9l szerepe ford\u00edtott ahhoz k\u00e9pest, ahogy a kor\u00e1bbi, azonos t\u00edpus\u00fa iratokon \u00e1lltak",

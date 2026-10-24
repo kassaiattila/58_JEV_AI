@@ -10,12 +10,11 @@ from contextlib import contextmanager
 import json
 from pathlib import Path, PurePosixPath
 import sqlite3
-from typing import Mapping, Sequence
+from typing import Callable, Mapping, Sequence
 from uuid import uuid4
 
 from pydantic import TypeAdapter
 
-from jav.app import item_kinds
 from jav.core import store
 from jav.documents.native_contracts import (
     ArtifactRef, Failed, InterpretationOutcome, NativeCitation, NativeFact,
@@ -250,12 +249,28 @@ def outcome_for_graph(graph_id: str, c=None) -> str | None:
     return None
 
 
+# 229 (plan structure stage 1, MD1): whether an item is read as a document (its type recognised from its content) is the
+# application's item kinds' answer; that registry hands it over when it is loaded (`jav.app.item_kinds`)
+_read_as_document: Callable[[Mapping], bool] | None = None
+
+
+def set_document_check(fn: Callable[[Mapping], bool] | None) -> None:
+    global _read_as_document
+    _read_as_document = fn
+
+
+def _detected(item: Mapping) -> bool:
+    if _read_as_document is None:
+        raise RuntimeError("the application's item kinds are not loaded: an item's kind cannot be told")
+    return _read_as_document(item)
+
+
 def _check_work(c, *, run_id, item_id, source_sha256, recipe_hash):
     row = c.execute("SELECT input,recipe_hash,approval FROM runs WHERE run_id=?", (run_id,)).fetchone()
     if row is None or row["recipe_hash"] != recipe_hash:
         raise NativeIntegrityError("Publication does not match its frozen work run")
     items = [i for i in json.loads(row["input"])["items"] if i["item_id"] == item_id]
-    if len(items) != 1 or items[0]["sha256"] != source_sha256 or not item_kinds.of(items[0]).detected:
+    if len(items) != 1 or items[0]["sha256"] != source_sha256 or not _detected(items[0]):
         raise NativeIntegrityError("Publication does not match its frozen work item")
     return row
 
@@ -323,7 +338,7 @@ def native_item(run_id: str, item: Mapping, c=None) -> bool:
     """Whether an item's result is a native publication: a native format, or (120) a PDF that continued into the
     native flow because its recognised type had no fitting type pack. The suffix alone no longer decides for a PDF.
     177: only an item whose type is recognised from its content (a document, `jav/app/item_kinds.py`)."""
-    if not item_kinds.of(item).detected:
+    if not _detected(item):
         return False
     suffix = Path(item["source_path"]).suffix.lower()
     if suffix in NATIVE_SUFFIXES:

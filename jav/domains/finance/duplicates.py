@@ -40,7 +40,7 @@ from functools import lru_cache
 from typing import Any, Iterable
 
 from jav.app import item_kinds, package_result
-from jav.ai import fact_checks
+from jav.documents import fact_checks
 from jav.core import cfg, decisions, identity, store, trace, type_roles
 from jav.core.user_messages import explained
 

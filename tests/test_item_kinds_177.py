@@ -71,7 +71,7 @@ def test_the_email_domain_registers_its_rule_and_the_mailbox_page_part():
     # 180 (plan 170 E7): registered by the email domain module; the work stays in the mailbox module
     assert [(r.kind, r.name, r.module) for r in ik.rules()] == [("email", "suspicious_email_source", "jav.domains.email")]
     assert ik.rules()[0].after_item is mailbox.mark_suspicious_source
-    assert ik.of("email").rules_from == ik.source("mailbox").page_from == "jav.domains.email"
+    assert ik.claimed_by("email") == ik.source_claimed_by("mailbox") == "jav.domains.email"  # 229 (MD1): claimed
 
 
 def test_asking_before_the_email_domain_registered_is_an_error(monkeypatch):

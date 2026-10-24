@@ -12,7 +12,8 @@ from typesafe_sdk import TypeSafeAPITimeoutError
 
 from jav.service import api
 from jav.runtime import backup
-from jav.app import corrections, source_instances, work, work_runs
+from jav.app import corrections, work, work_runs
+from jav.documents import source_instances
 from jav.core import cfg, store
 from jav.ai.jev import JevUnavailableError
 from jav.runtime import worker

@@ -104,7 +104,7 @@ class StatePersister(ClosingSQLitePersister):
 def _attachment_reads(items: list[dict[str, Any]], email_item_id: str) -> dict[str, str]:
     """The email's attachments that are items of the run with an intact source instance: resolved original path ->
     instance. A damaged instance is left out (its own document item fails with `instance_damaged`)."""
-    from jav.app import source_instances
+    from jav.documents import source_instances
 
     out = {}
     for i in items:

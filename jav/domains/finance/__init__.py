@@ -256,10 +256,29 @@ DUPLICATE_COLUMNS = (parts.Column("duplicate", "Duplicate", "enum", "duplicate")
 DIRECTION_COLUMNS = (parts.Column("direction", "Direction", "enum", "direction"),)
 
 
+def _build_statement_table(mod: Any, b: Any) -> Any:
+    # 136: an account's statement from a tabular export, code only (229: the domain's flow entry; until then the shared
+    # flow registry's)
+    if b.item is None:
+        raise ValueError("A statement table requires the frozen item identity")
+    return mod.build_app(run_id=b.app_id, item_id=b.item["item_id"], source_path=b.source_path,
+                         read_path=b.read_path or b.source_path, expected_sha256=b.item["sha256"], persister=b.persister)
+
+
+def _lint_statement_table(mod: Any) -> Any:
+    return mod.build_app(run_id="lint-statement-table", item_id="0" * 64, source_path="lint.json",
+                         read_path="lint.json", expected_sha256="0" * 64)
+
+
 def register() -> None:
     """Every registration of the finance domain, in the order the shared code lists them (`registrations.load_all`)."""
+    from jav import flows
     from jav.app import datasets, logic_packs, package_scope, parties, workflow_steps
     from jav.domains.finance import duplicates, finance_datasets, reconcile_package, report_utility, statement_package
+
+    # 229 (MD1): its bank table flow; importing `duplicates` registers its decision point
+    flows.register(flows.FlowSpec("statement_table", "jav.domains.finance.flow_statement_table", _build_statement_table,
+                                  _lint_statement_table))
 
     for check in CHECKS:
         checks.register(check)

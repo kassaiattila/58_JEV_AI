@@ -23,7 +23,8 @@ from fastapi.testclient import TestClient
 
 from jav.service import api
 from jav.runtime import backup
-from jav.app import source_instances, work
+from jav.app import work
+from jav.documents import source_instances
 from jav.core import store
 from jav.core import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf

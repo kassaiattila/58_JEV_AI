@@ -19,7 +19,8 @@ from fastapi.testclient import TestClient
 
 from jav.service import api
 from jav.runtime import backup
-from jav.app import corrections, source_instances, work, work_readiness, work_recipes, work_runs
+from jav.app import corrections, work, work_readiness, work_recipes, work_runs
+from jav.documents import source_instances
 from jav.flows import flow_detect
 from jav.documents import ocr
 from jav.core import store

@@ -10,7 +10,8 @@ from jav.core import store
 from jav.core.config import OPENAI_MODEL
 from jav.documents.readers.interpretation import ProposedExtraction, ground
 from jav.documents.readers.pipeline import read_files
-from jav.documents.readers.providers import extract_gpt, verify_jev
+from jav.ai.native_verification import verify_jev
+from jav.documents.readers.providers import extract_gpt
 from jav.documents.readers.receipts import InterpretationRejected
 from jav.core import calls
 

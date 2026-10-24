@@ -157,7 +157,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from jav.app import package_result
-from jav.ai import fact_checks
+from jav.documents import fact_checks
 from jav.core import cfg, store, type_roles, values
 from jav.domains.finance import duplicates, fx
 from jav.ai.candidates import trim_after_legal_form

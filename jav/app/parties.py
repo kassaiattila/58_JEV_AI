@@ -37,7 +37,7 @@ from difflib import SequenceMatcher
 from itertools import combinations
 from typing import Any, Callable, Iterable
 
-from jav.ai import fact_checks
+from jav.documents import fact_checks
 from jav.core import cfg, identity, store, trace, type_roles
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now

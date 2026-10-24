@@ -41,9 +41,11 @@ def test_the_worker_loads_each_module_from_the_registry() -> None:
         assert worker._flow_module(name).__name__ == flows.get(name).module
 
 
-def test_the_contract_lint_takes_every_flow_in_the_order_reported_so_far() -> None:
+def test_the_contract_lint_takes_every_flow_in_the_registry_order() -> None:
+    """229 (MD1): the shared flows first, then each domain's (the finance domain's bank table, the email domain's
+    intent), as their domains register them."""
     assert [module.CONTRACT["name"] for module, _app in admin.flow_lint_targets()] == [
-        "invoice", "doc_detect", "email_intent", "native", "statement_table"]
+        "invoice", "doc_detect", "native", "statement_table", "email_intent"]
 
 
 def test_an_unknown_flow_name_is_a_named_error() -> None:

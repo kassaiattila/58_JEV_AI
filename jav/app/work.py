@@ -26,7 +26,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from jav.app import human_tasks, item_kinds, logic_packs, source_instances
+from jav.app import human_tasks, item_kinds, logic_packs
+
+from jav.documents import source_instances
 from jav.core import activity_kinds, decisions, identity, store
 from jav.documents.native_contracts import DOCUMENT_SUFFIXES
 from jav.core.user_messages import explained
@@ -58,7 +60,7 @@ CREATE TABLE IF NOT EXISTS workpackage_items (
     added_revision   INTEGER NOT NULL,
     removed_revision INTEGER,
     parent_item_id   TEXT,                     -- 058 K5.2: a levél csatolmányánál a levél tétele (a csatolmány eredete)
-    instance    TEXT,                          -- source instance (jav/app/source_instances.py), relative path; NULL: none
+    instance    TEXT,                          -- source instance (jav/documents/source_instances.py), relative path; NULL: none
     removed_at  TEXT,                          -- 160-C S1: when, by whom and why the item was removed (NULL: in use)
     removed_by  TEXT,
     removed_by_id TEXT,                        -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
@@ -327,7 +329,7 @@ def add_items(wp_id: str, paths: list[Path], *, kind: str, expected_revision: in
     The item's identifier is the file's content hash; identical content appears once. `parents` (058 K5.2): the parent
     item's identifier per file — so an email attachment points to its email (the attachment's origin).
 
-    A document is copied into the source instance store as it is added (`jav/app/source_instances.py`), and its
+    A document is copied into the source instance store as it is added (`jav/documents/source_instances.py`), and its
     fingerprint is that of the copied bytes; an email is hashed in place (it is already the system's own copy). If the
     intake fails, the copies made for it are released again."""
     item_kinds.check([kind])  # 177: the registry knows the kinds (`UnknownItemKind`, a ValueError)

@@ -11,14 +11,27 @@ results and dropped: it flagged every invoice of some suppliers, including ones 
 The store is read only inside a worker run: measurements and the command line keep giving results that do not depend
 on what the store holds (175: the check registry's gate, `jav/ai/checks.py`, in front of the `party_orientation` check). Each earlier document counts once, by
 its counted result when that is of the same type (174, plan 170 L2: the package's current result across every package,
-`package_result.counted_documents`; before, its latest result of that type); the current document never counts.
+`package_result.counted_documents`, handed over by it since 229; before, its latest result of that type); the current
+document never counts.
 """
 
 from __future__ import annotations
 
-from jav.app import package_result
-from jav.ai import fact_checks
+from collections.abc import Callable
+from typing import Any
+
+from jav.documents import fact_checks
 from jav.core import store
+
+# 229 (plan structure stage 1, MD1): the earlier documents' counted results are the application's
+# (`jav.app.package_result.counted_documents`, `result_rows`); it hands them over when it is loaded
+_counted: Callable[..., Any] | None = None
+_rows: Callable[..., Any] | None = None
+
+
+def set_results(counted: Callable[..., Any] | None, rows: Callable[..., Any] | None) -> None:
+    global _counted, _rows
+    _counted, _rows = counted, rows
 
 
 def orientation(doc_id: str | None, doc_type: str | None, fields: tuple[str, str], values: tuple[object, object]) -> tuple[int, int] | None:
@@ -31,10 +44,12 @@ def orientation(doc_id: str | None, doc_type: str | None, fields: tuple[str, str
     if None in keys or keys[0] == keys[1]:
         return None
     first, second = fields
+    if _counted is None or _rows is None:
+        raise RuntimeError("the earlier counted results are not handed over: the application's results are not loaded")
     with store.connect() as c:
-        counted = package_result.counted_documents(c)
+        counted = _counted(c)
         counted.pop(doc_id or "", None)
-        rows = package_result.result_rows(c, counted, "json_extract(datapoints, '$.' || ?) AS a,"
+        rows = _rows(c, counted, "json_extract(datapoints, '$.' || ?) AS a,"
                                           " json_extract(datapoints, '$.' || ?) AS b", (first, second), types=[doc_type])
     latest = {r["doc_id"]: (fact_checks.tax_party_key(r["a"]), fact_checks.tax_party_key(r["b"])) for r in rows}
     other = sum(1 for pair in latest.values() if pair == (keys[1], keys[0]))

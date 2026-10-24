@@ -13,7 +13,9 @@ from decimal import Decimal
 
 import pytest
 
-from jav.ai import fact_checks, party_history, policy, typepack, validators
+from jav.ai import party_history, policy, typepack, validators
+
+from jav.documents import fact_checks
 from jav.core import store
 from jav.ai.models import FlowState, DocumentRecord
 from jav.core import calls

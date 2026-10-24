@@ -34,7 +34,9 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from jav.app import logic_packs, package_result, package_scope, source_instances, work, workflow_steps
+from jav.app import logic_packs, package_result, package_scope, work, workflow_steps
+
+from jav.documents import source_instances
 from jav.core import activity_kinds, decisions, identity, store
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now

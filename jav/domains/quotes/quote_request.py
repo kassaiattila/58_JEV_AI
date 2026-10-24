@@ -144,7 +144,7 @@ def _email_handler() -> item_kinds.ItemHandler:
     of the email domain's tables; the domains' registrations come first, so any process can ask."""
     registrations.load_all()
     own = item_kinds.handler(item_kinds.EMAIL)
-    if own is None:  # the email kind names its handler's module (`handler_from`)
+    if own is None:  # the email kind is owned by the email domain, which registers its handler (229: `claim`)
         raise item_kinds.NotRegistered("the email item kind has no handler")
     return own
 

@@ -12,30 +12,28 @@ Plain-language summary: four lists that were written out by hand in several plac
   version: each part present wraps the earlier ones, in the order registered.
 - The task kinds an email's task proposal may name (`configs/email_tasks.json` `actions`) and the decisions a person
   makes on a proposal.
-A logic pack (`jav/app/logic_packs.py`) adds its own kinds the same way. The built-in ones are registered by the modules that own them; the
-registry loads those modules the first time a full list is read. 185 (plan G-full-move T1d): the shared modules only;
-a domain's kinds come from its domain module (`registrations.load_all`, which the registry calls too): the finance
-domain's duplicate, reconciliation and statement decisions, each placed after the part it follows (`after`), so the
-reviewed version nests them as before whichever registers first.
+A logic pack (`jav/app/logic_packs.py`) adds its own kinds the same way. The built-in ones are registered by the modules that own them;
+229 (plan structure stage 1, MD1): the application loads those modules and every domain's registrations
+(`registrations.load_all`), and the registry asks for that call (`jav.core.completion`) the first time a full list is
+read, so it names no module above the shared core. A domain's kinds come from its domain module: the finance domain's
+duplicate, reconciliation and statement decisions, each placed after the part it follows (`after`), so the reviewed
+version nests them as before whichever registers first.
 """
 
 from __future__ import annotations
 
-import importlib
 import sqlite3
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from jav.core import cfg
+from jav.core import cfg, completion
 
 Log = Literal["package", "workflow"]
 LOGS: tuple[Log, ...] = ("package", "workflow")
 
 # the modules that register the built-in kinds: the package log's writers, the workflow log, "My work today", the
 # reviewed version's parts
-_OWNERS = ("jav.app.work", "jav.app.package_release", "jav.app.workflows", "jav.app.activity", "jav.app.corrections")
-
 
 class UnknownEvent(ValueError):
     """A log was asked to record an action no module registered."""
@@ -74,19 +72,11 @@ _DECISIONS: dict[str, DecisionKind] = {}
 _loaded = False
 
 
-def _load_owners() -> None:
-    for module in _OWNERS:
-        importlib.import_module(module)
-
-
 def _load() -> None:
-    """The shared modules' kinds, then the domains' (185: `registrations.load_all`)."""
+    """The shared modules' kinds, then the domains' (229: the application's registrations, `jav.core.completion`)."""
     global _loaded
     if not _loaded:
-        from jav.app import registrations
-
-        _load_owners()
-        registrations.load_all()
+        completion.complete("log events and decisions")
         _loaded = True
 
 
@@ -123,7 +113,7 @@ def register_source(source: Source, *, after: str | None = None, before: str | N
     is an error."""
     anchor = after or before
     if anchor is not None and anchor not in _SOURCES:
-        _load_owners()
+        completion.complete("sources of the day's work")
     known = _SOURCES.get(source.code)
     if known is not None:
         if known == source:
@@ -153,7 +143,7 @@ def register_decision(kind: DecisionKind, *, after: str | None = None) -> None:
     domain's kind finds the part it follows). The same kind again adds nothing; another one of the same name is an
     error."""
     if after is not None and after not in _DECISIONS:
-        _load_owners()
+        completion.complete("decisions on a run's results")
     if kind.name in _DECISIONS:
         if _DECISIONS[kind.name] == kind:
             return
