@@ -159,7 +159,7 @@ def process_job(job: Any) -> str:
         prices = price_lists.version(row["price_list"], row["version"])
         limits = {k: Decimal(v) for k, v in json.loads(row["limits"]).items()}
         scope = f"quote-{wp_id}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
-        with calls.measurement(scope, limits, reuse=True) as scope:
+        with calls.outside_run(scope, limits) as scope:  # 231 (A3a): business work, not a measurement
             lines = _ask(req, prices, row["engine"], scope)
         failed = all(line["answer"].get("error") for line in lines)
         with store.connect() as c:

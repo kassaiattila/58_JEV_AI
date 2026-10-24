@@ -380,7 +380,7 @@ def process_job(job: Any) -> str:
         prompt = _prompt(content, [str(i.get("description") or "") for i in (req.items if req else [])])
         limits = {k: Decimal(x) for k, x in json.loads(row["limits"]).items()}
         scope = f"letter-{wp_id}-{n}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
-        with calls.measurement(scope, limits, reuse=True) as scope:
+        with calls.outside_run(scope, limits) as scope:  # 231 (A3a): business work, not a measurement
             paragraph = ask(prompt, run_id=scope)
         with store.connect() as c:
             c.execute("UPDATE quote_letters SET state='done', paragraph=?, problems=?, usage=?, scope=?, finished_at=?"

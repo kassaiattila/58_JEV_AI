@@ -159,8 +159,5 @@ def step_budget(case_id: str, step_id: str, round_: int, limits: dict[str, Decim
     """The budget scope of one round of a case's step, with its cap per provider (a provider without a cap cannot be
     called); the step's paid calls run inside it, through the call log, and may reuse an earlier answer. A round run
     again keeps the scope and what it has spent, so a retried step cannot spend its cap twice."""
-    scope = f"case:{case_id}:{step_id}:{round_}"
-    for provider, limit in limits.items():
-        calls.ensure_budget(scope, provider, limit)
-    with calls.use_run(budget_scope=scope, reuse=True):
+    with calls.outside_run(f"case:{case_id}:{step_id}:{round_}", limits) as scope:
         yield scope

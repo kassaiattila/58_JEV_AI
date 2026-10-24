@@ -163,6 +163,18 @@ def use_run(*, budget_scope: str | None, reuse: bool = False, measurement: bool 
 
 
 @contextmanager
+def outside_run(scope: str, limits: dict[str, Decimal], *, reuse: bool = True):
+    """231 (plan stage A, A3a): business work outside a work run (a quote's proposal or letter, a case's paid step)
+    under its cap: `scope` gets a budget per provider once (a scope used again keeps its cap and what it has spent, so a
+    repeated job cannot spend it twice), and every call inside goes through the call log and may reuse an earlier
+    answer. Unlike `measurement`, it is not a measurement: the work may read the store's earlier documents."""
+    for provider, limit in limits.items():
+        ensure_budget(scope, provider, limit)
+    with use_run(budget_scope=scope, reuse=reuse):
+        yield scope
+
+
+@contextmanager
 def measurement(scope: str, limits: dict[str, Decimal], *, reuse: bool = False):
     """086: a paid measurement outside a work run, under a hard budget (the owner's sub-budget): every call reserves from
     `scope`'s budget and goes into the call log; a provider without a limit here cannot be called at all (e.g. no
