@@ -36,6 +36,10 @@ class Actor:
         if self.kind not in (HUMAN, MACHINE):
             raise ValueError(f"an actor is a human or a machine, not {self.kind!r}")
 
+    def __str__(self) -> str:
+        """229 (SZ2c-3): printed (a log line, a note), an actor is the name shown; its record is `repr`."""
+        return self.name
+
     def as_json(self) -> str:
         return json.dumps({k: v for k, v in asdict(self).items() if v is not None}, sort_keys=True, ensure_ascii=False)
 
@@ -62,6 +66,12 @@ def machine(name: str = "process-core", *, on_behalf_of: Actor | None = None) ->
     """The machine, acting for itself or for the person who set the work going."""
     return Actor(id=f"machine:{name}", name=name, kind=MACHINE,
                  on_behalf_of=on_behalf_of.id if on_behalf_of is not None else None)
+
+
+def acting_for(machine_name: str, shown: str, person_: Actor) -> Actor:
+    """229 (SZ2c-3): the machine acting for a person (a workflow's automatic step, a scheduled download): the machine's
+    id, the name the lists and logs have always shown for it, and the id of the person it acts for."""
+    return Actor(id=f"machine:{machine_name}", name=shown, kind=MACHINE, on_behalf_of=person_.id)
 
 
 # 229 (SZ2c): what a business operation takes as who acts. The service passes the actor its shared entrance knows; a

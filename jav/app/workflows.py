@@ -223,12 +223,13 @@ def _delete_guard(c, wp_id: str) -> None:
     if row is not None:
         raise explained(work.NotReady, "the package is a step of an open workflow; archive the workflow first or hide the package",
                         [{"code": "workflow_step", "message": f"The package is a step of the workflow {row["name"]}: it can only be hidden."}])
-    steps = c.execute("SELECT s.workflow_id, s.step, w.actor FROM workflow_steps s JOIN workflows w ON w.id=s.workflow_id"
+    steps = c.execute("SELECT s.workflow_id, s.step, w.actor, w.actor_id FROM workflow_steps s"
+                      " JOIN workflows w ON w.id=s.workflow_id"
                       " WHERE s.workpackage_id=?", (wp_id,)).fetchall()
     for s in steps:
         _update_step(c, s["workflow_id"], s["step"], phase="failed", workpackage_id=None, run_id=None, note=PACKAGE_DELETED)
         workflow_cases.fail_outside(c, s["workflow_id"], s["step"], PACKAGE_DELETED)
-        _event(c, s["workflow_id"], s["step"], "failed", auto_actor(s["actor"]), {"note": PACKAGE_DELETED, "workpackage_id": wp_id})
+        _event(c, s["workflow_id"], s["step"], "failed", auto_actor(s), {"note": PACKAGE_DELETED, "workpackage_id": wp_id})
 
 
 def register() -> None:
@@ -246,12 +247,13 @@ class WorkflowError(ValueError):
 
 def _maker(wf: dict[str, Any]) -> identity.Actor:
     """229 (SZ2c): who made the workflow, by the name and id it recorded (the owner of its steps' packages)."""
-    return identity.recorded(wf["actor"], wf.get("actor_id"))
+    return identity.recorded(wf["actor"], dict(wf).get("actor_id"))
 
 
-def auto_actor(actor: str) -> str:
-    """Who an automatic start is recorded for: the workflow's maker, marked."""
-    return f"{actor} (auto)"
+def auto_actor(wf: Mapping[str, Any]) -> identity.Actor:
+    """Who an automatic start is recorded for: the machine, acting for the workflow's maker; shown as the maker,
+    marked (229, SZ2c-3: with the machine's id and the maker's stable one)."""
+    return identity.acting_for("workflow-chain", f"{wf['actor']} (auto)", _maker(wf))
 
 
 # --- templates ------------------------------------------------------------------------------------------------------
@@ -1083,7 +1085,7 @@ def release_stale_starts(max_age_s: float = STALE_START_S) -> int:
     cutoff = (datetime.now(timezone.utc) - timedelta(seconds=max_age_s)).isoformat(timespec="seconds")
     with store.connect() as c:
         starting = set(process_cases.steps_in_phase_in(c, ("starting",)))  # 229: the core's rows through its own read
-        stale = [r for r in c.execute("SELECT s.workflow_id, s.step, w.actor FROM workflow_steps s"
+        stale = [r for r in c.execute("SELECT s.workflow_id, s.step, w.actor, w.actor_id FROM workflow_steps s"
                                       " JOIN workflows w ON w.id=s.workflow_id WHERE s.updated_at < ?", (cutoff,))
                  if (r["workflow_id"], r["step"]) in starting]
     released = 0
@@ -1094,7 +1096,7 @@ def release_stale_starts(max_age_s: float = STALE_START_S) -> int:
             with store.connect() as c:
                 store.begin_immediate(c)
                 if _update_step(c, r["workflow_id"], r["step"], expect=("starting",), phase="failed", note=INTERRUPTED):
-                    _event(c, r["workflow_id"], r["step"], "failed", auto_actor(r["actor"]), {"note": INTERRUPTED})
+                    _event(c, r["workflow_id"], r["step"], "failed", auto_actor(r), {"note": INTERRUPTED})
                     workflow_cases.fail_outside(c, r["workflow_id"], r["step"], INTERRUPTED)
                     released += 1
         finally:
@@ -1116,11 +1118,11 @@ def tick(now: float | None = None) -> int:
     release_stale_starts()
     with store.connect() as c:
         moving = {case_id for case_id, _ in process_cases.steps_in_phase_in(c, ("waiting", "pulling"))}  # 229
-        rows = [r for r in c.execute("SELECT w.id, w.actor FROM workflows w WHERE w.status='open' AND w.auto=1")
+        rows = [r for r in c.execute("SELECT w.id, w.actor, w.actor_id FROM workflows w WHERE w.status='open' AND w.auto=1")
                 if r["id"] in moving]
     for r in rows:
         try:
-            advance(r["id"], actor=auto_actor(r["actor"]))
+            advance(r["id"], actor=auto_actor(r))
         except Exception:  # one workflow's trouble does not stop the others
             log.exception("workflow %s could not advance", r["id"])
     return len(rows)
@@ -1176,7 +1178,7 @@ def _case_step(ctx: process_engine.StepContext) -> process_kinds.StepOutcome:
     sdef = next(s for s in wf["definition"]["steps"] if s["id"] == ctx.step.id)
     with ctx.transaction() as c:
         go = workflow_cases.take_go(c, ctx.case_id, ctx.step.id)
-    actor = go or _turn_actor.get() or auto_actor(wf["actor"])
+    actor = go or _turn_actor.get() or auto_actor(wf)
     try:
         return _drive(ctx, wf, sdef, go, actor)
     except Exception:
@@ -1188,7 +1190,7 @@ def _case_step(ctx: process_engine.StepContext) -> process_kinds.StepOutcome:
         return ctx.wait(waits[phase], timer=_check())
 
 
-def _drive(ctx: process_engine.StepContext, wf: dict[str, Any], sdef: dict[str, Any], go: str | None,
+def _drive(ctx: process_engine.StepContext, wf: dict[str, Any], sdef: dict[str, Any], go: identity.Actor | None,
            actor: identity.Who) -> process_kinds.StepOutcome:
     """`_case_step`'s rounds: until the step is done, waits or failed."""
     polled = False
@@ -1209,7 +1211,7 @@ def _drive(ctx: process_engine.StepContext, wf: dict[str, Any], sdef: dict[str, 
             _poll(wf, sdef, st, actor)
             polled = True
         elif phase == "starting":
-            _set_logged(wf["id"], sdef["id"], "failed", auto_actor(wf["actor"]), {"note": INTERRUPTED},
+            _set_logged(wf["id"], sdef["id"], "failed", auto_actor(wf), {"note": INTERRUPTED},
                         expect=("starting",), phase="failed", note=INTERRUPTED)
         elif go is not None:
             go = None
@@ -1266,7 +1268,7 @@ def _counts(ctx: process_engine.StepContext, wf: dict[str, Any], st: dict[str, A
     if not approved or ref not in old:
         return approved
     if pack is not None and pack.own_approval and pack.reopen is not None:
-        pack.reopen(st["workpackage_id"], note=REAPPROVE_NOTE, actor=auto_actor(wf["actor"]))
+        pack.reopen(st["workpackage_id"], note=REAPPROVE_NOTE, actor=auto_actor(wf))
     return False
 
 

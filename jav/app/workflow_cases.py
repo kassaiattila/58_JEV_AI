@@ -75,6 +75,7 @@ FETCH, APPROVAL, BUDGET, PERSON = "fetch", "approval", "budget", "person"
 CHECK = "check"  # the timer of a step that waits for its fetch or its package's approval
 ADOPTION = "workflow-adoption"  # the machine that adopts the workflows made before
 GO = "go"  # a person's start, marked on the step's result until its next run takes it
+GO_ID = "go_id"  # 229 (SZ2c-3): that person's stable id beside the name
 BUDGET_TASK = "workflow_budget"  # 215: the human task of a step over its budget, `workflow_budget:<workflow>:<step>`
 MACHINE = actors.machine("workflows")
 
@@ -303,7 +304,7 @@ def person_starts(c: sqlite3.Connection, wf_id: str, step: str, actor: actors.Wh
         tasks.decide_in(c, budget_task(wf_id, step), who, outcome=decision)
     if not (asked and task is not None and task.case_id is not None):  # else the task's closing ends the wait
         _open_for(c, wf_id, step, who, "a person started the step")
-    cases.set_result(c, wf_id, step, {GO: actor})
+    cases.set_result(c, wf_id, step, {GO: who.name, GO_ID: who.id})
 
 
 def package_settled(c: sqlite3.Connection, wp_id: str, event_id: str, payload: dict[str, Any],
@@ -361,10 +362,11 @@ def chain_on(c: sqlite3.Connection, wf_id: str, actor: actors.Who) -> None:
             cases.end_wait(c, wf_id, sid, maker(actor), "the automatic chain was switched on")
 
 
-def take_go(c: sqlite3.Connection, wf_id: str, step: str) -> str | None:
-    """Who started the step by hand since its last run (`person_starts`), taken once: the mark is cleared."""
+def take_go(c: sqlite3.Connection, wf_id: str, step: str) -> actors.Actor | None:
+    """Who started the step by hand since its last run (`person_starts`), taken once: the mark is cleared. 229: with
+    the id the mark recorded (a mark made before has the name's local one)."""
     result = cases.step_row(c, wf_id, step)["result"]
     if not isinstance(result, dict) or GO not in result:
         return None
     cases.set_result(c, wf_id, step, None)
-    return str(result[GO])
+    return actors.recorded(str(result[GO]), result.get(GO_ID))

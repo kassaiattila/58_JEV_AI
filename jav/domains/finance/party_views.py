@@ -20,7 +20,7 @@ from typing import Any
 
 from jav.app import parties, work, work_runs
 from jav.documents import source_layer
-from jav.core import cfg, store, trace, type_roles, values
+from jav.core import cfg, identity, store, trace, type_roles, values
 from jav.domains.finance import reconcile, statement_months
 
 
@@ -123,14 +123,14 @@ def account_key(number: str) -> str:
 
 
 def register_account(party_id: str, number: str, *, kind: str, currencies: list[str], bank: str | None = None,
-                     valid_from: str | None = None, valid_to: str | None = None, actor: str) -> dict[str, Any]:
+                     valid_from: str | None = None, valid_to: str | None = None, actor: identity.Who) -> dict[str, Any]:
     """138: an own account or card registered with its party by its number, before or after its statements."""
     parties.register_account(party_id, account_key(number), " ".join(number.split()), kind=kind, currencies=currencies,
                              bank=bank, valid_from=valid_from, valid_to=valid_to, actor=actor)
     return overview()
 
 
-def accept(ids: list[str], *, names: dict[str, str] | None = None, actor: str) -> list[dict[str, Any]]:
+def accept(ids: list[str], *, names: dict[str, str] | None = None, actor: identity.Who) -> list[dict[str, Any]]:
     """Carries out the chosen suggestions, as the data proposes them now; one that has changed refuses them all."""
     invoices, accounts = observations()
     current = {s["id"]: s for s in parties.suggest(invoices, accounts)["suggestions"]}

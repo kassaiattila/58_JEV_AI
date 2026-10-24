@@ -30,6 +30,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from jav.core import identity
+
 # the shared source kinds a step makes its own package from, so its run may have its own AI engine (160-D); 185: a
 # domain's source kind adds itself (`SourceKind.own`, `own_sources`)
 SHARED_OWN_SOURCES = ("folder", "files")
@@ -46,7 +48,7 @@ class StepStart:
     - `workflow`: the workflow's row (its id, maker `actor`, `party_id`, `period_start`, `period_end`);
     - `step`: the step's definition in the template (`id`, `kind`, `title`, `after`);
     - `state`: the step's stored row (`source`, `budget`, `name`, `engine`, `pull_id`);
-    - `actor`: who the start is recorded for;
+    - `actor`: who the start is recorded for (229: a person, or the machine acting for the maker);
     - `packages`: 181: every step's package by step id (None: none yet), so a step can take the packages of the steps
       it waits for (the email routing);
     - `package(wp_id)`: notes the step's package as soon as it exists, so an interrupted start goes on with it (160,
@@ -64,7 +66,7 @@ class StepStart:
     workflow: Mapping[str, Any]
     step: Mapping[str, Any]
     state: Mapping[str, Any]
-    actor: str
+    actor: identity.Who
     packages: Mapping[str, str | None]
     package: Callable[[str], None]
     run: Callable[[str], None]

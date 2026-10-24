@@ -176,21 +176,26 @@ def access_guard(request: Request) -> None:
     access.authorize(actor, action_of(route) if route is not None else "service.unknown")
 
 
-def human_actor(x_actor: Annotated[str, Header(max_length=256)]) -> str:
+def human_actor(request: Request, x_actor: Annotated[str, Header(max_length=256)]) -> identity.Actor:
     """For a human decision (approval, correction, closing a to-do, starting a run, recipe, changing a package) the
     actor is mandatory: the `X-Actor` header. 061: if the user list is not empty, the name must be on it (it is
-    recorded in the list's spelling)."""
+    recorded in the list's spelling). 229 (SZ2c-3): who acts as the shared entrance knows them (`acting`), so the
+    operation records their stable id; the company sign-in will change only the entrance."""
     name = app_settings.canonical_user(_decode_actor(x_actor))
     if name is None:
         raise explained(UnknownUser, "the actor is not in the user list (Settings > Users)")
-    return name
+    known = getattr(request.state, "actor", None)
+    return known if isinstance(known, identity.Actor) and known.kind == identity.HUMAN and known.name == name \
+        else identity.person(name)
 
 
-def actor_unless_first_users(x_actor: Annotated[str | None, Header(max_length=256)] = None) -> str | None:
+def actor_unless_first_users(request: Request,
+                             x_actor: Annotated[str | None, Header(max_length=256)] = None) -> identity.Actor | None:
     """066 Á35: writing the user list requires an actor who is on the list; the first fill-in (empty list) may be done
     without an actor."""
     if not app_settings.users():
-        return app_settings.canonical_user(_decode_actor(x_actor)) if x_actor else None
+        name = app_settings.canonical_user(_decode_actor(x_actor)) if x_actor else None
+        return identity.person(name) if name else None
     if x_actor is None:
         raise explained(ValueError, "X-Actor header is required to change the user list")
-    return human_actor(x_actor)
+    return human_actor(request, x_actor)

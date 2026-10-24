@@ -17,6 +17,7 @@ from fastapi import Depends, FastAPI
 from fastapi import Path as PathParam
 from pydantic import Field
 
+from jav.core import identity
 from jav.app import work_views, workflows
 from jav.service.service_shared import In, IsoDay, PartyId, checked_path, human_actor
 
@@ -111,7 +112,7 @@ def routes(app: FastAPI, r: str) -> None:
         return {"workflows": work_views.jsonable(workflows.workflows(include_archived=include_archived))}
 
     @app.post(r + "/workflows", status_code=201)
-    def create_workflow(body: CreateWorkflow, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def create_workflow(body: CreateWorkflow, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         steps = {sid: {"source": workflow_source(s.source), "budget": s.budget or {}, "engine": s.engine}
                  for sid, s in body.steps.items()}
         return work_views.jsonable(workflows.create(template_id=body.template, party_id=body.party_id,
@@ -129,16 +130,16 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable(workflows.repeat_draft(wf_id))
 
     @app.patch(r + "/workflows/{wf_id}")
-    def update_workflow(wf_id: WfId, body: UpdateWorkflow, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def update_workflow(wf_id: WfId, body: UpdateWorkflow, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(workflows.update(wf_id, actor=who, auto=body.auto, name=body.name,
                                                     archived=body.archived))
 
     @app.post(r + "/workflows/{wf_id}/steps/{step}/start")
     def start_workflow_step(wf_id: WfId, step: StepId, body: StartWorkflowStep,
-                            who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                            who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(workflows.start_step(wf_id, step, actor=who, budget=body.budget))
 
     @app.post(r + "/workflows/{wf_id}/steps/{step}/link")
     def link_workflow_step(wf_id: WfId, step: StepId, body: LinkWorkflowStep,
-                           who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                           who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(workflows.link(wf_id, step, body.workpackage_id, actor=who))

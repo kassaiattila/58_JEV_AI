@@ -285,13 +285,20 @@ def mark_suspicious_source(run: dict[str, Any], item: dict[str, Any]) -> bool:
 _SCHEDULED_ACTOR = re.compile(r"^ütemezés \((.+)\)$")
 
 
+def scheduled_actor(schedule: Mapping[str, Any]) -> identity.Actor:
+    """229 (SZ2c-3): who a scheduled download acts as: the machine, for the person who saved the schedule (shown as
+    before: the schedule's word with the saver's name, `_SCHEDULED_ACTOR`)."""
+    saver = identity.recorded(schedule["actor"], dict(schedule).get("actor_id"))
+    return identity.acting_for("mailbox-schedule", f"ütemezés ({saver.name})", saver)
+
+
 def owner_of(actor: identity.Who) -> identity.Who:
-    """065: owner of a downloaded package: whoever started it; if scheduled, the user who saved the schedule (229: an
-    actor the shared entrance knows is that person)."""
-    if isinstance(actor, identity.Actor):
+    """065: owner of a downloaded package: whoever started it; if scheduled, the user who saved the schedule (229: with
+    the stable id of the person the machine acts for)."""
+    m = _SCHEDULED_ACTOR.match(identity.name_of(actor) or "")
+    if m is None:
         return actor
-    m = _SCHEDULED_ACTOR.match(actor)
-    return m.group(1) if m else actor
+    return identity.recorded(m.group(1), actor.on_behalf_of) if isinstance(actor, identity.Actor) else m.group(1)
 
 
 def _workpackage(req: MailboxRequest, messages: list[Path], *, actor: identity.Who) -> dict[str, Any]:
@@ -514,7 +521,7 @@ def tick(now: datetime | None = None) -> list[str]:
     with store.connect() as c:
         due = c.execute("SELECT * FROM mailbox_schedules WHERE enabled=1 AND next_at<=?", (_utc(now),)).fetchall()
     for row in due:
-        p = request_pull(MailboxRequest.model_validate_json(row["request"]), actor=f"ütemezés ({row['actor']})",
+        p = request_pull(MailboxRequest.model_validate_json(row["request"]), actor=scheduled_actor(row),
                          schedule_id=row["id"], dedup_key=f"{PULL_JOB_KIND}:{row['id']}:{row['next_at']}")
         with store.connect() as c:
             c.execute("UPDATE mailbox_schedules SET next_at=?, updated_at=? WHERE id=?",
@@ -523,13 +530,24 @@ def tick(now: datetime | None = None) -> list[str]:
     return out
 
 
+def _pull_actor(p: Mapping[str, Any]) -> identity.Actor:
+    """229 (SZ2c-3): who a queued download acts as, from its row: a scheduled one for its schedule's saver while the
+    schedule is there, otherwise as its row recorded it."""
+    if p["schedule_id"]:
+        with store.connect() as c:
+            row = c.execute("SELECT actor, actor_id FROM mailbox_schedules WHERE id=?", (p["schedule_id"],)).fetchone()
+        if row is not None:
+            return scheduled_actor(row)
+    return identity.recorded(p["actor"], dict(p).get("actor_id"))
+
+
 def run_pull_job(payload: dict[str, Any], *, runner: Runner | None = None, inbox_root: Path | None = None) -> dict[str, Any]:
     """One download in the worker. Errors are recorded on the download (and schedule), never raised: no queue retry."""
     p = pull(payload["pull_id"])
     with store.connect() as c:
         c.execute("UPDATE mailbox_pulls SET status='running' WHERE id=?", (p["id"],))
     try:
-        res = fetch(MailboxRequest.model_validate(p["request"]), actor=p["actor"], runner=runner, inbox_root=inbox_root)
+        res = fetch(MailboxRequest.model_validate(p["request"]), actor=_pull_actor(p), runner=runner, inbox_root=inbox_root)
         status, result = "ok", {k: res[k] for k in ("new", "changed", "duplicate", "workpackage", "log")}
         if res.get("error"):  # 063: interrupted download - the messages that arrived were packaged, but the error shows
             status, result["error"] = "error", res["error"]

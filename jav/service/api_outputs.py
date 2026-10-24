@@ -23,6 +23,7 @@ from fastapi import Path as PathParam
 from fastapi.responses import Response
 from pydantic import Field
 
+from jav.core import identity
 from jav.app import package_release, work_views
 from jav.service.service_shared import DecisionState, Empty, In, WpId, attachment_header, checked_path, error, human_actor
 from jav.app.outputs import contract, samples, templates
@@ -71,7 +72,7 @@ def routes(app: FastAPI, r: str) -> None:
                                                 for o in contract.outputs()}})
 
     @app.post(r + "/output-templates", status_code=201)
-    def upload_output_template(body: TemplateUpload, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def upload_output_template(body: TemplateUpload, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         contract.spec(body.output)  # an unknown output: 422
         path = checked_path(body.path, want_dir=False)
         if path.stat().st_size > contract.templates()["max_bytes"]:
@@ -82,11 +83,11 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/output-templates/{template}/versions/{version}/activate")
     def activate_output_template(template: TemplateId, version: Version, _body: Empty,
-                                 who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                                 who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(templates.activate(template, version, actor=who))
 
     @app.post(r + "/output-templates/{template}/retire")
-    def retire_output_template(template: TemplateId, _body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def retire_output_template(template: TemplateId, _body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(templates.retire(template, actor=who))
 
     @app.get(r + "/output-templates/{template}/versions/{version}/file")
@@ -104,7 +105,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.put(r + "/workpackages/{wp_id}/output-templates/{output}")
     def choose_output_template(wp_id: WpId, output: OutputName, body: TemplateChoice,
-                               who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                               who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(templates.choose(wp_id, output, body.template, actor=who, expected_state=body.expected_state))
 
     @app.get(r + "/workpackages/{wp_id}/result/utility-cost.xlsx")

@@ -16,6 +16,7 @@ from typing import Annotated, Any, Literal
 from fastapi import Depends, FastAPI, Query
 from pydantic import Field
 
+from jav.core import identity
 from jav.app import corrections, work_views
 from jav.service.service_shared import In, ItemId, RunId, Text, human_actor
 
@@ -107,7 +108,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/runs/{run_id}/items/{item_id}/correction")
     def save_correction(run_id: RunId, item_id: ItemId, body: SaveCorrection | SaveNativeCorrection,
-                        who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                        who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         corrections.item_result(run_id, item_id)  # unknown item → 404
         if isinstance(body, SaveNativeCorrection):
             citations = {key: [cite.model_dump() for cite in refs] for key, refs in body.native_sources.items()}

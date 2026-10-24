@@ -17,6 +17,7 @@ from fastapi import Path as PathParam
 from fastapi.responses import Response
 from pydantic import Field
 
+from jav.core import identity
 from jav.app import work_views
 from jav.domains.finance import reconcile_package, reconcile_review, reconcile_statement
 from jav.service.service_shared import (DecisionState, Empty, In, IsoDay, PartyId, Text, WpId, attachment_header, error,
@@ -131,7 +132,7 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable({"accounts": reconcile_package.accounts()})
 
     @app.post(r + "/reconcile/packages", status_code=201)
-    def create_reconcile_package(body: CreateReconcilePackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def create_reconcile_package(body: CreateReconcilePackage, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         sc = reconcile_package.create(name=body.name, accounts=body.accounts, period_start=body.period_start,
                                       period_end=body.period_end, actor=who, party_id=body.party_id)
         return work_views.workpackage_view(sc["workpackage_id"])
@@ -141,37 +142,37 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/scope")
-    def reconcile_scope(wp_id: WpId, body: SetReconcileScope, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def reconcile_scope(wp_id: WpId, body: SetReconcileScope, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.set_scope(wp_id, accounts=body.accounts, period_start=body.period_start, period_end=body.period_end,
                                     expected_revision=body.expected_revision, actor=who, party_id=body.party_id)
         return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/refresh")
-    def reconcile_refresh(wp_id: WpId, body: Empty, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def reconcile_refresh(wp_id: WpId, body: Empty, _who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """Recomputes with the missing MNB rates fetched (only dates and currency codes leave the machine)."""
         reconcile_package.refresh(wp_id)
         return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/allocate")
-    def reconcile_allocate(wp_id: WpId, body: ReconcileAllocate, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def reconcile_allocate(wp_id: WpId, body: ReconcileAllocate, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.allocate(wp_id, [p.model_dump() for p in body.pairs], note=body.note,
                                    actor=who, expected_state=body.expected_state)
         return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/accept-proposed")
-    def reconcile_accept_proposed(wp_id: WpId, body: Decided, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def reconcile_accept_proposed(wp_id: WpId, body: Decided, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """Every unambiguous proposal at once (proposed, the only candidate, a statement whose balances check out)."""
         reconcile_package.accept_proposed(wp_id, actor=who, expected_state=body.expected_state)
         return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/reject")
-    def reconcile_reject(wp_id: WpId, body: ReconcileReject, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def reconcile_reject(wp_id: WpId, body: ReconcileReject, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.reject(wp_id, body.invoice_doc_id, body.line_id, note=body.note, actor=who,
                                  expected_state=body.expected_state)
         return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/mark")
-    def reconcile_mark(wp_id: WpId, body: ReconcileMark, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def reconcile_mark(wp_id: WpId, body: ReconcileMark, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.mark(wp_id, body.line_ids, category=body.category, note=body.note, actor=who,
                                expected_state=body.expected_state)
         return work_views.jsonable(reconcile_package.page(wp_id))
@@ -183,7 +184,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/quick-review/accept")
     def reconcile_quick_review_accept(wp_id: WpId, body: QuickReviewAccept,
-                                      who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                                      who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """147: a group's suggestion accepted for the given lines (only those still in the group, all or none); the
         review and the workspace after it."""
         n = reconcile_review.accept(wp_id, body.group, body.line_ids, actor=who, expected_state=body.expected_state)
@@ -191,7 +192,7 @@ def routes(app: FastAPI, r: str) -> None:
                 "workspace": work_views.jsonable(reconcile_package.page(wp_id))}
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/unmark")
-    def reconcile_unmark(wp_id: WpId, body: ReconcileUnmark, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def reconcile_unmark(wp_id: WpId, body: ReconcileUnmark, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """135: the needs-no-invoice marks of several lines undone in one step."""
         reconcile_package.unmark(wp_id, body.line_ids, actor=who, expected_state=body.expected_state)
         return work_views.jsonable(reconcile_package.page(wp_id))
@@ -215,7 +216,7 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable(reconcile_package.matches(wp_id, line_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/revoke")
-    def reconcile_revoke(wp_id: WpId, body: ReconcileRevoke, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def reconcile_revoke(wp_id: WpId, body: ReconcileRevoke, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.revoke(wp_id, kind=body.kind, ref=body.ref, actor=who, note=body.note,
                                  expected_state=body.expected_state)
         return work_views.jsonable(reconcile_package.page(wp_id))
@@ -232,7 +233,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/accept-sources")
     def reconcile_accept_sources(wp_id: WpId, body: ReconcileAcceptSources,
-                                 who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                                 who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """DECISIONS 132: a person accepts command-line results as sources (who and when is recorded)."""
         reconcile_statement.accept_sources(wp_id, body.doc_ids, actor=who, expected_state=body.expected_state)
         return work_views.jsonable(_statement(wp_id))
@@ -243,24 +244,24 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable(reconcile_package.targets(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/leave-out")
-    def reconcile_leave_out(wp_id: WpId, body: ReconcileLeaveOut, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def reconcile_leave_out(wp_id: WpId, body: ReconcileLeaveOut, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """169: statements or invoices left out of this package only, with a reason (they stay in their own packages)."""
         reconcile_package.leave_out(wp_id, body.doc_ids, reason=body.reason, actor=who, expected_state=body.expected_state)
         return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/restore-left-out")
     def reconcile_restore_left_out(wp_id: WpId, body: ReconcileRestoreLeftOut,
-                                   who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                                   who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.restore_left_out(wp_id, body.doc_ids, actor=who, expected_state=body.expected_state)
         return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/approve")
-    def reconcile_approve(wp_id: WpId, body: ReconcileApprove, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def reconcile_approve(wp_id: WpId, body: ReconcileApprove, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_statement.approve(wp_id, fingerprint=body.fingerprint, actor=who)
         return work_views.jsonable(reconcile_statement.current(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/reopen")
-    def reconcile_reopen(wp_id: WpId, body: ReconcileReopen, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def reconcile_reopen(wp_id: WpId, body: ReconcileReopen, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_statement.reopen(wp_id, note=body.note, actor=who)
         return work_views.jsonable(reconcile_statement.current(wp_id))
 

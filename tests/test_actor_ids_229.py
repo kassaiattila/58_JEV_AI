@@ -16,9 +16,12 @@ import sqlite3
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
-from jav.app import human_tasks, work
+from jav.app import human_tasks, work, workflows
 from jav.core import decisions, identity, store
+from jav.domains.email import mailbox
+from jav.service import api, service_shared
 
 ROOT = Path(__file__).resolve().parents[1]
 WHO = re.compile(r"^(actor|owner|assignee|[a-z_]+_by)$")
@@ -156,3 +159,46 @@ def test_a_package_owner_is_recorded_and_its_tasks_assigned_by_id(db: None) -> N
     assert tuple(row) == ("Bob Example", "local:Bob Example")
     assert (event["actor"], event["actor_id"]) == ("Ann Example", "entra:7f3c")
     assert "owner_id" not in event["detail"]  # the log keeps what a person sees
+
+
+# --- the service hands who acts on (SZ2c-3) ------------------------------------------------------------------------
+
+BASE = "http://127.0.0.1:8930"
+
+
+def _renamed_by(tmp_path: Path, **client_kw) -> tuple[str, str]:
+    db = tmp_path / "service.sqlite"
+    app = api.create_app(store_path=db)
+    with store.use_store(db):
+        wp = work.create_workpackage(name="before", source_kind="manual", source_ref=None)
+        client = TestClient(app, base_url=BASE)
+        r = client.post(f"/api/workpackages/{wp['id']}/rename", json={"name": "after"}, **client_kw)
+        assert r.status_code == 200, r.text
+        with store.connect() as c:
+            row = c.execute("SELECT actor, actor_id FROM workpackage_events WHERE action='rename'").fetchone()
+    return row["actor"], row["actor_id"]
+
+
+def test_a_named_person_is_stored_as_the_local_person(tmp_path: Path) -> None:
+    assert _renamed_by(tmp_path, headers={"X-Actor": "Ann Example"}) == ("Ann Example", "local:Ann Example")
+
+
+def test_the_actor_the_entrance_knows_reaches_the_store_with_its_id(tmp_path: Path, monkeypatch) -> None:
+    """The company sign-in will change only the entrance (`service_shared.acting`): the actor it knows is the one
+    every operation records."""
+    monkeypatch.setattr(service_shared, "acting", lambda raw: COMPANY)
+    assert _renamed_by(tmp_path, headers={"X-Actor": "Ann Example"}) == ("Ann Example", "entra:7f3c")
+
+
+def test_an_actor_prints_as_its_name() -> None:
+    assert f"{COMPANY}" == "Ann Example" and str(identity.who("g")) == "g"
+
+
+def test_the_machine_acting_for_a_person_keeps_its_shown_name_and_whom_it_acts_for() -> None:
+    auto = workflows.auto_actor({"actor": "Ann Example", "actor_id": "entra:7f3c"})
+    assert (auto.id, auto.name, auto.kind, auto.on_behalf_of) == (
+        "machine:workflow-chain", "Ann Example (auto)", "machine", "entra:7f3c")
+    scheduled = mailbox.scheduled_actor({"actor": "Ann Example", "actor_id": "entra:7f3c"})
+    assert (scheduled.id, scheduled.kind, scheduled.on_behalf_of) == ("machine:mailbox-schedule", "machine", "entra:7f3c")
+    # the package a scheduled download makes is owned by the person who saved the schedule
+    assert mailbox.owner_of(scheduled) == identity.recorded("Ann Example", "entra:7f3c")

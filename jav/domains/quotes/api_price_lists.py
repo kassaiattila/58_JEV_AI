@@ -23,6 +23,7 @@ from fastapi import Path as PathParam
 from fastapi.responses import Response
 from pydantic import Field
 
+from jav.core import identity
 from jav.app import work_views
 from jav.domains.quotes import price_lists
 from jav.service.service_shared import Empty, In, attachment_header, checked_path, error, human_actor
@@ -78,7 +79,7 @@ def routes(app: FastAPI, r: str) -> None:
                                     "columns": conf["columns"]})
 
     @app.post(r + "/price-lists", status_code=201)
-    def upload_price_list(body: PriceListUpload, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def upload_price_list(body: PriceListUpload, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         path = checked_path(body.path, want_dir=False)
         if path.stat().st_size > price_lists.config()["max_bytes"]:
             raise price_lists.PriceListRefused({"ok": False, "warnings": [], "sheet": None, "columns": {}, "items": 0,
@@ -94,18 +95,18 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/price-lists/{price_list}/versions/{version}/settings", status_code=201)
     def price_list_settings(price_list: PriceListId, version: Version, body: PriceListSettings,
-                            who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                            who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(price_lists.change_settings(
             price_list, version, discounts=[rule.model_dump() for rule in body.discounts], currency=body.currency,
             vat_percent=body.vat_percent, actor=who))
 
     @app.post(r + "/price-lists/{price_list}/versions/{version}/activate")
     def activate_price_list(price_list: PriceListId, version: Version, _body: Empty,
-                            who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                            who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(price_lists.activate(price_list, version, actor=who))
 
     @app.post(r + "/price-lists/{price_list}/retire")
-    def retire_price_list(price_list: PriceListId, _body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def retire_price_list(price_list: PriceListId, _body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(price_lists.retire(price_list, actor=who))
 
     @app.get(r + "/price-lists/{price_list}/versions/{version}/file")

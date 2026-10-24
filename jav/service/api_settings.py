@@ -17,6 +17,7 @@ from fastapi import Depends, FastAPI
 from fastapi import Path as PathParam
 from pydantic import Field
 
+from jav.core import identity
 from jav.app import app_settings, work_views
 from jav.service.service_shared import Empty, In, actor_unless_first_users, allowed_roots, checked_path, human_actor
 
@@ -49,9 +50,9 @@ def routes(app: FastAPI, r: str) -> None:
         return {"users": app_settings.users()}
 
     @app.put(r + "/settings/users")
-    def settings_save_users(body: SaveUsers, who: Annotated[str | None, Depends(actor_unless_first_users)]) -> dict[str, Any]:
+    def settings_save_users(body: SaveUsers, who: Annotated[identity.Actor | None, Depends(actor_unless_first_users)]) -> dict[str, Any]:
         saved = app_settings.save_users(body.users)
-        log.info("user list saved by %s: %d names", who or "(first setup)", len(saved))  # 066 Á35
+        log.info("user list saved by %s: %d names", who.name if who else "(first setup)", len(saved))  # 066 Á35
         return {"users": saved}
 
     @app.get(r + "/settings/folders")
@@ -59,7 +60,7 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable({"folders": app_settings.folders(), "roots": [str(p) for p in allowed_roots()]})
 
     @app.put(r + "/settings/folders")
-    def settings_save_folders(body: SaveFolders, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def settings_save_folders(body: SaveFolders, _who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """Replaces the whole list; every path must be an existing folder (under the allowed roots when restricted)."""
         saved = app_settings.save_folders(body.folders, check_dir=lambda raw: checked_path(raw, want_dir=True))
         return work_views.jsonable({"folders": saved, "roots": [str(p) for p in allowed_roots()]})
@@ -70,7 +71,7 @@ def routes(app: FastAPI, r: str) -> None:
         return {"path": app_settings.output_folder()}
 
     @app.put(r + "/settings/output-folder")
-    def settings_save_output_folder(body: SaveOutputFolder, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def settings_save_output_folder(body: SaveOutputFolder, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """An existing folder that does not overlap a watched folder (the watcher would take the copies in again)."""
         return {"path": app_settings.save_output_folder(body.path, check_dir=lambda raw: checked_path(raw, want_dir=True), actor=who)}
 
@@ -80,12 +81,12 @@ def routes(app: FastAPI, r: str) -> None:
         return app_settings.engine_setting()
 
     @app.put(r + "/settings/engine")
-    def settings_save_engine(body: SaveEngine, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def settings_save_engine(body: SaveEngine, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """Saved settings and started runs keep their own engine; only new settings follow."""
         return app_settings.save_engine_default(body.engine, actor=who)
 
     @app.post(r + "/settings/folders/{folder_id}/scan")
     def settings_scan_folder(folder_id: Annotated[str, PathParam(pattern=r"^wf-[0-9a-f]{10}$")], body: Empty,
-                             who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                             who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """Scan now (without waiting for the schedule)."""
         return work_views.jsonable(app_settings.scan(folder_id, actor=who))

@@ -28,7 +28,7 @@ import json
 from typing import Any
 
 from jav.app import app_settings, item_kinds, logic_packs, package_release, package_scope, work, workflow_steps
-from jav.core import store
+from jav.core import identity, store
 from jav.domains.quotes import price_lists, quote_draft, quote_letter, quote_proposal, quote_request
 from jav.app.tablequery import fold
 from jav.core.user_messages import explained
@@ -82,7 +82,7 @@ def candidates(q: str | None = None, limit: int = MAX_CANDIDATES) -> list[dict[s
 # --- the package ---------------------------------------------------------------------------------------------------------
 
 
-def create(*, name: str, source: str, item_id: str, actor: str) -> dict[str, Any]:
+def create(*, name: str, source: str, item_id: str, actor: identity.Who) -> dict[str, Any]:
     """A quote package from the request of `item_id` in the package `source` (an email or a document read as a quote
     request). `QuoteError` when the name is empty or the item is no quote request."""
     if not (name or "").strip():

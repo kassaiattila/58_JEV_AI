@@ -33,6 +33,7 @@ from fastapi import Query as QueryParam
 from fastapi.responses import Response
 from pydantic import Field
 
+from jav.core import identity
 from jav.app import package_release, work, work_views
 from jav.domains.quotes import quote_draft, quote_letter, quote_package, quote_proposal
 from jav.service.service_shared import Empty, In, WpId, attachment_header, human_actor
@@ -81,30 +82,30 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable({"requests": quote_package.candidates(q)})
 
     @app.post(r + "/quote-packages", status_code=201)
-    def create_quote_package(body: QuotePackageIn, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def create_quote_package(body: QuotePackageIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(quote_package.create(name=body.name, source=body.source, item_id=body.item_id, actor=who))
 
     @app.post(r + "/workpackages/{wp_id}/quote/proposal", status_code=202)
-    def request_quote_proposal(wp_id: WpId, _body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def request_quote_proposal(wp_id: WpId, _body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         _quote(wp_id)
         return work_views.jsonable(quote_proposal.request(wp_id, actor=who))
 
     @app.post(r + "/workpackages/{wp_id}/quote/draft/start")
-    def start_quote_draft(wp_id: WpId, body: QuoteDraftStartIn, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def start_quote_draft(wp_id: WpId, body: QuoteDraftStartIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(quote_draft.start(wp_id, source=body.source, actor=who,
                                                      expected_state=body.expected_state, replace=body.replace))
 
     @app.put(r + "/workpackages/{wp_id}/quote/draft")
-    def save_quote_draft(wp_id: WpId, body: QuoteDraftIn, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def save_quote_draft(wp_id: WpId, body: QuoteDraftIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(quote_draft.save(wp_id, body.draft, actor=who, expected_state=body.expected_state))
 
     @app.post(r + "/workpackages/{wp_id}/quote/approve")
-    def approve_quote(wp_id: WpId, body: QuoteApproveIn, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def approve_quote(wp_id: WpId, body: QuoteApproveIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         quote_draft.approve(wp_id, fingerprint=body.fingerprint, actor=who)
         return work_views.jsonable(quote_draft.view(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/quote/reopen")
-    def reopen_quote(wp_id: WpId, body: QuoteReopenIn, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def reopen_quote(wp_id: WpId, body: QuoteReopenIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(quote_draft.reopen(wp_id, note=body.note, actor=who))
 
     @app.get(r + "/workpackages/{wp_id}/quote/versions/{version}")
@@ -127,12 +128,12 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable(quote_letter.view(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/quote/letter/paragraph", status_code=202)
-    def request_quote_letter(wp_id: WpId, _body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def request_quote_letter(wp_id: WpId, _body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         _quote(wp_id)
         return work_views.jsonable(quote_letter.request(wp_id, actor=who))
 
     @app.put(r + "/workpackages/{wp_id}/quote/letter")
-    def accept_quote_letter(wp_id: WpId, body: QuoteLetterIn, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def accept_quote_letter(wp_id: WpId, body: QuoteLetterIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         _quote(wp_id)
         return work_views.jsonable(quote_letter.accept(wp_id, body.body, actor=who, expected_state=body.expected_state))
 
