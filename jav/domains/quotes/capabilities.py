@@ -117,7 +117,7 @@ def _line_draft(ctx: Any, params: LineDraft) -> kinds.StepOutcome:
     wp = _container(ctx)
     view = quote_draft.view(wp)
     if view["draft"] is None:
-        quote_draft.start(wp, source="proposal", actor=ctx.actor, expected_state=None)
+        quote_draft.start(wp, source="proposal", actor=ctx.actor, expected_state=None, catalogue=params.catalogue)
         with ctx.transaction() as c:
             human_tasks.own_approval_waits(c, wp)  # a person approves it, from the waiting list
         return _again(ctx, "approval")
@@ -146,7 +146,7 @@ def _letter_draft(ctx: Any, params: LetterDraft) -> kinds.StepOutcome:
     view = quote_letter.view(wp)
     if view["state"] is None:
         try:
-            quote_letter.request(wp, actor=ctx.actor)
+            quote_letter.request(wp, actor=ctx.actor, frame=params.frame)  # 231 (B0): the pack's letter frame
         except quote_letter.LetterError as exc:
             return kinds.Fail(str(exc))
         return _again(ctx, "letter")

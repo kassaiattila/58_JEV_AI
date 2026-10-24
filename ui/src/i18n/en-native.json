@@ -2129,6 +2129,7 @@
   "made": "made",
   "The proposal is being made": "The proposal is being made",
   "the case names no request": "the case names no request",
+  "there is no letter frame {{frame}}": "there is no letter frame {{frame}}",
   "the request can no longer be read": "the request can no longer be read",
   "the request names no item": "the request names no item",
   "the request names more items than a proposal asks about: {{n}}": "the request names more items than a proposal asks about: {{n}}",

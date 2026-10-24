@@ -2130,6 +2130,7 @@
   "made": "elkészült",
   "The proposal is being made": "A javaslat készül",
   "the case names no request": "az ügy nem nevez meg kérést",
+  "there is no letter frame {{frame}}": "nincs {{frame}} nevű levélkeret",
   "the request can no longer be read": "a kérés már nem olvasható",
   "the request names no item": "a kérés nem nevez meg tételt",
   "the request names more items than a proposal asks about: {{n}}": "a kérés több tételt nevez meg, mint amennyiről egy javaslat kérdez: {{n}}",

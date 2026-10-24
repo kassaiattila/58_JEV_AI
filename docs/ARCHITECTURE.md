@@ -1064,3 +1064,9 @@ process packs themselves. The quote's
 status lines read the quote view (`ui/src/views/quotes/quoteStatus.ts`). The recorded path of stage A runs on a case's
 container now, with the same record (`tests/test_quote_path_231.py`). The frozen list of process-specific parts lost
 the logic pack `quote` and its interface entry (`tests/test_process_strictness_231.py`).
+
+**A pack's parameters reach the code (231, plan stage B, B0).** The draft step's catalogue and the letter step's frame
+were declared in the IT quote's pack but not passed on (the defaults happened to be the same): `quote_draft.start`
+takes `catalogue` (a draft from the request is priced from the list it names) and `quote_letter.request` takes
+`frame`, kept with the letter (`quote_letters.frame`, an additive column) and used for its body, subject and file
+name; an unknown frame is refused. Tests: `tests/test_quote_draft_192.py`, `tests/test_quote_letter_196.py`.
