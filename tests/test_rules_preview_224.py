@@ -126,6 +126,7 @@ def test_a_replay_shows_a_whole_items_effect_of_the_candidate(processed, tmp_pat
     assert report["replays"]["current"]["items"] == report["replays"]["candidate"]["items"] == 2
     changed = [d["key"] for d in report["differences"]]
     assert any(k.startswith("replay/") and k.endswith("/rows") for k in changed), changed  # each item's stored rows
+    assert report["summary"]["replay/item/rows"] == {"changed": 2}  # both invoices
     places = [place for d in report["differences"] for place in d["places"]]
     assert any("high_stakes_conf" in place for place in places), places[:10]  # the to-do the stricter band opens
     assert report["replays"]["current"]["live_calls"] == report["replays"]["candidate"]["live_calls"] == 0

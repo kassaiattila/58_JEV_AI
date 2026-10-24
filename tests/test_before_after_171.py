@@ -32,6 +32,10 @@ def test_the_kind_of_a_view_leaves_out_its_ids() -> None:
     assert before_after.kind_of("run/run-1/item/abc") == "run/item"
     assert before_after.kind_of("reconcile/wp-1/matches/line-9") == "reconcile/matches"
     assert before_after.kind_of('dataset/run_items/{"run_id": "run-1"}') == "dataset/run_items"
+    # 224: a replay's views - a replayed item's by its part, a run's by its name
+    assert before_after.kind_of("replay/run-1/abc/rows") == "replay/item/rows"
+    assert before_after.kind_of("replay/run-1/dataset/documents") == "replay/dataset/documents"
+    assert before_after.kind_of("replay/run-1/run") == "replay/run"
 
 
 def test_a_diff_names_the_changed_views_and_the_places_inside(tmp_path) -> None:

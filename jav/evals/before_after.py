@@ -433,6 +433,8 @@ def kind_of(key: str) -> str:
     rest = parts[2:]  # the second part is the package, run, party or workflow id
     if rest and rest[0] in ("item", "matches"):  # their last part is an item or a statement line
         rest = rest[:1]
+    elif parts[0] == "replay" and len(rest) == 2 and rest[0] != "dataset":  # 224: a replayed item's result, rows, view
+        rest = ["item", rest[1]]
     return "/".join([parts[0], *rest])
 
 
