@@ -1070,3 +1070,16 @@ were declared in the IT quote's pack but not passed on (the defaults happened to
 takes `catalogue` (a draft from the request is priced from the list it names) and `quote_letter.request` takes
 `frame`, kept with the letter (`quote_letters.frame`, an additive column) and used for its body, subject and file
 name; an unknown frame is refused. Tests: `tests/test_quote_draft_192.py`, `tests/test_quote_letter_196.py`.
+
+**The partner register (231, plan stage B, B1).** The shared register of the outside parties the processes deal with
+(`jav/app/partners.py`; tables `partners`, `partner_versions`): each partner with the roles it plays
+(`configs/partners.json`: customer, supplier, insured, broker), every change a version through the shared versioning
+(`jav/core/versions.py`: a save inserts a draft and makes it active, the one before is superseded; retired rather than
+deleted, restored with the version it was retired with). The same tax number (its party key) or, without one, the same
+name (its significant words, the own parties' rule) as another active partner is a `PartnerConflict` naming it; a save
+from a page that shows an older version is one too. The register starts empty (the owner's decision of 2026-10-24);
+a domain proposes partners through a registered suggestion source (`SuggestionSource`): the finance domain gives an
+incoming invoice's supplier and an outgoing invoice's buyer, never an own party (`party_views.partner_suggestions`),
+and the register leaves out the parties already recorded. The service: `GET/POST /api/partners`, `GET
+/api/partners/suggestions`, `GET/PUT /api/partners/{id}`, `POST /api/partners/{id}/retire|restore`
+(`jav/service/api_partners.py`; a conflict is 409 with the other partner's id). Tests: `tests/test_partners_231.py`.
