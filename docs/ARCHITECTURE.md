@@ -1115,3 +1115,21 @@ package takes the one the process set (`outputs.templates._chosen`). The service
 /api/processes/{pack_id}/settings`, `POST /api/processes/{pack_id}/settings/{key}`, `POST
 .../{key}/versions/{version}/activate`, `POST .../{key}/retire` (`jav/service/api_processes.py`; an unknown pack is 404).
 Stage B3 adds a rule's values under the same table (kind `rule`). Tests: `tests/test_process_settings_231.py`.
+
+**A process's own rule values (231, plan stage B, B3).** A capability names the keys of its rule files a process may
+set for its own cases (`Capability.rule_keys`, `capabilities.RuleKey`: the config name among its `rule_files`, the
+dotted key, a whole number between bounds or one of some options, and one English line); the registry refuses a key the
+file does not hold or whose file value does not fit. A key that would change what is asked from a paid service, or a
+budget, is never one: those stay changes of the file. The IT quote's: how many requested items one proposal matches
+(fewer only), how many lines a quote holds, the unit a forint and another currency's amounts are rounded to, and how
+long the model's letter paragraph may be. A person saves a value (`process_settings.propose(..., kind="rule")`, the
+same versions, activation rule and service addresses as a resource's, under `/api/processes/{pack_id}/rules/{key}`,
+the key `<config name>.<dotted key>`). A case keeps the values active when it started (its data: `rules`, and
+`rule_settings`, each value's stored setting and version). While code works on a case, its values lie over the rule
+files: `cfg.overlay` is a context of the call, and `cfg.load` returns the file with them in place (a key the file no
+longer holds is left out with a warning), while `config_hash` and `version` stay the file's. The context is set by the
+capability's step kind (its run, events and timers, from the case's data), by the worker for a job whose payload names
+a case's package (`worker.handle`), and by the service for a request whose address names a case or a package
+(`api.CaseRoute`, the parts `case_id` and `wp_id`; `capabilities.case_rules`). A decision traced meanwhile records the
+values beside the file it read (`process_values`: key, value, setting, version), and `trace.replay` runs the rule with
+them again (or with other values, `over`). Tests: `tests/test_process_rules_231.py`.

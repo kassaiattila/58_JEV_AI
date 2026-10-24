@@ -19,6 +19,10 @@ waits instead of running (the process core's rule for an unknown kind).
   (say whether a message arrived, record a reply), each available only while the step waits for it.
 - `step_scopes(case_id, step_id, uses)` (A7e): the budget scopes a case's step spent from: its own per round
   (`step_budget`), or those its capability names (`spent`, for a step whose paid work runs as a job of its domain).
+- `RuleKey` (231, plan stage B, B3): a key of a rule file the capability reads that a process may set for its own
+  cases (`rule_keys`). A case keeps the values active when it started (in its data, `RULES`); its steps, events and
+  timers run with them over the files (`cfg.overlay`), and `case_rules(case_id)` binds them for other work on the case
+  (the worker's jobs, the service's requests about it).
 
 Layer: application; it uses the process core, the call log and the shared registries' completion. The capabilities
 themselves live in the domains and register from their `register()`.
@@ -36,18 +40,19 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ValidationError
 
-from jav.core import calls, completion, identity
+from jav.core import calls, cfg, completion, identity, store
 from jav.core.process import cases, kinds, tasks
 from jav.core.process.engine import StepContext
 
-__all__ = ["Action", "Capability", "CapabilityError", "PROVIDERS", "catalogue", "of", "of_step_kind", "register",
-           "step_budget", "step_scopes"]
+__all__ = ["Action", "Capability", "CapabilityError", "PROVIDERS", "RULES", "RULE_REFS", "RuleKey", "case_overlay",
+           "case_rules", "catalogue", "of", "of_step_kind", "register", "step_budget", "step_scopes"]
 
 PROVIDERS = ("jev", "openai", "azure_di")
 STEP_START = "step_start"  # 231 (A5): the human task of a step a person starts (a paid one, `_start: person`)
 AWAITING_START, STARTED = "awaiting_start", "started"  # the step's phases while it waits for a person's start
 MACHINE = "process-core"  # the machine that runs a step a person started, for that person
 _NAME = re.compile(r"^[a-z][a-z0-9_]*$")
+RULES, RULE_REFS = "rules", "rule_settings"  # 231 (B3): a case's own rule values in its data, and where they came from
 
 
 class CapabilityError(ValueError):
@@ -63,6 +68,49 @@ class Action:
     label: str
     available: Callable[[str, str], bool]
     run: Callable[[str, str, identity.Who, str | None], None]
+
+
+@dataclass(frozen=True)
+class RuleKey:
+    """231 (B3): a key of a rule file the capability reads that a process may set for its own cases.
+
+    - `file`: a config name among the capability's `rule_files`; `key`: dotted, from the file's top.
+    - `kind`: `int` (a whole number between `least` and `most`) or `choice` (one of `options`, as the file writes it).
+    - `what`: one English line (the interface translates it).
+
+    A key that would change what is asked from a paid service, or a budget, is never one: those stay changes of the
+    file, measured and decided.
+    """
+
+    file: str
+    key: str
+    kind: Literal["int", "choice"]
+    what: str
+    least: int | None = None
+    most: int | None = None
+    options: tuple[str, ...] = ()
+
+    @property
+    def id(self) -> str:
+        return f"{self.file}.{self.key}"
+
+    def file_value(self) -> Any:
+        """The value the file holds (`KeyError` when it has none)."""
+        with cfg.overlay(None):
+            node: Any = cfg.load(self.file)
+        for part in self.key.split("."):
+            node = node[part]
+        return node
+
+    def problems(self, value: Any) -> list[str]:
+        """What is wrong with `value` for this key (empty: it fits)."""
+        if self.kind == "int":
+            if isinstance(value, bool) or not isinstance(value, int):
+                return [f"{self.id} is a whole number"]
+            if (self.least is not None and value < self.least) or (self.most is not None and value > self.most):
+                return [f"{self.id} is between {self.least} and {self.most}"]
+            return []
+        return [] if value in self.options else [f"{self.id} is one of {', '.join(self.options)}"]
 
 
 @dataclass(frozen=True)
@@ -82,6 +130,7 @@ class Capability:
       by a process pack. `events`, `on_event`, `on_timer`: as the process core's step kinds have them.
     - `actions`: what a person may do on its step (A7d); `spent(case_id, step_id)`: the budget scopes its step spent
       from when they are not the step's own (A7e).
+    - `rule_keys`: the keys of its rule files a process may set for its own cases (B3).
     """
 
     name: str
@@ -100,6 +149,7 @@ class Capability:
     described: dict[str, Any] = field(default_factory=dict)
     actions: tuple[Action, ...] = ()
     spent: Callable[[str, str], list[str]] | None = None
+    rule_keys: tuple[RuleKey, ...] = ()
 
     @property
     def key(self) -> str:
@@ -136,6 +186,19 @@ def _check(cap: Capability) -> None:
     names = [a.name for a in cap.actions]
     if len(set(names)) != len(names) or not all(_NAME.match(n) for n in names):
         problems.append("its actions have distinct lowercase names")
+    for rule in cap.rule_keys:
+        if rule.file not in cap.rule_files:
+            problems.append(f"its rule key {rule.id} is not in a rule file it reads")
+            continue
+        if rule.kind not in ("int", "choice") or (rule.kind == "choice") != bool(rule.options):
+            problems.append(f"its rule key {rule.id} is a whole number or a choice of options")
+            continue
+        try:
+            problems += [f"the file's value does not fit: {p}" for p in rule.problems(rule.file_value())]
+        except (KeyError, TypeError):
+            problems.append(f"its rule file has no {rule.id}")
+    if len({r.id for r in cap.rule_keys}) != len(cap.rule_keys):
+        problems.append("its rule keys are distinct")
     if problems:
         raise CapabilityError(f"capability {cap.key}: " + "; ".join(problems))
 
@@ -156,10 +219,45 @@ def _starter(ctx: StepContext) -> identity.Actor | None:
     return None
 
 
+def case_overlay(data: dict[str, Any] | None) -> cfg.Overlay | None:
+    """231 (B3): a case's own rule values, from its data (None: it has none, the files alone count)."""
+    values = (data or {}).get(RULES) or {}
+    return cfg.Overlay(values, (data or {}).get(RULE_REFS) or {}) if values else None
+
+
+@contextmanager
+def case_rules(case_id: str | None) -> Iterator[None]:
+    """231 (B3): the work inside runs with the case's own rule values over the files; a package that is no case (or
+    None) runs with the files alone."""
+    over = None
+    if case_id:
+        with store.connect() as c:
+            row = cases.find_case_in(c, case_id)
+        over = case_overlay(row.get("data")) if row else None
+    with cfg.overlay(over):
+        yield
+
+
+def _with_rules(fn: Callable[..., str] | None) -> Callable[..., str] | None:
+    """An event or timer handler run with its case's own rule values (B3)."""
+    if fn is None:
+        return None
+
+    def handle(ctx: StepContext, *args: Any) -> str:
+        with cfg.overlay(case_overlay(ctx.data)):
+            return fn(ctx, *args)
+
+    return handle
+
+
 def _runner(cap: Capability) -> Callable[[StepContext], kinds.StepOutcome]:
     """The capability's step kind: the step's parameters checked first (keys starting with `_` are the process pack's
-    own, e.g. how the step starts, and are not the capability's)."""
+    own, e.g. how the step starts, and are not the capability's); 231 (B3): it runs with the case's own rule values."""
     def run(ctx: StepContext) -> kinds.StepOutcome:
+        with cfg.overlay(case_overlay(ctx.data)):
+            return _run(ctx)
+
+    def _run(ctx: StepContext) -> kinds.StepOutcome:
         if (ctx.step.params or {}).get("_start") == "person":
             starter = _starter(ctx)
             if starter is None:
@@ -187,7 +285,7 @@ def register(cap: Capability) -> None:
     if cap.run is not None:
         kinds.register(kinds.StepKind(name=cap.step_kind, owner=cap.module, run=_runner(cap),
                                       events=tuple(dict.fromkeys((*cap.events, tasks.EVENT))),
-                                      on_event=cap.on_event, on_timer=cap.on_timer,
+                                      on_event=_with_rules(cap.on_event), on_timer=_with_rules(cap.on_timer),
                                       described={"capability": cap.key, "summary": cap.summary, **cap.described}))
 
 

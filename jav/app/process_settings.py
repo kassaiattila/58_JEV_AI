@@ -1,20 +1,26 @@
-"""A process pack's own settings in the store (231, plan stage B, B2; DECISIONS 231).
+"""A process pack's own settings in the store (231, plan stage B, B2 and B3; DECISIONS 231).
 
 Plain-language summary: a process pack names its resources in its file (which price list its quotes are priced from,
-how its letters are sent, which letter frame and which output template they use). A process may set its own value
-over the file's, kept in versions as everything a person edits is (`jav/core/versions.py`): a person saves a value
-as a draft, and it becomes the process's value when it is made active; retiring it brings the file's value back. Who
-may make a value active is itself a rule (`configs/process_settings.json`, the owner's decision of 2026-10-24): by
-default the person who edits it; it can be only the listed owners, or a second person (four eyes). A case takes the
-values active when it starts and keeps them: a change reaches the cases started after it.
+how its letters are sent, which letter frame and which output template they use), and its steps' capabilities read
+rule files (how many lines a quote may hold, the unit its amounts are rounded to). A process may set its own value
+over a resource of its file (B2) or over a rule key its capabilities let a process set (B3, `capabilities.RuleKey`),
+kept in versions as everything a person edits is (`jav/core/versions.py`): a person saves a value as a draft, and it
+becomes the process's value when it is made active; retiring it brings the file's value back. Who may make a value
+active is itself a rule (`configs/process_settings.json`, the owner's decision of 2026-10-24): by default the person
+who edits it; it can be only the listed owners, or a second person (four eyes). A case takes the values active when
+it starts and keeps them: a change reaches the cases started after it.
 
-- `propose(pack_id, key, value, actor, note)`: a draft value, checked as the pack would be with it.
-- `activate(pack_id, key, version, actor)`, `retire(pack_id, key, actor)`: a value made the process's, or the file's
-  brought back; `SettingRefused` when the rule does not let this person.
-- `effective_resources(pack)`: the pack's resources with its active values over the file's; `view(pack_id)`: every
-  resource with its file value, its active value and its versions.
+- `propose(pack_id, key, value, actor, kind=, note=)`: a draft value, checked as the pack would be with it (a
+  resource) or as its capability declares the key (a rule).
+- `activate(pack_id, key, version, actor, kind=)`, `retire(pack_id, key, actor, kind=)`: a value made the process's,
+  or the file's brought back; `SettingRefused` when the rule does not let this person.
+- `effective_resources(pack)`: the pack's resources with its active values over the file's; `effective_rules(pack)`:
+  its active rule values, as a case keeps them (`capabilities.RULES`); `rule_keys(pack)`: the rule keys its steps'
+  capabilities let it set; `view(pack_id)`: every resource and rule key with its file value, its active value and its
+  versions.
 
-Layer: application, the shared library; it uses the process packs, the shared versioning and the output templates.
+Layer: application, the shared library; it uses the process packs, the capabilities, the shared versioning and the
+output templates.
 """
 
 from __future__ import annotations
@@ -22,16 +28,18 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav.app import process_packs
+from jav.app import capabilities, process_packs
 from jav.core import cfg, identity, store, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
-__all__ = ["CONFIG", "RESOURCE", "SettingError", "SettingRefused", "UnknownSetting", "activate", "effective_resources",
-           "may_activate", "policy", "propose", "retire", "view"]
+__all__ = ["CONFIG", "KINDS", "RESOURCE", "RULE", "SettingError", "SettingRefused", "UnknownSetting", "activate",
+           "effective_resources", "effective_rules", "may_activate", "policy", "propose", "retire", "rule_keys", "view"]
 
 CONFIG = "process_settings"
-RESOURCE = "resource"  # a value over a pack's resource (B2); B3 adds a rule's
+RESOURCE = "resource"  # a value over a pack's resource (B2)
+RULE = "rule"  # a value over a rule key its capabilities let a process set (B3)
+KINDS = (RESOURCE, RULE)
 TEMPLATE_PREFIX = "template:"  # a resource naming an output's template for the pack's cases: `template:<output>`
 EDITOR, OWNER, SECOND_PERSON = "editor", "owner", "second_person"
 
@@ -62,7 +70,7 @@ CREATE INDEX IF NOT EXISTS ix_process_settings_pack ON process_setting_versions(
 
 
 class SettingError(ValueError):
-    """A value the process cannot take (its pack's check refuses it, an unknown resource)."""
+    """A value the process cannot take (its pack's check refuses it, an unknown resource or rule key)."""
 
 
 class SettingRefused(SettingError):
@@ -100,22 +108,48 @@ def may_activate(actor: identity.Who, made_by: str) -> bool:
     return True
 
 
-def _active_values(c: Any, pack_id: str, kind: str = RESOURCE) -> dict[str, Any]:
-    return {r["key"]: json.loads(r["value"]) for r in c.execute(
-        "SELECT key, value FROM process_setting_versions WHERE pack_id=? AND kind=? AND state=?",
-        (pack_id, kind, versions.ACTIVE))}
+def _active_rows(c: Any, pack_id: str, kind: str) -> list[Any]:
+    return c.execute("SELECT key, value, setting_id, version FROM process_setting_versions WHERE pack_id=? AND kind=?"
+                     " AND state=?", (pack_id, kind, versions.ACTIVE)).fetchall()
 
 
 def effective_resources(pack: process_packs.ProcessPack) -> dict[str, str]:
     """The pack's resources: its file's, with the process's active values over them."""
     with store.connect() as c:
-        own = _active_values(c, pack.id)
+        own = {r["key"]: json.loads(r["value"]) for r in _active_rows(c, pack.id, RESOURCE)}
     return {**pack.resources, **{k: str(v) for k, v in own.items() if k in pack.resources}}
 
 
-def _problems(pack: process_packs.ProcessPack, key: str, value: str) -> list[str]:
+def rule_keys(pack: process_packs.ProcessPack) -> dict[str, tuple[capabilities.RuleKey, list[str]]]:
+    """231 (B3): the rule keys the pack's steps' capabilities let it set, by id, each with the steps that read it."""
+    out: dict[str, tuple[capabilities.RuleKey, list[str]]] = {}
+    for step in pack.steps:
+        for rule in capabilities.of(step.uses).rule_keys:
+            out.setdefault(rule.id, (rule, []))[1].append(step.id)
+    return out
+
+
+def effective_rules(pack: process_packs.ProcessPack) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    """231 (B3): the process's active rule values, as a case keeps them: ({config name: {key: value}}, {config name:
+    {key: {"setting": id, "version": n}}}); a key its capabilities no longer declare is left out."""
+    keys = rule_keys(pack)
+    values: dict[str, dict[str, Any]] = {}
+    refs: dict[str, dict[str, Any]] = {}
+    with store.connect() as c:
+        for r in _active_rows(c, pack.id, RULE):
+            if r["key"] in keys:
+                rule = keys[r["key"]][0]
+                values.setdefault(rule.file, {})[rule.key] = json.loads(r["value"])
+                refs.setdefault(rule.file, {})[rule.key] = {"setting": r["setting_id"], "version": r["version"]}
+    return values, refs
+
+
+def _problems(pack: process_packs.ProcessPack, kind: str, key: str, value: Any) -> list[str]:
     """What the pack's check says with this value over the resource (and, for an output's template, whether it is an
-    active template of that output or the built-in one)."""
+    active template of that output or the built-in one); for a rule key, what its capability's declaration says."""
+    if kind == RULE:
+        keys = rule_keys(pack)
+        return keys[key][0].problems(value) if key in keys else [f"the process sets no rule {key!r}"]
     if key not in pack.resources:
         return [f"the process has no resource {key!r}"]
     if key.startswith(TEMPLATE_PREFIX):
@@ -130,16 +164,24 @@ def _problems(pack: process_packs.ProcessPack, key: str, value: str) -> list[str
     return process_packs._problems(trial)
 
 
-def propose(pack_id: str, key: str, value: str, actor: identity.Who, *, note: str | None = None) -> dict[str, Any]:
-    """A draft value of the pack's resource `key`, refused (`SettingError`, every problem named) when the pack's check
-    does not pass with it."""
+def _kind(kind: str) -> str:
+    if kind not in KINDS:
+        raise ValueError(f"unknown kind of setting {kind!r}")
+    return kind
+
+
+def propose(pack_id: str, key: str, value: Any, actor: identity.Who, *, kind: str = RESOURCE,
+            note: str | None = None) -> dict[str, Any]:
+    """A draft value of the pack's resource or rule `key`, refused (`SettingError`, every problem named) when the
+    pack's check (a resource) or the capability's declaration (a rule) does not take it."""
     pack = process_packs.load(pack_id)
-    value = " ".join(str(value).split())
-    if not value:
+    if _kind(kind) == RESOURCE:
+        value = " ".join(str(value).split())
+    if value is None or value == "":
         raise explained(SettingError, "a setting needs a value")
-    if problems := _problems(pack, key, value):
+    if problems := _problems(pack, kind, key, value):
         raise explained(SettingError, "the process cannot take this value: {{problems}}", problems="; ".join(problems))
-    sid = _id(pack_id, RESOURCE, key)
+    sid = _id(pack_id, kind, key)
     with store.connect() as c:
         store.begin_immediate(c)
         try:
@@ -148,32 +190,32 @@ def propose(pack_id: str, key: str, value: str, actor: identity.Who, *, note: st
             version = 1
         c.execute("INSERT INTO process_setting_versions(setting_id, version, state, pack_id, kind, key, value, note, made_by,"
                   " made_by_id, made_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                  (sid, version, versions.DRAFT, pack_id, RESOURCE, key, json.dumps(value), (note or "").strip() or None,
+                  (sid, version, versions.DRAFT, pack_id, kind, key, json.dumps(value), (note or "").strip() or None,
                    identity.name_of(actor), identity.id_of(actor), _now()))
     return view(pack_id)
 
 
-def activate(pack_id: str, key: str, version: int, actor: identity.Who) -> dict[str, Any]:
-    """The version becomes the process's value (checked again, as the store may have changed since the draft)."""
+def activate(pack_id: str, key: str, version: int, actor: identity.Who, *, kind: str = RESOURCE) -> dict[str, Any]:
+    """The version becomes the process's value (checked again, as the store or the code may have changed since)."""
     pack = process_packs.load(pack_id)
-    sid = _id(pack_id, RESOURCE, key)
+    sid = _id(pack_id, _kind(kind), key)
     with store.connect() as c:
         store.begin_immediate(c)
         row = VERSIONS.row(c, sid, version)
         if not may_activate(actor, row["made_by"]):
             raise explained(SettingRefused, "by the rule of this installation, {{name}} may not make this value active",
                             name=identity.name_of(actor))
-        if problems := _problems(pack, key, json.loads(row["value"])):
+        if problems := _problems(pack, kind, key, json.loads(row["value"])):
             raise explained(SettingError, "the process cannot take this value: {{problems}}", problems="; ".join(problems))
         VERSIONS.activate(c, sid, version, actor=actor)
     return view(pack_id)
 
 
-def retire(pack_id: str, key: str, actor: identity.Who) -> dict[str, Any]:
+def retire(pack_id: str, key: str, actor: identity.Who, *, kind: str = RESOURCE) -> dict[str, Any]:
     """The process's own value is set aside: the file's value counts again. Where the rule names owners only they may;
     otherwise anyone may, as it brings back the value the pack was checked with (no second person is needed)."""
     process_packs.load(pack_id)
-    sid = _id(pack_id, RESOURCE, key)
+    sid = _id(pack_id, _kind(kind), key)
     with store.connect() as c:
         store.begin_immediate(c)
         current = VERSIONS.active(c, sid)
@@ -187,25 +229,41 @@ def retire(pack_id: str, key: str, actor: identity.Who) -> dict[str, Any]:
     return view(pack_id)
 
 
+def _versions(rows: list[Any]) -> list[dict[str, Any]]:
+    return [{"version": r["version"], "state": r["state"], "value": json.loads(r["value"]), "note": r["note"],
+             "made_by": r["made_by"], "made_at": r["made_at"], "activated_by": r["activated_by"],
+             "activated_at": r["activated_at"]} for r in rows]
+
+
+def _own(rows: list[Any]) -> Any:
+    active = next((r for r in rows if r["state"] == versions.ACTIVE), None)
+    return (json.loads(active["value"]), True) if active else (None, False)
+
+
 def view(pack_id: str) -> dict[str, Any]:
-    """The pack's resources: each with its file value, the process's active value (None: the file's counts) and its
-    versions newest first; and the rule of who may make a value active."""
+    """The pack's resources and rule keys: each with its file value, the process's active value (the file's when it
+    has none) and its versions newest first; and the rule of who may make a value active."""
     pack = process_packs.load(pack_id)
     with store.connect() as c:
-        rows = c.execute("SELECT * FROM process_setting_versions WHERE pack_id=? AND kind=? ORDER BY key, version DESC",
-                         (pack_id, RESOURCE)).fetchall()
-    by_key: dict[str, list[Any]] = {}
+        rows = c.execute("SELECT * FROM process_setting_versions WHERE pack_id=? ORDER BY kind, key, version DESC",
+                         (pack_id,)).fetchall()
+    by_key: dict[tuple[str, str], list[Any]] = {}
     for r in rows:
-        by_key.setdefault(r["key"], []).append(r)
+        by_key.setdefault((r["kind"], r["key"]), []).append(r)
     resources = []
     for key, file_value in pack.resources.items():
-        mine = by_key.get(key, [])
-        active = next((r for r in mine if r["state"] == versions.ACTIVE), None)
-        resources.append({
-            "key": key, "file_value": file_value, "value": json.loads(active["value"]) if active else file_value,
-            "own": active is not None,
-            "versions": [{"version": r["version"], "state": r["state"], "value": json.loads(r["value"]), "note": r["note"],
-                          "made_by": r["made_by"], "made_at": r["made_at"], "activated_by": r["activated_by"],
-                          "activated_at": r["activated_at"]} for r in mine]})
-    return {"pack": {"id": pack.id, "title": pack.title, "version": pack.version}, "resources": resources,
+        mine = by_key.get((RESOURCE, key), [])
+        value, own = _own(mine)
+        resources.append({"key": key, "file_value": file_value, "value": value if own else file_value, "own": own,
+                          "versions": _versions(mine)})
+    rules = []
+    for key, (rule, steps) in rule_keys(pack).items():
+        mine = by_key.get((RULE, key), [])
+        value, own = _own(mine)
+        file_value = rule.file_value()
+        rules.append({"key": key, "file": rule.file, "path": rule.key, "what": rule.what, "kind": rule.kind,
+                      "least": rule.least, "most": rule.most, "options": list(rule.options), "steps": steps,
+                      "file_value": file_value, "value": value if own else file_value, "own": own,
+                      "versions": _versions(mine)})
+    return {"pack": {"id": pack.id, "title": pack.title, "version": pack.version}, "resources": resources, "rules": rules,
             "policy": policy()}

@@ -78,8 +78,7 @@ def _values(request: invented_golden.Request) -> dict[str, Any]:
 def _drain() -> None:
     """Every queued job processed the way the worker would, one after the other."""
     while (job := queue.claim("quote-path", kinds=(work.JOB_KIND, *(k.kind for k in job_kinds.kinds())))) is not None:
-        own = job_kinds.of(job.kind)
-        own.process(job) if own is not None else worker.process(job)
+        worker.handle(job)
 
 
 @pytest.fixture()

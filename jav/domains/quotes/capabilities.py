@@ -22,7 +22,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from jav.app import human_tasks
-from jav.app.capabilities import Capability
+from jav.app.capabilities import Capability, RuleKey
 from jav.core.process import kinds
 
 POLL_S = 5.0  # how soon a waiting step looks again at the job or the person it waits for
@@ -211,18 +211,28 @@ CAPABILITIES = (
     Capability(name="catalogue_match", version=1, module=_OWNER, run=_catalogue_match, kind="machine", params=CatalogueMatch,
                providers=("jev", "openai"), rule_files=("callsite:quote_match", "gpt_quote_match", "quotes", "price_lists"),
                summary="Matches each requested item with a catalogue item: sure, to check, or not listed.",
-               spent=_spent("quote_proposals")),
+               spent=_spent("quote_proposals"),
+               # 231 (B3): only fewer items than the file's (more would raise what a proposal may spend)
+               rule_keys=(RuleKey("quotes", "proposal.max_items", "int", "At most this many requested items are matched in one"
+                                  " proposal", least=1, most=200),)),
     Capability(name="line_pricing", version=1, module=_OWNER, kind="machine", params=LinePricing, effects="pure",
                rule_files=("price_lists",), summary="Prices lines from a catalogue: unit price, discount rules, totals."),
     Capability(name="line_draft", version=1, module=_OWNER, run=_line_draft, kind="human", params=LineDraft,
                rule_files=("quotes", "price_lists"),
-               summary="A person composes the lines from the match, gives own prices with a note, and approves."),
+               summary="A person composes the lines from the match, gives own prices with a note, and approves.",
+               rule_keys=(RuleKey("quotes", "draft.max_lines", "int", "A quote holds at most this many lines", least=1, most=1000),
+                          RuleKey("price_lists", "rounding.HUF", "choice", "A forint quote's amounts are rounded to this unit",
+                                  options=("1", "0.01")),
+                          RuleKey("price_lists", "rounding.default", "choice", "Another currency's amounts are rounded to this"
+                                  " unit", options=("0.01", "1")))),
     Capability(name="priced_document", version=1, module=_OWNER, run=_priced_document, kind="machine", params=PricedDocument,
                rule_files=("quote_documents", "outputs"), summary="Fills a priced document from an output template."),
     Capability(name="letter_draft", version=1, module=_OWNER, run=_letter_draft, kind="machine", params=LetterDraft, providers=("openai",),
                rule_files=("gpt_quote_letter", "quote_documents", "quotes"),
                summary="Drafts a reply letter: the frame written by code around a model's checked paragraph; done once a person"
-                       " accepted it.", spent=_spent("quote_letters")),
+                       " accepted it.", spent=_spent("quote_letters"),
+               rule_keys=(RuleKey("quotes", "letter.max_chars", "int", "The model's paragraph is at most this many characters",
+                                  least=100, most=2000),)),
 )
 
 
