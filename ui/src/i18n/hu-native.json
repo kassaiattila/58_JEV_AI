@@ -2459,5 +2459,6 @@
   "The case is closed": "Az ügy lezárult",
   "a case's result is approved on its own page, step by step": "Az ügy eredményét a saját oldalán, lépésenként kell jóváhagyni",
   "a case's container is not deleted while its case exists": "Az ügy tárolója nem törölhető, amíg az ügy létezik",
-  "Approval of a case's result": "Egy ügy eredményének jóváhagyása"
+  "Approval of a case's result": "Egy ügy eredményének jóváhagyása",
+  "Next step: {{step}}": "Következő lépés: {{step}}"
 }

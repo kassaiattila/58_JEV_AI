@@ -2453,5 +2453,6 @@
   "The case is closed": "The case is closed",
   "a case's result is approved on its own page, step by step": "a case's result is approved on its own page, step by step",
   "a case's container is not deleted while its case exists": "a case's container is not deleted while its case exists",
-  "Approval of a case's result": "Approval of a case's result"
+  "Approval of a case's result": "Approval of a case's result",
+  "Next step: {{step}}": "Next step: {{step}}"
 }

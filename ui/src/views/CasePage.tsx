@@ -53,7 +53,7 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
   const nextStep = view.next ? stepLabel(view.next.code, view.next.params, view.next.label) : null;
   const nextButton = !view.next || !nextStep ? null : view.next.tab !== shown.id || tab === undefined ? (
     <button type="button" className="primary" onClick={() => go({ view: "cases", caseId, tab: view.next!.tab })}>{nextStep} →</button>
-  ) : <span className="next-hint">{t("Következő lépés: {{step}}", { step: nextStep })}</span>;
+  ) : <span className="next-hint">{t("Next step: {{step}}", { step: nextStep })}</span>;
 
   return (
     <>
