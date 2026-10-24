@@ -18,7 +18,7 @@ from tests.test_quote_path_231 import _drain, golden  # noqa: F401 - the fixture
 HUMAN = {"X-Actor": "anna"}
 
 
-def test_a_case_starts_from_its_record_and_its_page_is_its_packs_tabs(golden, tmp_path) -> None:
+def test_a_case_starts_from_its_record_and_its_page_is_its_packs_tabs(golden, tmp_path) -> None:  # noqa: F811 - the shared fixture
     from jav.core import store
 
     cases, _seen = golden
