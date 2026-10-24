@@ -53,7 +53,11 @@ const capOf = (usd: Record<string, string>) => Object.values(usd).reduce((s, v) 
 
 /** The proposal: each requested item with the price list item proposed for it, asked by a person and made by the
  *  worker; while it is queued or being made the page asks again every two seconds. */
-function ProposalPanel({ wpId, view, onChanged }: { wpId: string; view: QuoteView; onChanged: () => void }) {
+export function ProposalPanel({ wpId, view, onChanged, askStep }: {
+  wpId: string; view: QuoteView; onChanged: () => void;
+  /** 231 (A6): on a case's page, asking starts the case's step, which asks for the proposal */
+  askStep?: () => Promise<unknown>;
+}) {
   useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +81,7 @@ function ProposalPanel({ wpId, view, onChanged }: { wpId: string; view: QuoteVie
       setBusy(false);
     }
   }
-  const ask = () => run(() => api.requestQuoteProposal(wpId));
+  const ask = () => run(askStep ?? (() => api.requestQuoteProposal(wpId)));
   // 192: the quote's draft from the finished proposal, or from the requested items alone
   const start = (source: "proposal" | "request") => run(() => api.startQuoteDraft(wpId, { source, expected_state: view.draft.state }));
   const usable = p?.state === "done" && !p.stale;
@@ -178,7 +182,7 @@ function Gaps({ view }: { view: QuoteView }) {
 /** A header field's value as text; a missing one is a dash. */
 const valueText = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : String(v));
 
-function RequestPanel({ view }: { view: QuoteView }) {
+export function RequestPanel({ view }: { view: QuoteView }) {
   useLocale();
   const r = view.request;
   return (

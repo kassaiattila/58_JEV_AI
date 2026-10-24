@@ -134,6 +134,14 @@ export function serverKeys() {
     for (const v of [tp.title, tp.description]) if (v) keys.add(v);
     for (const s of tp.steps ?? []) if (s.title) keys.add(s.title);
   }
+  // 231 (A6): the process packs' title, tab labels and step titles (configs/processes/*.json), shown on a case's page
+  const packs = path.join(ROOT, "configs", "processes");
+  for (const f of fs.existsSync(packs) ? fs.readdirSync(packs).filter((n) => n.endsWith(".json")) : []) {
+    const pack = JSON.parse(fs.readFileSync(path.join(packs, f), "utf8"));
+    if (pack.title) keys.add(pack.title);
+    for (const tab of pack.screens?.tabs ?? []) if (tab.label) keys.add(tab.label);
+    for (const s of pack.steps ?? []) if (s.title) keys.add(s.title);
+  }
   return keys;
 }
 

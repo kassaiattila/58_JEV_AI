@@ -46,14 +46,18 @@ class QuoteError(ValueError):
 # --- the requests a quote can start from -----------------------------------------------------------------------------
 
 
-def _quotes_by_request() -> dict[tuple[str, str], list[dict[str, str]]]:
+def _quotes_by_request() -> dict[tuple[str, str], list[dict[str, Any]]]:
+    """The quotes made from each request: quote packages and (231, A6) cases started from it as their record."""
     with store.connect() as c:
-        rows = c.execute("SELECT s.workpackage_id, s.parts, w.name FROM workpackage_scopes s JOIN workpackages w"
-                         " ON w.id = s.workpackage_id WHERE w.source_kind = ? ORDER BY w.created_at", (KIND,)).fetchall()
-    out: dict[tuple[str, str], list[dict[str, str]]] = {}
+        rows = c.execute("SELECT s.workpackage_id, s.parts, w.name, w.source_kind FROM workpackage_scopes s JOIN workpackages w"
+                         " ON w.id = s.workpackage_id WHERE w.source_kind IN (?, ?) ORDER BY w.created_at",
+                         (KIND, CONTAINER)).fetchall()
+    out: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for r in rows:
-        ref = json.loads(r["parts"]).get(REQUEST) or {}
-        out.setdefault((ref.get("workpackage_id", ""), ref.get("item_id", "")), []).append({"id": r["workpackage_id"], "name": r["name"]})
+        parts = json.loads(r["parts"])
+        ref = parts.get(REQUEST) or parts.get(scopes.RECORD) or {}
+        out.setdefault((ref.get("workpackage_id", ""), ref.get("item_id", "")), []).append(
+            {"id": r["workpackage_id"], "name": r["name"], **({"case": True} if r["source_kind"] == CONTAINER else {})})
     return out
 
 

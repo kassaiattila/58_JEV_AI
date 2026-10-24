@@ -56,13 +56,14 @@ describe("the quote request under its email (192)", () => {
   });
 
   it("starts a quote named by the customer and opens it", async () => {
-    const create = vi.spyOn(api, "createQuotePackage").mockResolvedValue({ workpackage_id: "wp-000000000196" });
+    const create = vi.spyOn(api, "startCase").mockResolvedValue({ case_id: "wp-000000000196" });  // 231 (A6): a case
     render(<EmailReview data={mail(PART)} onChanged={() => {}} />);
     const button = await screen.findByRole("button", { name: "Start a quote from this email" });
     expect(button.className).toContain("primary");
     fireEvent.click(button);
-    await waitFor(() => expect(create).toHaveBeenCalledWith({ name: "Quote: Invented Buyer Ltd", source: "wp-000000000191", item_id: "item-1" }));
-    await waitFor(() => expect(window.location.hash).toBe("#/workpackages/wp-000000000196/review"));
+    await waitFor(() => expect(create).toHaveBeenCalledWith({ pack: "it_quote", name: "Quote: Invented Buyer Ltd",
+      record: { workpackage_id: "wp-000000000191", item_id: "item-1" } }));
+    await waitFor(() => expect(window.location.hash).toBe("#/cases/wp-000000000196"));
   });
 
   it("says what the whole request lacks, and links the quotes already made from it", async () => {

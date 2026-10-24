@@ -2441,5 +2441,11 @@
   "the record is named by its work package and item": "the record is named by its work package and item",
   "the record a case starts from is missing": "the record a case starts from is missing",
   "the case runs on an older version of its process pack": "the case runs on an older version of its process pack",
-  "the step {{step}} does not wait for a start": "the step {{step}} does not wait for a start"
+  "the step {{step}} does not wait for a start": "the step {{step}} does not wait for a start",
+  "The case was not found": "The case was not found",
+  "there is no case with this identifier.": "there is no case with this identifier.",
+  "The case's steps": "The case's steps",
+  "IT quote": "IT quote",
+  "Word quote": "Word quote",
+  "Reply letter": "Reply letter"
 }

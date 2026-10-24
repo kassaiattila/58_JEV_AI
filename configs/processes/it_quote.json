@@ -29,9 +29,9 @@
   ],
   "screens": {
     "tabs": [
-      {"id": "request", "label": "Request", "elements": [{"type": "record_view", "step": "request"}, {"type": "blockers"}]},
+      {"id": "request", "label": "Request", "elements": [{"type": "record_view", "step": "request"}]},
       {"id": "quote", "label": "Quote", "elements": [{"type": "match_proposal", "step": "match"}, {"type": "line_editor", "step": "compose"}]},
-      {"id": "approval", "label": "Approval", "elements": [{"type": "approval", "step": "compose"}, {"type": "document_view", "step": "document"}, {"type": "form", "step": "letter"}]}
+      {"id": "approval", "label": "Approval", "elements": [{"type": "approval", "step": "compose", "letter_step": "letter"}]}
     ]
   },
   "outputs": ["quote"],

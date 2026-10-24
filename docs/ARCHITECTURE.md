@@ -981,3 +981,11 @@ package's page had for their elements, and any pack whose step uses them gets it
 task; the worker moves the case on. The service: `POST /api/cases` (pack, record, name), `GET /api/cases/{id}`, `POST
 /api/cases/{id}/steps/{step}/start` (`jav/service/api_cases.py`); the quote's endpoints accept a case's container.
 Tests: `tests/test_case_service_231.py`.
+
+**A case's page in the interface (231, plan stage A, A6b).** `#/cases/<id>/<tab>` (`ui/src/views/CasePage.tsx`) shows a
+case with the work package page's header and numbered tabs; the tabs are the pack's, each element rendered by its type
+from `ui/src/elements/registry.tsx`, which may also give the tab's status line and the page's summary. The quote's
+elements (`ui/src/views/quotes/QuoteElements.tsx`) render the quote package's parts from the quote view their data
+carries, with the quote package's status lines; asking for the proposal or the letter starts the case's step. The
+email's "Start a quote from this email" starts an IT quote case, and the quotes made from a request list its cases too.
+The interface's translation check reads the packs' title, tab labels and step titles. Tests: `ui/src/views/case231.test.tsx`.
