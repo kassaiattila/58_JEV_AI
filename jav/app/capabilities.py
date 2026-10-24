@@ -17,6 +17,8 @@ waits instead of running (the process core's rule for an unknown kind).
   behind a step kind.
 - `Action` (A7d): what a person may do on a step of the capability from the case's page or the "Waiting for me" list
   (say whether a message arrived, record a reply), each available only while the step waits for it.
+- `step_scopes(case_id, step_id, uses)` (A7e): the budget scopes a case's step spent from: its own per round
+  (`step_budget`), or those its capability names (`spent`, for a step whose paid work runs as a job of its domain).
 
 Layer: application; it uses the process core, the call log and the shared registries' completion. The capabilities
 themselves live in the domains and register from their `register()`.
@@ -39,7 +41,7 @@ from jav.core.process import cases, kinds, tasks
 from jav.core.process.engine import StepContext
 
 __all__ = ["Action", "Capability", "CapabilityError", "PROVIDERS", "catalogue", "of", "of_step_kind", "register",
-           "step_budget"]
+           "step_budget", "step_scopes"]
 
 PROVIDERS = ("jev", "openai", "azure_di")
 STEP_START = "step_start"  # 231 (A5): the human task of a step a person starts (a paid one, `_start: person`)
@@ -78,7 +80,8 @@ class Capability:
       the process core's handover record).
     - `run(ctx, params)`: the step's work (`kinds.StepOutcome`); None while the capability is described but not yet usable
       by a process pack. `events`, `on_event`, `on_timer`: as the process core's step kinds have them.
-    - `actions`: what a person may do on its step (A7d).
+    - `actions`: what a person may do on its step (A7d); `spent(case_id, step_id)`: the budget scopes its step spent
+      from when they are not the step's own (A7e).
     """
 
     name: str
@@ -96,6 +99,7 @@ class Capability:
     on_timer: Callable[..., str] | None = None
     described: dict[str, Any] = field(default_factory=dict)
     actions: tuple[Action, ...] = ()
+    spent: Callable[[str, str], list[str]] | None = None
 
     @property
     def key(self) -> str:
@@ -216,6 +220,15 @@ def step_budget(case_id: str, step_id: str, round_: int, limits: dict[str, Decim
     again keeps the scope and what it has spent, so a retried step cannot spend its cap twice."""
     with calls.outside_run(f"case:{case_id}:{step_id}:{round_}", limits) as scope:
         yield scope
+
+
+def step_scopes(case_id: str, step_id: str, uses: str) -> list[str]:
+    """231 (A7e): the budget scopes the case's step spent from, oldest first: those its capability names, or its own
+    rounds' (`case:<case>:<step>:<round>`)."""
+    cap = of(uses)
+    if cap.spent is not None:
+        return cap.spent(case_id, step_id)
+    return calls.scopes_under(f"case:{case_id}:{step_id}:")
 
 
 tasks.register_kind(tasks.TaskKind(STEP_START, __name__))

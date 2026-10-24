@@ -130,7 +130,8 @@ def test_the_real_send_reaches_only_the_allowlist(senders, monkeypatch) -> None:
 def test_a_mode_without_its_sender_or_an_unknown_message_fails_the_step(senders) -> None:
     assert _state(_case("case-send-6", mode="outlook_draft"))["steps"]["send"]["note"] == \
         "the outlook_draft mode is not available in this version"
-    assert "no message builder 'nothing'" in _state(_case("case-send-7", message="nothing"))["steps"]["send"]["note"]
+    refused = _state(_case("case-send-7", message="nothing"))["steps"]["send"]["note"]
+    assert refused == "the step's parameters do not fit send@1: message"  # a pack naming it is refused when checked
 
 
 def test_the_message_is_made_from_the_step_it_names(senders) -> None:

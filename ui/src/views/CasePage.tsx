@@ -2,7 +2,7 @@
 // from registered screen elements (ui/src/elements/registry.tsx) with the data the service sent for them; the page
 // looks like a work package's (the same header and numbered tabs). While a step waits for a job or the worker, the
 // page asks again every few seconds.
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { api, type CaseView } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { ELEMENTS, type ElementProps } from "../elements/registry";
@@ -20,9 +20,12 @@ function defaultTab(page: CaseView): string {
   return (tab ?? page.tabs[page.tabs.length - 1]).id;
 }
 
+/** What a step may wait for that only a person or the other side ends (A7e: a task, the letter's acceptance, a reply). */
+const PEOPLE = new Set(["approval", "task_closed", "acceptance", "reply"]);
+
 /** Whether a step waits for a job or the worker (not for a person), so the page should ask again soon. */
 const moving = (page: CaseView) => page.case.status === "open"
-  && Object.values(page.steps).some((s) => s.state === "ready" || (s.state === "running" && !s.awaiting_start && s.waiting_for !== "approval"));
+  && Object.values(page.steps).some((s) => s.state === "ready" || (s.state === "running" && !s.awaiting_start && !PEOPLE.has(s.waiting_for ?? "")));
 
 export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
   useLocale();
@@ -35,7 +38,7 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
 
   if (page.error?.status === 404 || page.error?.status === 422) {
     return (
-      <PageHeader crumbs={[{ label: t("Work packages"), href: "#/workpackages" }]} title={t("The case was not found")}
+      <PageHeader crumbs={[{ label: t("Cases"), href: "#/cases" }]} title={t("The case was not found")}
         summary={<><span className="mono">{caseId}</span>: {t("there is no case with this identifier.")}</>} />
     );
   }
@@ -57,15 +60,16 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
 
   return (
     <>
-      <PageHeader compact crumbs={[{ label: t("Work packages"), href: "#/workpackages" }]} title={view.case.name ?? t(view.case.title)}
+      <PageHeader compact crumbs={[{ label: t("Cases"), href: "#/cases" }]} title={view.case.name ?? t(view.case.title)}
         summary={summary}
         actions={container.data ? <><OwnerPicker view={container.data} onChanged={reload} />{nextButton}<WorkpackageActions view={container.data} onChanged={reload} /></> : nextButton} />
-      <div className="stage-tabs" role="tablist" aria-label={t("The case's steps")}>
+      {/* A7e: one row however many tabs the pack has (the package page's three by default) */}
+      <div className="stage-tabs" role="tablist" aria-label={t("The case's steps")} style={{ "--tabs": view.tabs.length } as CSSProperties}>
         {view.tabs.map((x, i) => (
           <a key={x.id} role="tab" aria-selected={shown.id === x.id} className={`stage-tab ${next === x.id ? "is-next" : ""}`}
             href={`#/cases/${encodeURIComponent(caseId)}/${encodeURIComponent(x.id)}`}>
             <span className="stage-no" aria-hidden="true">{i + 1}</span>
-            <span className="stage-text"><strong>{t(x.label)}</strong><span className="small">{statusOf(x.elements)}</span></span>
+            <span className="stage-text"><strong>{t(x.label)}</strong><span className="small" title={statusOf(x.elements) || undefined}>{statusOf(x.elements)}</span></span>
           </a>
         ))}
       </div>

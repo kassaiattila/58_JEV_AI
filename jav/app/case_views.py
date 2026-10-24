@@ -13,6 +13,9 @@ steps wait for a person's start; starting one decides its start task, and the wo
   unknown case is a `KeyError`).
 - `act(case_id, step_id, name, actor, note)` (A7d): a person's action on a step, one its capability offers and the step
   waits for now (say whether a message arrived, record a reply); each step's view lists the ones available.
+- The shared elements every pack may show (A7e): `timeline` (who did what and when on the case) and `cost` (what each
+  step spent, by service). The next step comes from the first step that is not done, through the elements that show
+  it; a step no element shows leaves it to the first element that names one.
 
 Layer: application; it uses the process packs, the capability registry, the process runtime and the process core's
 public operations.
@@ -22,11 +25,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any
 
 from jav.app import capabilities, process_packs, process_runtime
-from jav.core import completion, identity
-from jav.core.process import engine, tasks
+from jav.core import calls, completion, identity
+from jav.core.process import cases, engine, tasks
 from jav.core.user_messages import explained
 
 __all__ = ["CaseError", "ElementData", "act", "next_of", "register", "start_step", "view"]
@@ -58,14 +63,18 @@ def register(entry: ElementData) -> None:
 
 
 def _provider(element: str, capability: str | None) -> ElementData | None:
-    if not _DATA:
-        completion.complete("element data")
+    completion.complete("element data")  # once per process: the domains register theirs there (A7e: not only when empty)
     return _DATA.get((element, capability)) or _DATA.get((element, None))
 
 
+RETRY = "retry"  # A7e: every failed step's own action: a person starts it again
+
+
 def _actions(case_id: str, step: process_packs.Step, row: dict[str, Any]) -> list[dict[str, str]]:
-    """The actions of the step's capability available now (A7d); none on a step that is not running."""
-    if row.get("state") != "running":
+    """The actions available on the step now: a failed step's retry (A7e), a running step's capability's (A7d)."""
+    if row.get("state") == cases.FAILED:
+        return [{"name": RETRY, "label": "Try again"}]
+    if row.get("state") != cases.RUNNING:
         return []
     return [{"name": a.name, "label": a.label} for a in capabilities.of(step.uses).actions if a.available(case_id, step.id)]
 
@@ -97,17 +106,20 @@ def view(case_id: str) -> dict[str, Any]:
     return {"case": {"id": case_id, "pack": pack.id, "version": pack.version, "title": pack.title,
                      "name": state.get("data", {}).get("name"), "status": state["status"]},
             "steps": {s.id: _step_view(case_id, s, rows.get(s.id, {})) for s in pack.steps}, "tabs": tabs,
-            "next": _next(tabs)}
+            "next": _next(tabs, [s.id for s in pack.steps if rows.get(s.id, {}).get("state") != "done"])
+            if state["status"] == "open" else None}  # A7e: a closed case has no next step on its page
 
 
-def _next(tabs: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """The case's next step: the first element whose data names one, with the tab of the element it is done on."""
-    for tab in tabs:
-        for element in tab["elements"]:
-            nxt = element["data"].get("next") if isinstance(element["data"], dict) else None
-            if nxt:
-                where = next((x["id"] for x in tabs if any(e["type"] == nxt.get("element") for e in x["elements"])), tab["id"])
-                return {k: v for k, v in nxt.items() if k != "element"} | {"tab": where}
+def _next(tabs: list[dict[str, Any]], open_steps: list[str] | None = None) -> dict[str, Any] | None:
+    """The case's next step, with the tab of the element it is done on: the first element showing the first step that
+    is not done and naming one (A7e: a send step after the quote's approval); otherwise the first element naming one."""
+    shown = [(tab, e) for tab in tabs for e in tab["elements"]]
+    first_open = (open_steps or [None])[0]
+    for tab, element in [x for x in shown if first_open and x[1].get("step") == first_open] + shown:
+        nxt = element["data"].get("next") if isinstance(element["data"], dict) else None
+        if nxt:
+            where = next((x["id"] for x in tabs if any(e["type"] == nxt.get("element") for e in x["elements"])), tab["id"])
+            return {k: v for k, v in nxt.items() if k != "element"} | {"tab": where}
     return None
 
 
@@ -133,8 +145,90 @@ def act(case_id: str, step_id: str, name: str, actor: identity.Who, note: str | 
     if pack is None:
         raise KeyError(case_id)
     step = next((s for s in pack.steps if s.id == step_id), None)
+    if step is not None and name == RETRY:
+        try:
+            cases.retry(case_id, step_id, identity.who(actor))
+        except cases.StepStateError:
+            raise explained(CaseError, "the step {{step}} does not wait for this action", step=step_id) from None
+        return view(case_id)
     action = next((a for a in capabilities.of(step.uses).actions if a.name == name), None) if step else None
     if step is None or action is None or not action.available(case_id, step_id):
         raise explained(CaseError, "the step {{step}} does not wait for this action", step=step_id)
     action.run(case_id, step_id, actor, note.strip() if note and note.strip() else None)
     return view(case_id)
+
+
+# --- the shared elements (A7e) ----------------------------------------------------------------------------------------
+
+# the core's own bookkeeping, and what the next row says anyway (a step started, a person's task opened before its
+# decision)
+_QUIET = frozenset({"waiting", "wait_ended", "handover_recorded", "handover_sent", "event_applied", "event_refused",
+                    "step_started", "task_opened", "task_reopened"})
+
+
+def _iso(at: Any) -> Any:
+    """The history's moment (epoch seconds) as the ISO text every other time on the page is."""
+    return datetime.fromtimestamp(at, timezone.utc).isoformat(timespec="seconds") if isinstance(at, (int, float)) else at
+
+
+def _who(actor_id: str) -> str | None:
+    """A person's name from their id (`local:<name>`); None for the machine."""
+    kind, _, name = actor_id.partition(":")
+    return name if kind == "local" else None
+
+
+def _detail(detail: Any) -> dict[str, Any]:
+    """What an event's row says beyond its kind: a note, a task's kind, a person's answer, a timer's name."""
+    if not isinstance(detail, dict):
+        return {}
+    out: dict[str, Any] = {k: detail[k] for k in ("note", "timer") if isinstance(detail.get(k), str)}
+    if isinstance(detail.get("task"), str):
+        out["task_kind"] = detail["task"].partition(":")[0]
+    outcome = detail.get("outcome")
+    answer = next((outcome[k] for k in ("outcome", "reply") if isinstance(outcome, dict) and isinstance(outcome.get(k), str)),
+                  None)
+    if answer:
+        out["answer"] = answer
+    return out
+
+
+def _timeline(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict[str, Any]:
+    """The case's events in order: who did what and when, with the step's title; the core's own bookkeeping (a wait
+    begun or ended, a handover recorded before it is sent, an event taken) is left out."""
+    pack = process_runtime.pack_for(case_id)
+    titles = {s.id: s.title or s.id for s in pack.steps} if pack else {}
+    rows = [{"at": _iso(h["at"]), "kind": h["kind"], "step": h["step_id"], "step_title": titles.get(h["step_id"] or ""),
+             "who": _who(h["actor"]), "detail": _detail(h["detail"])}
+            for h in cases.view(case_id)["history"] if h["kind"] not in _QUIET]
+    return {"events": rows}
+
+
+def _cost(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict[str, Any]:
+    """What the case's steps spent, by step and service: the live calls and their known cost, and the answers taken from
+    an earlier one (free); a call without a known cost is held apart at its reserved maximum. Money as text."""
+    pack = process_runtime.pack_for(case_id)
+    lines, total = [], Decimal("0")
+    for step in pack.steps if pack else ():
+        by: dict[str, dict[str, Any]] = {}
+        for scope in capabilities.step_scopes(case_id, step.id, step.uses):
+            for call in calls.scope_journal(scope):
+                line = by.setdefault(call["provider"], {"calls": 0, "reused": 0, "cost": Decimal("0"),
+                                                        "open": Decimal("0")})
+                if (call.get("note") or "").startswith(f"{calls.REUSED_NOTE}:"):
+                    line["reused"] += 1
+                    continue
+                line["calls"] += 1
+                if call["cost_usd"] is not None:
+                    line["cost"] += Decimal(str(call["cost_usd"]))
+                else:
+                    line["open"] += Decimal(str(call["max_cost_usd"] or 0))
+        for provider, line in by.items():
+            total += line["cost"]
+            lines.append({"step": step.id, "step_title": step.title or step.id, "provider": provider,
+                          "calls": line["calls"], "reused": line["reused"], "cost_usd": str(line["cost"]),
+                          "open_usd": str(line["open"])})
+    return {"lines": lines, "total_usd": str(total)}
+
+
+register(ElementData("timeline", None, __name__, _timeline))
+register(ElementData("cost", None, __name__, _cost))

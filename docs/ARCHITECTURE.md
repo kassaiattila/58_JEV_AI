@@ -1019,3 +1019,18 @@ which the step waits on with no further reminder. A capability may offer a perso
 A case's page lists each running step's available actions, and `POST /api/cases/{case_id}/steps/{step_id}/actions/{name}`
 (`case_views.act`) takes one. The "Waiting for me" list opens a case's page for a task of a process pack's case (a
 step's start, an uncertain handover, a follow-up), named by its step. Tests: `tests/test_replies_231.py`.
+
+**The IT quote's send and follow-up, and the case lists (231, plan stage A, A7e).** The IT quote's pack 1.1.0 adds the
+send step (`send@1`, a person starts it, the accepted letter with the approved version's Word document into the output
+folder, the mode a resource of the pack) and the follow-up (`wait_reply@1`, 5 days), and three tabs: Sent
+(`handover_view`: the mode, the output folder, each attempt), Follow-up (`reply_wait`: since when, when the follow-up
+opens, the reply) and History (`timeline`: the case's events without the core's own bookkeeping; `cost`: what each
+step spent, from its own rounds' budget scopes or the ones its capability names, `Capability.spent`, as the quote's
+proposal and letter jobs keep theirs). A case of 1.0.0 keeps its three tabs (A7a). The case's next step comes from the
+first step that is not done, through the elements that show it. A failed step offers its retry (`retry`) among its
+actions. Two datasets (`jav/app/case_lists.py`): `cases` (every open case, the closed ones on request: its process,
+the step it is at and what that step waits for) and `handovers` (the open cases whose step's last handover failed or
+has an unknown outcome). The interface: a "Cases" entry in the side rail (`#/cases`, `ui/src/views/CaseList.tsx`, the
+handovers to check above the cases while there are some), and the general elements (`ui/src/elements/CaseElements.tsx`,
+their status lines in `caseStatus.ts`). Tests: `tests/test_case_send_231.py`, `tests/test_quote_case_231.py`,
+`ui/src/views/case231e.test.tsx`.

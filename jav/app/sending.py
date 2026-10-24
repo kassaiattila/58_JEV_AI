@@ -30,11 +30,11 @@ from email.utils import getaddresses
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from jav.app import app_settings, capabilities, naming, process_runtime, work
 from jav.core import cfg, identity, store
-from jav.core.process import kinds, outbox, tasks
+from jav.core.process import cases, kinds, outbox, tasks
 from jav.core.process.engine import StepContext
 from jav.core.user_messages import explained
 
@@ -167,6 +167,14 @@ class Send(BaseModel):
     mode: Literal["output_folder", "outlook_draft", "outlook_send"] = OUTPUT_FOLDER
     from_step: str | None = None
 
+    @field_validator("message")
+    @classmethod
+    def _registered(cls, name: str) -> str:
+        """A process pack naming a message builder nobody registered is refused when it is checked."""
+        if name not in _BUILDERS:
+            raise ValueError(f"no message builder {name!r} is registered")
+        return name
+
 
 def _folder(case_id: str) -> list[str]:
     """The case's folder parts under the output folder: its process pack and its name with its id."""
@@ -278,9 +286,40 @@ CAPABILITY = capabilities.Capability(
                                  lambda case_id, step_id, actor, _note: settle(case_id, step_id, outbox.FAILED, actor))))
 
 
+def _handover_view(case_id: str, step_id: str | None, shared: dict[str, Any]) -> dict[str, Any]:
+    """231 (A7e): what a send step shows on its case's page: its mode and message, where the output folder is, each
+    attempt's handover (without the file's bytes) and, while the step waits for a person, the case's next step."""
+    step = str(step_id)
+    with store.connect() as c:
+        row = cases.find_step_in(c, case_id, step) or {}
+        params = cases.definition_of(cases.case_row(c, case_id)).step(step).params
+    attempts = []
+    for n, h in enumerate(_handovers_of(case_id, step), 1):
+        full = outbox.get(h["handover_id"]) or {}
+        payload = full.get("payload") or {}
+        attempts.append({"attempt": n, "status": h["status"], "error": h["error"], "created_at": full.get("created_at"),
+                         "updated_at": full.get("updated_at"),
+                         "receipt": json.loads(full["receipt"]) if full.get("receipt") else None,
+                         **{k: payload.get(k) for k in ("mode", "file_name", "to", "subject", "size")}})
+    mode = params.get("mode", OUTPUT_FOLDER)
+    nxt = None
+    if row.get("phase") == capabilities.AWAITING_START:
+        nxt = {"code": "case_send", "label": "Send", "stage": "result"}
+    elif _settling(case_id, step):
+        nxt = {"code": "case_send_settle", "label": "Say whether it arrived", "stage": "result"}
+    elif row.get("state") == cases.FAILED:
+        nxt = {"code": "case_send_failed", "label": "The send failed", "stage": "result"}
+    return {"mode": mode, "message": params.get("message"), "state": row.get("state"),
+            "output_folder": app_settings.output_folder() if mode == OUTPUT_FOLDER else None, "attempts": attempts,
+            "next": {**nxt, "element": "handover_view"} if nxt else None}
+
+
 def register() -> None:
+    from jav.app import case_views
+
     capabilities.register(CAPABILITY)
     register_sender(Sender(OUTPUT_FOLDER, _OWNER, _to_output_folder))
+    case_views.register(case_views.ElementData("handover_view", "send", _OWNER, _handover_view))
 
 
 tasks.register_kind(tasks.TaskKind(SETTLE_TASK, __name__))

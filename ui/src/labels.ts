@@ -441,6 +441,9 @@ const STEP_LABEL = tmap({
   quote_approve: "Approve the quote", // 192 B5
   // 231 (A6): a process pack's case container (jav/app/process_runtime.py `_next`)
   case_open: "Open the case", case_closed: "The case is closed",
+  // 231 (A7e): the send and the reply (jav/app/sending.py, jav/app/replies.py)
+  case_send: "Send", case_send_settle: "Say whether it arrived", case_send_failed: "The send failed",
+  case_reply_wait: "Waiting for the reply", case_follow_up: "Follow up the reply",
 });
 
 /** The package's next step in the chosen language (057): from the service's code and parameters; for an unknown code,

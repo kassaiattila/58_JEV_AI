@@ -160,13 +160,26 @@ def _letter_draft(ctx: Any, params: LetterDraft) -> kinds.StepOutcome:
                        "paragraph_used": not view.get("problems"), "accepted": True})
 
 
+def _spent(table: str) -> Any:
+    """231 (A7e): the budget scopes a quote step's jobs spent from (the proposal's, the letter versions'), oldest
+    first: the job keeps its scope in its row."""
+    def scopes(case_id: str, _step: str) -> list[str]:
+        from jav.core import store
+
+        with store.connect() as c:
+            return [r["scope"] for r in c.execute(f"SELECT scope FROM {table} WHERE workpackage_id=? AND scope IS NOT NULL"
+                                                  " ORDER BY rowid", (case_id,))]
+    return scopes
+
+
 _OWNER = __name__
 CAPABILITIES = (
     Capability(name="record_assembly", version=1, module=_OWNER, run=_record_assembly, kind="machine", params=RecordAssembly, effects="pure",
                summary="Puts a record together from an email's text, its table attachments and its attachments."),
     Capability(name="catalogue_match", version=1, module=_OWNER, run=_catalogue_match, kind="machine", params=CatalogueMatch,
                providers=("jev", "openai"), rule_files=("callsite:quote_match", "gpt_quote_match", "quotes", "price_lists"),
-               summary="Matches each requested item with a catalogue item: sure, to check, or not listed."),
+               summary="Matches each requested item with a catalogue item: sure, to check, or not listed.",
+               spent=_spent("quote_proposals")),
     Capability(name="line_pricing", version=1, module=_OWNER, kind="machine", params=LinePricing, effects="pure",
                rule_files=("price_lists",), summary="Prices lines from a catalogue: unit price, discount rules, totals."),
     Capability(name="line_draft", version=1, module=_OWNER, run=_line_draft, kind="human", params=LineDraft,
@@ -177,7 +190,7 @@ CAPABILITIES = (
     Capability(name="letter_draft", version=1, module=_OWNER, run=_letter_draft, kind="machine", params=LetterDraft, providers=("openai",),
                rule_files=("gpt_quote_letter", "quote_documents", "quotes"),
                summary="Drafts a reply letter: the frame written by code around a model's checked paragraph; done once a person"
-                       " accepted it."),
+                       " accepted it.", spent=_spent("quote_letters")),
 )
 
 

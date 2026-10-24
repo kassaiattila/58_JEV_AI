@@ -513,7 +513,7 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .page-head.compact .page-summary { font-size: var(--fs-xs); }
 .next-hint { font-size: var(--fs-xs); color: var(--muted); }
 /* 155: the three stages as one compact bar: number, name and state on one line */
-.stage-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin-bottom: var(--sp-3); border: 1px solid var(--line);
+.stage-tabs { display: grid; grid-template-columns: repeat(var(--tabs, 3), minmax(0, 1fr)); gap: 0; margin-bottom: var(--sp-3); border: 1px solid var(--line);
   border-radius: var(--radius); background: var(--paper); overflow: hidden; }
 .stage-tab { display: flex; gap: var(--sp-2); align-items: center; min-height: 40px; padding: 6px var(--sp-3); text-decoration: none; color: var(--ink);
   border-right: 1px solid var(--line); position: relative; transition: background-color .12s; }
@@ -1053,3 +1053,6 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .rc-stack .card > button { justify-self: start; }
 .rc-period { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 .rc-period input[type="date"] { border: 1px solid var(--line); border-radius: var(--r-md); padding: 6px 8px; background: var(--paper); }
+/* 231 (A7e): the case list's handovers to check, above the cases while there are some */
+.case-list-check { margin-bottom: var(--sp-6); }
+.case-list-check h2 { font-size: var(--fs-md); margin: 0 0 var(--sp-2); }

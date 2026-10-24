@@ -24,9 +24,9 @@ def test_a_case_shows_the_pack_version_it_started_on_after_the_pack_changes(gold
     data["screens"]["tabs"][0]["label"] = "Changed request"
     changed = process_packs.ProcessPack.model_validate(data)
     monkeypatch.setattr(process_packs, "load", lambda pack_id: changed)
-    assert process_runtime.pack_of(case_id) == ("it_quote", "1.0.0")
+    assert process_runtime.pack_of(case_id) == ("it_quote", "1.1.0")
     started_on = process_runtime.pack_for(case_id)
-    assert started_on.version == "1.0.0" and started_on.screens.tabs[0].label == "Request"
+    assert started_on.version == "1.1.0" and started_on.screens.tabs[0].label == "Request"
     page = case_views.view(case_id)
-    assert page["case"]["version"] == "1.0.0" and page["tabs"][0]["label"] == "Request"
+    assert page["case"]["version"] == "1.1.0" and page["tabs"][0]["label"] == "Request"
     assert process_runtime.outputs_of(case_id) == ("quote",)

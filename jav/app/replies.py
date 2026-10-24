@@ -16,6 +16,7 @@ Layer: application; it uses the process core's events, timers and human tasks.
 from __future__ import annotations
 
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -23,7 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from jav.app import capabilities
 from jav.core import identity, store
 from jav.core.clock import utc_stamp
-from jav.core.process import cases, kinds, tasks
+from jav.core.process import cases, kinds, tasks, timers
 from jav.core.process.engine import StepContext
 from jav.core.user_messages import explained
 
@@ -155,8 +156,36 @@ CAPABILITY = capabilities.Capability(
                                  lambda case_id, step_id, actor, note: keep_waiting(case_id, step_id, actor, note))))
 
 
+def _stamp(epoch: float | None) -> str | None:
+    return datetime.fromtimestamp(epoch, timezone.utc).isoformat(timespec="seconds") if epoch else None
+
+
+def _reply_view(case_id: str, step_id: str | None, shared: dict[str, Any]) -> dict[str, Any]:
+    """231 (A7e): what a reply step shows on its case's page: since when it waits, when the follow-up opens (or opened),
+    the follow-up task's state, the reply recorded and, while it waits, the case's next step."""
+    step = str(step_id)
+    with store.connect() as c:
+        row = cases.find_step_in(c, case_id, step) or {}
+        task = tasks.task_in(c, _task_id(case_id, step))
+        remind = next((t for t in timers.of_case(c, case_id) if t["step_id"] == step and t["name"] == REMIND), None)
+    gathered = _gathered(row)
+    nxt = None
+    if row.get("state") == cases.RUNNING:
+        following = task is not None and task.status == tasks.OPEN
+        nxt = {"code": "case_follow_up" if following else "case_reply_wait",
+               "label": "Follow up the reply" if following else "Waiting for the reply", "stage": "result",
+               "element": "reply_wait"}
+    return {"state": row.get("state"), "since": _stamp(gathered.get("since")),
+            "remind_at": _stamp(remind["due_at"]) if remind else None, "reminded_at": gathered.get("reminded_at"),
+            "follow_up": task.status if task else None,
+            **{k: gathered.get(k) for k in (REPLY, "by", "at", "note")}, "next": nxt}
+
+
 def register() -> None:
+    from jav.app import case_views
+
     capabilities.register(CAPABILITY)
+    case_views.register(case_views.ElementData("reply_wait", "wait_reply", _OWNER, _reply_view))
 
 
 tasks.register_kind(tasks.TaskKind(FOLLOW_UP_TASK, __name__))
