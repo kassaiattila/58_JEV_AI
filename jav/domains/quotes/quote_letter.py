@@ -90,6 +90,9 @@ store.register_migration("quote_letters_actor_ids",
 _agent_factory: ContextVar = ContextVar("quote_letter_agent_factory", default=None)
 
 
+FRAME = "letter"  # 231 (A3b): the default letter frame's key in `configs/quote_documents.json`
+
+
 class LetterError(ValueError):
     """The letter cannot be asked or accepted: no approved version, a body that is empty or too long."""
 
@@ -134,8 +137,8 @@ def cap() -> dict[str, Decimal]:
 # --- the frame ------------------------------------------------------------------------------------------------------
 
 
-def _frame(language: str) -> dict[str, str]:
-    letters = quote_document.settings()["letter"]
+def _frame(language: str, key: str = FRAME) -> dict[str, str]:
+    letters = quote_document.settings()[key]
     return letters[language if language in letters else quote_document.default_language()]
 
 
@@ -153,10 +156,11 @@ def _quote_values(content: dict[str, Any], package: str, n: int) -> tuple[dict[s
     return {v.key: v.value for v in d.values}, dict(contract.spec(quote_document.OUTPUT)["values"])
 
 
-def compose(content: dict[str, Any], *, package: str, n: int, paragraph: str | None) -> str:
-    """The letter's body: the greeting, the paragraph (GPT's, or the frame's own), the totals, the closing."""
+def compose(content: dict[str, Any], *, package: str, n: int, paragraph: str | None, frame_key: str = FRAME) -> str:
+    """The letter's body: the greeting, the paragraph (GPT's, or the frame's own), the totals, the closing. 231 (A3b):
+    `frame_key` names the letter frame in the documents' settings; the default is the quote's."""
     language = content.get("language") or quote_document.default_language()
-    frame = _frame(language)
+    frame = _frame(language, frame_key)
     values, kinds = _quote_values(content, package, n)
     greeting = frame["greeting"] if values.get("contact_name") else frame["greeting_none"]
     parts = [_fill(greeting, values, kinds, language), (paragraph or frame["fallback"]).strip(),

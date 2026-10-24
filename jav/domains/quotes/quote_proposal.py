@@ -78,10 +78,10 @@ def cap(n_items: int, engine: str) -> dict[str, Decimal]:
     return {provider: Decimal(settings()["max_item_usd"][provider]) * n_items}
 
 
-def _active() -> price_lists.PriceList | None:
-    """The price list a proposal uses: the newest list's active version (B5 lets a quote choose another)."""
-    lists = price_lists.active_lists()
-    return price_lists.active(lists[0]["price_list"]) if lists else None
+def _active(selection: str = price_lists.NEWEST_ACTIVE) -> price_lists.PriceList | None:
+    """The price list a proposal uses: by default the newest list's active version (B5 lets a quote choose another;
+    231, A3b: a process names its own)."""
+    return price_lists.chosen(selection)
 
 
 def _source(wp_id: str) -> quote_request.Request:
