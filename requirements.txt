@@ -18,6 +18,8 @@ pdfplumber
 # 188: published advisories (pillow: eight CVE-2026-112xxx; certifi: PYSEC-2026-4320)
 pillow>=13.0.0
 certifi>=2026.10.19
+# 224: a published advisory (opentelemetry-api, brought in by pydantic-ai-slim: CVE-2026-114603)
+opentelemetry-api>=1.45.1
 
 # Offline tesztek
 pytest
