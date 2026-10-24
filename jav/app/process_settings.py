@@ -20,6 +20,9 @@ it starts and keeps them: a change reaches the cases started after it.
   versions.
 - `preview(pack_id, key, value)` (B3): what a rule value would have changed: the decisions of the process's cases that
   read the key (the decision trace), each one's rule run again with the value it was made with and with this one.
+- B4: a resource's name and the values it may take come from the capabilities whose parameters it sets (`Capability.
+  choices`, the parameter's field title); a process's own value of such a resource is one of them. The settings page
+  also shows the roles the process's partners play.
 
 Layer: application, the shared library; it uses the process packs, the capabilities, the shared versioning and the
 output templates.
@@ -30,14 +33,14 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav.app import capabilities, process_packs
+from jav.app import capabilities, partners, process_packs
 from jav.core import cfg, identity, store, trace, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
 __all__ = ["CONFIG", "KINDS", "RESOURCE", "RULE", "SettingError", "SettingRefused", "UnknownSetting", "activate",
-           "effective_resources", "effective_rules", "may_activate", "policy", "preview", "propose", "retire", "rule_keys",
-           "view"]
+           "effective_resources", "effective_rules", "may_activate", "policy", "preview", "propose", "resource_info", "retire",
+           "rule_keys", "view"]
 
 CONFIG = "process_settings"
 RESOURCE = "resource"  # a value over a pack's resource (B2)
@@ -148,21 +151,43 @@ def effective_rules(pack: process_packs.ProcessPack) -> tuple[dict[str, dict[str
     return values, refs
 
 
+def _template_choices(output: str) -> list[tuple[str, str]]:
+    from jav.app.outputs import templates
+
+    return [(templates.BUILTIN, "The built-in template"),
+            *((t["template"], t["name"]) for t in templates.listing() if t["output"] == output and t["active"])]
+
+
+def resource_info(pack: process_packs.ProcessPack, key: str) -> tuple[str, list[tuple[str, str]] | None]:
+    """231 (B4): a resource's name and the values it may take (None: any the pack's check passes), from the capabilities
+    whose parameters it sets (`"@<key>"` in a step's parameters): the parameter's field title and its `choices`. An
+    output's template: the built-in one or an active own template of that output."""
+    if key.startswith(TEMPLATE_PREFIX):
+        return "Output template", _template_choices(key[len(TEMPLATE_PREFIX):])
+    label, options = key, None
+    for step in pack.steps:
+        cap = capabilities.of(step.uses)
+        for param, value in (step.params or {}).items():
+            if value != f"@{key}" or param not in cap.params.model_fields:
+                continue
+            label = cap.params.model_fields[param].title or label
+            if param in cap.choices:
+                return label, cap.choices[param]()
+    return label, options
+
+
 def _problems(pack: process_packs.ProcessPack, kind: str, key: str, value: Any) -> list[str]:
-    """What the pack's check says with this value over the resource (and, for an output's template, whether it is an
-    active template of that output or the built-in one); for a rule key, what its capability's declaration says."""
+    """What the pack's check says with this value over the resource (and whether it is one of the values the resource
+    may take, B4); for a rule key, what its capability's declaration says."""
     if kind == RULE:
         keys = rule_keys(pack)
         return keys[key][0].problems(value) if key in keys else [f"the process sets no rule {key!r}"]
     if key not in pack.resources:
         return [f"the process has no resource {key!r}"]
+    _label, options = resource_info(pack, key)
+    if options is not None and value not in {v for v, _ in options}:
+        return [f"{value!r} is not one of the values {key} may take"]
     if key.startswith(TEMPLATE_PREFIX):
-        from jav.app.outputs import templates
-
-        output = key[len(TEMPLATE_PREFIX):]
-        if value != templates.BUILTIN and not any(t["template"] == value and t["output"] == output and t["active"]
-                                                  for t in templates.listing()):
-            return [f"{value!r} is not an active template of {output}"]
         return []
     trial = pack.model_copy(update={"resources": {**effective_resources(pack), key: value}})
     return process_packs._problems(trial)
@@ -258,19 +283,37 @@ def view(pack_id: str) -> dict[str, Any]:
     for key, file_value in pack.resources.items():
         mine = by_key.get((RESOURCE, key), [])
         value, own = _own(mine)
-        resources.append({"key": key, "file_value": file_value, "value": value if own else file_value, "own": own,
+        label, options = resource_info(pack, key)
+        resources.append({"key": key, "label": label,
+                          "options": None if options is None else [{"value": v, "label": lbl} for v, lbl in options],
+                          "file_value": file_value, "value": value if own else file_value, "own": own,
                           "versions": _versions(mine)})
     rules = []
     for key, (rule, steps) in rule_keys(pack).items():
         mine = by_key.get((RULE, key), [])
         value, own = _own(mine)
         file_value = rule.file_value()
+        titles = {s.id: s.title for s in pack.steps}
         rules.append({"key": key, "file": rule.file, "path": rule.key, "what": rule.what, "kind": rule.kind,
-                      "least": rule.least, "most": rule.most, "options": list(rule.options), "steps": steps,
+                      "least": rule.least, "most": rule.most, "options": list(rule.options),
+                      "steps": [titles.get(s, s) for s in steps],
                       "file_value": file_value, "value": value if own else file_value, "own": own,
                       "versions": _versions(mine)})
+    roles = partners.roles()
+    titles = {s.id: s.title for s in pack.steps}
+    links = [{"role": link.role, "label": (roles.get(link.role) or {}).get("label", link.role), "step": link.from_step,
+              "step_title": titles.get(link.from_step, link.from_step)} for link in pack.partners]
     return {"pack": {"id": pack.id, "title": pack.title, "version": pack.version}, "resources": resources, "rules": rules,
-            "policy": policy()}
+            "partners": links, "policy": policy()}
+
+
+def _case_name(case_id: str) -> str:
+    from jav.app import work
+
+    try:
+        return str(work.get(case_id)["name"])
+    except KeyError:
+        return case_id
 
 
 def _with(over: cfg.Overlay | None, file: str, key: str, value: Any) -> cfg.Overlay:
@@ -312,6 +355,7 @@ def preview(pack_id: str, key: str, value: Any) -> dict[str, Any]:
             changed += 1
             if len(examples) < PREVIEW_EXAMPLES:
                 examples.append({"point": row["point"], "subject": f"{row['subject_kind']}:{row['subject_id']}",
-                                 "case_id": case_id, "at": row["at"], "before": before, "after": after})
+                                 "case_id": case_id, "case": _case_name(case_id), "at": row["at"], "before": before,
+                                 "after": after})
     return {"key": key, "value": value, "file_value": rule.file_value(), "decisions": decided, "changed": changed,
             "failed": failed, "first_error": first_error, "examples": examples}

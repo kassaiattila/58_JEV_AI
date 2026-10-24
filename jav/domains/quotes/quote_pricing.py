@@ -147,13 +147,20 @@ def rounding_keys(currency: str) -> dict[str, list[str]]:
     return {"price_lists.json": [f"rounding.{currency}" if currency in price_lists.config()["rounding"] else "rounding.default"]}
 
 
+def _plain(value: Decimal) -> str:
+    """A total without the trailing zeros its rounding unit gives it ("2575500.00" -> "2575500"), so a rounding that
+    leaves the amount as it was does not read as a change."""
+    return format(value.normalize(), "f")
+
+
 def amounts(inputs: Mapping[str, Any]) -> dict[str, str]:
-    """231 (B3): the rule of `AMOUNTS`: the totals as `price_line` and `totals` compute them, from `amount_inputs`."""
+    """231 (B3): the rule of `AMOUNTS`: the totals as `price_line` and `totals` compute them, from `amount_inputs`
+    (each without trailing zeros)."""
     unit = rounding_unit(inputs["currency"])
     net = sum((_round(Decimal(ln["price"]) * Decimal(ln["quantity"]) * (HUNDRED - Decimal(ln["discount_percent"])) / HUNDRED, unit)
                for ln in inputs["lines"]), Decimal(0))
     vat = _round(net * Decimal(inputs["vat_percent"]) / HUNDRED, unit)
-    return {"net": str(net), "vat": str(vat), "gross": str(net + vat)}
+    return {"net": _plain(net), "vat": _plain(vat), "gross": _plain(net + vat)}
 
 
 trace.register(trace.Point(

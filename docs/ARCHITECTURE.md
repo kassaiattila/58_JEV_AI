@@ -1141,3 +1141,16 @@ never the text, against `letter.max_chars`). `process_settings.preview(pack_id, 
 the changed ones with examples and the failed ones counted; nothing is written and no AI is asked. A key no traced
 decision reads yet (a quote's lines, a proposal's items) previews as no decision. Tests:
 `tests/test_process_rules_231.py`.
+
+**A process's settings page (231, plan stage B, B4).** Settings › Processes (`ui/src/views/settings/ProcessSettingsPanel.tsx`,
+`ui/src/api/processes.ts`) shows each process pack's resources and rule values, each with the value in use, the file's
+value and whether it is the process's own, and the roles its partners play. A setting opens with a new value (a
+resource's options, a rule's whole number within its bounds or its options), a note, the drafts' preview, making a
+draft active and setting the own value aside, and its versions. The names and the values come from the capabilities:
+a resource's name is the title of the parameter it sets (`"@<key>"` in a step's parameters) and the values it may take
+are that parameter's `Capability.choices` (the active price lists, the letter frames, the Word outputs; the send step
+offers the output folder and the Outlook draft only, the real send staying a change of the pack's file); an output's
+template takes the built-in one or an active own template of that output (`process_settings.resource_info`). A
+process's own value of a resource with known values is one of them. The view also names the steps that read a rule
+value by their titles and each preview example's case by its name. Tests: `tests/test_process_settings_231.py`,
+`ui/src/views/settings/processSettings231.test.tsx`.

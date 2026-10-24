@@ -30,7 +30,7 @@ from email.utils import getaddresses
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from jav.app import app_settings, capabilities, naming, process_runtime, work
 from jav.core import cfg, identity, store
@@ -164,7 +164,7 @@ class Send(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     message: str
-    mode: Literal["output_folder", "outlook_draft", "outlook_send"] = OUTPUT_FOLDER
+    mode: Literal["output_folder", "outlook_draft", "outlook_send"] = Field(OUTPUT_FOLDER, title="Send mode")
     from_step: str | None = None
 
     @field_validator("message")
@@ -280,6 +280,9 @@ CAPABILITY = capabilities.Capability(
     name="send", version=1, module=_OWNER, run=_run, kind="machine", params=Send, effects="external",
     rule_files=(CONFIG,), described={"modes": list(MODES)},
     summary="Sends a step's message once: into the output folder, as an Outlook draft or out through Outlook.",
+    # 231 (B4): a process may choose between the two ways a person still sends from; the real send stays a change of
+    # its pack's file, by the owner's decision (DECISIONS 231)
+    choices={"mode": lambda: [(OUTPUT_FOLDER, "Into the output folder"), (OUTLOOK_DRAFT, "As a draft in the person's Outlook")]},
     actions=(capabilities.Action("delivered", "It arrived", _settling,
                                  lambda case_id, step_id, actor, _note: settle(case_id, step_id, outbox.ACKNOWLEDGED, actor)),
              capabilities.Action("not_delivered", "It did not arrive", _settling,

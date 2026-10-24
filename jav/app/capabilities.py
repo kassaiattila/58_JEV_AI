@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -131,6 +131,9 @@ class Capability:
     - `actions`: what a person may do on its step (A7d); `spent(case_id, step_id)`: the budget scopes its step spent
       from when they are not the step's own (A7e).
     - `rule_keys`: the keys of its rule files a process may set for its own cases (B3).
+    - `choices` (B4): for a parameter a process may set through a resource of its pack, the values it may take, each
+      with an English label (a function, as they may live in the store: the active price lists). A process's own value
+      of such a resource is one of them; the parameter's field title names the resource.
     """
 
     name: str
@@ -150,6 +153,7 @@ class Capability:
     actions: tuple[Action, ...] = ()
     spent: Callable[[str, str], list[str]] | None = None
     rule_keys: tuple[RuleKey, ...] = ()
+    choices: Mapping[str, Callable[[], list[tuple[str, str]]]] = field(default_factory=dict)
 
     @property
     def key(self) -> str:
@@ -199,6 +203,8 @@ def _check(cap: Capability) -> None:
             problems.append(f"its rule file has no {rule.id}")
     if len({r.id for r in cap.rule_keys}) != len(cap.rule_keys):
         problems.append("its rule keys are distinct")
+    if unknown := sorted(set(cap.choices) - set(cap.params.model_fields)):
+        problems.append(f"it offers choices for parameters it does not have: {unknown}")
     if problems:
         raise CapabilityError(f"capability {cap.key}: " + "; ".join(problems))
 

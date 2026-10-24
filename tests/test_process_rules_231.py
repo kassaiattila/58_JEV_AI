@@ -71,7 +71,7 @@ def test_a_capability_names_only_keys_its_rule_files_hold_with_values_that_fit()
 
 def test_a_rule_value_is_checked_by_its_declaration_and_shown_with_the_files(golden) -> None:  # noqa: F811
     shown = _rule(process_settings.view(PACK), MAX_LINES)
-    assert (shown["file_value"], shown["value"], shown["own"], shown["steps"]) == (300, 300, False, ["compose"])
+    assert (shown["file_value"], shown["value"], shown["own"], shown["steps"]) == (300, 300, False, ["Quote"])
     assert {r["key"] for r in process_settings.view(PACK)["rules"]} == {
         "quotes.proposal.max_items", MAX_LINES, "price_lists.rounding.HUF", "price_lists.rounding.default",
         "quotes.letter.max_chars"}
@@ -205,7 +205,8 @@ def test_a_preview_tries_a_value_on_the_process_s_traced_decisions(golden) -> No
     shown = process_settings.preview(PACK, "price_lists.rounding.HUF", "0.01")
     assert (shown["decisions"], shown["changed"], shown["failed"], shown["file_value"]) == (1, 1, 0, "1")
     assert shown["examples"][0]["before"] == {"net": "1001", "vat": "270", "gross": "1271"}
-    assert shown["examples"][0]["after"] == {"net": "1000.50", "vat": "270.14", "gross": "1270.64"}
+    assert shown["examples"][0]["after"] == {"net": "1000.5", "vat": "270.14", "gross": "1270.64"}
+    assert shown["examples"][0]["case"] == f"Quote {cases[0].id}"
     assert process_settings.preview(PACK, "price_lists.rounding.HUF", "1")["changed"] == 0
     assert process_settings.preview(PACK, MAX_LINES, 5)["decisions"] == 0  # no traced decision reads it yet
     with pytest.raises(process_settings.SettingError):

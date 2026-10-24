@@ -630,6 +630,15 @@ The names offered by **Who is working?**. Add a new name with the ‘New name’
 
 A case's page shows the partners its process names: an IT quote's **Request** (*Kérés*) tab shows the request's customer. If the register already has a partner that seems to be the same, **Link that one** (*Azt kösd hozzá*); otherwise **Record as a partner** (*Felvétel partnerként*) records the request's values and links the new partner. A linked partner shows ‘Linked’ (*Hozzákötve*).
 
+### 10.10 Processes
+
+**Processes** (*Folyamatok*, since `v1.45.0`) shows each process's own settings, such as the IT quote's (*IT-ajánlat*). A line above the tables says who may make a value active (by default the person who saves it) and that a case keeps the values it started with: a change reaches only the cases started after it.
+
+- **What the process uses** (*Amit a folyamat használ*): the price list, the letter frame, the output, the send mode and the output template, each with the value in use (*Érvényben*), the file's value (*A csomagfájl értéke*) and where it comes from: ‘Own value’ (*Saját érték*) or ‘From the file’ (*A csomagfájlból*). The send mode offers only the two ways a person still sends from (the output folder, a draft in Outlook); the real send stays a decision of the owner.
+- **Rule values** (*Szabályértékek*): the values the process's steps let it set: how many requested items one proposal matches (only fewer than the file's), how many lines a quote holds, the unit a forint and another currency's amounts are rounded to, and how long the model's letter paragraph may be. A cost limit is never one.
+- Click a setting to open it: type or choose a **New value** (*Új érték*) with a note and **Save as a draft** (*Mentés piszkozatként*); a draft changes nothing. For a rule value, **Try it on earlier decisions** (*Kipróbálás a korábbi döntéseken*), or **Preview** (*Előnézet*) on a draft, shows how many of the process's earlier decisions would come out differently, with examples; nothing is written and no AI is asked. A key no earlier decision has read (a quote's lines) says so. **Make active** (*Élesítés*) makes the draft the process's value; **Use the file's value** (*Vissza a csomagfájl értékére*, two clicks) sets the own value aside. **Versions** (*Változatok*) list every value with its note, who saved or activated it and when.
+- **Partners** (*Partnerek*): the roles the process's partners play and the step they come from (section 10.9).
+
 ## 11. Troubleshooting
 
 | What you see | What it means | What to do |

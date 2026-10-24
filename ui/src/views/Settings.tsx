@@ -22,6 +22,7 @@ import { LanguagePanel } from "./settings/LanguagePanel";
 import { OutputTemplatesPanel } from "./settings/OutputTemplatesPanel";
 import { PartiesPanel } from "./settings/PartiesPanel";
 import { PartnersPanel } from "./settings/PartnersPanel";
+import { ProcessSettingsPanel } from "./settings/ProcessSettingsPanel";
 import { PriceListsPanel } from "./settings/PriceListsPanel";
 import { RulesPanel } from "./settings/RulesPanel";
 import { UsersPanel } from "./settings/UsersPanel";
@@ -40,6 +41,8 @@ export const SETTINGS_SECTIONS: { key: SettingsSection; label: string; hint: str
   { key: "parties", label: "Own parties", hint: "Whose money is reconciled: companies, associations and people, with their names, tax numbers and accounts" },
   // 231 (B1): the shared partner register, the outside parties of the processes
   { key: "partners", label: "Partners", hint: "The outside parties of the processes: customers, suppliers, insured persons and brokers, each with its roles; every change is kept as a version" },
+  // 231 (B4): each process's own values over its file's: what it uses and the rule values its steps let it set
+  { key: "processes", label: "Processes", hint: "Each process's own settings: the price list, template and send mode it uses and the rule values its steps let it set; a draft, its preview and making it active" },
   { key: "recipes", label: "Feldolgozás", hint: "Hogyan dolgozza fel a rendszer az iratokat és a leveleket, mit jelentenek a beállítások, mennyibe kerülnek" },
   // 218 (plan G-process-core P3e, DECISIONS 222): how the system decides on its own, read only
   { key: "rules", label: "Rules", hint: "How the system decides on its own: each kind of decision, the values it decides with and the version of its rules in use" },
@@ -71,6 +74,7 @@ export function Settings({ section }: { section: SettingsSection }) {
           {current.key === "folders" ? <FoldersPanel /> : null}
           {current.key === "parties" ? <PartiesPanel /> : null}
           {current.key === "partners" ? <PartnersPanel /> : null}
+          {current.key === "processes" ? <ProcessSettingsPanel /> : null}
           {current.key === "recipes" ? (
             <>
               <EnginePanel />

@@ -140,6 +140,13 @@ def cap() -> dict[str, Decimal]:
 # --- the frame ------------------------------------------------------------------------------------------------------
 
 
+def frames() -> list[str]:
+    """231 (B4): the letter frames `configs/quote_documents.json` holds: each a frame per document language."""
+    languages = set(quote_document.languages())
+    return [key for key, value in quote_document.settings().items()
+            if isinstance(value, dict) and value and set(value) <= languages]
+
+
 def _frame(language: str, key: str = FRAME) -> dict[str, str]:
     letters = quote_document.settings()[key]
     return letters[language if language in letters else quote_document.default_language()]
