@@ -12,7 +12,7 @@ import { BlockerList } from "../../components/BlockerList";
 import { Picker } from "../../components/Picker";
 import { t, useLocale } from "../../i18n";
 import { numText, usdBudget, when } from "../../labels";
-import type { Stage } from "../../route";
+import { go, type Stage } from "../../route";
 import { QuoteApprovalStage, QuoteCompose } from "./QuoteEditor";
 import { quoteFieldLabel as fieldLabel } from "./quoteStatus";
 
@@ -287,7 +287,7 @@ function optionOf(c: QuoteRequestCandidate) {
   };
 }
 
-export function QuoteCreate({ onDone }: { onDone: (wpId: string) => void }) {
+export function QuoteCreate(_props: { onDone: (wpId: string) => void }) {
   useLocale();
   const [q, setQ] = useState("");
   const [found, setFound] = useState<QuoteRequestCandidate[] | null>(null);
@@ -312,8 +312,10 @@ export function QuoteCreate({ onDone }: { onDone: (wpId: string) => void }) {
     setBusy(true);
     setError(null);
     try {
-      const made = await api.createQuotePackage({ name: name.trim() || fallback, source: chosen.workpackage_id, item_id: chosen.item_id });
-      onDone(made.workpackage_id);
+      // 231 (A6c): a case of the IT quote's process pack, opened on its own page
+      const made = await api.startCase({ pack: "it_quote", name: name.trim() || fallback,
+        record: { workpackage_id: chosen.workpackage_id, item_id: chosen.item_id } });
+      go({ view: "cases", caseId: made.case_id });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
     } finally {

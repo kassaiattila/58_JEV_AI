@@ -144,8 +144,6 @@ export interface PriceListsListing {
 
 export const quotesApi = {
   quoteRequests: (q?: string) => request<{ requests: QuoteRequestCandidate[] }>("GET", `/quote-requests${q ? `?q=${enc(q)}` : ""}`),
-  createQuotePackage: (body: { name: string; source: string; item_id: string }) =>
-    request<{ workpackage_id: string }>("POST", "/quote-packages", body),
   /** 191 B4c: queues the quote's proposal (the worker makes it) */
   requestQuoteProposal: (wpId: string) => request<QuoteProposal>("POST", `/workpackages/${enc(wpId)}/quote/proposal`, {}),
   /** 192 B5: the quote's draft started, saved after a change (with the state the page read), approved and reopened */

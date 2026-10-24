@@ -78,7 +78,7 @@ describe("the quote package (191)", () => {
 
   it("chooses a request found by the service, warns of a quote already made, and names the quote by its customer", async () => {
     const search = vi.spyOn(api, "quoteRequests").mockResolvedValue({ requests: [CANDIDATE] });
-    const create = vi.spyOn(api, "createQuotePackage").mockResolvedValue({ workpackage_id: "wp-000000000194" });
+    const create = vi.spyOn(api, "startCase").mockResolvedValue({ case_id: "wp-000000000194" });  // 231 (A6c): a case
     const done = vi.fn();
     render(<QuoteCreate onDone={done} />);
     const button = screen.getByRole("button", { name: "Create" });
@@ -90,8 +90,9 @@ describe("the quote package (191)", () => {
     expect(screen.getByRole("link", { name: "Earlier quote" }).getAttribute("href")).toBe("#/workpackages/wp-000000000192");
     expect((screen.getByLabelText(/Name/) as HTMLInputElement).placeholder).toBe("Quote: Invented Buyer Ltd");
     fireEvent.click(button);
-    await waitFor(() => expect(create).toHaveBeenCalledWith({ name: "Quote: Invented Buyer Ltd", source: "wp-000000000191", item_id: "item-1" }));
-    await waitFor(() => expect(done).toHaveBeenCalledWith("wp-000000000194"));
+    await waitFor(() => expect(create).toHaveBeenCalledWith({ pack: "it_quote", name: "Quote: Invented Buyer Ltd",
+      record: { workpackage_id: "wp-000000000191", item_id: "item-1" } }));
+    await waitFor(() => expect(window.location.hash).toBe("#/cases/wp-000000000194"));
   });
 
   it("shows the request's fields with the part each came from, its items and its gaps", () => {
