@@ -59,7 +59,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from jav.core import store
-from jav.core.process import actor as actors
+from jav.core import identity as actors
 from jav.core.process import cases, kinds, tasks
 from jav.core.process.cases import Adopted
 from jav.core.process.definition import ProcessDef, StepDef

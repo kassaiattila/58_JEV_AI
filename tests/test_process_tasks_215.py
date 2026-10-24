@@ -16,8 +16,9 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from jav.core.process import actor as actors
-from jav.core.process import cases, engine, hooks, kinds, tasks
+from jav.core import identity as actors
+from jav.core import access
+from jav.core.process import cases, engine, kinds, tasks
 from jav.core.process.definition import ProcessDef, StepDef
 
 CLERK = actors.person("Clerk")
@@ -134,14 +135,14 @@ def test_the_authorisation_check_is_asked_before_a_person_acts() -> None:
         asked.append((actor.id, action))
         return action != "decide_task"
 
-    hooks.set_authorizer(rule)
+    access.set_authorizer(rule)
     try:
         with cases.transaction() as c:
             tasks.open_in(c, "check", "doc-2", MACHINE)
-        with pytest.raises(hooks.NotAuthorised):
+        with pytest.raises(access.NotAuthorised):
             tasks.decide("check:doc-2", CLERK)
     finally:
-        hooks.set_authorizer(None)
+        access.set_authorizer(None)
     assert tasks.get("check:doc-2").status == "open"
     assert (MACHINE.id, "open_task") in asked and (CLERK.id, "decide_task") in asked
 

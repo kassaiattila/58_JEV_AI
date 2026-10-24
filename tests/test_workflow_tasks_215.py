@@ -14,7 +14,7 @@ from decimal import Decimal
 
 from jav.app import human_tasks, work, work_readiness, work_recipes, work_runs, workflow_cases, workflows as wf
 from jav.core import store
-from jav.core.process import actor as actors
+from jav.core import identity as actors
 from jav.core.process import cases, engine, tasks
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_workflow_core_steps_214 import _core, _history

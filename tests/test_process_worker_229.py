@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 
-from jav.core.process import actor as actors
+from jav.core import identity as actors
 from jav.core.process import cases, engine, kinds
 from jav.core.process.definition import ProcessDef, StepDef
 from jav.runtime import worker

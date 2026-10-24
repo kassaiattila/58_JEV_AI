@@ -23,7 +23,7 @@ from typing import Any
 
 from jav.app import human_tasks, item_kinds, work_views, workflow_cases
 from jav.core import store
-from jav.core.process import actor as actors
+from jav.core import identity as actors
 from jav.core.process import tasks
 
 LIVE, TRIAL, MEASUREMENT = "live", "trial", "measurement"  # where a task comes from

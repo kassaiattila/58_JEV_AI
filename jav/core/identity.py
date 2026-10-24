@@ -1,9 +1,12 @@
 """Who acts (213, P1a; rule 8 of plan 212 P0): the identity plug-in point.
 
-Plain-language summary: every change to a case records who made it as one small record: a stable id, the name shown,
-whether a person or the machine acted, the organisation and the request it came with; a machine acting for a person
-names that person too. Today the id comes from the local user name (`local:<name>`); with the company sign-in it will
-be the organisation's and the person's stable ids. An email address or a shown name is never the id.
+Plain-language summary: every change records who made it as one small record: a stable id, the name shown, whether a
+person or the machine acted, the organisation and the request it came with; a machine acting for a person names that
+person too. Today the id comes from the local user name (`local:<name>`); with the company sign-in it will be the
+organisation's and the person's stable ids. An email address or a shown name is never the id.
+
+229 (plan structure stage 1, SZ2a): moved from the process core to the shared core, because every layer acts through
+it (the service's operations, the human tasks, the decisions), not only the cases.
 """
 
 from __future__ import annotations
@@ -11,10 +14,6 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from typing import Any, Literal
-
-__all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
-    "HUMAN", "MACHINE", "LOCAL", "Actor", "person", "machine",
-]
 
 HUMAN, MACHINE = "human", "machine"
 LOCAL = "local"

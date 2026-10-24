@@ -43,7 +43,7 @@ from typing import Any
 
 from jav.app import logic_packs, workflow_cases
 from jav.core import store
-from jav.core.process import actor as actors
+from jav.core import identity as actors
 from jav.core.process import tasks
 
 RUN_APPROVAL = "run_approval"

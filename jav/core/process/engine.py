@@ -38,8 +38,9 @@ from typing import Any
 
 from jav.core import calls, lock, store
 from jav.core.clock import utc_stamp as _now
-from jav.core.process import cases, hooks, kinds, outbox, tasks, timers
-from jav.core.process.actor import Actor, machine
+from jav.core import observability
+from jav.core.identity import Actor, machine
+from jav.core.process import cases, kinds, outbox, tasks, timers
 from jav.core.process.definition import ProcessDef, StepDef
 
 __all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
@@ -314,7 +315,7 @@ def _fire(timer: timers.Timer) -> bool:
         else:
             kind = kinds.of(ctx.step.kind)
             if kind.on_timer is not None:
-                with hooks.measured(f"timer:{ctx.step.kind}"):
+                with observability.measured(f"timer:{ctx.step.kind}"):
                     effect = kind.on_timer(ctx, c, timer)
             else:
                 effect, retry = "retry", True
@@ -344,7 +345,7 @@ def _take(event: cases.Event) -> None:
             return
         ctx = _context(row, target)
         kind = kinds.of(target.kind)
-        with hooks.measured(f"event:{target.kind}"):
+        with observability.measured(f"event:{target.kind}"):
             outcome = kind.on_event(ctx, c, event) if kind.on_event is not None else kinds.APPLIED
         if outcome not in (kinds.APPLIED, kinds.REFUSED):
             raise ValueError(f"step kind {target.kind!r} answered an event with {outcome!r}")
@@ -391,7 +392,7 @@ def _run_step(case_id: str, step: StepDef, *, rerun: bool = False) -> bool:
         # 218: where the case's history stood when the step began; a wait it names may end before its outcome is in
         began = c.execute("SELECT COALESCE(MAX(id), 0) FROM process_history WHERE case_id=?", (case_id,)).fetchone()[0]
     try:
-        with hooks.measured(f"step:{step.kind}"):
+        with observability.measured(f"step:{step.kind}"):
             outcome = kinds.of(step.kind).run(ctx)
     except Exception as exc:  # noqa: BLE001 - the step fails with the reason; a person retries it
         log.exception("case %s step %s failed", case_id, step.id)

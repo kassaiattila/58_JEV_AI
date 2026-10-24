@@ -20,7 +20,7 @@ import pytest
 
 from jav.app import work, work_runs, workflow_cases, workflows as wf
 from jav.core import store
-from jav.core.process import actor as actors
+from jav.core import identity as actors
 from jav.core.process import cases, engine, kinds, tasks
 from jav.core.process.definition import ProcessDef, StepDef
 from tests.test_workflows_146 import (  # noqa: F401 - the fixture is used by name

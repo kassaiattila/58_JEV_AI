@@ -50,8 +50,9 @@ from typing import Any
 from jav.core import rulebook, store
 from jav.core.clock import utc_stamp as _now
 from jav.core.process import definition as definitions
-from jav.core.process import hooks, kinds, timers
-from jav.core.process.actor import Actor
+from jav.core import access
+from jav.core.identity import Actor
+from jav.core.process import kinds, timers
 from jav.core.process.definition import ProcessDef
 
 __all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
@@ -531,7 +532,7 @@ def _insert_case(c: sqlite3.Connection, case_id: str, definition: ProcessDef, da
 
 def start_in(c: sqlite3.Connection, case_id: str, definition: ProcessDef, data: dict[str, Any], actor: Actor) -> str:
     """`start` inside the caller's write transaction (214: a case that starts with the caller's own rows, or neither)."""
-    hooks.authorize(actor, "start", case_id)
+    access.authorize(actor, "start", case_id)
     sha = _start_sha(definition, data)
     if _prior_start(c, case_id, sha):
         return "exists"
@@ -553,7 +554,7 @@ def adopt(c: sqlite3.Connection, case_id: str, definition: ProcessDef, data: dic
     case whose steps are all done closes. One history row, by `by`, records the adoption and the states it took; the
     case is `started_by`'s. "adopted"; a case already there answers "exists" and keeps its own state (once adopted, the
     core's state counts); the same id with another definition or other data is a conflict, as for `start`."""
-    hooks.authorize(by, "adopt", case_id)
+    access.authorize(by, "adopt", case_id)
     if unknown := sorted(set(steps) - {s.id for s in definition.steps}):
         raise AdoptionError(f"the definition {definition.id} has no step {unknown}")
     for sid, st in steps.items():
@@ -596,7 +597,7 @@ def start(case_id: str, definition: ProcessDef, data: dict[str, Any], actor: Act
 def send_event_in(c: sqlite3.Connection, case_id: str, event_id: str, kind: str, payload: dict[str, Any], actor: Actor,
                   *, step_id: str | None = None) -> str:
     """`send_event` inside the caller's write transaction (215: a human task's closing sends its event with it)."""
-    hooks.authorize(actor, "send_event", case_id)
+    access.authorize(actor, "send_event", case_id)
     sha = _sha({"case_id": case_id, "step_id": step_id, "kind": kind, "payload": payload})
     row = case_row(c, case_id)
     defn = definition_of(row)
@@ -628,7 +629,7 @@ def send_event(case_id: str, event_id: str, kind: str, payload: dict[str, Any], 
 
 def cancel(case_id: str, actor: Actor) -> str:
     """Cancels an open case; returns its outcome."""
-    hooks.authorize(actor, "cancel", case_id)
+    access.authorize(actor, "cancel", case_id)
     with transaction() as c:
         close(c, case_id, "cancelled", actor)
         return str(case_row(c, case_id)["outcome"])
@@ -637,7 +638,7 @@ def cancel(case_id: str, actor: Actor) -> str:
 def override_order_in(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, *,
                       reason: str | None = None) -> None:
     """`override_order` inside the caller's write transaction (214: with the caller's own change, or neither)."""
-    hooks.authorize(actor, "override_order", case_id)
+    access.authorize(actor, "override_order", case_id)
     defn = definition_of(require_open(c, case_id))
     step = defn.step(step_id)
     steps = step_rows(c, case_id)
@@ -660,7 +661,7 @@ def override_order(case_id: str, step_id: str, actor: Actor, *, reason: str | No
 
 def retry_in(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor) -> None:
     """`retry` inside the caller's write transaction."""
-    hooks.authorize(actor, "retry", case_id)
+    access.authorize(actor, "retry", case_id)
     require_open(c, case_id)
     if step_row(c, case_id, step_id)["state"] != FAILED:
         raise StepStateError(f"step {step_id!r} has not failed")
@@ -678,7 +679,7 @@ def reopen_in(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, *
     """`reopen` inside the caller's write transaction. 214: a step of a case closed as done reopens the case too (the
     work turned out not to be finished: a package of a done workflow was deleted); a case closed otherwise stays
     closed."""
-    hooks.authorize(actor, "reopen", case_id)
+    access.authorize(actor, "reopen", case_id)
     row = case_row(c, case_id)
     if row["status"] == CLOSED and row["outcome"] == "done":
         c.execute("UPDATE process_cases SET status=?, outcome=NULL, updated_at=? WHERE case_id=?", (OPEN, _now(), case_id))

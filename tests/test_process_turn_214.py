@@ -14,7 +14,7 @@ import time
 
 import pytest
 
-from jav.core.process import actor as actors
+from jav.core import identity as actors
 from jav.core.process import cases, engine, kinds
 from jav.core.process.definition import ProcessDef, StepDef
 

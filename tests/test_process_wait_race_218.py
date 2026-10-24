@@ -6,7 +6,7 @@ one worker turn at a time in the test's process."""
 
 from __future__ import annotations
 
-from jav.core.process import actor as actors
+from jav.core import identity as actors
 from jav.core.process import cases, engine, kinds
 from jav.core.process.definition import ProcessDef, StepDef
 
