@@ -154,8 +154,10 @@ def _letter_draft(ctx: Any, params: LetterDraft) -> kinds.StepOutcome:
         return _again(ctx, "letter")
     if view["state"] != "done":
         return kinds.Fail(view.get("error") or f"the letter ended {view['state']}")
+    if view["accepted"] is None:  # 231 (A7b): done once a person accepted the letter
+        return _again(ctx, "acceptance")
     return kinds.Done({"version": view["version"], "problems": list(view.get("problems") or []),
-                       "paragraph_used": not view.get("problems")})
+                       "paragraph_used": not view.get("problems"), "accepted": True})
 
 
 _OWNER = __name__
@@ -174,7 +176,8 @@ CAPABILITIES = (
                rule_files=("quote_documents", "outputs"), summary="Fills a priced document from an output template."),
     Capability(name="letter_draft", version=1, module=_OWNER, run=_letter_draft, kind="machine", params=LetterDraft, providers=("openai",),
                rule_files=("gpt_quote_letter", "quote_documents", "quotes"),
-               summary="Drafts a reply letter: the frame written by code around a model's checked paragraph."),
+               summary="Drafts a reply letter: the frame written by code around a model's checked paragraph; done once a person"
+                       " accepted it."),
 )
 
 

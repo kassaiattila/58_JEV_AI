@@ -28,9 +28,11 @@ def _start_tasks(case_id: str) -> list[str]:
             if t["status"] == tasks.OPEN and t["task_id"].startswith(f"step_start:{case_id}:")]
 
 
-def _drive(case_id: str, rounds: int = 40) -> dict:
+def _drive(case_id: str, rounds: int = 40) -> tuple[dict, dict | None]:
     """The case moved on as the worker and a person would: the core's turns (retry timers at once), the queued jobs, a
-    person starting each waiting paid step and approving a draft that holds nothing."""
+    person starting each waiting paid step, approving a draft that holds nothing and (A7b) accepting the letter.
+    Returns the case's state and the letter as it was before it was accepted."""
+    letter = None
     for _ in range(rounds):
         engine.turn(case_id, wake=True)
         _drain()
@@ -39,10 +41,14 @@ def _drive(case_id: str, rounds: int = 40) -> dict:
         view = quote_draft.view(case_id)
         if view["draft"] is not None and not view["blockers"] and view["approval"]["active"] is None:
             quote_draft.approve(case_id, fingerprint=view["fingerprint"], actor=ACTOR)
+        shown = quote_letter.view(case_id)
+        if shown["state"] == "done" and shown["accepted"] is None:
+            letter = _clean(shown)
+            quote_letter.accept(case_id, shown["body"], actor=ACTOR, expected_state=shown["decision_state"])
         state = engine.state(case_id)
         if state["status"] != "open":
             break
-    return engine.state(case_id)
+    return engine.state(case_id), letter
 
 
 def test_the_it_quote_runs_as_cases_with_the_recorded_results(golden) -> None:  # noqa: F811 - the shared fixture
@@ -53,7 +59,7 @@ def test_the_it_quote_runs_as_cases_with_the_recorded_results(golden) -> None:  
         case_id = process_runtime.start_case("it_quote", {"record": {"workpackage_id": rows.WP, "item_id": rows._id(case.id)}},
                                              name=f"Quote {case.id}", actor=ACTOR)
         assert process_runtime.pack_of(case_id) == ("it_quote", "1.0.0")
-        state = _drive(case_id)
+        state, letter = _drive(case_id)
         want = record[case.id]
         steps = state["steps"]  # by step id
         assert _clean(quote_proposal.current(case_id)) == want["proposal"], case.id
@@ -66,5 +72,6 @@ def test_the_it_quote_runs_as_cases_with_the_recorded_results(golden) -> None:  
         approved = quote_draft.approved_version(case_id, version)
         data = quote_document.data(approved["quote"], package=f"Quote {case.id}", version=version, approved_by=ACTOR)
         assert _clean(json.loads(json.dumps(dataclasses.asdict(data), default=str))) == want["document"], case.id
-        assert _clean(quote_letter.view(case_id)) == want["letter"], case.id
+        assert letter == want["letter"], case.id  # the letter a person accepted, as it was shown
+        assert steps["letter"]["result"]["accepted"] is True, case.id
         assert {k: list(v) for k, v in sorted(seen.items())} == want["requests_to_models"], case.id
