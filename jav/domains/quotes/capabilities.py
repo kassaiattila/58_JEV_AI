@@ -209,6 +209,13 @@ def _quote_view(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict
 _NEXT_ELEMENT = {"process": "record_view", "review": "match_proposal", "result": "approval"}
 
 
+def _marks() -> tuple[Any, ...]:
+    """231 (A3d): what the quote view reads changes with these (the price lists, the proposal, the draft, the letter)."""
+    from jav.domains.quotes import price_lists, quote_draft, quote_letter, quote_proposal
+
+    return price_lists.mark(), quote_proposal.mark(), quote_draft.mark(), quote_letter.mark()
+
+
 # 231 (A6): the elements a step of these capabilities shows, each with the quote view
 ELEMENTS = (("record_view", "record_assembly"), ("match_proposal", "catalogue_match"), ("line_editor", "line_draft"),
             ("approval", "line_draft"), ("document_view", "priced_document"), ("form", "letter_draft"))
@@ -235,7 +242,7 @@ def register() -> None:
     for cap in CAPABILITIES:
         capabilities.register(cap)
     for element, capability in ELEMENTS:
-        case_views.register(case_views.ElementData(element, capability, _OWNER, _quote_view))
+        case_views.register(case_views.ElementData(element, capability, _OWNER, _quote_view, mark=_marks))
     sending.register_builder(sending.MessageBuilder("quote_letter", _OWNER, _letter_message,
                                                     "The accepted reply letter with the quote's Word document."))
 

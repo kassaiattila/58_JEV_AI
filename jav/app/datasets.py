@@ -217,7 +217,8 @@ def _workpackages_fingerprint(scope: dict[str, str]) -> str:
     before, at every filter change and refresh, as each reconciliation package's next step built its workspace)."""
     # first: what the logic packs' own next steps read (a reconciliation's workspace; it makes sure the tables it
     # reads are registered); 159: with the list's own safety bound. 176: from the logic packs
-    own = [pack.list_mark() for pack in logic_packs.packs() if pack.list_mark is not None]
+    # 231 (A3d): and what a process pack's cases show in the list (their containers' marks)
+    own = [pack.list_mark() for pack in (*logic_packs.packs(), *logic_packs.containers()) if pack.list_mark is not None]
     with store.connect() as c:
         parts = [store.table_marks(c, LIST_INPUTS), *own]
     return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()

@@ -51,7 +51,7 @@ from typing import Any, Callable, Iterable
 from jav.core import values
 from jav.core.config import RUNS_DIR
 
-LAYERS = ("datapoints", "type", "intent", "logic_pack")
+LAYERS = ("datapoints", "type", "intent", "logic_pack", "process_pack")  # 231: a process pack's too
 ENGINES = ("jev", "gpt")
 SYNTHETIC = "synthetic"
 RECEIPT = "measure"
@@ -395,19 +395,23 @@ def measurement_modules() -> list[str]:
 
 def logic_pack_goldens() -> list[Golden]:
     """The golden sets of the domains' measurement modules (204; until then each logic pack named its own in its
-    registration, so its module imported this registry), in their logic packs' registration order as before. Each is a
-    logic pack's, owned by a registered pack and named `<kind>:<name>`, or the registry refuses to list."""
-    from jav.app import logic_packs, registrations
+    registration, so its module imported this registry), in their logic packs' registration order as before, then
+    (231) the process packs'. Each is a logic pack's, owned by a registered pack and named `<kind>:<name>`, or a process
+    pack's, owned by a pack that names it among its golden sets; otherwise the registry refuses to list."""
+    from jav.app import logic_packs, process_packs, registrations
 
     registrations.load_all()
-    order = {pack.kind: i for i, pack in enumerate(logic_packs.packs())}
+    logic = [pack.kind for pack in logic_packs.packs()]
+    named = {pack.id: set(pack.goldens) for pack in process_packs.packs()}
+    order = {owner: i for i, owner in enumerate([*logic, *(p for p in named if p not in logic)])}
     found: list[Golden] = []
     for name in measurement_modules():
         for golden in importlib.import_module(name).GOLDENS:
-            owned = golden.owner in order and golden.key.startswith(f"{golden.owner}:")
-            if golden.layer != "logic_pack" or not owned:
+            owned = (golden.layer == "logic_pack" and golden.owner in logic and golden.key.startswith(f"{golden.owner}:")
+                     or golden.layer == "process_pack" and golden.key in named.get(golden.owner, ()))
+            if not owned:
                 raise ValueError(f"{name}: its golden set {golden.key!r} must be a registered logic pack's, owned by "
-                                 "it and named <kind>:<name>")
+                                 "it and named <kind>:<name>, or a process pack's that names it")
             found.append(golden)
     return sorted(found, key=lambda g: order[g.owner])
 

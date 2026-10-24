@@ -34,7 +34,7 @@ from jav.core import calls, completion, identity
 from jav.core.process import cases, engine, tasks
 from jav.core.user_messages import explained
 
-__all__ = ["CaseError", "ElementData", "act", "next_of", "register", "start_step", "view"]
+__all__ = ["CaseError", "ElementData", "act", "marks", "next_of", "register", "start_step", "view"]
 
 
 class CaseError(ValueError):
@@ -44,12 +44,14 @@ class CaseError(ValueError):
 @dataclass(frozen=True)
 class ElementData:
     """What an element of `element` type shows for a step of `capability` (None: for any step): `data(case_id, step,
-    shared)` returns it; `shared` is one dict per page view, for data several elements read (computed once)."""
+    shared)` returns it; `shared` is one dict per page view, for data several elements read (computed once). `mark()`
+    (A3d): a value that changes when what it shows may have changed (the work package list's cache mark)."""
 
     element: str
     capability: str | None
     module: str
     data: Callable[[str, str | None, dict[str, Any]], Any]
+    mark: Callable[[], Any] | None = None
 
 
 _DATA: dict[tuple[str, str | None], ElementData] = {}
@@ -60,6 +62,17 @@ def register(entry: ElementData) -> None:
     if prior is not None and prior.module != entry.module:
         raise ValueError(f"element data {entry.element}/{entry.capability} is registered by {prior.module}")
     _DATA[(entry.element, entry.capability)] = entry
+
+
+def marks() -> list[Any]:
+    """231 (A3d): the marks of every element's data that has one, once per providing module (a case's page and the
+    package list read them)."""
+    completion.complete("element data")
+    seen: dict[str, Any] = {}
+    for entry in _DATA.values():
+        if entry.mark is not None and entry.module not in seen:
+            seen[entry.module] = entry.mark()
+    return [seen[k] for k in sorted(seen)]
 
 
 def _provider(element: str, capability: str | None) -> ElementData | None:

@@ -1043,3 +1043,12 @@ real send's mode and checks the allowlist again). Outlook not running: nothing i
 refused. A script that stopped midway or did not answer in 90 s leaves the outcome unknown, and a person checks the
 Drafts folder. The mailbox download (`outlook_bridge.ps1`, `mail_bridge_call.ps1`) stays read-only, which a test checks
 in their text. Tests: `tests/test_outlook_draft_231.py`.
+
+**Golden sets and the package list without the quote package (231, plan stage A, A3d).** A golden set may be a process
+pack's: layer `process_pack`, owned by a pack that names it among its golden sets (`jav/evals/goldens.py`
+`logic_pack_goldens`, after the logic packs'); the quote's three (`quote:lines`, `quote:matches`, `quote:letters`) are
+the IT quote pack's, under their keys of before. A container kind gives the package list's cache mark too
+(`LogicPack.list_mark`, `logic_packs.containers`): a case's row reads the process core's cases, steps and tasks
+(`cases.marks`) and the marks of its page's element data (`case_views.ElementData.mark`, `case_views.marks`; the
+quote's are its price lists', proposal's, draft's and letter's). Tests: `tests/test_golden_owners_204.py`,
+`tests/test_case_send_231.py`.

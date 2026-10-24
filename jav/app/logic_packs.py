@@ -173,6 +173,11 @@ def register_container(pack: LogicPack) -> None:
     _CONTAINERS[pack.kind] = pack
 
 
+def containers() -> list[LogicPack]:
+    """231 (A3d): the registered container kinds (a process pack's case), in their registration order."""
+    return list(_CONTAINERS.values())
+
+
 def has_runs(kind: str) -> bool:
     """Whether a package of this kind is processed by runs (every plain processing kind is)."""
     pack = of(kind)
