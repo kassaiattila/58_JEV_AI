@@ -70,12 +70,9 @@ def _step_view(step: process_packs.Step, row: dict[str, Any]) -> dict[str, Any]:
 
 def view(case_id: str) -> dict[str, Any]:
     """The case's page: the case, its steps and its tabs, each element with its data."""
-    pinned = process_runtime.pack_of(case_id)
-    if pinned is None:
+    pack = process_runtime.pack_for(case_id)  # A7a: the version the case started on, its screens too
+    if pack is None:
         raise KeyError(case_id)
-    pack = process_packs.load(pinned[0])
-    if pack.version != pinned[1]:  # an older version's screens come with the first change of a pack (A7)
-        raise explained(CaseError, "the case runs on an older version of its process pack")
     state = engine.state(case_id)
     rows = state["steps"]
     by_id = {s.id: s for s in pack.steps}
