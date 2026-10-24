@@ -87,7 +87,7 @@ def test_a_case_puts_its_message_into_outlook_as_a_draft(builders) -> None:
     assert "-Send" not in call["argv"] and call["argv"][call["argv"].index("-File") + 1] == str(outlook_drafts.SCRIPT)
     assert call["request"]["to"] == "buyer@example.com" and call["request"]["subject"] == "Our offer"
     assert call["request"]["body"].replace("\r\n", "\n") == "Dear Buyer,\n\nplease find our offer attached.\n"
-    assert call["files"] == {"1-offer-v1.docx": b"PK invented document"}
+    assert call["files"] == {"offer-v1.docx": b"PK invented document"}  # Outlook shows the file's own name
 
 
 def test_without_a_running_outlook_nothing_is_written_and_the_handover_is_refused(builders) -> None:

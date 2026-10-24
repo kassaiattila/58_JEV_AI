@@ -78,7 +78,8 @@ def _deliver(payload: dict[str, Any], *, send: bool) -> dict[str, Any]:
         attachments = []
         for n, part in enumerate(message.iter_attachments(), 1):
             name = Path(part.get_filename() or f"attachment-{n}").name  # a name only: never a path out of the folder
-            target = Path(tmp) / f"{n}-{name}"
+            target = Path(tmp) / str(n) / name  # its own folder: Outlook shows the file's own name, two may share it
+            target.parent.mkdir()
             target.write_bytes(part.get_payload(decode=True) or b"")
             attachments.append(str(target))
         request = Path(tmp) / "request.json"
