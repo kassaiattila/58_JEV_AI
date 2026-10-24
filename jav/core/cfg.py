@@ -34,14 +34,18 @@ HASH_LEN = 16
 
 
 TYPES_DIR = CONFIG_DIR / "types"  # type packs: all type data of one document type's extraction (jav/ai/typepack.py)
+PROCESSES_DIR = CONFIG_DIR / "processes"  # 231 (A4): process packs, one kind of business process each (jav/app/process_packs.py)
 
 
 def path_of(name: str) -> Path:
-    """`doc_types` -> configs/doc_types.json; `callsite:detect` -> configs/callsites/detect.json; `type:invoice_hu` -> configs/types/invoice_hu.json."""
+    """`doc_types` -> configs/doc_types.json; `callsite:detect` -> configs/callsites/detect.json; `type:invoice_hu` -> configs/types/invoice_hu.json;
+    `process:it_quote` -> configs/processes/it_quote.json (231)."""
     if name.startswith("callsite:"):
         return CALLSITE_DIR / f"{name.split(':', 1)[1]}.json"
     if name.startswith("type:"):
         return TYPES_DIR / f"{name.split(':', 1)[1]}.json"
+    if name.startswith("process:"):
+        return PROCESSES_DIR / f"{name.split(':', 1)[1]}.json"
     return CONFIG_DIR / f"{name}.json"
 
 
@@ -124,6 +128,7 @@ def all_names() -> list[str]:
     names = [p.stem for p in sorted(CONFIG_DIR.glob("*.json"))]
     names += [f"callsite:{p.stem}" for p in sorted(CALLSITE_DIR.glob("*.json"))]
     names += [f"type:{p.stem}" for p in sorted(TYPES_DIR.glob("*.json"))] if TYPES_DIR.exists() else []
+    names += [f"process:{p.stem}" for p in sorted(PROCESSES_DIR.glob("*.json"))] if PROCESSES_DIR.exists() else []
     return names
 
 

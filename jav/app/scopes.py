@@ -132,8 +132,27 @@ def _no_period(error: type[Exception]) -> Exception:
     return explained(error, "the workflow needs a period")
 
 
+RECORD = "record"  # 231 (A4): the package item a case was started from, read as a record (e.g. a quote request)
+
+
+def _record(value: Any, error: type[Exception]) -> dict[str, str]:
+    if not (isinstance(value, Mapping) and isinstance(value.get("workpackage_id"), str) and value["workpackage_id"]
+            and isinstance(value.get("item_id"), str) and value["item_id"]):
+        raise explained(error, "the record is named by its work package and item")
+    return {"workpackage_id": value["workpackage_id"], "item_id": value["item_id"]}
+
+
+def _record_words(value: Mapping[str, str]) -> str:
+    return f"{value['workpackage_id']} / {value['item_id'][:12]}"
+
+
+def _no_record(error: type[Exception]) -> Exception:
+    return explained(error, "the record a case starts from is missing")
+
+
 register(Part(PARTY, __name__, _party, _party_name, _no_party))
 register(Part(PERIOD, __name__, _period, _period_words, _no_period))
 
 
 __all__ = ["PARTY", "PERIOD", "Part", "ScopeError", "check", "label", "of", "parts", "period", "register"]
+register(Part(RECORD, __name__, _record, _record_words, _no_record))

@@ -113,9 +113,11 @@ def _check(cap: Capability) -> None:
 
 
 def _runner(cap: Capability) -> Callable[[StepContext], kinds.StepOutcome]:
+    """The capability's step kind: the step's parameters checked first (keys starting with `_` are the process pack's
+    own, e.g. how the step starts, and are not the capability's)."""
     def run(ctx: StepContext) -> kinds.StepOutcome:
         try:
-            params = cap.params.model_validate(ctx.step.params or {})
+            params = cap.params.model_validate({k: v for k, v in (ctx.step.params or {}).items() if not k.startswith("_")})
         except ValidationError as exc:
             fields = ", ".join(".".join(str(p) for p in e["loc"]) or "-" for e in exc.errors()[:5])
             return kinds.Fail(f"the step's parameters do not fit {cap.key}: {fields}")

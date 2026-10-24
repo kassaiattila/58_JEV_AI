@@ -949,3 +949,14 @@ business work through the call log, not as a measurement. Before the process cor
 (`kinds.unknown`), it makes the application's registrations (`jav.core.completion`), since the capabilities register
 there. Today's process-specific parts are a frozen list that may only shrink (`tests/test_process_strictness_231.py`).
 The first six are the quote's back half, described but not yet runnable as a pack's step (231 A3c, `jav/domains/quotes/capabilities.py`): `record_assembly`, `catalogue_match`, `line_pricing`, `line_draft`, `priced_document`, `letter_draft`; their fixed values became parameters with today's values as the defaults (A3b: the request's type and list field, `price_lists.chosen`, the output, the letter frame). Tests: `tests/test_capabilities_231.py`.
+
+**Process packs (231, plan stage A, A4).** A process pack (`configs/processes/<id>.json`, read and checked by
+`jav/app/process_packs.py`) is one kind of business process described as data: its scope parts (231 adds `record`, the
+package item a case starts from), its intake (an email intent that offers to start a case, or a person), its resources
+(plain values for now), its steps (each a capability `name@version` with its parameters; a paid step starts with a
+person), its tabs built from `configs/screen_elements.json`, its outputs and golden sets. The check refuses an unknown
+capability, parameters that do not fit, a paid step without a person's start, an unknown element, scope part or
+output, a dangling reference and any string naming a Python module. `definition(pack)` is the process core's
+definition of the pack's version (`pack_<id>`), each step's kind its capability's step kind, the pack's own settings
+as `_`-prefixed parameters the capability does not see. The first pack is the IT quote (`it_quote.json`); its cases
+start in A5. Tests: `tests/test_process_packs_231.py`.
