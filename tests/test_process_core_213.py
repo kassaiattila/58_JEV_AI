@@ -400,7 +400,7 @@ def test_a_broken_step_fails_with_its_reason_and_a_person_retries_it() -> None:
     turns()
     view = cases.view("c1")
     assert view["steps"]["a"] == {"state": "failed", "waiting_for": None, "result_version": 0, "result": None,
-                                  "note": "RuntimeError: the step's code broke"}
+                                  "note": "RuntimeError: the step's code broke", "phase": None}  # 227: a kind's own
     assert view["steps"]["b"]["note"] == "the step waited without naming what for"
     cases.retry("c1", "a", ME)
     assert steps("c1")["a"] == "ready" and history("c1")[-1] == "step_retried"

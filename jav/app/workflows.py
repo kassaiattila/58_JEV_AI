@@ -14,17 +14,23 @@ party's accounts and the period once its steps are done). A step is **satisfied*
 approved (a reconciliation: when a version is approved) or when it found nothing new (an empty folder, a download
 without new emails, statements the store has already); an empty package is not kept.
 
-The automation state of a step is stored (`workflow_steps.state`): `waiting`, `starting` (claimed: one process at a
-time), `pulling` (a mailbox download queued), `started`, `linked`, `needs_budget`, `nothing_new`, `failed`. What a person
-sees (`status`) adds the package's own next step. `advance` moves the chain on; the worker calls `tick` in its loop
-(at most every `TICK_EVERY_S`), the service on creation and when a person starts a step.
+Where a step's start stands is its phase: `waiting`, `starting` (claimed: one process at a time), `pulling` (a mailbox
+download queued), `started`, `linked`, `needs_budget`, `nothing_new`, `failed`. What a person sees (`status`) adds the
+package's own next step. `advance` moves the chain on; the worker calls `tick` in its loop (at most every
+`TICK_EVERY_S`), the service on creation and when a person starts a step.
 
 214 (plan G-process-core P1b-2): a workflow is a case of the process core under its own id (`jav.app.workflow_cases`):
 the case starts in the transaction that makes the workflow, a workflow made before is adopted from the state its steps
 reached, and archiving or restoring a workflow holds or resumes its case. P1b-3: the core moves the steps on. Its one
-workflow step kind (`_case_step`) does under the case's claim what the step's stored state asks for; `advance` is one
-woken turn of the case, `tick` the worker's turns; a person's start, link and the chain switched on reach the case in
-the transaction of the workflow's own change. The stored state stays what the interface reads.
+workflow step kind (`_case_step`) does under the case's claim what the step's phase asks for; `advance` is one woken
+turn of the case, `tick` the worker's turns; a person's start, link and the chain switched on reach the case in the
+transaction of the workflow's own change.
+
+227 (plan R3 R3d; DECISIONS 227): a step's whole state is in its row in the case: the core's state and wait, and the
+phase as the core step's own (`process_cases.set_phase`, a claim with `expect`), written with the step's own data and
+its event in one transaction (`_update_step`); the interface reads the phase from there. The workflow's table keeps the
+step's own data only (its source, budget, name, engine, package, download, run and note). Before, the phase was a
+column of that table (`state`), kept beside the core's state.
 
 215 (P2b): a step over its budget asks a person as a human task, opened with the wait (`workflow_cases.ask_budget`)
 and decided by the person's start; the approval of a run of a step's package sends the case an event
@@ -120,8 +126,7 @@ CREATE TABLE IF NOT EXISTS workflow_steps (
     step           TEXT NOT NULL,
     source         TEXT NOT NULL,      -- JSON: {"kind": folder|files|mailbox|package|none, ...}
     budget         TEXT NOT NULL,      -- JSON {provider: usd}: the most an automatic start may reserve
-    name           TEXT NOT NULL,      -- the work package's name
-    state          TEXT NOT NULL,      -- waiting | starting | pulling | started | linked | needs_budget | nothing_new | failed
+    name           TEXT NOT NULL,      -- the work package's name (227: its phase is in its core row, `process_steps.phase`)
     workpackage_id TEXT,
     pull_id        TEXT,
     run_id         TEXT,
@@ -185,6 +190,7 @@ def _migrate(conn) -> None:
 
 store.register_migration("workflows", _migrate)
 store.register_migration("workflow_cases", workflow_cases.adopt_missing)  # 214: the workflows made before get their case
+store.register_migration("workflow_phases", workflow_cases.move_phases)  # 227: then the steps' phases move into the core
 
 # 153 (review D1): a workflow names its own party and its steps' packages. A merge moves the party's workflows to the
 # party it was merged into, and a party a workflow names cannot be deleted (before, the workflow kept a deleted party's
@@ -204,7 +210,9 @@ def _delete_guard(c, wp_id: str) -> None:
     """153 (review D1): the package of an open workflow's step cannot be deleted (every later start of the step failed
     with the deleted package's id); it can be hidden, or the workflow archived first. An archived workflow's step lets
     its package go. 160 (review R-5): that step is failed with the reason (and its run forgotten), so after the
-    workflow is restored a person can start it again; before, it kept its state without a package and stood still."""
+    workflow is restored a person can start it again; before, it kept its state without a package and stood still.
+    227: it fails in its case too (a done one is reopened first), so its open budget task is withdrawn; before, the
+    case still had it waiting or done."""
     row = c.execute("SELECT w.name FROM workflow_steps s JOIN workflows w ON w.id=s.workflow_id"
                     " WHERE s.workpackage_id=? AND w.status='open' LIMIT 1", (wp_id,)).fetchone()
     if row is not None:
@@ -212,9 +220,9 @@ def _delete_guard(c, wp_id: str) -> None:
                         [{"code": "workflow_step", "message": f"The package is a step of the workflow {row["name"]}: it can only be hidden."}])
     steps = c.execute("SELECT s.workflow_id, s.step, w.actor FROM workflow_steps s JOIN workflows w ON w.id=s.workflow_id"
                       " WHERE s.workpackage_id=?", (wp_id,)).fetchall()
-    c.execute("UPDATE workflow_steps SET workpackage_id=NULL, run_id=NULL, state='failed', note=?, updated_at=?"
-              " WHERE workpackage_id=?", (PACKAGE_DELETED, _now(), wp_id))
     for s in steps:
+        _update_step(c, s["workflow_id"], s["step"], phase="failed", workpackage_id=None, run_id=None, note=PACKAGE_DELETED)
+        workflow_cases.fail_outside(c, s["workflow_id"], s["step"], PACKAGE_DELETED)
         _event(c, s["workflow_id"], s["step"], "failed", auto_actor(s["actor"]), {"note": PACKAGE_DELETED, "workpackage_id": wp_id})
 
 
@@ -402,12 +410,11 @@ def create(*, template_id: str, party_id: str | None, period_start: Any, period_
                   (wf_id, t["id"], json.dumps(t, ensure_ascii=False), title[:200], scope.get(scopes.PARTY), start, end,
                    int(auto), actor, now, now, previous, json.dumps(other, ensure_ascii=False)))
         for sid, source, budget, step_name, engine in rows:
-            linked = source["kind"] == "package"
-            c.execute("INSERT INTO workflow_steps(workflow_id, step, source, budget, name, state, workpackage_id,"
-                      " updated_at, engine) VALUES (?,?,?,?,?,?,?,?,?)",
+            c.execute("INSERT INTO workflow_steps(workflow_id, step, source, budget, name, workpackage_id, updated_at,"
+                      " engine) VALUES (?,?,?,?,?,?,?,?)",
                       (wf_id, sid, json.dumps(source, ensure_ascii=False), json.dumps(budget), step_name,
-                       "linked" if linked else "waiting", source.get("workpackage_id"), now, engine))
-        workflow_cases.start(c, wf_id, t, actor,  # 214: its case, with its rows or neither
+                       source.get("workpackage_id"), now, engine))
+        workflow_cases.start(c, wf_id, t, actor,  # 214: its case, with its rows or neither; 227: its steps' phases
                              linked=tuple(sid for sid, source, *_ in rows if source["kind"] == "package"))
         _event(c, wf_id, None, "create", actor, {"template": t["id"], "party": scope.get(scopes.PARTY),
                                                   "period": [start, end] if start else None, "auto": bool(auto)}
@@ -438,8 +445,10 @@ def _row(wf_id: str) -> dict[str, Any]:
 
 
 def _steps(wf_id: str) -> dict[str, dict[str, Any]]:
+    """The steps' own data, each with its phase from its core row (227)."""
     with store.connect() as c:
-        rows = c.execute("SELECT * FROM workflow_steps WHERE workflow_id=?", (wf_id,)).fetchall()
+        rows = c.execute("SELECT s.*, p.phase FROM workflow_steps s LEFT JOIN process_steps p"
+                         " ON p.case_id=s.workflow_id AND p.step_id=s.step WHERE s.workflow_id=?", (wf_id,)).fetchall()
     out = {}
     for r in rows:
         d = dict(r)
@@ -448,17 +457,18 @@ def _steps(wf_id: str) -> dict[str, dict[str, Any]]:
     return out
 
 
-def _update_step(c, wf_id: str, step: str, *, expect: tuple[str, ...] | None = None, **fields: Any) -> bool:
-    """Updates a step in the caller's write transaction; with `expect` only from those states (the claim: False when
-    another process got there first)."""
+def _update_step(c, wf_id: str, step: str, *, expect: tuple[str, ...] | None = None, phase: str | None = None,
+                 **fields: Any) -> bool:
+    """Updates a step in the caller's write transaction: its own data, and (227) its `phase` in its core row; with
+    `expect` only from those phases (the claim: False, and nothing written, when another process got there first)."""
+    if expect is not None and phase is None:
+        raise ValueError("a claim names the phase it moves the step to")
+    if phase is not None and not process_cases.set_phase(c, wf_id, step, phase, expect=expect):
+        return False
     fields["updated_at"] = _now()
     cols = ", ".join(f"{k}=?" for k in fields)
-    sql = f"UPDATE workflow_steps SET {cols} WHERE workflow_id=? AND step=?"
-    args: list[Any] = [*fields.values(), wf_id, step]
-    if expect:
-        sql += f" AND state IN ({','.join('?' * len(expect))})"
-        args += list(expect)
-    changed = c.execute(sql, args).rowcount
+    changed = c.execute(f"UPDATE workflow_steps SET {cols} WHERE workflow_id=? AND step=?",
+                        [*fields.values(), wf_id, step]).rowcount
     if changed:
         c.execute("UPDATE workflows SET updated_at=? WHERE id=?", (fields["updated_at"], wf_id))
     return bool(changed)
@@ -559,9 +569,9 @@ def _approval(st: dict[str, Any]) -> tuple[bool, Any]:
     """Whether the step is satisfied, and (218, P3l) by which approval of its package: a logic pack's own version
     ({version, fingerprint}), a processing package's approved live runs ({runs}); None for a step that found nothing
     new or a package done without an approval of its own (the email routing: every attachment decided)."""
-    if st["state"] == "nothing_new":
+    if st["phase"] == "nothing_new":
         return True, None
-    if not st.get("workpackage_id") or st["state"] not in ("started", "linked"):
+    if not st.get("workpackage_id") or st["phase"] not in ("started", "linked"):
         return False, None
     exists, pack = _pack(st)
     if not exists:
@@ -614,15 +624,15 @@ STATUS_BY_NEXT = {"running": "running", "review": "review", "release": "approve"
 
 def _status(sdef: dict[str, Any], st: dict[str, Any], done: dict[str, bool]) -> tuple[str, Any]:
     """What a person sees of a step, and its package's next step."""
-    if st["state"] in ("started", "linked") and st.get("workpackage_id"):
+    if st["phase"] in ("started", "linked") and st.get("workpackage_id"):
         approved, nxt = _package_state(st["workpackage_id"])
         if nxt is None:
             return "missing", None
         statuses = {**STATUS_BY_NEXT, **workflow_steps.of(sdef["kind"]).statuses}
         return ("approved" if approved else statuses.get(nxt["code"], "attention")), nxt
-    if st["state"] == "waiting":
+    if st["phase"] == "waiting":
         return ("ready" if all(done.get(a) for a in sdef.get("after", [])) else "waiting"), None
-    return st["state"], None  # starting, pulling, needs_budget, nothing_new, failed
+    return st["phase"], None  # starting, pulling, needs_budget, nothing_new, failed
 
 
 @store.one_connection
@@ -652,13 +662,13 @@ def view(wf_id: str) -> dict[str, Any]:
             except KeyError:
                 package = {"id": st["workpackage_id"], "name": None, "next": None}
         note = st.get("note")
-        if st["state"] == "needs_budget" and note:
+        if st["phase"] == "needs_budget" and note:
             note = json.loads(note)
         out_steps.append({"id": sdef["id"], "kind": sdef["kind"], "title": _step_title(sdef),
                           "kind_title": kinds[sdef["kind"]]["title"], "after": sdef.get("after", []),
                           "source": _shown_source(st["source"]), "budget": st["budget"], "engine": st.get("engine"),
                           "name": st["name"],
-                          "state": st["state"], "status": status, "done": done[sdef["id"]], "note": note,
+                          "state": st["phase"], "status": status, "done": done[sdef["id"]], "note": note,
                           "package": package, "run_id": st.get("run_id"), "pull_id": st.get("pull_id"),
                           "updated_at": st["updated_at"]} | ({"stale_of": stale} if stale else {}))
     attention = ("failed", "needs_budget", "review", "approve", "attention", "pairing", "missing", "ready")
@@ -811,9 +821,9 @@ def start_step(wf_id: str, step: str, *, actor: str, budget: dict[str, Any] | No
     if sdef is None:
         raise explained(WorkflowError, "unknown step {{step}}", step=repr(step))
     st = _steps(wf_id)[step]
-    if st["state"] not in ("waiting", "failed", "needs_budget"):
+    if st["phase"] not in ("waiting", "failed", "needs_budget"):
         raise explained(WorkflowError, "step {{step}} is {{state}}: it cannot be started",
-                        step=repr(step), state=st["state"])
+                        step=repr(step), state=st["phase"])
     new = _budget(budget) if budget is not None else None
     with store.connect() as c:
         store.begin_immediate(c)
@@ -835,7 +845,7 @@ def link(wf_id: str, step: str, wp_id: str, *, actor: str) -> dict[str, Any]:
     _check_package(sdef["kind"], wp_id)
     with store.connect() as c:
         store.begin_immediate(c)
-        if not _update_step(c, wf_id, step, expect=("waiting", "failed", "nothing_new"), state="linked",
+        if not _update_step(c, wf_id, step, expect=("waiting", "failed", "nothing_new"), phase="linked",
                             workpackage_id=wp_id, source=json.dumps({"kind": "package", "workpackage_id": wp_id}),
                             note=None):
             raise explained(WorkflowError, "step {{step}} has started already", step=repr(step))
@@ -883,16 +893,16 @@ def _start(wf: dict[str, Any], sdef: dict[str, Any], *, actor: str, states: tupl
     (review R-2): the package is noted on the step as soon as it exists, so a start interrupted later (before or after
     the run was made) is started again with that package (`start_step`), never with a second one."""
     step = sdef["id"]
-    if not _set(wf["id"], step, expect=states, state="starting", note=None):
+    if not _set(wf["id"], step, expect=states, phase="starting", note=None):
         return  # another process has it, or it is past waiting
     st = _steps(wf["id"])[step]
     try:
         workflow_steps.of(sdef["kind"]).start(_context(wf, sdef, st, actor))  # 181: the kind's own start
     except Exception as exc:  # the step shows why; a person retries it
         log.warning("workflow %s step %s did not start: %s", wf["id"], step, exc)
-        _done(wf, step, actor, "failed", state="failed", note=str(exc)[:1000])
+        _done(wf, step, actor, "failed", phase="failed", note=str(exc)[:1000])
     except BaseException:  # 153 (review D2): interrupted (the process stops): the claim is released, then it stops
-        _done(wf, step, actor, "failed", state="failed", note=INTERRUPTED)
+        _done(wf, step, actor, "failed", phase="failed", note=INTERRUPTED)
         raise
 
 
@@ -927,11 +937,11 @@ def _context(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor
     return workflow_steps.StepStart(
         workflow=wf, step=sdef, state=st, actor=actor, packages=packages, package=package,
         run=lambda wp_id: _start_run(wf, sdef, st, wp_id, actor=actor),
-        made=lambda wp_id: _done(wf, step, actor, "package", state="started", workpackage_id=wp_id),
-        nothing_new=lambda note: _done(wf, step, actor, "nothing_new", state="nothing_new", note=note),
-        fetching=lambda fetch_id: _done(wf, step, actor, "pull", state="pulling", pull_id=fetch_id),
-        claim=lambda: _set(wf_id, step, expect=("pulling",), state="starting"),
-        failed=lambda note: _done(wf, step, actor, "failed", state="failed", note=note[:1000]),
+        made=lambda wp_id: _done(wf, step, actor, "package", phase="started", workpackage_id=wp_id),
+        nothing_new=lambda note: _done(wf, step, actor, "nothing_new", phase="nothing_new", note=note),
+        fetching=lambda fetch_id: _done(wf, step, actor, "pull", phase="pulling", pull_id=fetch_id),
+        claim=lambda: _set(wf_id, step, expect=("pulling",), phase="starting"),
+        failed=lambda note: _done(wf, step, actor, "failed", phase="failed", note=note[:1000]),
         event=event)
 
 
@@ -1028,7 +1038,7 @@ def _start_run(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], wp_
             note = {**inputs, "over": gate["over"]}
             with store.connect() as c:  # 215: the wait, its event and the person's task in one transaction
                 store.begin_immediate(c)
-                if _update_step(c, wf["id"], step, state="needs_budget", workpackage_id=wp_id, note=json.dumps(note)):
+                if _update_step(c, wf["id"], step, phase="needs_budget", workpackage_id=wp_id, note=json.dumps(note)):
                     _event(c, wf["id"], step, "needs_budget", actor, {"workpackage_id": wp_id, "note": json.dumps(note)})
                     workflow_cases.ask_budget(c, wf["id"], step, human_tasks.assignee_for(c, wp_id, wf["actor"]), note)
                     traced(c)
@@ -1037,12 +1047,12 @@ def _start_run(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], wp_
                              input_hash=ready["input_hash"], actor=actor)
         with store.connect() as c:  # the step's start, its event and the gate's trace in one transaction
             store.begin_immediate(c)
-            _update_step(c, wf["id"], step, state="started", workpackage_id=wp_id, run_id=res["run_id"])
+            _update_step(c, wf["id"], step, phase="started", workpackage_id=wp_id, run_id=res["run_id"])
             _event(c, wf["id"], step, "run", actor, {"workpackage_id": wp_id, "run_id": res["run_id"]})
             traced(c, res["run_id"])
     except Exception as exc:
         log.warning("workflow %s step %s: run not started: %s", wf["id"], step, exc)
-        _done(wf, step, actor, "failed", state="failed", workpackage_id=wp_id, note=str(exc)[:1000])
+        _done(wf, step, actor, "failed", phase="failed", workpackage_id=wp_id, note=str(exc)[:1000])
 
 
 _last_tick = 0.0
@@ -1054,16 +1064,26 @@ INTERRUPTED = "the start was interrupted; start the step again"
 def release_stale_starts(max_age_s: float = STALE_START_S) -> int:
     """153 (review D2): steps claimed for a start more than `max_age_s` ago and never finished (the process that held
     the claim stopped) go to `failed` with a note, so a person can start them again; before, they stayed "starting" for
-    good. Returns how many it released."""
+    good. Returns how many it released. 227: under the case's claim, so a start a live process is still making is
+    left to it, and the step fails in its case too (before, only its phase did, and the case still had it running)."""
     cutoff = (datetime.now(timezone.utc) - timedelta(seconds=max_age_s)).isoformat(timespec="seconds")
     with store.connect() as c:
         stale = c.execute("SELECT s.workflow_id, s.step, w.actor FROM workflow_steps s JOIN workflows w ON w.id=s.workflow_id"
-                          " WHERE s.state='starting' AND s.updated_at < ?", (cutoff,)).fetchall()
+                          " JOIN process_steps p ON p.case_id=s.workflow_id AND p.step_id=s.step"
+                          " WHERE p.phase='starting' AND s.updated_at < ?", (cutoff,)).fetchall()
     released = 0
     for r in stale:
-        if _set_logged(r["workflow_id"], r["step"], "failed", auto_actor(r["actor"]), {"note": INTERRUPTED},
-                       expect=("starting",), state="failed", note=INTERRUPTED):
-            released += 1
+        if not process_engine.claim_case(r["workflow_id"]):
+            continue  # a live process holds the case: its own turn settles the start
+        try:
+            with store.connect() as c:
+                store.begin_immediate(c)
+                if _update_step(c, r["workflow_id"], r["step"], expect=("starting",), phase="failed", note=INTERRUPTED):
+                    _event(c, r["workflow_id"], r["step"], "failed", auto_actor(r["actor"]), {"note": INTERRUPTED})
+                    workflow_cases.fail_outside(c, r["workflow_id"], r["step"], INTERRUPTED)
+                    released += 1
+        finally:
+            process_engine.release(r["workflow_id"])
     return released
 
 
@@ -1080,8 +1100,8 @@ def tick(now: float | None = None) -> int:
     _last_tick = now
     release_stale_starts()
     with store.connect() as c:
-        rows = c.execute("SELECT DISTINCT w.id, w.actor FROM workflows w JOIN workflow_steps s ON s.workflow_id=w.id"
-                         " WHERE w.status='open' AND w.auto=1 AND s.state IN ('waiting', 'pulling')").fetchall()
+        rows = c.execute("SELECT DISTINCT w.id, w.actor FROM workflows w JOIN process_steps p ON p.case_id=w.id"
+                         " WHERE w.status='open' AND w.auto=1 AND p.phase IN ('waiting', 'pulling')").fetchall()
     for r in rows:
         try:
             advance(r["id"], actor=auto_actor(r["actor"]))
@@ -1138,8 +1158,8 @@ def _check() -> tuple[str, float]:
 def _person_start(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor: str) -> None:
     """A person's start: a step with a package that waits for a budget or failed starts its package's run (within the
     budget, which the person may have raised); any other is started from its source again."""
-    if st.get("workpackage_id") and st["state"] in ("needs_budget", "failed"):
-        if _set(wf["id"], sdef["id"], expect=("needs_budget", "failed"), state="starting"):
+    if st.get("workpackage_id") and st["phase"] in ("needs_budget", "failed"):
+        if _set(wf["id"], sdef["id"], expect=("needs_budget", "failed"), phase="starting"):
             _start_run(wf, sdef, _steps(wf["id"])[sdef["id"]], st["workpackage_id"], actor=actor)
     else:
         _start(wf, sdef, actor=actor, states=("waiting", "failed"))
@@ -1147,7 +1167,7 @@ def _person_start(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], 
 
 def _case_step(ctx: process_engine.StepContext) -> process_kinds.StepOutcome:
     """The process core's workflow step (`workflow_cases.STEP_KIND`, 214): it runs under its case's claim and does what
-    the step's stored state asks for, until the step is done, waits or failed:
+    the step's phase asks for, until the step is done, waits or failed:
     - nothing new: done; started or linked: done once its package's latest live run is approved (a reconciliation's
       version), otherwise it waits for that with a check timer;
     - pulling: its fetch is checked (a finished one gets its package and run), otherwise it waits with a check timer;
@@ -1166,11 +1186,11 @@ def _case_step(ctx: process_engine.StepContext) -> process_kinds.StepOutcome:
         return _drive(ctx, wf, sdef, go, actor)
     except Exception:
         waits = {"pulling": workflow_cases.FETCH, "started": workflow_cases.APPROVAL, "linked": workflow_cases.APPROVAL}
-        state = _steps(wf["id"])[sdef["id"]]["state"]
-        if state not in waits:
+        phase = _steps(wf["id"])[sdef["id"]]["phase"]
+        if phase not in waits:
             raise  # the case fails the step with the error; a person starts it again
         log.exception("workflow %s step %s: its check failed; it looks again at its next check", wf["id"], sdef["id"])
-        return ctx.wait(waits[state], timer=_check())
+        return ctx.wait(waits[phase], timer=_check())
 
 
 def _drive(ctx: process_engine.StepContext, wf: dict[str, Any], sdef: dict[str, Any], go: str | None,
@@ -1179,35 +1199,35 @@ def _drive(ctx: process_engine.StepContext, wf: dict[str, Any], sdef: dict[str, 
     polled = False
     for _ in range(_ROUNDS):
         st = _steps(wf["id"])[sdef["id"]]
-        state = st["state"]
-        if state == "nothing_new":
-            return process_kinds.Done({"state": state, "ref": None, "built_on": _built_on(ctx)})
-        if state in ("started", "linked"):
+        phase = st["phase"]
+        if phase == "nothing_new":
+            return process_kinds.Done({"state": phase, "ref": None, "built_on": _built_on(ctx)})
+        if phase in ("started", "linked"):
             approved, ref = _approval(st)
             if _counts(ctx, wf, st, approved, ref):
-                return process_kinds.Done({"state": state, "workpackage_id": st["workpackage_id"], "run_id": st.get("run_id"),
+                return process_kinds.Done({"state": phase, "workpackage_id": st["workpackage_id"], "run_id": st.get("run_id"),
                                            "ref": ref, "built_on": _built_on(ctx)})
             return ctx.wait(workflow_cases.APPROVAL, timer=_check())
-        if state == "pulling":
+        if phase == "pulling":
             if polled:
                 return ctx.wait(workflow_cases.FETCH, timer=_check())
             _poll(wf, sdef, st, actor)
             polled = True
-        elif state == "starting":
+        elif phase == "starting":
             _set_logged(wf["id"], sdef["id"], "failed", auto_actor(wf["actor"]), {"note": INTERRUPTED},
-                        expect=("starting",), state="failed", note=INTERRUPTED)
+                        expect=("starting",), phase="failed", note=INTERRUPTED)
         elif go is not None:
             go = None
             _person_start(wf, sdef, st, actor)
-        elif state == "needs_budget":
+        elif phase == "needs_budget":
             return ctx.wait(workflow_cases.BUDGET)
-        elif state == "failed":
+        elif phase == "failed":
             return process_kinds.Fail(st.get("note") or "the step failed")
         elif not wf["auto"]:
             return ctx.wait(workflow_cases.PERSON)
         else:
             _start(wf, sdef, actor=actor)
-    return process_kinds.Fail(f"the step did not settle: it is still {st['state']}")
+    return process_kinds.Fail(f"the step did not settle: it is still {st['phase']}")
 
 
 def _built_on(ctx: process_engine.StepContext) -> dict[str, Any]:

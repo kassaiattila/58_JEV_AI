@@ -105,7 +105,8 @@ def test_a_claim_left_by_a_stopped_process_is_released_by_the_workers_turn(db):
     a = parties.create("Example H Kft.", identities=[], actor="t")["id"]
     wf_id = _make(db, a, advance_now=False)["workflow"]["id"]
     with store.connect() as c:  # a process claimed the start two hours ago and never came back
-        c.execute("UPDATE workflow_steps SET state='starting', updated_at='2026-01-01T00:00:00+00:00' WHERE workflow_id=? AND step='invoices'",
+        c.execute("UPDATE process_steps SET phase='starting' WHERE case_id=? AND step_id='invoices'", (wf_id,))
+        c.execute("UPDATE workflow_steps SET updated_at='2026-01-01T00:00:00+00:00' WHERE workflow_id=? AND step='invoices'",
                   (wf_id,))
     assert wf.release_stale_starts() == 1
     step = {s["id"]: s for s in wf.view(wf_id)["steps"]}["invoices"]

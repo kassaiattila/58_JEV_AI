@@ -87,8 +87,11 @@ def test_the_workflow_and_its_case_are_written_together_or_not_at_all(db, monkey
 
 
 def _as_before(wf_id: str, states: dict[str, tuple[str, str | None]], *, archived: bool = False) -> None:
-    """The workflow as an older version left it: its steps in these states, no case."""
+    """The workflow as an older version left it: its steps in these states, no case (227: in the workflow table's
+    column of before, which the next start moves into the core and drops)."""
     with store.connect() as c:
+        if "state" not in {r[1] for r in c.execute("PRAGMA table_info(workflow_steps)")}:
+            c.execute("ALTER TABLE workflow_steps ADD COLUMN state TEXT NOT NULL DEFAULT 'waiting'")
         for step, (state, note) in states.items():
             c.execute("UPDATE workflow_steps SET state=?, note=? WHERE workflow_id=? AND step=?", (state, note, wf_id, step))
         if archived:

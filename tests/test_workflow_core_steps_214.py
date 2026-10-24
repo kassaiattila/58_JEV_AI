@@ -83,7 +83,7 @@ def test_a_start_a_stopped_process_left_fails_at_the_next_turn(db):  # noqa: F81
     with store.connect() as c:  # a process claimed the case, began the start and stopped a moment ago
         store.begin_immediate(c)
         cases.begin(c, wf_id, "invoices", workflow_cases.maker("tester"))
-        c.execute("UPDATE workflow_steps SET state='starting' WHERE workflow_id=? AND step='invoices'", (wf_id,))
+        cases.set_phase(c, wf_id, "invoices", "starting")
         c.execute("INSERT INTO process_claims(case_id, holder, claimed_at) VALUES (?, 'stopped-holder', 'x')", (wf_id,))
     view = wf.advance(wf_id, actor="tester (auto)")
     assert _steps(view)["invoices"]["state"] == "failed" and _steps(view)["invoices"]["note"] == wf.INTERRUPTED
@@ -149,7 +149,8 @@ def test_an_approval_in_a_workflow_with_the_chain_off_is_seen_by_its_check_timer
 
 def test_a_workflow_an_older_process_made_gets_its_case_at_its_first_turn(db):  # noqa: F811
     wf_id = _monthly(db, advance_now=False)
-    with store.connect() as c:  # an older process made it: no case
+    with store.connect() as c:  # an older process made it: no case (227: its steps' states in the column of before)
+        c.execute("ALTER TABLE workflow_steps ADD COLUMN state TEXT NOT NULL DEFAULT 'waiting'")
         for table in ("process_cases", "process_steps", "process_history", "process_timers"):
             c.execute(f"DELETE FROM {table} WHERE case_id=?", (wf_id,))
     wf.advance(wf_id, actor="tester (auto)")

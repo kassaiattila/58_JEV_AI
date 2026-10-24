@@ -16,12 +16,18 @@ and resumed; nothing in it moves meanwhile, and its events wait for it.
 with the closing), and what else must change when a step stops running or the case closes registers here
 (`on_leave`: the human tasks withdraw the step's open tasks), so this module needs none of them.
 
+227 (plan R3 R3d): a step also keeps its kind's own phase (`phase`, `set_phase`): where the kind's own work on the step
+stands, in the kind's own words (e.g. a start under way, a download queued), which the step's state alone does not
+say. The core keeps it through all of its own changes (a wait, a retry, a reopening, going stale) and never reads it,
+so the kind's next run goes on from it; the kind changes it in the transaction of its own change, a claim with
+`expect`. A step's whole state is in its row.
+
 Tables:
 - `process_cases`: the case: its definition (copy, id, version, fingerprint), its data, status (open | closed) and
   outcome, and a case-wide wait (`migration`: its definition names a step kind the running code does not have; or the
   reason it is on hold).
 - `process_steps`: each step's state (waiting | ready | running | done | failed | stale), what a running step waits
-  for, its result and result version.
+  for, its result and result version, and its kind's own phase (227).
 - `process_history`: the case's history, written in the transaction of the change it records; who acted (rule 8).
 - `process_inbox`: incoming events by id, with their content's fingerprint (pending | applied | refused | ignored).
 
@@ -80,6 +86,7 @@ CREATE TABLE IF NOT EXISTS process_steps (
     result         TEXT,                       -- JSON, as the step's kind records it
     note           TEXT,                       -- why it failed
     updated_at     TEXT NOT NULL,
+    phase          TEXT,                       -- 227: the step kind's own phase, which the core keeps and never reads
     PRIMARY KEY (case_id, step_id)
 );
 CREATE TABLE IF NOT EXISTS process_history (
@@ -108,6 +115,8 @@ CREATE TABLE IF NOT EXISTS process_inbox (
 );
 CREATE INDEX IF NOT EXISTS ix_process_inbox_case ON process_inbox(case_id, status);
 """)
+# 227: a store made before keeps its steps; their kinds' phase starts empty (a kind that had one moves it in itself)
+store.register_migration("process.cases.phase", lambda conn: store.add_columns(conn, "process_steps", {"phase": "TEXT"}))
 
 
 class UnknownCase(KeyError):
@@ -147,13 +156,15 @@ class Event:
 
 @dataclass(frozen=True)
 class Adopted:
-    """A step's state as its case is adopted (`adopt`): a running step may wait, with a timer (name, epoch seconds)."""
+    """A step's state as its case is adopted (`adopt`): a running step may wait, with a timer (name, epoch seconds);
+    227: with its kind's own phase."""
 
     state: str
     waiting_for: str | None = None
     note: str | None = None
     result: Any = None
     timer: tuple[str, float] | None = None
+    phase: str | None = None
 
 
 Leave = Callable[[sqlite3.Connection, str, str | None, Actor], None]
@@ -247,7 +258,7 @@ def view(case_id: str) -> dict[str, Any]:
         history = [{"step_id": r["step_id"], "kind": r["kind"], "actor": json.loads(r["actor"])["id"],
                     "detail": json.loads(r["detail"]), "pid": r["pid"], "at": r["at"]}
                    for r in c.execute("SELECT * FROM process_history WHERE case_id=? ORDER BY id", (case_id,))]
-        steps = {sid: {k: s[k] for k in ("state", "waiting_for", "result_version", "result", "note")}
+        steps = {sid: {k: s[k] for k in ("state", "waiting_for", "result_version", "result", "note", "phase")}
                  for sid, s in step_rows(c, case_id).items()}
     return {"case_id": case_id, "definition": {"id": row["definition_id"], "version": row["definition_version"],
                                                "sha": row["definition_sha"]},
@@ -340,6 +351,22 @@ def end_wait(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, by
 def set_result(c: sqlite3.Connection, case_id: str, step_id: str, result: Any) -> None:
     """What the step has gathered so far (e.g. a decision it received); the result version is raised when it is done."""
     _set_step(c, case_id, step_id, result=_json(result))
+
+
+def set_phase(c: sqlite3.Connection, case_id: str, step_id: str, phase: str, *,
+              expect: tuple[str, ...] | None = None) -> bool:
+    """227: the step kind's own phase, in the caller's write transaction, whatever the step's state; with `expect` only
+    from one of those phases (a claim: False when another process got there first, and nothing is written). The kind
+    records its own log of it; the core keeps it and never reads it."""
+    sql = "UPDATE process_steps SET phase=?, updated_at=? WHERE case_id=? AND step_id=?"
+    args: list[Any] = [phase, _now(), case_id, step_id]
+    if expect is not None:
+        sql += f" AND phase IN ({','.join('?' * len(expect))})"
+        args += list(expect)
+    if not c.execute(sql, args).rowcount:
+        return False
+    _touch(c, case_id)
+    return True
 
 
 def complete(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, result: Any = None) -> int:
@@ -485,10 +512,10 @@ def adopt(c: sqlite3.Connection, case_id: str, definition: ProcessDef, data: dic
     now = _insert_case(c, case_id, definition, data, sha, started_by)
     taken = {s.id: steps.get(s.id, Adopted(WAITING)) for s in definition.steps}
     for sid, st in taken.items():
-        c.execute("INSERT INTO process_steps(case_id, step_id, state, waiting_for, result_version, result, note, updated_at)"
-                  " VALUES (?,?,?,?,?,?,?,?)",
+        c.execute("INSERT INTO process_steps(case_id, step_id, state, waiting_for, result_version, result, note, updated_at,"
+                  " phase) VALUES (?,?,?,?,?,?,?,?,?)",
                   (case_id, sid, st.state, st.waiting_for, 1 if st.state == DONE else 0,
-                   None if st.result is None else _json(st.result), st.note, now))
+                   None if st.result is None else _json(st.result), st.note, now, st.phase))
     record(c, case_id, None, "adopted", by, {
         "definition": definition.id, "version": definition.version, "sha": definition.fingerprint(),
         "steps": {sid: st.state if st.waiting_for is None else f"{st.state}:{st.waiting_for}" for sid, st in taken.items()}})
