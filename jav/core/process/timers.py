@@ -18,6 +18,10 @@ from typing import Any
 from jav.core import store
 from jav.core.clock import utc_stamp as _now
 
+__all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
+    "ARMED", "FIRED", "CANCELLED", "Timer", "timer_id", "of_case",
+]
+
 ARMED, FIRED, CANCELLED = "armed", "fired", "cancelled"
 
 store.register_schema("process.timers", """

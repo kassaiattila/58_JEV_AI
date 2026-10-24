@@ -668,6 +668,16 @@ T07 x2, T08 with separate worker processes over `tests/process_quote.py` and `te
 team lead when the clerk's deadline passes), `tests/test_process_adopt_214.py` (adoption, hold and resume) and
 `tests/test_process_tasks_215.py` (human tasks, with a Hypothesis test of a decision racing its deadline).
 
+**The core's boundary (229, plan structure stage 1, SZ1a–SZ1b).** The worker's round turns every case with something
+to do, of any process definition (`engine.turn_due`); before, it looked only at the workflows' cases. Each module of
+the core lists what code outside it may use (`__all__`): the operations a caller makes in its own transaction, the
+reads (229: `find_case_in`, `find_step_in`, `without_case_in`, `steps_in_phase_in`, `tasks.of_kind_in`,
+`tasks.ids_of_kind_in`), the step and task kinds' registries and the plug-in point's four operations. Code outside the
+core uses only these and never names the core's tables in SQL; it reads them through the core, as the domains' tables
+are read through their registrations (211). The two tools that read a store copy of any version
+(`jav/devtools/admin.py`, `jav/evals/before_after.py`) are the stated exceptions. Tests:
+`tests/test_process_worker_229.py`, `tests/test_process_boundary_229.py`.
+
 **Workflows as cases (214).** `jav/app/workflow_cases.py`: a workflow's case has the workflow's id; its process
 definition is the workflow's saved template (one step per template step, all of the core step kind `workflow_step`
 with the template's step kind as its parameter, the template's `after` as the order), versioned by the saved

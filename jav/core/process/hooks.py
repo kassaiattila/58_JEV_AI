@@ -17,6 +17,11 @@ from dataclasses import dataclass
 
 from jav.core.process.actor import Actor
 
+__all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
+    "NotAuthorised", "Measurement", "Authorizer", "Observer", "set_authorizer", "authorize", "set_observer",
+    "observe", "measured",
+]
+
 log = logging.getLogger(__name__)
 
 Authorizer = Callable[[Actor, str, str | None], bool]

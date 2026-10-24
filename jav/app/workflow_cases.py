@@ -90,8 +90,11 @@ _ADOPTED: dict[str, tuple[str, str | None]] = {
     "nothing_new": (cases.DONE, None), "failed": (cases.FAILED, None),
 }
 
-_MISSING = ("SELECT id FROM workflows w WHERE NOT EXISTS (SELECT 1 FROM process_cases c WHERE c.case_id=w.id)"
-            " ORDER BY created_at, id")
+
+
+def _missing(c: sqlite3.Connection) -> list[str]:
+    """The workflows without a case, oldest first (229: through the core's own read)."""
+    return cases.without_case_in(c, [r["id"] for r in c.execute("SELECT id FROM workflows ORDER BY created_at, id")])
 
 
 def definition(template: Mapping[str, Any]) -> ProcessDef:
@@ -132,7 +135,7 @@ def start(c: sqlite3.Connection, wf_id: str, template: Mapping[str, Any], actor:
 def ensure(wf_id: str) -> None:
     """The workflow's case, adopted now when a process started before the workflow was made had no case for it."""
     with store.connect() as c:
-        if c.execute("SELECT 1 FROM process_cases WHERE case_id=?", (wf_id,)).fetchone() is not None:
+        if cases.find_case_in(c, wf_id) is not None:
             return
         store.begin_immediate(c)
         adopt(c, wf_id)
@@ -154,7 +157,7 @@ def adopt(c: sqlite3.Connection, wf_id: str) -> str | None:
     """Adopts a workflow without a case from the state its steps reached, in the caller's write transaction ("adopted");
     None when it has its case. An archived workflow's case is held. 227: each step's state, which the workflow's table
     kept before, becomes its phase; once the column is dropped every workflow has its case."""
-    if c.execute("SELECT 1 FROM process_cases WHERE case_id=?", (wf_id,)).fetchone() is not None:
+    if cases.find_case_in(c, wf_id) is not None:
         return None
     row = c.execute("SELECT definition, actor, status FROM workflows WHERE id=?", (wf_id,)).fetchone()
     if row is None:
@@ -177,13 +180,13 @@ def adopt_missing(conn: sqlite3.Connection) -> int:
     write transaction checked again inside it, so two processes starting at once adopt each workflow once. A workflow
     the core cannot take (a saved template it cannot read) is logged and left without a case, each in a savepoint of
     its own, so it never stops the store from opening. Returns how many were adopted."""
-    if conn.execute(_MISSING).fetchone() is None:
+    if not _missing(conn):
         return 0
     conn.commit()
     conn.execute("BEGIN IMMEDIATE")
     adopted = 0
     try:
-        for (wf_id,) in conn.execute(_MISSING).fetchall():
+        for wf_id in _missing(conn):
             conn.execute("SAVEPOINT workflow_adoption")
             try:
                 adopted += adopt(conn, wf_id) == "adopted"
@@ -196,11 +199,6 @@ def adopt_missing(conn: sqlite3.Connection) -> int:
         conn.rollback()
         raise
     return adopted
-
-
-_MOVE = (f"UPDATE process_steps SET phase=(SELECT s.{OLD_STATE} FROM workflow_steps s WHERE s.workflow_id=process_steps.case_id"
-         " AND s.step=process_steps.step_id) WHERE phase IS NULL AND EXISTS (SELECT 1 FROM workflow_steps s"
-         " WHERE s.workflow_id=process_steps.case_id AND s.step=process_steps.step_id)")
 
 
 def move_phases(conn: sqlite3.Connection) -> int:
@@ -216,8 +214,9 @@ def move_phases(conn: sqlite3.Connection) -> int:
     try:
         moved = 0
         if _keeps_old_states(conn):
-            moved = conn.execute(_MOVE).rowcount
-            if conn.execute(_MISSING).fetchone() is None:
+            moved = cases.adopt_phases_in(conn, {(r["workflow_id"], r["step"]): r[OLD_STATE] for r in conn.execute(
+                f"SELECT workflow_id, step, {OLD_STATE} FROM workflow_steps WHERE {OLD_STATE} IS NOT NULL")})
+            if not _missing(conn):
                 conn.execute(f"ALTER TABLE workflow_steps DROP COLUMN {OLD_STATE}")
             else:
                 log.warning("a workflow has no case yet: its steps' states stay in the workflow's table")
@@ -275,8 +274,8 @@ def ask_budget(c: sqlite3.Connection, wf_id: str, step: str, assignee: str | Non
     """215: the step's package's estimate is over its budget: a person decides, in the caller's transaction that
     records the wait. While the step runs in the case, the task is its wait (a person's start decides it); otherwise
     (a step no turn of the case runs) it stands on its own and the start ends the wait as before."""
-    in_case = (c.execute("SELECT 1 FROM process_steps WHERE case_id=? AND step_id=? AND state=?",
-                         (wf_id, step, cases.RUNNING)).fetchone() is not None)
+    row = cases.find_step_in(c, wf_id, step)
+    in_case = row is not None and row["state"] == cases.RUNNING
     tasks.open_in(c, BUDGET_TASK, f"{wf_id}:{step}", MACHINE, assignee=assignee, detail=detail,
                   **({"case_id": wf_id, "step_id": step, "waits": BUDGET} if in_case else {}))
 
@@ -284,10 +283,11 @@ def ask_budget(c: sqlite3.Connection, wf_id: str, step: str, assignee: str | Non
 def budget_tasks_of(c: sqlite3.Connection, wp_id: str) -> list[tuple[str, str]]:
     """215 (P2d): the open budget tasks of the steps whose package it is, each with the workflow's maker (the creator
     the owner's rule falls back on)."""
-    return [(r["task_id"], r["actor"]) for r in c.execute(
-        "SELECT t.task_id, w.actor FROM process_tasks t JOIN workflow_steps s ON t.subject = s.workflow_id || ':' || s.step"
-        " JOIN workflows w ON w.id = s.workflow_id WHERE t.kind=? AND t.status=? AND s.workpackage_id=?",
-        (BUDGET_TASK, tasks.OPEN, wp_id))]
+    makers = {f"{r['workflow_id']}:{r['step']}": r["actor"] for r in c.execute(
+        "SELECT s.workflow_id, s.step, w.actor FROM workflow_steps s JOIN workflows w ON w.id = s.workflow_id"
+        " WHERE s.workpackage_id=?", (wp_id,))}
+    return [(t.task_id, makers[t.subject]) for t in tasks.of_kind_in(c, BUDGET_TASK, status=tasks.OPEN)
+            if t.subject in makers]
 
 
 def person_starts(c: sqlite3.Connection, wf_id: str, step: str, actor: str, *, decision: Any = None) -> None:
@@ -313,8 +313,7 @@ def package_settled(c: sqlite3.Connection, wp_id: str, event_id: str, payload: d
     row = c.execute("SELECT workflow_id, step FROM workflow_steps WHERE workpackage_id=?", (wp_id,)).fetchone()
     if row is None:
         return False
-    st = c.execute("SELECT state, waiting_for FROM process_steps WHERE case_id=? AND step_id=?",
-                   (row["workflow_id"], row["step"])).fetchone()
+    st = cases.find_step_in(c, row["workflow_id"], row["step"])
     if st is None or st["state"] != cases.RUNNING or st["waiting_for"] != APPROVAL:
         return False
     return cases.send_event_in(c, row["workflow_id"], event_id, APPROVAL, payload, actor,
@@ -330,11 +329,10 @@ def package_reopened(c: sqlite3.Connection, wp_id: str, actor: actors.Actor, rea
     row = c.execute("SELECT workflow_id, step FROM workflow_steps WHERE workpackage_id=?", (wp_id,)).fetchone()
     if row is None:
         return []
-    case = c.execute("SELECT status, outcome FROM process_cases WHERE case_id=?", (row["workflow_id"],)).fetchone()
+    case = cases.find_case_in(c, row["workflow_id"])
     if case is None or (case["status"] == cases.CLOSED and case["outcome"] != "done"):
         return []
-    st = c.execute("SELECT state FROM process_steps WHERE case_id=? AND step_id=?",
-                   (row["workflow_id"], row["step"])).fetchone()
+    st = cases.find_step_in(c, row["workflow_id"], row["step"])
     if st is None or st["state"] != cases.DONE:
         return []
     return cases.reopen_in(c, row["workflow_id"], row["step"], actor, reason=reason)

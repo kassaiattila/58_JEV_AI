@@ -30,6 +30,11 @@ if TYPE_CHECKING:
     from jav.core.process.engine import StepContext
     from jav.core.process.timers import Timer
 
+__all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
+    "APPLIED", "REFUSED", "Done", "Wait", "Close", "Fail", "DONE", "WAIT", "StepOutcome", "StepKind", "UnknownKind",
+    "register", "of", "known", "unknown", "events_of",
+]
+
 APPLIED, REFUSED = "applied", "refused"
 
 

@@ -17,6 +17,10 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+__all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
+    "NAME", "StepDef", "ProcessDef", "load",
+]
+
 NAME = r"^[a-z][a-z0-9_]*$"
 
 

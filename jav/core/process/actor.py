@@ -12,6 +12,10 @@ import json
 from dataclasses import asdict, dataclass
 from typing import Any, Literal
 
+__all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
+    "HUMAN", "MACHINE", "LOCAL", "Actor", "person", "machine",
+]
+
 HUMAN, MACHINE = "human", "machine"
 LOCAL = "local"
 

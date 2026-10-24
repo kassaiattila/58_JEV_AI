@@ -21,6 +21,11 @@ from jav.core.clock import utc_stamp as _now
 from jav.core.process import cases, hooks
 from jav.core.process.actor import Actor
 
+__all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
+    "RECORDED", "SENT", "ACKNOWLEDGED", "UNCERTAIN", "FAILED", "SETTLEMENT", "Uncertain", "Refused",
+    "UnknownHandover", "NotUncertain", "get", "of_case", "record", "send", "settle",
+]
+
 log = logging.getLogger(__name__)
 
 RECORDED, SENT, ACKNOWLEDGED, UNCERTAIN, FAILED = "recorded", "sent", "acknowledged", "uncertain", "failed"

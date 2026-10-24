@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS workflow_steps (
     step           TEXT NOT NULL,
     source         TEXT NOT NULL,      -- JSON: {"kind": folder|files|mailbox|package|none, ...}
     budget         TEXT NOT NULL,      -- JSON {provider: usd}: the most an automatic start may reserve
-    name           TEXT NOT NULL,      -- the work package's name (227: its phase is in its core row, `process_steps.phase`)
+    name           TEXT NOT NULL,      -- the work package's name (227: its phase is in its core row, the step's phase)
     workpackage_id TEXT,
     pull_id        TEXT,
     run_id         TEXT,
@@ -448,12 +448,13 @@ def _row(wf_id: str) -> dict[str, Any]:
 def _steps(wf_id: str) -> dict[str, dict[str, Any]]:
     """The steps' own data, each with its phase from its core row (227)."""
     with store.connect() as c:
-        rows = c.execute("SELECT s.*, p.phase FROM workflow_steps s LEFT JOIN process_steps p"
-                         " ON p.case_id=s.workflow_id AND p.step_id=s.step WHERE s.workflow_id=?", (wf_id,)).fetchall()
+        rows = c.execute("SELECT * FROM workflow_steps WHERE workflow_id=?", (wf_id,)).fetchall()
+        core = process_cases.step_rows(c, wf_id)  # 229: the core's rows through its own read
     out = {}
     for r in rows:
         d = dict(r)
         d["source"], d["budget"] = json.loads(d["source"]), json.loads(d["budget"])
+        d["phase"] = core[d["step"]]["phase"] if d["step"] in core else None
         out[d["step"]] = d
     return out
 
@@ -1069,9 +1070,10 @@ def release_stale_starts(max_age_s: float = STALE_START_S) -> int:
     left to it, and the step fails in its case too (before, only its phase did, and the case still had it running)."""
     cutoff = (datetime.now(timezone.utc) - timedelta(seconds=max_age_s)).isoformat(timespec="seconds")
     with store.connect() as c:
-        stale = c.execute("SELECT s.workflow_id, s.step, w.actor FROM workflow_steps s JOIN workflows w ON w.id=s.workflow_id"
-                          " JOIN process_steps p ON p.case_id=s.workflow_id AND p.step_id=s.step"
-                          " WHERE p.phase='starting' AND s.updated_at < ?", (cutoff,)).fetchall()
+        starting = set(process_cases.steps_in_phase_in(c, ("starting",)))  # 229: the core's rows through its own read
+        stale = [r for r in c.execute("SELECT s.workflow_id, s.step, w.actor FROM workflow_steps s"
+                                      " JOIN workflows w ON w.id=s.workflow_id WHERE s.updated_at < ?", (cutoff,))
+                 if (r["workflow_id"], r["step"]) in starting]
     released = 0
     for r in stale:
         if not process_engine.claim_case(r["workflow_id"]):
@@ -1101,8 +1103,9 @@ def tick(now: float | None = None) -> int:
     _last_tick = now
     release_stale_starts()
     with store.connect() as c:
-        rows = c.execute("SELECT DISTINCT w.id, w.actor FROM workflows w JOIN process_steps p ON p.case_id=w.id"
-                         " WHERE w.status='open' AND w.auto=1 AND p.phase IN ('waiting', 'pulling')").fetchall()
+        moving = {case_id for case_id, _ in process_cases.steps_in_phase_in(c, ("waiting", "pulling"))}  # 229
+        rows = [r for r in c.execute("SELECT w.id, w.actor FROM workflows w WHERE w.status='open' AND w.auto=1")
+                if r["id"] in moving]
     for r in rows:
         try:
             advance(r["id"], actor=auto_actor(r["actor"]))
@@ -1261,12 +1264,13 @@ def _went_stale(c: Any, case_id: str, step_id: str | None, actor: Any) -> None:
     step keeps the one it was done with. Registered with the core's `on_leave`; nothing for another case."""
     if step_id is None:
         return
-    row = c.execute("SELECT s.state, s.result FROM process_steps s JOIN process_cases k ON k.case_id = s.case_id"
-                    " WHERE s.case_id=? AND s.step_id=? AND substr(k.definition_id, 1, ?) = ?",
-                    (case_id, step_id, len(workflow_cases.DEFINITION_PREFIX), workflow_cases.DEFINITION_PREFIX)).fetchone()
+    case = process_cases.find_case_in(c, case_id)  # 229: the core's rows through its own reads
+    if case is None or not case["definition_id"].startswith(workflow_cases.DEFINITION_PREFIX):
+        return
+    row = process_cases.find_step_in(c, case_id, step_id)
     if row is None or row["state"] != process_cases.STALE:
         return
-    result = json.loads(row["result"]) if row["result"] else None
+    result = row["result"]
     if isinstance(result, dict) and "built_on" in result:
         return
     needs = process_cases.definition_of(process_cases.case_row(c, case_id)).step(step_id).needs()

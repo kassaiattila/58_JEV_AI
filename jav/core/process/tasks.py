@@ -34,6 +34,13 @@ from jav.core.clock import utc_stamp as _now
 from jav.core.process import cases, hooks, kinds, timers
 from jav.core.process.actor import Actor
 
+__all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
+    "OPEN", "DECIDED", "EXPIRED", "WITHDRAWN", "EVENT", "UnknownTask", "UnknownTaskKind", "TaskClosed",
+    "ReasonRequired", "StaleResult", "TaskKind", "register_kind", "kind_of", "Task", "task_id", "task_in", "get",
+    "open_tasks", "of_kind_in", "ids_of_kind_in", "open_for_in", "of_case", "history", "open_in", "decide_in",
+    "withdraw_in", "assign_in", "set_due_in", "decide",
+]
+
 OPEN, DECIDED, EXPIRED, WITHDRAWN = "open", "decided", "expired", "withdrawn"
 EVENT = "task_closed"  # the event a task's closing sends its case, unless the opener names the step's own wait
 TIMER = "task:"  # a task's deadline timer is named `task:<task id>`
@@ -190,6 +197,19 @@ def open_tasks(assignee: str | None = None, *, kind: str | None = None) -> list[
         sql, args = sql + " AND kind=?", [*args, kind]
     with store.connect() as c:
         return [_task(r) for r in c.execute(sql + " ORDER BY opened_at, task_id", args)]
+
+
+def of_kind_in(c: sqlite3.Connection, kind: str, *, status: str | None = None) -> list[Task]:
+    """229: the tasks of one kind, in every status or only in `status`, oldest first."""
+    sql, args = "SELECT * FROM process_tasks WHERE kind=?", [kind]
+    if status is not None:
+        sql, args = sql + " AND status=?", [*args, status]
+    return [_task(r) for r in c.execute(sql + " ORDER BY opened_at, task_id", args)]
+
+
+def ids_of_kind_in(c: sqlite3.Connection, kind: str) -> set[str]:
+    """229: the ids of the tasks of one kind, in every status (a light look: whether a subject already has its task)."""
+    return {r["task_id"] for r in c.execute("SELECT task_id FROM process_tasks WHERE kind=?", (kind,))}
 
 
 def open_for_in(c: sqlite3.Connection, assignee: str) -> list[Task]:

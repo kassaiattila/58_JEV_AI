@@ -42,7 +42,7 @@ import json
 import os
 import sqlite3
 import time
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -53,6 +53,16 @@ from jav.core.process import definition as definitions
 from jav.core.process import hooks, kinds, timers
 from jav.core.process.actor import Actor
 from jav.core.process.definition import ProcessDef
+
+__all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
+    "OPEN", "CLOSED", "WAITING", "READY", "RUNNING", "DONE", "FAILED", "STALE", "STATES", "MIGRATION", "PENDING",
+    "IGNORED", "UnknownCase", "CaseConflict", "UnknownEvent", "CaseClosed", "StepStateError", "AdoptionError",
+    "Event", "Adopted", "on_leave", "transaction", "definition_of", "find_case_in", "case_row", "find_step_in",
+    "step_rows", "step_row", "without_case_in", "steps_in_phase_in", "get", "pending_events", "view", "record",
+    "start", "send_event", "cancel", "override_order", "retry", "reopen", "start_in", "send_event_in",
+    "override_order_in", "retry_in", "reopen_in", "adopt", "adopt_phases_in", "set_phase", "set_result", "end_wait",
+    "fail", "close", "hold", "resume",
+]
 
 OPEN, CLOSED = "open", "closed"
 WAITING, READY, RUNNING, DONE, FAILED, STALE = "waiting", "ready", "running", "done", "failed", "stale"
@@ -212,23 +222,68 @@ def definition_of(row: dict[str, Any]) -> ProcessDef:
 # --- reading --------------------------------------------------------------------------------------------------------
 
 
-def case_row(c: sqlite3.Connection, case_id: str) -> dict[str, Any]:
+def find_case_in(c: sqlite3.Connection, case_id: str) -> dict[str, Any] | None:
+    """229: the case, or None when there is none (e.g. a workflow an older process made, until it is adopted)."""
     row = c.execute("SELECT * FROM process_cases WHERE case_id=?", (case_id,)).fetchone()
+    return None if row is None else {**dict(row), "data": json.loads(row["data"])}
+
+
+def case_row(c: sqlite3.Connection, case_id: str) -> dict[str, Any]:
+    row = find_case_in(c, case_id)
     if row is None:
         raise UnknownCase(case_id)
-    return {**dict(row), "data": json.loads(row["data"])}
+    return row
+
+
+def _step(row: sqlite3.Row) -> dict[str, Any]:
+    return {**dict(row), "result": json.loads(row["result"]) if row["result"] is not None else None}
 
 
 def step_rows(c: sqlite3.Connection, case_id: str) -> dict[str, dict[str, Any]]:
-    return {r["step_id"]: {**dict(r), "result": json.loads(r["result"]) if r["result"] is not None else None}
-            for r in c.execute("SELECT * FROM process_steps WHERE case_id=?", (case_id,))}
+    return {r["step_id"]: _step(r) for r in c.execute("SELECT * FROM process_steps WHERE case_id=?", (case_id,))}
+
+
+def find_step_in(c: sqlite3.Connection, case_id: str, step_id: str) -> dict[str, Any] | None:
+    """229: the step, or None when its case has no such step (or there is no case)."""
+    row = c.execute("SELECT * FROM process_steps WHERE case_id=? AND step_id=?", (case_id, step_id)).fetchone()
+    return None if row is None else _step(row)
 
 
 def step_row(c: sqlite3.Connection, case_id: str, step_id: str) -> dict[str, Any]:
-    row = c.execute("SELECT * FROM process_steps WHERE case_id=? AND step_id=?", (case_id, step_id)).fetchone()
+    row = find_step_in(c, case_id, step_id)
     if row is None:
         raise StepStateError(f"case {case_id} has no step {step_id!r}")
-    return {**dict(row), "result": json.loads(row["result"]) if row["result"] is not None else None}
+    return row
+
+
+_CHUNK = 500  # ids per query of a lookup by many ids
+
+
+def without_case_in(c: sqlite3.Connection, case_ids: Iterable[str]) -> list[str]:
+    """229: those of the ids that have no case, in their given order."""
+    ids = list(case_ids)
+    known: set[str] = set()
+    for i in range(0, len(ids), _CHUNK):
+        part = ids[i:i + _CHUNK]
+        known |= {r["case_id"] for r in c.execute(
+            f"SELECT case_id FROM process_cases WHERE case_id IN ({','.join('?' * len(part))})", part)}
+    return [i for i in ids if i not in known]
+
+
+def steps_in_phase_in(c: sqlite3.Connection, phases: Iterable[str]) -> list[tuple[str, str]]:
+    """229: the (case, step) pairs whose step kind's own phase (`set_phase`) is one of these, of any case."""
+    wanted = list(phases)
+    return [(r["case_id"], r["step_id"]) for r in c.execute(
+        f"SELECT case_id, step_id FROM process_steps WHERE phase IN ({','.join('?' * len(wanted))})"
+        " ORDER BY case_id, step_id", wanted)]
+
+
+def adopt_phases_in(c: sqlite3.Connection, phases: Mapping[tuple[str, str], str]) -> int:
+    """229 (227's store change): the phases a store of before kept elsewhere, for the steps that have none yet, in the
+    caller's write transaction; nothing else of the step or its case changes (a migration, not a change of the case).
+    Returns how many it set."""
+    return sum(c.execute("UPDATE process_steps SET phase=? WHERE case_id=? AND step_id=? AND phase IS NULL",
+                         (phase, case_id, step_id)).rowcount for (case_id, step_id), phase in phases.items())
 
 
 def get(case_id: str) -> dict[str, Any]:
