@@ -236,13 +236,13 @@ def _outcome(answer: dict[str, Any], expected: Any) -> str:
     return "missed"
 
 
-def golden(*, engine: str, limits: dict[str, Decimal], use_cache: bool = True, out_dir: Path = RUNS_DIR,
+def golden(data: Any, *, engine: str, limits: dict[str, Decimal], use_cache: bool = True, out_dir: Path = RUNS_DIR,
            earlier_only: bool = False) -> dict[str, Any]:
-    """The invented golden set's requested items (as written in `configs/golden_quotes.json`), each matched against the
+    """The invented golden set's (`data`, loaded by the quote's golden module; 227, plan R3c) requested items (as written in `configs/golden_quotes.json`), each matched against the
     set's price list with the engine and judged against its expected match, under the owner's sub-budget (`limits`; an
     engine without one is refused before any call; `earlier_only`: without a budget, earlier answers only). Raw rows:
     `runs/<stamp>_quote_matches.jsonl`."""
-    from jav.domains.quotes import invented_golden, quote_pricing
+    from jav.domains.quotes import quote_pricing
 
     if earlier_only:
         if limits:
@@ -250,7 +250,6 @@ def golden(*, engine: str, limits: dict[str, Decimal], use_cache: bool = True, o
         print(calls.NO_BUDGET_NOTE)
     elif PROVIDERS[engine] not in limits:
         raise ValueError(f"no budget for: {engine}")
-    data = invented_golden.load()
     prices = quote_pricing.golden_price_list(data)
     cases = [c for c in data.cases if c.expected.request is not None]
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")

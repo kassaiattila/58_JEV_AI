@@ -17,8 +17,7 @@ from unittest.mock import patch
 
 import pytest
 
-from jav.ai import policy
-from jav.documents import isolated_pdf, pdf
+from jav.documents import isolated_pdf, pdf, pdf_input
 from jav.core import store
 from jav.flows.flow import load_pdf as invoice_load
 from jav.flows.flow_detect import DetectState, load_pdf as detect_load, save as detect_save
@@ -120,7 +119,7 @@ def test_the_reader_finds_the_scans_of_a_real_pdf(tmp_path):
     scans = pdf.read_pdf(_write_pdf(tmp_path / "scans.pdf", [(TEXT_PAGE, None), ([], FULL_PAGE), (["3"], FULL_PAGE)]))
     assert scans.has_text_layer and scans.pages_without_text == [2, 3]
     assert scans.page_image_shares[0] == 0.0 and scans.page_image_shares[1] == pytest.approx(1.0)
-    assert policy.text_layer_coverage_reasons(scans.page_count, scans.pages_without_text) == ["pdf:pages_without_text:2/3"]
+    assert pdf_input.text_layer_coverage_reasons(scans.page_count, scans.pages_without_text) == ["pdf:pages_without_text:2/3"]
 
 
 def test_the_reader_raises_nothing_for_a_blank_page_a_page_number_or_a_logo(tmp_path):
@@ -128,14 +127,14 @@ def test_the_reader_raises_nothing_for_a_blank_page_a_page_number_or_a_logo(tmp_
                                                               (["Page 4 of 4"], LOGO)]))
     assert plain.has_text_layer and plain.pages_without_text == []
     assert 0.0 < plain.page_image_shares[3] < pdf.MIN_SCAN_IMAGE_SHARE
-    assert policy.text_layer_coverage_reasons(plain.page_count, plain.pages_without_text) == []
+    assert pdf_input.text_layer_coverage_reasons(plain.page_count, plain.pages_without_text) == []
 
 
 def test_the_policy_names_some_pages_but_not_all():
-    assert policy.text_layer_coverage_reasons(3, [2, 3]) == ["pdf:pages_without_text:2/3"]
-    assert policy.text_layer_coverage_reasons(3, []) == []
-    assert policy.text_layer_coverage_reasons(3, [1, 2, 3]) == []  # no page has text: the document goes to OCR
-    assert policy.text_layer_coverage_reasons(None, [1]) == []
+    assert pdf_input.text_layer_coverage_reasons(3, [2, 3]) == ["pdf:pages_without_text:2/3"]
+    assert pdf_input.text_layer_coverage_reasons(3, []) == []
+    assert pdf_input.text_layer_coverage_reasons(3, [1, 2, 3]) == []  # no page has text: the document goes to OCR
+    assert pdf_input.text_layer_coverage_reasons(None, [1]) == []
 
 
 def _pdf_text(pages_without_text: list[int], page_count: int = 3, has_text: bool = True) -> pdf.PdfText:

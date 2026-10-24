@@ -7,7 +7,8 @@ write these steps out each; now each flow's step calls this module and keeps onl
 extraction saves the source layer and judges the OCR quality, the recognition remembers the Azure reading's
 fingerprint.
 
-Layer: a flow's step → **this** → `jav.documents.pdf`, `jav.documents.ocr`, `jav.ai.policy`.
+Layer: a flow's step → **this** → `jav.documents.pdf`, `jav.documents.ocr` (227, plan R3c: the pages-without-text
+rule is this module's, until then the AI layer's decision rules).
 """
 
 from __future__ import annotations
@@ -15,7 +16,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from jav.ai import policy
 from jav.core.digest import file_sha256
 from jav.documents.pdf import PdfText
 
@@ -31,6 +31,17 @@ class Recognised:
     unavailable: str | None = None
 
 
+def text_layer_coverage_reasons(page_count: int | None, pages_without_text: list[int] | None) -> list[str]:
+    """167 (review AI-3): in a document with a text layer, some pages (not all) are scans without text of their own,
+    e.g. behind an electronically signed cover page (`pdf.pages_without_text`: no text and an image over most of the
+    page). Those pages were neither read nor sent to OCR, so this is always a visible to-do, like partial OCR. With no
+    page of text the whole document goes to OCR instead (`ocr_pdf`)."""
+    n = len(pages_without_text or [])
+    if not page_count or n == 0 or n >= page_count:
+        return []
+    return [f"pdf:pages_without_text:{n}/{page_count}"]
+
+
 def read_source(source_path: str, read_path: str | None) -> tuple[PdfText, str, list[str]]:
     """The PDF's text layer (from the frozen copy `read_path` when given), its identity (the digest of the file read)
     and the to-dos of its pages without a text layer of their own (167, AI-3: those pages were neither read nor sent
@@ -39,7 +50,7 @@ def read_source(source_path: str, read_path: str | None) -> tuple[PdfText, str, 
 
     path = read_path or source_path
     pdf = read_pdf(path)
-    coverage = policy.text_layer_coverage_reasons(pdf.page_count, pdf.pages_without_text) if pdf.has_text_layer else []
+    coverage = text_layer_coverage_reasons(pdf.page_count, pdf.pages_without_text) if pdf.has_text_layer else []
     return pdf, file_sha256(path), coverage
 
 

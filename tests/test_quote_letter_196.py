@@ -208,7 +208,7 @@ class _ByLanguage:
 def test_the_golden_set_is_every_invented_request_with_a_quote_and_the_injection_probe():
     from jav.domains.quotes import invented_golden
 
-    cases = quote_letter.golden_cases()
+    cases = quote_letter.golden_cases(invented_golden.load())
     expected = [c.id for c in invented_golden.load().cases if c.expected.request is not None and c.expected.quote is not None]
     assert [c["id"] for c in cases] == [*expected, "probe_injection_hu"]
     assert {c["language"] for c in cases} == {"hu", "en"}
@@ -217,12 +217,14 @@ def test_the_golden_set_is_every_invented_request_with_a_quote_and_the_injection
 
 def test_the_golden_set_judges_each_paragraph_by_the_codes_check_and_its_language(tmp_path):
     from jav.core import store
+    from jav.domains.quotes import invented_golden
 
+    data = invented_golden.load()
     with store.use_store(tmp_path / "g.sqlite"), quote_letter.use_agent_factory(lambda m, i: _ByLanguage()):
-        g = quote_letter.golden(limits={"openai": quote_letter.Decimal("0.5")}, out_dir=tmp_path)
+        g = quote_letter.golden(data, limits={"openai": quote_letter.Decimal("0.5")}, out_dir=tmp_path)
         assert g["tally"] == {"right": g["cases"]} and g["usage"]["committed_usd"] > 0
-        again = quote_letter.golden(limits={}, earlier_only=True, out_dir=tmp_path)  # free: the earlier answers
+        again = quote_letter.golden(data, limits={}, earlier_only=True, out_dir=tmp_path)  # free: the earlier answers
         assert again["tally"] == {"right": g["cases"]}
     with store.use_store(tmp_path / "empty.sqlite"):
-        none = quote_letter.golden(limits={}, earlier_only=True, out_dir=tmp_path)
+        none = quote_letter.golden(data, limits={}, earlier_only=True, out_dir=tmp_path)
     assert none["tally"] == {"failed": g["cases"]}  # without a budget nothing new is asked

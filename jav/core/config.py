@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sys
 from decimal import ROUND_HALF_EVEN, Decimal
 from pathlib import Path
@@ -26,6 +27,11 @@ if TYPE_CHECKING:
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]  # 208: jav/core/config.py
 ENV_FILE = PROJECT_ROOT / ".env"
+# 227 (plan R3c): a secret of `.env` or the environment, by its name and length; the data guard and the operations
+# log mask these (`read_env_secrets`)
+ENV_SECRET_NAME = re.compile(r"(?i)key|token|secret|passw|pwd")
+ENV_SECRET_MIN_LEN = 12
+_ENV_LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$")
 PROMPTS_DIR = PROJECT_ROOT / "configs" / "prompts"  # 209 (R2b): the instructions sent to a model are config data
 RUNS_DIR = PROJECT_ROOT / "runs"
 CACHE_DIR = RUNS_DIR / "cache"  # JEV request-hash cache
@@ -74,6 +80,22 @@ OPENAI_USD_PER_MTOK: dict[str, tuple[float, float]] = {k: (float(v[0]), float(v[
 class UnpricedModelError(RuntimeError):
     """067 (066 Á38): the model has no price in the `configs/models.json` `openai.usd_per_mtok` list. It is not called
     under a budget, because the cost reservation would see zero and the budget would not catch the spending."""
+
+
+def read_env_secrets(env_file: Path) -> dict[str, str]:
+    """The secret values of `.env` (key, token, password; at least 12 characters). Missing file: empty. 227 (plan
+    R3c): here, so the operations log needs no developer tool (until then the data guard's)."""
+    if not env_file.is_file():
+        return {}
+    out: dict[str, str] = {}
+    for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
+        m = _ENV_LINE.match(line)
+        if not m or line.lstrip().startswith("#"):
+            continue
+        name, value = m.group(1), m.group(2).strip().strip("'\"")
+        if ENV_SECRET_NAME.search(name) and len(value) >= ENV_SECRET_MIN_LEN:
+            out[name] = value
+    return out
 
 
 def openai_price(model: str) -> tuple[float, float]:

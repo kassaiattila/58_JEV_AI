@@ -383,8 +383,8 @@ def test_ocr_escalation_switches_to_better_engine_only_when_weak(monkeypatch):
 
 
 def test_policy_ocr_should_escalate_thresholds():
-    assert policy.ocr_should_escalate(0.85, 0.05) and policy.ocr_should_escalate(0.95, 0.2)
-    assert not policy.ocr_should_escalate(0.95, 0.05) and not policy.ocr_should_escalate(None, None)
+    assert ocr.ocr_should_escalate(0.85, 0.05) and ocr.ocr_should_escalate(0.95, 0.2)
+    assert not ocr.ocr_should_escalate(0.95, 0.05) and not ocr.ocr_should_escalate(None, None)
 
 
 # --- request-size budget: candidate trimming in document order + retry on a token error (handoff 015) ------------

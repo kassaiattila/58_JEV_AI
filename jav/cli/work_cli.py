@@ -232,7 +232,8 @@ def cmd_worker(args):
 
 def cmd_worker_status(args):
     from jav.app import work_views
-    st = work_views.worker_status()
+    from jav.runtime import worker
+    st = work_views.jsonable(worker.status())
     text = (f"Feldolgozó: {'fut' if st['running'] else 'nem fut'}"
             f"{', leállítás kérve' if st['stop_requested'] else ''}  feladatok: {st['jobs']}")
     return _out(args, st, text)
@@ -242,7 +243,7 @@ def cmd_worker_stop(args):
     from jav.app import work_views
     from jav.runtime import worker
     worker.request_stop()
-    st = work_views.worker_status()
+    st = work_views.jsonable(worker.status())
     return _out(args, st, "Leállítás kérve; a feldolgozó a folyamatban lévő tétel után kilép." if st["running"]
                 else "Nem fut feldolgozó (a kérés a következő indításkor törlődik).")
 

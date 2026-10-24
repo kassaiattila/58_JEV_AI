@@ -16,7 +16,6 @@ from typing import Any
 from jav.app import item_kinds, logic_packs, work, work_readiness, work_recipes, work_runs
 from jav.ai import typepack
 from jav.core import cfg, store
-from jav.runtime import worker
 from jav.core import calls
 
 
@@ -358,6 +357,3 @@ def run_journal(run_id: str) -> dict[str, Any]:
     work_runs.get_run(run_id)
     return jsonable({"run_id": run_id, "calls": calls.scope_journal(run_id), "budget": calls.budget_usage(run_id)})
 
-
-def worker_status() -> dict[str, Any]:
-    return jsonable(worker.status())

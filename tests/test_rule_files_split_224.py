@@ -75,7 +75,9 @@ def test_the_reconciliations_bands_are_the_finance_domains_and_its_statement_is_
 
 def test_each_domain_file_is_read_by_its_owner_and_the_type_roles_only():
     roles = "jav/core/type_roles.py"
-    assert _readers("policy") == {"jav/ai/policy.py", roles}
+    # 227 (plan R3c): the OCR module reads the shared file's `ocr` section, the OCR quality thresholds, for the rules
+    # in the documents layer and for the decision rules alike
+    assert _readers("policy") == {"jav/ai/policy.py", "jav/documents/ocr.py", roles}
     assert _readers("email") == {"jav/domains/email/email_rules.py", roles}
     assert _readers("finance") == {"jav/domains/finance/duplicates.py", "jav/domains/finance/reconcile.py", roles}
 

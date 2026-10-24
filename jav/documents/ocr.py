@@ -665,6 +665,23 @@ def ocr_with_escalation(path: str | Path, *, page_count: int | None = None, use_
 ESCALATION_POINT = "ocr.escalation"
 
 
+def quality_limits() -> dict[str, float]:
+    """The OCR quality thresholds (`configs/policy.json` `ocr`: the to-dos of weak text, the escalation), read when
+    asked. 227 (plan R3c): this section of the shared rule file is read here only; the decision rules
+    (`jav.ai.policy.ocr_review_reasons`) ask this module."""
+    return {k: float(v) for k, v in cfg.load("policy").get("ocr", {}).items()}
+
+
+def ocr_should_escalate(mean_conf: float | None, low_conf_ratio: float | None) -> bool:
+    """Weak local OCR (below / above the policy's `ocr.escalate_*` thresholds) -> switch to the more accurate, paid
+    engine (configs/ocr.json `escalation`); the decision is data, the signals stay raw in the state. 227 (plan R3c):
+    this layer's rule (until then the AI layer's)."""
+    limits = quality_limits()
+    if mean_conf is not None and mean_conf < limits.get("escalate_min_mean_conf", 0.0):
+        return True
+    return low_conf_ratio is not None and low_conf_ratio > limits.get("escalate_max_low_conf_ratio", 1.0)
+
+
 def escalation_rule(inputs: dict[str, Any]) -> dict[str, Any]:
     """Whether a document's local OCR text is asked of the more accurate, paid engine, and which text goes on: not
     when an engine is forced for a measurement (`forced`), escalation is off (`configs/ocr.json` `escalation`) or the
@@ -673,8 +690,6 @@ def escalation_rule(inputs: dict[str, Any]) -> dict[str, Any]:
     earlier attempt, unreachable: the local text goes on, with a to-do for a block that is not the recipe switch), or
     read: the paid text goes on unless it is weaker. `text` is None when the rule asks for an attempt that was not made
     (a changed rule replayed on a document the earlier one did not escalate)."""
-    from jav.ai.policy import ocr_should_escalate
-
     first, tried = inputs["first"], inputs["attempt"]
     attempt = (not inputs["forced"] and inputs["enabled"] and first["engine"] != inputs["engine"]
                and ocr_should_escalate(first["mean_conf"], first["low_conf_ratio"]))

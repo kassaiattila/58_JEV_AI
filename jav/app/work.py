@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from jav.app import human_tasks, item_kinds, logic_packs, source_instances
-from jav.core import activity_kinds, store
+from jav.core import activity_kinds, decisions, store
 from jav.documents.native_contracts import DOCUMENT_SUFFIXES
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
@@ -155,9 +155,8 @@ def _migrate(conn) -> None:
 store.register_migration("work", _migrate)
 
 
-class RevisionConflict(RuntimeError):
-    """The request was based on an earlier revision; the caller should reload the state (in the UI: 409, the working
-    copy is kept)."""
+# 227 (plan R3c): the shared decision handler's conflict error, the same class under the work package's name
+RevisionConflict = decisions.RevisionConflict
 
 
 class NotReady(RuntimeError):

@@ -21,8 +21,10 @@ import hashlib
 from pathlib import Path
 
 from jav.documents.pdf import PdfText, build_layout, normalize_dashes
-from jav.ai.typepack import INPUTS  # the input kinds are the type pack's
 
+# 190: the input kinds a type pack may take (its `inputs`, `jav.ai.typepack`); 227 (plan R3c): named here, by the
+# reading that serves them, so this layer needs nothing of the AI layer
+INPUTS = ("pdf", "text", "table")
 TEXT_SUFFIXES = {".txt": "text", ".xlsx": "table", ".csv": "table"}
 CHAR_PT = 5.0  # the width of one character on the grid: three spaces are a gap over the column builder's 2.5 characters
 LINE_PT = 12.0  # the distance of two lines (over the builder's 3 pt line tolerance)

@@ -22,6 +22,7 @@ from jav.ai import checks
 from jav.core import cfg, trace, type_roles
 from jav.ai.models import CheckResult, FlowState
 from jav.ai.typepack import get as get_pack
+from jav.documents.ocr import quality_limits
 
 _CFG = cfg.load("policy")
 CONFIG_HASH = cfg.config_hash("policy")
@@ -203,19 +204,17 @@ def high_stakes_for(doc_type: str) -> frozenset[str]:
     return frozenset(get_pack(doc_type).high_stakes)
 
 
-OCR: dict[str, float] = {k: float(v) for k, v in _CFG.get("ocr", {}).items()}  # v1.6.0: OCR quality thresholds
-
-
 OCR_REVIEW_PRODUCER = "ocr"  # 066 Á01: producer of the no-text to-do (shared by M1 and M2); closed once there is text
 
 
 def ocr_review_reasons(mean_conf: float | None, low_conf_ratio: float | None) -> list[str]:
     """Document with OCR text: weak mean word confidence or many weak words -> review reasons (the raw signals stay in
-    the state)."""
+    the state). v1.6.0: the thresholds of `configs/policy.json` `ocr`, read by the OCR module (227)."""
+    limits = quality_limits()
     out: list[str] = []
-    if mean_conf is not None and mean_conf < OCR.get("min_mean_conf", 0.0):
+    if mean_conf is not None and mean_conf < limits.get("min_mean_conf", 0.0):
         out.append(f"ocr:low_confidence:{mean_conf:.2f}")
-    if low_conf_ratio is not None and low_conf_ratio > OCR.get("max_low_conf_ratio", 1.0):
+    if low_conf_ratio is not None and low_conf_ratio > limits.get("max_low_conf_ratio", 1.0):
         out.append(f"ocr:low_conf_words:{low_conf_ratio:.2f}")
     return out
 
@@ -226,25 +225,6 @@ def ocr_coverage_reasons(page_count: int | None, pages_ocr: int | None) -> list[
     if page_count is None or pages_ocr is None or pages_ocr >= page_count:
         return []
     return [f"ocr:partial_pages:{pages_ocr}/{page_count}"]
-
-
-def text_layer_coverage_reasons(page_count: int | None, pages_without_text: list[int] | None) -> list[str]:
-    """167 (review AI-3): in a document with a text layer, some pages (not all) are scans without text of their own,
-    e.g. behind an electronically signed cover page (`pdf.pages_without_text`: no text and an image over most of the
-    page). Those pages were neither read nor sent to OCR, so this is always a visible to-do, like partial OCR. With no
-    page of text the whole document goes to OCR instead (`ocr_pdf`)."""
-    n = len(pages_without_text or [])
-    if not page_count or n == 0 or n >= page_count:
-        return []
-    return [f"pdf:pages_without_text:{n}/{page_count}"]
-
-
-def ocr_should_escalate(mean_conf: float | None, low_conf_ratio: float | None) -> bool:
-    """Weak local OCR (below / above the policy's `ocr.escalate_*` thresholds) -> switch to the more accurate, paid
-    engine (configs/ocr.json `escalation`); the decision is data, the signals stay raw in the state."""
-    if mean_conf is not None and mean_conf < OCR.get("escalate_min_mean_conf", 0.0):
-        return True
-    return low_conf_ratio is not None and low_conf_ratio > OCR.get("escalate_max_low_conf_ratio", 1.0)
 
 
 def reason_field(code: str, fields: set[str]) -> str | None:
