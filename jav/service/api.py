@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlsplit
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from pydantic import Field
 from starlette.routing import BaseRoute
@@ -40,11 +40,11 @@ from jav.service import local_picker
 from jav.app import app_settings, corrections, package_release, work, work_views
 from jav.ai import policy
 from jav.documents import isolated_pdf
-from jav.core import cfg, dates, numbers, store, version
+from jav.core import access, cfg, dates, numbers, store, version
 from jav.core.config import PROJECT_ROOT
 from jav.runtime import pdf_status, worker
 from jav.core import lock
-from jav.service.service_shared import ForbiddenPath, In, JavJSONResponse, UnknownUser, error, settings
+from jav.service.service_shared import ForbiddenPath, In, JavJSONResponse, UnknownUser, access_guard, error, settings
 from jav.core.user_messages import explained, message_fields
 
 API_VERSION = "1"
@@ -232,8 +232,9 @@ _THEME_ROUTES: dict[tuple[tuple[str, ...], str], tuple[list[BaseRoute], dict[Any
 def _new_app() -> FastAPI:
     # 071 decision (2026-09-30): the clickable endpoint list (/api/docs) would load program code from an external host
     # onto the local address, so it is switched off; the machine-readable endpoint list (/api/openapi.json) stays
+    # 229 (SZ2b): every address goes through the shared entrance (who acts, the authorisation check)
     return FastAPI(title="JAV helyi szolgáltatás", version=API_VERSION, default_response_class=JavJSONResponse,
-                   docs_url=None, openapi_url="/api/openapi.json", redoc_url=None)
+                   docs_url=None, openapi_url="/api/openapi.json", redoc_url=None, dependencies=[Depends(access_guard)])
 
 
 def _add_theme_routes(app: FastAPI, prefix: str) -> None:
@@ -263,6 +264,10 @@ def _add_error_handlers(app: FastAPI) -> None:
     async def not_found(request: Request, exc: KeyError):
         log.warning("404 %s %s: %r", request.method, request.url.path, exc, exc_info=exc)
         return error(404, "not_found", f"unknown id: {exc.args[0] if exc.args else ''}")
+
+    @app.exception_handler(access.NotAuthorised)  # 229 (SZ2b): before the OSError answer, whose subclass it is
+    async def not_authorised(_request: Request, exc: access.NotAuthorised):
+        return error(403, "not_authorised", str(exc))
 
     @app.exception_handler(work.RevisionConflict)
     async def conflict(_request: Request, exc: work.RevisionConflict):

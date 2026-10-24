@@ -53,6 +53,11 @@ def person(name: str, *, request_id: str | None = None) -> Actor:
     return Actor(id=f"{LOCAL}:{name}", name=name, kind=HUMAN, request_id=request_id)
 
 
+def anonymous() -> Actor:
+    """229 (SZ2b): a request that names nobody (a read without a name): who acts is not known; the check decides."""
+    return Actor(id="anonymous:request", name="anonymous", kind=HUMAN)
+
+
 def machine(name: str = "process-core", *, on_behalf_of: Actor | None = None) -> Actor:
     """The machine, acting for itself or for the person who set the work going."""
     return Actor(id=f"machine:{name}", name=name, kind=MACHINE,
