@@ -1,0 +1,17 @@
+{
+  "meta": {
+    "name": "send",
+    "version": "1.0.0",
+    "description": "231 (plan stage A, A7c; DECISIONS 231): the rules of the send capability (jav/app/sending.py). The real send through Outlook reaches only the recipients listed here: an address, or '@domain' for a whole domain. Empty: nothing goes out by the real send; the output folder and the Outlook draft are not limited by it. Only an owner's decision adds a recipient.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-24",
+        "note": "231 (A7c): the first version; the real send's allowlist is empty."
+      }
+    ]
+  },
+  "outlook_send": {
+    "allow": []
+  }
+}

@@ -41,10 +41,13 @@ def test_the_it_quote_pack_becomes_a_process_definition_of_capability_steps() ->
     assert (defn.id, defn.version) == ("pack_it_quote", pack.version)
     assert [(s.id, s.kind) for s in defn.steps] == [
         ("request", "cap.record_assembly.v1"), ("match", "cap.catalogue_match.v1"), ("compose", "cap.line_draft.v1"),
-        ("document", "cap.priced_document.v1"), ("letter", "cap.letter_draft.v1")]
+        ("document", "cap.priced_document.v1"), ("letter", "cap.letter_draft.v1"), ("send", "cap.send.v1"),
+        ("follow_up", "cap.wait_reply.v1")]
     match = next(s for s in defn.steps if s.id == "match")
     assert match.params == {"catalogue": "newest_active", "callsite": "quote_match", "_start": "person"}
-    assert [t.id for t in pack.screens.tabs] == ["request", "quote", "approval"]
+    send = next(s for s in defn.steps if s.id == "send")  # 1.1.0 (A7e): a person sends the letter into the output folder
+    assert send.params == {"message": "quote_letter", "mode": "output_folder", "from_step": "letter", "_start": "person"}
+    assert [t.id for t in pack.screens.tabs] == ["request", "quote", "approval", "sent", "follow_up", "history"]
 
 
 def _set_step(data: dict, step_id: str, **changes) -> dict:
@@ -57,6 +60,7 @@ def _set_step(data: dict, step_id: str, **changes) -> dict:
     (lambda d: _set_step(d, "match", uses="catalogue_match@9"), "no capability catalogue_match@9"),
     (lambda d: _set_step(d, "match", params={"catalogue": "@price_list"}), "do not fit catalogue_match@1: callsite"),
     (lambda d: _set_step(d, "letter", start="auto"), "a paid step (letter_draft@1) is started by a person"),
+    (lambda d: _set_step(d, "send", params={"message": "nothing", "from_step": "letter"}), "do not fit send@1: message"),
     (lambda d: _set_step(d, "match", params={"catalogue": "@nowhere", "callsite": "quote_match"}), "unknown resource @nowhere"),
     (lambda d: d["screens"]["tabs"][0]["elements"].append({"type": "gauge"}) or d, "unknown screen element 'gauge'"),
     (lambda d: d["screens"]["tabs"][1]["elements"].append({"type": "approval", "step": "ghost"}) or d, "shows no step 'ghost'"),

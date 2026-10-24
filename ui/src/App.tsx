@@ -21,6 +21,7 @@ const LegacyResult = lazyPage(() => import("./views/LegacyResult").then((m) => m
 const Settings = lazyPage(() => import("./views/Settings").then((m) => m.Settings));
 const Workflows = lazyPage(() => import("./views/workflows/Workflows").then((m) => m.Workflows));
 const CasePage = lazyPage(() => import("./views/CasePage").then((m) => m.CasePage));  // 231 (A6)
+const CaseList = lazyPage(() => import("./views/CaseList").then((m) => m.CaseList));  // 231 (A7e)
 
 // the label is the Hungarian source, translated at render time (058: the rail is wide enough for the label to fit
 // without hyphenation)
@@ -28,6 +29,8 @@ const NAV = [
   { view: "workpackages", href: "#/workpackages", label: "Munkacsomagok", icon: <path d="M4 7h16M4 12h16M4 17h10" /> },
   // 146: the workflows (the work packages of one job, chained); an English source label, translated at render time
   { view: "workflows", href: "#/workflows", label: "Workflows", icon: <path d="M5 6h4v4H5zM15 14h4v4h-4zM9 8h4a2 2 0 0 1 2 2v4" /> },
+  // 231 (A7e): the process packs' cases (an English source label, translated at render time)
+  { view: "case-list", href: "#/cases", label: "Cases", icon: <path d="M4 8h16v11H4zM9 8V5h6v3M4 13h16" /> },
   { view: "settings", href: "#/settings", label: "Beállítások", icon: <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" /> },
 ] as const;
 
@@ -38,7 +41,8 @@ export function App() {
   const hash = useHash();
   const route = parseRoute(hash);
   // the run page and the old result addresses belong to Work packages
-  const section = route.view === "settings" ? "settings" : route.view === "workflows" ? "workflows" : "workpackages";
+  const section = route.view === "settings" ? "settings" : route.view === "workflows" ? "workflows"
+    : route.view === "case-list" || route.view === "cases" ? "case-list" : "workpackages";
   return (
     <div className="shell">
       <a className="skip" href="#main">{t("Ugrás a tartalomra")}</a>
@@ -69,6 +73,7 @@ export function App() {
             {route.view === "run" ? <RunDetail runId={route.runId} /> : null}
             {route.view === "workflows" ? <Workflows route={route} /> : null}
             {route.view === "cases" ? <CasePage caseId={route.caseId} tab={route.tab} /> : null}
+            {route.view === "case-list" ? <CaseList /> : null}
             {route.view === "settings" ? <Settings section={route.section} /> : null}
             {route.view === "legacy-result" ? <LegacyResult runId={route.runId} table={route.table} /> : null}
             {route.view === "activity" ? <Activity day={route.day} /> : null}

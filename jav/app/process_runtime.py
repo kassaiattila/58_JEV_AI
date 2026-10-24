@@ -8,7 +8,9 @@ process core moves the case on, step by step, each step through its capability (
 person starts waits for that person's start task.
 
 - `start_case(pack_id, scope, name, actor)`: the case's id (its container's).
-- `pack_of(case_id)`: the pack id and version a case runs on.
+- `pack_of(case_id)`: the pack id and version a case runs on; `pack_for(case_id)`: that version of the pack itself (A7a:
+  an older version comes back from the calculation snapshot the case was linked to when it started, so a case keeps
+  the screens and outputs it started with after its pack changes).
 - `CONTAINER_PACK`: how the work package registry knows a container (A6): a package without runs whose page names its
   case (the interface opens the case's page), whose next step is the case's state, whose outputs are its pack's, and
   which is neither released the shared way nor deleted while its case exists. It is general, the same for every pack.
@@ -22,11 +24,13 @@ from __future__ import annotations
 from typing import Any
 
 from jav.app import logic_packs, package_release, package_scope, process_packs, scopes, work
-from jav.core import identity, store
+import json
+
+from jav.core import identity, rulebook, store
 from jav.core.process import cases
 from jav.core.user_messages import explained
 
-__all__ = ["CONTAINER", "CONTAINER_PACK", "outputs_of", "pack_of", "register", "start_case"]
+__all__ = ["CONTAINER", "CONTAINER_PACK", "outputs_of", "pack_for", "pack_of", "register", "start_case"]
 
 CONTAINER = "case"  # the container work package's kind
 
@@ -53,10 +57,28 @@ def pack_of(case_id: str) -> tuple[str, str] | None:
     return (data["pack"], data["pack_version"]) if "pack" in data else None
 
 
+def pack_for(case_id: str) -> process_packs.ProcessPack | None:
+    """The version of its pack a case runs on: the current one when it is that version, else the one its start's
+    calculation snapshot holds (`process_packs.PackError` when neither has it)."""
+    pinned = pack_of(case_id)
+    if pinned is None:
+        return None
+    current = process_packs.load(pinned[0])
+    if current.version == pinned[1]:
+        return current
+    with store.connect() as c:
+        snapshot = rulebook.get_in(c, rulebook.of_in(c, rulebook.CASE, case_id) or "")
+        entry = (snapshot or {}).get("files", {}).get(f"processes/{pinned[0]}.json")
+        content = rulebook.content_in(c, entry["sha256"]) if entry else None
+    if content is None:
+        raise process_packs.PackError(f"process pack {pinned[0]!r} {pinned[1]} of case {case_id} is not stored")
+    return process_packs.ProcessPack.model_validate(json.loads(content))
+
+
 def outputs_of(case_id: str) -> tuple[str, ...]:
     """The outputs a case's container has: its pack's (a template is chosen for each of them)."""
-    pinned = pack_of(case_id)
-    return process_packs.load(pinned[0]).outputs if pinned else ()
+    pack = pack_for(case_id)
+    return pack.outputs if pack else ()
 
 
 def _page(case_id: str) -> dict[str, Any]:

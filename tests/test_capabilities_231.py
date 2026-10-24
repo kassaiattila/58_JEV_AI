@@ -45,7 +45,7 @@ def _cap(**changes) -> capabilities.Capability:
         seen.append(params)
         return kinds.Done({"days": params.days})
 
-    base = dict(name="wait_reply", version=1, module="tests.synthetic", kind="wait", summary="Waits for a reply.",
+    base = dict(name="invented_wait", version=1, module="tests.synthetic", kind="wait", summary="Waits for a reply.",
                 params=Params, run=run)
     cap = capabilities.Capability(**{**base, **changes})
     object.__setattr__(cap, "described", {"seen": seen})
@@ -53,7 +53,7 @@ def _cap(**changes) -> capabilities.Capability:
 
 
 def _ctx(params: dict) -> StepContext:
-    step = StepDef(id="follow_up", kind="cap.wait_reply.v1", params=params)
+    step = StepDef(id="follow_up", kind="cap.invented_wait.v1", params=params)
     definition = ProcessDef(id="synthetic", version="1", title="Synthetic", steps=(step,))
     return StepContext(case_id="case-1", step=step, definition=definition, data={}, actor=identity.machine("test"))
 
@@ -61,9 +61,9 @@ def _ctx(params: dict) -> StepContext:
 def test_a_capability_that_can_run_gets_its_step_kind_which_checks_the_parameters_first(isolated) -> None:
     cap = _cap()
     capabilities.register(cap)
-    assert capabilities.of("wait_reply@1") is cap and cap.step_kind == "cap.wait_reply.v1"
-    kind = kinds.of("cap.wait_reply.v1")
-    assert kind.owner == "tests.synthetic" and kind.described["capability"] == "wait_reply@1"
+    assert capabilities.of("invented_wait@1") is cap and cap.step_kind == "cap.invented_wait.v1"
+    kind = kinds.of("cap.invented_wait.v1")
+    assert kind.owner == "tests.synthetic" and kind.described["capability"] == "invented_wait@1"
     assert kind.run(_ctx({"days": 5})) == kinds.Done({"days": 5})
     bad = kind.run(_ctx({"days": "five", "extra": 1}))
     assert isinstance(bad, kinds.Fail) and "days" in bad.note and "extra" in bad.note
@@ -88,7 +88,7 @@ def test_another_module_cannot_take_a_registered_capability(isolated) -> None:
     with pytest.raises(capabilities.CapabilityError):
         capabilities.register(_cap(module="tests.other"))
     with pytest.raises(capabilities.CapabilityError):
-        capabilities.of("wait_reply@2")
+        capabilities.of("invented_wait@2")
 
 
 def test_a_paid_step_spends_from_its_own_budget_per_case_step_and_round(tmp_path) -> None:

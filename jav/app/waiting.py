@@ -8,7 +8,9 @@ and every approval and budget; on request the to-dos of trial runs and measureme
 list changes nothing.
 
 Each row's `_wp` and `_stage` say where the work is done (the dataset's `next` link): a to-do opens its item's review
-page, a run's approval the package's result, a logic pack's approval and a step's budget the package's page.
+page, a run's approval the package's result, a logic pack's approval and a step's budget the package's page. 231
+(A7d): a task of a process pack's case (a step's start, a message whose arrival is unknown, a follow-up) opens the case's
+page, named by its step.
 
 Layer: application view, read only; it imports the shared core and the application's views, no domain module.
 """
@@ -24,7 +26,7 @@ from typing import Any
 from jav.app import human_tasks, item_kinds, logic_packs, work_views, workflow_cases
 from jav.core import store
 from jav.core import identity as actors
-from jav.core.process import tasks
+from jav.core.process import cases, tasks
 
 LIVE, TRIAL, MEASUREMENT = "live", "trial", "measurement"  # where a task comes from
 MINE, ANYONE = "mine", "anyone"  # whom it is for, seen from the person
@@ -101,6 +103,16 @@ _ROWS: dict[str, Callable[[_Packages, tasks.Task], Row]] = {
 }
 
 
+def _case_task(packages: _Packages, task: tasks.Task) -> Row | None:
+    """231 (A7d): a task of a case whose container is a work package (a process pack's case): the case's page, named by
+    the step's title; None for another task."""
+    if task.case_id is None or task.case_id not in packages.rows:
+        return None
+    row = cases.case_row(packages.c, task.case_id)
+    step = cases.definition_of(row).step(str(task.step_id))
+    return {"what": step.title or step.id, "origin": LIVE, "_wp": task.case_id, "_stage": None}
+
+
 def rows(actor: str, *, every_origin: bool = False) -> list[Row]:
     """The open tasks for `actor` and anyone's, oldest first; only live work unless `every_origin`. A task of a kind
     this list does not know shows with its subject, as live work."""
@@ -109,8 +121,8 @@ def rows(actor: str, *, every_origin: bool = False) -> list[Row]:
     with store.connect() as c:
         packages = _Packages(c)
         for task in tasks.open_for_in(c, me):
-            row = _ROWS[task.kind](packages, task) if task.kind in _ROWS else {"what": task.subject, "origin": LIVE,
-                                                                                "_wp": None, "_stage": None}
+            row = _ROWS[task.kind](packages, task) if task.kind in _ROWS else _case_task(packages, task) or {
+                "what": task.subject, "origin": LIVE, "_wp": None, "_stage": None}
             if not every_origin and row["origin"] != LIVE:
                 continue
             out.append({"kind": task.kind, "workpackage_name": packages.rows.get(row["_wp"], {}).get("name"),

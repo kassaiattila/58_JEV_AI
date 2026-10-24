@@ -631,6 +631,15 @@ def journal(run_id: str) -> list[dict[str, Any]]:
         return [dict(r) for r in c.execute("SELECT * FROM invocations WHERE run_id=? ORDER BY id", (run_id,))]
 
 
+def scopes_under(prefix: str) -> list[str]:
+    """231 (A7e): the budget scopes that start with `prefix` (a case's step's rounds), in the order of their first call."""
+    escaped = prefix.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+    with store.connect() as c:
+        return [r["budget_scope"] for r in c.execute(
+            "SELECT budget_scope, MIN(id) AS first FROM invocations WHERE budget_scope LIKE ? ESCAPE '!'"
+            " GROUP BY budget_scope ORDER BY first", (escaped + "%",))]
+
+
 def scope_journal(scope: str) -> list[dict[str, Any]]:
     """All calls of one budget (run), regardless of items: for the run's cost view (040 K2)."""
     with store.connect() as c:

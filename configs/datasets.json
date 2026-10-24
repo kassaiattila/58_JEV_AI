@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.31.0",
+  "version": "1.32.0",
   "changelog": [
+   {
+    "version": "1.32.0",
+    "date": "2026-10-24",
+    "note": "231 (plan stage A, A7e): the task kinds of a process pack's case in the Waiting for me list: a step to start, a message whose arrival is unknown, a follow-up."
+   },
    {
     "version": "1.31.0",
     "date": "2026-10-23",
@@ -222,7 +227,7 @@
    "workflow_nothing_new": "workflow: nothing new for a step",
    "workflow_left_out": "workflow: documents a live run processed left out",
    "workflow_failed": "workflow: a step did not start"},
-  "task_kind": {"review": "To-do", "run_approval": "Run approval", "own_approval": "Approval", "workflow_budget": "Budget decision"},
+  "task_kind": {"review": "To-do", "run_approval": "Run approval", "own_approval": "Approval", "workflow_budget": "Budget decision", "step_start": "Step to start", "handover_settle": "Did it arrive?", "follow_up": "Follow-up"},
   "task_origin": {"live": "Live", "trial": "Trial", "measurement": "Measurement"},
   "task_assignee": {"mine": "You", "anyone": "Anyone"}
  },

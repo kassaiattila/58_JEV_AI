@@ -23,6 +23,7 @@ export type Route =
   | { view: "workflows"; wfId?: string; create?: boolean; repeat?: string }
   /** 231 (A6): a process pack's case, on one of its tabs (the tab ids come from its pack) */
   | { view: "cases"; caseId: string; tab?: string }
+  | { view: "case-list" }
   | { view: "settings"; section: SettingsSection }
   /** 061: the selected person's actions on a day („Mai munkám” (My work today)); without a day, today's */
   | { view: "activity"; day?: string }
@@ -70,7 +71,7 @@ export function parseRoute(hash: string): Route {
     case "runs":
       return parts[1] ? { view: "run", runId: parts[1] } : { view: "settings", section: "system" };
     case "cases":  // 231 (A6)
-      return parts[1] ? { view: "cases", caseId: parts[1], tab: parts[2] || undefined } : { view: "workpackages" };
+      return parts[1] ? { view: "cases", caseId: parts[1], tab: parts[2] || undefined } : { view: "case-list" };  // A7e
     case "workflows":
       if (parts[1] === "new") return { view: "workflows", create: true };
       if (parts[1] && parts[2] === "repeat") return { view: "workflows", create: true, repeat: parts[1] };  // 147
@@ -109,6 +110,7 @@ export function routeHash(r: Route): string {
     case "waiting": return r.all ? "#/waiting?all=1" : "#/waiting";
     case "run": return `#/runs/${e(r.runId)}`;
     case "cases": return r.tab ? `#/cases/${e(r.caseId)}/${e(r.tab)}` : `#/cases/${e(r.caseId)}`;
+    case "case-list": return "#/cases";
     case "workflows": return r.repeat ? `#/workflows/${e(r.repeat)}/repeat` : r.create ? "#/workflows/new"
       : r.wfId ? `#/workflows/${e(r.wfId)}` : "#/workflows";
     case "legacy-result": return r.runId ? `#/reports/${e(r.runId)}` : "#/reports";

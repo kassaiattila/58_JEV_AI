@@ -2,9 +2,9 @@
 
 Plain-language summary: a case is one running instance of a process pack. These addresses start a case from the record
 it belongs to (an email or a document read as the pack's record, e.g. a quote request), give its page as data (its
-tabs and elements from the pack, each element with what its step's capability shows, `jav/app/case_views.py`), and let
-a person start a step that waits for its start (a paid one). The service never runs a step itself: the worker moves the
-case on.
+tabs and elements from the pack, each element with what its step's capability shows, `jav/app/case_views.py`), let
+a person start a step that waits for its start (a paid one), and (A7d) take an action a step's capability offers (say
+whether a message arrived, record a reply). The service never runs a step itself: the worker moves the case on.
 
 Layer: UI/CLI (the local service) → `jav.app.process_runtime`, `jav.app.case_views`.
 """
@@ -23,11 +23,16 @@ from jav.service.service_shared import Empty, In, human_actor
 
 CaseId = Annotated[str, PathParam(pattern=r"^wp-[0-9a-f]{12}$")]  # a case's id is its container's
 CaseStep = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
+ActionName = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
 
 
 class Record(In):
     workpackage_id: Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")]
     item_id: Annotated[str, Field(min_length=1, max_length=200)]
+
+
+class ActionIn(In):
+    note: Annotated[str | None, Field(max_length=2000)] = None
 
 
 class CaseIn(In):
@@ -52,3 +57,8 @@ def routes(app: FastAPI, r: str) -> None:
     def start_case_step(case_id: CaseId, step_id: CaseStep, _body: Empty,
                         who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(case_views.start_step(case_id, step_id, who))
+
+    @app.post(r + "/cases/{case_id}/steps/{step_id}/actions/{name}")
+    def case_step_action(case_id: CaseId, step_id: CaseStep, name: ActionName, body: ActionIn,
+                         who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        return work_views.jsonable(case_views.act(case_id, step_id, name, who, body.note))

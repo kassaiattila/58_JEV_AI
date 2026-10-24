@@ -1,0 +1,240 @@
+// 231 (plan stage A, A7e; DECISIONS 231): the general elements of a case's page, any process pack may show them: what a
+// send step sent (handover_view), a reply step's wait (reply_wait), the case's events (timeline) and what its steps
+// spent (cost). Each renders the data its step's capability gives (jav/app/sending.py, jav/app/replies.py,
+// jav/app/case_views.py); a person's actions are the step's own (`actions`), and the send itself is the step's start.
+import { useState, type ReactNode } from "react";
+import { api, type CaseCost, type CaseEvent, type HandoverAttempt, type HandoverData, type ReplyData } from "../api";
+import { errorText } from "../hooks";
+import { t, useLocale } from "../i18n";
+import { fileName, moneyText, providerName, tmap, when } from "../labels";
+import { handoverStatus, replyStatus } from "./caseStatus";
+import type { ElementProps } from "./registry";
+
+const loading = <p className="muted">{t("Loading…")}</p>;
+
+const MODE = tmap({ output_folder: "Into the output folder", outlook_draft: "As an Outlook draft", outlook_send: "Out through Outlook" });
+const MODE_HELP = tmap({
+  output_folder: "The message is written into the output folder as an email file; Outlook opens it as a message to send.",
+  outlook_draft: "The message is put among the drafts of your Outlook; you send it from there.",
+  outlook_send: "The message goes out through Outlook, only to the addresses an owner allowed.",
+});
+const ATTEMPT = tmap({ recorded: "Recorded", sent: "Being handed over", acknowledged: "Handed over", uncertain: "Arrival unknown",
+                       failed: "Failed" });
+const ATTEMPT_MARK: Record<HandoverAttempt["status"], string> = {
+  recorded: "s-queued", sent: "s-running", acknowledged: "s-done", uncertain: "s-warn", failed: "s-failed",
+};
+
+/** A step's actions as buttons (the step's own: a failed step's retry, whether a message arrived, a reply). */
+function StepActions({ p, primary }: { p: ElementProps; primary?: string }) {
+  useLocale();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const step = p.element.step;
+  const actions = (step && p.page.steps[step]?.actions) || [];
+  if (!step || !actions.length) return null;
+  const act = async (name: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.caseStepAction(p.caseId, step, name);
+      p.onChanged();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <div className="button-row">
+        {actions.map((a) => (
+          <button key={a.name} type="button" className={a.name === primary ? "primary" : "secondary"} disabled={busy}
+            onClick={() => void act(a.name)}>{t(a.label)}</button>
+        ))}
+      </div>
+      {error ? <p className="notice error small" role="alert">{error}</p> : null}
+    </>
+  );
+}
+
+export function HandoverView(p: ElementProps) {
+  useLocale();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const d = p.element.data as HandoverData | null;
+  const stepId = p.element.step;
+  const step = stepId ? p.page.steps[stepId] : undefined;
+  if (!d || !stepId || !step) return loading;
+  const state = handoverStatus(p);
+  const send = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.startCaseStep(p.caseId, stepId);
+      p.onChanged();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const settling = (step.actions ?? []).some((a) => a.name === "delivered");
+  return (
+    <section className="card" aria-label={t("Sending")}>
+      <div className="card-head">
+        <h2>{t("Sending")}</h2>
+        {state ? <span className={`status ${state.mark}`}>{state.text}</span> : null}
+      </div>
+      <dl className="kv">
+        <dt>{t("Way")}</dt><dd>{MODE[d.mode] ?? d.mode}</dd>
+        {d.mode === "output_folder" ? (
+          <><dt>{t("Output folder")}</dt>
+            <dd>{d.output_folder ? <span className="mono">{d.output_folder}</span>
+              : <span className="status s-warn">{t("Not set: Settings › Work folders")}</span>}</dd></>
+        ) : null}
+      </dl>
+      {step.awaiting_start ? (
+        <>
+          <p className="muted small">{MODE_HELP[d.mode]}</p>
+          <div className="button-row">
+            <button type="button" className="primary" disabled={busy} onClick={() => void send()}>{t("Send")}</button>
+          </div>
+        </>
+      ) : null}
+      {settling ? (
+        <p className="status long s-warn">
+          {t("The handover was interrupted, so it is not known whether the message arrived. Check it, then say what happened.")}
+        </p>
+      ) : null}
+      {step.state === "failed" && step.note && step.note !== d.attempts[d.attempts.length - 1]?.error
+        ? <p className="status long s-failed">{t(step.note)}</p> : null}
+      <StepActions p={p} />
+      {d.attempts.length ? (
+        <table className="table compact" aria-label={t("Handovers")}>
+          <thead><tr><th>{t("Attempt")}</th><th>{t("Outcome")}</th><th>{t("File")}</th><th>{t("Recipient")}</th><th>{t("When")}</th></tr></thead>
+          <tbody>
+            {d.attempts.map((a) => (
+              <tr key={a.attempt}>
+                <td className="num">{a.attempt}</td>
+                <td><span className={`status ${ATTEMPT_MARK[a.status]}`}>{ATTEMPT[a.status]}</span>
+                  {a.error ? <div className="muted small">{t(a.error)}</div> : null}</td>
+                <td>{a.file_name ?? "–"}{a.receipt?.path ? <div className="muted small mono" title={a.receipt.path}>{fileName(dirOf(a.receipt.path))}</div> : null}</td>
+                <td>{a.to ?? "–"}</td>
+                <td className="tnum">{when(a.updated_at)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+      {error ? <p className="notice error small" role="alert">{error}</p> : null}
+    </section>
+  );
+}
+
+const dirOf = (path: string) => path.replace(/[\\/][^\\/]*$/, "");
+
+export function ReplyWait(p: ElementProps) {
+  useLocale();
+  const d = p.element.data as ReplyData | null;
+  if (!d) return loading;
+  const state = replyStatus(p);
+  const rows: [string, ReactNode][] = [];
+  if (d.since) rows.push([t("Waiting since"), <span className="tnum">{when(d.since)}</span>]);
+  if (d.reminded_at) rows.push([t("Follow-up opened"), <span className="tnum">{when(d.reminded_at)}</span>]);
+  else if (d.remind_at && !d.reply) rows.push([t("Follow-up on"), <span className="tnum">{when(d.remind_at)}</span>]);
+  if (d.reply) rows.push([t("Recorded by"), <>{d.by ?? "–"} · <span className="tnum">{when(d.at)}</span></>]);
+  if (d.note) rows.push([t("Note"), d.note]);
+  return (
+    <section className="card" aria-label={t("Follow-up")}>
+      <div className="card-head">
+        <h2>{t("Follow-up")}</h2>
+        {state ? <span className={`status ${state.mark}`}>{state.text}</span> : null}
+      </div>
+      {rows.length ? <dl className="kv">{rows.map(([k, v]) => <FragmentRow key={k} label={k} value={v} />)}</dl> : null}
+      {d.follow_up === "open" ? (
+        <p className="muted small">{t("No reply came in the days the process sets. Record the reply, or remind them and keep waiting (there is no further reminder).")}</p>
+      ) : d.state === "running" ? (
+        <p className="muted small">{t("When the reply arrives, record it here. If none comes, a follow-up task opens in Waiting for me.")}</p>
+      ) : null}
+      <StepActions p={p} primary={d.follow_up === "open" ? "replied" : undefined} />
+    </section>
+  );
+}
+
+function FragmentRow({ label, value }: { label: string; value: ReactNode }) {
+  return <><dt>{label}</dt><dd>{value}</dd></>;
+}
+
+const EVENT = tmap({
+  started: "The case started", step_started: "Started", step_done: "Done", step_failed: "Failed", step_retried: "Started again",
+  handover_acknowledged: "Handed over", handover_failed: "The handover failed", handover_uncertain: "Arrival unknown",
+  timer_fired: "The follow-up time came", closed: "The case closed", case_reopened: "The case reopened", reopened: "Reopened",
+  order_overridden: "Started out of order", held: "Held", resumed: "Resumed", stale: "To redo",
+  task_opened: "Waits for a person", task_reopened: "Waits for a person again", task_decided: "A person decided",
+  task_withdrawn: "No longer needed", task_expired: "The deadline passed", task_assigned: "Assigned", task_due_set: "Deadline set",
+});
+/** A person's decision on a task, by the task's kind: what they did (the answer follows). */
+const DECIDED = tmap({ step_start: "Started the step", handover_settle: "Said whether it arrived", follow_up: "Closed the follow-up" });
+const TASK = tmap({ step_start: "the step's start", handover_settle: "whether it arrived", follow_up: "the follow-up",
+                    approval: "the approval" });
+const ANSWER = tmap({ acknowledged: "it arrived", failed: "it did not arrive", replied: "a reply arrived",
+                     not_needed: "no reply is needed", keep_waiting: "reminded, keep waiting" });
+
+function eventText(e: CaseEvent): string {
+  const task = e.detail.task_kind;
+  const answer = e.detail.answer ? ANSWER[e.detail.answer] ?? e.detail.answer : undefined;
+  const what = e.kind === "task_decided" && task && DECIDED[task] ? DECIDED[task]
+    : task && TASK[task] ? `${EVENT[e.kind] ?? e.kind}: ${TASK[task]}` : EVENT[e.kind] ?? e.kind;
+  return [what, answer].filter(Boolean).join(" — ");
+}
+
+export function Timeline(p: ElementProps) {
+  useLocale();
+  const d = p.element.data as { events: CaseEvent[] } | null;
+  if (!d) return loading;
+  return (
+    <section className="card wide" aria-label={t("Events")}>
+      <div className="card-head"><h2>{t("Events")}</h2><span className="muted small tnum">{t("{{n}} event(s)", { n: d.events.length })}</span></div>
+      <table className="table compact">
+        <thead><tr><th>{t("When")}</th><th>{t("Step")}</th><th>{t("What happened")}</th><th>{t("Who")}</th></tr></thead>
+        <tbody>
+          {d.events.map((e, i) => (
+            <tr key={`${e.at}-${i}`}>
+              <td className="tnum">{when(e.at)}</td>
+              <td>{e.step_title ? t(e.step_title) : "–"}</td>
+              <td>{eventText(e)}{e.detail.note ? <div className="muted small">{e.detail.note}</div> : null}</td>
+              <td>{e.who ?? <span className="muted">{t("The system")}</span>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+export function CostView(p: ElementProps) {
+  useLocale();
+  const d = p.element.data as CaseCost | null;
+  if (!d) return loading;
+  return (
+    <section className="card" aria-label={t("Cost")}>
+      <div className="card-head"><h2>{t("Cost")}</h2><span className="tnum">{moneyText(d.total_usd)} USD</span></div>
+      {d.lines.length ? (
+        <table className="table compact">
+          <thead><tr><th>{t("Step")}</th><th>{t("Service")}</th><th className="num">{t("Calls")}</th>
+            <th className="num">{t("Earlier answers")}</th><th className="num">{t("Cost (USD)")}</th></tr></thead>
+          <tbody>
+            {d.lines.map((l) => (
+              <tr key={`${l.step}-${l.provider}`}>
+                <td>{t(l.step_title)}</td><td>{providerName(l.provider)}</td><td className="num">{l.calls}</td>
+                <td className="num">{l.reused}</td>
+                <td className="num">{moneyText(l.cost_usd)}{Number(l.open_usd) > 0
+                  ? <div className="muted small">{t("+ up to {{usd}} not settled", { usd: moneyText(l.open_usd) })}</div> : null}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : <p className="muted small">{t("No step of this case has called a paid service.")}</p>}
+    </section>
+  );
+}

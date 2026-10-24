@@ -154,8 +154,22 @@ def _letter_draft(ctx: Any, params: LetterDraft) -> kinds.StepOutcome:
         return _again(ctx, "letter")
     if view["state"] != "done":
         return kinds.Fail(view.get("error") or f"the letter ended {view['state']}")
+    if view["accepted"] is None:  # 231 (A7b): done once a person accepted the letter
+        return _again(ctx, "acceptance")
     return kinds.Done({"version": view["version"], "problems": list(view.get("problems") or []),
-                       "paragraph_used": not view.get("problems")})
+                       "paragraph_used": not view.get("problems"), "accepted": True})
+
+
+def _spent(table: str) -> Any:
+    """231 (A7e): the budget scopes a quote step's jobs spent from (the proposal's, the letter versions'), oldest
+    first: the job keeps its scope in its row."""
+    def scopes(case_id: str, _step: str) -> list[str]:
+        from jav.core import store
+
+        with store.connect() as c:
+            return [r["scope"] for r in c.execute(f"SELECT scope FROM {table} WHERE workpackage_id=? AND scope IS NOT NULL"
+                                                  " ORDER BY rowid", (case_id,))]
+    return scopes
 
 
 _OWNER = __name__
@@ -164,7 +178,8 @@ CAPABILITIES = (
                summary="Puts a record together from an email's text, its table attachments and its attachments."),
     Capability(name="catalogue_match", version=1, module=_OWNER, run=_catalogue_match, kind="machine", params=CatalogueMatch,
                providers=("jev", "openai"), rule_files=("callsite:quote_match", "gpt_quote_match", "quotes", "price_lists"),
-               summary="Matches each requested item with a catalogue item: sure, to check, or not listed."),
+               summary="Matches each requested item with a catalogue item: sure, to check, or not listed.",
+               spent=_spent("quote_proposals")),
     Capability(name="line_pricing", version=1, module=_OWNER, kind="machine", params=LinePricing, effects="pure",
                rule_files=("price_lists",), summary="Prices lines from a catalogue: unit price, discount rules, totals."),
     Capability(name="line_draft", version=1, module=_OWNER, run=_line_draft, kind="human", params=LineDraft,
@@ -174,7 +189,8 @@ CAPABILITIES = (
                rule_files=("quote_documents", "outputs"), summary="Fills a priced document from an output template."),
     Capability(name="letter_draft", version=1, module=_OWNER, run=_letter_draft, kind="machine", params=LetterDraft, providers=("openai",),
                rule_files=("gpt_quote_letter", "quote_documents", "quotes"),
-               summary="Drafts a reply letter: the frame written by code around a model's checked paragraph."),
+               summary="Drafts a reply letter: the frame written by code around a model's checked paragraph; done once a person"
+                       " accepted it.", spent=_spent("quote_letters")),
 )
 
 
@@ -198,13 +214,30 @@ ELEMENTS = (("record_view", "record_assembly"), ("match_proposal", "catalogue_ma
             ("approval", "line_draft"), ("document_view", "priced_document"), ("form", "letter_draft"))
 
 
+def _letter_message(case_id: str, source: Any) -> Any:
+    """231 (A7c): the accepted letter of the approved version the letter step names (its result), as the email file
+    the send capability hands over: the letter with the version's Word document attached."""
+    from email import message_from_bytes
+    from email.policy import default
+
+    from jav.app import sending
+    from jav.domains.quotes import quote_letter
+
+    version = (source or {}).get("version") or quote_letter.view(case_id)["version"]
+    data, name = quote_letter.eml(case_id, int(version))
+    headers = message_from_bytes(data, policy=default)
+    return sending.Message(data, name, str(headers["To"]) if headers["To"] else None, str(headers["Subject"] or ""))
+
+
 def register() -> None:
-    from jav.app import capabilities, case_views
+    from jav.app import capabilities, case_views, sending
 
     for cap in CAPABILITIES:
         capabilities.register(cap)
     for element, capability in ELEMENTS:
         case_views.register(case_views.ElementData(element, capability, _OWNER, _quote_view))
+    sending.register_builder(sending.MessageBuilder("quote_letter", _OWNER, _letter_message,
+                                                    "The accepted reply letter with the quote's Word document."))
 
 
 __all__ = ["CAPABILITIES", "CatalogueMatch", "LetterDraft", "LineDraft", "LinePricing", "PricedDocument", "RecordAssembly",
