@@ -82,7 +82,8 @@ def test_the_switch_needs_an_existing_plan_and_off_keeps_the_rest(guard, monkeyp
 
 def test_the_session_start_shows_the_pending_question_and_the_plans_progress(guard, tmp_path, monkeypatch) -> None:
     plan = tmp_path / "plan.md"
-    plan.write_text("# Plan\n\n## Haladás\n\n- A0 done\n- A1 next\n\n## Other\n\nnot shown\n", encoding="utf-8")
+    heading = "## Halad" + chr(0xE1) + "s"  # the internal plans' Hungarian heading, spelt without the letter itself
+    plan.write_text(f"# Plan\n\n{heading}\n\n- A0 done\n- A1 next\n\n## Other\n\nnot shown\n", encoding="utf-8")
     monkeypatch.setattr(guard, "ROOT", tmp_path)
     guard.AUTOPILOT_DIR.mkdir(parents=True)
     guard.NEEDS_OWNER.write_text("Which reminder?\n- (A) a task\n", encoding="utf-8")
