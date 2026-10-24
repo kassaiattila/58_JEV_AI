@@ -972,3 +972,12 @@ waited for with a retry timer, the draft started from the proposal and waited fo
 package's own approval task), the priced document from the approved version the pack names (`from_step`), the letter
 job queued and waited for. The IT quote's cases give the results the quote package's path recorded before stage A
 (`tests/test_quote_case_231.py`, `tests/fixtures/quote_path_231.json`).
+
+**A case's page as data (231, plan stage A, A6a).** `jav/app/case_views.py` `view(case_id)` is a case's page: the case,
+its steps (state, phase, whether it waits for a person's start) and its pack's tabs, each element with its data. An
+element's data is registered once for the pair (element type, capability), or for the type alone (`ElementData`), so
+the element a step shows comes from the step's capability: the quote's capabilities register the quote view the quote
+package's page had for their elements, and any pack whose step uses them gets it. `start_step` decides a step's start
+task; the worker moves the case on. The service: `POST /api/cases` (pack, record, name), `GET /api/cases/{id}`, `POST
+/api/cases/{id}/steps/{step}/start` (`jav/service/api_cases.py`); the quote's endpoints accept a case's container.
+Tests: `tests/test_case_service_231.py`.

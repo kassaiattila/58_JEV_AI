@@ -2439,5 +2439,7 @@
   "Estimated cost of a document": "Estimated cost of a document",
   "Estimated cost of an email": "Estimated cost of an email",
   "the record is named by its work package and item": "the record is named by its work package and item",
-  "the record a case starts from is missing": "the record a case starts from is missing"
+  "the record a case starts from is missing": "the record a case starts from is missing",
+  "the case runs on an older version of its process pack": "the case runs on an older version of its process pack",
+  "the step {{step}} does not wait for a start": "the step {{step}} does not wait for a start"
 }

@@ -2445,5 +2445,7 @@
   "Estimated cost of a document": "Egy irat becsült költsége",
   "Estimated cost of an email": "Egy levél becsült költsége",
   "the record is named by its work package and item": "A rekordot a munkacsomagja és a tétele nevezi meg",
-  "the record a case starts from is missing": "Hiányzik a rekord, amelyből az ügy indul"
+  "the record a case starts from is missing": "Hiányzik a rekord, amelyből az ügy indul",
+  "the case runs on an older version of its process pack": "Az ügy a folyamatcsomagja egy régebbi változatán fut",
+  "the step {{step}} does not wait for a start": "A(z) {{step}} lépés nem vár indításra"
 }

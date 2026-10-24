@@ -178,11 +178,28 @@ CAPABILITIES = (
 )
 
 
+def _quote_view(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict[str, Any]:
+    """231 (A6): what the quote's elements show on a case's page: the quote view the quote package's page had, read once
+    per page view, so the same components render it."""
+    from jav.domains.quotes import quote_package
+
+    if "quote" not in shared:
+        shared["quote"] = quote_package.view(case_id)
+    return {"quote": shared["quote"]}
+
+
+# 231 (A6): the elements a step of these capabilities shows, each with the quote view
+ELEMENTS = (("record_view", "record_assembly"), ("match_proposal", "catalogue_match"), ("line_editor", "line_draft"),
+            ("approval", "line_draft"), ("document_view", "priced_document"), ("form", "letter_draft"))
+
+
 def register() -> None:
-    from jav.app import capabilities
+    from jav.app import capabilities, case_views
 
     for cap in CAPABILITIES:
         capabilities.register(cap)
+    for element, capability in ELEMENTS:
+        case_views.register(case_views.ElementData(element, capability, _OWNER, _quote_view))
 
 
 __all__ = ["CAPABILITIES", "CatalogueMatch", "LetterDraft", "LineDraft", "LinePricing", "PricedDocument", "RecordAssembly",
