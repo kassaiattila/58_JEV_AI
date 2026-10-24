@@ -935,3 +935,17 @@ item's effect: the replay of a sample of a backup (`before_after_replay.running_
 on the same fresh copy, with the rules now and with the candidate, each in its own process, and the views that differ
 (`before_after.diff`). Only JSON rule files read through the config loader are honoured, which is what the decision
 points read. Tests: `tests/test_rules_preview_224.py`.
+
+**The capability registry (231, plan stage A, A2).** The owner's rule of 2026-10-24: every process is built only from
+general capabilities, described as data in a process pack (planned for the next slices). A capability
+(`jav/app/capabilities.py` `Capability`) is one registered building block: its general name and version, the module
+that owns it, its kind (`machine`, `human`, `wait`), a one-line summary, the pydantic model of what a process sets for
+it (it forbids other fields), the paid services it may call, the rule files it reads and its effect (`pure`, `store`,
+`external`; an external effect only through the handover record). One that can run gets its own step kind in the
+process core, `cap.<name>.v<version>`, which checks the step's parameters before the capability runs, so a case that
+started on one version keeps running on it; a capability only described has no step kind yet. A paid step outside a
+work run spends from its own budget scope per case, step and round (`step_budget`, `case:<case>:<step>:<round>`), as
+business work through the call log, not as a measurement. Before the process core calls a step kind unknown
+(`kinds.unknown`), it makes the application's registrations (`jav.core.completion`), since the capabilities register
+there. Today's process-specific parts are a frozen list that may only shrink (`tests/test_process_strictness_231.py`).
+Tests: `tests/test_capabilities_231.py`.

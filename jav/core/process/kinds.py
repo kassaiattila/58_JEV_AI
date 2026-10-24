@@ -106,8 +106,19 @@ def known(name: str) -> bool:
 
 
 def unknown(definition: ProcessDef) -> list[str]:
-    """The step kinds the definition names that the running code has not registered."""
-    return sorted({s.kind for s in definition.steps if s.kind not in _KINDS})
+    """The step kinds the definition names that the running code has not registered. 231 (plan stage A, A2): before a
+    kind is called unknown, the application's registrations are made (`jav.core.completion`), because the capabilities'
+    step kinds are registered there, not when a module is imported; a process without them keeps the plain answer."""
+    from jav.core import completion
+
+    missing = sorted({s.kind for s in definition.steps if s.kind not in _KINDS})
+    if missing:
+        try:
+            completion.complete("step kinds")
+        except completion.RegistrationsMissing:
+            return missing
+        missing = sorted({s.kind for s in definition.steps if s.kind not in _KINDS})
+    return missing
 
 
 def events_of(definition: ProcessDef, steps: Iterable[str] | None = None) -> frozenset[str]:
