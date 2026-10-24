@@ -143,3 +143,19 @@ def test_the_history_tab_shows_what_each_step_spent(service) -> None:
     cost = case_views.view(case_id)["tabs"][-1]["elements"][1]["data"]
     assert cost == {"lines": [{"step": "send", "step_title": "Send", "provider": "openai", "calls": 1, "reused": 0,
                                "cost_usd": "0.002", "open_usd": "0"}], "total_usd": "0.002"}
+
+
+def test_the_package_list_is_built_again_when_a_case_moves(service) -> None:
+    """231 (A3d): a case's row in the package list reads its steps and its quote; the list's cache mark follows them."""
+    from jav.app import datasets
+
+    c, case = service
+    case_id = _start(c, case)
+    datasets._workpackages_fingerprint({})  # the first look registers the tables the list reads in this new store
+    marks = [datasets._workpackages_fingerprint({})]
+    assert datasets._workpackages_fingerprint({}) == marks[0]  # nothing moved: the list is not built again
+    c.post(f"/api/cases/{case_id}/steps/send/start", headers=HUMAN, json={})  # a person's task decided
+    marks.append(datasets._workpackages_fingerprint({}))
+    engine.turn(case_id, wake=True)  # the step ran
+    marks.append(datasets._workpackages_fingerprint({}))
+    assert len(set(marks)) == 3

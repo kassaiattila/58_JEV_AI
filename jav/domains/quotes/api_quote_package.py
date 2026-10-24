@@ -64,8 +64,8 @@ class QuoteLetterIn(In):
 
 
 def _quote(wp_id: str) -> None:
-    # an unknown package: 404; 231 (A6): a case's container holds a quote too
-    if work.get(wp_id)["source_kind"] not in (quote_package.KIND, quote_package.CONTAINER):
+    # a package that holds no quote: 404; 231 (A6, A3d): a case's container holds it
+    if work.get(wp_id)["source_kind"] != quote_package.CONTAINER:
         raise KeyError(wp_id)
 
 

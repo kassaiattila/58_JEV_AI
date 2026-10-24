@@ -2,7 +2,7 @@
 import type { WorkflowRef } from "./workflows";
 import type { Engine } from "./system";
 import type { DuplicatePair, ReconcileApproval, ReconcileCounts, ReconcileCoverage, ReconcileScope, StatementPackageView, StatementRelation } from "./finance";
-import type { QuoteEmailPart, QuoteView } from "./quotes";
+import type { QuoteEmailPart } from "./quotes";
 import type { EmailItem, MailboxRequest, RoutingView } from "./email";
 
 export interface Blocker { code: string; message: string }
@@ -60,8 +60,6 @@ export interface WorkpackageView {
   routing_offer?: { attachments: number; routings: { id: string; name: string }[] };
   /** 183: a mailbox package: the request of the download that made it (null if no recorded download did) */
   mailbox_request?: MailboxRequest | null;
-  /** 191: a quote package's request, where it came from, the active price lists and its gaps */
-  quote?: QuoteView;
   /** 231 (A6): a process pack's case container names its case (the interface opens the case's page) */
   case?: { id: string; pack: string; version: string } | null;
 }

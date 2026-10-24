@@ -105,16 +105,18 @@ def _measure_letters(options: goldens.Options) -> goldens.Outcome:
                            unit="cases")
 
 
-# B4a: the quote package's golden sets, measured by the shared measurement command (`jav/evals/goldens.py`)
+# B4a: the quote's golden sets, measured by the shared measurement command (`jav/evals/goldens.py`); 231 (A3d): owned by
+# the IT quote's process pack, which names them, under their keys of before
+PACK = "it_quote"
 GOLDENS = (
-    goldens.Golden(key=f"{KIND}:lines", layer="logic_pack", owner=KIND, engines=(), module=__name__,
+    goldens.Golden(key=f"{KIND}:lines", layer="process_pack", owner=PACK, engines=(), module=__name__,
                    what="the invented quotes' lines and totals priced by code from their expected matches "
                         "(configs/golden_quotes.json)", count=_count_quotes, measure=_measure_lines),
-    goldens.Golden(key=f"{KIND}:matches", layer="logic_pack", owner=KIND, engines=goldens.ENGINES, module=__name__,
+    goldens.Golden(key=f"{KIND}:matches", layer="process_pack", owner=PACK, engines=goldens.ENGINES, module=__name__,
                    what="the price list item proposed for each invented requested item: sure, to check or not listed "
                         "(configs/golden_quotes.json)", count=_count_matches, measure=_measure_matches),
     # 196 W4: GPT only (JEV writes no text)
-    goldens.Golden(key=f"{KIND}:letters", layer="logic_pack", owner=KIND, engines=("gpt",), module=__name__,
+    goldens.Golden(key=f"{KIND}:letters", layer="process_pack", owner=PACK, engines=("gpt",), module=__name__,
                    what="the reply letter's paragraph GPT writes for each invented request and an injection probe: it "
                         "passes the code's check (no number, link, address) in the request's language", count=_count_letters,
                    measure=_measure_letters),

@@ -1,7 +1,7 @@
-// 195 (plan G-tidy R5): a quote package's status lines and summary, which the package list and the package's page
-// show for every quote package, apart from the quote's pages, which load only when one is opened
-// (`ui/src/logic/registry.tsx`). The amount's form is shared with the quote's editor.
-import type { WorkpackageView } from "../../api";
+// 195 (plan G-tidy R5): the quote's status lines and summary, apart from the quote's pages, which load only when one is
+// opened; 231 (A3d): a case's tabs show them, from the quote view its elements carry (`ui/src/elements/registry.tsx`).
+// The amount's form is shared with the quote's editor.
+import type { QuoteView } from "../../api";
 import { getLocale, t } from "../../i18n";
 import { fieldLabel } from "../../labels";
 import type { Stage } from "../../route";
@@ -19,9 +19,8 @@ export function amountText(v: string | null | undefined, currency: string | null
     : String(v);
 }
 
-/** The stages' status lines and the package's summary (`ui/src/logic/registry.tsx`). */
-export function quoteStatus(view: WorkpackageView): Record<Stage, string> | null {
-  const q = view.quote;
+/** The stages' status lines and the case's summary. */
+export function quoteStatus(q: QuoteView | null | undefined): Record<Stage, string> | null {
   if (!q) return null;
   const d = q.draft;
   const active = d.approval.active;
@@ -41,9 +40,9 @@ export function quoteStatus(view: WorkpackageView): Record<Stage, string> | null
   };
 }
 
-export function quoteSummary(view: WorkpackageView): string | null {
-  const r = view.quote?.request;
-  if (!r) return view.quote ? t("Quote from a request that can no longer be read") : null;
+export function quoteSummary(q: QuoteView | null | undefined): string | null {
+  const r = q?.request;
+  if (!r) return q ? t("Quote from a request that can no longer be read") : null;
   const customer = r.fields.customer_name ? String(r.fields.customer_name) : null;
   return customer ? t("Quote for {{customer}}: {{title}}", { customer, title: r.title }) : t("Quote: {{title}}", { title: r.title });
 }

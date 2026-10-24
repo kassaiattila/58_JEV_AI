@@ -127,7 +127,7 @@
       ],
       "cost": "Free to make; the proposal of the quote's lines will call AI within its budget.",
       "package_kinds": [
-        "quote"
+        "case"
       ],
       "paid": false,
       "own_engine": false,

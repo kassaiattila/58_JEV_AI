@@ -76,4 +76,4 @@ def test_the_invented_quotes_follow_from_their_price_list():
     outcome = quote_goldens.lines_outcome(golden)  # 204 (R1h): the quotes domain's measurement module
     assert (outcome.cases, outcome.right, outcome.scored, outcome.failures) == (10, 10, 10, ())
     registered = {g.key: g for g in goldens.sets()}["quote:lines"]
-    assert (registered.layer, registered.owner, registered.engines, registered.count()) == ("logic_pack", "quote", (), 10)
+    assert (registered.layer, registered.owner, registered.engines, registered.count()) == ("process_pack", "it_quote", (), 10)

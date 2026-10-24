@@ -1,19 +1,19 @@
-// 191 (plan F-quote-package B3; DECISIONS 191): the quote package. The owner asked that the quote can be chosen as a
+// 191 (plan F-quote-package B3; DECISIONS 191): the quote's parts. The owner asked that the quote can be chosen as a
 // kind of work, as the reconciliation or the data extraction can. It starts from a quote request already processed: an
 // email (its own text and its attachments, put together field by field) or a document read as one, in any package.
-// Its stages: the request with its gaps, the quote (its lines proposed from the price list, then composed by a person
-// beside the request, 192: QuoteEditor.tsx), and its approval as a version of the package's own.
+// The request with its gaps and the proposal of its lines from the price list are here; the composition beside the
+// request and the approval are in QuoteEditor.tsx (192). 231 (A3d): a case of the IT quote's process pack shows them
+// (QuoteElements.tsx); the quote package's own page is gone, and the new work wizard's form starts a case.
 import { useEffect, useState } from "react";
 import {
   api, ApiError, type QuoteBlockerCode, type QuoteMatchAnswer, type QuoteProposal, type QuoteRequest,
-  type QuoteRequestCandidate, type QuoteRequestPart, type QuoteView, type WorkpackageView,
+  type QuoteRequestCandidate, type QuoteRequestPart, type QuoteView,
 } from "../../api";
 import { BlockerList } from "../../components/BlockerList";
 import { Picker } from "../../components/Picker";
 import { t, useLocale } from "../../i18n";
 import { numText, usdBudget, when } from "../../labels";
-import { go, type Stage } from "../../route";
-import { QuoteApprovalStage, QuoteCompose } from "./QuoteEditor";
+import { go } from "../../route";
 import { quoteFieldLabel as fieldLabel } from "./quoteStatus";
 
 export const QUOTE_BLOCKER: Record<QuoteBlockerCode, string> = {
@@ -25,20 +25,6 @@ export const QUOTE_BLOCKER: Record<QuoteBlockerCode, string> = {
 
 const partKind = (p: QuoteRequestPart) =>
   ({ email_text: t("the email's text"), attachment: t("attachment"), document: t("document") })[p.kind] ?? p.kind;
-
-export function QuoteStages({ view, stage, onChanged }: { view: WorkpackageView; stage: Stage; onChanged: () => void }) {
-  useLocale();
-  const q = view.quote;
-  if (!q) return <p className="muted">{t("Loading…")}</p>;
-  const wpId = view.workpackage.id;
-  if (stage === "process") return <RequestPanel view={q} />;
-  if (stage === "review") {
-    // 192: once the quote has a draft (or a version), it is composed beside the request
-    return q.draft.draft || q.draft.approval.active ? <QuoteCompose wpId={wpId} view={q} onChanged={onChanged} />
-      : <ProposalPanel wpId={wpId} view={q} onChanged={onChanged} />;
-  }
-  return <QuoteApprovalStage wpId={wpId} view={q} archived={view.workpackage.status === "archived"} onChanged={onChanged} />;
-}
 
 // 191 B4c: a proposed line's mark (DESIGN.md §4): sure green, to check a person's turn (orange), not listed off (amber)
 const MARK: Record<string, { cls: string; label: string }> = {
@@ -325,7 +311,7 @@ export function QuoteCreate(_props: { onDone: (wpId: string) => void }) {
   const options = (found ?? []).map(optionOf);
   return (
     <form className="create rc-stack" aria-label={t("New quote")} onSubmit={(e) => { e.preventDefault(); void submit(); }}>
-      <p className="muted small">{t("A quote starts from a quote request already processed: an email with its attachments, or a document read as one. The quote package reads it as it stands in its package and puts its parts together; it processes no file itself.")}</p>
+      <p className="muted small">{t("A quote starts from a quote request already processed: an email with its attachments, or a document read as one. The quote reads it as it stands in its package and puts its parts together; it processes no file itself.")}</p>
       <Picker label={t("Quote request")} value={chosen ? `${chosen.workpackage_id}|${chosen.item_id}` : null} options={options}
         loading={found === null} onSearch={setQ} placeholder={t("Choose a request…")}
         selectedLabel={chosen ? optionOf(chosen).label : undefined}
@@ -342,7 +328,7 @@ export function QuoteCreate(_props: { onDone: (wpId: string) => void }) {
             <p className="warn-text">
               {t("Quotes already made from it:")}{" "}
               {chosen.quotes.map((x, i) => (
-                <span key={x.id}>{i ? ", " : ""}<a href={`#/workpackages/${encodeURIComponent(x.id)}`}>{x.name}</a></span>
+                <span key={x.id}>{i ? ", " : ""}<a href={x.case ? `#/cases/${encodeURIComponent(x.id)}` : `#/workpackages/${encodeURIComponent(x.id)}`}>{x.name}</a></span>
               ))}
             </p>
           ) : null}

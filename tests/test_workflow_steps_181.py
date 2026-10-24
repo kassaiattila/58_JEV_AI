@@ -63,7 +63,7 @@ def test_the_registry_gives_what_the_hand_written_tables_gave() -> None:
     registrations.load_all()
     assert {k.kind: k.package_kinds for k in workflow_steps.kinds()} == {
         "documents": ("folder", "manual", "watch", "upload"), "emails": ("mailbox",),
-        "statements": ("statements",), "reconcile": ("reconcile",), "routing": ("email_routing",), "quote": ("quote",)}
+        "statements": ("statements",), "reconcile": ("reconcile",), "routing": ("email_routing",), "quote": ("case",)}  # 231 A3d
     assert {k.kind for k in workflow_steps.kinds() if k.own_engine} == {"documents", "emails", "statements"}
     assert {k.kind for k in workflow_steps.kinds() if k.paid} == {"documents", "emails", "statements"}
     assert {k.kind for k in workflow_steps.kinds() if k.only_new} == {"documents"}

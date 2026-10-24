@@ -102,7 +102,8 @@ def test_the_logic_packs_golden_sets_come_from_the_measurement_modules() -> None
     assert [g.key for g in found] == LOGIC_PACKS
     owner = {"reconcile": "jav.domains.finance.goldens", "quote": "jav.domains.quotes.goldens"}  # 208: each domain's goldens.py
     assert {g.key: g.module for g in found} == {key: owner[key.split(":")[0]] for key in LOGIC_PACKS}
-    assert {(g.layer, g.owner) for g in found} == {("logic_pack", "reconcile"), ("logic_pack", "quote")}
+    # 231 (A3d): the quote's are the IT quote process pack's, which names them, under their keys of before
+    assert {(g.layer, g.owner) for g in found} == {("logic_pack", "reconcile"), ("process_pack", "it_quote")}
 
 
 def test_the_registry_lists_the_same_golden_sets_as_before_the_move() -> None:

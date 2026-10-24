@@ -116,7 +116,15 @@ CONTAINER_PACK = logic_packs.LogicPack(
     kind=CONTAINER, module=__name__,
     roles=(logic_packs.InputRole("record", "linked_package", "the package item the case starts from"),), has_runs=False, page=_page, approved=_approved, next_step=_next,
     list_next=_next, outputs=(), release_refusal=_release_refusal, delete_guard=_delete_guard,
-    approval_what="Approval of a case's result")
+    approval_what="Approval of a case's result", list_mark=lambda: _list_mark())
+
+
+def _list_mark() -> list[Any]:
+    """231 (A3d): what a case's row in the package list reads: the process core's cases, steps and tasks, and the data
+    its page's elements show (their next step comes from it)."""
+    from jav.app import case_views
+
+    return [cases.marks(), case_views.marks()]
 
 
 def register() -> None:

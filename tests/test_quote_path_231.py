@@ -3,7 +3,8 @@
 Stage A moves the IT quote onto the process core and makes its parts general. The live store holds no quote, and the
 quote request's extraction in a package has no earlier answers to replay, so the path is recorded here instead: each
 invented request (`configs/golden_quotes.json`) is stored as a processed quote request with its expected values, and
-goes through the real code: the quote package, the proposal job, the draft from the proposal, the approval, the Word
+goes through the real code: the quote package (231, A3d: the quote package is gone; the same steps run on a case's
+container, without the process core moving it), the proposal job, the draft from the proposal, the approval, the Word
 quote's data and the reply letter. Only the two calls to a model are stand-ins: an item's match answers what the golden
 set expects (an item code written in the request still goes through the real code match), and the letter's paragraph
 is a fixed sentence. The stand-ins also record a fingerprint of every request the code would send to a model (the
@@ -30,7 +31,7 @@ from jav.core import queue, store
 from jav.domains.quotes import (invented_golden, price_lists, quote_document, quote_draft, quote_letter, quote_match,
                                 quote_package, quote_proposal)
 from jav.runtime import job_kinds, worker
-from jav.app import work
+from jav.app import process_runtime, work
 from tests import test_document_result_174 as rows
 
 FIXTURE = Path(__file__).parent / "fixtures" / "quote_path_231.json"
@@ -139,7 +140,8 @@ def _path(case: invented_golden.Case, seen: dict[str, list]) -> dict[str, Any]:
     """One request along the whole path; a step that cannot go on (a blocker) ends it, as a person would see it."""
     seen.clear()
     name = f"Quote {case.id}"
-    wp = quote_package.create(name=name, source=rows.WP, item_id=rows._id(case.id), actor=ACTOR)["workpackage_id"]
+    wp = process_runtime.start_case("it_quote", {"record": {"workpackage_id": rows.WP, "item_id": rows._id(case.id)}},
+                                    name=name, actor=ACTOR)
     out: dict[str, Any] = {"package": _clean(quote_package.view(wp))}
     quote_proposal.request(wp, actor=ACTOR)
     _drain()

@@ -59,7 +59,7 @@ __all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest 
     "OPEN", "CLOSED", "WAITING", "READY", "RUNNING", "DONE", "FAILED", "STALE", "STATES", "MIGRATION", "PENDING",
     "IGNORED", "UnknownCase", "CaseConflict", "UnknownEvent", "CaseClosed", "StepStateError", "AdoptionError",
     "Event", "Adopted", "on_leave", "transaction", "definition_of", "find_case_in", "case_row", "find_step_in",
-    "step_rows", "step_row", "without_case_in", "steps_in_phase_in", "get", "pending_events", "view", "record",
+    "step_rows", "step_row", "without_case_in", "steps_in_phase_in", "get", "marks", "pending_events", "view", "record",
     "start", "send_event", "cancel", "override_order", "retry", "reopen", "start_in", "send_event_in",
     "override_order_in", "retry_in", "reopen_in", "adopt", "adopt_phases_in", "set_phase", "set_result", "end_wait",
     "fail", "close", "hold", "resume",
@@ -290,6 +290,15 @@ def adopt_phases_in(c: sqlite3.Connection, phases: Mapping[tuple[str, str], str]
 def get(case_id: str) -> dict[str, Any]:
     with store.connect() as c:
         return case_row(c, case_id)
+
+
+def marks() -> list[Any]:
+    """231 (A3d): a mark that changes whenever a case, a step or a human task changes (a list built from them is built
+    again only then)."""
+    with store.connect() as c:
+        return [tuple(c.execute("SELECT COUNT(*), MAX(updated_at) FROM process_cases").fetchone()),
+                tuple(c.execute("SELECT COUNT(*), MAX(updated_at) FROM process_steps").fetchone()),
+                tuple(c.execute("SELECT SUM(status='open'), MAX(opened_at), MAX(closed_at) FROM process_tasks").fetchone())]
 
 
 def pending_events(case_id: str) -> list[Event]:

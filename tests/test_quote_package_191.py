@@ -1,4 +1,4 @@
-"""191 (plan F-quote-package B3, DECISIONS 191): the quote as a kind of work package, started from a quote request.
+"""191 (plan F-quote-package B3, DECISIONS 191): the quote, started from a quote request; 231 (A3d): as a case.
 
 The owner's decisions of 2026-10-21: the quote can be chosen as a kind of work, as the reconciliation and the data
 extraction can; its request is an email or a document already processed and read as a quote request, from any package.
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav.app import logic_packs, package_scope, work, workflow_steps
+from jav.app import logic_packs, process_runtime, work, workflow_steps
 from jav.core import store
 from jav.domains.quotes import price_lists, invented_golden, quote_package, quote_request
 from tests import test_document_result_174 as rows
@@ -101,7 +101,7 @@ def rows_db(tmp_path):
         yield
 
 
-# --- the quote package -------------------------------------------------------------------------------------------------
+# --- the quote (231, A3d: a case of the IT quote's process pack) ----------------------------------------------------
 
 
 def _price_list(tmp_path) -> None:
@@ -110,54 +110,51 @@ def _price_list(tmp_path) -> None:
     price_lists.activate(made["price_list"], 1, actor="anna")
 
 
-def test_a_quote_package_names_its_request_and_its_gaps(env, tmp_path):
+def _case(source: str, item_id: str, name: str = "Monitors") -> str:
+    """231 (A3d): a quote is a case of the IT quote's process pack (the quote package is gone)."""
+    return process_runtime.start_case("it_quote", {"record": {"workpackage_id": source, "item_id": item_id}}, name=name,
+                                      actor="anna")
+
+
+def _next(case_id: str) -> dict:
+    return quote_package._next_of(quote_package.view(case_id))
+
+
+def test_a_quote_names_its_request_and_its_gaps(env, tmp_path):
     wp_id = _package(env)
     _run_id, item = _run(wp_id)
-    with pytest.raises(quote_package.QuoteError):
-        quote_package.create(name=" ", source=wp_id, item_id=item["item_id"], actor="anna")
-    made = quote_package.create(name="Monitors for Minta", source=wp_id, item_id=item["item_id"], actor="anna")
-    quote = work.get(made["workpackage_id"])
-    assert (quote["source_kind"], quote["owner"], quote["name"]) == ("quote", "anna", "Monitors for Minta")
-    assert package_scope.stored(quote["id"])["parts"] == {"request": {"workpackage_id": wp_id, "item_id": item["item_id"]}}
-    view = quote_package.view(quote["id"])
+    case_id = _case(wp_id, item["item_id"], "Monitors for Minta")
+    quote = work.get(case_id)
+    assert (quote["source_kind"], quote["owner"], quote["name"]) == ("case", "anna", "Monitors for Minta")
+    assert quote_package.request_of(case_id) == {"workpackage_id": wp_id, "item_id": item["item_id"]}
+    view = quote_package.view(case_id)
     assert view["request"]["fields"]["customer_name"] == OUT["customer_name"]
     assert view["source"]["workpackage_name"] == work.get(wp_id)["name"]
     assert [b["code"] for b in view["blockers"]] == ["quote:no_price_list"]
-    assert quote_package.next_step(quote["id"])["code"] == "quote_request_check"
+    assert _next(case_id)["code"] == "quote_request_check"
     _price_list(tmp_path)
-    view = quote_package.view(quote["id"])
+    view = quote_package.view(case_id)
     assert view["blockers"] == [] and [p["name"] for p in view["price_lists"]] == ["Invented 2026"]
-    assert quote_package.next_step(quote["id"]) == {"code": "quote_propose", "label": "Ask for the proposal", "stage": "review"}
-    assert not logic_packs.of("quote").approved(quote["id"])
+    assert _next(case_id) == {"code": "quote_propose", "label": "Ask for the proposal", "stage": "review"}
     # the email it came from shows which quotes were made from it
-    assert quote_package.candidates()[0]["quotes"] == [{"id": quote["id"], "name": quote["name"]}]
+    assert quote_package.candidates()[0]["quotes"] == [{"id": case_id, "name": quote["name"], "case": True}]
 
 
 def test_a_request_that_can_no_longer_be_read_is_a_blocker(env):
     wp_id = _package(env)
     run_id, item = _run(wp_id)
-    quote_id = quote_package.create(name="Monitors", source=wp_id, item_id=item["item_id"], actor="anna")["workpackage_id"]
+    case_id = _case(wp_id, item["item_id"])
     with store.connect() as c:
         c.execute("UPDATE workpackage_items SET removed_revision=1 WHERE workpackage_id=? AND item_id=?", (wp_id, item["item_id"]))
-    view = quote_package.view(quote_id)
+    view = quote_package.view(case_id)
     assert view["request"] is None and [b["code"] for b in view["blockers"]] == ["quote:request_missing", "quote:no_price_list"]
-    assert quote_package.next_step(quote_id)["code"] == "quote_request_missing"
+    assert _next(case_id)["code"] == "quote_request_missing"
 
 
-def test_only_a_quote_request_can_start_a_quote(rows_db):
-    with pytest.raises(quote_package.QuoteError):
-        quote_package.create(name="x", source="wp-000000000000", item_id="nope", actor="anna")
-    rows._run("run-inv", {"szamla": rows._inv("INV-1")}, at="2026-11-03T08:00:00+00:00")
-    with pytest.raises(quote_package.QuoteError):
-        quote_package.create(name="x", source=rows.WP, item_id=rows._id("szamla"), actor="anna")
-    assert not [wp for wp in work.list_workpackages() if wp["source_kind"] == "quote"]
-
-
-def test_the_quote_is_a_registered_logic_pack_and_a_kind_of_work():
-    pack = logic_packs.of("quote")
-    assert pack is not None and not pack.has_runs and pack.service == "jav.domains.quotes.api_quote_package"
-    assert [(r.name, r.source) for r in pack.roles] == [("request", "linked_package"), ("price_list", "master_data")]
-    assert workflow_steps.of("quote").package_kinds == ("quote",)
+def test_the_quote_is_a_kind_of_work_in_the_wizard_and_no_logic_pack():
+    """231 (A3d): the quote package's logic pack is gone; the wizard's kind of work stays, and its form starts a case."""
+    assert "quote" not in {pack.kind for pack in logic_packs.packs()}
+    assert workflow_steps.of("quote").package_kinds == ("case",)
     templates = {t["id"]: t for t in __import__("jav.app.workflows", fromlist=["templates_view"]).templates_view()["templates"]}
     assert templates["quote"]["steps"] == [{"id": "quote", "kind": "quote"}]
 

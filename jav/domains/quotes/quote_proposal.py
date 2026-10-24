@@ -89,7 +89,7 @@ def _source(wp_id: str) -> quote_request.Request:
 
     ref = quote_package.request_of(wp_id)
     if not ref:
-        raise explained(ProposalRefused, "the quote package names no request")
+        raise explained(ProposalRefused, "the case names no request")
     try:
         return quote_request.read(ref["workpackage_id"], ref["item_id"])
     except quote_request.RequestNotFound as exc:

@@ -174,8 +174,8 @@ def test_the_service_answers_the_letter(quote, tmp_path):
     with TestClient(create_app(store_path=Path(tmp_path) / "q.sqlite"), base_url="http://127.0.0.1:8930") as c:
         assert c.post(f"/api/workpackages/{wp_id}/quote/letter/paragraph", headers=human, json={}).status_code == 422
         n = _approved(wp_id)
-        page = c.get(f"/api/workpackages/{wp_id}").json()
-        assert page["quote"]["letter"]["version"] == n
+        page = c.get(f"/api/cases/{wp_id}").json()  # 231 (A3d): the quote is a case's; its approval tab shows the letter
+        assert page["tabs"][2]["elements"][0]["data"]["quote"]["letter"]["version"] == n
         letter = c.get(f"/api/workpackages/{wp_id}/quote/letter").json()
         assert c.get(f"/api/workpackages/{wp_id}/quote/versions/{n}/letter.eml").status_code == 422
         ok = c.put(f"/api/workpackages/{wp_id}/quote/letter", headers=human,

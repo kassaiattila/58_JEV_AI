@@ -5,10 +5,10 @@
 // replaced by spies; invented names only.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError, setActor, type QuoteDraftView, type QuoteView, type WorkpackageView } from "../../api";
+import { api, ApiError, setActor, type CaseView, type QuoteDraftView, type QuoteView, type WorkpackageView } from "../../api";
 import { setLanguage } from "../../i18n";
 import { stepLabel } from "../../labels";
-import { QuoteStages } from "./Quote";
+import { Approval, LineEditor, MatchProposal, RecordView } from "./QuoteElements";
 import { quoteStatus } from "./quoteStatus";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
@@ -69,6 +69,16 @@ const QUOTE: QuoteView = {
 
 function view(quote: QuoteView, status = "active"): WorkpackageView {
   return { workpackage: { id: "wp-000000000195", name: "Quote", source_kind: "quote", status }, quote } as unknown as WorkpackageView;
+}
+
+/** 231 (A3d): the quote's stages as a case's page shows them, through its elements (the quote package's page is gone). */
+function QuoteStages({ view, stage, onChanged }: { view: WorkpackageView; stage: string; onChanged: () => void }) {
+  const { workpackage, quote } = view as unknown as { workpackage: { id: string; status?: string }; quote: QuoteView };
+  const page = { case: { status: workpackage.status ?? "open" }, steps: {}, tabs: [], next: null } as unknown as CaseView;
+  const props = (type: string) => ({ caseId: workpackage.id, element: { type, step: null, data: { quote } }, page, onChanged });
+  if (stage === "process") return <RecordView {...props("record_view")} />;
+  if (stage === "review") return <><MatchProposal {...props("match_proposal")} /><LineEditor {...props("line_editor")} /></>;
+  return <Approval {...props("approval")} />;
 }
 
 describe("the quote composed beside its request (192)", () => {
@@ -216,7 +226,7 @@ describe("the quote composed beside its request (192)", () => {
     expect(stepLabel("quote_approve", {}, "")).toBe("Approve the quote");
     expect(stepLabel("quote_approved", { version: 2 }, "")).toBe("Approved: version 2");
     expect(stepLabel("quote_compose", { n: 3 }, "")).toBe("Compose the quote: 3 to settle");
-    expect(quoteStatus(view(QUOTE))).toMatchObject({ review: "3 line(s), 2 to settle", result: "not approved yet" });
-    expect(quoteStatus(view({ ...QUOTE, draft: READY_DRAFT }))?.result).toBe("348,615 HUF gross, to approve");
+    expect(quoteStatus(QUOTE)).toMatchObject({ review: "3 line(s), 2 to settle", result: "not approved yet" });
+    expect(quoteStatus({ ...QUOTE, draft: READY_DRAFT })?.result).toBe("348,615 HUF gross, to approve");
   });
 });
