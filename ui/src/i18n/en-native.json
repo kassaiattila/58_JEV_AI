@@ -2136,6 +2136,10 @@
   "a retired partner is restored before it is changed": "a retired partner is restored before it is changed",
   "the partner was changed meanwhile": "the partner was changed meanwhile",
   "the partner is not retired": "the partner is not retired",
+  "the partners are named by their roles": "the partners are named by their roles",
+  "the case names no partner": "the case names no partner",
+  "the process names no partner role {{role}}": "the process names no partner role {{role}}",
+  "a retired partner is not linked to a case": "a retired partner is not linked to a case",
   "the request can no longer be read": "the request can no longer be read",
   "the request names no item": "the request names no item",
   "the request names more items than a proposal asks about: {{n}}": "the request names more items than a proposal asks about: {{n}}",
@@ -2617,5 +2621,13 @@
   "Asks for a quote or buys: a quote's requester, an outgoing invoice's buyer.": "Asks for a quote or buys: a quote's requester, an outgoing invoice's buyer.",
   "Sells to the own party: an incoming invoice's supplier.": "Sells to the own party: an incoming invoice's supplier.",
   "A person or company an insurance quote is made for.": "A person or company an insurance quote is made for.",
-  "Brings an insurance case on behalf of the insured.": "Brings an insurance case on behalf of the insured."
+  "Brings an insurance case on behalf of the insured.": "Brings an insurance case on behalf of the insured.",
+  "It seems to be {{name}} in the partner register.": "It seems to be {{name}} in the partner register.",
+  "Link it": "Link it",
+  "Link that one": "Link that one",
+  "Linked": "Linked",
+  "Not in the partner register yet.": "Not in the partner register yet.",
+  "Record as a partner": "Record as a partner",
+  "The partner register": "The partner register",
+  "The record names none.": "The record names none."
 }

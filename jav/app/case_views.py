@@ -14,7 +14,9 @@ steps wait for a person's start; starting one decides its start task, and the wo
 - `act(case_id, step_id, name, actor, note)` (A7d): a person's action on a step, one its capability offers and the step
   waits for now (say whether a message arrived, record a reply); each step's view lists the ones available.
 - The shared elements every pack may show (A7e): `timeline` (who did what and when on the case) and `cost` (what each
-  step spent, by service). The next step comes from the first step that is not done, through the elements that show
+  step spent, by service); (B1) `partner_link`: the partners the case is about, by the pack's partner links, each
+  linked, or proposed from the record's fields with the partner it seems to be. `link_partner(case_id, role,
+  partner_id, actor)`: a person links one (the case's scope names it). The next step comes from the first step that is not done, through the elements that show
   it; a step no element shows leaves it to the first element that names one.
 
 Layer: application; it uses the process packs, the capability registry, the process runtime and the process core's
@@ -29,12 +31,12 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from jav.app import capabilities, process_packs, process_runtime
-from jav.core import calls, completion, identity
+from jav.app import capabilities, package_scope, partners, process_packs, process_runtime, scopes
+from jav.core import calls, completion, identity, store
 from jav.core.process import cases, engine, tasks
 from jav.core.user_messages import explained
 
-__all__ = ["CaseError", "ElementData", "act", "marks", "next_of", "register", "start_step", "view"]
+__all__ = ["CaseError", "ElementData", "act", "link_partner", "marks", "next_of", "register", "start_step", "view"]
 
 
 class CaseError(ValueError):
@@ -243,5 +245,60 @@ def _cost(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict[str, 
     return {"lines": lines, "total_usd": str(total)}
 
 
+def _partner_brief(p: dict[str, Any]) -> dict[str, Any]:
+    return {k: p[k] for k in ("partner_id", "name", "tax_number", "email", "roles", "retired", "version")}
+
+
+def _partner_link(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict[str, Any]:
+    """231 (B1): the partners the case is about, by its pack's partner links: the linked partner, or the values its
+    record's fields give and the partner they seem to be (the same tax number or name)."""
+    pack = process_runtime.pack_for(case_id)
+    linked = ((package_scope.stored(case_id) or {}).get("parts") or {}).get(scopes.PARTNERS) or {}
+    if "state" not in shared:
+        shared["state"] = engine.state(case_id)
+    labels = partners.roles()
+    out = []
+    for link in pack.partners if pack else ():
+        row: dict[str, Any] = {"role": link.role, "role_label": labels.get(link.role, {}).get("label", link.role),
+                               "partner": None, "proposal": None, "match": None}
+        if pid := linked.get(link.role):
+            try:
+                row["partner"] = _partner_brief(partners.get(pid))
+            except partners.UnknownPartner:
+                pass
+        else:
+            fields = ((shared["state"]["steps"].get(link.from_step) or {}).get("result") or {}).get("fields") or {}
+            proposal = {target: str(fields[source]) for target, source in link.fields.items()
+                        if fields.get(source) not in (None, "")}
+            if proposal.get("name"):
+                row["proposal"] = proposal
+                found = partners.match(proposal["name"], proposal.get("tax_number"))
+                row["match"] = _partner_brief(found) if found else None
+        out.append(row)
+    return {"links": out}
+
+
+def link_partner(case_id: str, role: str, partner_id: str, actor: identity.Who) -> dict[str, Any]:
+    """231 (B1): a person links a partner to the case in one of its pack's partner roles; the case's scope names it.
+    `CaseError` for a role the pack has no link for or a retired partner; an unknown partner is a `KeyError`."""
+    pack = process_runtime.pack_for(case_id)
+    if pack is None:
+        raise KeyError(case_id)
+    if role not in {link.role for link in pack.partners}:
+        raise explained(CaseError, "the process names no partner role {{role}}", role=role)
+    if partners.get(partner_id)["retired"]:
+        raise explained(CaseError, "a retired partner is not linked to a case")
+    with store.connect() as c:
+        store.begin_immediate(c)
+        stored = package_scope.stored(case_id, c) or {}
+        parts = dict(stored.get("parts") or {})
+        parts[scopes.PARTNERS] = scopes.of(scopes.PARTNERS).check({**(parts.get(scopes.PARTNERS) or {}), role: partner_id},
+                                                                  CaseError)
+        package_scope.save(c, case_id, party_id=stored.get("party_id"), period_start=stored.get("period_start"),
+                           period_end=stored.get("period_end"), role=stored.get("role"), parts=parts, actor=actor)
+    return view(case_id)
+
+
 register(ElementData("timeline", None, __name__, _timeline))
 register(ElementData("cost", None, __name__, _cost))
+register(ElementData("partner_link", None, __name__, _partner_link))

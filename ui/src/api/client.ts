@@ -11,8 +11,9 @@ export class ApiError extends Error {
     public code: string,
     message: string,
     public blockers: Blocker[] = [],
-    /** 153: the field a correction's value could not be read in, and its kind (money, number or date) */
-    public detail: { field?: string | null; kind?: string | null } = {},
+    /** 153: the field a correction's value could not be read in, and its kind (money, number or date); 231 (B1): the
+     *  identifier of the existing thing a conflict names (`other_id`) */
+    public detail: { field?: string | null; kind?: string | null; other?: string | null } = {},
     /** 179: a refused output template's check (`template_refused`), naming every problem; 191: or a refused price
      *  list's (`price_list_refused`) */
     public check: OutputTemplateCheck | PriceListCheck | null = null,
@@ -138,7 +139,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
   }
   if (!res.ok) {
     const d = (data ?? {}) as { error?: string; message?: string; detail?: unknown; blockers?: Blocker[]; field?: string; kind?: string;
-      template?: string; params?: Record<string, string>; check?: OutputTemplateCheck | PriceListCheck };
+      template?: string; params?: Record<string, string>; check?: OutputTemplateCheck | PriceListCheck; other_id?: string };
     const missingActor = Array.isArray(d.detail) && d.detail.some((x) => Array.isArray(x?.loc) && x.loc.includes("x-actor"));
     // 167 (review 160 U-1): a message the service wrote as a template is translated like the interface's own labels
     const message = missingActor ? t(NO_ACTOR) : d.error === "unknown_user" ? t(UNKNOWN_ACTOR)
@@ -147,7 +148,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
       : Array.isArray(d.detail) ? t("The service refused a value: {{fields}}", { fields: refusedFields(d.detail) })
       : d.message ?? (typeof d.detail === "string" ? d.detail : `HTTP ${res.status}`);
     throw new ApiError(res.status, d.error ?? (res.status === 422 ? "invalid" : "error"), message, d.blockers ?? [],
-      { field: d.field ?? null, kind: d.kind ?? null }, d.check ?? null);
+      { field: d.field ?? null, kind: d.kind ?? null, other: d.other_id ?? null }, d.check ?? null);
   }
   return data as T;
 }

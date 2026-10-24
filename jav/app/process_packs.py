@@ -84,6 +84,18 @@ class Scope(_Model):
     parts: tuple[str, ...] = ()
 
 
+PARTNER_FIELDS = ("name", "tax_number", "email", "phone", "address")
+
+
+class PartnerLink(_Model):
+    """231 (B1): a partner a case is about: its role (`configs/partners.json`), the step whose result holds the record's
+    fields, and which of them give the partner's values (`name` at least)."""
+
+    role: str = Field(min_length=1)
+    from_step: str = Field(pattern=NAME)
+    fields: dict[str, str] = Field(min_length=1)
+
+
 class ProcessPack(_Model):
     meta: dict[str, Any]
     id: str = Field(pattern=NAME)
@@ -95,6 +107,7 @@ class ProcessPack(_Model):
     screens: Screens
     outputs: tuple[str, ...] = ()
     goldens: tuple[str, ...] = ()
+    partners: tuple[PartnerLink, ...] = ()  # 231 (B1)
 
     @property
     def version(self) -> str:
@@ -144,6 +157,17 @@ def _problems(pack: ProcessPack) -> list[str]:
                 problems.append(f"tab {tab.id!r}: unknown screen element {element.type!r}")
             if element.step is not None and element.step not in ids:
                 problems.append(f"tab {tab.id!r}: element {element.type!r} shows no step {element.step!r}")
+    known_roles = set(cfg.load("partners")["roles"])
+    for link in pack.partners:  # 231 (B1)
+        where = f"partner {link.role!r}"
+        if link.role not in known_roles:
+            problems.append(f"{where}: unknown partner role")
+        if link.from_step not in ids:
+            problems.append(f"{where}: no step {link.from_step!r}")
+        if "name" not in link.fields or set(link.fields) - set(PARTNER_FIELDS):
+            problems.append(f"{where}: its fields give a name and only {', '.join(PARTNER_FIELDS)}")
+    if len({link.role for link in pack.partners}) != len(pack.partners):
+        problems.append("a partner role is listed twice")
     tabs = [t.id for t in pack.screens.tabs]
     if len(tabs) != len(set(tabs)):
         problems.append("a tab is listed twice")

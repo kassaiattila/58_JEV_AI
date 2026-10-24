@@ -154,5 +154,25 @@ register(Part(PARTY, __name__, _party, _party_name, _no_party))
 register(Part(PERIOD, __name__, _period, _period_words, _no_period))
 
 
-__all__ = ["PARTY", "PERIOD", "Part", "ScopeError", "check", "label", "of", "parts", "period", "register"]
+__all__ = ["PARTNERS", "PARTY", "PERIOD", "Part", "ScopeError", "check", "label", "of", "parts", "period", "register"]
 register(Part(RECORD, __name__, _record, _record_words, _no_record))
+
+PARTNERS = "partners"  # 231 (B1): the partners a case is about, by role ({role: partner_id}; `jav/app/partners.py`)
+
+
+def _partners(value: Any, error: type[Exception]) -> dict[str, str]:
+    if not (isinstance(value, Mapping) and value and all(isinstance(k, str) and k and isinstance(v, str)
+                                                         and v.startswith("partner-") for k, v in value.items())):
+        raise explained(error, "the partners are named by their roles")
+    return {str(k): str(v) for k, v in value.items()}
+
+
+def _partners_words(value: Mapping[str, str]) -> str:
+    return ", ".join(f"{role}: {pid}" for role, pid in value.items())
+
+
+def _no_partners(error: type[Exception]) -> Exception:
+    return explained(error, "the case names no partner")
+
+
+register(Part(PARTNERS, __name__, _partners, _partners_words, _no_partners))

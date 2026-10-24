@@ -1083,3 +1083,17 @@ incoming invoice's supplier and an outgoing invoice's buyer, never an own party 
 and the register leaves out the parties already recorded. The service: `GET/POST /api/partners`, `GET
 /api/partners/suggestions`, `GET/PUT /api/partners/{id}`, `POST /api/partners/{id}/retire|restore`
 (`jav/service/api_partners.py`; a conflict is 409 with the other partner's id). Tests: `tests/test_partners_231.py`.
+
+**A case's partners and the register's page (231, plan stage B, B1).** A process pack names the partners its cases are
+about (`ProcessPack.partners`, `PartnerLink`: a role, the step whose result holds the record's fields, and which fields
+give the partner's name, tax number, email, phone or address; the pack check refuses an unknown role, a missing step
+or a link without a name). The IT quote's pack 1.2.0: the request's customer in the customer role, from the request
+step, whose result now carries the record's own fields. The shared element `partner_link` (`case_views._partner_link`)
+shows each link: the linked partner, or the values the record gives with the active partner they seem to be
+(`partners.match`); a person links one (`case_views.link_partner`, `POST /api/cases/{case_id}/partners`), which the
+case's scope names in the general part `partners` (`scopes.PARTNERS`, {role: partner id}). The interface: Settings ›
+Partners (`ui/src/views/settings/PartnersPanel.tsx`: the list with search and a role filter, a partner's values saved
+as a new version, its versions, retire and restore, a conflict leading to the other partner, the domains' proposals
+on request) and the case page's partner card (`ui/src/elements/CaseElements.tsx` `PartnerLink`: link the partner it
+seems to be, or record the values as a partner and link it). The client reads a conflict's `other_id`
+(`ApiError.detail.other`). Tests: `tests/test_case_partners_231.py`, `ui/src/views/settings/partners231.test.tsx`.

@@ -2137,6 +2137,10 @@
   "a retired partner is restored before it is changed": "egy visszavont partnert előbb vissza kell állítani, csak utána módosítható",
   "the partner was changed meanwhile": "a partnert közben módosították",
   "the partner is not retired": "a partner nincs visszavonva",
+  "the partners are named by their roles": "a partnereket a szerepük szerint kell megnevezni",
+  "the case names no partner": "az ügy nem nevez meg partnert",
+  "the process names no partner role {{role}}": "a munkafolyamatnak nincs {{role}} partnerszerepe",
+  "a retired partner is not linked to a case": "visszavont partner nem köthető ügyhöz",
   "the request can no longer be read": "a kérés már nem olvasható",
   "the request names no item": "a kérés nem nevez meg tételt",
   "the request names more items than a proposal asks about: {{n}}": "a kérés több tételt nevez meg, mint amennyiről egy javaslat kérdez: {{n}}",
@@ -2623,5 +2627,13 @@
   "Asks for a quote or buys: a quote's requester, an outgoing invoice's buyer.": "Ajánlatot kér vagy vásárol: az ajánlatkérő, a kimenő számla vevője.",
   "Sells to the own party: an incoming invoice's supplier.": "A saját félnek ad el: a bejövő számla szállítója.",
   "A person or company an insurance quote is made for.": "Akinek a biztosítási ajánlat készül (személy vagy cég).",
-  "Brings an insurance case on behalf of the insured.": "A biztosított nevében hozza a biztosítási ügyet."
+  "Brings an insurance case on behalf of the insured.": "A biztosított nevében hozza a biztosítási ügyet.",
+  "It seems to be {{name}} in the partner register.": "Úgy tűnik, ez a partnertörzsben: {{name}}.",
+  "Link it": "Hozzákötés",
+  "Link that one": "Azt kösd hozzá",
+  "Linked": "Hozzákötve",
+  "Not in the partner register yet.": "Még nincs a partnertörzsben.",
+  "Record as a partner": "Felvétel partnerként",
+  "The partner register": "Partnertörzs",
+  "The record names none.": "A rekord nem nevez meg ilyet."
 }

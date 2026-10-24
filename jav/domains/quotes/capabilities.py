@@ -88,7 +88,9 @@ def _record_assembly(ctx: Any, params: RecordAssembly) -> kinds.StepOutcome:
                                  items_field=params.items_field)
     except quote_request.RequestNotFound as exc:
         return kinds.Fail(f"the record can no longer be read: {exc}")
-    return kinds.Done({"kind": req.kind, "items": len(req.items),
+    # 231 (B1): the record's own fields (its header, not its list), which a pack's partner link reads
+    fields = {k: v for k, v in req.fields.items() if isinstance(v, (str, int, float)) and not isinstance(v, bool)}
+    return kinds.Done({"kind": req.kind, "items": len(req.items), "fields": fields,
                        "gaps": [g["code"] for g in quote_package.request_gaps(req)]})
 
 

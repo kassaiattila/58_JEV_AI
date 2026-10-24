@@ -40,6 +40,13 @@ export interface CaseEvent {
   at: string; kind: string; step: string | null; step_title: string | null; who: string | null;
   detail: { note?: string; timer?: string; task_kind?: string; answer?: string };
 }
+/** 231 (B1): a partner the case is about: linked, or proposed from its record with the partner it seems to be. */
+export interface CasePartnerBrief { partner_id: string; name: string; tax_number: string | null; email: string | null; roles: string[]; retired: boolean; version: number }
+export interface CasePartnerLink {
+  role: string; role_label: string; partner: CasePartnerBrief | null;
+  proposal: { name: string; tax_number?: string; email?: string; phone?: string; address?: string } | null;
+  match: CasePartnerBrief | null;
+}
 export interface CostLine { step: string; step_title: string; provider: string; calls: number; reused: number; cost_usd: string; open_usd: string }
 export interface CaseCost { lines: CostLine[]; total_usd: string }
 
@@ -49,6 +56,8 @@ export const casesApi = {
   casePage: (caseId: string) => request<CaseView>("GET", `/cases/${enc(caseId)}`),
   startCaseStep: (caseId: string, stepId: string) =>
     request<CaseView>("POST", `/cases/${enc(caseId)}/steps/${enc(stepId)}/start`, {}),
+  linkCasePartner: (caseId: string, role: string, partnerId: string) =>
+    request<CaseView>("POST", `/cases/${enc(caseId)}/partners`, { role, partner_id: partnerId }),
   caseStepAction: (caseId: string, stepId: string, name: string, note?: string) =>
     request<CaseView>("POST", `/cases/${enc(caseId)}/steps/${enc(stepId)}/actions/${enc(name)}`, note ? { note } : {}),
 };

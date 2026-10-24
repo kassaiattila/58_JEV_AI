@@ -34,7 +34,8 @@ from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
 __all__ = ["CONFIG", "PartnerConflict", "PartnerError", "PartnerIn", "SuggestionSource", "UnknownPartner", "VERSIONS",
-           "create", "get", "listing", "register_suggestions", "restore", "retire", "roles", "suggestions", "update"]
+           "create", "get", "listing", "match", "register_suggestions", "restore", "retire", "roles", "suggestions",
+           "update"]
 
 CONFIG = "partners"
 FIELDS = ("name", "tax_number", "email", "phone", "address", "note")
@@ -143,6 +144,16 @@ def _same(c: Any, out: dict[str, Any], partner_id: str | None) -> str | None:
         if name and row["name_key"] == name and not (tax and row["tax_key"]):
             return str(row["partner_id"])
     return None
+
+
+def match(name: str | None, tax_number: str | None = None) -> dict[str, Any] | None:
+    """231 (B1): the active partner a party read from a document is (the same tax number, or the same name without a
+    tax number on either), or None: a case offers to link it instead of recording it again."""
+    if not (name or "").strip():
+        return None
+    with store.connect() as c:
+        found = _same(c, {"name": name, "tax_number": tax_number}, None)
+    return get(found) if found else None
 
 
 def _insert(c: Any, partner_id: str, version: int, out: dict[str, Any], actor: identity.Who) -> None:

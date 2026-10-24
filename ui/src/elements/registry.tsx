@@ -32,6 +32,7 @@ const HandoverView = lazy(() => general().then((m) => ({ default: m.HandoverView
 const ReplyWait = lazy(() => general().then((m) => ({ default: m.ReplyWait })));
 const Timeline = lazy(() => general().then((m) => ({ default: m.Timeline })));
 const CostView = lazy(() => general().then((m) => ({ default: m.CostView })));
+const PartnerLink = lazy(() => general().then((m) => ({ default: m.PartnerLink })));
 const lazily = (C: (p: ElementProps) => ReactNode) =>
   (p: ElementProps) => <Suspense fallback={<p className="muted">{t("Loading…")}</p>}><C {...p} /></Suspense>;
 const quoteOf = (p: ElementProps) => (p.element.data as { quote?: QuoteView } | null)?.quote;
@@ -45,5 +46,6 @@ export const ELEMENTS: Record<string, ElementSpec> = {
   handover_view: { render: lazily(HandoverView), status: (p) => handoverStatus(p)?.text ?? null },
   reply_wait: { render: lazily(ReplyWait), status: (p) => replyStatus(p)?.text ?? null },
   timeline: { render: lazily(Timeline) },
+  partner_link: { render: lazily(PartnerLink) },  // 231 (B1)
   cost: { render: lazily(CostView), status: (p) => { const usd = costTotal(p); return usd === null ? null : `${moneyText(usd)} USD`; } },
 };
