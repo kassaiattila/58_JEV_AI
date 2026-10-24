@@ -29,7 +29,7 @@ import sqlite3
 from typing import Any
 
 from jav.app import naming, package_release
-from jav.core import cfg
+from jav.core import cfg, identity
 from jav.core.clock import utc_stamp as _now
 from jav.app.outputs import builtin, contract, templates
 
@@ -224,11 +224,12 @@ def builtin_template(d: contract.OutputData) -> bytes:
 # --- the stored document ----------------------------------------------------------------------------------------------
 
 
-def store(c: sqlite3.Connection, wp_id: str, n: int, content: dict[str, Any], *, package: str, actor: str) -> None:
+def store(c: sqlite3.Connection, wp_id: str, n: int, content: dict[str, Any], *, package: str,
+          actor: identity.Who) -> None:
     """At the approval, in its write transaction: the version's document made with the package's chosen template (the
     built-in one without a choice), stored with the version and the template that made it."""
     approved_at = package_release.own_version(wp_id, n, c)["approved_at"]
-    d = data(content, package=package, version=n, approved_by=actor, approved_at=approved_at)
+    d = data(content, package=package, version=n, approved_by=identity.name_of(actor), approved_at=approved_at)
     file, made = templates.render(d, wp_id, c)
     package_release.store_own_files(c, wp_id, n, package_release.APPROVED,
                                     [(file_name(content, package=package, version=n), len(content["lines"]), file, made)])

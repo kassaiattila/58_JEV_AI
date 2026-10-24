@@ -14,14 +14,14 @@ from typing import Any
 
 from jav.app import item_kinds
 from jav.core import store
-from jav.core import calls, queue, rulebook
+from jav.core import calls, identity, queue, rulebook
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 from jav.app import human_tasks, work, work_readiness, work_recipes, workflow_cases
 
 
 @store.one_connection
-def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input_hash: str, actor: str,
+def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input_hash: str, actor: identity.Who,
               rerun_of: str | None = None, scope: str = "all") -> dict[str, Any]:
     """Idempotent start with a pinned input: one queue job per item, with a run-level cost budget.
 
@@ -94,9 +94,11 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
                             [{"code": "run_active", "message": "Another run of the package is still going."}])
         if not existing:
             c.execute("INSERT INTO runs(run_id, workpackage_id, dedup_key, mode, assignment_revision, recipe_id, recipe_version, recipe_hash,"
-                      " recipe, params, input, input_hash, status, actor, created_at, plan, scope) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'queued',?,?,?,?)",
+                      " recipe, params, input, input_hash, status, actor, actor_id, created_at, plan, scope)"
+                      " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'queued',?,?,?,?,?)",
                       (run_id, wp_id, dedup, mode, a["revision"], r["id"], r["version"], work_recipes.recipe_hash(r), work._canon(r), work._canon(a["params"]),
-                       work._canon(snapshot), input_hash, actor, _now(), work._canon(ready["plan"]), "pending" if scope == "pending" else None))
+                       work._canon(snapshot), input_hash, identity.name_of(actor), identity.id_of(actor), _now(),
+                       work._canon(ready["plan"]), "pending" if scope == "pending" else None))
             rulebook.link_in(c, rulebook.RUN, run_id)  # 218: the code and the rules the run started with
             if mode == "apply":  # 218 (P3l): a new live run reopens the done workflow step whose package it is
                 workflow_cases.package_reopened(c, wp_id, human_tasks.person(actor), "a new live run of its package")
@@ -397,7 +399,7 @@ def refresh_run_status(run_id: str) -> str:
 
 
 @store.one_connection
-def resolve_reason(reason_id: int, *, actor: str, resolution: dict[str, Any] | None, note: str | None) -> dict[str, Any]:
+def resolve_reason(reason_id: int, *, actor: identity.Who, resolution: dict[str, Any] | None, note: str | None) -> dict[str, Any]:
     """Human resolution of one to-do reason, then a refresh of the owning run's status (058: after the last reason is
     closed the run is "done", and the list badge does not stay at "needs review"). A reason from an earlier
     measurement is not owned by a run."""
@@ -415,13 +417,13 @@ def resolve_reason(reason_id: int, *, actor: str, resolution: dict[str, Any] | N
         hit = c.execute("SELECT status FROM runs WHERE run_id=?", (owner,)).fetchone()
     if hit is not None and hit["status"] in ("needs_review", "done"):
         run_status = refresh_run_status(owner)
-    return {"reason_id": reason_id, "status": "resolved", "actor": actor, "run_status": run_status}
+    return {"reason_id": reason_id, "status": "resolved", "actor": identity.name_of(actor), "run_status": run_status}
 
 
 STOPPABLE = ("queued", "running")  # 160 (review R-3): a finished run is superseded instead (`supersede_run`)
 
 
-def cancel_run(run_id: str, *, actor: str | None = None) -> dict[str, int]:
+def cancel_run(run_id: str, *, actor: identity.Who | None = None) -> dict[str, int]:
     """Queued items stop at once, an active one at the next step boundary. 066 Á35: the actor (if any) goes into the
     package's event log. 082: the run's jobs are stopped in one step (`queue.cancel_run_jobs`); with an item still
     running, the run's status is refreshed here too (the worker's own refresh after that item ends it as cancelled).
@@ -437,7 +439,8 @@ def cancel_run(run_id: str, *, actor: str | None = None) -> dict[str, int]:
         if row["status"] not in STOPPABLE:
             raise explained(work.RevisionConflict, "the run is {{status}}: only a queued or running run can be stopped; supersede a finished one instead",
                             status=row["status"])
-        c.execute("UPDATE runs SET stopped_at=?, stopped_by=? WHERE run_id=?", (_now(), actor, run_id))
+        c.execute("UPDATE runs SET stopped_at=?, stopped_by=?, stopped_by_id=? WHERE run_id=?",
+                  (_now(), identity.name_of(actor), identity.id_of(actor), run_id))
         if actor is not None:
             work._event(c, row["workpackage_id"], "run_cancel", actor, {"run_id": run_id})
     out = queue.cancel_run_jobs(run_id)
@@ -531,7 +534,7 @@ def supersedable_runs(wp_id: str) -> list[dict[str, Any]]:
     return out
 
 
-def supersede_run(run_id: str, *, actor: str) -> dict[str, Any]:
+def supersede_run(run_id: str, *, actor: identity.Who) -> dict[str, Any]:
     """151 (decision of 2026-10-12): a person supersedes an older live run that a later live run has repeated. The run
     is kept as cancelled, its own open reasons close as `superseded` (they stay in the store), and the package's event
     log records who did it and which run superseded it. Checked and done in one transaction; `NotReady` if the run
@@ -565,7 +568,7 @@ def superseded(run_id: str) -> dict[str, Any] | None:
 
 
 @store.one_connection
-def approve_run(run_id: str, *, actor: str, review_version: str | None = None,
+def approve_run(run_id: str, *, actor: identity.Who, review_version: str | None = None,
                 confirm_removed: int | None = None) -> dict[str, Any]:
     """Approval of a live run: only with finished items and no open to-do; who approved it and when is recorded.
     `review_version` (085, re-audit A01): the version of the result the approver saw (`corrections.review_version`);
@@ -631,8 +634,10 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None,
         if review_version is not None and corrections.review_version(run_id, c) != review_version:
             raise explained(work.RevisionConflict, "the result of run {{run_id}} changed since it was reviewed; review it again",
                             run_id=run_id)
-        cur = c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_at=?, excluded_items=? WHERE run_id=?"
-                        " AND approval IS NULL AND status='done'", (actor, _now(), json.dumps(removed) if removed else None, run_id))
+        cur = c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_by_id=?, approved_at=?, excluded_items=?"
+                        " WHERE run_id=? AND approval IS NULL AND status='done'",
+                        (identity.name_of(actor), identity.id_of(actor), _now(), json.dumps(removed) if removed else None,
+                         run_id))
         if cur.rowcount:  # 215: the run's approval task is decided by the approver, in the approval's transaction
             human_tasks.run_approved(c, run_id, actor, {"approval": "approved", "excluded_items": removed,
                                                         "review_version": review_version})

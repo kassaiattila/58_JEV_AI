@@ -9,12 +9,13 @@ steps out; now both use this module on their own table, with their own data and 
 their changes are the same everywhere and a third kind of editable rule gets them by naming its table.
 
 - `VersionTable(table, key, ...)`: a table with the columns `<key>` (the thing's identifier, the same for all its
-  versions), `version`, `state`, `activated_by`, `activated_at`, `retired_by` and `retired_at`.
+  versions), `version`, `state`, `activated_by`, `activated_by_id`, `activated_at`, `retired_by`, `retired_by_id` and
+  `retired_at` (229: who acted, by name and stable id, `jav.core.identity`).
 - `row`, `latest`, `active`: reading versions; `activate`, `retire`: the state changes, in the caller's write
   transaction; `grouped`: the rows of a listing, one entry per thing with its versions.
 - `VersionNotFound`, `VersionStateError`: the shared errors; an owner raises its own subclasses of them.
 
-Layer: shared core; it imports only the clock.
+Layer: shared core; it imports only the clock and who acts.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
+from jav.core import identity
 from jav.core.clock import utc_stamp as _now
 
 DRAFT, ACTIVE, SUPERSEDED, RETIRED = "draft", "active", "superseded", "retired"
@@ -66,23 +68,24 @@ class VersionTable:
         """The thing's active version, or None."""
         return c.execute(f"SELECT * FROM {self.table} WHERE {self.key}=? AND state=?", (ident, ACTIVE)).fetchone()
 
-    def activate(self, c: sqlite3.Connection, ident: str, version: int, *, actor: str) -> None:
+    def activate(self, c: sqlite3.Connection, ident: str, version: int, *, actor: identity.Who) -> None:
         """Makes the version the active one (a draft, or an earlier version again), in the caller's write transaction;
         the active one before it is superseded, and a retired thing comes back with it."""
         if self.row(c, ident, version)["state"] == ACTIVE:
             raise self.state_error(f"{ident} version {version} is already active")
         c.execute(f"UPDATE {self.table} SET state=? WHERE {self.key}=? AND state IN (?, ?)", (SUPERSEDED, ident, ACTIVE, RETIRED))
-        c.execute(f"UPDATE {self.table} SET state=?, activated_by=?, activated_at=?, retired_by=NULL, retired_at=NULL"
-                  f" WHERE {self.key}=? AND version=?", (ACTIVE, actor, _now(), ident, version))
+        c.execute(f"UPDATE {self.table} SET state=?, activated_by=?, activated_by_id=?, activated_at=?, retired_by=NULL,"
+                  f" retired_by_id=NULL, retired_at=NULL WHERE {self.key}=? AND version=?",
+                  (ACTIVE, identity.name_of(actor), identity.id_of(actor), _now(), ident, version))
 
-    def retire(self, c: sqlite3.Connection, ident: str, *, actor: str) -> int:
+    def retire(self, c: sqlite3.Connection, ident: str, *, actor: identity.Who) -> int:
         """Retires the thing, in the caller's write transaction: its active version is no longer offered. Returns that
         version's number; `state_error` when it has no active version."""
         found = c.execute(f"SELECT version FROM {self.table} WHERE {self.key}=? AND state=?", (ident, ACTIVE)).fetchone()
         if found is None:
             raise self.state_error(f"{ident} has no active version")
-        c.execute(f"UPDATE {self.table} SET state=?, retired_by=?, retired_at=? WHERE {self.key}=? AND version=?",
-                  (RETIRED, actor, _now(), ident, found["version"]))
+        c.execute(f"UPDATE {self.table} SET state=?, retired_by=?, retired_by_id=?, retired_at=? WHERE {self.key}=?"
+                  f" AND version=?", (RETIRED, identity.name_of(actor), identity.id_of(actor), _now(), ident, found["version"]))
         return int(found["version"])
 
     def grouped(self, rows: Iterable[Any], head: Callable[[Any], dict[str, Any]],

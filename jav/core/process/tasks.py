@@ -31,8 +31,16 @@ from typing import Any
 
 from jav.core import store
 from jav.core.clock import utc_stamp as _now
-from jav.core.process import cases, hooks, kinds, timers
-from jav.core.process.actor import Actor
+from jav.core import access
+from jav.core.identity import Actor
+from jav.core.process import cases, kinds, timers
+
+__all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
+    "OPEN", "DECIDED", "EXPIRED", "WITHDRAWN", "EVENT", "UnknownTask", "UnknownTaskKind", "TaskClosed",
+    "ReasonRequired", "StaleResult", "TaskKind", "register_kind", "kind_of", "Task", "task_id", "task_in", "get",
+    "open_tasks", "of_kind_in", "ids_of_kind_in", "open_for_in", "of_case", "history", "open_in", "decide_in",
+    "withdraw_in", "assign_in", "set_due_in", "decide",
+]
 
 OPEN, DECIDED, EXPIRED, WITHDRAWN = "open", "decided", "expired", "withdrawn"
 EVENT = "task_closed"  # the event a task's closing sends its case, unless the opener names the step's own wait
@@ -192,6 +200,19 @@ def open_tasks(assignee: str | None = None, *, kind: str | None = None) -> list[
         return [_task(r) for r in c.execute(sql + " ORDER BY opened_at, task_id", args)]
 
 
+def of_kind_in(c: sqlite3.Connection, kind: str, *, status: str | None = None) -> list[Task]:
+    """229: the tasks of one kind, in every status or only in `status`, oldest first."""
+    sql, args = "SELECT * FROM process_tasks WHERE kind=?", [kind]
+    if status is not None:
+        sql, args = sql + " AND status=?", [*args, status]
+    return [_task(r) for r in c.execute(sql + " ORDER BY opened_at, task_id", args)]
+
+
+def ids_of_kind_in(c: sqlite3.Connection, kind: str) -> set[str]:
+    """229: the ids of the tasks of one kind, in every status (a light look: whether a subject already has its task)."""
+    return {r["task_id"] for r in c.execute("SELECT task_id FROM process_tasks WHERE kind=?", (kind,))}
+
+
 def open_for_in(c: sqlite3.Connection, assignee: str) -> list[Task]:
     """216: the open tasks a person or group sees: theirs and anyone's (no assignee), oldest first."""
     return [_task(r) for r in c.execute("SELECT * FROM process_tasks WHERE status=? AND (assignee=? OR assignee IS NULL)"
@@ -267,7 +288,7 @@ def open_in(c: sqlite3.Connection, kind: str, subject: str, opened_by: Actor, *,
     if (case_id is None) != (step_id is None):
         raise ValueError("a task in a case names its step, and only a task in a case does")
     tid = task_id(kind, subject)
-    hooks.authorize(opened_by, "open_task", case_id)
+    access.authorize(opened_by, "open_task", case_id)
     prior = task_in(c, tid)
     if prior is not None and prior.status == OPEN:
         return "exists"
@@ -315,7 +336,7 @@ def decide_in(c: sqlite3.Connection, tid: str, actor: Actor, *, outcome: Any = N
     """A person decides the open task (once; `TaskClosed` after that), with a reason where its kind asks for one, on the
     result version it is about (`StaleResult` for another). Returns the task's round."""
     task = _require(c, tid)
-    hooks.authorize(actor, "decide_task", task.case_id)
+    access.authorize(actor, "decide_task", task.case_id)
     task = _require_open(c, tid)
     note = note.strip() if note and note.strip() else None
     if task.reason_required and note is None:
@@ -330,7 +351,7 @@ def decide_in(c: sqlite3.Connection, tid: str, actor: Actor, *, outcome: Any = N
 def withdraw_in(c: sqlite3.Connection, tid: str, actor: Actor, *, note: str | None = None, notify: bool = True) -> bool:
     """What the open task was about went away (or a machine settled it): withdrawn; False when it was not open."""
     task = _require(c, tid)
-    hooks.authorize(actor, "withdraw_task", task.case_id)
+    access.authorize(actor, "withdraw_task", task.case_id)
     if task.status != OPEN:
         return False
     _close(c, task, WITHDRAWN, actor, {"note": note} if note else {}, note=note, notify=notify)
@@ -350,7 +371,7 @@ def assign_in(c: sqlite3.Connection, tid: str, assignee: str | None, actor: Acto
     """The open task goes to `assignee` (None: anyone); False when it was assigned so already."""
     _check_assignee(assignee)
     task = _require(c, tid)
-    hooks.authorize(actor, "assign_task", task.case_id)
+    access.authorize(actor, "assign_task", task.case_id)
     task = _require_open(c, tid)
     if task.assignee == assignee:
         return False
@@ -362,7 +383,7 @@ def assign_in(c: sqlite3.Connection, tid: str, assignee: str | None, actor: Acto
 def set_due_in(c: sqlite3.Connection, tid: str, due_at: float | None, actor: Actor) -> None:
     """The open task's deadline (None: none); in a case its timer is armed again or cancelled with it (rule 7)."""
     task = _require(c, tid)
-    hooks.authorize(actor, "set_task_due", task.case_id)
+    access.authorize(actor, "set_task_due", task.case_id)
     task = _require_open(c, tid)
     c.execute("UPDATE process_tasks SET due_at=? WHERE task_id=?", (due_at, tid))
     _record(c, task, task.round, "due_set", actor, {"from": task.due_at, "to": due_at})

@@ -11,7 +11,7 @@ import sqlite3
 from typing import Any
 
 from jav.ai import typepack
-from jav.core import cfg, store
+from jav.core import cfg, identity, store
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 from jav.app import work
@@ -105,7 +105,7 @@ def assignment_history(wp_id: str) -> list[dict[str, Any]]:
     return [{**dict(r), "params": json.loads(r["params"])} for r in rows]
 
 
-def assign_recipe(wp_id: str, recipe_id: str, *, params: dict[str, Any], expected_revision: int, actor: str,
+def assign_recipe(wp_id: str, recipe_id: str, *, params: dict[str, Any], expected_revision: int, actor: identity.Who,
                   note: str | None = None) -> dict[str, Any]:
     """The assignment gets its own revision (the V4 `expected_revision` pattern); earlier ones stay as history. A
     retired recipe (080) cannot be assigned again. 160-D: a setting that does not name the engine takes the
@@ -123,14 +123,16 @@ def assign_recipe(wp_id: str, recipe_id: str, *, params: dict[str, Any], expecte
     return current_assignment(wp_id)
 
 
-def _insert_assignment(c, wp_id: str, r: dict[str, Any], params: dict[str, Any], *, expected_revision: int, actor: str,
+def _insert_assignment(c, wp_id: str, r: dict[str, Any], params: dict[str, Any], *, expected_revision: int, actor: identity.Who,
                        note: str | None) -> int:
     cur = c.execute("SELECT MAX(revision) m FROM recipe_assignments WHERE workpackage_id=?", (wp_id,)).fetchone()["m"] or 0
     if cur != expected_revision:
         raise explained(work.RevisionConflict, "assignment of {{wp_id}} is at revision {{cur}}, not {{expected_revision}}",
                         wp_id=wp_id, cur=cur, expected_revision=expected_revision)
-    c.execute("INSERT INTO recipe_assignments VALUES (?,?,?,?,?,?,?,?,?)",
-              (wp_id, cur + 1, r["id"], r["version"], recipe_hash(r), work._canon(params), actor, note, _now()))
+    c.execute("INSERT INTO recipe_assignments(workpackage_id, revision, recipe_id, recipe_version, recipe_hash, params,"
+              " actor, actor_id, note, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+              (wp_id, cur + 1, r["id"], r["version"], recipe_hash(r), work._canon(params), identity.name_of(actor),
+               identity.id_of(actor), note, _now()))
     return cur + 1
 
 

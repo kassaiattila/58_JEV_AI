@@ -61,8 +61,8 @@ def test_the_domains_and_their_registrations_in_order() -> None:
     assert logic_packs.outputs_of("folder") == ("package_result", "utility_cost")
     assert logic_packs.outputs_of("statements") == ("package_result", "utility_cost")
     assert logic_packs.outputs_of("reconcile") == ("reconcile_statement",)
-    assert item_kinds.of(item_kinds.EMAIL).rules_from == "jav.domains.email"
-    assert item_kinds.source("mailbox").page_from == "jav.domains.email"
+    assert item_kinds.claimed_by(item_kinds.EMAIL) == "jav.domains.email"  # 229 (MD1): the domain claims its kinds
+    assert item_kinds.source_claimed_by("mailbox") == "jav.domains.email"
     assert [(r.name, r.module) for r in item_kinds.rules()] == [("suspicious_email_source", "jav.domains.email")]
 
 
@@ -93,7 +93,7 @@ def _imported(path) -> set[str]:
     return names
 
 
-FINANCE = {"jav.domains.finance.duplicates", "jav.app.parties", "jav.domains.finance.report_utility", "jav.core.type_roles", "jav.domains.finance.reconcile", "jav.domains.finance.reconcile_package",
+FINANCE = {"jav.domains.finance.duplicates", "jav.domains.finance.own_parties", "jav.domains.finance.report_utility", "jav.core.type_roles", "jav.domains.finance.reconcile", "jav.domains.finance.reconcile_package",
            "jav.domains.finance.statement_package", "jav.domains.finance.statement_months"}
 
 

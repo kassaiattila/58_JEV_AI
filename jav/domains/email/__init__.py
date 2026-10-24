@@ -29,6 +29,7 @@ named them): the shared code imports none of them (`tests/test_dependency_direct
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from jav.core import activity_kinds
@@ -69,12 +70,32 @@ SOURCES = (
 )
 
 
+def _build_email(mod: Any, b: Any) -> Any:
+    # 048 T2: the item is the email's `message.json`; the flow reads its folder (229: the domain's flow entry; until then
+    # the shared flow registry's)
+    return mod.build_app(source_dir=str(Path(b.source_path).parent), tracker=False, run_id=b.app_id,
+                         persister=b.persister, use_cache=b.use_cache, propose_tasks=b.params.get("tasks") == "propose",
+                         attachment_reads=b.attachment_reads, jev=b.jev,
+                         extract_text=b.params.get("email_text") == "extract")  # 190: a run before the setting: off
+
+
+def _lint_email(mod: Any) -> Any:
+    return mod.build_app(source_dir="lint", tracker=False)
+
+
 def register() -> None:
     """Every registration of the email domain (`registrations.load_all`)."""
+    from jav import flows
     from jav.app import datasets, item_kinds, logic_packs, workflow_steps
-    from jav.domains.email import email_datasets, email_export, email_routing, email_store, mailbox
+    from jav.domains.email import email_datasets, email_export, email_routing, email_store, flow_email, mailbox  # noqa: F401
     from jav.app.outputs import parts
     from jav.runtime import job_kinds
+
+    # 229 (MD1): the email item kind and the mailbox source are this domain's: it registers their rules, handler and
+    # page part; its flow is registered here, and importing `flow_email` registers its decision points
+    item_kinds.claim(item_kinds.EMAIL, __name__)
+    item_kinds.claim_source("mailbox", __name__)
+    flows.register(flows.FlowSpec("email", "jav.domains.email.flow_email", _build_email, _lint_email))
 
     item_kinds.register_rule(item_kinds.ItemRule(kind=item_kinds.EMAIL, name="suspicious_email_source", module=__name__,
                                                  after_item=mailbox.mark_suspicious_source))

@@ -14,7 +14,7 @@ from typing import Any
 from jav.flows import contract
 from jav.core import cfg, config, store, values
 from jav.core.config import PROJECT_ROOT, RUNS_DIR
-from jav.ai.typepack import LEGACY_DOC_TYPE
+from jav.evals.eval_report import LEGACY_DOC_TYPE
 
 STATE_PATH = PROJECT_ROOT / "docs" / "STATE.md"  # generated state snapshot; the handoff links to it, never copies it
 
@@ -108,8 +108,12 @@ def golden_set_lines() -> list[str]:
 
 def flow_lint_targets() -> list[tuple[Any, Any]]:
     """Every flow module with a live graph built for the contract lint (`flows`, the admin report); 173: the flows
-    and their lint graphs come from the flow registry (`jav.flows`), in its order."""
+    and their lint graphs come from the flow registry (`jav.flows`), in its order (229: with the domains' flows, so the
+    application's registrations are loaded first)."""
     from jav import flows
+    from jav.app import registrations
+
+    registrations.load_all()
 
     targets = []
     for spec in flows.specs():

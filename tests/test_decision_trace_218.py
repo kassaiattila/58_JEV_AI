@@ -531,6 +531,7 @@ def _own_party(tax: str) -> None:
 def test_a_duplicate_and_an_own_tax_number_are_traced_with_the_extractions_save(db):  # noqa: F811
     from jav.ai.models import DocumentRecord, FlowState
     from jav.app import parties
+    from jav.domains.finance import own_parties
     from jav.domains.finance import duplicates
     from jav.flows import flow
     from tests.test_duplicates_126 import A, _id, _in_run, _inv, _save
@@ -549,19 +550,20 @@ def test_a_duplicate_and_an_own_tax_number_are_traced_with_the_extractions_save(
     assert dup["outcome"]["reasons"] == [f"duplicate:variant:{earlier[:16]}"]
     assert dup["outcome"]["matches"] == [{"doc_id": earlier[:16], "kind": "variant", "differing": ["issue_date"],
                                           "missing": [], "decided": False}]
-    own = rows[parties.OWN_TAX_POINT]
+    own = rows[own_parties.OWN_TAX_POINT]
     assert own["inputs"]["supplier_tax"] == parties.tax_key(A) and own["inputs"]["own_party"]
-    assert own["outcome"] == {"reasons": [parties.OWN_TAX_REASON]}
+    assert own["outcome"] == {"reasons": [own_parties.OWN_TAX_REASON]}
     route = rows["extract.route"]  # their to-dos are the route's inputs, in the order they ran
     assert route["inputs"]["cross_document"][:2] == [dup["outcome"]["reasons"], own["outcome"]["reasons"]]
     assert {r["reason"] for r in store.review_open_reasons("document", _id("now"))} >= {
-        f"duplicate:variant:{earlier[:16]}", parties.OWN_TAX_REASON}
+        f"duplicate:variant:{earlier[:16]}", own_parties.OWN_TAX_REASON}
     for row in (dup, own, route):
         assert trace.replay(row) == row["outcome"]
 
 
 def test_the_store_scans_trace_the_to_dos_they_open(db):  # noqa: F811
-    from jav.app import parties, work_runs
+    from jav.app import work_runs
+    from jav.domains.finance import own_parties
     from jav.domains.finance import duplicates, party_views
     from tests.test_duplicates_126 import A, _inv, _run, _save
 
@@ -574,12 +576,12 @@ def test_the_store_scans_trace_the_to_dos_they_open(db):  # noqa: F811
     (dup,) = trace.rows(point=duplicates.DUPLICATE_POINT)
     assert (dup["subject_id"], dup["run_id"]) == (now, flow_run)
     assert dup["outcome"]["reasons"] == [f"duplicate:copy:{earlier[:16]}"]
-    (own,) = trace.rows(point=parties.OWN_TAX_POINT)
-    assert (own["subject_id"], own["run_id"], own["outcome"]) == (now, flow_run, {"reasons": [parties.OWN_TAX_REASON]})
+    (own,) = trace.rows(point=own_parties.OWN_TAX_POINT)
+    assert (own["subject_id"], own["run_id"], own["outcome"]) == (now, flow_run, {"reasons": [own_parties.OWN_TAX_REASON]})
     for row in (dup, own):
         assert trace.replay(row) == row["outcome"]
     duplicates.scan(write=True), party_views.scan_own_tax(write=True)  # nothing more to open: nothing more traced
-    assert len(trace.rows(point=duplicates.DUPLICATE_POINT)) == len(trace.rows(point=parties.OWN_TAX_POINT)) == 1
+    assert len(trace.rows(point=duplicates.DUPLICATE_POINT)) == len(trace.rows(point=own_parties.OWN_TAX_POINT)) == 1
 
 
 # --- the detailed type by the own parties' direction ------------------------------------------------------------------
@@ -588,15 +590,16 @@ def test_the_store_scans_trace_the_to_dos_they_open(db):  # noqa: F811
 @pytest.mark.parametrize("buyer_is_own, verdict", [(True, "contradicted"), (False, "confirmed")])
 def test_the_parties_direction_on_an_uncertain_detailed_type_is_traced(db, buyer_is_own, verdict):  # noqa: F811
     from jav.app import parties
+    from jav.domains.finance import own_parties
     from tests.test_detail_direction_149 import OWN_TAX, SURE, _state, _uncertain
 
     parties.create("Sample Own Company", identities=[("tax", parties.tax_key(OWN_TAX), OWN_TAX)], actor="t")
     _uncertain()
     own, other = {"name": "Sample Own Company Kft.", "tax_id": OWN_TAX}, {"name": "Northwind Trading Ltd.", "tax_id": None}
     buyer, supplier = (own, other) if buyer_is_own else (other, own)
-    parties.confirm_detail_by_direction(_state(supplier_name=supplier["name"], supplier_tax_id=supplier["tax_id"],
+    own_parties.confirm_detail_by_direction(_state(supplier_name=supplier["name"], supplier_tax_id=supplier["tax_id"],
                                                buyer_name=buyer["name"], buyer_tax_id=buyer["tax_id"]))
-    (row,) = trace.rows(point=parties.DIRECTION_POINT, subject=("document", "d1"))
+    (row,) = trace.rows(point=own_parties.DIRECTION_POINT, subject=("document", "d1"))
     direction = "incoming" if buyer_is_own else "outgoing"
     assert row["inputs"] == {"doc_type": "invoice_out", "probabilities": SURE, "direction": direction}
     assert row["outcome"]["verdict"] == verdict and row["run_id"] == "run-a:item-1"

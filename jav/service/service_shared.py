@@ -21,13 +21,13 @@ from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import quote, unquote
 
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, Request
 from fastapi import Path as PathParam
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from jav.app import app_settings
-from jav.core import cfg
+from jav.core import access, cfg, identity
 from jav.core.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.core.user_messages import explained
 
@@ -144,21 +144,58 @@ def attachment_header(filename: str) -> str:
     return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename, safe='')}"
 
 
-def human_actor(x_actor: Annotated[str, Header(max_length=256)]) -> str:
+def action_of(route: Any) -> str:
+    """229 (SZ2b): the operation an address names, its theme and its function: `workpackages.approve_run` (in
+    `jav.service.api_workpackages`), `finance.reconcile.<function>` (a domain's `api_reconcile`), `service.health`."""
+    parts = route.endpoint.__module__.split(".")
+    theme = "service" if parts[-1] == "api" else parts[-1].removeprefix("api_")
+    if parts[:2] == ["jav", "domains"] and len(parts) > 3:
+        theme = f"{parts[2]}.{theme}"
+    return f"{theme}.{route.name}".lower()
+
+
+def acting(raw: str | None) -> identity.Actor:
+    """229 (SZ2b): who a request says acts: the person its `X-Actor` header names, or nobody (no header, or one that
+    is not a valid name; an operation that needs a person still refuses it, `human_actor`)."""
+    if raw is None:
+        return identity.anonymous()
+    try:
+        return identity.person(_decode_actor(raw))
+    except (HTTPException, ValueError):
+        return identity.anonymous()
+
+
+def access_guard(request: Request) -> None:
+    """229 (SZ2b): the shared entrance of every address of the service (the app's dependency): it names the operation
+    (`action_of`), knows who acts (`acting`, kept on the request) and asks the authorisation check, which allows
+    everything today; its refusal is a 403 answer. It reads the header itself, so the service's description (OpenAPI)
+    does not change."""
+    route = request.scope.get("route")
+    actor = acting(request.headers.get("x-actor"))
+    request.state.actor = actor
+    access.authorize(actor, action_of(route) if route is not None else "service.unknown")
+
+
+def human_actor(request: Request, x_actor: Annotated[str, Header(max_length=256)]) -> identity.Actor:
     """For a human decision (approval, correction, closing a to-do, starting a run, recipe, changing a package) the
     actor is mandatory: the `X-Actor` header. 061: if the user list is not empty, the name must be on it (it is
-    recorded in the list's spelling)."""
+    recorded in the list's spelling). 229 (SZ2c-3): who acts as the shared entrance knows them (`acting`), so the
+    operation records their stable id; the company sign-in will change only the entrance."""
     name = app_settings.canonical_user(_decode_actor(x_actor))
     if name is None:
         raise explained(UnknownUser, "the actor is not in the user list (Settings > Users)")
-    return name
+    known = getattr(request.state, "actor", None)
+    return known if isinstance(known, identity.Actor) and known.kind == identity.HUMAN and known.name == name \
+        else identity.person(name)
 
 
-def actor_unless_first_users(x_actor: Annotated[str | None, Header(max_length=256)] = None) -> str | None:
+def actor_unless_first_users(request: Request,
+                             x_actor: Annotated[str | None, Header(max_length=256)] = None) -> identity.Actor | None:
     """066 Á35: writing the user list requires an actor who is on the list; the first fill-in (empty list) may be done
     without an actor."""
     if not app_settings.users():
-        return app_settings.canonical_user(_decode_actor(x_actor)) if x_actor else None
+        name = app_settings.canonical_user(_decode_actor(x_actor)) if x_actor else None
+        return identity.person(name) if name else None
     if x_actor is None:
         raise explained(ValueError, "X-Actor header is required to change the user list")
-    return human_actor(x_actor)
+    return human_actor(request, x_actor)

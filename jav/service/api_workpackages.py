@@ -20,6 +20,7 @@ from fastapi import Path as PathParam
 from fastapi.responses import Response
 from pydantic import Field
 
+from jav.core import identity
 from jav.service import local_picker
 from jav.app import app_settings, package_scope, work, work_recipes, work_views
 from jav.service.service_shared import Empty, In, IsoDay, ItemId, PartyId, Revision, WpId, checked_path, human_actor
@@ -117,7 +118,7 @@ def routes(app: FastAPI, r: str) -> None:
         return {"workpackages": work_views.workpackage_list(include_archived=include_archived)}
 
     @app.post(r + "/workpackages", status_code=201)
-    def create_workpackage(body: CreateWorkpackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def create_workpackage(body: CreateWorkpackage, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         if (body.folder is None) == (body.paths is None):
             raise explained(ValueError, "give exactly one of folder or paths")
         if body.folder is not None:  # 065: the creator is the owner
@@ -155,17 +156,17 @@ def routes(app: FastAPI, r: str) -> None:
     # 058: hiding (runs and results are kept), restoring, renaming; deletion only for a package without runs
 
     @app.post(r + "/workpackages/{wp_id}/archive")
-    def archive_workpackage(wp_id: WpId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def archive_workpackage(wp_id: WpId, body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         work.archive_workpackage(wp_id, actor=who)
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/restore")
-    def restore_workpackage(wp_id: WpId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def restore_workpackage(wp_id: WpId, body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         work.restore_workpackage(wp_id, actor=who)
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/rename")
-    def rename_workpackage(wp_id: WpId, body: RenameWorkpackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def rename_workpackage(wp_id: WpId, body: RenameWorkpackage, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         work.rename_workpackage(wp_id, body.name, actor=who)
         return work_views.workpackage_view(wp_id)
 
@@ -176,20 +177,20 @@ def routes(app: FastAPI, r: str) -> None:
                           for x in package_scope.roles()]}
 
     @app.post(r + "/workpackages/{wp_id}/scope")
-    def set_package_scope(wp_id: WpId, body: SetPackageScope, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def set_package_scope(wp_id: WpId, body: SetPackageScope, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """181: a person gives the package its party, period and role (recorded in its log)."""
         package_scope.set_scope(wp_id, party_id=body.party_id, period_start=body.period_start, period_end=body.period_end,
                                 role_name=body.role, actor=who)
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/scope/clear")
-    def clear_package_scope(wp_id: WpId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def clear_package_scope(wp_id: WpId, body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """181: a person takes the package's own scope away (a scope of its workflow shows again)."""
         package_scope.clear_scope(wp_id, actor=who)
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/owner")
-    def set_owner(wp_id: WpId, body: SetOwner, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def set_owner(wp_id: WpId, body: SetOwner, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """061: the package's owner; only a name from the user list (any name when the list is empty)."""
         owner = None
         if body.owner is not None:
@@ -200,7 +201,7 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/delete")  # a POST with a JSON body, like the other deletions
-    def delete_workpackage(wp_id: WpId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def delete_workpackage(wp_id: WpId, body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         work.delete_workpackage(wp_id, actor=who)
         return {"deleted": wp_id}
 
@@ -216,13 +217,13 @@ def routes(app: FastAPI, r: str) -> None:
         return docs, others, root
 
     @app.post(r + "/workpackages/{wp_id}/items/preview")
-    def preview_items(wp_id: WpId, body: ItemSources, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def preview_items(wp_id: WpId, body: ItemSources, _who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """168: what adding the files or the folder would do, file by file; nothing is written."""
         docs, others, root = _sources(body)
         return work.preview_additions(wp_id, docs, others=others, root=root)
 
     @app.post(r + "/workpackages/{wp_id}/items")
-    def add_items(wp_id: WpId, body: AddItems, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def add_items(wp_id: WpId, body: AddItems, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """160-C S2: documents added to an existing package, with what happened (`added`: added, already in the
         package, restored, left out as unticked (168), and those processed live in another package)."""
         docs, _others, _root = _sources(body)
@@ -231,24 +232,24 @@ def routes(app: FastAPI, r: str) -> None:
         return {**work_views.workpackage_view(wp_id), "added": summary}
 
     @app.post(r + "/workpackages/{wp_id}/items/remove")
-    def remove_items(wp_id: WpId, body: RemoveItems, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def remove_items(wp_id: WpId, body: RemoveItems, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """168: several items removed with one reason, in one step."""
         work.remove_items(wp_id, body.item_ids, expected_revision=body.expected_revision, actor=who, reason=body.reason)
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/items/restore")
-    def restore_items(wp_id: WpId, body: ItemIds, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def restore_items(wp_id: WpId, body: ItemIds, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """168: several removed items back in the package, in one step."""
         work.restore_items(wp_id, body.item_ids, expected_revision=body.expected_revision, actor=who)
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/items/{item_id}/remove")
-    def remove_item(wp_id: WpId, item_id: ItemId, body: RemoveItem, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def remove_item(wp_id: WpId, item_id: ItemId, body: RemoveItem, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         work.remove_item(wp_id, item_id, expected_revision=body.expected_revision, actor=who, reason=body.reason)
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/items/{item_id}/restore")
-    def restore_item(wp_id: WpId, item_id: ItemId, body: Revision, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def restore_item(wp_id: WpId, item_id: ItemId, body: Revision, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """160-C S1: a removed item back in the package (it takes part in the next run)."""
         work.restore_item(wp_id, item_id, expected_revision=body.expected_revision, actor=who)
         return work_views.workpackage_view(wp_id)

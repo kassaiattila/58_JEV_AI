@@ -18,8 +18,9 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
-from jav.core.process import actor as actors
-from jav.core.process import cases, engine, hooks, kinds, outbox, timers
+from jav.core import identity as actors
+from jav.core import access, observability
+from jav.core.process import cases, engine, kinds, outbox, timers
 from jav.core.process.definition import ProcessDef, StepDef
 
 ME = actors.person("Tester")
@@ -443,17 +444,17 @@ def test_a_live_claim_is_not_taken_and_a_stopped_holders_claim_is() -> None:
 
 
 def test_the_authorisation_check_is_asked_and_the_observer_gets_only_allowed_fields() -> None:
-    seen: list[hooks.Measurement] = []
-    hooks.set_observer(seen.append)
-    hooks.set_authorizer(lambda who, action, case_id: not (who.name == "Visitor" and action == "cancel"))
+    seen: list[observability.Measurement] = []
+    observability.set_observer(seen.append)
+    access.set_authorizer(lambda who, action, case_id: not (who.name == "Visitor" and action == "cancel"))
     try:
         cases.start("c1", define(StepDef(id="a", kind="note")), {}, ME)
-        with pytest.raises(hooks.NotAuthorised):
+        with pytest.raises(access.NotAuthorised):
             cases.cancel("c1", actors.person("Visitor"))
         turns()
     finally:
-        hooks.set_observer(None)
-        hooks.set_authorizer(None)
+        observability.set_observer(None)
+        access.set_authorizer(None)
     assert [(m.operation, m.outcome) for m in seen] == [("step:note", "ok")]
     assert set(vars(seen[0])) == {"operation", "seconds", "outcome", "attempts"}
 

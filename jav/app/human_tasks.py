@@ -43,7 +43,7 @@ from typing import Any
 
 from jav.app import logic_packs, workflow_cases
 from jav.core import store
-from jav.core.process import actor as actors
+from jav.core import identity as actors
 from jav.core.process import tasks
 
 RUN_APPROVAL = "run_approval"
@@ -63,9 +63,9 @@ def assignee_for(c: sqlite3.Connection, wp_id: str | None, creator: str | None) 
     from jav.app import app_settings  # lazy: app_settings imports the work package module
 
     if wp_id is not None:
-        row = c.execute("SELECT owner FROM workpackages WHERE id=?", (wp_id,)).fetchone()
+        row = c.execute("SELECT owner, owner_id FROM workpackages WHERE id=?", (wp_id,)).fetchone()
         if row is not None and row["owner"] and row["owner"].strip():
-            return actors.person(row["owner"]).id
+            return row["owner_id"] or actors.person(row["owner"]).id  # 229 (SZ2c): the owner's stable id
     if not creator or not creator.strip():
         return None
     # on the caller's connection, inside its write transaction (another connection would wait for its lock); a store
@@ -75,9 +75,12 @@ def assignee_for(c: sqlite3.Connection, wp_id: str | None, creator: str | None) 
     return actors.person(name).id if name else None
 
 
-def person(name: str | None) -> actors.Actor:
-    """Who acts on a task: the named person, or the machine when no name came with the change."""
-    return actors.person(name) if name and name.strip() else MACHINE
+def person(actor: actors.Who | None) -> actors.Actor:
+    """Who acts on a task: the actor the change came with (229: as the shared entrance knows it; a name is the local
+    person of that name), or the machine when no name came with the change."""
+    if isinstance(actor, actors.Actor):
+        return actor
+    return actors.person(actor) if actor and actor.strip() else MACHINE
 
 
 # --- a live run's approval ----------------------------------------------------------------------------------------------
@@ -114,12 +117,12 @@ def _settle(c: sqlite3.Connection, run_id: str, actor: actors.Actor, *, approved
                  actor)
 
 
-def run_approved(c: sqlite3.Connection, run_id: str, actor: str, outcome: dict[str, Any]) -> None:
+def run_approved(c: sqlite3.Connection, run_id: str, actor: actors.Who, outcome: dict[str, Any]) -> None:
     """The run was approved, in the approval's transaction: its task is decided by the approver."""
     _settle(c, run_id, person(actor), approved=outcome)
 
 
-def run_withdrawn(c: sqlite3.Connection, run_id: str, actor: str | None, note: str) -> None:
+def run_withdrawn(c: sqlite3.Connection, run_id: str, actor: actors.Who | None, note: str) -> None:
     """The run no longer waits for an approval (superseded, stopped), in that change's transaction."""
     _settle(c, run_id, person(actor), approved=None, note=note)
 
@@ -143,7 +146,7 @@ def _open_review(c: sqlite3.Connection, item: sqlite3.Row, by: actors.Actor) -> 
                                  "run": store.run_of(item["run_id"]), "origin": origin})
 
 
-def review_item_changed(c: sqlite3.Connection, review_id: int, change: str, actor: str | None) -> None:
+def review_item_changed(c: sqlite3.Connection, review_id: int, change: str, actor: actors.Who | None) -> None:
     """The store's hook, in the transaction of the change. An item raised and still open: its task opens, or (open)
     goes to whom the rule names for the run that raised it now. An item closed: its task is decided when a person
     resolved its last reason (the outcome lists the reasons people resolved), withdrawn otherwise."""
@@ -163,7 +166,7 @@ def review_item_changed(c: sqlite3.Connection, review_id: int, change: str, acto
         return
     if task is None or task.status != tasks.OPEN:
         return
-    if item["status"] == "resolved" and actor and actor.strip():
+    if item["status"] == "resolved" and person(actor) != MACHINE:
         resolved = [r["id"] for r in c.execute("SELECT id FROM review_reasons WHERE review_id=? AND status='resolved'"
                                                " ORDER BY id", (review_id,))]
         tasks.decide_in(c, tid, person(actor), outcome={"resolved": resolved})
@@ -192,7 +195,7 @@ def package_made(c: sqlite3.Connection, wp_id: str, kind: str) -> None:
         own_approval_waits(c, wp_id)
 
 
-def own_approved(c: sqlite3.Connection, wp_id: str, actor: str, *, version: int, fingerprint: str) -> None:
+def own_approved(c: sqlite3.Connection, wp_id: str, actor: actors.Who, *, version: int, fingerprint: str) -> None:
     """The package's own version `version` was approved, in that transaction: its task is decided by the approver on
     what they approved, and its workflow step hears of it."""
     tid = tasks.task_id(OWN_APPROVAL, wp_id)
@@ -203,7 +206,7 @@ def own_approved(c: sqlite3.Connection, wp_id: str, actor: str, *, version: int,
     _settled(c, wp_id, tid, task.round, tasks.DECIDED, person(actor))
 
 
-def package_deleted(c: sqlite3.Connection, wp_id: str, actor: str) -> None:
+def package_deleted(c: sqlite3.Connection, wp_id: str, actor: actors.Who) -> None:
     """The package was deleted, in that transaction: nothing waits for its own approval any more."""
     tid = tasks.task_id(OWN_APPROVAL, wp_id)
     if (task := tasks.task_in(c, tid)) is not None and task.status == tasks.OPEN:
@@ -212,16 +215,26 @@ def package_deleted(c: sqlite3.Connection, wp_id: str, actor: str) -> None:
 
 # --- a package's new responsible person ---------------------------------------------------------------------------------
 
-# the open tasks about a package with the creator the rule falls back on: the run's starter, the workflow's maker
-_PACKAGE_TASKS = (
-    f"SELECT t.task_id, r.actor AS creator FROM process_tasks t JOIN runs r ON r.run_id = t.subject"
-    f" WHERE t.kind='{RUN_APPROVAL}' AND t.status='open' AND r.workpackage_id=:wp",
-    f"SELECT t.task_id, r.actor AS creator FROM process_tasks t JOIN review_queue q ON q.id = CAST(t.subject AS INTEGER)"
-    f" JOIN runs r ON r.run_id = substr(q.run_id, 1, instr(q.run_id || ':', ':') - 1)"
-    f" WHERE t.kind='{REVIEW}' AND t.status='open' AND r.workpackage_id=:wp",
-    f"SELECT t.task_id, NULL AS creator FROM process_tasks t WHERE t.kind='{OWN_APPROVAL}' AND t.status='open'"
-    f" AND t.subject=:wp",
-)
+# the package's runs and the to-dos they raised, each with the creator the rule falls back on: the run's starter
+_PACKAGE_RUNS = "SELECT run_id, actor FROM runs WHERE workpackage_id=?"
+_PACKAGE_REVIEWS = ("SELECT q.id, r.actor FROM review_queue q"
+                    " JOIN runs r ON r.run_id = substr(q.run_id, 1, instr(q.run_id || ':', ':') - 1)"
+                    " WHERE r.workpackage_id=?")
+
+
+def _package_tasks(c: sqlite3.Connection, wp_id: str) -> list[tuple[str, str | None]]:
+    """The open tasks about a package with the creator the rule falls back on: its runs' approvals and the to-dos its
+    runs raised (the run's starter), its own approval (none). 229: the core's tasks through its own reads."""
+    runs = {r["run_id"]: r["actor"] for r in c.execute(_PACKAGE_RUNS, (wp_id,))}
+    reviews = {str(r["id"]): r["actor"] for r in c.execute(_PACKAGE_REVIEWS, (wp_id,))}
+    found: list[tuple[str, str | None]] = [
+        (t.task_id, runs[t.subject]) for t in tasks.of_kind_in(c, RUN_APPROVAL, status=tasks.OPEN) if t.subject in runs]
+    found += [(t.task_id, reviews[t.subject]) for t in tasks.of_kind_in(c, REVIEW, status=tasks.OPEN)
+              if t.subject in reviews]
+    own = tasks.task_in(c, tasks.task_id(OWN_APPROVAL, wp_id))
+    if own is not None and own.status == tasks.OPEN:
+        found.append((own.task_id, None))
+    return found
 
 
 def package_owner_changed(c: sqlite3.Connection, wp_id: str) -> int:
@@ -229,45 +242,49 @@ def package_owner_changed(c: sqlite3.Connection, wp_id: str) -> int:
     the to-dos its runs raised last, its own approval, its workflow step's budget) go to whom the rule names now.
     Returns how many moved."""
     moved = 0
-    found = [(r["task_id"], r["creator"]) for sql in _PACKAGE_TASKS for r in c.execute(sql, {"wp": wp_id})]
-    for tid, creator in [*found, *workflow_cases.budget_tasks_of(c, wp_id)]:
+    for tid, creator in [*_package_tasks(c, wp_id), *workflow_cases.budget_tasks_of(c, wp_id)]:
         moved += tasks.assign_in(c, tid, assignee_for(c, wp_id, creator), MACHINE)
     return moved
 
 
 # --- the work made before -----------------------------------------------------------------------------------------------
 
-_MISSING_REVIEWS = ("SELECT q.id, q.subject_kind, q.subject_id, q.run_id FROM review_queue q WHERE q.status='open'"
-                    f" AND NOT EXISTS (SELECT 1 FROM process_tasks t WHERE t.task_id = '{REVIEW}:' || q.id) ORDER BY q.id")
-_MISSING_RUNS = ("SELECT r.run_id FROM runs r WHERE r.mode='apply' AND r.approval IS NULL"
-                 f" AND r.status IN ({', '.join(repr(s) for s in FINISHED)})"
-                 f" AND NOT EXISTS (SELECT 1 FROM process_tasks t WHERE t.task_id = '{RUN_APPROVAL}:' || r.run_id)"
-                 " ORDER BY r.created_at, r.run_id")
-_MISSING_OWN = ("SELECT w.id FROM workpackages w WHERE w.source_kind IN ({kinds})"
-                f" AND NOT EXISTS (SELECT 1 FROM process_tasks t WHERE t.task_id = '{OWN_APPROVAL}:' || w.id)"
-                " AND NOT EXISTS (SELECT 1 FROM package_versions v WHERE v.workpackage_id = w.id"
-                " AND v.content IS NOT NULL AND v.reopened_at IS NULL) ORDER BY w.created_at, w.id")
-
-
-# the open tasks whose subject no longer waits for a person: an item closed, a run approved, superseded or stopped, a
-# logic pack approved or deleted (by a version that keeps no task)
-_STALE = (f"SELECT t.task_id FROM process_tasks t WHERE t.kind='{REVIEW}' AND t.status='open' AND NOT EXISTS"
-          " (SELECT 1 FROM review_queue q WHERE q.id = CAST(t.subject AS INTEGER) AND q.status='open')"
-          f" UNION ALL SELECT t.task_id FROM process_tasks t WHERE t.kind='{RUN_APPROVAL}' AND t.status='open'"
-          " AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.run_id = t.subject AND r.mode='apply' AND r.approval IS NULL"
-          f" AND r.status IN ({', '.join(repr(s) for s in FINISHED)}))"
-          f" UNION ALL SELECT t.task_id FROM process_tasks t WHERE t.kind='{OWN_APPROVAL}' AND t.status='open'"
-          " AND (NOT EXISTS (SELECT 1 FROM workpackages w WHERE w.id = t.subject) OR EXISTS (SELECT 1 FROM"
-          " package_versions v WHERE v.workpackage_id = t.subject AND v.content IS NOT NULL AND v.reopened_at IS NULL))"
-          " ORDER BY 1")
+# the subjects that wait for a person: an open to-do item, a finished live run not yet approved, a logic pack's package
+# without an approved own version of its kind (229: compared with the core's tasks through its own reads)
+_OPEN_REVIEWS = "SELECT q.id, q.subject_kind, q.subject_id, q.run_id FROM review_queue q WHERE q.status='open' ORDER BY q.id"
+_WAITING_RUNS = ("SELECT r.run_id FROM runs r WHERE r.mode='apply' AND r.approval IS NULL"
+                 f" AND r.status IN ({', '.join(repr(s) for s in FINISHED)}) ORDER BY r.created_at, r.run_id")
+_APPROVED_OWN = ("SELECT DISTINCT workpackage_id FROM package_versions WHERE content IS NOT NULL"
+                 " AND reopened_at IS NULL")
+_WAITING_OWN = ("SELECT w.id FROM workpackages w WHERE w.source_kind IN ({kinds}) AND NOT EXISTS (SELECT 1 FROM"
+                " package_versions v WHERE v.workpackage_id = w.id AND v.content IS NOT NULL AND v.reopened_at IS NULL)"
+                " ORDER BY w.created_at, w.id")
 SETTLED_UNSEEN = "settled while no task was kept"
+
+
+def _stale(conn: sqlite3.Connection, reviews: list[sqlite3.Row], runs: list[str]) -> list[str]:
+    """The open tasks whose subject no longer waits for a person: an item closed, a run approved, superseded or
+    stopped, a logic pack approved or deleted (by a version that keeps no task)."""
+    open_items, waiting_runs = {str(r["id"]) for r in reviews}, set(runs)
+    packages = {r["id"] for r in conn.execute("SELECT id FROM workpackages")}
+    approved = {r["workpackage_id"] for r in conn.execute(_APPROVED_OWN)}
+    stale = [t.task_id for t in tasks.of_kind_in(conn, REVIEW, status=tasks.OPEN) if t.subject not in open_items]
+    stale += [t.task_id for t in tasks.of_kind_in(conn, RUN_APPROVAL, status=tasks.OPEN) if t.subject not in waiting_runs]
+    stale += [t.task_id for t in tasks.of_kind_in(conn, OWN_APPROVAL, status=tasks.OPEN)
+              if t.subject not in packages or t.subject in approved]
+    return sorted(stale)
 
 
 def _missing(conn: sqlite3.Connection) -> tuple[list[sqlite3.Row], list[str], list[str], list[str]]:
     kinds = logic_packs.kinds_with_own_approval()  # complete once the registrations are loaded; else at a later start
-    own = [r["id"] for r in conn.execute(_MISSING_OWN.format(kinds=", ".join("?" * len(kinds))), kinds)] if kinds else []
-    return (conn.execute(_MISSING_REVIEWS).fetchall(), [r["run_id"] for r in conn.execute(_MISSING_RUNS)], own,
-            [r["task_id"] for r in conn.execute(_STALE)])
+    open_reviews = conn.execute(_OPEN_REVIEWS).fetchall()
+    waiting_runs = [r["run_id"] for r in conn.execute(_WAITING_RUNS)]
+    own = [r["id"] for r in conn.execute(_WAITING_OWN.format(kinds=", ".join("?" * len(kinds))), kinds)] if kinds else []
+    have = {kind: tasks.ids_of_kind_in(conn, kind) for kind in (REVIEW, RUN_APPROVAL, OWN_APPROVAL)}
+    return ([r for r in open_reviews if tasks.task_id(REVIEW, str(r["id"])) not in have[REVIEW]],
+            [r for r in waiting_runs if tasks.task_id(RUN_APPROVAL, r) not in have[RUN_APPROVAL]],
+            [w for w in own if tasks.task_id(OWN_APPROVAL, w) not in have[OWN_APPROVAL]],
+            _stale(conn, open_reviews, waiting_runs))
 
 
 def adopt_missing(conn: sqlite3.Connection) -> int:

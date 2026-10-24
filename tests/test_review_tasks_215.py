@@ -20,7 +20,7 @@ from hypothesis import strategies as st
 
 from jav.app import human_tasks, logic_packs, work, work_readiness, work_recipes, work_runs, workflows as wf
 from jav.core import store
-from jav.core.process import tasks
+from jav.core.process import engine, tasks
 from jav.domains.email import email_routing
 from jav.domains.finance import reconcile_package as rp, reconcile_statement as rs
 from jav.domains.quotes import quote_draft, quote_package
@@ -256,12 +256,12 @@ def test_the_approval_of_a_workflows_reconciliation_moves_the_chain_on_at_the_wo
     wf_id = _monthly(db, invoices=0)
     _process_all()
     work_runs.approve_run(_steps(wf.view(wf_id))["statements"]["run_id"], actor="Example Person")
-    assert wf.take_events() == 1
+    assert engine.turn_due() == 1
     wp_id = _steps(wf.view(wf_id))["reconcile"]["package"]["id"]
     assert _core(wf_id)["reconcile"] == "running:approval"
-    assert wf.take_events() == 0
+    assert engine.turn_due() == 0
     rs.approve(wp_id, fingerprint=rs.current(wp_id)["fingerprint"], actor="Example Person")
-    assert wf.take_events() == 1  # no check timer came due: the approval's event moved it
+    assert engine.turn_due() == 1  # no check timer came due: the approval's event moved it
     assert _core(wf_id)["reconcile"] == "done"
 
 

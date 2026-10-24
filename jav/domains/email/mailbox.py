@@ -31,7 +31,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from jav.app import item_kinds, work, work_recipes, work_runs, workflow_steps
-from jav.core import decisions, store, todo_kinds
+from jav.core import decisions, identity, store, todo_kinds
 from jav.domains.email import email_store, ingest_server
 from jav.runtime import job_kinds
 from jav.core.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
@@ -154,7 +154,7 @@ def count(req: MailboxRequest, *, runner: Runner | None = None) -> dict[str, Any
             "accounts": [{"account": a.get("account"), "eligible": (a.get("counts") or {}).get("mail")} for a in raw.get("accounts") or []]}
 
 
-def fetch(req: MailboxRequest, *, actor: str, runner: Runner | None = None, inbox_root: Path | None = None) -> dict[str, Any]:
+def fetch(req: MailboxRequest, *, actor: identity.Who, runner: Runner | None = None, inbox_root: Path | None = None) -> dict[str, Any]:
     """Download through our own temporary email receiver; new / changed messages become a work package with the
     default processing (080)."""
     token = secrets.token_urlsafe(24)
@@ -285,13 +285,23 @@ def mark_suspicious_source(run: dict[str, Any], item: dict[str, Any]) -> bool:
 _SCHEDULED_ACTOR = re.compile(r"^ütemezés \((.+)\)$")
 
 
-def owner_of(actor: str) -> str:
-    """065: owner of a downloaded package: whoever started it; if scheduled, the user who saved the schedule."""
-    m = _SCHEDULED_ACTOR.match(actor)
-    return m.group(1) if m else actor
+def scheduled_actor(schedule: Mapping[str, Any]) -> identity.Actor:
+    """229 (SZ2c-3): who a scheduled download acts as: the machine, for the person who saved the schedule (shown as
+    before: the schedule's word with the saver's name, `_SCHEDULED_ACTOR`)."""
+    saver = identity.recorded(schedule["actor"], dict(schedule).get("actor_id"))
+    return identity.acting_for("mailbox-schedule", f"ütemezés ({saver.name})", saver)
 
 
-def _workpackage(req: MailboxRequest, messages: list[Path], *, actor: str) -> dict[str, Any]:
+def owner_of(actor: identity.Who) -> identity.Who:
+    """065: owner of a downloaded package: whoever started it; if scheduled, the user who saved the schedule (229: with
+    the stable id of the person the machine acts for)."""
+    m = _SCHEDULED_ACTOR.match(identity.name_of(actor) or "")
+    if m is None:
+        return actor
+    return identity.recorded(m.group(1), actor.on_behalf_of) if isinstance(actor, identity.Actor) else m.group(1)
+
+
+def _workpackage(req: MailboxRequest, messages: list[Path], *, actor: identity.Who) -> dict[str, Any]:
     name = f"Postafiók: {', '.join(req.accounts)} · {datetime.now():%Y-%m-%d %H:%M}"
     wp = work.create_workpackage(name=name, source_kind="mailbox", source_ref=req.label(), owner=owner_of(actor))
     wp = work.add_items(wp["id"], messages, kind="email", expected_revision=0)
@@ -321,6 +331,7 @@ CREATE TABLE IF NOT EXISTS mailbox_schedules (
     interval_min INTEGER NOT NULL,
     enabled      INTEGER NOT NULL DEFAULT 1,
     actor        TEXT NOT NULL,
+    actor_id     TEXT,                         -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
     next_at      TEXT NOT NULL,                -- UTC ISO
     last_at      TEXT,
     last_status  TEXT,                         -- ok | error
@@ -328,6 +339,7 @@ CREATE TABLE IF NOT EXISTS mailbox_schedules (
     created_at   TEXT NOT NULL,
     updated_at   TEXT NOT NULL,
     changed_by   TEXT,                         -- 167 (review S-5): who last changed it (the creator first)
+    changed_by_id TEXT,
     changed_at   TEXT                          -- and when; updated_at also moves with every download
 );
 CREATE TABLE IF NOT EXISTS mailbox_pulls (
@@ -335,6 +347,7 @@ CREATE TABLE IF NOT EXISTS mailbox_pulls (
     schedule_id  TEXT,                         -- NULL = kézi letöltés
     request      TEXT NOT NULL,
     actor        TEXT NOT NULL,
+    actor_id     TEXT,
     status       TEXT NOT NULL,                -- queued | running | ok | error
     result       TEXT,                         -- JSON: új / változott / ismételt levelek, munkacsomag; vagy hiba
     created_at   TEXT NOT NULL,
@@ -346,6 +359,8 @@ CREATE TABLE IF NOT EXISTS mailbox_pulls (
 def _add_change_columns(conn) -> None:
     """167 (review S-5): who last changed a schedule, on a table created before."""
     store.add_columns(conn, "mailbox_schedules", {"changed_by": "TEXT", "changed_at": "TEXT"})
+    store.add_actor_ids(conn, "mailbox_schedules", ("actor", "changed_by"))  # 229 (SZ2c)
+    store.add_actor_ids(conn, "mailbox_pulls", ("actor",))
 
 
 store.register_migration("mailbox.schedule_changes", _add_change_columns)
@@ -377,7 +392,7 @@ def schedule(schedule_id: str) -> dict[str, Any]:
     return _schedule_row(row)
 
 
-def create_schedule(req: MailboxRequest, *, actor: str, interval_min: int = DEFAULT_INTERVAL_MIN,
+def create_schedule(req: MailboxRequest, *, actor: identity.Who, interval_min: int = DEFAULT_INTERVAL_MIN,
                     enabled: bool = True) -> dict[str, Any]:
     """New schedule; the first download is due in the next worker cycle. A fixed date range makes no sense here."""
     if req.received_from is not None:
@@ -387,13 +402,13 @@ def create_schedule(req: MailboxRequest, *, actor: str, interval_min: int = DEFA
     sid = f"mbx-{uuid.uuid4().hex[:10]}"
     now = _utc()
     with store.connect() as c:
-        c.execute("INSERT INTO mailbox_schedules(id, request, interval_min, enabled, actor, next_at, created_at, updated_at,"
-                  " changed_by, changed_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                  (sid, req.model_dump_json(), interval_min, int(enabled), actor, now, now, now, actor, now))
+        c.execute("INSERT INTO mailbox_schedules(id, request, interval_min, enabled, actor, actor_id, next_at, created_at,"
+                  " updated_at, changed_by, changed_by_id, changed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                  (sid, req.model_dump_json(), interval_min, int(enabled), identity.name_of(actor), identity.id_of(actor), now, now, now, identity.name_of(actor), identity.id_of(actor), now))
     return schedule(sid)
 
 
-def update_schedule(schedule_id: str, *, actor: str, enabled: bool | None = None,
+def update_schedule(schedule_id: str, *, actor: identity.Who, enabled: bool | None = None,
                     interval_min: int | None = None) -> dict[str, Any]:
     """167 (review S-5): `actor` is recorded as the one who last changed it, and logged."""
     cur = schedule(schedule_id)
@@ -407,21 +422,21 @@ def update_schedule(schedule_id: str, *, actor: str, enabled: bool | None = None
         nxt = _utc(datetime.fromisoformat(cur["last_at"]) + timedelta(minutes=iv))
     now = _utc()
     with store.connect() as c:
-        c.execute("UPDATE mailbox_schedules SET enabled=?, interval_min=?, next_at=?, updated_at=?, changed_by=?, changed_at=?"
-                  " WHERE id=?", (int(en), iv, nxt, now, actor, now, schedule_id))
-    log.info("mailbox schedule %s changed by %s: enabled %s, every %d min", schedule_id, actor, bool(en), iv)
+        c.execute("UPDATE mailbox_schedules SET enabled=?, interval_min=?, next_at=?, updated_at=?, changed_by=?,"
+                  " changed_by_id=?, changed_at=? WHERE id=?", (int(en), iv, nxt, now, identity.name_of(actor), identity.id_of(actor), now, schedule_id))
+    log.info("mailbox schedule %s changed by %s: enabled %s, every %d min", schedule_id, identity.name_of(actor), bool(en), iv)
     return schedule(schedule_id)
 
 
-def delete_schedule(schedule_id: str, *, actor: str) -> None:
+def delete_schedule(schedule_id: str, *, actor: identity.Who) -> None:
     """167 (review S-5): the row is gone afterwards, so who deleted it is in the service log."""
     schedule(schedule_id)
     with store.connect() as c:
         c.execute("DELETE FROM mailbox_schedules WHERE id=?", (schedule_id,))
-    log.info("mailbox schedule %s deleted by %s", schedule_id, actor)
+    log.info("mailbox schedule %s deleted by %s", schedule_id, identity.name_of(actor))
 
 
-def request_pull(req: MailboxRequest, *, actor: str, schedule_id: str | None = None,
+def request_pull(req: MailboxRequest, *, actor: identity.Who, schedule_id: str | None = None,
                  dedup_key: str | None = None) -> dict[str, Any]:
     """Queues a download (the worker runs it). A repeated `dedup_key` returns the existing download."""
     from jav.core import queue
@@ -429,8 +444,8 @@ def request_pull(req: MailboxRequest, *, actor: str, schedule_id: str | None = N
     pid = f"pull-{uuid.uuid4().hex[:10]}"
     # 063: the download row is created before the job - the worker may claim the job the moment it is queued
     with store.connect() as c:
-        c.execute("INSERT INTO mailbox_pulls(id, schedule_id, request, actor, status, created_at) VALUES (?,?,?,?,?,?)",
-                  (pid, schedule_id, req.model_dump_json(), actor, "queued", _utc()))
+        c.execute("INSERT INTO mailbox_pulls(id, schedule_id, request, actor, actor_id, status, created_at)"
+                  " VALUES (?,?,?,?,?,?,?)", (pid, schedule_id, req.model_dump_json(), identity.name_of(actor), identity.id_of(actor), "queued", _utc()))
     job = queue.enqueue(PULL_JOB_KIND, run_id=None, payload={"pull_id": pid}, dedup_key=dedup_key)
     if job.deduped:
         with store.connect() as c:
@@ -506,7 +521,7 @@ def tick(now: datetime | None = None) -> list[str]:
     with store.connect() as c:
         due = c.execute("SELECT * FROM mailbox_schedules WHERE enabled=1 AND next_at<=?", (_utc(now),)).fetchall()
     for row in due:
-        p = request_pull(MailboxRequest.model_validate_json(row["request"]), actor=f"ütemezés ({row['actor']})",
+        p = request_pull(MailboxRequest.model_validate_json(row["request"]), actor=scheduled_actor(row),
                          schedule_id=row["id"], dedup_key=f"{PULL_JOB_KIND}:{row['id']}:{row['next_at']}")
         with store.connect() as c:
             c.execute("UPDATE mailbox_schedules SET next_at=?, updated_at=? WHERE id=?",
@@ -515,13 +530,24 @@ def tick(now: datetime | None = None) -> list[str]:
     return out
 
 
+def _pull_actor(p: Mapping[str, Any]) -> identity.Actor:
+    """229 (SZ2c-3): who a queued download acts as, from its row: a scheduled one for its schedule's saver while the
+    schedule is there, otherwise as its row recorded it."""
+    if p["schedule_id"]:
+        with store.connect() as c:
+            row = c.execute("SELECT actor, actor_id FROM mailbox_schedules WHERE id=?", (p["schedule_id"],)).fetchone()
+        if row is not None:
+            return scheduled_actor(row)
+    return identity.recorded(p["actor"], dict(p).get("actor_id"))
+
+
 def run_pull_job(payload: dict[str, Any], *, runner: Runner | None = None, inbox_root: Path | None = None) -> dict[str, Any]:
     """One download in the worker. Errors are recorded on the download (and schedule), never raised: no queue retry."""
     p = pull(payload["pull_id"])
     with store.connect() as c:
         c.execute("UPDATE mailbox_pulls SET status='running' WHERE id=?", (p["id"],))
     try:
-        res = fetch(MailboxRequest.model_validate(p["request"]), actor=p["actor"], runner=runner, inbox_root=inbox_root)
+        res = fetch(MailboxRequest.model_validate(p["request"]), actor=_pull_actor(p), runner=runner, inbox_root=inbox_root)
         status, result = "ok", {k: res[k] for k in ("new", "changed", "duplicate", "workpackage", "log")}
         if res.get("error"):  # 063: interrupted download - the messages that arrived were packaged, but the error shows
             status, result["error"] = "error", res["error"]
@@ -685,7 +711,7 @@ def email_item_result(run: dict[str, Any], item: dict[str, Any], engine: str | N
 
 
 @store.one_connection
-def correct_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], expected_revision: int, actor: str,
+def correct_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], expected_revision: int, actor: identity.Who,
                   note: str | None, sources: dict[str, list[int]], confirm: list[str]) -> dict[str, Any]:
     """Manual correction of an email's intent (versioned, like a document's fields). The corrected intent settles the
     run's own intent to-dos (uncertain / unrecognised intent): the decision closes them; a to-do with another reason
@@ -853,7 +879,7 @@ def task_view(flow_run_id: str, raw: dict[str, Any] | None, *, with_state: bool 
 
 
 @store.one_connection
-def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: str, note: str | None = None,
+def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: identity.Who, note: str | None = None,
                 expected_state: int | None = None) -> dict[str, Any]:
     """A human decision on a task proposal (accept / reject). Once every proposal of the message is decided, the run's
     own "proposal awaits decision" to-do is resolved (the decisions go into the resolution). Frozen on an approved
@@ -891,7 +917,7 @@ def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: 
     return view
 
 
-def mark_task_done(run_id: str, item_id: str, index: int, *, done: bool, actor: str,
+def mark_task_done(run_id: str, item_id: str, index: int, *, done: bool, actor: identity.Who,
                    expected_state: int | None = None) -> dict[str, Any]:
     """062 (decision of 2026-09-29): an accepted task can be marked done by hand, and the mark can be withdrawn. The
     task happens in the real world, so it can be marked even on an approved run; a rejected or undecided task cannot.

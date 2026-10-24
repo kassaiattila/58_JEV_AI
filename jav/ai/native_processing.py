@@ -9,6 +9,7 @@ from typing import Any, Mapping
 from jav.documents import native_results
 from jav.core import store
 from jav.documents.native_contracts import Failed, NativeLimits, ReceiptRef, Rejected, Succeeded, Uncertain
+from jav.ai import native_verification
 from jav.documents.readers import providers
 from jav.documents.readers.pipeline import digest, json_bytes
 from jav.documents.readers.receipts import InterpretationRejected
@@ -154,7 +155,7 @@ def interpret(*, work_run_id: str, item_id: str, graph_id: str, reading_id: str,
             if jev:
                 from jav.ai.jev import JevAdapter, JevUnavailableError
                 try:
-                    interpretation = providers.verify_jev(delivery, interpretation, run_id=graph_id,
+                    interpretation = native_verification.verify_jev(delivery, interpretation, run_id=graph_id,
                         isolated_store=store.active_path(), max_transfer_bytes=limits.max_transfer_bytes,
                         adapter=JevAdapter(cache_dir=store.current_path().parent / "native" / "provider_cache"),
                         use_cache=use_cache, receipt_observer=jev_receipt)

@@ -409,7 +409,7 @@ def _save(state: FlowState, c: Any) -> None:
             producer=f"m2:{state.arm}",
             payload={"arm": state.arm, "doc_type": state.doc_type, "datapoints": state.record.to_datapoints(pack.record_fields) if state.record else None},
         )
-    checks.saved(state)  # 149 (185: the finance domain's check, `parties.confirm_detail_by_direction`)
+    checks.saved(state)  # 149 (185: the finance domain's check, `own_parties.confirm_detail_by_direction`)
     _trace(c, state)
 
 
@@ -539,7 +539,7 @@ def build_app(
     `read_path`: the document's bytes are read from here (its source instance); everything else uses `source_path`.
     `jev=False` (085): processing without JEV: only the G path, verified by the code alone (`code_verify`).
     `detail_probabilities` (149): the detection's answer on the detailed type, for the saved stage's direction check
-    (`parties.confirm_detail_by_direction`). `source_text` (190): the document is this text (an email's own text), not
+    (`own_parties.confirm_detail_by_direction`). `source_text` (190): the document is this text (an email's own text), not
     the file; a text or table file is read as text too. Either needs a pack that takes that input (`inputs`)."""
     from jav.documents import text_document
 

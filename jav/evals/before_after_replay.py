@@ -303,11 +303,12 @@ def _replay(units: list[Unit]) -> None:
     """A replayed run per original run (its recipe, settings with earlier answers, its whole input, no budget), and its
     chosen items processed one after the other with the worker's own processing; a retry runs at once."""
     from jav.app import work
-    from jav.core import store
+    from jav.core import identity, store
     from jav.runtime import worker
     from jav.core import queue
 
     runs = list(dict.fromkeys(u.run_id for u in units))
+    replayer = identity.machine(before_after.ACTOR)  # 229 (SZ2c): the tool starts the replayed runs
     now = datetime.now().astimezone().isoformat(timespec="seconds")
     with store.connect() as c:
         store.begin_immediate(c)
@@ -316,11 +317,11 @@ def _replay(units: list[Unit]) -> None:
             params = {**json.loads(r["params"] or "{}"), "jev_cache": "reuse"}  # never "live": every answer is an earlier one
             # a run of the first round is replayed again in the second: its replayed run is there already
             c.execute("INSERT OR IGNORE INTO runs(run_id, workpackage_id, dedup_key, mode, assignment_revision, recipe_id, recipe_version,"
-                      " recipe_hash, recipe, params, input, input_hash, status, actor, created_at, plan, scope)"
-                      " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'queued',?,?,?,?)",
+                      " recipe_hash, recipe, params, input, input_hash, status, actor, actor_id, created_at, plan, scope)"
+                      " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'queued',?,?,?,?,?)",
                       (replay_run_id(run_id), r["workpackage_id"], f"replay:{run_id}", r["mode"], r["assignment_revision"],
                        r["recipe_id"], r["recipe_version"], r["recipe_hash"], r["recipe"], _canon(params), r["input"],
-                       r["input_hash"], before_after.ACTOR, now, r["plan"], r["scope"]))
+                       r["input_hash"], replayer.name, replayer.id, now, r["plan"], r["scope"]))
     jobs = []
     for u in units:
         rid = replay_run_id(u.run_id)

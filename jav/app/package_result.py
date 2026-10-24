@@ -24,6 +24,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from jav.ai import party_history
 from jav.core import store
 
 TIERS = ("measurement", "trial", "live", "approved")  # in rising order; a measurement: a command-line result (174)
@@ -203,3 +204,7 @@ def latest_corrections(c: sqlite3.Connection) -> dict[tuple[str, str], dict[str,
         "SELECT c.run_id, c.item_id, c.fields FROM run_item_corrections c JOIN"
         " (SELECT run_id, item_id, MAX(revision) AS m FROM run_item_corrections GROUP BY run_id, item_id) l"
         " ON l.run_id = c.run_id AND l.item_id = c.item_id AND l.m = c.revision")}
+
+
+# 229 (plan structure stage 1, MD1): the role-swap check of the AI layer reads the earlier documents' counted results
+party_history.set_results(counted_documents, result_rows)

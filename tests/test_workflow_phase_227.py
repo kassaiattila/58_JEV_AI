@@ -20,8 +20,8 @@ import pytest
 
 from jav.app import work, work_runs, workflow_cases, workflows as wf
 from jav.core import store
-from jav.core.process import actor as actors
-from jav.core.process import cases, kinds, tasks
+from jav.core import identity as actors
+from jav.core.process import cases, engine, kinds, tasks
 from jav.core.process.definition import ProcessDef, StepDef
 from tests.test_workflows_146 import (  # noqa: F401 - the fixture is used by name
     MONTH, _approve_by_hand, _invoices, _party, _process_all, _statements, _steps, db,
@@ -71,12 +71,14 @@ def test_the_workflows_table_keeps_no_step_state_and_the_view_shows_the_phase_of
     _process_all()
     work_runs.approve_run(_steps(wf.view(wf_id))["statements"]["run_id"], actor="tester")
     wf.tick(now=1e9)
+    engine.turn_due()  # 229: the core's round turns the due case
     assert _core(wf_id)["statements"] == "done" and _phases(wf_id)["statements"] == "started"
     estimate = _steps(wf.view(wf_id))["invoices"]["note"]["estimate"]
     wf.start_step(wf_id, "invoices", actor="tester", budget={p: str(Decimal(v) + 1) for p, v in estimate.items()})
     assert _phases(wf_id) == _shown(wf_id) == {"invoices": "started", "statements": "started", "reconcile": "waiting"}
     _approve_by_hand(_steps(wf.view(wf_id))["invoices"]["run_id"])
     wf.tick(now=2e9)
+    engine.turn_due()  # 229: the core's round turns the due case
     assert _core(wf_id) == {"invoices": "done", "statements": "done", "reconcile": "running:approval"}
     assert _phases(wf_id) == _shown(wf_id) == {"invoices": "started", "statements": "started", "reconcile": "started"}
 

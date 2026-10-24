@@ -28,7 +28,7 @@ import json
 from typing import Any
 
 from jav.app import app_settings, item_kinds, logic_packs, package_release, package_scope, work, workflow_steps
-from jav.core import store
+from jav.core import identity, store
 from jav.domains.quotes import price_lists, quote_draft, quote_letter, quote_proposal, quote_request
 from jav.app.tablequery import fold
 from jav.core.user_messages import explained
@@ -82,7 +82,7 @@ def candidates(q: str | None = None, limit: int = MAX_CANDIDATES) -> list[dict[s
 # --- the package ---------------------------------------------------------------------------------------------------------
 
 
-def create(*, name: str, source: str, item_id: str, actor: str) -> dict[str, Any]:
+def create(*, name: str, source: str, item_id: str, actor: identity.Who) -> dict[str, Any]:
     """A quote package from the request of `item_id` in the package `source` (an email or a document read as a quote
     request). `QuoteError` when the name is empty or the item is no quote request."""
     if not (name or "").strip():
@@ -216,6 +216,7 @@ LOGIC = logic_packs.LogicPack(
     has_runs=False, add_refusal="a quote package has no documents of its own: its request stays in its package",
     release_refusal=_release_refusal, delete_guard=quote_draft.delete_guard, page=_page, approved=_approved,
     own_approval=True, reopen=quote_draft.reopen,  # 215: the quote is approved as the package's own version
+    approval_what="Quote",  # 229: in a person's "Waiting for me" list (translated by the interface)
     next_step=next_step, list_next=next_step,
     list_mark=lambda: (price_lists.mark(), quote_proposal.mark(), quote_draft.mark(), quote_letter.mark()),
     outputs=("quote",),  # 196: the approved quote's Word document (`jav/domains/quotes/quote_document.py`)

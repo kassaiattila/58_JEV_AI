@@ -14,8 +14,8 @@ from decimal import Decimal
 
 from jav.app import human_tasks, work, work_readiness, work_recipes, work_runs, workflow_cases, workflows as wf
 from jav.core import store
-from jav.core.process import actor as actors
-from jav.core.process import cases, tasks
+from jav.core import identity as actors
+from jav.core.process import cases, engine, tasks
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_workflow_core_steps_214 import _core, _history
 from tests.test_workflows_146 import (  # noqa: F401 - the fixture is used by name
@@ -105,14 +105,14 @@ def test_the_approval_of_a_workflow_steps_run_moves_the_chain_on_at_the_workers_
     _process_all()
     run_id = _steps(wf.view(wf_id))["statements"]["run_id"]
     assert tasks.get(f"run_approval:{run_id}").status == "open"
-    assert wf.take_events() == 0  # nothing has happened yet
+    assert engine.turn_due() == 0  # nothing has happened yet
     work_runs.approve_run(run_id, actor="Example Person")
     assert cases.view(wf_id)["events"] == {f"run_approval:{run_id}#1": {"kind": workflow_cases.APPROVAL,
                                                                         "status": "pending", "conflicts": 0}}
-    assert wf.take_events() == 1  # no check timer came due: the event moved it
+    assert engine.turn_due() == 1  # no check timer came due: the event moved it
     assert _core(wf_id)["statements"] == "done" and _steps(wf.view(wf_id))["reconcile"]["state"] == "started"
     assert cases.view(wf_id)["events"][f"run_approval:{run_id}#1"]["status"] == "applied"
-    assert wf.take_events() == 0
+    assert engine.turn_due() == 0
 
 
 def test_an_event_of_an_earlier_round_of_a_task_is_refused(db):  # noqa: F811
@@ -121,7 +121,7 @@ def test_an_event_of_an_earlier_round_of_a_task_is_refused(db):  # noqa: F811
     stale = {"task": tid, "round": 7, "status": "decided"}
     assert cases.send_event(wf_id, "stale-1", workflow_cases.BUDGET, stale, actors.person("tester"),
                             step_id="invoices") == "accepted"
-    assert wf.take_events() == 1
+    assert engine.turn_due() == 1
     assert cases.view(wf_id)["events"]["stale-1"]["status"] == "refused"
     assert _core(wf_id)["invoices"] == "running:budget" and tasks.get(tid).status == "open"
 

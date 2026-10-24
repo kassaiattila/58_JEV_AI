@@ -4,7 +4,8 @@ Plain-language summary: the addresses for what the finance domain adds to a work
 - the bank files the system reads, and how (146);
 - a bank's tabular export: its accounts surveyed, a new package of the chosen ones, or more of them added to a package
   (136);
-- the utility cost of a run or of a package's current result (054, 172);
+- the utility cost of a run or of a package's current result (054, 172), and its workbook with the package's chosen
+  template (178; 229, plan structure stage 1, MD2: until then the output layer's address, the same path);
 - a person's decision on a duplicate pair (126) and the choice between two statements of the same days (139).
 They moved here from `jav/service/api.py` as they were: the same paths, request models and answers. The finance domain names
 this module (`jav/domains/finance/__init__.py` `SERVICE`), and `jav.service.api.create_app` adds it. The reconciliation's and the
@@ -19,11 +20,14 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI
+from fastapi.responses import Response
 from pydantic import Field
 
-from jav.app import corrections, datasets, work, work_runs, work_views
+from jav.core import identity
+from jav.app import corrections, datasets, package_release, work, work_runs, work_views
 from jav.domains.finance import bank_files, duplicates, report_utility, statement_months, statement_package
-from jav.service.service_shared import DecisionState, In, ItemId, RunId, Text, WpId, checked_path, human_actor
+from jav.service.service_shared import (DecisionState, In, ItemId, RunId, Text, WpId, attachment_header, checked_path,
+                                        human_actor)
 
 
 class StatementTableFile(In):
@@ -64,7 +68,7 @@ def routes(app: FastAPI, r: str) -> None:
         return {**bank_files.catalogue(), "labels": bank_files.labels()}
 
     @app.post(r + "/statement-tables/survey")
-    def statement_table_survey(body: StatementTableFile, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def statement_table_survey(body: StatementTableFile, _who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """136 (E4): the accounts of a bank's tabular export with their line counts, dates and checks, for a person to
         choose from; no lines or balances, nothing is stored. 137: or of every export in a folder (the Erste XML files
         with their PDF statements), one statement per account and month."""
@@ -73,14 +77,14 @@ def routes(app: FastAPI, r: str) -> None:
         return statement_table.survey(statement_table.read(checked_path(body.path, want_dir=None)))
 
     @app.post(r + "/statement-tables/workpackage", status_code=201)
-    def create_from_statement_table(body: CreateFromStatementTable, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def create_from_statement_table(body: CreateFromStatementTable, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """136 (E4): a new package of the chosen accounts of the export; the creator is its owner (065)."""
         wp = statement_package.create_from_statement_table(checked_path(body.path, want_dir=None), body.keys, name=body.name,
                                                            owner=who)
         return work_views.workpackage_view(wp["id"])
 
     @app.post(r + "/workpackages/{wp_id}/statement-tables")
-    def add_statement_tables(wp_id: WpId, body: AddStatementTables, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def add_statement_tables(wp_id: WpId, body: AddStatementTables, _who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """136 (E4, DECISIONS 136): the chosen accounts of the export as the package's items, one statement each."""
         statement_package.add_statement_tables(wp_id, checked_path(body.path, want_dir=None), body.keys,
                                                expected_revision=body.expected_revision)
@@ -93,6 +97,13 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable({"workpackage_id": wp_id,
                                     **report_utility.build(datasets.result_records({"workpackage_id": wp_id}))})
 
+    @app.get(r + "/workpackages/{wp_id}/result/utility-cost.xlsx")
+    def package_utility_cost_xlsx(wp_id: WpId) -> Response:
+        """178 (DECISIONS 178): the utility cost of the package's current result, with its chosen template."""
+        content, name = package_release.current_output_workbook(wp_id, "utility_cost")
+        return Response(content, media_type=package_release.XLSX, headers={
+            "Content-Disposition": attachment_header(name), "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+
     @app.get(r + "/runs/{run_id}/reports/utility-cost")
     def utility_cost(run_id: RunId) -> dict[str, Any]:
         """054 K4: utility-cost time series (consumption point + utility, monthly grid, with sources)."""
@@ -101,7 +112,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/runs/{run_id}/items/{item_id}/duplicates/{other_doc_id}/decision")
     def duplicate_decision(run_id: RunId, item_id: ItemId, other_doc_id: ItemId, body: DuplicateDecision,
-                           who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                           who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """126: only a human decides whether two documents are the same invoice; the pair's to-dos close."""
         duplicates.decide(run_id, item_id, other_doc_id, decision=body.decision, actor=who, note=body.note,
                           expected_state=body.expected_state)
@@ -109,7 +120,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/runs/{run_id}/items/{item_id}/statements/{other_doc_id}/choice")
     def statement_choice(run_id: RunId, item_id: ItemId, other_doc_id: ItemId, body: StatementChoice,
-                         who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                         who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """139: a person chooses which of two statements of the same days stays valid; the pair's to-dos close."""
         keep = {"this": item_id, "other": other_doc_id, "rule": None}[body.keep]
         statement_months.decide(run_id, item_id, other_doc_id, keep=keep, actor=who, note=body.note,

@@ -3,11 +3,10 @@ from decimal import Decimal
 
 import pytest
 
-from jav.ai import native_processing
+from jav.ai import native_processing, native_verification
 from jav.documents import native_results
 from jav.core import store
 from jav.documents.native_contracts import NativeLimits
-from jav.documents.readers import providers
 from jav.core import calls
 from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
@@ -49,7 +48,7 @@ def test_received_and_uncertain_outcomes_are_saved_without_automatic_retry(isola
 def test_jev_off_has_no_budget_call_or_cache_access(isolated, monkeypatch):
     _, ref = runtime_source(isolated, monkeypatch)
     synthetic_gpt(monkeypatch)
-    monkeypatch.setattr(providers, "verify_jev", lambda *_a, **_k: pytest.fail("JEV off called verifier"))
+    monkeypatch.setattr(native_verification, "verify_jev", lambda *_a, **_k: pytest.fail("JEV off called verifier"))
     limits = native_processing.estimate_limits({"jev": "off"})
     assert set(limits.provider_limits_usd) == {"openai"}
     with calls.measurement("native-run", limits.provider_limits_usd):

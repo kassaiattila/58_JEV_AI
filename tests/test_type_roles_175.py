@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav.app import parties
+
+from jav.domains.finance import own_parties
 from jav.ai import doc_types
 from jav.core import cfg, type_roles
 from jav.domains.email import email_rules
@@ -51,7 +52,7 @@ def test_a_type_answers_its_roles_and_an_unknown_role_is_named() -> None:
 def test_the_readers_ask_the_roles() -> None:
     """The code that used to read its own list gives the same answer through the adapter."""
     assert duplicates.family("vizmuvek_szamla") == "invoice" and duplicates.family("nav_receipt") is None
-    assert parties.supplier_check_types() == frozenset(cfg.load("parties")["supplier_check"]["doc_types"])
+    assert own_parties.supplier_check_types() == frozenset(cfg.load("parties")["supplier_check"]["doc_types"])
     assert reconcile.handles("invoice_foreign") and reconcile.handles("statement_erste") and not reconcile.handles("invoice_out")
     assert report_utility.has_utility([{"doc_type": "foldgaz_szamla"}]) and not report_utility.has_utility([{"doc_type": None}])
     assert email_rules.m2_types() == frozenset(cfg.load("email")["m2_types"])

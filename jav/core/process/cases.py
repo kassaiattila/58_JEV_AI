@@ -42,7 +42,7 @@ import json
 import os
 import sqlite3
 import time
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -50,9 +50,20 @@ from typing import Any
 from jav.core import rulebook, store
 from jav.core.clock import utc_stamp as _now
 from jav.core.process import definition as definitions
-from jav.core.process import hooks, kinds, timers
-from jav.core.process.actor import Actor
+from jav.core import access
+from jav.core.identity import Actor
+from jav.core.process import kinds, timers
 from jav.core.process.definition import ProcessDef
+
+__all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
+    "OPEN", "CLOSED", "WAITING", "READY", "RUNNING", "DONE", "FAILED", "STALE", "STATES", "MIGRATION", "PENDING",
+    "IGNORED", "UnknownCase", "CaseConflict", "UnknownEvent", "CaseClosed", "StepStateError", "AdoptionError",
+    "Event", "Adopted", "on_leave", "transaction", "definition_of", "find_case_in", "case_row", "find_step_in",
+    "step_rows", "step_row", "without_case_in", "steps_in_phase_in", "get", "pending_events", "view", "record",
+    "start", "send_event", "cancel", "override_order", "retry", "reopen", "start_in", "send_event_in",
+    "override_order_in", "retry_in", "reopen_in", "adopt", "adopt_phases_in", "set_phase", "set_result", "end_wait",
+    "fail", "close", "hold", "resume",
+]
 
 OPEN, CLOSED = "open", "closed"
 WAITING, READY, RUNNING, DONE, FAILED, STALE = "waiting", "ready", "running", "done", "failed", "stale"
@@ -212,23 +223,68 @@ def definition_of(row: dict[str, Any]) -> ProcessDef:
 # --- reading --------------------------------------------------------------------------------------------------------
 
 
-def case_row(c: sqlite3.Connection, case_id: str) -> dict[str, Any]:
+def find_case_in(c: sqlite3.Connection, case_id: str) -> dict[str, Any] | None:
+    """229: the case, or None when there is none (e.g. a workflow an older process made, until it is adopted)."""
     row = c.execute("SELECT * FROM process_cases WHERE case_id=?", (case_id,)).fetchone()
+    return None if row is None else {**dict(row), "data": json.loads(row["data"])}
+
+
+def case_row(c: sqlite3.Connection, case_id: str) -> dict[str, Any]:
+    row = find_case_in(c, case_id)
     if row is None:
         raise UnknownCase(case_id)
-    return {**dict(row), "data": json.loads(row["data"])}
+    return row
+
+
+def _step(row: sqlite3.Row) -> dict[str, Any]:
+    return {**dict(row), "result": json.loads(row["result"]) if row["result"] is not None else None}
 
 
 def step_rows(c: sqlite3.Connection, case_id: str) -> dict[str, dict[str, Any]]:
-    return {r["step_id"]: {**dict(r), "result": json.loads(r["result"]) if r["result"] is not None else None}
-            for r in c.execute("SELECT * FROM process_steps WHERE case_id=?", (case_id,))}
+    return {r["step_id"]: _step(r) for r in c.execute("SELECT * FROM process_steps WHERE case_id=?", (case_id,))}
+
+
+def find_step_in(c: sqlite3.Connection, case_id: str, step_id: str) -> dict[str, Any] | None:
+    """229: the step, or None when its case has no such step (or there is no case)."""
+    row = c.execute("SELECT * FROM process_steps WHERE case_id=? AND step_id=?", (case_id, step_id)).fetchone()
+    return None if row is None else _step(row)
 
 
 def step_row(c: sqlite3.Connection, case_id: str, step_id: str) -> dict[str, Any]:
-    row = c.execute("SELECT * FROM process_steps WHERE case_id=? AND step_id=?", (case_id, step_id)).fetchone()
+    row = find_step_in(c, case_id, step_id)
     if row is None:
         raise StepStateError(f"case {case_id} has no step {step_id!r}")
-    return {**dict(row), "result": json.loads(row["result"]) if row["result"] is not None else None}
+    return row
+
+
+_CHUNK = 500  # ids per query of a lookup by many ids
+
+
+def without_case_in(c: sqlite3.Connection, case_ids: Iterable[str]) -> list[str]:
+    """229: those of the ids that have no case, in their given order."""
+    ids = list(case_ids)
+    known: set[str] = set()
+    for i in range(0, len(ids), _CHUNK):
+        part = ids[i:i + _CHUNK]
+        known |= {r["case_id"] for r in c.execute(
+            f"SELECT case_id FROM process_cases WHERE case_id IN ({','.join('?' * len(part))})", part)}
+    return [i for i in ids if i not in known]
+
+
+def steps_in_phase_in(c: sqlite3.Connection, phases: Iterable[str]) -> list[tuple[str, str]]:
+    """229: the (case, step) pairs whose step kind's own phase (`set_phase`) is one of these, of any case."""
+    wanted = list(phases)
+    return [(r["case_id"], r["step_id"]) for r in c.execute(
+        f"SELECT case_id, step_id FROM process_steps WHERE phase IN ({','.join('?' * len(wanted))})"
+        " ORDER BY case_id, step_id", wanted)]
+
+
+def adopt_phases_in(c: sqlite3.Connection, phases: Mapping[tuple[str, str], str]) -> int:
+    """229 (227's store change): the phases a store of before kept elsewhere, for the steps that have none yet, in the
+    caller's write transaction; nothing else of the step or its case changes (a migration, not a change of the case).
+    Returns how many it set."""
+    return sum(c.execute("UPDATE process_steps SET phase=? WHERE case_id=? AND step_id=? AND phase IS NULL",
+                         (phase, case_id, step_id)).rowcount for (case_id, step_id), phase in phases.items())
 
 
 def get(case_id: str) -> dict[str, Any]:
@@ -476,7 +532,7 @@ def _insert_case(c: sqlite3.Connection, case_id: str, definition: ProcessDef, da
 
 def start_in(c: sqlite3.Connection, case_id: str, definition: ProcessDef, data: dict[str, Any], actor: Actor) -> str:
     """`start` inside the caller's write transaction (214: a case that starts with the caller's own rows, or neither)."""
-    hooks.authorize(actor, "start", case_id)
+    access.authorize(actor, "start", case_id)
     sha = _start_sha(definition, data)
     if _prior_start(c, case_id, sha):
         return "exists"
@@ -498,7 +554,7 @@ def adopt(c: sqlite3.Connection, case_id: str, definition: ProcessDef, data: dic
     case whose steps are all done closes. One history row, by `by`, records the adoption and the states it took; the
     case is `started_by`'s. "adopted"; a case already there answers "exists" and keeps its own state (once adopted, the
     core's state counts); the same id with another definition or other data is a conflict, as for `start`."""
-    hooks.authorize(by, "adopt", case_id)
+    access.authorize(by, "adopt", case_id)
     if unknown := sorted(set(steps) - {s.id for s in definition.steps}):
         raise AdoptionError(f"the definition {definition.id} has no step {unknown}")
     for sid, st in steps.items():
@@ -541,7 +597,7 @@ def start(case_id: str, definition: ProcessDef, data: dict[str, Any], actor: Act
 def send_event_in(c: sqlite3.Connection, case_id: str, event_id: str, kind: str, payload: dict[str, Any], actor: Actor,
                   *, step_id: str | None = None) -> str:
     """`send_event` inside the caller's write transaction (215: a human task's closing sends its event with it)."""
-    hooks.authorize(actor, "send_event", case_id)
+    access.authorize(actor, "send_event", case_id)
     sha = _sha({"case_id": case_id, "step_id": step_id, "kind": kind, "payload": payload})
     row = case_row(c, case_id)
     defn = definition_of(row)
@@ -573,7 +629,7 @@ def send_event(case_id: str, event_id: str, kind: str, payload: dict[str, Any], 
 
 def cancel(case_id: str, actor: Actor) -> str:
     """Cancels an open case; returns its outcome."""
-    hooks.authorize(actor, "cancel", case_id)
+    access.authorize(actor, "cancel", case_id)
     with transaction() as c:
         close(c, case_id, "cancelled", actor)
         return str(case_row(c, case_id)["outcome"])
@@ -582,7 +638,7 @@ def cancel(case_id: str, actor: Actor) -> str:
 def override_order_in(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, *,
                       reason: str | None = None) -> None:
     """`override_order` inside the caller's write transaction (214: with the caller's own change, or neither)."""
-    hooks.authorize(actor, "override_order", case_id)
+    access.authorize(actor, "override_order", case_id)
     defn = definition_of(require_open(c, case_id))
     step = defn.step(step_id)
     steps = step_rows(c, case_id)
@@ -605,7 +661,7 @@ def override_order(case_id: str, step_id: str, actor: Actor, *, reason: str | No
 
 def retry_in(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor) -> None:
     """`retry` inside the caller's write transaction."""
-    hooks.authorize(actor, "retry", case_id)
+    access.authorize(actor, "retry", case_id)
     require_open(c, case_id)
     if step_row(c, case_id, step_id)["state"] != FAILED:
         raise StepStateError(f"step {step_id!r} has not failed")
@@ -623,7 +679,7 @@ def reopen_in(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, *
     """`reopen` inside the caller's write transaction. 214: a step of a case closed as done reopens the case too (the
     work turned out not to be finished: a package of a done workflow was deleted); a case closed otherwise stays
     closed."""
-    hooks.authorize(actor, "reopen", case_id)
+    access.authorize(actor, "reopen", case_id)
     row = case_row(c, case_id)
     if row["status"] == CLOSED and row["outcome"] == "done":
         c.execute("UPDATE process_cases SET status=?, outcome=NULL, updated_at=? WHERE case_id=?", (OPEN, _now(), case_id))

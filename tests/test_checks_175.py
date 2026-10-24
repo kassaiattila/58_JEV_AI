@@ -11,7 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from jav.app import parties
+
+from jav.domains.finance import own_parties
 from jav.ai import checks, validators
 from jav.core import cfg
 from jav.domains.finance import duplicates
@@ -32,7 +33,7 @@ def test_the_stages_and_their_order() -> None:
     assert all(c.reads_store for c in checks.stage("cross_document"))
     scans = checks.stage("after_save")
     assert [(c.name, c.producer, c.opens) for c in scans] == [("duplicate_scan", duplicates.PRODUCER, "duplicate"),
-                                                              ("own_tax_scan", parties.SCAN_PRODUCER, "own_tax")]
+                                                              ("own_tax_scan", own_parties.SCAN_PRODUCER, "own_tax")]
     assert all(checks.get(c.opens).stage == "cross_document" for c in scans)
 
 
@@ -94,12 +95,18 @@ def test_a_check_that_reads_the_store_runs_in_a_worker_run_only(monkeypatch) -> 
 
 
 def test_the_registry_is_complete_whichever_module_asks_first() -> None:
-    """The modules that register the built-in checks are loaded the first time the registry is read."""
+    """The modules that register the built-in checks are loaded the first time the registry is read; 229 (MD1): the
+    domains' through the application's registrations, which hand over their call when loaded. A process without the
+    application gets a named error, never a short list."""
     import subprocess
     import sys
 
-    code = ("from jav.ai import checks; print(len(checks.stage('record')), len(checks.stage('decision')),"
-            " len(checks.stage('cross_document')), len(checks.stage('after_save')), len(checks.stage('saved')))")
-    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True,
-                         cwd=Path(__file__).resolve().parents[1]).stdout.split()
+    counts = ("print(len(checks.stage('record')), len(checks.stage('decision')), len(checks.stage('cross_document')),"
+              " len(checks.stage('after_save')), len(checks.stage('saved')))")
+    root = Path(__file__).resolve().parents[1]
+    out = subprocess.run([sys.executable, "-c", "import jav.app.registrations; from jav.ai import checks; " + counts],
+                         capture_output=True, text=True, check=True, cwd=root).stdout.split()
     assert out == [str(len(checks.stage(s))) for s in checks.STAGES]
+    alone = subprocess.run([sys.executable, "-c", "from jav.ai import checks; " + counts], capture_output=True, text=True,
+                           cwd=root)
+    assert alone.returncode != 0 and "RegistrationsMissing" in alone.stderr

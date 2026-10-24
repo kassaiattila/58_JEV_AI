@@ -30,8 +30,9 @@ give results that do not depend on what the store holds. The stored order of to-
 of a stage run in the order they are registered (the order `policy.decide` had; `tests/test_characterisation_171.py`).
 The built-in checks are registered by the modules that own them (`jav/ai/validators.py`: record; `jav/ai/policy.py`:
 decision) when they are imported; 180 (plan 170 E7): the cross-document and after-save checks are the finance domain's
-(`jav/domains/finance/__init__.py`), registered by `registrations.load_all`. The registry imports the first two and calls
-`load_all` the first time it is read, so it is complete whichever module asks first.
+(`jav/domains/finance/__init__.py`), registered by `registrations.load_all`. The registry imports the first two and asks
+for the application's registrations (229: `jav.core.completion`) the first time it is read, so it is complete whichever
+module asks first.
 """
 
 from __future__ import annotations
@@ -41,7 +42,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from jav.core import calls
+from jav.core import calls, completion
 
 Stage = Literal["record", "decision", "cross_document", "after_save", "saved"]
 STAGES: tuple[Stage, ...] = ("record", "decision", "cross_document", "after_save", "saved")
@@ -106,11 +107,9 @@ def register(check: Check) -> None:
 def _load() -> None:
     global _loaded
     if not _loaded:
-        from jav.app import registrations
-
         for module in _OWNERS:
             importlib.import_module(module)
-        registrations.load_all()  # 180: the domains' checks (`jav/domains/`)
+        completion.complete("checks")  # 180: the domains' checks (`jav/domains/`)
         _loaded = True
 
 

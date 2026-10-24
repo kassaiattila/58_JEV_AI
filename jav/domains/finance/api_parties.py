@@ -17,7 +17,9 @@ from typing import Annotated, Any, Literal
 from fastapi import Depends, FastAPI, Query
 from pydantic import Field
 
+from jav.core import identity
 from jav.app import parties, work_views
+from jav.domains.finance import own_parties as finance_parties  # its address `own_parties` keeps its name
 from jav.domains.finance import party_views
 from jav.service.service_shared import Empty, In, IsoDay, PartyId, human_actor
 from jav.core.user_messages import explained
@@ -83,17 +85,17 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable(party_views.overview())
 
     @app.post(r + "/parties/accept")
-    def accept_party_suggestions(body: AcceptPartySuggestions, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def accept_party_suggestions(body: AcceptPartySuggestions, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         party_views.accept(body.ids, names=body.names, actor=who)
         return work_views.jsonable(party_views.overview())
 
     @app.post(r + "/parties", status_code=201)
-    def create_party(body: CreateParty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def create_party(body: CreateParty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         parties.create(body.name, identities=[(i.kind, i.key, i.label) for i in body.identities], actor=who)
         return work_views.jsonable(party_views.overview())
 
     @app.post(r + "/parties/identities")
-    def set_party_identity(body: SetPartyIdentity, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def set_party_identity(body: SetPartyIdentity, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         if body.action == "release":
             parties.release(body.kind, body.key, actor=who)
         elif body.action == "dismiss":
@@ -105,17 +107,17 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable(party_views.overview())
 
     @app.post(r + "/parties/{party_id}/rename")
-    def rename_party(party_id: PartyId, body: RenameParty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def rename_party(party_id: PartyId, body: RenameParty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         parties.rename(party_id, body.name, actor=who)
         return work_views.jsonable(party_views.overview())
 
     @app.post(r + "/parties/{party_id}/merge")
-    def merge_party(party_id: PartyId, body: MergeParty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def merge_party(party_id: PartyId, body: MergeParty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         parties.merge(party_id, body.into, actor=who)
         return work_views.jsonable(party_views.overview())
 
     @app.post(r + "/parties/{party_id}/delete")
-    def delete_party(party_id: PartyId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def delete_party(party_id: PartyId, body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         parties.delete(party_id, actor=who)
         return work_views.jsonable(party_views.overview())
 
@@ -123,14 +125,14 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/parties/{party_id}/accounts")
     def register_party_account(party_id: PartyId, body: RegisterPartyAccount,
-                               who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                               who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(party_views.register_account(
             party_id, body.number, kind=body.kind, currencies=body.currencies, bank=body.bank, valid_from=body.valid_from,
             valid_to=body.valid_to, actor=who))
 
     @app.post(r + "/parties/accounts/details")
-    def set_party_account(body: SetPartyAccount, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        parties.set_account(body.key, kind=body.kind, currencies=body.currencies, bank=body.bank, valid_from=body.valid_from,
+    def set_party_account(body: SetPartyAccount, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        finance_parties.set_account(body.key, kind=body.kind, currencies=body.currencies, bank=body.bank, valid_from=body.valid_from,
                             valid_to=body.valid_to, actor=who)
         return work_views.jsonable(party_views.overview())
 

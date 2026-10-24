@@ -15,6 +15,7 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI
 from pydantic import Field
 
+from jav.core import identity
 from jav.app import work_views
 from jav.domains.finance import statement_package
 from jav.service.service_shared import In, IsoDay, PartyId, WpId, checked_path, human_actor
@@ -50,7 +51,7 @@ def routes(app: FastAPI, r: str) -> None:
     """The statement package's addresses under the service's prefix `r`."""
 
     @app.post(r + "/statement-packages/survey")
-    def statement_package_survey(body: StatementPackageSources, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def statement_package_survey(body: StatementPackageSources, _who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """140: what a folder or the given files hold for a party and a period, before anything is written: every
         statement with its account's last four characters, month, checks, what it would replace and whose account it
         is; the PDFs no export uses. No line, partner or balance leaves."""
@@ -59,7 +60,7 @@ def routes(app: FastAPI, r: str) -> None:
                                                             period_end=body.period_end))
 
     @app.post(r + "/statement-packages", status_code=201)
-    def create_statement_package(body: CreateStatementPackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def create_statement_package(body: CreateStatementPackage, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """140: a new statement package of the statements and PDFs ticked in the survey; the creator is its owner."""
         sc = statement_package.create(name=body.name, party_id=body.party_id, period_start=body.period_start,
                                       period_end=body.period_end, paths=[checked_path(p, want_dir=None) for p in body.paths],
@@ -68,14 +69,14 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.workpackage_view(sc["workpackage_id"])
 
     @app.post(r + "/workpackages/{wp_id}/statements/survey")
-    def package_statement_survey(wp_id: WpId, body: PackageStatementFiles, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def package_statement_survey(wp_id: WpId, body: PackageStatementFiles, _who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """160-C S2: the survey of more files for an existing statement package, with its party and period; what the
         package already holds is marked (`in_package`). Nothing is written."""
         paths = [checked_path(p, want_dir=None) for p in body.paths]
         return work_views.jsonable(statement_package.survey_for(wp_id, paths, recursive=body.recursive))
 
     @app.post(r + "/workpackages/{wp_id}/statements/add")
-    def add_package_statements(wp_id: WpId, body: AddPackageStatements, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def add_package_statements(wp_id: WpId, body: AddPackageStatements, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """160-C S2: the statements and PDFs ticked in the package's own survey, added to it and logged."""
         statement_package.add(wp_id, paths=[checked_path(p, want_dir=None) for p in body.paths], statements=body.statements,
                               pdfs=[str(checked_path(p, want_dir=False)) for p in body.pdfs], expected_revision=body.expected_revision,

@@ -32,7 +32,7 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from jav.app import work
-from jav.core import values
+from jav.core import identity, values
 from jav.domains.finance import reconcile, reconcile_package
 from jav.core.user_messages import explained
 
@@ -144,7 +144,7 @@ def review(wp_id: str) -> dict[str, Any]:
             "decided": dict(sorted(decided.items()))}
 
 
-def accept(wp_id: str, group: str, line_ids: Iterable[str], *, actor: str, expected_state: int | None = None) -> int:
+def accept(wp_id: str, group: str, line_ids: Iterable[str], *, actor: identity.Who, expected_state: int | None = None) -> int:
     """A person accepts the group's suggestion for the given lines: all or none, and only lines still in the group
     (`work.RevisionConflict` otherwise: the view was stale). Returns how many lines were decided."""
     if group not in GROUPS:

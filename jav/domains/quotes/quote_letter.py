@@ -41,7 +41,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from jav.app import naming, package_release, work
-from jav.core import activity_kinds, cfg, decisions, store
+from jav.core import activity_kinds, cfg, decisions, identity, store
 from jav.domains.quotes import quote_document, quote_request
 from jav.core.clock import utc_stamp as _now
 from jav.app.outputs import contract, docx, markers
@@ -74,14 +74,18 @@ CREATE TABLE IF NOT EXISTS quote_letters (
     error          TEXT,
     scope          TEXT,
     requested_by   TEXT,
+    requested_by_id TEXT,              -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
     requested_at   TEXT,
     finished_at    TEXT,
     body           TEXT,               -- the body a person accepted
     accepted_by    TEXT,
+    accepted_by_id TEXT,
     accepted_at    TEXT,
     PRIMARY KEY (workpackage_id, version)
 );
 """)
+store.register_migration("quote_letters_actor_ids",
+                         lambda conn: store.add_actor_ids(conn, "quote_letters", ("requested_by", "accepted_by")))  # 229
 
 _agent_factory: ContextVar = ContextVar("quote_letter_agent_factory", default=None)
 
@@ -335,7 +339,7 @@ def ask(prompt: str, *, run_id: str) -> str:
     return str(saved["output"]["paragraph"])
 
 
-def request(wp_id: str, *, actor: str) -> dict[str, Any]:
+def request(wp_id: str, *, actor: identity.Who) -> dict[str, Any]:
     """Queues GPT's paragraph for the approved version that holds, under its cap; one already queued or running is
     returned as it is. `LetterError` without an approved version."""
     from jav.core import queue
@@ -348,11 +352,12 @@ def request(wp_id: str, *, actor: str) -> dict[str, Any]:
         if row is not None and row["state"] in ("queued", "running"):
             return view(wp_id)
         limits = json.dumps({k: str(x) for k, x in cap().items()})
-        c.execute("INSERT INTO quote_letters(workpackage_id, version, state, limits, requested_by, requested_at)"
-                  " VALUES (?,?,?,?,?,?) ON CONFLICT(workpackage_id, version) DO UPDATE SET state=excluded.state,"
-                  " limits=excluded.limits, paragraph=NULL, problems=NULL, usage=NULL, error=NULL, scope=NULL,"
-                  " requested_by=excluded.requested_by, requested_at=excluded.requested_at, finished_at=NULL",
-                  (wp_id, n, "queued", limits, actor, _now()))
+        c.execute("INSERT INTO quote_letters(workpackage_id, version, state, limits, requested_by, requested_by_id,"
+                  " requested_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, version) DO UPDATE SET"
+                  " state=excluded.state, limits=excluded.limits, paragraph=NULL, problems=NULL, usage=NULL, error=NULL,"
+                  " scope=NULL, requested_by=excluded.requested_by, requested_by_id=excluded.requested_by_id,"
+                  " requested_at=excluded.requested_at, finished_at=NULL",
+                  (wp_id, n, "queued", limits, identity.name_of(actor), identity.id_of(actor), _now()))
     queue.enqueue(JOB_KIND, run_id=None, payload={"workpackage_id": wp_id, "version": n, "requested_at": _now()})
     return view(wp_id)
 
@@ -396,7 +401,7 @@ def abandon(wp_id: str, n: int, error: str) -> None:
 # --- the person's body and the letter file --------------------------------------------------------------------------
 
 
-def accept(wp_id: str, body: str, *, actor: str, expected_state: int | None) -> dict[str, Any]:
+def accept(wp_id: str, body: str, *, actor: identity.Who, expected_state: int | None) -> dict[str, Any]:
     """The body a person read, changed and accepts for the approved version that holds; a later acceptance replaces it.
     `LetterError` for an empty or too long body; a change from a stale page is a version conflict."""
     text = (body or "").replace("\r\n", "\n").strip()
@@ -410,9 +415,10 @@ def accept(wp_id: str, body: str, *, actor: str, expected_state: int | None) -> 
         n = v["version"]
         decisions.check(c, KIND, _key(wp_id, n), expected_state)
         now = _now()
-        c.execute("INSERT INTO quote_letters(workpackage_id, version, body, accepted_by, accepted_at) VALUES (?,?,?,?,?)"
-                  " ON CONFLICT(workpackage_id, version) DO UPDATE SET body=excluded.body, accepted_by=excluded.accepted_by,"
-                  " accepted_at=excluded.accepted_at", (wp_id, n, text + "\n", actor, now))
+        c.execute("INSERT INTO quote_letters(workpackage_id, version, body, accepted_by, accepted_by_id, accepted_at)"
+                  " VALUES (?,?,?,?,?,?) ON CONFLICT(workpackage_id, version) DO UPDATE SET body=excluded.body,"
+                  " accepted_by=excluded.accepted_by, accepted_by_id=excluded.accepted_by_id, accepted_at=excluded.accepted_at",
+                  (wp_id, n, text + "\n", identity.name_of(actor), identity.id_of(actor), now))
         decisions.record(c, KIND, _key(wp_id, n), "accept", actor=actor, value={"body": text}, workpackage_id=wp_id, at=now)
         work.record_event(c, wp_id, "quote_letter_accept", actor, {"version": n, "chars": len(text)})
     return view(wp_id)

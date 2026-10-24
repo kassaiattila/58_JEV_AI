@@ -30,7 +30,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from jav.core import cfg, store, versions
+from jav.core import cfg, identity, store, versions
 from jav.core.numbers import AmbiguousNumber, read_input
 from jav.core.clock import utc_stamp as _now
 
@@ -59,14 +59,19 @@ CREATE TABLE IF NOT EXISTS price_lists (
     content       BLOB NOT NULL,
     checks        TEXT NOT NULL,      -- JSON: the upload's check (its warnings, the columns it found)
     made_by       TEXT NOT NULL,
+    made_by_id    TEXT,               -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
     made_at       TEXT NOT NULL,
     activated_by  TEXT,
+    activated_by_id TEXT,
     activated_at  TEXT,
     retired_by    TEXT,
+    retired_by_id TEXT,
     retired_at    TEXT,
     UNIQUE (price_list, version)
 );
 """)
+store.register_migration("price_lists_actor_ids", lambda conn: store.add_actor_ids(
+    conn, "price_lists", ("made_by", "activated_by", "retired_by")))  # 229 (SZ2c): the earlier rows' from their names
 
 
 class _Model(BaseModel):
@@ -386,7 +391,7 @@ def _insert(c: Any, values: dict[str, Any]) -> None:
     c.execute(f"INSERT INTO price_lists({', '.join(values)}) VALUES ({', '.join('?' * len(values))})", tuple(values.values()))
 
 
-def add(name: str, file_name: str, content: bytes, *, actor: str, price_list: str | None = None,
+def add(name: str, file_name: str, content: bytes, *, actor: identity.Who, price_list: str | None = None,
         currency: str | None = None, vat_percent: object = None) -> dict[str, Any]:
     """Checks and stores an upload as a draft version: of `price_list` (its next version, with the latest version's
     settings unless given; a rule whose category the new file no longer has is left out, with a warning), or of a new
@@ -427,12 +432,13 @@ def add(name: str, file_name: str, content: bytes, *, actor: str, price_list: st
                     "discounts": json.dumps(stored_rules, ensure_ascii=False),
                     "fingerprint": _fingerprint(currency, vat, stored_items, stored_rules), "file_name": file_name,
                     "sha256": hashlib.sha256(content).hexdigest(), "content": content,
-                    "checks": json.dumps(check, ensure_ascii=False), "made_by": actor, "made_at": _now()})
+                    "checks": json.dumps(check, ensure_ascii=False), "made_by": identity.name_of(actor),
+                    "made_by_id": identity.id_of(actor), "made_at": _now()})
     return get(price_list, version)
 
 
 def change_settings(price_list: str, version: int, *, discounts: list[dict[str, Any]], currency: str,
-                    vat_percent: object, actor: str) -> dict[str, Any]:
+                    vat_percent: object, actor: identity.Who) -> dict[str, Any]:
     """A new draft version from `version`, with its items and file and these rules, currency and VAT rate.
     `PriceListRefused` with the problems; `PriceListStateError` when nothing would change."""
     with store.connect() as c:
@@ -453,7 +459,8 @@ def change_settings(price_list: str, version: int, *, discounts: list[dict[str, 
                     "change": "settings", "based_on": version, "currency": currency, "vat_percent": _label(vat),
                     "items": base["items"], "discounts": json.dumps(stored_rules, ensure_ascii=False),
                     "fingerprint": fingerprint, "file_name": base["file_name"], "sha256": base["sha256"],
-                    "content": base["content"], "checks": base["checks"], "made_by": actor, "made_at": _now()})
+                    "content": base["content"], "checks": base["checks"], "made_by": identity.name_of(actor),
+                    "made_by_id": identity.id_of(actor), "made_at": _now()})
     return get(price_list, latest + 1)
 
 
@@ -520,7 +527,7 @@ def listing() -> list[dict[str, Any]]:
     return VERSIONS.grouped(rows, lambda r: {"price_list": r["price_list"], "name": r["name"]}, _view)
 
 
-def activate(price_list: str, version: int, *, actor: str) -> dict[str, Any]:
+def activate(price_list: str, version: int, *, actor: identity.Who) -> dict[str, Any]:
     """Makes the version the list's active one (a draft, or an earlier version again); the active one before it is
     superseded. A retired list comes back with it."""
     with store.connect() as c:
@@ -529,7 +536,7 @@ def activate(price_list: str, version: int, *, actor: str) -> dict[str, Any]:
     return get(price_list, version)
 
 
-def retire(price_list: str, *, actor: str) -> dict[str, Any]:
+def retire(price_list: str, *, actor: identity.Who) -> dict[str, Any]:
     """Retires the list: its active version is no longer offered for a new quote."""
     with store.connect() as c:
         store.begin_immediate(c)

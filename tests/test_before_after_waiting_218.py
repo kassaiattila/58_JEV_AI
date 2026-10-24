@@ -9,7 +9,7 @@ from pathlib import Path
 
 from jav.app import app_settings, waiting, work
 from jav.core import store
-from jav.core.process import actor as actors
+from jav.core import identity as actors
 from jav.core.process import cases, tasks
 from jav.evals import before_after
 

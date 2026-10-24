@@ -26,8 +26,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from jav.app import human_tasks, item_kinds, logic_packs, source_instances
-from jav.core import activity_kinds, decisions, store
+from jav.app import human_tasks, item_kinds, logic_packs
+
+from jav.documents import source_instances
+from jav.core import activity_kinds, decisions, identity, store
 from jav.documents.native_contracts import DOCUMENT_SUFFIXES
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
@@ -58,9 +60,10 @@ CREATE TABLE IF NOT EXISTS workpackage_items (
     added_revision   INTEGER NOT NULL,
     removed_revision INTEGER,
     parent_item_id   TEXT,                     -- 058 K5.2: a levél csatolmányánál a levél tétele (a csatolmány eredete)
-    instance    TEXT,                          -- source instance (jav/app/source_instances.py), relative path; NULL: none
+    instance    TEXT,                          -- source instance (jav/documents/source_instances.py), relative path; NULL: none
     removed_at  TEXT,                          -- 160-C S1: when, by whom and why the item was removed (NULL: in use)
     removed_by  TEXT,
+    removed_by_id TEXT,                        -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
     removed_reason TEXT,
     PRIMARY KEY (workpackage_id, item_id)
 );
@@ -72,6 +75,7 @@ CREATE TABLE IF NOT EXISTS recipe_assignments (
     recipe_hash TEXT NOT NULL,
     params      TEXT NOT NULL,
     actor       TEXT NOT NULL,
+    actor_id    TEXT,
     note        TEXT,
     created_at  TEXT NOT NULL,
     PRIMARY KEY (workpackage_id, revision)
@@ -92,8 +96,10 @@ CREATE TABLE IF NOT EXISTS runs (
     status      TEXT NOT NULL,                 -- queued | running | needs_review | done | failed | cancelled
     approval    TEXT,                          -- NULL | approved
     approved_by TEXT,
+    approved_by_id TEXT,
     approved_at TEXT,
     actor       TEXT NOT NULL,
+    actor_id    TEXT,
     created_at  TEXT NOT NULL,
     finished_at TEXT
 );
@@ -115,6 +121,7 @@ CREATE TABLE IF NOT EXISTS workpackage_events (
     workpackage_id TEXT NOT NULL,
     action      TEXT NOT NULL,                 -- archive | restore | rename | delete
     actor       TEXT NOT NULL,
+    actor_id    TEXT,
     detail      TEXT,                          -- JSON
     created_at  TEXT NOT NULL
 );
@@ -146,6 +153,11 @@ def _migrate(conn) -> None:
         "excluded_items": "TEXT",  # 160-C (decision 163 D7): items removed before the approval (JSON)
         "scope": "TEXT",  # 160-C S3: NULL = every item in use, 'pending' = only the pending items
     })
+    # 229 (SZ2c): the stable id beside every name of who acted; the earlier rows' from their names
+    for table, columns in (("workpackages", ("owner",)), ("workpackage_items", ("removed_by",)),
+                           ("recipe_assignments", ("actor",)), ("runs", ("approved_by", "actor", "stopped_by")),
+                           ("workpackage_events", ("actor",))):
+        store.add_actor_ids(conn, table, columns)
     if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='runs'").fetchone():
         # 204 (R1i): a run's state without its row, which holds the frozen input (`work_runs.refresh_run_status`): the
         # columns lie after it, so reading one walked the whole input (31 ms in a run of 100,000 items, 0.014 ms here)
@@ -260,15 +272,17 @@ def _canon(value: Any) -> str:
 
 
 @store.one_connection
-def create_workpackage(*, name: str, source_kind: str, source_ref: str | None, owner: str | None = None) -> dict[str, Any]:
+def create_workpackage(*, name: str, source_kind: str, source_ref: str | None,
+                       owner: identity.Who | None = None) -> dict[str, Any]:
     """`owner` (decision 065): the creator is responsible for the new package; a nameless (automated) creation has no
     owner. 215: a logic pack without runs waits for its own approval as a human task from now on."""
     if not name.strip():
         raise explained(ValueError, "name required")
     wp_id = f"wp-{uuid.uuid4().hex[:12]}"
     with store.connect() as c:
-        c.execute("INSERT INTO workpackages(id, name, source_kind, source_ref, revision, created_at, updated_at, owner) VALUES (?,?,?,?,0,?,?,?)",
-                  (wp_id, name.strip(), source_kind, source_ref, _now(), _now(), owner))
+        c.execute("INSERT INTO workpackages(id, name, source_kind, source_ref, revision, created_at, updated_at, owner, owner_id)"
+                  " VALUES (?,?,?,?,0,?,?,?,?)", (wp_id, name.strip(), source_kind, source_ref, _now(), _now(),
+                                                  identity.name_of(owner), identity.id_of(owner)))
         human_tasks.package_made(c, wp_id, source_kind)
     return get(wp_id)
 
@@ -315,7 +329,7 @@ def add_items(wp_id: str, paths: list[Path], *, kind: str, expected_revision: in
     The item's identifier is the file's content hash; identical content appears once. `parents` (058 K5.2): the parent
     item's identifier per file — so an email attachment points to its email (the attachment's origin).
 
-    A document is copied into the source instance store as it is added (`jav/app/source_instances.py`), and its
+    A document is copied into the source instance store as it is added (`jav/documents/source_instances.py`), and its
     fingerprint is that of the copied bytes; an email is hashed in place (it is already the system's own copy). If the
     intake fails, the copies made for it are released again."""
     item_kinds.check([kind])  # 177: the registry knows the kinds (`UnknownItemKind`, a ValueError)
@@ -324,7 +338,7 @@ def add_items(wp_id: str, paths: list[Path], *, kind: str, expected_revision: in
 
 def add_entries(wp_id: str, entries: list[tuple[Path, str]], *, expected_revision: int,
                 parents: dict[Path, str] | None = None,
-                event: tuple[str, str, dict[str, Any]] | None = None) -> dict[str, Any]:
+                event: tuple[str, identity.Who, dict[str, Any]] | None = None) -> dict[str, Any]:
     """`add_items` for items of several kinds in one revision step (140: a statement package holds the statements read
     from exports and the PDF statements together): (path, kind) pairs. `event` (160-C S2): (action, actor, detail)
     written to the package's log in the same transaction. A removed item added again is restored (its removal's who,
@@ -354,7 +368,7 @@ def add_entries(wp_id: str, entries: list[tuple[Path, str]], *, expected_revisio
             for p, digest, instance, kind in resolved:
                 c.execute("INSERT INTO workpackage_items(workpackage_id, item_id, kind, source_path, sha256, added_revision, parent_item_id, instance)"
                           " VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, item_id) DO UPDATE SET removed_revision=NULL,"
-                          " removed_at=NULL, removed_by=NULL, removed_reason=NULL,"
+                          " removed_at=NULL, removed_by=NULL, removed_by_id=NULL, removed_reason=NULL,"
                           " source_path=excluded.source_path, parent_item_id=COALESCE(workpackage_items.parent_item_id, excluded.parent_item_id),"
                           " instance=COALESCE(workpackage_items.instance, excluded.instance)",
                           (wp_id, digest, kind, str(p), digest, rev, parents.get(p), instance))
@@ -411,7 +425,7 @@ def _held_items(wp_id: str) -> dict[str, int | None]:
             "SELECT item_id, removed_revision FROM workpackage_items WHERE workpackage_id=?", (wp_id,))}
 
 
-def add_to_package(wp_id: str, paths: list[Path], *, expected_revision: int, actor: str, exclude: Iterable[str] = (),
+def add_to_package(wp_id: str, paths: list[Path], *, expected_revision: int, actor: identity.Who, exclude: Iterable[str] = (),
                    restore: Iterable[str] | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
     """160-C S2: documents a person adds to an existing package, by content: a new one is added, one already in the
     package changes nothing, and a removed one is restored. Only an actual change takes a revision step, and it is
@@ -503,14 +517,14 @@ def _processed_live_elsewhere(wp_id: str, digests: list[str]) -> set[str]:
     return found
 
 
-def remove_item(wp_id: str, item_id: str, *, expected_revision: int, actor: str, reason: str) -> dict[str, Any]:
+def remove_item(wp_id: str, item_id: str, *, expected_revision: int, actor: identity.Who, reason: str) -> dict[str, Any]:
     """160-C S1 (decision 163 D2, D3): a virtual removal by a named person with a reason, logged. The item stays out
     of the package's next runs; a run already started keeps it in its frozen input, and `restore_item` brings it back."""
     return _remove(wp_id, [item_id], expected_revision=expected_revision, actor=actor, reason=reason,
                    event=("item_remove", {"item_id": item_id}))
 
 
-def remove_items(wp_id: str, item_ids: Iterable[str], *, expected_revision: int, actor: str, reason: str) -> dict[str, Any]:
+def remove_items(wp_id: str, item_ids: Iterable[str], *, expected_revision: int, actor: identity.Who, reason: str) -> dict[str, Any]:
     """168 (plan F-item-list-and-adding): several items removed with one reason in one revision step and one log event
     (`items_remove`), e.g. a folder added by mistake. All or nothing: an item not in use (`KeyError`) changes nothing."""
     ids = list(dict.fromkeys(item_ids))
@@ -520,7 +534,7 @@ def remove_items(wp_id: str, item_ids: Iterable[str], *, expected_revision: int,
                    event=("items_remove", {"item_ids": ids}))
 
 
-def _remove(wp_id: str, ids: list[str], *, expected_revision: int, actor: str, reason: str,
+def _remove(wp_id: str, ids: list[str], *, expected_revision: int, actor: identity.Who, reason: str,
             event: tuple[str, dict[str, Any]]) -> dict[str, Any]:
     reason = reason.strip()
     if not reason:
@@ -533,18 +547,20 @@ def _remove(wp_id: str, ids: list[str], *, expected_revision: int, actor: str, r
         if missing := [i for i in ids if i not in in_use]:
             raise KeyError(missing[0])
         now = _now()
-        c.executemany("UPDATE workpackage_items SET removed_revision=?, removed_at=?, removed_by=?, removed_reason=?"
-                      " WHERE workpackage_id=? AND item_id=?", [(rev, now, actor, reason, wp_id, i) for i in ids])
+        by, by_id = identity.name_of(actor), identity.id_of(actor)
+        c.executemany("UPDATE workpackage_items SET removed_revision=?, removed_at=?, removed_by=?, removed_by_id=?,"
+                      " removed_reason=? WHERE workpackage_id=? AND item_id=?",
+                      [(rev, now, by, by_id, reason, wp_id, i) for i in ids])
         _event(c, wp_id, event[0], actor, {**event[1], "reason": reason})
     return get(wp_id)
 
 
-def restore_item(wp_id: str, item_id: str, *, expected_revision: int, actor: str) -> dict[str, Any]:
+def restore_item(wp_id: str, item_id: str, *, expected_revision: int, actor: identity.Who) -> dict[str, Any]:
     """160-C S1 (decision 163 D3): a removed item is back in the package, logged; it takes part in the next run."""
     return _restore(wp_id, [item_id], expected_revision=expected_revision, actor=actor, event=("item_restore", {"item_id": item_id}))
 
 
-def restore_items(wp_id: str, item_ids: Iterable[str], *, expected_revision: int, actor: str) -> dict[str, Any]:
+def restore_items(wp_id: str, item_ids: Iterable[str], *, expected_revision: int, actor: identity.Who) -> dict[str, Any]:
     """168: several removed items back in the package in one revision step, logged once (`items_restore`)."""
     ids = list(dict.fromkeys(item_ids))
     if not ids:
@@ -552,7 +568,7 @@ def restore_items(wp_id: str, item_ids: Iterable[str], *, expected_revision: int
     return _restore(wp_id, ids, expected_revision=expected_revision, actor=actor, event=("items_restore", {"item_ids": ids}))
 
 
-def _restore(wp_id: str, ids: list[str], *, expected_revision: int, actor: str, event: tuple[str, dict[str, Any]]) -> dict[str, Any]:
+def _restore(wp_id: str, ids: list[str], *, expected_revision: int, actor: identity.Who, event: tuple[str, dict[str, Any]]) -> dict[str, Any]:
     with store.connect() as c:
         _begin(c)
         _bump(c, wp_id, expected_revision)
@@ -560,8 +576,9 @@ def _restore(wp_id: str, ids: list[str], *, expected_revision: int, actor: str, 
             "SELECT item_id FROM workpackage_items WHERE workpackage_id=? AND removed_revision IS NOT NULL", (wp_id,))}
         if missing := [i for i in ids if i not in removed]:
             raise KeyError(missing[0])
-        c.executemany("UPDATE workpackage_items SET removed_revision=NULL, removed_at=NULL, removed_by=NULL, removed_reason=NULL"
-                      " WHERE workpackage_id=? AND item_id=?", [(wp_id, i) for i in ids])
+        c.executemany("UPDATE workpackage_items SET removed_revision=NULL, removed_at=NULL, removed_by=NULL,"
+                      " removed_by_id=NULL, removed_reason=NULL WHERE workpackage_id=? AND item_id=?",
+                      [(wp_id, i) for i in ids])
         _event(c, wp_id, event[0], actor, event[1])
     return get(wp_id)
 
@@ -609,7 +626,7 @@ def folder_contents(folder: Path, *, suffixes: tuple[str, ...] = DOCUMENT_SUFFIX
 
 @store.one_connection
 def create_from_folder(folder: Path, *, name: str | None = None, suffixes: tuple[str, ...] = DOCUMENT_SUFFIXES,
-                       owner: str | None = None, recursive: bool = False, exclude: Iterable[Path] = (),
+                       owner: identity.Who | None = None, recursive: bool = False, exclude: Iterable[Path] = (),
                        only: Iterable[Path] | None = None) -> dict[str, Any]:
     """Work package from the documents of a folder (`folder_documents`); with `only` (147) just those of them."""
     files = folder_documents(folder, suffixes=suffixes, recursive=recursive, exclude=exclude)
@@ -643,7 +660,7 @@ def unprocessed(paths: Iterable[Path]) -> tuple[list[Path], list[Path]]:
     return [p for p in paths if digests[p] not in seen], [p for p in paths if digests[p] in seen]
 
 
-def create_from_files(paths: list[Path], *, name: str, owner: str | None = None) -> dict[str, Any]:
+def create_from_files(paths: list[Path], *, name: str, owner: identity.Who | None = None) -> dict[str, Any]:
     """Work package from the given files (possibly from several folders), in one revision step (040 K3: live trial,
     selection in the UI)."""
     if not paths:
@@ -652,7 +669,7 @@ def create_from_files(paths: list[Path], *, name: str, owner: str | None = None)
     return fill_new(wp, lambda: add_documents(wp["id"], list(paths), expected_revision=0))
 
 
-def create_with_items(*, name: str, source_kind: str, source_ref: str | None, owner: str | None,
+def create_with_items(*, name: str, source_kind: str, source_ref: str | None, owner: identity.Who | None,
                       entries: list[tuple[Path, str]]) -> dict[str, Any]:
     """140: a new package of its own kind filled with (path, kind) items in one revision step; a failed intake leaves
     no empty package behind."""
@@ -728,13 +745,14 @@ activity_kinds.register_events("package", ("rename", "owner", "archive", "restor
                                __name__)
 
 
-def _event(c, wp_id: str, action: str, actor: str, detail: dict[str, Any] | None = None) -> None:
+def _event(c, wp_id: str, action: str, actor: identity.Who, detail: dict[str, Any] | None = None) -> None:
     activity_kinds.check_event("package", action)  # an action no module registered is refused
-    c.execute("INSERT INTO workpackage_events(workpackage_id, action, actor, detail, created_at) VALUES (?,?,?,?,?)",
-              (wp_id, action, actor, _canon(detail) if detail else None, _now()))
+    c.execute("INSERT INTO workpackage_events(workpackage_id, action, actor, actor_id, detail, created_at)"
+              " VALUES (?,?,?,?,?,?)",
+              (wp_id, action, identity.name_of(actor), identity.id_of(actor), _canon(detail) if detail else None, _now()))
 
 
-def record_event(c, wp_id: str, action: str, actor: str, detail: dict[str, Any] | None = None) -> None:
+def record_event(c, wp_id: str, action: str, actor: identity.Who, detail: dict[str, Any] | None = None) -> None:
     """131: an event of another module on the package (a reconciliation package's decisions), in the package's log, in
     the caller's transaction."""
     _event(c, wp_id, action, actor, detail)
@@ -786,37 +804,41 @@ def register_delete_guard(fn: Callable[[sqlite3.Connection, str], None]) -> None
         _DELETE_GUARDS.append(fn)
 
 
-def _set_wp(wp_id: str, action: str, actor: str, **fields: Any) -> dict[str, Any]:
-    cols = ", ".join(f"{k}=?" for k in fields)
+def _set_wp(wp_id: str, action: str, actor: identity.Who, *, ids: dict[str, str | None] | None = None,
+            **fields: Any) -> dict[str, Any]:
+    """`fields` are written and logged; `ids` (229: the owner's stable id) are written beside them, not logged."""
+    written = {**fields, **(ids or {})}
+    cols = ", ".join(f"{k}=?" for k in written)
     with store.connect() as c:
         _begin(c)
         before = c.execute("SELECT name, status, owner FROM workpackages WHERE id=?", (wp_id,)).fetchone()
         if before is None:
             raise KeyError(wp_id)
-        c.execute(f"UPDATE workpackages SET {cols}, updated_at=? WHERE id=?", (*fields.values(), _now(), wp_id))
+        c.execute(f"UPDATE workpackages SET {cols}, updated_at=? WHERE id=?", (*written.values(), _now(), wp_id))
         _event(c, wp_id, action, actor, {"before": dict(before), "after": fields})
         if "owner" in fields:
             human_tasks.package_owner_changed(c, wp_id)
     return get(wp_id)
 
 
-def set_owner(wp_id: str, owner: str | None, *, actor: str) -> dict[str, Any]:
+def set_owner(wp_id: str, owner: identity.Who | None, *, actor: identity.Who) -> dict[str, Any]:
     """061: the person responsible for the package (None: nobody). Not part of the run's input, so it does not bump
-    the revision; logged. 215: the package's open human tasks go to whom the owner's rule names now."""
-    return _set_wp(wp_id, "owner", actor, owner=owner)
+    the revision; logged. 215: the package's open human tasks go to whom the owner's rule names now. 229: with the
+    owner's stable id."""
+    return _set_wp(wp_id, "owner", actor, owner=identity.name_of(owner), ids={"owner_id": identity.id_of(owner)})
 
 
-def archive_workpackage(wp_id: str, *, actor: str) -> dict[str, Any]:
+def archive_workpackage(wp_id: str, *, actor: identity.Who) -> dict[str, Any]:
     """Hides the package from the list: the runs, the call log and the results are kept; the package can still be
     opened directly."""
     return _set_wp(wp_id, "archive", actor, status="archived")
 
 
-def restore_workpackage(wp_id: str, *, actor: str) -> dict[str, Any]:
+def restore_workpackage(wp_id: str, *, actor: identity.Who) -> dict[str, Any]:
     return _set_wp(wp_id, "restore", actor, status="open")
 
 
-def rename_workpackage(wp_id: str, name: str, *, actor: str) -> dict[str, Any]:
+def rename_workpackage(wp_id: str, name: str, *, actor: identity.Who) -> dict[str, Any]:
     name = name.strip()
     if not name or len(name) > 200:
         raise explained(ValueError, "name must be 1-200 characters")
@@ -828,7 +850,7 @@ def workpackage_events(wp_id: str) -> list[dict[str, Any]]:
         return [dict(r) for r in c.execute("SELECT * FROM workpackage_events WHERE workpackage_id=? ORDER BY rowid", (wp_id,))]
 
 
-def delete_workpackage(wp_id: str, *, actor: str) -> None:
+def delete_workpackage(wp_id: str, *, actor: identity.Who) -> None:
     """Permanent deletion only for a package without runs (one with runs can only be hidden, because the call log and
     the results refer to it). The items' original files stay where they are; their source instances are released
     unless another item still refers to them."""

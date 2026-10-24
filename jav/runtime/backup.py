@@ -18,7 +18,7 @@ archive is also written into the backup folder (`internal-docs.zip`, with names 
 archive's check decides the backup's validity just as the store's does; the hash check of the copy in the second
 location covers it too.
 
-Source instances (the unchanging copies of the documents added to work packages, `jav/app/source_instances.py`) go into
+Source instances (the unchanging copies of the documents added to work packages, `jav/documents/source_instances.py`) go into
 one shared `sources/` folder beside the timestamped backup folders, in the local root and in the second location alike:
 each instance is copied once, checked against its content hash (its file name), and never pruned, because instances
 never change. A damaged instance is not copied and is named in the manifest.
@@ -48,7 +48,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from jav.app import source_instances
+from jav.documents import source_instances
 from jav.core import cfg, doc_scope, store
 from jav.core.config import PROJECT_ROOT
 from jav.core.digest import file_sha256 as _sha256

@@ -10,6 +10,8 @@ from __future__ import annotations
 import pytest
 
 from jav.app import corrections, parties, work_runs
+
+from jav.domains.finance import own_parties
 from jav.core import store
 from jav.domains.finance import party_views
 from tests.test_duplicates_126 import _run, _save  # the scan follows the duplicates' scan
@@ -61,9 +63,9 @@ def test_a_document_re_read_as_another_type_drops_out(db):
 
 
 def test_the_scan_and_the_flow_share_one_check(db):
-    assert parties.own_tax_reasons("invoice_hu", _tax(BUYER)) == [REASON]
-    assert parties.own_tax_reasons("invoice_hu", _tax(BUYER, BUYER)) == []
-    assert parties.own_tax_reasons("invoice_out", _tax(BUYER)) == []
+    assert own_parties.own_tax_reasons("invoice_hu", _tax(BUYER)) == [REASON]
+    assert own_parties.own_tax_reasons("invoice_hu", _tax(BUYER, BUYER)) == []
+    assert own_parties.own_tax_reasons("invoice_out", _tax(BUYER)) == []
 
 
 def test_the_command_prints_counts_only(db, capsys):

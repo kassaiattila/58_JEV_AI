@@ -142,7 +142,7 @@ Formula text, saved formula results and their unverified state reach the model
 together. Citations to an exact saved result resolve to its original cell. A
 formula or saved result used as a business value raises a review warning; no
 recalculation occurs. The shared content checks (`configs/fact_checks.json`,
-`jav/ai/fact_checks.py`) also raise a warning when a value is an unfilled template
+`jav/documents/fact_checks.py`) also raise a warning when a value is an unfilled template
 field (`[Name]`, a run of dots, a date mask) or when its kind (money,
 percentage, date, time) conflicts with the meaning of its property and unit;
 a currency value claimed as a time quantity is one such conflict. A JEV support

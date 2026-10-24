@@ -39,7 +39,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from jav.app import package_release, work
-from jav.core import activity_kinds, cfg, decisions, numbers, store
+from jav.core import activity_kinds, cfg, decisions, identity, numbers, store
 from jav.domains.quotes import price_lists, quote_document, quote_pricing, quote_proposal, quote_request
 from jav.ai.typepack import get as get_pack
 from jav.core.user_messages import explained
@@ -58,11 +58,15 @@ CREATE TABLE IF NOT EXISTS quote_drafts (
     workpackage_id TEXT PRIMARY KEY,
     content        TEXT NOT NULL,      -- JSON: the price list version, the header, the lines, where it started from
     started_by     TEXT NOT NULL,
+    started_by_id  TEXT,               -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
     started_at     TEXT NOT NULL,
     updated_by     TEXT NOT NULL,
+    updated_by_id  TEXT,
     updated_at     TEXT NOT NULL
 );
 """)
+store.register_migration("quote_drafts_actor_ids",
+                         lambda conn: store.add_actor_ids(conn, "quote_drafts", ("started_by", "updated_by")))  # 229
 
 decisions.register(decisions.Kind(KIND, ("start", "save"), __name__))
 activity_kinds.register_events("package", ("quote_approve", "quote_reopen"), __name__)
@@ -176,13 +180,15 @@ def _refuse_if_approved(c: sqlite3.Connection, wp_id: str) -> None:
                         version=active["version"])
 
 
-def _write(c: sqlite3.Connection, wp_id: str, content: dict[str, Any], action: str, actor: str) -> None:
+def _write(c: sqlite3.Connection, wp_id: str, content: dict[str, Any], action: str, actor: identity.Who) -> None:
     now = _now()
-    c.execute("INSERT INTO quote_drafts(workpackage_id, content, started_by, started_at, updated_by, updated_at)"
-              " VALUES (?,?,?,?,?,?) ON CONFLICT(workpackage_id) DO UPDATE SET content=excluded.content,"
-              " updated_by=excluded.updated_by, updated_at=excluded.updated_at"
-              + (", started_by=excluded.started_by, started_at=excluded.started_at" if action == "start" else ""),
-              (wp_id, json.dumps(content, ensure_ascii=False), actor, now, actor, now))
+    c.execute("INSERT INTO quote_drafts(workpackage_id, content, started_by, started_by_id, started_at, updated_by,"
+              " updated_by_id, updated_at) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(workpackage_id) DO UPDATE SET"
+              " content=excluded.content, updated_by=excluded.updated_by, updated_by_id=excluded.updated_by_id,"
+              " updated_at=excluded.updated_at"
+              + (", started_by=excluded.started_by, started_by_id=excluded.started_by_id, started_at=excluded.started_at"
+                 if action == "start" else ""),
+              (wp_id, json.dumps(content, ensure_ascii=False), identity.name_of(actor), identity.id_of(actor), now, identity.name_of(actor), identity.id_of(actor), now))
     decisions.record(c, KIND, wp_id, action, actor=actor, value=content, workpackage_id=wp_id, at=now)
 
 
@@ -221,7 +227,7 @@ def _from_request(row: int, item: dict[str, Any]) -> dict[str, Any]:
                  quantity=_requested_quantity(item.get("quantity")))
 
 
-def start(wp_id: str, *, source: Literal["proposal", "request"], actor: str, expected_state: int | None,
+def start(wp_id: str, *, source: Literal["proposal", "request"], actor: identity.Who, expected_state: int | None,
           replace: bool = False) -> dict[str, Any]:
     """The package's draft from its latest proposal (`proposal`, priced from the list version the proposal used) or
     from its requested items alone (`request`, priced from the newest active list); a draft already there is replaced
@@ -291,7 +297,7 @@ def _read_line(line: LineIn, old: dict[str, Any] | None) -> dict[str, str | None
     return out
 
 
-def _merged(sent: DraftIn, stored: dict[str, Any], prices: price_lists.PriceList, actor: str) -> list[dict[str, Any]]:
+def _merged(sent: DraftIn, stored: dict[str, Any], prices: price_lists.PriceList, actor: identity.Who) -> list[dict[str, Any]]:
     """The sent lines over the stored ones: the page's parts from the page, the service's kept; a line's item chosen or
     confirmed by a person is checked by them."""
     by_id = {ln["id"]: ln for ln in stored["lines"]}
@@ -313,14 +319,14 @@ def _merged(sent: DraftIn, stored: dict[str, Any], prices: price_lists.PriceList
         chose = sku is not None and old is not None and old["sku"] != sku
         if line.checked or chose:
             if not base["checked"] or chose:
-                merged.update(checked=True, checked_by=actor, checked_at=_now())
+                merged.update(checked=True, checked_by=identity.name_of(actor), checked_at=_now())  # the content shows the name
         else:
             merged.update(checked=False, checked_by=None, checked_at=None)
         out.append(merged)
     return out
 
 
-def save(wp_id: str, draft: DraftIn | dict[str, Any], *, actor: str, expected_state: int | None) -> dict[str, Any]:
+def save(wp_id: str, draft: DraftIn | dict[str, Any], *, actor: identity.Who, expected_state: int | None) -> dict[str, Any]:
     """The draft as the page sends it after a change, read, checked and recorded. Returns the view."""
     _package(wp_id)
     try:
@@ -483,7 +489,7 @@ def view(wp_id: str) -> dict[str, Any]:
 # --- the approval --------------------------------------------------------------------------------------------------------
 
 
-def approve(wp_id: str, *, fingerprint: str, actor: str) -> dict[str, Any]:
+def approve(wp_id: str, *, fingerprint: str, actor: identity.Who) -> dict[str, Any]:
     """Approves the quote the person saw (its `fingerprint`) as the package's next own version. `work.NotReady` with
     what holds it; `work.RevisionConflict` when the draft changed meanwhile. Returns the version's record."""
     _package(wp_id)
@@ -521,7 +527,7 @@ def _view_content(wp_id: str, current: dict[str, Any]) -> dict[str, Any]:
                     current["totals"], _quote_package().request_of(wp_id), _request(wp_id))
 
 
-def reopen(wp_id: str, *, note: str, actor: str) -> dict[str, Any]:
+def reopen(wp_id: str, *, note: str, actor: identity.Who) -> dict[str, Any]:
     """Reopens the approved quote with a reason: it stays as an earlier version, and the draft can be changed again.
     Returns the view."""
     _package(wp_id)

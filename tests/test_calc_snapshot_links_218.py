@@ -14,7 +14,7 @@ import pytest
 from jav.ai import jev as jev_mod
 from jav.app import package_release, work, work_readiness, work_recipes, work_runs, work_views
 from jav.core import cfg, queue, rulebook, store
-from jav.core.process import actor as actors
+from jav.core import identity as actors
 from jav.core.process import cases, kinds
 from jav.core.process.definition import ProcessDef, StepDef
 from jav.runtime import worker

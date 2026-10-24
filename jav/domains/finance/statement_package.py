@@ -37,7 +37,7 @@ from typing import Any, Iterable
 
 from jav.app import item_kinds, logic_packs, package_scope, parties, work, work_runs, workflow_steps
 from jav.ai import typepack
-from jav.core import activity_kinds, cfg, store, values
+from jav.core import activity_kinds, cfg, identity, store, values
 from jav.domains.finance import reconcile, statement_months, statement_table
 from jav.core.user_messages import explained
 
@@ -267,7 +267,7 @@ def survey(paths: Iterable[Path], *, party_id: str, period_start: Any, period_en
 
 
 def create(*, name: str, party_id: str, period_start: Any, period_end: Any, paths: list[Path], statements: list[str],
-           pdfs: list[str], actor: str) -> dict[str, Any]:
+           pdfs: list[str], actor: identity.Who) -> dict[str, Any]:
     """A new statement package of the statements and PDFs a person ticked in the survey of the same files; the creator
     owns it (decision 065). A statement is named by its survey id, so one the files no longer hold is refused, and only
     a PDF the survey listed is taken."""
@@ -333,7 +333,7 @@ def survey_for(wp_id: str, paths: Iterable[Path], *, recursive: bool = False) ->
 
 
 def add(wp_id: str, *, paths: list[Path], statements: list[str], pdfs: list[str], expected_revision: int,
-        actor: str, recursive: bool = False) -> dict[str, Any]:
+        actor: identity.Who, recursive: bool = False) -> dict[str, Any]:
     """160-C S2: the statements and PDFs a person ticked in the package's own survey (`survey_for`), added to it in
     one revision step and logged (`statement_add`). One the package already holds is refused, so a stale survey
     cannot add it twice."""
@@ -544,14 +544,14 @@ def add_statement_tables(wp_id: str, export: Path, keys: list[str], *, expected_
                           expected_revision=expected_revision)
 
 
-def create_from_statement_table(export: Path, keys: list[str], *, name: str, owner: str | None = None) -> dict[str, Any]:
+def create_from_statement_table(export: Path, keys: list[str], *, name: str, owner: identity.Who | None = None) -> dict[str, Any]:
     """136 (E4): a work package of the chosen accounts of a bank's tabular export, one statement item each
     (`add_statement_tables`); the export's path is the package's source."""
     wp = work.create_workpackage(name=name, source_kind="manual", source_ref=str(export), owner=owner)
     return work.fill_new(wp, lambda: add_statement_tables(wp["id"], export, keys, expected_revision=0))
 
 
-def take_files(wp_id: str, paths: list[Path], *, expected_revision: int, actor: str) -> None:
+def take_files(wp_id: str, paths: list[Path], *, expected_revision: int, actor: identity.Who) -> None:
     """204 (R1j): adds files to a statement package the way its survey would tick them (the email routing's adding,
     through the logic pack registry)."""
     found = survey_for(wp_id, paths)
@@ -559,7 +559,7 @@ def take_files(wp_id: str, paths: list[Path], *, expected_revision: int, actor: 
         pdfs=[p["path"] for p in found["pdfs"] if p["chosen"]], expected_revision=expected_revision, actor=actor)
 
 
-def create_with_files(*, name: str, paths: list[Path], scope: dict[str, Any], actor: str) -> str:
+def create_with_files(*, name: str, paths: list[Path], scope: dict[str, Any], actor: identity.Who) -> str:
     """204 (R1j): a new statement package of the scope's party and period from files, ticked as its survey would
     tick them; returns its id."""
     found = survey(paths, party_id=scope["party_id"], period_start=scope["period_start"], period_end=scope["period_end"])

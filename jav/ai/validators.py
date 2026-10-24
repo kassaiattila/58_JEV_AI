@@ -24,7 +24,9 @@ from collections.abc import Iterable, Mapping
 from decimal import Decimal
 from typing import Any
 
-from jav.ai import checks, fact_checks, party_history
+from jav.ai import checks, party_history
+
+from jav.documents import fact_checks
 from jav.core import taxid
 from jav.ai.models import CheckResult, DocumentRecord
 
@@ -317,7 +319,7 @@ def run_checks(inv: DocumentRecord, validators: tuple[dict[str, Any], ...] | lis
 
 
 def distinct_parties(inv: DocumentRecord, first: str, second: str) -> CheckResult | None:
-    """120: two role fields must not name one party (`jav.ai.fact_checks.same_party`). The to-do stands at the second
+    """120: two role fields must not name one party (`jav.documents.fact_checks.same_party`). The to-do stands at the second
     field; the detail names only the fields, never their values. Skipped when either field is empty."""
     a, b = inv.get_field(first), inv.get_field(second)
     if a in (None, "") or b in (None, ""):

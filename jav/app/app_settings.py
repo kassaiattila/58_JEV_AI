@@ -35,7 +35,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from jav.app import work, work_recipes
-from jav.core import store
+from jav.core import identity, store
 from jav.documents.native_contracts import DOCUMENT_SUFFIXES
 from jav.core import lock
 from jav.core.user_messages import explained
@@ -87,9 +87,11 @@ CREATE TABLE IF NOT EXISTS app_options (
     key         TEXT PRIMARY KEY,
     value       TEXT NOT NULL,
     actor       TEXT,
+    actor_id    TEXT,               -- 229 (SZ2c): the stable id beside the name (`jav.core.identity`)
     updated_at  TEXT NOT NULL
 );
 """)
+store.register_migration("app_options_actor_ids", lambda conn: store.add_actor_ids(conn, "app_options", ("actor",)))
 
 SUFFIXES = DOCUMENT_SUFFIXES
 OUTPUT_FOLDER_KEY = "output_folder"
@@ -283,7 +285,11 @@ def _mark_seen(folder_id: str, files: list[tuple[Path, str, os.stat_result]]) ->
                       [(folder_id, str(rp), st.st_size, st.st_mtime_ns, digest) for rp, digest, st in files])
 
 
-def scan(folder_id: str, *, now: datetime | None = None, actor: str = "figyelt mappa") -> dict[str, Any]:
+# data: the name the package log and the settings history show for a scheduled scan (229: the machine's id beside it)
+WATCHER = identity.machine("figyelt mappa")
+
+
+def scan(folder_id: str, *, now: datetime | None = None, actor: identity.Who = WATCHER) -> dict[str, Any]:
     """Scans one folder now: new documents go into the package of the folder (or of the day). The result is recorded on
     the folder too. 063: one folder is scanned by one process at a time (the "now" button and the scheduled scan cannot
     create two packages)."""
@@ -297,7 +303,7 @@ def scan(folder_id: str, *, now: datetime | None = None, actor: str = "figyelt m
         return _scan(folder, now, actor)
 
 
-def _scan(folder: dict[str, Any], now: datetime, actor: str) -> dict[str, Any]:
+def _scan(folder: dict[str, Any], now: datetime, actor: identity.Who) -> dict[str, Any]:
     try:
         files, settling, unreadable = _new_files(folder, now)
         bucket = _bucket(folder, now)
@@ -313,7 +319,7 @@ def _scan(folder: dict[str, Any], now: datetime, actor: str) -> dict[str, Any]:
                 name = folder["name"] if bucket == "folder" else f"{folder['name']} — {bucket}"
                 # 065: whoever scans with the "now" button owns the package; a scheduled scan leaves the owner empty
                 wp = work.create_workpackage(name=name, source_kind="watch", source_ref=folder["path"],
-                                             owner=None if actor == "figyelt mappa" else actor)
+                                             owner=None if actor == WATCHER else actor)
                 wp_id = wp["id"]
                 with store.connect() as c:
                     c.execute("INSERT INTO watched_packages(folder_id, bucket, workpackage_id) VALUES (?,?,?) ON CONFLICT(folder_id, bucket)"
@@ -324,7 +330,7 @@ def _scan(folder: dict[str, Any], now: datetime, actor: str) -> dict[str, Any]:
                         r, params = work_recipes.default_recipe(), work_recipes.carried_params(work_recipes.default_recipe(), folder["params"])
                     else:
                         params = folder["params"]
-                    work_recipes.assign_recipe(wp_id, r["id"], params=params, expected_revision=0, actor=actor, note="figyelt mappa")
+                    work_recipes.assign_recipe(wp_id, r["id"], params=params, expected_revision=0, actor=actor, note=WATCHER.name)
             wp = work.get(wp_id)
             work.add_documents(wp_id, fresh, expected_revision=wp["revision"])
         _mark_seen(folder["id"], files)  # 063: "seen" only after a successful intake
@@ -392,7 +398,7 @@ def output_folder() -> str | None:
     return row["value"] if row else None
 
 
-def save_output_folder(path: str | None, *, check_dir: Callable[[str], Path], actor: str) -> str | None:
+def save_output_folder(path: str | None, *, check_dir: Callable[[str], Path], actor: identity.Who) -> str | None:
     """Sets (or with an empty value clears) the output folder. `check_dir`: the service's path check (an existing
     folder, under the allowed roots when they are restricted); then `check_output_folder`."""
     if not path or not path.strip():
@@ -401,9 +407,10 @@ def save_output_folder(path: str | None, *, check_dir: Callable[[str], Path], ac
         return None
     p = check_output_folder(check_dir(path.strip()))
     with store.connect() as c:
-        c.execute("INSERT INTO app_options(key, value, actor, updated_at) VALUES (?,?,?,?) ON CONFLICT(key)"
-                  " DO UPDATE SET value=excluded.value, actor=excluded.actor, updated_at=excluded.updated_at",
-                  (OUTPUT_FOLDER_KEY, str(p), actor, _iso(_now())))
+        c.execute("INSERT INTO app_options(key, value, actor, actor_id, updated_at) VALUES (?,?,?,?,?) ON CONFLICT(key)"
+                  " DO UPDATE SET value=excluded.value, actor=excluded.actor, actor_id=excluded.actor_id,"
+                  " updated_at=excluded.updated_at",
+                  (OUTPUT_FOLDER_KEY, str(p), identity.name_of(actor), identity.id_of(actor), _iso(_now())))
     return str(p)
 
 
@@ -429,15 +436,16 @@ def engine_default() -> str:
     return engine_setting()["engine"]
 
 
-def save_engine_default(engine: str, *, actor: str) -> dict[str, Any]:
+def save_engine_default(engine: str, *, actor: identity.Who) -> dict[str, Any]:
     if engine not in ENGINES:
         raise explained(ValueError, "unknown engine {{engine}}; expected one of {{engines}}",
                         engine=repr(engine), engines=list(ENGINES))
     with store.connect() as c:
-        c.execute("INSERT INTO app_options(key, value, actor, updated_at) VALUES (?,?,?,?) ON CONFLICT(key)"
-                  " DO UPDATE SET value=excluded.value, actor=excluded.actor, updated_at=excluded.updated_at",
-                  (ENGINE_KEY, engine, actor, _iso(_now())))
-    log.info("AI engine set to %s by %s", engine, actor)
+        c.execute("INSERT INTO app_options(key, value, actor, actor_id, updated_at) VALUES (?,?,?,?,?) ON CONFLICT(key)"
+                  " DO UPDATE SET value=excluded.value, actor=excluded.actor, actor_id=excluded.actor_id,"
+                  " updated_at=excluded.updated_at",
+                  (ENGINE_KEY, engine, identity.name_of(actor), identity.id_of(actor), _iso(_now())))
+    log.info("AI engine set to %s by %s", engine, identity.name_of(actor))
     return engine_setting()
 
 

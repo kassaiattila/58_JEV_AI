@@ -12,6 +12,10 @@ flow made of stages has none), how the contract lint builds a graph to compare w
 (`lint`), whether the flow takes its budget and path from the native reader's estimate (`native`), where an item's
 document type is known before the run (`doc_type`: the recipe's settings or an earlier detection), and, for a recipe
 flow made of stages, its stages in order (`stages`).
+
+229 (plan structure stage 1, MD1): a domain's flow (the email's intent, the bank table's statement) is registered by its
+domain (`register()`, from `registrations.load_all`); the registry asks for the application's registrations
+(`jav.core.completion`) before it lists every flow or misses one, so it names no domain module.
 """
 
 from __future__ import annotations
@@ -22,6 +26,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import Any
+
+from jav.core import completion
 
 
 class UnknownFlow(KeyError):
@@ -66,12 +72,18 @@ _FLOWS: dict[str, FlowSpec] = {}
 
 
 def register(spec: FlowSpec) -> None:
+    """A flow; the same one again adds nothing (a domain's `register()` may run again), another of its name is an
+    error."""
     if spec.name in _FLOWS:
+        if _FLOWS[spec.name] == spec:
+            return
         raise ValueError(f"flow {spec.name} is registered twice")
     _FLOWS[spec.name] = spec
 
 
 def get(name: str) -> FlowSpec:
+    if name not in _FLOWS:
+        completion.complete("flows")  # 229: a domain's flow is registered with the application's registrations
     try:
         return _FLOWS[name]
     except KeyError:
@@ -79,7 +91,9 @@ def get(name: str) -> FlowSpec:
 
 
 def specs() -> list[FlowSpec]:
-    """Every registered flow, in registration order (the order the contract lint reports them in)."""
+    """Every registered flow, in registration order (the order the contract lint reports them in): the shared ones,
+    then the domains' (229)."""
+    completion.complete("flows")
     return list(_FLOWS.values())
 
 
@@ -98,14 +112,6 @@ def _build_detect(mod: ModuleType, b: Build) -> Any:
                          read_path=b.read_path, jev=b.jev)
 
 
-def _build_email(mod: ModuleType, b: Build) -> Any:
-    # 048 T2: the item is the email's `message.json`; the flow reads its folder
-    return mod.build_app(source_dir=str(Path(b.source_path).parent), tracker=False, run_id=b.app_id,
-                         persister=b.persister, use_cache=b.use_cache, propose_tasks=b.params.get("tasks") == "propose",
-                         attachment_reads=b.attachment_reads, jev=b.jev,
-                         extract_text=b.params.get("email_text") == "extract")  # 190: a run before the setting: off
-
-
 def _build_native(mod: ModuleType, b: Build) -> Any:
     if b.run_id is None or b.item is None or b.recipe_hash is None:
         raise ValueError("Native processing requires the frozen run and item identities")
@@ -120,14 +126,6 @@ def _build_native(mod: ModuleType, b: Build) -> Any:
                          recognition=b.params.get("native_recognition"))
 
 
-def _build_statement_table(mod: ModuleType, b: Build) -> Any:
-    # 136: an account's statement from a tabular export, code only
-    if b.item is None:
-        raise ValueError("A statement table requires the frozen item identity")
-    return mod.build_app(run_id=b.app_id, item_id=b.item["item_id"], source_path=b.source_path,
-                         read_path=b.read_path or b.source_path, expected_sha256=b.item["sha256"], persister=b.persister)
-
-
 # --- the graphs the contract lint compares with each contract ------------------------------------------------------
 
 def _lint_native(mod: ModuleType) -> Any:
@@ -136,16 +134,9 @@ def _lint_native(mod: ModuleType) -> Any:
                          expected_sha256="0" * 64, recipe_hash="0" * 16, jev=False)
 
 
-def _lint_statement_table(mod: ModuleType) -> Any:
-    return mod.build_app(run_id="lint-statement-table", item_id="0" * 64, source_path="lint.json",
-                         read_path="lint.json", expected_sha256="0" * 64)
-
-
 register(FlowSpec("invoice", "jav.flows.flow", _build_extraction, lambda m: m.build_app("lint.pdf", "lint", "S", tracker=False, doc_type="invoice_hu"),
                   doc_type="params"))
 register(FlowSpec("doc_detect", "jav.flows.flow_detect", _build_detect, lambda m: m.build_app("lint.pdf", tracker=False)))
-register(FlowSpec("email", "jav.domains.email.flow_email", _build_email, lambda m: m.build_app(source_dir="lint", tracker=False)))
 register(FlowSpec("native", "jav.flows.flow_native", _build_native, _lint_native, native=True))
-register(FlowSpec("statement_table", "jav.domains.finance.flow_statement_table", _build_statement_table, _lint_statement_table))
 # 047 T1.3: the `document` recipe flow: detection, then extraction of the detected detailed type (worker `_stages`)
 register(FlowSpec("document", stages=("doc_detect", "invoice"), doc_type="detected"))

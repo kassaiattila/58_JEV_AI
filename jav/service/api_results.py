@@ -23,7 +23,7 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import Field
 
 from jav.app import app_settings, corrections, package_release, work_runs, work_views
-from jav.core import store
+from jav.core import identity, store
 from jav.service.service_shared import Empty, In, RunId, WpId, attachment_header, human_actor
 from jav.app.tablequery import Query as TableQuery
 from jav.core.user_messages import explained
@@ -76,7 +76,7 @@ def routes(app: FastAPI, r: str) -> None:
                                  "X-Content-Type-Options": "nosniff"})
 
     @app.post(r + "/workpackages/{wp_id}/release")
-    def release_package(wp_id: WpId, body: ReleasePackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def release_package(wp_id: WpId, body: ReleasePackage, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """171 (plan 170 L1): Approve and release: the open live runs are approved and the next version recorded."""
         version = package_release.release(wp_id, actor=who, expected_mark=body.expected_mark,
                                           confirm_removed=body.confirm_removed)
@@ -163,7 +163,7 @@ def routes(app: FastAPI, r: str) -> None:
             "X-Named-Skipped": str(counts["skipped"])})
 
     @app.post(r + "/runs/{run_id}/named-copies")
-    def named_copies_write(run_id: RunId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def named_copies_write(run_id: RunId, body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """078: writes the named copies and the manifest into a new subfolder of the output folder (Settings)."""
         from jav.app import naming
 
@@ -172,5 +172,5 @@ def routes(app: FastAPI, r: str) -> None:
         if not folder:
             raise explained(app_settings.NoOutputFolder, "no output folder is set (Settings > Work folders)")
         res = naming.write_to_folder(run_id, Path(folder))
-        log.info("named copies of %s written by %s", run_id, who)
+        log.info("named copies of %s written by %s", run_id, who.name)
         return res

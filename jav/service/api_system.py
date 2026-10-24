@@ -25,7 +25,7 @@ from jav.app import work_runs, work_views
 from jav.ai import jev_version
 from jav.service.service_shared import Empty, In, Text, human_actor, settings
 from jav.runtime import worker
-from jav.core import calls
+from jav.core import calls, identity
 
 log = logging.getLogger("jav.service.api")
 
@@ -50,7 +50,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/review-reasons/{reason_id}/resolve")
     def resolve_reason(reason_id: Annotated[int, PathParam(ge=1)], body: ResolveReason,
-                       who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                       who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_runs.resolve_reason(reason_id, actor=who, resolution=body.resolution, note=body.note)
 
     # --- worker ---
@@ -60,8 +60,8 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable(worker.status())  # 227 (plan R3c): the service reads the worker
 
     @app.post(r + "/worker/stop")
-    def worker_stop(body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        log.info("worker stop requested by %s", who)  # 066 Á35: who asked (operational log)
+    def worker_stop(body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        log.info("worker stop requested by %s", who.name)  # 066 Á35: who asked (operational log)
         worker.request_stop()
         return work_views.jsonable(worker.status())
 
@@ -87,10 +87,10 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable({"status": backup.status(backup.default_root()), "config": conf})
 
     @app.post(r + "/system/backup")
-    def backup_now(body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def backup_now(body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """Back up now, with the daily backup's settings (locally and to the second location). A failure also shows in
         the status. 160 (review R-6): it counts with the manual backups, so it never pushes out a daily one."""
-        log.info("backup requested by %s", who)
+        log.info("backup requested by %s", who.name)
         return work_views.jsonable(backup.scheduled(kind="manual"))
 
     # --- paid calls with an uncertain outcome (076): listed and settled by hand, as `calls-uncertain` / `calls-resolve` ---
@@ -101,12 +101,12 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/system/uncertain-calls/{invocation_id}/resolve")
     def resolve_uncertain_call(invocation_id: int, body: ResolveCall,
-                               who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                               who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """The attempt becomes `failed` with the given cost (or with the maximum still committed when the cost is
         unknown); the step may then run again. The note records who settled it."""
         try:
-            calls.resolve_uncertain(invocation_id, cost_usd=body.cost_usd, note=f"{who}: {body.note}")
+            calls.resolve_uncertain(invocation_id, cost_usd=body.cost_usd, note=f"{who.name}: {body.note}")
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
-        log.info("uncertain call %d settled by %s", invocation_id, who)
+        log.info("uncertain call %d settled by %s", invocation_id, who.name)
         return {"ok": True}

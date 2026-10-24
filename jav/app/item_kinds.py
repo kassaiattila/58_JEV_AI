@@ -16,16 +16,18 @@ Code that handles an email itself (its view, the correction of its intent, its e
 belongs to the email domain and names the kind by `EMAIL`.
 
 A domain may add a rule that runs after every item of a run (`ItemRule`), and a part of a package's page for a source
-kind (`register_page`); both through its domain module's `register()`, called by `registrations.load_all`. Each kind
-names the module that owes them (`rules_from`, `page_from`): the email domain's rule that marks the attachments of a
-suspicious email, and the mailbox package's missing attachments (180: `jav/domains/email/__init__.py`; the work itself in
-`jav/domains/email/mailbox.py`). Asking for them before that module registered is an error (`NotRegistered`), so a process that
-missed `load_all` stops instead of skipping a safety rule.
+kind (`register_page`); both through its domain module's `register()`, called by `registrations.load_all`. A kind a
+domain owns (`owned`) is claimed by that domain's module (`claim`, `claim_source`; 229, plan structure stage 1, MD1:
+until then the kind named the module), and only the claimant registers its rules and page part: the email domain's rule
+that marks the attachments of a suspicious email, and the mailbox package's missing attachments (180:
+`jav/domains/email/__init__.py`; the work itself in `jav/domains/email/mailbox.py`). Asking for them before that module
+claimed the kind and registered them is an error (`NotRegistered`), so a process that missed `load_all` stops instead of
+skipping a safety rule.
 
-185 (plan G-full-move T1e): a kind whose result is not a document record names the module that shows and corrects
-its items (`handler_from`, `ItemHandler`: the email domain's message, intent and tasks); a domain may add a part to a
-record item's result (`RecordPart`: the finance domain's duplicate pairs and statement replacements), so the shared
-review code names neither.
+185 (plan G-full-move T1e): a kind whose result is not a document record is shown and corrected by its claimant's
+handler (`ItemHandler`: the email domain's message, intent and tasks); a domain may add a part to a record item's result
+(`RecordPart`: the finance domain's duplicate pairs and statement replacements), so the shared review code names
+neither.
 
 An item or a source of a kind the registry does not know is refused (`UnknownItemKind`, `UnknownSourceKind`).
 
@@ -38,6 +40,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from jav.documents import native_results
 
 DOCUMENT, EMAIL, STATEMENT_TABLE = "document", "email", "statement_table"
 
@@ -80,9 +84,9 @@ class ItemKind:
     - `subject(item)`: the subject of its to-dos (`work_runs.review_subject`).
     - `plan_key`: the key the pre-start overview counts it under (`work_readiness.run_plan`); `plan_always`: the key is there
       even at 0 (a statement table is counted only when there is one).
-    - `rules_from`: the module that registers the rules run after its items (`ItemRule`), if any.
-    - `handler_from`: 185: the module that registers how one of its items is shown and corrected (`ItemHandler`), for a
-      kind whose result is not a document record.
+    - `owned`: 229 (plan structure stage 1, MD1): a domain owns the kind (`claim`): the module that claims it registers
+      the rules run after its items (`ItemRule`) and how one of its items is shown and corrected (`ItemHandler`, 185);
+      until 229 the kind named that module (`rules_from`, `handler_from`).
     """
 
     name: str
@@ -96,8 +100,7 @@ class ItemKind:
     plan_key: str
     plan_always: bool = True
     by_code: bool = False
-    rules_from: str | None = None
-    handler_from: str | None = None
+    owned: bool = False
 
 
 @dataclass(frozen=True)
@@ -105,13 +108,14 @@ class SourceKind:
     """One kind of source of a package that only processes its items (`workpackages.source_kind`).
 
     - `folder`: the package's source reference is the folder it was read from (its subfolders title the items).
-    - `page_from`: the module that registers the source's part of the package's page (`register_page`), if any.
+    - `owned`: 229 (MD1): a domain owns the source (`claim_source`): the module that claims it registers the source's
+      part of the package's page (`register_page`); until 229 the source named that module (`page_from`).
     """
 
     name: str
     what: str
     folder: bool = False
-    page_from: str | None = None
+    owned: bool = False
 
 
 @dataclass(frozen=True)
@@ -191,7 +195,7 @@ ITEM_KINDS: tuple[ItemKind, ...] = (
              page_image=True, attachments=False, subject=_document_subject, plan_key="documents"),
     ItemKind(EMAIL, "a received message; its attachments are documents of the same package", copied=False,
              record=False, detected=False, page_image=False, attachments=True, subject=_email_subject,
-             plan_key="emails", rules_from="jav.domains.email", handler_from="jav.domains.email"),
+             plan_key="emails", owned=True),
     ItemKind(STATEMENT_TABLE, "one account's statement read from a bank's tabular export, by code (136)", copied=True,
              record=True, detected=False, page_image=False, attachments=False, subject=_document_subject,
              plan_key="statement_tables", plan_always=False, by_code=True),
@@ -200,12 +204,14 @@ ITEM_KINDS: tuple[ItemKind, ...] = (
 SOURCE_KINDS: tuple[SourceKind, ...] = (
     SourceKind("folder", "the documents of a folder", folder=True),
     SourceKind("upload", "uploaded files"),
-    SourceKind("mailbox", "the messages of a mailbox download, with their PDF attachments", page_from="jav.domains.email"),
+    SourceKind("mailbox", "the messages of a mailbox download, with their PDF attachments", owned=True),
     SourceKind("manual", "files chosen by hand, or the accounts of a bank's tabular export"),
     SourceKind("watch", "the new documents of a watched folder", folder=True),
 )
 
 _ITEMS = {k.name: k for k in ITEM_KINDS}
+# 229 (MD1): the native result asks whether an item is read as a document through this registry's answer
+native_results.set_document_check(lambda item: of(item).detected)
 _SOURCES = {s.name: s for s in SOURCE_KINDS}
 _RULES: dict[str, ItemRule] = {}
 _PAGES: dict[str, Callable[[Mapping[str, Any]], dict[str, Any]]] = {}
@@ -214,6 +220,8 @@ _ITEM_PARTS: dict[tuple[str, str], ItemPart] = {}
 _ITEM_EXTRAS: dict[tuple[str, str], ItemExtra] = {}
 _RECORD_PARTS: dict[str, RecordPart] = {}
 _REGISTERED: set[str] = set()
+_CLAIMS: dict[str, str] = {}  # 229: an owned item kind -> the module that claimed it
+_SOURCE_CLAIMS: dict[str, str] = {}  # 229: an owned source kind -> the module that claimed it
 
 
 def names() -> tuple[str, ...]:
@@ -248,16 +256,52 @@ def source(kind: str) -> SourceKind:
         raise UnknownSourceKind(f"unknown package source kind: {kind}") from None
 
 
+def claim(kind: str, module: str) -> None:
+    """229 (MD1): the domain module that owns an item kind (`owned`) claims it, before it registers the kind's rules and
+    handler; the same claim again changes nothing, a kind not owned or claimed by another module is an error."""
+    _claim(_CLAIMS, kind, module, owned=of(kind).owned, what="item kind")
+
+
+def claim_source(kind: str, module: str) -> None:
+    """229 (MD1): the domain module that owns a source kind (`owned`) claims it, before it registers its page part."""
+    _claim(_SOURCE_CLAIMS, kind, module, owned=source(kind).owned, what="source kind")
+
+
+def _claim(claims: dict[str, str], kind: str, module: str, *, owned: bool, what: str) -> None:
+    if not owned:
+        raise ValueError(f"the {kind} {what} is the shared code's; no module claims it")
+    if claims.get(kind, module) != module:
+        raise ValueError(f"the {kind} {what} is claimed already by {claims[kind]}")
+    claims[kind] = module
+
+
+def claimed_by(kind: str) -> str | None:
+    """229: the module that claimed an owned item kind (None: none yet, or a kind the shared code keeps)."""
+    return _CLAIMS.get(kind)
+
+
+def source_claimed_by(kind: str) -> str | None:
+    """229: the module that claimed an owned source kind."""
+    return _SOURCE_CLAIMS.get(kind)
+
+
+def _owner(claims: dict[str, str], kind: str, owned: bool) -> str | None:
+    """The module that owes an owned kind's registrations: its claimant (`?` before anyone claimed it)."""
+    return claims.get(kind, "?") if owned else None
+
+
 def _owed(owner: str | None, what: str) -> None:
     if owner is not None and owner not in _REGISTERED:
-        raise NotRegistered(f"{owner} has not registered its {what} (was registrations.load_all called?)")
+        who = "no module has claimed it" if owner == "?" else f"{owner} has not registered it"
+        raise NotRegistered(f"the {what}: {who} (was registrations.load_all called?)")
 
 
 def register_rule(rule: ItemRule) -> None:
     """Registers a rule run after every item; the same one again adds nothing, another of the same name is an
     error."""
-    if of(rule.kind).rules_from != rule.module:
-        raise ValueError(f"item rule {rule.name!r}: the {rule.kind} kind's rules come from {of(rule.kind).rules_from}")
+    owner = _owner(_CLAIMS, rule.kind, of(rule.kind).owned)
+    if owner != rule.module:
+        raise ValueError(f"item rule {rule.name!r}: the {rule.kind} kind's rules come from {owner}")
     known = _RULES.get(rule.name)
     if known is not None and known != rule:
         raise ValueError(f"item rule {rule.name!r} is registered already by {known.module}")
@@ -268,14 +312,15 @@ def register_rule(rule: ItemRule) -> None:
 def rules() -> list[ItemRule]:
     """Every rule run after an item, in the order registered. `NotRegistered` while a kind's module owes its rules."""
     for kind in ITEM_KINDS:
-        _owed(kind.rules_from, f"{kind.name} item rules")
+        _owed(_owner(_CLAIMS, kind.name, kind.owned), f"{kind.name} item rules")
     return list(_RULES.values())
 
 
 def register_page(kind: str, module: str, page: Callable[[Mapping[str, Any]], dict[str, Any]]) -> None:
     """Registers a source kind's part of a package's page: `page(wp)` returns the parts it adds."""
-    if source(kind).page_from != module:
-        raise ValueError(f"the {kind} source's page part comes from {source(kind).page_from}")
+    owner = _owner(_SOURCE_CLAIMS, kind, source(kind).owned)
+    if owner != module:
+        raise ValueError(f"the {kind} source's page part comes from {owner}")
     known = _PAGES.get(kind)
     if known is not None and known != page:
         raise ValueError(f"the {kind} source's page part is registered already")
@@ -287,15 +332,16 @@ def page(wp: Mapping[str, Any]) -> dict[str, Any]:
     """A package's parts of its page that its source kind adds (a mailbox package: its missing attachments); empty for
     a source that adds none. `NotRegistered` while the source's module owes its part."""
     kind = source(wp["source_kind"])
-    _owed(kind.page_from, f"{kind.name} page part")
+    _owed(_owner(_SOURCE_CLAIMS, kind.name, kind.owned), f"{kind.name} page part")
     part = _PAGES.get(kind.name)
     return part(wp) if part is not None else {}
 
 
 def register_handler(handler: ItemHandler) -> None:
     """185: registers how an item of a kind is shown and corrected; only the module the kind names may."""
-    if of(handler.kind).handler_from != handler.module:
-        raise ValueError(f"the {handler.kind} kind's handler comes from {of(handler.kind).handler_from}")
+    owner = _owner(_CLAIMS, handler.kind, of(handler.kind).owned)
+    if owner != handler.module:
+        raise ValueError(f"the {handler.kind} kind's handler comes from {owner}")
     known = _HANDLERS.get(handler.kind)
     if known is not None and known != handler:
         raise ValueError(f"the {handler.kind} kind's handler is registered already")
@@ -307,9 +353,9 @@ def handler(item: Mapping[str, Any] | str) -> ItemHandler | None:
     """185: how an item of a kind whose result is not a document record is shown and corrected; None for a record kind.
     `NotRegistered` while the kind's module owes it."""
     kind = of(item)
-    if kind.handler_from is None:
+    if not kind.owned:
         return None
-    _owed(kind.handler_from, f"{kind.name} item handler")
+    _owed(_owner(_CLAIMS, kind.name, kind.owned), f"{kind.name} item handler")
     return _HANDLERS[kind.name]
 
 
@@ -372,6 +418,6 @@ def record_parts() -> list[RecordPart]:
 
 __all__ = ["DOCUMENT", "EMAIL", "ITEM_KINDS", "ItemExtra", "ItemHandler", "ItemKind", "ItemPart", "ItemRule", "NotRegistered",
            "RecordPart",
-           "SOURCE_KINDS", "STATEMENT_TABLE", "SourceKind", "UnknownItemKind", "UnknownSourceKind", "check", "handler", "handlers",
-           "names", "of", "page", "record_parts", "register_handler", "register_page", "register_record_part",
-           "register_rule", "rules", "source", "source_names"]
+           "SOURCE_KINDS", "STATEMENT_TABLE", "SourceKind", "UnknownItemKind", "UnknownSourceKind", "check", "claim",
+           "claim_source", "claimed_by", "handler", "handlers", "names", "of", "page", "record_parts", "register_handler",
+           "register_page", "register_record_part", "register_rule", "rules", "source", "source_claimed_by", "source_names"]

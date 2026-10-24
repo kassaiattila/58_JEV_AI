@@ -20,6 +20,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi import Path as PathParam
 from pydantic import Field
 
+from jav.core import identity
 from jav.app import corrections, work_views
 from jav.domains.email import email_store, mailbox
 from jav.service.service_shared import DecisionState, Empty, In, ItemId, Revision, RunId, Text, WpId, error, human_actor
@@ -58,14 +59,14 @@ def routes(app: FastAPI, r: str) -> None:
         return error(503, "mailbox_unavailable", str(exc), **message_fields(exc))
 
     @app.post(r + "/workpackages/{wp_id}/attachments")
-    def add_attachments(wp_id: WpId, body: Revision, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def add_attachments(wp_id: WpId, body: Revision, _who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """058 K5.2: the emails' PDF attachments go into the package as documents, pointing back to the email."""
         mailbox.add_attachments(wp_id, expected_revision=body.expected_revision)
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/runs/{run_id}/items/{item_id}/tasks/{index}/decision")
     def task_decision(run_id: RunId, item_id: ItemId, index: Annotated[int, PathParam(ge=0, le=100)], body: TaskDecision,
-                      who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                      who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """058 K5.3: only a human accepts or rejects a task proposal."""
         mailbox.decide_task(run_id, item_id, index, decision=body.decision, actor=who, note=body.note,
                             expected_state=body.expected_state)
@@ -73,7 +74,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/runs/{run_id}/items/{item_id}/tasks/{index}/done")
     def task_done(run_id: RunId, item_id: ItemId, index: Annotated[int, PathParam(ge=0, le=100)], body: TaskDone,
-                  who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                  who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         """062: mark an accepted task as done by hand (or undo that)."""
         mailbox.mark_task_done(run_id, item_id, index, done=body.done, actor=who, expected_state=body.expected_state)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
@@ -95,7 +96,7 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable(mailbox.count(body))
 
     @app.post(r + "/mailbox/pulls", status_code=202)
-    def mailbox_pull(body: mailbox.MailboxRequest, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def mailbox_pull(body: mailbox.MailboxRequest, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(mailbox.request_pull(body, actor=who))
 
     @app.get(r + "/mailbox/pulls/{pull_id}")
@@ -103,17 +104,17 @@ def routes(app: FastAPI, r: str) -> None:
         return work_views.jsonable(mailbox.pull(pull_id))
 
     @app.post(r + "/mailbox/schedules", status_code=201)
-    def mailbox_schedule_create(body: CreateSchedule, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def mailbox_schedule_create(body: CreateSchedule, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(mailbox.create_schedule(body.request, actor=who, interval_min=body.interval_min))
 
     @app.patch(r + "/mailbox/schedules/{schedule_id}")
     def mailbox_schedule_update(schedule_id: ScheduleId, body: UpdateSchedule,
-                                who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+                                who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(mailbox.update_schedule(schedule_id, actor=who, enabled=body.enabled,
                                                            interval_min=body.interval_min))
 
     @app.post(r + "/mailbox/schedules/{schedule_id}/delete")  # a POST with a JSON body, like the other deletions
-    def mailbox_schedule_delete(schedule_id: ScheduleId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def mailbox_schedule_delete(schedule_id: ScheduleId, body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         mailbox.delete_schedule(schedule_id, actor=who)
         return {"deleted": schedule_id}
 

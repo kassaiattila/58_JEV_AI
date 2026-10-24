@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, ValidationError, model_serializer, model_validator
 
-from jav.ai import fact_checks
+from jav.documents import fact_checks
 
 from .contracts import ContractModel, Digest, Identifier, Label, SourceElement, Text
 from .pipeline import Delivery, digest, json_bytes

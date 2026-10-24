@@ -18,8 +18,14 @@ from typing import Any
 
 from jav.core import store
 from jav.core.clock import utc_stamp as _now
-from jav.core.process import cases, hooks
-from jav.core.process.actor import Actor
+from jav.core import access, observability
+from jav.core.identity import Actor
+from jav.core.process import cases
+
+__all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
+    "RECORDED", "SENT", "ACKNOWLEDGED", "UNCERTAIN", "FAILED", "SETTLEMENT", "Uncertain", "Refused",
+    "UnknownHandover", "NotUncertain", "get", "of_case", "record", "send", "settle",
+]
 
 log = logging.getLogger(__name__)
 
@@ -127,7 +133,7 @@ def send(handover_id: str, deliver: Callable[[str, dict[str, Any]], Any], actor:
                   (SENT, _now(), handover_id))
         cases.record(c, row["case_id"], row["step_id"], "handover_sent", actor, {"handover_id": handover_id})
     try:
-        with hooks.measured(f"handover:{row['target']}"):
+        with observability.measured(f"handover:{row['target']}"):
             receipt = deliver(handover_id, row["payload"])
     except Refused as exc:
         return _finish(handover_id, FAILED, actor, error=str(exc)[:1000])
@@ -153,7 +159,7 @@ def settle(handover_id: str, outcome: str, actor: Actor, *, note: str | None = N
         raise NotUncertain(f"a handover is settled as acknowledged or failed, not {outcome!r}")
     with cases.transaction() as c:
         row = _row(c, handover_id)
-        hooks.authorize(actor, "settle_handover", row["case_id"])
+        access.authorize(actor, "settle_handover", row["case_id"])
         if row["status"] != UNCERTAIN:
             raise NotUncertain(f"handover {handover_id} is {row['status']}, not uncertain")
         _set(c, row, outcome, actor, error=note or "settled by a person")

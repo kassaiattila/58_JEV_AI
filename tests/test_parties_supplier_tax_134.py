@@ -11,6 +11,8 @@ from __future__ import annotations
 import pytest
 
 from jav.app import parties
+
+from jav.domains.finance import own_parties
 from jav.ai import checks
 from jav.core import store
 from jav.domains import finance
@@ -43,7 +45,7 @@ def _taxes(result):
 
 
 def test_a_suppliers_number_read_on_the_buyers_side_is_not_proposed(db):
-    result = parties.suggest(_invoices(), [])
+    result = own_parties.suggest(_invoices(), [])
     assert parties.tax_key(RAIL) not in _taxes(result)
     [group] = result["suggestions"]
     keys = {(i["kind"], i["key"]) for i in group["identities"]}
@@ -54,13 +56,13 @@ def test_a_suppliers_number_read_on_the_buyers_side_is_not_proposed(db):
 
 def test_the_swapped_and_the_foreign_numbers_are_found_by_position():
     invoices = _invoices()
-    found = parties._supplier_tax_numbers(invoices)
+    found = own_parties._supplier_tax_numbers(invoices)
     assert found == set(range(9, 13))  # the two swapped and the two without a supplier number
 
 
 def test_a_buyer_number_printed_more_often_as_the_buyers_stays():
     invoices = [_inv(BUYER, RAIL)] * 3 + [_inv(RAIL, BUYER)]  # one swapped invoice cannot take the buyer's number away
-    assert parties._supplier_tax_numbers(invoices) == {3}
+    assert own_parties._supplier_tax_numbers(invoices) == {3}
 
 
 # --- the to-do -------------------------------------------------------------------------------------------------------
@@ -85,7 +87,7 @@ def test_an_own_partys_number_as_the_suppliers_opens_a_to_do_in_a_worker_run(db,
     own_tax = checks.get("own_tax")  # 175: the check registry's gate in front of it (`jav/ai/checks.py`)
     assert own_tax.reads_store and not checks.runs(own_tax)  # outside a worker run the store is not read
     with calls.use_run(budget_scope="run-000000000001"):
-        assert checks.runs(own_tax) and parties.review_reasons(doc_type, values) == wanted
+        assert checks.runs(own_tax) and own_parties.review_reasons(doc_type, values) == wanted
     with calls.measurement("measure-x", {}):
         assert not checks.runs(own_tax)
 
@@ -93,10 +95,10 @@ def test_an_own_partys_number_as_the_suppliers_opens_a_to_do_in_a_worker_run(db,
 def test_a_dismissed_number_opens_no_to_do(db):
     parties.assign("tax", parties.tax_key(BUYER), BUYER, None, actor="tester")
     with calls.use_run(budget_scope="run-000000000001"):
-        assert parties.review_reasons("invoice_hu", {"supplier_tax_id": BUYER}) == []
+        assert own_parties.review_reasons("invoice_hu", {"supplier_tax_id": BUYER}) == []
 
 
 def test_the_flow_asks_the_check_for_incoming_invoice_types():
-    assert "invoice_hu" in parties.supplier_check_types() and "invoice_out" not in parties.supplier_check_types()
+    assert "invoice_hu" in own_parties.supplier_check_types() and "invoice_out" not in own_parties.supplier_check_types()
     assert [c.name for c in checks.stage("cross_document")] == ["duplicate", "own_tax", "statement_overlap"]
     assert checks.get("own_tax").run is finance.own_tax_check  # 180: the finance domain's

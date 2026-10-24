@@ -40,7 +40,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from jav.app import logic_packs, scopes, work
-from jav.core import activity_kinds, store
+from jav.core import activity_kinds, identity, store
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 
@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS workpackage_scopes (
     period_end     TEXT,               -- ISO date, inclusive
     role           TEXT,               -- a registered package role
     set_by         TEXT NOT NULL,
+    set_by_id      TEXT,               -- 229 (SZ2c): the stable id beside the name (`jav.core.identity`)
     set_at         TEXT NOT NULL,
     parts          TEXT NOT NULL DEFAULT '{}',  -- 186: JSON, a logic pack's further parts ({name: value})
     revision       INTEGER NOT NULL DEFAULT 1   -- 186: one step per change
@@ -62,12 +63,14 @@ CREATE TABLE IF NOT EXISTS workpackage_scopes (
 """)
 
 _COLUMNS = ("workpackage_id", "party_id", "period_start", "period_end", "role", "set_by", "set_at", "parts", "revision")
+_WRITTEN = (*_COLUMNS, "set_by_id")  # 229 (SZ2c): the id is written beside the name, the scope shows the name
 
 
 def _shared_columns(conn: sqlite3.Connection) -> None:
     """186: an older store's scope table (181-185) gets the further parts and the revision."""
     store.add_columns(conn, "workpackage_scopes", {"parts": "TEXT NOT NULL DEFAULT '{}'",
                                                    "revision": "INTEGER NOT NULL DEFAULT 1"})
+    store.add_actor_ids(conn, "workpackage_scopes", ("set_by",))  # 229 (SZ2c)
 
 
 store.register_migration("package_scope", _shared_columns)
@@ -186,7 +189,7 @@ def stored(wp_id: str, c: sqlite3.Connection | None = None) -> dict[str, Any] | 
 
 
 def save(c: sqlite3.Connection, wp_id: str, *, party_id: str | None = None, period_start: str | None = None,
-         period_end: str | None = None, role: str | None = None, parts: dict[str, Any] | None = None, actor: str,
+         period_end: str | None = None, role: str | None = None, parts: dict[str, Any] | None = None, actor: identity.Who,
          expected_revision: int | None = None) -> dict[str, Any]:
     """The package's whole scope, in the caller's write transaction (its own checks and its log entry go with it): a new
     one at revision 1, a changed one a revision further. `expected_revision`: the revision the person changed (a
@@ -195,13 +198,14 @@ def save(c: sqlite3.Connection, wp_id: str, *, party_id: str | None = None, peri
     if expected_revision is not None and (row["revision"] if row else 0) != expected_revision:
         raise explained(work.RevisionConflict, "the scope is at revision {{revision}}, not {{expected_revision}}",
                         revision=row["revision"] if row else 0, expected_revision=expected_revision)
-    values = (party_id, period_start, period_end, role, actor, _now(), json.dumps(parts or {}, ensure_ascii=False))
+    values = (party_id, period_start, period_end, role, identity.name_of(actor), identity.id_of(actor), _now(),
+              json.dumps(parts or {}, ensure_ascii=False))
     if row is None:
-        c.execute("INSERT INTO workpackage_scopes(workpackage_id, party_id, period_start, period_end, role, set_by, set_at,"
-                  " parts, revision) VALUES (?,?,?,?,?,?,?,?,1)", (wp_id, *values))
+        c.execute("INSERT INTO workpackage_scopes(workpackage_id, party_id, period_start, period_end, role, set_by, set_by_id,"
+                  " set_at, parts, revision) VALUES (?,?,?,?,?,?,?,?,?,1)", (wp_id, *values))
     else:
-        c.execute("UPDATE workpackage_scopes SET party_id=?, period_start=?, period_end=?, role=?, set_by=?, set_at=?,"
-                  " parts=?, revision=revision+1 WHERE workpackage_id=?", (*values, wp_id))
+        c.execute("UPDATE workpackage_scopes SET party_id=?, period_start=?, period_end=?, role=?, set_by=?, set_by_id=?,"
+                  " set_at=?, parts=?, revision=revision+1 WHERE workpackage_id=?", (*values, wp_id))
     return stored(wp_id, c) or {}
 
 
@@ -237,8 +241,9 @@ def copy_older(conn: sqlite3.Connection, table: str, convert: Callable[[dict[str
                                 (new["workpackage_id"],)).fetchone() is not None:
                     raise ScopeCopyError(f"the scope of package {new['workpackage_id']} is in {table} and in the shared"
                                          " scope table already; settle the two rows by hand or restore the backup")
-                conn.execute(f"INSERT INTO workpackage_scopes({', '.join(_COLUMNS)}) VALUES ({', '.join('?' * len(_COLUMNS))})",
-                             tuple(json.dumps(new[k], ensure_ascii=False) if k == "parts" else new[k] for k in _COLUMNS))
+                new["set_by_id"] = identity.id_of(new["set_by"])  # the older table's name, as a local person
+                conn.execute(f"INSERT INTO workpackage_scopes({', '.join(_WRITTEN)}) VALUES ({', '.join('?' * len(_WRITTEN))})",
+                             tuple(json.dumps(new[k], ensure_ascii=False) if k == "parts" else new[k] for k in _WRITTEN))
             conn.execute("INSERT INTO meta(key, value) VALUES (?, ?)", (key, _now()))
         conn.commit()
     except BaseException:
@@ -297,7 +302,7 @@ def _check(wp: dict[str, Any], party_id: str | None, period_start: str | None, p
 
 
 def set_scope(wp_id: str, *, party_id: str | None, period_start: str | None, period_end: str | None,
-              role_name: str | None, actor: str) -> dict[str, Any]:
+              role_name: str | None, actor: identity.Who) -> dict[str, Any]:
     """A person gives a package its scope (replacing an earlier one); recorded in the package's log."""
     wp = work.get(wp_id)
     scope = _check(wp, party_id, period_start, period_end, role_name)
@@ -309,7 +314,7 @@ def set_scope(wp_id: str, *, party_id: str | None, period_start: str | None, per
     return scope_of(wp_id, kind=wp["source_kind"]) or {}
 
 
-def clear_scope(wp_id: str, *, actor: str) -> dict[str, Any] | None:
+def clear_scope(wp_id: str, *, actor: identity.Who) -> dict[str, Any] | None:
     """A person takes the package's own scope away (a scope of its workflow shows again). 186: a logic pack's own scope
     stays (it is in the same store; a person never gave it)."""
     wp = work.get(wp_id)

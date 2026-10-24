@@ -7,7 +7,8 @@ row in one transaction, and a worker moves the case on under a claim no live pro
 domain: the step kinds are registered by the layers above it.
 
 - `definition`: the process definition and its fingerprint (rules 1, 2);
-- `actor`: who acts (rule 8); `hooks`: the authorisation check and the observability sink (rule 9, plug-in points);
+- who acts (rule 8), the authorisation check and the observability sink (rule 9, plug-in points) are the shared
+  core's since 229 (`jav.core.identity`, `jav.core.access`, `jav.core.observability`), so every layer uses them;
 - `kinds`: the step kinds' registry;
 - `cases`: the case, its steps, history and incoming events (rules 1, 3, 4, 5); `timers`: durable timers (rule 7);
   `outbox`: outgoing handovers (rule 4); `tasks`: human tasks, in a case or outside one (215; rules 3, 7, 8, 9);

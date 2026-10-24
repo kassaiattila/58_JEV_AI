@@ -25,7 +25,7 @@ from decimal import Decimal
 from typing import Any
 
 from jav.app import app_settings
-from jav.core import cfg, store
+from jav.core import cfg, identity, store
 from jav.domains.quotes import price_lists, quote_match, quote_request
 from jav.runtime import job_kinds
 from jav.core import calls
@@ -51,10 +51,13 @@ CREATE TABLE IF NOT EXISTS quote_proposals (
     error          TEXT,
     scope          TEXT,
     requested_by   TEXT NOT NULL,
+    requested_by_id TEXT,              -- 229 (SZ2c): the stable id beside the name (`jav.core.identity`)
     requested_at   TEXT NOT NULL,
     finished_at    TEXT
 );
 """)
+store.register_migration("quote_proposals_actor_ids",
+                         lambda conn: store.add_actor_ids(conn, "quote_proposals", ("requested_by",)))  # 229 (SZ2c)
 
 
 class ProposalRefused(ValueError):
@@ -97,7 +100,7 @@ def _row(c: Any, wp_id: str) -> Any:
     return c.execute("SELECT * FROM quote_proposals WHERE workpackage_id=?", (wp_id,)).fetchone()
 
 
-def request(wp_id: str, *, actor: str) -> dict[str, Any]:
+def request(wp_id: str, *, actor: identity.Who) -> dict[str, Any]:
     """Queues the package's proposal with the application's engine and the cap for its requested items; a proposal
     already queued or running is returned as it is. `ProposalRefused` when it cannot be asked."""
     from jav.core import queue
@@ -118,9 +121,9 @@ def request(wp_id: str, *, actor: str) -> dict[str, Any]:
         if row is not None and row["state"] in ("queued", "running"):
             return current(wp_id) or {}
         c.execute("INSERT OR REPLACE INTO quote_proposals(workpackage_id, state, engine, request_key, price_list, version,"
-                  " fingerprint, limits, requested_by, requested_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                  " fingerprint, limits, requested_by, requested_by_id, requested_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                   (wp_id, "queued", engine, request_key(req.items), prices.price_list, prices.version, prices.fingerprint,
-                   json.dumps({k: str(v) for k, v in limits.items()}), actor, _now()))
+                   json.dumps({k: str(v) for k, v in limits.items()}), identity.name_of(actor), identity.id_of(actor), _now()))
     queue.enqueue(JOB_KIND, run_id=None, payload={"workpackage_id": wp_id, "requested_at": _now()})
     return current(wp_id) or {}
 

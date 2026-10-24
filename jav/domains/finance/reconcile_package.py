@@ -56,8 +56,10 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from jav.app import corrections, logic_packs, package_release, package_scope, parties, work, workflow_steps
+
+from jav.domains.finance import own_parties
 from jav.ai import grounding, typepack
-from jav.core import activity_kinds, cfg, decisions, store, values
+from jav.core import activity_kinds, cfg, decisions, identity, store, values
 from jav.domains.finance import reconcile, reconcile_overview
 from jav.domains.finance.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
 from jav.core.user_messages import explained
@@ -85,6 +87,7 @@ CREATE TABLE IF NOT EXISTS reconcile_source_acceptances (
     flow_run_id    TEXT NOT NULL,
     workpackage_id TEXT NOT NULL,
     actor          TEXT NOT NULL,
+    actor_id       TEXT,               -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
     accepted_at    TEXT NOT NULL,
     PRIMARY KEY (doc_id, flow_run_id)
 );
@@ -97,12 +100,23 @@ CREATE TABLE IF NOT EXISTS reconcile_exclusions (
     kind           TEXT NOT NULL,      -- statement | invoice
     reason         TEXT NOT NULL,
     actor          TEXT NOT NULL,
+    actor_id       TEXT,
     created_at     TEXT NOT NULL,
     restored_by    TEXT,
+    restored_by_id TEXT,
     restored_at    TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_reconcile_exclusions_wp ON reconcile_exclusions(workpackage_id, restored_at);
 """)
+
+
+def _actor_ids(conn) -> None:
+    """229 (SZ2c): the stable id beside every name of who acted; the earlier rows' from their names."""
+    store.add_actor_ids(conn, "reconcile_source_acceptances", ("actor",))
+    store.add_actor_ids(conn, "reconcile_exclusions", ("actor", "restored_by"))
+
+
+store.register_migration("reconcile_package_actor_ids", _actor_ids)
 
 
 ACCOUNTS = "accounts"  # 186: the scope's further part, the own account keys (`reconcile.statement_account`)
@@ -175,7 +189,7 @@ def accounts() -> list[dict[str, Any]]:
 def _registered() -> dict[str, dict[str, Any]]:
     """138: the accounts registered with a party, with their details and the label the party knows them by."""
     labels = {i["key"]: i["label"] for p in parties.parties() for i in p["identities"] if i["kind"] == "account"}
-    return {k: {**d, "label": labels[k]} for k, d in parties.accounts().items() if k in labels}
+    return {k: {**d, "label": labels[k]} for k, d in own_parties.accounts().items() if k in labels}
 
 
 def _party_names() -> dict[str, str]:
@@ -210,7 +224,7 @@ def _checked_scope(keys: Iterable[str], period_start: Any, period_end: Any) -> t
 
 
 @store.one_connection
-def create(*, name: str, accounts: list[str], period_start: str, period_end: str, actor: str,
+def create(*, name: str, accounts: list[str], period_start: str, period_end: str, actor: identity.Who,
            party_id: str | None = None) -> dict[str, Any]:
     """A new reconciliation package with its scope and own party; the creator owns it (decision 065)."""
     keys, start, end = _checked_scope(accounts, period_start, period_end)
@@ -242,7 +256,7 @@ def scope(wp_id: str) -> dict[str, Any]:
 
 
 def set_scope(wp_id: str, *, accounts: list[str], period_start: str, period_end: str, expected_revision: int,
-              actor: str, party_id: str | None = None) -> dict[str, Any]:
+              actor: identity.Who, party_id: str | None = None) -> dict[str, Any]:
     """A changed scope and party; the decisions stay (they belong to the pairs). 145: not while approved; 174 (review
     160 M-13): checked inside the write transaction, so an approval made meanwhile is not overwritten."""
     keys, start, end = _checked_scope(accounts, period_start, period_end)
@@ -290,7 +304,7 @@ def scoped_snapshot(wp_id: str, *, fetch_rates: bool = False) -> tuple[dict[str,
     snap = reconcile.snapshot(fetch_rates=fetch_rates)
     gone = left_out(wp_id)
     own = [{"key": k, **{f: d[f] for f in ("kind", "currencies", "valid_from", "valid_to")}}
-           for k, d in sorted(parties.accounts().items()) if k in sc["accounts"]]
+           for k, d in sorted(own_parties.accounts().items()) if k in sc["accounts"]]
     return {**snap, "scope_statements": [st["id"] for st in snap["statements"] if _in_scope(st, sc) and st["id"] not in gone],
             "own_accounts": own, "left_out": sorted(gone)}, sc
 
@@ -1019,7 +1033,7 @@ def _converted_groups(ctx: dict[str, Any], pairs: list[dict[str, Any]]) -> tuple
 
 
 @store.one_connection
-def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor: str,
+def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor: identity.Who,
              expected_state: int | None = None) -> list[dict[str, Any]]:
     """Allocations of lines to invoices in one step (all or none). A pair without an amount takes what both sides have
     left in one currency, or both whole amounts for a converted card pair. A step that leaves a rest on a line or an
@@ -1086,8 +1100,8 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
         now, ids = _now(), []
         for iid, sid, lid, la, ia in rows:
             cur = c.execute("INSERT INTO reconcile_allocations(invoice_doc_id, statement_doc_id, line_id, line_amount,"
-                            " invoice_amount, workpackage_id, actor, note, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-                            (iid, sid, lid, la, ia, wp_id, actor, note, now))
+                            " invoice_amount, workpackage_id, actor, actor_id, note, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                            (iid, sid, lid, la, ia, wp_id, identity.name_of(actor), identity.id_of(actor), note, now))
             ids.append(cur.lastrowid)
             decisions.record(c, ALLOCATION_KIND, lid, "allocate", actor=actor, note=note, workpackage_id=wp_id, at=now,
                              value={"allocation_id": cur.lastrowid, "invoice_doc_id": iid, "line_amount": la,
@@ -1122,7 +1136,7 @@ def sure_pairs(lines: list[dict[str, Any]]) -> list[dict[str, str]]:
     return out
 
 
-def accept_proposed(wp_id: str, *, actor: str, expected_state: int | None = None) -> int:
+def accept_proposed(wp_id: str, *, actor: identity.Who, expected_state: int | None = None) -> int:
     """Every unambiguous proposal of the scope at once (`proposed_pairs`). Returns how many were allocated."""
     pairs = proposed_pairs(wp_id)
     if not pairs:
@@ -1130,7 +1144,7 @@ def accept_proposed(wp_id: str, *, actor: str, expected_state: int | None = None
     return len(allocate(wp_id, pairs, note=None, actor=actor, expected_state=expected_state))
 
 
-def reject(wp_id: str, invoice_doc_id: str, line_id: str, *, note: str, actor: str,
+def reject(wp_id: str, invoice_doc_id: str, line_id: str, *, note: str, actor: identity.Who,
            expected_state: int | None = None) -> dict[str, Any]:
     """'Not this one' with a reason: the pair is never proposed or listed again (a decision on the pair, as on the
     review page)."""
@@ -1153,13 +1167,15 @@ def reject(wp_id: str, invoice_doc_id: str, line_id: str, *, note: str, actor: s
             raise explained(work.RevisionConflict, "the pair was decided in an approved run; the decision is frozen")
         now = _now()
         c.execute("INSERT INTO reconcile_decisions(pair_key, invoice_doc_id, statement_doc_id, line_id, decision, signals,"
-                  " amount_relation, run_id, actor, note, decided_at, workpackage_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
-                  " ON CONFLICT(pair_key) DO UPDATE SET decision=excluded.decision, signals=excluded.signals,"
-                  " amount_relation=excluded.amount_relation, run_id=NULL, actor=excluded.actor, note=excluded.note,"
-                  " decided_at=excluded.decided_at, workpackage_id=excluded.workpackage_id",
+                  " amount_relation, run_id, actor, actor_id, note, decided_at, workpackage_id)"
+                  " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(pair_key) DO UPDATE SET decision=excluded.decision,"
+                  " signals=excluded.signals, amount_relation=excluded.amount_relation, run_id=NULL, actor=excluded.actor,"
+                  " actor_id=excluded.actor_id, note=excluded.note, decided_at=excluded.decided_at,"
+                  " workpackage_id=excluded.workpackage_id",
                   (key, invoice_doc_id, line["statement_id"], line_id, "not_this",
                    json.dumps(reconcile.signals(inv, line, **reconcile.signal_context(ctx["snap"]))),
-                   reconcile.amount_relation(inv, line, ctx["snap"].get("fx_rates"))[0], None, actor, note, now, wp_id))
+                   reconcile.amount_relation(inv, line, ctx["snap"].get("fx_rates"))[0], None, identity.name_of(actor), identity.id_of(actor), note, now,
+                   wp_id))
         work.record_event(c, wp_id, "reconcile_reject", actor, {"pair": key})
         decisions.record(c, PAIR_KIND, key, "reject", actor=actor, note=note, workpackage_id=wp_id, at=now,
                          value={"decision": "not_this", "invoice_doc_id": invoice_doc_id, "line_id": line_id})
@@ -1168,7 +1184,7 @@ def reject(wp_id: str, invoice_doc_id: str, line_id: str, *, note: str, actor: s
 
 
 @store.one_connection
-def mark(wp_id: str, line_ids: Iterable[str], *, category: str, note: str | None, actor: str,
+def mark(wp_id: str, line_ids: Iterable[str], *, category: str, note: str | None, actor: identity.Who,
          expected_state: int | None = None) -> list[dict[str, Any]]:
     """'Needs no invoice' with its reason (`configs/reconcile.json` `line_marks`) for one or more lines in one step,
     all or none (132: most lines of a real statement need no invoice); a line with an allocation cannot be marked. A
@@ -1180,7 +1196,7 @@ def mark(wp_id: str, line_ids: Iterable[str], *, category: str, note: str | None
 
 
 @store.one_connection
-def mark_each(wp_id: str, marks: dict[str, str], *, note: str | None, actor: str, basis: str | None = None,
+def mark_each(wp_id: str, marks: dict[str, str], *, note: str | None, actor: identity.Who, basis: str | None = None,
               expected_state: int | None = None) -> list[dict[str, Any]]:
     """147: several lines marked in one step, each with its own reason (the quick review accepts a group whose lines'
     suggestions differ), all or none; `basis` records the suggestion they came from (None: a person's own choice)."""
@@ -1203,11 +1219,11 @@ def mark_each(wp_id: str, marks: dict[str, str], *, note: str | None, actor: str
     def write(c) -> list[dict[str, Any]]:
         now, made = _now(), []
         for lid, line in zip(ids, lines):
-            c.execute("UPDATE reconcile_line_marks SET revoked_at=?, revoked_by=? WHERE line_id=? AND revoked_at IS NULL",
-                      (now, actor, lid))
+            c.execute("UPDATE reconcile_line_marks SET revoked_at=?, revoked_by=?, revoked_by_id=? WHERE line_id=?"
+                      " AND revoked_at IS NULL", (now, identity.name_of(actor), identity.id_of(actor), lid))
             cur = c.execute("INSERT INTO reconcile_line_marks(statement_doc_id, line_id, category, note, workpackage_id, actor,"
-                            " created_at, basis) VALUES (?,?,?,?,?,?,?,?)",
-                            (line["statement_id"], lid, marks[lid], note, wp_id, actor, now, basis))
+                            " actor_id, created_at, basis) VALUES (?,?,?,?,?,?,?,?,?)",
+                            (line["statement_id"], lid, marks[lid], note, wp_id, identity.name_of(actor), identity.id_of(actor), now, basis))
             made.append(cur.lastrowid)
             decisions.record(c, MARK_KIND, lid, "mark", actor=actor, note=note, workpackage_id=wp_id, at=now,
                              value={"mark_id": cur.lastrowid, "category": marks[lid], "basis": basis})
@@ -1218,7 +1234,7 @@ def mark_each(wp_id: str, marks: dict[str, str], *, note: str | None, actor: str
     return _write(ctx["state"], write, wp_id=wp_id, expected_state=expected_state)
 
 
-def unmark(wp_id: str, line_ids: Iterable[str], *, actor: str, expected_state: int | None = None) -> int:
+def unmark(wp_id: str, line_ids: Iterable[str], *, actor: identity.Who, expected_state: int | None = None) -> int:
     """135: revokes the needs-no-invoice marks of lines of the scope in one step (a partner's lines marked at once are
     undone at once); lines without a mark are skipped, but at least one must have one. Returns how many were revoked."""
     ids = list(dict.fromkeys(line_ids))
@@ -1235,15 +1251,15 @@ def unmark(wp_id: str, line_ids: Iterable[str], *, actor: str, expected_state: i
     def write(c) -> int:
         now = _now()
         for lid, mark_id in marked.items():
-            c.execute("UPDATE reconcile_line_marks SET revoked_at=?, revoked_by=? WHERE id=? AND revoked_at IS NULL",
-                      (now, actor, mark_id))
+            c.execute("UPDATE reconcile_line_marks SET revoked_at=?, revoked_by=?, revoked_by_id=? WHERE id=?"
+                      " AND revoked_at IS NULL", (now, identity.name_of(actor), identity.id_of(actor), mark_id))
             decisions.record(c, MARK_KIND, lid, "revoke", actor=actor, workpackage_id=wp_id, at=now, value={"mark_id": mark_id})
         work.record_event(c, wp_id, "reconcile_revoke", actor, {"kind": "marks", "refs": list(marked.values())})
         return len(marked)
     return _write(ctx["state"], write, wp_id=wp_id, expected_state=expected_state)
 
 
-def revoke(wp_id: str, *, kind: str, ref: str, actor: str, note: str | None = None, expected_state: int | None = None) -> None:
+def revoke(wp_id: str, *, kind: str, ref: str, actor: identity.Who, note: str | None = None, expected_state: int | None = None) -> None:
     """Revokes a decision on a line of the scope: an allocation or a mark (by id; the row stays, marked revoked), or a
     decision on a pair (`paid_by` / `not_this` by its pair key; a decision made on an approved run is frozen). 187: the
     frozen check is made inside the writing transaction (before, an approval landing after it was missed)."""
@@ -1267,12 +1283,13 @@ def revoke(wp_id: str, *, kind: str, ref: str, actor: str, note: str | None = No
     def write(c) -> None:
         now = _now()
         if table == "reconcile_allocations":
-            c.execute("UPDATE reconcile_allocations SET revoked_at=?, revoked_by=?, revoke_note=? WHERE id=?",
-                      (now, actor, note, row["id"]))
+            c.execute("UPDATE reconcile_allocations SET revoked_at=?, revoked_by=?, revoked_by_id=?, revoke_note=? WHERE id=?",
+                      (now, identity.name_of(actor), identity.id_of(actor), note, row["id"]))
             decisions.record(c, ALLOCATION_KIND, row["line_id"], "revoke", actor=actor, note=note, workpackage_id=wp_id,
                              at=now, value={"allocation_id": row["id"]})
         elif table:
-            c.execute("UPDATE reconcile_line_marks SET revoked_at=?, revoked_by=? WHERE id=?", (now, actor, row["id"]))
+            c.execute("UPDATE reconcile_line_marks SET revoked_at=?, revoked_by=?, revoked_by_id=? WHERE id=?",
+                      (now, identity.name_of(actor), identity.id_of(actor), row["id"]))
             decisions.record(c, MARK_KIND, row["line_id"], "revoke", actor=actor, note=note, workpackage_id=wp_id, at=now,
                              value={"mark_id": row["id"]})
         else:
@@ -1288,7 +1305,7 @@ def revoke(wp_id: str, *, kind: str, ref: str, actor: str, note: str | None = No
 # --- 169: the package's inputs -----------------------------------------------------------------------------------------
 
 
-def leave_out(wp_id: str, doc_ids: Iterable[str], *, reason: str, actor: str, expected_state: int | None = None) -> int:
+def leave_out(wp_id: str, doc_ids: Iterable[str], *, reason: str, actor: identity.Who, expected_state: int | None = None) -> int:
     """169 (DECISIONS 169): leaves statements or invoices of the package's inputs out of this package only, with a
     reason, all or none; the documents stay in their own packages and in every other reconciliation. Refused while the
     package is approved, and for a document a pairing or a mark on a line of this package rests on (revoke it first).
@@ -1319,8 +1336,8 @@ def leave_out(wp_id: str, doc_ids: Iterable[str], *, reason: str, actor: str, ex
     def write(c) -> int:
         now = _now()
         for doc_id in ids:
-            c.execute("INSERT INTO reconcile_exclusions(workpackage_id, doc_id, kind, reason, actor, created_at) VALUES (?,?,?,?,?,?)",
-                      (wp_id, doc_id, kinds[doc_id], reason, actor, now))
+            c.execute("INSERT INTO reconcile_exclusions(workpackage_id, doc_id, kind, reason, actor, actor_id, created_at)"
+                      " VALUES (?,?,?,?,?,?,?)", (wp_id, doc_id, kinds[doc_id], reason, identity.name_of(actor), identity.id_of(actor), now))
             decisions.record(c, EXCLUSION_KIND, f"{wp_id}#{doc_id}", "leave_out", actor=actor, note=reason,
                              workpackage_id=wp_id, at=now, value={"kind": kinds[doc_id]})
         work.record_event(c, wp_id, "reconcile_leave_out", actor, {"doc_ids": ids, "reason": reason})
@@ -1328,7 +1345,7 @@ def leave_out(wp_id: str, doc_ids: Iterable[str], *, reason: str, actor: str, ex
     return _write(state, write, wp_id=wp_id, expected_state=expected_state)
 
 
-def restore_left_out(wp_id: str, doc_ids: Iterable[str], *, actor: str, expected_state: int | None = None) -> int:
+def restore_left_out(wp_id: str, doc_ids: Iterable[str], *, actor: identity.Who, expected_state: int | None = None) -> int:
     """169: takes documents left out of the package back into it, all or none (not while the package is approved).
     Returns how many were restored."""
     ids = list(dict.fromkeys(doc_ids))
@@ -1345,8 +1362,8 @@ def restore_left_out(wp_id: str, doc_ids: Iterable[str], *, actor: str, expected
     def write(c) -> int:
         now = _now()
         for doc_id in ids:
-            c.execute("UPDATE reconcile_exclusions SET restored_at=?, restored_by=? WHERE workpackage_id=? AND doc_id=?"
-                      " AND restored_at IS NULL", (now, actor, wp_id, doc_id))
+            c.execute("UPDATE reconcile_exclusions SET restored_at=?, restored_by=?, restored_by_id=? WHERE workpackage_id=?"
+                      " AND doc_id=? AND restored_at IS NULL", (now, identity.name_of(actor), identity.id_of(actor), wp_id, doc_id))
             decisions.record(c, EXCLUSION_KIND, f"{wp_id}#{doc_id}", "restore", actor=actor, workpackage_id=wp_id, at=now)
         work.record_event(c, wp_id, "reconcile_restore", actor, {"doc_ids": ids})
         return len(ids)
@@ -1550,7 +1567,7 @@ def _approved(wp_id: str) -> bool:
     return approval(wp_id)["active"] is not None
 
 
-def _reopen(wp_id: str, *, note: str, actor: str) -> dict[str, Any]:
+def _reopen(wp_id: str, *, note: str, actor: identity.Who) -> dict[str, Any]:
     """218 (P3l): the approved statement reopened with a reason, as a person's reopening (`reconcile_statement.reopen`)."""
     from jav.domains.finance import reconcile_statement  # lazy: that module builds on this one
 
@@ -1613,6 +1630,7 @@ LOGIC = logic_packs.LogicPack(
            logic_packs.InputRole("invoices", "period", "the invoices other packages processed, the own party's first")),
     has_runs=False, add_refusal="a reconciliation package has no documents", release_refusal=_release_refusal,
     own_approval=True, reopen=_reopen,  # 215: the statement is approved as the package's own version
+    approval_what="Reconciliation statement",  # 229: in a person's "Waiting for me" list (translated by the interface)
     delete_guard=_delete_guard, page=_page, approved=_approved, next_step=_next, list_next=_list_next,
     list_mark=_list_mark, outputs=("reconcile_statement",), service="jav.domains.finance.api_reconcile")
 

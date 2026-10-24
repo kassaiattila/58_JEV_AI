@@ -23,7 +23,7 @@ from typing import Any
 import pytest
 
 from jav.core import calls, store
-from jav.core.process import actor as actors
+from jav.core import identity as actors
 from jav.core.process import engine, outbox
 from tests import process_quote as quote
 from tests import process_worker
