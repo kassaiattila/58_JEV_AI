@@ -11,10 +11,11 @@ GPT; no paid call.
 from __future__ import annotations
 
 from jav.app import corrections, item_kinds
-from jav.domains.quotes import quote_package
 from jav.domains.email import mailbox
+from jav.domains.quotes import quote_package
 from tests import test_email_text_follow_up_190 as follow
 from tests.test_email_text_follow_up_190 import OUT, _package, _run
+from tests.test_quote_package_191 import _case
 
 env = follow.env  # the 190 fixture: a mailbox package of one quote request email, a stand-in JEV and GPT
 
@@ -35,9 +36,9 @@ def test_an_email_read_as_a_quote_request_shows_its_request_and_its_quotes(env):
     assert part["request"]["parts"][0]["kind"] == "email_text"
     assert part["gaps"] == [] and part["quotes"] == []
     assert part["source"] == {"workpackage_id": wp_id, "item_id": item["item_id"]}
-    made = quote_package.create(name="Monitors", source=wp_id, item_id=item["item_id"], actor="anna")
+    case_id = _case(wp_id, item["item_id"])  # 231 (A3d): a quote is a case of the IT quote's process pack
     again = corrections.item_result(run_id, item["item_id"])["parts"]["quote_request"]
-    assert again["quotes"] == [{"id": made["workpackage_id"], "name": "Monitors"}]
+    assert again["quotes"] == [{"id": case_id, "name": "Monitors", "case": True}]
 
 
 def test_a_request_that_lacks_something_as_a_whole_says_so(env, monkeypatch):

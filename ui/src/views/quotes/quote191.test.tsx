@@ -4,12 +4,13 @@
 // local service is replaced by spies; invented names only.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setActor, type QuoteProposal, type QuoteRequestCandidate, type QuoteView, type WorkpackageView } from "../../api";
+import { api, setActor, type CaseView, type QuoteProposal, type QuoteRequestCandidate, type QuoteView, type WorkpackageView } from "../../api";
 import { setLanguage } from "../../i18n";
 import { LOGIC } from "../../logic/registry";
 import { hasOwnForm } from "../../logic/steps";
 import { stepLabel } from "../../labels";
-import { QUOTE_BLOCKER, QuoteCreate, QuoteStages } from "./Quote";
+import { QUOTE_BLOCKER, QuoteCreate } from "./Quote";
+import { Approval, LineEditor, MatchProposal, RecordView } from "./QuoteElements";
 import { quoteStatus } from "./quoteStatus";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
@@ -66,11 +67,21 @@ function view(quote: QuoteView): WorkpackageView {
   return { workpackage: { id: "wp-000000000193", name: "Quote", source_kind: "quote" }, quote } as unknown as WorkpackageView;
 }
 
+/** 231 (A3d): the quote's stages as a case's page shows them, through its elements (the quote package's page is gone). */
+function QuoteStages({ view, stage, onChanged }: { view: WorkpackageView; stage: string; onChanged: () => void }) {
+  const { workpackage, quote } = view as unknown as { workpackage: { id: string; status?: string }; quote: QuoteView };
+  const page = { case: { status: workpackage.status ?? "open" }, steps: {}, tabs: [], next: null } as unknown as CaseView;
+  const props = (type: string) => ({ caseId: workpackage.id, element: { type, step: null, data: { quote } }, page, onChanged });
+  if (stage === "process") return <RecordView {...props("record_view")} />;
+  if (stage === "review") return <><MatchProposal {...props("match_proposal")} /><LineEditor {...props("line_editor")} /></>;
+  return <Approval {...props("approval")} />;
+}
+
 describe("the quote package (191)", () => {
-  it("is a kind of work with its own form and a logic pack's stages", () => {
+  it("is a kind of work with its own form; the quote package's page is gone (231 A3d)", () => {
     expect(hasOwnForm("quote")).toBe(true);
-    expect(LOGIC.quote.stages?.labels).toEqual({ process: "Request", review: "Quote", result: "Approval" });
-    expect(quoteStatus(view(QUOTE))).toEqual({ process: "2 part(s), 1 requested item(s)", review: "1 gap(s) to clear first",
+    expect(LOGIC.quote).toBeUndefined();
+    expect(quoteStatus(QUOTE)).toEqual({ process: "2 part(s), 1 requested item(s)", review: "1 gap(s) to clear first",
       result: "not approved yet" });
     expect(stepLabel("quote_request_check", { n: 2 }, "")).toBe("Check the request: 2 gap(s)");
     expect(stepLabel("quote_compose", {}, "")).toBe("Compose the quote");

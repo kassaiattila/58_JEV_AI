@@ -154,8 +154,8 @@ def _quote_package() -> Any:
 
 
 def _package(wp_id: str) -> None:
-    """KeyError for a package that is not a quote's (the service's 404); 231 (A5): a case's container may hold a quote."""
-    if work.get(wp_id)["source_kind"] not in (_quote_package().KIND, _quote_package().CONTAINER):
+    """KeyError for a package that holds no quote (the service's 404): 231 (A5, A3d) a case's container."""
+    if work.get(wp_id)["source_kind"] != _quote_package().CONTAINER:
         raise KeyError(wp_id)
 
 
@@ -572,29 +572,19 @@ def draft_docx(wp_id: str) -> tuple[bytes, str]:
     return quote_document.draft_file(wp_id, _view_content(wp_id, current), package=work.get(wp_id)["name"])
 
 
-# --- the logic pack's parts ----------------------------------------------------------------------------------------------
-
-
-def delete_guard(c: sqlite3.Connection, wp_id: str) -> None:
-    """A quote with an approved version, even one reopened since, can only be hidden (the version refers to it); one
-    without goes with its draft and its proposal (the decision journal keeps their history)."""
-    if c.execute("SELECT 1 FROM package_versions WHERE workpackage_id=? LIMIT 1", (wp_id,)).fetchone() is not None:
-        raise explained(work.NotReady, "a quote package with an approved version can only be archived",
-                        [{"code": "has_versions", "message": "The quote has an approved version: it can only be hidden."}])
-    for table in ("quote_drafts", "quote_proposals"):
-        c.execute(f"DELETE FROM {table} WHERE workpackage_id=?", (wp_id,))
+# --- the list's mark ------------------------------------------------------------------------------------------------------
 
 
 def mark() -> tuple[Any, ...]:
-    """What changes when a draft is saved or a quote approved or reopened (the quote package's list mark)."""
+    """What changes when a draft is saved or a quote approved or reopened (the mark of the case's element data)."""
     with store.connect() as c:
         saved = c.execute("SELECT MAX(id) FROM decision_journal WHERE kind=?", (KIND,)).fetchone()[0]
         versions = c.execute("SELECT COUNT(*), COUNT(v.reopened_at), MAX(v.id) FROM package_versions v"
                              " JOIN workpackages w ON w.id = v.workpackage_id WHERE w.source_kind=?",
-                             (_quote_package().KIND,)).fetchone()
+                             (_quote_package().CONTAINER,)).fetchone()
     return (saved, *tuple(versions))
 
 
 __all__ = ["CHECK_MARKS", "EDITABLE", "KIND", "DraftIn", "LineIn", "QuoteDraftError", "approve", "approved_version",
-           "delete_guard", "draft_docx", "fingerprint", "header_fields", "mark", "reopen", "save", "start", "version_docx",
+           "draft_docx", "fingerprint", "header_fields", "mark", "reopen", "save", "start", "version_docx",
            "view"]

@@ -1,4 +1,4 @@
-"""The quote: a kind of work package started from a quote request (191, plan F-quote-package B3).
+"""The quote made from a quote request: what the IT quote's case shows (191, plan F-quote-package B3; 231).
 
 Plain-language summary (DECISIONS 191): the owner asked that the quote can be chosen as a kind of work, as the
 reconciliation or the data extraction can, that the system proposes the quote's content, and that a person reviews and
@@ -10,16 +10,19 @@ whole request: no customer, no requested item, no active price list, or a reques
 
 B3 made the package and shows its request; B4 proposes the quote's lines (`jav/domains/quotes/quote_proposal.py`); B5 (192) is the
 page where a person composes the quote from the proposal and approves it as a version of the package's own
-(`jav/domains/quotes/quote_draft.py`).
+(`jav/domains/quotes/quote_draft.py`). 231 (A5, A3d): the quote runs as a case of the IT quote's process pack on its
+container (a general work package of kind `case`); the quote package, its logic pack and its page are gone, and what
+remains here is what the case's page and the email's part show.
 
 - `candidates(q)`: the requests a quote can start from, each with the quotes already made from it;
-- `create(name, source, item_id)`: a quote package naming its request (the shared package scope's `request` part);
-- `view(wp_id)`, `next_step(wp_id)`: the request, its source, the active price lists and the gaps, the proposal, the
-  draft and its approval; the next step.
+- `view(wp_id)`, `_next_of(view)`: the request, its source, the active price lists and the gaps, the proposal, the
+  draft and its approval, the letter; the next step.
 - `email_part(run, item)` (192, B6a): an email item's quote request, its gaps as a whole and the quotes made from it,
   shown under the email in its mailbox package (`EMAIL_PART`, an item part of the shared registry).
 
 Layer: application operation of the quotes domain over the work packages, the scopes and the quote request.
+The new work wizard's "quote" kind of work (`STEP`) stays until the wizard lists the process packs themselves; its
+form starts a case.
 """
 
 from __future__ import annotations
@@ -27,37 +30,30 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav.app import app_settings, item_kinds, logic_packs, package_release, package_scope, scopes, work, workflow_steps
-from jav.core import identity, store
+from jav.app import app_settings, item_kinds, package_scope, scopes, work, workflow_steps
+from jav.core import store
 from jav.domains.quotes import price_lists, quote_draft, quote_letter, quote_proposal, quote_request
 from jav.app.tablequery import fold
 from jav.core.user_messages import explained
 
-KIND = "quote"
+KIND = "quote"  # the wizard's kind of work and the golden sets' key prefix (the quote package's kind until 231 A3d)
 CONTAINER = "case"  # 231 (A5): the general container of a process pack's case (`jav/app/process_runtime.py`)
-REQUEST = "request"  # the scope part naming the request: {"workpackage_id", "item_id"}
 MAX_CANDIDATES = 50
-
-
-class QuoteError(ValueError):
-    """A quote that cannot be made: no name, or a source that is no quote request."""
 
 
 # --- the requests a quote can start from -----------------------------------------------------------------------------
 
 
 def _quotes_by_request() -> dict[tuple[str, str], list[dict[str, Any]]]:
-    """The quotes made from each request: quote packages and (231, A6) cases started from it as their record."""
+    """The quotes made from each request: (231, A6) the cases started from it as their record."""
     with store.connect() as c:
-        rows = c.execute("SELECT s.workpackage_id, s.parts, w.name, w.source_kind FROM workpackage_scopes s JOIN workpackages w"
-                         " ON w.id = s.workpackage_id WHERE w.source_kind IN (?, ?) ORDER BY w.created_at",
-                         (KIND, CONTAINER)).fetchall()
+        rows = c.execute("SELECT s.workpackage_id, s.parts, w.name FROM workpackage_scopes s JOIN workpackages w"
+                         " ON w.id = s.workpackage_id WHERE w.source_kind = ? ORDER BY w.created_at", (CONTAINER,)).fetchall()
     out: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for r in rows:
-        parts = json.loads(r["parts"])
-        ref = parts.get(REQUEST) or parts.get(scopes.RECORD) or {}
+        ref = json.loads(r["parts"]).get(scopes.RECORD) or {}
         out.setdefault((ref.get("workpackage_id", ""), ref.get("item_id", "")), []).append(
-            {"id": r["workpackage_id"], "name": r["name"], **({"case": True} if r["source_kind"] == CONTAINER else {})})
+            {"id": r["workpackage_id"], "name": r["name"], "case": True})
     return out
 
 
@@ -84,30 +80,10 @@ def candidates(q: str | None = None, limit: int = MAX_CANDIDATES) -> list[dict[s
     return out[:limit]
 
 
-# --- the package ---------------------------------------------------------------------------------------------------------
-
-
-def create(*, name: str, source: str, item_id: str, actor: identity.Who) -> dict[str, Any]:
-    """A quote package from the request of `item_id` in the package `source` (an email or a document read as a quote
-    request). `QuoteError` when the name is empty or the item is no quote request."""
-    if not (name or "").strip():
-        raise explained(QuoteError, "a quote needs a name")
-    try:
-        quote_request.read(source, item_id)
-    except quote_request.RequestNotFound as exc:
-        raise explained(QuoteError, "the chosen item is not a quote request that has been processed") from exc
-    wp = work.create_workpackage(name=name, source_kind=KIND, source_ref=None, owner=actor)
-    with store.connect() as c:
-        store.begin_immediate(c)
-        package_scope.save(c, wp["id"], parts={REQUEST: {"workpackage_id": source, "item_id": item_id}}, actor=actor)
-    return {"workpackage_id": wp["id"]}
-
-
 def request_of(wp_id: str) -> dict[str, str] | None:
-    """The request the package was made from: {"workpackage_id", "item_id"}; None when it names none. 231 (A5): a
-    case's container names it as its record (the general scope part)."""
-    parts = (package_scope.stored(wp_id) or {}).get("parts", {})
-    return parts.get(REQUEST) or parts.get(scopes.RECORD)
+    """The request the case was started from: {"workpackage_id", "item_id"}, its container's record (the general scope
+    part); None when it names none."""
+    return (package_scope.stored(wp_id) or {}).get("parts", {}).get(scopes.RECORD)
 
 
 def _blocker(code: str, message: str) -> dict[str, str]:
@@ -194,41 +170,6 @@ def _next_of(current: dict[str, Any]) -> dict[str, Any]:
     return {"code": "quote_compose", "label": "Compose the quote", "stage": "review"}
 
 
-def next_step(wp_id: str) -> dict[str, Any]:
-    return _next_of(view(wp_id))
-
-
-def _page(wp_id: str) -> dict[str, Any]:
-    """The package's page (`work_views.workpackage_view`): its readiness (nothing runs), its next step and its own part."""
-    current = view(wp_id)
-    return {"readiness": {"ready": False, "blockers": [], "counts": {"items": 0}}, "next": _next_of(current),
-            "quote": current}
-
-
-def _approved(wp_id: str) -> bool:
-    """A workflow's quote step is done when a version of the package's quote is approved (B5)."""
-    return package_release.own_approval(wp_id)["active"] is not None
-
-
-def _release_refusal() -> Exception:
-    return explained(work.NotReady, "a quote package has no run result to release: its quote is approved on its own page")
-
-
-# 204 (R1h): the quote package's golden sets are the quotes domain's measurement module's (`jav/domains/quotes/goldens.py`)
-LOGIC = logic_packs.LogicPack(
-    kind=KIND, module=__name__,
-    roles=(logic_packs.InputRole(REQUEST, "linked_package", "the quote request: an email or a document read as one"),
-           logic_packs.InputRole("price_list", "master_data", "the seller's active price list")),
-    has_runs=False, add_refusal="a quote package has no documents of its own: its request stays in its package",
-    release_refusal=_release_refusal, delete_guard=quote_draft.delete_guard, page=_page, approved=_approved,
-    own_approval=True, reopen=quote_draft.reopen,  # 215: the quote is approved as the package's own version
-    approval_what="Quote",  # 229: in a person's "Waiting for me" list (translated by the interface)
-    next_step=next_step, list_next=next_step,
-    list_mark=lambda: (price_lists.mark(), quote_proposal.mark(), quote_draft.mark(), quote_letter.mark()),
-    outputs=("quote",),  # 196: the approved quote's Word document (`jav/domains/quotes/quote_document.py`)
-    service="jav.domains.quotes.api_quote_package")
-
-
 def _workflow_start(_ctx: workflow_steps.StepStart) -> None:
     from jav.app.workflows import WorkflowError
 
@@ -238,7 +179,9 @@ def _workflow_start(_ctx: workflow_steps.StepStart) -> None:
 # 192 (B6a): the quote request under its email in a mailbox package
 EMAIL_PART = item_kinds.ItemPart("quote_request", __name__, item_kinds.EMAIL, email_part)
 
-STEP = workflow_steps.StepKind(KIND, __name__, (KIND,), start=_workflow_start, paid=False, own_engine=False,
+# the wizard's kind of work: its form starts a case, and its package is a case's container (231 A3d: the quote package's
+# kind went); it stays until the wizard lists the process packs themselves
+STEP = workflow_steps.StepKind(KIND, __name__, (CONTAINER,), start=_workflow_start, paid=False, own_engine=False,
                                repeat_from=lambda _wp_id: {"kind": "none"},
                                statuses={"quote_request_missing": "attention", "quote_request_check": "review",
                                          "quote_propose": "review", "quote_proposing": "review",
@@ -246,5 +189,4 @@ STEP = workflow_steps.StepKind(KIND, __name__, (KIND,), start=_workflow_start, p
                                          "quote_approved": "approved"})
 
 
-__all__ = ["EMAIL_PART", "KIND", "LOGIC", "REQUEST", "STEP", "QuoteError", "candidates", "create", "email_part", "next_step",
-           "request_gaps", "request_of", "view"]
+__all__ = ["CONTAINER", "EMAIL_PART", "KIND", "STEP", "candidates", "email_part", "request_gaps", "request_of", "view"]

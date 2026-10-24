@@ -19,6 +19,7 @@ from jav.runtime import job_kinds, worker
 from jav.core import queue
 from tests import test_email_text_follow_up_190 as follow
 from tests.test_email_text_follow_up_190 import _package, _run
+from tests.test_quote_package_191 import _case, _next
 
 env = follow.env  # the 190 fixture: a mailbox package of one quote request email, a stand-in JEV and GPT
 
@@ -30,9 +31,10 @@ def _price_list(tmp_path, name: str = "Invented 2026") -> str:
 
 
 def _quote(env) -> str:
+    """231 (A3d): the quote of a case of the IT quote's process pack."""
     wp_id = _package(env)
     _run_id, item = _run(wp_id)
-    return quote_package.create(name="Monitors", source=wp_id, item_id=item["item_id"], actor="anna")["workpackage_id"]
+    return _case(wp_id, item["item_id"])
 
 
 def test_the_proposal_is_queued_with_its_cap_and_made_by_the_worker(env, tmp_path):
@@ -40,11 +42,11 @@ def test_the_proposal_is_queued_with_its_cap_and_made_by_the_worker(env, tmp_pat
     pl = _price_list(tmp_path)
     view = quote_package.view(quote)
     assert view["proposal"] is None and view["proposal_cap"] == {"engine": "jev", "items": 1, "usd": {"jev": "0.003"}}
-    assert quote_package.next_step(quote)["code"] == "quote_propose"
+    assert _next(quote)["code"] == "quote_propose"
     asked = quote_proposal.request(quote, actor="anna")
     assert (asked["state"], asked["engine"], asked["limits"], asked["price_list"]) == ("queued", "jev", {"jev": "0.003"}, pl)
     assert quote_proposal.request(quote, actor="anna")["requested_at"] == asked["requested_at"]  # one at a time
-    assert quote_package.next_step(quote)["code"] == "quote_proposing"
+    assert _next(quote)["code"] == "quote_proposing"
     worker.run_worker(once=True)
     done = quote_proposal.current(quote)
     assert (done["state"], done["stale"], len(done["lines"])) == ("done", False, 1)
@@ -53,7 +55,7 @@ def test_the_proposal_is_queued_with_its_cap_and_made_by_the_worker(env, tmp_pat
     assert line["answer"]["engine"] == "jev"
     if line["answer"]["sku"]:  # the proposed item's name from the price list version the proposal used
         assert line["answer"]["name"] == price_lists.version(pl, 1).item(line["answer"]["sku"]).name
-    assert quote_package.next_step(quote)["code"] == "quote_compose"
+    assert _next(quote)["code"] == "quote_compose"
     # a new active price list version makes the proposal stale; asking again replaces it
     price_lists.change_settings(pl, 1, discounts=[{"category": "hardware", "min_quantity": "10", "percent": "5"}],
                                 currency="HUF", vat_percent="27", actor="anna")
@@ -89,7 +91,7 @@ def test_a_job_that_ends_without_processing_shows_on_the_proposal(env, tmp_path)
     job_kinds.of(quote_proposal.JOB_KIND).abandon(job, "stopped")  # e.g. the worker stopped before processing it
     shown = quote_proposal.current(quote)
     assert (shown["state"], shown["error"]) == ("failed", "stopped")
-    assert quote_package.next_step(quote)["code"] == "quote_propose"
+    assert _next(quote)["code"] == "quote_propose"
 
 
 def test_the_cap_is_the_budget_per_item_times_the_items():
@@ -107,7 +109,8 @@ def test_the_service_queues_a_proposal(env, tmp_path):
     with TestClient(create_app(store_path=tmp_path / "q.sqlite"), base_url="http://127.0.0.1:8930") as c:
         asked = c.post(f"/api/workpackages/{quote}/quote/proposal", headers={"X-Actor": "teszt.elek"}, json={})
         assert asked.status_code == 202 and asked.json()["state"] == "queued"
-        page = c.get(f"/api/workpackages/{quote}").json()
-        assert page["quote"]["proposal"]["state"] == "queued" and page["next"]["code"] == "quote_proposing"
+        page = c.get(f"/api/cases/{quote}").json()
+        assert page["tabs"][1]["elements"][0]["data"]["quote"]["proposal"]["state"] == "queued"
+        assert c.get(f"/api/workpackages/{quote}").json()["next"]["code"] == "quote_proposing"
         assert c.post("/api/workpackages/wp-000000000000/quote/proposal", headers={"X-Actor": "teszt.elek"},
                       json={}).status_code == 404

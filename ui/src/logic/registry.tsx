@@ -8,13 +8,11 @@ import { t } from "../i18n";
 import { lazyPage } from "../components/LazyPage";
 import { tmap } from "../labels";
 import type { Stage } from "../route";
-import { quoteStatus, quoteSummary } from "../views/quotes/quoteStatus";
 import { routingStatus, routingSummary } from "../views/routing/routingStatus";
 
 // 195 (plan G-tidy R5): a logic pack's own pages load when a package of its kind is first opened; its status lines
 // and summary, which the package list shows too, are in small modules of their own
 const QuoteOnEmail = lazyPage(() => import("../views/quotes/QuoteOnEmail").then((m) => m.QuoteOnEmail));
-const QuoteStages = lazyPage(() => import("../views/quotes/Quote").then((m) => m.QuoteStages));
 const ReconcileStages = lazyPage(() => import("../views/reconcile/ReconcileStages").then((m) => m.ReconcileStages));
 const RoutingStages = lazyPage(() => import("../views/routing/Routing").then((m) => m.RoutingStages));
 const StatementPackagePanel = lazyPage(() => import("../views/StatementPackagePanel").then((m) => m.StatementPackagePanel));
@@ -73,17 +71,7 @@ export const LOGIC: Record<string, LogicUi> = {
       body: (view, stage, onChanged) => <RoutingStages view={view} stage={stage} onChanged={onChanged} />,
     },
   },
-  // 191 (plan F-quote-package B3): a quote package reads its request in the package it came from; no files, no runs
-  quote: {
-    adds: "nothing",
-    createdFrom: () => t("a quote request"),
-    stages: {
-      labels: tmap({ process: "Request", review: "Quote", result: "Approval" }) as Record<Stage, string>,
-      status: quoteStatus,
-      summary: quoteSummary,
-      body: (view, stage, onChanged) => <QuoteStages view={view} stage={stage} onChanged={onChanged} />,
-    },
-  },
+  // 191-231: the quote package's entry went with its logic pack (231 A3d): a quote is a process pack's case (CasePage)
   statements: {
     adds: "statements",
     createdFrom: () => t("a statement package"),

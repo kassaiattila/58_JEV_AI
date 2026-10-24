@@ -44,7 +44,7 @@ def test_the_two_logic_packs_and_their_roles() -> None:
     assert [(r.name, r.source) for r in reconcile.roles] == [("statements", "period"), ("invoices", "period")]
     assert [(r.name, r.source) for r in statements.roles] == [("statements", "own_items")]
     assert statements.rule is not None and reconcile.rule is None
-    assert lp.kinds_without_runs() == ("reconcile", "email_routing", "quote")  # 181: the routing has none; 191: the quote
+    assert lp.kinds_without_runs() == ("reconcile", "email_routing")  # 181: the routing has none; 231 (A3d): no quote package
     assert all(lp.of(kind) is None and lp.has_runs(kind) for kind in lp.DATA_KINDS)
 
 
@@ -124,9 +124,11 @@ def test_the_service_has_the_addresses_of_every_logic_pack_in_its_own_module() -
     from jav.domains import DOMAINS
 
     own = [p.service for p in lp.packs()]
-    assert own == ["jav.domains.finance.api_statement_package", "jav.domains.finance.api_reconcile", "jav.domains.email.api_email_routing", "jav.domains.quotes.api_quote_package"]
+    assert own == ["jav.domains.finance.api_statement_package", "jav.domains.finance.api_reconcile", "jav.domains.email.api_email_routing"]
     domains = [name for d in DOMAINS for name in importlib.import_module(d).SERVICE]
-    assert domains == ["jav.domains.finance.api_parties", "jav.domains.finance.api_finance", "jav.domains.email.api_mailbox", "jav.domains.quotes.api_price_lists"]  # 191: quotes
+    # 191: quotes; 231 (A3d): the quote's own addresses (a case's page uses them) are the domain's since its logic pack went
+    assert domains == ["jav.domains.finance.api_parties", "jav.domains.finance.api_finance", "jav.domains.email.api_mailbox",
+                       "jav.domains.quotes.api_quote_package", "jav.domains.quotes.api_price_lists"]
     assert api.service_modules() == [*own, *domains]
     assert all(callable(importlib.import_module(name).routes) for name in api.service_modules())
     text = (PROJECT_ROOT / "jav/service/api.py").read_text(encoding="utf-8")

@@ -14,12 +14,13 @@ import copy
 
 import pytest
 
-from jav.app import work
+from jav.app import package_release, work
 from jav.core import decisions, store
-from jav.domains.quotes import price_lists, quote_draft, invented_golden, quote_package, quote_proposal
+from jav.domains.quotes import price_lists, quote_draft, invented_golden, quote_proposal
 from jav.runtime import worker
 from tests import test_email_text_follow_up_190 as follow
 from tests.test_email_text_follow_up_190 import OUT, _package, _run
+from tests.test_quote_package_191 import _case, _next
 
 env = follow.env  # the 190 fixture: a mailbox package of one quote request email, a stand-in JEV and GPT
 
@@ -44,7 +45,7 @@ def quote(env, tmp_path, monkeypatch):
     made = price_lists.add("Invented 2026", "p.xlsx", invented_golden.write_price_list(tmp_path / "p.xlsx").read_bytes(),
                            actor="anna")
     price_lists.activate(made["price_list"], 1, actor="anna")
-    wp_id = quote_package.create(name="Office", source=source, item_id=item["item_id"], actor="anna")["workpackage_id"]
+    wp_id = _case(source, item["item_id"], "Office")  # 231 (A3d): the quote of a case of the IT quote's process pack
     return {"wp": wp_id, "price_list": made["price_list"]}
 
 
@@ -88,7 +89,7 @@ def test_the_draft_starts_from_the_proposal_line_by_line(quote):
     assert priced[0]["net"] == "164700" and priced[1]["net"] == "758000" and priced[2] is None  # 3 x 54 900, 2 x 379 000
     assert v["totals"] is None  # not every line is priced yet
     assert v["state"] > 0 and [h["action"] for h in decisions.history(quote_draft.KIND, wp_id)] == ["start"]
-    assert quote_package.next_step(wp_id)["code"] == "quote_compose"
+    assert _next(wp_id)["code"] == "quote_compose"
 
 
 def test_the_draft_can_start_from_the_requested_items_alone(quote):
@@ -125,7 +126,7 @@ def test_a_person_confirms_or_changes_a_line_to_check_and_gives_a_note_for_a_pri
     assert v4["blockers"] == []
     # 164 700 + 758 000 + 45 000 = 967 700 net; 27 percent VAT on the net total, in whole forints
     assert v4["totals"] == {"net": "967700", "vat": "261279", "gross": "1228979"} and v4["currency"] == "HUF"
-    assert quote_package.next_step(wp_id)["code"] == "quote_approve"
+    assert _next(wp_id)["code"] == "quote_approve"
 
 
 def test_unchecking_a_line_to_check_holds_the_approval_again(quote):
@@ -171,9 +172,9 @@ def test_the_approval_is_a_version_of_its_own_and_reopening_needs_a_reason(quote
         quote_draft.approve(wp_id, fingerprint="0" * 64, actor="anna")
     approved = quote_draft.approve(wp_id, fingerprint=v["fingerprint"], actor="anna")
     assert approved["version"] == 1 and approved["approved_by"] == "anna"
-    assert quote_package.next_step(wp_id) == {"code": "quote_approved", "label": "Approved: version 1", "stage": "result",
-                                              "params": {"version": 1}}
-    assert quote_package.LOGIC.approved(wp_id) is True
+    assert _next(wp_id) == {"code": "quote_approved", "label": "Approved: version 1", "stage": "result",
+                            "params": {"version": 1}}
+    assert package_release.own_approval(wp_id)["active"]["version"] == 1
     kept = quote_draft.approved_version(wp_id, 1)["quote"]
     assert kept["totals"]["gross"] == "1228979" and kept["price_list"]["version"] == 1
     assert [ln["sku"] for ln in kept["lines"]] == ["HW-MON-24", "HW-NB-15B", None]
@@ -214,21 +215,14 @@ def test_a_newer_price_list_version_is_a_warning_and_the_draft_can_switch_to_it(
     assert v["draft"]["version"] == 1
 
 
-def test_a_quote_with_an_approved_version_can_only_be_archived(quote):
-    wp_id = quote["wp"]
-    v = _done(wp_id)
-    quote_draft.approve(wp_id, fingerprint=v["fingerprint"], actor="anna")
-    with pytest.raises(work.NotReady):
-        work.delete_workpackage(wp_id, actor="anna")
-
-
-def test_a_quote_without_an_approved_version_is_deleted_with_its_draft(quote):
+def test_a_cases_quote_is_not_deleted_while_its_case_exists(quote):
+    """231 (A3d): the quote lives in its case's container, which is not deleted while the case exists (only hidden)."""
     wp_id = quote["wp"]
     _done(wp_id)
-    work.delete_workpackage(wp_id, actor="anna")
+    with pytest.raises(work.NotReady):
+        work.delete_workpackage(wp_id, actor="anna")
     with store.connect() as c:
-        assert c.execute("SELECT COUNT(*) FROM quote_drafts WHERE workpackage_id=?", (wp_id,)).fetchone()[0] == 0
-        assert c.execute("SELECT COUNT(*) FROM quote_proposals WHERE workpackage_id=?", (wp_id,)).fetchone()[0] == 0
+        assert c.execute("SELECT COUNT(*) FROM quote_drafts WHERE workpackage_id=?", (wp_id,)).fetchone()[0] == 1
 
 
 def test_the_service_composes_approves_and_reopens_the_quote(quote, tmp_path):
@@ -240,8 +234,8 @@ def test_the_service_composes_approves_and_reopens_the_quote(quote, tmp_path):
     _proposed(wp_id)
     human = {"X-Actor": "teszt.elek"}
     with TestClient(create_app(store_path=tmp_path / "q.sqlite"), base_url="http://127.0.0.1:8930") as c:
-        page = c.get(f"/api/workpackages/{wp_id}").json()
-        assert page["quote"]["draft"]["draft"] is None and page["quote"]["draft"]["state"] == 0
+        shown = c.get(f"/api/cases/{wp_id}").json()["tabs"][1]["elements"][1]["data"]["quote"]
+        assert shown["draft"]["draft"] is None and shown["draft"]["state"] == 0
         started = c.post(f"/api/workpackages/{wp_id}/quote/draft/start", headers=human,
                          json={"source": "proposal", "expected_state": 0})
         assert started.status_code == 200

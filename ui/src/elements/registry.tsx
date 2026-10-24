@@ -3,7 +3,7 @@
 // shows); an element may also give its tab's status line and the page's summary. A special element is registered
 // once, by the code of the capability it belongs to, and any process pack may use it.
 import { lazy, Suspense, type ReactNode } from "react";
-import type { CaseElement, CaseView, QuoteView, WorkpackageView } from "../api";
+import type { CaseElement, CaseView, QuoteView } from "../api";
 import { t } from "../i18n";
 import { moneyText } from "../labels";
 import { quoteStatus, quoteSummary } from "../views/quotes/quoteStatus";
@@ -34,11 +34,11 @@ const Timeline = lazy(() => general().then((m) => ({ default: m.Timeline })));
 const CostView = lazy(() => general().then((m) => ({ default: m.CostView })));
 const lazily = (C: (p: ElementProps) => ReactNode) =>
   (p: ElementProps) => <Suspense fallback={<p className="muted">{t("Loading…")}</p>}><C {...p} /></Suspense>;
-const asPackage = (p: ElementProps) => ({ quote: (p.element.data as { quote?: QuoteView } | null)?.quote }) as unknown as WorkpackageView;
-const quoteLine = (which: "process" | "review" | "result") => (p: ElementProps) => quoteStatus(asPackage(p))?.[which] ?? null;
+const quoteOf = (p: ElementProps) => (p.element.data as { quote?: QuoteView } | null)?.quote;
+const quoteLine = (which: "process" | "review" | "result") => (p: ElementProps) => quoteStatus(quoteOf(p))?.[which] ?? null;
 
 export const ELEMENTS: Record<string, ElementSpec> = {
-  record_view: { render: lazily(RecordView), status: quoteLine("process"), summary: (p) => quoteSummary(asPackage(p)) },
+  record_view: { render: lazily(RecordView), status: quoteLine("process"), summary: (p) => quoteSummary(quoteOf(p)) },
   match_proposal: { render: lazily(MatchProposal), status: quoteLine("review") },
   line_editor: { render: lazily(LineEditor), status: quoteLine("review") },
   approval: { render: lazily(Approval), status: quoteLine("result") },

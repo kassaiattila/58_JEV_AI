@@ -52,7 +52,8 @@ def test_the_source_kinds_are_the_plain_processing_kinds():
 
 
 def test_a_workflow_step_takes_packages_of_known_kinds_only():
-    known = set(ik.source_names()) | {p.kind for p in logic_packs.packs()}
+    # 231 (A3d): a process pack's case container too
+    known = set(ik.source_names()) | {p.kind for p in (*logic_packs.packs(), *logic_packs.containers())}
     for step in workflow_steps.kinds():  # 181: the step kinds' registry (until then `workflows.PACKAGE_KINDS`)
         assert set(step.package_kinds) <= known
 

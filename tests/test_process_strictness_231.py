@@ -25,7 +25,7 @@ PROCESS_NAMES = ("reconcile", "statements", "email_routing", "routing", "quote",
 UI_PROCESS_DIRS = {"quotes", "reconcile", "routing"}
 UI_SHARED_DIRS = {"settings", "workflows"}
 
-FROZEN_LOGIC_PACKS = {"email_routing", "quote", "reconcile", "statements"}
+FROZEN_LOGIC_PACKS = {"email_routing", "reconcile", "statements"}  # A3d: the quote package went
 FROZEN_STEP_KINDS = {"documents", "emails", "quote", "reconcile", "routing", "statements"}
 FROZEN_ITEM_PARTS = {("email", "quote_request")}
 FROZEN_DOMAINS = ("jav.domains.finance", "jav.domains.email", "jav.domains.quotes")
@@ -34,7 +34,7 @@ FROZEN_UI_FILES = {
     "ui/src/views/Mailbox.tsx", "ui/src/views/StatementPackageCreate.tsx", "ui/src/views/StatementPackagePanel.tsx",
     "ui/src/views/UtilityReport.tsx", "ui/src/views/settings/PartiesPanel.tsx", "ui/src/views/settings/PriceListsPanel.tsx",
 }
-FROZEN_UI_LOGIC_KEYS = {"email_routing", "quote", "reconcile", "statements"}
+FROZEN_UI_LOGIC_KEYS = {"email_routing", "reconcile", "statements"}  # A3d: the quote package's went
 FROZEN_UI_FORMS = {"documents", "emails", "quote", "reconcile", "routing", "statements"}
 FROZEN_UI_NAME_COMPARISONS = {("ui/src/views/PackageItems.tsx", "statements"), ("ui/src/views/WorkpackageActions.tsx", "statements"),
                               ("ui/src/views/workflows/NewWork.tsx", "mailbox")}

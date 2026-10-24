@@ -23,7 +23,7 @@ from jav.core import store
 from jav.core.process import engine, tasks
 from jav.domains.email import email_routing
 from jav.domains.finance import reconcile_package as rp, reconcile_statement as rs
-from jav.domains.quotes import quote_draft, quote_package
+from jav.domains.quotes import quote_draft
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests.test_quote_draft_192 import _done, env, quote  # noqa: F401 - the fixtures are used by name
 from tests.test_reconcile_package_131 import _line, _stmt
@@ -204,8 +204,13 @@ def test_a_reconciliation_waits_for_its_approval_from_when_it_is_made(db):  # no
 
 
 def test_a_quotes_approval_is_its_task_too(quote):  # noqa: F811
+    """231 (A3d): a case's quote waits for its approval once its draft step opens the task (capabilities.py)."""
     wp_id = quote["wp"]
     tid = tasks.task_id(human_tasks.OWN_APPROVAL, wp_id)
+    assert tasks.get(tid) is None  # the quote package opened it when it was made; a case's step opens it
+    with store.connect() as c:
+        store.begin_immediate(c)
+        human_tasks.own_approval_waits(c, wp_id)
     assert (tasks.get(tid).status, tasks.get(tid).assignee) == ("open", "local:anna")
     v = _done(wp_id)
     quote_draft.approve(wp_id, fingerprint=v["fingerprint"], actor="anna")
@@ -215,7 +220,7 @@ def test_a_quotes_approval_is_its_task_too(quote):  # noqa: F811
 
 
 def test_only_a_logic_pack_a_person_approves_as_its_own_version_waits_for_an_approval(db):  # noqa: F811
-    assert set(logic_packs.kinds_with_own_approval()) == {rp.KIND, quote_package.KIND}
+    assert set(logic_packs.kinds_with_own_approval()) == {rp.KIND}  # 231 (A3d): the quote package is gone
     routing = work.create_workpackage(name="Routing", source_kind=email_routing.KIND, source_ref=None, owner="t")["id"]
     plain = work.create_workpackage(name="Plain", source_kind="manual", source_ref=None, owner="t")["id"]
     assert [tasks.get(tasks.task_id(human_tasks.OWN_APPROVAL, wp)) for wp in (routing, plain)] == [None, None]
