@@ -286,6 +286,8 @@ A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank an
   - **Reopen** (*Újranyitás*, with a reason): the lock goes; the version stays among the **Earlier versions** (*Korábbi
     változatok*), each still downloadable as it was approved, and the next approval makes a new version. If the data changed
     after an approval (for example a document was processed again), the page says so; the approved version stays as it was.
+    When only the reconciliation's rules (or the program that applies them) changed and its invoices, lines and results
+    are the same, the page only notes it: the approved version holds.
 
 **How the code finds a candidate** (free, no AI service): a line and an invoice of the same currency are a candidate when the
 line falls within the invoice's dates and at least one more detail ties them: the invoice number or a reference number in the

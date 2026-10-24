@@ -937,6 +937,7 @@
   "Approved: version {{n}}, by {{who}}, {{when}}.": "Approved: version {{n}}, by {{who}}, {{when}}.",
   "The decisions on its lines are locked in every package. To change one, reopen the approval with a reason; this version stays as an earlier one.": "The decisions on its lines are locked in every package. To change one, reopen the approval with a reason; this version stays as an earlier one.",
   "The data has changed since the approval (for example a document was processed again). The approved version stays as it was; reopen it to approve the current state.": "The data has changed since the approval (for example a document was processed again). The approved version stays as it was; reopen it to approve the current state.",
+  "The reconciliation's rules or the program that applies them changed since the approval; its invoices, lines and results are the same, so the approved version holds.": "The reconciliation's rules or the program that applies them changed since the approval; its invoices, lines and results are the same, so the approved version holds.",
   "Reason for reopening": "Reason for reopening",
   "The approval has been reopened; the decisions can be changed again.": "The approval has been reopened; the decisions can be changed again.",
   "Reopen": "Reopen",

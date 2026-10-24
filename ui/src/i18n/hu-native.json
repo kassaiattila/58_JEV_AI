@@ -937,6 +937,7 @@
   "Approved: version {{n}}, by {{who}}, {{when}}.": "Jóváhagyva: {{n}}. változat, jóváhagyta {{who}}, {{when}}.",
   "The decisions on its lines are locked in every package. To change one, reopen the approval with a reason; this version stays as an earlier one.": "A tételein hozott döntések minden csomagban zárolva vannak. Módosításhoz nyisd újra a jóváhagyást, indokkal; ez a változat korábbiként megmarad.",
   "The data has changed since the approval (for example a document was processed again). The approved version stays as it was; reopen it to approve the current state.": "Az adatok a jóváhagyás óta változtak (például egy iratot újra feldolgoztunk). A jóváhagyott változat változatlan marad; a mostani állapot jóváhagyásához nyisd újra.",
+  "The reconciliation's rules or the program that applies them changed since the approval; its invoices, lines and results are the same, so the approved version holds.": "Az egyeztetés szabályai vagy az őket alkalmazó program a jóváhagyás óta változtak; a számlái, tételei és eredményei ugyanazok, ezért a jóváhagyott változat érvényes marad.",
   "Reason for reopening": "Az újranyitás indoka",
   "The approval has been reopened; the decisions can be changed again.": "A jóváhagyást újranyitottuk; a döntések ismét módosíthatók.",
   "Reopen": "Újranyitás",

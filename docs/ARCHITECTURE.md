@@ -842,9 +842,12 @@ threshold in the finance domain's `configs/finance.json` (`duplicates`: `jav/dom
 judge with the shared bands; the type roles read their lists where they are. So a domain's rule change does not change
 another's fingerprint (a data point's `config_hash` names `policy.json` only), and the shared AI layer imports no
 domain. The bands are not in `configs/reconcile.json`, whose fingerprint a reconciliation's statement prints: the
-interface shows an approved statement whose fingerprint differs from the current one as changed since its approval,
-so moving them there would have marked every approved statement; the reconciliation's workspace counts
-`finance.json` among its inputs. The decision points name
+interface then showed an approved statement whose fingerprint differs from the current one as changed since its
+approval, so moving them there would have marked every approved statement; the reconciliation's workspace counts
+`finance.json` among its inputs. Since 227 (DECISIONS 224) the statement's answer says what changed since the
+approval (`reconcile_statement.since_approval`): its content without the rule fingerprint and the engine's version
+(`content_fingerprint`; a warning), or only those (a note); the approved fingerprint itself is formed as before
+(`tests/test_reconcile_rule_change_227.py`). The decision points name
 the files they read (`email.intent`, `email.next_flow`: `policy.json` and `email.json`; `finance.duplicate`:
 `finance.json` and `fact_checks.json`). Tests: `tests/test_rule_files_split_224.py`.
 

@@ -52,7 +52,11 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
   }
   const shown: ReconcileStatement | null = active ? (approved.data?.statement ?? null) : current.statement;
   const accept = current.blockers.filter((b) => b.code === "source_no_run").map((b) => b.doc_id);
-  const changed = active !== null && active.fingerprint !== current.fingerprint;
+  // 227 (DECISIONS 224): only a change of content warns; a change of the rules alone is a note. An older service
+  // without the comparison compares the fingerprints, as before.
+  const since = current.since_approval;
+  const changed = active !== null && (since ? since.content_changed : active.fingerprint !== current.fingerprint);
+  const rulesOnly = active !== null && !changed && Boolean(since?.rules_changed);
 
   return (
     <div className="rc-stack">
@@ -68,6 +72,7 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
         </>}
         lockedText={t("The decisions on its lines are locked in every package. To change one, reopen the approval with a reason; this version stays as an earlier one.")}
         changedText={changed ? t("The data has changed since the approval (for example a document was processed again). The approved version stays as it was; reopen it to approve the current state.") : null}
+        noteText={rulesOnly ? t("The reconciliation's rules or the program that applies them changed since the approval; its invoices, lines and results are the same, so the approved version holds.") : null}
         pendingText={t("Not approved yet. The approval records the summary below as an unchangeable version and locks the decisions on its lines. Open lines do not block it; the summary lists them.")}
         blockers={current.blockers.length ? <BlockerList small items={blockerItems(current.blockers)} /> : null}
         clearing={accept.length && !archived ? (

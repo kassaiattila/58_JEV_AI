@@ -8,6 +8,10 @@ its approval as an unchangeable version that locks its lines, and its download.
   reason, open - and the invoices it paid; another party's invoice only when a line of the scope paid it, named with its
   party (133); and the warnings: a statement whose balances do not check out, and a month of a scope account without a
   statement (DECISIONS 132, 137: warnings, not blockers). Its fingerprint is the hash of its content.
+- **What changed since the approval** (227, DECISIONS 224, the owner's choice "only a change of content warns"): the
+  statement holds the reconciliation's rule fingerprint and engine version, and its fingerprint covers them (176), so
+  a rule change alone changed every approved statement's fingerprint. `current` compares the content without them
+  (`content_fingerprint`) and says apart whether the content changed or only the rules it was computed with.
 - **The approval** (`approve`) records the statement the person saw (the request carries its fingerprint; a change
   since is a conflict) as the package's next version. It needs every source document from an approved run, or accepted
   by a person when it came from an evaluation on the command line (`accept_sources`, DECISIONS 132), and no decision
@@ -73,6 +77,26 @@ _LINE_FACTS = ("account", "statement_type", "currency", "booking_date", "value_d
 
 def fingerprint(content: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(content, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()
+
+
+# 227: what a statement was computed with, not what it says
+RULE_KEYS = ("engine_version", "config_hash")
+
+
+def content_fingerprint(content: dict[str, Any]) -> str:
+    """The fingerprint of a statement's content without the rules it was computed with (`RULE_KEYS`)."""
+    return fingerprint({k: v for k, v in content.items() if k not in RULE_KEYS})
+
+
+def since_approval(wp_id: str, content: dict[str, Any], approval: dict[str, Any]) -> dict[str, bool] | None:
+    """227: what changed since the approved version, measured on the statement as it stands now (`content`): its
+    content (`content_changed`, a warning) or only its rules (`rules_changed`: the rule file or the engine's version,
+    a note). None while nothing is approved."""
+    if not (active := approval.get("active")):
+        return None
+    approved = approved_version(wp_id, active["version"])["statement"]
+    return {"content_changed": content_fingerprint(approved) != content_fingerprint(content),
+            "rules_changed": any(approved.get(k) != content.get(k) for k in RULE_KEYS)}
 
 
 # --- the statement ---------------------------------------------------------------------------------------------------------
@@ -143,12 +167,13 @@ def build(ws: dict[str, Any], name: str) -> dict[str, Any]:
 
 @store.one_connection
 def current(wp_id: str) -> dict[str, Any]:
-    """The package's statement as it stands now, its fingerprint, what blocks its approval, its warnings and the
-    package's approval (`reconcile_package.approval`)."""
+    """The package's statement as it stands now, its fingerprint, what blocks its approval, its warnings, the
+    package's approval (`reconcile_package.approval`) and what changed since it (227, `since_approval`)."""
     ws = rp.workspace(wp_id)
     content = build(ws, work.get(wp_id)["name"])
     return {"statement": content, "fingerprint": fingerprint(content), "blockers": ws["blockers"],
-            "warnings": content["warnings"], "approval": ws["approval"]}
+            "warnings": content["warnings"], "approval": ws["approval"],
+            "since_approval": since_approval(wp_id, content, ws["approval"])}
 
 
 def approved_version(wp_id: str, n: int, c: Any = None) -> dict[str, Any]:
