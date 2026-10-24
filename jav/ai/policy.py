@@ -1,4 +1,9 @@
-"""Decision rules - thresholds and routes come from `configs/policy.json` (config as data), the logic is here.
+"""Decision rules - the shared thresholds come from `configs/policy.json` (config as data), the logic is here.
+
+224 (plan G-process-core P3c): a domain's own rules are in its own file, read by its own module: the email routes
+(`configs/email.json`, `jav/domains/email/email_rules.py`), the duplicate search and the reconciliation's bands
+(`configs/finance.json`, `jav/domains/finance/duplicates.py`, `jav/domains/finance/reconcile.py`). They judge with the
+bands here.
 
 JEV's raw probabilities (`FieldPick.probabilities`, `JevVerdicts.flags`, `IntentResult.signals`) stay untouched in the
 state; only their interpretation happens here. Changing a threshold (in the JSON, with a version bump) needs no re-run
@@ -11,25 +16,20 @@ type-independent and live here.
 
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Any, Literal
 
 from jav.ai import checks
 from jav.core import cfg, trace, type_roles
-from jav.domains.email.emails import Attachment
-from jav.domains.email.intents import DOCUMENT_BEARING
 from jav.ai.models import CheckResult, FlowState
 from jav.ai.typepack import get as get_pack
 
 _CFG = cfg.load("policy")
-_EMAIL = _CFG["email"]
 CONFIG_HASH = cfg.config_hash("policy")
 
 NONE_LABEL: str = _CFG["none_label"]
 DETECT_DETAIL: dict[str, Any] = dict(_CFG["detect_detail"])  # 047 T1.2: threshold of the detailed-type code decision
 DETECT_ISSUER: dict[str, Any] = dict(_CFG["detect_issuer"])  # 090: the type / issuer cross-check
 GPT_FIELD_CONFIDENCE: dict[str, Any] = dict(_CFG["gpt_field_confidence"])  # 091: a GPT field's confidence without JEV
-RECONCILE: dict[str, Any] = dict(_CFG["reconcile"])  # 130: the card pair's band around the converted amount
 
 # --------------------------------------------------------------------------------------
 # Bands (policy.json v1.1.0): named sets per call site, precedence by the length of the dotted prefix
@@ -482,20 +482,6 @@ def apply_cross_document_checks(state: FlowState) -> list[list[str]]:
     return [reasons for reasons, _ in found]
 
 
-def reconcile_fx_tolerance() -> tuple[Decimal, Decimal]:
-    """130 (DECISIONS 130): how far below and above the invoice amount converted at the MNB rate a forint card line may
-    be for the pair to be proposed, as fractions (0.02, 0.05: -2% ... +5%). A proposal only; a person decides."""
-    band = RECONCILE["fx_tolerance"]
-    return Decimal(str(band["below"])), Decimal(str(band["above"]))
-
-
-def reconcile_fx_bank_tolerance(basis: str) -> tuple[Decimal, Decimal]:
-    """149: how far below and above the invoice amount converted at the MNB rate of the `basis` day (fulfilment or
-    booking) a forint bank line may be for the pair to be proposed, as fractions. A proposal only; a person decides."""
-    band = RECONCILE["fx_bank_tolerance"][basis]
-    return Decimal(str(band["below"])), Decimal(str(band["above"]))
-
-
 def decide(state: FlowState) -> str:
     """'auto' or 'human'. The latch already holds every earlier reason; here the decision's checks add theirs, in the
     check registry's order (175, `jav/ai/checks.py`): the path's own checks and the failed record checks, then the
@@ -571,75 +557,7 @@ trace.register(trace.Point(
 
 
 # --------------------------------------------------------------------------------------
-# M3: email intent -> next_flow (code decides; JEV's raw intent + confidence + Noul signals stay in the state)
+# M3: the email intent's band (224: its routes and signals are the email domain's, `jav/domains/email/email_rules.py`)
 # --------------------------------------------------------------------------------------
 
 INTENT_HUMAN_MAX_CONF: float = band("email.intent")["choice_human_max_conf"]  # below: manual queue, whatever the label
-M2_TYPES = frozenset(type_roles.types("email_extraction"))  # has / will have an M2 flow
-INTENT_ROUTE: dict[str, str] = dict(_EMAIL["intent_route"])  # attachment-independent default per intent
-EMAIL_JEV_UNAVAILABLE_ROUTE: str = _EMAIL["jev_unavailable_route"]  # JEV did not answer -> manual queue
-EMAIL_SENT_ROUTE: str = _EMAIL["sent_route"]  # 149: a message we sent, without a document attachment
-
-
-EMAIL_SIGNAL_REVIEW: tuple[str, ...] = tuple(_EMAIL.get("signal_review", ()))  # signals whose yes band means review
-EMAIL_SIGNAL_ROUTES: dict[str, str] = dict(_EMAIL.get("signal_routes", {}))  # yes-band signal -> route (overrides all)
-
-
-def email_signal_reasons(signals: dict[str, float] | None) -> list[str]:
-    """Review reasons of the M3 Noul signals: `signal:<key>:<p>` in the `yes` band of `email.signal` (uncertain only
-    if enabled)."""
-    out: list[str] = []
-    for key in EMAIL_SIGNAL_REVIEW:
-        p = (signals or {}).get(key)
-        if p is None:
-            continue
-        reason = noul_review_reason("signal", key, float(p), "email.signal")
-        if reason:
-            out.append(reason)
-    return out
-
-
-def email_signal_route(signals: dict[str, float] | None) -> str | None:
-    """Signal-driven route (e.g. injected instruction -> `human:suspicious`) if the signal is in the `yes` band of
-    `email.signal`."""
-    for key, route in EMAIL_SIGNAL_ROUTES.items():
-        p = (signals or {}).get(key)
-        if p is not None and noul_band(float(p), "email.signal") == "yes":
-            return route
-    return None
-
-
-def email_next_flow(
-    intent: str, confidence: float, attachments: list[Attachment], probabilities: dict[str, float] | None = None, signals: dict[str, float] | None = None
-) -> str:
-    """Deterministic route: signal route (injected instruction) -> band (threshold + second-option gap) -> for a
-    document-bearing intent, the attachment's type -> default."""
-    signal_route = email_signal_route(signals)
-    if signal_route:
-        return signal_route
-    if choice_needs_review(confidence, probabilities, "email.intent"):
-        return _EMAIL["low_conf_route"]
-    if intent in DOCUMENT_BEARING:
-        by_attachment = _attachment_route(attachments)
-        if by_attachment:
-            return by_attachment
-    return INTENT_ROUTE.get(intent, _EMAIL["default_route"])
-
-
-def _attachment_route(attachments: list[Attachment]) -> str | None:
-    """The route an email's attachments give: the first attachment of a type with a data extraction, else text
-    recognition or type recognition still to do; None if no attachment decides."""
-    typed = [a for a in attachments if a.doc_type in M2_TYPES]
-    if typed:
-        return f"m2:{typed[0].doc_type}"
-    if any(a.status == "needs_ocr" for a in attachments):
-        return _EMAIL["needs_ocr_route"]
-    if any(a.ext == ".pdf" and a.status in (None, "name_only", "skipped") for a in attachments):
-        return _EMAIL["detect_route"]
-    return None
-
-
-def email_sent_route(attachments: list[Attachment]) -> str:
-    """149: the route of a message we sent. It has no intent to ask about (the intent question reads the sender's aim),
-    so its attachments decide, as for a document-bearing intent; without a deciding attachment it is archived."""
-    return _attachment_route(attachments) or EMAIL_SENT_ROUTE

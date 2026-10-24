@@ -40,8 +40,10 @@ function row(code: string, values: RuleValue[], extra: Partial<DsRow> = {}): DsR
   return { _key: code, area: p.area, decision: p.title, what: p.what, not_for: p.not_for, values: "", files: "",
     decisions: 0, current: 0, last_at: null, _values: values, _files: [POLICY], ...extra };
 }
-const value = (code: string, key: string, format: RuleValue["format"], v: unknown): RuleValue =>
-  ({ file: "policy.json", key, label: label(code, key), format, value: v });
+// 224: an email's next step reads the email domain's own rule file besides the shared bands
+const EMAIL = { file: "email.json", title: "Email routes", version: "1.0.0", dated: "2026-10-24", count: null, since: null };
+const value = (code: string, key: string, format: RuleValue["format"], v: unknown, file = "policy.json"): RuleValue =>
+  ({ file, key, label: label(code, key), format, value: v });
 
 const TYPE = row("detect.doc_type", [
   value("detect.doc_type", "bands.default.choice_human_max_conf", "percent", 0.6),
@@ -49,12 +51,12 @@ const TYPE = row("detect.doc_type", [
   value("detect.doc_type", "bands.default.uncertain_review", "yes_no", false),
 ], { decisions: 13, current: 12, last_at: "2026-10-24T08:00:00+00:00" });
 const NEXT = row("email.next_flow", [
-  value("email.next_flow", "email.intent_route", "routes", [
+  value("email.next_flow", "intent_route", "routes", [
     [intentName("quote_request"), { code: "m2:quote_request", reads_text: true }],
     [intentName("szamlakuldes"), { code: "human:fetch_document", reads_text: false }],
-  ]),
-  value("email.next_flow", "email.sent_route", "route", { code: "archive:sent", reads_text: false }),
-]);
+  ], "email.json"),
+  value("email.next_flow", "sent_route", "route", { code: "archive:sent", reads_text: false }, "email.json"),
+], { _files: [POLICY, EMAIL] });
 const DETAIL = row("detect.detail_type", [
   value("detect.detail_type", "bands.default.choice_human_max_conf", "percent", 0.6),
 ]);
@@ -121,11 +123,12 @@ describe("Settings › Rules (218)", () => {
     const steps = within(sheet).getAllByRole("listitem").map((li) => li.textContent);
     expect(steps).toContain(`${intentName("quote_request")} → ${nextFlowText("m2:quote_request", true)}`);
     expect(steps).toContain(`${intentName("szamlakuldes")} → ${nextFlowText("human:fetch_document")}`);
-    expect(within(sheet).getByText(hu[label("email.next_flow", "email.sent_route")]).nextElementSibling?.textContent)
+    expect(within(sheet).getByText(hu[label("email.next_flow", "sent_route")]).nextElementSibling?.textContent)
       .toBe(nextFlowText("archive:sent"));
     const file = steps.find((s) => s?.includes("policy.json")) ?? "";
     expect(file).toContain(fill(hu["version {{version}} of {{date}}"], { version: "1.25.0", date: new Date("2026-10-21T00:00:00").toLocaleDateString("hu-HU") }));
     expect(file).toContain(hu["in use here since {{when}}"].split("{{when}}")[0]);
+    expect(steps.find((s) => s?.includes("email.json")) ?? "").toContain(hu["Email routes"]);
     expect(sheet.textContent).toContain(hu["No decision of this kind has been recorded yet."]);
     fireEvent.click(within(sheet).getByRole("button", { name: hu["Close"] }));
     expect(screen.queryByRole("region", { name: hu[points["email.next_flow"].title] })).toBeNull();

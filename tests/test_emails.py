@@ -2,7 +2,7 @@
 
 import json
 
-from jav.ai import policy
+from jav.domains.email import email_rules
 from jav.domains.email.emails import OLD_INTENT_GOLDEN, Attachment, EmailMessage, clean_body, load_message_dir, load_old_golden, sender_domain
 from jav.domains.email.intent import NOUL_KEYS, build_questions, build_state
 from jav.domains.email.intents import BY_KEY, DOCUMENT_BEARING, INTENT_KEYS, OTHER, choice_criteria
@@ -62,14 +62,14 @@ def test_sender_domain():
 def test_next_flow_policy():
     pdf_typed = [Attachment(filename="a.pdf", path="a.pdf", doc_type="invoice_hu", type_conf=0.98, status="done")]
     pdf_name_only = [Attachment(filename="a.pdf", status="name_only")]
-    assert policy.email_next_flow("szamlakuldes", 0.3, pdf_typed) == "human:low_confidence"
-    assert policy.email_next_flow("szamlakuldes", 0.9, pdf_typed) == "m2:invoice_hu"
-    assert policy.email_next_flow("szamlakuldes", 0.9, pdf_name_only) == "m1:detect"
-    assert policy.email_next_flow("szamlakuldes", 0.9, []) == "human:fetch_document"
-    assert policy.email_next_flow("fizetesi_visszaigazolas", 0.9, []) == "archive:payment_proof"
-    assert policy.email_next_flow("business_correspondence", 0.9, []) == "human:inbox"
-    assert policy.email_next_flow("newsletter_marketing", 0.9, []) == "archive"
-    assert policy.email_next_flow("szamlakuldes", 0.9, [Attachment(filename="s.pdf", path="s.pdf", status="needs_ocr")]) == "m2:needs_ocr"
+    assert email_rules.email_next_flow("szamlakuldes", 0.3, pdf_typed) == "human:low_confidence"
+    assert email_rules.email_next_flow("szamlakuldes", 0.9, pdf_typed) == "m2:invoice_hu"
+    assert email_rules.email_next_flow("szamlakuldes", 0.9, pdf_name_only) == "m1:detect"
+    assert email_rules.email_next_flow("szamlakuldes", 0.9, []) == "human:fetch_document"
+    assert email_rules.email_next_flow("fizetesi_visszaigazolas", 0.9, []) == "archive:payment_proof"
+    assert email_rules.email_next_flow("business_correspondence", 0.9, []) == "human:inbox"
+    assert email_rules.email_next_flow("newsletter_marketing", 0.9, []) == "archive"
+    assert email_rules.email_next_flow("szamlakuldes", 0.9, [Attachment(filename="s.pdf", path="s.pdf", status="needs_ocr")]) == "m2:needs_ocr"
 
 
 def test_load_message_dir(tmp_path):

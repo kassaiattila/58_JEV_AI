@@ -18,6 +18,9 @@ _RECORDED = (
     re.compile(r"\bevent=\(\"([a-z_]+)\""),
     re.compile(r"\b_set_wp\([^,]+, \"([a-z_]+)\""),
 )
+# 224: a logic pack's approval and reopening through the shared steps, named by its kind (`<event>_approve`, `_reopen`)
+_SHARED = ((re.compile(r"\bapprove_own\(\s*c, [^,]+, event=\"([a-z_]+)\""), "_approve"),
+           (re.compile(r"\breopen_logged\(\s*c, [^,]+, event=\"([a-z_]+)\""), "_reopen"))
 
 
 def _recorded_actions() -> set[str]:
@@ -28,12 +31,15 @@ def _recorded_actions() -> set[str]:
         text = path.read_text(encoding="utf-8")
         for pattern in _RECORDED:
             found.update(pattern.findall(text))
+        for pattern, suffix in _SHARED:
+            found.update(kind + suffix for kind in pattern.findall(text))
     return found
 
 
 def test_the_scan_finds_the_package_events() -> None:
     found = _recorded_actions()
     assert {"archive", "items_add", "run_supersede", "reconcile_approve", "statement_scope"} <= found
+    assert {"reconcile_reopen", "quote_approve", "quote_reopen"} <= found  # 224: through the shared steps
 
 
 def test_every_recorded_package_event_has_an_activity_label() -> None:

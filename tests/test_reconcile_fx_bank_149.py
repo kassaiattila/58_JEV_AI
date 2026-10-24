@@ -5,7 +5,7 @@ Measured on their 11 named payments of 2022-2026: a Hungarian buyer pays the for
 invoice's fulfilment day (5 of 5 to the forint), and a bank converts foreign money at its own rate on the booking day
 (6 of 6 within 0.6-1.1% below the MNB rate); at the issue day's rate, as a card line is compared, they scatter from -6%
 to +4%. So a forint bank line is compared at the rate of the fulfilment day, then of the booking day, each with its own
-band (`policy.json` `reconcile.fx_bank_tolerance`), in the invoice's payment window; CHF is handled, and the forint bank
+band (`finance.json` `reconcile.fx_bank_tolerance`; until 224 `policy.json`), in the invoice's payment window; CHF is handled, and the forint bank
 accounts count in such an invoice's coverage. A card line is compared as before.
 
 Synthetic documents, made-up accounts and invented rates only; no AI call, no network.
@@ -17,7 +17,6 @@ import copy
 from datetime import date
 from decimal import Decimal
 
-from jav.ai import policy
 from jav.domains.finance import reconcile
 
 CASES = {c["id"]: c for c in reconcile.golden_cases()}
@@ -53,8 +52,8 @@ def test_outside_both_bands_the_nearest_conversion_is_shown():
 
 
 def test_the_bands_come_from_the_policy():
-    assert policy.reconcile_fx_bank_tolerance("fulfillment") == (Decimal("0.005"), Decimal("0.005"))
-    assert policy.reconcile_fx_bank_tolerance("booking") == (Decimal("0.02"), Decimal("0.02"))
+    assert reconcile.fx_bank_tolerance("fulfillment") == (Decimal("0.005"), Decimal("0.005"))
+    assert reconcile.fx_bank_tolerance("booking") == (Decimal("0.02"), Decimal("0.02"))
     # just outside the fulfilment day's band and the booking day's: not proposed
     cand = _candidate("fx_bank_fulfilment_rate", amount="375700.00")  # +2.05% / +3.50%
     assert not cand["proposed"] and cand["amount_relation"] == "fx_outside"

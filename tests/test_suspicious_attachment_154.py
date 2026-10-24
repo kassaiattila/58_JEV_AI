@@ -12,9 +12,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav.domains.email import mailbox
+from jav.domains.email import email_rules, mailbox
 from jav.app import work, work_readiness, work_recipes, work_runs
-from jav.ai import policy
 from jav.core import store
 from jav.domains.finance import reconcile, statement_months as sm
 from jav.runtime import worker
@@ -27,7 +26,7 @@ REASON = "attachment:suspicious_email"
 
 def _run(env, monkeypatch, *, suspicious: bool) -> tuple[str, dict, dict]:  # noqa: F811 - the fixture's name
     if suspicious:
-        monkeypatch.setattr(policy, "email_next_flow", lambda *a, **k: "human:suspicious")
+        monkeypatch.setattr(email_rules, "email_next_flow", lambda *a, **k: "human:suspicious")
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge([_mail_with_pdf(env), MAILS[1]]), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
     work_recipes.assign_recipe(wp_id, "processing", params={"arm": "S"}, expected_revision=1, actor="t")

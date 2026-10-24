@@ -4,7 +4,7 @@ Plain-language summary (DECISIONS 178): a person uploads their own Excel file wi
 package's result, its utility cost, a reconciliation statement). The upload is checked (`jav/app/outputs/fill.py`); a
 refused file is not stored, and the check names every problem. A stored file is a version of its template: a draft
 first, which can be previewed with made-up data, then made active (the earlier active version is superseded), and a
-template can be retired. Each package chooses, per output, the built-in template or an active own one; the download
+template can be retired (224: the shared versions, `jav/core/versions.py`). Each package chooses, per output, the built-in template or an active own one; the download
 and the release use the choice, and what a release or an approval stores records the template and its version. A
 template version never changes (its bytes are kept), so a stored output can always be traced to the file it came from.
 
@@ -19,7 +19,7 @@ import secrets
 from typing import Any
 
 from jav.app import logic_packs, work
-from jav.core import activity_kinds, decisions, store
+from jav.core import activity_kinds, decisions, store, versions
 from jav.app.outputs import builtin, contract, docx, fill, samples
 from jav.core.clock import utc_stamp as _now
 
@@ -27,7 +27,7 @@ from jav.core.clock import utc_stamp as _now
 activity_kinds.register_events("package", ("output_template_choose",), __name__)
 
 BUILTIN = "builtin"
-STATES = ("draft", "active", "superseded", "retired")
+STATES = versions.STATES
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
@@ -87,12 +87,16 @@ class TemplateRefused(ValueError):
         self.check = check
 
 
-class TemplateNotFound(KeyError):
+class TemplateNotFound(versions.VersionNotFound):
     """No such template or version."""
 
 
-class TemplateStateError(ValueError):
+class TemplateStateError(versions.VersionStateError):
     """The template or version is not in a state that allows this (a retired template chosen, a draft retired)."""
+
+
+# 224 (plan G-process-core P3c): the versions' states and their changes are the shared ones (`jav/core/versions.py`)
+VERSIONS = versions.VersionTable("output_templates", "template", not_found=TemplateNotFound, state_error=TemplateStateError)
 
 
 def _view(row: Any) -> dict[str, Any]:
@@ -120,12 +124,10 @@ def add(output: str, name: str, file_name: str, content: bytes, *, actor: str, t
         if template is None:
             template, version = "tpl-" + secrets.token_hex(5), 1
         else:
-            row = c.execute("SELECT output, MAX(version) AS n FROM output_templates WHERE template=?", (template,)).fetchone()
-            if row is None or row["n"] is None:
-                raise TemplateNotFound(template)
-            if row["output"] != output:
-                raise TemplateStateError(f"template {template} is a template of {row['output']}")
-            version = row["n"] + 1
+            latest = VERSIONS.latest(c, template)
+            if latest["output"] != output:
+                raise TemplateStateError(f"template {template} is a template of {latest['output']}")
+            version = latest["version"] + 1
         c.execute("INSERT INTO output_templates(template, output, name, version, state, file_name, sha256, content, checks,"
                   " uploaded_by, uploaded_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                   (template, output, name, version, "draft", file_name, hashlib.sha256(content).hexdigest(), content,
@@ -135,18 +137,13 @@ def add(output: str, name: str, file_name: str, content: bytes, *, actor: str, t
 
 def get(template: str, version: int) -> dict[str, Any]:
     with store.connect() as c:
-        row = c.execute("SELECT * FROM output_templates WHERE template=? AND version=?", (template, version)).fetchone()
-    if row is None:
-        raise TemplateNotFound(f"{template} version {version}")
-    return _view(row)
+        return _view(VERSIONS.row(c, template, version))
 
 
 def content(template: str, version: int) -> tuple[bytes, str]:
     """A version's file as it was uploaded, and its file name."""
     with store.connect() as c:
-        row = c.execute("SELECT content, file_name FROM output_templates WHERE template=? AND version=?", (template, version)).fetchone()
-    if row is None:
-        raise TemplateNotFound(f"{template} version {version}")
+        row = VERSIONS.row(c, template, version)
     return bytes(row["content"]), row["file_name"]
 
 
@@ -156,19 +153,9 @@ def listing(output: str | None = None) -> list[dict[str, Any]]:
         rows = c.execute("SELECT template, output, name, version, state, file_name, sha256, checks, uploaded_by, uploaded_at,"
                          " activated_by, activated_at, retired_by, retired_at, length(content) AS size FROM output_templates"
                          " ORDER BY id DESC").fetchall()
-    out: dict[str, dict[str, Any]] = {}
-    for r in rows:
-        if output and r["output"] != output:
-            continue
-        v = _view(r) | {"size": r["size"]}
-        t = out.setdefault(r["template"], {"template": r["template"], "output": r["output"], "name": r["name"],
-                                           "active": None, "retired": False, "versions": []})
-        t["versions"].append(v)
-        if v["state"] == "active":
-            t["active"] = v["version"]
-        if v["state"] == "retired":
-            t["retired"] = True
-    return list(out.values())
+    return VERSIONS.grouped((r for r in rows if not output or r["output"] == output),
+                            lambda r: {"template": r["template"], "output": r["output"], "name": r["name"]},
+                            lambda r: _view(r) | {"size": r["size"]})
 
 
 def activate(template: str, version: int, *, actor: str) -> dict[str, Any]:
@@ -176,14 +163,7 @@ def activate(template: str, version: int, *, actor: str) -> dict[str, Any]:
     superseded. A retired template comes back with it."""
     with store.connect() as c:
         store.begin_immediate(c)
-        row = c.execute("SELECT state FROM output_templates WHERE template=? AND version=?", (template, version)).fetchone()
-        if row is None:
-            raise TemplateNotFound(f"{template} version {version}")
-        if row["state"] == "active":
-            raise TemplateStateError(f"{template} version {version} is already active")
-        c.execute("UPDATE output_templates SET state='superseded' WHERE template=? AND state IN ('active', 'retired')", (template,))
-        c.execute("UPDATE output_templates SET state='active', activated_by=?, activated_at=?, retired_by=NULL, retired_at=NULL"
-                  " WHERE template=? AND version=?", (actor, _now(), template, version))
+        VERSIONS.activate(c, template, version, actor=actor)
     return get(template, version)
 
 
@@ -191,16 +171,12 @@ def retire(template: str, *, actor: str) -> dict[str, Any]:
     """Retires the template: its active version is no longer chosen; a package that chose it gets the built-in template."""
     with store.connect() as c:
         store.begin_immediate(c)
-        row = c.execute("SELECT version FROM output_templates WHERE template=? AND state='active'", (template,)).fetchone()
-        if row is None:
-            raise TemplateStateError(f"{template} has no active version")
-        c.execute("UPDATE output_templates SET state='retired', retired_by=?, retired_at=? WHERE template=? AND version=?",
-                  (actor, _now(), template, row["version"]))
-    return get(template, row["version"])
+        n = VERSIONS.retire(c, template, actor=actor)
+    return get(template, n)
 
 
 def _active(c: Any, template: str) -> Any:
-    return c.execute("SELECT * FROM output_templates WHERE template=? AND state='active'", (template,)).fetchone()
+    return VERSIONS.active(c, template)
 
 
 def preview(template: str, version: int) -> tuple[bytes, str]:

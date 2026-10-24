@@ -14,7 +14,6 @@ from __future__ import annotations
 import pytest
 
 from jav.app import work
-from jav.ai import policy
 from jav.core import cfg, store
 from jav.domains.finance import reconcile, reconcile_ai, reconcile_package as rp, reconcile_review as rr
 from tests import test_reconcile_k2_129 as k2
@@ -97,12 +96,12 @@ def test_each_line_to_decide_is_in_the_first_group_that_fits(db):
     assert g["salary_rule"]["totals"] == {"HUF": "300000.00"} and g["sure_pairs"]["count"] == 1
     # what the code left out, by its reason, for information
     assert {k: v["count"] for k, v in view["excluded"].items()} == {"payment_kind_review": 1, "not_outgoing_payment": 1}
-    assert view["threshold"] == policy.RECONCILE["ai_sure"]["min_jev_probability"] == 0.95
+    assert view["threshold"] == reconcile.ai_sure_probability() == 0.95
 
 
 def test_the_ai_threshold_comes_from_the_policy(db, monkeypatch):
     wp_id, ids, _inv = _setup()
-    monkeypatch.setitem(policy.RECONCILE, "ai_sure", {"min_jev_probability": 0.99})
+    monkeypatch.setitem(cfg.load("finance")["reconcile"]["ai_sure"], "min_jev_probability", 0.99)
     members = _members(rr.review(wp_id), ids)
     assert members["ai_sure"] == [] and members["ai_review"] == ["ai_sure", "ai_low", "ai_one"]
 

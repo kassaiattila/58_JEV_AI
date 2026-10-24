@@ -29,6 +29,11 @@ them back (`own_versions`, `own_version`, `own_approval`, `active_own`, `own_fil
 The release view of a package lists its released results only, so a logic pack's own versions show in its own page as
 before. An older store's own version tables of a logic pack are copied in once (`copy_older_own`, registered by the
 logic pack).
+
+224 (plan G-process-core P3c): the logic packs approve and reopen through the same steps, in one order and one
+transaction (`approve_own`, `reopen_logged`): the version, the kind's files and the package log's entry. The kind
+checks its blockers and the fingerprint the person saw before, in its own words. Only one own version of a package
+holds at a time: `record_own` refuses a second (`OwnVersionHolds`), so two approvals in a race cannot both hold.
 """
 
 from __future__ import annotations
@@ -36,6 +41,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -508,11 +514,21 @@ def active_own(c: sqlite3.Connection | None = None) -> dict[str, dict[str, Any]]
                                                              " ORDER BY id")})
 
 
+class OwnVersionHolds(work.RevisionConflict):
+    """224: an own version of the package holds already (a person approved it meanwhile); one holds at a time."""
+
+
 def record_own(c: sqlite3.Connection, wp_id: str, *, content: dict[str, Any], fingerprint: str, locks: list[str],
                actor: str) -> int:
     """Records the package's next own version, in the caller's write transaction (its checks, files and log entry go
     with it): the content as the person approved it, its fingerprint and what it locks. Returns its number. 215: the
-    package's approval task is decided by the approver (`human_tasks.own_approved`)."""
+    package's approval task is decided by the approver (`human_tasks.own_approved`). 224: `OwnVersionHolds` while
+    another own version of the package holds."""
+    held = c.execute("SELECT version FROM package_versions WHERE workpackage_id=? AND content IS NOT NULL"
+                     " AND reopened_at IS NULL", (wp_id,)).fetchone()
+    if held is not None:
+        raise explained(OwnVersionHolds, "version {{version}} was approved meanwhile; reload the package",
+                        version=held["version"])
     n = (c.execute("SELECT MAX(version) FROM package_versions WHERE workpackage_id=?", (wp_id,)).fetchone()[0] or 0) + 1
     cur = c.execute("INSERT INTO package_versions(workpackage_id, version, mark, items, runs, released_by, released_at, content,"
                     " locks) VALUES (?,?,?,?,?,?,?,?,?)", (wp_id, n, fingerprint, "[]", "[]", actor, _now(),
@@ -535,6 +551,35 @@ def reopen_own(c: sqlite3.Connection, wp_id: str, *, note: str, actor: str) -> i
     human_tasks.own_approval_waits(c, wp_id, by=human_tasks.person(actor), reopened=row["version"])
     workflow_cases.package_reopened(c, wp_id, human_tasks.person(actor), f"its approved version {row['version']} was reopened")
     return row["version"]
+
+
+def approve_own(c: sqlite3.Connection, wp_id: str, *, event: str, content: dict[str, Any], fingerprint: str,
+                locks: list[str], actor: str, files: Callable[[sqlite3.Connection, int], None],
+                details: dict[str, Any]) -> int:
+    """224 (plan G-process-core P3c): a logic pack's approval of its package as its next own version, in the caller's
+    write transaction and in the same order for every kind (the reconciliation's statement, the quote): the version
+    (`record_own`; refused while another holds), its files as the kind makes them (`files(c, n)`), and the package
+    log's `<event>_approve` entry with the version, the fingerprint and the kind's `details`. The kind has checked its
+    blockers and the fingerprint the person saw. Returns the version's number."""
+    n = record_own(c, wp_id, content=content, fingerprint=fingerprint, locks=locks, actor=actor)
+    files(c, n)
+    work.record_event(c, wp_id, f"{event}_approve", actor, {"version": n, "fingerprint": fingerprint, **details})
+    return n
+
+
+def reopen_logged(c: sqlite3.Connection, wp_id: str, *, event: str, note: str, actor: str,
+                  files: Callable[[sqlite3.Connection, int], None] | None = None) -> int | None:
+    """224: reopens the package's own version that holds, with the person's reason, in the caller's write transaction
+    (`reopen_own`): its files as the kind makes them for an earlier version (`files(c, n)`), and the package log's
+    `<event>_reopen` entry. Returns its number; None, with nothing written, when no version holds (the kind names that
+    to the person)."""
+    n = reopen_own(c, wp_id, note=note, actor=actor)
+    if n is None:
+        return None
+    if files is not None:
+        files(c, n)
+    work.record_event(c, wp_id, f"{event}_reopen", actor, {"version": n, "note": note})
+    return n
 
 
 def store_own_files(c: sqlite3.Connection, wp_id: str, n: int, state: str,

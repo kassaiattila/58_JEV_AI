@@ -18,10 +18,10 @@ from typesafe_sdk import Noul
 
 from jav.app import naming
 from jav.flows import flow
-from jav.ai import detect_detail, doc_types, extract_llm, policy, typepack
+from jav.ai import detect_detail, doc_types, extract_llm, typepack
 from jav.documents import text_document
 from jav.core import store
-from jav.domains.email import intents
+from jav.domains.email import email_rules, intents
 from jav.ai import jev as jev_mod
 from jav.domains.email.emails import Attachment
 from jav.ai.jev_verify import site_for
@@ -89,10 +89,10 @@ def test_the_detection_type_is_its_own_family_and_needs_no_detail_question():
 def test_the_intent_routes_to_the_quote_requests_extraction():
     intent = intents.BY_KEY[KEY]
     assert intent.document_bearing and intent.parent == "human_correspondence"
-    assert policy.INTENT_ROUTE[KEY] == f"m2:{KEY}" and KEY in policy.M2_TYPES
-    assert policy.email_next_flow(KEY, 0.97, [], {KEY: 0.97, "business_correspondence": 0.02}) == f"m2:{KEY}"
+    assert email_rules.INTENT_ROUTE[KEY] == f"m2:{KEY}" and KEY in email_rules.M2_TYPES
+    assert email_rules.email_next_flow(KEY, 0.97, [], {KEY: 0.97, "business_correspondence": 0.02}) == f"m2:{KEY}"
     form = Attachment(filename="keroiv.pdf", path="keroiv.pdf", doc_type=KEY, status="done")
-    assert policy.email_next_flow(KEY, 0.97, [form], {KEY: 0.97}) == f"m2:{KEY}"
+    assert email_rules.email_next_flow(KEY, 0.97, [form], {KEY: 0.97}) == f"m2:{KEY}"
 
 
 def test_the_examples_are_not_the_invented_golden_emails():

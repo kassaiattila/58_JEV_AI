@@ -46,15 +46,15 @@ ROLES: dict[str, tuple[str, Any]] = {
                            lambda: _policy("detect_detail", "direction_sides", "incoming")),
     "direction:outgoing": ("policy.json detect_detail.direction_sides.outgoing",
                            lambda: _policy("detect_detail", "direction_sides", "outgoing")),
-    "email_extraction": ("policy.json email.m2_types", lambda: _policy("email", "m2_types")),
+    "email_extraction": ("email.json m2_types", lambda: list(cfg.load("email")["m2_types"])),
 }
 
 DUPLICATE_PREFIX = "duplicate:"
 
 
 def duplicate_families() -> dict[str, list[str]]:
-    """The duplicate search's families in their order (`policy.json` `duplicates.families`): family -> its types."""
-    return {name: list(types) for name, types in cfg.load("policy")["duplicates"]["families"].items()}
+    """The duplicate search's families in their order (`finance.json` `duplicates.families`): family -> its types."""
+    return {name: list(types) for name, types in cfg.load("finance")["duplicates"]["families"].items()}
 
 
 def names() -> list[str]:
@@ -65,7 +65,7 @@ def names() -> list[str]:
 def source(role: str) -> str:
     """Where a role's list is written."""
     if role.startswith(DUPLICATE_PREFIX) and role[len(DUPLICATE_PREFIX):] in duplicate_families():
-        return f"policy.json duplicates.families.{role[len(DUPLICATE_PREFIX):]}"
+        return f"finance.json duplicates.families.{role[len(DUPLICATE_PREFIX):]}"
     if role not in ROLES:
         raise UnknownRole(f"no type role is defined as {role!r}")
     return ROLES[role][0]

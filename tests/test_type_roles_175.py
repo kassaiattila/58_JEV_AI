@@ -10,8 +10,9 @@ from __future__ import annotations
 import pytest
 
 from jav.app import parties
-from jav.ai import doc_types, policy
+from jav.ai import doc_types
 from jav.core import cfg, type_roles
+from jav.domains.email import email_rules
 from jav.domains.finance import duplicates, reconcile, report_utility
 from jav.ai.typepack import get as get_pack
 
@@ -29,10 +30,10 @@ def test_each_role_reads_its_list_in_order() -> None:
     assert type_roles.types("own_tax_check") == tuple(cfg.load("parties")["supplier_check"]["doc_types"])
     assert type_roles.types("utility") == tuple(cfg.load("reports")["utility_cost"]["utilities"])
     assert type_roles.types("hungarian_issuer") == tuple(cfg.load("policy")["detect_issuer"]["hungarian_types"])
-    assert type_roles.types("email_extraction") == tuple(cfg.load("policy")["email"]["m2_types"])
+    assert type_roles.types("email_extraction") == tuple(cfg.load("email")["m2_types"])
     for side in ("incoming", "outgoing"):
         assert type_roles.types(f"direction:{side}") == tuple(cfg.load("policy")["detect_detail"]["direction_sides"][side])
-    for family, members in cfg.load("policy")["duplicates"]["families"].items():
+    for family, members in cfg.load("finance")["duplicates"]["families"].items():
         assert type_roles.types(f"duplicate:{family}") == tuple(members)
 
 
@@ -40,7 +41,7 @@ def test_a_type_answers_its_roles_and_an_unknown_role_is_named() -> None:
     assert type_roles.roles("invoice_out") == ("outgoing_invoice", "direction:outgoing", "duplicate:invoice")
     assert type_roles.has("statement_table", "statement") and not type_roles.has(None, "statement")
     assert type_roles.duplicate_family("proforma_invoice") == "proforma" and type_roles.duplicate_family("statement_cib") is None
-    assert type_roles.source("duplicate:invoice") == "policy.json duplicates.families.invoice"
+    assert type_roles.source("duplicate:invoice") == "finance.json duplicates.families.invoice"
     with pytest.raises(type_roles.UnknownRole):
         type_roles.types("invoice")
     with pytest.raises(type_roles.UnknownRole):
@@ -53,7 +54,7 @@ def test_the_readers_ask_the_roles() -> None:
     assert parties.supplier_check_types() == frozenset(cfg.load("parties")["supplier_check"]["doc_types"])
     assert reconcile.handles("invoice_foreign") and reconcile.handles("statement_erste") and not reconcile.handles("invoice_out")
     assert report_utility.has_utility([{"doc_type": "foldgaz_szamla"}]) and not report_utility.has_utility([{"doc_type": None}])
-    assert policy.M2_TYPES == frozenset(cfg.load("policy")["email"]["m2_types"])
+    assert email_rules.M2_TYPES == frozenset(cfg.load("email")["m2_types"])
 
 
 # --- the lists agree with each other and with the type packs -----------------------------------------------------------

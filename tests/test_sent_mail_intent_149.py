@@ -17,7 +17,7 @@ import json
 import pytest
 
 from jav.domains.email import email_store, email_tasks, flow_email, intent_gpt, mailbox
-from jav.ai import policy
+from jav.domains.email import email_rules
 from jav.core import store
 from jav.ai import jev as jev_mod
 from jav.domains.email.emails import Attachment, load_message_dir
@@ -57,7 +57,7 @@ def test_a_sent_message_is_not_asked_about_and_leaves_no_to_do(env):
     st = flow_email.run_email(str(_email_dir(env)))
     assert env["client"].requests == []  # nothing asked about the message
     assert st.result is None and not st.uncertain and st.final_status == "done"
-    assert st.next_flow == policy.EMAIL_SENT_ROUTE == "archive:sent"
+    assert st.next_flow == email_rules.EMAIL_SENT_ROUTE == "archive:sent"
     assert store.review_open_reasons("email", "m1") == []
 
 
@@ -66,7 +66,7 @@ def test_a_sent_message_attachment_is_still_recognised(env):
     [att] = st.message.attachments
     assert att.status not in (None, "skipped") and att.doc_id  # the attachment recognition ran
     assert _intent_questions(env["client"]) == 0 and st.result is None
-    assert st.next_flow == policy.email_sent_route(st.message.attachments)
+    assert st.next_flow == email_rules.email_sent_route(st.message.attachments)
 
 
 def test_without_jev_gpt_is_not_asked_either(env, monkeypatch):
@@ -110,4 +110,4 @@ def test_an_inbox_message_is_still_asked(env):
     ([Attachment(filename="a.png", path="a.png", status="unsupported")], "archive:sent"),
 ])
 def test_the_attachments_decide_a_sent_message_route(atts, route):
-    assert policy.email_sent_route(atts) == route
+    assert email_rules.email_sent_route(atts) == route

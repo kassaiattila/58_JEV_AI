@@ -26,7 +26,8 @@ its approval as an unchangeable version that locks its lines, and its download.
   (`reconcile-versions-backfill`) records its file.
 - 186 (plan G-full-move T2d): the versions and their files are the package's own versions in the shared version store
   (`jav/app/package_release.py`: `record_own`, `reopen_own`, `store_own_files`, `own_version`, `own_file`); this module
-  decides what is approved, what blocks it, and how its file is made.
+  decides what is approved, what blocks it, and how its file is made. 224: it approves and reopens through the shared
+  steps (`approve_own`, `reopen_logged`).
 
 Nothing here calls an AI model or the network. Layer: UI/CLI → **this** (application operation) →
 `jav.domains.finance.reconcile_package` (the workspace, the decisions and the approval tables) and `jav.app.work` (the package and its log).
@@ -176,11 +177,11 @@ def approve(wp_id: str, *, fingerprint: str, actor: str) -> dict[str, Any]:
     content, line_ids = view["statement"], [ln["id"] for ln in view["statement"]["lines"]]
 
     def write(c) -> int:
-        n = package_release.record_own(c, wp_id, content=content, fingerprint=fingerprint, locks=line_ids, actor=actor)
         # 178: the version's file as approved, made from the statement as stored (the download read it so before)
-        _store_file(c, wp_id, approved_version(wp_id, n, c), chosen=True)
-        work.record_event(c, wp_id, "reconcile_approve", actor, {"version": n, "fingerprint": fingerprint, "lines": len(line_ids)})
-        return n
+        return package_release.approve_own(
+            c, wp_id, event="reconcile", content=content, fingerprint=fingerprint, locks=line_ids, actor=actor,
+            files=lambda c, n: _store_file(c, wp_id, approved_version(wp_id, n, c), chosen=True),
+            details={"lines": len(line_ids)})
     n = rp._write(state, write)
     return {k: v for k, v in approved_version(wp_id, n).items() if k != "statement"}
 
@@ -191,16 +192,16 @@ def reopen(wp_id: str, *, note: str, actor: str) -> dict[str, Any]:
     if not note:
         raise explained(rp.PackageError, "reopening needs a reason")
     rp.scope(wp_id)
-    with store.connect() as c:
-        store.begin_immediate(c)
-        n = package_release.reopen_own(c, wp_id, note=note, actor=actor)
-        if n is None:
-            raise explained(rp.PackageError, "the package has no approved statement to reopen")
+    def earlier(c, n: int) -> None:
         # 178: the version's file as an earlier one (its heading names who reopened it, when and why)
         made = package_release.own_file(wp_id, n, package_release.APPROVED, c)
         _store_file(c, wp_id, approved_version(wp_id, n, c),
                     made={k: made[k] for k in ("template", "template_version")} if made else None)
-        work.record_event(c, wp_id, "reconcile_reopen", actor, {"version": n, "note": note})
+
+    with store.connect() as c:
+        store.begin_immediate(c)
+        if package_release.reopen_logged(c, wp_id, event="reconcile", note=note, actor=actor, files=earlier) is None:
+            raise explained(rp.PackageError, "the package has no approved statement to reopen")
     return rp.approval(wp_id)
 
 

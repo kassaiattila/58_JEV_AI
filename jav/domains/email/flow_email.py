@@ -7,9 +7,9 @@
   `unsupported` (OCR = extension B5); a PDF the reader cannot read -> `unreadable` + an email to-do (078).
 - `intent`: one JEV request (Choice + 4 Nouls) through the adapter (cache + ledger); without JEV (089) the same
   questions in one GPT request (`jav/domains/email/intent_gpt.py`), its confidence from the answer's token log-probabilities.
-- `route`: `policy.email_next_flow` - code decides from the intent, the confidence and the attachment types.
+- `route`: `email_rules.email_next_flow` - code decides from the intent, the confidence and the attachment types.
 - 149: a sent message (`folder = 'sent'`) is not asked about its intent (the question reads the sender's aim, and the
-  call is paid): its attachments still run and decide the route (`policy.email_sent_route`), no task proposal is made,
+  call is paid): its attachments still run and decide the route (`email_rules.email_sent_route`), no task proposal is made,
   and without a problem it leaves no to-do.
 - `save`: `emails` table (the latest per email) and `email_results` (the run's own row, with the part of the email text
   that was seen, 058 K5.1); uncertain intent -> review_queue (per reason, additive), certain -> its own earlier reasons
@@ -39,7 +39,7 @@ from pydantic import BaseModel, Field
 from jav.ai import policy, typepack
 from jav.documents import text_document
 from jav.core import store, trace
-from jav.domains.email import email_store
+from jav.domains.email import email_rules, email_store
 from jav.domains.email.emails import DOC_EXTS, Attachment, EmailMessage, body_coverage, document_text, load_message_dir
 from jav.ai.engine import with_engine
 from jav.domains.email.intent import IntentResult
@@ -207,7 +207,7 @@ def intent_rule(inputs: Mapping[str, Any]) -> dict[str, Any]:
     callsite = "email.intent" + (".gpt" if inputs["engine"] == "gpt" else "")
     measured = inputs["measured"]
     uncertain = not measured or policy.choice_needs_review(inputs["confidence"], inputs["probabilities"], callsite)
-    reasons = ([] if measured else ["intent:confidence_unavailable"]) + policy.email_signal_reasons(inputs["signals"])
+    reasons = ([] if measured else ["intent:confidence_unavailable"]) + email_rules.email_signal_reasons(inputs["signals"])
     return {"intent": inputs["intent"], "uncertain": bool(uncertain), "reasons": reasons}
 
 
@@ -220,27 +220,28 @@ def _route_inputs(state: EmailState) -> dict[str, Any]:
 
 
 def next_flow_rule(inputs: Mapping[str, Any]) -> dict[str, Any]:
-    """The email's next step (`policy.email_next_flow`): a message we sent goes by its attachments (149); without an
+    """The email's next step (`email_rules.email_next_flow`): a message we sent goes by its attachments (149); without an
     intent (the question failed) to the manual queue; otherwise a yes-band signal's route, the low-confidence route, a
     document-bearing intent's attachment type, or the intent's own route."""
     atts = [Attachment(filename=a["filename"], doc_type=a["doc_type"], status=a["status"]) for a in inputs["attachments"]]
     if inputs["folder"] == "sent":
-        return {"next_flow": policy.email_sent_route(atts)}
+        return {"next_flow": email_rules.email_sent_route(atts)}
     if inputs["intent"] is None:
-        return {"next_flow": policy.EMAIL_JEV_UNAVAILABLE_ROUTE}
-    return {"next_flow": policy.email_next_flow(inputs["intent"], inputs["confidence"], atts, inputs["probabilities"],
-                                                inputs["signals"])}
+        return {"next_flow": email_rules.EMAIL_JEV_UNAVAILABLE_ROUTE}
+    return {"next_flow": email_rules.email_next_flow(inputs["intent"], inputs["confidence"], atts, inputs["probabilities"],
+                                                     inputs["signals"])}
 
 
-def _route_keys(inputs: Mapping[str, Any]) -> tuple[str, ...]:
-    attachment = ("email.m2_types", "email.needs_ocr_route", "email.detect_route")
+def _route_keys(inputs: Mapping[str, Any]) -> dict[str, tuple[str, ...]]:
+    """The rule keys the next step read, by rule file: the email routes (`email.json`) and the shared bands the
+    confidence and the signals were judged with (`policy.json`)."""
+    attachment = ("m2_types", "needs_ocr_route", "detect_route")
     if inputs["folder"] == "sent":
-        return ("email.sent_route", *attachment)
+        return {"email.json": ("sent_route", *attachment)}
     if inputs["intent"] is None:
-        return ("email.jev_unavailable_route",)
-    return ("email.signal_routes", *policy.band_keys("email.signal", "noul_yes_min"),
-            *policy.band_keys("email.intent", *_CHOICE_FIELDS), "email.low_conf_route", *attachment,
-            "email.intent_route", "email.default_route")
+        return {"email.json": ("jev_unavailable_route",)}
+    return {"email.json": ("signal_routes", "low_conf_route", *attachment, "intent_route", "default_route"),
+            "policy.json": (*policy.band_keys("email.signal", "noul_yes_min"), *policy.band_keys("email.intent", *_CHOICE_FIELDS))}
 
 
 def _trace(c: Any, state: EmailState) -> None:
@@ -252,20 +253,21 @@ def _trace(c: Any, state: EmailState) -> None:
         inputs = _intent_inputs(r)
         callsite = "email.intent" + (".gpt" if r.engine == "gpt" else "")
         trace.record_in(c, INTENT_POINT, subject=subject, inputs=inputs, outcome=intent_rule(inputs), run_id=state.run_id,
-                        keys={"policy.json": (*policy.band_keys(callsite, *_CHOICE_FIELDS), "email.signal_review",
-                                              *policy.band_keys("email.signal", *_SIGNAL_FIELDS))})
+                        keys={"policy.json": (*policy.band_keys(callsite, *_CHOICE_FIELDS),
+                                              *policy.band_keys("email.signal", *_SIGNAL_FIELDS)),
+                              "email.json": ("signal_review",)})
     inputs = _route_inputs(state)
     trace.record_in(c, NEXT_FLOW_POINT, subject=subject, inputs=inputs, outcome=next_flow_rule(inputs),
-                    keys={"policy.json": _route_keys(inputs)}, run_id=state.run_id)
+                    keys=_route_keys(inputs), run_id=state.run_id)
 
 
 trace.register(trace.Point(
-    INTENT_POINT, owner=__name__, files=("policy.json",), rule=intent_rule,
+    INTENT_POINT, owner=__name__, files=("policy.json", "email.json"), rule=intent_rule,
     what="whether an email's recognised intent waits for a person (unmeasured or in the review band), and the to-dos of "
          "its signals (an injected instruction)",
     not_for="which intent the recogniser chose (its answer is an input) or the email's next step"))
 trace.register(trace.Point(
-    NEXT_FLOW_POINT, owner=__name__, files=("policy.json",), rule=next_flow_rule,
+    NEXT_FLOW_POINT, owner=__name__, files=("policy.json", "email.json"), rule=next_flow_rule,
     what="an email's next step: a data extraction of an attachment's type, text or type recognition, a person's queue, "
          "the route of a signal or of the intent, or archiving",
     not_for="the extraction itself or a person's later routing of an attachment (the email routing package)"))
@@ -416,7 +418,7 @@ CONTRACT = {  # the graph declaration: FLOW.md + Mermaid + lint come from it (ja
         "load_message": {"kind": "det", "note": "inbox/<mailbox>/<msgid>/message.json + fájlok, vagy kész EmailMessage (golden)"},
         "classify_attachments": {"kind": "flow", "note": "minden PDF-csatolmányon az M1 doc_detect gráf (a levél run_id-je alatt: <run_id>-doc_detect), eredmény a csatolmányra + documents.source_email; kép -> unsupported, névből ismert -> name_only; olvashatatlan PDF -> unreadable + teendő (attachment:unreadable), a levél tovább fut"},
         "intent": {"kind": "jev", "note": "egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben. Without JEV: the same questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/domains/email/intent_gpt.py); a failed call is an intent:gpt_failed to-do (and no attachment recognition in this flow: the attachments are recognised as items of their own). A sent message (folder = sent, 149) is not asked: no call, no to-do"},
-        "route": {"kind": "det", "note": "policy.email_next_flow: conf küszöb -> csatolmány M1-típusa -> szándékonkénti alapértelmezés. A sent message (149): policy.email_sent_route, its attachments' types, else archive:sent. 190: a route to a type pack that reads text (the quote request), with the recipe's email_text setting on, names the follow-up stage: the extraction flow on the email's own text; 192: and one on each table attachment when the pack reads tables"},
+        "route": {"kind": "det", "note": "email_rules.email_next_flow (224: the email domain's own rules, configs/email.json): the confidence threshold -> the attachment's M1 type -> the intent's default route. A sent message (149): email_rules.email_sent_route, its attachments' types, else archive:sent. 190: a route to a type pack that reads text (the quote request), with the recipe's email_text setting on, names the follow-up stage: the extraction flow on the email's own text; 192: and one on each table attachment when the pack reads tables"},
         "tasks": {"kind": "llm", "note": "feladatjavaslat (GPT, a régi email-actions v1.3.0 utasítása) + kódos bizonyíték-kapu; csak ha a recept kéri, archiválandó levélen nem; javaslat -> teendő (ember fogadja el). Not for a sent message (149)"},
         "save": {"kind": "store", "note": "emails + email_results (a futás sora, a feladatjavaslat is); bizonytalan intent / javaslat -> review_queue (additív), különben a korábbi tétel zárul; 190: the email's own text as a document tied to the email (documents.source_email), when a follow-up extracts it"},
         "done": {"kind": "terminal", "note": "szándék + next_flow mentve"},

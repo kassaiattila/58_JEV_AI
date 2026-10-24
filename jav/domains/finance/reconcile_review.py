@@ -9,7 +9,7 @@ still decides is in the first group that fits, in this order:
 - `bank_category`: the reason the line's own category in the bank's export suggests (`reconcile.category_mark`);
 - `salary_rule`: the salary reason the memo or the description suggests (`reconcile.salary_mark`);
 - `ai_sure`: both engines (JEV and GPT) give the same kind of payment, it suggests a reason, and JEV's probability is
-  at least the policy's threshold (`policy.json` `reconcile.ai_sure`, the owner's decision: 0.95);
+  at least the threshold (`finance.json` `reconcile.ai_sure`, the owner's decision: 0.95);
 - `ai_review`: the AI suggests a reason below the threshold, or only one engine answered: to look at;
 - `expects_invoice`: the AI's kind says an invoice is expected and the line has no candidate (for information);
 - `rest`: everything else, for the pairing page.
@@ -22,7 +22,7 @@ only the lines still in it (a stale view is refused), all or none: a sure pair i
 the group as its `basis`. Agreement of the two models is not measured correctness; a person accepts each group.
 
 Layer: UI/CLI → **this** (application operation) → `jav.domains.finance.reconcile_package` (the workspace, the pairs, the marks),
-`jav.domains.finance.reconcile` (the salary rule) and `jav.ai.policy` (the threshold). No AI call: it reads the answers already stored.
+`jav.domains.finance.reconcile` (the salary rule and the threshold). No AI call: it reads the answers already stored.
 """
 
 from __future__ import annotations
@@ -32,7 +32,6 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from jav.app import work
-from jav.ai import policy
 from jav.core import values
 from jav.domains.finance import reconcile, reconcile_package
 from jav.core.user_messages import explained
@@ -120,7 +119,7 @@ def review(wp_id: str) -> dict[str, Any]:
     sure: dict[str, list[str]] = defaultdict(list)
     for p in reconcile_package.proposed_pairs(wp_id):
         sure[p["line_id"]].append(p["invoice_doc_id"])
-    threshold = float(policy.RECONCILE["ai_sure"]["min_jev_probability"])
+    threshold = reconcile.ai_sure_probability()
     invoices = {i["id"]: i for i in ws["invoices"]}
     groups: dict[str, list[dict[str, Any]]] = {g: [] for g in GROUPS}
     shown_only: Counter[str] = Counter()  # 158: lines a group shows for information, with nothing for a person to decide

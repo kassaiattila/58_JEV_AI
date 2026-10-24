@@ -311,10 +311,10 @@ def extract(snap: dict[str, Any], *, intent_hint: dict[str, Any] | None, run_id:
 def skip_reason(next_flow: str | None, *, signals: dict[str, float] | None = None, has_intent: bool = True) -> str | None:
     """Whether the proposal is skipped for the email (decided in code): for an email to be archived
     (`configs/email_tasks.json`), and, since 066 Á28, on the signal-driven suspicious route (the yes band of the
-    injected-instruction signal, policy `email.signal_routes`) and without an intent result."""
+    injected-instruction signal, `email.json` `signal_routes`) and without an intent result."""
     if next_flow and any(next_flow == p or next_flow.startswith(p + ":") for p in CFG["skip_route_prefixes"]):
         return "archived_route"
-    from jav.ai.policy import email_signal_route
+    from jav.domains.email.email_rules import email_signal_route
 
     if email_signal_route(signals):
         return "suspicious_signal"
