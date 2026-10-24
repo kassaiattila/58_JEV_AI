@@ -29,12 +29,12 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
 
   if (page.error?.status === 404 || page.error?.status === 422) {
     return (
-      <PageHeader crumbs={[{ label: t("Munkacsomagok"), href: "#/workpackages" }]} title={t("The case was not found")}
+      <PageHeader crumbs={[{ label: t("Work packages"), href: "#/workpackages" }]} title={t("The case was not found")}
         summary={<><span className="mono">{caseId}</span>: {t("there is no case with this identifier.")}</>} />
     );
   }
   if (page.error) return <p className="notice error" role="alert">{page.error.message}</p>;
-  if (!page.data) return <p className="muted">{t("Betöltés…")}</p>;
+  if (!page.data) return <p className="muted">{t("Loading…")}</p>;
   const view = page.data;
   const shown = view.tabs.find((x) => x.id === tab) ?? view.tabs.find((x) => x.id === defaultTab(view)) ?? view.tabs[0];
   const props = (element: ElementProps["element"]): ElementProps => ({ caseId, element, page: view, onChanged: page.reload });
@@ -45,7 +45,7 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
 
   return (
     <>
-      <PageHeader compact crumbs={[{ label: t("Munkacsomagok"), href: "#/workpackages" }]} title={view.case.name ?? t(view.case.title)}
+      <PageHeader compact crumbs={[{ label: t("Work packages"), href: "#/workpackages" }]} title={view.case.name ?? t(view.case.title)}
         summary={summary} />
       <div className="stage-tabs" role="tablist" aria-label={t("The case's steps")}>
         {view.tabs.map((x, i) => (
