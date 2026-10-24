@@ -23,7 +23,7 @@
     {"id": "compose", "uses": "line_draft@1", "title": "Quote", "gates": ["request"], "after": ["match"],
      "params": {"catalogue": "@price_list"}},
     {"id": "document", "uses": "priced_document@1", "title": "Word quote", "gates": ["compose"],
-     "params": {"output": "@quote_output"}},
+     "params": {"output": "@quote_output", "from_step": "compose"}},
     {"id": "letter", "uses": "letter_draft@1", "title": "Reply letter", "gates": ["document"], "start": "person",
      "params": {"frame": "@letter_frame", "callsite": "quote_letter"}}
   ],

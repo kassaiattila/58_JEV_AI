@@ -21,6 +21,7 @@ themselves live in the domains and register from their `register()`.
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -30,13 +31,16 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ValidationError
 
-from jav.core import calls, completion
-from jav.core.process import kinds
+from jav.core import calls, completion, identity
+from jav.core.process import cases, kinds, tasks
 from jav.core.process.engine import StepContext
 
 __all__ = ["Capability", "CapabilityError", "PROVIDERS", "catalogue", "of", "register", "step_budget"]
 
 PROVIDERS = ("jev", "openai", "azure_di")
+STEP_START = "step_start"  # 231 (A5): the human task of a step a person starts (a paid one, `_start: person`)
+AWAITING_START, STARTED = "awaiting_start", "started"  # the step's phases while it waits for a person's start
+MACHINE = "process-core"  # the machine that runs a step a person started, for that person
 _NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
@@ -112,10 +116,32 @@ def _check(cap: Capability) -> None:
         raise CapabilityError(f"capability {cap.key}: " + "; ".join(problems))
 
 
+def _starter(ctx: StepContext) -> identity.Actor | None:
+    """231 (A5): the person who started the step (`_start: person`), or None while nobody has. The first time it opens
+    the step's start task, which the step waits for; the decided task starts it."""
+    subject = f"{ctx.case_id}:{ctx.step.id}"
+    with ctx.transaction() as c:
+        task = tasks.task_in(c, tasks.task_id(STEP_START, subject))
+        if task is not None and task.status == tasks.DECIDED:
+            if cases.step_row(c, ctx.case_id, ctx.step.id).get("phase") != STARTED:
+                cases.set_phase(c, ctx.case_id, ctx.step.id, STARTED)
+            return task.closed_by
+        if task is None or task.status != tasks.OPEN:
+            tasks.open_in(c, STEP_START, subject, ctx.actor, case_id=ctx.case_id, step_id=ctx.step.id)
+        cases.set_phase(c, ctx.case_id, ctx.step.id, AWAITING_START)
+    return None
+
+
 def _runner(cap: Capability) -> Callable[[StepContext], kinds.StepOutcome]:
     """The capability's step kind: the step's parameters checked first (keys starting with `_` are the process pack's
     own, e.g. how the step starts, and are not the capability's)."""
     def run(ctx: StepContext) -> kinds.StepOutcome:
+        if (ctx.step.params or {}).get("_start") == "person":
+            starter = _starter(ctx)
+            if starter is None:
+                return kinds.WAIT
+            # 229 (SZ2c-3): the machine works for the person who started it, under that person's name
+            ctx = dataclasses.replace(ctx, actor=identity.acting_for(MACHINE, starter.name, starter))
         try:
             params = cap.params.model_validate({k: v for k, v in (ctx.step.params or {}).items() if not k.startswith("_")})
         except ValidationError as exc:
@@ -135,7 +161,8 @@ def register(cap: Capability) -> None:
         raise CapabilityError(f"capability {cap.key} is registered by {prior.module}, not by {cap.module}")
     _CAPS[cap.key] = cap
     if cap.run is not None:
-        kinds.register(kinds.StepKind(name=cap.step_kind, owner=cap.module, run=_runner(cap), events=cap.events,
+        kinds.register(kinds.StepKind(name=cap.step_kind, owner=cap.module, run=_runner(cap),
+                                      events=tuple(dict.fromkeys((*cap.events, tasks.EVENT))),
                                       on_event=cap.on_event, on_timer=cap.on_timer,
                                       described={"capability": cap.key, "summary": cap.summary, **cap.described}))
 
@@ -163,3 +190,6 @@ def step_budget(case_id: str, step_id: str, round_: int, limits: dict[str, Decim
     again keeps the scope and what it has spent, so a retried step cannot spend its cap twice."""
     with calls.outside_run(f"case:{case_id}:{step_id}:{round_}", limits) as scope:
         yield scope
+
+
+tasks.register_kind(tasks.TaskKind(STEP_START, __name__))

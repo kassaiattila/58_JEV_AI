@@ -2437,5 +2437,7 @@
   "Whether a workflow step's package starts its live run or waits for a person to approve a budget: the run's estimated cost for each AI provider against the budget a person approved for the step.": "Whether a workflow step's package starts its live run or waits for a person to approve a budget: the run's estimated cost for each AI provider against the budget a person approved for the step.",
   "The run's spending while it runs (the call log keeps that).": "The run's spending while it runs (the call log keeps that).",
   "Estimated cost of a document": "Estimated cost of a document",
-  "Estimated cost of an email": "Estimated cost of an email"
+  "Estimated cost of an email": "Estimated cost of an email",
+  "the record is named by its work package and item": "the record is named by its work package and item",
+  "the record a case starts from is missing": "the record a case starts from is missing"
 }

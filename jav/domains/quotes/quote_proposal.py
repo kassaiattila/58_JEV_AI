@@ -100,9 +100,10 @@ def _row(c: Any, wp_id: str) -> Any:
     return c.execute("SELECT * FROM quote_proposals WHERE workpackage_id=?", (wp_id,)).fetchone()
 
 
-def request(wp_id: str, *, actor: identity.Who) -> dict[str, Any]:
+def request(wp_id: str, *, actor: identity.Who, selection: str = price_lists.NEWEST_ACTIVE) -> dict[str, Any]:
     """Queues the package's proposal with the application's engine and the cap for its requested items; a proposal
-    already queued or running is returned as it is. `ProposalRefused` when it cannot be asked."""
+    already queued or running is returned as it is. `ProposalRefused` when it cannot be asked. 231 (A5): `selection`
+    is the process's price list choice (`price_lists.chosen`)."""
     from jav.core import queue
 
     req = _source(wp_id)
@@ -110,7 +111,7 @@ def request(wp_id: str, *, actor: identity.Who) -> dict[str, Any]:
         raise explained(ProposalRefused, "the request names no item")
     if len(req.items) > int(settings()["max_items"]):
         raise explained(ProposalRefused, "the request names more items than a proposal asks about: {{n}}", n=len(req.items))
-    prices = _active()
+    prices = _active(selection)
     if prices is None:
         raise explained(ProposalRefused, "there is no active price list")
     engine = app_settings.engine_default()

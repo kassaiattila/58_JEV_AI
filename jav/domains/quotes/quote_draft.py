@@ -154,8 +154,8 @@ def _quote_package() -> Any:
 
 
 def _package(wp_id: str) -> None:
-    """KeyError for a package that is not a quote's (the service's 404)."""
-    if work.get(wp_id)["source_kind"] != _quote_package().KIND:
+    """KeyError for a package that is not a quote's (the service's 404); 231 (A5): a case's container may hold a quote."""
+    if work.get(wp_id)["source_kind"] not in (_quote_package().KIND, _quote_package().CONTAINER):
         raise KeyError(wp_id)
 
 

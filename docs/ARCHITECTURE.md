@@ -960,3 +960,15 @@ output, a dangling reference and any string naming a Python module. `definition(
 definition of the pack's version (`pack_<id>`), each step's kind its capability's step kind, the pack's own settings
 as `_`-prefixed parameters the capability does not see. The first pack is the IT quote (`it_quote.json`); its cases
 start in A5. Tests: `tests/test_process_packs_231.py`.
+
+**A process pack's cases (231, plan stage A, A5).** `jav/app/process_runtime.py` `start_case(pack_id, scope, name,
+actor)` makes the case's container (a general work package of kind `case`, so every table keyed by a package keeps
+working) and, in one write transaction, its scope and the process core's case of the pack's version under the same id.
+The core moves the case on through the capabilities' step kinds. A step the pack marks `start: person` waits for a
+`step_start` human task; the decided task starts it, and the step then runs for that person (the machine acting for
+them, `identity.acting_for`, as an automatic workflow step does). The quote's capabilities run on the container
+(`jav/domains/quotes/capabilities.py` `run`): the request read with the pack's record type, the proposal job queued and
+waited for with a retry timer, the draft started from the proposal and waited for until a person approves it (the
+package's own approval task), the priced document from the approved version the pack names (`from_step`), the letter
+job queued and waited for. The IT quote's cases give the results the quote package's path recorded before stage A
+(`tests/test_quote_case_231.py`, `tests/fixtures/quote_path_231.json`).

@@ -27,13 +27,14 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav.app import app_settings, item_kinds, logic_packs, package_release, package_scope, work, workflow_steps
+from jav.app import app_settings, item_kinds, logic_packs, package_release, package_scope, scopes, work, workflow_steps
 from jav.core import identity, store
 from jav.domains.quotes import price_lists, quote_draft, quote_letter, quote_proposal, quote_request
 from jav.app.tablequery import fold
 from jav.core.user_messages import explained
 
 KIND = "quote"
+CONTAINER = "case"  # 231 (A5): the general container of a process pack's case (`jav/app/process_runtime.py`)
 REQUEST = "request"  # the scope part naming the request: {"workpackage_id", "item_id"}
 MAX_CANDIDATES = 50
 
@@ -99,9 +100,10 @@ def create(*, name: str, source: str, item_id: str, actor: identity.Who) -> dict
 
 
 def request_of(wp_id: str) -> dict[str, str] | None:
-    """The request the package was made from: {"workpackage_id", "item_id"}; None when it names none."""
-    stored = package_scope.stored(wp_id)
-    return (stored or {}).get("parts", {}).get(REQUEST)
+    """The request the package was made from: {"workpackage_id", "item_id"}; None when it names none. 231 (A5): a
+    case's container names it as its record (the general scope part)."""
+    parts = (package_scope.stored(wp_id) or {}).get("parts", {})
+    return parts.get(REQUEST) or parts.get(scopes.RECORD)
 
 
 def _blocker(code: str, message: str) -> dict[str, str]:
