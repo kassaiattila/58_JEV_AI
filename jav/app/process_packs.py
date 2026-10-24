@@ -30,7 +30,8 @@ from jav.app import capabilities, scopes
 from jav.core import cfg
 from jav.core.process.definition import NAME, ProcessDef, StepDef
 
-__all__ = ["Element", "Intake", "PackError", "ProcessPack", "Step", "Tab", "definition", "load", "packs"]
+__all__ = ["Element", "Intake", "PackError", "PartnerLink", "ProcessPack", "Step", "Tab", "UnknownPack", "definition", "load",
+           "packs"]
 
 ELEMENTS = "screen_elements"
 _MODULE = re.compile(r"\bjav\.[a-z_]+")
@@ -38,6 +39,10 @@ _MODULE = re.compile(r"\bjav\.[a-z_]+")
 
 class PackError(ValueError):
     """A process pack that cannot be read or does not pass the check; the message lists every problem."""
+
+
+class UnknownPack(PackError):
+    """231 (B2): no process pack of this id."""
 
 
 class _Model(BaseModel):
@@ -185,7 +190,7 @@ def load(pack_id: str) -> ProcessPack:
     try:
         data = cfg.load(f"process:{pack_id}")
     except FileNotFoundError as exc:
-        raise PackError(f"no process pack {pack_id!r}") from exc
+        raise UnknownPack(f"no process pack {pack_id!r}") from exc
     try:
         pack = ProcessPack.model_validate(data)
     except ValidationError as exc:

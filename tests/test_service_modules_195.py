@@ -29,10 +29,12 @@ def test_the_shared_themes_stay_around_the_packs_and_domains_in_their_old_order(
     added = api.route_modules()
     assert tuple(added[:4]) == api.SHARED_BEFORE == ("jav.service.api_workpackages", "jav.service.api_runs", "jav.service.api_results",
                                                      "jav.service.api_items")
-    # 231 (A6): the process packs' cases come after the workflows; (B1) the partner register after them
-    assert tuple(added[-6:]) == api.SHARED_AFTER == ("jav.service.api_outputs", "jav.service.api_workflows", "jav.service.api_cases",
-                                                     "jav.service.api_partners", "jav.service.api_system", "jav.service.api_settings")
-    assert added[4:-6] == api.service_modules()
+    # 231 (A6): the process packs' cases come after the workflows; (B1) the partner register after them; (B2) the process
+    # packs' own settings after the partners
+    assert tuple(added[-7:]) == api.SHARED_AFTER == ("jav.service.api_outputs", "jav.service.api_workflows", "jav.service.api_cases",
+                                                     "jav.service.api_partners", "jav.service.api_processes",
+                                                     "jav.service.api_system", "jav.service.api_settings")
+    assert added[4:-7] == api.service_modules()
 
 
 def test_no_address_is_registered_twice_and_the_unknown_address_answers_last(tmp_path):

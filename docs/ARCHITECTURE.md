@@ -1097,3 +1097,21 @@ as a new version, its versions, retire and restore, a conflict leading to the ot
 on request) and the case page's partner card (`ui/src/elements/CaseElements.tsx` `PartnerLink`: link the partner it
 seems to be, or record the values as a partner and link it). The client reads a conflict's `other_id`
 (`ApiError.detail.other`). Tests: `tests/test_case_partners_231.py`, `ui/src/views/settings/partners231.test.tsx`.
+
+**A process's own values (231, plan stage B, B2).** A process pack names its resources in its file (which price list,
+the letter frame, the output, the send mode, and `template:<output>`, the output template its cases use); a process
+may set its own value over any of them, kept in the store (`jav/app/process_settings.py`, table
+`process_setting_versions`, keyed `<pack>/<kind>/<key>`, every change a version through the shared versioning). A
+person saves a value as a draft (`propose`), checked as the pack would be with it: the pack check runs with the value
+over the resources, so the capabilities' own checks refuse a price list with no active version, an unknown letter frame
+or an unknown output (their parameter validators, `jav/domains/quotes/capabilities.py`); a template must be an active
+own template of that output or the built-in one. A draft changes nothing until it is made active (`activate`, checked
+again); retiring the process's value brings the file's back. Who may make a value active is a rule
+(`configs/process_settings.json`: `editor` by default, the owner's decision of 2026-10-24; `owner`, the listed owners;
+`second_person`, anyone but the one who saved the draft), refused with `SettingRefused` (403). A case takes the values
+active when it starts (`process_runtime.start_case` builds its definition from `effective_resources`, and keeps them in
+its data, `resource_of`), so a change reaches the cases started after it; an output with no template chosen on the
+package takes the one the process set (`outputs.templates._chosen`). The service: `GET /api/processes`, `GET
+/api/processes/{pack_id}/settings`, `POST /api/processes/{pack_id}/settings/{key}`, `POST
+.../{key}/versions/{version}/activate`, `POST .../{key}/retire` (`jav/service/api_processes.py`; an unknown pack is 404).
+Stage B3 adds a rule's values under the same table (kind `rule`). Tests: `tests/test_process_settings_231.py`.

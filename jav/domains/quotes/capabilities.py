@@ -19,7 +19,7 @@ import time
 from collections import Counter
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from jav.app import human_tasks
 from jav.app.capabilities import Capability
@@ -39,15 +39,26 @@ class RecordAssembly(_Params):
     items_field: str = Field(min_length=1)
 
 
+def _catalogue(value: str) -> str:
+    """231 (B2): `newest_active`, or a price list that has an active version (a process's own value is checked so)."""
+    from jav.domains.quotes import price_lists
+
+    if value != price_lists.NEWEST_ACTIVE and price_lists.active(value) is None:
+        raise ValueError(f"no active price list {value!r}")
+    return value
+
+
 class CatalogueMatch(_Params):
     """Which catalogue the items are matched with (`newest_active` or a named price list), and the call site that asks."""
 
     catalogue: str = Field(min_length=1)
     callsite: str = Field(min_length=1)
+    _catalogue = field_validator("catalogue")(lambda cls, v: _catalogue(v))
 
 
 class LinePricing(_Params):
     catalogue: str = Field(min_length=1)
+    _catalogue = field_validator("catalogue")(lambda cls, v: _catalogue(v))
 
 
 class LineDraft(_Params):
@@ -55,6 +66,7 @@ class LineDraft(_Params):
 
     catalogue: str = Field(min_length=1)
     approval: Literal["own_version"] = "own_version"
+    _catalogue = field_validator("catalogue")(lambda cls, v: _catalogue(v))
 
 
 class PricedDocument(_Params):
@@ -63,12 +75,30 @@ class PricedDocument(_Params):
     output: str = Field(min_length=1)
     from_step: str = Field(min_length=1)
 
+    @field_validator("output")
+    @classmethod
+    def _known_output(cls, value: str) -> str:
+        from jav.core import cfg
+
+        if value not in (cfg.load("outputs").get("outputs") or {}):
+            raise ValueError(f"no output {value!r}")
+        return value
+
 
 class LetterDraft(_Params):
     """The letter frame's key and the call site that asks for the paragraph."""
 
     frame: str = Field(min_length=1)
     callsite: str = Field(min_length=1)
+
+    @field_validator("frame")
+    @classmethod
+    def _known_frame(cls, value: str) -> str:
+        from jav.domains.quotes import quote_document
+
+        if not isinstance(quote_document.settings().get(value), dict):
+            raise ValueError(f"no letter frame {value!r}")
+        return value
 
 
 def _container(ctx: Any) -> str:

@@ -1,0 +1,16 @@
+{
+  "meta": {
+    "name": "process_settings",
+    "version": "1.0.0",
+    "description": "231 (plan stage B, B2; DECISIONS 231): who may make a process's own value of a resource or a rule active (jav/app/process_settings.py). activation: editor (the person who edits it, or anyone; the owner's choice of 2026-10-24 as the default), owner (only the names listed in owners) or second_person (someone else than who made the draft: four eyes). Retiring a process's own value brings the file's value back.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-24",
+        "note": "231 (B2): the first version: the editor makes a value active."
+      }
+    ]
+  },
+  "activation": "editor",
+  "owners": []
+}

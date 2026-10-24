@@ -21,7 +21,7 @@ import dataclasses
 import hashlib
 import json
 import os
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -44,16 +44,18 @@ _VOLATILE = {"id", "line", "fingerprint", "state", "scope", "usage", "revision",
 
 def _clean(value: Any) -> Any:
     """The business content: identifiers (a line's, a price list's random one), times, fingerprints and states left
-    out; today's date written as a word."""
-    today = date.today().isoformat()
+    out; today's date written as a word (the local one, or the UTC one, which a stamp written after local midnight
+    may still carry)."""
     if isinstance(value, dict):
         return {k: ("<price list>" if k == "price_list" and isinstance(v, str) and v.startswith("pl-") else _clean(v))
                 for k, v in sorted(value.items())
                 if k not in _VOLATILE and not k.endswith(("_id", "_at", "_ids"))}
     if isinstance(value, (list, tuple)):
         return [_clean(v) for v in value]
-    if isinstance(value, str) and today in value:
-        return value.replace(today, "<today>")
+    if isinstance(value, str):
+        for today in {date.today().isoformat(), datetime.now(timezone.utc).date().isoformat()}:
+            value = value.replace(today, "<today>")
+        return value
     return value
 
 
