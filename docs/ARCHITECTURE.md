@@ -989,3 +989,33 @@ elements (`ui/src/views/quotes/QuoteElements.tsx`) render the quote package's pa
 carries, with the quote package's status lines; asking for the proposal or the letter starts the case's step. The
 email's "Start a quote from this email" starts an IT quote case, and the quotes made from a request list its cases too.
 The interface's translation check reads the packs' title, tab labels and step titles. Tests: `ui/src/views/case231.test.tsx`.
+
+**Older pack versions and the accepted letter (231, plan stage A, A7a, A7b).** A case keeps the version of its pack it
+started on, its screens and outputs too: `process_runtime.pack_for(case_id)` reads the pack's file as it was from the
+calculation snapshot the case was linked to when it started, so a case of 1.0.0 shows its own tabs after 1.1.0. The
+`letter_draft` step is done once a person accepted the letter, not when the paragraph is written. Tests:
+`tests/test_case_versions_231.py`, `tests/test_quote_case_231.py`.
+
+**Sending (231, plan stage A, A7c).** The general `send@1` capability (`jav/app/sending.py`) sends what a step made by
+the mode its pack names (the owner's decision of 2026-10-24: each process chooses): `output_folder` (a file under
+`<output folder>/<pack>/<case name>_<case id>/`, never overwriting another file), `outlook_draft` and `outlook_send`
+(their sender comes with the Outlook bridge, A8; until then such a step fails as not available). A message builder
+(`MessageBuilder`, registered by its capability's domain: the quote's accepted letter with its Word document,
+`quote_letter`) makes the message from the result of the step the pack names (`from_step`). The message is recorded
+with the case first (the process core's handover record, the file's bytes with it) and handed over once under its id
+(`<case>:<step>:<attempt>`). A refused handover fails the step, and a person's retry sends it again as a new attempt; a
+handover whose outcome is unknown opens a `handover_settle` task the step waits for, and the person's answer
+(`settle`) settles it as arrived or not. The real send reaches only the recipients on the allowlist of
+`configs/send.json`, which is empty; only an owner's decision adds one. Tests: `tests/test_send_231.py`.
+
+**Waiting for a reply and a person's actions (231, plan stage A, A7d).** The general `wait_reply@1` capability
+(`jav/app/replies.py`) waits for the other side's answer: the `reply` event (`replied` or `not_needed`), sent today by
+a person and later by the email intake (stage C). The step arms its `remind` timer for the days its pack sets (the
+owner's decision of 2026-10-24: 5 for the IT quote); when it fires, a `follow_up` task opens once, without a deadline,
+and the step waits for it: the person records the reply, or that they reminded the other side (`keep_waiting`), after
+which the step waits on with no further reminder. A capability may offer a person's actions on its step
+(`capabilities.Action`: a name, an English label, whether the step waits for it now, and what it does): the send step's
+"it arrived" / "it did not arrive", the reply step's "a reply arrived", "no reply is needed" and "I reminded them".
+A case's page lists each running step's available actions, and `POST /api/cases/{case_id}/steps/{step_id}/actions/{name}`
+(`case_views.act`) takes one. The "Waiting for me" list opens a case's page for a task of a process pack's case (a
+step's start, an uncertain handover, a follow-up), named by its step. Tests: `tests/test_replies_231.py`.

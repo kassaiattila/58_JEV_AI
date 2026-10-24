@@ -201,13 +201,30 @@ ELEMENTS = (("record_view", "record_assembly"), ("match_proposal", "catalogue_ma
             ("approval", "line_draft"), ("document_view", "priced_document"), ("form", "letter_draft"))
 
 
+def _letter_message(case_id: str, source: Any) -> Any:
+    """231 (A7c): the accepted letter of the approved version the letter step names (its result), as the email file
+    the send capability hands over: the letter with the version's Word document attached."""
+    from email import message_from_bytes
+    from email.policy import default
+
+    from jav.app import sending
+    from jav.domains.quotes import quote_letter
+
+    version = (source or {}).get("version") or quote_letter.view(case_id)["version"]
+    data, name = quote_letter.eml(case_id, int(version))
+    headers = message_from_bytes(data, policy=default)
+    return sending.Message(data, name, str(headers["To"]) if headers["To"] else None, str(headers["Subject"] or ""))
+
+
 def register() -> None:
-    from jav.app import capabilities, case_views
+    from jav.app import capabilities, case_views, sending
 
     for cap in CAPABILITIES:
         capabilities.register(cap)
     for element, capability in ELEMENTS:
         case_views.register(case_views.ElementData(element, capability, _OWNER, _quote_view))
+    sending.register_builder(sending.MessageBuilder("quote_letter", _OWNER, _letter_message,
+                                                    "The accepted reply letter with the quote's Word document."))
 
 
 __all__ = ["CAPABILITIES", "CatalogueMatch", "LetterDraft", "LineDraft", "LinePricing", "PricedDocument", "RecordAssembly",

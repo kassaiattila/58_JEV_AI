@@ -11,6 +11,8 @@ steps wait for a person's start; starting one decides its start task, and the wo
 - `view(case_id)`: the case, its steps and its tabs with each element's data.
 - `start_step(case_id, step_id, actor)`: a person starts a step that waits for its start (`CaseError` otherwise; an
   unknown case is a `KeyError`).
+- `act(case_id, step_id, name, actor, note)` (A7d): a person's action on a step, one its capability offers and the step
+  waits for now (say whether a message arrived, record a reply); each step's view lists the ones available.
 
 Layer: application; it uses the process packs, the capability registry, the process runtime and the process core's
 public operations.
@@ -27,7 +29,7 @@ from jav.core import completion, identity
 from jav.core.process import engine, tasks
 from jav.core.user_messages import explained
 
-__all__ = ["CaseError", "ElementData", "next_of", "register", "start_step", "view"]
+__all__ = ["CaseError", "ElementData", "act", "next_of", "register", "start_step", "view"]
 
 
 class CaseError(ValueError):
@@ -61,11 +63,18 @@ def _provider(element: str, capability: str | None) -> ElementData | None:
     return _DATA.get((element, capability)) or _DATA.get((element, None))
 
 
-def _step_view(step: process_packs.Step, row: dict[str, Any]) -> dict[str, Any]:
+def _actions(case_id: str, step: process_packs.Step, row: dict[str, Any]) -> list[dict[str, str]]:
+    """The actions of the step's capability available now (A7d); none on a step that is not running."""
+    if row.get("state") != "running":
+        return []
+    return [{"name": a.name, "label": a.label} for a in capabilities.of(step.uses).actions if a.available(case_id, step.id)]
+
+
+def _step_view(case_id: str, step: process_packs.Step, row: dict[str, Any]) -> dict[str, Any]:
     return {"title": step.title, "uses": step.uses, "start": step.start, "state": row.get("state"),
             "phase": row.get("phase"), "waiting_for": row.get("waiting_for"),
             "awaiting_start": row.get("phase") == capabilities.AWAITING_START, "note": row.get("note"),
-            "result": row.get("result")}
+            "result": row.get("result"), "actions": _actions(case_id, step, row)}
 
 
 def view(case_id: str) -> dict[str, Any]:
@@ -87,7 +96,7 @@ def view(case_id: str) -> dict[str, Any]:
         tabs.append({"id": tab.id, "label": tab.label, "elements": elements})
     return {"case": {"id": case_id, "pack": pack.id, "version": pack.version, "title": pack.title,
                      "name": state.get("data", {}).get("name"), "status": state["status"]},
-            "steps": {s.id: _step_view(s, rows.get(s.id, {})) for s in pack.steps}, "tabs": tabs,
+            "steps": {s.id: _step_view(case_id, s, rows.get(s.id, {})) for s in pack.steps}, "tabs": tabs,
             "next": _next(tabs)}
 
 
@@ -114,4 +123,18 @@ def start_step(case_id: str, step_id: str, actor: identity.Who) -> dict[str, Any
     if task is None or task.status != tasks.OPEN:
         raise explained(CaseError, "the step {{step}} does not wait for a start", step=step_id)
     tasks.decide(tid, identity.who(actor))
+    return view(case_id)
+
+
+def act(case_id: str, step_id: str, name: str, actor: identity.Who, note: str | None = None) -> dict[str, Any]:
+    """A person's action on the case's step (A7d): one its capability offers and the step waits for now; `CaseError`
+    otherwise. The worker moves the case on."""
+    pack = process_runtime.pack_for(case_id)
+    if pack is None:
+        raise KeyError(case_id)
+    step = next((s for s in pack.steps if s.id == step_id), None)
+    action = next((a for a in capabilities.of(step.uses).actions if a.name == name), None) if step else None
+    if step is None or action is None or not action.available(case_id, step_id):
+        raise explained(CaseError, "the step {{step}} does not wait for this action", step=step_id)
+    action.run(case_id, step_id, actor, note.strip() if note and note.strip() else None)
     return view(case_id)

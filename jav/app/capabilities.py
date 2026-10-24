@@ -13,7 +13,10 @@ waits instead of running (the process core's rule for an unknown kind).
 - `step_budget(case_id, step_id, round_, limits)`: the budget a paid step spends from outside a work run: one scope per
   case, step and round (`case:<case>:<step>:<round>`) with the step's cap per provider; every call goes into the call
   log and may reuse an earlier answer to the same question, and it is business work, not a measurement.
-- `of(key)`, `catalogue()`: one capability (`name@version`) and every registered one.
+- `of(key)`, `catalogue()`: one capability (`name@version`) and every registered one; `of_step_kind(kind)`: the one
+  behind a step kind.
+- `Action` (A7d): what a person may do on a step of the capability from the case's page or the "Waiting for me" list
+  (say whether a message arrived, record a reply), each available only while the step waits for it.
 
 Layer: application; it uses the process core, the call log and the shared registries' completion. The capabilities
 themselves live in the domains and register from their `register()`.
@@ -35,7 +38,8 @@ from jav.core import calls, completion, identity
 from jav.core.process import cases, kinds, tasks
 from jav.core.process.engine import StepContext
 
-__all__ = ["Capability", "CapabilityError", "PROVIDERS", "catalogue", "of", "register", "step_budget"]
+__all__ = ["Action", "Capability", "CapabilityError", "PROVIDERS", "catalogue", "of", "of_step_kind", "register",
+           "step_budget"]
 
 PROVIDERS = ("jev", "openai", "azure_di")
 STEP_START = "step_start"  # 231 (A5): the human task of a step a person starts (a paid one, `_start: person`)
@@ -46,6 +50,17 @@ _NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 
 class CapabilityError(ValueError):
     """A capability that does not fit the registry's rules, or one that is not registered."""
+
+
+@dataclass(frozen=True)
+class Action:
+    """231 (A7d): a person's action on a step: its `name`, its English `label` (the interface translates it),
+    `available(case_id, step_id)` (whether the step waits for it now) and `run(case_id, step_id, actor, note)`."""
+
+    name: str
+    label: str
+    available: Callable[[str, str], bool]
+    run: Callable[[str, str, identity.Who, str | None], None]
 
 
 @dataclass(frozen=True)
@@ -63,6 +78,7 @@ class Capability:
       the process core's handover record).
     - `run(ctx, params)`: the step's work (`kinds.StepOutcome`); None while the capability is described but not yet usable
       by a process pack. `events`, `on_event`, `on_timer`: as the process core's step kinds have them.
+    - `actions`: what a person may do on its step (A7d).
     """
 
     name: str
@@ -79,6 +95,7 @@ class Capability:
     on_event: Callable[..., str] | None = None
     on_timer: Callable[..., str] | None = None
     described: dict[str, Any] = field(default_factory=dict)
+    actions: tuple[Action, ...] = ()
 
     @property
     def key(self) -> str:
@@ -112,6 +129,9 @@ def _check(cap: Capability) -> None:
         problems.append(f"unknown effect {cap.effects!r}")
     if not cap.summary.strip():
         problems.append("it needs a summary")
+    names = [a.name for a in cap.actions]
+    if len(set(names)) != len(names) or not all(_NAME.match(n) for n in names):
+        problems.append("its actions have distinct lowercase names")
     if problems:
         raise CapabilityError(f"capability {cap.key}: " + "; ".join(problems))
 
@@ -175,6 +195,12 @@ def of(key: str) -> Capability:
         return _CAPS[key]
     except KeyError:
         raise CapabilityError(f"no capability {key} is registered") from None
+
+
+def of_step_kind(kind: str) -> Capability | None:
+    """The capability whose step kind this is (`cap.<name>.v<version>`); None for another kind."""
+    m = re.fullmatch(r"cap\.([a-z][a-z0-9_]*)\.v([0-9]+)", kind)
+    return of(f"{m.group(1)}@{m.group(2)}") if m else None
 
 
 def catalogue() -> list[Capability]:
