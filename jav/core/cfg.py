@@ -160,9 +160,10 @@ def canonical(data: dict[str, Any]) -> str:
 def config_hash(*names: str) -> str:
     """The joint hash of one or more configs (e.g. the detect call site + the doc_types registry)."""
     h = hashlib.sha256()
-    for name in sorted(names):
-        h.update(name.encode("utf-8"))
-        h.update(canonical(_file(name)).encode("utf-8"))
+    with overlay(None):  # 231 (B3): the files' hash, never a case's own values
+        for name in sorted(names):
+            h.update(name.encode("utf-8"))
+            h.update(canonical(load(name)).encode("utf-8"))
     return h.hexdigest()[:HASH_LEN]
 
 
@@ -184,7 +185,7 @@ def file_digest(path: Path) -> str:
 
 
 def version(name: str) -> str:
-    return str(_file(name)["meta"]["version"])
+    return str(load(name)["meta"]["version"])
 
 
 def all_names() -> list[str]:

@@ -18,6 +18,8 @@ it starts and keeps them: a change reaches the cases started after it.
   its active rule values, as a case keeps them (`capabilities.RULES`); `rule_keys(pack)`: the rule keys its steps'
   capabilities let it set; `view(pack_id)`: every resource and rule key with its file value, its active value and its
   versions.
+- `preview(pack_id, key, value)` (B3): what a rule value would have changed: the decisions of the process's cases that
+  read the key (the decision trace), each one's rule run again with the value it was made with and with this one.
 
 Layer: application, the shared library; it uses the process packs, the capabilities, the shared versioning and the
 output templates.
@@ -29,12 +31,13 @@ import json
 from typing import Any
 
 from jav.app import capabilities, process_packs
-from jav.core import cfg, identity, store, versions
+from jav.core import cfg, identity, store, trace, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
 __all__ = ["CONFIG", "KINDS", "RESOURCE", "RULE", "SettingError", "SettingRefused", "UnknownSetting", "activate",
-           "effective_resources", "effective_rules", "may_activate", "policy", "propose", "retire", "rule_keys", "view"]
+           "effective_resources", "effective_rules", "may_activate", "policy", "preview", "propose", "retire", "rule_keys",
+           "view"]
 
 CONFIG = "process_settings"
 RESOURCE = "resource"  # a value over a pack's resource (B2)
@@ -42,6 +45,7 @@ RULE = "rule"  # a value over a rule key its capabilities let a process set (B3)
 KINDS = (RESOURCE, RULE)
 TEMPLATE_PREFIX = "template:"  # a resource naming an output's template for the pack's cases: `template:<output>`
 EDITOR, OWNER, SECOND_PERSON = "editor", "owner", "second_person"
+PREVIEW_EXAMPLES = 20  # the changed decisions a preview lists
 
 store.register_schema("process_settings", """
 -- 231 (B2): a process pack's own values over its file's, every change a version of its own
@@ -267,3 +271,47 @@ def view(pack_id: str) -> dict[str, Any]:
                       "versions": _versions(mine)})
     return {"pack": {"id": pack.id, "title": pack.title, "version": pack.version}, "resources": resources, "rules": rules,
             "policy": policy()}
+
+
+def _with(over: cfg.Overlay | None, file: str, key: str, value: Any) -> cfg.Overlay:
+    values = {name: dict(v) for name, v in (over.values if over else {}).items()}
+    values.setdefault(file, {})[key] = value
+    return cfg.Overlay(values, over.refs if over else {})
+
+
+def preview(pack_id: str, key: str, value: Any) -> dict[str, Any]:
+    """231 (B3): what the rule value `value` of `key` would have changed, from the decision trace: every decision of the
+    process's cases that read the key, its rule run again with the values it was made with and with `value` in place
+    of the key's (nothing is written, no AI is asked). A decision whose rule fails is counted, not left out."""
+    pack = process_packs.load(pack_id)
+    keys = rule_keys(pack)
+    if problems := _problems(pack, RULE, key, value):
+        raise explained(SettingError, "the process cannot take this value: {{problems}}", problems="; ".join(problems))
+    rule = keys[key][0]
+    from jav.app import process_runtime
+
+    packs: dict[str, str | None] = {}
+    decided = changed = failed = 0
+    examples: list[dict[str, Any]] = []
+    first_error: str | None = None
+    for row in trace.reading(trace.file_of(rule.file), rule.key):
+        case_id = row.get("case_id")
+        if case_id and case_id not in packs:
+            packs[case_id] = (process_runtime.pack_of(case_id) or (None, None))[0]
+        if not case_id or packs[case_id] != pack.id:
+            continue
+        decided += 1
+        try:
+            before = trace.replay(row)
+            after = trace.replay(row, over=_with(trace.recorded_overlay(row), rule.file, rule.key, value))
+        except Exception as exc:  # noqa: BLE001 - a rule that fails on this value is counted in the preview, the first named
+            failed += 1
+            first_error = first_error or f"{row['point']}: {type(exc).__name__}: {exc}"
+            continue
+        if after != before:
+            changed += 1
+            if len(examples) < PREVIEW_EXAMPLES:
+                examples.append({"point": row["point"], "subject": f"{row['subject_kind']}:{row['subject_id']}",
+                                 "case_id": case_id, "at": row["at"], "before": before, "after": after})
+    return {"key": key, "value": value, "file_value": rule.file_value(), "decisions": decided, "changed": changed,
+            "failed": failed, "first_error": first_error, "examples": examples}

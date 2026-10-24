@@ -39,7 +39,8 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from jav.app import package_release, work
-from jav.core import activity_kinds, cfg, decisions, identity, numbers, store
+from jav.core import activity_kinds, cfg, decisions, identity, numbers, store, trace
+from jav.core.process import cases
 from jav.domains.quotes import price_lists, quote_document, quote_pricing, quote_proposal, quote_request
 from jav.ai.typepack import get as get_pack
 from jav.core.user_messages import explained
@@ -518,6 +519,11 @@ def approve(wp_id: str, *, fingerprint: str, actor: identity.Who) -> dict[str, A
             c, wp_id, event="quote", content=content, fingerprint=fingerprint, locks=[], actor=actor,
             files=lambda c, n: quote_document.store(c, wp_id, n, content, package=package, actor=actor),  # 196: its Word document
             details={"lines": len(content["lines"]), "gross": content["totals"]["gross"]})
+        # 231 (B3): the totals in the decision trace, so a process's own rounding can be tried on its approved quotes
+        trace.record_in(c, quote_pricing.AMOUNTS, subject=("quote_version", f"{wp_id}:{n}"),
+                        inputs=quote_pricing.amount_inputs(content), outcome=content["totals"],
+                        keys=quote_pricing.rounding_keys(content["currency"]),
+                        case_id=wp_id if cases.find_case_in(c, wp_id) else None)
     return approved_version(wp_id, n, with_quote=False)
 
 

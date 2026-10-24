@@ -172,7 +172,7 @@ def test_a_step_event_and_timer_run_with_the_case_s_values() -> None:
 
 def test_the_trace_names_each_config_by_its_file_under_configs() -> None:
     for name in cfg.all_names():
-        file = trace._file_of(name)
+        file = trace.file_of(name)
         assert cfg.path_of(name).relative_to(cfg.CONFIG_DIR).as_posix() == file and trace._name_of(file) == name
 
 
@@ -180,3 +180,44 @@ def test_a_key_the_file_no_longer_holds_is_left_out(caplog) -> None:
     with cfg.overlay(cfg.Overlay({"quotes": {"draft.max_lines": 9, "draft.gone": 1, "nowhere.at_all": 2}})):
         assert _max_lines() == 9 and "gone" not in cfg.load("quotes")["draft"]
     assert "holds no rule draft.gone" in caplog.text
+
+
+def test_an_approved_quote_and_its_letter_check_are_traced_decisions(golden, out) -> None:  # noqa: F811
+    cases, _seen = golden
+    case_id = _start(next(c for c in cases if c.expected.request is not None and c.expected.matches))
+    _drive(case_id, send=False, reply=False)
+    for code in ("quote.amounts", "quote.letter_check"):
+        [row] = trace.rows(point=code, case_id=case_id)
+        assert trace.replay(row) == row["outcome"], code  # the rule gives what was decided
+    [letter] = trace.rows(point="quote.letter_check", case_id=case_id)
+    assert set(letter["inputs"]) == {"chars", "found"}  # never the paragraph itself
+
+
+def test_a_preview_tries_a_value_on_the_process_s_traced_decisions(golden) -> None:  # noqa: F811
+    cases, _seen = golden
+    case_id = _start(cases[0])
+    inputs = {"currency": "HUF", "vat_percent": "27", "lines": [{"price": "1000.5", "quantity": "1", "discount_percent": "0"}]}
+    with store.connect() as c:
+        for subject, case in ((case_id, case_id), (rows.WP, None)):  # the second is no case of the process
+            trace.record_in(c, "quote.amounts", subject=("quote_version", f"{subject}:1"), inputs=inputs,
+                            outcome={"net": "1001", "vat": "270", "gross": "1271"},
+                            keys={"price_lists.json": ["rounding.HUF"]}, case_id=case)
+    shown = process_settings.preview(PACK, "price_lists.rounding.HUF", "0.01")
+    assert (shown["decisions"], shown["changed"], shown["failed"], shown["file_value"]) == (1, 1, 0, "1")
+    assert shown["examples"][0]["before"] == {"net": "1001", "vat": "270", "gross": "1271"}
+    assert shown["examples"][0]["after"] == {"net": "1000.50", "vat": "270.14", "gross": "1270.64"}
+    assert process_settings.preview(PACK, "price_lists.rounding.HUF", "1")["changed"] == 0
+    assert process_settings.preview(PACK, MAX_LINES, 5)["decisions"] == 0  # no traced decision reads it yet
+    with pytest.raises(process_settings.SettingError):
+        process_settings.preview(PACK, "price_lists.rounding.HUF", "5")
+    with TestClient(create_app(store_path=store.current_path()), base_url="http://127.0.0.1:8930") as c:
+        answer = c.post(f"/api/processes/{PACK}/rules/price_lists.rounding.HUF/preview", json={"value": "0.01"})
+        assert answer.status_code == 200 and answer.json()["changed"] == 1, answer.text
+
+
+def test_a_config_hash_is_the_file_s_also_inside_a_case() -> None:
+    cfg.config_hash.cache_clear()
+    with cfg.overlay(cfg.Overlay({"quotes": {"draft.max_lines": 9}})):
+        inside = cfg.config_hash("quotes")
+    cfg.config_hash.cache_clear()
+    assert inside == cfg.config_hash("quotes")

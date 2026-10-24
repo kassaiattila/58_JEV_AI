@@ -41,7 +41,8 @@ from typing import Any
 from pydantic import BaseModel
 
 from jav.app import naming, package_release, work
-from jav.core import activity_kinds, cfg, decisions, identity, store
+from jav.core import activity_kinds, cfg, decisions, identity, store, trace
+from jav.core.process import cases
 from jav.domains.quotes import quote_document, quote_request
 from jav.core.clock import utc_stamp as _now
 from jav.app.outputs import contract, docx, markers
@@ -178,15 +179,31 @@ def subject(content: dict[str, Any], frame_key: str = FRAME) -> str:
     return title if title.lower().startswith("re:") else frame["subject_reply"].replace("{{request_title}}", title)
 
 
+def paragraph_facts(text: str) -> dict[str, Any]:
+    """231 (B3): what the check reads of GPT's paragraph: its length and the codes of the patterns found in it (never
+    the text itself, which the decision trace would keep)."""
+    text = (text or "").strip()
+    return {"chars": len(text), "found": [code for code, pattern in CHECKS if pattern.search(text)] if text else []}
+
+
+def paragraph_problems(facts: dict[str, Any]) -> list[str]:
+    """The rule of `LETTER_CHECK`: the problems' codes of a paragraph with these facts (`paragraph_facts`)."""
+    if not facts["chars"]:
+        return ["empty"]
+    return [*facts["found"], *(["too_long"] if facts["chars"] > int(settings()["max_chars"]) else [])]
+
+
 def check_paragraph(text: str) -> list[str]:
     """What the code refuses in GPT's paragraph (DECISIONS 196): its problems' codes, none when it can be used."""
-    text = (text or "").strip()
-    if not text:
-        return ["empty"]
-    problems = [code for code, pattern in CHECKS if pattern.search(text)]
-    if len(text) > int(settings()["max_chars"]):
-        problems.append("too_long")
-    return problems
+    return paragraph_problems(paragraph_facts(text))
+
+
+LETTER_CHECK = "quote.letter_check"  # 231 (B3): the decision point of the check of GPT's paragraph
+trace.register(trace.Point(
+    LETTER_CHECK, owner=__name__, files=("quotes.json",), rule=paragraph_problems,
+    what="whether the paragraph a model wrote for a quote's reply letter can be used: not empty, no number, amount, date, "
+         "address or link in it, and not longer than the limit",
+    not_for="the letter's frame (written by code) or a person's acceptance of the letter"))
 
 
 # --- the store ------------------------------------------------------------------------------------------------------
@@ -398,11 +415,16 @@ def process_job(job: Any) -> str:
         scope = f"letter-{wp_id}-{n}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
         with calls.outside_run(scope, limits) as scope:  # 231 (A3a): business work, not a measurement
             paragraph = ask(prompt, run_id=scope)
+        facts = paragraph_facts(paragraph)
+        problems = paragraph_problems(facts)
         with store.connect() as c:
             c.execute("UPDATE quote_letters SET state='done', paragraph=?, problems=?, usage=?, scope=?, finished_at=?"
                       " WHERE workpackage_id=? AND version=?",
-                      (paragraph, json.dumps(check_paragraph(paragraph)), json.dumps(calls.budget_usage(scope), default=str),
+                      (paragraph, json.dumps(problems), json.dumps(calls.budget_usage(scope), default=str),
                        scope, _now(), wp_id, n))
+            trace.record_in(c, LETTER_CHECK, subject=("quote_letter", f"{wp_id}:{n}"), inputs=facts, outcome=problems,
+                            keys={"quotes.json": ["letter.max_chars"]},
+                            case_id=wp_id if cases.find_case_in(c, wp_id) else None)
     except Exception as exc:  # noqa: BLE001 - the letter shows why it failed; the worker goes on
         abandon(wp_id, n, f"{type(exc).__name__}: {exc}")
     return queue.complete(job.id)

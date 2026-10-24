@@ -6,7 +6,7 @@ template; `jav/app/process_settings.py`). These addresses list the processes, sh
 and the rule of who may make a value active, save a value as a draft, make a version active and set the process's own
 value aside (the file's counts again). A person the rule does not let make a value active is refused (403). 231
 (B3): the same for a rule key its capabilities let a process set (`/rules/...`; the value a whole number or one of
-the key's options).
+the key's options), and its preview on the decision trace (nothing is written).
 
 Layer: UI/CLI (the local service) → `jav.app.process_settings`, `jav.app.process_packs`.
 """
@@ -26,7 +26,7 @@ from jav.service.service_shared import Empty, In, error, human_actor
 
 PackId = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
 SettingKey = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_:]{0,79}$")]
-RuleKey = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_:.]{0,119}$")]  # 231 (B3): <rule file>.<dotted key>
+RuleKey = Annotated[str, PathParam(pattern=r"^[a-z][A-Za-z0-9_:.]{0,119}$")]  # 231 (B3): <rule file>.<dotted key>
 Version = Annotated[int, PathParam(ge=1)]
 
 
@@ -89,3 +89,8 @@ def routes(app: FastAPI, r: str) -> None:
     def process_rule_retire(pack_id: PackId, key: RuleKey, _body: Empty,
                             who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(process_settings.retire(pack_id, key, who, kind=process_settings.RULE))
+
+    @app.post(r + "/processes/{pack_id}/rules/{key}/preview")
+    def process_rule_preview(pack_id: PackId, key: RuleKey, body: RuleIn) -> dict[str, Any]:
+        """What the value would have changed in the process's traced decisions (nothing is written)."""
+        return work_views.jsonable(process_settings.preview(pack_id, key, body.value))

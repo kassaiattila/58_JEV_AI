@@ -11,7 +11,8 @@ a changed rule can be tried on the stored inputs without processing anything aga
   files it reads (a pattern names a family, such as the type packs: `types/*.json`) and its rule: a pure function of
   the stored inputs that gives the stored outcome (`replay`).
 - `record_in(c, point, subject=, inputs=, outcome=, keys=, ...)`: one trace row in the caller's write transaction.
-- `rows(...)`, `replay(row)`: reading the trace back, and the rule run again on a row's inputs.
+- `rows(...)`, `replay(row)`: reading the trace back, and the rule run again on a row's inputs; `reading(file, key)`:
+  the rows whose decision read one rule key (231 B3).
 
 231 (plan stage B, B3): a decision made while a case's own rule values lay over the files (`cfg.overlay`) records them
 beside each file it read (`process_values`: the key, the value, the stored setting and its version), and `replay` runs
@@ -104,7 +105,7 @@ def _json(value: Any) -> str:
 _FOLDERS = {"callsite": "callsites", "type": "types", "process": "processes"}  # as `cfg.path_of` places a config name
 
 
-def _file_of(name: str) -> str:
+def file_of(name: str) -> str:
     """A config name's file under `configs/`, as the trace names it (`callsite:x` -> `callsites/x.json`)."""
     prefix, _, rest = name.partition(":")
     return f"{_FOLDERS[prefix]}/{rest}.json" if rest and prefix in _FOLDERS else f"{name}.json"
@@ -115,7 +116,7 @@ def _process_values() -> dict[str, list[dict[str, Any]]]:
     over = cfg.current_overlay()
     if over is None:
         return {}
-    return {_file_of(name): [{"key": key, "value": value, **(over.refs.get(name, {}).get(key) or {})}
+    return {file_of(name): [{"key": key, "value": value, **(over.refs.get(name, {}).get(key) or {})}
                              for key, value in sorted(values.items())] for name, values in over.values.items()}
 
 
@@ -173,6 +174,14 @@ def _row(r: sqlite3.Row) -> dict[str, Any]:
     for name in ("inputs", "outcome", "rules"):
         out[name] = json.loads(out[name])
     return out
+
+
+def reading(file: str, key: str) -> list[dict[str, Any]]:
+    """231 (B3): the trace rows whose decision read rule `key` of `file` (a path under `configs/`), oldest first."""
+    with store.connect() as c:
+        found = [_row(r) for r in c.execute("SELECT * FROM decision_trace WHERE instr(rules, ?) > 0 ORDER BY id",
+                                            (_json({"file": file})[1:-1],))]
+    return [r for r in found if any(e["file"] == file and key in e["keys"] for e in r["rules"])]
 
 
 def rows(*, point: str | None = None, subject: tuple[str, str] | None = None, run_id: str | None = None,

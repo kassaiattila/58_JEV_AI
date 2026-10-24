@@ -1132,4 +1132,12 @@ capability's step kind (its run, events and timers, from the case's data), by th
 a case's package (`worker.handle`), and by the service for a request whose address names a case or a package
 (`api.CaseRoute`, the parts `case_id` and `wp_id`; `capabilities.case_rules`). A decision traced meanwhile records the
 values beside the file it read (`process_values`: key, value, setting, version), and `trace.replay` runs the rule with
-them again (or with other values, `over`). Tests: `tests/test_process_rules_231.py`.
+them again (or with other values, `over`). The quotes' two decision points read such keys: an approved quote's totals
+(`quote.amounts`, recorded at approval, its rule `quote_pricing.amounts` computing them again with the currency's
+rounding unit) and the check of the model's letter paragraph (`quote.letter_check`, its length and the patterns found,
+never the text, against `letter.max_chars`). `process_settings.preview(pack_id, key, value)` (`POST
+/api/processes/{pack_id}/rules/{key}/preview`) tries a value on the process's traced decisions that read the key
+(`trace.reading`): each rule run again with the values it was made with and with the value in place, the decisions,
+the changed ones with examples and the failed ones counted; nothing is written and no AI is asked. A key no traced
+decision reads yet (a quote's lines, a proposal's items) previews as no decision. Tests:
+`tests/test_process_rules_231.py`.
