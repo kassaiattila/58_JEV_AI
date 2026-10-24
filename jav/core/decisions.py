@@ -12,7 +12,8 @@ one place.
 - `record(c, kind, key, action, ...)`: one journal row, written inside the owner's write transaction; returns the
   decision's new state.
 - `state(c, kind, key)`, `states(c, kind, keys)`: a decision's state, the id of its latest journal row (0 before
-  any); `check(c, kind, key, expected)`: a state other than the one the page read is `work.RevisionConflict`.
+  any); `check(c, kind, key, expected)`: a state other than the one the page read is `RevisionConflict` (227: here, the
+  work package's `work.RevisionConflict` is the same class).
 - `run_state(c, run_id)`: the latest journal row of any decision made on a run (0: none), for the run's cache marks.
 - `package_state(c, workpackage_id, kinds)`, `check_package(...)`: the same for every decision of the given kinds in a
   package, for a page that changes many decisions of one package (a reconciliation).
@@ -39,10 +40,15 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from jav.app import work
 from jav.core import store
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
+
+class RevisionConflict(RuntimeError):
+    """The request was based on an earlier revision; the caller should reload the state (in the UI: 409, the working
+    copy is kept). 227 (plan R3c): the shared core's, so this module needs no application module; the work package
+    names it `work.RevisionConflict`."""
+
 
 store.register_schema("decisions", """
 CREATE TABLE IF NOT EXISTS decision_journal (
@@ -126,7 +132,7 @@ def states(c: sqlite3.Connection, kind: str, keys: Iterable[str]) -> dict[str, i
 def check(c: sqlite3.Connection, kind: str, key: str, expected: int | None) -> None:
     """The page's state of the decision must still hold (None: the caller sent none, so nothing is compared)."""
     if expected is not None and state(c, kind, key) != expected:
-        raise explained(work.RevisionConflict, "the decision was changed meanwhile; reload the page")
+        raise explained(RevisionConflict, "the decision was changed meanwhile; reload the page")
 
 
 def package_state(c: sqlite3.Connection, workpackage_id: str, kinds: Iterable[str]) -> int:
@@ -139,7 +145,7 @@ def package_state(c: sqlite3.Connection, workpackage_id: str, kinds: Iterable[st
 def check_package(c: sqlite3.Connection, workpackage_id: str, kinds: Iterable[str], expected: int | None) -> None:
     """The page's state of the package's decisions must still hold (None: nothing is compared)."""
     if expected is not None and package_state(c, workpackage_id, kinds) != expected:
-        raise explained(work.RevisionConflict, "the decision was changed meanwhile; reload the page")
+        raise explained(RevisionConflict, "the decision was changed meanwhile; reload the page")
 
 
 def run_state(c: sqlite3.Connection, run_id: str) -> int:

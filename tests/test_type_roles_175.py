@@ -54,7 +54,7 @@ def test_the_readers_ask_the_roles() -> None:
     assert parties.supplier_check_types() == frozenset(cfg.load("parties")["supplier_check"]["doc_types"])
     assert reconcile.handles("invoice_foreign") and reconcile.handles("statement_erste") and not reconcile.handles("invoice_out")
     assert report_utility.has_utility([{"doc_type": "foldgaz_szamla"}]) and not report_utility.has_utility([{"doc_type": None}])
-    assert email_rules.M2_TYPES == frozenset(cfg.load("email")["m2_types"])
+    assert email_rules.m2_types() == frozenset(cfg.load("email")["m2_types"])
 
 
 # --- the lists agree with each other and with the type packs -----------------------------------------------------------

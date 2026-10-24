@@ -42,6 +42,7 @@ from pydantic import BaseModel, ConfigDict, Field, create_model
 
 from jav.core import cfg
 from jav.core.config import PROMPTS_DIR
+from jav.documents.text_document import INPUTS  # 190: the input kinds a pack may take (227: the reading's)
 
 KINDS = ("name", "tax_id", "date", "money", "iban", "currency", "country", "invoice_number", "address", "text", "number",
          "boolean", "list")  # 047: yes/no field; itemised list (the kinds of the item fields are in `list_fields`)
@@ -54,7 +55,6 @@ LEGACY_DOC_TYPE = "invoice_hu"
 recorded name no type, and all of them were Hungarian invoices. Never a processing default: the shared code always
 takes the type explicitly."""
 BASE_PREFIX = "_base/"
-INPUTS = ("pdf", "text", "table")  # 190: the input kinds a pack may take (`jav.documents.text_document`)
 
 
 class TypePack(BaseModel):

@@ -177,6 +177,9 @@ export interface ReconcileStatement {
 export interface ReconcileStatementCurrent {
   statement: ReconcileStatement; fingerprint: string; blockers: ReconcileBlocker[]; warnings: ReconcileWarning[];
   approval: ReconcileApproval;
+  /** 227: what changed since the approved version - its content (a warning) or only its rules (a note); null while
+   *  nothing is approved (missing on an older service) */
+  since_approval?: { content_changed: boolean; rules_changed: boolean } | null;
 }
 export interface ReconcileStatementVersion extends ReconcileVersionMeta { statement: ReconcileStatement }
 /** 140: a statement the surveyed files hold: its account's last four characters, month, checks and source rank, whose

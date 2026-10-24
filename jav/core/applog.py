@@ -23,24 +23,20 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from jav.core.config import ENV_FILE, PROJECT_ROOT
+from jav.core.config import ENV_FILE, ENV_SECRET_MIN_LEN, ENV_SECRET_NAME, PROJECT_ROOT, read_env_secrets
 
 LOG_DIR = PROJECT_ROOT / "runs" / "logs"
 MAX_BYTES = 5_000_000
 BACKUPS = 5
 FORMAT = "%(asctime)s %(levelname)s %(name)s [%(process)d] %(message)s"
 MASK = "***"
-_SECRET_NAME = re.compile(r"(?i)key|token|secret|passw|pwd")  # the same rule as the data guard's `.env` reading
-_SECRET_MIN_LEN = 12
 
 
 @lru_cache(maxsize=1)
 def _secret_pattern() -> re.Pattern[str] | None:
     """One pattern for every secret value (plain, JSON-escaped and bytes-repr forms), longest first."""
-    from jav.devtools.data_guard import read_env_secrets  # deferred: the data guard is a tool module, loaded only when logging
-
     values = set(read_env_secrets(ENV_FILE).values())
-    values |= {v for name, v in os.environ.items() if _SECRET_NAME.search(name) and len(v) >= _SECRET_MIN_LEN}
+    values |= {v for name, v in os.environ.items() if ENV_SECRET_NAME.search(name) and len(v) >= ENV_SECRET_MIN_LEN}
     variants = {form for v in values for form in (v, json.dumps(v)[1:-1], repr(v.encode())[2:-1]) if form}
     if not variants:
         return None

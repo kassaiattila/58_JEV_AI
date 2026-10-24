@@ -522,7 +522,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/fl
 def datapoint_config_hash(site_hash: str) -> str:
     """067 (066 Á18): a saved data point's config hash combines the call site's (with pack and instruction) and the
     policy's: the bands and thresholds also shape the result (to-do, route)."""
-    return cfg.combine(site_hash, policy.CONFIG_HASH)
+    return cfg.combine(site_hash, policy.config_hash())
 
 
 def new_run_id(case_id: str, arm: str, run_no: int) -> str:

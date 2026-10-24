@@ -452,12 +452,10 @@ INJECTION_PROBE = {
 }
 
 
-def golden_cases() -> list[dict[str, Any]]:
-    """The invented quote requests with their expected quote (`configs/golden_quotes.json`), each as the content a
-    letter is written from, and the injection probe."""
-    from jav.domains.quotes import invented_golden
-
-    data = invented_golden.load()
+def golden_cases(data: Any) -> list[dict[str, Any]]:
+    """The invented quote requests with their expected quote (`data`: the invented golden set, `configs/golden_quotes.json`,
+    loaded by the quote's golden module; 227, plan R3c: this business module reads no golden set), each as the content
+    a letter is written from, and the injection probe."""
     names = {i.sku: i.name for i in data.price_list.items}
     out = []
     for case in data.cases:
@@ -477,9 +475,9 @@ def _golden_prompt(case: dict[str, Any]) -> str:
     return _prompt(content, case["requested"])
 
 
-def golden(*, limits: dict[str, Decimal], use_cache: bool = True, earlier_only: bool = False,
+def golden(data: Any, *, limits: dict[str, Decimal], use_cache: bool = True, earlier_only: bool = False,
            out_dir: Any = None) -> dict[str, Any]:
-    """Each invented request's paragraph asked of GPT and judged by code: right when it passes the code's check and is
+    """Each invented request of the golden set (`data`, `golden_cases`): its paragraph asked of GPT and judged by code: right when it passes the code's check and is
     in the request's language (the code's estimate, `quote_document.language_of`). Under the owner's sub-budget
     (`limits`, OpenAI); `earlier_only`: without a budget, earlier answers only. Raw rows:
     `runs/<stamp>_quote_letters.jsonl`."""
@@ -501,7 +499,7 @@ def golden(*, limits: dict[str, Decimal], use_cache: bool = True, earlier_only: 
     rows = []
     with calls.measurement(f"measure-{stamp}-quote-letters", limits, reuse=use_cache) as scope, \
             raw.open("w", encoding="utf-8", newline="\n") as fh:
-        for case in golden_cases():
+        for case in golden_cases(data):
             try:
                 paragraph = ask(_golden_prompt(case), run_id=scope)
             except Exception as exc:  # noqa: BLE001 - the budget spent or an OpenAI error: recorded, the run goes on

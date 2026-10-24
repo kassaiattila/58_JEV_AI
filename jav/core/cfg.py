@@ -9,13 +9,19 @@ the hashes).
 
 The Python modules (doc_types, intents, policy, detect, intent, jev_select, jev_verify) read from here; the code is
 the mechanism, the JSON is the parameter. The JSON stores regex patterns as strings; the module compiles them.
+
+227 (plan R3b): a decision point's rule file (`jav.core.trace`, `Point.files`) is read when its rule applies, never
+copied when a module is loaded: a module's rule table is a `Section`, a read-through view, so a reload (`reload`)
+reaches the decisions without a restart. The loader does not reread a changed file by itself: the service runs from
+the working folder, and a half-edited rule must not reach it. The registries, the call sites and the prompts stay as
+loaded: their change is a new AI request, measured and released.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterator, Mapping
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -48,6 +54,33 @@ def load(name: str) -> dict[str, Any]:
     if "meta" not in data or "version" not in data["meta"]:
         raise ValueError(f"konfig meta.version hiányzik: {p}")
     return data
+
+
+class Section(Mapping[str, Any]):
+    """227 (plan R3b): a part of a config file (`name`, then the keys of `path` from its top) read through `load`
+    whenever it is asked, never copied: a module's rule table follows a reload (`reload`) without a restart. A missing
+    part reads as empty. Read only: a change of a rule is a change of its file."""
+
+    def __init__(self, name: str, *path: str) -> None:
+        self.name, self.path = name, path
+
+    def _data(self) -> Mapping[str, Any]:
+        data: Any = load(self.name)
+        for key in self.path:
+            data = data.get(key, {})
+        return data
+
+    def __getitem__(self, key: str) -> Any:
+        return self._data()[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._data())
+
+    def __len__(self) -> int:
+        return len(self._data())
+
+    def __repr__(self) -> str:
+        return f"Section({self.name!r}{''.join(f', {k!r}' for k in self.path)})"
 
 
 def canonical(data: dict[str, Any]) -> str:

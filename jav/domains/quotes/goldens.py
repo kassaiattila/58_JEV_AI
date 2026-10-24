@@ -69,13 +69,13 @@ def _measure_matches(options: goldens.Options) -> goldens.Outcome:
     """B4b: the invented requested items matched with the round's engine; without a budget, earlier answers only. A
     right item is one marked as expected; one a person would resolve (flagged), a missed and a silently wrong one are
     counted apart in the printed report."""
-    from jav.domains.quotes import quote_match
+    from jav.domains.quotes import invented_golden, quote_match
 
     budget, refused = options.answering_budget("the quote matches")
     if refused:
         return goldens.Outcome(refused=refused)
     limits = {quote_match.PROVIDERS[options.engine]: budget} if budget is not None else {}
-    g = quote_match.golden(engine=options.engine, limits=limits, use_cache=options.use_cache,
+    g = quote_match.golden(invented_golden.load(), engine=options.engine, limits=limits, use_cache=options.use_cache,
                            **({} if limits else {"earlier_only": True}))
     quote_match.print_golden(g)
     answered = g["items"] - g["tally"].get("failed", 0)
@@ -84,17 +84,21 @@ def _measure_matches(options: goldens.Options) -> goldens.Outcome:
 
 
 def _count_letters() -> int:
-    return len(quote_letter.golden_cases())
+    from jav.domains.quotes import invented_golden
+
+    return len(quote_letter.golden_cases(invented_golden.load()))
 
 
 def _measure_letters(options: goldens.Options) -> goldens.Outcome:
     """196 W4: each invented request's reply letter paragraph asked of GPT and checked by code; without a budget,
     earlier answers only."""
+    from jav.domains.quotes import invented_golden
+
     budget, refused = options.answering_budget("the reply letters")
     if refused:
         return goldens.Outcome(refused=refused)
     limits = {"openai": budget} if budget is not None else {}
-    g = quote_letter.golden(limits=limits, use_cache=options.use_cache, **({} if limits else {"earlier_only": True}))
+    g = quote_letter.golden(invented_golden.load(), limits=limits, use_cache=options.use_cache, **({} if limits else {"earlier_only": True}))
     quote_letter.print_golden(g)
     answered = g["cases"] - g["tally"].get("failed", 0)
     return goldens.Outcome(cases=g["cases"], answered=answered, right=g["tally"].get("right", 0), scored=answered,

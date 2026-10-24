@@ -46,7 +46,7 @@ def test_a_claim_another_process_got_first_writes_no_event(db) -> None:  # noqa:
     a = parties.create("Example U Kft.", identities=[], actor="t")["id"]
     wf_id = _make(db, a, advance_now=False)["workflow"]["id"]
     events = _events(wf_id)
-    assert not wf._set_logged(wf_id, "invoices", "failed", "t", {"note": "x"}, expect=("starting",), state="failed")
+    assert not wf._set_logged(wf_id, "invoices", "failed", "t", {"note": "x"}, expect=("starting",), phase="failed")
     assert _steps(wf_id)["invoices"]["state"] == "waiting" and _events(wf_id) == events
-    assert wf._set_logged(wf_id, "invoices", "failed", "t", {"note": "x"}, expect=("waiting",), state="failed", note="x")
+    assert wf._set_logged(wf_id, "invoices", "failed", "t", {"note": "x"}, expect=("waiting",), phase="failed", note="x")
     assert _steps(wf_id)["invoices"]["state"] == "failed" and _events(wf_id) == [*events, ("invoices", "failed")]

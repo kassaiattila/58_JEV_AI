@@ -17,6 +17,8 @@ export function ApprovalPanel(p: {
   lockedText: string;
   /** while a version is approved: the data changed since (null: it did not) */
   changedText?: string | null;
+  /** while a version is approved: a change worth knowing that leaves its data as it is (null: none) */
+  noteText?: string | null;
   /** before the approval: what it records */
   pendingText: string;
   /** what blocks the approval (null: nothing does) */
@@ -49,6 +51,7 @@ export function ApprovalPanel(p: {
           </p>
           <p className="muted small">{p.lockedText}</p>
           {p.changedText ? <p className="notice warn small" role="status">{p.changedText}</p> : null}
+          {p.noteText ? <p className="notice small" role="status">{p.noteText}</p> : null}
           {p.archived ? null : (
             <div className="approval-reopen">
               <label className="block">{t("Reason for reopening")}

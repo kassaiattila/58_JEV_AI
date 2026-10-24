@@ -149,7 +149,7 @@ class Oracle(StandInJev):
 
 def test_the_golden_set_judges_each_item_against_its_expected_match(monkeypatch, tmp_path):
     monkeypatch.setattr(quote_match, "get_adapter", Oracle)
-    g = quote_match.golden(engine="jev", limits={"jev": Decimal("0.01")}, out_dir=tmp_path)
+    g = quote_match.golden(invented_golden.load(), engine="jev", limits={"jev": Decimal("0.01")}, out_dir=tmp_path)
     assert g["items"] == 37 and g["tally"] == {"right": 37}
     with pytest.raises(ValueError, match="no budget"):
-        quote_match.golden(engine="gpt", limits={"jev": Decimal("0.01")}, out_dir=tmp_path)
+        quote_match.golden(invented_golden.load(), engine="gpt", limits={"jev": Decimal("0.01")}, out_dir=tmp_path)

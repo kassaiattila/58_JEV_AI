@@ -41,13 +41,13 @@ def test_registries_come_from_json():
 
 def test_policy_thresholds_come_from_json():
     p = cfg.load("policy")
-    assert policy.HUMAN_MAX_CONF == p["bands"]["default"]["choice_human_max_conf"] == 0.60
-    assert policy.INTENT_HUMAN_MAX_CONF == policy.DETECT_LOW_CONFIDENCE == 0.60  # v1.1.0: taken from the bands
+    assert policy.human_max_conf() == p["bands"]["default"]["choice_human_max_conf"] == 0.60
+    assert policy.intent_human_max_conf() == policy.detect_low_confidence() == 0.60  # v1.1.0: taken from the bands
     from jav.domains.email import email_rules  # 224: the email routes are the email domain's own rule file
 
     e = cfg.load("email")
     assert email_rules.INTENT_ROUTE == e["intent_route"]
-    assert email_rules.EMAIL_JEV_UNAVAILABLE_ROUTE == e["jev_unavailable_route"]
+    assert email_rules.jev_unavailable_route() == e["jev_unavailable_route"]
 
 
 def test_callsite_questions_build_from_json():

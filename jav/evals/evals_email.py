@@ -11,7 +11,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav.ai.policy import INTENT_HUMAN_MAX_CONF  # 066 Á38: the threshold comes from the policy
+from jav.ai.policy import intent_human_max_conf  # 066 Á38: the threshold comes from the policy (227: when asked)
 from jav.core.config import RUNS_DIR
 from jav.core import store, values
 from jav.domains.email.emails import EmailMessage, GoldenEmail, iter_inbox, load_old_golden
@@ -102,9 +102,9 @@ def print_email_report(rows: list[dict[str, Any]]) -> None:
               f"{', '.join(f'{k}×{v}' for k, v in wrong.items()) or '-'} |")
     acc = total_ok / max(len(rows), 1)
     print(f"\n**Összesen:** {total_ok}/{len(rows)} = {acc:.1%}  (régi gpt-golden: {OLD_GPT_ACCURACY:.1%})")
-    low = [r for r in rows if r["confidence"] < INTENT_HUMAN_MAX_CONF]
+    low = [r for r in rows if r["confidence"] < intent_human_max_conf()]
     low_ok = sum(r["got"] == r["expected"] for r in low)
-    high = [r for r in rows if r["confidence"] >= INTENT_HUMAN_MAX_CONF]
+    high = [r for r in rows if r["confidence"] >= intent_human_max_conf()]
     high_ok = sum(r["got"] == r["expected"] for r in high)
     print(f"**confidence < 0,6 (kézi sor):** {len(low)}/{len(rows)} = {len(low) / max(len(rows), 1):.0%}, ebből helyes {low_ok}")
     print(f"**confidence ≥ 0,6 pontosság (auto-sáv):** {high_ok}/{len(high)} = {high_ok / max(len(high), 1):.1%}")
@@ -366,13 +366,13 @@ def print_inbox_report() -> None:
     for intent, rs in sorted(by_intent.items(), key=lambda kv: -len(kv[1])):
         flows = Counter(r["next_flow"] for r in rs)
         print(f"| {intent} | {len(rs)} | {statistics.mean(r['intent_conf'] or 0 for r in rs):.2f} | "
-              f"{sum((r['intent_conf'] or 0) < INTENT_HUMAN_MAX_CONF for r in rs)} | {', '.join(f'{k}×{v}' for k, v in flows.most_common())} |")
+              f"{sum((r['intent_conf'] or 0) < intent_human_max_conf() for r in rs)} | {', '.join(f'{k}×{v}' for k, v in flows.most_common())} |")
     atts = Counter()
     for r in rows:
         for a in json.loads(r["attachments"] or "[]"):
             atts[a.get("doc_type") or a.get("status") or "?"] += 1
     print("\n**Csatolmányok:** " + (", ".join(f"{k}×{v}" for k, v in atts.most_common()) or "-"))
-    low = [r for r in rows if (r["intent_conf"] or 0) < INTENT_HUMAN_MAX_CONF]
+    low = [r for r in rows if (r["intent_conf"] or 0) < intent_human_max_conf()]
     for r in low:
         print(f"  - kézi sor: {r['received_at']} {r['sender']} {r['subject']!r} -> {r['intent']} ({r['intent_conf']:.2f})")
 

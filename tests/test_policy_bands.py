@@ -107,11 +107,11 @@ def test_apply_verdict_policy_uses_noul_band():
 
 
 def test_legacy_constants_derive_from_bands():
-    assert policy.HUMAN_MAX_CONF == policy.band("invoice.pick")["choice_human_max_conf"] == 0.60
-    assert policy.AUTO_MIN_CONF_HIGH_STAKES == policy.band("invoice.pick.high_stakes")["choice_human_max_conf"] == 0.85
-    assert policy.REVIEW_FLAG_P == policy.band("invoice.verify")["noul_yes_min"] == 0.70
-    assert policy.DETECT_LOW_CONFIDENCE == policy.band("detect.doc_type")["choice_human_max_conf"] == 0.60
-    assert policy.INTENT_HUMAN_MAX_CONF == policy.band("email.intent")["choice_human_max_conf"] == 0.60
+    assert policy.human_max_conf() == policy.band("invoice.pick")["choice_human_max_conf"] == 0.60
+    assert policy.auto_min_conf_high_stakes() == policy.band("invoice.pick.high_stakes")["choice_human_max_conf"] == 0.85
+    assert policy.review_flag_p() == policy.band("invoice.verify")["noul_yes_min"] == 0.70
+    assert policy.detect_low_confidence() == policy.band("detect.doc_type")["choice_human_max_conf"] == 0.60
+    assert policy.intent_human_max_conf() == policy.band("email.intent")["choice_human_max_conf"] == 0.60
 
 
 def test_email_next_flow_accepts_probabilities():

@@ -57,13 +57,13 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.get(r + "/worker")
     def worker_status() -> dict[str, Any]:
-        return work_views.worker_status()
+        return work_views.jsonable(worker.status())  # 227 (plan R3c): the service reads the worker
 
     @app.post(r + "/worker/stop")
     def worker_stop(body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         log.info("worker stop requested by %s", who)  # 066 Á35: who asked (operational log)
         worker.request_stop()
-        return work_views.worker_status()
+        return work_views.jsonable(worker.status())
 
     # --- dependency audit (075): the last result; the audit itself runs from the CLI or the daily backup ---
 

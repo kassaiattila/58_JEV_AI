@@ -360,8 +360,7 @@ def test_engine_selection_never_auto_picks_azure(monkeypatch):
 
 def test_ocr_escalation_switches_to_better_engine_only_when_weak(monkeypatch):
     monkeypatch.delenv(ocr.ENGINE_ENV, raising=False)
-    monkeypatch.setitem(ocr.ESCALATION, "enabled", True)
-    monkeypatch.setitem(ocr.ESCALATION, "engine", "azure_di")
+    monkeypatch.setattr(ocr, "ESCALATION", {**ocr.ESCALATION, "enabled": True, "engine": "azure_di"})
     calls = []
 
     def fake_ocr(path, page_count=None, use_cache=True, psm=None, engine_name=None):
@@ -376,15 +375,15 @@ def test_ocr_escalation_switches_to_better_engine_only_when_weak(monkeypatch):
     monkeypatch.setattr(ocr, "ocr_pdf", lambda path, **kw: pdfmod.PdfText(path=str(path), text="x", text_source="ocr", ocr={"engine": "native", "mean_conf": 0.95, "low_conf_ratio": 0.02}))
     pdf, escalated = ocr.ocr_with_escalation("good.pdf")
     assert not escalated and pdf.ocr["engine"] == "native"
-    monkeypatch.setitem(ocr.ESCALATION, "enabled", False)
+    monkeypatch.setattr(ocr, "ESCALATION", {**ocr.ESCALATION, "enabled": False})
     monkeypatch.setattr(ocr, "ocr_pdf", fake_ocr)
     pdf, escalated = ocr.ocr_with_escalation("weak.pdf")
     assert not escalated and calls == [None]
 
 
 def test_policy_ocr_should_escalate_thresholds():
-    assert policy.ocr_should_escalate(0.85, 0.05) and policy.ocr_should_escalate(0.95, 0.2)
-    assert not policy.ocr_should_escalate(0.95, 0.05) and not policy.ocr_should_escalate(None, None)
+    assert ocr.ocr_should_escalate(0.85, 0.05) and ocr.ocr_should_escalate(0.95, 0.2)
+    assert not ocr.ocr_should_escalate(0.95, 0.05) and not ocr.ocr_should_escalate(None, None)
 
 
 # --- request-size budget: candidate trimming in document order + retry on a token error (handoff 015) ------------

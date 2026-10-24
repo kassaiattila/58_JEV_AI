@@ -13,7 +13,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav.ai.policy import DETECT_LOW_CONFIDENCE  # 066 Á38: the threshold comes from the policy
+from jav.ai.policy import detect_low_confidence  # 066 Á38: the threshold comes from the policy (227: when asked)
 from jav.core import store
 from jav.core.config import GOLDEN_MANIFEST, OLD_PROJECT_ROOT, RUNS_DIR
 from jav.ai.doc_types import DOC_TYPE_KEYS, OLD_TYPE_MAP
@@ -169,7 +169,7 @@ def print_detect_report(rows: list[dict[str, Any]]) -> None:
         print(f"| {exp} | {len(rs)} | {ok / len(rs):.0%} | {statistics.mean(r['confidence'] for r in rs):.2f} | "
               f"{', '.join(f'{k}×{v}' for k, v in wrong.items()) or '-'} |")
     print(f"\n**Összesen:** {total_ok}/{len(scored)} = {total_ok / max(len(scored), 1):.1%}")
-    low = [r for r in scored if r["confidence"] < DETECT_LOW_CONFIDENCE]
+    low = [r for r in scored if r["confidence"] < detect_low_confidence()]
     print(f"**confidence < 0,6:** {len(low)}/{len(scored)}")
     for r in scored:
         if r["got"] != r["expected"]:
@@ -203,7 +203,7 @@ def detect_corpus(root: Path, *, limit: int | None = None, force: bool = False, 
     if redo_unknown:
         # JEV's 'unknown' results (typically a broken text layer): again with the stricter has_text_layer test
         with store.connect() as c:
-            redo = {r["source_path"] for r in c.execute("SELECT source_path FROM documents WHERE doc_type = 'unknown' OR type_conf < ?", (DETECT_LOW_CONFIDENCE,))}
+            redo = {r["source_path"] for r in c.execute("SELECT source_path FROM documents WHERE doc_type = 'unknown' OR type_conf < ?", (detect_low_confidence(),))}
         todo = [p for p in pdfs if str(p) in redo]
     else:
         done_paths = set() if force else _already_detected()
@@ -247,7 +247,7 @@ def print_corpus_report(root: Path) -> None:
         cells = [str(sum(1 for r in rs if r["year"] == y)) for y in years]
         confs = [r["type_conf"] for r in rs if r["type_conf"] is not None]
         print(f"| {t} | " + " | ".join(cells) + f" | {len(rs)} | {statistics.mean(confs):.2f} |" if confs else f"| {t} | " + " | ".join(cells) + f" | {len(rs)} | - |")
-    low = [r for r in rows if r["type_conf"] is not None and r["type_conf"] < DETECT_LOW_CONFIDENCE]
+    low = [r for r in rows if r["type_conf"] is not None and r["type_conf"] < detect_low_confidence()]
     print(f"\n**confidence < 0,6:** {len(low)}/{len(rows)}  ·  **nyitott review:** {store.stats()['review_open']}")
     for r in sorted(low, key=lambda r: r["type_conf"])[:15]:
         print(f"  - {Path(r['source_path']).name[:60]}: {r['doc_type']} ({r['type_conf']:.2f})")

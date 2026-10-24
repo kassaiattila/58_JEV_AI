@@ -39,7 +39,7 @@ from typing import Any
 
 from jav.ai import validators
 from jav.core import card_numbers, cfg, doc_scope, taxid
-from jav.core.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT, read_env_secrets  # 227: the core's; named here as before
 
 HOOKS_DIR = "scripts/githooks"
 ZERO_SHA = "0" * 40
@@ -66,8 +66,6 @@ _VALUE_KINDS = frozenset({"hu_tax_id", "eu_vat", "iban", "bank_account", "email"
                           "env_secret", "deny_term"})
 _PATH_KINDS = frozenset({"internal_doc", "blocked_path", "blocked_file", "binary_file"})
 _TOKEN = re.compile(r"\w+")
-_ENV_LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$")
-_ENV_SECRET_NAME = re.compile(r"(?i)key|token|secret|passw|pwd")
 _HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 
@@ -175,21 +173,6 @@ def load_config() -> dict[str, Any]:
     import copy
 
     return copy.deepcopy(cfg.load("data_guard"))
-
-
-def read_env_secrets(env_file: Path) -> dict[str, str]:
-    """The secret values of `.env` (key, token, password; at least 12 characters). Missing file: empty."""
-    if not env_file.is_file():
-        return {}
-    out: dict[str, str] = {}
-    for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
-        m = _ENV_LINE.match(line)
-        if not m or line.lstrip().startswith("#"):
-            continue
-        name, value = m.group(1), m.group(2).strip().strip("'\"")
-        if _ENV_SECRET_NAME.search(name) and len(value) >= 12:
-            out[name] = value
-    return out
 
 
 class Guard:

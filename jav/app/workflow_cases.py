@@ -35,8 +35,15 @@ round of its task (`task_event`).
 reopened), the step is reopened in the case in that change's transaction (`package_reopened`), so the steps built on it
 go out of date.
 
-The workflow's own data (its party, period, steps' sources, budgets, packages, and the step state the interface
-reads) stay in its own tables (`jav.app.workflows`).
+227 (plan R3 R3d; DECISIONS 227): a step's whole state is in its row in the case. Where its start stands (waiting,
+starting, pulling, started, linked, needs_budget, nothing_new, failed) is the core step's phase (`cases.set_phase`),
+which the core keeps through its own changes, so the step goes on from it after a restart or after it went out of date;
+the case starts with each step's first phase. A store of before kept it in the workflow's table: it moves into the
+core rows once every workflow has its case, and that column is dropped (`move_phases`). A step failed outside its
+case's turn (its package deleted, a start a stopped process left) is failed in the case too (`fail_outside`).
+
+The workflow's own data (its party, period, steps' sources, budgets, packages, downloads, runs and notes) stay in its
+own tables (`jav.app.workflows`).
 
 Layer: application operation beside `jav.app.workflows`; it imports only the shared core.
 """
@@ -73,7 +80,10 @@ MACHINE = actors.machine("workflows")
 
 tasks.register_kind(tasks.TaskKind(BUDGET_TASK, __name__))
 
-# a workflow step's stored state -> the core's state and what a running step waits for (adoption)
+WAITING, LINKED = "waiting", "linked"  # 227: a step's first phase (the others: `jav.app.workflows`)
+OLD_STATE = "state"  # 227: the workflow table's column that held the step's phase before
+
+# a workflow step's phase (before 227: its stored state) -> the core's state and what a running step waits for (adoption)
 _ADOPTED: dict[str, tuple[str, str | None]] = {
     "waiting": (cases.WAITING, None), "starting": (cases.RUNNING, None), "pulling": (cases.RUNNING, FETCH),
     "started": (cases.RUNNING, APPROVAL), "linked": (cases.RUNNING, APPROVAL), "needs_budget": (cases.RUNNING, BUDGET),
@@ -106,10 +116,15 @@ def _data(wf_id: str) -> dict[str, Any]:
 def start(c: sqlite3.Connection, wf_id: str, template: Mapping[str, Any], actor: str, *,
           linked: tuple[str, ...] = ()) -> str:
     """The new workflow's case, in the caller's transaction that writes the workflow. A `linked` step (a person brought
-    its package) does not wait for its order: it waits for its package's approval at once, the override recorded."""
+    its package) does not wait for its order: it waits for its package's approval at once, the override recorded.
+    227: each step's first phase, `linked` or `waiting`."""
     out = cases.start_in(c, wf_id, definition(template), _data(wf_id), maker(actor))
+    if out != "started":
+        return out
+    for s in template["steps"]:
+        cases.set_phase(c, wf_id, s["id"], LINKED if s["id"] in linked else WAITING)
     for step in linked:
-        if out == "started" and cases.step_row(c, wf_id, step)["state"] == cases.WAITING:
+        if cases.step_row(c, wf_id, step)["state"] == cases.WAITING:
             cases.override_order_in(c, wf_id, step, maker(actor), reason="its package was brought with the workflow")
     return out
 
@@ -128,17 +143,24 @@ def _adopted(state: str, note: str | None, now: float) -> Adopted:
         raise cases.AdoptionError(f"a workflow step state {state!r} has no state in the process core")
     core, waits = _ADOPTED[state]
     return Adopted(core, waiting_for=waits, note=note if core == cases.FAILED else None,
-                   timer=(CHECK, now) if waits in (FETCH, APPROVAL) else None)
+                   timer=(CHECK, now) if waits in (FETCH, APPROVAL) else None, phase=state)
+
+
+def _keeps_old_states(c: sqlite3.Connection) -> bool:
+    return any(r[1] == OLD_STATE for r in c.execute("PRAGMA table_info(workflow_steps)"))
 
 
 def adopt(c: sqlite3.Connection, wf_id: str) -> str | None:
     """Adopts a workflow without a case from the state its steps reached, in the caller's write transaction ("adopted");
-    None when it has its case. An archived workflow's case is held."""
+    None when it has its case. An archived workflow's case is held. 227: each step's state, which the workflow's table
+    kept before, becomes its phase; once the column is dropped every workflow has its case."""
     if c.execute("SELECT 1 FROM process_cases WHERE case_id=?", (wf_id,)).fetchone() is not None:
         return None
     row = c.execute("SELECT definition, actor, status FROM workflows WHERE id=?", (wf_id,)).fetchone()
     if row is None:
         raise KeyError(wf_id)
+    if not _keeps_old_states(c):
+        raise cases.AdoptionError(f"workflow {wf_id} has no case and the store keeps no step state to adopt it from")
     now = time.time()
     steps = {r["step"]: _adopted(r["state"], r["note"], now)
              for r in c.execute("SELECT step, state, note FROM workflow_steps WHERE workflow_id=?", (wf_id,))}
@@ -174,6 +196,51 @@ def adopt_missing(conn: sqlite3.Connection) -> int:
         conn.rollback()
         raise
     return adopted
+
+
+_MOVE = (f"UPDATE process_steps SET phase=(SELECT s.{OLD_STATE} FROM workflow_steps s WHERE s.workflow_id=process_steps.case_id"
+         " AND s.step=process_steps.step_id) WHERE phase IS NULL AND EXISTS (SELECT 1 FROM workflow_steps s"
+         " WHERE s.workflow_id=process_steps.case_id AND s.step=process_steps.step_id)")
+
+
+def move_phases(conn: sqlite3.Connection) -> int:
+    """227 (plan R3 R3d): the store's schema change helper after `adopt_missing`. A store of before kept each workflow
+    step's state in the workflow's table (`workflow_steps.state`): it becomes the phase of the step's row in the core,
+    and the column is dropped, in one write transaction checked again inside it, so two processes starting at once move
+    it once. The column is dropped only once every workflow has its case: one the core could not take keeps its
+    steps' states for a later start. Returns how many phases it moved."""
+    if not _keeps_old_states(conn):
+        return 0
+    conn.commit()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        moved = 0
+        if _keeps_old_states(conn):
+            moved = conn.execute(_MOVE).rowcount
+            if conn.execute(_MISSING).fetchone() is None:
+                conn.execute(f"ALTER TABLE workflow_steps DROP COLUMN {OLD_STATE}")
+            else:
+                log.warning("a workflow has no case yet: its steps' states stay in the workflow's table")
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    return moved
+
+
+def fail_outside(c: sqlite3.Connection, wf_id: str, step: str, note: str) -> None:
+    """227: a step failed outside its case's turn (its package was deleted, a start a stopped process left), in the
+    caller's transaction that records it on the step: it fails in the case too, and a done one is reopened first (its
+    work was not finished after all; the steps built on it go out of date). A step that has not begun, has failed or
+    is out of date keeps its state, and its next run finds the phase; so does a case closed otherwise than done."""
+    case = cases.case_row(c, wf_id)
+    if case["status"] == cases.CLOSED and case["outcome"] != "done":
+        return
+    state = cases.step_row(c, wf_id, step)["state"]
+    if state == cases.DONE:
+        cases.reopen_in(c, wf_id, step, MACHINE, reason=note)
+    if state in (cases.DONE, cases.READY, cases.RUNNING):
+        cases.fail(c, wf_id, step, MACHINE, note)
 
 
 def set_archived(c: sqlite3.Connection, wf_id: str, archived: bool, actor: str) -> None:

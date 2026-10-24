@@ -39,23 +39,16 @@ ALLOWED = {layer: (*LAYERS[: i + 1], *(("evals", "devtools", "legacy") if layer 
 
 # imports against the direction today, each with the step that takes it away
 KNOWN = {
-    # reading asks the decision rules for its thresholds, and the native reader's interpretation the AI layer
-    ("jav.documents.ocr", "jav.ai.policy"), ("jav.documents.pdf_input", "jav.ai.policy"),
-    ("jav.documents.text_document", "jav.ai.typepack"),
+    # the native reader's interpretation asks the AI layer (227, plan R3c: the reading's own thresholds and input kinds
+    # are the documents layer's now)
     ("jav.documents.readers.interpretation", "jav.ai.fact_checks"), ("jav.documents.readers.providers", "jav.ai.jev"),
     # the registries load the domains' registrations themselves
     ("jav.core.activity_kinds", "jav.app.registrations"), ("jav.ai.checks", "jav.app.registrations"),
-    # the shared decision handler raises the work package's conflict error; a document's reading checks its item
-    ("jav.core.decisions", "jav.app.work"), ("jav.documents.native_results", "jav.app.item_kinds"),
-    ("jav.documents.ocr", "jav.app.source_instances"),
+    # a document's reading checks its item (227: the conflict error is the shared core's now)
+    ("jav.documents.native_results", "jav.app.item_kinds"), ("jav.documents.ocr", "jav.app.source_instances"),
     ("jav.ai.party_history", "jav.app.package_result"),
-    # the shared views show the worker's state
-    ("jav.app.work_views", "jav.runtime.worker"),
-    # the operations log masks keys with the data guard's patterns
-    ("jav.core.applog", "jav.devtools.data_guard"),
-    # the quote's business modules read the invented price list of its golden set
-    ("jav.domains.quotes.quote_letter", "jav.domains.quotes.invented_golden"),
-    ("jav.domains.quotes.quote_match", "jav.domains.quotes.invented_golden"),
+    # 227 (plan R3c): the worker's state is shown by the service and the command line; the operations log reads the
+    # keys to mask from the core; the quote's measurements are its golden module's
 }
 # imports against the direction for good, each with its reason (224: the shared decision rules no longer import the
 # email domain; its routes are the domain's own, `jav/domains/email/email_rules.py`)

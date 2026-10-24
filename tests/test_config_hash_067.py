@@ -64,7 +64,7 @@ def test_saved_datapoints_record_the_policy_too():
     from jav.flows import flow
 
     site = select_site("invoice_hu").config_hash
-    assert flow.datapoint_config_hash(site) == cfg.combine(site, policy.CONFIG_HASH)
+    assert flow.datapoint_config_hash(site) == cfg.combine(site, policy.config_hash())
 
 
 @pytest.mark.parametrize("name", sorted(docsgen.CALLSITES))

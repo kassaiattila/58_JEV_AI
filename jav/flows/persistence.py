@@ -67,6 +67,12 @@ MOVED_MODULES: dict[str, str] = {
 MOVED_CLASSES: dict[tuple[str, str], str] = {
     ("models", "LineLayout"): "documents.layout", ("models", "CellLayout"): "documents.layout",
 }
+# 227 (plan R3a, backlog Q-old-state-InvoiceHU): the classes renamed since states were saved, by (module when renamed,
+# old name) -> (module now, name now), relative to `jav`; the fields stayed the same. The record of a document's data
+# points was `InvoiceHU` until 188 (T3b); 2 774 saved states named it so in 208.
+RENAMED_CLASSES: dict[tuple[str, str], tuple[str, str]] = {
+    ("models", "InvoiceHU"): ("ai.models", "DocumentRecord"),
+}
 
 
 _CLASS_MOVES = {(MOVED_MODULES.get(module, module), name): new for (module, name), new in MOVED_CLASSES.items()}
@@ -74,13 +80,14 @@ _CLASS_MOVES |= {(module, name): new for (module, name), new in MOVED_CLASSES.it
 
 
 def _read_moved(value: dict, **kwargs: Any) -> Any:
-    """Burr's reading of a typed value (`deserialize_pydantic`), with the class of a moved module or a moved class at
-    its new place."""
+    """Burr's reading of a typed value (`deserialize_pydantic`), with the class of a moved module, a moved class or a
+    renamed class at its new place."""
     module, _, name = value["__pydantic_class"].rpartition(".")
     if module.startswith("jav."):
         old = module.removeprefix("jav.")
-        moved = _CLASS_MOVES.get((old, name)) or MOVED_MODULES.get(old)
-        if moved is not None:
+        if renamed := RENAMED_CLASSES.get((old, name)):
+            value = {**value, "__pydantic_class": f"jav.{renamed[0]}.{renamed[1]}"}
+        elif (moved := _CLASS_MOVES.get((old, name)) or MOVED_MODULES.get(old)) is not None:
             value = {**value, "__pydantic_class": f"jav.{moved}.{name}"}
     return burr_pydantic.deserialize_pydantic(value, **kwargs)
 

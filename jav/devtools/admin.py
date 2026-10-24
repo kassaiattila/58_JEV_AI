@@ -28,7 +28,7 @@ def _low_conf(flow: str) -> float:
     """066 Á38: the "would go to manual review" threshold comes from the policy (configs/policy.json), not the code."""
     from jav.ai import policy
 
-    return policy.DETECT_LOW_CONFIDENCE if flow == "doc_detect" else policy.INTENT_HUMAN_MAX_CONF
+    return policy.detect_low_confidence() if flow == "doc_detect" else policy.intent_human_max_conf()
 
 
 def _latest(pattern: str) -> Path | None:
