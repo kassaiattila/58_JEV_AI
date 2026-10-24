@@ -23,8 +23,8 @@ SHARED = {"meta", "none_label", "ocr", "bands", "band_for", "detect_detail", "de
 
 
 def _readers(name: str) -> set[str]:
-    """The modules that load the config `name` by its name."""
-    pattern = re.compile(r"""cfg\.load\(\s*["']""" + re.escape(name) + r"""["']\s*\)""")
+    """The modules that load the config `name` by its name (227: or read it through a `cfg.Section`)."""
+    pattern = re.compile(r"""cfg\.(?:load|Section)\(\s*["']""" + re.escape(name) + r"""["']\s*[,)]""")
     return {p.relative_to(JAV.parent).as_posix() for p in JAV.rglob("*.py")
             if "__pycache__" not in p.parts and pattern.search(p.read_text(encoding="utf-8"))}
 
@@ -43,7 +43,7 @@ def test_the_email_routes_are_the_email_domains_with_their_values():
         "human:low_confidence", "m2:needs_ocr", "m1:detect", "human:inbox")
     assert (e["jev_unavailable_route"], e["sent_route"]) == ("human:jev_unavailable", "archive:sent")
     assert e["signal_review"] == ["prompt_injection"] and e["signal_routes"] == {"prompt_injection": "human:suspicious"}
-    assert email_rules.INTENT_ROUTE == e["intent_route"] and email_rules.CONFIG_HASH == cfg.config_hash("email")
+    assert email_rules.INTENT_ROUTE == e["intent_route"] and email_rules.config_hash() == cfg.config_hash("email")
 
 
 def test_the_duplicate_rules_are_the_finance_domains_with_their_values():

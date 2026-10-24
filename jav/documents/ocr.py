@@ -50,8 +50,13 @@ from jav.core.digest import file_sha256 as _sha256
 
 log = logging.getLogger("jav.documents.ocr")
 
-_CFG = cfg.load("ocr")
-CONFIG_HASH = cfg.config_hash("ocr")  # the whole file's identity (call log, quality signals)
+_CFG = cfg.load("ocr")  # the engine's own settings (227: the escalation rule is read when it applies, `ESCALATION`)
+
+
+def config_hash() -> str:
+    """The whole file's identity as it is loaded now (call log, quality signals; 227: asked, not copied at import)."""
+    return cfg.config_hash("ocr")
+
 
 # 076: settings that do not change what the OCR reads - where things are on this machine, time limits, the escalation
 # rule (the engine that ran is in the key anyway), notes and the version record. `None` drops the whole section.
@@ -297,12 +302,12 @@ def azure_recognise(path: Path) -> tuple[list[list[dict[str, Any]]], list[float]
         except OcrUnavailableError as exc:
             store.ledger_add(run_id=ledger_run, step="ocr_azure", provider=AZURE_PROVIDER, model=AZURE_DI_MODEL,
                              input_tokens=None, output_tokens=None, cost_usd=None, seconds=round(time.perf_counter() - t0, 3),
-                             config_hash=CONFIG_HASH, error=type(exc).__name__)
+                             config_hash=config_hash(), error=type(exc).__name__)
             raise
         cost = AZURE_USD_PER_PAGE * len(pages)
         model = meta.get("model_id") or AZURE_DI_MODEL
         store.ledger_add(run_id=ledger_run, step="ocr_azure", provider=AZURE_PROVIDER, model=model, input_tokens=None,
-                         output_tokens=None, cost_usd=float(cost), seconds=round(time.perf_counter() - t0, 3), config_hash=CONFIG_HASH)
+                         output_tokens=None, cost_usd=float(cost), seconds=round(time.perf_counter() - t0, 3), config_hash=config_hash())
         return calls.Outcome(response={"pages": pages, "confs": confs, "meta": meta}, model=model, cost_usd=cost)
 
     if ctx is not None and ctx.budget_scope is not None and not calls.has_budget(ctx.budget_scope, AZURE_PROVIDER):
@@ -522,7 +527,7 @@ def _to_pdftext(path: Path, data: dict[str, Any], *, cached: bool) -> PdfText:
     lines = [ln.text for ln in layout]
     text = "\n".join(lines)
     ok = text_layer_ok(text)
-    signals = {**data["signals"], "cached": cached, "engine": data["engine"], "engine_version": data["engine_version"], "config_hash": CONFIG_HASH}
+    signals = {**data["signals"], "cached": cached, "engine": data["engine"], "engine_version": data["engine_version"], "config_hash": config_hash()}
     # 045: old cache files have no word or page-size data; the word layer is then empty (no boxes), same lines
     return PdfText(path=str(path), text=text, lines=lines, layout=layout, page_count=data["page_count"], has_text_layer=False,
                    text_source="ocr" if ok else None, ocr=signals, words=data.get("words") or [],
@@ -542,7 +547,7 @@ def _note_azure_reuse(path: Path, key: str) -> None:
         return
     store.ledger_add(run_id=f"{ctx.budget_scope}:{_sha256(path)[:16]}", step="ocr_azure", provider=AZURE_PROVIDER,
                      model=AZURE_DI_MODEL, input_tokens=None, output_tokens=None, cost_usd=0.0, seconds=0.0, cached=True,
-                     cache_key=key, config_hash=CONFIG_HASH)
+                     cache_key=key, config_hash=config_hash())
 
 
 def ocr_pdf(
@@ -595,7 +600,7 @@ def ocr_pdf(
     }
     data = {
         "path": str(path), "page_count": page_count if page_count is not None else n_pages, "engine": eng,
-        "engine_version": engine_version(eng), "config_hash": CONFIG_HASH, "signals": signals,
+        "engine_version": engine_version(eng), "config_hash": config_hash(), "signals": signals,
         "layout": [ln.model_dump() for ln in layout],
         "words": pages,  # 045: word boxes in points, with the line number (set by build_layout) - for the word layer
         "page_sizes": page_sizes(path),
@@ -618,7 +623,9 @@ def _backfill_words(path: Path, cached: dict[str, Any], cache_file: Path, *, psm
     return cached
 
 
-ESCALATION: dict[str, Any] = dict(_CFG.get("escalation", {}))
+# 227 (plan R3b): the escalation is a decision rule, read through the loader when it applies (`cfg.Section`); the
+# engine's own settings above stay as loaded (they change the text and its cache key)
+ESCALATION = cfg.Section("ocr", "escalation")
 
 
 def ocr_with_escalation(path: str | Path, *, page_count: int | None = None, use_cache: bool = True) -> tuple[PdfText, bool]:
@@ -725,7 +732,7 @@ trace.register(trace.Point(
 
 def status() -> dict[str, Any]:
     """Admin / preflight: which engine, version, language packs, cache size."""
-    out: dict[str, Any] = {"config_version": cfg.version("ocr"), "config_hash": CONFIG_HASH, "native_exe": native_exe(), "docker_image": _CFG["docker"]["image"],
+    out: dict[str, Any] = {"config_version": cfg.version("ocr"), "config_hash": config_hash(), "native_exe": native_exe(), "docker_image": _CFG["docker"]["image"],
                            "azure_sidecar": _CFG["azure_di"]["sidecar_url"], "azure_direct": azure_di.configured(),  # 121
                            "engine_env": os.environ.get(ENGINE_ENV)}
     try:

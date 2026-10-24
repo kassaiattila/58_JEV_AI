@@ -854,6 +854,20 @@ approval (`reconcile_statement.since_approval`): its content without the rule fi
 the files they read (`email.intent`, `email.next_flow`: `policy.json` and `email.json`; `finance.duplicate`:
 `finance.json` and `fact_checks.json`). Tests: `tests/test_rule_files_split_224.py`.
 
+**The rules read when they apply (227, plan R3b).** A decision point's rule file is read through the config loader
+whenever its rule applies, never copied when a module is loaded: a module's rule table is a read-through view
+(`jav/core/cfg.py` `Section`: `policy.BANDS`, `BAND_FOR`, `DETECT_DETAIL`, `DETECT_ISSUER`, `GPT_FIELD_CONFIDENCE`;
+`email_rules.INTENT_ROUTE`, `EMAIL_SIGNAL_ROUTES`; `ocr.ESCALATION`), and a single value or a fingerprint is a
+function (`policy.config_hash`, `human_max_conf`, `auto_min_conf_high_stakes`, `review_flag_p`,
+`detect_low_confidence`, `intent_human_max_conf`; `email_rules.config_hash`, `m2_types`, `jev_unavailable_route`,
+`sent_route`, `signal_review`; `ocr.config_hash`, `quality_limits`). So a reload (`cfg.reload`) reaches every decision
+without a restart. The loader rereads no changed file by itself: the service runs from the working folder, and a
+half-edited rule must not reach it; where a released or edited version comes from is the rule editing's to decide.
+Two reads stay as loaded, by design: the none option's key (part of every S-path request) and the OCR engine's own
+settings (they change the text and its cache key); the registries, the call sites and the prompts stay as loaded too
+(a change is a new AI request). Tests: `tests/test_rule_reader_227.py` (no module copies a decision point's rule file
+at import; a reloaded copy of `configs/` reaches the bands, the email routes and the OCR escalation).
+
 **The rule preview (224, P3d).** `jav/evals/rules_preview.py` tries a rule file's proposed version on the decisions
 the trace holds, for free (`python -m jav.cli rules-preview <file> --candidate F | --ref REF`). It takes every decision
 point whose files match the rule file (`trace.Point.files`), reads its rows read-only (the active store or `--store`),

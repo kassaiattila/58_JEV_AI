@@ -227,7 +227,7 @@ def next_flow_rule(inputs: Mapping[str, Any]) -> dict[str, Any]:
     if inputs["folder"] == "sent":
         return {"next_flow": email_rules.email_sent_route(atts)}
     if inputs["intent"] is None:
-        return {"next_flow": email_rules.EMAIL_JEV_UNAVAILABLE_ROUTE}
+        return {"next_flow": email_rules.jev_unavailable_route()}
     return {"next_flow": email_rules.email_next_flow(inputs["intent"], inputs["confidence"], atts, inputs["probabilities"],
                                                      inputs["signals"])}
 

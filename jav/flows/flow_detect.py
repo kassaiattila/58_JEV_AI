@@ -29,7 +29,6 @@ from jav.documents.layout import LineLayout
 TERMINALS = ["done", "needs_ocr"]
 PARTITION = "doc_detect"  # partition of the durable state store (066 Á08: the worker finds the saved state by it)
 TRACKER_PROJECT = "jav_doc_detect"
-LOW_CONFIDENCE = policy.DETECT_LOW_CONFIDENCE  # policy.json bands (detect.doc_type): lower = uncertain type but saved
 
 
 class DetectState(BaseModel):

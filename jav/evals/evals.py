@@ -579,12 +579,13 @@ def _verifier_probe(cases: list[GoldenCase] | None, use_cache: bool, type_key: s
     from jav.ai.jev import get_adapter
     from jav.ai.jev_verify import site_for
     from jav.documents.pdf import read_document
-    from jav.ai.policy import REVIEW_FLAG_P, noul_band
+    from jav.ai.policy import noul_band, review_flag_p
 
     pack = get_pack(type_key)
     site = site_for(pack.key)
     cases = cases or load_cases(type_key)
     jev = get_adapter()
+    flag_p = review_flag_p()
     rows: list[dict[str, Any]] = []
     print("| eset | variáns | várt flag | P | sáv | review-okok |\n|---|---|---|---|---|---|")
     for case in cases:
@@ -595,8 +596,8 @@ def _verifier_probe(cases: list[GoldenCase] | None, use_cache: bool, type_key: s
             t0 = time.perf_counter()
             verdicts, call = site.verify(jev, pdf.layout, llm, run_id=f"probe-{case.case_id}-{variant}", use_cache=use_cache)
             seconds = time.perf_counter() - t0
-            hot = [f"{fl}:{f}:{p:.2f}" for f, d in verdicts.flags.items() for fl, p in d.items() if p >= REVIEW_FLAG_P]
-            hot += [f"{fl}:{p:.2f}" for fl, p in verdicts.doc_flags.items() if p >= REVIEW_FLAG_P]
+            hot = [f"{fl}:{f}:{p:.2f}" for f, d in verdicts.flags.items() for fl, p in d.items() if p >= flag_p]
+            hot += [f"{fl}:{p:.2f}" for fl, p in verdicts.doc_flags.items() if p >= flag_p]
             false_positive = False
             if variant == "perfect":
                 # False positives are measured only on fields covered by the golden set that affect the ROUTE

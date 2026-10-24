@@ -30,8 +30,7 @@ def test_words_are_backfilled_only_when_the_lines_match(tmp_path, monkeypatch):
 
 def test_escalated_text_without_words_gets_the_local_word_layer(monkeypatch):
     monkeypatch.delenv(ocr.ENGINE_ENV, raising=False)
-    monkeypatch.setitem(ocr.ESCALATION, "enabled", True)
-    monkeypatch.setitem(ocr.ESCALATION, "engine", "azure_di")
+    monkeypatch.setattr(ocr, "ESCALATION", {**ocr.ESCALATION, "enabled": True, "engine": "azure_di"})
 
     def fake_ocr(path, page_count=None, use_cache=True, psm=None, engine_name=None):
         if engine_name == "azure_di":  # old Azure cache: text present, word data missing

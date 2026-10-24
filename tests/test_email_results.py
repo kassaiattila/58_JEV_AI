@@ -290,7 +290,7 @@ def test_task_proposal_failure_becomes_a_todo_and_archived_mail_is_skipped(env, 
         raise RuntimeError("nincs kapcsolat")
 
     monkeypatch.setattr(email_tasks, "extract", boom)
-    monkeypatch.setitem(email_rules.INTENT_ROUTE, "szamlakuldes", "archive")  # the fake JEV sees everything as invoice sending
+    monkeypatch.setattr(email_rules, "INTENT_ROUTE", {**email_rules.INTENT_ROUTE, "szamlakuldes": "archive"})  # the fake JEV sees everything as invoice sending
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge(MAILS), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
     work_recipes.assign_recipe(wp_id, "processing", params={"tasks": "propose"}, expected_revision=1, actor="t")

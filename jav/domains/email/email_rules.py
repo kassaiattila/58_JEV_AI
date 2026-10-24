@@ -21,22 +21,44 @@ from jav.core import cfg, type_roles
 from jav.domains.email.emails import Attachment
 from jav.domains.email.intents import DOCUMENT_BEARING
 
-_CFG = cfg.load("email")
-CONFIG_HASH = cfg.config_hash("email")
+# 227 (plan R3b): `configs/email.json` is read through the config loader when a rule applies, not copied when this
+# module is loaded, so a reloaded file reaches the routes without a restart (`cfg.Section`)
+_CFG = cfg.Section("email")
 
-M2_TYPES = frozenset(type_roles.types("email_extraction"))  # has / will have an M2 flow
-INTENT_ROUTE: dict[str, str] = dict(_CFG["intent_route"])  # attachment-independent default per intent
-EMAIL_JEV_UNAVAILABLE_ROUTE: str = _CFG["jev_unavailable_route"]  # JEV did not answer -> manual queue
-EMAIL_SENT_ROUTE: str = _CFG["sent_route"]  # 149: a message we sent, without a document attachment
-EMAIL_SIGNAL_REVIEW: tuple[str, ...] = tuple(_CFG.get("signal_review", ()))  # signals whose yes band means review
-EMAIL_SIGNAL_ROUTES: dict[str, str] = dict(_CFG.get("signal_routes", {}))  # yes-band signal -> route (overrides all)
+INTENT_ROUTE = cfg.Section("email", "intent_route")  # attachment-independent default per intent
+EMAIL_SIGNAL_ROUTES = cfg.Section("email", "signal_routes")  # yes-band signal -> route (overrides all)
+
+
+def m2_types() -> frozenset[str]:
+    """The types with an M2 flow an attachment goes to (`configs/email.json` `m2_types`, through the type roles)."""
+    return frozenset(type_roles.types("email_extraction"))
+
+
+def config_hash() -> str:
+    """The fingerprint of `configs/email.json` as it is loaded now."""
+    return cfg.config_hash("email")
+
+
+def jev_unavailable_route() -> str:
+    """JEV did not answer -> the manual queue."""
+    return str(_CFG["jev_unavailable_route"])
+
+
+def sent_route() -> str:
+    """149: a message we sent, without a document attachment."""
+    return str(_CFG["sent_route"])
+
+
+def signal_review() -> tuple[str, ...]:
+    """The signals whose yes band means a review."""
+    return tuple(_CFG.get("signal_review", ()))
 
 
 def email_signal_reasons(signals: dict[str, float] | None) -> list[str]:
     """Review reasons of the M3 Noul signals: `signal:<key>:<p>` in the `yes` band of `email.signal` (uncertain only
     if enabled)."""
     out: list[str] = []
-    for key in EMAIL_SIGNAL_REVIEW:
+    for key in signal_review():
         p = (signals or {}).get(key)
         if p is None:
             continue
@@ -76,7 +98,8 @@ def email_next_flow(
 def _attachment_route(attachments: list[Attachment]) -> str | None:
     """The route an email's attachments give: the first attachment of a type with a data extraction, else text
     recognition or type recognition still to do; None if no attachment decides."""
-    typed = [a for a in attachments if a.doc_type in M2_TYPES]
+    m2 = m2_types()
+    typed = [a for a in attachments if a.doc_type in m2]
     if typed:
         return f"m2:{typed[0].doc_type}"
     if any(a.status == "needs_ocr" for a in attachments):
@@ -89,9 +112,8 @@ def _attachment_route(attachments: list[Attachment]) -> str | None:
 def email_sent_route(attachments: list[Attachment]) -> str:
     """149: the route of a message we sent. It has no intent to ask about (the intent question reads the sender's aim),
     so its attachments decide, as for a document-bearing intent; without a deciding attachment it is archived."""
-    return _attachment_route(attachments) or EMAIL_SENT_ROUTE
+    return _attachment_route(attachments) or sent_route()
 
 
-__all__ = ["CONFIG_HASH", "EMAIL_JEV_UNAVAILABLE_ROUTE", "EMAIL_SENT_ROUTE", "EMAIL_SIGNAL_REVIEW",
-           "EMAIL_SIGNAL_ROUTES", "INTENT_ROUTE", "M2_TYPES", "email_next_flow", "email_sent_route", "email_signal_reasons",
-           "email_signal_route"]
+__all__ = ["EMAIL_SIGNAL_ROUTES", "INTENT_ROUTE", "config_hash", "email_next_flow", "email_sent_route",
+           "email_signal_reasons", "email_signal_route", "jev_unavailable_route", "m2_types", "sent_route", "signal_review"]

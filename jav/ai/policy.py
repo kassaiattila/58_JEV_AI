@@ -24,20 +24,27 @@ from jav.ai.models import CheckResult, FlowState
 from jav.ai.typepack import get as get_pack
 from jav.documents.ocr import quality_limits
 
-_CFG = cfg.load("policy")
-CONFIG_HASH = cfg.config_hash("policy")
+# 227 (plan R3b): the rules are read through the config loader when they are applied, not copied when this module is
+# loaded, so a reloaded `configs/policy.json` reaches every decision without a restart (`cfg.Section`)
 
-NONE_LABEL: str = _CFG["none_label"]
-DETECT_DETAIL: dict[str, Any] = dict(_CFG["detect_detail"])  # 047 T1.2: threshold of the detailed-type code decision
-DETECT_ISSUER: dict[str, Any] = dict(_CFG["detect_issuer"])  # 090: the type / issuer cross-check
-GPT_FIELD_CONFIDENCE: dict[str, Any] = dict(_CFG["gpt_field_confidence"])  # 091: a GPT field's confidence without JEV
+
+def config_hash() -> str:
+    """The fingerprint of `configs/policy.json` as it is loaded now (a data point's `config_hash` names it)."""
+    return cfg.config_hash("policy")
+
+
+# the none option's key is part of every S-path request: a change is a new request, measured and released (kept)
+NONE_LABEL: str = cfg.load("policy")["none_label"]
+DETECT_DETAIL = cfg.Section("policy", "detect_detail")  # 047 T1.2: threshold of the detailed-type code decision
+DETECT_ISSUER = cfg.Section("policy", "detect_issuer")  # 090: the type / issuer cross-check
+GPT_FIELD_CONFIDENCE = cfg.Section("policy", "gpt_field_confidence")  # 091: a GPT field's confidence without JEV
 
 # --------------------------------------------------------------------------------------
 # Bands (policy.json v1.1.0): named sets per call site, precedence by the length of the dotted prefix
 # --------------------------------------------------------------------------------------
 
-BANDS: dict[str, dict[str, Any]] = {name: dict(v) for name, v in _CFG["bands"].items()}
-BAND_FOR: dict[str, str] = dict(_CFG["band_for"])
+BANDS = cfg.Section("policy", "bands")
+BAND_FOR = cfg.Section("policy", "band_for")
 NoulBand = Literal["no", "uncertain", "yes"]
 ChoiceBand = Literal["auto", "uncertain", "human"]
 
@@ -191,11 +198,28 @@ def parent_fallback(confidence: float, parent: str | None, parent_prob: float, c
     return parent if parent_prob >= band(callsite)["parent_min_prob"] else None
 
 
-# Legacy names (referenced by the flows and tests) - derived from the bands, not separate data
-HUMAN_MAX_CONF: float = band("invoice.pick")["choice_human_max_conf"]  # below this, any scored field -> human
-AUTO_MIN_CONF_HIGH_STAKES: float = band("invoice.pick.high_stakes")["choice_human_max_conf"]  # high-stakes auto-accept
-REVIEW_FLAG_P: float = band("invoice.verify")["noul_yes_min"]  # G path: Noul P(yes) for an error flag, review from here
-DETECT_LOW_CONFIDENCE: float = band("detect.doc_type")["choice_human_max_conf"]  # M1: uncertain below it; still saved
+# Named thresholds (referenced by the flows, the measurements and tests) - read from the bands when asked (227), not
+# separate data
+
+
+def human_max_conf() -> float:
+    """Below this, any scored field -> human (`invoice.pick`)."""
+    return float(band("invoice.pick")["choice_human_max_conf"])
+
+
+def auto_min_conf_high_stakes() -> float:
+    """A high-stakes field's auto-accept (`invoice.pick.high_stakes`)."""
+    return float(band("invoice.pick.high_stakes")["choice_human_max_conf"])
+
+
+def review_flag_p() -> float:
+    """G path: a Noul's P(yes) from which an error flag is a review (`invoice.verify`)."""
+    return float(band("invoice.verify")["noul_yes_min"])
+
+
+def detect_low_confidence() -> float:
+    """M1: an uncertain type below it; still saved (`detect.doc_type`)."""
+    return float(band("detect.doc_type")["choice_human_max_conf"])
 
 # Type-dependent lists: from the named type's pack (202: no Hungarian invoice module constant)
 
@@ -540,4 +564,6 @@ trace.register(trace.Point(
 # M3: the email intent's band (224: its routes and signals are the email domain's, `jav/domains/email/email_rules.py`)
 # --------------------------------------------------------------------------------------
 
-INTENT_HUMAN_MAX_CONF: float = band("email.intent")["choice_human_max_conf"]  # below: manual queue, whatever the label
+def intent_human_max_conf() -> float:
+    """M3: below it the manual queue, whatever the label (`email.intent`)."""
+    return float(band("email.intent")["choice_human_max_conf"])

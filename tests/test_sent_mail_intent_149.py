@@ -57,7 +57,7 @@ def test_a_sent_message_is_not_asked_about_and_leaves_no_to_do(env):
     st = flow_email.run_email(str(_email_dir(env)))
     assert env["client"].requests == []  # nothing asked about the message
     assert st.result is None and not st.uncertain and st.final_status == "done"
-    assert st.next_flow == email_rules.EMAIL_SENT_ROUTE == "archive:sent"
+    assert st.next_flow == email_rules.sent_route() == "archive:sent"
     assert store.review_open_reasons("email", "m1") == []
 
 
