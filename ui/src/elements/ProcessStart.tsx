@@ -3,7 +3,8 @@
 // choose) and from such a package's own page (the processes that take it, with the cases already reading it). Until
 // C1c the email routing's own form and offer.
 import { useState } from "react";
-import { api, type PackageOffer } from "../api";
+import { api, type CaseSource, type PackageOffer } from "../api";
+import { BrowseButton } from "../components/BrowseButton";
 import { Icon } from "../components/Icon";
 import { useAction, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
@@ -22,6 +23,11 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [name, setName] = useState("");
+  // 231 (C3b3): the documents of a document processing case (its scope part `source`)
+  const [sourceKind, setSourceKind] = useState<"folder" | "files">("folder");
+  const [folder, setFolder] = useState("");
+  const [recursive, setRecursive] = useState(false);
+  const [files, setFiles] = useState("");
   const { busy, error, run } = useAction();
   const info = packs.data?.processes.find((p) => p.id === pack);
   if (packs.error) return <p className="notice error" role="alert">{packs.error.message}</p>;
@@ -31,17 +37,23 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   const wantsSources = asks.includes("sources");
   const wantsParty = asks.includes("party");
   const wantsPeriod = asks.includes("period");
+  const wantsSource = asks.includes("source");
+  const fileLines = files.split("\n").map((l) => l.trim()).filter(Boolean);
+  const source: CaseSource = sourceKind === "folder" ? { kind: "folder", folder: folder.trim(), recursive } : { kind: "files", files: fileLines };
+  const hasSource = sourceKind === "folder" ? !!folder.trim() : fileLines.length > 0;
   const candidates = (list.data?.workpackages ?? []).filter((w) => (info.package_kinds ?? []).includes(w.source_kind));
   const partyName = (parties.data?.parties ?? []).find((p) => p.id === partyId)?.name ?? "";
-  const ready = (!wantsSources || chosen.length > 0) && (!wantsParty || !!partyId) && (!wantsPeriod || (!!start && !!end && start <= end));
+  const ready = (!wantsSources || chosen.length > 0) && (!wantsParty || !!partyId) && (!wantsPeriod || (!!start && !!end && start <= end))
+    && (!wantsSource || hasSource);
   const defaultName = () => {
     if (wantsSources) return `${title}: ${candidates.filter((w) => chosen.includes(w.id)).map((w) => w.name).join(", ")}`;
-    return [title, partyName, wantsPeriod ? `${start} – ${end}` : ""].filter(Boolean).join(" · ");
+    const where = wantsSource ? (sourceKind === "folder" ? folder.trim().split(/[\\/]/).filter(Boolean).pop() ?? "" : "") : "";
+    return [title, partyName, wantsPeriod ? `${start} – ${end}` : "", where].filter(Boolean).join(" · ");
   };
   const submit = () => run(() => api.startCase({
     pack, name: (name.trim() || defaultName()).slice(0, 200),
     ...(wantsSources ? { sources: chosen } : {}), ...(wantsParty ? { party_id: partyId } : {}),
-    ...(wantsPeriod ? { period_start: start, period_end: end } : {}),
+    ...(wantsPeriod ? { period_start: start, period_end: end } : {}), ...(wantsSource ? { source } : {}),
   }), { then: (made) => onDone(made.case_id) });
   return (
     <form className="create rc-stack" aria-label={title} onSubmit={(e) => { e.preventDefault(); if (ready) void submit(); }}>
@@ -71,6 +83,33 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
           <label className="block">{t("Period from")}<input type="date" value={start} required onChange={(e) => setStart(e.target.value)} /></label>
           <label className="block">{t("to")}<input type="date" value={end} required onChange={(e) => setEnd(e.target.value)} /></label>
         </div>
+      ) : null}
+      {wantsSource ? (
+        <fieldset className="rc-stack">
+          <legend>{t("The case's documents")}</legend>
+          <div className="segmented" role="radiogroup" aria-label={t("Source")}>
+            <label><input type="radio" name="case-source" checked={sourceKind === "folder"} onChange={() => setSourceKind("folder")} /> {t("Documents from a folder")}</label>
+            <label><input type="radio" name="case-source" checked={sourceKind === "files"} onChange={() => setSourceKind("files")} /> {t("Chosen files")}</label>
+          </div>
+          {sourceKind === "folder" ? (
+            <>
+              <div className="path-row">
+                <label className="block grow">{t("The folder's full path")}
+                  <input value={folder} onChange={(e) => setFolder(e.target.value)} required />
+                </label>
+                <BrowseButton kind="folder" initial={folder} onPick={([p]) => setFolder(p)} />
+              </div>
+              <label className="check"><input type="checkbox" checked={recursive} onChange={(e) => setRecursive(e.target.checked)} /> {t("Its subfolders too")}</label>
+            </>
+          ) : (
+            <div className="path-row">
+              <label className="block grow">{t("The files' full paths, one a line")}
+                <textarea value={files} onChange={(e) => setFiles(e.target.value)} rows={4} required />
+              </label>
+              <BrowseButton kind="files" initial={fileLines[fileLines.length - 1]} onPick={(picked) => setFiles([...fileLines, ...picked].join("\n"))} />
+            </div>
+          )}
+        </fieldset>
       ) : null}
       <label className="block">{t("Name")} <span className="muted">{t("(optional)")}</span>
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />

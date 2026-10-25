@@ -136,3 +136,33 @@ def test_the_statements_maker_makes_a_package_of_the_party_s_statements_in_the_p
     stored = __import__("jav.app.package_scope", fromlist=["stored"]).stored(wp)
     assert (stored["party_id"], stored["period_start"], stored["period_end"]) == (party, MONTH[0], MONTH[1])
     assert stored["parts"][document_processing.OWNER_PART] == f"{case}:process"
+
+
+def test_the_case_page_shows_the_package_and_its_start_with_the_estimate(db):
+    folder = _invoices(db / "inv", n=2)
+    case = process_runtime.start_case("documents", {"source": {"kind": "folder", "folder": str(folder)}},
+                                      name="April invoices", actor=PERSON)
+    _turns(case)
+    page = case_views.view(case)
+    [element] = [e for t in page["tabs"] for e in t["elements"] if e["type"] == "package_work"]
+    data = element["data"]
+    wp = document_processing.package_of(case, "process")
+    assert data["package"] == {"id": wp, "name": "April invoices", "items": 2, "kind": "folder"}
+    assert data["can_start"] is True and isinstance(data["estimate"], dict) and data["runs"] == []
+    case_views.act(case, "process", "start_run", PERSON)
+    after = next(e for t in case_views.view(case)["tabs"] for e in t["elements"] if e["type"] == "package_work")["data"]
+    assert after["can_start"] is False and [r["mode"] for r in after["runs"]] == ["apply"]
+
+
+def test_the_work_package_list_leaves_a_case_step_s_package_out(db):
+    from jav.app import datasets
+
+    folder = _invoices(db / "inv", n=1)
+    plain = work.create_from_folder(folder, name="Plain", owner=PERSON)["id"]
+    case = process_runtime.start_case("documents", {"source": {"kind": "folder", "folder": str(folder)}},
+                                      name="Case invoices", actor=PERSON)
+    _turns(case)
+    inner = document_processing.package_of(case, "process")
+    _cols, rows = datasets.rows("workpackages", {})
+    ids = {r["id"] for r in rows}
+    assert plain in ids and case in ids and inner not in ids  # the case's package opens from its page

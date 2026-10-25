@@ -126,11 +126,12 @@
       "id": "documents",
       "group": "documents",
       "title": "Documents: extract their data",
-      "description": "One work package of a folder's documents or of the given files.",
+      "description": "One case of a folder's documents or of the given files: its page starts the processing and leads to its review and result.",
       "steps": [
         {
           "id": "documents",
-          "kind": "documents"
+          "kind": "process",
+          "pack": "documents"
         }
       ]
     },
@@ -182,14 +183,15 @@
       ]
     },
     {
-      "id": "statements",
+      "id": "bank_statements",
       "group": "bank",
       "title": "Bank statements",
-      "description": "One work package of a party's bank statements for a period, surveyed before anything is stored.",
+      "description": "One case of a party's bank statements for a period: the period's statements the store has not got yet are taken from the folder or the files.",
       "steps": [
         {
           "id": "statements",
-          "kind": "statements"
+          "kind": "process",
+          "pack": "bank_statements"
         }
       ]
     },

@@ -145,6 +145,14 @@ def package_of(case_id: str, step_id: str) -> str | None:
     return row["workpackage_id"] if row else None
 
 
+def owned_packages() -> set[str]:
+    """231 (C3b3): the packages a case's step made: the work package list leaves them out (the owner's decision of
+    2026-10-25: the cases are the main list; such a package opens from its case's page)."""
+    with store.connect() as c:
+        return {r["workpackage_id"] for r in c.execute(
+            "SELECT workpackage_id FROM workpackage_scopes WHERE json_extract(parts, ?) IS NOT NULL", (f"$.{OWNER_PART}",))}
+
+
 def _bind(wp_id: str, case_id: str, step_id: str, scope: dict[str, Any], rule: str | None, actor: identity.Who) -> None:
     """The package's scope names the step that made it and the rule it runs by; the case's party and period go with
     them (a scope the maker gave stays, with these parts added)."""
@@ -219,12 +227,35 @@ CAPABILITY = capabilities.Capability(
     actions=(capabilities.Action("start_run", "Start the live run", _can_start, start_run),))
 
 
+def _package_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """231 (C3b3): what the step shows on its case's page (the element `package_work`): its package (its name, its
+    items, its runs) and, while its live run waits for a person, whether it can start and its estimate (the button's
+    cost cap); `package` is None before the step made one or when the source held nothing."""
+    wp_id = package_of(case_id, str(step_id))
+    if wp_id is None:
+        return {"package": None}
+    wp = work.get(wp_id)
+    runs = [{"run_id": r["run_id"], "mode": r["mode"], "status": r["status"], "approval": r["approval"]}
+            for r in work_runs.run_rows(wp_id)]
+    out: dict[str, Any] = {"package": {"id": wp_id, "name": wp["name"], "items": len(wp["items"]),
+                                       "kind": wp["source_kind"]}, "runs": runs, "can_start": False}
+    if not _live_runs(wp_id):
+        ready = work_readiness.readiness(wp_id)
+        out.update(can_start=bool(ready["ready"]), estimate={p: str(v) for p, v in (ready.get("budget") or {}).items()},
+                   blockers=[b["message"] for b in ready["blockers"]])
+    return out
+
+
 def register() -> None:
-    """The source part, the documents' maker and the capability (`registrations.load_all`)."""
+    """The source part, the documents' maker, the capability and its element's data (`registrations.load_all`)."""
+    from jav.app import case_views  # lazy: the case page reads the registered capabilities
+
     scopes.register(SOURCE)
     register_maker(Maker(DOCUMENTS, __name__, _documents))
     capabilities.register(CAPABILITY)
+    case_views.register(case_views.ElementData("package_work", CAPABILITY.name, _OWNER, _package_view))
 
 
 __all__ = ["CAPABILITY", "DOCUMENTS", "Maker", "OWNER_PART", "Process", "ProcessingError", "SOURCE", "SOURCE_PART",
-           "maker_names", "maker_of", "package_of", "paths_of", "register", "register_maker", "start_run"]
+           "maker_names", "maker_of", "owned_packages", "package_of", "paths_of", "register", "register_maker",
+           "start_run"]

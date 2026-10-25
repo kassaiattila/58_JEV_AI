@@ -2735,5 +2735,21 @@
   "choose files that exist": "choose files that exist",
   "the step has no package waiting for its run": "the step has no package waiting for its run",
   "Start the live run": "Start the live run",
-  "Makes a processing package of the case's documents; a person starts its live run within the package's estimate, and the step is done once a live run is approved.": "Makes a processing package of the case's documents; a person starts its live run within the package's estimate, and the step is done once a live run is approved."
+  "Makes a processing package of the case's documents; a person starts its live run within the package's estimate, and the step is done once a live run is approved.": "Makes a processing package of the case's documents; a person starts its live run within the package's estimate, and the step is done once a live run is approved.",
+  "The case's documents": "The case's documents",
+  "Chosen files": "Chosen files",
+  "The folder's full path": "The folder's full path",
+  "Its subfolders too": "Its subfolders too",
+  "The files' full paths, one a line": "The files' full paths, one a line",
+  "Processing": "Processing",
+  "Review": "Review",
+  "Starts the package's live run, which can spend up to {{usd}}": "Starts the package's live run, which can spend up to {{usd}}",
+  "The package is being made…": "The package is being made…",
+  "The package's pages": "The package's pages",
+  "The source held no document: the case is done without a package.": "The source held no document: the case is done without a package.",
+  "live run in progress": "live run in progress",
+  "no documents": "no documents",
+  "waiting for its live run": "waiting for its live run",
+  "One case of a folder's documents or of the given files: its page starts the processing and leads to its review and result.": "One case of a folder's documents or of the given files: its page starts the processing and leads to its review and result.",
+  "One case of a party's bank statements for a period: the period's statements the store has not got yet are taken from the folder or the files.": "One case of a party's bank statements for a period: the period's statements the store has not got yet are taken from the folder or the files."
 }

@@ -54,6 +54,10 @@ describe("the create form asks the goal first", () => {
   it("offers documents, emails, bank statements and reconciliation step by step", async () => {
     vi.spyOn(api, "parties").mockResolvedValue(OVERVIEW);
     vi.spyOn(api, "workflowTemplates").mockResolvedValue(workflowConfig as unknown as WorkflowTemplates);
+    // 231 (C3b3): the bank statements' template starts its process pack's case with the general form
+    vi.spyOn(api, "processes").mockResolvedValue({ processes: [{ id: "bank_statements", title: "Bank statements", version: "1.0.0",
+      scope: ["party", "period", "source"], asks: ["party", "period", "source"], package_kinds: [] }] });
+    vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
     render(<CreateForm onDone={vi.fn()} />);
     expect((await screen.findByRole("radio", { name: "Documents and emails" }) as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByRole("radio", { name: "Bank statements and reconciliation" }));
@@ -62,9 +66,9 @@ describe("the create form asks the goal first", () => {
     expect(screen.getByRole("radio", { name: "Reconciliation of statements and invoices" })).toBeTruthy();
     expect(screen.queryByRole("radio", { name: "Bank statement from a table" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Next →" }));
-    expect(screen.getByRole("form", { name: "New statement package" })).toBeTruthy();
-    expect(screen.queryByRole("radio", { name: "Documents from a folder" })).toBeNull();
-    await screen.findByText("Example Kft.");
+    expect(await screen.findByRole("form", { name: "Bank statements" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Documents from a folder" })).toBeTruthy();  // the case's source
+    await screen.findByRole("option", { name: "Example Kft." });
     fireEvent.click(screen.getByRole("button", { name: "← Back" }));
     expect(screen.getByRole("radio", { name: "Reconciliation of statements and invoices" })).toBeTruthy();
   });

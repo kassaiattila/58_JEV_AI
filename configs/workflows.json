@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "workflows",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "description": "146 (backlog F-package-kind-chooser; DECISIONS 146): the workflow templates the new work wizard offers, as data. A template's steps are kinds of work package (documents, emails, statements, reconcile) in order; a step may wait for others (`after`). A one-step template is today's kind of package and makes no workflow; a template of several steps makes a workflow of one own party and a period, whose steps start by themselves (a live run) once the steps they wait for are approved, a paid step only within the budget a person approved in the wizard (jav/workflows.py). Texts are English; the interface translates them (ui/src/i18n/hu-native.json).",
     "changelog": [
+      {
+        "version": "1.6.0",
+        "date": "2026-10-25",
+        "note": "231 (plan stage C, C3b3; DECISIONS 231): the one-step documents and bank statements templates start a case of their process pack (documents, bank_statements): the case makes its processing package from the folder or the files, its page starts the live run and leads to the package's processing, review and result. The statements template's id is its pack's (bank_statements), as every one-step template of a process pack's case. The statements case takes the period's statements the store has not got yet, as the workflows' statements step does."
+      },
       {
         "version": "1.5.0",
         "date": "2026-10-25",
@@ -99,8 +104,8 @@
       "id": "documents",
       "group": "documents",
       "title": "Documents: extract their data",
-      "description": "One work package of a folder's documents or of the given files.",
-      "steps": [{"id": "documents", "kind": "documents"}]
+      "description": "One case of a folder's documents or of the given files: its page starts the processing and leads to its review and result.",
+      "steps": [{"id": "documents", "kind": "process", "pack": "documents"}]
     },
     {
       "id": "emails",
@@ -127,11 +132,11 @@
       ]
     },
     {
-      "id": "statements",
+      "id": "bank_statements",
       "group": "bank",
       "title": "Bank statements",
-      "description": "One work package of a party's bank statements for a period, surveyed before anything is stored.",
-      "steps": [{"id": "statements", "kind": "statements"}]
+      "description": "One case of a party's bank statements for a period: the period's statements the store has not got yet are taken from the folder or the files.",
+      "steps": [{"id": "statements", "kind": "process", "pack": "bank_statements"}]
     },
     {
       "id": "reconciliation",

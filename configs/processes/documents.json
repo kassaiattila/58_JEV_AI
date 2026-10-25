@@ -1,0 +1,64 @@
+{
+  "meta": {
+    "name": "process:documents",
+    "version": "1.0.0",
+    "description": "231 (plan stage C, C3b3; DECISIONS 231): the processing of a folder's or some chosen files' documents as a process pack (until C3 a plain kind of work package and a workflow step kind): a case makes its processing package from its source, a person starts its live run within the package's estimate, and the case is done once a live run is approved; the package's processing, review and result open from the case's page.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-25",
+        "note": "231 (C3b3): the first version: the document processing step (process_documents@1, the documents' maker) and its tabs: Documents, History."
+      }
+    ]
+  },
+  "id": "documents",
+  "title": "Documents",
+  "scope": {
+    "parts": [
+      "source"
+    ]
+  },
+  "intake": [
+    {
+      "on": "manual",
+      "starts": "manual"
+    }
+  ],
+  "resources": {},
+  "steps": [
+    {
+      "id": "process",
+      "uses": "process_documents@1",
+      "title": "Processing",
+      "params": {}
+    }
+  ],
+  "screens": {
+    "tabs": [
+      {
+        "id": "documents",
+        "label": "Documents",
+        "elements": [
+          {
+            "type": "package_work",
+            "step": "process"
+          }
+        ]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "elements": [
+          {
+            "type": "timeline"
+          },
+          {
+            "type": "cost"
+          }
+        ]
+      }
+    ]
+  },
+  "outputs": [],
+  "goldens": []
+}

@@ -1,0 +1,68 @@
+{
+  "meta": {
+    "name": "process:bank_statements",
+    "version": "1.0.0",
+    "description": "231 (plan stage C, C3b3; DECISIONS 231): an own party's bank statements of a period as a process pack (until C3 the statement package, its own kind of work package): a case makes its statement package from its source (the statements of the party and the period the store has not got yet), a person starts its live run within the package's estimate, and the case is done once a live run is approved.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-25",
+        "note": "231 (C3b3): the first version: the document processing step with the statements' maker (process_documents@1) and its tabs: Statements, History."
+      }
+    ]
+  },
+  "id": "bank_statements",
+  "title": "Bank statements",
+  "scope": {
+    "parts": [
+      "party",
+      "period",
+      "source"
+    ]
+  },
+  "intake": [
+    {
+      "on": "manual",
+      "starts": "manual"
+    }
+  ],
+  "resources": {},
+  "steps": [
+    {
+      "id": "process",
+      "uses": "process_documents@1",
+      "title": "Processing",
+      "params": {
+        "maker": "statements"
+      }
+    }
+  ],
+  "screens": {
+    "tabs": [
+      {
+        "id": "documents",
+        "label": "Statements",
+        "elements": [
+          {
+            "type": "package_work",
+            "step": "process"
+          }
+        ]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "elements": [
+          {
+            "type": "timeline"
+          },
+          {
+            "type": "cost"
+          }
+        ]
+      }
+    ]
+  },
+  "outputs": [],
+  "goldens": []
+}

@@ -2741,5 +2741,21 @@
   "choose files that exist": "létező fájlokat válassz",
   "the step has no package waiting for its run": "a lépésnek nincs futására váró csomagja",
   "Start the live run": "Az élő futás indítása",
-  "Makes a processing package of the case's documents; a person starts its live run within the package's estimate, and the step is done once a live run is approved.": "Feldolgozó csomagot készít az ügy irataiból; az élő futását egy személy indítja a csomag becslésén belül, és a lépés a jóváhagyott élő futással kész."
+  "Makes a processing package of the case's documents; a person starts its live run within the package's estimate, and the step is done once a live run is approved.": "Feldolgozó csomagot készít az ügy irataiból; az élő futását egy személy indítja a csomag becslésén belül, és a lépés a jóváhagyott élő futással kész.",
+  "The case's documents": "Az ügy iratai",
+  "Chosen files": "Megadott fájlok",
+  "The folder's full path": "A mappa teljes útvonala",
+  "Its subfolders too": "Az almappái is",
+  "The files' full paths, one a line": "A fájlok teljes útvonala, soronként egy",
+  "Processing": "Feldolgozás",
+  "Review": "Ellenőrzés",
+  "Starts the package's live run, which can spend up to {{usd}}": "Elindítja a csomag élő futását, legfeljebb {{usd}} költséggel",
+  "The package is being made…": "A csomag készül…",
+  "The package's pages": "A csomag oldalai",
+  "The source held no document: the case is done without a package.": "A forrásban nem volt irat: az ügy csomag nélkül kész.",
+  "live run in progress": "élő futás folyamatban",
+  "no documents": "nincs irat",
+  "waiting for its live run": "az élő futására vár",
+  "One case of a folder's documents or of the given files: its page starts the processing and leads to its review and result.": "Egy ügy egy mappa irataiból vagy a megadott fájlokból: az oldala indítja a feldolgozást, és onnan nyílik az ellenőrzése és az eredménye.",
+  "One case of a party's bank statements for a period: the period's statements the store has not got yet are taken from the folder or the files.": "Egy ügy egy gazdálkodó egy időszakának bankkivonataiból: a mappából vagy a fájlokból az időszak még nem tárolt kivonatai kerülnek be."
 }

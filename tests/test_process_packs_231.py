@@ -32,8 +32,8 @@ def _problems(data: dict) -> list[str]:
 
 
 def test_every_process_pack_passes_its_check() -> None:
-    # 231 (C1c): the email routing; (C2d) the reconciliation
-    assert [p.id for p in process_packs.packs()] == ["it_quote", "mail_routing", "reconciliation"]
+    # 231 (C1c): the email routing; (C2d) the reconciliation; (C3b3) the bank statements and the documents
+    assert [p.id for p in process_packs.packs()] == ["bank_statements", "documents", "it_quote", "mail_routing", "reconciliation"]
 
 
 def test_the_it_quote_pack_becomes_a_process_definition_of_capability_steps() -> None:
