@@ -304,7 +304,22 @@ def _process_step() -> Any:
 
     return workflow_steps.StepKind("process", __name__, (CONTAINER,), start=_workflow_start, paid=False, own_engine=False,
                                    repeat_from=lambda _wp_id: {"kind": "none"},
-                                   statuses={"case_closed": "approved", "case_open": "review"})
+                                   statuses={"case_closed": "approved", "case_open": "review"},
+                                   needs_of=_process_needs, statuses_of=_process_statuses)  # C3a-1
+
+
+def _process_needs(step: Any) -> tuple[str, ...]:
+    """231 (C3a-1): the parts of the workflow's scope a process step's pack takes (its party and period)."""
+    pack = process_packs.load(str(step["pack"]))
+    return tuple(p for p in (scopes.PARTY, scopes.PERIOD) if p in pack.scope.parts)
+
+
+def _process_statuses(step: Any) -> dict[str, str]:
+    """231 (C3a-1): what a process step's case's next step codes mean for the workflow: its capabilities' words."""
+    out: dict[str, str] = {}
+    for s in process_packs.load(str(step["pack"])).steps:
+        out.update(capabilities.of(s.uses).statuses)
+    return out
 
 
 def _list_mark() -> list[Any]:

@@ -72,6 +72,8 @@ CAPABILITY = Capability(
     name="pairing", version=1, module=_OWNER, run=_pair, kind="human", params=Pairing, effects="store",
     rule_files=("reconcile", "finance"), adopt=_adopt, own_version=True,  # C2d: reopening the statement reopens it
     reopen=_reopen, approval_what="Reconciliation statement",  # C3a-1: its case waits for the approval as a task
+    statuses={"reconcile_approved": "approved", "reconcile_pair": "pairing", "reconcile_result": "pairing",
+              "reconcile_empty": "pairing"},  # C3a-1: a workflow's step of its pack, as the reconciliation step said
     summary=("Proposes by code which item of one list settles which item of the other; a person confirms, rejects, splits"
              " or marks, and approves the result."))
 

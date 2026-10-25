@@ -100,6 +100,9 @@ class StepKind:
       and the budget per provider); None: the documents are counted.
     - `needs`: the parts of the workflow's scope the step needs (`party`, `period`).
     - `statuses`: its package's own next step codes and what each means for the workflow's step.
+    - `needs_of(step)` and `statuses_of(step)`: 231 (C3a-1) for a kind whose step names what it runs (a process pack's
+      step): its needs and statuses by the step's definition, beside the kind's own; read by `step_needs` and
+      `step_statuses`.
     """
 
     kind: str
@@ -115,6 +118,8 @@ class StepKind:
     estimate: Callable[..., dict[str, Any]] | None = None
     needs: tuple[str, ...] = ()
     statuses: Mapping[str, str] = field(default_factory=dict)
+    needs_of: Callable[[Mapping[str, Any]], tuple[str, ...]] | None = None
+    statuses_of: Callable[[Mapping[str, Any]], Mapping[str, str]] | None = None
 
     def __post_init__(self) -> None:
         if not self.package_kinds:
@@ -208,5 +213,18 @@ def described() -> dict[str, dict[str, Any]]:
                      "only_new": k.only_new, "subfolders": k.subfolders, "needs": list(k.needs)} for k in _KINDS.values()}
 
 
+def step_needs(step: Mapping[str, Any]) -> tuple[str, ...]:
+    """231 (C3a-1): the parts of the workflow's scope a template's step needs: its kind's, and its definition's."""
+    kind = of(str(step["kind"]))
+    return tuple(dict.fromkeys((*kind.needs, *(kind.needs_of(step) if kind.needs_of else ()))))
+
+
+def step_statuses(step: Mapping[str, Any]) -> dict[str, str]:
+    """231 (C3a-1): what its package's next step codes mean for a template's step: its kind's, and its definition's."""
+    kind = of(str(step["kind"]))
+    return {**kind.statuses, **(kind.statuses_of(step) if kind.statuses_of else {})}
+
+
 __all__ = ["SHARED_OWN_SOURCES", "SourceKind", "StepKind", "StepStart", "UnknownStepKind", "described", "folder_source",
-           "kinds", "of", "own_sources", "paths_of", "register", "register_source", "source_kind"]
+           "kinds", "of", "own_sources", "paths_of", "register", "register_source", "source_kind", "step_needs",
+           "step_statuses"]

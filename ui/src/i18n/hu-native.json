@@ -2733,5 +2733,6 @@
   "Not asked: the reconciliation was approved without it.": "Nem kértek AI-javaslatot: az egyeztetést nélküle hagyták jóvá.",
   "Statements": "Kivonatok",
   "Summary": "Kimutatás",
-  "{{n}} bank accounts": "{{n}} bankszámla"
+  "{{n}} bank accounts": "{{n}} bankszámla",
+  "the case approves no version of its own": "az ügynek nincs saját jóváhagyott változata"
 }

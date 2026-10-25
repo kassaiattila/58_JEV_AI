@@ -150,6 +150,8 @@ class Capability:
       approval as a person's task: how the approved version is reopened with a reason (a workflow's chain reopens it,
       rule 218) and what the approval is about in "Waiting for me" (English; the interface translates it). A case of a
       pack with such a step owns its approval (`process_runtime.owns_approval`).
+    - `statuses` (C3a-1): what its case's next step codes mean for a workflow's step that runs its pack (`process`),
+      as a retired step kind's statuses did (the pairing: `reconcile_pair` is "pairing").
     """
 
     name: str
@@ -175,6 +177,7 @@ class Capability:
     own_version: bool = False
     reopen: Callable[[str, str, identity.Who], Any] | None = None
     approval_what: str | None = None
+    statuses: Mapping[str, str] = field(default_factory=dict)
 
     @property
     def key(self) -> str:

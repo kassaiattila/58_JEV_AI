@@ -293,7 +293,7 @@ def _step_title(step: dict[str, Any]) -> str:
 
 def template_needs(t: dict[str, Any]) -> list[str]:
     """181: the parts of the scope a template's steps need (their step kinds' `needs`), in the parts' order."""
-    needed = {n for step in t["steps"] for n in workflow_steps.of(step["kind"]).needs}
+    needed = {n for step in t["steps"] for n in workflow_steps.step_needs(step)}  # 231 (C3a-1): a process step's pack's
     return [p.name for p in scopes.parts() if p.name in needed]
 
 
@@ -644,7 +644,7 @@ def _status(sdef: dict[str, Any], st: dict[str, Any], done: dict[str, bool]) -> 
         approved, nxt = _package_state(st["workpackage_id"])
         if nxt is None:
             return "missing", None
-        statuses = {**STATUS_BY_NEXT, **workflow_steps.of(sdef["kind"]).statuses}
+        statuses = {**STATUS_BY_NEXT, **workflow_steps.step_statuses(sdef)}  # 231 (C3a-1): a process step's capabilities'
         return ("approved" if approved else statuses.get(nxt["code"], "attention")), nxt
     if st["phase"] == "waiting":
         return ("ready" if all(done.get(a) for a in sdef.get("after", [])) else "waiting"), None
