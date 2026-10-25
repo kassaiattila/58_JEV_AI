@@ -398,7 +398,8 @@ def cmd_backup(args: argparse.Namespace) -> int:
         _refresh_jev_version()
     else:
         m = backup.backup(out_root=Path(args.out) if args.out else None, with_burr=args.with_burr, keep=args.keep,
-                          copy_to=Path(args.copy_to) if args.copy_to else None, with_docs=args.with_docs)
+                          copy_to=Path(args.copy_to) if args.copy_to else None, with_docs=args.with_docs,
+                          with_env=args.with_env)
     for f in m["files"]:
         entries = f" ({f['entries']} fájl)" if "entries" in f else ""
         print(f"{f['file']}{entries}: {f['bytes'] / 1e6:.1f} MB, ellenőrzés: {f['integrity']}")
@@ -580,6 +581,7 @@ def register(sub) -> None:
     p.add_argument("--out", help="a mentések gyökere (alapból store/backups)")
     p.add_argument("--with-burr", action="store_true", help="a folyamat-állapotok tára (store/burr_state.sqlite, nagy) is")
     p.add_argument("--with-docs", action="store_true", help="070: a belső munkaanyag (jav/core/doc_scope.py) is, internal-docs.zip")
+    p.add_argument("--with-env", action="store_true", help="231: the local settings (.env, with the keys) too, into local-env.zip")
     p.add_argument("--keep", type=int, default=None, help="ennyi legutóbbi mentés marad (alapból a napi mentésé: configs/service.json backup.keep)")
     p.add_argument("--copy-to", help="064: a kész mentés ellenőrzött másolata ide is (pl. NAS-mappa); ott is a --keep marad")
     p.add_argument("--scheduled", action="store_true", help="064: a napi ütemezett mentés a configs/service.json backup szakasza szerint")

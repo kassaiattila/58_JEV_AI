@@ -93,7 +93,7 @@ python -m jav.cli run-start <wp> [--mode shadow|apply] | worker --once | run-sho
 cd ui; npm ci; npm run build; cd ..                               # build the UI (once, and after every ui/src change)
 .\scripts\dev.ps1 start | status | stop                          # UI + service: http://127.0.0.1:8930/ (endpoint list: /api/openapi.json) + worker
 python -m jav.cli serve | worker-status | worker-stop              # the same, one piece at a time
-python -m jav.cli backup [--with-docs] | burr-prune                # store backup (daily backup settings: configs/service.json); thin the flow-state store
+python -m jav.cli backup [--with-docs] [--with-env] | burr-prune                # store backup (daily backup settings: configs/service.json); thin the flow-state store
 python -m jav.cli hooks-install | data-guard [--all]               # enable the data guard; scan the version-controlled tree
 python -m jav.cli calls-uncertain | calls-resolve <id> --note N    # settle a paid call with an uncertain outcome by hand
 burr                                                               # Burr tracker: http://localhost:7241

@@ -150,6 +150,7 @@ def test_scheduled_backup_follows_the_configuration(db, monkeypatch):
     monkeypatch.setattr(backup, "backup", lambda **kw: seen.update(kw) or {"ok": True, "copy": None, "files": [], "dir": "x"})
     backup.scheduled(config={"keep": 14, "copy_to": str(db / "nas"), "with_burr": False})
     assert seen == {"keep": 14, "copy_to": db / "nas", "with_burr": False, "with_docs": False,  # 070: off by default
+                    "with_env": False,  # 231: off unless configured
                     "kind": "scheduled"}  # 160: counted with the daily backups
 
 
