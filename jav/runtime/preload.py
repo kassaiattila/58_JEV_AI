@@ -9,6 +9,10 @@ stand-alone measurement tools are never loaded: the runtime does not use them (u
 
 218: after the code, the process takes its calculation snapshot (`jav.core.rulebook.current`): every config is loaded
 then, so the rules the process uses are the ones its runs, items and cases are linked to.
+
+231 (an incident of 2026-10-25): every config read then was kept, but the list of them was read anew on every request,
+and a cleared cache read the folder again, so a process pack that appeared in the folder later (the development
+branch's) reached the released code. The configs are frozen at start-up too (`cfg.freeze`): their list and contents.
 """
 
 from __future__ import annotations
@@ -27,7 +31,17 @@ class PreloadError(RuntimeError):
 
 
 def preload() -> list[str]:
-    """Imports every module of the `jav` package except the excluded ones; returns their names."""
+    """Imports every module of the `jav` package except the excluded ones and freezes the configs (231); returns the
+    modules' names."""
+    loaded = _import_all()
+    from jav.core import cfg, rulebook
+
+    cfg.freeze()  # 231: the configs of this moment, whatever the folder holds later
+    rulebook.current()
+    return loaded
+
+
+def _import_all() -> list[str]:
     loaded: list[str] = []
     for info in pkgutil.walk_packages(jav.__path__, "jav."):
         if info.name.startswith(EXCLUDED):
@@ -37,9 +51,6 @@ def preload() -> list[str]:
         except Exception as exc:  # the start stops with the module's name; the cause is chained
             raise PreloadError(f"{info.name} could not be imported at start-up: {type(exc).__name__}: {exc}") from exc
         loaded.append(info.name)
-    from jav.core import rulebook
-
-    rulebook.current()
     return loaded
 
 
