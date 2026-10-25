@@ -1,11 +1,11 @@
-"""231 (plan stage C, C2e; DECISIONS 231): the reconciliation packages made before are taken over as the reconciliation
-process's cases.
+"""231 (plan stage C, C2e, C3a-2; DECISIONS 231): the reconciliation packages made before are taken over as the
+reconciliation process's cases.
 
 A reconciliation package (its own kind of package until C2d) becomes a case of the reconciliation pack under its own id
-(`adopts` in the pack file), so its decisions and approved statements stay where they are. A package made before its
-accounts had a party takes the party its accounts imply: the one own party every one of them is registered to; accounts
-of no party or of two parties imply none, and a case then needs its party given. Synthetic statements and invoices; no
-AI call.
+(`adopts` in the pack file), so its decisions and approved statements stay where they are; its party is optional (C3a-2),
+so a package made without one is taken over as it was. The scopes' general rule that the given parts may imply a needed
+part (the one own party every account is registered to) is checked here too. A package whose scope the pack refuses is
+named and the others go on. Synthetic statements and invoices; no AI call.
 """
 
 from __future__ import annotations
@@ -72,14 +72,12 @@ def test_a_reconciliation_package_is_taken_over_as_the_process_case(db):
     assert reconcile_package.workspace(wp)["scope"]["party_id"] == home  # read and decided on as before
 
 
-def test_a_package_made_before_its_accounts_had_a_party_takes_the_party_they_imply(db):
+def test_a_package_made_without_a_party_is_taken_over_as_it_was(db):
     wp = _old_package(party=None)
-    home = _party("Example Home", k2.OWN)
-    listed = process_runtime.adopt_all(actor="tester")
-    assert listed[0]["scope"]["party"] is None  # the stored scope has none
+    _party("Example Home", k2.OWN)  # its accounts have a party now: the case still reconciles them alone, as the package did
     assert [r["result"] for r in process_runtime.adopt_all(actor="tester", write=True)] == ["adopted"]
     assert engine.state(wp)["status"] == "open" and process_runtime.pack_of(wp)[0] == "reconciliation"
-    assert cases.get(wp)["data"]["scope"]["party"] == home
+    assert "party" not in cases.get(wp)["data"]["scope"] and reconcile_package.scope(wp)["party_id"] is None
 
 
 def test_a_package_whose_accounts_imply_no_party_is_taken_over_without_one(db):

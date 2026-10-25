@@ -14,7 +14,7 @@ import subprocess
 import sys
 from dataclasses import replace
 
-from jav.app import export, item_kinds, logic_packs, registrations
+from jav.app import export, item_kinds, logic_packs, process_packs, registrations
 from jav.ai import checks
 from jav.core.config import PROJECT_ROOT
 from jav.domains import DOMAINS
@@ -43,7 +43,7 @@ def test_importing_a_domain_registers_nothing_and_load_all_registers_it() -> Non
     assert seen["before"] == {"checks": [], "packs": [], "rules": [], "parts": []}
     after = seen["after"]
     assert {"duplicate", "own_tax", "statement_overlap", "duplicate_scan", "own_tax_scan"} <= set(after["checks"])
-    assert after["packs"] == ["reconcile", "statements"]  # 231 (A3d): no quote package; (C1c) no routing package
+    assert after["packs"] == ["statements"]  # 231 (A3d): no quote package; (C1c) no routing package; (C3a-2) no reconciliation
     assert after["rules"] == ["suspicious_email_source"]
     assert after["parts"] == ["direction", "duplicate", "duplicate", "utility_cost", "utility_cost"]
 
@@ -60,7 +60,7 @@ def test_the_domains_and_their_registrations_in_order() -> None:
     assert [p.output for p in parts.own_outputs()] == ["utility_cost"]
     assert logic_packs.outputs_of("folder") == ("package_result", "utility_cost")
     assert logic_packs.outputs_of("statements") == ("package_result", "utility_cost")
-    assert logic_packs.outputs_of("reconcile") == ("reconcile_statement",)
+    assert process_packs.load("reconciliation").outputs == ("reconcile_statement",)  # 231 (C3a-2): its process pack's
     assert item_kinds.claimed_by(item_kinds.EMAIL) == "jav.domains.email"  # 229 (MD1): the domain claims its kinds
     assert item_kinds.source_claimed_by("mailbox") == "jav.domains.email"
     assert [(r.name, r.module) for r in item_kinds.rules()] == [("suspicious_email_source", "jav.domains.email")]

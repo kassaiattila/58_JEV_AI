@@ -220,7 +220,8 @@ def test_a_quotes_approval_is_its_task_too(quote):  # noqa: F811
 
 
 def test_only_a_logic_pack_a_person_approves_as_its_own_version_waits_for_an_approval(db):  # noqa: F811
-    assert set(logic_packs.kinds_with_own_approval()) == {rp.KIND}  # 231 (A3d): the quote package is gone
+    # 231 (A3d): the quote package is gone; (C3a-2) the reconciliation's case owns its approval itself, not its kind
+    assert set(logic_packs.kinds_with_own_approval()) == set()
     routing = work.create_workpackage(name="Routing", source_kind=email_routing.KIND, source_ref=None, owner="t")["id"]
     plain = work.create_workpackage(name="Plain", source_kind="manual", source_ref=None, owner="t")["id"]
     assert [tasks.get(tasks.task_id(human_tasks.OWN_APPROVAL, wp)) for wp in (routing, plain)] == [None, None]
@@ -228,13 +229,13 @@ def test_only_a_logic_pack_a_person_approves_as_its_own_version_waits_for_an_app
     assert tasks.open_tasks(kind=human_tasks.OWN_APPROVAL) == []
 
 
-def test_a_deleted_package_withdraws_its_approval_task_and_an_archived_one_keeps_it(db):  # noqa: F811
-    hidden, gone = _reconcile(name="Hidden"), _reconcile(name="Gone")
+def test_an_archived_reconciliation_keeps_its_approval_task_and_its_case_is_not_deleted(db):  # noqa: F811
+    hidden, kept = _reconcile(name="Hidden"), _reconcile(name="Kept")
     work.archive_workpackage(hidden, actor="Example Person")
     assert tasks.get(tasks.task_id(human_tasks.OWN_APPROVAL, hidden)).status == "open"  # restoring it needs the same
-    work.delete_workpackage(gone, actor="Example Person")
-    task = tasks.get(tasks.task_id(human_tasks.OWN_APPROVAL, gone))
-    assert (task.status, task.closed_by.id, task.note) == ("withdrawn", "local:Example Person", "the package was deleted")
+    with pytest.raises(work.NotReady):  # 231 (C3a-2): a reconciliation is its pack's case; its container stays
+        work.delete_workpackage(kept, actor="Example Person")
+    assert tasks.get(tasks.task_id(human_tasks.OWN_APPROVAL, kept)).status == "open"
 
 
 def test_a_packages_new_owner_takes_its_open_tasks(db):  # noqa: F811
@@ -261,7 +262,7 @@ def test_the_approval_of_a_workflows_reconciliation_moves_the_chain_on_at_the_wo
     wf_id = _monthly(db, invoices=0)
     _process_all()
     work_runs.approve_run(_steps(wf.view(wf_id))["statements"]["run_id"], actor="Example Person")
-    assert engine.turn_due() == 1
+    assert engine.turn_due() == 2  # 231 (C3a-2): and the reconciliation case its step started
     wp_id = _steps(wf.view(wf_id))["reconcile"]["package"]["id"]
     assert _core(wf_id)["reconcile"] == "running:approval"
     assert engine.turn_due() == 0

@@ -44,7 +44,7 @@ def test_a_reconciliation_package_shows_no_item_count(monkeypatch) -> None:
     """167 (review 153 E): its lines are not items, so the list leaves the count empty instead of 0."""
     from jav.app import datasets, work_views
 
-    row = {"id": "wp-1", "name": "x", "source_kind": "reconcile", "items": 0, "last_run_id": None,
+    row = {"id": "wp-1", "name": "x", "source_kind": "case", "items": 0, "last_run_id": None,  # 231 (C3a-2): its case
            "next": {"stage": "process", "label": "", "code": "reconcile_pair", "params": {}}}
     monkeypatch.setattr(work_views, "workpackage_list", lambda include_archived=False: [dict(row), {**row, "id": "wp-2", "source_kind": "folder", "items": 3}])
     _cols, rows = datasets._workpackages({})

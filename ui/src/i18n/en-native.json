@@ -2728,5 +2728,6 @@
   "Statements": "Statements",
   "Summary": "Summary",
   "{{n}} bank accounts": "{{n}} bank accounts",
-  "the case approves no version of its own": "the case approves no version of its own"
+  "the case approves no version of its own": "the case approves no version of its own",
+  "a case's documents are in the packages its scope names": "a case's documents are in the packages its scope names"
 }

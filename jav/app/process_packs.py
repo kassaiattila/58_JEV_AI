@@ -100,8 +100,8 @@ class Screens(_Model):
 
 
 class Scope(_Model):
-    """The parts a case's scope has; 231 (C3a-2): `optional` ones may be left out, filled when the others imply them or
-    a default gives one (the reconciliation's party: a package made before parties reconciled its accounts alone)."""
+    """The parts a case's scope has; 231 (C3a-2): `optional` ones may be left out, and then stay out (the
+    reconciliation's party: without one it reconciles its accounts alone, every invoice its own, as a package could)."""
 
     parts: tuple[str, ...] = ()
     optional: tuple[str, ...] = ()

@@ -170,12 +170,11 @@ def _reconciliation(db) -> str:
 
 def test_the_page_of_a_reconciliation_package_has_these_parts(db) -> None:
     wp_id = _reconciliation(db)
-    view = work_views.workpackage_view(wp_id)
-    assert _keys(view) == ["last_run", "next", "readiness", "reconcile", "runs", "titles", "workflow", "workpackage"]
-    assert _keys(view["reconcile"]) == ["approval", "counts", "coverage", "scope"]
+    view = work_views.workpackage_view(wp_id)  # 231 (C3a-2): a reconciliation is its process pack's case: its page names it
+    assert _keys(view) == ["case", "last_run", "next", "runs", "titles", "workflow", "workpackage"]
+    assert view["case"]["pack"] == "reconciliation"
     assert (view["last_run"], view["runs"], view["titles"]) == (None, 0, {})
     assert view["next"]["code"] == "reconcile_pair"
-    assert view["readiness"]["counts"] == {"items": 0, "lines": 1, "invoices": 1}
 
 
 def test_a_reconciliation_package_in_the_list(db) -> None:
@@ -193,7 +192,7 @@ def test_a_reconciliation_package_is_released_in_its_own_statement(db) -> None:
     wp_id = _reconciliation(db)
     view = package_release.view(wp_id)
     assert (view["blockers"], view["open_live_runs"]) == ([{"code": "own_approval"}], [])
-    with pytest.raises(package_release.ReleaseError, match="approved in its own statement"):
+    with pytest.raises(package_release.ReleaseError, match="approved on its own page"):  # 231 (C3a-2): a case's rule
         package_release.release(wp_id, actor="t", expected_mark=view["mark"])
 
 
@@ -201,7 +200,7 @@ def test_neither_kind_takes_documents_the_shared_way(db) -> None:
     pdf = db / "x.pdf"
     pdf.write_bytes(b"%PDF-1.4 synthetic")
     reconciliation = _reconciliation(db)
-    with pytest.raises(ValueError, match="^a reconciliation package has no documents$"):
+    with pytest.raises(ValueError, match="^a case's documents are in the packages its scope names$"):  # 231 (C3a-2)
         work.add_to_package(reconciliation, [pdf], expected_revision=work.get(reconciliation)["revision"], actor="t")
     statements = _statement_package(db, _party())
     with pytest.raises(ValueError, match="^add statements to a statement package through its survey$"):

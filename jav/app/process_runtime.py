@@ -292,6 +292,7 @@ def _delete_guard(c: Any, case_id: str) -> None:
 CONTAINER_PACK = logic_packs.LogicPack(
     kind=CONTAINER, module=__name__,
     roles=(logic_packs.InputRole("record", "linked_package", "the package item the case starts from"),), has_runs=False, page=_page, approved=_approved, next_step=_next,
+    add_refusal="a case's documents are in the packages its scope names",  # C3a-2: as a reconciliation package's were
     list_next=_next, outputs=(), release_refusal=_release_refusal, delete_guard=_delete_guard,
     approval_what="Approval of a case's result", list_mark=lambda: _list_mark(),
     owns_approval=owns_approval, approval_what_of=_approval_what, reopen=_reopen)  # C3a-1

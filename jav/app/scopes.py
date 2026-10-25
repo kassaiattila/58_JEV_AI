@@ -90,7 +90,7 @@ def check(needs: Iterable[str], given: Mapping[str, Any], *, error: type[Excepti
     (the caller's own error class, e.g. `workflows.WorkflowError`). 231 (C2d): a needed part with a default that was
     not given takes it from the parts checked before it (in the registry's order); none for this scope is missing.
     231 (C2e): before that, a needed part not given takes the value the given parts imply (`imply`), if they do.
-    231 (C3a-2): an `optional` part not given takes an implied or default value the same way, or stays out."""
+    231 (C3a-2): an `optional` part is checked when given and stays out when not (nothing fills it)."""
     needed = list(dict.fromkeys(needs))
     present = {k: v for k, v in given.items() if v is not None}
     for name in [*needed, *present]:
@@ -98,22 +98,19 @@ def check(needs: Iterable[str], given: Mapping[str, Any], *, error: type[Excepti
     if missing := [n for n in needed if n not in present and of(n).default is None and n not in _IMPLIED]:
         raise of(missing[0]).missing(error)
     checked = {p.name: p.check(present[p.name], error) for p in _PARTS.values() if p.name in present}
-    wanted = [*needed, *(n for n in dict.fromkeys(optional) if n not in needed)]
-    for name in wanted:
+    for name in optional:
         of(name, error)
     for p in _PARTS.values():
-        if p.name in wanted and p.name not in checked:
+        if p.name in needed and p.name not in checked:
             for _module, implied in _IMPLIED.get(p.name, ()):
                 if (value := implied(dict(checked))) is not None:
                     checked[p.name] = p.check(value, error)
                     break
     for p in _PARTS.values():
-        if p.name in wanted and p.name not in checked:
+        if p.name in needed and p.name not in checked:
             value = p.default(checked) if p.default is not None else None
             if value is None:
-                if p.name in needed:
-                    raise p.missing(error)
-                continue  # an optional part none gives stays out
+                raise p.missing(error)
             checked[p.name] = p.check(value, error)
     return {p.name: checked[p.name] for p in _PARTS.values() if p.name in checked}
 

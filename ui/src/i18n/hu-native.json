@@ -2734,5 +2734,6 @@
   "Statements": "Kivonatok",
   "Summary": "Kimutatás",
   "{{n}} bank accounts": "{{n}} bankszámla",
-  "the case approves no version of its own": "az ügynek nincs saját jóváhagyott változata"
+  "the case approves no version of its own": "az ügynek nincs saját jóváhagyott változata",
+  "a case's documents are in the packages its scope names": "egy ügy iratai a hatókörében megnevezett csomagokban vannak"
 }

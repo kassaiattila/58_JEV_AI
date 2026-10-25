@@ -38,13 +38,12 @@ def probe(monkeypatch):
 ROLE = (lp.InputRole("x", "own_items", "made up"),)
 
 
-def test_the_two_logic_packs_and_their_roles() -> None:
-    reconcile, statements = lp.of("reconcile"), lp.of("statements")
-    assert (reconcile.has_runs, statements.has_runs) == (False, True)
-    assert [(r.name, r.source) for r in reconcile.roles] == [("statements", "period"), ("invoices", "period")]
+def test_the_logic_pack_and_its_roles() -> None:
+    statements = lp.of("statements")  # 231 (C3a-2): the reconciliation's went (a reconciliation is a process pack's case)
+    assert statements.has_runs is True
     assert [(r.name, r.source) for r in statements.roles] == [("statements", "own_items")]
-    assert statements.rule is not None and reconcile.rule is None
-    assert lp.kinds_without_runs() == ("reconcile",)  # 231 (A3d): no quote package; (C1c) no routing package
+    assert statements.rule is not None
+    assert lp.kinds_without_runs() == ()  # 231 (A3d): no quote package; (C1c) no routing; (C3a-2) no reconciliation
     assert all(lp.of(kind) is None and lp.has_runs(kind) for kind in lp.DATA_KINDS)
 
 
@@ -125,10 +124,11 @@ def test_the_service_has_the_addresses_of_every_logic_pack_in_its_own_module() -
 
     own = [p.service for p in lp.packs()]
     # 231 (C1c): the email routing's addresses are its domain's (its logic pack went: a routing is a process pack's case)
-    assert own == ["jav.domains.finance.api_statement_package", "jav.domains.finance.api_reconcile"]
+    assert own == ["jav.domains.finance.api_statement_package"]  # (C3a-2): the reconciliation's are the domain's
     domains = [name for d in DOMAINS for name in importlib.import_module(d).SERVICE]
     # 191: quotes; 231 (A3d): the quote's own addresses (a case's page uses them) are the domain's since its logic pack went
-    assert domains == ["jav.domains.finance.api_parties", "jav.domains.finance.api_finance", "jav.domains.email.api_mailbox",
+    assert domains == ["jav.domains.finance.api_reconcile", "jav.domains.finance.api_parties", "jav.domains.finance.api_finance",
+                       "jav.domains.email.api_mailbox",
                        "jav.domains.email.api_email_routing", "jav.domains.quotes.api_quote_package", "jav.domains.quotes.api_price_lists"]
     assert api.service_modules() == [*own, *domains]
     assert all(callable(importlib.import_module(name).routes) for name in api.service_modules())

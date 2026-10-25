@@ -88,15 +88,18 @@ def test_a_reconciliation_packages_scope_shows_as_before_and_changes_with_its_re
                      "revision": 1, "party_id": party, "party": {"id": party, "name": "Example Kft."}}
     assert package_scope.scope_of(wp) is None  # a reconciliation collects no documents for a role
     assert _stored(wp) == {"party_id": party, "period_start": "2026-04-01", "period_end": "2026-04-30", "role": None,
-                           "parts": {"accounts": [OWN_KEY]}, "revision": 1, "set_by": "reviewer"}
+                           "parts": {"party": party, "period": ["2026-04-01", "2026-04-30"], "accounts": [OWN_KEY]},
+                           "revision": 1, "set_by": "reviewer"}  # 231 (C2d, C3a-2): a case keeps its party and period as parts too
     rp.set_scope(wp, accounts=[OWN_KEY], period_start="2026-04-01", period_end="2026-05-31", expected_revision=1,
                  actor="other reviewer", party_id=None)
     with pytest.raises(work.RevisionConflict, match="revision 2, not 1"):
         rp.set_scope(wp, accounts=[OWN_KEY], period_start="2026-04-01", period_end="2026-06-30", expected_revision=1,
                      actor="tester")
-    assert (rp.scope(wp)["revision"], rp.scope(wp)["party"], work.get(wp)["source_ref"]) == (2, None, "2026-04-01..2026-05-31")
+    assert (rp.scope(wp)["revision"], rp.scope(wp)["party"]) == (2, None)
+    assert work.get(wp)["source_ref"].startswith("pack:reconciliation@")  # 231 (C3a-2): a case's reference names its pack
     assert _stored(wp) == {"party_id": None, "period_start": "2026-04-01", "period_end": "2026-05-31", "role": None,
-                           "parts": {"accounts": [OWN_KEY]}, "revision": 2, "set_by": "other reviewer"}
+                           "parts": {"period": ["2026-04-01", "2026-05-31"], "accounts": [OWN_KEY]}, "revision": 2,
+                           "set_by": "other reviewer"}
     assert [e["action"] for e in work.workpackage_events(wp)].count("reconcile_scope") == 2
 
 
@@ -146,11 +149,12 @@ def test_a_deleted_packages_scope_goes_with_it(db) -> None:
     party = _party()
     statements = sp140._package(db, party)
     reconciliation = _reconciliation(party)
-    for wp in (statements, reconciliation):  # 231 (C1c): a routing is a case now, not deleted while it runs
-        work.delete_workpackage(wp, actor="tester")
-        assert package_scope.stored(wp) is None
-    with store.connect() as c:
-        assert c.execute("SELECT COUNT(*) FROM workpackage_scopes").fetchone()[0] == 0
+    work.delete_workpackage(statements, actor="tester")  # 231 (C1c): a routing is a case now, not deleted while it runs
+    assert package_scope.stored(statements) is None
+    with pytest.raises(work.NotReady):  # (C3a-2) a reconciliation too: its case's container stays, hidden if need be
+        work.delete_workpackage(reconciliation, actor="tester")
+    with store.connect() as c:  # only the reconciliation's scope is left
+        assert [r[0] for r in c.execute("SELECT workpackage_id FROM workpackage_scopes")] == [reconciliation]
 
 
 # --- an older store's own scope tables -------------------------------------------------------------------------------
