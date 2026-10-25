@@ -53,9 +53,9 @@ import time
 from collections import Counter, OrderedDict, defaultdict
 from datetime import date
 from decimal import Decimal
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
-from jav.app import corrections, logic_packs, package_release, package_scope, parties, work, workflow_steps
+from jav.app import corrections, logic_packs, package_release, package_scope, parties, scopes, work, workflow_steps
 
 from jav.domains.finance import own_parties
 from jav.ai import grounding, typepack
@@ -239,11 +239,50 @@ def create(*, name: str, accounts: list[str], period_start: str, period_end: str
     return scope(wp["id"])
 
 
+def holds_reconciliation(wp: dict[str, Any]) -> bool:
+    """A reconciliation package, or (231, C2d) a process case whose scope names the accounts it reconciles (the pairing
+    step's case): both are read and decided on the same way."""
+    if wp["source_kind"] == KIND:
+        return True
+    from jav.app import process_runtime  # lazy: the process runtime builds on the registered capabilities
+
+    return (wp["source_kind"] == process_runtime.CONTAINER
+            and ACCOUNTS in ((package_scope.stored(wp["id"]) or {}).get("parts") or {}))
+
+
 def _package(wp_id: str) -> dict[str, Any]:
     wp = work.get(wp_id)
-    if wp["source_kind"] != KIND:
+    if not holds_reconciliation(wp):
         raise explained(PackageError, "not a reconciliation package")
     return wp
+
+
+def _accounts_part(value: Any, error: type[Exception]) -> list[str]:
+    """231 (C2d): a case's accounts and cards: own account keys the store has a statement of or a party registered."""
+    if not (isinstance(value, list) and value and all(isinstance(v, str) and v for v in value)):
+        raise explained(error, "choose at least one account or card")
+    chosen = sorted(set(value))
+    known = {a["key"] for a in accounts()}
+    if unknown := [k for k in chosen if k not in known]:
+        raise explained(error, "neither a statement nor a registered account: {{unknown}}", unknown=", ".join(unknown))
+    return chosen
+
+
+def _party_accounts(scope: Mapping[str, Any]) -> list[str] | None:
+    """231 (C2d): the default accounts of a case: the party's accounts and cards, as a workflow's reconciliation step
+    takes them (None without a party or without one of its accounts)."""
+    party = scope.get(scopes.PARTY)
+    keys = [a["key"] for a in accounts() if party and (a.get("party") or {}).get("id") == party]
+    return keys or None
+
+
+def _no_accounts(error: type[Exception]) -> Exception:
+    return explained(error, "the party has no account or card with a statement yet")
+
+
+# 231 (C2d): the accounts a case reconciles, a scope part of the finance domain (registered in its `register()`)
+ACCOUNTS_PART = scopes.Part(ACCOUNTS, __name__, _accounts_part, lambda keys: f"{len(keys)} accounts", _no_accounts,
+                            default=_party_accounts)
 
 
 def scope(wp_id: str) -> dict[str, Any]:
@@ -263,14 +302,21 @@ def set_scope(wp_id: str, *, accounts: list[str], period_start: str, period_end:
     keys, start, end = _checked_scope(accounts, period_start, period_end)
     party = _checked_party(party_id)
     scope(wp_id)
+    case = work.get(wp_id)["source_kind"] != KIND  # 231 (C2d): a pairing case keeps its party and period as parts too
     with store.connect() as c:
         store.begin_immediate(c)
         if active := active_versions(c).get(wp_id):
             raise explained(Locked, "the package's statement is approved (version {{version}}); reopen it to change the scope",
                             version=active["version"])
-        package_scope.save(c, wp_id, party_id=party, period_start=start, period_end=end, parts={ACCOUNTS: keys}, actor=actor,
+        parts: dict[str, Any] = {ACCOUNTS: keys}
+        if case:
+            kept = {k: v for k, v in ((package_scope.stored(wp_id, c) or {}).get("parts") or {}).items()
+                    if k not in (scopes.PARTY, scopes.PERIOD)}
+            parts = {**kept, **({scopes.PARTY: party} if party else {}), scopes.PERIOD: [start, end], ACCOUNTS: keys}
+        package_scope.save(c, wp_id, party_id=party, period_start=start, period_end=end, parts=parts, actor=actor,
                            expected_revision=expected_revision)
-        c.execute("UPDATE workpackages SET source_ref=?, updated_at=? WHERE id=?", (f"{start}..{end}", _now(), wp_id))
+        if not case:  # a case's reference names its pack
+            c.execute("UPDATE workpackages SET source_ref=?, updated_at=? WHERE id=?", (f"{start}..{end}", _now(), wp_id))
         work.record_event(c, wp_id, "reconcile_scope", actor, {"accounts": len(keys), "period": [start, end], "party": party})
     return scope(wp_id)
 
@@ -937,8 +983,9 @@ def _decision_state(c=None) -> list[Any]:
     state.append(list(c.execute("SELECT COUNT(*), MAX(id), COUNT(reopened_at) FROM package_versions"
                                 " WHERE content IS NOT NULL").fetchone()))  # 186: the logic packs' own versions
     # 153 (review A3): a scope changed meanwhile (a line checked against the old one might now be outside it)
+    # 231 (C2d): every scope that names accounts (a reconciliation package's or a pairing case's)
     state.append(list(c.execute("SELECT COUNT(*), SUM(s.revision) FROM workpackage_scopes s JOIN workpackages w"
-                                " ON w.id = s.workpackage_id WHERE w.source_kind = ?", (KIND,)).fetchone()))
+                                " ON w.id = s.workpackage_id WHERE json_extract(s.parts, '$.accounts') IS NOT NULL").fetchone()))
     # 169: a document left out or restored meanwhile (a pairing checked before might rest on one now left out)
     state.append(list(c.execute("SELECT COUNT(*), COUNT(restored_at) FROM reconcile_exclusions").fetchone()))
     return state

@@ -274,7 +274,7 @@ def _lint_statement_table(mod: Any) -> Any:
 def register() -> None:
     """Every registration of the finance domain, in the order the shared code lists them (`registrations.load_all`)."""
     from jav import flows
-    from jav.app import datasets, logic_packs, package_scope, partners, workflow_steps
+    from jav.app import datasets, logic_packs, package_scope, partners, scopes, workflow_steps
     from jav.domains.finance import own_parties, party_views  # its two decision points too
     from jav.domains.finance import duplicates, finance_datasets, reconcile_package, report_utility, statement_package
 
@@ -299,8 +299,10 @@ def register() -> None:
     workflow_steps.register(reconcile_package.STEP)
     from jav.domains.finance import capabilities
 
-    # 231 (C2b): the pairing of two lists as a general capability's step (the monthly reconciliation's pack names it, C2d)
+    # 231 (C2b): the pairing of two lists as a general capability's step (the monthly reconciliation's pack names it, C2d);
+    # (C2d) the accounts a case reconciles as a scope part, by default its party's
     capabilities.register()
+    scopes.register(reconcile_package.ACCOUNTS_PART)
     for role in _roles():  # 181: what a package collects, and where an emailed document belongs
         package_scope.register_role(role)
     package_scope.register_reader("finance", place_document)
