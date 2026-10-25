@@ -29,7 +29,7 @@ from typing import Any, Callable
 
 from burr.integrations.serde import pydantic as burr_pydantic
 
-from jav.app import app_settings, capabilities, item_kinds, work, work_readiness, work_runs, workflows
+from jav.app import app_settings, capabilities, intake, item_kinds, work, work_readiness, work_runs, workflows
 from jav.documents import isolated_pdf, pdf
 from jav.core import store
 from jav.runtime import job_kinds, pdf_status
@@ -502,8 +502,10 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
             # error is logged and retried in the next round). 146: the workflows' automatic chain moves on (at most
             # every workflows.TICK_EVERY_S); 229: then every case of the process core with something to do now (an
             # event, a due timer, a ready step), of any process definition (before, only the workflows' cases)
+            # 231 (C1b): the cases an email starts by itself (at most every intake.TICK_EVERY_S)
             for name, tick in ((*((t.name, t.run) for t in job_kinds.ticks()), ("folders.tick", app_settings.tick),
-                                ("workflows.tick", workflows.tick), ("process.turn_due", process_engine.turn_due))):
+                                ("workflows.tick", workflows.tick), ("intake.tick", intake.tick),
+                                ("process.turn_due", process_engine.turn_due))):
                 try:
                     tick()
                 except Exception:  # noqa: BLE001 - operational safety net, logged

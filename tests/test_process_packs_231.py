@@ -75,11 +75,18 @@ def test_a_pack_that_breaks_a_rule_is_refused(change, expected) -> None:
     assert any(expected in p for p in problems), problems
 
 
-def test_an_intake_that_would_start_a_case_by_itself_does_not_fit_the_format() -> None:
+def test_an_intake_starts_a_case_by_itself_only_from_an_email_s_record() -> None:
     data = _it_quote()
     data["intake"][0]["starts"] = "auto"
     with pytest.raises(ValidationError):
         process_packs.ProcessPack.model_validate(data)
+    data["intake"][0]["starts"] = "case"  # 231 (C1b): an email's record starts the case by itself
+    assert _problems(data) == []
+    data["intake"][1]["starts"] = "case"
+    assert "only an email intake starts a case by itself" in _problems(data)
+    data["intake"][1]["starts"] = "manual"
+    data["scope"]["parts"] = ["party"]
+    assert any("needs a record scope part" in p for p in _problems(data))
 
 
 def test_a_missing_pack_is_named() -> None:

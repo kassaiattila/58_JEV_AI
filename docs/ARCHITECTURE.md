@@ -1166,3 +1166,15 @@ from the work the package already holds (`Capability.adopt(wp_id, params)`; with
 run). A second take-over answers "exists" and changes nothing. The before/after snapshot reads the mailbox page, the
 cases and handovers with each case's page, the partner register and each process's settings too
 (`before_after._process_views`). Tests: `tests/test_process_adopt_231.py`, `tests/test_before_after_171.py`.
+
+**A case an email starts by itself (231, plan stage C, C1b).** The owner's decision of 2026-10-25: a process pack's email
+intake may start its case by itself (`intake` `starts: case`; the pack check refuses it without a record scope part
+and a step whose capability reads the record, or on a person's intake). The worker's turn (`intake.tick`, at most once
+a minute per store) asks `intake.start_due`: for every email a run read, or a person corrected, with the intake's intent
+(the email kind's handler `found_as`, the intent corrections), the record step's capability previews the record, and a
+case starts once (`process_runtime.start_case` as the machine `email intake`, named by the process and what its partner
+link reads). Each email is remembered before its case starts (`intake_starts`: `starting`, `started` with the case,
+`had_case` when a person started one first), so an interrupted start is never repeated; the emails already there when a
+process's intake first starts cases are remembered as `before` without a case. Only the case's free steps run: a paid
+step waits for a person's start, as its pack says. The IT quote's pack 1.3.0 starts its case by itself; the email's page
+still offers another case. Tests: `tests/test_email_intake_231.py`, `tests/test_process_packs_231.py`.

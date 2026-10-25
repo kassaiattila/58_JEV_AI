@@ -8,8 +8,9 @@ capability and its version, the steps it follows, whether a person starts it, an
 screens (tabs built from the registered screen elements, `configs/screen_elements.json`), its outputs and its golden
 sets. It holds no code: a string naming a Python module is refused. The check refuses a pack whose step names an
 unknown capability or parameters that do not fit it, a paid step that would start without a person (the rule of
-2026-09-28), an intake that would start a case by itself (that comes with the email routing, stage C), an unknown
-screen element, scope part or output, and a reference to a step or a resource that is not there.
+2026-09-28), an email intake that names no intent or (231 C1b) that starts a case by itself without a record to start
+from (a record scope part and a step whose capability reads it), an unknown screen element, scope part or output, and a
+reference to a step or a resource that is not there.
 
 - `load(pack_id)`, `packs()`: a pack read and checked (`PackError` with every problem).
 - `definition(pack)`: the process core's definition of the pack's current version: one step per pack step, its kind
@@ -50,11 +51,12 @@ class _Model(BaseModel):
 
 
 class Intake(_Model):
-    """What may start a case: an email read with an intent (`offer`: the email offers to start one) or a person."""
+    """What may start a case: an email read with an intent (`offer`: the email offers to start one; 231 C1b, `case`: it
+    starts one by itself, `jav/app/intake.py`) or a person."""
 
     on: Literal["email_intent", "manual"]
     intent: str | None = None
-    starts: Literal["offer", "manual"]
+    starts: Literal["offer", "case", "manual"]
 
 
 class Step(_Model):
@@ -132,6 +134,13 @@ def _resolved(params: dict[str, Any], resources: dict[str, str], problems: list[
     return out
 
 
+def _capability(key: str) -> capabilities.Capability | None:
+    try:
+        return capabilities.of(key)
+    except capabilities.CapabilityError:
+        return None
+
+
 def _problems(pack: ProcessPack) -> list[str]:
     problems: list[str] = []
     if _MODULE.search(json.dumps(pack.model_dump(), ensure_ascii=False)):
@@ -140,6 +149,12 @@ def _problems(pack: ProcessPack) -> list[str]:
     problems += [f"unknown scope part {p!r}" for p in pack.scope.parts if p not in known_parts]
     if any(i.on == "email_intent" and not i.intent for i in pack.intake):
         problems.append("an email intake names its intent")
+    if any(i.starts == "case" for i in pack.intake):  # 231 (C1b): a case started by itself starts from the email's record
+        if any(i.on != "email_intent" for i in pack.intake if i.starts == "case"):
+            problems.append("only an email intake starts a case by itself")
+        reads = any(_capability(s.uses) is not None and _capability(s.uses).preview is not None for s in pack.steps)
+        if scopes.RECORD not in pack.scope.parts or not reads:
+            problems.append("an intake that starts a case by itself needs a record scope part and a step that reads it")
     ids = [s.id for s in pack.steps]
     for step in pack.steps:
         where = f"step {step.id!r}"
