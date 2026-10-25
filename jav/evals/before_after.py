@@ -37,6 +37,7 @@ from typing import Any
 from urllib.parse import quote
 
 FORMAT_VERSION = 1
+COPY_MARK = ".before-after-copy"  # 231: the file that marks a folder `fresh_copy` made (the only kind it replaces)
 BASE_URL = "http://127.0.0.1:8930"
 ACTOR = "before.after"
 
@@ -141,7 +142,10 @@ def fresh_copy(baseline: Path, work_dir: Path) -> Path:
     """A fresh copy of the backed-up store in `work_dir`, with the files kept next to a store: the native readings
     (`native/`, from the backup's `native-artifacts.zip`), the source instances (`sources/`, the backup root's shared
     folder) and the statement files read from bank tables (`statement_tables/`, from the work store's folder: the
-    backup does not hold them, they are derived). An earlier copy in `work_dir` is replaced.
+    backup does not hold them, they are derived). An earlier copy in `work_dir` is replaced. 231: only a copy this
+    function made (its marker file, `COPY_MARK`) or an empty folder is replaced; any other folder is refused
+    (`SnapshotError`), so a mistyped `--work` never removes a folder of the project or of a person (a helper script
+    once removed the whole project folder).
 
     The folder is used by its full, resolved name: a short (8.3) Windows name would make the native readings' path
     check refuse every file."""
@@ -150,8 +154,12 @@ def fresh_copy(baseline: Path, work_dir: Path) -> Path:
     source = _store_of(baseline)
     work_dir = work_dir.resolve()
     if work_dir.exists():
+        if not work_dir.is_dir() or (any(work_dir.iterdir()) and not (work_dir / COPY_MARK).is_file()):
+            raise SnapshotError(f"{work_dir} is not an earlier copy of this tool (no {COPY_MARK}): choose a new folder")
         shutil.rmtree(work_dir)
     work_dir.mkdir(parents=True)
+    (work_dir / COPY_MARK).write_text("a fresh copy of a backed-up store for the before/after comparison\n",
+                                      encoding="utf-8")
     target = work_dir / "jav.sqlite"
     shutil.copyfile(source, target)
     native = source.parent / "native-artifacts.zip"
