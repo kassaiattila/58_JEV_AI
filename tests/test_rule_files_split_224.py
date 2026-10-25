@@ -50,7 +50,7 @@ def test_the_duplicate_rules_are_the_finance_domains_with_their_values():
     from jav.domains.finance import duplicates
 
     f = cfg.load("finance")
-    assert f["meta"]["version"] == "1.0.0"
+    assert f["meta"]["version"] == "1.1.0"  # 231 (C2c): the AI pairing proposal's cap added; the moved values unchanged
     d = f["duplicates"]
     assert list(d["families"]) == ["invoice", "proforma"] and d["families"]["proforma"] == ["proforma_invoice"]
     assert (d["number_field"], d["supplier_tax_field"], d["supplier_name_field"]) == (
@@ -79,7 +79,9 @@ def test_each_domain_file_is_read_by_its_owner_and_the_type_roles_only():
     # in the documents layer and for the decision rules alike
     assert _readers("policy") == {"jav/ai/policy.py", "jav/documents/ocr.py", roles}
     assert _readers("email") == {"jav/domains/email/email_rules.py", roles}
-    assert _readers("finance") == {"jav/domains/finance/duplicates.py", "jav/domains/finance/reconcile_rules.py", roles}
+    # 231 (C2c): the AI pairing proposal reads its cap (`reconcile.ai_proposal`) there too
+    assert _readers("finance") == {"jav/domains/finance/duplicates.py", "jav/domains/finance/reconcile_rules.py",
+                                   "jav/domains/finance/pairing_proposal.py", roles}
 
 
 def test_the_shared_ai_layer_no_longer_holds_the_email_routes():
