@@ -494,15 +494,34 @@ def run(wp_id: str, *, engines: Iterable[str], limits: dict[str, Decimal], max_l
     provider: `jev`, `openai`): only the lines without an answer (all with `redo`) and the kind of payment once per
     partner (`_walk`; `stale`: also the answers of an older question; 158: `incoming_only`: the incoming money alone).
     Stores the latest answer per line and engine and writes one raw row per line and engine to a jsonl file. An engine
-    that fails on a line (JEV unavailable, the budget spent, an OpenAI error) is recorded and the run goes on."""
-    engines = [e for e in ENGINES if e in set(engines)]
-    lines, items, rates = _lines(wp_id)
-    items = _only_incoming(items, incoming_only)
-    items = items[:max_lines] if max_lines is not None else items
+    that fails on a line (JEV unavailable, the budget spent, an OpenAI error) is recorded and the run goes on. 231
+    (C2c): the asking itself is `ask_lines`, which a pairing case's step uses as business work under its own cap."""
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     scope = f"measure-{stamp}-reconcile-ai"
     out_dir.mkdir(parents=True, exist_ok=True)
     raw = out_dir / f"{stamp}_reconcile_ai.jsonl"
+    with calls.measurement(scope, limits, reuse=use_cache) as scope, raw.open("w", encoding="utf-8", newline="\n") as fh:
+        def sink(engine: str, line: dict[str, Any], how: str, answer: dict[str, Any]) -> None:
+            fh.write(json.dumps({"engine": engine, "line_id": line["id"], "state": line["state"], "how": how, **answer},
+                                ensure_ascii=False) + "\n")
+
+        asked = ask_lines(wp_id, engines=engines, scope=scope, max_lines=max_lines, use_cache=use_cache, redo=redo,
+                          stale=stale, incoming_only=incoming_only, sink=sink)
+    return {"scope": scope, "raw": str(raw), **asked, "usage": calls.budget_usage(scope), "jev_config": jev_hash(),
+            "gpt_config": gpt_hash()}
+
+
+def ask_lines(wp_id: str, *, engines: Iterable[str], scope: str, max_lines: int | None = None, use_cache: bool = True,
+              redo: bool = False, stale: bool = False, incoming_only: bool = False,
+              sink: Callable[[str, dict[str, Any], str, dict[str, Any]], None] | None = None) -> dict[str, Any]:
+    """231 (C2c, split out of `run`): asks the chosen engines about the package's lines to decide, inside the budget scope
+    the caller opened (`run`: the owner's sub-budget of a measurement; a pairing case's step: its own cap, as business
+    work), and stores the latest answer per line and engine; `sink(engine, line, how, answer)` sees each one. Returns
+    {"lines", "counts"} (per engine: asked, inherited, skipped, pays, failed)."""
+    engines = [e for e in ENGINES if e in set(engines)]
+    lines, items, rates = _lines(wp_id)
+    items = _only_incoming(items, incoming_only)
+    items = items[:max_lines] if max_lines is not None else items
     counts = {e: {"asked": 0, "inherited": 0, "skipped": 0, "pays": 0, "failed": 0} for e in engines}
 
     def asker(engine: str) -> Callable[[dict[str, Any], list[dict[str, Any]]], dict[str, Any]]:
@@ -519,20 +538,18 @@ def run(wp_id: str, *, engines: Iterable[str], limits: dict[str, Decimal], max_l
                 return {"options": [inv["id"] for inv in invoices], "measured": False, "error": f"{type(exc).__name__}: {exc}"}
         return ask
 
-    with calls.measurement(scope, limits, reuse=use_cache) as scope, raw.open("w", encoding="utf-8", newline="\n") as fh:
-        for engine in engines:
-            steps = 0
-            for line, _invoices, how, answer in _walk(engine, lines, items, asker(engine), redo=redo, stale=stale):
-                _save(wp_id, line, engine, answer, scope)
-                steps += 1
-                counts[engine][how] += 1
-                counts[engine]["pays"] += answer.get("pays") is not None
-                counts[engine]["failed"] += answer.get("error") is not None
-                fh.write(json.dumps({"engine": engine, "line_id": line["id"], "state": line["state"], "how": how, **answer},
-                                    ensure_ascii=False) + "\n")
-            counts[engine]["skipped"] = len(items) - steps
-    return {"scope": scope, "raw": str(raw), "lines": len(items), "counts": counts, "usage": calls.budget_usage(scope),
-            "jev_config": jev_hash(), "gpt_config": gpt_hash()}
+    for engine in engines:
+        steps = 0
+        for line, _invoices, how, answer in _walk(engine, lines, items, asker(engine), redo=redo, stale=stale):
+            _save(wp_id, line, engine, answer, scope)
+            steps += 1
+            counts[engine][how] += 1
+            counts[engine]["pays"] += answer.get("pays") is not None
+            counts[engine]["failed"] += answer.get("error") is not None
+            if sink is not None:
+                sink(engine, line, how, answer)
+        counts[engine]["skipped"] = len(items) - steps
+    return {"lines": len(items), "counts": counts}
 
 
 PROVIDERS = {"jev": "jev", "gpt": "openai"}
