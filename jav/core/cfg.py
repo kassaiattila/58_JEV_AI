@@ -60,8 +60,21 @@ def path_of(name: str) -> Path:
     return CONFIG_DIR / f"{name}.json"
 
 
+# 231 (an incident of 2026-10-25): the configs a long-running process froze at start-up (`freeze`): their names and
+# contents; None in a command or a test, which read the folder as it is
+_FROZEN: dict[str, Any] | None = None
+
+
 @lru_cache(maxsize=None)
 def _file(name: str) -> dict[str, Any]:
+    if _FROZEN is not None:
+        if name not in _FROZEN["files"]:
+            raise FileNotFoundError(f"config {name!r} is not among the configs this process started with")
+        return _FROZEN["files"][name]
+    return _disk(name)
+
+
+def _disk(name: str) -> dict[str, Any]:
     p = path_of(name)
     if not p.exists():
         raise FileNotFoundError(f"konfig hiányzik: {p}")
@@ -189,6 +202,13 @@ def version(name: str) -> str:
 
 
 def all_names() -> list[str]:
+    """Every config's name: the folder's, or (231) those a long-running process froze at start-up."""
+    if _FROZEN is not None:
+        return list(_FROZEN["names"])
+    return _disk_names()
+
+
+def _disk_names() -> list[str]:
     names = [p.stem for p in sorted(CONFIG_DIR.glob("*.json"))]
     names += [f"callsite:{p.stem}" for p in sorted(CALLSITE_DIR.glob("*.json"))]
     names += [f"type:{p.stem}" for p in sorted(TYPES_DIR.glob("*.json"))] if TYPES_DIR.exists() else []
@@ -216,8 +236,51 @@ def on_reload(fn: Callable[[], None]) -> None:
         _ON_RELOAD.append(fn)
 
 
+def freeze() -> list[str]:
+    """231 (an incident of 2026-10-25): the service and the worker read every config at start-up and keep them, the list
+    of them too (`preload.preload`), as they keep their code (091): a file that appears, changes or goes in the folder
+    later (the folder is the development one's) and a cleared cache (`reload`) change nothing in the process until it
+    starts again. Returns the names."""
+    global _FROZEN
+    names = _disk_names()
+    _FROZEN = {"names": names, "files": {name: _disk(name) for name in names}}
+    reload()
+    return names
+
+
+def unfreeze() -> None:
+    """For tests: the folder is read as it is again."""
+    global _FROZEN
+    _FROZEN = None
+    reload()
+
+
+def frozen() -> bool:
+    return _FROZEN is not None
+
+
+def drift() -> dict[str, list[str]] | None:
+    """231: what the folder holds differently from the configs this process froze at start-up: `changed` (another
+    content), `new` and `gone` files, by name; None when the process froze none (it reads the folder)."""
+    if _FROZEN is None:
+        return None
+    on_disk = _disk_names()
+    kept = set(_FROZEN["names"])
+    changed = []
+    for name in on_disk:
+        if name in kept:
+            try:
+                same = _disk(name) == _FROZEN["files"][name]
+            except (OSError, ValueError):
+                same = False
+            if not same:
+                changed.append(name)
+    return {"changed": changed, "new": [n for n in on_disk if n not in kept], "gone": sorted(kept - set(on_disk))}
+
+
 def reload() -> None:
-    """For tests / config changes at run time: clears the cache."""
+    """For tests / config changes at run time: clears the cache (231: a process that froze its configs reads those
+    again, not the folder)."""
     _file.cache_clear()
     config_hash.cache_clear()
     file_digest.cache_clear()

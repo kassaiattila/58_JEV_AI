@@ -26,6 +26,7 @@ from __future__ import annotations
 import importlib
 import logging
 import re
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from collections.abc import Callable, Coroutine
@@ -406,11 +407,23 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     running = {"version": version.VERSION, **version.commit_info(),
                "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
 
+    drift_seen: dict[str, Any] = {"at": 0.0, "value": None}
+
+    def _drift() -> dict[str, list[str]] | None:
+        """`cfg.drift()`, asked at most once a minute (the interface asks the health often)."""
+        now = time.monotonic()
+        if now - drift_seen["at"] > 60:
+            drift_seen.update(at=now, value=cfg.drift())
+        return drift_seen["value"]
+
     @app.get(r + "/health")
     def health() -> dict[str, Any]:
         # 091: the UI build is read on every request (a new build is served at once, even without a restart)
         return {"ok": True, "api_version": API_VERSION, "service_config": cfg.version("service"), **running,
                 "ui_build": version.ui_build(UI_DIST),
+                # 231 (an incident of 2026-10-25): what the config folder holds differently from the configs this
+                # service froze at start-up (None: it froze none); a mismatch names the files
+                "config_drift": _drift(),
                 "pdf_protection": {
                     "service": isolated_pdf.protection_status(),
                     "worker": pdf_status.worker_status(store.current_path(), running=lock.is_held(worker.lock_path())),
