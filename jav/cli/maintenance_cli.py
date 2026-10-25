@@ -420,9 +420,9 @@ def cmd_cases_adopt(args: argparse.Namespace) -> int:
     registrations.load_all()
     rows = process_runtime.adopt_all(actor=identity.machine("cases-adopt"), write=args.write)
     for r in rows:
-        print(f"{r['pack']}: {r['workpackage_id']} ({r['name']}) -> {r['result']}")
+        print(f"{r['pack']}: {r['workpackage_id']} ({r['name']}) -> {r['result']}" + (f": {r['error']}" if r.get("error") else ""))
     print(f"{len(rows)} package(s){'' if args.write else '; nothing changed (add --write to take them over)'}")
-    return 0
+    return 1 if any(r["result"] == "refused" for r in rows) else 0  # C3a-1: a refused package is reported, not skipped silently
 
 
 def cmd_burr_prune(args: argparse.Namespace) -> int:

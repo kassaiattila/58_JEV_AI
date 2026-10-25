@@ -146,6 +146,10 @@ class Capability:
       when `record` holds none.
     - `own_version` (C2d): its step is done with the case's own approved version (a person's approval of the result),
       so reopening that version reopens the step (`process_runtime.own_version_reopened`).
+    - `reopen(wp_id, note, actor)` and `approval_what` (C3a-1), for an `own_version` capability whose case waits for that
+      approval as a person's task: how the approved version is reopened with a reason (a workflow's chain reopens it,
+      rule 218) and what the approval is about in "Waiting for me" (English; the interface translates it). A case of a
+      pack with such a step owns its approval (`process_runtime.owns_approval`).
     """
 
     name: str
@@ -169,6 +173,8 @@ class Capability:
     adopt: Callable[[str, Any], cases.Adopted | None] | None = None
     preview: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any] | None] | None = None
     own_version: bool = False
+    reopen: Callable[[str, str, identity.Who], Any] | None = None
+    approval_what: str | None = None
 
     @property
     def key(self) -> str:

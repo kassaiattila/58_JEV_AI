@@ -86,7 +86,8 @@ def _own_approval(packages: _Packages, task: tasks.Task) -> Row:
     """A logic pack waiting for a person's approval of its own version: the package's page."""
     wp = packages.rows.get(task.subject)
     pack = logic_packs.of(wp["source_kind"]) if wp else None  # 229 (MD2): what its approval is about, the pack's own
-    return {"what": pack.approval_what if pack else "Approval", "origin": LIVE, "_wp": task.subject, "_stage": None}
+    # 231 (C3a-1): a case's label is its approving capability's
+    return {"what": logic_packs.approval_label(pack, task.subject), "origin": LIVE, "_wp": task.subject, "_stage": None}
 
 
 def _budget(packages: _Packages, task: tasks.Task) -> Row:

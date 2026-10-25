@@ -60,10 +60,18 @@ def _adopt(wp_id: str, _params: dict[str, Any]) -> cases.Adopted:
     return cases.Adopted(cases.RUNNING, waiting_for=WAITING_FOR, timer=("check", time.time() + POLL_S))
 
 
+def _reopen(wp_id: str, note: str, actor: Any) -> Any:
+    """C3a-1: the approved statement reopened with a reason, as a person's reopening does (a workflow's chain, 218)."""
+    from jav.domains.finance import reconcile_statement  # lazy: it builds on the reconciliation package
+
+    return reconcile_statement.reopen(wp_id, note=note, actor=actor)
+
+
 _OWNER = __name__
 CAPABILITY = Capability(
     name="pairing", version=1, module=_OWNER, run=_pair, kind="human", params=Pairing, effects="store",
     rule_files=("reconcile", "finance"), adopt=_adopt, own_version=True,  # C2d: reopening the statement reopens it
+    reopen=_reopen, approval_what="Reconciliation statement",  # C3a-1: its case waits for the approval as a task
     summary=("Proposes by code which item of one list settles which item of the other; a person confirms, rejects, splits"
              " or marks, and approves the result."))
 

@@ -252,8 +252,8 @@ def _views(reader: _Reader, store_path: Path, *, items: bool, matches: bool) -> 
         yield reader.dataset("workpackage_items", {"workpackage_id": wid, "removed": "1"})
         yield reader.dataset("package_costs", {"workpackage_id": wid})
         yield g(f"workpackage/{wid}/result", f"/workpackages/{wid}/result")  # 171/172: its current result and release
-        if wp.get("source_kind") == "reconcile":
-            yield from _reconcile_views(reader, wid, matches=matches)
+        if wp.get("source_kind") == "reconcile" or (wp.get("source_kind") == "case" and _pairing_case(reader, wid)):
+            yield from _reconcile_views(reader, wid, matches=matches)  # 231 (C3a-1): a case's under the same keys
         else:
             yield g(f"workpackage/{wid}/result/export.xlsx", f"/workpackages/{wid}/result/export.xlsx", "xlsx")
             yield g(f"workpackage/{wid}/result/utility-cost", f"/workpackages/{wid}/result/utility-cost")
@@ -309,6 +309,15 @@ def _process_views(reader: _Reader) -> Iterator[tuple[str, Any]]:
     yield key, packs
     for pack in (packs["body"] or {}).get("processes") or []:
         yield g(f"process/{pack['id']}/settings", f"/processes/{pack['id']}/settings")
+
+
+def _pairing_case(reader: _Reader, wid: str) -> bool:
+    """231 (C3a-1): whether a case's page shows the pairing (a reconciliation started or taken over as a case), so its
+    reconciliation views are read under the keys a reconciliation package's were (an adoption compares like for like).
+    Asked past the counts, so the views read stay the same."""
+    response = reader.client.get(f"/api/cases/{quote(wid)}")
+    body = response.json() if response.status_code == 200 else {}
+    return any(e.get("type") == "pairing" for tab in body.get("tabs") or [] for e in tab.get("elements") or [])
 
 
 def _reconcile_views(reader: _Reader, wid: str, *, matches: bool) -> Iterator[tuple[str, Any]]:

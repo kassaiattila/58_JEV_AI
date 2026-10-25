@@ -29,13 +29,13 @@ from typing import Any
 import json
 from functools import cache
 
-from jav.app import capabilities, logic_packs, package_release, package_scope, process_packs, scopes, work
+from jav.app import capabilities, human_tasks, logic_packs, package_release, package_scope, process_packs, scopes, work
 from jav.core import identity, rulebook, store
 from jav.core.process import cases
 from jav.core.user_messages import explained
 
-__all__ = ["CONTAINER", "CONTAINER_PACK", "adopt_all", "adopt_case", "outputs_of", "pack_for", "pack_of", "register",
-           "start_case"]
+__all__ = ["CONTAINER", "CONTAINER_PACK", "adopt_all", "adopt_case", "outputs_of", "owns_approval", "pack_for", "pack_of",
+           "register", "start_case"]
 
 CONTAINER = "case"  # the container work package's kind
 
@@ -59,6 +59,8 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
     with cases.transaction() as c:
         package_scope.save(c, case_id, parts=checked, actor=actor, **_scope_columns(checked))
         cases.start_in(c, case_id, definition, data, identity.who(actor))
+        if _approval_capability(pack) is not None:  # C3a-1: it waits for that approval as a person's task
+            human_tasks.own_approval_waits(c, case_id)
     return case_id
 
 
@@ -107,7 +109,8 @@ def adopt_case(pack_id: str, wp_id: str, scope: dict[str, Any], *, actor: identi
 def adopt_all(*, actor: identity.Who, write: bool = False) -> list[dict[str, Any]]:
     """231 (C1c): every work package of a kind a process pack takes over (`adopts`), each with the scope its stored scope
     parts give: [{pack, workpackage_id, name, scope, result}]; `result` is "adopted" or "exists" when `write`, else
-    "to adopt" (nothing changes)."""
+    "to adopt" (nothing changes). 231 (C3a-1): a package whose scope its pack refuses (no party given or implied) is
+    "refused" with the reason in `error`, without a change, and the others go on, so a release never stops half-way."""
     out = []
     for pack in process_packs.packs():
         for rule in pack.adopts:
@@ -116,9 +119,13 @@ def adopt_all(*, actor: identity.Who, write: bool = False) -> list[dict[str, Any
                     continue
                 stored = package_scope.stored(wp["id"]) or {}
                 scope = {part: _stored_value(stored, key) for part, key in rule.scope.items()}
-                result = adopt_case(pack.id, wp["id"], scope, actor=actor) if write else "to adopt"
-                out.append({"pack": pack.id, "workpackage_id": wp["id"], "name": wp["name"], "scope": scope,
-                            "result": result})
+                row = {"pack": pack.id, "workpackage_id": wp["id"], "name": wp["name"], "scope": scope}
+                try:
+                    scopes.check(pack.scope.parts, scope)
+                except scopes.ScopeError as exc:
+                    out.append({**row, "result": "refused", "error": str(exc)})
+                    continue
+                out.append({**row, "result": adopt_case(pack.id, wp["id"], scope, actor=actor) if write else "to adopt"})
     return out
 
 
@@ -162,27 +169,36 @@ def resource_of(c: Any, case_id: str, key: str) -> str | None:
     return str(value) if value is not None else None
 
 
+def _pack_of_in(c: Any, case_id: str) -> tuple[str, str] | None:
+    row = cases.find_case_in(c, case_id)
+    data = (row or {}).get("data") or {}
+    return (data["pack"], data["pack_version"]) if "pack" in data else None
+
+
 def pack_of(case_id: str) -> tuple[str, str] | None:
     """(the pack id, its version) a case runs on, or None for a case that is no pack's."""
     with store.connect() as c:
-        row = cases.find_case_in(c, case_id)
-    data = (row or {}).get("data") or {}
-    return (data["pack"], data["pack_version"]) if "pack" in data else None
+        return _pack_of_in(c, case_id)
 
 
 def pack_for(case_id: str) -> process_packs.ProcessPack | None:
     """The version of its pack a case runs on: the current one when it is that version, else the one its start's
     calculation snapshot holds (`process_packs.PackError` when neither has it)."""
-    pinned = pack_of(case_id)
+    with store.connect() as c:
+        return _pack_for_in(c, case_id)
+
+
+def _pack_for_in(c: Any, case_id: str) -> process_packs.ProcessPack | None:
+    """`pack_for` on the caller's connection (C3a-1: a store's schema change reads it while it runs)."""
+    pinned = _pack_of_in(c, case_id)
     if pinned is None:
         return None
     current = process_packs.load(pinned[0])
     if current.version == pinned[1]:
         return current
-    with store.connect() as c:
-        snapshot = rulebook.get_in(c, rulebook.of_in(c, rulebook.CASE, case_id) or "")
-        entry = (snapshot or {}).get("files", {}).get(f"processes/{pinned[0]}.json")
-        content = rulebook.content_in(c, entry["sha256"]) if entry else None
+    snapshot = rulebook.get_in(c, rulebook.of_in(c, rulebook.CASE, case_id) or "")
+    entry = (snapshot or {}).get("files", {}).get(f"processes/{pinned[0]}.json")
+    content = rulebook.content_in(c, entry["sha256"]) if entry else None
     if content is None:
         raise process_packs.PackError(f"process pack {pinned[0]!r} {pinned[1]} of case {case_id} is not stored")
     return process_packs.ProcessPack.model_validate(json.loads(content))
@@ -213,6 +229,47 @@ def _next(case_id: str) -> dict[str, Any]:
             "stage": "process", "params": {}}
 
 
+def _approval_capability(pack: process_packs.ProcessPack) -> capabilities.Capability | None:
+    """C3a-1: the capability of the pack's step that is done with the case's own approved version and says how that
+    version is reopened (`Capability.reopen`), or None: a case of the pack owns no approval."""
+    for step in pack.steps:
+        cap = capabilities.of(step.uses)
+        if cap.own_version and cap.reopen is not None:
+            return cap
+    return None
+
+
+def _case_approval(case_id: str, c: Any = None) -> capabilities.Capability | None:
+    if c is None:
+        with store.connect() as own:
+            return _case_approval(case_id, own)
+    try:
+        pack = _pack_for_in(c, case_id)
+    except (KeyError, process_packs.PackError):
+        return None
+    return _approval_capability(pack) if pack is not None else None
+
+
+def owns_approval(case_id: str, c: Any = None) -> bool:
+    """231 (C3a-1): whether the case approves its result as its own version (the reconciliation's statement): it waits
+    for that approval as a person's task, and a workflow's chain reopens it (rule 218). False for no case. On the
+    caller's connection `c` when given (a store's schema change asks it while it runs)."""
+    return _case_approval(case_id, c) is not None
+
+
+def _approval_what(case_id: str) -> str | None:
+    cap = _case_approval(case_id)
+    return cap.approval_what if cap is not None else None
+
+
+def _reopen(case_id: str, *, note: str, actor: identity.Who) -> Any:
+    """C3a-1: the case's approved version reopened with a reason, in its capability's own way."""
+    cap = _case_approval(case_id)
+    if cap is None or cap.reopen is None:
+        raise explained(package_release.ReleaseError, "the case approves no version of its own")
+    return cap.reopen(case_id, note, actor)
+
+
 def _approved(case_id: str) -> bool:
     """Its result's version is approved, or (231 C1c) its case closed as done (a process without an approval of its own:
     the email routing, once every document is decided)."""
@@ -236,7 +293,8 @@ CONTAINER_PACK = logic_packs.LogicPack(
     kind=CONTAINER, module=__name__,
     roles=(logic_packs.InputRole("record", "linked_package", "the package item the case starts from"),), has_runs=False, page=_page, approved=_approved, next_step=_next,
     list_next=_next, outputs=(), release_refusal=_release_refusal, delete_guard=_delete_guard,
-    approval_what="Approval of a case's result", list_mark=lambda: _list_mark())
+    approval_what="Approval of a case's result", list_mark=lambda: _list_mark(),
+    owns_approval=owns_approval, approval_what_of=_approval_what, reopen=_reopen)  # C3a-1
 
 
 @cache

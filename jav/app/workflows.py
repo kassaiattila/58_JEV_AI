@@ -596,7 +596,7 @@ def _approval(st: dict[str, Any]) -> tuple[bool, Any]:
     if pack is not None and not pack.has_runs:  # 176: a reconciliation step: a version of it is approved
         if not pack.approved(wp_id):
             return False, None
-        active = package_release.own_approval(wp_id)["active"] if pack.own_approval else None
+        active = package_release.own_approval(wp_id)["active"] if logic_packs.has_own_approval(pack, wp_id) else None
         return True, {"version": active["version"], "fingerprint": active["fingerprint"]} if active else None
     if not _live_run_approved(wp_id):
         return False, None
@@ -1257,7 +1257,8 @@ def _counts(ctx: process_engine.StepContext, wf: dict[str, Any], st: dict[str, A
     if before is None or before == _built_on(ctx):  # never out of date, or built on what its earlier steps have now
         return approved
     _, pack = _pack(st)
-    if pack is not None and not pack.has_runs and not pack.own_approval:
+    own = logic_packs.has_own_approval(pack, st["workpackage_id"])  # 231 (C3a-1): a case's too
+    if pack is not None and not pack.has_runs and not own:
         return approved
     if OLD_APPROVAL not in last:
         old = _old_approvals(last, ref if approved else None)
@@ -1267,7 +1268,7 @@ def _counts(ctx: process_engine.StepContext, wf: dict[str, Any], st: dict[str, A
         old = last[OLD_APPROVAL]
     if not approved or ref not in old:
         return approved
-    if pack is not None and pack.own_approval and pack.reopen is not None:
+    if pack is not None and own and pack.reopen is not None:
         pack.reopen(st["workpackage_id"], note=REAPPROVE_NOTE, actor=auto_actor(wf))
     return False
 

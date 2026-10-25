@@ -79,3 +79,11 @@ def test_a_package_made_before_its_accounts_had_a_party_takes_the_party_they_imp
     assert [r["result"] for r in process_runtime.adopt_all(actor="tester", write=True)] == ["adopted"]
     assert engine.state(wp)["status"] == "open" and process_runtime.pack_of(wp)[0] == "reconciliation"
     assert cases.get(wp)["data"]["scope"]["party"] == home
+
+
+def test_a_package_whose_accounts_imply_no_party_is_refused_and_the_others_go_on(db):
+    wp = _old_package(party=None)  # its account belongs to no party
+    rows = process_runtime.adopt_all(actor="tester")
+    assert [(r["workpackage_id"], r["result"]) for r in rows] == [(wp, "refused")] and "party" in rows[0]["error"]
+    assert process_runtime.adopt_all(actor="tester", write=True)[0]["result"] == "refused"
+    assert work.get(wp)["source_kind"] == reconcile_package.KIND  # nothing changed
