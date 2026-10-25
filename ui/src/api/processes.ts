@@ -8,8 +8,9 @@ import type { OutputTemplateState } from "./outputs";
 
 export interface ProcessRow {
   id: string; title: string; version: string;
-  /** 231 (C1c): the scope parts a case needs, and the kinds of package whose page offers one */
-  scope?: string[]; package_kinds?: string[];
+  /** 231 (C1c): the scope parts a case needs, and the kinds of package whose page offers one; (C2d) the parts a person
+   *  gives (the others take their default) */
+  scope?: string[]; package_kinds?: string[]; asks?: string[];
 }
 /** 231 (C1c): a process whose case may read a package (`jav/app/intake.py` `package_offers`). */
 export interface PackageOffer { pack: string; title: string; name: string; sources: string[]; cases: { id: string; name: string }[] }

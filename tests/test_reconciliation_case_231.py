@@ -107,3 +107,76 @@ def test_the_inputs_list_keeps_one_kind_when_asked(db):
     kinds = {name: {r["kind"] for r in finance_datasets.reconcile_inputs({"workpackage_id": case, **extra})[1]}
              for name, extra in (("all", {}), ("statement", {"kind": "statement"}), ("invoice", {"kind": "invoice"}))}
     assert kinds == {"all": {"statement", "incoming"}, "statement": {"statement"}, "invoice": {"incoming"}}
+
+
+# --- the reconciliation's process pack (configs/processes/reconciliation.json) ------------------------------------------
+
+env = p131.env
+
+
+def _party_with_account() -> str:
+    from jav.app import parties
+
+    return parties.create("Example Home", identities=[("account", OWN_KEY, k2.OWN)], actor="t")["id"]
+
+
+def test_a_case_starts_for_a_party_and_a_period_with_the_partys_accounts(db):
+    from jav.app import case_views
+
+    k2._save("inv", k2._invoice())
+    p131._stmt("stmt", p131._line())
+    party = _party_with_account()
+    case = process_runtime.start_case("reconciliation", {"party": party, "period": ["2026-04-01", "2026-04-30"]},
+                                      name="April", actor="reviewer")
+    stored = package_scope.stored(case)
+    assert (stored["party_id"], stored["period_start"], stored["parts"][rp.ACCOUNTS]) == (party, "2026-04-01", [OWN_KEY])
+    package = rp.create(name="April package", accounts=[OWN_KEY], period_start="2026-04-01", period_end="2026-04-30",
+                        actor="reviewer", party_id=party)["workpackage_id"]
+    assert _same(rp.workspace(case)) == _same(rp.workspace(package))  # the same reconciliation as a package's
+    page = case_views.view(case)
+    assert [t["id"] for t in page["tabs"]] == ["invoices", "lines", "pairing", "result", "history"]
+    assert (page["next"]["code"], page["next"]["tab"]) == ("reconcile_pair", "pairing")
+    assert page["steps"]["pair"]["by_person"] is True
+
+
+def test_the_pairing_step_is_done_with_the_approved_version_and_opens_again_when_it_is_reopened(db):
+    from jav.app import package_release
+    from jav.core.process import engine
+
+    k2._save("inv", k2._invoice())
+    p131._stmt("stmt", p131._line())
+    case = process_runtime.start_case("reconciliation", {"party": _party_with_account(),
+                                                         "period": ["2026-04-01", "2026-04-30"]}, name="April", actor="t")
+    engine.turn(case, wake=True)
+    assert engine.state(case)["steps"]["pair"]["waiting_for"] == "pairing"
+    with store.connect() as c:
+        store.begin_immediate(c)
+        package_release.record_own(c, case, content={"invented": True}, fingerprint="f" * 16, locks=[], actor="anna")
+    engine.turn(case, wake=True)
+    state = engine.state(case)
+    assert (state["status"], state["steps"]["pair"]["result"]) == ("closed", {"version": 1})
+    with store.connect() as c:
+        store.begin_immediate(c)
+        package_release.reopen_own(c, case, note="a line was misread", actor="anna")
+    state = engine.state(case)
+    assert (state["status"], state["steps"]["pair"]["state"]) == ("open", "running")
+
+
+def test_the_service_starts_a_case_for_a_party_and_a_period(env):
+    from tests.test_api import HUMAN
+
+    c = env["client"]
+    k2._save("inv", k2._invoice())
+    p131._stmt("stmt", p131._line())
+    party = _party_with_account()
+    listed = {p["id"]: p for p in c.get("/api/processes").json()["processes"]}
+    assert listed["reconciliation"]["scope"] == ["party", "period", "accounts"]
+    assert listed["reconciliation"]["asks"] == ["party", "period"]
+    r = c.post("/api/cases", headers=HUMAN, json={"pack": "reconciliation", "name": "April", "party_id": party,
+                                                  "period_start": "2026-04-01", "period_end": "2026-04-30"})
+    assert r.status_code == 201, r.text
+    case = r.json()["case_id"]
+    assert c.get(f"/api/workpackages/{case}/reconcile").json()["lines"][0]["state"] == "proposed"
+    bad = c.post("/api/cases", headers=HUMAN, json={"pack": "reconciliation", "name": "x", "party_id": party,
+                                                    "period_start": "2026-04-01"})
+    assert bad.status_code == 422

@@ -9,41 +9,75 @@ import { useAction, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { go } from "../route";
 
-/** The wizard's form of a one-step template of a process pack's case: the packages it reads and its name. */
+/** The wizard's form of a one-step template of a process pack's case: what its scope asks a person (the packages it
+ *  reads; 231 C2d: its own party and period; the other parts take their default, e.g. the party's accounts) and its
+ *  name. */
 export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: string) => void }) {
   useLocale();
   const packs = useLoad("processes", api.processes);
   const list = useLoad("workpackages-brief", api.workpackagesBrief);
+  const parties = useLoad("parties", api.parties);
   const [chosen, setChosen] = useState<string[]>([]);
+  const [partyId, setPartyId] = useState("");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
   const [name, setName] = useState("");
   const { busy, error, run } = useAction();
   const info = packs.data?.processes.find((p) => p.id === pack);
   if (packs.error) return <p className="notice error" role="alert">{packs.error.message}</p>;
   if (!info) return <p className="muted">{t("Loading…")}</p>;
   const title = t(info.title);
+  const asks = info.asks ?? info.scope ?? [];
+  const wantsSources = asks.includes("sources");
+  const wantsParty = asks.includes("party");
+  const wantsPeriod = asks.includes("period");
   const candidates = (list.data?.workpackages ?? []).filter((w) => (info.package_kinds ?? []).includes(w.source_kind));
-  const submit = () => run(() => {
-    const names = candidates.filter((w) => chosen.includes(w.id)).map((w) => w.name);
-    return api.startCase({ pack, name: (name.trim() || `${title}: ${names.join(", ")}`).slice(0, 200), sources: chosen });
-  }, { then: (made) => onDone(made.case_id) });
+  const partyName = (parties.data?.parties ?? []).find((p) => p.id === partyId)?.name ?? "";
+  const ready = (!wantsSources || chosen.length > 0) && (!wantsParty || !!partyId) && (!wantsPeriod || (!!start && !!end && start <= end));
+  const defaultName = () => {
+    if (wantsSources) return `${title}: ${candidates.filter((w) => chosen.includes(w.id)).map((w) => w.name).join(", ")}`;
+    return [title, partyName, wantsPeriod ? `${start} – ${end}` : ""].filter(Boolean).join(" · ");
+  };
+  const submit = () => run(() => api.startCase({
+    pack, name: (name.trim() || defaultName()).slice(0, 200),
+    ...(wantsSources ? { sources: chosen } : {}), ...(wantsParty ? { party_id: partyId } : {}),
+    ...(wantsPeriod ? { period_start: start, period_end: end } : {}),
+  }), { then: (made) => onDone(made.case_id) });
   return (
-    <form className="create rc-stack" aria-label={title} onSubmit={(e) => { e.preventDefault(); if (chosen.length) void submit(); }}>
+    <form className="create rc-stack" aria-label={title} onSubmit={(e) => { e.preventDefault(); if (ready) void submit(); }}>
       {list.error ? <p className="notice error" role="alert">{list.error.message}</p> : null}
-      <fieldset className="wizard-choices">
-        <legend>{t("The packages the case reads")}</legend>
-        {candidates.length ? candidates.map((w) => (
-          <label key={w.id} className="check">
-            <input type="checkbox" checked={chosen.includes(w.id)}
-              onChange={(e) => setChosen((prev) => (e.target.checked ? [...prev, w.id] : prev.filter((x) => x !== w.id)))} /> {w.name}
-          </label>
-        )) : <p className="muted small">{list.data ? t("No package this process reads yet.") : t("Loading…")}</p>}
-      </fieldset>
+      {wantsSources ? (
+        <fieldset className="wizard-choices">
+          <legend>{t("The packages the case reads")}</legend>
+          {candidates.length ? candidates.map((w) => (
+            <label key={w.id} className="check">
+              <input type="checkbox" checked={chosen.includes(w.id)}
+                onChange={(e) => setChosen((prev) => (e.target.checked ? [...prev, w.id] : prev.filter((x) => x !== w.id)))} /> {w.name}
+            </label>
+          )) : <p className="muted small">{list.data ? t("No package this process reads yet.") : t("Loading…")}</p>}
+        </fieldset>
+      ) : null}
+      {wantsParty ? (
+        <label className="block">{t("Own party")}
+          <select value={partyId} onChange={(e) => setPartyId(e.target.value)} required>
+            <option value="">{t("Choose…")}</option>
+            {(parties.data?.parties ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
+      ) : null}
+      {parties.error ? <p className="notice error small" role="alert">{parties.error.message}</p> : null}
+      {wantsPeriod ? (
+        <div className="rc-period">
+          <label className="block">{t("Period from")}<input type="date" value={start} required onChange={(e) => setStart(e.target.value)} /></label>
+          <label className="block">{t("to")}<input type="date" value={end} required onChange={(e) => setEnd(e.target.value)} /></label>
+        </div>
+      ) : null}
       <label className="block">{t("Name")} <span className="muted">{t("(optional)")}</span>
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
       </label>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
       <div className="button-row">
-        <button type="submit" className="primary" disabled={busy || !chosen.length}>{busy ? t("Creating…") : t("Create")}</button>
+        <button type="submit" className="primary" disabled={busy || !ready}>{busy ? t("Creating…") : t("Create")}</button>
       </div>
     </form>
   );

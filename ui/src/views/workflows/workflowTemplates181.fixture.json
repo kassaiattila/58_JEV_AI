@@ -208,14 +208,15 @@
       ]
     },
     {
-      "id": "reconcile",
+      "id": "reconciliation",
       "group": "bank",
       "title": "Reconciliation of statements and invoices",
       "description": "One reconciliation package of a party and a period, on the invoices and statements already processed.",
       "steps": [
         {
-          "id": "reconcile",
-          "kind": "reconcile"
+          "id": "reconciliation",
+          "kind": "process",
+          "pack": "reconciliation"
         }
       ]
     },

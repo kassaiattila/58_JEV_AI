@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "workflows",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "description": "146 (backlog F-package-kind-chooser; DECISIONS 146): the workflow templates the new work wizard offers, as data. A template's steps are kinds of work package (documents, emails, statements, reconcile) in order; a step may wait for others (`after`). A one-step template is today's kind of package and makes no workflow; a template of several steps makes a workflow of one own party and a period, whose steps start by themselves (a live run) once the steps they wait for are approved, a paid step only within the budget a person approved in the wizard (jav/workflows.py). Texts are English; the interface translates them (ui/src/i18n/hu-native.json).",
     "changelog": [
+      {
+        "version": "1.4.0",
+        "date": "2026-10-25",
+        "note": "231 (plan stage C, C2d; DECISIONS 231): the reconciliation is a process pack's case (configs/processes/reconciliation.json): its one-step template is the pack's (id reconciliation, the general kind process; a party and a period, the party's accounts by default). The workflows' reconciliation steps keep their kind until the live workflow is taken over (C2e)."
+      },
       {
         "version": "1.3.0",
         "date": "2026-10-25",
@@ -127,11 +132,11 @@
       "steps": [{"id": "statements", "kind": "statements"}]
     },
     {
-      "id": "reconcile",
+      "id": "reconciliation",
       "group": "bank",
       "title": "Reconciliation of statements and invoices",
       "description": "One reconciliation package of a party and a period, on the invoices and statements already processed.",
-      "steps": [{"id": "reconcile", "kind": "reconcile"}]
+      "steps": [{"id": "reconciliation", "kind": "process", "pack": "reconciliation"}]
     },
     {
       "id": "quote",

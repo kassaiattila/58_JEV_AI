@@ -7,7 +7,6 @@ import { ProcessCreate } from "../elements/ProcessStart";
 import { DocumentsCreate } from "../views/DocumentsCreate";
 import { Mailbox } from "../views/Mailbox";
 import { QuoteCreate } from "../views/quotes/Quote";
-import { ReconcileCreate } from "../views/reconcile/ReconcileCreate";
 import { StatementPackageCreate } from "../views/StatementPackageCreate";
 
 type Form = (onDone: (wpId: string) => void) => ReactNode;
@@ -16,7 +15,6 @@ const FORMS: Record<string, Form> = {
   documents: (onDone) => <DocumentsCreate onDone={onDone} />,
   emails: () => <Mailbox variant="pull" />,
   statements: (onDone) => <StatementPackageCreate onDone={onDone} />,
-  reconcile: (onDone) => <ReconcileCreate onDone={onDone} />,
   quote: (onDone) => <QuoteCreate onDone={onDone} />,  // 191
 };
 

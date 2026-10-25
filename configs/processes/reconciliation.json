@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "name": "process:reconciliation",
+    "version": "1.0.0",
+    "description": "231 (plan stage C, C2d; DECISIONS 231): the reconciliation of bank statements and invoices as a process pack (until C2d its own kind of package). A case belongs to an own party and a period and reconciles the party's accounts and cards (or those a person chooses): the invoices and the statements other packages processed are read by its scope, code proposes which statement line paid which invoice, a person decides and approves the reconciliation statement (its Excel file from the chosen template). The invoices and the statements are processed in their own packages, as before. Every step names a general capability; the pack holds no code.",
+    "changelog": [
+      {"version": "1.0.0", "date": "2026-10-25", "note": "231 (C2d): the first version: the pairing step (pairing@1, the invoices against the statement lines) and its tabs: Invoices, Bank statements, Pairing, Reconciliation statement, History; started by hand for a party and a period, its accounts by default the party's."}
+    ]
+  },
+  "id": "reconciliation",
+  "title": "Reconciliation",
+  "scope": {"parts": ["party", "period", "accounts"]},
+  "intake": [
+    {"on": "manual", "starts": "manual"}
+  ],
+  "resources": {"template:reconcile_statement": "builtin"},
+  "steps": [
+    {"id": "pair", "uses": "pairing@1", "title": "Pairing", "params": {"rules": "invoice_statement"}}
+  ],
+  "screens": {
+    "tabs": [
+      {"id": "invoices", "label": "Invoices", "elements": [{"type": "pairing", "step": "pair", "show": "invoices"}]},
+      {"id": "lines", "label": "Bank statements", "elements": [{"type": "pairing", "step": "pair", "show": "lines"}]},
+      {"id": "pairing", "label": "Pairing", "elements": [{"type": "pairing", "step": "pair", "show": "decide"}]},
+      {"id": "result", "label": "Reconciliation statement", "elements": [{"type": "pairing", "step": "pair", "show": "result"}]},
+      {"id": "history", "label": "History", "elements": [{"type": "timeline"}, {"type": "cost"}]}
+    ]
+  },
+  "partners": [],
+  "outputs": ["reconcile_statement"],
+  "goldens": ["reconcile:pairs", "reconcile:credit_kinds"]
+}

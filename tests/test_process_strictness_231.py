@@ -35,7 +35,7 @@ FROZEN_UI_FILES = {
     "ui/src/views/UtilityReport.tsx", "ui/src/views/settings/PartiesPanel.tsx", "ui/src/views/settings/PriceListsPanel.tsx",
 }
 FROZEN_UI_LOGIC_KEYS = {"reconcile", "statements"}  # A3d: the quote package's went; C1c: the routing's
-FROZEN_UI_FORMS = {"documents", "emails", "quote", "reconcile", "statements"}  # C1c: the routing's
+FROZEN_UI_FORMS = {"documents", "emails", "quote", "statements"}  # C1c: the routing's; C2d: the reconciliation's (its pack's form)
 FROZEN_UI_NAME_COMPARISONS = {("ui/src/views/PackageItems.tsx", "statements"), ("ui/src/views/WorkpackageActions.tsx", "statements"),
                               ("ui/src/views/workflows/NewWork.tsx", "mailbox")}
 FROZEN_PY_NAME_COMPARISONS: set[tuple[str, str]] = set()

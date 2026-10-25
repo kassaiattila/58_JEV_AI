@@ -79,7 +79,10 @@ def test_the_templates_are_the_four_kinds_and_three_workflows_each_waiting_only_
     assert kinds == {"documents", "emails", "statements", "reconcile", "process", "quote"} == {k.kind for k in workflow_steps.kinds()}
     groups = {g["id"] for g in conf["groups"]}
     singles = [t for t in conf["templates"] if not wf.is_workflow(t)]
-    assert sorted(t["steps"][0]["kind"] for t in singles) == sorted(kinds)
+    # 231 (C2d): the reconciliation's one-step template is its process pack's (kind process); the kind reconcile stays
+    # for the workflows' steps until the live workflow is taken over (C2e)
+    assert sorted(t["steps"][0]["kind"] for t in singles) == sorted([*(kinds - {"reconcile"}), "process"])
+    assert sorted(t["id"] for t in singles if t["steps"][0]["kind"] == "process") == ["mail_routing", "reconciliation"]
     chains = {t["id"]: [s["kind"] for s in t["steps"]] for t in conf["templates"] if wf.is_workflow(t)}
     assert chains == {"monthly_reconciliation": ["documents", "statements", "reconcile"],
                       "mailbox_reconciliation": ["emails", "statements", "reconcile"],
