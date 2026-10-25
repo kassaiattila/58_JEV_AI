@@ -1,8 +1,13 @@
 {
   "meta": {
     "name": "service",
-    "version": "1.9.1",
+    "version": "1.10.0",
     "changelog": [
+      {
+        "version": "1.10.0",
+        "date": "2026-10-25",
+        "note": "231 (the owner's decision after a deleted project folder): the daily backup also takes the machine's local settings (.env with the keys and the second backup location) into local-env.zip, locally and in the second location (backup.with_env: true)."
+      },
       {
         "version": "1.9.1",
         "date": "2026-10-03",
@@ -84,6 +89,7 @@
     "copy_to": null,
     "with_burr": false,
     "with_docs": true,
+    "with_env": true,
     "max_age_hours": 36
   },
   "input_limits": {

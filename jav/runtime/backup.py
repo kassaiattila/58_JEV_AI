@@ -29,8 +29,15 @@ already verified in the backup is `preserved`; one that is in neither is `missin
 not be restored), names the instances in the status line and stops pruning in both locations. The store copy itself
 is valid, so it still goes to the second location, without pruning there.
 
-Restore (manual, after stopping the service and the worker): copy the saved `jav.sqlite` back under `store/`, and the
-`sources/` folder back to `store/sources/`; details: `docs/guides/SETUP.md`, "Backup, restore and logs".
+231 (the owner's decision of 2026-10-25, after a deleted project folder): with `with_env` the machine's local settings
+(`.env` and any other `.env.*` file at the project root except the tracked `.env.example`: the keys and the second
+backup location) go into the backup folder as `local-env.zip`, so a machine can be set up again from the backup alone.
+The archive holds the keys unencrypted, like the store holds personal data; the manifest names the files only, never a
+value. Its check counts like the internal documents' check, and the hash check of the copy covers it too.
+
+Restore (manual, after stopping the service and the worker): copy the saved `jav.sqlite` back under `store/`, the
+`sources/` folder back to `store/sources/`, and unpack `native-artifacts.zip` into `store/`, `internal-docs.zip` and
+`local-env.zip` into the project root; details: `docs/guides/SETUP.md`, "Backup, restore and logs".
 """
 
 from __future__ import annotations
@@ -56,6 +63,8 @@ from jav.core.digest import file_sha256 as _sha256
 KEEP = 7
 STATUS_FILE = "backup-status.json"
 DOCS_ARCHIVE = "internal-docs.zip"
+ENV_ARCHIVE = "local-env.zip"
+ENV_TEMPLATE = ".env.example"  # tracked, holds no value: not part of the local settings
 SOURCES_DIR = "sources"
 NATIVE_ARCHIVE = "native-artifacts.zip"
 _STAMP = re.compile(r"^\d{8}-\d{6}(-\d+)?$")
@@ -69,7 +78,7 @@ def default_root() -> Path:
 
 def backup(*, out_root: Path | None = None, with_burr: bool = False, keep: int | None = None,
            copy_to: Path | None = None, with_docs: bool = False, docs_root: Path | None = None,
-           kind: str = "manual") -> dict[str, Any]:
+           with_env: bool = False, env_root: Path | None = None, kind: str = "manual") -> dict[str, Any]:
     """Back up the store (and, on request, the flow-state store and the internal working documents), with an optional
     copy to a second location. The manifest is kept both in the backup folder and in the status file; on failure the
     status file records the error.
@@ -79,14 +88,15 @@ def backup(*, out_root: Path | None = None, with_burr: bool = False, keep: int |
     and no copying.
     070: `with_docs` also backs up the internal documents from under `docs_root` (the project root by default).
     160 (review R-6): `kind` (`manual`, or `scheduled` for the daily one) goes into the manifest, and `keep` counts only
-    the backups of the same kind, so manual backups never push out the daily ones (`_prune`)."""
+    the backups of the same kind, so manual backups never push out the daily ones (`_prune`).
+    231: `with_env` also backs up the local settings files from `env_root` (the project root by default)."""
     if kind not in KINDS:
         raise ValueError(f"unknown backup kind: {kind}")
     root = Path(out_root) if out_root else default_root()
     keep = keep if keep is not None else configured_keep()
     try:
         manifest = _local(root, with_burr=with_burr, keep=keep, docs_root=(docs_root or PROJECT_ROOT) if with_docs else None,
-                          kind=kind)
+                          env_root=(env_root or PROJECT_ROOT) if with_env else None, kind=kind)
     except Exception as exc:
         _write_status(root, {"created_at": _now(), "ok": False, "error": f"{type(exc).__name__}: {exc}"})
         log.exception("backup failed")
@@ -124,7 +134,7 @@ def scheduled(*, config: dict[str, Any] | None = None, kind: str = "scheduled") 
     c = config if config is not None else cfg.load("service").get("backup", {})
     copy_to = c.get("copy_to") if config is not None else configured_copy_to()
     return backup(keep=int(c.get("keep", KEEP)), copy_to=Path(copy_to) if copy_to else None, with_burr=bool(c.get("with_burr")),
-                  with_docs=bool(c.get("with_docs")), kind=kind)
+                  with_docs=bool(c.get("with_docs")), with_env=bool(c.get("with_env")), kind=kind)
 
 
 def status(root: Path | None = None) -> dict[str, Any] | None:
@@ -139,7 +149,8 @@ def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
-def _local(root: Path, *, with_burr: bool, keep: int, docs_root: Path | None = None, kind: str = "manual") -> dict[str, Any]:
+def _local(root: Path, *, with_burr: bool, keep: int, docs_root: Path | None = None, env_root: Path | None = None,
+           kind: str = "manual") -> dict[str, Any]:
     if keep < 1:
         raise ValueError("keep must be at least 1")
     src = store.current_path()
@@ -171,6 +182,10 @@ def _local(root: Path, *, with_burr: bool, keep: int, docs_root: Path | None = N
             docs = _archive_docs(docs_root, dest / DOCS_ARCHIVE)
             if docs:
                 files.append(docs)
+        if env_root is not None:
+            env = _archive_env(env_root, dest / ENV_ARCHIVE)
+            if env:
+                files.append(env)
         store_ok = all(x["integrity"] == "ok" for x in files)
         instances = source_instances.files()
         required = _referenced_instances(dest / src.name)
@@ -220,6 +235,26 @@ def _archive_docs(docs_root: Path, target: Path) -> dict[str, Any] | None:
             z.write(p, p.relative_to(docs_root).as_posix())
     return {"file": target.name, "source": f"{docs_root / 'docs'} (belső munkaanyag)", "bytes": target.stat().st_size,
             "entries": len(docs), "integrity": _zip_integrity(target)}
+
+
+def env_files(root: Path = PROJECT_ROOT) -> list[Path]:
+    """231: the machine's local settings files at `root`: `.env` and any `.env.*` beside it, except the tracked
+    template."""
+    return sorted(p for p in root.glob(".env*") if p.is_file() and (p.name == ".env" or p.name.startswith(".env."))
+                  and p.name != ENV_TEMPLATE)
+
+
+def _archive_env(root: Path, target: Path) -> dict[str, Any] | None:
+    """231: the local settings files into one compressed archive (names only in the manifest); None if there are none."""
+    found = env_files(root)
+    if not found:
+        log.info("backup: no local settings file under %s", root)
+        return None
+    with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as z:
+        for p in found:
+            z.write(p, p.name)
+    return {"file": target.name, "source": f"{root} (local settings: {', '.join(p.name for p in found)})",
+            "bytes": target.stat().st_size, "entries": len(found), "integrity": _zip_integrity(target)}
 
 
 def _archive_native(saved_store: Path, source_root: Path, target: Path) -> dict[str, Any] | None:
@@ -417,4 +452,5 @@ def _failed(backup_dir: Path) -> bool:
         return True  # unreadable manifest: not necessarily a good backup, so it does not count
 
 
-__all__ = ["DOCS_ARCHIVE", "KEEP", "KINDS", "backup", "configured_keep", "default_root", "scheduled", "status"]
+__all__ = ["DOCS_ARCHIVE", "ENV_ARCHIVE", "KEEP", "KINDS", "backup", "configured_keep", "default_root", "env_files",
+           "scheduled", "status"]

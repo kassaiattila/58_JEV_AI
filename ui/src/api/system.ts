@@ -53,7 +53,7 @@ export interface UncertainCall {
 
 export interface BackupInfo {
   status: BackupRun | null;
-  config: { schedule?: string; keep?: number; copy_to?: string | null; with_burr?: boolean; with_docs?: boolean; max_age_hours?: number };
+  config: { schedule?: string; keep?: number; copy_to?: string | null; with_burr?: boolean; with_docs?: boolean; with_env?: boolean; max_age_hours?: number };
 }
 /** 160-D: the AI engine — JEV and GPT (the default) or GPT only, without JEV. */
 export type Engine = "jev" | "gpt";

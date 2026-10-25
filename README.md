@@ -2,7 +2,7 @@
 
 A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition (M1), invoice data extraction (M2) and email intent (M3) — are the reference flows against which the framework's quality is measured.
 
-**Current stable version: `v1.45.0`** (2026-10-25). What each release brought: [changelog](CHANGELOG.md).
+**Current stable version: `v1.45.1`** (2026-10-25). What each release brought: [changelog](CHANGELOG.md).
 
 ## Plain-language summary
 
@@ -93,7 +93,7 @@ python -m jav.cli run-start <wp> [--mode shadow|apply] | worker --once | run-sho
 cd ui; npm ci; npm run build; cd ..                               # build the UI (once, and after every ui/src change)
 .\scripts\dev.ps1 start | status | stop                          # UI + service: http://127.0.0.1:8930/ (endpoint list: /api/openapi.json) + worker
 python -m jav.cli serve | worker-status | worker-stop              # the same, one piece at a time
-python -m jav.cli backup [--with-docs] | burr-prune                # store backup (daily backup settings: configs/service.json); thin the flow-state store
+python -m jav.cli backup [--with-docs] [--with-env] | burr-prune                # store backup (daily backup settings: configs/service.json); thin the flow-state store
 python -m jav.cli hooks-install | data-guard [--all]               # enable the data guard; scan the version-controlled tree
 python -m jav.cli calls-uncertain | calls-resolve <id> --note N    # settle a paid call with an uncertain outcome by hand
 burr                                                               # Burr tracker: http://localhost:7241
