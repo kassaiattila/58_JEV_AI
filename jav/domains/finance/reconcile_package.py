@@ -496,11 +496,16 @@ KEEP_SECONDS = 120  # a safety bound: a change the marks miss shows within this 
 LIST_KEEP_SECONDS = 900
 
 
-def _inputs(c) -> list[Any]:
-    """140: what a workspace reads: the tables above, the configurations and the day."""
-    # the modules whose tables the workspace reads register them on import (a later import would change the mark)
+def _input_tables() -> None:
+    """The modules whose tables the workspace reads register them on import; 231 (C3b1): imported before the connection
+    that marks them opens, so it sees their tables (a mark taken on a connection opened before the import named one
+    table missing, and the next request built the workspace again)."""
     from jav.domains.finance import duplicates, fx, reconcile_ai, statement_months  # noqa: F401
 
+
+def _inputs(c) -> list[Any]:
+    """140: what a workspace reads: the tables above, the configurations and the day."""
+    _input_tables()  # (already imported by the caller before its connection opened; kept for any other caller)
     # 224: and the finance domain's rules (the reconciliation's bands, the duplicate search), until then in policy.json
     return [store.table_marks(c, WORKSPACE_INPUTS), reconcile.config_hash(), parties.config_hash(), cfg.config_hash("fx"),
             cfg.config_hash("finance"),
@@ -515,6 +520,7 @@ def inputs_mark(c=None, *, keep_seconds: int = KEEP_SECONDS) -> str:
     """140: a mark of everything a workspace reads, and a time slot of `keep_seconds`, so nothing is kept longer than
     that."""
     if c is None:
+        _input_tables()
         with store.connect() as own:
             return inputs_mark(own, keep_seconds=keep_seconds)
     return _digest([*_inputs(c), int(time.time() // keep_seconds)])
@@ -537,6 +543,7 @@ def kept_workspace(wp_id: str, *, keep_seconds: int = KEEP_SECONDS) -> dict[str,
     the sure pairs, a JSON answer): the copy was 85-93 % of their time. Never change what it returns. 159: kept while
     its inputs are unchanged and it was built in the caller's current time slot of `keep_seconds`."""
     now = time.time()
+    _input_tables()
     with store.connect() as c:
         mark = _digest(_inputs(c))
     key = (str(store.active_path()), wp_id)
