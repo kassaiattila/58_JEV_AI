@@ -300,9 +300,10 @@ def register() -> None:
     from jav.domains.finance import capabilities
 
     # 231 (C2b): the pairing of two lists as a general capability's step (the monthly reconciliation's pack names it, C2d);
-    # (C2d) the accounts a case reconciles as a scope part, by default its party's
+    # (C2d) the accounts a case reconciles as a scope part, by default its party's; (C2e) the party its accounts imply
     capabilities.register()
     scopes.register(reconcile_package.ACCOUNTS_PART)
+    scopes.imply(scopes.PARTY, reconcile_package.__name__, reconcile_package.party_of_accounts)
     from jav.domains.finance import pairing_proposal
     from jav.runtime import job_kinds
 

@@ -50,6 +50,18 @@ class Part:
 
 
 _PARTS: dict[str, Part] = {}
+# 231 (C2e): how a needed part follows from the other parts given, said by the domain that knows (a part registered
+# here cannot know a later domain's parts): {part: [(module, implied(scope) -> value | None)]}
+_IMPLIED: dict[str, list[tuple[str, Callable[[Mapping[str, Any]], Any]]]] = {}
+
+
+def imply(name: str, module: str, implied: Callable[[Mapping[str, Any]], Any]) -> None:
+    """231 (C2e): `implied(scope)` gives the value of the needed part `name` when it is not given, from the parts given
+    (None: they do not imply one), e.g. the own party from the accounts a scope names. The same one again adds
+    nothing."""
+    entries = _IMPLIED.setdefault(name, [])
+    if (module, implied) not in entries:
+        entries.append((module, implied))
 
 
 def register(part: Part) -> None:
@@ -75,14 +87,21 @@ def check(needs: Iterable[str], given: Mapping[str, Any], *, error: type[Excepti
     """The scope made of `given` ({part: value}, a missing or None value is not given): every part in `needs` must be
     given; each given part is checked by its own part; the result is in the registry's order. A refusal raises `error`
     (the caller's own error class, e.g. `workflows.WorkflowError`). 231 (C2d): a needed part with a default that was
-    not given takes it from the parts checked before it (in the registry's order); none for this scope is missing."""
+    not given takes it from the parts checked before it (in the registry's order); none for this scope is missing.
+    231 (C2e): before that, a needed part not given takes the value the given parts imply (`imply`), if they do."""
     needed = list(dict.fromkeys(needs))
     present = {k: v for k, v in given.items() if v is not None}
     for name in [*needed, *present]:
         of(name, error)  # an unknown part is refused
-    if missing := [n for n in needed if n not in present and of(n).default is None]:
+    if missing := [n for n in needed if n not in present and of(n).default is None and n not in _IMPLIED]:
         raise of(missing[0]).missing(error)
     checked = {p.name: p.check(present[p.name], error) for p in _PARTS.values() if p.name in present}
+    for p in _PARTS.values():
+        if p.name in needed and p.name not in checked:
+            for _module, implied in _IMPLIED.get(p.name, ()):
+                if (value := implied(dict(checked))) is not None:
+                    checked[p.name] = p.check(value, error)
+                    break
     for p in _PARTS.values():
         if p.name in needed and p.name not in checked:
             value = p.default(checked) if p.default is not None else None
@@ -171,8 +190,8 @@ register(Part(PARTY, __name__, _party, _party_name, _no_party))
 register(Part(PERIOD, __name__, _period, _period_words, _no_period))
 
 
-__all__ = ["PARTNERS", "PARTY", "PERIOD", "Part", "RECORD", "SOURCES", "ScopeError", "asks", "check", "label", "of", "parts",
-           "period", "register"]
+__all__ = ["PARTNERS", "PARTY", "PERIOD", "Part", "RECORD", "SOURCES", "ScopeError", "asks", "check", "imply", "label", "of",
+           "parts", "period", "register"]
 register(Part(RECORD, __name__, _record, _record_words, _no_record))
 
 PARTNERS = "partners"  # 231 (B1): the partners a case is about, by role ({role: partner_id}; `jav/app/partners.py`)

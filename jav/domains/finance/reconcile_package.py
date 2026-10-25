@@ -276,6 +276,18 @@ def _party_accounts(scope: Mapping[str, Any]) -> list[str] | None:
     return keys or None
 
 
+def party_of_accounts(scope: Mapping[str, Any]) -> str | None:
+    """231 (C2e): the own party a scope's accounts imply: the one party every one of them is registered to (None when
+    the scope names none, or one of them belongs to no party or to another), so a package made before its accounts had
+    a party is taken over as its party's case."""
+    keys = set(scope.get(ACCOUNTS) or ())
+    owner = {a["key"]: (a.get("party") or {}).get("id") for a in accounts() if a["key"] in keys}
+    parties_ = set(owner.values())
+    if not keys or set(owner) != keys or len(parties_) != 1 or None in parties_:
+        return None
+    return parties_.pop()
+
+
 def _no_accounts(error: type[Exception]) -> Exception:
     return explained(error, "the party has no account or card with a statement yet")
 
