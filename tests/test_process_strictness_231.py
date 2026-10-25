@@ -27,7 +27,7 @@ UI_SHARED_DIRS = {"settings", "workflows"}
 
 FROZEN_LOGIC_PACKS = {"email_routing", "reconcile", "statements"}  # A3d: the quote package went
 FROZEN_STEP_KINDS = {"documents", "emails", "quote", "reconcile", "routing", "statements"}
-FROZEN_ITEM_PARTS = {("email", "quote_request")}
+FROZEN_ITEM_PARTS: set[tuple[str, str]] = set()  # 231 (C1a): the quote request under its email became the general intake
 FROZEN_DOMAINS = ("jav.domains.finance", "jav.domains.email", "jav.domains.quotes")
 FROZEN_UI_FILES = {
     "ui/src/api/finance.ts", "ui/src/api/quotes.ts", "ui/src/review/StatementPanel.tsx", "ui/src/views/BankFiles.tsx",

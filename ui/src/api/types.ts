@@ -2,7 +2,7 @@
 import type { WorkflowRef } from "./workflows";
 import type { Engine } from "./system";
 import type { DuplicatePair, ReconcileApproval, ReconcileCounts, ReconcileCoverage, ReconcileScope, StatementPackageView, StatementRelation } from "./finance";
-import type { QuoteEmailPart } from "./quotes";
+import type { IntakeOffer } from "./cases";
 import type { EmailItem, MailboxRequest, RoutingView } from "./email";
 
 export interface Blocker { code: string; message: string }
@@ -209,7 +209,9 @@ export interface ItemResult {
   run_id: string; item_id: string; kind?: "document" | "email" | "statement_table"; email?: EmailItem; page_count?: number | null; extraction: Extraction | null; correction: Correction;
   attachment_items?: { item_id: string; filename: string }[]; // 058 K5.2: the email's attachments that ran as documents
   /** 192: what other domains add to this kind's item (`jav/app/item_kinds.py` item parts), by name */
-  parts?: { quote_request?: QuoteEmailPart };
+  parts?: Record<string, unknown>;
+  /** 231 (C1a): the processes whose case this email may start */
+  intake?: IntakeOffer[];
   effective: Record<string, unknown>; open_reasons: Reason[]; earlier_open_reasons: Reason[];
   provenance: Record<string, Provenance>;
   lists?: Record<string, { columns: ListColumn[] }>; checks?: Check[];

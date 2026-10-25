@@ -3,7 +3,7 @@
 // (`jav/app/logic_packs.py`). The package's page, its menu and its item list ask this registry instead of naming the
 // kind; a package of a plain processing kind (a folder, a mailbox, chosen files) has no entry.
 import type { ReactNode } from "react";
-import type { QuoteEmailPart, Workpackage, WorkpackageView } from "../api";
+import type { Workpackage, WorkpackageView } from "../api";
 import { t } from "../i18n";
 import { lazyPage } from "../components/LazyPage";
 import { tmap } from "../labels";
@@ -12,7 +12,6 @@ import { routingStatus, routingSummary } from "../views/routing/routingStatus";
 
 // 195 (plan G-tidy R5): a logic pack's own pages load when a package of its kind is first opened; its status lines
 // and summary, which the package list shows too, are in small modules of their own
-const QuoteOnEmail = lazyPage(() => import("../views/quotes/QuoteOnEmail").then((m) => m.QuoteOnEmail));
 const ReconcileStages = lazyPage(() => import("../views/reconcile/ReconcileStages").then((m) => m.ReconcileStages));
 const RoutingStages = lazyPage(() => import("../views/routing/Routing").then((m) => m.RoutingStages));
 const StatementPackagePanel = lazyPage(() => import("../views/StatementPackagePanel").then((m) => m.StatementPackagePanel));
@@ -89,7 +88,6 @@ export function logicOf(kind: string | undefined): LogicUi | undefined {
 }
 
 /** 192 (plan F-quote-package B6a): how an item part another domain adds to an item's result is shown, by its name
- *  (`jav/app/item_kinds.py` item parts): the quote request under its email. */
-export const ITEM_PARTS: Record<string, (value: unknown) => ReactNode> = {
-  quote_request: (value) => <QuoteOnEmail part={value as QuoteEmailPart} />,
-};
+ *  (`jav/app/item_kinds.py` item parts). 231 (C1a): none now; what an email may start is the general intake
+ *  (`ui/src/elements/IntakeOffers.tsx`). */
+export const ITEM_PARTS: Record<string, (value: unknown) => ReactNode> = {};

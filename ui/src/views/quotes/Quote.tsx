@@ -6,15 +6,15 @@
 // (QuoteElements.tsx); the quote package's own page is gone, and the new work wizard's form starts a case.
 import { useEffect, useState } from "react";
 import {
-  api, ApiError, type QuoteBlockerCode, type QuoteMatchAnswer, type QuoteProposal, type QuoteRequest,
-  type QuoteRequestCandidate, type QuoteRequestPart, type QuoteView,
+  api, ApiError, type QuoteBlockerCode, type QuoteMatchAnswer, type QuoteProposal,
+  type QuoteRequestCandidate, type QuoteView,
 } from "../../api";
 import { BlockerList } from "../../components/BlockerList";
 import { Picker } from "../../components/Picker";
 import { t, useLocale } from "../../i18n";
 import { numText, usdBudget, when } from "../../labels";
 import { go } from "../../route";
-import { quoteFieldLabel as fieldLabel } from "./quoteStatus";
+import { RecordData } from "../../elements/RecordData";
 
 export const QUOTE_BLOCKER: Record<QuoteBlockerCode, string> = {
   "quote:request_missing": "The request can no longer be read: it was removed from its package, or it is no longer read as a quote request",
@@ -22,9 +22,6 @@ export const QUOTE_BLOCKER: Record<QuoteBlockerCode, string> = {
   "quote:no_items": "The request names no item: neither the email's text nor an attachment has one",
   "quote:no_price_list": "There is no active price list: upload one in Settings › Price lists and make it active",
 };
-
-const partKind = (p: QuoteRequestPart) =>
-  ({ email_text: t("the email's text"), attachment: t("attachment"), document: t("document") })[p.kind] ?? p.kind;
 
 // 191 B4c: a proposed line's mark (DESIGN.md §4): sure green, to check a person's turn (orange), not listed off (amber)
 const MARK: Record<string, { cls: string; label: string }> = {
@@ -165,9 +162,6 @@ function Gaps({ view }: { view: QuoteView }) {
   );
 }
 
-/** A header field's value as text; a missing one is a dash. */
-const valueText = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : String(v));
-
 export function RequestPanel({ view }: { view: QuoteView }) {
   useLocale();
   const r = view.request;
@@ -188,7 +182,7 @@ export function RequestPanel({ view }: { view: QuoteView }) {
           </p>
         ) : null}
         {view.blockers.length ? <Gaps view={view} /> : <p className="small ok">{t("The request has what a quote needs.")}</p>}
-        {r ? <RequestData request={r} /> : null}
+        {r ? <RecordData record={r} listField="requested_items" docType="quote_request" /> : null}
       </section>
       <PriceLists view={view} />
     </div>
@@ -197,53 +191,6 @@ export function RequestPanel({ view }: { view: QuoteView }) {
 
 /** The request's fields with the part each came from, its items and its parts (192: under its email too, `compact`:
  *  a part named by its kind, an attachment by its file, as the email's page shows the rest beside it). */
-export function RequestData({ request: r, compact = false }: { request: QuoteRequest; compact?: boolean }) {
-  useLocale();
-  const from = (n: number | undefined | null) => {
-    if (n === undefined || n === null) return "";
-    const p = r.parts[n];
-    if (compact) return p.kind === "email_text" ? partKind(p) : p.name || partKind(p);
-    return `${partKind(p)}: ${p.name}`;
-  };
-  return (
-    <>
-      <table className="table compact quote-fields" aria-label={t("The request's data")}>
-        <thead><tr><th>{t("Field")}</th><th>{t("Value")}</th><th>{t("Read from")}</th></tr></thead>
-        <tbody>
-          {Object.keys(r.fields).map((f) => (
-            <tr key={f}>
-              <td>{fieldLabel(f)}</td>
-              <td className={r.fields[f] ? "" : "muted"}>{valueText(r.fields[f])}</td>
-              <td className="muted small">{from(r.sources[f])}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="template-output-head">
-        <h3>{fieldLabel("requested_items")}</h3>
-        <span className="muted small">{r.items_from === null ? t("none") : t("read from {{part}}", { part: from(r.items_from) })}</span>
-      </div>
-      {r.items.length ? (
-        <table className="table compact quote-items" aria-label={fieldLabel("requested_items")}>
-          <thead><tr><th>{t("Description")}</th><th className="num">{t("Quantity")}</th><th>{t("Unit")}</th></tr></thead>
-          <tbody>
-            {r.items.map((i, n) => (
-              <tr key={n}>
-                <td>{valueText(i.description)}</td>
-                <td className="num tnum">{i.quantity === null || i.quantity === undefined ? "—" : numText(i.quantity, 4)}</td>
-                <td>{valueText(i.unit)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
-      <p className="small muted">
-        {t("Parts:")} {r.parts.map((p) => `${partKind(p)} (${p.name || "—"})`).join(" · ") || t("none")}
-      </p>
-    </>
-  );
-}
-
 function PriceLists({ view }: { view: QuoteView }) {
   useLocale();
   return (

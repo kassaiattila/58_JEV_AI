@@ -484,8 +484,12 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
         return {**_native_item_result(run, item), "engine": engine}
     if (own := item_kinds.handler(item)) is not None:  # 048 T2 (185: the email domain's): no extraction or page image
         result = own.result(run, item, engine)
-        # 192: what other domains add to this kind's item (the quote request under an email), by name
+        # 192: what other domains add to this kind's item, by name
         parts = {p.name: built for p in item_kinds.item_parts(item["kind"]) if (built := p.build(run, item)) is not None}
+        if item["kind"] == item_kinds.EMAIL:  # 231 (C1a): the processes whose cases this email may start
+            from jav.app import intake
+
+            result = {**result, "intake": intake.offers(run["workpackage_id"], item_id)}
         return {**result, "parts": parts} if parts else result
     dp = datapoints_row(run_id, item_id)
     corr = current(run_id, item_id)

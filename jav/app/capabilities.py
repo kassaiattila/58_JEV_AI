@@ -137,6 +137,10 @@ class Capability:
     - `adopt(wp_id, params)` (C0): the state its step is in when an existing work package is taken over as a case
       (`process_runtime.adopt_case`), read from the work the package already holds; None: the step has not run. A
       capability without it: its step has not run.
+    - `preview(record, params)` (C1a): for a step that reads its record from the case's scope, what it would read
+      from `record` before a case starts (`jav/app/intake.py`): {"record": the record as the step reads it, "gaps":
+      [{"code", "message"}], "list_field": the field of its list, "record_type": its type (the field labels')}; None
+      when `record` holds none.
     """
 
     name: str
@@ -158,6 +162,7 @@ class Capability:
     rule_keys: tuple[RuleKey, ...] = ()
     choices: Mapping[str, Callable[[], list[tuple[str, str]]]] = field(default_factory=dict)
     adopt: Callable[[str, Any], cases.Adopted | None] | None = None
+    preview: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any] | None] | None = None
 
     @property
     def key(self) -> str:

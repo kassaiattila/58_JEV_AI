@@ -3,6 +3,7 @@
 // can be processed separately as documents.
 import { useEffect, useState } from "react";
 import { api, ApiError, type ItemResult, type RejectedTask } from "../api";
+import { IntakeOffers } from "../elements/IntakeOffers";
 import { ITEM_PARTS } from "../logic/registry";
 import { EngineMark } from "../components/EngineMark";
 import { Icon } from "../components/Icon";
@@ -66,7 +67,9 @@ export function EmailReview({ data, onChanged, wpId }: { data: ItemResult; onCha
               {!r.from_this_run ? <p className="notice small mt-s">{t("Ez az eredmény egy későbbi futásból való ugyanerről a levélről.")}</p> : null}
             </div>
           ) : <p className="muted pad-s">{t("A levelet ez a futás még nem dolgozta fel.")}</p>}
-          {/* 192: what other domains add under the email (the quote request read from it), by the registry */}
+          {/* 231 (C1a): the processes whose case this email may start (until then the quote's own part) */}
+          {data.intake?.length ? <IntakeOffers offers={data.intake} /> : null}
+          {/* 192: what other domains add under the email, by the registry */}
           {Object.entries(data.parts ?? {}).map(([name, value]) => {
             const shown = ITEM_PARTS[name];
             return shown ? <div key={name}>{shown(value)}</div> : null;

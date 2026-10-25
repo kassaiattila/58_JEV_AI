@@ -188,6 +188,16 @@ def stored(wp_id: str, c: sqlite3.Connection | None = None) -> dict[str, Any] | 
     return {k: (json.loads(row[k]) if k == "parts" else row[k]) for k in _COLUMNS if k != "workpackage_id"}
 
 
+def holding(part: str, value: Any) -> list[dict[str, Any]]:
+    """231 (C1a): the packages whose scope holds `value` as its part `part` (the cases started from one record), oldest
+    first: {id, name}."""
+    with store.connect() as c:
+        rows = c.execute("SELECT s.workpackage_id, s.parts, w.name FROM workpackage_scopes s JOIN workpackages w"
+                         " ON w.id = s.workpackage_id WHERE s.parts IS NOT NULL ORDER BY w.created_at, w.id").fetchall()
+    return [{"id": r["workpackage_id"], "name": r["name"]} for r in rows
+            if (json.loads(r["parts"]) or {}).get(part) == value]
+
+
 def save(c: sqlite3.Connection, wp_id: str, *, party_id: str | None = None, period_start: str | None = None,
          period_end: str | None = None, role: str | None = None, parts: dict[str, Any] | None = None, actor: identity.Who,
          expected_revision: int | None = None) -> dict[str, Any]:

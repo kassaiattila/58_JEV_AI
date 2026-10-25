@@ -103,12 +103,6 @@ export interface QuoteLetterView {
   problems: string[]; error: string | null; body: string | null; accepted: { body: string; by: string; at: string } | null;
   decision_state: number; to: string | null; subject: string | null; cap: Record<string, string>; usage: unknown;
 }
-/** 192 (B6a): an email's quote request (`jav/domains/quotes/quote_package.py` `email_part`): the request, what it lacks as a whole,
- *  the quotes already made from it and the item a quote starts from. */
-export interface QuoteEmailPart {
-  request: QuoteRequest; gaps: { code: QuoteBlockerCode; message: string }[]; quotes: { id: string; name: string; case?: boolean }[];  // 231: a case's link
-  source: { workpackage_id: string; item_id: string };
-}
 /** A request a quote can start from, with the quotes already made from it. */
 export interface QuoteRequestCandidate {
   workpackage_id: string; workpackage_name: string; item_id: string; kind: "email" | "document"; title: string;

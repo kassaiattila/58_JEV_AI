@@ -3,6 +3,21 @@
 // (jav/app/case_views.py): its steps and its pack's tabs, each element with what its step's capability shows.
 import { enc, request } from "./client";
 
+/** 231 (C1a): one part a record was read from (the email's text, an attachment, a document). */
+export interface RecordPart { kind: string; name: string | null }
+/** 231 (C1a): a record put together from an email or a document: each field with the part it came from (`sources`),
+ *  its list's rows and the part the list came from. */
+export interface RecordPreview {
+  title: string; parts: RecordPart[]; fields: Record<string, unknown>; sources: Record<string, number>;
+  items: object[]; items_from: number | null;
+}
+/** 231 (C1a): a process whose case an email may start (`jav/app/intake.py`). */
+export interface IntakeOffer {
+  pack: string; title: string; starts: "offer" | "case" | "manual"; record: { workpackage_id: string; item_id: string };
+  preview: RecordPreview | null; list_field: string | null; record_type: string | null; gaps: { code: string; message: string }[]; label: string | null;
+  cases: { id: string; name: string }[];
+}
+
 /** A person's action on a step (A7d): a failed step's retry, or one its capability offers while the step waits for it. */
 export interface CaseAction { name: string; label: string }
 /** One step of a case: its capability, how it starts, its state in the process core, whether it waits for a person's

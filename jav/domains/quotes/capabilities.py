@@ -148,6 +148,20 @@ def _record_assembly(ctx: Any, params: RecordAssembly) -> kinds.StepOutcome:
                        "gaps": [g["code"] for g in quote_package.request_gaps(req)]})
 
 
+def _record_preview(record: dict[str, Any], params: dict[str, Any]) -> dict[str, Any] | None:
+    """231 (C1a): the record an email or a document holds, as the record step reads it at a case's start (None: it
+    holds none), with what it lacks as a whole."""
+    from jav.domains.quotes import quote_package, quote_request
+
+    try:
+        req = quote_request.read(record["workpackage_id"], record["item_id"], record_type=params["record_type"],
+                                 items_field=params["items_field"])
+    except quote_request.RequestNotFound:
+        return None
+    return {"record": req.as_dict(), "gaps": quote_package.request_gaps(req), "list_field": params["items_field"],
+            "record_type": params["record_type"]}
+
+
 def _catalogue_match(ctx: Any, params: CatalogueMatch) -> kinds.StepOutcome:
     from jav.domains.quotes import quote_proposal
 
@@ -231,7 +245,8 @@ def _spent(table: str) -> Any:
 _OWNER = __name__
 CAPABILITIES = (
     Capability(name="record_assembly", version=1, module=_OWNER, run=_record_assembly, kind="machine", params=RecordAssembly, effects="pure",
-               summary="Puts a record together from an email's text, its table attachments and its attachments."),
+               summary="Puts a record together from an email's text, its table attachments and its attachments.",
+               preview=_record_preview),
     Capability(name="catalogue_match", version=1, module=_OWNER, run=_catalogue_match, kind="machine", params=CatalogueMatch,
                providers=("jev", "openai"), rule_files=("callsite:quote_match", "gpt_quote_match", "quotes", "price_lists"),
                summary="Matches each requested item with a catalogue item: sure, to check, or not listed.",

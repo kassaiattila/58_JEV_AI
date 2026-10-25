@@ -35,7 +35,7 @@ def _scope(case) -> dict:
 def test_a_package_is_taken_over_as_a_case_under_its_own_id(golden) -> None:  # noqa: F811
     cases_, _seen = golden
     wp_id = _old_package()
-    assert process_runtime.adopt_case(PACK, wp_id, _scope(cases_[0]), actor="Kovács Béla") == "adopted"
+    assert process_runtime.adopt_case(PACK, wp_id, _scope(cases_[0]), actor="Kovacs Bela") == "adopted"
     wp = work.get(wp_id)
     assert (wp["source_kind"], wp["source_ref"]) == (process_runtime.CONTAINER, f"pack:{PACK}@1.2.0")
     with store.connect() as c:
@@ -48,7 +48,7 @@ def test_a_package_is_taken_over_as_a_case_under_its_own_id(golden) -> None:  # 
             "SELECT detail FROM workpackage_events WHERE workpackage_id=? AND action='retyped'", (wp_id,))]
     assert logged == [{"from": {"source_kind": "manual", "source_ref": "folder:invented"},
                        "to": {"source_kind": process_runtime.CONTAINER, "source_ref": f"pack:{PACK}@1.2.0"}}]
-    assert process_runtime.adopt_case(PACK, wp_id, _scope(cases_[0]), actor="Kovács Béla") == "exists"
+    assert process_runtime.adopt_case(PACK, wp_id, _scope(cases_[0]), actor="Kovacs Bela") == "exists"
     assert work.get(wp_id)["revision"] == wp["revision"]  # a second take-over changes nothing
     engine.turn(wp_id, wake=True)
     assert engine.state(wp_id)["steps"]["request"]["state"] == "done"  # no step had run: the case runs from its start
@@ -65,7 +65,7 @@ def test_a_step_starts_in_the_state_its_capability_reads_from_the_package(golden
 
     cap = capabilities.of("record_assembly@1")
     monkeypatch.setitem(capabilities._CAPS, cap.key, dataclasses.replace(cap, adopt=read))
-    process_runtime.adopt_case(PACK, wp_id, _scope(cases_[0]), actor="Kovács Béla")
+    process_runtime.adopt_case(PACK, wp_id, _scope(cases_[0]), actor="Kovacs Bela")
     assert seen == [(wp_id, "quote_request")]
     state = engine.state(wp_id)["steps"]
     assert state["request"]["state"] == "done" and state["compose"]["state"] != "done"
@@ -74,8 +74,8 @@ def test_a_step_starts_in_the_state_its_capability_reads_from_the_package(golden
 def test_a_package_that_is_not_there_or_a_scope_that_does_not_fit_is_refused(golden) -> None:  # noqa: F811
     with pytest.raises(KeyError):
         process_runtime.adopt_case(PACK, "wp-000000000000", {"record": {"workpackage_id": rows.WP, "item_id": "x"}},
-                                   actor="Kovács Béla")
+                                   actor="Kovacs Bela")
     wp_id = _old_package()
     with pytest.raises(ValueError):
-        process_runtime.adopt_case(PACK, wp_id, {}, actor="Kovács Béla")
+        process_runtime.adopt_case(PACK, wp_id, {}, actor="Kovacs Bela")
     assert work.get(wp_id)["source_kind"] == "manual"  # nothing changed
