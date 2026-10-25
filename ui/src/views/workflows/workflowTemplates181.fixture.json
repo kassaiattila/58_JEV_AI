@@ -98,26 +98,6 @@
       "subfolders": false,
       "needs": []
     },
-    "reconcile": {
-      "title": "Reconciliation of statements and invoices",
-      "description": "The party's statement lines are paired with its invoices; the result is a summary approved as a version.",
-      "sources": [
-        "none",
-        "package"
-      ],
-      "cost": "Free: code only.",
-      "package_kinds": [
-        "reconcile"
-      ],
-      "paid": false,
-      "own_engine": false,
-      "only_new": false,
-      "subfolders": false,
-      "needs": [
-        "party",
-        "period"
-      ]
-    },
     "quote": {
       "title": "Quote from a request",
       "description": "A quote request already processed (an email with its attachments, or a document) is put together; the quote is made from it and your active price list.",
@@ -133,6 +113,12 @@
       "only_new": false,
       "subfolders": false,
       "needs": []
+    }
+  },
+  "retired_kinds": {
+    "reconcile": {
+      "kind": "process",
+      "pack": "reconciliation"
     }
   },
   "templates": [
@@ -251,7 +237,8 @@
         },
         {
           "id": "reconcile",
-          "kind": "reconcile",
+          "kind": "process",
+          "pack": "reconciliation",
           "title": "Reconciliation",
           "after": [
             "invoices",
@@ -278,7 +265,8 @@
         },
         {
           "id": "reconcile",
-          "kind": "reconcile",
+          "kind": "process",
+          "pack": "reconciliation",
           "title": "Reconciliation",
           "after": [
             "emails",
@@ -311,7 +299,8 @@
         },
         {
           "id": "reconcile",
-          "kind": "reconcile",
+          "kind": "process",
+          "pack": "reconciliation",
           "title": "Reconciliation",
           "after": [
             "invoices",

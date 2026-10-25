@@ -48,7 +48,7 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
     from jav.app import process_settings
 
     pack = process_packs.load(pack_id)
-    checked = scopes.check(pack.scope.parts, scope)
+    checked = scopes.check(pack.scope.needs(), scope, optional=pack.scope.optional)
     resources = process_settings.effective_resources(pack)
     rules, rule_refs = process_settings.effective_rules(pack)
     definition = process_packs.definition(pack.model_copy(update={"resources": resources}))
@@ -82,7 +82,7 @@ def adopt_case(pack_id: str, wp_id: str, scope: dict[str, Any], *, actor: identi
     from jav.app import process_settings
 
     pack = process_packs.load(pack_id)
-    checked = scopes.check(pack.scope.parts, scope)
+    checked = scopes.check(pack.scope.needs(), scope, optional=pack.scope.optional)
     wp = work.get(wp_id)
     resources = process_settings.effective_resources(pack)
     rules, rule_refs = process_settings.effective_rules(pack)
@@ -121,7 +121,7 @@ def adopt_all(*, actor: identity.Who, write: bool = False) -> list[dict[str, Any
                 scope = {part: _stored_value(stored, key) for part, key in rule.scope.items()}
                 row = {"pack": pack.id, "workpackage_id": wp["id"], "name": wp["name"], "scope": scope}
                 try:
-                    scopes.check(pack.scope.parts, scope)
+                    scopes.check(pack.scope.needs(), scope, optional=pack.scope.optional)
                 except scopes.ScopeError as exc:
                     out.append({**row, "result": "refused", "error": str(exc)})
                     continue
@@ -342,7 +342,8 @@ def _workflow_start(ctx: Any) -> None:
         given[scopes.PARTY] = ctx.workflow["party_id"]
     if scopes.PERIOD in pack.scope.parts:
         given[scopes.PERIOD] = [ctx.workflow["period_start"], ctx.workflow["period_end"]]
-    ctx.made(start_case(pack.id, given, name=ctx.state["name"], actor=ctx.actor))
+    # C3a-2: the workflow's maker owns the case, as they owned the package a retired step made (decision 065)
+    ctx.made(start_case(pack.id, given, name=ctx.state["name"], actor=ctx.workflow["actor"]))
 
 
 def register() -> None:

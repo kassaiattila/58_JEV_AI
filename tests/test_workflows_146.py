@@ -75,8 +75,8 @@ def test_the_templates_are_the_four_kinds_and_three_workflows_each_waiting_only_
     kinds = set(conf["kinds"])
     # 181: the email routing is a fifth kind, with its own one-step template and a workflow after a mailbox download;
     # 191: the quote a sixth, with its own one-step template only; 231 (C1c): the routing is a process pack's case (kind
-    # process)
-    assert kinds == {"documents", "emails", "statements", "reconcile", "process", "quote"} == {k.kind for k in workflow_steps.kinds()}
+    # process); (C3a-2) the reconciliation too, its kind retired
+    assert kinds == {"documents", "emails", "statements", "process", "quote"} == {k.kind for k in workflow_steps.kinds()}
     groups = {g["id"] for g in conf["groups"]}
     singles = [t for t in conf["templates"] if not wf.is_workflow(t)]
     # 231 (C2d): the reconciliation's one-step template is its process pack's (kind process); the kind reconcile stays
@@ -84,9 +84,9 @@ def test_the_templates_are_the_four_kinds_and_three_workflows_each_waiting_only_
     assert sorted(t["steps"][0]["kind"] for t in singles) == sorted([*(kinds - {"reconcile"}), "process"])
     assert sorted(t["id"] for t in singles if t["steps"][0]["kind"] == "process") == ["mail_routing", "reconciliation"]
     chains = {t["id"]: [s["kind"] for s in t["steps"]] for t in conf["templates"] if wf.is_workflow(t)}
-    assert chains == {"monthly_reconciliation": ["documents", "statements", "reconcile"],
-                      "mailbox_reconciliation": ["emails", "statements", "reconcile"],
-                      "two_sources_reconciliation": ["documents", "emails", "statements", "reconcile"],
+    assert chains == {"monthly_reconciliation": ["documents", "statements", "process"],  # 231 C3a-2: the pack's case
+                      "mailbox_reconciliation": ["emails", "statements", "process"],
+                      "two_sources_reconciliation": ["documents", "emails", "statements", "process"],
                       "mailbox_routing": ["emails", "process"]}
     for t in conf["templates"]:
         assert t["group"] in groups
@@ -189,7 +189,7 @@ def test_the_monthly_reconciliation_runs_its_steps_waits_for_a_budget_and_makes_
     rec = _steps(view)["reconcile"]
     assert rec["state"] == "started" and rec["status"] == "pairing" and view["done"] == 2
     package = work.get(rec["package"]["id"])
-    assert package["source_kind"] == "reconcile" and package["owner"] == "tester"
+    assert package["source_kind"] == "case" and package["owner"] == "tester"  # 231 (C3a-2): the reconciliation's case
     assert wf.workflow_of(package["id"]) == {"id": wf_id, "name": view["workflow"]["name"], "step": "reconcile",
                                              "step_title": "Reconciliation"}
     actions = [(e["step"], e["action"]) for e in reversed(view["events"])]
@@ -336,7 +336,7 @@ def test_the_estimate_is_the_recipes_item_budget_times_the_items(db):
     per = wf._per_item("document")
     got = wf.estimate(kind="documents", source={"kind": "folder", "folder": str(folder)})
     assert got["items"] == 3 and got["usd"] == {p: str((v * 3).quantize(Decimal("0.0001"))) for p, v in per.items() if v}
-    assert wf.estimate(kind="reconcile", source={"kind": "none"}) == {"items": None, "usd": {}, "note": None}
+    assert wf.estimate(kind="process", source={"kind": "none"}) == {"items": None, "usd": {}, "note": None}
     statements = wf.estimate(kind="statements", source={"kind": "folder", "folder": str(_statements(db / "erste"))},
                              party_id=party, period_start=MONTH[0], period_end=MONTH[1])
     assert (statements["statements"], statements["pdfs"], statements["usd"]) == (1, 0, {})  # read by code: free

@@ -41,7 +41,7 @@ def test_importing_registers_no_step_kind_and_load_all_registers_each_from_its_o
                          encoding="utf-8")
     seen = json.loads(out.stdout.strip().splitlines()[-1])
     # finance, workflows, (231 C1c) the process packs' step, email, quotes
-    assert seen == {"before": [], "after": ["statements", "reconcile", "documents", "process", "emails", "quote"]}
+    assert seen == {"before": [], "after": ["statements", "documents", "process", "emails", "quote"]}  # 231 C3a-2: reconcile went
 
 
 def test_every_template_kind_is_registered_and_nothing_more() -> None:
@@ -50,7 +50,7 @@ def test_every_template_kind_is_registered_and_nothing_more() -> None:
     assert set(kinds) == set(cfg.load("workflows")["kinds"])
     assert {k: v.module for k, v in kinds.items()} == {
         "documents": "jav.app.workflows", "emails": "jav.domains.email.mailbox",
-        "statements": "jav.domains.finance.statement_package", "reconcile": "jav.domains.finance.reconcile_package",
+        "statements": "jav.domains.finance.statement_package",
         "process": "jav.app.process_runtime", "quote": "jav.domains.quotes.quote_package"}  # 191; 231 C1c: process
 
 
@@ -67,12 +67,12 @@ def test_the_registry_gives_what_the_hand_written_tables_gave() -> None:
     registrations.load_all()
     assert {k.kind: k.package_kinds for k in workflow_steps.kinds()} == {
         "documents": ("folder", "manual", "watch", "upload"), "emails": ("mailbox",),
-        "statements": ("statements",), "reconcile": ("reconcile",), "process": ("case",), "quote": ("case",)}  # 231 A3d, C1c
+        "statements": ("statements",), "process": ("case",), "quote": ("case",)}  # 231 A3d, C1c; C3a-2: reconcile went
     assert {k.kind for k in workflow_steps.kinds() if k.own_engine} == {"documents", "emails", "statements"}
     assert {k.kind for k in workflow_steps.kinds() if k.paid} == {"documents", "emails", "statements"}
     assert {k.kind for k in workflow_steps.kinds() if k.only_new} == {"documents"}
     assert {k.kind for k in workflow_steps.kinds() if k.poll} == {"emails"}
-    assert workflow_steps.of("reconcile").repeat_from("wp-000000000000") == {"kind": "none"}
+    assert workflow_steps.of("process").repeat_from("wp-000000000000") == {"kind": "none"}
     assert workflow_steps.of("emails").repeat_from is None
     described = workflow_steps.described()
     assert described["statements"] == {"package_kinds": ["statements"], "paid": True, "own_engine": True,
@@ -81,7 +81,8 @@ def test_the_registry_gives_what_the_hand_written_tables_gave() -> None:
     assert {k.kind for k in workflow_steps.kinds() if k.subfolders} == {"documents"}
     view = workflows.templates_view()
     assert "meta" not in view and set(view["kinds"]) == set(described)
-    assert view["kinds"]["reconcile"]["sources"] == ["none", "package"] and view["kinds"]["reconcile"]["paid"] is False
+    assert view["kinds"]["process"]["sources"] == ["none"] and view["kinds"]["process"]["paid"] is False
+    assert "reconcile" not in view["kinds"]  # 231 (C3a-2): retired, read as the reconciliation pack's process step
 
 
 def _strings_and_imports(path) -> tuple[set[str], set[str]]:

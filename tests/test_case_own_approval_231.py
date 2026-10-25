@@ -17,7 +17,8 @@ from jav.app import human_tasks, parties, process_runtime, waiting, work_runs, w
 from jav.app import package_release
 from jav.core import store
 from jav.core.process import tasks
-from jav.domains.finance import reconcile, reconcile_package
+from jav.domains.finance import reconcile
+from tests import legacy_reconcile
 from tests import test_reconcile_ai_134 as ai134
 from tests import test_reconcile_k2_129 as k2
 from tests.test_workflow_core_steps_214 import _core
@@ -72,17 +73,17 @@ def test_a_mail_routing_case_has_no_approval_of_its_own(own):
 
 def test_a_reconciliation_package_taken_over_still_waits_under_its_own_label(own):
     party = _inputs()
-    wp = reconcile_package.create(name="April", accounts=[reconcile.account_key(k2.OWN)], period_start="2026-04-01",
-                                  period_end="2026-04-30", actor=PERSON, party_id=party)["workpackage_id"]
-    assert _waiting_for(wp) == ["Reconciliation statement"]
+    wp = legacy_reconcile.old_package(name="April", accounts=[reconcile.account_key(k2.OWN)], period_start="2026-04-01",
+                                      period_end="2026-04-30", actor=PERSON, party_id=party)
+    assert _waiting_for(wp) == ["Approval"]  # its retired kind is unknown until the release takes it over
     process_runtime.adopt_all(actor="tester", write=True)
     assert _waiting_for(wp) == ["Reconciliation statement"]
     assert process_runtime.owns_approval(wp) is True
 
 
-def test_the_chain_reopens_a_taken_over_reconciliation_when_the_invoices_are_approved_again(db):  # noqa: F811
-    wf_id, run_id, rec = _approved_chain(db)
-    assert [r["result"] for r in process_runtime.adopt_all(actor="tester", write=True)] == ["adopted"]
+def test_the_chain_reopens_a_reconciliation_case_when_the_invoices_are_approved_again(db):  # noqa: F811
+    wf_id, run_id, rec = _approved_chain(db)  # since C3a-2 the monthly template's reconciliation step is the pack's case
+    assert process_runtime.pack_of(rec)[0] == "reconciliation"
     rerun = _rerun(run_id)
     _finish(rerun)
     work_runs.approve_run(rerun, actor=PERSON)

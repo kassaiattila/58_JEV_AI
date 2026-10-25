@@ -16,6 +16,7 @@ from jav.app import parties, process_runtime, scopes, work
 from jav.core import store
 from jav.core.process import cases, engine
 from jav.domains.finance import reconcile, reconcile_package
+from tests import legacy_reconcile
 from tests import test_reconcile_ai_134 as ai134
 from tests import test_reconcile_k2_129 as k2
 
@@ -36,8 +37,8 @@ def _party(name: str, *accounts: str) -> str:
 def _old_package(*, party: str | None) -> str:
     k2._save_statement("stmt", *ai134.LINES)
     k2._save("tel", ai134.TELECOM)
-    return reconcile_package.create(name="April", accounts=[reconcile.account_key(k2.OWN)], period_start="2026-04-01",
-                                    period_end="2026-04-30", actor=PERSON, party_id=party)["workpackage_id"]
+    return legacy_reconcile.old_package(name="April", accounts=[reconcile.account_key(k2.OWN)], period_start="2026-04-01",
+                                        period_end="2026-04-30", actor=PERSON, party_id=party)
 
 
 def test_the_accounts_of_one_party_imply_it_and_others_imply_none(db):
@@ -81,9 +82,20 @@ def test_a_package_made_before_its_accounts_had_a_party_takes_the_party_they_imp
     assert cases.get(wp)["data"]["scope"]["party"] == home
 
 
-def test_a_package_whose_accounts_imply_no_party_is_refused_and_the_others_go_on(db):
-    wp = _old_package(party=None)  # its account belongs to no party
-    rows = process_runtime.adopt_all(actor="tester")
-    assert [(r["workpackage_id"], r["result"]) for r in rows] == [(wp, "refused")] and "party" in rows[0]["error"]
-    assert process_runtime.adopt_all(actor="tester", write=True)[0]["result"] == "refused"
-    assert work.get(wp)["source_kind"] == reconcile_package.KIND  # nothing changed
+def test_a_package_whose_accounts_imply_no_party_is_taken_over_without_one(db):
+    wp = _old_package(party=None)  # its account belongs to no party: the party is optional, as it was for the package
+    assert [r["result"] for r in process_runtime.adopt_all(actor="tester", write=True)] == ["adopted"]
+    assert "party" not in cases.get(wp)["data"]["scope"]
+
+
+def test_a_package_whose_scope_its_pack_refuses_is_named_and_the_others_go_on(db):
+    home = _party("Example Home", k2.OWN)
+    broken = _old_package(party=home)
+    with store.connect() as c:  # its stored scope lost its accounts and its party (nothing gives them)
+        c.execute("UPDATE workpackage_scopes SET parts = '{}', party_id = NULL WHERE workpackage_id = ?", (broken,))
+    good = legacy_reconcile.old_package(name="May", accounts=[reconcile.account_key(k2.OWN)], period_start="2026-05-01",
+                                        period_end="2026-05-31", actor=PERSON, party_id=home)
+    rows = {r["workpackage_id"]: r for r in process_runtime.adopt_all(actor="tester", write=True)}
+    assert rows[broken]["result"] == "refused" and rows[broken]["error"]
+    assert rows[good]["result"] == "adopted"
+    assert work.get(broken)["source_kind"] == reconcile_package.KIND  # nothing changed

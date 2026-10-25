@@ -17,7 +17,7 @@ from __future__ import annotations
 from jav.evals import goldens
 from jav.core import cfg
 from jav.domains.finance import reconcile
-from jav.domains.finance.reconcile_package import KIND
+from jav.domains.finance.reconcile_package import KIND, PACK
 
 
 def _measure_pairs(options: goldens.Options) -> goldens.Outcome:
@@ -44,13 +44,14 @@ def _measure_credit_kinds(options: goldens.Options) -> goldens.Outcome:
     return goldens.Outcome(cases=s["cases"], answered=answered, right=s["right"], scored=answered)
 
 
-# 188 (plan 185 T3a): the reconciliation's golden sets, measured by the shared measurement command (`jav/evals/goldens.py`)
+# 188 (plan 185 T3a): the reconciliation's golden sets, measured by the shared measurement command (`jav/evals/goldens.py`);
+# 231 (C3a-2): its process pack's, which names them (their keys keep the retired kind's name)
 GOLDENS = (
-    goldens.Golden(key=f"{KIND}:pairs", layer="logic_pack", owner=KIND, engines=(), module=__name__,
+    goldens.Golden(key=f"{KIND}:pairs", layer="process_pack", owner=PACK, engines=(), module=__name__,
                    what="the pairs, exclusions and statuses the code proposes on the synthetic reconciliation cases "
                         "(configs/golden_reconcile.json)",
                    count=lambda: len(cfg.load("golden_reconcile")["cases"]), measure=_measure_pairs),
-    goldens.Golden(key=f"{KIND}:credit_kinds", layer="logic_pack", owner=KIND, engines=goldens.ENGINES,
+    goldens.Golden(key=f"{KIND}:credit_kinds", layer="process_pack", owner=PACK, engines=goldens.ENGINES,
                    module=__name__, what="the kind of incoming money on the invented statement lines "
                                          "(configs/golden_credit_kinds.json)",
                    count=lambda: len(cfg.load("golden_credit_kinds")["cases"]), measure=_measure_credit_kinds),

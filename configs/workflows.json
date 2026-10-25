@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "workflows",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "description": "146 (backlog F-package-kind-chooser; DECISIONS 146): the workflow templates the new work wizard offers, as data. A template's steps are kinds of work package (documents, emails, statements, reconcile) in order; a step may wait for others (`after`). A one-step template is today's kind of package and makes no workflow; a template of several steps makes a workflow of one own party and a period, whose steps start by themselves (a live run) once the steps they wait for are approved, a paid step only within the budget a person approved in the wizard (jav/workflows.py). Texts are English; the interface translates them (ui/src/i18n/hu-native.json).",
     "changelog": [
+      {
+        "version": "1.5.0",
+        "date": "2026-10-25",
+        "note": "231 (plan stage C, C3a-2; DECISIONS 231): the reconciliation kind of step retires: the three monthly templates' reconciliation step is the reconciliation pack's process step (its id, title and order kept), and a workflow saved before reads its old step as that (retired_kinds), so it carries on and repeats as a case."
+      },
       {
         "version": "1.4.0",
         "date": "2026-10-25",
@@ -79,18 +84,15 @@
       "sources": ["none"],
       "cost": "As the process: a paid step waits for a person's start."
     },
-    "reconcile": {
-      "title": "Reconciliation of statements and invoices",
-      "description": "The party's statement lines are paired with its invoices; the result is a summary approved as a version.",
-      "sources": ["none", "package"],
-      "cost": "Free: code only."
-    },
     "quote": {
       "title": "Quote from a request",
       "description": "A quote request already processed (an email with its attachments, or a document) is put together; the quote is made from it and your active price list.",
       "sources": ["package"],
       "cost": "Free to make; the proposal of the quote's lines will call AI within its budget."
     }
+  },
+  "retired_kinds": {
+    "reconcile": {"kind": "process", "pack": "reconciliation"}
   },
   "templates": [
     {
@@ -153,7 +155,7 @@
       "steps": [
         {"id": "invoices", "kind": "documents", "title": "Incoming invoices", "role": "incoming_invoices"},
         {"id": "statements", "kind": "statements", "title": "Bank statements"},
-        {"id": "reconcile", "kind": "reconcile", "title": "Reconciliation", "after": ["invoices", "statements"]}
+        {"id": "reconcile", "kind": "process", "pack": "reconciliation", "title": "Reconciliation", "after": ["invoices", "statements"]}
       ]
     },
     {
@@ -164,7 +166,7 @@
       "steps": [
         {"id": "emails", "kind": "emails", "title": "Emails and their attachments"},
         {"id": "statements", "kind": "statements", "title": "Bank statements"},
-        {"id": "reconcile", "kind": "reconcile", "title": "Reconciliation", "after": ["emails", "statements"]}
+        {"id": "reconcile", "kind": "process", "pack": "reconciliation", "title": "Reconciliation", "after": ["emails", "statements"]}
       ]
     },
     {
@@ -176,7 +178,7 @@
         {"id": "invoices", "kind": "documents", "title": "Incoming invoices from a folder", "role": "incoming_invoices"},
         {"id": "emails", "kind": "emails", "title": "Emails and their attachments"},
         {"id": "statements", "kind": "statements", "title": "Bank statements"},
-        {"id": "reconcile", "kind": "reconcile", "title": "Reconciliation", "after": ["invoices", "emails", "statements"]}
+        {"id": "reconcile", "kind": "process", "pack": "reconciliation", "title": "Reconciliation", "after": ["invoices", "emails", "statements"]}
       ]
     }
   ]

@@ -85,7 +85,10 @@ def _run_approval(packages: _Packages, task: tasks.Task) -> Row:
 def _own_approval(packages: _Packages, task: tasks.Task) -> Row:
     """A logic pack waiting for a person's approval of its own version: the package's page."""
     wp = packages.rows.get(task.subject)
-    pack = logic_packs.of(wp["source_kind"]) if wp else None  # 229 (MD2): what its approval is about, the pack's own
+    try:  # 229 (MD2): what its approval is about, the pack's own
+        pack = logic_packs.of(wp["source_kind"]) if wp else None
+    except logic_packs.UnknownKind:  # 231 (C3a-2): a package of a retired kind, until the release takes it over
+        pack = None
     # 231 (C3a-1): a case's label is its approving capability's
     return {"what": logic_packs.approval_label(pack, task.subject), "origin": LIVE, "_wp": task.subject, "_stage": None}
 

@@ -55,7 +55,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Iterable, Mapping
 
-from jav.app import corrections, logic_packs, package_release, package_scope, parties, scopes, work, workflow_steps
+from jav.app import corrections, logic_packs, package_release, package_scope, parties, scopes, work
 
 from jav.domains.finance import own_parties
 from jav.ai import grounding, typepack
@@ -70,7 +70,8 @@ from jav.core.clock import utc_stamp as _now
 activity_kinds.register_events("package", ("reconcile_scope", "reconcile_allocate", "reconcile_reject", "reconcile_mark",
                                            "reconcile_revoke", "reconcile_leave_out", "reconcile_restore"), __name__)
 
-KIND = "reconcile"
+KIND = "reconcile"  # the kind of the packages made before 231 (C3a-2), which the reconciliation pack takes over
+PACK = "reconciliation"  # 231 (C3a-2): the process every reconciliation is a case of
 REVOKE_KINDS = ("allocation", "mark", "decision")
 
 # 186 (plan G-full-move T2b): the package's scope (its own accounts as the further part `accounts`, the period and the
@@ -227,16 +228,19 @@ def _checked_scope(keys: Iterable[str], period_start: Any, period_end: Any) -> t
 @store.one_connection
 def create(*, name: str, accounts: list[str], period_start: str, period_end: str, actor: identity.Who,
            party_id: str | None = None) -> dict[str, Any]:
-    """A new reconciliation package with its scope and own party; the creator owns it (decision 065)."""
+    """A new reconciliation of the accounts for the period, with its own party when given; the creator owns it (decision
+    065). 231 (C3a-2): the reconciliation process's case (`configs/processes/reconciliation.json`), as every
+    reconciliation is now; its scope as the reconciliation package's was."""
+    from jav.app import process_runtime  # lazy: the process runtime builds on the registered capabilities
+
     keys, start, end = _checked_scope(accounts, period_start, period_end)
     party = _checked_party(party_id)
-    wp = work.create_workpackage(name=name, source_kind=KIND, source_ref=f"{start}..{end}", owner=actor)
-    with store.connect() as c:
+    case = process_runtime.start_case(PACK, {scopes.PARTY: party, scopes.PERIOD: [start, end], ACCOUNTS: keys}, name=name,
+                                      actor=actor)
+    with store.connect() as c:  # its log names the scope it was made with, as the package's did
         store.begin_immediate(c)
-        package_scope.save(c, wp["id"], party_id=party, period_start=start, period_end=end, parts={ACCOUNTS: keys},
-                           actor=actor)
-        work.record_event(c, wp["id"], "reconcile_scope", actor, {"accounts": len(keys), "period": [start, end], "party": party})
-    return scope(wp["id"])
+        work.record_event(c, case, "reconcile_scope", actor, {"accounts": len(keys), "period": [start, end], "party": party})
+    return scope(case)
 
 
 def holds_reconciliation(wp: dict[str, Any]) -> bool:
@@ -1605,92 +1609,6 @@ def next_step(ws: dict[str, Any]) -> dict[str, Any]:
     return step("reconcile_result", "Reconciliation result", "result")
 
 
-def _delete_guard(c, wp_id: str) -> None:
-    """A reconciliation package with decisions made in it, or (145) an approved version, can only be hidden (they refer
-    to it)."""
-    for table in ("reconcile_allocations", "reconcile_line_marks", "reconcile_decisions", "package_versions"):
-        if c.execute(f"SELECT 1 FROM {table} WHERE workpackage_id=? LIMIT 1", (wp_id,)).fetchone() is not None:
-            raise explained(work.NotReady, "a reconciliation package with decisions can only be archived",
-                            [{"code": "has_decisions", "message": "The package has decisions: it can only be hidden."}])
-    c.execute("DELETE FROM reconcile_exclusions WHERE workpackage_id=?", (wp_id,))  # 169: no decision refers to them
-
-
-def _page(wp_id: str) -> dict[str, Any]:
-    """The package's page (`work_views.workpackage_view`): its readiness, its next step and its own part."""
-    view = package_view(wp_id)
-    return {"readiness": view["readiness"], "next": view["next"],
-            "reconcile": {k: view[k] for k in ("scope", "counts", "coverage", "approval")}}
-
-
-def _approved(wp_id: str) -> bool:
-    """A workflow's reconciliation step is done when a version of the package's statement is approved."""
-    return approval(wp_id)["active"] is not None
-
-
-def _reopen(wp_id: str, *, note: str, actor: identity.Who) -> dict[str, Any]:
-    """218 (P3l): the approved statement reopened with a reason, as a person's reopening (`reconcile_statement.reopen`)."""
-    from jav.domains.finance import reconcile_statement  # lazy: that module builds on this one
-
-    return reconcile_statement.reopen(wp_id, note=note, actor=actor)
-
-
-def _next(wp_id: str) -> dict[str, Any]:
-    return package_view(wp_id)["next"]
-
-
-def _list_next(wp_id: str) -> dict[str, Any]:
-    return package_view(wp_id, keep_seconds=LIST_KEEP_SECONDS)["next"]  # 159: with the list's own safety bound
-
-
-def _release_refusal() -> Exception:
-    from jav.app import package_release
-
-    return explained(package_release.ReleaseError, "a reconciliation package is approved in its own statement")
-
-
 def _list_mark() -> str:
     return inputs_mark(keep_seconds=LIST_KEEP_SECONDS)  # 159: the list's own safety bound (its next steps use the same)
-
-
-# --- a workflow's reconciliation step (181, plan 170 L5; until then in `jav/app/workflows.py`) -------------------------
-
-
-def workflow_start(ctx: workflow_steps.StepStart) -> None:
-    """A workflow's reconciliation step: the reconciliation package of the party's accounts and cards with a statement
-    and the workflow's period; it has no run, so the step has started with it."""
-    wf = ctx.workflow
-    keys = [a["key"] for a in accounts() if (a.get("party") or {}).get("id") == wf["party_id"]]
-    if not keys:
-        raise explained(PackageError, "the party has no account or card with a statement yet")
-    made = create(name=ctx.state["name"], accounts=keys, period_start=wf["period_start"], period_end=wf["period_end"],
-                  actor=wf["actor"], party_id=wf["party_id"])
-    ctx.made(made["workpackage_id"])
-
-
-def workflow_repeat_from(wp_id: str) -> dict[str, Any]:
-    """A repeated reconciliation step takes no source: it is made for the next period's accounts again."""
-    return {"kind": "none"}
-
-
-# 181: the reconciliation step of a workflow (registered by the finance domain, `jav/domains/finance/__init__.py`): code only,
-# no engine; its package's next steps and what each means for the step
-STEP = workflow_steps.StepKind(
-    KIND, __name__, (KIND,), start=workflow_start, paid=False, own_engine=False, repeat_from=workflow_repeat_from,
-    needs=("party", "period"), statuses={"reconcile_approved": "approved", "reconcile_pair": "pairing",
-                                         "reconcile_result": "pairing", "reconcile_empty": "pairing"})
-
-
-# 176 (plan 170 L3): the reconciliation package as a logic pack (`jav/app/logic_packs.py`; 180: registered by the finance
-# domain, `jav/domains/finance/__init__.py`; 186: its scope's party reference and deletion are the shared scope's): no files and
-# no runs; its two input roles are the period's results in every package (DECISIONS 174, the package's current result);
-# 204 (R1h): its golden sets are the finance domain's measurement module's (`jav/domains/finance/goldens.py`)
-LOGIC = logic_packs.LogicPack(
-    kind=KIND, module=__name__,
-    roles=(logic_packs.InputRole("statements", "period", "the bank and card statements of the scope's accounts and period"),
-           logic_packs.InputRole("invoices", "period", "the invoices other packages processed, the own party's first")),
-    has_runs=False, add_refusal="a reconciliation package has no documents", release_refusal=_release_refusal,
-    own_approval=True, reopen=_reopen,  # 215: the statement is approved as the package's own version
-    approval_what="Reconciliation statement",  # 229: in a person's "Waiting for me" list (translated by the interface)
-    delete_guard=_delete_guard, page=_page, approved=_approved, next_step=_next, list_next=_list_next,
-    list_mark=_list_mark, outputs=("reconcile_statement",), service="jav.domains.finance.api_reconcile")
 

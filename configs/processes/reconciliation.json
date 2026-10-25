@@ -4,12 +4,12 @@
     "version": "1.0.0",
     "description": "231 (plan stage C, C2d; DECISIONS 231): the reconciliation of bank statements and invoices as a process pack (until C2d its own kind of package). A case belongs to an own party and a period and reconciles the party's accounts and cards (or those a person chooses): the invoices and the statements other packages processed are read by its scope, code proposes which statement line paid which invoice (and, when a person asks, the AI for the lines still to decide), a person decides and approves the reconciliation statement (its Excel file from the chosen template). The invoices and the statements are processed in their own packages, as before. Every step names a general capability; the pack holds no code.",
     "changelog": [
-      {"version": "1.0.0", "date": "2026-10-25", "note": "231 (C2d): the first version: the pairing step (pairing@1, the invoices against the statement lines) and its tabs: Invoices, Statements, Pairing, Summary, History; started by hand for a party and a period, its accounts by default the party's. (C2c, the owner's decision of 2026-10-25) the AI proposal (pairing_proposal@1, JEV only, at most 0.20 USD a run), an optional step a person starts from the Pairing tab. (C2e) A reconciliation package made before (its own kind until C2d) is taken over as its case (`adopts`); one without a party takes the party its accounts imply."}
+      {"version": "1.0.0", "date": "2026-10-25", "note": "231 (C2d): the first version: the pairing step (pairing@1, the invoices against the statement lines) and its tabs: Invoices, Statements, Pairing, Summary, History; started by hand for a party and a period, its accounts by default the party's. (C2c, the owner's decision of 2026-10-25) the AI proposal (pairing_proposal@1, JEV only, at most 0.20 USD a run), an optional step a person starts from the Pairing tab. (C2e) A reconciliation package made before (its own kind until C2d) is taken over as its case (`adopts`); one without a party takes the party its accounts imply. (C3a-2) The party is optional, as it was for a reconciliation package: a case without one reconciles its accounts alone."}
     ]
   },
   "id": "reconciliation",
   "title": "Reconciliation",
-  "scope": {"parts": ["party", "period", "accounts"]},
+  "scope": {"parts": ["party", "period", "accounts"], "optional": ["party"]},
   "intake": [
     {"on": "manual", "starts": "manual"}
   ],

@@ -51,7 +51,7 @@ describe("181 a step takes the packages its registered kind takes", () => {
 
   it("gives each kind of the templates the packages, the cost and the scope from its registration", () => {
     expect(TEMPLATES.kinds.documents.package_kinds).toEqual(["folder", "manual", "watch", "upload"]);
-    expect(TEMPLATES.kinds.reconcile.paid).toBe(false);
+    expect(TEMPLATES.kinds.process.paid).toBe(false);  // 231 (C3a-2): the reconciliation step is its pack's process step
     expect(TEMPLATES.kinds.statements.needs).toEqual(["party", "period"]);
   });
 });

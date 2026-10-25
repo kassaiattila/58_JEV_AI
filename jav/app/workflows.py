@@ -454,9 +454,18 @@ def _row(wf_id: str) -> dict[str, Any]:
     if row is None:
         raise KeyError(wf_id)
     out = dict(row)
-    out["definition"] = json.loads(out["definition"])
+    out["definition"] = resolved(json.loads(out["definition"]))
     out["auto"] = bool(out["auto"])
     return out
+
+
+def resolved(definition: dict[str, Any]) -> dict[str, Any]:
+    """231 (C3a-2): a saved template as it runs now: a step of a retired kind reads as the kind that replaced it
+    (`configs/workflows.json` `retired_kinds`: the reconciliation step as the reconciliation pack's process step),
+    its id, title, order and role kept. The saved text stays as it was (its case's definition is its fingerprint)."""
+    retired = config().get("retired_kinds") or {}
+    steps = [{**s, **retired[s["kind"]]} if s.get("kind") in retired else s for s in definition.get("steps", [])]
+    return {**definition, "steps": steps}
 
 
 def _steps(wf_id: str) -> dict[str, dict[str, Any]]:
@@ -519,7 +528,7 @@ def step_scope(wp_id: str) -> dict[str, Any] | None:
                         " JOIN workflows w ON w.id=s.workflow_id WHERE s.workpackage_id=?", (wp_id,)).fetchone()
     if row is None:
         return None
-    sdef = next((x for x in json.loads(row["definition"])["steps"] if x["id"] == row["step"]), {})
+    sdef = next((x for x in resolved(json.loads(row["definition"]))["steps"] if x["id"] == row["step"]), {})
     role = sdef.get("role")
     if role is None:
         now = next((t for t in config()["templates"] if t["id"] == row["template"]), {"steps": []})

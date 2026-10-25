@@ -136,7 +136,7 @@ def test_the_approval_needs_the_sources_and_the_statement_the_person_saw(db):
     assert (approved["version"], approved["approved_by"], approved["fingerprint"]) == (1, "Reviewer", view["fingerprint"])
     assert rs.current(wp_id)["approval"]["active"]["version"] == 1
     view_ = work_views.workpackage_view(wp_id)
-    assert view_["next"]["code"] == "reconcile_approved" and view_["reconcile"]["approval"]["active"]["version"] == 1
+    assert view_["next"]["code"] == "reconcile_approved" and view_["case"]["pack"] == "reconciliation"  # 231 (C3a-2)
     with pytest.raises(rp.PackageError):
         rs.approve(wp_id, fingerprint=view["fingerprint"], actor="t")  # already approved
     assert stmt

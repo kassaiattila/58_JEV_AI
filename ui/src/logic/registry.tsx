@@ -6,12 +6,10 @@ import type { ReactNode } from "react";
 import type { Workpackage, WorkpackageView } from "../api";
 import { t } from "../i18n";
 import { lazyPage } from "../components/LazyPage";
-import { tmap } from "../labels";
 import type { Stage } from "../route";
 
 // 195 (plan G-tidy R5): a logic pack's own pages load when a package of its kind is first opened; its status lines
 // and summary, which the package list shows too, are in small modules of their own
-const ReconcileStages = lazyPage(() => import("../views/reconcile/ReconcileStages").then((m) => m.ReconcileStages));
 const StatementPackagePanel = lazyPage(() => import("../views/StatementPackagePanel").then((m) => m.StatementPackagePanel));
 
 export type LogicUi = {
@@ -33,30 +31,9 @@ export type LogicUi = {
   createdFrom?: (wp: Workpackage) => string;
 };
 
-// 132: a reconciliation package's stages (it has no files and no runs: a scope, the pairing, the result)
-const RECONCILE_STAGE_LABEL = tmap({ process: "Preparation", review: "Pairing", result: "Result" }) as Record<Stage, string>;
-
 export const LOGIC: Record<string, LogicUi> = {
-  reconcile: {
-    adds: "nothing", // 167: a reconciliation package has no documents
-    stages: {
-      labels: RECONCILE_STAGE_LABEL,
-      status: (view) => {
-        if (!view.reconcile) return null;
-        const { scope, counts, approval } = view.reconcile;
-        return {
-          process: t("{{n}} accounts, {{from}} – {{to}}", { n: scope.accounts.length, from: scope.period_start, to: scope.period_end }),
-          review: counts.open_lines ? t("{{n}} open lines", { n: counts.open_lines }) : t("no open line"),
-          // 145: the approved version, if any
-          result: approval?.active ? t("approved: version {{n}}", { n: approval.active.version }) : t("not approved yet"),
-        };
-      },
-      summary: (view) => (view.reconcile
-        ? t("Reconciliation of {{n}} accounts or cards, {{from}} – {{to}}", { n: view.reconcile.scope.accounts.length, from: view.reconcile.scope.period_start, to: view.reconcile.scope.period_end })
-        : null),
-      body: (view, stage, onChanged) => <ReconcileStages view={view} stage={stage} onChanged={onChanged} />,
-    },
-  },
+  // 132-231: the reconciliation package's entry went with its logic pack (231 C3a-2): a reconciliation is a process
+  // pack's case (CasePage)
   // 181-231: the email routing package's entry went with its logic pack (231 C1c): a routing is a process pack's case
   // 191-231: the quote package's entry went with its logic pack (231 A3d): a quote is a process pack's case (CasePage)
   statements: {

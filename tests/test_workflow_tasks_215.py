@@ -109,7 +109,7 @@ def test_the_approval_of_a_workflow_steps_run_moves_the_chain_on_at_the_workers_
     work_runs.approve_run(run_id, actor="Example Person")
     assert cases.view(wf_id)["events"] == {f"run_approval:{run_id}#1": {"kind": workflow_cases.APPROVAL,
                                                                         "status": "pending", "conflicts": 0}}
-    assert engine.turn_due() == 1  # no check timer came due: the event moved it
+    assert engine.turn_due() == 2  # no check timer came due: the event moved it (231 C3a-2: and the case it started)
     assert _core(wf_id)["statements"] == "done" and _steps(wf.view(wf_id))["reconcile"]["state"] == "started"
     assert cases.view(wf_id)["events"][f"run_approval:{run_id}#1"]["status"] == "applied"
     assert engine.turn_due() == 0

@@ -100,7 +100,14 @@ class Screens(_Model):
 
 
 class Scope(_Model):
+    """The parts a case's scope has; 231 (C3a-2): `optional` ones may be left out, filled when the others imply them or
+    a default gives one (the reconciliation's party: a package made before parties reconciled its accounts alone)."""
+
     parts: tuple[str, ...] = ()
+    optional: tuple[str, ...] = ()
+
+    def needs(self) -> tuple[str, ...]:
+        return tuple(p for p in self.parts if p not in self.optional)
 
 
 PARTNER_FIELDS = ("name", "tax_number", "email", "phone", "address")
@@ -160,6 +167,7 @@ def _problems(pack: ProcessPack) -> list[str]:
         problems.append("a process pack holds no code: it names a Python module")
     known_parts = {p.name for p in scopes.parts()}
     problems += [f"unknown scope part {p!r}" for p in pack.scope.parts if p not in known_parts]
+    problems += [f"optional scope part {p!r} is not one of its parts" for p in pack.scope.optional if p not in pack.scope.parts]
     if any(i.on == "email_intent" and not i.intent for i in pack.intake):
         problems.append("an email intake names its intent")
     for i in pack.intake:  # 231 (C1c): a package offers a case that reads it

@@ -44,10 +44,10 @@ BEFORE = [
     "datapoints:villamos_energia_szamla:S", "datapoints:villamos_energia_szamla:G", "datapoints:viz_szamla:S",
     "datapoints:viz_szamla:G", "datapoints:vizmuvek_szamla:S", "datapoints:vizmuvek_szamla:G", "quotes:requests",
     "facts:belepo_jegy", "taught:belepo_jegy_taught:development", "taught:belepo_jegy_taught:evaluation", "types",
-    "intents", "quotes:intents", "reconcile:pairs", "reconcile:credit_kinds", "quote:lines", "quote:matches",
-    "quote:letters",
+    "intents", "quotes:intents", "quote:lines", "quote:matches", "quote:letters", "reconcile:pairs",
+    "reconcile:credit_kinds",  # 231 (C3a-2): the reconciliation's are its process pack's, after the quote's
 ]
-LOGIC_PACKS = ["reconcile:pairs", "reconcile:credit_kinds", "quote:lines", "quote:matches", "quote:letters"]
+LOGIC_PACKS = ["quote:lines", "quote:matches", "quote:letters", "reconcile:pairs", "reconcile:credit_kinds"]
 
 
 def _legacy_only(key: str) -> bool:
@@ -103,7 +103,8 @@ def test_the_logic_packs_golden_sets_come_from_the_measurement_modules() -> None
     owner = {"reconcile": "jav.domains.finance.goldens", "quote": "jav.domains.quotes.goldens"}  # 208: each domain's goldens.py
     assert {g.key: g.module for g in found} == {key: owner[key.split(":")[0]] for key in LOGIC_PACKS}
     # 231 (A3d): the quote's are the IT quote process pack's, which names them, under their keys of before
-    assert {(g.layer, g.owner) for g in found} == {("logic_pack", "reconcile"), ("process_pack", "it_quote")}
+    # (C3a-2) the reconciliation's are its process pack's too
+    assert {(g.layer, g.owner) for g in found} == {("process_pack", "reconciliation"), ("process_pack", "it_quote")}
 
 
 def test_the_registry_lists_the_same_golden_sets_as_before_the_move() -> None:

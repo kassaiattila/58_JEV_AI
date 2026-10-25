@@ -40,7 +40,8 @@ from jav.app.outputs import parts
 
 # 185 (plan G-full-move T1a): the modules of the domain's addresses of the local service beyond its logic packs' own
 # (`LogicPack.service`); `jav.service.api.service_modules` adds them by name
-SERVICE = ("jav.domains.finance.api_parties", "jav.domains.finance.api_finance")
+# 231 (C3a-2): the reconciliation's addresses, its retired logic pack's until then, are the domain's
+SERVICE = ("jav.domains.finance.api_reconcile", "jav.domains.finance.api_parties", "jav.domains.finance.api_finance")
 # 202 (plan G-core-generalisation M3a): the module of the domain's commands (`register(sub)`); `jav.cli` adds it by name
 COMMANDS = ("jav.domains.finance.finance_cli",)
 # 204 (plan G-process-core R1h): the modules of the domain's golden sets (the reconciliation's), by name; the shared measurement
@@ -294,9 +295,8 @@ def register() -> None:
         item_kinds.register_record_part(part)
     from jav.domains.finance import reconcile_statement  # 185: its package log events (until then the activity registry's own) and labels
     logic_packs.register(statement_package.LOGIC)  # 186: their scopes' party reference is the shared scope's
-    logic_packs.register(reconcile_package.LOGIC)
-    workflow_steps.register(statement_package.STEP)  # 181: a workflow's statements and reconciliation steps
-    workflow_steps.register(reconcile_package.STEP)
+    workflow_steps.register(statement_package.STEP)  # 181: a workflow's statements step (231 C3a-2: the reconciliation's is
+    # its pack's process step)
     from jav.domains.finance import capabilities
 
     # 231 (C2b): the pairing of two lists as a general capability's step (the monthly reconciliation's pack names it, C2d);

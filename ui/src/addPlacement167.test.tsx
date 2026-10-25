@@ -82,12 +82,7 @@ it("the package's actions menu leads to the add form in processing", () => {
   expect(parseRoute(window.location.hash)).toMatchObject({ wpId: "wp-1", stage: "process", add: true });
 });
 
-it("a reconciliation package's menu has nothing to add", () => {
-  render(<WorkpackageActions view={view({ source_kind: "reconcile" })} onChanged={() => {}} />);
-  fireEvent.click(screen.getByRole("button", { name: "Manage package" }));
-  expect(screen.queryByRole("button", { name: "Add documents" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Add statements" })).toBeNull();
-});
+// 231 (C3a-2): a reconciliation is a process pack's case since its package kind retired (no package menu of its own)
 
 it("after a run, review's item list names adding in its title", async () => {
   vi.spyOn(api, "workpackage").mockResolvedValue(view({}, { runs: 1, next: { code: "review", label: "", stage: "review" } }));
