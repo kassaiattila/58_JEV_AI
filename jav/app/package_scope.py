@@ -90,13 +90,19 @@ class ScopeCopyError(RuntimeError):
 class Role:
     """A package role: its `name`, the registering `module`, its `title` (an interface label), `fits(doc_type,
     direction)`: whether a document of this type and direction (`parties.direction`) belongs in a package of the role,
-    and `package_kinds`: the kinds of work package that can hold it."""
+    and `package_kinds`: the kinds of work package that can hold it. 231 (C3b5a): `rule`: the package rule a package
+    must run by to hold it (`work.RULE_PART`; the bank statements': `statements`); None: any (`holds`)."""
 
     name: str
     module: str
     title: str
     fits: Callable[[str | None, str | None], bool]
     package_kinds: tuple[str, ...]
+    rule: str | None = None
+
+    def holds(self, kind: str, rule: str | None) -> bool:
+        """Whether a package of this kind, running by this rule, can hold the role."""
+        return kind in self.package_kinds and (self.rule is None or rule == self.rule)
 
 
 @dataclass(frozen=True)
@@ -275,10 +281,14 @@ def collects(kind: str) -> bool:
     return any(kind in r.package_kinds for r in _ROLES.values())
 
 
-def _own_scope(kind: str) -> bool:
-    """Whether a package of this kind has its logic pack's own scope (a person cannot give or take one)."""
-    pack = logic_packs.of(kind)
-    return pack is not None and pack.scope is not None
+def _own_scope(wp: dict[str, Any]) -> bool:
+    """Whether the package has its logic pack's or (231, C3b5a) its rule's own scope (a person cannot give or take
+    one)."""
+    pack = logic_packs.of(wp["source_kind"])
+    if pack is not None and pack.scope is not None:
+        return True
+    rule = work.package_rule(wp["id"])
+    return rule is not None and rule.own_scope
 
 
 def scope_of(wp_id: str, *, kind: str | None = None) -> dict[str, Any] | None:
@@ -293,6 +303,9 @@ def scope_of(wp_id: str, *, kind: str | None = None) -> dict[str, Any] | None:
     if pack is not None and pack.scope is not None:
         return _shown(pack.scope(wp_id), "logic_pack")
     own = stored(wp_id)
+    rule = work.package_rule(wp_id)
+    if own is not None and rule is not None and rule.own_scope:  # 231 (C3b5a): its rule's own, as a logic pack's
+        return _shown(own, "logic_pack")
     if own is not None and (own["party_id"] or own["period_start"] or own["role"]):  # C3b4: not only further parts
         return _shown(own, "own") | {"set_by": own["set_by"], "set_at": own["set_at"]}
     for name, fn in _SOURCES.items():
@@ -307,9 +320,9 @@ def _check(wp: dict[str, Any], party_id: str | None, period_start: str | None, p
     if not collects(wp["source_kind"]):
         raise explained(ScopeRefused, "a package of this kind collects no documents for a role")
     pack = logic_packs.of(wp["source_kind"])
-    if pack is not None and (pack.scope is not None or not pack.has_runs):
+    if (pack is not None and not pack.has_runs) or _own_scope(wp):
         raise explained(ScopeRefused, "the package's scope is its own: it cannot be given by hand")
-    if role_name is not None and wp["source_kind"] not in role(role_name).package_kinds:
+    if role_name is not None and not role(role_name).holds(wp["source_kind"], work.rule_name(wp["id"])):
         raise explained(ScopeRefused, "a package of this kind cannot collect {{role}}", role=role(role_name).title)
     given = scopes.check((), {scopes.PARTY: party_id,
                               scopes.PERIOD: (period_start, period_end) if period_start or period_end else None},
@@ -341,7 +354,7 @@ def clear_scope(wp_id: str, *, actor: identity.Who) -> dict[str, Any] | None:
     stays (it is in the same store; a person never gave it). 231 (C3b4): so do the further parts a process or a rule put
     there (a case step's binding, the package's rule): only the person's party, period and role go."""
     wp = work.get(wp_id)
-    if not _own_scope(wp["source_kind"]):
+    if not _own_scope(wp):
         with store.connect() as c:
             store.begin_immediate(c)
             kept = (stored(wp_id, c) or {}).get("parts") or {}
@@ -362,7 +375,7 @@ def scoped_packages() -> list[dict[str, Any]]:
         sc = scope_of(wp["id"], kind=wp["source_kind"])
         if sc:
             out.append({"id": wp["id"], "name": wp["name"], "source_kind": wp["source_kind"], "items": wp["items"],
-                        "updated_at": wp["updated_at"], "scope": sc})
+                        "updated_at": wp["updated_at"], "scope": sc, "rule": work.rule_name(wp["id"])})
     out.sort(key=lambda e: e["updated_at"] or "", reverse=True)
     return out
 
@@ -371,11 +384,11 @@ def fitting(role_name: str, party_id: str | None, day: str, *, among: list[dict[
     """The open packages whose scope fits a document: the same role and party, and the day within the period (a scope
     without a period fits every day). The latest changed first. `among`: `scoped_packages()`, read once by a caller
     asking for many documents."""
-    kinds = role(role_name).package_kinds
+    held = role(role_name)
     out = []
     for wp in scoped_packages() if among is None else among:
         sc = wp["scope"]
-        if wp["source_kind"] not in kinds or sc["role"] != role_name or sc["party_id"] != party_id:
+        if not held.holds(wp["source_kind"], wp.get("rule")) or sc["role"] != role_name or sc["party_id"] != party_id:
             continue
         if sc["period_start"] and not (sc["period_start"] <= day <= (sc["period_end"] or day)):
             continue

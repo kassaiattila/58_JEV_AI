@@ -415,6 +415,9 @@ def _addable(wp_id: str) -> dict[str, Any]:
     pack = logic_packs.of(wp["source_kind"])
     if pack is not None and pack.add_refusal:
         raise ValueError(pack.add_refusal)
+    rule = package_rule(wp_id)  # 231 (C3b5a): or its named rule
+    if rule is not None and rule.add_refusal:
+        raise ValueError(rule.add_refusal)
     return wp
 
 
@@ -784,11 +787,26 @@ class PackageRule:
     - `after_item(run, item)`: called when an item's flow has finished; the to-do reasons it returns are raised on the
       item.
     - `after_approval(run)` (153): called once a live run of the package is approved, after the approval is recorded; a
-      failure is logged and never undoes the approval."""
+      failure is logged and never undoes the approval.
+
+    231 (plan stage C, C3b5a): what a package of the rule is beyond its processing, as a logic pack gave it for its kind
+    (a package names its rule by data, in its scope's part `rule`, so no kind of its own is needed):
+    - `page(wp_id)`: the rule's part of the package's page.
+    - `own_scope`: the package's scope is the rule's (a person can neither give nor take it).
+    - `add_refusal`: why the shared adding of documents refuses the package; `adds`: how the package's page adds to it
+      (`documents`: the shared way; `own`: the rule's own way, its page part).
+    - `take_files(wp_id, paths, expected_revision, actor)` and `make_with_files(name, paths, scope, actor)`: how another
+      domain (the email routing) adds files to such a package, or makes a new one with them, in the rule's way."""
 
     after_detection: Callable[[dict[str, Any], dict[str, Any], Any], list[str] | None] | None = None
     after_item: Callable[[dict[str, Any], dict[str, Any]], list[str]] | None = None
     after_approval: Callable[[dict[str, Any]], None] | None = None
+    page: Callable[[str], dict[str, Any]] | None = None
+    own_scope: bool = False
+    add_refusal: str | None = None
+    adds: str = "documents"
+    take_files: Callable[..., None] | None = None
+    make_with_files: Callable[..., str] | None = None
 
 
 # 231 (plan stage C, C3b1): package rules by name, registered by the domain that writes them; a plain processing
@@ -817,6 +835,15 @@ def rule_named(name: str) -> PackageRule:
 
 def rule_names() -> list[str]:
     return sorted(_RULES)
+
+
+def rule_name(wp_id: str, c: sqlite3.Connection | None = None) -> str | None:
+    """231 (C3b5a): the name of the rule the package's stored scope names (`RULE_PART`), if any."""
+    if c is None:
+        with store.connect() as own:
+            return rule_name(wp_id, own)
+    scope = c.execute("SELECT parts FROM workpackage_scopes WHERE workpackage_id=?", (wp_id,)).fetchone()
+    return (json.loads(scope["parts"] or "{}") if scope else {}).get(RULE_PART)
 
 
 def package_rule(wp_id: str) -> PackageRule | None:

@@ -330,13 +330,16 @@ def _add(target: str, att: dict[str, Any], role: str | None, actor: identity.Who
     wp = work.get(target)
     if wp["status"] != "open":
         raise explained(RoutingError, "work package {{name}} is hidden", name=repr(wp["name"]))
-    if role is not None and wp["source_kind"] not in package_scope.role(role).package_kinds:
+    if role is not None and not package_scope.role(role).holds(wp["source_kind"], work.rule_name(target)):
         raise explained(RoutingError, "work package {{name}} cannot collect {{role}}", name=repr(wp["name"]),
                         role=package_scope.role(role).title)
     path = Path(att["path"])
     pack = logic_packs.of(wp["source_kind"])
+    rule = work.package_rule(target)  # 231 (C3b5a): or its named rule
     if pack is not None and pack.take_files is not None:
         pack.take_files(target, [path], expected_revision=wp["revision"], actor=actor)
+    elif rule is not None and rule.take_files is not None:
+        rule.take_files(target, [path], expected_revision=wp["revision"], actor=actor)
     else:
         work.add_to_package(target, [path], expected_revision=wp["revision"], actor=actor)
 
@@ -347,7 +350,10 @@ def _make(new: dict[str, Any], att: dict[str, Any], actor: identity.Who) -> str:
     way."""
     path = Path(att["path"])
     scope = {"party_id": new["party_id"], "period_start": new["period_start"], "period_end": new["period_end"]}
-    for kind in package_scope.role(new["role"]).package_kinds:
+    held = package_scope.role(new["role"])
+    if held.rule is not None and (make := work.rule_named(held.rule).make_with_files) is not None:  # 231 (C3b5a)
+        return make(name=new["name"], paths=[path], scope=scope, actor=actor)
+    for kind in held.package_kinds:
         pack = logic_packs.of(kind)
         if pack is not None and pack.create_with_files is not None:
             return pack.create_with_files(name=new["name"], paths=[path], scope=scope, actor=actor)

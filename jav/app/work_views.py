@@ -168,6 +168,8 @@ def _workpackage_view(wp_id: str) -> dict[str, Any]:
         extra.update(item_kinds.page(wp))
     if pack is not None and pack.page is not None:  # 140: a statement pack's party, period and statements
         extra.update(pack.page(wp_id))
+    elif (rule := work.package_rule(wp_id)) is not None and rule.page is not None:  # 231 (C3b5a): its named rule's part
+        extra.update(rule.page(wp_id))
     current = current_run(runs)
     extra["item_counts"] = item_counts(wp)  # 168: the item list's tally
     return jsonable({"workpackage": wp, "readiness": ready, "titles": item_titles(wp["items"], package_root(wp)), **extra,

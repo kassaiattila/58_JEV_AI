@@ -364,7 +364,7 @@ def add(wp_id: str, *, paths: list[Path], statements: list[str], pdfs: list[str]
 
 def _package(wp_id: str) -> dict[str, Any]:
     wp = work.get(wp_id)
-    if wp["source_kind"] != KIND:
+    if wp["source_kind"] != KIND and work.rule_name(wp_id) != RULE_NAME:  # 231 (C3b5a): or a package of its rule
         raise explained(StatementPackageError, "not a statement package")
     return wp
 
@@ -484,9 +484,6 @@ def after_approval(run: dict[str, Any]) -> None:
                               {"account": key, "party": row["party_id"], "run_id": run["run_id"]})
 
 
-RULE = work.PackageRule(after_detection=after_detection, after_item=after_item, after_approval=after_approval)
-
-
 def _page(wp_id: str) -> dict[str, Any]:
     return {"statements": package_view(wp_id)}
 
@@ -602,13 +599,22 @@ def create_with_files(*, name: str, paths: list[Path], scope: dict[str, Any], ac
     return made["workpackage_id"]
 
 
+RULE_NAME = KIND  # 231 (C3b5a): the name the rule is registered by, which a package's scope names
+REFUSAL = "add statements to a statement package through its survey"
+# 140: the statement package's rule in a run; 231 (C3b5a): with what the logic pack gave its kind (the page part, its own
+# scope, its survey's adding, the email routing's adding and making), for a package that names it in its scope
+RULE = work.PackageRule(after_detection=after_detection, after_item=after_item, after_approval=after_approval,
+                        page=_page, own_scope=True, add_refusal=REFUSAL, adds="own", take_files=take_files,
+                        make_with_files=create_with_files)
+
+
 # 176 (plan 170 L3): the statement package as a logic pack (`jav/app/logic_packs.py`); 180 (plan 170 E7): registered by the
 # finance domain (`jav/domains/finance/__init__.py`); 186: its scope's party reference and deletion are the shared scope's
 LOGIC = logic_packs.LogicPack(
     kind=KIND, module=__name__,
     roles=(logic_packs.InputRole("statements", "own_items",
                                     "the party's bank statements and statement PDFs of the period, ticked in its survey"),),
-    add_refusal="add statements to a statement package through its survey", take_files=take_files,
+    add_refusal=REFUSAL, take_files=take_files,
     create_with_files=create_with_files,
     rule=RULE, page=_page, scope=own_scope, service="jav.domains.finance.api_statement_package")
 
