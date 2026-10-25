@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.33.0",
+  "version": "1.34.0",
   "changelog": [
+   {
+    "version": "1.34.0",
+    "date": "2026-10-25",
+    "note": "231 (plan stage C, C3b4): case_wrapped - a package made before its process was a pack, wrapped by a new case of it, appears in the activity log with a label."
+   },
    {
     "version": "1.33.0",
     "date": "2026-10-25",
@@ -215,6 +220,7 @@
    "quote_approve": "quote: version approved", "quote_reopen": "quote: approval reopened",
    "quote_letter_accept": "quote: reply letter accepted",
    "output_template_choose": "output: template chosen",
+   "case_wrapped": "package: taken over as a case's package",
    "scope_set": "package: party, period and role set", "scope_clear": "package: own party, period and role removed",
    "routing_accept": "email routing: document routed", "routing_reject": "email routing: document not routed",
    "routing_undo": "email routing: decision taken back",

@@ -70,6 +70,18 @@ class Adopt(_Model):
     scope: dict[str, str] = Field(default_factory=dict)
 
 
+class Wrap(_Model):
+    """231 (C3b4): a kind of work package made before the process was a pack whose package becomes the package of one
+    of its steps: a new case is made around it (`process_runtime.wrap_case`; its id, items, runs and approvals stay),
+    with the scope its stored scope parts give ({case part: stored part}) and the scope part `package_part` naming the
+    package (`{"kind": "package", "workpackage_id"}`). The step's capability binds it (`Capability.bind`)."""
+
+    kind: str = Field(min_length=1)
+    step: str = Field(pattern=NAME)
+    package_part: str = Field(pattern=NAME)
+    scope: dict[str, str] = Field(default_factory=dict)
+
+
 class Step(_Model):
     id: str = Field(pattern=NAME)
     uses: str = Field(pattern=r"^[a-z][a-z0-9_]*@[1-9][0-9]*$")
@@ -129,6 +141,7 @@ class ProcessPack(_Model):
     scope: Scope = Scope()
     intake: tuple[Intake, ...] = ()
     adopts: tuple[Adopt, ...] = ()
+    wraps: tuple[Wrap, ...] = ()  # 231 (C3b4)
     resources: dict[str, str] = Field(default_factory=dict)
     steps: tuple[Step, ...] = Field(min_length=1)
     screens: Screens
@@ -196,6 +209,13 @@ def _problems(pack: ProcessPack) -> list[str]:
             problems.append(f"{where}: a paid step ({step.uses}) is started by a person")
         if step.optional and step.start != "person":
             problems.append(f"{where}: only a step a person starts may be optional")
+    for wrap in pack.wraps:  # 231 (C3b4): the step that takes the package binds it, and its parts are the scope's
+        step = next((s for s in pack.steps if s.id == wrap.step), None)
+        cap = _capability(step.uses) if step is not None else None
+        if cap is None or cap.bind is None or cap.bound is None:
+            problems.append(f"wrap {wrap.kind!r}: step {wrap.step!r} takes no package (its capability binds none)")
+        if wrap.package_part not in pack.scope.parts or set(wrap.scope) - set(pack.scope.parts):
+            problems.append(f"wrap {wrap.kind!r}: its parts are scope parts of the pack")
     elements = cfg.load(ELEMENTS)["elements"]
     for tab in pack.screens.tabs:
         for element in tab.elements:

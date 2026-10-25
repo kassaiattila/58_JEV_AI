@@ -16,7 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from jav.app import case_views, document_processing, process_runtime, registrations, scopes, work, work_runs
+from jav.app import (case_views, document_processing, process_runtime, registrations, scopes, work, work_readiness,
+                     work_runs)
 from jav.core import cfg, store
 from jav.core.config import PROJECT_ROOT
 from jav.core.process import engine
@@ -89,8 +90,9 @@ def test_a_person_starts_the_live_run_and_its_approval_finishes_the_step(db):
     [run] = work_runs.run_rows(wp)
     assert run["mode"] == "apply" and run["actor"] == PERSON
     state = _turns(case)
-    assert state["steps"]["process"]["waiting_for"] == "run_approval"
+    assert state["steps"]["process"]["waiting_for"] == "run_end"  # C3b4: the machine's work while the run works
     _finish(run["run_id"])
+    assert _turns(case)["steps"]["process"]["waiting_for"] == "run_approval"  # then a person's approval
     work_runs.approve_run(run["run_id"], actor=PERSON)
     state = _turns(case)
     assert state["steps"]["process"]["state"] == "done" and state["status"] == "closed"
@@ -166,3 +168,69 @@ def test_the_work_package_list_leaves_a_case_step_s_package_out(db):
     _cols, rows = datasets.rows("workpackages", {})
     ids = {r["id"] for r in rows}
     assert plain in ids and case in ids and inner not in ids  # the case's package opens from its page
+
+
+def test_a_person_s_scope_keeps_the_package_bound_to_its_case(db):
+    """C3b4: a person's party, period or role, given or taken away on the package's page, keeps the further parts a
+    process put in its scope, so the step never loses its package (it would make a second one)."""
+    from jav.app import package_scope
+    from tests.test_workflows_146 import _party
+
+    folder = _invoices(db / "inv", n=1)
+    case = process_runtime.start_case("documents", {"source": {"kind": "folder", "folder": str(folder)}},
+                                      name="April invoices", actor=PERSON)
+    _turns(case)
+    wp = document_processing.package_of(case, "process")
+    package_scope.set_scope(wp, party_id=_party(), period_start="2026-04-01", period_end="2026-04-30", role_name=None,
+                            actor=PERSON)
+    assert document_processing.package_of(case, "process") == wp
+    package_scope.clear_scope(wp, actor=PERSON)
+    assert document_processing.package_of(case, "process") == wp
+    assert package_scope.stored(wp)["party_id"] is None
+    assert package_scope.scope_of(wp) is None  # only the binding is left: no scope of a person's shows
+
+
+def test_the_case_list_says_what_the_step_waits_for(db):
+    """C3b4: a person's start while the package waits for its live run, the machine's work while the run works."""
+    from jav.app import datasets
+
+    folder = _invoices(db / "inv", n=1)
+    case = process_runtime.start_case("documents", {"source": {"kind": "folder", "folder": str(folder)}},
+                                      name="April invoices", actor=PERSON)
+    _turns(case)
+    waits = lambda: {r["id"]: r["waits_for"] for r in datasets.rows("cases", {})[1]}[case]  # noqa: E731
+    assert waits() == "person_start"
+    case_views.act(case, "process", "start_run", PERSON)
+    _turns(case)
+    assert waits() == "work"
+
+
+def test_an_adopted_package_s_step_reads_its_runs(db):
+    """C3b4: the step of a package taken over: waiting for its start, for its run, for its approval, or done."""
+    folder = _invoices(db / "inv", n=1)
+    wp = work.create_from_folder(folder, name="Older", owner=PERSON)["id"]
+    adopt = document_processing.CAPABILITY.adopt
+    assert (adopt(wp, None).state, adopt(wp, None).waiting_for) == ("running", "run_start")
+    ready = work_readiness.readiness(wp)
+    run = work_runs.start_run(wp, mode="apply", expected_assignment_revision=ready["assignment_revision"],
+                              input_hash=ready["input_hash"], actor=PERSON)["run_id"]
+    assert adopt(wp, None).waiting_for == "run_end"
+    _finish(run)
+    assert adopt(wp, None).waiting_for == "run_approval"
+    work_runs.approve_run(run, actor=PERSON)
+    done = adopt(wp, None)
+    assert (done.state, done.result) == ("done", {"package": wp, "runs": [run]})
+
+
+def test_a_deleted_package_cancels_its_case_instead_of_being_made_again(db):
+    """C3b4: a package without runs may be deleted; its step then closes its case as cancelled."""
+    folder = _invoices(db / "inv", n=1)
+    case = process_runtime.start_case("documents", {"source": {"kind": "folder", "folder": str(folder)}},
+                                      name="April invoices", actor=PERSON)
+    _turns(case)
+    wp = document_processing.package_of(case, "process")
+    work.delete_workpackage(wp, actor=PERSON)
+    state = _turns(case)
+    assert state["status"] == "closed" and state["outcome"] == "cancelled"
+    assert document_processing.package_of(case, "process") is None  # not made again from the folder
+

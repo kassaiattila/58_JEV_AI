@@ -16,8 +16,9 @@ from pathlib import Path
 
 import pytest
 
-from jav.app import parties, work, work_readiness, work_runs, workflow_steps, workflows as wf
+from jav.app import document_processing, parties, work, work_readiness, work_runs, workflow_steps, workflows as wf
 from jav.core import cfg, store
+from jav.core.process import engine
 from jav.domains.finance import statement_table as st
 from jav.domains.email import mailbox
 from jav.runtime import worker
@@ -169,11 +170,20 @@ def test_the_monthly_reconciliation_runs_its_steps_waits_for_a_budget_and_makes_
     # the statements are read by code for free: their live run started at once
     assert steps["statements"]["state"] == "started" and steps["statements"]["status"] == "running"
     assert work_runs.get_run(steps["statements"]["run_id"])["mode"] == "apply"
+    # 231 (C3b4): the statements' package is a bank statements case's from the start; its workflow starts its run, so
+    # the case's page offers no start of its own
+    statements_wp = steps["statements"]["package"]["id"]
+    [statements_case] = [r["id"] for r in work.list_workpackages() if r["source_kind"] == "case"
+                         and document_processing.package_of(r["id"], "process") == statements_wp]
+    assert document_processing.CAPABILITY.actions[0].available(statements_case, "process") is False
     assert made["next"] == {"step": "invoices", "status": "needs_budget"}
     _process_all()  # only the statements' items are queued
     view = wf.view(wf_id)
     assert _steps(view)["statements"]["status"] == "approve"
     work_runs.approve_run(steps["statements"]["run_id"], actor="tester")
+    for _ in range(2):  # (C3b4) the approved run finishes the statements case's step
+        engine.turn(statements_case, wake=True)
+    assert engine.state(statements_case)["status"] == "closed"
     assert wf.tick(now=1e9) == 1  # the reconciliation still waits for the invoices
     view = wf.view(wf_id)
     assert _steps(view)["statements"]["status"] == "approved" and _steps(view)["reconcile"]["status"] == "waiting"

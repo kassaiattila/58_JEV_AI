@@ -413,7 +413,8 @@ def cmd_backup(args: argparse.Namespace) -> int:
 
 
 def cmd_cases_adopt(args: argparse.Namespace) -> int:
-    """231 (plan stage C, C1c): the packages made before a process was a pack, taken over as its cases (`adopts`)."""
+    """231 (plan stage C, C1c): the packages made before a process was a pack, taken over as its cases (`adopts`);
+    (C3b4) or each wrapped by a new case of it (`wraps`)."""
     from jav.app import process_runtime, registrations
     from jav.core import identity
 
@@ -488,7 +489,7 @@ def cmd_ocr_rekey(args: argparse.Namespace) -> int:
 
 
 def register(sub) -> None:
-    p = sub.add_parser("cases-adopt", help="231: the packages made before a process was a process pack, taken over as its cases (the pack's adopts)")
+    p = sub.add_parser("cases-adopt", help="231: the packages made before a process was a process pack, taken over as its cases (the pack's adopts) or wrapped by new ones (its wraps)")
     p.add_argument("--write", action="store_true", help="take them over (without it: only list them)")
     p.set_defaults(fn=cmd_cases_adopt)
     p = sub.add_parser("flows", help="Burr-kontraktok lintje + FLOW.md / FLOW.mmd generálás (docs/flows/)")

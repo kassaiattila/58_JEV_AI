@@ -10,7 +10,11 @@ person starts waits for that person's start task.
 - `start_case(pack_id, scope, name, actor)`: the case's id (its container's).
 - `adopt_case(pack_id, wp_id, scope, actor)` (231, plan stage C, C0): an existing work package taken over as a case
   under its own id, each step in the state its capability reads from the package's work (`Capability.adopt`);
-  `adopt_all(actor, write=)` (C1c): every package of a kind a pack takes over (`adopts`), with its stored scope.
+  `adopt_all(actor, write=)` (C1c): every package of a kind a pack takes over (`adopts`), with its stored scope;
+  (C3b4) and every package of a kind it wraps (`wraps`).
+- `wrap_case(pack_id, wp_id, rule, actor)` (231, plan stage C, C3b4): a new case made around a package made before (a
+  package with runs cannot be a case's container): the package keeps its id, items, runs and approvals and becomes the
+  package of the case's step, which starts in the state its capability reads from the package's runs.
 - `pack_of(case_id)`: the pack id and version a case runs on; `pack_for(case_id)`: that version of the pack itself (A7a:
   an older version comes back from the calculation snapshot the case was linked to when it started, so a case keeps
   the screens and outputs it started with after its pack changes).
@@ -30,14 +34,15 @@ import json
 from functools import cache
 
 from jav.app import capabilities, human_tasks, logic_packs, package_release, package_scope, process_packs, scopes, work
-from jav.core import identity, rulebook, store
+from jav.core import activity_kinds, identity, rulebook, store
 from jav.core.process import cases
 from jav.core.user_messages import explained
 
 __all__ = ["CONTAINER", "CONTAINER_PACK", "adopt_all", "adopt_case", "outputs_of", "owns_approval", "pack_for", "pack_of",
-           "register", "start_case"]
+           "register", "start_case", "wrap_case"]
 
 CONTAINER = "case"  # the container work package's kind
+activity_kinds.register_events("package", ("case_wrapped",), __name__)  # C3b4: a wrapped package's log names its case
 
 
 def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identity.Who) -> str:
@@ -106,6 +111,63 @@ def adopt_case(pack_id: str, wp_id: str, scope: dict[str, Any], *, actor: identi
         return cases.adopt(c, wp_id, definition, data, owner, who, states)
 
 
+class _Bound(Exception):
+    """The package belongs to a step already: the wrapping's transaction is undone."""
+
+
+def _wrapping_step(pack: process_packs.ProcessPack, rule: process_packs.Wrap) -> tuple[Any, capabilities.Capability]:
+    step = next(s for s in pack.steps if s.id == rule.step)
+    cap = capabilities.of(step.uses)
+    if cap.bind is None or cap.bound is None:
+        raise explained(ValueError, "step {{step}} takes no package", step=step.id)
+    return step, cap
+
+
+def wrap_case(pack_id: str, wp_id: str, rule: process_packs.Wrap, *, actor: identity.Who) -> str:
+    """231 (plan stage C, C3b4): a new case of the pack's current version made around the existing package `wp_id`
+    (`rule`: one of the pack's `wraps`), in one write transaction: its container (the package's name, owner and
+    archive state), its scope (the parts the package's stored scope gives, the rule's package part naming the package),
+    the step's binding of the package (`Capability.bind`) and the case, its step in the state its capability reads from
+    the package's runs (`Capability.adopt`). The package keeps its id, kind, items, runs, approvals and versions; its log
+    names the case. "wrapped"; "exists" for a package a step has already (nothing changes). KeyError: no package;
+    `scopes.ScopeError`: its stored scope does not give the case's."""
+    from jav.app import process_settings
+
+    pack = process_packs.load(pack_id)
+    step, cap = _wrapping_step(pack, rule)
+    wp = work.get(wp_id)
+    stored = package_scope.stored(wp_id) or {}
+    scope = {part: _stored_value(stored, key) for part, key in rule.scope.items()}
+    scope[rule.package_part] = {"kind": "package", "workpackage_id": wp_id}
+    checked = scopes.check(pack.scope.needs(), scope, optional=pack.scope.optional)
+    resources = process_settings.effective_resources(pack)
+    rules, rule_refs = process_settings.effective_rules(pack)
+    definition = process_packs.definition(pack.model_copy(update={"resources": resources}))
+    params = definition.step(step.id).params
+    who = identity.who(actor)
+    owner = identity.who(wp["owner"]) if wp.get("owner") else who
+    try:
+        with store.session(), cases.transaction() as c:
+            case_id = work.create_workpackage(name=wp["name"], source_kind=CONTAINER,
+                                              source_ref=f"pack:{pack.id}@{pack.version}", owner=owner)["id"]
+            if not cap.bind(wp_id, case_id, step.id, params, checked, actor):
+                raise _Bound
+            package_scope.save(c, case_id, parts=checked, actor=actor, **_scope_columns(checked))
+            rulebook.link_in(c, rulebook.CASE, case_id)  # the code and the rules the case was made with
+            state = cap.adopt(wp_id, params) if cap.adopt is not None else None
+            data = {"pack": pack.id, "pack_version": pack.version, "container": case_id, "name": wp["name"],
+                    "scope": checked, "resources": resources, capabilities.RULES: rules,
+                    capabilities.RULE_REFS: rule_refs,
+                    "wrapped": {"workpackage_id": wp_id, "source_kind": wp["source_kind"]}}
+            cases.adopt(c, case_id, definition, data, owner, who, {step.id: state} if state is not None else {})
+            if wp["status"] == "archived":  # an archived package's case is archived too
+                c.execute("UPDATE workpackages SET status='archived' WHERE id=?", (case_id,))
+            work.record_event(c, wp_id, "case_wrapped", actor, {"case": case_id, "pack": pack.id, "step": step.id})
+    except _Bound:
+        return "exists"
+    return "wrapped"
+
+
 def adopt_all(*, actor: identity.Who, write: bool = False) -> list[dict[str, Any]]:
     """231 (C1c): every work package of a kind a process pack takes over (`adopts`), each with the scope its stored scope
     parts give: [{pack, workpackage_id, name, scope, result}]; `result` is "adopted" or "exists" when `write`, else
@@ -126,6 +188,20 @@ def adopt_all(*, actor: identity.Who, write: bool = False) -> list[dict[str, Any
                     out.append({**row, "result": "refused", "error": str(exc)})
                     continue
                 out.append({**row, "result": adopt_case(pack.id, wp["id"], scope, actor=actor) if write else "to adopt"})
+        for wrap in pack.wraps:  # 231 (C3b4): a package with runs gets a new case around it
+            _step, cap = _wrapping_step(pack, wrap)
+            for wp in work.list_workpackages(include_archived=True):
+                if wp.get("source_kind") != wrap.kind or wp.get("status") == "deleted" or cap.bound(wp["id"]):
+                    continue  # a step's package already (made by a case, or wrapped before)
+                stored = package_scope.stored(wp["id"]) or {}
+                scope = {part: _stored_value(stored, key) for part, key in wrap.scope.items()}
+                row = {"pack": pack.id, "workpackage_id": wp["id"], "name": wp["name"], "scope": scope}
+                try:
+                    result = wrap_case(pack.id, wp["id"], wrap, actor=actor) if write else "to wrap"
+                except scopes.ScopeError as exc:
+                    out.append({**row, "result": "refused", "error": str(exc)})
+                    continue
+                out.append({**row, "result": result})
     return out
 
 

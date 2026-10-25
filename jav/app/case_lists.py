@@ -11,6 +11,7 @@ Layer: application view, read only; it uses the process core's public reads, the
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from jav.app import capabilities, datasets, process_runtime
@@ -34,11 +35,13 @@ def _containers(c: Any, *, closed: bool) -> list[dict[str, Any]]:
     return [r for r in rows if closed or r["status"] != "archived"]
 
 
-def _at(case: dict[str, Any], steps: dict[str, dict[str, Any]], order: list[tuple[str, str]]) -> tuple[str | None, str | None]:
-    """The step the case is at (its title) and what it waits for: the first step of the pack's order not done."""
+def _at(case: dict[str, Any], steps: dict[str, dict[str, Any]],
+        order: list[tuple[str, str, Mapping[str, str]]]) -> tuple[str | None, str | None]:
+    """The step the case is at (its title) and what it waits for: the first step of the pack's order not done; 231
+    (C3b4): its capability may say what an event it waits for means (`Capability.waits`)."""
     if case["status"] != cases.OPEN:
         return None, None
-    for step_id, title in order:
+    for step_id, title, waits in order:
         row = steps.get(step_id) or {}
         state = row.get("state")
         if state == cases.DONE:
@@ -47,6 +50,8 @@ def _at(case: dict[str, Any], steps: dict[str, dict[str, Any]], order: list[tupl
             return title, FAILED
         if row.get("phase") == capabilities.AWAITING_START:
             return title, PERSON_START
+        if row.get("waiting_for") in waits:
+            return title, waits[row["waiting_for"]]
         if row.get("waiting_for") == tasks.EVENT:
             return title, PERSON
         if row.get("waiting_for") == "reply":
@@ -77,7 +82,7 @@ def _cases(scope: dict[str, str]) -> Rows:
             pack = process_runtime.pack_for(wp["id"]) if case is not None else None
             if case is None or pack is None or (case["status"] != cases.OPEN and not closed):
                 continue
-            step, waits = _at(case, cases.step_rows(c, wp["id"]), [(s.id, s.title or s.id) for s in pack.steps])
+            step, waits = _at(case, cases.step_rows(c, wp["id"]), [(s.id, s.title or s.id, capabilities.of(s.uses).waits) for s in pack.steps])
             out.append({"id": wp["id"], "name": wp["name"], "process": pack.title, "version": pack.version,
                         "status": case["status"], "step": step, "waits_for": waits, "owner": wp["owner"],
                         "created_at": wp["created_at"], "updated_at": case["updated_at"], "_key": wp["id"],

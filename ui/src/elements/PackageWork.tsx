@@ -45,7 +45,7 @@ export function PackageWork({ caseId, element, page, onChanged }: ElementProps) 
       </div>
       <p className="small">{t("{{n}} documents", { n: pkg.items })}</p>
       {!data.can_start && !live.length && data.blockers?.length ? (
-        <p className="notice small" role="status">{data.blockers.join(" ")}</p>
+        <p className="notice small" role="status">{data.blockers.map((b) => t(b)).join(" ")}</p>
       ) : null}
       {live.length ? (
         <ul className="plain small">

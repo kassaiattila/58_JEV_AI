@@ -152,6 +152,12 @@ class Capability:
       pack with such a step owns its approval (`process_runtime.owns_approval`).
     - `statuses` (C3a-1): what its case's next step codes mean for a workflow's step that runs its pack (`process`),
       as a retired step kind's statuses did (the pairing: `reconcile_pair` is "pairing").
+    - `waits` (C3b4): what its step waits for, by the event it waits for, in the case list's words (`person_start`,
+      `person`, `reply`, `work`; `jav/app/case_lists.py`): the document processing's `run_start` is a person's start.
+      An event not named: as the case list reads it.
+    - `bind(wp_id, case_id, step_id, params, scope, actor)` and `bound(wp_id)` (C3b4): for a step that owns a work
+      package, an existing package bound to the step of a case wrapped around it (`process_runtime.wrap_case`; False
+      when the package belongs to a step already), and whether it does.
     """
 
     name: str
@@ -178,6 +184,9 @@ class Capability:
     reopen: Callable[[str, str, identity.Who], Any] | None = None
     approval_what: str | None = None
     statuses: Mapping[str, str] = field(default_factory=dict)
+    waits: Mapping[str, str] = field(default_factory=dict)
+    bind: Callable[[str, str, str, dict[str, Any], dict[str, Any], identity.Who], bool] | None = None
+    bound: Callable[[str], bool] | None = None
 
     @property
     def key(self) -> str:

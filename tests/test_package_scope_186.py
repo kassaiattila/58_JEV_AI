@@ -68,12 +68,15 @@ def test_a_statement_packages_scope_shows_as_before_and_is_in_the_shared_store(d
     shown = sp.scope(wp)
     assert shown.pop("updated_at")
     assert shown == {"workpackage_id": wp, "party_id": party, "party": {"id": party, "name": "Example Kft."},
-                     "period_start": "2026-05-01", "period_end": "2026-06-30", "revision": 1}
+                     "period_start": "2026-05-01", "period_end": "2026-06-30", "revision": 2}  # 231 C3b4: its case binds it
     assert package_scope.scope_of(wp) == {"party_id": party, "party": "Example Kft.", "period_start": "2026-05-01",
                                           "period_end": "2026-06-30", "role": "statements", "role_title": "Bank statements",
                                           "from": "logic_pack"}
-    assert _stored(wp) == {"party_id": party, "period_start": "2026-05-01", "period_end": "2026-06-30", "role": "statements",
-                           "parts": {}, "revision": 1, "set_by": "tester"}
+    stored = _stored(wp)  # 231 (C3b4): its case's step names it, with its rule
+    parts = stored.pop("parts")
+    assert parts["rule"] == "statements" and parts["owner_step"].endswith(":process")
+    assert stored == {"party_id": party, "period_start": "2026-05-01", "period_end": "2026-06-30", "role": "statements",
+                      "revision": 2, "set_by": "tester"}
     # a person cannot take it away: the package keeps its own scope
     assert package_scope.clear_scope(wp, actor="tester")["from"] == "logic_pack"
     assert _stored(wp)["party_id"] == party
@@ -153,8 +156,9 @@ def test_a_deleted_packages_scope_goes_with_it(db) -> None:
     assert package_scope.stored(statements) is None
     with pytest.raises(work.NotReady):  # (C3a-2) a reconciliation too: its case's container stays, hidden if need be
         work.delete_workpackage(reconciliation, actor="tester")
-    with store.connect() as c:  # only the reconciliation's scope is left
-        assert [r[0] for r in c.execute("SELECT workpackage_id FROM workpackage_scopes")] == [reconciliation]
+    with store.connect() as c:  # the reconciliation's scope is left (231 C3b4: and the statements' case's own)
+        left = [r[0] for r in c.execute("SELECT workpackage_id FROM workpackage_scopes")]
+    assert reconciliation in left and statements not in left and len(left) == 2
 
 
 # --- an older store's own scope tables -------------------------------------------------------------------------------

@@ -11,9 +11,11 @@ keeps every feature of a work package (its items, runs, review and result); the 
 (`work.RULE_PART`, C3b1).
 
 - `SOURCE_PART`: the scope part of a case's documents: `{"kind": "folder", "folder", "recursive"}` or
-  `{"kind": "files", "files"}`.
+  `{"kind": "files", "files"}`; 231 (C3b4) `{"kind": "package", "workpackage_id"}`: a package made before, which the
+  step takes as its own (a case wrapped around it, `process_runtime.wrap_case`).
 - `Maker`, `register_maker`, `maker_of`, `maker_names`: how a step's package is made from the case's scope.
-- `package_of(case_id, step_id)`: the package a case's step made (bound by its scope part `owner_step`).
+- `package_of(case_id, step_id)`: the package a case's step made (bound by its scope part `owner_step`); `bind`
+  (C3b4): an existing package bound to a case's step.
 - `CAPABILITY`: the step kind; its action `start_run` starts the package's live run.
 
 Layer: application; it uses the work packages, their runs and readiness, the package scopes and the process core.
@@ -21,6 +23,7 @@ Layer: application; it uses the work packages, their runs and readiness, the pac
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -31,14 +34,16 @@ from pydantic import BaseModel, ConfigDict
 
 from jav.app import capabilities, package_scope, scopes, work, work_readiness, work_runs
 from jav.core import identity, store
-from jav.core.process import kinds
+from jav.core.process import cases, kinds
 from jav.core.process.engine import StepContext
 from jav.core.user_messages import explained
 
 SOURCE_PART = "source"
+PACKAGE = "package"  # C3b4: the source kind of a package made before
 OWNER_PART = "owner_step"  # the scope part of a package a case's step made: "<case id>:<step id>"
 DOCUMENTS = "documents"
 POLL_S = 5.0  # how soon a waiting step looks again for its run's start or approval
+CANCELLED = "cancelled"  # C3b4: the case's outcome when its step's package was deleted
 _OWNER = __name__
 
 
@@ -50,6 +55,15 @@ class ProcessingError(ValueError):
 
 
 def _source(value: Any, error: type[Exception]) -> dict[str, Any]:
+    if isinstance(value, dict) and value.get("kind") == PACKAGE:  # C3b4: a package made before, wrapped by its case
+        wp_id = str(value.get("workpackage_id") or "")
+        try:
+            known = work.get(wp_id)["status"] != "deleted"
+        except KeyError:
+            known = False
+        if not known:
+            raise explained(error, "no such work package: {{wp_id}}", wp_id=wp_id)
+        return {"kind": PACKAGE, "workpackage_id": wp_id}
     if not isinstance(value, dict) or value.get("kind") not in ("folder", "files"):
         raise explained(error, "choose a folder or files")
     if value["kind"] == "folder":
@@ -64,6 +78,8 @@ def _source(value: Any, error: type[Exception]) -> dict[str, Any]:
 
 
 def _source_words(value: dict[str, Any]) -> str:
+    if value["kind"] == PACKAGE:
+        return str(work.get(value["workpackage_id"])["name"])
     return Path(value["folder"]).name if value["kind"] == "folder" else f"{len(value['files'])} files"
 
 
@@ -75,7 +91,9 @@ SOURCE = scopes.Part(SOURCE_PART, __name__, _source, _source_words, _no_source)
 
 
 def paths_of(source: dict[str, Any]) -> list[Path]:
-    """The source's folder or files as paths."""
+    """The source's folder or files as paths (a package source has none: its step takes the package itself)."""
+    if source["kind"] == PACKAGE:
+        raise explained(ProcessingError, "a package source is taken as it is, not read again")
     return [Path(source["folder"])] if source["kind"] == "folder" else [Path(f) for f in source["files"]]
 
 
@@ -153,6 +171,21 @@ def owned_packages() -> set[str]:
             "SELECT workpackage_id FROM workpackage_scopes WHERE json_extract(parts, ?) IS NOT NULL", (f"$.{OWNER_PART}",))}
 
 
+def bind(wp_id: str, case_id: str, step_id: str, params: dict[str, Any], scope: dict[str, Any], actor: identity.Who) -> bool:
+    """231 (C3b4): an existing package bound to a case's step (a case wrapped around a package made before its process
+    was a pack), with the rule of the step's maker and the case's party and period, in the caller's write transaction
+    when there is one; False when the package belongs to a step already (nothing changes)."""
+    if bound(wp_id):
+        return False
+    _bind(wp_id, case_id, step_id, scope, maker_of(Process.model_validate({k: v for k, v in (params or {}).items() if not k.startswith("_")}).maker).rule, actor)
+    return True
+
+
+def bound(wp_id: str) -> bool:
+    """231 (C3b4): whether the package belongs to a case's step (made by it, or bound to it)."""
+    return OWNER_PART in ((package_scope.stored(wp_id) or {}).get("parts") or {})
+
+
 def _bind(wp_id: str, case_id: str, step_id: str, scope: dict[str, Any], rule: str | None, actor: identity.Who) -> None:
     """The package's scope names the step that made it and the rule it runs by; the case's party and period go with
     them (a scope the maker gave stays, with these parts added)."""
@@ -182,28 +215,79 @@ class Process(BaseModel):
     maker: str = DOCUMENTS
 
 
+def _held(ctx: StepContext) -> str | None:
+    """The package the step made or took before (its result while it runs, C3b4)."""
+    result = ctx.row().get("result")
+    result = json.loads(result) if isinstance(result, str) else result
+    return result.get("workpackage_id") if isinstance(result, dict) else None
+
+
 def _run(ctx: StepContext, params: Process) -> kinds.StepOutcome:
     case_id, step_id = ctx.case_id, ctx.step.id
     wp_id = package_of(case_id, step_id)
+    if wp_id is None and (gone := _held(ctx)) is not None:
+        # C3b4: its package was deleted (a package without runs may be): the case has nothing left to do; before, the
+        # step would have made the package again from its source
+        ctx.record("package_deleted", {"workpackage_id": gone})
+        return kinds.Close(CANCELLED)
     if wp_id is None:
         maker = maker_of(params.maker)
         owner = work.get(str(ctx.data["container"])).get("owner")
-        made = maker.make(ctx.data["scope"], str(ctx.data["name"]), owner)
+        source = ctx.data["scope"].get(SOURCE_PART) or {}
+        if source.get("kind") == PACKAGE:  # C3b4: the case's own package, made before; bound unless another step has it
+            if not bind(source["workpackage_id"], case_id, step_id, params.model_dump(), ctx.data["scope"],
+                        owner or ctx.actor):
+                raise explained(ProcessingError, "the package belongs to another case's step")
+            made: str | None = source["workpackage_id"]
+        else:
+            made = maker.make(ctx.data["scope"], str(ctx.data["name"]), owner)
         if made is None:
             return kinds.Done({"documents": 0})
-        _bind(made, case_id, step_id, ctx.data["scope"], maker.rule, owner or ctx.actor)
+        if source.get("kind") != PACKAGE:
+            _bind(made, case_id, step_id, ctx.data["scope"], maker.rule, owner or ctx.actor)
         wp_id = made
+        with ctx.transaction() as c:  # the step remembers its package while it runs
+            cases.set_result(c, case_id, step_id, {"workpackage_id": wp_id})
+    found = _state_of(wp_id)
+    if isinstance(found, str):
+        return ctx.wait(found, timer=("check", time.time() + POLL_S), detail={"workpackage_id": wp_id})
+    return kinds.Done(found)
+
+
+def _state_of(wp_id: str) -> str | dict[str, Any]:
+    """What the step's package waits for (C3b4: `run_start` for a person's start, `run_end` while a live run works,
+    `run_approval` for a person's approval), or the step's result once a live run of it is approved and none is open."""
     runs = _live_runs(wp_id)
     if not runs:
-        return ctx.wait("run_start", timer=("check", time.time() + POLL_S), detail={"workpackage_id": wp_id})
+        return "run_start"
+    if any(r["status"] in work_runs.STOPPABLE for r in runs):
+        return "run_end"
     if not any(r["approval"] for r in runs) or work_runs.open_live_runs(wp_id):
-        return ctx.wait("run_approval", timer=("check", time.time() + POLL_S), detail={"workpackage_id": wp_id})
-    return kinds.Done({"package": wp_id, "runs": sorted(r["run_id"] for r in runs if r["approval"])})
+        return "run_approval"
+    return {"package": wp_id, "runs": sorted(r["run_id"] for r in runs if r["approval"])}
+
+
+def _adopt(wp_id: str, _params: Any) -> cases.Adopted:
+    """231 (C3b4): a package made before its process was a pack, taken over as its case's step package: done with its
+    approved live runs, else waiting as `_run` would."""
+    found = _state_of(wp_id)
+    if isinstance(found, str):
+        return cases.Adopted(cases.RUNNING, waiting_for=found, timer=("check", time.time() + POLL_S),
+                             result={"workpackage_id": wp_id})
+    return cases.Adopted(cases.DONE, result=found)
+
+
+def _workflow_starts(wp_id: str) -> bool:
+    """231 (C3b4): whether the package is a workflow step's: its workflow starts its live run within the budget a
+    person approved there (rule 146), so its case page offers no start of its own."""
+    from jav.app import workflows  # lazy: the workflows build on the work packages this module makes
+
+    return workflows.workflow_of(wp_id) is not None
 
 
 def _can_start(case_id: str, step_id: str) -> bool:
     wp_id = package_of(case_id, step_id)
-    return wp_id is not None and not _live_runs(wp_id)
+    return wp_id is not None and not _live_runs(wp_id) and not _workflow_starts(wp_id)
 
 
 def start_run(case_id: str, step_id: str, actor: identity.Who, _note: str | None = None) -> str:
@@ -211,6 +295,8 @@ def start_run(case_id: str, step_id: str, actor: identity.Who, _note: str | None
     wp_id = package_of(case_id, step_id)
     if wp_id is None or _live_runs(wp_id):
         raise explained(ProcessingError, "the step has no package waiting for its run")
+    if _workflow_starts(wp_id):
+        raise explained(ProcessingError, "its workflow starts the package's live run")
     ready = work_readiness.readiness(wp_id)
     if not ready["ready"]:
         raise ProcessingError("; ".join(b["message"] for b in ready["blockers"]) or "the package cannot start")
@@ -224,7 +310,10 @@ CAPABILITY = capabilities.Capability(
     # (`start_run`) within the package's own estimate and budget, as any live run
     summary=("Makes a processing package of the case's documents; a person starts its live run within the package's "
              "estimate, and the step is done once a live run is approved."),
-    actions=(capabilities.Action("start_run", "Start the live run", _can_start, start_run),))
+    actions=(capabilities.Action("start_run", "Start the live run", _can_start, start_run),),
+    # C3b4: the case list says a person's start while the package waits for its live run, the machine's work while it
+    # runs, a person's decision while it waits for its approval (`_state_of`)
+    waits={"run_start": "person_start", "run_end": "work", "run_approval": "person"}, adopt=_adopt, bind=bind, bound=bound)
 
 
 def _package_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
@@ -239,7 +328,9 @@ def _package_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) ->
             for r in work_runs.run_rows(wp_id)]
     out: dict[str, Any] = {"package": {"id": wp_id, "name": wp["name"], "items": len(wp["items"]),
                                        "kind": wp["source_kind"]}, "runs": runs, "can_start": False}
-    if not _live_runs(wp_id):
+    if _workflow_starts(wp_id):
+        out["blockers"] = [explained(ProcessingError, "its workflow starts the package's live run").args[0]]
+    elif not _live_runs(wp_id):
         ready = work_readiness.readiness(wp_id)
         out.update(can_start=bool(ready["ready"]), estimate={p: str(v) for p, v in (ready.get("budget") or {}).items()},
                    blockers=[b["message"] for b in ready["blockers"]])
@@ -256,6 +347,6 @@ def register() -> None:
     case_views.register(case_views.ElementData("package_work", CAPABILITY.name, _OWNER, _package_view))
 
 
-__all__ = ["CAPABILITY", "DOCUMENTS", "Maker", "OWNER_PART", "Process", "ProcessingError", "SOURCE", "SOURCE_PART",
-           "maker_names", "maker_of", "owned_packages", "package_of", "paths_of", "register", "register_maker",
-           "start_run"]
+__all__ = ["CAPABILITY", "DOCUMENTS", "Maker", "OWNER_PART", "PACKAGE", "Process", "ProcessingError", "SOURCE",
+           "SOURCE_PART", "bind", "bound", "maker_names", "maker_of", "owned_packages", "package_of", "paths_of", "register",
+           "register_maker", "start_run"]

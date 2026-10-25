@@ -268,10 +268,11 @@ def survey(paths: Iterable[Path], *, party_id: str, period_start: Any, period_en
 
 
 def create(*, name: str, party_id: str, period_start: Any, period_end: Any, paths: list[Path], statements: list[str],
-           pdfs: list[str], actor: identity.Who) -> dict[str, Any]:
+           pdfs: list[str], actor: identity.Who, case: bool = True) -> dict[str, Any]:
     """A new statement package of the statements and PDFs a person ticked in the survey of the same files; the creator
     owns it (decision 065). A statement is named by its survey id, so one the files no longer hold is refused, and only
-    a PDF the survey listed is taken."""
+    a PDF the survey listed is taken. 231 (C3b4): the package is a bank statements case's step package from the start
+    (a new case is made around it, `_wrap`); `case=False` for the one a case's own step makes."""
     party, start, end = _checked(party_id, period_start, period_end)
     entries, wanted, picked = _chosen(_sources(paths), statements, pdfs)
     folder = Path(paths[0]).resolve() if len(paths) == 1 and Path(paths[0]).is_dir() else None
@@ -282,7 +283,20 @@ def create(*, name: str, party_id: str, period_start: Any, period_end: Any, path
         package_scope.save(c, wp["id"], party_id=party["id"], period_start=start, period_end=end, role=ROLE, actor=actor)
         work.record_event(c, wp["id"], "statement_scope", actor, {"party": party["id"], "period": [start, end],
                                                                   "statements": len(wanted), "pdfs": len(picked)})
+    if case:
+        _wrap(wp["id"], actor)
     return scope(wp["id"])
+
+
+PACK = "bank_statements"  # 231 (C3b4): the process pack whose cases hold the statement packages
+
+
+def _wrap(wp_id: str, actor: identity.Who) -> None:
+    """231 (C3b4): a new case of the bank statements pack around the package (its rule in the pack's `wraps`)."""
+    from jav.app import process_packs, process_runtime  # lazy: the process packs are loaded after the domains
+
+    rule = next(w for w in process_packs.load(PACK).wraps if w.kind == KIND)
+    process_runtime.wrap_case(PACK, wp_id, rule, actor=actor)
 
 
 def _chosen(found: _Found, statements: list[str], pdfs: list[str]) -> tuple[list[tuple[Path, str]], set[str], list[Path]]:
@@ -513,7 +527,7 @@ def make_for_case(scope: dict[str, Any], name: str, owner: identity.Who | None) 
     if not chosen and not pdfs:
         return None
     return create(name=name, party_id=scope["party"], period_start=period[0], period_end=period[1], paths=paths,
-                  statements=chosen, pdfs=pdfs, actor=owner or "machine")["workpackage_id"]
+                  statements=chosen, pdfs=pdfs, actor=owner or "machine", case=False)["workpackage_id"]
 
 
 def workflow_estimate(paths: list[Path], *, party_id: str | None, period_start: str, period_end: str) -> dict[str, Any]:

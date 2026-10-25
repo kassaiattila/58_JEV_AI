@@ -150,7 +150,7 @@ def test_the_package_holds_the_chosen_statements_and_pdfs_with_its_party_and_per
     assert kinds == [("document", ".pdf"), ("statement_table", ".json")]
     assert next(i for i in wp["items"] if i["kind"] == "statement_table")["item_id"] == june["id"]  # the survey's id
     assert (view["party"]["id"], view["period_start"], view["period_end"]) == (party, "2026-05-01", "2026-06-30")
-    assert [e["action"] for e in work.workpackage_events(wp["id"])] == ["statement_scope"]
+    assert [e["action"] for e in work.workpackage_events(wp["id"])] == ["statement_scope", "case_wrapped"]  # 231 C3b4
 
 
 def test_creating_refuses_an_empty_choice_or_a_statement_the_files_no_longer_hold(db):
@@ -324,8 +324,8 @@ def test_the_statements_are_listed_by_account_and_in_time_with_the_unread_last()
 def test_a_package_with_its_scope_can_be_deleted_before_a_run(db):
     wp = _package(db, _party())
     work.delete_workpackage(wp, actor="tester")
-    with store.connect() as c:
-        assert c.execute("SELECT COUNT(*) FROM workpackage_scopes").fetchone()[0] == 0  # 186: the shared scope
+    with store.connect() as c:  # 186: the shared scope (231 C3b4: its case's own stays)
+        assert c.execute("SELECT COUNT(*) FROM workpackage_scopes WHERE workpackage_id=?", (wp,)).fetchone()[0] == 0
 
 
 def test_a_partys_merge_moves_its_statement_packages(db):

@@ -293,7 +293,7 @@ def scope_of(wp_id: str, *, kind: str | None = None) -> dict[str, Any] | None:
     if pack is not None and pack.scope is not None:
         return _shown(pack.scope(wp_id), "logic_pack")
     own = stored(wp_id)
-    if own is not None:
+    if own is not None and (own["party_id"] or own["period_start"] or own["role"]):  # C3b4: not only further parts
         return _shown(own, "own") | {"set_by": own["set_by"], "set_at": own["set_at"]}
     for name, fn in _SOURCES.items():
         found = fn(wp_id)
@@ -322,25 +322,33 @@ def _check(wp: dict[str, Any], party_id: str | None, period_start: str | None, p
 
 def set_scope(wp_id: str, *, party_id: str | None, period_start: str | None, period_end: str | None,
               role_name: str | None, actor: identity.Who) -> dict[str, Any]:
-    """A person gives a package its scope (replacing an earlier one); recorded in the package's log."""
+    """A person gives a package its scope (replacing an earlier one); recorded in the package's log. 231 (C3b4): the
+    further parts a process or a rule put there stay (a case step's binding, the package's rule), so a person's party,
+    period or role never unbinds the package from its case."""
     wp = work.get(wp_id)
     scope = _check(wp, party_id, period_start, period_end, role_name)
     with store.connect() as c:
         store.begin_immediate(c)
+        kept = (stored(wp_id, c) or {}).get("parts") or {}
         save(c, wp_id, party_id=scope["party_id"], period_start=scope["period_start"], period_end=scope["period_end"],
-             role=scope["role"], actor=actor)
+             role=scope["role"], parts=kept, actor=actor)
         work.record_event(c, wp_id, "scope_set", actor, scope)
     return scope_of(wp_id, kind=wp["source_kind"]) or {}
 
 
 def clear_scope(wp_id: str, *, actor: identity.Who) -> dict[str, Any] | None:
     """A person takes the package's own scope away (a scope of its workflow shows again). 186: a logic pack's own scope
-    stays (it is in the same store; a person never gave it)."""
+    stays (it is in the same store; a person never gave it). 231 (C3b4): so do the further parts a process or a rule put
+    there (a case step's binding, the package's rule): only the person's party, period and role go."""
     wp = work.get(wp_id)
     if not _own_scope(wp["source_kind"]):
         with store.connect() as c:
             store.begin_immediate(c)
-            if remove(c, wp_id):
+            kept = (stored(wp_id, c) or {}).get("parts") or {}
+            if kept:
+                save(c, wp_id, parts=kept, actor=actor)
+                work.record_event(c, wp_id, "scope_clear", actor, {})
+            elif remove(c, wp_id):
                 work.record_event(c, wp_id, "scope_clear", actor, {})
     return scope_of(wp_id, kind=wp["source_kind"])
 

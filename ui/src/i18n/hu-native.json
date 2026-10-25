@@ -2757,5 +2757,11 @@
   "no documents": "nincs irat",
   "waiting for its live run": "az élő futására vár",
   "One case of a folder's documents or of the given files: its page starts the processing and leads to its review and result.": "Egy ügy egy mappa irataiból vagy a megadott fájlokból: az oldala indítja a feldolgozást, és onnan nyílik az ellenőrzése és az eredménye.",
-  "One case of a party's bank statements for a period: the period's statements the store has not got yet are taken from the folder or the files.": "Egy ügy egy gazdálkodó egy időszakának bankkivonataiból: a mappából vagy a fájlokból az időszak még nem tárolt kivonatai kerülnek be."
+  "One case of a party's bank statements for a period: the period's statements the store has not got yet are taken from the folder or the files.": "Egy ügy egy gazdálkodó egy időszakának bankkivonataiból: a mappából vagy a fájlokból az időszak még nem tárolt kivonatai kerülnek be.",
+  "package: taken over as a case's package": "csomag: egy ügy csomagjaként átvéve",
+  "no such work package: {{wp_id}}": "nincs ilyen munkacsomag: {{wp_id}}",
+  "a package source is taken as it is, not read again": "a csomagforrás úgy marad, ahogy van, nem olvassuk újra",
+  "the package belongs to another case's step": "a csomag egy másik ügy lépéséhez tartozik",
+  "step {{step}} takes no package": "a(z) {{step}} lépés nem vesz át csomagot",
+  "its workflow starts the package's live run": "a csomag élő futását a munkafolyamata indítja"
 }
