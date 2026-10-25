@@ -265,7 +265,7 @@ def suspicious_email(run_id: str, email_item_id: str) -> bool:
 def mark_suspicious_source(run: dict[str, Any], item: dict[str, Any]) -> bool:
     """154 (DECISIONS 154): the attachments of an email routed as suspicious are processed but marked: each gets an
     `attachment:suspicious_email` to-do in the run, so the run cannot be approved before a person has looked at it,
-    and a statement from it never replaces another by rule (`reconcile.statements`). Called after every item, so it
+    and a statement from it never replaces another by rule (`reconcile_store.statements`). Called after every item, so it
     does not matter whether the email or its attachment is processed first. Returns whether this item got the to-do."""
     run_id = run["run_id"]
     if item.get("kind") == item_kinds.EMAIL:

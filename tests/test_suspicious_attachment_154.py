@@ -15,7 +15,8 @@ import pytest
 from jav.domains.email import email_rules, mailbox
 from jav.app import work, work_readiness, work_recipes, work_runs
 from jav.core import store
-from jav.domains.finance import reconcile, statement_months as sm
+from jav.domains.finance import statement_months as sm
+from jav.domains.finance import reconcile_store
 from jav.runtime import worker
 from tests.test_email_results import _mail_with_pdf
 from tests.test_mailbox import MAILS, REQ, FakeBridge, env  # noqa: F401 - pytest fixture
@@ -106,7 +107,7 @@ def test_the_snapshot_marks_a_statement_from_a_suspicious_email(env, monkeypatch
     clean = k2._save("clean", k2._statement(), run_id=k2.RUN, doc_type="statement_table", validation=k2.VERIFIED)
     store.review_enqueue(subject_kind="document", subject_id=mailed, run_id=work_runs.flow_run_id(k2.RUN, mailed),
                          reasons=[REASON], producer="email_source")
-    flags = {s["id"]: s["suspicious_source"] for s in reconcile.statements()}
+    flags = {s["id"]: s["suspicious_source"] for s in reconcile_store.statements()}
     assert flags == {mailed: True, clean: False}
 
 

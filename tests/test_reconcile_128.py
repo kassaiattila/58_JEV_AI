@@ -16,6 +16,7 @@ import pytest
 
 from jav.core import store
 from jav.domains.finance import reconcile
+from jav.domains.finance import reconcile_store
 
 CASES = {c["id"]: c for c in reconcile.golden_cases()}
 
@@ -95,7 +96,7 @@ def test_the_window_runs_from_before_the_issue_to_after_the_due_date():
      ' {"name": "totals_consistency", "ok": true, "code": "totals.ok"}]', True),
     ("not json", False), (None, False)])
 def test_a_statement_is_coverage_only_when_its_balances_check_out(validation, expected):
-    assert reconcile.verified(validation) is expected
+    assert reconcile_store.verified(validation) is expected
 
 
 # --- stable line ids -----------------------------------------------------------------------------------------------
@@ -151,12 +152,12 @@ def test_the_store_snapshot_pairs_an_invoice_with_its_line(tmp_path):
             "transactions": [{"booking_date": "2026-04-10", "direction": "debit", "amount": "100.00",
                               "counterparty_name": "Example Supplier", "counterparty_account": "99998887-77776666-55554444"}]},
             VERIFIED)
-        snap = reconcile.snapshot()
+        snap = reconcile_store.snapshot()
         assert snap["invoices"][0]["amount"] == "100.00"  # a zero amount due falls back to the gross total
         assert snap["statements"][0]["verified"] is True
         result = reconcile.propose(snap)
         assert [(c["invoice_id"], c["statement_id"], c["proposed"]) for c in result["candidates"]] == [(inv, st, True)]
-        summary = reconcile.scan()
+        summary = reconcile_store.scan()
         assert summary["proposed_pairs"] == 1 and summary["invoice_status"] == {"proposed": 1}
         assert summary["statements"] == summary["verified_statements"] == 1 and summary["lines"] == 1
 
@@ -169,7 +170,7 @@ def test_the_store_snapshot_drops_the_repeat_of_a_confirmed_copy(tmp_path):
         with store.connect() as c:
             c.execute("INSERT INTO duplicate_decisions(pair_key, doc_id, other_doc_id, decision, actor, decided_at)"
                       " VALUES (?,?,?,?,?,?)", (f"{first}|{repeat}", repeat, first, "copy", "t", "2026-10-08T10:00:00+00:00"))
-        result = reconcile.propose(reconcile.snapshot())
+        result = reconcile.propose(reconcile_store.snapshot())
         assert [(e["id"], e["reason"]) for e in result["excluded"]] == [(repeat, "duplicate_copy")]
 
 
@@ -186,9 +187,9 @@ def test_a_persons_correction_is_the_invoices_value(tmp_path):
             "account_no": "11112223-33334444-55556666", "currency": "HUF", "period_start": "2026-03-01", "period_end": "2026-06-30",
             "transactions": [{"booking_date": "2026-04-10", "direction": "debit", "amount": "100.00", "memo": "INV-0001"}]},
             VERIFIED)
-        assert [c["proposed"] for c in reconcile.propose(reconcile.snapshot())["candidates"]] == [False]
+        assert [c["proposed"] for c in reconcile.propose(reconcile_store.snapshot())["candidates"]] == [False]
         corrections.save("run-1", _id("invoice"), fields={"gross_total": "100"}, expected_revision=0, actor="t")
-        assert [c["proposed"] for c in reconcile.propose(reconcile.snapshot())["candidates"]] == [True]
+        assert [c["proposed"] for c in reconcile.propose(reconcile_store.snapshot())["candidates"]] == [True]
 
 
 @pytest.mark.parametrize(("amount", "reason"), [(None, "missing_amount"), ("", "missing_amount"), ("1 000", "invalid_amount"),

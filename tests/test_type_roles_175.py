@@ -14,7 +14,8 @@ from jav.domains.finance import own_parties
 from jav.ai import doc_types
 from jav.core import cfg, type_roles
 from jav.domains.email import email_rules
-from jav.domains.finance import duplicates, reconcile, report_utility
+from jav.domains.finance import duplicates, report_utility
+from jav.domains.finance import reconcile_store
 from jav.ai.typepack import get as get_pack
 
 PACKS = sorted(p.stem for p in (cfg.path_of("policy").parent / "types").glob("*.json"))
@@ -53,7 +54,7 @@ def test_the_readers_ask_the_roles() -> None:
     """The code that used to read its own list gives the same answer through the adapter."""
     assert duplicates.family("vizmuvek_szamla") == "invoice" and duplicates.family("nav_receipt") is None
     assert own_parties.supplier_check_types() == frozenset(cfg.load("parties")["supplier_check"]["doc_types"])
-    assert reconcile.handles("invoice_foreign") and reconcile.handles("statement_erste") and not reconcile.handles("invoice_out")
+    assert reconcile_store.handles("invoice_foreign") and reconcile_store.handles("statement_erste") and not reconcile_store.handles("invoice_out")
     assert report_utility.has_utility([{"doc_type": "foldgaz_szamla"}]) and not report_utility.has_utility([{"doc_type": None}])
     assert email_rules.m2_types() == frozenset(cfg.load("email")["m2_types"])
 

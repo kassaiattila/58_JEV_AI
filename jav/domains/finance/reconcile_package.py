@@ -61,6 +61,7 @@ from jav.domains.finance import own_parties
 from jav.ai import grounding, typepack
 from jav.core import activity_kinds, cfg, decisions, identity, store, values
 from jav.domains.finance import reconcile, reconcile_overview
+from jav.domains.finance import reconcile_store
 from jav.domains.finance.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
@@ -164,7 +165,7 @@ def accounts() -> list[dict[str, Any]]:
     registered with a party without a statement yet: the account key, the printed account, the statement kinds and
     currencies, how many statements and the span they cover, the party and the registered details."""
     groups: dict[str, dict[str, Any]] = {}
-    for st in reconcile.snapshot()["statements"]:
+    for st in reconcile_store.snapshot()["statements"]:
         key = reconcile.statement_account(st)
         g = groups.setdefault(key, {"key": key, "account": st.get("account"), "statement_types": set(), "currencies": set(),
                                     "statements": 0, "first": None, "last": None})
@@ -301,7 +302,7 @@ def scoped_snapshot(wp_id: str, *, fetch_rates: bool = False) -> tuple[dict[str,
     covered too, with or without a statement (`own_accounts`). 169: a statement left out of the package leaves the
     scope, and the invoices left out are excluded from its pairing (`left_out`, `reconcile.prepare`)."""
     sc = scope(wp_id)
-    snap = reconcile.snapshot(fetch_rates=fetch_rates)
+    snap = reconcile_store.snapshot(fetch_rates=fetch_rates)
     gone = left_out(wp_id)
     own = [{"key": k, **{f: d[f] for f in ("kind", "currencies", "valid_from", "valid_to")}}
            for k, d in sorted(own_parties.accounts().items()) if k in sc["accounts"]]
@@ -601,7 +602,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
     gone = left_out(wp_id)  # 169: shown behind the switch, with who left them out, when and why
     every_statement = {st["id"]: st for st in snap["statements"]}
     gone_docs = [d for d in (invoices.get(i) or every_statement.get(i) for i in gone) if d is not None]
-    files = reconcile.file_names([*wanted, *(st["id"] for st in statements), *gone])
+    files = reconcile_store.file_names([*wanted, *(st["id"] for st in statements), *gone])
     docs = [*(invoices[i] for i in wanted if i in invoices), *statements]
     approved = work.approved_runs(d.get("work_run") for d in [*docs, *gone_docs])
     accepted = accepted_sources()
@@ -732,7 +733,7 @@ def _signal_inputs() -> dict[str, Any]:
         hit = _signal_inputs_kept.get(key)
         if hit and hit[0] == mark:
             return hit[1]
-    snap = reconcile.snapshot()
+    snap = reconcile_store.snapshot()
     built = {**reconcile.signal_context(snap), "rates": snap.get("fx_rates") or {}}
     with _kept_lock:
         _signal_inputs_kept[key] = (mark, built)
@@ -806,7 +807,7 @@ def left_over_rows(snap: dict[str, Any], scope_ids: set[str], wp_id: str) -> lis
                         "invoice_id": row.get("invoice_id"), "category": row.get("category"), "decision": row.get("decision"),
                         "workpackage_id": row.get("workpackage_id"), "currency": old.get("currency"),
                         **{k: line.get(k) for k in ("booking_date", "amount", "direction", "counterparty_name")}})
-    files = reconcile.file_names([*(r["statement_id"] for r in out), *(r["replaced_by"] for r in out),
+    files = reconcile_store.file_names([*(r["statement_id"] for r in out), *(r["replaced_by"] for r in out),
                                   *(r["invoice_id"] for r in out if r["invoice_id"])])
     for r in out:
         r["file"], r["replaced_by_file"] = files.get(r["statement_id"]), files.get(r["replaced_by"])
@@ -842,7 +843,7 @@ def unfit_rows(result: dict[str, Any], snap: dict[str, Any], scope_ids: set[str]
                         "line_total": a.get("line_total"), "invoice_total": a.get("invoice_total"),
                         "currency": line.get("currency") or currency.get(statement_id),
                         **{k: line.get(k) for k in ("booking_date", "direction", "counterparty_name")}})
-    files = reconcile.file_names([*(r["invoice_id"] for r in out if r["invoice_id"]), *(r["statement_id"] for r in out if r["statement_id"])])
+    files = reconcile_store.file_names([*(r["invoice_id"] for r in out if r["invoice_id"]), *(r["statement_id"] for r in out if r["statement_id"])])
     for r in out:
         r["invoice_file"] = files.get(r["invoice_id"]) if r["invoice_id"] else None
         r["file"] = files.get(r["statement_id"]) if r["statement_id"] else None
@@ -1159,7 +1160,7 @@ def reject(wp_id: str, invoice_doc_id: str, line_id: str, *, note: str, actor: i
     _unlocked(ctx, [line_id])
     if any(a["invoice_id"] == invoice_doc_id and a["line_id"] == line_id for a in ctx["result"]["confirmed"]):
         raise explained(PackageError, "the pair is allocated; revoke the allocation first")
-    key = reconcile.pair_key(invoice_doc_id, line_id)
+    key = reconcile_store.pair_key(invoice_doc_id, line_id)
 
     def write(c) -> dict[str, Any]:
         before = c.execute("SELECT run_id FROM reconcile_decisions WHERE pair_key=?", (key,)).fetchone()
@@ -1329,7 +1330,7 @@ def leave_out(wp_id: str, doc_ids: Iterable[str], *, reason: str, actor: identit
     decided |= {r["id"] for r in ws["invoices"]
                 if any(a["line_id"] in line_ids or a.get("workpackage_id") == wp_id for a in r["allocations"])}
     if busy := [doc_id for doc_id in ids if doc_id in decided]:
-        files = reconcile.file_names(busy)
+        files = reconcile_store.file_names(busy)
         raise explained(PackageError, "pairings or marks of this package rest on {{files}}; revoke them first",
                         files=", ".join(files.get(d, d) for d in busy))
 
@@ -1443,7 +1444,7 @@ LINE_FACTS = ("booking_date", "value_date", "direction", "amount", "original_amo
 
 def _statement_view(statement: dict[str, Any], institution: str | None) -> dict[str, Any]:
     """144: the statement as read, for the documents' statement pane: its heading facts and every line in its order."""
-    return {"file": reconcile.file_names([statement["id"]]).get(statement["id"]), "institution": institution,
+    return {"file": reconcile_store.file_names([statement["id"]]).get(statement["id"]), "institution": institution,
             "account": reconcile.statement_account(statement),
             **{k: statement.get(k) for k in ("currency", "period_start", "period_end", "opening_balance", "closing_balance")},
             "verified": bool(statement.get("verified")),

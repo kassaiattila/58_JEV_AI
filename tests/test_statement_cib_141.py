@@ -20,6 +20,7 @@ import pytest
 from jav.app import parties, work_runs
 from jav.core import store
 from jav.domains.finance import reconcile, statement_package as sp, statement_table as st
+from jav.domains.finance import reconcile_store
 from tests.test_flow_statement_table_136 import _run_all
 
 GIRO = "11112223-33334444-55556666"  # made up, wrong check digits
@@ -231,7 +232,7 @@ def test_a_statement_package_reads_the_cib_pdfs_by_code_and_extracts_none(db):
                      paths=[folder], statements=[r["id"] for r in rows], pdfs=[], actor="tester")
     run_id = _run_all(view["workpackage_id"])
     assert work_runs.get_run(run_id)["status"] == "done"
-    saved = sorted((s for s in reconcile.statements()), key=lambda s: s["period_start"])
+    saved = sorted((s for s in reconcile_store.statements()), key=lambda s: s["period_start"])
     assert [(s["period_start"], s["verified"], len(s["lines"])) for s in saved] == [("2026-05-01", True, 5),
                                                                                       ("2026-06-01", True, 1)]
     assert {reconcile.statement_account(s) for s in saved} == {DIGITS}

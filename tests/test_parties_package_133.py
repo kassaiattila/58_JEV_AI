@@ -11,7 +11,8 @@ import pytest
 
 from jav.app import parties, work
 from jav.core import store
-from jav.domains.finance import party_views, reconcile, reconcile_package as rp
+from jav.domains.finance import party_views, reconcile_package as rp
+from jav.domains.finance import reconcile_store
 from tests import test_api
 from tests import test_reconcile_k2_129 as k2
 from tests import test_reconcile_package_131 as p131
@@ -118,7 +119,7 @@ def test_the_overview_counts_and_the_suggestions_are_accepted_as_they_stand(db):
 def test_the_snapshot_reads_the_buyer_of_an_invoice_and_of_a_bill(db):
     k2._save("inv", k2._invoice(buyer_name="Jane Example", buyer_tax_id=HOME_TAX))
     k2._save("bill", k2._invoice(number="B-1", customer_name="Mary Sample"), doc_type="villamos_energia_szamla")
-    got = {i["number"]: (i["buyer_name"], i["buyer_tax_id"]) for i in reconcile.snapshot()["invoices"]}
+    got = {i["number"]: (i["buyer_name"], i["buyer_tax_id"]) for i in reconcile_store.snapshot()["invoices"]}
     assert got == {"INV-0001": ("Jane Example", HOME_TAX), "B-1": ("Mary Sample", None)}
 
 

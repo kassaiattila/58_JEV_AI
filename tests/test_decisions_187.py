@@ -335,9 +335,9 @@ def test_every_reconciliation_decision_goes_into_the_journal(db) -> None:
 
 
 def reconcile_pair(invoice: str, line: str) -> str:
-    from jav.domains.finance import reconcile
+    from jav.domains.finance import reconcile_store
 
-    return reconcile.pair_key(invoice, line)
+    return reconcile_store.pair_key(invoice, line)
 
 
 def test_a_reconciliation_decision_from_a_stale_page_is_refused(db) -> None:

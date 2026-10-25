@@ -4,7 +4,7 @@ Plain-language summary: `configs/policy.json` keeps what every flow shares (the 
 OCR thresholds, the type details, a GPT field's confidence). The email flow's routes are in `configs/email.json`, read
 by the email domain (`jav/domains/email/email_rules.py`); the duplicate search and the reconciliation's currency
 bands and sure AI threshold in the finance domain's `configs/finance.json`, read by `jav/domains/finance/duplicates.py`
-and `jav/domains/finance/reconcile.py`. So a change to one domain's rules no longer changes the fingerprint of another's
+and `jav/domains/finance/reconcile_rules.py` (231: until C2b `reconcile.py`). So a change to one domain's rules no longer changes the fingerprint of another's
 results, and the shared AI layer no longer imports the email domain. The values themselves did not change, and neither
 did `configs/reconcile.json`, whose fingerprint a reconciliation's statement prints: an approved statement does not
 read as changed.
@@ -79,7 +79,7 @@ def test_each_domain_file_is_read_by_its_owner_and_the_type_roles_only():
     # in the documents layer and for the decision rules alike
     assert _readers("policy") == {"jav/ai/policy.py", "jav/documents/ocr.py", roles}
     assert _readers("email") == {"jav/domains/email/email_rules.py", roles}
-    assert _readers("finance") == {"jav/domains/finance/duplicates.py", "jav/domains/finance/reconcile.py", roles}
+    assert _readers("finance") == {"jav/domains/finance/duplicates.py", "jav/domains/finance/reconcile_rules.py", roles}
 
 
 def test_the_shared_ai_layer_no_longer_holds_the_email_routes():

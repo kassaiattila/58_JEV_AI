@@ -15,7 +15,8 @@ import pytest
 from jav.app import package_result, work, work_runs
 from jav.ai import party_history
 from jav.core import store
-from jav.domains.finance import duplicates, reconcile
+from jav.domains.finance import duplicates
+from jav.domains.finance import reconcile_store
 from jav.core import calls
 
 WP, OTHER = "wp-000000000174", "wp-000000000175"
@@ -74,7 +75,7 @@ def _inv(number: str, gross: str = "100.00") -> dict:
 
 def _numbers() -> dict[str, str]:
     """Per document (by its id), the invoice number the reconciliation reads."""
-    return {i["id"]: i["number"] for i in reconcile.snapshot()["invoices"]}
+    return {i["id"]: i["number"] for i in reconcile_store.snapshot()["invoices"]}
 
 
 def _counted() -> dict[str, tuple[str | None, str]]:
@@ -151,7 +152,7 @@ def test_the_corrections_of_the_counted_run_item_apply(db) -> None:
     _run("run-trial", {"invoice": _inv("INV-1", gross="555.00")}, mode="shadow", at="2026-10-18T10:00:00+00:00", wp=OTHER)
     corrections.save("run-live", _id("invoice"), fields={"gross_total": "100"}, expected_revision=0, actor="Reviewer One")
     corrections.save("run-trial", _id("invoice"), fields={"gross_total": "200"}, expected_revision=0, actor="Reviewer One")
-    assert [i["amount"] for i in reconcile.snapshot()["invoices"]] == ["100"]
+    assert [i["amount"] for i in reconcile_store.snapshot()["invoices"]] == ["100"]
 
 
 def test_the_role_history_counts_each_earlier_document_by_its_counted_result(db) -> None:

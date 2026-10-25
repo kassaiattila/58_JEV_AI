@@ -13,6 +13,7 @@ import pytest
 from jav.app import work, work_views
 from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package as rp
+from jav.domains.finance import reconcile_store
 from tests import test_api
 from tests import test_reconcile_k2_129 as k2
 
@@ -206,7 +207,7 @@ def test_the_trial_confirmations_count_as_whole_allocations(db):
     ws = rp.workspace(_package())
     [share] = _line_row(ws, line)["allocations"]
     assert (share["allocation_id"], share["line_amount"]) == (None, "100.00") and _line_row(ws, line)["state"] == "allocated"
-    rp.revoke(ws["workpackage_id"], kind="decision", ref=reconcile.pair_key(inv, line), actor="t")
+    rp.revoke(ws["workpackage_id"], kind="decision", ref=reconcile_store.pair_key(inv, line), actor="t")
     assert _line_row(rp.workspace(ws["workpackage_id"]), line)["state"] == "proposed"
 
 
@@ -250,7 +251,7 @@ def test_a_rejected_pair_is_not_offered_again_until_revoked(db):
     assert (d["decision"], d["workpackage_id"], d["run_id"]) == ("not_this", wp_id, None)
     ws = rp.workspace(wp_id)
     assert _line_row(ws, lid)["state"] == "open" and _line_row(ws, lid)["rejected"] == [inv]
-    rp.revoke(wp_id, kind="decision", ref=reconcile.pair_key(inv, lid), actor="t")
+    rp.revoke(wp_id, kind="decision", ref=reconcile_store.pair_key(inv, lid), actor="t")
     assert _line_row(rp.workspace(wp_id), lid)["state"] == "proposed"
 
 

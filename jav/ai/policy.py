@@ -2,7 +2,7 @@
 
 224 (plan G-process-core P3c): a domain's own rules are in its own file, read by its own module: the email routes
 (`configs/email.json`, `jav/domains/email/email_rules.py`), the duplicate search and the reconciliation's bands
-(`configs/finance.json`, `jav/domains/finance/duplicates.py`, `jav/domains/finance/reconcile.py`). They judge with the
+(`configs/finance.json`, `jav/domains/finance/duplicates.py`, `jav/domains/finance/reconcile_rules.py`). They judge with the
 bands here.
 
 JEV's raw probabilities (`FieldPick.probabilities`, `JevVerdicts.flags`, `IntentResult.signals`) stay untouched in the

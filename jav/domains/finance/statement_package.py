@@ -39,6 +39,7 @@ from jav.app import item_kinds, logic_packs, package_scope, parties, work, work_
 from jav.ai import typepack
 from jav.core import activity_kinds, cfg, identity, store, values
 from jav.domains.finance import reconcile, statement_months, statement_table
+from jav.domains.finance import reconcile_store
 from jav.core.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/core/activity_kinds.py`)
@@ -221,14 +222,14 @@ def survey(paths: Iterable[Path], *, party_id: str, period_start: Any, period_en
     has not processed."""
     party, start, end = _checked(party_id, period_start, period_end)
     found = _sources(paths)
-    stored = reconcile.statements()
+    stored = reconcile_store.statements()
     stored_ids = {s["id"] for s in stored}
     previews = [(r, a, _preview(r, a)) for r in found.readings for a in r.accounts]
     top = max((int(s.get("seq") or 0) for s in stored), default=0) + 1  # 144: a file read now is later than any stored reading
     new = {s["id"]: {**s, "seq": top} for _r, _a, s in previews if s["id"] not in stored_ids}
     every = {**{s["id"]: s for s in stored}, **new}
     res = statement_months.resolve(list(every.values()), statement_months.choices())
-    files = {**reconcile.file_names(stored_ids), **{s["id"]: (a.source or {}).get("file", r.file_name) for r, a, s in previews}}
+    files = {**reconcile_store.file_names(stored_ids), **{s["id"]: (a.source or {}).get("file", r.file_name) for r, a, s in previews}}
 
     def ref(sid: str) -> dict[str, Any]:
         st = every[sid]
@@ -370,7 +371,7 @@ def package_view(wp_id: str) -> dict[str, Any]:
     """The package's scope and each item's statement: valid, replaced (by which), in a conflict a person decides, or
     pending (no statement saved from it yet: not processed, or not a statement)."""
     sc, wp = scope(wp_id), _package(wp_id)
-    every = reconcile.statements()
+    every = reconcile_store.statements()
     by_id = {s["id"]: s for s in every}
     res = statement_months.resolve(every, statement_months.choices())
     rows = []
@@ -424,7 +425,7 @@ def after_item(run: dict[str, Any], item: dict[str, Any]) -> list[str]:
     """The saved statement's account and the package's party: another party's account is a to-do. 153 (decision of
     2026-10-13): an account no party holds goes to the package's party only when the live run is approved
     (`after_approval`); until then a payment to it is no transfer between own accounts."""
-    st = next((s for s in reconcile.statements() if s["id"] == item["item_id"]), None)
+    st = next((s for s in reconcile_store.statements() if s["id"] == item["item_id"]), None)
     if st is None:
         return []
     key = reconcile.statement_account(st)
@@ -452,7 +453,7 @@ def after_approval(run: dict[str, Any]) -> None:
     if row is None:
         return
     res = parties.resolver()
-    statements = {s["id"]: s for s in reconcile.run_statements(run["run_id"])}
+    statements = {s["id"]: s for s in reconcile_store.run_statements(run["run_id"])}
     done: set[str] = set()
     actor = run.get("approved_by") or run["actor"]
     for item in work_runs.released_items(run):  # 160-C: not a statement removed before the approval (decision 163 D7)

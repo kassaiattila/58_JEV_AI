@@ -16,6 +16,7 @@ import pytest
 
 from jav.core import card_numbers
 from jav.domains.finance import reconcile, statement_months as sm, statement_table as st
+from jav.domains.finance import reconcile_store
 from tests import test_statement_camt_141 as camt
 from tests import test_statement_cib_141 as cib
 from tests import test_statement_erste_137 as erste
@@ -172,7 +173,7 @@ def test_a_full_card_number_in_any_text_is_masked_when_read(tmp_path):
 def test_the_reconciliation_masks_a_card_number_an_extraction_kept_and_keeps_the_lines_id():
     raw = {"booking_date": "2026-05-06", "direction": "debit", "amount": "100.00", "memo": f"{CARD} 20260505 101530"}
     [plain] = reconcile.with_line_ids("s" * 64, [raw])
-    shown = reconcile._masked(plain)
+    shown = reconcile_store._masked(plain)
     assert shown["id"] == plain["id"] and shown["memo"] == f"{MASKED} 20260505 101530"
 
 
@@ -206,7 +207,7 @@ def test_the_survey_offers_a_new_reading_of_a_stored_statement_in_its_place(tmp_
         old = tmp_path / "old"
         erste._export(old, "20260630", erste.JUNE, pdf=erste.PDF_JUNE)
         _run_all(sp.create_from_statement_table(old, [f"{erste.DIGITS}:HUF:2026-06-01"], name="Erste June", owner="tester")["id"])
-        [stored] = reconcile.statements()
+        [stored] = reconcile_store.statements()
         pdf = list(erste.PDF_JUNE)  # the same month, the reader now keeps the authorisation code too
         at = pdf.index("Kártyaszám - Tr.időpont   999999xxxxxx9999 - 2026.05.31") + 1
         pdf[at:at] = ["Terminál - eng.kód Trtip   - 123456 - vásár."]

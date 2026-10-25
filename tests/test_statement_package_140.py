@@ -20,6 +20,7 @@ import pytest
 from jav.app import parties, work, work_readiness, work_runs
 from jav.core import store
 from jav.domains.finance import reconcile, statement_package as sp, statement_table as st
+from jav.domains.finance import reconcile_store
 from jav.runtime import worker
 from jav.core import queue
 from tests import test_api
@@ -96,7 +97,7 @@ def test_the_survey_shows_what_a_better_statement_would_replace(db):
     old = db / "old"
     _export(old, "20260529", MAY)  # May without its PDF: unchecked, in the store
     _run_all(sp.create_from_statement_table(old, [f"{DIGITS}:HUF:2026-05-01"], name="Erste May", owner="tester")["id"])
-    [stored] = reconcile.statements()
+    [stored] = reconcile_store.statements()
     survey = _survey(_folder(db / "new", may_pdf=True), party)
     may = _row(survey, "2026-05")
     assert may["rank"] == "code_checked" and [r["id"] for r in may["replaces"]] == [stored["id"]]

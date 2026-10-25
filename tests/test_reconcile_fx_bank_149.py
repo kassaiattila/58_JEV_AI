@@ -19,6 +19,10 @@ from decimal import Decimal
 
 from jav.domains.finance import reconcile
 
+from jav.domains.finance import reconcile_rules
+
+from jav.domains.finance import reconcile_store
+
 CASES = {c["id"]: c for c in reconcile.golden_cases()}
 
 
@@ -76,7 +80,7 @@ def test_a_card_line_is_compared_as_before():
 
 
 def test_francs_are_handled():
-    assert "CHF" in reconcile._conf()["currencies"]
+    assert "CHF" in reconcile_rules._conf()["currencies"]
     result = reconcile.propose(copy.deepcopy(CASES["fx_bank_booking_rate"]["snapshot"]))
     assert result["excluded"] == []
 
@@ -87,9 +91,9 @@ def test_the_snapshot_asks_for_the_fulfilment_and_the_booking_days():
                 {"currency": "USD", "issue_date": "2026-04-03"}]
     statements = [{"statement_type": "bank_account", "currency": "HUF", "lines": [{"booking_date": "2026-04-10"}]},
                   {"statement_type": "bank_account", "currency": "EUR", "lines": [{"booking_date": "2026-04-11"}]}]
-    assert reconcile.bank_rate_needs(invoices, statements) == {
+    assert reconcile_store.bank_rate_needs(invoices, statements) == {
         ("CHF", date(2026, 3, 31)), ("USD", date(2026, 4, 3)), ("CHF", date(2026, 4, 10)), ("USD", date(2026, 4, 10))}
-    assert reconcile.bank_rate_needs(invoices, statements[1:]) == set()  # no forint bank account
+    assert reconcile_store.bank_rate_needs(invoices, statements[1:]) == set()  # no forint bank account
 
 
 def test_a_forint_bank_account_covers_a_foreign_invoice():

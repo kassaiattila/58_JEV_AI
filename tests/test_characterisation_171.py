@@ -50,7 +50,7 @@ DOC_A, DOC_B, DOC_C = _id("a"), _id("b"), _id("c")
 
 @pytest.fixture
 def db(tmp_path):
-    from jav.domains.finance import reconcile, statement_months  # noqa: F401  (their tables are registered on import)
+    from jav.domains.finance import reconcile_store, statement_months  # noqa: F401  (their tables are registered on import)
     from jav.domains.email import mailbox  # noqa: F401  (its tables are registered on import)
 
     with store.use_store(tmp_path / "characterisation.sqlite"):

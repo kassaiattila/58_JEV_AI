@@ -103,9 +103,9 @@ def duplicate_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
 
 def reconcile_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
     """129: the reconciliation decisions on pairs one of the run's documents is a side of."""
-    from jav.domains.finance import reconcile
+    from jav.domains.finance import reconcile_store
 
-    return [[d["pair_key"], d["decision"], d["decided_at"]] for d in reconcile.decisions_for(items, c)]
+    return [[d["pair_key"], d["decision"], d["decided_at"]] for d in reconcile_store.decisions_for(items, c)]
 
 
 def statement_rows(run_id: str, items: list[str], c: Any) -> list[Any]:

@@ -94,6 +94,8 @@ def _imported(path) -> set[str]:
 
 
 FINANCE = {"jav.domains.finance.duplicates", "jav.domains.finance.own_parties", "jav.domains.finance.report_utility", "jav.core.type_roles", "jav.domains.finance.reconcile", "jav.domains.finance.reconcile_package",
+           "jav.domains.finance.reconcile_rules", "jav.domains.finance.reconcile_signals", "jav.domains.finance.reconcile_amounts",
+           "jav.domains.finance.reconcile_store",
            "jav.domains.finance.statement_package", "jav.domains.finance.statement_months"}
 
 

@@ -44,12 +44,13 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
     synthetic golden cases (configs/golden_reconcile.json). 137: the pairs are decided in a reconciliation package; the
     command opens no to-do. Free."""
     from jav.domains.finance import reconcile
+    from jav.domains.finance import reconcile_store
 
     if args.golden:
         score = reconcile.golden_score()
         reconcile.print_golden_score(score)
         return 0 if not score["failures"] else 1
-    r = reconcile.scan()
+    r = reconcile_store.scan()
     print(f"statements: {r['statements']} (verified by their balances: {r['verified_statements']}), lines: {r['lines']}")
     print(f"invoices: {r['invoices']}; excluded by reason: {r['excluded_invoices']}")
     print(f"lines excluded by reason: {r['excluded_lines']}")
