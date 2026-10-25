@@ -57,9 +57,17 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
     data = {"pack": pack.id, "pack_version": pack.version, "container": case_id, "name": wp["name"], "scope": checked,
             "resources": resources, capabilities.RULES: rules, capabilities.RULE_REFS: rule_refs}
     with cases.transaction() as c:
-        package_scope.save(c, case_id, parts=checked, actor=actor)
+        package_scope.save(c, case_id, parts=checked, actor=actor, **_scope_columns(checked))
         cases.start_in(c, case_id, definition, data, identity.who(actor))
     return case_id
+
+
+def _scope_columns(checked: dict[str, Any]) -> dict[str, Any]:
+    """231 (C2d): a case's party and period in the shared scope's own columns too, beside its parts, as every package's
+    scope keeps them: a party's merge moves them, and a domain reads them as it reads its own packages'."""
+    period = checked.get(scopes.PERIOD)
+    return {"party_id": checked.get(scopes.PARTY), "period_start": period[0] if period else None,
+            "period_end": period[1] if period else None}
 
 
 def adopt_case(pack_id: str, wp_id: str, scope: dict[str, Any], *, actor: identity.Who) -> str:
@@ -90,7 +98,7 @@ def adopt_case(pack_id: str, wp_id: str, scope: dict[str, Any], *, actor: identi
         if cases.find_case_in(c, wp_id) is not None:
             return "exists"
         work.retype_in(c, wp_id, source_kind=CONTAINER, source_ref=f"pack:{pack.id}@{pack.version}", actor=actor)
-        package_scope.save(c, wp_id, parts=checked, actor=actor)
+        package_scope.save(c, wp_id, parts=checked, actor=actor, **_scope_columns(checked))
         rulebook.link_in(c, rulebook.CASE, wp_id)  # the code and the rules the case was taken over with
         owner = identity.who(wp["owner"]) if wp.get("owner") else who
         return cases.adopt(c, wp_id, definition, data, owner, who, states)
@@ -106,12 +114,25 @@ def adopt_all(*, actor: identity.Who, write: bool = False) -> list[dict[str, Any
             for wp in work.list_workpackages(include_archived=True):
                 if wp.get("source_kind") != rule.kind:
                     continue
-                stored = (package_scope.stored(wp["id"]) or {}).get("parts") or {}
-                scope = {part: stored.get(key) for part, key in rule.scope.items()}
+                stored = package_scope.stored(wp["id"]) or {}
+                scope = {part: _stored_value(stored, key) for part, key in rule.scope.items()}
                 result = adopt_case(pack.id, wp["id"], scope, actor=actor) if write else "to adopt"
                 out.append({"pack": pack.id, "workpackage_id": wp["id"], "name": wp["name"], "scope": scope,
                             "result": result})
     return out
+
+
+def _stored_value(stored: dict[str, Any], key: str) -> Any:
+    """A stored scope's value by its key: a further part, or (231, C2d) the party and the period from their own columns,
+    where a logic pack's package keeps them."""
+    parts = stored.get("parts") or {}
+    if key in parts:
+        return parts[key]
+    if key == scopes.PARTY:
+        return stored.get("party_id")
+    if key == scopes.PERIOD and stored.get("period_start") and stored.get("period_end"):
+        return [stored["period_start"], stored["period_end"]]
+    return None
 
 
 def resource_of(c: Any, case_id: str, key: str) -> str | None:

@@ -19,7 +19,7 @@ from pydantic import Field
 
 from jav.app import case_views, process_runtime, work_views
 from jav.core import identity
-from jav.service.service_shared import Empty, In, human_actor
+from jav.service.service_shared import Empty, In, IsoDay, PartyId, human_actor
 
 CaseId = Annotated[str, PathParam(pattern=r"^wp-[0-9a-f]{12}$")]  # a case's id is its container's
 CaseStep = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
@@ -41,11 +41,15 @@ class ActionIn(In):
 
 
 class CaseIn(In):
-    """The pack, the case's name and its scope: the record it starts from, or (231 C1c) the work packages it reads."""
+    """The pack, the case's name and its scope: the record it starts from, or (231 C1c) the work packages it reads, or
+    (C2d) the own party and the period it is about."""
 
     pack: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
     record: Record | None = None
     sources: Annotated[list[Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")]], Field(min_length=1, max_length=100)] | None = None
+    party_id: PartyId | None = None
+    period_start: IsoDay | None = None
+    period_end: IsoDay | None = None
     name: Annotated[str, Field(min_length=1, max_length=200)]
 
 
@@ -55,7 +59,9 @@ def routes(app: FastAPI, r: str) -> None:
     @app.post(r + "/cases", status_code=201)
     def start_case(body: CaseIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         scope = {**({"record": body.record.model_dump()} if body.record else {}),
-                 **({"sources": body.sources} if body.sources else {})}
+                 **({"sources": body.sources} if body.sources else {}),
+                 **({"party": body.party_id} if body.party_id else {}),
+                 **({"period": [body.period_start, body.period_end]} if body.period_start or body.period_end else {})}
         case_id = process_runtime.start_case(body.pack, scope, name=body.name, actor=who)
         return {"case_id": case_id}
 

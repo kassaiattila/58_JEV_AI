@@ -8,8 +8,9 @@ once: how a given value is checked and how it is named. Today there are two part
 logic pack that needs another one (a client, a case) registers it, and the store keeps it without a change.
 
 - `register(part)`, `of(name)`, `parts()`: the registry.
-- `check(needs, given)`: the scope a workflow is made with: every needed part given and checked, the others kept when
-  given and known; an unknown part is refused (`ScopeError`).
+- `check(needs, given)`: the scope a workflow is made with: every needed part given and checked (231: or taken from
+  its default), the others kept when given and known; an unknown part is refused (`ScopeError`). `asks(needs)`: the
+  needed parts a person gives.
 - `label(scope)`: the scope in words, in the parts' order (a workflow's default name).
 
 Layer: business module. It names the two parts it registers itself (`jav/app/parties.py` for the party).
@@ -37,13 +38,15 @@ class Part:
     """One part of a scope: its `name`, the registering `module`, `check(value, error)` (the given value in its stored
     form; raises `error`, the caller's own error class), `label(value)` (the stored value in words) and
     `missing(error)`: the error when a workflow needs it and it was not given (each message an interface label,
-    `jav/core/user_messages.py`)."""
+    `jav/core/user_messages.py`). 231 (C2d): `default(scope)`: the value a needed part takes when it is not given,
+    from the parts already checked (None: none for this scope); a part without one must be given."""
 
     name: str
     module: str
     check: Callable[[Any, type[Exception]], Any]
     label: Callable[[Any], str]
     missing: Callable[[type[Exception]], Exception]
+    default: Callable[[Mapping[str, Any]], Any] | None = None
 
 
 _PARTS: dict[str, Part] = {}
@@ -71,14 +74,28 @@ def parts() -> list[Part]:
 def check(needs: Iterable[str], given: Mapping[str, Any], *, error: type[Exception] = ScopeError) -> dict[str, Any]:
     """The scope made of `given` ({part: value}, a missing or None value is not given): every part in `needs` must be
     given; each given part is checked by its own part; the result is in the registry's order. A refusal raises `error`
-    (the caller's own error class, e.g. `workflows.WorkflowError`)."""
+    (the caller's own error class, e.g. `workflows.WorkflowError`). 231 (C2d): a needed part with a default that was
+    not given takes it from the parts checked before it (in the registry's order); none for this scope is missing."""
     needed = list(dict.fromkeys(needs))
     present = {k: v for k, v in given.items() if v is not None}
     for name in [*needed, *present]:
         of(name, error)  # an unknown part is refused
-    if missing := [n for n in needed if n not in present]:
+    if missing := [n for n in needed if n not in present and of(n).default is None]:
         raise of(missing[0]).missing(error)
-    return {p.name: p.check(present[p.name], error) for p in _PARTS.values() if p.name in present}
+    checked = {p.name: p.check(present[p.name], error) for p in _PARTS.values() if p.name in present}
+    for p in _PARTS.values():
+        if p.name in needed and p.name not in checked:
+            value = p.default(checked) if p.default is not None else None
+            if value is None:
+                raise p.missing(error)
+            checked[p.name] = p.check(value, error)
+    return {p.name: checked[p.name] for p in _PARTS.values() if p.name in checked}
+
+
+def asks(needs: Iterable[str]) -> list[str]:
+    """231 (C2d): the needed parts a person gives (those without a default), in the registry's order."""
+    needed = set(needs)
+    return [p.name for p in _PARTS.values() if p.name in needed and p.default is None]
 
 
 def label(scope: Mapping[str, Any]) -> str:
@@ -154,8 +171,8 @@ register(Part(PARTY, __name__, _party, _party_name, _no_party))
 register(Part(PERIOD, __name__, _period, _period_words, _no_period))
 
 
-__all__ = ["PARTNERS", "PARTY", "PERIOD", "Part", "RECORD", "SOURCES", "ScopeError", "check", "label", "of", "parts", "period",
-           "register"]
+__all__ = ["PARTNERS", "PARTY", "PERIOD", "Part", "RECORD", "SOURCES", "ScopeError", "asks", "check", "label", "of", "parts",
+           "period", "register"]
 register(Part(RECORD, __name__, _record, _record_words, _no_record))
 
 PARTNERS = "partners"  # 231 (B1): the partners a case is about, by role ({role: partner_id}; `jav/app/partners.py`)

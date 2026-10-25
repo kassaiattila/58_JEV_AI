@@ -19,7 +19,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav.app import process_packs, process_settings, work_views
+from jav.app import process_packs, process_settings, scopes, work_views
 from jav.core import identity
 from jav.core.user_messages import message_fields
 from jav.service.service_shared import Empty, In, error, human_actor
@@ -53,8 +53,10 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.get(r + "/processes")
     def process_list() -> dict[str, Any]:
-        # 231 (C1c): what a case of each needs (its scope parts) and the kinds of package that offer one
+        # 231 (C1c): what a case of each needs (its scope parts) and the kinds of package that offer one; (C2d) which of
+        # the parts a person gives (the others take their default)
         return {"processes": [{"id": p.id, "title": p.title, "version": p.version, "scope": list(p.scope.parts),
+                               "asks": scopes.asks(p.scope.parts),
                                "package_kinds": sorted({k for i in p.intake if i.on == "package" for k in i.package_kinds})}
                               for p in process_packs.packs()]}
 
