@@ -297,6 +297,10 @@ def register() -> None:
     logic_packs.register(reconcile_package.LOGIC)
     workflow_steps.register(statement_package.STEP)  # 181: a workflow's statements and reconciliation steps
     workflow_steps.register(reconcile_package.STEP)
+    from jav.domains.finance import capabilities
+
+    # 231 (C2b): the pairing of two lists as a general capability's step (the monthly reconciliation's pack names it, C2d)
+    capabilities.register()
     for role in _roles():  # 181: what a package collects, and where an emailed document belongs
         package_scope.register_role(role)
     package_scope.register_reader("finance", place_document)
