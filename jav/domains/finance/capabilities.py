@@ -66,10 +66,35 @@ CAPABILITY = Capability(
              " or marks, and approves the result."))
 
 
+# 231 (C2d): where each stage of the reconciliation's next step is done: its element's `show` on the case's tabs
+_SHOWN_AT = {"process": "lines", "review": "decide", "result": "result"}
+
+
+def _view(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict[str, Any]:
+    """The pairing element's data, read once per page view: the scope, the counts, the approval and the next step with
+    the `show` it is done on. The element reads the whole workspace itself; this is what the tabs' lines and the page's
+    next step need (with the package list's safety bound, as the list asks a case's next step too)."""
+    from jav.domains.finance import reconcile_package
+
+    if "pairing" not in shared:
+        view = reconcile_package.package_view(case_id, keep_seconds=reconcile_package.LIST_KEEP_SECONDS)
+        nxt = view["next"]
+        shared["pairing"] = {"scope": view["scope"], "counts": view["counts"], "approval": view["approval"],
+                             "next": {**nxt, "element": "pairing", "show": _SHOWN_AT.get(nxt.get("stage"), "decide")}}
+    return shared["pairing"]
+
+
+def _mark() -> Any:
+    from jav.domains.finance import reconcile_package
+
+    return reconcile_package._list_mark()
+
+
 def register() -> None:
-    from jav.app import capabilities
+    from jav.app import capabilities, case_views
 
     capabilities.register(CAPABILITY)
+    case_views.register(case_views.ElementData("pairing", CAPABILITY.name, _OWNER, _view, mark=_mark))
 
 
 __all__ = ["CAPABILITY", "Pairing", "register"]

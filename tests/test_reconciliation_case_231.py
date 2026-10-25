@@ -83,3 +83,27 @@ def test_the_accounts_default_to_the_partys_and_are_checked(db, monkeypatch):
         scopes.check([rp.ACCOUNTS], {"accounts": ["NOWHERE"]})
     with pytest.raises(scopes.ScopeError, match="no account or card"):
         scopes.check([scopes.PARTY, rp.ACCOUNTS], {"party": "party-ffffffffffff"})
+
+
+def test_the_pairing_element_gives_the_scope_counts_and_the_tab_of_the_next_step(db):
+    from jav.domains.finance import capabilities as finance_capabilities
+
+    k2._save("inv", k2._invoice())
+    p131._stmt("stmt", p131._line())
+    case = _container()
+    shared: dict = {}
+    data = finance_capabilities._view(case, "pair", shared)
+    assert data["scope"]["accounts"] == [OWN_KEY] and data["counts"]["open_lines"] == 1
+    assert (data["next"]["code"], data["next"]["element"], data["next"]["show"]) == ("reconcile_pair", "pairing", "decide")
+    assert finance_capabilities._view(case, "pair", shared) is data  # read once per page view
+
+
+def test_the_inputs_list_keeps_one_kind_when_asked(db):
+    from jav.domains.finance import finance_datasets
+
+    k2._save("inv", k2._invoice())
+    p131._stmt("stmt", p131._line())
+    case = _container()
+    kinds = {name: {r["kind"] for r in finance_datasets.reconcile_inputs({"workpackage_id": case, **extra})[1]}
+             for name, extra in (("all", {}), ("statement", {"kind": "statement"}), ("invoice", {"kind": "invoice"}))}
+    assert kinds == {"all": {"statement", "incoming"}, "statement": {"statement"}, "invoice": {"incoming"}}

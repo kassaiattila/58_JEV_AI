@@ -8,6 +8,7 @@ import { t } from "../i18n";
 import { moneyText } from "../labels";
 import { quoteStatus, quoteSummary } from "../views/quotes/quoteStatus";
 import { costTotal, handoverStatus, replyStatus } from "./caseStatus";
+import { pairingLine, pairingSummary } from "./pairingStatus";
 
 export interface ElementProps { caseId: string; element: CaseElement; page: CaseView; onChanged: () => void }
 export interface ElementSpec {
@@ -34,8 +35,9 @@ const Timeline = lazy(() => general().then((m) => ({ default: m.Timeline })));
 const CostView = lazy(() => general().then((m) => ({ default: m.CostView })));
 const PartnerLink = lazy(() => general().then((m) => ({ default: m.PartnerLink })));
 const StartedCases = lazy(() => general().then((m) => ({ default: m.StartedCases })));
-// 231 (C1c): the file placement capability's element (its page loads only when a case shows it)
+// 231 (C1c): the file placement capability's element (its page loads only when a case shows it); (C2d) the pairing's
 const FilePlacement = lazy(() => import("./FilePlacement").then((m) => ({ default: m.FilePlacement })));
+const Pairing = lazy(() => import("./Pairing").then((m) => ({ default: m.Pairing })));
 const lazily = (C: (p: ElementProps) => ReactNode) =>
   (p: ElementProps) => <Suspense fallback={<p className="muted">{t("Loading…")}</p>}><C {...p} /></Suspense>;
 const quoteOf = (p: ElementProps) => (p.element.data as { quote?: QuoteView } | null)?.quote;
@@ -64,5 +66,6 @@ export const ELEMENTS: Record<string, ElementSpec> = {
   partner_link: { render: lazily(PartnerLink) },  // 231 (B1)
   started_cases: { render: lazily(StartedCases) },  // 231 (C1c)
   file_placement: { render: lazily(FilePlacement), status: placementLine, summary: placementSummaryOf },  // 231 (C1c)
+  pairing: { render: lazily(Pairing), status: pairingLine, summary: pairingSummary },  // 231 (C2d)
   cost: { render: lazily(CostView), status: (p) => { const usd = costTotal(p); return usd === null ? null : `${moneyText(usd)} USD`; } },
 };

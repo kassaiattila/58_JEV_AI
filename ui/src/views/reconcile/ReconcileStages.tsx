@@ -17,9 +17,21 @@ import { blockerItems, EXCLUDED, INVOICE_STATE, LINE_STATE, MARK, warningText } 
 import { show } from "./money";
 import "./reconcile.css";
 
+/** 231 (C2d): what one place shows of a reconciliation: a package's three stages (prepare, decide, result) or, on a
+ *  pairing case's tabs, one part of the preparation each (the invoices; the statements with the scope and coverage). */
+export type ReconcileShow = "prepare" | "invoices" | "lines" | "decide" | "result";
+
 export function ReconcileStages({ view, stage, onChanged }: { view: WorkpackageView; stage: Stage; onChanged: () => void }) {
+  return <ReconcileView wpId={view.workpackage.id} archived={view.workpackage.status === "archived"} onChanged={onChanged}
+    show={stage === "process" ? "prepare" : stage === "review" ? "decide" : "result"} />;
+}
+
+/** A reconciliation's workspace, loaded once, shown as `show` says; `toPairing` opens the pairing (the package's
+ *  Pairing stage by default). */
+export function ReconcileView({ wpId, archived, show, onChanged, toPairing }: {
+  wpId: string; archived: boolean; show: ReconcileShow; onChanged: () => void; toPairing?: () => void;
+}) {
   useLocale();
-  const wpId = view.workpackage.id;
   const loaded = useLoad(`reconcile:${wpId}`, () => api.reconcileWorkspace(wpId));
   const [ws, setWs] = useState<ReconcileWorkspace | null>(null);
   useEffect(() => { if (loaded.data) setWs(loaded.data); }, [loaded.data]);
@@ -28,7 +40,6 @@ export function ReconcileStages({ view, stage, onChanged }: { view: WorkpackageV
   const [manual, setManual] = useState<{ line: string | null } | null>(null);
   // 147: the pairing opens on the quick review (the groups accepted at once); the cards and the two lists stay
   const [mode, setMode] = useState<"quick" | "cards">("quick");
-  const archived = view.workpackage.status === "archived";
   // 145: an approved package takes no decision until its approval is reopened (the Result stage)
   const approved = ws?.approval?.active ?? null;
   const readOnly = archived || approved !== null;
@@ -36,7 +47,7 @@ export function ReconcileStages({ view, stage, onChanged }: { view: WorkpackageV
   if (!ws) {
     return loaded.error ? <p className="notice error" role="alert">{loaded.error.message}</p> : <p className="muted">{t("Loading…")}</p>;
   }
-  if (stage === "result") {
+  if (show === "result") {
     return <ReconcileResult ws={ws} archived={archived} onChanged={onChanged} reloadWorkspace={loaded.reload} />;
   }
   const banner = approved ? (
@@ -44,7 +55,10 @@ export function ReconcileStages({ view, stage, onChanged }: { view: WorkpackageV
       {t("Approved: version {{n}}, by {{who}}. The decisions are locked; reopen the approval in the Result stage to change them.", { n: approved.version, who: approved.approved_by })}
     </p>
   ) : null;
-  if (stage === "process") return <>{banner}<ReconcilePrepare ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload} /></>;
+  if (show === "prepare" || show === "invoices" || show === "lines") {
+    return <>{banner}<ReconcilePrepare ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload}
+      part={show === "prepare" ? undefined : show} toPairing={toPairing} /></>;
+  }
   return (
     <>
       {banner}
@@ -82,8 +96,12 @@ function Counts({ counts, labels }: { counts: Record<string, number>; labels: Re
 interface StageProps { ws: ReconcileWorkspace; readOnly: boolean; onWorkspace: (ws: ReconcileWorkspace) => void; reload: () => void }
 
 /** Preparation: the scope (accounts and period), how far the statements cover it, what blocks the approval, and the
- *  recomputation with the missing exchange rates. */
-export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StageProps) {
+ *  recomputation with the missing exchange rates. 231 (C2d): `part` shows one part of it (a pairing case's tab): the
+ *  invoices (their list, what blocks the approval, where the pairing stands) or the statement lines (the scope, the
+ *  coverage, the statements' list and the decisions that no longer count). */
+export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload, part, toPairing }: StageProps & {
+  part?: "invoices" | "lines"; toPairing?: () => void;
+}) {
   useLocale();
   const accounts = useLoad("reconcile-accounts", api.reconcileAccounts);
   const parties = useLoad("parties", api.parties);
@@ -103,12 +121,16 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
     return t("Someone changed the scope meanwhile; it has been reloaded.");
   } });
 
+  const lines = part !== "invoices";
+  const invoices = part !== "lines";
+  const pairing = toPairing ?? (() => go({ view: "workpackages", wpId: ws.workpackage_id, stage: "review" }));
+
   return (
     <div className="rc-stack">
-      <section className="card" aria-label={t("Scope")}>
+      {lines ? <section className="card" aria-label={t("Scope")}>
         <div className="card-head">
           <h2>{t("Scope")}</h2>
-          <button type="button" className="secondary" onClick={() => go({ view: "workpackages", wpId: ws.workpackage_id, stage: "review" })}>{/* 156: the header holds the solid next step */}
+          <button type="button" className="secondary" onClick={pairing}>{/* 156: the header holds the solid next step */}
             {t("Go to pairing")} →
           </button>
         </div>
@@ -136,9 +158,9 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
         </div>
         {error ? <p className="notice error" role="alert">{error}</p> : null}
         {notice ? <p className="small ok" role="status">{notice}</p> : null}
-      </section>
+      </section> : null}
 
-      <section className="card" aria-label={t("Coverage")}>
+      {lines ? <section className="card" aria-label={t("Coverage")}>
         <div className="card-head">
           <h2>{t("Coverage")}</h2>
           {readOnly ? null : (
@@ -170,17 +192,20 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
             </tbody>
           </table>
         </div>
-      </section>
+      </section> : null}
 
-      {/* 169 (DECISIONS 169): what the pairing takes — every package lists its items (168) */}
-      <ReconcileInputs ws={ws} readOnly={readOnly} onWorkspace={onWorkspace} />
+      {/* 169 (DECISIONS 169): what the pairing takes — every package lists its items (168); 231 (C2d): a part, one kind */}
+      <ReconcileInputs ws={ws} readOnly={readOnly} onWorkspace={onWorkspace}
+        kind={part === "invoices" ? "invoice" : part === "lines" ? "statement" : undefined} />
 
-      <LeftOver ws={ws} readOnly={readOnly} busy={busy}
-        onRevoke={(r) => void act(() => api.reconcileRevoke(ws.workpackage_id, r.kind, r.ref), t("The decision has been revoked."))} />
-      <Unfit ws={ws} readOnly={readOnly} busy={busy}
-        onRevoke={(r) => void act(() => api.reconcileRevoke(ws.workpackage_id, r.kind, r.ref), t("The decision has been revoked."))} />
+      {lines ? <>
+        <LeftOver ws={ws} readOnly={readOnly} busy={busy}
+          onRevoke={(r) => void act(() => api.reconcileRevoke(ws.workpackage_id, r.kind, r.ref), t("The decision has been revoked."))} />
+        <Unfit ws={ws} readOnly={readOnly} busy={busy}
+          onRevoke={(r) => void act(() => api.reconcileRevoke(ws.workpackage_id, r.kind, r.ref), t("The decision has been revoked."))} />
+      </> : null}
 
-      <section className="card" aria-label={t("What blocks the approval")}>
+      {invoices ? <section className="card" aria-label={t("What blocks the approval")}>
         <h2>{t("What blocks the approval")}</h2>
         {ws.blockers.length ? (
           <>
@@ -196,15 +221,15 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
             </ul>
           </>
         ) : null}
-      </section>
+      </section> : null}
 
-      <section className="card" aria-label={t("Where the pairing stands")}>
+      {invoices ? <section className="card" aria-label={t("Where the pairing stands")}>
         <h2>{t("Where the pairing stands")}</h2>
         <div className="rc-kv">
           <span className="muted small">{t("Statement lines")}</span><Counts counts={ws.counts.lines} labels={LINE_STATE} />
           <span className="muted small">{t("Invoices")}</span><Counts counts={ws.counts.invoices} labels={INVOICE_STATE} />
         </div>
-      </section>
+      </section> : null}
     </div>
   );
 }
