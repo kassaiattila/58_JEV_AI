@@ -72,6 +72,17 @@ def _no_default_store(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _configs_not_frozen():
+    """231: a test that runs the long-running processes' start-up (`preload.preload`) freezes the configs (`cfg.freeze`);
+    the next test reads the folder as it is again, as a command does."""
+    yield
+    from jav.core import cfg
+
+    if cfg.frozen():
+        cfg.unfreeze()
+
+
+@pytest.fixture(autouse=True)
 def _no_real_ocr_cache(tmp_path_factory, monkeypatch):
     """160 (review T-1): a test never reads or writes the real OCR cache (`runs/ocr/`: recognised text of real
     documents). Two tests lived from it, so they failed on a clean copy and added files to it here. The cache is an
