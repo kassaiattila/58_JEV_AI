@@ -299,6 +299,22 @@ def link_partner(case_id: str, role: str, partner_id: str, actor: identity.Who) 
     return view(case_id)
 
 
+def _started_cases(case_id: str, _step: str | None, shared: dict[str, Any]) -> list[dict[str, Any]]:
+    """231 (C1c): the cases started from an item of the work packages the case reads (its scope's `sources`): each with
+    its process and state."""
+    sources = set(((package_scope.stored(case_id) or {}).get("parts") or {}).get(scopes.SOURCES) or [])
+    out = []
+    for h in package_scope.holders(scopes.RECORD, lambda v: isinstance(v, dict) and v.get("workpackage_id") in sources):
+        pinned = process_runtime.pack_of(h["id"])
+        with store.connect() as c:
+            case = cases.find_case_in(c, h["id"])
+        out.append({"id": h["id"], "name": h["name"], "record": h["value"], "pack": pinned[0] if pinned else None,
+                    "process": process_packs.load(pinned[0]).title if pinned else None,
+                    "status": case["status"] if case else None})
+    return out
+
+
+register(ElementData("started_cases", None, __name__, _started_cases))
 register(ElementData("timeline", None, __name__, _timeline))
 register(ElementData("cost", None, __name__, _cost))
 register(ElementData("partner_link", None, __name__, _partner_link))

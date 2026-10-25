@@ -1178,3 +1178,14 @@ link reads). Each email is remembered before its case starts (`intake_starts`: `
 process's intake first starts cases are remembered as `before` without a case. Only the case's free steps run: a paid
 step waits for a person's start, as its pack says. The IT quote's pack 1.3.0 starts its case by itself; the email's page
 still offers another case. Tests: `tests/test_email_intake_231.py`, `tests/test_process_packs_231.py`.
+
+**The email routing as a process pack (231, plan stage C, C1c).** `configs/processes/mail_routing.json`: a case reads
+the work packages its scope names (the general scope part `sources`, `jav/app/scopes.py`: one to a hundred existing
+packages) and has one step, `file_placement@1` (`jav/domains/email/capabilities.py`, human): the email routing's
+proposals and a person's decisions (`jav/domains/email/email_routing.py`, unchanged; it reads a case's `sources` as a
+routing package's `emails`), waiting while any attachment it can route is undecided, done once every one is; the case
+then closes. A routing package made before is taken over with its decisions (`Capability.adopt`: done, or waiting).
+Its tabs: Emails, Routing and Routed (the special element `file_placement` with `show: sources | decide | routed`,
+`ui/src/elements/FilePlacement.tsx`, the routing package's three stages until now), Started cases (the shared element
+`started_cases`: the cases started from an item of the packages the case reads, `package_scope.holders`) and History.
+Tests: `tests/test_mail_routing_case_231.py`, `ui/src/elements/filePlacement231.test.tsx`.

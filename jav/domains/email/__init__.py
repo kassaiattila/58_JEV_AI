@@ -126,6 +126,9 @@ def register() -> None:
                                             views=email_export.shown_tables, heads=email_export.HEADS))
     workflow_steps.register(mailbox.STEP)  # 181: a workflow's emails step
     workflow_steps.register_source(mailbox.SOURCE)  # 185: a mailbox download as a step's source
+    from jav.domains.email import capabilities
+
+    capabilities.register()  # 231 (C1c): the routing step of the email routing process pack
     logic_packs.register(email_routing.LOGIC)  # 181: the email routing and its workflow step
     workflow_steps.register(email_routing.STEP)
     for dataset, after in email_datasets.DATASETS:  # 185: its tables and label sets on the interface

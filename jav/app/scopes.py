@@ -154,10 +154,40 @@ register(Part(PARTY, __name__, _party, _party_name, _no_party))
 register(Part(PERIOD, __name__, _period, _period_words, _no_period))
 
 
-__all__ = ["PARTNERS", "PARTY", "PERIOD", "Part", "ScopeError", "check", "label", "of", "parts", "period", "register"]
+__all__ = ["PARTNERS", "PARTY", "PERIOD", "Part", "RECORD", "SOURCES", "ScopeError", "check", "label", "of", "parts", "period",
+           "register"]
 register(Part(RECORD, __name__, _record, _record_words, _no_record))
 
 PARTNERS = "partners"  # 231 (B1): the partners a case is about, by role ({role: partner_id}; `jav/app/partners.py`)
+SOURCES = "sources"  # 231 (C1c): the work packages a case reads its items from (the email routing's email packages)
+MAX_SOURCES = 100
+
+
+def _sources(value: Any, error: type[Exception]) -> list[str]:
+    from jav.app import work
+
+    if not (isinstance(value, list) and value and all(isinstance(v, str) and v for v in value)):
+        raise explained(error, "the case reads at least one work package")
+    chosen = list(dict.fromkeys(value))
+    if len(chosen) > MAX_SOURCES:
+        raise explained(error, "a case reads at most {{n}} work packages", n=MAX_SOURCES)
+    for wp_id in chosen:
+        try:
+            work.get(wp_id)
+        except KeyError as exc:
+            raise explained(error, "no work package {{wp_id}}", wp_id=repr(wp_id)) from exc
+    return chosen
+
+
+def _sources_words(value: list[str]) -> str:
+    return f"{len(value)} packages"
+
+
+def _no_sources(error: type[Exception]) -> Exception:
+    return explained(error, "the work packages a case reads are missing")
+
+
+register(Part(SOURCES, __name__, _sources, _sources_words, _no_sources))
 
 
 def _partners(value: Any, error: type[Exception]) -> dict[str, str]:

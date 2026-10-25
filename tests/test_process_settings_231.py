@@ -118,7 +118,7 @@ def test_the_template_a_process_sets_is_its_cases_default(golden, tmp_path) -> N
 def test_the_service_shows_saves_and_activates_a_process_value(golden, tmp_path) -> None:  # noqa: F811
     human = {"X-Actor": "anna"}
     with TestClient(create_app(store_path=store.current_path()), base_url="http://127.0.0.1:8930") as c:
-        assert [p["id"] for p in c.get("/api/processes").json()["processes"]] == [PACK]
+        assert [p["id"] for p in c.get("/api/processes").json()["processes"]] == [PACK, "mail_routing"]
         shown = c.get(f"/api/processes/{PACK}/settings").json()
         assert shown["policy"] == {"activation": "editor", "owners": []}
         assert {r["key"] for r in shown["resources"]} >= {"price_list", "send_mode", "letter_frame", "template:quote"}

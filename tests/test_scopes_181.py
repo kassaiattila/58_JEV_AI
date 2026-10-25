@@ -58,7 +58,7 @@ def test_a_scope_is_checked_part_by_part_with_the_callers_error(db) -> None:
         scopes.check([], {"period": ("2026-07-01", "2026-06-30")})
     assert scopes.label({"party": party, "period": MONTH}) == "Example Kft. 2026-06-01 – 2026-06-30"
     # 231 (A4): the record a case starts from; (B1) the partners a case is about
-    assert [p.name for p in scopes.parts()] == ["party", "period", "record", "partners"]
+    assert [p.name for p in scopes.parts()] == ["party", "period", "record", "sources", "partners"]  # 231 C1c: sources
 
 
 # --- a workflow's scope -------------------------------------------------------------------------------------------------

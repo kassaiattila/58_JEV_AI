@@ -117,10 +117,15 @@ def create(*, name: str, sources: list[str], actor: identity.Who) -> dict[str, A
 
 
 def sources_of(wp_id: str) -> list[str]:
+    """The email packages a routing package (`emails`) or (231 C1c) an email routing case (its scope's `sources`)
+    routes."""
+    from jav.app import scopes
+
     row = package_scope.stored(wp_id)
     if row is None:
         raise KeyError(wp_id)
-    return row["parts"][EMAILS]
+    parts = row["parts"] or {}
+    return list(parts.get(EMAILS) or parts.get(scopes.SOURCES) or [])
 
 
 # --- what each attachment is -----------------------------------------------------------------------------------------------

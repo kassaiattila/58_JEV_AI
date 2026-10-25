@@ -32,7 +32,7 @@ def _problems(data: dict) -> list[str]:
 
 
 def test_every_process_pack_passes_its_check() -> None:
-    assert [p.id for p in process_packs.packs()] == ["it_quote"]
+    assert [p.id for p in process_packs.packs()] == ["it_quote", "mail_routing"]  # 231 (C1c): the email routing
 
 
 def test_the_it_quote_pack_becomes_a_process_definition_of_capability_steps() -> None:

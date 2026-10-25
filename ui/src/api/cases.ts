@@ -18,6 +18,12 @@ export interface IntakeOffer {
   cases: { id: string; name: string }[];
 }
 
+/** 231 (C1c): a case started from an item of the packages another case reads. */
+export interface StartedCase {
+  id: string; name: string; record: { workpackage_id: string; item_id: string }; pack: string | null; process: string | null;
+  status: string | null;
+}
+
 /** A person's action on a step (A7d): a failed step's retry, or one its capability offers while the step waits for it. */
 export interface CaseAction { name: string; label: string }
 /** One step of a case: its capability, how it starts, its state in the process core, whether it waits for a person's
