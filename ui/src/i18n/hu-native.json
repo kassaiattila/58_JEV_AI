@@ -2730,5 +2730,8 @@
   "The AI is answering…": "Az AI válaszol…",
   "The AI answered {{n}} line(s); its proposals are on the pairing cards.": "Az AI {{n}} sorra válaszolt; a javaslatai a párosítókártyákon láthatók.",
   "The AI proposal failed: {{why}}": "Az AI-javaslat nem sikerült: {{why}}",
-  "Not asked: the reconciliation was approved without it.": "Nem kértek AI-javaslatot: az egyeztetést nélküle hagyták jóvá."
+  "Not asked: the reconciliation was approved without it.": "Nem kértek AI-javaslatot: az egyeztetést nélküle hagyták jóvá.",
+  "Statements": "Kivonatok",
+  "Summary": "Kimutatás",
+  "{{n}} bank accounts": "{{n}} bankszámla"
 }

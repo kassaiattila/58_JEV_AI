@@ -2724,5 +2724,8 @@
   "The AI is answering…": "The AI is answering…",
   "The AI answered {{n}} line(s); its proposals are on the pairing cards.": "The AI answered {{n}} line(s); its proposals are on the pairing cards.",
   "The AI proposal failed: {{why}}": "The AI proposal failed: {{why}}",
-  "Not asked: the reconciliation was approved without it.": "Not asked: the reconciliation was approved without it."
+  "Not asked: the reconciliation was approved without it.": "Not asked: the reconciliation was approved without it.",
+  "Statements": "Statements",
+  "Summary": "Summary",
+  "{{n}} bank accounts": "{{n}} bank accounts"
 }

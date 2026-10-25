@@ -79,7 +79,7 @@ describe("the reconciliation's case (231 C2d)", () => {
 
   it("gives each tab its line and the case its summary", () => {
     expect(["invoices", "lines", "decide", "result"].map((show) => pairingLine(props(show)))).toEqual([
-      "2 invoices", "1 accounts, 2026-04-01 – 2026-04-30", "3 open lines", "not approved yet"]);
+      "2 invoices", "1 bank accounts", "3 open lines", "not approved yet"]);
     expect(pairingSummary(props("decide"))).toBe("Reconciliation of 1 accounts or cards, 2026-04-01 – 2026-04-30");
   });
 });

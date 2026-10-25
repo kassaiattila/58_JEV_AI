@@ -13,7 +13,7 @@ export function pairingLine(p: ElementProps): string | null {
   if (!d) return null;
   const { scope, counts, approval } = d;
   if (p.element.show === "invoices") return t("{{n}} invoices", { n: counts.own_invoices ?? 0 });
-  if (p.element.show === "lines") return t("{{n}} accounts, {{from}} – {{to}}", { n: scope.accounts.length, from: scope.period_start, to: scope.period_end });
+  if (p.element.show === "lines") return t("{{n}} bank accounts", { n: scope.accounts.length });  // the period is in the case's summary
   if (p.element.show === "result") return approval?.active ? t("approved: version {{n}}", { n: approval.active.version }) : t("not approved yet");
   return counts.open_lines ? t("{{n}} open lines", { n: counts.open_lines }) : t("no open line");
 }
