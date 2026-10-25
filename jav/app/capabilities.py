@@ -141,6 +141,8 @@ class Capability:
       from `record` before a case starts (`jav/app/intake.py`): {"record": the record as the step reads it, "gaps":
       [{"code", "message"}], "list_field": the field of its list, "record_type": its type (the field labels')}; None
       when `record` holds none.
+    - `own_version` (C2d): its step is done with the case's own approved version (a person's approval of the result),
+      so reopening that version reopens the step (`process_runtime.own_version_reopened`).
     """
 
     name: str
@@ -163,6 +165,7 @@ class Capability:
     choices: Mapping[str, Callable[[], list[tuple[str, str]]]] = field(default_factory=dict)
     adopt: Callable[[str, Any], cases.Adopted | None] | None = None
     preview: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any] | None] | None = None
+    own_version: bool = False
 
     @property
     def key(self) -> str:

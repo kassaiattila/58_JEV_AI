@@ -122,6 +122,23 @@ def adopt_all(*, actor: identity.Who, write: bool = False) -> list[dict[str, Any
     return out
 
 
+def own_version_reopened(c: Any, wp_id: str, actor: Any, reason: str) -> list[str]:
+    """231 (C2d): the approved own version of a case's container was reopened, in that change's transaction: each done
+    step whose capability is done with that version (`Capability.own_version`) opens again (a case closed as done opens
+    too) and the steps built on it go out of date; returns them. Nothing for a package that is no case's, or a case
+    closed otherwise."""
+    case = cases.find_case_in(c, wp_id)
+    if case is None or (case["status"] == cases.CLOSED and case["outcome"] != "done"):
+        return []
+    out: list[str] = []
+    for step in cases.definition_of(case).steps:
+        cap = capabilities.of_step_kind(step.kind)
+        row = cases.find_step_in(c, wp_id, step.id)
+        if cap is not None and cap.own_version and row is not None and row["state"] == cases.DONE:
+            out += cases.reopen_in(c, wp_id, step.id, actor, reason=reason)
+    return out
+
+
 def _stored_value(stored: dict[str, Any], key: str) -> Any:
     """A stored scope's value by its key: a further part, or (231, C2d) the party and the period from their own columns,
     where a logic pack's package keeps them."""

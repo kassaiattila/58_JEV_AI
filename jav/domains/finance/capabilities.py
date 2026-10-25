@@ -61,7 +61,7 @@ def _adopt(wp_id: str, _params: dict[str, Any]) -> cases.Adopted:
 _OWNER = __name__
 CAPABILITY = Capability(
     name="pairing", version=1, module=_OWNER, run=_pair, kind="human", params=Pairing, effects="store",
-    rule_files=("reconcile", "finance"), adopt=_adopt,
+    rule_files=("reconcile", "finance"), adopt=_adopt, own_version=True,  # C2d: reopening the statement reopens it
     summary=("Proposes by code which item of one list settles which item of the other; a person confirms, rejects, splits"
              " or marks, and approves the result."))
 

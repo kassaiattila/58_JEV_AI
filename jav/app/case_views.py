@@ -95,10 +95,12 @@ def _actions(case_id: str, step: process_packs.Step, row: dict[str, Any]) -> lis
 
 
 def _step_view(case_id: str, step: process_packs.Step, row: dict[str, Any]) -> dict[str, Any]:
+    # 231 (C2d): `by_person`: a step of a human capability waits for a person, so its page need not ask again by itself
     return {"title": step.title, "uses": step.uses, "start": step.start, "state": row.get("state"),
             "phase": row.get("phase"), "waiting_for": row.get("waiting_for"),
             "awaiting_start": row.get("phase") == capabilities.AWAITING_START, "note": row.get("note"),
-            "result": row.get("result"), "actions": _actions(case_id, step, row)}
+            "result": row.get("result"), "actions": _actions(case_id, step, row),
+            "by_person": capabilities.of(step.uses).kind == "human"}
 
 
 def view(case_id: str) -> dict[str, Any]:
@@ -127,14 +129,20 @@ def view(case_id: str) -> dict[str, Any]:
 
 def _next(tabs: list[dict[str, Any]], open_steps: list[str] | None = None) -> dict[str, Any] | None:
     """The case's next step, with the tab of the element it is done on: the first element showing the first step that
-    is not done and naming one (A7e: a send step after the quote's approval); otherwise the first element naming one."""
+    is not done and naming one (A7e: a send step after the quote's approval); otherwise the first element naming one.
+    231 (C2d): a next step naming the element's `show` too is done on the tab whose element of that type shows it (one
+    special element on several tabs)."""
     shown = [(tab, e) for tab in tabs for e in tab["elements"]]
     first_open = (open_steps or [None])[0]
+
+    def fits(element: dict[str, Any], nxt: dict[str, Any]) -> bool:
+        return element["type"] == nxt.get("element") and (nxt.get("show") is None or element.get("show") == nxt["show"])
+
     for tab, element in [x for x in shown if first_open and x[1].get("step") == first_open] + shown:
         nxt = element["data"].get("next") if isinstance(element["data"], dict) else None
         if nxt:
-            where = next((x["id"] for x in tabs if any(e["type"] == nxt.get("element") for e in x["elements"])), tab["id"])
-            return {k: v for k, v in nxt.items() if k != "element"} | {"tab": where}
+            where = next((x["id"] for x in tabs if any(fits(e, nxt) for e in x["elements"])), tab["id"])
+            return {k: v for k, v in nxt.items() if k not in ("element", "show")} | {"tab": where}
     return None
 
 

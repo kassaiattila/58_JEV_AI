@@ -258,7 +258,7 @@ CAPABILITIES = (
                rule_files=("price_lists",), summary="Prices lines from a catalogue: unit price, discount rules, totals.",
                choices={"catalogue": _catalogues}),
     Capability(name="line_draft", version=1, module=_OWNER, run=_line_draft, kind="human", params=LineDraft,
-               rule_files=("quotes", "price_lists"),
+               rule_files=("quotes", "price_lists"), own_version=True,  # 231 (C2d): reopening the quote reopens it
                summary="A person composes the lines from the match, gives own prices with a note, and approves.",
                choices={"catalogue": _catalogues},
                rule_keys=(RuleKey("quotes", "draft.max_lines", "int", "A quote holds at most this many lines", least=1, most=1000),

@@ -27,10 +27,12 @@ export interface StartedCase {
 /** A person's action on a step (A7d): a failed step's retry, or one its capability offers while the step waits for it. */
 export interface CaseAction { name: string; label: string }
 /** One step of a case: its capability, how it starts, its state in the process core, whether it waits for a person's
- *  start (a paid step or a send) and the actions a person may take on it now. */
+ *  start (a paid step or a send), the actions a person may take on it now and (C2d) whether its capability waits for a
+ *  person's decisions. */
 export interface CaseStep {
   title: string | null; uses: string; start: "auto" | "person"; state: string | null; phase: string | null;
   waiting_for: string | null; awaiting_start: boolean; note: string | null; result: unknown; actions?: CaseAction[];
+  by_person?: boolean;
 }
 /** One element of a tab: its registered type, the step it shows and its data. */
 export interface CaseElement { type: string; step: string | null; data: unknown; [setting: string]: unknown }

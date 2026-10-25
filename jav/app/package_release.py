@@ -547,7 +547,10 @@ def record_own(c: sqlite3.Connection, wp_id: str, *, content: dict[str, Any], fi
 def reopen_own(c: sqlite3.Connection, wp_id: str, *, note: str, actor: identity.Who) -> int | None:
     """Reopens the package's own version that holds, in the caller's write transaction: its lock goes, it stays as an
     earlier version. Returns its number; None when no version holds. 215: the package waits for its approval again.
-    218 (P3l): a done workflow step whose package it is is reopened in its case (`workflow_cases.package_reopened`)."""
+    218 (P3l): a done workflow step whose package it is is reopened in its case (`workflow_cases.package_reopened`);
+    231 (C2d): and a process case's step done with the version (`process_runtime.own_version_reopened`)."""
+    from jav.app import process_runtime  # lazy: the process runtime builds on the packages and their versions
+
     row = c.execute("SELECT id, version FROM package_versions WHERE workpackage_id=? AND content IS NOT NULL"
                     " AND reopened_at IS NULL", (wp_id,)).fetchone()
     if row is None:
@@ -555,7 +558,9 @@ def reopen_own(c: sqlite3.Connection, wp_id: str, *, note: str, actor: identity.
     c.execute("UPDATE package_versions SET reopened_by=?, reopened_by_id=?, reopened_at=?, reopen_note=? WHERE id=?",
               (identity.name_of(actor), identity.id_of(actor), _now(), note, row["id"]))
     human_tasks.own_approval_waits(c, wp_id, by=human_tasks.person(actor), reopened=row["version"])
-    workflow_cases.package_reopened(c, wp_id, human_tasks.person(actor), f"its approved version {row['version']} was reopened")
+    reason = f"its approved version {row['version']} was reopened"
+    workflow_cases.package_reopened(c, wp_id, human_tasks.person(actor), reason)
+    process_runtime.own_version_reopened(c, wp_id, human_tasks.person(actor), reason)
     return row["version"]
 
 
