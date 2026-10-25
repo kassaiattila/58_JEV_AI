@@ -35,7 +35,7 @@ export function PackageWork({ caseId, element, page, onChanged }: ElementProps) 
   return (
     <section className="card wide rc-stack" aria-label={t("The case's documents")}>
       <div className="card-head">
-        <h3>{pkg.name}</h3>
+        <h3 title={pkg.name}>{t("The case's documents")}</h3>
         {data.can_start ? (
           <button type="button" className="primary" disabled={busy} onClick={() => void start()}
             title={t("Starts the package's live run, which can spend up to {{usd}}", { usd: usdBudget(cap) })}>

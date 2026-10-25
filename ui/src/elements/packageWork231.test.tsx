@@ -79,7 +79,7 @@ describe("the case page's document processing element (231 C3b3)", () => {
     const act = vi.spyOn(api, "caseStepAction").mockResolvedValue(page("running"));
     const p = props(VIEW);
     render(<PackageWork {...p} />);
-    expect(screen.getByRole("heading", { name: "April invoices" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "The case's documents" }).getAttribute("title")).toBe("April invoices");
     expect(screen.getByText("3 documents")).toBeTruthy();
     const button = screen.getByRole("button", { name: /Start the live run/ });
     expect(button.textContent).toContain("≤ 0.15 USD");

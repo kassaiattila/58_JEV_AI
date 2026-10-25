@@ -85,7 +85,7 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
         </div>
       ) : null}
       {wantsSource ? (
-        <fieldset className="rc-stack">
+        <fieldset className="wizard-choices">
           <legend>{t("The case's documents")}</legend>
           <div className="segmented" role="radiogroup" aria-label={t("Source")}>
             <label><input type="radio" name="case-source" checked={sourceKind === "folder"} onChange={() => setSourceKind("folder")} /> {t("Documents from a folder")}</label>
