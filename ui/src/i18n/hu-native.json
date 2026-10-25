@@ -2735,5 +2735,11 @@
   "Summary": "Kimutatás",
   "{{n}} bank accounts": "{{n}} bankszámla",
   "the case approves no version of its own": "az ügynek nincs saját jóváhagyott változata",
-  "a case's documents are in the packages its scope names": "egy ügy iratai a hatókörében megnevezett csomagokban vannak"
+  "a case's documents are in the packages its scope names": "egy ügy iratai a hatókörében megnevezett csomagokban vannak",
+  "choose a folder or files": "válassz mappát vagy fájlokat",
+  "no such folder: {{folder}}": "nincs ilyen mappa: {{folder}}",
+  "choose files that exist": "létező fájlokat válassz",
+  "the step has no package waiting for its run": "a lépésnek nincs futására váró csomagja",
+  "Start the live run": "Az élő futás indítása",
+  "Makes a processing package of the case's documents; a person starts its live run within the package's estimate, and the step is done once a live run is approved.": "Feldolgozó csomagot készít az ügy irataiból; az élő futását egy személy indítja a csomag becslésén belül, és a lépés a jóváhagyott élő futással kész."
 }

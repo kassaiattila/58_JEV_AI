@@ -296,6 +296,12 @@ def register() -> None:
     from jav.domains.finance import reconcile_statement  # 185: its package log events (until then the activity registry's own) and labels
     logic_packs.register(statement_package.LOGIC)  # 186: their scopes' party reference is the shared scope's
     work.register_rule(statement_package.KIND, statement_package.RULE)  # 231 (C3b1): by name too
+    from jav.app import document_processing
+
+    # 231 (C3b2): the statements' package maker of a process pack's document processing step, by name
+    document_processing.register_maker(document_processing.Maker(statement_package.KIND, statement_package.__name__,
+                                                                 statement_package.make_for_case,
+                                                                 rule=statement_package.KIND))
     workflow_steps.register(statement_package.STEP)  # 181: a workflow's statements step (231 C3a-2: the reconciliation's is
     # its pack's process step)
     from jav.domains.finance import capabilities

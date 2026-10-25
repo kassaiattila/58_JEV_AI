@@ -499,6 +499,23 @@ def workflow_start(ctx: workflow_steps.StepStart) -> None:
     ctx.run(made["workpackage_id"])
 
 
+def make_for_case(scope: dict[str, Any], name: str, owner: identity.Who | None) -> str | None:
+    """231 (C3b2): the statements maker of a process pack's document processing step: the source's statements of the
+    case's party and period that the store has not got yet, as the workflow's statements step chooses them; none, no
+    package."""
+    from jav.app import document_processing
+
+    period = scope["period"]
+    paths = document_processing.paths_of(scope[document_processing.SOURCE_PART])
+    found = survey(paths, party_id=scope["party"], period_start=period[0], period_end=period[1])
+    chosen = [s["id"] for s in found["statements"] if s["chosen"]]
+    pdfs = [p["path"] for p in found["pdfs"] if p["chosen"]]
+    if not chosen and not pdfs:
+        return None
+    return create(name=name, party_id=scope["party"], period_start=period[0], period_end=period[1], paths=paths,
+                  statements=chosen, pdfs=pdfs, actor=owner or "machine")["workpackage_id"]
+
+
 def workflow_estimate(paths: list[Path], *, party_id: str | None, period_start: str, period_end: str) -> dict[str, Any]:
     """The step's items: the statements the code reads (free) and the PDFs no reader knows (`paid`: extracted by AI)."""
     found = survey(paths, party_id=str(party_id), period_start=period_start, period_end=period_end)

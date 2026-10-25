@@ -2729,5 +2729,11 @@
   "Summary": "Summary",
   "{{n}} bank accounts": "{{n}} bank accounts",
   "the case approves no version of its own": "the case approves no version of its own",
-  "a case's documents are in the packages its scope names": "a case's documents are in the packages its scope names"
+  "a case's documents are in the packages its scope names": "a case's documents are in the packages its scope names",
+  "choose a folder or files": "choose a folder or files",
+  "no such folder: {{folder}}": "no such folder: {{folder}}",
+  "choose files that exist": "choose files that exist",
+  "the step has no package waiting for its run": "the step has no package waiting for its run",
+  "Start the live run": "Start the live run",
+  "Makes a processing package of the case's documents; a person starts its live run within the package's estimate, and the step is done once a live run is approved.": "Makes a processing package of the case's documents; a person starts its live run within the package's estimate, and the step is done once a live run is approved."
 }

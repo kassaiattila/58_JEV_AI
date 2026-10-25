@@ -47,13 +47,13 @@ def order(domains: list[Any]) -> list[Callable[[], None]]:
     """The register calls in their order (191: any number of domains): the first domain's, the shared ones (the
     workflows, the package scopes), then each further domain's in `DOMAINS` order. The registries keep the order they
     were given (party references, step kinds, logic packs), and this is the finance-workflows-email order of 180."""
-    from jav.app import case_lists, package_scope, process_runtime, replies, sending, workflows
+    from jav.app import case_lists, document_processing, package_scope, process_runtime, replies, sending, workflows
 
     first, *others = domains
     # 231 (A6): the process packs' case container among the shared ones; (A7c, A7d) the general send and reply
-    # capabilities; (A7e) the case lists
+    # capabilities; (A7e) the case lists; (C3b2) the document processing capability
     return [first.register, workflows.register, package_scope.register, process_runtime.register, sending.register,
-            replies.register, case_lists.register, *(domain.register for domain in others)]
+            replies.register, document_processing.register, case_lists.register, *(domain.register for domain in others)]
 
 
 def load_all() -> None:
