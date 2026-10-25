@@ -89,3 +89,14 @@ def test_a_routing_case_lists_the_cases_started_from_its_emails(db) -> None:  # 
                                name="Another", actor="Example Person")  # from another package: not listed
     [started] = _element(case_views.view(case_id), "cases", "started_cases")["data"]
     assert (started["id"], started["process"], started["record"]["item_id"]) == (quote, "IT quote", email)
+
+
+def test_the_package_list_shows_a_case_s_container_with_its_next_step(db) -> None:  # noqa: F811
+    """A case's next step names its parameters as every package's does (the list once failed on a case without them)."""
+    from jav.app import datasets
+    from jav.app.tablequery import Query
+
+    wp, _ids = _sources(db)
+    case_id = process_runtime.start_case(PACK, {"sources": [wp]}, name="June emails", actor="Example Person")
+    rows = {r["_key"] if "_key" in r else r["id"]: r for r in datasets.query("workpackages", {}, Query(limit=100))["rows"]}
+    assert case_id in rows

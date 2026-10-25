@@ -168,10 +168,11 @@ def _next(case_id: str) -> dict[str, Any]:
     with store.connect() as c:
         row = cases.find_case_in(c, case_id)
     if row is not None and row["status"] == cases.OPEN and (nxt := case_views.next_of(case_id)):
-        return {**{k: v for k, v in nxt.items() if k != "tab"}, "stage": "process"}
+        return {"params": {}, **{k: v for k, v in nxt.items() if k != "tab"}, "stage": "process"}
     done = row is not None and row["status"] != cases.OPEN
+    # 231 (C1c): every next step names its parameters (none here), as the package list reads them
     return {"code": "case_closed" if done else "case_open", "label": "The case is closed" if done else "Open the case",
-            "stage": "process"}
+            "stage": "process", "params": {}}
 
 
 def _approved(case_id: str) -> bool:

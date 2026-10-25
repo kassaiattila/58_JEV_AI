@@ -170,7 +170,8 @@ def start_due() -> list[dict[str, Any]]:
                     _remember(pack.id, wp_id, item_id, HAD_CASE)
                 elif (shown := cap.preview(record, params)) is not None:
                     _remember(pack.id, wp_id, item_id, STARTING)
-                    name = f"{pack.title}: {_label(pack, shown.get('record')) or item_id}"[:200]
+                    # the case is named by what it is about (a name the machine stores is in no interface language)
+                    name = (_label(pack, shown.get("record")) or (shown.get("record") or {}).get("title") or item_id)[:200]
                     case_id = process_runtime.start_case(pack.id, {scopes.RECORD: record}, name=name, actor=MACHINE)
                     _remember(pack.id, wp_id, item_id, STARTED, case_id)
                     started.append({"pack": pack.id, "record": record, "case_id": case_id})
