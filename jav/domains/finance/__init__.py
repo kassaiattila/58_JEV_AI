@@ -275,7 +275,7 @@ def _lint_statement_table(mod: Any) -> Any:
 def register() -> None:
     """Every registration of the finance domain, in the order the shared code lists them (`registrations.load_all`)."""
     from jav import flows
-    from jav.app import datasets, logic_packs, package_scope, partners, scopes, workflow_steps
+    from jav.app import datasets, logic_packs, package_scope, partners, scopes, work, workflow_steps
     from jav.domains.finance import own_parties, party_views  # its two decision points too
     from jav.domains.finance import duplicates, finance_datasets, reconcile_package, report_utility, statement_package
 
@@ -295,6 +295,7 @@ def register() -> None:
         item_kinds.register_record_part(part)
     from jav.domains.finance import reconcile_statement  # 185: its package log events (until then the activity registry's own) and labels
     logic_packs.register(statement_package.LOGIC)  # 186: their scopes' party reference is the shared scope's
+    work.register_rule(statement_package.KIND, statement_package.RULE)  # 231 (C3b1): by name too
     workflow_steps.register(statement_package.STEP)  # 181: a workflow's statements step (231 C3a-2: the reconciliation's is
     # its pack's process step)
     from jav.domains.finance import capabilities

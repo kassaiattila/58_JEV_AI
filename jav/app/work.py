@@ -791,12 +791,47 @@ class PackageRule:
     after_approval: Callable[[dict[str, Any]], None] | None = None
 
 
+# 231 (plan stage C, C3b1): package rules by name, registered by the domain that writes them; a plain processing
+# package runs by the one its stored scope names (`RULE_PART`), so a process pack's step can own a package that reads
+# statements without a kind of its own
+RULE_PART = "rule"
+_RULES: dict[str, PackageRule] = {}
+
+
+def register_rule(name: str, rule: PackageRule) -> None:
+    """231 (C3b1): a package rule by its name; the same one again adds nothing, another one of the same name is an
+    error."""
+    known = _RULES.get(name)
+    if known is not None and known is not rule:
+        raise ValueError(f"a package rule named {name!r} is registered already")
+    _RULES[name] = rule
+
+
+def rule_named(name: str) -> PackageRule:
+    """231 (C3b1): the package rule of this name (`KeyError` for an unknown one)."""
+    try:
+        return _RULES[name]
+    except KeyError:
+        raise KeyError(f"no package rule named {name!r}") from None
+
+
+def rule_names() -> list[str]:
+    return sorted(_RULES)
+
+
 def package_rule(wp_id: str) -> PackageRule | None:
-    """The rule of the package's kind, if its logic pack has one."""
+    """The rule of the package's kind, if its logic pack has one; 231 (C3b1) else the one its stored scope names
+    (`RULE_PART`), if any."""
     with store.connect() as c:
         row = c.execute("SELECT source_kind FROM workpackages WHERE id=?", (wp_id,)).fetchone()
-    pack = logic_packs.of(row["source_kind"]) if row else None
-    return pack.rule if pack is not None else None
+        if row is None:
+            return None
+        pack = logic_packs.of(row["source_kind"])
+        if pack is not None and pack.rule is not None:
+            return pack.rule
+        scope = c.execute("SELECT parts FROM workpackage_scopes WHERE workpackage_id=?", (wp_id,)).fetchone()
+    name = (json.loads(scope["parts"] or "{}") if scope else {}).get(RULE_PART)
+    return rule_named(name) if name else None
 
 
 def raise_item_reasons(run_id: str, item: dict[str, Any], reasons: list[str], *, producer: str) -> None:
