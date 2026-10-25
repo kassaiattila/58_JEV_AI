@@ -2714,5 +2714,15 @@
   "Not in the partner register yet.": "Not in the partner register yet.",
   "Record as a partner": "Record as a partner",
   "The partner register": "The partner register",
-  "The record names none.": "The record names none."
+  "The record names none.": "The record names none.",
+  "AI proposal": "AI proposal",
+  "AI pairing proposal": "AI pairing proposal",
+  "Asks JEV about the statement lines still to decide and can spend up to {{usd}}": "Asks JEV about the statement lines still to decide and can spend up to {{usd}}",
+  "Ask the AI again": "Ask the AI again",
+  "Ask the AI for proposals": "Ask the AI for proposals",
+  "The AI proposes which invoice each statement line still to decide pays and what kind of payment it is. You decide every pair; asking is optional.": "The AI proposes which invoice each statement line still to decide pays and what kind of payment it is. You decide every pair; asking is optional.",
+  "The AI is answering…": "The AI is answering…",
+  "The AI answered {{n}} line(s); its proposals are on the pairing cards.": "The AI answered {{n}} line(s); its proposals are on the pairing cards.",
+  "The AI proposal failed: {{why}}": "The AI proposal failed: {{why}}",
+  "Not asked: the reconciliation was approved without it.": "Not asked: the reconciliation was approved without it."
 }

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type CaseView, type ReconcileWorkspace } from "../api";
 import { setLanguage } from "../i18n";
 import { Pairing } from "./Pairing";
+import { PairingProposal, type ProposalData } from "./PairingProposal";
 import { pairingLine, pairingSummary } from "./pairingStatus";
 import { ProcessCreate } from "./ProcessStart";
 
@@ -80,5 +81,50 @@ describe("the reconciliation's case (231 C2d)", () => {
     expect(["invoices", "lines", "decide", "result"].map((show) => pairingLine(props(show)))).toEqual([
       "2 invoices", "1 accounts, 2026-04-01 – 2026-04-30", "3 open lines", "not approved yet"]);
     expect(pairingSummary(props("decide"))).toBe("Reconciliation of 1 accounts or cards, 2026-04-01 – 2026-04-30");
+  });
+});
+
+// --- 231 (C2c): the AI pairing proposal a person starts ---------------------------------------------------------------------
+
+const proposalPage = (step: Record<string, unknown>) => ({ ...PAGE, steps: { propose: { title: "AI proposal", uses: "pairing_proposal@1",
+  start: "person", state: "running", phase: null, waiting_for: "task_closed", awaiting_start: false, note: null, result: null,
+  actions: [], ...step } } }) as unknown as CaseView;
+const proposal = (data: Partial<ProposalData>, step: Record<string, unknown>) => ({ caseId: CASE, onChanged: vi.fn(),
+  element: { type: "pairing_proposal", step: "propose", data: { run: null, engines: ["jev"], cap_usd: { jev: "0.20" }, ...data } },
+  page: proposalPage(step) });
+
+describe("the AI pairing proposal (231 C2c)", () => {
+  it("is started by a person, the button showing the run's cost cap", async () => {
+    const start = vi.spyOn(api, "startCaseStep").mockResolvedValue(PAGE);
+    const p = proposal({}, { awaiting_start: true });
+    render(<PairingProposal {...p} />);
+    const button = screen.getByRole("button", { name: /Ask the AI for proposals/ });
+    expect(button.textContent).toContain("≤ 0.20 USD");
+    expect(button.getAttribute("title")).toContain("0.20 USD");
+    fireEvent.click(button);
+    await waitFor(() => expect(start).toHaveBeenCalledWith(CASE, "propose"));
+    await waitFor(() => expect(p.onChanged).toHaveBeenCalled());
+  });
+
+  it("says when it is answering and what it answered", () => {
+    const running = proposal({ run: { round: 1, state: "running", lines: null, error: null, counts: null, usage: null } }, {});
+    render(<PairingProposal {...running} />);
+    expect(screen.getByRole("status").textContent).toBe("The AI is answering…");
+    expect(screen.queryByRole("button")).toBeNull();
+    cleanup();
+    const done = proposal({ run: { round: 1, state: "done", lines: 3, error: null, usage: null,
+      counts: { jev: { asked: 2, inherited: 1, pays: 1, failed: 0 } } } }, { state: "done" });
+    render(<PairingProposal {...done} />);
+    expect(screen.getByRole("status").textContent).toBe("The AI answered 3 line(s); its proposals are on the pairing cards.");
+  });
+
+  it("shows a failed run and asks again with a new cap", async () => {
+    const again = vi.spyOn(api, "caseStepAction").mockResolvedValue(PAGE);
+    const failed = proposal({ run: { round: 1, state: "failed", lines: 3, error: "every line's question failed", counts: null, usage: null } },
+      { state: "failed", actions: [{ name: "retry", label: "Try again" }] });
+    render(<PairingProposal {...failed} />);
+    expect(screen.getByRole("alert").textContent).toContain("every line's question failed");
+    fireEvent.click(screen.getByRole("button", { name: /Ask the AI again/ }));
+    await waitFor(() => expect(again).toHaveBeenCalledWith(CASE, "propose", "retry"));
   });
 });

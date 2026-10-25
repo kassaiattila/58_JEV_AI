@@ -2720,5 +2720,15 @@
   "Not in the partner register yet.": "Még nincs a partnertörzsben.",
   "Record as a partner": "Felvétel partnerként",
   "The partner register": "Partnertörzs",
-  "The record names none.": "A rekord nem nevez meg ilyet."
+  "The record names none.": "A rekord nem nevez meg ilyet.",
+  "AI proposal": "AI-javaslat",
+  "AI pairing proposal": "AI-párosítási javaslat",
+  "Asks JEV about the statement lines still to decide and can spend up to {{usd}}": "A még eldöntendő kivonatsorokról kérdezi a JEV-et, legfeljebb {{usd}} költséggel",
+  "Ask the AI again": "AI-javaslat kérése újra",
+  "Ask the AI for proposals": "AI-javaslat kérése",
+  "The AI proposes which invoice each statement line still to decide pays and what kind of payment it is. You decide every pair; asking is optional.": "Az AI minden még eldöntendő kivonatsorhoz javasolja, melyik számlát fizeti és milyen fajta kifizetés. Minden párról Ön dönt; a kérés nem kötelező.",
+  "The AI is answering…": "Az AI válaszol…",
+  "The AI answered {{n}} line(s); its proposals are on the pairing cards.": "Az AI {{n}} sorra válaszolt; a javaslatai a párosítókártyákon láthatók.",
+  "The AI proposal failed: {{why}}": "Az AI-javaslat nem sikerült: {{why}}",
+  "Not asked: the reconciliation was approved without it.": "Nem kértek AI-javaslatot: az egyeztetést nélküle hagyták jóvá."
 }

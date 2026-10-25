@@ -1,7 +1,7 @@
 // 132 (backlog F-reconciliation E2): the stages of a reconciliation package — Preparation · Pairing · Result. The
 // package's workspace (its lines, invoices, coverage and blockers) is loaded once here; every decision returns the
 // recomputed workspace, which replaces it (no periodic reloading of the whole page, the legacy weakness).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, ApiError, type ReconcileLeftOver, type ReconcileUnfit, type ReconcileWorkspace, type WorkpackageView } from "../../api";
 import { BlockerList } from "../../components/BlockerList";
 import { errorText, useAction, useLoad } from "../../hooks";
@@ -27,12 +27,17 @@ export function ReconcileStages({ view, stage, onChanged }: { view: WorkpackageV
 }
 
 /** A reconciliation's workspace, loaded once, shown as `show` says; `toPairing` opens the pairing (the package's
- *  Pairing stage by default). */
-export function ReconcileView({ wpId, archived, show, onChanged, toPairing }: {
-  wpId: string; archived: boolean; show: ReconcileShow; onChanged: () => void; toPairing?: () => void;
+ *  Pairing stage by default); a change of `refresh` loads it again (231 C2c: a case's step finished, e.g. the AI's
+ *  proposal, whose answers the workspace shows). */
+export function ReconcileView({ wpId, archived, show, onChanged, toPairing, refresh }: {
+  wpId: string; archived: boolean; show: ReconcileShow; onChanged: () => void; toPairing?: () => void; refresh?: string;
 }) {
   useLocale();
   const loaded = useLoad(`reconcile:${wpId}`, () => api.reconcileWorkspace(wpId));
+  const seen = useRef(refresh);
+  useEffect(() => {
+    if (seen.current !== refresh) { seen.current = refresh; loaded.reload(); }
+  }, [refresh]); // eslint-disable-line react-hooks/exhaustive-deps -- only a change of `refresh` reloads
   const [ws, setWs] = useState<ReconcileWorkspace | null>(null);
   useEffect(() => { if (loaded.data) setWs(loaded.data); }, [loaded.data]);
   const update = (next: ReconcileWorkspace) => { setWs(next); onChanged(); };

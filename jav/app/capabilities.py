@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
+import time
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -51,6 +52,8 @@ PROVIDERS = ("jev", "openai", "azure_di")
 STEP_START = "step_start"  # 231 (A5): the human task of a step a person starts (a paid one, `_start: person`)
 AWAITING_START, STARTED = "awaiting_start", "started"  # the step's phases while it waits for a person's start
 MACHINE = "process-core"  # the machine that runs a step a person started, for that person
+SKIPPED = "skipped"  # 231 (C2c): the phase of an optional step nobody started, done as the case's other steps were
+OPTIONAL_CHECK_S = 60.0  # how soon an optional step nobody started looks again whether the case's other steps are done
 _NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 RULES, RULE_REFS = "rules", "rule_settings"  # 231 (B3): a case's own rule values in its data, and where they came from
 
@@ -237,6 +240,21 @@ def _starter(ctx: StepContext) -> identity.Actor | None:
     return None
 
 
+def _optional_wait(ctx: StepContext) -> kinds.StepOutcome:
+    """231 (C2c): an optional step nobody started: once every other step of its case is done, its start task is
+    withdrawn and it is done as skipped (the case can close); until then it looks again every `OPTIONAL_CHECK_S`."""
+    with ctx.transaction() as c:
+        others = [row for step_id, row in cases.step_rows(c, ctx.case_id).items() if step_id != ctx.step.id]
+        skip = all(row["state"] == cases.DONE for row in others)
+        if skip:
+            tasks.withdraw_in(c, tasks.task_id(STEP_START, f"{ctx.case_id}:{ctx.step.id}"), ctx.actor,
+                              note="the case's other steps are done", notify=False)
+            cases.set_phase(c, ctx.case_id, ctx.step.id, SKIPPED)
+    if skip:
+        return kinds.Done({"skipped": True})
+    return ctx.wait(tasks.EVENT, timer=("check", time.time() + OPTIONAL_CHECK_S))
+
+
 def case_overlay(data: dict[str, Any] | None) -> cfg.Overlay | None:
     """231 (B3): a case's own rule values, from its data (None: it has none, the files alone count)."""
     values = (data or {}).get(RULES) or {}
@@ -279,7 +297,7 @@ def _runner(cap: Capability) -> Callable[[StepContext], kinds.StepOutcome]:
         if (ctx.step.params or {}).get("_start") == "person":
             starter = _starter(ctx)
             if starter is None:
-                return kinds.WAIT
+                return _optional_wait(ctx) if (ctx.step.params or {}).get("_optional") else kinds.WAIT
             # 229 (SZ2c-3): the machine works for the person who started it, under that person's name
             ctx = dataclasses.replace(ctx, actor=identity.acting_for(MACHINE, starter.name, starter))
         try:

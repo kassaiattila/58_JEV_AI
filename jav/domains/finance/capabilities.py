@@ -8,8 +8,9 @@ the bank and card statement lines (`invoice_statement`: the reconciliation engin
 and its package's decisions, `reconcile_package.py`). A reconciliation package made before is taken over as such a case
 with its decisions: its step is done when a version of its statement is approved, otherwise it waits.
 
-- `pairing@1` (human): the pairing step. The monthly reconciliation's process pack names it (C2d), with the pairing
-  cards as its screen element; until then no pack uses it.
+- `pairing@1` (human): the pairing step. The reconciliation's process pack names it (C2d), with the pairing element.
+- `pairing_proposal@1` (machine, paid; C2c): the AI proposal a person starts (`pairing_proposal.py`): JEV's answers for
+  the lines still to decide, under the run's cap; its element `pairing_proposal` shows the button with the cap.
 
 Layer: the finance domain's registrations of general capabilities (`jav/app/capabilities.py`).
 """
@@ -27,6 +28,7 @@ from jav.core.process import cases, kinds
 
 POLL_S = 5.0  # how soon a waiting pairing step looks again for the person's approval
 WAITING_FOR = "pairing"
+PROPOSING = "proposal"  # 231 (C2c): what the AI proposal step waits for while its run is queued or running
 
 
 class Pairing(BaseModel):
@@ -66,6 +68,43 @@ CAPABILITY = Capability(
              " or marks, and approves the result."))
 
 
+class PairingProposal(BaseModel):
+    """231 (C2c): `rules`: what is paired (as the pairing step's); `engine`: the AI asked (JEV only: the owner's decision
+    of 2026-10-25; the GPT path is a separate decision and a new version)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    rules: Literal["invoice_statement"]
+    engine: Literal["jev"] = "jev"
+
+
+def _propose(ctx: Any, _params: PairingProposal) -> kinds.StepOutcome:
+    """231 (C2c): the AI proposal's run of this round, queued once; done with its counts, failed with its reason (once:
+    the step started again asks a new round)."""
+    from jav.domains.finance import pairing_proposal
+
+    case_id, step_id = str(ctx.data["container"]), ctx.step.id
+    run = pairing_proposal.latest(case_id, step_id)
+    if run is None or (run["state"] == "failed" and run["reported"]):
+        pairing_proposal.request(case_id, step_id, (run["round"] + 1) if run else 1, actor=ctx.actor)
+        return ctx.wait(PROPOSING, timer=("check", time.time() + POLL_S))
+    if run["state"] in ("queued", "running"):
+        return ctx.wait(PROPOSING, timer=("check", time.time() + POLL_S))
+    if run["state"] == "failed":
+        pairing_proposal.mark_reported(case_id, step_id, run["round"])
+        return kinds.Fail(run["error"] or "the AI proposal failed")
+    return kinds.Done({"round": run["round"], "lines": run["lines"], "counts": run["counts"]})
+
+
+def _proposal_view(case_id: str, step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """The AI proposal element's data: the step's latest run and the cap a run reserves."""
+    from jav.domains.finance import pairing_proposal
+
+    engines, limits = pairing_proposal.cap()
+    return {"run": pairing_proposal.latest(case_id, step) if step else None, "engines": engines,
+            "cap_usd": {k: str(v) for k, v in limits.items()}}
+
+
 # 231 (C2d): where each stage of the reconciliation's next step is done: its element's `show` on the case's tabs
 _SHOWN_AT = {"process": "lines", "review": "decide", "result": "result"}
 
@@ -90,11 +129,20 @@ def _mark() -> Any:
     return reconcile_package._list_mark()
 
 
+PROPOSAL = Capability(
+    name="pairing_proposal", version=1, module=_OWNER, run=_propose, kind="machine", params=PairingProposal,
+    effects="store", providers=("jev",), rule_files=("callsite:reconcile_line", "finance", "reconcile"),
+    summary=("Asks the AI which item of the other list each undecided item settles and what kind it is, under a cap;"
+             " a person still decides."))
+
+
 def register() -> None:
     from jav.app import capabilities, case_views
 
     capabilities.register(CAPABILITY)
+    capabilities.register(PROPOSAL)  # 231 (C2c)
     case_views.register(case_views.ElementData("pairing", CAPABILITY.name, _OWNER, _view, mark=_mark))
+    case_views.register(case_views.ElementData("pairing_proposal", PROPOSAL.name, _OWNER, _proposal_view))
 
 
-__all__ = ["CAPABILITY", "Pairing", "register"]
+__all__ = ["CAPABILITY", "PROPOSAL", "Pairing", "PairingProposal", "register"]

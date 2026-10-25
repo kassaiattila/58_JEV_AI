@@ -78,6 +78,7 @@ class Step(_Model):
     gates: tuple[str, ...] = ()
     start: Literal["auto", "person"] = "auto"
     params: dict[str, Any] = Field(default_factory=dict)
+    optional: bool = False  # 231 (C2c): a step a person may leave unstarted; the case closes without it
 
 
 class Element(BaseModel):
@@ -185,6 +186,8 @@ def _problems(pack: ProcessPack) -> list[str]:
                             + ", ".join(".".join(map(str, e["loc"])) or "-" for e in exc.errors()[:5]))
         if cap.providers and step.start != "person":
             problems.append(f"{where}: a paid step ({step.uses}) is started by a person")
+        if step.optional and step.start != "person":
+            problems.append(f"{where}: only a step a person starts may be optional")
     elements = cfg.load(ELEMENTS)["elements"]
     for tab in pack.screens.tabs:
         for element in tab.elements:
@@ -240,10 +243,12 @@ def packs() -> list[ProcessPack]:
 
 def definition(pack: ProcessPack) -> ProcessDef:
     """The process core's definition of the pack's version: each step's kind is its capability's step kind, its
-    parameters have the resources filled in, and how it starts is kept as the pack's own `_start` parameter."""
+    parameters have the resources filled in, and how it starts is kept as the pack's own `_start` parameter (231, C2c:
+    an optional step's `_optional` too, only on such a step, so the other definitions stay as they were)."""
     problems: list[str] = []
     steps = tuple(StepDef(id=s.id, kind=f"cap.{s.uses.replace('@', '.v')}", title=s.title, after=s.after, gates=s.gates,
-                          params={**_resolved(s.params, pack.resources, problems, s.id), "_start": s.start})
+                          params={**_resolved(s.params, pack.resources, problems, s.id), "_start": s.start,
+                                  **({"_optional": True} if s.optional else {})})
                   for s in pack.steps)
     if problems:
         raise ValueError("; ".join(problems))

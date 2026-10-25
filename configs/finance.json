@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "finance",
-    "version": "1.0.0",
-    "description": "The finance domain's own rules beyond the reconciliation's engine (configs/reconcile.json): the duplicate invoice search (duplicates, read by jav/domains/finance/duplicates.py: the families of invoice-like types, a document compared only with the earlier ones of its own family and a pro forma invoice its own; the fields that name the invoice number and the supplier; the values compared to tell a copy from a modified version) and the reconciliation's bands (reconcile, read by jav/domains/finance/reconcile.py: a forint card line around the invoice amount converted at the MNB rate, a forint bank line per rate day, the quick review's sure AI kind). All proposals only; a person decides.",
+    "version": "1.1.0",
+    "description": "The finance domain's own rules beyond the reconciliation's engine (configs/reconcile.json): the duplicate invoice search (duplicates, read by jav/domains/finance/duplicates.py: the families of invoice-like types, a document compared only with the earlier ones of its own family and a pro forma invoice its own; the fields that name the invoice number and the supplier; the values compared to tell a copy from a modified version) and the reconciliation's bands (reconcile, read by jav/domains/finance/reconcile.py: a forint card line around the invoice amount converted at the MNB rate, a forint bank line per rate day, the quick review's sure AI kind; 231: the cap of the AI pairing proposal a person starts on a pairing case). All proposals only; a person decides.",
     "changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-10-25",
+        "note": "231 (plan stage C, C2c; the owner's decision of 2026-10-25, DECISIONS 231): reconcile.ai_proposal: the AI pairing proposal a person starts from a pairing case's page asks JEV only, at most 0.20 USD a run (max_run_usd); the GPT path is a separate decision. Kept out of the reconciliation's call site file, whose fingerprint is part of every stored JEV answer's key."
+      },
       {
         "version": "1.0.0",
         "date": "2026-10-24",
@@ -25,6 +30,7 @@
   "reconcile": {
     "fx_tolerance": {"below": "0.02", "above": "0.05"},
     "fx_bank_tolerance": {"fulfillment": {"below": "0.005", "above": "0.005"}, "booking": {"below": "0.02", "above": "0.02"}},
-    "ai_sure": {"min_jev_probability": 0.95}
+    "ai_sure": {"min_jev_probability": 0.95},
+    "ai_proposal": {"engines": ["jev"], "max_run_usd": {"jev": "0.20"}}
   }
 }

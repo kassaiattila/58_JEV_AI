@@ -38,6 +38,7 @@ const StartedCases = lazy(() => general().then((m) => ({ default: m.StartedCases
 // 231 (C1c): the file placement capability's element (its page loads only when a case shows it); (C2d) the pairing's
 const FilePlacement = lazy(() => import("./FilePlacement").then((m) => ({ default: m.FilePlacement })));
 const Pairing = lazy(() => import("./Pairing").then((m) => ({ default: m.Pairing })));
+const PairingProposal = lazy(() => import("./PairingProposal").then((m) => ({ default: m.PairingProposal })));
 const lazily = (C: (p: ElementProps) => ReactNode) =>
   (p: ElementProps) => <Suspense fallback={<p className="muted">{t("Loading…")}</p>}><C {...p} /></Suspense>;
 const quoteOf = (p: ElementProps) => (p.element.data as { quote?: QuoteView } | null)?.quote;
@@ -67,5 +68,6 @@ export const ELEMENTS: Record<string, ElementSpec> = {
   started_cases: { render: lazily(StartedCases) },  // 231 (C1c)
   file_placement: { render: lazily(FilePlacement), status: placementLine, summary: placementSummaryOf },  // 231 (C1c)
   pairing: { render: lazily(Pairing), status: pairingLine, summary: pairingSummary },  // 231 (C2d)
+  pairing_proposal: { render: lazily(PairingProposal) },  // 231 (C2c)
   cost: { render: lazily(CostView), status: (p) => { const usd = costTotal(p); return usd === null ? null : `${moneyText(usd)} USD`; } },
 };

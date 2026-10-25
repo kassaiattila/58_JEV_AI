@@ -303,6 +303,10 @@ def register() -> None:
     # (C2d) the accounts a case reconciles as a scope part, by default its party's
     capabilities.register()
     scopes.register(reconcile_package.ACCOUNTS_PART)
+    from jav.domains.finance import pairing_proposal
+    from jav.runtime import job_kinds
+
+    job_kinds.register(pairing_proposal.JOB)  # 231 (C2c): the worker's AI proposal of a pairing case
     for role in _roles():  # 181: what a package collects, and where an emailed document belongs
         package_scope.register_role(role)
     package_scope.register_reader("finance", place_document)

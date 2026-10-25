@@ -17,9 +17,11 @@ export function Pairing({ caseId, element, page, onChanged }: ElementProps) {
   const show = (SHOWS.includes(String(element.show)) ? element.show : "decide") as PairingShow;
   // the tab whose element of this type shows the decisions
   const pairingTab = page.tabs.find((tab) => tab.elements.some((e) => e.type === element.type && e.show === "decide"))?.id;
+  // 231 (C2c): a step of the case that moves on (the AI's proposal done) loads the workspace again
+  const refresh = Object.entries(page.steps ?? {}).map(([id, s]) => `${id}:${s.state}`).join("|");
   return (
     <Suspense fallback={<p className="muted">{t("Loading…")}</p>}>
-      <ReconcileView wpId={caseId} archived={false} show={show} onChanged={onChanged}
+      <ReconcileView wpId={caseId} archived={false} show={show} onChanged={onChanged} refresh={refresh}
         toPairing={pairingTab ? () => go({ view: "cases", caseId, tab: pairingTab }) : undefined} />
     </Suspense>
   );
