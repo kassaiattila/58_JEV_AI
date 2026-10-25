@@ -20,8 +20,8 @@ import { ReviewWorkspace } from "./ReviewWorkspace";
 import { StartConfirm } from "./StartConfirm";
 import { WorkpackageActions } from "./WorkpackageActions";
 
-// 195 (plan G-tidy R5): the routing offer (a mailbox package's result) loads with the routing pages
-const RoutingOffer = lazyPage(() => import("./routing/Routing").then((m) => m.RoutingOffer));
+// 231 (C1c): the processes whose case may read this package (until then the email routing's own offer)
+const PackageIntake = lazyPage(() => import("../elements/ProcessStart").then((m) => m.PackageIntake));
 const CasePage = lazyPage(() => import("./CasePage").then((m) => m.CasePage));  // 231 (A6)
 const STAGE_LABEL = tmap({ process: "Feldolgozás", review: "Ellenőrzés", result: "Eredmény" }) as Record<Stage, string>;
 // 181: a released package's release state on the stage bar, as its release line says it
@@ -173,8 +173,8 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
         ) : null}
         {/* 140: what a logic pack shows above the result (a statement package: its statements and its party's months) */}
         {!own && stage === "result" ? logic?.resultPanel?.(view) ?? null : null}
-        {/* 181: an email package offers the routing of its attachments */}
-        {!own && stage === "result" && view.routing_offer ? <RoutingOffer view={view} /> : null}
+        {/* 231 (C1c): a package offers the cases of the processes that read it (an email package: the email routing) */}
+        {!own && stage === "result" && view.intake?.length ? <PackageIntake offers={view.intake} /> : null}
         {!own && stage === "result" ? <ResultStage view={view} table={route.table} runId={route.runId} onChanged={wp.reload} /> : null}
       </div>
     </>

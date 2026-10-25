@@ -30,11 +30,12 @@ from jav.app import capabilities, item_kinds, package_scope, process_packs, scop
 from jav.core import identity, store
 from jav.core.clock import utc_stamp as _now
 
-__all__ = ["EMAIL_INTENT", "MANUAL", "STARTS_CASE", "TICK_EVERY_S", "offers", "start_due", "tick"]
+__all__ = ["EMAIL_INTENT", "MANUAL", "PACKAGE", "STARTS_CASE", "TICK_EVERY_S", "offers", "package_offers", "start_due",
+           "tick"]
 
 log = logging.getLogger(__name__)
 
-EMAIL_INTENT, MANUAL = "email_intent", "manual"
+EMAIL_INTENT, MANUAL, PACKAGE = "email_intent", "manual", "package"
 STARTS_CASE = "case"  # C1b: the intake starts the case by itself
 TICK_EVERY_S = 60.0
 MACHINE = identity.machine("email intake")
@@ -88,6 +89,26 @@ def offers(wp_id: str, item_id: str) -> list[dict[str, Any]]:
                     "label": _label(pack, shown.get("record")),
                     "cases": package_scope.holding(scopes.RECORD, record)})
     return out
+
+
+def package_offers(wp: dict[str, Any]) -> list[dict[str, Any]]:
+    """C1c: the processes whose intake takes a work package of this kind (an email package offers the email routing):
+    each with a name for its case and the cases already reading the package (scope part `sources`)."""
+    out = []
+    for pack in process_packs.packs():
+        if any(e.on == PACKAGE and wp.get("source_kind") in e.package_kinds for e in pack.intake):
+            reading = [h for h in package_scope.holders(scopes.SOURCES, lambda v, wp_id=wp["id"]: wp_id in (v or []))
+                       if process_runtime_pack(h["id"]) == pack.id]
+            out.append({"pack": pack.id, "title": pack.title, "name": f"{pack.title}: {wp.get('name') or wp['id']}"[:200],
+                        "sources": [wp["id"]], "cases": [{"id": h["id"], "name": h["name"]} for h in reading]})
+    return out
+
+
+def process_runtime_pack(case_id: str) -> str | None:
+    from jav.app import process_runtime
+
+    pinned = process_runtime.pack_of(case_id)
+    return pinned[0] if pinned else None
 
 
 def _record_step(pack: process_packs.ProcessPack) -> tuple[Any, dict[str, Any]] | None:

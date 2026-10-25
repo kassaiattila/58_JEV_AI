@@ -3,6 +3,7 @@ import type { WorkflowRef } from "./workflows";
 import type { Engine } from "./system";
 import type { DuplicatePair, ReconcileApproval, ReconcileCounts, ReconcileCoverage, ReconcileScope, StatementPackageView, StatementRelation } from "./finance";
 import type { IntakeOffer } from "./cases";
+import type { PackageOffer } from "./processes";
 import type { EmailItem, MailboxRequest, RoutingView } from "./email";
 
 export interface Blocker { code: string; message: string }
@@ -57,7 +58,8 @@ export interface WorkpackageView {
   /** 181: an email routing package's attachments, proposals and decisions */
   routing?: RoutingView;
   /** 181: an email package offers the routing of its attachments (and names the routing packages that route it) */
-  routing_offer?: { attachments: number; routings: { id: string; name: string }[] };
+  /** 231 (C1c): the processes whose case may read this package (until then the email routing's own offer) */
+  intake?: PackageOffer[];
   /** 183: a mailbox package: the request of the download that made it (null if no recorded download did) */
   mailbox_request?: MailboxRequest | null;
   /** 231 (A6): a process pack's case container names its case (the interface opens the case's page) */

@@ -36,17 +36,17 @@ from jav.core import activity_kinds
 
 # 185 (plan G-full-move T1a): the module of the domain's addresses of the local service beyond its logic pack's own
 # (`LogicPack.service`); `jav.service.api.service_modules` adds it by name
-SERVICE = ("jav.domains.email.api_mailbox",)
+SERVICE = ("jav.domains.email.api_mailbox", "jav.domains.email.api_email_routing")  # 231 (C1c): the routing's, its logic pack's until then
 # 202 (plan G-core-generalisation M3a): the module of the domain's commands (`register(sub)`); `jav.cli` adds it by name
 COMMANDS = ("jav.domains.email.email_cli",)
 
 
 def mailbox_page(wp: Any) -> dict[str, Any]:
-    """A mailbox package's part of its page: its missing attachments (`mailbox.page_part`) and (181) the routing of its
-    attachments it offers (`email_routing.offer`)."""
-    from jav.domains.email import email_routing, mailbox
+    """A mailbox package's part of its page: its missing attachments (`mailbox.page_part`). 231 (C1c): the routing of its
+    attachments is offered by the shared intake (`jav/app/intake.py` `package_offers`), as the email routing's case."""
+    from jav.domains.email import mailbox
 
-    return {**mailbox.page_part(wp), **email_routing.offer(dict(wp))}
+    return mailbox.page_part(wp)
 
 
 def mailbox_pull_detail(raw: Any) -> str | None:
@@ -86,7 +86,7 @@ def _lint_email(mod: Any) -> Any:
 def register() -> None:
     """Every registration of the email domain (`registrations.load_all`)."""
     from jav import flows
-    from jav.app import datasets, item_kinds, logic_packs, workflow_steps
+    from jav.app import datasets, item_kinds, workflow_steps
     from jav.domains.email import email_datasets, email_export, email_routing, email_store, flow_email, mailbox  # noqa: F401
     from jav.app.outputs import parts
     from jav.runtime import job_kinds
@@ -128,9 +128,9 @@ def register() -> None:
     workflow_steps.register_source(mailbox.SOURCE)  # 185: a mailbox download as a step's source
     from jav.domains.email import capabilities
 
-    capabilities.register()  # 231 (C1c): the routing step of the email routing process pack
-    logic_packs.register(email_routing.LOGIC)  # 181: the email routing and its workflow step
-    workflow_steps.register(email_routing.STEP)
+    # 231 (C1c): the email routing is the email routing process pack's case (its step's capability); until then its own
+    # logic pack and workflow step kind (181)
+    capabilities.register()
     for dataset, after in email_datasets.DATASETS:  # 185: its tables and label sets on the interface
         datasets.register(dataset, after=after, module=__name__)
     for labels in email_datasets.LABELS:

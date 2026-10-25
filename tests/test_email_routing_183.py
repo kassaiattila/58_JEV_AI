@@ -15,7 +15,7 @@ from __future__ import annotations
 from jav.domains.email import email_routing
 from jav.core import store
 
-from tests.test_email_routing_181 import _invoice, _items, _mailbox, _party, _result, db  # noqa: F401 (the fixture)
+from tests.test_email_routing_181 import _routing, _invoice, _items, _mailbox, _party, _result, db  # noqa: F401 (the fixture)
 
 
 def _read(doc_id: str, doc_type: str | None, *, detail_type: str | None = None) -> None:
@@ -35,7 +35,7 @@ def test_a_read_attachment_without_data_is_listed_by_its_kind_or_blocked_without
     _read(ids["m4"], None)
     _read(ids["m6"], "other", detail_type="id_document")
     # m5 has not been read by any run yet
-    routing = email_routing.create(name="Routing", sources=[wp], actor="tester")["workpackage_id"]
+    routing = _routing(wp, "Routing")
     view = email_routing.view(routing)
     items = _items(view)
     for listed, kind in (("letter.pdf", "other"), ("return.pdf", "tax_return"), ("passport.pdf", "id_document")):
@@ -52,7 +52,7 @@ def test_an_incoming_invoice_in_a_sent_email_is_proposed_with_a_note(db) -> None
     wp, ids = _mailbox(db, {"m1": ("forwarded.pdf", "sent"), "m2": ("received.pdf", "inbox")})
     _result(wp, ids["m1"], "invoice_hu", _invoice())
     _result(wp, ids["m2"], "invoice_hu", _invoice(invoice_number="INV-2"))
-    routing = email_routing.create(name="Routing", sources=[wp], actor="tester")["workpackage_id"]
+    routing = _routing(wp, "Routing")
     items = _items(email_routing.view(routing))
     sent, received = items["forwarded.pdf"], items["received.pdf"]
     assert sent["placement"]["problem"] is None and sent["placement"]["note"] == "sent_incoming"

@@ -3,11 +3,11 @@
 // from the service with the templates; only the form a single kind opens with is the interface's own. A kind without
 // an entry opens the documents form.
 import type { ReactNode } from "react";
+import { ProcessCreate } from "../elements/ProcessStart";
 import { DocumentsCreate } from "../views/DocumentsCreate";
 import { Mailbox } from "../views/Mailbox";
 import { QuoteCreate } from "../views/quotes/Quote";
 import { ReconcileCreate } from "../views/reconcile/ReconcileCreate";
-import { RoutingCreate } from "../views/routing/Routing";
 import { StatementPackageCreate } from "../views/StatementPackageCreate";
 
 type Form = (onDone: (wpId: string) => void) => ReactNode;
@@ -17,7 +17,6 @@ const FORMS: Record<string, Form> = {
   emails: () => <Mailbox variant="pull" />,
   statements: (onDone) => <StatementPackageCreate onDone={onDone} />,
   reconcile: (onDone) => <ReconcileCreate onDone={onDone} />,
-  routing: (onDone) => <RoutingCreate onDone={onDone} />,  // 181
   quote: (onDone) => <QuoteCreate onDone={onDone} />,  // 191
 };
 
@@ -27,7 +26,9 @@ export function hasOwnForm(kind: string): boolean {
   return Object.prototype.hasOwnProperty.call(FORMS, kind);
 }
 
-/** The form a one-step template of this kind opens with (the documents form for a kind without one). */
-export function SingleForm({ kind, onDone }: { kind: string; onDone: (wpId: string) => void }) {
+/** The form a one-step template of this kind opens with (the documents form for a kind without one); 231 (C1c): a
+ *  process pack's case (`kind: process`) opens the general form of the pack its step names. */
+export function SingleForm({ kind, pack, onDone }: { kind: string; pack?: string; onDone: (wpId: string) => void }) {
+  if (kind === "process" && pack) return <ProcessCreate pack={pack} onDone={onDone} />;
   return <>{(hasOwnForm(kind) ? FORMS[kind] : FORMS.documents)(onDone)}</>;
 }

@@ -31,7 +31,7 @@ from jav.app import capabilities, scopes
 from jav.core import cfg
 from jav.core.process.definition import NAME, ProcessDef, StepDef
 
-__all__ = ["Element", "Intake", "PackError", "PartnerLink", "ProcessPack", "Step", "Tab", "UnknownPack", "definition", "load",
+__all__ = ["Adopt", "Element", "Intake", "PackError", "PartnerLink", "ProcessPack", "Step", "Tab", "UnknownPack", "definition", "load",
            "packs"]
 
 ELEMENTS = "screen_elements"
@@ -52,11 +52,22 @@ class _Model(BaseModel):
 
 class Intake(_Model):
     """What may start a case: an email read with an intent (`offer`: the email offers to start one; 231 C1b, `case`: it
-    starts one by itself, `jav/app/intake.py`) or a person."""
+    starts one by itself, `jav/app/intake.py`), (C1c) a work package of one of `package_kinds` (its page offers a case
+    that reads it, scope part `sources`), or a person."""
 
-    on: Literal["email_intent", "manual"]
+    on: Literal["email_intent", "package", "manual"]
     intent: str | None = None
+    package_kinds: tuple[str, ...] = ()
     starts: Literal["offer", "case", "manual"]
+
+
+class Adopt(_Model):
+    """231 (C1c): a kind of work package made before the process was a pack (its own kind until then) that is taken over
+    as its case (`process_runtime.adopt_all`): the kind, and which of its stored scope parts gives each scope part of
+    the case ({case part: stored part})."""
+
+    kind: str = Field(min_length=1)
+    scope: dict[str, str] = Field(default_factory=dict)
 
 
 class Step(_Model):
@@ -109,6 +120,7 @@ class ProcessPack(_Model):
     title: str = Field(min_length=1)
     scope: Scope = Scope()
     intake: tuple[Intake, ...] = ()
+    adopts: tuple[Adopt, ...] = ()
     resources: dict[str, str] = Field(default_factory=dict)
     steps: tuple[Step, ...] = Field(min_length=1)
     screens: Screens
@@ -149,6 +161,9 @@ def _problems(pack: ProcessPack) -> list[str]:
     problems += [f"unknown scope part {p!r}" for p in pack.scope.parts if p not in known_parts]
     if any(i.on == "email_intent" and not i.intent for i in pack.intake):
         problems.append("an email intake names its intent")
+    for i in pack.intake:  # 231 (C1c): a package offers a case that reads it
+        if i.on == "package" and (not i.package_kinds or i.starts != "offer" or scopes.SOURCES not in pack.scope.parts):
+            problems.append("a package intake names its package kinds, offers the case and reads its sources")
     if any(i.starts == "case" for i in pack.intake):  # 231 (C1b): a case started by itself starts from the email's record
         if any(i.on != "email_intent" for i in pack.intake if i.starts == "case"):
             problems.append("only an email intake starts a case by itself")

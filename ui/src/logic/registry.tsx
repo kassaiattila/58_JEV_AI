@@ -8,12 +8,10 @@ import { t } from "../i18n";
 import { lazyPage } from "../components/LazyPage";
 import { tmap } from "../labels";
 import type { Stage } from "../route";
-import { routingStatus, routingSummary } from "../views/routing/routingStatus";
 
 // 195 (plan G-tidy R5): a logic pack's own pages load when a package of its kind is first opened; its status lines
 // and summary, which the package list shows too, are in small modules of their own
 const ReconcileStages = lazyPage(() => import("../views/reconcile/ReconcileStages").then((m) => m.ReconcileStages));
-const RoutingStages = lazyPage(() => import("../views/routing/Routing").then((m) => m.RoutingStages));
 const StatementPackagePanel = lazyPage(() => import("../views/StatementPackagePanel").then((m) => m.StatementPackagePanel));
 
 export type LogicUi = {
@@ -59,17 +57,7 @@ export const LOGIC: Record<string, LogicUi> = {
       body: (view, stage, onChanged) => <ReconcileStages view={view} stage={stage} onChanged={onChanged} />,
     },
   },
-  // 181: an email routing package routes its email packages' attachments; it has no documents and no runs of its own
-  email_routing: {
-    adds: "nothing",
-    createdFrom: () => t("an email routing package"),
-    stages: {
-      labels: tmap({ process: "Email packages", review: "Routing", result: "Routed" }) as Record<Stage, string>,
-      status: routingStatus,
-      summary: routingSummary,
-      body: (view, stage, onChanged) => <RoutingStages view={view} stage={stage} onChanged={onChanged} />,
-    },
-  },
+  // 181-231: the email routing package's entry went with its logic pack (231 C1c): a routing is a process pack's case
   // 191-231: the quote package's entry went with its logic pack (231 A3d): a quote is a process pack's case (CasePage)
   statements: {
     adds: "statements",

@@ -22,11 +22,11 @@ from jav.app import item_kinds, logic_packs, registrations, workflow_steps
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "ui" / "src"
 PROCESS_NAMES = ("reconcile", "statements", "email_routing", "routing", "quote", "mailbox")
-UI_PROCESS_DIRS = {"quotes", "reconcile", "routing"}
+UI_PROCESS_DIRS = {"quotes", "reconcile"}  # C1c: routing went
 UI_SHARED_DIRS = {"settings", "workflows"}
 
-FROZEN_LOGIC_PACKS = {"email_routing", "reconcile", "statements"}  # A3d: the quote package went
-FROZEN_STEP_KINDS = {"documents", "emails", "quote", "reconcile", "routing", "statements"}
+FROZEN_LOGIC_PACKS = {"reconcile", "statements"}  # A3d: the quote package went; C1c: the email routing
+FROZEN_STEP_KINDS = {"documents", "emails", "quote", "reconcile", "statements"}  # C1c: the routing
 FROZEN_ITEM_PARTS: set[tuple[str, str]] = set()  # 231 (C1a): the quote request under its email became the general intake
 FROZEN_DOMAINS = ("jav.domains.finance", "jav.domains.email", "jav.domains.quotes")
 FROZEN_UI_FILES = {
@@ -34,8 +34,8 @@ FROZEN_UI_FILES = {
     "ui/src/views/Mailbox.tsx", "ui/src/views/StatementPackageCreate.tsx", "ui/src/views/StatementPackagePanel.tsx",
     "ui/src/views/UtilityReport.tsx", "ui/src/views/settings/PartiesPanel.tsx", "ui/src/views/settings/PriceListsPanel.tsx",
 }
-FROZEN_UI_LOGIC_KEYS = {"email_routing", "reconcile", "statements"}  # A3d: the quote package's went
-FROZEN_UI_FORMS = {"documents", "emails", "quote", "reconcile", "routing", "statements"}
+FROZEN_UI_LOGIC_KEYS = {"reconcile", "statements"}  # A3d: the quote package's went; C1c: the routing's
+FROZEN_UI_FORMS = {"documents", "emails", "quote", "reconcile", "statements"}  # C1c: the routing's
 FROZEN_UI_NAME_COMPARISONS = {("ui/src/views/PackageItems.tsx", "statements"), ("ui/src/views/WorkpackageActions.tsx", "statements"),
                               ("ui/src/views/workflows/NewWork.tsx", "mailbox")}
 FROZEN_PY_NAME_COMPARISONS: set[tuple[str, str]] = set()
@@ -65,7 +65,9 @@ def _registered() -> None:
 
 def test_no_new_logic_pack_step_kind_or_item_part() -> None:
     _same(set(logic_packs._PACKS), FROZEN_LOGIC_PACKS, "logic packs")
-    _same({k.kind for k in workflow_steps.kinds()}, FROZEN_STEP_KINDS, "workflow step kinds")
+    # 231 (C1c): the process packs' own step kind (a case of the pack a step names) is the general one, not an exception
+    _same({k.kind for k in workflow_steps.kinds() if k.module != "jav.app.process_runtime"}, FROZEN_STEP_KINDS,
+          "workflow step kinds")
     _same(set(item_kinds._ITEM_PARTS), FROZEN_ITEM_PARTS, "item parts")
 
 

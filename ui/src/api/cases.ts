@@ -72,7 +72,7 @@ export interface CostLine { step: string; step_title: string; provider: string; 
 export interface CaseCost { lines: CostLine[]; total_usd: string }
 
 export const casesApi = {
-  startCase: (body: { pack: string; record: { workpackage_id: string; item_id: string }; name: string }) =>
+  startCase: (body: { pack: string; record?: { workpackage_id: string; item_id: string }; sources?: string[]; name: string }) =>  // 231 C1c: sources
     request<{ case_id: string }>("POST", "/cases", body),
   casePage: (caseId: string) => request<CaseView>("GET", `/cases/${enc(caseId)}`),
   startCaseStep: (caseId: string, stepId: string) =>

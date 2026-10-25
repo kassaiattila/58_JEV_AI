@@ -6,7 +6,13 @@
 import { enc, request } from "./client";
 import type { OutputTemplateState } from "./outputs";
 
-export interface ProcessRow { id: string; title: string; version: string }
+export interface ProcessRow {
+  id: string; title: string; version: string;
+  /** 231 (C1c): the scope parts a case needs, and the kinds of package whose page offers one */
+  scope?: string[]; package_kinds?: string[];
+}
+/** 231 (C1c): a process whose case may read a package (`jav/app/intake.py` `package_offers`). */
+export interface PackageOffer { pack: string; title: string; name: string; sources: string[]; cases: { id: string; name: string }[] }
 export interface SettingVersion {
   version: number; state: OutputTemplateState; value: string | number; note: string | null; made_by: string; made_at: string;
   activated_by: string | null; activated_at: string | null;

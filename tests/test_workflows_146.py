@@ -74,8 +74,9 @@ def test_the_templates_are_the_four_kinds_and_three_workflows_each_waiting_only_
     conf = cfg.load("workflows")
     kinds = set(conf["kinds"])
     # 181: the email routing is a fifth kind, with its own one-step template and a workflow after a mailbox download;
-    # 191: the quote a sixth, with its own one-step template only
-    assert kinds == {"documents", "emails", "statements", "reconcile", "routing", "quote"} == {k.kind for k in workflow_steps.kinds()}
+    # 191: the quote a sixth, with its own one-step template only; 231 (C1c): the routing is a process pack's case (kind
+    # process)
+    assert kinds == {"documents", "emails", "statements", "reconcile", "process", "quote"} == {k.kind for k in workflow_steps.kinds()}
     groups = {g["id"] for g in conf["groups"]}
     singles = [t for t in conf["templates"] if not wf.is_workflow(t)]
     assert sorted(t["steps"][0]["kind"] for t in singles) == sorted(kinds)
@@ -83,7 +84,7 @@ def test_the_templates_are_the_four_kinds_and_three_workflows_each_waiting_only_
     assert chains == {"monthly_reconciliation": ["documents", "statements", "reconcile"],
                       "mailbox_reconciliation": ["emails", "statements", "reconcile"],
                       "two_sources_reconciliation": ["documents", "emails", "statements", "reconcile"],
-                      "mailbox_routing": ["emails", "routing"]}
+                      "mailbox_routing": ["emails", "process"]}
     for t in conf["templates"]:
         assert t["group"] in groups
         seen: set[str] = set()

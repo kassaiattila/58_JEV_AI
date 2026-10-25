@@ -146,8 +146,13 @@ def open_runs(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def workpackage_view(wp_id: str) -> dict[str, Any]:
+    from jav.app import intake
+
     with store.session():  # 153 (review B1): one connection for the package's page
-        return _workpackage_view(wp_id)
+        view = _workpackage_view(wp_id)
+        # 231 (C1c): the processes whose case may read this package (an email package's email routing)
+        offers = intake.package_offers(view["workpackage"])
+        return {**view, "intake": offers} if offers else view
 
 
 def _workpackage_view(wp_id: str) -> dict[str, Any]:

@@ -43,7 +43,7 @@ def test_importing_a_domain_registers_nothing_and_load_all_registers_it() -> Non
     assert seen["before"] == {"checks": [], "packs": [], "rules": [], "parts": []}
     after = seen["after"]
     assert {"duplicate", "own_tax", "statement_overlap", "duplicate_scan", "own_tax_scan"} <= set(after["checks"])
-    assert after["packs"] == ["email_routing", "reconcile", "statements"]  # 181: the routing; 231 (A3d): no quote package
+    assert after["packs"] == ["reconcile", "statements"]  # 231 (A3d): no quote package; (C1c) no routing package
     assert after["rules"] == ["suspicious_email_source"]
     assert after["parts"] == ["direction", "duplicate", "duplicate", "utility_cost", "utility_cost"]
 

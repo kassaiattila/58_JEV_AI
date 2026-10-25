@@ -82,16 +82,15 @@
         "period"
       ]
     },
-    "routing": {
-      "title": "Email routing",
-      "description": "Each invoice, outgoing invoice and bank statement that arrived by email is proposed for the package of its party, period and role; you accept, reject or choose another package.",
+    "process": {
+      "title": "A process's case",
+      "description": "A case of a process: it reads the packages of the steps it waits for, or the packages you choose; its page shows its steps.",
       "sources": [
-        "none",
-        "package"
+        "none"
       ],
-      "cost": "Free: code only.",
+      "cost": "As the process: a paid step waits for a person's start.",
       "package_kinds": [
-        "email_routing"
+        "case"
       ],
       "paid": false,
       "own_engine": false,
@@ -162,14 +161,15 @@
       ]
     },
     {
-      "id": "routing",
+      "id": "mail_routing",
       "group": "documents",
       "title": "Email routing",
-      "description": "One routing package over email packages already downloaded: their invoices, outgoing invoices and bank statements go to the packages they belong to.",
+      "description": "One routing case over email packages already downloaded: their invoices, outgoing invoices and bank statements go to the packages they belong to.",
       "steps": [
         {
           "id": "routing",
-          "kind": "routing"
+          "kind": "process",
+          "pack": "mail_routing"
         }
       ]
     },
@@ -186,7 +186,8 @@
         },
         {
           "id": "routing",
-          "kind": "routing",
+          "kind": "process",
+          "pack": "mail_routing",
           "title": "Routing",
           "after": [
             "emails"

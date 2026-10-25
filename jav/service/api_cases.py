@@ -41,8 +41,11 @@ class ActionIn(In):
 
 
 class CaseIn(In):
+    """The pack, the case's name and its scope: the record it starts from, or (231 C1c) the work packages it reads."""
+
     pack: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
-    record: Record
+    record: Record | None = None
+    sources: Annotated[list[Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")]], Field(min_length=1, max_length=100)] | None = None
     name: Annotated[str, Field(min_length=1, max_length=200)]
 
 
@@ -51,7 +54,9 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/cases", status_code=201)
     def start_case(body: CaseIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
-        case_id = process_runtime.start_case(body.pack, {"record": body.record.model_dump()}, name=body.name, actor=who)
+        scope = {**({"record": body.record.model_dump()} if body.record else {}),
+                 **({"sources": body.sources} if body.sources else {})}
+        case_id = process_runtime.start_case(body.pack, scope, name=body.name, actor=who)
         return {"case_id": case_id}
 
     @app.get(r + "/cases/{case_id}")

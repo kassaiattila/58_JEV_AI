@@ -411,6 +411,19 @@ def cmd_backup(args: argparse.Namespace) -> int:
     return 2 if copy and not copy["ok"] else 0
 
 
+def cmd_cases_adopt(args: argparse.Namespace) -> int:
+    """231 (plan stage C, C1c): the packages made before a process was a pack, taken over as its cases (`adopts`)."""
+    from jav.app import process_runtime, registrations
+    from jav.core import identity
+
+    registrations.load_all()
+    rows = process_runtime.adopt_all(actor=identity.machine("cases-adopt"), write=args.write)
+    for r in rows:
+        print(f"{r['pack']}: {r['workpackage_id']} ({r['name']}) -> {r['result']}")
+    print(f"{len(rows)} package(s){'' if args.write else '; nothing changed (add --write to take them over)'}")
+    return 0
+
+
 def cmd_burr_prune(args: argparse.Namespace) -> int:
     from jav.runtime import worker
     from jav.flows import persistence
@@ -474,6 +487,9 @@ def cmd_ocr_rekey(args: argparse.Namespace) -> int:
 
 
 def register(sub) -> None:
+    p = sub.add_parser("cases-adopt", help="231: the packages made before a process was a process pack, taken over as its cases (the pack's adopts)")
+    p.add_argument("--write", action="store_true", help="take them over (without it: only list them)")
+    p.set_defaults(fn=cmd_cases_adopt)
     p = sub.add_parser("flows", help="Burr-kontraktok lintje + FLOW.md / FLOW.mmd generálás (docs/flows/)")
     p.add_argument("--check", action="store_true", help="csak lint, fájlírás nélkül")
     p.set_defaults(fn=cmd_flows)

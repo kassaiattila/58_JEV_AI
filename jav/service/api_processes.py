@@ -53,7 +53,10 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.get(r + "/processes")
     def process_list() -> dict[str, Any]:
-        return {"processes": [{"id": p.id, "title": p.title, "version": p.version} for p in process_packs.packs()]}
+        # 231 (C1c): what a case of each needs (its scope parts) and the kinds of package that offer one
+        return {"processes": [{"id": p.id, "title": p.title, "version": p.version, "scope": list(p.scope.parts),
+                               "package_kinds": sorted({k for i in p.intake if i.on == "package" for k in i.package_kinds})}
+                              for p in process_packs.packs()]}
 
     @app.get(r + "/processes/{pack_id}/settings")
     def process_settings_page(pack_id: PackId) -> dict[str, Any]:

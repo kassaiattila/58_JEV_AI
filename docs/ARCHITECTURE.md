@@ -1189,3 +1189,19 @@ Its tabs: Emails, Routing and Routed (the special element `file_placement` with 
 `ui/src/elements/FilePlacement.tsx`, the routing package's three stages until now), Started cases (the shared element
 `started_cases`: the cases started from an item of the packages the case reads, `package_scope.holders`) and History.
 Tests: `tests/test_mail_routing_case_231.py`, `ui/src/elements/filePlacement231.test.tsx`.
+
+**The routing's own kind of package gone (231, plan stage C, C1c).** The email routing has no logic pack and no workflow
+step kind of its own any more; its addresses (accept, every clear one, reject, undo) are the email domain's
+(`SERVICE`), on a routing case's id. A workflow step of a process pack's case is the general step kind `process`
+(`process_runtime`, its template step names the `pack`): it starts a case that reads the packages of the steps it waits
+for (scope part `sources`; the workflow's party and period when the pack needs them), and the step counts once the case's
+result is approved or (`CONTAINER_PACK.approved`) its case closed as done. `configs/workflows.json` 1.3.0: the kind
+`process` instead of `routing`, the "From the mailbox to the packages" template's routing step and the one-step template
+`mail_routing` (the wizard's general form, `ui/src/elements/ProcessStart.tsx` `ProcessCreate`: the packages of the kinds
+the pack's package intake takes, and a name). A pack's intake may take a work package (`on: package`, `package_kinds`):
+the package's page offers a case that reads it, with the cases already reading it (`intake.package_offers`, the view's
+`intake`; `PackageIntake`). A pack names the kinds of package made before it that it takes over (`adopts`: the kind and
+which stored scope part gives each of its scope parts); `process_runtime.adopt_all` and the command `cases-adopt
+[--write]` take them over (`adopt_case`), run once at the release that moves a process onto its pack, after the backup.
+The strictness guard's lists lose the email routing (logic pack, step kind, interface folder, logic key, form).
+Tests: `tests/test_email_routing_181.py`, `tests/test_mail_routing_case_231.py`, `tests/test_workflow_steps_181.py`.

@@ -217,13 +217,12 @@ def routing_db(tmp_path):
 
 
 def _routing(root):
-    from jav.domains.email import email_routing
     from tests import test_email_routing_181 as r181
 
     r181._party()
     wp, ids = r181._mailbox(root, {"m1": ("invoice.pdf", "inbox")})
     r181._result(wp, ids["m1"], "invoice_hu", r181._invoice())
-    return email_routing.create(name="Routing", sources=[wp], actor="tester")["workpackage_id"], ids["m1"]
+    return r181._routing(wp, "Routing"), ids["m1"]
 
 
 def test_two_acceptances_at_once_make_one_package_and_one_decision(routing_db, monkeypatch) -> None:

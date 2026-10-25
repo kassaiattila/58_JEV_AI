@@ -47,12 +47,29 @@ def test_a_routing_case_waits_for_the_decisions_and_closes_when_every_one_is_mad
     assert _items(email_routing.view(case_id))["invoice.pdf"]["decision"]["decision"] == "accepted"
 
 
+def _old_routing(wp: str) -> str:
+    """A routing package as the email routing made one until C1c: its own kind, its email packages in its scope."""
+    from jav.app import package_scope
+    from jav.core import store
+
+    routing = work.create_workpackage(name="Routing", source_kind="email_routing", source_ref=None, owner="tester")["id"]
+    with store.connect() as c:
+        store.begin_immediate(c)
+        package_scope.save(c, routing, parts={"emails": [wp]}, actor="tester")
+    return routing
+
+
 def test_a_routing_package_made_before_is_taken_over_with_its_decisions(db) -> None:  # noqa: F811
     wp, ids = _sources(db)
-    routing = email_routing.create(name="Routing", sources=[wp], actor="tester")["workpackage_id"]
+    routing = _old_routing(wp)
     email_routing.accept_clear(routing, actor="Example Person")
-    assert process_runtime.adopt_case(PACK, routing, {"sources": [wp]}, actor="tester") == "adopted"
+    listed = process_runtime.adopt_all(actor="tester")  # without write: only listed
+    assert [(r["pack"], r["workpackage_id"], r["scope"], r["result"]) for r in listed] == [
+        (PACK, routing, {"sources": [wp]}, "to adopt")]
+    assert work.get(routing)["source_kind"] == "email_routing"
+    assert [r["result"] for r in process_runtime.adopt_all(actor="tester", write=True)] == ["adopted"]
     assert work.get(routing)["source_kind"] == process_runtime.CONTAINER
+    assert process_runtime.adopt_all(actor="tester", write=True) == []  # its kind is the container's now
     view = email_routing.view(routing)  # the decisions stay where they were
     assert _items(view)["invoice.pdf"]["decision"]["decision"] == "accepted" and view["sources"][0]["id"] == wp
     step = engine.state(routing)["steps"]["route"]

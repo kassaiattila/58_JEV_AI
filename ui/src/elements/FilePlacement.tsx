@@ -5,11 +5,10 @@
 // cannot place by itself shows why (an amber mark); a document of another kind is only listed. The element shows the
 // email packages it routes (show: sources), the routing itself (show: decide) or what went where (show: routed).
 import { useMemo, useState } from "react";
-import { api, type RoutingBlocker, type RoutingItem, type RoutingNote, type RoutingView, type WorkpackageView } from "../api";
+import { api, type RoutingBlocker, type RoutingItem, type RoutingNote, type RoutingView } from "../api";
 import { useAction, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { docTypeLabel } from "../labels";
-import type { Stage } from "../route";
 import type { ElementProps } from "./registry";
 
 export const BLOCKER: Record<RoutingBlocker, string> = {
@@ -43,15 +42,6 @@ function emailText(item: RoutingItem): string {
 function placementText(item: RoutingItem): string {
   const p = item.placement;
   return [p.role_title ? t(p.role_title) : null, p.party, p.day].filter(Boolean).join(" · ");
-}
-
-export function RoutingStages({ view, stage, onChanged }: { view: WorkpackageView; stage: Stage; onChanged: () => void }) {
-  useLocale();
-  const r = view.routing;
-  if (!r) return <p className="muted">{t("Loading…")}</p>;
-  if (stage === "process") return <Sources view={r} />;
-  if (stage === "review") return <Decide wpId={view.workpackage.id} view={r} onChanged={onChanged} />;
-  return <Routed view={r} />;
 }
 
 function Sources({ view }: { view: RoutingView }) {

@@ -24,12 +24,6 @@ WpIdField = Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")]  # a work packag
 ItemId = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]  # an attachment: its content hash
 
 
-class CreateRouting(In):
-    """A routing package over email packages."""
-    name: Annotated[str, Field(min_length=1, max_length=200)]
-    sources: Annotated[list[WpIdField], Field(min_length=1, max_length=50)]
-
-
 # the roles' titles in the interface's language, for the names of the packages the routing makes
 Titles = dict[Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")], Annotated[str, Field(min_length=1, max_length=100)]]
 
@@ -53,12 +47,6 @@ class RoutingItem(In):
 
 def routes(app: FastAPI, r: str) -> None:
     """The email routing's addresses under the service's prefix `r`."""
-
-    @app.post(r + "/email-routing/packages", status_code=201)
-    def create_routing(body: CreateRouting, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
-        """A routing package over email packages; the new package's view."""
-        made = email_routing.create(name=body.name, sources=body.sources, actor=who)
-        return work_views.workpackage_view(made["workpackage_id"])
 
     @app.post(r + "/workpackages/{wp_id}/routing/accept")
     def routing_accept(wp_id: WpId, body: RoutingItems, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:

@@ -108,7 +108,7 @@ export function NewWork({ onPackage, onWorkflow, initialTemplate, initialGroup, 
       ) : null}
       {stage >= 3 && single ? (
         <>
-          <SingleForm kind={single} onDone={onPackage} />
+          <SingleForm kind={single} pack={tpl?.steps[0].pack} onDone={onPackage} />
           {!initialTemplate ? <div className="button-row"><button type="button" className="secondary" onClick={() => setStage(2)}>{t("← Back")}</button></div> : null}
         </>
       ) : null}
