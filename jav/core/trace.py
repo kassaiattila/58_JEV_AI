@@ -11,12 +11,17 @@ a changed rule can be tried on the stored inputs without processing anything aga
   files it reads (a pattern names a family, such as the type packs: `types/*.json`) and its rule: a pure function of
   the stored inputs that gives the stored outcome (`replay`).
 - `record_in(c, point, subject=, inputs=, outcome=, keys=, ...)`: one trace row in the caller's write transaction.
-- `rows(...)`, `replay(row)`: reading the trace back, and the rule run again on a row's inputs.
+- `rows(...)`, `replay(row)`: reading the trace back, and the rule run again on a row's inputs; `reading(file, key)`:
+  the rows whose decision read one rule key (231 B3).
+
+231 (plan stage B, B3): a decision made while a case's own rule values lay over the files (`cfg.overlay`) records them
+beside each file it read (`process_values`: the key, the value, the stored setting and its version), and `replay` runs
+the rule with them over the files again.
 
 A person's decision has its own journal (`jav.core.decisions`); this trace is the machine's. Measurements and replays
 write into their own copy of the store, so they never grow the live trace.
 
-Layer: shared core; it imports only the store and the calculation snapshot. The owners register their points.
+Layer: shared core; it imports only the store, the config loader and the calculation snapshot. The owners register their points.
 """
 
 from __future__ import annotations
@@ -29,7 +34,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from jav.core import rulebook, store
+from jav.core import cfg, rulebook, store
 from jav.core.clock import utc_stamp as _now
 
 store.register_schema("trace", """
@@ -97,15 +102,56 @@ def _json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"), default=str)
 
 
+_FOLDERS = {"callsite": "callsites", "type": "types", "process": "processes"}  # as `cfg.path_of` places a config name
+
+
+def file_of(name: str) -> str:
+    """A config name's file under `configs/`, as the trace names it (`callsite:x` -> `callsites/x.json`)."""
+    prefix, _, rest = name.partition(":")
+    return f"{_FOLDERS[prefix]}/{rest}.json" if rest and prefix in _FOLDERS else f"{name}.json"
+
+
+def _process_values() -> dict[str, list[dict[str, Any]]]:
+    """231 (B3): the case's own values lying over the files now, by rule file."""
+    over = cfg.current_overlay()
+    if over is None:
+        return {}
+    return {file_of(name): [{"key": key, "value": value, **(over.refs.get(name, {}).get(key) or {})}
+                             for key, value in sorted(values.items())] for name, values in over.values.items()}
+
+
 def _rules(p: Point, keys: Mapping[str, Iterable[str]], snapshot: rulebook.Snapshot) -> list[dict[str, Any]]:
     if unknown := sorted(name for name in keys if not any(fnmatch.fnmatchcase(name, f) for f in p.files)):
         raise UnknownPoint(f"the decision point {p.code} reads no rule file {unknown}")
+    own = _process_values()
     out = []
     for name in sorted(keys):
         found = snapshot.files.get(name)
-        out.append({"file": name, "version": found.version if found else None, "sha256": found.sha256 if found else None,
-                    "keys": sorted(set(keys[name]))})
+        entry = {"file": name, "version": found.version if found else None, "sha256": found.sha256 if found else None,
+                 "keys": sorted(set(keys[name]))}
+        if name in own:
+            entry["process_values"] = own[name]
+        out.append(entry)
     return out
+
+
+def _name_of(file: str) -> str:
+    """The config name of a file the trace names (`callsites/x.json` -> `callsite:x`)."""
+    folder, _, rest = file.removesuffix(".json").partition("/")
+    prefixes = {v: k for k, v in _FOLDERS.items()}
+    return f"{prefixes[folder]}:{rest}" if rest and folder in prefixes else folder
+
+
+def recorded_overlay(row: Mapping[str, Any]) -> cfg.Overlay | None:
+    """231 (B3): the case's own values a row's decision was made with, as an overlay (None: the files alone)."""
+    values: dict[str, dict[str, Any]] = {}
+    refs: dict[str, dict[str, dict[str, Any]]] = {}
+    for entry in row.get("rules") or []:
+        for v in entry.get("process_values") or []:
+            name = _name_of(entry["file"])
+            values.setdefault(name, {})[v["key"]] = v["value"]
+            refs.setdefault(name, {})[v["key"]] = {k: v[k] for k in ("setting", "version") if k in v}
+    return cfg.Overlay(values, refs) if values else None
 
 
 def record_in(c: sqlite3.Connection, code: str, *, subject: tuple[str, str], inputs: Mapping[str, Any], outcome: Any,
@@ -130,6 +176,14 @@ def _row(r: sqlite3.Row) -> dict[str, Any]:
     return out
 
 
+def reading(file: str, key: str) -> list[dict[str, Any]]:
+    """231 (B3): the trace rows whose decision read rule `key` of `file` (a path under `configs/`), oldest first."""
+    with store.connect() as c:
+        found = [_row(r) for r in c.execute("SELECT * FROM decision_trace WHERE instr(rules, ?) > 0 ORDER BY id",
+                                            (_json({"file": file})[1:-1],))]
+    return [r for r in found if any(e["file"] == file and key in e["keys"] for e in r["rules"])]
+
+
 def rows(*, point: str | None = None, subject: tuple[str, str] | None = None, run_id: str | None = None,
          case_id: str | None = None, last: int | None = None) -> list[dict[str, Any]]:
     """The trace rows matching every filter given, oldest first (with `last`: only the latest that many)."""
@@ -148,7 +202,8 @@ def rows(*, point: str | None = None, subject: tuple[str, str] | None = None, ru
         return [_row(r) for r in reversed(c.execute(sql, args).fetchall())]
 
 
-def replay(row: Mapping[str, Any]) -> Any:
+def replay(row: Mapping[str, Any], *, over: cfg.Overlay | None = None) -> Any:
     """The point's rule run again on the row's stored inputs (its value equals the stored outcome while the rule's code
-    is the same)."""
-    return json.loads(_json(point(row["point"]).rule(row["inputs"])))
+    is the same); 231 (B3): with the case's own values it was made with over the files, or with `over` instead."""
+    with cfg.overlay(over if over is not None else recorded_overlay(row)):
+        return json.loads(_json(point(row["point"]).rule(row["inputs"])))

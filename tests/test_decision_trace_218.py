@@ -23,6 +23,7 @@ from jav.core import cfg, rulebook, store, trace
 from jav.core.process import tasks
 from tests.test_workflow_tasks_215 import _monthly
 from tests.test_workflows_146 import _steps, db  # noqa: F401 - the fixture is used by name
+from tests.test_process_rules_231 import test_an_approved_quote_and_its_letter_check_are_traced_decisions as quote_points_traced  # noqa: F401 - named by POINT_TESTS
 
 # each registered decision point and the test that shows its trace (a new point needs its own)
 POINT_TESTS = {
@@ -36,6 +37,9 @@ POINT_TESTS = {
     "finance.duplicate": "test_a_duplicate_and_an_own_tax_number_are_traced_with_the_extractions_save",
     "parties.own_tax_as_supplier": "test_the_store_scans_trace_the_to_dos_they_open",
     "parties.detail_direction": "test_the_parties_direction_on_an_uncertain_detailed_type_is_traced",
+    # 231 (B3): the quotes' points, shown in the process rules' tests (imported under a name pytest does not collect)
+    "quote.amounts": "quote_points_traced",
+    "quote.letter_check": "quote_points_traced",
 }
 
 

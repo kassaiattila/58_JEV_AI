@@ -28,16 +28,18 @@ import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+from collections.abc import Callable, Coroutine
 from typing import Annotated, Any
 from urllib.parse import urlsplit
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Request, Response
+from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from pydantic import Field
 from starlette.routing import BaseRoute
 
 from jav.service import local_picker
-from jav.app import app_settings, corrections, package_release, work, work_views
+from jav.app import app_settings, capabilities, corrections, package_release, work, work_views
 from jav.ai import policy
 from jav.documents import isolated_pdf
 from jav.core import access, cfg, dates, numbers, store, version
@@ -230,12 +232,34 @@ def route_modules() -> list[str]:
 _THEME_ROUTES: dict[tuple[tuple[str, ...], str], tuple[list[BaseRoute], dict[Any, Any]]] = {}
 
 
+CASE_PARAMS = ("case_id", "wp_id")  # 231 (B3): the address parts that name one case or package
+
+
+class CaseRoute(APIRoute):
+    """231 (plan stage B, B3): a request about one case (`case_id`) or package (`wp_id`) runs with the case's own rule
+    values over the rule files (`capabilities.case_rules`); one about a package that is no case, with the files alone."""
+
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+        handler = super().get_route_handler()
+        if not set(CASE_PARAMS) & set(self.param_convertors):
+            return handler
+
+        async def handle(request: Request) -> Response:
+            case_id = next((request.path_params[n] for n in CASE_PARAMS if n in request.path_params), None)
+            with capabilities.case_rules(case_id):
+                return await handler(request)
+
+        return handle
+
+
 def _new_app() -> FastAPI:
     # 071 decision (2026-09-30): the clickable endpoint list (/api/docs) would load program code from an external host
     # onto the local address, so it is switched off; the machine-readable endpoint list (/api/openapi.json) stays
     # 229 (SZ2b): every address goes through the shared entrance (who acts, the authorisation check)
-    return FastAPI(title="JAV helyi szolgáltatás", version=API_VERSION, default_response_class=JavJSONResponse,
-                   docs_url=None, openapi_url="/api/openapi.json", redoc_url=None, dependencies=[Depends(access_guard)])
+    app = FastAPI(title="JAV helyi szolgáltatás", version=API_VERSION, default_response_class=JavJSONResponse,
+                  docs_url=None, openapi_url="/api/openapi.json", redoc_url=None, dependencies=[Depends(access_guard)])
+    app.router.route_class = CaseRoute
+    return app
 
 
 def _add_theme_routes(app: FastAPI, prefix: str) -> None:

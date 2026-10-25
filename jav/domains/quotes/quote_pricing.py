@@ -12,20 +12,26 @@ editor records the note, B5); such a line says so, and a line outside the list a
 - `price_line(line, price_list)`, `totals(lines, price_list)`: one line, and the totals of priced lines (192, the editor);
 - `golden_price_list(golden)`: the invented golden set's price list as a version; 204 (R1h): its quotes are priced and
   compared in the quotes domain's measurement module (`jav/domains/quotes/goldens.py`, the code-only golden set `quote:lines`).
+- `AMOUNTS` (231, plan stage B, B3): the decision point of an approved quote's totals in the decision trace: its rule
+  (`amounts`) computes them again from the lines' unit prices, quantities and discounts, the VAT rate and the currency,
+  with the currency's rounding unit, so a process's own rounding can be tried on its approved quotes (`amount_inputs`,
+  `rounding_keys`).
 
 Layer: business module of the quotes domain; pure code, no store, no AI call.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
+from jav.core import trace
 from jav.domains.quotes import price_lists
 
 HUNDRED = Decimal(100)
+AMOUNTS = "quote.amounts"  # 231 (B3): the decision point of an approved quote's totals
 
 
 class PricingError(ValueError):
@@ -126,6 +132,43 @@ def totals(lines: Iterable[PricedLine], prices: price_lists.PriceList) -> tuple[
     net = sum((p.net for p in lines), Decimal(0))
     vat = _round(net * prices.vat_percent / HUNDRED, rounding_unit(prices.currency))
     return net, vat, net + vat
+
+
+def amount_inputs(content: Mapping[str, Any]) -> dict[str, Any]:
+    """231 (B3): what an approved quote's totals are computed from (its content as an approval records it): each line's
+    unit price, quantity and discount, the VAT rate and the currency."""
+    return {"currency": content["currency"], "vat_percent": content["vat_percent"],
+            "lines": [{"price": ln["unit_price"], "quantity": ln["quantity"], "discount_percent": ln["discount_percent"]}
+                      for ln in content["lines"]]}
+
+
+def rounding_keys(currency: str) -> dict[str, list[str]]:
+    """The rule keys the totals of a quote in `currency` are rounded by."""
+    return {"price_lists.json": [f"rounding.{currency}" if currency in price_lists.config()["rounding"] else "rounding.default"]}
+
+
+def _plain(value: Decimal) -> str:
+    """A total without the trailing zeros its rounding unit gives it ("2575500.00" -> "2575500"), so a rounding that
+    leaves the amount as it was does not read as a change."""
+    return format(value.normalize(), "f")
+
+
+def amounts(inputs: Mapping[str, Any]) -> dict[str, str]:
+    """231 (B3): the rule of `AMOUNTS`: the totals as `price_line` and `totals` compute them, from `amount_inputs`
+    (each without trailing zeros)."""
+    unit = rounding_unit(inputs["currency"])
+    net = sum((_round(Decimal(ln["price"]) * Decimal(ln["quantity"]) * (HUNDRED - Decimal(ln["discount_percent"])) / HUNDRED, unit)
+               for ln in inputs["lines"]), Decimal(0))
+    vat = _round(net * Decimal(inputs["vat_percent"]) / HUNDRED, unit)
+    return {"net": _plain(net), "vat": _plain(vat), "gross": _plain(net + vat)}
+
+
+trace.register(trace.Point(
+    AMOUNTS, owner=__name__, files=("price_lists.json",), rule=amounts,
+    what="an approved quote's net, VAT and gross totals, computed by code from its lines with the rounding unit of its "
+         "currency",
+    not_for="the lines' prices and discounts themselves (the price list and the person's own prices) or which item a "
+            "requested line is"))
 
 
 def price(lines: list[LineInput], prices: price_lists.PriceList) -> PricedQuote:

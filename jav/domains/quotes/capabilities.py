@@ -22,7 +22,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from jav.app import human_tasks
-from jav.app.capabilities import Capability
+from jav.app.capabilities import Capability, RuleKey
 from jav.core.process import kinds
 
 POLL_S = 5.0  # how soon a waiting step looks again at the job or the person it waits for
@@ -48,23 +48,34 @@ def _catalogue(value: str) -> str:
     return value
 
 
+def _catalogues() -> list[tuple[str, str]]:
+    """231 (B4): the price lists a process may choose: the newest active one, or one by name that has an active version."""
+    from jav.domains.quotes import price_lists
+
+    return [(price_lists.NEWEST_ACTIVE, "The newest active price list"),
+            *((p["price_list"], p["name"]) for p in price_lists.listing() if p.get("active") and not p.get("retired"))]
+
+
+PRICE_LIST = "Price list"  # 231 (B4): the parameters' titles name a process's resources on its settings page
+
+
 class CatalogueMatch(_Params):
     """Which catalogue the items are matched with (`newest_active` or a named price list), and the call site that asks."""
 
-    catalogue: str = Field(min_length=1)
+    catalogue: str = Field(min_length=1, title=PRICE_LIST)
     callsite: str = Field(min_length=1)
     _catalogue = field_validator("catalogue")(lambda cls, v: _catalogue(v))
 
 
 class LinePricing(_Params):
-    catalogue: str = Field(min_length=1)
+    catalogue: str = Field(min_length=1, title=PRICE_LIST)
     _catalogue = field_validator("catalogue")(lambda cls, v: _catalogue(v))
 
 
 class LineDraft(_Params):
     """A person composes the lines from the match; the approval is the record's own version."""
 
-    catalogue: str = Field(min_length=1)
+    catalogue: str = Field(min_length=1, title=PRICE_LIST)
     approval: Literal["own_version"] = "own_version"
     _catalogue = field_validator("catalogue")(lambda cls, v: _catalogue(v))
 
@@ -72,7 +83,7 @@ class LineDraft(_Params):
 class PricedDocument(_Params):
     """The output contract it fills, and the step whose approved version it prints."""
 
-    output: str = Field(min_length=1)
+    output: str = Field(min_length=1, title="Output")
     from_step: str = Field(min_length=1)
 
     @field_validator("output")
@@ -88,17 +99,30 @@ class PricedDocument(_Params):
 class LetterDraft(_Params):
     """The letter frame's key and the call site that asks for the paragraph."""
 
-    frame: str = Field(min_length=1)
+    frame: str = Field(min_length=1, title="Letter frame")
     callsite: str = Field(min_length=1)
 
     @field_validator("frame")
     @classmethod
     def _known_frame(cls, value: str) -> str:
-        from jav.domains.quotes import quote_document
+        from jav.domains.quotes import quote_letter
 
-        if not isinstance(quote_document.settings().get(value), dict):
+        if value not in quote_letter.frames():
             raise ValueError(f"no letter frame {value!r}")
         return value
+
+
+def _outputs() -> list[tuple[str, str]]:
+    """231 (B4): the Word outputs a priced document may fill."""
+    from jav.core import cfg
+
+    return [(key, key) for key, o in (cfg.load("outputs").get("outputs") or {}).items() if o.get("format") == "docx"]
+
+
+def _frames() -> list[tuple[str, str]]:
+    from jav.domains.quotes import quote_letter
+
+    return [(key, key) for key in quote_letter.frames()]
 
 
 def _container(ctx: Any) -> str:
@@ -211,18 +235,31 @@ CAPABILITIES = (
     Capability(name="catalogue_match", version=1, module=_OWNER, run=_catalogue_match, kind="machine", params=CatalogueMatch,
                providers=("jev", "openai"), rule_files=("callsite:quote_match", "gpt_quote_match", "quotes", "price_lists"),
                summary="Matches each requested item with a catalogue item: sure, to check, or not listed.",
-               spent=_spent("quote_proposals")),
+               spent=_spent("quote_proposals"), choices={"catalogue": _catalogues},
+               # 231 (B3): only fewer items than the file's (more would raise what a proposal may spend)
+               rule_keys=(RuleKey("quotes", "proposal.max_items", "int", "At most this many requested items are matched in one"
+                                  " proposal", least=1, most=200),)),
     Capability(name="line_pricing", version=1, module=_OWNER, kind="machine", params=LinePricing, effects="pure",
-               rule_files=("price_lists",), summary="Prices lines from a catalogue: unit price, discount rules, totals."),
+               rule_files=("price_lists",), summary="Prices lines from a catalogue: unit price, discount rules, totals.",
+               choices={"catalogue": _catalogues}),
     Capability(name="line_draft", version=1, module=_OWNER, run=_line_draft, kind="human", params=LineDraft,
                rule_files=("quotes", "price_lists"),
-               summary="A person composes the lines from the match, gives own prices with a note, and approves."),
+               summary="A person composes the lines from the match, gives own prices with a note, and approves.",
+               choices={"catalogue": _catalogues},
+               rule_keys=(RuleKey("quotes", "draft.max_lines", "int", "A quote holds at most this many lines", least=1, most=1000),
+                          RuleKey("price_lists", "rounding.HUF", "choice", "A forint quote's amounts are rounded to this unit",
+                                  options=("1", "0.01")),
+                          RuleKey("price_lists", "rounding.default", "choice", "Another currency's amounts are rounded to this"
+                                  " unit", options=("0.01", "1")))),
     Capability(name="priced_document", version=1, module=_OWNER, run=_priced_document, kind="machine", params=PricedDocument,
-               rule_files=("quote_documents", "outputs"), summary="Fills a priced document from an output template."),
+               rule_files=("quote_documents", "outputs"), summary="Fills a priced document from an output template.",
+               choices={"output": _outputs}),
     Capability(name="letter_draft", version=1, module=_OWNER, run=_letter_draft, kind="machine", params=LetterDraft, providers=("openai",),
                rule_files=("gpt_quote_letter", "quote_documents", "quotes"),
                summary="Drafts a reply letter: the frame written by code around a model's checked paragraph; done once a person"
-                       " accepted it.", spent=_spent("quote_letters")),
+                       " accepted it.", spent=_spent("quote_letters"), choices={"frame": _frames},
+               rule_keys=(RuleKey("quotes", "letter.max_chars", "int", "The model's paragraph is at most this many characters",
+                                  least=100, most=2000),)),
 )
 
 

@@ -15,18 +15,29 @@ copied when a module is loaded: a module's rule table is a `Section`, a read-thr
 reaches the decisions without a restart. The loader does not reread a changed file by itself: the service runs from
 the working folder, and a half-edited rule must not reach it. The registries, the call sites and the prompts stay as
 loaded: their change is a new AI request, measured and released.
+
+231 (plan stage B, B3): a process may keep its own values of some keys of the rule files (`jav/app/process_settings.py`).
+While code works on one case, its values lie over the files (`overlay`, a context of the call): `load` returns the
+file with them in place, so a module reads them as it reads the file. `config_hash` and `version` stay the file's.
 """
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
+import logging
 from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from jav.core.config import PROJECT_ROOT
+
+log = logging.getLogger(__name__)
 
 CONFIG_DIR = PROJECT_ROOT / "configs"
 CALLSITE_DIR = CONFIG_DIR / "callsites"
@@ -50,7 +61,7 @@ def path_of(name: str) -> Path:
 
 
 @lru_cache(maxsize=None)
-def load(name: str) -> dict[str, Any]:
+def _file(name: str) -> dict[str, Any]:
     p = path_of(name)
     if not p.exists():
         raise FileNotFoundError(f"konfig hiányzik: {p}")
@@ -58,6 +69,58 @@ def load(name: str) -> dict[str, Any]:
     if "meta" not in data or "version" not in data["meta"]:
         raise ValueError(f"konfig meta.version hiányzik: {p}")
     return data
+
+
+@dataclass(frozen=True)
+class Overlay:
+    """231 (B3): a case's own values over the rule files: `values` {config name: {dotted key: value}}, and `refs`, the
+    same keys' origin {config name: {dotted key: {"setting": id, "version": n}}} that the decision trace records."""
+
+    values: Mapping[str, Mapping[str, Any]]
+    refs: Mapping[str, Mapping[str, Mapping[str, Any]]] = field(default_factory=dict)
+    _cache: dict[str, dict[str, Any]] = field(default_factory=dict, compare=False, repr=False)
+
+    def applied(self, name: str, data: dict[str, Any]) -> dict[str, Any]:
+        """The file's data with these values in place; a key the file no longer holds (a case started before the file
+        changed) is left out, with a warning in the log."""
+        if name not in self._cache:
+            out = copy.deepcopy(data)
+            for key, value in self.values[name].items():
+                *parents, last = key.split(".")
+                node: Any = out
+                for part in parents:
+                    node = node.get(part) if isinstance(node, dict) else None
+                if not isinstance(node, dict) or last not in node:
+                    log.warning("config %s holds no rule %s: the case's own value %r is left out", name, key, value)
+                    continue
+                node[last] = value
+            self._cache[name] = out
+        return self._cache[name]
+
+
+_overlay: ContextVar[Overlay | None] = ContextVar("cfg_overlay", default=None)
+
+
+@contextmanager
+def overlay(values: Overlay | None) -> Iterator[None]:
+    """231 (B3): the reads inside this context see these values over the files (None: the files alone)."""
+    token = _overlay.set(values if values is not None and values.values else None)
+    try:
+        yield
+    finally:
+        _overlay.reset(token)
+
+
+def current_overlay() -> Overlay | None:
+    """The values lying over the files in this context (None: the files alone)."""
+    return _overlay.get()
+
+
+def load(name: str) -> dict[str, Any]:
+    """The config file `name`, with the values of the case at hand over it (`overlay`, 231 B3). Read only."""
+    data = _file(name)
+    over = _overlay.get()
+    return over.applied(name, data) if over is not None and name in over.values else data
 
 
 class Section(Mapping[str, Any]):
@@ -97,9 +160,10 @@ def canonical(data: dict[str, Any]) -> str:
 def config_hash(*names: str) -> str:
     """The joint hash of one or more configs (e.g. the detect call site + the doc_types registry)."""
     h = hashlib.sha256()
-    for name in sorted(names):
-        h.update(name.encode("utf-8"))
-        h.update(canonical(load(name)).encode("utf-8"))
+    with overlay(None):  # 231 (B3): the files' hash, never a case's own values
+        for name in sorted(names):
+            h.update(name.encode("utf-8"))
+            h.update(canonical(load(name)).encode("utf-8"))
     return h.hexdigest()[:HASH_LEN]
 
 
@@ -154,7 +218,7 @@ def on_reload(fn: Callable[[], None]) -> None:
 
 def reload() -> None:
     """For tests / config changes at run time: clears the cache."""
-    load.cache_clear()
+    _file.cache_clear()
     config_hash.cache_clear()
     file_digest.cache_clear()
     for fn in _ON_RELOAD:

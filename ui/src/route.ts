@@ -9,7 +9,7 @@
 /** 231 (plan stage A, A1): a page's tab is named by its id; a work package has the three below, a case the tabs its
  *  process pack describes, so the number of tabs is not fixed in the code. */
 export type Stage = string;
-export type SettingsSection = "mailboxes" | "folders" | "parties" | "partners" | "recipes" | "rules" | "outputs" | "prices" | "users" | "appearance" | "language" | "system";
+export type SettingsSection = "mailboxes" | "folders" | "parties" | "partners" | "processes" | "recipes" | "rules" | "outputs" | "prices" | "users" | "appearance" | "language" | "system";
 export type ResultTable = "emails" | "tasks" | "documents" | "datapoints" | "line_items" | "utility" | "file_names" | "native_facts";
 
 /** 061: a confirmation page before a run is started (in the Processing section) */
@@ -36,7 +36,7 @@ export type Route =
 
 /** A work package's three sections (057). */
 export const STAGES: Stage[] = ["process", "review", "result"];
-export const SECTIONS: SettingsSection[] = ["mailboxes", "folders", "parties", "partners", "recipes", "rules", "outputs", "prices", "users", "appearance", "language", "system"];
+export const SECTIONS: SettingsSection[] = ["mailboxes", "folders", "parties", "partners", "processes", "recipes", "rules", "outputs", "prices", "users", "appearance", "language", "system"];
 export const RESULT_TABLES: ResultTable[] = ["emails", "tasks", "documents", "datapoints", "line_items", "utility", "file_names", "native_facts"];
 const OLD_TAB: Record<string, Stage> = { items: "review", reviews: "review", workflow: "process" };
 const OLD_DATASET: Record<string, ResultTable> = {

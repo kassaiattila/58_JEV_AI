@@ -29,7 +29,7 @@ from typing import Any, Callable
 
 from burr.integrations.serde import pydantic as burr_pydantic
 
-from jav.app import app_settings, item_kinds, work, work_readiness, work_runs, workflows
+from jav.app import app_settings, capabilities, item_kinds, work, work_readiness, work_runs, workflows
 from jav.documents import isolated_pdf, pdf
 from jav.core import store
 from jav.runtime import job_kinds, pdf_status
@@ -468,6 +468,16 @@ def status() -> dict[str, Any]:
             "pdf_protection": pdf_status.worker_status(store.current_path(), running=running)}
 
 
+def handle(job: queue.Job) -> str:
+    """One claimed job carried through: a run's item, or a kind a domain registered (`job_kinds`). 231 (B3): a job
+    about a case (its package's id in the payload) runs with the case's own rule values over the rule files."""
+    own = job_kinds.of(job.kind)
+    if own is None:
+        return process(job)
+    with capabilities.case_rules((job.payload or {}).get("workpackage_id")):
+        return own.process(job)
+
+
 def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int | None = None,
                name: str | None = None) -> dict[str, Any]:
     """Worker loop. `once=True`: runs until the queue is empty, then exits (for the CLI and tests).
@@ -514,8 +524,7 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
                 time.sleep(idle_sleep_s)
                 continue
             try:
-                own = job_kinds.of(job.kind)
-                res = own.process(job) if own is not None else process(job)
+                res = handle(job)
             except Exception as exc:  # noqa: BLE001 - operational safety net: the job is closed, the loop carries on
                 log.exception("job %s (%s) failed unexpectedly", job.id, job.kind)
                 info["errors"] += 1

@@ -1067,4 +1067,17 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .partner-roles legend { font-size: var(--fs-xs); font-weight: 600; padding: 0; margin-bottom: 6px; }
 .partner-suggestions { margin-top: var(--sp-6); }
 .partner-suggestions h3 { margin: 0; }
+/* 231 (B4): a process's own settings */
+.process-head h3 { margin: 0 0 var(--sp-1); }
+.process-head p { margin: 0 0 var(--sp-4); }
+.process-settings section { margin-bottom: var(--sp-6); }
+.process-settings h4 { margin: 0 0 var(--sp-2); }
+.process-in-use { font-weight: 600; }
+.process-origin { display: inline-flex; gap: var(--sp-2); align-items: center; }
+.process-card { margin-top: var(--sp-4); }
+.process-facts { display: grid; grid-template-columns: max-content 1fr; gap: var(--sp-1) var(--sp-4); margin: 0 0 var(--sp-4); }
+.process-facts dt { color: var(--muted); }
+.process-facts dd { margin: 0; }
+.process-preview { margin: var(--sp-3) 0; }
+.process-versions { margin-top: var(--sp-4); }
 .partner-link + .partner-link { border-top: 1px solid var(--line-soft); padding-top: var(--sp-3); }

@@ -52,8 +52,10 @@ def test_a_process_value_is_a_draft_until_it_is_made_active_and_reaches_the_case
     cases, _seen = golden
     before = _start(cases[0])
     shown = process_settings.view(PACK)
-    assert _resource(shown, "price_list") == {"key": "price_list", "file_value": "newest_active", "value": "newest_active",
-                                              "own": False, "versions": []}
+    listed = _resource(shown, "price_list")
+    assert {k: listed[k] for k in ("key", "label", "file_value", "value", "own", "versions")} == {
+        "key": "price_list", "label": "Price list", "file_value": "newest_active", "value": "newest_active", "own": False,
+        "versions": []}
     with pytest.raises(process_settings.SettingError):
         process_settings.propose(PACK, "price_list", "pl-000000000000", "anna")  # no active list of that name
     with pytest.raises(process_settings.SettingError):
@@ -127,3 +129,23 @@ def test_the_service_shows_saves_and_activates_a_process_value(golden, tmp_path)
         assert on.status_code == 200 and _resource(on.json(), "send_mode")["value"] == "outlook_draft"
         assert c.post(f"/api/processes/{PACK}/settings/send_mode/retire", headers=human, json={}).status_code == 200
         assert c.get("/api/processes/no_such_pack/settings").status_code == 404
+
+
+def test_a_resource_takes_only_the_values_its_capability_offers_and_every_label_is_translated(golden, tmp_path) -> None:  # noqa: F811
+    import json
+    from pathlib import Path
+
+    shown = process_settings.view(PACK)
+    send = _resource(shown, "send_mode")
+    assert (send["label"], [o["value"] for o in send["options"]]) == ("Send mode", ["output_folder", "outlook_draft"])
+    with pytest.raises(process_settings.SettingError):
+        process_settings.propose(PACK, "send_mode", "outlook_send", "anna")  # the real send stays a change of the file
+    second = _second_list(tmp_path)
+    assert second in [o["value"] for o in _resource(process_settings.view(PACK), "price_list")["options"]]
+    hu = json.loads((Path(__file__).parent.parent / "ui" / "src" / "i18n" / "hu-native.json").read_text(encoding="utf-8"))
+    shown = process_settings.view(PACK)
+    labels = {r["label"] for r in shown["resources"]} | {r["what"] for r in shown["rules"]} | {p["label"] for p in shown["partners"]}
+    labels |= {o["label"] for r in shown["resources"] for o in r["options"] or [] if o["label"] != o["value"]
+               and (r["key"] != "price_list" or o["value"] == "newest_active")}  # a price list's own name is not translated
+    assert not sorted(label for label in labels if label not in hu)
+    assert shown["partners"] == [{"role": "customer", "label": "Customer", "step": "request", "step_title": "Request"}]

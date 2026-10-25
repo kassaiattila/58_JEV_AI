@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "rule_help",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "218 (plan G-process-core P3e, the owner's request and decisions of 2026-10-23): the plain-language description of the rules for the read-only view in Settings › Rules. For every machine decision point of the decision trace (jav/core/trace.py): its area, a short title, what it decides and what it is not for, and the rule values the view shows (file, key, label, format; a percentage's label reads on into its value, as in 'below 60 %'); the values themselves are read from the rule files the running process loaded (jav/app/rules_view.py). Kept apart from the rule files, so their fingerprints and the AI requests do not change. Texts are English; the interface translates them (ui/src/i18n/hu-native.json). A test asks that every decision point has an entry and that every value's key is in a file its point reads.",
     "changelog": [
+      {
+        "version": "1.2.0",
+        "date": "2026-10-25",
+        "note": "231 (plan stage B, B3): the quotes' two decision points (an approved quote's totals, the check of the model's letter paragraph), their area and their rule files."
+      },
       {
         "version": "1.1.0",
         "date": "2026-10-24",
@@ -21,7 +26,8 @@
     "extraction": "Data extraction",
     "emails": "Emails",
     "finance": "Checks across documents",
-    "workflows": "Workflows"
+    "workflows": "Workflows",
+    "quotes": "Quotes"
   },
   "files": {
     "policy.json": "Shared decision thresholds",
@@ -31,7 +37,9 @@
     "recipes.json": "Processing recipes and their cost caps",
     "parties.json": "Own parties' checks",
     "fact_checks.json": "Code checks of names and tax numbers",
-    "types/*.json": "Type packs: the fields of each document type"
+    "types/*.json": "Type packs: the fields of each document type",
+    "price_lists.json": "Price list reading and rounding",
+    "quotes.json": "Quote limits"
   },
   "points": {
     "ocr.escalation": {
@@ -156,6 +164,25 @@
       "values": [
         {"file": "recipes.json", "key": "recipes[processing].max_item_usd_by_kind.document.auto", "label": "Estimated cost of a document", "format": "usd_by_provider"},
         {"file": "recipes.json", "key": "recipes[processing].max_item_usd_by_kind.email.*", "label": "Estimated cost of an email", "format": "usd_by_provider"}
+      ]
+    },
+    "quote.amounts": {
+      "area": "quotes",
+      "title": "A quote's totals",
+      "what": "An approved quote's net, VAT and gross totals, computed by code from its lines' unit prices, quantities and discounts, each line's amount and the VAT rounded to the unit of its currency.",
+      "not_for": "The lines' prices and discounts themselves (the price list and a person's own prices), or which item a requested line is.",
+      "values": [
+        {"file": "price_lists.json", "key": "rounding.HUF", "label": "Forint amounts rounded to", "format": "number"},
+        {"file": "price_lists.json", "key": "rounding.default", "label": "Other currencies' amounts rounded to", "format": "number"}
+      ]
+    },
+    "quote.letter_check": {
+      "area": "quotes",
+      "title": "The model's letter paragraph",
+      "what": "Whether the paragraph a model wrote for a quote's reply letter can be used: not empty, with no number, amount, date, address or link in it, and not longer than the limit; otherwise the letter waits for a person.",
+      "not_for": "The letter's frame (written by code) or a person's acceptance of the letter.",
+      "values": [
+        {"file": "quotes.json", "key": "letter.max_chars", "label": "Longest paragraph, in characters", "format": "number"}
       ]
     }
   }

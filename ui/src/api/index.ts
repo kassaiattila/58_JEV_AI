@@ -12,6 +12,7 @@ export * from "./quotes";
 export * from "./email";
 export * from "./cases";
 export * from "./partners";
+export * from "./processes";
 export { ACTOR_EVENT, ApiError, filenameFromDisposition, getActor, NO_ACTOR, READ_TIMEOUT_MS, setActor, UNKNOWN_ACTOR, USERS_EVENT } from "./client";
 import { workApi } from "./work";
 import { workflowsApi } from "./workflows";
@@ -23,6 +24,7 @@ import { quotesApi } from "./quotes";
 import { emailApi } from "./email";
 import { casesApi } from "./cases";
 import { partnersApi } from "./partners";
+import { processesApi } from "./processes";
 
 export const api = {
   ...workApi,
@@ -35,4 +37,5 @@ export const api = {
   ...emailApi,
   ...casesApi,
   ...partnersApi,
+  ...processesApi,
 };
