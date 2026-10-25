@@ -1154,3 +1154,15 @@ template takes the built-in one or an active own template of that output (`proce
 process's own value of a resource with known values is one of them. The view also names the steps that read a rule
 value by their titles and each preview example's case by its name. Tests: `tests/test_process_settings_231.py`,
 `ui/src/views/settings/processSettings231.test.tsx`.
+
+**Taking a package over as a case (231, plan stage C, C0).** The owner's decision of 2026-10-25: the live packages of the
+processes that move onto process packs (the email routing, the reconciliation) become cases under their own ids, so
+the rows keyed by a package (decisions, versions, line locks, approved statements) stay where they are.
+`process_runtime.adopt_case(pack_id, wp_id, scope, actor)` checks the scope by the pack's parts, makes the package the
+container's kind (`work.retype_in`: its log records the kind it had, the activity log shows it as `retyped`; the case's
+data keeps it as `adopted_from`), saves its scope, links the calculation snapshot, takes the process's active values as
+a new case does, and starts the process core's case with `cases.adopt`: each step in the state its capability reads
+from the work the package already holds (`Capability.adopt(wp_id, params)`; without one, or None, the step has not
+run). A second take-over answers "exists" and changes nothing. The before/after snapshot reads the mailbox page, the
+cases and handovers with each case's page, the partner register and each process's settings too
+(`before_after._process_views`). Tests: `tests/test_process_adopt_231.py`, `tests/test_before_after_171.py`.

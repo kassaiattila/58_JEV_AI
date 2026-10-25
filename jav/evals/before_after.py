@@ -286,11 +286,29 @@ def _views(reader: _Reader, store_path: Path, *, items: bool, matches: bool) -> 
     for wf in (flows["body"] or {}).get("workflows") or []:
         yield g(f"workflow/{wf['id']}", f"/workflows/{wf['id']}")
     yield reader.dataset("mailbox_pulls", {})
+    yield from _process_views(reader)
     for actor, day in _activity_pairs(store_path):
         yield reader.dataset("activity", {"actor": actor, "day": day})
     for person in _waiting_people(store_path):
         yield reader.dataset("waiting", {"actor": person})
         yield reader.dataset("waiting", {"actor": person, "all": "true"})
+
+
+def _process_views(reader: _Reader) -> Iterator[tuple[str, Any]]:
+    """231 (plan stage C, C0): the mailbox page, the process packs' cases and handovers, each case's page, the partner
+    register and each process's own settings, so a step that moves a process onto a process pack is compared there too."""
+    g = reader.get
+    yield g("mailbox", "/mailbox")
+    key, cases = reader.dataset("cases", {"include_closed": "1"})
+    yield key, cases
+    yield reader.dataset("handovers", {})
+    for case_id in sorted({str(r.get("id") or r.get("_key")) for r in (cases["body"] or {}).get("rows") or [] if r.get("id") or r.get("_key")}):
+        yield g(f"case/{case_id}", f"/cases/{case_id}")
+    yield g("partners", "/partners", retired="true")
+    key, packs = g("processes", "/processes")
+    yield key, packs
+    for pack in (packs["body"] or {}).get("processes") or []:
+        yield g(f"process/{pack['id']}/settings", f"/processes/{pack['id']}/settings")
 
 
 def _reconcile_views(reader: _Reader, wid: str, *, matches: bool) -> Iterator[tuple[str, Any]]:

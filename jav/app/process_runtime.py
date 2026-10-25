@@ -8,6 +8,8 @@ process core moves the case on, step by step, each step through its capability (
 person starts waits for that person's start task.
 
 - `start_case(pack_id, scope, name, actor)`: the case's id (its container's).
+- `adopt_case(pack_id, wp_id, scope, actor)` (231, plan stage C, C0): an existing work package taken over as a case
+  under its own id, each step in the state its capability reads from the package's work (`Capability.adopt`).
 - `pack_of(case_id)`: the pack id and version a case runs on; `pack_for(case_id)`: that version of the pack itself (A7a:
   an older version comes back from the calculation snapshot the case was linked to when it started, so a case keeps
   the screens and outputs it started with after its pack changes).
@@ -23,14 +25,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav.app import capabilities, logic_packs, package_release, package_scope, process_packs, scopes, work
 import json
 
+from jav.app import capabilities, logic_packs, package_release, package_scope, process_packs, scopes, work
 from jav.core import identity, rulebook, store
 from jav.core.process import cases
 from jav.core.user_messages import explained
 
-__all__ = ["CONTAINER", "CONTAINER_PACK", "outputs_of", "pack_for", "pack_of", "register", "start_case"]
+__all__ = ["CONTAINER", "CONTAINER_PACK", "adopt_case", "outputs_of", "pack_for", "pack_of", "register", "start_case"]
 
 CONTAINER = "case"  # the container work package's kind
 
@@ -55,6 +57,40 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
         package_scope.save(c, case_id, parts=checked, actor=actor)
         cases.start_in(c, case_id, definition, data, identity.who(actor))
     return case_id
+
+
+def adopt_case(pack_id: str, wp_id: str, scope: dict[str, Any], *, actor: identity.Who) -> str:
+    """231 (plan stage C, C0; the owner's decision of 2026-10-25): the existing work package `wp_id` taken over as a case of
+    the pack's current version under its own id, so its decisions, versions, locks and approved statements stay where
+    they are. Its kind becomes the container's (the kind it had is kept in the case's data and its log), its scope is the
+    pack's (checked by its parts), it takes the process's active values as a new case does, and each step starts in the
+    state its capability reads from the work the package already holds (`Capability.adopt`; without one, or None: the
+    step has not run). "adopted"; "exists" for a package already taken over (nothing changes). KeyError: no package."""
+    from jav.app import process_settings
+
+    pack = process_packs.load(pack_id)
+    checked = scopes.check(pack.scope.parts, scope)
+    wp = work.get(wp_id)
+    resources = process_settings.effective_resources(pack)
+    rules, rule_refs = process_settings.effective_rules(pack)
+    definition = process_packs.definition(pack.model_copy(update={"resources": resources}))
+    states = {}
+    for step in pack.steps:
+        cap = capabilities.of(step.uses)
+        if cap.adopt is not None and (state := cap.adopt(wp_id, definition.step(step.id).params)) is not None:
+            states[step.id] = state
+    data = {"pack": pack.id, "pack_version": pack.version, "container": wp_id, "name": wp["name"], "scope": checked,
+            "resources": resources, capabilities.RULES: rules, capabilities.RULE_REFS: rule_refs,
+            "adopted_from": {"source_kind": wp["source_kind"], "source_ref": wp.get("source_ref")}}
+    who = identity.who(actor)
+    with cases.transaction() as c:
+        if cases.find_case_in(c, wp_id) is not None:
+            return "exists"
+        work.retype_in(c, wp_id, source_kind=CONTAINER, source_ref=f"pack:{pack.id}@{pack.version}", actor=actor)
+        package_scope.save(c, wp_id, parts=checked, actor=actor)
+        rulebook.link_in(c, rulebook.CASE, wp_id)  # the code and the rules the case was taken over with
+        owner = identity.who(wp["owner"]) if wp.get("owner") else who
+        return cases.adopt(c, wp_id, definition, data, owner, who, states)
 
 
 def resource_of(c: Any, case_id: str, key: str) -> str | None:

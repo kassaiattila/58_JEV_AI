@@ -2141,6 +2141,7 @@
   "the case names no partner": "az ügy nem nevez meg partnert",
   "the process names no partner role {{role}}": "a munkafolyamatnak nincs {{role}} partnerszerepe",
   "a retired partner is not linked to a case": "visszavont partner nem köthető ügyhöz",
+  "taken over as a case": "ügyként átvéve",
   "net": "nettó",
   "vat": "ÁFA",
   "gross": "bruttó",

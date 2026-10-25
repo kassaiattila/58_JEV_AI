@@ -115,5 +115,8 @@ def test_a_snapshot_taken_twice_is_the_same_and_leaves_the_backup_alone(tmp_path
     assert [w["id"] for w in views["workpackages"]["body"]["workpackages"]] == [wp_id]
     assert views[f"workpackage/{wp_id}"]["status"] == 200
     assert counts["workpackage"] >= 4 and counts["dataset"] >= 4
+    # 231 (C0): the mailbox page, the cases and handovers, the partner register and each process's own settings
+    assert all(views[k]["status"] == 200 for k in ("mailbox", "partners", "processes", "process/it_quote/settings"))
+    assert views['dataset/cases/{"include_closed": "1"}']["status"] == 200 and views["dataset/handovers/{}"]["status"] == 200
     with pytest.raises(before_after.SnapshotError, match="already exists"):
         before_after.static_snapshot(folder, tmp_path / "work", first)

@@ -134,6 +134,9 @@ class Capability:
     - `choices` (B4): for a parameter a process may set through a resource of its pack, the values it may take, each
       with an English label (a function, as they may live in the store: the active price lists). A process's own value
       of such a resource is one of them; the parameter's field title names the resource.
+    - `adopt(wp_id, params)` (C0): the state its step is in when an existing work package is taken over as a case
+      (`process_runtime.adopt_case`), read from the work the package already holds; None: the step has not run. A
+      capability without it: its step has not run.
     """
 
     name: str
@@ -154,6 +157,7 @@ class Capability:
     spent: Callable[[str, str], list[str]] | None = None
     rule_keys: tuple[RuleKey, ...] = ()
     choices: Mapping[str, Callable[[], list[tuple[str, str]]]] = field(default_factory=dict)
+    adopt: Callable[[str, Any], cases.Adopted | None] | None = None
 
     @property
     def key(self) -> str:

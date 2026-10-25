@@ -741,7 +741,8 @@ def approved_runs(runs: Iterable[str | None]) -> set[str]:
 
 # 175 (plan 170 E4): the package log's own actions; the other modules register theirs (`jav/core/activity_kinds.py`)
 activity_kinds.register_events("package", ("rename", "owner", "archive", "restore", "delete", "items_add", "item_remove",
-                                           "items_remove", "item_restore", "items_restore", "run_cancel", "run_supersede"),
+                                           "items_remove", "item_restore", "items_restore", "run_cancel", "run_supersede",
+                                           "retyped"),  # 231 (C0): taken over as a process pack's case
                                __name__)
 
 
@@ -750,6 +751,20 @@ def _event(c, wp_id: str, action: str, actor: identity.Who, detail: dict[str, An
     c.execute("INSERT INTO workpackage_events(workpackage_id, action, actor, actor_id, detail, created_at)"
               " VALUES (?,?,?,?,?,?)",
               (wp_id, action, identity.name_of(actor), identity.id_of(actor), _canon(detail) if detail else None, _now()))
+
+
+def retype_in(c, wp_id: str, *, source_kind: str, source_ref: str | None, actor: identity.Who) -> dict[str, Any]:
+    """231 (plan stage C, C0): the package becomes another kind under its own id (a package taken over as a process
+    pack's case), in the caller's transaction; its log records the kind it had. Returns the kind and reference it had
+    (KeyError: no such package)."""
+    row = c.execute("SELECT source_kind, source_ref FROM workpackages WHERE id=?", (wp_id,)).fetchone()
+    if row is None:
+        raise KeyError(wp_id)
+    before = {"source_kind": row["source_kind"], "source_ref": row["source_ref"]}
+    c.execute("UPDATE workpackages SET source_kind=?, source_ref=?, revision=revision+1, updated_at=? WHERE id=?",
+              (source_kind, source_ref, _now(), wp_id))
+    _event(c, wp_id, "retyped", actor, {"from": before, "to": {"source_kind": source_kind, "source_ref": source_ref}})
+    return before
 
 
 def record_event(c, wp_id: str, action: str, actor: identity.Who, detail: dict[str, Any] | None = None) -> None:
