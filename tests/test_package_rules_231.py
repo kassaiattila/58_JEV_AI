@@ -45,10 +45,17 @@ def test_a_plain_package_whose_scope_names_a_rule_runs_by_it(db):
     assert work.package_rule(wp) is statement_package.RULE
 
 
-def test_a_package_of_a_logic_pack_keeps_its_kind_s_rule(db):
+def test_a_statement_package_is_made_a_plain_package_of_its_rule(db, tmp_path, monkeypatch):
+    """C3b5a: its logic pack went; a statement package runs by its rule, named in its scope."""
     from jav.domains.finance import statement_package
+    from jav.domains.finance import statement_table as st
+    from tests.test_workflows_146 import MONTH, _party, _statements
 
-    wp = work.create_workpackage(name="Statements", source_kind=statement_package.KIND, source_ref=None, owner="t")["id"]
+    monkeypatch.setattr(st, "_pdf_lines", lambda path: path.read_text(encoding="utf-8").splitlines())  # as 146's
+    wp = statement_package.make_for_case({"party": _party(), "period": list(MONTH),
+                                          "source": {"kind": "folder", "folder": str(_statements(tmp_path / "erste"))}},
+                                         "June statements", "t")
+    assert work.get(wp)["source_kind"] == "manual" and work.rule_name(wp) == "statements"
     assert work.package_rule(wp) is statement_package.RULE
 
 
@@ -103,4 +110,5 @@ def test_the_shared_adding_refuses_a_package_of_the_statements_rule(db, tmp_path
 def test_a_role_holds_the_packages_of_its_rule():
     role = package_scope.Role("x", __name__, "X", lambda t, d: True, ("manual",), rule="statements")
     assert role.holds("manual", "statements") and not role.holds("manual", None) and not role.holds("folder", "statements")
-    assert package_scope.Role("y", __name__, "Y", lambda t, d: True, ("manual",)).holds("manual", "statements")
+    plain = package_scope.Role("y", __name__, "Y", lambda t, d: True, ("manual",))
+    assert plain.holds("manual", None) and not plain.holds("manual", "statements")  # an invoice never in a statement package

@@ -1,7 +1,8 @@
 """140 (backlog F-package-kinds K2; DECISIONS 137, 139, 140): the statement package.
 
-A work package of its own kind (`source_kind = 'statements'`) for one own party and a period. Its items are the bank
-statements of a folder or of the given files:
+A work package for one own party and a period (until 231 C3b5a a kind of its own, `source_kind = 'statements'`; now a
+plain package, `manual`, whose scope names the statements rule, `RULE_NAME`, and a bank statements case's step
+package). Its items are the bank statements of a folder or of the given files:
 
 - a bank's export read by code (`jav/domains/finance/statement_table.py`): one statement item per account and month, the statement
   file the reader builds (a ledger export with the month's PDF statement as its companion);
@@ -13,7 +14,7 @@ checks and source rank, whether the store has it already, which statement it wou
 (`statement_months.resolve` with the store's statements), and whose account it is. The person ticks what goes in
 (`create`); the ids are the statement files' fingerprints, so a file changed between the two steps is refused.
 
-In a run, the package's kind adds two rules (`work.PackageRule`, asked by the worker):
+In a run, the package's rule adds two rules (`work.PackageRule`, asked by the worker):
 
 - a PDF recognised as anything but a bank statement (the accepted coarse categories are data:
   `configs/statement_tables.json` `package.accepted_parents`) stops after its type is recognised, with a
@@ -35,9 +36,9 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav.app import item_kinds, logic_packs, package_scope, parties, work, work_runs, workflow_steps
+from jav.app import item_kinds, package_scope, parties, work, work_runs, workflow_steps
 from jav.ai import typepack
-from jav.core import activity_kinds, cfg, identity, store, values
+from jav.core import activity_kinds, cfg, clock, identity, store, values
 from jav.domains.finance import reconcile, statement_months, statement_table
 from jav.domains.finance import reconcile_store
 from jav.core.user_messages import explained
@@ -45,7 +46,10 @@ from jav.core.user_messages import explained
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/core/activity_kinds.py`)
 activity_kinds.register_events("package", ("statement_scope", "statement_account", "statement_add"), __name__)
 
-KIND = "statements"
+KIND = "statements"  # 231 (C3b5a): the kind statement packages had until they were retyped (`_retype`)
+RULE_NAME = "statements"  # the name the statements rule is registered by, which a statement package's scope names
+PLAIN = "manual"  # the kind a statement package is from 231 (C3b5a): a plain one (a folder's would title its items by it)
+RETYPED = "retype:statements"  # the meta mark of the retyping
 NOT_A_STATEMENT = "statements:not_a_statement"
 OTHER_PARTY = "statements:other_party"
 DOC_TYPE = "statement_table"
@@ -62,6 +66,41 @@ def _older_scope(row: dict[str, Any]) -> dict[str, Any]:
 # older store's `statement_scopes` is copied there once
 store.register_migration("statement_package_scope",
                          lambda conn: package_scope.copy_older(conn, "statement_scopes", _older_scope))
+
+
+def _retype(conn: Any) -> None:
+    """231 (plan stage C, C3b5a): every statement package made while it was a kind of its own becomes a plain package of
+    the statements rule, once (the meta mark `RETYPED`, checked again inside one write transaction, so two processes
+    starting at once retype once): its kind is `manual`, its scope names the rule (one that did not, a revision further)
+    and its log records it (`retyped`). Its revision and everything stored about its runs stay, so its readiness, its
+    approvals and its released versions read as before. Registered after the older scope table's copy."""
+
+    def pending() -> bool:
+        if conn.execute("SELECT 1 FROM meta WHERE key=?", (RETYPED,)).fetchone() is not None:
+            return False
+        return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='workpackage_scopes'").fetchone() is not None
+
+    if not pending():
+        return
+    conn.commit()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        if pending():
+            actor = identity.machine("statements-retype")
+            for (wp_id,) in conn.execute("SELECT id FROM workpackages WHERE source_kind=? ORDER BY id", (KIND,)).fetchall():
+                conn.execute("UPDATE workpackages SET source_kind=? WHERE id=?", (PLAIN, wp_id))
+                conn.execute("UPDATE workpackage_scopes SET parts=json_set(COALESCE(parts, '{}'), ?, ?), revision=revision+1"
+                             " WHERE workpackage_id=? AND json_extract(parts, ?) IS NULL",
+                             (f"$.{work.RULE_PART}", RULE_NAME, wp_id, f"$.{work.RULE_PART}"))
+                work.record_event(conn, wp_id, "retyped", actor, {"from": KIND, "to": PLAIN, "rule": RULE_NAME})
+            conn.execute("INSERT INTO meta(key, value) VALUES (?, ?)", (RETYPED, clock.utc_stamp()))
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+
+
+store.register_migration("statement_package_retype", _retype)
 
 
 class StatementPackageError(ValueError):
@@ -276,11 +315,12 @@ def create(*, name: str, party_id: str, period_start: Any, period_end: Any, path
     party, start, end = _checked(party_id, period_start, period_end)
     entries, wanted, picked = _chosen(_sources(paths), statements, pdfs)
     folder = Path(paths[0]).resolve() if len(paths) == 1 and Path(paths[0]).is_dir() else None
-    wp = work.create_with_items(name=name, source_kind=KIND, source_ref=str(folder) if folder else None, owner=actor,
+    wp = work.create_with_items(name=name, source_kind=PLAIN, source_ref=str(folder) if folder else None, owner=actor,
                                 entries=entries)
     with store.connect() as c:
         store.begin_immediate(c)
-        package_scope.save(c, wp["id"], party_id=party["id"], period_start=start, period_end=end, role=ROLE, actor=actor)
+        package_scope.save(c, wp["id"], party_id=party["id"], period_start=start, period_end=end, role=ROLE,
+                           parts={work.RULE_PART: RULE_NAME}, actor=actor)  # 231 (C3b5a): it runs by the rule
         work.record_event(c, wp["id"], "statement_scope", actor, {"party": party["id"], "period": [start, end],
                                                                   "statements": len(wanted), "pdfs": len(picked)})
     if case:
@@ -295,7 +335,7 @@ def _wrap(wp_id: str, actor: identity.Who) -> None:
     """231 (C3b4): a new case of the bank statements pack around the package (its rule in the pack's `wraps`)."""
     from jav.app import process_packs, process_runtime  # lazy: the process packs are loaded after the domains
 
-    rule = next(w for w in process_packs.load(PACK).wraps if w.kind == KIND)
+    rule = next(w for w in process_packs.load(PACK).wraps if w.rule == RULE_NAME)
     process_runtime.wrap_case(PACK, wp_id, rule, actor=actor)
 
 
@@ -364,7 +404,7 @@ def add(wp_id: str, *, paths: list[Path], statements: list[str], pdfs: list[str]
 
 def _package(wp_id: str) -> dict[str, Any]:
     wp = work.get(wp_id)
-    if wp["source_kind"] != KIND and work.rule_name(wp_id) != RULE_NAME:  # 231 (C3b5a): or a package of its rule
+    if work.rule_name(wp_id) != RULE_NAME:  # 231 (C3b5a): a package of the rule
         raise explained(StatementPackageError, "not a statement package")
     return wp
 
@@ -541,11 +581,12 @@ def workflow_repeat_from(wp_id: str) -> dict[str, Any] | None:
         wp = work.get(wp_id)
     except KeyError:
         return None
-    return workflow_steps.folder_source(wp, (KIND,))
+    return workflow_steps.folder_source(wp, (PLAIN,))
 
 
 # 181: the statements step of a workflow (registered by the finance domain, `jav/domains/finance/__init__.py`)
-STEP = workflow_steps.StepKind("statements", __name__, (KIND,), start=workflow_start, repeat_from=workflow_repeat_from,
+STEP = workflow_steps.StepKind("statements", __name__, (PLAIN,), start=workflow_start, repeat_from=workflow_repeat_from,
+                               rule=RULE_NAME,
                                estimate=workflow_estimate, needs=("party", "period"))
 
 
@@ -599,7 +640,6 @@ def create_with_files(*, name: str, paths: list[Path], scope: dict[str, Any], ac
     return made["workpackage_id"]
 
 
-RULE_NAME = KIND  # 231 (C3b5a): the name the rule is registered by, which a package's scope names
 REFUSAL = "add statements to a statement package through its survey"
 # 140: the statement package's rule in a run; 231 (C3b5a): with what the logic pack gave its kind (the page part, its own
 # scope, its survey's adding, the email routing's adding and making), for a package that names it in its scope
@@ -608,16 +648,5 @@ RULE = work.PackageRule(after_detection=after_detection, after_item=after_item, 
                         make_with_files=create_with_files)
 
 
-# 176 (plan 170 L3): the statement package as a logic pack (`jav/app/logic_packs.py`); 180 (plan 170 E7): registered by the
-# finance domain (`jav/domains/finance/__init__.py`); 186: its scope's party reference and deletion are the shared scope's
-LOGIC = logic_packs.LogicPack(
-    kind=KIND, module=__name__,
-    roles=(logic_packs.InputRole("statements", "own_items",
-                                    "the party's bank statements and statement PDFs of the period, ticked in its survey"),),
-    add_refusal=REFUSAL, take_files=take_files,
-    create_with_files=create_with_files,
-    rule=RULE, page=_page, scope=own_scope, service="jav.domains.finance.api_statement_package")
-
-
-__all__ = ["KIND", "LOGIC", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "STEP", "StatementPackageError", "add_statement_tables",
+__all__ = ["KIND", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "STEP", "StatementPackageError", "add_statement_tables",
            "after_detection", "after_item", "create", "create_from_statement_table", "package_view", "scope", "survey"]

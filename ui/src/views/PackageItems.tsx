@@ -11,15 +11,15 @@ import { Icon } from "../components/Icon";
 import { nameCell, NameModeSwitch } from "../components/NameCell";
 import { t, useLocale } from "../i18n";
 import { mailboxLabel, storedMailboxLabel } from "../labels";
-import { logicOf } from "../logic/registry";
+import { addsOwnWay, partOf, type PackagePart } from "../logic/packageParts";
 import { useNameMode } from "../names";
 import { wpHash } from "../route";
 import { AddDocuments, AddStatements, AddSummaryLine, type AddSource } from "./PackageAdd";
 
 /** 153 (review E): where the package was created from, by its kind; later additions may come from elsewhere. 183: a
  *  mailbox package is named from the request of the download that made it, in the interface's language. */
-export function createdFrom(wp: Workpackage, request?: MailboxRequest | null): string {
-  const own = logicOf(wp.source_kind)?.createdFrom; // 176: a logic pack names its own origin (a statement package)
+export function createdFrom(wp: Workpackage, request?: MailboxRequest | null, part?: PackagePart): string {
+  const own = part?.createdFrom; // 176: a package's rule names its own origin (231 C3b5a: a statement package's)
   if (own) return own(wp);
   const ref = wp.source_ref ?? "";
   const file = ref.split(/[\\/]/).pop() ?? ref;
@@ -74,7 +74,7 @@ export function PackageItems({ view, adding, onAddingChange, onChanged, pendingA
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState<AddSummary | null>(null);
-  const statements = logicOf(wp.source_kind)?.adds === "statements"; // 176: added through the package's own survey
+  const statements = addsOwnWay(view); // 176: added through the package's own survey (231 C3b5a: its rule's way)
   const removedCount = view.item_counts?.removed ?? 0;
   const supplements = Object.values(view.readiness.supplement ?? {});
   const pending = supplements.length ? Math.max(...supplements.map((s) => s?.items ?? 0)) : 0;
@@ -127,7 +127,7 @@ export function PackageItems({ view, adding, onAddingChange, onChanged, pendingA
           </div>
         )}
       </div>
-      <p className="muted small">{t("Created from: {{source}} · revision {{rev}} of the package", { source: createdFrom(wp, view.mailbox_request), rev: wp.revision })}</p>
+      <p className="muted small">{t("Created from: {{source}} · revision {{rev}} of the package", { source: createdFrom(wp, view.mailbox_request, partOf(view)), rev: wp.revision })}</p>
       {adding && statements ? <AddStatements wp={wp} source={adding} onCancel={close} onDone={() => { close(); onChanged(); }} /> : null}
       {adding && !statements ? <AddDocuments wp={wp} source={adding} onCancel={close} onDone={(s) => { close(); setAdded(s); onChanged(); }} /> : null}
       {added ? <AddSummaryLine summary={added} /> : null}

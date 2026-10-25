@@ -1458,7 +1458,7 @@ def targets(wp_id: str) -> dict[str, Any]:
             continue
         entry = {"id": wp["id"], "name": wp["name"], "source_kind": wp["source_kind"], "items": wp["items"],
                  "inputs": giving.get(wp["id"], 0), "updated_at": wp["updated_at"]}
-        if wp["source_kind"] != statement_package.KIND:
+        if work.rule_name(wp["id"]) != statement_package.RULE_NAME:  # 231 (C3b5a): by its rule, no kind of its own
             documents.append(entry)
             continue
         st = statement_package.scope(wp["id"])

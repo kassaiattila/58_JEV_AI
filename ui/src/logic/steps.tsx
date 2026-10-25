@@ -1,20 +1,17 @@
 // 181 (plan 170 L5): the workflow step kinds' own forms on the interface, the counterpart of the local service's
 // registry (`jav/app/workflow_steps.py`). What a kind takes and needs (its packages, whether it is paid, its scope) comes
-// from the service with the templates; only the form a single kind opens with is the interface's own. A kind without
-// an entry opens the documents form.
+// from the service with the templates; only the form a single kind opens with is the interface's own. 231 (C3b5a): the
+// documents' and the bank statements' one-step templates are their process packs' (the general form), so their own
+// forms went.
 import type { ReactNode } from "react";
 import { ProcessCreate } from "../elements/ProcessStart";
-import { DocumentsCreate } from "../views/DocumentsCreate";
 import { Mailbox } from "../views/Mailbox";
 import { QuoteCreate } from "../views/quotes/Quote";
-import { StatementPackageCreate } from "../views/StatementPackageCreate";
 
 type Form = (onDone: (wpId: string) => void) => ReactNode;
 
 const FORMS: Record<string, Form> = {
-  documents: (onDone) => <DocumentsCreate onDone={onDone} />,
   emails: () => <Mailbox variant="pull" />,
-  statements: (onDone) => <StatementPackageCreate onDone={onDone} />,
   quote: (onDone) => <QuoteCreate onDone={onDone} />,  // 191
 };
 
@@ -24,9 +21,9 @@ export function hasOwnForm(kind: string): boolean {
   return Object.prototype.hasOwnProperty.call(FORMS, kind);
 }
 
-/** The form a one-step template of this kind opens with (the documents form for a kind without one); 231 (C1c): a
+/** The form a one-step template of this kind opens with (231 C3b5a: none for a kind without one); 231 (C1c): a
  *  process pack's case (`kind: process`) opens the general form of the pack its step names. */
 export function SingleForm({ kind, pack, onDone }: { kind: string; pack?: string; onDone: (wpId: string) => void }) {
   if (kind === "process" && pack) return <ProcessCreate pack={pack} onDone={onDone} />;
-  return <>{(hasOwnForm(kind) ? FORMS[kind] : FORMS.documents)(onDone)}</>;
+  return <>{hasOwnForm(kind) ? FORMS[kind](onDone) : null}</>;
 }

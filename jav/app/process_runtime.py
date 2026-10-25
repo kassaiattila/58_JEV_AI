@@ -191,8 +191,9 @@ def adopt_all(*, actor: identity.Who, write: bool = False) -> list[dict[str, Any
         for wrap in pack.wraps:  # 231 (C3b4): a package with runs gets a new case around it
             _step, cap = _wrapping_step(pack, wrap)
             for wp in work.list_workpackages(include_archived=True):
-                if wp.get("source_kind") != wrap.kind or wp.get("status") == "deleted" or cap.bound(wp["id"]):
-                    continue  # a step's package already (made by a case, or wrapped before)
+                named = wp.get("source_kind") == wrap.kind if wrap.kind else work.rule_name(wp["id"]) == wrap.rule
+                if not named or wp.get("status") == "deleted" or cap.bound(wp["id"]):
+                    continue  # (C3b5a: by its kind or its rule) a step's package already (made by a case, or wrapped before)
                 stored = package_scope.stored(wp["id"]) or {}
                 scope = {part: _stored_value(stored, key) for part, key in wrap.scope.items()}
                 row = {"pack": pack.id, "workpackage_id": wp["id"], "name": wp["name"], "scope": scope}

@@ -373,9 +373,9 @@ def _check_package(kind: str, wp_id: str) -> None:
         wp = work.get(wp_id)
     except KeyError as exc:
         raise explained(WorkflowError, "no work package {{wp_id}}", wp_id=repr(wp_id)) from exc
-    if wp["source_kind"] not in package_kinds(kind):
+    if wp["source_kind"] not in package_kinds(kind) or work.rule_name(wp_id) != workflow_steps.of(kind).rule:
         raise explained(WorkflowError, "work package {{name}} is not of a {{kind}} step's kind",
-                        name=repr(wp["name"]), kind=kind)
+                        name=repr(wp["name"]), kind=kind)  # 231 (C3b5a): its rule too (a statement package's)
     with store.connect() as c:
         if c.execute("SELECT 1 FROM workflow_steps WHERE workpackage_id=?", (wp_id,)).fetchone():
             raise explained(WorkflowError, "work package {{name}} already belongs to a workflow", name=repr(wp["name"]))

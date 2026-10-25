@@ -87,7 +87,8 @@ class StepKind:
     """One step kind, as its module registers it.
 
     - `kind`: its key in the workflow templates (`configs/workflows.json` `kinds`); `module`: the registering module.
-    - `package_kinds`: the work package kinds (`workpackages.source_kind`) an existing package of the step may have.
+    - `package_kinds`: the work package kinds (`workpackages.source_kind`) an existing package of the step may have;
+      231 (C3b5a) `rule`: the package rule it must run by (`work.RULE_PART`; None: a package of no rule).
     - `start(ctx)`: makes the step's package (or starts fetching its source) and starts what follows.
     - `poll(ctx)`: for a kind whose source is fetched first: goes on once the fetch has finished (nothing while it runs).
     - `paid`: whether its run may call AI, so a person approves its budget in the wizard.
@@ -120,6 +121,7 @@ class StepKind:
     statuses: Mapping[str, str] = field(default_factory=dict)
     needs_of: Callable[[Mapping[str, Any]], tuple[str, ...]] | None = None
     statuses_of: Callable[[Mapping[str, Any]], Mapping[str, str]] | None = None
+    rule: str | None = None
 
     def __post_init__(self) -> None:
         if not self.package_kinds:

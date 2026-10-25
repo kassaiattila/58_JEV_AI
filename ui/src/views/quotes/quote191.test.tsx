@@ -6,7 +6,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type CaseView, type QuoteProposal, type QuoteRequestCandidate, type QuoteView, type WorkpackageView } from "../../api";
 import { setLanguage } from "../../i18n";
-import { LOGIC } from "../../logic/registry";
+import { PACKAGE_PARTS } from "../../logic/packageParts";
 import { hasOwnForm } from "../../logic/steps";
 import { stepLabel } from "../../labels";
 import { QUOTE_BLOCKER, QuoteCreate } from "./Quote";
@@ -80,7 +80,7 @@ function QuoteStages({ view, stage, onChanged }: { view: WorkpackageView; stage:
 describe("the quote package (191)", () => {
   it("is a kind of work with its own form; the quote package's page is gone (231 A3d)", () => {
     expect(hasOwnForm("quote")).toBe(true);
-    expect(LOGIC.quote).toBeUndefined();
+    expect(PACKAGE_PARTS.quote).toBeUndefined();  // 231 (C3b5a): the logic packs' registry went
     expect(quoteStatus(QUOTE)).toEqual({ process: "2 part(s), 1 requested item(s)", review: "1 gap(s) to clear first",
       result: "not approved yet" });
     expect(stepLabel("quote_request_check", { n: 2 }, "")).toBe("Check the request: 2 gap(s)");

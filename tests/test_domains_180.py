@@ -43,7 +43,7 @@ def test_importing_a_domain_registers_nothing_and_load_all_registers_it() -> Non
     assert seen["before"] == {"checks": [], "packs": [], "rules": [], "parts": []}
     after = seen["after"]
     assert {"duplicate", "own_tax", "statement_overlap", "duplicate_scan", "own_tax_scan"} <= set(after["checks"])
-    assert after["packs"] == ["statements"]  # 231 (A3d): no quote package; (C1c) no routing package; (C3a-2) no reconciliation
+    assert after["packs"] == []  # 231 (A3d): no quote package; (C1c) no routing package; (C3a-2) no reconciliation; (C3b5a) no statements
     assert after["rules"] == ["suspicious_email_source"]
     assert after["parts"] == ["direction", "duplicate", "duplicate", "utility_cost", "utility_cost"]
 
@@ -59,7 +59,7 @@ def test_the_domains_and_their_registrations_in_order() -> None:
     assert [p.name for p in parts.result_parts()] == ["utility_cost"]
     assert [p.output for p in parts.own_outputs()] == ["utility_cost"]
     assert logic_packs.outputs_of("folder") == ("package_result", "utility_cost")
-    assert logic_packs.outputs_of("statements") == ("package_result", "utility_cost")
+    assert logic_packs.outputs_of("manual") == ("package_result", "utility_cost")  # 231 C3b5a: a statement package's
     assert process_packs.load("reconciliation").outputs == ("reconcile_statement",)  # 231 (C3a-2): its process pack's
     assert item_kinds.claimed_by(item_kinds.EMAIL) == "jav.domains.email"  # 229 (MD1): the domain claims its kinds
     assert item_kinds.source_claimed_by("mailbox") == "jav.domains.email"

@@ -10,7 +10,7 @@ import { Picker } from "../components/Picker";
 import { useEvent, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { itemCountText, MODE, RUN_STATUS, stepLabel, tmap, when } from "../labels";
-import { logicOf } from "../logic/registry";
+import { partOf } from "../logic/packageParts";
 import { go, type Route, type Stage } from "../route";
 import { PackageItemsPanel } from "./PackageItems";
 import { ProcessStage } from "./ProcessStage";
@@ -33,9 +33,6 @@ export function stageStatus(view: WorkpackageView): Record<Stage, string> {
   const last = view.last_run;
   // 153: the to-dos and the approval are the current run's (a later run a person stopped does not hide them)
   const current = view.current_run ?? last;
-  // 176: a logic pack without runs says where its own stages stand (a reconciliation: its scope, lines, approval)
-  const own = logicOf(view.workpackage?.source_kind)?.stages?.status(view);
-  if (own) return own;
   return {
     // 080: without saved settings the default processing settings apply, so readiness alone decides
     process: last ? `${MODE[last.mode]} · ${(RUN_STATUS[last.status] ?? last.status).toLowerCase()} · ${last.items_done}/${last.items}`
@@ -106,14 +103,13 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   const { workpackage, next, last_run: last } = view;
   const stage: Stage = route.stage ?? next.stage;
   const status = stageStatus(view);
-  // 176: the logic pack the package runs (none for a plain processing kind); one without runs has its own stages
-  const logic = logicOf(workpackage.source_kind);
-  const own = logic?.stages;
-  const labels = own?.labels ?? STAGE_LABEL;
+  // 176: what the package's rule shows (231 C3b5a: by its page part; none for a package of no rule)
+  const part = partOf(view);
+  const labels = STAGE_LABEL;
 
-  const summary: ReactNode = own?.summary(view) ?? (
+  const summary: ReactNode = (
     <>
-      {logic?.summary?.(view) ?? null}
+      {part?.summary?.(view) ?? null}
       {itemCountText(workpackage.items)}
       {last ? ` · ${t("utolsó futás: {{mode}}, {{when}}", { mode: MODE[last.mode].toLowerCase(), when: when(last.created_at) })}` : ` · ${t("még nem futott")}`}
     </>
@@ -148,10 +144,9 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
         ))}
       </div>
       <div role="tabpanel" aria-label={labels[stage]}>
-        {own ? own.body(view, stage, wp.reload) : null}
-        {!own && stage === "process" && route.start ? <StartConfirm view={view} mode={route.start.mode} rerun={route.start.rerun} pending={route.start.pending} onChanged={wp.reload} /> : null}
-        {!own && stage === "process" && !route.start ? <ProcessStage view={view} adding={!!route.add} onChanged={wp.reload} /> : null}
-        {!own && stage === "review" ? (
+        {stage === "process" && route.start ? <StartConfirm view={view} mode={route.start.mode} rerun={route.start.rerun} pending={route.start.pending} onChanged={wp.reload} /> : null}
+        {stage === "process" && !route.start ? <ProcessStage view={view} adding={!!route.add} onChanged={wp.reload} /> : null}
+        {stage === "review" ? (
           view.runs ? (
             <>
               <ReviewWorkspace wp={workpackage} itemId={route.itemId} onChanged={wp.reload} currentRunId={view.current_run?.run_id}
@@ -172,10 +167,10 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
           )
         ) : null}
         {/* 140: what a logic pack shows above the result (a statement package: its statements and its party's months) */}
-        {!own && stage === "result" ? logic?.resultPanel?.(view) ?? null : null}
+        {stage === "result" ? part?.resultPanel?.(view) ?? null : null}
         {/* 231 (C1c): a package offers the cases of the processes that read it (an email package: the email routing) */}
-        {!own && stage === "result" && view.intake?.length ? <PackageIntake offers={view.intake} /> : null}
-        {!own && stage === "result" ? <ResultStage view={view} table={route.table} runId={route.runId} onChanged={wp.reload} /> : null}
+        {stage === "result" && view.intake?.length ? <PackageIntake offers={view.intake} /> : null}
+        {stage === "result" ? <ResultStage view={view} table={route.table} runId={route.runId} onChanged={wp.reload} /> : null}
       </div>
     </>
   );

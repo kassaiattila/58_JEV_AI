@@ -67,7 +67,8 @@ def test_the_registry_gives_what_the_hand_written_tables_gave() -> None:
     registrations.load_all()
     assert {k.kind: k.package_kinds for k in workflow_steps.kinds()} == {
         "documents": ("folder", "manual", "watch", "upload"), "emails": ("mailbox",),
-        "statements": ("statements",), "process": ("case",), "quote": ("case",)}  # 231 A3d, C1c; C3a-2: reconcile went
+        "statements": ("manual",), "process": ("case",), "quote": ("case",)}  # 231 A3d, C1c; C3a-2: reconcile went
+    assert workflow_steps.of("statements").rule == "statements"  # (C3b5a) a plain package of the statements rule
     assert {k.kind for k in workflow_steps.kinds() if k.own_engine} == {"documents", "emails", "statements"}
     assert {k.kind for k in workflow_steps.kinds() if k.paid} == {"documents", "emails", "statements"}
     assert {k.kind for k in workflow_steps.kinds() if k.only_new} == {"documents"}
@@ -75,7 +76,7 @@ def test_the_registry_gives_what_the_hand_written_tables_gave() -> None:
     assert workflow_steps.of("process").repeat_from("wp-000000000000") == {"kind": "none"}
     assert workflow_steps.of("emails").repeat_from is None
     described = workflow_steps.described()
-    assert described["statements"] == {"package_kinds": ["statements"], "paid": True, "own_engine": True,
+    assert described["statements"] == {"package_kinds": ["manual"], "paid": True, "own_engine": True,
                                        "only_new": False, "subfolders": False, "needs": ["party", "period"]}
     assert described["documents"]["needs"] == [] and described["emails"]["needs"] == []
     assert {k.kind for k in workflow_steps.kinds() if k.subfolders} == {"documents"}

@@ -25,19 +25,19 @@ PROCESS_NAMES = ("reconcile", "statements", "email_routing", "routing", "quote",
 UI_PROCESS_DIRS = {"quotes", "reconcile"}  # C1c: routing went
 UI_SHARED_DIRS = {"settings", "workflows"}
 
-FROZEN_LOGIC_PACKS = {"statements"}  # A3d: the quote package went; C1c: the email routing; C3a-2: the reconciliation
+FROZEN_LOGIC_PACKS: set[str] = set()  # A3d: the quote package went; C1c: the email routing; C3a-2: the reconciliation; C3b5a: the statements
 FROZEN_STEP_KINDS = {"documents", "emails", "quote", "statements"}  # C1c: the routing; C3a-2: the reconciliation
 FROZEN_ITEM_PARTS: set[tuple[str, str]] = set()  # 231 (C1a): the quote request under its email became the general intake
 FROZEN_DOMAINS = ("jav.domains.finance", "jav.domains.email", "jav.domains.quotes")
 FROZEN_UI_FILES = {
     "ui/src/api/finance.ts", "ui/src/api/quotes.ts", "ui/src/review/StatementPanel.tsx", "ui/src/views/BankFiles.tsx",
-    "ui/src/views/Mailbox.tsx", "ui/src/views/StatementPackageCreate.tsx", "ui/src/views/StatementPackagePanel.tsx",
+    "ui/src/views/Mailbox.tsx", "ui/src/views/StatementPackagePanel.tsx",  # C3b5a: the statement package form went
     "ui/src/views/UtilityReport.tsx", "ui/src/views/settings/PartiesPanel.tsx", "ui/src/views/settings/PriceListsPanel.tsx",
 }
-FROZEN_UI_LOGIC_KEYS = {"statements"}  # A3d: the quote package's went; C1c: the routing's; C3a-2: the reconciliation's
-FROZEN_UI_FORMS = {"documents", "emails", "quote", "statements"}  # C1c: the routing's; C2d: the reconciliation's (its pack's form)
-FROZEN_UI_NAME_COMPARISONS = {("ui/src/views/PackageItems.tsx", "statements"), ("ui/src/views/WorkpackageActions.tsx", "statements"),
-                              ("ui/src/views/workflows/NewWork.tsx", "mailbox")}
+FROZEN_UI_LOGIC_KEYS: set[str] = set()  # A3d: the quote package's went; C1c: the routing's; C3a-2: the reconciliation's; C3b5a: the statements'
+FROZEN_UI_PACKAGE_PARTS = {"statements"}  # C3b5a: a package rule's page part, until its screens move to their domain's folder (C3e)
+FROZEN_UI_FORMS = {"emails", "quote"}  # C1c: the routing's; C2d: the reconciliation's; C3b5a: the documents' and the statements' (their packs')
+FROZEN_UI_NAME_COMPARISONS = {("ui/src/views/workflows/NewWork.tsx", "mailbox")}  # C3b5a: the statements' add went to the rule
 FROZEN_PY_NAME_COMPARISONS: set[tuple[str, str]] = set()
 
 _FILE_NAME = re.compile(r"(reconcil|quote|routing|statement|mailbox|utility|bankfile|bank_file|parties|pricelist|price_list|finance)", re.I)
@@ -90,6 +90,8 @@ def test_no_new_process_specific_ui_folder_or_file() -> None:
 def test_no_new_ui_registry_key_or_create_form() -> None:
     registry = (UI / "logic" / "registry.tsx").read_text(encoding="utf-8")
     _same(set(re.findall(r"^\s{2}([a-z_]+): \{", registry, re.M)), FROZEN_UI_LOGIC_KEYS, "UI logic registry keys")
+    parts = (UI / "logic" / "packageParts.tsx").read_text(encoding="utf-8")  # C3b5a
+    _same(set(re.findall(r"^\s{2}([a-z_]+): \{", parts, re.M)), FROZEN_UI_PACKAGE_PARTS, "UI package parts")
     steps = (UI / "logic" / "steps.tsx").read_text(encoding="utf-8")
     block = steps[steps.index("FORMS"):steps.index("};", steps.index("FORMS"))]
     _same(set(re.findall(r"^\s{2}([a-z_]+): \(", block, re.M)), FROZEN_UI_FORMS, "UI create forms")

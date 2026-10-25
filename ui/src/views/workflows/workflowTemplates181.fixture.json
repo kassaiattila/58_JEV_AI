@@ -71,7 +71,7 @@
       ],
       "cost": "Read by code, free; a PDF extracted by AI is paid.",
       "package_kinds": [
-        "statements"
+        "manual"
       ],
       "paid": true,
       "own_engine": true,

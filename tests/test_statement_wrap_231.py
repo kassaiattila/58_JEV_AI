@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav.app import (case_views, document_processing, process_packs, process_runtime, registrations, work,
+from jav.app import (case_views, document_processing, package_scope, process_packs, process_runtime, registrations, work,
                      work_readiness, work_runs)
 from jav.core import identity, store
 from jav.core.process import cases
@@ -71,7 +71,7 @@ def test_an_approved_package_gets_a_done_case_and_keeps_everything_it_had(db):
     assert row["result"] == "wrapped"
     case = _wrapped_case(wp)
     after = work.get(wp)
-    assert (after["source_kind"], after["revision"], after["items"]) == (statement_package.KIND, before[0]["revision"],
+    assert (after["source_kind"], after["revision"], after["items"]) == (statement_package.PLAIN, before[0]["revision"],
                                                                         before[0]["items"])
     assert _runs(wp) == before[1]  # the runs and their approvals stay
     assert document_processing.package_of(case, "process") == wp and wp in document_processing.owned_packages()
@@ -121,3 +121,39 @@ def test_a_package_a_step_has_already_is_not_wrapped_again(db):
     assert process_runtime.wrap_case("bank_statements", wp, rule, actor=MACHINE) == "exists"
     assert len([r for r in work.list_workpackages(include_archived=True)
                 if r["source_kind"] == process_runtime.CONTAINER]) == 1  # the second container was undone
+
+
+# --- 231 (C3b5a): the statement packages made while they were a kind of their own are retyped once ----------------------
+
+
+def _older_package(folder) -> str:
+    """A statement package as a store of before C3b5a holds it: its own kind, its scope without the rule's name."""
+    wp, _party_id = _old_package(folder)
+    with store.connect() as c:
+        store.begin_immediate(c)
+        c.execute("UPDATE workpackages SET source_kind=? WHERE id=?", (statement_package.KIND, wp))
+        c.execute("UPDATE workpackage_scopes SET parts='{}' WHERE workpackage_id=?", (wp,))
+        c.execute("DELETE FROM meta WHERE key=?", (statement_package.RETYPED,))
+    return wp
+
+
+def test_an_older_statement_package_is_retyped_once_and_keeps_its_revision(db):
+    wp = _older_package(_statements(db / "erste"))
+    revision, scope_revision = work.get(wp)["revision"], package_scope.stored(wp)["revision"]
+    with store.connect() as c:
+        statement_package._retype(c)
+        statement_package._retype(c)  # once: the meta mark
+    after = work.get(wp)
+    assert (after["source_kind"], after["revision"]) == ("manual", revision)
+    assert work.rule_name(wp) == "statements" and work.package_rule(wp) is statement_package.RULE
+    assert package_scope.stored(wp)["revision"] == scope_revision + 1
+    assert [e["action"] for e in work.workpackage_events(wp)].count("retyped") == 1
+
+
+def test_the_bank_statements_case_wraps_a_retyped_package_by_its_rule(db):
+    wp = _older_package(_statements(db / "erste"))
+    with store.connect() as c:
+        statement_package._retype(c)
+    [row] = process_runtime.adopt_all(actor=MACHINE, write=True)
+    assert (row["workpackage_id"], row["result"]) == (wp, "wrapped")
+    assert document_processing.package_of(_wrapped_case(wp), "process") == wp

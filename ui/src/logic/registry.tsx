@@ -1,56 +1,7 @@
-// 176 (plan 170 L3): the logic packs on the interface - the kinds of work package that do a piece of work of their
-// own (a reconciliation, a statement package) - in one place, the counterpart of the local service's registry
-// (`jav/app/logic_packs.py`). The package's page, its menu and its item list ask this registry instead of naming the
-// kind; a package of a plain processing kind (a folder, a mailbox, chosen files) has no entry.
+// 176 (plan 170 L3) - 231 (C3b5a): the logic packs' registry on the interface went with the last logic pack (the
+// statement package is a plain package of the statements rule; what its rule shows is `packageParts.tsx`). What is
+// left here is the item parts of another domain.
 import type { ReactNode } from "react";
-import type { Workpackage, WorkpackageView } from "../api";
-import { t } from "../i18n";
-import { lazyPage } from "../components/LazyPage";
-import type { Stage } from "../route";
-
-// 195 (plan G-tidy R5): a logic pack's own pages load when a package of its kind is first opened; its status lines
-// and summary, which the package list shows too, are in small modules of their own
-const StatementPackagePanel = lazyPage(() => import("../views/StatementPackagePanel").then((m) => m.StatementPackagePanel));
-
-export type LogicUi = {
-  /** A package without runs shows its own stages instead of Processing, Review and Result. */
-  stages?: {
-    labels: Record<Stage, string>;
-    /** each stage's status line, from the package's own part of the view (null: the view has none) */
-    status: (view: WorkpackageView) => Record<Stage, string> | null;
-    summary: (view: WorkpackageView) => ReactNode;
-    body: (view: WorkpackageView, stage: Stage, onChanged: () => void) => ReactNode;
-  };
-  /** The start of the summary line of a package with runs (null: nothing to add). */
-  summary?: (view: WorkpackageView) => string | null;
-  /** Shown above the result of a package with runs. */
-  resultPanel?: (view: WorkpackageView) => ReactNode;
-  /** How a person adds to the package: nothing, or statements through its own survey; without it, documents. */
-  adds?: "nothing" | "statements";
-  /** Where the package was created from (the item list's line). */
-  createdFrom?: (wp: Workpackage) => string;
-};
-
-export const LOGIC: Record<string, LogicUi> = {
-  // 132-231: the reconciliation package's entry went with its logic pack (231 C3a-2): a reconciliation is a process
-  // pack's case (CasePage)
-  // 181-231: the email routing package's entry went with its logic pack (231 C1c): a routing is a process pack's case
-  // 191-231: the quote package's entry went with its logic pack (231 A3d): a quote is a process pack's case (CasePage)
-  statements: {
-    adds: "statements",
-    createdFrom: () => t("a statement package"),
-    summary: (view) => (view.statements
-      ? `${t("Bank statements of {{party}}, {{from}} – {{to}}", { party: view.statements.scope.party.name, from: view.statements.scope.period_start, to: view.statements.scope.period_end })} · `
-      : null),
-    // 140: a statement package's statements and its party's months, before and after its run
-    resultPanel: (view) => (view.statements ? <StatementPackagePanel view={view.statements} /> : null),
-  },
-};
-
-/** The logic pack a work package of this kind runs; undefined for a plain processing kind. */
-export function logicOf(kind: string | undefined): LogicUi | undefined {
-  return kind && Object.prototype.hasOwnProperty.call(LOGIC, kind) ? LOGIC[kind] : undefined;
-}
 
 /** 192 (plan F-quote-package B6a): how an item part another domain adds to an item's result is shown, by its name
  *  (`jav/app/item_kinds.py` item parts). 231 (C1a): none now; what an email may start is the general intake

@@ -49,7 +49,7 @@ def _routes() -> list[APIRoute]:
 
 # --- the addresses of the local service ---------------------------------------------------------------------------------
 
-ROUTE_COUNT = 197  # (method, path) pairs of 176 routes: the unknown-address answer has five methods
+ROUTE_COUNT = 195  # (method, path) pairs of 176 routes: the unknown-address answer has five methods
 # 178 (plan 170 L4): nine new addresses on purpose - the own output templates (list, upload, activate, retire, file,
 # preview), a package's choice of them (read, choose) and the utility cost's workbook (jav/service/api_outputs.py)
 # 181 (plan 170 L5): three more on purpose - the package roles, and a package's scope given and taken away
@@ -76,8 +76,10 @@ ROUTE_COUNT = 197  # (method, path) pairs of 176 routes: the unknown-address ans
 # the processes, one's settings, a value saved, a version made active, the process's own value set aside); B3: three
 # more, the same for a rule value (saved, a version made active, set aside), and one, a rule value's preview
 # 231 (plan stage C, C1c): one fewer, a routing package's creation (`POST /api/email-routing/packages`: a routing is the
-# email routing process pack's case, `POST /api/cases` with its sources)
-ROUTE_TABLE = "ddfd5e67ea21a831f08c9545acad72ae27469677562f71d60f722074deed8272"
+# email routing process pack's case, `POST /api/cases` with its sources); C3b5a: two fewer, the statement package's own
+# form's survey and creation (`POST /api/statement-packages/survey`, `POST /api/statement-packages`: a statement package
+# is a bank statements case's, `POST /api/cases` with its source)
+ROUTE_TABLE = "d68bacad1b6b3257ec8c5306d7b1b17bd1aefa6511b0a718dedddbd21ea21f50"
 
 
 def test_the_service_has_these_addresses() -> None:
@@ -100,8 +102,6 @@ def test_the_reconciliation_and_the_statement_package_have_these_addresses() -> 
         "GET /api/workpackages/{wp_id}/reconcile/targets",
         "POST /api/reconcile/packages",
         "POST /api/runs/{run_id}/items/{item_id}/statements/{other_doc_id}/choice",
-        "POST /api/statement-packages",
-        "POST /api/statement-packages/survey",
         "POST /api/workpackages/{wp_id}/reconcile/accept-proposed",
         "POST /api/workpackages/{wp_id}/reconcile/accept-sources",
         "POST /api/workpackages/{wp_id}/reconcile/allocate",
@@ -154,11 +154,12 @@ def test_the_page_of_a_statement_package_has_these_parts(db) -> None:
     wp_id = _statement_package(db, _party())
     view = work_views.workpackage_view(wp_id)
     # 181: its scope (its own party and period, collecting bank statements) on purpose
-    assert _keys(view) == ["current_run", "item_counts", "last_run", "next", "open_runs", "readiness", "runs", "scope",
-                           "statements", "supersedable", "titles", "workflow", "workpackage"]
+    assert _keys(view) == ["current_run", "item_counts", "last_run", "next", "open_runs", "readiness", "rule", "runs",
+                           "scope", "statements", "supersedable", "titles", "workflow", "workpackage"]  # 231 C3b5a: rule
     assert _keys(view["statements"]) == ["scope", "statements"]
     assert (view["scope"]["role"], view["scope"]["from"]) == ("statements", "logic_pack")
-    assert view["workpackage"]["source_kind"] == "statements"
+    assert view["workpackage"]["source_kind"] == "manual"  # 231 (C3b5a): a plain package of the statements rule
+    assert view["rule"] == {"name": "statements", "adds": "own", "parts": ["statements"]}
 
 
 def _reconciliation(db) -> str:

@@ -43,6 +43,9 @@ export interface WorkpackageView {
   reconcile?: { scope: ReconcileScope; counts: ReconcileCounts; coverage: ReconcileCoverage[]; approval?: ReconcileApproval };
   /** 140: a statement package's party, period and each item's statement */
   statements?: StatementPackageView;
+  /** 231 (C3b5a): the rule the package runs by, when it shows a part of its own or adds its own way
+   *  (`ui/src/logic/packageParts.tsx`) */
+  rule?: { name: string; adds: string; parts: string[] } | null;
   /** 146: the workflow the package is a step of */
   workflow?: WorkflowRef | null;
   /** 152: the older live runs a person can supersede, oldest first */

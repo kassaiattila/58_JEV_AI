@@ -71,7 +71,7 @@ it("the open form previews, adds by path, shows the service's counts and closes 
 
 it("a statement package offers adding statements in processing", () => {
   vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [] });
-  render(<ProcessStage view={view({ source_kind: "statements" })} onChanged={() => {}} />);
+  render(<ProcessStage view={view({ source_kind: "manual" }, { rule: { name: "statements", adds: "own", parts: ["statements"] } })} onChanged={() => {}} />);  // 231 C3b5a: its rule
   expect(screen.getByRole("button", { name: "Add statements" })).toBeTruthy();
 });
 

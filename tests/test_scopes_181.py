@@ -134,7 +134,7 @@ def test_the_roles_are_the_finance_domains_three() -> None:
     roles = {r.name: r for r in package_scope.roles()}
     assert list(roles) == ["incoming_invoices", "outgoing_invoices", "statements"]
     assert {r.module for r in roles.values()} == {"jav.domains.finance"}
-    assert roles["statements"].package_kinds == ("statements",)
+    assert (roles["statements"].package_kinds, roles["statements"].rule) == (("manual",), "statements")  # 231 C3b5a
     assert set(roles["incoming_invoices"].package_kinds) == set(wf.DOCUMENT_PACKAGES)
     assert roles["incoming_invoices"].fits("invoice_hu", "incoming") and not roles["incoming_invoices"].fits("invoice_hu", "outgoing")
     assert roles["outgoing_invoices"].fits("invoice_out", "outgoing") and roles["outgoing_invoices"].fits("invoice_hu", "outgoing")

@@ -1,9 +1,10 @@
 """The statement package's addresses of the local service (176, plan 170 L3: each logic pack its own).
 
-Plain-language summary: the addresses the interface uses to survey a folder's bank statements for a party and a
-period, to create a statement package of the ticked ones, and to survey and add more to an existing one. They moved
-here from `jav/service/api.py` as they were: the same paths, request models and answers. `jav.service.api.create_app` adds them
-(185: by its logic pack's `service`, `jav.service.api.service_modules`).
+Plain-language summary: the addresses the interface uses to survey more bank statements for an existing statement
+package and to add the ticked ones. They moved here from `jav/service/api.py` as they were: the same paths, request
+models and answers. `jav.service.api.create_app` adds them (231 C3b5a: as the finance domain's, `SERVICE`; its logic
+pack's until then). The survey of a new package and its creation went with the package's own form (231 C3b5a): a
+statement package is a bank statements case's, started from the new work wizard's general form.
 
 Layer: UI/CLI (the local service) → `jav.domains.finance.statement_package`.
 """
@@ -18,21 +19,7 @@ from pydantic import Field
 from jav.core import identity
 from jav.app import work_views
 from jav.domains.finance import statement_package
-from jav.service.service_shared import In, IsoDay, PartyId, WpId, checked_path, human_actor
-
-class StatementPackageSources(In):
-    """140: a statement package's party, period and files (one folder, or files: exports and PDFs)."""
-    paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(min_length=1, max_length=500)]
-    party_id: PartyId
-    period_start: IsoDay
-    period_end: IsoDay
-
-
-class CreateStatementPackage(StatementPackageSources):
-    name: Annotated[str, Field(min_length=1, max_length=200)]
-    statements: Annotated[list[Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]], Field(max_length=2000)] = Field(default_factory=list)
-    pdfs: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(max_length=500)] = Field(default_factory=list)
-
+from jav.service.service_shared import In, WpId, checked_path, human_actor
 
 class PackageStatementFiles(In):
     """160-C S2: more files for an existing statement package (its party and period are the package's own); 168: with
@@ -49,24 +36,6 @@ class AddPackageStatements(PackageStatementFiles):
 
 def routes(app: FastAPI, r: str) -> None:
     """The statement package's addresses under the service's prefix `r`."""
-
-    @app.post(r + "/statement-packages/survey")
-    def statement_package_survey(body: StatementPackageSources, _who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
-        """140: what a folder or the given files hold for a party and a period, before anything is written: every
-        statement with its account's last four characters, month, checks, what it would replace and whose account it
-        is; the PDFs no export uses. No line, partner or balance leaves."""
-        paths = [checked_path(p, want_dir=None) for p in body.paths]
-        return work_views.jsonable(statement_package.survey(paths, party_id=body.party_id, period_start=body.period_start,
-                                                            period_end=body.period_end))
-
-    @app.post(r + "/statement-packages", status_code=201)
-    def create_statement_package(body: CreateStatementPackage, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
-        """140: a new statement package of the statements and PDFs ticked in the survey; the creator is its owner."""
-        sc = statement_package.create(name=body.name, party_id=body.party_id, period_start=body.period_start,
-                                      period_end=body.period_end, paths=[checked_path(p, want_dir=None) for p in body.paths],
-                                      statements=body.statements, pdfs=[str(checked_path(p, want_dir=False)) for p in body.pdfs],
-                                      actor=who)
-        return work_views.workpackage_view(sc["workpackage_id"])
 
     @app.post(r + "/workpackages/{wp_id}/statements/survey")
     def package_statement_survey(wp_id: WpId, body: PackageStatementFiles, _who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:

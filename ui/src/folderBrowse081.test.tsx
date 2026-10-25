@@ -4,13 +4,23 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError, type Readiness, type Workpackage } from "./api";
+import { api, ApiError, type WorkflowTemplates } from "./api";
 import { BrowseButton } from "./components/BrowseButton";
 import { CreateForm } from "./views/Workpackages";
+import workflowConfig from "./views/workflows/workflowTemplates181.fixture.json";
 
 afterEach(() => vi.restoreAllMocks());
 
-const CREATED = { workpackage: { id: "wp-1" } as Workpackage, readiness: {} as Readiness };
+// 231 (C3b5a): the documents' one-step template is its process pack's case, started with the general form
+const PACKS = { processes: [{ id: "documents", title: "Documents", version: "1.0.0", scope: ["source"], asks: ["source"],
+  package_kinds: [] }] };
+function mockCaseStart() {
+  vi.spyOn(api, "workflowTemplates").mockResolvedValue(workflowConfig as unknown as WorkflowTemplates);
+  vi.spyOn(api, "processes").mockResolvedValue(PACKS);
+  vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
+  vi.spyOn(api, "parties").mockResolvedValue({ parties: [] } as never);
+  return vi.spyOn(api, "startCase").mockResolvedValue({ case_id: "wp-1" });
+}
 
 describe("081 browsing", () => {
   it("the folder picker starts from the field's current value and returns the chosen folder", async () => {
@@ -42,27 +52,28 @@ describe("081 browsing", () => {
 describe("081 package from a folder", () => {
   it("subfolders are left out by default; ticked, the service is asked for them too", async () => {
     vi.spyOn(api, "pickFolder").mockResolvedValue({ path: "C:\\szamlak" });
-    const create = vi.spyOn(api, "createFromFolder").mockResolvedValue(CREATED);
+    const start = mockCaseStart();
     const onDone = vi.fn();
     const user = userEvent.setup();
     render(<CreateForm onDone={onDone} initialTemplate="documents" />);
-    const sub = await screen.findByRole("checkbox", { name: "Almappák is" }) as HTMLInputElement; // 195: the form loads on first use
+    const sub = await screen.findByRole("checkbox", { name: "Az almappái is" }) as HTMLInputElement; // 195: the form loads on first use
     expect(sub.checked).toBe(false);
     await user.click(screen.getByRole("button", { name: "Tallózás…" }));
-    await waitFor(() => expect((screen.getByLabelText("Mappa teljes útvonala") as HTMLInputElement).value).toBe("C:\\szamlak"));
+    await waitFor(() => expect((screen.getByLabelText("A mappa teljes útvonala") as HTMLInputElement).value).toBe("C:\\szamlak"));
     await user.click(sub);
     await user.click(screen.getByRole("button", { name: "Létrehozás" }));
     await waitFor(() => expect(onDone).toHaveBeenCalledWith("wp-1"));
-    expect(create).toHaveBeenCalledWith("C:\\szamlak", undefined, true);
+    expect(start.mock.calls[0][0].source).toEqual({ kind: "folder", folder: "C:\\szamlak", recursive: true });
   });
 
-  it("the file picker appends the chosen files to the existing lines without repeats", async () => {
+  it("the file picker appends the chosen files to the existing lines without repeats, a pasted path without its quotes", async () => {
     vi.spyOn(api, "pickFiles").mockResolvedValue({ paths: ["C:\\a\\1.pdf", "C:\\b\\2.pdf"] });
+    mockCaseStart();
     const user = userEvent.setup();
     render(<CreateForm onDone={vi.fn()} initialTemplate="documents" />);
     await user.click(await screen.findByRole("radio", { name: "Megadott fájlok" }));
-    const box = screen.getByLabelText("Fájlok teljes útvonala, soronként egy") as HTMLTextAreaElement;
-    await user.type(box, "C:\\a\\1.pdf");
+    const box = screen.getByLabelText("A fájlok teljes útvonala, soronként egy") as HTMLTextAreaElement;
+    await user.type(box, "\"C:\\a\\1.pdf\"");
     await user.click(screen.getByRole("button", { name: "Tallózás…" }));
     await waitFor(() => expect(box.value).toBe("C:\\a\\1.pdf\nC:\\b\\2.pdf"));
   });

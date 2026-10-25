@@ -91,7 +91,8 @@ class Role:
     """A package role: its `name`, the registering `module`, its `title` (an interface label), `fits(doc_type,
     direction)`: whether a document of this type and direction (`parties.direction`) belongs in a package of the role,
     and `package_kinds`: the kinds of work package that can hold it. 231 (C3b5a): `rule`: the package rule a package
-    must run by to hold it (`work.RULE_PART`; the bank statements': `statements`); None: any (`holds`)."""
+    must run by to hold it (`work.RULE_PART`; the bank statements': `statements`); None: a package of no rule
+    (`holds`), so an invoice never goes into a statement package."""
 
     name: str
     module: str
@@ -102,7 +103,7 @@ class Role:
 
     def holds(self, kind: str, rule: str | None) -> bool:
         """Whether a package of this kind, running by this rule, can hold the role."""
-        return kind in self.package_kinds and (self.rule is None or rule == self.rule)
+        return kind in self.package_kinds and rule == self.rule
 
 
 @dataclass(frozen=True)

@@ -23,7 +23,6 @@ from jav.domains.finance import reconcile, statement_package as sp, statement_ta
 from jav.domains.finance import reconcile_store
 from jav.runtime import worker
 from jav.core import queue
-from tests import test_api
 from tests.test_flow_statement_table_136 import _run_all
 from tests.test_statement_erste_137 import DIGITS, JUNE, MAY, OWN, PDF_JUNE, _export
 
@@ -145,7 +144,7 @@ def test_the_package_holds_the_chosen_statements_and_pdfs_with_its_party_and_per
     view = sp.create(name="Example Kft. statements", party_id=party, period_start="2026-05-01", period_end="2026-06-30",
                      paths=[folder], statements=[june["id"]], pdfs=[pdf], actor="tester")
     wp = work.get(view["workpackage_id"])
-    assert (wp["source_kind"], wp["owner"], wp["source_ref"]) == ("statements", "tester", str(folder.resolve()))
+    assert (wp["source_kind"], wp["owner"], wp["source_ref"]) == ("manual", "tester", str(folder.resolve()))  # 231 C3b5a
     kinds = sorted((i["kind"], Path(i["source_path"]).suffix) for i in wp["items"])
     assert kinds == [("document", ".pdf"), ("statement_table", ".json")]
     assert next(i for i in wp["items"] if i["kind"] == "statement_table")["item_id"] == june["id"]  # the survey's id
@@ -333,30 +332,3 @@ def test_a_partys_merge_moves_its_statement_packages(db):
     wp = _package(db, party)
     parties.merge(party, other, actor="tester")
     assert sp.scope(wp)["party"]["id"] == other
-
-
-# --- the service ---------------------------------------------------------------------------------------------------------
-
-
-env = test_api.env
-
-
-def test_the_service_surveys_and_creates_a_statement_package(env):
-    c, human = env["client"], test_api.HUMAN
-    party = _party()
-    folder = _folder(env["root"])
-    body = {"paths": [str(folder)], "party_id": party, "period_start": "2026-05-01", "period_end": "2026-06-30"}
-    assert c.post("/api/statement-packages/survey", json=body).status_code == 422  # a person asks for it
-    r = c.post("/api/statement-packages/survey", headers=human, json=body)
-    assert r.status_code == 200, r.text
-    survey = r.json()
-    assert len(survey["statements"]) == 2 and "EXAMPLE CLOUD" not in r.text  # no lines or partners leave
-    chosen = {"statements": [s["id"] for s in survey["statements"]], "pdfs": []}
-    r = c.post("/api/statement-packages", headers=human, json={**body, **chosen, "name": "Example statements"})
-    assert r.status_code == 201, r.text
-    view = r.json()
-    assert view["workpackage"]["source_kind"] == "statements" and len(view["workpackage"]["items"]) == 2
-    assert view["statements"]["scope"]["party"]["id"] == party
-    unknown = {**body, "party_id": "party-000000000000"}
-    assert c.post("/api/statement-packages/survey", headers=human, json=unknown).status_code == 422
-    assert c.post("/api/statement-packages/survey", headers=human, json={**body, "paths": [str(folder / "nope")]}).status_code == 422

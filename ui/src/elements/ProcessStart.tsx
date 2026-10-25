@@ -38,7 +38,13 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   const wantsParty = asks.includes("party");
   const wantsPeriod = asks.includes("period");
   const wantsSource = asks.includes("source");
-  const fileLines = files.split("\n").map((l) => l.trim()).filter(Boolean);
+  // a path pasted with its quotes (Explorer's "Copy as path") is taken without them, as the documents form took it
+  const fileLines = files.split(/\r?\n/).map((l) => l.trim().replace(/^"|"$/g, "")).filter(Boolean);
+  // the picked files go after the lines already there, each path only once (081)
+  const addFiles = (picked: string[]) => {
+    const seen = new Set(fileLines.map((f) => f.toLowerCase()));
+    setFiles([...fileLines, ...picked.filter((f) => !seen.has(f.toLowerCase()))].join("\n"));
+  };
   const source: CaseSource = sourceKind === "folder" ? { kind: "folder", folder: folder.trim(), recursive } : { kind: "files", files: fileLines };
   const hasSource = sourceKind === "folder" ? !!folder.trim() : fileLines.length > 0;
   const candidates = (list.data?.workpackages ?? []).filter((w) => (info.package_kinds ?? []).includes(w.source_kind));
@@ -106,7 +112,7 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
               <label className="block grow">{t("The files' full paths, one a line")}
                 <textarea value={files} onChange={(e) => setFiles(e.target.value)} rows={4} required />
               </label>
-              <BrowseButton kind="files" initial={fileLines[fileLines.length - 1]} onPick={(picked) => setFiles([...fileLines, ...picked].join("\n"))} />
+              <BrowseButton kind="files" initial={fileLines[fileLines.length - 1]} onPick={addFiles} />
             </div>
           )}
         </fieldset>
