@@ -6,6 +6,7 @@
 // (process), Review (review), Result (result). The old addresses (items, to-dos, workflow, reports, data, mailbox,
 // run list) lead to their new place, so bookmarks are not lost.
 
+import { resultTables } from "./logic/resultTables";
 import { settingsSections } from "./logic/settingsSections";
 
 /** 231 (plan stage A, A1): a page's tab is named by its id; a work package has the three below, a case the tabs its
@@ -13,7 +14,9 @@ import { settingsSections } from "./logic/settingsSections";
 export type Stage = string;
 /** 231 (C3e): a section of Settings, the shared ones and those the domains register (`logic/settingsSections.ts`). */
 export type SettingsSection = string;
-export type ResultTable = "emails" | "tasks" | "documents" | "datapoints" | "line_items" | "utility" | "file_names" | "native_facts";
+/** 231 (C3e): a view of a package's Result section, the shared ones and those the domains register
+ *  (`logic/resultTables.ts`). */
+export type ResultTable = string;
 
 /** 061: a confirmation page before a run is started (in the Processing section) */
 export interface StartRequest { mode: "shadow" | "apply"; rerun: boolean; pending?: boolean } // 160-C S3: only the pending items
@@ -39,7 +42,6 @@ export type Route =
 
 /** A work package's three sections (057). */
 export const STAGES: Stage[] = ["process", "review", "result"];
-export const RESULT_TABLES: ResultTable[] = ["emails", "tasks", "documents", "datapoints", "line_items", "utility", "file_names", "native_facts"];
 const OLD_TAB: Record<string, Stage> = { items: "review", reviews: "review", workflow: "process" };
 const OLD_DATASET: Record<string, ResultTable> = {
   documents: "documents", datapoints: "datapoints", line_items: "line_items", utility_cost: "utility", utility_sources: "utility",
@@ -96,7 +98,7 @@ export function parseRoute(hash: string): Route {
       }
       if (stage === "process" && parts[3] === "add") r.add = true;
       if (stage === "result") {
-        if (RESULT_TABLES.includes(parts[3] as ResultTable)) r.table = parts[3] as ResultTable;
+        if (resultTables().some((x) => x.key === parts[3])) r.table = parts[3];
         if (params.get("run")) r.runId = params.get("run")!;
       }
       return r;

@@ -2,14 +2,11 @@
 // package runs by a named rule (`jav/app/work.py` `PackageRule`), which its scope names; the service sends it with the
 // package's view (`rule`: its name, how a person adds to the package, its page parts), so the package's page, its menu
 // and its item list ask this registry by the part's name instead of naming a kind of package. Until 231 C3b5a the logic
-// packs' registry keyed by the package's kind (`registry.tsx`). A part is process-specific until its screens move into
-// their domain's folder (C3e), so the strict principle's test lists it.
-import type { ReactNode } from "react";
+// packs' registry keyed by the package's kind. 231 (C3e): the domain whose rule it is registers the part when the
+// interface loads (`registerPackagePart`, from `ui/src/domains/<domain>/index.tsx`).
+import type { ComponentType, ReactNode } from "react";
 import type { Workpackage, WorkpackageView } from "../api";
-import { t } from "../i18n";
-import { lazyPage } from "../components/LazyPage";
-
-const StatementPackagePanel = lazyPage(() => import("../views/StatementPackagePanel").then((m) => m.StatementPackagePanel));
+import type { AddSource } from "../views/PackageAdd";
 
 export type PackagePart = {
   /** The start of the summary line of the package's page (null: nothing to add). */
@@ -20,24 +17,23 @@ export type PackagePart = {
   createdFrom?: (wp: Workpackage) => string;
   /** The label of the menu's adding, when the rule adds in its own way (`adds: own`). */
   addLabel?: string;
+  /** 231 (C3e): the form of adding in the rule's own way (`adds: own`). */
+  Add?: ComponentType<{ wp: Workpackage; source?: AddSource; onDone: () => void; onCancel: () => void }>;
+  /** 231 (C3e): the package's scope is the rule's (`PackageRule.own_scope`): a person can neither give nor take it. */
+  ownScope?: boolean;
 };
 
-export const PACKAGE_PARTS: Record<string, PackagePart> = {
-  // 140: a statement package's party, period and statements, and the party's months before and after its run
-  statements: {
-    createdFrom: () => t("a statement package"),
-    summary: (view) => (view.statements
-      ? `${t("Bank statements of {{party}}, {{from}} – {{to}}", { party: view.statements.scope.party.name, from: view.statements.scope.period_start, to: view.statements.scope.period_end })} · `
-      : null),
-    resultPanel: (view) => (view.statements ? <StatementPackagePanel view={view.statements} /> : null),
-    addLabel: "Add statements",
-  },
-};
+const PARTS = new Map<string, PackagePart>();
+
+/** Registers a domain's rule's page part by its name (a second registration replaces the first). */
+export function registerPackagePart(name: string, part: PackagePart): void {
+  PARTS.set(name, part);
+}
 
 /** The page part a package's rule shows (undefined: a package of no rule, or one whose rule shows none). */
 export function partOf(view: Pick<WorkpackageView, "rule"> | null | undefined): PackagePart | undefined {
-  const name = (view?.rule?.parts ?? []).find((p) => Object.prototype.hasOwnProperty.call(PACKAGE_PARTS, p));
-  return name ? PACKAGE_PARTS[name] : undefined;
+  const name = (view?.rule?.parts ?? []).find((p) => PARTS.has(p));
+  return name ? PARTS.get(name) : undefined;
 }
 
 /** Whether a person adds to the package in its rule's own way (its page part) rather than as documents. */

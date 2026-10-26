@@ -4,9 +4,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { api, type DsRow, type ReconcileTargets, type ReconcileWorkspace, type WorkpackageView } from "./api";
+import { api, type DsRow, type WorkpackageView } from "./api";
+import type { ReconcileTargets, ReconcileWorkspace } from "./domains/finance/api";
 import { setLanguage } from "./i18n";
-import { ReconcileInputs } from "./views/reconcile/ReconcileInputs";
+import { ReconcileInputs } from "./domains/finance/reconcile/ReconcileInputs";
 
 const rows = vi.hoisted(() => ({ current: [] as Record<string, unknown>[] }));
 

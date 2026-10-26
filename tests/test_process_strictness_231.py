@@ -27,29 +27,27 @@ from jav.app import item_kinds, logic_packs, registrations, workflow_steps
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "ui" / "src"
 PROCESS_NAMES = ("reconcile", "statements", "email_routing", "routing", "quote", "mailbox")
-UI_PROCESS_DIRS = {"reconcile"}  # C1c: routing went; C3e: the quotes' moved to their domain's folder
+UI_PROCESS_DIRS: set[str] = set()  # C1c: routing went; C3e: the quotes' and the reconciliation's moved to their domains' folders
 UI_SHARED_DIRS = {"settings", "workflows"}
 
 FROZEN_LOGIC_PACKS: set[str] = set()  # A3d: the quote package went; C1c: the email routing; C3a-2: the reconciliation; C3b5a: the statements
 FROZEN_STEP_KINDS: set[str] = set()  # C3d: the emails (the mailbox pack's); C3c: the quote (its pack's); C1c: the routing; C3a-2: the reconciliation; C3b5b: the documents, the statements (their packs')
 FROZEN_ITEM_PARTS: set[tuple[str, str]] = set()  # 231 (C1a): the quote request under its email became the general intake
 FROZEN_DOMAINS = ("jav.domains.finance", "jav.domains.email", "jav.domains.quotes")
-FROZEN_UI_FILES = {  # C3e: the mailbox screen, the quotes' API and the price lists moved to their domains' folders
-    "ui/src/api/finance.ts", "ui/src/review/StatementPanel.tsx", "ui/src/views/BankFiles.tsx",
-    "ui/src/views/StatementPackagePanel.tsx",  # C3b5a: the statement package form went
-    "ui/src/views/UtilityReport.tsx", "ui/src/views/settings/PartiesPanel.tsx",
-}
+FROZEN_UI_FILES: set[str] = set()  # C3e: every domain's screen moved to its domain's folder
 UI_DOMAINS = UI / "domains"  # C3e
 UI_DOMAIN_NAMES = {d.rsplit(".", 1)[1] for d in FROZEN_DOMAINS}
 UI_DOMAIN_ENTRIES = {"ui/src/main.tsx", "ui/src/test-setup.ts"}  # the interface's start (and the tests') loads the domains
 FROZEN_UI_LOGIC_KEYS: set[str] = set()  # A3d: the quote package's went; C1c: the routing's; C3a-2: the reconciliation's; C3b5a: the statements'
-FROZEN_UI_PACKAGE_PARTS = {"statements"}  # C3b5a: a package rule's page part, until its screens move to their domain's folder (C3e)
+FROZEN_UI_PACKAGE_PARTS: set[str] = set()  # C3e: the finance domain registers the statements rule's part
 FROZEN_UI_FORMS: set[str] = set()  # C3d: the emails' (the mailbox pack's); C3c: the quote's (its pack's); C1c: the routing's; C2d: the reconciliation's; C3b5a: the documents' and the statements' (their packs')
 FROZEN_UI_NAME_COMPARISONS: set[tuple[str, str]] = set()  # C3b5a: the statements' add went to the rule; C3d: the wizard's mailbox
 FROZEN_UI_SOURCE_CHOOSERS: set[str] = set()  # C3e: the email domain registers the mailbox's
 FROZEN_PY_NAME_COMPARISONS: set[tuple[str, str]] = set()
 
-_FILE_NAME = re.compile(r"(reconcil|quote|routing|statement|mailbox|utility|bankfile|bank_file|parties|pricelist|price_list|finance)", re.I)
+# C3e: the own parties are the application's (`jav/app/parties.py`, the shared scope part `party`), so a shared module of
+# them (`ui/src/api/parties.ts`) is not process-specific; the finance domain's party screens live in its folder
+_FILE_NAME = re.compile(r"(reconcil|quote|routing|statement|mailbox|utility|bankfile|bank_file|pricelist|price_list|finance)", re.I)
 _NAMES = "|".join(PROCESS_NAMES)
 _UI_COMPARISON = re.compile(rf"""(?:===?|!==?)\s*["']({_NAMES})["']|["']({_NAMES})["']\s*(?:===?|!==?)""")
 _IMPORT = re.compile(r"""(?:\bfrom\s+|\bimport\s*\(?\s*)["'](\.[^"']*)["']""")

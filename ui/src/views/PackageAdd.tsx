@@ -1,27 +1,23 @@
 // 160-C S2 (plan F-flexible work package): adding to an existing package. Documents are added by content and the
 // service says what happened — added, already in the package, restored, and the ones a live run of another package
 // has processed (counted by the service, never the size of the selection; the legacy V4 add-to-group pattern). A
-// statement package grows only through its own survey, with its own party and period.
+// package whose rule adds its own way (a statement package: its own survey, with its own party and period) has its
+// domain's form (231 C3e: the package parts' `Add`, `ui/src/logic/packageParts.tsx`), built from the steps here.
 // 168 (plan F-item-list-and-adding; DECISIONS 168): adding takes three steps — choose (given files, or a folder with
 // or without its subfolders), check what would happen file by file, add what is ticked (the legacy V4 upload page's
 // selection preview). A removed document is not ticked by default, so adding a folder again does not quietly bring
 // back what was taken out on purpose.
 import { useMemo, useRef, useState, type FormEvent } from "react";
-import { api, ApiError, type AddSummary, type ItemPreview, type ItemSources, type PreviewFile, type StatementPackageSurvey,
-  type Workpackage } from "../api";
+import { api, ApiError, type AddSummary, type ItemPreview, type ItemSources, type PreviewFile, type Workpackage } from "../api";
 import { BrowseButton } from "../components/BrowseButton";
-import { lazyPage } from "../components/LazyPage";
 import { t, useLocale } from "../i18n";
 import { tmap } from "../labels";
 
-// 195 (plan G-tidy R5): a statement package's survey loads with the statement pages
-const SurveyChoices = lazyPage(() => import("./StatementPackagePanel").then((m) => m.SurveyChoices));
-
 export type AddSource = "files" | "folder";
 
-const pathsOf = (text: string) => text.split(/\r?\n/).map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean);
+export const pathsOf = (text: string) => text.split(/\r?\n/).map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean);
 
-function failure(e: unknown): string {
+export function addFailure(e: unknown): string {
   if (e instanceof ApiError && e.status === 409) return t("The package changed meanwhile. We refreshed the list: check it and try again.");
   return e instanceof ApiError ? e.message : String(e);
 }
@@ -43,7 +39,7 @@ export function AddSummaryLine({ summary }: { summary: AddSummary }) {
 }
 
 /** The three steps' names, the current one filled; purely a guide (the form's own controls carry the meaning). */
-function AddSteps({ step }: { step: 1 | 2 | 3 }) {
+export function AddSteps({ step }: { step: 1 | 2 | 3 }) {
   useLocale();
   const names = [t("Choose"), t("Check"), t("Add")];
   return (
@@ -97,7 +93,7 @@ export function AddDocuments({ wp, source: initial = "files", note, onDone, onCa
       // new files are ticked; a removed one is not (taken out on purpose); the same content counts once
       setTicked(new Set(p.files.filter((f) => f.state === "new").map((f) => f.path)));
     } catch (err) {
-      setError(failure(err));
+      setError(addFailure(err));
     } finally {
       setBusy(false);
     }
@@ -115,7 +111,7 @@ export function AddDocuments({ wp, source: initial = "files", note, onDone, onCa
       const restore = chosen.filter((f) => f.state === "removed").map((f) => f.item_id);
       onDone((await api.addItems(wp.id, sources, wp.revision, { exclude, restore })).added);
     } catch (err) {
-      setError(failure(err));
+      setError(addFailure(err));
     } finally {
       setBusy(false);
     }
@@ -230,98 +226,5 @@ function PreviewList({ preview, ticked, setTicked }: {
         </div>
       ) : <p className="empty">{t("No document here: nothing to add.")}</p>}
     </div>
-  );
-}
-
-export function AddStatements({ wp, source: initial = "folder", onDone, onCancel }: {
-  wp: Workpackage; source?: AddSource; onDone: () => void; onCancel: () => void;
-}) {
-  useLocale();
-  const [source, setSource] = useState<AddSource>(initial);
-  const [folder, setFolder] = useState("");
-  const [recursive, setRecursive] = useState(false);
-  const [files, setFiles] = useState("");
-  const [survey, setSurvey] = useState<StatementPackageSurvey | null>(null);
-  const [chosen, setChosen] = useState<Set<string>>(new Set());
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const lines = pathsOf(files);
-  const paths = source === "folder" ? (folder.trim() ? [folder.trim()] : []) : lines;
-  const deep = source === "folder" && recursive;
-  // any change to what is surveyed drops the survey: the ticks belong to the files as they were read
-  // 167 (review 160 U-3): a change also drops a survey still on its way (its late answer belongs to the files before)
-  const asked = useRef(0);
-  const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); asked.current += 1; setSurvey(null); setChosen(new Set()); };
-
-  async function read() {
-    setBusy(true);
-    setError(null);
-    try {
-      const my = ++asked.current;
-      const s = await api.packageStatementSurvey(wp.id, paths, deep);
-      if (my !== asked.current) return;
-      setSurvey(s);
-      setChosen(new Set([...s.statements.filter((r) => r.chosen).map((r) => r.id), ...s.pdfs.filter((p) => p.chosen).map((p) => p.path)]));
-    } catch (err) {
-      setError(failure(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    if (!survey) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await api.addPackageStatements(wp.id, { paths, expected_revision: wp.revision, ...(deep ? { recursive: true } : {}),
-        statements: survey.statements.filter((r) => chosen.has(r.id)).map((r) => r.id),
-        pdfs: survey.pdfs.filter((p) => chosen.has(p.path)).map((p) => p.path) });
-      onDone();
-    } catch (err) {
-      setError(failure(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const nStatements = survey ? survey.statements.filter((r) => chosen.has(r.id)).length : 0;
-  const nPdfs = survey ? survey.pdfs.filter((p) => chosen.has(p.path)).length : 0;
-  return (
-    <form className="add-flow inline-form" onSubmit={submit} aria-label={t("Add statements to the package")}>
-      <AddSteps step={survey ? (nStatements + nPdfs ? 3 : 2) : 1} />
-      <p className="muted small">{t("The files are surveyed for the package's own party and period; what the package already holds is not offered again.")}</p>
-      <fieldset className="segmented">
-        <legend className="sr-only">{t("Source")}</legend>
-        <label><input type="radio" name="sp-add-src" checked={source === "folder"} onChange={() => reset(setSource)("folder")} /> {t("A folder")}</label>
-        <label><input type="radio" name="sp-add-src" checked={source === "files"} onChange={() => reset(setSource)("files")} /> {t("Given files")}</label>
-      </fieldset>
-      {source === "folder" ? (
-        <div className="path-row">
-          <label className="block grow">{t("The statements' folder")}<input value={folder} onChange={(e) => reset(setFolder)(e.target.value)} /></label>
-          <BrowseButton kind="folder" initial={folder} onPick={([p]) => reset(setFolder)(p)} />
-          <label className="check"><input type="checkbox" checked={recursive} onChange={(e) => reset(setRecursive)(e.target.checked)} /> {t("Include subfolders")}</label>
-        </div>
-      ) : (
-        <div className="path-row">
-          <label className="block grow">{t("The files' full paths, one per line")}
-            <textarea value={files} onChange={(e) => reset(setFiles)(e.target.value)} rows={3} />
-          </label>
-          <BrowseButton kind="files" initial={lines[lines.length - 1]} onPick={(picked) => reset(setFiles)([...lines, ...picked].join("\n"))} />
-        </div>
-      )}
-      <div className="button-row">
-        <button type="button" className="secondary" disabled={busy || !paths.length} onClick={() => void read()}>
-          {busy && !survey ? t("Reading…") : t("Survey the files")}</button>
-        <button type="button" className="quiet" onClick={onCancel}>{t("Cancel")}</button>
-      </div>
-      {survey ? <SurveyChoices survey={survey} chosen={chosen} setChosen={setChosen} /> : null}
-      {error ? <p className="notice error" role="alert">{error}</p> : null}
-      {survey ? (
-        <button type="submit" className="primary" disabled={busy || !(nStatements + nPdfs)}>
-          {t("Add {{n}} statement(s) and {{m}} PDF(s)", { n: nStatements, m: nPdfs })}</button>
-      ) : null}
-    </form>
   );
 }

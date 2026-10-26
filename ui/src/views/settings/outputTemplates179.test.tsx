@@ -10,7 +10,7 @@ import {
 } from "../../api";
 import { TemplateChoice } from "../../components/TemplateChoice";
 import { setLanguage } from "../../i18n";
-import { UtilityPanel } from "../UtilityReport";
+import { UtilityPanel } from "../../domains/finance/UtilityReport";
 import { issueText, OutputTemplatesPanel } from "./OutputTemplatesPanel";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });

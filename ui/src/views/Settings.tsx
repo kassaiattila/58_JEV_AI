@@ -10,7 +10,6 @@ import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import type { SettingsSection } from "../route";
 import { settingsParts, settingsSections } from "../logic/settingsSections";
-import { BankFilesPanel } from "./BankFiles";
 import { RecipesPanel } from "./RecipeInfo";
 import { RunList } from "./Runs";
 import { AppearancePanel } from "./settings/AppearancePanel";
@@ -21,7 +20,6 @@ import { EnginePanel } from "./settings/EnginePanel";
 import { FoldersPanel } from "./settings/FoldersPanel";
 import { LanguagePanel } from "./settings/LanguagePanel";
 import { OutputTemplatesPanel } from "./settings/OutputTemplatesPanel";
-import { PartiesPanel } from "./settings/PartiesPanel";
 import { PartnersPanel } from "./settings/PartnersPanel";
 import { ProcessSettingsPanel } from "./settings/ProcessSettingsPanel";
 import { RulesPanel } from "./settings/RulesPanel";
@@ -50,15 +48,12 @@ export function Settings({ section }: { section: SettingsSection }) {
           <h2>{t(current.label)}</h2>
           {Own ? <Own /> : null}
           {current.key === "folders" ? <FoldersPanel /> : null}
-          {current.key === "parties" ? <PartiesPanel /> : null}
           {current.key === "partners" ? <PartnersPanel /> : null}
           {current.key === "processes" ? <ProcessSettingsPanel /> : null}
           {current.key === "recipes" ? (
             <>
               <EnginePanel />
               <RecipesPanel />
-              <h2>{t("Bank files the system reads")}</h2>
-              <BankFilesPanel />
             </>
           ) : null}
           {current.key === "rules" ? <RulesPanel /> : null}

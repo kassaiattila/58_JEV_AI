@@ -19,8 +19,6 @@ export interface SettingsPart { section: string; title: string; Panel: Component
 
 const SHARED: SettingsSectionSpec[] = [
   { key: "folders", label: "Munkamappák", hint: "Figyelt mappák: az új iratokból magától lesz munkacsomag", order: 20 },
-  // 133: new labels have an English source (the Hungarian translation is in hu-native.json)
-  { key: "parties", label: "Own parties", hint: "Whose money is reconciled: companies, associations and people, with their names, tax numbers and accounts", order: 30 },
   // 231 (B1): the shared partner register, the outside parties of the processes
   { key: "partners", label: "Partners", hint: "The outside parties of the processes: customers, suppliers, insured persons and brokers, each with its roles; every change is kept as a version", order: 40 },
   // 231 (B4): each process's own values over its file's: what it uses and the rule values its steps let it set

@@ -5,8 +5,8 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { api, type DsRow, type ItemPreview, type PreviewFile, type Readiness, type StatementPackageSurvey, type Workpackage,
-  type WorkpackageView } from "./api";
+import { api, type DsRow, type ItemPreview, type PreviewFile, type Readiness, type Workpackage, type WorkpackageView } from "./api";
+import type { StatementPackageSurvey } from "./domains/finance/api";
 import { setLanguage } from "./i18n";
 import { ProcessStage } from "./views/ProcessStage";
 import { PackageItemsPanel } from "./views/PackageItems";

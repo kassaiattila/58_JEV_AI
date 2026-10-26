@@ -14,7 +14,7 @@ import { mailboxLabel, storedMailboxLabel } from "../labels";
 import { addsOwnWay, partOf, type PackagePart } from "../logic/packageParts";
 import { useNameMode } from "../names";
 import { wpHash } from "../route";
-import { AddDocuments, AddStatements, AddSummaryLine, type AddSource } from "./PackageAdd";
+import { AddDocuments, AddSummaryLine, type AddSource } from "./PackageAdd";
 
 /** 153 (review E): where the package was created from, by its kind; later additions may come from elsewhere. 183: a
  *  mailbox package is named from the request of the download that made it, in the interface's language. */
@@ -74,7 +74,8 @@ export function PackageItems({ view, adding, onAddingChange, onChanged, pendingA
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState<AddSummary | null>(null);
-  const statements = addsOwnWay(view); // 176: added through the package's own survey (231 C3b5a: its rule's way)
+  const own = addsOwnWay(view); // 176: added through the package's own survey (231 C3b5a: its rule's way)
+  const OwnAdd = partOf(view)?.Add; // 231 (C3e): the form of the domain whose rule it is
   const removedCount = view.item_counts?.removed ?? 0;
   const supplements = Object.values(view.readiness.supplement ?? {});
   const pending = supplements.length ? Math.max(...supplements.map((s) => s?.items ?? 0)) : 0;
@@ -118,8 +119,8 @@ export function PackageItems({ view, adding, onAddingChange, onChanged, pendingA
           <h2>{t("The package's items")}</h2>
           <Tally view={view} />
         </div>
-        {adding ? null : statements ? (
-          <button type="button" className="secondary" onClick={() => open("folder")}><Icon name="plus" />{t("Add statements")}</button>
+        {adding ? null : own ? (
+          <button type="button" className="secondary" onClick={() => open("folder")}><Icon name="plus" />{t(partOf(view)?.addLabel ?? "")}</button>
         ) : (
           <div className="button-row">
             <button type="button" className="secondary" onClick={() => open("files")}><Icon name="file" />{t("Add files")}</button>
@@ -128,8 +129,8 @@ export function PackageItems({ view, adding, onAddingChange, onChanged, pendingA
         )}
       </div>
       <p className="muted small">{t("Created from: {{source}} · revision {{rev}} of the package", { source: createdFrom(wp, view.mailbox_request, partOf(view)), rev: wp.revision })}</p>
-      {adding && statements ? <AddStatements wp={wp} source={adding} onCancel={close} onDone={() => { close(); onChanged(); }} /> : null}
-      {adding && !statements ? <AddDocuments wp={wp} source={adding} onCancel={close} onDone={(s) => { close(); setAdded(s); onChanged(); }} /> : null}
+      {adding && own && OwnAdd ? <OwnAdd wp={wp} source={adding} onCancel={close} onDone={() => { close(); onChanged(); }} /> : null}
+      {adding && !own ? <AddDocuments wp={wp} source={adding} onCancel={close} onDone={(s) => { close(); setAdded(s); onChanged(); }} /> : null}
       {added ? <AddSummaryLine summary={added} /> : null}
       {pending ? (
         <div className="items-pending" role="region" aria-label={t("Pending items")}>

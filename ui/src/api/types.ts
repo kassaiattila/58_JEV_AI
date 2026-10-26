@@ -1,7 +1,6 @@
 // The shared records: work packages, their items and runs, the review, results and releases.
 import type { WorkflowRef } from "./workflows";
 import type { Engine } from "./system";
-import type { DuplicatePair, ReconcileApproval, ReconcileCounts, ReconcileCoverage, ReconcileScope, StatementPackageView, StatementRelation } from "./finance";
 import type { IntakeOffer } from "./cases";
 import type { PackageOffer } from "./processes";
 import type { EmailItem, MailboxRequest, RoutingView } from "./email";
@@ -39,10 +38,8 @@ export interface WorkpackageView {
   /** 153: the run the next step is about (a later run a person stopped does not hide an earlier finished one) */
   current_run?: RunRow | null;
   attachments_missing?: number; // 058 K5.2: in an email package, the number of PDF attachments not yet added
-  /** 131: a reconciliation package's scope, counts and coverage (it has no files and no runs) */
-  reconcile?: { scope: ReconcileScope; counts: ReconcileCounts; coverage: ReconcileCoverage[]; approval?: ReconcileApproval };
-  /** 140: a statement package's party, period and each item's statement */
-  statements?: StatementPackageView;
+  /** 231 (C3e): a part a package's rule adds to its view comes by a domain's declaration merging (the finance domain's
+   *  statement package: `statements`); 131's reconciliation part went with the reconciliation logic pack (C3a-2) */
   /** 231 (C3b5a): the rule the package runs by, when it shows a part of its own or adds its own way
    *  (`ui/src/logic/packageParts.tsx`) */
   rule?: { name: string; adds: string; parts: string[] } | null;
@@ -226,10 +223,8 @@ export interface ItemResult {
   /** Whether the document is shown from the copy kept when it was added (its source instance), and the state of the
    *  original file since then. */
   source_file?: { copy: boolean; original: "same" | "changed" | "missing" };
-  /** 126: the duplicate suspicions and decisions of the document, the other document's values side by side. */
-  duplicates?: DuplicatePair[];
-  /** 139: the statement that replaced this one, the ones it replaced, and the undecided ones of the same days. */
-  statements?: StatementRelation[];
+  /** 231 (C3e): what a domain adds to an item's result comes by its declaration merging (the finance domain's duplicate
+   *  suspicions and statement relations, `ui/src/domains/finance/api.ts`) */
   /** 160-D: the AI engine of the run that produced the result shown; null for a statement read by code and for an
    *  email intent taken from another run. */
   engine?: Engine | null;

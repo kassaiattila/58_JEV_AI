@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { api, type PackageScope, type WorkpackageView } from "../api";
 import { useLoad } from "../hooks";
+import { partOf } from "../logic/packageParts";
 import { t, useLocale } from "../i18n";
 
 const FROM: Record<string, string> = { workflow: "from its workflow", logic_pack: "its own" };
@@ -17,9 +18,10 @@ export function scopeText(scope: PackageScope): string {
   return from ? `${parts.join(" · ")} (${t(from)})` : parts.join(" · ");
 }
 
-/** Whether a person can give this package a scope (not a package whose logic pack has one of its own). */
+/** Whether a person can give this package a scope (not a package whose logic pack, or (231 C3e) whose rule, has one
+ *  of its own). */
 export function scopeEditable(view: WorkpackageView): boolean {
-  return view.scope?.from !== "logic_pack" && !view.reconcile && !view.statements;
+  return view.scope?.from !== "logic_pack" && !partOf(view)?.ownScope;
 }
 
 export function ScopeForm({ view, busy, onSave, onClear, onCancel }: {
