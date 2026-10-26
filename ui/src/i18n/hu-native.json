@@ -2815,5 +2815,11 @@
   "removed": "törölve",
   "the line": "a sor",
   "Checked": "Megerősítve",
-  "Price list version": "Árlista-változat"
+  "Price list version": "Árlista-változat",
+  "the case closed": "az ügy lezárult",
+  "the step moved on": "a lépés továbblépett",
+  "the case's other steps are done": "az ügy többi lépése kész",
+  "the package was deleted": "a csomagot törölték",
+  "its case's approving step has its own task": "az ügy jóváhagyó lépésének saját feladata van",
+  "its package was brought with the workflow": "a csomagja a munkafolyamattal érkezett"
 }

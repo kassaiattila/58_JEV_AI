@@ -134,7 +134,10 @@ const OUTDATED = "out of date: ";
 const OUTDATED_WHY = "an earlier step it builds on changed: ";
 
 function outdatedWhy(why: string): string {
-  return why.startsWith(OUTDATED_WHY) ? t("an earlier step it builds on changed: {{steps}}", { steps: why.slice(OUTDATED_WHY.length) }) : why;
+  // D0-z: the steps by their titles, each in the interface's language
+  return why.startsWith(OUTDATED_WHY)
+    ? t("an earlier step it builds on changed: {{steps}}", { steps: why.slice(OUTDATED_WHY.length).split(", ").map((s) => t(s)).join(", ") })
+    : why;
 }
 
 function reopenNote(note: string | null | undefined): string {

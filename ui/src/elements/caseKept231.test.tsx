@@ -5,6 +5,7 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { CaseEvent, CaseView } from "../api";
 import { setLanguage } from "../i18n";
+import hungarian from "../i18n/hu-native.json";
 import { elementOf } from "./registry";
 
 beforeEach(async () => { await setLanguage("en"); });
@@ -29,6 +30,15 @@ describe("the versions a case keeps from its start", () => {
     expect((await screen.findByText(/^It keeps from its start/)).textContent).toBe(
       "It keeps from its start: Price list: Invented 2026, version 3 · Output template: The built-in template"
       + " · rule files: quotes 1.2.0, price_lists 1.1.0");
+  });
+
+  it("D0-z: the process core's own note is in the interface's language, a person's as written", async () => {
+    await setLanguage("hu");
+    history([{ ...started({}), kind: "task_withdrawn", detail: { task_kind: "step_start", note: "the step moved on" } },
+             { ...started({}), kind: "reopened", detail: { note: "A new price list is needed" } }]);
+    expect(await screen.findByText(hungarian["the step moved on"])).toBeTruthy();
+    expect(screen.queryByText("the step moved on")).toBe(null);
+    expect(screen.getByText("A new price list is needed")).toBeTruthy();
   });
 
   it("are not named for a case started before it kept them", async () => {

@@ -472,13 +472,21 @@ def basis_of(case_id: str, step_id: str, c: Any = None) -> dict[str, int]:
 
 def outdated(case_id: str, step_id: str, c: Any = None) -> str | None:
     """D0-d: why the step's approved version is out of date: the steps it builds on whose result changed since it was
-    approved, in words; None when it holds on what is there now (or nothing holds, or it was approved before D0-d)."""
+    approved, by their titles (D0-z: a person reads them; the step's id where it has none); None when it holds on what is
+    there now (or nothing holds, or it was approved before D0-d)."""
+    if c is None:
+        with store.connect() as own:
+            return outdated(case_id, step_id, own)
     active = package_release.own_approval(case_id, c, step=step_id)["active"]
     if active is None or active.get("basis") is None:
         return None
     now = basis_of(case_id, step_id, c)
     changed = sorted(s for s, v in active["basis"].items() if now.get(s) != v)
-    return f"{package_release.OUTDATED}an earlier step it builds on changed: {', '.join(changed)}" if changed else None
+    if not changed:
+        return None
+    pack = _pack_for_in(c, case_id)
+    titles = {s.id: s.title or s.id for s in pack.steps} if pack else {}
+    return f"{package_release.OUTDATED}an earlier step it builds on changed: {', '.join(titles.get(s, s) for s in changed)}"
 
 
 def _approval_capability(pack: process_packs.ProcessPack) -> capabilities.Capability | None:

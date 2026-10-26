@@ -224,6 +224,13 @@ export function GeneralApproval(p: ElementProps) {
   );
 }
 
+/** D0-z: the process core's own notes in the interface's language (a person's note is shown as written). */
+const MACHINE_NOTES = tmap({ "the case closed": "the case closed", "the step moved on": "the step moved on",
+  "the case's other steps are done": "the case's other steps are done", "the package was deleted": "the package was deleted",
+  "its case's approving step has its own task": "its case's approving step has its own task",
+  "its package was brought with the workflow": "its package was brought with the workflow" });
+const noteText = (note: string) => MACHINE_NOTES[note] ?? note;
+
 /** D0-e: the versions a case keeps from its start to its end: a price list's, a template's, the rule files'. */
 function KeptLine({ kept }: { kept: CaseKept }) {
   const parts = kept.resources.map((r) => r.version != null
@@ -249,7 +256,7 @@ export function Timeline(p: ElementProps) {
             <tr key={`${e.at}-${i}`}>
               <td className="tnum">{when(e.at)}</td>
               <td>{e.step_title ? t(e.step_title) : "–"}</td>
-              <td>{eventText(e)}{e.detail.note ? <div className="muted small">{e.detail.note}</div> : null}
+              <td>{eventText(e)}{e.detail.note ? <div className="muted small">{noteText(e.detail.note)}</div> : null}
                 {e.detail.kept ? <KeptLine kept={e.detail.kept} /> : null}</td>
               <td>{e.who ?? <span className="muted">{t("The system")}</span>}</td>
             </tr>

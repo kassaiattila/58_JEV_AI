@@ -2810,5 +2810,11 @@
   "removed": "removed",
   "the line": "the line",
   "Checked": "Checked",
-  "Price list version": "Price list version"
+  "Price list version": "Price list version",
+  "the case closed": "the case closed",
+  "the step moved on": "the step moved on",
+  "the case's other steps are done": "the case's other steps are done",
+  "the package was deleted": "the package was deleted",
+  "its case's approving step has its own task": "its case's approving step has its own task",
+  "its package was brought with the workflow": "its package was brought with the workflow"
 }

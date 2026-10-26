@@ -25,16 +25,23 @@ from tests.test_quote_twin_231 import PACK, _approve, _move, _pack, _second_list
 PERSON = identity.who(ACTOR)
 
 
-@pytest.fixture()
-def twin(golden, tmp_path, monkeypatch):  # noqa: F811
+def _twin(golden, tmp_path, monkeypatch, titles: dict[str, str] | None = None) -> str:  # noqa: F811
     cases_, _seen = golden
     data = _pack(price_lists.chosen().price_list, _second_list(tmp_path))
+    for step in data["steps"]:
+        if step["id"] in (titles or {}):
+            step["title"] = titles[step["id"]]
     real = cfg.load
     monkeypatch.setattr(cfg, "load", lambda name: data if name == f"process:{PACK}" else real(name))
     record = json.loads(FIXTURE.read_text(encoding="utf-8"))
     case_id = _start(next(c for c in cases_ if "letter" in record[c.id]))
     _move(case_id)
     return case_id
+
+
+@pytest.fixture()
+def twin(golden, tmp_path, monkeypatch):  # noqa: F811
+    return _twin(golden, tmp_path, monkeypatch)
 
 
 def _state(case_id: str, step: str) -> dict:
@@ -67,6 +74,18 @@ def test_a_changed_earlier_step_puts_the_approval_out_of_date_and_a_person_appro
     assert _state(twin, "compose_a")["active"]["basis"] == {"request": 1, "match_a": 2}
     engine.turn(twin, wake=True)
     assert engine.state(twin)["steps"]["compose_a"]["state"] == "done"
+
+
+def test_the_reason_names_the_changed_step_by_its_title(golden, tmp_path, monkeypatch) -> None:  # noqa: F811
+    """D0-z: a person reads the reason (the step's id only where it has no title)."""
+    case_id = _twin(golden, tmp_path, monkeypatch, titles={"match_a": "Match with list A"})
+    _approve(case_id, "compose_a")
+    engine.turn(case_id, wake=True)
+    cases.reopen(case_id, "match_a", PERSON, reason="match it again")
+    for _ in range(6):
+        engine.turn(case_id, wake=True)
+        _drain()
+    assert _state(case_id, "compose_a")["outdated"] == "an earlier step it builds on changed: Match with list A"
 
 
 def test_a_person_returns_a_result_with_a_reason_and_the_step_waits_on(twin) -> None:
