@@ -134,6 +134,15 @@ export interface MissingInfoData {
   task: { status: "open" | "decided" | "expired" | "withdrawn"; due_at: string | null; opened_at: string; closed_at: string | null;
     note: string | null; outcome: string | null } | null;
 }
+/** D-f6: a person's decision on another step's result (jav/app/case_decisions.py). */
+export interface DecisionData {
+  about: string; result: Record<string, unknown> | null; basis: Record<string, number>;
+  choices: { code: string; title: string; closes: string | null; allowed: boolean }[];
+  second_person: { limit: string; amount: PremiumMoney; above: PremiumMoney; needed: boolean; other_than: string;
+    earlier_by: string | null; earlier_by_id: string | null } | null;
+  problem: string | null; approval: ApprovalState; waits: boolean;
+  decided: { version: number; choice: string; title: string; note: string | null; by: string; at: string } | null;
+}
 export interface CaseEvent {
   at: string; kind: string; step: string | null; step_title: string | null; who: string | null;
   detail: { note?: string; timer?: string; task_kind?: string; answer?: string; kept?: CaseKept };

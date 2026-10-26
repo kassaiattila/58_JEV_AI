@@ -1,6 +1,6 @@
 // 231 (plan stage A, A7e): the status lines of the general elements of a case's page (a send step's, a reply step's,
 // the cost's), small enough to load with the page; the elements themselves load when a case shows one.
-import type { CalculationData, CaseCost, EvaluationData, FieldReviewData, HandoverData, MissingInfoData, ReplyData } from "../api";
+import type { CalculationData, CaseCost, DecisionData, EvaluationData, FieldReviewData, HandoverData, MissingInfoData, ReplyData } from "../api";
 import { t } from "../i18n";
 import { numText, tmap, when } from "../labels";
 import type { ElementProps } from "./registry";
@@ -22,6 +22,15 @@ export function verdictStatus(d: EvaluationData | null): { mark: string; text: s
   if (d.latest.blockers.length) return { mark: "s-failed", text: t("Blocked") };
   const v = d.latest.verdict;
   return v ? { mark: VERDICT_MARK[v] ?? "s-waiting", text: VERDICT[v] ?? v } : { mark: "s-waiting", text: t("No verdict") };
+}
+
+/** D-f6: a decision's state as one mark: decided with its choice, out of date, returned, to decide, or waiting. */
+export function decisionStatus(d: DecisionData | null): { mark: string; text: string } | null {
+  if (!d) return null;
+  if (d.decided) return { mark: "s-done", text: t(d.decided.title) };
+  if (d.approval.state === "outdated") return { mark: "s-warn", text: t("Out of date") };
+  if (d.approval.state === "returned") return { mark: "s-review", text: t("Returned") };
+  return d.waits ? { mark: "s-review", text: t("To decide") } : { mark: "s-waiting", text: t("Waits for what it decides on") };
 }
 
 /** D-f5: a premium's state as one mark: its total, or blocked. */

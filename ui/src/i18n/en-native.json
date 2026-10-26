@@ -3275,5 +3275,22 @@
   "undecided: {{facts}}": "undecided: {{facts}}",
   "{{fact}} of {{unit}} is missing": "{{fact}} of {{unit}} is missing",
   "{{module}} together": "{{module}} together",
-  "{{n}} missing": "{{n}} missing"
+  "{{n}} missing": "{{n}} missing",
+  "Another person decides above the limit.": "Another person decides above the limit.",
+  "Below the limit ({{limit}}): anyone may decide.": "Below the limit ({{limit}}): anyone may decide.",
+  "Decide: {{what}}": "Decide: {{what}}",
+  "Decided: {{choice}}, by {{who}}, {{when}}.": "Decided: {{choice}}, by {{who}}, {{when}}.",
+  "Decides on": "Decides on",
+  "Earlier decisions ({{n}})": "Earlier decisions ({{n}})",
+  "Give the reason.": "Give the reason.",
+  "Out of date": "Out of date",
+  "Reason (required)": "Reason (required)",
+  "Record the decision": "Record the decision",
+  "Returned": "Returned",
+  "The choices": "The choices",
+  "Waits for what it decides on": "Waits for what it decides on",
+  "it closes the case": "it closes the case",
+  "not ready yet": "not ready yet",
+  "the result does not allow it": "the result does not allow it",
+  "Above the limit ({{limit}}) another person decides, not {{who}} (who made the “{{step}}”).": "Above the limit ({{limit}}) another person decides, not {{who}} (who made the “{{step}}”)."
 }

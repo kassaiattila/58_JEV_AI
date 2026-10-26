@@ -1157,3 +1157,10 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .ledger-total strong { font-size: var(--fs-xl); font-weight: 600; }
 details.earlier > summary { cursor: pointer; }
 details.earlier[open] > summary { margin-bottom: var(--sp-2); }
+
+/* 231 (stage D, D-f6): a decision's choices as plain radio buttons in ink (one the result does not allow is muted and
+   cannot be taken), its note or reason, and its one solid button under them */
+.decision-form { display: grid; gap: var(--sp-3); border-top: 1px solid var(--line-soft); padding-top: var(--sp-3); }
+.choices { border: 0; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.choice { display: flex; align-items: baseline; gap: var(--sp-2); }
+.choice input { accent-color: var(--ink); }

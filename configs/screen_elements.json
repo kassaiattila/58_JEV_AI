@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "screen_elements",
-    "version": "1.9.0",
+    "version": "1.10.0",
     "description": "231 (plan stage A, A4; DECISIONS 231): the screen elements a process pack's tabs are built from. A shared element is one any process may use; a special element is registered once (with the capability whose step it shows) and from then on any process may use it too. A process pack naming an element not listed here is refused (jav/app/process_packs.py). The interface renders each type with one component (A6). Stage D0 (D0-a): an element with \"status\": \"planned\" is listed before it is built (the interface has no component for it and no capability gives its data); no pack may use it until it is built.",
     "changelog": [
       {"version": "1.0.0", "date": "2026-10-24", "note": "231 (A4): the first set: the shared elements of the process packs and the three special elements of the quote's back half."},
@@ -13,7 +13,8 @@
       {"version": "1.6.0", "date": "2026-10-26", "note": "231 (stage D0, D0-a): the six shared elements the interface has no component for yet (data table, field review, form, document view, blockers, actions) are marked planned, so a pack cannot use them and get an empty tab; the approval is the line composition's special element, as only its step gives its data (stage D0, D0-d makes it shared)."},
       {"version": "1.7.0", "date": "2026-10-26", "note": "231 (stage D0, D0-d): the approval is shared again, for every step that approves a version of its own: its state (missing, approved, out of date, returned), its versions, and the step's domain's own approval in it where there is one."},
       {"version": "1.8.0", "date": "2026-10-26", "note": "231 (stage D, D-f4): the field review is built (for a field check's step: its units and their sources, the disagreements a person settles, the freeze with the day cover starts), and two special elements: the facts a step read from its documents (document_facts) and an outside register's question and answer (lookup)."},
-      {"version": "1.9.0", "date": "2026-10-26", "note": "231 (stage D, D-f5): three special elements: a rule evaluation (evaluation), a premium's computation (calculation), each with its versions, and the wait for missing facts (missing_info)."}
+      {"version": "1.9.0", "date": "2026-10-26", "note": "231 (stage D, D-f5): three special elements: a rule evaluation (evaluation), a premium's computation (calculation), each with its versions, and the wait for missing facts (missing_info)."},
+      {"version": "1.10.0", "date": "2026-10-26", "note": "231 (stage D, D-f6): a person's decision on another step's result (decision): the choices, the second person above a limit, the decision that holds, and its state."}
     ]
   },
   "elements": {
@@ -41,6 +42,7 @@
     "evaluation": {"kind": "special", "capability": "rule_evaluation", "what": "A rule evaluation: its verdict, the facts it missed, its blockers, each unit's outcomes with the rules that gave them, and its earlier versions."},
     "calculation": {"kind": "special", "capability": "rating", "what": "A premium's computation from its tariff: each line with its basis and factors, the modules' minimums, the total, what blocks it, and its earlier versions."},
     "missing_info": {"kind": "special", "capability": "missing_info", "what": "The wait for missing facts: what is missing, the task's deadline or how it ended, and saying with a reason that they will not come."},
+    "decision": {"kind": "special", "capability": "decision", "what": "A person's decision on another step's result: what it decides on, the choices the result allows, whether another person decides above a limit, the decision that holds, and its state when it is missing, out of date or returned."},
     "lookup": {"kind": "special", "capability": "lookup", "what": "An outside register's question and answer: what it was asked with, the facts it offers, or why it was not asked or did not answer."}
   }
 }

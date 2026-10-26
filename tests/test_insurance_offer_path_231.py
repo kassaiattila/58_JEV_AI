@@ -114,6 +114,11 @@ def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder) -> None
     assert set(premium["modules"]) == {"property", "burglary", "surge", "interruption"} and premium["latest"]["lines"]
     assert (missing["state"], missing["task"], missing["next"]) == ("done", None, None)
     assert case_decisions.view(case_id, "premium")["second_person"]["needed"] is True
+    page = case_views.view(case_id)  # D-f6: the Decision and release view
+    shown = {e["step"]: e["data"] for tab in page["tabs"] if tab["id"] == "decision" for e in tab["elements"]}
+    assert shown["risk"]["decided"]["choice"] == "accept" and not shown["risk"]["waits"]
+    assert shown["premium"]["waits"] and shown["premium"]["second_person"]["earlier_by"] == ANNA
+    assert page["next"]["code"] == "decision_make" and page["next"]["tab"] == "decision"
     with pytest.raises(case_decisions.AnotherDeciderNeeded):
         _decide(case_id, "premium", ANNA)
     _decide(case_id, "premium", BELA)

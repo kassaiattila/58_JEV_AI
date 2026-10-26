@@ -471,6 +471,7 @@ export function stepLabel(code: string, params: Record<string, unknown> | undefi
   // D-f4: an assessment's field check waits for its freeze (with the disagreements still to settle)
   if (code === "facts_check") return params?.n ? t("Check the facts: {{n}} to settle", { n: params.n }) : t("Check and freeze the facts");
   if (code === "missing_facts") return t("Get the missing facts: {{n}}", { n: params?.n ?? 0 }); // D-f5
+  if (code === "decision_make" && typeof params?.title === "string") return t("Decide: {{what}}", { what: t(params.title) }); // D-f6
   return Object.prototype.hasOwnProperty.call(STEP_LABEL, code) ? STEP_LABEL[code] : fallback;
 }
 

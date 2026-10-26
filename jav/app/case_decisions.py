@@ -279,5 +279,30 @@ CAPABILITY = capabilities.Capability(
             "than an earlier decision's maker.")
 
 
+def _decision_view(case_id: str, step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """D-f6: the decision element's data: what it decides on (its result now and the result versions to send back),
+    the choices with whether the result allows each, whether a second person is needed, the approval's state (missing,
+    approved, out of date, returned), the decision that holds with its choice and note, and the page's next step while
+    it waits."""
+    step_id = str(step)
+    shown = view(case_id, step_id)
+    active = shown["approval"]["active"]
+    decided = None
+    if active is not None:
+        content = package_release.own_version(case_id, active["version"], step=step_id)["content"]
+        decided = {"version": active["version"], "choice": content["choice"], "title": content["title"],
+                   "note": content.get("note"), "by": active["approved_by"], "at": active["approved_at"]}
+    waits = _waits(case_id, step_id)
+    with store.connect() as c:
+        case = cases.find_case_in(c, case_id)
+    title = (cases.definition_of(case).step(step_id).title if case else None) or step_id
+    return {**shown, "decided": decided, "waits": waits,
+            "next": {"code": "decision_make", "label": "Make the decision", "stage": "review", "element": "decision",
+                     "params": {"title": title}} if waits else None}
+
+
 def register() -> None:
+    from jav.app import case_views
+
     capabilities.register(CAPABILITY)
+    case_views.register(case_views.ElementData("decision", "decision", __name__, _decision_view))

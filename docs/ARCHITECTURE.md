@@ -1429,7 +1429,11 @@ own level's facts, the rules' titles and citations, every version), `calculation
 lines, the modules' totals and minimums, the total, the tariff's and the factors' titles, the product's module names,
 every version) and `missing_info` (`missing_info@1`: what is missing with its unit, the task's deadline or how it ended,
 and the page's next step `missing_facts`); `evaluation_steps.records`, `unit_names`; the interface's
-`ui/src/elements/AssessmentElements.tsx` (`ui/src/elements/assessmentElements231.test.tsx`).
+`ui/src/elements/AssessmentElements.tsx` (`ui/src/elements/assessmentElements231.test.tsx`). D-f6: the Decision and
+release view: the special element `decision` (`decision@1`: what it decides on and its result versions, the choices with
+whether the result allows each, the second person, the approval's state, the decision that holds, and the page's next
+step `decision_make`), recorded through the step's form action with the page's result versions
+(`ui/src/elements/DecisionElement.tsx`, `ui/src/elements/decisionElement231.test.tsx`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

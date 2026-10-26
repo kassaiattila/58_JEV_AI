@@ -3280,5 +3280,22 @@
   "undecided: {{facts}}": "eldöntetlen: {{facts}}",
   "{{fact}} of {{unit}} is missing": "Hiányzik: {{unit}} — {{fact}}",
   "{{module}} together": "{{module}} összesen",
-  "{{n}} missing": "{{n}} hiányzik"
+  "{{n}} missing": "{{n}} hiányzik",
+  "Another person decides above the limit.": "A határ fölött másik személy dönt.",
+  "Below the limit ({{limit}}): anyone may decide.": "A határ ({{limit}}) alatt: bárki dönthet.",
+  "Decide: {{what}}": "Döntés: {{what}}",
+  "Decided: {{choice}}, by {{who}}, {{when}}.": "Döntés: {{choice}}, hozta: {{who}}, {{when}}.",
+  "Decides on": "Miről dönt",
+  "Earlier decisions ({{n}})": "Korábbi döntések ({{n}})",
+  "Give the reason.": "Add meg az indokot.",
+  "Out of date": "Elavult",
+  "Reason (required)": "Indok (kötelező)",
+  "Record the decision": "A döntés rögzítése",
+  "Returned": "Visszaadva",
+  "The choices": "A választások",
+  "Waits for what it decides on": "A döntés tárgyára vár",
+  "it closes the case": "lezárja az ügyet",
+  "not ready yet": "még nincs kész",
+  "the result does not allow it": "az eredmény nem engedi",
+  "Above the limit ({{limit}}) another person decides, not {{who}} (who made the “{{step}}”).": "A határ ({{limit}}) fölött másik személy dönt, nem {{who}} (ő hozta: „{{step}}”)."
 }
