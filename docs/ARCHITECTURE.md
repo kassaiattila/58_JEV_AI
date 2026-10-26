@@ -1206,7 +1206,12 @@ Stage D (D-a; the reassessment after D0, P04): a step parameter naming a version
 `newest_active`, not a resource) is kept at its version too (`process_settings.at_start`, which the start, the taking
 over and the wrapping of a case use); a pack names the resources a case cannot start without (`needs_at_start`), and
 with none of them to keep (no active version) the case does not start (`MissingAtStart`, before anything is made),
-rather than read another version later (`tests/test_case_tariff_at_start_231.py`).
+rather than read another version later (`tests/test_case_tariff_at_start_231.py`). D-a (P03): a key added to a kept
+file since takes the value of the first later version that had it (`rulebook.later_in`; a service or worker stores its
+configs when it starts, `jav.runtime.preload`), so a later change of that value does not reach an old case; a decision
+traced meanwhile stores the content it read (`effective_sha256`, `rulebook.store_content_in` under
+`<path>#effective`), which its replay reads again (`tests/test_case_rules_over_time_231.py`). A new key that changes the
+business meaning is a new main version (`docs/guides/CONFIGS.md`).
 Limits: only the rule files the capabilities declare are kept (a non-JSON file, a module's copy taken when it loaded,
 and the process pack itself, which a case keeps by its version, are not). Tests: `tests/test_case_keeps_versions_231.py`,
 `ui/src/elements/caseKept231.test.tsx`.

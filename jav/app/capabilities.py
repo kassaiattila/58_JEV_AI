@@ -468,10 +468,16 @@ def _kept(start: str, now: str, names: tuple[str, ...]) -> tuple[dict[str, cfg.K
             if content is None:
                 unfit[name] = f"the rule file {name} {was['version']} the case started with is not stored"
                 continue
-            older = json.loads(content)
+            # D-a: a key added since takes the value of the first later version that had it (a later change of its
+            # value does not reach the case), then the file now
+            data = json.loads(content)
+            for later in rulebook.later_in(c, path, was["sha256"]):
+                text = json.loads(later)
+                if cfg.major(str((text.get("meta") or {}).get("version"))) == cfg.major(was["version"]):
+                    data = cfg.filled(data, text)
             with cfg.overlay(None):
                 newer = cfg.load(name) if is_ is not None else {}
-            base[name] = cfg.Kept(cfg.filled(older, newer), was["sha256"], was["version"])
+            base[name] = cfg.Kept(cfg.filled(data, newer), was["sha256"], was["version"])
     return base, unfit
 
 

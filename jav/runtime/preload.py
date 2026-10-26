@@ -34,10 +34,12 @@ def preload() -> list[str]:
     """Imports every module of the `jav` package except the excluded ones and freezes the configs (231); returns the
     modules' names."""
     loaded = _import_all()
-    from jav.core import cfg, rulebook
+    from jav.core import cfg, rulebook, store
 
     cfg.freeze()  # 231: the configs of this moment, whatever the folder holds later
-    rulebook.current()
+    with store.connect() as c:  # stage D (D-a): every version of the configs a process ran with is kept, so a key added
+        store.begin_immediate(c)  # after a case started takes the value it came with (`rulebook.later_in`)
+        rulebook.store_in(c, rulebook.current())
     return loaded
 
 

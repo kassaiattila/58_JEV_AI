@@ -23,7 +23,8 @@ file with them in place, so a module reads them as it reads the file. `config_ha
 Stage D0 (D0-e; the owner's decision of 2026-10-26): a case runs to its end with the rule files as it started. The
 overlay then also holds the case's kept copy of each file that changed since (`Kept`, from the case's calculation
 snapshot), which `load`, `version` and `config_hash` read instead of the file; a key added to the file since comes
-from the file (`filled`), so newer code reads what it expects. A kept copy of another main version does not fit the
+from the file (`filled`), so newer code reads what it expects; stage D (D-a): from the first later version that had it,
+so a later change of its value does not reach an old case. A kept copy of another main version does not fit the
 code: reading it raises `RulesUnfit`, with the file and both versions, instead of reading it differently.
 """
 

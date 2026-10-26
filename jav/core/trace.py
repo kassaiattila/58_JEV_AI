@@ -18,7 +18,8 @@ a changed rule can be tried on the stored inputs without processing anything aga
 beside each file it read (`process_values`: the key, the value, the stored setting and its version), and `replay` runs
 the rule with them over the files again. Stage D0 (D0-e): a file the case read as it started (its kept copy, not the
 file this process holds) is recorded with the kept copy's version and fingerprint and `kept: true`, and `replay` reads
-that copy again.
+that copy again. Stage D (D-a): the content it read (the kept copy with the keys added since) is stored by its
+fingerprint (`effective_sha256`), and `replay` reads exactly that.
 
 A person's decision has its own journal (`jav.core.decisions`); this trace is the machine's. Measurements and replays
 write into their own copy of the store, so they never grow the live trace.
@@ -122,7 +123,8 @@ def _process_values() -> dict[str, list[dict[str, Any]]]:
                              for key, value in sorted(values.items())] for name, values in over.values.items()}
 
 
-def _rules(p: Point, keys: Mapping[str, Iterable[str]], snapshot: rulebook.Snapshot) -> list[dict[str, Any]]:
+def _rules(p: Point, keys: Mapping[str, Iterable[str]], snapshot: rulebook.Snapshot,
+           c: sqlite3.Connection | None = None) -> list[dict[str, Any]]:
     if unknown := sorted(name for name in keys if not any(fnmatch.fnmatchcase(name, f) for f in p.files)):
         raise UnknownPoint(f"the decision point {p.code} reads no rule file {unknown}")
     own = _process_values()
@@ -134,6 +136,9 @@ def _rules(p: Point, keys: Mapping[str, Iterable[str]], snapshot: rulebook.Snaps
                  "keys": sorted(set(keys[name]))}
         if over is not None and (kept := over.base.get(_name_of(name))) is not None:  # D0-e: the case's kept copy
             entry.update(version=kept.version, sha256=kept.sha256, kept=True)
+            if c is not None:  # D-a: what it read, kept for its replay
+                read = json.dumps(kept.data, ensure_ascii=False, sort_keys=True).encode("utf-8")
+                entry["effective_sha256"] = rulebook.store_content_in(c, name + rulebook.EFFECTIVE, kept.version, read)
         if name in own:
             entry["process_values"] = own[name]
         out.append(entry)
@@ -158,14 +163,18 @@ def recorded_overlay(row: Mapping[str, Any]) -> cfg.Overlay | None:
         for v in entry.get("process_values") or []:
             values.setdefault(name, {})[v["key"]] = v["value"]
             refs.setdefault(name, {})[v["key"]] = {k: v[k] for k in ("setting", "version") if k in v}
-        if entry.get("kept") and (kept := _kept_copy(name, entry["sha256"], entry.get("version"))) is not None:
+        if entry.get("kept") and (kept := _kept_copy(name, entry["sha256"], entry.get("version"),
+                                                     entry.get("effective_sha256"))) is not None:
             base[name] = kept
     return cfg.Overlay(values, refs, base=base) if values or base else None
 
 
-def _kept_copy(name: str, sha256: str, version: str | None) -> cfg.Kept | None:
-    """D0-e: a file's kept copy by its stored content, with the keys the file gained since (None: not stored)."""
+def _kept_copy(name: str, sha256: str, version: str | None, effective: str | None = None) -> cfg.Kept | None:
+    """D0-e: a file's kept copy by its stored content, with the keys the file gained since (None: not stored); D-a: the
+    content the decision read, where it was stored (`effective`)."""
     with store.connect() as c:
+        if effective is not None and (read := rulebook.content_in(c, effective)) is not None:
+            return cfg.Kept(json.loads(read), sha256, version)
         content = rulebook.content_in(c, sha256)
     if content is None:
         return None
@@ -185,7 +194,7 @@ def record_in(c: sqlite3.Connection, code: str, *, subject: tuple[str, str], inp
         "INSERT INTO decision_trace(point, subject_kind, subject_id, run_id, case_id, inputs, inputs_sha, outcome, rules,"
         " snapshot_id, at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (code, subject[0], subject[1], run_id, case_id, text, hashlib.sha256(text.encode("utf-8")).hexdigest(),
-         _json(outcome), _json(_rules(p, keys, snapshot)), rulebook.store_in(c, snapshot), _now()))
+         _json(outcome), _json(_rules(p, keys, snapshot, c)), rulebook.store_in(c, snapshot), _now()))
     return int(cur.lastrowid)
 
 
