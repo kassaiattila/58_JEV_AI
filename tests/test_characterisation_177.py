@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from jav.domains.email import mailbox
+from jav.domains.email import mailbox_bridge
 from jav.app import naming, work, work_readiness, work_recipes, work_runs, work_views
 from jav.documents import native_results
 from jav.core import store
@@ -155,7 +155,7 @@ def test_the_folder_a_package_was_read_from(kind, root):
 
 
 def test_only_a_mailbox_package_reports_its_missing_attachments(isolated, monkeypatch):
-    monkeypatch.setattr(mailbox, "missing_attachments", lambda wp: [Path("a.pdf"), Path("b.pdf")])
+    monkeypatch.setattr(mailbox_bridge, "missing_attachments", lambda wp: [Path("a.pdf"), Path("b.pdf")])
     mail = _email(isolated)
     box = work.create_with_items(name="posta", source_kind="mailbox", source_ref="a@b.hu", owner=None,
                                  entries=[(mail, "email")])

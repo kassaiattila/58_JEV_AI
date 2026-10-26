@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.140",
+    "version": "1.0.141",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.141",
+        "date": "2026-10-26",
+        "note": "231 (plan stage C, C3h): the mailbox module split verbatim with its lines (jav/domains/email/mailbox.py 18 -> 4, jav/domains/email/mailbox_bridge.py 5, jav/domains/email/email_items.py 9); 6063 unchanged."
+      },
       {
         "version": "1.0.140",
         "date": "2026-10-26",
@@ -913,12 +918,14 @@
     "jav/domains/email/email_cli.py": 6,
     "jav/domains/email/email_datasets.py": 37,
     "jav/domains/email/email_export.py": 5,
+    "jav/domains/email/email_items.py": 9,
     "jav/domains/email/email_tasks.py": 4,
     "jav/domains/email/emails.py": 4,
     "jav/domains/email/flow_email.py": 8,
     "jav/domains/email/ingest_server.py": 8,
     "jav/domains/email/intent.py": 5,
-    "jav/domains/email/mailbox.py": 18,
+    "jav/domains/email/mailbox.py": 4,
+    "jav/domains/email/mailbox_bridge.py": 5,
     "jav/domains/finance/finance_datasets.py": 23,
     "jav/domains/finance/report_utility.py": 13,
     "jav/domains/quotes/quote_document.py": 1,
