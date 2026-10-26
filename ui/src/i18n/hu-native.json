@@ -2773,5 +2773,6 @@
   "the source does not fit: {{why}}": "a forrás nem megfelelő: {{why}}",
   "Download and processing": "Letöltés és feldolgozás",
   "This screen element cannot be shown: {{type}}": "Ez a képernyőelem nem jeleníthető meg: {{type}}",
-  "{{n}} of them not on this page": "ebből {{n}} nem ezen a lapon"
+  "{{n}} of them not on this page": "ebből {{n}} nem ezen a lapon",
+  "the approved version is no offer a letter answers: {{fields}}": "a jóváhagyott változat nem olyan ajánlat, amelyre levél válaszolhat: {{fields}}"
 }
