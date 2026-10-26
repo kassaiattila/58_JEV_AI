@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "rule_help",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "description": "218 (plan G-process-core P3e, the owner's request and decisions of 2026-10-23): the plain-language description of the rules for the read-only view in Settings › Rules. For every machine decision point of the decision trace (jav/core/trace.py): its area, a short title, what it decides and what it is not for, and the rule values the view shows (file, key, label, format; a percentage's label reads on into its value, as in 'below 60 %'); the values themselves are read from the rule files the running process loaded (jav/app/rules_view.py). Kept apart from the rule files, so their fingerprints and the AI requests do not change. Texts are English; the interface translates them (ui/src/i18n/hu-native.json). A test asks that every decision point has an entry and that every value's key is in a file its point reads.",
     "changelog": [
+      {
+        "version": "1.5.0",
+        "date": "2026-10-26",
+        "note": "231 (stage D, D-d4): the decision's point (whether another person decides above a limit), with the invented limit."
+      },
       {
         "version": "1.4.0",
         "date": "2026-10-26",
@@ -51,7 +56,8 @@
     "types/*.json": "Type packs: the fields of each document type",
     "price_lists.json": "Price list reading and rounding",
     "quotes.json": "Quote limits",
-    "facts_*.json": "Fact catalogues: what a product rule may read and give"
+    "facts_*.json": "Fact catalogues: what a product rule may read and give",
+    "case_decisions.json": "Decision limits: above them another person decides"
   },
   "points": {
     "ocr.escalation": {
@@ -205,6 +211,16 @@
       "values": [
         {"file": "facts_property.json", "key": "outcomes.verdict.options", "label": "Verdicts, the best first", "format": "labels",
          "labels": {"allow": "Allow", "unknown": "Not known", "refer": "Refer", "refuse": "Refuse"}}
+      ]
+    },
+    "decision.second_person": {
+      "area": "products",
+      "title": "Another person above a limit",
+      "what": "Whether a case's decision is made by another person than an earlier decision's maker: the amount of the result decided on (a premium) above the limit the process names. An amount in another currency than the limit is refused, never converted.",
+      "not_for": "The decision itself, or the rules and the premium it decides on.",
+      "values": [
+        {"file": "case_decisions.json", "key": "limits.inv_premium_second_person.above.amount",
+         "label": "Invented limit: a premium above it is another person's decision (HUF)", "format": "number"}
       ]
     },
     "claims.offered": {

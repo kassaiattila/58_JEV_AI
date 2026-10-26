@@ -27,6 +27,7 @@ from tests.test_process_rules_231 import test_an_approved_quote_and_its_letter_c
 from tests.test_rule_evaluation_231 import test_every_evaluation_is_traced_and_replays_the_same as rule_outcome_traced  # noqa: F401 - named by POINT_TESTS
 from tests.test_rating_231 import test_the_calculation_is_traced_and_replays_the_same as premium_traced  # noqa: F401 - named by POINT_TESTS
 from tests.test_field_check_231 import test_the_offered_facts_make_the_units_fill_what_is_missing_and_leave_a_conflict_to_the_person as claims_traced  # noqa: F401,E501 - named by POINT_TESTS
+from tests.test_case_decisions_231 import test_risk_then_premium_with_another_person_above_the_limit as second_person_traced  # noqa: F401,E501 - named by POINT_TESTS
 
 # each registered decision point and the test that shows its trace (a new point needs its own)
 POINT_TESTS = {
@@ -47,6 +48,7 @@ POINT_TESTS = {
     "rules.outcome": "rule_outcome_traced",
     "rating.premium": "premium_traced",  # D-c3: a premium computed from a tariff
     "claims.offered": "claims_traced",  # D-d2: where a fact another step offers goes in a field check
+    "decision.second_person": "second_person_traced",  # D-d4: whether a decision is another person's above a limit
 }
 
 

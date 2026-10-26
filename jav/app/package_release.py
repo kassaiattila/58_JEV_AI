@@ -497,10 +497,10 @@ def version_file(wp_id: str, version: int, name: str) -> tuple[bytes, str, str]:
 
 # --- 186 (plan G-full-move T2d): a logic pack's own versions ------------------------------------------------------------
 
-_OWN_META = ("version", "fingerprint", "approved_by", "approved_at", "reopened_by", "reopened_at", "reopen_note", "step_id",
-             "basis")
+_OWN_META = ("version", "fingerprint", "approved_by", "approved_by_id", "approved_at", "reopened_by", "reopened_at",
+             "reopen_note", "step_id", "basis")
 _OWN_SELECT = ("SELECT id, workpackage_id, version, mark AS fingerprint, released_by AS approved_by,"
-               " released_at AS approved_at, reopened_by, reopened_at, reopen_note, content, locks, step_id, basis"
+               " released_by_id AS approved_by_id, released_at AS approved_at, reopened_by, reopened_at, reopen_note, content, locks, step_id, basis"
                " FROM package_versions")
 OUTDATED = "out of date: "  # D0-d: how an automatic reopening's reason begins (an earlier step it builds on changed)
 _OF_STEP = " AND (step_id = ? OR step_id IS NULL)"  # D0-b: a version recorded before has no step: its case's single one

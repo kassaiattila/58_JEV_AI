@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.36.0",
+  "version": "1.37.0",
   "changelog": [
+   {
+    "version": "1.37.0",
+    "date": "2026-10-26",
+    "note": "231 (stage D, D-d4): decision_approve and decision_reopen - a case's decision made, and a made decision reopened (out of date), in the activity log with a label."
+   },
    {
     "version": "1.36.0",
     "date": "2026-10-26",
@@ -231,6 +236,7 @@
    "quote_approve": "quote: version approved", "quote_reopen": "quote: approval reopened",
    "quote_letter_accept": "quote: reply letter accepted",
    "field_check_approve": "field check: facts frozen", "field_check_reopen": "field check: reopened",
+   "decision_approve": "decision: made", "decision_reopen": "decision: reopened",
    "output_template_choose": "output: template chosen",
    "case_wrapped": "package: taken over as a case's package",
    "scope_set": "package: party, period and role set", "scope_clear": "package: own party, period and role removed",

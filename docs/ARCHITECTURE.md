@@ -1351,7 +1351,16 @@ product's), itemised and traced (`rating.premium`), and a blocker of the rules o
 kept, never a default. Each record belongs to the result version it was made from (`rule_evaluation.to_json`,
 `from_json`: the evaluation read back as the same typed values), so a later turn makes nothing new and a new freeze
 makes a new evaluation and premium; every reference case of the invented set runs as a case to the verdict, missing
-facts, total and blockers it expects (`tests/test_evaluation_steps_231.py`).
+facts, total and blockers it expects (`tests/test_evaluation_steps_231.py`). D-d4: a person's decision on another step's
+result (`jav/app/case_decisions.py`, `decision@1`), one capability for each decision a case makes (risk, then premium: the
+owner's decision of 2026-10-26): the pack names the step decided on and its choices (their titles, the values of the
+result a choice needs, the outcome a choice closes the case with, which needs a reason); the decision is the step's own
+approved version with the result version it was made on, so a stale page is refused, a changed result puts it out of
+date and a person may return it (`case_views.return_step`). Above a limit of `configs/case_decisions.json` (kept as the
+case started; the one limit there is invented), the decision is refused to the maker of the earlier decision the pack
+names (`SecondPersonNeeded`), its task goes to anyone, and whether a second person was needed is traced
+(`decision.second_person`); an amount in another currency is refused, never converted. An own version's record names
+its approver's id too (`approved_by_id`) (`tests/test_case_decisions_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,
