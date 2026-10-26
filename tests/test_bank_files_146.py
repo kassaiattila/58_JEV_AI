@@ -28,12 +28,13 @@ from tests import test_statement_cib_141 as cib
 from tests import test_statement_erste_137 as erste
 from tests import test_statement_fields_144 as f144
 from tests import test_statement_table_136 as table
+from tests.statement_pdf import pdf_lines_as_text
 
 
 @pytest.fixture(autouse=True)
 def pdf_text(monkeypatch):
     """The PDF's text layer: the synthetic 'PDF' files hold their lines as plain text."""
-    monkeypatch.setattr(st, "_pdf_lines", lambda path: Path(path).read_text(encoding="utf-8").splitlines())
+    pdf_lines_as_text(monkeypatch)
 
 
 def _entries() -> dict[str, dict]:

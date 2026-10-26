@@ -19,6 +19,7 @@ from jav.app import work_runs
 from jav.core import store
 from jav.domains.finance import reconcile, statement_package, statement_table as st
 from tests.test_flow_statement_table_136 import _run_all
+from tests.statement_pdf import pdf_lines_as_text
 
 OWN = "11112223-33334444-55556666"  # made up, wrong check digits
 DIGITS = OWN.replace("-", "")
@@ -81,7 +82,7 @@ def _export(folder: Path, day: str, rows: list[list], *, pdf: list[str] | None =
 @pytest.fixture(autouse=True)
 def pdf_text(monkeypatch):
     """The PDF's text layer: the synthetic 'PDF' files hold their lines as plain text."""
-    monkeypatch.setattr(st, "_pdf_lines", lambda path: Path(path).read_text(encoding="utf-8").splitlines())
+    pdf_lines_as_text(monkeypatch)
 
 
 def _only(reading: st.Reading) -> st.Account:

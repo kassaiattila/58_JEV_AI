@@ -19,18 +19,18 @@ import pytest
 from jav.app import document_processing, parties, process_runtime, work, work_readiness, work_runs, workflow_steps, workflows as wf
 from jav.core import cfg, store
 from jav.core.process import engine
-from jav.domains.finance import statement_table as st
 from jav.domains.email import mailbox
 from jav.runtime import worker
 from jav.core import queue
 from tests import test_statement_erste_137 as erste
+from tests.statement_pdf import pdf_lines_as_text
 
 MONTH = ("2026-06-01", "2026-06-30")
 
 
 @pytest.fixture
 def db(tmp_path, monkeypatch):
-    monkeypatch.setattr(st, "_pdf_lines", lambda path: Path(path).read_text(encoding="utf-8").splitlines())
+    pdf_lines_as_text(monkeypatch)
     monkeypatch.setattr(wf, "_last_tick", 0.0)
     with store.use_store(tmp_path / "s.sqlite"):
         yield tmp_path

@@ -14,15 +14,15 @@ import pytest
 
 from jav.app import parties, work, workflows as wf
 from jav.core import store
-from jav.domains.finance import statement_table as st
 from tests import test_statement_erste_137 as erste
+from tests.statement_pdf import pdf_lines_as_text
 
 MONTH = ("2026-06-01", "2026-06-30")
 
 
 @pytest.fixture
 def db(tmp_path, monkeypatch):
-    monkeypatch.setattr(st, "_pdf_lines", lambda path: Path(path).read_text(encoding="utf-8").splitlines())
+    pdf_lines_as_text(monkeypatch)
     monkeypatch.setattr(wf, "_last_tick", 0.0)
     with store.use_store(tmp_path / "s.sqlite"):
         yield tmp_path

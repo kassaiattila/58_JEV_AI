@@ -16,9 +16,9 @@ from jav.app import (case_views, document_processing, package_scope, process_pac
 from jav.core import identity, store
 from jav.core.process import cases
 from jav.domains.finance import statement_package
-from jav.domains.finance import statement_table as st
 from tests.test_workflow_tasks_215 import _finish
 from tests.test_workflows_146 import MONTH, _party, _statements
+from tests.statement_pdf import pdf_lines_as_text
 
 registrations.load_all()
 PERSON = "anna"
@@ -27,7 +27,7 @@ MACHINE = identity.machine("cases-adopt")
 
 @pytest.fixture
 def db(tmp_path, monkeypatch):
-    monkeypatch.setattr(st, "_pdf_lines", lambda path: path.read_text(encoding="utf-8").splitlines())  # as 146's
+    pdf_lines_as_text(monkeypatch)  # as 146's
     with store.use_store(tmp_path / "wrap.sqlite"):
         yield tmp_path
 

@@ -14,15 +14,14 @@ Synthetic names only; no AI call.
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
 
 import pytest
 
 from jav.app import package_scope, parties, registrations, scopes, work, workflow_steps
 from jav.core import store
-from jav.domains.finance import statement_table as st
 from jav.app import workflows as wf
 from tests import test_workflows_146 as base
+from tests.statement_pdf import pdf_lines_as_text
 
 MONTH = base.MONTH
 
@@ -30,7 +29,7 @@ MONTH = base.MONTH
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     # the synthetic Erste PDF is text (`tests/test_statement_erste_137.py`), as in the workflow tests
-    monkeypatch.setattr(st, "_pdf_lines", lambda path: Path(path).read_text(encoding="utf-8").splitlines())
+    pdf_lines_as_text(monkeypatch)
     monkeypatch.setattr(wf, "_last_tick", 0.0)
     registrations.load_all()
     with store.use_store(tmp_path / "s.sqlite"):
