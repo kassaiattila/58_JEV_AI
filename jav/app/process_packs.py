@@ -300,6 +300,11 @@ def _problems(pack: ProcessPack) -> list[str]:
         problems.append(f"{key} keeps its state for the whole case: a pack uses it once")
     problems += [f"needs_at_start names {key!r}, which is no resource of the pack" for key in pack.needs_at_start
                  if key not in pack.resources]  # D-a
+    kept_keys = {value[1:] for step in pack.steps if (cap := _capability(step.uses)) is not None
+                 for name, value in (step.params or {}).items()
+                 if isinstance(value, str) and value.startswith("@") and name in cap.at_start}
+    problems += [f"needs_at_start names {key!r}, which no step keeps at a version" for key in pack.needs_at_start
+                 if key in pack.resources and key not in kept_keys and not key.startswith("template:")]  # D-c4
     for wrap in pack.wraps:  # 231 (C3b4): the step that takes the package binds it, and its parts are the scope's
         if (wrap.kind is None) == (wrap.rule is None):
             problems.append(f"wrap {wrap.kind or wrap.rule!r}: names its packages by a kind or by a rule, one of them")

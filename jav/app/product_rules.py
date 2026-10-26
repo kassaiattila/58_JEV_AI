@@ -32,14 +32,15 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from jav.app import facts
+from jav.app import capabilities, facts
 from jav.core import identity, store, versions
 from jav.core.measures import Money, PerMille, Rounding, Validity
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
 __all__ = ["KINDS", "Citation", "ConditionDocument", "Factor", "ManifestRefused", "Product", "ProductAt", "Rule",
-           "SecondPersonNeeded", "Tariff", "TariffModule", "activate", "add", "get", "kept", "listing", "named", "product_at",
+           "SecondPersonNeeded", "Tariff", "TariffModule", "activate", "add", "get", "keeper", "kept", "listing", "named",
+           "product_at",
            "resolve", "retire", "rule_problems"]
 
 KINDS = ("document", "rule", "product", "tariff")
@@ -409,18 +410,23 @@ def product_at(reference: str) -> ProductAt:
                      tuple(Resolved(r, Rule.model_validate(resolve("rule", r)["content"])) for r in product.rules))
 
 
-def kept(value: str) -> str:
-    """A case keeps the product version active at its start (`<product>@<version>`)."""
+def kept(value: str, kind: str = "product") -> str:
+    """A case keeps the version of a product (or a tariff, ...) active at its start (`<id>@<version>`)."""
     with store.connect() as c:
-        return _VERSIONS["product"].kept(c, value)
+        return _VERSIONS[_kind(kind)].kept(c, value)
 
 
-def named(value: str) -> dict[str, Any]:
-    """How a product a case keeps reads to a person."""
+def named(value: str, kind: str = "product") -> dict[str, Any]:
+    """How a product (or a tariff, ...) a case keeps reads to a person."""
     try:
-        found = resolve("product", value)
-    except versions.VersionNotFound:
+        found = resolve(kind, value)
+    except (versions.VersionNotFound, ValidationError):
         return {"name": value, "version": None}
-    except ValidationError:
-        return {"name": value, "version": None}
-    return {"name": found["name"], "version": versions.split(value)[1]}
+    return {"name": found["name"] or value, "version": versions.split(value)[1]}
+
+
+def keeper(kind: str) -> capabilities.AtStart:
+    """D-c4: how a capability's parameter naming a product, a tariff, ... keeps the version of a case's start
+    (`Capability.at_start`)."""
+    _kind(kind)
+    return capabilities.AtStart(lambda value: kept(value, kind), lambda value: named(value, kind))

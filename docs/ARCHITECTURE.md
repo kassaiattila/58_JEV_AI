@@ -1262,7 +1262,10 @@ or its ancestors, through the factor's table), rounded once per line, the module
 tariff's currency, the total factors (read from the top unit), rounded again, the policy minimum; every step
 itemised. A missing factor, a value no row takes, a cover start out of force or another currency gives no total but a
 blocker. The calculation is a trace row (point `rating.premium`, the tariff inline) that replays the same
-(`tests/test_rating_231.py`).
+(`tests/test_rating_231.py`). D-c4: a capability's parameter naming a product or a tariff keeps the version active at
+the case's start like a price list (`product_rules.keeper(kind)`, its `at_start`), so a newer version reaches only the
+cases started after it; a pack refuses a `needs_at_start` resource that no step keeps at a version (a plain value has
+none, and the check would pass silently) (`tests/test_product_at_start_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,
