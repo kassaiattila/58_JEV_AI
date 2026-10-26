@@ -3028,5 +3028,18 @@
   "A premium from a tariff": "Díj a díjtáblából",
   "A quote's premium computed by code from the tariff the case keeps, in a fixed order: each cover module's basis times its rate per thousand and its factors, each line rounded, a module's minimum, the modules summed, the total factors, the total rounded and the policy minimum. A missing factor, a value no row takes, a cover start out of force or another currency gives no total.": "Az ajánlat díja, amelyet a kód az ügy által megtartott díjtáblából számol, rögzített sorrendben: fedezeti modulonként az alap szorozva az ezrelékes díjtétellel és a szorzókkal, soronkénti kerekítés, a modul minimumdíja, a modulok összege, a teljes díj szorzói, a végösszeg kerekítése és a szerződési minimumdíj. Hiányzó szorzó, táblán kívüli érték, hatályon kívüli kezdet vagy más pénznem esetén nincs végösszeg.",
   "The tariff's rates and factors themselves (Settings › Tariffs) or a person's decision on the premium.": "Maguk a díjtétel és a szorzók (Beállítások › Díjtáblák), vagy egy személy döntése a díjról.",
-  "The levels a tariff prices on": "A szintek, amelyeken a díjtábla díjaz"
+  "The levels a tariff prices on": "A szintek, amelyeken a díjtábla díjaz",
+  "it cites {{cited}}, not the document it was read from ({{document}})": "erre hivatkozik: {{cited}}, nem arra az iratra, amelyből olvasták ({{document}})",
+  "it names no page": "nem nevez meg oldalt",
+  "it cites page {{page}}, which the document does not have": "a(z) {{page}}. oldalra hivatkozik, amely nincs az iratban",
+  "it cites page {{page}}, which was not read: its marking ({{marking}}) keeps it out": "a(z) {{page}}. oldalra hivatkozik, amelyet a rendszer nem olvasott: a jelölése ({{marking}}) kizárja",
+  "it names no clause": "nem nevez meg pontot",
+  "it cites clause {{clause}}, which the document does not have": "a(z) {{clause}} pontra hivatkozik, amely nincs az iratban",
+  "clause {{clause}} is on page {{actual}}, not on page {{page}}": "a(z) {{clause}} pont a(z) {{actual}}. oldalon van, nem a(z) {{page}}. oldalon",
+  "clause {{clause}} is not found on page {{page}}": "a(z) {{clause}} pont nem található a(z) {{page}}. oldalon",
+  "it quotes nothing": "nem idéz semmit",
+  "its quote is on page {{actual}}, not on page {{page}}": "az idézete a(z) {{actual}}. oldalon van, nem a(z) {{page}}. oldalon",
+  "its quote is not in the document": "az idézete nincs az iratban",
+  "{{value}} is not in the document: a person confirms it": "{{value}} nincs az iratban: egy személy erősíti meg",
+  "{{value}} was read by text recognition on page {{page}}: a person confirms it": "{{value}} szövegfelismeréssel olvasott érték a(z) {{page}}. oldalon: egy személy erősíti meg"
 }

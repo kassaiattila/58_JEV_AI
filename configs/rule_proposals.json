@@ -1,0 +1,14 @@
+{
+  "meta": {
+    "name": "rule_proposals",
+    "version": "1.0.0",
+    "description": "231 (stage D, D-c7b): how a rule proposed from a condition document is checked by code before any model judges it (jav/app/rule_checks.py), and which pages are read at all (jav/documents/page_text.py). skip_page_markers: a page whose text has a line matching one of these is left out whole and never sent to a model (the owner's decision of 2026-10-26: the pages marked internal; in the real samples the marking is a line of its own, 'Internal'). number_words: the words a document may write a small whole number with (document vocabulary, Hungarian), each with the endings it may take, so 'négyet' is four and 'hatály' is not six; 'egy' is left out, as it is mostly the article ('a'). derive: the derivations a number of a rule may stand on when the document does not print it: percent_factor, a factor of 1 minus or plus a stated percentage (a 10 % discount as 0.9); count_boundary, a whole number one away from a stated one at the edge of a comparison (more than four as above 4, or a band up to 2 below a stated 3); neutral_factor, a factor of 1, which changes nothing. Nothing here makes a number accepted: a number not found or read by text recognition is listed for a person to confirm.",
+    "changelog": [
+      {"version": "1.0.0", "date": "2026-10-26", "note": "231 (D-c7b): the first version: the internal marking, ten number words, three derivations."}
+    ]
+  },
+  "skip_page_markers": ["(?mi)^\\s*(?:internal|belső)\\s*$"],
+  "number_words": {"nulla": 0, "két": 2, "kettő": 2, "három": 3, "négy": 4, "öt": 5, "hat": 6, "hét": 7, "nyolc": 8, "kilenc": 9, "tíz": 10},
+  "number_word_endings": ["", "t", "et", "at", "ot", "öt", "ig", "en", "an", "re", "ra", "ről", "ből", "ben", "nél", "szer", "szor", "ször"],
+  "derive": {"percent_factor": true, "count_boundary": true, "neutral_factor": true}
+}

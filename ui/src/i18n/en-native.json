@@ -3023,5 +3023,18 @@
   "A premium from a tariff": "A premium from a tariff",
   "A quote's premium computed by code from the tariff the case keeps, in a fixed order: each cover module's basis times its rate per thousand and its factors, each line rounded, a module's minimum, the modules summed, the total factors, the total rounded and the policy minimum. A missing factor, a value no row takes, a cover start out of force or another currency gives no total.": "A quote's premium computed by code from the tariff the case keeps, in a fixed order: each cover module's basis times its rate per thousand and its factors, each line rounded, a module's minimum, the modules summed, the total factors, the total rounded and the policy minimum. A missing factor, a value no row takes, a cover start out of force or another currency gives no total.",
   "The tariff's rates and factors themselves (Settings › Tariffs) or a person's decision on the premium.": "The tariff's rates and factors themselves (Settings › Tariffs) or a person's decision on the premium.",
-  "The levels a tariff prices on": "The levels a tariff prices on"
+  "The levels a tariff prices on": "The levels a tariff prices on",
+  "it cites {{cited}}, not the document it was read from ({{document}})": "it cites {{cited}}, not the document it was read from ({{document}})",
+  "it names no page": "it names no page",
+  "it cites page {{page}}, which the document does not have": "it cites page {{page}}, which the document does not have",
+  "it cites page {{page}}, which was not read: its marking ({{marking}}) keeps it out": "it cites page {{page}}, which was not read: its marking ({{marking}}) keeps it out",
+  "it names no clause": "it names no clause",
+  "it cites clause {{clause}}, which the document does not have": "it cites clause {{clause}}, which the document does not have",
+  "clause {{clause}} is on page {{actual}}, not on page {{page}}": "clause {{clause}} is on page {{actual}}, not on page {{page}}",
+  "clause {{clause}} is not found on page {{page}}": "clause {{clause}} is not found on page {{page}}",
+  "it quotes nothing": "it quotes nothing",
+  "its quote is on page {{actual}}, not on page {{page}}": "its quote is on page {{actual}}, not on page {{page}}",
+  "its quote is not in the document": "its quote is not in the document",
+  "{{value}} is not in the document: a person confirms it": "{{value}} is not in the document: a person confirms it",
+  "{{value}} was read by text recognition on page {{page}}: a person confirms it": "{{value}} was read by text recognition on page {{page}}: a person confirms it"
 }

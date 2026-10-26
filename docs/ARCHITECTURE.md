@@ -1285,7 +1285,16 @@ a refused activation sends every one (422 `manifest_refused`). The fact catalogu
 clause on the page it says (`product_sets.write_documents`, `product-set --write-pdfs DIR`; the invented PDF writer
 writes several pages, `synthetic_pdf.write_unicode_pdf_pages`, and one page byte for byte as before), so a rule
 proposal reads the invented documents as it will read a real file; read back, each rule finds its quote on the page it
-cites (`tests/test_product_set_pdfs_231.py`).
+cites (`tests/test_product_set_pdfs_231.py`). D-c7b: a document's text by page (`jav/documents/page_text.py`: the text
+layer, else local text recognition, never the paid one; a page carrying a marking line, "Internal", is left out whole and
+never sent to a model) and the code's checks of a proposed rule before any model judges it (`jav/app/rule_checks.py`,
+`configs/rule_proposals.json`): it fits its catalogue; it cites the document it was read from, a page that was read and
+(for a registered document) a clause on that page; its quote is on the cited page; and each number of its decision table
+stands in the document (in the quote, on the page, elsewhere, as a word, derived from a stated percentage or a boundary
+one away from a stated count, a factor of 1) or is listed for a person to confirm (not found, or read by text
+recognition). A clause's own number at the start of its heading, a page number and either side of a slash are not
+read as a rule's value; a thousands group the line broke is joined first. Every finding is a translated sentence;
+a blocking one keeps the proposal from being accepted as it is (`tests/test_rule_checks_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,
