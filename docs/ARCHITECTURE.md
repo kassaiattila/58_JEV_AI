@@ -1231,6 +1231,12 @@ a rule file a case keeps) names the levels of what is assessed and each fact a r
 which reading or correction made it) and the checked input a person accepted (`CheckedInput`: the units, a concrete
 product version, the day cover starts) are typed by it, and a wrong unit, currency, level, code or parent is refused
 with what is wrong (`tests/test_facts_231.py`). No process or business is named in the code: the catalogue is data.
+D-b4 (P06, P10): `jav/app/assessed_units.py`: a step keeps its assessed units (table `assessed_units`, keyed by case,
+step and a durable unit id); every change is a decision journal row (kind `assessed_unit`: add, save, remove) with the
+facts and their sources, a change on an older state is refused (`RevisionConflict`), a removed unit stays visible and
+takes no correction, and a fact that does not fit writes nothing; the units list page by page (dataset
+`assessed_units`), a result names them by a `DatasetRef` (`reference`), and the checked input frozen from them does not
+follow a later correction (`tests/test_assessed_units_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,
