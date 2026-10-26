@@ -1,9 +1,18 @@
 // 231 (plan stage A, A7e): the status lines of the general elements of a case's page (a send step's, a reply step's,
 // the cost's), small enough to load with the page; the elements themselves load when a case shows one.
-import type { CaseCost, HandoverData, ReplyData } from "../api";
+import type { CaseCost, FieldReviewData, HandoverData, ReplyData } from "../api";
 import { t } from "../i18n";
 import { when } from "../labels";
 import type { ElementProps } from "./registry";
+
+/** D-f4: a field review's state as one mark: frozen with its version, disagreements to settle, to freeze, or waiting. */
+export function fieldReviewStatus(d: FieldReviewData | null): { mark: string; text: string } | null {
+  if (!d) return null;
+  if (d.frozen) return { mark: "s-done", text: t("Frozen: version {{n}}", { n: d.frozen.version }) };
+  if (d.conflicts) return { mark: "s-review", text: t("{{n}} to settle", { n: d.conflicts }) };
+  return d.waits ? { mark: "s-review", text: t("To freeze") } : { mark: "s-waiting", text: t("Waits for the facts") };
+}
+export const fieldReviewLine = (d: FieldReviewData | null) => fieldReviewStatus(d)?.text ?? null;
 
 /** The send step's state as one mark: ready to send, sent, failed, unknown, or waiting for the steps before it. */
 export function handoverStatus(p: ElementProps): { mark: string; text: string } | null {

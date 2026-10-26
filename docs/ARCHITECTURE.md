@@ -1417,7 +1417,13 @@ documents (`process_documents@1`) → facts from them (`fact_claims@1`) → the 
 (`missing_info@1`) → the risk decision (`decision@1`) → the premium (`rating@1`) → the premium decision (`decision@1`,
 another person above the invented limit); its five work views are filled by stage D-f's elements. A case runs from the
 invented reference set's PDFs to the accepted premium, its processing run written as a correct reading gives it
-(`tests/test_insurance_offer_path_231.py`).
+(`tests/test_insurance_offer_path_231.py`). D-f4: the Data check view: the shared `field_review` element (built from
+the planned list; its data the field check's: the units with their sources, the claims, the catalogue, the frozen
+version and the page's next step `facts_check`), and two special elements, `document_facts` (`fact_claims@1`: each
+document with how many facts it gave and what it could not read) and `lookup` (`lookup@1`: the register, what it was
+asked with by fact, the facts it offers; the catalogue of the field check it offers them to); the interface's
+`ui/src/elements/FactElements.tsx`. A reading's reason is one of a few sentences (the interface translates it), the
+words no table knows in its value (`ui/src/elements/factElements231.test.tsx`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

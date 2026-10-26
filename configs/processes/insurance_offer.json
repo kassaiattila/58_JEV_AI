@@ -1,9 +1,10 @@
 {
   "meta": {
     "name": "process:insurance_offer",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "231 (stage D, D-f3; the owner's decisions of 2026-10-26): a business property insurance quote as a process pack of shared capabilities only. A case processes the documents of its source (the quote request form, a property schedule per site, the claims history), turns what they hold into facts of the assessed units, asks the company register and the sanctions list, and a person checks and freezes the facts; the rules of the product version the case kept are evaluated, missing facts are asked for by a deadline, a person decides on the risk, the premium is computed from the tariff the case kept, and a person decides on the premium (above the limit another person than the risk's). The product, its rules, its tariff, the registers and the limit are invented (the trial); a live product and a live limit are the owner's decisions.",
     "changelog": [
+      {"version": "1.1.0", "date": "2026-10-26", "note": "231 (D-f4): the Data check view: the field review of the check (the units, the disagreements to settle, the freeze), the facts read from the documents, and the two registers' answers."},
       {"version": "1.0.0", "date": "2026-10-26", "note": "231 (D-f3): the first version: from the documents to the premium decision; its work views come with stage D-f's elements."}
     ]
   },
@@ -43,7 +44,8 @@
   "screens": {
     "tabs": [
       {"id": "overview", "label": "Overview", "elements": [{"type": "package_work", "step": "documents"}]},
-      {"id": "data", "label": "Data check", "elements": [{"type": "approval", "step": "check"}]},
+      {"id": "data", "label": "Data check", "elements": [{"type": "field_review", "step": "check"},
+        {"type": "document_facts", "step": "facts"}, {"type": "lookup", "step": "company"}, {"type": "lookup", "step": "sanctions"}]},
       {"id": "calculation", "label": "Calculation and versions", "elements": [{"type": "cost"}]},
       {"id": "decision", "label": "Decision and release",
        "elements": [{"type": "approval", "step": "risk"}, {"type": "approval", "step": "premium"}]},

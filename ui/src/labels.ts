@@ -468,6 +468,8 @@ export function stepLabel(code: string, params: Record<string, unknown> | undefi
   if (code === "quote_request_check") return t("Check the request: {{n}} gap(s)", { n: params?.n ?? 0 }); // 191
   if (code === "quote_compose" && params?.n) return t("Compose the quote: {{n}} to settle", { n: params.n }); // 192
   if (code === "quote_approved") return t("Approved: version {{n}}", { n: params?.version ?? "" }); // 192
+  // D-f4: an assessment's field check waits for its freeze (with the disagreements still to settle)
+  if (code === "facts_check") return params?.n ? t("Check the facts: {{n}} to settle", { n: params.n }) : t("Check and freeze the facts");
   return Object.prototype.hasOwnProperty.call(STEP_LABEL, code) ? STEP_LABEL[code] : fallback;
 }
 

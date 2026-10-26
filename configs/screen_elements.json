@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "screen_elements",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "description": "231 (plan stage A, A4; DECISIONS 231): the screen elements a process pack's tabs are built from. A shared element is one any process may use; a special element is registered once (with the capability whose step it shows) and from then on any process may use it too. A process pack naming an element not listed here is refused (jav/app/process_packs.py). The interface renders each type with one component (A6). Stage D0 (D0-a): an element with \"status\": \"planned\" is listed before it is built (the interface has no component for it and no capability gives its data); no pack may use it until it is built.",
     "changelog": [
       {"version": "1.0.0", "date": "2026-10-24", "note": "231 (A4): the first set: the shared elements of the process packs and the three special elements of the quote's back half."},
@@ -11,12 +11,13 @@
       {"version": "1.5.0", "date": "2026-10-25", "note": "231 (C3b3): the package work, a special element: the processing package a document processing step made (its items and runs), its live run's start with the cost cap and the way to the package's own processing, review and result."},
       {"version": "1.4.0", "date": "2026-10-25", "note": "231 (C2d): the pairing, a special element (the invoices and the statements the scope takes, the decisions on the pairs and the approved statement), the reconciliation package's three stages until now; (C2c) the AI pairing proposal, a special element (the button with the run's cap, the run's state and what it answered)."},
       {"version": "1.6.0", "date": "2026-10-26", "note": "231 (stage D0, D0-a): the six shared elements the interface has no component for yet (data table, field review, form, document view, blockers, actions) are marked planned, so a pack cannot use them and get an empty tab; the approval is the line composition's special element, as only its step gives its data (stage D0, D0-d makes it shared)."},
-      {"version": "1.7.0", "date": "2026-10-26", "note": "231 (stage D0, D0-d): the approval is shared again, for every step that approves a version of its own: its state (missing, approved, out of date, returned), its versions, and the step's domain's own approval in it where there is one."}
+      {"version": "1.7.0", "date": "2026-10-26", "note": "231 (stage D0, D0-d): the approval is shared again, for every step that approves a version of its own: its state (missing, approved, out of date, returned), its versions, and the step's domain's own approval in it where there is one."},
+      {"version": "1.8.0", "date": "2026-10-26", "note": "231 (stage D, D-f4): the field review is built (for a field check's step: its units and their sources, the disagreements a person settles, the freeze with the day cover starts), and two special elements: the facts a step read from its documents (document_facts) and an outside register's question and answer (lookup)."}
     ]
   },
   "elements": {
     "data_table": {"kind": "shared", "status": "planned", "what": "A table from a registered dataset (columns, filters and links from the service)."},
-    "field_review": {"kind": "shared", "status": "planned", "what": "A record's fields with their source on the page, each checked or corrected by a person."},
+    "field_review": {"kind": "shared", "what": "A record's fields with their source on the page, each checked or corrected by a person: a field check's units and the facts offered for them, the disagreements a person settles, and the freeze."},
     "form": {"kind": "shared", "status": "planned", "what": "A step's own form, from its capability's description."},
     "document_view": {"kind": "shared", "status": "planned", "what": "A step's document: its pages, or the file it made."},
     "approval": {"kind": "shared", "what": "The approval of a step that approves a version of its own: its state (missing, approved, out of date, returned with a reason), its versions, and the step's own approval when its domain shows one (the quote's lines and Word document)."},
@@ -34,6 +35,8 @@
     "file_placement": {"kind": "special", "capability": "file_placement", "what": "The routing of emailed documents: the email packages (show: sources), the decisions to make (show: decide) or what went where (show: routed)."},
     "pairing": {"kind": "special", "capability": "pairing", "what": "The pairing of two lists: the invoices the scope takes (show: invoices), its statements with the scope and the coverage (show: lines), the decisions on the pairs (show: decide) or the approved statement (show: result)."},
     "package_work": {"kind": "special", "capability": "process_documents", "what": "The processing package a document processing step made: its items and runs, the start of its live run with the cost cap, and the way to its own processing, review and result."},
-    "pairing_proposal": {"kind": "special", "capability": "pairing_proposal", "what": "The AI pairing proposal a person starts: its button with the run's cost cap, the run's state, how many lines it answered and what it spent."}
+    "pairing_proposal": {"kind": "special", "capability": "pairing_proposal", "what": "The AI pairing proposal a person starts: its button with the run's cost cap, the run's state, how many lines it answered and what it spent."},
+    "document_facts": {"kind": "special", "capability": "fact_claims", "what": "The facts a step read from a case's documents: each document with how many it gave and what it could not read, with why."},
+    "lookup": {"kind": "special", "capability": "lookup", "what": "An outside register's question and answer: what it was asked with, the facts it offers, or why it was not asked or did not answer."}
   }
 }

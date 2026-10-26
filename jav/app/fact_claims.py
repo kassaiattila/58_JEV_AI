@@ -118,5 +118,24 @@ CAPABILITY = capabilities.Capability(
     summary="Turns what a case's processed documents hold into facts of its units, each naming where it was printed.")
 
 
+def _documents_view(case_id: str, step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """D-f4: the document facts element's data: each document with how many facts it gave and what it did not."""
+    from jav.core import store
+    from jav.core.process import cases
+
+    from jav.app import facts
+
+    with store.connect() as c:
+        case = cases.find_case_in(c, case_id)
+        row = cases.find_step_in(c, case_id, str(step)) or {}
+    result = row.get("result") or {}
+    name = (cases.definition_of(case).step(str(step)).params.get("readings") if case else None) or "fact_readings_property"
+    return {"state": row.get("state"), "documents": result.get("documents") or [],
+            "catalogue": facts.catalogue(fact_readings.load(str(name)).catalogue).model_dump(mode="json")}
+
+
 def register() -> None:
+    from jav.app import case_views
+
     capabilities.register(CAPABILITY)
+    case_views.register(case_views.ElementData("document_facts", "fact_claims", __name__, _documents_view))

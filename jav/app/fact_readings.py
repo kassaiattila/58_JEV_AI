@@ -152,7 +152,7 @@ def _typed(cat: facts.Catalogue, fact: str, raw: Any, currency: Any) -> tuple[An
 def claims(readings: Readings, pack: str, values: dict[str, Any], *, source: Callable[[str, str | None, int | None], dict[str, Any]],
            reading: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """The fact claims of one document's values, in the rule file's order of units (a unit's parent first), and what
-    could not be read: [{unit, fact, value, why}]. `source(field, list_field, row)` names where a value was printed
+    could not be read: [{unit, fact, value, why}] (`why` one of a few sentences; `value` the words no table knows). `source(field, list_field, row)` names where a value was printed
     (the document, its page and quote); `reading` names the type pack and its version."""
     cat = facts.catalogue(readings.catalogue)
     out: list[dict[str, Any]] = []
@@ -170,8 +170,9 @@ def claims(readings: Readings, pack: str, values: dict[str, Any], *, source: Cal
                     if not printed:
                         continue
                     found = [_code(readings, spec.codes, p) for p in printed] if spec.codes else [(True, p) for p in printed]
-                    raw, why = ([v for _ok, v in found], None) if all(ok for ok, _v in found) else (
-                        None, "not a known code: " + ", ".join(str(p) for p, (ok, _v) in zip(printed, found) if not ok))
+                    unknown = [p for p, (ok, _v) in zip(printed, found) if not ok]
+                    raw, why = ([v for _ok, v in found], None) if not unknown else (None, "not a known code")
+                    printed = unknown or printed  # the words no table knows, as the person reads them
                     where = source(spec.list, spec.list, None)
                 else:
                     printed = (row_values if spec.column is not None and row is not None else values).get(spec.column or spec.field)
@@ -180,7 +181,7 @@ def claims(readings: Readings, pack: str, values: dict[str, Any], *, source: Cal
                     raw, why = printed, None
                     if spec.codes is not None:
                         ok, raw = _code(readings, spec.codes, printed)
-                        why = None if ok else f"not a known code: {printed}"
+                        why = None if ok else "not a known code"
                     where = source(spec.column or spec.field, unit.rows if row is not None else None, row)
                 value = None
                 if why is None:

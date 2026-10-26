@@ -113,5 +113,53 @@ CAPABILITY = capabilities.Capability(
             "facts.")
 
 
+def _lookup_view(case_id: str, step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """D-f4: the lookup element's data: the register (its description), the step's state and note, and what it asked,
+    what the register answered and the facts it offers."""
+    from jav.core import store
+    from jav.core.process import cases
+
+    with store.connect() as c:
+        case = cases.find_case_in(c, case_id)
+        row = cases.find_step_in(c, case_id, str(step)) or {}
+    name = str(cases.definition_of(case).step(str(step)).params.get("connector")) if case else ""
+    try:
+        what = connectors.of(name).what
+    except connectors.ConnectorError:
+        what = None
+    result = row.get("result") or {}
+    return {"state": row.get("state"), "note": row.get("note"), "connector": name, "what": what,
+            "asked": result.get("asked"), "missing": result.get("missing") or [], "question": _by_fact(case, str(step), result),
+            "claims": result.get("claims") or [], "catalogue": _catalogue_of(case, str(step))}
+
+
+def _by_fact(case: Any, step: str, result: dict[str, Any]) -> dict[str, Any]:
+    """What the register was asked with, by the fact each value is (the register's own field names are its business)."""
+    from jav.core.process import cases
+
+    if case is None:
+        return {}
+    params = cases.definition_of(case).step(step).params
+    facts_of = {**(params.get("asks") or {}), **(params.get("asks_if_known") or {})}
+    return {facts_of.get(key, key): value for key, value in (result.get("question") or {}).items()}
+
+
+def _catalogue_of(case: Any, step: str) -> dict[str, Any] | None:
+    """The fact catalogue of the field check the lookup offers its facts to (its titles and labels), if the pack has one."""
+    from jav.app import facts
+    from jav.core.process import cases
+
+    if case is None:
+        return None
+    for s in cases.definition_of(case).steps:
+        cap = capabilities.of_step_kind(s.kind)
+        if step in s.needs() and cap is not None and cap.name == "field_check" and s.params.get("catalogue"):
+            return facts.catalogue(str(s.params["catalogue"])).model_dump(mode="json")
+    return None
+
+
 def register() -> None:
+    from jav.app import case_views
+
     capabilities.register(CAPABILITY)
+    case_views.register(case_views.ElementData("lookup", "lookup", __name__, _lookup_view))

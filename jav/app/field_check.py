@@ -384,5 +384,33 @@ CAPABILITY = capabilities.Capability(
             "the checked input.")
 
 
+def _review(case_id: str, step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """D-f4: the shared field review element's data for a field check: the units with their sources, the claims (the
+    conflicts still open, those not placed), the catalogue (to show and edit the facts), the frozen version, and the
+    page's next step while the check waits for its freeze."""
+    from jav.core.process import cases
+
+    step_id = str(step)
+    shown = view(case_id, step_id)
+    with store.connect() as c:
+        params = _params(case_id, step_id, c)
+        row = cases.find_step_in(c, case_id, step_id)
+    active = shown["approval"]["active"]
+    frozen = None
+    if active is not None:
+        content = package_release.own_version(case_id, active["version"], step=step_id)["content"]
+        frozen = {"version": active["version"], "cover_start": content["cover_start"], "by": active["approved_by"],
+                  "at": active["approved_at"]}
+    conflicts = sum(1 for c in shown["claims"] if c["open"])
+    waits = bool(row) and row["state"] == cases.RUNNING and active is None
+    nxt = {"code": "facts_check", "label": "Check and freeze the facts", "stage": "review", "element": "field_review",
+           "params": {"n": conflicts}} if waits else None
+    return {**shown, "catalogue": facts.catalogue(params.catalogue).model_dump(mode="json"), "frozen": frozen,
+            "conflicts": conflicts, "waits": waits, "next": nxt}
+
+
 def register() -> None:
+    from jav.app import case_views
+
     capabilities.register(CAPABILITY)
+    case_views.register(case_views.ElementData("field_review", None, __name__, _review, applies=lambda cap: cap == "field_check"))

@@ -83,6 +83,14 @@ def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder) -> None
     assert len(facts["documents"]) == 3 and not any(d["unread"] for d in facts["documents"])
     assert steps["company"]["result"]["answer"]["company"]["activity_code"] == "4719"  # the register agrees with the form
 
+    page = case_views.view(case_id)  # D-f4: the Data check view's elements and the page's next step
+    shown = {(e["type"], e["step"]): e["data"] for tab in page["tabs"] if tab["id"] == "data" for e in tab["elements"]}
+    review = shown[("field_review", "check")]
+    assert review["waits"] and review["conflicts"] == 0 and review["catalogue"]["id"] == "property"
+    assert page["next"]["code"] == "facts_check" and page["next"]["tab"] == "data"
+    assert [d["claims"] > 0 for d in shown[("document_facts", "facts")]["documents"]] == [True] * 3
+    assert shown[("lookup", "company")]["question"] == {"tax_number": "12345676-2-41"}  # by fact, not the register's names
+    assert shown[("lookup", "sanctions")]["catalogue"]["facts"]["sanctions_listed"]["type"] == "bool"
     view = field_check.view(case_id, "check")
     holder = next(u for u in view["units"] if u["level"] == "holder")
     assert holder["facts"]["company_status"] == "active" and holder["facts"]["sanctions_listed"] is False

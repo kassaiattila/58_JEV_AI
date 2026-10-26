@@ -2,6 +2,7 @@
 // process pack, and one running instance of it is a case. The service gives a case's page as data
 // (jav/app/case_views.py): its steps and its pack's tabs, each element with what its step's capability shows.
 import { enc, request } from "./client";
+import type { Catalogue } from "./products";
 import type { ApprovalState } from "./types";
 
 /** 231 (C1a): one part a record was read from (the email's text, an attachment, a document). */
@@ -74,6 +75,32 @@ export interface HandoverData {
 export interface ReplyData {
   state: string | null; since: string | null; remind_at: string | null; reminded_at: string | null;
   follow_up: string | null; reply: "replied" | "not_needed" | null; by: string | null; at: string | null; note: string | null;
+}
+/** D-f4: an assessed unit of a field check, with where each fact came from (jav/app/field_check.py `view`). */
+export interface AssessedUnit {
+  unit_id: string; level: string; parent_id: string | null; facts: Record<string, unknown>; state: number; removed?: boolean;
+  sources: Record<string, { value?: unknown; original?: string | null;
+    source?: { item?: string; file?: string | null; page?: number | null; quote?: string | null } | null;
+    interpretation?: { reading?: string } | null }>;
+}
+/** D-f4: a fact another step offered and where it went: a new unit, filled, agrees, a conflict (open: still differs), not placed. */
+export interface OfferedClaim {
+  from_step: string; unit_key: string; fact: string; value: unknown;
+  placement: "new_unit" | "filled" | "agrees" | "conflict" | "unplaced"; unit_id: string | null; open: boolean;
+}
+export interface FieldReviewData {
+  units: AssessedUnit[]; claims: OfferedClaim[]; state: number; approval: ApprovalState; catalogue: Catalogue;
+  frozen: { version: number; cover_start: string; by: string; at: string } | null; conflicts: number; waits: boolean;
+}
+/** D-f4: the facts a step read from a case's documents, per document. */
+export interface DocumentFactsData {
+  state: string | null; catalogue: Catalogue | null;
+  documents: { item: string; file: string; doc_type: string; claims: number; unread: { unit: string | null; fact: string; value: unknown; why: string }[]; note?: string }[];
+}
+/** D-f4: an outside register's question and answer. */
+export interface LookupData {
+  state: string | null; note: string | null; connector: string; what: string | null; asked: boolean | null; missing: string[];
+  question: Record<string, unknown>; claims: { unit: string; fact: string; value: unknown }[]; catalogue: Catalogue | null;
 }
 export interface CaseEvent {
   at: string; kind: string; step: string | null; step_title: string | null; who: string | null;

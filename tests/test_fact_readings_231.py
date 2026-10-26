@@ -42,7 +42,7 @@ def test_an_amount_without_a_currency_and_a_word_no_table_knows_are_not_read() -
     out, unread = _claims("property_schedule", {"site_no": "1", "flood_zone": "nagyon magas", "currency": None,
                                                 "asset_groups": [{"asset_group": "készlet", "sum_insured": "100"}]})
     assert {(u["unit"], u["fact"], u["why"]) for u in unread} == {
-        ("site:1", "flood_zone", "not a known code: nagyon magas"), ("site:1/1", "sum_insured", "the document states no currency")}
+        ("site:1", "flood_zone", "not a known code"), ("site:1/1", "sum_insured", "the document states no currency")}
     assert ("site:1/1", "asset_group") in {(c["unit"], c["fact"]) for c in out}
 
 
@@ -58,7 +58,7 @@ def test_a_list_of_covers_is_read_whole_or_not_at_all() -> None:
     assert [c["value"] for c in out if c["fact"] == "requested_modules"] == [["property", "burglary"]]
     out, unread = _claims("insurance_request", {"requested_covers": [*covers, {"cover": "üvegtörés"}]})
     assert not [c for c in out if c["fact"] == "requested_modules"]
-    assert unread[0]["why"] == "not a known code: üvegtörés"
+    assert (unread[0]["why"], unread[0]["value"]) == ("not a known code", ["üvegtörés"])  # the word no table knows
 
 
 def test_a_count_must_be_whole() -> None:
