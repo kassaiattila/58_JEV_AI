@@ -305,3 +305,29 @@ def test_a_mailbox_case_downloads_its_own_package_and_binds_it(env, monkeypatch)
     assert document_processing.package_of(case, "process") == wp
     assert engine.state(case)["steps"]["process"]["waiting_for"] == "run_start"
     assert _mailbox_cases() == [case]  # the case's own download is not wrapped by a second case
+
+
+def test_the_service_starts_a_mailbox_case_with_its_download(tmp_path):
+    """231 (C3d): the general form's source of a mailbox case is the download's request, checked by the scope's part."""
+    from fastapi.testclient import TestClient
+
+    from jav.app import process_runtime
+    from jav.service import api
+
+    c = TestClient(api.create_app(store_path=tmp_path / "api.sqlite"), base_url="http://127.0.0.1:8930")
+    human = {"X-Actor": "teszt.elek"}
+    listed = {p["id"]: p for p in c.get("/api/processes").json()["processes"]}
+    assert listed["mailbox"]["source_kinds"] == ["mailbox"] and listed["documents"]["source_kinds"] == ["folder", "files"]
+    request = {"accounts": ["iroda@minta.hu"], "since_days": 7}
+    made = c.post("/api/cases", headers=human, json={"pack": "mailbox", "name": "Iroda",
+                                                      "source": {"kind": "mailbox", "request": request}})
+    assert made.status_code == 201, made.text
+    with store.use_store(tmp_path / "api.sqlite"):
+        from jav.core.process import cases as core_cases
+
+        scope = core_cases.get(made.json()["case_id"])["data"]["scope"]
+        assert process_runtime.pack_of(made.json()["case_id"])[0] == "mailbox"
+    assert scope["source"]["kind"] == "mailbox" and scope["source"]["request"]["accounts"] == ["iroda@minta.hu"]
+    bad = c.post("/api/cases", headers=human, json={"pack": "mailbox", "name": "x",
+                                                     "source": {"kind": "mailbox", "request": {"accounts": ["not an address"]}}})
+    assert bad.status_code == 422

@@ -83,10 +83,10 @@ def test_the_templates_are_the_four_kinds_and_three_workflows_each_waiting_only_
     # 231 (C2d): the reconciliation's one-step template is its process pack's (kind process); the kind reconcile stays
     # for the workflows' steps until the live workflow is taken over (C2e)
     # (C3b3) the documents' and the bank statements' one-step templates are their process packs' cases too
-    # (C3c) the quote's one-step template is the IT quote pack's case
-    assert sorted(t["steps"][0]["kind"] for t in singles) == sorted(["emails", *["process"] * 5])
-    assert sorted(t["id"] for t in singles if t["steps"][0]["kind"] == "process") == [
-        "bank_statements", "documents", "it_quote", "mail_routing", "reconciliation"]
+    # (C3c) the quote's one-step template is the IT quote pack's case; (C3d) the emails' the mailbox pack's
+    assert [t["steps"][0]["kind"] for t in singles] == ["process"] * 6
+    assert sorted(t["id"] for t in singles) == ["bank_statements", "documents", "it_quote", "mail_routing", "mailbox",
+                                                "reconciliation"]
     chains = {t["id"]: [s["kind"] for s in t["steps"]] for t in conf["templates"] if wf.is_workflow(t)}
     assert chains == {"monthly_reconciliation": ["documents", "statements", "process"],  # 231 C3a-2: the pack's case
                       "mailbox_reconciliation": ["emails", "statements", "process"],

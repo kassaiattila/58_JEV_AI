@@ -17,9 +17,10 @@ import { BrowseButton } from "../../components/BrowseButton";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { go } from "../../route";
-import { splitAccounts, toggleAccount } from "../Mailbox";
+import { splitAccounts } from "../Mailbox";
 import { PartyChoice } from "../../components/PartyChoice";
-import { hasOwnForm, SingleForm } from "../../logic/steps";
+import { SingleForm } from "../../logic/steps";
+import { chooserOf } from "../../elements/sourceChoosers";
 import { ENGINE } from "../../labels";
 import { budgetText, centsUp, mergeProposal, PROVIDER } from "./labels";
 
@@ -48,10 +49,9 @@ export function NewWork({ onPackage, onWorkflow, initialTemplate, initialGroup, 
   const [chosen, setTemplateId] = useState<string | null>(initialTemplate ?? null);
   const templateId = repeatOf ? repeat.data?.template ?? null : chosen;
   const tpl = conf.data?.templates.find((x) => x.id === templateId) ?? null;
-  // 181: a one-step template opens its kind's own form (the kinds come from the service); before the templates have
-  // loaded, a template whose id is a kind with a form of its own opens that form at once, as before
-  const single = tpl ? (tpl.steps.length === 1 ? tpl.steps[0].kind : null)
-    : templateId && !repeatOf && hasOwnForm(templateId) ? templateId : null;
+  // 181: a one-step template opens its kind's own form (the kinds come from the service); 231 (C3d): every one is a
+  // process pack's case now, opened with the general form once the templates have loaded
+  const single = tpl && tpl.steps.length === 1 ? tpl.steps[0].kind : null;
   const isWorkflow = Boolean(tpl && tpl.steps.length > 1);
   const labels = isWorkflow ? ["What is it for?", "Which work?", "Details", "Overview"] : ["What is it for?", "Which work?", "Details"];
 
@@ -402,7 +402,10 @@ function StepEditor({ n, title, kind, conf, draft, appEngine, hasPeriod, after, 
           <BrowseButton kind="files" initial={lines(draft.files).at(-1)} onPick={(picked) => touched({ files: [...lines(draft.files), ...picked].join("\n") })} />
         </div>
       ) : null}
-      {draft.source === "mailbox" ? <MailboxSource draft={draft} hasPeriod={hasPeriod} onChange={touched} /> : null}
+      {(() => {  // 185 / 231 (C3d): a domain's source kind (a mailbox download) through its chooser
+        const Chooser = chooserOf(draft.source)?.Step;
+        return Chooser ? <Chooser draft={draft} hasPeriod={hasPeriod} onChange={touched} /> : null;
+      })()}
       {draft.source === "package" ? <PackageSource kinds={conf.kinds[kind].package_kinds} value={draft.packageId} onChange={(id, name) => touched({ packageId: id, packageName: name })} /> : null}
       {paid ? (
         <div className="wz-engine">
@@ -440,41 +443,6 @@ function StepEditor({ n, title, kind, conf, draft, appEngine, hasPeriod, after, 
         </div>
       ) : null}
     </fieldset>
-  );
-}
-
-function MailboxSource({ draft, hasPeriod, onChange }: { draft: StepDraft; hasPeriod: boolean; onChange: (patch: Partial<StepDraft>) => void }) {
-  useLocale();
-  const known = useLoad("mailbox", api.mailbox);
-  return (
-    <div className="rc-stack">
-      <label className="block">{t("Mailbox address")} <span className="muted">{t("(several, comma-separated)")}</span>
-        <input value={draft.accounts} onChange={(e) => onChange({ accounts: e.target.value })} placeholder="nev@ceg.hu" />
-      </label>
-      {known.data?.accounts?.length ? (
-        <div className="chip-row" role="group" aria-label={t("Previously used mailboxes")}>
-          {known.data.accounts.map((a) => (
-            <button key={a} type="button" className="chip" aria-pressed={splitAccounts(draft.accounts).includes(a)}
-              onClick={() => onChange({ accounts: toggleAccount(draft.accounts, a) })}>{a}</button>
-          ))}
-        </div>
-      ) : null}
-      <div className="form-row">
-        <label className="block">{t("Folder")} <span className="muted">{t("(comma-separated)")}</span>
-          <input value={draft.folders} onChange={(e) => onChange({ folders: e.target.value })} />
-        </label>
-        <label className="block">{t("At most this many emails")} <span className="muted">{t("(0 = no limit)")}</span>
-          <input type="number" min={0} max={10000} value={draft.maxItems} onChange={(e) => onChange({ maxItems: Number(e.target.value) })} />
-        </label>
-      </div>
-      {/* 181: a workflow without a period downloads by a number of days */}
-      {hasPeriod ? <label className="check"><input type="checkbox" checked={draft.usePeriod} onChange={(e) => onChange({ usePeriod: e.target.checked })} /> {t("The emails received in the workflow's period")}</label> : null}
-      {!draft.usePeriod || !hasPeriod ? (
-        <label className="block">{t("Number of days")}
-          <input type="number" min={1} max={3650} value={draft.days} onChange={(e) => onChange({ days: Number(e.target.value) })} />
-        </label>
-      ) : null}
-    </div>
   );
 }
 

@@ -8,6 +8,7 @@ import { api } from "../api";
 import { useAction } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { usdBudget } from "../labels";
+import { PackageIntake } from "./ProcessStart";
 import type { ElementProps } from "./registry";
 
 const capOf = (usd: Record<string, string> | undefined) => Object.values(usd ?? {}).reduce((s, v) => s + (Number(v) || 0), 0);
@@ -63,6 +64,9 @@ export function PackageWork({ caseId, element, page, onChanged }: ElementProps) 
         <a className="button secondary" href={`${base}/result`}>{t("Result")}</a>
       </nav>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
+      {/* 231 (C3d; the owner's decision of 2026-10-26): the processes that read the package (an email package: the
+          email routing), as on the package's own page */}
+      {data.offers?.length ? <PackageIntake offers={data.offers} /> : null}
     </section>
   );
 }

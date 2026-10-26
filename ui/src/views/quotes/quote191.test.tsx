@@ -8,7 +8,6 @@ import { api, setActor, type CaseView, type ProcessRecord, type QuoteProposal, t
 import { ProcessCreate } from "../../elements/ProcessStart";
 import { setLanguage } from "../../i18n";
 import { PACKAGE_PARTS } from "../../logic/packageParts";
-import { hasOwnForm } from "../../logic/steps";
 import { stepLabel } from "../../labels";
 import { QUOTE_BLOCKER } from "./Quote";
 import { Approval, LineEditor, MatchProposal, RecordView } from "./QuoteElements";
@@ -80,7 +79,6 @@ function QuoteStages({ view, stage, onChanged }: { view: WorkpackageView; stage:
 
 describe("the quote package (191)", () => {
   it("is a process pack's case; the quote package's page is gone (231 A3d) and so is its own form (C3c)", () => {
-    expect(hasOwnForm("quote")).toBe(false);
     expect(PACKAGE_PARTS.quote).toBeUndefined();  // 231 (C3b5a): the logic packs' registry went
     expect(quoteStatus(QUOTE)).toEqual({ process: "2 part(s), 1 requested item(s)", review: "1 gap(s) to clear first",
       result: "not approved yet" });

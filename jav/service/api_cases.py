@@ -41,12 +41,14 @@ class ActionIn(In):
 
 
 class Source(In):
-    """231 (C3b3): the documents of a document processing case: a folder (with its subfolders when asked) or files."""
+    """231 (C3b3): the documents of a document processing case: a folder (with its subfolders when asked) or files; (C3d)
+    or a mailbox download (its request, checked by the email domain's source kind)."""
 
-    kind: Literal["folder", "files"]
+    kind: Literal["folder", "files", "mailbox"]
     folder: Annotated[str, Field(min_length=1, max_length=1000)] | None = None
     recursive: bool = False
     files: Annotated[list[Annotated[str, Field(min_length=1, max_length=1000)]], Field(min_length=1, max_length=10000)] | None = None
+    request: dict[str, Any] | None = None
 
 
 class CaseIn(In):
@@ -67,7 +69,9 @@ def _source(source: Source) -> dict[str, Any]:
     """The source's paths checked as the service checks every path a person gives (the allowed roots)."""
     if source.kind == "folder":
         return {"kind": "folder", "folder": str(checked_path(source.folder or "", want_dir=True)), "recursive": source.recursive}
-    return {"kind": "files", "files": [str(checked_path(f, want_dir=False)) for f in source.files or []]}
+    if source.kind == "files":
+        return {"kind": "files", "files": [str(checked_path(f, want_dir=False)) for f in source.files or []]}
+    return {"kind": source.kind, "request": source.request or {}}  # C3d: a domain's (no path); the scope's part checks it
 
 
 def routes(app: FastAPI, r: str) -> None:

@@ -7,6 +7,7 @@ import { api, ApiError, type CaseSource, type PackageOffer, type ProcessRecord }
 import { BrowseButton } from "../components/BrowseButton";
 import { Icon } from "../components/Icon";
 import { Picker } from "../components/Picker";
+import { chooserOf } from "./sourceChoosers";
 import { useAction, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { go } from "../route";
@@ -30,6 +31,7 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   const [recursive, setRecursive] = useState(false);
   const [files, setFiles] = useState("");
   const [record, setRecord] = useState<ProcessRecord | null>(null);  // 231 (C3c): the record the case starts from
+  const [domainSource, setDomainSource] = useState<CaseSource | null>(null);  // 231 (C3d): a domain's source kind's
   const { busy, error, run } = useAction();
   const info = packs.data?.processes.find((p) => p.id === pack);
   if (packs.error) return <p className="notice error" role="alert">{packs.error.message}</p>;
@@ -48,8 +50,12 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
     const seen = new Set(fileLines.map((f) => f.toLowerCase()));
     setFiles([...fileLines, ...picked.filter((f) => !seen.has(f.toLowerCase()))].join("\n"));
   };
-  const source: CaseSource = sourceKind === "folder" ? { kind: "folder", folder: folder.trim(), recursive } : { kind: "files", files: fileLines };
-  const hasSource = sourceKind === "folder" ? !!folder.trim() : fileLines.length > 0;
+  // 231 (C3d): the pack's maker takes a folder or files, or a source kind a domain adds (a mailbox download)
+  const kinds = info.source_kinds ?? ["folder", "files"];
+  const Chooser = kinds.includes("folder") || kinds.includes("files") ? undefined : chooserOf(kinds[0])?.Case;
+  const source: CaseSource | null = Chooser ? domainSource
+    : sourceKind === "folder" ? { kind: "folder", folder: folder.trim(), recursive } : { kind: "files", files: fileLines };
+  const hasSource = Chooser ? !!domainSource : sourceKind === "folder" ? !!folder.trim() : fileLines.length > 0;
   const candidates = (list.data?.workpackages ?? []).filter((w) => (info.package_kinds ?? []).includes(w.source_kind));
   const partyName = (parties.data?.parties ?? []).find((p) => p.id === partyId)?.name ?? "";
   const ready = (!wantsSources || chosen.length > 0) && (!wantsParty || !!partyId) && (!wantsPeriod || (!!start && !!end && start <= end))
@@ -63,7 +69,7 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   const submit = () => run(() => api.startCase({
     pack, name: (name.trim() || defaultName()).slice(0, 200),
     ...(wantsSources ? { sources: chosen } : {}), ...(wantsParty ? { party_id: partyId } : {}),
-    ...(wantsPeriod ? { period_start: start, period_end: end } : {}), ...(wantsSource ? { source } : {}),
+    ...(wantsPeriod ? { period_start: start, period_end: end } : {}), ...(wantsSource && source ? { source } : {}),
     ...(wantsRecord && record ? { record: { workpackage_id: record.workpackage_id, item_id: record.item_id } } : {}),
   }), { then: (made) => onDone(made.case_id) });
   return (
@@ -96,7 +102,13 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
           <label className="block">{t("to")}<input type="date" value={end} required onChange={(e) => setEnd(e.target.value)} /></label>
         </div>
       ) : null}
-      {wantsSource ? (
+      {wantsSource && Chooser ? (
+        <fieldset className="wizard-choices">
+          <legend>{t("The case's documents")}</legend>
+          <Chooser onChange={setDomainSource} />
+        </fieldset>
+      ) : null}
+      {wantsSource && !Chooser ? (
         <fieldset className="wizard-choices">
           <legend>{t("The case's documents")}</legend>
           <div className="segmented" role="radiogroup" aria-label={t("Source")}>

@@ -1,7 +1,8 @@
-// Mailbox (048 T2): what to read (mailbox, folder, period) → free count preview → download now, or schedule.
-// Every download is run by the worker; the result shows in the download log, and the new emails become a work
-// package with the email intent recipe. No paid processing starts by itself (decision of 2026-09-28).
-import { useState } from "react";
+// Mailbox (048 T2): what to read (mailbox, folder, period) → free count preview → a schedule (231 C3d: a download now
+// is a mailbox case's, started from the new work wizard). Every download is run by the worker; the result shows in the
+// download log, and the new emails become a work package with the email intent recipe (231 C3d: a mailbox case's). No
+// paid processing starts by itself (decision of 2026-09-28).
+import { useEffect, useState } from "react";
 import { api, ApiError, getActor, NO_ACTOR, type MailboxCount, type MailboxPull, type MailboxRequest } from "../api";
 import { ConfirmButton } from "../components/ConfirmButton";
 import { DataTable } from "../components/DataTable";
@@ -50,11 +51,13 @@ export function toggleAccount(value: string, account: string): string {
   return (list.includes(account) ? list.filter((a) => a !== account) : [...list, account]).join(", ");
 }
 
-/** 057: used in two places. `pull`: the „postafiókból” (from a mailbox) source of New work package (count preview,
- *  download now); `settings`: Settings › Mailboxes (saving a schedule, the schedules and the download log). */
-export function Mailbox({ variant = "settings" }: { variant?: "pull" | "settings" }) {
+/** 231 (C3d): what a mailbox download reads - the addresses (the previously used ones a click away), the folders, the
+ *  period, at most how many emails - with the free count of the emails it would bring; the request, or null while it
+ *  is not complete. Settings › Mailboxes saves a schedule of it; a mailbox case's general form downloads it
+ *  (`ui/src/elements/sourceChoosers.tsx`). Until C3d the wizard's own download form (the `pull` variant). */
+export function MailboxRequestFields({ onChange }: { onChange: (req: MailboxRequest | null) => void }) {
   useLocale();
-  const data = useLoad("mailbox", api.mailbox, variant === "settings" ? 5000 : undefined);
+  const data = useLoad("mailbox", api.mailbox);
   const [account, setAccount] = useState("");
   const [folders, setFolders] = useState("Inbox");
   const [subfolders, setSubfolders] = useState(false);
@@ -63,10 +66,9 @@ export function Mailbox({ variant = "settings" }: { variant?: "pull" | "settings
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [maxItems, setMaxItems] = useState(0);
-  const [interval, setIntervalMin] = useState(60);
   const [preview, setPreview] = useState<MailboxCount | null>(null);
-  const [busy, setBusy] = useState<"count" | "pull" | "schedule" | null>(null);
-  const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [counting, setCounting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const req = (): MailboxRequest => ({
     accounts: splitAccounts(account),
@@ -74,113 +76,173 @@ export function Mailbox({ variant = "settings" }: { variant?: "pull" | "settings
     subfolders, max_items: maxItems,
     ...(mode === "recent" ? { since_days: days } : { received_from: from, received_to: to }),
   });
+  const complete = splitAccounts(account).length > 0 && (mode === "recent" || (!!from && !!to));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the request is told whenever a field changes
+  useEffect(() => { onChange(complete ? req() : null); }, [account, folders, subfolders, mode, days, from, to, maxItems]);
+  const changed = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPreview(null); };
 
-  async function act(kind: "count" | "pull" | "schedule") {
-    if (kind !== "count" && !getActor()) { setMsg({ kind: "error", text: t("Nem indítható: {{reason}}.", { reason: t(NO_ACTOR) }) }); return; }
-    setBusy(kind);
+  async function count() {
+    setCounting(true);
+    setError(null);
+    setPreview(null);
+    try {
+      const r = req();
+      // 183: the label in the interface's language, from the request counted (the service's is English)
+      setPreview({ ...(await api.mailboxCount(r)), label: mailboxLabel(r) });
+    } catch (e) {
+      const err = e as ApiError;
+      setError(err.code === "mailbox_unavailable" ? bridgeErrorText(err.message) : err.message);
+    } finally {
+      setCounting(false);
+    }
+  }
+
+  return (
+    <div className="rc-stack">
+      {data.data && !data.data.bridge_available ? <p className="notice error" role="alert">{t("A régi Outlook-szkript nem található a régi projektben; a letöltés nem működik.")}</p> : null}
+      <label className="block">{t("Postafiók címe")} <span className="muted">{t("(több is, vesszővel)")}</span>
+        <input value={account} onChange={(e) => changed(setAccount)(e.target.value)} placeholder="nev@ceg.hu" required />
+      </label>
+      {data.data?.accounts?.length ? (
+        // 058: the previously used addresses with a single click (no need to type them again)
+        <div className="chip-row" role="group" aria-label={t("Korábban használt postafiókok")}>
+          <span className="muted small">{t("Korábban használt:")}</span>
+          {data.data.accounts.map((a) => (
+            // 065: adds / removes (several addresses may be given), does not replace the field
+            <button key={a} type="button" className="chip" aria-pressed={splitAccounts(account).includes(a)}
+              onClick={() => changed(setAccount)(toggleAccount(account, a))}>{a}</button>
+          ))}
+        </div>
+      ) : null}
+      <div className="form-row">
+        <label className="block">{t("Mappa")} <span className="muted">{t("(vesszővel)")}</span>
+          <input value={folders} placeholder="Inbox, Sent Items" onChange={(e) => changed(setFolders)(e.target.value)} />
+        </label>
+        <label className="check"><input type="checkbox" checked={subfolders} onChange={(e) => setSubfolders(e.target.checked)} /> {t("almappákkal")}</label>
+      </div>
+      <fieldset className="segmented">
+        <legend className="sr-only">{t("Időszak")}</legend>
+        <label><input type="radio" name="mailbox-period" checked={mode === "recent"} onChange={() => changed(setMode)("recent")} /> {t("Az utolsó napok")}</label>
+        <label><input type="radio" name="mailbox-period" checked={mode === "range"} onChange={() => changed(setMode)("range")} /> {t("Dátumtól dátumig")}</label>
+      </fieldset>
+      <div className="form-row">
+        {mode === "recent" ? (
+          <label className="block">{t("Napok száma")}
+            <input type="number" min={1} max={3650} value={days} onChange={(e) => changed(setDays)(Number(e.target.value))} />
+          </label>
+        ) : (
+          <>
+            <label className="block">{t("Ettől")}<input type="date" value={from} onChange={(e) => changed(setFrom)(e.target.value)} required /></label>
+            <label className="block">{t("Eddig")}<input type="date" value={to} onChange={(e) => changed(setTo)(e.target.value)} required /></label>
+          </>
+        )}
+        <label className="block">{t("Legfeljebb ennyi levél")} <span className="muted">{t("(0 = nincs korlát)")}</span>
+          <input type="number" min={0} max={10000} value={maxItems} onChange={(e) => setMaxItems(Number(e.target.value))} />
+        </label>
+      </div>
+      <div className="button-row">
+        <button type="button" className="secondary" disabled={counting || !complete} onClick={() => void count()}>{counting ? t("Számolás…") : t("Hány levél? (ingyenes)")}</button>
+      </div>
+      {preview ? (
+        <p className="notice" role="status">
+          {/* 065: the number of new emails separately; it used to print the number of new emails as all the emails in
+              the period */}
+          {preview.already_read
+            ? t("{{total}} levél esik az időszakba: {{n}} új, {{read}} már be volt olvasva (azokat kihagyja).",
+              { total: preview.in_period, n: preview.eligible, read: preview.already_read })
+            : t("{{n}} új levél esik az időszakba.", { n: preview.eligible })}
+          {" "}<span className="muted small">({preview.label})</span>
+        </p>
+      ) : null}
+      {error ? <p className="notice error" role="alert">{error}</p> : null}
+    </div>
+  );
+}
+
+/** 231 (C3d): the part of the new work wizard's step draft a mailbox download fills. */
+export type MailboxStepDraft = { accounts: string; folders: string; maxItems: number; usePeriod: boolean; days: number };
+
+/** 181 / 231 (C3d): a workflow step's mailbox download in the new work wizard (its draft: the addresses, the folders, at
+ *  most how many emails, the workflow's period or a number of days), found through `ui/src/elements/sourceChoosers.tsx`
+ *  (until C3d in the wizard itself). */
+export function MailboxStepFields({ draft, hasPeriod, onChange }: { draft: MailboxStepDraft; hasPeriod: boolean; onChange: (patch: Partial<MailboxStepDraft>) => void }) {
+  useLocale();
+  const known = useLoad("mailbox", api.mailbox);
+  return (
+    <div className="rc-stack">
+      <label className="block">{t("Mailbox address")} <span className="muted">{t("(several, comma-separated)")}</span>
+        <input value={draft.accounts} onChange={(e) => onChange({ accounts: e.target.value })} placeholder="nev@ceg.hu" />
+      </label>
+      {known.data?.accounts?.length ? (
+        <div className="chip-row" role="group" aria-label={t("Previously used mailboxes")}>
+          {known.data.accounts.map((a) => (
+            <button key={a} type="button" className="chip" aria-pressed={splitAccounts(draft.accounts).includes(a)}
+              onClick={() => onChange({ accounts: toggleAccount(draft.accounts, a) })}>{a}</button>
+          ))}
+        </div>
+      ) : null}
+      <div className="form-row">
+        <label className="block">{t("Folder")} <span className="muted">{t("(comma-separated)")}</span>
+          <input value={draft.folders} onChange={(e) => onChange({ folders: e.target.value })} />
+        </label>
+        <label className="block">{t("At most this many emails")} <span className="muted">{t("(0 = no limit)")}</span>
+          <input type="number" min={0} max={10000} value={draft.maxItems} onChange={(e) => onChange({ maxItems: Number(e.target.value) })} />
+        </label>
+      </div>
+      {/* 181: a workflow without a period downloads by a number of days */}
+      {hasPeriod ? <label className="check"><input type="checkbox" checked={draft.usePeriod} onChange={(e) => onChange({ usePeriod: e.target.checked })} /> {t("The emails received in the workflow's period")}</label> : null}
+      {!draft.usePeriod || !hasPeriod ? (
+        <label className="block">{t("Number of days")}
+          <input type="number" min={1} max={3650} value={draft.days} onChange={(e) => onChange({ days: Number(e.target.value) })} />
+        </label>
+      ) : null}
+    </div>
+  );
+}
+
+/** Settings › Mailboxes: saving a schedule of a download, the schedules and the download log. 231 (C3d): a download
+ *  now is a mailbox case's (the new work wizard), so the wizard's own download variant went. */
+export function Mailbox() {
+  useLocale();
+  const data = useLoad("mailbox", api.mailbox, 5000);
+  const [request, setRequest] = useState<MailboxRequest | null>(null);
+  const [interval, setIntervalMin] = useState(60);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+
+  async function schedule() {
+    if (!request) return;
+    if (!getActor()) { setMsg({ kind: "error", text: t("Nem indítható: {{reason}}.", { reason: t(NO_ACTOR) }) }); return; }
+    setBusy(true);
     setMsg(null);
     try {
-      if (kind === "count") {
-        setPreview(null);
-        const r = req();
-        // 183: the label in the interface's language, from the request counted (the service's is English)
-        setPreview({ ...(await api.mailboxCount(r)), label: mailboxLabel(r) });
-      } else if (kind === "pull") {
-        await api.mailboxPull(req());
-        setMsg({ kind: "ok", text: t("A letöltés sorba került; a feldolgozó futtatja. Az új levelekből munkacsomag lesz, a listában megjelenik (a letöltési napló a Beállítások › Postafiókok alatt).") });
-      } else {
-        await api.createSchedule(req(), interval);
-        setMsg({ kind: "ok", text: t("Ütemezés mentve ({{interval}}). Az első letöltés a feldolgozó következő körében indul.", { interval: intervalText(interval) }) });
-      }
+      await api.createSchedule(request, interval);
+      setMsg({ kind: "ok", text: t("Ütemezés mentve ({{interval}}). Az első letöltés a feldolgozó következő körében indul.", { interval: intervalText(interval) }) });
       data.reload();
     } catch (e) {
       const err = e as ApiError;
       setMsg({ kind: "error", text: err.code === "mailbox_unavailable" ? bridgeErrorText(err.message) : err.message });
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   }
 
   const d = data.data;
   return (
     <>
-      {d && !d.bridge_available ? <p className="notice error" role="alert">{t("A régi Outlook-szkript nem található a régi projektben; a letöltés nem működik.")}</p> : null}
-
-      <form className={variant === "pull" ? "create" : "card create"} aria-label={t("Mit olvassunk")} onSubmit={(e) => { e.preventDefault(); void act("count"); }}>
-        <label className="block">{t("Postafiók címe")} <span className="muted">{t("(több is, vesszővel)")}</span>
-          <input value={account} onChange={(e) => { setAccount(e.target.value); setPreview(null); }} placeholder="nev@ceg.hu" required />
-        </label>
-        {d?.accounts?.length ? (
-          // 058: the previously used addresses with a single click (no need to type them again)
-          <div className="chip-row" role="group" aria-label={t("Korábban használt postafiókok")}>
-            <span className="muted small">{t("Korábban használt:")}</span>
-            {d.accounts.map((a) => (
-              // 065: adds / removes (several addresses may be given), does not replace the field
-              <button key={a} type="button" className="chip" aria-pressed={splitAccounts(account).includes(a)}
-                onClick={() => { setAccount(toggleAccount(account, a)); setPreview(null); }}>{a}</button>
-            ))}
-          </div>
-        ) : null}
-        <div className="form-row">
-          <label className="block">{t("Mappa")} <span className="muted">{t("(vesszővel)")}</span>
-            <input value={folders} placeholder="Inbox, Sent Items" onChange={(e) => { setFolders(e.target.value); setPreview(null); }} />
-          </label>
-          <label className="check"><input type="checkbox" checked={subfolders} onChange={(e) => setSubfolders(e.target.checked)} /> {t("almappákkal")}</label>
-        </div>
-        <fieldset className="segmented">
-          <legend className="sr-only">{t("Időszak")}</legend>
-          <label><input type="radio" name="period" checked={mode === "recent"} onChange={() => { setMode("recent"); setPreview(null); }} /> {t("Az utolsó napok")}</label>
-          <label><input type="radio" name="period" checked={mode === "range"} onChange={() => { setMode("range"); setPreview(null); }} /> {t("Dátumtól dátumig")}</label>
-        </fieldset>
-        <div className="form-row">
-          {mode === "recent" ? (
-            <label className="block">{t("Napok száma")}
-              <input type="number" min={1} max={3650} value={days} onChange={(e) => { setDays(Number(e.target.value)); setPreview(null); }} />
-            </label>
-          ) : (
-            <>
-              <label className="block">{t("Ettől")}<input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPreview(null); }} required /></label>
-              <label className="block">{t("Eddig")}<input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPreview(null); }} required /></label>
-            </>
-          )}
-          <label className="block">{t("Legfeljebb ennyi levél")} <span className="muted">{t("(0 = nincs korlát)")}</span>
-            <input type="number" min={0} max={10000} value={maxItems} onChange={(e) => setMaxItems(Number(e.target.value))} />
-          </label>
-        </div>
-
-        <div className="button-row">
-          <button type="submit" className="secondary" disabled={busy !== null}>{busy === "count" ? t("Számolás…") : t("Hány levél? (ingyenes)")}</button>
-          {variant === "pull" ? (
-            <button type="button" className="primary" disabled={busy !== null || !account.trim()} onClick={() => void act("pull")}>
-              {busy === "pull" ? t("Indítás…") : t("Letöltés most: új munkacsomag")}
-            </button>
-          ) : null}
-        </div>
-        {preview ? (
-          <p className="notice" role="status">
-            {/* 065: the number of new emails separately; it used to print the number of new emails as all the emails in
-                the period */}
-            {preview.already_read
-              ? t("{{total}} levél esik az időszakba: {{n}} új, {{read}} már be volt olvasva (azokat kihagyja).",
-                { total: preview.in_period, n: preview.eligible, read: preview.already_read })
-              : t("{{n}} új levél esik az időszakba.", { n: preview.eligible })}
-            {" "}<span className="muted small">({preview.label})</span>
-          </p>
-        ) : null}
-
-        {variant === "settings" ? <div className="schedule-row">
+      <form className="card create" aria-label={t("Mit olvassunk")} onSubmit={(e) => e.preventDefault()}>
+        <MailboxRequestFields onChange={setRequest} />
+        <div className="schedule-row">
           <span className="small muted">{t("Ütemezés (csak „az utolsó napok” időszakkal):")}</span>
           <Picker label={t("Gyakoriság")} hideLabel compact value={String(interval)} onChange={(v) => setIntervalMin(Number(v))}
             options={intervals().map(([m, label]) => ({ value: String(m), label }))} />
-          <button type="button" className="secondary small-btn" disabled={busy !== null || mode !== "recent" || !account.trim()}
-            onClick={() => void act("schedule")}>{t("Ütemezés mentése")}</button>
-        </div> : null}
+          <button type="button" className="secondary small-btn" disabled={busy || !request || !request.since_days}
+            onClick={() => void schedule()}>{t("Ütemezés mentése")}</button>
+        </div>
         {msg ? <p className={`notice ${msg.kind === "error" ? "error" : ""}`} role={msg.kind === "error" ? "alert" : "status"}>{msg.text}</p> : null}
       </form>
 
       {data.error ? <p className="notice error" role="alert">{data.error.message}</p> : null}
-      {variant === "settings" ? (
-        <>
 
 
       <h2 className="mt">{t("Ütemezések")}</h2>
@@ -219,8 +281,6 @@ export function Mailbox({ variant = "settings" }: { variant?: "pull" | "settings
           : col.key === "error" && row.error ? pullErrorText(String(row.error))
             // 183: the mailbox and period in the interface's language (the service's label is English)
             : col.key === "label" && row._request ? mailboxLabel(row._request as MailboxRequest) : undefined)} />
-        </>
-      ) : null}
     </>
   );
 }

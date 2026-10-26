@@ -393,6 +393,15 @@ CAPABILITY = capabilities.Capability(
     waits={"run_start": "person_start", "run_end": "work", "run_approval": "person", "fetching": "work"}, adopt=_adopt, bind=bind, bound=bound)
 
 
+def source_kinds(pack: Any) -> list[str]:
+    """231 (C3d): the source kinds a case of the pack may take its documents from (its document processing step's maker's
+    `sources`); none for a pack without such a step."""
+    for step in pack.steps:
+        if capabilities.of(step.uses) is CAPABILITY:
+            return list(maker_of(Process.model_validate(step.params).maker).sources)
+    return []
+
+
 def _package_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
     """231 (C3b3): what the step shows on its case's page (the element `package_work`): its package (its name, its
     items, its runs) and, while its live run waits for a person, whether it can start and its estimate (the button's
@@ -403,8 +412,12 @@ def _package_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) ->
     wp = work.get(wp_id)
     runs = [{"run_id": r["run_id"], "mode": r["mode"], "status": r["status"], "approval": r["approval"]}
             for r in work_runs.run_rows(wp_id)]
+    from jav.app import intake  # lazy: the intake offers the processes, which build on this capability
+
     out: dict[str, Any] = {"package": {"id": wp_id, "name": wp["name"], "items": len(wp["items"]),
-                                       "kind": wp["source_kind"]}, "runs": runs, "can_start": False}
+                                       "kind": wp["source_kind"]}, "runs": runs, "can_start": False,
+                           # C3d (the owner's decision of 2026-10-26): the processes that read it (the email routing)
+                           "offers": intake.package_offers(wp)}
     if _workflow_starts(wp_id):
         out["blockers"] = [explained(ProcessingError, "its workflow starts the package's live run").args[0]]
     elif not _live_runs(wp_id):
@@ -504,5 +517,5 @@ def register() -> None:
 
 
 __all__ = ["CAPABILITY", "DOCUMENTS", "OWNER_PART", "PACKAGE", "SOURCE", "SOURCE_PART", "Collected", "Maker", "Process",
-           "ProcessingError", "bind", "bound", "maker_names", "maker_of", "owned_packages", "package_of", "paths_of",
+           "ProcessingError", "bind", "bound", "maker_names", "source_kinds", "maker_of", "owned_packages", "package_of", "paths_of",
            "register", "register_maker", "register_workflow_steps", "start_run"]

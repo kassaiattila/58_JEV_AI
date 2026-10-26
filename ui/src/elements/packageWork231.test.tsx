@@ -127,3 +127,32 @@ describe("the case page's document processing element (231 C3b3)", () => {
     expect(labels.filter((l) => !(l in hungarian))).toEqual([]);
   });
 });
+
+describe("the mailbox download as a case (231 C3d)", () => {
+  it("the general form asks for the download and starts the case with it", async () => {
+    vi.spyOn(api, "processes").mockResolvedValue({ processes: [{ id: "mailbox", title: "Emails from a mailbox", version: "1.0.0",
+      scope: ["source"], asks: ["source"], package_kinds: [], source_kinds: ["mailbox"] }] });
+    vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
+    vi.spyOn(api, "parties").mockResolvedValue({ parties: [] } as never);
+    vi.spyOn(api, "mailbox").mockResolvedValue({ accounts: ["office@example.com"], schedules: [], pulls: [], bridge_available: true } as never);
+    const start = vi.spyOn(api, "startCase").mockResolvedValue({ case_id: CASE });
+    const done = vi.fn();
+    render(<ProcessCreate pack="mailbox" onDone={done} />);
+    const create = await screen.findByRole("button", { name: "Create" }) as HTMLButtonElement;
+    expect(create.disabled).toBe(true);  // no address yet
+    fireEvent.click(await screen.findByRole("button", { name: "office@example.com" }));  // a previously used one
+    await waitFor(() => expect(create.disabled).toBe(false));
+    fireEvent.click(create);
+    await waitFor(() => expect(done).toHaveBeenCalledWith(CASE));
+    const body = start.mock.calls[0][0];
+    expect(body.source).toEqual({ kind: "mailbox", request: { accounts: ["office@example.com"], folders: ["Inbox"], subfolders: false,
+      max_items: 0, since_days: 7 } });
+  });
+
+  it("the case page offers the processes that read its package (the owner's decision of 2026-10-26)", () => {
+    const offered = { ...VIEW, package: { ...VIEW.package!, kind: "mailbox" },
+      offers: [{ pack: "mail_routing", title: "Email routing", name: "Email routing: Mail", sources: [WP], cases: [] }] };
+    render(<PackageWork {...props(offered)} />);
+    expect(screen.getByRole("button", { name: /Start a case/ })).toBeTruthy();
+  });
+});

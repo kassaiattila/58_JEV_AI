@@ -11,6 +11,8 @@ export interface ProcessRow {
   /** 231 (C1c): the scope parts a case needs, and the kinds of package whose page offers one; (C2d) the parts a person
    *  gives (the others take their default) */
   scope?: string[]; package_kinds?: string[]; asks?: string[];
+  /** 231 (C3d): the source kinds its case's documents may come from (a folder, files, a mailbox download) */
+  source_kinds?: string[];
 }
 /** 231 (C3c): a record a case may start from (an email or a document read as the pack's record), with the cases
  *  already started from it; `detail` holds plain values (its customer, package, day). */

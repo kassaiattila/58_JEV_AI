@@ -36,8 +36,9 @@ FROZEN_UI_FILES = {
 }
 FROZEN_UI_LOGIC_KEYS: set[str] = set()  # A3d: the quote package's went; C1c: the routing's; C3a-2: the reconciliation's; C3b5a: the statements'
 FROZEN_UI_PACKAGE_PARTS = {"statements"}  # C3b5a: a package rule's page part, until its screens move to their domain's folder (C3e)
-FROZEN_UI_FORMS = {"emails"}  # C3c: the quote's (its pack's); C1c: the routing's; C2d: the reconciliation's; C3b5a: the documents' and the statements' (their packs')
-FROZEN_UI_NAME_COMPARISONS = {("ui/src/views/workflows/NewWork.tsx", "mailbox")}  # C3b5a: the statements' add went to the rule
+FROZEN_UI_FORMS: set[str] = set()  # C3d: the emails' (the mailbox pack's); C3c: the quote's (its pack's); C1c: the routing's; C2d: the reconciliation's; C3b5a: the documents' and the statements' (their packs')
+FROZEN_UI_NAME_COMPARISONS: set[tuple[str, str]] = set()  # C3b5a: the statements' add went to the rule; C3d: the wizard's mailbox
+FROZEN_UI_SOURCE_CHOOSERS = {"mailbox"}  # C3d: a domain's source kind's chooser, until its screens move to their domain's folder (C3e)
 FROZEN_PY_NAME_COMPARISONS: set[tuple[str, str]] = set()
 
 _FILE_NAME = re.compile(r"(reconcil|quote|routing|statement|mailbox|utility|bankfile|bank_file|parties|pricelist|price_list|finance)", re.I)
@@ -93,8 +94,13 @@ def test_no_new_ui_registry_key_or_create_form() -> None:
     parts = (UI / "logic" / "packageParts.tsx").read_text(encoding="utf-8")  # C3b5a
     _same(set(re.findall(r"^\s{2}([a-z_]+): \{", parts, re.M)), FROZEN_UI_PACKAGE_PARTS, "UI package parts")
     steps = (UI / "logic" / "steps.tsx").read_text(encoding="utf-8")
-    block = steps[steps.index("FORMS"):steps.index("};", steps.index("FORMS"))]
-    _same(set(re.findall(r"^\s{2}([a-z_]+): \(", block, re.M)), FROZEN_UI_FORMS, "UI create forms")
+    forms = set()
+    if "const FORMS" in steps:  # C3d: gone, every one-step template is a process pack's case
+        block = steps[steps.index("const FORMS"):steps.index("};", steps.index("const FORMS"))]
+        forms = set(re.findall(r"^\s{2}([a-z_]+): \(", block, re.M))
+    _same(forms, FROZEN_UI_FORMS, "UI create forms")
+    choosers = (UI / "elements" / "sourceChoosers.tsx").read_text(encoding="utf-8")
+    _same(set(re.findall(r"^\s{2}([a-z_]+): \{", choosers, re.M)), FROZEN_UI_SOURCE_CHOOSERS, "UI source choosers")
 
 
 def test_shared_code_compares_with_no_new_process_name() -> None:

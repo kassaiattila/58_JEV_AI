@@ -27,12 +27,18 @@ export interface StartedCase {
 /** A person's action on a step (A7d): a failed step's retry, or one its capability offers while the step waits for it. */
 export interface CaseAction { name: string; label: string }
 /** 231 (C3b3): the documents of a document processing case: a folder (with its subfolders when asked) or files. */
-export interface CaseSource { kind: "folder" | "files"; folder?: string; recursive?: boolean; files?: string[] }
+export interface CaseSource {
+  kind: "folder" | "files" | "mailbox"; folder?: string; recursive?: boolean; files?: string[];
+  /** 231 (C3d): a mailbox download's request */
+  request?: import("./email").MailboxRequest;
+}
 /** 231 (C3b3): the package a document processing step made, its runs, and its live run's start with the estimate. */
 export interface PackageWorkView {
   package: { id: string; name: string; items: number; kind: string } | null;
   runs?: { run_id: string; mode: string; status: string; approval: string | null }[];
   can_start?: boolean; estimate?: Record<string, string>; blockers?: string[];
+  /** 231 (C3d): the processes whose case may read the package (`jav/app/intake.py` `package_offers`) */
+  offers?: import("./processes").PackageOffer[];
 }
 /** One step of a case: its capability, how it starts, its state in the process core, whether it waits for a person's
  *  start (a paid step or a send), the actions a person may take on it now and (C2d) whether its capability waits for a

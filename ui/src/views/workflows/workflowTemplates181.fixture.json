@@ -120,14 +120,15 @@
       ]
     },
     {
-      "id": "emails",
+      "id": "mailbox",
       "group": "documents",
       "title": "Emails from a mailbox",
       "description": "One work package of a mailbox's new emails and their attachments.",
       "steps": [
         {
           "id": "emails",
-          "kind": "emails"
+          "kind": "process",
+          "pack": "mailbox"
         }
       ]
     },

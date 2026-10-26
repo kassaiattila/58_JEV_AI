@@ -89,14 +89,20 @@ describe("the new work wizard", () => {
     expect(body.names?.reconcile).toBe(`Example Kft. · Monthly reconciliation · ${from} – ${to} · Reconciliation`);
   });
 
-  it("a single kind opens its own form, as before", async () => {
+  it("a single template opens its process pack's general form (231 C3d: the mailbox download's asks for the download)", async () => {
     vi.spyOn(api, "workflowTemplates").mockResolvedValue(TEMPLATES);
+    vi.spyOn(api, "processes").mockResolvedValue({ processes: [{ id: "mailbox", title: "Emails from a mailbox", version: "1.0.0",
+      scope: ["source"], asks: ["source"], package_kinds: [], source_kinds: ["mailbox"] }] });
+    vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
+    vi.spyOn(api, "parties").mockResolvedValue({ parties: [] } as never);
+    vi.spyOn(api, "mailbox").mockResolvedValue({ accounts: [], schedules: [], pulls: [], bridge_available: true } as never);
     render(<NewWork onPackage={vi.fn()} onWorkflow={vi.fn()} />);
     expect((await screen.findByRole("radio", { name: "Documents and emails" }) as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Next →" }));
     fireEvent.click(screen.getByRole("radio", { name: "Emails from a mailbox" }));
     fireEvent.click(screen.getByRole("button", { name: "Next →" }));
-    expect(screen.getByRole("form", { name: "What to read" })).toBeTruthy();
+    expect(await screen.findByRole("form", { name: "Emails from a mailbox" })).toBeTruthy();
+    expect(screen.getByLabelText(/Mailbox address/)).toBeTruthy();
   });
 });
 
