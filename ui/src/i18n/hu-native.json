@@ -3127,5 +3127,8 @@
   "The levels of the units": "Az egységek szintjei",
   "A person checks the assessed units and their sources, with the facts other steps offer, and freezes them as the checked input.": "Egy személy ellenőrzi az értékelt egységeket és forrásaikat a többi lépés által felkínált tényekkel, és rögzíti őket ellenőrzött bemenetként.",
   "field check: facts frozen": "mezőellenőrzés: tények rögzítve",
-  "field check: reopened": "mezőellenőrzés: újranyitva"
+  "field check: reopened": "mezőellenőrzés: újranyitva",
+  "Evaluates the rules of the product version a frozen input names on its units, and keeps the evaluation.": "Kiértékeli a rögzített bemenet által megnevezett termékváltozat szabályait az egységein, és megőrzi az értékelést.",
+  "Computes the premium from the tariff the case kept, itemised, and keeps it; a blocker stops it.": "Tételesen kiszámítja a díjat az ügy által megőrzött díjtáblából, és megőrzi; akadály esetén megáll.",
+  "The fact naming the cover modules asked for": "A kért fedezeti modulokat megnevező tény"
 }

@@ -32,10 +32,11 @@ from jav.app.product_rules import Resolved, Rule
 from jav.core import trace
 from jav.core.measures import Money, Quantity, Rate
 
-__all__ = ["POINT", "Evaluation", "RuleOutcome", "UnitOutcome", "evaluate", "evaluate_rule", "holds", "plain", "trace_in"]
+__all__ = ["POINT", "UNKNOWN", "Evaluation", "RuleOutcome", "UnitOutcome", "evaluate", "evaluate_rule", "from_json", "holds",
+           "plain", "to_json", "trace_in"]
 
 POINT = "rules.outcome"
-_UNKNOWN = "unknown"
+UNKNOWN = "unknown"
 
 
 @dataclass(frozen=True)
@@ -212,7 +213,7 @@ def evaluate(rules: list[Resolved], checked: facts.CheckedInput, *, modules: tup
                 given.setdefault(name, []).append((ref, value))
             if result.missing:
                 if "verdict" in cat.outcomes:
-                    given.setdefault("verdict", []).append((ref, _UNKNOWN))
+                    given.setdefault("verdict", []).append((ref, UNKNOWN))
                 missing += [(unit.unit_id, f) for f in result.missing]
         combined: dict[str, Any] = {}
         for name, values in given.items():
@@ -228,6 +229,35 @@ def evaluate(rules: list[Resolved], checked: facts.CheckedInput, *, modules: tup
     verdict = max(verdicts, key=list(verdict_def.options or ()).index) if verdicts and verdict_def else None
     return Evaluation(cat.id, checked.product, units, verdict, tuple(dict.fromkeys(missing)), tuple(blockers),
                       {item.ref: item.content for item in rules})
+
+
+def to_json(evaluation: Evaluation) -> dict[str, Any]:
+    """D-d3: an evaluation as JSON (a step's record), every value in its plain form; `from_json` types it again."""
+    def outcome(r: RuleOutcome) -> dict[str, Any]:
+        return {"matched": list(r.matched), "outcomes": {k: plain(v) for k, v in r.outcomes.items()}, "missing": list(r.missing)}
+
+    return {"catalogue": evaluation.catalogue, "product": evaluation.product, "verdict": evaluation.verdict,
+            "missing": [list(m) for m in evaluation.missing], "blockers": list(evaluation.blockers),
+            "rules": {ref: rule.model_dump(mode="json") for ref, rule in evaluation.rules.items()},
+            "units": {uid: {"level": u.level, "rules": {ref: outcome(r) for ref, r in u.rules.items()},
+                            "combined": {k: plain(v) for k, v in u.combined.items()},
+                            "seen": {k: plain(v) for k, v in u.seen.items()}} for uid, u in evaluation.units.items()}}
+
+
+def from_json(data: dict[str, Any]) -> Evaluation:
+    """D-d3: an evaluation from its JSON (`to_json`), its values typed again by its catalogue."""
+    cat = facts.catalogue(data["catalogue"])
+
+    def outcomes(values: dict[str, Any]) -> dict[str, Any]:
+        return {k: facts.typed_value(k, cat.outcomes[k], v) for k, v in values.items()}
+
+    units = {uid: UnitOutcome(uid, u["level"],
+                              {ref: RuleOutcome(ref, tuple(r["matched"]), outcomes(r["outcomes"]), tuple(r["missing"]))
+                               for ref, r in u["rules"].items()},
+                              outcomes(u["combined"]), {k: facts.typed_value(k, cat.facts[k], v) for k, v in u["seen"].items()})
+             for uid, u in data["units"].items()}
+    return Evaluation(data["catalogue"], data["product"], units, data["verdict"], tuple(tuple(m) for m in data["missing"]),
+                      tuple(data["blockers"]), {ref: Rule.model_validate(r) for ref, r in data["rules"].items()})
 
 
 def _replay(inputs: Any) -> Any:

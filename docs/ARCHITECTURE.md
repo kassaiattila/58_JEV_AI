@@ -1326,7 +1326,9 @@ golden set `rules:proposals` (`jav/evals/rule_proposal_golden.py`, layer `rules`
 documents written as PDFs and proposed from within the round's budget (JEV judging each with the JEV engine), every
 proposal matched to the 16 expected rules by its clause and kind, exact, differing (in kind, level, facts, modules, way
 of deciding, rows or page), missed or extra, with what code blocked and JEV's false acceptances (a "supported" on a
-differing proposal); the stand-in scores 16 of 16 (`tests/test_rule_proposal_golden_231.py`).
+differing proposal); the stand-in scores 16 of 16 (`tests/test_rule_proposal_golden_231.py`). D-c7f: the same on the
+local service (`jav/service/api_products.py`: `/rule-proposals`; a refused decision answers 422 `proposal_refused` with
+every problem, a stale page 409).
 
 **The case steps of stage D (231, D-d).** D-d1: a step whose parameters name a rule file (a fact catalogue) keeps it as
 the case started (`Capability.reads`, gathered by `process_runtime._kept_rule_files`), so a catalogue changed later
@@ -1340,10 +1342,16 @@ the facts still missing or agree with them; a differing value is a conflict left
 is placed once and traced (point `claims.offered`). The person corrects the units and freezes them with the day cover
 starts: the checked input, for the product version the case kept, becomes the step's own approved version with the
 result versions it built on (the owner's decision of 2026-10-26); a stale page is refused, and a reopened check waits for
-a new freeze (`tests/test_field_check_231.py`). D-c7f:
-the same on the local service
-(`jav/service/api_products.py`: `/rule-proposals`; a refused decision answers 422 `proposal_refused` with every
-problem, a stale page 409).
+a new freeze (`tests/test_field_check_231.py`). D-d3: the rules and the premium as steps (`jav/app/evaluation_steps.py`,
+table `evaluation_records`): `rule_evaluation@1` evaluates the rules of the product version the frozen input names, for
+the cover modules its top unit asks for (`requested_modules`; an input that does not say them has every module's rules
+evaluated, is no better than unknown and names the missing fact), each rule's outcome on each unit traced
+(`rules.outcome`); `rating@1` computes the premium from the tariff the case kept at its start (refused when it is not the
+product's), itemised and traced (`rating.premium`), and a blocker of the rules or the tariff stops it with the record
+kept, never a default. Each record belongs to the result version it was made from (`rule_evaluation.to_json`,
+`from_json`: the evaluation read back as the same typed values), so a later turn makes nothing new and a new freeze
+makes a new evaluation and premium; every reference case of the invented set runs as a case to the verdict, missing
+facts, total and blockers it expects (`tests/test_evaluation_steps_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,
