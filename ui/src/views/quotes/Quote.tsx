@@ -3,17 +3,15 @@
 // email (its own text and its attachments, put together field by field) or a document read as one, in any package.
 // The request with its gaps and the proposal of its lines from the price list are here; the composition beside the
 // request and the approval are in QuoteEditor.tsx (192). 231 (A3d): a case of the IT quote's process pack shows them
-// (QuoteElements.tsx); the quote package's own page is gone, and the new work wizard's form starts a case.
+// (QuoteElements.tsx); the quote package's own page is gone, and (C3c) the new work wizard's general form starts a
+// case (its record chooser, `ui/src/elements/ProcessStart.tsx`).
 import { useEffect, useState } from "react";
 import {
-  api, ApiError, type QuoteBlockerCode, type QuoteMatchAnswer, type QuoteProposal,
-  type QuoteRequestCandidate, type QuoteView,
+  api, ApiError, type QuoteBlockerCode, type QuoteMatchAnswer, type QuoteProposal, type QuoteView,
 } from "../../api";
 import { BlockerList } from "../../components/BlockerList";
-import { Picker } from "../../components/Picker";
 import { t, useLocale } from "../../i18n";
 import { numText, usdBudget, when } from "../../labels";
-import { go } from "../../route";
 import { RecordData } from "../../elements/RecordData";
 
 export const QUOTE_BLOCKER: Record<QuoteBlockerCode, string> = {
@@ -213,81 +211,3 @@ function PriceLists({ view }: { view: QuoteView }) {
 }
 
 /** A request in the picker: its title, then its customer, its package and its day. */
-function optionOf(c: QuoteRequestCandidate) {
-  return {
-    value: `${c.workpackage_id}|${c.item_id}`, label: c.title || t("(no subject)"),
-    detail: [c.customer_name, c.workpackage_name, c.received_at?.slice(0, 10)].filter(Boolean).join(" · "),
-  };
-}
-
-export function QuoteCreate(_props: { onDone: (wpId: string) => void }) {
-  useLocale();
-  const [q, setQ] = useState("");
-  const [found, setFound] = useState<QuoteRequestCandidate[] | null>(null);
-  const [chosen, setChosen] = useState<QuoteRequestCandidate | null>(null);
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {  // the service searches; a short pause between keys keeps it from asking at every key
-    let live = true;
-    const timer = window.setTimeout(() => {
-      api.quoteRequests(q.trim() || undefined)
-        .then((r) => { if (live) setFound(r.requests); })
-        .catch((e) => { if (live) setError(e instanceof ApiError ? e.message : String(e)); });
-    }, q ? 250 : 0);
-    return () => { live = false; window.clearTimeout(timer); };
-  }, [q]);
-
-  const fallback = chosen ? t("Quote: {{name}}", { name: chosen.customer_name || chosen.title }).slice(0, 200) : "";
-  async function submit() {
-    if (!chosen) return;
-    setBusy(true);
-    setError(null);
-    try {
-      // 231 (A6c): a case of the IT quote's process pack, opened on its own page
-      const made = await api.startCase({ pack: "it_quote", name: name.trim() || fallback,
-        record: { workpackage_id: chosen.workpackage_id, item_id: chosen.item_id } });
-      go({ view: "cases", caseId: made.case_id });
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-  const options = (found ?? []).map(optionOf);
-  return (
-    <form className="create rc-stack" aria-label={t("New quote")} onSubmit={(e) => { e.preventDefault(); void submit(); }}>
-      <p className="muted small">{t("A quote starts from a quote request already processed: an email with its attachments, or a document read as one. The quote reads it as it stands in its package and puts its parts together; it processes no file itself.")}</p>
-      <Picker label={t("Quote request")} value={chosen ? `${chosen.workpackage_id}|${chosen.item_id}` : null} options={options}
-        loading={found === null} onSearch={setQ} placeholder={t("Choose a request…")}
-        selectedLabel={chosen ? optionOf(chosen).label : undefined}
-        emptyText={q ? t("No request matches.") : t("No quote request yet: an email or a document read as one in a processed package.")}
-        onChange={(v) => setChosen((found ?? []).find((c) => `${c.workpackage_id}|${c.item_id}` === v) ?? null)} />
-      {chosen ? (
-        <div className="small quote-chosen">
-          <p>
-            {[chosen.customer_name ? t("customer: {{name}}", { name: chosen.customer_name }) : t("no customer named"),
-              t("{{n}} requested item(s)", { n: chosen.items })].join(" · ")}
-            {" · "}<a href={`#/workpackages/${encodeURIComponent(chosen.workpackage_id)}`}>{chosen.workpackage_name}</a>
-          </p>
-          {chosen.quotes.length ? (
-            <p className="warn-text">
-              {t("Quotes already made from it:")}{" "}
-              {chosen.quotes.map((x, i) => (
-                <span key={x.id}>{i ? ", " : ""}<a href={x.case ? `#/cases/${encodeURIComponent(x.id)}` : `#/workpackages/${encodeURIComponent(x.id)}`}>{x.name}</a></span>
-              ))}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-      <label className="block">{t("Name")} <span className="muted">{t("(optional)")}</span>
-        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} placeholder={fallback} />
-      </label>
-      {error ? <p className="notice error" role="alert">{error}</p> : null}
-      <div className="button-row">
-        <button type="submit" className="primary" disabled={busy || !chosen}>{busy ? t("Creating…") : t("Create")}</button>
-      </div>
-    </form>
-  );
-}

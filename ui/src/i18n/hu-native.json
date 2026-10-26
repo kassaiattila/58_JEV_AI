@@ -2764,5 +2764,10 @@
   "the package belongs to another case's step": "a csomag egy másik ügy lépéséhez tartozik",
   "step {{step}} takes no package": "a(z) {{step}} lépés nem vesz át csomagot",
   "its workflow starts the package's live run": "a csomag élő futását a munkafolyamata indítja",
-  "process pack {{pack}} serves no workflow step": "a(z) {{pack}} folyamatcsomag nem szolgál ki munkafolyamat-lépést"
+  "process pack {{pack}} serves no workflow step": "a(z) {{pack}} folyamatcsomag nem szolgál ki munkafolyamat-lépést",
+  "The case's record": "Az ügy rekordja",
+  "Choose a record…": "Válassz rekordot…",
+  "No record matches.": "Nincs illeszkedő rekord.",
+  "No record to start from yet: an email or a document read as one in a processed package.": "Még nincs rekord, amelyből indulni lehetne: egy feldolgozott csomag levele vagy irata, amelyet ilyennek olvastunk.",
+  "its package:": "a csomagja:"
 }

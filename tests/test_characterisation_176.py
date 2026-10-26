@@ -78,8 +78,10 @@ ROUTE_COUNT = 195  # (method, path) pairs of 176 routes: the unknown-address ans
 # 231 (plan stage C, C1c): one fewer, a routing package's creation (`POST /api/email-routing/packages`: a routing is the
 # email routing process pack's case, `POST /api/cases` with its sources); C3b5a: two fewer, the statement package's own
 # form's survey and creation (`POST /api/statement-packages/survey`, `POST /api/statement-packages`: a statement package
-# is a bank statements case's, `POST /api/cases` with its source)
-ROUTE_TABLE = "d68bacad1b6b3257ec8c5306d7b1b17bd1aefa6511b0a718dedddbd21ea21f50"
+# is a bank statements case's, `POST /api/cases` with its source); C3c: one more, the records a pack's case may start from
+# (`GET /api/processes/{pack_id}/records`, the general form's record chooser), and one fewer, the quote's own search of
+# them (`GET /api/quote-requests`)
+ROUTE_TABLE = "3b63d1818fdc514f87f8225d71b51bf25b62a8fc240c62e31858fde620cf37de"
 
 
 def test_the_service_has_these_addresses() -> None:

@@ -97,22 +97,6 @@
       "only_new": false,
       "subfolders": false,
       "needs": []
-    },
-    "quote": {
-      "title": "Quote from a request",
-      "description": "A quote request already processed (an email with its attachments, or a document) is put together; the quote is made from it and your active price list.",
-      "sources": [
-        "package"
-      ],
-      "cost": "Free to make; the proposal of the quote's lines will call AI within its budget.",
-      "package_kinds": [
-        "case"
-      ],
-      "paid": false,
-      "own_engine": false,
-      "only_new": false,
-      "subfolders": false,
-      "needs": []
     }
   },
   "retired_kinds": {
@@ -209,14 +193,15 @@
       ]
     },
     {
-      "id": "quote",
+      "id": "it_quote",
       "group": "quotes",
       "title": "Quote from a request",
       "description": "One quote package from a customer's quote request: an email or a document already processed and read as one.",
       "steps": [
         {
           "id": "quote",
-          "kind": "quote"
+          "kind": "process",
+          "pack": "it_quote"
         }
       ]
     },

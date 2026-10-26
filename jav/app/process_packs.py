@@ -188,6 +188,20 @@ def _capability(key: str) -> capabilities.Capability | None:
         return None
 
 
+def records(pack_id: str, q: str | None = None) -> list[dict[str, Any]]:
+    """231 (C3c): the records a case of the pack may start from, matching `q`: those of its first step whose capability
+    finds them (`Capability.records`), with the step's parameters as its case would have them; none when no step
+    does. `UnknownPack` for an unknown pack."""
+    pack = load(pack_id)
+    defn = definition(pack)
+    for step in pack.steps:
+        cap = _capability(step.uses)
+        if cap is not None and cap.records is not None:
+            params = {k: v for k, v in (defn.step(step.id).params or {}).items() if not k.startswith("_")}
+            return cap.records(q, params)
+    return []
+
+
 def _problems(pack: ProcessPack) -> list[str]:
     problems: list[str] = []
     if _MODULE.search(json.dumps(pack.model_dump(), ensure_ascii=False)):

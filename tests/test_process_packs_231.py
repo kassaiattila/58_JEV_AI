@@ -93,3 +93,10 @@ def test_an_intake_starts_a_case_by_itself_only_from_an_email_s_record() -> None
 def test_a_missing_pack_is_named() -> None:
     with pytest.raises(process_packs.PackError, match="no process pack 'insurance_quote'"):
         process_packs.load("insurance_quote")
+
+
+def test_a_pack_whose_steps_read_no_record_offers_none() -> None:
+    """231 (C3c): the general form's record chooser asks the pack's record step's capability; a pack without one has none."""
+    assert process_packs.records("documents") == []
+    with pytest.raises(process_packs.UnknownPack):
+        process_packs.records("no_such_pack")

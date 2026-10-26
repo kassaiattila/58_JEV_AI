@@ -151,12 +151,13 @@ def test_a_request_that_can_no_longer_be_read_is_a_blocker(env):
     assert _next(case_id)["code"] == "quote_request_missing"
 
 
-def test_the_quote_is_a_kind_of_work_in_the_wizard_and_no_logic_pack():
-    """231 (A3d): the quote package's logic pack is gone; the wizard's kind of work stays, and its form starts a case."""
+def test_the_quote_is_the_it_quote_pack_s_case_in_the_wizard_and_no_logic_pack():
+    """231 (A3d): the quote package's logic pack is gone; (C3c) so is the wizard's kind of work: its template is the IT
+    quote pack's case, whose general form chooses the request (the record step's capability)."""
     assert "quote" not in {pack.kind for pack in logic_packs.packs()}
-    assert workflow_steps.of("quote").package_kinds == ("case",)
+    assert "quote" not in {k.kind for k in workflow_steps.kinds()}
     templates = {t["id"]: t for t in __import__("jav.app.workflows", fromlist=["templates_view"]).templates_view()["templates"]}
-    assert templates["quote"]["steps"] == [{"id": "quote", "kind": "quote"}]
+    assert templates["it_quote"]["steps"] == [{"id": "quote", "kind": "process", "pack": "it_quote"}]
 
 
 def test_the_service_lists_the_requests_and_makes_a_quote(env, tmp_path):
@@ -169,8 +170,10 @@ def test_the_service_lists_the_requests_and_makes_a_quote(env, tmp_path):
     human = {"X-Actor": "teszt.elek"}
     # the env fixture's store (tests/test_email_text_follow_up_190.py)
     with TestClient(create_app(store_path=tmp_path / "q.sqlite"), base_url="http://127.0.0.1:8930") as c:
-        listed = c.get("/api/quote-requests", params={"q": "monitor"}).json()["requests"]
-        assert [r["item_id"] for r in listed] == [item["item_id"]]
+        # 231 (C3c): the IT quote pack's records, the general form's record chooser (`/quote-requests` until then)
+        listed = c.get("/api/processes/it_quote/records", params={"q": "monitor"}).json()["records"]
+        assert [(r["item_id"], r["label"]) for r in listed] == [(item["item_id"], "Ajanlatkeres monitorra")]
+        assert c.get("/api/quote-requests").status_code == 404
         # 231 (A6c): a quote starts as a case of the IT quote's process pack; the package address is gone
         made = c.post("/api/cases", headers=human, json={"pack": "it_quote", "name": "Monitors",
                                                           "record": {"workpackage_id": wp_id, "item_id": item["item_id"]}})

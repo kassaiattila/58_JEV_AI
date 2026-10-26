@@ -42,7 +42,7 @@ def test_importing_registers_no_step_kind_and_load_all_registers_each_from_its_o
     seen = json.loads(out.stdout.strip().splitlines()[-1])
     # (231 C1c) the process packs' step, email, quotes; (C3b5b) last, the packs' own step kinds (the bank statements', the
     # documents'), once every domain registered its package makers
-    assert seen == {"before": [], "after": ["process", "emails", "quote", "statements", "documents"]}  # 231 C3a-2: reconcile went
+    assert seen == {"before": [], "after": ["process", "emails", "statements", "documents"]}  # (C3c) the quote's went  # 231 C3a-2: reconcile went
 
 
 def test_every_template_kind_is_registered_and_nothing_more() -> None:
@@ -52,7 +52,7 @@ def test_every_template_kind_is_registered_and_nothing_more() -> None:
     assert {k: v.module for k, v in kinds.items()} == {
         "documents": "jav.app.process_runtime", "emails": "jav.domains.email.mailbox",
         "statements": "jav.app.process_runtime",  # 231 (C3b5b): the packs' own step kinds, made by the process runtime
-        "process": "jav.app.process_runtime", "quote": "jav.domains.quotes.quote_package"}  # 191; 231 C1c: process
+        "process": "jav.app.process_runtime"}  # 191; 231 C1c: process; C3c: the quote's kind went (its pack's)
 
 
 def test_a_one_step_templates_id_is_its_kind_or_its_process() -> None:
@@ -68,7 +68,7 @@ def test_the_registry_gives_what_the_hand_written_tables_gave() -> None:
     registrations.load_all()
     assert {k.kind: k.package_kinds for k in workflow_steps.kinds()} == {
         "documents": ("folder", "manual", "watch", "upload"), "emails": ("mailbox",),
-        "statements": ("manual",), "process": ("case",), "quote": ("case",)}  # 231 A3d, C1c; C3a-2: reconcile went
+        "statements": ("manual",), "process": ("case",)}  # 231 A3d, C1c; C3a-2: reconcile went; C3c: quote went
     assert workflow_steps.of("statements").rule == "statements"  # (C3b5a) a plain package of the statements rule
     assert {k.kind for k in workflow_steps.kinds() if k.own_engine} == {"documents", "emails", "statements"}
     assert {k.kind for k in workflow_steps.kinds() if k.paid} == {"documents", "emails", "statements"}

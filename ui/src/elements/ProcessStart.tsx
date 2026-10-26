@@ -2,10 +2,11 @@
 // `sources`), the same way for every process: from the new work wizard (the packages of the kinds its intake takes, to
 // choose) and from such a package's own page (the processes that take it, with the cases already reading it). Until
 // C1c the email routing's own form and offer.
-import { useState } from "react";
-import { api, type CaseSource, type PackageOffer } from "../api";
+import { useEffect, useState } from "react";
+import { api, ApiError, type CaseSource, type PackageOffer, type ProcessRecord } from "../api";
 import { BrowseButton } from "../components/BrowseButton";
 import { Icon } from "../components/Icon";
+import { Picker } from "../components/Picker";
 import { useAction, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { go } from "../route";
@@ -28,6 +29,7 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   const [folder, setFolder] = useState("");
   const [recursive, setRecursive] = useState(false);
   const [files, setFiles] = useState("");
+  const [record, setRecord] = useState<ProcessRecord | null>(null);  // 231 (C3c): the record the case starts from
   const { busy, error, run } = useAction();
   const info = packs.data?.processes.find((p) => p.id === pack);
   if (packs.error) return <p className="notice error" role="alert">{packs.error.message}</p>;
@@ -38,6 +40,7 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   const wantsParty = asks.includes("party");
   const wantsPeriod = asks.includes("period");
   const wantsSource = asks.includes("source");
+  const wantsRecord = asks.includes("record");
   // a path pasted with its quotes (Explorer's "Copy as path") is taken without them, as the documents form took it
   const fileLines = files.split(/\r?\n/).map((l) => l.trim().replace(/^"|"$/g, "")).filter(Boolean);
   // the picked files go after the lines already there, each path only once (081)
@@ -50,9 +53,10 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   const candidates = (list.data?.workpackages ?? []).filter((w) => (info.package_kinds ?? []).includes(w.source_kind));
   const partyName = (parties.data?.parties ?? []).find((p) => p.id === partyId)?.name ?? "";
   const ready = (!wantsSources || chosen.length > 0) && (!wantsParty || !!partyId) && (!wantsPeriod || (!!start && !!end && start <= end))
-    && (!wantsSource || hasSource);
+    && (!wantsSource || hasSource) && (!wantsRecord || !!record);
   const defaultName = () => {
     if (wantsSources) return `${title}: ${candidates.filter((w) => chosen.includes(w.id)).map((w) => w.name).join(", ")}`;
+    if (wantsRecord && record) return `${title}: ${record.name ?? record.label ?? record.workpackage_name}`;
     const where = wantsSource ? (sourceKind === "folder" ? folder.trim().split(/[\\/]/).filter(Boolean).pop() ?? "" : "") : "";
     return [title, partyName, wantsPeriod ? `${start} – ${end}` : "", where].filter(Boolean).join(" · ");
   };
@@ -60,10 +64,12 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
     pack, name: (name.trim() || defaultName()).slice(0, 200),
     ...(wantsSources ? { sources: chosen } : {}), ...(wantsParty ? { party_id: partyId } : {}),
     ...(wantsPeriod ? { period_start: start, period_end: end } : {}), ...(wantsSource ? { source } : {}),
+    ...(wantsRecord && record ? { record: { workpackage_id: record.workpackage_id, item_id: record.item_id } } : {}),
   }), { then: (made) => onDone(made.case_id) });
   return (
     <form className="create rc-stack" aria-label={title} onSubmit={(e) => { e.preventDefault(); if (ready) void submit(); }}>
       {list.error ? <p className="notice error" role="alert">{list.error.message}</p> : null}
+      {wantsRecord ? <RecordChooser pack={pack} chosen={record} onChoose={setRecord} /> : null}
       {wantsSources ? (
         <fieldset className="wizard-choices">
           <legend>{t("The packages the case reads")}</legend>
@@ -125,6 +131,50 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
         <button type="submit" className="primary" disabled={busy || !ready}>{busy ? t("Creating…") : t("Create")}</button>
       </div>
     </form>
+  );
+}
+
+/** 231 (C3c): the record a case starts from (the pack's record step reads it: a quote request, an email or a document
+ *  read as one), chosen from the service's search; the cases already started from it are linked. Until C3c the quote's
+ *  own form. */
+function RecordChooser({ pack, chosen, onChoose }: { pack: string; chosen: ProcessRecord | null; onChoose: (r: ProcessRecord | null) => void }) {
+  useLocale();
+  const [q, setQ] = useState("");
+  const [found, setFound] = useState<ProcessRecord[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {  // the service searches; a short pause between keys keeps it from asking at every key
+    let live = true;
+    const timer = window.setTimeout(() => {
+      api.processRecords(pack, q.trim() || undefined)
+        .then((r) => { if (live) setFound(r.records); })
+        .catch((e) => { if (live) setError(e instanceof ApiError ? e.message : String(e)); });
+    }, q ? 250 : 0);
+    return () => { live = false; window.clearTimeout(timer); };
+  }, [pack, q]);
+  const key = (r: ProcessRecord) => `${r.workpackage_id}|${r.item_id}`;
+  const label = (r: ProcessRecord) => r.label ?? t("(no subject)");
+  return (
+    <div className="rc-stack">
+      <Picker label={t("The case's record")} value={chosen ? key(chosen) : null} loading={found === null} onSearch={setQ}
+        options={(found ?? []).map((r) => ({ value: key(r), label: label(r), detail: r.detail }))}
+        placeholder={t("Choose a record…")} selectedLabel={chosen ? label(chosen) : undefined}
+        emptyText={q ? t("No record matches.") : t("No record to start from yet: an email or a document read as one in a processed package.")}
+        onChange={(v) => onChoose((found ?? []).find((r) => key(r) === v) ?? null)} />
+      {error ? <p className="notice error" role="alert">{error}</p> : null}
+      {chosen ? (
+        <div className="small">
+          <p>{t("its package:")}{" "}
+            <a href={`#/workpackages/${encodeURIComponent(chosen.workpackage_id)}`}>{chosen.workpackage_name}</a></p>
+          {chosen.cases.length ? (
+            <p className="warn-text">{t("Cases already started from it:")}{" "}
+              {chosen.cases.map((c, i) => (
+                <span key={c.id}>{i ? ", " : ""}<a href={`#/cases/${encodeURIComponent(c.id)}`}>{c.name}</a></span>
+              ))}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

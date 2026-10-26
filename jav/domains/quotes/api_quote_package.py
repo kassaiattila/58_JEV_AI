@@ -29,7 +29,6 @@ from typing import Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI
 from fastapi import Path as PathParam
-from fastapi import Query as QueryParam
 from fastapi.responses import Response
 from pydantic import Field
 
@@ -72,9 +71,8 @@ def _quote(wp_id: str) -> None:
 def routes(app: FastAPI, r: str) -> None:
     """The quote package's addresses under the service's prefix `r`."""
 
-    @app.get(r + "/quote-requests")
-    def quote_requests(q: Annotated[str | None, QueryParam(max_length=200)] = None) -> dict[str, Any]:
-        return work_views.jsonable({"requests": quote_package.candidates(q)})
+    # 231 (C3c): the requests a quote may start from are the IT quote pack's records (`GET /api/processes/it_quote/records`,
+    # the general form's record chooser); `/quote-requests` went with the quote's own form
 
     # 231 (A6c): a quote starts as a case of the IT quote's process pack (`POST /api/cases`), no longer as a package
 

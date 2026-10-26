@@ -207,5 +207,5 @@ def test_every_step_kind_states_what_it_needs() -> None:
     registrations.load_all()
     assert {k.kind: k.needs for k in workflow_steps.kinds()} == {
         "documents": (), "emails": (), "statements": ("party", "period"),
-        "process": (), "quote": ()}  # 191: a quote needs neither; 231 C1c: a process step takes what its pack needs (C3a-1);
+        "process": ()}  # 191: a quote needed neither (231 C3c: its kind went); C1c: a process step takes what its pack needs (C3a-1);
     # C3a-2: the reconciliation step retired

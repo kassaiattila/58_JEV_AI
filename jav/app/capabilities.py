@@ -158,6 +158,10 @@ class Capability:
     - `bind(wp_id, case_id, step_id, params, scope, actor)` and `bound(wp_id)` (C3b4): for a step that owns a work
       package, an existing package bound to the step of a case wrapped around it (`process_runtime.wrap_case`; False
       when the package belongs to a step already), and whether it does.
+    - `records(q, params)` (C3c): for a step that reads its record from the case's scope (a `preview` one), the records
+      a person may start a case from, newest first, matching `q`: each {workpackage_id, workpackage_name, item_id,
+      label, detail, name, cases: [{id, name}]} (`detail`: plain values, no words; `name`: what a case started from it
+      is called by default; `cases`: those already started from it).
     """
 
     name: str
@@ -187,6 +191,7 @@ class Capability:
     waits: Mapping[str, str] = field(default_factory=dict)
     bind: Callable[[str, str, str, dict[str, Any], dict[str, Any], identity.Who], bool] | None = None
     bound: Callable[[str], bool] | None = None
+    records: Callable[[str | None, dict[str, Any]], list[dict[str, Any]]] | None = None
 
     @property
     def key(self) -> str:

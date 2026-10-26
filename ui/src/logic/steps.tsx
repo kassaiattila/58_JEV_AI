@@ -2,17 +2,15 @@
 // registry (`jav/app/workflow_steps.py`). What a kind takes and needs (its packages, whether it is paid, its scope) comes
 // from the service with the templates; only the form a single kind opens with is the interface's own. 231 (C3b5a): the
 // documents' and the bank statements' one-step templates are their process packs' (the general form), so their own
-// forms went.
+// forms went; (C3c) the quote's too (the IT quote pack's general form chooses its request).
 import type { ReactNode } from "react";
 import { ProcessCreate } from "../elements/ProcessStart";
 import { Mailbox } from "../views/Mailbox";
-import { QuoteCreate } from "../views/quotes/Quote";
 
 type Form = (onDone: (wpId: string) => void) => ReactNode;
 
 const FORMS: Record<string, Form> = {
   emails: () => <Mailbox variant="pull" />,
-  quote: (onDone) => <QuoteCreate onDone={onDone} />,  // 191
 };
 
 /** Whether the kind has a form of its own here. A one-step template's id is its kind's (checked by

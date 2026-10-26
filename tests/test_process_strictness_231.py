@@ -26,7 +26,7 @@ UI_PROCESS_DIRS = {"quotes", "reconcile"}  # C1c: routing went
 UI_SHARED_DIRS = {"settings", "workflows"}
 
 FROZEN_LOGIC_PACKS: set[str] = set()  # A3d: the quote package went; C1c: the email routing; C3a-2: the reconciliation; C3b5a: the statements
-FROZEN_STEP_KINDS = {"emails", "quote"}  # C1c: the routing; C3a-2: the reconciliation; C3b5b: the documents, the statements (their packs')
+FROZEN_STEP_KINDS = {"emails"}  # C3c: the quote (its pack's); C1c: the routing; C3a-2: the reconciliation; C3b5b: the documents, the statements (their packs')
 FROZEN_ITEM_PARTS: set[tuple[str, str]] = set()  # 231 (C1a): the quote request under its email became the general intake
 FROZEN_DOMAINS = ("jav.domains.finance", "jav.domains.email", "jav.domains.quotes")
 FROZEN_UI_FILES = {
@@ -36,7 +36,7 @@ FROZEN_UI_FILES = {
 }
 FROZEN_UI_LOGIC_KEYS: set[str] = set()  # A3d: the quote package's went; C1c: the routing's; C3a-2: the reconciliation's; C3b5a: the statements'
 FROZEN_UI_PACKAGE_PARTS = {"statements"}  # C3b5a: a package rule's page part, until its screens move to their domain's folder (C3e)
-FROZEN_UI_FORMS = {"emails", "quote"}  # C1c: the routing's; C2d: the reconciliation's; C3b5a: the documents' and the statements' (their packs')
+FROZEN_UI_FORMS = {"emails"}  # C3c: the quote's (its pack's); C1c: the routing's; C2d: the reconciliation's; C3b5a: the documents' and the statements' (their packs')
 FROZEN_UI_NAME_COMPARISONS = {("ui/src/views/workflows/NewWork.tsx", "mailbox")}  # C3b5a: the statements' add went to the rule
 FROZEN_PY_NAME_COMPARISONS: set[tuple[str, str]] = set()
 

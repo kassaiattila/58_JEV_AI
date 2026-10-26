@@ -4,22 +4,23 @@
 // local service is replaced by spies; invented names only.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setActor, type CaseView, type QuoteProposal, type QuoteRequestCandidate, type QuoteView, type WorkpackageView } from "../../api";
+import { api, setActor, type CaseView, type ProcessRecord, type QuoteProposal, type QuoteView, type WorkpackageView } from "../../api";
+import { ProcessCreate } from "../../elements/ProcessStart";
 import { setLanguage } from "../../i18n";
 import { PACKAGE_PARTS } from "../../logic/packageParts";
 import { hasOwnForm } from "../../logic/steps";
 import { stepLabel } from "../../labels";
-import { QUOTE_BLOCKER, QuoteCreate } from "./Quote";
+import { QUOTE_BLOCKER } from "./Quote";
 import { Approval, LineEditor, MatchProposal, RecordView } from "./QuoteElements";
 import { quoteStatus } from "./quoteStatus";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-const CANDIDATE: QuoteRequestCandidate = {
-  workpackage_id: "wp-000000000191", workpackage_name: "Invented mailbox", item_id: "item-1", kind: "email",
-  title: "Request for monitors", sender: "buyer@example.com", received_at: "2026-11-02T10:00:00", customer_name: "Invented Buyer Ltd",
-  items: 1, quotes: [{ id: "wp-000000000192", name: "Earlier quote" }],
+const RECORD: ProcessRecord = {  // 231 (C3c): a quote request as the general form's record chooser gets it
+  workpackage_id: "wp-000000000191", workpackage_name: "Invented mailbox", item_id: "item-1", label: "Request for monitors",
+  detail: "Invented Buyer Ltd · Invented mailbox · 2026-11-02", name: "Invented Buyer Ltd",
+  cases: [{ id: "wp-000000000192", name: "Earlier quote" }],
 };
 
 // 192: a quote without a draft yet
@@ -78,8 +79,8 @@ function QuoteStages({ view, stage, onChanged }: { view: WorkpackageView; stage:
 }
 
 describe("the quote package (191)", () => {
-  it("is a kind of work with its own form; the quote package's page is gone (231 A3d)", () => {
-    expect(hasOwnForm("quote")).toBe(true);
+  it("is a process pack's case; the quote package's page is gone (231 A3d) and so is its own form (C3c)", () => {
+    expect(hasOwnForm("quote")).toBe(false);
     expect(PACKAGE_PARTS.quote).toBeUndefined();  // 231 (C3b5a): the logic packs' registry went
     expect(quoteStatus(QUOTE)).toEqual({ process: "2 part(s), 1 requested item(s)", review: "1 gap(s) to clear first",
       result: "not approved yet" });
@@ -88,22 +89,26 @@ describe("the quote package (191)", () => {
   });
 
   it("chooses a request found by the service, warns of a quote already made, and names the quote by its customer", async () => {
-    const search = vi.spyOn(api, "quoteRequests").mockResolvedValue({ requests: [CANDIDATE] });
+    // 231 (C3c): the IT quote pack's general form, its record chooser (until then the quote's own form)
+    vi.spyOn(api, "processes").mockResolvedValue({ processes: [{ id: "it_quote", title: "IT quote", version: "1.0.0",
+      scope: ["record"], asks: ["record"], package_kinds: [] }] });
+    vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
+    vi.spyOn(api, "parties").mockResolvedValue({ parties: [] } as never);
+    const search = vi.spyOn(api, "processRecords").mockResolvedValue({ records: [RECORD] });
     const create = vi.spyOn(api, "startCase").mockResolvedValue({ case_id: "wp-000000000194" });  // 231 (A6c): a case
     const done = vi.fn();
-    render(<QuoteCreate onDone={done} />);
-    const button = screen.getByRole("button", { name: "Create" });
+    render(<ProcessCreate pack="it_quote" onDone={done} />);
+    const button = await screen.findByRole("button", { name: "Create" });
     expect(button).toHaveProperty("disabled", true);
-    await waitFor(() => expect(search).toHaveBeenCalledWith(undefined));
-    fireEvent.click(screen.getByRole("button", { name: "Quote request" }));
+    await waitFor(() => expect(search).toHaveBeenCalledWith("it_quote", undefined));
+    fireEvent.click(screen.getByRole("button", { name: "The case's record" }));
     fireEvent.click(await screen.findByRole("option", { name: /Request for monitors/ }));
-    expect(await screen.findByText(/customer: Invented Buyer Ltd/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Earlier quote" }).getAttribute("href")).toBe("#/workpackages/wp-000000000192");
-    expect((screen.getByLabelText(/Name/) as HTMLInputElement).placeholder).toBe("Quote: Invented Buyer Ltd");
+    expect((await screen.findByRole("link", { name: "Invented mailbox" })).getAttribute("href")).toBe("#/workpackages/wp-000000000191");
+    expect(screen.getByRole("link", { name: "Earlier quote" }).getAttribute("href")).toBe("#/cases/wp-000000000192");
     fireEvent.click(button);
-    await waitFor(() => expect(create).toHaveBeenCalledWith({ pack: "it_quote", name: "Quote: Invented Buyer Ltd",
+    await waitFor(() => expect(create).toHaveBeenCalledWith({ pack: "it_quote", name: "IT quote: Invented Buyer Ltd",
       record: { workpackage_id: "wp-000000000191", item_id: "item-1" } }));
-    await waitFor(() => expect(window.location.hash).toBe("#/cases/wp-000000000194"));
+    await waitFor(() => expect(done).toHaveBeenCalledWith("wp-000000000194"));
   });
 
   it("shows the request's fields with the part each came from, its items and its gaps", () => {

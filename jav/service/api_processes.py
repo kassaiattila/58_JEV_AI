@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Query, Request
 from fastapi import Path as PathParam
 from pydantic import Field
 
@@ -59,6 +59,12 @@ def routes(app: FastAPI, r: str) -> None:
                                "asks": scopes.asks(p.scope.parts),
                                "package_kinds": sorted({k for i in p.intake if i.on == "package" for k in i.package_kinds})}
                               for p in process_packs.packs()]}
+
+    @app.get(r + "/processes/{pack_id}/records")
+    def process_records(pack_id: PackId, q: Annotated[str | None, Query(max_length=200)] = None) -> dict[str, Any]:
+        """231 (C3c): the records a case of the pack may start from, matching `q` (its record step's capability, the
+        general form's record chooser); none for a pack whose steps read no record."""
+        return work_views.jsonable({"records": process_packs.records(pack_id, q)})
 
     @app.get(r + "/processes/{pack_id}/settings")
     def process_settings_page(pack_id: PackId) -> dict[str, Any]:

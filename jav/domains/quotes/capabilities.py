@@ -162,6 +162,19 @@ def _record_preview(record: dict[str, Any], params: dict[str, Any]) -> dict[str,
             "record_type": params["record_type"]}
 
 
+def _records(q: str | None, _params: dict[str, Any]) -> list[dict[str, Any]]:
+    """231 (C3c): the quote requests a case may start from (`quote_package.candidates`), as the general form's record
+    chooser shows them: the request's subject, its customer, package and day, the name it gives a case (its customer,
+    else its subject) and the cases already started from it."""
+    from jav.domains.quotes import quote_package
+
+    return [{"workpackage_id": r["workpackage_id"], "workpackage_name": r["workpackage_name"], "item_id": r["item_id"],
+             "label": r["title"] or None, "name": r["customer_name"] or r["title"] or None,
+             "detail": " · ".join(str(x) for x in (r["customer_name"], r["workpackage_name"], (r["received_at"] or "")[:10]) if x),
+             "cases": [{"id": c["id"], "name": c["name"]} for c in r["quotes"]]}
+            for r in quote_package.candidates(q)]
+
+
 def _catalogue_match(ctx: Any, params: CatalogueMatch) -> kinds.StepOutcome:
     from jav.domains.quotes import quote_proposal
 
@@ -246,7 +259,7 @@ _OWNER = __name__
 CAPABILITIES = (
     Capability(name="record_assembly", version=1, module=_OWNER, run=_record_assembly, kind="machine", params=RecordAssembly, effects="pure",
                summary="Puts a record together from an email's text, its table attachments and its attachments.",
-               preview=_record_preview),
+               preview=_record_preview, records=_records),  # C3c: the general form's record chooser
     Capability(name="catalogue_match", version=1, module=_OWNER, run=_catalogue_match, kind="machine", params=CatalogueMatch,
                providers=("jev", "openai"), rule_files=("callsite:quote_match", "gpt_quote_match", "quotes", "price_lists"),
                summary="Matches each requested item with a catalogue item: sure, to check, or not listed.",

@@ -19,8 +19,8 @@ remains here is what the case's page and the email's part show.
   draft and its approval, the letter; the next step.
 
 Layer: application operation of the quotes domain over the work packages, the scopes and the quote request.
-The new work wizard's "quote" kind of work (`STEP`) stays until the wizard lists the process packs themselves; its
-form starts a case.
+231 (C3c): the new work wizard's quote template is the IT quote pack's (its general form chooses the request, by the
+record step's capability, `capabilities._records`); the quote's own kind of work went.
 """
 
 from __future__ import annotations
@@ -28,13 +28,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav.app import app_settings, package_scope, scopes, work, workflow_steps
+from jav.app import app_settings, package_scope, scopes, work
 from jav.core import store
 from jav.domains.quotes import price_lists, quote_draft, quote_letter, quote_proposal, quote_request
 from jav.app.tablequery import fold
-from jav.core.user_messages import explained
 
-KIND = "quote"  # the wizard's kind of work and the golden sets' key prefix (the quote package's kind until 231 A3d)
+KIND = "quote"  # the golden sets' key prefix (the quote package's kind until 231 A3d, the wizard's kind until C3c)
 CONTAINER = "case"  # 231 (A5): the general container of a process pack's case (`jav/app/process_runtime.py`)
 MAX_CANDIDATES = 50
 
@@ -155,20 +154,4 @@ def _next_of(current: dict[str, Any]) -> dict[str, Any]:
     return {"code": "quote_compose", "label": "Compose the quote", "stage": "review"}
 
 
-def _workflow_start(_ctx: workflow_steps.StepStart) -> None:
-    from jav.app.workflows import WorkflowError
-
-    raise explained(WorkflowError, "a quote is started from its request, not as a workflow's step")
-
-
-# the wizard's kind of work: its form starts a case, and its package is a case's container (231 A3d: the quote package's
-# kind went); it stays until the wizard lists the process packs themselves
-STEP = workflow_steps.StepKind(KIND, __name__, (CONTAINER,), start=_workflow_start, paid=False, own_engine=False,
-                               repeat_from=lambda _wp_id: {"kind": "none"},
-                               statuses={"quote_request_missing": "attention", "quote_request_check": "review",
-                                         "quote_propose": "review", "quote_proposing": "review",
-                                         "quote_compose": "review", "quote_approve": "review",
-                                         "quote_approved": "approved"})
-
-
-__all__ = ["CONTAINER", "KIND", "STEP", "candidates", "request_gaps", "request_of", "view"]
+__all__ = ["CONTAINER", "KIND", "candidates", "request_gaps", "request_of", "view"]
