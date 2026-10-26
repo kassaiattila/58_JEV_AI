@@ -26,8 +26,8 @@ _SHARED = ((re.compile(r"\bapprove_own\(\s*c, [^,]+, event=\"([a-z_]+)\""), "_ap
 def _recorded_actions() -> set[str]:
     found: set[str] = set()
     for path in JAV.rglob("*.py"):
-        if path.name == "workflows.py":  # its own `_event` writes the workflow's log, not a package's
-            continue
+        if path.name in ("workflows.py", "workflow_records.py", "workflow_advance.py"):
+            continue  # their own `_event` writes the workflow's log, not a package's (231 C3i: split in three)
         text = path.read_text(encoding="utf-8")
         for pattern in _RECORDED:
             found.update(pattern.findall(text))

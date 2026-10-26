@@ -17,13 +17,14 @@ import pytest
 
 from jav.app import parties, work, work_readiness, work_runs, workflows as wf
 from jav.core import store
+from jav.app import workflow_advance
 
 SEPT = ("2026-09-01", "2026-09-30")
 
 
 @pytest.fixture
 def db(tmp_path, monkeypatch):
-    monkeypatch.setattr(wf, "_last_tick", 0.0)
+    monkeypatch.setattr(workflow_advance, "_last_tick", 0.0)
     with store.use_store(tmp_path / "s.sqlite"):
         yield tmp_path
 

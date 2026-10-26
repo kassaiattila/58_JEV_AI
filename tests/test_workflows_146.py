@@ -22,6 +22,7 @@ from jav.core.process import engine
 from jav.domains.email import mailbox
 from jav.runtime import worker
 from jav.core import queue
+from jav.app import workflow_advance
 from tests import test_statement_erste_137 as erste
 from tests.statement_pdf import pdf_lines_as_text
 
@@ -31,7 +32,7 @@ MONTH = ("2026-06-01", "2026-06-30")
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     pdf_lines_as_text(monkeypatch)
-    monkeypatch.setattr(wf, "_last_tick", 0.0)
+    monkeypatch.setattr(workflow_advance, "_last_tick", 0.0)
     with store.use_store(tmp_path / "s.sqlite"):
         yield tmp_path
 
@@ -356,7 +357,7 @@ def test_the_list_shows_each_workflow_with_its_steps_and_an_archived_one_only_on
 def test_the_estimate_is_the_recipes_item_budget_times_the_items(db):
     party = _party()
     folder = _invoices(db / "inv", n=3)
-    per = wf._per_item("document")
+    per = workflow_advance._per_item("document")
     got = wf.estimate(kind="documents", source={"kind": "folder", "folder": str(folder)})
     assert got["items"] == 3 and got["usd"] == {p: str((v * 3).quantize(Decimal("0.0001"))) for p, v in per.items() if v}
     assert wf.estimate(kind="process", source={"kind": "none"}) == {"items": None, "usd": {}, "note": None}
@@ -364,7 +365,7 @@ def test_the_estimate_is_the_recipes_item_budget_times_the_items(db):
                              party_id=party, period_start=MONTH[0], period_end=MONTH[1])
     assert (statements["statements"], statements["pdfs"], statements["usd"]) == (1, 0, {})  # read by code: free
     mail = wf.estimate(kind="emails", source={"kind": "mailbox", "request": {"accounts": ["a@example.com"], "max_items": 10}})
-    assert mail["items"] == 10 and mail["usd"] == wf._times(wf._per_item("email"), 10)
+    assert mail["items"] == 10 and mail["usd"] == workflow_advance._times(workflow_advance._per_item("email"), 10)
 
 
 # --- the service ---------------------------------------------------------------------------------------------------------------

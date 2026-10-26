@@ -16,6 +16,7 @@ import pytest
 from jav.app import parties, workflow_cases, workflows as wf
 from jav.core import cfg, store
 from jav.core.process import cases, engine
+from jav.app import workflow_advance
 from tests.test_workflow_references_153 import _make, db  # noqa: F401 - the fixture is used by name
 
 
@@ -145,7 +146,7 @@ def test_archiving_holds_the_case_and_restoring_it_resumes_it_with_the_workflows
         raise RuntimeError("the log could not be written")
 
     with monkeypatch.context() as m:
-        m.setattr(wf, "_event", broken)
+        m.setattr(workflow_advance, "_event", broken)  # 231 (C3i): the update writes it
         with pytest.raises(RuntimeError):
             wf.update(wf_id, actor="Example Person", archived=False)
     assert wf.view(wf_id)["workflow"]["status"] == "archived" and cases.get(wf_id)["waiting_for"] == workflow_cases.ARCHIVED

@@ -12,6 +12,7 @@ import pytest
 
 from jav.app import parties, workflows as wf
 from jav.core import store
+from jav.app import workflow_advance, workflow_records
 from tests.test_workflow_references_153 import _make, db  # noqa: F401 - the fixture is used by name
 
 
@@ -34,7 +35,8 @@ def test_a_failing_event_leaves_the_step_as_it_was(db, monkeypatch: pytest.Monke
         raise RuntimeError("the log could not be written")
 
     with monkeypatch.context() as m:
-        m.setattr(wf, "_event", broken)
+        for module in (workflow_records, workflow_advance):  # 231 (C3i): both write the workflow's log
+            m.setattr(module, "_event", broken)
         with pytest.raises(RuntimeError):
             wf.start_step(wf_id, "invoices", actor="t", budget={"openai": "0.5"})
     after = _steps(wf_id)["invoices"]
@@ -46,7 +48,7 @@ def test_a_claim_another_process_got_first_writes_no_event(db) -> None:  # noqa:
     a = parties.create("Example U Kft.", identities=[], actor="t")["id"]
     wf_id = _make(db, a, advance_now=False)["workflow"]["id"]
     events = _events(wf_id)
-    assert not wf._set_logged(wf_id, "invoices", "failed", "t", {"note": "x"}, expect=("starting",), phase="failed")
+    assert not workflow_records._set_logged(wf_id, "invoices", "failed", "t", {"note": "x"}, expect=("starting",), phase="failed")
     assert _steps(wf_id)["invoices"]["state"] == "waiting" and _events(wf_id) == events
-    assert wf._set_logged(wf_id, "invoices", "failed", "t", {"note": "x"}, expect=("waiting",), phase="failed", note="x")
+    assert workflow_records._set_logged(wf_id, "invoices", "failed", "t", {"note": "x"}, expect=("waiting",), phase="failed", note="x")
     assert _steps(wf_id)["invoices"]["state"] == "failed" and _events(wf_id) == [*events, ("invoices", "failed")]

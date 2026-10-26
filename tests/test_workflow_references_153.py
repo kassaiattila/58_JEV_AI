@@ -14,6 +14,7 @@ import pytest
 
 from jav.app import parties, work, workflows as wf
 from jav.core import store
+from jav.app import workflow_advance
 from tests import test_statement_erste_137 as erste
 from tests.statement_pdf import pdf_lines_as_text
 
@@ -23,7 +24,7 @@ MONTH = ("2026-06-01", "2026-06-30")
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     pdf_lines_as_text(monkeypatch)
-    monkeypatch.setattr(wf, "_last_tick", 0.0)
+    monkeypatch.setattr(workflow_advance, "_last_tick", 0.0)
     with store.use_store(tmp_path / "s.sqlite"):
         yield tmp_path
 

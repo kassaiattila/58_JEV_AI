@@ -20,6 +20,8 @@ import pytest
 from jav.app import package_scope, parties, registrations, scopes, work, workflow_steps
 from jav.core import store
 from jav.app import workflows as wf
+from jav.app import workflow_advance
+from jav.app import workflow_records
 from tests import test_workflows_146 as base
 from tests.statement_pdf import pdf_lines_as_text
 
@@ -30,7 +32,7 @@ MONTH = base.MONTH
 def db(tmp_path, monkeypatch):
     # the synthetic Erste PDF is text (`tests/test_statement_erste_137.py`), as in the workflow tests
     pdf_lines_as_text(monkeypatch)
-    monkeypatch.setattr(wf, "_last_tick", 0.0)
+    monkeypatch.setattr(workflow_advance, "_last_tick", 0.0)
     registrations.load_all()
     with store.use_store(tmp_path / "s.sqlite"):
         yield tmp_path
@@ -83,7 +85,7 @@ def _documents_and_emails(monkeypatch) -> None:
     conf = wf.config()
     extra = {"id": "inbox_and_folder", "group": "documents", "title": "Inbox and folder", "description": "Test only.",
              "steps": [{"id": "documents", "kind": "documents"}, {"id": "emails", "kind": "emails"}]}
-    monkeypatch.setattr(wf, "config", lambda: conf | {"templates": [*conf["templates"], extra]})
+    monkeypatch.setattr(workflow_records, "config", lambda: conf | {"templates": [*conf["templates"], extra]})
 
 
 def test_a_template_whose_steps_need_nothing_makes_a_workflow_without_party_or_period(db, monkeypatch) -> None:
