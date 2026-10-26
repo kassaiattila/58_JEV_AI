@@ -2816,5 +2816,6 @@
   "the case's other steps are done": "the case's other steps are done",
   "the package was deleted": "the package was deleted",
   "its case's approving step has its own task": "its case's approving step has its own task",
-  "its package was brought with the workflow": "its package was brought with the workflow"
+  "its package was brought with the workflow": "its package was brought with the workflow",
+  "the case cannot start: {{what}} has no active version to keep": "the case cannot start: {{what}} has no active version to keep"
 }

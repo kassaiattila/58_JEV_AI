@@ -18,7 +18,8 @@ capability whose state belongs to the whole case (`Capability.state`) stands onc
 reads only fields the other step's result form gives, in a version of the form it takes (`capabilities.reference_problem`).
 Stage D (D-a; the reassessment after D0, P02): a reference names a step of the kind it reads (`step_ref(of=)`); one
 left out reads the pack's only step of that kind, which the step must wait for, and is refused where there are several,
-so the step's source, the step it waits for and its approval's basis are the same step.
+so the step's source, the step it waits for and its approval's basis are the same step. `needs_at_start`: the resources
+a case cannot start without a version of to keep (`process_settings.at_start` refuses the start).
 
 - `load(pack_id)`, `packs()`: a pack read and checked (`PackError` with every problem).
 - `definition(pack)`: the process core's definition of the pack's current version: one step per pack step, its kind
@@ -171,6 +172,8 @@ class ProcessPack(_Model):
     outputs: tuple[str, ...] = ()
     goldens: tuple[str, ...] = ()
     partners: tuple[PartnerLink, ...] = ()  # 231 (B1)
+    # stage D (D-a, P04): the resources a case cannot start without a version of to keep (a tariff); none: it may start
+    needs_at_start: tuple[str, ...] = ()
 
     @property
     def version(self) -> str:
@@ -295,6 +298,8 @@ def _problems(pack: ProcessPack) -> list[str]:
     case_owned = [s.uses for s in pack.steps if (c := _capability(s.uses)) is not None and c.state == "case"]
     for key in sorted({k for k in case_owned if case_owned.count(k) > 1}):  # D0-b: two steps would share one state
         problems.append(f"{key} keeps its state for the whole case: a pack uses it once")
+    problems += [f"needs_at_start names {key!r}, which is no resource of the pack" for key in pack.needs_at_start
+                 if key not in pack.resources]  # D-a
     for wrap in pack.wraps:  # 231 (C3b4): the step that takes the package binds it, and its parts are the scope's
         if (wrap.kind is None) == (wrap.rule is None):
             problems.append(f"wrap {wrap.kind or wrap.rule!r}: names its packages by a kind or by a rule, one of them")

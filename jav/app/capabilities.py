@@ -240,6 +240,8 @@ class AtStart:
 
     kept: Callable[[str], str]
     named: Callable[[str], dict[str, Any]]
+    # D-a: whether a value names a version a case keeps (`<id>@<n>`); a pack's `needs_at_start` refuses one that does not
+    resolved: Callable[[str], bool] = field(default=lambda value: "@" in value)
 
 
 @dataclass(frozen=True)

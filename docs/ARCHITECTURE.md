@@ -1202,6 +1202,11 @@ raises `cfg.RulesUnfit` with the file and both versions, which stops the step th
 command `cases-kept` lists, before a release, the open cases it would stop (`process_runtime.unfit_cases`; on a copy of
 the live store, `--store`). The case's history names on its start what it keeps (`process_runtime.kept_of`, the
 timeline element). A case started before D0-e keeps nothing and reads the files and the active versions, as before.
+Stage D (D-a; the reassessment after D0, P04): a step parameter naming a versioned thing itself (a price list's id or
+`newest_active`, not a resource) is kept at its version too (`process_settings.at_start`, which the start, the taking
+over and the wrapping of a case use); a pack names the resources a case cannot start without (`needs_at_start`), and
+with none of them to keep (no active version) the case does not start (`MissingAtStart`, before anything is made),
+rather than read another version later (`tests/test_case_tariff_at_start_231.py`).
 Limits: only the rule files the capabilities declare are kept (a non-JSON file, a module's copy taken when it loaded,
 and the process pack itself, which a case keeps by its version, are not). Tests: `tests/test_case_keeps_versions_231.py`,
 `ui/src/elements/caseKept231.test.tsx`.
