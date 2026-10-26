@@ -40,8 +40,9 @@ def test_importing_registers_no_step_kind_and_load_all_registers_each_from_its_o
     out = subprocess.run([sys.executable, "-c", _PROBE], cwd=PROJECT_ROOT, capture_output=True, text=True, check=True,
                          encoding="utf-8")
     seen = json.loads(out.stdout.strip().splitlines()[-1])
-    # finance, workflows, (231 C1c) the process packs' step, email, quotes
-    assert seen == {"before": [], "after": ["statements", "documents", "process", "emails", "quote"]}  # 231 C3a-2: reconcile went
+    # (231 C1c) the process packs' step, email, quotes; (C3b5b) last, the packs' own step kinds (the bank statements', the
+    # documents'), once every domain registered its package makers
+    assert seen == {"before": [], "after": ["process", "emails", "quote", "statements", "documents"]}  # 231 C3a-2: reconcile went
 
 
 def test_every_template_kind_is_registered_and_nothing_more() -> None:
@@ -49,8 +50,8 @@ def test_every_template_kind_is_registered_and_nothing_more() -> None:
     kinds = {k.kind: k for k in workflow_steps.kinds()}
     assert set(kinds) == set(cfg.load("workflows")["kinds"])
     assert {k: v.module for k, v in kinds.items()} == {
-        "documents": "jav.app.workflows", "emails": "jav.domains.email.mailbox",
-        "statements": "jav.domains.finance.statement_package",
+        "documents": "jav.app.process_runtime", "emails": "jav.domains.email.mailbox",
+        "statements": "jav.app.process_runtime",  # 231 (C3b5b): the packs' own step kinds, made by the process runtime
         "process": "jav.app.process_runtime", "quote": "jav.domains.quotes.quote_package"}  # 191; 231 C1c: process
 
 

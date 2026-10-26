@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from jav.app import document_processing, parties, work, work_readiness, work_runs, workflow_steps, workflows as wf
+from jav.app import document_processing, parties, process_runtime, work, work_readiness, work_runs, workflow_steps, workflows as wf
 from jav.core import cfg, store
 from jav.core.process import engine
 from jav.domains.finance import statement_table as st
@@ -176,6 +176,12 @@ def test_the_monthly_reconciliation_runs_its_steps_waits_for_a_budget_and_makes_
     [statements_case] = [r["id"] for r in work.list_workpackages() if r["source_kind"] == "case"
                          and document_processing.package_of(r["id"], "process") == statements_wp]
     assert document_processing.CAPABILITY.actions[0].available(statements_case, "process") is False
+    # (C3b5b; the owner's decision of 2026-10-26) the invoices' package is a documents case's too, waiting for the budget
+    invoices_wp = steps["invoices"]["package"]["id"]
+    [invoices_case] = [r["id"] for r in work.list_workpackages() if r["source_kind"] == "case"
+                       and document_processing.package_of(r["id"], "process") == invoices_wp]
+    assert process_runtime.pack_of(invoices_case)[0] == "documents"
+    assert document_processing.CAPABILITY.actions[0].available(invoices_case, "process") is False
     assert made["next"] == {"step": "invoices", "status": "needs_budget"}
     _process_all()  # only the statements' items are queued
     view = wf.view(wf_id)

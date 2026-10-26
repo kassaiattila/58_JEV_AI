@@ -31,9 +31,13 @@ def _workflow(db, party: str) -> str:  # noqa: F811
 
 
 def _packages_and_runs(name: str) -> tuple[int, int]:
+    """The step's packages and their runs; 231 (C3b5b): a step's package is a case's, whose container has its name too:
+    one case, not counted as a package."""
     with store.connect() as c:
-        ids = [r[0] for r in c.execute("SELECT id FROM workpackages WHERE name=?", (name,))]
+        ids = [r[0] for r in c.execute("SELECT id FROM workpackages WHERE name=? AND source_kind != 'case'", (name,))]
+        cases = c.execute("SELECT COUNT(*) FROM workpackages WHERE name=? AND source_kind = 'case'", (name,)).fetchone()[0]
         runs = c.execute(f"SELECT COUNT(*) FROM runs WHERE workpackage_id IN ({','.join('?' * len(ids))})", ids).fetchone()[0]
+    assert cases == 1
     return len(ids), runs
 
 

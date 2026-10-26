@@ -2757,5 +2757,6 @@
   "a package source is taken as it is, not read again": "a package source is taken as it is, not read again",
   "the package belongs to another case's step": "the package belongs to another case's step",
   "step {{step}} takes no package": "step {{step}} takes no package",
-  "its workflow starts the package's live run": "its workflow starts the package's live run"
+  "its workflow starts the package's live run": "its workflow starts the package's live run",
+  "process pack {{pack}} serves no workflow step": "process pack {{pack}} serves no workflow step"
 }

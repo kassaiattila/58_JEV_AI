@@ -17,6 +17,9 @@ keeps every feature of a work package (its items, runs, review and result); the 
 - `package_of(case_id, step_id)`: the package a case's step made (bound by its scope part `owner_step`); `bind`
   (C3b4): an existing package bound to a case's step.
 - `CAPABILITY`: the step kind; its action `start_run` starts the package's live run.
+- `register_workflow_steps()` (231, C3b5b): the workflow step kind of each pack that serves one (its `workflow` block),
+  made by the process runtime from the pack and its maker's workflow hooks; its start wraps the step's new package by
+  a case of the pack (the owner's decision of 2026-10-26) and starts its live run within the step's budget.
 
 Layer: application; it uses the work packages, their runs and readiness, the package scopes and the process core.
 """
@@ -32,7 +35,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from jav.app import capabilities, package_scope, scopes, work, work_readiness, work_runs
+from jav.app import capabilities, package_scope, scopes, work, work_readiness, work_runs, workflow_steps
 from jav.core import identity, store
 from jav.core.process import cases, kinds
 from jav.core.process.engine import StepContext
@@ -104,12 +107,24 @@ def paths_of(source: dict[str, Any]) -> list[Path]:
 class Maker:
     """How a step's package is made: `make(scope, name, owner)` returns the new package's id, or None when the source
     holds nothing new for it (the step is then done without a package). `rule`: the package rule its package runs by
-    (`work.register_rule`), named in its scope; None: none."""
+    (`work.register_rule`), named in its scope; None: none.
+
+    231 (C3b5b): what a workflow's step of a pack with this maker is (`register_workflow_steps`): `package_kinds`, the
+    kinds of an existing package the step may take; `only_new` and `subfolders`, whether its folder may leave out what a
+    live run has processed and take its subfolders; `step_offer(ctx)`, the step's package made from the workflow step's
+    source (`workflow_steps.StepStart`; None when nothing new, the maker having said so); `repeat_from(wp_id)` and
+    `estimate(...)`, as a step kind has them."""
 
     name: str
     module: str
     make: Callable[[dict[str, Any], str, identity.Who | None], str | None]
     rule: str | None = None
+    package_kinds: tuple[str, ...] = ()
+    only_new: bool = False
+    subfolders: bool = False
+    step_offer: Callable[[workflow_steps.StepStart], str | None] | None = None
+    repeat_from: Callable[[str], dict[str, Any] | None] | None = None
+    estimate: Callable[..., dict[str, Any]] | None = None
 
 
 _MAKERS: dict[str, Maker] = {}
@@ -337,16 +352,72 @@ def _package_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) ->
     return out
 
 
+def _workflow_start(pack_id: str, ctx: workflow_steps.StepStart) -> None:
+    """231 (C3b5b): a workflow's step of a pack that serves one: its maker makes the step's package from the step's source
+    (`Maker.step_offer`; nothing new: done without a package), a case of the pack is made around it with the workflow's
+    party and period (`process_runtime.wrap_into`; the case's page offers no start of its own, `_workflow_starts`), and
+    the package is noted on the step and its live run starts within the step's budget, as the step kind's own start did."""
+    from jav.app import process_packs, process_runtime  # lazy: the process runtime builds on this capability's registry
+
+    pack = process_packs.load(pack_id)
+    serves = pack.workflow
+    assert serves is not None
+    step = next(s for s in pack.steps if s.id == serves.step)
+    maker = maker_of(Process.model_validate(step.params).maker)
+    assert maker.step_offer is not None
+    wp_id = maker.step_offer(ctx)
+    if wp_id is None:
+        return
+    scope: dict[str, Any] = {}
+    if scopes.PARTY in pack.scope.parts:
+        scope[scopes.PARTY] = ctx.workflow["party_id"]
+    if scopes.PERIOD in pack.scope.parts:
+        scope[scopes.PERIOD] = [ctx.workflow["period_start"], ctx.workflow["period_end"]]
+    process_runtime.wrap_into(pack.id, wp_id, scope=scope, actor=ctx.workflow["actor"])
+    ctx.package(wp_id)  # 160 (review R-2): an interrupted start goes on with this package
+    ctx.run(wp_id)
+
+
+def register_workflow_steps() -> None:
+    """231 (C3b5b): the workflow step kind of every pack that serves one (`ProcessPack.workflow`) whose step is this
+    capability's, made by the process runtime from the pack and its maker's workflow hooks (`process_runtime.pack_step_kind`).
+    Last in `registrations.load_all`, once every domain registered its makers."""
+    from functools import partial
+
+    from jav.app import process_packs, process_runtime  # lazy, as above
+
+    for pack in process_packs.packs():
+        if pack.workflow is None:
+            continue
+        step = next(s for s in pack.steps if s.id == pack.workflow.step)
+        if capabilities.of(step.uses) is not CAPABILITY:
+            continue
+        try:
+            known = workflow_steps.of(pack.workflow.kind)
+        except workflow_steps.UnknownStepKind:
+            known = None
+        if known is not None and known.module == process_runtime.__name__:
+            continue  # made already: a repeated registration adds nothing
+        maker = maker_of(Process.model_validate(step.params).maker)
+        if maker.step_offer is None:
+            raise ValueError(f"process pack {pack.id!r} serves a workflow step, but its maker {maker.name!r} makes none")
+        workflow_steps.register(process_runtime.pack_step_kind(
+            pack, start=partial(_workflow_start, pack.id), package_kinds=maker.package_kinds, rule=maker.rule,
+            only_new=maker.only_new, subfolders=maker.subfolders, repeat_from=maker.repeat_from, estimate=maker.estimate))
+
+
 def register() -> None:
-    """The source part, the documents' maker, the capability and its element's data (`registrations.load_all`)."""
-    from jav.app import case_views  # lazy: the case page reads the registered capabilities
+    """The source part, the documents' maker, the capability and its element's data (`registrations.load_all`); 231
+    (C3b5b) the documents maker with its workflow hooks (a workflow's documents step is the documents pack's)."""
+    from jav.app import case_views, workflows  # lazy: the case page reads the registered capabilities
 
     scopes.register(SOURCE)
-    register_maker(Maker(DOCUMENTS, __name__, _documents))
+    register_maker(Maker(DOCUMENTS, __name__, _documents, package_kinds=workflows.DOCUMENT_PACKAGES, only_new=True,
+                         subfolders=True, step_offer=workflows.documents_offer, repeat_from=workflows.repeat_from_folder))
     capabilities.register(CAPABILITY)
     case_views.register(case_views.ElementData("package_work", CAPABILITY.name, _OWNER, _package_view))
 
 
 __all__ = ["CAPABILITY", "DOCUMENTS", "Maker", "OWNER_PART", "PACKAGE", "Process", "ProcessingError", "SOURCE",
-           "SOURCE_PART", "bind", "bound", "maker_names", "maker_of", "owned_packages", "package_of", "paths_of", "register",
+           "SOURCE_PART", "bind", "bound", "maker_names", "register_workflow_steps", "maker_of", "owned_packages", "package_of", "paths_of", "register",
            "register_maker", "start_run"]

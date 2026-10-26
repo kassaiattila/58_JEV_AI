@@ -84,6 +84,17 @@ class Wrap(_Model):
     scope: dict[str, str] = Field(default_factory=dict)
 
 
+class Serves(_Model):
+    """231 (C3b5b): the workflow step kind a pack serves (`configs/workflows.json` `kinds`): a workflow's step of the
+    kind is the pack's (its step kind is made by the process runtime, `process_runtime.pack_step_kind`), its new package
+    wrapped by a case of the pack: `step`, the pack's step that takes the package, and `package_part`, the scope part
+    naming it."""
+
+    kind: str = Field(pattern=NAME)
+    step: str = Field(pattern=NAME)
+    package_part: str = Field(pattern=NAME)
+
+
 class Step(_Model):
     id: str = Field(pattern=NAME)
     uses: str = Field(pattern=r"^[a-z][a-z0-9_]*@[1-9][0-9]*$")
@@ -144,6 +155,7 @@ class ProcessPack(_Model):
     intake: tuple[Intake, ...] = ()
     adopts: tuple[Adopt, ...] = ()
     wraps: tuple[Wrap, ...] = ()  # 231 (C3b4)
+    workflow: Serves | None = None  # 231 (C3b5b)
     resources: dict[str, str] = Field(default_factory=dict)
     steps: tuple[Step, ...] = Field(min_length=1)
     screens: Screens
@@ -220,6 +232,13 @@ def _problems(pack: ProcessPack) -> list[str]:
             problems.append(f"wrap {wrap.kind or wrap.rule!r}: step {wrap.step!r} takes no package (its capability binds none)")
         if wrap.package_part not in pack.scope.parts or set(wrap.scope) - set(pack.scope.parts):
             problems.append(f"wrap {wrap.kind or wrap.rule!r}: its parts are scope parts of the pack")
+    if (serves := pack.workflow) is not None:  # 231 (C3b5b): its step takes the package, its part is the scope's
+        step = next((s for s in pack.steps if s.id == serves.step), None)
+        cap = _capability(step.uses) if step is not None else None
+        if cap is None or cap.bind is None:
+            problems.append(f"workflow {serves.kind!r}: step {serves.step!r} takes no package (its capability binds none)")
+        if serves.package_part not in pack.scope.parts:
+            problems.append(f"workflow {serves.kind!r}: {serves.package_part!r} is not a scope part of the pack")
     elements = cfg.load(ELEMENTS)["elements"]
     for tab in pack.screens.tabs:
         for element in tab.elements:

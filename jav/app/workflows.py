@@ -234,10 +234,10 @@ def _delete_guard(c, wp_id: str) -> None:
 
 def register() -> None:
     """173 (plan 170 E2): the delete guard of a workflow's packages and its party reference (`registrations.load_all`).
-    181: the documents step kind, and a step's package's scope (`step_scope`)."""
+    181: a step's package's scope (`step_scope`); 231 (C3b5b) the documents step kind is the documents pack's (made by
+    the process runtime from the pack, `document_processing.register_workflow_steps`)."""
     work.register_delete_guard(_delete_guard)
     parties.register_reference("workflows", count=_count_party, repoint=_repoint_party)
-    workflow_steps.register(DOCUMENTS_STEP)
     package_scope.register_source("workflow", step_scope)
 
 
@@ -773,8 +773,9 @@ def _package_source(kind: str, wp_id: str) -> dict[str, Any] | None:
     return src
 
 
-def _repeat_from_folder(wp_id: str) -> dict[str, Any] | None:
-    """The documents step's repeat source: the folder its linked package was made from (a folder or watched one)."""
+def repeat_from_folder(wp_id: str) -> dict[str, Any] | None:
+    """The documents step's repeat source: the folder its linked package was made from (a folder or watched one); 231
+    (C3b5b) the documents maker's (`jav/app/document_processing.py`)."""
     try:
         wp = work.get(wp_id)
     except KeyError:
@@ -978,9 +979,11 @@ def _poll(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor: i
         kind.poll(_context(wf, sdef, st, actor))
 
 
-def _start_documents(ctx: workflow_steps.StepStart) -> None:
+def documents_offer(ctx: workflow_steps.StepStart) -> str | None:
     """The documents step: the folder's or the files' documents (only those no live run has processed, when asked)
-    become the step's package and its live run starts; none: the step found nothing new and keeps no empty package."""
+    become the step's package; none: the step found nothing new and keeps no empty package. 231 (C3b5b): the documents
+    maker's workflow offer (`jav/app/document_processing.py`): the pack's step kind wraps the package by its case, notes
+    it on the step and starts its live run (until then this step kind's own start did the last two)."""
     source, wf = ctx.source, ctx.workflow
     files, left_out = _documents(source)
     wp = None
@@ -994,16 +997,10 @@ def _start_documents(ctx: workflow_steps.StepStart) -> None:
         if wp is not None:
             work.delete_workpackage(wp["id"], actor=ctx.actor)
         ctx.nothing_new(f"no new documents: {len(left_out)} already processed" if left_out else "no documents in the folder")
-        return
-    ctx.package(wp["id"])
+        return None
     if left_out:
         ctx.event("left_out", {"new": len(files), "left_out": len(left_out)})
-    ctx.run(wp["id"])
-
-
-# 181: the documents step, registered by `register`
-DOCUMENTS_STEP = workflow_steps.StepKind(DOCUMENTS, __name__, DOCUMENT_PACKAGES, start=_start_documents, only_new=True,
-                                         subfolders=True, repeat_from=_repeat_from_folder)
+    return str(wp["id"])
 
 
 def _give_engine(wp_id: str, engine: str | None, *, actor: identity.Who) -> None:

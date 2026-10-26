@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "process:bank_statements",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "description": "231 (plan stage C, C3b3; DECISIONS 231): an own party's bank statements of a period as a process pack (until C3 the statement package, its own kind of work package): a case makes its statement package from its source (the statements of the party and the period the store has not got yet), a person starts its live run within the package's estimate, and the case is done once a live run is approved.",
     "changelog": [
+      {
+        "version": "1.3.0",
+        "date": "2026-10-26",
+        "note": "231 (C3b5b; the owner's decision of 2026-10-26): the workflows' statements step is the pack's (workflow): its new package gets a case of the pack, and its live run starts within the step's budget as before."
+      },
       {
         "version": "1.2.0",
         "date": "2026-10-25",
@@ -58,6 +63,11 @@
       }
     }
   ],
+  "workflow": {
+    "kind": "statements",
+    "step": "process",
+    "package_part": "source"
+  },
   "screens": {
     "tabs": [
       {

@@ -277,7 +277,7 @@ def _lint_statement_table(mod: Any) -> Any:
 def register() -> None:
     """Every registration of the finance domain, in the order the shared code lists them (`registrations.load_all`)."""
     from jav import flows
-    from jav.app import datasets, package_scope, partners, scopes, work, workflow_steps
+    from jav.app import datasets, package_scope, partners, scopes, work
     from jav.domains.finance import own_parties, party_views  # its two decision points too
     from jav.domains.finance import duplicates, finance_datasets, reconcile_package, report_utility, statement_package
 
@@ -301,11 +301,11 @@ def register() -> None:
     from jav.app import document_processing
 
     # 231 (C3b2): the statements' package maker of a process pack's document processing step, by name
-    document_processing.register_maker(document_processing.Maker(statement_package.RULE_NAME, statement_package.__name__,
-                                                                 statement_package.make_for_case,
-                                                                 rule=statement_package.RULE_NAME))
-    workflow_steps.register(statement_package.STEP)  # 181: a workflow's statements step (231 C3a-2: the reconciliation's is
-    # its pack's process step)
+    # (C3b5b) with its workflow hooks: a workflow's statements step is the bank statements pack's step kind
+    document_processing.register_maker(document_processing.Maker(
+        statement_package.RULE_NAME, statement_package.__name__, statement_package.make_for_case,
+        rule=statement_package.RULE_NAME, package_kinds=(statement_package.PLAIN,), step_offer=statement_package.workflow_offer,
+        repeat_from=statement_package.workflow_repeat_from, estimate=statement_package.workflow_estimate))
     from jav.domains.finance import capabilities
 
     # 231 (C2b): the pairing of two lists as a general capability's step (the monthly reconciliation's pack names it, C2d);

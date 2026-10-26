@@ -12,6 +12,8 @@ person starts waits for that person's start task.
   under its own id, each step in the state its capability reads from the package's work (`Capability.adopt`);
   `adopt_all(actor, write=)` (C1c): every package of a kind a pack takes over (`adopts`), with its stored scope;
   (C3b4) and every package of a kind it wraps (`wraps`).
+- `pack_step_kind(pack, start, ...)` and `wrap_into(pack_id, wp_id, scope, actor)` (231, C3b5b): the workflow step
+  kind a pack serves (its `workflow` block), and its new package wrapped by a case of the pack.
 - `wrap_case(pack_id, wp_id, rule, actor)` (231, plan stage C, C3b4): a new case made around a package made before (a
   package with runs cannot be a case's container): the package keeps its id, items, runs and approvals and becomes the
   package of the case's step, which starts in the state its capability reads from the package's runs.
@@ -39,7 +41,7 @@ from jav.core.process import cases
 from jav.core.user_messages import explained
 
 __all__ = ["CONTAINER", "CONTAINER_PACK", "adopt_all", "adopt_case", "outputs_of", "owns_approval", "pack_for", "pack_of",
-           "register", "start_case", "wrap_case"]
+           "pack_step_kind", "register", "start_case", "wrap_case", "wrap_into"]
 
 CONTAINER = "case"  # the container work package's kind
 activity_kinds.register_events("package", ("case_wrapped",), __name__)  # C3b4: a wrapped package's log names its case
@@ -123,6 +125,33 @@ def _wrapping_step(pack: process_packs.ProcessPack, rule: process_packs.Wrap) ->
     return step, cap
 
 
+def wrap_into(pack_id: str, wp_id: str, *, scope: dict[str, Any], actor: identity.Who) -> str:
+    """231 (C3b5b): a workflow step's new package wrapped by a new case of the pack that serves the step (its `workflow`
+    block: the step that takes the package and the scope part naming it), with the workflow's `scope` (its party and
+    period, as the pack takes them). "wrapped"; "exists" for a package a step has already."""
+    pack = process_packs.load(pack_id)
+    serves = pack.workflow
+    if serves is None:
+        raise explained(ValueError, "process pack {{pack}} serves no workflow step", pack=pack_id)
+    return _wrap(pack, wp_id, step_id=serves.step, package_part=serves.package_part, scope=scope, actor=actor)
+
+
+def pack_step_kind(pack: process_packs.ProcessPack, *, start: Any, package_kinds: tuple[str, ...], rule: str | None = None,
+                   only_new: bool = False, subfolders: bool = False, repeat_from: Any = None, estimate: Any = None) -> Any:
+    """231 (C3b5b): the workflow step kind the pack serves (`ProcessPack.workflow`), with the facts its step's capability
+    gives (`start`, the kinds and the rule of a package the step may take, whether it leaves out what a live run has
+    processed or takes subfolders, its repeat source and estimate): a paid step that runs its own package, so it may have
+    its own AI engine, needing the parts of the workflow's scope the pack takes (its party and period). A kind of the
+    general process runtime, not a domain's."""
+    from jav.app import workflow_steps
+
+    assert pack.workflow is not None
+    return workflow_steps.StepKind(pack.workflow.kind, __name__, package_kinds, start=start, paid=True, own_engine=True,
+                                   only_new=only_new, subfolders=subfolders, repeat_from=repeat_from, estimate=estimate,
+                                   needs=tuple(p for p in (scopes.PARTY, scopes.PERIOD) if p in pack.scope.parts),
+                                   rule=rule)
+
+
 def wrap_case(pack_id: str, wp_id: str, rule: process_packs.Wrap, *, actor: identity.Who) -> str:
     """231 (plan stage C, C3b4): a new case of the pack's current version made around the existing package `wp_id`
     (`rule`: one of the pack's `wraps`), in one write transaction: its container (the package's name, owner and
@@ -131,14 +160,24 @@ def wrap_case(pack_id: str, wp_id: str, rule: process_packs.Wrap, *, actor: iden
     the package's runs (`Capability.adopt`). The package keeps its id, kind, items, runs, approvals and versions; its log
     names the case. "wrapped"; "exists" for a package a step has already (nothing changes). KeyError: no package;
     `scopes.ScopeError`: its stored scope does not give the case's."""
+    pack = process_packs.load(pack_id)
+    stored = package_scope.stored(wp_id) or {}
+    return _wrap(pack, wp_id, step_id=rule.step, package_part=rule.package_part,
+                 scope={part: _stored_value(stored, key) for part, key in rule.scope.items()}, actor=actor)
+
+
+def _wrap(pack: process_packs.ProcessPack, wp_id: str, *, step_id: str, package_part: str, scope: dict[str, Any],
+          actor: identity.Who) -> str:
+    """The wrapping itself (`wrap_case`, `wrap_into`): the case's scope is `scope` with `package_part` naming the
+    package."""
     from jav.app import process_settings
 
-    pack = process_packs.load(pack_id)
-    step, cap = _wrapping_step(pack, rule)
+    step = next(s for s in pack.steps if s.id == step_id)
+    cap = capabilities.of(step.uses)
+    if cap.bind is None or cap.bound is None:
+        raise explained(ValueError, "step {{step}} takes no package", step=step.id)
     wp = work.get(wp_id)
-    stored = package_scope.stored(wp_id) or {}
-    scope = {part: _stored_value(stored, key) for part, key in rule.scope.items()}
-    scope[rule.package_part] = {"kind": "package", "workpackage_id": wp_id}
+    scope = {**scope, package_part: {"kind": "package", "workpackage_id": wp_id}}
     checked = scopes.check(pack.scope.needs(), scope, optional=pack.scope.optional)
     resources = process_settings.effective_resources(pack)
     rules, rule_refs = process_settings.effective_rules(pack)

@@ -51,9 +51,11 @@ def order(domains: list[Any]) -> list[Callable[[], None]]:
 
     first, *others = domains
     # 231 (A6): the process packs' case container among the shared ones; (A7c, A7d) the general send and reply
-    # capabilities; (A7e) the case lists; (C3b2) the document processing capability
+    # capabilities; (A7e) the case lists; (C3b2) the document processing capability; (C3b5b) last, the workflow step
+    # kinds of the packs that serve one, once every domain registered its package makers
     return [first.register, workflows.register, package_scope.register, process_runtime.register, sending.register,
-            replies.register, document_processing.register, case_lists.register, *(domain.register for domain in others)]
+            replies.register, document_processing.register, case_lists.register, *(domain.register for domain in others),
+            document_processing.register_workflow_steps]
 
 
 def load_all() -> None:

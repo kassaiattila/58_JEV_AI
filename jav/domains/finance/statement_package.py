@@ -531,10 +531,11 @@ def _page(wp_id: str) -> dict[str, Any]:
 # --- a workflow's statements step (181, plan 170 L5; until then in `jav/app/workflows.py`) ----------------------------
 
 
-def workflow_start(ctx: workflow_steps.StepStart) -> None:
+def workflow_offer(ctx: workflow_steps.StepStart) -> str | None:
     """A workflow's statements step: the folder's or the files' statements of the workflow's party and period that the
-    store has not got yet become the step's statement package, and its live run starts within the step's budget;
-    nothing new: the step is done without a package."""
+    store has not got yet become the step's statement package; nothing new: the step is done without a package. 231
+    (C3b5b): the statements maker's workflow offer (`jav/app/document_processing.py`): the bank statements pack's step
+    kind wraps the package by its case, notes it on the step and starts its live run within the step's budget."""
     wf = ctx.workflow
     paths = workflow_steps.paths_of(ctx.source)
     found = survey(paths, party_id=wf["party_id"], period_start=wf["period_start"], period_end=wf["period_end"])
@@ -543,11 +544,10 @@ def workflow_start(ctx: workflow_steps.StepStart) -> None:
     if not chosen and not pdfs:
         ctx.nothing_new(f"no new statement: {len(found['statements'])} statement(s) and {len(found['pdfs'])} PDF(s) "
                         "are in the store or outside the period")
-        return
-    made = create(name=ctx.state["name"], party_id=wf["party_id"], period_start=wf["period_start"],
-                  period_end=wf["period_end"], paths=paths, statements=chosen, pdfs=pdfs, actor=wf["actor"])
-    ctx.package(made["workpackage_id"])  # 160 (review R-2): an interrupted start goes on with this package
-    ctx.run(made["workpackage_id"])
+        return None
+    return str(create(name=ctx.state["name"], party_id=wf["party_id"], period_start=wf["period_start"],
+                      period_end=wf["period_end"], paths=paths, statements=chosen, pdfs=pdfs, actor=wf["actor"],
+                      case=False)["workpackage_id"])
 
 
 def make_for_case(scope: dict[str, Any], name: str, owner: identity.Who | None) -> str | None:
@@ -584,10 +584,6 @@ def workflow_repeat_from(wp_id: str) -> dict[str, Any] | None:
     return workflow_steps.folder_source(wp, (PLAIN,))
 
 
-# 181: the statements step of a workflow (registered by the finance domain, `jav/domains/finance/__init__.py`)
-STEP = workflow_steps.StepKind("statements", __name__, (PLAIN,), start=workflow_start, repeat_from=workflow_repeat_from,
-                               rule=RULE_NAME,
-                               estimate=workflow_estimate, needs=("party", "period"))
 
 
 # 181 (plan 170 L5): a statement package's party and period, and the role of the packages that collect bank statements
@@ -648,5 +644,5 @@ RULE = work.PackageRule(after_detection=after_detection, after_item=after_item, 
                         make_with_files=create_with_files)
 
 
-__all__ = ["KIND", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "STEP", "StatementPackageError", "add_statement_tables",
+__all__ = ["KIND", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "StatementPackageError", "add_statement_tables",
            "after_detection", "after_item", "create", "create_from_statement_table", "package_view", "scope", "survey"]
