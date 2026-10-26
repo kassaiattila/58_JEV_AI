@@ -39,7 +39,7 @@ describe("181 a workflow without party or period", () => {
     const onWorkflow = vi.fn();
     render(<NewWork onPackage={vi.fn()} onWorkflow={onWorkflow} initialTemplate="inbox_and_folder" />);
     fireEvent.change(await screen.findByLabelText("Folder of Documents: extract their data"), { target: { value: "C:\\work\\in" } });
-    fireEvent.change(screen.getByLabelText(/Mailbox address/), { target: { value: "office@example.com" } });
+    fireEvent.change(await screen.findByLabelText(/Mailbox address/), { target: { value: "office@example.com" } });
     expect(screen.queryByLabelText("Period from")).toBeNull();
     expect(screen.queryByText("The emails received in the workflow's period")).toBeNull(); // by a number of days
     expect(parties).not.toHaveBeenCalled();

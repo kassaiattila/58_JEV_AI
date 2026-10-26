@@ -3,13 +3,14 @@
 // download log, and the new emails become a work package with the email intent recipe (231 C3d: a mailbox case's). No
 // paid processing starts by itself (decision of 2026-09-28).
 import { useEffect, useState } from "react";
-import { api, ApiError, getActor, NO_ACTOR, type MailboxCount, type MailboxPull, type MailboxRequest } from "../api";
-import { ConfirmButton } from "../components/ConfirmButton";
-import { DataTable } from "../components/DataTable";
-import { Picker } from "../components/Picker";
-import { useLoad } from "../hooks";
-import { t, useLocale } from "../i18n";
-import { intervals, intervalText, mailboxLabel, when } from "../labels";
+import { api, ApiError, getActor, NO_ACTOR, type MailboxCount, type MailboxPull, type MailboxRequest } from "../../api";
+import { ConfirmButton } from "../../components/ConfirmButton";
+import { DataTable } from "../../components/DataTable";
+import { Picker } from "../../components/Picker";
+import { useLoad } from "../../hooks";
+import { t, useLocale } from "../../i18n";
+import { intervals, intervalText, mailboxLabel, when } from "../../labels";
+import { splitAccounts, type MailboxStepDraft } from "./mailboxSource";
 
 export function pullSummary(p: Pick<MailboxPull, "status" | "result">): string {
   const r = p.result;
@@ -41,10 +42,6 @@ export function pullErrorText(message: string): string {
   return knownBridgeError(message) ?? message;
 }
 
-export function splitAccounts(value: string): string[] {
-  return value.split(",").map((a) => a.trim()).filter(Boolean);
-}
-
 /** 065: adds a „Korábban használt” (Previously used) address to the list, or removes it if it is already there. */
 export function toggleAccount(value: string, account: string): string {
   const list = splitAccounts(value);
@@ -54,7 +51,7 @@ export function toggleAccount(value: string, account: string): string {
 /** 231 (C3d): what a mailbox download reads - the addresses (the previously used ones a click away), the folders, the
  *  period, at most how many emails - with the free count of the emails it would bring; the request, or null while it
  *  is not complete. Settings › Mailboxes saves a schedule of it; a mailbox case's general form downloads it
- *  (`ui/src/elements/sourceChoosers.tsx`). Until C3d the wizard's own download form (the `pull` variant). */
+ *  (its chooser, `./index.tsx`). Until C3d the wizard's own download form (the `pull` variant). */
 export function MailboxRequestFields({ onChange }: { onChange: (req: MailboxRequest | null) => void }) {
   useLocale();
   const data = useLoad("mailbox", api.mailbox);
@@ -159,11 +156,8 @@ export function MailboxRequestFields({ onChange }: { onChange: (req: MailboxRequ
   );
 }
 
-/** 231 (C3d): the part of the new work wizard's step draft a mailbox download fills. */
-export type MailboxStepDraft = { accounts: string; folders: string; maxItems: number; usePeriod: boolean; days: number };
-
 /** 181 / 231 (C3d): a workflow step's mailbox download in the new work wizard (its draft: the addresses, the folders, at
- *  most how many emails, the workflow's period or a number of days), found through `ui/src/elements/sourceChoosers.tsx`
+ *  most how many emails, the workflow's period or a number of days), found through its chooser (`./index.tsx`)
  *  (until C3d in the wizard itself). */
 export function MailboxStepFields({ draft, hasPeriod, onChange }: { draft: MailboxStepDraft; hasPeriod: boolean; onChange: (patch: Partial<MailboxStepDraft>) => void }) {
   useLocale();

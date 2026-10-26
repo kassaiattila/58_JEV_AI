@@ -13,7 +13,7 @@ import { useLoad } from "./hooks";
 import { checkText, intentLabel, itemName, nextFlowText, paramsText, reasonText } from "./labels";
 import { EmailReview, splitLinks } from "./review/EmailReview";
 import { PageViewer } from "./review/PageViewer";
-import { bridgeErrorText, pullSummary, toggleAccount } from "./views/Mailbox";
+import { bridgeErrorText, pullSummary, toggleAccount } from "./domains/email/Mailbox";
 import { draftKey, getDraft, resetDrafts, setField } from "./review/drafts";
 import { buildSave, FieldPanel, rowOf } from "./review/FieldPanel";
 import { ListTable } from "./review/ListTable";

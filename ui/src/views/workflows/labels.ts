@@ -2,6 +2,7 @@
 import type { WorkflowBudget, WorkflowStep, WorkflowStepStatus } from "../../api";
 import { t } from "../../i18n";
 import { tmap } from "../../labels";
+import { chooserOf } from "../../elements/sourceChoosers";
 
 export const STEP_STATUS: Record<WorkflowStepStatus, string> = tmap({
   waiting: "waits for its earlier steps", ready: "ready to start", starting: "starting…",
@@ -75,8 +76,8 @@ function sourceWords(s: WorkflowStep["source"]): string {
   switch (s.kind) {
     case "folder": return s.recursive ? t("folder {{folder}} with its subfolders", { folder: s.folder ?? "" }) : t("folder {{folder}}", { folder: s.folder ?? "" });
     case "files": return t("{{n}} given file(s), the first: {{first}}", { n: s.count ?? 0, first: s.first ?? "" });
-    case "mailbox": return t("mailbox {{accounts}}", { accounts: (s.accounts ?? []).join(", ") });
     case "package": return t("an existing work package");
-    default: return t("no files: made from the earlier steps");
+    // 231 (C3e): a domain's source kind (a mailbox download) in its chooser's words
+    default: return chooserOf(s.kind)?.words(s) ?? t("no files: made from the earlier steps");
   }
 }

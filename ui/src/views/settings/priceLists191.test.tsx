@@ -9,8 +9,7 @@ import {
   type PriceListVersion,
 } from "../../api";
 import { setLanguage, t } from "../../i18n";
-import { SECTIONS } from "../../route";
-import { SETTINGS_SECTIONS } from "../Settings";
+import { settingsSections } from "../../logic/settingsSections";
 import { priceIssueText, PriceListsPanel } from "./PriceListsPanel";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
@@ -53,8 +52,8 @@ function detail(over: Partial<PriceListDetail> = {}): PriceListDetail {
 
 describe("Settings › Price lists (191)", () => {
   it("is a settings section with an English label and hint", () => {
-    expect(SECTIONS).toContain("prices");
-    const s = SETTINGS_SECTIONS.find((x) => x.key === "prices")!;
+    expect(settingsSections().map((x) => x.key)).toContain("prices");
+    const s = settingsSections().find((x) => x.key === "prices")!;
     expect(t(s.label)).toBe("Price lists");
     expect(t(s.hint)).toBe(s.hint);
   });

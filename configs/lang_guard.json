@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.138",
+    "version": "1.0.139",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.139",
+        "date": "2026-10-26",
+        "note": "231 (plan stage C, C3e-1): the mailbox screen moved to the email domain's folder (ui/src/views/Mailbox.tsx 40 -> ui/src/domains/email/Mailbox.tsx 37), and the Settings sections' Hungarian source labels to the sections' registry (ui/src/views/Settings.tsx 18 -> 10, ui/src/logic/settingsSections.ts 6, ui/src/domains/email/index.tsx 1); ui/src/views/DocumentsCreate.tsx (9) went in C3b5a; 6075 -> 6062."
+      },
       {
         "version": "1.0.138",
         "date": "2026-10-25",
@@ -1079,6 +1084,8 @@
     "ui/src/dateReading084.test.tsx": 15,
     "ui/src/deps075.test.tsx": 3,
     "ui/src/detailDirection149.test.tsx": 1,
+    "ui/src/domains/email/Mailbox.tsx": 37,
+    "ui/src/domains/email/index.tsx": 1,
     "ui/src/emailText190.test.ts": 1,
     "ui/src/errorboundary066.test.tsx": 7,
     "ui/src/feedback062.test.tsx": 26,
@@ -1095,6 +1102,7 @@
     "ui/src/layout.test.tsx": 49,
     "ui/src/listChecks190.test.ts": 3,
     "ui/src/listRefresh153.test.tsx": 18,
+    "ui/src/logic/settingsSections.ts": 6,
     "ui/src/naming078.test.tsx": 11,
     "ui/src/noJev086.test.tsx": 10,
     "ui/src/numberEdit081.test.tsx": 5,
@@ -1135,16 +1143,14 @@
     "ui/src/validatorField090.test.ts": 2,
     "ui/src/version071.test.tsx": 6,
     "ui/src/views/Activity.tsx": 8,
-    "ui/src/views/DocumentsCreate.tsx": 9,
     "ui/src/views/LegacyResult.tsx": 2,
-    "ui/src/views/Mailbox.tsx": 40,
     "ui/src/views/PackageCosts.tsx": 8,
     "ui/src/views/ProcessStage.tsx": 49,
     "ui/src/views/RecipeInfo.tsx": 14,
     "ui/src/views/ResultStage.tsx": 17,
     "ui/src/views/ReviewWorkspace.tsx": 24,
     "ui/src/views/Runs.tsx": 42,
-    "ui/src/views/Settings.tsx": 18,
+    "ui/src/views/Settings.tsx": 10,
     "ui/src/views/StartConfirm.tsx": 18,
     "ui/src/views/UtilityReport.tsx": 20,
     "ui/src/views/WorkpackageActions.tsx": 15,

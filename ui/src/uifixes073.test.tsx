@@ -7,8 +7,8 @@ import { api } from "./api";
 import english from "./i18n/en";
 import { setLanguage } from "./i18n";
 import { reasonText } from "./labels";
-import { pullErrorText, pullSummary } from "./views/Mailbox";
-import { SETTINGS_SECTIONS } from "./views/Settings";
+import { pullErrorText, pullSummary } from "./domains/email/Mailbox";
+import { settingsSections } from "./logic/settingsSections";
 import { UsersPanel } from "./views/settings/UsersPanel";
 
 afterEach(async () => {
@@ -45,7 +45,7 @@ describe("download errors (073)", () => {
 
 describe("settings menu translations (073)", () => {
   it("every section label and hint has an English translation", () => {
-    const missing = SETTINGS_SECTIONS.flatMap((s) => [s.label, s.hint]).filter((k) => !(k in english));
+    const missing = settingsSections().flatMap((s) => [s.label, s.hint]).filter((k) => !(k in english));
     expect(missing).toEqual([]);
     expect(english["Receptek"]).toBe("Recipes");
   });

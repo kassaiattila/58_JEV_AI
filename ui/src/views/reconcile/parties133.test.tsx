@@ -10,7 +10,7 @@ import {
 } from "../../api";
 import hungarian from "../../i18n/hu-native.json";
 import { setLanguage, t } from "../../i18n";
-import { SETTINGS_SECTIONS } from "../Settings";
+import { settingsSections } from "../../logic/settingsSections";
 import { PartiesPanel } from "../settings/PartiesPanel";
 import { ReconcilePairing } from "./ReconcilePairing";
 
@@ -142,7 +142,7 @@ describe("the Hungarian interface of the own parties", () => {
       for (const m of src.matchAll(/\bt\(\s*"((?:[^"\\]|\\.)*)"/g)) keys.add(JSON.parse(`"${m[1]}"`));
       for (const block of src.matchAll(/tmap\(\{([\s\S]*?)\}\)/g)) for (const m of block[1].matchAll(/:\s*"((?:[^"\\]|\\.)*)"/g)) keys.add(JSON.parse(`"${m[1]}"`));
     }
-    const section = SETTINGS_SECTIONS.find((s) => s.key === "parties")!;
+    const section = settingsSections().find((s) => s.key === "parties")!;
     keys.add(section.label);
     keys.add(section.hint);
     const missing = [...keys].filter((k) => !(k in (hungarian as Record<string, string>)));

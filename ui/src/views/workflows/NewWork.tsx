@@ -10,24 +10,25 @@
 // and approves the budgets again.
 import { Fragment, useMemo, useState } from "react";
 import {
-  api, ApiError, type Engine, type MailboxRequest, type WorkflowBudget, type WorkflowDraft, type WorkflowEstimate, type WorkflowSource,
+  api, ApiError, type Engine, type WorkflowBudget, type WorkflowDraft, type WorkflowEstimate, type WorkflowSource,
   type WorkflowTemplate, type WorkflowTemplates, type WorkKind, type WorkSourceKind,
 } from "../../api";
 import { BrowseButton } from "../../components/BrowseButton";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { go } from "../../route";
-import { splitAccounts } from "../Mailbox";
 import { PartyChoice } from "../../components/PartyChoice";
 import { SingleForm } from "../../logic/steps";
 import { chooserOf } from "../../elements/sourceChoosers";
 import { ENGINE } from "../../labels";
 import { budgetText, centsUp, mergeProposal, PROVIDER } from "./labels";
 
-const SOURCE_LABEL: Record<WorkSourceKind, string> = {
-  folder: "A folder", files: "Given files", mailbox: "A mailbox", package: "An existing work package",
+const SOURCE_LABEL: Record<string, string> = {
+  folder: "A folder", files: "Given files", package: "An existing work package",
   none: "Nothing: made from the earlier steps",
 };
+/** A source kind's choice in the wizard: a shared one's, or (231 C3e) the chooser's of the domain that adds it. */
+const sourceLabel = (kind: WorkSourceKind) => SOURCE_LABEL[kind] ?? chooserOf(kind)?.label ?? kind;
 
 /** The first and the last day of the last closed month. */
 export function lastClosedMonth(today = new Date()): [string, string] {
@@ -149,7 +150,9 @@ function TemplateChoice({ tpl, conf, checked, onPick }: { tpl: WorkflowTemplate;
 
 interface StepDraft {
   source: WorkSourceKind; folder: string; recursive: boolean; onlyNew: boolean; files: string; packageId: string;
-  packageName: string; accounts: string; folders: string; usePeriod: boolean; days: number; maxItems: number;
+  packageName: string;
+  /** 231 (C3e): the step's draft of each source kind a domain adds, by the kind (its chooser's, `elements/sourceChoosers.tsx`) */
+  own: Record<string, unknown>;
   budget: WorkflowBudget; estimate: WorkflowEstimate | null; estimating: boolean; error: string | null;
   /** 167 (review 160 U-9): the services whose budget the person typed here (a new estimate leaves them) */
   typed: Record<string, boolean>;
@@ -157,11 +160,11 @@ interface StepDraft {
   engine: Engine | null;
 }
 
-function draftFor(kind: WorkKind, conf: WorkflowTemplates): StepDraft {
+function draftFor(kind: WorkKind, conf: WorkflowTemplates, hasPeriod = true): StepDraft {
+  const own = conf.kinds[kind].sources.flatMap((k) => { const c = chooserOf(k); return c ? [[k, c.step.draft(null, hasPeriod)]] : []; });
   return {
     source: conf.kinds[kind].sources[0], folder: "", recursive: false, onlyNew: false, files: "", packageId: "", packageName: "",
-    accounts: "", folders: "Inbox", usePeriod: true, days: 31, maxItems: 0, budget: {}, estimate: null, estimating: false, error: null,
-    engine: null, typed: {},
+    own: Object.fromEntries(own), budget: {}, estimate: null, estimating: false, error: null, engine: null, typed: {},
   };
 }
 
@@ -174,13 +177,10 @@ function draftFrom(kind: WorkKind, conf: WorkflowTemplates, src: WorkflowSource 
     case "folder": return { ...d, source: "folder", folder: src.folder ?? "", recursive: Boolean(src.recursive), onlyNew: Boolean(src.only_new) };
     case "files": return { ...d, source: "files", files: (src.paths ?? []).join("\n"), onlyNew: Boolean(src.only_new) };
     case "package": return { ...d, source: "package", packageId: src.workpackage_id ?? "" };
-    case "mailbox": {
-      const r = src.request;
-      if (!r) return d;
-      return { ...d, source: "mailbox", accounts: r.accounts.join(", "), folders: (r.folders ?? ["Inbox"]).join(", "),
-        usePeriod: !r.since_days, days: r.since_days ?? 31, maxItems: r.max_items ?? 0 };
+    default: {
+      const chooser = chooserOf(src.kind);  // 231 (C3e): a domain's source kind (a mailbox download) from its stored source
+      return chooser ? { ...d, source: src.kind, own: { ...d.own, [src.kind]: chooser.step.draft(src, true) } } : { ...d, source: "none" };
     }
-    default: return { ...d, source: "none" };
   }
 }
 
@@ -200,16 +200,10 @@ function sourceOf(d: StepDraft, period: [string, string]): WorkflowSource | null
     case "folder": return d.folder.trim() ? { kind: "folder", folder: d.folder.trim(), recursive: d.recursive, ...(d.onlyNew ? { only_new: true } : {}) } : null;
     case "files": return lines(d.files).length ? { kind: "files", paths: lines(d.files), ...(d.onlyNew ? { only_new: true } : {}) } : null;
     case "package": return d.packageId ? { kind: "package", workpackage_id: d.packageId } : null;
-    case "mailbox": {
-      const accounts = splitAccounts(d.accounts);
-      if (!accounts.length) return null;
-      const request: MailboxRequest = {
-        accounts, folders: d.folders.split(",").map((f) => f.trim()).filter(Boolean), max_items: d.maxItems,
-        ...(d.usePeriod ? { received_from: period[0], received_to: period[1] } : { since_days: d.days }),
-      };
-      return { kind: "mailbox", request };
+    default: {
+      const chooser = chooserOf(d.source);  // 231 (C3e): a domain's source kind makes its own stored source
+      return chooser ? chooser.step.source(d.own[d.source], period) : { kind: "none" };
     }
-    default: return { kind: "none" };
   }
 }
 
@@ -232,7 +226,7 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
   const [drafts, setDrafts] = useState<Record<string, StepDraft>>(() =>
     Object.fromEntries(tpl.steps.map((s) => [s.id, initial?.steps[s.id]
       ? draftFrom(s.kind, conf, initial.steps[s.id].source, initial.steps[s.id].budget, initial.steps[s.id].engine ?? null)
-      : { ...draftFor(s.kind, conf), usePeriod: needPeriod }])));
+      : draftFor(s.kind, conf, needPeriod)])));
   const appEngine = useLoad("engine", api.engine).data?.engine ?? null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -307,7 +301,7 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
             <li key={s.id}>
               <strong>{stepTitle(s.id)}</strong>
               {s.after?.length ? <span className="muted small"> · {t("starts once these are approved: {{steps}}", { steps: s.after.map(stepTitle).join(", ") })}</span> : null}
-              <div className="small">{t(SOURCE_LABEL[drafts[s.id].source])}{sourceDetail(drafts[s.id], sources[s.id])}</div>
+              <div className="small">{t(sourceLabel(drafts[s.id].source))}{sourceDetail(drafts[s.id], sources[s.id])}</div>
               {ownEngine(s.kind, drafts[s.id]) ? (
                 <>
                   <div className="small">{t("AI engine: {{engine}}", { engine: engineText(drafts[s.id]) })}</div>
@@ -376,7 +370,7 @@ function StepEditor({ n, title, kind, conf, draft, appEngine, hasPeriod, after, 
       {sources.length > 1 ? (
         <div className="segmented" role="radiogroup" aria-label={t("Source of {{step}}", { step: title })}>
           {sources.map((src) => (
-            <label key={src}><input type="radio" name={`wz-src-${n}`} checked={draft.source === src} onChange={() => touched({ source: src })} /> {t(SOURCE_LABEL[src])}</label>
+            <label key={src}><input type="radio" name={`wz-src-${n}`} checked={draft.source === src} onChange={() => touched({ source: src })} /> {t(sourceLabel(src))}</label>
           ))}
         </div>
       ) : null}
@@ -403,8 +397,10 @@ function StepEditor({ n, title, kind, conf, draft, appEngine, hasPeriod, after, 
         </div>
       ) : null}
       {(() => {  // 185 / 231 (C3d): a domain's source kind (a mailbox download) through its chooser
-        const Chooser = chooserOf(draft.source)?.Step;
-        return Chooser ? <Chooser draft={draft} hasPeriod={hasPeriod} onChange={touched} /> : null;
+        const Fields = chooserOf(draft.source)?.step.Fields;
+        const own = draft.own[draft.source];
+        return Fields ? <Fields draft={own} hasPeriod={hasPeriod}
+          onChange={(patch) => touched({ own: { ...draft.own, [draft.source]: { ...(own as object), ...(patch as object) } } })} /> : null;
       })()}
       {draft.source === "package" ? <PackageSource kinds={conf.kinds[kind].package_kinds} value={draft.packageId} onChange={(id, name) => touched({ packageId: id, packageName: name })} /> : null}
       {paid ? (

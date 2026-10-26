@@ -6,6 +6,7 @@ import "@fontsource/ibm-plex-mono/400.css";
 import "./styles.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import "./domains"; // 231 (C3e): the domains register their screens before the first render
 import { App } from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initAppearance } from "./appearance";
