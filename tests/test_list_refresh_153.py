@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from jav.app import datasets, work_runs, work_views, workflows
+from jav.app import datasets, work_runs, work_views, workflow_records, workflows
 from jav.core import store
 from jav.app.tablequery import Column, Query
 from tests.test_supersede_runs_151 import runs  # noqa: F401 - the shared fixture: one package, an older and a newer live run
@@ -175,5 +175,5 @@ def test_a_workflow_step_stays_done_when_a_later_live_run_was_stopped(runs):  # 
                       (len(runs["older"]) + 1, runs["older"] + ":"))
             c.execute("UPDATE runs SET status='done', approval='approved' WHERE run_id=?", (runs["older"],))
         _stop(runs["newer"])
-        approved, nxt = workflows._package_state(runs["wp"])
+        approved, nxt = workflow_records._package_state(runs["wp"])
         assert approved is True and nxt["code"] == "done"
