@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "policyholder_name": { "type": ["string", "null"], "description": "The business the site belongs to, with its legal form" },
+    "site_no": { "type": ["string", "null"], "description": "The site's number or mark, as printed" },
+    "site_address": { "type": ["string", "null"], "description": "The site's address as printed" },
+    "floor_area": { "type": ["string", "null"], "description": "The floor area in square metres, plain decimal STRING" },
+    "flood_zone": { "type": ["string", "null"], "description": "The flood zone as printed" },
+    "alarm_remote": { "type": ["string", "null"], "description": "Whether the site has an alarm with remote signalling, as printed (igen, nem)" },
+    "surge_protection": { "type": ["string", "null"], "description": "The surge protection in place, as printed" },
+    "basement_storage": { "type": ["string", "null"], "description": "Whether goods are stored in a basement, as printed (igen, nem)" },
+    "protection_class": { "type": ["string", "null"], "description": "The protection class in place, plain number STRING" },
+    "currency": { "type": ["string", "null"], "description": "ISO 4217 code of the sheet's amounts (Ft = HUF)" },
+    "asset_groups": {
+      "type": "array",
+      "description": "Every asset group the sheet lists for the site, in the order printed; not a total row",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "asset_group": { "type": ["string", "null"], "description": "The asset group as printed" },
+          "sum_insured": { "type": ["string", "null"], "description": "Its sum insured, plain decimal STRING, dot separator" },
+          "valuation": { "type": ["string", "null"], "description": "Its valuation basis as printed" },
+          "wear": { "type": ["number", "null"], "description": "Its technical wear in percent" }
+        },
+        "required": ["asset_group", "sum_insured", "valuation", "wear"]
+      }
+    }
+  },
+  "required": ["policyholder_name", "site_no", "site_address", "floor_area", "flood_zone", "alarm_remote", "surge_protection",
+               "basement_storage", "protection_class", "currency", "asset_groups"]
+}

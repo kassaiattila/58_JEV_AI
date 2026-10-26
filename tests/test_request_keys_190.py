@@ -9,7 +9,7 @@ of its JEV verification request (the JEV cache key: the state and the questions)
 the pack's own fields.
 
 Pinned on `952c2b5` (v1.28.1 + 189); the quote request's pack (190, A2e) when it was added. 197: the taught ticket candidate
-(plan 197 K2b) when it was made. A deliberate change to a pack, its prompt, its schema or its verification call
+(plan 197 K2b) when it was made. 231 (D-e1): the insurance application's three packs when they were added. A deliberate change to a pack, its prompt, its schema or its verification call
 site changes its fingerprint too, and needs that pack's paid golden run anyway. Synthetic values only; no model call.
 """
 
@@ -49,6 +49,8 @@ GPT_KEYS = {
     "villamos_energia_szamla": "4d5873be63e21fb7", "viz_szamla": "7010f2c0cb3c2db5",
     "vizmuvek_szamla": "8b607daa57d74606",
     "quote_request": "026aa29aa98ab0be",  # 190 (A2e): the new pack, pinned when it was added
+    # 231 (stage D, D-e1): the insurance application's packs, pinned when they were added
+    "insurance_request": "8526a00ed5623034", "property_schedule": "046a6a2f2f118ef1", "claims_history": "1f6311eee41aebbd",
 }
 JEV_KEYS = {
     "altalanos_szerzodesi_feltetelek": "9aca1d3bc4265e76", "belepo_jegy": "e667b3f8f487207e",
@@ -63,6 +65,7 @@ JEV_KEYS = {
     "villamos_energia_szamla": "985ca0f22575a6d4", "viz_szamla": "71ed6531db577f64",
     "vizmuvek_szamla": "4dcef8aafebc6084",
     "quote_request": "c3cb7a88278eca49",  # 190 (A2e)
+    "insurance_request": "1967225b266f6740", "property_schedule": "0c1a03dac6dad0db", "claims_history": "7a7e2ad253fecb3c",  # D-e1
 }
 
 

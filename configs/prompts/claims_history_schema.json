@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "policyholder_name": { "type": ["string", "null"], "description": "The business that makes the statement, with its legal form; never the insurer" },
+    "policyholder_tax_number": { "type": ["string", "null"], "description": "Its tax number, as printed" },
+    "period_start": { "type": ["string", "null"], "description": "The first day of the period stated, ISO YYYY-MM-DD" },
+    "period_end": { "type": ["string", "null"], "description": "The last day of the period stated, ISO YYYY-MM-DD" },
+    "claims_count": { "type": ["string", "null"], "description": "The total number of claims the statement gives, plain number STRING; 0 when it states none" },
+    "claims_paid_total": { "type": ["string", "null"], "description": "The total paid on the claims, plain decimal STRING; 0 when it states none" },
+    "currency": { "type": ["string", "null"], "description": "ISO 4217 code of the statement's amounts (Ft = HUF)" },
+    "claims": {
+      "type": "array",
+      "description": "Every claim the statement lists, in the order printed; not a total row",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "claim_date": { "type": ["string", "null"], "description": "The day it happened, ISO YYYY-MM-DD" },
+          "cause": { "type": ["string", "null"], "description": "Its cause as printed" },
+          "paid": { "type": ["string", "null"], "description": "The amount paid on it, plain decimal STRING" }
+        },
+        "required": ["claim_date", "cause", "paid"]
+      }
+    }
+  },
+  "required": ["policyholder_name", "policyholder_tax_number", "period_start", "period_end", "claims_count", "claims_paid_total",
+               "currency", "claims"]
+}

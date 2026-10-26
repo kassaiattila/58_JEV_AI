@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "engine_matrix",
-    "version": "1.0.17",
+    "version": "1.0.18",
     "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/devtools/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
     "changelog": [
+      {
+        "version": "1.0.18",
+        "date": "2026-10-26",
+        "note": "231 (stage D, D-e1): the verification call sites of the three insurance application packs, each with the code's own source check as its counterpart without JEV"
+      },
       {
         "version": "1.0.17",
         "date": "2026-10-26",
@@ -550,6 +555,48 @@
       },
       "tests": [
         "tests/test_measure_jev_budget_127.py::test_the_verifier_probe_with_a_jev_budget_runs_under_that_budget_only"
+      ]
+    },
+    "verify_insurance_request": {
+      "call_site": "verify_insurance_request",
+      "modules": [
+        "jav/ai/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/ai/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check with GPT's token confidence on the scored fields (jav/ai/policy.py apply_gpt_confidence_policy); the list questions have no counterpart: the list checks of the pack's validators stand in"
+      },
+      "tests": [
+        "tests/test_insurance_packs_231.py::test_without_jev_the_code_checks_the_request"
+      ]
+    },
+    "verify_property_schedule": {
+      "call_site": "verify_property_schedule",
+      "modules": [
+        "jav/ai/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/ai/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check with GPT's token confidence on the scored fields (jav/ai/policy.py apply_gpt_confidence_policy); the list questions have no counterpart: the list checks of the pack's validators stand in"
+      },
+      "tests": [
+        "tests/test_insurance_packs_231.py::test_without_jev_the_code_checks_the_schedule"
+      ]
+    },
+    "verify_claims_history": {
+      "call_site": "verify_claims_history",
+      "modules": [
+        "jav/ai/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/ai/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check with GPT's token confidence on the scored fields (jav/ai/policy.py apply_gpt_confidence_policy); the list questions have no counterpart: the list checks of the pack's validators stand in"
+      },
+      "tests": [
+        "tests/test_insurance_packs_231.py::test_without_jev_the_code_checks_the_statement"
       ]
     }
   },

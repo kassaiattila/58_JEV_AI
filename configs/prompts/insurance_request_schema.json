@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "policyholder_name": { "type": ["string", "null"], "description": "The business that wants to be insured, with its legal form; never the insurer or the broker" },
+    "policyholder_tax_number": { "type": ["string", "null"], "description": "The policyholder's tax number, as printed" },
+    "activity_code": { "type": ["string", "null"], "description": "The policyholder's main activity code (TEÁOR, NACE), digits as printed" },
+    "contact_name": { "type": ["string", "null"], "description": "The person named as the contact" },
+    "contact_email": { "type": ["string", "null"], "description": "The contact's email address" },
+    "cover_start": { "type": ["string", "null"], "description": "The day cover should start, ISO YYYY-MM-DD" },
+    "payment_frequency": { "type": ["string", "null"], "description": "How often the premium is to be paid, as printed" },
+    "accounting_method": { "type": ["string", "null"], "description": "What the business interruption sum insured is counted from, as printed" },
+    "interruption_sum_insured": { "type": ["string", "null"], "description": "The business interruption sum insured, plain decimal STRING, dot separator" },
+    "currency": { "type": ["string", "null"], "description": "ISO 4217 code of the form's amounts (Ft = HUF)" },
+    "requested_covers": {
+      "type": "array",
+      "description": "Every cover the form marks as wanted, in the order printed",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cover": { "type": ["string", "null"], "description": "The cover as printed" }
+        },
+        "required": ["cover"]
+      }
+    },
+    "sites": {
+      "type": "array",
+      "description": "Every site the form lists, in the order printed",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "site_no": { "type": ["string", "null"], "description": "The site's number or mark on the form" },
+          "address": { "type": ["string", "null"], "description": "The site's address as printed" },
+          "country": { "type": ["string", "null"], "description": "The site's country as printed" }
+        },
+        "required": ["site_no", "address", "country"]
+      }
+    }
+  },
+  "required": ["policyholder_name", "policyholder_tax_number", "activity_code", "contact_name", "contact_email", "cover_start",
+               "payment_frequency", "accounting_method", "interruption_sum_insured", "currency", "requested_covers", "sites"]
+}

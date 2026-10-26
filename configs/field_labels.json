@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "field_labels",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "changelog": [
+   {
+    "version": "1.11.0",
+    "date": "2026-10-26",
+    "note": "231 (stage D, D-e1): the Hungarian names of the insurance application packs' fields and list columns, and of their types."
+   },
    {
     "version": "1.10.0",
     "date": "2026-10-22",
@@ -183,7 +188,28 @@
   "contact_phone": "Kapcsolattartó telefonszáma",
   "deadline": "Ajánlattételi határidő",
   "reference": "Ajánlatkérés hivatkozási száma",
-  "requested_items": "Kért tételek"
+  "requested_items": "Kért tételek",
+  "policyholder_name": "Szerződő neve",
+  "policyholder_tax_number": "Szerződő adószáma",
+  "activity_code": "Tevékenység kódja (TEÁOR)",
+  "cover_start": "Kockázatviselés kezdete",
+  "payment_frequency": "Díjfizetés gyakorisága",
+  "accounting_method": "Üzemszüneti elszámolás módja",
+  "interruption_sum_insured": "Üzemszüneti biztosítási összeg",
+  "requested_covers": "Kért fedezetek",
+  "sites": "Telephelyek",
+  "site_no": "Telephely száma",
+  "site_address": "Telephely címe",
+  "floor_area": "Alapterület (m²)",
+  "flood_zone": "Árvízi zóna",
+  "alarm_remote": "Távfelügyeletes riasztó",
+  "surge_protection": "Túlfeszültség-védelem",
+  "basement_storage": "Pinceszinti tárolás",
+  "protection_class": "Védelmi szint",
+  "asset_groups": "Vagyoncsoportok",
+  "claims_count": "Károk száma",
+  "claims_paid_total": "Kifizetett kárösszeg összesen",
+  "claims": "Káresemények"
  },
  "columns": {
   "booking_date": "Könyvelés",
@@ -227,7 +253,18 @@
   "abstentions": "Tartózkodás",
   "name": "Név",
   "elevation_m": "Magasság (m)",
-  "*": "Érték"
+  "*": "Érték",
+  "cover": "Fedezet",
+  "site_no": "Telephely száma",
+  "address": "Cím",
+  "country": "Ország",
+  "asset_group": "Vagyoncsoport",
+  "sum_insured": "Biztosítási összeg",
+  "valuation": "Értékelés",
+  "wear": "Avultság (%)",
+  "claim_date": "Káresemény napja",
+  "cause": "Kár oka",
+  "paid": "Kifizetett kárösszeg"
  },
  "doc_types": {
   "altalanos_szerzodesi_feltetelek": "Általános szerződési feltételek",
@@ -265,7 +302,11 @@
   "utility_bill_hu": "Közműszámla",
   "villamos_energia_szamla": "Villamosenergia-számla",
   "viz_szamla": "Vízszámla (Díjbeszedő-összesítő)",
-  "vizmuvek_szamla": "Ivóvízszámla (Vízművek)"
+  "vizmuvek_szamla": "Ivóvízszámla (Vízművek)",
+  "insurance_application": "Biztosítási ajánlatkérés",
+  "insurance_request": "Biztosítási ajánlatkérő lap",
+  "property_schedule": "Vagyonadatlap",
+  "claims_history": "Kárelőzmény-nyilatkozat"
  },
  "by_type": {
   "quote_request": {

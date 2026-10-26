@@ -1,0 +1,61 @@
+{
+ "meta": {
+  "name": "type:insurance_request",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-26",
+    "note": "231 (stage D, D-e1; the owner's decision of 2026-10-26: a new detection type of its own): a business's insurance quote request form, under the detection type insurance_application. G path only. The fields are the request's: the policyholder, the covers wanted, the day cover starts, the payment frequency, the business interruption's accounting method and sum insured, and the sites (one row each, the property schedules come per site). A field check turns them into facts of the case (stage D-f)."
+   }
+  ]
+ },
+ "document": "A business's insurance quote request form (biztosítási ajánlatkérő lap): the policyholder, the covers wanted, the sites to insure and the payment terms",
+ "golden_type_key": "insurance_request",
+ "candidate_profile": "intl",
+ "arms": ["G"],
+ "default_arm": "G",
+ "inputs": ["pdf"],
+ "parent": "insurance_application",
+ "auto_detect": true,
+ "detect": {
+  "required_any": ["ajánlatkérő", "ajánlatkérés", "biztosítási ajánlat"],
+  "supporting": ["szerződő", "kért fedezet", "fedezetek", "telephely", "üzemszünet", "díjfizetés", "kockázatviselés kezdete"],
+  "excluders": ["vagyonadatlap", "kárelőzmény", "kárbejelent"]
+ },
+ "prompt_file": "insurance_request_prompt.md",
+ "schema_file": "insurance_request_schema.json",
+ "source_prefix": null,
+ "select_callsite": null,
+ "verify_callsite": "verify_insurance_request",
+ "fields": {
+  "policyholder_name": "name",
+  "policyholder_tax_number": "tax_id",
+  "activity_code": "text",
+  "contact_name": "text",
+  "contact_email": "text",
+  "cover_start": "date",
+  "payment_frequency": "text",
+  "accounting_method": "text",
+  "interruption_sum_insured": "money",
+  "currency": "currency",
+  "requested_covers": "list",
+  "sites": "list"
+ },
+ "list_fields": {
+  "requested_covers": {"cover": "text"},
+  "sites": {"site_no": "text", "address": "text", "country": "text"}
+ },
+ "scored_fields": ["policyholder_name", "policyholder_tax_number", "activity_code", "contact_name", "contact_email", "cover_start",
+                   "payment_frequency", "accounting_method", "interruption_sum_insured", "currency"],
+ "informational_fields": [],
+ "required": ["policyholder_name"],
+ "required_review": true,
+ "high_stakes": [],
+ "validators": [
+  {"check": "tax_id", "field": "policyholder_tax_number", "optional": true},
+  {"check": "list_rows", "field": "requested_covers", "min": 1},
+  {"check": "list_rows", "field": "sites", "min": 1},
+  {"check": "list_values", "field": "sites", "columns": ["site_no", "address"]}
+ ]
+}

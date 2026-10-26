@@ -1,0 +1,77 @@
+{
+ "meta": {
+  "name": "verify_property_schedule",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-26",
+    "note": "231 (stage D, D-e1): the G-path verification of a property schedule of one site. It inherits `verify` for the shared document guard and the request size budget; its own question texts name the document, it asks no invoice question (document_nouls empty), and each list is asked about missing and extra rows (list_nouls)."
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_property_schedule",
+ "document": "A property schedule of one insured site: its address, size, flood zone and protection, and its asset groups with their sums insured",
+ "own_glossary": true,
+ "glossary": "Document type: a property schedule (vagyonadatlap) of one site a business wants insured: the site's details and the asset groups kept there, each with its sum insured. Field names are English identifiers; the sheet's text is verbatim, Hungarian or English. Amounts and numbers are plain decimal strings.",
+ "glossary_in_state": false,
+ "field_specs": {
+  "policyholder_name": "the business the site belongs to, with its legal form",
+  "site_no": "the site's number or mark on the sheet",
+  "site_address": "the site's address",
+  "floor_area": "the site's floor area in square metres",
+  "flood_zone": "the site's flood zone, as printed",
+  "alarm_remote": "whether the site has an alarm with remote signalling (távfelügyelet)",
+  "surge_protection": "the surge protection in place, as printed",
+  "basement_storage": "whether goods are stored in a basement",
+  "protection_class": "the protection class in place, a number",
+  "currency": "the ISO 4217 code of the sheet's amounts",
+  "asset_groups": "the asset groups the sheet lists for the site, each with its sum insured, valuation basis and wear"
+ },
+ "incomplete_fields": [
+  "policyholder_name",
+  "site_address"
+ ],
+ "wrong_kind_fields": [
+  "floor_area",
+  "protection_class"
+ ],
+ "document_nouls": [],
+ "list_nouls": [
+  "missing_rows",
+  "extra_rows"
+ ],
+ "nouls": {
+  "absence_wrong": {
+   "question": "The extraction left the field described in `field_spec` EMPTY (`extracted_field` is null). Look at `source_lines`: does the sheet state a value that should have been extracted for this field?",
+   "true": "the sheet states a value for this field, so leaving it empty is wrong",
+   "false": "the sheet does not state such a value, so empty is correct"
+  },
+  "off_target": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Is this value actually a DIFFERENT field's value in this sheet (for example the insurer's address placed into site_address, the protection class placed into the flood zone)?",
+   "true": "the value belongs to another field; it is wrongly placed here",
+   "false": "the value is the correct value for this field"
+  },
+  "wrong_kind": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Look at what the sheet prints around it. Is this value actually a DIFFERENT KIND of number or identifier that merely looks similar - for example a postcode, a year or a sum insured where a floor area is expected, a floor count or a percentage where a protection class is expected - rather than what `field_spec` describes?",
+   "true": "the value is a different kind of number or identifier, not this field's value",
+   "false": "the value is indeed this field's value"
+  },
+  "incomplete": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Is the extracted value a truncated or partial form of what is printed (a missing legal form such as Kft. / Bt. / Zrt., a missing part of a name or an address)?",
+   "true": "the printed value is longer or more complete than the extracted value",
+   "false": "the extracted value is the complete printed value (formatting differences do not count)"
+  },
+  "missing_rows": {
+   "question": "Compare `extraction[list_field]` (the list described in `list_spec`) with `source_lines`. Does the sheet list at least one asset group that is ABSENT from that list?",
+   "true": "at least one asset group is missing from the extracted list",
+   "false": "every asset group is in the extracted list"
+  },
+  "extra_rows": {
+   "question": "Compare `extraction[list_field]` (the list described in `list_spec`) with `source_lines`. Does that list contain a row that is NOT a asset group of this sheet (for example a total row, a subtotal or a note, or one row split into two)?",
+   "true": "the extracted list contains a row that is not a asset group",
+   "false": "every extracted row is a asset group"
+  }
+ }
+}

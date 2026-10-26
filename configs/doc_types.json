@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "doc_types",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "changelog": [
+   {
+    "version": "2.4.0",
+    "date": "2026-10-26",
+    "note": "231 (stage D, D-e1; the owner's decision of 2026-10-26 'a new main type'): new type insurance_application in the family request_like: the documents of a business's request for insurance cover (a quote request form, a property schedule, a claims history statement), three type packs under it. A claim notification stays other (insurance_claim_form). quote_request.not_for and other.not_for name it; request_like's description names it. A new option for every detection question: the type golden set is re-measured (paid; a sub-budget asked for at the D-h stop)."
+   },
    {
     "version": "2.3.1",
     "date": "2026-10-22",
@@ -56,7 +61,7 @@
   "bank_like": "Bank and card account statements.",
   "official_like": "Certificates, attestations and tax authority forms.",
   "other": "Tickets, unclassified or unreadable documents.",
-  "request_like": "Requests customers send us: requests for a price quote."
+  "request_like": "Requests customers send us: requests for a price quote, and the documents of a request for insurance cover."
  },
  "types": [
   {
@@ -472,7 +477,7 @@
    "key": "quote_request",
    "parent": "request_like",
    "what": "Request for a price quote (árajánlatkérés, ajánlatkérés, ajánlatkérő ív, kérőív, igénylista, request for quotation, RFQ): a CUSTOMER lists the goods or services it wants priced, with quantities, often with its own details and a deadline for the quote, and asks the recipient for an offer.",
-   "not_for": "An offer or quote that names prices for the recipient (other). An order placed after a quote, or a delivery note (other). An invoice or a pro forma invoice (invoice_hu / proforma_invoice).",
+   "not_for": "An offer or quote that names prices for the recipient (other). An order placed after a quote, or a delivery note (other). An invoice or a pro forma invoice (invoice_hu / proforma_invoice). A business's request for insurance cover, its property schedule or claims history (insurance_application).",
    "examples": [
     "Ajánlatkérő ív: megnevezés, mennyiség, mértékegység, határidő",
     "Igénylista egy árajánlathoz",
@@ -501,10 +506,43 @@
    "flows": []
   },
   {
+   "key": "insurance_application",
+   "parent": "request_like",
+   "what": "A document of a business's request for insurance cover (biztosítási ajánlatkérés): an insurance quote request form (ajánlatkérő lap) naming the policyholder (szerződő), the covers wanted (vagyonbiztosítás, betöréses lopás, üzemszünet) and the sites; a property schedule (vagyonadatlap) of one site listing its asset groups (épület, gépek, készlet) with their sums insured (biztosítási összeg); or a claims history statement (kárelőzmény-nyilatkozat) listing the policyholder's claims of the last years.",
+   "not_for": "A notification of a damage that happened (kárbejelentő, kárbejelentés: other). An insurance policy, a certificate of insurance or an insurer's offer (other). An insurer's invoice or premium notice (invoice_hu). A request for a price quote of goods or services (quote_request).",
+   "examples": [
+    "Biztosítási ajánlatkérő lap: szerződő, adószám, kért fedezetek, telephelyek, díjfizetés",
+    "Vagyonadatlap: telephely címe, vagyoncsoport, biztosítási összeg, értékelés",
+    "Kárelőzmény-nyilatkozat az elmúlt 5 év káreseményeiről, kifizetett kárösszeg"
+   ],
+   "required_any": [
+    "ajánlatkérő",
+    "vagyonadatlap",
+    "kárelőzmény",
+    "biztosítási összeg",
+    "biztosítási ajánlat"
+   ],
+   "supporting": [
+    "szerződő",
+    "telephely",
+    "fedezet",
+    "vagyoncsoport",
+    "káresemény",
+    "betöréses lopás",
+    "üzemszünet",
+    "biztosító"
+   ],
+   "excluders": [
+    "számla sorszáma|számlaszám",
+    "kárbejelent"
+   ],
+   "flows": []
+  },
+  {
    "key": "other",
    "parent": "other",
    "what": "A readable business document that is none of the listed types: letter, offer / quote (ajánlat, árajánlat), delivery note (szállítólevél), meeting minutes, map data, presentation, form, marketing material, ID document.",
-   "not_for": "Anything that fits a listed type even loosely. A customer's request for a quote (quote_request). Unreadable or garbled text (unknown).",
+   "not_for": "Anything that fits a listed type even loosely. A customer's request for a quote (quote_request). A document of a request for insurance cover (insurance_application). Unreadable or garbled text (unknown).",
    "examples": [
     "Árajánlat / ajánlat not yet accepted",
     "Szállítólevél, jegyzőkönyv, meghívó",
@@ -542,6 +580,9 @@
   "id_document": "other",
   "insurance_claim_form": "other",
   "csapatmenedzser_utasitas": "other",
-  "quote_request": "quote_request"
+  "quote_request": "quote_request",
+  "insurance_request": "insurance_application",
+  "property_schedule": "insurance_application",
+  "claims_history": "insurance_application"
  }
 }

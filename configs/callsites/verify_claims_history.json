@@ -1,0 +1,74 @@
+{
+ "meta": {
+  "name": "verify_claims_history",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-26",
+    "note": "231 (stage D, D-e1): the G-path verification of a claims history statement. It inherits `verify` for the shared document guard and the request size budget; its own question texts name the document, it asks no invoice question (document_nouls empty), and each list is asked about missing and extra rows (list_nouls)."
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_claims_history",
+ "document": "A claims history statement: the policyholder's claims in a stated period and their totals",
+ "own_glossary": true,
+ "glossary": "Document type: a claims history statement (kárelőzmény-nyilatkozat) a business gives an insurer about its own claims in a stated period. The policyholder is the business making the statement, never the insurer. Field names are English identifiers; the statement's text is verbatim, Hungarian or English. Amounts are plain decimal strings.",
+ "glossary_in_state": false,
+ "field_specs": {
+  "policyholder_name": "the business making the statement, with its legal form; never the insurer",
+  "policyholder_tax_number": "the tax number of the business making the statement",
+  "period_start": "the first day of the period the statement covers, ISO format",
+  "period_end": "the last day of the period the statement covers, ISO format",
+  "claims_count": "the total number of claims the statement gives (0 when it states none)",
+  "claims_paid_total": "the total paid on the claims the statement gives (0 when it states none)",
+  "currency": "the ISO 4217 code of the statement's amounts",
+  "claims": "the claims the statement lists, each with its date, cause and amount paid"
+ },
+ "incomplete_fields": [
+  "policyholder_name"
+ ],
+ "wrong_kind_fields": [
+  "policyholder_tax_number",
+  "claims_count",
+  "claims_paid_total"
+ ],
+ "document_nouls": [],
+ "list_nouls": [
+  "missing_rows",
+  "extra_rows"
+ ],
+ "nouls": {
+  "absence_wrong": {
+   "question": "The extraction left the field described in `field_spec` EMPTY (`extracted_field` is null). Look at `source_lines`: does the statement state a value that should have been extracted for this field?",
+   "true": "the statement states a value for this field, so leaving it empty is wrong",
+   "false": "the statement does not state such a value, so empty is correct"
+  },
+  "off_target": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Is this value actually a DIFFERENT field's value in this statement (for example the insurer's name placed into policyholder_name, the statement's own date placed into period_end)?",
+   "true": "the value belongs to another field; it is wrongly placed here",
+   "false": "the value is the correct value for this field"
+  },
+  "wrong_kind": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Look at what the statement prints around it. Is this value actually a DIFFERENT KIND of number or identifier that merely looks similar - for example a phone number where a tax number is expected, a year or a policy number where a count of claims is expected, a sum insured where the total paid is expected - rather than what `field_spec` describes?",
+   "true": "the value is a different kind of number or identifier, not this field's value",
+   "false": "the value is indeed this field's value"
+  },
+  "incomplete": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Is the extracted value a truncated or partial form of what is printed (a missing legal form such as Kft. / Bt. / Zrt., a missing part of a name or an address)?",
+   "true": "the printed value is longer or more complete than the extracted value",
+   "false": "the extracted value is the complete printed value (formatting differences do not count)"
+  },
+  "missing_rows": {
+   "question": "Compare `extraction[list_field]` (the list described in `list_spec`) with `source_lines`. Does the statement list at least one claim that is ABSENT from that list?",
+   "true": "at least one claim is missing from the extracted list",
+   "false": "every claim is in the extracted list"
+  },
+  "extra_rows": {
+   "question": "Compare `extraction[list_field]` (the list described in `list_spec`) with `source_lines`. Does that list contain a row that is NOT a claim of this statement (for example a total row, a policy or a note, or one row split into two)?",
+   "true": "the extracted list contains a row that is not a claim",
+   "false": "every extracted row is a claim"
+  }
+ }
+}

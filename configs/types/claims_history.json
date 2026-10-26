@@ -1,0 +1,54 @@
+{
+ "meta": {
+  "name": "type:claims_history",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-26",
+    "note": "231 (stage D, D-e1; the owner's decision of 2026-10-26: a new detection type of its own): a business's claims history statement, under the detection type insurance_application. G path only. The policyholder, the period stated, each claim (one row: its date, cause and the amount paid) and the printed totals, which code compares with the rows."
+   }
+  ]
+ },
+ "document": "A claims history statement (kárelőzmény-nyilatkozat): the policyholder's claims in a stated period, each with its date, cause and amount paid, and their totals",
+ "golden_type_key": "claims_history",
+ "candidate_profile": "intl",
+ "arms": ["G"],
+ "default_arm": "G",
+ "inputs": ["pdf"],
+ "parent": "insurance_application",
+ "auto_detect": true,
+ "detect": {
+  "required_any": ["kárelőzmény", "kártörténet", "káresemény"],
+  "supporting": ["nyilatkozat", "kifizetett", "kárkifizetés", "időszak", "szerződő", "biztosító"],
+  "excluders": ["kárbejelentő lap", "vagyonadatlap", "kért fedezet"]
+ },
+ "prompt_file": "claims_history_prompt.md",
+ "schema_file": "claims_history_schema.json",
+ "source_prefix": null,
+ "select_callsite": null,
+ "verify_callsite": "verify_claims_history",
+ "fields": {
+  "policyholder_name": "name",
+  "policyholder_tax_number": "tax_id",
+  "period_start": "date",
+  "period_end": "date",
+  "claims_count": "number",
+  "claims_paid_total": "money",
+  "currency": "currency",
+  "claims": "list"
+ },
+ "list_fields": {
+  "claims": {"claim_date": "date", "cause": "text", "paid": "money"}
+ },
+ "scored_fields": ["policyholder_name", "policyholder_tax_number", "period_start", "period_end", "claims_count", "claims_paid_total",
+                   "currency"],
+ "informational_fields": [],
+ "required": ["policyholder_name"],
+ "required_review": true,
+ "high_stakes": [],
+ "validators": [
+  {"check": "tax_id", "field": "policyholder_tax_number", "optional": true},
+  {"check": "list_values", "field": "claims", "columns": ["claim_date", "paid"]}
+ ]
+}

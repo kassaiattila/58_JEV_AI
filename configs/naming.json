@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "naming",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "changelog": [
+   {
+    "version": "1.8.0",
+    "date": "2026-10-26",
+    "note": "231 (stage D, D-e1): the insurance application (detection type insurance_application) and its three packs: the request form by the day cover starts and the policyholder, the property schedule by the policyholder and the site's number, the claims history by the end of its period and the policyholder."
+   },
    {
     "version": "1.7.0",
     "date": "2026-10-22",
@@ -100,6 +105,10 @@
   "csapatmenedzser_utasitas": {"token": "UTASITAS", "pattern": "{date}_{@type}_{issuing_body}_{subject}"},
   "altalanos_szerzodesi_feltetelek": {"token": "ASZF", "pattern": "{effective_date}_{@type}_{seller_name}_{document_title}"},
   "quote_request": {"token": "AJANLATKERES", "pattern": "{@date}_{@type}_{customer_name}"},
+  "insurance_application": {"token": "BIZTOSITASI_AJANLATKERES"},
+  "insurance_request": {"token": "BIZT_AJANLATKERO", "pattern": "{cover_start}_{@type}_{policyholder_name}"},
+  "property_schedule": {"token": "VAGYONADATLAP", "pattern": "{@type}_{policyholder_name}_{site_no}"},
+  "claims_history": {"token": "KARELOZMENY", "pattern": "{period_end}_{@type}_{policyholder_name}"},
   "insurance_claim_form": {"token": "KARBEJELENTO", "pattern": "{@date}_{@type}_{insurer}_{policy_number|form_code}"},
   "terkep_adat": {"token": "TERKEP", "pattern": "{@date}_{@type}_{map_source}_{area_name}"},
   "utility_bill_hu": {"token": "KOZMU"},
