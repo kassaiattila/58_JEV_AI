@@ -105,6 +105,19 @@ def _no_live_gpt_choice():
 
 
 @pytest.fixture(autouse=True)
+def _no_live_mailbox(monkeypatch):
+    """231 (C3d): a test never runs the Outlook bridge (`scripts/outlook_bridge.ps1` through PowerShell: a real mailbox
+    of the machine). A test that downloads passes its own runner (the tests' `FakeBridge`); one that would reach the
+    default runner fails instead."""
+    from jav.domains.email import mailbox
+
+    def refuse(argv, timeout):
+        raise AssertionError("a test tried to run the Outlook bridge (jav/domains/email/mailbox.py); pass a runner")
+
+    monkeypatch.setattr(mailbox, "_subprocess_runner", refuse)
+
+
+@pytest.fixture(autouse=True)
 def _no_live_quote_letter():
     """196: a test never asks OpenAI for a reply letter's paragraph (a paid call); a test that needs one installs its
     own stand-in with `quote_letter.use_agent_factory`."""

@@ -234,3 +234,71 @@ def test_a_deleted_package_cancels_its_case_instead_of_being_made_again(db):
     assert state["status"] == "closed" and state["outcome"] == "cancelled"
     assert document_processing.package_of(case, "process") is None  # not made again from the folder
 
+
+
+# --- 231 (C3d): an asynchronous maker (a mailbox download): its fetch starts once and the step waits for it -----------
+
+ASYNC_PACK = {**PACK, "meta": {**PACK["meta"], "name": "process:async_test"}, "id": "async_test", "title": "Async",
+              "steps": [{"id": "process", "uses": "process_documents@1", "title": "Fetching", "params": {"maker": "async_test"}}]}
+
+
+class _Fetches:
+    """A stand-in asynchronous maker: each fetch is a row the test moves on (no download is ever made)."""
+
+    def __init__(self) -> None:
+        self.started: list[tuple[str, str]] = []
+        self.state: dict[str, document_processing.Collected] = {}
+
+    def fetch(self, scope, name, owner, taker) -> str:
+        fid = f"fetch-{len(self.started) + 1}"
+        self.started.append((fid, taker))
+        self.state[fid] = document_processing.Collected("running")
+        return fid
+
+    def collect(self, fid: str) -> document_processing.Collected:
+        return self.state[fid]
+
+
+@pytest.fixture
+def fetches(db, monkeypatch):
+    f = _Fetches()
+    (cfg.PROCESSES_DIR / "async_test.json").write_text(json.dumps(ASYNC_PACK), encoding="utf-8")
+    cfg.reload()
+    monkeypatch.setitem(document_processing._MAKERS, "async_test", document_processing.Maker(
+        "async_test", __name__, fetch=f.fetch, collect=f.collect, sources=("folder",)))
+    return f
+
+
+def test_an_asynchronous_maker_s_fetch_starts_once_and_its_package_is_bound_when_it_is_done(db, fetches):
+    folder = _invoices(db / "inv", n=2)
+    case = process_runtime.start_case("async_test", {"source": {"kind": "folder", "folder": str(folder)}},
+                                      name="Fetched", actor=PERSON)
+    state = _turns(case, 3)
+    assert state["steps"]["process"]["waiting_for"] == "fetching" and fetches.started == [("fetch-1", f"case:{case}:process")]
+    wp = work.create_from_folder(folder, name="Fetched", owner=PERSON)["id"]  # what the fetch made
+    fetches.state["fetch-1"] = document_processing.Collected("done", wp, note="the connection broke after 2 emails")
+    state = _turns(case)
+    assert state["steps"]["process"]["waiting_for"] == "run_start" and len(fetches.started) == 1  # not fetched again
+    assert document_processing.package_of(case, "process") == wp
+    from jav.core.process import cases as core_cases
+
+    assert any(h["kind"] == "fetch_interrupted" for h in core_cases.view(case)["history"])
+
+
+def test_a_failed_fetch_fails_the_step_and_a_retry_fetches_anew(db, fetches):
+    folder = _invoices(db / "inv", n=1)
+    case = process_runtime.start_case("async_test", {"source": {"kind": "folder", "folder": str(folder)}},
+                                      name="Fetched", actor=PERSON)
+    _turns(case)
+    fetches.state["fetch-1"] = document_processing.Collected("failed", note="Outlook is not running")
+    state = _turns(case)
+    assert state["steps"]["process"]["state"] == "failed" and "Outlook is not running" in state["steps"]["process"]["note"]
+    from jav.core import identity
+    from jav.core.process import cases as core_cases
+
+    core_cases.retry(case, "process", identity.who(PERSON))
+    _turns(case)
+    assert [f for f, _taker in fetches.started] == ["fetch-1", "fetch-2"]
+    fetches.state["fetch-2"] = document_processing.Collected("done", None)  # nothing new
+    state = _turns(case)
+    assert state["steps"]["process"]["state"] == "done" and state["steps"]["process"]["result"] == {"documents": 0}

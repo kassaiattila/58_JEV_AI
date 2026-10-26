@@ -162,6 +162,7 @@ class SourceKind:
     - `repeated(source, period, workflow)`: its source for the next period (`period`: the next period, or None);
     - `count(source)`: the items it would bring at most (None: unknown), their item kind and a note, for the estimate;
     - `own`: a step makes its own package from it, so its run may have its own AI engine (160-D).
+    - `words(source)` (231, C3d): the source in a few words, for a case's scope (None: its kind's name).
     """
 
     kind: str
@@ -171,6 +172,7 @@ class SourceKind:
     repeated: Callable[[Mapping[str, Any], tuple[str, str] | None, Mapping[str, Any]], dict[str, Any]]
     count: Callable[[Mapping[str, Any]], tuple[int | None, str, str | None]]
     own: bool = True
+    words: Callable[[Mapping[str, Any]], str] | None = None
 
 
 _SOURCES: dict[str, SourceKind] = {}

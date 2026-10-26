@@ -2769,5 +2769,6 @@
   "Choose a record…": "Válassz rekordot…",
   "No record matches.": "Nincs illeszkedő rekord.",
   "No record to start from yet: an email or a document read as one in a processed package.": "Még nincs rekord, amelyből indulni lehetne: egy feldolgozott csomag levele vagy irata, amelyet ilyennek olvastunk.",
-  "its package:": "a csomagja:"
+  "its package:": "a csomagja:",
+  "the source does not fit: {{why}}": "a forrás nem megfelelő: {{why}}"
 }

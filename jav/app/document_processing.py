@@ -11,7 +11,8 @@ keeps every feature of a work package (its items, runs, review and result); the 
 (`work.RULE_PART`, C3b1).
 
 - `SOURCE_PART`: the scope part of a case's documents: `{"kind": "folder", "folder", "recursive"}` or
-  `{"kind": "files", "files"}`; 231 (C3b4) `{"kind": "package", "workpackage_id"}`: a package made before, which the
+  `{"kind": "files", "files"}`; 231 (C3d) a domain's source kind (`workflow_steps.SourceKind`: a mailbox download,
+  `{"kind": "mailbox", "request"}`), checked and named by that kind; 231 (C3b4) `{"kind": "package", "workpackage_id"}`: a package made before, which the
   step takes as its own (a case wrapped around it, `process_runtime.wrap_case`).
 - `Maker`, `register_maker`, `maker_of`, `maker_names`: how a step's package is made from the case's scope.
 - `package_of(case_id, step_id)`: the package a case's step made (bound by its scope part `owner_step`); `bind`
@@ -33,7 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from jav.app import capabilities, package_scope, scopes, work, work_readiness, work_runs, workflow_steps
 from jav.core import identity, store
@@ -58,6 +59,11 @@ class ProcessingError(ValueError):
 
 
 def _source(value: Any, error: type[Exception]) -> dict[str, Any]:
+    if isinstance(value, dict) and (domain := workflow_steps.source_kind(str(value.get("kind")))) is not None:
+        try:  # C3d: a domain's source kind (a mailbox download), checked by its own module
+            return domain.check(value)
+        except (ValueError, ValidationError) as exc:
+            raise explained(error, "the source does not fit: {{why}}", why=str(exc)[:300]) from exc
     if isinstance(value, dict) and value.get("kind") == PACKAGE:  # C3b4: a package made before, wrapped by its case
         wp_id = str(value.get("workpackage_id") or "")
         try:
@@ -81,6 +87,8 @@ def _source(value: Any, error: type[Exception]) -> dict[str, Any]:
 
 
 def _source_words(value: dict[str, Any]) -> str:
+    if (domain := workflow_steps.source_kind(str(value["kind"]))) is not None:  # C3d
+        return domain.words(value) if domain.words is not None else str(value["kind"])
     if value["kind"] == PACKAGE:
         return str(work.get(value["workpackage_id"])["name"])
     return Path(value["folder"]).name if value["kind"] == "folder" else f"{len(value['files'])} files"
@@ -109,6 +117,10 @@ class Maker:
     holds nothing new for it (the step is then done without a package). `rule`: the package rule its package runs by
     (`work.register_rule`), named in its scope; None: none.
 
+    231 (C3d): an asynchronous maker (a mailbox download) has no `make` but `fetch(scope, name, owner, taker)`, which
+    starts the fetch and returns its id, and `collect(fetch_id)`, where it stands (`Collected`); `sources`: the source
+    kinds it takes (the general form asks for one of them).
+
     231 (C3b5b): what a workflow's step of a pack with this maker is (`register_workflow_steps`): `package_kinds`, the
     kinds of an existing package the step may take; `only_new` and `subfolders`, whether its folder may leave out what a
     live run has processed and take its subfolders; `step_offer(ctx)`, the step's package made from the workflow step's
@@ -117,7 +129,7 @@ class Maker:
 
     name: str
     module: str
-    make: Callable[[dict[str, Any], str, identity.Who | None], str | None]
+    make: Callable[[dict[str, Any], str, identity.Who | None], str | None] | None = None
     rule: str | None = None
     package_kinds: tuple[str, ...] = ()
     only_new: bool = False
@@ -125,6 +137,20 @@ class Maker:
     step_offer: Callable[[workflow_steps.StepStart], str | None] | None = None
     repeat_from: Callable[[str], dict[str, Any] | None] | None = None
     estimate: Callable[..., dict[str, Any]] | None = None
+    fetch: Callable[[dict[str, Any], str, identity.Who | None, str], str] | None = None
+    collect: Callable[[str], "Collected"] | None = None
+    sources: tuple[str, ...] = ("folder", "files")
+    step_poll: Callable[[workflow_steps.StepStart], str | None] | None = None
+
+
+@dataclass(frozen=True)
+class Collected:
+    """231 (C3d): where an asynchronous maker's fetch stands: `running`; `done` with its package (None: the source held
+    nothing new; `note`: what went wrong when the package holds only what arrived before it did); `failed` (`note`)."""
+
+    state: str
+    workpackage_id: str | None = None
+    note: str | None = None
 
 
 _MAKERS: dict[str, Maker] = {}
@@ -230,11 +256,41 @@ class Process(BaseModel):
     maker: str = DOCUMENTS
 
 
-def _held(ctx: StepContext) -> str | None:
-    """The package the step made or took before (its result while it runs, C3b4)."""
+def _result(ctx: StepContext) -> dict[str, Any]:
+    """The step's result while it runs (C3b4: its package; C3d: its fetch)."""
     result = ctx.row().get("result")
     result = json.loads(result) if isinstance(result, str) else result
-    return result.get("workpackage_id") if isinstance(result, dict) else None
+    return result if isinstance(result, dict) else {}
+
+
+def _held(ctx: StepContext) -> str | None:
+    """The package the step made or took before (its result while it runs, C3b4)."""
+    return _result(ctx).get("workpackage_id")
+
+
+def _fetched(ctx: StepContext, maker: Maker, owner: identity.Who | None) -> kinds.StepOutcome | str:
+    """231 (C3d): an asynchronous maker's package: its fetch started once (its id kept in the step's result, so a
+    restart goes on with it), the step waiting while it runs; a failed fetch fails the step, and a person's retry starts
+    a new one; nothing new: done without a package; else the package (a fetch interrupted after some of it arrived
+    gives that part, its note recorded)."""
+    assert maker.fetch is not None and maker.collect is not None
+    fetch_id = _result(ctx).get("fetch_id")
+    if fetch_id is None:
+        fetch_id = maker.fetch(ctx.data["scope"], str(ctx.data["name"]), owner, f"case:{ctx.case_id}:{ctx.step.id}")
+        with ctx.transaction() as c:
+            cases.set_result(c, ctx.case_id, ctx.step.id, {"fetch_id": fetch_id})
+    got = maker.collect(fetch_id)
+    if got.state == "running":
+        return ctx.wait("fetching", timer=("check", time.time() + POLL_S), detail={"fetch_id": fetch_id})
+    if got.state == "failed":
+        with ctx.transaction() as c:  # a retry starts a new fetch
+            cases.set_result(c, ctx.case_id, ctx.step.id, {})
+        return kinds.Fail(got.note or "the fetch failed")
+    if got.workpackage_id is None:
+        return kinds.Done({"documents": 0})
+    if got.note:
+        ctx.record("fetch_interrupted", {"fetch_id": fetch_id, "note": got.note[:1000]})
+    return got.workpackage_id
 
 
 def _run(ctx: StepContext, params: Process) -> kinds.StepOutcome:
@@ -254,7 +310,13 @@ def _run(ctx: StepContext, params: Process) -> kinds.StepOutcome:
                         owner or ctx.actor):
                 raise explained(ProcessingError, "the package belongs to another case's step")
             made: str | None = source["workpackage_id"]
+        elif maker.fetch is not None:  # C3d: an asynchronous maker (a mailbox download)
+            got = _fetched(ctx, maker, owner)
+            if not isinstance(got, str):
+                return got
+            made = got
         else:
+            assert maker.make is not None
             made = maker.make(ctx.data["scope"], str(ctx.data["name"]), owner)
         if made is None:
             return kinds.Done({"documents": 0})
@@ -328,7 +390,7 @@ CAPABILITY = capabilities.Capability(
     actions=(capabilities.Action("start_run", "Start the live run", _can_start, start_run),),
     # C3b4: the case list says a person's start while the package waits for its live run, the machine's work while it
     # runs, a person's decision while it waits for its approval (`_state_of`)
-    waits={"run_start": "person_start", "run_end": "work", "run_approval": "person"}, adopt=_adopt, bind=bind, bound=bound)
+    waits={"run_start": "person_start", "run_end": "work", "run_approval": "person", "fetching": "work"}, adopt=_adopt, bind=bind, bound=bound)
 
 
 def _package_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
@@ -418,6 +480,6 @@ def register() -> None:
     case_views.register(case_views.ElementData("package_work", CAPABILITY.name, _OWNER, _package_view))
 
 
-__all__ = ["CAPABILITY", "DOCUMENTS", "Maker", "OWNER_PART", "PACKAGE", "Process", "ProcessingError", "SOURCE",
-           "SOURCE_PART", "bind", "bound", "maker_names", "register_workflow_steps", "maker_of", "owned_packages", "package_of", "paths_of", "register",
-           "register_maker", "start_run"]
+__all__ = ["CAPABILITY", "DOCUMENTS", "OWNER_PART", "PACKAGE", "SOURCE", "SOURCE_PART", "Collected", "Maker", "Process",
+           "ProcessingError", "bind", "bound", "maker_names", "maker_of", "owned_packages", "package_of", "paths_of",
+           "register", "register_maker", "register_workflow_steps", "start_run"]
