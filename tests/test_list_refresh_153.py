@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from jav.app import datasets, work_runs, work_views, workflow_records, workflows
+from jav.app import datasets, work_runs, work_views, workflow_records
 from jav.core import store
 from jav.app.tablequery import Column, Query
 from tests.test_supersede_runs_151 import runs  # noqa: F401 - the shared fixture: one package, an older and a newer live run
