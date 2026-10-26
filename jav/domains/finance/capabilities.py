@@ -23,7 +23,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict
 
 from jav.app import package_release
-from jav.app.capabilities import Capability
+from jav.app.capabilities import Capability, OwnVersionResult, Result
 from jav.core.process import cases, kinds
 
 POLL_S = 5.0  # how soon a waiting pairing step looks again for the person's approval
@@ -71,6 +71,7 @@ def _reopen(wp_id: str, note: str, actor: Any) -> Any:
 _OWNER = __name__
 CAPABILITY = Capability(
     name="pairing", version=1, module=_OWNER, run=_pair, kind="human", params=Pairing, effects="store", state="case",
+    output=OwnVersionResult,
     rule_files=("reconcile", "finance"), adopt=_adopt, own_version=True,  # C2d: reopening the statement reopens it
     reopen=_reopen, approval_what="Reconciliation statement",  # C3a-1: its case waits for the approval as a task
     statuses={"reconcile_approved": "approved", "reconcile_pair": "pairing", "reconcile_result": "pairing",
@@ -140,8 +141,17 @@ def _mark() -> Any:
     return reconcile_package._list_mark()
 
 
+class ProposalResult(Result):
+    """D0-c: the AI proposal's round, how many lines it asked about, and its counts per engine."""
+
+    round: int
+    lines: int | None
+    counts: dict[str, Any] | None
+
+
 PROPOSAL = Capability(
     name="pairing_proposal", version=1, module=_OWNER, run=_propose, kind="machine", params=PairingProposal, state="step",
+    output=ProposalResult,
     effects="store", providers=("jev",), rule_files=("callsite:reconcile_line", "finance", "reconcile"),
     summary=("Asks the AI which item of the other list each undecided item settles and what kind it is, under a cap;"
              " a person still decides."))

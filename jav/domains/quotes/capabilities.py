@@ -24,7 +24,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from jav.app import human_tasks
-from jav.app.capabilities import Capability, RuleKey, step_ref
+from jav.app.capabilities import Capability, OwnVersionResult, Result, RuleKey, read_result, step_ref
 from jav.core.process import kinds
 
 POLL_S = 5.0  # how soon a waiting step looks again at the job or the person it waits for
@@ -32,6 +32,39 @@ POLL_S = 5.0  # how soon a waiting step looks again at the job or the person it 
 
 class _Params(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class RecordResult(Result):
+    """D0-c: the record put together: its kind, how many listed items it has, its own fields and what it lacks."""
+
+    kind: str
+    items: int
+    fields: dict[str, Any]
+    gaps: list[str]
+
+
+class MatchResult(Result):
+    """D0-c: the proposal: how many items it matched and how many of each mark."""
+
+    lines: int
+    marks: dict[str, int]
+
+
+class DocumentResult(Result):
+    """D0-c: the priced document: its output contract, the approved version it printed and how many values it holds."""
+
+    output: str
+    version: int
+    values: int
+
+
+class LetterResult(Result):
+    """D0-c: the accepted letter: the approved version it answers, the code's check of the model's paragraph."""
+
+    version: int
+    problems: list[str]
+    paragraph_used: bool
+    accepted: bool
 
 
 class RecordAssembly(_Params):
@@ -88,7 +121,7 @@ class PricedDocument(_Params):
     """The output contract it fills, and the step whose approved version it prints."""
 
     output: str = Field(min_length=1, title="Output")
-    from_step: str = step_ref(min_length=1)
+    from_step: str = step_ref(min_length=1, reads=("version",))  # D0-c: the approved version of that step
 
     @field_validator("output")
     @classmethod
@@ -221,7 +254,7 @@ def _priced_document(ctx: Any, params: PricedDocument) -> kinds.StepOutcome:
     from jav.domains.quotes import quote_document, quote_draft
 
     wp = _container(ctx)
-    version = ctx.result_of(params.from_step)[1]["version"]
+    version = read_result(ctx, params, "from_step")["version"]  # D0-c: checked against the other step's form first
     approved = quote_draft.approved_version(wp, version)
     data = quote_document.data(approved["quote"], package=ctx.data.get("name") or wp, version=version,
                                approved_by=approved.get("approved_by"), approved_at=approved.get("approved_at"),
@@ -264,10 +297,10 @@ def _spent(table: str) -> Any:
 
 _OWNER = __name__
 CAPABILITIES = (
-    Capability(name="record_assembly", version=1, module=_OWNER, run=_record_assembly, kind="machine", params=RecordAssembly, effects="pure", state="step",
+    Capability(name="record_assembly", version=1, module=_OWNER, run=_record_assembly, kind="machine", params=RecordAssembly, effects="pure", state="step", output=RecordResult,
                summary="Puts a record together from an email's text, its table attachments and its attachments.",
                preview=_record_preview, records=_records),  # C3c: the general form's record chooser
-    Capability(name="catalogue_match", version=1, module=_OWNER, run=_catalogue_match, kind="machine", params=CatalogueMatch, state="step",
+    Capability(name="catalogue_match", version=1, module=_OWNER, run=_catalogue_match, kind="machine", params=CatalogueMatch, state="step", output=MatchResult,
                providers=("jev", "openai"), rule_files=("callsite:quote_match", "gpt_quote_match", "quotes", "price_lists"),
                summary="Matches each requested item with a catalogue item: sure, to check, or not listed.",
                spent=_spent("quote_proposals"), choices={"catalogue": _catalogues},
@@ -277,7 +310,7 @@ CAPABILITIES = (
     Capability(name="line_pricing", version=1, module=_OWNER, kind="machine", params=LinePricing, effects="pure",
                rule_files=("price_lists",), summary="Prices lines from a catalogue: unit price, discount rules, totals.",
                choices={"catalogue": _catalogues}),
-    Capability(name="line_draft", version=1, module=_OWNER, run=_line_draft, kind="human", params=LineDraft, state="step",
+    Capability(name="line_draft", version=1, module=_OWNER, run=_line_draft, kind="human", params=LineDraft, state="step", output=OwnVersionResult,
                rule_files=("quotes", "price_lists"), own_version=True,  # 231 (C2d): reopening the quote reopens it
                summary="A person composes the lines from the match, gives own prices with a note, and approves.",
                choices={"catalogue": _catalogues},
@@ -286,10 +319,10 @@ CAPABILITIES = (
                                   options=("1", "0.01")),
                           RuleKey("price_lists", "rounding.default", "choice", "Another currency's amounts are rounded to this"
                                   " unit", options=("0.01", "1")))),
-    Capability(name="priced_document", version=1, module=_OWNER, run=_priced_document, kind="machine", params=PricedDocument, state="step",
+    Capability(name="priced_document", version=1, module=_OWNER, run=_priced_document, kind="machine", params=PricedDocument, state="step", output=DocumentResult,
                rule_files=("quote_documents", "outputs"), summary="Fills a priced document from an output template.",
                choices={"output": _outputs}),
-    Capability(name="letter_draft", version=1, module=_OWNER, run=_letter_draft, kind="machine", params=LetterDraft, providers=("openai",), state="step",
+    Capability(name="letter_draft", version=1, module=_OWNER, run=_letter_draft, kind="machine", params=LetterDraft, providers=("openai",), state="step", output=LetterResult,
                rule_files=("gpt_quote_letter", "quote_documents", "quotes"),
                summary="Drafts a reply letter: the frame written by code around a model's checked paragraph; done once a person"
                        " accepted it.", spent=_spent("quote_letters"), choices={"frame": _frames},

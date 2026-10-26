@@ -198,7 +198,8 @@ def _record(ctx: StepContext, params: Send, attempt: int) -> str | kinds.Fail:
         made = builder(params.message)
     except SendError as exc:
         return kinds.Fail(str(exc))
-    source = ctx.result_of(params.from_step)[1] if params.from_step else None
+    # D0-c: the other step's result, checked against its form before the message is made of it
+    source = capabilities.read_result(ctx, params, "from_step") if params.from_step else None
     message = made.build(ctx.case_id, params.from_step, source)
     if params.mode == OUTLOOK_SEND and not allowed(message.to):
         return kinds.Fail(f"the real send is switched off for {message.to or 'a message without a recipient'}: "
@@ -276,8 +277,22 @@ def _settling(case_id: str, step_id: str) -> bool:
     return any(t.step_id == step_id for t in _open_settlements(case_id))
 
 
+class SendResult(capabilities.Result):
+    """D0-c: what a send step handed over: its handover, the attempt, the mode, the file, the recipient and subject, and
+    the receipt (None while the other side has not confirmed)."""
+
+    handover_id: str
+    attempt: int
+    mode: str
+    file_name: str | None
+    to: str | None
+    subject: str | None
+    receipt: dict[str, Any] | None
+
+
 CAPABILITY = capabilities.Capability(
     name="send", version=1, module=_OWNER, run=_run, kind="machine", params=Send, effects="external", state="step",
+    output=SendResult,
     rule_files=(CONFIG,), described={"modes": list(MODES)},
     summary="Sends a step's message once: into the output folder, as an Outlook draft or out through Outlook.",
     # 231 (B4): a process may choose between the two ways a person still sends from; the real send stays a change of

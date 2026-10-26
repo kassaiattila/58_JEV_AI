@@ -25,6 +25,10 @@ waits instead of running (the process core's rule for an unknown kind).
   (the worker's jobs, the service's requests about it).
 - `step_ref(...)`, `step_refs(params)` (stage D0, D0-a): a parameter that names another step of the case (whose result
   the step reads) is declared one, so the pack check can see that the step is there and that the step waits for it.
+- `Result`, `Capability.output` (D0-c): the form of a step's result; `step_ref(reads=, versions=)` says which fields of
+  the other step's result a step reads and which versions of its form it takes (`reference_problem`, the pack check);
+  `read_result(ctx, params, name)` reads that result checked against its form (`ResultMismatch` otherwise), and the
+  step kind checks its own result before it is kept. `DatasetRef` is the form a large list is handed on in.
 
 Layer: application; it uses the process core, the call log and the shared registries' completion. The capabilities
 themselves live in the domains and register from their `register()`.
@@ -41,14 +45,15 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from jav.core import calls, cfg, completion, identity, store
 from jav.core.process import cases, kinds, tasks
 from jav.core.process.engine import StepContext
 
-__all__ = ["Action", "Capability", "CapabilityError", "PROVIDERS", "RULES", "RULE_REFS", "RuleKey", "case_overlay",
-           "case_rules", "catalogue", "of", "of_step_kind", "register", "step_budget", "step_ref", "step_refs",
+__all__ = ["Action", "Capability", "CapabilityError", "DatasetRef", "OwnVersionResult", "PROVIDERS", "RULES", "RULE_REFS",
+           "Result", "ResultMismatch", "RuleKey", "case_overlay", "case_rules", "catalogue", "of", "of_step_kind",
+           "read_result", "reference_problem", "register", "step_budget", "step_reads", "step_ref", "step_refs",
            "step_scopes"]
 
 PROVIDERS = ("jev", "openai", "azure_di")
@@ -65,18 +70,92 @@ class CapabilityError(ValueError):
     """A capability that does not fit the registry's rules, or one that is not registered."""
 
 
+class ResultMismatch(CapabilityError):
+    """D0-c: a step's result, or the result of a step it reads, does not fit the form its capability gives."""
+
+
+class Result(BaseModel):
+    """D0-c: the base of a capability's result form: the fields it promises; others may come with it, kept as they are."""
+
+    model_config = ConfigDict(extra="allow")
+
+
+class OwnVersionResult(Result):
+    """D0-c: a step done with an approved version of its own (the quote's composition, the reconciliation's pairing)."""
+
+    version: int
+
+
+class DatasetRef(BaseModel):
+    """D0-c: how a large list is handed to another step: the dataset, its scope and the version of what it lists, not
+    its rows (no capability gives one yet; the form is fixed here so a step result never has to carry ten thousand rows)."""
+
+    model_config = ConfigDict(extra="forbid")
+    dataset: str
+    scope: dict[str, str]
+    version: str
+
+
 _STEP_REF = "step_ref"  # D0-a: the mark of a parameter that names another step, in its field's JSON schema extras
 
 
-def step_ref(default: Any = ..., **field: Any) -> Any:
-    """D0-a: a parameter that names another step of the case, whose result the step reads (`Field` otherwise)."""
-    return Field(default, json_schema_extra={_STEP_REF: True}, **field)
+def step_ref(default: Any = ..., *, reads: tuple[str, ...] = (), versions: tuple[int, ...] | None = None,
+             **field: Any) -> Any:
+    """D0-a: a parameter that names another step of the case, whose result the step reads (`Field` otherwise). D0-c:
+    `reads`, the fields of that result it reads, and `versions`, the versions of the other capability's result form it
+    takes (None: any)."""
+    extra = {_STEP_REF: True, "reads": list(reads), "versions": list(versions) if versions is not None else None}
+    return Field(default, json_schema_extra=extra, **field)
 
 
 def step_refs(params: type[BaseModel]) -> tuple[str, ...]:
     """D0-a: the parameters of a capability's model that name another step (`step_ref`), in field order."""
     return tuple(name for name, f in params.model_fields.items()
                  if isinstance(f.json_schema_extra, dict) and f.json_schema_extra.get(_STEP_REF))
+
+
+def step_reads(params: type[BaseModel], name: str) -> tuple[tuple[str, ...], tuple[int, ...] | None]:
+    """D0-c: (the fields read, the result form's versions taken or None) of a step reference parameter."""
+    extra = params.model_fields[name].json_schema_extra
+    extra = extra if isinstance(extra, dict) else {}
+    versions = extra.get("versions")
+    return tuple(extra.get("reads") or ()), (tuple(versions) if versions is not None else None)
+
+
+def reference_problem(cap: Capability, name: str, giver: Capability) -> str | None:
+    """D0-c: what is wrong with `cap`'s step reference `name` naming a step of `giver`: a field read that its result
+    form does not have, or a version of the form it does not take; None when it fits."""
+    reads, versions = step_reads(cap.params, name)
+    if giver.output is None:
+        return f"{name} names a step of {giver.key}, which gives no result form" if reads else None
+    if missing := [f for f in reads if f not in giver.output.model_fields]:
+        return f"{name} reads {missing[0]!r}, which {giver.key} does not give"
+    if versions is not None and giver.output_version not in versions:
+        return (f"{name} takes the form of version {', '.join(map(str, versions))} of {giver.key}'s result, not version"
+                f" {giver.output_version}")
+    return None
+
+
+def _fields(exc: ValidationError) -> str:
+    return ", ".join(".".join(str(p) for p in e["loc"]) or "-" for e in exc.errors()[:5])
+
+
+def read_result(ctx: StepContext, params: BaseModel, name: str) -> dict[str, Any]:
+    """D0-c: the result of the step the parameter `name` names, checked against its capability's result form and the
+    fields the parameter reads, before the step uses it. `ResultMismatch` when it does not fit (the step stops before
+    any effect)."""
+    ref = getattr(params, name)
+    _version, result = ctx.result_of(ref)
+    giver = of_step_kind(ctx.definition.step(ref).kind)
+    reads, _versions = step_reads(type(params), name)
+    if giver is not None and giver.output is not None:
+        try:
+            giver.output.model_validate(result or {})
+        except ValidationError as exc:
+            raise ResultMismatch(f"the result of step {ref!r} does not fit the form {giver.key} gives: {_fields(exc)}") from None
+    if missing := [f for f in reads if (result or {}).get(f) is None]:
+        raise ResultMismatch(f"the result of step {ref!r} does not fit: it has no {missing[0]!r}")
+    return dict(result or {})
 
 
 @dataclass(frozen=True)
@@ -182,6 +261,9 @@ class Capability:
     - `state` (stage D0, D0-b): what the state it keeps belongs to: `step` (the rule: its proposal, draft, approval,
       task and budget are the step's, so the capability may stand twice in a case) or `case` (one for the whole case,
       as the reconciliation's pairing; a pack uses such a capability once). A capability that can run says which.
+    - `output`, `output_version` (stage D0, D0-c): the form of its step's result (a `Result` model: the fields it
+      promises) and its version; a capability that can run names it. Its result is checked against it before it is
+      kept, and before another step reads it (`read_result`).
     """
 
     name: str
@@ -213,6 +295,8 @@ class Capability:
     bound: Callable[[str], bool] | None = None
     records: Callable[[str | None, dict[str, Any]], list[dict[str, Any]]] | None = None
     state: Literal["case", "step"] | None = None
+    output: type[BaseModel] | None = None
+    output_version: int = 1
 
     @property
     def key(self) -> str:
@@ -248,6 +332,8 @@ def _check(cap: Capability) -> None:
         problems.append("it needs a summary")
     if cap.state not in (None, "case", "step") or (cap.run is not None and cap.state is None):  # D0-b
         problems.append("a capability that can run says whether its state belongs to the case or to its step")
+    if cap.run is not None and not (isinstance(cap.output, type) and issubclass(cap.output, BaseModel)):  # D0-c
+        problems.append("a capability that can run names the form of its result (a pydantic model)")
     names = [a.name for a in cap.actions]
     if len(set(names)) != len(names) or not all(_NAME.match(n) for n in names):
         problems.append("its actions have distinct lowercase names")
@@ -349,9 +435,17 @@ def _runner(cap: Capability) -> Callable[[StepContext], kinds.StepOutcome]:
         try:
             params = cap.params.model_validate({k: v for k, v in (ctx.step.params or {}).items() if not k.startswith("_")})
         except ValidationError as exc:
-            fields = ", ".join(".".join(str(p) for p in e["loc"]) or "-" for e in exc.errors()[:5])
-            return kinds.Fail(f"the step's parameters do not fit {cap.key}: {fields}")
-        return cap.run(ctx, params)
+            return kinds.Fail(f"the step's parameters do not fit {cap.key}: {_fields(exc)}")
+        try:
+            outcome = cap.run(ctx, params)
+        except ResultMismatch as exc:  # D0-c: a result it reads does not fit: it stops before any effect
+            return kinds.Fail(str(exc))
+        if isinstance(outcome, kinds.Done) and cap.output is not None:  # D0-c: its result fits its form, or is not kept
+            try:
+                cap.output.model_validate(outcome.result if outcome.result is not None else {})
+            except ValidationError as exc:
+                return kinds.Fail(f"the step's result does not fit the form {cap.key} gives: {_fields(exc)}")
+        return outcome
 
     return run
 

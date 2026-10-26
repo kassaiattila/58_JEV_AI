@@ -46,7 +46,7 @@ def _cap(**changes) -> capabilities.Capability:
         return kinds.Done({"days": params.days})
 
     base = dict(name="invented_wait", version=1, module="tests.synthetic", kind="wait", summary="Waits for a reply.",
-                params=Params, run=run, state="step")
+                params=Params, run=run, state="step", output=capabilities.Result)  # D0-c: its result's form
     cap = capabilities.Capability(**{**base, **changes})
     object.__setattr__(cap, "described", {"seen": seen})
     return cap

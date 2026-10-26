@@ -381,8 +381,17 @@ def start_run(case_id: str, step_id: str, actor: identity.Who, _note: str | None
                                input_hash=ready["input_hash"], actor=actor)["run_id"]
 
 
+class ProcessedResult(capabilities.Result):
+    """D0-c: the step's package and its approved live runs, or no documents (the source held none)."""
+
+    package: str | None = None
+    runs: list[str] = []
+    documents: int | None = None
+
+
 CAPABILITY = capabilities.Capability(
     name="process_documents", version=1, module=_OWNER, run=_run, kind="human", params=Process, effects="store",
+    output=ProcessedResult,
     # no provider of its own: making the package is free, and its live run, which may call AI, is a person's action
     # (`start_run`) within the package's own estimate and budget, as any live run
     summary=("Makes a processing package of the case's documents; a person starts its live run within the package's "

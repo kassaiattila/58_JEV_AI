@@ -969,7 +969,7 @@ letter frame). Five of them run as the IT quote's steps since A5; `line_pricing`
 pack cannot use it (D0-a). Since stage D0 (D0-b) a capability that can run says what its state belongs to
 (`Capability.state`): `step` (its proposal, draft, approval, task and budget are the step's, so it may stand twice in a
 case; the rule) or `case` (one for the whole case, as the reconciliation's pairing and the email routing; a pack uses
-such a capability once). Tests: `tests/test_capabilities_231.py`, `tests/test_step_state_231.py`.
+such a capability once). D0-c: it names the form of its result (`Capability.output`, a `Result` model, with `output_version`); a step reference says which fields of the other step's result it reads and which versions of its form it takes (`step_ref(reads=, versions=)`), which the pack check compares with the other capability's form; the step kind checks a step's result against its form before it is kept, and `read_result` checks the result a step reads before it uses it (`ResultMismatch` stops the step before any effect); `DatasetRef` is the form a large list is handed on in, without its rows. Tests: `tests/test_capabilities_231.py`, `tests/test_step_state_231.py`, `tests/test_result_contract_231.py`.
 
 **Process packs (231, plan stage A, A4).** A process pack (`configs/processes/<id>.json`, read and checked by
 `jav/app/process_packs.py`) is one kind of business process described as data: its scope parts (231 adds `record`, the

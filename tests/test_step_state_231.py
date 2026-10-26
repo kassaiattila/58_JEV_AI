@@ -24,7 +24,7 @@ class _Params(BaseModel):
 
 def _cap(**changes) -> capabilities.Capability:
     base = dict(name="invented_state", version=1, module="tests.synthetic", kind="machine", summary="Invented.",
-                params=_Params, run=lambda ctx, params: kinds.DONE, state="step")
+                params=_Params, run=lambda ctx, params: kinds.DONE, state="step", output=capabilities.Result)
     return capabilities.Capability(**{**base, **changes})
 
 

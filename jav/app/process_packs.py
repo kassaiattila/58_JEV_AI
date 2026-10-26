@@ -14,7 +14,8 @@ reference to a step or a resource that is not there. Stage D0 (D0-a): a step who
 only), a step parameter naming another step that is not there or that the step does not wait for (directly or through
 another), a screen element the catalogue lists as planned, and an element that shows nothing: no data is registered for
 its type and its step's capability (or, without a step, for its type alone). A refused pack starts no case. D0-b: a
-capability whose state belongs to the whole case (`Capability.state`) stands once in a pack.
+capability whose state belongs to the whole case (`Capability.state`) stands once in a pack. D0-c: a step reference
+reads only fields the other step's result form gives, in a version of the form it takes (`capabilities.reference_problem`).
 
 - `load(pack_id)`, `packs()`: a pack read and checked (`PackError` with every problem).
 - `definition(pack)`: the process core's definition of the pack's current version: one step per pack step, its kind
@@ -241,6 +242,7 @@ def _problems(pack: ProcessPack) -> list[str]:
             problems.append("an intake that starts a case by itself needs a record scope part and a step that reads it")
     ids = [s.id for s in pack.steps]
     needs = {s.id: (*s.after, *s.gates) for s in pack.steps}
+    uses = {s.id: s.uses for s in pack.steps}
     for step in pack.steps:
         where = f"step {step.id!r}"
         try:
@@ -258,6 +260,8 @@ def _problems(pack: ProcessPack) -> list[str]:
                 problems.append(f"{where}: {name} names no step {ref!r}")
             elif ref not in _waited_for(step.id, needs):
                 problems.append(f"{where}: {name} names step {ref!r}, which it does not wait for")
+            elif (giver := _capability(uses[ref])) is not None and (wrong := capabilities.reference_problem(cap, name, giver)):
+                problems.append(f"{where}: {wrong}")  # D0-c: it reads what the other step's result form gives
         try:
             cap.params.model_validate(_resolved(step.params, pack.resources, problems, where))
         except ValidationError as exc:
@@ -287,7 +291,6 @@ def _problems(pack: ProcessPack) -> list[str]:
         if serves.package_part not in pack.scope.parts:
             problems.append(f"workflow {serves.kind!r}: {serves.package_part!r} is not a scope part of the pack")
     elements = cfg.load(ELEMENTS)["elements"]
-    uses = {s.id: s.uses for s in pack.steps}
     for tab in pack.screens.tabs:
         for element in tab.elements:
             where = f"tab {tab.id!r}"
