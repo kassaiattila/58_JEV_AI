@@ -1321,7 +1321,12 @@ refused. Commands: `rule-propose` (GPT within `--budget-usd`, JEV with `--verify
 Proposals (`ui/src/views/settings/ProposalsView.tsx`): a run started (the stand-in, free, or GPT within a budget its
 button shows), its proposals with the code's check, JEV's mark and the decision, a proposal's decision table, findings
 and numbers (each with its kind, so a code is shown as written), and a person's accept, correct or reject
-(`ui/src/views/settings/ruleProposals231.test.tsx`); the service names the stand-in sets (`product_sets.SETS`). D-c7f:
+(`ui/src/views/settings/ruleProposals231.test.tsx`); the service names the stand-in sets (`product_sets.SETS`). D-c7h: the
+golden set `rules:proposals` (`jav/evals/rule_proposal_golden.py`, layer `rules` of `jav/evals/goldens.py`): the invented
+documents written as PDFs and proposed from within the round's budget (JEV judging each with the JEV engine), every
+proposal matched to the 16 expected rules by its clause and kind, exact, differing (in kind, level, facts, modules, way
+of deciding, rows or page), missed or extra, with what code blocked and JEV's false acceptances (a "supported" on a
+differing proposal); the stand-in scores 16 of 16 (`tests/test_rule_proposal_golden_231.py`). D-c7f:
 the same on the local service
 (`jav/service/api_products.py`: `/rule-proposals`; a refused decision answers 422 `proposal_refused` with every
 problem, a stale page 409).

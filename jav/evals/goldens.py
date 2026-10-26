@@ -51,7 +51,7 @@ from typing import Any, Callable, Iterable
 from jav.core import values
 from jav.core.config import RUNS_DIR
 
-LAYERS = ("datapoints", "type", "intent", "logic_pack", "process_pack")  # 231: a process pack's too
+LAYERS = ("datapoints", "type", "intent", "rules", "logic_pack", "process_pack")  # 231: a process pack's too; D-c7h: the rules
 ENGINES = ("jev", "gpt")
 SYNTHETIC = "synthetic"
 RECEIPT = "measure"
@@ -416,6 +416,28 @@ def logic_pack_goldens() -> list[Golden]:
     return sorted(found, key=lambda g: order[g.owner])
 
 
+# 231 (stage D, D-c7h): the rule proposals from the invented insurer's condition documents (`jav/evals/rule_proposal_golden.py`)
+
+
+def _count_rule_proposals() -> int:
+    from jav.evals import rule_proposal_golden
+
+    return rule_proposal_golden.count()
+
+
+def _measure_rule_proposals(options: Options) -> Outcome:
+    from jav.evals import rule_proposal_golden
+
+    return rule_proposal_golden.measure(options)
+
+
+RULE_GOLDENS = (
+    Golden(key="rules:proposals", layer="rules", owner="rule_proposal", what="the rules proposed from the invented insurer's "
+           "condition documents against the 16 a careful person reads", engines=ENGINES, count=_count_rule_proposals,
+           measure=_measure_rule_proposals, module=__name__),
+)
+
+
 # --- the registry ------------------------------------------------------------------------------------------------------
 
 
@@ -425,7 +447,7 @@ def sets() -> list[Golden]:
     from jav.app import registrations
 
     registrations.load_all()
-    return [*datapoint_goldens(), *QUOTE_GOLDENS, *fact_goldens(), *taught_goldens(), *FLOW_GOLDENS,
+    return [*datapoint_goldens(), *QUOTE_GOLDENS, *fact_goldens(), *taught_goldens(), *FLOW_GOLDENS, *RULE_GOLDENS,
             *logic_pack_goldens()]
 
 
