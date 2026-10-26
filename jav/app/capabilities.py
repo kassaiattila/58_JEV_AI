@@ -70,7 +70,7 @@ __all__ = ["KEPT_RULES", "Action", "AtStart", "Capability", "CapabilityError", "
            "RULES", "RULE_REFS", "Result", "ResultMismatch", "RuleKey", "case_overlay", "case_rules", "catalogue", "kept_rules",
            "of", "of_step_kind",
            "expected_result", "read_result", "reference_problem", "register", "step_budget", "step_reads", "step_ref",
-           "step_ref_expects", "step_ref_of", "step_refs",
+           "step_ref_expects", "step_ref_of", "step_ref_optional", "step_refs",
            "step_scopes"]
 
 PROVIDERS = ("jev", "openai", "azure_di")
@@ -121,19 +121,20 @@ _EXPECTED: dict[str, type[BaseModel]] = {}  # D-b2: the forms readers expect, by
 
 
 def step_ref(default: Any = ..., *, reads: tuple[str, ...] = (), versions: tuple[int, ...] | None = None,
-             of: str | None = None, expects: type[BaseModel] | None = None, **field: Any) -> Any:
+             of: str | None = None, expects: type[BaseModel] | None = None, optional: bool = False, **field: Any) -> Any:
     """D0-a: a parameter that names another step of the case, whose result the step reads (`Field` otherwise). D0-c:
     `reads`, the fields of that result it reads, and `versions`, the versions of the other capability's result form it
     takes (None: any). D-a: `of`, the capability (by name) the named step uses; a reference that may be left out reads
     the pack's only such step, so the pack check refuses one left out where there are several. D-b2: `expects`, the
-    form the reader expects of that result (its fields are what it reads, typed)."""
+    form the reader expects of that result (its fields are what it reads, typed). D-d1: `optional`, a reference that,
+    left out, names no step (the step reads none), never the pack's only step of its kind."""
     token = None
     if expects is not None:
         token = f"{expects.__module__}.{expects.__qualname__}"
         _EXPECTED[token] = expects
         reads = reads or tuple(expects.model_fields)
     extra = {_STEP_REF: True, "reads": list(reads), "versions": list(versions) if versions is not None else None, "of": of,
-             "expects": token}
+             "expects": token, "optional": optional}
     return Field(default, json_schema_extra=extra, **field)
 
 
@@ -172,6 +173,12 @@ def step_ref_of(params: type[BaseModel], name: str) -> str | None:
     """D-a: the capability (by name) the step a reference names uses; None: any."""
     extra = params.model_fields[name].json_schema_extra
     return extra.get("of") if isinstance(extra, dict) else None
+
+
+def step_ref_optional(params: type[BaseModel], name: str) -> bool:
+    """D-d1: whether a reference left out names no step (rather than the pack's only step of its kind)."""
+    extra = params.model_fields[name].json_schema_extra
+    return bool(extra.get("optional")) if isinstance(extra, dict) else False
 
 
 def step_refs(params: type[BaseModel]) -> tuple[str, ...]:
@@ -321,7 +328,9 @@ class Capability:
       event or a time).
     - `summary`: one English line (the interface translates it).
     - `params`: the pydantic model of what a process pack sets for the step (it must forbid other fields).
-    - `providers`: the paid services it may call (empty: free); `rule_files`: the rule files it reads.
+    - `providers`: the paid services it may call (empty: free); `rule_files`: the rule files it reads; D-d1: `reads`,
+      the rule files a step of it reads by its parameters (a fact catalogue a parameter names), kept at the case's
+      start beside `rule_files`.
     - `effects`: `pure` (computes only), `store` (writes the store) or `external` (reaches another system; only through
       the process core's handover record).
     - `run(ctx, params)`: the step's work (`kinds.StepOutcome`); None while the capability is described but not yet usable
@@ -375,6 +384,7 @@ class Capability:
     params: type[BaseModel]
     providers: tuple[str, ...] = ()
     rule_files: tuple[str, ...] = ()
+    reads: Callable[[dict[str, Any]], tuple[str, ...]] | None = None
     effects: Literal["pure", "store", "external"] = "store"
     run: Callable[[StepContext, Any], kinds.StepOutcome] | None = None
     events: tuple[str, ...] = ()

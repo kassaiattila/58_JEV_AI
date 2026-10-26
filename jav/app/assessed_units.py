@@ -177,8 +177,13 @@ def unit(case_id: str, step_id: str, unit_id: str) -> dict[str, Any]:
 def units(case_id: str, step_id: str, *, include_removed: bool = False) -> list[dict[str, Any]]:
     """The step's units in the order they were added."""
     with store.connect() as c:
-        rows = c.execute("SELECT * FROM assessed_units WHERE case_id=? AND step_id=? ORDER BY rowid", (case_id, step_id)).fetchall()
-        return [_view(c, r) for r in rows if include_removed or not r["removed"]]
+        return units_in(c, case_id, step_id, include_removed=include_removed)
+
+
+def units_in(c: Any, case_id: str, step_id: str, *, include_removed: bool = False) -> list[dict[str, Any]]:
+    """D-d1: `units` in the caller's transaction (what a freeze reads is what it writes beside)."""
+    rows = c.execute("SELECT * FROM assessed_units WHERE case_id=? AND step_id=? ORDER BY rowid", (case_id, step_id)).fetchall()
+    return [_view(c, r) for r in rows if include_removed or not r["removed"]]
 
 
 def history(case_id: str, step_id: str, unit_id: str) -> list[dict[str, Any]]:
@@ -189,7 +194,12 @@ def history(case_id: str, step_id: str, unit_id: str) -> list[dict[str, Any]]:
 def state(case_id: str, step_id: str) -> int:
     """A mark that changes with any change of the case's units."""
     with store.connect() as c:
-        return decisions.package_state(c, case_id, (KIND,))
+        return state_in(c, case_id, step_id)
+
+
+def state_in(c: Any, case_id: str, step_id: str) -> int:
+    """D-d1: `state` in the caller's transaction."""
+    return decisions.package_state(c, case_id, (KIND,))
 
 
 def reference(case_id: str, step_id: str) -> capabilities.DatasetRef:
@@ -200,7 +210,14 @@ def reference(case_id: str, step_id: str) -> capabilities.DatasetRef:
 
 def checked_input(case_id: str, step_id: str, catalogue_id: str, *, product: str, cover_start: str | date) -> facts.CheckedInput:
     """The units as they are now, frozen as a checked input (a later correction does not change it)."""
-    rows = units(case_id, step_id)
+    with store.connect() as c:
+        return checked_input_in(c, case_id, step_id, catalogue_id, product=product, cover_start=cover_start)
+
+
+def checked_input_in(c: Any, case_id: str, step_id: str, catalogue_id: str, *, product: str,
+                     cover_start: str | date) -> facts.CheckedInput:
+    """D-d1: `checked_input` in the caller's transaction (the freeze reads the units it writes the version beside)."""
+    rows = units_in(c, case_id, step_id)
     return facts.checked_input({"catalogue": catalogue_id, "product": product, "cover_start": str(cover_start),
                                 "units": [{k: u[k] for k in ("unit_id", "level", "parent_id", "facts", "sources")} for u in rows]})
 

@@ -1326,7 +1326,14 @@ golden set `rules:proposals` (`jav/evals/rule_proposal_golden.py`, layer `rules`
 documents written as PDFs and proposed from within the round's budget (JEV judging each with the JEV engine), every
 proposal matched to the 16 expected rules by its clause and kind, exact, differing (in kind, level, facts, modules, way
 of deciding, rows or page), missed or extra, with what code blocked and JEV's false acceptances (a "supported" on a
-differing proposal); the stand-in scores 16 of 16 (`tests/test_rule_proposal_golden_231.py`). D-c7f:
+differing proposal); the stand-in scores 16 of 16 (`tests/test_rule_proposal_golden_231.py`).
+
+**The case steps of stage D (231, D-d).** D-d1: a step whose parameters name a rule file (a fact catalogue) keeps it as
+the case started (`Capability.reads`, gathered by `process_runtime._kept_rule_files`), so a catalogue changed later
+reaches only the cases started after it; a step reference marked optional (`step_ref(optional=True)`), left out, names
+no step rather than the pack's only one of its kind; the assessed units are read in the caller's transaction
+(`assessed_units.units_in`, `state_in`, `checked_input_in`); an approval task may go to anyone
+(`human_tasks.own_approval_waits(assignee=None)`) (`tests/test_kept_catalogue_231.py`). D-c7f:
 the same on the local service
 (`jav/service/api_products.py`: `/rule-proposals`; a refused decision answers 422 `proposal_refused` with every
 problem, a stale page 409).

@@ -195,11 +195,17 @@ def own_parts(subject: str) -> tuple[str, str | None]:
     return wp_id, (step_id if sep else None)
 
 
+_OWNER = object()  # D-d1: the task goes to the package's owner, as before
+
+
 def own_approval_waits(c: sqlite3.Connection, wp_id: str, step_id: str | None = None, *, by: actors.Actor = MACHINE,
-                       reopened: int | None = None) -> str:
+                       reopened: int | None = None, assignee: str | None | object = _OWNER) -> str:
     """The package waits for its own approval, in the caller's transaction ("opened", "reopened" or "exists"): made, or
-    its approved version `reopened`. D0-b: a case's approving step `step_id` waits for its own."""
-    return tasks.open_in(c, OWN_APPROVAL, own_subject(wp_id, step_id), by, assignee=assignee_for(c, wp_id, None),
+    its approved version `reopened`. D0-b: a case's approving step `step_id` waits for its own. D-d1: `assignee`, the
+    person it goes to (None: anyone's, as a decision another person than the first one must make); by default the
+    package's owner."""
+    who = assignee_for(c, wp_id, None) if assignee is _OWNER else assignee
+    return tasks.open_in(c, OWN_APPROVAL, own_subject(wp_id, step_id), by, assignee=who,
                          detail={"workpackage_id": wp_id, **({"step_id": step_id} if step_id else {}),
                                  **({"reopened": reopened} if reopened is not None else {})})
 

@@ -84,8 +84,17 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
 
 
 def _kept_rule_files(pack: process_packs.ProcessPack) -> list[str]:
-    """D0-e: the rule files a case of the pack reads as it started: those its steps' capabilities read."""
-    return sorted({name for step in pack.steps for name in capabilities.of(step.uses).rule_files})
+    """D0-e: the rule files a case of the pack reads as it started: those its steps' capabilities read. D-d1: and those a
+    step reads by its parameters (a fact catalogue a parameter names; a parameter naming a resource reads its value)."""
+    names: set[str] = set()
+    for step in pack.steps:
+        cap = capabilities.of(step.uses)
+        names |= set(cap.rule_files)
+        if cap.reads is not None:
+            params = {k: pack.resources.get(v[1:], v) if isinstance(v, str) and v.startswith("@") else v
+                      for k, v in (step.params or {}).items()}
+            names |= set(cap.reads(params))
+    return sorted(names)
 
 
 def kept_of(case_id: str) -> dict[str, Any] | None:

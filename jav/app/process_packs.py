@@ -275,8 +275,9 @@ def _problems(pack: ProcessPack) -> list[str]:
         for name in capabilities.step_refs(cap.params):  # D0-a: the step reads that step's result
             ref = step.params.get(name)
             of = capabilities.step_ref_of(cap.params, name)
-            if ref is None:  # D-a: it reads the pack's only step of that kind, or nothing names which
-                problems += _implicit_source(pack, step.id, name, of, needs, where)
+            if ref is None:  # D-a: the pack's only such step; D-d1: or none, for an optional reference
+                if not capabilities.step_ref_optional(cap.params, name):
+                    problems += _implicit_source(pack, step.id, name, of, needs, where)
                 continue
             if ref not in ids:
                 problems.append(f"{where}: {name} names no step {ref!r}")
