@@ -1216,6 +1216,13 @@ Limits: only the rule files the capabilities declare are kept (a non-JSON file, 
 and the process pack itself, which a case keeps by its version, are not). Tests: `tests/test_case_keeps_versions_231.py`,
 `ui/src/elements/caseKept231.test.tsx`.
 
+**Typed values (231, stage D, D-b1; the reassessment after D0, P05).** `jav/core/measures.py`: an amount of money
+carries its currency (`Money`: sums and comparisons in one currency only, `CurrencyMismatch` otherwise; rounded by a
+named `Rounding` unit and mode), a quantity its unit (`Quantity`), a rate whether it is per hundred or per thousand
+(`Percentage`, `PerMille`, which never mix), a version its days (`Validity`); each round-trips through JSON exactly
+(an amount as text), and a float, NaN or infinity is refused. A result hands such values on instead of bare numbers
+(`tests/test_measures_231.py`).
+
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,
 changed, saving, saved, conflict, not known; `saveState`, `SaveLine`). Its unsaved work lives in the page's memory only,
