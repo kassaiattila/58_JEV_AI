@@ -311,10 +311,10 @@ def test_the_service_creates_the_package_and_records_the_decisions(env):
     stmt = _stmt("stmt", _line())
     [lid] = _ids(stmt, _line())
     assert c.get("/api/reconcile/accounts").json()["accounts"][0]["key"] == OWN_KEY
-    r = c.post("/api/reconcile/packages", headers=HUMAN,
-               json={"name": "April", "accounts": [OWN_KEY], "period_start": "2026-04-01", "period_end": "2026-04-30"})
-    assert r.status_code == 201, r.text
-    wp_id = r.json()["workpackage"]["id"]
+    # 231 (C3e): a reconciliation is its pack's case (`POST /api/cases`); `/api/reconcile/packages` went
+    assert c.post("/api/reconcile/packages", headers=HUMAN, json={}).status_code in (404, 405)
+    wp_id = rp.create(name="April", accounts=[OWN_KEY], period_start="2026-04-01", period_end="2026-04-30",
+                      actor="anna")["workpackage_id"]
     assert c.get(f"/api/workpackages/{wp_id}/reconcile").json()["lines"][0]["state"] == "proposed"
     bad = c.post(f"/api/workpackages/{wp_id}/reconcile/allocate", headers=HUMAN,
                  json={"pairs": [{"invoice_doc_id": inv, "line_id": lid, "line_amount": "1,5"}]})

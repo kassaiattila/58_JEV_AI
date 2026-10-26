@@ -443,8 +443,6 @@ export const financeApi = {
   // 131–132: the reconciliation package; every decision returns the recomputed workspace
   reconcileAccounts: () => request<{ accounts: ReconcileAccount[] }>("GET", "/reconcile/accounts"),
   /** 136: the accounts of a bank's tabular statement export (no lines or balances); a package of the chosen ones. */
-  createReconcilePackage: (body: { name: string; accounts: string[]; period_start: string; period_end: string; party_id?: string | null }) =>
-    request<WorkpackageView>("POST", "/reconcile/packages", body),
   reconcileWorkspace: (wpId: string) => seen(wpId, request<ReconcileWorkspace>("GET", `/workpackages/${enc(wpId)}/reconcile`)),
   setReconcileScope: (wpId: string, body: { accounts: string[]; period_start: string; period_end: string; expected_revision: number; party_id?: string | null }) =>
     seen(wpId, request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/scope`, body)),

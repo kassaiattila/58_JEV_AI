@@ -5,11 +5,10 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  api, setActor, type MonthCell, type OwnParty, type PartiesOverview, type PartyMonths, type WorkpackageView,
+  api, setActor, type MonthCell, type OwnParty, type PartiesOverview, type PartyMonths,
 } from "../../api";
 import hungarian from "../../i18n/hu-native.json";
 import { setLanguage } from "../../i18n";
-import { ReconcileCreate } from "../reconcile/ReconcileCreate";
 import { columnLabel, MonthGrid, monthWarnings } from "./MonthStatus";
 import { PartiesPanel } from "./PartiesPanel";
 
@@ -114,34 +113,9 @@ describe("an account registered on the settings page", () => {
   });
 });
 
-describe("a new reconciliation package with a registered account", () => {
-  it("chooses an account without a statement and warns about the months it lacks, without stopping", async () => {
-    vi.spyOn(api, "parties").mockResolvedValue(overview());
-    vi.spyOn(api, "reconcileAccounts").mockResolvedValue({ accounts: [
-      { key: KEY, account: NUMBER, statement_types: [], currencies: ["HUF"], statements: 0, first: null, last: null, party: HOME,
-        registered: { kind: "account", bank: "Example Bank", currencies: ["HUF"], valid_from: "2026-01-01", valid_to: null, label: NUMBER } },
-    ] });
-    const load = vi.spyOn(api, "partyMonths").mockResolvedValue(months());
-    const create = vi.spyOn(api, "createReconcilePackage").mockResolvedValue({ workpackage: { id: "wp-0000000000cc" } } as unknown as WorkpackageView);
-    render(<ReconcileCreate onDone={vi.fn()} />);
-    const home = await screen.findByRole("radio", { name: /Example Home/ });
-    expect(screen.getByText(/1 accounts or cards, no statement yet/)).toBeTruthy();
-    fireEvent.click(home);
-    expect((screen.getByRole("checkbox", { name: /registered, no statement yet/ }) as HTMLInputElement).checked).toBe(true);
-    fireEvent.change(screen.getByLabelText("Period from"), { target: { value: "2026-01-01" } });
-    fireEvent.change(screen.getByLabelText("to"), { target: { value: "2026-03-31" } });
-    const preview = await screen.findByRole("region", { name: "Data status of the period" });
-    expect(within(preview).getByText(/have no statement: their invoices will show/)).toBeTruthy();
-    expect(within(preview).getByText("The package can be created; the gaps show in its result.")).toBeTruthy();
-    expect(load).toHaveBeenLastCalledWith(HOME.id, "2026-01", "2026-03");
-    fireEvent.click(screen.getByRole("button", { name: "Create" }));
-    await waitFor(() => expect(create).toHaveBeenCalledWith(expect.objectContaining({ accounts: [KEY], party_id: HOME.id })));
-  });
-});
-
 describe("the Hungarian interface of the registered accounts", () => {
   it("has a translation for every new label", () => {
-    const sources = import.meta.glob<string>(["./MonthStatus.tsx", "./PartiesPanel.tsx", "../reconcile/ReconcileCreate.tsx"],
+    const sources = import.meta.glob<string>(["./MonthStatus.tsx", "./PartiesPanel.tsx", "../reconcile/AccountChecklist.tsx"],
       { eager: true, query: "?raw", import: "default" });
     const keys = new Set<string>();
     for (const src of Object.values(sources)) {

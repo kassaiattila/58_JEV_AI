@@ -261,8 +261,8 @@ def test_the_service_shows_approves_downloads_and_reopens(env):
     c = env["client"]
     k2._save("inv", k2._invoice())
     _stmt("stmt", _line())
-    wp_id = c.post("/api/reconcile/packages", headers=HUMAN, json={
-        "name": "April", "accounts": [OWN_KEY], "period_start": "2026-04-01", "period_end": "2026-04-30"}).json()["workpackage"]["id"]
+    wp_id = rp.create(name="April", accounts=[OWN_KEY], period_start="2026-04-01", period_end="2026-04-30",
+                      actor="anna")["workpackage_id"]  # 231 (C3e): `/api/reconcile/packages` went
     view = c.get(f"/api/workpackages/{wp_id}/reconcile/statement").json()
     assert {b["code"] for b in view["blockers"]} == {"source_no_run"}
     r = c.post(f"/api/workpackages/{wp_id}/reconcile/approve", headers=HUMAN, json={"fingerprint": view["fingerprint"]})

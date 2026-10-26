@@ -7,13 +7,11 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   api, setActor, type OwnParty, type PartiesOverview, type ReconcileInvoice, type ReconcileLine, type ReconcileWorkspace,
-  type WorkpackageView,
 } from "../../api";
 import hungarian from "../../i18n/hu-native.json";
 import { setLanguage, t } from "../../i18n";
 import { SETTINGS_SECTIONS } from "../Settings";
 import { PartiesPanel } from "../settings/PartiesPanel";
-import { ReconcileCreate } from "./ReconcileCreate";
 import { ReconcilePairing } from "./ReconcilePairing";
 
 const WP = "wp-0000000000bb";
@@ -91,42 +89,6 @@ describe("the pairing page of a party's package", () => {
 });
 
 // --- the create form -----------------------------------------------------------------------------------------------------
-
-describe("a new package starts from its own party", () => {
-  it("checks the party's accounts, takes its statements' span and sends the party", async () => {
-    const parties = overview({ parties: [party({}), party({ ...CLUB, accounts: [], statements_first: null, statements_last: null })] });
-    vi.spyOn(api, "parties").mockResolvedValue(parties);
-    vi.spyOn(api, "reconcileAccounts").mockResolvedValue({ accounts: [
-      { key: "acct-1", account: "1111-2222", statement_types: ["bank_account"], currencies: ["HUF"], statements: 4, first: "2026-04-01", last: "2026-08-31", party: HOME },
-      { key: "acct-2", account: "3333-4444", statement_types: ["credit_card"], currencies: ["HUF"], statements: 1, first: "2026-05-01", last: "2026-05-31", party: null },
-    ] });
-    const create = vi.spyOn(api, "createReconcilePackage").mockResolvedValue({ workpackage: { id: WP } } as unknown as WorkpackageView);
-    vi.spyOn(api, "partyMonths").mockResolvedValue({ party: HOME, start: "2026-04", end: "2026-08", months: [], today: "2026-10-10",
-      columns: [], invoices: [], summary: { ok: 0, unapproved: 0, unverified: 0, partial: 0, missing: 0, overlap: 0, break: 0 } }); // 138
-    const done = vi.fn();
-    render(<ReconcileCreate onDone={done} />);
-    const home = await screen.findByRole("radio", { name: /Example Home/ });
-    expect((screen.getByRole("radio", { name: /Sporting Club/ }) as HTMLInputElement).disabled).toBe(true); // no statement yet
-    expect((screen.getByRole("button", { name: "Create" }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(home);
-    expect((screen.getByRole("checkbox", { name: /1111-2222/ }) as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByRole("checkbox", { name: /3333-4444/ }) as HTMLInputElement).checked).toBe(false);
-    expect((screen.getByLabelText("Period from") as HTMLInputElement).value).toBe("2026-04-01");
-    fireEvent.click(screen.getByRole("button", { name: "Create" }));
-    await waitFor(() => expect(done).toHaveBeenCalledWith(WP));
-    expect(create).toHaveBeenCalledWith({ name: "Example Home · 2026-04-01 – 2026-08-31", accounts: ["acct-1"],
-      period_start: "2026-04-01", period_end: "2026-08-31", party_id: HOME.id });
-  });
-
-  it("without any own party it points to the settings", async () => {
-    vi.spyOn(api, "parties").mockResolvedValue(overview());
-    vi.spyOn(api, "reconcileAccounts").mockResolvedValue({ accounts: [] });
-    render(<ReconcileCreate onDone={vi.fn()} />);
-    expect(await screen.findByRole("link", { name: "Settings › Own parties" })).toBeTruthy();
-  });
-});
-
-// --- the settings page ---------------------------------------------------------------------------------------------------
 
 describe("the own parties in the settings", () => {
   const suggestion = (id: string, name: string, n: number) => ({

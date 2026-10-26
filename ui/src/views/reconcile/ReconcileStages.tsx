@@ -7,7 +7,7 @@ import { BlockerList } from "../../components/BlockerList";
 import { errorText, useAction, useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { go, type Stage } from "../../route";
-import { AccountChecklist } from "./ReconcileCreate";
+import { AccountChecklist } from "./AccountChecklist";
 import { ReconcileCards } from "./ReconcileCards";
 import { ReconcileInputs } from "./ReconcileInputs";
 import { ReconcilePairing } from "./ReconcilePairing";

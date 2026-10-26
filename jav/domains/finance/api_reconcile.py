@@ -38,10 +38,6 @@ class ReconcileScope(In):
     party_id: PartyId | None = None  # 133: the package's own party; None: every invoice is its own
 
 
-class CreateReconcilePackage(ReconcileScope):
-    name: Annotated[str, Field(min_length=1, max_length=200)]
-
-
 class SetReconcileScope(ReconcileScope):
     expected_revision: Annotated[int, Field(ge=1)]
 
@@ -131,11 +127,7 @@ def routes(app: FastAPI, r: str) -> None:
     def reconcile_accounts() -> dict[str, Any]:
         return work_views.jsonable({"accounts": reconcile_package.accounts()})
 
-    @app.post(r + "/reconcile/packages", status_code=201)
-    def create_reconcile_package(body: CreateReconcilePackage, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
-        sc = reconcile_package.create(name=body.name, accounts=body.accounts, period_start=body.period_start,
-                                      period_end=body.period_end, actor=who, party_id=body.party_id)
-        return work_views.workpackage_view(sc["workpackage_id"])
+    # 231 (C3e): a reconciliation is the reconciliation pack's case (`POST /api/cases`); `/reconcile/packages` went
 
     @app.get(r + "/workpackages/{wp_id}/reconcile")
     def reconcile_workspace(wp_id: WpId) -> dict[str, Any]:

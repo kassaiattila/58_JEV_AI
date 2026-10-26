@@ -49,7 +49,7 @@ def _routes() -> list[APIRoute]:
 
 # --- the addresses of the local service ---------------------------------------------------------------------------------
 
-ROUTE_COUNT = 195  # (method, path) pairs of 176 routes: the unknown-address answer has five methods
+ROUTE_COUNT = 194  # (method, path) pairs of 176 routes: the unknown-address answer has five methods
 # 178 (plan 170 L4): nine new addresses on purpose - the own output templates (list, upload, activate, retire, file,
 # preview), a package's choice of them (read, choose) and the utility cost's workbook (jav/service/api_outputs.py)
 # 181 (plan 170 L5): three more on purpose - the package roles, and a package's scope given and taken away
@@ -80,8 +80,9 @@ ROUTE_COUNT = 195  # (method, path) pairs of 176 routes: the unknown-address ans
 # form's survey and creation (`POST /api/statement-packages/survey`, `POST /api/statement-packages`: a statement package
 # is a bank statements case's, `POST /api/cases` with its source); C3c: one more, the records a pack's case may start from
 # (`GET /api/processes/{pack_id}/records`, the general form's record chooser), and one fewer, the quote's own search of
-# them (`GET /api/quote-requests`)
-ROUTE_TABLE = "3b63d1818fdc514f87f8225d71b51bf25b62a8fc240c62e31858fde620cf37de"
+# them (`GET /api/quote-requests`); C3e: one fewer, the reconciliation's own creation (`POST /api/reconcile/packages`: a
+# reconciliation is its pack's case, `POST /api/cases`)
+ROUTE_TABLE = "4a48d49c7cb7e8330f3b015ed3ee51705a157d9b888cd64b3c4efb96d096c3ac"
 
 
 def test_the_service_has_these_addresses() -> None:
@@ -102,7 +103,6 @@ def test_the_reconciliation_and_the_statement_package_have_these_addresses() -> 
         "GET /api/workpackages/{wp_id}/reconcile/statement",
         "GET /api/workpackages/{wp_id}/reconcile/statement.xlsx",
         "GET /api/workpackages/{wp_id}/reconcile/targets",
-        "POST /api/reconcile/packages",
         "POST /api/runs/{run_id}/items/{item_id}/statements/{other_doc_id}/choice",
         "POST /api/workpackages/{wp_id}/reconcile/accept-proposed",
         "POST /api/workpackages/{wp_id}/reconcile/accept-sources",
