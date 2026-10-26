@@ -34,6 +34,7 @@ export function PackageWork({ caseId, element, page, onChanged }: ElementProps) 
   const start = () => run(() => api.caseStepAction(caseId, stepId, "start_run"), { then: onChanged });
   const base = `#/workpackages/${encodeURIComponent(pkg.id)}`;
   return (
+    <>
     <section className="card wide rc-stack" aria-label={t("The case's documents")}>
       <div className="card-head">
         <h3 title={pkg.name}>{t("The case's documents")}</h3>
@@ -64,9 +65,10 @@ export function PackageWork({ caseId, element, page, onChanged }: ElementProps) 
         <a className="button secondary" href={`${base}/result`}>{t("Result")}</a>
       </nav>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
-      {/* 231 (C3d; the owner's decision of 2026-10-26): the processes that read the package (an email package: the
-          email routing), as on the package's own page */}
-      {data.offers?.length ? <PackageIntake offers={data.offers} /> : null}
     </section>
+    {/* 231 (C3d; the owner's decision of 2026-10-26): the processes that read the package (an email package: the email
+        routing), as on the package's own page, each a card of its own beside the package's */}
+    {data.offers?.length ? <PackageIntake offers={data.offers} /> : null}
+    </>
   );
 }
