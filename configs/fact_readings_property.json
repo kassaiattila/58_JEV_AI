@@ -1,9 +1,10 @@
 {
   "meta": {
     "name": "fact_readings_property",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "231 (stage D, D-e2): how the values a type pack extracts from a document become facts of the property catalogue's assessed units (jav/app/fact_readings.py), a rule file a case keeps as it started. units: per type pack, the units its values describe, each with its level, its key (a template of the document's own values: {site_no}; {row} is a list row's number), its parent's key, the list whose rows are units of it (rows), and its facts, each read from a header field (field) or a row's column (column), through a code table (codes: printed words, compared without case, extra spaces or punctuation at their ends, to the catalogue's codes), with the field holding an amount's currency (currency_field), or from a list's column as a list of codes (list, column). A value that does not fit is never guessed: it is listed as unread with why. The printed words are document vocabulary (Hungarian).",
     "changelog": [
+      {"version": "1.1.0", "date": "2026-10-27", "note": "231 (D-f8): the request form's contact person and email address become the policyholder's facts (the offer's letter addresses them)."},
       {"version": "1.0.0", "date": "2026-10-26", "note": "231 (D-e2): the first version: the insurance application's three packs (the request form, the property schedule, the claims history)."}
     ]
   },
@@ -23,6 +24,7 @@
     "insurance_request": [
       {"level": "holder", "key": "holder", "parent": null,
        "facts": {"company_name": {"field": "policyholder_name"}, "tax_number": {"field": "policyholder_tax_number"},
+                 "contact_name": {"field": "contact_name"}, "contact_email": {"field": "contact_email"},
                  "activity_code": {"field": "activity_code"},
                  "payment_frequency": {"field": "payment_frequency", "codes": "payment_frequency"},
                  "accounting_method": {"field": "accounting_method", "codes": "accounting_method"},

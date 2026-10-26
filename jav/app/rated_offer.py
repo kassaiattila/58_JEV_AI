@@ -6,7 +6,7 @@ kept, never computed again: the premium decision's approved version names the pr
 (`evaluation_steps`), that record names the rule evaluation it was computed after, and the evaluation names the checked
 input a person froze and the product version it was evaluated for. From these the output contract's `rated_offer`
 (`configs/outputs.json`) gets its values - the policyholder and its tax number, the product, the day cover starts, the
-risk's verdict, the modules' subtotal, the total (whether it was rounded, whether the policy's minimum applies), the
+risk's verdict, the contact person and address (D-f8: the letter goes to them), the modules' subtotal, the total (whether it was rounded, whether the policy's minimum applies), the
 condition documents - and two tables: each cover module's premium, and each factor of the tariff on the total (its
 title as the tariff names it), so a client sees how the total follows from the modules. The built-in template is
 Hungarian (`configs/offer_documents.json`, document vocabulary); a person's own Word template is filled the same way
@@ -38,7 +38,7 @@ COLUMNS = ("name", "premium")
 ADJUSTMENT_COLUMNS = ("name", "factor")
 SETTINGS = "offer_documents"
 # the values the built-in template prints as lines, in their order; the rest stand elsewhere on the page
-_LINES = ("policyholder", "tax_number", "product", "cover_start", "verdict")
+_LINES = ("policyholder", "tax_number", "contact_name", "product", "cover_start", "verdict")
 
 
 class RatedOfferError(ValueError):
@@ -102,6 +102,7 @@ def data(content: dict[str, Any], *, case_id: str, package: str, version: int | 
         "package": package, "version": version, "state": None if version else texts["texts"]["draft"],
         "offer_date": (approved_at or _now())[:10], "approved_by": approved_by,
         "policyholder": holder.get("company_name"), "tax_number": holder.get("tax_number"),
+        "contact_name": holder.get("contact_name"), "contact_email": holder.get("contact_email"),  # D-f8: the letter's
         "product": product.product.name, "cover_start": checked.cover_start.isoformat(),
         "verdict": texts["verdicts"].get(verdict, verdict) if verdict else None,
         "currency": computed["total"]["currency"], "subtotal": (computed.get("subtotal") or {}).get("amount"),

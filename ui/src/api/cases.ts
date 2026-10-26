@@ -148,6 +148,16 @@ export interface DocumentViewData {
   state: string | null; from_step: string | null; output: string | null; version: number | null;
   file: { name: string; sha256: string } | null;
 }
+/** D-f8: a letter that goes with a printed document (jav/app/letters.py). */
+export interface LetterData {
+  frame: string;
+  document: { step: string; version: number; output: string; name: string; sha256: string } | null;
+  draft: { to: string | null; subject: string; body: string } | null;
+  problem: string | null; basis: Record<string, number>; approval: ApprovalState; waits: boolean;
+  accepted: { version: number; to: string | null; subject: string; body: string; by: string; at: string;
+    document: { name: string; sha256: string }; file: { name: string; sha256: string } | null } | null;
+  limits: { subject_chars: number; body_chars: number };
+}
 export interface CaseEvent {
   at: string; kind: string; step: string | null; step_title: string | null; who: string | null;
   detail: { note?: string; timer?: string; task_kind?: string; answer?: string; kept?: CaseKept };

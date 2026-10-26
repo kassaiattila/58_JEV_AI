@@ -1,9 +1,10 @@
 {
   "meta": {
     "name": "process:insurance_offer",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "description": "231 (stage D, D-f3; the owner's decisions of 2026-10-26): a business property insurance quote as a process pack of shared capabilities only. A case processes the documents of its source (the quote request form, a property schedule per site, the claims history), turns what they hold into facts of the assessed units, asks the company register and the sanctions list, and a person checks and freezes the facts; the rules of the product version the case kept are evaluated, missing facts are asked for by a deadline, a person decides on the risk, the premium is computed from the tariff the case kept, and a person decides on the premium (above the limit another person than the risk's). The product, its rules, its tariff, the registers and the limit are invented (the trial); a live product and a live limit are the owner's decisions.",
     "changelog": [
+      {"version": "1.5.0", "date": "2026-10-27", "note": "231 (D-f8): the covering letter (letter@1, a person accepts it; the offer's document attached) and its send into the output folder (send@1, a person starts it), on the Decision and release view."},
       {"version": "1.4.0", "date": "2026-10-26", "note": "231 (D-f7): the offer's Word document, printed from the accepted premium and stored with its version, on the Decision and release view."},
       {"version": "1.3.0", "date": "2026-10-26", "note": "231 (D-f6): the Decision and release view shows the two decisions (the risk, then the premium) with their choices and the second person."},
       {"version": "1.2.0", "date": "2026-10-26", "note": "231 (D-f5): the Calculation and versions view: the rules' evaluation, the missing facts and the premium, each with its versions; the cost moves to the Overview."},
@@ -44,7 +45,11 @@
                             "decline": {"title": "Decline the quote", "closes": "declined"}},
                 "other_than": "risk", "limit": "inv_premium_second_person"}},
     {"id": "document", "uses": "priced_document@1", "title": "Offer document", "after": ["premium"],
-     "params": {"output": "rated_offer", "from_step": "premium"}}
+     "params": {"output": "rated_offer", "from_step": "premium"}},
+    {"id": "letter", "uses": "letter@1", "title": "Covering letter", "after": ["document"],
+     "params": {"frame": "offer_letter", "from_step": "document"}},
+    {"id": "send", "uses": "send@1", "title": "Send", "after": ["letter"], "start": "person",
+     "params": {"message": "letter", "mode": "output_folder", "from_step": "letter"}}
   ],
   "screens": {
     "tabs": [
@@ -55,7 +60,8 @@
         {"type": "missing_info", "step": "missing"}, {"type": "calculation", "step": "rate"}]},
       {"id": "decision", "label": "Decision and release",
        "elements": [{"type": "decision", "step": "risk"}, {"type": "decision", "step": "premium"},
-                    {"type": "document_view", "step": "document"}]},
+                    {"type": "document_view", "step": "document"}, {"type": "letter", "step": "letter"},
+                    {"type": "handover_view", "step": "send"}]},
       {"id": "history", "label": "History", "elements": [{"type": "timeline"}]}
     ]
   },

@@ -1450,7 +1450,22 @@ and `step_file` and `GET /api/cases/{case_id}/steps/{step_id}/file` give that fi
 `document_view` element is built from the planned list for such a step (the file, its fingerprint, the version it
 printed and from which step; `ui/src/elements/DocumentElement.tsx`). `insurance_offer.json` 1.4.0 adds the step
 `document` after the premium decision and the element on the Decision and release view (`tests/test_rated_offer_231.py`,
-`tests/test_insurance_offer_path_231.py`, `ui/src/elements/documentElement231.test.tsx`).
+`tests/test_insurance_offer_path_231.py`, `ui/src/elements/documentElement231.test.tsx`). D-f8: the covering letter,
+a general capability (`jav/app/letters.py`, `letter@1`; the quote's reply letter stays the quote's, as it asks a model
+for a paragraph). It goes with a priced document's step that stored its file (`from_step`, expecting its version, output
+and file; the quote's result names none and does not fit). Its draft is written by code from a frame
+(`configs/letter_frames.json`, kept at the case's start): the greeting with the addressee's name or without one, the
+paragraphs and the closing, each marker a value of the printed document's output as its builder makes it, written as
+the document writes it; the address is the value the step names (`to`, the contact's email: the fact catalogue 1.6.0 and
+the readings 1.1.0 carry the request form's contact). A person changes the address, the subject and the text and
+accepts it through the step's form action with the page's document version (refused: an older page, a marker left in
+it, an address that is none, an empty or too long text); the letter is the step's own approved version, stored as an
+email file (`X-Unsent: 1`) with the document's stored file attached, and a new document makes it out of date. The
+message builder `letter` hands that file to the send step (`send@1`). `approved_document.step_file` and its route give
+any done step's file its result names by version and sha256 (the letter's email file too). The special element
+`letter` (`ui/src/elements/LetterElement.tsx`); `insurance_offer.json` 1.5.0 adds the letter and the send (a person
+starts it) to the Decision and release view, and the case closes once the file is handed over
+(`tests/test_letters_231.py`, `ui/src/elements/letterElement231.test.tsx`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

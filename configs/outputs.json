@@ -7,7 +7,7 @@
       {
         "version": "1.4.0",
         "date": "2026-10-26",
-        "note": "231 (stage D, D-f7): a rated offer as a Word document (`rated_offer`): the policyholder, the product, the day cover starts, the risk's verdict, each cover module's premium, their subtotal, the factors on the total and the total, from an approved premium decision."
+        "note": "231 (stage D, D-f7): a rated offer as a Word document (`rated_offer`): the policyholder and its contact person, the product, the day cover starts, the risk's verdict, each cover module's premium, their subtotal, the factors on the total and the total, from an approved premium decision."
       },
       {
         "version": "1.3.0",
@@ -361,6 +361,8 @@
         "approved_by": "text",
         "policyholder": "text",
         "tax_number": "text",
+        "contact_name": "text",
+        "contact_email": "text",
         "product": "text",
         "cover_start": "date",
         "verdict": "text",

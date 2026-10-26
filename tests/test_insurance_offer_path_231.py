@@ -7,19 +7,24 @@ register and the sanctions list are asked, a person freezes the facts, the rules
 a person accepts the risk, the premium is the reference case's and, above the invented limit, another person accepts
 it. D-f7: the accepted premium is printed as the offer's Word document, stored with the decision's version: its values
 are the case's (the policyholder, the product, each module's premium, the approver), and the download and the
-Decision and release view name that file. Invented data; no paid call.
+Decision and release view name that file. D-f8: the covering letter is written from its frame with the document's
+values and addressed to the contact the request form names; a person accepts it, it is kept as an email file with the
+document attached, a person starts the send and that very file lands in the output folder; then the case closes.
+Invented data; no paid call.
 """
 
 from __future__ import annotations
 
+import email
 import hashlib
 import io
 import time
+from email.policy import default
 
 import pytest
 
-from jav.app import (approved_document, case_decisions, case_views, document_processing, field_check, package_release,
-                     process_runtime, product_sets, rated_offer, work, work_runs)
+from jav.app import (app_settings, approved_document, case_decisions, case_views, document_processing, field_check,
+                     package_release, process_runtime, product_sets, rated_offer, work, work_runs)
 from jav.core import connectors, store, trace
 from jav.core.process import cases, engine
 from jav.devtools import invented_services
@@ -72,7 +77,7 @@ def _decide(case_id: str, step: str, actor: str) -> None:
                                                           "expected_basis": case_decisions.view(case_id, step)["basis"]})
 
 
-def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder) -> None:
+def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder, tmp_path, monkeypatch) -> None:
     case_id = process_runtime.start_case("insurance_offer", {"source": {"kind": "folder", "folder": str(folder)}},
                                          name="Minta Kereskedő Kft.", actor=ANNA)
     _turn(case_id)
@@ -129,8 +134,6 @@ def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder) -> None
     _decide(case_id, "premium", BELA)
     state = _turn(case_id, 3)
     assert state["steps"]["premium"]["state"] == "done"
-    with store.connect() as c:
-        assert cases.find_case_in(c, case_id)["status"] == cases.CLOSED
 
     printed = state["steps"]["document"]  # D-f7: the offer's Word document, stored with the decision's version
     assert printed["state"] == "done" and printed["result"]["output"] == "rated_offer"
@@ -159,4 +162,31 @@ def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder) -> None
         got = client.get(f"/api/cases/{case_id}/steps/document/file")
         assert got.status_code == 200 and got.content == content and name in got.headers["content-disposition"]
         assert client.get(f"/api/cases/{case_id}/steps/premium/file").status_code == 404  # it prints no document
+
+    letter = shown["letter"]  # D-f8: the covering letter, from its frame with the document's values
+    assert letter["waits"] and letter["document"]["sha256"] == printed["result"]["file"]["sha256"]
+    draft = letter["draft"]
+    assert (draft["to"], draft["subject"]) == ("anna@minta.hu", "Biztosítási ajánlat – Minta Kereskedő Kft.")
+    assert draft["body"].startswith("Tisztelt Minta Anna!") and "Az éves díj 487\u00a0000 HUF." in draft["body"]
+    assert case_views.view(case_id)["next"]["code"] == "letter_accept"
+    case_views.act(case_id, "letter", "accept", ANNA, values={**draft, "expected_basis": letter["basis"]})
+    state = _turn(case_id)
+    accepted = state["steps"]["letter"]["result"]
+    assert state["steps"]["letter"]["state"] == "done" and accepted["to"] == "anna@minta.hu"
+    eml, eml_name = approved_document.step_file(case_id, "letter")
+    assert accepted["file"] == {"name": eml_name, "sha256": hashlib.sha256(eml).hexdigest()} and eml_name.endswith(".eml")
+    out = tmp_path / "out"
+    out.mkdir()
+    monkeypatch.setattr(app_settings, "output_folder", lambda: str(out))
+    case_views.start_step(case_id, "send", ANNA)  # a person starts the send
+    state = _turn(case_id)
+    assert state["steps"]["send"]["state"] == "done" and state["steps"]["send"]["result"]["file_name"] == eml_name
+    [placed] = list(out.rglob("*.eml"))
+    assert placed.read_bytes() == eml
+    message = email.message_from_bytes(eml, policy=default)
+    assert (message["To"], message["X-Unsent"]) == ("anna@minta.hu", "1")
+    [attached] = list(message.iter_attachments())
+    assert (attached.get_filename(), attached.get_content()) == (name, content)  # the offer as it was stored
+    with store.connect() as c:
+        assert cases.find_case_in(c, case_id)["status"] == cases.CLOSED
     assert all(trace.replay(r) == r["outcome"] for r in trace.rows(case_id=case_id))

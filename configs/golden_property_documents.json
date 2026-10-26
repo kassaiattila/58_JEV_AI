@@ -1,9 +1,14 @@
 {
  "meta": {
   "name": "golden_property_documents",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "231 (stage D, D-e2): invented documents of businesses asking for property insurance (jav/evals/property_documents.py): quote request forms, a property schedule per site and claims history statements, in sets. Each document is kept as what a correct reading of it gives (its type pack's values; a null value is not printed); its printed page is made from them in the layout it names (standard, two_pages). Each set names the facts its documents hold through the fact readings (configs/fact_readings_property.json): the units, the values not read and the facts two documents disagree on. The first five sets hold the invented product set's reference cases (configs/golden_products.json, the case named), so their documents are read into the very facts the rules were measured on; the other three are a policyholder with two sites, a claims statement with another tax number and a schedule with words no code table knows. The printed text is document vocabulary (Hungarian); every name, address and number is invented, the tax numbers are on the data guard's list of invented values.",
   "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-10-27",
+    "note": "231 (D-f8): each set's policyholder holds the request form's contact person and email address (the fact readings 1.1.0); nothing else changes."
+   },
    {
     "version": "1.0.0",
     "date": "2026-10-26",
@@ -126,6 +131,8 @@
      "facts": {
       "company_name": "Minta Kereskedő Kft.",
       "tax_number": "12345676-2-41",
+      "contact_name": "Minta Anna",
+      "contact_email": "anna@minta.hu",
       "activity_code": "4719",
       "payment_frequency": "half_yearly",
       "accounting_method": "gross_profit",
@@ -343,6 +350,8 @@
      "facts": {
       "company_name": "Minta Fémmegmunkáló Kft.",
       "tax_number": "24681353-1-43",
+      "contact_name": "Minta Béla",
+      "contact_email": "bela@minta.hu",
       "activity_code": "4719",
       "payment_frequency": "half_yearly",
       "interruption_sum_insured": {
@@ -548,6 +557,8 @@
      "facts": {
       "company_name": "Minta Raktározó Zrt.",
       "tax_number": "21357912-1-13",
+      "contact_name": "Példa Csaba",
+      "contact_email": "csaba@pelda.hu",
       "activity_code": "3822",
       "payment_frequency": "half_yearly",
       "accounting_method": "gross_profit",
@@ -744,6 +755,8 @@
      "facts": {
       "company_name": "Példa Szolgáltató Kft.",
       "tax_number": "13570008-1-13",
+      "contact_name": "Példa Dóra",
+      "contact_email": "dora@pelda.hu",
       "activity_code": "4719",
       "payment_frequency": "yearly",
       "accounting_method": "gross_profit",
@@ -898,6 +911,8 @@
      "facts": {
       "company_name": "Példa Bolt Bt.",
       "tax_number": "16694855-2-42",
+      "contact_name": "Példa Edit",
+      "contact_email": "edit@pelda.hu",
       "activity_code": "4719",
       "payment_frequency": "yearly",
       "accounting_method": "gross_profit",
@@ -1082,6 +1097,8 @@
      "facts": {
       "company_name": "Példa Logisztika Kft.",
       "tax_number": "28642099-2-42",
+      "contact_name": "Példa Ferenc",
+      "contact_email": "ferenc@pelda.hu",
       "activity_code": "5210",
       "payment_frequency": "quarterly",
       "accounting_method": "costs",
@@ -1259,6 +1276,8 @@
      "facts": {
       "company_name": "Minta Kereskedő Kft.",
       "tax_number": "12345676-2-41",
+      "contact_name": "Minta Anna",
+      "contact_email": "anna@minta.hu",
       "activity_code": "4719",
       "payment_frequency": "half_yearly",
       "accounting_method": "gross_profit",
@@ -1396,6 +1415,8 @@
      "facts": {
       "company_name": "Minta Kereskedő Kft.",
       "tax_number": "12345676-2-41",
+      "contact_name": "Minta Anna",
+      "contact_email": "anna@minta.hu",
       "activity_code": "4719",
       "payment_frequency": "half_yearly",
       "accounting_method": "gross_profit",

@@ -1164,3 +1164,8 @@ details.earlier[open] > summary { margin-bottom: var(--sp-2); }
 .choices { border: 0; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
 .choice { display: flex; align-items: baseline; gap: var(--sp-2); }
 .choice input { accent-color: var(--ink); }
+
+/* 231 (stage D, D-f8): a letter that goes with a printed document */
+.letter-text { resize: vertical; line-height: 1.5; min-height: 240px; }
+.letter-form .todo-text { margin: calc(-1 * var(--sp-2)) 0 var(--sp-2); }
+.letter-form .button-row { margin-top: var(--sp-3); }

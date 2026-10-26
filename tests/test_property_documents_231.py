@@ -24,7 +24,8 @@ from jav.evals import property_documents as pd
 DOCS = pd.load()
 READINGS = fact_readings.load()
 CASES = {c.id: c for c in product_sets.load().cases}
-EXTRA = {"company_name", "tax_number", "site_address", "requested_modules"}  # what the documents add to a case's facts
+# what the documents add to a case's facts (D-f8: the contact person and address the offer's letter goes to)
+EXTRA = {"company_name", "tax_number", "contact_name", "contact_email", "site_address", "requested_modules"}
 
 
 def test_eight_sets_of_23_documents_use_the_three_packs() -> None:

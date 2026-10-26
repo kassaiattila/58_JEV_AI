@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.38.0",
+  "version": "1.39.0",
   "changelog": [
+   {
+    "version": "1.39.0",
+    "date": "2026-10-27",
+    "note": "231 (stage D, D-f8): letter_approve and letter_reopen - a case's covering letter accepted, and an accepted letter reopened (its document changed), in the activity log with a label."
+   },
    {
     "version": "1.38.0",
     "date": "2026-10-26",
@@ -242,6 +247,7 @@
    "quote_letter_accept": "quote: reply letter accepted",
    "field_check_approve": "field check: facts frozen", "field_check_reopen": "field check: reopened",
    "decision_approve": "decision: made", "decision_reopen": "decision: reopened",
+   "letter_approve": "letter: accepted", "letter_reopen": "letter: reopened",
    "output_template_choose": "output: template chosen",
    "case_wrapped": "package: taken over as a case's package",
    "scope_set": "package: party, period and role set", "scope_clear": "package: own party, period and role removed",

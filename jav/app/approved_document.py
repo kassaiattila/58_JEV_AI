@@ -104,7 +104,7 @@ def _run(ctx: Any, params: PricedDocument) -> kinds.StepOutcome:
 
 
 class NoDocument(KeyError):
-    """D-f7: the step is no priced document, or it has stored no document yet."""
+    """D-f7: the step stored no file (yet)."""
 
 
 def _done_step(c: Any, case_id: str, step: str) -> dict[str, Any] | None:
@@ -116,14 +116,16 @@ def _done_step(c: Any, case_id: str, step: str) -> dict[str, Any] | None:
 
 
 def step_file(case_id: str, step: str) -> tuple[bytes, str]:
-    """D-f7: the document a priced document's step stored with the version it printed (`NoDocument`: none)."""
+    """D-f7: the file a done step stored with the version its result names (a priced document's printed document; D-f8:
+    a letter's email file), the one its result's sha256 names (`NoDocument`: none)."""
     with store.connect() as c:
-        row = _done_step(c, case_id, step)
+        row = cases.find_step_in(c, case_id, step)
     result = (row or {}).get("result") or {}
-    if row is None or row["state"] != cases.DONE or not result.get("file"):
+    named = result.get("file")
+    if row is None or row["state"] != cases.DONE or not isinstance(named, dict) or "version" not in result:
         raise NoDocument(f"{case_id} {step}: no stored document")
     stored = package_release.own_file(case_id, int(result["version"]), package_release.APPROVED)
-    if stored is None:
+    if stored is None or stored["sha256"] != named.get("sha256"):
         raise NoDocument(f"{case_id} {step}: no stored document")
     return stored["content"], stored["name"]
 

@@ -35,6 +35,7 @@ def _offer(state: str | None = None, minimum: str | None = None, factors: bool =
     labels = rated_offer.settings()["labels"]
     values = {"package": "Minta Kft.", "version": None if state else 2, "state": state, "offer_date": "2026-10-26",
               "approved_by": "Minta Bela", "policyholder": "Minta Kft.", "tax_number": "12345676-2-41",
+              "contact_name": "Minta Anna", "contact_email": "anna@minta.hu",
               "product": "Kitalált vállalkozói vagyonbiztosítás", "cover_start": "2026-11-01", "verdict": "elfogadható",
               "currency": "HUF", "subtotal": "472825", "total": "487000" if factors else "472825",
               "rounded": "kerekítve" if factors else None, "policy_minimum": minimum, "conditions": "Általános feltételek"}
