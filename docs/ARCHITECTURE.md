@@ -1248,7 +1248,13 @@ version is the release manifest naming exact versions, made active only by anoth
 (`SecondPersonNeeded`) and only when no rule is a draft or missing, each cites a document of the product and a clause it
 has, and the modules a module requires are there (`ManifestRefused` with every problem). A superseded or retired
 version stays readable by its reference; a case keeps the product version of its start (`kept`, `named`)
-(`tests/test_product_rules_231.py`).
+(`tests/test_product_rules_231.py`). D-c2: `jav/app/rule_evaluation.py` evaluates the rules that apply at quoting to
+a requested module on every unit of their level; a unit sees its own and its ancestors' facts; a decision table gives
+the first or every matching row's outcomes; a row a missing fact leaves undecided makes the rule's outcome unknown and
+names the fact (one false whatever it is, is skipped); a unit's outcomes combine by the catalogue's rule (worst
+verdict, largest or smallest, union, exactly one: two different are a blocker), and the assessment's verdict is the
+worst of its units'. Each rule's outcome on a unit is a trace row (point `rules.outcome`: the rule, its table and the
+facts it read, typed), whose replay gives the same outcome (`tests/test_rule_evaluation_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

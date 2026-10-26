@@ -24,6 +24,7 @@ from jav.core.process import tasks
 from tests.test_workflow_tasks_215 import _monthly
 from tests.test_workflows_146 import _steps, db  # noqa: F401 - the fixture is used by name
 from tests.test_process_rules_231 import test_an_approved_quote_and_its_letter_check_are_traced_decisions as quote_points_traced  # noqa: F401 - named by POINT_TESTS
+from tests.test_rule_evaluation_231 import test_every_evaluation_is_traced_and_replays_the_same as rule_outcome_traced  # noqa: F401 - named by POINT_TESTS
 
 # each registered decision point and the test that shows its trace (a new point needs its own)
 POINT_TESTS = {
@@ -40,6 +41,8 @@ POINT_TESTS = {
     # 231 (B3): the quotes' points, shown in the process rules' tests (imported under a name pytest does not collect)
     "quote.amounts": "quote_points_traced",
     "quote.letter_check": "quote_points_traced",
+    # 231 (stage D, D-c2): a product rule's outcome on an assessed unit
+    "rules.outcome": "rule_outcome_traced",
 }
 
 
