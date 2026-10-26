@@ -17,7 +17,7 @@ import pytest
 
 from jav.app import corrections, work, work_readiness, work_recipes, work_runs, work_views
 from jav.core import store
-from jav.domains.email import email_export, email_store, email_tasks, emails, ingest_server, mailbox
+from jav.domains.email import email_export, email_items, email_store, email_tasks, emails, ingest_server, mailbox
 from jav.runtime import worker
 from tests.test_email_results import _fake_tasks
 from tests.test_mailbox import MAILS, REQ, FakeBridge, env  # noqa: F401 - `env` is a fixture
@@ -75,7 +75,7 @@ def test_a_task_decision_cannot_be_written_after_a_concurrent_approval(env, monk
             approved.append(work_runs.approve_run(run_id, actor="other reviewer")["approval"])
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(mailbox, "task_view", approve_after_the_check)
+    monkeypatch.setattr(email_items, "task_view", approve_after_the_check)  # 231 (C3h): where decide_task calls it
     with pytest.raises(work.RevisionConflict):
         mailbox.decide_task(run_id, item["item_id"], 0, decision="rejected", actor="t")
     assert approved == ["approved"]

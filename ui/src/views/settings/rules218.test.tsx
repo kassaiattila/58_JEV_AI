@@ -11,7 +11,8 @@ import hungarian from "../../i18n/hu-native.json";
 import { setLanguage } from "../../i18n";
 import { nextFlowText } from "../../labels";
 import { parseRoute } from "../../route";
-import { Settings, SETTINGS_SECTIONS } from "../Settings";
+import { Settings } from "../Settings";
+import { settingsSections } from "../../logic/settingsSections";
 import { valueText, type RuleValue } from "./RulesPanel";
 
 const hu = hungarian as Record<string, string>;
@@ -77,7 +78,7 @@ afterEach(async () => { vi.restoreAllMocks(); await setLanguage("hu"); });
 
 describe("Settings › Rules (218)", () => {
   it("is its own section after Processing, with its own address", () => {
-    const keys = SETTINGS_SECTIONS.map((s) => s.key);
+    const keys = settingsSections().map((s) => s.key);
     expect(keys.indexOf("rules")).toBe(keys.indexOf("recipes") + 1);
     expect(parseRoute("#/settings/rules")).toEqual({ view: "settings", section: "rules" });
   });

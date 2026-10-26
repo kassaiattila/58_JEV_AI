@@ -3,7 +3,8 @@
 // quote package's status lines; asking for the proposal starts the case's step. Synthetic data, a mocked service.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError, setActor, type CaseView, type QuoteView } from "../api";
+import { api, ApiError, setActor, type CaseView } from "../api";
+import type { QuoteView } from "../domains/quotes/api";
 import { setLanguage } from "../i18n";
 import { CasePage } from "./CasePage";
 

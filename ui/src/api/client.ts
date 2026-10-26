@@ -3,7 +3,11 @@
 import { t } from "../i18n";
 import type { Blocker } from "./types";
 import type { OutputTemplateCheck } from "./outputs";
-import type { PriceListCheck } from "./quotes";
+
+/** 231 (C3e): the check a refused upload names every problem with (`ApiError.check`), by its kind; a domain adds its
+ *  own by declaration merging (the quotes domain: a price list's). */
+export interface UploadChecks { output_template: OutputTemplateCheck }
+export type UploadCheck = UploadChecks[keyof UploadChecks];
 
 export class ApiError extends Error {
   constructor(
@@ -16,7 +20,7 @@ export class ApiError extends Error {
     public detail: { field?: string | null; kind?: string | null; other?: string | null } = {},
     /** 179: a refused output template's check (`template_refused`), naming every problem; 191: or a refused price
      *  list's (`price_list_refused`) */
-    public check: OutputTemplateCheck | PriceListCheck | null = null,
+    public check: UploadCheck | null = null,
   ) {
     super(message);
   }
@@ -139,7 +143,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
   }
   if (!res.ok) {
     const d = (data ?? {}) as { error?: string; message?: string; detail?: unknown; blockers?: Blocker[]; field?: string; kind?: string;
-      template?: string; params?: Record<string, string>; check?: OutputTemplateCheck | PriceListCheck; other_id?: string };
+      template?: string; params?: Record<string, string>; check?: UploadCheck; other_id?: string };
     const missingActor = Array.isArray(d.detail) && d.detail.some((x) => Array.isArray(x?.loc) && x.loc.includes("x-actor"));
     // 167 (review 160 U-1): a message the service wrote as a template is translated like the interface's own labels
     const message = missingActor ? t(NO_ACTOR) : d.error === "unknown_user" ? t(UNKNOWN_ACTOR)

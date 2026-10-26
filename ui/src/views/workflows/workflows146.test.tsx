@@ -102,7 +102,7 @@ describe("the new work wizard", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Emails from a mailbox" }));
     fireEvent.click(screen.getByRole("button", { name: "Next →" }));
     expect(await screen.findByRole("form", { name: "Emails from a mailbox" })).toBeTruthy();
-    expect(screen.getByLabelText(/Mailbox address/)).toBeTruthy();
+    expect(await screen.findByLabelText(/Mailbox address/)).toBeTruthy();
   });
 });
 

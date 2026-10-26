@@ -11,7 +11,7 @@ from decimal import Decimal
 import pytest
 
 from jav.core import values
-from jav.domains.finance import reconcile_ai, reconcile_review, statement_table as st
+from jav.domains.finance import reconcile_ai, reconcile_review, statement_camt as camt, statement_common as common
 
 
 @pytest.mark.parametrize("text", ["NaN", "Infinity", "1E+3", "12,5", "", None, "abc"])
@@ -29,10 +29,10 @@ def test_a_rest_of_zero_reaches_the_question_as_zero():
     assert reconcile_ai._payment({"rest": "0.00", "currency": "HUF"})["amount"] == "0.00"
 
 
-@pytest.mark.parametrize("reader,text", [(st._xml_amount, "10.005"), (st._dot_amount, "12.345"), (st._money, "1.234,567")])
+@pytest.mark.parametrize("reader,text", [(camt._xml_amount, "10.005"), (common._dot_amount, "12.345"), (common._money, "1.234,567")])
 def test_a_statement_amount_beyond_its_cents_is_unreadable_not_rounded(reader, text):
     assert reader(text) is None
 
 
 def test_trailing_zeros_beyond_the_cents_are_kept_exact():
-    assert st._xml_amount("10.000") == Decimal("10.00") and st._dot_amount("7291.50") == Decimal("7291.50")
+    assert camt._xml_amount("10.000") == Decimal("10.00") and common._dot_amount("7291.50") == Decimal("7291.50")

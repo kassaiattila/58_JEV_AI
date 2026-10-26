@@ -109,12 +109,12 @@ def _no_live_mailbox(monkeypatch):
     """231 (C3d): a test never runs the Outlook bridge (`scripts/outlook_bridge.ps1` through PowerShell: a real mailbox
     of the machine). A test that downloads passes its own runner (the tests' `FakeBridge`); one that would reach the
     default runner fails instead."""
-    from jav.domains.email import mailbox
+    from jav.domains.email import mailbox_bridge  # 231 (C3h): where the bridge is called
 
     def refuse(argv, timeout):
-        raise AssertionError("a test tried to run the Outlook bridge (jav/domains/email/mailbox.py); pass a runner")
+        raise AssertionError("a test tried to run the Outlook bridge (jav/domains/email/mailbox_bridge.py); pass a runner")
 
-    monkeypatch.setattr(mailbox, "_subprocess_runner", refuse)
+    monkeypatch.setattr(mailbox_bridge, "_subprocess_runner", refuse)
 
 
 @pytest.fixture(autouse=True)

@@ -211,7 +211,10 @@ def all_names() -> list[str]:
 def _disk_names() -> list[str]:
     names = [p.stem for p in sorted(CONFIG_DIR.glob("*.json"))]
     names += [f"callsite:{p.stem}" for p in sorted(CALLSITE_DIR.glob("*.json"))]
-    names += [f"type:{p.stem}" for p in sorted(TYPES_DIR.glob("*.json"))] if TYPES_DIR.exists() else []
+    # 231 (found on 2026-10-26): a base pack lives in a subfolder (`types/_base/`, `typepack.BASE_PREFIX`); the freeze
+    # left it out, and a frozen process failed on every type pack that extends one
+    names += [f"type:{p.relative_to(TYPES_DIR).with_suffix('').as_posix()}" for p in sorted(TYPES_DIR.rglob("*.json"))
+              ] if TYPES_DIR.exists() else []
     names += [f"process:{p.stem}" for p in sorted(PROCESSES_DIR.glob("*.json"))] if PROCESSES_DIR.exists() else []
     return names
 

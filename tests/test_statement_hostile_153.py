@@ -16,12 +16,14 @@ from __future__ import annotations
 import json
 import re
 import timeit
+from decimal import Decimal
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
-from jav.domains.finance import statement_table as st
+from jav.domains.finance import statement_camt as camt, statement_common as common, statement_table as st
+from jav.domains.finance import statement_tabular as tabular
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILES = {p["name"]: p for p in
@@ -57,11 +59,11 @@ def test_the_growth_check_tells_quadratic_work_from_linear_work():
 
 
 def test_an_endless_xml_amount_is_refused_at_once():
-    assert st._xml_amount("1" * 20_000 + "x") is None
-    assert st._xml_amount("1" * 20_000) is None  # longer than any amount
-    _grows_at_most_linearly(st._xml_amount, lambda n: "1" * n + "x", 2_500)
-    assert [st._xml_amount(v) for v in ("7291.00", ".00", "-12.5", "12.")] == [st.Decimal("7291.00"), st.Decimal("0.00"),
-                                                                                st.Decimal("-12.50"), None]
+    assert camt._xml_amount("1" * 20_000 + "x") is None
+    assert camt._xml_amount("1" * 20_000) is None  # longer than any amount
+    _grows_at_most_linearly(camt._xml_amount, lambda n: "1" * n + "x", 2_500)
+    assert [camt._xml_amount(v) for v in ("7291.00", ".00", "-12.5", "12.")] == [Decimal("7291.00"), Decimal("0.00"),
+                                                                                Decimal("-12.50"), None]
 
 
 def test_the_erste_rate_pattern_reads_a_rate_and_not_an_endless_number():
@@ -72,16 +74,16 @@ def test_the_erste_rate_pattern_reads_a_rate_and_not_an_endless_number():
 
 
 def test_long_lines_and_space_runs_are_bounded_before_the_patterns():
-    lines, repairs = st._bounded(["2026.05.10. TRANSFER" + " " * 30_000 + "1.000,00   5.000,00", "x" * (st.LINE_MAX + 1), "ok"])
+    lines, repairs = common._bounded(["2026.05.10. TRANSFER" + " " * 30_000 + "1.000,00   5.000,00", "x" * (common.LINE_MAX + 1), "ok"])
     assert lines == ["2026.05.10. TRANSFER  1.000,00  5.000,00", "ok"]
-    assert repairs == [f"1 line(s) over {st.LINE_MAX} characters left out"]
+    assert repairs == [f"1 line(s) over {common.LINE_MAX} characters left out"]
 
 
 def test_a_text_statement_full_of_space_runs_is_read_in_bounded_time():
     line_re = re.compile(PROFILES["cib_text_hu"]["line"])
 
     def crafted(words: int) -> list[str]:  # each line a near miss of the line pattern
-        lines, _ = st._bounded(["2026.05.10. " + "A " * words + " " * 40 + "x"] * 2_000)
+        lines, _ = common._bounded(["2026.05.10. " + "A " * words + " " * 40 + "x"] * 2_000)
         assert len(lines) == 2_000  # nothing left out: the pattern sees every line
         return lines
 
@@ -105,5 +107,5 @@ def test_an_oversized_file_is_refused_before_it_is_read(tmp_path, monkeypatch):
 def test_a_csv_of_empty_cells_stops_at_the_cell_limit():
     limits = {**st._conf()["limits"], "max_cells": 1_000}
     with pytest.raises(st.StatementTableError, match="cell limit"):
-        st._csv_rows(b"," * 5_000, limits)
-    assert st._csv_rows(b"a;b\n1;2\n", limits) == [["a", "b"], ["1", "2"]]
+        tabular._csv_rows(b"," * 5_000, limits)
+    assert tabular._csv_rows(b"a;b\n1;2\n", limits) == [["a", "b"], ["1", "2"]]

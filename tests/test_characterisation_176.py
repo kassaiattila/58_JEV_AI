@@ -24,16 +24,17 @@ from starlette.routing import Match
 from jav.service import api
 from jav.app import datasets, work, work_views
 from jav.core import store
-from jav.domains.finance import reconcile_statement as rs, statement_table as st
+from jav.domains.finance import reconcile_statement as rs
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_package_131 import _line, _package as _reconcile_package, _stmt
 from tests.test_statement_package_140 import _package as _statement_package, _party
+from tests.statement_pdf import pdf_lines_as_text
 
 
 @pytest.fixture(autouse=True)
 def pdf_text(monkeypatch):
     """The synthetic 'PDF' statements hold their lines as plain text (as in `tests/test_statement_package_140.py`)."""
-    monkeypatch.setattr(st, "_pdf_lines", lambda path: Path(path).read_text(encoding="utf-8").splitlines())
+    pdf_lines_as_text(monkeypatch)
 
 
 @pytest.fixture

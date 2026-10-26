@@ -13,6 +13,7 @@ import pytest
 
 from jav.app import package_scope, registrations, work
 from jav.core import store
+from tests.statement_pdf import pdf_lines_as_text
 
 registrations.load_all()
 
@@ -48,10 +49,9 @@ def test_a_plain_package_whose_scope_names_a_rule_runs_by_it(db):
 def test_a_statement_package_is_made_a_plain_package_of_its_rule(db, tmp_path, monkeypatch):
     """C3b5a: its logic pack went; a statement package runs by its rule, named in its scope."""
     from jav.domains.finance import statement_package
-    from jav.domains.finance import statement_table as st
     from tests.test_workflows_146 import MONTH, _party, _statements
 
-    monkeypatch.setattr(st, "_pdf_lines", lambda path: path.read_text(encoding="utf-8").splitlines())  # as 146's
+    pdf_lines_as_text(monkeypatch)  # as 146's
     wp = statement_package.make_for_case({"party": _party(), "period": list(MONTH),
                                           "source": {"kind": "folder", "folder": str(_statements(tmp_path / "erste"))}},
                                          "June statements", "t")

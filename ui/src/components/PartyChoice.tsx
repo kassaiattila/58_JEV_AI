@@ -2,7 +2,6 @@
 // the reconciliation's creation form, as the statement package and the workflow wizard choose a party with it too.
 import type { OwnParty, PartiesOverview } from "../api";
 import { t, useLocale } from "../i18n";
-import "../views/reconcile/reconcile.css"; // its list styles (`.rc-accounts`) are shared with the account checklist
 
 /** 140: `anyParty` offers a party without an account too (a statement package brings its first statements). */
 export function PartyChoice({ overview, value, onPick, anyParty = false }: {

@@ -26,7 +26,7 @@ def test_the_parsing_runs_in_the_isolated_reader(tmp_path, monkeypatch):
 
     monkeypatch.setattr(isolated_pdf, "run", spy)
     reading = st.read(t136._workbook(tmp_path))
-    assert calls == [("jav.domains.finance.statement_table", "parse_rows", "read", ["data", "limits", "suffix"])]
+    assert calls == [("jav.domains.finance.statement_tabular", "parse_rows", "read", ["data", "limits", "suffix"])]  # 231 (C3g)
     assert len(reading.accounts) == 4
 
 

@@ -2,7 +2,7 @@
 // package does that work. The pair to-dos opened from 129 to 136 keep their names in a run's history. Expectations
 // avoid Hungarian letters for the language guard.
 import { beforeEach, describe, expect, it } from "vitest";
-import { RESULT_TABLES } from "../route";
+import { resultTables } from "../logic/resultTables";
 import { setLanguage } from "../i18n";
 import { reasonText } from "../labels";
 
@@ -18,6 +18,6 @@ describe("the retired pair panel (137)", () => {
   });
 
   it("has no reconciliation view among a run's results", () => {
-    expect(RESULT_TABLES as string[]).not.toContain("reconciliation");
+    expect(resultTables().map((x) => x.key)).not.toContain("reconciliation");
   });
 });

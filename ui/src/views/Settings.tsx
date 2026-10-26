@@ -1,15 +1,15 @@
 // Settings (057, decision of 2026-09-28): the things that rarely change, in one place — mailboxes, work folders, users,
 // appearance, language and the system (worker, all runs); 063: the description of the recipes; 218: the rules, read only.
-// Sub-items on the left, content on the right.
-import { useState } from "react";
+// Sub-items on the left, content on the right. 231 (C3e): a domain's section, or what it adds to a shared one, comes
+// from the sections' registry (`logic/settingsSections.ts`).
+import { Fragment, useState } from "react";
 import { api, ApiError } from "../api";
 import { Icon } from "../components/Icon";
 import { PageHeader } from "../components/PageHeader";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import type { SettingsSection } from "../route";
-import { Mailbox } from "./Mailbox";
-import { BankFilesPanel } from "./BankFiles";
+import { settingsParts, settingsSections } from "../logic/settingsSections";
 import { RecipesPanel } from "./RecipeInfo";
 import { RunList } from "./Runs";
 import { AppearancePanel } from "./settings/AppearancePanel";
@@ -20,10 +20,8 @@ import { EnginePanel } from "./settings/EnginePanel";
 import { FoldersPanel } from "./settings/FoldersPanel";
 import { LanguagePanel } from "./settings/LanguagePanel";
 import { OutputTemplatesPanel } from "./settings/OutputTemplatesPanel";
-import { PartiesPanel } from "./settings/PartiesPanel";
 import { PartnersPanel } from "./settings/PartnersPanel";
 import { ProcessSettingsPanel } from "./settings/ProcessSettingsPanel";
-import { PriceListsPanel } from "./settings/PriceListsPanel";
 import { RulesPanel } from "./settings/RulesPanel";
 import { UsersPanel } from "./settings/UsersPanel";
 import { VersionPanel } from "./settings/VersionPanel";
@@ -31,65 +29,42 @@ import { PdfProtectionPanel } from "./settings/PdfProtectionPanel";
 import { ConfirmButton } from "../components/ConfirmButton";
 import { UncertainCallsPanel } from "./settings/UncertainCallsPanel";
 
-// the labels stand here as Hungarian source; translation happens at render time (`t()`)
-// 073: exported so a test can check that every label and hint has an English translation (the i18n checker only
-// sees literal t("...") arguments, and "Receptek" slipped through; 080: "Receptek" became "Feldolgozás")
-export const SETTINGS_SECTIONS: { key: SettingsSection; label: string; hint: string }[] = [
-  { key: "mailboxes", label: "Postafiókok", hint: "Outlook-fiókok, ütemezett letöltés, letöltési napló" },
-  { key: "folders", label: "Munkamappák", hint: "Figyelt mappák: az új iratokból magától lesz munkacsomag" },
-  // 133: new labels have an English source (the Hungarian translation is in hu-native.json)
-  { key: "parties", label: "Own parties", hint: "Whose money is reconciled: companies, associations and people, with their names, tax numbers and accounts" },
-  // 231 (B1): the shared partner register, the outside parties of the processes
-  { key: "partners", label: "Partners", hint: "The outside parties of the processes: customers, suppliers, insured persons and brokers, each with its roles; every change is kept as a version" },
-  // 231 (B4): each process's own values over its file's: what it uses and the rule values its steps let it set
-  { key: "processes", label: "Processes", hint: "Each process's own settings: the price list, template and send mode it uses and the rule values its steps let it set; a draft, its preview and making it active" },
-  { key: "recipes", label: "Feldolgozás", hint: "Hogyan dolgozza fel a rendszer az iratokat és a leveleket, mit jelentenek a beállítások, mennyibe kerülnek" },
-  // 218 (plan G-process-core P3e, DECISIONS 222): how the system decides on its own, read only
-  { key: "rules", label: "Rules", hint: "How the system decides on its own: each kind of decision, the values it decides with and the version of its rules in use" },
-  // 179 (plan 170 L4, DECISIONS 178): own Excel templates of the downloads
-  { key: "outputs", label: "Output templates", hint: "Your own Excel and Word templates for the downloads: upload, check, preview and make active; the markers to write in them" },
-  // 191 (plan F-quote-package B2): the seller's price lists a quote is priced from
-  { key: "prices", label: "Price lists", hint: "The price lists quotes are priced from: upload, check and make active; the volume discounts, the currency and the VAT rate" },
-  { key: "users", label: "Felhasználók", hint: "A „Ki dolgozik?” választéka" },
-  { key: "appearance", label: "Megjelenés", hint: "The theme: light, dark or as the system is set" },
-  { key: "language", label: "Nyelv", hint: "A felület nyelve: magyar vagy angol" },
-  { key: "system", label: "Rendszer", hint: "A futó verzió, a feldolgozó állapota, az adattár mentése, minden futás" },
-];
-
 export function Settings({ section }: { section: SettingsSection }) {
   useLocale();
-  const current = SETTINGS_SECTIONS.find((s) => s.key === section) ?? SETTINGS_SECTIONS[0];
+  // 231 (C3e): the shared sections and the domains' own (`logic/settingsSections.ts`), in their order
+  const sections = settingsSections();
+  const current = sections.find((s) => s.key === section) ?? sections[0];
+  const Own = current.Panel;
   return (
     <>
       <PageHeader title={t("Beállítások")} summary={t(current.hint)} />
       <div className="settings-layout">
         <nav className="settings-nav" aria-label={t("Beállítások")}>
-          {SETTINGS_SECTIONS.map((s) => (
+          {sections.map((s) => (
             <a key={s.key} href={`#/settings/${s.key}`} aria-current={s.key === current.key ? "page" : undefined}>{t(s.label)}</a>
           ))}
         </nav>
         <div className="settings-body">
           <h2>{t(current.label)}</h2>
-          {current.key === "mailboxes" ? <Mailbox /> : null}
+          {Own ? <Own /> : null}
           {current.key === "folders" ? <FoldersPanel /> : null}
-          {current.key === "parties" ? <PartiesPanel /> : null}
           {current.key === "partners" ? <PartnersPanel /> : null}
           {current.key === "processes" ? <ProcessSettingsPanel /> : null}
           {current.key === "recipes" ? (
             <>
               <EnginePanel />
               <RecipesPanel />
-              <h2>{t("Bank files the system reads")}</h2>
-              <BankFilesPanel />
             </>
           ) : null}
           {current.key === "rules" ? <RulesPanel /> : null}
           {current.key === "outputs" ? <OutputTemplatesPanel /> : null}
-          {current.key === "prices" ? <PriceListsPanel /> : null}
           {current.key === "users" ? <UsersPanel /> : null}
           {current.key === "appearance" ? <AppearancePanel /> : null}
           {current.key === "language" ? <LanguagePanel /> : null}
           {current.key === "system" ? <SystemPanel /> : null}
+          {settingsParts(current.key).map(({ title, Panel }) => (  // 231 (C3e): what the domains add to a shared section
+            <Fragment key={title}><h2>{t(title)}</h2><Panel /></Fragment>
+          ))}
         </div>
       </div>
     </>

@@ -1081,3 +1081,8 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .process-preview { margin: var(--sp-3) 0; }
 .process-versions { margin-top: var(--sp-4); }
 .partner-link + .partner-link { border-top: 1px solid var(--line-soft); padding-top: var(--sp-3); }
+/* 133 / 231 (C3e): a list of choices (the own parties' and the accounts' checklist), shared by the party chooser and
+   the reconciliation's account checklist. They stood in reconcile.css, which loaded after this file; now that it is the
+   finance domain's, they are here, after every other shared rule. */
+.rc-accounts { display: grid; gap: 6px; }
+.rc-accounts label { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; align-items: start; cursor: pointer; }

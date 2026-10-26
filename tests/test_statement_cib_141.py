@@ -19,9 +19,10 @@ import pytest
 
 from jav.app import parties, work_runs
 from jav.core import store
-from jav.domains.finance import reconcile, statement_package as sp, statement_table as st
+from jav.domains.finance import reconcile, statement_package as sp, statement_table as st, statement_text
 from jav.domains.finance import reconcile_store
 from tests.test_flow_statement_table_136 import _run_all
+from tests.statement_pdf import pdf_lines_as_text
 
 GIRO = "11112223-33334444-55556666"  # made up, wrong check digits
 DIGITS = GIRO.replace("-", "")
@@ -99,7 +100,7 @@ def _text_export(lines=LINES) -> bytes:
 @pytest.fixture(autouse=True)
 def pdf_text(monkeypatch):
     """The PDF's text layer: the synthetic 'PDF' files hold their lines as plain text."""
-    monkeypatch.setattr(st, "_pdf_lines", lambda path: Path(path).read_text(encoding="utf-8").splitlines())
+    pdf_lines_as_text(monkeypatch)
 
 
 @pytest.fixture
@@ -172,8 +173,8 @@ def test_a_row_whose_numbers_the_pdf_prints_twice_over_is_read(tmp_path):
     assert lines[at] != first
     a = _only(st.read(_pdf(tmp_path, "s.pdf", lines)))
     assert len(a.statement["transactions"]) == 5 and st.checks_ok(a)
-    assert st._undoubled("22002266..0022..0055..   Kimenő") == "2026.02.05.   Kimenő"
-    assert st._undoubled("11.000.000,00   000000   11   --") == "11.000.000,00   000000   11   --"  # nothing doubled
+    assert statement_text._undoubled("22002266..0022..0055..   Kimenő") == "2026.02.05.   Kimenő"
+    assert statement_text._undoubled("11.000.000,00   000000   11   --") == "11.000.000,00   000000   11   --"  # nothing doubled
 
 
 def test_a_wrong_running_balance_or_closing_balance_is_a_finding(tmp_path):

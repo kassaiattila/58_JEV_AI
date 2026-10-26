@@ -3,6 +3,8 @@
 // Approve and release and its released versions; the picker also offers each run's own result, which shows the run's
 // state but is not approved on its own. View switcher: Iratok · Adatpontok · Tételsorok · Közmű-költség · Fájlnevek
 // (Documents · Data points · Line items · Utility cost · File names, 078), with the shared table and download panel.
+// 231 (C3e): the views come from their registry (`logic/resultTables.ts`): the shared ones and a domain's (the finance
+// domain's utility cost, with its panel above the table).
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError, getActor, type PackageResult, type PackageVersion, type RuleChanges, type WorkpackageView } from "../api";
 import { DataTable } from "../components/DataTable";
@@ -11,31 +13,22 @@ import { ACTIVE_RUN, useLoad, useRunView } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { nextFlowText, tmap, when } from "../labels";
 import { go, type ResultTable } from "../route";
-import { UtilityPanel } from "./UtilityReport";
+import { resultTables } from "../logic/resultTables";
 import { Icon } from "../components/Icon";
 import { EngineMark } from "../components/EngineMark";
 import { ConfirmButton } from "../components/ConfirmButton";
 import { TemplateChoice } from "../components/TemplateChoice";
 
-const TABLES: { key: ResultTable; dataset: string }[] = [
-  { key: "emails", dataset: "emails" },
-  { key: "tasks", dataset: "email_tasks" },
-  { key: "documents", dataset: "documents" },
-  { key: "datapoints", dataset: "datapoints" },
-  { key: "native_facts", dataset: "native_facts" },
-  { key: "line_items", dataset: "line_items" },
-  { key: "utility", dataset: "utility_cost" },
-  { key: "file_names", dataset: "file_names" },
-];
 // 156: columns a person seldom reads, hidden by default so that a view fits a laptop screen without sideways
 // scrolling; the column menu shows them again, and the full Excel package always has them
 const DEFAULT_HIDDEN: Record<string, string[]> = {
   emails: ["corrected", "attachments", "body_status"],
   native_facts: ["unit", "role", "related_entity", "reading_status", "interpretation_status"], // the last two: per document
 };
-// the views' labels are translated when read (tmap)
-const TABLE_LABEL = tmap({ emails: "Levelek", tasks: "Feladatok", documents: "Iratok", datapoints: "Adatpontok", line_items: "Tételsorok",
-  utility: "Közmű-költség", file_names: "Fájlnevek", native_facts: "Native facts" }) as Record<ResultTable, string>;
+// the views' labels are translated when shown
+const tableLabel = (key: ResultTable) => t(resultTables().find((x) => x.key === key)?.label ?? key);
+/** The view's spec: the current one, failing that the data points' */
+const specOf = (key: ResultTable) => resultTables().find((x) => x.key === key) ?? resultTables().find((x) => x.key === "datapoints")!;
 /** 172: the picker's value for the package's current result (a run's value is its id) */
 const PACKAGE = "package";
 
@@ -74,7 +67,7 @@ function ViewTabs({ available, current, onPick }: { available: ResultTable[]; cu
   return (
     <div className="segmented-tabs" role="tablist" aria-label={t("Eredmény nézetei")}>
       {available.map((x) => (
-        <button key={x} type="button" role="tab" aria-selected={x === current} className="seg" onClick={() => onPick(x)}>{TABLE_LABEL[x]}</button>
+        <button key={x} type="button" role="tab" aria-selected={x === current} className="seg" onClick={() => onPick(x)}>{tableLabel(x)}</button>
       ))}
     </div>
   );
@@ -104,9 +97,9 @@ function PackageResultStage({ view, table, onChanged }: { view: WorkpackageView;
   const [reloads, setReloads] = useState(0);
   const [shown, setShown] = useState<{ table: string; mark?: string } | null>(null);
   const data = result.data;
-  const available = data ? TABLES.map((x) => x.key).filter((k) => data.tables.includes(k)) : [];
+  const available = data ? resultTables().map((x) => x.key).filter((k) => data.tables.includes(k)) : [];
   const current = pick(available, table);
-  const spec = TABLES.find((x) => x.key === current) ?? TABLES[3];
+  const spec = specOf(current);
   // the named copies are made per run: the File names view is there only when one run gives every item's result
   const runs = data ? [...new Set(data.items.map((i) => i.run_id).filter((r): r is string => !!r))] : [];
   const single = runs.length === 1 ? runs[0] : null;
@@ -139,11 +132,11 @@ function PackageResultStage({ view, table, onChanged }: { view: WorkpackageView;
       ) : null}
       {data && data.versions.length ? <ReleasedVersions wpId={wp.id} versions={data.versions} /> : null}
       {data && !available.length ? <p className="notice">{t("No item of the package has a finished document result yet.")}</p> : null}
-      {current === "utility" ? <UtilityPanel wpId={wp.id} /> : null}
+      {spec.key === current && spec.Panel ? <spec.Panel wpId={wp.id} /> : null}
       {current === "file_names" && single ? <NamedCopiesBar runId={single} /> : null}
       {available.length && (ofPackage || single) ? (
         <DataTable key={tableId} dataset={spec.dataset} scope={ofPackage ? { workpackage_id: wp.id } : { run_id: single! }}
-          label={TABLE_LABEL[spec.key]} selectable onPage={(page) => setShown({ table: tableId, mark: page.result_mark })}
+          label={tableLabel(spec.key)} selectable onPage={(page) => setShown({ table: tableId, mark: page.result_mark })}
           storageId={`result-${spec.dataset}`} defaultHidden={DEFAULT_HIDDEN[spec.dataset]}
           // proposed next step in the chosen language (the local service gives the code; search uses the Hungarian label)
           cell={spec.key === "emails" ? (col, row) => (col.key === "next_flow" ? nextFlowText(row.next_flow as string | null, row.next_flow_reads_text === true) : undefined) : undefined}
@@ -323,9 +316,10 @@ function RunResult({ view, table, runId }: { view: WorkpackageView; table?: Resu
   const wp = view.workpackage;
   const run = useRunView(runId);
   // 058: only the views that contain data (e.g. utility cost only for utility invoices); the local service says which
-  const available = (run.data?.tables ? TABLES.filter((x) => run.data!.tables!.includes(x.key)) : TABLES).map((x) => x.key);
+  const tables = resultTables();
+  const available = (run.data?.tables ? tables.filter((x) => run.data!.tables!.includes(x.key)) : tables).map((x) => x.key);
   const current = pick(available, table);
-  const spec = TABLES.find((x) => x.key === current) ?? TABLES[3];
+  const spec = specOf(current);
   const nav = (next: ResultTable) => go({ view: "workpackages", wpId: wp.id, stage: "result", table: next, runId });
   return (
     <div className="stage-stack result-stage">
@@ -337,9 +331,9 @@ function RunResult({ view, table, runId }: { view: WorkpackageView; table?: Resu
       </div>
       <RunState runId={runId} wpId={wp.id} />
       {run.data && !available.length ? <p className="notice">{t("Ennek a futásnak nincs irat-eredménye (például csak leveleket dolgozott fel).")}</p> : null}
-      {current === "utility" ? <UtilityPanel runId={runId} wpId={wp.id} /> : null}
+      {spec.key === current && spec.Panel ? <spec.Panel runId={runId} wpId={wp.id} /> : null}
       {current === "file_names" ? <NamedCopiesBar runId={runId} /> : null}
-      {available.length ? <DataTable key={`${spec.dataset}:${runId}`} dataset={spec.dataset} scope={{ run_id: runId }} label={TABLE_LABEL[spec.key]} selectable
+      {available.length ? <DataTable key={`${spec.dataset}:${runId}`} dataset={spec.dataset} scope={{ run_id: runId }} label={tableLabel(spec.key)} selectable
         storageId={`result-${spec.dataset}`} defaultHidden={DEFAULT_HIDDEN[spec.dataset]}
         cell={spec.key === "emails" ? (col, row) => (col.key === "next_flow" ? nextFlowText(row.next_flow as string | null, row.next_flow_reads_text === true) : undefined) : undefined}
         downloadExtras={<a className="small" href={api.exportUrl(runId, "xlsx")} download>{t("A futás teljes Excel-csomagja (minden tábla és a közmű-költség)")}</a>} /> : null}

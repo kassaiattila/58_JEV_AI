@@ -197,7 +197,7 @@ def test_the_incoming_kinds_suggest_the_existing_reasons(db):
 
 def test_every_kind_has_a_label_on_the_pairing_page_and_a_hungarian_one():
     root = Path(__file__).resolve().parents[1] / "ui" / "src"
-    labels = (root / "views" / "reconcile" / "labels.ts").read_text(encoding="utf-8")
+    labels = (root / "domains" / "finance" / "reconcile" / "labels.ts").read_text(encoding="utf-8")  # 231 (C3e)
     block = re.search(r"export const KIND[^{]*\{(.*?)\}\);", labels, re.S).group(1)
     shown = dict(re.findall(r"(\w+): \"([^\"]+)\"", block))
     hu = json.loads((root / "i18n" / "hu-native.json").read_text(encoding="utf-8"))

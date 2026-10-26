@@ -14,7 +14,7 @@ import pytest
 
 from jav.app import app_settings, work, work_readiness, work_recipes, work_runs
 from jav.core import store
-from jav.domains.email import emails, ingest_server, mailbox
+from jav.domains.email import emails, ingest_server, mailbox, mailbox_bridge
 from jav.ai import jev as jev_mod
 from jav.runtime import worker
 from jav.core import queue
@@ -157,11 +157,11 @@ def test_interrupted_download_still_packages_the_stored_mail(mail_env):
 
 
 def test_stored_mail_without_a_package_is_packaged_on_the_next_download(mail_env, monkeypatch):
-    real = mailbox._workpackage
-    monkeypatch.setattr(mailbox, "_workpackage", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("adattár-hiba")))
+    real = mailbox_bridge._workpackage  # 231 (C3h): where fetch calls it
+    monkeypatch.setattr(mailbox_bridge, "_workpackage", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("adattár-hiba")))
     with pytest.raises(RuntimeError):
         mailbox.fetch(REQ, actor="t", runner=FakeBridge(MAILS), inbox_root=mail_env["inbox"])
-    monkeypatch.setattr(mailbox, "_workpackage", real)
+    monkeypatch.setattr(mailbox_bridge, "_workpackage", real)
     again = mailbox.fetch(REQ, actor="t", runner=FakeBridge(MAILS), inbox_root=mail_env["inbox"])
     assert again["duplicate"] == 2 and again["workpackage"]  # the emails already downloaded but not yet packaged
     assert len(work.get(again["workpackage"])["items"]) == 2

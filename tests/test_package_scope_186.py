@@ -25,11 +25,12 @@ import pytest
 from jav.domains.email import email_routing
 from jav.app import package_scope, parties, registrations, work
 from jav.core import store
-from jav.domains.finance import reconcile_package as rp, statement_package as sp, statement_table as st
+from jav.domains.finance import reconcile_package as rp, statement_package as sp
 from tests import test_email_routing_181 as routing_base
 from tests.test_email_routing_181 import _routing
 from tests import test_reconcile_package_131 as p131
 from tests import test_statement_package_140 as sp140
+from tests.statement_pdf import pdf_lines_as_text
 
 OWN_KEY = p131.OWN_KEY
 
@@ -37,7 +38,7 @@ OWN_KEY = p131.OWN_KEY
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     # the synthetic statement PDFs hold their lines as plain text (`tests/test_statement_package_140.py`)
-    monkeypatch.setattr(st, "_pdf_lines", lambda path: Path(path).read_text(encoding="utf-8").splitlines())
+    pdf_lines_as_text(monkeypatch)
     registrations.load_all()
     with store.use_store(tmp_path / "s.sqlite"):
         yield tmp_path

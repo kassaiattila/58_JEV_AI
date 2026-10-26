@@ -8,18 +8,19 @@ import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-li
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError, setActor, type ItemResult, type Provenance, type SourceWord, type UtilityReport } from "./api";
+import { api, ApiError, setActor, type ItemResult, type Provenance, type SourceWord } from "./api";
+import type { UtilityReport } from "./domains/finance/api";
 import { useLoad } from "./hooks";
 import { checkText, intentLabel, itemName, nextFlowText, paramsText, reasonText } from "./labels";
 import { EmailReview, splitLinks } from "./review/EmailReview";
 import { PageViewer } from "./review/PageViewer";
-import { bridgeErrorText, pullSummary, toggleAccount } from "./views/Mailbox";
+import { bridgeErrorText, pullSummary, toggleAccount } from "./domains/email/Mailbox";
 import { draftKey, getDraft, resetDrafts, setField } from "./review/drafts";
 import { buildSave, FieldPanel, rowOf } from "./review/FieldPanel";
 import { ListTable } from "./review/ListTable";
 import { bandOf, cyclePick, fieldsAtPoint, frameBoxes, orderFields, wordsInRect } from "./review/geometry";
 import { parseRoute, routeHash } from "./route";
-import { UtilityTable } from "./views/UtilityReport";
+import { UtilityTable } from "./domains/finance/UtilityReport";
 
 const RUN = "run-000000000001";
 const ITEM = "a".repeat(64);

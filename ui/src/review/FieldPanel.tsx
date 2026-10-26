@@ -14,8 +14,7 @@ import { t, useLocale } from "../i18n";
 import { checkText, editNumber, fieldLabel as sharedLabel, reasonText, savedValues, tmap } from "../labels";
 import { clearDraft, draftKey, isDirty, rebaseDraft, revertField, setField, setList, settleDraft, useDraft, type Draft } from "./drafts";
 import { useResolve } from "./useResolve";
-import { DuplicatePanel } from "./DuplicatePanel";
-import { StatementPanel } from "./StatementPanel";
+import { itemPanels } from "./itemPanels";
 import { BAND_LABEL, type Band } from "./geometry";
 import { useShowTrialReasons, visibleEarlier } from "./trialReasons";
 import { EMPTY_FILTER, FIELD_FILTERS, FILTER_LABEL, isConfirmed, type FieldFilter } from "./fieldFilter";
@@ -342,8 +341,7 @@ export function FieldPanel(p: Props) {
           ))}
         </ul>
       ) : result.open_reasons.length ? null : <p className="ok pad-s">{t("Ebben a futásban nincs nyitott teendő ezen a tételen.")}</p>}
-      <DuplicatePanel result={result} readOnly={readOnly} onDecided={p.onResolved} />
-      <StatementPanel result={result} readOnly={readOnly} onDecided={p.onResolved} />
+      {itemPanels().map(([name, Panel]) => <Panel key={name} result={result} readOnly={readOnly} onDecided={p.onResolved} />)}
 
       {shownChecks.length ? (
         <ul className="issues checks" aria-label={t("Ellenőrzések a mentett adaton")}>

@@ -7,7 +7,7 @@ source in its own language; a package no recorded download made has none (its st
 Synthetic messages, fake JEV, no paid call.
 """
 
-from jav.domains.email import ingest_server, mailbox
+from jav.domains.email import ingest_server, mailbox, mailbox_bridge
 from jav.app import work
 from jav.runtime import worker
 
@@ -23,7 +23,7 @@ def test_the_label_of_a_download_is_english():
 
 def test_a_mailbox_packages_page_gives_the_request_of_the_download_that_made_it(env, monkeypatch):  # noqa: F811
     monkeypatch.setattr(ingest_server, "INBOX_ROOT", env["inbox"])
-    monkeypatch.setattr(mailbox, "_subprocess_runner", FakeBridge(MAILS))
+    monkeypatch.setattr(mailbox_bridge, "_subprocess_runner", FakeBridge(MAILS))
     p = mailbox.request_pull(REQ, actor="teszt")
     worker.run_worker(once=True)
     wp = work.get(mailbox.pull(p["id"])["result"]["workpackage"])
@@ -39,7 +39,7 @@ def test_the_downloads_list_gives_each_rows_request_beside_its_label(env, monkey
     from jav.domains.email import email_datasets
 
     monkeypatch.setattr(ingest_server, "INBOX_ROOT", env["inbox"])
-    monkeypatch.setattr(mailbox, "_subprocess_runner", FakeBridge(MAILS))
+    monkeypatch.setattr(mailbox_bridge, "_subprocess_runner", FakeBridge(MAILS))
     mailbox.request_pull(REQ, actor="teszt")
     _cols, rows = email_datasets.mailbox_pulls({})  # 185: the email domain's table
     assert rows[0]["label"] == REQ.label() and rows[0]["_request"] == REQ.model_dump(mode="json")

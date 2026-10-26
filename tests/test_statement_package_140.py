@@ -25,6 +25,7 @@ from jav.runtime import worker
 from jav.core import queue
 from tests.test_flow_statement_table_136 import _run_all
 from tests.test_statement_erste_137 import DIGITS, JUNE, MAY, OWN, PDF_JUNE, _export
+from tests.statement_pdf import pdf_lines_as_text
 
 OWN_KEY = reconcile.account_key(OWN)
 PDF_MAY = ["Bankszámlakivonat", "Ügyfél neve, címe   EXAMPLE KFT.   Kivonat száma   E 2026/5",
@@ -39,7 +40,7 @@ PDF_MAY = ["Bankszámlakivonat", "Ügyfél neve, címe   EXAMPLE KFT.   Kivonat 
 @pytest.fixture(autouse=True)
 def pdf_text(monkeypatch):
     """The PDF's text layer: the synthetic 'PDF' files hold their lines as plain text."""
-    monkeypatch.setattr(st, "_pdf_lines", lambda path: Path(path).read_text(encoding="utf-8").splitlines())
+    pdf_lines_as_text(monkeypatch)
 
 
 @pytest.fixture

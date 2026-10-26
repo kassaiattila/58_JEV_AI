@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from jav.domains.email import emails, ingest_server, mailbox
+from jav.domains.email import emails, ingest_server, mailbox, mailbox_bridge
 from jav.app import work, work_readiness, work_runs
 from jav.core import store
 from jav.ai import jev as jev_mod
@@ -83,7 +83,7 @@ def test_request_is_validated():
     with pytest.raises(ValidationError):
         mailbox.MailboxRequest(accounts=["a@b.hu"], folders=["Inbox'; rm"])
     r = mailbox.MailboxRequest(accounts=["a@b.hu"], received_from="2026-09-01", received_to="2026-09-10")
-    argv = mailbox._argv(r, "count")
+    argv = mailbox_bridge._argv(r, "count")
     assert _arg(argv, "ReceivedTo") == "2026-09-10T23:59:59" and "-SinceDays" not in argv
     # the legacy script's project root is our own bridge root, not the (read-only) legacy project
     assert Path(_arg(argv, "RepoRoot")) == BRIDGE_ROOT and not Path(_arg(argv, "RepoRoot")).is_relative_to(OLD_PROJECT_ROOT)
@@ -95,6 +95,14 @@ def test_downloaded_package_owner_is_who_started_the_download(env):
     assert work.get(res["workpackage"])["owner"] == "Kiss Anna"
     assert mailbox.owner_of("ütemezés (Nagy Béla)") == "Nagy Béla"
     assert mailbox.owner_of("Kiss Anna") == "Kiss Anna"
+
+
+def test_a_test_never_reaches_the_outlook_bridge():
+    """231 (C3d, C3h): the tests' guard replaces the default runner where the bridge is called (`mailbox_bridge`; the
+    count and the download share it), so a call without a runner of its own fails instead of starting PowerShell on
+    the machine's mailbox."""
+    with pytest.raises(AssertionError, match="Outlook bridge"):
+        mailbox.count(REQ)
 
 
 def test_count_preview_parses_the_bridge_result():
@@ -159,7 +167,7 @@ def test_schedule_tick_enqueues_once_per_slot(tmp_path):
 
 def test_scheduled_pull_runs_in_the_worker_and_records_the_outcome(env, monkeypatch):
     monkeypatch.setattr(ingest_server, "INBOX_ROOT", env["inbox"])
-    monkeypatch.setattr(mailbox, "_subprocess_runner", FakeBridge(MAILS))
+    monkeypatch.setattr(mailbox_bridge, "_subprocess_runner", FakeBridge(MAILS))
     sch = mailbox.create_schedule(REQ, actor="teszt")
     info = worker.run_worker(once=True)
     assert info["results"] == {"done": 1}
@@ -169,7 +177,7 @@ def test_scheduled_pull_runs_in_the_worker_and_records_the_outcome(env, monkeypa
     assert wp["assignment"]["actor"] == "ütemezés (teszt)" and not work_runs.runs(wp["id"])  # no paid run started
 
     # Outlook not running: the error shows on the schedule, the worker does not stop, the job is not repeated
-    monkeypatch.setattr(mailbox, "_subprocess_runner", lambda argv, t: (1, "", "Outlook must already be running."))
+    monkeypatch.setattr(mailbox_bridge, "_subprocess_runner", lambda argv, t: (1, "", "Outlook must already be running."))
     mailbox.update_schedule(sch["id"], actor="t", enabled=False)
     mailbox.update_schedule(sch["id"], actor="t", enabled=True)  # switching on = due at once
     assert mailbox.schedule(sch["id"])["next_at"] <= mailbox._utc()
@@ -184,7 +192,7 @@ def test_scheduled_pull_runs_in_the_worker_and_records_the_outcome(env, monkeypa
 
 def test_manual_pull_goes_through_the_worker(env, monkeypatch):
     monkeypatch.setattr(ingest_server, "INBOX_ROOT", env["inbox"])
-    monkeypatch.setattr(mailbox, "_subprocess_runner", FakeBridge(MAILS))
+    monkeypatch.setattr(mailbox_bridge, "_subprocess_runner", FakeBridge(MAILS))
     p = mailbox.request_pull(REQ, actor="teszt")
     assert p["status"] == "queued" and p["schedule_id"] is None
     worker.run_worker(once=True)
@@ -203,7 +211,7 @@ def test_service_endpoints(tmp_path, monkeypatch):
     db = tmp_path / "api.sqlite"
     monkeypatch.setattr(ingest_server, "INBOX_ROOT", tmp_path / "inbox")
     monkeypatch.setattr(ingest_server, "BRIDGE_DATA_ROOT", tmp_path / "bridge" / "data")
-    monkeypatch.setattr(mailbox, "_subprocess_runner", FakeBridge(MAILS))
+    monkeypatch.setattr(mailbox_bridge, "_subprocess_runner", FakeBridge(MAILS))
     c = TestClient(api.create_app(store_path=db), base_url="http://127.0.0.1:8930")
     human = {"X-Actor": "teszt.elek"}
     body = {"accounts": ["iroda@minta.hu"], "since_days": 7}
@@ -237,7 +245,7 @@ def test_service_endpoints(tmp_path, monkeypatch):
     assert c.get("/api/mailbox").json()["accounts"] == ["iroda@minta.hu"]  # 058: a used address is selectable
     assert c.post(f"/api/mailbox/schedules/{sid}/delete", json={}, headers=human).status_code == 200
 
-    monkeypatch.setattr(mailbox, "_subprocess_runner", lambda argv, t: (1, "", "Outlook must already be running."))
+    monkeypatch.setattr(mailbox_bridge, "_subprocess_runner", lambda argv, t: (1, "", "Outlook must already be running."))
     r = c.post("/api/mailbox/count", json=body)
     assert r.status_code == 503 and "Outlook" in r.text
 
@@ -269,7 +277,7 @@ def test_a_download_no_step_takes_gets_a_mailbox_case(env, monkeypatch):
     from jav.app import document_processing
 
     monkeypatch.setattr(ingest_server, "INBOX_ROOT", env["inbox"])
-    monkeypatch.setattr(mailbox, "_subprocess_runner", FakeBridge(MAILS))
+    monkeypatch.setattr(mailbox_bridge, "_subprocess_runner", FakeBridge(MAILS))
     p = mailbox.request_pull(REQ, actor="teszt")
     worker.run_worker(once=True)
     wp = mailbox.pull(p["id"])["result"]["workpackage"]
@@ -280,7 +288,7 @@ def test_a_download_no_step_takes_gets_a_mailbox_case(env, monkeypatch):
 
 def test_a_workflow_s_download_is_its_step_s_and_gets_no_case_of_its_own(env, monkeypatch):
     monkeypatch.setattr(ingest_server, "INBOX_ROOT", env["inbox"])
-    monkeypatch.setattr(mailbox, "_subprocess_runner", FakeBridge(MAILS))
+    monkeypatch.setattr(mailbox_bridge, "_subprocess_runner", FakeBridge(MAILS))
     mailbox.request_pull(REQ, actor="teszt", taker="workflow:wf-1:emails")
     worker.run_worker(once=True)
     assert _mailbox_cases() == []
@@ -291,7 +299,7 @@ def test_a_mailbox_case_downloads_its_own_package_and_binds_it(env, monkeypatch)
     from jav.core.process import engine
 
     monkeypatch.setattr(ingest_server, "INBOX_ROOT", env["inbox"])
-    monkeypatch.setattr(mailbox, "_subprocess_runner", FakeBridge(MAILS))
+    monkeypatch.setattr(mailbox_bridge, "_subprocess_runner", FakeBridge(MAILS))
     case = process_runtime.start_case("mailbox", {"source": {"kind": "mailbox", "request": REQ.model_dump(mode="json")}},
                                       name="Iroda", actor="teszt")
     engine.turn(case, wake=True)

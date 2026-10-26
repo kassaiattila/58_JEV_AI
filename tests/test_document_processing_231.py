@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import shutil
-from pathlib import Path
 
 import pytest
 
@@ -23,6 +22,7 @@ from jav.core.config import PROJECT_ROOT
 from jav.core.process import engine
 from tests.test_workflow_tasks_215 import _finish
 from tests.test_workflows_146 import _invoices
+from tests.statement_pdf import pdf_lines_as_text
 
 registrations.load_all()
 PERSON = "anna"
@@ -120,10 +120,9 @@ STATEMENTS_PACK = {**PACK, "meta": {**PACK["meta"], "name": "process:statements_
 
 
 def test_the_statements_maker_makes_a_package_of_the_party_s_statements_in_the_period(db, monkeypatch):
-    from jav.domains.finance import statement_table as st
     from tests.test_workflows_146 import MONTH, _party, _statements
 
-    monkeypatch.setattr(st, "_pdf_lines", lambda path: Path(path).read_text(encoding="utf-8").splitlines())  # as 146's
+    pdf_lines_as_text(monkeypatch)  # as 146's
     (cfg.PROCESSES_DIR / "statements_test.json").write_text(json.dumps(STATEMENTS_PACK), encoding="utf-8")
     cfg.reload()
     party = _party()

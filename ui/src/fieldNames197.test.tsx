@@ -8,7 +8,7 @@ import { setLanguage } from "./i18n";
 import { fieldLabel } from "./labels";
 import { resetDrafts } from "./review/drafts";
 import { FieldPanel } from "./review/FieldPanel";
-import { quoteFieldLabel } from "./views/quotes/quoteStatus";
+import { quoteFieldLabel } from "./domains/quotes/quoteStatus";
 
 function result(docType: string): ItemResult {
   return {

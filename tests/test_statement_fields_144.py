@@ -10,17 +10,17 @@ again. Synthetic data only: made-up accounts, the public test card number 4111 1
 
 from __future__ import annotations
 
-from pathlib import Path
 
 import pytest
 
 from jav.core import card_numbers
-from jav.domains.finance import reconcile, statement_months as sm, statement_table as st
+from jav.domains.finance import reconcile, statement_camt, statement_months as sm, statement_table as st
 from jav.domains.finance import reconcile_store
 from tests import test_statement_camt_141 as camt
 from tests import test_statement_cib_141 as cib
 from tests import test_statement_erste_137 as erste
 from tests import test_statement_table_136 as table
+from tests.statement_pdf import pdf_lines_as_text
 
 CARD = "4111 1111 1111 1111"  # the public test card number (right check digit)
 MASKED = "411111xxxxxx1111"
@@ -29,7 +29,7 @@ MASKED = "411111xxxxxx1111"
 @pytest.fixture(autouse=True)
 def pdf_text(monkeypatch):
     """The PDF's text layer: the synthetic 'PDF' files hold their lines as plain text."""
-    monkeypatch.setattr(st, "_pdf_lines", lambda path: Path(path).read_text(encoding="utf-8").splitlines())
+    pdf_lines_as_text(monkeypatch)
 
 
 # --- a card number ------------------------------------------------------------------------------------------------------
@@ -60,14 +60,14 @@ def test_an_excel_export_declaring_a_camt_prefix_is_read_as_the_ledger_export(tm
     path = erste._export(tmp_path, "20260630", erste.JUNE)
     xml = path.read_bytes().replace(b"<Workbook xmlns=", b'<Workbook xmlns:camt="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02" xmlns=')
     path.write_bytes(xml)
-    assert not st._is_camt(xml)
+    assert not statement_camt._is_camt(xml)
     reading = st.read(path)
     assert reading.profile == "erste_ledger_hu" and len(reading.accounts[0].statement["transactions"]) == 4
 
 
 def test_a_camt_document_is_still_known_by_its_root(tmp_path):
     data = camt._camt()
-    assert st._is_camt(data) and st._is_camt(b"<!-- an export -->\n" + data)
+    assert statement_camt._is_camt(data) and statement_camt._is_camt(b"<!-- an export -->\n" + data)
 
 
 # --- the CIB statement ---------------------------------------------------------------------------------------------------
