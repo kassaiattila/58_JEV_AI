@@ -13,6 +13,9 @@ changed since. Nothing is decided: a person reviews every line (B5).
 - `process_job(job)`, `abandon_job(job, error)`: the worker's job kind (`JOB`);
 - `current(wp_id)`: the latest proposal, with `stale` when the request or the price list changed since.
 
+Stage D0 (D0-b): a proposal is its case's match step's (`step`; None: the case's first match step,
+`jav/domains/quotes/quote_steps.py`), so two match steps of a case keep two proposals, each under its own budget.
+
 Layer: application operation of the quotes domain over the queue, the call log, the quote request and the match.
 """
 
@@ -26,7 +29,7 @@ from typing import Any
 
 from jav.app import app_settings
 from jav.core import cfg, identity, store
-from jav.domains.quotes import price_lists, quote_match, quote_request
+from jav.domains.quotes import price_lists, quote_match, quote_request, quote_steps
 from jav.runtime import job_kinds
 from jav.core import calls
 from jav.core.user_messages import explained
@@ -35,10 +38,11 @@ from jav.core.clock import utc_stamp as _now
 JOB_KIND = "quote_propose"
 STATES = ("queued", "running", "done", "failed")
 
-store.register_schema("quote_proposals", """
+_DDL = """
 -- 191 (plan F-quote-package B4c): a quote package's latest proposal: each requested item's match with the price list
 CREATE TABLE IF NOT EXISTS quote_proposals (
-    workpackage_id TEXT PRIMARY KEY,
+    workpackage_id TEXT NOT NULL,
+    step_id        TEXT NOT NULL DEFAULT '',  -- D0-b: the case's match step it is of ('': a package that is no case's)
     state          TEXT NOT NULL,      -- queued, running, done, failed
     engine         TEXT NOT NULL,      -- jev | gpt: the application's engine when it was asked
     request_key    TEXT NOT NULL,      -- the requested items it was asked for (sha256 of their JSON)
@@ -53,11 +57,15 @@ CREATE TABLE IF NOT EXISTS quote_proposals (
     requested_by   TEXT NOT NULL,
     requested_by_id TEXT,              -- 229 (SZ2c): the stable id beside the name (`jav.core.identity`)
     requested_at   TEXT NOT NULL,
-    finished_at    TEXT
+    finished_at    TEXT,
+    PRIMARY KEY (workpackage_id, step_id)
 );
-""")
+"""
+store.register_schema("quote_proposals", _DDL)
 store.register_migration("quote_proposals_actor_ids",
                          lambda conn: store.add_actor_ids(conn, "quote_proposals", ("requested_by",)))  # 229 (SZ2c)
+store.register_migration("quote_proposals_steps",  # D0-b: keyed by the case's match step
+                         lambda conn: quote_steps.rebuild(conn, "quote_proposals", _DDL, quote_steps.MATCH))
 
 
 class ProposalRefused(ValueError):
@@ -96,16 +104,26 @@ def _source(wp_id: str) -> quote_request.Request:
         raise explained(ProposalRefused, "the request can no longer be read") from exc
 
 
-def _row(c: Any, wp_id: str) -> Any:
-    return c.execute("SELECT * FROM quote_proposals WHERE workpackage_id=?", (wp_id,)).fetchone()
+def _step(wp_id: str, step: str | None) -> str:
+    """D0-b: the case's match step a proposal is of (None: the case's first)."""
+    return quote_steps.of(wp_id).match if step is None else step
 
 
-def request(wp_id: str, *, actor: identity.Who, selection: str = price_lists.NEWEST_ACTIVE) -> dict[str, Any]:
+def _row(c: Any, wp_id: str, step: str) -> Any:
+    return c.execute("SELECT * FROM quote_proposals WHERE workpackage_id=? AND step_id=?", (wp_id, step)).fetchone()
+
+
+def request(wp_id: str, *, actor: identity.Who, selection: str | None = None,
+            step: str | None = None) -> dict[str, Any]:
     """Queues the package's proposal with the application's engine and the cap for its requested items; a proposal
     already queued or running is returned as it is. `ProposalRefused` when it cannot be asked. 231 (A5): `selection`
-    is the process's price list choice (`price_lists.chosen`)."""
+    is the process's price list choice (`price_lists.chosen`). D0-b: of the case's match `step`. D0-e: without one,
+    the step's own (as the case started: a person asking again prices from the list the step keeps)."""
     from jav.core import queue
 
+    step = _step(wp_id, step)
+    if selection is None:
+        selection = quote_steps.catalogue(wp_id, step)
     req = _source(wp_id)
     if not req.items:
         raise explained(ProposalRefused, "the request names no item")
@@ -118,15 +136,15 @@ def request(wp_id: str, *, actor: identity.Who, selection: str = price_lists.NEW
     limits = cap(len(req.items), engine)
     with store.connect() as c:
         store.begin_immediate(c)
-        row = _row(c, wp_id)
+        row = _row(c, wp_id, step)
         if row is not None and row["state"] in ("queued", "running"):
-            return current(wp_id) or {}
-        c.execute("INSERT OR REPLACE INTO quote_proposals(workpackage_id, state, engine, request_key, price_list, version,"
-                  " fingerprint, limits, requested_by, requested_by_id, requested_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                  (wp_id, "queued", engine, request_key(req.items), prices.price_list, prices.version, prices.fingerprint,
+            return current(wp_id, step=step) or {}
+        c.execute("INSERT OR REPLACE INTO quote_proposals(workpackage_id, step_id, state, engine, request_key, price_list,"
+                  " version, fingerprint, limits, requested_by, requested_by_id, requested_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                  (wp_id, step, "queued", engine, request_key(req.items), prices.price_list, prices.version, prices.fingerprint,
                    json.dumps({k: str(v) for k, v in limits.items()}), identity.name_of(actor), identity.id_of(actor), _now()))
-    queue.enqueue(JOB_KIND, run_id=None, payload={"workpackage_id": wp_id, "requested_at": _now()})
-    return current(wp_id) or {}
+    queue.enqueue(JOB_KIND, run_id=None, payload={"workpackage_id": wp_id, "step_id": step, "requested_at": _now()})
+    return current(wp_id, step=step) or {}
 
 
 def _ask(req: quote_request.Request, prices: price_lists.PriceList, engine: str, scope: str) -> list[dict[str, Any]]:
@@ -149,41 +167,46 @@ def process_job(job: Any) -> str:
     from jav.core import queue
 
     wp_id = job.payload["workpackage_id"]
+    step = _step(wp_id, job.payload.get("step_id"))  # D0-b: a job queued before names no step: the case's first
     with store.connect() as c:
-        row = _row(c, wp_id)
+        row = _row(c, wp_id, step)
     if row is None or row["state"] not in ("queued", "running"):
         return queue.complete(job.id)
     with store.connect() as c:
-        c.execute("UPDATE quote_proposals SET state='running' WHERE workpackage_id=?", (wp_id,))
+        c.execute("UPDATE quote_proposals SET state='running' WHERE workpackage_id=? AND step_id=?", (wp_id, step))
     try:
         req = _source(wp_id)
         prices = price_lists.version(row["price_list"], row["version"])
         limits = {k: Decimal(v) for k, v in json.loads(row["limits"]).items()}
-        scope = f"quote-{wp_id}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        scope = f"quote-{wp_id}-{step + '-' if step else ''}{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
         with calls.outside_run(scope, limits) as scope:  # 231 (A3a): business work, not a measurement
             lines = _ask(req, prices, row["engine"], scope)
         failed = all(line["answer"].get("error") for line in lines)
         with store.connect() as c:
             c.execute("UPDATE quote_proposals SET state=?, request_key=?, lines=?, usage=?, scope=?, finished_at=?, error=?"
-                      " WHERE workpackage_id=?",
+                      " WHERE workpackage_id=? AND step_id=?",
                       ("failed" if failed else "done", request_key(req.items), json.dumps(lines, ensure_ascii=False, default=str),
                        json.dumps(calls.budget_usage(scope), default=str), scope, _now(),
-                       lines[0]["answer"]["error"] if failed and lines else None, wp_id))
+                       lines[0]["answer"]["error"] if failed and lines else None, wp_id, step))
     except Exception as exc:  # noqa: BLE001 - the proposal shows why it failed; the worker goes on
-        abandon(wp_id, f"{type(exc).__name__}: {exc}")
+        abandon(wp_id, f"{type(exc).__name__}: {exc}", step=step)
     return queue.complete(job.id)
 
 
-def abandon(wp_id: str, error: str) -> None:
+def abandon(wp_id: str, error: str, *, step: str | None = None) -> None:
+    step = _step(wp_id, step)
     with store.connect() as c:
-        c.execute("UPDATE quote_proposals SET state='failed', error=?, finished_at=? WHERE workpackage_id=?",
-                  (error[:500], _now(), wp_id))
+        c.execute("UPDATE quote_proposals SET state='failed', error=?, finished_at=? WHERE workpackage_id=? AND step_id=?",
+                  (error[:500], _now(), wp_id, step))
 
 
-def current(wp_id: str) -> dict[str, Any] | None:
-    """The package's latest proposal; `stale` when its request items or the active price list changed since."""
+def current(wp_id: str, *, step: str | None = None) -> dict[str, Any] | None:
+    """The package's latest proposal; `stale` when its request items or the active price list changed since. D0-b: of
+    the case's match `step` (None: the case's first). D0-e: the price list the step prices from (a case keeps the
+    version current at its start, so a newer one does not make it stale)."""
+    step = _step(wp_id, step)
     with store.connect() as c:
-        row = _row(c, wp_id)
+        row = _row(c, wp_id, step)
     if row is None:
         return None
     out = {k: row[k] for k in ("state", "engine", "price_list", "version", "requested_by", "requested_at", "finished_at",
@@ -201,7 +224,7 @@ def current(wp_id: str) -> dict[str, Any] | None:
             stale = request_key(_source(wp_id).items) != row["request_key"]
         except ProposalRefused:
             stale = True
-        prices = _active()
+        prices = _active(quote_steps.catalogue(wp_id, step))  # D0-e: the list the step keeps, not the newest one
         stale = stale or prices is None or prices.fingerprint != row["fingerprint"]
     out["stale"] = stale
     return out
@@ -214,7 +237,8 @@ def mark() -> tuple[Any, ...]:
 
 
 JOB = job_kinds.JobKind(JOB_KIND, __name__, process=lambda job: process_job(job),
-                        abandon=lambda job, error: abandon(job.payload["workpackage_id"], error))
+                        abandon=lambda job, error: abandon(job.payload["workpackage_id"], error,
+                                                           step=job.payload.get("step_id")))
 
 
 __all__ = ["JOB", "JOB_KIND", "ProposalRefused", "abandon", "cap", "current", "mark", "process_job", "request",

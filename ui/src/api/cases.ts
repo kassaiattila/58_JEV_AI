@@ -2,6 +2,7 @@
 // process pack, and one running instance of it is a case. The service gives a case's page as data
 // (jav/app/case_views.py): its steps and its pack's tabs, each element with what its step's capability shows.
 import { enc, request } from "./client";
+import type { ApprovalState } from "./types";
 
 /** 231 (C1a): one part a record was read from (the email's text, an attachment, a document). */
 export interface RecordPart { kind: string; name: string | null }
@@ -75,7 +76,13 @@ export interface ReplyData {
 }
 export interface CaseEvent {
   at: string; kind: string; step: string | null; step_title: string | null; who: string | null;
-  detail: { note?: string; timer?: string; task_kind?: string; answer?: string };
+  detail: { note?: string; timer?: string; task_kind?: string; answer?: string; kept?: CaseKept };
+}
+/** D0-e: the versions a case keeps from its start to its end (`jav/app/process_runtime.py` `kept_of`): its resources
+ *  naming a versioned thing (a price list, a template) and the rule files its steps read. */
+export interface CaseKept {
+  resources: { key: string; label: string; name: string; version: number | null }[];
+  rules: { file: string; version: string | null }[];
 }
 /** 231 (B1): a partner the case is about: linked, or proposed from its record with the partner it seems to be. */
 export interface CasePartnerBrief { partner_id: string; name: string; tax_number: string | null; email: string | null; roles: string[]; retired: boolean; version: number }
@@ -99,4 +106,9 @@ export const casesApi = {
     request<CaseView>("POST", `/cases/${enc(caseId)}/partners`, { role, partner_id: partnerId }),
   caseStepAction: (caseId: string, stepId: string, name: string, note?: string) =>
     request<CaseView>("POST", `/cases/${enc(caseId)}/steps/${enc(stepId)}/actions/${enc(name)}`, note ? { note } : {}),
+  /** D0-d: the approval's state of a case's approving step, and a person's return of its result with a reason */
+  caseApproval: (caseId: string, stepId: string) =>
+    request<ApprovalState>("GET", `/cases/${enc(caseId)}/steps/${enc(stepId)}/approval`),
+  returnCaseStep: (caseId: string, stepId: string, reason: string) =>
+    request<ApprovalState>("POST", `/cases/${enc(caseId)}/steps/${enc(stepId)}/approval/return`, { reason }),
 };

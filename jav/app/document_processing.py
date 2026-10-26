@@ -381,8 +381,17 @@ def start_run(case_id: str, step_id: str, actor: identity.Who, _note: str | None
                                input_hash=ready["input_hash"], actor=actor)["run_id"]
 
 
+class ProcessedResult(capabilities.Result):
+    """D0-c: the step's package and its approved live runs, or no documents (the source held none)."""
+
+    package: str | None = None
+    runs: list[str] = []
+    documents: int | None = None
+
+
 CAPABILITY = capabilities.Capability(
     name="process_documents", version=1, module=_OWNER, run=_run, kind="human", params=Process, effects="store",
+    output=ProcessedResult,
     # no provider of its own: making the package is free, and its live run, which may call AI, is a person's action
     # (`start_run`) within the package's own estimate and budget, as any live run
     summary=("Makes a processing package of the case's documents; a person starts its live run within the package's "
@@ -390,7 +399,8 @@ CAPABILITY = capabilities.Capability(
     actions=(capabilities.Action("start_run", "Start the live run", _can_start, start_run),),
     # C3b4: the case list says a person's start while the package waits for its live run, the machine's work while it
     # runs, a person's decision while it waits for its approval (`_state_of`)
-    waits={"run_start": "person_start", "run_end": "work", "run_approval": "person", "fetching": "work"}, adopt=_adopt, bind=bind, bound=bound)
+    waits={"run_start": "person_start", "run_end": "work", "run_approval": "person", "fetching": "work"}, adopt=_adopt, bind=bind, bound=bound,
+    state="step")  # D0-b: its package is the step's (`_owner_ref`)
 
 
 def source_kinds(pack: Any) -> list[str]:

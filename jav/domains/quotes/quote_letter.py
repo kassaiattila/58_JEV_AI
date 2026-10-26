@@ -19,6 +19,12 @@ the file cannot name the email it answers; Outlook joins it to the conversation 
 - `accept(wp_id, body, actor, expected_state)`: the body a person accepts (the decision journal keeps each one);
 - `eml(wp_id, n)`: the letter file of version `n` and its name.
 
+Stage D0 (D0-b): a letter is the case's letter step's (`step`; None: the case's first,
+`jav/domains/quotes/quote_steps.py`), answering the approved version of the line composition step it names. D0-c: it
+reads that version as an offer (`OfferContent`: a header, lines, totals, a language and the request it answers), fills
+its frame's values with the builder of the output it names (`output`, the quote's by default) and attaches that
+output's stored document, so any process whose approved version is an offer has its letter written the same way.
+
 Layer: application operation of the quotes domain over the queue, the call log, the version store and the quote's
 document.
 """
@@ -38,12 +44,13 @@ from email.message import EmailMessage
 from email.policy import SMTP
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from jav.app import naming, package_release, work
+from jav.app.outputs import parts as output_parts
 from jav.core import activity_kinds, cfg, decisions, identity, store, trace
 from jav.core.process import cases
-from jav.domains.quotes import quote_document, quote_request
+from jav.domains.quotes import quote_document, quote_request, quote_steps
 from jav.core.clock import utc_stamp as _now
 from jav.app.outputs import contract, docx, markers
 from jav.runtime import job_kinds
@@ -62,10 +69,11 @@ CHECKS = (("number", re.compile(r"\d")), ("link", re.compile(r"https?://|www\.",
 decisions.register(decisions.Kind(KIND, ("accept",), __name__))
 activity_kinds.register_events("package", ("quote_letter_accept",), __name__)
 
-store.register_schema("quote_letters", """
+_DDL = """
 -- 196 (plan F-Word-output W3): a quote version's reply letter: GPT's paragraph and the body a person accepted
 CREATE TABLE IF NOT EXISTS quote_letters (
     workpackage_id TEXT NOT NULL,
+    step_id        TEXT NOT NULL DEFAULT '',  -- D0-b: the case's letter step ('': a package that is no case's)
     version        INTEGER NOT NULL,   -- the approved version of the quote it answers with
     state          TEXT,               -- GPT's paragraph: queued, running, done, failed (NULL: never asked)
     limits         TEXT,               -- JSON: provider -> the budget in USD
@@ -83,12 +91,17 @@ CREATE TABLE IF NOT EXISTS quote_letters (
     accepted_by_id TEXT,
     accepted_at    TEXT,
     frame          TEXT,               -- 231 (B0): the letter frame's key it is written with (NULL: the default)
-    PRIMARY KEY (workpackage_id, version)
+    output         TEXT,               -- D0-c: the output whose builder fills the frame and whose document it attaches
+    PRIMARY KEY (workpackage_id, step_id, version)
 );
-""")
+"""
+store.register_schema("quote_letters", _DDL)
 store.register_migration("quote_letters_actor_ids",
                          lambda conn: store.add_actor_ids(conn, "quote_letters", ("requested_by", "accepted_by")))  # 229
 store.register_migration("quote_letters_frame", lambda conn: store.add_columns(conn, "quote_letters", {"frame": "TEXT"}))
+store.register_migration("quote_letters_output", lambda conn: store.add_columns(conn, "quote_letters", {"output": "TEXT"}))
+store.register_migration("quote_letters_steps",  # D0-b: keyed by the case's letter step
+                         lambda conn: quote_steps.rebuild(conn, "quote_letters", _DDL, quote_steps.LETTER))
 
 _agent_factory: ContextVar = ContextVar("quote_letter_agent_factory", default=None)
 
@@ -108,6 +121,20 @@ class Paragraph(BaseModel):
     """GPT's answer: the letter's first paragraph."""
 
     paragraph: str
+
+
+class OfferContent(BaseModel):
+    """D0-c: what the letter reads of an approved version: an offer's header (the customer, the contact, the contact's
+    email), its lines (each with a name), its totals, its currency and language, and the request it answers (its
+    title; where the request was read from, to quote its requested items to the model). Other fields may come with it."""
+
+    model_config = ConfigDict(extra="allow")
+    header: dict[str, Any]
+    lines: list[dict[str, Any]]
+    totals: dict[str, Any]
+    currency: str | None = None
+    language: str | None = None
+    request: dict[str, Any] = {}
 
 
 @contextmanager
@@ -161,17 +188,22 @@ def _fill(text: str, values: dict[str, Any], kinds: dict[str, str], language: st
     return markers.ANY.sub(value, text)
 
 
-def _quote_values(content: dict[str, Any], package: str, n: int) -> tuple[dict[str, Any], dict[str, str]]:
-    d = quote_document.data(content, package=package, version=n)
-    return {v.key: v.value for v in d.values}, dict(contract.spec(quote_document.OUTPUT)["values"])
+def _values(content: dict[str, Any], package: str, n: int, output: str) -> tuple[dict[str, Any], dict[str, str]]:
+    """D0-c: the frame's values, as the builder of `output` makes them from the approved version (the quote's own until
+    D0-c), with their kinds from the output's contract."""
+    d = output_parts.version_document(output).data(content, package=package, version=n, approved_by=None,
+                                                    approved_at=None, output=output)
+    return {v.key: v.value for v in d.values}, dict(contract.spec(output)["values"])
 
 
-def compose(content: dict[str, Any], *, package: str, n: int, paragraph: str | None, frame_key: str = FRAME) -> str:
+def compose(content: dict[str, Any], *, package: str, n: int, paragraph: str | None, frame_key: str = FRAME,
+            output: str = quote_document.OUTPUT) -> str:
     """The letter's body: the greeting, the paragraph (GPT's, or the frame's own), the totals, the closing. 231 (A3b):
-    `frame_key` names the letter frame in the documents' settings; the default is the quote's."""
+    `frame_key` names the letter frame in the documents' settings; the default is the quote's. D0-c: `output` names
+    the output whose builder fills the frame's values."""
     language = content.get("language") or quote_document.default_language()
     frame = _frame(language, frame_key)
-    values, kinds = _quote_values(content, package, n)
+    values, kinds = _values(content, package, n, output)
     greeting = frame["greeting"] if values.get("contact_name") else frame["greeting_none"]
     parts = [_fill(greeting, values, kinds, language), (paragraph or frame["fallback"]).strip(),
              _fill(frame["totals"], values, kinds, language), frame["closing"]]
@@ -216,21 +248,51 @@ trace.register(trace.Point(
 # --- the store ------------------------------------------------------------------------------------------------------
 
 
-def _key(wp_id: str, n: int) -> str:
-    return f"{wp_id}#{n}"
+def _step(wp_id: str, step: str | None) -> str:
+    """D0-b: the case's letter step a letter is of (None: the case's first)."""
+    return quote_steps.of(wp_id).letter if step is None else step
 
 
-def _row(c: sqlite3.Connection, wp_id: str, n: int) -> Any:
-    return c.execute("SELECT * FROM quote_letters WHERE workpackage_id=? AND version=?", (wp_id, n)).fetchone()
+def _key(wp_id: str, step: str, n: int) -> str:
+    return f"{quote_steps.key(wp_id, step)}#{n}"
 
 
-def _active(wp_id: str, c: sqlite3.Connection | None = None) -> dict[str, Any]:
-    """The approved version that holds, with its content; LetterError without one."""
-    approval = package_release.own_approval(wp_id, c)
+def _row(c: sqlite3.Connection, wp_id: str, step: str, n: int) -> Any:
+    return c.execute("SELECT * FROM quote_letters WHERE workpackage_id=? AND step_id=? AND version=?",
+                     (wp_id, step, n)).fetchone()
+
+
+def _active(wp_id: str, step: str, c: sqlite3.Connection | None = None) -> dict[str, Any]:
+    """The approved version that holds, with its content; LetterError without one. D0-b: the version of the
+    composition step the letter `step` names."""
+    approval = package_release.own_approval(wp_id, c, step=quote_steps.of(wp_id, step or None).compose or None)
     if approval["active"] is None:
         raise explained(LetterError, "the quote has no approved version; the letter answers with an approved one")
     n = approval["active"]["version"]
-    return {**approval["active"], "content": package_release.own_version(wp_id, n, c)["content"]}
+    content = package_release.own_version(wp_id, n, c)["content"]
+    try:  # D0-c: the letter answers an offer, whatever process approved it
+        OfferContent.model_validate(content)
+    except ValidationError as exc:
+        fields = ", ".join(".".join(str(p) for p in e["loc"]) or "-" for e in exc.errors()[:5])
+        raise explained(LetterError, "the approved version is no offer a letter answers: {{fields}}", fields=fields) from None
+    return {**approval["active"], "content": content}
+
+
+def _output_of(row: Any) -> str:
+    """D0-c: the output a letter is written with: the one asked for, else the quote's."""
+    return (row["output"] if row is not None and row["output"] else None) or quote_document.OUTPUT
+
+
+def _document(wp_id: str, n: int, package: str, output: str) -> tuple[bytes, str]:
+    """D0-c: the document the letter attaches: the one stored with version `n`, as the output's builder gives it, else
+    the version's stored approved file (KeyError: none)."""
+    builder = output_parts.version_document(output)
+    if builder.file is not None:
+        return builder.file(wp_id, n, package)
+    stored = package_release.own_file(wp_id, n, package_release.APPROVED)
+    if stored is None:
+        raise KeyError(f"{wp_id} version {n}: no document")
+    return stored["content"], stored["name"]
 
 
 def _request(content: dict[str, Any]) -> quote_request.Request | None:
@@ -249,22 +311,24 @@ def recipient(content: dict[str, Any], req: quote_request.Request | None) -> str
     return email or (req.sender if req is not None and req.sender else None)
 
 
-def view(wp_id: str) -> dict[str, Any]:
+def view(wp_id: str, *, step: str | None = None) -> dict[str, Any]:
     """The letter of the approved version that holds (`version` None without one): GPT's paragraph and its state, its
     check's problems, the body to accept (the accepted one, or the frame with the paragraph that can be used), the
-    accepted body, its decision state, the recipient, the subject and the cap of asking GPT."""
+    accepted body, its decision state, the recipient, the subject and the cap of asking GPT. D0-b: of the case's letter
+    `step` (`step` in the view)."""
+    step = _step(wp_id, step)
     out: dict[str, Any] = {"version": None, "state": None, "paragraph": None, "problems": [], "error": None,
                            "body": None, "accepted": None, "decision_state": 0, "to": None, "subject": None,
-                           "cap": {k: str(v) for k, v in cap().items()}, "usage": None}
+                           "cap": {k: str(v) for k, v in cap().items()}, "usage": None, "step": step}
     try:
-        v = _active(wp_id)
+        v = _active(wp_id, step)
     except LetterError:
         return out
     n, content = v["version"], v["content"]
     package = work.get(wp_id)["name"]
     with store.connect() as c:
-        row = _row(c, wp_id, n)
-        out["decision_state"] = decisions.state(c, KIND, _key(wp_id, n))
+        row = _row(c, wp_id, step, n)
+        out["decision_state"] = decisions.state(c, KIND, _key(wp_id, step, n))
     problems = json.loads(row["problems"]) if row is not None and row["problems"] else []
     usable = row["paragraph"] if row is not None and row["state"] == "done" and not problems else None
     accepted = None
@@ -274,7 +338,8 @@ def view(wp_id: str) -> dict[str, Any]:
     out.update(version=n, state=row["state"] if row is not None else None, paragraph=row["paragraph"] if row is not None else None,
                problems=problems, error=row["error"] if row is not None else None,
                usage=json.loads(row["usage"]) if row is not None and row["usage"] else None,
-               body=accepted["body"] if accepted else compose(content, package=package, n=n, paragraph=usable, frame_key=frame),
+               body=accepted["body"] if accepted else compose(content, package=package, n=n, paragraph=usable, frame_key=frame,
+                                                              output=_output_of(row)),
                accepted=accepted, to=recipient(content, _request(content)), subject=subject(content, frame))
     return out
 
@@ -375,31 +440,35 @@ def _frame_of(row: Any) -> str:
     return (row["frame"] if row is not None and row["frame"] else None) or FRAME
 
 
-def request(wp_id: str, *, actor: identity.Who, frame: str = FRAME) -> dict[str, Any]:
+def request(wp_id: str, *, actor: identity.Who, frame: str = FRAME, step: str | None = None,
+            output: str = quote_document.OUTPUT) -> dict[str, Any]:
     """Queues GPT's paragraph for the approved version that holds, under its cap; one already queued or running is
     returned as it is. 231 (B0): `frame` names the letter frame (a process pack's resource) the letter is written with.
-    `LetterError` without an approved version or for a frame the documents' settings do not have."""
+    `LetterError` without an approved version or for a frame the documents' settings do not have. D0-b: of the case's
+    letter `step`. D0-c: `output` names the output whose builder fills the frame and whose document it attaches."""
     from jav.core import queue
 
+    step = _step(wp_id, step)
     if frame not in quote_document.settings() or not isinstance(quote_document.settings()[frame], dict):
         raise explained(LetterError, "there is no letter frame {{frame}}", frame=frame)
-    v = _active(wp_id)
+    v = _active(wp_id, step)
     n = v["version"]
     with store.connect() as c:
         store.begin_immediate(c)
-        row = _row(c, wp_id, n)
+        row = _row(c, wp_id, step, n)
         if row is not None and row["state"] in ("queued", "running"):
-            return view(wp_id)
+            return view(wp_id, step=step)
         limits = json.dumps({k: str(x) for k, x in cap().items()})
-        c.execute("INSERT INTO quote_letters(workpackage_id, version, state, limits, requested_by, requested_by_id,"
-                  " requested_at, frame) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, version) DO UPDATE SET"
-                  " state=excluded.state, limits=excluded.limits, paragraph=NULL, problems=NULL, usage=NULL, error=NULL,"
-                  " scope=NULL, requested_by=excluded.requested_by, requested_by_id=excluded.requested_by_id,"
-                  " requested_at=excluded.requested_at, finished_at=NULL, frame=excluded.frame",
-                  (wp_id, n, "queued", limits, identity.name_of(actor), identity.id_of(actor), _now(),
-                   None if frame == FRAME else frame))
-    queue.enqueue(JOB_KIND, run_id=None, payload={"workpackage_id": wp_id, "version": n, "requested_at": _now()})
-    return view(wp_id)
+        c.execute("INSERT INTO quote_letters(workpackage_id, step_id, version, state, limits, requested_by, requested_by_id,"
+                  " requested_at, frame, output) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, step_id, version)"
+                  " DO UPDATE SET state=excluded.state, limits=excluded.limits, paragraph=NULL, problems=NULL, usage=NULL,"
+                  " error=NULL, scope=NULL, requested_by=excluded.requested_by, requested_by_id=excluded.requested_by_id,"
+                  " requested_at=excluded.requested_at, finished_at=NULL, frame=excluded.frame, output=excluded.output",
+                  (wp_id, step, n, "queued", limits, identity.name_of(actor), identity.id_of(actor), _now(),
+                   None if frame == FRAME else frame, None if output == quote_document.OUTPUT else output))
+    queue.enqueue(JOB_KIND, run_id=None, payload={"workpackage_id": wp_id, "step_id": step, "version": n,
+                                                  "requested_at": _now()})
+    return view(wp_id, step=step)
 
 
 def process_job(job: Any) -> str:
@@ -408,47 +477,53 @@ def process_job(job: Any) -> str:
     from jav.core import queue
 
     wp_id, n = job.payload["workpackage_id"], int(job.payload["version"])
+    step = _step(wp_id, job.payload.get("step_id"))  # D0-b: a job queued before names no step: the case's first
     with store.connect() as c:
-        row = _row(c, wp_id, n)
+        row = _row(c, wp_id, step, n)
     if row is None or row["state"] not in ("queued", "running"):
         return queue.complete(job.id)
     with store.connect() as c:
-        c.execute("UPDATE quote_letters SET state='running' WHERE workpackage_id=? AND version=?", (wp_id, n))
+        c.execute("UPDATE quote_letters SET state='running' WHERE workpackage_id=? AND step_id=? AND version=?",
+                  (wp_id, step, n))
     try:
         content = package_release.own_version(wp_id, n)["content"]
         req = _request(content)
         prompt = _prompt(content, [str(i.get("description") or "") for i in (req.items if req else [])])
         limits = {k: Decimal(x) for k, x in json.loads(row["limits"]).items()}
-        scope = f"letter-{wp_id}-{n}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        scope = f"letter-{wp_id}-{step + '-' if step else ''}{n}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
         with calls.outside_run(scope, limits) as scope:  # 231 (A3a): business work, not a measurement
             paragraph = ask(prompt, run_id=scope)
         facts = paragraph_facts(paragraph)
         problems = paragraph_problems(facts)
         with store.connect() as c:
             c.execute("UPDATE quote_letters SET state='done', paragraph=?, problems=?, usage=?, scope=?, finished_at=?"
-                      " WHERE workpackage_id=? AND version=?",
+                      " WHERE workpackage_id=? AND step_id=? AND version=?",
                       (paragraph, json.dumps(problems), json.dumps(calls.budget_usage(scope), default=str),
-                       scope, _now(), wp_id, n))
+                       scope, _now(), wp_id, step, n))
             trace.record_in(c, LETTER_CHECK, subject=("quote_letter", f"{wp_id}:{n}"), inputs=facts, outcome=problems,
                             keys={"quotes.json": ["letter.max_chars"]},
                             case_id=wp_id if cases.find_case_in(c, wp_id) else None)
     except Exception as exc:  # noqa: BLE001 - the letter shows why it failed; the worker goes on
-        abandon(wp_id, n, f"{type(exc).__name__}: {exc}")
+        abandon(wp_id, n, f"{type(exc).__name__}: {exc}", step=step)
     return queue.complete(job.id)
 
 
-def abandon(wp_id: str, n: int, error: str) -> None:
+def abandon(wp_id: str, n: int, error: str, *, step: str | None = None) -> None:
+    step = _step(wp_id, step)
     with store.connect() as c:
-        c.execute("UPDATE quote_letters SET state='failed', error=?, finished_at=? WHERE workpackage_id=? AND version=?",
-                  (error[:500], _now(), wp_id, n))
+        c.execute("UPDATE quote_letters SET state='failed', error=?, finished_at=? WHERE workpackage_id=? AND step_id=?"
+                  " AND version=?", (error[:500], _now(), wp_id, step, n))
 
 
 # --- the person's body and the letter file --------------------------------------------------------------------------
 
 
-def accept(wp_id: str, body: str, *, actor: identity.Who, expected_state: int | None) -> dict[str, Any]:
+def accept(wp_id: str, body: str, *, actor: identity.Who, expected_state: int | None,
+           step: str | None = None) -> dict[str, Any]:
     """The body a person read, changed and accepts for the approved version that holds; a later acceptance replaces it.
-    `LetterError` for an empty or too long body; a change from a stale page is a version conflict."""
+    `LetterError` for an empty or too long body; a change from a stale page is a version conflict. D0-b: of the
+    case's letter `step`."""
+    step = _step(wp_id, step)
     text = (body or "").replace("\r\n", "\n").strip()
     if not text:
         raise explained(LetterError, "the letter has no text")
@@ -456,29 +531,32 @@ def accept(wp_id: str, body: str, *, actor: identity.Who, expected_state: int | 
         raise explained(LetterError, "the letter is longer than {{n}} characters", n=20000)
     with store.connect() as c:
         store.begin_immediate(c)
-        v = _active(wp_id, c)
+        v = _active(wp_id, step, c)
         n = v["version"]
-        decisions.check(c, KIND, _key(wp_id, n), expected_state)
+        decisions.check(c, KIND, _key(wp_id, step, n), expected_state)
         now = _now()
-        c.execute("INSERT INTO quote_letters(workpackage_id, version, body, accepted_by, accepted_by_id, accepted_at)"
-                  " VALUES (?,?,?,?,?,?) ON CONFLICT(workpackage_id, version) DO UPDATE SET body=excluded.body,"
+        c.execute("INSERT INTO quote_letters(workpackage_id, step_id, version, body, accepted_by, accepted_by_id, accepted_at)"
+                  " VALUES (?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, step_id, version) DO UPDATE SET body=excluded.body,"
                   " accepted_by=excluded.accepted_by, accepted_by_id=excluded.accepted_by_id, accepted_at=excluded.accepted_at",
-                  (wp_id, n, text + "\n", identity.name_of(actor), identity.id_of(actor), now))
-        decisions.record(c, KIND, _key(wp_id, n), "accept", actor=actor, value={"body": text}, workpackage_id=wp_id, at=now)
+                  (wp_id, step, n, text + "\n", identity.name_of(actor), identity.id_of(actor), now))
+        decisions.record(c, KIND, _key(wp_id, step, n), "accept", actor=actor, value={"body": text}, workpackage_id=wp_id,
+                         at=now)
         work.record_event(c, wp_id, "quote_letter_accept", actor, {"version": n, "chars": len(text)})
-    return view(wp_id)
+    return view(wp_id, step=step)
 
 
-def eml(wp_id: str, n: int) -> tuple[bytes, str]:
+def eml(wp_id: str, n: int, *, step: str | None = None) -> tuple[bytes, str]:
     """Version `n`'s letter as an email file Outlook opens as an unsent message, with the version's Word document
-    attached, and its file name. `LetterNotReady` without an accepted body; KeyError: no such version."""
+    attached, and its file name. `LetterNotReady` without an accepted body; KeyError: no such version. D0-b: the letter
+    of the case's letter `step`."""
+    step = _step(wp_id, step)
     content = package_release.own_version(wp_id, n)["content"]
     with store.connect() as c:
-        row = _row(c, wp_id, n)
+        row = _row(c, wp_id, step, n)
     if row is None or row["body"] is None:
         raise explained(LetterNotReady, "the letter of version {{n}} has not been accepted yet", n=n)
     package = work.get(wp_id)["name"]
-    document, document_name = quote_document.version_file(wp_id, n, package=package)
+    document, document_name = _document(wp_id, n, package, _output_of(row))  # D0-c: its output's stored document
     msg = EmailMessage(policy=SMTP)
     if to := recipient(content, _request(content)):
         msg["To"] = to
@@ -588,9 +666,11 @@ def mark() -> tuple[Any, ...]:
 
 
 JOB = job_kinds.JobKind(JOB_KIND, __name__, process=lambda job: process_job(job),
-                        abandon=lambda job, error: abandon(job.payload["workpackage_id"], int(job.payload["version"]), error))
+                        abandon=lambda job, error: abandon(job.payload["workpackage_id"], int(job.payload["version"]), error,
+                                                           step=job.payload.get("step_id")))
 
 
-__all__ = ["INJECTION_PROBE", "JOB", "JOB_KIND", "KIND", "LetterError", "LetterNotReady", "Paragraph", "accept", "cap",
+__all__ = ["INJECTION_PROBE", "JOB", "JOB_KIND", "KIND", "LetterError", "LetterNotReady", "OfferContent", "Paragraph",
+           "accept", "cap",
            "check_paragraph", "compose", "eml", "golden", "golden_cases", "mark", "print_golden", "process_job", "recipient",
            "request", "subject", "use_agent_factory", "view"]

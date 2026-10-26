@@ -10,7 +10,12 @@ sets. It holds no code: a string naming a Python module is refused. The check re
 unknown capability or parameters that do not fit it, a paid step that would start without a person (the rule of
 2026-09-28), an email intake that names no intent or (231 C1b) that starts a case by itself without a record to start
 from (a record scope part and a step whose capability reads it), an unknown screen element, scope part or output, and a
-reference to a step or a resource that is not there.
+reference to a step or a resource that is not there. Stage D0 (D0-a): a step whose capability cannot run (it is described
+only), a step parameter naming another step that is not there or that the step does not wait for (directly or through
+another), a screen element the catalogue lists as planned, and an element that shows nothing: no data is registered for
+its type and its step's capability (or, without a step, for its type alone). A refused pack starts no case. D0-b: a
+capability whose state belongs to the whole case (`Capability.state`) stands once in a pack. D0-c: a step reference
+reads only fields the other step's result form gives, in a version of the form it takes (`capabilities.reference_problem`).
 
 - `load(pack_id)`, `packs()`: a pack read and checked (`PackError` with every problem).
 - `definition(pack)`: the process core's definition of the pack's current version: one step per pack step, its kind
@@ -35,6 +40,7 @@ __all__ = ["Adopt", "Element", "Intake", "PackError", "PartnerLink", "ProcessPac
            "packs"]
 
 ELEMENTS = "screen_elements"
+PLANNED = "planned"  # D0-a: a screen element the catalogue lists before it is built; no pack may use it
 _MODULE = re.compile(r"\bjav\.[a-z_]+")
 
 
@@ -202,7 +208,21 @@ def records(pack_id: str, q: str | None = None) -> list[dict[str, Any]]:
     return []
 
 
+def _waited_for(step_id: str, needs: dict[str, tuple[str, ...]]) -> set[str]:
+    """D0-a: the steps a step waits for, directly or through another."""
+    seen: set[str] = set()
+    todo = list(needs.get(step_id, ()))
+    while todo:
+        s = todo.pop()
+        if s not in seen:
+            seen.add(s)
+            todo += needs.get(s, ())
+    return seen
+
+
 def _problems(pack: ProcessPack) -> list[str]:
+    from jav.app import case_views  # it reads the packs, so it is imported when a pack is checked
+
     problems: list[str] = []
     if _MODULE.search(json.dumps(pack.model_dump(), ensure_ascii=False)):
         problems.append("a process pack holds no code: it names a Python module")
@@ -221,6 +241,8 @@ def _problems(pack: ProcessPack) -> list[str]:
         if scopes.RECORD not in pack.scope.parts or not reads:
             problems.append("an intake that starts a case by itself needs a record scope part and a step that reads it")
     ids = [s.id for s in pack.steps]
+    needs = {s.id: (*s.after, *s.gates) for s in pack.steps}
+    uses = {s.id: s.uses for s in pack.steps}
     for step in pack.steps:
         where = f"step {step.id!r}"
         try:
@@ -228,6 +250,18 @@ def _problems(pack: ProcessPack) -> list[str]:
         except capabilities.CapabilityError:
             problems.append(f"{where}: no capability {step.uses} is registered")
             continue
+        if not cap.invocable:  # D0-a: the case would stop at this step
+            problems.append(f"{where}: {step.uses} cannot run: it is described only")
+        for name in capabilities.step_refs(cap.params):  # D0-a: the step reads that step's result
+            ref = step.params.get(name)
+            if ref is None:
+                continue
+            if ref not in ids:
+                problems.append(f"{where}: {name} names no step {ref!r}")
+            elif ref not in _waited_for(step.id, needs):
+                problems.append(f"{where}: {name} names step {ref!r}, which it does not wait for")
+            elif (giver := _capability(uses[ref])) is not None and (wrong := capabilities.reference_problem(cap, name, giver)):
+                problems.append(f"{where}: {wrong}")  # D0-c: it reads what the other step's result form gives
         try:
             cap.params.model_validate(_resolved(step.params, pack.resources, problems, where))
         except ValidationError as exc:
@@ -237,6 +271,9 @@ def _problems(pack: ProcessPack) -> list[str]:
             problems.append(f"{where}: a paid step ({step.uses}) is started by a person")
         if step.optional and step.start != "person":
             problems.append(f"{where}: only a step a person starts may be optional")
+    case_owned = [s.uses for s in pack.steps if (c := _capability(s.uses)) is not None and c.state == "case"]
+    for key in sorted({k for k in case_owned if case_owned.count(k) > 1}):  # D0-b: two steps would share one state
+        problems.append(f"{key} keeps its state for the whole case: a pack uses it once")
     for wrap in pack.wraps:  # 231 (C3b4): the step that takes the package binds it, and its parts are the scope's
         if (wrap.kind is None) == (wrap.rule is None):
             problems.append(f"wrap {wrap.kind or wrap.rule!r}: names its packages by a kind or by a rule, one of them")
@@ -256,10 +293,22 @@ def _problems(pack: ProcessPack) -> list[str]:
     elements = cfg.load(ELEMENTS)["elements"]
     for tab in pack.screens.tabs:
         for element in tab.elements:
+            where = f"tab {tab.id!r}"
             if element.type not in elements:
-                problems.append(f"tab {tab.id!r}: unknown screen element {element.type!r}")
+                problems.append(f"{where}: unknown screen element {element.type!r}")
+                continue
+            if elements[element.type].get("status") == PLANNED:  # D0-a: the interface has no component for it yet
+                problems.append(f"{where}: screen element {element.type!r} is planned, not built")
+                continue
             if element.step is not None and element.step not in ids:
-                problems.append(f"tab {tab.id!r}: element {element.type!r} shows no step {element.step!r}")
+                problems.append(f"{where}: element {element.type!r} shows no step {element.step!r}")
+                continue
+            cap = _capability(uses[element.step]) if element.step is not None else None
+            if element.step is not None and cap is None:
+                continue  # its step's unknown capability is named above
+            if not case_views.gives(element.type, cap.name if cap is not None else None):  # D0-a: it would stay empty
+                problems.append(f"{where}: element {element.type!r} shows nothing "
+                                + (f"for a step of {uses[element.step]}" if element.step is not None else "without a step"))
     known_roles = set(cfg.load("partners")["roles"])
     for link in pack.partners:  # 231 (B1)
         where = f"partner {link.role!r}"

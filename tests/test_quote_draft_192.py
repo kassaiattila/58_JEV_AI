@@ -88,7 +88,8 @@ def test_the_draft_starts_from_the_proposal_line_by_line(quote):
     priced = [ln["priced"] for ln in v["lines"]]
     assert priced[0]["net"] == "164700" and priced[1]["net"] == "758000" and priced[2] is None  # 3 x 54 900, 2 x 379 000
     assert v["totals"] is None  # not every line is priced yet
-    assert v["state"] > 0 and [h["action"] for h in decisions.history(quote_draft.KIND, wp_id)] == ["start"]
+    # D0-b: the draft's decisions are its case's composition step's
+    assert v["state"] > 0 and [h["action"] for h in decisions.history(quote_draft.KIND, f"{wp_id}:compose")] == ["start"]
     assert _next(wp_id)["code"] == "quote_compose"
 
 
@@ -266,11 +267,12 @@ def test_the_service_composes_approves_and_reopens_the_quote(quote, tmp_path):
 
 
 def test_a_draft_from_the_request_is_priced_from_the_list_its_process_names(quote, tmp_path):
-    """231 (B0): the draft step's catalogue (a process pack's resource) names the list; by default the newest one."""
+    """231 (B0): the draft step's catalogue (a process pack's resource) names the list; D0-e: by default the step's
+    own, the list version the case kept from its start, not a newer one."""
     newer = price_lists.add("Newer 2027", "n.xlsx", invented_golden.write_price_list(tmp_path / "n.xlsx").read_bytes(),
                             actor="anna")
     price_lists.activate(newer["price_list"], 1, actor="anna")
-    named = quote_draft.start(quote["wp"], source="request", actor="anna", expected_state=0, catalogue=quote["price_list"])
-    assert named["draft"]["price_list"] == quote["price_list"]
-    newest = quote_draft.start(quote["wp"], source="request", actor="anna", expected_state=named["state"], replace=True)
-    assert newest["draft"]["price_list"] == newer["price_list"]
+    named = quote_draft.start(quote["wp"], source="request", actor="anna", expected_state=0, catalogue=newer["price_list"])
+    assert named["draft"]["price_list"] == newer["price_list"]
+    kept = quote_draft.start(quote["wp"], source="request", actor="anna", expected_state=named["state"], replace=True)
+    assert (kept["draft"]["price_list"], kept["draft"]["version"]) == (quote["price_list"], 1)

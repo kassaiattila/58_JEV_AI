@@ -22,7 +22,7 @@ MACHINE = identity.machine("tests")
 LETTER = b"To: buyer@example.com\r\nSubject: Our offer\r\n\r\nDear Buyer,\r\n"
 
 
-def _letter(case_id: str, source) -> sending.Message:
+def _letter(case_id: str, _source_step, source) -> sending.Message:  # D0-b: the step too
     return sending.Message(LETTER, "offer.eml", "buyer@example.com", f"Our offer {(source or {}).get('attempt', '')}".strip())
 
 

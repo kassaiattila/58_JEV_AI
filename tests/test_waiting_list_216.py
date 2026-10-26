@@ -42,7 +42,7 @@ def test_the_list_shows_a_persons_live_work_and_where_each_is_done(db):  # noqa:
     reconciliation = _reconcile()
     work.set_owner(reconciliation, ME, actor="t")
     rows = _rows()
-    assert set(rows) == {f"review:{rid}", f"run_approval:{live}", f"own_approval:{reconciliation}"}
+    assert set(rows) == {f"review:{rid}", f"run_approval:{live}", f"own_approval:{reconciliation}:pair"}
     todo = rows[f"review:{rid}"]
     assert {k: todo[k] for k in ("kind", "what", "workpackage_name", "origin", "assignee", "reason", "reasons")} == {
         "kind": "review", "what": "a.pdf", "workpackage_name": "Synthetic a", "origin": "live", "assignee": "mine",
@@ -51,7 +51,7 @@ def test_the_list_shows_a_persons_live_work_and_where_each_is_done(db):  # noqa:
     approval = rows[f"run_approval:{live}"]
     assert (approval["kind"], approval["what"], approval["origin"], approval["_wp"], approval["_stage"]) == (
         "run_approval", "Live run", "live", mine["wp"], "result")
-    own = rows[f"own_approval:{reconciliation}"]
+    own = rows[f"own_approval:{reconciliation}:pair"]
     assert (own["kind"], own["what"], own["origin"], own["_wp"], own["_stage"]) == (
         "own_approval", "Reconciliation statement", "live", reconciliation, None)
     assert todo["opened_at"] <= approval["opened_at"]

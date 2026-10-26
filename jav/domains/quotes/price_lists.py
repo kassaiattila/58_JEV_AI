@@ -502,11 +502,37 @@ NEWEST_ACTIVE = "newest_active"
 
 def chosen(selection: str = NEWEST_ACTIVE) -> PriceList | None:
     """231 (A3b): the price list a process uses: `newest_active` (the newest list's active version, the quote's rule
-    until now) or a named list's active version; None when there is none."""
+    until now) or a named list's active version; None when there is none. D0-e: `<list>@<version>`, the version a case
+    kept from its start (whatever its state now)."""
     if selection != NEWEST_ACTIVE:
-        return active(selection)
+        with store.connect() as c:
+            row = VERSIONS.at(c, selection)
+        return _model(row) if row is not None else None
     lists = active_lists()
     return version(lists[0]["price_list"], lists[0]["version"]) if lists else None
+
+
+def kept(selection: str) -> str:
+    """Stage D0 (D0-e): the price list a case keeps from its start: the version `selection` names then
+    (`<list>@<version>`), or the selection itself while there is no such list (the step says so when it runs)."""
+    if selection == NEWEST_ACTIVE:
+        lists = active_lists()
+        return versions.ref(lists[0]["price_list"], lists[0]["version"]) if lists else selection
+    with store.connect() as c:
+        return VERSIONS.kept(c, selection)
+
+
+def named(selection: str) -> dict[str, Any]:
+    """D0-e: how a price list a case keeps reads to a person: its name and version (no version: the newest active one,
+    or a list's active one, which there was none of at the case's start)."""
+    if selection == NEWEST_ACTIVE:
+        return {"name": "The newest active price list", "version": None}
+    with store.connect() as c:
+        try:
+            row = VERSIONS.at(c, selection) or VERSIONS.latest(c, versions.split(selection)[0])
+        except PriceListNotFound:
+            return {"name": selection, "version": None}
+    return {"name": row["name"], "version": versions.split(selection)[1]}
 
 
 def active_lists() -> list[dict[str, Any]]:
@@ -516,6 +542,17 @@ def active_lists() -> list[dict[str, Any]]:
         rows = c.execute("SELECT * FROM price_lists WHERE state='active' ORDER BY id DESC").fetchall()
     return [{k: v[k] for k in ("price_list", "name", "version", "currency", "vat_percent", "items", "discounts", "fingerprint")}
             for v in map(_view, rows)]
+
+
+def listed(selection: str) -> list[dict[str, Any]]:
+    """D0-e: the lists a quote shows beside its request: the one version a case keeps (`<list>@<version>`), else the
+    active version of every list (`active_lists`)."""
+    if versions.split(selection)[1] is None:
+        return active_lists()
+    with store.connect() as c:
+        row = VERSIONS.at(c, selection)
+    return [{k: v[k] for k in ("price_list", "name", "version", "currency", "vat_percent", "items", "discounts", "fingerprint")}
+            for v in (_view(row),)]
 
 
 def mark() -> tuple[Any, ...]:
@@ -558,4 +595,5 @@ def retire(price_list: str, *, actor: identity.Who) -> dict[str, Any]:
 
 __all__ = ["CONFIG", "KEYS", "NEWEST_ACTIVE", "STATES", "VERSIONS", "Discount", "Item", "PriceList", "PriceListNotFound", "PriceListRefused",
            "PriceListStateError", "activate", "active", "active_lists", "add", "change_settings", "chosen", "config", "content",
+           "kept", "listed", "named",
            "detail", "get", "listing", "mark", "read", "retire", "version"]

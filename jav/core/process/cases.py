@@ -62,7 +62,7 @@ __all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest 
     "step_rows", "step_row", "without_case_in", "steps_in_phase_in", "get", "marks", "pending_events", "view", "record",
     "start", "send_event", "cancel", "override_order", "retry", "reopen", "start_in", "send_event_in",
     "override_order_in", "retry_in", "reopen_in", "adopt", "adopt_phases_in", "set_phase", "set_result", "end_wait",
-    "fail", "close", "hold", "resume",
+    "fail", "close", "hold", "resume", "open_ids_in",
 ]
 
 OPEN, CLOSED = "open", "closed"
@@ -290,6 +290,12 @@ def adopt_phases_in(c: sqlite3.Connection, phases: Mapping[tuple[str, str], str]
 def get(case_id: str) -> dict[str, Any]:
     with store.connect() as c:
         return case_row(c, case_id)
+
+
+def open_ids_in(c: sqlite3.Connection) -> list[str]:
+    """Stage D0 (D0-e): the open cases' ids, oldest first."""
+    return [r["case_id"] for r in c.execute("SELECT case_id FROM process_cases WHERE status=? ORDER BY created_at, case_id",
+                                            (OPEN,))]
 
 
 def marks() -> list[Any]:

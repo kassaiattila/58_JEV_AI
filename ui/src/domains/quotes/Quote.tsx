@@ -61,9 +61,10 @@ export function ProposalPanel({ wpId, view, onChanged, askStep }: {
       setBusy(false);
     }
   }
-  const ask = () => run(askStep ?? (() => api.requestQuoteProposal(wpId)));
+  const ask = () => run(askStep ?? (() => api.requestQuoteProposal(wpId, view.steps?.match)));  // D0-b: the match step's
   // 192: the quote's draft from the finished proposal, or from the requested items alone
-  const start = (source: "proposal" | "request") => run(() => api.startQuoteDraft(wpId, { source, expected_state: view.draft.state }));
+  const start = (source: "proposal" | "request") =>
+    run(() => api.startQuoteDraft(wpId, { source, expected_state: view.draft.state }, view.steps?.compose));
   const usable = p?.state === "done" && !p.stale;
   return (
     <section className="card wide rc-stack quote-proposal" aria-label={t("Proposal from the price list")}>

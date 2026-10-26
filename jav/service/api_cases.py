@@ -40,6 +40,12 @@ class ActionIn(In):
     note: Annotated[str | None, Field(max_length=2000)] = None
 
 
+class ReturnIn(In):
+    """D0-d: why a person returns a step's result instead of approving it."""
+
+    reason: Annotated[str, Field(min_length=1, max_length=2000)]
+
+
 class Source(In):
     """231 (C3b3): the documents of a document processing case: a folder (with its subfolders when asked) or files; (C3d)
     or a mailbox download (its request, checked by the email domain's source kind)."""
@@ -100,6 +106,19 @@ def routes(app: FastAPI, r: str) -> None:
     def case_step_action(case_id: CaseId, step_id: CaseStep, name: ActionName, body: ActionIn,
                          who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(case_views.act(case_id, step_id, name, who, body.note))
+
+    @app.get(r + "/cases/{case_id}/steps/{step_id}/approval")
+    def case_step_approval(case_id: CaseId, step_id: CaseStep) -> dict[str, Any]:
+        """D0-d: the approval's state of the case's approving step."""
+        from jav.app import package_release
+
+        return work_views.jsonable(package_release.approval_state(case_id, step=step_id))
+
+    @app.post(r + "/cases/{case_id}/steps/{step_id}/approval/return")
+    def case_step_return(case_id: CaseId, step_id: CaseStep, body: ReturnIn,
+                         who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        """D0-d: a person returns the step's result with a reason instead of approving it (409 while a version holds)."""
+        return work_views.jsonable(case_views.return_step(case_id, step_id, body.reason, who))
 
     @app.post(r + "/cases/{case_id}/partners")
     def case_partner_link(case_id: CaseId, body: PartnerLinkIn,

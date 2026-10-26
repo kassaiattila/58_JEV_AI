@@ -387,6 +387,20 @@ export function DataTable(p: Props) {
   const filtersOf = (key: string) => state.filters.filter((f) => f.col === key);
   const setColumnFilters = (key: string, fs: DsFilter[]) => patch({ filters: [...state.filters.filter((f) => f.col !== key), ...fs] });
   const selectedKeys = Object.keys(selection).filter((k) => selection[k]);
+  // D0-f: an action gets every selected row, as it was last seen on any page (the count names them all); a row on the
+  // page shown is always its newest version
+  const lastSeen = useRef<Record<string, DsRow>>({});
+  const onPage = useMemo(() => new Map((data?.rows ?? []).map((r) => [r._key, r])), [data]);
+  const selectedRows = useMemo(() => {
+    const next: Record<string, DsRow> = {};
+    for (const k of Object.keys(selection)) {
+      const row = selection[k] ? onPage.get(k) ?? lastSeen.current[k] : undefined;
+      if (row) next[k] = row;
+    }
+    lastSeen.current = next;
+    return Object.values(next);
+  }, [selection, onPage]);
+  const offPage = selectedKeys.filter((k) => !onPage.has(k)).length;
   const filtered = Boolean(state.q || state.filters.length);
 
   const total = data?.total ?? 0;
@@ -420,10 +434,10 @@ export function DataTable(p: Props) {
           {state.filters.length > 1 ? <button type="button" className="link-btn small" onClick={() => patch({ filters: [] })}>{t("Minden szűrő törlése")}</button> : null}
           {selectedKeys.length ? (
             <span className="chip sel">{t("{{n}} kijelölt sor", { n: selectedKeys.length })}
+              {offPage ? ` · ${t("{{n}} of them not on this page", { n: offPage })}` : null}
               <button type="button" aria-label={t("Kijelölés törlése")} onClick={() => setSelection({})}>×</button></span>
           ) : null}
-          {selectedKeys.length && p.selectionActions
-            ? p.selectionActions((data?.rows ?? []).filter((r) => selection[r._key]), () => setSelection({})) : null}
+          {selectedKeys.length && p.selectionActions ? p.selectionActions(selectedRows, () => setSelection({})) : null}
         </div>
       ) : null}
       {page.error ? <p className="notice error" role="alert">{page.error.message}</p> : null}

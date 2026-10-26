@@ -17,7 +17,9 @@
   queues GPT's paragraph for the worker (422 without an approved version); `PUT .../quote/letter`: the body a person
   accepts (409 from a stale page); `GET .../quote/versions/{n}/letter.eml`: the letter file (422 before it is accepted).
 
-The package's own part of its page comes with the work package's view (`LogicPack.page`).
+The package's own part of its page comes with the work package's view (`LogicPack.page`). Stage D0 (D0-b): every
+address takes the case's step it is about as `?step=` (the match step's proposal, the composition step's draft and
+approval, the letter step's letter; without it: the case's first), as the case's page names them (`steps`).
 
 Layer: UI/CLI gateway → `jav.domains.quotes.quote_package`, `jav.domains.quotes.quote_proposal`, `jav.domains.quotes.quote_draft` (application operations of the
 quotes domain).
@@ -27,7 +29,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Query
 from fastapi import Path as PathParam
 from fastapi.responses import Response
 from pydantic import Field
@@ -36,6 +38,10 @@ from jav.core import identity
 from jav.app import package_release, work, work_views
 from jav.domains.quotes import quote_draft, quote_letter, quote_package, quote_proposal
 from jav.service.service_shared import Empty, In, WpId, attachment_header, human_actor
+
+
+# D0-b: the case's step an address is about (a process pack's step id)
+Step = Annotated[str | None, Query(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
 
 
 class QuoteDraftStartIn(In):
@@ -77,27 +83,33 @@ def routes(app: FastAPI, r: str) -> None:
     # 231 (A6c): a quote starts as a case of the IT quote's process pack (`POST /api/cases`), no longer as a package
 
     @app.post(r + "/workpackages/{wp_id}/quote/proposal", status_code=202)
-    def request_quote_proposal(wp_id: WpId, _body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+    def request_quote_proposal(wp_id: WpId, _body: Empty, who: Annotated[identity.Actor, Depends(human_actor)],
+                               step: Step = None) -> dict[str, Any]:
         _quote(wp_id)
-        return work_views.jsonable(quote_proposal.request(wp_id, actor=who))
+        return work_views.jsonable(quote_proposal.request(wp_id, actor=who, step=step))
 
     @app.post(r + "/workpackages/{wp_id}/quote/draft/start")
-    def start_quote_draft(wp_id: WpId, body: QuoteDraftStartIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+    def start_quote_draft(wp_id: WpId, body: QuoteDraftStartIn, who: Annotated[identity.Actor, Depends(human_actor)],
+                          step: Step = None) -> dict[str, Any]:
         return work_views.jsonable(quote_draft.start(wp_id, source=body.source, actor=who,
-                                                     expected_state=body.expected_state, replace=body.replace))
+                                                     expected_state=body.expected_state, replace=body.replace, step=step))
 
     @app.put(r + "/workpackages/{wp_id}/quote/draft")
-    def save_quote_draft(wp_id: WpId, body: QuoteDraftIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
-        return work_views.jsonable(quote_draft.save(wp_id, body.draft, actor=who, expected_state=body.expected_state))
+    def save_quote_draft(wp_id: WpId, body: QuoteDraftIn, who: Annotated[identity.Actor, Depends(human_actor)],
+                         step: Step = None) -> dict[str, Any]:
+        return work_views.jsonable(quote_draft.save(wp_id, body.draft, actor=who, expected_state=body.expected_state,
+                                                    step=step))
 
     @app.post(r + "/workpackages/{wp_id}/quote/approve")
-    def approve_quote(wp_id: WpId, body: QuoteApproveIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
-        quote_draft.approve(wp_id, fingerprint=body.fingerprint, actor=who)
-        return work_views.jsonable(quote_draft.view(wp_id))
+    def approve_quote(wp_id: WpId, body: QuoteApproveIn, who: Annotated[identity.Actor, Depends(human_actor)],
+                      step: Step = None) -> dict[str, Any]:
+        quote_draft.approve(wp_id, fingerprint=body.fingerprint, actor=who, step=step)
+        return work_views.jsonable(quote_draft.view(wp_id, step=step))
 
     @app.post(r + "/workpackages/{wp_id}/quote/reopen")
-    def reopen_quote(wp_id: WpId, body: QuoteReopenIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
-        return work_views.jsonable(quote_draft.reopen(wp_id, note=body.note, actor=who))
+    def reopen_quote(wp_id: WpId, body: QuoteReopenIn, who: Annotated[identity.Actor, Depends(human_actor)],
+                     step: Step = None) -> dict[str, Any]:
+        return work_views.jsonable(quote_draft.reopen(wp_id, note=body.note, actor=who, step=step))
 
     @app.get(r + "/workpackages/{wp_id}/quote/versions/{version}")
     def quote_version(wp_id: WpId, version: Annotated[int, PathParam(ge=1, le=100000)]) -> dict[str, Any]:
@@ -109,29 +121,32 @@ def routes(app: FastAPI, r: str) -> None:
         return Response(content, media_type=package_release.DOCX, headers={"Content-Disposition": attachment_header(name)})
 
     @app.get(r + "/workpackages/{wp_id}/quote/draft/quote.docx")
-    def quote_draft_docx(wp_id: WpId) -> Response:
-        content, name = quote_draft.draft_docx(wp_id)
+    def quote_draft_docx(wp_id: WpId, step: Step = None) -> Response:
+        content, name = quote_draft.draft_docx(wp_id, step=step)
         return Response(content, media_type=package_release.DOCX, headers={"Content-Disposition": attachment_header(name)})
 
     @app.get(r + "/workpackages/{wp_id}/quote/letter")
-    def quote_letter_view(wp_id: WpId) -> dict[str, Any]:
+    def quote_letter_view(wp_id: WpId, step: Step = None) -> dict[str, Any]:
         _quote(wp_id)
-        return work_views.jsonable(quote_letter.view(wp_id))
+        return work_views.jsonable(quote_letter.view(wp_id, step=step))
 
     @app.post(r + "/workpackages/{wp_id}/quote/letter/paragraph", status_code=202)
-    def request_quote_letter(wp_id: WpId, _body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+    def request_quote_letter(wp_id: WpId, _body: Empty, who: Annotated[identity.Actor, Depends(human_actor)],
+                             step: Step = None) -> dict[str, Any]:
         _quote(wp_id)
-        return work_views.jsonable(quote_letter.request(wp_id, actor=who))
+        return work_views.jsonable(quote_letter.request(wp_id, actor=who, step=step))
 
     @app.put(r + "/workpackages/{wp_id}/quote/letter")
-    def accept_quote_letter(wp_id: WpId, body: QuoteLetterIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+    def accept_quote_letter(wp_id: WpId, body: QuoteLetterIn, who: Annotated[identity.Actor, Depends(human_actor)],
+                            step: Step = None) -> dict[str, Any]:
         _quote(wp_id)
-        return work_views.jsonable(quote_letter.accept(wp_id, body.body, actor=who, expected_state=body.expected_state))
+        return work_views.jsonable(quote_letter.accept(wp_id, body.body, actor=who, expected_state=body.expected_state,
+                                                       step=step))
 
     @app.get(r + "/workpackages/{wp_id}/quote/versions/{version}/letter.eml")
-    def quote_letter_eml(wp_id: WpId, version: Annotated[int, PathParam(ge=1, le=100000)]) -> Response:
+    def quote_letter_eml(wp_id: WpId, version: Annotated[int, PathParam(ge=1, le=100000)], step: Step = None) -> Response:
         _quote(wp_id)
-        content, name = quote_letter.eml(wp_id, version)
+        content, name = quote_letter.eml(wp_id, version, step=step)
         return Response(content, media_type="message/rfc822", headers={"Content-Disposition": attachment_header(name)})
 
 

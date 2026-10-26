@@ -87,15 +87,17 @@ describe("the quote composed beside its request (192)", () => {
     const start = vi.spyOn(api, "startQuoteDraft").mockResolvedValue(DRAFT);
     const done = { state: "done" as const, engine: "jev" as const, price_list: "pl-0123456789", version: 1, requested_by: "x",
       requested_at: "2026-10-21T15:00:00+00:00", finished_at: "2026-10-21T15:00:05+00:00", error: null, limits: {}, lines: [], stale: false };
-    const { rerender } = render(<QuoteStages view={view({ ...QUOTE, draft: NO_DRAFT, proposal: done })} stage="review" onChanged={() => {}} />);
+    // D0-b: the call names the composition step the case's view is of
+    const steps = { match: "match", compose: "compose", letter: "letter" };
+    const { rerender } = render(<QuoteStages view={view({ ...QUOTE, draft: NO_DRAFT, proposal: done, steps })} stage="review" onChanged={() => {}} />);
     const compose = screen.getByRole("button", { name: "Compose the quote from the proposal" });
     expect(compose.className).toContain("primary");
     expect(screen.getByRole("button", { name: "Ask for a new proposal" }).className).toContain("secondary");
     fireEvent.click(compose);
-    await waitFor(() => expect(start).toHaveBeenCalledWith("wp-000000000195", { source: "proposal", expected_state: 0 }));
+    await waitFor(() => expect(start).toHaveBeenCalledWith("wp-000000000195", { source: "proposal", expected_state: 0 }, "compose"));
     rerender(<QuoteStages view={view({ ...QUOTE, draft: NO_DRAFT })} stage="review" onChanged={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: "Start without a proposal" }));
-    await waitFor(() => expect(start).toHaveBeenCalledWith("wp-000000000195", { source: "request", expected_state: 0 }));
+    await waitFor(() => expect(start).toHaveBeenCalledWith("wp-000000000195", { source: "request", expected_state: 0 }, undefined));
   });
 
   it("shows each line beside its requested item, with its mark and what still holds it", () => {
@@ -146,10 +148,13 @@ describe("the quote composed beside its request (192)", () => {
     const first = screen.getByRole("textbox", { name: "Line 1: quantity" });
     fireEvent.change(first, { target: { value: "4" } });
     fireEvent.blur(first);
-    const second = screen.getByRole("textbox", { name: "Line 2: quantity" });
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0][1].lines[0].quantity).toBe("4");
+    const second = screen.getByRole("textbox", { name: "Line 2: quantity" });  // typed while the first is under way
     fireEvent.change(second, { target: { value: "6" } });
     fireEvent.blur(second);
-    await waitFor(() => expect(save).toHaveBeenCalledTimes(1)); // the second waits for the first
+    expect(screen.getByText("Saving…")).toBeTruthy();
+    expect(save).toHaveBeenCalledTimes(1); // the second waits for the first
     answer({ ...DRAFT, state: 8 });
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
     expect(save.mock.calls[1][2]).toBe(8);
@@ -180,12 +185,13 @@ describe("the quote composed beside its request (192)", () => {
     expect(save.mock.calls[0][1].lines[1].sku).toBe("HW-MON-27");
   });
 
-  it("reloads a page that is stale, and says so", async () => {
+  it("reloads a page that is stale, and says so, keeping the person's change (D0-g)", async () => {
     vi.spyOn(api, "saveQuoteDraft").mockRejectedValue(new ApiError(409, "revision_conflict", "changed"));
     const changed = vi.fn();
     render(<QuoteStages view={view(QUOTE)} stage="review" onChanged={changed} />);
     fireEvent.click(screen.getByRole("button", { name: "Confirm the item" }));
-    expect(await screen.findByText("The quote changed since it was shown; it has been reloaded. Check it and try again.")).toBeTruthy();
+    expect(await screen.findByText(/^Someone else saved this meanwhile, so your changes were not saved/)).toBeTruthy();
+    expect(screen.getByText("Not saved: someone else saved it meanwhile")).toBeTruthy();
     expect(changed).toHaveBeenCalled();
   });
 
@@ -201,7 +207,7 @@ describe("the quote composed beside its request (192)", () => {
     expect(button.className).toContain("primary");
     fireEvent.click(button);
     fireEvent.click(screen.getByRole("button", { name: "Sure? Click again" }));
-    await waitFor(() => expect(approve).toHaveBeenCalledWith("wp-000000000195", "f".repeat(64)));
+    await waitFor(() => expect(approve).toHaveBeenCalledWith("wp-000000000195", "f".repeat(64), undefined));
     expect(await screen.findByText("The quote has been approved.")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "The approved quote: version 1" })).toBeTruthy();
   });
@@ -220,7 +226,7 @@ describe("the quote composed beside its request (192)", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Reason for reopening" }), { target: { value: "Six monitors" } });
     fireEvent.click(button);
     fireEvent.click(screen.getByRole("button", { name: "Sure? Click again" }));
-    await waitFor(() => expect(reopen).toHaveBeenCalledWith("wp-000000000195", "Six monitors"));
+    await waitFor(() => expect(reopen).toHaveBeenCalledWith("wp-000000000195", "Six monitors", undefined));
   });
 
   it("names the quote's steps and stages", () => {

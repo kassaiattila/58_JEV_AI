@@ -2,7 +2,7 @@
 // `ui/src/api/quotes.ts`); the domain adds its calls to the shared client when the interface loads (`./index.tsx`), and
 // their types and its upload check by declaration merging (below).
 import { enc, request } from "../../api/client";
-import type { OwnApproval, OwnVersion } from "../../api/types";
+import type { ApprovalState, OwnApproval, OwnVersion } from "../../api/types";
 import type { OutputTemplateIssue, OutputTemplateState } from "../../api/outputs";
 
 /** 191 (plan F-quote-package B3): one part of a quote request: the email's own text, an attachment, or a document. */
@@ -46,7 +46,11 @@ export interface QuoteView {
   draft: QuoteDraftView;
   /** 196: the approved version's reply letter (absent from a service older than 196) */
   letter?: QuoteLetterView;
+  /** D0-b: the case's steps this view is of (a match, its composition, its letter; "" when the case has none), which
+   *  the quote's calls name */
+  steps?: QuoteSteps;
 }
+export interface QuoteSteps { match: string; compose: string; letter: string }
 /** 192 (plan F-quote-package B5): a quote line as stored: the page's parts (`QuoteLineIn`) and the service's (its
  *  requested item, the proposal's mark and candidates, who confirmed its item). */
 export type QuoteLineMark = "sure" | "check" | "not_listed" | "failed";
@@ -97,6 +101,10 @@ export interface QuoteDraftView {
   proposal_newer: boolean;
   /** 196: the language of the quote's documents, and the languages it can be */
   language: string | null; languages: string[];
+  /** D0-b: the case's composition step it is of */
+  step?: string;
+  /** D0-d: the approval's state of that step (out of date, returned) */
+  approval_state?: ApprovalState;
 }
 /** 196 (plan F-Word-output W3): the reply letter of the approved version (`jav/domains/quotes/quote_letter.py` `view`): GPT's
  *  paragraph and its state, the code's check of it, the body to accept, the accepted one, and the cap of asking GPT. */
@@ -104,6 +112,8 @@ export interface QuoteLetterView {
   version: number | null; state: "queued" | "running" | "done" | "failed" | null; paragraph: string | null;
   problems: string[]; error: string | null; body: string | null; accepted: { body: string; by: string; at: string } | null;
   decision_state: number; to: string | null; subject: string | null; cap: Record<string, string>; usage: unknown;
+  /** D0-b: the case's letter step it is of */
+  step?: string;
 }
 /** 191 (plan F-quote-package B2): the columns of a price list file (`configs/price_lists.json`). */
 export type PriceListColumn = "sku" | "name" | "unit" | "unit_price" | "category";
@@ -132,27 +142,36 @@ export interface PriceListsListing {
   columns: Record<PriceListColumn, { required: boolean; headers: string[] }>;
 }
 
+/** D0-b: the case's step a quote call is about, as the address's query (none: the case's first such step) */
+const atStep = (step?: string) => (step ? `?step=${enc(step)}` : "");
+
 export const quotesApi = {
-  /** 191 B4c: queues the quote's proposal (the worker makes it) */
-  requestQuoteProposal: (wpId: string) => request<QuoteProposal>("POST", `/workpackages/${enc(wpId)}/quote/proposal`, {}),
-  /** 192 B5: the quote's draft started, saved after a change (with the state the page read), approved and reopened */
-  startQuoteDraft: (wpId: string, body: { source: "proposal" | "request"; expected_state: number; replace?: boolean }) =>
-    request<QuoteDraftView>("POST", `/workpackages/${enc(wpId)}/quote/draft/start`, body),
-  saveQuoteDraft: (wpId: string, draft: QuoteDraftIn, expectedState: number) =>
-    request<QuoteDraftView>("PUT", `/workpackages/${enc(wpId)}/quote/draft`, { draft, expected_state: expectedState }),
-  approveQuote: (wpId: string, fingerprint: string) =>
-    request<QuoteDraftView>("POST", `/workpackages/${enc(wpId)}/quote/approve`, { fingerprint }),
-  reopenQuote: (wpId: string, note: string) => request<QuoteDraftView>("POST", `/workpackages/${enc(wpId)}/quote/reopen`, { note }),
+  /** 191 B4c: queues the quote's proposal (the worker makes it); D0-b: of the case's match `step` */
+  requestQuoteProposal: (wpId: string, step?: string) =>
+    request<QuoteProposal>("POST", `/workpackages/${enc(wpId)}/quote/proposal${atStep(step)}`, {}),
+  /** 192 B5: the quote's draft started, saved after a change (with the state the page read), approved and reopened;
+   *  D0-b: of the case's composition `step` */
+  startQuoteDraft: (wpId: string, body: { source: "proposal" | "request"; expected_state: number; replace?: boolean }, step?: string) =>
+    request<QuoteDraftView>("POST", `/workpackages/${enc(wpId)}/quote/draft/start${atStep(step)}`, body),
+  saveQuoteDraft: (wpId: string, draft: QuoteDraftIn, expectedState: number, step?: string) =>
+    request<QuoteDraftView>("PUT", `/workpackages/${enc(wpId)}/quote/draft${atStep(step)}`, { draft, expected_state: expectedState }),
+  approveQuote: (wpId: string, fingerprint: string, step?: string) =>
+    request<QuoteDraftView>("POST", `/workpackages/${enc(wpId)}/quote/approve${atStep(step)}`, { fingerprint }),
+  reopenQuote: (wpId: string, note: string, step?: string) =>
+    request<QuoteDraftView>("POST", `/workpackages/${enc(wpId)}/quote/reopen${atStep(step)}`, { note }),
   quoteVersion: (wpId: string, version: number) =>
     request<OwnVersion & { quote: QuoteApproved }>("GET", `/workpackages/${enc(wpId)}/quote/versions/${version}`),
   /** 196: the quote as a Word document: the draft's (marked as a draft) and an approved version's as it was stored */
-  quoteDraftDocxUrl: (wpId: string) => `/api/workpackages/${enc(wpId)}/quote/draft/quote.docx`,
+  quoteDraftDocxUrl: (wpId: string, step?: string) => `/api/workpackages/${enc(wpId)}/quote/draft/quote.docx${atStep(step)}`,
   quoteVersionDocxUrl: (wpId: string, version: number) => `/api/workpackages/${enc(wpId)}/quote/versions/${version}/quote.docx`,
-  /** 196 W3: the reply letter: GPT's paragraph asked, the body accepted (with the state the page read), the letter file */
-  requestQuoteLetterParagraph: (wpId: string) => request<QuoteLetterView>("POST", `/workpackages/${enc(wpId)}/quote/letter/paragraph`, {}),
-  acceptQuoteLetter: (wpId: string, body: string, expectedState: number) =>
-    request<QuoteLetterView>("PUT", `/workpackages/${enc(wpId)}/quote/letter`, { body, expected_state: expectedState }),
-  quoteLetterEmlUrl: (wpId: string, version: number) => `/api/workpackages/${enc(wpId)}/quote/versions/${version}/letter.eml`,
+  /** 196 W3: the reply letter: GPT's paragraph asked, the body accepted (with the state the page read), the letter file;
+   *  D0-b: of the case's letter `step` */
+  requestQuoteLetterParagraph: (wpId: string, step?: string) =>
+    request<QuoteLetterView>("POST", `/workpackages/${enc(wpId)}/quote/letter/paragraph${atStep(step)}`, {}),
+  acceptQuoteLetter: (wpId: string, body: string, expectedState: number, step?: string) =>
+    request<QuoteLetterView>("PUT", `/workpackages/${enc(wpId)}/quote/letter${atStep(step)}`, { body, expected_state: expectedState }),
+  quoteLetterEmlUrl: (wpId: string, version: number, step?: string) =>
+    `/api/workpackages/${enc(wpId)}/quote/versions/${version}/letter.eml${atStep(step)}`,
   /** 191 (plan F-quote-package B2): the seller's price lists; an upload is read by the service from the path the
    *  system's file picker chose, and a refused file gives 422 `price_list_refused` with the check (`ApiError.check`) */
   priceLists: () => request<PriceListsListing>("GET", "/price-lists"),

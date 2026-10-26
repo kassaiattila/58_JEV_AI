@@ -28,7 +28,7 @@ MACHINE = identity.machine("tests")
 WRITES = re.compile(r"CreateItem|\.(Save|Send|Delete|Move|Copy)\s*\(", re.IGNORECASE)
 
 
-def _letter(_case_id: str, _source) -> sending.Message:
+def _letter(_case_id: str, _source_step, _source) -> sending.Message:  # D0-b: the step too
     msg = EmailMessage(policy=SMTP)
     msg["To"], msg["Subject"], msg["X-Unsent"] = "buyer@example.com", "Our offer", "1"
     msg.set_content("Dear Buyer,\n\nplease find our offer attached.\n")

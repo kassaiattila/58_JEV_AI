@@ -111,11 +111,11 @@ describe("the reply letter (196)", () => {
     const button = screen.getByRole("button", { name: /Ask GPT for the paragraph/ });
     expect(button.textContent).toContain("≤");
     fireEvent.click(button);
-    await waitFor(() => expect(ask).toHaveBeenCalledWith("wp-000000000196"));
+    await waitFor(() => expect(ask).toHaveBeenCalledWith("wp-000000000196", undefined));  // D0-b: no step named
     const text = screen.getByRole("textbox", { name: "The letter's text" });
     fireEvent.change(text, { target: { value: "Dear Sir or Madam,\n\nThank you.\n\nAnna" } });
     fireEvent.click(screen.getByRole("button", { name: "Accept the letter" }));
-    await waitFor(() => expect(accept).toHaveBeenCalledWith("wp-000000000196", "Dear Sir or Madam,\n\nThank you.\n\nAnna", 0));
+    await waitFor(() => expect(accept).toHaveBeenCalledWith("wp-000000000196", "Dear Sir or Madam,\n\nThank you.\n\nAnna", 0, undefined));
     expect(screen.queryByRole("link", { name: "Download the letter (Outlook)" })).toBeNull();
   });
 

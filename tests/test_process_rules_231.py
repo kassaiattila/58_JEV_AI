@@ -165,6 +165,7 @@ def test_a_step_event_and_timer_run_with_the_case_s_values() -> None:
 
     class Ctx:
         data = {capabilities.RULES: {"quotes": {"draft.max_lines": 7}}}
+        case_id = None  # D0-e: a case that keeps no rule file of its start
 
     handler(Ctx(), None, None)
     assert got == [7] and _max_lines() == 300

@@ -134,7 +134,7 @@ describe("the quote package (191)", () => {
     expect(button.className).toContain("primary");
     expect(button.querySelector(".spend")?.textContent).toBe("≤ 0.0060 USD"); // a cap below a cent keeps its digits
     fireEvent.click(button);
-    await waitFor(() => expect(ask).toHaveBeenCalledWith("wp-000000000193"));
+    await waitFor(() => expect(ask).toHaveBeenCalledWith("wp-000000000193", undefined));  // D0-b: no step named
     await waitFor(() => expect(changed).toHaveBeenCalled());
     rerender(<QuoteStages view={view({ ...READY, proposal: PROPOSAL })} stage="review" onChanged={changed} />);
     // a stale proposal is asked again as the view's main action; a current one leaves that to composing the quote

@@ -20,7 +20,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from jav.app.capabilities import Capability
+from jav.app.capabilities import Capability, Result
 from jav.core.process import cases, kinds
 
 POLL_S = 5.0  # how soon a waiting routing step looks again at the person's decisions
@@ -74,10 +74,17 @@ def _mark() -> Any:
 
 
 _OWNER = __name__
+class PlacementResult(Result):
+    """D0-c: how many of the case's documents went where (the routing's counts)."""
+
+    counts: dict[str, Any]
+
+
 CAPABILITY = Capability(
     name="file_placement", version=1, module=_OWNER, run=_route, kind="human", params=FilePlacement, effects="store",
+    output=PlacementResult,
     summary="Proposes the package each emailed document belongs to; a person accepts, rejects or redirects each one.",
-    adopt=_adopt)
+    adopt=_adopt, state="case")  # D0-b: the routing decides the case's email packages
 
 
 def register() -> None:

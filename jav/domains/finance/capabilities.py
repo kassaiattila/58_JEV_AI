@@ -23,7 +23,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict
 
 from jav.app import package_release
-from jav.app.capabilities import Capability
+from jav.app.capabilities import Capability, OwnVersionResult, Result
 from jav.core.process import cases, kinds
 
 POLL_S = 5.0  # how soon a waiting pairing step looks again for the person's approval
@@ -40,13 +40,18 @@ class Pairing(BaseModel):
     rules: Literal["invoice_statement"]
 
 
-def _approved(wp_id: str) -> dict[str, Any] | None:
-    """The approved version that holds (not reopened), or None: the same rule as a workflow's reconciliation step."""
-    return package_release.own_approval(wp_id)["active"]
+def _approved(wp_id: str, step: str | None = None) -> dict[str, Any] | None:
+    """The approved version that holds (not reopened), or None: the same rule as a workflow's reconciliation step.
+    D0-b: the version of the case's pairing `step` (None: the package's, before it is a case's)."""
+    return package_release.own_approval(wp_id, step=step)["active"]
 
 
 def _pair(ctx: Any, _params: Pairing) -> kinds.StepOutcome:
-    version = _approved(str(ctx.data["container"]))
+    from jav.app import process_runtime
+
+    if (why := process_runtime.outdated(str(ctx.data["container"]), ctx.step.id)) is not None:
+        _reopen(str(ctx.data["container"]), why, ctx.actor)  # D0-d: what it builds on changed since the approval
+    version = _approved(str(ctx.data["container"]), ctx.step.id)
     if version is not None:
         return kinds.Done({"version": version["version"]})
     return ctx.wait(WAITING_FOR, timer=("check", time.time() + POLL_S))
@@ -69,7 +74,8 @@ def _reopen(wp_id: str, note: str, actor: Any) -> Any:
 
 _OWNER = __name__
 CAPABILITY = Capability(
-    name="pairing", version=1, module=_OWNER, run=_pair, kind="human", params=Pairing, effects="store",
+    name="pairing", version=1, module=_OWNER, run=_pair, kind="human", params=Pairing, effects="store", state="case",
+    output=OwnVersionResult,
     rule_files=("reconcile", "finance"), adopt=_adopt, own_version=True,  # C2d: reopening the statement reopens it
     reopen=_reopen, approval_what="Reconciliation statement",  # C3a-1: its case waits for the approval as a task
     statuses={"reconcile_approved": "approved", "reconcile_pair": "pairing", "reconcile_result": "pairing",
@@ -139,8 +145,17 @@ def _mark() -> Any:
     return reconcile_package._list_mark()
 
 
+class ProposalResult(Result):
+    """D0-c: the AI proposal's round, how many lines it asked about, and its counts per engine."""
+
+    round: int
+    lines: int | None
+    counts: dict[str, Any] | None
+
+
 PROPOSAL = Capability(
-    name="pairing_proposal", version=1, module=_OWNER, run=_propose, kind="machine", params=PairingProposal,
+    name="pairing_proposal", version=1, module=_OWNER, run=_propose, kind="machine", params=PairingProposal, state="step",
+    output=ProposalResult,
     effects="store", providers=("jev",), rule_files=("callsite:reconcile_line", "finance", "reconcile"),
     summary=("Asks the AI which item of the other list each undecided item settles and what kind it is, under a cap;"
              " a person still decides."))

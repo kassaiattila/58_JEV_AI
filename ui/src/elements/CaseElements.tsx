@@ -3,7 +3,8 @@
 // spent (cost). Each renders the data its step's capability gives (jav/app/sending.py, jav/app/replies.py,
 // jav/app/case_views.py); a person's actions are the step's own (`actions`), and the send itself is the step's start.
 import { useState, type ReactNode } from "react";
-import { api, ApiError, type CaseCost, type CaseEvent, type CasePartnerLink, type HandoverAttempt, type HandoverData, type ReplyData, type StartedCase } from "../api";
+import { api, ApiError, type ApprovalState, type CaseCost, type CaseEvent, type CaseKept, type CasePartnerLink, type HandoverAttempt, type HandoverData, type ReplyData, type StartedCase } from "../api";
+import { ApprovalStateNotes, EarlierVersions, ReturnControl } from "../components/ApprovalPanel";
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { fileName, moneyText, providerName, tmap, when } from "../labels";
@@ -188,6 +189,59 @@ function eventText(e: CaseEvent): string {
   return [what, answer].filter(Boolean).join(" — ");
 }
 
+/** D0-d: the shared approval of a step whose domain shows no approval of its own: its state (approved with its version,
+ *  out of date, returned, or not approved yet), the earlier versions, and returning it with a reason while it is not
+ *  approved. Approving is the step's domain's (it shows what is approved). */
+export function GeneralApproval(p: ElementProps) {
+  useLocale();
+  const state = (p.element.data as { approval?: ApprovalState } | null)?.approval ?? null;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!state) return <p className="muted">{t("Loading…")}</p>;
+  const step = p.element.step ?? "";
+  const back = (reason: string) => {
+    setBusy(true);
+    setError(null);
+    return api.returnCaseStep(p.caseId, step, reason)
+      .then(() => { p.onChanged(); return true; })
+      .catch((e) => { setError(errorText(e)); return false; })
+      .finally(() => setBusy(false));
+  };
+  const active = state.active;
+  return (
+    <section className="card" aria-label={t("Approval")}>
+      <div className="card-head"><h2>{t("Approval")}</h2></div>
+      {active ? (
+        <p className="notice ok-box">
+          {t("Approved: version {{n}}, by {{who}}, {{when}}.", { n: active.version, who: active.approved_by, when: when(active.approved_at) })}
+        </p>
+      ) : <p className="muted small">{t("Not approved yet.")}</p>}
+      <ApprovalStateNotes state={state} />
+      {!active && p.page.case.status !== "archived" ? <ReturnControl busy={busy} onReturn={back} /> : null}
+      {error ? <p className="notice error" role="alert">{error}</p> : null}
+      <EarlierVersions versions={state.versions} />
+    </section>
+  );
+}
+
+/** D0-z: the process core's own notes in the interface's language (a person's note is shown as written). */
+const MACHINE_NOTES = tmap({ "the case closed": "the case closed", "the step moved on": "the step moved on",
+  "the case's other steps are done": "the case's other steps are done", "the package was deleted": "the package was deleted",
+  "its case's approving step has its own task": "its case's approving step has its own task",
+  "its package was brought with the workflow": "its package was brought with the workflow" });
+const noteText = (note: string) => MACHINE_NOTES[note] ?? note;
+
+/** D0-e: the versions a case keeps from its start to its end: a price list's, a template's, the rule files'. */
+function KeptLine({ kept }: { kept: CaseKept }) {
+  const parts = kept.resources.map((r) => r.version != null
+    ? t("{{label}}: {{name}}, version {{n}}", { label: t(r.label), name: t(r.name), n: r.version })
+    : t("{{label}}: {{name}}", { label: t(r.label), name: t(r.name) }));
+  if (kept.rules.length) {
+    parts.push(t("rule files: {{files}}", { files: kept.rules.map((f) => `${f.file} ${f.version ?? ""}`.trim()).join(", ") }));
+  }
+  return <div className="muted small">{t("It keeps from its start: {{what}}", { what: parts.join(" · ") })}</div>;
+}
+
 export function Timeline(p: ElementProps) {
   useLocale();
   const d = p.element.data as { events: CaseEvent[] } | null;
@@ -202,7 +256,8 @@ export function Timeline(p: ElementProps) {
             <tr key={`${e.at}-${i}`}>
               <td className="tnum">{when(e.at)}</td>
               <td>{e.step_title ? t(e.step_title) : "–"}</td>
-              <td>{eventText(e)}{e.detail.note ? <div className="muted small">{e.detail.note}</div> : null}</td>
+              <td>{eventText(e)}{e.detail.note ? <div className="muted small">{noteText(e.detail.note)}</div> : null}
+                {e.detail.kept ? <KeptLine kept={e.detail.kept} /> : null}</td>
               <td>{e.who ?? <span className="muted">{t("The system")}</span>}</td>
             </tr>
           ))}

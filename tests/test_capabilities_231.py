@@ -46,7 +46,7 @@ def _cap(**changes) -> capabilities.Capability:
         return kinds.Done({"days": params.days})
 
     base = dict(name="invented_wait", version=1, module="tests.synthetic", kind="wait", summary="Waits for a reply.",
-                params=Params, run=run)
+                params=Params, run=run, state="step", output=capabilities.Result)  # D0-c: its result's form
     cap = capabilities.Capability(**{**base, **changes})
     object.__setattr__(cap, "described", {"seen": seen})
     return cap
@@ -131,8 +131,9 @@ def test_every_registered_capability_fits_the_rules() -> None:
 def test_the_quotes_back_half_is_six_general_capabilities_five_of_them_steps() -> None:
     registrations.load_all()
     keys = {c.key: c for c in capabilities.catalogue() if c.module == "jav.domains.quotes.capabilities"}
-    assert set(keys) == {"record_assembly@1", "catalogue_match@1", "line_pricing@1", "line_draft@1", "priced_document@1",
-                         "letter_draft@1"}
+    assert set(keys) == {"record_assembly@1", "catalogue_match@1", "line_pricing@1", "line_draft@1", "letter_draft@1"}
+    # D0-c: the priced document is the shared layer's, which prints any output a domain registers a builder for
+    assert capabilities.of("priced_document@1").module == "jav.app.approved_document"
     # 231 (A5): each runs as a process pack's step; the pricing has no step of its own (the draft and the document price)
     assert {k for k, c in keys.items() if not c.invocable} == {"line_pricing@1"}
     assert keys["catalogue_match@1"].providers == ("jev", "openai") and keys["letter_draft@1"].providers == ("openai",)

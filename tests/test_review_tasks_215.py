@@ -187,9 +187,9 @@ def _subject(rid: str) -> str:
 
 def test_a_reconciliation_waits_for_its_approval_from_when_it_is_made(db):  # noqa: F811
     wp_id, _invoices, _lines = _world()
-    tid = tasks.task_id(human_tasks.OWN_APPROVAL, wp_id)
+    tid = tasks.task_id(human_tasks.OWN_APPROVAL, f"{wp_id}:pair")  # D0-b: the pairing step's approval
     task = tasks.get(tid)
-    assert (task.status, task.assignee, task.detail) == ("open", "local:reviewer", {"workpackage_id": wp_id})
+    assert (task.status, task.assignee, task.detail) == ("open", "local:reviewer", {"workpackage_id": wp_id, "step_id": "pair"})
     seen = rs.current(wp_id)["fingerprint"]
     rs.approve(wp_id, fingerprint=seen, actor="Example Person")
     task = tasks.get(tid)
@@ -206,11 +206,11 @@ def test_a_reconciliation_waits_for_its_approval_from_when_it_is_made(db):  # no
 def test_a_quotes_approval_is_its_task_too(quote):  # noqa: F811
     """231 (A3d): a case's quote waits for its approval once its draft step opens the task (capabilities.py)."""
     wp_id = quote["wp"]
-    tid = tasks.task_id(human_tasks.OWN_APPROVAL, wp_id)
+    tid = tasks.task_id(human_tasks.OWN_APPROVAL, f"{wp_id}:compose")  # D0-b: the line composition step's approval
     assert tasks.get(tid) is None  # the quote package opened it when it was made; a case's step opens it
     with store.connect() as c:
         store.begin_immediate(c)
-        human_tasks.own_approval_waits(c, wp_id)
+        human_tasks.own_approval_waits(c, wp_id, "compose")
     assert (tasks.get(tid).status, tasks.get(tid).assignee) == ("open", "local:anna")
     v = _done(wp_id)
     quote_draft.approve(wp_id, fingerprint=v["fingerprint"], actor="anna")
@@ -232,10 +232,10 @@ def test_only_a_logic_pack_a_person_approves_as_its_own_version_waits_for_an_app
 def test_an_archived_reconciliation_keeps_its_approval_task_and_its_case_is_not_deleted(db):  # noqa: F811
     hidden, kept = _reconcile(name="Hidden"), _reconcile(name="Kept")
     work.archive_workpackage(hidden, actor="Example Person")
-    assert tasks.get(tasks.task_id(human_tasks.OWN_APPROVAL, hidden)).status == "open"  # restoring it needs the same
+    assert tasks.get(tasks.task_id(human_tasks.OWN_APPROVAL, f"{hidden}:pair")).status == "open"  # restoring it needs the same
     with pytest.raises(work.NotReady):  # 231 (C3a-2): a reconciliation is its pack's case; its container stays
         work.delete_workpackage(kept, actor="Example Person")
-    assert tasks.get(tasks.task_id(human_tasks.OWN_APPROVAL, kept)).status == "open"
+    assert tasks.get(tasks.task_id(human_tasks.OWN_APPROVAL, f"{kept}:pair")).status == "open"
 
 
 def test_a_packages_new_owner_takes_its_open_tasks(db):  # noqa: F811
@@ -249,13 +249,13 @@ def test_a_packages_new_owner_takes_its_open_tasks(db):  # noqa: F811
     work.set_owner(pkg["wp"], "Minta Anna", actor="t")
     work.set_owner(reconciliation, "Minta Anna", actor="t")
     assert {tasks.get(approval).assignee, _review(rid).assignee,
-            tasks.get(tasks.task_id(human_tasks.OWN_APPROVAL, reconciliation)).assignee} == {"local:Minta Anna"}
+            tasks.get(tasks.task_id(human_tasks.OWN_APPROVAL, f"{reconciliation}:pair")).assignee} == {"local:Minta Anna"}
     assert tasks.history(approval)[-1] | {"at": None} == {"round": 1, "kind": "assigned", "actor": "machine:work-runs",
                                                           "detail": {"from": "local:Teszt Elek", "to": "local:Minta Anna"},
                                                           "at": None}
     work.set_owner(pkg["wp"], None, actor="t")  # nobody: the run's starter (any name while the list is empty)
     assert {tasks.get(approval).assignee, _review(rid).assignee} == {"local:Run Starter"}
-    assert tasks.get(tasks.task_id(human_tasks.OWN_APPROVAL, reconciliation)).assignee == "local:Minta Anna"
+    assert tasks.get(tasks.task_id(human_tasks.OWN_APPROVAL, f"{reconciliation}:pair")).assignee == "local:Minta Anna"
 
 
 def test_the_approval_of_a_workflows_reconciliation_moves_the_chain_on_at_the_workers_next_look(db):  # noqa: F811
@@ -311,7 +311,7 @@ def test_the_to_dos_and_approvals_made_before_get_their_tasks_at_the_next_start_
     assert _review(measured).assignee is None
     assert [t.subject for t in tasks.open_tasks(kind=human_tasks.RUN_APPROVAL)] == [live]
     assert tasks.get(tasks.task_id(human_tasks.RUN_APPROVAL, approved)) is None
-    assert [t.subject for t in tasks.open_tasks(kind=human_tasks.OWN_APPROVAL)] == [waiting]
+    assert [t.subject for t in tasks.open_tasks(kind=human_tasks.OWN_APPROVAL)] == [f"{waiting}:pair"]
     rows = (_count("process_tasks"), _count("process_task_history"))
     _next_start()  # adopted once: the next start changes nothing
     assert (_count("process_tasks"), _count("process_task_history")) == rows
@@ -332,7 +332,7 @@ def test_a_task_left_open_while_an_older_version_settled_its_subject_is_withdraw
                   (waiting,))
         c.execute("DELETE FROM workpackages WHERE id=?", (gone,))
     _next_start()
-    for tid in (f"review:{item}", f"run_approval:{live}", f"own_approval:{waiting}", f"own_approval:{gone}"):
+    for tid in (f"review:{item}", f"run_approval:{live}", f"own_approval:{waiting}:pair", f"own_approval:{gone}:pair"):
         task = tasks.get(tid)
         assert (task.status, task.closed_by.id, task.note) == ("withdrawn", "machine:human-task-adoption",
                                                               human_tasks.SETTLED_UNSEEN), tid

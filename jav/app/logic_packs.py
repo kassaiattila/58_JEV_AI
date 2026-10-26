@@ -97,7 +97,8 @@ class LogicPack:
       workflow's chain calls it when the step built on another one is approved again (`jav/app/workflows.py`).
     - `owns_approval(wp_id)` and `approval_what_of(wp_id)`: 231 (C3a-1) for a general container (a process pack's case),
       whose packages are not all alike: whether this one approves its result as its own version (then `reopen` reopens
-      it), and what that approval is about; `has_own_approval` and `approval_label` read either form.
+      it), and what that approval is about; `has_own_approval` and `approval_label` read either form. D0-b: what the
+      approval is about takes its task's subject, the case (`<case>`) or its approving step (`<case>:<step>`).
 
     188: a logic pack's golden sets (named `<kind>:<name>`) are measured by the shared measurement command like a type
     pack's; 204 (plan G-process-core R1h): its domain names the module that describes them (`GOLDENS` in `jav/domains/`, read by
@@ -155,11 +156,12 @@ def has_own_approval(pack: LogicPack | None, wp_id: str) -> bool:
     return pack.own_approval or (pack.owns_approval is not None and pack.owns_approval(wp_id))
 
 
-def approval_label(pack: LogicPack | None, wp_id: str) -> str:
-    """231 (C3a-1): what the package's own approval is about in a person's "Waiting for me" list."""
+def approval_label(pack: LogicPack | None, subject: str) -> str:
+    """231 (C3a-1): what the package's own approval is about in a person's "Waiting for me" list; D0-b: `subject` is the
+    approval task's (the package, or a case's approving step `<case>:<step>`)."""
     if pack is None:
         return "Approval"
-    return (pack.approval_what_of(wp_id) if pack.approval_what_of is not None else None) or pack.approval_what
+    return (pack.approval_what_of(subject) if pack.approval_what_of is not None else None) or pack.approval_what
 _CONTAINERS: dict[str, LogicPack] = {}  # 231 (A6): the general container kinds (a process pack's case)
 
 

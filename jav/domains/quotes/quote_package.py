@@ -30,7 +30,7 @@ from typing import Any
 
 from jav.app import app_settings, package_scope, scopes, work
 from jav.core import store
-from jav.domains.quotes import price_lists, quote_draft, quote_letter, quote_proposal, quote_request
+from jav.domains.quotes import price_lists, quote_draft, quote_letter, quote_proposal, quote_request, quote_steps
 from jav.app.tablequery import fold
 
 KIND = "quote"  # the golden sets' key prefix (the quote package's kind until 231 A3d, the wizard's kind until C3c)
@@ -97,9 +97,12 @@ def request_gaps(request: quote_request.Request) -> list[dict[str, str]]:
     return gaps
 
 
-def view(wp_id: str) -> dict[str, Any]:
+def view(wp_id: str, step: str | None = None) -> dict[str, Any]:
     """The package's own part of its page: its request put together (None when it can no longer be read), where it came
-    from, the active price lists and the gaps that keep the quote from being made."""
+    from, the active price lists and the gaps that keep the quote from being made. D0-b: the proposal, draft and letter
+    of the case's steps that go with `step` (`steps`: which ones, for the page's addresses). D0-e: a case that keeps
+    the price list version of its start shows that one."""
+    steps = quote_steps.of(wp_id, step)
     ref = request_of(wp_id) or {}
     request = None
     if ref:
@@ -111,7 +114,7 @@ def view(wp_id: str) -> dict[str, Any]:
         source_name = work.get(ref["workpackage_id"])["name"] if ref else None
     except KeyError:
         source_name = None
-    lists = price_lists.active_lists()
+    lists = price_lists.listed(quote_steps.catalogue(wp_id, steps.match))  # D0-e: the version the case keeps
     blockers = []
     if request is None:
         blockers.append(_blocker("quote:request_missing", "The request can no longer be read"))
@@ -124,11 +127,12 @@ def view(wp_id: str) -> dict[str, Any]:
     n_items = len(request.items) if request else 0
     return {"request": request.as_dict() if request else None,
             "source": {**ref, "workpackage_name": source_name} if ref else None,
-            "price_lists": lists, "blockers": blockers, "proposal": quote_proposal.current(wp_id),
+            "price_lists": lists, "blockers": blockers, "proposal": quote_proposal.current(wp_id, step=steps.match),
             "proposal_cap": {"engine": engine, "items": n_items,
                              "usd": {k: str(v) for k, v in quote_proposal.cap(n_items, engine).items()}},
-            "draft": quote_draft.view(wp_id),  # B5: the quote as a person composes it, and its approval
-            "letter": quote_letter.view(wp_id)}  # 196: the approved version's reply letter
+            "draft": quote_draft.view(wp_id, step=steps.compose),  # B5: the quote as a person composes it, and its approval
+            "letter": quote_letter.view(wp_id, step=steps.letter),  # 196: the approved version's reply letter
+            "steps": steps.as_dict()}
 
 
 def _next_of(current: dict[str, Any]) -> dict[str, Any]:

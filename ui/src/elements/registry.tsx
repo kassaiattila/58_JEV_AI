@@ -28,6 +28,7 @@ const ReplyWait = lazy(() => general().then((m) => ({ default: m.ReplyWait })));
 const Timeline = lazy(() => general().then((m) => ({ default: m.Timeline })));
 const CostView = lazy(() => general().then((m) => ({ default: m.CostView })));
 const PartnerLink = lazy(() => general().then((m) => ({ default: m.PartnerLink })));
+const GeneralApproval = lazy(() => general().then((m) => ({ default: m.GeneralApproval })));
 const StartedCases = lazy(() => general().then((m) => ({ default: m.StartedCases })));
 // 231 (C1c): the file placement capability's element (its page loads only when a case shows it); (C3e) the pairing's
 // are the finance domain's
@@ -50,7 +51,24 @@ const placementSummaryOf = (p: ElementProps) => {
   return r ? t("Routing of {{n}} email package(s): {{m}} document(s) to route", { n: r.sources.length, m: r.counts.routable }) : null;
 };
 
+/** D0-d: the capability (by name) of the step an element shows, from the case's page */
+const capabilityOf = (p: ElementProps) => (p.element.step ? p.page.steps[p.element.step]?.uses?.split("@")[0] ?? "" : "");
+const BODIES = new Map<string, ElementSpec>();
+
+/** D0-d: a domain's own approval of its capability's step (the quote's lines and Word document), shown by the shared
+ *  approval element in place of the general one. */
+export function registerApprovalBody(capability: string, spec: ElementSpec): void {
+  BODIES.set(capability, spec);
+}
+
+const approvalBodyOf = (p: ElementProps) => BODIES.get(capabilityOf(p));
+
 export const ELEMENTS: Record<string, ElementSpec> = {
+  // D0-d: the approval of any step that approves a version of its own; its domain's own approval where it shows one
+  approval: {
+    render: (p) => { const body = approvalBodyOf(p); return body ? body.render(p) : lazily(GeneralApproval)(p); },
+    status: (p) => approvalBodyOf(p)?.status?.(p) ?? null,
+  },
   handover_view: { render: lazily(HandoverView), status: (p) => handoverStatus(p)?.text ?? null },
   reply_wait: { render: lazily(ReplyWait), status: (p) => replyStatus(p)?.text ?? null },
   timeline: { render: lazily(Timeline) },

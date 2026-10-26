@@ -20,6 +20,8 @@ Tables:
 - `process_task_history`: every change, by round (who, what, when); a task in a case also writes the case's history.
 
 The functions that take a connection run inside the caller's write transaction; `decide` opens its own.
+`resubject_in` (stage D0, D0-b) is a schema change's: a task moved to a more precise subject keeps its rounds, its
+assignee, when it opened and its history.
 """
 
 from __future__ import annotations
@@ -39,7 +41,7 @@ __all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest 
     "OPEN", "DECIDED", "EXPIRED", "WITHDRAWN", "EVENT", "UnknownTask", "UnknownTaskKind", "TaskClosed",
     "ReasonRequired", "StaleResult", "TaskKind", "register_kind", "kind_of", "Task", "task_id", "task_in", "get",
     "open_tasks", "of_kind_in", "ids_of_kind_in", "open_for_in", "of_case", "history", "open_in", "decide_in",
-    "withdraw_in", "assign_in", "set_due_in", "decide",
+    "withdraw_in", "assign_in", "set_due_in", "decide", "resubject_in",
 ]
 
 OPEN, DECIDED, EXPIRED, WITHDRAWN = "open", "decided", "expired", "withdrawn"
@@ -313,6 +315,23 @@ def open_in(c: sqlite3.Connection, kind: str, subject: str, opened_by: Actor, *,
         if due_at is not None:
             timers.arm(c, case_id, step_id, TIMER + tid, due_at)
     return what
+
+
+def resubject_in(c: sqlite3.Connection, tid: str, subject: str, *, detail: dict[str, Any] | None = None) -> str:
+    """D0-b: a schema change's move of a task to a more precise subject of its kind (an approval of the case to the
+    approval of its step): its id follows the subject, and its rounds, state, assignee, opening time and history stay;
+    `detail` replaces what the opener kept when given. Returns the new id. A task in a case or one with a deadline is
+    not moved (its waiting step or its timer names it)."""
+    task = _require(c, tid)
+    if task.case_id is not None or task.due_at is not None:
+        raise ValueError(f"task {tid} waits in a case or has a deadline: it is not moved")
+    new = task_id(task.kind, subject)
+    if task_in(c, new) is not None:
+        raise ValueError(f"task {new} exists already")
+    c.execute("UPDATE process_tasks SET task_id=?, subject=?, detail=? WHERE task_id=?",
+              (new, subject, _json(task.detail if detail is None else detail), tid))
+    c.execute("UPDATE process_task_history SET task_id=? WHERE task_id=?", (new, tid))
+    return new
 
 
 def _close(c: sqlite3.Connection, task: Task, status: str, actor: Actor, detail: dict[str, Any], *,

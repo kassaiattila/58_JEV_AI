@@ -6,9 +6,15 @@
 // state mark, and in words what still holds the approval; a line the proposal marked "to check" is confirmed or changed
 // by a person (the owner's choice). The approval is the shared element of a logic pack's own versions. 196: the quote's
 // documents' language is chosen with its header; the draft and each approved version download as a Word document (the
-// built-in template, or the package's own one chosen beside the download).
+// built-in template, or the package's own one chosen beside the download). 231 (stage D0, D0-g): the shared save
+// behaviour (`components/editing.ts`): the save line says changed, saving, saved, not saved or not known; a save refused
+// because someone else saved meanwhile keeps the person's changes beside the version saved now, field by field, to keep
+// (over theirs) or drop; the unsaved work stays in this page's memory (another case and back), never in the browser's
+// storage, and the quote is not approved while it has any.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "../../api";
+import { compare, merge, saveState, updateWork, useHasWork, useWork, workOf } from "../../components/editing";
+import { SaveConflict, SaveLine, SaveUnknown } from "../../components/SaveConflict";
 import type { QuoteApproved, QuoteDraftBlockerCode, QuoteDraftIn, QuoteDraftLine, QuoteDraftView, QuoteLineIn, QuoteRequest, QuoteView } from "./api";
 import { ApprovalPanel, EarlierVersions } from "../../components/ApprovalPanel";
 import { ConfirmButton } from "../../components/ConfirmButton";
@@ -41,6 +47,11 @@ const LINE_MARK: Record<string, { cls: string; label: string }> = {
 const OWN = "__own__"; // the picker's choice of a line outside the price list
 const EDITED = ["quantity", "unit_price", "discount_percent", "description", "unit", "note"] as const;
 type Edited = (typeof EDITED)[number];
+/** D0-g: what a refused save's comparison calls a line's fields and the quote's own */
+const LINE_FIELD: Record<string, string> = { sku: "Item", quantity: "Quantity", unit: "Unit", unit_price: "Unit price",
+  discount_percent: "Discount %", description: "Description", note: "Note", checked: "Checked" };
+const TOP_FIELD: Record<string, string> = { price_list: "Price list", version: "Price list version",
+  language: "Language of the quote's documents" };
 type Line = QuoteDraftView["lines"][number];
 
 const quantityText = (v: unknown) => (v === null || v === undefined || v === "" ? "" : numText(v, 4));
@@ -52,18 +63,40 @@ const LANGUAGE_NAMES: Record<string, string> = { hu: "Magyar", en: "English" };
 
 /** What a line shows while it has no price or discount of a person's own: the list's price, the rule's discount. */
 type Shown = Record<string, { unit_price: string; discount_percent: string }>;
+type Edits = Record<string, Partial<Record<Edited, string>>>;
 
-function sent(draft: NonNullable<QuoteDraftView["draft"]>, edits: Record<string, Partial<Record<Edited, string>>>,
-  header: Record<string, string>, shown: Shown): QuoteDraftIn {
+/** D0-g: a save the service refused (someone else saved meanwhile) or whose outcome is not known: what it was sent on
+ *  (`state`, `base`), what it sent (`mine`), and the typed values it carried. */
+interface Failed { kind: "conflict" | "unknown"; state: number; base: QuoteDraftIn; mine: QuoteDraftIn; edits: Edits; header: Record<string, string> }
+/** D0-g: a quote's unsaved work in this page's memory: typed values not saved yet, a failed save, saves under way. */
+interface QuoteWork { edits: Edits; header: Record<string, string>; failed: Failed | null; saving: number }
+const NO_WORK: QuoteWork = { edits: {}, header: {}, failed: null, saving: 0 };
+const idle = (w: QuoteWork) => !w.saving && !w.failed && !Object.keys(w.edits).length && !Object.keys(w.header).length;
+/** D0-g: where a case step's quote keeps its unsaved work */
+export const quoteWorkKey = (wpId: string, step?: string | null) => `quote:${wpId}:${step ?? ""}`;
+
+/** What was typed and not in `sent` (a save carried the rest). */
+function leftEdits(now: Edits, sentEdits: Edits): Edits {
+  const left: Edits = {};
+  for (const [id, fields] of Object.entries(now)) {
+    const kept = Object.fromEntries(Object.entries(fields).filter(([k, v]) => sentEdits[id]?.[k as Edited] !== v));
+    if (Object.keys(kept).length) left[id] = kept;
+  }
+  return left;
+}
+const leftHeader = (now: Record<string, string>, sentHeader: Record<string, string>) =>
+  Object.fromEntries(Object.entries(now).filter(([k, v]) => sentHeader[k] !== v));
+
+function sent(draft: QuoteDraftIn, edits: Edits, header: Record<string, string>, shown: Shown): QuoteDraftIn {
   return {
     price_list: draft.price_list, version: draft.version, language: draft.language ?? null,
     header: { ...draft.header, ...Object.fromEntries(Object.entries(header).map(([k, v]) => [k, v.trim() || null])) },
     lines: draft.lines.map((l) => {
-      const e = edits[l.id] ?? {};
+      const e = (l.id ? edits[l.id] : undefined) ?? {};
       const pick = (k: Edited) => {
         if (!(k in e)) return l[k];
         const text = e[k]!.trim();
-        const listed = (k === "unit_price" || k === "discount_percent") && text !== "" && text === shown[l.id]?.[k];
+        const listed = (k === "unit_price" || k === "discount_percent") && text !== "" && l.id !== null && text === shown[l.id]?.[k];
         return listed ? null : text || null; // the list's own price or the rule's discount typed again: none of a person's own
       };
       return {
@@ -129,17 +162,23 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
 }) {
   useLocale();
   const [dv, setDv] = useState<QuoteDraftView>(view.draft);
-  const [edits, setEdits] = useState<Record<string, Partial<Record<Edited, string>>>>({});
-  const [header, setHeader] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
+  // D0-g: the unsaved work lives in this page's memory by the case's step, not in the editor (a save finishing after
+  // the editor closed still settles it, and the editor opened again shows it)
+  const key = quoteWorkKey(wpId, view.draft.step);
+  const work = useWork<QuoteWork>(key) ?? NO_WORK;
+  const { edits, header, failed } = work;
+  const saving = work.saving > 0;
+  const update = (fn: (w: QuoteWork) => QuoteWork) => updateWork(key, NO_WORK, idle, fn);
+  const setEdits = (fn: (e: Edits) => Edits) => update((w) => ({ ...w, edits: fn(w.edits) }));
+  const setHeader = (fn: (h: Record<string, string>) => Record<string, string>) => update((w) => ({ ...w, header: fn(w.header) }));
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const shown: Shown = Object.fromEntries(dv.lines.map((l) => [l.id, {
     unit_price: l.priced?.list_price ? amountText(l.priced.list_price, dv.currency) : "",
     discount_percent: l.priced && l.priced.discount_from === "rule" ? numText(l.priced.discount_percent, 4) : "",
   }]));
-  const latest = useRef({ edits, header, shown });
-  latest.current = { edits, header, shown };
+  const latest = useRef({ shown });
+  latest.current = { shown };
   // the saves go one after another, each on the state the service last answered with (a second change made while
   // one is being saved would otherwise be refused as made on a stale page)
   const answered = useRef(dv);
@@ -167,39 +206,77 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
   }
   async function saveNow(change?: (d: QuoteDraftIn) => QuoteDraftIn) {
     const cur = answered.current;
-    const { edits: e, header: h, shown: s } = latest.current;
+    const w = workOf<QuoteWork>(key) ?? NO_WORK;
+    const s = latest.current.shown;
     if (!cur.draft) return;
-    const body = (change ?? ((d) => d))(sent(cur.draft, e, h, s));
-    setSaving(true);
+    if (w.failed) {  // D0-g: while a failed save waits for the person, a change joins their own; nothing is sent
+      if (change) update((x) => (x.failed ? { ...x, failed: { ...x.failed, mine: change(x.failed.mine) } } : x));
+      return;
+    }
+    const base = sent(cur.draft, {}, {}, s);
+    const body = (change ?? ((d) => d))(sent(cur.draft, w.edits, w.header, s));
+    update((x) => ({ ...x, saving: x.saving + 1 }));
     setError(null);
     try {
-      const next = await api.saveQuoteDraft(wpId, body, cur.state);
+      const next = await api.saveQuoteDraft(wpId, body, cur.state, cur.step);  // D0-b: the composition step's draft
       adopt(next);
       // what was sent is saved; what was typed since stays to be saved
-      setEdits((now) => {
-        const left: typeof now = {};
-        for (const [id, fields] of Object.entries(now)) {
-          const kept = Object.fromEntries(Object.entries(fields).filter(([k, v]) => e[id]?.[k as Edited] !== v));
-          if (Object.keys(kept).length) left[id] = kept;
-        }
-        return left;
-      });
-      setHeader((now) => Object.fromEntries(Object.entries(now).filter(([k, v]) => h[k] !== v)));
+      update((x) => ({ ...x, edits: leftEdits(x.edits, w.edits), header: leftHeader(x.header, w.header) }));
       setSavedAt(new Date().toISOString());
       onChanged();
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        setError(t("The quote changed since it was shown; it has been reloaded. Check it and try again."));
-        setEdits({});
-        setHeader({});
-        onChanged();
+      // D0-g: refused (someone else saved meanwhile) or not known (the connection broke): the person's changes stay
+      const kind = err instanceof ApiError && err.status === 409 ? "conflict" : err instanceof ApiError && err.status === 0 ? "unknown" : null;
+      if (kind) {
+        update((x) => ({ ...x, failed: { kind, state: cur.state, base, mine: body, edits: w.edits, header: w.header } }));
+        if (kind === "conflict") onChanged();  // the version saved now, to compare with
       } else setError(err instanceof ApiError ? err.message : String(err));
     } finally {
-      setSaving(false);
+      update((x) => ({ ...x, saving: Math.max(0, x.saving - 1) }));
     }
   }
+  // D0-g: after a refused save, the version saved now (read again) beside the person's changes
+  const theirs = failed?.kind === "conflict" && dv.state > failed.state && dv.draft ? sent(dv.draft, {}, {}, shown) : null;
+  const conflicts = failed && theirs ? compare(failed.base, failed.mine, theirs) : null;
+  const settled = theirs !== null && failed !== null && JSON.stringify(merge(theirs, failed.base, failed.mine)) === JSON.stringify(theirs);
+  useEffect(() => {
+    // what the refused save sent is in the version saved now already (an earlier try went through): nothing to keep
+    if (settled) update((x) => (x.failed ? { ...x, failed: null, edits: leftEdits(x.edits, x.failed.edits), header: leftHeader(x.header, x.failed.header) } : x));
+  }, [settled]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** My changes over the version saved now (or, when it is not known whether mine went through, over the one shown). */
+  const keepMine = () => {
+    const f = workOf<QuoteWork>(key)?.failed;
+    const now = theirs ?? (answered.current.draft ? sent(answered.current.draft, {}, {}, shown) : null);
+    if (!f || !now) return;
+    const mine = merge(now, f.base, f.mine);
+    update((x) => ({ ...x, failed: null }));
+    void save(() => { const w = workOf<QuoteWork>(key) ?? NO_WORK; return sent(mine, w.edits, w.header, latest.current.shown); });
+  };
+  const takeTheirs = () => update((x) => ({ ...x, failed: null, edits: {}, header: {} }));
+  const changeLabel = (path: string[]) => {
+    const [top, at, field] = path;
+    if (top === "header") return at === "note" ? t("Note on the quote") : fieldLabel(at);
+    if (top === "lines") {
+      if (at.startsWith("+")) return t("A new line");
+      const n = dv.lines.findIndex((l) => `#${l.id}` === at) + 1;
+      const line = n ? t("Line {{n}}", { n }) : t("A line removed by them");
+      return field ? `${line}: ${t(LINE_FIELD[field] ?? field)}` : line;
+    }
+    return t(TOP_FIELD[top] ?? top);
+  };
+  const changeValue = (path: string[], v: unknown) => {
+    if (v === undefined) return <span className="muted">{t("removed")}</span>;
+    if (path[0] === "lines" && path.length === 2) {
+      if (v === true) return t("the line");
+      const row = v as QuoteLineIn;
+      return row.description ?? items.find((i) => i.sku === row.sku)?.name ?? row.sku ?? "—";
+    }
+    if (typeof v === "boolean") return v ? t("confirmed") : t("not confirmed");
+    if (path[0] === "lines" && path[2] === "sku") return items.find((i) => i.sku === v)?.name ?? (v === null ? t("A line of my own (outside the price list)") : String(v));
+    return v === null || v === "" ? "—" : String(v);
+  };
   const editLine = (id: string, field: Edited, value: string) => setEdits((e) => ({ ...e, [id]: { ...e[id], [field]: value } }));
-  const commitLine = (id: string) => { if (latest.current.edits[id]) void save(); };
+  const commitLine = (id: string) => { if (workOf<QuoteWork>(key)?.edits[id]) void save(); };
   const withLine = (id: string, patch: Partial<QuoteLineIn>) => void save((d) => ({
     ...d, lines: d.lines.map((l) => (l.id === id ? { ...l, ...patch } : l)),
   }));
@@ -208,6 +285,13 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
     return (
       <section className="card wide quote-draft" aria-label={t("The quote")}>
         <div className="card-head"><h3>{t("The quote")}</h3></div>
+        {/* D0-g: changes kept on this page can no longer be saved once a version is approved */}
+        {failed || Object.keys(edits).length || Object.keys(header).length ? (
+          <div className="notice warn small" role="alert">
+            <p>{t("The quote was approved before your changes were saved; they can no longer be saved to this version.")}</p>
+            <ConfirmButton className="secondary small-btn" onConfirm={takeTheirs}>{t("Drop my changes")}</ConfirmButton>
+          </div>
+        ) : null}
         <p className="notice ok-box">
           {t("Approved: version {{n}}, by {{who}}, {{when}}.", { n: locked.version, who: locked.approved_by, when: when(locked.approved_at) })}{" "}
           <a href={wpHash(wpId, "result")}>{t("To change it, reopen it in Approval.")}</a>
@@ -239,13 +323,17 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
           <h3>{t("The quote")}</h3>
           {ready ? <span className="status s-done">{t("ready to approve")}</span>
             : <span className="status s-review">{t("{{n}} thing(s) to settle before the approval", { n: dv.blockers.length })}</span>}
-          <span className="muted small" role="status">{saving ? t("Saving…") : savedAt ? t("Saved {{when}}", { when: when(savedAt) }) : t("Every change is saved at once.")}</span>
+          <SaveLine state={saveState({ saving, failed: failed?.kind ?? null, savedAt,
+            changed: Object.keys(edits).length > 0 || Object.keys(header).length > 0 })} savedAt={savedAt} idle={t("Every change is saved at once.")} />
         </div>
         {/* the page header's next step is the view's one solid action (approving once nothing holds it) */}
         <a className="secondary small-btn" href={wpHash(wpId, "result")}>{t("To the approval")}</a>
       </div>
 
       {error ? <p className="notice error" role="alert">{error}</p> : null}
+      {failed?.kind === "conflict" ? <SaveConflict changes={settled ? [] : conflicts} label={changeLabel} value={changeValue}
+        busy={saving} onKeepMine={keepMine} onTakeTheirs={takeTheirs} /> : null}
+      {failed?.kind === "unknown" ? <SaveUnknown busy={saving} onAgain={keepMine} /> : null}
       {dv.warnings.length || dv.proposal_newer ? (
         <ul className="plain quote-warnings">
           {superseded ? (
@@ -267,8 +355,8 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
             <li className="small">
               <span className="status s-warn">{t("A newer proposal is ready")}</span>
               <ConfirmButton className="secondary small-btn" disabled={saving}
-                onConfirm={() => void api.startQuoteDraft(wpId, { source: "proposal", expected_state: dv.state, replace: true })
-                  .then((next) => { adopt(next); setEdits({}); onChanged(); })
+                onConfirm={() => void api.startQuoteDraft(wpId, { source: "proposal", expected_state: dv.state, replace: true }, dv.step)
+                  .then((next) => { adopt(next); update((w) => ({ ...w, edits: {}, header: {}, failed: null })); onChanged(); })
                   .catch((err) => setError(err instanceof ApiError ? err.message : String(err)))}>
                 {t("Replace the lines with the new proposal")}
               </ConfirmButton>
@@ -291,7 +379,7 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
             {f === "note" ? t("Note on the quote") : fieldLabel(f)}
             <input value={header[f] ?? draft.header[f] ?? ""} maxLength={2000}
               onChange={(e) => setHeader((h) => ({ ...h, [f]: e.target.value }))}
-              onBlur={() => { if (f in latest.current.header) void save(); }} />
+              onBlur={() => { if (f in (workOf<QuoteWork>(key)?.header ?? {})) void save(); }} />
           </label>
         ))}
         {/* 196: the language of the Word document and the reply letter, estimated from the request (a service
@@ -417,7 +505,7 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
       {dv.totals ? (
         <div className="button-row">
           <TemplateChoice wpId={wpId} output="quote" />
-          <a className="secondary dl-btn small-btn" href={api.quoteDraftDocxUrl(wpId)} download><Icon name="download" />
+          <a className="secondary dl-btn small-btn" href={api.quoteDraftDocxUrl(wpId, dv.step)} download><Icon name="download" />
             {t("Download the draft (Word)")}</a>
         </div>
       ) : null}
@@ -517,7 +605,9 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged, askLetter 
     },
   });
   const lineNo = (id: string | null) => (id ? dv.lines.findIndex((l) => l.id === id) + 1 : 0);
-  const blockers = !dv.draft
+  // D0-g: the approval records what is saved: not while the quote has changes on this page not saved yet
+  const unsaved = useHasWork(quoteWorkKey(wpId, dv.step)) && !dv.approval.active;
+  const own = !dv.draft
     ? <p className="small">{t("The quote has not been composed yet.")} <a href={wpHash(wpId, "review")}>{t("Compose it in Quote")}</a></p>
     : dv.blockers.length ? (
       <ul className="plain">
@@ -529,6 +619,13 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged, askLetter 
         <li className="small"><a href={wpHash(wpId, "review")}>{t("Settle them in Quote")}</a></li>
       </ul>
     ) : null;
+  const blockers = unsaved ? (
+    <>
+      <p className="small"><span className="status long s-review">{t("The quote has changes not saved yet")}</span>{" "}
+        <a href={wpHash(wpId, "review")}>{t("Save them in Quote")}</a></p>
+      {own}
+    </>
+  ) : own;
   const doc = dv.approval.active ? dv.approved : preview(dv);
   return (
     <div className="rc-stack">
@@ -541,7 +638,7 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged, askLetter 
             <a className="secondary dl-btn small-btn" href={api.quoteVersionDocxUrl(wpId, dv.approval.active.version)} download>
               <Icon name="download" />{t("Download version {{n}} (Word)", { n: dv.approval.active.version })}</a>
           ) : dv.totals ? (
-            <a className="secondary dl-btn small-btn" href={api.quoteDraftDocxUrl(wpId)} download>
+            <a className="secondary dl-btn small-btn" href={api.quoteDraftDocxUrl(wpId, dv.step)} download>
               <Icon name="download" />{t("Download the draft (Word)")}</a>
           ) : null}
         </>}
@@ -549,8 +646,11 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged, askLetter 
         pendingText={t("Not approved yet. The approval records the quote below, with the price list version it is priced from, as an unchangeable version.")}
         blockers={blockers}
         approveLabel={dv.totals ? t("Approve the quote ({{gross}} {{currency}} gross)", { gross: amountText(dv.totals.gross, dv.currency), currency: dv.currency ?? "" }) : t("Approve the quote")}
-        onApprove={() => void act(() => api.approveQuote(wpId, dv.fingerprint ?? ""), t("The quote has been approved."))}
-        onReopen={(note) => act(() => api.reopenQuote(wpId, note), t("The approval has been reopened; the quote can be changed again."))}
+        onApprove={() => void act(() => api.approveQuote(wpId, dv.fingerprint ?? "", dv.step), t("The quote has been approved."))}
+        onReopen={(note) => act(() => api.reopenQuote(wpId, note, dv.step), t("The approval has been reopened; the quote can be changed again."))}
+        state={dv.approval_state ?? null}
+        onReturn={dv.step ? (reason) => run(() => api.returnCaseStep(wpId, dv.step!, reason),
+          { then: () => onChanged(), done: t("The quote has been returned; it waits for its approval.") }) : undefined}
         error={error} notice={notice} />
       {doc ? (
         <section className="card wide" aria-label={dv.approval.active ? t("The approved quote") : t("The quote to approve")}>

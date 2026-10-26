@@ -19,6 +19,12 @@ loaded: their change is a new AI request, measured and released.
 231 (plan stage B, B3): a process may keep its own values of some keys of the rule files (`jav/app/process_settings.py`).
 While code works on one case, its values lie over the files (`overlay`, a context of the call): `load` returns the
 file with them in place, so a module reads them as it reads the file. `config_hash` and `version` stay the file's.
+
+Stage D0 (D0-e; the owner's decision of 2026-10-26): a case runs to its end with the rule files as it started. The
+overlay then also holds the case's kept copy of each file that changed since (`Kept`, from the case's calculation
+snapshot), which `load`, `version` and `config_hash` read instead of the file; a key added to the file since comes
+from the file (`filled`), so newer code reads what it expects. A kept copy of another main version does not fit the
+code: reading it raises `RulesUnfit`, with the file and both versions, instead of reading it differently.
 """
 
 from __future__ import annotations
@@ -87,10 +93,15 @@ def _disk(name: str) -> dict[str, Any]:
 @dataclass(frozen=True)
 class Overlay:
     """231 (B3): a case's own values over the rule files: `values` {config name: {dotted key: value}}, and `refs`, the
-    same keys' origin {config name: {dotted key: {"setting": id, "version": n}}} that the decision trace records."""
+    same keys' origin {config name: {dotted key: {"setting": id, "version": n}}} that the decision trace records.
+    Stage D0 (D0-e): `base` {config name: `Kept`}, the rule files as the case started with them where they changed
+    since, read instead of the files this process holds (the values then lie over those); `unfit` {config name: why},
+    the files whose kept copy is of another main version, whose reading raises `RulesUnfit`."""
 
     values: Mapping[str, Mapping[str, Any]]
     refs: Mapping[str, Mapping[str, Mapping[str, Any]]] = field(default_factory=dict)
+    base: Mapping[str, Kept] = field(default_factory=dict)
+    unfit: Mapping[str, str] = field(default_factory=dict)
     _cache: dict[str, dict[str, Any]] = field(default_factory=dict, compare=False, repr=False)
 
     def applied(self, name: str, data: dict[str, Any]) -> dict[str, Any]:
@@ -117,7 +128,7 @@ _overlay: ContextVar[Overlay | None] = ContextVar("cfg_overlay", default=None)
 @contextmanager
 def overlay(values: Overlay | None) -> Iterator[None]:
     """231 (B3): the reads inside this context see these values over the files (None: the files alone)."""
-    token = _overlay.set(values if values is not None and values.values else None)
+    token = _overlay.set(values if values is not None and (values.values or values.base or values.unfit) else None)
     try:
         yield
     finally:
@@ -130,10 +141,44 @@ def current_overlay() -> Overlay | None:
 
 
 def load(name: str) -> dict[str, Any]:
-    """The config file `name`, with the values of the case at hand over it (`overlay`, 231 B3). Read only."""
-    data = _file(name)
+    """The config file `name`, with the values of the case at hand over it (`overlay`, 231 B3); D0-e: the case's kept
+    copy of the file as it started, when it keeps one (`RulesUnfit` for one that does not fit the code). Read only."""
     over = _overlay.get()
-    return over.applied(name, data) if over is not None and name in over.values else data
+    if over is None:
+        return _file(name)
+    if name in over.unfit:
+        raise RulesUnfit(over.unfit[name])
+    data = over.base[name].data if name in over.base else _file(name)
+    return over.applied(name, data) if name in over.values else data
+
+
+@dataclass(frozen=True)
+class Kept:
+    """D0-e: a rule file as a case started with it: its content (with the keys added since filled in from the file,
+    `filled`), and the fingerprint and version of the copy the case's calculation snapshot holds."""
+
+    data: dict[str, Any] = field(repr=False)
+    sha256: str
+    version: str | None
+
+
+class RulesUnfit(ValueError):
+    """D0-e: a rule file as a case started with it does not fit the code running now (another main version)."""
+
+
+def major(version: str | None) -> str:
+    """The main part of a config's version (`1.14.0` -> `1`)."""
+    return (version or "").split(".", 1)[0]
+
+
+def filled(kept: Any, now: Any) -> Any:
+    """D0-e: a kept copy of a rule file with the keys the file has gained since taken from the file, at every depth;
+    everything the kept copy holds stays as it is (a list or a value is the kept one)."""
+    if not isinstance(kept, dict) or not isinstance(now, dict):
+        return kept
+    out = {k: filled(v, now[k]) if k in now else v for k, v in kept.items()}
+    out.update({k: copy.deepcopy(v) for k, v in now.items() if k not in kept})
+    return out
 
 
 class Section(Mapping[str, Any]):
@@ -169,15 +214,28 @@ def canonical(data: dict[str, Any]) -> str:
     return json.dumps(body, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
-@lru_cache(maxsize=None)
 def config_hash(*names: str) -> str:
-    """The joint hash of one or more configs (e.g. the detect call site + the doc_types registry)."""
+    """The joint hash of one or more configs (e.g. the detect call site + the doc_types registry); 231 (B3): the files',
+    never a case's own values; D0-e: a case's kept copy of a file counts as the file."""
+    over = _overlay.get()
+    kept = tuple((n, over.base[n].sha256) for n in sorted(set(names)) if over is not None and n in over.base)
+    return _joint_hash(names, kept)
+
+
+@lru_cache(maxsize=None)
+def _joint_hash(names: tuple[str, ...], kept: tuple[tuple[str, str], ...]) -> str:
+    """`config_hash` of the files, with the kept copies `kept` names by fingerprint read from the case's overlay in
+    place (its own values never)."""
     h = hashlib.sha256()
-    with overlay(None):  # 231 (B3): the files' hash, never a case's own values
+    current = _overlay.get()
+    with overlay(Overlay({}, base=current.base) if kept and current is not None else None):
         for name in sorted(names):
             h.update(name.encode("utf-8"))
             h.update(canonical(load(name)).encode("utf-8"))
     return h.hexdigest()[:HASH_LEN]
+
+
+config_hash.cache_clear = _joint_hash.cache_clear  # type: ignore[attr-defined] - a test clears it as before
 
 
 def combine(*parts: str) -> str:
@@ -285,7 +343,7 @@ def reload() -> None:
     """For tests / config changes at run time: clears the cache (231: a process that froze its configs reads those
     again, not the folder)."""
     _file.cache_clear()
-    config_hash.cache_clear()
+    _joint_hash.cache_clear()
     file_digest.cache_clear()
     for fn in _ON_RELOAD:
         fn()

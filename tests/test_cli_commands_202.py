@@ -20,7 +20,7 @@ from jav import cli
 from jav.domains import DOMAINS
 
 COMMANDS = {
-    "admin", "backup", "before-after-diff", "before-after-replay", "before-after-snapshot", "burr-prune", "cases-adopt",
+    "admin", "backup", "before-after-diff", "before-after-replay", "before-after-snapshot", "burr-prune", "cases-adopt", "cases-kept",
     "calls-resolve", "calls-uncertain", "candidates", "configs", "data-guard", "deps-audit", "detect", "detect-corpus",
     "detect-determinism", "detect-golden", "detect-sample", "determinism", "docs", "duplicates", "email",
     "email-determinism", "email-golden", "email-inbox", "email-ingest-server", "email-injection-probe", "email-sample",
@@ -49,7 +49,7 @@ def _registered() -> dict[str, dict[str, argparse.ArgumentParser]]:
 def test_the_command_line_has_the_same_commands_as_before_the_split():
     registered = _registered()
     names = [c for commands in registered.values() for c in commands]
-    assert len(names) == len(set(names)) == 81  # 231: test-worktree; C1c: cases-adopt
+    assert len(names) == len(set(names)) == 82  # 231: test-worktree; C1c: cases-adopt; D0-e: cases-kept
     assert set(names) == COMMANDS
 
 

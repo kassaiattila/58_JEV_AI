@@ -34,6 +34,17 @@ logic pack).
 transaction (`approve_own`, `reopen_logged`): the version, the kind's files and the package log's entry. The kind
 checks its blockers and the fingerprint the person saw before, in its own words. Only one own version of a package
 holds at a time: `record_own` refuses a second (`OwnVersionHolds`), so two approvals in a race cannot both hold.
+
+Stage D0 (D0-b): an own version belongs to the case's step that approves it (`step_id`): each approving step of a case
+holds its own version, waits for its own approval and is reopened on its own, so two steps of one case can each hold
+one; the versions' numbers stay one sequence per package, so a version's files and downloads keep their names. The
+reads take the step (`step=`); without one they read every own version of the package, as a case with one approving
+step did. A version recorded before D0-b has no step: it is its case's single approving step's.
+
+D0-d: an own version records its basis, the result versions of the steps its step builds on when it was approved
+(`basis`; none before D0-d), so a change of one of them shows it out of date (`process_runtime.outdated`). A person may
+return a step's result instead of approving it, with a reason (`reject_own`, kept in `own_rejections`). The approval's
+state of a step - missing, approved, out of date or returned - is one view (`approval_state`).
 """
 
 from __future__ import annotations
@@ -53,7 +64,7 @@ from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/core/activity_kinds.py`)
-activity_kinds.register_events("package", ("package_release",), __name__)
+activity_kinds.register_events("package", ("package_release", "approval_return"), __name__)  # D0-d: a returned result
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 # The stored files of a version: (name, media type). The names are the download's file name suffixes. 178: a domain's
@@ -100,6 +111,17 @@ CREATE TABLE IF NOT EXISTS package_versions (
     UNIQUE (workpackage_id, version)
 );
 -- the downloads of a version as they were released (never rebuilt); 186: in the state they were made in
+-- D0-d: a person returned a step's result instead of approving it, with the reason (the latest one counts until an
+-- approval or a newer return)
+CREATE TABLE IF NOT EXISTS own_rejections (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    workpackage_id TEXT NOT NULL,
+    step_id        TEXT,
+    reason         TEXT NOT NULL,
+    rejected_by    TEXT NOT NULL,
+    rejected_by_id TEXT,
+    rejected_at    TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS package_version_files (
     version_id       INTEGER NOT NULL,
     state            TEXT NOT NULL DEFAULT 'released',  -- 186: released; a logic pack's own version: approved, earlier
@@ -157,10 +179,14 @@ def _migrate(conn: sqlite3.Connection) -> None:
     store.add_columns(conn, "package_version_files", {"template": "TEXT", "template_version": "TEXT"})
     store.add_columns(conn, "package_versions", dict.fromkeys(_VERSION_COLUMNS, "TEXT"))
     store.add_actor_ids(conn, "package_versions", ("released_by", "reopened_by"))  # 229 (SZ2c)
+    store.add_columns(conn, "package_versions", {"step_id": "TEXT"})  # D0-b: the case's step an own version is of
+    store.add_columns(conn, "package_versions", {"basis": "TEXT"})  # D0-d: what it was approved on (JSON)
     _file_states(conn)
 
 
 store.register_migration("package_release", _migrate)
+# D0-b: an approval task written for a whole case moves to its case's approving step, before the repair below reads it
+store.register_migration("own_approval_steps", human_tasks.own_approvals_per_step)
 # 215 (plan G-process-core P2d): the to-dos, runs and logic packs made before get their human tasks; after the
 # migrations of the tables it reads (the work tables, the versions' columns above)
 store.register_migration("human_tasks", human_tasks.adopt_missing)
@@ -471,15 +497,19 @@ def version_file(wp_id: str, version: int, name: str) -> tuple[bytes, str, str]:
 
 # --- 186 (plan G-full-move T2d): a logic pack's own versions ------------------------------------------------------------
 
-_OWN_META = ("version", "fingerprint", "approved_by", "approved_at", "reopened_by", "reopened_at", "reopen_note")
+_OWN_META = ("version", "fingerprint", "approved_by", "approved_at", "reopened_by", "reopened_at", "reopen_note", "step_id",
+             "basis")
 _OWN_SELECT = ("SELECT id, workpackage_id, version, mark AS fingerprint, released_by AS approved_by,"
-               " released_at AS approved_at, reopened_by, reopened_at, reopen_note, content, locks FROM package_versions")
+               " released_at AS approved_at, reopened_by, reopened_at, reopen_note, content, locks, step_id, basis"
+               " FROM package_versions")
+OUTDATED = "out of date: "  # D0-d: how an automatic reopening's reason begins (an earlier step it builds on changed)
+_OF_STEP = " AND (step_id = ? OR step_id IS NULL)"  # D0-b: a version recorded before has no step: its case's single one
 _FILE_COLUMNS_OWN = ("version_id, state, name, media, rows, sha256, content, template, template_version, created_at,"
                      " backfilled_at")
 
 
 def _own_meta(row: Any) -> dict[str, Any]:
-    return {k: row[k] for k in _OWN_META}
+    return {**{k: row[k] for k in _OWN_META}, "basis": json.loads(row["basis"]) if row["basis"] else None}
 
 
 def _connected(c: sqlite3.Connection | None, fn: Any) -> Any:
@@ -489,26 +519,35 @@ def _connected(c: sqlite3.Connection | None, fn: Any) -> Any:
     return fn(c)
 
 
-def own_versions(wp_id: str, c: sqlite3.Connection | None = None) -> list[dict[str, Any]]:
+def _step_filter(step: str | None) -> tuple[str, tuple[str, ...]]:
+    return (_OF_STEP, (step,)) if step is not None else ("", ())
+
+
+def own_versions(wp_id: str, c: sqlite3.Connection | None = None, *, step: str | None = None) -> list[dict[str, Any]]:
     """A logic pack's own versions of the package, the latest first: {version, fingerprint, approved_by, approved_at,
-    reopened_by, reopened_at, reopen_note}."""
+    reopened_by, reopened_at, reopen_note, step_id}; D0-b: of the case's approving `step` (None: of every step)."""
+    where, args = _step_filter(step)
     return _connected(c, lambda conn: [_own_meta(r) for r in conn.execute(
-        _OWN_SELECT + " WHERE workpackage_id=? AND content IS NOT NULL ORDER BY version DESC", (wp_id,))])
+        _OWN_SELECT + " WHERE workpackage_id=? AND content IS NOT NULL" + where + " ORDER BY version DESC",
+        (wp_id, *args))])
 
 
-def own_version(wp_id: str, n: int, c: sqlite3.Connection | None = None) -> dict[str, Any]:
-    """A logic pack's own version `n` of the package with its `content` as approved (KeyError: no such version)."""
+def own_version(wp_id: str, n: int, c: sqlite3.Connection | None = None, *, step: str | None = None) -> dict[str, Any]:
+    """A logic pack's own version `n` of the package with its `content` as approved (KeyError: no such version). D0-c:
+    with `step`, only a version of that approving step (a reader naming the step it reads)."""
+    where, args = _step_filter(step)
     row = _connected(c, lambda conn: conn.execute(
-        _OWN_SELECT + " WHERE workpackage_id=? AND version=? AND content IS NOT NULL", (wp_id, n)).fetchone())
+        _OWN_SELECT + " WHERE workpackage_id=? AND version=? AND content IS NOT NULL" + where, (wp_id, n, *args)).fetchone())
     if row is None:
         raise KeyError(f"{wp_id} version {n}")
     return {"content": json.loads(row["content"]), **_own_meta(row)}
 
 
-def own_approval(wp_id: str, c: sqlite3.Connection | None = None) -> dict[str, Any]:
+def own_approval(wp_id: str, c: sqlite3.Connection | None = None, *, step: str | None = None) -> dict[str, Any]:
     """A logic pack's approval of its package (192: one view for the reconciliation and the quote): its active version
-    (None while it has none) and every version, the latest first."""
-    versions = own_versions(wp_id, c)
+    (None while it has none) and every version, the latest first; D0-b: of the case's approving `step` (None: of every
+    step, as a case with one approving step reads it)."""
+    versions = own_versions(wp_id, c, step=step)
     return {"active": next((v for v in versions if v["reopened_at"] is None), None), "versions": versions}
 
 
@@ -523,74 +562,126 @@ class OwnVersionHolds(work.RevisionConflict):
     """224: an own version of the package holds already (a person approved it meanwhile); one holds at a time."""
 
 
+def _holding(c: sqlite3.Connection, wp_id: str, step: str | None) -> sqlite3.Row | None:
+    where, args = _step_filter(step)
+    return c.execute("SELECT id, version FROM package_versions WHERE workpackage_id=? AND content IS NOT NULL"
+                     " AND reopened_at IS NULL" + where, (wp_id, *args)).fetchone()
+
+
 def record_own(c: sqlite3.Connection, wp_id: str, *, content: dict[str, Any], fingerprint: str, locks: list[str],
-               actor: identity.Who) -> int:
+               actor: identity.Who, step: str | None = None, basis: dict[str, int] | None = None) -> int:
     """Records the package's next own version, in the caller's write transaction (its checks, files and log entry go
     with it): the content as the person approved it, its fingerprint and what it locks. Returns its number. 215: the
     package's approval task is decided by the approver (`human_tasks.own_approved`). 224: `OwnVersionHolds` while
-    another own version of the package holds."""
-    held = c.execute("SELECT version FROM package_versions WHERE workpackage_id=? AND content IS NOT NULL"
-                     " AND reopened_at IS NULL", (wp_id,)).fetchone()
+    another own version of the package holds. D0-b: of the case's approving `step` (its task; only that step's
+    versions hold it back); None: the package's own approval, no step's. D0-d: `basis`, the result versions of the
+    steps the step builds on as the person approved it."""
+    held = _holding(c, wp_id, step)
     if held is not None:
         raise explained(OwnVersionHolds, "version {{version}} was approved meanwhile; reload the package",
                         version=held["version"])
     n = (c.execute("SELECT MAX(version) FROM package_versions WHERE workpackage_id=?", (wp_id,)).fetchone()[0] or 0) + 1
     cur = c.execute("INSERT INTO package_versions(workpackage_id, version, mark, items, runs, released_by, released_by_id,"
-                    " released_at, content, locks) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    " released_at, content, locks, step_id, basis) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                     (wp_id, n, fingerprint, "[]", "[]", identity.name_of(actor), identity.id_of(actor), _now(),
-                     json.dumps(content, ensure_ascii=False, default=str), json.dumps(locks)))
+                     json.dumps(content, ensure_ascii=False, default=str), json.dumps(locks), step,
+                     json.dumps(basis, sort_keys=True) if basis is not None else None))
     rulebook.link_in(c, rulebook.PACKAGE_VERSION, str(cur.lastrowid))  # 218: the code and the rules of the approval
-    human_tasks.own_approved(c, wp_id, actor, version=n, fingerprint=fingerprint)
+    human_tasks.own_approved(c, wp_id, step, actor, version=n, fingerprint=fingerprint)
     return n
 
 
-def reopen_own(c: sqlite3.Connection, wp_id: str, *, note: str, actor: identity.Who) -> int | None:
+def reopen_own(c: sqlite3.Connection, wp_id: str, *, note: str, actor: identity.Who, step: str | None = None) -> int | None:
     """Reopens the package's own version that holds, in the caller's write transaction: its lock goes, it stays as an
     earlier version. Returns its number; None when no version holds. 215: the package waits for its approval again.
     218 (P3l): a done workflow step whose package it is is reopened in its case (`workflow_cases.package_reopened`);
-    231 (C2d): and a process case's step done with the version (`process_runtime.own_version_reopened`)."""
+    231 (C2d): and a process case's step done with the version (`process_runtime.own_version_reopened`). D0-b: the
+    version of the case's approving `step`, whose task opens again and which alone is reopened in the case."""
     from jav.app import process_runtime  # lazy: the process runtime builds on the packages and their versions
 
-    row = c.execute("SELECT id, version FROM package_versions WHERE workpackage_id=? AND content IS NOT NULL"
-                    " AND reopened_at IS NULL", (wp_id,)).fetchone()
+    row = _holding(c, wp_id, step)
     if row is None:
         return None
     c.execute("UPDATE package_versions SET reopened_by=?, reopened_by_id=?, reopened_at=?, reopen_note=? WHERE id=?",
               (identity.name_of(actor), identity.id_of(actor), _now(), note, row["id"]))
-    human_tasks.own_approval_waits(c, wp_id, by=human_tasks.person(actor), reopened=row["version"])
+    human_tasks.own_approval_waits(c, wp_id, step, by=human_tasks.person(actor), reopened=row["version"])
     reason = f"its approved version {row['version']} was reopened"
     workflow_cases.package_reopened(c, wp_id, human_tasks.person(actor), reason)
-    process_runtime.own_version_reopened(c, wp_id, human_tasks.person(actor), reason)
+    process_runtime.own_version_reopened(c, wp_id, human_tasks.person(actor), reason, step=step)
     return row["version"]
 
 
 def approve_own(c: sqlite3.Connection, wp_id: str, *, event: str, content: dict[str, Any], fingerprint: str,
                 locks: list[str], actor: identity.Who, files: Callable[[sqlite3.Connection, int], None],
-                details: dict[str, Any]) -> int:
+                details: dict[str, Any], step: str | None = None, basis: dict[str, int] | None = None) -> int:
     """224 (plan G-process-core P3c): a logic pack's approval of its package as its next own version, in the caller's
     write transaction and in the same order for every kind (the reconciliation's statement, the quote): the version
     (`record_own`; refused while another holds), its files as the kind makes them (`files(c, n)`), and the package
     log's `<event>_approve` entry with the version, the fingerprint and the kind's `details`. The kind has checked its
-    blockers and the fingerprint the person saw. Returns the version's number."""
-    n = record_own(c, wp_id, content=content, fingerprint=fingerprint, locks=locks, actor=actor)
+    blockers and the fingerprint the person saw. Returns the version's number. D0-b: of the case's approving `step`.
+    D0-d: `basis`, what the step builds on as approved."""
+    n = record_own(c, wp_id, content=content, fingerprint=fingerprint, locks=locks, actor=actor, step=step, basis=basis)
     files(c, n)
     work.record_event(c, wp_id, f"{event}_approve", actor, {"version": n, "fingerprint": fingerprint, **details})
     return n
 
 
 def reopen_logged(c: sqlite3.Connection, wp_id: str, *, event: str, note: str, actor: identity.Who,
-                  files: Callable[[sqlite3.Connection, int], None] | None = None) -> int | None:
+                  files: Callable[[sqlite3.Connection, int], None] | None = None, step: str | None = None) -> int | None:
     """224: reopens the package's own version that holds, with the person's reason, in the caller's write transaction
     (`reopen_own`): its files as the kind makes them for an earlier version (`files(c, n)`), and the package log's
     `<event>_reopen` entry. Returns its number; None, with nothing written, when no version holds (the kind names that
-    to the person)."""
-    n = reopen_own(c, wp_id, note=note, actor=actor)
+    to the person). D0-b: the version of the case's approving `step`."""
+    n = reopen_own(c, wp_id, note=note, actor=actor, step=step)
     if n is None:
         return None
     if files is not None:
         files(c, n)
     work.record_event(c, wp_id, f"{event}_reopen", actor, {"version": n, "note": note})
     return n
+
+
+class NothingToReturn(work.RevisionConflict):
+    """D0-d: a step's result is returned only while no version of it holds (an approved one is reopened instead)."""
+
+
+def reject_own(c: sqlite3.Connection, wp_id: str, *, step: str | None, reason: str, actor: identity.Who) -> None:
+    """D0-d: a person returns the step's result instead of approving it, with a reason, in the caller's write
+    transaction: kept until an approval or a newer return, logged with the package; the step still waits for its
+    approval. `NothingToReturn` while a version of the step holds; a reason is required."""
+    reason = (reason or "").strip()
+    if not reason:
+        raise explained(ValueError, "returning needs a reason")
+    if (held := _holding(c, wp_id, step)) is not None:
+        raise explained(NothingToReturn, "version {{version}} is approved; reopen it instead", version=held["version"])
+    c.execute("INSERT INTO own_rejections(workpackage_id, step_id, reason, rejected_by, rejected_by_id, rejected_at)"
+              " VALUES (?,?,?,?,?,?)", (wp_id, step, reason, identity.name_of(actor), identity.id_of(actor), _now()))
+    work.record_event(c, wp_id, "approval_return", actor, {"step": step, "reason": reason})
+
+
+def approval_state(wp_id: str, c: sqlite3.Connection | None = None, *, step: str | None = None) -> dict[str, Any]:
+    """D0-d: the approval of a case's approving `step` in one view: `state` (`approved`; `outdated`: reopened by itself as
+    an earlier step it builds on changed; `returned`: a person returned it with a reason; `missing`: not approved, or
+    reopened by a person), the active version, the versions, the latest return and the reason it went out of date."""
+    def read(conn: sqlite3.Connection) -> dict[str, Any]:
+        approval = own_approval(wp_id, conn, step=step)
+        where, args = _step_filter(step)
+        last = conn.execute("SELECT reason, rejected_by, rejected_at FROM own_rejections WHERE workpackage_id=?" + where
+                            + " ORDER BY id DESC LIMIT 1", (wp_id, *args)).fetchone()
+        versions = approval["versions"]
+        newest = versions[0] if versions else None
+        returned = dict(last) if last is not None else None
+        # approved (and, maybe, reopened) since the return; within the same second an approval counts as after the
+        # return (a return is refused while a version holds) and a reopening as before it (a return may follow it)
+        if returned and newest and newest["approved_at"] >= returned["rejected_at"] and (
+                newest["reopened_at"] is None or newest["reopened_at"] > returned["rejected_at"]):
+            returned = None
+        outdated = (newest["reopen_note"][len(OUTDATED):] if newest and newest["reopened_at"] and not approval["active"]
+                    and (newest["reopen_note"] or "").startswith(OUTDATED) else None)
+        state = ("approved" if approval["active"] else "returned" if returned else "outdated" if outdated else "missing")
+        return {"state": state, "active": approval["active"], "versions": versions, "returned": returned,
+                "outdated": outdated, "step": step}
+    return _connected(c, read)
 
 
 def store_own_files(c: sqlite3.Connection, wp_id: str, n: int, state: str,
