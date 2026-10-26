@@ -265,7 +265,7 @@ def suspicious_email(run_id: str, email_item_id: str) -> bool:
 def mark_suspicious_source(run: dict[str, Any], item: dict[str, Any]) -> bool:
     """154 (DECISIONS 154): the attachments of an email routed as suspicious are processed but marked: each gets an
     `attachment:suspicious_email` to-do in the run, so the run cannot be approved before a person has looked at it,
-    and a statement from it never replaces another by rule (`reconcile.statements`). Called after every item, so it
+    and a statement from it never replaces another by rule (`reconcile_store.statements`). Called after every item, so it
     does not matter whether the email or its attachment is processed first. Returns whether this item got the to-do."""
     run_id = run["run_id"]
     if item.get("kind") == item_kinds.EMAIL:
@@ -351,7 +351,8 @@ CREATE TABLE IF NOT EXISTS mailbox_pulls (
     status       TEXT NOT NULL,                -- queued | running | ok | error
     result       TEXT,                         -- JSON: új / változott / ismételt levelek, munkacsomag; vagy hiba
     created_at   TEXT NOT NULL,
-    finished_at  TEXT
+    finished_at  TEXT,
+    taker        TEXT                          -- 231 (C3d): the step it is for ("case:<case>:<step>", "workflow:<id>:<step>"); NULL: none
 );
 """)
 
@@ -361,6 +362,7 @@ def _add_change_columns(conn) -> None:
     store.add_columns(conn, "mailbox_schedules", {"changed_by": "TEXT", "changed_at": "TEXT"})
     store.add_actor_ids(conn, "mailbox_schedules", ("actor", "changed_by"))  # 229 (SZ2c)
     store.add_actor_ids(conn, "mailbox_pulls", ("actor",))
+    store.add_columns(conn, "mailbox_pulls", {"taker": "TEXT"})  # 231 (C3d): the step a download is for
 
 
 store.register_migration("mailbox.schedule_changes", _add_change_columns)
@@ -437,15 +439,17 @@ def delete_schedule(schedule_id: str, *, actor: identity.Who) -> None:
 
 
 def request_pull(req: MailboxRequest, *, actor: identity.Who, schedule_id: str | None = None,
-                 dedup_key: str | None = None) -> dict[str, Any]:
-    """Queues a download (the worker runs it). A repeated `dedup_key` returns the existing download."""
+                 dedup_key: str | None = None, taker: str | None = None) -> dict[str, Any]:
+    """Queues a download (the worker runs it). A repeated `dedup_key` returns the existing download. 231 (C3d): `taker`,
+    the step it is for (a case's, a workflow's); a download no step takes wraps its package by a mailbox case."""
     from jav.core import queue
 
     pid = f"pull-{uuid.uuid4().hex[:10]}"
     # 063: the download row is created before the job - the worker may claim the job the moment it is queued
     with store.connect() as c:
-        c.execute("INSERT INTO mailbox_pulls(id, schedule_id, request, actor, actor_id, status, created_at)"
-                  " VALUES (?,?,?,?,?,?,?)", (pid, schedule_id, req.model_dump_json(), identity.name_of(actor), identity.id_of(actor), "queued", _utc()))
+        c.execute("INSERT INTO mailbox_pulls(id, schedule_id, request, actor, actor_id, status, created_at, taker)"
+                  " VALUES (?,?,?,?,?,?,?,?)", (pid, schedule_id, req.model_dump_json(), identity.name_of(actor), identity.id_of(actor),
+                                               "queued", _utc(), taker))
     job = queue.enqueue(PULL_JOB_KIND, run_id=None, payload={"pull_id": pid}, dedup_key=dedup_key)
     if job.deduped:
         with store.connect() as c:
@@ -556,6 +560,8 @@ def run_pull_job(payload: dict[str, Any], *, runner: Runner | None = None, inbox
     except Exception as exc:  # noqa: BLE001 - 063: every error shows on the download; the worker does not stop
         log.exception("mailbox pull %s failed", p["id"])
         status, result = "error", {"error": f"{type(exc).__name__}: {exc}"[:500]}
+    if result.get("workpackage") and not p.get("taker"):
+        _own_case(result["workpackage"], _pull_actor(p))
     body = json.dumps(result, ensure_ascii=False)
     with store.connect() as c:
         c.execute("UPDATE mailbox_pulls SET status=?, result=?, finished_at=? WHERE id=?", (status, body, _utc(), p["id"]))
@@ -568,36 +574,74 @@ def run_pull_job(payload: dict[str, Any], *, runner: Runner | None = None, inbox
 # --- a workflow's emails step (181, plan 170 L5; until then in `jav/app/workflows.py`) --------------------------------
 
 
-def workflow_start(ctx: workflow_steps.StepStart) -> None:
-    """A workflow's emails step: its mailbox download is queued (one per start), and the step waits for it."""
+PACK = "mailbox"  # 231 (C3d): the process pack whose cases hold the downloaded emails
+
+
+def _own_case(wp_id: str, actor: identity.Who) -> None:
+    """231 (C3d; the owner's decision of 2026-10-26): the package of a download no step takes (a scheduled one, one from
+    the settings) gets a case of the mailbox pack, its owner the package's; its live run stays a person's action. A
+    failure is logged and never loses the package or the download's outcome."""
+    from jav.app import process_runtime  # lazy: the process packs build on the domains
+
+    try:
+        process_runtime.wrap_into(PACK, wp_id, scope={}, actor=owner_of(actor))
+    except Exception:  # noqa: BLE001 - the package stays, as an ordinary one
+        log.exception("the downloaded package %s got no case", wp_id)
+
+
+def case_fetch(scope: dict[str, Any], _name: str, owner: identity.Who | None, taker: str) -> str:
+    """231 (C3d): the mailbox maker's fetch: the case's download is queued (the worker runs it) for its step."""
+    req = MailboxRequest.model_validate(scope["source"]["request"])
+    return str(request_pull(req, actor=owner or identity.machine("mailbox"), taker=taker)["id"])
+
+
+def case_collect(pull_id: str) -> Any:
+    """231 (C3d): where the case's download stands, as the workflow's emails step reads it (`workflow_poll`)."""
+    from jav.app.document_processing import Collected  # lazy: the capability builds on the domains' makers
+
+    p = pull(pull_id)
+    result = p.get("result") or {}
+    if p["status"] in ("queued", "running"):
+        return Collected("running")
+    if p["status"] != "ok" and result.get("workpackage"):
+        return Collected("done", result["workpackage"], note=str(result.get("error") or p["status"]))
+    if p["status"] != "ok":
+        return Collected("failed", note=str(result.get("error") or p["status"]))
+    return Collected("done", result.get("workpackage") or None)
+
+
+def workflow_offer(ctx: workflow_steps.StepStart) -> None:
+    """A workflow's emails step: its mailbox download is queued (one per start), and the step waits for it. 231 (C3d):
+    the mailbox maker's workflow offer (its package comes with the poll, `workflow_poll_offer`)."""
     wf = ctx.workflow
     req = MailboxRequest.model_validate(ctx.source["request"])
-    p = request_pull(req, actor=wf["actor"], dedup_key=f"workflow:{wf['id']}:{ctx.step['id']}:{uuid.uuid4().hex[:8]}")
+    p = request_pull(req, actor=wf["actor"], dedup_key=f"workflow:{wf['id']}:{ctx.step['id']}:{uuid.uuid4().hex[:8]}",
+                     taker=f"workflow:{wf['id']}:{ctx.step['id']}")  # C3d: its package is the step's
     ctx.fetching(str(p["id"]))
+    return None
 
 
-def workflow_poll(ctx: workflow_steps.StepStart) -> None:
-    """Once the step's download has finished: its package's live run starts, or the step found nothing new, or failed.
-    160 (review R-1): an interrupted download packaged the emails that arrived; the step runs that package, and the
-    error stays in its events (before, the step failed without the package and a restart found nothing new)."""
+def workflow_poll_offer(ctx: workflow_steps.StepStart) -> str | None:
+    """Once the step's download has finished: its package (the mailbox pack's step kind wraps it by a case and starts
+    its live run), or the step found nothing new, or failed; None while it runs. 160 (review R-1): an interrupted
+    download packaged the emails that arrived; the step runs that package, and the error stays in its events (before,
+    the step failed without the package and a restart found nothing new). 231 (C3d): the mailbox maker's workflow poll
+    (until then this step kind's own poll, which started the run itself)."""
     p = pull(ctx.state["pull_id"])
     if p["status"] in ("queued", "running") or not ctx.claim():
-        return
+        return None
     result = p.get("result") or {}
     if p["status"] != "ok" and result.get("workpackage"):
         ctx.event("pull_interrupted", {"pull_id": ctx.state["pull_id"], "workpackage_id": result["workpackage"],
                                        "note": str(result.get("error") or p["status"])[:1000]})
-        ctx.run(result["workpackage"])
-    elif p["status"] != "ok":
+        return str(result["workpackage"])
+    if p["status"] != "ok":
         ctx.failed(str(result.get("error") or p["status"]))
-    elif not result.get("workpackage"):
+        return None
+    if not result.get("workpackage"):
         ctx.nothing_new("no new emails")
-    else:
-        ctx.run(result["workpackage"])
-
-
-# 181: the emails step of a workflow (registered by the email domain, `jav/domains/email/__init__.py`)
-STEP = workflow_steps.StepKind("emails", __name__, ("mailbox",), start=workflow_start, poll=workflow_poll)
+        return None
+    return str(result["workpackage"])
 
 # --- 185 (plan G-full-move T1c): a mailbox download as a workflow step's source (`workflow_steps.SourceKind`; until
 # then in `jav/app/workflows.py`) ---------------------------------------------------------------------------------------
@@ -635,8 +679,13 @@ def _counted_source(source: Mapping[str, Any]) -> tuple[int | None, str, str | N
     return source["request"].get("max_items") or 0, "email", "each email's PDF attachments add a document's budget"
 
 
+def _source_words(source: Mapping[str, Any]) -> str:
+    """231 (C3d): a mailbox download in a few words (a case's scope)."""
+    return MailboxRequest.model_validate(source["request"]).label()
+
+
 SOURCE = workflow_steps.SourceKind("mailbox", __name__, check=_checked_source, shown=_shown_source,
-                                   repeated=_repeated_source, count=_counted_source)
+                                   repeated=_repeated_source, count=_counted_source, words=_source_words)
 
 # 185 (plan G-full-move T1c): the worker's kind of job for a download and its tick for the due schedules, registered by
 # the email domain (`jav/runtime/job_kinds.py`); each looks its function up when called, so a replaced one counts

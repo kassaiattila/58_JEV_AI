@@ -1,9 +1,39 @@
 {
   "meta": {
     "name": "workflows",
-    "version": "1.2.0",
+    "version": "1.8.0",
     "description": "146 (backlog F-package-kind-chooser; DECISIONS 146): the workflow templates the new work wizard offers, as data. A template's steps are kinds of work package (documents, emails, statements, reconcile) in order; a step may wait for others (`after`). A one-step template is today's kind of package and makes no workflow; a template of several steps makes a workflow of one own party and a period, whose steps start by themselves (a live run) once the steps they wait for are approved, a paid step only within the budget a person approved in the wizard (jav/workflows.py). Texts are English; the interface translates them (ui/src/i18n/hu-native.json).",
     "changelog": [
+      {
+        "version": "1.8.0",
+        "date": "2026-10-26",
+        "note": "231 (plan stage C, C3d; DECISIONS 231): the emails template is the mailbox pack's case (its id the pack's, mailbox; its general form asks for the download); the workflows' emails step is the pack's step kind."
+      },
+      {
+        "version": "1.7.0",
+        "date": "2026-10-26",
+        "note": "231 (plan stage C, C3c; DECISIONS 231): the quote template is the IT quote pack's case (its id the pack's, it_quote; its general form chooses the request), and the quote's own kind of work goes."
+      },
+      {
+        "version": "1.6.0",
+        "date": "2026-10-25",
+        "note": "231 (plan stage C, C3b3; DECISIONS 231): the one-step documents and bank statements templates start a case of their process pack (documents, bank_statements): the case makes its processing package from the folder or the files, its page starts the live run and leads to the package's processing, review and result. The statements template's id is its pack's (bank_statements), as every one-step template of a process pack's case. The statements case takes the period's statements the store has not got yet, as the workflows' statements step does."
+      },
+      {
+        "version": "1.5.0",
+        "date": "2026-10-25",
+        "note": "231 (plan stage C, C3a-2; DECISIONS 231): the reconciliation kind of step retires: the three monthly templates' reconciliation step is the reconciliation pack's process step (its id, title and order kept), and a workflow saved before reads its old step as that (retired_kinds), so it carries on and repeats as a case."
+      },
+      {
+        "version": "1.4.0",
+        "date": "2026-10-25",
+        "note": "231 (plan stage C, C2d; DECISIONS 231): the reconciliation is a process pack's case (configs/processes/reconciliation.json): its one-step template is the pack's (id reconciliation, the general kind process; a party and a period, the party's accounts by default). The workflows' reconciliation steps keep their kind until the live workflow is taken over (C2e)."
+      },
+      {
+        "version": "1.3.0",
+        "date": "2026-10-25",
+        "note": "231 (plan stage C, C1c; DECISIONS 231): the email routing is a process pack's case (configs/processes/mail_routing.json): the kind routing gives way to the general kind process, a case of the pack its step names (`pack`), reading the packages of the steps it waits for; the one-step template is the pack's (id mail_routing)."
+      },
       {
         "version": "1.2.0",
         "date": "2026-10-21",
@@ -63,46 +93,37 @@
       "sources": ["folder", "files", "package"],
       "cost": "Read by code, free; a PDF extracted by AI is paid."
     },
-    "routing": {
-      "title": "Email routing",
-      "description": "Each invoice, outgoing invoice and bank statement that arrived by email is proposed for the package of its party, period and role; you accept, reject or choose another package.",
-      "sources": ["none", "package"],
-      "cost": "Free: code only."
-    },
-    "reconcile": {
-      "title": "Reconciliation of statements and invoices",
-      "description": "The party's statement lines are paired with its invoices; the result is a summary approved as a version.",
-      "sources": ["none", "package"],
-      "cost": "Free: code only."
-    },
-    "quote": {
-      "title": "Quote from a request",
-      "description": "A quote request already processed (an email with its attachments, or a document) is put together; the quote is made from it and your active price list.",
-      "sources": ["package"],
-      "cost": "Free to make; the proposal of the quote's lines will call AI within its budget."
+    "process": {
+      "title": "A process's case",
+      "description": "A case of a process: it reads the packages of the steps it waits for, or the packages you choose; its page shows its steps.",
+      "sources": ["none"],
+      "cost": "As the process: a paid step waits for a person's start."
     }
+  },
+  "retired_kinds": {
+    "reconcile": {"kind": "process", "pack": "reconciliation"}
   },
   "templates": [
     {
       "id": "documents",
       "group": "documents",
       "title": "Documents: extract their data",
-      "description": "One work package of a folder's documents or of the given files.",
-      "steps": [{"id": "documents", "kind": "documents"}]
+      "description": "One case of a folder's documents or of the given files: its page starts the processing and leads to its review and result.",
+      "steps": [{"id": "documents", "kind": "process", "pack": "documents"}]
     },
     {
-      "id": "emails",
+      "id": "mailbox",
       "group": "documents",
       "title": "Emails from a mailbox",
       "description": "One work package of a mailbox's new emails and their attachments.",
-      "steps": [{"id": "emails", "kind": "emails"}]
+      "steps": [{"id": "emails", "kind": "process", "pack": "mailbox"}]
     },
     {
-      "id": "routing",
+      "id": "mail_routing",
       "group": "documents",
       "title": "Email routing",
-      "description": "One routing package over email packages already downloaded: their invoices, outgoing invoices and bank statements go to the packages they belong to.",
-      "steps": [{"id": "routing", "kind": "routing"}]
+      "description": "One routing case over email packages already downloaded: their invoices, outgoing invoices and bank statements go to the packages they belong to.",
+      "steps": [{"id": "routing", "kind": "process", "pack": "mail_routing"}]
     },
     {
       "id": "mailbox_routing",
@@ -111,29 +132,29 @@
       "description": "The mailbox's new emails are downloaded and processed with their attachments; once they are approved, the routing proposes the package of each invoice, outgoing invoice and bank statement.",
       "steps": [
         {"id": "emails", "kind": "emails", "title": "Emails and their attachments"},
-        {"id": "routing", "kind": "routing", "title": "Routing", "after": ["emails"]}
+        {"id": "routing", "kind": "process", "pack": "mail_routing", "title": "Routing", "after": ["emails"]}
       ]
     },
     {
-      "id": "statements",
+      "id": "bank_statements",
       "group": "bank",
       "title": "Bank statements",
-      "description": "One work package of a party's bank statements for a period, surveyed before anything is stored.",
-      "steps": [{"id": "statements", "kind": "statements"}]
+      "description": "One case of a party's bank statements for a period: the period's statements the store has not got yet are taken from the folder or the files.",
+      "steps": [{"id": "statements", "kind": "process", "pack": "bank_statements"}]
     },
     {
-      "id": "reconcile",
+      "id": "reconciliation",
       "group": "bank",
       "title": "Reconciliation of statements and invoices",
       "description": "One reconciliation package of a party and a period, on the invoices and statements already processed.",
-      "steps": [{"id": "reconcile", "kind": "reconcile"}]
+      "steps": [{"id": "reconciliation", "kind": "process", "pack": "reconciliation"}]
     },
     {
-      "id": "quote",
+      "id": "it_quote",
       "group": "quotes",
       "title": "Quote from a request",
       "description": "One quote package from a customer's quote request: an email or a document already processed and read as one.",
-      "steps": [{"id": "quote", "kind": "quote"}]
+      "steps": [{"id": "quote", "kind": "process", "pack": "it_quote"}]
     },
     {
       "id": "monthly_reconciliation",
@@ -143,7 +164,7 @@
       "steps": [
         {"id": "invoices", "kind": "documents", "title": "Incoming invoices", "role": "incoming_invoices"},
         {"id": "statements", "kind": "statements", "title": "Bank statements"},
-        {"id": "reconcile", "kind": "reconcile", "title": "Reconciliation", "after": ["invoices", "statements"]}
+        {"id": "reconcile", "kind": "process", "pack": "reconciliation", "title": "Reconciliation", "after": ["invoices", "statements"]}
       ]
     },
     {
@@ -154,7 +175,7 @@
       "steps": [
         {"id": "emails", "kind": "emails", "title": "Emails and their attachments"},
         {"id": "statements", "kind": "statements", "title": "Bank statements"},
-        {"id": "reconcile", "kind": "reconcile", "title": "Reconciliation", "after": ["emails", "statements"]}
+        {"id": "reconcile", "kind": "process", "pack": "reconciliation", "title": "Reconciliation", "after": ["emails", "statements"]}
       ]
     },
     {
@@ -166,7 +187,7 @@
         {"id": "invoices", "kind": "documents", "title": "Incoming invoices from a folder", "role": "incoming_invoices"},
         {"id": "emails", "kind": "emails", "title": "Emails and their attachments"},
         {"id": "statements", "kind": "statements", "title": "Bank statements"},
-        {"id": "reconcile", "kind": "reconcile", "title": "Reconciliation", "after": ["invoices", "emails", "statements"]}
+        {"id": "reconcile", "kind": "process", "pack": "reconciliation", "title": "Reconciliation", "after": ["invoices", "emails", "statements"]}
       ]
     }
   ]

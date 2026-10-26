@@ -18,6 +18,7 @@ import pytest
 from jav.ai import candidates
 from jav.core import dates
 from jav.domains.finance import reconcile, reconcile_package as rp
+from jav.domains.finance import reconcile_rules
 from jav.documents.layout import LineLayout
 from tests import test_reconcile_k2_129 as k2
 from tests import test_reconcile_package_131 as p131
@@ -74,9 +75,9 @@ def test_a_group_needs_every_invoice_named_and_at_most_the_configured_count(monk
     snap = copy.deepcopy(CASES["combined_payment_named"]["snapshot"])
     snap["statements"][0]["lines"][0]["memo"] = "INV-0101, INV-0102"  # i3 not named: 250 is not the line's 300
     assert not any(c["proposed"] for c in reconcile.propose(snap)["candidates"])
-    conf = copy.deepcopy(reconcile._conf())
+    conf = copy.deepcopy(reconcile_rules._conf())
     conf["combined"]["max_invoices"] = 2
-    monkeypatch.setattr(reconcile, "_conf", lambda: conf)
+    monkeypatch.setattr(reconcile_rules, "_conf", lambda: conf)
     assert not any(c["proposed"] for c in _result("combined_payment_named")["candidates"])  # three named, at most two
 
 
@@ -112,9 +113,9 @@ def test_a_credit_note_of_another_supplier_or_amount_cancels_nothing():
 
 def test_a_recurring_bill_paid_before_the_next_invoice_is_issued_is_not_proposed_for_it(monkeypatch):
     assert _result("unnamed_line_well_before_issue")["candidates"] == []
-    conf = copy.deepcopy(reconcile._conf())
+    conf = copy.deepcopy(reconcile_rules._conf())
     conf["proposal"]["unnamed_days_before_issue"] = 30
-    monkeypatch.setattr(reconcile, "_conf", lambda: conf)
+    monkeypatch.setattr(reconcile_rules, "_conf", lambda: conf)
     assert [c["proposed"] for c in _result("unnamed_line_well_before_issue")["candidates"]] == [True]
 
 

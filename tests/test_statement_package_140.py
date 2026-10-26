@@ -20,9 +20,9 @@ import pytest
 from jav.app import parties, work, work_readiness, work_runs
 from jav.core import store
 from jav.domains.finance import reconcile, statement_package as sp, statement_table as st
+from jav.domains.finance import reconcile_store
 from jav.runtime import worker
 from jav.core import queue
-from tests import test_api
 from tests.test_flow_statement_table_136 import _run_all
 from tests.test_statement_erste_137 import DIGITS, JUNE, MAY, OWN, PDF_JUNE, _export
 
@@ -96,7 +96,7 @@ def test_the_survey_shows_what_a_better_statement_would_replace(db):
     old = db / "old"
     _export(old, "20260529", MAY)  # May without its PDF: unchecked, in the store
     _run_all(sp.create_from_statement_table(old, [f"{DIGITS}:HUF:2026-05-01"], name="Erste May", owner="tester")["id"])
-    [stored] = reconcile.statements()
+    [stored] = reconcile_store.statements()
     survey = _survey(_folder(db / "new", may_pdf=True), party)
     may = _row(survey, "2026-05")
     assert may["rank"] == "code_checked" and [r["id"] for r in may["replaces"]] == [stored["id"]]
@@ -144,12 +144,12 @@ def test_the_package_holds_the_chosen_statements_and_pdfs_with_its_party_and_per
     view = sp.create(name="Example Kft. statements", party_id=party, period_start="2026-05-01", period_end="2026-06-30",
                      paths=[folder], statements=[june["id"]], pdfs=[pdf], actor="tester")
     wp = work.get(view["workpackage_id"])
-    assert (wp["source_kind"], wp["owner"], wp["source_ref"]) == ("statements", "tester", str(folder.resolve()))
+    assert (wp["source_kind"], wp["owner"], wp["source_ref"]) == ("manual", "tester", str(folder.resolve()))  # 231 C3b5a
     kinds = sorted((i["kind"], Path(i["source_path"]).suffix) for i in wp["items"])
     assert kinds == [("document", ".pdf"), ("statement_table", ".json")]
     assert next(i for i in wp["items"] if i["kind"] == "statement_table")["item_id"] == june["id"]  # the survey's id
     assert (view["party"]["id"], view["period_start"], view["period_end"]) == (party, "2026-05-01", "2026-06-30")
-    assert [e["action"] for e in work.workpackage_events(wp["id"])] == ["statement_scope"]
+    assert [e["action"] for e in work.workpackage_events(wp["id"])] == ["statement_scope", "case_wrapped"]  # 231 C3b4
 
 
 def test_creating_refuses_an_empty_choice_or_a_statement_the_files_no_longer_hold(db):
@@ -323,8 +323,8 @@ def test_the_statements_are_listed_by_account_and_in_time_with_the_unread_last()
 def test_a_package_with_its_scope_can_be_deleted_before_a_run(db):
     wp = _package(db, _party())
     work.delete_workpackage(wp, actor="tester")
-    with store.connect() as c:
-        assert c.execute("SELECT COUNT(*) FROM workpackage_scopes").fetchone()[0] == 0  # 186: the shared scope
+    with store.connect() as c:  # 186: the shared scope (231 C3b4: its case's own stays)
+        assert c.execute("SELECT COUNT(*) FROM workpackage_scopes WHERE workpackage_id=?", (wp,)).fetchone()[0] == 0
 
 
 def test_a_partys_merge_moves_its_statement_packages(db):
@@ -332,30 +332,3 @@ def test_a_partys_merge_moves_its_statement_packages(db):
     wp = _package(db, party)
     parties.merge(party, other, actor="tester")
     assert sp.scope(wp)["party"]["id"] == other
-
-
-# --- the service ---------------------------------------------------------------------------------------------------------
-
-
-env = test_api.env
-
-
-def test_the_service_surveys_and_creates_a_statement_package(env):
-    c, human = env["client"], test_api.HUMAN
-    party = _party()
-    folder = _folder(env["root"])
-    body = {"paths": [str(folder)], "party_id": party, "period_start": "2026-05-01", "period_end": "2026-06-30"}
-    assert c.post("/api/statement-packages/survey", json=body).status_code == 422  # a person asks for it
-    r = c.post("/api/statement-packages/survey", headers=human, json=body)
-    assert r.status_code == 200, r.text
-    survey = r.json()
-    assert len(survey["statements"]) == 2 and "EXAMPLE CLOUD" not in r.text  # no lines or partners leave
-    chosen = {"statements": [s["id"] for s in survey["statements"]], "pdfs": []}
-    r = c.post("/api/statement-packages", headers=human, json={**body, **chosen, "name": "Example statements"})
-    assert r.status_code == 201, r.text
-    view = r.json()
-    assert view["workpackage"]["source_kind"] == "statements" and len(view["workpackage"]["items"]) == 2
-    assert view["statements"]["scope"]["party"]["id"] == party
-    unknown = {**body, "party_id": "party-000000000000"}
-    assert c.post("/api/statement-packages/survey", headers=human, json=unknown).status_code == 422
-    assert c.post("/api/statement-packages/survey", headers=human, json={**body, "paths": [str(folder / "nope")]}).status_code == 422

@@ -36,15 +36,12 @@ GOLDENS = ("jav.domains.quotes.goldens",)
 
 
 def register() -> None:
-    """Every registration of the quotes domain (`registrations.load_all`): the quote's kind of work, its parts and
-    capabilities."""
-    from jav.app import item_kinds, workflow_steps
-    from jav.domains.quotes import capabilities, quote_document, quote_letter, quote_package, quote_proposal
+    """Every registration of the quotes domain (`registrations.load_all`): its parts and capabilities (231 C3c: the
+    quote's kind of work went; the wizard's quote template is the IT quote pack's)."""
+    from jav.domains.quotes import capabilities, quote_document, quote_letter, quote_proposal
     from jav.app.outputs import builtin, parts
     from jav.runtime import job_kinds
 
-    workflow_steps.register(quote_package.STEP)
-    item_kinds.register_item_part(quote_package.EMAIL_PART)  # 192 B6a: the request under its email
     job_kinds.register(quote_proposal.JOB)  # B4c: the worker's proposal job
     job_kinds.register(quote_letter.JOB)  # 196: the reply letter's paragraph
     builtin.register_word(quote_document.OUTPUT, quote_document.builtin_template)  # 196: the quote's Word document

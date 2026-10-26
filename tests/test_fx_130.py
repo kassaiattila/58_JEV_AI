@@ -14,7 +14,7 @@ from xml.sax.saxutils import escape
 
 import pytest
 
-from jav.core import cfg, store
+from jav.core import cfg, connectors, store
 from jav.domains.finance import fx
 
 NOW = datetime(2026, 10, 9, 10, 0, tzinfo=timezone.utc)
@@ -98,7 +98,7 @@ def test_an_unreadable_response_is_a_named_error(raw):
 
 
 def test_a_test_never_reaches_the_network(db):
-    with pytest.raises(AssertionError, match="live exchange rate request"):
+    with pytest.raises(AssertionError, match="live question to an external service"):
         fx.fetch(date(2026, 10, 1), date(2026, 10, 2), ["USD"])
 
 
@@ -256,23 +256,11 @@ def test_an_answer_that_would_change_a_stored_day_is_refused(db):
         assert fx.fetch(date(2026, 10, 1), date(2026, 10, 1), ["USD"]) == 1
 
 
-def test_an_oversized_answer_is_not_read_whole(monkeypatch):
-    class Answer:
-        def __init__(self):
-            self.asked: list[int] = []
-
-        def read(self, n=-1):
-            self.asked.append(n)
-            return b"x" * (n if n > 0 else 10)
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            return False
-
-    answer = Answer()
-    monkeypatch.setattr(fx.urllib.request, "urlopen", lambda request, timeout: answer)
-    with pytest.raises(fx.FxUnavailableError, match="size limit"):
-        fx._urllib_transport("http://example.invalid", b"", {}, 1.0)
-    assert answer.asked == [fx.MAX_RESPONSE_BYTES + 1]
+def test_an_oversized_answer_is_refused_and_logged(db):
+    """231 (C2a): the size limit is the connector's now (its network reading is tested in test_connectors_231)."""
+    limit = connectors.of("mnb_rates").max_response_bytes
+    with fx.use_transport(lambda url, body, headers, timeout: b"x" * (limit + 1)):
+        with pytest.raises(fx.FxUnavailableError, match="size limit"):
+            fx.fetch(date(2026, 10, 1), date(2026, 10, 1), ["USD"])
+    [log] = _rows("SELECT * FROM fx_fetches")
+    assert (log["status"], log["error"]) == ("failed", "the rate service's answer is over the size limit")

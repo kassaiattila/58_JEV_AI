@@ -15,7 +15,7 @@ import { t, useLocale } from "../i18n";
 import { tmap } from "../labels";
 
 // 195 (plan G-tidy R5): a statement package's survey loads with the statement pages
-const SurveyChoices = lazyPage(() => import("./StatementPackageCreate").then((m) => m.SurveyChoices));
+const SurveyChoices = lazyPage(() => import("./StatementPackagePanel").then((m) => m.SurveyChoices));
 
 export type AddSource = "files" | "folder";
 

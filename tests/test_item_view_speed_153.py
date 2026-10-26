@@ -8,7 +8,7 @@ document of another kind. Synthetic data, no paid calls.
 import pytest
 
 from jav.core import store
-from jav.domains.finance import reconcile, statement_months
+from jav.domains.finance import reconcile_store, statement_months
 from tests import test_reconcile_k2_129 as k2
 
 
@@ -20,7 +20,7 @@ def db(tmp_path):
 
 def test_an_invoice_does_not_build_the_statements(db, monkeypatch):
     invoice = k2._save("inv", k2._invoice())
-    monkeypatch.setattr(reconcile, "statements", lambda: pytest.fail("every stored statement was built for an invoice"))
+    monkeypatch.setattr(reconcile_store, "statements", lambda: pytest.fail("every stored statement was built for an invoice"))
     assert statement_months.item_view(invoice, []) == []
 
 

@@ -209,6 +209,7 @@ LIST_INPUTS: dict[str, str | None] = {
     "review_reasons": "SUM(status='open'), MAX(closed_at)",
     "review_queue": "SUM(status='open')",
     "package_versions": None,  # 172: a released version ends the "Approve and release" step (also one recorded afterwards)
+    "workpackage_scopes": "SUM(revision)",  # 231 (C3b3): a package a case's step binds leaves the list
 }
 
 
@@ -281,9 +282,12 @@ def _workpackages(scope: dict[str, str]) -> Rows:
         col("next_code", "Lépés kódja", "enum", hidden=True),
         col("id", "Azonosító", "id", hidden=True),
     ]
+    from jav.app import document_processing  # 231 (C3b3): a case step's package opens from its case's page
+
+    owned = document_processing.owned_packages()
     rows = [{**r, "_key": r["id"], "_wp": r["id"], "_run": r["last_run_id"], "_stage": r["next"]["stage"],
              "next_label": r["next"]["label"], "next_code": r["next"]["code"], "_next_params": r["next"]["params"]}
-            for r in work_views.workpackage_list(include_archived=archived)]
+            for r in work_views.workpackage_list(include_archived=archived) if r["id"] not in owned]
     for r in rows:
         r.pop("next", None)
         if not logic_packs.has_runs(r["source_kind"]):  # 167 (review 153 E): a reconciliation's lines are not

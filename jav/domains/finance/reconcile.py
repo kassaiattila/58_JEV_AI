@@ -140,318 +140,47 @@ Reuse: ported selectively from the legacy project's `orchestrator/framework/paya
 amount alone is no candidate" and the multiple-candidates flag; its 12 synthetic cases are rewritten in the golden file.
 Not ported: the owner aliases (the own accounts come from the statements), the allocation arithmetic and the Postgres
 review store. New: the exact-amount rule, the window's upper end, coverage by verified statements, stable line ids.
+
+**The modules** (231, plan stage C, C2b): the engine is split by what each part does; this module keeps the pure core (`prepare`, the settled decisions, coverage, combined payments, repeats, `propose`, the finder `compare`) and the golden cases. The rule readers are `reconcile_rules.py`, the normalisation and the signals `reconcile_signals.py`, the windows and amounts `reconcile_amounts.py`, and the store adapter with the decision tables `reconcile_store.py`. The shared names callers use are re-exported here (a fixed list); the rules are read through `reconcile_rules._conf`, never re-exported, so a test changes them in one place.
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
 import re
-import unicodedata
 from collections import Counter, defaultdict
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
-from difflib import SequenceMatcher
-from functools import lru_cache
-from pathlib import Path
 from typing import Any, Iterable
 
-from jav.app import package_result
 from jav.documents import fact_checks
-from jav.core import cfg, store, type_roles, values
-from jav.domains.finance import duplicates, fx
-from jav.ai.candidates import trim_after_legal_form
+from jav.core import cfg, values
+from jav.domains.finance import duplicates
 from jav.ai.models import account_key  # 156: shared with the candidate finder; callers keep using reconcile.account_key
+from jav.domains.finance import reconcile_rules
+from jav.domains.finance.reconcile_rules import fx_tolerance
+from jav.domains.finance.reconcile_signals import (NAMED_SIGNALS, WEAK_SIGNALS, common_words, money, name_key, named,
+    normalize, outgoing, partner_view, pays, signals, statement_account, strength, supplier_keys, through_app)
+from jav.domains.finance.reconcile_amounts import (amount_relation, convert_combined, fx_window, meets, original,
+    pair_window, rate_need, window)
+
+# 231 (C2b): the shared names the callers use, re-exported (a fixed list: new code imports from the defining module)
+from jav.domains.finance.reconcile_rules import (ai_sure_probability as ai_sure_probability,
+    fx_bank_tolerance as fx_bank_tolerance)
+from jav.domains.finance.reconcile_signals import (SIGNALS as SIGNALS, category_mark as category_mark,
+    line_id as line_id, line_words as line_words, name_words as name_words, partner_name as partner_name,
+    salary_mark as salary_mark, supplier_words as supplier_words, with_line_ids as with_line_ids)
+from jav.domains.finance.reconcile_amounts import (convert as convert, fx_capable as fx_capable,
+    split_line as split_line)
 
 ENGINE_VERSION = "1.17.0"  # 154: the rule replaces a statement only when none of its lines is lost; 151: a forint bank line pays two or more invoices of another currency together; 1.15.0 (149): a forint bank line meets another currency; 1.14.0 (148): a credit line pays an outgoing invoice (its partner the buyer); 1.13.0: a known direction decides
 STATUSES = ("confirmed", "credited", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing",
             "no_payment_found", "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate", "combined")  # how a candidate's amounts relate
-NAMED_SIGNALS = frozenset({"invoice_number", "reference"})  # 141: the line's memo names the invoice
 DECISIONS = ("paid_by", "not_this")
-SIGNALS = ("invoice_number", "reference", "supplier_account", "supplier_name", "supplier_name_fuzzy", "payment_channel",
-           "learned_name")
-WEAK_SIGNALS = frozenset({"payment_channel", "supplier_name_fuzzy"})  # alone they tie only an equal amount
-_MONEY = re.compile(r"-?\d+(?:\.\d{1,2})?")
-
-store.register_schema("reconcile", """
-CREATE TABLE IF NOT EXISTS reconcile_decisions (
-    pair_key          TEXT PRIMARY KEY,   -- the invoice's document id + '|' + the line id: one decision per pair
-    invoice_doc_id    TEXT NOT NULL,
-    statement_doc_id  TEXT NOT NULL,
-    line_id           TEXT NOT NULL,      -- the statement line's stable id (`line_id`)
-    decision          TEXT NOT NULL,      -- paid_by | not_this
-    signals           TEXT,               -- JSON: the signals of the pair when the person decided
-    amount_relation   TEXT,               -- equal | different: the amounts when the person decided
-    run_id            TEXT,               -- the run in which the person decided
-    actor             TEXT NOT NULL,
-    actor_id          TEXT,               -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
-    note              TEXT,
-    decided_at        TEXT NOT NULL
-);
--- 131 (E1, DECISIONS 131): a person's allocation of a line's amount to an invoice in a reconciliation package; several
--- per line and per invoice (split and combined payments), within both sides' amounts. A revoked one keeps its row.
-CREATE TABLE IF NOT EXISTS reconcile_allocations (
-    id                INTEGER PRIMARY KEY AUTOINCREMENT,
-    invoice_doc_id    TEXT NOT NULL,
-    statement_doc_id  TEXT NOT NULL,
-    line_id           TEXT NOT NULL,
-    line_amount       TEXT NOT NULL,      -- canonical decimal, in the line's currency
-    invoice_amount    TEXT NOT NULL,      -- canonical decimal, in the invoice's currency (equal in one currency)
-    workpackage_id    TEXT NOT NULL,      -- the reconciliation package it was made in
-    actor             TEXT NOT NULL,
-    actor_id          TEXT,
-    note              TEXT,
-    created_at        TEXT NOT NULL,
-    revoked_at        TEXT,
-    revoked_by        TEXT,
-    revoked_by_id     TEXT,
-    revoke_note       TEXT
-);
-CREATE INDEX IF NOT EXISTS ix_reconcile_allocations_line ON reconcile_allocations(line_id);
-CREATE INDEX IF NOT EXISTS ix_reconcile_allocations_invoice ON reconcile_allocations(invoice_doc_id);
--- 131: a line that needs no invoice (a private expense, a fee, a transfer ...), by a person, with its reason
-CREATE TABLE IF NOT EXISTS reconcile_line_marks (
-    id                INTEGER PRIMARY KEY AUTOINCREMENT,
-    statement_doc_id  TEXT NOT NULL,
-    line_id           TEXT NOT NULL,
-    category          TEXT NOT NULL,      -- configs/reconcile.json line_marks
-    note              TEXT,
-    workpackage_id    TEXT NOT NULL,
-    actor             TEXT NOT NULL,
-    actor_id          TEXT,
-    created_at        TEXT NOT NULL,
-    revoked_at        TEXT,
-    revoked_by        TEXT,
-    revoked_by_id     TEXT,
-    basis             TEXT                -- 147: the quick review's suggestion it accepted (NULL: a person's own choice)
-);
-CREATE INDEX IF NOT EXISTS ix_reconcile_line_marks_line ON reconcile_line_marks(line_id);
-""")
-
-
-def _migrate(conn) -> None:
-    # 131: a rejection made in a reconciliation package (not on a run)
-    store.add_columns(conn, "reconcile_decisions", {"workpackage_id": "TEXT"})
-    # 147: the suggestion a mark accepted in the quick review came from
-    store.add_columns(conn, "reconcile_line_marks", {"basis": "TEXT"})
-    # 229 (SZ2c): the stable id beside every name of who acted; the earlier rows' from their names
-    store.add_actor_ids(conn, "reconcile_decisions", ("actor",))
-    store.add_actor_ids(conn, "reconcile_allocations", ("actor", "revoked_by"))
-    store.add_actor_ids(conn, "reconcile_line_marks", ("actor", "revoked_by"))
-
-
-store.register_migration("reconcile", _migrate)
-
-
-@lru_cache(maxsize=None)
-def _conf() -> dict[str, Any]:
-    return dict(cfg.load("reconcile"))
 
 
 def config_hash() -> str:
     return cfg.config_hash("reconcile")
-
-
-def _bands() -> dict[str, Any]:
-    """224: the reconciliation's bands, in the finance domain's own rule file: outside `reconcile.json`, whose
-    fingerprint a statement prints, so moving them changed no approved statement."""
-    return cfg.load("finance")["reconcile"]
-
-
-def fx_tolerance() -> tuple[Decimal, Decimal]:
-    """130 (DECISIONS 130): how far below and above the invoice amount converted at the MNB rate a forint card line may
-    be for the pair to be proposed, as fractions (0.02, 0.05: -2% ... +5%). A proposal only; a person decides. 224:
-    `configs/finance.json` `reconcile.fx_tolerance` (until then in `policy.json`)."""
-    band = _bands()["fx_tolerance"]
-    return Decimal(str(band["below"])), Decimal(str(band["above"]))
-
-
-def fx_bank_tolerance(basis: str) -> tuple[Decimal, Decimal]:
-    """149: how far below and above the invoice amount converted at the MNB rate of the `basis` day (fulfilment or
-    booking) a forint bank line may be for the pair to be proposed, as fractions. A proposal only; a person decides.
-    224: `configs/finance.json` `reconcile.fx_bank_tolerance`."""
-    band = _bands()["fx_bank_tolerance"][basis]
-    return Decimal(str(band["below"])), Decimal(str(band["above"]))
-
-
-def ai_sure_probability() -> float:
-    """147 (the owner's decision: 0.95): in the quick review, the AI's kind of payment counts as sure when both engines
-    give the same kind and JEV's probability is at least this. 224: `configs/finance.json` `reconcile.ai_sure`."""
-    return float(_bands()["ai_sure"]["min_jev_probability"])
-
-
-@lru_cache(maxsize=None)
-def _ignore_tokens() -> frozenset[str]:
-    """The legal forms and filler words a party name is compared without (shared with `fact_checks.same_party`)."""
-    return frozenset(cfg.load("fact_checks")["parties"]["ignore_tokens"])
-
-
-# --- normalisation (legacy payables.py) ----------------------------------------------------------------------------
-
-
-def normalize(value: Any) -> str:
-    """Lower-case ASCII words joined by single spaces: "INV-001/A" -> "inv 001 a"."""
-    return _normalized(str(value or ""))
-
-
-@lru_cache(maxsize=65536)
-def _normalized(value: str) -> str:
-    """149: memoised; one pairing normalises the same few thousand names and numbers some hundred thousand times."""
-    text = unicodedata.normalize("NFKD", value).casefold()
-    return " ".join(re.findall(r"[a-z0-9]+", "".join(c for c in text if not unicodedata.combining(c))))
-
-
-def category_mark(line: dict[str, Any]) -> str | None:
-    """140: the needs-no-invoice reason a line's own category suggests (`category_marks`: patterns on the normalised
-    description, the first that matches), or None. A suggestion for a person, never a mark by itself."""
-    text = normalize(line.get("description"))
-    if not text:
-        return None
-    return next((r["mark"] for r in _conf().get("category_marks", []) if re.search(r["pattern"], text)), None)
-
-
-def salary_mark(line: dict[str, Any]) -> str | None:
-    """147: the salary reason when a line's normalised memo or description matches a `salary_marks` pattern, or None.
-    A suggestion for a person, never a mark by itself."""
-    text = " ".join(normalize(line.get(k)) for k in ("memo", "description")).strip()
-    if text and any(re.search(p, text) for p in _conf().get("salary_marks", [])):
-        return "salary"
-    return None
-
-
-def compact(value: Any) -> str:
-    return normalize(value).replace(" ", "")
-
-
-def name_key(value: Any) -> str | None:
-    """A line's counterparty name without its reference numbers and single letters, so the monthly lines of one merchant
-    share it: "EXAMPLETEL*12345 BUDAPEST" -> "exampletel budapest" (131); None when nothing is left."""
-    words = [w for w in normalize(value).split() if len(w) > 1 and not any(ch.isdigit() for ch in w)]
-    return " ".join(words) or None
-
-
-def supplier_keys(invoice: dict[str, Any]) -> set[str]:
-    """The keys a learnt name is tied to: the supplier's tax number and its name without legal forms and numbers, so an
-    invoice that lacks one of them still finds the name (131)."""
-    keys = set()
-    if tax := fact_checks.tax_party_key(invoice.get("supplier_tax_id")):
-        keys.add("tax:" + tax)
-    words = [w for w in normalize(invoice.get("supplier_name")).split()
-             if w not in _ignore_tokens() and not any(ch.isdigit() for ch in w)]
-    if words:
-        keys.add(" ".join(words))
-    return keys
-
-
-def name_words(name: Any) -> list[str]:
-    """134: a supplier's name as the signals compare it: cut after its legal form when an address or a remark follows
-    (`candidates.trim_after_legal_form`), without numbers, legal forms and filler words."""
-    return list(_name_words(str(name or "")))
-
-
-@lru_cache(maxsize=16384)
-def _name_words(name: str) -> tuple[str, ...]:
-    """151: memoised, as `_normalized`; one pairing compares each supplier's name with every line in its window."""
-    return tuple(w for w in normalize(trim_after_legal_form(name)).split()
-                 if w not in _ignore_tokens() and not any(ch.isdigit() for ch in w))
-
-
-def supplier_words(name: Any) -> list[str]:
-    """134: the words of a supplier's name a fuzzy match may use: `name_words` of `fuzzy_name.min_chars` letters."""
-    least = int(_conf()["signals"]["fuzzy_name"]["min_chars"])
-    return [w for w in name_words(name) if len(w) >= least]
-
-
-def line_words(payment: dict[str, Any]) -> list[str]:
-    """134: the words of a line's name (the counterparty, else the description) without numbers and short pieces."""
-    return list(_line_words(str(payment.get("counterparty_name") or payment.get("description") or "")))
-
-
-@lru_cache(maxsize=16384)
-def _line_words(name: str) -> tuple[str, ...]:
-    """151: memoised, as `_name_words`."""
-    return tuple(w for w in normalize(name).split() if len(w) >= 4 and not any(ch.isdigit() for ch in w))
-
-
-def common_words(invoices: Iterable[dict[str, Any]], lines: Iterable[dict[str, Any]]) -> frozenset[str]:
-    """134: the words too common to tie a name: in the names of `common_min` suppliers or more, or in the names of
-    `common_min` lines or more that make at least `common_share` of the different line names (a city on every card
-    line)."""
-    f = _conf()["signals"]["fuzzy_name"]
-    least = int(f["common_min"])
-    by_supplier: Counter[str] = Counter()
-    for words in {tuple(supplier_words(i.get("supplier_name"))) for i in invoices}:  # one supplier, however spelt
-        by_supplier.update(set(words))
-    keys = {" ".join(line_words(ln)) for ln in lines} - {""}
-    by_line: Counter[str] = Counter(w for key in keys for w in set(key.split()))
-    line_least = max(least, float(f["common_share"]) * len(keys))
-    return frozenset({w for w, n in by_supplier.items() if n >= least} | {w for w, n in by_line.items() if n >= line_least})
-
-
-@lru_cache(maxsize=65536)
-def _fuzzy_word(word: str, other: str) -> bool:
-    """The supplier's word begins the line's word (glued to a suffix), or the line's word begins the supplier's and
-    holds `min_prefix_share` of it (a name cut short on a card terminal), or they differ by about a letter. 151:
-    memoised (the configuration is read once per process, `_conf`)."""
-    f = _conf()["signals"]["fuzzy_name"]
-    least = int(f["min_chars"])
-    if other.startswith(word) or (len(other) >= max(least, float(f["min_prefix_share"]) * len(word)) and word.startswith(other)):
-        return True
-    return (min(len(word), len(other)) >= least and abs(len(word) - len(other)) <= 2
-            and SequenceMatcher(None, word, other).ratio() >= float(f["min_ratio"]))
-
-
-def _number_in(value: Any, text: str) -> bool:
-    """A document number in a line's text: as whole words, or without separators when long enough (128)."""
-    s = _conf()["signals"]
-    number, number_c = normalize(value), compact(value)
-    return len(number_c) >= int(s["min_number_chars"]) and bool(
-        _whole_word(number).search(normalize(text))
-        or (len(number_c) >= int(s["min_compact_number_chars"]) and number_c in compact(text)))
-
-
-@lru_cache(maxsize=16384)
-def _whole_word(number: str) -> re.Pattern[str]:
-    """174 (review 160 M-10): a normalised number as a whole-word pattern, compiled once. `re` keeps 512 patterns, and
-    a pairing of 1 500 invoices compiled thousands again and again (54 % of its 27 s)."""
-    return re.compile(r"(?<![a-z0-9])" + re.escape(number) + r"(?![a-z0-9])")
-
-
-def money(value: Any) -> Decimal:
-    """Only a canonical decimal string ("1234.5", "-10"); a separator is never guessed and nothing is rounded."""
-    if not isinstance(value, str) or not _MONEY.fullmatch(value):
-        raise ValueError("canonical money string required")
-    try:
-        amount = Decimal(value)
-    except InvalidOperation as exc:
-        raise ValueError("invalid amount") from exc
-    if not amount.is_finite():
-        raise ValueError("finite amount required")
-    return amount
-
-
-def line_id(statement_id: str, line: dict[str, Any], occurrence: int = 0) -> str:
-    """A statement line's stable id: its statement, a digest of its content and its occurrence among identical lines.
-    A re-extraction that inserts or drops another line does not shift it, unlike its position in the list."""
-    content = [str(line.get(k) or "") for k in ("booking_date", "direction", "amount", "counterparty_name",
-                                                   "counterparty_account", "memo", "description")]
-    digest = hashlib.sha256(json.dumps(content, ensure_ascii=False).encode("utf-8")).hexdigest()[:12]
-    return f"{statement_id[:16]}:{digest}:{occurrence}"
-
-
-def with_line_ids(statement_id: str, lines: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
-    seen: dict[str, int] = defaultdict(int)
-    out = []
-    for line in lines:
-        base = line_id(statement_id, line)
-        occurrence = seen[base]
-        seen[base] += 1
-        out.append({**line, "id": line_id(statement_id, line, occurrence)})
-    return out
-
-
-# --- the pure core -------------------------------------------------------------------------------------------------
 
 
 def _ids(rows: Iterable[dict[str, Any]], kind: str) -> dict[str, dict[str, Any]]:
@@ -464,12 +193,6 @@ def _ids(rows: Iterable[dict[str, Any]], kind: str) -> dict[str, dict[str, Any]]
     return out
 
 
-def statement_account(statement: dict[str, Any]) -> str:
-    """The own account a statement belongs to: its account key, else its printed account, else the statement itself."""
-    key = account_key(statement.get("account"))
-    return key or ("raw:" + compact(statement.get("account")) if compact(statement.get("account")) else "doc:" + str(statement["id"]))
-
-
 def _payments(statements: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Every line as a payment row carrying its statement's account, currency and verification."""
     rows = []
@@ -478,31 +201,6 @@ def _payments(statements: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]
             rows.append({**line, "statement_id": sid, "own_account": statement_account(st), "currency": st.get("currency"),
                          "statement_type": st.get("statement_type"), "statement_verified": bool(st.get("verified"))})
     return _ids(rows, "line")
-
-
-def outgoing(invoice: dict[str, Any]) -> bool:
-    """148: whether the invoice is an own party's outgoing invoice: its direction when known (147), else its type."""
-    return invoice["direction"] == "outgoing" if invoice.get("direction") else type_roles.has(invoice.get("doc_type"), "outgoing_invoice")
-
-
-def pays(payment: dict[str, Any], invoice: dict[str, Any]) -> bool:
-    """148: whether the line is on the invoice's side: an outgoing payment (debit) pays an incoming invoice, incoming
-    money (credit) an outgoing one."""
-    return (payment.get("direction") == "credit") == outgoing(invoice)
-
-
-def partner_view(invoice: dict[str, Any]) -> dict[str, Any]:
-    """148: the invoice as the signals compare it: the supplier fields carry its partner, the supplier of an incoming
-    invoice and the buyer of an outgoing one; an outgoing invoice's bank account is the own party's, so it ties nothing."""
-    if not outgoing(invoice):
-        return invoice
-    return {**invoice, "supplier_name": invoice.get("buyer_name"), "supplier_tax_id": invoice.get("buyer_tax_id"),
-            "payment_account": None}
-
-
-def partner_name(invoice: dict[str, Any]) -> Any:
-    """148: the name the invoice is shown by: its partner's (`partner_view`), the buyer of an outgoing invoice."""
-    return partner_view(invoice).get("supplier_name")
 
 
 def _supplier_key(invoice: dict[str, Any]) -> str:
@@ -530,7 +228,7 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
     """Sorts the invoices and the lines into eligible and excluded (with a reason code) before any pairing. 169: an
     invoice a person left out of a reconciliation package (`left_out`, that package's snapshot only) is excluded as
     `left_out_by_person`, before any other reason."""
-    conf = _conf()
+    conf = reconcile_rules._conf()
     currencies = set(conf["currencies"])
     left_out = set(snapshot.get("left_out") or ())
     invoices = _ids(snapshot.get("invoices", []), "invoice")
@@ -682,86 +380,6 @@ def _settled(snapshot: dict[str, Any], prepared: dict[str, Any]) -> Settled:
     return rejected, confirmed, dict(paid_line), dict(paid_invoice), unfit
 
 
-def window(invoice: dict[str, Any]) -> tuple[date, date]:
-    """The days a payment of the invoice is searched in."""
-    w = _conf()["window"]
-    issue = values.stored_day(invoice["issue_date"])
-    end = values.stored_day(invoice.get("due_date")) or issue
-    return issue - timedelta(days=int(w["days_before_issue"])), max(end, issue) + timedelta(days=int(w["days_after_due"]))
-
-
-def _line_text(payment: dict[str, Any]) -> str:
-    return normalize(f"{payment.get('counterparty_name') or ''} {payment.get('description') or ''} {payment.get('memo') or ''}")
-
-
-def through_app(payment: dict[str, Any]) -> bool:
-    """Whether the line names the payment app of a configured channel (131): such a line pays many suppliers."""
-    text = _line_text(payment)
-    return any(re.search(ch["line_text"], text) for ch in _conf()["payment_channels"])
-
-
-def _channel(invoice: dict[str, Any], payment: dict[str, Any]) -> bool:
-    """The invoice's payment method fits a channel and the line names that channel's payment app (131)."""
-    method, text = normalize(invoice.get("payment_method")), _line_text(payment)
-    return bool(method) and any(re.search(ch["invoice_method"], method) and re.search(ch["line_text"], text)
-                                for ch in _conf()["payment_channels"])
-
-
-def named(invoice: dict[str, Any], payment: dict[str, Any]) -> list[str]:
-    """The signals of a line's text naming the invoice (`NAMED_SIGNALS`): its number, a reference of it."""
-    text = f"{payment.get('memo') or ''} {payment.get('description') or ''}"
-    found = ["invoice_number"] if _number_in(invoice.get("number"), text) else []
-    if any(_number_in(ref, text) for ref in invoice.get("references") or []):
-        found.append("reference")
-    return found
-
-
-def signals(invoice: dict[str, Any], payment: dict[str, Any], learned: set[tuple[str, str]] | None = None,
-            common: frozenset[str] | None = None) -> list[str]:
-    """The facts that tie a line to an invoice; the amount is never one of them. `learned`: the (name key, supplier key)
-    pairs of a person's confirmations; `common`: the words too common to tie a name (both from `signal_context`)."""
-    s = _conf()["signals"]
-    found = named(invoice, payment)
-    account = account_key(invoice.get("payment_account"))
-    if account and account == account_key(payment.get("counterparty_account")):
-        found.append("supplier_account")
-    supplier = set(name_words(invoice.get("supplier_name")))  # 134: without a printed address after the legal form
-    counterparty = set(normalize(payment.get("counterparty_name") or payment.get("description")).split())
-    if supplier and len(supplier & counterparty) / len(supplier) >= float(s["min_name_share"]):
-        found.append("supplier_name")
-    else:
-        # a glued or misread word; a whole word only when it leads the supplier's name (its brand), else the share rule
-        # above decides, so two suppliers sharing a trade word ("... Waterworks") are not tied by it
-        common = common or frozenset()
-        words = supplier_words(invoice.get("supplier_name"))
-        mine = [w for w in words if w not in common]
-        theirs = [w for w in line_words(payment) if w not in common]
-        if any((w != o and _fuzzy_word(w, o)) or (w == o and w == words[0]) for w in mine for o in theirs):
-            found.append("supplier_name_fuzzy")
-    if _channel(invoice, payment):
-        found.append("payment_channel")
-    key = name_key(payment.get("counterparty_name"))
-    if learned and key and any((key, sk) in learned for sk in supplier_keys(invoice)):
-        found.append("learned_name")
-    return found
-
-
-def strength(invoice: dict[str, Any], payment: dict[str, Any], found: list[str], relation: str | None,
-             in_window: bool = True) -> dict[str, Any]:
-    """134: how strongly a candidate is tied, 0-100, from its signals, its amounts and when the line was booked
-    (`strength` weights), with the days from the issue date and whether it was booked by the due date (`grace_days`
-    after it). An order and a reason for a person, not a threshold. 143: a pair outside the invoice's payment window
-    (`in_window` False, only the finder compares one) gets no timing weight."""
-    w = _conf()["strength"]
-    issue, booked = values.stored_day(invoice.get("issue_date")), values.stored_day(payment.get("booking_date"))
-    due = values.stored_day(invoice.get("due_date")) or issue
-    days = (booked - issue).days if issue and booked else None
-    by_due = bool(issue and booked and due and issue <= booked <= max(due, issue) + timedelta(days=int(w["grace_days"])))
-    score = sum(int(w["signals"].get(s, 0)) for s in found) + int(w["amount"].get(relation or "", 0))
-    score += int(w["timing"]["by_due"] if by_due else w["timing"]["in_window"] if in_window else 0)
-    return {"strength": min(score, int(w["max"])), "days_after_issue": days, "by_due": by_due}
-
-
 def signal_context(snapshot: dict[str, Any]) -> dict[str, Any]:
     """The snapshot-wide inputs of `signals` (134): the names a person's confirmations teach and the common words."""
     prepared = prepare(snapshot)
@@ -778,7 +396,7 @@ def _learned(prepared: dict[str, Any], confirmed: list[dict[str, Any]]) -> set[t
         if key is None or through_app(line):
             continue
         counts.update((key, sk) for sk in supplier_keys(invoice))
-    least = int(_conf()["learning"]["min_confirmations"])
+    least = int(reconcile_rules._conf()["learning"]["min_confirmations"])
     return {pair for pair, n in counts.items() if n >= least}
 
 
@@ -786,181 +404,6 @@ def learned_names(snapshot: dict[str, Any]) -> set[tuple[str, str]]:
     """The names a snapshot's confirmations teach (`_learned`), for the views that show a pair's signals."""
     prepared = prepare(snapshot)
     return _learned(prepared, _settled(snapshot, prepared)[1])
-
-
-def fx_capable(payment: dict[str, Any]) -> bool:
-    """Whether a line can pay an invoice of another currency: a forint line of a card statement (130)."""
-    f = _conf()["fx"]
-    return payment.get("currency") == f["line_currency"] and payment.get("statement_type") in f["statement_types"]
-
-
-def fx_bank_capable(payment: dict[str, Any]) -> bool:
-    """149: a forint line of a bank account statement (`fx.bank.statement_types`); `meets` leaves out a card purchase
-    the statement prints with its original currency."""
-    f = _conf()["fx"]
-    return payment.get("currency") == f["line_currency"] and payment.get("statement_type") in f["bank"]["statement_types"]
-
-
-def bank_rate_days(invoice: dict[str, Any], payment: dict[str, Any]) -> list[tuple[str, date]]:
-    """149: the days whose MNB rate a forint bank line is compared at, in the order of `fx.bank.rate_days`: the
-    invoice's fulfilment day (its issue day when none was read) and the line's booking day."""
-    days = {"fulfillment": values.stored_day(invoice.get("fulfillment_date")) or values.stored_day(invoice.get("issue_date")),
-            "booking": values.stored_day(payment.get("booking_date"))}
-    return [(basis, day) for basis in _conf()["fx"]["bank"]["rate_days"] if (day := days.get(basis))]
-
-
-def original(payment: dict[str, Any]) -> tuple[str, Decimal] | None:
-    """137: a card purchase's original currency and amount, as the bank printed them next to the forint line."""
-    currency, amount = payment.get("original_currency"), payment.get("original_amount")
-    if not currency or amount in (None, ""):
-        return None
-    try:
-        return str(currency), money(str(amount))
-    except (ValueError, InvalidOperation):
-        return None
-
-
-def meets(invoice: dict[str, Any], payment: dict[str, Any]) -> str | None:
-    """How a line can pay an invoice: `same` (one currency), `original` (137: a card purchase in the invoice's
-    currency), `fx` (130: a forint card line against another currency, through the MNB rate), `fx_bank` (149: a forint
-    bank line against another currency, through the MNB rate of the fulfilment or the booking day), or None."""
-    if invoice.get("currency") == payment.get("currency"):
-        return "same"
-    if (orig := original(payment)) is not None and orig[0] == invoice.get("currency"):
-        return "original"
-    if fx_capable(payment) and rate_need(invoice):
-        return "fx"
-    if fx_bank_capable(payment) and original(payment) is None and rate_need(invoice):
-        return "fx_bank"  # a card purchase printed with its original currency is that currency's, not converted
-    return None
-
-
-def pair_window(invoice: dict[str, Any], payment: dict[str, Any]) -> tuple[date, date] | None:
-    """The days the line may be booked in to pay the invoice: its payment window in one currency, the card window
-    around the issue date otherwise; None when their currencies cannot meet."""
-    how = meets(invoice, payment)
-    if how is None:
-        return None
-    return window(invoice) if how in ("same", "fx_bank") else fx_window(invoice)  # 149: a bank line in the payment window
-
-
-def fx_window(invoice: dict[str, Any]) -> tuple[date, date]:
-    """The days a card payment of the invoice is searched in: around its issue date (the day of the purchase)."""
-    w = _conf()["fx"]["window"]
-    issue = values.stored_day(invoice["issue_date"])
-    return issue - timedelta(days=int(w["days_before_issue"])), issue + timedelta(days=int(w["days_after_issue"]))
-
-
-def rate_need(invoice: dict[str, Any]) -> tuple[str, date] | None:
-    """The (currency, day) whose rate a card pair of the invoice needs: its currency on its issue date."""
-    issue = values.stored_day(invoice.get("issue_date"))
-    currency = invoice.get("currency")
-    if not issue or not currency or currency == _conf()["fx"]["line_currency"]:
-        return None
-    return str(currency), issue
-
-
-def convert(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, Any] | None) -> tuple[str, dict[str, str] | None]:
-    """The relation of a card line to an invoice of another currency (`fx_within`, `fx_outside` or `no_rate`) and the
-    conversion behind it: the rate and its day, the converted amount and the line's deviation from it."""
-    if meets(invoice, payment) == "fx_bank":
-        return _convert_bank(invoice, payment, rates)
-    need = rate_need(invoice)
-    entry = (rates or {}).get(need[0], {}).get(need[1].isoformat()) if need else None
-    if not entry:
-        return "no_rate", None
-    per_unit = Decimal(str(entry["rate"]))
-    expected = money(str(invoice["amount"])) * per_unit
-    deviation = money(str(payment["amount"])) / expected - 1
-    below, above = fx_tolerance()
-    relation = "fx_within" if -below <= deviation <= above else "fx_outside"
-    return relation, {"rate": str(entry["rate"]), "rate_day": str(entry["rate_day"]), "source": str(entry.get("source") or "mnb"),
-                      "converted": str(expected.quantize(Decimal("0.01"))), "deviation": str(deviation.quantize(Decimal("0.0001")))}
-
-
-def _convert_bank(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, Any] | None
-                  ) -> tuple[str, dict[str, str] | None]:
-    """149: a forint bank line against an invoice of another currency, at the MNB rate of each `bank_rate_days` day in
-    turn, each with its band (`fx_bank_tolerance`): the first within makes `fx_within`, otherwise the
-    nearest is `fx_outside`; `no_rate` without any rate. The conversion names the day's kind (`basis`)."""
-    currency, amount, paid = str(invoice.get("currency")), money(str(invoice["amount"])), money(str(payment["amount"]))
-    nearest: tuple[Decimal, dict[str, str]] | None = None
-    for basis, day in bank_rate_days(invoice, payment):
-        entry = (rates or {}).get(currency, {}).get(day.isoformat())
-        if not entry:
-            continue
-        expected = amount * Decimal(str(entry["rate"]))
-        deviation = paid / expected - 1
-        conversion = {"rate": str(entry["rate"]), "rate_day": str(entry["rate_day"]), "source": str(entry.get("source") or "mnb"),
-                      "basis": basis, "converted": str(expected.quantize(Decimal("0.01"))),
-                      "deviation": str(deviation.quantize(Decimal("0.0001")))}
-        below, above = fx_bank_tolerance(basis)
-        if -below <= deviation <= above:
-            return "fx_within", conversion
-        if nearest is None or abs(deviation) < nearest[0]:
-            nearest = (abs(deviation), conversion)
-    return ("fx_outside", nearest[1]) if nearest else ("no_rate", None)
-
-
-def convert_combined(invoices: list[dict[str, Any]], payment: dict[str, Any], rates: dict[str, Any] | None
-                     ) -> tuple[str, dict[str, Any] | None]:
-    """151: one forint bank line against two or more invoices of one other currency it pays together. Their sum is
-    converted at the MNB rate of each `bank_rate_days` day in turn (each invoice at its own fulfilment day, all at the
-    line's booking day), each with its band: the first within makes `fx_within`, otherwise the nearest is `fx_outside`;
-    `no_rate` unless every invoice has a rate on some day. The conversion: the day's kind (`basis`), the converted sum,
-    the line's deviation from it, and each invoice's own conversion (`parts`, in the order given)."""
-    paid = money(str(payment["amount"]))
-    nearest: tuple[Decimal, dict[str, Any]] | None = None
-    for basis in _conf()["fx"]["bank"]["rate_days"]:
-        parts = []
-        for inv in invoices:
-            day = dict(bank_rate_days(inv, payment)).get(basis)
-            entry = (rates or {}).get(str(inv.get("currency")), {}).get(day.isoformat()) if day else None
-            if not entry:
-                break
-            converted = money(str(inv["amount"])) * Decimal(str(entry["rate"]))
-            parts.append({"rate": str(entry["rate"]), "rate_day": str(entry["rate_day"]), "source": str(entry.get("source") or "mnb"),
-                          "basis": basis, "converted": str(converted.quantize(Decimal("0.01")))})
-        if len(parts) < len(invoices):
-            continue
-        total = sum((money(p["converted"]) for p in parts), Decimal(0))
-        deviation = paid / total - 1
-        conversion = {"basis": basis, "converted": str(total.quantize(Decimal("0.01"))),
-                      "deviation": str(deviation.quantize(Decimal("0.0001"))), "parts": parts}
-        below, above = fx_bank_tolerance(basis)
-        if -below <= deviation <= above:
-            return "fx_within", conversion
-        if nearest is None or abs(deviation) < nearest[0]:
-            nearest = (abs(deviation), conversion)
-    return ("fx_outside", nearest[1]) if nearest else ("no_rate", None)
-
-
-def split_line(amount: Decimal, conversion: dict[str, Any]) -> list[Decimal]:
-    """151: a line's amount shared among the invoices of a combined conversion in the ratio of their converted amounts,
-    to two decimals; the rounding goes to the last, so the shares add up to the amount exactly."""
-    weights = [money(p["converted"]) for p in conversion["parts"]]
-    total = sum(weights, Decimal(0))
-    shares = [(amount * w / total).quantize(Decimal("0.01")) for w in weights[:-1]]
-    return [*shares, amount - sum(shares, Decimal(0))]
-
-
-def amount_relation(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, Any] | None = None
-                    ) -> tuple[str | None, dict[str, str] | None]:
-    """How a line's amount relates to an invoice's: `equal` / `different` in one currency or on a card purchase's
-    original amount (137), the conversion for a card line of another currency (`convert`), None when the amounts cannot
-    be compared."""
-    try:
-        how = meets(invoice, payment)
-        if how == "same":
-            return ("equal" if money(str(payment.get("amount"))) == money(str(invoice.get("amount"))) else "different"), None
-        if how == "original":  # 137: the card purchase's original amount, exactly
-            orig = original(payment)
-            return ("equal" if orig is not None and orig[1] == money(str(invoice.get("amount"))) else "different"), None
-        if how in ("fx", "fx_bank"):
-            return convert(invoice, payment, rates)
-    except (ValueError, InvalidOperation, ZeroDivisionError):
-        return None, None
-    return None, None
 
 
 def compare(invoice: dict[str, Any], payment: dict[str, Any], learned: set[tuple[str, str]] | None = None,
@@ -1050,7 +493,7 @@ def _combine(candidates: list[dict[str, Any]], prepared: dict[str, Any], rest_in
     naming two or more invoices of one other currency whose sum, converted as `convert_combined` does, is within its
     band (the pairs of two currencies are untouched on both sides, `propose`); each pair carries its own conversion at
     the day that decided (`fx`) and the group's (`combined_fx`)."""
-    limit = int(_conf()["combined"]["max_invoices"])
+    limit = int(reconcile_rules._conf()["combined"]["max_invoices"])
     by_line: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for c in candidates:
         by_line[c["line_id"]].append(c)
@@ -1094,7 +537,7 @@ def _repeats(prepared: dict[str, Any], candidates: list[dict[str, Any]], confirm
     days before the issue date paid another month, as for a candidate). A line a person marked, or rejected for the
     invoice, does not count. Each with the lines (`paid_by`: those allocated or proposed) and the signals of the others."""
     learned, common = context
-    unnamed_days = int(_conf()["proposal"]["unnamed_days_before_issue"])
+    unnamed_days = int(reconcile_rules._conf()["proposal"]["unnamed_days_before_issue"])
     proposals: dict[str, set[tuple[str, ...]]] = defaultdict(set)  # a line's proposals: one invoice, or a combined group
     for c in candidates:
         if c["proposed"]:
@@ -1155,8 +598,8 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     paid_invoices = {iid for iid, rest in rest_invoice.items() if rest <= 0}
     paid_lines = {pid for pid, rest in rest_line.items() if rest <= 0}
     rates = snapshot.get("fx_rates") or {}
-    amount_only = bool(_conf()["amount_only"]["enabled"])
-    unnamed_days = int(_conf()["proposal"]["unnamed_days_before_issue"])
+    amount_only = bool(reconcile_rules._conf()["amount_only"]["enabled"])
+    unnamed_days = int(reconcile_rules._conf()["proposal"]["unnamed_days_before_issue"])
     candidates = []
     # 149: the open invoices with what they have left, sorted once (the rests do not change in the loop); 151: with
     # their payment window and card window, so a line booked outside both is passed over before the costlier checks
@@ -1225,7 +668,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
                                     or (c["amount_only"] and (open_line[c["line_id"]] > 1 or open_invoice[c["invoice_id"]] > 1)))
     in_scope = {k: st for k, st in prepared["statements"].items() if k in scope}
     periods = coverage(in_scope)
-    f = _conf()["fx"]
+    f = reconcile_rules._conf()["fx"]
     purchases = {statement_account(st) for st in in_scope.values()  # 137: an account printing card purchases' originals
                  if any(original(ln) for ln in st.get("lines") or [])}
     card_accounts = {(statement_account(st), str(st.get("currency"))) for st in in_scope.values()
@@ -1322,318 +765,6 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
                      "lines": {k: str(v) for k, v in sorted(paid_line.items())}},
             "coverage": [{"account": a, "currency": c, "periods": [[s.isoformat(), e.isoformat()] for s, e in p]}
                          for (a, c), p in sorted(periods.items())]}
-
-
-# --- the store adapter (read-only) ---------------------------------------------------------------------------------
-
-
-def _has_table(c, name: str) -> bool:
-    return c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
-
-
-def verified(validation: Any) -> bool:
-    """Whether a statement's lines are complete by its balance checks (`verified_when`)."""
-    if isinstance(validation, str):
-        try:
-            validation = json.loads(validation)
-        except ValueError:
-            return False
-    results = {r.get("name"): r for r in validation or [] if isinstance(r, dict)}
-    return all(name in results and results[name].get("ok") is True and results[name].get("code") in codes
-               for name, codes in _conf()["verified_when"].items())
-
-
-_CONTROL = re.compile(r"[\x00-\x1f\x7f]+")
-
-
-def printable(value: Any) -> Any:
-    """167 (review 153 E): a name without the control characters a PDF's text layer may carry (a broken glyph read as
-    NUL), which the result table showed as they were; a run of them becomes one space. Other values stay as they are."""
-    return " ".join(_CONTROL.sub(" ", value).split()) if isinstance(value, str) else value
-
-
-def _counted(types: list[str]) -> list[dict[str, Any]]:
-    """The counted result of every document of the given types, with the latest correction of its run item. 174 (plan
-    170 L2, decisions 160 D3/D4 and 170 K17): the package's current result across every package the document is in
-    (`package_result.counted_documents`); before, the store's latest result row, a later trial's too."""
-    with store.connect() as c:
-        return _documents(c, package_result.counted_documents(c), types)
-
-
-def _documents(c, counted: dict[str, Any], types: list[str]) -> list[dict[str, Any]]:
-    """The documents of `counted` (`package_result.CountedDocument` by document) of the given types, in the order of
-    processing, with their effective values. A store without the work tables (a measurement store) has no run items
-    and no corrections."""
-    rows = package_result.result_rows(c, counted, "datapoints, validation", types=types)
-    # 154 (DECISIONS 154): the documents that came as an attachment of an email routed as suspicious
-    from jav.core.todo_kinds import SUSPICIOUS_ATTACHMENT
-
-    suspicious = ({r["run_id"] for r in c.execute("SELECT DISTINCT run_id FROM review_reasons WHERE reason=?",
-                                                  (SUSPICIOUS_ATTACHMENT,))}
-                  if _has_table(c, "review_reasons") else set())
-    corrected = package_result.latest_corrections(c)
-    out = []
-    for r in rows:
-        x = counted[r["doc_id"]]
-        values = package_result.effective_values(json.loads(r["datapoints"] or "{}"), corrected.get((x.work_run, x.item_id)))
-        out.append({"doc_id": r["doc_id"], "doc_type": r["doc_type"], "values": values, "validation": r["validation"],
-                    "seq": int(r["seq"]), "flow_run_id": r["run_id"], "work_run": x.work_run, "item_id": x.item_id,
-                    "suspicious_source": r["run_id"] in suspicious})
-    return out
-
-
-def _amount(values: dict[str, Any]) -> str | None:
-    """The amount to pay: the first of the configured fields with a positive canonical amount, else the last present."""
-    present = [values.get(f) for f in _conf()["invoice_fields"]["amount"] if values.get(f) not in (None, "")]
-    for value in present:
-        try:
-            if money(str(value)) > 0:
-                return str(value)
-        except ValueError:
-            continue
-    return str(present[-1]) if present else None
-
-
-def _first(values: dict[str, Any], fields: list[str]) -> Any:
-    """The first of the fields with a value (133: the buyer is `buyer_name` on an invoice, `customer_name` on a bill)."""
-    return next((values[f] for f in fields if values.get(f) not in (None, "")), None)
-
-
-def _duplicate_marks() -> dict[str, str]:
-    """The duplicate decisions as invoice marks: the repeat of a confirmed copy is `copy`; both documents of a pair a
-    person called different (or a modified version) are `distinct`."""
-    marks: dict[str, str] = {}
-    with store.connect() as c:
-        if not _has_table(c, "duplicate_decisions"):
-            return marks
-        for r in c.execute("SELECT doc_id, other_doc_id, decision FROM duplicate_decisions"):
-            if r["decision"] == "copy":
-                marks[r["doc_id"]] = "copy"
-            else:
-                marks.setdefault(r["doc_id"], "distinct")
-                marks.setdefault(r["other_doc_id"], "distinct")
-    return marks
-
-
-def _origin(d: dict[str, Any]) -> dict[str, Any]:
-    """Where a document's values come from: the order of processing and its flow and work run (not used by `propose`)."""
-    return {"seq": d.get("seq", 0), "flow_run_id": d.get("flow_run_id"), "work_run": d.get("work_run"), "item_id": d.get("item_id")}
-
-
-def _decision_rows(c=None) -> list[dict[str, Any]]:
-    if c is None:
-        with store.connect() as own:
-            return _decision_rows(own)
-    if not _has_table(c, "reconcile_decisions"):
-        return []
-    return [dict(r) for r in c.execute("SELECT * FROM reconcile_decisions ORDER BY pair_key")]
-
-
-def handles(doc_type: str | None) -> bool:
-    """Whether a document of this type takes part in the reconciliation as an incoming invoice or a statement."""
-    return type_roles.has(doc_type, "incoming_invoice") or type_roles.has(doc_type, "statement")
-
-
-def bank_rate_needs(invoices: list[dict[str, Any]], statements: list[dict[str, Any]]) -> set[tuple[str, date]]:
-    """149: the (currency, day) rates a forint bank line may need: each foreign-currency invoice's fulfilment (else
-    issue) day, and every booking day of the forint bank lines in each foreign currency present."""
-    f, currencies = _conf()["fx"], set(_conf()["currencies"])
-    banks = [s for s in statements if s.get("statement_type") in f["bank"]["statement_types"] and s.get("currency") == f["line_currency"]]
-    foreign = [inv for inv in invoices if rate_need(inv) and inv.get("currency") in currencies]
-    if not banks or not foreign:
-        return set()
-    needs = {(str(inv["currency"]), day) for inv in foreign
-             if (day := values.stored_day(inv.get("fulfillment_date")) or values.stored_day(inv.get("issue_date")))}
-    days = {day for s in banks for ln in s.get("lines") or [] if (day := values.stored_day(ln.get("booking_date")))}
-    return needs | {(cur, day) for cur in {str(inv["currency"]) for inv in foreign} for day in days}
-
-
-@store.one_connection
-def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False) -> dict[str, Any]:
-    """The store's effective invoices and statements, the people's decisions and the exchange rates a card pair needs,
-    as a snapshot for `propose`. `current` (doc_id, doc_type, values, validation): the document being processed, in
-    place of its stored result. `fetch_rates`: fetch the missing MNB rates first (the processing and the command line);
-    a view only reads the stored ones."""
-    from jav.app import parties  # 147: an invoice's direction from the own parties' identities
-    from jav.domains.finance import own_parties
-
-    conf = _conf()
-    f = conf["invoice_fields"]
-    marks = _duplicate_marks()
-    res = parties.resolver()
-    docs = _counted([*type_roles.types("incoming_invoice"), *type_roles.types("outgoing_invoice"), *type_roles.types("statement")])
-    if current is not None:
-        docs = [d for d in docs if d["doc_id"] != current["doc_id"]]
-        docs.append({**current, "seq": max((d["seq"] for d in docs), default=0) + 1})
-    invoices, statements = [], []
-    for d in docs:
-        v = d["values"]
-        if type_roles.has(d["doc_type"], "statement"):
-            statements.append(_statement(d))
-        else:
-            invoices.append({"id": d["doc_id"], "doc_type": d["doc_type"], "number": v.get(f["number"]),
-                             "supplier_name": printable(v.get(f["supplier_name"])), "supplier_tax_id": v.get(f["supplier_tax_id"]),
-                             "payment_account": _first(v, f["payment_account"]), "payment_method": v.get(f["payment_method"]),
-                             "references": [str(v[r]) for r in f["references"] if v.get(r) not in (None, "")],
-                             "amount": _amount(v),
-                             "currency": v.get(f["currency"]), "issue_date": v.get(f["issue_date"]),
-                             "due_date": v.get(f["due_date"]), "duplicate": marks.get(d["doc_id"]),
-                             **{k: v.get(f[k]) for k in ("fulfillment_date", "net_total", "vat_total")},  # 142: shown only
-                             "buyer_name": printable(_first(v, f["buyer_name"])), "buyer_tax_id": _first(v, f["buyer_tax_id"]),
-                             "direction": own_parties.direction(res, d["doc_type"], v)[0], **_origin(d)})
-    # 139 (DECISIONS 139): one valid statement per account, currency and day; a replaced statement's decisions move to
-    # the same lines of the one replacing it, and what has no same line is left over (`left_over`)
-    from jav.domains.finance import statement_months
-
-    resolution = statement_months.resolve(statements, statement_months.choices())
-    every = {s["id"]: s for s in statements}
-    statements = resolution.live(statements)
-    decisions, left_decisions = statement_months.carry(
-        ({"invoice_id": r["invoice_doc_id"], "line_id": r["line_id"], "statement_id": r["statement_doc_id"],
-          "decision": r["decision"], "pair_key": r["pair_key"]} for r in _decision_rows()), resolution)
-    allocations, left_allocations = statement_months.carry(active_allocations(), resolution)
-    marks, left_marks = statement_months.carry(active_marks(), resolution)
-    f = conf["fx"]
-    cards = any(s.get("statement_type") in f["statement_types"] and s.get("currency") == f["line_currency"] for s in statements)
-    needs = {n for inv in invoices if (n := rate_need(inv)) and inv.get("currency") in conf["currencies"]} if cards else set()
-    needs |= bank_rate_needs(invoices, statements)
-    rates = fx.table(needs, fetch_missing=fetch_rates) if needs else {}
-    return {"invoices": invoices, "statements": statements, "decisions": decisions, "fx_rates": rates,
-            "allocations": allocations, "marks": marks,
-            "registered_accounts": sorted(parties.registered_accounts()),  # 153: the own accounts a party holds
-            "replaced": {old: {"by": r.new, "how": r.how, "account": statement_account(every[old]),
-                               **{k: every[old].get(k) for k in ("currency", "period_start", "period_end", "doc_type", "work_run")},
-                               "lines": every[old]["lines"]}
-                         for old, r in sorted(resolution.replaced.items())},
-            "conflicts": [list(p) for p in resolution.conflicts], "line_map": dict(resolution.line_map),
-            "left_over": {"allocations": left_allocations, "marks": left_marks, "decisions": left_decisions}}
-
-
-def _statement(d: dict[str, Any]) -> dict[str, Any]:
-    """A stored statement in the snapshot's shape."""
-    v = d["values"]
-    lines = [t for t in v.get("transactions") or [] if isinstance(t, dict)]
-    return {"id": d["doc_id"], "doc_type": d["doc_type"], "account": v.get("account_iban") or v.get("account_no"),
-            "currency": v.get("currency"), "statement_type": v.get("statement_type"),
-            "period_start": v.get("period_start"), "period_end": v.get("period_end"),
-            "opening_balance": v.get("opening_balance"), "closing_balance": v.get("closing_balance"),
-            "verified": verified(d["validation"]), "lines": [_masked(ln) for ln in with_line_ids(d["doc_id"], lines)],
-            "suspicious_source": bool(d.get("suspicious_source")),  # 154: never replaces another statement by rule
-            **_origin(d)}
-
-
-def _masked(line: dict[str, Any]) -> dict[str, Any]:
-    """144 (DECISIONS 144): a full card number in a line's texts is masked to its first six and last four digits for every
-    view and request (a statement extracted by AI kept it). The id is taken first, so the decisions on the line stay."""
-    from jav.core import card_numbers
-
-    return {**line, **{k: card_numbers.mask_text(line[k]) for k in ("memo", "description", "counterparty_name") if line.get(k)}}
-
-
-def statements() -> list[dict[str, Any]]:
-    """139: every stored statement in the snapshot's shape, a replaced one too (`jav/domains/finance/statement_months.py` decides); 174:
-    each by its counted result."""
-    return [_statement(d) for d in _counted(list(type_roles.types("statement")))]
-
-
-def run_statements(run_id: str) -> list[dict[str, Any]]:
-    """174 (plan 170 L2): the statements of one run's finished items, by that run's own results and corrections, whatever
-    counts now (the statement package's rule after an approval reads the approved run)."""
-    with store.connect() as c:
-        return [_statement(d) for d in _documents(c, package_result.run_documents(c, run_id), list(type_roles.types("statement")))]
-
-
-def active_allocations(c=None) -> list[dict[str, Any]]:
-    """131: the allocations not revoked, in the order they were made, in the core's shape."""
-    if c is None:
-        with store.connect() as own:
-            return active_allocations(own)
-    if not _has_table(c, "reconcile_allocations"):
-        return []
-    return [{"id": r["id"], "invoice_id": r["invoice_doc_id"], "line_id": r["line_id"], "statement_id": r["statement_doc_id"],
-             "line_amount": r["line_amount"], "invoice_amount": r["invoice_amount"], "workpackage_id": r["workpackage_id"]}
-            for r in c.execute("SELECT * FROM reconcile_allocations WHERE revoked_at IS NULL ORDER BY id")]
-
-
-def active_marks(c=None) -> list[dict[str, Any]]:
-    """131: the lines a person marked as needing no invoice, not revoked (the latest per line counts)."""
-    if c is None:
-        with store.connect() as own:
-            return active_marks(own)
-    if not _has_table(c, "reconcile_line_marks"):
-        return []
-    latest: dict[str, dict[str, Any]] = {}
-    for r in c.execute("SELECT * FROM reconcile_line_marks WHERE revoked_at IS NULL ORDER BY id"):
-        latest[r["line_id"]] = {"id": r["id"], "line_id": r["line_id"], "statement_id": r["statement_doc_id"],
-                                "category": r["category"], "note": r["note"], "workpackage_id": r["workpackage_id"]}
-    return list(latest.values())
-
-
-# --- the decisions on the pairs (129, K2; made in the reconciliation package since 137) ----------------------------------
-
-
-def pair_key(invoice_id: str, line: str) -> str:
-    return f"{invoice_id}|{line}"
-
-
-def _waits(candidate: dict[str, Any]) -> bool:
-    """Whether a candidate waits for a person: proposed, or listed for its equal amount alone (131)."""
-    return candidate["proposed"] or candidate["amount_only"]
-
-
-def decisions_for(doc_ids: Iterable[str], c=None) -> list[dict[str, Any]]:
-    """The decisions on the pairs that have any of the documents as a side, in a fixed order."""
-    ids = set(doc_ids)
-    return [d for d in _decision_rows(c) if d["invoice_doc_id"] in ids or d["statement_doc_id"] in ids] if ids else []
-
-
-def file_names(doc_ids: Iterable[str]) -> dict[str, str]:
-    ids = sorted(set(doc_ids))
-    if not ids:
-        return {}
-    out: dict[str, str] = {}
-    with store.connect() as c:
-        for start in range(0, len(ids), 500):  # stays under the SQLite parameter limit
-            chunk = ids[start:start + 500]
-            for r in c.execute(f"SELECT doc_id, source_path FROM documents WHERE doc_id IN ({','.join('?' * len(chunk))})", chunk):
-                out[r["doc_id"]] = Path(r["source_path"] or "").name
-    return out
-
-
-# --- the pairs already in the store ------------------------------------------------------------------------------------
-
-
-def scan() -> dict[str, Any]:
-    """Counts of the store's proposal for the command line (no values printed). 137: it opens no to-do; the pairs are
-    decided in a reconciliation package."""
-    snap = snapshot(fetch_rates=True)
-    result = propose(snap)
-
-    def count(rows: list[dict[str, Any]], key: str) -> dict[str, int]:
-        return dict(sorted(Counter(str(r.get(key)) for r in rows).items()))
-
-    statements = snap["statements"]
-    return {
-        "statements": len(statements), "verified_statements": sum(1 for s in statements if s["verified"]),
-        "lines": sum(len(s["lines"]) for s in statements), "invoices": len(snap["invoices"]),
-        "excluded_invoices": count([e for e in result["excluded"] if e["kind"] == "invoice"], "reason"),
-        "excluded_lines": count([e for e in result["excluded"] if e["kind"] == "line"], "reason"),
-        "proposed_pairs": sum(1 for c in result["candidates"] if c["proposed"]),
-        "multiple_candidates": sum(1 for c in result["candidates"] if c["multiple_candidates"]),
-        "amount_only_pairs": sum(1 for c in result["candidates"] if c["amount_only"]),
-        "amount_differs_pairs": sum(1 for c in result["candidates"] if not _waits(c)),
-        "signals": count([{"s": s} for c in result["candidates"] for s in c["signals"]], "s"),
-        "learned_names": result["learned_names"],
-        "relations": count(result["candidates"], "amount_relation"),
-        "rates": sum(len(days) for days in snap["fx_rates"].values()),
-        "confirmed_pairs": len(result["confirmed"]), "decisions": count(_decision_rows(), "decision"),
-        "invoice_status": count(result["invoices"], "status"),
-        "unpaired_lines": len(result["unpaired_line_ids"]),
-        "config_hash": result["config_hash"], "engine_version": ENGINE_VERSION,
-    }
-
-
-# --- the synthetic golden cases (configs/golden_reconcile.json) ----------------------------------------------------
 
 
 def golden_cases() -> list[dict[str, Any]]:

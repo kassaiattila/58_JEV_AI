@@ -1,7 +1,7 @@
 """133 (backlog F-own-parties; DECISIONS 133): the own parties as the settings page and the reconciliation package see
 them.
 
-The observations come from the store's effective documents (`reconcile.snapshot`): the buyer side of every incoming
+The observations come from the store's effective documents (`reconcile_store.snapshot`): the buyer side of every incoming
 invoice, and for every own account its statements' span and the holder text at the top of a first page (`configs/
 parties.json` `holder_zone`). The overview gives every party its invoices, their span and its accounts, beside what the
 data proposes; accepting a suggestion recomputes the proposal first, so a stale page cannot apply an old one.
@@ -24,6 +24,7 @@ from jav.domains.finance import own_parties
 from jav.documents import source_layer
 from jav.core import cfg, identity, store, trace, type_roles, values
 from jav.domains.finance import reconcile, statement_months
+from jav.domains.finance import reconcile_store
 
 
 def _holder_text(statement: dict[str, Any]) -> str:
@@ -46,7 +47,7 @@ def _span(values: list[str]) -> tuple[str | None, str | None]:
 
 def observations(snap: dict[str, Any] | None = None, *, holder_text: bool = True) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """The buyer side of every incoming invoice, and every own account with its statements (`own_parties.suggest`'s input)."""
-    snap = snap if snap is not None else reconcile.snapshot()
+    snap = snap if snap is not None else reconcile_store.snapshot()
     outgoing = set(type_roles.types("outgoing_invoice"))
     invoices = [{"doc_id": i["id"], "name": i.get("buyer_name"), "tax_id": i.get("buyer_tax_id"),
                  "supplier_name": i.get("supplier_name"), "supplier_tax_id": i.get("supplier_tax_id"),
@@ -70,7 +71,7 @@ def observations(snap: dict[str, Any] | None = None, *, holder_text: bool = True
 def partner_suggestions() -> list[dict[str, Any]]:
     """231 (B1): the partner register's proposals from the invoices read: an incoming invoice's supplier as a supplier,
     an outgoing invoice's buyer as a customer; an own party is never one (`jav/app/partners.py` `suggestions`)."""
-    snap = reconcile.snapshot()
+    snap = reconcile_store.snapshot()
     outgoing = set(type_roles.types("outgoing_invoice"))
     own = parties.resolver()
     seen: dict[tuple[str, str], dict[str, Any]] = {}
@@ -248,7 +249,7 @@ def months(party_id: str, start: str | None = None, end: str | None = None, *, t
     start, end = period(start, end, today)
     party = parties.get(party_id)
     wanted = reconcile.months(start, end)
-    snap = reconcile.snapshot()
+    snap = reconcile_store.snapshot()
     registered = own_parties.accounts()
     conf = cfg.load("reconcile")
     by_column: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)

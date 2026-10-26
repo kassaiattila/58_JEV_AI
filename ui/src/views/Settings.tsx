@@ -70,7 +70,7 @@ export function Settings({ section }: { section: SettingsSection }) {
         </nav>
         <div className="settings-body">
           <h2>{t(current.label)}</h2>
-          {current.key === "mailboxes" ? <Mailbox variant="settings" /> : null}
+          {current.key === "mailboxes" ? <Mailbox /> : null}
           {current.key === "folders" ? <FoldersPanel /> : null}
           {current.key === "parties" ? <PartiesPanel /> : null}
           {current.key === "partners" ? <PartnersPanel /> : null}

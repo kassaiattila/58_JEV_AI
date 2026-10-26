@@ -16,8 +16,9 @@ from pathlib import Path
 
 import pytest
 
-from jav.app import parties, work, work_readiness, work_runs, workflow_steps, workflows as wf
+from jav.app import document_processing, parties, process_runtime, work, work_readiness, work_runs, workflow_steps, workflows as wf
 from jav.core import cfg, store
+from jav.core.process import engine
 from jav.domains.finance import statement_table as st
 from jav.domains.email import mailbox
 from jav.runtime import worker
@@ -74,16 +75,23 @@ def test_the_templates_are_the_four_kinds_and_three_workflows_each_waiting_only_
     conf = cfg.load("workflows")
     kinds = set(conf["kinds"])
     # 181: the email routing is a fifth kind, with its own one-step template and a workflow after a mailbox download;
-    # 191: the quote a sixth, with its own one-step template only
-    assert kinds == {"documents", "emails", "statements", "reconcile", "routing", "quote"} == {k.kind for k in workflow_steps.kinds()}
+    # 191: the quote a sixth, with its own one-step template only; 231 (C1c): the routing is a process pack's case (kind
+    # process); (C3a-2) the reconciliation too, its kind retired
+    assert kinds == {"documents", "emails", "statements", "process"} == {k.kind for k in workflow_steps.kinds()}  # C3c: no quote
     groups = {g["id"] for g in conf["groups"]}
     singles = [t for t in conf["templates"] if not wf.is_workflow(t)]
-    assert sorted(t["steps"][0]["kind"] for t in singles) == sorted(kinds)
+    # 231 (C2d): the reconciliation's one-step template is its process pack's (kind process); the kind reconcile stays
+    # for the workflows' steps until the live workflow is taken over (C2e)
+    # (C3b3) the documents' and the bank statements' one-step templates are their process packs' cases too
+    # (C3c) the quote's one-step template is the IT quote pack's case; (C3d) the emails' the mailbox pack's
+    assert [t["steps"][0]["kind"] for t in singles] == ["process"] * 6
+    assert sorted(t["id"] for t in singles) == ["bank_statements", "documents", "it_quote", "mail_routing", "mailbox",
+                                                "reconciliation"]
     chains = {t["id"]: [s["kind"] for s in t["steps"]] for t in conf["templates"] if wf.is_workflow(t)}
-    assert chains == {"monthly_reconciliation": ["documents", "statements", "reconcile"],
-                      "mailbox_reconciliation": ["emails", "statements", "reconcile"],
-                      "two_sources_reconciliation": ["documents", "emails", "statements", "reconcile"],
-                      "mailbox_routing": ["emails", "routing"]}
+    assert chains == {"monthly_reconciliation": ["documents", "statements", "process"],  # 231 C3a-2: the pack's case
+                      "mailbox_reconciliation": ["emails", "statements", "process"],
+                      "two_sources_reconciliation": ["documents", "emails", "statements", "process"],
+                      "mailbox_routing": ["emails", "process"]}
     for t in conf["templates"]:
         assert t["group"] in groups
         seen: set[str] = set()
@@ -163,11 +171,26 @@ def test_the_monthly_reconciliation_runs_its_steps_waits_for_a_budget_and_makes_
     # the statements are read by code for free: their live run started at once
     assert steps["statements"]["state"] == "started" and steps["statements"]["status"] == "running"
     assert work_runs.get_run(steps["statements"]["run_id"])["mode"] == "apply"
+    # 231 (C3b4): the statements' package is a bank statements case's from the start; its workflow starts its run, so
+    # the case's page offers no start of its own
+    statements_wp = steps["statements"]["package"]["id"]
+    [statements_case] = [r["id"] for r in work.list_workpackages() if r["source_kind"] == "case"
+                         and document_processing.package_of(r["id"], "process") == statements_wp]
+    assert document_processing.CAPABILITY.actions[0].available(statements_case, "process") is False
+    # (C3b5b; the owner's decision of 2026-10-26) the invoices' package is a documents case's too, waiting for the budget
+    invoices_wp = steps["invoices"]["package"]["id"]
+    [invoices_case] = [r["id"] for r in work.list_workpackages() if r["source_kind"] == "case"
+                       and document_processing.package_of(r["id"], "process") == invoices_wp]
+    assert process_runtime.pack_of(invoices_case)[0] == "documents"
+    assert document_processing.CAPABILITY.actions[0].available(invoices_case, "process") is False
     assert made["next"] == {"step": "invoices", "status": "needs_budget"}
     _process_all()  # only the statements' items are queued
     view = wf.view(wf_id)
     assert _steps(view)["statements"]["status"] == "approve"
     work_runs.approve_run(steps["statements"]["run_id"], actor="tester")
+    for _ in range(2):  # (C3b4) the approved run finishes the statements case's step
+        engine.turn(statements_case, wake=True)
+    assert engine.state(statements_case)["status"] == "closed"
     assert wf.tick(now=1e9) == 1  # the reconciliation still waits for the invoices
     view = wf.view(wf_id)
     assert _steps(view)["statements"]["status"] == "approved" and _steps(view)["reconcile"]["status"] == "waiting"
@@ -185,7 +208,7 @@ def test_the_monthly_reconciliation_runs_its_steps_waits_for_a_budget_and_makes_
     rec = _steps(view)["reconcile"]
     assert rec["state"] == "started" and rec["status"] == "pairing" and view["done"] == 2
     package = work.get(rec["package"]["id"])
-    assert package["source_kind"] == "reconcile" and package["owner"] == "tester"
+    assert package["source_kind"] == "case" and package["owner"] == "tester"  # 231 (C3a-2): the reconciliation's case
     assert wf.workflow_of(package["id"]) == {"id": wf_id, "name": view["workflow"]["name"], "step": "reconcile",
                                              "step_title": "Reconciliation"}
     actions = [(e["step"], e["action"]) for e in reversed(view["events"])]
@@ -258,6 +281,10 @@ def test_the_mailbox_step_waits_for_its_download_then_runs_its_package(db, monke
     emails = _steps(view)["emails"]
     assert emails["state"] == "started" and emails["package"]["id"] == package["id"]
     assert work_runs.get_run(emails["run_id"])["actor"] == "tester (auto)"
+    # 231 (C3d): the step's package is a mailbox case's (the mailbox pack's step kind wraps it), its run the workflow's
+    [case] = [r["id"] for r in work.list_workpackages() if r["source_kind"] == "case"
+              and document_processing.package_of(r["id"], "process") == package["id"]]
+    assert process_runtime.pack_of(case)[0] == "mailbox"
 
 
 def test_a_download_without_new_emails_is_nothing_new_and_a_failed_one_shows_its_error(db, monkeypatch):
@@ -332,7 +359,7 @@ def test_the_estimate_is_the_recipes_item_budget_times_the_items(db):
     per = wf._per_item("document")
     got = wf.estimate(kind="documents", source={"kind": "folder", "folder": str(folder)})
     assert got["items"] == 3 and got["usd"] == {p: str((v * 3).quantize(Decimal("0.0001"))) for p, v in per.items() if v}
-    assert wf.estimate(kind="reconcile", source={"kind": "none"}) == {"items": None, "usd": {}, "note": None}
+    assert wf.estimate(kind="process", source={"kind": "none"}) == {"items": None, "usd": {}, "note": None}
     statements = wf.estimate(kind="statements", source={"kind": "folder", "folder": str(_statements(db / "erste"))},
                              party_id=party, period_start=MONTH[0], period_end=MONTH[1])
     assert (statements["statements"], statements["pdfs"], statements["usd"]) == (1, 0, {})  # read by code: free

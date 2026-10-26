@@ -133,11 +133,7 @@ describe("the Result stage of a reconciliation package (145)", () => {
 describe("the approved package in the header (145)", () => {
   it("names the approved version as the next step and on the Result stage", async () => {
     const { stepLabel } = await import("../../labels");
-    const { stageStatus } = await import("../WorkpackageDetail");
     expect(stepLabel("reconcile_approved", { version: 2 }, "Approved: version 2")).toBe("Approved: version 2");
-    // 176: the stages' status is the logic pack's of the package's kind
-    const view = { workpackage: { source_kind: "reconcile" }, last_run: null, reconcile: { scope: { accounts: ["A"], period_start: "2026-04-01", period_end: "2026-04-30" },
-      counts: { open_lines: 0 }, coverage: [], approval: { active: v1, versions: [v1] } } };
-    expect(stageStatus(view as never).result).toBe("approved: version 1");
+    // 231 (C3a-2): the case page's Summary tab line says the approved version (src/elements/pairingStatus.ts)
   });
 });

@@ -74,7 +74,7 @@ it("the switch asks for the removed items too, and a removed item offers only it
 
 it("the package says what it was created from by its kind", () => {
   rows.current = [];
-  render(<PackageItemsPanel view={viewOf({ ...WP, source_kind: "statements" } as Workpackage)} onChanged={() => {}} />);
+  render(<PackageItemsPanel view={{ ...viewOf({ ...WP, source_kind: "manual" } as Workpackage), rule: { name: "statements", adds: "own", parts: ["statements"] } }} onChanged={() => {}} />);  // 231 C3b5a
   expect(screen.getByText(/Created from: a statement package/)).toBeTruthy();
 });
 
@@ -148,7 +148,7 @@ it("a statement package grows through its survey, and what it holds cannot be ti
   vi.spyOn(api, "packageStatementSurvey").mockResolvedValue({ party: { id: "p-1", name: "Example Kft." }, period_start: "2026-05-01",
     period_end: "2026-06-30", statements: [row("a".repeat(64), true), row("b".repeat(64), false)], pdfs: [], skipped: [] });
   const add = vi.spyOn(api, "addPackageStatements").mockResolvedValue({} as Awaited<ReturnType<typeof api.addPackageStatements>>);
-  render(<PackageItemsPanel view={viewOf({ ...WP, source_kind: "statements" } as Workpackage)} onChanged={() => {}} />);
+  render(<PackageItemsPanel view={{ ...viewOf({ ...WP, source_kind: "manual" } as Workpackage), rule: { name: "statements", adds: "own", parts: ["statements"] } }} onChanged={() => {}} />);  // 231 C3b5a
   fireEvent.click(screen.getByRole("button", { name: "Add statements" }));
   fireEvent.change(screen.getByRole("textbox", { name: "The statements' folder" }), { target: { value: "C:/bank" } });
   fireEvent.click(screen.getByRole("button", { name: "Survey the files" }));

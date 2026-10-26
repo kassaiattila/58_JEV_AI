@@ -6,7 +6,22 @@
 import { enc, request } from "./client";
 import type { OutputTemplateState } from "./outputs";
 
-export interface ProcessRow { id: string; title: string; version: string }
+export interface ProcessRow {
+  id: string; title: string; version: string;
+  /** 231 (C1c): the scope parts a case needs, and the kinds of package whose page offers one; (C2d) the parts a person
+   *  gives (the others take their default) */
+  scope?: string[]; package_kinds?: string[]; asks?: string[];
+  /** 231 (C3d): the source kinds its case's documents may come from (a folder, files, a mailbox download) */
+  source_kinds?: string[];
+}
+/** 231 (C3c): a record a case may start from (an email or a document read as the pack's record), with the cases
+ *  already started from it; `detail` holds plain values (its customer, package, day). */
+export interface ProcessRecord {
+  workpackage_id: string; workpackage_name: string; item_id: string; label: string | null; detail: string; name: string | null;
+  cases: { id: string; name: string }[];
+}
+/** 231 (C1c): a process whose case may read a package (`jav/app/intake.py` `package_offers`). */
+export interface PackageOffer { pack: string; title: string; name: string; sources: string[]; cases: { id: string; name: string }[] }
 export interface SettingVersion {
   version: number; state: OutputTemplateState; value: string | number; note: string | null; made_by: string; made_at: string;
   activated_by: string | null; activated_at: string | null;
@@ -35,6 +50,9 @@ const base = (pack: string, kind: SettingKind, key: string) => `/processes/${enc
 
 export const processesApi = {
   processes: () => request<{ processes: ProcessRow[] }>("GET", "/processes"),
+  /** 231 (C3c): the records a case of the pack may start from (the general form's record chooser) */
+  processRecords: (pack: string, q?: string) =>
+    request<{ records: ProcessRecord[] }>("GET", `/processes/${enc(pack)}/records${q ? `?q=${enc(q)}` : ""}`),
   processSettings: (pack: string) => request<ProcessSettings>("GET", `/processes/${enc(pack)}/settings`),
   proposeSetting: (pack: string, kind: SettingKind, key: string, value: string | number, note: string | null) =>
     request<ProcessSettings>("POST", base(pack, kind, key), { value, note }),

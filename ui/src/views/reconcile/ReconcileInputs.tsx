@@ -53,12 +53,12 @@ function TargetAdd({ target, kind, onDone, onCancel }: {
 }
 
 /** Adding files for the reconciliation: which package they go to, then that package's three steps. */
-function AddForReconcile({ wpId, onCancel, onAdded }: {
-  wpId: string; onCancel: () => void; onAdded: (target: ReconcileTarget, summary: AddSummary | null) => void;
+function AddForReconcile({ wpId, onCancel, onAdded, initial = "documents" }: {
+  wpId: string; onCancel: () => void; onAdded: (target: ReconcileTarget, summary: AddSummary | null) => void; initial?: TargetKind;
 }) {
   useLocale();
   const targets = useLoad(`reconcile-targets:${wpId}`, () => api.reconcileTargets(wpId));
-  const [kind, setKind] = useState<TargetKind>("documents");
+  const [kind, setKind] = useState<TargetKind>(initial);
   const [chosen, setChosen] = useState<string>("");
   if (targets.error) return <p className="notice error" role="alert">{targets.error.message}</p>;
   if (!targets.data) return <p className="muted small">{t("Loading…")}</p>;
@@ -93,8 +93,9 @@ function AddForReconcile({ wpId, onCancel, onAdded }: {
   );
 }
 
-export function ReconcileInputs({ ws, readOnly, onWorkspace }: {
-  ws: ReconcileWorkspace; readOnly: boolean; onWorkspace: (ws: ReconcileWorkspace) => void;
+/** 231 (C2d): `kind` lists only the statements or only the invoices (a pairing case's Statements and Invoices tabs). */
+export function ReconcileInputs({ ws, readOnly, onWorkspace, kind }: {
+  ws: ReconcileWorkspace; readOnly: boolean; onWorkspace: (ws: ReconcileWorkspace) => void; kind?: "statement" | "invoice";
 }) {
   useLocale();
   const wpId = ws.workpackage_id;
@@ -145,7 +146,7 @@ export function ReconcileInputs({ ws, readOnly, onWorkspace }: {
       </div>
       <p className="muted small">{t("The pairing takes the statements of the scope and the invoices other packages processed. Leaving a document out affects this reconciliation only: it stays in its own package.")}</p>
       {adding ? (
-        <AddForReconcile wpId={wpId} onCancel={() => setAdding(false)}
+        <AddForReconcile wpId={wpId} onCancel={() => setAdding(false)} initial={kind === "statement" ? "statements" : "documents"}
           onAdded={(target, summary) => { setAdding(false); setAdded({ target, summary }); }} />
       ) : null}
       {added ? (
@@ -173,14 +174,15 @@ export function ReconcileInputs({ ws, readOnly, onWorkspace }: {
         </form>
       ) : null}
       {/* what the decisions read is in the key: after any change the list reloads and the selection clears */}
-      <DataTable key={`${wpId}:${JSON.stringify(ws.decision_state ?? null)}:${leftOut}`} dataset="reconcile_inputs"
+      <DataTable key={`${wpId}:${JSON.stringify(ws.decision_state ?? null)}:${leftOut}:${kind ?? ""}`} dataset="reconcile_inputs"
         label={t("The package's items")} selectable={!readOnly}
-        scope={{ workpackage_id: wpId, ...(showLeftOut ? { left_out: "1" } : {}), ...(showOthers ? { others: "1" } : {}) }}
+        scope={{ workpackage_id: wpId, ...(showLeftOut ? { left_out: "1" } : {}), ...(showOthers ? { others: "1" } : {}),
+          ...(kind ? { kind } : {}) }}
         emptyText={t("No statement or invoice is in the scope yet.")} storageId="reconcile_inputs" maxHeight="50vh" cell={cell}
         toolbar={<>
           <label className="check small"><input type="checkbox" checked={showLeftOut} onChange={(e) => setShowLeftOut(e.target.checked)} />
             {" "}{leftOut ? t("Left-out documents too ({{n}})", { n: leftOut }) : t("Left-out documents too")}</label>
-          {others ? (
+          {others && kind !== "statement" ? (
             <label className="check small"><input type="checkbox" checked={showOthers} onChange={(e) => setShowOthers(e.target.checked)} />
               {" "}{t("Other parties' invoices too ({{n}})", { n: others })}</label>
           ) : null}

@@ -3,11 +3,10 @@
 // only; the local service is replaced by spies.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setActor, type RoutingItem, type RoutingView, type WorkpackageView } from "../../api";
-import { setLanguage } from "../../i18n";
-import { logicOf } from "../../logic/registry";
-import { RoutingStages } from "./Routing";
-import { routingStatus } from "./routingStatus";
+import { api, setActor, type RoutingItem, type RoutingView, type CaseView } from "../api";
+import { setLanguage } from "../i18n";
+import { ELEMENTS } from "./registry";
+import { FilePlacement } from "./FilePlacement";
 
 const EMAIL = { item_id: "e1", subject: "June invoice", sender: "billing@example.com", received_at: "2026-06-20T10:00:00", folder: "inbox" };
 
@@ -29,19 +28,20 @@ function routing(items: RoutingItem[]): RoutingView {
       accepted: routable.filter((i) => i.decision?.decision === "accepted").length } };
 }
 
-function view(items: RoutingItem[]): WorkpackageView {
-  return { workpackage: { id: "wp-00000000000r", name: "Routing", source_kind: "email_routing", status: "open", items: [] },
-    routing: routing(items) } as unknown as WorkpackageView;
-}
+
+const PAGE = {} as CaseView;
+const element = (items: RoutingItem[]) => ({ type: "file_placement", step: "route", show: "decide", data: routing(items) });
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("181 the email routing package", () => {
-  it("is a logic pack of its own with three stages", () => {
-    const v = view([item("invoice.pdf"), item("contract.pdf", { placement: { ...item("x").placement, routable: false, role: null } })]);
-    expect(logicOf("email_routing")?.adds).toBe("nothing");
-    expect(routingStatus(v)).toEqual({ process: "1 email package(s), 2 attachment(s)", review: "1 to decide", result: "0 routed" });
+  it("is the file placement's element with its tabs' lines (231 C1c: until then a logic pack's three stages)", () => {
+    const items = [item("invoice.pdf"), item("contract.pdf", { placement: { ...item("x").placement, routable: false, role: null } })];
+    const props = (show: string) => ({ caseId: "wp-00000000000r", element: { ...element(items), show }, page: PAGE, onChanged: () => {} });
+    const line = ELEMENTS.file_placement.status!;
+    expect([line(props("sources")), line(props("decide")), line(props("routed"))])
+      .toEqual(["1 email package(s), 2 attachment(s)", "1 to decide", "0 routed"]);
   });
 
   it("shows each document's proposal or blocker and accepts every clear one at once", async () => {
@@ -57,7 +57,7 @@ describe("181 the email routing package", () => {
     const acceptClear = vi.spyOn(api, "routingAcceptClear").mockResolvedValue(routing(items));
     const reject = vi.spyOn(api, "routingReject").mockResolvedValue(routing(items));
     const onChanged = vi.fn();
-    render(<RoutingStages view={view(items)} stage="review" onChanged={onChanged} />);
+    render(<FilePlacement caseId="wp-00000000000r" element={element(items)} page={PAGE} onChanged={onChanged} />);
     const table = screen.getByRole("table", { name: "Documents to route" });
     const row = (file: string) => within(table).getByText(file).closest("tr") as HTMLElement;
     expect(row("invoice.pdf").textContent).toContain("June incoming");

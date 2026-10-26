@@ -23,7 +23,8 @@ def reconcile_inputs(scope: dict[str, str]) -> Rows:
     """169 (DECISIONS 169): a reconciliation package's inputs as its item list: the scope's statements, then the
     invoices its pairing may take (another party's only with `others`), each with the package and the run its result
     comes from, whether it blocks the approval, and where it stands in the pairing; with `left_out`, the documents left
-    out of the package too, with who left them out, when and why. Read from the kept workspace."""
+    out of the package too, with who left them out, when and why. Read from the kept workspace. 231 (C2d): `kind`
+    (`statement` or `invoice`) keeps only that kind (a pairing case's Statements and Invoices tabs)."""
     from jav.domains.finance import reconcile_package
 
     ws = reconcile_package.kept_workspace(scope["workpackage_id"])
@@ -90,6 +91,8 @@ def reconcile_inputs(scope: dict[str, str]) -> Rows:
                          "currency": g.get("currency"), "party": (g.get("party") or {}).get("name"), "pairing": None,
                          "open_lines": None, "lines": None, "verified": None, "left_out_by": g["actor"],
                          "left_out_at": g["left_out_at"], "left_out_reason": g["reason"]})
+    if scope.get("kind") in ("statement", "invoice"):
+        rows = [r for r in rows if (r["kind"] == "statement") == (scope["kind"] == "statement")]
     return cols, rows
 
 
@@ -166,7 +169,7 @@ def utility_sources(scope: dict[str, str]) -> Rows:
 # `jav/domains/finance/__init__.py`
 DATASETS = (
     (datasets.Dataset("reconcile_inputs", "A reconciliation's inputs", ("workpackage_id",), reconcile_inputs,
-                      optional_scope=("others", "left_out")), "workpackage_items"),
+                      optional_scope=("others", "left_out", "kind")), "workpackage_items"),
     (datasets.Dataset("utility_cost", "Közmű-költség havonta", (), utility_cost, datasets.result_fingerprint,
                       one_of=datasets.RESULT_SCOPE), "line_items"),
     (datasets.Dataset("utility_sources", "Közmű-költség forrásai", (), utility_sources, datasets.result_fingerprint,

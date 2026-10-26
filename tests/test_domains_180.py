@@ -14,7 +14,7 @@ import subprocess
 import sys
 from dataclasses import replace
 
-from jav.app import export, item_kinds, logic_packs, registrations
+from jav.app import export, item_kinds, logic_packs, process_packs, registrations
 from jav.ai import checks
 from jav.core.config import PROJECT_ROOT
 from jav.domains import DOMAINS
@@ -43,7 +43,7 @@ def test_importing_a_domain_registers_nothing_and_load_all_registers_it() -> Non
     assert seen["before"] == {"checks": [], "packs": [], "rules": [], "parts": []}
     after = seen["after"]
     assert {"duplicate", "own_tax", "statement_overlap", "duplicate_scan", "own_tax_scan"} <= set(after["checks"])
-    assert after["packs"] == ["email_routing", "reconcile", "statements"]  # 181: the routing; 231 (A3d): no quote package
+    assert after["packs"] == []  # 231 (A3d): no quote package; (C1c) no routing package; (C3a-2) no reconciliation; (C3b5a) no statements
     assert after["rules"] == ["suspicious_email_source"]
     assert after["parts"] == ["direction", "duplicate", "duplicate", "utility_cost", "utility_cost"]
 
@@ -59,8 +59,8 @@ def test_the_domains_and_their_registrations_in_order() -> None:
     assert [p.name for p in parts.result_parts()] == ["utility_cost"]
     assert [p.output for p in parts.own_outputs()] == ["utility_cost"]
     assert logic_packs.outputs_of("folder") == ("package_result", "utility_cost")
-    assert logic_packs.outputs_of("statements") == ("package_result", "utility_cost")
-    assert logic_packs.outputs_of("reconcile") == ("reconcile_statement",)
+    assert logic_packs.outputs_of("manual") == ("package_result", "utility_cost")  # 231 C3b5a: a statement package's
+    assert process_packs.load("reconciliation").outputs == ("reconcile_statement",)  # 231 (C3a-2): its process pack's
     assert item_kinds.claimed_by(item_kinds.EMAIL) == "jav.domains.email"  # 229 (MD1): the domain claims its kinds
     assert item_kinds.source_claimed_by("mailbox") == "jav.domains.email"
     assert [(r.name, r.module) for r in item_kinds.rules()] == [("suspicious_email_source", "jav.domains.email")]
@@ -94,6 +94,8 @@ def _imported(path) -> set[str]:
 
 
 FINANCE = {"jav.domains.finance.duplicates", "jav.domains.finance.own_parties", "jav.domains.finance.report_utility", "jav.core.type_roles", "jav.domains.finance.reconcile", "jav.domains.finance.reconcile_package",
+           "jav.domains.finance.reconcile_rules", "jav.domains.finance.reconcile_signals", "jav.domains.finance.reconcile_amounts",
+           "jav.domains.finance.reconcile_store",
            "jav.domains.finance.statement_package", "jav.domains.finance.statement_months"}
 
 

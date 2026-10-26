@@ -234,10 +234,10 @@ def _delete_guard(c, wp_id: str) -> None:
 
 def register() -> None:
     """173 (plan 170 E2): the delete guard of a workflow's packages and its party reference (`registrations.load_all`).
-    181: the documents step kind, and a step's package's scope (`step_scope`)."""
+    181: a step's package's scope (`step_scope`); 231 (C3b5b) the documents step kind is the documents pack's (made by
+    the process runtime from the pack, `document_processing.register_workflow_steps`)."""
     work.register_delete_guard(_delete_guard)
     parties.register_reference("workflows", count=_count_party, repoint=_repoint_party)
-    workflow_steps.register(DOCUMENTS_STEP)
     package_scope.register_source("workflow", step_scope)
 
 
@@ -293,7 +293,7 @@ def _step_title(step: dict[str, Any]) -> str:
 
 def template_needs(t: dict[str, Any]) -> list[str]:
     """181: the parts of the scope a template's steps need (their step kinds' `needs`), in the parts' order."""
-    needed = {n for step in t["steps"] for n in workflow_steps.of(step["kind"]).needs}
+    needed = {n for step in t["steps"] for n in workflow_steps.step_needs(step)}  # 231 (C3a-1): a process step's pack's
     return [p.name for p in scopes.parts() if p.name in needed]
 
 
@@ -373,9 +373,9 @@ def _check_package(kind: str, wp_id: str) -> None:
         wp = work.get(wp_id)
     except KeyError as exc:
         raise explained(WorkflowError, "no work package {{wp_id}}", wp_id=repr(wp_id)) from exc
-    if wp["source_kind"] not in package_kinds(kind):
+    if wp["source_kind"] not in package_kinds(kind) or work.rule_name(wp_id) != workflow_steps.of(kind).rule:
         raise explained(WorkflowError, "work package {{name}} is not of a {{kind}} step's kind",
-                        name=repr(wp["name"]), kind=kind)
+                        name=repr(wp["name"]), kind=kind)  # 231 (C3b5a): its rule too (a statement package's)
     with store.connect() as c:
         if c.execute("SELECT 1 FROM workflow_steps WHERE workpackage_id=?", (wp_id,)).fetchone():
             raise explained(WorkflowError, "work package {{name}} already belongs to a workflow", name=repr(wp["name"]))
@@ -454,9 +454,18 @@ def _row(wf_id: str) -> dict[str, Any]:
     if row is None:
         raise KeyError(wf_id)
     out = dict(row)
-    out["definition"] = json.loads(out["definition"])
+    out["definition"] = resolved(json.loads(out["definition"]))
     out["auto"] = bool(out["auto"])
     return out
+
+
+def resolved(definition: dict[str, Any]) -> dict[str, Any]:
+    """231 (C3a-2): a saved template as it runs now: a step of a retired kind reads as the kind that replaced it
+    (`configs/workflows.json` `retired_kinds`: the reconciliation step as the reconciliation pack's process step),
+    its id, title, order and role kept. The saved text stays as it was (its case's definition is its fingerprint)."""
+    retired = config().get("retired_kinds") or {}
+    steps = [{**s, **retired[s["kind"]]} if s.get("kind") in retired else s for s in definition.get("steps", [])]
+    return {**definition, "steps": steps}
 
 
 def _steps(wf_id: str) -> dict[str, dict[str, Any]]:
@@ -519,7 +528,7 @@ def step_scope(wp_id: str) -> dict[str, Any] | None:
                         " JOIN workflows w ON w.id=s.workflow_id WHERE s.workpackage_id=?", (wp_id,)).fetchone()
     if row is None:
         return None
-    sdef = next((x for x in json.loads(row["definition"])["steps"] if x["id"] == row["step"]), {})
+    sdef = next((x for x in resolved(json.loads(row["definition"]))["steps"] if x["id"] == row["step"]), {})
     role = sdef.get("role")
     if role is None:
         now = next((t for t in config()["templates"] if t["id"] == row["template"]), {"steps": []})
@@ -596,7 +605,7 @@ def _approval(st: dict[str, Any]) -> tuple[bool, Any]:
     if pack is not None and not pack.has_runs:  # 176: a reconciliation step: a version of it is approved
         if not pack.approved(wp_id):
             return False, None
-        active = package_release.own_approval(wp_id)["active"] if pack.own_approval else None
+        active = package_release.own_approval(wp_id)["active"] if logic_packs.has_own_approval(pack, wp_id) else None
         return True, {"version": active["version"], "fingerprint": active["fingerprint"]} if active else None
     if not _live_run_approved(wp_id):
         return False, None
@@ -644,7 +653,7 @@ def _status(sdef: dict[str, Any], st: dict[str, Any], done: dict[str, bool]) -> 
         approved, nxt = _package_state(st["workpackage_id"])
         if nxt is None:
             return "missing", None
-        statuses = {**STATUS_BY_NEXT, **workflow_steps.of(sdef["kind"]).statuses}
+        statuses = {**STATUS_BY_NEXT, **workflow_steps.step_statuses(sdef)}  # 231 (C3a-1): a process step's capabilities'
         return ("approved" if approved else statuses.get(nxt["code"], "attention")), nxt
     if st["phase"] == "waiting":
         return ("ready" if all(done.get(a) for a in sdef.get("after", [])) else "waiting"), None
@@ -764,8 +773,9 @@ def _package_source(kind: str, wp_id: str) -> dict[str, Any] | None:
     return src
 
 
-def _repeat_from_folder(wp_id: str) -> dict[str, Any] | None:
-    """The documents step's repeat source: the folder its linked package was made from (a folder or watched one)."""
+def repeat_from_folder(wp_id: str) -> dict[str, Any] | None:
+    """The documents step's repeat source: the folder its linked package was made from (a folder or watched one); 231
+    (C3b5b) the documents maker's (`jav/app/document_processing.py`)."""
     try:
         wp = work.get(wp_id)
     except KeyError:
@@ -969,9 +979,11 @@ def _poll(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor: i
         kind.poll(_context(wf, sdef, st, actor))
 
 
-def _start_documents(ctx: workflow_steps.StepStart) -> None:
+def documents_offer(ctx: workflow_steps.StepStart) -> str | None:
     """The documents step: the folder's or the files' documents (only those no live run has processed, when asked)
-    become the step's package and its live run starts; none: the step found nothing new and keeps no empty package."""
+    become the step's package; none: the step found nothing new and keeps no empty package. 231 (C3b5b): the documents
+    maker's workflow offer (`jav/app/document_processing.py`): the pack's step kind wraps the package by its case, notes
+    it on the step and starts its live run (until then this step kind's own start did the last two)."""
     source, wf = ctx.source, ctx.workflow
     files, left_out = _documents(source)
     wp = None
@@ -985,16 +997,10 @@ def _start_documents(ctx: workflow_steps.StepStart) -> None:
         if wp is not None:
             work.delete_workpackage(wp["id"], actor=ctx.actor)
         ctx.nothing_new(f"no new documents: {len(left_out)} already processed" if left_out else "no documents in the folder")
-        return
-    ctx.package(wp["id"])
+        return None
     if left_out:
         ctx.event("left_out", {"new": len(files), "left_out": len(left_out)})
-    ctx.run(wp["id"])
-
-
-# 181: the documents step, registered by `register`
-DOCUMENTS_STEP = workflow_steps.StepKind(DOCUMENTS, __name__, DOCUMENT_PACKAGES, start=_start_documents, only_new=True,
-                                         subfolders=True, repeat_from=_repeat_from_folder)
+    return str(wp["id"])
 
 
 def _give_engine(wp_id: str, engine: str | None, *, actor: identity.Who) -> None:
@@ -1257,7 +1263,8 @@ def _counts(ctx: process_engine.StepContext, wf: dict[str, Any], st: dict[str, A
     if before is None or before == _built_on(ctx):  # never out of date, or built on what its earlier steps have now
         return approved
     _, pack = _pack(st)
-    if pack is not None and not pack.has_runs and not pack.own_approval:
+    own = logic_packs.has_own_approval(pack, st["workpackage_id"])  # 231 (C3a-1): a case's too
+    if pack is not None and not pack.has_runs and not own:
         return approved
     if OLD_APPROVAL not in last:
         old = _old_approvals(last, ref if approved else None)
@@ -1267,7 +1274,7 @@ def _counts(ctx: process_engine.StepContext, wf: dict[str, Any], st: dict[str, A
         old = last[OLD_APPROVAL]
     if not approved or ref not in old:
         return approved
-    if pack is not None and pack.own_approval and pack.reopen is not None:
+    if pack is not None and own and pack.reopen is not None:
         pack.reopen(st["workpackage_id"], note=REAPPROVE_NOTE, actor=auto_actor(wf))
     return False
 

@@ -27,6 +27,7 @@ from jav.app import package_scope, parties, registrations, work
 from jav.core import store
 from jav.domains.finance import reconcile_package as rp, statement_package as sp, statement_table as st
 from tests import test_email_routing_181 as routing_base
+from tests.test_email_routing_181 import _routing
 from tests import test_reconcile_package_131 as p131
 from tests import test_statement_package_140 as sp140
 
@@ -67,12 +68,15 @@ def test_a_statement_packages_scope_shows_as_before_and_is_in_the_shared_store(d
     shown = sp.scope(wp)
     assert shown.pop("updated_at")
     assert shown == {"workpackage_id": wp, "party_id": party, "party": {"id": party, "name": "Example Kft."},
-                     "period_start": "2026-05-01", "period_end": "2026-06-30", "revision": 1}
+                     "period_start": "2026-05-01", "period_end": "2026-06-30", "revision": 2}  # 231 C3b4: its case binds it
     assert package_scope.scope_of(wp) == {"party_id": party, "party": "Example Kft.", "period_start": "2026-05-01",
                                           "period_end": "2026-06-30", "role": "statements", "role_title": "Bank statements",
                                           "from": "logic_pack"}
-    assert _stored(wp) == {"party_id": party, "period_start": "2026-05-01", "period_end": "2026-06-30", "role": "statements",
-                           "parts": {}, "revision": 1, "set_by": "tester"}
+    stored = _stored(wp)  # 231 (C3b4): its case's step names it, with its rule
+    parts = stored.pop("parts")
+    assert parts["rule"] == "statements" and parts["owner_step"].endswith(":process")
+    assert stored == {"party_id": party, "period_start": "2026-05-01", "period_end": "2026-06-30", "role": "statements",
+                      "revision": 2, "set_by": "tester"}
     # a person cannot take it away: the package keeps its own scope
     assert package_scope.clear_scope(wp, actor="tester")["from"] == "logic_pack"
     assert _stored(wp)["party_id"] == party
@@ -87,15 +91,18 @@ def test_a_reconciliation_packages_scope_shows_as_before_and_changes_with_its_re
                      "revision": 1, "party_id": party, "party": {"id": party, "name": "Example Kft."}}
     assert package_scope.scope_of(wp) is None  # a reconciliation collects no documents for a role
     assert _stored(wp) == {"party_id": party, "period_start": "2026-04-01", "period_end": "2026-04-30", "role": None,
-                           "parts": {"accounts": [OWN_KEY]}, "revision": 1, "set_by": "reviewer"}
+                           "parts": {"party": party, "period": ["2026-04-01", "2026-04-30"], "accounts": [OWN_KEY]},
+                           "revision": 1, "set_by": "reviewer"}  # 231 (C2d, C3a-2): a case keeps its party and period as parts too
     rp.set_scope(wp, accounts=[OWN_KEY], period_start="2026-04-01", period_end="2026-05-31", expected_revision=1,
                  actor="other reviewer", party_id=None)
     with pytest.raises(work.RevisionConflict, match="revision 2, not 1"):
         rp.set_scope(wp, accounts=[OWN_KEY], period_start="2026-04-01", period_end="2026-06-30", expected_revision=1,
                      actor="tester")
-    assert (rp.scope(wp)["revision"], rp.scope(wp)["party"], work.get(wp)["source_ref"]) == (2, None, "2026-04-01..2026-05-31")
+    assert (rp.scope(wp)["revision"], rp.scope(wp)["party"]) == (2, None)
+    assert work.get(wp)["source_ref"].startswith("pack:reconciliation@")  # 231 (C3a-2): a case's reference names its pack
     assert _stored(wp) == {"party_id": None, "period_start": "2026-04-01", "period_end": "2026-05-31", "role": None,
-                           "parts": {"accounts": [OWN_KEY]}, "revision": 2, "set_by": "other reviewer"}
+                           "parts": {"period": ["2026-04-01", "2026-05-31"], "accounts": [OWN_KEY]}, "revision": 2,
+                           "set_by": "other reviewer"}
     assert [e["action"] for e in work.workpackage_events(wp)].count("reconcile_scope") == 2
 
 
@@ -103,11 +110,11 @@ def test_a_routing_packages_email_packages_show_as_before_and_are_in_the_shared_
     from jav.app import work_views
 
     mails, _ = routing_base._mailbox(db, {"m1": ("invoice.pdf", "inbox")})
-    routing = email_routing.create(name="June routing", sources=[mails], actor="tester")["workpackage_id"]
+    routing = _routing(mails, "June routing")
     assert email_routing.sources_of(routing) == [mails]
-    assert work_views.workpackage_view(mails)["routing_offer"]["routings"] == [{"id": routing, "name": "June routing"}]
+    assert work_views.workpackage_view(mails)["intake"][0]["cases"] == [{"id": routing, "name": "June routing"}]
     assert _stored(routing) == {"party_id": None, "period_start": None, "period_end": None, "role": None,
-                                "parts": {"emails": [mails]}, "revision": 1, "set_by": "tester"}
+                                "parts": {"sources": [mails]}, "revision": 1, "set_by": "tester"}  # 231 (C1c): a case's
 
 
 def test_a_persons_scope_is_in_the_shared_store_and_steps_its_revision(db) -> None:
@@ -145,13 +152,13 @@ def test_a_deleted_packages_scope_goes_with_it(db) -> None:
     party = _party()
     statements = sp140._package(db, party)
     reconciliation = _reconciliation(party)
-    mails, _ = routing_base._mailbox(db, {"m1": ("invoice.pdf", "inbox")})
-    routing = email_routing.create(name="Routing", sources=[mails], actor="tester")["workpackage_id"]
-    for wp in (statements, reconciliation, routing):
-        work.delete_workpackage(wp, actor="tester")
-        assert package_scope.stored(wp) is None
-    with store.connect() as c:
-        assert c.execute("SELECT COUNT(*) FROM workpackage_scopes").fetchone()[0] == 0
+    work.delete_workpackage(statements, actor="tester")  # 231 (C1c): a routing is a case now, not deleted while it runs
+    assert package_scope.stored(statements) is None
+    with pytest.raises(work.NotReady):  # (C3a-2) a reconciliation too: its case's container stays, hidden if need be
+        work.delete_workpackage(reconciliation, actor="tester")
+    with store.connect() as c:  # the reconciliation's scope is left (231 C3b4: and the statements' case's own)
+        left = [r[0] for r in c.execute("SELECT workpackage_id FROM workpackage_scopes")]
+    assert reconciliation in left and statements not in left and len(left) == 2
 
 
 # --- an older store's own scope tables -------------------------------------------------------------------------------
@@ -234,7 +241,7 @@ def test_a_new_store_has_only_the_shared_scope_table(db) -> None:
 
 def test_the_stored_parts_are_json(db) -> None:
     mails, _ = routing_base._mailbox(db, {"m1": ("invoice.pdf", "inbox")})
-    routing = email_routing.create(name="Routing", sources=[mails], actor="tester")["workpackage_id"]
+    routing = _routing(mails, "Routing")
     with store.connect() as c:
         raw = c.execute("SELECT parts FROM workpackage_scopes WHERE workpackage_id=?", (routing,)).fetchone()[0]
-    assert json.loads(raw) == {"emails": [mails]}
+    assert json.loads(raw) == {"sources": [mails]}  # 231 (C1c): a routing case's scope part

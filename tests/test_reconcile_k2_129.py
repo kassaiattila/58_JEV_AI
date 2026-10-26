@@ -24,6 +24,7 @@ from jav.app import corrections, datasets, work_runs, work_views
 from jav.ai import policy
 from jav.core import store
 from jav.domains.finance import reconcile
+from jav.domains.finance import reconcile_store
 from jav.ai.models import CheckResult, FlowState, DocumentRecord
 from jav.core import calls
 from tests import test_api
@@ -159,7 +160,7 @@ def _decide(invoice: str, statement: str, line: str, decision: str = "paid_by", 
     with store.connect() as c:
         c.execute("INSERT INTO reconcile_decisions(pair_key, invoice_doc_id, statement_doc_id, line_id, decision, signals,"
                   " amount_relation, run_id, actor, note, decided_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                  (reconcile.pair_key(invoice, line), invoice, statement, line, decision, "[]", "equal", run_id,
+                  (reconcile_store.pair_key(invoice, line), invoice, statement, line, decision, "[]", "equal", run_id,
                    "reviewer", note, NOW))
 
 
@@ -183,7 +184,7 @@ def test_an_earlier_decision_still_settles_the_pair_and_stays_in_the_reviewed_ve
     before = corrections.review_version(RUN)
     assert before == hashlib.sha256(json.dumps([]).encode("utf-8")).hexdigest()[:16]  # no decision: the plain version
     _decide(inv, stmt, line, run_id=RUN)
-    result = reconcile.propose(reconcile.snapshot())
+    result = reconcile.propose(reconcile_store.snapshot())
     assert _status(result) == {inv: "confirmed"} and result["candidates"] == []
     assert corrections.review_version(RUN) != before  # an approved run's version is the same as before 137
 
@@ -197,10 +198,10 @@ def test_a_run_has_no_reconciliation_view(db):
 
 def test_the_command_line_only_counts(db, capsys):
     _pair_in_run()
-    summary = reconcile.scan()
+    summary = reconcile_store.scan()
     assert summary["proposed_pairs"] == 1 and not {"to_open", "written", "skipped"} & set(summary)
     with pytest.raises(TypeError):
-        reconcile.scan(write=True)  # type: ignore[call-arg]
+        reconcile_store.scan(write=True)  # type: ignore[call-arg]
     with pytest.raises(SystemExit):
         cli.main(["reconcile", "--write"])
     capsys.readouterr()

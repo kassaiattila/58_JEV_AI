@@ -2,7 +2,7 @@
 // email or role; a partner opens with its versions; a new one is recorded once it has a name and a role; a change is
 // saved as a new version; a conflict with another partner leads to that one; the domains' proposals show on request and
 // a person records one. Synthetic data, a mocked service.
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError, setActor, type Partner, type PartnerRoles, type PartnerRow } from "../../api";
 import { setLanguage } from "../../i18n";
@@ -34,12 +34,13 @@ describe("the partner register (231 B1)", () => {
     const card = await screen.findByRole("region", { name: "Invented Buyer Ltd" });
     const versions = within(card).getByRole("table", { name: "Versions" });
     expect(within(versions).getAllByRole("row")).toHaveLength(3);
-    const save = within(card).getByRole("button", { name: "Save as a new version" }) as HTMLButtonElement;
-    expect(save.disabled).toBe(true);  // nothing changed yet
+    await act(async () => {});  // the card's loads and effects settle first (a late one reset the change under load)
+    const save = () => within(card).getByRole("button", { name: "Save as a new version" }) as HTMLButtonElement;
+    expect(save().disabled).toBe(true);  // nothing changed yet
     fireEvent.click(within(card).getByRole("checkbox", { name: "Supplier" }));
-    expect(save.disabled).toBe(false);
-    expect(save.className).toBe("primary");
-    fireEvent.click(save);
+    await waitFor(() => expect(save().disabled).toBe(false));
+    expect(save().className).toBe("primary");
+    fireEvent.click(save());
     await waitFor(() => expect(update).toHaveBeenCalledWith("partner-000000000001",
       expect.objectContaining({ roles: ["customer", "supplier"] }), 2));
   });

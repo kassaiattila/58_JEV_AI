@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { api, ApiError, type WorkpackageView } from "../api";
 import { Popover } from "../components/Popover";
 import { t, useLocale } from "../i18n";
-import { logicOf } from "../logic/registry";
+import { addsOwnWay, partOf } from "../logic/packageParts";
 import { go } from "../route";
 import { Icon } from "../components/Icon";
 import { ScopeForm, scopeEditable } from "./PackageScope";
@@ -16,7 +16,8 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
   useLocale();
   const wp = view.workpackage;
   // 231 (A6): a case's container takes no documents (its case reads its record)
-  const adds = wp.source_kind === "case" ? "nothing" : logicOf(wp.source_kind)?.adds;
+  const adds = wp.source_kind === "case" ? "nothing" : addsOwnWay(view) ? "own" : "documents";  // 231 (C3b5a): its rule's
+  const addLabel = partOf(view)?.addLabel;
   const archived = wp.status === "archived";
   const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -57,7 +58,7 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
                 nothing, as a reconciliation package has no documents) */}
             {adds === "nothing" ? null : (
               <button type="button" className="menu-item" onClick={() => { close(); go({ view: "workpackages", wpId: wp.id, stage: "process", add: true }); }}>
-                <Icon name="plus" />{adds === "statements" ? t("Add statements") : t("Add documents")}
+                <Icon name="plus" />{adds === "own" && addLabel ? t(addLabel) : t("Add documents")}
               </button>
             )}
             <button type="button" className="menu-item" onClick={() => setMode("rename")}><Icon name="edit" />{t("Átnevezés")}</button>

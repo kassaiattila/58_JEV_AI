@@ -3,18 +3,16 @@
 // email (its own text and its attachments, put together field by field) or a document read as one, in any package.
 // The request with its gaps and the proposal of its lines from the price list are here; the composition beside the
 // request and the approval are in QuoteEditor.tsx (192). 231 (A3d): a case of the IT quote's process pack shows them
-// (QuoteElements.tsx); the quote package's own page is gone, and the new work wizard's form starts a case.
+// (QuoteElements.tsx); the quote package's own page is gone, and (C3c) the new work wizard's general form starts a
+// case (its record chooser, `ui/src/elements/ProcessStart.tsx`).
 import { useEffect, useState } from "react";
 import {
-  api, ApiError, type QuoteBlockerCode, type QuoteMatchAnswer, type QuoteProposal, type QuoteRequest,
-  type QuoteRequestCandidate, type QuoteRequestPart, type QuoteView,
+  api, ApiError, type QuoteBlockerCode, type QuoteMatchAnswer, type QuoteProposal, type QuoteView,
 } from "../../api";
 import { BlockerList } from "../../components/BlockerList";
-import { Picker } from "../../components/Picker";
 import { t, useLocale } from "../../i18n";
 import { numText, usdBudget, when } from "../../labels";
-import { go } from "../../route";
-import { quoteFieldLabel as fieldLabel } from "./quoteStatus";
+import { RecordData } from "../../elements/RecordData";
 
 export const QUOTE_BLOCKER: Record<QuoteBlockerCode, string> = {
   "quote:request_missing": "The request can no longer be read: it was removed from its package, or it is no longer read as a quote request",
@@ -22,9 +20,6 @@ export const QUOTE_BLOCKER: Record<QuoteBlockerCode, string> = {
   "quote:no_items": "The request names no item: neither the email's text nor an attachment has one",
   "quote:no_price_list": "There is no active price list: upload one in Settings › Price lists and make it active",
 };
-
-const partKind = (p: QuoteRequestPart) =>
-  ({ email_text: t("the email's text"), attachment: t("attachment"), document: t("document") })[p.kind] ?? p.kind;
 
 // 191 B4c: a proposed line's mark (DESIGN.md §4): sure green, to check a person's turn (orange), not listed off (amber)
 const MARK: Record<string, { cls: string; label: string }> = {
@@ -165,9 +160,6 @@ function Gaps({ view }: { view: QuoteView }) {
   );
 }
 
-/** A header field's value as text; a missing one is a dash. */
-const valueText = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : String(v));
-
 export function RequestPanel({ view }: { view: QuoteView }) {
   useLocale();
   const r = view.request;
@@ -188,7 +180,7 @@ export function RequestPanel({ view }: { view: QuoteView }) {
           </p>
         ) : null}
         {view.blockers.length ? <Gaps view={view} /> : <p className="small ok">{t("The request has what a quote needs.")}</p>}
-        {r ? <RequestData request={r} /> : null}
+        {r ? <RecordData record={r} listField="requested_items" docType="quote_request" /> : null}
       </section>
       <PriceLists view={view} />
     </div>
@@ -197,53 +189,6 @@ export function RequestPanel({ view }: { view: QuoteView }) {
 
 /** The request's fields with the part each came from, its items and its parts (192: under its email too, `compact`:
  *  a part named by its kind, an attachment by its file, as the email's page shows the rest beside it). */
-export function RequestData({ request: r, compact = false }: { request: QuoteRequest; compact?: boolean }) {
-  useLocale();
-  const from = (n: number | undefined | null) => {
-    if (n === undefined || n === null) return "";
-    const p = r.parts[n];
-    if (compact) return p.kind === "email_text" ? partKind(p) : p.name || partKind(p);
-    return `${partKind(p)}: ${p.name}`;
-  };
-  return (
-    <>
-      <table className="table compact quote-fields" aria-label={t("The request's data")}>
-        <thead><tr><th>{t("Field")}</th><th>{t("Value")}</th><th>{t("Read from")}</th></tr></thead>
-        <tbody>
-          {Object.keys(r.fields).map((f) => (
-            <tr key={f}>
-              <td>{fieldLabel(f)}</td>
-              <td className={r.fields[f] ? "" : "muted"}>{valueText(r.fields[f])}</td>
-              <td className="muted small">{from(r.sources[f])}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="template-output-head">
-        <h3>{fieldLabel("requested_items")}</h3>
-        <span className="muted small">{r.items_from === null ? t("none") : t("read from {{part}}", { part: from(r.items_from) })}</span>
-      </div>
-      {r.items.length ? (
-        <table className="table compact quote-items" aria-label={fieldLabel("requested_items")}>
-          <thead><tr><th>{t("Description")}</th><th className="num">{t("Quantity")}</th><th>{t("Unit")}</th></tr></thead>
-          <tbody>
-            {r.items.map((i, n) => (
-              <tr key={n}>
-                <td>{valueText(i.description)}</td>
-                <td className="num tnum">{i.quantity === null || i.quantity === undefined ? "—" : numText(i.quantity, 4)}</td>
-                <td>{valueText(i.unit)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
-      <p className="small muted">
-        {t("Parts:")} {r.parts.map((p) => `${partKind(p)} (${p.name || "—"})`).join(" · ") || t("none")}
-      </p>
-    </>
-  );
-}
-
 function PriceLists({ view }: { view: QuoteView }) {
   useLocale();
   return (
@@ -266,81 +211,3 @@ function PriceLists({ view }: { view: QuoteView }) {
 }
 
 /** A request in the picker: its title, then its customer, its package and its day. */
-function optionOf(c: QuoteRequestCandidate) {
-  return {
-    value: `${c.workpackage_id}|${c.item_id}`, label: c.title || t("(no subject)"),
-    detail: [c.customer_name, c.workpackage_name, c.received_at?.slice(0, 10)].filter(Boolean).join(" · "),
-  };
-}
-
-export function QuoteCreate(_props: { onDone: (wpId: string) => void }) {
-  useLocale();
-  const [q, setQ] = useState("");
-  const [found, setFound] = useState<QuoteRequestCandidate[] | null>(null);
-  const [chosen, setChosen] = useState<QuoteRequestCandidate | null>(null);
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {  // the service searches; a short pause between keys keeps it from asking at every key
-    let live = true;
-    const timer = window.setTimeout(() => {
-      api.quoteRequests(q.trim() || undefined)
-        .then((r) => { if (live) setFound(r.requests); })
-        .catch((e) => { if (live) setError(e instanceof ApiError ? e.message : String(e)); });
-    }, q ? 250 : 0);
-    return () => { live = false; window.clearTimeout(timer); };
-  }, [q]);
-
-  const fallback = chosen ? t("Quote: {{name}}", { name: chosen.customer_name || chosen.title }).slice(0, 200) : "";
-  async function submit() {
-    if (!chosen) return;
-    setBusy(true);
-    setError(null);
-    try {
-      // 231 (A6c): a case of the IT quote's process pack, opened on its own page
-      const made = await api.startCase({ pack: "it_quote", name: name.trim() || fallback,
-        record: { workpackage_id: chosen.workpackage_id, item_id: chosen.item_id } });
-      go({ view: "cases", caseId: made.case_id });
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-  const options = (found ?? []).map(optionOf);
-  return (
-    <form className="create rc-stack" aria-label={t("New quote")} onSubmit={(e) => { e.preventDefault(); void submit(); }}>
-      <p className="muted small">{t("A quote starts from a quote request already processed: an email with its attachments, or a document read as one. The quote reads it as it stands in its package and puts its parts together; it processes no file itself.")}</p>
-      <Picker label={t("Quote request")} value={chosen ? `${chosen.workpackage_id}|${chosen.item_id}` : null} options={options}
-        loading={found === null} onSearch={setQ} placeholder={t("Choose a request…")}
-        selectedLabel={chosen ? optionOf(chosen).label : undefined}
-        emptyText={q ? t("No request matches.") : t("No quote request yet: an email or a document read as one in a processed package.")}
-        onChange={(v) => setChosen((found ?? []).find((c) => `${c.workpackage_id}|${c.item_id}` === v) ?? null)} />
-      {chosen ? (
-        <div className="small quote-chosen">
-          <p>
-            {[chosen.customer_name ? t("customer: {{name}}", { name: chosen.customer_name }) : t("no customer named"),
-              t("{{n}} requested item(s)", { n: chosen.items })].join(" · ")}
-            {" · "}<a href={`#/workpackages/${encodeURIComponent(chosen.workpackage_id)}`}>{chosen.workpackage_name}</a>
-          </p>
-          {chosen.quotes.length ? (
-            <p className="warn-text">
-              {t("Quotes already made from it:")}{" "}
-              {chosen.quotes.map((x, i) => (
-                <span key={x.id}>{i ? ", " : ""}<a href={x.case ? `#/cases/${encodeURIComponent(x.id)}` : `#/workpackages/${encodeURIComponent(x.id)}`}>{x.name}</a></span>
-              ))}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-      <label className="block">{t("Name")} <span className="muted">{t("(optional)")}</span>
-        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} placeholder={fallback} />
-      </label>
-      {error ? <p className="notice error" role="alert">{error}</p> : null}
-      <div className="button-row">
-        <button type="submit" className="primary" disabled={busy || !chosen}>{busy ? t("Creating…") : t("Create")}</button>
-      </div>
-    </form>
-  );
-}

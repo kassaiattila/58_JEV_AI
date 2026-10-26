@@ -95,6 +95,9 @@ class LogicPack:
     - `reopen(wp_id, *, note, actor)`: 218 (plan P3 P3l): reopens the package's approved own version with a reason in
       the pack's own way (its event, its version's file), as a person's reopening does; needed with `own_approval`. A
       workflow's chain calls it when the step built on another one is approved again (`jav/app/workflows.py`).
+    - `owns_approval(wp_id)` and `approval_what_of(wp_id)`: 231 (C3a-1) for a general container (a process pack's case),
+      whose packages are not all alike: whether this one approves its result as its own version (then `reopen` reopens
+      it), and what that approval is about; `has_own_approval` and `approval_label` read either form.
 
     188: a logic pack's golden sets (named `<kind>:<name>`) are measured by the shared measurement command like a type
     pack's; 204 (plan G-process-core R1h): its domain names the module that describes them (`GOLDENS` in `jav/domains/`, read by
@@ -122,6 +125,8 @@ class LogicPack:
     own_approval: bool = False
     reopen: Callable[..., Any] | None = None
     approval_what: str = "Approval"
+    owns_approval: Callable[[str], bool] | None = None
+    approval_what_of: Callable[[str], str | None] | None = None
 
     def __post_init__(self) -> None:
         if self.kind in DATA_KINDS:
@@ -140,6 +145,21 @@ class LogicPack:
 
 
 _PACKS: dict[str, LogicPack] = {}
+
+
+def has_own_approval(pack: LogicPack | None, wp_id: str) -> bool:
+    """231 (C3a-1): whether this package approves its result as its own version: its kind's (`own_approval`) or, for a
+    general container, this package's (`owns_approval`)."""
+    if pack is None:
+        return False
+    return pack.own_approval or (pack.owns_approval is not None and pack.owns_approval(wp_id))
+
+
+def approval_label(pack: LogicPack | None, wp_id: str) -> str:
+    """231 (C3a-1): what the package's own approval is about in a person's "Waiting for me" list."""
+    if pack is None:
+        return "Approval"
+    return (pack.approval_what_of(wp_id) if pack.approval_what_of is not None else None) or pack.approval_what
 _CONTAINERS: dict[str, LogicPack] = {}  # 231 (A6): the general container kinds (a process pack's case)
 
 
@@ -205,6 +225,6 @@ def outputs_of(kind: str) -> tuple[str, ...]:
     return pack.outputs if pack and pack.outputs is not None else processing_outputs()
 
 
-__all__ = ["DATA_KINDS", "PACKAGE_RESULT", "ROLE_SOURCES", "InputRole", "LogicPack", "UnknownKind", "has_runs",
-           "kinds_with_own_approval", "kinds_without_runs", "of", "outputs_of", "packs", "processing_outputs", "register",
-           "register_container"]
+__all__ = ["DATA_KINDS", "InputRole", "LogicPack", "PACKAGE_RESULT", "ROLE_SOURCES", "UnknownKind", "approval_label",
+           "has_own_approval", "has_runs", "kinds_with_own_approval", "kinds_without_runs", "of", "outputs_of", "packs",
+           "processing_outputs", "register", "register_container"]

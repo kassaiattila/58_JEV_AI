@@ -15,6 +15,8 @@ import pytest
 
 from jav.core import store
 from jav.domains.finance import reconcile
+from jav.domains.finance import reconcile_rules
+from jav.domains.finance import reconcile_store
 from tests import test_reconcile_k2_129 as k2
 
 CASES = {c["id"]: c for c in reconcile.golden_cases()}
@@ -100,8 +102,8 @@ def test_names_are_learnt_only_from_confirmations_and_not_through_a_payment_app(
 
 
 def test_the_learnt_name_counts_only_from_the_configured_number_of_confirmations(monkeypatch):
-    conf = {**reconcile._conf(), "learning": {**reconcile._conf()["learning"], "min_confirmations": 2}}
-    monkeypatch.setattr(reconcile, "_conf", lambda: conf)
+    conf = {**reconcile_rules._conf(), "learning": {**reconcile_rules._conf()["learning"], "min_confirmations": 2}}
+    monkeypatch.setattr(reconcile_rules, "_conf", lambda: conf)
     assert reconcile.learned_names(CASES["learned_name_from_a_confirmation"]["snapshot"]) == set()
 
 
@@ -137,7 +139,7 @@ def _telecom_run() -> tuple[str, str, str]:
 
 
 def _candidate(invoice: str, line: str) -> dict:
-    return next(c for c in reconcile.propose(reconcile.snapshot())["candidates"]
+    return next(c for c in reconcile.propose(reconcile_store.snapshot())["candidates"]
                 if (c["invoice_id"], c["line_id"]) == (invoice, line))
 
 
@@ -160,12 +162,12 @@ def test_a_confirmed_equal_amount_pair_teaches_the_name_for_the_next_month(db):
 
 def test_scan_counts_the_equal_amount_pairs(db):
     stmt, inv, april = _telecom_run()
-    dry = reconcile.scan()
+    dry = reconcile_store.scan()
     assert (dry["proposed_pairs"], dry["amount_only_pairs"]) == (0, 1)
     assert stmt and inv and april
 
 
 def test_the_labels_name_the_new_status_and_the_config_names_the_channel():
     assert "amount_only" in reconcile.STATUSES and {"payment_channel", "learned_name"} <= set(reconcile.SIGNALS)
-    [channel] = reconcile._conf()["payment_channels"]
+    [channel] = reconcile_rules._conf()["payment_channels"]
     assert channel["name"] == "postal_cheque"

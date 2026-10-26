@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "name": "connectors",
+    "version": "1.0.0",
+    "description": "231 (plan stage C, C2a; glossary: Connector): the external services the system asks, one description each (jav/core/connectors.py). A lookup asks without changing the other system; every question goes into the call log under the connector's name, and what leaves the machine is listed in `sends`. A free lookup whose answer was lost is a plain failure (asked again later); a priced one reserves its price from the running work's budget. A message that changes another system is not a connector's question: it goes through the process core's handover record.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-25",
+        "note": "231 C2a: first version. The MNB exchange rate service, moved here from the exchange rate rules (configs/fx.json 1.1.0, source): its address, its SOAP action and its 20 s timeout unchanged; the answer limit of 5,000,000 bytes from the code (153, review C5); no retry, as before (the exchange rate rules wait retry_after_minutes after a failed fetch); at most 30 questions a minute (a reconciliation asks once per missing span)."
+      }
+    ]
+  },
+  "connectors": {
+    "mnb_rates": {
+      "what": "The Hungarian central bank's official daily exchange rates (GetExchangeRates, SOAP 1.1 over plain HTTP; DECISIONS 130)",
+      "kind": "lookup",
+      "url": "http://www.mnb.hu/arfolyamok.asmx",
+      "headers": {
+        "Content-Type": "text/xml; charset=utf-8",
+        "SOAPAction": "\"http://www.mnb.hu/webservices/MNBArfolyamServiceSoap/GetExchangeRates\""
+      },
+      "sends": ["two dates", "currency codes"],
+      "price_usd": "0",
+      "timeout_s": 20,
+      "retries": 0,
+      "retry_wait_s": 0,
+      "max_per_minute": 30,
+      "max_response_bytes": 5000000
+    }
+  }
+}

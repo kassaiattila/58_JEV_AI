@@ -97,6 +97,20 @@ def test_the_copy_carries_the_files_kept_next_to_a_store(tmp_path) -> None:
     assert not (copy.parent / "leftover.txt").exists()
 
 
+def test_a_folder_the_tool_did_not_make_is_never_removed(tmp_path) -> None:
+    """231: a mistyped work folder is refused, not replaced (an empty one is used)."""
+    folder = _backup(tmp_path / "backup")
+    own = tmp_path / "someone's folder"
+    own.mkdir()
+    (own / "notes.txt").write_text("keep me", encoding="utf-8")
+    with pytest.raises(before_after.SnapshotError):
+        before_after.fresh_copy(folder, own)
+    assert (own / "notes.txt").read_text(encoding="utf-8") == "keep me"
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert before_after.fresh_copy(folder, empty).is_file()
+
+
 def test_a_snapshot_taken_twice_is_the_same_and_leaves_the_backup_alone(tmp_path) -> None:
     folder = _backup(tmp_path / "backup")
     wp_id = (folder / "wp.txt").read_text(encoding="utf-8")
@@ -115,5 +129,8 @@ def test_a_snapshot_taken_twice_is_the_same_and_leaves_the_backup_alone(tmp_path
     assert [w["id"] for w in views["workpackages"]["body"]["workpackages"]] == [wp_id]
     assert views[f"workpackage/{wp_id}"]["status"] == 200
     assert counts["workpackage"] >= 4 and counts["dataset"] >= 4
+    # 231 (C0): the mailbox page, the cases and handovers, the partner register and each process's own settings
+    assert all(views[k]["status"] == 200 for k in ("mailbox", "partners", "processes", "process/it_quote/settings"))
+    assert views['dataset/cases/{"include_closed": "1"}']["status"] == 200 and views["dataset/handovers/{}"]["status"] == 200
     with pytest.raises(before_after.SnapshotError, match="already exists"):
         before_after.static_snapshot(folder, tmp_path / "work", first)

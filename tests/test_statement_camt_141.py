@@ -17,6 +17,7 @@ import pytest
 from jav.app import parties
 from jav.core import store
 from jav.domains.finance import reconcile, statement_package as sp, statement_table as st
+from jav.domains.finance import reconcile_store
 from tests.test_flow_statement_table_136 import _run_all
 from tests.test_statement_erste_137 import JUNE, _export
 
@@ -150,5 +151,5 @@ def test_a_statement_package_takes_the_camt_statements_and_saves_them_checked(db
     view = sp.create(name="Example statements", party_id=party, period_start="2026-01-01", period_end="2026-12-31",
                      paths=[folder], statements=[row["id"]], pdfs=[], actor="tester")
     _run_all(view["workpackage_id"])
-    [saved] = reconcile.statements()
+    [saved] = reconcile_store.statements()
     assert saved["verified"] and len(saved["lines"]) == 4 and reconcile.statement_account(saved) == DIGITS

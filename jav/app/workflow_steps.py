@@ -87,7 +87,8 @@ class StepKind:
     """One step kind, as its module registers it.
 
     - `kind`: its key in the workflow templates (`configs/workflows.json` `kinds`); `module`: the registering module.
-    - `package_kinds`: the work package kinds (`workpackages.source_kind`) an existing package of the step may have.
+    - `package_kinds`: the work package kinds (`workpackages.source_kind`) an existing package of the step may have;
+      231 (C3b5a) `rule`: the package rule it must run by (`work.RULE_PART`; None: a package of no rule).
     - `start(ctx)`: makes the step's package (or starts fetching its source) and starts what follows.
     - `poll(ctx)`: for a kind whose source is fetched first: goes on once the fetch has finished (nothing while it runs).
     - `paid`: whether its run may call AI, so a person approves its budget in the wizard.
@@ -100,6 +101,9 @@ class StepKind:
       and the budget per provider); None: the documents are counted.
     - `needs`: the parts of the workflow's scope the step needs (`party`, `period`).
     - `statuses`: its package's own next step codes and what each means for the workflow's step.
+    - `needs_of(step)` and `statuses_of(step)`: 231 (C3a-1) for a kind whose step names what it runs (a process pack's
+      step): its needs and statuses by the step's definition, beside the kind's own; read by `step_needs` and
+      `step_statuses`.
     """
 
     kind: str
@@ -115,6 +119,9 @@ class StepKind:
     estimate: Callable[..., dict[str, Any]] | None = None
     needs: tuple[str, ...] = ()
     statuses: Mapping[str, str] = field(default_factory=dict)
+    needs_of: Callable[[Mapping[str, Any]], tuple[str, ...]] | None = None
+    statuses_of: Callable[[Mapping[str, Any]], Mapping[str, str]] | None = None
+    rule: str | None = None
 
     def __post_init__(self) -> None:
         if not self.package_kinds:
@@ -155,6 +162,7 @@ class SourceKind:
     - `repeated(source, period, workflow)`: its source for the next period (`period`: the next period, or None);
     - `count(source)`: the items it would bring at most (None: unknown), their item kind and a note, for the estimate;
     - `own`: a step makes its own package from it, so its run may have its own AI engine (160-D).
+    - `words(source)` (231, C3d): the source in a few words, for a case's scope (None: its kind's name).
     """
 
     kind: str
@@ -164,6 +172,7 @@ class SourceKind:
     repeated: Callable[[Mapping[str, Any], tuple[str, str] | None, Mapping[str, Any]], dict[str, Any]]
     count: Callable[[Mapping[str, Any]], tuple[int | None, str, str | None]]
     own: bool = True
+    words: Callable[[Mapping[str, Any]], str] | None = None
 
 
 _SOURCES: dict[str, SourceKind] = {}
@@ -208,5 +217,18 @@ def described() -> dict[str, dict[str, Any]]:
                      "only_new": k.only_new, "subfolders": k.subfolders, "needs": list(k.needs)} for k in _KINDS.values()}
 
 
+def step_needs(step: Mapping[str, Any]) -> tuple[str, ...]:
+    """231 (C3a-1): the parts of the workflow's scope a template's step needs: its kind's, and its definition's."""
+    kind = of(str(step["kind"]))
+    return tuple(dict.fromkeys((*kind.needs, *(kind.needs_of(step) if kind.needs_of else ()))))
+
+
+def step_statuses(step: Mapping[str, Any]) -> dict[str, str]:
+    """231 (C3a-1): what its package's next step codes mean for a template's step: its kind's, and its definition's."""
+    kind = of(str(step["kind"]))
+    return {**kind.statuses, **(kind.statuses_of(step) if kind.statuses_of else {})}
+
+
 __all__ = ["SHARED_OWN_SOURCES", "SourceKind", "StepKind", "StepStart", "UnknownStepKind", "described", "folder_source",
-           "kinds", "of", "own_sources", "paths_of", "register", "register_source", "source_kind"]
+           "kinds", "of", "own_sources", "paths_of", "register", "register_source", "source_kind", "step_needs",
+           "step_statuses"]

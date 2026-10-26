@@ -146,8 +146,13 @@ def open_runs(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def workpackage_view(wp_id: str) -> dict[str, Any]:
+    from jav.app import intake
+
     with store.session():  # 153 (review B1): one connection for the package's page
-        return _workpackage_view(wp_id)
+        view = _workpackage_view(wp_id)
+        # 231 (C1c): the processes whose case may read this package (an email package's email routing)
+        offers = intake.package_offers(view["workpackage"])
+        return {**view, "intake": offers} if offers else view
 
 
 def _workpackage_view(wp_id: str) -> dict[str, Any]:
@@ -163,6 +168,12 @@ def _workpackage_view(wp_id: str) -> dict[str, Any]:
         extra.update(item_kinds.page(wp))
     if pack is not None and pack.page is not None:  # 140: a statement pack's party, period and statements
         extra.update(pack.page(wp_id))
+    elif (rule := work.package_rule(wp_id)) is not None and (rule.page is not None or rule.adds != "documents"):
+        # 231 (C3b5a): its named rule's part, and what the interface needs to show it and to add to the package (the
+        # page part's keys, by which the interface finds its panel, and how it adds), with no kind of its own to ask
+        part = rule.page(wp_id) if rule.page is not None else {}
+        extra.update(part)
+        extra["rule"] = {"name": work.rule_name(wp_id), "adds": rule.adds, "parts": sorted(part)}
     current = current_run(runs)
     extra["item_counts"] = item_counts(wp)  # 168: the item list's tally
     return jsonable({"workpackage": wp, "readiness": ready, "titles": item_titles(wp["items"], package_root(wp)), **extra,

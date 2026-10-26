@@ -71,7 +71,7 @@
       ],
       "cost": "Read by code, free; a PDF extracted by AI is paid.",
       "package_kinds": [
-        "statements"
+        "manual"
       ],
       "paid": true,
       "own_engine": true,
@@ -82,50 +82,13 @@
         "period"
       ]
     },
-    "routing": {
-      "title": "Email routing",
-      "description": "Each invoice, outgoing invoice and bank statement that arrived by email is proposed for the package of its party, period and role; you accept, reject or choose another package.",
+    "process": {
+      "title": "A process's case",
+      "description": "A case of a process: it reads the packages of the steps it waits for, or the packages you choose; its page shows its steps.",
       "sources": [
-        "none",
-        "package"
+        "none"
       ],
-      "cost": "Free: code only.",
-      "package_kinds": [
-        "email_routing"
-      ],
-      "paid": false,
-      "own_engine": false,
-      "only_new": false,
-      "subfolders": false,
-      "needs": []
-    },
-    "reconcile": {
-      "title": "Reconciliation of statements and invoices",
-      "description": "The party's statement lines are paired with its invoices; the result is a summary approved as a version.",
-      "sources": [
-        "none",
-        "package"
-      ],
-      "cost": "Free: code only.",
-      "package_kinds": [
-        "reconcile"
-      ],
-      "paid": false,
-      "own_engine": false,
-      "only_new": false,
-      "subfolders": false,
-      "needs": [
-        "party",
-        "period"
-      ]
-    },
-    "quote": {
-      "title": "Quote from a request",
-      "description": "A quote request already processed (an email with its attachments, or a document) is put together; the quote is made from it and your active price list.",
-      "sources": [
-        "package"
-      ],
-      "cost": "Free to make; the proposal of the quote's lines will call AI within its budget.",
+      "cost": "As the process: a paid step waits for a person's start.",
       "package_kinds": [
         "case"
       ],
@@ -136,40 +99,49 @@
       "needs": []
     }
   },
+  "retired_kinds": {
+    "reconcile": {
+      "kind": "process",
+      "pack": "reconciliation"
+    }
+  },
   "templates": [
     {
       "id": "documents",
       "group": "documents",
       "title": "Documents: extract their data",
-      "description": "One work package of a folder's documents or of the given files.",
+      "description": "One case of a folder's documents or of the given files: its page starts the processing and leads to its review and result.",
       "steps": [
         {
           "id": "documents",
-          "kind": "documents"
+          "kind": "process",
+          "pack": "documents"
         }
       ]
     },
     {
-      "id": "emails",
+      "id": "mailbox",
       "group": "documents",
       "title": "Emails from a mailbox",
       "description": "One work package of a mailbox's new emails and their attachments.",
       "steps": [
         {
           "id": "emails",
-          "kind": "emails"
+          "kind": "process",
+          "pack": "mailbox"
         }
       ]
     },
     {
-      "id": "routing",
+      "id": "mail_routing",
       "group": "documents",
       "title": "Email routing",
-      "description": "One routing package over email packages already downloaded: their invoices, outgoing invoices and bank statements go to the packages they belong to.",
+      "description": "One routing case over email packages already downloaded: their invoices, outgoing invoices and bank statements go to the packages they belong to.",
       "steps": [
         {
           "id": "routing",
-          "kind": "routing"
+          "kind": "process",
+          "pack": "mail_routing"
         }
       ]
     },
@@ -186,7 +158,8 @@
         },
         {
           "id": "routing",
-          "kind": "routing",
+          "kind": "process",
+          "pack": "mail_routing",
           "title": "Routing",
           "after": [
             "emails"
@@ -195,38 +168,41 @@
       ]
     },
     {
-      "id": "statements",
+      "id": "bank_statements",
       "group": "bank",
       "title": "Bank statements",
-      "description": "One work package of a party's bank statements for a period, surveyed before anything is stored.",
+      "description": "One case of a party's bank statements for a period: the period's statements the store has not got yet are taken from the folder or the files.",
       "steps": [
         {
           "id": "statements",
-          "kind": "statements"
+          "kind": "process",
+          "pack": "bank_statements"
         }
       ]
     },
     {
-      "id": "reconcile",
+      "id": "reconciliation",
       "group": "bank",
       "title": "Reconciliation of statements and invoices",
       "description": "One reconciliation package of a party and a period, on the invoices and statements already processed.",
       "steps": [
         {
-          "id": "reconcile",
-          "kind": "reconcile"
+          "id": "reconciliation",
+          "kind": "process",
+          "pack": "reconciliation"
         }
       ]
     },
     {
-      "id": "quote",
+      "id": "it_quote",
       "group": "quotes",
       "title": "Quote from a request",
       "description": "One quote package from a customer's quote request: an email or a document already processed and read as one.",
       "steps": [
         {
           "id": "quote",
-          "kind": "quote"
+          "kind": "process",
+          "pack": "it_quote"
         }
       ]
     },
@@ -249,7 +225,8 @@
         },
         {
           "id": "reconcile",
-          "kind": "reconcile",
+          "kind": "process",
+          "pack": "reconciliation",
           "title": "Reconciliation",
           "after": [
             "invoices",
@@ -276,7 +253,8 @@
         },
         {
           "id": "reconcile",
-          "kind": "reconcile",
+          "kind": "process",
+          "pack": "reconciliation",
           "title": "Reconciliation",
           "after": [
             "emails",
@@ -309,7 +287,8 @@
         },
         {
           "id": "reconcile",
-          "kind": "reconcile",
+          "kind": "process",
+          "pack": "reconciliation",
           "title": "Reconciliation",
           "after": [
             "invoices",

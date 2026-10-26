@@ -412,6 +412,20 @@ def cmd_backup(args: argparse.Namespace) -> int:
     return 2 if copy and not copy["ok"] else 0
 
 
+def cmd_cases_adopt(args: argparse.Namespace) -> int:
+    """231 (plan stage C, C1c): the packages made before a process was a pack, taken over as its cases (`adopts`);
+    (C3b4) or each wrapped by a new case of it (`wraps`)."""
+    from jav.app import process_runtime, registrations
+    from jav.core import identity
+
+    registrations.load_all()
+    rows = process_runtime.adopt_all(actor=identity.machine("cases-adopt"), write=args.write)
+    for r in rows:
+        print(f"{r['pack']}: {r['workpackage_id']} ({r['name']}) -> {r['result']}" + (f": {r['error']}" if r.get("error") else ""))
+    print(f"{len(rows)} package(s){'' if args.write else '; nothing changed (add --write to take them over)'}")
+    return 1 if any(r["result"] == "refused" for r in rows) else 0  # C3a-1: a refused package is reported, not skipped silently
+
+
 def cmd_burr_prune(args: argparse.Namespace) -> int:
     from jav.runtime import worker
     from jav.flows import persistence
@@ -475,6 +489,9 @@ def cmd_ocr_rekey(args: argparse.Namespace) -> int:
 
 
 def register(sub) -> None:
+    p = sub.add_parser("cases-adopt", help="231: the packages made before a process was a process pack, taken over as its cases (the pack's adopts) or wrapped by new ones (its wraps)")
+    p.add_argument("--write", action="store_true", help="take them over (without it: only list them)")
+    p.set_defaults(fn=cmd_cases_adopt)
     p = sub.add_parser("flows", help="Burr-kontraktok lintje + FLOW.md / FLOW.mmd generálás (docs/flows/)")
     p.add_argument("--check", action="store_true", help="csak lint, fájlírás nélkül")
     p.set_defaults(fn=cmd_flows)
@@ -505,7 +522,7 @@ def register(sub) -> None:
     p = sub.add_parser("before-after-snapshot", help="171: the service's read views on a fresh copy of a backed-up store, "
                                                      "for the before/after comparison of a refactoring step (free)")
     p.add_argument("baseline", help="a backup folder (python -m jav.cli backup) or a store file")
-    p.add_argument("--work", required=True, help="the folder of the fresh copy (replaced; outside git)")
+    p.add_argument("--work", required=True, help="the folder of the fresh copy (a new or empty one, or an earlier copy of this tool, which is replaced; outside git)")
     p.add_argument("--out", required=True, help="the snapshot file to write (JSON lines; personal data, outside git)")
     p.add_argument("--no-items", action="store_true", help="leave out the item results of every run (faster)")
     p.add_argument("--matches", action="store_true", help="also the proposed pairs of every reconciliation line (slow)")
@@ -513,7 +530,7 @@ def register(sub) -> None:
     p = sub.add_parser("before-after-replay", help="173: a sample of the backed-up store's items processed again on a fresh copy, "
                                                    "from earlier answers only, for the before/after comparison (free)")
     p.add_argument("baseline", help="a backup folder (python -m jav.cli backup) or a store file")
-    p.add_argument("--work", required=True, help="the folder of the fresh copy (replaced; outside git; the same for both replays)")
+    p.add_argument("--work", required=True, help="the folder of the fresh copy (a new or empty one, or an earlier copy of this tool, which is replaced; outside git; the same for both replays)")
     p.add_argument("--out", required=True, help="the replay file to write (JSON lines; personal data, outside git)")
     p.add_argument("--size", type=int, default=150, help="about how many units to replay (default 150; every stratum at least once)")
     p.add_argument("--jev-cache", help="the JEV answer cache to read (default: runs/cache)")
@@ -570,7 +587,7 @@ def register(sub) -> None:
     p.add_argument("--json", action="store_true", help="the whole report as JSON")
     p.add_argument("--replay", metavar="BACKUP", help="instead: a sample of this backup's items replayed twice (with the "
                                                       "rules in use now and with the candidate) and the views that differ")
-    p.add_argument("--work", help="with --replay: the folder of the fresh copy (replaced; outside git)")
+    p.add_argument("--work", help="with --replay: the folder of the fresh copy (a new or empty one, or an earlier copy of this tool, which is replaced; outside git)")
     p.add_argument("--out-dir", help="with --replay: where the two replays are written (outside git)")
     p.add_argument("--size", type=int, default=150, help="with --replay: about how many units (default 150)")
     p.add_argument("--jev-cache", help="with --replay: the JEV answer cache to read (default: runs/cache)")

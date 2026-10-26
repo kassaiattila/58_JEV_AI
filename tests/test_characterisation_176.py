@@ -49,7 +49,7 @@ def _routes() -> list[APIRoute]:
 
 # --- the addresses of the local service ---------------------------------------------------------------------------------
 
-ROUTE_COUNT = 198  # (method, path) pairs of 176 routes: the unknown-address answer has five methods
+ROUTE_COUNT = 194  # (method, path) pairs of 176 routes: the unknown-address answer has five methods
 # 178 (plan 170 L4): nine new addresses on purpose - the own output templates (list, upload, activate, retire, file,
 # preview), a package's choice of them (read, choose) and the utility cost's workbook (jav/service/api_outputs.py)
 # 181 (plan 170 L5): three more on purpose - the package roles, and a package's scope given and taken away
@@ -75,7 +75,14 @@ ROUTE_COUNT = 198  # (method, path) pairs of 176 routes: the unknown-address ans
 # (`POST /api/cases/{case_id}/partners`); B2: five more, a process pack's own settings (`jav/service/api_processes.py`:
 # the processes, one's settings, a value saved, a version made active, the process's own value set aside); B3: three
 # more, the same for a rule value (saved, a version made active, set aside), and one, a rule value's preview
-ROUTE_TABLE = "b0558a454f44af2ea455f0fb41f9593a597ec5dfe4234a7481a9856b24f16e82"
+# 231 (plan stage C, C1c): one fewer, a routing package's creation (`POST /api/email-routing/packages`: a routing is the
+# email routing process pack's case, `POST /api/cases` with its sources); C3b5a: two fewer, the statement package's own
+# form's survey and creation (`POST /api/statement-packages/survey`, `POST /api/statement-packages`: a statement package
+# is a bank statements case's, `POST /api/cases` with its source); C3c: one more, the records a pack's case may start from
+# (`GET /api/processes/{pack_id}/records`, the general form's record chooser), and one fewer, the quote's own search of
+# them (`GET /api/quote-requests`); C3e: one fewer, the reconciliation's own creation (`POST /api/reconcile/packages`: a
+# reconciliation is its pack's case, `POST /api/cases`)
+ROUTE_TABLE = "4a48d49c7cb7e8330f3b015ed3ee51705a157d9b888cd64b3c4efb96d096c3ac"
 
 
 def test_the_service_has_these_addresses() -> None:
@@ -96,10 +103,7 @@ def test_the_reconciliation_and_the_statement_package_have_these_addresses() -> 
         "GET /api/workpackages/{wp_id}/reconcile/statement",
         "GET /api/workpackages/{wp_id}/reconcile/statement.xlsx",
         "GET /api/workpackages/{wp_id}/reconcile/targets",
-        "POST /api/reconcile/packages",
         "POST /api/runs/{run_id}/items/{item_id}/statements/{other_doc_id}/choice",
-        "POST /api/statement-packages",
-        "POST /api/statement-packages/survey",
         "POST /api/workpackages/{wp_id}/reconcile/accept-proposed",
         "POST /api/workpackages/{wp_id}/reconcile/accept-sources",
         "POST /api/workpackages/{wp_id}/reconcile/allocate",
@@ -152,11 +156,12 @@ def test_the_page_of_a_statement_package_has_these_parts(db) -> None:
     wp_id = _statement_package(db, _party())
     view = work_views.workpackage_view(wp_id)
     # 181: its scope (its own party and period, collecting bank statements) on purpose
-    assert _keys(view) == ["current_run", "item_counts", "last_run", "next", "open_runs", "readiness", "runs", "scope",
-                           "statements", "supersedable", "titles", "workflow", "workpackage"]
+    assert _keys(view) == ["current_run", "item_counts", "last_run", "next", "open_runs", "readiness", "rule", "runs",
+                           "scope", "statements", "supersedable", "titles", "workflow", "workpackage"]  # 231 C3b5a: rule
     assert _keys(view["statements"]) == ["scope", "statements"]
     assert (view["scope"]["role"], view["scope"]["from"]) == ("statements", "logic_pack")
-    assert view["workpackage"]["source_kind"] == "statements"
+    assert view["workpackage"]["source_kind"] == "manual"  # 231 (C3b5a): a plain package of the statements rule
+    assert view["rule"] == {"name": "statements", "adds": "own", "parts": ["statements"]}
 
 
 def _reconciliation(db) -> str:
@@ -168,12 +173,11 @@ def _reconciliation(db) -> str:
 
 def test_the_page_of_a_reconciliation_package_has_these_parts(db) -> None:
     wp_id = _reconciliation(db)
-    view = work_views.workpackage_view(wp_id)
-    assert _keys(view) == ["last_run", "next", "readiness", "reconcile", "runs", "titles", "workflow", "workpackage"]
-    assert _keys(view["reconcile"]) == ["approval", "counts", "coverage", "scope"]
+    view = work_views.workpackage_view(wp_id)  # 231 (C3a-2): a reconciliation is its process pack's case: its page names it
+    assert _keys(view) == ["case", "last_run", "next", "runs", "titles", "workflow", "workpackage"]
+    assert view["case"]["pack"] == "reconciliation"
     assert (view["last_run"], view["runs"], view["titles"]) == (None, 0, {})
     assert view["next"]["code"] == "reconcile_pair"
-    assert view["readiness"]["counts"] == {"items": 0, "lines": 1, "invoices": 1}
 
 
 def test_a_reconciliation_package_in_the_list(db) -> None:
@@ -191,7 +195,7 @@ def test_a_reconciliation_package_is_released_in_its_own_statement(db) -> None:
     wp_id = _reconciliation(db)
     view = package_release.view(wp_id)
     assert (view["blockers"], view["open_live_runs"]) == ([{"code": "own_approval"}], [])
-    with pytest.raises(package_release.ReleaseError, match="approved in its own statement"):
+    with pytest.raises(package_release.ReleaseError, match="approved on its own page"):  # 231 (C3a-2): a case's rule
         package_release.release(wp_id, actor="t", expected_mark=view["mark"])
 
 
@@ -199,7 +203,7 @@ def test_neither_kind_takes_documents_the_shared_way(db) -> None:
     pdf = db / "x.pdf"
     pdf.write_bytes(b"%PDF-1.4 synthetic")
     reconciliation = _reconciliation(db)
-    with pytest.raises(ValueError, match="^a reconciliation package has no documents$"):
+    with pytest.raises(ValueError, match="^a case's documents are in the packages its scope names$"):  # 231 (C3a-2)
         work.add_to_package(reconciliation, [pdf], expected_revision=work.get(reconciliation)["revision"], actor="t")
     statements = _statement_package(db, _party())
     with pytest.raises(ValueError, match="^add statements to a statement package through its survey$"):

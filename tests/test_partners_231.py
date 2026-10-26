@@ -118,7 +118,7 @@ def test_the_finance_domain_proposes_suppliers_and_customers_but_no_own_party(db
         def by_name(self, name):
             return ("party-own", "exact") if name == "Own Company Kft." else (None, None)
 
-    monkeypatch.setattr(party_views.reconcile, "snapshot", lambda: {"invoices": invoices, "statements": []})
+    monkeypatch.setattr(party_views.reconcile_store, "snapshot", lambda: {"invoices": invoices, "statements": []})
     monkeypatch.setattr(party_views.parties, "resolver", lambda: Own())
     assert sorted((r["name"], r["role"]) for r in party_views.partner_suggestions()) == [
         ("Invented Customer Bt.", "customer"), ("Invented Supplier Kft.", "supplier")]

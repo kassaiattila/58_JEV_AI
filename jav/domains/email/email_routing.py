@@ -17,10 +17,11 @@ every attachment it can route is decided.
 
 Code only, no AI call; the placement of a document is the domains' (`package_scope.place`).
 
-- `create(name, sources, actor)`: a routing package over email packages.
 - `view(wp_id)`: every attachment with its email, its placement, the proposal and the decision; the counts.
 - `accept(wp_id, item_ids, actor, target=None)`, `reject(...)`, `undo(...)`: a person's decisions.
-- `LOGIC`, `STEP`: the logic pack and the workflow step (registered by the email domain, `jav/domains/email/__init__.py`).
+- 231 (plan stage C, C1c): a routing is a case of the email routing process pack (`configs/processes/mail_routing.json`,
+  its step `file_placement@1`, `jav/domains/email/capabilities.py`); `wp_id` is the case's (its container's). Until then
+  its own logic pack and workflow step kind.
 
 Layer: application operation (it adds documents to packages through `jav/app/work.py` and the statement package's own
 adding).
@@ -34,7 +35,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from jav.app import logic_packs, package_result, package_scope, work, workflow_steps
+from jav.app import logic_packs, package_result, package_scope, work
 
 from jav.documents import source_instances
 from jav.core import activity_kinds, decisions, identity, store
@@ -91,36 +92,16 @@ class RoutingError(ValueError):
 # --- making one ---------------------------------------------------------------------------------------------------------
 
 
-def _email_packages(sources: list[str]) -> list[str]:
-    if not sources:
-        raise explained(RoutingError, "choose at least one email package")
-    out = []
-    for wp_id in dict.fromkeys(sources):
-        try:
-            wp = work.get(wp_id)
-        except KeyError as exc:
-            raise explained(RoutingError, "no work package {{wp_id}}", wp_id=repr(wp_id)) from exc
-        if not any(i["kind"] == "email" for i in wp["items"]):
-            raise explained(RoutingError, "work package {{name}} has no email", name=repr(wp["name"]))
-        out.append(wp_id)
-    return out
-
-
-def create(*, name: str, sources: list[str], actor: identity.Who) -> dict[str, Any]:
-    """A routing package over the given email packages (their attachments as they are now and as they come later)."""
-    chosen = _email_packages(sources)
-    wp = work.create_workpackage(name=name, source_kind=KIND, source_ref=None, owner=actor)
-    with store.connect() as c:
-        store.begin_immediate(c)
-        package_scope.save(c, wp["id"], parts={EMAILS: chosen}, actor=actor)
-    return {"workpackage_id": wp["id"], "sources": chosen}
-
-
 def sources_of(wp_id: str) -> list[str]:
+    """The email packages a routing package (`emails`) or (231 C1c) an email routing case (its scope's `sources`)
+    routes."""
+    from jav.app import scopes
+
     row = package_scope.stored(wp_id)
     if row is None:
         raise KeyError(wp_id)
-    return row["parts"][EMAILS]
+    parts = row["parts"] or {}
+    return list(parts.get(EMAILS) or parts.get(scopes.SOURCES) or [])
 
 
 # --- what each attachment is -----------------------------------------------------------------------------------------------
@@ -349,13 +330,16 @@ def _add(target: str, att: dict[str, Any], role: str | None, actor: identity.Who
     wp = work.get(target)
     if wp["status"] != "open":
         raise explained(RoutingError, "work package {{name}} is hidden", name=repr(wp["name"]))
-    if role is not None and wp["source_kind"] not in package_scope.role(role).package_kinds:
+    if role is not None and not package_scope.role(role).holds(wp["source_kind"], work.rule_name(target)):
         raise explained(RoutingError, "work package {{name}} cannot collect {{role}}", name=repr(wp["name"]),
                         role=package_scope.role(role).title)
     path = Path(att["path"])
     pack = logic_packs.of(wp["source_kind"])
+    rule = work.package_rule(target)  # 231 (C3b5a): or its named rule
     if pack is not None and pack.take_files is not None:
         pack.take_files(target, [path], expected_revision=wp["revision"], actor=actor)
+    elif rule is not None and rule.take_files is not None:
+        rule.take_files(target, [path], expected_revision=wp["revision"], actor=actor)
     else:
         work.add_to_package(target, [path], expected_revision=wp["revision"], actor=actor)
 
@@ -366,7 +350,10 @@ def _make(new: dict[str, Any], att: dict[str, Any], actor: identity.Who) -> str:
     way."""
     path = Path(att["path"])
     scope = {"party_id": new["party_id"], "period_start": new["period_start"], "period_end": new["period_end"]}
-    for kind in package_scope.role(new["role"]).package_kinds:
+    held = package_scope.role(new["role"])
+    if held.rule is not None and (make := work.rule_named(held.rule).make_with_files) is not None:  # 231 (C3b5a)
+        return make(name=new["name"], paths=[path], scope=scope, actor=actor)
+    for kind in held.package_kinds:
         pack = logic_packs.of(kind)
         if pack is not None and pack.create_with_files is not None:
             return pack.create_with_files(name=new["name"], paths=[path], scope=scope, actor=actor)
@@ -487,89 +474,9 @@ def undo(wp_id: str, item_id: str, *, actor: identity.Who, expected_state: int |
 # --- the offer on an email package's page (DECISIONS 170 K3: the email's intent proposes a logic pack, a person starts it)
 
 
-def offer(wp: dict[str, Any]) -> dict[str, Any]:
-    """A mailbox package's part of its page: how many of its documents came as an email's attachment, and the routing
-    packages that route it; nothing for a package without attachments."""
-    attachments = sum(1 for i in wp.get("items") or [] if i.get("parent_item_id"))
-    if not attachments:
-        return {}
-    with store.connect() as c:
-        rows = c.execute("SELECT s.workpackage_id, s.parts, w.name FROM workpackage_scopes s"
-                         " JOIN workpackages w ON w.id = s.workpackage_id WHERE w.source_kind = ? ORDER BY s.set_at",
-                         (KIND,)).fetchall()
-    routings = [{"id": r["workpackage_id"], "name": r["name"]} for r in rows
-                if wp["id"] in json.loads(r["parts"]).get(EMAILS, [])]
-    return {"routing_offer": {"attachments": attachments, "routings": routings}}
-
-
-# --- the logic pack ---------------------------------------------------------------------------------------------------------
-
-
-def _approved(wp_id: str) -> bool:
-    """Done when it has something to route and every such attachment is decided."""
-    counts = view(wp_id)["counts"]
-    return counts["routable"] > 0 and counts["decided"] == counts["routable"]
-
-
-def _next(wp_id: str) -> dict[str, Any]:
-    return _next_of(view(wp_id)["counts"])
-
-
-def _next_of(counts: dict[str, int]) -> dict[str, Any]:
-    if counts["routable"] == 0:
-        return {"code": "routing_empty", "label": "Nothing to route", "stage": "process"}
-    if counts["decided"] < counts["routable"]:
-        return {"code": "routing_decide", "label": "Route the documents", "stage": "review",
-                "params": {"n": counts["routable"] - counts["decided"]}}
-    return {"code": "routing_done", "label": "Routed", "stage": "result"}
-
-
 def _list_mark() -> Any:
     with store.connect() as c:
         return c.execute("SELECT COUNT(*), MAX(decided_at) FROM email_routing_decisions").fetchone()[:]
 
 
-def _page(wp_id: str) -> dict[str, Any]:
-    """The package's page (`work_views.workpackage_view`): its readiness (nothing runs), its next step and its own part."""
-    current = view(wp_id)
-    return {"readiness": {"ready": False, "blockers": [], "counts": {"items": current["counts"]["attachments"]}},
-            "next": _next_of(current["counts"]), "routing": current}
-
-
-def _delete_guard(c: sqlite3.Connection, wp_id: str) -> None:
-    c.execute("DELETE FROM email_routing_decisions WHERE workpackage_id=?", (wp_id,))  # 186: the scope is the shared one's
-
-
-def _release_refusal() -> Exception:
-    return explained(work.NotReady, "a routing package has no result to release: its documents are released in their packages")
-
-
-LOGIC = logic_packs.LogicPack(
-    kind=KIND, module=__name__,
-    roles=(logic_packs.InputRole("emails", "linked_package", "the email packages whose attachments it routes"),
-           logic_packs.InputRole("targets", "linked_package", "the open packages whose scope fits a document")),
-    has_runs=False, add_refusal="a routing package has no documents of its own: it routes its email packages' attachments",
-    release_refusal=_release_refusal, delete_guard=_delete_guard, page=_page, approved=_approved, next_step=_next,
-    list_next=_next, list_mark=_list_mark, outputs=(), service="jav.domains.email.api_email_routing")
-
-
-# --- the workflow step -----------------------------------------------------------------------------------------------------
-
-
-def workflow_start(ctx: workflow_steps.StepStart) -> None:
-    """A workflow's routing step: a routing package over the email packages of the steps it waits for."""
-    sources = [wp for step, wp in ctx.packages.items() if step in (ctx.step.get("after") or []) and wp]
-    if not sources:
-        raise explained(RoutingError, "the steps it waits for made no email package")
-    made = create(name=ctx.state["name"], sources=sources, actor=ctx.workflow["actor"])
-    ctx.made(made["workpackage_id"])
-
-
-STEP = workflow_steps.StepKind("routing", __name__, (KIND,), start=workflow_start, paid=False, own_engine=False,
-                               repeat_from=lambda wp_id: {"kind": "none"},
-                               statuses={"routing_decide": "review", "routing_done": "approved",
-                                         "routing_empty": "attention"})
-
-
-__all__ = ["BLOCKERS", "KIND", "LOGIC", "STEP", "RoutingError", "accept", "accept_clear", "create", "offer", "reject",
-           "sources_of", "undo", "view"]
+__all__ = ["BLOCKERS", "KIND", "RoutingError", "accept", "accept_clear", "reject", "sources_of", "undo", "view"]

@@ -3,7 +3,9 @@ item number. Synthetic data only."""
 
 from __future__ import annotations
 
-from jav.domains.finance import reconcile
+
+from jav.domains.finance import reconcile_signals
+
 
 ACCOUNT = "Személyes számla"  # the synthetic Revolut export's account title and statement heading (document vocabulary)
 HEADING = "Tranzakciókivonat"
@@ -12,11 +14,11 @@ HEADING = "Tranzakciókivonat"
 def test_m10_a_numbers_whole_word_pattern_is_compiled_once() -> None:
     """M-10: a pairing compared every invoice number with every line in its window and compiled the number's pattern
     each time (`re` keeps 512): 54 % of 27 s for 1 500 invoices and 3 000 lines."""
-    reconcile._whole_word.cache_clear()
+    reconcile_signals._whole_word.cache_clear()
     for _ in range(3):
-        assert reconcile._number_in("INV-2026/001", "Payment INV 2026 001 thank you")
-    assert not reconcile._number_in("INV-2026/001", "Payment INV-2025/001")
-    info = reconcile._whole_word.cache_info()
+        assert reconcile_signals._number_in("INV-2026/001", "Payment INV 2026 001 thank you")
+    assert not reconcile_signals._number_in("INV-2026/001", "Payment INV-2025/001")
+    info = reconcile_signals._whole_word.cache_info()
     assert (info.misses, info.hits) == (1, 3)
 
 
@@ -169,7 +171,8 @@ def test_m12_such_a_statement_is_a_to_do_and_not_checked_coverage(tmp_path) -> N
 
     from jav.app import work, work_runs
     from jav.core import store
-    from jav.domains.finance import reconcile, statement_package
+    from jav.domains.finance import statement_package
+    from jav.domains.finance import reconcile_store
     from tests.test_flow_statement_table_136 import _run_all
 
     with store.use_store(tmp_path / "s.sqlite"):
@@ -183,7 +186,7 @@ def test_m12_such_a_statement_is_a_to_do_and_not_checked_coverage(tmp_path) -> N
         assert not any(r.startswith("validator:closing.") for r in reasons)
         with store.connect() as c:
             validation = c.execute("SELECT validation FROM datapoints").fetchone()[0]
-        assert reconcile.verified(json.loads(validation)) is False
+        assert reconcile_store.verified(json.loads(validation)) is False
 
 
 def test_m13_an_approval_that_lands_just_before_a_scope_change_stops_it(tmp_path, monkeypatch) -> None:

@@ -8,8 +8,9 @@ Guarantees tested:
 - what cannot be placed is a blocker with its reason (no result, no own party, a suspicious email); since 183 an
   incoming invoice in a sent email is proposed with a note (`tests/test_email_routing_183.py`);
 - accepting adds the document to the package or makes the new package with its scope; one new package per party,
-  month and role in one acceptance; rejecting and undoing are recorded in the package's log; the package is done once
+  month and role in one acceptance; rejecting and undoing are recorded in the package's log; the routing is done once
   every routable document is decided; a workflow's routing step routes the email packages of the steps it waits for.
+  231 (C1c): the routing is a case of the email routing process pack (until then its own kind of package).
 Synthetic files and results only; no AI call.
 """
 
@@ -23,8 +24,9 @@ from pathlib import Path
 import pytest
 
 from jav.domains.email import email_routing
-from jav.app import logic_packs, package_scope, parties, registrations, work, work_runs, workflow_steps
+from jav.app import capabilities, logic_packs, package_scope, parties, registrations, work, work_runs, workflow_steps
 from jav.core import store
+from jav.core.process import engine
 from jav.domains.email.mailbox import SUSPICIOUS_ATTACHMENT
 from jav.ai.models import account_key
 
@@ -99,11 +101,20 @@ def _items(view: dict) -> dict[str, dict]:
     return {i["file"]: i for i in view["items"]}
 
 
-def test_the_routing_is_a_logic_pack_and_a_step_kind_of_the_email_domain() -> None:
+def _routing(wp: str, name: str = "Routing") -> str:
+    """231 (C1c): a case of the email routing process pack over the email package (until then a routing package)."""
+    from jav.app import process_runtime
+
+    return process_runtime.start_case("mail_routing", {"sources": [wp]}, name=name, actor="tester")
+
+
+def test_the_routing_is_the_email_routing_process_s_step() -> None:
     registrations.load_all()
-    pack = logic_packs.of("email_routing")
-    assert pack is not None and not pack.has_runs and pack.module == "jav.domains.email.email_routing" and pack.outputs == ()
-    assert workflow_steps.of("routing").package_kinds == ("email_routing",) and not workflow_steps.of("routing").paid
+    cap = capabilities.of("file_placement@1")
+    assert (cap.module, cap.kind, cap.providers) == ("jav.domains.email.capabilities", "human", ())
+    with pytest.raises(logic_packs.UnknownKind):  # 231 (C1c): no own kind of package any more
+        logic_packs.of("email_routing")
+    assert workflow_steps.of("process").package_kinds == ("case",) and not workflow_steps.of("process").paid
 
 
 def test_each_emailed_document_is_placed_and_proposed(db) -> None:
@@ -125,8 +136,7 @@ def test_each_emailed_document_is_placed_and_proposed(db) -> None:
     target = work.create_workpackage(name="June incoming", source_kind="folder", source_ref=None, owner="tester")
     june(target["id"], party_id=party, period_start="2026-06-01", period_end="2026-06-30", role_name="incoming_invoices",
          actor="tester")
-    made = email_routing.create(name="Routing", sources=[wp], actor="tester")
-    view = email_routing.view(made["workpackage_id"])
+    view = email_routing.view(_routing(wp))
     items = _items(view)
     assert items["invoice.pdf"]["placement"] | {"party": None} == {"routable": True, "role": "incoming_invoices",
                                                                   "role_title": "Incoming invoices", "party_id": party,
@@ -156,8 +166,8 @@ def test_accepting_adds_the_documents_and_makes_the_new_packages(db) -> None:
     _result(wp, ids["m2"], "invoice_hu", _invoice(invoice_number="INV-2", fulfillment_date="2026-06-25"))
     _result(wp, ids["m3"], "invoice_out", _invoice(supplier_name="Example Kft.", supplier_tax_id=OWN_TAX, buyer_tax_id="12121216-2-42"))
     _result(wp, ids["m4"], "invoice_hu", _invoice(buyer_tax_id="13570008-1-13", buyer_name="Someone Else Kft."))
-    routing = email_routing.create(name="Routing", sources=[wp], actor="tester")["workpackage_id"]
-    assert email_routing.LOGIC.next_step(routing)["code"] == "routing_decide"
+    routing = _routing(wp, "Routing")
+    assert email_routing.view(routing)["counts"]["decided"] == 0
     view = email_routing.accept_clear(routing, actor="Example Person", titles={"incoming_invoices": "Eingangsrechnungen"})
     items = _items(view)
     # the two June invoices went into one new package of incoming invoices, with its scope, named in the interface's language
@@ -176,9 +186,9 @@ def test_accepting_adds_the_documents_and_makes_the_new_packages(db) -> None:
     # the blocked one goes where a person chooses, or is not routed
     with pytest.raises(email_routing.RoutingError, match="no proposal"):
         email_routing.accept(routing, [ids["m4"]], actor="Example Person")
-    assert not email_routing.LOGIC.approved(routing)
+    assert view["counts"]["decided"] < view["counts"]["routable"]
     view = email_routing.reject(routing, [ids["m4"]], actor="Example Person")
-    assert email_routing.LOGIC.approved(routing) and email_routing.LOGIC.next_step(routing)["code"] == "routing_done"
+    assert view["counts"]["decided"] == view["counts"]["routable"] == 4
     view = email_routing.undo(routing, ids["m4"], actor="Example Person")
     assert _items(view)["unknown.pdf"]["decision"] is None
     view = email_routing.accept(routing, [ids["m4"]], actor="Example Person", target=new_in)
@@ -187,33 +197,31 @@ def test_accepting_adds_the_documents_and_makes_the_new_packages(db) -> None:
     assert actions == ["routing_accept"] * 3 + ["routing_reject", "routing_undo", "routing_accept"]
 
 
-def test_a_routing_package_needs_an_email_package_and_refuses_documents(db) -> None:
-    folder = work.create_workpackage(name="Folder", source_kind="folder", source_ref=None, owner="tester")
-    with pytest.raises(email_routing.RoutingError, match="has no email"):
-        email_routing.create(name="Routing", sources=[folder["id"]], actor="tester")
-    with pytest.raises(email_routing.RoutingError, match="at least one"):
-        email_routing.create(name="Routing", sources=[], actor="tester")
+def test_a_routing_case_reads_at_least_one_package_and_is_not_deleted_while_it_runs(db) -> None:
+    from jav.app import process_runtime, scopes
+
+    with pytest.raises(scopes.ScopeError, match="at least one"):
+        process_runtime.start_case("mail_routing", {"sources": []}, name="Routing", actor="tester")
+    with pytest.raises(scopes.ScopeError, match="no work package"):
+        process_runtime.start_case("mail_routing", {"sources": ["wp-000000000000"]}, name="Routing", actor="tester")
     wp, _ = _mailbox(db, {"m1": ("invoice.pdf", "inbox")})
-    routing = email_routing.create(name="Routing", sources=[wp], actor="tester")["workpackage_id"]
-    assert email_routing.LOGIC.next_step(routing)["code"] == "routing_decide"  # no result yet: a blocker to decide
-    with pytest.raises(ValueError, match="no documents of its own"):
-        work.add_to_package(routing, [db / "inbox" / "office" / "m1" / "invoice.pdf"], expected_revision=0, actor="tester")
-    work.delete_workpackage(routing, actor="tester")
-    with store.connect() as c:
-        assert c.execute("SELECT COUNT(*) FROM workpackage_scopes").fetchone()[0] == 0  # 186: the shared scope
+    routing = _routing(wp)
+    assert email_routing.view(routing)["counts"]["blocked"] == 1  # no result yet: a blocker to decide
+    with pytest.raises(work.NotReady):
+        work.delete_workpackage(routing, actor="tester")
 
 
-def test_an_email_package_offers_its_routing_and_names_the_routing_packages(db) -> None:
+def test_an_email_package_offers_the_email_routing_and_names_the_cases_reading_it(db) -> None:
     from jav.app import work_views
 
     wp, _ = _mailbox(db, {"m1": ("invoice.pdf", "inbox"), "m2": ("other.pdf", "inbox")})
-    assert work_views.workpackage_view(wp)["routing_offer"] == {"attachments": 2, "routings": []}
-    routing = email_routing.create(name="June routing", sources=[wp], actor="tester")["workpackage_id"]
-    assert work_views.workpackage_view(wp)["routing_offer"]["routings"] == [{"id": routing, "name": "June routing"}]
-    page = work_views.workpackage_view(routing)
-    assert page["routing"]["counts"]["attachments"] == 2 and page["next"]["code"] == "routing_decide"
-    empty = work.create_workpackage(name="No attachment", source_kind="mailbox", source_ref="x", owner="tester")
-    assert "routing_offer" not in work_views.workpackage_view(empty["id"])
+    [offer] = work_views.workpackage_view(wp)["intake"]  # 231 (C1c): the general package intake
+    assert (offer["pack"], offer["title"], offer["sources"], offer["cases"]) == ("mail_routing", "Email routing", [wp], [])
+    assert offer["name"] == "Email routing: Office mailbox"
+    routing = _routing(wp, "June routing")
+    assert work_views.workpackage_view(wp)["intake"][0]["cases"] == [{"id": routing, "name": "June routing"}]
+    folder = work.create_workpackage(name="Folder", source_kind="folder", source_ref=None, owner="tester")
+    assert "intake" not in work_views.workpackage_view(folder["id"])
 
 
 def test_a_workflows_routing_step_routes_the_email_package_of_the_step_it_waits_for(db) -> None:
@@ -228,10 +236,11 @@ def test_a_workflows_routing_step_routes_the_email_package_of_the_step_it_waits_
                                    "routing": {"source": {"kind": "none"}}}, actor="tester")
     steps = {s["id"]: s for s in made["steps"]}
     assert steps["emails"]["status"] == "approved"  # its live run is approved
-    routing = steps["routing"]["package"]["id"]
+    routing = steps["routing"]["package"]["id"]  # 231 (C1c): a case of the email routing process pack
     assert steps["routing"]["state"] == "started" and steps["routing"]["status"] == "review"
-    assert email_routing.sources_of(routing) == [wp]
+    assert email_routing.sources_of(routing) == [wp] and work.get(routing)["source_kind"] == "case"
     email_routing.accept_clear(routing, actor="tester")
+    engine.turn(routing, wake=True)  # the routing step sees every document decided: the case closes
     view = workflows.view(made["workflow"]["id"])
     assert {s["id"]: s["status"] for s in view["steps"]}["routing"] == "approved" and view["done"] == 2
     assert package_scope.scope_of(email_routing.view(routing)["items"][0]["decision"]["target"])["party_id"] == party

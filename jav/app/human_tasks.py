@@ -262,6 +262,15 @@ _WAITING_OWN = ("SELECT w.id FROM workpackages w WHERE w.source_kind IN ({kinds}
 SETTLED_UNSEEN = "settled while no task was kept"
 
 
+def _waiting_cases(conn: sqlite3.Connection) -> list[str]:
+    """231 (C3a-1): the process packs' case containers that approve their result as their own version and have no such
+    version holding (a general container kind: the case says whether it owns an approval, not its kind)."""
+    from jav.app import process_runtime  # lazy: the process runtime opens these tasks itself
+
+    containers = [r["id"] for r in conn.execute(_WAITING_OWN.format(kinds="?"), (process_runtime.CONTAINER,))]
+    return [wp for wp in containers if process_runtime.owns_approval(wp, conn)]  # on this connection: a schema change
+
+
 def _stale(conn: sqlite3.Connection, reviews: list[sqlite3.Row], runs: list[str]) -> list[str]:
     """The open tasks whose subject no longer waits for a person: an item closed, a run approved, superseded or
     stopped, a logic pack approved or deleted (by a version that keeps no task)."""
@@ -280,6 +289,7 @@ def _missing(conn: sqlite3.Connection) -> tuple[list[sqlite3.Row], list[str], li
     open_reviews = conn.execute(_OPEN_REVIEWS).fetchall()
     waiting_runs = [r["run_id"] for r in conn.execute(_WAITING_RUNS)]
     own = [r["id"] for r in conn.execute(_WAITING_OWN.format(kinds=", ".join("?" * len(kinds))), kinds)] if kinds else []
+    own += _waiting_cases(conn)
     have = {kind: tasks.ids_of_kind_in(conn, kind) for kind in (REVIEW, RUN_APPROVAL, OWN_APPROVAL)}
     return ([r for r in open_reviews if tasks.task_id(REVIEW, str(r["id"])) not in have[REVIEW]],
             [r for r in waiting_runs if tasks.task_id(RUN_APPROVAL, r) not in have[RUN_APPROVAL]],

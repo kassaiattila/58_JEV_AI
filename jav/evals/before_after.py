@@ -37,6 +37,7 @@ from typing import Any
 from urllib.parse import quote
 
 FORMAT_VERSION = 1
+COPY_MARK = ".before-after-copy"  # 231: the file that marks a folder `fresh_copy` made (the only kind it replaces)
 BASE_URL = "http://127.0.0.1:8930"
 ACTOR = "before.after"
 
@@ -141,7 +142,10 @@ def fresh_copy(baseline: Path, work_dir: Path) -> Path:
     """A fresh copy of the backed-up store in `work_dir`, with the files kept next to a store: the native readings
     (`native/`, from the backup's `native-artifacts.zip`), the source instances (`sources/`, the backup root's shared
     folder) and the statement files read from bank tables (`statement_tables/`, from the work store's folder: the
-    backup does not hold them, they are derived). An earlier copy in `work_dir` is replaced.
+    backup does not hold them, they are derived). An earlier copy in `work_dir` is replaced. 231: only a copy this
+    function made (its marker file, `COPY_MARK`) or an empty folder is replaced; any other folder is refused
+    (`SnapshotError`), so a mistyped `--work` never removes a folder of the project or of a person (a helper script
+    once removed the whole project folder).
 
     The folder is used by its full, resolved name: a short (8.3) Windows name would make the native readings' path
     check refuse every file."""
@@ -150,8 +154,12 @@ def fresh_copy(baseline: Path, work_dir: Path) -> Path:
     source = _store_of(baseline)
     work_dir = work_dir.resolve()
     if work_dir.exists():
+        if not work_dir.is_dir() or (any(work_dir.iterdir()) and not (work_dir / COPY_MARK).is_file()):
+            raise SnapshotError(f"{work_dir} is not an earlier copy of this tool (no {COPY_MARK}): choose a new folder")
         shutil.rmtree(work_dir)
     work_dir.mkdir(parents=True)
+    (work_dir / COPY_MARK).write_text("a fresh copy of a backed-up store for the before/after comparison\n",
+                                      encoding="utf-8")
     target = work_dir / "jav.sqlite"
     shutil.copyfile(source, target)
     native = source.parent / "native-artifacts.zip"
@@ -252,8 +260,8 @@ def _views(reader: _Reader, store_path: Path, *, items: bool, matches: bool) -> 
         yield reader.dataset("workpackage_items", {"workpackage_id": wid, "removed": "1"})
         yield reader.dataset("package_costs", {"workpackage_id": wid})
         yield g(f"workpackage/{wid}/result", f"/workpackages/{wid}/result")  # 171/172: its current result and release
-        if wp.get("source_kind") == "reconcile":
-            yield from _reconcile_views(reader, wid, matches=matches)
+        if wp.get("source_kind") == "reconcile" or (wp.get("source_kind") == "case" and _pairing_case(reader, wid)):
+            yield from _reconcile_views(reader, wid, matches=matches)  # 231 (C3a-1): a case's under the same keys
         else:
             yield g(f"workpackage/{wid}/result/export.xlsx", f"/workpackages/{wid}/result/export.xlsx", "xlsx")
             yield g(f"workpackage/{wid}/result/utility-cost", f"/workpackages/{wid}/result/utility-cost")
@@ -286,11 +294,38 @@ def _views(reader: _Reader, store_path: Path, *, items: bool, matches: bool) -> 
     for wf in (flows["body"] or {}).get("workflows") or []:
         yield g(f"workflow/{wf['id']}", f"/workflows/{wf['id']}")
     yield reader.dataset("mailbox_pulls", {})
+    yield from _process_views(reader)
     for actor, day in _activity_pairs(store_path):
         yield reader.dataset("activity", {"actor": actor, "day": day})
     for person in _waiting_people(store_path):
         yield reader.dataset("waiting", {"actor": person})
         yield reader.dataset("waiting", {"actor": person, "all": "true"})
+
+
+def _process_views(reader: _Reader) -> Iterator[tuple[str, Any]]:
+    """231 (plan stage C, C0): the mailbox page, the process packs' cases and handovers, each case's page, the partner
+    register and each process's own settings, so a step that moves a process onto a process pack is compared there too."""
+    g = reader.get
+    yield g("mailbox", "/mailbox")
+    key, cases = reader.dataset("cases", {"include_closed": "1"})
+    yield key, cases
+    yield reader.dataset("handovers", {})
+    for case_id in sorted({str(r.get("id") or r.get("_key")) for r in (cases["body"] or {}).get("rows") or [] if r.get("id") or r.get("_key")}):
+        yield g(f"case/{case_id}", f"/cases/{case_id}")
+    yield g("partners", "/partners", retired="true")
+    key, packs = g("processes", "/processes")
+    yield key, packs
+    for pack in (packs["body"] or {}).get("processes") or []:
+        yield g(f"process/{pack['id']}/settings", f"/processes/{pack['id']}/settings")
+
+
+def _pairing_case(reader: _Reader, wid: str) -> bool:
+    """231 (C3a-1): whether a case's page shows the pairing (a reconciliation started or taken over as a case), so its
+    reconciliation views are read under the keys a reconciliation package's were (an adoption compares like for like).
+    Asked past the counts, so the views read stay the same."""
+    response = reader.client.get(f"/api/cases/{quote(wid)}")
+    body = response.json() if response.status_code == 200 else {}
+    return any(e.get("type") == "pairing" for tab in body.get("tabs") or [] for e in tab.get("elements") or [])
 
 
 def _reconcile_views(reader: _Reader, wid: str, *, matches: bool) -> Iterator[tuple[str, Any]]:

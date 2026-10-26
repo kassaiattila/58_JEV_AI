@@ -26,7 +26,7 @@ JAV = PROJECT_ROOT / "jav"
 
 _PROBE = """
 import json
-import jav.domains.email, jav.domains.finance, jav.domains.email.email_routing, jav.domains.email.mailbox, jav.domains.finance.reconcile_package, jav.domains.finance.statement_package
+import jav.domains.email, jav.domains.finance, jav.domains.email.email_routing, jav.domains.email.mailbox, jav.domains.finance.reconcile_package, jav.domains.finance.statement_package, jav.app.process_runtime
 import jav.app.workflows
 from jav.app import workflow_steps
 before = sorted(workflow_steps._KINDS)
@@ -40,7 +40,10 @@ def test_importing_registers_no_step_kind_and_load_all_registers_each_from_its_o
     out = subprocess.run([sys.executable, "-c", _PROBE], cwd=PROJECT_ROOT, capture_output=True, text=True, check=True,
                          encoding="utf-8")
     seen = json.loads(out.stdout.strip().splitlines()[-1])
-    assert seen == {"before": [], "after": ["statements", "reconcile", "documents", "emails", "routing", "quote"]}  # finance, workflows, email, quotes
+    # (231 C1c) the process packs' step, email, quotes; (C3b5b) last, the packs' own step kinds (the bank statements', the
+    # documents'), once every domain registered its package makers
+    assert seen == {"before": [], "after": ["process", "statements", "documents", "emails"]}  # (C3c) the quote's went; (C3d)
+    # the emails step is the mailbox pack's  # 231 C3a-2: reconcile went
 
 
 def test_every_template_kind_is_registered_and_nothing_more() -> None:
@@ -48,36 +51,41 @@ def test_every_template_kind_is_registered_and_nothing_more() -> None:
     kinds = {k.kind: k for k in workflow_steps.kinds()}
     assert set(kinds) == set(cfg.load("workflows")["kinds"])
     assert {k: v.module for k, v in kinds.items()} == {
-        "documents": "jav.app.workflows", "emails": "jav.domains.email.mailbox",
-        "statements": "jav.domains.finance.statement_package", "reconcile": "jav.domains.finance.reconcile_package", "routing": "jav.domains.email.email_routing",
-        "quote": "jav.domains.quotes.quote_package"}  # 191
+        "documents": "jav.app.process_runtime", "emails": "jav.app.process_runtime",  # (C3d) the mailbox pack's
+        "statements": "jav.app.process_runtime",  # 231 (C3b5b): the packs' own step kinds, made by the process runtime
+        "process": "jav.app.process_runtime"}  # 191; 231 C1c: process; C3c: the quote's kind went (its pack's)
 
 
-def test_a_one_step_templates_id_is_its_kind() -> None:
-    """The interface opens a one-step template's own form before the templates have loaded (`ui/src/logic/steps.tsx`)."""
+def test_a_one_step_templates_id_is_its_kind_or_its_process() -> None:
+    """The interface opens a one-step template's own form before the templates have loaded (`ui/src/logic/steps.tsx`);
+    231 (C1c): a one-step template of a process pack's case is named by the pack (its form, the general one, waits for
+    the templates)."""
     singles = [t for t in cfg.load("workflows")["templates"] if len(t["steps"]) == 1]
-    assert singles and all(t["id"] == t["steps"][0]["kind"] for t in singles)
+    assert singles and all(t["id"] == (t["steps"][0]["pack"] if t["steps"][0]["kind"] == "process" else t["steps"][0]["kind"])
+                           for t in singles)
 
 
 def test_the_registry_gives_what_the_hand_written_tables_gave() -> None:
     registrations.load_all()
     assert {k.kind: k.package_kinds for k in workflow_steps.kinds()} == {
         "documents": ("folder", "manual", "watch", "upload"), "emails": ("mailbox",),
-        "statements": ("statements",), "reconcile": ("reconcile",), "routing": ("email_routing",), "quote": ("case",)}  # 231 A3d
+        "statements": ("manual",), "process": ("case",)}  # 231 A3d, C1c; C3a-2: reconcile went; C3c: quote went
+    assert workflow_steps.of("statements").rule == "statements"  # (C3b5a) a plain package of the statements rule
     assert {k.kind for k in workflow_steps.kinds() if k.own_engine} == {"documents", "emails", "statements"}
     assert {k.kind for k in workflow_steps.kinds() if k.paid} == {"documents", "emails", "statements"}
     assert {k.kind for k in workflow_steps.kinds() if k.only_new} == {"documents"}
     assert {k.kind for k in workflow_steps.kinds() if k.poll} == {"emails"}
-    assert workflow_steps.of("reconcile").repeat_from("wp-000000000000") == {"kind": "none"}
+    assert workflow_steps.of("process").repeat_from("wp-000000000000") == {"kind": "none"}
     assert workflow_steps.of("emails").repeat_from is None
     described = workflow_steps.described()
-    assert described["statements"] == {"package_kinds": ["statements"], "paid": True, "own_engine": True,
+    assert described["statements"] == {"package_kinds": ["manual"], "paid": True, "own_engine": True,
                                        "only_new": False, "subfolders": False, "needs": ["party", "period"]}
     assert described["documents"]["needs"] == [] and described["emails"]["needs"] == []
     assert {k.kind for k in workflow_steps.kinds() if k.subfolders} == {"documents"}
     view = workflows.templates_view()
     assert "meta" not in view and set(view["kinds"]) == set(described)
-    assert view["kinds"]["reconcile"]["sources"] == ["none", "package"] and view["kinds"]["reconcile"]["paid"] is False
+    assert view["kinds"]["process"]["sources"] == ["none"] and view["kinds"]["process"]["paid"] is False
+    assert "reconcile" not in view["kinds"]  # 231 (C3a-2): retired, read as the reconciliation pack's process step
 
 
 def _strings_and_imports(path) -> tuple[set[str], set[str]]:

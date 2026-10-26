@@ -28,6 +28,7 @@ from jav.app import parties
 from jav.domains.finance import own_parties
 from jav.core import store
 from jav.domains.finance import reconcile
+from jav.domains.finance import reconcile_store
 from tests import test_reconcile_k2_129 as k2
 
 CLUB_TAX = "13570008-1-13"  # samples on the data guard's allow list
@@ -108,7 +109,7 @@ def test_such_incoming_invoices_are_a_payments_candidates_again(db):
     misread = k2._save("misread", k2._invoice(number="INV-7", amount="70.00", supplier_name="Sporting Club",
                                                supplier_tax_id=OTHER_TAX, buyer_name="Sporting Club", buyer_tax_id=CLUB_TAX))
     k2._save_statement("stmt", k2._line(memo="INS-1"), k2._line(memo="INV-7", amount="70.00"))
-    snap = reconcile.snapshot()
+    snap = reconcile_store.snapshot()
     assert {i["id"]: i["direction"] for i in snap["invoices"]} == {typed_out: "incoming", misread: "incoming"}
     result = reconcile.propose(snap)
     assert not [e for e in result["excluded"] if e["kind"] == "invoice"]

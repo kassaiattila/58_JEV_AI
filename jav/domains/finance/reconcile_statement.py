@@ -415,7 +415,7 @@ def backfill_files(*, dry_run: bool = False) -> list[dict[str, Any]]:
     out = []
     for missing in package_release.own_missing_files():
         wp_id, n = missing["workpackage_id"], missing["version"]
-        if work.get(wp_id)["source_kind"] != rp.KIND:  # 186: another logic pack's own version
+        if not rp.holds_reconciliation(work.get(wp_id)):  # 186: another logic pack's own version (231: or case's)
             continue
         with store.connect() as c:
             store.begin_immediate(c)

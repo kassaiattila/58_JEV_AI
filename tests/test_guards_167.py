@@ -18,7 +18,8 @@ import pytest
 
 from jav.app import parties, work, work_runs
 from jav.core import store
-from jav.domains.finance import fx, reconcile
+from jav.domains.finance import fx
+from jav.domains.finance import reconcile_store
 from jav.domains.finance import reconcile_package as rp
 from jav.domains.finance import reconcile_statement as rs
 from tests import test_reconcile_k2_129 as k2
@@ -149,7 +150,7 @@ def _decided_in_an_approved_run(pkg: dict) -> str:
     """A 'not this one' decision on the pair recorded in an approved run (as the run-based review recorded it)."""
     k2._run(k2.RUN, [], approved=True)
     doc = pkg["invoices"]["OUT-1"]
-    key = reconcile.pair_key(doc, pkg["line"])
+    key = reconcile_store.pair_key(doc, pkg["line"])
     with store.connect() as c:
         c.execute("INSERT INTO reconcile_decisions(pair_key, invoice_doc_id, statement_doc_id, line_id, decision, run_id,"
                   " actor, decided_at) VALUES (?,?,?,?,?,?,?,?)",

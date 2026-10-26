@@ -150,7 +150,8 @@ def test_a_reconciliation_package_is_released_in_its_own_statement(env):
     wp_id = "wp-0000000000a1"
     with store.connect() as conn:
         conn.execute("INSERT INTO workpackages(id, name, source_kind, created_at, updated_at) VALUES (?,?,?,?,?)",
-                     (wp_id, "Synthetic reconciliation", "reconcile", "2026-10-18T08:00:00+00:00", "2026-10-18T08:00:00+00:00"))
+                     (wp_id, "Synthetic reconciliation", "case", "2026-10-18T08:00:00+00:00", "2026-10-18T08:00:00+00:00"))
+    # 231 (C3a-2): a reconciliation is its process pack's case; a case's container is approved on its own page too
     view = package_release.view(wp_id)
     assert {b["code"] for b in view["blockers"]} == {"own_approval"} and view["state"] == "not_released"
     r = env["client"].post(f"/api/workpackages/{wp_id}/release", headers=HUMAN, json={"expected_mark": view["mark"]})

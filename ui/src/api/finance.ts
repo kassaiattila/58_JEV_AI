@@ -212,7 +212,6 @@ export interface StatementPackageView {
   scope: { workpackage_id: string; party_id: string; party: { id: string; name: string }; period_start: string; period_end: string; revision: number };
   statements: StatementPackageItem[];
 }
-export interface StatementPackageSources { paths: string[]; party_id: string; period_start: string; period_end: string }
 /** 134: JEV's or GPT's raw answer about a statement line (jav/domains/finance/reconcile_ai.py); a person decides. */
 export type ReconcileAiEngine = "jev" | "gpt";
 export interface ReconcileAiProposal {
@@ -444,12 +443,6 @@ export const financeApi = {
   // 131–132: the reconciliation package; every decision returns the recomputed workspace
   reconcileAccounts: () => request<{ accounts: ReconcileAccount[] }>("GET", "/reconcile/accounts"),
   /** 136: the accounts of a bank's tabular statement export (no lines or balances); a package of the chosen ones. */
-  // 140: the statement package: a survey of the files for a party and a period, then the package of the ticked ones
-  statementPackageSurvey: (body: StatementPackageSources) => request<StatementPackageSurvey>("POST", "/statement-packages/survey", body),
-  createStatementPackage: (body: StatementPackageSources & { name: string; statements: string[]; pdfs: string[] }) =>
-    request<WorkpackageView>("POST", "/statement-packages", body),
-  createReconcilePackage: (body: { name: string; accounts: string[]; period_start: string; period_end: string; party_id?: string | null }) =>
-    request<WorkpackageView>("POST", "/reconcile/packages", body),
   reconcileWorkspace: (wpId: string) => seen(wpId, request<ReconcileWorkspace>("GET", `/workpackages/${enc(wpId)}/reconcile`)),
   setReconcileScope: (wpId: string, body: { accounts: string[]; period_start: string; period_end: string; expected_revision: number; party_id?: string | null }) =>
     seen(wpId, request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/scope`, body)),

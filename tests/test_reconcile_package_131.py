@@ -13,6 +13,7 @@ import pytest
 from jav.app import work, work_views
 from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package as rp
+from jav.domains.finance import reconcile_store
 from tests import test_api
 from tests import test_reconcile_k2_129 as k2
 
@@ -65,8 +66,8 @@ def test_the_scope_is_chosen_from_the_stores_accounts_and_checked(db):
         _package(start="2026-05-01", end="2026-04-01")
     wp_id = _package()
     view = work_views.workpackage_view(wp_id)
-    assert view["workpackage"]["source_kind"] == "reconcile" and view["runs"] == 0
-    assert view["reconcile"]["scope"]["accounts"] == [OWN_KEY]
+    assert view["workpackage"]["source_kind"] == "case" and view["runs"] == 0  # 231 (C3a-2): the reconciliation's case
+    assert rp.scope(wp_id)["accounts"] == [OWN_KEY] and view["case"]["pack"] == "reconciliation"
     assert view["next"]["code"] == "reconcile_pair"
 
 
@@ -76,7 +77,7 @@ def test_the_scope_changes_with_its_revision(db):
     rp.set_scope(wp_id, accounts=[OWN_KEY], period_start="2026-04-01", period_end="2026-05-31", expected_revision=1, actor="t")
     with pytest.raises(work.RevisionConflict):
         rp.set_scope(wp_id, accounts=[OWN_KEY], period_start="2026-04-01", period_end="2026-06-30", expected_revision=1, actor="t")
-    assert rp.scope(wp_id)["revision"] == 2 and work.get(wp_id)["source_ref"] == "2026-04-01..2026-05-31"
+    assert rp.scope(wp_id)["revision"] == 2 and work.get(wp_id)["source_ref"].startswith("pack:reconciliation@")  # its pack
 
 
 def test_a_processing_package_is_not_a_reconciliation_package(db):
@@ -206,7 +207,7 @@ def test_the_trial_confirmations_count_as_whole_allocations(db):
     ws = rp.workspace(_package())
     [share] = _line_row(ws, line)["allocations"]
     assert (share["allocation_id"], share["line_amount"]) == (None, "100.00") and _line_row(ws, line)["state"] == "allocated"
-    rp.revoke(ws["workpackage_id"], kind="decision", ref=reconcile.pair_key(inv, line), actor="t")
+    rp.revoke(ws["workpackage_id"], kind="decision", ref=reconcile_store.pair_key(inv, line), actor="t")
     assert _line_row(rp.workspace(ws["workpackage_id"]), line)["state"] == "proposed"
 
 
@@ -250,7 +251,7 @@ def test_a_rejected_pair_is_not_offered_again_until_revoked(db):
     assert (d["decision"], d["workpackage_id"], d["run_id"]) == ("not_this", wp_id, None)
     ws = rp.workspace(wp_id)
     assert _line_row(ws, lid)["state"] == "open" and _line_row(ws, lid)["rejected"] == [inv]
-    rp.revoke(wp_id, kind="decision", ref=reconcile.pair_key(inv, lid), actor="t")
+    rp.revoke(wp_id, kind="decision", ref=reconcile_store.pair_key(inv, lid), actor="t")
     assert _line_row(rp.workspace(wp_id), lid)["state"] == "proposed"
 
 
@@ -287,13 +288,12 @@ def test_a_decision_after_another_one_was_recorded_meanwhile_conflicts(db):
     assert inv
 
 
-def test_a_package_with_decisions_is_only_hidden(db):
+def test_a_reconciliation_is_only_hidden(db):
     stmt = _stmt("stmt", _line())
     [lid] = _ids(stmt, _line())
     empty = _package(name="empty")
-    work.delete_workpackage(empty, actor="t")
-    with store.connect() as c:
-        assert c.execute("SELECT COUNT(*) FROM workpackage_scopes").fetchone()[0] == 0  # 186: the shared scope
+    with pytest.raises(work.NotReady):  # 231 (C3a-2): a case's container stays while its case does (it can be hidden)
+        work.delete_workpackage(empty, actor="t")
     used = _package(name="used")
     rp.mark(used, [lid], category="private", note=None, actor="t")
     with pytest.raises(work.NotReady):
@@ -311,10 +311,10 @@ def test_the_service_creates_the_package_and_records_the_decisions(env):
     stmt = _stmt("stmt", _line())
     [lid] = _ids(stmt, _line())
     assert c.get("/api/reconcile/accounts").json()["accounts"][0]["key"] == OWN_KEY
-    r = c.post("/api/reconcile/packages", headers=HUMAN,
-               json={"name": "April", "accounts": [OWN_KEY], "period_start": "2026-04-01", "period_end": "2026-04-30"})
-    assert r.status_code == 201, r.text
-    wp_id = r.json()["workpackage"]["id"]
+    # 231 (C3e): a reconciliation is its pack's case (`POST /api/cases`); `/api/reconcile/packages` went
+    assert c.post("/api/reconcile/packages", headers=HUMAN, json={}).status_code in (404, 405)
+    wp_id = rp.create(name="April", accounts=[OWN_KEY], period_start="2026-04-01", period_end="2026-04-30",
+                      actor="anna")["workpackage_id"]
     assert c.get(f"/api/workpackages/{wp_id}/reconcile").json()["lines"][0]["state"] == "proposed"
     bad = c.post(f"/api/workpackages/{wp_id}/reconcile/allocate", headers=HUMAN,
                  json={"pairs": [{"invoice_doc_id": inv, "line_id": lid, "line_amount": "1,5"}]})

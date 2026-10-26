@@ -3,10 +3,10 @@
 // Synthetic names only; the local service is not called.
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { setActor, type RoutingItem, type RoutingView, type WorkpackageView } from "../../api";
-import { setLanguage } from "../../i18n";
-import { docTypeLabel } from "../../labels";
-import { RoutingStages } from "./Routing";
+import { setActor, type RoutingItem, type RoutingView, type CaseView } from "../api";
+import { setLanguage } from "../i18n";
+import { docTypeLabel } from "../labels";
+import { FilePlacement } from "./FilePlacement";
 
 const EMAIL = { item_id: "e1", subject: "Fwd: June invoice", sender: "office@example.com", received_at: "2026-06-20T10:00:00", folder: "sent" };
 
@@ -19,14 +19,16 @@ function item(file: string, over: Partial<RoutingItem> = {}): RoutingItem {
   };
 }
 
-function view(items: RoutingItem[]): WorkpackageView {
+
+function routing(items: RoutingItem[]): RoutingView {
   const routable = items.filter((i) => i.placement.routable);
-  const routing: RoutingView = { sources: [{ id: "wp-00000000000m", name: "Office mailbox" }], items,
+  return { sources: [{ id: "wp-00000000000m", name: "Office mailbox" }], items,
     counts: { attachments: items.length, routable: routable.length, decided: 0,
       blocked: routable.filter((i) => i.placement.problem).length, clear: routable.filter((i) => i.proposal).length, accepted: 0 } };
-  return { workpackage: { id: "wp-00000000000r", name: "Routing", source_kind: "email_routing", status: "open", items: [] },
-    routing } as unknown as WorkpackageView;
 }
+
+const PAGE = {} as CaseView;
+const element = (items: RoutingItem[]) => ({ type: "file_placement", step: "route", show: "decide", data: routing(items) });
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); });
@@ -40,7 +42,7 @@ describe("183 the email routing after its first real trial", () => {
       item("return.pdf", { doc_type: "tax_return", placement: { ...item("x").placement, routable: false, role: null, role_title: null,
         party_id: null, party: null, day: null }, proposal: null }),
     ];
-    render(<RoutingStages view={view(items)} stage="review" onChanged={() => undefined} />);
+    render(<FilePlacement caseId="wp-00000000000r" element={element(items)} page={PAGE} onChanged={() => undefined} />);
     const table = screen.getByRole("table", { name: "Documents to route" });
     const row = (file: string) => within(table).getByText(file).closest("tr") as HTMLElement;
     expect(row("forwarded.pdf").textContent).toContain("June incoming");

@@ -32,7 +32,9 @@ def _problems(data: dict) -> list[str]:
 
 
 def test_every_process_pack_passes_its_check() -> None:
-    assert [p.id for p in process_packs.packs()] == ["it_quote"]
+    # 231 (C1c): the email routing; (C2d) the reconciliation; (C3b3) the bank statements and the documents
+    assert [p.id for p in process_packs.packs()] == ["bank_statements", "documents", "it_quote", "mail_routing", "mailbox",
+                                                     "reconciliation"]  # (C3d) the mailbox download
 
 
 def test_the_it_quote_pack_becomes_a_process_definition_of_capability_steps() -> None:
@@ -75,13 +77,27 @@ def test_a_pack_that_breaks_a_rule_is_refused(change, expected) -> None:
     assert any(expected in p for p in problems), problems
 
 
-def test_an_intake_that_would_start_a_case_by_itself_does_not_fit_the_format() -> None:
+def test_an_intake_starts_a_case_by_itself_only_from_an_email_s_record() -> None:
     data = _it_quote()
     data["intake"][0]["starts"] = "auto"
     with pytest.raises(ValidationError):
         process_packs.ProcessPack.model_validate(data)
+    data["intake"][0]["starts"] = "case"  # 231 (C1b): an email's record starts the case by itself
+    assert _problems(data) == []
+    data["intake"][1]["starts"] = "case"
+    assert "only an email intake starts a case by itself" in _problems(data)
+    data["intake"][1]["starts"] = "manual"
+    data["scope"]["parts"] = ["party"]
+    assert any("needs a record scope part" in p for p in _problems(data))
 
 
 def test_a_missing_pack_is_named() -> None:
     with pytest.raises(process_packs.PackError, match="no process pack 'insurance_quote'"):
         process_packs.load("insurance_quote")
+
+
+def test_a_pack_whose_steps_read_no_record_offers_none() -> None:
+    """231 (C3c): the general form's record chooser asks the pack's record step's capability; a pack without one has none."""
+    assert process_packs.records("documents") == []
+    with pytest.raises(process_packs.UnknownPack):
+        process_packs.records("no_such_pack")

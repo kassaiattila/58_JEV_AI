@@ -1,0 +1,99 @@
+{
+  "meta": {
+    "name": "process:bank_statements",
+    "version": "1.3.0",
+    "description": "231 (plan stage C, C3b3; DECISIONS 231): an own party's bank statements of a period as a process pack (until C3 the statement package, its own kind of work package): a case makes its statement package from its source (the statements of the party and the period the store has not got yet), a person starts its live run within the package's estimate, and the case is done once a live run is approved.",
+    "changelog": [
+      {
+        "version": "1.3.0",
+        "date": "2026-10-26",
+        "note": "231 (C3b5b; the owner's decision of 2026-10-26): the workflows' statements step is the pack's (workflow): its new package gets a case of the pack, and its live run starts within the step's budget as before."
+      },
+      {
+        "version": "1.2.0",
+        "date": "2026-10-25",
+        "note": "231 (C3b5a): the statement packages wrapped are named by the rule they run by (statements), as a statement package has no kind of its own any more."
+      },
+      {
+        "version": "1.1.0",
+        "date": "2026-10-25",
+        "note": "231 (C3b4): the statement packages made before the pack wraps: each gets a new case around it (its party and period from the package's scope; the package keeps its id, runs and approvals and becomes the processing step's package)."
+      },
+      {
+        "version": "1.0.0",
+        "date": "2026-10-25",
+        "note": "231 (C3b3): the first version: the document processing step with the statements' maker (process_documents@1) and its tabs: Statements, History."
+      }
+    ]
+  },
+  "id": "bank_statements",
+  "title": "Bank statements",
+  "scope": {
+    "parts": [
+      "party",
+      "period",
+      "source"
+    ]
+  },
+  "intake": [
+    {
+      "on": "manual",
+      "starts": "manual"
+    }
+  ],
+  "wraps": [
+    {
+      "rule": "statements",
+      "step": "process",
+      "package_part": "source",
+      "scope": {
+        "party": "party",
+        "period": "period"
+      }
+    }
+  ],
+  "resources": {},
+  "steps": [
+    {
+      "id": "process",
+      "uses": "process_documents@1",
+      "title": "Processing",
+      "params": {
+        "maker": "statements"
+      }
+    }
+  ],
+  "workflow": {
+    "kind": "statements",
+    "step": "process",
+    "package_part": "source"
+  },
+  "screens": {
+    "tabs": [
+      {
+        "id": "documents",
+        "label": "Statements",
+        "elements": [
+          {
+            "type": "package_work",
+            "step": "process"
+          }
+        ]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "elements": [
+          {
+            "type": "timeline"
+          },
+          {
+            "type": "cost"
+          }
+        ]
+      }
+    ]
+  },
+  "outputs": [],
+  "goldens": []
+}

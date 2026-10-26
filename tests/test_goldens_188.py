@@ -88,7 +88,7 @@ def test_the_flows_and_the_reconciliation_have_their_golden_sets():
     assert by_key["reconcile:credit_kinds"].engines == ("jev", "gpt")
     # 204 (R1h): described by the finance domain's measurement module, no longer by the logic pack's registration
     assert [g.key for g in reconcile_goldens.GOLDENS] == ["reconcile:pairs", "reconcile:credit_kinds"]
-    assert {by_key[k].layer for k in ("reconcile:pairs", "reconcile:credit_kinds")} == {"logic_pack"}
+    assert {by_key[k].layer for k in ("reconcile:pairs", "reconcile:credit_kinds")} == {"process_pack"}  # 231 (C3a-2)
 
 
 def test_the_order_is_data_points_then_the_flows_then_the_logic_packs():

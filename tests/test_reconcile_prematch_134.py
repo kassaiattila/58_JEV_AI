@@ -15,6 +15,8 @@ import pytest
 
 from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package
+from jav.domains.finance import reconcile_rules
+from jav.domains.finance import reconcile_store
 from tests import test_reconcile_k2_129 as k2
 
 CASES = {c["id"]: c for c in reconcile.golden_cases()}
@@ -30,9 +32,9 @@ def db(tmp_path):
 
 
 def _conf_with(monkeypatch, **fuzzy):
-    conf = copy.deepcopy(reconcile._conf())
+    conf = copy.deepcopy(reconcile_rules._conf())
     conf["signals"]["fuzzy_name"].update(fuzzy)
-    monkeypatch.setattr(reconcile, "_conf", lambda: conf)
+    monkeypatch.setattr(reconcile_rules, "_conf", lambda: conf)
 
 
 # --- the pure core -------------------------------------------------------------------------------------------------
@@ -140,7 +142,7 @@ def test_the_snapshot_reads_the_utility_bills_account_and_the_reference_numbers(
             "issue_date": "2026-04-01", "due_date": "2026-04-15"}
     doc = k2._save("bill", bill, doc_type="viz_szamla")
     k2._save("hu", k2._invoice(order_number="PO-998877"))
-    by_id = {i["id"]: i for i in reconcile.snapshot()["invoices"]}
+    by_id = {i["id"]: i for i in reconcile_store.snapshot()["invoices"]}
     assert (by_id[doc]["payment_account"], by_id[doc]["references"]) == (k2.SUPPLIER, ["1234567890"])
     assert by_id[k2._id("hu")]["payment_account"] == k2.SUPPLIER and by_id[k2._id("hu")]["references"] == ["PO-998877"]
 

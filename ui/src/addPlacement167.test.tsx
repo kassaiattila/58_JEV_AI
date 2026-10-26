@@ -71,7 +71,7 @@ it("the open form previews, adds by path, shows the service's counts and closes 
 
 it("a statement package offers adding statements in processing", () => {
   vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [] });
-  render(<ProcessStage view={view({ source_kind: "statements" })} onChanged={() => {}} />);
+  render(<ProcessStage view={view({ source_kind: "manual" }, { rule: { name: "statements", adds: "own", parts: ["statements"] } })} onChanged={() => {}} />);  // 231 C3b5a: its rule
   expect(screen.getByRole("button", { name: "Add statements" })).toBeTruthy();
 });
 
@@ -82,12 +82,7 @@ it("the package's actions menu leads to the add form in processing", () => {
   expect(parseRoute(window.location.hash)).toMatchObject({ wpId: "wp-1", stage: "process", add: true });
 });
 
-it("a reconciliation package's menu has nothing to add", () => {
-  render(<WorkpackageActions view={view({ source_kind: "reconcile" })} onChanged={() => {}} />);
-  fireEvent.click(screen.getByRole("button", { name: "Manage package" }));
-  expect(screen.queryByRole("button", { name: "Add documents" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Add statements" })).toBeNull();
-});
+// 231 (C3a-2): a reconciliation is a process pack's case since its package kind retired (no package menu of its own)
 
 it("after a run, review's item list names adding in its title", async () => {
   vi.spyOn(api, "workpackage").mockResolvedValue(view({}, { runs: 1, next: { code: "review", label: "", stage: "review" } }));

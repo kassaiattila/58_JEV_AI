@@ -20,6 +20,7 @@ from jav.app import export, parties
 from jav.domains.finance import own_parties
 from jav.core import store
 from jav.domains.finance import reconcile
+from jav.domains.finance import reconcile_store
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_package_131 import _line, _stmt
 
@@ -74,7 +75,7 @@ def test_an_own_partys_outgoing_invoice_is_no_payments_candidate(db):
     internal = k2._save("internal", k2._invoice(number="INT-1", amount="55.00", supplier_name="Sporting Club",
                                                 supplier_tax_id=CLUB_TAX, buyer_name="Jane Example"))
     _stmt("stmt", _line(memo="OUT-1"), _line(amount="55.00", memo="INT-1"))
-    snap = reconcile.snapshot()
+    snap = reconcile_store.snapshot()
     directions = {i["id"]: i["direction"] for i in snap["invoices"]}
     assert directions == {out: "outgoing", internal: "internal"}
     result = reconcile.propose(snap)

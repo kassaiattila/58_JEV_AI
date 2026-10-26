@@ -5,12 +5,10 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  api, setActor, type ReconcileInvoice, type ReconcileLine, type ReconcileWorkspace, type WorkpackageView,
+  api, setActor, type ReconcileInvoice, type ReconcileLine, type ReconcileWorkspace,
 } from "../../api";
 import hungarian from "../../i18n/hu-native.json";
 import { setLanguage } from "../../i18n";
-import { stepLabel } from "../../labels";
-import { WorkpackageDetail } from "../WorkpackageDetail";
 import { canonical, display, parseCanonical, parseInput } from "./money";
 import { check, planPairing, toRequest } from "./pairing";
 import { ReconcilePairing } from "./ReconcilePairing";
@@ -174,25 +172,8 @@ describe("the two-list pairing page", () => {
 
 // --- the package page ------------------------------------------------------------------------------------------------------
 
-describe("a reconciliation package's page", () => {
-  it("shows its own stages and opens at the pairing", async () => {
-    const view = {
-      workpackage: { id: WP, name: "April", source_kind: "reconcile", source_ref: "2026-04-01..2026-04-30", revision: 1, status: "active",
-        created_at: "", updated_at: "", items: [], assignment: null, owner: null },
-      readiness: { workpackage_id: WP, ready: true, blockers: [], warnings: [], counts: { items: 0 }, budget: {}, assignment_revision: 0, input_hash: "" },
-      next: { code: "reconcile_pair", label: "Pairing: 1 open lines", stage: "review", params: { n: 1 } }, last_run: null, runs: 0,
-      reconcile: { scope: workspace([], []).scope, counts: { lines: { open: 1 }, invoices: {}, open_lines: 1 }, coverage: [] },
-    } as unknown as WorkpackageView;
-    vi.spyOn(api, "workpackage").mockResolvedValue(view);
-    vi.spyOn(api, "users").mockResolvedValue({ users: [] });
-    vi.spyOn(api, "reconcileWorkspace").mockResolvedValue(workspace([line(1)], [invoice(1)]));
-    render(<WorkpackageDetail route={{ view: "workpackages", wpId: WP }} wpId={WP} />);
-    expect(await screen.findByRole("tab", { name: /Preparation/ })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: /Pairing/ }).getAttribute("aria-selected")).toBe("true");
-    expect(await screen.findByRole("region", { name: "Statement lines" })).toBeTruthy();
-    expect(stepLabel("reconcile_pair", { n: 3 }, "")).toBe("Pairing: 3 open lines");
-  });
-});
+// 231 (C3a-2): the package page with its own stages retired with its kind; the case page shows the pairing
+// (src/elements/pairing231.test.tsx)
 
 // --- every new label has a Hungarian translation ----------------------------------------------------------------------------
 

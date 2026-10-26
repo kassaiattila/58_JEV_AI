@@ -28,7 +28,7 @@ The rule (the owner's decisions of 2026-10-10):
   statement that replaced it: the same booking day, amount and direction, repeated lines in their order. A decision
   whose line has no same line is left over, and the reconciliation package lists it.
 
-Nothing is deleted: a replaced statement keeps its document and run, the snapshot leaves it out (`reconcile.snapshot`)
+Nothing is deleted: a replaced statement keeps its document and run, the snapshot leaves it out (`reconcile_store.snapshot`)
 and says what replaced it. Reuse: the pair decision follows the duplicate decision of invoices (`jav/domains/finance/duplicates.py`).
 """
 
@@ -354,9 +354,9 @@ def review_reasons(current: dict[str, Any]) -> list[str]:
     """The overlap to-dos of the statement being processed (`current`: the snapshot's statement shape), against the
     store's statements: one per live statement it books the same days with, undecided. It reads the store: the check
     registry runs it in a worker run only (175, `jav/ai/checks.py`)."""
-    from jav.domains.finance import reconcile
+    from jav.domains.finance import reconcile_store
 
-    others = [s for s in reconcile.statements() if s["id"] != current["id"]]
+    others = [s for s in reconcile_store.statements() if s["id"] != current["id"]]
     res = resolve([*others, current], choices())
     return sorted(reason(b if a == current["id"] else a) for a, b in res.conflicts if current["id"] in (a, b))
 
@@ -376,7 +376,7 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, ac
     into the decision journal, and a stale `expected_state` is refused. 215 (plan G-process-core P2c): the to-dos close
     in the choice's transaction too, so a stop between the two keeps neither."""
     from jav.app import work, work_runs
-    from jav.domains.finance import reconcile
+    from jav.domains.finance import reconcile_store
 
     if other_doc_id == item_id:
         raise explained(ChoiceError, "a statement does not overlap itself")
@@ -388,7 +388,7 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, ac
                         run_id=run_id)
     if not any(i["item_id"] == item_id for i in run["input"]["items"]):
         raise KeyError(item_id)
-    found = {s["id"]: s for s in reconcile.statements() if s["id"] in (item_id, other_doc_id)}
+    found = {s["id"]: s for s in reconcile_store.statements() if s["id"] in (item_id, other_doc_id)}
     if other_doc_id not in found or item_id not in found:
         raise KeyError(other_doc_id if item_id in found else item_id)
     a, b = found[item_id], found[other_doc_id]
@@ -427,9 +427,9 @@ def choices_for(doc_ids: Iterable[str], c=None) -> list[dict[str, Any]]:
 
 def current(doc_id: str, doc_type: str, values: dict[str, Any], validation: list[dict[str, Any]]) -> dict[str, Any]:
     """The statement being processed in the snapshot's shape (its stored values and check results)."""
-    from jav.domains.finance import reconcile
+    from jav.domains.finance import reconcile_store
 
-    return reconcile._statement({"doc_id": doc_id, "doc_type": doc_type, "values": values, "validation": validation})
+    return reconcile_store._statement({"doc_id": doc_id, "doc_type": doc_type, "values": values, "validation": validation})
 
 
 def rank_name(statement: dict[str, Any]) -> str:
@@ -441,18 +441,18 @@ def item_view(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str,
     """What the review page shows of a statement's relations: the statement that replaced it, the ones it replaced,
     and the ones it books the same days with undecided (with the open to-do), each with both periods and sources, how
     it was decided, and how many lines of the replaced statement found their same line."""
-    from jav.domains.finance import reconcile
+    from jav.domains.finance import reconcile_store
 
     # 153 (review B6): only a stored statement has relations; a document of another kind returns before every stored
     # statement is built (0.10 s of each review page's 0.15-0.19 s, growing with the store; 102 s for a run's results)
-    # 174 (plan 170 L2): by the document's counted result, as `reconcile.statements` reads it
+    # 174 (plan 170 L2): by the document's counted result, as `reconcile_store.statements` reads it
     from jav.app import package_result
 
     with store.connect() as c:
         rows = package_result.result_rows(c, package_result.counted_documents(c, [item_id]))
     if not rows or not type_roles.has(rows[0]["doc_type"], "statement"):
         return []
-    every = reconcile.statements()
+    every = reconcile_store.statements()
     by_id = {s["id"]: s for s in every}
     if item_id not in by_id:
         return []
@@ -466,7 +466,7 @@ def item_view(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str,
     related += [(b if a == item_id else a, "conflict", None) for a, b in res.conflicts if item_id in (a, b)]
     if not related:
         return []
-    files = reconcile.file_names([item_id, *(o for o, _r, _h in related)])
+    files = reconcile_store.file_names([item_id, *(o for o, _r, _h in related)])
     runs = sorted({str(by_id[o].get("work_run")) for o, _r, _h in related if by_id[o].get("work_run")})
     with store.connect() as c:
         packages = {r["run_id"]: r["workpackage_id"] for r in c.execute(

@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
+import time
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -51,6 +52,8 @@ PROVIDERS = ("jev", "openai", "azure_di")
 STEP_START = "step_start"  # 231 (A5): the human task of a step a person starts (a paid one, `_start: person`)
 AWAITING_START, STARTED = "awaiting_start", "started"  # the step's phases while it waits for a person's start
 MACHINE = "process-core"  # the machine that runs a step a person started, for that person
+SKIPPED = "skipped"  # 231 (C2c): the phase of an optional step nobody started, done as the case's other steps were
+OPTIONAL_CHECK_S = 60.0  # how soon an optional step nobody started looks again whether the case's other steps are done
 _NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 RULES, RULE_REFS = "rules", "rule_settings"  # 231 (B3): a case's own rule values in its data, and where they came from
 
@@ -134,6 +137,31 @@ class Capability:
     - `choices` (B4): for a parameter a process may set through a resource of its pack, the values it may take, each
       with an English label (a function, as they may live in the store: the active price lists). A process's own value
       of such a resource is one of them; the parameter's field title names the resource.
+    - `adopt(wp_id, params)` (C0): the state its step is in when an existing work package is taken over as a case
+      (`process_runtime.adopt_case`), read from the work the package already holds; None: the step has not run. A
+      capability without it: its step has not run.
+    - `preview(record, params)` (C1a): for a step that reads its record from the case's scope, what it would read
+      from `record` before a case starts (`jav/app/intake.py`): {"record": the record as the step reads it, "gaps":
+      [{"code", "message"}], "list_field": the field of its list, "record_type": its type (the field labels')}; None
+      when `record` holds none.
+    - `own_version` (C2d): its step is done with the case's own approved version (a person's approval of the result),
+      so reopening that version reopens the step (`process_runtime.own_version_reopened`).
+    - `reopen(wp_id, note, actor)` and `approval_what` (C3a-1), for an `own_version` capability whose case waits for that
+      approval as a person's task: how the approved version is reopened with a reason (a workflow's chain reopens it,
+      rule 218) and what the approval is about in "Waiting for me" (English; the interface translates it). A case of a
+      pack with such a step owns its approval (`process_runtime.owns_approval`).
+    - `statuses` (C3a-1): what its case's next step codes mean for a workflow's step that runs its pack (`process`),
+      as a retired step kind's statuses did (the pairing: `reconcile_pair` is "pairing").
+    - `waits` (C3b4): what its step waits for, by the event it waits for, in the case list's words (`person_start`,
+      `person`, `reply`, `work`; `jav/app/case_lists.py`): the document processing's `run_start` is a person's start.
+      An event not named: as the case list reads it.
+    - `bind(wp_id, case_id, step_id, params, scope, actor)` and `bound(wp_id)` (C3b4): for a step that owns a work
+      package, an existing package bound to the step of a case wrapped around it (`process_runtime.wrap_case`; False
+      when the package belongs to a step already), and whether it does.
+    - `records(q, params)` (C3c): for a step that reads its record from the case's scope (a `preview` one), the records
+      a person may start a case from, newest first, matching `q`: each {workpackage_id, workpackage_name, item_id,
+      label, detail, name, cases: [{id, name}]} (`detail`: plain values, no words; `name`: what a case started from it
+      is called by default; `cases`: those already started from it).
     """
 
     name: str
@@ -154,6 +182,16 @@ class Capability:
     spent: Callable[[str, str], list[str]] | None = None
     rule_keys: tuple[RuleKey, ...] = ()
     choices: Mapping[str, Callable[[], list[tuple[str, str]]]] = field(default_factory=dict)
+    adopt: Callable[[str, Any], cases.Adopted | None] | None = None
+    preview: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any] | None] | None = None
+    own_version: bool = False
+    reopen: Callable[[str, str, identity.Who], Any] | None = None
+    approval_what: str | None = None
+    statuses: Mapping[str, str] = field(default_factory=dict)
+    waits: Mapping[str, str] = field(default_factory=dict)
+    bind: Callable[[str, str, str, dict[str, Any], dict[str, Any], identity.Who], bool] | None = None
+    bound: Callable[[str], bool] | None = None
+    records: Callable[[str | None, dict[str, Any]], list[dict[str, Any]]] | None = None
 
     @property
     def key(self) -> str:
@@ -225,6 +263,21 @@ def _starter(ctx: StepContext) -> identity.Actor | None:
     return None
 
 
+def _optional_wait(ctx: StepContext) -> kinds.StepOutcome:
+    """231 (C2c): an optional step nobody started: once every other step of its case is done, its start task is
+    withdrawn and it is done as skipped (the case can close); until then it looks again every `OPTIONAL_CHECK_S`."""
+    with ctx.transaction() as c:
+        others = [row for step_id, row in cases.step_rows(c, ctx.case_id).items() if step_id != ctx.step.id]
+        skip = all(row["state"] == cases.DONE for row in others)
+        if skip:
+            tasks.withdraw_in(c, tasks.task_id(STEP_START, f"{ctx.case_id}:{ctx.step.id}"), ctx.actor,
+                              note="the case's other steps are done", notify=False)
+            cases.set_phase(c, ctx.case_id, ctx.step.id, SKIPPED)
+    if skip:
+        return kinds.Done({"skipped": True})
+    return ctx.wait(tasks.EVENT, timer=("check", time.time() + OPTIONAL_CHECK_S))
+
+
 def case_overlay(data: dict[str, Any] | None) -> cfg.Overlay | None:
     """231 (B3): a case's own rule values, from its data (None: it has none, the files alone count)."""
     values = (data or {}).get(RULES) or {}
@@ -267,7 +320,7 @@ def _runner(cap: Capability) -> Callable[[StepContext], kinds.StepOutcome]:
         if (ctx.step.params or {}).get("_start") == "person":
             starter = _starter(ctx)
             if starter is None:
-                return kinds.WAIT
+                return _optional_wait(ctx) if (ctx.step.params or {}).get("_optional") else kinds.WAIT
             # 229 (SZ2c-3): the machine works for the person who started it, under that person's name
             ctx = dataclasses.replace(ctx, actor=identity.acting_for(MACHINE, starter.name, starter))
         try:

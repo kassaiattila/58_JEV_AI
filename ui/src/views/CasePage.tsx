@@ -23,9 +23,11 @@ function defaultTab(page: CaseView): string {
 /** What a step may wait for that only a person or the other side ends (A7e: a task, the letter's acceptance, a reply). */
 const PEOPLE = new Set(["approval", "task_closed", "acceptance", "reply"]);
 
-/** Whether a step waits for a job or the worker (not for a person), so the page should ask again soon. */
+/** Whether a step waits for a job or the worker (not for a person), so the page should ask again soon; 231 (C2d): a
+ *  step of a capability that waits for a person's decisions (the pairing, the routing) does not. */
 const moving = (page: CaseView) => page.case.status === "open"
-  && Object.values(page.steps).some((s) => s.state === "ready" || (s.state === "running" && !s.awaiting_start && !PEOPLE.has(s.waiting_for ?? "")));
+  && Object.values(page.steps).some((s) => s.state === "ready"
+    || (s.state === "running" && !s.awaiting_start && !s.by_person && !PEOPLE.has(s.waiting_for ?? "")));
 
 export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
   useLocale();

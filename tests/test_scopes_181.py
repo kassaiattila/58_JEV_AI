@@ -58,7 +58,9 @@ def test_a_scope_is_checked_part_by_part_with_the_callers_error(db) -> None:
         scopes.check([], {"period": ("2026-07-01", "2026-06-30")})
     assert scopes.label({"party": party, "period": MONTH}) == "Example Kft. 2026-06-01 – 2026-06-30"
     # 231 (A4): the record a case starts from; (B1) the partners a case is about
-    assert [p.name for p in scopes.parts()] == ["party", "period", "record", "partners"]
+    # 231 C1c: sources; (C2d) the accounts a case reconciles, registered by the finance domain; (C3b2) the documents'
+    # source of a document processing step
+    assert [p.name for p in scopes.parts()] == ["party", "period", "record", "sources", "partners", "accounts", "source"]
 
 
 # --- a workflow's scope -------------------------------------------------------------------------------------------------
@@ -132,7 +134,7 @@ def test_the_roles_are_the_finance_domains_three() -> None:
     roles = {r.name: r for r in package_scope.roles()}
     assert list(roles) == ["incoming_invoices", "outgoing_invoices", "statements"]
     assert {r.module for r in roles.values()} == {"jav.domains.finance"}
-    assert roles["statements"].package_kinds == ("statements",)
+    assert (roles["statements"].package_kinds, roles["statements"].rule) == (("manual",), "statements")  # 231 C3b5a
     assert set(roles["incoming_invoices"].package_kinds) == set(wf.DOCUMENT_PACKAGES)
     assert roles["incoming_invoices"].fits("invoice_hu", "incoming") and not roles["incoming_invoices"].fits("invoice_hu", "outgoing")
     assert roles["outgoing_invoices"].fits("invoice_out", "outgoing") and roles["outgoing_invoices"].fits("invoice_hu", "outgoing")
@@ -204,5 +206,6 @@ def test_a_statement_packages_scope_is_its_own(db) -> None:
 def test_every_step_kind_states_what_it_needs() -> None:
     registrations.load_all()
     assert {k.kind: k.needs for k in workflow_steps.kinds()} == {
-        "documents": (), "emails": (), "statements": ("party", "period"), "reconcile": ("party", "period"),
-        "routing": (), "quote": ()}  # 191: a quote needs neither
+        "documents": (), "emails": (), "statements": ("party", "period"),
+        "process": ()}  # 191: a quote needed neither (231 C3c: its kind went); C1c: a process step takes what its pack needs (C3a-1);
+    # C3a-2: the reconciliation step retired

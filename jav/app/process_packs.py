@@ -8,8 +8,9 @@ capability and its version, the steps it follows, whether a person starts it, an
 screens (tabs built from the registered screen elements, `configs/screen_elements.json`), its outputs and its golden
 sets. It holds no code: a string naming a Python module is refused. The check refuses a pack whose step names an
 unknown capability or parameters that do not fit it, a paid step that would start without a person (the rule of
-2026-09-28), an intake that would start a case by itself (that comes with the email routing, stage C), an unknown
-screen element, scope part or output, and a reference to a step or a resource that is not there.
+2026-09-28), an email intake that names no intent or (231 C1b) that starts a case by itself without a record to start
+from (a record scope part and a step whose capability reads it), an unknown screen element, scope part or output, and a
+reference to a step or a resource that is not there.
 
 - `load(pack_id)`, `packs()`: a pack read and checked (`PackError` with every problem).
 - `definition(pack)`: the process core's definition of the pack's current version: one step per pack step, its kind
@@ -30,7 +31,7 @@ from jav.app import capabilities, scopes
 from jav.core import cfg
 from jav.core.process.definition import NAME, ProcessDef, StepDef
 
-__all__ = ["Element", "Intake", "PackError", "PartnerLink", "ProcessPack", "Step", "Tab", "UnknownPack", "definition", "load",
+__all__ = ["Adopt", "Element", "Intake", "PackError", "PartnerLink", "ProcessPack", "Step", "Tab", "UnknownPack", "definition", "load",
            "packs"]
 
 ELEMENTS = "screen_elements"
@@ -50,11 +51,48 @@ class _Model(BaseModel):
 
 
 class Intake(_Model):
-    """What may start a case: an email read with an intent (`offer`: the email offers to start one) or a person."""
+    """What may start a case: an email read with an intent (`offer`: the email offers to start one; 231 C1b, `case`: it
+    starts one by itself, `jav/app/intake.py`), (C1c) a work package of one of `package_kinds` (its page offers a case
+    that reads it, scope part `sources`), or a person."""
 
-    on: Literal["email_intent", "manual"]
+    on: Literal["email_intent", "package", "manual"]
     intent: str | None = None
-    starts: Literal["offer", "manual"]
+    package_kinds: tuple[str, ...] = ()
+    starts: Literal["offer", "case", "manual"]
+
+
+class Adopt(_Model):
+    """231 (C1c): a kind of work package made before the process was a pack (its own kind until then) that is taken over
+    as its case (`process_runtime.adopt_all`): the kind, and which of its stored scope parts gives each scope part of
+    the case ({case part: stored part})."""
+
+    kind: str = Field(min_length=1)
+    scope: dict[str, str] = Field(default_factory=dict)
+
+
+class Wrap(_Model):
+    """231 (C3b4): a kind of work package made before the process was a pack whose package becomes the package of one
+    of its steps: a new case is made around it (`process_runtime.wrap_case`; its id, items, runs and approvals stay),
+    with the scope its stored scope parts give ({case part: stored part}) and the scope part `package_part` naming the
+    package (`{"kind": "package", "workpackage_id"}`). The step's capability binds it (`Capability.bind`). 231 (C3b5a):
+    the packages are named by their `kind` or by the package `rule` they run by (`work.RULE_PART`), exactly one."""
+
+    kind: str | None = None
+    rule: str | None = None
+    step: str = Field(pattern=NAME)
+    package_part: str = Field(pattern=NAME)
+    scope: dict[str, str] = Field(default_factory=dict)
+
+
+class Serves(_Model):
+    """231 (C3b5b): the workflow step kind a pack serves (`configs/workflows.json` `kinds`): a workflow's step of the
+    kind is the pack's (its step kind is made by the process runtime, `process_runtime.pack_step_kind`), its new package
+    wrapped by a case of the pack: `step`, the pack's step that takes the package, and `package_part`, the scope part
+    naming it."""
+
+    kind: str = Field(pattern=NAME)
+    step: str = Field(pattern=NAME)
+    package_part: str = Field(pattern=NAME)
 
 
 class Step(_Model):
@@ -65,6 +103,7 @@ class Step(_Model):
     gates: tuple[str, ...] = ()
     start: Literal["auto", "person"] = "auto"
     params: dict[str, Any] = Field(default_factory=dict)
+    optional: bool = False  # 231 (C2c): a step a person may leave unstarted; the case closes without it
 
 
 class Element(BaseModel):
@@ -86,7 +125,14 @@ class Screens(_Model):
 
 
 class Scope(_Model):
+    """The parts a case's scope has; 231 (C3a-2): `optional` ones may be left out, and then stay out (the
+    reconciliation's party: without one it reconciles its accounts alone, every invoice its own, as a package could)."""
+
     parts: tuple[str, ...] = ()
+    optional: tuple[str, ...] = ()
+
+    def needs(self) -> tuple[str, ...]:
+        return tuple(p for p in self.parts if p not in self.optional)
 
 
 PARTNER_FIELDS = ("name", "tax_number", "email", "phone", "address")
@@ -107,6 +153,9 @@ class ProcessPack(_Model):
     title: str = Field(min_length=1)
     scope: Scope = Scope()
     intake: tuple[Intake, ...] = ()
+    adopts: tuple[Adopt, ...] = ()
+    wraps: tuple[Wrap, ...] = ()  # 231 (C3b4)
+    workflow: Serves | None = None  # 231 (C3b5b)
     resources: dict[str, str] = Field(default_factory=dict)
     steps: tuple[Step, ...] = Field(min_length=1)
     screens: Screens
@@ -132,14 +181,45 @@ def _resolved(params: dict[str, Any], resources: dict[str, str], problems: list[
     return out
 
 
+def _capability(key: str) -> capabilities.Capability | None:
+    try:
+        return capabilities.of(key)
+    except capabilities.CapabilityError:
+        return None
+
+
+def records(pack_id: str, q: str | None = None) -> list[dict[str, Any]]:
+    """231 (C3c): the records a case of the pack may start from, matching `q`: those of its first step whose capability
+    finds them (`Capability.records`), with the step's parameters as its case would have them; none when no step
+    does. `UnknownPack` for an unknown pack."""
+    pack = load(pack_id)
+    defn = definition(pack)
+    for step in pack.steps:
+        cap = _capability(step.uses)
+        if cap is not None and cap.records is not None:
+            params = {k: v for k, v in (defn.step(step.id).params or {}).items() if not k.startswith("_")}
+            return cap.records(q, params)
+    return []
+
+
 def _problems(pack: ProcessPack) -> list[str]:
     problems: list[str] = []
     if _MODULE.search(json.dumps(pack.model_dump(), ensure_ascii=False)):
         problems.append("a process pack holds no code: it names a Python module")
     known_parts = {p.name for p in scopes.parts()}
     problems += [f"unknown scope part {p!r}" for p in pack.scope.parts if p not in known_parts]
+    problems += [f"optional scope part {p!r} is not one of its parts" for p in pack.scope.optional if p not in pack.scope.parts]
     if any(i.on == "email_intent" and not i.intent for i in pack.intake):
         problems.append("an email intake names its intent")
+    for i in pack.intake:  # 231 (C1c): a package offers a case that reads it
+        if i.on == "package" and (not i.package_kinds or i.starts != "offer" or scopes.SOURCES not in pack.scope.parts):
+            problems.append("a package intake names its package kinds, offers the case and reads its sources")
+    if any(i.starts == "case" for i in pack.intake):  # 231 (C1b): a case started by itself starts from the email's record
+        if any(i.on != "email_intent" for i in pack.intake if i.starts == "case"):
+            problems.append("only an email intake starts a case by itself")
+        reads = any(_capability(s.uses) is not None and _capability(s.uses).preview is not None for s in pack.steps)
+        if scopes.RECORD not in pack.scope.parts or not reads:
+            problems.append("an intake that starts a case by itself needs a record scope part and a step that reads it")
     ids = [s.id for s in pack.steps]
     for step in pack.steps:
         where = f"step {step.id!r}"
@@ -155,6 +235,24 @@ def _problems(pack: ProcessPack) -> list[str]:
                             + ", ".join(".".join(map(str, e["loc"])) or "-" for e in exc.errors()[:5]))
         if cap.providers and step.start != "person":
             problems.append(f"{where}: a paid step ({step.uses}) is started by a person")
+        if step.optional and step.start != "person":
+            problems.append(f"{where}: only a step a person starts may be optional")
+    for wrap in pack.wraps:  # 231 (C3b4): the step that takes the package binds it, and its parts are the scope's
+        if (wrap.kind is None) == (wrap.rule is None):
+            problems.append(f"wrap {wrap.kind or wrap.rule!r}: names its packages by a kind or by a rule, one of them")
+        step = next((s for s in pack.steps if s.id == wrap.step), None)
+        cap = _capability(step.uses) if step is not None else None
+        if cap is None or cap.bind is None or cap.bound is None:
+            problems.append(f"wrap {wrap.kind or wrap.rule!r}: step {wrap.step!r} takes no package (its capability binds none)")
+        if wrap.package_part not in pack.scope.parts or set(wrap.scope) - set(pack.scope.parts):
+            problems.append(f"wrap {wrap.kind or wrap.rule!r}: its parts are scope parts of the pack")
+    if (serves := pack.workflow) is not None:  # 231 (C3b5b): its step takes the package, its part is the scope's
+        step = next((s for s in pack.steps if s.id == serves.step), None)
+        cap = _capability(step.uses) if step is not None else None
+        if cap is None or cap.bind is None:
+            problems.append(f"workflow {serves.kind!r}: step {serves.step!r} takes no package (its capability binds none)")
+        if serves.package_part not in pack.scope.parts:
+            problems.append(f"workflow {serves.kind!r}: {serves.package_part!r} is not a scope part of the pack")
     elements = cfg.load(ELEMENTS)["elements"]
     for tab in pack.screens.tabs:
         for element in tab.elements:
@@ -210,10 +308,12 @@ def packs() -> list[ProcessPack]:
 
 def definition(pack: ProcessPack) -> ProcessDef:
     """The process core's definition of the pack's version: each step's kind is its capability's step kind, its
-    parameters have the resources filled in, and how it starts is kept as the pack's own `_start` parameter."""
+    parameters have the resources filled in, and how it starts is kept as the pack's own `_start` parameter (231, C2c:
+    an optional step's `_optional` too, only on such a step, so the other definitions stay as they were)."""
     problems: list[str] = []
     steps = tuple(StepDef(id=s.id, kind=f"cap.{s.uses.replace('@', '.v')}", title=s.title, after=s.after, gates=s.gates,
-                          params={**_resolved(s.params, pack.resources, problems, s.id), "_start": s.start})
+                          params={**_resolved(s.params, pack.resources, problems, s.id), "_start": s.start,
+                                  **({"_optional": True} if s.optional else {})})
                   for s in pack.steps)
     if problems:
         raise ValueError("; ".join(problems))

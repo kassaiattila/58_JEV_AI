@@ -20,8 +20,8 @@ def test_the_suspicious_attachment_code_is_a_shared_to_do_kind():
 
 
 def test_the_statement_package_takes_files_through_its_registry_entry():
-    from jav.app import logic_packs, registrations
+    from jav.app import registrations, work
 
     registrations.load_all()
-    pack = logic_packs.of("statements")
-    assert pack is not None and pack.take_files is not None and pack.create_with_files is not None
+    rule = work.rule_named("statements")  # 231 (C3b5a): its rule's, its logic pack's until then
+    assert rule.take_files is not None and rule.make_with_files is not None

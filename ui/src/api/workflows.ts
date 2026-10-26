@@ -31,7 +31,7 @@ export interface RecipeHelp {
  * is any kind the service registered (`jav/app/workflow_steps.py`), so the interface names none. */
 export type WorkKind = string;
 export type WorkSourceKind = "folder" | "files" | "mailbox" | "package" | "none";
-export interface WorkflowTemplateStep { id: string; kind: WorkKind; title?: string; after?: string[] }
+export interface WorkflowTemplateStep { id: string; kind: WorkKind; title?: string; after?: string[]; pack?: string }  // 231 C1c: pack
 export interface WorkflowTemplate { id: string; group: string; title: string; description: string; steps: WorkflowTemplateStep[] }
 /** A step kind as the wizard reads it: its texts from the templates, the rest from its registration (181). */
 export interface WorkflowKind {

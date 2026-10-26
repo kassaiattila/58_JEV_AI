@@ -53,14 +53,15 @@ import time
 from collections import Counter, OrderedDict, defaultdict
 from datetime import date
 from decimal import Decimal
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
-from jav.app import corrections, logic_packs, package_release, package_scope, parties, work, workflow_steps
+from jav.app import corrections, logic_packs, package_release, package_scope, parties, scopes, work
 
 from jav.domains.finance import own_parties
 from jav.ai import grounding, typepack
 from jav.core import activity_kinds, cfg, decisions, identity, store, values
 from jav.domains.finance import reconcile, reconcile_overview
+from jav.domains.finance import reconcile_store
 from jav.domains.finance.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
@@ -69,7 +70,8 @@ from jav.core.clock import utc_stamp as _now
 activity_kinds.register_events("package", ("reconcile_scope", "reconcile_allocate", "reconcile_reject", "reconcile_mark",
                                            "reconcile_revoke", "reconcile_leave_out", "reconcile_restore"), __name__)
 
-KIND = "reconcile"
+KIND = "reconcile"  # the kind of the packages made before 231 (C3a-2), which the reconciliation pack takes over
+PACK = "reconciliation"  # 231 (C3a-2): the process every reconciliation is a case of
 REVOKE_KINDS = ("allocation", "mark", "decision")
 
 # 186 (plan G-full-move T2b): the package's scope (its own accounts as the further part `accounts`, the period and the
@@ -164,7 +166,7 @@ def accounts() -> list[dict[str, Any]]:
     registered with a party without a statement yet: the account key, the printed account, the statement kinds and
     currencies, how many statements and the span they cover, the party and the registered details."""
     groups: dict[str, dict[str, Any]] = {}
-    for st in reconcile.snapshot()["statements"]:
+    for st in reconcile_store.snapshot()["statements"]:
         key = reconcile.statement_account(st)
         g = groups.setdefault(key, {"key": key, "account": st.get("account"), "statement_types": set(), "currencies": set(),
                                     "statements": 0, "first": None, "last": None})
@@ -226,23 +228,77 @@ def _checked_scope(keys: Iterable[str], period_start: Any, period_end: Any) -> t
 @store.one_connection
 def create(*, name: str, accounts: list[str], period_start: str, period_end: str, actor: identity.Who,
            party_id: str | None = None) -> dict[str, Any]:
-    """A new reconciliation package with its scope and own party; the creator owns it (decision 065)."""
+    """A new reconciliation of the accounts for the period, with its own party when given; the creator owns it (decision
+    065). 231 (C3a-2): the reconciliation process's case (`configs/processes/reconciliation.json`), as every
+    reconciliation is now; its scope as the reconciliation package's was."""
+    from jav.app import process_runtime  # lazy: the process runtime builds on the registered capabilities
+
     keys, start, end = _checked_scope(accounts, period_start, period_end)
     party = _checked_party(party_id)
-    wp = work.create_workpackage(name=name, source_kind=KIND, source_ref=f"{start}..{end}", owner=actor)
-    with store.connect() as c:
+    case = process_runtime.start_case(PACK, {scopes.PARTY: party, scopes.PERIOD: [start, end], ACCOUNTS: keys}, name=name,
+                                      actor=actor)
+    with store.connect() as c:  # its log names the scope it was made with, as the package's did
         store.begin_immediate(c)
-        package_scope.save(c, wp["id"], party_id=party, period_start=start, period_end=end, parts={ACCOUNTS: keys},
-                           actor=actor)
-        work.record_event(c, wp["id"], "reconcile_scope", actor, {"accounts": len(keys), "period": [start, end], "party": party})
-    return scope(wp["id"])
+        work.record_event(c, case, "reconcile_scope", actor, {"accounts": len(keys), "period": [start, end], "party": party})
+    return scope(case)
+
+
+def holds_reconciliation(wp: dict[str, Any]) -> bool:
+    """A reconciliation package, or (231, C2d) a process case whose scope names the accounts it reconciles (the pairing
+    step's case): both are read and decided on the same way."""
+    if wp["source_kind"] == KIND:
+        return True
+    from jav.app import process_runtime  # lazy: the process runtime builds on the registered capabilities
+
+    return (wp["source_kind"] == process_runtime.CONTAINER
+            and ACCOUNTS in ((package_scope.stored(wp["id"]) or {}).get("parts") or {}))
 
 
 def _package(wp_id: str) -> dict[str, Any]:
     wp = work.get(wp_id)
-    if wp["source_kind"] != KIND:
+    if not holds_reconciliation(wp):
         raise explained(PackageError, "not a reconciliation package")
     return wp
+
+
+def _accounts_part(value: Any, error: type[Exception]) -> list[str]:
+    """231 (C2d): a case's accounts and cards: own account keys the store has a statement of or a party registered."""
+    if not (isinstance(value, list) and value and all(isinstance(v, str) and v for v in value)):
+        raise explained(error, "choose at least one account or card")
+    chosen = sorted(set(value))
+    known = {a["key"] for a in accounts()}
+    if unknown := [k for k in chosen if k not in known]:
+        raise explained(error, "neither a statement nor a registered account: {{unknown}}", unknown=", ".join(unknown))
+    return chosen
+
+
+def _party_accounts(scope: Mapping[str, Any]) -> list[str] | None:
+    """231 (C2d): the default accounts of a case: the party's accounts and cards, as a workflow's reconciliation step
+    takes them (None without a party or without one of its accounts)."""
+    party = scope.get(scopes.PARTY)
+    keys = [a["key"] for a in accounts() if party and (a.get("party") or {}).get("id") == party]
+    return keys or None
+
+
+def party_of_accounts(scope: Mapping[str, Any]) -> str | None:
+    """231 (C2e): the own party a scope's accounts imply: the one party every one of them is registered to (None when
+    the scope names none, or one of them belongs to no party or to another), so a package made before its accounts had
+    a party is taken over as its party's case."""
+    keys = set(scope.get(ACCOUNTS) or ())
+    owner = {a["key"]: (a.get("party") or {}).get("id") for a in accounts() if a["key"] in keys}
+    parties_ = set(owner.values())
+    if not keys or set(owner) != keys or len(parties_) != 1 or None in parties_:
+        return None
+    return parties_.pop()
+
+
+def _no_accounts(error: type[Exception]) -> Exception:
+    return explained(error, "the party has no account or card with a statement yet")
+
+
+# 231 (C2d): the accounts a case reconciles, a scope part of the finance domain (registered in its `register()`)
+ACCOUNTS_PART = scopes.Part(ACCOUNTS, __name__, _accounts_part, lambda keys: f"{len(keys)} accounts", _no_accounts,
+                            default=_party_accounts)
 
 
 def scope(wp_id: str) -> dict[str, Any]:
@@ -262,14 +318,21 @@ def set_scope(wp_id: str, *, accounts: list[str], period_start: str, period_end:
     keys, start, end = _checked_scope(accounts, period_start, period_end)
     party = _checked_party(party_id)
     scope(wp_id)
+    case = work.get(wp_id)["source_kind"] != KIND  # 231 (C2d): a pairing case keeps its party and period as parts too
     with store.connect() as c:
         store.begin_immediate(c)
         if active := active_versions(c).get(wp_id):
             raise explained(Locked, "the package's statement is approved (version {{version}}); reopen it to change the scope",
                             version=active["version"])
-        package_scope.save(c, wp_id, party_id=party, period_start=start, period_end=end, parts={ACCOUNTS: keys}, actor=actor,
+        parts: dict[str, Any] = {ACCOUNTS: keys}
+        if case:
+            kept = {k: v for k, v in ((package_scope.stored(wp_id, c) or {}).get("parts") or {}).items()
+                    if k not in (scopes.PARTY, scopes.PERIOD)}
+            parts = {**kept, **({scopes.PARTY: party} if party else {}), scopes.PERIOD: [start, end], ACCOUNTS: keys}
+        package_scope.save(c, wp_id, party_id=party, period_start=start, period_end=end, parts=parts, actor=actor,
                            expected_revision=expected_revision)
-        c.execute("UPDATE workpackages SET source_ref=?, updated_at=? WHERE id=?", (f"{start}..{end}", _now(), wp_id))
+        if not case:  # a case's reference names its pack
+            c.execute("UPDATE workpackages SET source_ref=?, updated_at=? WHERE id=?", (f"{start}..{end}", _now(), wp_id))
         work.record_event(c, wp_id, "reconcile_scope", actor, {"accounts": len(keys), "period": [start, end], "party": party})
     return scope(wp_id)
 
@@ -301,7 +364,7 @@ def scoped_snapshot(wp_id: str, *, fetch_rates: bool = False) -> tuple[dict[str,
     covered too, with or without a statement (`own_accounts`). 169: a statement left out of the package leaves the
     scope, and the invoices left out are excluded from its pairing (`left_out`, `reconcile.prepare`)."""
     sc = scope(wp_id)
-    snap = reconcile.snapshot(fetch_rates=fetch_rates)
+    snap = reconcile_store.snapshot(fetch_rates=fetch_rates)
     gone = left_out(wp_id)
     own = [{"key": k, **{f: d[f] for f in ("kind", "currencies", "valid_from", "valid_to")}}
            for k, d in sorted(own_parties.accounts().items()) if k in sc["accounts"]]
@@ -433,11 +496,16 @@ KEEP_SECONDS = 120  # a safety bound: a change the marks miss shows within this 
 LIST_KEEP_SECONDS = 900
 
 
-def _inputs(c) -> list[Any]:
-    """140: what a workspace reads: the tables above, the configurations and the day."""
-    # the modules whose tables the workspace reads register them on import (a later import would change the mark)
+def _input_tables() -> None:
+    """The modules whose tables the workspace reads register them on import; 231 (C3b1): imported before the connection
+    that marks them opens, so it sees their tables (a mark taken on a connection opened before the import named one
+    table missing, and the next request built the workspace again)."""
     from jav.domains.finance import duplicates, fx, reconcile_ai, statement_months  # noqa: F401
 
+
+def _inputs(c) -> list[Any]:
+    """140: what a workspace reads: the tables above, the configurations and the day."""
+    _input_tables()  # (already imported by the caller before its connection opened; kept for any other caller)
     # 224: and the finance domain's rules (the reconciliation's bands, the duplicate search), until then in policy.json
     return [store.table_marks(c, WORKSPACE_INPUTS), reconcile.config_hash(), parties.config_hash(), cfg.config_hash("fx"),
             cfg.config_hash("finance"),
@@ -452,6 +520,7 @@ def inputs_mark(c=None, *, keep_seconds: int = KEEP_SECONDS) -> str:
     """140: a mark of everything a workspace reads, and a time slot of `keep_seconds`, so nothing is kept longer than
     that."""
     if c is None:
+        _input_tables()
         with store.connect() as own:
             return inputs_mark(own, keep_seconds=keep_seconds)
     return _digest([*_inputs(c), int(time.time() // keep_seconds)])
@@ -474,6 +543,7 @@ def kept_workspace(wp_id: str, *, keep_seconds: int = KEEP_SECONDS) -> dict[str,
     the sure pairs, a JSON answer): the copy was 85-93 % of their time. Never change what it returns. 159: kept while
     its inputs are unchanged and it was built in the caller's current time slot of `keep_seconds`."""
     now = time.time()
+    _input_tables()
     with store.connect() as c:
         mark = _digest(_inputs(c))
     key = (str(store.active_path()), wp_id)
@@ -601,7 +671,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
     gone = left_out(wp_id)  # 169: shown behind the switch, with who left them out, when and why
     every_statement = {st["id"]: st for st in snap["statements"]}
     gone_docs = [d for d in (invoices.get(i) or every_statement.get(i) for i in gone) if d is not None]
-    files = reconcile.file_names([*wanted, *(st["id"] for st in statements), *gone])
+    files = reconcile_store.file_names([*wanted, *(st["id"] for st in statements), *gone])
     docs = [*(invoices[i] for i in wanted if i in invoices), *statements]
     approved = work.approved_runs(d.get("work_run") for d in [*docs, *gone_docs])
     accepted = accepted_sources()
@@ -732,7 +802,7 @@ def _signal_inputs() -> dict[str, Any]:
         hit = _signal_inputs_kept.get(key)
         if hit and hit[0] == mark:
             return hit[1]
-    snap = reconcile.snapshot()
+    snap = reconcile_store.snapshot()
     built = {**reconcile.signal_context(snap), "rates": snap.get("fx_rates") or {}}
     with _kept_lock:
         _signal_inputs_kept[key] = (mark, built)
@@ -806,7 +876,7 @@ def left_over_rows(snap: dict[str, Any], scope_ids: set[str], wp_id: str) -> lis
                         "invoice_id": row.get("invoice_id"), "category": row.get("category"), "decision": row.get("decision"),
                         "workpackage_id": row.get("workpackage_id"), "currency": old.get("currency"),
                         **{k: line.get(k) for k in ("booking_date", "amount", "direction", "counterparty_name")}})
-    files = reconcile.file_names([*(r["statement_id"] for r in out), *(r["replaced_by"] for r in out),
+    files = reconcile_store.file_names([*(r["statement_id"] for r in out), *(r["replaced_by"] for r in out),
                                   *(r["invoice_id"] for r in out if r["invoice_id"])])
     for r in out:
         r["file"], r["replaced_by_file"] = files.get(r["statement_id"]), files.get(r["replaced_by"])
@@ -842,7 +912,7 @@ def unfit_rows(result: dict[str, Any], snap: dict[str, Any], scope_ids: set[str]
                         "line_total": a.get("line_total"), "invoice_total": a.get("invoice_total"),
                         "currency": line.get("currency") or currency.get(statement_id),
                         **{k: line.get(k) for k in ("booking_date", "direction", "counterparty_name")}})
-    files = reconcile.file_names([*(r["invoice_id"] for r in out if r["invoice_id"]), *(r["statement_id"] for r in out if r["statement_id"])])
+    files = reconcile_store.file_names([*(r["invoice_id"] for r in out if r["invoice_id"]), *(r["statement_id"] for r in out if r["statement_id"])])
     for r in out:
         r["invoice_file"] = files.get(r["invoice_id"]) if r["invoice_id"] else None
         r["file"] = files.get(r["statement_id"]) if r["statement_id"] else None
@@ -936,8 +1006,9 @@ def _decision_state(c=None) -> list[Any]:
     state.append(list(c.execute("SELECT COUNT(*), MAX(id), COUNT(reopened_at) FROM package_versions"
                                 " WHERE content IS NOT NULL").fetchone()))  # 186: the logic packs' own versions
     # 153 (review A3): a scope changed meanwhile (a line checked against the old one might now be outside it)
+    # 231 (C2d): every scope that names accounts (a reconciliation package's or a pairing case's)
     state.append(list(c.execute("SELECT COUNT(*), SUM(s.revision) FROM workpackage_scopes s JOIN workpackages w"
-                                " ON w.id = s.workpackage_id WHERE w.source_kind = ?", (KIND,)).fetchone()))
+                                " ON w.id = s.workpackage_id WHERE json_extract(s.parts, '$.accounts') IS NOT NULL").fetchone()))
     # 169: a document left out or restored meanwhile (a pairing checked before might rest on one now left out)
     state.append(list(c.execute("SELECT COUNT(*), COUNT(restored_at) FROM reconcile_exclusions").fetchone()))
     return state
@@ -1159,7 +1230,7 @@ def reject(wp_id: str, invoice_doc_id: str, line_id: str, *, note: str, actor: i
     _unlocked(ctx, [line_id])
     if any(a["invoice_id"] == invoice_doc_id and a["line_id"] == line_id for a in ctx["result"]["confirmed"]):
         raise explained(PackageError, "the pair is allocated; revoke the allocation first")
-    key = reconcile.pair_key(invoice_doc_id, line_id)
+    key = reconcile_store.pair_key(invoice_doc_id, line_id)
 
     def write(c) -> dict[str, Any]:
         before = c.execute("SELECT run_id FROM reconcile_decisions WHERE pair_key=?", (key,)).fetchone()
@@ -1329,7 +1400,7 @@ def leave_out(wp_id: str, doc_ids: Iterable[str], *, reason: str, actor: identit
     decided |= {r["id"] for r in ws["invoices"]
                 if any(a["line_id"] in line_ids or a.get("workpackage_id") == wp_id for a in r["allocations"])}
     if busy := [doc_id for doc_id in ids if doc_id in decided]:
-        files = reconcile.file_names(busy)
+        files = reconcile_store.file_names(busy)
         raise explained(PackageError, "pairings or marks of this package rest on {{files}}; revoke them first",
                         files=", ".join(files.get(d, d) for d in busy))
 
@@ -1387,7 +1458,7 @@ def targets(wp_id: str) -> dict[str, Any]:
             continue
         entry = {"id": wp["id"], "name": wp["name"], "source_kind": wp["source_kind"], "items": wp["items"],
                  "inputs": giving.get(wp["id"], 0), "updated_at": wp["updated_at"]}
-        if wp["source_kind"] != statement_package.KIND:
+        if work.rule_name(wp["id"]) != statement_package.RULE_NAME:  # 231 (C3b5a): by its rule, no kind of its own
             documents.append(entry)
             continue
         st = statement_package.scope(wp["id"])
@@ -1443,7 +1514,7 @@ LINE_FACTS = ("booking_date", "value_date", "direction", "amount", "original_amo
 
 def _statement_view(statement: dict[str, Any], institution: str | None) -> dict[str, Any]:
     """144: the statement as read, for the documents' statement pane: its heading facts and every line in its order."""
-    return {"file": reconcile.file_names([statement["id"]]).get(statement["id"]), "institution": institution,
+    return {"file": reconcile_store.file_names([statement["id"]]).get(statement["id"]), "institution": institution,
             "account": reconcile.statement_account(statement),
             **{k: statement.get(k) for k in ("currency", "period_start", "period_end", "opening_balance", "closing_balance")},
             "verified": bool(statement.get("verified")),
@@ -1545,92 +1616,6 @@ def next_step(ws: dict[str, Any]) -> dict[str, Any]:
     return step("reconcile_result", "Reconciliation result", "result")
 
 
-def _delete_guard(c, wp_id: str) -> None:
-    """A reconciliation package with decisions made in it, or (145) an approved version, can only be hidden (they refer
-    to it)."""
-    for table in ("reconcile_allocations", "reconcile_line_marks", "reconcile_decisions", "package_versions"):
-        if c.execute(f"SELECT 1 FROM {table} WHERE workpackage_id=? LIMIT 1", (wp_id,)).fetchone() is not None:
-            raise explained(work.NotReady, "a reconciliation package with decisions can only be archived",
-                            [{"code": "has_decisions", "message": "The package has decisions: it can only be hidden."}])
-    c.execute("DELETE FROM reconcile_exclusions WHERE workpackage_id=?", (wp_id,))  # 169: no decision refers to them
-
-
-def _page(wp_id: str) -> dict[str, Any]:
-    """The package's page (`work_views.workpackage_view`): its readiness, its next step and its own part."""
-    view = package_view(wp_id)
-    return {"readiness": view["readiness"], "next": view["next"],
-            "reconcile": {k: view[k] for k in ("scope", "counts", "coverage", "approval")}}
-
-
-def _approved(wp_id: str) -> bool:
-    """A workflow's reconciliation step is done when a version of the package's statement is approved."""
-    return approval(wp_id)["active"] is not None
-
-
-def _reopen(wp_id: str, *, note: str, actor: identity.Who) -> dict[str, Any]:
-    """218 (P3l): the approved statement reopened with a reason, as a person's reopening (`reconcile_statement.reopen`)."""
-    from jav.domains.finance import reconcile_statement  # lazy: that module builds on this one
-
-    return reconcile_statement.reopen(wp_id, note=note, actor=actor)
-
-
-def _next(wp_id: str) -> dict[str, Any]:
-    return package_view(wp_id)["next"]
-
-
-def _list_next(wp_id: str) -> dict[str, Any]:
-    return package_view(wp_id, keep_seconds=LIST_KEEP_SECONDS)["next"]  # 159: with the list's own safety bound
-
-
-def _release_refusal() -> Exception:
-    from jav.app import package_release
-
-    return explained(package_release.ReleaseError, "a reconciliation package is approved in its own statement")
-
-
 def _list_mark() -> str:
     return inputs_mark(keep_seconds=LIST_KEEP_SECONDS)  # 159: the list's own safety bound (its next steps use the same)
-
-
-# --- a workflow's reconciliation step (181, plan 170 L5; until then in `jav/app/workflows.py`) -------------------------
-
-
-def workflow_start(ctx: workflow_steps.StepStart) -> None:
-    """A workflow's reconciliation step: the reconciliation package of the party's accounts and cards with a statement
-    and the workflow's period; it has no run, so the step has started with it."""
-    wf = ctx.workflow
-    keys = [a["key"] for a in accounts() if (a.get("party") or {}).get("id") == wf["party_id"]]
-    if not keys:
-        raise explained(PackageError, "the party has no account or card with a statement yet")
-    made = create(name=ctx.state["name"], accounts=keys, period_start=wf["period_start"], period_end=wf["period_end"],
-                  actor=wf["actor"], party_id=wf["party_id"])
-    ctx.made(made["workpackage_id"])
-
-
-def workflow_repeat_from(wp_id: str) -> dict[str, Any]:
-    """A repeated reconciliation step takes no source: it is made for the next period's accounts again."""
-    return {"kind": "none"}
-
-
-# 181: the reconciliation step of a workflow (registered by the finance domain, `jav/domains/finance/__init__.py`): code only,
-# no engine; its package's next steps and what each means for the step
-STEP = workflow_steps.StepKind(
-    KIND, __name__, (KIND,), start=workflow_start, paid=False, own_engine=False, repeat_from=workflow_repeat_from,
-    needs=("party", "period"), statuses={"reconcile_approved": "approved", "reconcile_pair": "pairing",
-                                         "reconcile_result": "pairing", "reconcile_empty": "pairing"})
-
-
-# 176 (plan 170 L3): the reconciliation package as a logic pack (`jav/app/logic_packs.py`; 180: registered by the finance
-# domain, `jav/domains/finance/__init__.py`; 186: its scope's party reference and deletion are the shared scope's): no files and
-# no runs; its two input roles are the period's results in every package (DECISIONS 174, the package's current result);
-# 204 (R1h): its golden sets are the finance domain's measurement module's (`jav/domains/finance/goldens.py`)
-LOGIC = logic_packs.LogicPack(
-    kind=KIND, module=__name__,
-    roles=(logic_packs.InputRole("statements", "period", "the bank and card statements of the scope's accounts and period"),
-           logic_packs.InputRole("invoices", "period", "the invoices other packages processed, the own party's first")),
-    has_runs=False, add_refusal="a reconciliation package has no documents", release_refusal=_release_refusal,
-    own_approval=True, reopen=_reopen,  # 215: the statement is approved as the package's own version
-    approval_what="Reconciliation statement",  # 229: in a person's "Waiting for me" list (translated by the interface)
-    delete_guard=_delete_guard, page=_page, approved=_approved, next_step=_next, list_next=_list_next,
-    list_mark=_list_mark, outputs=("reconcile_statement",), service="jav.domains.finance.api_reconcile")
 

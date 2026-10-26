@@ -5,9 +5,9 @@ here, in one call (`register`, from `registrations.load_all`):
 - the cross-document checks, in the order they run: a duplicate invoice (126), an own tax number as the supplier's
   (134), a statement booking the same days as another one (139); the two scans that open the same to-dos on the
   stored results; and (185) the saved stage's direction check of an uncertain detailed type (149; `jav/ai/checks.py`);
-- the statement package and the reconciliation package as logic packs (`jav/app/logic_packs.py`; 186: their scopes, with
-  the reference that keeps a party in use from being deleted, are in the shared scope store, `jav/app/package_scope.py`),
-  and (181) as the statements and reconciliation steps of a workflow (`jav/app/workflow_steps.py`);
+- the statement package's rule by name (231 C3b5a: its logic pack went; its scope, with the reference that keeps a party
+  in use from being deleted, is in the shared scope store, `jav/app/package_scope.py`), and (181) the statements step of
+  a workflow (`jav/app/workflow_steps.py`);
 - (181) the package roles: incoming invoices, outgoing invoices and bank statements, and where an invoice or a
   statement belongs (its role, party and day; `jav/app/package_scope.py`);
 - the finance parts of the downloads (`jav/app/outputs/parts.py`): the duplicate mark on a run's documents and its two
@@ -40,7 +40,9 @@ from jav.app.outputs import parts
 
 # 185 (plan G-full-move T1a): the modules of the domain's addresses of the local service beyond its logic packs' own
 # (`LogicPack.service`); `jav.service.api.service_modules` adds them by name
-SERVICE = ("jav.domains.finance.api_parties", "jav.domains.finance.api_finance")
+# 231 (C3a-2): the reconciliation's addresses, its retired logic pack's until then, are the domain's
+SERVICE = ("jav.domains.finance.api_reconcile", "jav.domains.finance.api_parties", "jav.domains.finance.api_finance",
+           "jav.domains.finance.api_statement_package")  # 231 (C3b5a): the statement packages', their logic pack's until then
 # 202 (plan G-core-generalisation M3a): the module of the domain's commands (`register(sub)`); `jav.cli` adds it by name
 COMMANDS = ("jav.domains.finance.finance_cli",)
 # 204 (plan G-process-core R1h): the modules of the domain's golden sets (the reconciliation's), by name; the shared measurement
@@ -103,9 +105,9 @@ def duplicate_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
 
 def reconcile_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
     """129: the reconciliation decisions on pairs one of the run's documents is a side of."""
-    from jav.domains.finance import reconcile
+    from jav.domains.finance import reconcile_store
 
-    return [[d["pair_key"], d["decision"], d["decided_at"]] for d in reconcile.decisions_for(items, c)]
+    return [[d["pair_key"], d["decision"], d["decided_at"]] for d in reconcile_store.decisions_for(items, c)]
 
 
 def statement_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
@@ -214,7 +216,8 @@ def _roles() -> tuple[Any, ...]:
 
     return (package_scope.Role("incoming_invoices", __name__, "Incoming invoices", _incoming, DOCUMENT_PACKAGES),
             package_scope.Role("outgoing_invoices", __name__, "Outgoing invoices", _outgoing, DOCUMENT_PACKAGES),
-            package_scope.Role(statement_package.ROLE, __name__, "Bank statements", _statement, (statement_package.KIND,)))
+            package_scope.Role(statement_package.ROLE, __name__, "Bank statements", _statement, (statement_package.PLAIN,),
+                               rule=statement_package.RULE_NAME))  # 231 (C3b5a): a plain package of the statements rule
 
 
 def duplicate_pairs(item_id: str, reasons: list[dict[str, Any]]) -> Any:
@@ -274,7 +277,7 @@ def _lint_statement_table(mod: Any) -> Any:
 def register() -> None:
     """Every registration of the finance domain, in the order the shared code lists them (`registrations.load_all`)."""
     from jav import flows
-    from jav.app import datasets, logic_packs, package_scope, partners, workflow_steps
+    from jav.app import datasets, package_scope, partners, scopes, work
     from jav.domains.finance import own_parties, party_views  # its two decision points too
     from jav.domains.finance import duplicates, finance_datasets, reconcile_package, report_utility, statement_package
 
@@ -293,10 +296,27 @@ def register() -> None:
     for part in RECORD_PARTS:  # 185: the finance parts of a document's result on the review page
         item_kinds.register_record_part(part)
     from jav.domains.finance import reconcile_statement  # 185: its package log events (until then the activity registry's own) and labels
-    logic_packs.register(statement_package.LOGIC)  # 186: their scopes' party reference is the shared scope's
-    logic_packs.register(reconcile_package.LOGIC)
-    workflow_steps.register(statement_package.STEP)  # 181: a workflow's statements and reconciliation steps
-    workflow_steps.register(reconcile_package.STEP)
+    # 231 (C3b1): the statement package's rule by name; (C3b5a) the only way now (its logic pack went)
+    work.register_rule(statement_package.RULE_NAME, statement_package.RULE)
+    from jav.app import document_processing
+
+    # 231 (C3b2): the statements' package maker of a process pack's document processing step, by name
+    # (C3b5b) with its workflow hooks: a workflow's statements step is the bank statements pack's step kind
+    document_processing.register_maker(document_processing.Maker(
+        statement_package.RULE_NAME, statement_package.__name__, statement_package.make_for_case,
+        rule=statement_package.RULE_NAME, package_kinds=(statement_package.PLAIN,), step_offer=statement_package.workflow_offer,
+        repeat_from=statement_package.workflow_repeat_from, estimate=statement_package.workflow_estimate))
+    from jav.domains.finance import capabilities
+
+    # 231 (C2b): the pairing of two lists as a general capability's step (the monthly reconciliation's pack names it, C2d);
+    # (C2d) the accounts a case reconciles as a scope part, by default its party's; (C2e) the party its accounts imply
+    capabilities.register()
+    scopes.register(reconcile_package.ACCOUNTS_PART)
+    scopes.imply(scopes.PARTY, reconcile_package.__name__, reconcile_package.party_of_accounts)
+    from jav.domains.finance import pairing_proposal
+    from jav.runtime import job_kinds
+
+    job_kinds.register(pairing_proposal.JOB)  # 231 (C2c): the worker's AI proposal of a pairing case
     for role in _roles():  # 181: what a package collects, and where an emailed document belongs
         package_scope.register_role(role)
     package_scope.register_reader("finance", place_document)

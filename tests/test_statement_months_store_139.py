@@ -12,7 +12,8 @@ import pytest
 from jav.app import corrections, work, work_runs
 from jav.ai import checks
 from jav.core import store
-from jav.domains.finance import reconcile, reconcile_package as rp, statement_months as sm
+from jav.domains.finance import reconcile_package as rp, statement_months as sm
+from jav.domains.finance import reconcile_store
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_package_131 import OWN_KEY, _ids, _line, _line_row, _package, _stmt
 
@@ -48,10 +49,10 @@ def test_the_better_statement_replaces_the_old_and_takes_its_decisions(db):
 
     new = _checked("new", _line(memo="INV-0001 ref"))  # the same payment, its memo printed longer; no fee line
     [new_pay] = _ids(new, _line(memo="INV-0001 ref"))
-    snap = reconcile.snapshot()  # 154: the rule does not drop the fee line, a person decides
+    snap = reconcile_store.snapshot()  # 154: the rule does not drop the fee line, a person decides
     assert sorted(s["id"] for s in snap["statements"]) == sorted([old, new]) and snap["conflicts"] == [sorted([old, new])]
     _choose(old, new, new)
-    snap = reconcile.snapshot()
+    snap = reconcile_store.snapshot()
     assert [s["id"] for s in snap["statements"]] == [new]
     assert snap["replaced"][old]["by"] == new and snap["replaced"][old]["how"] == "person"
     assert snap["line_map"] == {old_pay: new_pay}
@@ -78,17 +79,17 @@ def test_a_persons_choice_keeps_the_old_statement_and_its_decisions(db):
     rp.allocate(wp_id, [{"invoice_doc_id": inv, "line_id": old_pay}], note=None, actor="reviewer")
     new = _checked("new", _line())
     _choose(old, new, old)
-    snap = reconcile.snapshot()
+    snap = reconcile_store.snapshot()
     assert [s["id"] for s in snap["statements"]] == [old] and snap["replaced"][new]["how"] == "person"
     assert _line_row(rp.workspace(wp_id), old_pay)["state"] == "allocated"
     _choose(old, new, None)  # back to the rule
-    assert [s["id"] for s in reconcile.snapshot()["statements"]] == [new]
+    assert [s["id"] for s in reconcile_store.snapshot()["statements"]] == [new]
 
 
 def test_two_checked_statements_of_the_same_rank_both_stay_as_a_conflict(db):
     a = _checked("a", _line())
     b = _checked("b", _line(), FEE)
-    snap = reconcile.snapshot()
+    snap = reconcile_store.snapshot()
     assert sorted(s["id"] for s in snap["statements"]) == sorted([a, b])
     assert snap["conflicts"] == [sorted([a, b])] and snap["replaced"] == {}
 
@@ -142,13 +143,13 @@ def test_a_persons_choice_closes_the_todos_is_reviewed_and_frozen_after_approval
     assert (row["keep_doc_id"], row["actor"]) == (a, "reviewer")
     assert store.review_open_reasons("document", b) == []
     assert corrections.review_version(k2.RUN) != before
-    assert [s["id"] for s in reconcile.snapshot()["statements"]] == [a]
+    assert [s["id"] for s in reconcile_store.snapshot()["statements"]] == [a]
     [view] = sm.item_view(b, [])
     assert (view["relation"], view["how"], view["kept"], view["carried"], view["left_over"]) == ("replaced_by", "person", a, 1, 1)
     assert k2._in_run(lambda: sm.review_reasons(sm.current(b, "statement_table", {**k2._statement(_line(), FEE),
                                                                                     "account_no": k2.OWN}, k2.VERIFIED))) == []
     sm.decide(k2.RUN, a, b, keep=None, actor="reviewer")  # back to the rule: a conflict again
-    assert sorted(s["id"] for s in reconcile.snapshot()["statements"]) == sorted([a, b])
+    assert sorted(s["id"] for s in reconcile_store.snapshot()["statements"]) == sorted([a, b])
     with pytest.raises(sm.ChoiceError):
         sm.decide(k2.RUN, a, b, keep="somebody-else", actor="t")
     with pytest.raises(sm.ChoiceError):

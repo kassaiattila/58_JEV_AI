@@ -154,7 +154,7 @@ it("a statement package's folder is surveyed with its subfolders only when ticke
   rows.current = [];
   const survey = vi.spyOn(api, "packageStatementSurvey").mockResolvedValue({ party: { id: "p-1", name: "Example Kft." },
     period_start: "2026-05-01", period_end: "2026-06-30", statements: [], pdfs: [], skipped: [] } as StatementPackageSurvey);
-  render(<PackageItemsPanel view={viewOf({}, { source_kind: "statements" })} onChanged={() => {}} />);
+  render(<PackageItemsPanel view={viewOf({ rule: { name: "statements", adds: "own", parts: ["statements"] } }, { source_kind: "manual" })} onChanged={() => {}} />);  // 231 C3b5a
   fireEvent.click(screen.getByRole("button", { name: "Add statements" }));
   const sub = screen.getByRole("checkbox", { name: "Include subfolders" }) as HTMLInputElement;
   expect(sub.checked).toBe(false);

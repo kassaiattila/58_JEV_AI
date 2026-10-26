@@ -148,6 +148,33 @@ def _record_assembly(ctx: Any, params: RecordAssembly) -> kinds.StepOutcome:
                        "gaps": [g["code"] for g in quote_package.request_gaps(req)]})
 
 
+def _record_preview(record: dict[str, Any], params: dict[str, Any]) -> dict[str, Any] | None:
+    """231 (C1a): the record an email or a document holds, as the record step reads it at a case's start (None: it
+    holds none), with what it lacks as a whole."""
+    from jav.domains.quotes import quote_package, quote_request
+
+    try:
+        req = quote_request.read(record["workpackage_id"], record["item_id"], record_type=params["record_type"],
+                                 items_field=params["items_field"])
+    except quote_request.RequestNotFound:
+        return None
+    return {"record": req.as_dict(), "gaps": quote_package.request_gaps(req), "list_field": params["items_field"],
+            "record_type": params["record_type"]}
+
+
+def _records(q: str | None, _params: dict[str, Any]) -> list[dict[str, Any]]:
+    """231 (C3c): the quote requests a case may start from (`quote_package.candidates`), as the general form's record
+    chooser shows them: the request's subject, its customer, package and day, the name it gives a case (its customer,
+    else its subject) and the cases already started from it."""
+    from jav.domains.quotes import quote_package
+
+    return [{"workpackage_id": r["workpackage_id"], "workpackage_name": r["workpackage_name"], "item_id": r["item_id"],
+             "label": r["title"] or None, "name": r["customer_name"] or r["title"] or None,
+             "detail": " · ".join(str(x) for x in (r["customer_name"], r["workpackage_name"], (r["received_at"] or "")[:10]) if x),
+             "cases": [{"id": c["id"], "name": c["name"]} for c in r["quotes"]]}
+            for r in quote_package.candidates(q)]
+
+
 def _catalogue_match(ctx: Any, params: CatalogueMatch) -> kinds.StepOutcome:
     from jav.domains.quotes import quote_proposal
 
@@ -231,7 +258,8 @@ def _spent(table: str) -> Any:
 _OWNER = __name__
 CAPABILITIES = (
     Capability(name="record_assembly", version=1, module=_OWNER, run=_record_assembly, kind="machine", params=RecordAssembly, effects="pure",
-               summary="Puts a record together from an email's text, its table attachments and its attachments."),
+               summary="Puts a record together from an email's text, its table attachments and its attachments.",
+               preview=_record_preview, records=_records),  # C3c: the general form's record chooser
     Capability(name="catalogue_match", version=1, module=_OWNER, run=_catalogue_match, kind="machine", params=CatalogueMatch,
                providers=("jev", "openai"), rule_files=("callsite:quote_match", "gpt_quote_match", "quotes", "price_lists"),
                summary="Matches each requested item with a catalogue item: sure, to check, or not listed.",
@@ -243,7 +271,7 @@ CAPABILITIES = (
                rule_files=("price_lists",), summary="Prices lines from a catalogue: unit price, discount rules, totals.",
                choices={"catalogue": _catalogues}),
     Capability(name="line_draft", version=1, module=_OWNER, run=_line_draft, kind="human", params=LineDraft,
-               rule_files=("quotes", "price_lists"),
+               rule_files=("quotes", "price_lists"), own_version=True,  # 231 (C2d): reopening the quote reopens it
                summary="A person composes the lines from the match, gives own prices with a note, and approves.",
                choices={"catalogue": _catalogues},
                rule_keys=(RuleKey("quotes", "draft.max_lines", "int", "A quote holds at most this many lines", least=1, most=1000),

@@ -1,8 +1,18 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.32.0",
+  "version": "1.34.0",
   "changelog": [
+   {
+    "version": "1.34.0",
+    "date": "2026-10-25",
+    "note": "231 (plan stage C, C3b4): case_wrapped - a package made before its process was a pack, wrapped by a new case of it, appears in the activity log with a label."
+   },
+   {
+    "version": "1.33.0",
+    "date": "2026-10-25",
+    "note": "231 (plan stage C, C0): activity_action retyped - a package taken over as a process pack's case appears in the activity log with a label."
+   },
    {
     "version": "1.32.0",
     "date": "2026-10-24",
@@ -200,7 +210,7 @@
    "suspected:variant": "Suspected modified version", "suspected:undecidable": "Possible duplicate (a compared value is missing)"},
   "activity_action": {"archive": "csomag elrejtése", "restore": "csomag visszahozása", "rename": "csomag átnevezése",
    "delete": "csomag törlése", "owner": "felelős beállítása", "recipe": "feldolgozási beállítások mentése", "run_start": "futás indítása",
-   "run_approve": "futás jóváhagyása", "run_cancel": "futás leállítása", "run_supersede": "futás leváltása", "item_remove": "item removed", "item_restore": "item restored", "items_add": "items added", "items_remove": "items removed", "items_restore": "items restored","correction": "javítás", "reason_resolve": "teendő lezárása",
+   "run_approve": "futás jóváhagyása", "run_cancel": "futás leállítása", "run_supersede": "futás leváltása", "retyped": "taken over as a case", "item_remove": "item removed", "item_restore": "item restored", "items_add": "items added", "items_remove": "items removed", "items_restore": "items restored","correction": "javítás", "reason_resolve": "teendő lezárása",
    "task_decision": "feladatjavaslat döntése", "task_done": "feladat elvégezve", "mailbox_pull": "postafiók-letöltés", "reconcile_scope": "egyeztetési kör beállítása", "reconcile_allocate": "egyeztetés: párosítás", "reconcile_reject": "egyeztetés: elutasítás", "reconcile_mark": "egyeztetés: nem kell számla", "reconcile_revoke": "egyeztetés: visszavonás",
    "reconcile_leave_out": "reconciliation: documents left out", "reconcile_restore": "reconciliation: documents restored",
    "reconcile_accept_sources": "reconciliation: command-line results accepted as sources", "reconcile_approve": "reconciliation: version approved",
@@ -210,6 +220,7 @@
    "quote_approve": "quote: version approved", "quote_reopen": "quote: approval reopened",
    "quote_letter_accept": "quote: reply letter accepted",
    "output_template_choose": "output: template chosen",
+   "case_wrapped": "package: taken over as a case's package",
    "scope_set": "package: party, period and role set", "scope_clear": "package: own party, period and role removed",
    "routing_accept": "email routing: document routed", "routing_reject": "email routing: document not routed",
    "routing_undo": "email routing: decision taken back",

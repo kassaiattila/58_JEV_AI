@@ -415,6 +415,9 @@ def _addable(wp_id: str) -> dict[str, Any]:
     pack = logic_packs.of(wp["source_kind"])
     if pack is not None and pack.add_refusal:
         raise ValueError(pack.add_refusal)
+    rule = package_rule(wp_id)  # 231 (C3b5a): or its named rule
+    if rule is not None and rule.add_refusal:
+        raise ValueError(rule.add_refusal)
     return wp
 
 
@@ -741,7 +744,8 @@ def approved_runs(runs: Iterable[str | None]) -> set[str]:
 
 # 175 (plan 170 E4): the package log's own actions; the other modules register theirs (`jav/core/activity_kinds.py`)
 activity_kinds.register_events("package", ("rename", "owner", "archive", "restore", "delete", "items_add", "item_remove",
-                                           "items_remove", "item_restore", "items_restore", "run_cancel", "run_supersede"),
+                                           "items_remove", "item_restore", "items_restore", "run_cancel", "run_supersede",
+                                           "retyped"),  # 231 (C0): taken over as a process pack's case
                                __name__)
 
 
@@ -750,6 +754,20 @@ def _event(c, wp_id: str, action: str, actor: identity.Who, detail: dict[str, An
     c.execute("INSERT INTO workpackage_events(workpackage_id, action, actor, actor_id, detail, created_at)"
               " VALUES (?,?,?,?,?,?)",
               (wp_id, action, identity.name_of(actor), identity.id_of(actor), _canon(detail) if detail else None, _now()))
+
+
+def retype_in(c, wp_id: str, *, source_kind: str, source_ref: str | None, actor: identity.Who) -> dict[str, Any]:
+    """231 (plan stage C, C0): the package becomes another kind under its own id (a package taken over as a process
+    pack's case), in the caller's transaction; its log records the kind it had. Returns the kind and reference it had
+    (KeyError: no such package)."""
+    row = c.execute("SELECT source_kind, source_ref FROM workpackages WHERE id=?", (wp_id,)).fetchone()
+    if row is None:
+        raise KeyError(wp_id)
+    before = {"source_kind": row["source_kind"], "source_ref": row["source_ref"]}
+    c.execute("UPDATE workpackages SET source_kind=?, source_ref=?, revision=revision+1, updated_at=? WHERE id=?",
+              (source_kind, source_ref, _now(), wp_id))
+    _event(c, wp_id, "retyped", actor, {"from": before, "to": {"source_kind": source_kind, "source_ref": source_ref}})
+    return before
 
 
 def record_event(c, wp_id: str, action: str, actor: identity.Who, detail: dict[str, Any] | None = None) -> None:
@@ -769,19 +787,78 @@ class PackageRule:
     - `after_item(run, item)`: called when an item's flow has finished; the to-do reasons it returns are raised on the
       item.
     - `after_approval(run)` (153): called once a live run of the package is approved, after the approval is recorded; a
-      failure is logged and never undoes the approval."""
+      failure is logged and never undoes the approval.
+
+    231 (plan stage C, C3b5a): what a package of the rule is beyond its processing, as a logic pack gave it for its kind
+    (a package names its rule by data, in its scope's part `rule`, so no kind of its own is needed):
+    - `page(wp_id)`: the rule's part of the package's page.
+    - `own_scope`: the package's scope is the rule's (a person can neither give nor take it).
+    - `add_refusal`: why the shared adding of documents refuses the package; `adds`: how the package's page adds to it
+      (`documents`: the shared way; `own`: the rule's own way, its page part).
+    - `take_files(wp_id, paths, expected_revision, actor)` and `make_with_files(name, paths, scope, actor)`: how another
+      domain (the email routing) adds files to such a package, or makes a new one with them, in the rule's way."""
 
     after_detection: Callable[[dict[str, Any], dict[str, Any], Any], list[str] | None] | None = None
     after_item: Callable[[dict[str, Any], dict[str, Any]], list[str]] | None = None
     after_approval: Callable[[dict[str, Any]], None] | None = None
+    page: Callable[[str], dict[str, Any]] | None = None
+    own_scope: bool = False
+    add_refusal: str | None = None
+    adds: str = "documents"
+    take_files: Callable[..., None] | None = None
+    make_with_files: Callable[..., str] | None = None
+
+
+# 231 (plan stage C, C3b1): package rules by name, registered by the domain that writes them; a plain processing
+# package runs by the one its stored scope names (`RULE_PART`), so a process pack's step can own a package that reads
+# statements without a kind of its own
+RULE_PART = "rule"
+_RULES: dict[str, PackageRule] = {}
+
+
+def register_rule(name: str, rule: PackageRule) -> None:
+    """231 (C3b1): a package rule by its name; the same one again adds nothing, another one of the same name is an
+    error."""
+    known = _RULES.get(name)
+    if known is not None and known is not rule:
+        raise ValueError(f"a package rule named {name!r} is registered already")
+    _RULES[name] = rule
+
+
+def rule_named(name: str) -> PackageRule:
+    """231 (C3b1): the package rule of this name (`KeyError` for an unknown one)."""
+    try:
+        return _RULES[name]
+    except KeyError:
+        raise KeyError(f"no package rule named {name!r}") from None
+
+
+def rule_names() -> list[str]:
+    return sorted(_RULES)
+
+
+def rule_name(wp_id: str, c: sqlite3.Connection | None = None) -> str | None:
+    """231 (C3b5a): the name of the rule the package's stored scope names (`RULE_PART`), if any."""
+    if c is None:
+        with store.connect() as own:
+            return rule_name(wp_id, own)
+    scope = c.execute("SELECT parts FROM workpackage_scopes WHERE workpackage_id=?", (wp_id,)).fetchone()
+    return (json.loads(scope["parts"] or "{}") if scope else {}).get(RULE_PART)
 
 
 def package_rule(wp_id: str) -> PackageRule | None:
-    """The rule of the package's kind, if its logic pack has one."""
+    """The rule of the package's kind, if its logic pack has one; 231 (C3b1) else the one its stored scope names
+    (`RULE_PART`), if any."""
     with store.connect() as c:
         row = c.execute("SELECT source_kind FROM workpackages WHERE id=?", (wp_id,)).fetchone()
-    pack = logic_packs.of(row["source_kind"]) if row else None
-    return pack.rule if pack is not None else None
+        if row is None:
+            return None
+        pack = logic_packs.of(row["source_kind"])
+        if pack is not None and pack.rule is not None:
+            return pack.rule
+        scope = c.execute("SELECT parts FROM workpackage_scopes WHERE workpackage_id=?", (wp_id,)).fetchone()
+    name = (json.loads(scope["parts"] or "{}") if scope else {}).get(RULE_PART)
+    return rule_named(name) if name else None
 
 
 def raise_item_reasons(run_id: str, item: dict[str, Any], reasons: list[str], *, producer: str) -> None:

@@ -1,0 +1,34 @@
+{
+  "meta": {
+    "name": "process:mail_routing",
+    "version": "1.0.0",
+    "description": "231 (plan stage C, C1c; DECISIONS 231): the routing of emailed documents as a process pack (until C1c its own kind of package). A case reads the email packages its scope names: every PDF attachment that arrived in them is proposed for the package of its party, period and role, and a person accepts, rejects or redirects each one; the case is done once every attachment it can route is decided. The emails that start a case of another process (an IT quote) are listed with those cases. Every step names a general capability; the pack holds no code.",
+    "changelog": [
+      {"version": "1.0.0", "date": "2026-10-25", "note": "231 (C1c): the first version: the routing step (file_placement@1) and its tabs: Emails, Routing, Routed, Started cases, History; an email package's page offers a case that reads it; the routing packages made before are taken over as its cases."}
+    ]
+  },
+  "id": "mail_routing",
+  "title": "Email routing",
+  "scope": {"parts": ["sources"]},
+  "intake": [
+    {"on": "package", "package_kinds": ["mailbox"], "starts": "offer"},
+    {"on": "manual", "starts": "manual"}
+  ],
+  "adopts": [{"kind": "email_routing", "scope": {"sources": "emails"}}],
+  "resources": {},
+  "steps": [
+    {"id": "route", "uses": "file_placement@1", "title": "Routing"}
+  ],
+  "screens": {
+    "tabs": [
+      {"id": "emails", "label": "Emails", "elements": [{"type": "file_placement", "step": "route", "show": "sources"}]},
+      {"id": "routing", "label": "Routing", "elements": [{"type": "file_placement", "step": "route", "show": "decide"}]},
+      {"id": "routed", "label": "Routed", "elements": [{"type": "file_placement", "step": "route", "show": "routed"}]},
+      {"id": "cases", "label": "Started cases", "elements": [{"type": "started_cases"}]},
+      {"id": "history", "label": "History", "elements": [{"type": "timeline"}, {"type": "cost"}]}
+    ]
+  },
+  "partners": [],
+  "outputs": [],
+  "goldens": []
+}

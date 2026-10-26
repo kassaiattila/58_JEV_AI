@@ -16,6 +16,9 @@ daily rate, downloaded automatically and kept locally). This module owns that ra
 - **Offline by default in views:** `table(fetch=False)` only reads the store; the processing and the command line
   fetch (`fetch=True`). A test never reaches the network: `use_transport` installs a stand-in, and the test setup
   installs one that refuses.
+- **Asked through its connector** (231, C2a): the service's address, its request headers, its timeout and its answer
+  limit are the connector's (`configs/connectors.json`, named by `source.connector`; `jav/core/connectors.py`), and
+  every question also goes into the call log. `use_transport` is the connectors' own.
 
 The rates are stored exactly as published (forints per `unit` units, `unit` 100 for JPY); `resolve` gives forints per
 one unit as a `Decimal`. Parameters are data (`configs/fx.json`).
@@ -23,20 +26,16 @@ one unit as a `Decimal`. Parameters are data (`configs/fx.json`).
 
 from __future__ import annotations
 
-import contextlib
-import contextvars
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import Any, Callable, Iterable, Iterator
+from typing import Any, Iterable
 from xml.sax.saxutils import escape
 
-from jav.core import cfg, store
+from jav.core import cfg, connectors, store
 from jav.core.clock import utc_now as _now
+from jav.core.connectors import use_transport
 
-Transport = Callable[[str, bytes, dict[str, str], float], bytes]
 _SOAP_NS = "http://schemas.xmlsoap.org/soap/envelope/"
 _MNB_NS = "http://www.mnb.hu/webservices/"
 
@@ -89,33 +88,10 @@ def config_hash() -> str:
     return cfg.config_hash("fx")
 
 
-# --- the transport (a test installs a stand-in) --------------------------------------------------------------------
-
-
-# 153 (review C5): the most an answer may be (a year of one currency's rates is a few tens of kilobytes)
-MAX_RESPONSE_BYTES = 5_000_000
-
-
-def _urllib_transport(url: str, body: bytes, headers: dict[str, str], timeout: float) -> bytes:
-    request = urllib.request.Request(url, data=body, headers=headers, method="POST")
-    with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 - the configured MNB address
-        raw = response.read(MAX_RESPONSE_BYTES + 1)
-    if len(raw) > MAX_RESPONSE_BYTES:
-        raise FxUnavailableError("the rate service's answer is over the size limit")
-    return raw
-
-
-_transport: contextvars.ContextVar[Transport | None] = contextvars.ContextVar("fx_transport", default=None)
-
-
-@contextlib.contextmanager
-def use_transport(transport: Transport) -> Iterator[None]:
-    """Route every rate request through `transport` (url, body, headers, timeout) -> response bytes."""
-    token = _transport.set(transport)
-    try:
-        yield
-    finally:
-        _transport.reset(token)
+# 231 (C2a): what a connector's failure is called in the fetch log (the texts as before the connector)
+_UNAVAILABLE = {"unreachable": "the rate service could not be reached: {error}",
+                "too_large": "the rate service's answer is over the size limit",
+                "busy": "the rate service's limit of questions a minute is reached"}
 
 
 # --- the request and the response ----------------------------------------------------------------------------------
@@ -265,13 +241,11 @@ def fetch(start: date, end: date, currencies: Iterable[str]) -> int:
         return 0
     if end < start or (end - start).days > int(conf["max_span_days"]):
         raise ValueError("invalid or too long date span")
-    transport = _transport.get() or _urllib_transport
-    headers = {"Content-Type": "text/xml; charset=utf-8", "SOAPAction": f'"{source["soap_action"]}"'}
     try:
         try:
-            raw = transport(source["url"], envelope(start, end, codes), headers, float(source["timeout_s"]))
-        except (urllib.error.URLError, OSError, TimeoutError) as exc:
-            raise FxUnavailableError(f"the rate service could not be reached: {type(exc).__name__}") from exc
+            raw = connectors.ask(source["connector"], envelope(start, end, codes), purpose="fx_fetch")
+        except connectors.ConnectorUnavailable as exc:
+            raise FxUnavailableError(_UNAVAILABLE[exc.reason].format(error=exc.error)) from exc
         rows = parse(raw)
         with store.connect() as c:
             plausible(rows, start=start, end=end, currencies=set(codes),

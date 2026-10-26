@@ -105,6 +105,19 @@ def _no_live_gpt_choice():
 
 
 @pytest.fixture(autouse=True)
+def _no_live_mailbox(monkeypatch):
+    """231 (C3d): a test never runs the Outlook bridge (`scripts/outlook_bridge.ps1` through PowerShell: a real mailbox
+    of the machine). A test that downloads passes its own runner (the tests' `FakeBridge`); one that would reach the
+    default runner fails instead."""
+    from jav.domains.email import mailbox
+
+    def refuse(argv, timeout):
+        raise AssertionError("a test tried to run the Outlook bridge (jav/domains/email/mailbox.py); pass a runner")
+
+    monkeypatch.setattr(mailbox, "_subprocess_runner", refuse)
+
+
+@pytest.fixture(autouse=True)
 def _no_live_quote_letter():
     """196: a test never asks OpenAI for a reply letter's paragraph (a paid call); a test that needs one installs its
     own stand-in with `quote_letter.use_agent_factory`."""
@@ -133,15 +146,16 @@ def _no_jev_question_without_jev(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _no_live_fx():
-    """130: a test never asks the MNB rate service; a test that needs rates installs its own stand-in with
-    `fx.use_transport`."""
-    from jav.domains.finance import fx
+def _no_live_connectors():
+    """130: a test never asks the MNB rate service; 231 (C2a): nor any other external service through its connector. A
+    test that needs an answer installs its own stand-in with `connectors.use_transport` (`fx.use_transport`)."""
+    from jav.core import connectors
 
     def refuse(url, body, headers, timeout):
-        raise AssertionError("a test tried a live exchange rate request (jav/domains/finance/fx.py); install a stand-in with use_transport")
+        raise AssertionError(f"a test tried a live question to an external service ({url}, jav/core/connectors.py);"
+                             " install a stand-in with use_transport")
 
-    with fx.use_transport(refuse):
+    with connectors.use_transport(refuse):
         yield
 
 

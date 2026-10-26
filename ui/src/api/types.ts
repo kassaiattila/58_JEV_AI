@@ -2,7 +2,8 @@
 import type { WorkflowRef } from "./workflows";
 import type { Engine } from "./system";
 import type { DuplicatePair, ReconcileApproval, ReconcileCounts, ReconcileCoverage, ReconcileScope, StatementPackageView, StatementRelation } from "./finance";
-import type { QuoteEmailPart } from "./quotes";
+import type { IntakeOffer } from "./cases";
+import type { PackageOffer } from "./processes";
 import type { EmailItem, MailboxRequest, RoutingView } from "./email";
 
 export interface Blocker { code: string; message: string }
@@ -42,6 +43,9 @@ export interface WorkpackageView {
   reconcile?: { scope: ReconcileScope; counts: ReconcileCounts; coverage: ReconcileCoverage[]; approval?: ReconcileApproval };
   /** 140: a statement package's party, period and each item's statement */
   statements?: StatementPackageView;
+  /** 231 (C3b5a): the rule the package runs by, when it shows a part of its own or adds its own way
+   *  (`ui/src/logic/packageParts.tsx`) */
+  rule?: { name: string; adds: string; parts: string[] } | null;
   /** 146: the workflow the package is a step of */
   workflow?: WorkflowRef | null;
   /** 152: the older live runs a person can supersede, oldest first */
@@ -57,7 +61,8 @@ export interface WorkpackageView {
   /** 181: an email routing package's attachments, proposals and decisions */
   routing?: RoutingView;
   /** 181: an email package offers the routing of its attachments (and names the routing packages that route it) */
-  routing_offer?: { attachments: number; routings: { id: string; name: string }[] };
+  /** 231 (C1c): the processes whose case may read this package (until then the email routing's own offer) */
+  intake?: PackageOffer[];
   /** 183: a mailbox package: the request of the download that made it (null if no recorded download did) */
   mailbox_request?: MailboxRequest | null;
   /** 231 (A6): a process pack's case container names its case (the interface opens the case's page) */
@@ -209,7 +214,9 @@ export interface ItemResult {
   run_id: string; item_id: string; kind?: "document" | "email" | "statement_table"; email?: EmailItem; page_count?: number | null; extraction: Extraction | null; correction: Correction;
   attachment_items?: { item_id: string; filename: string }[]; // 058 K5.2: the email's attachments that ran as documents
   /** 192: what other domains add to this kind's item (`jav/app/item_kinds.py` item parts), by name */
-  parts?: { quote_request?: QuoteEmailPart };
+  parts?: Record<string, unknown>;
+  /** 231 (C1a): the processes whose case this email may start */
+  intake?: IntakeOffer[];
   effective: Record<string, unknown>; open_reasons: Reason[]; earlier_open_reasons: Reason[];
   provenance: Record<string, Provenance>;
   lists?: Record<string, { columns: ListColumn[] }>; checks?: Check[];

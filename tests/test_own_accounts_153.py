@@ -14,6 +14,7 @@ import pytest
 from jav.app import parties
 from jav.core import store
 from jav.domains.finance import reconcile, reconcile_package as rp
+from jav.domains.finance import reconcile_store
 from tests import test_reconcile_k2_129 as k2
 
 ELSEWHERE = "12121212-34343434-56565656"  # made up: the account another stored statement prints
@@ -57,7 +58,7 @@ def test_the_store_snapshot_carries_the_accounts_a_party_holds(db):
     party = parties.create("Example Home", identities=[("account", "K1", "first")], actor="tester")["id"]
     parties.assign("account", "K2", "second", None, actor="tester")  # dismissed: no own party's
     assert parties.registered_accounts() == {"K1"}
-    assert reconcile.snapshot()["registered_accounts"] == ["K1"]
+    assert reconcile_store.snapshot()["registered_accounts"] == ["K1"]
     assert party
 
 
@@ -71,7 +72,7 @@ def test_the_package_marks_a_line_to_an_unregistered_account_until_a_party_holds
                    period_end="2026-04-30", actor="tester")["workpackage_id"]
     row = next(ln for ln in rp.workspace(wp)["lines"] if ln["id"] == lid)
     assert row["own_account_unregistered"] is True and row["excluded_reason"] is None and row["state"] != "excluded"
-    key = next(reconcile.statement_account(st) for st in reconcile.statements() if st["account"] == ELSEWHERE)
+    key = next(reconcile.statement_account(st) for st in reconcile_store.statements() if st["account"] == ELSEWHERE)
     parties.create("Example Home", identities=[("account", key, ELSEWHERE)], actor="tester")
     row = next(ln for ln in rp.workspace(wp)["lines"] if ln["id"] == lid)
     assert row["own_account_unregistered"] is False and row["excluded_reason"] == "own_account_transfer"
