@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.34.0",
+  "version": "1.35.0",
   "changelog": [
+   {
+    "version": "1.35.0",
+    "date": "2026-10-26",
+    "note": "231 (stage D0, D0-d): approval_return - a person returned a case step's result with a reason instead of approving it, in the activity log with a label."
+   },
    {
     "version": "1.34.0",
     "date": "2026-10-25",
@@ -217,6 +222,7 @@
    "reconcile_reopen": "reconciliation: approval reopened", "statement_scope": "statement package: party and period set",
    "statement_account": "statement package: bank account assigned to the party", "statement_add": "statement package: statements added",
    "package_release": "package: approved and released",
+   "approval_return": "approval: result returned with a reason",
    "quote_approve": "quote: version approved", "quote_reopen": "quote: approval reopened",
    "quote_letter_accept": "quote: reply letter accepted",
    "output_template_choose": "output: template chosen",

@@ -1690,6 +1690,7 @@
   "statement package: bank account assigned to the party": "statement package: bank account assigned to the party",
   "statement package: statements added": "statement package: statements added",
   "package: approved and released": "package: approved and released",
+  "approval: result returned with a reason": "approval: result returned with a reason",
   "duplicate invoice: decided": "duplicate invoice: decided",
   "statements of the same days: valid one chosen": "statements of the same days: valid one chosen",
   "workflow: made": "workflow: made",

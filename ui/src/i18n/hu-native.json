@@ -1691,6 +1691,7 @@
   "statement package: bank account assigned to the party": "kivonatcsomag: bankszámla a gazdálkodóhoz rendelve",
   "statement package: statements added": "kivonatcsomag: kivonatok felvétele",
   "package: approved and released": "csomag: jóváhagyás és kiadás",
+  "approval: result returned with a reason": "jóváhagyás: eredmény visszaadva indokkal",
   "duplicate invoice: decided": "duplikátum: döntés",
   "statements of the same days: valid one chosen": "átfedő kivonatok: az érvényes kiválasztása",
   "workflow: made": "munkafolyamat: létrehozás",
