@@ -30,8 +30,6 @@ const SHARED: SettingsSectionSpec[] = [
   { key: "rules", label: "Rules", hint: "How the system decides on its own: each kind of decision, the values it decides with and the version of its rules in use", order: 70 },
   // 179 (plan 170 L4, DECISIONS 178): own Excel templates of the downloads
   { key: "outputs", label: "Output templates", hint: "Your own Excel and Word templates for the downloads: upload, check, preview and make active; the markers to write in them", order: 80 },
-  // 191 (plan F-quote-package B2): the seller's price lists a quote is priced from
-  { key: "prices", label: "Price lists", hint: "The price lists quotes are priced from: upload, check and make active; the volume discounts, the currency and the VAT rate", order: 90 },
   { key: "users", label: "Felhasználók", hint: "A „Ki dolgozik?” választéka", order: 100 },
   { key: "appearance", label: "Megjelenés", hint: "The theme: light, dark or as the system is set", order: 110 },
   { key: "language", label: "Nyelv", hint: "A felület nyelve: magyar vagy angol", order: 120 },

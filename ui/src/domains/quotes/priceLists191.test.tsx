@@ -4,10 +4,8 @@
 // spies; invented names, items and paths only.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  api, ApiError, setActor, type PriceList, type PriceListCheck, type PriceListDetail, type PriceListsListing,
-  type PriceListVersion,
-} from "../../api";
+import { api, ApiError, setActor } from "../../api";
+import type { PriceList, PriceListCheck, PriceListDetail, PriceListsListing, PriceListVersion } from "./api";
 import { setLanguage, t } from "../../i18n";
 import { settingsSections } from "../../logic/settingsSections";
 import { priceIssueText, PriceListsPanel } from "./PriceListsPanel";

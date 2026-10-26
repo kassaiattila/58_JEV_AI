@@ -1,7 +1,9 @@
-// The quotes domain: quote requests, quotes and price lists.
-import { enc, request } from "./client";
-import type { OwnApproval, OwnVersion } from "./types";
-import type { OutputTemplateIssue, OutputTemplateState } from "./outputs";
+// The quotes domain: quote requests, quotes and price lists. 231 (C3e): in the domain's folder (until then
+// `ui/src/api/quotes.ts`); the domain adds its calls to the shared client when the interface loads (`./index.tsx`), and
+// their types and its upload check by declaration merging (below).
+import { enc, request } from "../../api/client";
+import type { OwnApproval, OwnVersion } from "../../api/types";
+import type { OutputTemplateIssue, OutputTemplateState } from "../../api/outputs";
 
 /** 191 (plan F-quote-package B3): one part of a quote request: the email's own text, an attachment, or a document. */
 export interface QuoteRequestPart {
@@ -167,3 +169,11 @@ export const quotesApi = {
   priceListFileUrl: (priceList: string, version: number) => `/api/price-lists/${enc(priceList)}/versions/${version}/file`,
   /** 178/179 (plan 170 L4): own output templates, and a package's choice of them */
 };
+
+type QuotesCalls = typeof quotesApi;
+declare module "../../api" {
+  interface DomainCalls extends QuotesCalls {}
+}
+declare module "../../api/client" {
+  interface UploadChecks { price_list: PriceListCheck }
+}

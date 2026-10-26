@@ -1,7 +1,7 @@
 // 195 (plan G-tidy R5): the quote's status lines and summary, apart from the quote's pages, which load only when one is
 // opened; 231 (A3d): a case's tabs show them, from the quote view its elements carry (`ui/src/elements/registry.tsx`).
 // The amount's form is shared with the quote's editor.
-import type { QuoteView } from "../../api";
+import type { QuoteView } from "./api";
 import { getLocale, t } from "../../i18n";
 import { fieldLabel } from "../../labels";
 import type { Stage } from "../../route";

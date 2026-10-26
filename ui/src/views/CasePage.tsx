@@ -5,7 +5,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { api, type CaseView } from "../api";
 import { PageHeader } from "../components/PageHeader";
-import { ELEMENTS, type ElementProps } from "../elements/registry";
+import { elementOf, type ElementProps } from "../elements/registry";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { stepLabel } from "../labels";
@@ -50,8 +50,8 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
   const shown = view.tabs.find((x) => x.id === tab) ?? view.tabs.find((x) => x.id === defaultTab(view)) ?? view.tabs[0];
   const props = (element: ElementProps["element"]): ElementProps => ({ caseId, element, page: view, onChanged: page.reload });
   const all = view.tabs.flatMap((x) => x.elements);
-  const summary: ReactNode = all.map((e) => ELEMENTS[e.type]?.summary?.(props(e))).find(Boolean) ?? t(view.case.title);
-  const statusOf = (elements: ElementProps["element"][]) => elements.map((e) => ELEMENTS[e.type]?.status?.(props(e))).find(Boolean) ?? "";
+  const summary: ReactNode = all.map((e) => elementOf(e.type)?.summary?.(props(e))).find(Boolean) ?? t(view.case.title);
+  const statusOf = (elements: ElementProps["element"][]) => elements.map((e) => elementOf(e.type)?.status?.(props(e))).find(Boolean) ?? "";
   const next = view.next?.tab ?? defaultTab(view);
   const reload = () => { page.reload(); container.reload(); };
   // the next-step button; a hint instead when its tab is the one shown (as on a work package's page)
@@ -77,7 +77,7 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
       </div>
       <div role="tabpanel" aria-label={t(shown.label)}>
         {shown.elements.map((e, i) => {
-          const spec = ELEMENTS[e.type];
+          const spec = elementOf(e.type);
           return <div key={`${e.type}-${e.step ?? ""}-${i}`}>{spec ? spec.render(props(e)) : null}</div>;
         })}
       </div>

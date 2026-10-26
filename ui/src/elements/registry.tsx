@@ -1,12 +1,13 @@
 // 231 (plan stage A, A6; DECISIONS 231): the screen elements a case's tabs are built from (configs/screen_elements.json).
 // The interface renders an element by its type, with the data the service sent for it (what its step's capability
 // shows); an element may also give its tab's status line and the page's summary. A special element is registered
-// once, by the code of the capability it belongs to, and any process pack may use it.
+// once, by the code of the capability it belongs to, and any process pack may use it. 231 (C3e): the shared elements
+// are listed here; a domain's capability registers its own when the interface loads (`registerElement`, from
+// `ui/src/domains/<domain>/index.tsx`), and a case page finds both (`elementOf`).
 import { lazy, Suspense, type ReactNode } from "react";
-import type { CaseElement, CaseView, PackageWorkView, QuoteView, RoutingView } from "../api";
+import type { CaseElement, CaseView, PackageWorkView, RoutingView } from "../api";
 import { t } from "../i18n";
 import { moneyText } from "../labels";
-import { quoteStatus, quoteSummary } from "../views/quotes/quoteStatus";
 import { costTotal, handoverStatus, replyStatus } from "./caseStatus";
 import { pairingLine, pairingSummary } from "./pairingStatus";
 import { packageWorkLine } from "./packageWorkStatus";
@@ -20,13 +21,6 @@ export interface ElementSpec {
   summary?: (p: ElementProps) => string | null;
 }
 
-// the quote's capabilities' elements: their pages load only when a case shows one; their status lines and summary are
-// the quote package's (quoteStatus.ts), from the quote view their data carries
-const quote = () => import("../views/quotes/QuoteElements");
-const RecordView = lazy(() => quote().then((m) => ({ default: m.RecordView })));
-const MatchProposal = lazy(() => quote().then((m) => ({ default: m.MatchProposal })));
-const LineEditor = lazy(() => quote().then((m) => ({ default: m.LineEditor })));
-const Approval = lazy(() => quote().then((m) => ({ default: m.Approval })));
 // 231 (A7e): the general elements any pack may show: a send step's handovers, a reply step's wait, the case's events and
 // cost; their status lines come with them (a small module, loaded with the page)
 const general = () => import("./CaseElements");
@@ -42,10 +36,9 @@ const Pairing = lazy(() => import("./Pairing").then((m) => ({ default: m.Pairing
 const PairingProposal = lazy(() => import("./PairingProposal").then((m) => ({ default: m.PairingProposal })));
 // 231 (C3b3): the document processing step's element (its page loads only when a case shows it); its tab line is small
 const PackageWork = lazy(() => import("./PackageWork").then((m) => ({ default: m.PackageWork })));
-const lazily = (C: (p: ElementProps) => ReactNode) =>
+/** An element whose page loads only when a case shows it (its module imported on first render). */
+export const lazily = (C: (p: ElementProps) => ReactNode) =>
   (p: ElementProps) => <Suspense fallback={<p className="muted">{t("Loading…")}</p>}><C {...p} /></Suspense>;
-const quoteOf = (p: ElementProps) => (p.element.data as { quote?: QuoteView } | null)?.quote;
-const quoteLine = (which: "process" | "review" | "result") => (p: ElementProps) => quoteStatus(quoteOf(p))?.[which] ?? null;
 const placementOf = (p: ElementProps) => p.element.data as RoutingView | null;
 const placementLine = (p: ElementProps) => {
   const r = placementOf(p);
@@ -60,10 +53,6 @@ const placementSummaryOf = (p: ElementProps) => {
 };
 
 export const ELEMENTS: Record<string, ElementSpec> = {
-  record_view: { render: lazily(RecordView), status: quoteLine("process"), summary: (p) => quoteSummary(quoteOf(p)) },
-  match_proposal: { render: lazily(MatchProposal), status: quoteLine("review") },
-  line_editor: { render: lazily(LineEditor), status: quoteLine("review") },
-  approval: { render: lazily(Approval), status: quoteLine("result") },
   handover_view: { render: lazily(HandoverView), status: (p) => handoverStatus(p)?.text ?? null },
   reply_wait: { render: lazily(ReplyWait), status: (p) => replyStatus(p)?.text ?? null },
   timeline: { render: lazily(Timeline) },
@@ -75,3 +64,15 @@ export const ELEMENTS: Record<string, ElementSpec> = {
   package_work: { render: lazily(PackageWork), status: (p) => packageWorkLine(p.element.data as PackageWorkView | null) },  // 231 (C3b3)
   cost: { render: lazily(CostView), status: (p) => { const usd = costTotal(p); return usd === null ? null : `${moneyText(usd)} USD`; } },
 };
+
+const OWN = new Map<string, ElementSpec>();
+
+/** Registers a domain's capability's element by its type (a second registration replaces the first). */
+export function registerElement(type: string, spec: ElementSpec): void {
+  OWN.set(type, spec);
+}
+
+/** The element of a type: a shared one, or one a domain registered (undefined: none). */
+export function elementOf(type: string): ElementSpec | undefined {
+  return Object.prototype.hasOwnProperty.call(ELEMENTS, type) ? ELEMENTS[type] : OWN.get(type);
+}

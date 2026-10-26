@@ -27,17 +27,17 @@ from jav.app import item_kinds, logic_packs, registrations, workflow_steps
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "ui" / "src"
 PROCESS_NAMES = ("reconcile", "statements", "email_routing", "routing", "quote", "mailbox")
-UI_PROCESS_DIRS = {"quotes", "reconcile"}  # C1c: routing went
+UI_PROCESS_DIRS = {"reconcile"}  # C1c: routing went; C3e: the quotes' moved to their domain's folder
 UI_SHARED_DIRS = {"settings", "workflows"}
 
 FROZEN_LOGIC_PACKS: set[str] = set()  # A3d: the quote package went; C1c: the email routing; C3a-2: the reconciliation; C3b5a: the statements
 FROZEN_STEP_KINDS: set[str] = set()  # C3d: the emails (the mailbox pack's); C3c: the quote (its pack's); C1c: the routing; C3a-2: the reconciliation; C3b5b: the documents, the statements (their packs')
 FROZEN_ITEM_PARTS: set[tuple[str, str]] = set()  # 231 (C1a): the quote request under its email became the general intake
 FROZEN_DOMAINS = ("jav.domains.finance", "jav.domains.email", "jav.domains.quotes")
-FROZEN_UI_FILES = {  # C3e: the mailbox screen moved to its domain's folder
-    "ui/src/api/finance.ts", "ui/src/api/quotes.ts", "ui/src/review/StatementPanel.tsx", "ui/src/views/BankFiles.tsx",
+FROZEN_UI_FILES = {  # C3e: the mailbox screen, the quotes' API and the price lists moved to their domains' folders
+    "ui/src/api/finance.ts", "ui/src/review/StatementPanel.tsx", "ui/src/views/BankFiles.tsx",
     "ui/src/views/StatementPackagePanel.tsx",  # C3b5a: the statement package form went
-    "ui/src/views/UtilityReport.tsx", "ui/src/views/settings/PartiesPanel.tsx", "ui/src/views/settings/PriceListsPanel.tsx",
+    "ui/src/views/UtilityReport.tsx", "ui/src/views/settings/PartiesPanel.tsx",
 }
 UI_DOMAINS = UI / "domains"  # C3e
 UI_DOMAIN_NAMES = {d.rsplit(".", 1)[1] for d in FROZEN_DOMAINS}
@@ -129,6 +129,16 @@ def test_shared_ui_code_imports_no_domain_and_no_domain_another() -> None:
     across = sorted((p.relative_to(ROOT).as_posix(), i.relative_to(ROOT).as_posix()) for p in UI_DOMAINS.rglob("*.ts*")
                     if _domain_of(p) for i in _imports(p) if _domain_of(i) not in (None, _domain_of(p)))
     assert not across, f"a UI domain importing another domain: {across}"
+
+
+def test_shared_ui_code_calls_no_domains_call() -> None:
+    """231 (C3e): a domain adds its calls to the shared client (`registerCalls`), typed by declaration merging, so the
+    shared code could call one without importing the domain; it calls none (a domain's screen does)."""
+    calls = {c for p in UI_DOMAINS.glob("*/api.ts") for block in re.findall(r"^export const \w+Api = \{(.*?)^\};",
+             p.read_text(encoding="utf-8"), re.M | re.S) for c in re.findall(r"^  (\w+):", block, re.M)}
+    found = sorted((p.relative_to(ROOT).as_posix(), m.group(1)) for p in _ui_files() if _shared(p)
+                   for m in re.finditer(r"\bapi\.(\w+)\b", p.read_text(encoding="utf-8")) if m.group(1) in calls)
+    assert not found, f"shared UI code calling a domain's call: {found}"
 
 
 def test_only_a_domain_registers_with_the_shared_registries() -> None:

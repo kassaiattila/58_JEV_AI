@@ -6,7 +6,8 @@
 // message, the version's Word quote attached. While GPT's paragraph is queued or being written the page asks again
 // every two seconds.
 import { useEffect, useState } from "react";
-import { api, ApiError, type QuoteLetterView } from "../../api";
+import { api, ApiError } from "../../api";
+import type { QuoteLetterView } from "./api";
 import { Icon } from "../../components/Icon";
 import { errorText, useAction } from "../../hooks";
 import { t, useLocale } from "../../i18n";

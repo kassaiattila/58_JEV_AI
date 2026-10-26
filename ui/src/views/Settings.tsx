@@ -24,7 +24,6 @@ import { OutputTemplatesPanel } from "./settings/OutputTemplatesPanel";
 import { PartiesPanel } from "./settings/PartiesPanel";
 import { PartnersPanel } from "./settings/PartnersPanel";
 import { ProcessSettingsPanel } from "./settings/ProcessSettingsPanel";
-import { PriceListsPanel } from "./settings/PriceListsPanel";
 import { RulesPanel } from "./settings/RulesPanel";
 import { UsersPanel } from "./settings/UsersPanel";
 import { VersionPanel } from "./settings/VersionPanel";
@@ -64,7 +63,6 @@ export function Settings({ section }: { section: SettingsSection }) {
           ) : null}
           {current.key === "rules" ? <RulesPanel /> : null}
           {current.key === "outputs" ? <OutputTemplatesPanel /> : null}
-          {current.key === "prices" ? <PriceListsPanel /> : null}
           {current.key === "users" ? <UsersPanel /> : null}
           {current.key === "appearance" ? <AppearancePanel /> : null}
           {current.key === "language" ? <LanguagePanel /> : null}

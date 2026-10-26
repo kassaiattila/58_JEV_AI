@@ -4,7 +4,8 @@
 // invented names only.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setActor, type CaseView, type QuoteDraftView, type QuoteLetterView, type QuoteView, type WorkpackageView } from "../../api";
+import { api, setActor, type CaseView, type WorkpackageView } from "../../api";
+import type { QuoteDraftView, QuoteLetterView, QuoteView } from "./api";
 import { setLanguage } from "../../i18n";
 import { Approval, LineEditor, MatchProposal, RecordView } from "./QuoteElements";
 

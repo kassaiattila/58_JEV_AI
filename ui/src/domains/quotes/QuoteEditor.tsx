@@ -8,10 +8,8 @@
 // documents' language is chosen with its header; the draft and each approved version download as a Word document (the
 // built-in template, or the package's own one chosen beside the download).
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  api, ApiError, type QuoteApproved, type QuoteDraftBlockerCode, type QuoteDraftIn, type QuoteDraftLine,
-  type QuoteDraftView, type QuoteLineIn, type QuoteRequest, type QuoteView,
-} from "../../api";
+import { api, ApiError } from "../../api";
+import type { QuoteApproved, QuoteDraftBlockerCode, QuoteDraftIn, QuoteDraftLine, QuoteDraftView, QuoteLineIn, QuoteRequest, QuoteView } from "./api";
 import { ApprovalPanel, EarlierVersions } from "../../components/ApprovalPanel";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Icon } from "../../components/Icon";

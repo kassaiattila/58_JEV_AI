@@ -2,7 +2,8 @@
 // part of the quote package's page it stands for, from the quote view its data carries (jav/domains/quotes/capabilities.py
 // `_quote_view`), so a case of the IT quote's process pack looks as the quote package did. Asking for the proposal or the
 // letter starts the case's step (a person's start), which asks for it.
-import { api, type QuoteView } from "../../api";
+import { api } from "../../api";
+import type { QuoteView } from "./api";
 import type { ElementProps } from "../../elements/registry";
 import { t } from "../../i18n";
 import { ProposalPanel, RequestPanel } from "./Quote";

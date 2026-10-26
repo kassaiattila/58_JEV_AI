@@ -5,7 +5,8 @@
 // replaced by spies; invented names only.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError, setActor, type CaseView, type QuoteDraftView, type QuoteView, type WorkpackageView } from "../../api";
+import { api, ApiError, setActor, type CaseView, type WorkpackageView } from "../../api";
+import type { QuoteDraftView, QuoteView } from "./api";
 import { setLanguage } from "../../i18n";
 import { stepLabel } from "../../labels";
 import { Approval, LineEditor, MatchProposal, RecordView } from "./QuoteElements";

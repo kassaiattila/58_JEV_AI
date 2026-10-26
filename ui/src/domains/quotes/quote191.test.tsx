@@ -4,7 +4,8 @@
 // local service is replaced by spies; invented names only.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setActor, type CaseView, type ProcessRecord, type QuoteProposal, type QuoteView, type WorkpackageView } from "../../api";
+import { api, setActor, type CaseView, type ProcessRecord, type WorkpackageView } from "../../api";
+import type { QuoteProposal, QuoteView } from "./api";
 import { ProcessCreate } from "../../elements/ProcessStart";
 import { setLanguage } from "../../i18n";
 import { PACKAGE_PARTS } from "../../logic/packageParts";

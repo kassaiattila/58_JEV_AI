@@ -5,10 +5,8 @@
 // price (a volume discount), the currency and the VAT rate are set here, not in the file (the owner's decision);
 // saving them makes a new draft version with the same items, so a version never changes and a quote names one.
 import { useMemo, useState } from "react";
-import {
-  api, ApiError, type OutputTemplateIssue, type PriceList, type PriceListCheck,
-  type PriceListColumn, type PriceListDetail, type PriceListVersion, type PriceListsListing, type PriceRule,
-} from "../../api";
+import { api, ApiError, type OutputTemplateIssue } from "../../api";
+import type { PriceList, PriceListCheck, PriceListColumn, PriceListDetail, PriceListVersion, PriceListsListing, PriceRule } from "./api";
 import { BlockerList } from "../../components/BlockerList";
 import { BrowseButton } from "../../components/BrowseButton";
 import { ConfirmButton } from "../../components/ConfirmButton";

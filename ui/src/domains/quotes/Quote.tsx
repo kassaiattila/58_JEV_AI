@@ -6,9 +6,8 @@
 // (QuoteElements.tsx); the quote package's own page is gone, and (C3c) the new work wizard's general form starts a
 // case (its record chooser, `ui/src/elements/ProcessStart.tsx`).
 import { useEffect, useState } from "react";
-import {
-  api, ApiError, type QuoteBlockerCode, type QuoteMatchAnswer, type QuoteProposal, type QuoteView,
-} from "../../api";
+import { api, ApiError } from "../../api";
+import type { QuoteBlockerCode, QuoteMatchAnswer, QuoteProposal, QuoteView } from "./api";
 import { BlockerList } from "../../components/BlockerList";
 import { t, useLocale } from "../../i18n";
 import { numText, usdBudget, when } from "../../labels";
