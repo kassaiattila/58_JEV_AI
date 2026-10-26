@@ -38,6 +38,7 @@ class PartnerLinkIn(In):
 
 class ActionIn(In):
     note: Annotated[str | None, Field(max_length=2000)] = None
+    values: dict[str, Any] | None = None  # D-f2: an action with a form takes its values (the form checks them)
 
 
 class ReturnIn(In):
@@ -105,7 +106,7 @@ def routes(app: FastAPI, r: str) -> None:
     @app.post(r + "/cases/{case_id}/steps/{step_id}/actions/{name}")
     def case_step_action(case_id: CaseId, step_id: CaseStep, name: ActionName, body: ActionIn,
                          who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
-        return work_views.jsonable(case_views.act(case_id, step_id, name, who, body.note))
+        return work_views.jsonable(case_views.act(case_id, step_id, name, who, body.note, body.values))
 
     @app.get(r + "/cases/{case_id}/steps/{step_id}/approval")
     def case_step_approval(case_id: CaseId, step_id: CaseStep) -> dict[str, Any]:

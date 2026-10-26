@@ -15,7 +15,8 @@ changes, it is frozen again and the steps after it run again.
 - `CAPABILITY` (`field_check@1`): params `catalogue` (a fact catalogue, kept as the case started) and `product` (kept at
   its version at the start); its result: the version, product, catalogue, cover start and the units' reference.
 - `view(case_id, step)`, `freeze(case_id, step, cover_start=, expected_state=, actor=)`, `reopen(case_id, step, note=,
-  actor=)`.
+  actor=)`. D-f2: the step's actions (`ACTIONS`): freeze, reopen, and a unit added, saved or removed, each with the state
+  of the page it was made on (an older one is refused).
 
 Layer: application; it names no process and no business (the catalogue and the claims are data).
 """
@@ -300,9 +301,84 @@ def reopen(case_id: str, step: str, *, note: str, actor: identity.Who) -> int | 
         return package_release.reopen_logged(c, case_id, event="field_check", note=note, actor=actor, step=step)
 
 
+# --- the person's actions (D-f2) ----------------------------------------------------------------------------------------
+
+
+class _Form(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class FreezeForm(_Form):
+    cover_start: date
+    expected_state: int  # the state of the units the page showed
+
+
+class UnitAddForm(_Form):
+    level: str
+    parent_id: str | None = None
+    facts: dict[str, Any]
+    note: str | None = None
+
+
+class UnitSaveForm(_Form):
+    unit_id: str
+    facts: dict[str, Any]
+    expected_state: int  # the unit's state the page showed
+    note: str | None = None
+
+
+class UnitRemoveForm(_Form):
+    unit_id: str
+    reason: str = Field(min_length=1)
+    expected_state: int
+
+
+def _catalogue(case_id: str, step: str) -> str:
+    with store.connect() as c:
+        return _params(case_id, step, c).catalogue
+
+
+def _open(case_id: str, step: str) -> bool:
+    """The check waits for its freeze: its units may change."""
+    from jav.core.process import cases
+
+    with store.connect() as c:
+        row = cases.find_step_in(c, case_id, step)
+    return bool(row) and row["state"] == cases.RUNNING and package_release.own_approval(case_id, step=step)["active"] is None
+
+
+def _frozen(case_id: str, step: str) -> bool:
+    return package_release.own_approval(case_id, step=step)["active"] is not None
+
+
+def _reopen_action(case_id: str, step: str, actor: identity.Who, note: str | None) -> None:
+    if not note:
+        raise explained(FieldCheckError, "reopening needs a reason")
+    reopen(case_id, step, note=note, actor=actor)
+
+
+ACTIONS = (
+    capabilities.form_action("freeze", "Freeze the facts", _open, FreezeForm,
+                             lambda case_id, step, actor, v: freeze(case_id, step, cover_start=v.cover_start,
+                                                                     expected_state=v.expected_state, actor=actor)),
+    capabilities.Action("reopen", "Reopen the check", _frozen, _reopen_action, on_done=True),
+    capabilities.form_action("unit_add", "Add a unit", _open, UnitAddForm,
+                             lambda case_id, step, actor, v: assessed_units.add(
+                                 case_id, step, _catalogue(case_id, step), level=v.level, parent_id=v.parent_id, facts=v.facts,
+                                 actor=actor)),
+    capabilities.form_action("unit_save", "Save the unit", _open, UnitSaveForm,
+                             lambda case_id, step, actor, v: assessed_units.save(
+                                 case_id, step, _catalogue(case_id, step), v.unit_id, facts=v.facts, actor=actor,
+                                 expected_state=v.expected_state, note=v.note)),
+    capabilities.form_action("unit_remove", "Remove the unit", _open, UnitRemoveForm,
+                             lambda case_id, step, actor, v: assessed_units.remove(
+                                 case_id, step, v.unit_id, reason=v.reason, actor=actor, expected_state=v.expected_state)),
+)
+
+
 CAPABILITY = capabilities.Capability(
     name="field_check", version=1, module=__name__, run=_run, kind="human", params=FieldCheck, state="step",
-    output=CheckedResult, own_version=True, reads=lambda p: (f"facts_{p['catalogue']}",),
+    output=CheckedResult, own_version=True, reads=lambda p: (f"facts_{p['catalogue']}",), actions=ACTIONS,
     at_start={"product": product_rules.keeper("product")}, approval_what="Check and freeze the facts",
     summary="A person checks the assessed units and their sources, with the facts other steps offer, and freezes them as "
             "the checked input.")

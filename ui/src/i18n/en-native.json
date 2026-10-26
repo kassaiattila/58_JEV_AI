@@ -3164,5 +3164,12 @@
   "saying the facts will not come needs a reason": "saying the facts will not come needs a reason",
   "Address of the site": "Address of the site",
   "Turns what a case's processed documents hold into facts of its units, each naming where it was printed.": "Turns what a case's processed documents hold into facts of its units, each naming where it was printed.",
-  "Fact readings": "Fact readings"
+  "Fact readings": "Fact readings",
+  "Freeze the facts": "Freeze the facts",
+  "Reopen the check": "Reopen the check",
+  "Add a unit": "Add a unit",
+  "Save the unit": "Save the unit",
+  "Remove the unit": "Remove the unit",
+  "Decide": "Decide",
+  "the action {{name}} takes values": "the action {{name}} takes values"
 }

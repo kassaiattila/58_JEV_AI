@@ -1407,7 +1407,11 @@ test the scorer (`tests/test_property_documents_231.py`).
 (its latest result, a person's corrections over it, and where each value was printed after them) read by the fact
 readings the case kept (`readings`), in the rule file's order of types (a parent first), each fact naming the document,
 its file, page and words; a document no reading takes is listed, a value not read is listed with why
-(`tests/test_fact_claims_231.py`).
+(`tests/test_fact_claims_231.py`). D-f2: a person's actions with values (`capabilities.Action.form`, `form_action`): the
+case step's action endpoint takes `values`, the form checks them (422), and each such action carries the state of the
+page it was made on, so an older one is refused (409); the page marks them (`form`), so its generic buttons leave them to
+the step's own element, and an action may be offered on a done step too (`on_done`: a reopening). The field check's:
+freeze, reopen (with a reason) and a unit added, saved or removed; the decision's: decide (`tests/test_case_actions_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

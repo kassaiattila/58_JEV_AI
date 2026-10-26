@@ -101,9 +101,12 @@ def _actions(case_id: str, step: process_packs.Step, row: dict[str, Any]) -> lis
     """The actions available on the step now: a failed step's retry (A7e), a running step's capability's (A7d)."""
     if row.get("state") == cases.FAILED:
         return [{"name": RETRY, "label": "Try again"}]
-    if row.get("state") != cases.RUNNING:
+    state = row.get("state")
+    if state not in (cases.RUNNING, cases.DONE):
         return []
-    return [{"name": a.name, "label": a.label} for a in capabilities.of(step.uses).actions if a.available(case_id, step.id)]
+    return [{"name": a.name, "label": a.label, **({"form": True} if a.form is not None else {})}  # D-f2: its element's
+            for a in capabilities.of(step.uses).actions
+            if (state == cases.RUNNING or a.on_done) and a.available(case_id, step.id)]  # D-f2: a reopening on a done one
 
 
 def _step_view(case_id: str, step: process_packs.Step, row: dict[str, Any]) -> dict[str, Any]:
@@ -173,9 +176,11 @@ def start_step(case_id: str, step_id: str, actor: identity.Who) -> dict[str, Any
     return view(case_id)
 
 
-def act(case_id: str, step_id: str, name: str, actor: identity.Who, note: str | None = None) -> dict[str, Any]:
+def act(case_id: str, step_id: str, name: str, actor: identity.Who, note: str | None = None,
+        values: dict[str, Any] | None = None) -> dict[str, Any]:
     """A person's action on the case's step (A7d): one its capability offers and the step waits for now; `CaseError`
-    otherwise. The worker moves the case on."""
+    otherwise. The worker moves the case on. D-f2: an action with a form takes `values`, checked by the form (422 when
+    they do not fit; a page showing an older state is refused by the action itself, 409)."""
     pack = process_runtime.pack_for(case_id)
     if pack is None:
         raise KeyError(case_id)
@@ -189,6 +194,12 @@ def act(case_id: str, step_id: str, name: str, actor: identity.Who, note: str | 
     action = next((a for a in capabilities.of(step.uses).actions if a.name == name), None) if step else None
     if step is None or action is None or not action.available(case_id, step_id):
         raise explained(CaseError, "the step {{step}} does not wait for this action", step=step_id)
+    if action.form is not None:
+        if values is None:
+            raise explained(CaseError, "the action {{name}} takes values", name=name)
+        assert action.submit is not None
+        action.submit(case_id, step_id, actor, action.form.model_validate(values))
+        return view(case_id)
     action.run(case_id, step_id, actor, note.strip() if note and note.strip() else None)
     return view(case_id)
 

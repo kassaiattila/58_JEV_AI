@@ -3169,5 +3169,12 @@
   "saying the facts will not come needs a reason": "ahhoz, hogy a tények nem érkeznek meg, indoklás kell",
   "Address of the site": "A telephely címe",
   "Turns what a case's processed documents hold into facts of its units, each naming where it was printed.": "Az ügy feldolgozott iratainak tartalmát az egységei tényeivé alakítja, mindegyiknél megnevezve, hol volt nyomtatva.",
-  "Fact readings": "Tény-kiolvasás"
+  "Fact readings": "Tény-kiolvasás",
+  "Freeze the facts": "A tények rögzítése",
+  "Reopen the check": "Az ellenőrzés újranyitása",
+  "Add a unit": "Egység hozzáadása",
+  "Save the unit": "Az egység mentése",
+  "Remove the unit": "Az egység eltávolítása",
+  "Decide": "Döntés",
+  "the action {{name}} takes values": "a(z) {{name}} művelethez értékek kellenek"
 }

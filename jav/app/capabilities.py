@@ -254,12 +254,28 @@ def expected_result(params: type[BaseModel], name: str, result: dict[str, Any], 
 @dataclass(frozen=True)
 class Action:
     """231 (A7d): a person's action on a step: its `name`, its English `label` (the interface translates it),
-    `available(case_id, step_id)` (whether the step waits for it now) and `run(case_id, step_id, actor, note)`."""
+    `available(case_id, step_id)` (whether the step waits for it now) and `run(case_id, step_id, actor, note)`. D-f2:
+    an action with a `form` (a pydantic model forbidding other fields) takes its values instead of a note, checked by
+    the form, and `submit(case_id, step_id, actor, values)` does it; its step's own element offers it, not a button.
+    `on_done`: offered on a done step too (a reopening); otherwise only while the step runs."""
 
     name: str
     label: str
     available: Callable[[str, str], bool]
     run: Callable[[str, str, identity.Who, str | None], None]
+    form: type[BaseModel] | None = None
+    submit: Callable[[str, str, identity.Who, Any], Any] | None = None
+    on_done: bool = False
+
+
+def _takes_values(case_id: str, step_id: str, _actor: identity.Who, _note: str | None) -> None:
+    raise ValueError("this action takes values")
+
+
+def form_action(name: str, label: str, available: Callable[[str, str], bool], form: type[BaseModel],
+                submit: Callable[[str, str, identity.Who, Any], Any]) -> Action:
+    """D-f2: an action whose values a form checks (a freeze with the day cover starts, a decision with its choice)."""
+    return Action(name, label, available, _takes_values, form=form, submit=submit)
 
 
 @dataclass(frozen=True)

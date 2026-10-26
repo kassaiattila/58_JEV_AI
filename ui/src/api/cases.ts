@@ -26,7 +26,8 @@ export interface StartedCase {
 }
 
 /** A person's action on a step (A7d): a failed step's retry, or one its capability offers while the step waits for it. */
-export interface CaseAction { name: string; label: string }
+/** D-f2: `form`: the action takes values, which its step's own element asks for (no button of its own). */
+export interface CaseAction { name: string; label: string; form?: boolean }
 /** 231 (C3b3): the documents of a document processing case: a folder (with its subfolders when asked) or files. */
 export interface CaseSource {
   kind: "folder" | "files" | "mailbox"; folder?: string; recursive?: boolean; files?: string[];
@@ -104,8 +105,9 @@ export const casesApi = {
     request<CaseView>("POST", `/cases/${enc(caseId)}/steps/${enc(stepId)}/start`, {}),
   linkCasePartner: (caseId: string, role: string, partnerId: string) =>
     request<CaseView>("POST", `/cases/${enc(caseId)}/partners`, { role, partner_id: partnerId }),
-  caseStepAction: (caseId: string, stepId: string, name: string, note?: string) =>
-    request<CaseView>("POST", `/cases/${enc(caseId)}/steps/${enc(stepId)}/actions/${enc(name)}`, note ? { note } : {}),
+  caseStepAction: (caseId: string, stepId: string, name: string, note?: string, values?: Record<string, unknown>) =>
+    request<CaseView>("POST", `/cases/${enc(caseId)}/steps/${enc(stepId)}/actions/${enc(name)}`,
+      { ...(note ? { note } : {}), ...(values ? { values } : {}) }),
   /** D0-d: the approval's state of a case's approving step, and a person's return of its result with a reason */
   caseApproval: (caseId: string, stepId: string) =>
     request<ApprovalState>("GET", `/cases/${enc(caseId)}/steps/${enc(stepId)}/approval`),

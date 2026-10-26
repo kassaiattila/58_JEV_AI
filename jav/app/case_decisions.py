@@ -14,7 +14,8 @@ pack names: whether a second person is needed is a row of the decision trace, an
   neither), `amount_field` (the result's amount compared with the limit); result: the version, the choice and the
   result version decided on.
 - `view(case_id, step)`, `decide(case_id, step, choice=, note=, expected_basis=, actor=)`, `needs_second(amount, above)`.
-  A return goes through `case_views.return_step`.
+  A return goes through `case_views.return_step`. D-f2: the step's action `decide` (`DecideForm`), with the result
+  versions the page showed (an older page is refused).
 
 Layer: application; it names no process and no business (the choices, their wording and the limits are data).
 """
@@ -244,9 +245,35 @@ def decide(case_id: str, step: str, *, choice: str, note: str | None, expected_b
     return {"version": n, "fingerprint": fingerprint}
 
 
+class DecideForm(BaseModel):
+    """D-f2: a person's decision as the page sends it: the choice, the note, and the result versions it showed."""
+
+    model_config = ConfigDict(extra="forbid")
+    choice: str = Field(min_length=1)
+    note: str | None = None
+    expected_basis: dict[str, int]
+
+
+def _waits(case_id: str, step: str) -> bool:
+    """The decision waits: what it decides on is done, and no decision of it holds."""
+    with store.connect() as c:
+        row = cases.find_step_in(c, case_id, step)
+        if not row or row["state"] != cases.RUNNING:
+            return False
+        about = _params(c, case_id, step).about
+        if cases.step_row(c, case_id, about)["state"] != cases.DONE:
+            return False
+    return package_release.own_approval(case_id, step=step)["active"] is None
+
+
+ACTIONS = (capabilities.form_action("decide", "Decide", _waits, DecideForm,
+                                    lambda case_id, step, actor, v: decide(case_id, step, choice=v.choice, note=v.note,
+                                                                           expected_basis=v.expected_basis, actor=actor)),)
+
+
 CAPABILITY = capabilities.Capability(
     name="decision", version=1, module=__name__, run=_run, kind="human", params=Decision, state="step",
-    output=DecisionResult, own_version=True, reads=lambda p: (RULE_FILE,) if p.get("limit") else (),
+    output=DecisionResult, own_version=True, reads=lambda p: (RULE_FILE,) if p.get("limit") else (), actions=ACTIONS,
     approval_what="Make the decision",
     summary="A person decides on another step's result with the choices the pack names; above a limit, another person "
             "than an earlier decision's maker.")
