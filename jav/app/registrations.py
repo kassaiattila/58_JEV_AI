@@ -48,7 +48,7 @@ def order(domains: list[Any]) -> list[Callable[[], None]]:
     workflows, the package scopes), then each further domain's in `DOMAINS` order. The registries keep the order they
     were given (party references, step kinds, logic packs), and this is the finance-workflows-email order of 180."""
     from jav.app import (approved_document, assessed_units, case_decisions, case_lists, document_processing, evaluation_steps,
-                         field_check, package_scope, process_runtime, replies, sending, workflows)
+                         field_check, lookups, package_scope, process_runtime, replies, sending, workflows)
 
     first, *others = domains
     # 231 (A6): the process packs' case container among the shared ones; (A7c, A7d) the general send and reply
@@ -61,6 +61,7 @@ def order(domains: list[Any]) -> list[Callable[[], None]]:
             field_check.register,  # D-d2: a person's check of the units, frozen as the checked input
             evaluation_steps.register,  # D-d3: the frozen input's rules evaluated, and its premium computed
             case_decisions.register,  # D-d4: a person's decision on another step's result, a second person above a limit
+            lookups.register,  # D-d5: a question to an outside register, its answers offered as facts
             *(domain.register for domain in others), document_processing.register_workflow_steps]
 
 

@@ -3151,5 +3151,13 @@
   "a decision that ends the case needs a reason": "az ügyet lezáró döntéshez indoklás kell",
   "the decision {{step}} is not made yet": "a(z) {{step}} döntés még nincs meghozva",
   "above the limit, another person than the one who decided {{step}} decides": "a határ fölött másik személy dönt, mint aki a(z) {{step}} döntést hozta",
-  "Decision limits: above them another person decides": "Döntési határok: fölöttük másik személy dönt"
+  "Decision limits: above them another person decides": "Döntési határok: fölöttük másik személy dönt",
+  "Asks an outside register through its connector with facts another step offers, and offers its answer as facts.": "Egy külső nyilvántartást kérdez meg az összekötőjén át egy másik lépés által felkínált tényekkel, és a válaszát tényekként kínálja fel.",
+  "Register": "Nyilvántartás",
+  "Company name": "Cégnév",
+  "Status in the company register": "Cégjegyzéki állapot",
+  "On a sanctions list": "Szankciós listán szerepel",
+  "Under liquidation": "Felszámolás alatt",
+  "Dissolved": "Megszűnt",
+  "Operating": "Működő"
 }

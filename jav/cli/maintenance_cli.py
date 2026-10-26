@@ -450,6 +450,19 @@ def cmd_cases_kept(args: argparse.Namespace) -> int:
     return 1 if rows else 0
 
 
+def cmd_invented_services(args: argparse.Namespace) -> int:
+    """231 (stage D, D-d5): the invented company register and sanctions list as a local web service on this machine
+    (127.0.0.1), answering from `configs/golden_registers.json` until stopped (Ctrl+C)."""
+    from jav.devtools import invented_services
+
+    print(f"invented registers on http://127.0.0.1:{args.port} (company, sanctions); Ctrl+C stops them")
+    try:
+        invented_services.serve(args.port)
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
 def cmd_product_set(args: argparse.Namespace) -> int:
     """231 (stage D, D-c5): a product set kept as data (`configs/<name>.json`): whether it holds together and its
     reference cases give what they expect (free: no AI call); with `--install`, its things into the store as drafts by
@@ -655,6 +668,10 @@ def register(sub) -> None:
     p.add_argument("--store", help="a store file to install into instead of the active store")
     p.add_argument("--write-pdfs", metavar="DIR", help="231 D-c7a: write the set's condition documents as PDFs into DIR")
     p.set_defaults(fn=cmd_product_set)
+    p = sub.add_parser("invented-services", help="231 D-d5: the invented company register and sanctions list as a local "
+                                                 "web service (127.0.0.1), for the trial; the tests answer them inside the process")
+    p.add_argument("--port", type=int, default=8941, help="the port the connectors name (default 8941)")
+    p.set_defaults(fn=cmd_invented_services)
     p = sub.add_parser("rule-propose", help="231 D-c7e: rules proposed from a condition document's file (GPT within --budget-usd, "
                                             "JEV with --verify within --jev-budget-usd; or --stand-in SET, free), kept for a person")
     p.add_argument("document", help="the document version the rules cite (<id>@<n>)")

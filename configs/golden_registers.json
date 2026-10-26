@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "name": "golden_registers",
+    "version": "1.0.0",
+    "description": "231 (stage D, D-d5): the invented outside registers a case's lookups ask in the tests and the trial (jav/devtools/invented_services.py, a local service on this machine; the connectors invented_company_register and invented_sanctions_list). companies: the company register by tax number (name, activity code, status). sanctions: the sanctions list's entries (a name, a tax number or both); an entry matches a question by its tax number, or by its name written the same way (case, spaces and punctuation aside). Every name and number is invented; the tax numbers are on the data guard's list of invented values.",
+    "changelog": [
+      {"version": "1.0.0", "date": "2026-10-26", "note": "231 (D-d5): the first version: three companies (one under liquidation) and two sanctions entries (one by tax number, one by name only)."}
+    ]
+  },
+  "companies": {
+    "12345676-2-41": {"name": "Minta Kereskedő Kft.", "activity_code": "4719", "status": "active"},
+    "24681353-1-43": {"name": "Minta Fémmegmunkáló Kft.", "activity_code": "2562", "status": "active"},
+    "21357912-1-13": {"name": "Minta Raktározó Zrt.", "activity_code": "5210", "status": "under_liquidation"}
+  },
+  "sanctions": [
+    {"tax_number": "90909094-2-42", "name": "Tiltott Minta Kft.", "list": "invented list", "since": "2025-05-01"},
+    {"name": "Minta Raktározó Zrt.", "list": "invented list", "since": "2026-02-01"}
+  ]
+}

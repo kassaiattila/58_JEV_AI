@@ -3146,5 +3146,13 @@
   "a decision that ends the case needs a reason": "a decision that ends the case needs a reason",
   "the decision {{step}} is not made yet": "the decision {{step}} is not made yet",
   "above the limit, another person than the one who decided {{step}} decides": "above the limit, another person than the one who decided {{step}} decides",
-  "Decision limits: above them another person decides": "Decision limits: above them another person decides"
+  "Decision limits: above them another person decides": "Decision limits: above them another person decides",
+  "Asks an outside register through its connector with facts another step offers, and offers its answer as facts.": "Asks an outside register through its connector with facts another step offers, and offers its answer as facts.",
+  "Register": "Register",
+  "Company name": "Company name",
+  "Status in the company register": "Status in the company register",
+  "On a sanctions list": "On a sanctions list",
+  "Under liquidation": "Under liquidation",
+  "Dissolved": "Dissolved",
+  "Operating": "Operating"
 }

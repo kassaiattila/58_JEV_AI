@@ -50,7 +50,8 @@ def test_every_registered_capability_that_can_run_names_its_state() -> None:
         "pairing_proposal@1": "step", "pairing@1": "case", "file_placement@1": "case",
         "field_check@1": "step",  # D-d2
         "rule_evaluation@1": "step", "rating@1": "step",  # D-d3
-        "decision@1": "step"}  # D-d4
+        "decision@1": "step",  # D-d4
+        "lookup@1": "step"}  # D-d5
 
 
 def test_a_capability_whose_state_belongs_to_the_case_stands_once_in_a_pack() -> None:
