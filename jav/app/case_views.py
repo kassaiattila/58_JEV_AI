@@ -7,7 +7,8 @@ the element type alone when it is the same for every capability. So the quote's 
 capability's, and any process whose step uses that capability gets it. The page also says each step's state and which
 steps wait for a person's start; starting one decides its start task, and the worker moves the case on.
 
-- `register(ElementData(...))`: what an element of a type shows for a step of a capability (or for any).
+- `register(ElementData(...))`: what an element of a type shows for a step of a capability (or for any); `gives(element,
+  capability)` (D0-a): whether one is registered, which the pack check asks.
 - `view(case_id)`: the case, its steps and its tabs with each element's data.
 - `start_step(case_id, step_id, actor)`: a person starts a step that waits for its start (`CaseError` otherwise; an
   unknown case is a `KeyError`).
@@ -36,7 +37,7 @@ from jav.core import calls, completion, identity, store
 from jav.core.process import cases, engine, tasks
 from jav.core.user_messages import explained
 
-__all__ = ["CaseError", "ElementData", "act", "link_partner", "marks", "next_of", "register", "start_step", "view"]
+__all__ = ["CaseError", "ElementData", "act", "gives", "link_partner", "marks", "next_of", "register", "start_step", "view"]
 
 
 class CaseError(ValueError):
@@ -80,6 +81,12 @@ def marks() -> list[Any]:
 def _provider(element: str, capability: str | None) -> ElementData | None:
     completion.complete("element data")  # once per process: the domains register theirs there (A7e: not only when empty)
     return _DATA.get((element, capability)) or _DATA.get((element, None))
+
+
+def gives(element: str, capability: str | None) -> bool:
+    """D0-a: whether an element of the type shows something for a step of the capability (None: an element that shows
+    no step), so the pack check refuses an element that would stay empty."""
+    return _provider(element, capability) is not None
 
 
 RETRY = "retry"  # A7e: every failed step's own action: a person starts it again

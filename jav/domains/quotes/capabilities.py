@@ -22,7 +22,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from jav.app import human_tasks
-from jav.app.capabilities import Capability, RuleKey
+from jav.app.capabilities import Capability, RuleKey, step_ref
 from jav.core.process import kinds
 
 POLL_S = 5.0  # how soon a waiting step looks again at the job or the person it waits for
@@ -84,7 +84,7 @@ class PricedDocument(_Params):
     """The output contract it fills, and the step whose approved version it prints."""
 
     output: str = Field(min_length=1, title="Output")
-    from_step: str = Field(min_length=1)
+    from_step: str = step_ref(min_length=1)
 
     @field_validator("output")
     @classmethod

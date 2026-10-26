@@ -23,6 +23,8 @@ waits instead of running (the process core's rule for an unknown kind).
   cases (`rule_keys`). A case keeps the values active when it started (in its data, `RULES`); its steps, events and
   timers run with them over the files (`cfg.overlay`), and `case_rules(case_id)` binds them for other work on the case
   (the worker's jobs, the service's requests about it).
+- `step_ref(...)`, `step_refs(params)` (stage D0, D0-a): a parameter that names another step of the case (whose result
+  the step reads) is declared one, so the pack check can see that the step is there and that the step waits for it.
 
 Layer: application; it uses the process core, the call log and the shared registries' completion. The capabilities
 themselves live in the domains and register from their `register()`.
@@ -39,14 +41,15 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from jav.core import calls, cfg, completion, identity, store
 from jav.core.process import cases, kinds, tasks
 from jav.core.process.engine import StepContext
 
 __all__ = ["Action", "Capability", "CapabilityError", "PROVIDERS", "RULES", "RULE_REFS", "RuleKey", "case_overlay",
-           "case_rules", "catalogue", "of", "of_step_kind", "register", "step_budget", "step_scopes"]
+           "case_rules", "catalogue", "of", "of_step_kind", "register", "step_budget", "step_ref", "step_refs",
+           "step_scopes"]
 
 PROVIDERS = ("jev", "openai", "azure_di")
 STEP_START = "step_start"  # 231 (A5): the human task of a step a person starts (a paid one, `_start: person`)
@@ -60,6 +63,20 @@ RULES, RULE_REFS = "rules", "rule_settings"  # 231 (B3): a case's own rule value
 
 class CapabilityError(ValueError):
     """A capability that does not fit the registry's rules, or one that is not registered."""
+
+
+_STEP_REF = "step_ref"  # D0-a: the mark of a parameter that names another step, in its field's JSON schema extras
+
+
+def step_ref(default: Any = ..., **field: Any) -> Any:
+    """D0-a: a parameter that names another step of the case, whose result the step reads (`Field` otherwise)."""
+    return Field(default, json_schema_extra={_STEP_REF: True}, **field)
+
+
+def step_refs(params: type[BaseModel]) -> tuple[str, ...]:
+    """D0-a: the parameters of a capability's model that name another step (`step_ref`), in field order."""
+    return tuple(name for name, f in params.model_fields.items()
+                 if isinstance(f.json_schema_extra, dict) and f.json_schema_extra.get(_STEP_REF))
 
 
 @dataclass(frozen=True)

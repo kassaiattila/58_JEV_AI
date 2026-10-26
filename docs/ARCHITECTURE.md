@@ -959,7 +959,14 @@ package item a case starts from), its intake (an email intent that offers to sta
 (plain values for now), its steps (each a capability `name@version` with its parameters; a paid step starts with a
 person), its tabs built from `configs/screen_elements.json`, its outputs and golden sets. The check refuses an unknown
 capability, parameters that do not fit, a paid step without a person's start, an unknown element, scope part or
-output, a dangling reference and any string naming a Python module. `definition(pack)` is the process core's
+output, a dangling reference and any string naming a Python module. Since stage D0 (D0-a) it also refuses a step whose
+capability cannot run (it is only described, as the line pricing), a step parameter declared as naming another step
+(`capabilities.step_ref`: the send step's and the printed document's `from_step`) that names no step or one the step
+does not wait for, directly or through another, an element the catalogue lists as planned, and an element that would
+show nothing: no data registered for its type and its step's capability, or for its type alone (`case_views.gives`).
+`process_runtime.start_case` reads the pack first, so a refused pack starts no case; a case page that still meets an
+element it has no component for names it (`tests/test_pack_gate_231.py`, `ui/src/elements/elementCatalogue231.test.tsx`
+compares the interface's components with the catalogue). `definition(pack)` is the process core's
 definition of the pack's version (`pack_<id>`), each step's kind its capability's step kind, the pack's own settings
 as `_`-prefixed parameters the capability does not see. The first pack is the IT quote (`it_quote.json`); its cases
 start in A5. Tests: `tests/test_process_packs_231.py`.

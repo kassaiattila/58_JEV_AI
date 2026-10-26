@@ -78,7 +78,9 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
       <div role="tabpanel" aria-label={t(shown.label)}>
         {shown.elements.map((e, i) => {
           const spec = elementOf(e.type);
-          return <div key={`${e.type}-${e.step ?? ""}-${i}`}>{spec ? spec.render(props(e)) : null}</div>;
+          // D0-a: the pack check refuses an element the interface cannot show; one that still comes is named, not hidden
+          return <div key={`${e.type}-${e.step ?? ""}-${i}`}>{spec ? spec.render(props(e))
+            : <p className="notice error" role="alert">{t("This screen element cannot be shown: {{type}}", { type: e.type })}</p>}</div>;
         })}
       </div>
     </>

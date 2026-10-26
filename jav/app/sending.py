@@ -165,7 +165,7 @@ class Send(BaseModel):
     model_config = ConfigDict(extra="forbid")
     message: str
     mode: Literal["output_folder", "outlook_draft", "outlook_send"] = Field(OUTPUT_FOLDER, title="Send mode")
-    from_step: str | None = None
+    from_step: str | None = capabilities.step_ref(None)
 
     @field_validator("message")
     @classmethod
