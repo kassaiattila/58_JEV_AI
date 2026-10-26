@@ -17,7 +17,7 @@ from dataclasses import replace
 
 import pytest
 
-from jav.app import registrations, workflow_steps, workflows
+from jav.app import registrations, workflow_advance, workflow_steps, workflows
 from jav.core import cfg
 from jav.core.config import PROJECT_ROOT
 
@@ -136,10 +136,10 @@ def test_a_step_of_an_unregistered_kind_fails_with_the_reason(tmp_path, monkeypa
         (folder / "a.pdf").write_bytes(b"%PDF-1.4\n%%EOF\n")
         wf = {"id": "wf-000000000001", "actor": "tester", "definition": {"steps": []}}
         failed: list[str] = []
-        monkeypatch.setattr(workflows, "_set", lambda *a, **kw: True)
-        monkeypatch.setattr(workflows, "_steps", lambda wf_id: {"invoices": {"source": {"kind": "folder"}}})
-        monkeypatch.setattr(workflows, "_done", lambda wf_, step, actor, action, **f: failed.append(f.get("note", "")))
-        workflows._start(wf, {"id": "invoices", "kind": "documents"}, actor="tester")
+        monkeypatch.setattr(workflow_advance, "_set", lambda *a, **kw: True)
+        monkeypatch.setattr(workflow_advance, "_steps", lambda wf_id: {"invoices": {"source": {"kind": "folder"}}})
+        monkeypatch.setattr(workflow_advance, "_done", lambda wf_, step, actor, action, **f: failed.append(f.get("note", "")))
+        workflow_advance._start(wf, {"id": "invoices", "kind": "documents"}, actor="tester")
     assert failed and "unknown workflow step kind 'documents'" in failed[0]
 
 

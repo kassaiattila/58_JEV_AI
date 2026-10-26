@@ -10,6 +10,7 @@ No store needed beyond the registrations.
 from __future__ import annotations
 
 from jav.app import registrations, workflow_steps, workflows as wf
+from jav.app import workflow_records
 
 registrations.load_all()
 
@@ -29,8 +30,8 @@ def test_a_process_step_s_statuses_are_its_capabilities():
 
 
 def test_the_workflow_page_says_pairing_for_a_reconciliation_case(monkeypatch):
-    monkeypatch.setattr(wf, "_package_state", lambda wp_id: (False, {"code": "reconcile_pair", "params": {}}))
-    status, nxt = wf._status(RECONCILIATION, {"phase": "started", "workpackage_id": "wp-1"}, {})
+    monkeypatch.setattr(workflow_records, "_package_state", lambda wp_id: (False, {"code": "reconcile_pair", "params": {}}))
+    status, nxt = workflow_records._status(RECONCILIATION, {"phase": "started", "workpackage_id": "wp-1"}, {})
     assert (status, nxt["code"]) == ("pairing", "reconcile_pair")
-    monkeypatch.setattr(wf, "_package_state", lambda wp_id: (False, {"code": "case_open", "params": {}}))
-    assert wf._status(ROUTING, {"phase": "started", "workpackage_id": "wp-2"}, {})[0] == "review"
+    monkeypatch.setattr(workflow_records, "_package_state", lambda wp_id: (False, {"code": "case_open", "params": {}}))
+    assert workflow_records._status(ROUTING, {"phase": "started", "workpackage_id": "wp-2"}, {})[0] == "review"

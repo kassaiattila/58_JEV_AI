@@ -22,6 +22,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_every_action_the_package_log_records_is_registered_and_none_is_stale() -> None:
+    import importlib
+
+    # 231 (C3i): every module that registers log events is loaded first, so the test holds when it runs alone too
+    for path in (ROOT / "jav").rglob("*.py"):
+        if "register_events(" in path.read_text(encoding="utf-8") and path.stem != "activity_kinds":
+            importlib.import_module(".".join(path.relative_to(ROOT).with_suffix("").parts))
     assert set(activity_kinds.events("package")) == _recorded_actions()
 
 

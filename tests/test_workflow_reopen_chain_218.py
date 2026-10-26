@@ -18,6 +18,8 @@ from decimal import Decimal
 from jav.app import package_release, work_readiness, work_runs, workflows as wf
 from jav.core.process import cases, engine, tasks
 from jav.domains.finance import reconcile_statement as rs
+from jav.app import workflow_records
+from jav.app import workflow_advance
 from tests.test_workflow_core_steps_214 import _core
 from tests.test_workflow_tasks_215 import _finish, _monthly
 from tests.test_workflows_146 import (  # noqa: F401 - the fixture is used by name
@@ -181,7 +183,7 @@ def test_a_processing_step_built_on_a_reopened_one_needs_a_new_live_run_a_person
     conf = wf.config()
     made_up = {"id": "a_then_b", "title": "A then B", "group": conf["templates"][0]["group"],
                "steps": [{"id": "a", "kind": "documents"}, {"id": "b", "kind": "documents", "after": ["a"]}]}
-    monkeypatch.setattr(wf, "config", lambda: {**conf, "templates": [*conf["templates"], made_up]})
+    monkeypatch.setattr(workflow_records, "config", lambda: {**conf, "templates": [*conf["templates"], made_up]})
     budget = {"jev": "5", "openai": "5", "azure_di": "5"}
     wf_id = wf.create(template_id="a_then_b", party_id=None, period_start=None, period_end=None, actor="tester",
                       steps={sid: {"source": {"kind": "folder", "folder": str(_invoices(db / sid))}, "budget": budget}
@@ -242,7 +244,7 @@ def test_a_step_still_in_progress_when_its_earlier_step_reopens_takes_no_approva
 
 def test_a_processing_steps_old_approval_counts_not_even_after_a_stopped_run(db):  # noqa: F811
     """The old approvals are those the step was done with and found at its first look after its earlier steps."""
-    assert {"runs": ["run-1"]} in wf._old_approvals({"ref": {"runs": ["run-1"]}}, None)
-    assert wf._old_approvals({"ref": {"runs": ["run-1"]}}, {"runs": ["run-1", "run-2"]}) == \
+    assert {"runs": ["run-1"]} in workflow_advance._old_approvals({"ref": {"runs": ["run-1"]}}, None)
+    assert workflow_advance._old_approvals({"ref": {"runs": ["run-1"]}}, {"runs": ["run-1", "run-2"]}) == \
         [{"runs": ["run-1"]}, {"runs": ["run-1", "run-2"]}]
-    assert wf._old_approvals({}, None) == []
+    assert workflow_advance._old_approvals({}, None) == []

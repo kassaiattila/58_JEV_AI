@@ -23,6 +23,7 @@ from jav.core import store
 from jav.core import identity as actors
 from jav.core.process import cases, engine, kinds, tasks
 from jav.core.process.definition import ProcessDef, StepDef
+from jav.app import workflow_records
 from tests.test_workflows_146 import (  # noqa: F401 - the fixture is used by name
     MONTH, _approve_by_hand, _invoices, _party, _process_all, _statements, _steps, db,
 )
@@ -103,9 +104,9 @@ def test_a_linked_step_and_a_step_that_found_nothing_new_keep_their_phase_in_the
 
 def test_a_claim_is_made_on_the_phase_of_the_core_row(db):  # noqa: F811
     wf_id = _monthly(db, advance_now=False)
-    assert not wf._set_logged(wf_id, "invoices", "failed", "t", {"note": "x"}, expect=("starting",), phase="failed")
+    assert not workflow_records._set_logged(wf_id, "invoices", "failed", "t", {"note": "x"}, expect=("starting",), phase="failed")
     assert _phases(wf_id)["invoices"] == "waiting"
-    assert wf._set_logged(wf_id, "invoices", "failed", "t", {"note": "x"}, expect=("waiting",), phase="failed", note="x")
+    assert workflow_records._set_logged(wf_id, "invoices", "failed", "t", {"note": "x"}, expect=("waiting",), phase="failed", note="x")
     assert _phases(wf_id)["invoices"] == "failed" and _shown(wf_id)["invoices"] == "failed"
 
 
