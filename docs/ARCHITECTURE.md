@@ -1433,7 +1433,24 @@ and the page's next step `missing_facts`); `evaluation_steps.records`, `unit_nam
 release view: the special element `decision` (`decision@1`: what it decides on and its result versions, the choices with
 whether the result allows each, the second person, the approval's state, the decision that holds, and the page's next
 step `decision_make`), recorded through the step's form action with the page's result versions
-(`ui/src/elements/DecisionElement.tsx`, `ui/src/elements/decisionElement231.test.tsx`).
+(`ui/src/elements/DecisionElement.tsx`, `ui/src/elements/decisionElement231.test.tsx`). D-f7: the offer's Word
+document. `jav/app/rated_offer.py` registers the output `rated_offer` (`configs/outputs.json` 1.4.0; its built-in
+template's Hungarian texts in `configs/offer_documents.json`, document vocabulary) and how an accepted premium decision
+becomes its data: the decision's approved version names the premium record it accepted, that record the evaluation it
+was computed after, the evaluation the checked input and the product version; from these the policyholder, its tax
+number, the product, the day cover starts, the verdict, each module's premium and their subtotal, each factor of the
+tariff on the total (by the tariff's title), the total (marked rounded when it is not the last factor's amount, or the
+policy's minimum) and the condition documents' titles, so a client sees how the total follows from the modules
+(`RatedOfferError` when the decision names no premium the case kept). The
+shared `priced_document@1` builds a `VersionDocument` with `build(content, case_id=...)` (`reads_case`: the builder reads
+the case's other records) and, for a builder whose domain does not store its document at the approval (no `file`; the
+quote's does), stores the file with the version it printed, once, with the case's chosen template (`templates.render`,
+`package_release.store_own_files`): its result names the file and its sha256 (`StoredFile`), a rerun stores nothing new,
+and `step_file` and `GET /api/cases/{case_id}/steps/{step_id}/file` give that file ever after (404: none). The shared
+`document_view` element is built from the planned list for such a step (the file, its fingerprint, the version it
+printed and from which step; `ui/src/elements/DocumentElement.tsx`). `insurance_offer.json` 1.4.0 adds the step
+`document` after the premium decision and the element on the Decision and release view (`tests/test_rated_offer_231.py`,
+`tests/test_insurance_offer_path_231.py`, `ui/src/elements/documentElement231.test.tsx`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

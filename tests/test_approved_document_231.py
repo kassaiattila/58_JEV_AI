@@ -4,7 +4,9 @@ step it names, through the builder the output's domain registers.
 Until D0-c the priced document read the IT quote's own draft. Now it is a shared capability: it reads the version's
 number from the step it names (checked against that step's result form), the version as it was approved from the
 version store (of that step only), and the output's data from the builder registered for the output; without one it
-stops with the reason. Synthetic content and a stand-in builder; no store, no paid call.
+stops with the reason. The stand-in builder stands for a domain that stores its document at the approval (the quote's;
+D-f7: one that does not is stored by the priced document, `tests/test_rated_offer_231.py`). Synthetic content and a
+stand-in builder; no store, no paid call.
 """
 
 from __future__ import annotations
@@ -41,7 +43,8 @@ def printed(monkeypatch):
                      "output": output})
         return contract.OutputData(output, (contract.Value("premium", "Premium", content["premium"]),), ())
 
-    monkeypatch.setattr(parts, "_VERSIONS", {"quote": parts.VersionDocument("quote", "tests.synthetic", build)})
+    monkeypatch.setattr(parts, "_VERSIONS", {"quote": parts.VersionDocument("quote", "tests.synthetic", build,
+                                                                            file=lambda wp_id, n, package: (b"", "q.docx"))})
     monkeypatch.setattr(package_release, "own_version",
                         lambda wp_id, n, c=None, *, step=None: {"content": {"premium": "120000"}, "version": n,
                                                                 "approved_by": "anna", "approved_at": "2026-10-26T10:00:00",

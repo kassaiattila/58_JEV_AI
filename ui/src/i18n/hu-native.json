@@ -3297,5 +3297,14 @@
   "it closes the case": "lezárja az ügyet",
   "not ready yet": "még nincs kész",
   "the result does not allow it": "az eredmény nem engedi",
-  "Above the limit ({{limit}}) another person decides, not {{who}} (who made the “{{step}}”).": "A határ ({{limit}}) fölött másik személy dönt, nem {{who}} (ő hozta: „{{step}}”)."
+  "Above the limit ({{limit}}) another person decides, not {{who}} (who made the “{{step}}”).": "A határ ({{limit}}) fölött másik személy dönt, nem {{who}} (ő hozta: „{{step}}”).",
+  "Offer document": "Ajánlati dokumentum",
+  "Printed from": "Ebből készült",
+  "version {{n}} of “{{step}}”": "a(z) „{{step}}” {{n}}. változata",
+  "Fingerprint": "Ujjlenyomat",
+  "Stored with the version: its download never changes.": "A változattal együtt tárolva: a letöltése sosem változik.",
+  "The document could not be printed; the step's note says why.": "A dokumentum nem készült el; a lépés megjegyzése mondja meg, miért.",
+  "Printed once “{{step}}” is approved.": "Akkor készül el, amikor a(z) „{{step}}” jóváhagyott.",
+  "Not printed": "Nem készült el",
+  "Waits for the approval": "A jóváhagyásra vár"
 }

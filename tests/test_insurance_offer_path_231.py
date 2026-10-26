@@ -5,16 +5,21 @@ starts the processing run; the run's results are what a correct reading gives (w
 asking a model), and the run is approved. The documents' facts are offered with where each was printed, the company
 register and the sanctions list are asked, a person freezes the facts, the rules allow the risk, nothing is missing,
 a person accepts the risk, the premium is the reference case's and, above the invented limit, another person accepts
-it. Invented data; no paid call.
+it. D-f7: the accepted premium is printed as the offer's Word document, stored with the decision's version: its values
+are the case's (the policyholder, the product, each module's premium, the approver), and the download and the
+Decision and release view name that file. Invented data; no paid call.
 """
 
 from __future__ import annotations
 
+import hashlib
+import io
 import time
 
 import pytest
 
-from jav.app import case_decisions, case_views, document_processing, field_check, process_runtime, product_sets, work, work_runs
+from jav.app import (approved_document, case_decisions, case_views, document_processing, field_check, package_release,
+                     process_runtime, product_sets, rated_offer, work, work_runs)
 from jav.core import connectors, store, trace
 from jav.core.process import cases, engine
 from jav.devtools import invented_services
@@ -122,8 +127,36 @@ def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder) -> None
     with pytest.raises(case_decisions.AnotherDeciderNeeded):
         _decide(case_id, "premium", ANNA)
     _decide(case_id, "premium", BELA)
-    state = _turn(case_id)
+    state = _turn(case_id, 3)
     assert state["steps"]["premium"]["state"] == "done"
     with store.connect() as c:
         assert cases.find_case_in(c, case_id)["status"] == cases.CLOSED
+
+    printed = state["steps"]["document"]  # D-f7: the offer's Word document, stored with the decision's version
+    assert printed["state"] == "done" and printed["result"]["output"] == "rated_offer"
+    version = printed["result"]["version"]
+    assert version == package_release.own_approval(case_id, step="premium")["active"]["version"]
+    content, name = approved_document.step_file(case_id, "document")
+    assert name == f"biztositasi-ajanlat-Minta-Kereskedo-Kft-v{version}.docx"
+    assert printed["result"]["file"] == {"name": name, "sha256": hashlib.sha256(content).hexdigest()}
+    from docx import Document
+
+    text = "\n".join(p.text for p in Document(io.BytesIO(content)).paragraphs)
+    assert "Minta Kereskedő Kft." in text and "Kitalált vállalkozói vagyonbiztosítás" in text and "Minta Bela" in text
+    cells = [c.text for t in Document(io.BytesIO(content)).tables for row in t.rows for c in row.cells]
+    assert "Betöréses lopás és rablás" in cells and len(package_release.own_files(case_id, version)) == 1
+    values = {v.key: v.value for v in rated_offer.data(package_release.own_version(case_id, version)["content"], case_id=case_id,
+                                                      package="Minta Kereskedő Kft.", version=version).values}
+    assert (values["cover_start"], values["total"], values["verdict"]) == (CASE.input["cover_start"], CASE.expected.total, "elfogadható")
+    assert "Részösszeg" in text and "Díjfizetési gyakoriság" in cells  # the modules' subtotal, then the factor on the total
+    shown = {e["step"]: e["data"] for tab in case_views.view(case_id)["tabs"] if tab["id"] == "decision" for e in tab["elements"]}
+    assert shown["document"]["file"]["name"] == name and shown["document"]["from_step"] == "premium"
+    from fastapi.testclient import TestClient
+
+    from jav.service.api import create_app
+
+    with TestClient(create_app(store_path=store.current_path()), base_url="http://127.0.0.1:8930") as client:
+        got = client.get(f"/api/cases/{case_id}/steps/document/file")
+        assert got.status_code == 200 and got.content == content and name in got.headers["content-disposition"]
+        assert client.get(f"/api/cases/{case_id}/steps/premium/file").status_code == 404  # it prints no document
     assert all(trace.replay(r) == r["outcome"] for r in trace.rows(case_id=case_id))

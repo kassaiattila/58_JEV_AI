@@ -3292,5 +3292,14 @@
   "it closes the case": "it closes the case",
   "not ready yet": "not ready yet",
   "the result does not allow it": "the result does not allow it",
-  "Above the limit ({{limit}}) another person decides, not {{who}} (who made the “{{step}}”).": "Above the limit ({{limit}}) another person decides, not {{who}} (who made the “{{step}}”)."
+  "Above the limit ({{limit}}) another person decides, not {{who}} (who made the “{{step}}”).": "Above the limit ({{limit}}) another person decides, not {{who}} (who made the “{{step}}”).",
+  "Offer document": "Offer document",
+  "Printed from": "Printed from",
+  "version {{n}} of “{{step}}”": "version {{n}} of “{{step}}”",
+  "Fingerprint": "Fingerprint",
+  "Stored with the version: its download never changes.": "Stored with the version: its download never changes.",
+  "The document could not be printed; the step's note says why.": "The document could not be printed; the step's note says why.",
+  "Printed once “{{step}}” is approved.": "Printed once “{{step}}” is approved.",
+  "Not printed": "Not printed",
+  "Waits for the approval": "Waits for the approval"
 }

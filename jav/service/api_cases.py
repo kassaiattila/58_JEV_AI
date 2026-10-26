@@ -13,13 +13,13 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Response
 from fastapi import Path as PathParam
 from pydantic import Field
 
 from jav.app import case_views, process_runtime, work_views
 from jav.core import identity
-from jav.service.service_shared import Empty, In, IsoDay, PartyId, checked_path, human_actor
+from jav.service.service_shared import Empty, In, IsoDay, PartyId, attachment_header, checked_path, human_actor
 
 CaseId = Annotated[str, PathParam(pattern=r"^wp-[0-9a-f]{12}$")]  # a case's id is its container's
 CaseStep = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
@@ -114,6 +114,16 @@ def routes(app: FastAPI, r: str) -> None:
         from jav.app import package_release
 
         return work_views.jsonable(package_release.approval_state(case_id, step=step_id))
+
+    @app.get(r + "/cases/{case_id}/steps/{step_id}/file")
+    def case_step_file(case_id: CaseId, step_id: CaseStep) -> Response:
+        """D-f7: the document a step printed and stored with the version it printed (it never changes; 404: none)."""
+        from jav.app import approved_document, package_release
+
+        content, name = approved_document.step_file(case_id, step_id)
+        return Response(content, media_type=package_release.media(name),
+                        headers={"Content-Disposition": attachment_header(name), "Cache-Control": "no-store",
+                                 "X-Content-Type-Options": "nosniff"})
 
     @app.post(r + "/cases/{case_id}/steps/{step_id}/approval/return")
     def case_step_return(case_id: CaseId, step_id: CaseStep, body: ReturnIn,

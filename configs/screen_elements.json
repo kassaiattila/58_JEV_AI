@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "screen_elements",
-    "version": "1.10.0",
+    "version": "1.11.0",
     "description": "231 (plan stage A, A4; DECISIONS 231): the screen elements a process pack's tabs are built from. A shared element is one any process may use; a special element is registered once (with the capability whose step it shows) and from then on any process may use it too. A process pack naming an element not listed here is refused (jav/app/process_packs.py). The interface renders each type with one component (A6). Stage D0 (D0-a): an element with \"status\": \"planned\" is listed before it is built (the interface has no component for it and no capability gives its data); no pack may use it until it is built.",
     "changelog": [
       {"version": "1.0.0", "date": "2026-10-24", "note": "231 (A4): the first set: the shared elements of the process packs and the three special elements of the quote's back half."},
@@ -14,14 +14,15 @@
       {"version": "1.7.0", "date": "2026-10-26", "note": "231 (stage D0, D0-d): the approval is shared again, for every step that approves a version of its own: its state (missing, approved, out of date, returned), its versions, and the step's domain's own approval in it where there is one."},
       {"version": "1.8.0", "date": "2026-10-26", "note": "231 (stage D, D-f4): the field review is built (for a field check's step: its units and their sources, the disagreements a person settles, the freeze with the day cover starts), and two special elements: the facts a step read from its documents (document_facts) and an outside register's question and answer (lookup)."},
       {"version": "1.9.0", "date": "2026-10-26", "note": "231 (stage D, D-f5): three special elements: a rule evaluation (evaluation), a premium's computation (calculation), each with its versions, and the wait for missing facts (missing_info)."},
-      {"version": "1.10.0", "date": "2026-10-26", "note": "231 (stage D, D-f6): a person's decision on another step's result (decision): the choices, the second person above a limit, the decision that holds, and its state."}
+      {"version": "1.10.0", "date": "2026-10-26", "note": "231 (stage D, D-f6): a person's decision on another step's result (decision): the choices, the second person above a limit, the decision that holds, and its state."},
+      {"version": "1.11.0", "date": "2026-10-26", "note": "231 (stage D, D-f7): the document view is built, for a step that prints a priced document: the file stored with the version it printed, its fingerprint and its download."}
     ]
   },
   "elements": {
     "data_table": {"kind": "shared", "status": "planned", "what": "A table from a registered dataset (columns, filters and links from the service)."},
     "field_review": {"kind": "shared", "what": "A record's fields with their source on the page, each checked or corrected by a person: a field check's units and the facts offered for them, the disagreements a person settles, and the freeze."},
     "form": {"kind": "shared", "status": "planned", "what": "A step's own form, from its capability's description."},
-    "document_view": {"kind": "shared", "status": "planned", "what": "A step's document: its pages, or the file it made."},
+    "document_view": {"kind": "shared", "what": "A step's document: the file a priced document's step printed and stored with the version it printed, its fingerprint and its download (its pages are planned)."},
     "approval": {"kind": "shared", "what": "The approval of a step that approves a version of its own: its state (missing, approved, out of date, returned with a reason), its versions, and the step's own approval when its domain shows one (the quote's lines and Word document)."},
     "blockers": {"kind": "shared", "status": "planned", "what": "What holds a step or the case, each with where it is resolved."},
     "actions": {"kind": "shared", "status": "planned", "what": "The step's actions, each with its cost cap when it may spend."},

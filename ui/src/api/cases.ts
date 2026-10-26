@@ -143,6 +143,11 @@ export interface DecisionData {
   problem: string | null; approval: ApprovalState; waits: boolean;
   decided: { version: number; choice: string; title: string; note: string | null; by: string; at: string } | null;
 }
+/** D-f7: the document a priced document's step printed (jav/app/approved_document.py). */
+export interface DocumentViewData {
+  state: string | null; from_step: string | null; output: string | null; version: number | null;
+  file: { name: string; sha256: string } | null;
+}
 export interface CaseEvent {
   at: string; kind: string; step: string | null; step_title: string | null; who: string | null;
   detail: { note?: string; timer?: string; task_kind?: string; answer?: string; kept?: CaseKept };
@@ -169,6 +174,8 @@ export const casesApi = {
     party_id?: string; period_start?: string; period_end?: string; source?: CaseSource }) =>
     request<{ case_id: string }>("POST", "/cases", body),
   casePage: (caseId: string) => request<CaseView>("GET", `/cases/${enc(caseId)}`),
+  // D-f7: the document a step printed and stored with its version (a link, not a request)
+  caseStepFileUrl: (caseId: string, stepId: string) => `/api/cases/${enc(caseId)}/steps/${enc(stepId)}/file`,
   startCaseStep: (caseId: string, stepId: string) =>
     request<CaseView>("POST", `/cases/${enc(caseId)}/steps/${enc(stepId)}/start`, {}),
   linkCasePartner: (caseId: string, role: string, partnerId: string) =>

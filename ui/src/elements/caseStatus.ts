@@ -1,6 +1,7 @@
 // 231 (plan stage A, A7e): the status lines of the general elements of a case's page (a send step's, a reply step's,
 // the cost's), small enough to load with the page; the elements themselves load when a case shows one.
-import type { CalculationData, CaseCost, DecisionData, EvaluationData, FieldReviewData, HandoverData, MissingInfoData, ReplyData } from "../api";
+import type { CalculationData, CaseCost, DecisionData, DocumentViewData, EvaluationData, FieldReviewData, HandoverData, MissingInfoData,
+  ReplyData } from "../api";
 import { t } from "../i18n";
 import { numText, tmap, when } from "../labels";
 import type { ElementProps } from "./registry";
@@ -31,6 +32,14 @@ export function decisionStatus(d: DecisionData | null): { mark: string; text: st
   if (d.approval.state === "outdated") return { mark: "s-warn", text: t("Out of date") };
   if (d.approval.state === "returned") return { mark: "s-review", text: t("Returned") };
   return d.waits ? { mark: "s-review", text: t("To decide") } : { mark: "s-waiting", text: t("Waits for what it decides on") };
+}
+
+/** D-f7: a printed document's state as one mark: the version it printed, not printed, or waiting for its version. */
+export function documentStatus(d: DocumentViewData | null): { mark: string; text: string } | null {
+  if (!d) return null;
+  if (d.file) return { mark: "s-done", text: t("Version {{n}}", { n: d.version ?? "–" }) };
+  if (d.state === "failed") return { mark: "s-failed", text: t("Not printed") };
+  return { mark: "s-waiting", text: t("Waits for the approval") };
 }
 
 /** D-f5: a premium's state as one mark: its total, or blocked. */

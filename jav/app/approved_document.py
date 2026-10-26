@@ -9,7 +9,12 @@ form), and the output's own domain says how the version's content becomes the do
 another process prints its own approved versions with its own output and builder, and this code stays the same.
 
 - `CAPABILITY` (`priced_document@1`): params `output` (an output contract of `configs/outputs.json` in Word format) and
-  `from_step`; its result: the output, the version printed and how many values it holds.
+  `from_step`; its result: the output, the version printed and how many values it holds. D-f7: a document its domain
+  does not store at the approval (the insurance offer's; the quote's is stored then) is stored here with the version,
+  once, with the case's chosen template: the result names the file and its sha256, and the version's download and a
+  letter read that file ever after.
+- `step_file(case_id, step)`: the stored document of a priced document's step (D-f7).
+- D-f7: the shared element `document_view` for such a step: the file, its fingerprint, the version printed.
 
 Layer: application; it uses the capability registry, the version store and the outputs' registry.
 """
@@ -21,9 +26,9 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from jav.app import capabilities, package_release
-from jav.app.outputs import parts
-from jav.core import cfg
-from jav.core.process import kinds
+from jav.app.outputs import parts, templates
+from jav.core import cfg, store
+from jav.core.process import cases, kinds
 
 _OWNER = __name__
 
@@ -49,12 +54,22 @@ class PricedDocument(BaseModel):
         return value
 
 
+class StoredFile(BaseModel):
+    """D-f7: the document stored with the version: its file name and the sha256 of its bytes."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    name: str
+    sha256: str
+
+
 class DocumentResult(capabilities.Result):
-    """The priced document: its output contract, the approved version it printed and how many values it holds."""
+    """The priced document: its output contract, the approved version it printed and how many values it holds; D-f7: the
+    file stored with the version, when this step stores it."""
 
     output: str
     version: int
     values: int
+    file: StoredFile | None = None
 
 
 def _outputs() -> list[tuple[str, str]]:
@@ -65,15 +80,64 @@ def _outputs() -> list[tuple[str, str]]:
 def _run(ctx: Any, params: PricedDocument) -> kinds.StepOutcome:
     version = capabilities.read_result(ctx, params, "from_step")["version"]  # checked against the other step's form
     case_id = str(ctx.data["container"])
+    package = ctx.data.get("name") or case_id
     try:
         builder = parts.version_document(params.output)
         approved = package_release.own_version(case_id, version, step=params.from_step)
-    except (parts.UnknownOutput, KeyError) as exc:
+        data = builder.build(approved["content"], case_id=case_id, package=package, version=version,
+                             approved_by=approved.get("approved_by"), approved_at=approved.get("approved_at"),
+                             output=params.output)
+    except (parts.UnknownOutput, KeyError, ValueError) as exc:  # a version its builder cannot print names why
         return kinds.Fail(str(exc))
-    data = builder.data(approved["content"], package=ctx.data.get("name") or case_id, version=version,
-                        approved_by=approved.get("approved_by"), approved_at=approved.get("approved_at"),
-                        output=params.output)
-    return kinds.Done({"output": data.output, "version": version, "values": len(data.values)})
+    result: dict[str, Any] = {"output": data.output, "version": version, "values": len(data.values)}
+    if builder.file is None:  # D-f7: stored with the version once; a rerun prints nothing new
+        with ctx.transaction() as c:
+            stored = package_release.own_file(case_id, version, package_release.APPROVED, c)
+            if stored is None:
+                file, made = templates.render(data, case_id, c)
+                name = builder.name(approved["content"], package, version) if builder.name else f"{params.output}-v{version}.docx"
+                package_release.store_own_files(c, case_id, version, package_release.APPROVED,
+                                                [(name, sum(len(t.rows) for t in data.tables), file, made)])
+                stored = package_release.own_file(case_id, version, package_release.APPROVED, c)
+        result["file"] = {"name": stored["name"], "sha256": stored["sha256"]}
+    return kinds.Done(result)
+
+
+class NoDocument(KeyError):
+    """D-f7: the step is no priced document, or it has stored no document yet."""
+
+
+def _done_step(c: Any, case_id: str, step: str) -> dict[str, Any] | None:
+    case = cases.find_case_in(c, case_id)
+    row = cases.find_step_in(c, case_id, step)
+    if case is None or row is None or capabilities.of_step_kind(cases.definition_of(case).step(step).kind) is not CAPABILITY:
+        return None
+    return row
+
+
+def step_file(case_id: str, step: str) -> tuple[bytes, str]:
+    """D-f7: the document a priced document's step stored with the version it printed (`NoDocument`: none)."""
+    with store.connect() as c:
+        row = _done_step(c, case_id, step)
+    result = (row or {}).get("result") or {}
+    if row is None or row["state"] != cases.DONE or not result.get("file"):
+        raise NoDocument(f"{case_id} {step}: no stored document")
+    stored = package_release.own_file(case_id, int(result["version"]), package_release.APPROVED)
+    if stored is None:
+        raise NoDocument(f"{case_id} {step}: no stored document")
+    return stored["content"], stored["name"]
+
+
+def _document_view(case_id: str, step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """D-f7: the document element's data: the step's state, the step whose approved version it prints, and, once
+    printed, the version, the output and the stored file (its name and sha256)."""
+    with store.connect() as c:
+        row = _done_step(c, case_id, str(step)) or {}
+        case = cases.find_case_in(c, case_id)
+    params = cases.definition_of(case).step(str(step)).params if case is not None and row else {}
+    result = row.get("result") if row.get("state") == cases.DONE else None
+    return {"state": row.get("state"), "from_step": params.get("from_step"), "output": params.get("output"),
+            "version": (result or {}).get("version"), "file": (result or {}).get("file")}
 
 
 CAPABILITY = capabilities.Capability(
@@ -84,7 +148,11 @@ CAPABILITY = capabilities.Capability(
 
 
 def register() -> None:
+    from jav.app import case_views
+
     capabilities.register(CAPABILITY)
+    case_views.register(case_views.ElementData("document_view", None, _OWNER, _document_view,
+                                               applies=lambda capability: capability == CAPABILITY.name))
 
 
-__all__ = ["CAPABILITY", "DocumentResult", "PricedDocument", "register"]
+__all__ = ["CAPABILITY", "DocumentResult", "NoDocument", "PricedDocument", "StoredFile", "register", "step_file"]

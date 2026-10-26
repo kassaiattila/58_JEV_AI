@@ -82,7 +82,7 @@ def test_the_step_parameters_that_name_a_step_are_known_by_the_capability() -> N
 def test_a_planned_element_is_refused() -> None:
     elements = cfg.load(process_packs.ELEMENTS)["elements"]
     planned = sorted(k for k, v in elements.items() if v.get("status") == "planned")
-    assert planned == ["actions", "blockers", "data_table", "document_view", "form"]  # D-f4: the field review is built
+    assert planned == ["actions", "blockers", "data_table", "form"]  # D-f4: the field review is built; D-f7: the document view
     data = _it_quote()
     _tab(data, "history")["elements"].append({"type": "data_table"})
     problems = _problems(data)
