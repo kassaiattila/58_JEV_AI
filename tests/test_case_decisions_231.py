@@ -70,7 +70,7 @@ _CLOCK = [time.time()]
 
 
 def _turn(case_id: str) -> None:
-    _CLOCK[0] += 10
+    _CLOCK[0] = max(_CLOCK[0], time.time()) + 10  # never behind the real time the steps' timers are set from
     engine.turn(case_id, now=_CLOCK[0])
 
 
@@ -104,7 +104,7 @@ def test_risk_then_premium_with_another_person_above_the_limit(packs) -> None:
     premium = case_decisions.view(case_id, "premium")
     assert premium["result"]["total"]["amount"] == "487000"
     assert premium["second_person"]["needed"] is True and premium["second_person"]["earlier_by"] == ANNA
-    with pytest.raises(case_decisions.SecondPersonNeeded):
+    with pytest.raises(case_decisions.AnotherDeciderNeeded):
         case_decisions.decide(case_id, "premium", choice="accept", note=None, expected_basis=premium["basis"], actor=ANNA)
     _decide(case_id, "premium", "accept", BELA)
     steps = _steps(case_id)
@@ -131,17 +131,17 @@ def test_a_refused_risk_is_not_accepted_and_a_decline_ends_the_case_with_a_reaso
     view = case_decisions.view(case_id, "risk")
     assert view["result"]["verdict"] == "refuse"
     assert {c["code"]: c["allowed"] for c in view["choices"]} == {"accept": False, "decline": True}
-    with pytest.raises(case_decisions.DecisionError, match="does not allow"):
+    with pytest.raises(case_decisions.CaseDecisionError, match="does not allow"):
         case_decisions.decide(case_id, "risk", choice="accept", note=None, expected_basis=view["basis"], actor=ANNA)
-    with pytest.raises(case_decisions.DecisionError, match="needs a reason"):
+    with pytest.raises(case_decisions.CaseDecisionError, match="needs a reason"):
         case_decisions.decide(case_id, "risk", choice="decline", note=" ", expected_basis=view["basis"], actor=ANNA)
-    with pytest.raises(case_decisions.DecisionError, match="no choice"):
+    with pytest.raises(case_decisions.CaseDecisionError, match="no choice"):
         case_decisions.decide(case_id, "risk", choice="maybe", note=None, expected_basis=view["basis"], actor=ANNA)
     _decide(case_id, "risk", "decline", ANNA, note="an excluded activity")
     with store.connect() as c:
         case = cases.find_case_in(c, case_id)
     assert (case["status"], case["outcome"]) == (cases.CLOSED, "declined")
-    with pytest.raises(case_decisions.DecisionError, match="nothing to decide"):
+    with pytest.raises(case_decisions.CaseDecisionError, match="nothing to decide"):
         case_decisions.decide(case_id, "premium", choice="accept", note=None, expected_basis=None, actor=BELA)
 
 

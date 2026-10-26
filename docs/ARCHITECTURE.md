@@ -1358,7 +1358,7 @@ result a choice needs, the outcome a choice closes the case with, which needs a 
 approved version with the result version it was made on, so a stale page is refused, a changed result puts it out of
 date and a person may return it (`case_views.return_step`). Above a limit of `configs/case_decisions.json` (kept as the
 case started; the one limit there is invented), the decision is refused to the maker of the earlier decision the pack
-names (`SecondPersonNeeded`), its task goes to anyone, and whether a second person was needed is traced
+names (`AnotherDeciderNeeded`), its task goes to anyone, and whether a second person was needed is traced
 (`decision.second_person`); an amount in another currency is refused, never converted. An own version's record names
 its approver's id too (`approved_by_id`) (`tests/test_case_decisions_231.py`).
 

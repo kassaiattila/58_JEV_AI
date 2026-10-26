@@ -34,7 +34,7 @@ from jav.core.measures import Money
 from jav.core.process import cases, kinds
 from jav.core.user_messages import explained
 
-__all__ = ["CAPABILITY", "POINT", "Choice", "Decision", "DecisionError", "DecisionResult", "SecondPersonNeeded", "decide",
+__all__ = ["CAPABILITY", "POINT", "AnotherDeciderNeeded", "CaseDecisionError", "Choice", "Decision", "DecisionResult", "decide",
            "needs_second", "register", "view"]
 
 POINT = "decision.second_person"
@@ -44,12 +44,12 @@ POLL_S = 5.0
 activity_kinds.register_events("package", ("decision_approve", "decision_reopen"), __name__)
 
 
-class DecisionError(ValueError):
+class CaseDecisionError(ValueError):
     """A decision that cannot be made: nothing to decide yet, a choice the step does not offer or the result does not
     allow, a decline without a reason, a limit in another currency."""
 
 
-class SecondPersonNeeded(DecisionError):
+class AnotherDeciderNeeded(CaseDecisionError):
     """Above the limit, the decision is another person's than the one who made the earlier decision."""
 
 
@@ -115,7 +115,7 @@ def _limit(case_id: str, name: str) -> Money:
     with capabilities.case_rules(case_id):
         limits = cfg.load(RULE_FILE).get("limits") or {}
     if name not in limits:
-        raise explained(DecisionError, "the rule file names no limit {{limit}}", limit=name)
+        raise explained(CaseDecisionError, "the rule file names no limit {{limit}}", limit=name)
     return Money.model_validate(limits[name]["above"])
 
 
@@ -126,11 +126,11 @@ def _second(c: Any, case_id: str, params: Decision, result: dict[str, Any]) -> d
     above = _limit(case_id, params.limit)
     raw = result.get(params.amount_field)
     if raw is None:
-        raise explained(DecisionError, "the result decided on has no {{field}} to compare with the limit",
+        raise explained(CaseDecisionError, "the result decided on has no {{field}} to compare with the limit",
                         field=params.amount_field)
     amount = Money.model_validate(raw)
     if amount.currency != above.currency:
-        raise explained(DecisionError, "the limit is in {{limit}} and the amount in {{amount}}; nothing is converted",
+        raise explained(CaseDecisionError, "the limit is in {{limit}} and the amount in {{amount}}; nothing is converted",
                         limit=above.currency, amount=amount.currency)
     earlier = package_release.own_approval(case_id, c, step=params.other_than)["active"]
     return {"limit": params.limit, "amount": amount.model_dump(mode="json"), "above": above.model_dump(mode="json"),
@@ -157,7 +157,7 @@ def _run(ctx: Any, params: Decision) -> kinds.StepOutcome:
             with ctx.transaction() as c:
                 try:
                     second = _second(c, case_id, params, result or {})
-                except DecisionError:  # the limit cannot be applied: the task goes to anyone, and the decision says why
+                except CaseDecisionError:  # the limit cannot be applied: the task goes to anyone, and the decision says why
                     second = {"needed": True}
                 human_tasks.own_approval_waits(c, case_id, ctx.step.id,
                                                **({"assignee": None} if second and second["needed"] else {}))
@@ -184,7 +184,7 @@ def view(case_id: str, step: str) -> dict[str, Any]:
         try:
             second = _second(c, case_id, params, result) if done else None
             problem = None
-        except DecisionError as exc:
+        except CaseDecisionError as exc:
             second, problem = None, exc
         basis = process_runtime.basis_of(case_id, step, c)
     choices = [{"code": code, "title": ch.title, "closes": ch.closes,
@@ -202,7 +202,7 @@ def decide(case_id: str, step: str, *, choice: str, note: str | None, expected_b
            actor: identity.Who) -> dict[str, Any]:
     """The person's decision as the step's next own version. Refused: a page showing older results
     (`RevisionConflict`), nothing to decide yet, a choice not offered or the result does not allow, a choice ending the
-    case without a reason (`DecisionError`), and above the limit, the earlier decision's maker (`SecondPersonNeeded`)."""
+    case without a reason (`CaseDecisionError`), and above the limit, the earlier decision's maker (`AnotherDeciderNeeded`)."""
     from jav.app import process_runtime
 
     with store.connect() as c:
@@ -210,24 +210,24 @@ def decide(case_id: str, step: str, *, choice: str, note: str | None, expected_b
         params = _params(c, case_id, step)
         row = cases.step_row(c, case_id, params.about)
         if row["state"] != cases.DONE:
-            raise explained(DecisionError, "there is nothing to decide yet")
+            raise explained(CaseDecisionError, "there is nothing to decide yet")
         basis = process_runtime.basis_of(case_id, step, c)
         if expected_basis is not None and basis != expected_basis:
             raise explained(decisions.RevisionConflict, "the result decided on changed meanwhile; reload it")
         offered = params.choices.get(choice)
         if offered is None:
-            raise explained(DecisionError, "the decision offers no choice {{choice}}", choice=choice)
+            raise explained(CaseDecisionError, "the decision offers no choice {{choice}}", choice=choice)
         result = row["result"] or {}
         if not _allows(offered, result):
-            raise explained(DecisionError, "the result decided on does not allow {{choice}}", choice=offered.title)
+            raise explained(CaseDecisionError, "the result decided on does not allow {{choice}}", choice=offered.title)
         if offered.closes and not (note or "").strip():
-            raise explained(DecisionError, "a decision that ends the case needs a reason")
+            raise explained(CaseDecisionError, "a decision that ends the case needs a reason")
         second = _second(c, case_id, params, result)
         if second is not None and second["needed"]:
             if second["earlier_by_id"] is None:
-                raise explained(DecisionError, "the decision {{step}} is not made yet", step=params.other_than)
+                raise explained(CaseDecisionError, "the decision {{step}} is not made yet", step=params.other_than)
             if second["earlier_by_id"] == identity.id_of(actor):
-                raise explained(SecondPersonNeeded, "above the limit, another person than the one who decided {{step}} decides",
+                raise explained(AnotherDeciderNeeded, "above the limit, another person than the one who decided {{step}} decides",
                                 step=params.other_than)
         content = {"choice": choice, "title": offered.title, "note": (note or "").strip() or None, "about": params.about,
                    "about_version": int(row["result_version"]), "result": result, "second_person": second}
