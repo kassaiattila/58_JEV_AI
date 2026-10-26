@@ -256,11 +256,12 @@ def _spent(table: str) -> Any:
 
 
 _OWNER = __name__
+_UNTIL_D0B = "case"  # D0-b: the proposal, draft, approval and letter are kept per case until they move to the step
 CAPABILITIES = (
-    Capability(name="record_assembly", version=1, module=_OWNER, run=_record_assembly, kind="machine", params=RecordAssembly, effects="pure",
+    Capability(name="record_assembly", version=1, module=_OWNER, run=_record_assembly, kind="machine", params=RecordAssembly, effects="pure", state="step",
                summary="Puts a record together from an email's text, its table attachments and its attachments.",
                preview=_record_preview, records=_records),  # C3c: the general form's record chooser
-    Capability(name="catalogue_match", version=1, module=_OWNER, run=_catalogue_match, kind="machine", params=CatalogueMatch,
+    Capability(name="catalogue_match", version=1, module=_OWNER, run=_catalogue_match, kind="machine", params=CatalogueMatch, state=_UNTIL_D0B,
                providers=("jev", "openai"), rule_files=("callsite:quote_match", "gpt_quote_match", "quotes", "price_lists"),
                summary="Matches each requested item with a catalogue item: sure, to check, or not listed.",
                spent=_spent("quote_proposals"), choices={"catalogue": _catalogues},
@@ -270,7 +271,7 @@ CAPABILITIES = (
     Capability(name="line_pricing", version=1, module=_OWNER, kind="machine", params=LinePricing, effects="pure",
                rule_files=("price_lists",), summary="Prices lines from a catalogue: unit price, discount rules, totals.",
                choices={"catalogue": _catalogues}),
-    Capability(name="line_draft", version=1, module=_OWNER, run=_line_draft, kind="human", params=LineDraft,
+    Capability(name="line_draft", version=1, module=_OWNER, run=_line_draft, kind="human", params=LineDraft, state=_UNTIL_D0B,
                rule_files=("quotes", "price_lists"), own_version=True,  # 231 (C2d): reopening the quote reopens it
                summary="A person composes the lines from the match, gives own prices with a note, and approves.",
                choices={"catalogue": _catalogues},
@@ -279,10 +280,10 @@ CAPABILITIES = (
                                   options=("1", "0.01")),
                           RuleKey("price_lists", "rounding.default", "choice", "Another currency's amounts are rounded to this"
                                   " unit", options=("0.01", "1")))),
-    Capability(name="priced_document", version=1, module=_OWNER, run=_priced_document, kind="machine", params=PricedDocument,
+    Capability(name="priced_document", version=1, module=_OWNER, run=_priced_document, kind="machine", params=PricedDocument, state=_UNTIL_D0B,
                rule_files=("quote_documents", "outputs"), summary="Fills a priced document from an output template.",
                choices={"output": _outputs}),
-    Capability(name="letter_draft", version=1, module=_OWNER, run=_letter_draft, kind="machine", params=LetterDraft, providers=("openai",),
+    Capability(name="letter_draft", version=1, module=_OWNER, run=_letter_draft, kind="machine", params=LetterDraft, providers=("openai",), state=_UNTIL_D0B,
                rule_files=("gpt_quote_letter", "quote_documents", "quotes"),
                summary="Drafts a reply letter: the frame written by code around a model's checked paragraph; done once a person"
                        " accepted it.", spent=_spent("quote_letters"), choices={"frame": _frames},

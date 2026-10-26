@@ -69,7 +69,7 @@ def _reopen(wp_id: str, note: str, actor: Any) -> Any:
 
 _OWNER = __name__
 CAPABILITY = Capability(
-    name="pairing", version=1, module=_OWNER, run=_pair, kind="human", params=Pairing, effects="store",
+    name="pairing", version=1, module=_OWNER, run=_pair, kind="human", params=Pairing, effects="store", state="case",
     rule_files=("reconcile", "finance"), adopt=_adopt, own_version=True,  # C2d: reopening the statement reopens it
     reopen=_reopen, approval_what="Reconciliation statement",  # C3a-1: its case waits for the approval as a task
     statuses={"reconcile_approved": "approved", "reconcile_pair": "pairing", "reconcile_result": "pairing",
@@ -140,7 +140,7 @@ def _mark() -> Any:
 
 
 PROPOSAL = Capability(
-    name="pairing_proposal", version=1, module=_OWNER, run=_propose, kind="machine", params=PairingProposal,
+    name="pairing_proposal", version=1, module=_OWNER, run=_propose, kind="machine", params=PairingProposal, state="step",
     effects="store", providers=("jev",), rule_files=("callsite:reconcile_line", "finance", "reconcile"),
     summary=("Asks the AI which item of the other list each undecided item settles and what kind it is, under a cap;"
              " a person still decides."))

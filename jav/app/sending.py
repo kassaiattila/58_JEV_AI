@@ -277,7 +277,7 @@ def _settling(case_id: str, step_id: str) -> bool:
 
 
 CAPABILITY = capabilities.Capability(
-    name="send", version=1, module=_OWNER, run=_run, kind="machine", params=Send, effects="external",
+    name="send", version=1, module=_OWNER, run=_run, kind="machine", params=Send, effects="external", state="step",
     rule_files=(CONFIG,), described={"modes": list(MODES)},
     summary="Sends a step's message once: into the output folder, as an Outlook draft or out through Outlook.",
     # 231 (B4): a process may choose between the two ways a person still sends from; the real send stays a change of

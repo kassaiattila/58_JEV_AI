@@ -145,7 +145,7 @@ def keep_waiting(case_id: str, step_id: str, actor: identity.Who, note: str | No
 
 
 CAPABILITY = capabilities.Capability(
-    name="wait_reply", version=1, module=_OWNER, run=_run, kind="wait", params=WaitReply, effects="store",
+    name="wait_reply", version=1, module=_OWNER, run=_run, kind="wait", params=WaitReply, effects="store", state="step",
     events=(REPLY,), on_event=_on_event, on_timer=_on_timer,
     summary="Waits for the other side's reply; after the days set, a follow-up task opens once, without a deadline.",
     actions=(capabilities.Action("replied", "A reply arrived", _waits,

@@ -179,6 +179,9 @@ class Capability:
       a person may start a case from, newest first, matching `q`: each {workpackage_id, workpackage_name, item_id,
       label, detail, name, cases: [{id, name}]} (`detail`: plain values, no words; `name`: what a case started from it
       is called by default; `cases`: those already started from it).
+    - `state` (stage D0, D0-b): what the state it keeps belongs to: `step` (the rule: its proposal, draft, approval,
+      task and budget are the step's, so the capability may stand twice in a case) or `case` (one for the whole case,
+      as the reconciliation's pairing; a pack uses such a capability once). A capability that can run says which.
     """
 
     name: str
@@ -209,6 +212,7 @@ class Capability:
     bind: Callable[[str, str, str, dict[str, Any], dict[str, Any], identity.Who], bool] | None = None
     bound: Callable[[str], bool] | None = None
     records: Callable[[str | None, dict[str, Any]], list[dict[str, Any]]] | None = None
+    state: Literal["case", "step"] | None = None
 
     @property
     def key(self) -> str:
@@ -242,6 +246,8 @@ def _check(cap: Capability) -> None:
         problems.append(f"unknown effect {cap.effects!r}")
     if not cap.summary.strip():
         problems.append("it needs a summary")
+    if cap.state not in (None, "case", "step") or (cap.run is not None and cap.state is None):  # D0-b
+        problems.append("a capability that can run says whether its state belongs to the case or to its step")
     names = [a.name for a in cap.actions]
     if len(set(names)) != len(names) or not all(_NAME.match(n) for n in names):
         problems.append("its actions have distinct lowercase names")

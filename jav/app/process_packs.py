@@ -13,7 +13,8 @@ from (a record scope part and a step whose capability reads it), an unknown scre
 reference to a step or a resource that is not there. Stage D0 (D0-a): a step whose capability cannot run (it is described
 only), a step parameter naming another step that is not there or that the step does not wait for (directly or through
 another), a screen element the catalogue lists as planned, and an element that shows nothing: no data is registered for
-its type and its step's capability (or, without a step, for its type alone). A refused pack starts no case.
+its type and its step's capability (or, without a step, for its type alone). A refused pack starts no case. D0-b: a
+capability whose state belongs to the whole case (`Capability.state`) stands once in a pack.
 
 - `load(pack_id)`, `packs()`: a pack read and checked (`PackError` with every problem).
 - `definition(pack)`: the process core's definition of the pack's current version: one step per pack step, its kind
@@ -266,6 +267,9 @@ def _problems(pack: ProcessPack) -> list[str]:
             problems.append(f"{where}: a paid step ({step.uses}) is started by a person")
         if step.optional and step.start != "person":
             problems.append(f"{where}: only a step a person starts may be optional")
+    case_owned = [s.uses for s in pack.steps if (c := _capability(s.uses)) is not None and c.state == "case"]
+    for key in sorted({k for k in case_owned if case_owned.count(k) > 1}):  # D0-b: two steps would share one state
+        problems.append(f"{key} keeps its state for the whole case: a pack uses it once")
     for wrap in pack.wraps:  # 231 (C3b4): the step that takes the package binds it, and its parts are the scope's
         if (wrap.kind is None) == (wrap.rule is None):
             problems.append(f"wrap {wrap.kind or wrap.rule!r}: names its packages by a kind or by a rule, one of them")

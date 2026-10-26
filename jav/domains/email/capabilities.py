@@ -77,7 +77,7 @@ _OWNER = __name__
 CAPABILITY = Capability(
     name="file_placement", version=1, module=_OWNER, run=_route, kind="human", params=FilePlacement, effects="store",
     summary="Proposes the package each emailed document belongs to; a person accepts, rejects or redirects each one.",
-    adopt=_adopt)
+    adopt=_adopt, state="case")  # D0-b: the routing decides the case's email packages
 
 
 def register() -> None:

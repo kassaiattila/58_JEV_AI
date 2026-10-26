@@ -390,7 +390,8 @@ CAPABILITY = capabilities.Capability(
     actions=(capabilities.Action("start_run", "Start the live run", _can_start, start_run),),
     # C3b4: the case list says a person's start while the package waits for its live run, the machine's work while it
     # runs, a person's decision while it waits for its approval (`_state_of`)
-    waits={"run_start": "person_start", "run_end": "work", "run_approval": "person", "fetching": "work"}, adopt=_adopt, bind=bind, bound=bound)
+    waits={"run_start": "person_start", "run_end": "work", "run_approval": "person", "fetching": "work"}, adopt=_adopt, bind=bind, bound=bound,
+    state="step")  # D0-b: its package is the step's (`_owner_ref`)
 
 
 def source_kinds(pack: Any) -> list[str]:
