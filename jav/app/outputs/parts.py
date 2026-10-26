@@ -122,11 +122,13 @@ class OwnOutput:
 @dataclass(frozen=True)
 class VersionDocument:
     """D0-c: the output an approved own version is printed into: `data(content, package=, version=, approved_by=,
-    approved_at=, output=)` builds the output's data from the version's content as it was approved."""
+    approved_at=, output=)` builds the output's data from the version's content as it was approved; `file(wp_id, n,
+    package)` (optional) is the document stored with version `n` and its name (a letter attaches it)."""
 
     output: str
     module: str
     data: Callable[..., contract.OutputData]
+    file: Callable[[str, int, str], tuple[bytes, str]] | None = None
 
 
 class UnknownOutput(KeyError):

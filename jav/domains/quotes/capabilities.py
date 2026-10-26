@@ -112,11 +112,23 @@ class LineDraft(_Params):
 
 class LetterDraft(_Params):
     """The letter frame's key and the call site that asks for the paragraph. D0-b: `from_step`, the composition step
-    whose approved version it answers (None: the case's only one)."""
+    whose approved version it answers (None: the case's only one). D0-c: `output`, the output whose builder fills the
+    frame's values and whose stored document the letter attaches (the quote's by default); the approved version is
+    read as an offer (`quote_letter.OfferContent`)."""
 
     frame: str = Field(min_length=1, title="Letter frame")
     callsite: str = Field(min_length=1)
     from_step: str | None = step_ref(None)
+    output: str = Field("quote", min_length=1, title="Output")
+
+    @field_validator("output")
+    @classmethod
+    def _known_output(cls, value: str) -> str:
+        from jav.core import cfg
+
+        if value not in (cfg.load("outputs").get("outputs") or {}):
+            raise ValueError(f"no output {value!r}")
+        return value
 
     @field_validator("frame")
     @classmethod
@@ -227,7 +239,8 @@ def _letter_draft(ctx: Any, params: LetterDraft) -> kinds.StepOutcome:
     view = quote_letter.view(wp, step=ctx.step.id)  # D0-b: the step's own letter
     if view["state"] is None:
         try:
-            quote_letter.request(wp, actor=ctx.actor, frame=params.frame, step=ctx.step.id)  # 231 (B0): the pack's frame
+            quote_letter.request(wp, actor=ctx.actor, frame=params.frame, step=ctx.step.id,  # 231 (B0): the pack's frame
+                                 output=params.output)  # D0-c: its output's builder and document
         except quote_letter.LetterError as exc:
             return kinds.Fail(str(exc))
         return _again(ctx, "letter")
@@ -339,7 +352,9 @@ def register() -> None:
     for cap in CAPABILITIES:
         capabilities.register(cap)
     # D0-c: how the quote's approved version becomes its Word document (the shared priced document prints it)
-    parts.register_version_document(parts.VersionDocument(quote_document.OUTPUT, _OWNER, quote_document.data))
+    parts.register_version_document(parts.VersionDocument(
+        quote_document.OUTPUT, _OWNER, quote_document.data,
+        file=lambda wp_id, n, package: quote_document.version_file(wp_id, n, package=package)))
     for element, capability in ELEMENTS:
         case_views.register(case_views.ElementData(element, capability, _OWNER, _quote_view, mark=_marks))
     sending.register_builder(sending.MessageBuilder("quote_letter", _OWNER, _letter_message,
