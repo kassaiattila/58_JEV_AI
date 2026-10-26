@@ -25,7 +25,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from jav.app import human_tasks
-from jav.app.capabilities import Capability, OwnVersionResult, Result, RuleKey, read_result, step_ref
+from jav.app.capabilities import Capability, OwnVersionResult, Result, RuleKey, step_ref
 from jav.core.process import kinds
 
 POLL_S = 5.0  # how soon a waiting step looks again at the job or the person it waits for
