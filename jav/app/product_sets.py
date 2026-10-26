@@ -14,6 +14,9 @@ their expected outcome, worked by hand; `case_differences` compares them with th
 - `install(product_set, maker=, approver=None)`: the references installed or found (`SetRefused`: why none).
 - `run_case(product_set, case)`, `case_differences(product_set, case)`: a reference case evaluated and priced, and
   how that differs from what it expects.
+- D-c7a: `document_pages(product_set, ident)`, `write_documents(product_set, folder)`: each condition document as the
+  pages of a PDF, every clause (its number, title and text) on the page it says, so a rule proposal reads the invented
+  documents as it will read a real file.
 
 Layer: application (a config read; the registry writes); it names no process and no business (a set is data).
 """
@@ -21,6 +24,7 @@ Layer: application (a config read; the registry writes); it names no process and
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -29,10 +33,11 @@ from jav.app import facts, product_rules, rating, rule_evaluation
 from jav.app.product_rules import ConditionDocument, Product, Resolved, Rule, Tariff
 from jav.core import cfg, identity, versions
 from jav.core.measures import Money
+from jav.documents.synthetic_pdf import write_unicode_pdf_pages
 from jav.core.user_messages import explained
 
-__all__ = ["Case", "DocumentEntry", "Expected", "ProductSet", "SetRefused", "case_differences", "install", "load",
-           "problems", "run_case"]
+__all__ = ["Case", "DocumentEntry", "Expected", "ProductSet", "SetRefused", "case_differences", "document_pages", "install",
+           "load", "problems", "run_case", "write_documents"]
 
 FIRST = 1  # a set names the first version of each of its things
 
@@ -179,6 +184,28 @@ def install(product_set: ProductSet, *, maker: identity.Who, approver: identity.
             found = product_rules.activate(kind, ident, FIRST, actor=approver)
         refs.append(f"{kind}:{found['ref']}")
     return refs
+
+
+def document_pages(product_set: ProductSet, ident: str) -> list[list[str]]:
+    """A condition document's pages as rows: on each, the issuer and the title, then its clauses in their order (the
+    number and title, then the text), and the page's number at its foot. A page no clause names stays with its head."""
+    entry = product_set.documents[ident]
+    doc = entry.content
+    last = max((s.page or 1 for s in doc.sections), default=1)
+    pages: list[list[str]] = [[product_set.issuer, doc.title, ""] for _ in range(last)]
+    for s in doc.sections:
+        rows = pages[(s.page or 1) - 1]
+        rows += [f"{s.clause}. {s.title}" if s.title else f"{s.clause}.", entry.text.get(s.clause, ""), ""]
+    for n, rows in enumerate(pages, 1):
+        rows.append(f"– {n} –")
+    return pages
+
+
+def write_documents(product_set: ProductSet, folder: Path) -> dict[str, Path]:
+    """Every condition document of the set as a PDF in `folder` (`<id>.pdf`); the paths by document."""
+    folder.mkdir(parents=True, exist_ok=True)
+    return {ident: write_unicode_pdf_pages(folder / f"{ident}.pdf", document_pages(product_set, ident))
+            for ident in product_set.documents}
 
 
 def run_case(product_set: ProductSet, case: Case) -> tuple[rule_evaluation.Evaluation, rating.Calculation | None]:

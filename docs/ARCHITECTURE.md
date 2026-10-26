@@ -1281,7 +1281,11 @@ problems are sentences a person reads in the interface's language (`jav/core/use
 template, parameters and where it applies, the counterpart of `explained` for an error; the interface's `saidText`), and
 a refused activation sends every one (422 `manifest_refused`). The fact catalogue names how its levels and codes read
 (`labels`), and a tariff has a title (`tests/test_product_registry_service_231.py`,
-`ui/src/views/settings/productRegistry231.test.tsx`).
+`ui/src/views/settings/productRegistry231.test.tsx`). D-c7a: a set's condition documents are written as PDFs, every
+clause on the page it says (`product_sets.write_documents`, `product-set --write-pdfs DIR`; the invented PDF writer
+writes several pages, `synthetic_pdf.write_unicode_pdf_pages`, and one page byte for byte as before), so a rule
+proposal reads the invented documents as it will read a real file; read back, each rule finds its quote on the page it
+cites (`tests/test_product_set_pdfs_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

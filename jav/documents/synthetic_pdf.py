@@ -8,7 +8,9 @@ of PDFium's ToUnicode table, which does not happen in real documents.)
 
 The candidate finder's row and cell builder (`jav/documents/pdf.py: build_layout`) splits the rows into cells exactly as for a
 real invoice: the parts separated by three spaces go into separate columns. It produces no real document; it only
-writes out the given, fictitious text.
+writes out the given, fictitious text. 231 (stage D, D-c7a): `write_unicode_pdf_pages` writes several pages (an invented
+condition document, its clauses on the pages its rules cite); one page is written byte for byte as before, as the
+fingerprints of the probes' PDFs are cache keys.
 """
 
 from __future__ import annotations
@@ -51,9 +53,7 @@ def _encode(text: str) -> bytes:
     return bytes(raw).replace(b"\\", b"\\\\").replace(b"(", b"\\(").replace(b")", b"\\)")
 
 
-def write_unicode_pdf(path: Path, rows: list[str]) -> Path:
-    """Single-page PDF with the rows of `rows`; within a row, `CELL_SEP` (three spaces) is the column boundary. The
-    probes write short documents: rows running off the bottom of the page are not moved to a new page."""
+def _page_ops(rows: list[str]) -> bytes:
     ops = bytearray()
     y = TOP
     for row in layout_rows(rows):
@@ -61,15 +61,32 @@ def write_unicode_pdf(path: Path, rows: list[str]) -> Path:
             if cell.strip():
                 ops += b"BT /F1 %d Tf %d %d Td (" % (FONT_SIZE, _column_x(k), y) + _encode(cell.strip()) + b") Tj ET\n"
         y -= LINE_GAP
+    return bytes(ops)
+
+
+def write_unicode_pdf(path: Path, rows: list[str]) -> Path:
+    """Single-page PDF with the rows of `rows`; within a row, `CELL_SEP` (three spaces) is the column boundary. The
+    probes write short documents: rows running off the bottom of the page are not moved to a new page."""
+    return write_unicode_pdf_pages(path, [rows])
+
+
+def write_unicode_pdf_pages(path: Path, pages: list[list[str]]) -> Path:
+    """A PDF of one page per item of `pages`, each written as `write_unicode_pdf` writes its one page. The objects: the
+    catalogue, the page tree, the pages, the font, then the pages' contents (for one page the same as before)."""
+    n = len(pages)
+    if not n:
+        raise ValueError("a PDF has at least one page")
+    font = 3 + n
     differences = " ".join(f"{code} /{name}" for code, name in sorted(_HU_DIFFERENCES.values()))
+    kids = " ".join(f"{3 + i} 0 R" for i in range(n)).encode("ascii")
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %d %d] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>"
-        % (PAGE_W, PAGE_H),
+        b"<< /Type /Pages /Kids [" + kids + b"] /Count %d >>" % n,
+        *(b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %d %d] /Resources << /Font << /F1 %d 0 R >> >> /Contents %d 0 R >>"
+          % (PAGE_W, PAGE_H, font, font + 1 + i) for i in range(n)),
         ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding "
          f"/Differences [{differences}] >> >>").encode("ascii"),
-        b"<< /Length %d >>\nstream\n" % len(ops) + bytes(ops) + b"\nendstream",
+        *(b"<< /Length %d >>\nstream\n" % len(ops) + ops + b"\nendstream" for ops in map(_page_ops, pages)),
     ]
     out = bytearray(b"%PDF-1.4\n")
     offsets = []

@@ -470,6 +470,9 @@ def cmd_product_set(args: argparse.Namespace) -> int:
     print(f"{len(product_set.documents)} document(s), {len(product_set.rules)} rule(s), {len(product_set.tariffs)} "
           f"tariff(s), {len(product_set.products)} product(s), {len(product_set.cases)} case(s); "
           f"{len(found)} problem(s), {differing} case(s) differing")
+    if args.write_pdfs:  # D-c7a: the condition documents as PDFs, as a rule proposal reads them
+        written = product_sets.write_documents(product_set, Path(args.write_pdfs))
+        print(f"wrote {len(written)} condition document(s) as PDFs into {args.write_pdfs}")
     if not args.install:
         return 1 if found or differing else 0
     if not args.maker:
@@ -566,6 +569,7 @@ def register(sub) -> None:
     p.add_argument("--maker", help="the person adding them")
     p.add_argument("--approver", help="another person, making them active (a product needs a second person)")
     p.add_argument("--store", help="a store file to install into instead of the active store")
+    p.add_argument("--write-pdfs", metavar="DIR", help="231 D-c7a: write the set's condition documents as PDFs into DIR")
     p.set_defaults(fn=cmd_product_set)
     p = sub.add_parser("flows", help="Burr-kontraktok lintje + FLOW.md / FLOW.mmd generálás (docs/flows/)")
     p.add_argument("--check", action="store_true", help="csak lint, fájlírás nélkül")

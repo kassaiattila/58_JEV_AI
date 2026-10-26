@@ -1026,6 +1026,7 @@
     "tests/test_policy_bands.py": 1,
     "tests/test_processing_080.py": 4,
     "tests/test_product_set_231.py": 1,
+    "tests/test_product_set_pdfs_231.py": 1,
     "tests/test_properties_067.py": 12,
     "tests/test_quick_review_speed_149.py": 1,
     "tests/test_quote_document_196.py": 11,
