@@ -126,6 +126,10 @@ def code_hashes(name: str) -> dict[str, str]:
         from jav.domains.quotes import quote_match
 
         return {"quote_match": quote_match.jev_hash()}
+    if name == "rule_proposal":  # 231 (D-c7d): how far the cited page supports a proposed rule
+        from jav.app import rule_support
+
+        return {"rule_proposal": rule_support.config_hash()}
     from jav.ai import typepack
     from jav.ai.jev_select import site_for as select_site
     from jav.ai.jev_verify import site_for as verify_site
@@ -204,6 +208,12 @@ def _q_rows(name: str, data: dict[str, Any]) -> list[str]:
             crit_s = ("the price list's items (code, name, unit, group; at most `state.max_options`) + `none`"
                       if key == "item" else ", ".join(q["criteria"]))
             rows.append(f"| `{key}` | {q['kind']} | {q['instructions'][:140]}… | {crit_s} |")
+    elif name == "rule_proposal":  # 231 (D-c7d): the kinds are the options; a Noul per row of the rule, built by code
+        for key, q in data["questions"].items():
+            crit_s = (f"the rule kinds ({', '.join(q['options'])}) + `none`" if key == "kind"
+                      else ", ".join(q["criteria"]))
+            label = "row_<n>" if key == "row" else key
+            rows.append(f"| `{label}` | {q['kind']} | {q['instructions'][:140]}… | {crit_s} |")
     elif name.startswith("select"):
         for rid, r in data["requests"].items():
             for f in r["fields"]:
