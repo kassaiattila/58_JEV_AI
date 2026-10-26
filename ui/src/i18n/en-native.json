@@ -3162,5 +3162,7 @@
   "The facts will not come": "The facts will not come",
   "the step {{step}} does not wait for missing facts": "the step {{step}} does not wait for missing facts",
   "saying the facts will not come needs a reason": "saying the facts will not come needs a reason",
-  "Address of the site": "Address of the site"
+  "Address of the site": "Address of the site",
+  "Turns what a case's processed documents hold into facts of its units, each naming where it was printed.": "Turns what a case's processed documents hold into facts of its units, each naming where it was printed.",
+  "Fact readings": "Fact readings"
 }

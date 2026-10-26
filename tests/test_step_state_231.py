@@ -52,7 +52,8 @@ def test_every_registered_capability_that_can_run_names_its_state() -> None:
         "rule_evaluation@1": "step", "rating@1": "step",  # D-d3
         "decision@1": "step",  # D-d4
         "lookup@1": "step",  # D-d5
-        "missing_info@1": "step"}  # D-d6
+        "missing_info@1": "step",  # D-d6
+        "fact_claims@1": "step"}  # D-f1
 
 
 def test_a_capability_whose_state_belongs_to_the_case_stands_once_in_a_pack() -> None:

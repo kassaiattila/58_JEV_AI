@@ -1012,6 +1012,7 @@
     "tests/test_encoding_guard.py": 3,
     "tests/test_eval_report.py": 1,
     "tests/test_evals_quotes_190.py": 2,
+    "tests/test_fact_claims_231.py": 4,
     "tests/test_fact_readings_231.py": 6,
     "tests/test_field_names_197.py": 13,
     "tests/test_flow_statement_table_136.py": 2,

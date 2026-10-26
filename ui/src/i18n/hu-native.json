@@ -3167,5 +3167,7 @@
   "The facts will not come": "A tények nem fognak megérkezni",
   "the step {{step}} does not wait for missing facts": "a(z) {{step}} lépés nem vár hiányzó tényekre",
   "saying the facts will not come needs a reason": "ahhoz, hogy a tények nem érkeznek meg, indoklás kell",
-  "Address of the site": "A telephely címe"
+  "Address of the site": "A telephely címe",
+  "Turns what a case's processed documents hold into facts of its units, each naming where it was printed.": "Az ügy feldolgozott iratainak tartalmát az egységei tényeivé alakítja, mindegyiknél megnevezve, hol volt nyomtatva.",
+  "Fact readings": "Tény-kiolvasás"
 }

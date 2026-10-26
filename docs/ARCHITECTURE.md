@@ -1402,6 +1402,13 @@ with its own pack, judged field by field and row by row, and each set's facts re
 it records; without a budget only earlier answers count, so its first round is the paid measurement of D-h. Stand-ins
 test the scorer (`tests/test_property_documents_231.py`).
 
+**The insurance quote's process (231, stage D, D-f).** D-f1: the facts a case's processed documents hold
+(`jav/app/fact_claims.py`, `fact_claims@1`): what counts now for each document of a document processing step's package
+(its latest result, a person's corrections over it, and where each value was printed after them) read by the fact
+readings the case kept (`readings`), in the rule file's order of types (a parent first), each fact naming the document,
+its file, page and words; a document no reading takes is listed, a value not read is listed with why
+(`tests/test_fact_claims_231.py`).
+
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,
 changed, saving, saved, conflict, not known; `saveState`, `SaveLine`). Its unsaved work lives in the page's memory only,
