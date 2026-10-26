@@ -3154,5 +3154,12 @@
   "On a sanctions list": "On a sanctions list",
   "Under liquidation": "Under liquidation",
   "Dissolved": "Dissolved",
-  "Operating": "Operating"
+  "Operating": "Operating",
+  "Missing facts": "Missing facts",
+  "Waits for the facts the rules miss with a person's task that expires; without them the case closes.": "Waits for the facts the rules miss with a person's task that expires; without them the case closes.",
+  "Days to supply the missing facts": "Days to supply the missing facts",
+  "The case's outcome when they do not come": "The case's outcome when they do not come",
+  "The facts will not come": "The facts will not come",
+  "the step {{step}} does not wait for missing facts": "the step {{step}} does not wait for missing facts",
+  "saying the facts will not come needs a reason": "saying the facts will not come needs a reason"
 }

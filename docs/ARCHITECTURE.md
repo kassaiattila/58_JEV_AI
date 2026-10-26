@@ -1367,7 +1367,13 @@ same unit (`claims`, each naming the register as its reading), which the field c
 differing value is a conflict left to the person. Two lookups of a case are independent branches: a register that
 does not answer stops only its own step (busy: asked again in a minute), which a person retries. The fact catalogue
 1.3.0 adds what they ask with and answer (company name, tax number, register status, on a sanctions list); no rule
-reads them yet (`tests/test_lookups_231.py`).
+reads them yet (`tests/test_lookups_231.py`). D-d6: waiting for the facts the rules miss
+(`jav/app/missing_info.py`, `missing_info@1`): when the evaluation names missing facts, a person's task (`missing_info`)
+opens with them and a deadline of the days the pack sets (the step's own deadline, the owner's decision of 2026-10-26 on
+the D plan; a reply's follow-up keeps none); the person enters them in the field check and freezes it again, and once
+the evaluation misses nothing the task is withdrawn and the step is done (nothing missing at all: done at once, no
+task). The deadline passing, or a person saying with a reason that the facts will not come (the step's action), closes
+the case with the pack's outcome (`tests/test_missing_info_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,
