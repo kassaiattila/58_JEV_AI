@@ -1,8 +1,8 @@
 // 231 (plan stage A, A7e): the status lines of the general elements of a case's page (a send step's, a reply step's,
 // the cost's), small enough to load with the page; the elements themselves load when a case shows one.
-import type { CaseCost, FieldReviewData, HandoverData, ReplyData } from "../api";
+import type { CalculationData, CaseCost, EvaluationData, FieldReviewData, HandoverData, MissingInfoData, ReplyData } from "../api";
 import { t } from "../i18n";
-import { when } from "../labels";
+import { numText, tmap, when } from "../labels";
 import type { ElementProps } from "./registry";
 
 /** D-f4: a field review's state as one mark: frozen with its version, disagreements to settle, to freeze, or waiting. */
@@ -13,6 +13,34 @@ export function fieldReviewStatus(d: FieldReviewData | null): { mark: string; te
   return d.waits ? { mark: "s-review", text: t("To freeze") } : { mark: "s-waiting", text: t("Waits for the facts") };
 }
 export const fieldReviewLine = (d: FieldReviewData | null) => fieldReviewStatus(d)?.text ?? null;
+
+/** D-f5: a rule evaluation's verdict as one mark: allowed, to refer, refused, not known, or blocked. */
+export const VERDICT = tmap({ allow: "Allowed", refer: "To refer: a person decides", refuse: "Refused", unknown: "Not known: facts are missing" });
+const VERDICT_MARK: Record<string, string> = { allow: "s-done", refer: "s-review", refuse: "s-failed", unknown: "s-warn" };
+export function verdictStatus(d: EvaluationData | null): { mark: string; text: string } | null {
+  if (!d?.latest) return null;
+  if (d.latest.blockers.length) return { mark: "s-failed", text: t("Blocked") };
+  const v = d.latest.verdict;
+  return v ? { mark: VERDICT_MARK[v] ?? "s-waiting", text: VERDICT[v] ?? v } : { mark: "s-waiting", text: t("No verdict") };
+}
+
+/** D-f5: a premium's state as one mark: its total, or blocked. */
+export function calculationStatus(d: CalculationData | null): { mark: string; text: string } | null {
+  if (!d?.latest) return null;
+  if (d.latest.blockers.length || !d.latest.total) return { mark: "s-failed", text: t("Blocked") };
+  return { mark: "s-done", text: `${numText(d.latest.total.amount, 2)} ${d.latest.total.currency}` };
+}
+
+/** D-f5: the wait for missing facts as one mark. */
+export function missingStatus(d: MissingInfoData | null): { mark: string; text: string } | null {
+  if (!d) return null;
+  const task = d.task;
+  if (task?.status === "open") return { mark: "s-review", text: t("{{n}} missing", { n: d.missing.length }) };
+  if (task?.status === "expired") return { mark: "s-failed", text: t("The deadline passed") };
+  if (task?.status === "decided") return { mark: "s-failed", text: t("They will not come") };
+  if (d.state === "done") return { mark: "s-done", text: task ? t("They arrived") : t("Nothing is missing") };
+  return { mark: "s-waiting", text: t("Waits for the rules") };
+}
 
 /** The send step's state as one mark: ready to send, sent, failed, unknown, or waiting for the steps before it. */
 export function handoverStatus(p: ElementProps): { mark: string; text: string } | null {

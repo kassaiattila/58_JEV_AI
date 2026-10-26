@@ -97,6 +97,9 @@ def test_the_missing_facts_open_a_task_that_their_arrival_withdraws(packs) -> No
     assert task is not None and task.status == tasks.OPEN and task.case_id == case_id
     assert sorted({m["fact"] for m in task.detail["missing"]}) == ["accounting_method", "protection_class_in_place"]
     assert task.due_at == pytest.approx(time.time() + DAYS * missing_info.DAY_S, abs=600)
+    shown = missing_info._missing_view(case_id, "missing", {})  # D-f5: the element's data and the page's next step
+    assert shown["task"]["status"] == "open" and shown["next"]["code"] == "missing_facts" and shown["closes"] == "expired"
+    assert {m["fact"] for m in shown["missing"]} == {"accounting_method", "protection_class_in_place"}
     assert engine.state(case_id)["steps"]["missing"]["state"] == "running"
     field_check.reopen(case_id, "check", note="the client sent the missing facts", actor=ANNA)
     _turn(case_id)

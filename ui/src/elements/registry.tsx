@@ -5,10 +5,10 @@
 // are listed here; a domain's capability registers its own when the interface loads (`registerElement`, from
 // `ui/src/domains/<domain>/index.tsx`), and a case page finds both (`elementOf`).
 import { lazy, Suspense, type ReactNode } from "react";
-import type { CaseElement, CaseView, FieldReviewData, PackageWorkView, RoutingView } from "../api";
+import type { CalculationData, CaseElement, CaseView, EvaluationData, FieldReviewData, MissingInfoData, PackageWorkView, RoutingView } from "../api";
 import { t } from "../i18n";
 import { moneyText } from "../labels";
-import { costTotal, fieldReviewLine, handoverStatus, replyStatus } from "./caseStatus";
+import { calculationStatus, costTotal, fieldReviewLine, handoverStatus, missingStatus, replyStatus, verdictStatus } from "./caseStatus";
 import { packageWorkLine } from "./packageWorkStatus";
 
 export interface ElementProps { caseId: string; element: CaseElement; page: CaseView; onChanged: () => void }
@@ -40,6 +40,11 @@ const facts = () => import("./FactElements");
 const FieldReview = lazy(() => facts().then((m) => ({ default: m.FieldReview })));
 const DocumentFacts = lazy(() => facts().then((m) => ({ default: m.DocumentFacts })));
 const LookupView = lazy(() => facts().then((m) => ({ default: m.LookupView })));
+// 231 (stage D, D-f5): an assessment's calculation: the rules' evaluation, the missing facts, the premium
+const assessment = () => import("./AssessmentElements");
+const EvaluationView = lazy(() => assessment().then((m) => ({ default: m.EvaluationView })));
+const CalculationView = lazy(() => assessment().then((m) => ({ default: m.CalculationView })));
+const MissingInfoView = lazy(() => assessment().then((m) => ({ default: m.MissingInfoView })));
 /** An element whose page loads only when a case shows it (its module imported on first render). */
 export const lazily = (C: (p: ElementProps) => ReactNode) =>
   (p: ElementProps) => <Suspense fallback={<p className="muted">{t("Loading…")}</p>}><C {...p} /></Suspense>;
@@ -85,6 +90,9 @@ export const ELEMENTS: Record<string, ElementSpec> = {
   field_review: { render: lazily(FieldReview), status: (p) => fieldReviewLine(p.element.data as FieldReviewData | null) },  // D-f4
   document_facts: { render: lazily(DocumentFacts) },  // D-f4
   lookup: { render: lazily(LookupView) },  // D-f4
+  evaluation: { render: lazily(EvaluationView), status: (p) => verdictStatus(p.element.data as EvaluationData | null)?.text ?? null },  // D-f5
+  calculation: { render: lazily(CalculationView), status: (p) => calculationStatus(p.element.data as CalculationData | null)?.text ?? null },
+  missing_info: { render: lazily(MissingInfoView), status: (p) => missingStatus(p.element.data as MissingInfoData | null)?.text ?? null },
 };
 
 const OWN = new Map<string, ElementSpec>();

@@ -15,7 +15,8 @@ the missing fact and is not priced.
   the input version, the verdict, the missing facts, the blockers, the product and the modules.
 - `RATING` (`rating@1`): params `from_step` (a rule evaluation), `tariff` (kept at its version at the start); result: the
   record's version, the total, the tariff.
-- `record(case_id, step, version)`: a step's record as kept.
+- `record(case_id, step, version)`: a step's record as kept; `records(case_id, step)`: all of them, the newest first.
+- D-f5: the elements `evaluation` and `calculation` (the latest record in full, every version in a line).
 
 Layer: application; it names no process and no business (the product, its rules and its tariff are data).
 """
@@ -34,7 +35,7 @@ from jav.core.clock import utc_stamp as _now
 from jav.core.measures import Money
 from jav.core.process import kinds
 
-__all__ = ["EVALUATION", "RATING", "EvaluationResult", "RatingResult", "record", "register"]
+__all__ = ["EVALUATION", "RATING", "EvaluationResult", "RatingResult", "record", "records", "register", "unit_names"]
 
 EVALUATION_KIND, RATING_KIND = "evaluation", "rating"
 
@@ -130,6 +131,84 @@ def record(case_id: str, step: str, version: int) -> dict[str, Any]:
         raise KeyError(f"{case_id} {step} record {version}")
     return {"version": row["version"], "kind": row["kind"], "input_step": row["input_step"], "input_version": row["input_version"],
             "content": json.loads(row["content"]), "fingerprint": row["fingerprint"], "made_at": row["made_at"]}
+
+
+def records(case_id: str, step: str) -> list[dict[str, Any]]:
+    """D-f5: every record of the step, the newest first."""
+    with store.connect() as c:
+        rows = c.execute("SELECT * FROM evaluation_records WHERE case_id=? AND step_id=? ORDER BY version DESC",
+                         (case_id, step)).fetchall()
+    return [{"version": r["version"], "kind": r["kind"], "input_step": r["input_step"], "input_version": r["input_version"],
+             "content": json.loads(r["content"]), "made_at": r["made_at"]} for r in rows]
+
+
+_NAMED = ("company_name", "site_address", "asset_group")  # the facts a person tells a unit by
+
+
+def _units_of(content: dict[str, Any]) -> list[dict[str, Any]]:
+    """An evaluation's units in their order, each with the facts a person tells it by: its own level's (a unit sees its
+    ancestors' facts too, so a site would otherwise be named by its policyholder)."""
+    cat = facts.catalogue(content["catalogue"])
+    own = {k for k in _NAMED if k in cat.facts}
+    return [{"unit_id": uid, "level": u["level"],
+             "named": {k: u["seen"][k] for k in own if k in u["seen"] and cat.facts[k].level == u["level"]},
+             "combined": u["combined"], "rules": u["rules"]} for uid, u in content["units"].items()]
+
+
+def unit_names(case_id: str, step: str) -> dict[str, dict[str, Any]]:
+    """D-f5: the latest evaluation's units by id, each with its level, the facts a person tells it by, and a coded one's
+    catalogue label (`label`, English: the interface translates it)."""
+    found = records(case_id, step)
+    if not found:
+        return {}
+    labels = facts.catalogue(found[0]["content"]["catalogue"]).labels
+    out = {}
+    for u in _units_of(found[0]["content"]):
+        code = next((v for v in u["named"].values() if isinstance(v, str) and v in labels), None)
+        out[u["unit_id"]] = {"level": u["level"], "named": u["named"], **({"label": labels[code]} if code else {})}
+    return out
+
+
+def _evaluation_view(case_id: str, step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """D-f5: the evaluation element's data: the latest evaluation in full (the verdict, the modules, the missing facts,
+    the blockers, each unit's outcomes and the rules that gave them), the catalogue and the rules' titles and citations,
+    and every version (the checked input it was made from)."""
+    found = records(case_id, str(step))
+    versions = [{"version": r["version"], "input_version": r["input_version"], "made_at": r["made_at"],
+                 "verdict": r["content"]["verdict"], "missing": len(r["content"]["missing_named"]),
+                 "blockers": len(r["content"]["blockers"])} for r in found]
+    if not found:
+        return {"versions": [], "latest": None, "catalogue": None, "rules": {}}
+    content = found[0]["content"]
+    rules = {ref: {"title": r["title"], "kind": r["kind"], "source": r["source"]} for ref, r in content["rules"].items()}
+    latest = {"version": found[0]["version"], "input_version": found[0]["input_version"], "verdict": content["verdict"],
+              "modules": content["modules"], "modules_said": content.get("modules_said", True),
+              "missing": content["missing_named"], "blockers": content["blockers"], "product": content["product"],
+              "units": _units_of(content)}
+    return {"versions": versions, "latest": latest, "catalogue": facts.catalogue(content["catalogue"]).model_dump(mode="json"),
+            "rules": rules}
+
+
+def _calculation_view(case_id: str, step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """D-f5: the calculation element's data: the latest premium in full (each line with its basis, base and factors,
+    the modules' totals and minimums, the total's factors, the total, the policy minimum, the blockers), the tariff's
+    title and its factors' titles, the product's module names, the units' names, and every version."""
+    found = records(case_id, str(step))
+    versions = [{"version": r["version"], "input_version": r["input_version"], "made_at": r["made_at"],
+                 "total": r["content"]["total"], "blockers": len(r["content"]["blockers"])} for r in found]
+    if not found:
+        return {"versions": [], "latest": None}
+    content = found[0]["content"]
+    tariff = product_rules.resolve("tariff", content["tariff_ref"])["content"]
+    evaluation = record(case_id, found[0]["input_step"], found[0]["input_version"])["content"]
+    product = product_rules.product_at(evaluation["product"]).product
+    return {"versions": versions,
+            "latest": {"version": found[0]["version"], "evaluation_version": found[0]["input_version"], **content},
+            "tariff": {"ref": content["tariff_ref"], "title": tariff.get("title"), "currency": tariff["currency"],
+                       "factors": {name: f.get("title") for name, f in (tariff.get("factors") or {}).items()}},
+            "modules": {m.code: m.name for m in product.modules},
+            "units": {u["unit_id"]: {"level": u["level"], "named": u["named"]} for u in _units_of(evaluation)},
+            "catalogue": facts.catalogue(evaluation["catalogue"]).model_dump(mode="json")}
 
 
 def _checked(case_id: str, field_step: str, version: int) -> facts.CheckedInput:
@@ -246,5 +325,9 @@ RATING = capabilities.Capability(
 
 
 def register() -> None:
+    from jav.app import case_views
+
     capabilities.register(EVALUATION)
     capabilities.register(RATING)
+    case_views.register(case_views.ElementData("evaluation", "rule_evaluation", __name__, _evaluation_view))
+    case_views.register(case_views.ElementData("calculation", "rating", __name__, _calculation_view))

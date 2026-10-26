@@ -1145,3 +1145,15 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .faint { color: var(--faint); }
 .button-row.end { justify-content: flex-end; }
 .freeze { border-top: 1px solid var(--line-soft); padding-top: var(--sp-3); display: grid; gap: var(--sp-2); max-width: 520px; }
+
+/* 231 (stage D, D-f5): an assessment's calculation: a unit's outcomes as a short list, a module's total row in ink at
+   500 under a hairline, the premium's total as the ledger's sum (a 3 px double rule, 22 px semibold, tabular), and the
+   earlier versions as a quiet fold */
+.outcomes { margin: 0; gap: 2px; }
+.premium-lines .module-total td { font-weight: 500; border-top: 1px solid var(--line); }
+.premium-lines td.num { white-space: nowrap; }
+.ledger-total { display: flex; align-items: baseline; gap: var(--sp-3); justify-content: flex-end; border-top: 3px double var(--ink);
+  padding-top: var(--sp-2); }
+.ledger-total strong { font-size: var(--fs-xl); font-weight: 600; }
+details.earlier > summary { cursor: pointer; }
+details.earlier[open] > summary { margin-bottom: var(--sp-2); }

@@ -104,6 +104,15 @@ def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder) -> None
     _decide(case_id, "risk", ANNA)
     steps = _turn(case_id, 3)["steps"]
     assert steps["rate"]["result"]["total"] == {"amount": CASE.expected.total, "currency": "HUF"}
+    calc = {(e["type"], e["step"]): e["data"] for tab in case_views.view(case_id)["tabs"] if tab["id"] == "calculation"
+            for e in tab["elements"]}  # D-f5: the Calculation and versions view
+    evaluation, premium, missing = calc[("evaluation", "evaluate")], calc[("calculation", "rate")], calc[("missing_info", "missing")]
+    assert evaluation["latest"]["verdict"] == "allow" and len(evaluation["versions"]) == 1
+    holder = next(u for u in evaluation["latest"]["units"] if u["level"] == "holder")
+    assert holder["named"]["company_name"] == "Minta Kereskedő Kft." and holder["combined"]
+    assert premium["latest"]["total"] == {"amount": CASE.expected.total, "currency": "HUF"} and premium["tariff"]["title"]
+    assert set(premium["modules"]) == {"property", "burglary", "surge", "interruption"} and premium["latest"]["lines"]
+    assert (missing["state"], missing["task"], missing["next"]) == ("done", None, None)
     assert case_decisions.view(case_id, "premium")["second_person"]["needed"] is True
     with pytest.raises(case_decisions.AnotherDeciderNeeded):
         _decide(case_id, "premium", ANNA)

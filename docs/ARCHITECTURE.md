@@ -1423,7 +1423,13 @@ version and the page's next step `facts_check`), and two special elements, `docu
 document with how many facts it gave and what it could not read) and `lookup` (`lookup@1`: the register, what it was
 asked with by fact, the facts it offers; the catalogue of the field check it offers them to); the interface's
 `ui/src/elements/FactElements.tsx`. A reading's reason is one of a few sentences (the interface translates it), the
-words no table knows in its value (`ui/src/elements/factElements231.test.tsx`).
+words no table knows in its value (`ui/src/elements/factElements231.test.tsx`). D-f5: the Calculation and versions
+view: three special elements, `evaluation` (`rule_evaluation@1`: the latest evaluation in full, its units named by their
+own level's facts, the rules' titles and citations, every version), `calculation` (`rating@1`: the latest premium's
+lines, the modules' totals and minimums, the total, the tariff's and the factors' titles, the product's module names,
+every version) and `missing_info` (`missing_info@1`: what is missing with its unit, the task's deadline or how it ended,
+and the page's next step `missing_facts`); `evaluation_steps.records`, `unit_names`; the interface's
+`ui/src/elements/AssessmentElements.tsx` (`ui/src/elements/assessmentElements231.test.tsx`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

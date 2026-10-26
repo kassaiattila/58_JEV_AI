@@ -113,8 +113,40 @@ CAPABILITY = capabilities.Capability(
                                  lambda case_id, step_id, actor, note: will_not_come(case_id, step_id, actor, note)),))
 
 
+def _missing_view(case_id: str, step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """D-f5: the missing facts element's data: what is missing, the task with its deadline (or how it ended), what the
+    case closes with without them, and the page's next step while the task is open."""
+    from jav.core import store
+    from jav.core.process import cases
+
+    step_id = str(step)
+    with store.connect() as c:
+        case = cases.find_case_in(c, case_id)
+        row = cases.find_step_in(c, case_id, step_id) or {}
+    params = cases.definition_of(case).step(step_id).params if case else {}
+    task = tasks.get(_task_id(case_id, step_id))
+    open_ = task is not None and task.status == tasks.OPEN
+    missing = list((task.detail or {}).get("missing") or []) if task is not None else []
+    if row.get("state") == "done":
+        missing = list((row.get("result") or {}).get("missing") or [])
+    due = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(task.due_at)) if task and task.due_at else None
+    from jav.app import evaluation_steps
+
+    units = evaluation_steps.unit_names(case_id, str(params["from_step"])) if params.get("from_step") else {}
+    return {"state": row.get("state"), "missing": missing, "closes": params.get("closes"), "days": params.get("days"),
+            "units": {m["unit_id"]: units[m["unit_id"]] for m in missing if m["unit_id"] in units},
+            "task": None if task is None else {"status": task.status, "due_at": due, "opened_at": task.opened_at,
+                                               "closed_at": task.closed_at, "note": task.note,
+                                               "outcome": (task.outcome or {}).get("answer") if isinstance(task.outcome, dict) else None},
+            "next": {"code": "missing_facts", "label": "Get the missing facts", "stage": "review", "element": "missing_info",
+                     "params": {"n": len(missing)}} if open_ else None}
+
+
 def register() -> None:
+    from jav.app import case_views
+
     capabilities.register(CAPABILITY)
+    case_views.register(case_views.ElementData("missing_info", "missing_info", __name__, _missing_view))
 
 
 tasks.register_kind(tasks.TaskKind(TASK, __name__))

@@ -102,6 +102,38 @@ export interface LookupData {
   state: string | null; note: string | null; connector: string; what: string | null; asked: boolean | null; missing: string[];
   question: Record<string, unknown>; claims: { unit: string; fact: string; value: unknown }[]; catalogue: Catalogue | null;
 }
+/** D-f5: a rule evaluation's latest record in full, and its versions (jav/app/evaluation_steps.py). */
+export interface EvaluatedUnit {
+  unit_id: string; level: string; named: Record<string, unknown>; combined: Record<string, unknown>;
+  rules: Record<string, { matched: number[]; outcomes: Record<string, unknown>; missing: string[] }>;
+}
+export interface EvaluationData {
+  versions: { version: number; input_version: number; made_at: string; verdict: string | null; missing: number; blockers: number }[];
+  latest: { version: number; input_version: number; verdict: string | null; modules: string[]; modules_said: boolean;
+    missing: { unit_id: string; fact: string; title: string }[]; blockers: string[]; product: string; units: EvaluatedUnit[] } | null;
+  catalogue: Catalogue | null;
+  rules: Record<string, { title: string; kind: string; source: { document?: string; page?: number | null; clause?: string } }>;
+}
+export interface PremiumMoney { amount: string; currency: string }
+export interface PremiumStep { name: string; factor: string; after: PremiumMoney }
+export interface CalculationData {
+  versions: { version: number; input_version: number; made_at: string; total: PremiumMoney | null; blockers: number }[];
+  latest: {
+    version: number; evaluation_version: number; tariff_ref: string; modules: string[]; total: PremiumMoney | null;
+    subtotal: PremiumMoney | null; policy_minimum_applied: boolean; blockers: string[];
+    lines: { unit_id: string; module: string; basis: PremiumMoney; base: PremiumMoney; steps: PremiumStep[]; amount: PremiumMoney }[];
+    module_totals: Record<string, { lines: PremiumMoney; minimum_applied: boolean; total: PremiumMoney }>; total_steps: PremiumStep[];
+  } | null;
+  tariff?: { ref: string; title: string | null; currency: string; factors: Record<string, string | null> };
+  modules?: Record<string, string>; units?: Record<string, { level: string; named: Record<string, unknown> }>; catalogue?: Catalogue;
+}
+/** D-f5: the wait for missing facts. */
+export interface MissingInfoData {
+  state: string | null; missing: { unit_id: string; fact: string; title: string }[]; closes: string | null; days: number | null;
+  units?: Record<string, { level: string; named: Record<string, unknown>; label?: string }>;
+  task: { status: "open" | "decided" | "expired" | "withdrawn"; due_at: string | null; opened_at: string; closed_at: string | null;
+    note: string | null; outcome: string | null } | null;
+}
 export interface CaseEvent {
   at: string; kind: string; step: string | null; step_title: string | null; who: string | null;
   detail: { note?: string; timer?: string; task_kind?: string; answer?: string; kept?: CaseKept };
