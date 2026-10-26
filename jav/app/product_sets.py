@@ -36,10 +36,11 @@ from jav.core.measures import Money
 from jav.documents.synthetic_pdf import write_unicode_pdf_pages
 from jav.core.user_messages import explained
 
-__all__ = ["Case", "DocumentEntry", "Expected", "ProductSet", "SetRefused", "case_differences", "document_pages", "install",
+__all__ = ["SETS", "Case", "DocumentEntry", "Expected", "ProductSet", "SetRefused", "case_differences", "document_pages", "install",
            "load", "problems", "run_case", "write_documents"]
 
 FIRST = 1  # a set names the first version of each of its things
+SETS = ("golden_products",)  # D-c7g: the product sets kept as data (`configs/<name>.json`), a stand-in proposer's answers
 
 
 class SetRefused(ValueError):

@@ -1317,7 +1317,12 @@ number the document does not print confirmed), corrects it (checked again) or re
 corrected one becomes a draft rule of the registry in the same transaction (`product_rules.add_in`), its origin naming
 the run and the proposal; each decision is in the decision journal (kind `rule_proposal`), and one on a stale page is
 refused. Commands: `rule-propose` (GPT within `--budget-usd`, JEV with `--verify`, or `--stand-in SET`, free),
-`rule-proposals`, `rule-proposal-decide` (`tests/test_rule_proposal_runs_231.py`). D-c7f: the same on the local service
+`rule-proposals`, `rule-proposal-decide` (`tests/test_rule_proposal_runs_231.py`). D-c7g: Settings › Products ›
+Proposals (`ui/src/views/settings/ProposalsView.tsx`): a run started (the stand-in, free, or GPT within a budget its
+button shows), its proposals with the code's check, JEV's mark and the decision, a proposal's decision table, findings
+and numbers (each with its kind, so a code is shown as written), and a person's accept, correct or reject
+(`ui/src/views/settings/ruleProposals231.test.tsx`); the service names the stand-in sets (`product_sets.SETS`). D-c7f:
+the same on the local service
 (`jav/service/api_products.py`: `/rule-proposals`; a refused decision answers 422 `proposal_refused` with every
 problem, a stale page 409).
 

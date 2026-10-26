@@ -26,7 +26,7 @@ from fastapi import Depends, FastAPI, Query, Request
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav.app import product_rules, rule_proposal_runs, work_views
+from jav.app import product_rules, product_sets, rule_proposal_runs, work_views
 from jav.core import identity, versions
 from jav.core.user_messages import message_fields, said_fields
 from jav.service.service_shared import DecisionState, Empty, In, checked_path, error, human_actor
@@ -100,7 +100,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.get(r + "/rule-proposals")
     def rule_proposal_runs_list(document: Annotated[str | None, Query(max_length=130)] = None) -> dict[str, Any]:
-        return work_views.jsonable({"runs": rule_proposal_runs.runs(document)})
+        return work_views.jsonable({"runs": rule_proposal_runs.runs(document), "stand_ins": list(product_sets.SETS)})
 
     @app.get(r + "/rule-proposals/{run_id}")
     def rule_proposal_run(run_id: RunId) -> dict[str, Any]:

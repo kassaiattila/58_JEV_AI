@@ -214,9 +214,9 @@ export function VersionsTable<C>({ thing }: { thing: RegistryThing<C> }) {
   );
 }
 
-export function SaidLines({ items, label }: { items: Said[]; label?: string }) {
+export function SaidLines({ items, label, warning }: { items: Said[]; label?: string; warning?: boolean }) {
   useLocale();
-  return <BlockerList label={label} items={items.map((s, i) => ({ key: `${i}:${s.text}`, content: <span>{saidText(s)}</span> }))} />;
+  return <BlockerList label={label} items={items.map((s, i) => ({ key: `${i}:${s.text}`, warning, content: <span>{saidText(s)}</span> }))} />;
 }
 
 /** A draft's activation (what keeps it from being made active, then the button), an active version's retirement. */

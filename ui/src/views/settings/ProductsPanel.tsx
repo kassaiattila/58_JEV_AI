@@ -7,12 +7,13 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ConditionDocument, Product, ProductRegistry, RegistryThing, Rule } from "../../api";
 import { t, useLocale } from "../../i18n";
+import { ProposalsView } from "./ProposalsView";
 import {
   Activation, Citation, DecisionTable, DOCUMENT_KIND, documentsByRef, current, inForce, levelLabel, RULE_KIND,
   ThingState, useRegistry, versionOf, VersionLine, VersionPicker, VersionsTable,
 } from "./RegistryParts";
 
-type View = "products" | "rules" | "documents";
+type View = "products" | "rules" | "documents" | "proposals";
 type Open = { view: View; ident: string } | null;
 
 export function ProductsPanel() {
@@ -23,15 +24,15 @@ export function ProductsPanel() {
   if (registry.error) return <p className="notice error" role="alert">{registry.error.message}</p>;
   if (!registry.data) return <p className="muted">{t("Loading…")}</p>;
   const r = registry.data;
-  const views: [View, string, number][] = [["products", t("Products"), r.products.length], ["rules", t("Rules"), r.rules.length],
-    ["documents", t("Condition documents"), r.documents.length]];
+  const views: [View, string, number | null][] = [["products", t("Products"), r.products.length], ["rules", t("Rules"), r.rules.length],
+    ["documents", t("Condition documents"), r.documents.length], ["proposals", t("Proposals"), null]];
   const show = (v: View, ident: string) => { setView(v); setOpen({ view: v, ident }); };
   return (
     <div className="registry">
       <div className="segmented-tabs" role="tablist" aria-label={t("Product registry")}>
         {views.map(([key, label, n]) => (
           <button key={key} type="button" role="tab" className="seg" aria-selected={view === key} onClick={() => setView(key)}>
-            {label} <span className="tnum muted">{n}</span>
+            {label}{n != null ? <> <span className="tnum muted">{n}</span></> : null}
           </button>
         ))}
       </div>
@@ -41,6 +42,7 @@ export function ProductsPanel() {
         onClose={() => setOpen(null)} onChanged={registry.reload} /> : null}
       {view === "documents" ? <DocumentsView registry={r} open={open?.view === "documents" ? open.ident : null} onOpen={(i) => show("documents", i)}
         onClose={() => setOpen(null)} onChanged={registry.reload} /> : null}
+      {view === "proposals" ? <ProposalsView registry={r} onChanged={registry.reload} /> : null}
     </div>
   );
 }

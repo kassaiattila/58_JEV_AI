@@ -48,6 +48,7 @@ class NumberSeen:
     value: str  # as a person reads it: "10000000 HUF", "30 %", "1610"
     where: Where
     page: int | None = None
+    kind: str = "decimal"  # D-c7g: amount, percent, permille, count, decimal or code (a code is shown as written)
 
 
 @dataclass(frozen=True)
@@ -197,25 +198,25 @@ class _Text:
 
 def _where(n: _Number, text: _Text, cited: int | None, derive: dict[str, bool]) -> NumberSeen:
     if n.kind == "decimal" and n.outcome and derive.get("neutral_factor") and n.value == 1:
-        return NumberSeen(n.shown, "neutral")  # a factor of 1 changes nothing; a stray "1" does not stand for it
+        return NumberSeen(kind=n.kind, value=n.shown, where="neutral")  # a factor of 1 changes nothing; a stray "1" does not stand for it
     printed = text.printed(n.value, n.kind, cited)
     if printed is not None:
         where, page = printed
         if page in text.pages.ocr_pages:
-            return NumberSeen(n.shown, "ocr", page)
-        return NumberSeen(n.shown, where, page)
+            return NumberSeen(kind=n.kind, value=n.shown, where="ocr", page=page)
+        return NumberSeen(kind=n.kind, value=n.shown, where=where, page=page)
     if n.kind in ("count", "decimal") and n.value == n.value.to_integral_value():
         page = text.as_word(n.value, cited)
         if page is not None:
-            return NumberSeen(n.shown, "ocr" if page in text.pages.ocr_pages else "word", page)
+            return NumberSeen(kind=n.kind, value=n.shown, where="ocr" if page in text.pages.ocr_pages else "word", page=page)
     if n.kind == "decimal" and n.outcome and derive.get("percent_factor"):
         if any(n.value in (1 - p / 100, 1 + p / 100) for p in text.percents()):
-            return NumberSeen(n.shown, "derived")
+            return NumberSeen(kind=n.kind, value=n.shown, where="derived")
     if n.kind == "count" and n.compared and derive.get("count_boundary"):
         for near in (n.value - 1, n.value + 1):
             if near >= 0 and (text.printed(near, "count", cited) is not None or text.as_word(near, cited) is not None):
-                return NumberSeen(n.shown, "derived")
-    return NumberSeen(n.shown, "not_found")
+                return NumberSeen(kind=n.kind, value=n.shown, where="derived")
+    return NumberSeen(kind=n.kind, value=n.shown, where="not_found")
 
 
 def _citation(rule: Rule, pages: DocumentPages, document_ref: str, document: ConditionDocument | None) -> list[Finding]:
