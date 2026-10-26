@@ -3043,5 +3043,14 @@
   "{{value}} is not in the document: a person confirms it": "{{value}} nincs az iratban: egy személy erősíti meg",
   "{{value}} was read by text recognition on page {{page}}: a person confirms it": "{{value}} szövegfelismeréssel olvasott érték a(z) {{page}}. oldalon: egy személy erősíti meg",
   "GPT is asked only under a budget": "GPT-t csak költségkeretből lehet kérdezni",
-  "its record is no rule: {{where}}: {{reason}}": "a rekordja nem szabály: {{where}}: {{reason}}"
+  "its record is no rule: {{where}}: {{reason}}": "a rekordja nem szabály: {{where}}: {{reason}}",
+  "the proposal is no rule: correct it or reject it": "a javaslat nem szabály: javítsd vagy utasítsd el",
+  "confirm the numbers first: {{values}}": "előbb erősítsd meg a számokat: {{values}}",
+  "the corrected rule is no rule: {{where}}: {{reason}}": "a javított szabály nem szabály: {{where}}: {{reason}}",
+  "no proposer {{proposer}}: gpt, or stand_in:<product set>": "nincs ilyen javasló: {{proposer}} (gpt, vagy stand_in:<termékkészlet>)",
+  "a proposal cites an exact document version, not {{document}}": "a javaslat pontos iratváltozatra hivatkozik, nem erre: {{document}}",
+  "no file at {{path}}": "nincs fájl itt: {{path}}",
+  "the file changed since the run was asked: {{path}}": "a fájl megváltozott a futás kérése óta: {{path}}",
+  "the proposal is decided already ({{state}})": "a javaslatról már döntöttek ({{state}})",
+  "a rejection needs a reason": "az elutasításhoz indok kell"
 }

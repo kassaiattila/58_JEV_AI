@@ -43,8 +43,10 @@ _TICKS: dict[str, Tick] = {}
 
 def _complete() -> None:
     from jav.app import registrations
+    from jav.runtime import app_jobs
 
     registrations.load_all()
+    app_jobs.register()  # 231 (D-c7e): the application's own jobs, which its layer cannot name here
 
 
 def register(kind: JobKind) -> None:

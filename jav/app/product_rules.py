@@ -39,7 +39,7 @@ from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import Said, explained, inside, said, said_fields, said_from
 
 __all__ = ["KINDS", "Citation", "ConditionDocument", "Factor", "ManifestRefused", "Product", "ProductAt", "Rule",
-           "SecondPersonNeeded", "Tariff", "TariffModule", "activate", "add", "get", "keeper", "kept", "latest", "listing",
+           "SecondPersonNeeded", "Tariff", "TariffModule", "activate", "add", "add_in", "get", "keeper", "kept", "latest", "listing",
            "named", "overview", "problems_of", "product_at",
            "resolve", "retire", "rule_problems"]
 
@@ -230,18 +230,24 @@ def _content_name(kind: str, content: _Model) -> str:
 def add(kind: str, ident: str, content: dict[str, Any], *, actor: identity.Who) -> dict[str, Any]:
     """A draft: the thing's next version (the first one for a new identifier). A content that does not fit its form is
     a `ValidationError`."""
+    with store.connect() as c:
+        store.begin_immediate(c)
+        version = add_in(c, kind, ident, content, actor=actor)
+    return get(kind, ident, version)
+
+
+def add_in(c: Any, kind: str, ident: str, content: dict[str, Any], *, actor: identity.Who) -> int:
+    """D-c7e: `add` inside the caller's write transaction (a draft made with the decision that made it); its version."""
     model = _MODELS[_kind(kind)].model_validate(content)
     text = json.dumps(model.model_dump(mode="json"), ensure_ascii=False, sort_keys=True)
     table = _TABLES[kind]
-    with store.connect() as c:
-        store.begin_immediate(c)
-        latest = c.execute(f"SELECT MAX(version) FROM {table} WHERE ident=?", (ident,)).fetchone()[0]  # noqa: S608 - own table name
-        version = int(latest or 0) + 1
-        c.execute(f"INSERT INTO {table}(ident, version, state, name, content, fingerprint, made_by, made_by_id, made_at)"  # noqa: S608
-                  " VALUES (?,?,?,?,?,?,?,?,?)",
-                  (ident, version, versions.DRAFT, _content_name(kind, model), text,
-                   hashlib.sha256(text.encode("utf-8")).hexdigest(), identity.name_of(actor), identity.id_of(actor), _now()))
-    return get(kind, ident, version)
+    latest = c.execute(f"SELECT MAX(version) FROM {table} WHERE ident=?", (ident,)).fetchone()[0]  # noqa: S608 - own table name
+    version = int(latest or 0) + 1
+    c.execute(f"INSERT INTO {table}(ident, version, state, name, content, fingerprint, made_by, made_by_id, made_at)"  # noqa: S608
+              " VALUES (?,?,?,?,?,?,?,?,?)",
+              (ident, version, versions.DRAFT, _content_name(kind, model), text,
+               hashlib.sha256(text.encode("utf-8")).hexdigest(), identity.name_of(actor), identity.id_of(actor), _now()))
+    return version
 
 
 def _view(row: Any) -> dict[str, Any]:

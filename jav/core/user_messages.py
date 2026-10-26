@@ -104,3 +104,11 @@ def said_fields(text: str) -> dict[str, Any]:
         return {"text": str(text)}
     return {"text": str(text), "template": text.template, "params": dict(text.params),
             "within": said_fields(text.within) if text.within is not None else None}
+
+
+def said_back(fields: dict[str, Any]) -> Said:
+    """231 (D-c7e): a sentence again from its service form (`said_fields`), as it was stored."""
+    within = said_back(fields["within"]) if fields.get("within") else None
+    if isinstance(fields.get("template"), str):
+        return _said(fields["template"], {k: str(v) for k, v in (fields.get("params") or {}).items()}, within)
+    return _said(str(fields.get("text", "")).replace("{{", "{ {"), {}, within)

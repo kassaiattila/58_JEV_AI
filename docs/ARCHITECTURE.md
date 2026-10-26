@@ -1308,7 +1308,16 @@ there (or none), whether it states each row of the decision table and whether it
 with the page verbatim and the rule written out by code in English; the answer is a mark (supported, to check,
 contradicted) on the default bands, never an acceptance. Without JEV the proposal is not asked and keeps the code's
 checks (the engine matrix's `skipped`: GPT judging its own proposal would be no independent check)
-(`tests/test_rule_support_231.py`).
+(`tests/test_rule_support_231.py`). D-c7e: proposal runs (`jav/app/rule_proposal_runs.py`, tables `rule_proposal_runs`,
+`rule_proposals`; the worker's job `rule_propose`, which the worker's layer names for the application,
+`jav/runtime/app_jobs.py`): a file read page by page under the run's budget, every proposal kept
+with what was answered, its rule or why none, the code's findings, where each number stands and JEV's mark (and the
+pages as read, so a correction is checked again on the same text). A person accepts a proposal (nothing blocking, every
+number the document does not print confirmed), corrects it (checked again) or rejects it with a reason; an accepted or
+corrected one becomes a draft rule of the registry in the same transaction (`product_rules.add_in`), its origin naming
+the run and the proposal; each decision is in the decision journal (kind `rule_proposal`), and one on a stale page is
+refused. Commands: `rule-propose` (GPT within `--budget-usd`, JEV with `--verify`, or `--stand-in SET`, free),
+`rule-proposals`, `rule-proposal-decide` (`tests/test_rule_proposal_runs_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

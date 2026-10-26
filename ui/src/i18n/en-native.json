@@ -3038,5 +3038,14 @@
   "{{value}} is not in the document: a person confirms it": "{{value}} is not in the document: a person confirms it",
   "{{value}} was read by text recognition on page {{page}}: a person confirms it": "{{value}} was read by text recognition on page {{page}}: a person confirms it",
   "GPT is asked only under a budget": "GPT is asked only under a budget",
-  "its record is no rule: {{where}}: {{reason}}": "its record is no rule: {{where}}: {{reason}}"
+  "its record is no rule: {{where}}: {{reason}}": "its record is no rule: {{where}}: {{reason}}",
+  "the proposal is no rule: correct it or reject it": "the proposal is no rule: correct it or reject it",
+  "confirm the numbers first: {{values}}": "confirm the numbers first: {{values}}",
+  "the corrected rule is no rule: {{where}}: {{reason}}": "the corrected rule is no rule: {{where}}: {{reason}}",
+  "no proposer {{proposer}}: gpt, or stand_in:<product set>": "no proposer {{proposer}}: gpt, or stand_in:<product set>",
+  "a proposal cites an exact document version, not {{document}}": "a proposal cites an exact document version, not {{document}}",
+  "no file at {{path}}": "no file at {{path}}",
+  "the file changed since the run was asked: {{path}}": "the file changed since the run was asked: {{path}}",
+  "the proposal is decided already ({{state}})": "the proposal is decided already ({{state}})",
+  "a rejection needs a reason": "a rejection needs a reason"
 }

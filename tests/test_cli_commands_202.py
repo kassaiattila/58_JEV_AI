@@ -29,7 +29,7 @@ COMMANDS = {
     "output-template-activate", "output-template-add", "output-template-choose", "output-template-preview",
     "output-template-retire", "output-templates", "own-tax", "package-versions-backfill", "preflight",
     "processing-migrate", "product-set", "recall", "recipes", "reconcile", "reconcile-ai", "reconcile-versions-backfill", "reground",
-    "rules-preview", "run", "run-approve", "run-cancel", "run-list", "run-names", "run-show", "run-start", "serve", "snapshot",
+    "rule-proposal-decide", "rule-proposals", "rule-propose", "rules-preview", "run", "run-approve", "run-cancel", "run-list", "run-names", "run-show", "run-start", "serve", "snapshot",
     "statement-table",
     "store", "test-worktree", "trace", "type-activate", "type-candidate", "type-propose", "type-withdraw",
     "verifier-probe", "worker", "worker-status", "worker-stop", "wp-assign", "wp-create", "wp-list", "wp-show",
@@ -49,7 +49,8 @@ def _registered() -> dict[str, dict[str, argparse.ArgumentParser]]:
 def test_the_command_line_has_the_same_commands_as_before_the_split():
     registered = _registered()
     names = [c for commands in registered.values() for c in commands]
-    assert len(names) == len(set(names)) == 83  # 231: test-worktree; C1c: cases-adopt; D0-e: cases-kept; D-c5: product-set
+    assert len(names) == len(set(names)) == 86  # 231: test-worktree; C1c: cases-adopt; D0-e: cases-kept; D-c5: product-set;
+    # D-c7e: rule-propose, rule-proposals, rule-proposal-decide
     assert set(names) == COMMANDS
 
 
