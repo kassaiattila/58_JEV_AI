@@ -216,9 +216,14 @@ def _catalogue_match(ctx: Any, params: CatalogueMatch) -> kinds.StepOutcome:
 
 
 def _line_draft(ctx: Any, params: LineDraft) -> kinds.StepOutcome:
+    from jav.app import process_runtime
     from jav.domains.quotes import quote_draft
 
     wp = _container(ctx)
+    if (why := process_runtime.outdated(wp, ctx.step.id)) is not None:
+        # D0-d: an earlier step it builds on changed since the approval: the approval is reopened with that reason,
+        # and a person approves the quote again (nothing else runs by itself)
+        quote_draft.reopen(wp, note=why, actor=ctx.actor, step=ctx.step.id)
     view = quote_draft.view(wp, step=ctx.step.id)  # D0-b: the step's own draft
     if view["draft"] is None:
         quote_draft.start(wp, source="proposal", actor=ctx.actor, expected_state=None, catalogue=params.catalogue,

@@ -23,6 +23,9 @@ person starts waits for that person's start task.
 - `own_version_steps(case_id)`, `approval_steps(case_id)`, `step_using(case_id, capability)` (stage D0, D0-b): the
   case's steps done with an approved own version of theirs, those of them it waits for from its start (each its own
   person's task, `own_approval:<case>:<step>`), and its step that uses a capability.
+- `basis_of(case_id, step_id)`, `outdated(case_id, step_id)` (D0-d): the result versions of the steps a step builds on
+  (an approval records them), and why the step's approved version is out of date (one of them changed since); the
+  approving capability reopens it then, with that reason, and a person approves it again.
 - `CONTAINER_PACK`: how the work package registry knows a container (A6): a package without runs whose page names its
   case (the interface opens the case's page), whose next step is the case's state, whose outputs are its pack's, and
   which is neither released the shared way nor deleted while its case exists. It is general, the same for every pack.
@@ -43,7 +46,8 @@ from jav.core import activity_kinds, identity, rulebook, store
 from jav.core.process import cases
 from jav.core.user_messages import explained
 
-__all__ = ["CONTAINER", "CONTAINER_PACK", "adopt_all", "adopt_case", "approval_steps", "outputs_of", "own_version_steps",
+__all__ = ["CONTAINER", "CONTAINER_PACK", "adopt_all", "adopt_case", "approval_steps", "basis_of", "outdated", "outputs_of",
+           "own_version_steps",
            "owns_approval", "pack_for", "pack_of", "pack_step_kind", "register", "start_case", "step_using", "wrap_case",
            "wrap_into"]
 
@@ -401,6 +405,29 @@ def step_using(case_id: str, capability: str, c: Any = None) -> str | None:
             return step_using(case_id, capability, own)
     pack = _pack_or_none(case_id, c)
     return next((s.id for s in pack.steps if s.uses.split("@", 1)[0] == capability), None) if pack is not None else None
+
+
+def basis_of(case_id: str, step_id: str, c: Any = None) -> dict[str, int]:
+    """D0-d: the result versions of the steps the case's step builds on, now ({} for a package that is no case's)."""
+    if c is None:
+        with store.connect() as own:
+            return basis_of(case_id, step_id, own)
+    case = cases.find_case_in(c, case_id)
+    if case is None:
+        return {}
+    rows = cases.step_rows(c, case_id)
+    return {n: int(rows[n]["result_version"]) for n in cases.definition_of(case).step(step_id).needs()}
+
+
+def outdated(case_id: str, step_id: str, c: Any = None) -> str | None:
+    """D0-d: why the step's approved version is out of date: the steps it builds on whose result changed since it was
+    approved, in words; None when it holds on what is there now (or nothing holds, or it was approved before D0-d)."""
+    active = package_release.own_approval(case_id, c, step=step_id)["active"]
+    if active is None or active.get("basis") is None:
+        return None
+    now = basis_of(case_id, step_id, c)
+    changed = sorted(s for s, v in active["basis"].items() if now.get(s) != v)
+    return f"{package_release.OUTDATED}an earlier step it builds on changed: {', '.join(changed)}" if changed else None
 
 
 def _approval_capability(pack: process_packs.ProcessPack) -> capabilities.Capability | None:

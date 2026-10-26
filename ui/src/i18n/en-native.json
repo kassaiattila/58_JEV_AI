@@ -2768,5 +2768,16 @@
   "Download and processing": "Download and processing",
   "This screen element cannot be shown: {{type}}": "This screen element cannot be shown: {{type}}",
   "{{n}} of them not on this page": "{{n}} of them not on this page",
-  "the approved version is no offer a letter answers: {{fields}}": "the approved version is no offer a letter answers: {{fields}}"
+  "the approved version is no offer a letter answers: {{fields}}": "the approved version is no offer a letter answers: {{fields}}",
+  "the step {{step}} approves no version of its own": "the step {{step}} approves no version of its own",
+  "returning needs a reason": "returning needs a reason",
+  "version {{version}} is approved; reopen it instead": "version {{version}} is approved; reopen it instead",
+  "Not approved yet.": "Not approved yet.",
+  "Out of date: {{why}}": "Out of date: {{why}}",
+  "Out of date: {{why}}. Check it and approve it again.": "Out of date: {{why}}. Check it and approve it again.",
+  "Reason for returning it": "Reason for returning it",
+  "Return it": "Return it",
+  "Returned by {{who}}, {{when}}: {{reason}}": "Returned by {{who}}, {{when}}: {{reason}}",
+  "The quote has been returned; it waits for its approval.": "The quote has been returned; it waits for its approval.",
+  "an earlier step it builds on changed: {{steps}}": "an earlier step it builds on changed: {{steps}}"
 }

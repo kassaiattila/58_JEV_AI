@@ -189,6 +189,13 @@ def _approving(step: str) -> str | None:
     return step or None
 
 
+def _basis(wp_id: str, step: str, c: sqlite3.Connection) -> dict[str, int] | None:
+    """D0-d: the result versions of the steps the composition builds on (None: a package that is no case's)."""
+    from jav.app import process_runtime  # lazy: the process runtime builds on the packages and their versions
+
+    return process_runtime.basis_of(wp_id, step, c) if step else None
+
+
 def _stored(c: sqlite3.Connection, wp_id: str, step: str) -> dict[str, Any] | None:
     row = c.execute("SELECT content FROM quote_drafts WHERE workpackage_id=? AND step_id=?", (wp_id, step)).fetchone()
     return json.loads(row["content"]) if row is not None else None
@@ -481,12 +488,13 @@ def view(wp_id: str, *, step: str | None = None) -> dict[str, Any]:
         stored = _stored(c, wp_id, step)
         state = decisions.state(c, KIND, quote_steps.key(wp_id, step))
         approval = package_release.own_approval(wp_id, c, step=_approving(step))
+        approval_state = package_release.approval_state(wp_id, c, step=_approving(step))  # D0-d: out of date, returned
         active = approval["active"]
         approved = package_release.own_version(wp_id, active["version"], c)["content"] if active else None
     out: dict[str, Any] = {"draft": stored, "state": state, "approval": approval, "approved": approved, "lines": [],
                            "totals": None, "currency": None, "vat_percent": None, "blockers": [], "warnings": [],
                            "fingerprint": None, "price_list": None, "proposal_newer": False, "language": None,
-                           "languages": list(quote_document.languages()), "step": step}
+                           "languages": list(quote_document.languages()), "step": step, "approval_state": approval_state}
     if stored is None:
         return out
     prices = price_lists.version(stored["price_list"], stored["version"])
@@ -546,7 +554,8 @@ def approve(wp_id: str, *, fingerprint: str, actor: identity.Who, step: str | No
         n = package_release.approve_own(
             c, wp_id, event="quote", content=content, fingerprint=fingerprint, locks=[], actor=actor,
             files=lambda c, n: quote_document.store(c, wp_id, n, content, package=package, actor=actor),  # 196: its Word document
-            details={"lines": len(content["lines"]), "gross": content["totals"]["gross"]}, step=_approving(step))
+            details={"lines": len(content["lines"]), "gross": content["totals"]["gross"]}, step=_approving(step),
+            basis=_basis(wp_id, step, c))  # D0-d: what the composition builds on, as approved
         # 231 (B3): the totals in the decision trace, so a process's own rounding can be tried on its approved quotes
         inputs = quote_pricing.amount_inputs(content)
         trace.record_in(c, quote_pricing.AMOUNTS, subject=("quote_version", f"{wp_id}:{n}"),

@@ -47,6 +47,10 @@ def _approved(wp_id: str, step: str | None = None) -> dict[str, Any] | None:
 
 
 def _pair(ctx: Any, _params: Pairing) -> kinds.StepOutcome:
+    from jav.app import process_runtime
+
+    if (why := process_runtime.outdated(str(ctx.data["container"]), ctx.step.id)) is not None:
+        _reopen(str(ctx.data["container"]), why, ctx.actor)  # D0-d: what it builds on changed since the approval
     version = _approved(str(ctx.data["container"]), ctx.step.id)
     if version is not None:
         return kinds.Done({"version": version["version"]})

@@ -551,6 +551,9 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged, askLetter 
         approveLabel={dv.totals ? t("Approve the quote ({{gross}} {{currency}} gross)", { gross: amountText(dv.totals.gross, dv.currency), currency: dv.currency ?? "" }) : t("Approve the quote")}
         onApprove={() => void act(() => api.approveQuote(wpId, dv.fingerprint ?? "", dv.step), t("The quote has been approved."))}
         onReopen={(note) => act(() => api.reopenQuote(wpId, note, dv.step), t("The approval has been reopened; the quote can be changed again."))}
+        state={dv.approval_state ?? null}
+        onReturn={dv.step ? (reason) => run(() => api.returnCaseStep(wpId, dv.step!, reason),
+          { then: () => onChanged(), done: t("The quote has been returned; it waits for its approval.") }) : undefined}
         error={error} notice={notice} />
       {doc ? (
         <section className="card wide" aria-label={dv.approval.active ? t("The approved quote") : t("The quote to approve")}>

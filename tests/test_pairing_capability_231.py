@@ -34,7 +34,7 @@ class Ctx:
 
 def _approval(monkeypatch, active):
     monkeypatch.setattr(finance_capabilities.package_release, "own_approval",
-                        lambda wp_id, step=None: {"active": active.get(wp_id), "versions": []})
+                        lambda wp_id, c=None, step=None: {"active": active.get(wp_id), "versions": []})
 
 
 def test_the_capability_is_registered_as_a_human_step_reading_the_reconciliation_rules():

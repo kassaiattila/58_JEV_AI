@@ -3,7 +3,8 @@
 // spent (cost). Each renders the data its step's capability gives (jav/app/sending.py, jav/app/replies.py,
 // jav/app/case_views.py); a person's actions are the step's own (`actions`), and the send itself is the step's start.
 import { useState, type ReactNode } from "react";
-import { api, ApiError, type CaseCost, type CaseEvent, type CasePartnerLink, type HandoverAttempt, type HandoverData, type ReplyData, type StartedCase } from "../api";
+import { api, ApiError, type ApprovalState, type CaseCost, type CaseEvent, type CasePartnerLink, type HandoverAttempt, type HandoverData, type ReplyData, type StartedCase } from "../api";
+import { ApprovalStateNotes, EarlierVersions, ReturnControl } from "../components/ApprovalPanel";
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { fileName, moneyText, providerName, tmap, when } from "../labels";
@@ -186,6 +187,41 @@ function eventText(e: CaseEvent): string {
   const what = e.kind === "task_decided" && task && DECIDED[task] ? DECIDED[task]
     : task && TASK[task] ? `${EVENT[e.kind] ?? e.kind}: ${TASK[task]}` : EVENT[e.kind] ?? e.kind;
   return [what, answer].filter(Boolean).join(" — ");
+}
+
+/** D0-d: the shared approval of a step whose domain shows no approval of its own: its state (approved with its version,
+ *  out of date, returned, or not approved yet), the earlier versions, and returning it with a reason while it is not
+ *  approved. Approving is the step's domain's (it shows what is approved). */
+export function GeneralApproval(p: ElementProps) {
+  useLocale();
+  const state = (p.element.data as { approval?: ApprovalState } | null)?.approval ?? null;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!state) return <p className="muted">{t("Loading…")}</p>;
+  const step = p.element.step ?? "";
+  const back = (reason: string) => {
+    setBusy(true);
+    setError(null);
+    return api.returnCaseStep(p.caseId, step, reason)
+      .then(() => { p.onChanged(); return true; })
+      .catch((e) => { setError(errorText(e)); return false; })
+      .finally(() => setBusy(false));
+  };
+  const active = state.active;
+  return (
+    <section className="card" aria-label={t("Approval")}>
+      <div className="card-head"><h2>{t("Approval")}</h2></div>
+      {active ? (
+        <p className="notice ok-box">
+          {t("Approved: version {{n}}, by {{who}}, {{when}}.", { n: active.version, who: active.approved_by, when: when(active.approved_at) })}
+        </p>
+      ) : <p className="muted small">{t("Not approved yet.")}</p>}
+      <ApprovalStateNotes state={state} />
+      {!active && p.page.case.status !== "archived" ? <ReturnControl busy={busy} onReturn={back} /> : null}
+      {error ? <p className="notice error" role="alert">{error}</p> : null}
+      <EarlierVersions versions={state.versions} />
+    </section>
+  );
 }
 
 export function Timeline(p: ElementProps) {

@@ -37,7 +37,8 @@ from jav.core import calls, completion, identity, store
 from jav.core.process import cases, engine, tasks
 from jav.core.user_messages import explained
 
-__all__ = ["CaseError", "ElementData", "act", "gives", "link_partner", "marks", "next_of", "register", "start_step", "view"]
+__all__ = ["CaseError", "ElementData", "act", "gives", "link_partner", "marks", "next_of", "register", "return_step",
+           "start_step", "view"]
 
 
 class CaseError(ValueError):
@@ -55,6 +56,7 @@ class ElementData:
     module: str
     data: Callable[[str, str | None, dict[str, Any]], Any]
     mark: Callable[[], Any] | None = None
+    applies: Callable[[str], bool] | None = None  # D0-d: an element's data for any step, only for these capabilities
 
 
 _DATA: dict[tuple[str, str | None], ElementData] = {}
@@ -80,7 +82,10 @@ def marks() -> list[Any]:
 
 def _provider(element: str, capability: str | None) -> ElementData | None:
     completion.complete("element data")  # once per process: the domains register theirs there (A7e: not only when empty)
-    return _DATA.get((element, capability)) or _DATA.get((element, None))
+    general = _DATA.get((element, None))
+    if general is not None and general.applies is not None and (capability is None or not general.applies(capability)):
+        general = None  # D0-d: a shared element that shows only some capabilities' steps (the approval)
+    return _DATA.get((element, capability)) or general
 
 
 def gives(element: str, capability: str | None) -> bool:
@@ -314,6 +319,32 @@ def link_partner(case_id: str, role: str, partner_id: str, actor: identity.Who) 
     return view(case_id)
 
 
+def _approval(case_id: str, step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """D0-d: the shared approval element: the approval's state of the case's approving step (missing, approved, out of
+    date, returned), its versions, its latest return and why it went out of date (`package_release.approval_state`)."""
+    from jav.app import package_release  # lazy: the version store reads the packages, which this module serves
+
+    return {"approval": package_release.approval_state(case_id, step=step)}
+
+
+def _approves(capability: str) -> bool:
+    """D0-d: whether a step of the capability (by name) is done with an approved version of its own."""
+    return any(c.name == capability and c.own_version for c in capabilities.catalogue())
+
+
+def return_step(case_id: str, step_id: str, reason: str, actor: identity.Who) -> dict[str, Any]:
+    """D0-d: a person returns the case's approving step's result instead of approving it, with a reason; the step still
+    waits for its approval. Returns the approval's state. `CaseError` for a step that approves nothing."""
+    from jav.app import package_release, process_runtime
+
+    if step_id not in process_runtime.own_version_steps(case_id):
+        raise explained(CaseError, "the step {{step}} approves no version of its own", step=step_id)
+    with store.connect() as c:
+        store.begin_immediate(c)
+        package_release.reject_own(c, case_id, step=step_id, reason=reason, actor=actor)
+    return package_release.approval_state(case_id, step=step_id)
+
+
 def _started_cases(case_id: str, _step: str | None, shared: dict[str, Any]) -> list[dict[str, Any]]:
     """231 (C1c): the cases started from an item of the work packages the case reads (its scope's `sources`): each with
     its process and state."""
@@ -333,3 +364,4 @@ register(ElementData("started_cases", None, __name__, _started_cases))
 register(ElementData("timeline", None, __name__, _timeline))
 register(ElementData("cost", None, __name__, _cost))
 register(ElementData("partner_link", None, __name__, _partner_link))
+register(ElementData("approval", None, __name__, _approval, applies=_approves))  # D0-d: shared, for approving steps

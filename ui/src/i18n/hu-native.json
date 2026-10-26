@@ -2774,5 +2774,16 @@
   "Download and processing": "Letöltés és feldolgozás",
   "This screen element cannot be shown: {{type}}": "Ez a képernyőelem nem jeleníthető meg: {{type}}",
   "{{n}} of them not on this page": "ebből {{n}} nem ezen a lapon",
-  "the approved version is no offer a letter answers: {{fields}}": "a jóváhagyott változat nem olyan ajánlat, amelyre levél válaszolhat: {{fields}}"
+  "the approved version is no offer a letter answers: {{fields}}": "a jóváhagyott változat nem olyan ajánlat, amelyre levél válaszolhat: {{fields}}",
+  "the step {{step}} approves no version of its own": "a(z) {{step}} lépés nem hagy jóvá saját változatot",
+  "returning needs a reason": "a visszaadáshoz indok kell",
+  "version {{version}} is approved; reopen it instead": "a(z) {{version}}. változat jóvá van hagyva; inkább nyisd újra",
+  "Not approved yet.": "Még nincs jóváhagyva.",
+  "Out of date: {{why}}": "Elavult: {{why}}",
+  "Out of date: {{why}}. Check it and approve it again.": "Elavult: {{why}}. Nézd át, és hagyd jóvá újra.",
+  "Reason for returning it": "A visszaadás oka",
+  "Return it": "Visszaadás",
+  "Returned by {{who}}, {{when}}: {{reason}}": "Visszaadta: {{who}}, {{when}}. Indok: {{reason}}",
+  "The quote has been returned; it waits for its approval.": "Az ajánlatot visszaadtad; továbbra is jóváhagyásra vár.",
+  "an earlier step it builds on changed: {{steps}}": "egy korábbi lépés, amelyre épül, megváltozott: {{steps}}"
 }

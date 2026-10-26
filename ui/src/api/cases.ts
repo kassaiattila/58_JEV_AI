@@ -2,6 +2,7 @@
 // process pack, and one running instance of it is a case. The service gives a case's page as data
 // (jav/app/case_views.py): its steps and its pack's tabs, each element with what its step's capability shows.
 import { enc, request } from "./client";
+import type { ApprovalState } from "./types";
 
 /** 231 (C1a): one part a record was read from (the email's text, an attachment, a document). */
 export interface RecordPart { kind: string; name: string | null }
@@ -99,4 +100,9 @@ export const casesApi = {
     request<CaseView>("POST", `/cases/${enc(caseId)}/partners`, { role, partner_id: partnerId }),
   caseStepAction: (caseId: string, stepId: string, name: string, note?: string) =>
     request<CaseView>("POST", `/cases/${enc(caseId)}/steps/${enc(stepId)}/actions/${enc(name)}`, note ? { note } : {}),
+  /** D0-d: the approval's state of a case's approving step, and a person's return of its result with a reason */
+  caseApproval: (caseId: string, stepId: string) =>
+    request<ApprovalState>("GET", `/cases/${enc(caseId)}/steps/${enc(stepId)}/approval`),
+  returnCaseStep: (caseId: string, stepId: string, reason: string) =>
+    request<ApprovalState>("POST", `/cases/${enc(caseId)}/steps/${enc(stepId)}/approval/return`, { reason }),
 };

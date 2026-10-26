@@ -2,7 +2,7 @@
 // `ui/src/api/quotes.ts`); the domain adds its calls to the shared client when the interface loads (`./index.tsx`), and
 // their types and its upload check by declaration merging (below).
 import { enc, request } from "../../api/client";
-import type { OwnApproval, OwnVersion } from "../../api/types";
+import type { ApprovalState, OwnApproval, OwnVersion } from "../../api/types";
 import type { OutputTemplateIssue, OutputTemplateState } from "../../api/outputs";
 
 /** 191 (plan F-quote-package B3): one part of a quote request: the email's own text, an attachment, or a document. */
@@ -103,6 +103,8 @@ export interface QuoteDraftView {
   language: string | null; languages: string[];
   /** D0-b: the case's composition step it is of */
   step?: string;
+  /** D0-d: the approval's state of that step (out of date, returned) */
+  approval_state?: ApprovalState;
 }
 /** 196 (plan F-Word-output W3): the reply letter of the approved version (`jav/domains/quotes/quote_letter.py` `view`): GPT's
  *  paragraph and its state, the code's check of it, the body to accept, the accepted one, and the cap of asking GPT. */

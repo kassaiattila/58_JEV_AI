@@ -233,8 +233,18 @@ export interface ItemResult {
 export interface OwnVersion {
   version: number; fingerprint: string; approved_by: string; approved_at: string;
   reopened_by: string | null; reopened_at: string | null; reopen_note: string | null;
+  /** D0-b: the case's step it is of; D0-d: the result versions of the steps that step built on when approved */
+  step_id?: string | null; basis?: Record<string, number> | null;
 }
 export interface OwnApproval { active: OwnVersion | null; versions: OwnVersion[] }
+/** D0-d: the approval of a case's approving step (`jav/app/package_release.py` `approval_state`): missing, approved, out
+ *  of date (reopened by itself as a step it builds on has a new result), or returned by a person with a reason. */
+export interface ApprovalState extends OwnApproval {
+  state: "missing" | "approved" | "outdated" | "returned"; step: string | null;
+  returned: { reason: string; rejected_by: string; rejected_at: string } | null;
+  /** why it went out of date: "an earlier step it builds on changed: <steps>" */
+  outdated: string | null;
+}
 /** 140: a statement of a statement package's survey or of the store, as a reference (jav/domains/finance/statement_package.py). */
 export interface StatementRef {
   id: string; file: string | null; period_start: string | null; period_end: string | null; rank: string; in_store: boolean;

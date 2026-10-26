@@ -810,7 +810,15 @@ statement is its `pair` step's, the quote its `compose` step's (`process_runtime
 whole case before moves to its case's one approving step when the store opens (`human_tasks.own_approvals_per_step`,
 through the core's `tasks.resubject_in`: its rounds, assignee, opening time and history stay) or when its package is
 taken over as a case (`human_tasks.case_adopted`); a version recorded before has no step and counts as its case's
-single approving step's (`tests/test_own_approval_steps_231.py`). A package's
+single approving step's (`tests/test_own_approval_steps_231.py`). D0-d: an own version records its basis, the result
+versions of the steps its step builds on (`package_versions.basis`, `process_runtime.basis_of`); when one changes the
+approval is out of date (`process_runtime.outdated`) and the approving capability reopens it by itself with that reason
+(the quote's composition, the reconciliation's pairing), so a person approves it again - until D0-d the step went on with
+its old approval. A person may return a step's result with a reason instead of approving it (`package_release.reject_own`,
+table `own_rejections`; `POST /api/cases/{id}/steps/{step}/approval/return`); the approval's state of a step - missing,
+approved, out of date, returned - is one view (`package_release.approval_state`, `GET .../approval`), which the shared
+`approval` element shows (`case_views`: data only for steps that approve, `ElementData.applies`;
+`tests/test_approval_subject_231.py`, `ui/src/elements/approval231.test.tsx`). A package's
 new responsible person takes its open tasks (`work.set_owner` → `human_tasks.package_owner_changed`: its runs'
 approvals, the items its runs raised last, its own approval, its workflow step's budget), each move with its history
 row. The work made before has its tasks opened by the store's schema change helper (`human_tasks.adopt_missing`,

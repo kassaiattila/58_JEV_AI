@@ -206,7 +206,8 @@ def approve(wp_id: str, *, fingerprint: str, actor: identity.Who) -> dict[str, A
         return package_release.approve_own(
             c, wp_id, event="reconcile", content=content, fingerprint=fingerprint, locks=line_ids, actor=actor,
             files=lambda c, n: _store_file(c, wp_id, approved_version(wp_id, n, c), chosen=True),
-            details={"lines": len(line_ids)}, step=_approving_step(wp_id, c))
+            details={"lines": len(line_ids)}, step=(step := _approving_step(wp_id, c)),
+            basis=_basis(wp_id, step, c))  # D0-d: what the pairing builds on, as approved
     n = rp._write(state, write)
     return {k: v for k, v in approved_version(wp_id, n).items() if k != "statement"}
 
@@ -229,6 +230,13 @@ def reopen(wp_id: str, *, note: str, actor: identity.Who) -> dict[str, Any]:
                                          step=_approving_step(wp_id, c)) is None:
             raise explained(rp.PackageError, "the package has no approved statement to reopen")
     return rp.approval(wp_id)
+
+
+def _basis(wp_id: str, step: str | None, c: Any) -> dict[str, int] | None:
+    """D0-d: the result versions of the steps the pairing builds on (None: a package that is no case's)."""
+    from jav.app import process_runtime  # lazy: the process runtime builds on the packages and their versions
+
+    return process_runtime.basis_of(wp_id, step, c) if step else None
 
 
 def _approving_step(wp_id: str, c: Any) -> str | None:

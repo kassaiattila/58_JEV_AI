@@ -6,7 +6,7 @@
 import { lazy } from "react";
 import { registerCalls } from "../../api";
 import { lazyPage } from "../../components/LazyPage";
-import { lazily, registerElement, type ElementProps } from "../../elements/registry";
+import { lazily, registerApprovalBody, registerElement, type ElementProps } from "../../elements/registry";
 import { registerSettingsSection } from "../../logic/settingsSections";
 import { quotesApi, type QuoteView } from "./api";
 import { quoteStatus, quoteSummary } from "./quoteStatus";
@@ -26,7 +26,8 @@ const quoteLine = (which: "process" | "review" | "result") => (p: ElementProps) 
 registerElement("record_view", { render: lazily(RecordView), status: quoteLine("process"), summary: (p) => quoteSummary(quoteOf(p)) });
 registerElement("match_proposal", { render: lazily(MatchProposal), status: quoteLine("review") });
 registerElement("line_editor", { render: lazily(LineEditor), status: quoteLine("review") });
-registerElement("approval", { render: lazily(Approval), status: quoteLine("result") });
+// D0-d: the shared approval element shows the quote's own approval for its line composition steps
+registerApprovalBody("line_draft", { render: lazily(Approval), status: quoteLine("result") });
 
 // 191 (plan F-quote-package B2): the seller's price lists a quote is priced from
 registerSettingsSection({
