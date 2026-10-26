@@ -137,16 +137,18 @@ def wrap_into(pack_id: str, wp_id: str, *, scope: dict[str, Any], actor: identit
 
 
 def pack_step_kind(pack: process_packs.ProcessPack, *, start: Any, package_kinds: tuple[str, ...], rule: str | None = None,
-                   only_new: bool = False, subfolders: bool = False, repeat_from: Any = None, estimate: Any = None) -> Any:
+                   only_new: bool = False, subfolders: bool = False, repeat_from: Any = None, estimate: Any = None,
+                   poll: Any = None) -> Any:
     """231 (C3b5b): the workflow step kind the pack serves (`ProcessPack.workflow`), with the facts its step's capability
     gives (`start`, the kinds and the rule of a package the step may take, whether it leaves out what a live run has
-    processed or takes subfolders, its repeat source and estimate): a paid step that runs its own package, so it may have
+    processed or takes subfolders, its repeat source and estimate; C3d: its `poll`, for a step whose source is fetched
+    first, a mailbox download): a paid step that runs its own package, so it may have
     its own AI engine, needing the parts of the workflow's scope the pack takes (its party and period). A kind of the
     general process runtime, not a domain's."""
     from jav.app import workflow_steps
 
     assert pack.workflow is not None
-    return workflow_steps.StepKind(pack.workflow.kind, __name__, package_kinds, start=start, paid=True, own_engine=True,
+    return workflow_steps.StepKind(pack.workflow.kind, __name__, package_kinds, start=start, poll=poll, paid=True, own_engine=True,
                                    only_new=only_new, subfolders=subfolders, repeat_from=repeat_from, estimate=estimate,
                                    needs=tuple(p for p in (scopes.PARTY, scopes.PERIOD) if p in pack.scope.parts),
                                    rule=rule)

@@ -251,3 +251,57 @@ def test_bookkeeping_files_are_not_attachments(tmp_path):
     for name in ("receipt.json", "message.v1.json", "szamla.pdf"):
         (d / name).write_text("{}", encoding="utf-8")
     assert [a.filename for a in load_message_dir(d).attachments] == ["szamla.pdf"]
+
+
+# --- 231 (C3d): the mailbox download as a process pack's case ---------------------------------------------------------
+
+
+def _mailbox_cases() -> list[str]:
+    from jav.app import process_runtime
+
+    return [w["id"] for w in work.list_workpackages(include_archived=True)
+            if w["source_kind"] == "case" and (process_runtime.pack_of(w["id"]) or ("",))[0] == "mailbox"]
+
+
+def test_a_download_no_step_takes_gets_a_mailbox_case(env, monkeypatch):
+    """The owner's decision of 2026-10-26: a scheduled download's (or one from the settings) package gets a case; its
+    live run stays a person's action."""
+    from jav.app import document_processing
+
+    monkeypatch.setattr(ingest_server, "INBOX_ROOT", env["inbox"])
+    monkeypatch.setattr(mailbox, "_subprocess_runner", FakeBridge(MAILS))
+    p = mailbox.request_pull(REQ, actor="teszt")
+    worker.run_worker(once=True)
+    wp = mailbox.pull(p["id"])["result"]["workpackage"]
+    [case] = _mailbox_cases()
+    assert document_processing.package_of(case, "process") == wp and work.get(case)["owner"] == "teszt"
+    assert not work_runs.runs(wp)  # no paid run started
+
+
+def test_a_workflow_s_download_is_its_step_s_and_gets_no_case_of_its_own(env, monkeypatch):
+    monkeypatch.setattr(ingest_server, "INBOX_ROOT", env["inbox"])
+    monkeypatch.setattr(mailbox, "_subprocess_runner", FakeBridge(MAILS))
+    mailbox.request_pull(REQ, actor="teszt", taker="workflow:wf-1:emails")
+    worker.run_worker(once=True)
+    assert _mailbox_cases() == []
+
+
+def test_a_mailbox_case_downloads_its_own_package_and_binds_it(env, monkeypatch):
+    from jav.app import document_processing, process_runtime
+    from jav.core.process import engine
+
+    monkeypatch.setattr(ingest_server, "INBOX_ROOT", env["inbox"])
+    monkeypatch.setattr(mailbox, "_subprocess_runner", FakeBridge(MAILS))
+    case = process_runtime.start_case("mailbox", {"source": {"kind": "mailbox", "request": REQ.model_dump(mode="json")}},
+                                      name="Iroda", actor="teszt")
+    engine.turn(case, wake=True)
+    assert engine.state(case)["steps"]["process"]["waiting_for"] == "fetching"
+    [queued] = mailbox.pulls()
+    assert queued["taker"] == f"case:{case}:process" and queued["status"] == "queued"
+    worker.run_worker(once=True)  # the download job, with the fake bridge
+    for _ in range(2):
+        engine.turn(case, wake=True)
+    wp = mailbox.pull(queued["id"])["result"]["workpackage"]
+    assert document_processing.package_of(case, "process") == wp
+    assert engine.state(case)["steps"]["process"]["waiting_for"] == "run_start"
+    assert _mailbox_cases() == [case]  # the case's own download is not wrapped by a second case

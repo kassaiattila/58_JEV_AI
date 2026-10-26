@@ -281,6 +281,10 @@ def test_the_mailbox_step_waits_for_its_download_then_runs_its_package(db, monke
     emails = _steps(view)["emails"]
     assert emails["state"] == "started" and emails["package"]["id"] == package["id"]
     assert work_runs.get_run(emails["run_id"])["actor"] == "tester (auto)"
+    # 231 (C3d): the step's package is a mailbox case's (the mailbox pack's step kind wraps it), its run the workflow's
+    [case] = [r["id"] for r in work.list_workpackages() if r["source_kind"] == "case"
+              and document_processing.package_of(r["id"], "process") == package["id"]]
+    assert process_runtime.pack_of(case)[0] == "mailbox"
 
 
 def test_a_download_without_new_emails_is_nothing_new_and_a_failed_one_shows_its_error(db, monkeypatch):

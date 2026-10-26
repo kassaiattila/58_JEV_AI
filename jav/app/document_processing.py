@@ -419,7 +419,7 @@ def _workflow_start(pack_id: str, ctx: workflow_steps.StepStart) -> None:
     (`Maker.step_offer`; nothing new: done without a package), a case of the pack is made around it with the workflow's
     party and period (`process_runtime.wrap_into`; the case's page offers no start of its own, `_workflow_starts`), and
     the package is noted on the step and its live run starts within the step's budget, as the step kind's own start did."""
-    from jav.app import process_packs, process_runtime  # lazy: the process runtime builds on this capability's registry
+    from jav.app import process_packs  # lazy: the process packs build on this capability's registry
 
     pack = process_packs.load(pack_id)
     serves = pack.workflow
@@ -428,8 +428,30 @@ def _workflow_start(pack_id: str, ctx: workflow_steps.StepStart) -> None:
     maker = maker_of(Process.model_validate(step.params).maker)
     assert maker.step_offer is not None
     wp_id = maker.step_offer(ctx)
-    if wp_id is None:
-        return
+    if wp_id is not None:
+        _take(pack, ctx, wp_id)
+
+
+def _workflow_poll(pack_id: str, ctx: workflow_steps.StepStart) -> None:
+    """231 (C3d): a workflow's step of a pack whose maker fetches (a mailbox download): once the fetch has finished,
+    its package is taken as a started step's (`_take`); while it runs, or when it found nothing or failed (the maker
+    says so on the step), nothing more."""
+    from jav.app import process_packs  # lazy, as above
+
+    pack = process_packs.load(pack_id)
+    assert pack.workflow is not None
+    step = next(s for s in pack.steps if s.id == pack.workflow.step)
+    maker = maker_of(Process.model_validate(step.params).maker)
+    assert maker.step_poll is not None
+    wp_id = maker.step_poll(ctx)
+    if wp_id is not None:
+        _take(pack, ctx, wp_id)
+
+
+def _take(pack: Any, ctx: workflow_steps.StepStart, wp_id: str) -> None:
+    """A workflow step's new package: a case of the pack around it, then noted on the step with its live run started."""
+    from jav.app import process_runtime  # lazy, as above
+
     scope: dict[str, Any] = {}
     if scopes.PARTY in pack.scope.parts:
         scope[scopes.PARTY] = ctx.workflow["party_id"]
@@ -465,7 +487,8 @@ def register_workflow_steps() -> None:
             raise ValueError(f"process pack {pack.id!r} serves a workflow step, but its maker {maker.name!r} makes none")
         workflow_steps.register(process_runtime.pack_step_kind(
             pack, start=partial(_workflow_start, pack.id), package_kinds=maker.package_kinds, rule=maker.rule,
-            only_new=maker.only_new, subfolders=maker.subfolders, repeat_from=maker.repeat_from, estimate=maker.estimate))
+            only_new=maker.only_new, subfolders=maker.subfolders, repeat_from=maker.repeat_from, estimate=maker.estimate,
+            poll=partial(_workflow_poll, pack.id) if maker.step_poll is not None else None))
 
 
 def register() -> None:

@@ -42,7 +42,8 @@ def test_importing_registers_no_step_kind_and_load_all_registers_each_from_its_o
     seen = json.loads(out.stdout.strip().splitlines()[-1])
     # (231 C1c) the process packs' step, email, quotes; (C3b5b) last, the packs' own step kinds (the bank statements', the
     # documents'), once every domain registered its package makers
-    assert seen == {"before": [], "after": ["process", "emails", "statements", "documents"]}  # (C3c) the quote's went  # 231 C3a-2: reconcile went
+    assert seen == {"before": [], "after": ["process", "statements", "documents", "emails"]}  # (C3c) the quote's went; (C3d)
+    # the emails step is the mailbox pack's  # 231 C3a-2: reconcile went
 
 
 def test_every_template_kind_is_registered_and_nothing_more() -> None:
@@ -50,7 +51,7 @@ def test_every_template_kind_is_registered_and_nothing_more() -> None:
     kinds = {k.kind: k for k in workflow_steps.kinds()}
     assert set(kinds) == set(cfg.load("workflows")["kinds"])
     assert {k: v.module for k, v in kinds.items()} == {
-        "documents": "jav.app.process_runtime", "emails": "jav.domains.email.mailbox",
+        "documents": "jav.app.process_runtime", "emails": "jav.app.process_runtime",  # (C3d) the mailbox pack's
         "statements": "jav.app.process_runtime",  # 231 (C3b5b): the packs' own step kinds, made by the process runtime
         "process": "jav.app.process_runtime"}  # 191; 231 C1c: process; C3c: the quote's kind went (its pack's)
 

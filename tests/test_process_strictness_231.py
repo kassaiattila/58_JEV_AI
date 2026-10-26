@@ -26,7 +26,7 @@ UI_PROCESS_DIRS = {"quotes", "reconcile"}  # C1c: routing went
 UI_SHARED_DIRS = {"settings", "workflows"}
 
 FROZEN_LOGIC_PACKS: set[str] = set()  # A3d: the quote package went; C1c: the email routing; C3a-2: the reconciliation; C3b5a: the statements
-FROZEN_STEP_KINDS = {"emails"}  # C3c: the quote (its pack's); C1c: the routing; C3a-2: the reconciliation; C3b5b: the documents, the statements (their packs')
+FROZEN_STEP_KINDS: set[str] = set()  # C3d: the emails (the mailbox pack's); C3c: the quote (its pack's); C1c: the routing; C3a-2: the reconciliation; C3b5b: the documents, the statements (their packs')
 FROZEN_ITEM_PARTS: set[tuple[str, str]] = set()  # 231 (C1a): the quote request under its email became the general intake
 FROZEN_DOMAINS = ("jav.domains.finance", "jav.domains.email", "jav.domains.quotes")
 FROZEN_UI_FILES = {

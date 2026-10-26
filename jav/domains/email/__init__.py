@@ -124,8 +124,14 @@ def register() -> None:
     parts.register_item_part(parts.ItemPart("emails", __name__, item_kinds.EMAIL, read=email_export.email_records,
                                             data=email_export.result_tables, json_key="emails",
                                             views=email_export.shown_tables, heads=email_export.HEADS))
-    workflow_steps.register(mailbox.STEP)  # 181: a workflow's emails step
     workflow_steps.register_source(mailbox.SOURCE)  # 185: a mailbox download as a step's source
+    from jav.app import document_processing
+
+    # 231 (C3d): the mailbox download as a package maker of the document processing step (the mailbox pack's), with
+    # its workflow hooks: a workflow's emails step is the mailbox pack's step kind
+    document_processing.register_maker(document_processing.Maker(
+        mailbox.PACK, mailbox.__name__, fetch=mailbox.case_fetch, collect=mailbox.case_collect, sources=("mailbox",),
+        package_kinds=("mailbox",), step_offer=mailbox.workflow_offer, step_poll=mailbox.workflow_poll_offer))
     from jav.domains.email import capabilities
 
     # 231 (C1c): the email routing is the email routing process pack's case (its step's capability); until then its own

@@ -1,0 +1,71 @@
+{
+  "meta": {
+    "name": "process:mailbox",
+    "version": "1.0.0",
+    "description": "231 (plan stage C, C3d; DECISIONS 231): the download of a mailbox's new emails as a process pack (until C3d the wizard's mailbox form and the workflows' emails step kind): a case downloads its mailbox's emails into its package (an asynchronous fetch through the Outlook bridge, the worker's download job), a person starts its live run within the package's estimate, and the case is done once a live run is approved. A download no step takes (a scheduled one) wraps its package by a case too (the owner's decision of 2026-10-26).",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-26",
+        "note": "231 (C3d): the first version: the document processing step with the mailbox maker (process_documents@1), its tabs Emails and History, and the workflows' emails step (workflow)."
+      }
+    ]
+  },
+  "id": "mailbox",
+  "title": "Emails from a mailbox",
+  "scope": {
+    "parts": [
+      "source"
+    ]
+  },
+  "intake": [
+    {
+      "on": "manual",
+      "starts": "manual"
+    }
+  ],
+  "resources": {},
+  "steps": [
+    {
+      "id": "process",
+      "uses": "process_documents@1",
+      "title": "Download and processing",
+      "params": {
+        "maker": "mailbox"
+      }
+    }
+  ],
+  "workflow": {
+    "kind": "emails",
+    "step": "process",
+    "package_part": "source"
+  },
+  "screens": {
+    "tabs": [
+      {
+        "id": "documents",
+        "label": "Emails",
+        "elements": [
+          {
+            "type": "package_work",
+            "step": "process"
+          }
+        ]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "elements": [
+          {
+            "type": "timeline"
+          },
+          {
+            "type": "cost"
+          }
+        ]
+      }
+    ]
+  },
+  "outputs": [],
+  "goldens": []
+}
