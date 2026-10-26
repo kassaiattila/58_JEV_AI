@@ -9,8 +9,9 @@ rule of the registry's form (one that does not fit is kept, with why) and checke
 proposers: GPT under a budget (`configs/gpt_rule_proposal.json`), and a stand-in that answers with a product set's rules
 for that document, free, for the tests and a demonstration, and named as a stand-in wherever it shows.
 
-- `propose(document_ref, pages, catalogue_id, proposer=, modules=, document=)`: the `Proposal`s (the record as answered,
-  the rule or why none, the code's check).
+- `propose(document_ref, pages, catalogue_id, proposer=, modules=, document=, verifier=)`: the `Proposal`s (the record as
+  answered, the rule or why none, the code's check, and with a `verifier` (D-c7d: `rule_support.support`) JEV's mark
+  for a proposal code found nothing blocking in).
 - `gpt_proposer(run_id)`, `set_proposer(product_set)`: the two proposers.
 - `to_rule(record, catalogue_id, document_ref)`, `record_of(rule)`: a record and a rule, each way.
 
@@ -27,7 +28,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from jav.ai import gpt_answer
-from jav.app import facts, rule_checks
+from jav.app import facts, rule_checks, rule_support
 from jav.app.product_rules import OPS, ConditionDocument, Rule
 from jav.core import cfg, versions
 from jav.core.user_messages import Said, said
@@ -87,6 +88,7 @@ class Request:
 
 
 Proposer = Callable[[Request], ProposedRules]
+Verifier = Callable[[Rule, DocumentPages], rule_support.Support]
 
 
 @dataclass(frozen=True)
@@ -96,6 +98,7 @@ class Proposal:
     problem: Said | None  # why the record is no rule of the registry's form
     check: rule_checks.RuleCheck | None
     pages: tuple[int, ...]  # the pages it was proposed from
+    support: rule_support.Support | None = None  # D-c7d: JEV's mark (None: not asked for, or code found it blocking)
 
 
 def _site() -> dict[str, Any]:
@@ -177,9 +180,11 @@ def set_proposer(product_set: Any) -> Proposer:
 
 
 def propose(document_ref: str, pages: DocumentPages, catalogue_id: str, *, proposer: Proposer,
-            modules: dict[str, str] | None = None, document: ConditionDocument | None = None) -> list[Proposal]:
+            modules: dict[str, str] | None = None, document: ConditionDocument | None = None,
+            verifier: Verifier | None = None) -> list[Proposal]:
     """The rules `proposer` reads from the document's pages, a few pages at a time, each turned into a rule and
-    checked by code. A page its marking kept out is never asked about."""
+    checked by code, then judged by `verifier` when code found nothing blocking. A page its marking kept out is never
+    asked about."""
     cat = facts.catalogue(catalogue_id)
     per = max(1, int(_site()["pages_per_request"]))
     numbers = sorted(pages.pages)
@@ -190,5 +195,6 @@ def propose(document_ref: str, pages: DocumentPages, catalogue_id: str, *, propo
         for record in proposer(request).rules:
             rule, problem = to_rule(record, catalogue_id, document_ref)
             check = rule_checks.check(rule, pages, document_ref=document_ref, document=document) if rule is not None else None
-            out.append(Proposal(record, rule, problem, check, chunk))
+            judged = verifier(rule, pages) if verifier is not None and rule is not None and check and not check.blocking else None
+            out.append(Proposal(record, rule, problem, check, chunk, judged))
     return out

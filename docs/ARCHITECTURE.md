@@ -1302,6 +1302,13 @@ stand-in model for a block; nothing asked without a budget), and the rule propos
 fact catalogue and the cover modules, answered with rule records (each value as JSON text of the catalogue's type, the
 page, clause and quoted words), each turned into a registry rule (or kept with why it is none) and checked by code. A
 stand-in proposer answers with a product set's rules for the pages asked, free (`tests/test_rule_proposals_231.py`).
+D-c7d: JEV's judgement of how far the cited page supports a proposal code found nothing blocking in
+(`jav/app/rule_support.py`, `configs/callsites/rule_proposal.json`): one request asks which kind of rule the page states
+there (or none), whether it states each row of the decision table and whether it names something the rule leaves out,
+with the page verbatim and the rule written out by code in English; the answer is a mark (supported, to check,
+contradicted) on the default bands, never an acceptance. Without JEV the proposal is not asked and keeps the code's
+checks (the engine matrix's `skipped`: GPT judging its own proposal would be no independent check)
+(`tests/test_rule_support_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,
