@@ -21,11 +21,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import date
 from decimal import Decimal
 from typing import Any
-
-from pydantic import BaseModel
 
 from jav.app import facts
 from jav.app.product_rules import Resolved, Rule
@@ -168,17 +165,7 @@ def _combine(o: facts.OutcomeDef, given: list[tuple[str, Any]], clashes: list[st
     return values[0], True
 
 
-def plain(value: Any) -> Any:
-    """A typed value as JSON (an amount as text, a day as ISO text)."""
-    if isinstance(value, BaseModel):
-        return value.model_dump(mode="json")
-    if isinstance(value, Decimal):
-        return str(value)
-    if isinstance(value, date):
-        return value.isoformat()
-    if isinstance(value, tuple):
-        return list(value)
-    return value
+plain = facts.plain  # D-e2: a typed value as JSON, now the fact module's (where the values are typed)
 
 
 def _shown(value: Any) -> str:

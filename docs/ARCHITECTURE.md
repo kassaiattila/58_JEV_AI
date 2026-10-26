@@ -1381,6 +1381,22 @@ decision, the premium from the kept tariff and the premium decision by another p
 and every decision on the way replays the same (`tests/test_assessment_path_231.py`). No step names insurance: the
 product, its rules, its tariff, the registers and the limit are data.
 
+**The insurance application's documents (231, stage D, D-e).** D-e1: a detection type of its own (the owner's decision
+of 2026-10-26: a new main type) with three type packs (see the pack table). D-e2: a document's values become facts of
+the assessed units by a rule file kept as a case started (`jav/app/fact_readings.py`,
+`configs/fact_readings_property.json`): per type pack, the units its values describe (the policyholder, a site by its
+number, an asset group by its row), each fact from a header field, a row's column or a list's column (the covers asked
+for), through a code table where the document prints a word (compared without case, extra spaces or punctuation at its
+ends), an amount with the currency the document states; what cannot be read is listed with why, never guessed (a word
+no table knows, an amount without its currency, a count that is not whole, a unit the document does not name). The
+invented documents (`jav/evals/property_documents.py`, `configs/golden_property_documents.json`): eight sets, 23
+documents (a quote request form, a property schedule per site, a claims history statement), each kept as what a correct
+reading gives; its printed page is made from those values in its layout (a schedule on two pages), so the code's own
+source check finds every value on it. Each set records the facts its documents give (the units, what is not read, what
+two documents give differently); the five sets of the product set's reference cases give that case's very facts and
+covers (`tests/test_property_documents_231.py`, `tests/test_fact_readings_231.py`). The fact catalogue 1.4.0 adds the
+site's address. `facts.plain`: a typed value as JSON (moved from the rule evaluation, which keeps the name).
+
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,
 changed, saving, saved, conflict, not known; `saveState`, `SaveLine`). Its unsaved work lives in the page's memory only,

@@ -3166,5 +3166,6 @@
   "The case's outcome when they do not come": "Az ügy kimenete, ha nem érkeznek meg",
   "The facts will not come": "A tények nem fognak megérkezni",
   "the step {{step}} does not wait for missing facts": "a(z) {{step}} lépés nem vár hiányzó tényekre",
-  "saying the facts will not come needs a reason": "ahhoz, hogy a tények nem érkeznek meg, indoklás kell"
+  "saying the facts will not come needs a reason": "ahhoz, hogy a tények nem érkeznek meg, indoklás kell",
+  "Address of the site": "A telephely címe"
 }

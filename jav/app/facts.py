@@ -31,7 +31,7 @@ from jav.core.user_messages import explained
 from jav.core.versions import AT
 
 __all__ = ["Catalogue", "CheckedInput", "FactDef", "FactError", "OutcomeDef", "SourceClaim", "Unit", "catalogue",
-           "checked_input", "typed_fact", "typed_value"]
+           "checked_input", "plain", "typed_fact", "typed_value"]
 
 FactType = Literal["money", "quantity", "code", "codes", "bool", "date", "count", "decimal", "percentage", "permille", "text"]
 
@@ -111,6 +111,19 @@ def typed_fact(cat: Catalogue, name: str, level: str, value: Any) -> Any:
         raise explained(FactError, "{{name}} is a fact of the level {{level}}, not of {{asked}}", name=name, level=d.level,
                         asked=level)
     return typed_value(name, d, value)
+
+
+def plain(value: Any) -> Any:
+    """A typed value as JSON (an amount as text, a day as ISO text). D-e2: here, where the values are typed."""
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json")
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, tuple):
+        return list(value)
+    return value
 
 
 def typed_value(name: str, d: FactDef | OutcomeDef, value: Any) -> Any:

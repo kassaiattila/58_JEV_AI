@@ -1,0 +1,1517 @@
+{
+ "meta": {
+  "name": "golden_property_documents",
+  "version": "1.0.0",
+  "description": "231 (stage D, D-e2): invented documents of businesses asking for property insurance (jav/evals/property_documents.py): quote request forms, a property schedule per site and claims history statements, in sets. Each document is kept as what a correct reading of it gives (its type pack's values; a null value is not printed); its printed page is made from them in the layout it names (standard, two_pages). Each set names the facts its documents hold through the fact readings (configs/fact_readings_property.json): the units, the values not read and the facts two documents disagree on. The first five sets hold the invented product set's reference cases (configs/golden_products.json, the case named), so their documents are read into the very facts the rules were measured on; the other three are a policyholder with two sites, a claims statement with another tax number and a schedule with words no code table knows. The printed text is document vocabulary (Hungarian); every name, address and number is invented, the tax numbers are on the data guard's list of invented values.",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-26",
+    "note": "231 (D-e2): the first version: eight sets, 23 documents."
+   }
+  ]
+ },
+ "sets": [
+  {
+   "id": "reference",
+   "title": "The reference case reference of the invented product set",
+   "case": "reference",
+   "documents": [
+    {
+     "id": "reference-request",
+     "pack": "insurance_request",
+     "values": {
+      "policyholder_name": "Minta Kereskedő Kft.",
+      "policyholder_tax_number": "12345676-2-41",
+      "activity_code": "4719",
+      "contact_name": "Minta Anna",
+      "contact_email": "anna@minta.hu",
+      "cover_start": "2027-01-01",
+      "payment_frequency": "féléves",
+      "accounting_method": "fedezeti összeg",
+      "interruption_sum_insured": "60000000",
+      "currency": "HUF",
+      "requested_covers": [
+       {
+        "cover": "vagyonbiztosítás"
+       },
+       {
+        "cover": "betöréses lopás és rablás"
+       },
+       {
+        "cover": "túlfeszültség"
+       },
+       {
+        "cover": "üzemszünet"
+       }
+      ],
+      "sites": [
+       {
+        "site_no": "1",
+        "address": "1111 Budapest, Minta utca 1.",
+        "country": "Magyarország"
+       }
+      ]
+     }
+    },
+    {
+     "id": "reference-schedule-1",
+     "pack": "property_schedule",
+     "layout": "standard",
+     "values": {
+      "policyholder_name": "Minta Kereskedő Kft.",
+      "site_no": "1",
+      "site_address": "1111 Budapest, Minta utca 1.",
+      "floor_area": "450",
+      "flood_zone": "alacsony",
+      "alarm_remote": "igen",
+      "surge_protection": "T3",
+      "basement_storage": "nem",
+      "protection_class": "3",
+      "currency": "HUF",
+      "asset_groups": [
+       {
+        "asset_group": "épület",
+        "sum_insured": "180000000",
+        "valuation": "új érték",
+        "wear": 10
+       },
+       {
+        "asset_group": "gépek és berendezések",
+        "sum_insured": "25000000",
+        "valuation": "új érték",
+        "wear": 20
+       },
+       {
+        "asset_group": "készlet",
+        "sum_insured": "40000000",
+        "valuation": "avult érték",
+        "wear": null
+       },
+       {
+        "asset_group": "készpénz",
+        "sum_insured": "2500000",
+        "valuation": "avult érték",
+        "wear": null
+       }
+      ]
+     }
+    },
+    {
+     "id": "reference-claims",
+     "pack": "claims_history",
+     "values": {
+      "policyholder_name": "Minta Kereskedő Kft.",
+      "policyholder_tax_number": "12345676-2-41",
+      "period_start": "2022-01-01",
+      "period_end": "2026-12-31",
+      "claims_count": "1",
+      "claims_paid_total": "800000",
+      "currency": "HUF",
+      "claims": [
+       {
+        "claim_date": "2023-03-04",
+        "cause": "csőtörés",
+        "paid": "800000"
+       }
+      ]
+     }
+    }
+   ],
+   "units": [
+    {
+     "key": "holder",
+     "level": "holder",
+     "parent": null,
+     "facts": {
+      "company_name": "Minta Kereskedő Kft.",
+      "tax_number": "12345676-2-41",
+      "activity_code": "4719",
+      "payment_frequency": "half_yearly",
+      "accounting_method": "gross_profit",
+      "interruption_sum_insured": {
+       "amount": "60000000",
+       "currency": "HUF"
+      },
+      "requested_modules": [
+       "property",
+       "burglary",
+       "surge",
+       "interruption"
+      ],
+      "claims_5y_count": 1,
+      "claims_5y_paid": {
+       "amount": "800000",
+       "currency": "HUF"
+      }
+     }
+    },
+    {
+     "key": "site:1",
+     "level": "site",
+     "parent": "holder",
+     "facts": {
+      "site_address": "1111 Budapest, Minta utca 1.",
+      "country": "HU",
+      "floor_area": {
+       "value": "450",
+       "unit": "m2"
+      },
+      "flood_zone": "low",
+      "alarm_remote": true,
+      "surge_protection": "t3",
+      "basement_storage": false,
+      "protection_class_in_place": 3
+     }
+    },
+    {
+     "key": "site:1/1",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "buildings",
+      "sum_insured": {
+       "amount": "180000000",
+       "currency": "HUF"
+      },
+      "valuation": "new_value",
+      "wear": {
+       "value": "10",
+       "per": 100
+      }
+     }
+    },
+    {
+     "key": "site:1/2",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "equipment",
+      "sum_insured": {
+       "amount": "25000000",
+       "currency": "HUF"
+      },
+      "valuation": "new_value",
+      "wear": {
+       "value": "20",
+       "per": 100
+      }
+     }
+    },
+    {
+     "key": "site:1/3",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "stock",
+      "sum_insured": {
+       "amount": "40000000",
+       "currency": "HUF"
+      },
+      "valuation": "current_value"
+     }
+    },
+    {
+     "key": "site:1/4",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "cash",
+      "sum_insured": {
+       "amount": "2500000",
+       "currency": "HUF"
+      },
+      "valuation": "current_value"
+     }
+    }
+   ],
+   "unread": [],
+   "conflicts": []
+  },
+  {
+   "id": "missing_facts",
+   "title": "The reference case missing_facts of the invented product set",
+   "case": "missing_facts",
+   "documents": [
+    {
+     "id": "missing_facts-request",
+     "pack": "insurance_request",
+     "values": {
+      "policyholder_name": "Minta Fémmegmunkáló Kft.",
+      "policyholder_tax_number": "24681353-1-43",
+      "activity_code": "4719",
+      "contact_name": "Minta Béla",
+      "contact_email": "bela@minta.hu",
+      "cover_start": "2027-01-01",
+      "payment_frequency": "féléves",
+      "accounting_method": null,
+      "interruption_sum_insured": "60000000",
+      "currency": "HUF",
+      "requested_covers": [
+       {
+        "cover": "vagyonbiztosítás"
+       },
+       {
+        "cover": "betöréses lopás és rablás"
+       },
+       {
+        "cover": "túlfeszültség"
+       },
+       {
+        "cover": "üzemszünet"
+       }
+      ],
+      "sites": [
+       {
+        "site_no": "1",
+        "address": "6000 Kecskemét, Minta köz 7.",
+        "country": "Magyarország"
+       }
+      ]
+     },
+     "note": "The request prints no accounting method and the schedule no protection class: the facts the rules miss."
+    },
+    {
+     "id": "missing_facts-schedule-1",
+     "pack": "property_schedule",
+     "layout": "standard",
+     "values": {
+      "policyholder_name": "Minta Fémmegmunkáló Kft.",
+      "site_no": "1",
+      "site_address": "6000 Kecskemét, Minta köz 7.",
+      "floor_area": "450",
+      "flood_zone": "alacsony",
+      "alarm_remote": "igen",
+      "surge_protection": "T3",
+      "basement_storage": "nem",
+      "protection_class": null,
+      "currency": "HUF",
+      "asset_groups": [
+       {
+        "asset_group": "épület",
+        "sum_insured": "180000000",
+        "valuation": "új érték",
+        "wear": 10
+       },
+       {
+        "asset_group": "gépek és berendezések",
+        "sum_insured": "25000000",
+        "valuation": "új érték",
+        "wear": 20
+       },
+       {
+        "asset_group": "készlet",
+        "sum_insured": "40000000",
+        "valuation": "avult érték",
+        "wear": null
+       },
+       {
+        "asset_group": "készpénz",
+        "sum_insured": "2500000",
+        "valuation": "avult érték",
+        "wear": null
+       }
+      ]
+     }
+    },
+    {
+     "id": "missing_facts-claims",
+     "pack": "claims_history",
+     "values": {
+      "policyholder_name": "Minta Fémmegmunkáló Kft.",
+      "policyholder_tax_number": "24681353-1-43",
+      "period_start": "2022-01-01",
+      "period_end": "2026-12-31",
+      "claims_count": "1",
+      "claims_paid_total": "800000",
+      "currency": "HUF",
+      "claims": [
+       {
+        "claim_date": "2023-03-04",
+        "cause": "csőtörés",
+        "paid": "800000"
+       }
+      ]
+     }
+    }
+   ],
+   "units": [
+    {
+     "key": "holder",
+     "level": "holder",
+     "parent": null,
+     "facts": {
+      "company_name": "Minta Fémmegmunkáló Kft.",
+      "tax_number": "24681353-1-43",
+      "activity_code": "4719",
+      "payment_frequency": "half_yearly",
+      "interruption_sum_insured": {
+       "amount": "60000000",
+       "currency": "HUF"
+      },
+      "requested_modules": [
+       "property",
+       "burglary",
+       "surge",
+       "interruption"
+      ],
+      "claims_5y_count": 1,
+      "claims_5y_paid": {
+       "amount": "800000",
+       "currency": "HUF"
+      }
+     }
+    },
+    {
+     "key": "site:1",
+     "level": "site",
+     "parent": "holder",
+     "facts": {
+      "site_address": "6000 Kecskemét, Minta köz 7.",
+      "country": "HU",
+      "floor_area": {
+       "value": "450",
+       "unit": "m2"
+      },
+      "flood_zone": "low",
+      "alarm_remote": true,
+      "surge_protection": "t3",
+      "basement_storage": false
+     }
+    },
+    {
+     "key": "site:1/1",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "buildings",
+      "sum_insured": {
+       "amount": "180000000",
+       "currency": "HUF"
+      },
+      "valuation": "new_value",
+      "wear": {
+       "value": "10",
+       "per": 100
+      }
+     }
+    },
+    {
+     "key": "site:1/2",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "equipment",
+      "sum_insured": {
+       "amount": "25000000",
+       "currency": "HUF"
+      },
+      "valuation": "new_value",
+      "wear": {
+       "value": "20",
+       "per": 100
+      }
+     }
+    },
+    {
+     "key": "site:1/3",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "stock",
+      "sum_insured": {
+       "amount": "40000000",
+       "currency": "HUF"
+      },
+      "valuation": "current_value"
+     }
+    },
+    {
+     "key": "site:1/4",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "cash",
+      "sum_insured": {
+       "amount": "2500000",
+       "currency": "HUF"
+      },
+      "valuation": "current_value"
+     }
+    }
+   ],
+   "unread": [],
+   "conflicts": []
+  },
+  {
+   "id": "excluded_activity",
+   "title": "The reference case excluded_activity of the invented product set",
+   "case": "excluded_activity",
+   "documents": [
+    {
+     "id": "excluded_activity-request",
+     "pack": "insurance_request",
+     "values": {
+      "policyholder_name": "Minta Raktározó Zrt.",
+      "policyholder_tax_number": "21357912-1-13",
+      "activity_code": "3822",
+      "contact_name": "Példa Csaba",
+      "contact_email": "csaba@pelda.hu",
+      "cover_start": "2027-01-01",
+      "payment_frequency": "féléves",
+      "accounting_method": "fedezeti összeg",
+      "interruption_sum_insured": "60000000",
+      "currency": "HUF",
+      "requested_covers": [
+       {
+        "cover": "vagyonbiztosítás"
+       }
+      ],
+      "sites": [
+       {
+        "site_no": "1",
+        "address": "2040 Budaörs, Példa út 12.",
+        "country": "Magyarország"
+       }
+      ]
+     }
+    },
+    {
+     "id": "excluded_activity-schedule-1",
+     "pack": "property_schedule",
+     "layout": "standard",
+     "values": {
+      "policyholder_name": "Minta Raktározó Zrt.",
+      "site_no": "1",
+      "site_address": "2040 Budaörs, Példa út 12.",
+      "floor_area": "450",
+      "flood_zone": "alacsony",
+      "alarm_remote": "igen",
+      "surge_protection": "T3",
+      "basement_storage": "nem",
+      "protection_class": "3",
+      "currency": "HUF",
+      "asset_groups": [
+       {
+        "asset_group": "épület",
+        "sum_insured": "180000000",
+        "valuation": "új érték",
+        "wear": 10
+       },
+       {
+        "asset_group": "gépek és berendezések",
+        "sum_insured": "25000000",
+        "valuation": "új érték",
+        "wear": 20
+       },
+       {
+        "asset_group": "készlet",
+        "sum_insured": "40000000",
+        "valuation": "avult érték",
+        "wear": null
+       },
+       {
+        "asset_group": "készpénz",
+        "sum_insured": "2500000",
+        "valuation": "avult érték",
+        "wear": null
+       }
+      ]
+     }
+    },
+    {
+     "id": "excluded_activity-claims",
+     "pack": "claims_history",
+     "values": {
+      "policyholder_name": "Minta Raktározó Zrt.",
+      "policyholder_tax_number": "21357912-1-13",
+      "period_start": "2022-01-01",
+      "period_end": "2026-12-31",
+      "claims_count": "1",
+      "claims_paid_total": "800000",
+      "currency": "HUF",
+      "claims": [
+       {
+        "claim_date": "2023-03-04",
+        "cause": "csőtörés",
+        "paid": "800000"
+       }
+      ]
+     }
+    }
+   ],
+   "units": [
+    {
+     "key": "holder",
+     "level": "holder",
+     "parent": null,
+     "facts": {
+      "company_name": "Minta Raktározó Zrt.",
+      "tax_number": "21357912-1-13",
+      "activity_code": "3822",
+      "payment_frequency": "half_yearly",
+      "accounting_method": "gross_profit",
+      "interruption_sum_insured": {
+       "amount": "60000000",
+       "currency": "HUF"
+      },
+      "requested_modules": [
+       "property"
+      ],
+      "claims_5y_count": 1,
+      "claims_5y_paid": {
+       "amount": "800000",
+       "currency": "HUF"
+      }
+     }
+    },
+    {
+     "key": "site:1",
+     "level": "site",
+     "parent": "holder",
+     "facts": {
+      "site_address": "2040 Budaörs, Példa út 12.",
+      "country": "HU",
+      "floor_area": {
+       "value": "450",
+       "unit": "m2"
+      },
+      "flood_zone": "low",
+      "alarm_remote": true,
+      "surge_protection": "t3",
+      "basement_storage": false,
+      "protection_class_in_place": 3
+     }
+    },
+    {
+     "key": "site:1/1",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "buildings",
+      "sum_insured": {
+       "amount": "180000000",
+       "currency": "HUF"
+      },
+      "valuation": "new_value",
+      "wear": {
+       "value": "10",
+       "per": 100
+      }
+     }
+    },
+    {
+     "key": "site:1/2",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "equipment",
+      "sum_insured": {
+       "amount": "25000000",
+       "currency": "HUF"
+      },
+      "valuation": "new_value",
+      "wear": {
+       "value": "20",
+       "per": 100
+      }
+     }
+    },
+    {
+     "key": "site:1/3",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "stock",
+      "sum_insured": {
+       "amount": "40000000",
+       "currency": "HUF"
+      },
+      "valuation": "current_value"
+     }
+    },
+    {
+     "key": "site:1/4",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "cash",
+      "sum_insured": {
+       "amount": "2500000",
+       "currency": "HUF"
+      },
+      "valuation": "current_value"
+     }
+    }
+   ],
+   "unread": [],
+   "conflicts": []
+  },
+  {
+   "id": "referred",
+   "title": "The reference case referred of the invented product set",
+   "case": "referred",
+   "documents": [
+    {
+     "id": "referred-request",
+     "pack": "insurance_request",
+     "values": {
+      "policyholder_name": "Példa Szolgáltató Kft.",
+      "policyholder_tax_number": "13570008-1-13",
+      "activity_code": "4719",
+      "contact_name": "Példa Dóra",
+      "contact_email": "dora@pelda.hu",
+      "cover_start": "2027-01-01",
+      "payment_frequency": "éves",
+      "accounting_method": "fedezeti összeg",
+      "interruption_sum_insured": "60000000",
+      "currency": "HUF",
+      "requested_covers": [
+       {
+        "cover": "vagyonbiztosítás"
+       },
+       {
+        "cover": "betöréses lopás és rablás"
+       }
+      ],
+      "sites": [
+       {
+        "site_no": "1",
+        "address": "9021 Győr, Minta tér 3.",
+        "country": "Magyarország"
+       }
+      ]
+     }
+    },
+    {
+     "id": "referred-schedule-1",
+     "pack": "property_schedule",
+     "layout": "two_pages",
+     "values": {
+      "policyholder_name": "Példa Szolgáltató Kft.",
+      "site_no": "1",
+      "site_address": "9021 Győr, Minta tér 3.",
+      "floor_area": "450",
+      "flood_zone": "magas",
+      "alarm_remote": "nem",
+      "surge_protection": "T3",
+      "basement_storage": "igen",
+      "protection_class": "2",
+      "currency": "HUF",
+      "asset_groups": [
+       {
+        "asset_group": "készlet",
+        "sum_insured": "30000000",
+        "valuation": "avult érték",
+        "wear": null
+       },
+       {
+        "asset_group": "értéktárgyak",
+        "sum_insured": "4000000",
+        "valuation": "új érték",
+        "wear": 40
+       }
+      ]
+     },
+     "note": "The schedule's asset groups are on its second page."
+    },
+    {
+     "id": "referred-claims",
+     "pack": "claims_history",
+     "values": {
+      "policyholder_name": "Példa Szolgáltató Kft.",
+      "policyholder_tax_number": "13570008-1-13",
+      "period_start": "2022-01-01",
+      "period_end": "2026-12-31",
+      "claims_count": "1",
+      "claims_paid_total": "800000",
+      "currency": "HUF",
+      "claims": [
+       {
+        "claim_date": "2023-03-04",
+        "cause": "csőtörés",
+        "paid": "800000"
+       }
+      ]
+     }
+    }
+   ],
+   "units": [
+    {
+     "key": "holder",
+     "level": "holder",
+     "parent": null,
+     "facts": {
+      "company_name": "Példa Szolgáltató Kft.",
+      "tax_number": "13570008-1-13",
+      "activity_code": "4719",
+      "payment_frequency": "yearly",
+      "accounting_method": "gross_profit",
+      "interruption_sum_insured": {
+       "amount": "60000000",
+       "currency": "HUF"
+      },
+      "requested_modules": [
+       "property",
+       "burglary"
+      ],
+      "claims_5y_count": 1,
+      "claims_5y_paid": {
+       "amount": "800000",
+       "currency": "HUF"
+      }
+     }
+    },
+    {
+     "key": "site:1",
+     "level": "site",
+     "parent": "holder",
+     "facts": {
+      "site_address": "9021 Győr, Minta tér 3.",
+      "country": "HU",
+      "floor_area": {
+       "value": "450",
+       "unit": "m2"
+      },
+      "flood_zone": "high",
+      "alarm_remote": false,
+      "surge_protection": "t3",
+      "basement_storage": true,
+      "protection_class_in_place": 2
+     }
+    },
+    {
+     "key": "site:1/1",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "stock",
+      "sum_insured": {
+       "amount": "30000000",
+       "currency": "HUF"
+      },
+      "valuation": "current_value"
+     }
+    },
+    {
+     "key": "site:1/2",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "valuables",
+      "sum_insured": {
+       "amount": "4000000",
+       "currency": "HUF"
+      },
+      "valuation": "new_value",
+      "wear": {
+       "value": "40",
+       "per": 100
+      }
+     }
+    }
+   ],
+   "unread": [],
+   "conflicts": []
+  },
+  {
+   "id": "minimums",
+   "title": "The reference case minimums of the invented product set",
+   "case": "minimums",
+   "documents": [
+    {
+     "id": "minimums-request",
+     "pack": "insurance_request",
+     "values": {
+      "policyholder_name": "Példa Bolt Bt.",
+      "policyholder_tax_number": "16694855-2-42",
+      "activity_code": "4719",
+      "contact_name": "Példa Edit",
+      "contact_email": "edit@pelda.hu",
+      "cover_start": "2027-01-01",
+      "payment_frequency": "éves",
+      "accounting_method": "fedezeti összeg",
+      "interruption_sum_insured": "60000000",
+      "currency": "HUF",
+      "requested_covers": [
+       {
+        "cover": "vagyonbiztosítás"
+       },
+       {
+        "cover": "betöréses lopás és rablás"
+       }
+      ],
+      "sites": [
+       {
+        "site_no": "1",
+        "address": "7621 Pécs, Példa sor 5.",
+        "country": "Magyarország"
+       }
+      ]
+     }
+    },
+    {
+     "id": "minimums-schedule-1",
+     "pack": "property_schedule",
+     "layout": "standard",
+     "values": {
+      "policyholder_name": "Példa Bolt Bt.",
+      "site_no": "1",
+      "site_address": "7621 Pécs, Példa sor 5.",
+      "floor_area": "450",
+      "flood_zone": "alacsony",
+      "alarm_remote": "igen",
+      "surge_protection": "T3",
+      "basement_storage": "nem",
+      "protection_class": "2",
+      "currency": "HUF",
+      "asset_groups": [
+       {
+        "asset_group": "készlet",
+        "sum_insured": "2000000",
+        "valuation": "avult érték",
+        "wear": null
+       }
+      ]
+     }
+    },
+    {
+     "id": "minimums-claims",
+     "pack": "claims_history",
+     "values": {
+      "policyholder_name": "Példa Bolt Bt.",
+      "policyholder_tax_number": "16694855-2-42",
+      "period_start": "2022-01-01",
+      "period_end": "2026-12-31",
+      "claims_count": "0",
+      "claims_paid_total": "0",
+      "currency": "HUF",
+      "claims": []
+     }
+    }
+   ],
+   "units": [
+    {
+     "key": "holder",
+     "level": "holder",
+     "parent": null,
+     "facts": {
+      "company_name": "Példa Bolt Bt.",
+      "tax_number": "16694855-2-42",
+      "activity_code": "4719",
+      "payment_frequency": "yearly",
+      "accounting_method": "gross_profit",
+      "interruption_sum_insured": {
+       "amount": "60000000",
+       "currency": "HUF"
+      },
+      "requested_modules": [
+       "property",
+       "burglary"
+      ],
+      "claims_5y_count": 0,
+      "claims_5y_paid": {
+       "amount": "0",
+       "currency": "HUF"
+      }
+     }
+    },
+    {
+     "key": "site:1",
+     "level": "site",
+     "parent": "holder",
+     "facts": {
+      "site_address": "7621 Pécs, Példa sor 5.",
+      "country": "HU",
+      "floor_area": {
+       "value": "450",
+       "unit": "m2"
+      },
+      "flood_zone": "low",
+      "alarm_remote": true,
+      "surge_protection": "t3",
+      "basement_storage": false,
+      "protection_class_in_place": 2
+     }
+    },
+    {
+     "key": "site:1/1",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "stock",
+      "sum_insured": {
+       "amount": "2000000",
+       "currency": "HUF"
+      },
+      "valuation": "current_value"
+     }
+    }
+   ],
+   "unread": [],
+   "conflicts": []
+  },
+  {
+   "id": "two_sites",
+   "title": "One policyholder, two sites, a schedule each",
+   "documents": [
+    {
+     "id": "two_sites-request",
+     "pack": "insurance_request",
+     "values": {
+      "policyholder_name": "Példa Logisztika Kft.",
+      "policyholder_tax_number": "28642099-2-42",
+      "activity_code": "5210",
+      "contact_name": "Példa Ferenc",
+      "contact_email": "ferenc@pelda.hu",
+      "cover_start": "2027-03-01",
+      "payment_frequency": "negyedéves",
+      "accounting_method": "állandó költségek",
+      "interruption_sum_insured": "40000000",
+      "currency": "HUF",
+      "requested_covers": [
+       {
+        "cover": "vagyonbiztosítás"
+       },
+       {
+        "cover": "betöréses lopás és rablás"
+       },
+       {
+        "cover": "üzemszünet"
+       }
+      ],
+      "sites": [
+       {
+        "site_no": "1",
+        "address": "1097 Budapest, Példa utca 20.",
+        "country": "Magyarország"
+       },
+       {
+        "site_no": "2",
+        "address": "2310 Szigetszentmiklós, Minta park 4.",
+        "country": "Magyarország"
+       }
+      ]
+     }
+    },
+    {
+     "id": "two_sites-schedule-1",
+     "pack": "property_schedule",
+     "values": {
+      "policyholder_name": "Példa Logisztika Kft.",
+      "site_no": "1",
+      "site_address": "1097 Budapest, Példa utca 20.",
+      "floor_area": "1200",
+      "flood_zone": "nincs",
+      "alarm_remote": "igen",
+      "surge_protection": "T2+T3",
+      "basement_storage": "nem",
+      "protection_class": "4",
+      "currency": "HUF",
+      "asset_groups": [
+       {
+        "asset_group": "épület",
+        "sum_insured": "300000000",
+        "valuation": "új érték",
+        "wear": 5
+       },
+       {
+        "asset_group": "gépek és berendezések",
+        "sum_insured": "45000000",
+        "valuation": "új érték",
+        "wear": 15
+       }
+      ]
+     }
+    },
+    {
+     "id": "two_sites-schedule-2",
+     "pack": "property_schedule",
+     "values": {
+      "policyholder_name": "Példa Logisztika Kft.",
+      "site_no": "2",
+      "site_address": "2310 Szigetszentmiklós, Minta park 4.",
+      "floor_area": "3400",
+      "flood_zone": "közepes",
+      "alarm_remote": "igen",
+      "surge_protection": "T1+T2+T3",
+      "basement_storage": "nem",
+      "protection_class": "3",
+      "currency": "HUF",
+      "asset_groups": [
+       {
+        "asset_group": "készlet",
+        "sum_insured": "80000000",
+        "valuation": "avult érték",
+        "wear": null
+       }
+      ]
+     }
+    },
+    {
+     "id": "two_sites-claims",
+     "pack": "claims_history",
+     "values": {
+      "policyholder_name": "Példa Logisztika Kft.",
+      "policyholder_tax_number": "28642099-2-42",
+      "period_start": "2022-03-01",
+      "period_end": "2027-02-28",
+      "claims_count": "2",
+      "claims_paid_total": "1250000",
+      "currency": "HUF",
+      "claims": [
+       {
+        "claim_date": "2023-03-04",
+        "cause": "csőtörés",
+        "paid": "625000"
+       },
+       {
+        "claim_date": "2024-04-04",
+        "cause": "betöréses lopás",
+        "paid": "625000"
+       }
+      ]
+     }
+    }
+   ],
+   "units": [
+    {
+     "key": "holder",
+     "level": "holder",
+     "parent": null,
+     "facts": {
+      "company_name": "Példa Logisztika Kft.",
+      "tax_number": "28642099-2-42",
+      "activity_code": "5210",
+      "payment_frequency": "quarterly",
+      "accounting_method": "costs",
+      "interruption_sum_insured": {
+       "amount": "40000000",
+       "currency": "HUF"
+      },
+      "requested_modules": [
+       "property",
+       "burglary",
+       "interruption"
+      ],
+      "claims_5y_count": 2,
+      "claims_5y_paid": {
+       "amount": "1250000",
+       "currency": "HUF"
+      }
+     }
+    },
+    {
+     "key": "site:1",
+     "level": "site",
+     "parent": "holder",
+     "facts": {
+      "site_address": "1097 Budapest, Példa utca 20.",
+      "country": "HU",
+      "floor_area": {
+       "value": "1200",
+       "unit": "m2"
+      },
+      "flood_zone": "none",
+      "alarm_remote": true,
+      "surge_protection": "t2_t3",
+      "basement_storage": false,
+      "protection_class_in_place": 4
+     }
+    },
+    {
+     "key": "site:2",
+     "level": "site",
+     "parent": "holder",
+     "facts": {
+      "site_address": "2310 Szigetszentmiklós, Minta park 4.",
+      "country": "HU",
+      "floor_area": {
+       "value": "3400",
+       "unit": "m2"
+      },
+      "flood_zone": "medium",
+      "alarm_remote": true,
+      "surge_protection": "t1_t2_t3",
+      "basement_storage": false,
+      "protection_class_in_place": 3
+     }
+    },
+    {
+     "key": "site:1/1",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "buildings",
+      "sum_insured": {
+       "amount": "300000000",
+       "currency": "HUF"
+      },
+      "valuation": "new_value",
+      "wear": {
+       "value": "5",
+       "per": 100
+      }
+     }
+    },
+    {
+     "key": "site:1/2",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "equipment",
+      "sum_insured": {
+       "amount": "45000000",
+       "currency": "HUF"
+      },
+      "valuation": "new_value",
+      "wear": {
+       "value": "15",
+       "per": 100
+      }
+     }
+    },
+    {
+     "key": "site:2/1",
+     "level": "asset_group",
+     "parent": "site:2",
+     "facts": {
+      "asset_group": "stock",
+      "sum_insured": {
+       "amount": "80000000",
+       "currency": "HUF"
+      },
+      "valuation": "current_value"
+     }
+    }
+   ],
+   "unread": [],
+   "conflicts": []
+  },
+  {
+   "id": "conflict",
+   "title": "The claims statement gives another tax number than the request",
+   "documents": [
+    {
+     "id": "conflict-request",
+     "pack": "insurance_request",
+     "values": {
+      "policyholder_name": "Minta Kereskedő Kft.",
+      "policyholder_tax_number": "12345676-2-41",
+      "activity_code": "4719",
+      "contact_name": "Minta Anna",
+      "contact_email": "anna@minta.hu",
+      "cover_start": "2027-01-01",
+      "payment_frequency": "féléves",
+      "accounting_method": "fedezeti összeg",
+      "interruption_sum_insured": "60000000",
+      "currency": "HUF",
+      "requested_covers": [
+       {
+        "cover": "vagyonbiztosítás"
+       },
+       {
+        "cover": "betöréses lopás és rablás"
+       },
+       {
+        "cover": "túlfeszültség"
+       },
+       {
+        "cover": "üzemszünet"
+       }
+      ],
+      "sites": [
+       {
+        "site_no": "1",
+        "address": "1111 Budapest, Minta utca 1.",
+        "country": "Magyarország"
+       }
+      ]
+     }
+    },
+    {
+     "id": "conflict-claims",
+     "pack": "claims_history",
+     "values": {
+      "policyholder_name": "Minta Kereskedő Kft.",
+      "policyholder_tax_number": "38756887-2-41",
+      "period_start": "2022-01-01",
+      "period_end": "2026-12-31",
+      "claims_count": "1",
+      "claims_paid_total": "800000",
+      "currency": "HUF",
+      "claims": [
+       {
+        "claim_date": "2023-03-04",
+        "cause": "csőtörés",
+        "paid": "800000"
+       }
+      ]
+     },
+     "note": "Its tax number differs from the request's: the field check leaves it to a person."
+    }
+   ],
+   "units": [
+    {
+     "key": "holder",
+     "level": "holder",
+     "parent": null,
+     "facts": {
+      "company_name": "Minta Kereskedő Kft.",
+      "tax_number": "12345676-2-41",
+      "activity_code": "4719",
+      "payment_frequency": "half_yearly",
+      "accounting_method": "gross_profit",
+      "interruption_sum_insured": {
+       "amount": "60000000",
+       "currency": "HUF"
+      },
+      "requested_modules": [
+       "property",
+       "burglary",
+       "surge",
+       "interruption"
+      ],
+      "claims_5y_count": 1,
+      "claims_5y_paid": {
+       "amount": "800000",
+       "currency": "HUF"
+      }
+     }
+    },
+    {
+     "key": "site:1",
+     "level": "site",
+     "parent": "holder",
+     "facts": {
+      "site_address": "1111 Budapest, Minta utca 1.",
+      "country": "HU"
+     }
+    }
+   ],
+   "unread": [],
+   "conflicts": [
+    [
+     "holder",
+     "tax_number"
+    ]
+   ]
+  },
+  {
+   "id": "unknown_code",
+   "title": "A schedule with words no code table knows",
+   "documents": [
+    {
+     "id": "unknown_code-request",
+     "pack": "insurance_request",
+     "values": {
+      "policyholder_name": "Minta Kereskedő Kft.",
+      "policyholder_tax_number": "12345676-2-41",
+      "activity_code": "4719",
+      "contact_name": "Minta Anna",
+      "contact_email": "anna@minta.hu",
+      "cover_start": "2027-01-01",
+      "payment_frequency": "féléves",
+      "accounting_method": "fedezeti összeg",
+      "interruption_sum_insured": "60000000",
+      "currency": "HUF",
+      "requested_covers": [
+       {
+        "cover": "vagyonbiztosítás"
+       },
+       {
+        "cover": "betöréses lopás és rablás"
+       },
+       {
+        "cover": "túlfeszültség"
+       },
+       {
+        "cover": "üzemszünet"
+       }
+      ],
+      "sites": [
+       {
+        "site_no": "1",
+        "address": "1111 Budapest, Minta utca 1.",
+        "country": "Magyarország"
+       }
+      ]
+     }
+    },
+    {
+     "id": "unknown_code-schedule-1",
+     "pack": "property_schedule",
+     "values": {
+      "policyholder_name": "Minta Kereskedő Kft.",
+      "site_no": "1",
+      "site_address": "1111 Budapest, Minta utca 1.",
+      "floor_area": "450",
+      "flood_zone": "nagyon magas",
+      "alarm_remote": "igen",
+      "surge_protection": "T3",
+      "basement_storage": "nem",
+      "protection_class": "3",
+      "currency": "HUF",
+      "asset_groups": [
+       {
+        "asset_group": "épület",
+        "sum_insured": "180000000",
+        "valuation": "új érték",
+        "wear": 10
+       },
+       {
+        "asset_group": "gépek és berendezések",
+        "sum_insured": "25000000",
+        "valuation": "új érték",
+        "wear": 20
+       },
+       {
+        "asset_group": "készlet",
+        "sum_insured": "40000000",
+        "valuation": "avult érték",
+        "wear": null
+       },
+       {
+        "asset_group": "készpénz",
+        "sum_insured": "2500000",
+        "valuation": "avult érték",
+        "wear": null
+       },
+       {
+        "asset_group": "műalkotások",
+        "sum_insured": "6000000",
+        "valuation": "új érték",
+        "wear": null
+       }
+      ]
+     },
+     "note": "Its flood zone and one asset group are words no code table knows: not read, never guessed."
+    }
+   ],
+   "units": [
+    {
+     "key": "holder",
+     "level": "holder",
+     "parent": null,
+     "facts": {
+      "company_name": "Minta Kereskedő Kft.",
+      "tax_number": "12345676-2-41",
+      "activity_code": "4719",
+      "payment_frequency": "half_yearly",
+      "accounting_method": "gross_profit",
+      "interruption_sum_insured": {
+       "amount": "60000000",
+       "currency": "HUF"
+      },
+      "requested_modules": [
+       "property",
+       "burglary",
+       "surge",
+       "interruption"
+      ]
+     }
+    },
+    {
+     "key": "site:1",
+     "level": "site",
+     "parent": "holder",
+     "facts": {
+      "site_address": "1111 Budapest, Minta utca 1.",
+      "country": "HU",
+      "floor_area": {
+       "value": "450",
+       "unit": "m2"
+      },
+      "alarm_remote": true,
+      "surge_protection": "t3",
+      "basement_storage": false,
+      "protection_class_in_place": 3
+     }
+    },
+    {
+     "key": "site:1/1",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "buildings",
+      "sum_insured": {
+       "amount": "180000000",
+       "currency": "HUF"
+      },
+      "valuation": "new_value",
+      "wear": {
+       "value": "10",
+       "per": 100
+      }
+     }
+    },
+    {
+     "key": "site:1/2",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "equipment",
+      "sum_insured": {
+       "amount": "25000000",
+       "currency": "HUF"
+      },
+      "valuation": "new_value",
+      "wear": {
+       "value": "20",
+       "per": 100
+      }
+     }
+    },
+    {
+     "key": "site:1/3",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "stock",
+      "sum_insured": {
+       "amount": "40000000",
+       "currency": "HUF"
+      },
+      "valuation": "current_value"
+     }
+    },
+    {
+     "key": "site:1/4",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "asset_group": "cash",
+      "sum_insured": {
+       "amount": "2500000",
+       "currency": "HUF"
+      },
+      "valuation": "current_value"
+     }
+    },
+    {
+     "key": "site:1/5",
+     "level": "asset_group",
+     "parent": "site:1",
+     "facts": {
+      "sum_insured": {
+       "amount": "6000000",
+       "currency": "HUF"
+      },
+      "valuation": "new_value"
+     }
+    }
+   ],
+   "unread": [
+    [
+     "site:1",
+     "flood_zone"
+    ],
+    [
+     "site:1/5",
+     "asset_group"
+    ]
+   ],
+   "conflicts": []
+  }
+ ]
+}

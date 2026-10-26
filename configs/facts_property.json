@@ -1,9 +1,10 @@
 {
   "meta": {
     "name": "facts_property",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "description": "231 (stage D, D-b3): the fact catalogue of property risk assessment, a rule file a case keeps as it started (jav/app/facts.py). It names the levels of what is assessed (the policyholder, its sites, their asset groups), each fact a rule may read with its type, unit or currency, level and allowed codes, and each outcome a rule may give with how the outcomes of several rules combine. Invented for the stage D trial; no insurer's own terms.",
     "changelog": [
+      {"version": "1.4.0", "date": "2026-10-26", "note": "231 (D-e2): the site's address, which the request form and each property schedule print, so a person tells the sites apart and two documents' addresses are compared. An added definition; no rule reads it and no outcome changes."},
       {"version": "1.3.0", "date": "2026-10-26", "note": "231 (D-d5): four facts of the policyholder an outside check asks with or answers: its company name and tax number, its status in the company register and whether it is on a sanctions list. Added definitions; no rule reads them yet and no outcome changes."},
       {"version": "1.2.0", "date": "2026-10-26", "note": "231 (D-c6): labels, how each level and each code of the options and of the rules' measures and warnings reads to a person (translated by the interface). No outcome changes."},
       {"version": "1.1.0", "date": "2026-10-26", "note": "231 (D-c5): interruption_sum_insured, the business interruption cover's sum insured (a year's gross profit or standing costs, by the accounting method), the basis its premium is computed on. An added definition: no earlier outcome changes."},
@@ -23,6 +24,7 @@
     "tax_number": {"type": "code", "level": "holder", "title": "Tax number"},
     "company_status": {"type": "code", "level": "holder", "options": ["active", "under_liquidation", "dissolved"], "title": "Status in the company register"},
     "sanctions_listed": {"type": "bool", "level": "holder", "title": "On a sanctions list"},
+    "site_address": {"type": "text", "level": "site", "title": "Address of the site"},
     "country": {"type": "code", "level": "site", "title": "Country of the site"},
     "flood_zone": {"type": "code", "level": "site", "options": ["none", "low", "medium", "high"], "title": "Flood zone"},
     "floor_area": {"type": "quantity", "unit": "m2", "level": "site", "title": "Floor area"},
