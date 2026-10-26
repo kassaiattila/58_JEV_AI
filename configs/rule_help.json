@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "rule_help",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "description": "218 (plan G-process-core P3e, the owner's request and decisions of 2026-10-23): the plain-language description of the rules for the read-only view in Settings › Rules. For every machine decision point of the decision trace (jav/core/trace.py): its area, a short title, what it decides and what it is not for, and the rule values the view shows (file, key, label, format; a percentage's label reads on into its value, as in 'below 60 %'); the values themselves are read from the rule files the running process loaded (jav/app/rules_view.py). Kept apart from the rule files, so their fingerprints and the AI requests do not change. Texts are English; the interface translates them (ui/src/i18n/hu-native.json). A test asks that every decision point has an entry and that every value's key is in a file its point reads.",
     "changelog": [
+      {
+        "version": "1.3.0",
+        "date": "2026-10-26",
+        "note": "231 (stage D, D-c2, D-c3): the product registry's two decision points (a product rule's outcome on an assessed unit, a premium from a tariff), their area and the fact catalogues they read."
+      },
       {
         "version": "1.2.0",
         "date": "2026-10-25",
@@ -27,7 +32,8 @@
     "emails": "Emails",
     "finance": "Checks across documents",
     "workflows": "Workflows",
-    "quotes": "Quotes"
+    "quotes": "Quotes",
+    "products": "Products and premiums"
   },
   "files": {
     "policy.json": "Shared decision thresholds",
@@ -39,7 +45,8 @@
     "fact_checks.json": "Code checks of names and tax numbers",
     "types/*.json": "Type packs: the fields of each document type",
     "price_lists.json": "Price list reading and rounding",
-    "quotes.json": "Quote limits"
+    "quotes.json": "Quote limits",
+    "facts_*.json": "Fact catalogues: what a product rule may read and give"
   },
   "points": {
     "ocr.escalation": {
@@ -183,6 +190,26 @@
       "not_for": "The letter's frame (written by code) or a person's acceptance of the letter.",
       "values": [
         {"file": "quotes.json", "key": "letter.max_chars", "label": "Longest paragraph, in characters", "format": "number"}
+      ]
+    },
+    "rules.outcome": {
+      "area": "products",
+      "title": "A product rule's outcome",
+      "what": "What a product rule gives on an assessed unit (a policyholder, a site, an asset group): the first row of its decision table whose comparisons hold on the facts the unit and its parents have (or every such row). A row a missing fact leaves open makes the outcome not known and names the fact; a row false whatever the missing facts are is skipped.",
+      "not_for": "How several rules' outcomes combine on a unit (the catalogue's way: the worst verdict, the largest deductible, ...) or a person's decision on the risk.",
+      "values": [
+        {"file": "facts_property.json", "key": "outcomes.verdict.options", "label": "Verdicts, the best first", "format": "labels",
+         "labels": {"allow": "Allow", "unknown": "Not known", "refer": "Refer", "refuse": "Refuse"}}
+      ]
+    },
+    "rating.premium": {
+      "area": "products",
+      "title": "A premium from a tariff",
+      "what": "A quote's premium computed by code from the tariff the case keeps, in a fixed order: each cover module's basis times its rate per thousand and its factors, each line rounded, a module's minimum, the modules summed, the total factors, the total rounded and the policy minimum. A missing factor, a value no row takes, a cover start out of force or another currency gives no total.",
+      "not_for": "The tariff's rates and factors themselves (Settings › Tariffs) or a person's decision on the premium.",
+      "values": [
+        {"file": "facts_property.json", "key": "levels", "label": "The levels a tariff prices on", "format": "labels",
+         "labels": {"holder": "Policyholder", "site": "Site", "asset_group": "Asset group"}}
       ]
     }
   }

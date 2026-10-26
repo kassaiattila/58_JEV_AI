@@ -3018,5 +3018,15 @@
   "Claims history": "Kárelőzmény",
   "A worn asset at new value": "Avult vagyontárgy új értéken",
   "Flood damage not insured": "Az árvízkár nem biztosított",
-  "Protection below the class required": "A meglévő védelem a szükséges osztály alatt"
+  "Protection below the class required": "A meglévő védelem a szükséges osztály alatt",
+  "Products and premiums": "Termékek és díjak",
+  "Fact catalogues: what a product rule may read and give": "Tény-katalógusok: amit egy termékszabály olvashat és adhat",
+  "A product rule's outcome": "Egy termékszabály kimenete",
+  "What a product rule gives on an assessed unit (a policyholder, a site, an asset group): the first row of its decision table whose comparisons hold on the facts the unit and its parents have (or every such row). A row a missing fact leaves open makes the outcome not known and names the fact; a row false whatever the missing facts are is skipped.": "Amit egy termékszabály egy értékelt egységen (szerződő, telephely, vagyoncsoport) ad: döntési táblájának első sora (vagy minden sora), amelynek összevetései teljesülnek az egység és szülei tényein. Ha egy hiányzó tény miatt egy sor eldöntetlen, a kimenet nem ismert, és a rendszer megnevezi a tényt; a hiányzó tényektől függetlenül hamis sor kimarad.",
+  "How several rules' outcomes combine on a unit (the catalogue's way: the worst verdict, the largest deductible, ...) or a person's decision on the risk.": "Hogy több szabály kimenete hogyan vonódik össze egy egységen (a katalógus szerint: a legrosszabb döntés, a legnagyobb önrészesedés, ...), vagy egy személy döntése a kockázatról.",
+  "Verdicts, the best first": "Döntések, a legjobbal kezdve",
+  "A premium from a tariff": "Díj a díjtáblából",
+  "A quote's premium computed by code from the tariff the case keeps, in a fixed order: each cover module's basis times its rate per thousand and its factors, each line rounded, a module's minimum, the modules summed, the total factors, the total rounded and the policy minimum. A missing factor, a value no row takes, a cover start out of force or another currency gives no total.": "Az ajánlat díja, amelyet a kód az ügy által megtartott díjtáblából számol, rögzített sorrendben: fedezeti modulonként az alap szorozva az ezrelékes díjtétellel és a szorzókkal, soronkénti kerekítés, a modul minimumdíja, a modulok összege, a teljes díj szorzói, a végösszeg kerekítése és a szerződési minimumdíj. Hiányzó szorzó, táblán kívüli érték, hatályon kívüli kezdet vagy más pénznem esetén nincs végösszeg.",
+  "The tariff's rates and factors themselves (Settings › Tariffs) or a person's decision on the premium.": "Maguk a díjtétel és a szorzók (Beállítások › Díjtáblák), vagy egy személy döntése a díjról.",
+  "The levels a tariff prices on": "A szintek, amelyeken a díjtábla díjaz"
 }

@@ -199,7 +199,7 @@ const citeShort = (rule: Rule, doc?: ConditionDocument) =>
   [doc ? shortTitle(doc.title) : rule.source.document, rule.source.clause ? t("clause {{clause}}", { clause: rule.source.clause }) : null,
     rule.source.page != null ? t("p. {{n}}", { n: rule.source.page }) : null].filter(Boolean).join(" · ");
 
-/** A document's short name: the code in its title's last brackets ("… (KB-ÁF-2026)"), else the title. */
+/** A document's short name: the code in its title's last brackets ("… (GC-2026)"), else the title. */
 const shortTitle = (title: string) => /\(([^()]+)\)\s*$/.exec(title)?.[1] ?? title;
 
 function RuleDetail({ rule, title, registry, documents, modules, onClose, children }: {

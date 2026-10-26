@@ -7,6 +7,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError, setActor, type Catalogue, type ProductRegistry, type RegistryThing, type Rule } from "../../api";
 import { setLanguage } from "../../i18n";
+import hungarian from "../../i18n/hu-native.json";
 import { ProductsPanel } from "./ProductsPanel";
 import { TariffsPanel } from "./TariffsPanel";
 
@@ -96,9 +97,11 @@ describe("the product registry in Settings (231 D-c6)", () => {
     await setLanguage("hu");
     render(<ProductsPanel />);
     fireEvent.click(await screen.findByRole("button", { name: "Invented business property" }));
-    const blockers = await screen.findByRole("list", { name: "Ami akadályozza az élesítést" });
-    expect(blockers.textContent).toBe("cash_class@1 szabály: még vázlat");
-    const make = screen.getByRole("button", { name: "A(z) 1. változat élesítése" }) as HTMLButtonElement;
+    // the Hungarian texts come from the dictionary, so the test holds no Hungarian of its own
+    const hu = hungarian as Record<string, string>;
+    const blockers = await screen.findByRole("list", { name: hu["What keeps it from being made active"] });
+    expect(blockers.textContent).toBe(`${hu["rule {{ref}}"].replace("{{ref}}", "cash_class@1")}: ${hu["still a draft"]}`);
+    const make = screen.getByRole("button", { name: hu["Make version {{n}} active"].replace("{{n}}", "1") }) as HTMLButtonElement;
     expect(make.disabled).toBe(true);
     expect(make.className).toBe("secondary");
   });
