@@ -1294,7 +1294,14 @@ stands in the document (in the quote, on the page, elsewhere, as a word, derived
 one away from a stated count, a factor of 1) or is listed for a person to confirm (not found, or read by text
 recognition). A clause's own number at the start of its heading, a page number and either side of a slash are not
 read as a rule's value; a thousands group the line broke is joined first. Every finding is a translated sentence;
-a blocking one keeps the proposal from being accepted as it is (`tests/test_rule_checks_231.py`).
+a blocking one keeps the proposal from being accepted as it is (`tests/test_rule_checks_231.py`). D-c7c: one structured
+answer from GPT through the call log and a budget, for a new call site (`jav/ai/gpt_answer.py`: the model from the
+shared settings, the call reserved, a repeated question answered from the saved one, every attempt in the ledger, a
+stand-in model for a block; nothing asked without a budget), and the rule proposer (`jav/app/rule_proposals.py`,
+`configs/gpt_rule_proposal.json`): a document's pages a few at a time (never a page its marking keeps out), after the
+fact catalogue and the cover modules, answered with rule records (each value as JSON text of the catalogue's type, the
+page, clause and quoted words), each turned into a registry rule (or kept with why it is none) and checked by code. A
+stand-in proposer answers with a product set's rules for the pages asked, free (`tests/test_rule_proposals_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

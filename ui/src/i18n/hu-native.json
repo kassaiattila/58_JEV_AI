@@ -3041,5 +3041,7 @@
   "its quote is on page {{actual}}, not on page {{page}}": "az idézete a(z) {{actual}}. oldalon van, nem a(z) {{page}}. oldalon",
   "its quote is not in the document": "az idézete nincs az iratban",
   "{{value}} is not in the document: a person confirms it": "{{value}} nincs az iratban: egy személy erősíti meg",
-  "{{value}} was read by text recognition on page {{page}}: a person confirms it": "{{value}} szövegfelismeréssel olvasott érték a(z) {{page}}. oldalon: egy személy erősíti meg"
+  "{{value}} was read by text recognition on page {{page}}: a person confirms it": "{{value}} szövegfelismeréssel olvasott érték a(z) {{page}}. oldalon: egy személy erősíti meg",
+  "GPT is asked only under a budget": "GPT-t csak költségkeretből lehet kérdezni",
+  "its record is no rule: {{where}}: {{reason}}": "a rekordja nem szabály: {{where}}: {{reason}}"
 }
