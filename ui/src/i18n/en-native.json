@@ -2819,5 +2819,7 @@
   "its package was brought with the workflow": "its package was brought with the workflow",
   "the case cannot start: {{what}} has no active version to keep": "the case cannot start: {{what}} has no active version to keep",
   "they removed it: yours cannot be applied": "they removed it: yours cannot be applied",
-  "save the changes first": "save the changes first"
+  "save the changes first": "save the changes first",
+  "a product version is made active by another person than its maker": "a product version is made active by another person than its maker",
+  "the unit was removed; it takes no correction": "the unit was removed; it takes no correction"
 }

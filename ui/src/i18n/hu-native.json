@@ -2824,5 +2824,7 @@
   "its package was brought with the workflow": "a csomagja a munkafolyamattal érkezett",
   "the case cannot start: {{what}} has no active version to keep": "az ügy nem indulhat: ennek nincs megtartható élő változata: {{what}}",
   "they removed it: yours cannot be applied": "a másik személy törölte: a tiéd nem alkalmazható",
-  "save the changes first": "előbb mentsd a módosításokat"
+  "save the changes first": "előbb mentsd a módosításokat",
+  "a product version is made active by another person than its maker": "a termék változatát nem az élesítheti, aki elkészítette",
+  "the unit was removed; it takes no correction": "az egységet eltávolították; nem javítható"
 }

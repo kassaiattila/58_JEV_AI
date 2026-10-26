@@ -1238,6 +1238,18 @@ takes no correction, and a fact that does not fit writes nothing; the units list
 `assessed_units`), a result names them by a `DatasetRef` (`reference`), and the checked input frozen from them does not
 follow a later correction (`tests/test_assessed_units_231.py`).
 
+**Products, condition documents and rules (231, stage D, D-c1).** `jav/app/product_rules.py`: a product (its cover
+modules, the condition documents and rules it is offered under), each condition document (kind, days it applies,
+clauses and pages) and each rule (a decision table over a catalogue's facts on one level, giving catalogue outcomes,
+with its source: document version, page, clause) is a versioned thing on the shared versions (tables
+`condition_documents`, `product_rules`, `products`). A rule's own activation checks it against its catalogue (facts it
+reads exist on its level or above, comparisons typed with the right unit and currency, known outcomes); a product
+version is the release manifest naming exact versions, made active only by another person than its maker
+(`SecondPersonNeeded`) and only when no rule is a draft or missing, each cites a document of the product and a clause it
+has, and the modules a module requires are there (`ManifestRefused` with every problem). A superseded or retired
+version stays readable by its reference; a case keeps the product version of its start (`kept`, `named`)
+(`tests/test_product_rules_231.py`).
+
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,
 changed, saving, saved, conflict, not known; `saveState`, `SaveLine`). Its unsaved work lives in the page's memory only,

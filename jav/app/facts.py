@@ -30,7 +30,7 @@ from jav.core.measures import Money, PerMille, Percentage, Quantity
 from jav.core.versions import AT
 
 __all__ = ["Catalogue", "CheckedInput", "FactDef", "FactError", "OutcomeDef", "SourceClaim", "Unit", "catalogue",
-           "checked_input", "typed_fact"]
+           "checked_input", "typed_fact", "typed_value"]
 
 FactType = Literal["money", "quantity", "code", "codes", "bool", "date", "count", "decimal", "percentage", "permille", "text"]
 
@@ -57,6 +57,7 @@ class OutcomeDef(_Model):
     title: str
     combine: Literal["worst", "max", "min", "union", "one"]
     currency: str | None = None
+    unit: str | None = None
     options: tuple[str, ...] | None = None  # for `worst`: from the best to the worst
 
 
@@ -116,7 +117,15 @@ def typed_fact(cat: Catalogue, name: str, level: str, value: Any) -> Any:
         raise FactError(f"{name} does not fit its type {d.type}: {exc.errors()[0]['msg']}") from None
 
 
-def _typed(name: str, d: FactDef, value: Any) -> Any:
+def typed_value(name: str, d: FactDef | OutcomeDef, value: Any) -> Any:
+    """D-c1: a value as a fact's or an outcome's definition types it (a rule's comparison, an outcome it gives)."""
+    try:
+        return _typed(name, d, value)
+    except ValidationError as exc:
+        raise FactError(f"{name} does not fit its type {d.type}: {exc.errors()[0]['msg']}") from None
+
+
+def _typed(name: str, d: FactDef | OutcomeDef, value: Any) -> Any:
     if d.type == "money":
         money = value if isinstance(value, Money) else Money.model_validate(value)
         if money.currency != d.currency:
