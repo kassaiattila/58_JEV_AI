@@ -3176,5 +3176,19 @@
   "Save the unit": "Az egység mentése",
   "Remove the unit": "Az egység eltávolítása",
   "Decide": "Döntés",
-  "the action {{name}} takes values": "a(z) {{name}} művelethez értékek kellenek"
+  "the action {{name}} takes values": "a(z) {{name}} művelethez értékek kellenek",
+  "Insurance quote": "Biztosítási ajánlat",
+  "Calculation and versions": "Számítás és változatok",
+  "Data check": "Adatok ellenőrzése",
+  "Decision and release": "Döntés és kiadás",
+  "Facts from the documents": "Tények az iratokból",
+  "Company register": "Cégjegyzék",
+  "Sanctions list": "Szankciós lista",
+  "Premium": "Díj",
+  "Premium decision": "Díjdöntés",
+  "Risk decision": "Kockázati döntés",
+  "Accept the risk": "A kockázat elfogadása",
+  "Decline the risk": "A kockázat elutasítása",
+  "Accept the premium": "A díj elfogadása",
+  "Decline the quote": "Az ajánlat elutasítása"
 }

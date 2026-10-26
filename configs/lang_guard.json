@@ -1020,6 +1020,7 @@
     "tests/test_handoff_guard.py": 2,
     "tests/test_ingest_security.py": 8,
     "tests/test_input_limits_067.py": 1,
+    "tests/test_insurance_offer_path_231.py": 1,
     "tests/test_insurance_packs_231.py": 24,
     "tests/test_jev_adapter_v2.py": 4,
     "tests/test_jev_path_082.py": 2,

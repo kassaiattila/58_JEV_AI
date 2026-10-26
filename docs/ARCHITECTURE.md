@@ -1411,7 +1411,13 @@ its file, page and words; a document no reading takes is listed, a value not rea
 case step's action endpoint takes `values`, the form checks them (422), and each such action carries the state of the
 page it was made on, so an older one is refused (409); the page marks them (`form`), so its generic buttons leave them to
 the step's own element, and an action may be offered on a done step too (`on_done`: a reopening). The field check's:
-freeze, reopen (with a reason) and a unit added, saved or removed; the decision's: decide (`tests/test_case_actions_231.py`).
+freeze, reopen (with a reason) and a unit added, saved or removed; the decision's: decide (`tests/test_case_actions_231.py`). D-f3: the process pack `configs/processes/insurance_offer.json` (shared capabilities only):
+documents (`process_documents@1`) → facts from them (`fact_claims@1`) → the company register and the sanctions list
+(`lookup@1`, two branches) → the data check (`field_check@1`) → the rules (`rule_evaluation@1`) → the missing facts
+(`missing_info@1`) → the risk decision (`decision@1`) → the premium (`rating@1`) → the premium decision (`decision@1`,
+another person above the invented limit); its five work views are filled by stage D-f's elements. A case runs from the
+invented reference set's PDFs to the accepted premium, its processing run written as a correct reading gives it
+(`tests/test_insurance_offer_path_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

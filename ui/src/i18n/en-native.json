@@ -3171,5 +3171,19 @@
   "Save the unit": "Save the unit",
   "Remove the unit": "Remove the unit",
   "Decide": "Decide",
-  "the action {{name}} takes values": "the action {{name}} takes values"
+  "the action {{name}} takes values": "the action {{name}} takes values",
+  "Insurance quote": "Insurance quote",
+  "Calculation and versions": "Calculation and versions",
+  "Data check": "Data check",
+  "Decision and release": "Decision and release",
+  "Facts from the documents": "Facts from the documents",
+  "Company register": "Company register",
+  "Sanctions list": "Sanctions list",
+  "Premium": "Premium",
+  "Premium decision": "Premium decision",
+  "Risk decision": "Risk decision",
+  "Accept the risk": "Accept the risk",
+  "Decline the risk": "Decline the risk",
+  "Accept the premium": "Accept the premium",
+  "Decline the quote": "Decline the quote"
 }
