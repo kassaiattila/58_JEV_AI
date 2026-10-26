@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "name": "facts_property",
+    "version": "1.0.0",
+    "description": "231 (stage D, D-b3): the fact catalogue of property risk assessment, a rule file a case keeps as it started (jav/app/facts.py). It names the levels of what is assessed (the policyholder, its sites, their asset groups), each fact a rule may read with its type, unit or currency, level and allowed codes, and each outcome a rule may give with how the outcomes of several rules combine. Invented for the stage D trial; no insurer's own terms.",
+    "changelog": [
+      {"version": "1.0.0", "date": "2026-10-26", "note": "231 (D-b3): the first catalogue: 17 facts on three levels and 7 outcomes."}
+    ]
+  },
+  "levels": ["holder", "site", "asset_group"],
+  "facts": {
+    "activity_code": {"type": "code", "level": "holder", "title": "Activity code (NACE)"},
+    "claims_5y_count": {"type": "count", "level": "holder", "title": "Claims in the last five years"},
+    "claims_5y_paid": {"type": "money", "currency": "HUF", "level": "holder", "title": "Claims paid in the last five years"},
+    "payment_frequency": {"type": "code", "level": "holder", "options": ["yearly", "half_yearly", "quarterly"], "title": "Payment frequency"},
+    "requested_modules": {"type": "codes", "level": "holder", "title": "Requested cover modules"},
+    "accounting_method": {"type": "code", "level": "holder", "options": ["gross_profit", "costs"], "title": "Accounting method of the business interruption cover"},
+    "country": {"type": "code", "level": "site", "title": "Country of the site"},
+    "flood_zone": {"type": "code", "level": "site", "options": ["none", "low", "medium", "high"], "title": "Flood zone"},
+    "floor_area": {"type": "quantity", "unit": "m2", "level": "site", "title": "Floor area"},
+    "alarm_remote": {"type": "bool", "level": "site", "title": "Alarm with remote signalling"},
+    "surge_protection": {"type": "code", "level": "site", "options": ["none", "t3", "t2_t3", "t1_t2_t3"], "title": "Surge protection"},
+    "basement_storage": {"type": "bool", "level": "site", "title": "Goods stored in a basement"},
+    "protection_class_in_place": {"type": "count", "level": "site", "title": "Protection class in place"},
+    "asset_group": {"type": "code", "level": "asset_group", "options": ["buildings", "equipment", "stock", "cash", "valuables"], "title": "Asset group"},
+    "sum_insured": {"type": "money", "currency": "HUF", "level": "asset_group", "title": "Sum insured"},
+    "valuation": {"type": "code", "level": "asset_group", "options": ["new_value", "current_value"], "title": "Valuation basis"},
+    "wear": {"type": "percentage", "level": "asset_group", "title": "Technical wear"}
+  },
+  "outcomes": {
+    "verdict": {"type": "code", "options": ["allow", "unknown", "refer", "refuse"], "combine": "worst", "title": "Verdict"},
+    "deductible": {"type": "money", "currency": "HUF", "combine": "max", "title": "Deductible"},
+    "protection_class_required": {"type": "count", "combine": "max", "title": "Protection class required"},
+    "sublimit": {"type": "money", "currency": "HUF", "combine": "min", "title": "Sublimit"},
+    "measures": {"type": "codes", "combine": "union", "title": "Security measures required"},
+    "warnings": {"type": "codes", "combine": "union", "title": "Warnings"},
+    "premium_factor": {"type": "decimal", "combine": "one", "title": "Premium factor"}
+  }
+}

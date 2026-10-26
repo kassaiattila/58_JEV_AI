@@ -1225,7 +1225,12 @@ carries its currency (`Money`: sums and comparisons in one currency only, `Curre
 named `Rounding` unit and mode), a quantity its unit (`Quantity`), a rate whether it is per hundred or per thousand
 (`Percentage`, `PerMille`, which never mix), a version its days (`Validity`); each round-trips through JSON exactly
 (an amount as text), and a float, NaN or infinity is refused. A result hands such values on instead of bare numbers
-(`tests/test_measures_231.py`).
+(`tests/test_measures_231.py`). D-b3 (P06): `jav/app/facts.py`: a fact catalogue (`configs/facts_<id>.json`,
+a rule file a case keeps) names the levels of what is assessed and each fact a rule may read, typed; an assessed unit
+(`Unit`: durable id, level, parent, typed facts, each with its `SourceClaim`: value, original form, source, how sure,
+which reading or correction made it) and the checked input a person accepted (`CheckedInput`: the units, a concrete
+product version, the day cover starts) are typed by it, and a wrong unit, currency, level, code or parent is refused
+with what is wrong (`tests/test_facts_231.py`). No process or business is named in the code: the catalogue is data.
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,
