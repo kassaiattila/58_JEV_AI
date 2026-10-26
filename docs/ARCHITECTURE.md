@@ -993,7 +993,11 @@ capability cannot run (it is only described, as the line pricing), a step parame
 (`capabilities.step_ref`: the send step's, the printed document's, the line composition's and the letter's `from_step`) that names no step or one the step
 does not wait for, directly or through another, an element the catalogue lists as planned, and an element that would
 show nothing: no data registered for its type and its step's capability, or for its type alone (`case_views.gives`).
-`process_runtime.start_case` reads the pack first, so a refused pack starts no case; a case page that still meets an
+Stage D (D-a; the reassessment after D0, P02): a step reference names the kind of step it reads
+(`step_ref(of=)`: the line composition a match, the letter a composition); the check refuses a reference to a step of
+another kind, and one left out where the pack has several such steps (it would have read the first while its
+approval's basis named the one it waits for) or where the step does not wait for the only one
+(`tests/test_step_source_231.py`). `process_runtime.start_case` reads the pack first, so a refused pack starts no case; a case page that still meets an
 element it has no component for names it (`tests/test_pack_gate_231.py`, `ui/src/elements/elementCatalogue231.test.tsx`
 compares the interface's components with the catalogue). `definition(pack)` is the process core's
 definition of the pack's version (`pack_<id>`), each step's kind its capability's step kind, the pack's own settings

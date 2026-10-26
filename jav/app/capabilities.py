@@ -25,6 +25,8 @@ waits instead of running (the process core's rule for an unknown kind).
   (the worker's jobs, the service's requests about it).
 - `step_ref(...)`, `step_refs(params)` (stage D0, D0-a): a parameter that names another step of the case (whose result
   the step reads) is declared one, so the pack check can see that the step is there and that the step waits for it.
+- `step_ref(of=)`, `step_ref_of` (stage D, D-a; the reassessment after D0, P02): the capability the named step uses,
+  so the pack check refuses a step of another kind, and a reference left out where the pack has several such steps.
 - `Result`, `Capability.output` (D0-c): the form of a step's result; `step_ref(reads=, versions=)` says which fields of
   the other step's result a step reads and which versions of its form it takes (`reference_problem`, the pack check);
   `read_result(ctx, params, name)` reads that result checked against its form (`ResultMismatch` otherwise), and the
@@ -62,7 +64,7 @@ from jav.core.process.engine import StepContext
 __all__ = ["KEPT_RULES", "Action", "AtStart", "Capability", "CapabilityError", "DatasetRef", "OwnVersionResult", "PROVIDERS",
            "RULES", "RULE_REFS", "Result", "ResultMismatch", "RuleKey", "case_overlay", "case_rules", "catalogue", "kept_rules",
            "of", "of_step_kind",
-           "read_result", "reference_problem", "register", "step_budget", "step_reads", "step_ref", "step_refs",
+           "read_result", "reference_problem", "register", "step_budget", "step_reads", "step_ref", "step_ref_of", "step_refs",
            "step_scopes"]
 
 PROVIDERS = ("jev", "openai", "azure_di")
@@ -110,12 +112,19 @@ _STEP_REF = "step_ref"  # D0-a: the mark of a parameter that names another step,
 
 
 def step_ref(default: Any = ..., *, reads: tuple[str, ...] = (), versions: tuple[int, ...] | None = None,
-             **field: Any) -> Any:
+             of: str | None = None, **field: Any) -> Any:
     """D0-a: a parameter that names another step of the case, whose result the step reads (`Field` otherwise). D0-c:
     `reads`, the fields of that result it reads, and `versions`, the versions of the other capability's result form it
-    takes (None: any)."""
-    extra = {_STEP_REF: True, "reads": list(reads), "versions": list(versions) if versions is not None else None}
+    takes (None: any). D-a: `of`, the capability (by name) the named step uses; a reference that may be left out reads
+    the pack's only such step, so the pack check refuses one left out where there are several."""
+    extra = {_STEP_REF: True, "reads": list(reads), "versions": list(versions) if versions is not None else None, "of": of}
     return Field(default, json_schema_extra=extra, **field)
+
+
+def step_ref_of(params: type[BaseModel], name: str) -> str | None:
+    """D-a: the capability (by name) the step a reference names uses; None: any."""
+    extra = params.model_fields[name].json_schema_extra
+    return extra.get("of") if isinstance(extra, dict) else None
 
 
 def step_refs(params: type[BaseModel]) -> tuple[str, ...]:

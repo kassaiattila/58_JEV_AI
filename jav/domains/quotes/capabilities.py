@@ -119,11 +119,11 @@ class LinePricing(_Params):
 
 class LineDraft(_Params):
     """A person composes the lines from the match; the approval is the record's own version. D0-b: `from_step`, the
-    match step it starts from (None: the case's only one)."""
+    match step it starts from (None: the case's only one; D-a: the pack check refuses it left out among several)."""
 
     catalogue: str = Field(min_length=1, title=PRICE_LIST)
     approval: Literal["own_version"] = "own_version"
-    from_step: str | None = step_ref(None)
+    from_step: str | None = step_ref(None, of="catalogue_match")
     _catalogue = field_validator("catalogue")(lambda cls, v: _catalogue(v))
 
 
@@ -135,7 +135,7 @@ class LetterDraft(_Params):
 
     frame: str = Field(min_length=1, title="Letter frame")
     callsite: str = Field(min_length=1)
-    from_step: str | None = step_ref(None)
+    from_step: str | None = step_ref(None, of="line_draft")
     output: str = Field("quote", min_length=1, title="Output")
 
     @field_validator("output")
