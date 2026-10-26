@@ -43,6 +43,7 @@ BEFORE = [
     "datapoints:invoice_out:G:synthetic", "datapoints:mohu_szamla:S", "datapoints:mohu_szamla:G",
     "datapoints:villamos_energia_szamla:S", "datapoints:villamos_energia_szamla:G", "datapoints:viz_szamla:S",
     "datapoints:viz_szamla:G", "datapoints:vizmuvek_szamla:S", "datapoints:vizmuvek_szamla:G", "quotes:requests",
+    "insurance_application:documents",  # 231 (D-e3): the invented insurance application documents
     "facts:belepo_jegy", "taught:belepo_jegy_taught:development", "taught:belepo_jegy_taught:evaluation", "types",
     "intents", "quotes:intents", "rules:proposals", "quote:lines", "quote:matches", "quote:letters", "reconcile:pairs",
     "reconcile:credit_kinds",  # 231 (C3a-2): the reconciliation's are its process pack's, after the quote's
@@ -110,5 +111,6 @@ def test_the_logic_packs_golden_sets_come_from_the_measurement_modules() -> None
 def test_the_registry_lists_the_same_golden_sets_as_before_the_move() -> None:
     keys = [g.key for g in goldens.sets()]
     assert [k for k in keys if not _legacy_only(k)] == [k for k in BEFORE if not _legacy_only(k)]
-    assert keys == [k for k in BEFORE if k in set(keys)]  # nothing new but 231 D-c7h's rules:proposals, in the same order
+    assert keys == [k for k in BEFORE if k in set(keys)]  # nothing new but 231's rules:proposals (D-c7h) and
+    # insurance_application:documents (D-e3), in the same order
     assert keys[-len(LOGIC_PACKS):] == LOGIC_PACKS

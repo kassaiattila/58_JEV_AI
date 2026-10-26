@@ -1395,7 +1395,12 @@ reading gives; its printed page is made from those values in its layout (a sched
 source check finds every value on it. Each set records the facts its documents give (the units, what is not read, what
 two documents give differently); the five sets of the product set's reference cases give that case's very facts and
 covers (`tests/test_property_documents_231.py`, `tests/test_fact_readings_231.py`). The fact catalogue 1.4.0 adds the
-site's address. `facts.plain`: a typed value as JSON (moved from the rule evaluation, which keeps the name).
+site's address. `facts.plain`: a typed value as JSON (moved from the rule evaluation, which keeps the name). D-e3:
+their golden set `insurance_application:documents` (`jav/evals/goldens.py`, measured by
+`jav/evals/property_documents.py`): each document written as a PDF, recognised (its main and its detailed type) and read
+with its own pack, judged field by field and row by row, and each set's facts read from what was read against the facts
+it records; without a budget only earlier answers count, so its first round is the paid measurement of D-h. Stand-ins
+test the scorer (`tests/test_property_documents_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

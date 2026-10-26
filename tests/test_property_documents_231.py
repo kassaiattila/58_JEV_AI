@@ -5,8 +5,9 @@ Eight sets of invented documents - a quote request form, a property schedule per
 check finds every value on its page; every document's values are a reading its type pack takes. Read through the fact
 readings, each set gives the facts it records; the five sets of the product set's reference cases give that case's very
 facts (and the covers it asks for), with the company's name, tax number and the site's address beside them. Words no
-code table knows are not read, and a tax number two documents give differently is a disagreement. Invented data; no
-paid call.
+code table knows are not read, and a tax number two documents give differently is a disagreement. D-e3: the golden
+set's measurement scores each document's recognition and reading and each set's facts; stand-ins test its scorer.
+Invented data; no paid call.
 """
 
 from __future__ import annotations
@@ -91,3 +92,42 @@ def test_the_documents_are_written_as_pdfs_with_their_text(tmp_path) -> None:
     assert len(paths) == 23
     text = read_document(str(next(p for p in paths if p.name == "reference-schedule-1.pdf"))).text
     assert "VAGYONADATLAP" in text and "180 000 000 Ft" in text and "Minta Kereskedő Kft." in text
+
+
+# --- the golden set's measurement (stand-ins: no paid call) ---------------------------------------------------------
+
+
+def _options():
+    from jav.evals import goldens
+
+    return goldens.Options(engine="jev")
+
+
+def test_the_measurement_with_a_correct_reading_has_every_judgement_right(tmp_path, monkeypatch) -> None:
+    from jav.evals import property_documents
+
+    monkeypatch.setattr(property_documents, "RUNS_DIR", tmp_path)
+    out = pd.measure(_options(), read=lambda document, path: dict(document.values),
+                     recognise=lambda path: (pd.BROAD, _pack_of(path.stem)))
+    assert (out.cases, out.answered, out.unit) == (23, 23, "judgements")
+    assert out.right == out.scored and out.scored > 400 and out.failures == ()
+
+
+def test_a_wrong_reading_is_counted_in_its_fields_and_its_sets_facts(tmp_path, monkeypatch) -> None:
+    from jav.evals import property_documents
+
+    monkeypatch.setattr(property_documents, "RUNS_DIR", tmp_path)
+
+    def read(document, path):
+        values = dict(document.values)
+        if document.id == "reference-schedule-1":
+            values["flood_zone"] = "magas"  # read wrong
+        return values
+
+    out = pd.measure(_options(), read=read, recognise=lambda path: ("other", None))
+    assert out.right == out.scored - 2 * 23 - 2  # the recognition of every document, the field and its fact
+    assert "reference-schedule-1: 3 of" in " ".join(out.failures) and "reference: site:1.flood_zone" in out.failures
+
+
+def _pack_of(document_id: str) -> str:
+    return next(d.pack for s in DOCS.sets for d in s.documents if d.id == document_id)

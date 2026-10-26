@@ -438,6 +438,29 @@ RULE_GOLDENS = (
 )
 
 
+# 231 (stage D, D-e3): the invented insurance application documents (`jav/evals/property_documents.py`)
+
+
+def _count_property_documents() -> int:
+    from jav.evals import property_documents
+
+    return property_documents.count()
+
+
+def _measure_property_documents(options: Options) -> Outcome:
+    from jav.evals import property_documents
+
+    return property_documents.measure(options)
+
+
+PROPERTY_GOLDENS = (
+    Golden(key="insurance_application:documents", layer="datapoints", owner="insurance_application",
+           what="the 23 invented insurance application documents recognised and read with their type packs, and their "
+                "sets' facts read from them", engines=ENGINES, count=_count_property_documents,
+           measure=_measure_property_documents, module=__name__),
+)
+
+
 # --- the registry ------------------------------------------------------------------------------------------------------
 
 
@@ -447,8 +470,8 @@ def sets() -> list[Golden]:
     from jav.app import registrations
 
     registrations.load_all()
-    return [*datapoint_goldens(), *QUOTE_GOLDENS, *fact_goldens(), *taught_goldens(), *FLOW_GOLDENS, *RULE_GOLDENS,
-            *logic_pack_goldens()]
+    return [*datapoint_goldens(), *QUOTE_GOLDENS, *PROPERTY_GOLDENS, *fact_goldens(), *taught_goldens(), *FLOW_GOLDENS,
+            *RULE_GOLDENS, *logic_pack_goldens()]
 
 
 def get(key: str) -> Golden:
