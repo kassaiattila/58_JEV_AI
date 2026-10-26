@@ -1229,7 +1229,13 @@ them applies only their changes over the version saved now (`merge`), so the oth
 whose outcome is not known (the connection broke) is kept and sent again, and one the version saved now already holds
 (an earlier try went through, an added row with its new id) settles by itself. The quote editor uses it
 (`QuoteEditor.tsx`), and its approval waits while the quote has unsaved work (`useHasWork`). Tests:
-`ui/src/components/editing231.test.ts`, `ui/src/domains/quotes/quoteSave231.test.tsx`.
+`ui/src/components/editing231.test.ts`, `ui/src/domains/quotes/quoteSave231.test.tsx`. Stage D (D-a; the reassessment
+after D0, P01): the first typing records the version it starts from (`QuoteWork.base`); a newer version met before
+the save (another person's, or the editor opened again) is compared with it: where that person changed a field the
+person changed, the comparison opens and nothing is sent; elsewhere the typing goes on over the newer version. A change
+to a row the other person removed is marked (`Change.gone`) and is never settled by itself; a row the person removed
+that the other person changed is marked as changed by them too. While anything is not saved, the editor's head says
+"save the changes first" instead of "ready to approve" (`ui/src/domains/quotes/quoteSaveEdges231.test.tsx`).
 
 **A process's settings page (231, plan stage B, B4).** Settings › Processes (`ui/src/views/settings/ProcessSettingsPanel.tsx`,
 `ui/src/api/processes.ts`) shows each process pack's resources and rule values, each with the value in use, the file's

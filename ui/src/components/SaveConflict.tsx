@@ -52,7 +52,8 @@ export function SaveConflict({ changes, label, value, busy, onKeepMine, onTakeTh
           <tbody>
             {changes.map((c) => (
               <tr key={JSON.stringify(c.path)}>
-                <td>{label(c.path)}{c.both ? <div className="muted small">{t("changed by them too")}</div> : null}</td>
+                <td>{label(c.path)}{c.gone ? <div className="muted small">{t("they removed it: yours cannot be applied")}</div>
+                  : c.both ? <div className="muted small">{t("changed by them too")}</div> : null}</td>
                 <td>{value(c.path, c.mine)}</td>
                 <td>{value(c.path, c.theirs)}</td>
               </tr>

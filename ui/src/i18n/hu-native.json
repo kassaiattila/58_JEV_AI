@@ -2822,5 +2822,7 @@
   "the package was deleted": "a csomagot törölték",
   "its case's approving step has its own task": "az ügy jóváhagyó lépésének saját feladata van",
   "its package was brought with the workflow": "a csomagja a munkafolyamattal érkezett",
-  "the case cannot start: {{what}} has no active version to keep": "az ügy nem indulhat: ennek nincs megtartható élő változata: {{what}}"
+  "the case cannot start: {{what}} has no active version to keep": "az ügy nem indulhat: ennek nincs megtartható élő változata: {{what}}",
+  "they removed it: yours cannot be applied": "a másik személy törölte: a tiéd nem alkalmazható",
+  "save the changes first": "előbb mentsd a módosításokat"
 }
