@@ -2772,5 +2772,6 @@
   "its package:": "a csomagja:",
   "the source does not fit: {{why}}": "a forrás nem megfelelő: {{why}}",
   "Download and processing": "Letöltés és feldolgozás",
-  "This screen element cannot be shown: {{type}}": "Ez a képernyőelem nem jeleníthető meg: {{type}}"
+  "This screen element cannot be shown: {{type}}": "Ez a képernyőelem nem jeleníthető meg: {{type}}",
+  "{{n}} of them not on this page": "ebből {{n}} nem ezen a lapon"
 }

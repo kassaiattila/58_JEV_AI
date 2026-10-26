@@ -2766,5 +2766,6 @@
   "its package:": "its package:",
   "the source does not fit: {{why}}": "the source does not fit: {{why}}",
   "Download and processing": "Download and processing",
-  "This screen element cannot be shown: {{type}}": "This screen element cannot be shown: {{type}}"
+  "This screen element cannot be shown: {{type}}": "This screen element cannot be shown: {{type}}",
+  "{{n}} of them not on this page": "{{n}} of them not on this page"
 }
