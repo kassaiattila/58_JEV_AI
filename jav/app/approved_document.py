@@ -28,12 +28,18 @@ from jav.core.process import kinds
 _OWNER = __name__
 
 
+class _Approved(capabilities.Result):
+    """D-b2: what the printed document expects of the step it prints: the number of its approved version."""
+
+    version: int
+
+
 class PricedDocument(BaseModel):
     """The output contract it fills, and the step whose approved version it prints."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
     output: str = Field(min_length=1, title="Output")
-    from_step: str = capabilities.step_ref(min_length=1, reads=("version",))
+    from_step: str = capabilities.step_ref(min_length=1, expects=_Approved)
 
     @field_validator("output")
     @classmethod

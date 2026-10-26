@@ -997,7 +997,11 @@ Stage D (D-a; the reassessment after D0, P02): a step reference names the kind o
 (`step_ref(of=)`: the line composition a match, the letter a composition); the check refuses a reference to a step of
 another kind, and one left out where the pack has several such steps (it would have read the first while its
 approval's basis named the one it waits for) or where the step does not wait for the only one
-(`tests/test_step_source_231.py`). `process_runtime.start_case` reads the pack first, so a refused pack starts no case; a case page that still meets an
+(`tests/test_step_source_231.py`). D-b2 (P05, T03): a reference may name the form it expects (`step_ref(expects=)`,
+the printed document's: a version number); the check refuses a field the giver does not give, gives as another type (a
+text where a number is expected, a bare number where money is) or may leave empty where the reader needs a value (a
+subclass fits), and `read_result` checks the result against that form before any effect (`expected_result`;
+`tests/test_step_types_231.py`). `process_runtime.start_case` reads the pack first, so a refused pack starts no case; a case page that still meets an
 element it has no component for names it (`tests/test_pack_gate_231.py`, `ui/src/elements/elementCatalogue231.test.tsx`
 compares the interface's components with the catalogue). `definition(pack)` is the process core's
 definition of the pack's version (`pack_<id>`), each step's kind its capability's step kind, the pack's own settings
