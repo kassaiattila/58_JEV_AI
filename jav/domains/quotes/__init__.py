@@ -39,6 +39,7 @@ def register() -> None:
     """Every registration of the quotes domain (`registrations.load_all`): its parts and capabilities (231 C3c: the
     quote's kind of work went; the wizard's quote template is the IT quote pack's)."""
     from jav.domains.quotes import capabilities, quote_document, quote_letter, quote_proposal
+    from jav.domains.quotes import quote_pricing  # noqa: F401 - D-e2: registers the approved quote's decision point
     from jav.app.outputs import builtin, parts
     from jav.runtime import job_kinds
 
