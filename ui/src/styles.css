@@ -992,6 +992,11 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .quote-draft { gap: var(--sp-3); min-width: 0; }
 .quote-draft-title { display: flex; align-items: baseline; gap: var(--sp-3); flex-wrap: wrap; min-width: 0; }
 .quote-warnings { display: grid; gap: var(--sp-2); }
+/* D0-g: a save refused because someone else saved meanwhile: my changes beside theirs, in the ink of the page */
+.save-conflict { display: grid; gap: var(--sp-3); }
+.save-conflict p { margin: 0; }
+.save-conflict table { color: var(--ink); background: var(--paper); }
+.save-conflict-actions { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
 .quote-warnings li { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .quote-head { border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
 .quote-head > summary { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-3); padding: var(--sp-2) 0;

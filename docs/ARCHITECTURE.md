@@ -1200,6 +1200,21 @@ Limits: only the rule files the capabilities declare are kept (a non-JSON file, 
 and the process pack itself, which a case keeps by its version, are not). Tests: `tests/test_case_keeps_versions_231.py`,
 `ui/src/elements/caseKept231.test.tsx`.
 
+**An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
+save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,
+changed, saving, saved, conflict, not known; `saveState`, `SaveLine`). Its unsaved work lives in the page's memory only,
+by what it edits (`keepWork`, `useWork`, `updateWork`: a quote's by its case and step), so it survives switching to
+another case and back and a save finishing after the editor closed still settles it; it never reaches the browser's
+storage (business data is not kept on the machine, unlike the document review's per-tab drafts), and the browser warns
+before the page is left with any. A save the service refuses as made on an older state (409) keeps the person's work:
+their changes since the version they started from are shown beside the version saved now, field by field and row by row
+(`compare`; a row with an `id` by its id, a row added or removed), marked where the other person changed it too; keeping
+them applies only their changes over the version saved now (`merge`), so the other person's other changes stay; a save
+whose outcome is not known (the connection broke) is kept and sent again, and one the version saved now already holds
+(an earlier try went through, an added row with its new id) settles by itself. The quote editor uses it
+(`QuoteEditor.tsx`), and its approval waits while the quote has unsaved work (`useHasWork`). Tests:
+`ui/src/components/editing231.test.ts`, `ui/src/domains/quotes/quoteSave231.test.tsx`.
+
 **A process's settings page (231, plan stage B, B4).** Settings › Processes (`ui/src/views/settings/ProcessSettingsPanel.tsx`,
 `ui/src/api/processes.ts`) shows each process pack's resources and rule values, each with the value in use, the file's
 value and whether it is the process's own, and the roles its partners play. A setting opens with a new value (a

@@ -148,10 +148,13 @@ describe("the quote composed beside its request (192)", () => {
     const first = screen.getByRole("textbox", { name: "Line 1: quantity" });
     fireEvent.change(first, { target: { value: "4" } });
     fireEvent.blur(first);
-    const second = screen.getByRole("textbox", { name: "Line 2: quantity" });
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0][1].lines[0].quantity).toBe("4");
+    const second = screen.getByRole("textbox", { name: "Line 2: quantity" });  // typed while the first is under way
     fireEvent.change(second, { target: { value: "6" } });
     fireEvent.blur(second);
-    await waitFor(() => expect(save).toHaveBeenCalledTimes(1)); // the second waits for the first
+    expect(screen.getByText("Saving…")).toBeTruthy();
+    expect(save).toHaveBeenCalledTimes(1); // the second waits for the first
     answer({ ...DRAFT, state: 8 });
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
     expect(save.mock.calls[1][2]).toBe(8);
@@ -182,12 +185,13 @@ describe("the quote composed beside its request (192)", () => {
     expect(save.mock.calls[0][1].lines[1].sku).toBe("HW-MON-27");
   });
 
-  it("reloads a page that is stale, and says so", async () => {
+  it("reloads a page that is stale, and says so, keeping the person's change (D0-g)", async () => {
     vi.spyOn(api, "saveQuoteDraft").mockRejectedValue(new ApiError(409, "revision_conflict", "changed"));
     const changed = vi.fn();
     render(<QuoteStages view={view(QUOTE)} stage="review" onChanged={changed} />);
     fireEvent.click(screen.getByRole("button", { name: "Confirm the item" }));
-    expect(await screen.findByText("The quote changed since it was shown; it has been reloaded. Check it and try again.")).toBeTruthy();
+    expect(await screen.findByText(/^Someone else saved this meanwhile, so your changes were not saved/)).toBeTruthy();
+    expect(screen.getByText("Not saved: someone else saved it meanwhile")).toBeTruthy();
     expect(changed).toHaveBeenCalled();
   });
 
