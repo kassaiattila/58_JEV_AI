@@ -83,14 +83,16 @@ def _run_approval(packages: _Packages, task: tasks.Task) -> Row:
 
 
 def _own_approval(packages: _Packages, task: tasks.Task) -> Row:
-    """A logic pack waiting for a person's approval of its own version: the package's page."""
-    wp = packages.rows.get(task.subject)
+    """A logic pack waiting for a person's approval of its own version: the package's page. D0-b: a case's approving
+    step's task names the case and the step (`<case>:<step>`)."""
+    wp_id, _step = human_tasks.own_parts(task.subject)
+    wp = packages.rows.get(wp_id)
     try:  # 229 (MD2): what its approval is about, the pack's own
         pack = logic_packs.of(wp["source_kind"]) if wp else None
     except logic_packs.UnknownKind:  # 231 (C3a-2): a package of a retired kind, until the release takes it over
         pack = None
-    # 231 (C3a-1): a case's label is its approving capability's
-    return {"what": logic_packs.approval_label(pack, task.subject), "origin": LIVE, "_wp": task.subject, "_stage": None}
+    # 231 (C3a-1): a case's label is its approving capability's (D0-b: its approving step's)
+    return {"what": logic_packs.approval_label(pack, task.subject), "origin": LIVE, "_wp": wp_id, "_stage": None}
 
 
 def _budget(packages: _Packages, task: tasks.Task) -> Row:

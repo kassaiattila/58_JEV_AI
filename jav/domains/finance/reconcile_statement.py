@@ -206,7 +206,7 @@ def approve(wp_id: str, *, fingerprint: str, actor: identity.Who) -> dict[str, A
         return package_release.approve_own(
             c, wp_id, event="reconcile", content=content, fingerprint=fingerprint, locks=line_ids, actor=actor,
             files=lambda c, n: _store_file(c, wp_id, approved_version(wp_id, n, c), chosen=True),
-            details={"lines": len(line_ids)})
+            details={"lines": len(line_ids)}, step=_approving_step(wp_id, c))
     n = rp._write(state, write)
     return {k: v for k, v in approved_version(wp_id, n).items() if k != "statement"}
 
@@ -225,9 +225,18 @@ def reopen(wp_id: str, *, note: str, actor: identity.Who) -> dict[str, Any]:
 
     with store.connect() as c:
         store.begin_immediate(c)
-        if package_release.reopen_logged(c, wp_id, event="reconcile", note=note, actor=actor, files=earlier) is None:
+        if package_release.reopen_logged(c, wp_id, event="reconcile", note=note, actor=actor, files=earlier,
+                                         step=_approving_step(wp_id, c)) is None:
             raise explained(rp.PackageError, "the package has no approved statement to reopen")
     return rp.approval(wp_id)
+
+
+def _approving_step(wp_id: str, c: Any) -> str | None:
+    """D0-b: the case's pairing step, whose version and task the statement's approval is (the pairing keeps its state
+    for the whole case, so a pack has one); None for a package that is no case's."""
+    from jav.app import process_runtime  # lazy: the process runtime builds on the packages and their versions
+
+    return process_runtime.step_using(wp_id, "pairing", c)
 
 
 def accept_sources(wp_id: str, doc_ids: Iterable[str], *, actor: identity.Who, expected_state: int | None = None) -> int:

@@ -50,8 +50,9 @@ def test_a_reconciliation_case_waits_for_its_statement_s_approval(own):
     assert _waiting_for(case) == ["Reconciliation statement"]
     with store.connect() as c:  # the approval as the statement's own version records it (its documents are synthetic)
         store.begin_immediate(c)
-        package_release.record_own(c, case, content={"invented": True}, fingerprint="f" * 16, locks=[], actor=PERSON)
-    assert tasks.get(tasks.task_id("own_approval", case)).status == "decided" and _waiting_for(case) == []
+        package_release.record_own(c, case, content={"invented": True}, fingerprint="f" * 16, locks=[], actor=PERSON,
+                                   step="pair")  # D0-b: the pairing step's approval
+    assert tasks.get(tasks.task_id("own_approval", f"{case}:pair")).status == "decided" and _waiting_for(case) == []
 
 
 def test_a_case_whose_approval_task_went_missing_gets_it_back_at_the_repair(own):
@@ -59,7 +60,7 @@ def test_a_case_whose_approval_task_went_missing_gets_it_back_at_the_repair(own)
     case = process_runtime.start_case("reconciliation", {"party": party, "period": ["2026-04-01", "2026-04-30"]},
                                       name="April", actor=PERSON)
     with store.connect() as c:  # as in a store written before cases opened it
-        c.execute("DELETE FROM process_tasks WHERE task_id = ?", (tasks.task_id("own_approval", case),))
+        c.execute("DELETE FROM process_tasks WHERE task_id = ?", (tasks.task_id("own_approval", f"{case}:pair"),))
     assert _waiting_for(case) == []
     with store.connect() as c:
         store.begin_immediate(c)
@@ -94,4 +95,4 @@ def test_the_chain_reopens_a_reconciliation_case_when_the_invoices_are_approved_
     assert approval["active"] is None
     earlier = approval["versions"][0]
     assert (earlier["version"], earlier["reopened_by"], earlier["reopen_note"]) == (1, "tester (auto)", wf.REAPPROVE_NOTE)
-    assert tasks.get(tasks.task_id("own_approval", rec)).status == "open"  # it waits for a person again
+    assert tasks.get(tasks.task_id("own_approval", f"{rec}:pair")).status == "open"  # it waits for a person again

@@ -23,7 +23,10 @@ open tasks go to whom the rule names now (`package_owner_changed`).
   approval from when it is made (`work.create_workpackage`) and again when its approved version is reopened
   (`package_release.reopen_own`); the approval decides it (`package_release.record_own`), on the fingerprint of what
   the person approved, and a deleted package withdraws it. An archived one keeps it open: restoring it needs the same
-  approval. In a workflow the approval sends its step the same event as a run's approval.
+  approval. In a workflow the approval sends its step the same event as a run's approval. Stage D0 (D0-b): a case's
+  approval is its approving step's, `own_approval:<case>:<step>` (`own_subject`), so two approving steps of a case wait
+  and are decided on their own; a task written for the whole case before moves to its case's approving step when the
+  store opens (`own_approvals_per_step`) or when the package is taken over as a case (`case_adopted`).
 - The budget a workflow step waits for is `jav.app.workflow_cases`' task (`workflow_budget`), for the person this
   module names.
 
@@ -180,12 +183,25 @@ store.set_review_item_hook(review_item_changed)
 # --- a logic pack's own approval -----------------------------------------------------------------------------------------
 
 
-def own_approval_waits(c: sqlite3.Connection, wp_id: str, *, by: actors.Actor = MACHINE,
+def own_subject(wp_id: str, step_id: str | None) -> str:
+    """D0-b: what an own approval task is about: a case's approving step (`<case>:<step>`), or a package's own approval
+    (its id; a package id has no colon)."""
+    return f"{wp_id}:{step_id}" if step_id else wp_id
+
+
+def own_parts(subject: str) -> tuple[str, str | None]:
+    """D0-b: (package, step) of an own approval task's subject (step None: the package's own approval)."""
+    wp_id, sep, step_id = subject.partition(":")
+    return wp_id, (step_id if sep else None)
+
+
+def own_approval_waits(c: sqlite3.Connection, wp_id: str, step_id: str | None = None, *, by: actors.Actor = MACHINE,
                        reopened: int | None = None) -> str:
     """The package waits for its own approval, in the caller's transaction ("opened", "reopened" or "exists"): made, or
-    its approved version `reopened`."""
-    return tasks.open_in(c, OWN_APPROVAL, wp_id, by, assignee=assignee_for(c, wp_id, None),
-                         detail={"workpackage_id": wp_id, **({"reopened": reopened} if reopened is not None else {})})
+    its approved version `reopened`. D0-b: a case's approving step `step_id` waits for its own."""
+    return tasks.open_in(c, OWN_APPROVAL, own_subject(wp_id, step_id), by, assignee=assignee_for(c, wp_id, None),
+                         detail={"workpackage_id": wp_id, **({"step_id": step_id} if step_id else {}),
+                                 **({"reopened": reopened} if reopened is not None else {})})
 
 
 def package_made(c: sqlite3.Connection, wp_id: str, kind: str) -> None:
@@ -195,10 +211,11 @@ def package_made(c: sqlite3.Connection, wp_id: str, kind: str) -> None:
         own_approval_waits(c, wp_id)
 
 
-def own_approved(c: sqlite3.Connection, wp_id: str, actor: actors.Who, *, version: int, fingerprint: str) -> None:
-    """The package's own version `version` was approved, in that transaction: its task is decided by the approver on
-    what they approved, and its workflow step hears of it."""
-    tid = tasks.task_id(OWN_APPROVAL, wp_id)
+def own_approved(c: sqlite3.Connection, wp_id: str, step_id: str | None, actor: actors.Who, *, version: int,
+                 fingerprint: str) -> None:
+    """The package's own version `version` was approved, in that transaction: its task (D0-b: its approving step's) is
+    decided by the approver on what they approved, and its workflow step hears of it."""
+    tid = tasks.task_id(OWN_APPROVAL, own_subject(wp_id, step_id))
     task = tasks.task_in(c, tid)
     if task is None or task.status != tasks.OPEN:
         return
@@ -206,11 +223,38 @@ def own_approved(c: sqlite3.Connection, wp_id: str, actor: actors.Who, *, versio
     _settled(c, wp_id, tid, task.round, tasks.DECIDED, person(actor))
 
 
+def _own_tasks_of(c: sqlite3.Connection, wp_id: str) -> list[tasks.Task]:
+    """D0-b: the open own approval tasks about the package: its own, and each of its case's approving steps'."""
+    return [t for t in tasks.of_kind_in(c, OWN_APPROVAL, status=tasks.OPEN) if own_parts(t.subject)[0] == wp_id]
+
+
 def package_deleted(c: sqlite3.Connection, wp_id: str, actor: actors.Who) -> None:
-    """The package was deleted, in that transaction: nothing waits for its own approval any more."""
-    tid = tasks.task_id(OWN_APPROVAL, wp_id)
-    if (task := tasks.task_in(c, tid)) is not None and task.status == tasks.OPEN:
-        tasks.withdraw_in(c, tid, person(actor), note="the package was deleted")
+    """The package was deleted, in that transaction: nothing waits for its own approval any more (D0-b: nor for any of
+    its case's steps')."""
+    for task in _own_tasks_of(c, wp_id):
+        tasks.withdraw_in(c, task.task_id, person(actor), note="the package was deleted")
+
+
+def _move_to_step(c: sqlite3.Connection, task: tasks.Task, wp_id: str, steps: list[str]) -> bool:
+    """D0-b: a task about the whole case moved to its case's one approving step (a case with none or several is left
+    as it is); one the step has already is withdrawn instead, while it is open."""
+    if len(steps) != 1:
+        return False
+    target = tasks.task_id(OWN_APPROVAL, own_subject(wp_id, steps[0]))
+    if tasks.task_in(c, target) is not None:
+        if task.status == tasks.OPEN:
+            tasks.withdraw_in(c, task.task_id, ADOPTION, note="its case's approving step has its own task")
+        return task.status == tasks.OPEN
+    tasks.resubject_in(c, task.task_id, own_subject(wp_id, steps[0]), detail={**task.detail, "step_id": steps[0]})
+    return True
+
+
+def case_adopted(c: sqlite3.Connection, wp_id: str, steps: list[str]) -> None:
+    """D0-b: a package taken over as a case, in that transaction: its own approval task moves to the case's approving
+    step (`steps`: the steps done with its approved version)."""
+    task = tasks.task_in(c, tasks.task_id(OWN_APPROVAL, wp_id))
+    if task is not None:
+        _move_to_step(c, task, wp_id, steps)
 
 
 # --- a package's new responsible person ---------------------------------------------------------------------------------
@@ -231,9 +275,7 @@ def _package_tasks(c: sqlite3.Connection, wp_id: str) -> list[tuple[str, str | N
         (t.task_id, runs[t.subject]) for t in tasks.of_kind_in(c, RUN_APPROVAL, status=tasks.OPEN) if t.subject in runs]
     found += [(t.task_id, reviews[t.subject]) for t in tasks.of_kind_in(c, REVIEW, status=tasks.OPEN)
               if t.subject in reviews]
-    own = tasks.task_in(c, tasks.task_id(OWN_APPROVAL, wp_id))
-    if own is not None and own.status == tasks.OPEN:
-        found.append((own.task_id, None))
+    found += [(t.task_id, None) for t in _own_tasks_of(c, wp_id)]  # D0-b: its case's approving steps' too
     return found
 
 
@@ -254,33 +296,51 @@ def package_owner_changed(c: sqlite3.Connection, wp_id: str) -> int:
 _OPEN_REVIEWS = "SELECT q.id, q.subject_kind, q.subject_id, q.run_id FROM review_queue q WHERE q.status='open' ORDER BY q.id"
 _WAITING_RUNS = ("SELECT r.run_id FROM runs r WHERE r.mode='apply' AND r.approval IS NULL"
                  f" AND r.status IN ({', '.join(repr(s) for s in FINISHED)}) ORDER BY r.created_at, r.run_id")
-_APPROVED_OWN = ("SELECT DISTINCT workpackage_id FROM package_versions WHERE content IS NOT NULL"
-                 " AND reopened_at IS NULL")
+_APPROVED_OWN = ("SELECT DISTINCT workpackage_id, step_id FROM package_versions WHERE content IS NOT NULL"
+                 " AND reopened_at IS NULL")  # D0-b: per approving step (none: a package's, or one recorded before)
 _WAITING_OWN = ("SELECT w.id FROM workpackages w WHERE w.source_kind IN ({kinds}) AND NOT EXISTS (SELECT 1 FROM"
                 " package_versions v WHERE v.workpackage_id = w.id AND v.content IS NOT NULL AND v.reopened_at IS NULL)"
                 " ORDER BY w.created_at, w.id")
 SETTLED_UNSEEN = "settled while no task was kept"
 
 
+def _held(conn: sqlite3.Connection) -> set[tuple[str, str | None]]:
+    """D0-b: (package, approving step) of every own version that holds (step None: a package's own, or one recorded
+    before D0-b, its case's single approving step's)."""
+    return {(r["workpackage_id"], r["step_id"]) for r in conn.execute(_APPROVED_OWN)}
+
+
+def _holds(held: set[tuple[str, str | None]], subject: str) -> bool:
+    wp_id, step_id = own_parts(subject)
+    if step_id is None:
+        return any(wp == wp_id for wp, _ in held)
+    return (wp_id, step_id) in held or (wp_id, None) in held
+
+
 def _waiting_cases(conn: sqlite3.Connection) -> list[str]:
     """231 (C3a-1): the process packs' case containers that approve their result as their own version and have no such
-    version holding (a general container kind: the case says whether it owns an approval, not its kind)."""
+    version holding (a general container kind: the case says whether it owns an approval, not its kind). D0-b: each
+    such approving step without a version of its own holding, as its task's subject (`<case>:<step>`)."""
     from jav.app import process_runtime  # lazy: the process runtime opens these tasks itself
 
-    containers = [r["id"] for r in conn.execute(_WAITING_OWN.format(kinds="?"), (process_runtime.CONTAINER,))]
-    return [wp for wp in containers if process_runtime.owns_approval(wp, conn)]  # on this connection: a schema change
+    held = _held(conn)
+    containers = [r["id"] for r in conn.execute("SELECT id FROM workpackages WHERE source_kind=? ORDER BY created_at, id",
+                                                (process_runtime.CONTAINER,))]
+    return [own_subject(wp, step) for wp in containers for step in process_runtime.approval_steps(wp, conn)
+            if not _holds(held, own_subject(wp, step))]  # on this connection: a schema change asks it
 
 
 def _stale(conn: sqlite3.Connection, reviews: list[sqlite3.Row], runs: list[str]) -> list[str]:
     """The open tasks whose subject no longer waits for a person: an item closed, a run approved, superseded or
-    stopped, a logic pack approved or deleted (by a version that keeps no task)."""
+    stopped, a logic pack approved or deleted (by a version that keeps no task); D0-b: a case's approving step whose
+    own version holds."""
     open_items, waiting_runs = {str(r["id"]) for r in reviews}, set(runs)
     packages = {r["id"] for r in conn.execute("SELECT id FROM workpackages")}
-    approved = {r["workpackage_id"] for r in conn.execute(_APPROVED_OWN)}
+    held = _held(conn)
     stale = [t.task_id for t in tasks.of_kind_in(conn, REVIEW, status=tasks.OPEN) if t.subject not in open_items]
     stale += [t.task_id for t in tasks.of_kind_in(conn, RUN_APPROVAL, status=tasks.OPEN) if t.subject not in waiting_runs]
     stale += [t.task_id for t in tasks.of_kind_in(conn, OWN_APPROVAL, status=tasks.OPEN)
-              if t.subject not in packages or t.subject in approved]
+              if own_parts(t.subject)[0] not in packages or _holds(held, t.subject)]
     return sorted(stale)
 
 
@@ -289,7 +349,7 @@ def _missing(conn: sqlite3.Connection) -> tuple[list[sqlite3.Row], list[str], li
     open_reviews = conn.execute(_OPEN_REVIEWS).fetchall()
     waiting_runs = [r["run_id"] for r in conn.execute(_WAITING_RUNS)]
     own = [r["id"] for r in conn.execute(_WAITING_OWN.format(kinds=", ".join("?" * len(kinds))), kinds)] if kinds else []
-    own += _waiting_cases(conn)
+    own += _waiting_cases(conn)  # D0-b: `<case>:<step>` subjects
     have = {kind: tasks.ids_of_kind_in(conn, kind) for kind in (REVIEW, RUN_APPROVAL, OWN_APPROVAL)}
     return ([r for r in open_reviews if tasks.task_id(REVIEW, str(r["id"])) not in have[REVIEW]],
             [r for r in waiting_runs if tasks.task_id(RUN_APPROVAL, r) not in have[RUN_APPROVAL]],
@@ -313,8 +373,8 @@ def adopt_missing(conn: sqlite3.Connection) -> int:
             _open_review(conn, item, ADOPTION)
         for run_id in runs:
             open_run_approval(conn, run_id, by=ADOPTION)
-        for wp_id in own:
-            own_approval_waits(conn, wp_id, by=ADOPTION)
+        for subject in own:
+            own_approval_waits(conn, *own_parts(subject), by=ADOPTION)
         for tid in stale:
             tasks.withdraw_in(conn, tid, ADOPTION, note=SETTLED_UNSEEN)
         conn.commit()
@@ -322,3 +382,36 @@ def adopt_missing(conn: sqlite3.Connection) -> int:
         conn.rollback()
         raise
     return len(reviews) + len(runs) + len(own) + len(stale)
+
+
+def _whole_case_tasks(conn: sqlite3.Connection) -> list[tuple[tasks.Task, list[str]]]:
+    """D0-b: the own approval tasks about a whole case (written before D0-b) that move to its case's one step done with
+    an approved version (or, open, give way to the task that step has already)."""
+    from jav.app import process_runtime  # lazy: the process runtime opens these tasks itself
+
+    out = []
+    for task in tasks.of_kind_in(conn, OWN_APPROVAL):
+        wp_id, step_id = own_parts(task.subject)
+        if step_id is not None or len(steps := process_runtime.own_version_steps(wp_id, conn)) != 1:
+            continue
+        if task.status == tasks.OPEN or tasks.task_in(conn, tasks.task_id(OWN_APPROVAL, own_subject(wp_id, steps[0]))) is None:
+            out.append((task, steps))
+    return out
+
+
+def own_approvals_per_step(conn: sqlite3.Connection) -> int:
+    """D0-b, the store's schema change helper (`store.register_migration`, before `adopt_missing`): a task about a whole
+    case's approval moves to its case's one approving step, keeping its rounds, assignee, opening time and history
+    (`tasks.resubject_in`); a case with several such steps keeps it as it is. In one write transaction checked again
+    inside it. Returns how many moved."""
+    if not _whole_case_tasks(conn):
+        return 0
+    conn.commit()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        moved = sum(_move_to_step(conn, task, own_parts(task.subject)[0], steps) for task, steps in _whole_case_tasks(conn))
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    return moved

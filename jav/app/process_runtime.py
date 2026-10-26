@@ -20,6 +20,9 @@ person starts waits for that person's start task.
 - `pack_of(case_id)`: the pack id and version a case runs on; `pack_for(case_id)`: that version of the pack itself (A7a:
   an older version comes back from the calculation snapshot the case was linked to when it started, so a case keeps
   the screens and outputs it started with after its pack changes).
+- `own_version_steps(case_id)`, `approval_steps(case_id)`, `step_using(case_id, capability)` (stage D0, D0-b): the
+  case's steps done with an approved own version of theirs, those of them it waits for from its start (each its own
+  person's task, `own_approval:<case>:<step>`), and its step that uses a capability.
 - `CONTAINER_PACK`: how the work package registry knows a container (A6): a package without runs whose page names its
   case (the interface opens the case's page), whose next step is the case's state, whose outputs are its pack's, and
   which is neither released the shared way nor deleted while its case exists. It is general, the same for every pack.
@@ -40,8 +43,9 @@ from jav.core import activity_kinds, identity, rulebook, store
 from jav.core.process import cases
 from jav.core.user_messages import explained
 
-__all__ = ["CONTAINER", "CONTAINER_PACK", "adopt_all", "adopt_case", "outputs_of", "owns_approval", "pack_for", "pack_of",
-           "pack_step_kind", "register", "start_case", "wrap_case", "wrap_into"]
+__all__ = ["CONTAINER", "CONTAINER_PACK", "adopt_all", "adopt_case", "approval_steps", "outputs_of", "own_version_steps",
+           "owns_approval", "pack_for", "pack_of", "pack_step_kind", "register", "start_case", "step_using", "wrap_case",
+           "wrap_into"]
 
 CONTAINER = "case"  # the container work package's kind
 activity_kinds.register_events("package", ("case_wrapped",), __name__)  # C3b4: a wrapped package's log names its case
@@ -66,8 +70,8 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
     with cases.transaction() as c:
         package_scope.save(c, case_id, parts=checked, actor=actor, **_scope_columns(checked))
         cases.start_in(c, case_id, definition, data, identity.who(actor))
-        if _approval_capability(pack) is not None:  # C3a-1: it waits for that approval as a person's task
-            human_tasks.own_approval_waits(c, case_id)
+        for step_id in _approving(pack, from_start=True):  # C3a-1: it waits for that approval as a person's task
+            human_tasks.own_approval_waits(c, case_id, step_id)  # D0-b: each approving step for its own
     return case_id
 
 
@@ -110,7 +114,9 @@ def adopt_case(pack_id: str, wp_id: str, scope: dict[str, Any], *, actor: identi
         package_scope.save(c, wp_id, parts=checked, actor=actor, **_scope_columns(checked))
         rulebook.link_in(c, rulebook.CASE, wp_id)  # the code and the rules the case was taken over with
         owner = identity.who(wp["owner"]) if wp.get("owner") else who
-        return cases.adopt(c, wp_id, definition, data, owner, who, states)
+        adopted = cases.adopt(c, wp_id, definition, data, owner, who, states)
+        human_tasks.case_adopted(c, wp_id, _approving(pack))  # D0-b: the package's approval task is its step's now
+        return adopted
 
 
 class _Bound(Exception):
@@ -247,20 +253,22 @@ def adopt_all(*, actor: identity.Who, write: bool = False) -> list[dict[str, Any
     return out
 
 
-def own_version_reopened(c: Any, wp_id: str, actor: Any, reason: str) -> list[str]:
+def own_version_reopened(c: Any, wp_id: str, actor: Any, reason: str, *, step: str | None = None) -> list[str]:
     """231 (C2d): the approved own version of a case's container was reopened, in that change's transaction: each done
     step whose capability is done with that version (`Capability.own_version`) opens again (a case closed as done opens
     too) and the steps built on it go out of date; returns them. Nothing for a package that is no case's, or a case
-    closed otherwise."""
+    closed otherwise. D0-b: only the approving `step` whose version it was (None: every such step, as for a version
+    recorded before D0-b)."""
     case = cases.find_case_in(c, wp_id)
     if case is None or (case["status"] == cases.CLOSED and case["outcome"] != "done"):
         return []
     out: list[str] = []
-    for step in cases.definition_of(case).steps:
-        cap = capabilities.of_step_kind(step.kind)
-        row = cases.find_step_in(c, wp_id, step.id)
-        if cap is not None and cap.own_version and row is not None and row["state"] == cases.DONE:
-            out += cases.reopen_in(c, wp_id, step.id, actor, reason=reason)
+    for s in cases.definition_of(case).steps:
+        cap = capabilities.of_step_kind(s.kind)
+        row = cases.find_step_in(c, wp_id, s.id)
+        if (cap is not None and cap.own_version and row is not None and row["state"] == cases.DONE
+                and (step is None or s.id == step)):
+            out += cases.reopen_in(c, wp_id, s.id, actor, reason=reason)
     return out
 
 
@@ -347,6 +355,54 @@ def _next(case_id: str) -> dict[str, Any]:
             "stage": "process", "params": {}}
 
 
+def _approving(pack: process_packs.ProcessPack, *, from_start: bool = False) -> list[str]:
+    """D0-b: the pack's steps done with an approved own version of theirs (`Capability.own_version`); `from_start`:
+    only those the case waits for from its start, as a person's task (their capability says how a version is
+    reopened), not those whose step opens its task itself (the quote's line composition, once its draft is made)."""
+    out = []
+    for step in pack.steps:
+        cap = capabilities.of(step.uses)
+        if cap.own_version and (cap.reopen is not None or not from_start):
+            out.append(step.id)
+    return out
+
+
+def _pack_or_none(case_id: str, c: Any) -> process_packs.ProcessPack | None:
+    try:
+        return _pack_for_in(c, case_id)
+    except (KeyError, process_packs.PackError):
+        return None
+
+
+def own_version_steps(case_id: str, c: Any = None) -> list[str]:
+    """D0-b: the case's steps done with an approved own version of theirs, in the pack's order ([] for a package that is
+    no case's). On the caller's connection `c` when given (a store's schema change asks it while it runs)."""
+    if c is None:
+        with store.connect() as own:
+            return own_version_steps(case_id, own)
+    pack = _pack_or_none(case_id, c)
+    return _approving(pack) if pack is not None else []
+
+
+def approval_steps(case_id: str, c: Any = None) -> list[str]:
+    """D0-b: the case's approving steps it waits for from its start, each as a person's task of its own."""
+    if c is None:
+        with store.connect() as own:
+            return approval_steps(case_id, own)
+    pack = _pack_or_none(case_id, c)
+    return _approving(pack, from_start=True) if pack is not None else []
+
+
+def step_using(case_id: str, capability: str, c: Any = None) -> str | None:
+    """D0-b: the case's first step that uses the capability named `capability` (any version); None for a package that
+    is no case's, or a case without one. A capability whose state belongs to the case stands once in its pack."""
+    if c is None:
+        with store.connect() as own:
+            return step_using(case_id, capability, own)
+    pack = _pack_or_none(case_id, c)
+    return next((s.id for s in pack.steps if s.uses.split("@", 1)[0] == capability), None) if pack is not None else None
+
+
 def _approval_capability(pack: process_packs.ProcessPack) -> capabilities.Capability | None:
     """C3a-1: the capability of the pack's step that is done with the case's own approved version and says how that
     version is reopened (`Capability.reopen`), or None: a case of the pack owns no approval."""
@@ -375,7 +431,17 @@ def owns_approval(case_id: str, c: Any = None) -> bool:
     return _case_approval(case_id, c) is not None
 
 
-def _approval_what(case_id: str) -> str | None:
+def _approval_what(subject: str) -> str | None:
+    """What a case's approval is about in "Waiting for me": its approving capability's words. D0-b: `subject` is the
+    case, or its approving step's task subject (`<case>:<step>`), whose capability's words count then."""
+    case_id, _, step_id = subject.partition(":")
+    if step_id:
+        with store.connect() as c:
+            pack = _pack_or_none(case_id, c)
+        uses = next((s.uses for s in pack.steps if s.id == step_id), None) if pack is not None else None
+        cap = capabilities.of(uses) if uses else None
+        if cap is not None and cap.approval_what:
+            return cap.approval_what
     cap = _case_approval(case_id)
     return cap.approval_what if cap is not None else None
 
@@ -390,8 +456,9 @@ def _reopen(case_id: str, *, note: str, actor: identity.Who) -> Any:
 
 def _approved(case_id: str) -> bool:
     """Its result's version is approved, or (231 C1c) its case closed as done (a process without an approval of its own:
-    the email routing, once every document is decided)."""
-    if package_release.own_approval(case_id)["active"] is not None:
+    the email routing, once every document is decided). D0-b: every approving step of the case holds a version."""
+    steps = own_version_steps(case_id)
+    if steps and all(package_release.own_approval(case_id, step=s)["active"] is not None for s in steps):
         return True
     with store.connect() as c:
         row = cases.find_case_in(c, case_id)

@@ -202,7 +202,7 @@ def _line_draft(ctx: Any, params: LineDraft) -> kinds.StepOutcome:
     if view["draft"] is None:
         quote_draft.start(wp, source="proposal", actor=ctx.actor, expected_state=None, catalogue=params.catalogue)
         with ctx.transaction() as c:
-            human_tasks.own_approval_waits(c, wp)  # a person approves it, from the waiting list
+            human_tasks.own_approval_waits(c, wp, ctx.step.id)  # a person approves it, from the waiting list (D0-b: the step's)
         return _again(ctx, "approval")
     active = view["approval"]["active"]
     if active is None:

@@ -73,7 +73,7 @@ def _approved_chain(db) -> tuple[str, str, str]:  # noqa: F811
 
 
 def _own_task(wp_id: str) -> tasks.Task:
-    return tasks.get(tasks.task_id("own_approval", wp_id))
+    return tasks.get(tasks.task_id("own_approval", f"{wp_id}:pair"))  # D0-b: the pairing step's approval
 
 
 def test_a_done_step_names_the_approved_package_version_and_the_results_it_built_on(db):  # noqa: F811

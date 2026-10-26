@@ -40,13 +40,14 @@ class Pairing(BaseModel):
     rules: Literal["invoice_statement"]
 
 
-def _approved(wp_id: str) -> dict[str, Any] | None:
-    """The approved version that holds (not reopened), or None: the same rule as a workflow's reconciliation step."""
-    return package_release.own_approval(wp_id)["active"]
+def _approved(wp_id: str, step: str | None = None) -> dict[str, Any] | None:
+    """The approved version that holds (not reopened), or None: the same rule as a workflow's reconciliation step.
+    D0-b: the version of the case's pairing `step` (None: the package's, before it is a case's)."""
+    return package_release.own_approval(wp_id, step=step)["active"]
 
 
 def _pair(ctx: Any, _params: Pairing) -> kinds.StepOutcome:
-    version = _approved(str(ctx.data["container"]))
+    version = _approved(str(ctx.data["container"]), ctx.step.id)
     if version is not None:
         return kinds.Done({"version": version["version"]})
     return ctx.wait(WAITING_FOR, timer=("check", time.time() + POLL_S))

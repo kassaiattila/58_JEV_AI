@@ -798,7 +798,17 @@ decided and has none) waits for that approval as `own_approval:<package>` from w
 (`work.create_workpackage`, by the pack's kind), and again when its approved version is reopened
 (`package_release.reopen_own`); the approval decides it on the fingerprint the person approved
 (`package_release.record_own`) and, for a workflow step's package, sends the case the same `approval` event as a run's
-approval; deleting the package withdraws it, archiving it does not (restoring it needs the same approval). A package's
+approval; deleting the package withdraws it, archiving it does not (restoring it needs the same approval). Since
+stage D0 (D0-b) a case's approval is its approving step's: `own_approval:<case>:<step>` (`human_tasks.own_subject`), and
+an own version records its step (`package_versions.step_id`): each approving step of a case waits, is decided, holds a
+version and is reopened on its own (`package_release.record_own`, `reopen_own`, `own_approval` with `step=`), while the
+version numbers stay one sequence per package (a version's files keep their names). The case's steps that approve are
+`process_runtime.own_version_steps` (those it waits for from its start: `approval_steps`); the reconciliation's
+statement is its `pair` step's, the quote its `compose` step's (`process_runtime.step_using`). A task written for the
+whole case before moves to its case's one approving step when the store opens (`human_tasks.own_approvals_per_step`,
+through the core's `tasks.resubject_in`: its rounds, assignee, opening time and history stay) or when its package is
+taken over as a case (`human_tasks.case_adopted`); a version recorded before has no step and counts as its case's
+single approving step's (`tests/test_own_approval_steps_231.py`). A package's
 new responsible person takes its open tasks (`work.set_owner` → `human_tasks.package_owner_changed`: its runs'
 approvals, the items its runs raised last, its own approval, its workflow step's budget), each move with its history
 row. The work made before has its tasks opened by the store's schema change helper (`human_tasks.adopt_missing`,

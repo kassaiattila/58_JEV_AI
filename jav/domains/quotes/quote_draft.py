@@ -518,7 +518,7 @@ def approve(wp_id: str, *, fingerprint: str, actor: identity.Who) -> dict[str, A
         n = package_release.approve_own(
             c, wp_id, event="quote", content=content, fingerprint=fingerprint, locks=[], actor=actor,
             files=lambda c, n: quote_document.store(c, wp_id, n, content, package=package, actor=actor),  # 196: its Word document
-            details={"lines": len(content["lines"]), "gross": content["totals"]["gross"]})
+            details={"lines": len(content["lines"]), "gross": content["totals"]["gross"]}, step=_approving_step(wp_id, c))
         # 231 (B3): the totals in the decision trace, so a process's own rounding can be tried on its approved quotes
         inputs = quote_pricing.amount_inputs(content)
         trace.record_in(c, quote_pricing.AMOUNTS, subject=("quote_version", f"{wp_id}:{n}"),
@@ -544,9 +544,18 @@ def reopen(wp_id: str, *, note: str, actor: identity.Who) -> dict[str, Any]:
         raise explained(QuoteDraftError, "reopening needs a reason")
     with store.connect() as c:
         store.begin_immediate(c)
-        if package_release.reopen_logged(c, wp_id, event="quote", note=note, actor=actor) is None:
+        if package_release.reopen_logged(c, wp_id, event="quote", note=note, actor=actor,
+                                         step=_approving_step(wp_id, c)) is None:
             raise explained(QuoteDraftError, "the quote has no approved version to reopen")
     return view(wp_id)
+
+
+def _approving_step(wp_id: str, c: sqlite3.Connection) -> str | None:
+    """D0-b: the case's step that composes and approves the quote (its version and task are the step's); None for a
+    package that is no case's."""
+    from jav.app import process_runtime  # lazy: the process runtime builds on the packages and their versions
+
+    return process_runtime.step_using(wp_id, "line_draft", c)
 
 
 def approved_version(wp_id: str, n: int, *, with_quote: bool = True) -> dict[str, Any]:
