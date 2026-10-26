@@ -3117,5 +3117,15 @@
   "To check": "Ellenőrizendő",
   "Contradicted": "Ellentmond",
   "Not asked": "Nem kérdezve",
-  "Accepted": "Elfogadott"
+  "Accepted": "Elfogadott",
+  "the units changed meanwhile; reload them": "az egységek közben megváltoztak; töltsd be újra őket",
+  "there is no unit to freeze": "nincs rögzíthető egység",
+  "Check and freeze the facts": "A tények ellenőrzése és rögzítése",
+  "A fact another step offers": "Egy másik lépés által felkínált tény",
+  "Where a fact another step offers (a document read, an outside register's answer) goes in a field check: it makes the unit it names, fills a fact still missing, agrees with the fact there, or conflicts with it; a conflict is never chosen: a person decides. A unit whose parent is not there gets nothing.": "Hová kerül a mezőellenőrzésben egy másik lépés által felkínált tény (olvasott irat, külső nyilvántartás válasza): létrehozza az általa megnevezett egységet, kitölti a még hiányzó tényt, egyezik a meglévővel, vagy ütközik vele; ütközésnél a rendszer soha nem választ: egy személy dönt. Annak az egységnek, amelynek a szülője nincs meg, semmi nem jut.",
+  "The person's own corrections or the freezing of the checked input.": "A személy saját javításai, vagy az ellenőrzött bemenet rögzítése.",
+  "The levels of the units": "Az egységek szintjei",
+  "A person checks the assessed units and their sources, with the facts other steps offer, and freezes them as the checked input.": "Egy személy ellenőrzi az értékelt egységeket és forrásaikat a többi lépés által felkínált tényekkel, és rögzíti őket ellenőrzött bemenetként.",
+  "field check: facts frozen": "mezőellenőrzés: tények rögzítve",
+  "field check: reopened": "mezőellenőrzés: újranyitva"
 }

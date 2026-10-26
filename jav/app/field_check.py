@@ -1,0 +1,312 @@
+"""A person's check of the assessed units, frozen as the step's own version (231, stage D, D-d2).
+
+Plain-language summary: an assessment's units (a policyholder, its sites, their asset groups) carry facts with the
+source each came from: a document read, an outside register's answer, a person's entry. This step is where a person
+checks them. The steps it waits for may offer claims (a lookup's answers, a reading's facts), each naming its unit by the
+offering step's own key and level (and its parent's key): a claim creates a unit the step does not have yet, fills a
+fact still missing, or agrees with the fact there; a claim that differs from a fact already there is never chosen: it is
+shown to the person as a conflict. Each claim is placed once, and its placement is a row of the decision trace. The
+person corrects what needs it (`assessed_units`) and freezes the units with the day cover starts: the checked input -
+the units typed by the catalogue, the product version the case kept at its start and that day - becomes the step's
+own approved version (the owner's decision of 2026-10-26: the field check freezes the input), with the result versions
+of the steps it built on. A later correction does not change it; when the person reopens it, or a step it built on
+changes, it is frozen again and the steps after it run again.
+
+- `CAPABILITY` (`field_check@1`): params `catalogue` (a fact catalogue, kept as the case started) and `product` (kept at
+  its version at the start); its result: the version, product, catalogue, cover start and the units' reference.
+- `view(case_id, step)`, `freeze(case_id, step, cover_start=, expected_state=, actor=)`, `reopen(case_id, step, note=,
+  actor=)`.
+
+Layer: application; it names no process and no business (the catalogue and the claims are data).
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import time
+from datetime import date
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+from jav.app import assessed_units, capabilities, facts, human_tasks, package_release, product_rules
+from jav.core import activity_kinds, decisions, identity, store, trace
+from jav.core.clock import utc_stamp as _now
+from jav.core.process import kinds
+from jav.core.user_messages import explained
+
+__all__ = ["CAPABILITY", "POINT", "CheckedResult", "Claim", "FieldCheck", "FieldCheckError", "freeze", "placement", "register",
+           "reopen", "view"]
+
+POINT = "claims.offered"
+EVENT = "field_check"
+POLL_S = 5.0
+Placement = Literal["new_unit", "filled", "agrees", "conflict", "unplaced"]
+
+activity_kinds.register_events("package", (f"{EVENT}_approve", f"{EVENT}_reopen"), __name__)
+
+store.register_schema("field_check", """
+-- 231 (stage D, D-d2): the units a field check made from claims, by the offering step's key, and each claim's placement
+CREATE TABLE IF NOT EXISTS field_check_units (
+    case_id   TEXT NOT NULL,
+    step_id   TEXT NOT NULL,
+    unit_key  TEXT NOT NULL,   -- the offering step's name of the unit ("holder", "site:1")
+    unit_id   TEXT NOT NULL,
+    PRIMARY KEY (case_id, step_id, unit_key)
+);
+CREATE TABLE IF NOT EXISTS field_check_claims (
+    case_id    TEXT NOT NULL,
+    step_id    TEXT NOT NULL,
+    claim_key  TEXT NOT NULL,  -- the claim's fingerprint: placed once
+    from_step  TEXT NOT NULL,
+    unit_key   TEXT NOT NULL,
+    fact       TEXT NOT NULL,
+    value      TEXT NOT NULL,  -- JSON
+    placement  TEXT NOT NULL,
+    unit_id    TEXT,
+    placed_at  TEXT NOT NULL,
+    PRIMARY KEY (case_id, step_id, claim_key)
+);
+""")
+
+
+class FieldCheckError(ValueError):
+    """A freeze that cannot be: nothing to freeze, no such step."""
+
+
+class Claim(BaseModel):
+    """A fact a step offers: its unit by the offering step's key and level (and its parent's key), the value and where
+    it came from."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    unit: str = Field(min_length=1, max_length=120)
+    level: str
+    parent: str | None = None
+    fact: str
+    value: Any
+    original: str | None = None
+    source: facts.SourceRef
+    reading: str  # the reading or the lookup (and its version) that made the value
+
+
+class FieldCheck(BaseModel):
+    """The fact catalogue the units are of, and the product version the input is frozen for."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    catalogue: str = Field(min_length=1, title="Fact catalogue")
+    product: str = Field(min_length=1, title="Product")
+
+    @field_validator("catalogue")
+    @classmethod
+    def _known(cls, value: str) -> str:
+        try:
+            facts.catalogue(value)
+        except FileNotFoundError:
+            raise ValueError(f"no fact catalogue {value!r}") from None
+        return value
+
+
+class CheckedResult(capabilities.OwnVersionResult):
+    """The frozen checked input: its version, the product version and catalogue it is for, the day cover starts, and
+    the units' reference (their rows stay in the step's units)."""
+
+    product: str
+    catalogue: str
+    cover_start: date
+    units: capabilities.DatasetRef
+
+
+# --- placing the claims --------------------------------------------------------------------------------------------------
+
+
+def placement(cat: facts.Catalogue, *, fact: str, value: Any, unit_found: bool, parent_found: bool, top: bool,
+              has_current: bool, current: Any) -> Placement:
+    """Where a claim goes: a new unit (its parent there, or the top level), a fact filled, one it agrees with, one it
+    conflicts with (never chosen: a person decides), or nowhere (its unit's parent is not there)."""
+    if not unit_found:
+        return "new_unit" if top or parent_found else "unplaced"
+    if not has_current:
+        return "filled"
+    d = cat.facts[fact]
+    return "agrees" if facts.typed_value(fact, d, current) == facts.typed_value(fact, d, value) else "conflict"
+
+
+def _replay(inputs: Any) -> Any:
+    cat = facts.catalogue(inputs["catalogue"])
+    return placement(cat, fact=inputs["fact"], value=inputs["value"], unit_found=inputs["unit_found"],
+                     parent_found=inputs["parent_found"], top=inputs["top"], has_current=inputs["has_current"],
+                     current=inputs["current"])
+
+
+trace.register(trace.Point(
+    POINT, owner=__name__, files=("facts_*.json",), rule=_replay,
+    what="where a fact another step offers goes in a field check: a new unit, a fact still missing filled, one it agrees "
+         "with, one it conflicts with (left to a person), or nowhere (its unit's parent is not there)",
+    not_for="the person's own corrections or the freezing of the checked input"))
+
+
+def _claim_key(from_step: str, claim: Claim) -> str:
+    text = json.dumps({"from": from_step, **claim.model_dump(mode="json")}, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _offered(ctx: Any) -> list[tuple[str, Claim]]:
+    """The claims the steps this one waits for offer, in the pack's order of those steps."""
+    out: list[tuple[str, Claim]] = []
+    needs = set(ctx.definition.step(ctx.step.id).needs())
+    for step in ctx.definition.steps:
+        if step.id not in needs:
+            continue
+        try:
+            _version, result = ctx.result_of(step.id)
+        except (KeyError, ValueError):
+            continue
+        for raw in (result or {}).get("claims") or []:
+            try:
+                out.append((step.id, Claim.model_validate(raw)))
+            except ValidationError:
+                continue  # a claim not of the form is the offering step's error, shown there
+    return out
+
+
+def _place(ctx: Any, case_id: str, params: FieldCheck) -> None:
+    cat = facts.catalogue(params.catalogue)
+    step = ctx.step.id
+    for from_step, claim in _offered(ctx):
+        key = _claim_key(from_step, claim)
+        with store.connect() as c:
+            if c.execute("SELECT 1 FROM field_check_claims WHERE case_id=? AND step_id=? AND claim_key=?",
+                         (case_id, step, key)).fetchone():
+                continue
+            keys = {r["unit_key"]: r["unit_id"] for r in c.execute(
+                "SELECT unit_key, unit_id FROM field_check_units WHERE case_id=? AND step_id=?", (case_id, step))}
+        unit_id = keys.get(claim.unit)
+        current_unit = assessed_units.unit(case_id, step, unit_id) if unit_id else None
+        has_current = bool(current_unit) and claim.fact in current_unit["facts"]
+        top = claim.level == cat.levels[0]
+        inputs = {"catalogue": cat.id, "fact": claim.fact, "value": claim.value, "unit_found": unit_id is not None,
+                  "parent_found": claim.parent in keys if claim.parent else False, "top": top, "has_current": has_current,
+                  "current": current_unit["facts"].get(claim.fact) if current_unit else None, "unit": claim.unit,
+                  "level": claim.level, "from_step": from_step}
+        try:
+            where = placement(cat, fact=claim.fact, value=claim.value, unit_found=inputs["unit_found"],
+                              parent_found=inputs["parent_found"], top=top, has_current=has_current, current=inputs["current"])
+        except (facts.FactError, KeyError):
+            where = "unplaced"  # a fact the catalogue does not have, or a value not of its type: nothing is guessed
+        source = {claim.fact: {"value": claim.value, "original": claim.original, "source": claim.source.model_dump(mode="json"),
+                               "interpretation": {"reading": claim.reading}}}
+        try:
+            if where == "new_unit":
+                unit_id = assessed_units.add(case_id, step, cat.id, level=claim.level, parent_id=keys.get(claim.parent or ""),
+                                             facts={claim.fact: claim.value}, sources=source, actor=ctx.actor)
+            elif where == "filled":
+                assert current_unit is not None
+                assessed_units.save(case_id, step, cat.id, unit_id, facts={**current_unit["facts"], claim.fact: claim.value},
+                                    sources=source, actor=ctx.actor, expected_state=current_unit["state"],
+                                    note=f"offered by {from_step}")
+        except (facts.FactError, ValueError, decisions.RevisionConflict):
+            where = "unplaced"
+        with store.connect() as c:
+            store.begin_immediate(c)
+            if where == "new_unit":
+                c.execute("INSERT OR IGNORE INTO field_check_units(case_id, step_id, unit_key, unit_id) VALUES (?,?,?,?)",
+                          (case_id, step, claim.unit, unit_id))
+            c.execute("INSERT OR IGNORE INTO field_check_claims(case_id, step_id, claim_key, from_step, unit_key, fact, value,"
+                      " placement, unit_id, placed_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                      (case_id, step, key, from_step, claim.unit, claim.fact, json.dumps(claim.value, ensure_ascii=False),
+                       where, unit_id, _now()))
+            trace.record_in(c, POINT, subject=("field_check", f"{case_id}:{step}"), inputs=inputs, outcome=where,
+                            keys={f"facts_{cat.id}.json": [claim.fact]}, case_id=case_id)
+
+
+# --- the step ------------------------------------------------------------------------------------------------------------
+
+
+def _run(ctx: Any, params: FieldCheck) -> kinds.StepOutcome:
+    from jav.app import process_runtime
+
+    case_id = str(ctx.data["container"])
+    _place(ctx, case_id, params)
+    if (why := process_runtime.outdated(case_id, ctx.step.id)) is not None:
+        reopen(case_id, ctx.step.id, note=why, actor=ctx.actor)  # a step it built on changed: frozen again
+    approval = package_release.own_approval(case_id, step=ctx.step.id)
+    if approval["active"] is None:
+        if not approval["versions"]:  # its first round; a reopened version opened its task again
+            with ctx.transaction() as c:
+                human_tasks.own_approval_waits(c, case_id, ctx.step.id)
+        return ctx.wait("freeze", timer=("check", time.time() + POLL_S))
+    version = approval["active"]["version"]
+    content = package_release.own_version(case_id, version, step=ctx.step.id)["content"]
+    return kinds.Done({"version": version, "product": content["product"], "catalogue": content["catalogue"],
+                       "cover_start": content["cover_start"],
+                       "units": assessed_units.reference(case_id, ctx.step.id).model_dump(mode="json")})
+
+
+def _params(case_id: str, step: str, c: Any) -> FieldCheck:
+    from jav.core.process import cases
+
+    case = cases.find_case_in(c, case_id)
+    if case is None:
+        raise KeyError(case_id)
+    return FieldCheck.model_validate({k: v for k, v in cases.definition_of(case).step(step).params.items() if not k.startswith("_")})
+
+
+def view(case_id: str, step: str) -> dict[str, Any]:
+    """What a person checks: the units with their sources, the claims and where each went (the conflicts still open:
+    the unit's value differs from the claim's), the approval and the state to send back with a freeze."""
+    units = assessed_units.units(case_id, step, include_removed=True)
+    by_id = {u["unit_id"]: u for u in units}
+    with store.connect() as c:
+        claims = [dict(r) for r in c.execute("SELECT from_step, unit_key, fact, value, placement, unit_id, placed_at"
+                                             " FROM field_check_claims WHERE case_id=? AND step_id=? ORDER BY placed_at",
+                                             (case_id, step))]
+        state = assessed_units.state_in(c, case_id, step)
+    for claim in claims:
+        claim["value"] = json.loads(claim["value"])
+        unit = by_id.get(claim["unit_id"] or "")
+        claim["open"] = claim["placement"] == "conflict" and bool(unit) and unit["facts"].get(claim["fact"]) != claim["value"]
+    return {"units": units, "claims": claims, "approval": package_release.approval_state(case_id, step=step), "state": state}
+
+
+def freeze(case_id: str, step: str, *, cover_start: str | date, expected_state: int | None, actor: identity.Who) -> dict[str, Any]:
+    """The units as they are now, frozen as the step's next own version: the checked input for the product version the
+    case kept and the day cover starts. A page that shows another state of the units is refused (`RevisionConflict`);
+    a fact that does not fit its catalogue is refused with what is wrong (`facts.FactError`)."""
+    from jav.app import process_runtime
+
+    with store.connect() as c:
+        store.begin_immediate(c)
+        params = _params(case_id, step, c)
+        if expected_state is not None and assessed_units.state_in(c, case_id, step) != expected_state:
+            raise explained(decisions.RevisionConflict, "the units changed meanwhile; reload them")
+        if not assessed_units.units_in(c, case_id, step):
+            raise explained(FieldCheckError, "there is no unit to freeze")
+        checked = assessed_units.checked_input_in(c, case_id, step, params.catalogue, product=params.product,
+                                                  cover_start=cover_start)
+        content = checked.model_dump(mode="json")
+        fingerprint = hashlib.sha256(json.dumps(content, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+        n = package_release.approve_own(c, case_id, event="field_check", content=content, fingerprint=fingerprint, locks=[], actor=actor,
+                                        files=lambda _c, _n: None, details={"units": len(checked.units),
+                                                                             "cover_start": str(checked.cover_start)},
+                                        step=step, basis=process_runtime.basis_of(case_id, step, c))
+    return {"version": n, "fingerprint": fingerprint}
+
+
+def reopen(case_id: str, step: str, *, note: str, actor: identity.Who) -> int | None:
+    """The frozen version that holds reopened with the reason; the steps after it run again once it is frozen anew."""
+    with store.connect() as c:
+        store.begin_immediate(c)
+        return package_release.reopen_logged(c, case_id, event="field_check", note=note, actor=actor, step=step)
+
+
+CAPABILITY = capabilities.Capability(
+    name="field_check", version=1, module=__name__, run=_run, kind="human", params=FieldCheck, state="step",
+    output=CheckedResult, own_version=True, reads=lambda p: (f"facts_{p['catalogue']}",),
+    at_start={"product": product_rules.keeper("product")}, approval_what="Check and freeze the facts",
+    summary="A person checks the assessed units and their sources, with the facts other steps offer, and freezes them as "
+            "the checked input.")
+
+
+def register() -> None:
+    capabilities.register(CAPABILITY)

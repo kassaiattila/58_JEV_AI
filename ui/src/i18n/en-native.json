@@ -3112,5 +3112,15 @@
   "To check": "To check",
   "Contradicted": "Contradicted",
   "Not asked": "Not asked",
-  "Accepted": "Accepted"
+  "Accepted": "Accepted",
+  "the units changed meanwhile; reload them": "the units changed meanwhile; reload them",
+  "there is no unit to freeze": "there is no unit to freeze",
+  "Check and freeze the facts": "Check and freeze the facts",
+  "A fact another step offers": "A fact another step offers",
+  "Where a fact another step offers (a document read, an outside register's answer) goes in a field check: it makes the unit it names, fills a fact still missing, agrees with the fact there, or conflicts with it; a conflict is never chosen: a person decides. A unit whose parent is not there gets nothing.": "Where a fact another step offers (a document read, an outside register's answer) goes in a field check: it makes the unit it names, fills a fact still missing, agrees with the fact there, or conflicts with it; a conflict is never chosen: a person decides. A unit whose parent is not there gets nothing.",
+  "The person's own corrections or the freezing of the checked input.": "The person's own corrections or the freezing of the checked input.",
+  "The levels of the units": "The levels of the units",
+  "A person checks the assessed units and their sources, with the facts other steps offer, and freezes them as the checked input.": "A person checks the assessed units and their sources, with the facts other steps offer, and freezes them as the checked input.",
+  "field check: facts frozen": "field check: facts frozen",
+  "field check: reopened": "field check: reopened"
 }

@@ -47,7 +47,8 @@ def test_every_registered_capability_that_can_run_names_its_state() -> None:
     assert states == {
         "record_assembly@1": "step", "catalogue_match@1": "step", "line_draft@1": "step", "priced_document@1": "step",
         "letter_draft@1": "step", "send@1": "step", "wait_reply@1": "step", "process_documents@1": "step",
-        "pairing_proposal@1": "step", "pairing@1": "case", "file_placement@1": "case"}
+        "pairing_proposal@1": "step", "pairing@1": "case", "file_placement@1": "case",
+        "field_check@1": "step"}  # D-d2
 
 
 def test_a_capability_whose_state_belongs_to_the_case_stands_once_in_a_pack() -> None:

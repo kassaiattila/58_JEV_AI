@@ -1333,7 +1333,14 @@ the case started (`Capability.reads`, gathered by `process_runtime._kept_rule_fi
 reaches only the cases started after it; a step reference marked optional (`step_ref(optional=True)`), left out, names
 no step rather than the pack's only one of its kind; the assessed units are read in the caller's transaction
 (`assessed_units.units_in`, `state_in`, `checked_input_in`); an approval task may go to anyone
-(`human_tasks.own_approval_waits(assignee=None)`) (`tests/test_kept_catalogue_231.py`). D-c7f:
+(`human_tasks.own_approval_waits(assignee=None)`) (`tests/test_kept_catalogue_231.py`). D-d2: the field check
+(`jav/app/field_check.py`, `field_check@1`, tables `field_check_units`, `field_check_claims`): the facts the steps it
+waits for offer (`claims`, each naming its unit by the offering step's key, level and parent's key) make the units, fill
+the facts still missing or agree with them; a differing value is a conflict left to the person, never chosen; each claim
+is placed once and traced (point `claims.offered`). The person corrects the units and freezes them with the day cover
+starts: the checked input, for the product version the case kept, becomes the step's own approved version with the
+result versions it built on (the owner's decision of 2026-10-26); a stale page is refused, and a reopened check waits for
+a new freeze (`tests/test_field_check_231.py`). D-c7f:
 the same on the local service
 (`jav/service/api_products.py`: `/rule-proposals`; a refused decision answers 422 `proposal_refused` with every
 problem, a stale page 409).
