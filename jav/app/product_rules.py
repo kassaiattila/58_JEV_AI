@@ -36,11 +36,11 @@ from jav.app import capabilities, facts
 from jav.core import identity, store, versions
 from jav.core.measures import Money, PerMille, Rounding, Validity
 from jav.core.clock import utc_stamp as _now
-from jav.core.user_messages import explained
+from jav.core.user_messages import Said, explained, inside, said, said_fields, said_from
 
 __all__ = ["KINDS", "Citation", "ConditionDocument", "Factor", "ManifestRefused", "Product", "ProductAt", "Rule",
            "SecondPersonNeeded", "Tariff", "TariffModule", "activate", "add", "get", "keeper", "kept", "latest", "listing",
-           "named", "product_at",
+           "named", "overview", "problems_of", "product_at",
            "resolve", "retire", "rule_problems"]
 
 KINDS = ("document", "rule", "product", "tariff")
@@ -78,7 +78,7 @@ class SecondPersonNeeded(versions.VersionStateError):
 class ManifestRefused(ValueError):
     """A product version whose manifest does not hold (`problems`: every one)."""
 
-    def __init__(self, problems: list[str]) -> None:
+    def __init__(self, problems: list[Said]) -> None:
         super().__init__("the product cannot be made active: " + "; ".join(problems))
         self.problems = problems
 
@@ -195,6 +195,7 @@ class TariffModule(_Model):
 
 
 class Tariff(_Model):
+    title: str | None = None  # D-c6: how it reads to a person
     currency: str = Field(pattern=r"^[A-Z]{3}$")
     valid: Validity
     line_rounding: Rounding
@@ -297,6 +298,27 @@ def activate(kind: str, ident: str, version: int, *, actor: identity.Who) -> dic
     return get(kind, ident, version)
 
 
+def overview() -> dict[str, Any]:
+    """D-c6: every product, condition document, rule and tariff with its versions (a draft with what keeps it from
+    being made active, `problems`: sentences in the service's form), and the fact catalogues their rules read."""
+    found: dict[str, list[dict[str, Any]]] = {}
+    for kind in KINDS:
+        things = listing(kind)
+        for thing in things:
+            for v in thing["versions"]:
+                if v["state"] == versions.DRAFT:
+                    v["problems"] = [said_fields(p) for p in problems_of(kind, v["content"])]
+        found[kind] = things
+    catalogues: dict[str, Any] = {}
+    for cid in sorted({v["content"]["catalogue"] for kind in ("rule", "product") for t in found[kind] for v in t["versions"]}):
+        try:
+            catalogues[cid] = facts.catalogue(cid).model_dump(mode="json")
+        except FileNotFoundError:
+            continue  # a draft naming a catalogue that is not there says so in its problems
+    return {"products": found["product"], "documents": found["document"], "rules": found["rule"],
+            "tariffs": found["tariff"], "catalogues": catalogues}
+
+
 def retire(kind: str, ident: str, *, actor: identity.Who) -> dict[str, Any]:
     with store.connect() as c:
         store.begin_immediate(c)
@@ -304,65 +326,80 @@ def retire(kind: str, ident: str, *, actor: identity.Who) -> dict[str, Any]:
     return get(kind, ident, n)
 
 
-def _article(word: str) -> str:
-    return f"an {word}" if word[:1] in "aeiou" else f"a {word}"
+def _thing(kind: str, ref: str) -> Said:
+    """A thing a problem is about, as a person reads it before the problem (D-c6)."""
+    if kind == "rule":
+        return said("rule {{ref}}", ref=ref)
+    if kind == "document":
+        return said("document {{ref}}", ref=ref)
+    if kind == "tariff":
+        return said("tariff {{ref}}", ref=ref)
+    return said("product {{ref}}", ref=ref)
 
 
-def rule_problems(rule: Rule, documents: dict[str, ConditionDocument] | None = None) -> list[str]:
-    """What is wrong with a rule against its catalogue (and, with `documents`, against the product's documents)."""
+def rule_problems(rule: Rule, documents: dict[str, ConditionDocument] | None = None) -> list[Said]:
+    """What is wrong with a rule against its catalogue (and, with `documents`, against the product's documents); each a
+    sentence in the interface's language (D-c6)."""
     try:
         cat = facts.catalogue(rule.catalogue)
     except FileNotFoundError:
-        return [f"no fact catalogue {rule.catalogue}"]
-    problems: list[str] = []
+        return [said("no fact catalogue {{catalogue}}", catalogue=rule.catalogue)]
+    problems: list[Said] = []
     if rule.level not in cat.levels:
-        return [f"no level {rule.level} in the catalogue {cat.id}"]
+        return [said("no level {{level}} in the catalogue {{catalogue}}", level=rule.level, catalogue=cat.id)]
     rank = cat.levels.index(rule.level)
     for name in rule.facts:
         d = cat.facts.get(name)
         if d is None:
-            problems.append(f"reads {name}, which the catalogue {cat.id} does not have")
+            problems.append(said("reads {{fact}}, which the catalogue {{catalogue}} does not have", fact=name, catalogue=cat.id))
         elif cat.levels.index(d.level) > rank:
-            problems.append(f"reads {name} of {_article(d.level)}, below its level {rule.level}")
+            problems.append(said("reads {{fact}} of the level {{fact_level}}, below its level {{level}}", fact=name,
+                                 fact_level=d.level, level=rule.level))
     for n, row in enumerate(rule.table.rows, 1):
+        at = said("row {{row}}", row=n)
         for name, condition in row.when.items():
             if name not in rule.facts:
-                problems.append(f"row {n} compares {name}, which it does not read")
+                problems.append(said("compares {{fact}}, which it does not read", within=at, fact=name))
                 continue
             d = cat.facts.get(name)
             for op, value in condition.items():
                 if op not in OPS:
-                    problems.append(f"row {n}: no comparison {op!r}")
+                    problems.append(said("no comparison {{op}}", within=at, op=op))
                 elif d is not None and op not in ("present", "absent"):
                     values = value if op in ("in", "not_in", "between") else [value]
-                    if not isinstance(values, list) or (op == "between" and len(values) != 2):
-                        problems.append(f"row {n}: {op} takes {'two values' if op == 'between' else 'a list'}")
+                    if op == "between" and (not isinstance(values, list) or len(values) != 2):
+                        problems.append(said("{{op}} takes two values", within=at, op=op))
+                        continue
+                    if not isinstance(values, list):
+                        problems.append(said("{{op}} takes a list", within=at, op=op))
                         continue
                     for v in values:
                         try:
                             facts.typed_value(name, d, v)
                         except facts.FactError as exc:
-                            problems.append(f"row {n}: {exc}")
+                            problems.append(said_from(exc, within=at))
         for name, value in row.then.items():
             o = cat.outcomes.get(name)
             if o is None:
-                problems.append(f"row {n} gives {name}, which the catalogue {cat.id} does not have")
+                problems.append(said("gives {{outcome}}, which the catalogue {{catalogue}} does not have", within=at,
+                                     outcome=name, catalogue=cat.id))
                 continue
             try:
                 facts.typed_value(name, o, value)
             except facts.FactError as exc:
-                problems.append(f"row {n}: {exc}")
+                problems.append(said_from(exc, within=at))
     if documents is not None:
         doc = documents.get(rule.source.document)
         if doc is None:
-            problems.append(f"cites {rule.source.document}, which the product does not name")
+            problems.append(said("cites {{document}}, which the product does not name", document=rule.source.document))
         elif rule.source.clause is not None and rule.source.clause not in {s.clause for s in doc.sections}:
-            problems.append(f"cites clause {rule.source.clause}, which {rule.source.document} does not have")
+            problems.append(said("cites clause {{clause}}, which {{document}} does not have", clause=rule.source.clause,
+                                 document=rule.source.document))
     return problems
 
 
-def _manifest_problems(c: Any, product: Product) -> list[str]:
-    problems: list[str] = []
+def _manifest_problems(c: Any, product: Product) -> list[Said]:
+    problems: list[Said] = []
     documents: dict[str, ConditionDocument] = {}
     for ref in product.documents:
         found = _referenced(c, "document", ref, problems)
@@ -372,36 +409,50 @@ def _manifest_problems(c: Any, product: Product) -> list[str]:
     if product.tariff is not None:  # D-c3: the tariff it is priced by is there (a case keeps its version at start)
         with_versions = c.execute("SELECT COUNT(*) FROM tariffs WHERE ident=? AND state != ?", (product.tariff, versions.DRAFT)).fetchone()[0]
         if not with_versions:
-            problems.append(f"tariff {product.tariff}: no version that is not a draft")
+            problems.append(said("no version that is not a draft", within=_thing("tariff", product.tariff)))
     for m in product.modules:
-        problems += [f"module {m.code} requires {r}, which the product does not have" for r in m.requires if r not in codes]
+        problems += [said("module {{module}} requires {{required}}, which the product does not have", module=m.code, required=r)
+                     for r in m.requires if r not in codes]
     for ref in product.rules:
         found = _referenced(c, "rule", ref, problems)
         if found is None:
             continue
         rule = Rule.model_validate(json.loads(found["content"]))
+        at = _thing("rule", ref)
         if rule.catalogue != product.catalogue:
-            problems.append(f"rule {ref} reads the catalogue {rule.catalogue}, not the product's {product.catalogue}")
-        problems += [f"rule {ref}: module {m} is not the product's" for m in rule.modules if m not in codes]
-        problems += [f"rule {ref} {p}" for p in rule_problems(rule, documents)]
+            problems.append(said("reads the catalogue {{catalogue}}, not the product's {{product_catalogue}}", within=at,
+                                 catalogue=rule.catalogue, product_catalogue=product.catalogue))
+        problems += [said("module {{module}} is not the product's", within=at, module=m) for m in rule.modules if m not in codes]
+        problems += [inside(at, p) for p in rule_problems(rule, documents)]
     return problems
 
 
-def _referenced(c: Any, kind: str, ref: str, problems: list[str]) -> Any:
+def _referenced(c: Any, kind: str, ref: str, problems: list[Said]) -> Any:
     """The version a manifest names; a problem when it is not there or still a draft."""
     ident, n = versions.split(ref)
     if n is None:
-        problems.append(f"{kind} {ref}: a manifest names an exact version")
+        problems.append(said("a manifest names an exact version", within=_thing(kind, ref)))
         return None
     try:
         row = _VERSIONS[kind].row(c, ident, n)
     except versions.VersionNotFound:
-        problems.append(f"{kind} {ref}: no such version")
+        problems.append(said("no such version", within=_thing(kind, ref)))
         return None
     if row["state"] == versions.DRAFT:
-        problems.append(f"{kind} {ref} is a draft")
+        problems.append(said("still a draft", within=_thing(kind, ref)))
         return None
     return row
+
+
+def problems_of(kind: str, content: dict[str, Any]) -> list[Said]:
+    """D-c6: what keeps a draft from being made active now: a rule's own checks, a product's manifest; none for a
+    document or a tariff (its form is checked when it is added)."""
+    if kind == "rule":
+        return rule_problems(Rule.model_validate(content))
+    if kind == "product":
+        with store.connect() as c:
+            return _manifest_problems(c, Product.model_validate(content))
+    return []
 
 
 @dataclass(frozen=True)

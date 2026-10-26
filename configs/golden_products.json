@@ -1,9 +1,14 @@
 {
  "meta": {
   "name": "golden_products",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "231 (stage D, D-c5; jav/app/product_sets.py): an invented insurer's product set in the structure of real condition documents, kept as data: its condition documents (each clause's text as printed, document vocabulary in Hungarian), the rules a careful person reads from them (decision tables over the facts of configs/facts_property.json, each citing its document, page, clause and a quote of the clause's text), the product (its cover modules, the exact document and rule versions, its tariff) and the tariff (rates per thousand, factors, minimums, roundings). Each reference case is a checked input with the requested modules and its expected outcome, worked by hand: the verdict, the facts missing, the combined outcomes of the units named, the premium lines and total, the blockers. The rules are also the expected answer of a rule proposal from the documents (stage D-h). Every name, number and text is invented; no real insurer's terms, rates or names. Install it with python -m jav.cli product-set.",
   "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-10-26",
+    "note": "231 (D-c6): the tariff's title, as the settings screen shows it. No rule, rate or case changes."
+   },
    {
     "version": "1.0.0",
     "date": "2026-10-26",
@@ -1051,6 +1056,7 @@
  },
  "tariffs": {
   "inv_business_property_tariff": {
+   "title": "Vállalkozói vagyonbiztosítás díjtáblája (KB-DT-2026)",
    "currency": "HUF",
    "valid": {
     "valid_from": "2026-01-01",

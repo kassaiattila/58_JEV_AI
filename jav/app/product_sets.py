@@ -111,7 +111,7 @@ def problems(product_set: ProductSet) -> list[str]:
         out += [f"document {ident}: clause {c} has no text" for c in sorted(clauses - set(entry.text))]
         out += [f"document {ident}: a text for clause {c}, which it does not list" for c in sorted(set(entry.text) - clauses)]
     for ident, rule in ps.rules.items():
-        out += [f"rule {ident} {p}" for p in product_rules.rule_problems(rule, documents)]
+        out += [f"rule {ident}: {p}" for p in product_rules.rule_problems(rule, documents)]
         source = rule.source
         entry = ps.documents.get(versions.split(source.document)[0])
         if entry is None or source.clause is None:

@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from jav.core import cfg
 from jav.core.measures import Money, PerMille, Percentage, Quantity
+from jav.core.user_messages import explained
 from jav.core.versions import AT
 
 __all__ = ["Catalogue", "CheckedInput", "FactDef", "FactError", "OutcomeDef", "SourceClaim", "Unit", "catalogue",
@@ -67,6 +68,7 @@ class Catalogue(_Model):
     levels: tuple[str, ...]
     facts: dict[str, FactDef]
     outcomes: dict[str, OutcomeDef]
+    labels: dict[str, str] = Field(default_factory=dict)  # D-c6: how a level or a code reads to a person (English)
 
     @model_validator(mode="after")
     def _consistent(self) -> Catalogue:
@@ -85,22 +87,18 @@ def catalogue(catalogue_id: str) -> Catalogue:
     """The fact catalogue `catalogue_id` (`configs/facts_<id>.json`, read as the case at hand keeps it)."""
     data = cfg.load(f"facts_{catalogue_id}")
     return Catalogue(id=catalogue_id, version=str(data["meta"]["version"]), levels=tuple(data["levels"]),
-                     facts=data["facts"], outcomes=data.get("outcomes") or {})
-
-
-def _article(word: str) -> str:
-    return f"an {word}" if word[:1] in "aeiou" else f"a {word}"
+                     facts=data["facts"], outcomes=data.get("outcomes") or {}, labels=data.get("labels") or {})
 
 
 def _exact(name: str, value: Any) -> Decimal:
     if isinstance(value, (bool, float)):
-        raise FactError(f"{name} is given as text or a whole number")
+        raise explained(FactError, "{{name}} is given as text or a whole number", name=name)
     try:
         number = Decimal(str(value))
     except InvalidOperation:
-        raise FactError(f"{name} is a number, not {value!r}") from None
+        raise explained(FactError, "{{name}} is a number, not {{value}}", name=name, value=repr(value)) from None
     if not number.is_finite():
-        raise FactError(f"{name} is a finite number")
+        raise explained(FactError, "{{name}} is a finite number", name=name)
     return number
 
 
@@ -108,13 +106,11 @@ def typed_fact(cat: Catalogue, name: str, level: str, value: Any) -> Any:
     """One fact's value as its catalogue types it."""
     d = cat.facts.get(name)
     if d is None:
-        raise FactError(f"no fact {name} in the catalogue {cat.id}")
+        raise explained(FactError, "no fact {{name}} in the catalogue {{catalogue}}", name=name, catalogue=cat.id)
     if d.level != level:
-        raise FactError(f"{name} is a fact of {_article(d.level)}, not of {_article(level)}")
-    try:
-        return _typed(name, d, value)
-    except ValidationError as exc:
-        raise FactError(f"{name} does not fit its type {d.type}: {exc.errors()[0]['msg']}") from None
+        raise explained(FactError, "{{name}} is a fact of the level {{level}}, not of {{asked}}", name=name, level=d.level,
+                        asked=level)
+    return typed_value(name, d, value)
 
 
 def typed_value(name: str, d: FactDef | OutcomeDef, value: Any) -> Any:
@@ -122,19 +118,22 @@ def typed_value(name: str, d: FactDef | OutcomeDef, value: Any) -> Any:
     try:
         return _typed(name, d, value)
     except ValidationError as exc:
-        raise FactError(f"{name} does not fit its type {d.type}: {exc.errors()[0]['msg']}") from None
+        raise explained(FactError, "{{name}} does not fit its type {{type}}: {{reason}}", name=name, type=d.type,
+                        reason=exc.errors()[0]["msg"]) from None
 
 
 def _typed(name: str, d: FactDef | OutcomeDef, value: Any) -> Any:
     if d.type == "money":
         money = value if isinstance(value, Money) else Money.model_validate(value)
         if money.currency != d.currency:
-            raise FactError(f"{name} is in {d.currency}, not {money.currency}")
+            raise explained(FactError, "{{name}} is in {{expected}}, not {{given}}", name=name, expected=d.currency,
+                            given=money.currency)
         return money
     if d.type == "quantity":
         quantity = value if isinstance(value, Quantity) else Quantity.model_validate(value)
         if quantity.unit != d.unit:
-            raise FactError(f"{name} is in {d.unit}, not {quantity.unit}")
+            raise explained(FactError, "{{name}} is in {{expected}}, not {{given}}", name=name, expected=d.unit,
+                            given=quantity.unit)
         return quantity
     if d.type == "percentage":
         return value if isinstance(value, Percentage) else Percentage.model_validate(value)
@@ -142,11 +141,11 @@ def _typed(name: str, d: FactDef | OutcomeDef, value: Any) -> Any:
         return value if isinstance(value, PerMille) else PerMille.model_validate(value)
     if d.type == "bool":
         if not isinstance(value, bool):
-            raise FactError(f"{name} is true or false")
+            raise explained(FactError, "{{name}} is true or false", name=name)
         return value
     if d.type == "count":
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-            raise FactError(f"{name} is a whole number, zero or more")
+            raise explained(FactError, "{{name}} is a whole number, zero or more", name=name)
         return value
     if d.type == "decimal":
         return _exact(name, value)
@@ -154,18 +153,19 @@ def _typed(name: str, d: FactDef | OutcomeDef, value: Any) -> Any:
         try:
             return value if isinstance(value, date) else date.fromisoformat(str(value))
         except ValueError:
-            raise FactError(f"{name} is a day (YYYY-MM-DD)") from None
+            raise explained(FactError, "{{name}} is a day (YYYY-MM-DD)", name=name) from None
     if d.type in ("code", "text"):
         if not isinstance(value, str) or not value.strip():
-            raise FactError(f"{name} is a text")
+            raise explained(FactError, "{{name}} is a text", name=name)
         if d.options is not None and value not in d.options:
-            raise FactError(f"{name} is one of {', '.join(d.options)}")
+            raise explained(FactError, "{{name}} is one of {{options}}", name=name, options=", ".join(d.options))
         return value
     codes = tuple(value) if isinstance(value, (list, tuple)) else None  # codes
     if codes is None or not all(isinstance(c, str) and c for c in codes):
-        raise FactError(f"{name} is a list of codes")
+        raise explained(FactError, "{{name}} is a list of codes", name=name)
     if d.options is not None and (wrong := [c for c in codes if c not in d.options]):
-        raise FactError(f"{name} takes {', '.join(d.options)}, not {', '.join(wrong)}")
+        raise explained(FactError, "{{name}} takes {{options}}, not {{wrong}}", name=name, options=", ".join(d.options),
+                        wrong=", ".join(wrong))
     return codes
 
 
@@ -225,16 +225,19 @@ def checked_input(data: Any) -> CheckedInput:
     units = []
     for unit in raw.units:
         if unit.level not in cat.levels:
-            raise FactError(f"unit {unit.unit_id}: no level {unit.level!r} in the catalogue {cat.id}")
+            raise explained(FactError, "unit {{unit}}: no level {{level}} in the catalogue {{catalogue}}", unit=unit.unit_id,
+                            level=unit.level, catalogue=cat.id)
         rank = cat.levels.index(unit.level)
         if unit.parent_id is None:
             if rank:
-                raise FactError(f"{_article(unit.level)} has a parent, {_article(cat.levels[rank - 1])}")
+                raise explained(FactError, "a unit of the level {{level}} has a parent, of the level {{above}}",
+                                level=unit.level, above=cat.levels[rank - 1])
         elif unit.parent_id not in levels:
-            raise FactError(f"unit {unit.unit_id} names no unit {unit.parent_id} as its parent")
+            raise explained(FactError, "unit {{unit}} names no unit {{parent}} as its parent", unit=unit.unit_id,
+                            parent=unit.parent_id)
         elif not rank or levels[unit.parent_id] != cat.levels[rank - 1]:
-            above = cat.levels[rank - 1] if rank else "none"
-            raise FactError(f"{_article(unit.level)}'s parent is {_article(above)}, not {_article(levels[unit.parent_id])}")
+            raise explained(FactError, "the parent of a unit of the level {{level}} is of the level {{above}}, not {{given}}",
+                            level=unit.level, above=cat.levels[rank - 1] if rank else "none", given=levels[unit.parent_id])
         typed = {name: typed_fact(cat, name, unit.level, value) for name, value in unit.facts.items()}
         units.append(unit.model_copy(update={"facts": typed}))
     return raw.model_copy(update={"units": tuple(units)})

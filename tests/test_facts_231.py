@@ -93,10 +93,10 @@ def test_a_corrected_fact_keeps_its_source_and_original_form() -> None:
 @pytest.mark.parametrize(("change", "problem"), [
     (lambda d: d["units"][1]["facts"].update(floor_area={"value": "420", "unit": "m3"}), "floor_area is in m2, not m3"),
     (lambda d: d["units"][2]["facts"].update(sum_insured={"amount": "1", "currency": "EUR"}), "sum_insured is in HUF, not EUR"),
-    (lambda d: d["units"][1]["facts"].update(sum_insured={"amount": "1", "currency": "HUF"}), "sum_insured is a fact of an asset_group, not of a site"),
+    (lambda d: d["units"][1]["facts"].update(sum_insured={"amount": "1", "currency": "HUF"}), "sum_insured is a fact of the level asset_group, not of site"),
     (lambda d: d["units"][1]["facts"].update(colour="red"), "no fact colour in the catalogue property"),
     (lambda d: d["units"][1]["facts"].update(flood_zone="sometimes"), "flood_zone is one of none, low, medium, high"),
-    (lambda d: d["units"][3].update(parent_id="u-0000000003"), "an asset_group's parent is a site, not an asset_group"),
+    (lambda d: d["units"][3].update(parent_id="u-0000000003"), "the parent of a unit of the level asset_group is of the level site, not asset_group"),
     (lambda d: d["units"][3].update(parent_id="u-0000000099"), "unit u-0000000004 names no unit u-0000000099 as its parent"),
     (lambda d: d["units"][1]["facts"].update(alarm_remote="yes"), "alarm_remote is true or false"),
 ])

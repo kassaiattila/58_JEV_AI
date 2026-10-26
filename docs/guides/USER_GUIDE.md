@@ -550,7 +550,7 @@ The **My work today** link in the header shows the selected person's actions for
 
 ## 10. Settings
 
-The left-hand menu of Settings has eight items: Mailboxes (*Postafiókok*), Work folders (*Munkamappák*), Own parties (*Saját gazdálkodók*), Processing (*Feldolgozás*), Users, Appearance (*Megjelenés*), Language and System (*Rendszer*).
+The left-hand menu of Settings has these items: Mailboxes (*Postafiókok*), Work folders (*Munkamappák*), Own parties (*Saját gazdálkodók*), Partners (*Partnerek*), Processes (*Folyamatok*), Products (*Termékek*), Tariffs (*Díjtáblák*), Processing (*Feldolgozás*), Rules (*Szabályok*), Output templates (*Kimeneti sablonok*), Price lists (*Árlisták*), Users, Appearance (*Megjelenés*), Language and System (*Rendszer*).
 
 ### 10.1 Mailboxes
 
@@ -642,6 +642,19 @@ A case step whose result a person approves (an IT quote's **Approval** (*Jóváh
 - **Rule values** (*Szabályértékek*): the values the process's steps let it set: how many requested items one proposal matches (only fewer than the file's), how many lines a quote holds, the unit a forint and another currency's amounts are rounded to, and how long the model's letter paragraph may be. A cost limit is never one.
 - Click a setting to open it: type or choose a **New value** (*Új érték*) with a note and **Save as a draft** (*Mentés piszkozatként*); a draft changes nothing. For a rule value, **Try it on earlier decisions** (*Kipróbálás a korábbi döntéseken*), or **Preview** (*Előnézet*) on a draft, shows how many of the process's earlier decisions would come out differently, with examples; nothing is written and no AI is asked. A key no earlier decision has read (a quote's lines) says so. **Make active** (*Élesítés*) makes the draft the process's value; **Use the file's value** (*Vissza a csomagfájl értékére*, two clicks) sets the own value aside. **Versions** (*Változatok*) list every value with its note, who saved or activated it and when.
 - **Partners** (*Partnerek*): the roles the process's partners play and the step they come from (section 10.9).
+
+### 10.11 Products
+
+**Products** (*Termékek*, stage D) shows what an offer is built from. A segmented control switches between three lists: **Products** (*Termékek*), **Rules** (*Szabályok*) and **Condition documents** (*Feltétel-iratok*), each with its count. Every product, rule, document and tariff is kept as versions: a draft (*Piszkozat*), the active one (*Éles*), a superseded one and a retired one (*Kivont*), which stays readable, so a case started with it keeps it. A set of them (for now the invented insurer, `configs/golden_products.json`) is added with `python -m jav.cli product-set --install --maker <name>`: everything arrives as a draft.
+
+- Click a product's name to open it: its **Cover modules** (*Fedezeti modulok*, the base cover and the extensions it needs), its **Condition documents** with the days they are in force and their clauses, its **Rules** with the clause each was read from (‘KB-ÁF-2026 · 6.1. pont · 3. o.’), the **Tariff** (*Díjtábla*) its premium is computed by, and its **Versions** (*Változatok*). Click a rule's title to see what it decides below the list.
+- A rule opens as a **decision table** (*Döntési tábla*): a row per line, the facts it compares (‘> 5 000 000 HUF’, ‘ezek egyike: …’, ‘bármi’ for any value), a double rule, then the outcomes it gives (a verdict, a required protection class, a deductible, measures, warnings). The first row that fits decides; a row a missing fact leaves open makes the outcome ‘not known’. Under it, the document, page and clause it was read from (*Honnan*) and the quoted words.
+- A **condition document** opens with its clauses, their pages and titles, and the rules read from each clause.
+- A draft shows **What keeps it from being made active** (*Ami akadályozza az élesítést*): for a rule, its own checks against the fact catalogue (a fact it does not read, a value of the wrong unit or currency); for a product, the release manifest (a document or rule it names that is still a draft, a rule citing a clause the document does not have, a module it needs that it does not have, a tariff with no active version). When nothing does, **Make version N active** (*A(z) N. változat élesítése*, two clicks) is the view's one solid button. A product is made active by another person than its maker: its maker sees ‘You made this version: another person makes it active.’ An active version can be **retired** (*Kivonás*, two clicks).
+
+### 10.12 Tariffs
+
+**Tariffs** (*Díjtáblák*, stage D) lists the tariffs the premiums are computed from, each with the days it is in force, its currency, its cover modules and its policy minimum. A tariff opens as **How the premium is computed** (*Így számolódik a díj*), in the order the itemised calculation follows: (1) each cover module on the units of its level, the basis (a sum insured) times the rate per thousand, then its factors in their order (a module may price only some units: burglary prices no building); (2) each line rounded; (3) a module's lines summed, its minimum, the modules summed; (4) the total factors (the payment frequency); (5) the total rounded and the policy minimum. A missing factor, a value no row of a factor's table takes, a cover start the tariff is not in force on or an amount in another currency gives no total: never a default. **Factors** (*Szorzók*) shows each factor's table (‘≥ 3 → × 0,9’). Making a draft active and retiring work as for the products.
 
 ## 11. Troubleshooting
 

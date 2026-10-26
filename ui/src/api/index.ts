@@ -14,6 +14,7 @@ export * from "./cases";
 export * from "./partners";
 export * from "./parties";
 export * from "./processes";
+export * from "./products";
 export { ACTOR_EVENT, ApiError, filenameFromDisposition, type UploadCheck, type UploadChecks, getActor, NO_ACTOR, READ_TIMEOUT_MS, setActor, UNKNOWN_ACTOR, USERS_EVENT } from "./client";
 import { workApi } from "./work";
 import { workflowsApi } from "./workflows";
@@ -25,6 +26,7 @@ import { casesApi } from "./cases";
 import { partnersApi } from "./partners";
 import { partiesApi } from "./parties";
 import { processesApi } from "./processes";
+import { productsApi } from "./products";
 
 const shared = {
   ...workApi,
@@ -37,6 +39,7 @@ const shared = {
   ...partnersApi,
   ...partiesApi,
   ...processesApi,
+  ...productsApi,
 };
 
 /** 231 (C3e): the calls the domains add (`registerCalls`); each domain merges its calls' types into this interface. */

@@ -1273,7 +1273,15 @@ versions, drafts by one person and made active by another (a store holding anoth
 the whole set before writing), with reference cases whose hand-worked verdict, outcomes, lines and total are compared
 with the evaluation and the rating (`product-set` command; `tests/test_product_set_231.py`). A tariff module may price
 only the units whose facts fit its `only` (burglary does not price a building); a unit without such a fact is a
-blocker.
+blocker. D-c6: the registry on the local service (`jav/service/api_products.py`: the products, documents, rules,
+tariffs and catalogues, `product_rules.overview()`; a version made active, a thing retired) and in Settings (Products,
+Tariffs: `ui/src/views/settings/ProductsPanel.tsx`, `TariffsPanel.tsx`, their shared parts `RegistryParts.tsx`). A
+draft lists what keeps it from being made active (`product_rules.problems_of`); the registry's and the fact catalogue's
+problems are sentences a person reads in the interface's language (`jav/core/user_messages.said`: a `str` with its
+template, parameters and where it applies, the counterpart of `explained` for an error; the interface's `saidText`), and
+a refused activation sends every one (422 `manifest_refused`). The fact catalogue names how its levels and codes read
+(`labels`), and a tariff has a title (`tests/test_product_registry_service_231.py`,
+`ui/src/views/settings/productRegistry231.test.tsx`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

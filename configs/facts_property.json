@@ -1,9 +1,10 @@
 {
   "meta": {
     "name": "facts_property",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "231 (stage D, D-b3): the fact catalogue of property risk assessment, a rule file a case keeps as it started (jav/app/facts.py). It names the levels of what is assessed (the policyholder, its sites, their asset groups), each fact a rule may read with its type, unit or currency, level and allowed codes, and each outcome a rule may give with how the outcomes of several rules combine. Invented for the stage D trial; no insurer's own terms.",
     "changelog": [
+      {"version": "1.2.0", "date": "2026-10-26", "note": "231 (D-c6): labels, how each level and each code of the options and of the rules' measures and warnings reads to a person (translated by the interface). No outcome changes."},
       {"version": "1.1.0", "date": "2026-10-26", "note": "231 (D-c5): interruption_sum_insured, the business interruption cover's sum insured (a year's gross profit or standing costs, by the accounting method), the basis its premium is computed on. An added definition: no earlier outcome changes."},
       {"version": "1.0.0", "date": "2026-10-26", "note": "231 (D-b3): the first catalogue: 17 facts on three levels and 7 outcomes."}
     ]
@@ -37,5 +38,44 @@
     "measures": {"type": "codes", "combine": "union", "title": "Security measures required"},
     "warnings": {"type": "codes", "combine": "union", "title": "Warnings"},
     "premium_factor": {"type": "decimal", "combine": "one", "title": "Premium factor"}
+  },
+  "labels": {
+    "holder": "Policyholder",
+    "site": "Site",
+    "asset_group": "Asset group",
+    "none": "None",
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "t3": "T3",
+    "t2_t3": "T2 and T3",
+    "t1_t2_t3": "T1, T2 and T3",
+    "yearly": "Yearly",
+    "half_yearly": "Half-yearly",
+    "quarterly": "Quarterly",
+    "gross_profit": "Gross profit",
+    "costs": "Standing costs",
+    "buildings": "Buildings",
+    "equipment": "Machinery and equipment",
+    "stock": "Stock",
+    "cash": "Cash",
+    "valuables": "Valuables",
+    "new_value": "New value",
+    "current_value": "Current value",
+    "allow": "Allow",
+    "unknown": "Not known",
+    "refer": "Refer",
+    "refuse": "Refuse",
+    "safe_grade_1": "A safe of grade 1 at least",
+    "safe_grade_3": "A safe of grade 3 at least",
+    "alarm_remote": "Alarm with remote signalling",
+    "stock_raised_30cm": "Stock kept 30 cm above the floor",
+    "excluded_activity": "Activity not insurable",
+    "outside_hungary": "Site outside Hungary",
+    "claims_history": "Claims history",
+    "new_value_worn": "A worn asset at new value",
+    "flood_excluded": "Flood damage not insured",
+    "basement_storage": "Goods stored in a basement",
+    "protection_below_required": "Protection below the class required"
   }
 }

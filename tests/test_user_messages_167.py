@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 
 from jav.service import api
 from jav.app import work
-from jav.core.user_messages import explained, fill
+from jav.core.user_messages import explained, fill, inside, said, said_fields, said_from
 
 ROOT = Path(__file__).resolve().parents[1]
 I18N = ROOT / "ui" / "src" / "i18n"
@@ -41,6 +41,20 @@ def test_a_missing_or_unused_parameter_is_a_programming_error() -> None:
         explained(ValueError, "Unknown run {{run}}")
     with pytest.raises(TypeError):
         explained(ValueError, "Unknown run", run="r-1")
+
+
+def test_a_sentence_keeps_its_template_and_where_it_applies() -> None:
+    """231 D-c6: a problem a check lists is a `str` as before, with its template, parameters and where it applies."""
+    row = said("row {{row}}", row=2)
+    sentence = said("no comparison {{op}}", within=row, op="like")
+    assert sentence == "row 2: no comparison like" and (sentence.template, sentence.params) == ("no comparison {{op}}", {"op": "like"})
+    outer = inside(said("rule {{ref}}", ref="r@1"), sentence)
+    assert outer == "rule r@1: row 2: no comparison like"
+    fields = said_fields(outer)
+    assert fields["template"] == "no comparison {{op}}" and fields["within"]["template"] == "row {{row}}"
+    assert fields["within"]["within"] == {"text": "rule r@1", "template": "rule {{ref}}", "params": {"ref": "r@1"}, "within": None}
+    assert said_fields("plain") == {"text": "plain"}
+    assert said_from(explained(ValueError, "Unknown run {{run}}", run="r-1"), within=row) == "row 2: Unknown run r-1"
 
 
 def test_fill_leaves_unknown_braces_alone() -> None:
@@ -70,13 +84,15 @@ def test_the_service_sends_the_template_and_parameters(tmp_path: Path) -> None:
 
 
 def _templates() -> dict[str, str]:
-    """Every literal template passed to `explained(...)` in the application code, with where it is."""
+    """Every literal template passed to `explained(...)` (231 D-c6: and to `said(...)`) in the application code, with
+    where it is."""
     found: dict[str, str] = {}
     for path in sorted((ROOT / "jav").rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", None)) == "explained":
-                arg = node.args[1] if len(node.args) > 1 else None
+            name = getattr(node.func, "id", getattr(node.func, "attr", None)) if isinstance(node, ast.Call) else None
+            if name in ("explained", "said"):
+                arg = (node.args[1] if len(node.args) > 1 else None) if name == "explained" else (node.args[0] if node.args else None)
                 where = f"{path.relative_to(ROOT)}:{node.lineno}"
                 assert isinstance(arg, ast.Constant) and isinstance(arg.value, str), f"{where}: the template must be a literal"
                 found[arg.value] = where

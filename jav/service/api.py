@@ -216,7 +216,8 @@ def service_modules() -> list[str]:
 # (146), the to-dos and the system, and the settings (057).
 SHARED_BEFORE = ("jav.service.api_workpackages", "jav.service.api_runs", "jav.service.api_results", "jav.service.api_items")
 SHARED_AFTER = ("jav.service.api_outputs", "jav.service.api_workflows", "jav.service.api_cases", "jav.service.api_partners",
-                "jav.service.api_processes", "jav.service.api_system", "jav.service.api_settings")  # 231 (A6): the process packs' cases after the workflows
+                "jav.service.api_processes", "jav.service.api_products", "jav.service.api_system",
+                "jav.service.api_settings")  # 231 (A6): the process packs' cases after the workflows; D-c6: the product registry
 
 
 def route_modules() -> list[str]:

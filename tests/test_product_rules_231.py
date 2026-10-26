@@ -85,12 +85,12 @@ def test_a_product_is_made_active_by_another_person_and_resolves_its_manifest(db
 
 @pytest.mark.parametrize(("rule", "product", "problem"), [
     (None, {"rules": ["cash_protection@2"]}, "rule cash_protection@2: no such version"),
-    ("draft", {"rules": ["cash_protection@2"]}, "rule cash_protection@2 is a draft"),
+    ("draft", {"rules": ["cash_protection@2"]}, "rule cash_protection@2: still a draft"),
     (_rule(source={"document": "elsewhere@1", "page": 1}), None, "cites elsewhere@1, which the product does not name"),
     (_rule(source={"document": "security@1", "page": 3, "clause": "9.9"}), None, "cites clause 9.9, which security@1 does not have"),
     (_rule(facts=["asset_group", "colour"]), None, "reads colour, which the catalogue property does not have"),
     (_rule(level="site", facts=["sum_insured"], table={"rows": [{"when": {}, "then": {"protection_class_required": 1}}]}),
-     None, "reads sum_insured of an asset_group, below its level site"),
+     None, "reads sum_insured of the level asset_group, below its level site"),
     (_rule(table={"rows": [{"when": {"sum_insured": {"gt": {"amount": "1", "currency": "EUR"}}}, "then": {"protection_class_required": 2}}]}),
      None, "sum_insured is in HUF, not EUR"),
     (_rule(table={"rows": [{"when": {"floor_area": {"gt": 5}}, "then": {"protection_class_required": 2}}]}),
