@@ -32,7 +32,7 @@ from jav.app.product_rules import Resolved, Rule
 from jav.core import trace
 from jav.core.measures import Money, Quantity, Rate
 
-__all__ = ["POINT", "Evaluation", "RuleOutcome", "UnitOutcome", "evaluate", "evaluate_rule", "trace_in"]
+__all__ = ["POINT", "Evaluation", "RuleOutcome", "UnitOutcome", "evaluate", "evaluate_rule", "holds", "plain", "trace_in"]
 
 POINT = "rules.outcome"
 _UNKNOWN = "unknown"
@@ -81,7 +81,8 @@ def _number(value: Any) -> Any:
     return value
 
 
-def _holds(op: str, have: Any, want: Any) -> bool:
+def holds(op: str, have: Any, want: Any) -> bool:
+    """Whether a comparison holds between a typed value and the typed value(s) it is compared with."""
     if op == "eq":
         return have == want
     if op == "ne":
@@ -113,20 +114,20 @@ def evaluate_rule(rule: Rule, ref: str, seen: dict[str, Any], cat: facts.Catalog
     outcomes: dict[str, Any] = {}
     for n, row in enumerate(rule.table.rows, 1):
         undecided: list[str] = []
-        holds = True
+        fits = True
         for name, condition in row.when.items():
             for op, value in condition.items():
                 if op in ("present", "absent"):
                     wanted = (op == "present") == bool(value)  # {"present": true} or {"absent": false}: it is there
                     if (name in seen) != wanted:
-                        holds = False
+                        fits = False
                     continue
                 if name not in seen:
                     undecided.append(name)
                     continue
-                if not _holds(op, seen[name], _typed_values(cat, name, op, value)):
-                    holds = False
-        if not holds:
+                if not holds(op, seen[name], _typed_values(cat, name, op, value)):
+                    fits = False
+        if not fits:
             continue  # false whatever the missing facts are
         if undecided:
             return RuleOutcome(ref, tuple(matched), outcomes, tuple(dict.fromkeys(undecided)))
@@ -159,14 +160,15 @@ def _combine(o: facts.OutcomeDef, given: list[tuple[str, Any]], clashes: list[st
         for v in values:
             out += [c for c in v if c not in out]
         return tuple(out), True
-    distinct = list(dict.fromkeys(json.dumps(_plain(v), sort_keys=True) for v in values))
+    distinct = list(dict.fromkeys(json.dumps(plain(v), sort_keys=True) for v in values))
     if len(distinct) > 1:
         clashes.append(", ".join(f"{_shown(v)} ({r})" for r, v in given))
         return None, False
     return values[0], True
 
 
-def _plain(value: Any) -> Any:
+def plain(value: Any) -> Any:
+    """A typed value as JSON (an amount as text, a day as ISO text)."""
     if isinstance(value, BaseModel):
         return value.model_dump(mode="json")
     if isinstance(value, Decimal):
@@ -179,8 +181,8 @@ def _plain(value: Any) -> Any:
 
 
 def _shown(value: Any) -> str:
-    plain = _plain(value)
-    return json.dumps(plain) if isinstance(plain, (dict, list)) else str(plain)
+    shown = plain(value)
+    return json.dumps(shown) if isinstance(shown, (dict, list)) else str(shown)
 
 
 def evaluate(rules: list[Resolved], checked: facts.CheckedInput, *, modules: tuple[str, ...],
@@ -237,7 +239,7 @@ def _replay(inputs: Any) -> Any:
 
 
 def _outcome_json(result: RuleOutcome) -> dict[str, Any]:
-    return {"matched": list(result.matched), "outcomes": {k: _plain(v) for k, v in result.outcomes.items()},
+    return {"matched": list(result.matched), "outcomes": {k: plain(v) for k, v in result.outcomes.items()},
             "missing": list(result.missing)}
 
 
@@ -257,7 +259,7 @@ def trace_in(c: Any, case_id: str, evaluation: Evaluation) -> list[int]:
             read = rule.facts
             inputs = {"rule": ref, "catalogue": evaluation.catalogue, "product": evaluation.product,
                       "table_rule": rule.model_dump(mode="json"),
-                      "facts": {name: _plain(unit.seen[name]) for name in read if name in unit.seen}}
+                      "facts": {name: plain(unit.seen[name]) for name in read if name in unit.seen}}
             ids.append(trace.record_in(c, POINT, subject=("assessed_unit", f"{case_id}:{unit.unit_id}"), inputs=inputs,
                                        outcome=_outcome_json(result),
                                        keys={f"facts_{evaluation.catalogue}.json": sorted(read)}, case_id=case_id))

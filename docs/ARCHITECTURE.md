@@ -1254,7 +1254,15 @@ the first or every matching row's outcomes; a row a missing fact leaves undecide
 names the fact (one false whatever it is, is skipped); a unit's outcomes combine by the catalogue's rule (worst
 verdict, largest or smallest, union, exactly one: two different are a blocker), and the assessment's verdict is the
 worst of its units'. Each rule's outcome on a unit is a trace row (point `rules.outcome`: the rule, its table and the
-facts it read, typed), whose replay gives the same outcome (`tests/test_rule_evaluation_231.py`).
+facts it read, typed), whose replay gives the same outcome (`tests/test_rule_evaluation_231.py`). D-c3: a tariff
+is a versioned thing of the registry too (kind `tariff`, table `tariffs`; the owner's decision of 2026-10-26: its own
+store), and `jav/app/rating.py` prices the requested modules in a fixed order: the basis (a money fact) times the
+module's rate per thousand, its factors in their order (each from a fact the unit sees or an outcome of the rules on it
+or its ancestors, through the factor's table), rounded once per line, the module minimum, the modules summed in the
+tariff's currency, the total factors (read from the top unit), rounded again, the policy minimum; every step
+itemised. A missing factor, a value no row takes, a cover start out of force or another currency gives no total but a
+blocker. The calculation is a trace row (point `rating.premium`, the tariff inline) that replays the same
+(`tests/test_rating_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

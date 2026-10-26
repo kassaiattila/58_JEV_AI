@@ -13,6 +13,10 @@ version of its start (`kept`, `named`).
 
 - `add(kind, ident, content, actor)`: a draft (the thing's next version); `activate`, `retire`; `get`, `resolve`,
   `listing`; `product_at(ref)`: a product version with its rules and documents.
+- D-c3: a tariff (`Tariff`, kind `tariff`, the owner's decision of 2026-10-26: a tariff store of its own, beside the
+  products): the currency, the days it is in force, the roundings, each module's basis, rate per thousand, minimum
+  and factors, the factors (each read from a fact or an outcome, through a table of values), the total factors and
+  the policy minimum (`jav/app/rating.py` computes with it).
 
 Layer: application; it names no process and no business (the products, documents and rules are data).
 """
@@ -23,20 +27,23 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from jav.app import facts
 from jav.core import identity, store, versions
+from jav.core.measures import Money, PerMille, Rounding, Validity
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
-__all__ = ["KINDS", "Citation", "ConditionDocument", "ManifestRefused", "Product", "ProductAt", "Rule", "SecondPersonNeeded",
-           "activate", "add", "get", "kept", "listing", "named", "product_at", "resolve", "retire", "rule_problems"]
+__all__ = ["KINDS", "Citation", "ConditionDocument", "Factor", "ManifestRefused", "Product", "ProductAt", "Rule",
+           "SecondPersonNeeded", "Tariff", "TariffModule", "activate", "add", "get", "kept", "listing", "named", "product_at",
+           "resolve", "retire", "rule_problems"]
 
-KINDS = ("document", "rule", "product")
-_TABLES = {"document": "condition_documents", "rule": "product_rules", "product": "products"}
+KINDS = ("document", "rule", "product", "tariff")
+_TABLES = {"document": "condition_documents", "rule": "product_rules", "product": "products", "tariff": "tariffs"}
 OPS = ("eq", "ne", "in", "not_in", "lt", "lte", "gt", "gte", "between", "present", "absent")
 
 for _kind, _table in _TABLES.items():
@@ -145,7 +152,56 @@ class Product(_Model):
     tariff: str | None = None
 
 
-_MODELS: dict[str, type[_Model]] = {"document": ConditionDocument, "rule": Rule, "product": Product}
+class FactorRow(_Model):
+    when: dict[str, Any] = Field(default_factory=dict)  # {op: value}; empty: every value
+    factor: Decimal
+
+
+class Factor(_Model):
+    """A multiplier read from a fact the unit sees or an outcome of the rules; through `table` (the first row whose
+    comparison holds), or, for an outcome without one, the outcome's value itself."""
+
+    title: str
+    fact: str | None = None
+    outcome: str | None = None
+    table: tuple[FactorRow, ...] = ()
+
+    @model_validator(mode="after")
+    def _one_source(self) -> Factor:
+        if (self.fact is None) == (self.outcome is None):
+            raise ValueError("a factor reads a fact or an outcome, one of them")
+        if self.fact is not None and not self.table:
+            raise ValueError("a factor read from a fact maps it through a table")
+        return self
+
+
+class TariffModule(_Model):
+    level: str
+    basis: str  # the money fact the rate applies to (a sum insured)
+    rate: PerMille
+    minimum: Money | None = None
+    factors: tuple[str, ...] = ()
+
+
+class Tariff(_Model):
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    valid: Validity
+    line_rounding: Rounding
+    total_rounding: Rounding
+    modules: dict[str, TariffModule]
+    factors: dict[str, Factor] = Field(default_factory=dict)
+    total_factors: tuple[str, ...] = ()
+    policy_minimum: Money | None = None
+
+    @model_validator(mode="after")
+    def _known_factors(self) -> Tariff:
+        named = [f for m in self.modules.values() for f in m.factors] + list(self.total_factors)
+        if unknown := sorted({f for f in named if f not in self.factors}):
+            raise ValueError(f"the tariff names factors it does not define: {', '.join(unknown)}")
+        return self
+
+
+_MODELS: dict[str, type[_Model]] = {"document": ConditionDocument, "rule": Rule, "product": Product, "tariff": Tariff}
 _VERSIONS = {kind: versions.VersionTable(table, "ident") for kind, table in _TABLES.items()}
 
 
@@ -294,6 +350,10 @@ def _manifest_problems(c: Any, product: Product) -> list[str]:
         if found is not None:
             documents[ref] = ConditionDocument.model_validate(json.loads(found["content"]))
     codes = {m.code for m in product.modules}
+    if product.tariff is not None:  # D-c3: the tariff it is priced by is there (a case keeps its version at start)
+        with_versions = c.execute("SELECT COUNT(*) FROM tariffs WHERE ident=? AND state != ?", (product.tariff, versions.DRAFT)).fetchone()[0]
+        if not with_versions:
+            problems.append(f"tariff {product.tariff}: no version that is not a draft")
     for m in product.modules:
         problems += [f"module {m.code} requires {r}, which the product does not have" for r in m.requires if r not in codes]
     for ref in product.rules:
