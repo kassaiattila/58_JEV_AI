@@ -26,6 +26,7 @@ def client(tmp_path):
     with store.use_store(path):
         product_sets.install(product_sets.load(), maker="anna")
     with TestClient(create_app(store_path=path), base_url="http://127.0.0.1:8930") as c:
+        c.store_path = path  # D-c7f: the worker's part of a test runs on the service's store
         yield c
 
 
@@ -75,3 +76,31 @@ def test_a_wrong_kind_or_a_missing_person_is_refused(client) -> None:
     assert client.post("/api/product-registry/quote/x/retire", json={}, headers=BELA).status_code == 422
     assert client.post(f"{PRODUCT}/versions/1/activate", json={}).status_code == 422
     assert client.post("/api/product-registry/rule/nothing_like_it/versions/1/activate", json={}, headers=BELA).status_code == 404
+
+
+def test_rule_proposals_are_started_listed_and_decided(client, tmp_path) -> None:
+    """D-c7f: a stand-in run through the service; a person accepts one proposal, a refused one names every problem."""
+    from jav.app import rule_proposal_runs
+    from jav.core import queue
+
+    written = product_sets.write_documents(product_sets.load(), tmp_path / "documents")
+    body = {"document": "inv_general_conditions@1", "path": str(written["inv_general_conditions"]), "catalogue": "property",
+            "proposer": "stand_in:golden_products"}
+    assert client.post("/api/rule-proposals", json=body).status_code == 422  # no person
+    started = client.post("/api/rule-proposals", json=body, headers=ANNA)
+    assert started.status_code == 201 and started.json()["state"] == "queued"
+    run_id = started.json()["run_id"]
+    with store.use_store(client.store_path):  # the worker's part, on the service's store
+        rule_proposal_runs.process_job(queue.claim("test", kinds=(rule_proposal_runs.JOB_KIND,)))
+    run = client.get(f"/api/rule-proposals/{run_id}").json()
+    assert run["state"] == "done" and len(run["proposals"]) == 9
+    assert [r["run_id"] for r in client.get("/api/rule-proposals", params={"document": "inv_general_conditions@1"}).json()["runs"]] == [run_id]
+    factor = next(p for p in run["proposals"] if p["readiness"] == "confirm")
+    refused = client.post(f"/api/rule-proposals/items/{factor['id']}/accept", json={"expected_state": 0}, headers=BELA)
+    assert refused.status_code == 422 and refused.json()["error"] == "proposal_refused"
+    assert refused.json()["problems"][0]["template"] == "confirm the numbers first: {{values}}"
+    done = client.post(f"/api/rule-proposals/items/{factor['id']}/accept", json={"expected_state": 0, "confirmed": ["0", "1"]},
+                       headers=BELA)
+    assert done.status_code == 200 and done.json()["rule_ref"] == "inv_general_conditions.3.2.premium_factor@1"
+    stale = client.post(f"/api/rule-proposals/items/{factor['id']}/reject", json={"expected_state": 0, "reason": "x"}, headers=BELA)
+    assert stale.status_code == 409

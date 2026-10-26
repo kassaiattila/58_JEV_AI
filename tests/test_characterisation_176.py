@@ -50,7 +50,7 @@ def _routes() -> list[APIRoute]:
 
 # --- the addresses of the local service ---------------------------------------------------------------------------------
 
-ROUTE_COUNT = 199  # (method, path) pairs of 176 routes: the unknown-address answer has five methods
+ROUTE_COUNT = 205  # (method, path) pairs of 176 routes: the unknown-address answer has five methods
 # 178 (plan 170 L4): nine new addresses on purpose - the own output templates (list, upload, activate, retire, file,
 # preview), a package's choice of them (read, choose) and the utility cost's workbook (jav/service/api_outputs.py)
 # 181 (plan 170 L5): three more on purpose - the package roles, and a package's scope given and taken away
@@ -87,7 +87,9 @@ ROUTE_COUNT = 199  # (method, path) pairs of 176 routes: the unknown-address ans
 # (`GET /api/cases/{case_id}/steps/{step_id}/approval`, `POST .../approval/return`)
 # 231 (stage D, D-c6): three more, the product registry (`jav/service/api_products.py`: the products, documents, rules and
 # tariffs; a version made active; a thing retired)
-ROUTE_TABLE = "e36b04773149ccf807cc166037ba4f465a2242314026c722a6a6a196ffc80580"
+# 231 (stage D, D-c7f): six more, the rule proposals (`jav/service/api_products.py`: the runs, one run, a run
+# started, a proposal accepted, corrected or rejected)
+ROUTE_TABLE = "b5122137af3f6c56eac650989c4924c2256aed8e945ef2ec7b6d73c82dfd267b"
 
 
 def test_the_service_has_these_addresses() -> None:
