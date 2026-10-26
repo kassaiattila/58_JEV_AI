@@ -50,6 +50,18 @@ def test_a_process_pack_that_appears_later_is_not_listed(folder):
         cfg.load("process:later")
 
 
+def test_a_base_type_pack_in_its_subfolder_is_frozen_too(folder):
+    """231 (found on 2026-10-26): the utility bills' type packs extend the base pack in `configs/types/_base/`; the
+    freeze listed the type packs' folder only, so a frozen service failed on every page that loads a utility type pack
+    (Settings › Rules, the output templates, the bank files) and a frozen worker would have failed on a utility bill."""
+    from jav.ai import typepack
+
+    assert "type:_base/utility_bill_hu" in cfg.freeze()
+    typepack.reload()
+    assert typepack.get("villamos_energia_szamla").extends == "utility_bill_hu"
+    assert "villamos_energia_szamla" in typepack.keys() and not any(k.startswith("_base/") for k in typepack.keys())
+
+
 def test_a_changed_file_and_a_cleared_cache_change_nothing_in_the_process(folder):
     before = cfg.load("workflows")["meta"]["version"]
     cfg.freeze()
