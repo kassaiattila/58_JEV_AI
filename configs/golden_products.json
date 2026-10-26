@@ -1,0 +1,2135 @@
+{
+ "meta": {
+  "name": "golden_products",
+  "version": "1.0.0",
+  "description": "231 (stage D, D-c5; jav/app/product_sets.py): an invented insurer's product set in the structure of real condition documents, kept as data: its condition documents (each clause's text as printed, document vocabulary in Hungarian), the rules a careful person reads from them (decision tables over the facts of configs/facts_property.json, each citing its document, page, clause and a quote of the clause's text), the product (its cover modules, the exact document and rule versions, its tariff) and the tariff (rates per thousand, factors, minimums, roundings). Each reference case is a checked input with the requested modules and its expected outcome, worked by hand: the verdict, the facts missing, the combined outcomes of the units named, the premium lines and total, the blockers. The rules are also the expected answer of a rule proposal from the documents (stage D-h). Every name, number and text is invented; no real insurer's terms, rates or names. Install it with python -m jav.cli product-set.",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-26",
+    "note": "231 (D-c5): the first set: five condition documents, 16 rules, one product with four modules, its tariff and five reference cases (a full quote, missing facts, an excluded activity, a referral, the minimum premiums)."
+   }
+  ]
+ },
+ "issuer": "Kitalált Biztosító Zrt.",
+ "documents": {
+  "inv_general_conditions": {
+   "content": {
+    "kind": "general",
+    "title": "Vállalkozói vagyonbiztosítás általános feltételei (KB-ÁF-2026)",
+    "valid_from": "2026-01-01",
+    "sections": [
+     {
+      "clause": "1",
+      "page": 1,
+      "title": "A biztosítás területi hatálya"
+     },
+     {
+      "clause": "2",
+      "page": 1,
+      "title": "Nem biztosítható tevékenységek"
+     },
+     {
+      "clause": "3.1",
+      "page": 2,
+      "title": "Kárelőzmény"
+     },
+     {
+      "clause": "3.2",
+      "page": 2,
+      "title": "Kárelőzmény szerinti díjmódosítás"
+     },
+     {
+      "clause": "4",
+      "page": 2,
+      "title": "Értékelés"
+     },
+     {
+      "clause": "5",
+      "page": 3,
+      "title": "Önrészesedés"
+     },
+     {
+      "clause": "6.1",
+      "page": 3,
+      "title": "Nagy árvízkockázatú övezet"
+     },
+     {
+      "clause": "6.2",
+      "page": 3,
+      "title": "Közepes árvízkockázatú övezet"
+     },
+     {
+      "clause": "7",
+      "page": 4,
+      "title": "Pincében tárolt készlet"
+     }
+    ]
+   },
+   "text": {
+    "1": "A biztosítás kizárólag a kötvényben megnevezett, Magyarország területén lévő kockázatviselési helyekre terjed ki.",
+    "2": "Nem köthető biztosítás, ha a szerződő fő tevékenysége (TEÁOR) a következők egyike: 1610 fűrészáru-gyártás, 2011 ipari gáz gyártása, 2051 robbanóanyag-gyártás, 3821 nem veszélyes hulladék kezelése, 3822 veszélyes hulladék kezelése.",
+    "3.1": "Ha az elmúlt öt évben a szerződő károinak száma meghaladja a négyet, vagy a kifizetett kárösszeg meghaladja a 10 000 000 Ft-ot, a biztosító a kockázatot egyedi elbírálásra utalja.",
+    "3.2": "Kármentes előzmény esetén a díjból 10% kedvezmény jár; három vagy több kár esetén a díj 25%-kal nő.",
+    "4": "Új értéken csak az a vagyontárgy biztosítható, amelynek műszaki avultsága nem haladja meg a 30%-ot; nagyobb avultság esetén a biztosító a kockázatot egyedi elbírálásra utalja.",
+    "5": "Az önrészesedés káreseményenként és vagyoncsoportonként 50 000 Ft, készpénz és értéktárgy esetén 100 000 Ft. Ha egy káreseményre több önrészesedés vonatkozik, a legmagasabbat kell alkalmazni.",
+    "6.1": "Nagy árvízkockázatú övezetben lévő kockázatviselési helyen az árvízkár nem biztosított, és a biztosító a kockázatot egyedi elbírálásra utalja.",
+    "6.2": "Közepes árvízkockázatú övezetben a készletet a padlószinttől legalább 30 cm magasan kell tárolni.",
+    "7": "Pincében vagy alagsorban tárolt készletre a biztosítás csak akkor terjed ki, ha azt a padlószinttől legalább 30 cm magasan tárolják."
+   }
+  },
+  "inv_burglary_conditions": {
+   "content": {
+    "kind": "special",
+    "title": "Betöréses lopás és rablás különös feltételei (KB-BL-2026)",
+    "valid_from": "2026-01-01",
+    "sections": [
+     {
+      "clause": "1",
+      "page": 1,
+      "title": "A biztosítás tárgya"
+     },
+     {
+      "clause": "2",
+      "page": 1,
+      "title": "Értéktárgyak"
+     }
+    ]
+   },
+   "text": {
+    "1": "A biztosító megtéríti a betöréses lopással és rablással okozott károkat, ha a kockázatviselési hely megfelel a vagyonvédelmi szabályzatban előírt védelmi osztálynak.",
+    "2": "Értéktárgyakra a biztosító szolgáltatása káreseményenként legfeljebb 2 000 000 Ft."
+   }
+  },
+  "inv_security_rules": {
+   "content": {
+    "kind": "supplementary",
+    "title": "Vagyonvédelmi szabályzat (KB-VV-2026)",
+    "valid_from": "2026-01-01",
+    "sections": [
+     {
+      "clause": "1",
+      "page": 1,
+      "title": "Készpénz"
+     },
+     {
+      "clause": "2",
+      "page": 1,
+      "title": "Értéktárgyak"
+     },
+     {
+      "clause": "3",
+      "page": 2,
+      "title": "Gépek, berendezések és készletek"
+     },
+     {
+      "clause": "4",
+      "page": 2,
+      "title": "Elégtelen védelem"
+     }
+    ]
+   },
+   "text": {
+    "1": "Készpénz esetén 1 000 000 Ft-ig 2. védelmi osztály szükséges; 1 000 000 Ft felett 5 000 000 Ft-ig 3. védelmi osztály és legalább 1. fokozatú értéktároló; 5 000 000 Ft felett 4. védelmi osztály, legalább 3. fokozatú értéktároló és távfelügyeleti riasztó.",
+    "2": "Értéktárgyak esetén 3 000 000 Ft-ig 2., e felett 3. védelmi osztály szükséges.",
+    "3": "Gépek, berendezések és készletek esetén 50 000 000 Ft-ig 1., e felett 3. védelmi osztály szükséges.",
+    "4": "Ha a kockázatviselési helyen meglévő védelmi osztály alacsonyabb a szükségesnél, a biztosító a kockázatot egyedi elbírálásra utalja."
+   }
+  },
+  "inv_surge_clause": {
+   "content": {
+    "kind": "clause",
+    "title": "Túlfeszültség-záradék (KB-TZ-2026)",
+    "valid_from": "2026-01-01",
+    "sections": [
+     {
+      "clause": "1",
+      "page": 1,
+      "title": "Önrészesedés"
+     }
+    ]
+   },
+   "text": {
+    "1": "Túlfeszültség okozta károknál az önrészesedés túlfeszültség-védelem hiányában 200 000 Ft, csak T3 fokozatú védelem esetén 100 000 Ft, T2 és T3 fokozatú védelem esetén 50 000 Ft."
+   }
+  },
+  "inv_interruption_conditions": {
+   "content": {
+    "kind": "special",
+    "title": "Üzemszünet-biztosítás különös feltételei (KB-ÜSZ-2026)",
+    "valid_from": "2026-01-01",
+    "sections": [
+     {
+      "clause": "1",
+      "page": 1,
+      "title": "Feltétel"
+     },
+     {
+      "clause": "2",
+      "page": 1,
+      "title": "Számítási mód"
+     }
+    ]
+   },
+   "text": {
+    "1": "Üzemszünet-biztosítás csak vagyonbiztosítással együtt köthető.",
+    "2": "Az ajánlatban meg kell adni, hogy a biztosítási összeg a bruttó fedezeti összeg vagy az állandó költségek alapján kerül megállapításra."
+   }
+  }
+ },
+ "rules": {
+  "inv_excluded_activities": {
+   "catalogue": "property",
+   "kind": "eligibility",
+   "title": "Nem biztosítható tevékenységek",
+   "level": "holder",
+   "modules": [],
+   "facts": [
+    "activity_code"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "activity_code": {
+        "in": [
+         "1610",
+         "2011",
+         "2051",
+         "3821",
+         "3822"
+        ]
+       }
+      },
+      "then": {
+       "verdict": "refuse",
+       "warnings": [
+        "excluded_activity"
+       ]
+      }
+     },
+     {
+      "when": {},
+      "then": {
+       "verdict": "allow"
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_general_conditions@1",
+    "page": 1,
+    "clause": "2",
+    "quote": "Nem köthető biztosítás, ha a szerződő fő tevékenysége (TEÁOR) a következők egyike"
+   }
+  },
+  "inv_domestic_site": {
+   "catalogue": "property",
+   "kind": "eligibility",
+   "title": "Csak belföldi kockázatviselési hely",
+   "level": "site",
+   "modules": [],
+   "facts": [
+    "country"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "country": {
+        "ne": "HU"
+       }
+      },
+      "then": {
+       "verdict": "refuse",
+       "warnings": [
+        "outside_hungary"
+       ]
+      }
+     },
+     {
+      "when": {},
+      "then": {
+       "verdict": "allow"
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_general_conditions@1",
+    "page": 1,
+    "clause": "1",
+    "quote": "Magyarország területén lévő kockázatviselési helyekre terjed ki"
+   }
+  },
+  "inv_claims_history": {
+   "catalogue": "property",
+   "kind": "eligibility",
+   "title": "Kárelőzmény: egyedi elbírálás",
+   "level": "holder",
+   "modules": [],
+   "facts": [
+    "claims_5y_count",
+    "claims_5y_paid"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "claims_5y_count": {
+        "gt": 4
+       }
+      },
+      "then": {
+       "verdict": "refer",
+       "warnings": [
+        "claims_history"
+       ]
+      }
+     },
+     {
+      "when": {
+       "claims_5y_paid": {
+        "gt": {
+         "amount": "10000000",
+         "currency": "HUF"
+        }
+       }
+      },
+      "then": {
+       "verdict": "refer",
+       "warnings": [
+        "claims_history"
+       ]
+      }
+     },
+     {
+      "when": {},
+      "then": {
+       "verdict": "allow"
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_general_conditions@1",
+    "page": 2,
+    "clause": "3.1",
+    "quote": "károinak száma meghaladja a négyet, vagy a kifizetett kárösszeg meghaladja a 10 000 000 Ft-ot"
+   }
+  },
+  "inv_claims_factor": {
+   "catalogue": "property",
+   "kind": "premium_factor",
+   "title": "Kárelőzmény szerinti díjmódosítás",
+   "level": "holder",
+   "modules": [],
+   "facts": [
+    "claims_5y_count"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "claims_5y_count": {
+        "eq": 0
+       }
+      },
+      "then": {
+       "premium_factor": "0.9"
+      }
+     },
+     {
+      "when": {
+       "claims_5y_count": {
+        "between": [
+         1,
+         2
+        ]
+       }
+      },
+      "then": {
+       "premium_factor": "1.0"
+      }
+     },
+     {
+      "when": {},
+      "then": {
+       "premium_factor": "1.25"
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_general_conditions@1",
+    "page": 2,
+    "clause": "3.2",
+    "quote": "Kármentes előzmény esetén a díjból 10% kedvezmény jár"
+   }
+  },
+  "inv_new_value_wear": {
+   "catalogue": "property",
+   "kind": "valuation",
+   "title": "Új érték legfeljebb 30% avultságig",
+   "level": "asset_group",
+   "modules": [],
+   "facts": [
+    "valuation",
+    "wear"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "valuation": {
+        "eq": "new_value"
+       },
+       "wear": {
+        "gt": {
+         "value": "30"
+        }
+       }
+      },
+      "then": {
+       "verdict": "refer",
+       "warnings": [
+        "new_value_worn"
+       ]
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_general_conditions@1",
+    "page": 2,
+    "clause": "4",
+    "quote": "műszaki avultsága nem haladja meg a 30%-ot"
+   }
+  },
+  "inv_base_deductible": {
+   "catalogue": "property",
+   "kind": "deductible",
+   "title": "Önrészesedés vagyoncsoportonként",
+   "level": "asset_group",
+   "modules": [],
+   "facts": [
+    "asset_group"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "asset_group": {
+        "in": [
+         "cash",
+         "valuables"
+        ]
+       }
+      },
+      "then": {
+       "deductible": {
+        "amount": "100000",
+        "currency": "HUF"
+       }
+      }
+     },
+     {
+      "when": {},
+      "then": {
+       "deductible": {
+        "amount": "50000",
+        "currency": "HUF"
+       }
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_general_conditions@1",
+    "page": 3,
+    "clause": "5",
+    "quote": "Az önrészesedés káreseményenként és vagyoncsoportonként 50 000 Ft"
+   }
+  },
+  "inv_flood_high": {
+   "catalogue": "property",
+   "kind": "exclusion",
+   "title": "Nagy árvízkockázat: az árvízkár nem biztosított",
+   "level": "site",
+   "modules": [],
+   "facts": [
+    "flood_zone"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "flood_zone": {
+        "eq": "high"
+       }
+      },
+      "then": {
+       "verdict": "refer",
+       "warnings": [
+        "flood_excluded"
+       ]
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_general_conditions@1",
+    "page": 3,
+    "clause": "6.1",
+    "quote": "az árvízkár nem biztosított"
+   }
+  },
+  "inv_flood_stock": {
+   "catalogue": "property",
+   "kind": "obligation",
+   "title": "Közepes árvízkockázat: készlet legalább 30 cm magasan",
+   "level": "asset_group",
+   "modules": [],
+   "facts": [
+    "flood_zone",
+    "asset_group"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "flood_zone": {
+        "eq": "medium"
+       },
+       "asset_group": {
+        "eq": "stock"
+       }
+      },
+      "then": {
+       "measures": [
+        "stock_raised_30cm"
+       ]
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_general_conditions@1",
+    "page": 3,
+    "clause": "6.2",
+    "quote": "a készletet a padlószinttől legalább 30 cm magasan kell tárolni"
+   }
+  },
+  "inv_basement_stock": {
+   "catalogue": "property",
+   "kind": "obligation",
+   "title": "Pincében tárolt készlet legalább 30 cm magasan",
+   "level": "asset_group",
+   "modules": [],
+   "facts": [
+    "basement_storage",
+    "asset_group"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "basement_storage": {
+        "eq": true
+       },
+       "asset_group": {
+        "eq": "stock"
+       }
+      },
+      "then": {
+       "measures": [
+        "stock_raised_30cm"
+       ],
+       "warnings": [
+        "basement_storage"
+       ]
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_general_conditions@1",
+    "page": 4,
+    "clause": "7",
+    "quote": "Pincében vagy alagsorban tárolt készletre"
+   }
+  },
+  "inv_valuables_sublimit": {
+   "catalogue": "property",
+   "kind": "sublimit",
+   "title": "Értéktárgyak kártérítési korlátja",
+   "level": "asset_group",
+   "modules": [
+    "burglary"
+   ],
+   "facts": [
+    "asset_group"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "asset_group": {
+        "eq": "valuables"
+       }
+      },
+      "then": {
+       "sublimit": {
+        "amount": "2000000",
+        "currency": "HUF"
+       }
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_burglary_conditions@1",
+    "page": 1,
+    "clause": "2",
+    "quote": "káreseményenként legfeljebb 2 000 000 Ft"
+   }
+  },
+  "inv_class_cash": {
+   "catalogue": "property",
+   "kind": "requirement",
+   "title": "Készpénz védelmi osztálya",
+   "level": "asset_group",
+   "modules": [
+    "burglary"
+   ],
+   "facts": [
+    "asset_group",
+    "sum_insured"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "asset_group": {
+        "eq": "cash"
+       },
+       "sum_insured": {
+        "gt": {
+         "amount": "5000000",
+         "currency": "HUF"
+        }
+       }
+      },
+      "then": {
+       "protection_class_required": 4,
+       "measures": [
+        "safe_grade_3",
+        "alarm_remote"
+       ]
+      }
+     },
+     {
+      "when": {
+       "asset_group": {
+        "eq": "cash"
+       },
+       "sum_insured": {
+        "gt": {
+         "amount": "1000000",
+         "currency": "HUF"
+        }
+       }
+      },
+      "then": {
+       "protection_class_required": 3,
+       "measures": [
+        "safe_grade_1"
+       ]
+      }
+     },
+     {
+      "when": {
+       "asset_group": {
+        "eq": "cash"
+       }
+      },
+      "then": {
+       "protection_class_required": 2
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_security_rules@1",
+    "page": 1,
+    "clause": "1",
+    "quote": "Készpénz esetén 1 000 000 Ft-ig 2. védelmi osztály szükséges"
+   }
+  },
+  "inv_class_valuables": {
+   "catalogue": "property",
+   "kind": "requirement",
+   "title": "Értéktárgyak védelmi osztálya",
+   "level": "asset_group",
+   "modules": [
+    "burglary"
+   ],
+   "facts": [
+    "asset_group",
+    "sum_insured"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "asset_group": {
+        "eq": "valuables"
+       },
+       "sum_insured": {
+        "gt": {
+         "amount": "3000000",
+         "currency": "HUF"
+        }
+       }
+      },
+      "then": {
+       "protection_class_required": 3
+      }
+     },
+     {
+      "when": {
+       "asset_group": {
+        "eq": "valuables"
+       }
+      },
+      "then": {
+       "protection_class_required": 2
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_security_rules@1",
+    "page": 1,
+    "clause": "2",
+    "quote": "Értéktárgyak esetén 3 000 000 Ft-ig 2., e felett 3. védelmi osztály szükséges"
+   }
+  },
+  "inv_class_other": {
+   "catalogue": "property",
+   "kind": "requirement",
+   "title": "Gépek, berendezések és készletek védelmi osztálya",
+   "level": "asset_group",
+   "modules": [
+    "burglary"
+   ],
+   "facts": [
+    "asset_group",
+    "sum_insured"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "asset_group": {
+        "in": [
+         "equipment",
+         "stock"
+        ]
+       },
+       "sum_insured": {
+        "gt": {
+         "amount": "50000000",
+         "currency": "HUF"
+        }
+       }
+      },
+      "then": {
+       "protection_class_required": 3
+      }
+     },
+     {
+      "when": {
+       "asset_group": {
+        "in": [
+         "equipment",
+         "stock"
+        ]
+       }
+      },
+      "then": {
+       "protection_class_required": 1
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_security_rules@1",
+    "page": 2,
+    "clause": "3",
+    "quote": "50 000 000 Ft-ig 1., e felett 3. védelmi osztály szükséges"
+   }
+  },
+  "inv_class_in_place": {
+   "catalogue": "property",
+   "kind": "requirement",
+   "title": "A meglévő védelem nem éri el a szükségeset",
+   "level": "asset_group",
+   "modules": [
+    "burglary"
+   ],
+   "facts": [
+    "asset_group",
+    "sum_insured",
+    "protection_class_in_place"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "asset_group": {
+        "eq": "cash"
+       },
+       "sum_insured": {
+        "gt": {
+         "amount": "5000000",
+         "currency": "HUF"
+        }
+       },
+       "protection_class_in_place": {
+        "lt": 4
+       }
+      },
+      "then": {
+       "verdict": "refer",
+       "warnings": [
+        "protection_below_required"
+       ]
+      }
+     },
+     {
+      "when": {
+       "asset_group": {
+        "eq": "cash"
+       },
+       "sum_insured": {
+        "gt": {
+         "amount": "1000000",
+         "currency": "HUF"
+        }
+       },
+       "protection_class_in_place": {
+        "lt": 3
+       }
+      },
+      "then": {
+       "verdict": "refer",
+       "warnings": [
+        "protection_below_required"
+       ]
+      }
+     },
+     {
+      "when": {
+       "asset_group": {
+        "eq": "cash"
+       },
+       "protection_class_in_place": {
+        "lt": 2
+       }
+      },
+      "then": {
+       "verdict": "refer",
+       "warnings": [
+        "protection_below_required"
+       ]
+      }
+     },
+     {
+      "when": {
+       "asset_group": {
+        "eq": "valuables"
+       },
+       "sum_insured": {
+        "gt": {
+         "amount": "3000000",
+         "currency": "HUF"
+        }
+       },
+       "protection_class_in_place": {
+        "lt": 3
+       }
+      },
+      "then": {
+       "verdict": "refer",
+       "warnings": [
+        "protection_below_required"
+       ]
+      }
+     },
+     {
+      "when": {
+       "asset_group": {
+        "eq": "valuables"
+       },
+       "protection_class_in_place": {
+        "lt": 2
+       }
+      },
+      "then": {
+       "verdict": "refer",
+       "warnings": [
+        "protection_below_required"
+       ]
+      }
+     },
+     {
+      "when": {
+       "asset_group": {
+        "in": [
+         "equipment",
+         "stock"
+        ]
+       },
+       "sum_insured": {
+        "gt": {
+         "amount": "50000000",
+         "currency": "HUF"
+        }
+       },
+       "protection_class_in_place": {
+        "lt": 3
+       }
+      },
+      "then": {
+       "verdict": "refer",
+       "warnings": [
+        "protection_below_required"
+       ]
+      }
+     },
+     {
+      "when": {
+       "asset_group": {
+        "in": [
+         "equipment",
+         "stock"
+        ]
+       },
+       "protection_class_in_place": {
+        "lt": 1
+       }
+      },
+      "then": {
+       "verdict": "refer",
+       "warnings": [
+        "protection_below_required"
+       ]
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_security_rules@1",
+    "page": 2,
+    "clause": "4",
+    "quote": "meglévő védelmi osztály alacsonyabb a szükségesnél"
+   }
+  },
+  "inv_surge_deductible": {
+   "catalogue": "property",
+   "kind": "deductible",
+   "title": "Túlfeszültség-önrészesedés a védelem szerint",
+   "level": "site",
+   "modules": [
+    "surge"
+   ],
+   "facts": [
+    "surge_protection"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "surge_protection": {
+        "eq": "none"
+       }
+      },
+      "then": {
+       "deductible": {
+        "amount": "200000",
+        "currency": "HUF"
+       }
+      }
+     },
+     {
+      "when": {
+       "surge_protection": {
+        "eq": "t3"
+       }
+      },
+      "then": {
+       "deductible": {
+        "amount": "100000",
+        "currency": "HUF"
+       }
+      }
+     },
+     {
+      "when": {
+       "surge_protection": {
+        "eq": "t2_t3"
+       }
+      },
+      "then": {
+       "deductible": {
+        "amount": "50000",
+        "currency": "HUF"
+       }
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_surge_clause@1",
+    "page": 1,
+    "clause": "1",
+    "quote": "túlfeszültség-védelem hiányában 200 000 Ft"
+   }
+  },
+  "inv_interruption_method": {
+   "catalogue": "property",
+   "kind": "requirement",
+   "title": "Üzemszünet: a számítási mód megadása",
+   "level": "holder",
+   "modules": [
+    "interruption"
+   ],
+   "facts": [
+    "accounting_method"
+   ],
+   "table": {
+    "hit": "first",
+    "rows": [
+     {
+      "when": {
+       "accounting_method": {
+        "in": [
+         "gross_profit",
+         "costs"
+        ]
+       }
+      },
+      "then": {
+       "verdict": "allow"
+      }
+     }
+    ]
+   },
+   "source": {
+    "document": "inv_interruption_conditions@1",
+    "page": 1,
+    "clause": "2",
+    "quote": "a bruttó fedezeti összeg vagy az állandó költségek alapján"
+   }
+  }
+ },
+ "tariffs": {
+  "inv_business_property_tariff": {
+   "currency": "HUF",
+   "valid": {
+    "valid_from": "2026-01-01",
+    "valid_to": "2027-12-31"
+   },
+   "line_rounding": {
+    "unit": "1",
+    "mode": "half_up"
+   },
+   "total_rounding": {
+    "unit": "100",
+    "mode": "half_up"
+   },
+   "modules": {
+    "property": {
+     "level": "asset_group",
+     "basis": "sum_insured",
+     "rate": {
+      "value": "0.9"
+     },
+     "factors": [
+      "activity",
+      "claims"
+     ]
+    },
+    "burglary": {
+     "level": "asset_group",
+     "basis": "sum_insured",
+     "rate": {
+      "value": "1.8"
+     },
+     "minimum": {
+      "amount": "15000",
+      "currency": "HUF"
+     },
+     "factors": [
+      "burglary_group",
+      "protection",
+      "claims"
+     ],
+     "only": {
+      "asset_group": {
+       "in": [
+        "equipment",
+        "stock",
+        "cash",
+        "valuables"
+       ]
+      }
+     }
+    },
+    "surge": {
+     "level": "asset_group",
+     "basis": "sum_insured",
+     "rate": {
+      "value": "0.25"
+     },
+     "factors": [
+      "surge_level",
+      "claims"
+     ],
+     "only": {
+      "asset_group": {
+       "in": [
+        "buildings",
+        "equipment"
+       ]
+      }
+     }
+    },
+    "interruption": {
+     "level": "holder",
+     "basis": "interruption_sum_insured",
+     "rate": {
+      "value": "1.1"
+     },
+     "minimum": {
+      "amount": "20000",
+      "currency": "HUF"
+     },
+     "factors": [
+      "activity",
+      "claims"
+     ]
+    }
+   },
+   "factors": {
+    "activity": {
+     "title": "Tevékenységi osztály",
+     "fact": "activity_code",
+     "table": [
+      {
+       "when": {
+        "in": [
+         "4690",
+         "4719",
+         "4778",
+         "6201",
+         "6920",
+         "7022"
+        ]
+       },
+       "factor": "1.0"
+      },
+      {
+       "when": {
+        "in": [
+         "1071",
+         "2511",
+         "2562"
+        ]
+       },
+       "factor": "1.3"
+      },
+      {
+       "when": {
+        "in": [
+         "5610",
+         "5630"
+        ]
+       },
+       "factor": "1.5"
+      },
+      {
+       "when": {},
+       "factor": "1.2"
+      }
+     ]
+    },
+    "claims": {
+     "title": "Kárelőzmény",
+     "outcome": "premium_factor"
+    },
+    "burglary_group": {
+     "title": "Vagyoncsoport (betöréses lopás)",
+     "fact": "asset_group",
+     "table": [
+      {
+       "when": {
+        "eq": "cash"
+       },
+       "factor": "3.0"
+      },
+      {
+       "when": {
+        "eq": "valuables"
+       },
+       "factor": "2.0"
+      },
+      {
+       "when": {},
+       "factor": "1.0"
+      }
+     ]
+    },
+    "protection": {
+     "title": "Meglévő védelmi osztály",
+     "fact": "protection_class_in_place",
+     "table": [
+      {
+       "when": {
+        "gte": 4
+       },
+       "factor": "0.85"
+      },
+      {
+       "when": {
+        "gte": 3
+       },
+       "factor": "0.9"
+      },
+      {
+       "when": {
+        "gte": 2
+       },
+       "factor": "0.95"
+      },
+      {
+       "when": {},
+       "factor": "1.0"
+      }
+     ]
+    },
+    "surge_level": {
+     "title": "Túlfeszültség-védelem",
+     "fact": "surge_protection",
+     "table": [
+      {
+       "when": {
+        "eq": "none"
+       },
+       "factor": "1.6"
+      },
+      {
+       "when": {
+        "eq": "t3"
+       },
+       "factor": "1.3"
+      },
+      {
+       "when": {
+        "eq": "t2_t3"
+       },
+       "factor": "1.0"
+      },
+      {
+       "when": {
+        "eq": "t1_t2_t3"
+       },
+       "factor": "0.85"
+      }
+     ]
+    },
+    "frequency": {
+     "title": "Díjfizetési gyakoriság",
+     "fact": "payment_frequency",
+     "table": [
+      {
+       "when": {
+        "eq": "yearly"
+       },
+       "factor": "1.0"
+      },
+      {
+       "when": {
+        "eq": "half_yearly"
+       },
+       "factor": "1.03"
+      },
+      {
+       "when": {
+        "eq": "quarterly"
+       },
+       "factor": "1.05"
+      }
+     ]
+    }
+   },
+   "total_factors": [
+    "frequency"
+   ],
+   "policy_minimum": {
+    "amount": "25000",
+    "currency": "HUF"
+   }
+  }
+ },
+ "products": {
+  "inv_business_property": {
+   "name": "Kitalált vállalkozói vagyonbiztosítás",
+   "catalogue": "property",
+   "modules": [
+    {
+     "code": "property",
+     "name": "Vagyonbiztosítás (tűz és elemi károk)",
+     "kind": "base"
+    },
+    {
+     "code": "burglary",
+     "name": "Betöréses lopás és rablás",
+     "kind": "extension",
+     "requires": [
+      "property"
+     ]
+    },
+    {
+     "code": "surge",
+     "name": "Túlfeszültség",
+     "kind": "extension",
+     "requires": [
+      "property"
+     ]
+    },
+    {
+     "code": "interruption",
+     "name": "Üzemszünet",
+     "kind": "extension",
+     "requires": [
+      "property"
+     ]
+    }
+   ],
+   "documents": [
+    "inv_general_conditions@1",
+    "inv_burglary_conditions@1",
+    "inv_security_rules@1",
+    "inv_surge_clause@1",
+    "inv_interruption_conditions@1"
+   ],
+   "rules": [
+    "inv_excluded_activities@1",
+    "inv_domestic_site@1",
+    "inv_claims_history@1",
+    "inv_claims_factor@1",
+    "inv_new_value_wear@1",
+    "inv_base_deductible@1",
+    "inv_flood_high@1",
+    "inv_flood_stock@1",
+    "inv_basement_stock@1",
+    "inv_valuables_sublimit@1",
+    "inv_class_cash@1",
+    "inv_class_valuables@1",
+    "inv_class_other@1",
+    "inv_class_in_place@1",
+    "inv_surge_deductible@1",
+    "inv_interruption_method@1"
+   ],
+   "tariff": "inv_business_property_tariff"
+  }
+ },
+ "cases": [
+  {
+   "id": "reference",
+   "title": "Teljes ajánlat négy modullal",
+   "modules": [
+    "property",
+    "burglary",
+    "surge",
+    "interruption"
+   ],
+   "input": {
+    "catalogue": "property",
+    "product": "inv_business_property@1",
+    "cover_start": "2027-01-01",
+    "units": [
+     {
+      "unit_id": "u-0000000001",
+      "level": "holder",
+      "facts": {
+       "activity_code": "4719",
+       "claims_5y_count": 1,
+       "claims_5y_paid": {
+        "amount": "800000",
+        "currency": "HUF"
+       },
+       "payment_frequency": "half_yearly",
+       "accounting_method": "gross_profit",
+       "interruption_sum_insured": {
+        "amount": "60000000",
+        "currency": "HUF"
+       }
+      }
+     },
+     {
+      "unit_id": "u-0000000002",
+      "level": "site",
+      "parent_id": "u-0000000001",
+      "facts": {
+       "country": "HU",
+       "flood_zone": "low",
+       "floor_area": {
+        "value": "450",
+        "unit": "m2"
+       },
+       "alarm_remote": true,
+       "surge_protection": "t3",
+       "basement_storage": false,
+       "protection_class_in_place": 3
+      }
+     },
+     {
+      "unit_id": "u-0000000011",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "buildings",
+       "sum_insured": {
+        "amount": "180000000",
+        "currency": "HUF"
+       },
+       "valuation": "new_value",
+       "wear": {
+        "value": "10"
+       }
+      }
+     },
+     {
+      "unit_id": "u-0000000012",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "equipment",
+       "sum_insured": {
+        "amount": "25000000",
+        "currency": "HUF"
+       },
+       "valuation": "new_value",
+       "wear": {
+        "value": "20"
+       }
+      }
+     },
+     {
+      "unit_id": "u-0000000013",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "stock",
+       "sum_insured": {
+        "amount": "40000000",
+        "currency": "HUF"
+       },
+       "valuation": "current_value"
+      }
+     },
+     {
+      "unit_id": "u-0000000014",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "cash",
+       "sum_insured": {
+        "amount": "2500000",
+        "currency": "HUF"
+       },
+       "valuation": "current_value"
+      }
+     }
+    ]
+   },
+   "expected": {
+    "verdict": "allow",
+    "missing": [],
+    "units": {
+     "u-0000000001": {
+      "verdict": "allow",
+      "premium_factor": "1.0"
+     },
+     "u-0000000002": {
+      "verdict": "allow",
+      "deductible": {
+       "amount": "100000",
+       "currency": "HUF"
+      }
+     },
+     "u-0000000011": {
+      "deductible": {
+       "amount": "50000",
+       "currency": "HUF"
+      }
+     },
+     "u-0000000012": {
+      "deductible": {
+       "amount": "50000",
+       "currency": "HUF"
+      },
+      "protection_class_required": 1
+     },
+     "u-0000000013": {
+      "deductible": {
+       "amount": "50000",
+       "currency": "HUF"
+      },
+      "protection_class_required": 1
+     },
+     "u-0000000014": {
+      "deductible": {
+       "amount": "100000",
+       "currency": "HUF"
+      },
+      "protection_class_required": 3,
+      "measures": [
+       "safe_grade_1"
+      ]
+     }
+    },
+    "lines": [
+     [
+      "u-0000000011",
+      "property",
+      "162000"
+     ],
+     [
+      "u-0000000012",
+      "property",
+      "22500"
+     ],
+     [
+      "u-0000000013",
+      "property",
+      "36000"
+     ],
+     [
+      "u-0000000014",
+      "property",
+      "2250"
+     ],
+     [
+      "u-0000000012",
+      "burglary",
+      "40500"
+     ],
+     [
+      "u-0000000013",
+      "burglary",
+      "64800"
+     ],
+     [
+      "u-0000000014",
+      "burglary",
+      "12150"
+     ],
+     [
+      "u-0000000011",
+      "surge",
+      "58500"
+     ],
+     [
+      "u-0000000012",
+      "surge",
+      "8125"
+     ],
+     [
+      "u-0000000001",
+      "interruption",
+      "66000"
+     ]
+    ],
+    "total": "487000",
+    "policy_minimum_applied": false,
+    "blockers": []
+   }
+  },
+  {
+   "id": "missing_facts",
+   "title": "Hiányzó tények: számítási mód és meglévő védelmi osztály",
+   "modules": [
+    "property",
+    "burglary",
+    "surge",
+    "interruption"
+   ],
+   "input": {
+    "catalogue": "property",
+    "product": "inv_business_property@1",
+    "cover_start": "2027-01-01",
+    "units": [
+     {
+      "unit_id": "u-0000000001",
+      "level": "holder",
+      "facts": {
+       "activity_code": "4719",
+       "claims_5y_count": 1,
+       "claims_5y_paid": {
+        "amount": "800000",
+        "currency": "HUF"
+       },
+       "payment_frequency": "half_yearly",
+       "interruption_sum_insured": {
+        "amount": "60000000",
+        "currency": "HUF"
+       }
+      }
+     },
+     {
+      "unit_id": "u-0000000002",
+      "level": "site",
+      "parent_id": "u-0000000001",
+      "facts": {
+       "country": "HU",
+       "flood_zone": "low",
+       "floor_area": {
+        "value": "450",
+        "unit": "m2"
+       },
+       "alarm_remote": true,
+       "surge_protection": "t3",
+       "basement_storage": false
+      }
+     },
+     {
+      "unit_id": "u-0000000011",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "buildings",
+       "sum_insured": {
+        "amount": "180000000",
+        "currency": "HUF"
+       },
+       "valuation": "new_value",
+       "wear": {
+        "value": "10"
+       }
+      }
+     },
+     {
+      "unit_id": "u-0000000012",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "equipment",
+       "sum_insured": {
+        "amount": "25000000",
+        "currency": "HUF"
+       },
+       "valuation": "new_value",
+       "wear": {
+        "value": "20"
+       }
+      }
+     },
+     {
+      "unit_id": "u-0000000013",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "stock",
+       "sum_insured": {
+        "amount": "40000000",
+        "currency": "HUF"
+       },
+       "valuation": "current_value"
+      }
+     },
+     {
+      "unit_id": "u-0000000014",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "cash",
+       "sum_insured": {
+        "amount": "2500000",
+        "currency": "HUF"
+       },
+       "valuation": "current_value"
+      }
+     }
+    ]
+   },
+   "expected": {
+    "verdict": "unknown",
+    "missing": [
+     [
+      "u-0000000001",
+      "accounting_method"
+     ],
+     [
+      "u-0000000012",
+      "protection_class_in_place"
+     ],
+     [
+      "u-0000000013",
+      "protection_class_in_place"
+     ],
+     [
+      "u-0000000014",
+      "protection_class_in_place"
+     ]
+    ],
+    "lines": [
+     [
+      "u-0000000011",
+      "property",
+      "162000"
+     ],
+     [
+      "u-0000000012",
+      "property",
+      "22500"
+     ],
+     [
+      "u-0000000013",
+      "property",
+      "36000"
+     ],
+     [
+      "u-0000000014",
+      "property",
+      "2250"
+     ],
+     [
+      "u-0000000011",
+      "surge",
+      "58500"
+     ],
+     [
+      "u-0000000012",
+      "surge",
+      "8125"
+     ],
+     [
+      "u-0000000001",
+      "interruption",
+      "66000"
+     ]
+    ],
+    "total": null,
+    "blockers": [
+     "u-0000000012: no protection factor: the fact protection_class_in_place is missing",
+     "u-0000000013: no protection factor: the fact protection_class_in_place is missing",
+     "u-0000000014: no protection factor: the fact protection_class_in_place is missing"
+    ]
+   }
+  },
+  {
+   "id": "excluded_activity",
+   "title": "Nem biztosítható tevékenység",
+   "modules": [
+    "property"
+   ],
+   "input": {
+    "catalogue": "property",
+    "product": "inv_business_property@1",
+    "cover_start": "2027-01-01",
+    "units": [
+     {
+      "unit_id": "u-0000000001",
+      "level": "holder",
+      "facts": {
+       "activity_code": "3822",
+       "claims_5y_count": 1,
+       "claims_5y_paid": {
+        "amount": "800000",
+        "currency": "HUF"
+       },
+       "payment_frequency": "half_yearly",
+       "accounting_method": "gross_profit",
+       "interruption_sum_insured": {
+        "amount": "60000000",
+        "currency": "HUF"
+       }
+      }
+     },
+     {
+      "unit_id": "u-0000000002",
+      "level": "site",
+      "parent_id": "u-0000000001",
+      "facts": {
+       "country": "HU",
+       "flood_zone": "low",
+       "floor_area": {
+        "value": "450",
+        "unit": "m2"
+       },
+       "alarm_remote": true,
+       "surge_protection": "t3",
+       "basement_storage": false,
+       "protection_class_in_place": 3
+      }
+     },
+     {
+      "unit_id": "u-0000000011",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "buildings",
+       "sum_insured": {
+        "amount": "180000000",
+        "currency": "HUF"
+       },
+       "valuation": "new_value",
+       "wear": {
+        "value": "10"
+       }
+      }
+     },
+     {
+      "unit_id": "u-0000000012",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "equipment",
+       "sum_insured": {
+        "amount": "25000000",
+        "currency": "HUF"
+       },
+       "valuation": "new_value",
+       "wear": {
+        "value": "20"
+       }
+      }
+     },
+     {
+      "unit_id": "u-0000000013",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "stock",
+       "sum_insured": {
+        "amount": "40000000",
+        "currency": "HUF"
+       },
+       "valuation": "current_value"
+      }
+     },
+     {
+      "unit_id": "u-0000000014",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "cash",
+       "sum_insured": {
+        "amount": "2500000",
+        "currency": "HUF"
+       },
+       "valuation": "current_value"
+      }
+     }
+    ]
+   },
+   "expected": {
+    "verdict": "refuse",
+    "missing": [],
+    "units": {
+     "u-0000000001": {
+      "verdict": "refuse",
+      "warnings": [
+       "excluded_activity"
+      ],
+      "premium_factor": "1.0"
+     }
+    },
+    "lines": [
+     [
+      "u-0000000011",
+      "property",
+      "194400"
+     ],
+     [
+      "u-0000000012",
+      "property",
+      "27000"
+     ],
+     [
+      "u-0000000013",
+      "property",
+      "43200"
+     ],
+     [
+      "u-0000000014",
+      "property",
+      "2700"
+     ]
+    ],
+    "total": "275300",
+    "policy_minimum_applied": false,
+    "blockers": []
+   }
+  },
+  {
+   "id": "referred",
+   "title": "Egyedi elbírálás: árvíz, avult értéktárgy, elégtelen védelem",
+   "modules": [
+    "property",
+    "burglary"
+   ],
+   "input": {
+    "catalogue": "property",
+    "product": "inv_business_property@1",
+    "cover_start": "2027-01-01",
+    "units": [
+     {
+      "unit_id": "u-0000000001",
+      "level": "holder",
+      "facts": {
+       "activity_code": "4719",
+       "claims_5y_count": 1,
+       "claims_5y_paid": {
+        "amount": "800000",
+        "currency": "HUF"
+       },
+       "payment_frequency": "yearly",
+       "accounting_method": "gross_profit",
+       "interruption_sum_insured": {
+        "amount": "60000000",
+        "currency": "HUF"
+       }
+      }
+     },
+     {
+      "unit_id": "u-0000000002",
+      "level": "site",
+      "parent_id": "u-0000000001",
+      "facts": {
+       "country": "HU",
+       "flood_zone": "high",
+       "floor_area": {
+        "value": "450",
+        "unit": "m2"
+       },
+       "alarm_remote": false,
+       "surge_protection": "t3",
+       "basement_storage": true,
+       "protection_class_in_place": 2
+      }
+     },
+     {
+      "unit_id": "u-0000000011",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "stock",
+       "sum_insured": {
+        "amount": "30000000",
+        "currency": "HUF"
+       },
+       "valuation": "current_value"
+      }
+     },
+     {
+      "unit_id": "u-0000000012",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "valuables",
+       "sum_insured": {
+        "amount": "4000000",
+        "currency": "HUF"
+       },
+       "valuation": "new_value",
+       "wear": {
+        "value": "40"
+       }
+      }
+     }
+    ]
+   },
+   "expected": {
+    "verdict": "refer",
+    "missing": [],
+    "units": {
+     "u-0000000002": {
+      "verdict": "refer",
+      "warnings": [
+       "flood_excluded"
+      ]
+     },
+     "u-0000000011": {
+      "deductible": {
+       "amount": "50000",
+       "currency": "HUF"
+      },
+      "measures": [
+       "stock_raised_30cm"
+      ],
+      "warnings": [
+       "basement_storage"
+      ],
+      "protection_class_required": 1
+     },
+     "u-0000000012": {
+      "verdict": "refer",
+      "warnings": [
+       "new_value_worn",
+       "protection_below_required"
+      ],
+      "deductible": {
+       "amount": "100000",
+       "currency": "HUF"
+      },
+      "sublimit": {
+       "amount": "2000000",
+       "currency": "HUF"
+      },
+      "protection_class_required": 3
+     }
+    },
+    "lines": [
+     [
+      "u-0000000011",
+      "property",
+      "27000"
+     ],
+     [
+      "u-0000000012",
+      "property",
+      "3600"
+     ],
+     [
+      "u-0000000011",
+      "burglary",
+      "51300"
+     ],
+     [
+      "u-0000000012",
+      "burglary",
+      "13680"
+     ]
+    ],
+    "total": "95600",
+    "policy_minimum_applied": false,
+    "blockers": []
+   }
+  },
+  {
+   "id": "minimums",
+   "title": "Kis bolt: modul- és szerződési minimáldíj",
+   "modules": [
+    "property",
+    "burglary"
+   ],
+   "input": {
+    "catalogue": "property",
+    "product": "inv_business_property@1",
+    "cover_start": "2027-01-01",
+    "units": [
+     {
+      "unit_id": "u-0000000001",
+      "level": "holder",
+      "facts": {
+       "activity_code": "4719",
+       "claims_5y_count": 0,
+       "claims_5y_paid": {
+        "amount": "0",
+        "currency": "HUF"
+       },
+       "payment_frequency": "yearly",
+       "accounting_method": "gross_profit",
+       "interruption_sum_insured": {
+        "amount": "60000000",
+        "currency": "HUF"
+       }
+      }
+     },
+     {
+      "unit_id": "u-0000000002",
+      "level": "site",
+      "parent_id": "u-0000000001",
+      "facts": {
+       "country": "HU",
+       "flood_zone": "low",
+       "floor_area": {
+        "value": "450",
+        "unit": "m2"
+       },
+       "alarm_remote": true,
+       "surge_protection": "t3",
+       "basement_storage": false,
+       "protection_class_in_place": 2
+      }
+     },
+     {
+      "unit_id": "u-0000000011",
+      "level": "asset_group",
+      "parent_id": "u-0000000002",
+      "facts": {
+       "asset_group": "stock",
+       "sum_insured": {
+        "amount": "2000000",
+        "currency": "HUF"
+       },
+       "valuation": "current_value"
+      }
+     }
+    ]
+   },
+   "expected": {
+    "verdict": "allow",
+    "missing": [],
+    "units": {
+     "u-0000000001": {
+      "verdict": "allow",
+      "premium_factor": "0.9"
+     },
+     "u-0000000011": {
+      "deductible": {
+       "amount": "50000",
+       "currency": "HUF"
+      },
+      "protection_class_required": 1
+     }
+    },
+    "lines": [
+     [
+      "u-0000000011",
+      "property",
+      "1620"
+     ],
+     [
+      "u-0000000011",
+      "burglary",
+      "3078"
+     ]
+    ],
+    "total": "25000",
+    "policy_minimum_applied": true,
+    "blockers": []
+   }
+  }
+ ]
+}

@@ -12,7 +12,7 @@ problem). A retired or superseded version stays readable by its reference (`<id>
 version of its start (`kept`, `named`).
 
 - `add(kind, ident, content, actor)`: a draft (the thing's next version); `activate`, `retire`; `get`, `resolve`,
-  `listing`; `product_at(ref)`: a product version with its rules and documents.
+  `latest`, `listing`; `product_at(ref)`: a product version with its rules and documents.
 - D-c3: a tariff (`Tariff`, kind `tariff`, the owner's decision of 2026-10-26: a tariff store of its own, beside the
   products): the currency, the days it is in force, the roundings, each module's basis, rate per thousand, minimum
   and factors, the factors (each read from a fact or an outcome, through a table of values), the total factors and
@@ -39,8 +39,8 @@ from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
 __all__ = ["KINDS", "Citation", "ConditionDocument", "Factor", "ManifestRefused", "Product", "ProductAt", "Rule",
-           "SecondPersonNeeded", "Tariff", "TariffModule", "activate", "add", "get", "keeper", "kept", "listing", "named",
-           "product_at",
+           "SecondPersonNeeded", "Tariff", "TariffModule", "activate", "add", "get", "keeper", "kept", "latest", "listing",
+           "named", "product_at",
            "resolve", "retire", "rule_problems"]
 
 KINDS = ("document", "rule", "product", "tariff")
@@ -182,6 +182,16 @@ class TariffModule(_Model):
     rate: PerMille
     minimum: Money | None = None
     factors: tuple[str, ...] = ()
+    # D-c5: the units it prices, by the facts they see ({fact: {op: value}}, the rules' comparisons); empty: every unit
+    # of its level with the basis
+    only: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _known_comparisons(self) -> TariffModule:
+        if unknown := sorted({op for condition in self.only.values() for op in condition
+                              if op not in OPS or op in ("present", "absent")}):
+            raise ValueError(f"a module prices its units by comparisons, not by {', '.join(unknown)}")
+        return self
 
 
 class Tariff(_Model):
@@ -244,6 +254,14 @@ def _view(row: Any) -> dict[str, Any]:
 def get(kind: str, ident: str, version: int) -> dict[str, Any]:
     with store.connect() as c:
         return _view(_VERSIONS[_kind(kind)].row(c, ident, version))
+
+
+def latest(kind: str, ident: str) -> dict[str, Any] | None:
+    """D-c5: a thing's newest version, whatever its state; None when it has none."""
+    with store.connect() as c:
+        row = c.execute(f"SELECT * FROM {_TABLES[_kind(kind)]} WHERE ident=? ORDER BY version DESC LIMIT 1",  # noqa: S608
+                        (ident,)).fetchone()
+    return _view(row) if row is not None else None
 
 
 def resolve(kind: str, reference: str) -> dict[str, Any]:

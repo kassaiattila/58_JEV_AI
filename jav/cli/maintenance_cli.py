@@ -448,6 +448,47 @@ def cmd_cases_kept(args: argparse.Namespace) -> int:
     return 1 if rows else 0
 
 
+def cmd_product_set(args: argparse.Namespace) -> int:
+    """231 (stage D, D-c5): a product set kept as data (`configs/<name>.json`): whether it holds together and its
+    reference cases give what they expect (free: no AI call); with `--install`, its things into the store as drafts by
+    `--maker`, made active by `--approver` when given. 0: in order; 1: problems or differences, listed; 2: refused."""
+    from contextlib import nullcontext
+    from pathlib import Path
+
+    from jav.app import product_sets
+    from jav.core import store
+
+    product_set = product_sets.load(args.name)
+    found = product_sets.problems(product_set)
+    for p in found:
+        print(f"problem: {p}")
+    differing = 0
+    for case in product_set.cases if not found else ():
+        differences = product_sets.case_differences(product_set, case)
+        differing += bool(differences)
+        print(f"case {case.id}: " + ("as expected" if not differences else "; ".join(differences)))
+    print(f"{len(product_set.documents)} document(s), {len(product_set.rules)} rule(s), {len(product_set.tariffs)} "
+          f"tariff(s), {len(product_set.products)} product(s), {len(product_set.cases)} case(s); "
+          f"{len(found)} problem(s), {differing} case(s) differing")
+    if not args.install:
+        return 1 if found or differing else 0
+    if not args.maker:
+        print("--install needs --maker (and --approver to make the things active)")
+        return 2
+    if args.store and not Path(args.store).is_file():
+        print(f"no store at {args.store}")
+        return 2
+    with store.use_store(Path(args.store)) if args.store else nullcontext():
+        try:
+            refs = product_sets.install(product_set, maker=args.maker, approver=args.approver)
+        except product_sets.SetRefused as exc:
+            for p in exc.problems:
+                print(f"refused: {p}")
+            return 2
+    print(f"installed {len(refs)} thing(s)" + (f", made active by {args.approver}" if args.approver else " as drafts"))
+    return 0
+
+
 def cmd_burr_prune(args: argparse.Namespace) -> int:
     from jav.runtime import worker
     from jav.flows import persistence
@@ -518,6 +559,14 @@ def register(sub) -> None:
                                           "the code here does not read (another main version); read only")
     p.add_argument("--store", help="a store copy to read instead of the active store (read only)")
     p.set_defaults(fn=cmd_cases_kept)
+    p = sub.add_parser("product-set", help="231 D-c5: a product set kept as data (condition documents, rules, products, "
+                                           "tariffs, reference cases): checked, its cases compared (free); --install puts it into the store")
+    p.add_argument("name", nargs="?", default="golden_products", help="the set's config (default: golden_products, the invented insurer)")
+    p.add_argument("--install", action="store_true", help="add its things as drafts (a thing there with the same content is kept)")
+    p.add_argument("--maker", help="the person adding them")
+    p.add_argument("--approver", help="another person, making them active (a product needs a second person)")
+    p.add_argument("--store", help="a store file to install into instead of the active store")
+    p.set_defaults(fn=cmd_product_set)
     p = sub.add_parser("flows", help="Burr-kontraktok lintje + FLOW.md / FLOW.mmd generálás (docs/flows/)")
     p.add_argument("--check", action="store_true", help="csak lint, fájlírás nélkül")
     p.set_defaults(fn=cmd_flows)

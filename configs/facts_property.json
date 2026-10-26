@@ -1,9 +1,10 @@
 {
   "meta": {
     "name": "facts_property",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "231 (stage D, D-b3): the fact catalogue of property risk assessment, a rule file a case keeps as it started (jav/app/facts.py). It names the levels of what is assessed (the policyholder, its sites, their asset groups), each fact a rule may read with its type, unit or currency, level and allowed codes, and each outcome a rule may give with how the outcomes of several rules combine. Invented for the stage D trial; no insurer's own terms.",
     "changelog": [
+      {"version": "1.1.0", "date": "2026-10-26", "note": "231 (D-c5): interruption_sum_insured, the business interruption cover's sum insured (a year's gross profit or standing costs, by the accounting method), the basis its premium is computed on. An added definition: no earlier outcome changes."},
       {"version": "1.0.0", "date": "2026-10-26", "note": "231 (D-b3): the first catalogue: 17 facts on three levels and 7 outcomes."}
     ]
   },
@@ -15,6 +16,7 @@
     "payment_frequency": {"type": "code", "level": "holder", "options": ["yearly", "half_yearly", "quarterly"], "title": "Payment frequency"},
     "requested_modules": {"type": "codes", "level": "holder", "title": "Requested cover modules"},
     "accounting_method": {"type": "code", "level": "holder", "options": ["gross_profit", "costs"], "title": "Accounting method of the business interruption cover"},
+    "interruption_sum_insured": {"type": "money", "currency": "HUF", "level": "holder", "title": "Business interruption sum insured"},
     "country": {"type": "code", "level": "site", "title": "Country of the site"},
     "flood_zone": {"type": "code", "level": "site", "options": ["none", "low", "medium", "high"], "title": "Flood zone"},
     "floor_area": {"type": "quantity", "unit": "m2", "level": "site", "title": "Floor area"},

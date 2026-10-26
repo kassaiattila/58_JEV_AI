@@ -1265,7 +1265,15 @@ blocker. The calculation is a trace row (point `rating.premium`, the tariff inli
 (`tests/test_rating_231.py`). D-c4: a capability's parameter naming a product or a tariff keeps the version active at
 the case's start like a price list (`product_rules.keeper(kind)`, its `at_start`), so a newer version reaches only the
 cases started after it; a pack refuses a `needs_at_start` resource that no step keeps at a version (a plain value has
-none, and the check would pass silently) (`tests/test_product_at_start_231.py`).
+none, and the check would pass silently) (`tests/test_product_at_start_231.py`). D-c5: a product set is kept as data
+(`jav/app/product_sets.py`; the invented insurer: `configs/golden_products.json`): condition documents with each
+clause's text, rules, tariffs and products, checked to hold together (every rule against its catalogue and the cited
+page and clause, its quote found in the clause's text, every reference within the set), installed into a store as first
+versions, drafts by one person and made active by another (a store holding another content of one of its things refuses
+the whole set before writing), with reference cases whose hand-worked verdict, outcomes, lines and total are compared
+with the evaluation and the rating (`product-set` command; `tests/test_product_set_231.py`). A tariff module may price
+only the units whose facts fit its `only` (burglary does not price a building); a unit without such a fact is a
+blocker.
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

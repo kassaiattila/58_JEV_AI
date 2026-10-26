@@ -1,7 +1,8 @@
 """A premium from a versioned tariff, step by step (231, stage D, D-c3; the reassessment after D0 of 2026-10-26, T14).
 
 Plain-language summary: a tariff (`product_rules.Tariff`, a versioned thing kept by a case as it started) prices each
-requested module on the units of its level, in a fixed order: the basis (a sum insured) times the module's rate per
+requested module on the units of its level (D-c5: only those whose facts fit the module's `only`, so a burglary cover
+does not price a building), in a fixed order: the basis (a sum insured) times the module's rate per
 thousand; its factors in their order, each read from a fact the unit sees or an outcome of the rules on it or its
 ancestors, through the factor's table; rounded once per line; the module's minimum; the modules summed in the tariff's
 one currency; the total factors (the payment frequency, read from the top unit); rounded once more; the policy's
@@ -89,13 +90,27 @@ def _factor(cat: facts.Catalogue, name: str, f: Factor, unit: _Unit) -> tuple[De
     for row in f.table:
         fits = True
         for op, want in row.when.items():
-            wanted = ([facts.typed_value(name, d, w) for w in want] if op in ("in", "not_in", "between")
-                      else facts.typed_value(name, d, want))
-            if not rule_evaluation.holds(op, value, wanted):  # the same comparisons as the rules
+            if not rule_evaluation.holds(op, value, _typed(cat, name, d, op, want)):  # the same comparisons as the rules
                 fits = False
         if fits:
             return row.factor, None
     return None, f"{unit.unit_id}: no row of the {name} factor takes {value}"
+
+
+def _typed(cat: facts.Catalogue, name: str, d: Any, op: str, want: Any) -> Any:
+    return ([facts.typed_value(name, d, w) for w in want] if op in ("in", "not_in", "between")
+            else facts.typed_value(name, d, want))
+
+
+def _priced(cat: facts.Catalogue, code: str, only: dict[str, dict[str, Any]], unit: _Unit) -> tuple[bool, str | None]:
+    """Whether a module prices a unit (its `only`), or why that cannot be told."""
+    for name, condition in only.items():
+        if name not in unit.seen:
+            return False, f"{unit.unit_id}: the module {code} prices by {name}, which is missing"
+        for op, want in condition.items():
+            if not rule_evaluation.holds(op, unit.seen[name], _typed(cat, name, cat.facts[name], op, want)):
+                return False, None
+    return True, None
 
 
 def _compute(tariff: Tariff, tariff_ref: str, cat: facts.Catalogue, product: str, cover_start: date,
@@ -113,6 +128,11 @@ def _compute(tariff: Tariff, tariff_ref: str, cat: facts.Catalogue, product: str
         module_lines: list[Line] = []
         for unit in units:
             if unit.level != module.level or module.basis not in unit.seen:
+                continue
+            priced, why = _priced(cat, code, module.only, unit)
+            if why:
+                blockers.append(why)
+            if not priced:
                 continue
             basis = unit.seen[module.basis]
             if not isinstance(basis, Money) or basis.currency != tariff.currency:

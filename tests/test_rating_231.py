@@ -99,6 +99,32 @@ def test_a_missing_factor_or_validity_gives_no_total(case, modules, blocker) -> 
     assert result.total is None and blocker in result.blockers, result.blockers
 
 
+def test_a_module_prices_only_the_units_its_only_takes() -> None:
+    """D-c5: a burglary module limited to stock prices the stock line and not the equipment line; a unit without the
+    fact it is limited by is a blocker, not a guess."""
+    checked, evaluation = _case(protection=3)
+    burglary = TARIFF.modules["burglary"].model_copy(update={"only": {"asset_group": {"in": ["stock"]}}})
+    limited = TARIFF.model_copy(update={"modules": {**TARIFF.modules, "burglary": burglary}})
+    result = rating.calculate(limited, "invented_tariff@1", checked, evaluation, modules=("burglary",))
+    # 24 000 x 0.9 x 0.9 = 19 440, under the module's minimum 20 000
+    assert [(line.unit_id, line.amount) for line in result.lines] == [("u-0000000010", HUF(19440))]
+    assert result.total == HUF(20000)
+    data = checked.model_dump(mode="json")
+    data["units"] = [u | {"facts": {k: v for k, v in u["facts"].items() if k != "asset_group"}}
+                     if u["unit_id"] == "u-0000000011" else u for u in data["units"]]
+    checked = facts.checked_input(data)
+    evaluation = rule_evaluation.evaluate([CLAIMS], checked, modules=("burglary",))
+    result = rating.calculate(limited, "invented_tariff@1", checked, evaluation, modules=("burglary",))
+    assert result.total is None
+    assert "u-0000000011: the module burglary prices by asset_group, which is missing" in result.blockers
+
+
+def test_a_module_limited_by_a_presence_check_is_refused() -> None:
+    with pytest.raises(ValueError, match="by comparisons, not by present"):
+        type(TARIFF.modules["burglary"]).model_validate(
+            TARIFF.modules["burglary"].model_dump(mode="json") | {"only": {"asset_group": {"present": True}}})
+
+
 def test_another_currency_gives_no_total() -> None:
     checked, evaluation = _case()
     euro = TARIFF.model_copy(update={"currency": "EUR"})
