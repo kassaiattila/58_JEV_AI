@@ -19,7 +19,9 @@ Four kinds of part, each listed in the order it was registered (the order the do
 - `ItemPart` (185): an item kind's part of a result, before the documents (the emails and their tasks): its rows of a
   run, its tables, its section of the result's JSON and the result views of the interface it adds;
 - `OutputLabels` (185): the built-in headers and value labels of an output a logic pack makes on its own (the
-  reconciliation statement), for a template's marker list and preview.
+  reconciliation statement), for a template's marker list and preview;
+- `VersionDocument` (231, stage D0, D0-c): how an approved own version of a case's step becomes an output's data (the
+  quote's Word document), for the general priced document capability (`jav/app/approved_document.py`).
 
 Every part names the output contract's keys (`configs/outputs.json`); `jav/app/outputs/contract.py` still checks the built
 data. The registry completes itself the first time it is read (`registrations.load_all`), as the check registry does.
@@ -117,6 +119,16 @@ class OwnOutput:
     value_labels: Mapping[str, str] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class VersionDocument:
+    """D0-c: the output an approved own version is printed into: `data(content, package=, version=, approved_by=,
+    approved_at=, output=)` builds the output's data from the version's content as it was approved."""
+
+    output: str
+    module: str
+    data: Callable[..., contract.OutputData]
+
+
 class UnknownOutput(KeyError):
     """No domain registered the output."""
 
@@ -127,6 +139,7 @@ _RESULT: dict[str, ResultPart] = {}
 _OWN: dict[str, OwnOutput] = {}
 _ITEMS: dict[str, ItemPart] = {}
 _LABELS: dict[str, OutputLabels] = {}
+_VERSIONS: dict[str, VersionDocument] = {}
 
 
 def _add(table: dict[str, Any], name: str, part: Any) -> None:
@@ -161,6 +174,11 @@ def register_item_part(part: ItemPart) -> None:
 
 def register_output_labels(part: OutputLabels) -> None:
     _add(_LABELS, part.output, part)
+
+
+def register_version_document(part: VersionDocument) -> None:
+    """D0-c: an output an approved own version is printed into (one domain per output)."""
+    _add(_VERSIONS, part.output, part)
 
 
 _SAMPLE_TYPES: list[str] = []
@@ -216,6 +234,16 @@ def output_labels(output: str) -> OutputLabels | None:
     return _LABELS.get(output)
 
 
+def version_document(output: str) -> VersionDocument:
+    """D0-c: the builder of an output an approved own version is printed into; `UnknownOutput` when no domain
+    registered one."""
+    _load()
+    try:
+        return _VERSIONS[output]
+    except KeyError:
+        raise UnknownOutput(f"no domain prints an approved version into the output {output!r}") from None
+
+
 def own_output(output: str) -> OwnOutput:
     _load()
     try:
@@ -225,6 +253,7 @@ def own_output(output: str) -> OwnOutput:
 
 
 __all__ = ["Column", "DocumentColumns", "ItemPart", "OutputLabels", "OwnOutput", "RecordMark", "ResultPart", "UnknownOutput",
-           "document_columns", "item_parts", "output_labels", "own_output", "own_outputs", "record_marks",
-           "register_document_columns", "register_item_part", "register_output_labels", "register_own_output",
-           "register_record_mark", "register_result_part", "register_sample_type", "result_parts", "sample_types"]
+           "VersionDocument", "document_columns", "item_parts", "output_labels", "own_output", "own_outputs",
+           "record_marks", "register_document_columns", "register_item_part", "register_output_labels",
+           "register_own_output", "register_record_mark", "register_result_part", "register_sample_type",
+           "register_version_document", "result_parts", "sample_types", "version_document"]

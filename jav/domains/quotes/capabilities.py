@@ -1,10 +1,11 @@
 """The general capabilities of the quote's back half (231, plan stage A, A3c; DECISIONS 231).
 
 Plain-language summary: the owner's rule is that every process is built only from general capabilities. The quote's
-back half is six such building blocks, described here with what a process sets for each: putting a record together
+back half is such building blocks, described here with what a process sets for each: putting a record together
 from an email and its attachments, matching requested items with a catalogue (a price list), pricing lines from a
-catalogue, a person's line-by-line draft with its approval, a priced document from an output template, and a letter
-draft around a model's paragraph. Five of them run as a process pack's steps since 231 A5 (`run`, on a case's
+catalogue, a person's line-by-line draft with its approval, and a letter draft around a model's paragraph (the priced
+document from an output template moved to the shared layer in stage D0, D0-c: `jav/app/approved_document.py`; the
+quote registers how its approved version becomes its Word document's data). Four of them run as a process pack's steps since 231 A5 (`run`, on a case's
 container: the general work package that holds the case's rows); the line pricing is described only, and a pack cannot
 use it (D0-a). Their parameters' defaults are not the quote's: a process names them. Each step is repeatable: when its
 work is already there it goes on at once, and while a job or a person works it waits with a retry timer (`POLL_S`).
@@ -48,14 +49,6 @@ class MatchResult(Result):
 
     lines: int
     marks: dict[str, int]
-
-
-class DocumentResult(Result):
-    """D0-c: the priced document: its output contract, the approved version it printed and how many values it holds."""
-
-    output: str
-    version: int
-    values: int
 
 
 class LetterResult(Result):
@@ -117,22 +110,6 @@ class LineDraft(_Params):
     _catalogue = field_validator("catalogue")(lambda cls, v: _catalogue(v))
 
 
-class PricedDocument(_Params):
-    """The output contract it fills, and the step whose approved version it prints."""
-
-    output: str = Field(min_length=1, title="Output")
-    from_step: str = step_ref(min_length=1, reads=("version",))  # D0-c: the approved version of that step
-
-    @field_validator("output")
-    @classmethod
-    def _known_output(cls, value: str) -> str:
-        from jav.core import cfg
-
-        if value not in (cfg.load("outputs").get("outputs") or {}):
-            raise ValueError(f"no output {value!r}")
-        return value
-
-
 class LetterDraft(_Params):
     """The letter frame's key and the call site that asks for the paragraph. D0-b: `from_step`, the composition step
     whose approved version it answers (None: the case's only one)."""
@@ -149,13 +126,6 @@ class LetterDraft(_Params):
         if value not in quote_letter.frames():
             raise ValueError(f"no letter frame {value!r}")
         return value
-
-
-def _outputs() -> list[tuple[str, str]]:
-    """231 (B4): the Word outputs a priced document may fill."""
-    from jav.core import cfg
-
-    return [(key, key) for key, o in (cfg.load("outputs").get("outputs") or {}).items() if o.get("format") == "docx"]
 
 
 def _frames() -> list[tuple[str, str]]:
@@ -250,18 +220,6 @@ def _line_draft(ctx: Any, params: LineDraft) -> kinds.StepOutcome:
     return kinds.Done({"version": active["version"]})
 
 
-def _priced_document(ctx: Any, params: PricedDocument) -> kinds.StepOutcome:
-    from jav.domains.quotes import quote_document, quote_draft
-
-    wp = _container(ctx)
-    version = read_result(ctx, params, "from_step")["version"]  # D0-c: checked against the other step's form first
-    approved = quote_draft.approved_version(wp, version)
-    data = quote_document.data(approved["quote"], package=ctx.data.get("name") or wp, version=version,
-                               approved_by=approved.get("approved_by"), approved_at=approved.get("approved_at"),
-                               output=params.output)
-    return kinds.Done({"output": data.output, "version": version, "values": len(data.values)})
-
-
 def _letter_draft(ctx: Any, params: LetterDraft) -> kinds.StepOutcome:
     from jav.domains.quotes import quote_letter
 
@@ -319,9 +277,6 @@ CAPABILITIES = (
                                   options=("1", "0.01")),
                           RuleKey("price_lists", "rounding.default", "choice", "Another currency's amounts are rounded to this"
                                   " unit", options=("0.01", "1")))),
-    Capability(name="priced_document", version=1, module=_OWNER, run=_priced_document, kind="machine", params=PricedDocument, state="step", output=DocumentResult,
-               rule_files=("quote_documents", "outputs"), summary="Fills a priced document from an output template.",
-               choices={"output": _outputs}),
     Capability(name="letter_draft", version=1, module=_OWNER, run=_letter_draft, kind="machine", params=LetterDraft, providers=("openai",), state="step", output=LetterResult,
                rule_files=("gpt_quote_letter", "quote_documents", "quotes"),
                summary="Drafts a reply letter: the frame written by code around a model's checked paragraph; done once a person"
@@ -357,7 +312,7 @@ def _marks() -> tuple[Any, ...]:
 
 # 231 (A6): the elements a step of these capabilities shows, each with the quote view
 ELEMENTS = (("record_view", "record_assembly"), ("match_proposal", "catalogue_match"), ("line_editor", "line_draft"),
-            ("approval", "line_draft"), ("document_view", "priced_document"), ("form", "letter_draft"))
+            ("approval", "line_draft"), ("form", "letter_draft"))
 
 
 def _letter_message(case_id: str, source_step: str | None, source: Any) -> Any:
@@ -378,14 +333,17 @@ def _letter_message(case_id: str, source_step: str | None, source: Any) -> Any:
 
 def register() -> None:
     from jav.app import capabilities, case_views, sending
+    from jav.app.outputs import parts
+    from jav.domains.quotes import quote_document
 
     for cap in CAPABILITIES:
         capabilities.register(cap)
+    # D0-c: how the quote's approved version becomes its Word document (the shared priced document prints it)
+    parts.register_version_document(parts.VersionDocument(quote_document.OUTPUT, _OWNER, quote_document.data))
     for element, capability in ELEMENTS:
         case_views.register(case_views.ElementData(element, capability, _OWNER, _quote_view, mark=_marks))
     sending.register_builder(sending.MessageBuilder("quote_letter", _OWNER, _letter_message,
                                                     "The accepted reply letter with the quote's Word document."))
 
 
-__all__ = ["CAPABILITIES", "CatalogueMatch", "LetterDraft", "LineDraft", "LinePricing", "PricedDocument", "RecordAssembly",
-           "register"]
+__all__ = ["CAPABILITIES", "CatalogueMatch", "LetterDraft", "LineDraft", "LinePricing", "RecordAssembly", "register"]

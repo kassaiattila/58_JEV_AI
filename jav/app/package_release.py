@@ -513,10 +513,12 @@ def own_versions(wp_id: str, c: sqlite3.Connection | None = None, *, step: str |
         (wp_id, *args))])
 
 
-def own_version(wp_id: str, n: int, c: sqlite3.Connection | None = None) -> dict[str, Any]:
-    """A logic pack's own version `n` of the package with its `content` as approved (KeyError: no such version)."""
+def own_version(wp_id: str, n: int, c: sqlite3.Connection | None = None, *, step: str | None = None) -> dict[str, Any]:
+    """A logic pack's own version `n` of the package with its `content` as approved (KeyError: no such version). D0-c:
+    with `step`, only a version of that approving step (a reader naming the step it reads)."""
+    where, args = _step_filter(step)
     row = _connected(c, lambda conn: conn.execute(
-        _OWN_SELECT + " WHERE workpackage_id=? AND version=? AND content IS NOT NULL", (wp_id, n)).fetchone())
+        _OWN_SELECT + " WHERE workpackage_id=? AND version=? AND content IS NOT NULL" + where, (wp_id, n, *args)).fetchone())
     if row is None:
         raise KeyError(f"{wp_id} version {n}")
     return {"content": json.loads(row["content"]), **_own_meta(row)}
