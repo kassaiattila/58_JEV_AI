@@ -39,7 +39,8 @@ WRITE = os.environ.get("JAV_WRITE_QUOTE_PATH") == "1"
 ACTOR = "anna"
 PARAGRAPH = {"hu": "Koszonjuk megkereseset, a kert ajanlatot mellekelten kuldjuk.",
              "en": "Thank you for your request; please find our quote attached."}
-_VOLATILE = {"id", "line", "fingerprint", "state", "scope", "usage", "revision", "expected_state", "version_state"}
+_VOLATILE = {"id", "line", "fingerprint", "state", "scope", "usage", "revision", "expected_state", "version_state",
+             "step", "steps"}  # D0-b: the case's step a view is of is an identifier, as the `*_id` keys are
 
 
 def _clean(value: Any) -> Any:

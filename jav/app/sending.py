@@ -62,12 +62,12 @@ class Message:
 
 @dataclass(frozen=True)
 class MessageBuilder:
-    """`build(case_id, source)`: the message from the case and the result of the step it builds on (None when the step
-    names none)."""
+    """`build(case_id, source_step, source)`: the message from the case and the step it builds on and that step's
+    result (both None when the send step names none; D0-b: the step, as a capability's state is its step's)."""
 
     name: str
     module: str
-    build: Callable[[str, Any], Message]
+    build: Callable[[str, str | None, Any], Message]
     summary: str
 
 
@@ -199,7 +199,7 @@ def _record(ctx: StepContext, params: Send, attempt: int) -> str | kinds.Fail:
     except SendError as exc:
         return kinds.Fail(str(exc))
     source = ctx.result_of(params.from_step)[1] if params.from_step else None
-    message = made.build(ctx.case_id, source)
+    message = made.build(ctx.case_id, params.from_step, source)
     if params.mode == OUTLOOK_SEND and not allowed(message.to):
         return kinds.Fail(f"the real send is switched off for {message.to or 'a message without a recipient'}: "
                           f"not on the allowlist ({CONFIG}.json)")

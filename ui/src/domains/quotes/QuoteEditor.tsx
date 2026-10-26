@@ -173,7 +173,7 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
     setSaving(true);
     setError(null);
     try {
-      const next = await api.saveQuoteDraft(wpId, body, cur.state);
+      const next = await api.saveQuoteDraft(wpId, body, cur.state, cur.step);  // D0-b: the composition step's draft
       adopt(next);
       // what was sent is saved; what was typed since stays to be saved
       setEdits((now) => {
@@ -267,7 +267,7 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
             <li className="small">
               <span className="status s-warn">{t("A newer proposal is ready")}</span>
               <ConfirmButton className="secondary small-btn" disabled={saving}
-                onConfirm={() => void api.startQuoteDraft(wpId, { source: "proposal", expected_state: dv.state, replace: true })
+                onConfirm={() => void api.startQuoteDraft(wpId, { source: "proposal", expected_state: dv.state, replace: true }, dv.step)
                   .then((next) => { adopt(next); setEdits({}); onChanged(); })
                   .catch((err) => setError(err instanceof ApiError ? err.message : String(err)))}>
                 {t("Replace the lines with the new proposal")}
@@ -417,7 +417,7 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
       {dv.totals ? (
         <div className="button-row">
           <TemplateChoice wpId={wpId} output="quote" />
-          <a className="secondary dl-btn small-btn" href={api.quoteDraftDocxUrl(wpId)} download><Icon name="download" />
+          <a className="secondary dl-btn small-btn" href={api.quoteDraftDocxUrl(wpId, dv.step)} download><Icon name="download" />
             {t("Download the draft (Word)")}</a>
         </div>
       ) : null}
@@ -541,7 +541,7 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged, askLetter 
             <a className="secondary dl-btn small-btn" href={api.quoteVersionDocxUrl(wpId, dv.approval.active.version)} download>
               <Icon name="download" />{t("Download version {{n}} (Word)", { n: dv.approval.active.version })}</a>
           ) : dv.totals ? (
-            <a className="secondary dl-btn small-btn" href={api.quoteDraftDocxUrl(wpId)} download>
+            <a className="secondary dl-btn small-btn" href={api.quoteDraftDocxUrl(wpId, dv.step)} download>
               <Icon name="download" />{t("Download the draft (Word)")}</a>
           ) : null}
         </>}
@@ -549,8 +549,8 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged, askLetter 
         pendingText={t("Not approved yet. The approval records the quote below, with the price list version it is priced from, as an unchangeable version.")}
         blockers={blockers}
         approveLabel={dv.totals ? t("Approve the quote ({{gross}} {{currency}} gross)", { gross: amountText(dv.totals.gross, dv.currency), currency: dv.currency ?? "" }) : t("Approve the quote")}
-        onApprove={() => void act(() => api.approveQuote(wpId, dv.fingerprint ?? ""), t("The quote has been approved."))}
-        onReopen={(note) => act(() => api.reopenQuote(wpId, note), t("The approval has been reopened; the quote can be changed again."))}
+        onApprove={() => void act(() => api.approveQuote(wpId, dv.fingerprint ?? "", dv.step), t("The quote has been approved."))}
+        onReopen={(note) => act(() => api.reopenQuote(wpId, note, dv.step), t("The approval has been reopened; the quote can be changed again."))}
         error={error} notice={notice} />
       {doc ? (
         <section className="card wide" aria-label={dv.approval.active ? t("The approved quote") : t("The quote to approve")}>

@@ -43,8 +43,8 @@ export function QuoteLetterCard({ wpId, letter, archived, onChanged, askLetter }
   const accepted = letter.accepted;
   const changed = !accepted || body.trim() !== accepted.body.trim();
 
-  const ask = () => run(askLetter ?? (() => api.requestQuoteLetterParagraph(wpId)), { then: () => { setEdited(false); onChanged(); } });
-  const accept = () => run(() => api.acceptQuoteLetter(wpId, body, letter.decision_state), {
+  const ask = () => run(askLetter ?? (() => api.requestQuoteLetterParagraph(wpId, letter.step)), { then: () => { setEdited(false); onChanged(); } });
+  const accept = () => run(() => api.acceptQuoteLetter(wpId, body, letter.decision_state, letter.step), {  // D0-b: the letter step's
     then: () => { setEdited(false); onChanged(); },
     done: t("The letter has been accepted; download it and send it from Outlook."),
     failed: (e) => {
@@ -95,7 +95,7 @@ export function QuoteLetterCard({ wpId, letter, archived, onChanged, askLetter }
           {t("Accept the letter")}
         </button>
         {accepted ? (
-          <a className="secondary dl-btn small-btn" href={api.quoteLetterEmlUrl(wpId, letter.version)} download>
+          <a className="secondary dl-btn small-btn" href={api.quoteLetterEmlUrl(wpId, letter.version, letter.step)} download>
             <Icon name="download" />{t("Download the letter (Outlook)")}</a>
         ) : null}
         {accepted ? (

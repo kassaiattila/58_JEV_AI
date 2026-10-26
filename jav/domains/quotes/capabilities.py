@@ -4,11 +4,13 @@ Plain-language summary: the owner's rule is that every process is built only fro
 back half is six such building blocks, described here with what a process sets for each: putting a record together
 from an email and its attachments, matching requested items with a catalogue (a price list), pricing lines from a
 catalogue, a person's line-by-line draft with its approval, a priced document from an output template, and a letter
-draft around a model's paragraph. They are described but cannot run as a process pack's step yet: they run as the quote
-package's parts and, since 231 A5, as a process pack's steps too (`run`, on a case's container: the general work
-package that holds the case's rows); their code moves to general domains later. Their parameters' defaults are not the
-quote's: a process names them. Each step is repeatable: when its work is already there it goes on at once, and while a
-job or a person works it waits with a retry timer (`POLL_S`).
+draft around a model's paragraph. Five of them run as a process pack's steps since 231 A5 (`run`, on a case's
+container: the general work package that holds the case's rows); the line pricing is described only, and a pack cannot
+use it (D0-a). Their parameters' defaults are not the quote's: a process names them. Each step is repeatable: when its
+work is already there it goes on at once, and while a job or a person works it waits with a retry timer (`POLL_S`).
+Stage D0 (D0-b): each keeps its state per step (`state="step"`): a match step's proposal, a composition step's draft and
+approval, a letter step's letter and their budgets; a composition names the match it starts from and a letter the
+composition it answers (`from_step`; without one, the case's only such step: `jav/domains/quotes/quote_steps.py`).
 
 Layer: domain (quotes); it registers into the application's capability registry.
 """
@@ -73,10 +75,12 @@ class LinePricing(_Params):
 
 
 class LineDraft(_Params):
-    """A person composes the lines from the match; the approval is the record's own version."""
+    """A person composes the lines from the match; the approval is the record's own version. D0-b: `from_step`, the
+    match step it starts from (None: the case's only one)."""
 
     catalogue: str = Field(min_length=1, title=PRICE_LIST)
     approval: Literal["own_version"] = "own_version"
+    from_step: str | None = step_ref(None)
     _catalogue = field_validator("catalogue")(lambda cls, v: _catalogue(v))
 
 
@@ -97,10 +101,12 @@ class PricedDocument(_Params):
 
 
 class LetterDraft(_Params):
-    """The letter frame's key and the call site that asks for the paragraph."""
+    """The letter frame's key and the call site that asks for the paragraph. D0-b: `from_step`, the composition step
+    whose approved version it answers (None: the case's only one)."""
 
     frame: str = Field(min_length=1, title="Letter frame")
     callsite: str = Field(min_length=1)
+    from_step: str | None = step_ref(None)
 
     @field_validator("frame")
     @classmethod
@@ -179,10 +185,10 @@ def _catalogue_match(ctx: Any, params: CatalogueMatch) -> kinds.StepOutcome:
     from jav.domains.quotes import quote_proposal
 
     wp = _container(ctx)
-    current = quote_proposal.current(wp)
+    current = quote_proposal.current(wp, step=ctx.step.id)  # D0-b: the step's own proposal
     if current is None:
         try:
-            quote_proposal.request(wp, actor=ctx.actor, selection=params.catalogue)
+            quote_proposal.request(wp, actor=ctx.actor, selection=params.catalogue, step=ctx.step.id)
         except quote_proposal.ProposalRefused as exc:
             return kinds.Fail(str(exc))
         return _again(ctx, "proposal")
@@ -198,9 +204,10 @@ def _line_draft(ctx: Any, params: LineDraft) -> kinds.StepOutcome:
     from jav.domains.quotes import quote_draft
 
     wp = _container(ctx)
-    view = quote_draft.view(wp)
+    view = quote_draft.view(wp, step=ctx.step.id)  # D0-b: the step's own draft
     if view["draft"] is None:
-        quote_draft.start(wp, source="proposal", actor=ctx.actor, expected_state=None, catalogue=params.catalogue)
+        quote_draft.start(wp, source="proposal", actor=ctx.actor, expected_state=None, catalogue=params.catalogue,
+                          step=ctx.step.id)
         with ctx.transaction() as c:
             human_tasks.own_approval_waits(c, wp, ctx.step.id)  # a person approves it, from the waiting list (D0-b: the step's)
         return _again(ctx, "approval")
@@ -226,10 +233,10 @@ def _letter_draft(ctx: Any, params: LetterDraft) -> kinds.StepOutcome:
     from jav.domains.quotes import quote_letter
 
     wp = _container(ctx)
-    view = quote_letter.view(wp)
+    view = quote_letter.view(wp, step=ctx.step.id)  # D0-b: the step's own letter
     if view["state"] is None:
         try:
-            quote_letter.request(wp, actor=ctx.actor, frame=params.frame)  # 231 (B0): the pack's letter frame
+            quote_letter.request(wp, actor=ctx.actor, frame=params.frame, step=ctx.step.id)  # 231 (B0): the pack's frame
         except quote_letter.LetterError as exc:
             return kinds.Fail(str(exc))
         return _again(ctx, "letter")
@@ -245,23 +252,22 @@ def _letter_draft(ctx: Any, params: LetterDraft) -> kinds.StepOutcome:
 
 def _spent(table: str) -> Any:
     """231 (A7e): the budget scopes a quote step's jobs spent from (the proposal's, the letter versions'), oldest
-    first: the job keeps its scope in its row."""
-    def scopes(case_id: str, _step: str) -> list[str]:
+    first: the job keeps its scope in its row. D0-b: the step's own."""
+    def scopes(case_id: str, step: str) -> list[str]:
         from jav.core import store
 
         with store.connect() as c:
-            return [r["scope"] for r in c.execute(f"SELECT scope FROM {table} WHERE workpackage_id=? AND scope IS NOT NULL"
-                                                  " ORDER BY rowid", (case_id,))]
+            return [r["scope"] for r in c.execute(f"SELECT scope FROM {table} WHERE workpackage_id=? AND step_id=?"
+                                                  " AND scope IS NOT NULL ORDER BY rowid", (case_id, step))]
     return scopes
 
 
 _OWNER = __name__
-_UNTIL_D0B = "case"  # D0-b: the proposal, draft, approval and letter are kept per case until they move to the step
 CAPABILITIES = (
     Capability(name="record_assembly", version=1, module=_OWNER, run=_record_assembly, kind="machine", params=RecordAssembly, effects="pure", state="step",
                summary="Puts a record together from an email's text, its table attachments and its attachments.",
                preview=_record_preview, records=_records),  # C3c: the general form's record chooser
-    Capability(name="catalogue_match", version=1, module=_OWNER, run=_catalogue_match, kind="machine", params=CatalogueMatch, state=_UNTIL_D0B,
+    Capability(name="catalogue_match", version=1, module=_OWNER, run=_catalogue_match, kind="machine", params=CatalogueMatch, state="step",
                providers=("jev", "openai"), rule_files=("callsite:quote_match", "gpt_quote_match", "quotes", "price_lists"),
                summary="Matches each requested item with a catalogue item: sure, to check, or not listed.",
                spent=_spent("quote_proposals"), choices={"catalogue": _catalogues},
@@ -271,7 +277,7 @@ CAPABILITIES = (
     Capability(name="line_pricing", version=1, module=_OWNER, kind="machine", params=LinePricing, effects="pure",
                rule_files=("price_lists",), summary="Prices lines from a catalogue: unit price, discount rules, totals.",
                choices={"catalogue": _catalogues}),
-    Capability(name="line_draft", version=1, module=_OWNER, run=_line_draft, kind="human", params=LineDraft, state=_UNTIL_D0B,
+    Capability(name="line_draft", version=1, module=_OWNER, run=_line_draft, kind="human", params=LineDraft, state="step",
                rule_files=("quotes", "price_lists"), own_version=True,  # 231 (C2d): reopening the quote reopens it
                summary="A person composes the lines from the match, gives own prices with a note, and approves.",
                choices={"catalogue": _catalogues},
@@ -280,10 +286,10 @@ CAPABILITIES = (
                                   options=("1", "0.01")),
                           RuleKey("price_lists", "rounding.default", "choice", "Another currency's amounts are rounded to this"
                                   " unit", options=("0.01", "1")))),
-    Capability(name="priced_document", version=1, module=_OWNER, run=_priced_document, kind="machine", params=PricedDocument, state=_UNTIL_D0B,
+    Capability(name="priced_document", version=1, module=_OWNER, run=_priced_document, kind="machine", params=PricedDocument, state="step",
                rule_files=("quote_documents", "outputs"), summary="Fills a priced document from an output template.",
                choices={"output": _outputs}),
-    Capability(name="letter_draft", version=1, module=_OWNER, run=_letter_draft, kind="machine", params=LetterDraft, providers=("openai",), state=_UNTIL_D0B,
+    Capability(name="letter_draft", version=1, module=_OWNER, run=_letter_draft, kind="machine", params=LetterDraft, providers=("openai",), state="step",
                rule_files=("gpt_quote_letter", "quote_documents", "quotes"),
                summary="Drafts a reply letter: the frame written by code around a model's checked paragraph; done once a person"
                        " accepted it.", spent=_spent("quote_letters"), choices={"frame": _frames},
@@ -292,16 +298,18 @@ CAPABILITIES = (
 )
 
 
-def _quote_view(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict[str, Any]:
+def _quote_view(case_id: str, step: str | None, shared: dict[str, Any]) -> dict[str, Any]:
     """231 (A6): what the quote's elements show on a case's page: the quote view the quote package's page had, read once
-    per page view, so the same components render it."""
-    from jav.domains.quotes import quote_package
+    per page view, so the same components render it. D0-b: once per the case's steps that go together with the
+    element's step (its match, composition and letter: `quote_steps.of`)."""
+    from jav.domains.quotes import quote_package, quote_steps
 
-    if "quote" not in shared:
-        shared["quote"] = quote_package.view(case_id)
-    nxt = quote_package._next_of(shared["quote"])
+    key = f"quote:{quote_steps.of(case_id, step)}"
+    if key not in shared:
+        shared[key] = quote_package.view(case_id, step)
+    nxt = quote_package._next_of(shared[key])
     # the next step, and the element whose tab it is done on (the quote package's stages: request, quote, approval)
-    return {"quote": shared["quote"], "next": {**nxt, "element": _NEXT_ELEMENT[nxt["stage"]]}}
+    return {"quote": shared[key], "next": {**nxt, "element": _NEXT_ELEMENT[nxt["stage"]]}}
 
 
 _NEXT_ELEMENT = {"process": "record_view", "review": "match_proposal", "result": "approval"}
@@ -319,17 +327,18 @@ ELEMENTS = (("record_view", "record_assembly"), ("match_proposal", "catalogue_ma
             ("approval", "line_draft"), ("document_view", "priced_document"), ("form", "letter_draft"))
 
 
-def _letter_message(case_id: str, source: Any) -> Any:
+def _letter_message(case_id: str, source_step: str | None, source: Any) -> Any:
     """231 (A7c): the accepted letter of the approved version the letter step names (its result), as the email file
-    the send capability hands over: the letter with the version's Word document attached."""
+    the send capability hands over: the letter with the version's Word document attached. D0-b: the letter of the
+    send step's `source_step` (None: the case's first letter step)."""
     from email import message_from_bytes
     from email.policy import default
 
     from jav.app import sending
     from jav.domains.quotes import quote_letter
 
-    version = (source or {}).get("version") or quote_letter.view(case_id)["version"]
-    data, name = quote_letter.eml(case_id, int(version))
+    version = (source or {}).get("version") or quote_letter.view(case_id, step=source_step)["version"]
+    data, name = quote_letter.eml(case_id, int(version), step=source_step)
     headers = message_from_bytes(data, policy=default)
     return sending.Message(data, name, str(headers["To"]) if headers["To"] else None, str(headers["Subject"] or ""))
 

@@ -88,7 +88,8 @@ def test_the_draft_starts_from_the_proposal_line_by_line(quote):
     priced = [ln["priced"] for ln in v["lines"]]
     assert priced[0]["net"] == "164700" and priced[1]["net"] == "758000" and priced[2] is None  # 3 x 54 900, 2 x 379 000
     assert v["totals"] is None  # not every line is priced yet
-    assert v["state"] > 0 and [h["action"] for h in decisions.history(quote_draft.KIND, wp_id)] == ["start"]
+    # D0-b: the draft's decisions are its case's composition step's
+    assert v["state"] > 0 and [h["action"] for h in decisions.history(quote_draft.KIND, f"{wp_id}:compose")] == ["start"]
     assert _next(wp_id)["code"] == "quote_compose"
 
 

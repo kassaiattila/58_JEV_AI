@@ -23,6 +23,10 @@ is not changed, and reopening it needs a reason.
   document: stored at the approval (`jav/domains/quotes/quote_document.py`), `version_docx(wp_id, n)`, `draft_docx(wp_id)`;
 - `delete_guard(c, wp_id)`, `mark()`: for the quote package's logic pack.
 
+Stage D0 (D0-b): a draft, its decisions and its approval are the case's line composition step's (`step`; None: the
+case's first, `jav/domains/quotes/quote_steps.py`), started from the proposal of the match step it names; two
+composition steps of a case keep two drafts and two approvals.
+
 Layer: application operation of the quotes domain over the decision journal, the package versions, the price lists,
 the quote request, its proposal and the pricing.
 """
@@ -41,7 +45,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from jav.app import package_release, work
 from jav.core import activity_kinds, cfg, decisions, identity, numbers, store, trace
 from jav.core.process import cases
-from jav.domains.quotes import price_lists, quote_document, quote_pricing, quote_proposal, quote_request
+from jav.domains.quotes import price_lists, quote_document, quote_pricing, quote_proposal, quote_request, quote_steps
 from jav.ai.typepack import get as get_pack
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
@@ -53,21 +57,26 @@ CHECK_MARKS = ("check", "failed")  # the proposal's marks a person confirms befo
 EDITABLE = ("id", "sku", "description", "unit", "quantity", "unit_price", "discount_percent", "note", "checked")
 NOTE = "note"  # the header's own field beside the request's
 
-store.register_schema("quote_drafts", """
+_DDL = """
 -- 192 (plan F-quote-package B5): a quote package's draft as a person composes it
 CREATE TABLE IF NOT EXISTS quote_drafts (
-    workpackage_id TEXT PRIMARY KEY,
+    workpackage_id TEXT NOT NULL,
+    step_id        TEXT NOT NULL DEFAULT '',  -- D0-b: the case's line composition step ('': a package that is no case's)
     content        TEXT NOT NULL,      -- JSON: the price list version, the header, the lines, where it started from
     started_by     TEXT NOT NULL,
     started_by_id  TEXT,               -- 229 (SZ2c): the stable ids beside the names (`jav.core.identity`)
     started_at     TEXT NOT NULL,
     updated_by     TEXT NOT NULL,
     updated_by_id  TEXT,
-    updated_at     TEXT NOT NULL
+    updated_at     TEXT NOT NULL,
+    PRIMARY KEY (workpackage_id, step_id)
 );
-""")
+"""
+store.register_schema("quote_drafts", _DDL)
 store.register_migration("quote_drafts_actor_ids",
                          lambda conn: store.add_actor_ids(conn, "quote_drafts", ("started_by", "updated_by")))  # 229
+store.register_migration("quote_drafts_steps",  # D0-b: keyed by the case's line composition step
+                         lambda conn: quote_steps.rebuild(conn, "quote_drafts", _DDL, quote_steps.COMPOSE))
 
 decisions.register(decisions.Kind(KIND, ("start", "save"), __name__))
 activity_kinds.register_events("package", ("quote_approve", "quote_reopen"), __name__)
@@ -170,27 +179,38 @@ def _request(wp_id: str) -> quote_request.Request | None:
         return None
 
 
-def _stored(c: sqlite3.Connection, wp_id: str) -> dict[str, Any] | None:
-    row = c.execute("SELECT content FROM quote_drafts WHERE workpackage_id=?", (wp_id,)).fetchone()
+def _step(wp_id: str, step: str | None) -> str:
+    """D0-b: the case's line composition step a draft is of (None: the case's first)."""
+    return quote_steps.of(wp_id).compose if step is None else step
+
+
+def _approving(step: str) -> str | None:
+    """D0-b: the approving step of the package's own versions (None: a package that is no case's)."""
+    return step or None
+
+
+def _stored(c: sqlite3.Connection, wp_id: str, step: str) -> dict[str, Any] | None:
+    row = c.execute("SELECT content FROM quote_drafts WHERE workpackage_id=? AND step_id=?", (wp_id, step)).fetchone()
     return json.loads(row["content"]) if row is not None else None
 
 
-def _refuse_if_approved(c: sqlite3.Connection, wp_id: str) -> None:
-    if active := package_release.own_approval(wp_id, c)["active"]:
+def _refuse_if_approved(c: sqlite3.Connection, wp_id: str, step: str) -> None:
+    if active := package_release.own_approval(wp_id, c, step=_approving(step))["active"]:
         raise explained(QuoteDraftError, "the quote is approved (version {{version}}); reopen it to change it",
                         version=active["version"])
 
 
-def _write(c: sqlite3.Connection, wp_id: str, content: dict[str, Any], action: str, actor: identity.Who) -> None:
+def _write(c: sqlite3.Connection, wp_id: str, step: str, content: dict[str, Any], action: str, actor: identity.Who) -> None:
     now = _now()
-    c.execute("INSERT INTO quote_drafts(workpackage_id, content, started_by, started_by_id, started_at, updated_by,"
-              " updated_by_id, updated_at) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(workpackage_id) DO UPDATE SET"
+    c.execute("INSERT INTO quote_drafts(workpackage_id, step_id, content, started_by, started_by_id, started_at, updated_by,"
+              " updated_by_id, updated_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, step_id) DO UPDATE SET"
               " content=excluded.content, updated_by=excluded.updated_by, updated_by_id=excluded.updated_by_id,"
               " updated_at=excluded.updated_at"
               + (", started_by=excluded.started_by, started_by_id=excluded.started_by_id, started_at=excluded.started_at"
                  if action == "start" else ""),
-              (wp_id, json.dumps(content, ensure_ascii=False), identity.name_of(actor), identity.id_of(actor), now, identity.name_of(actor), identity.id_of(actor), now))
-    decisions.record(c, KIND, wp_id, action, actor=actor, value=content, workpackage_id=wp_id, at=now)
+              (wp_id, step, json.dumps(content, ensure_ascii=False), identity.name_of(actor), identity.id_of(actor), now,
+               identity.name_of(actor), identity.id_of(actor), now))
+    decisions.record(c, KIND, quote_steps.key(wp_id, step), action, actor=actor, value=content, workpackage_id=wp_id, at=now)
 
 
 def _new_id() -> str:
@@ -229,18 +249,19 @@ def _from_request(row: int, item: dict[str, Any]) -> dict[str, Any]:
 
 
 def start(wp_id: str, *, source: Literal["proposal", "request"], actor: identity.Who, expected_state: int | None,
-          replace: bool = False, catalogue: str = price_lists.NEWEST_ACTIVE) -> dict[str, Any]:
+          replace: bool = False, catalogue: str = price_lists.NEWEST_ACTIVE, step: str | None = None) -> dict[str, Any]:
     """The package's draft from its latest proposal (`proposal`, priced from the list version the proposal used) or
     from its requested items alone (`request`, priced from the list `catalogue` names: 231 B0, a process pack's
     resource, by default the newest active one); a draft already there is replaced only with `replace`. Returns the
-    view."""
+    view. D0-b: the draft of the case's composition `step`, from the proposal of the match step it names."""
     _package(wp_id)
+    step = _step(wp_id, step)
     req = _request(wp_id)
     if req is None:
         raise explained(QuoteDraftError, "the request can no longer be read")
     proposal = None
     if source == "proposal":
-        proposal = quote_proposal.current(wp_id)
+        proposal = quote_proposal.current(wp_id, step=quote_steps.of(wp_id, step or None).match)
         if proposal is None or proposal["state"] != "done":
             raise explained(QuoteDraftError, "the quote has no proposal to start from")
         prices = price_lists.version(proposal["price_list"], proposal["version"])
@@ -258,12 +279,12 @@ def start(wp_id: str, *, source: Literal["proposal", "request"], actor: identity
                "language": quote_document.language_of(quote_document.request_texts(req))}
     with store.connect() as c:
         store.begin_immediate(c)
-        decisions.check(c, KIND, wp_id, expected_state)
-        _refuse_if_approved(c, wp_id)
-        if _stored(c, wp_id) is not None and not replace:
+        decisions.check(c, KIND, quote_steps.key(wp_id, step), expected_state)
+        _refuse_if_approved(c, wp_id, step)
+        if _stored(c, wp_id, step) is not None and not replace:
             raise explained(QuoteDraftError, "the quote already has a draft; replace it to start again")
-        _write(c, wp_id, content, "start", actor)
-    return view(wp_id)
+        _write(c, wp_id, step, content, "start", actor)
+    return view(wp_id, step=step)
 
 
 def _number(raw: str | None, old: str | None, kind: numbers.Kind) -> str | None:
@@ -328,9 +349,12 @@ def _merged(sent: DraftIn, stored: dict[str, Any], prices: price_lists.PriceList
     return out
 
 
-def save(wp_id: str, draft: DraftIn | dict[str, Any], *, actor: identity.Who, expected_state: int | None) -> dict[str, Any]:
-    """The draft as the page sends it after a change, read, checked and recorded. Returns the view."""
+def save(wp_id: str, draft: DraftIn | dict[str, Any], *, actor: identity.Who, expected_state: int | None,
+         step: str | None = None) -> dict[str, Any]:
+    """The draft as the page sends it after a change, read, checked and recorded. Returns the view. D0-b: of the case's
+    composition `step`."""
     _package(wp_id)
+    step = _step(wp_id, step)
     try:
         sent = draft if isinstance(draft, DraftIn) else DraftIn.model_validate(draft)
     except ValidationError as exc:
@@ -348,9 +372,9 @@ def save(wp_id: str, draft: DraftIn | dict[str, Any], *, actor: identity.Who, ex
         raise explained(QuoteDraftError, "the price list version {{version}} is not active", version=sent.version) from exc
     with store.connect() as c:
         store.begin_immediate(c)
-        decisions.check(c, KIND, wp_id, expected_state)
-        _refuse_if_approved(c, wp_id)
-        stored = _stored(c, wp_id)
+        decisions.check(c, KIND, quote_steps.key(wp_id, step), expected_state)
+        _refuse_if_approved(c, wp_id, step)
+        stored = _stored(c, wp_id, step)
         if stored is None:
             raise explained(QuoteDraftError, "the quote has no draft yet")
         switched = (sent.price_list, sent.version) != (stored["price_list"], stored["version"])
@@ -359,8 +383,8 @@ def save(wp_id: str, draft: DraftIn | dict[str, Any], *, actor: identity.Who, ex
         content = {**stored, "price_list": prices.price_list, "version": prices.version,
                    "header": {name: _text(sent.header.get(name)) for name in header_fields()},
                    "lines": _merged(sent, stored, prices, actor), "language": sent.language or stored.get("language")}
-        _write(c, wp_id, content, "save", actor)
-    return view(wp_id)
+        _write(c, wp_id, step, content, "save", actor)
+    return view(wp_id, step=step)
 
 
 # --- the view: each line priced, what holds the approval -----------------------------------------------------------------
@@ -446,21 +470,23 @@ def _warnings(stored: dict[str, Any], prices: price_lists.PriceList, req: quote_
 
 
 @store.one_connection
-def view(wp_id: str) -> dict[str, Any]:
+def view(wp_id: str, *, step: str | None = None) -> dict[str, Any]:
     """The package's draft (None before one is started) with each line priced (`priced` None while it cannot be), the
     totals (None until every line is priced), what holds the approval, the warnings, the draft's state (the page sends
     it back with a change) and fingerprint (the approval names it), the price list version's items, whether a newer
-    proposal is there to start from, and the approval with the approved quote."""
+    proposal is there to start from, and the approval with the approved quote. D0-b: of the case's composition
+    `step` (`step` in the view)."""
+    step = _step(wp_id, step)
     with store.connect() as c:
-        stored = _stored(c, wp_id)
-        state = decisions.state(c, KIND, wp_id)
-        approval = package_release.own_approval(wp_id, c)
+        stored = _stored(c, wp_id, step)
+        state = decisions.state(c, KIND, quote_steps.key(wp_id, step))
+        approval = package_release.own_approval(wp_id, c, step=_approving(step))
         active = approval["active"]
         approved = package_release.own_version(wp_id, active["version"], c)["content"] if active else None
     out: dict[str, Any] = {"draft": stored, "state": state, "approval": approval, "approved": approved, "lines": [],
                            "totals": None, "currency": None, "vat_percent": None, "blockers": [], "warnings": [],
                            "fingerprint": None, "price_list": None, "proposal_newer": False, "language": None,
-                           "languages": list(quote_document.languages())}
+                           "languages": list(quote_document.languages()), "step": step}
     if stored is None:
         return out
     prices = price_lists.version(stored["price_list"], stored["version"])
@@ -476,7 +502,7 @@ def view(wp_id: str) -> dict[str, Any]:
         blockers.append(_blocker("quote:no_lines"))
     if not stored["header"].get("customer_name"):
         blockers.insert(0, _blocker("quote:no_customer"))
-    proposal = quote_proposal.current(wp_id)
+    proposal = quote_proposal.current(wp_id, step=quote_steps.of(wp_id, step or None).match)
     content = _content(stored, prices, priced, totals, ref, req)
     out.update(lines=[{**line, "priced": _priced(p) if p else None} for line, p in zip(stored["lines"], priced, strict=True)],
                totals=totals, language=content["language"], currency=prices.currency, vat_percent=_canonical(prices.vat_percent), blockers=blockers,
@@ -491,13 +517,15 @@ def view(wp_id: str) -> dict[str, Any]:
 # --- the approval --------------------------------------------------------------------------------------------------------
 
 
-def approve(wp_id: str, *, fingerprint: str, actor: identity.Who) -> dict[str, Any]:
+def approve(wp_id: str, *, fingerprint: str, actor: identity.Who, step: str | None = None) -> dict[str, Any]:
     """Approves the quote the person saw (its `fingerprint`) as the package's next own version. `work.NotReady` with
-    what holds it; `work.RevisionConflict` when the draft changed meanwhile. Returns the version's record."""
+    what holds it; `work.RevisionConflict` when the draft changed meanwhile. Returns the version's record. D0-b: the
+    draft of the case's composition `step`, as that step's own version."""
     _package(wp_id)
+    step = _step(wp_id, step)
     with store.connect() as c:
-        state = decisions.state(c, KIND, wp_id)  # read before the view: a change saved after it is a conflict
-    current = view(wp_id)
+        state = decisions.state(c, KIND, quote_steps.key(wp_id, step))  # read before the view: a later change conflicts
+    current = view(wp_id, step=step)
     if active := current["approval"]["active"]:
         raise explained(QuoteDraftError, "version {{version}} is approved; reopen it before approving again",
                         version=active["version"])
@@ -512,13 +540,13 @@ def approve(wp_id: str, *, fingerprint: str, actor: identity.Who) -> dict[str, A
     content = _view_content(wp_id, current)
     with store.connect() as c:
         store.begin_immediate(c)
-        if decisions.state(c, KIND, wp_id) != state:
+        if decisions.state(c, KIND, quote_steps.key(wp_id, step)) != state:
             raise explained(work.RevisionConflict, "the quote changed since it was shown; reload it and check it again")
-        _refuse_if_approved(c, wp_id)
+        _refuse_if_approved(c, wp_id, step)
         n = package_release.approve_own(
             c, wp_id, event="quote", content=content, fingerprint=fingerprint, locks=[], actor=actor,
             files=lambda c, n: quote_document.store(c, wp_id, n, content, package=package, actor=actor),  # 196: its Word document
-            details={"lines": len(content["lines"]), "gross": content["totals"]["gross"]}, step=_approving_step(wp_id, c))
+            details={"lines": len(content["lines"]), "gross": content["totals"]["gross"]}, step=_approving(step))
         # 231 (B3): the totals in the decision trace, so a process's own rounding can be tried on its approved quotes
         inputs = quote_pricing.amount_inputs(content)
         trace.record_in(c, quote_pricing.AMOUNTS, subject=("quote_version", f"{wp_id}:{n}"),
@@ -535,27 +563,19 @@ def _view_content(wp_id: str, current: dict[str, Any]) -> dict[str, Any]:
                     current["totals"], _quote_package().request_of(wp_id), _request(wp_id))
 
 
-def reopen(wp_id: str, *, note: str, actor: identity.Who) -> dict[str, Any]:
+def reopen(wp_id: str, *, note: str, actor: identity.Who, step: str | None = None) -> dict[str, Any]:
     """Reopens the approved quote with a reason: it stays as an earlier version, and the draft can be changed again.
-    Returns the view."""
+    Returns the view. D0-b: the version of the case's composition `step`."""
     _package(wp_id)
+    step = _step(wp_id, step)
     note = (note or "").strip()
     if not note:
         raise explained(QuoteDraftError, "reopening needs a reason")
     with store.connect() as c:
         store.begin_immediate(c)
-        if package_release.reopen_logged(c, wp_id, event="quote", note=note, actor=actor,
-                                         step=_approving_step(wp_id, c)) is None:
+        if package_release.reopen_logged(c, wp_id, event="quote", note=note, actor=actor, step=_approving(step)) is None:
             raise explained(QuoteDraftError, "the quote has no approved version to reopen")
-    return view(wp_id)
-
-
-def _approving_step(wp_id: str, c: sqlite3.Connection) -> str | None:
-    """D0-b: the case's step that composes and approves the quote (its version and task are the step's); None for a
-    package that is no case's."""
-    from jav.app import process_runtime  # lazy: the process runtime builds on the packages and their versions
-
-    return process_runtime.step_using(wp_id, "line_draft", c)
+    return view(wp_id, step=step)
 
 
 def approved_version(wp_id: str, n: int, *, with_quote: bool = True) -> dict[str, Any]:
@@ -577,11 +597,11 @@ def version_docx(wp_id: str, n: int) -> tuple[bytes, str]:
     return quote_document.version_file(wp_id, n, package=work.get(wp_id)["name"])
 
 
-def draft_docx(wp_id: str) -> tuple[bytes, str]:
+def draft_docx(wp_id: str, *, step: str | None = None) -> tuple[bytes, str]:
     """The draft as a Word document marked as a draft, with the package's chosen template, and its file name.
-    `QuoteDraftError` without a draft or while a line is not priced."""
+    `QuoteDraftError` without a draft or while a line is not priced. D0-b: of the case's composition `step`."""
     _package(wp_id)
-    current = view(wp_id)
+    current = view(wp_id, step=step)
     if current["draft"] is None:
         raise explained(QuoteDraftError, "the quote has no draft yet")
     if current["totals"] is None:
