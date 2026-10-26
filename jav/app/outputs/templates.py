@@ -276,14 +276,36 @@ def builtin_version(output: str) -> str:
 
 def _chosen(c: Any, wp_id: str, output: str) -> Any:
     """The package's chosen template's active version; without a choice, (231 B2) a case's own default from its
-    process's resource `template:<output>` (the built-in one unless the process set one)."""
+    process's resource `template:<output>` (the built-in one unless the process set one); D0-e: the version the case
+    kept from its start (`<template>@<version>`), whatever its state now."""
     ch = c.execute("SELECT template FROM output_template_choices WHERE workpackage_id=? AND output=?", (wp_id, output)).fetchone()
     if ch:
         return _active(c, ch["template"])
     from jav.app import process_runtime  # the process runtime imports the release, which imports this module
 
     default = process_runtime.resource_of(c, wp_id, f"template:{output}")
-    return _active(c, default) if default and default != BUILTIN else None
+    return VERSIONS.at(c, default) if default and default != BUILTIN else None
+
+
+def kept(value: str) -> str:
+    """Stage D0 (D0-e): the template a case keeps from its start for an output: an own template's version active then
+    (`<template>@<version>`); the built-in one, or an own one without an active version, as it is."""
+    if value == BUILTIN:
+        return value
+    with store.connect() as c:
+        return VERSIONS.kept(c, value)
+
+
+def named(value: str) -> dict[str, Any]:
+    """D0-e: how a template a case keeps reads to a person: its name and version."""
+    if value == BUILTIN:
+        return {"name": "The built-in template", "version": None}
+    with store.connect() as c:
+        try:
+            row = VERSIONS.at(c, value) or VERSIONS.latest(c, versions.split(value)[0])
+        except TemplateNotFound:
+            return {"name": value, "version": None}
+    return {"name": row["name"], "version": versions.split(value)[1]}
 
 
 def render(data: contract.OutputData, wp_id: str | None = None, c: Any = None) -> tuple[bytes, dict[str, str]]:

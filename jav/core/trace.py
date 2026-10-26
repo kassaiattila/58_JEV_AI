@@ -16,7 +16,9 @@ a changed rule can be tried on the stored inputs without processing anything aga
 
 231 (plan stage B, B3): a decision made while a case's own rule values lay over the files (`cfg.overlay`) records them
 beside each file it read (`process_values`: the key, the value, the stored setting and its version), and `replay` runs
-the rule with them over the files again.
+the rule with them over the files again. Stage D0 (D0-e): a file the case read as it started (its kept copy, not the
+file this process holds) is recorded with the kept copy's version and fingerprint and `kept: true`, and `replay` reads
+that copy again.
 
 A person's decision has its own journal (`jav.core.decisions`); this trace is the machine's. Measurements and replays
 write into their own copy of the store, so they never grow the live trace.
@@ -124,11 +126,14 @@ def _rules(p: Point, keys: Mapping[str, Iterable[str]], snapshot: rulebook.Snaps
     if unknown := sorted(name for name in keys if not any(fnmatch.fnmatchcase(name, f) for f in p.files)):
         raise UnknownPoint(f"the decision point {p.code} reads no rule file {unknown}")
     own = _process_values()
+    over = cfg.current_overlay()
     out = []
     for name in sorted(keys):
         found = snapshot.files.get(name)
         entry = {"file": name, "version": found.version if found else None, "sha256": found.sha256 if found else None,
                  "keys": sorted(set(keys[name]))}
+        if over is not None and (kept := over.base.get(_name_of(name))) is not None:  # D0-e: the case's kept copy
+            entry.update(version=kept.version, sha256=kept.sha256, kept=True)
         if name in own:
             entry["process_values"] = own[name]
         out.append(entry)
@@ -143,15 +148,30 @@ def _name_of(file: str) -> str:
 
 
 def recorded_overlay(row: Mapping[str, Any]) -> cfg.Overlay | None:
-    """231 (B3): the case's own values a row's decision was made with, as an overlay (None: the files alone)."""
+    """231 (B3): the case's own values a row's decision was made with, as an overlay (None: the files alone); D0-e: and
+    the kept copies of the files it read as the case started (from the stored contents)."""
     values: dict[str, dict[str, Any]] = {}
     refs: dict[str, dict[str, dict[str, Any]]] = {}
+    base: dict[str, cfg.Kept] = {}
     for entry in row.get("rules") or []:
+        name = _name_of(entry["file"])
         for v in entry.get("process_values") or []:
-            name = _name_of(entry["file"])
             values.setdefault(name, {})[v["key"]] = v["value"]
             refs.setdefault(name, {})[v["key"]] = {k: v[k] for k in ("setting", "version") if k in v}
-    return cfg.Overlay(values, refs) if values else None
+        if entry.get("kept") and (kept := _kept_copy(name, entry["sha256"], entry.get("version"))) is not None:
+            base[name] = kept
+    return cfg.Overlay(values, refs, base=base) if values or base else None
+
+
+def _kept_copy(name: str, sha256: str, version: str | None) -> cfg.Kept | None:
+    """D0-e: a file's kept copy by its stored content, with the keys the file gained since (None: not stored)."""
+    with store.connect() as c:
+        content = rulebook.content_in(c, sha256)
+    if content is None:
+        return None
+    with cfg.overlay(None):
+        newer = cfg.load(name)
+    return cfg.Kept(cfg.filled(json.loads(content), newer), sha256, version)
 
 
 def record_in(c: sqlite3.Connection, code: str, *, subject: tuple[str, str], inputs: Mapping[str, Any], outcome: Any,

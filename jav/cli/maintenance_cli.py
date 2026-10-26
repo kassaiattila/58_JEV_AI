@@ -426,6 +426,28 @@ def cmd_cases_adopt(args: argparse.Namespace) -> int:
     return 1 if any(r["result"] == "refused" for r in rows) else 0  # C3a-1: a refused package is reported, not skipped silently
 
 
+def cmd_cases_kept(args: argparse.Namespace) -> int:
+    """231 (stage D0, D0-e): before a release, the open cases whose kept copy of a rule file (as they started) the code
+    here does not read, being of another main version: their steps that read it would stop with why. Run it with the
+    code to release on a copy of the live store (`--store`). 0: none; 1: some, listed; 2: no store there."""
+    from contextlib import nullcontext
+    from pathlib import Path
+
+    from jav.app import process_runtime, registrations
+    from jav.core import store
+
+    if args.store and not Path(args.store).is_file():
+        print(f"no store at {args.store}")
+        return 2
+    registrations.load_all()
+    with store.use_store(Path(args.store)) if args.store else nullcontext(), store.read_only():
+        rows = process_runtime.unfit_cases()
+    for r in rows:
+        print(f"{r['case']} ({r['name']}): {r['why']}")
+    print(f"{len(rows)} open case(s) would stop" if rows else "every open case reads the rule files it keeps")
+    return 1 if rows else 0
+
+
 def cmd_burr_prune(args: argparse.Namespace) -> int:
     from jav.runtime import worker
     from jav.flows import persistence
@@ -492,6 +514,10 @@ def register(sub) -> None:
     p = sub.add_parser("cases-adopt", help="231: the packages made before a process was a process pack, taken over as its cases (the pack's adopts) or wrapped by new ones (its wraps)")
     p.add_argument("--write", action="store_true", help="take them over (without it: only list them)")
     p.set_defaults(fn=cmd_cases_adopt)
+    p = sub.add_parser("cases-kept", help="231 D0-e: before a release, the open cases whose rule files as they started "
+                                          "the code here does not read (another main version); read only")
+    p.add_argument("--store", help="a store copy to read instead of the active store (read only)")
+    p.set_defaults(fn=cmd_cases_kept)
     p = sub.add_parser("flows", help="Burr-kontraktok lintje + FLOW.md / FLOW.mmd generálás (docs/flows/)")
     p.add_argument("--check", action="store_true", help="csak lint, fájlírás nélkül")
     p.set_defaults(fn=cmd_flows)

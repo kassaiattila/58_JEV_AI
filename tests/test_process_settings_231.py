@@ -50,6 +50,7 @@ def _step_params(case_id: str, step: str) -> dict:
 
 def test_a_process_value_is_a_draft_until_it_is_made_active_and_reaches_the_cases_started_after(golden, tmp_path) -> None:  # noqa: F811
     cases, _seen = golden
+    first = price_lists.chosen()
     before = _start(cases[0])
     shown = process_settings.view(PACK)
     listed = _resource(shown, "price_list")
@@ -68,13 +69,14 @@ def test_a_process_value_is_a_draft_until_it_is_made_active_and_reaches_the_case
     active = _resource(process_settings.activate(PACK, "price_list", 1, "anna"), "price_list")
     assert (active["own"], active["value"], active["versions"][0]["state"]) == (True, second, "active")
     after = _start(cases[1])
-    assert _step_params(after, "match")["catalogue"] == second
-    assert _step_params(before, "match")["catalogue"] == "newest_active"  # a case keeps the values it started with
+    # D0-e: a case keeps the value it started with at the version current then
+    assert _step_params(after, "match")["catalogue"] == f"{second}@1"
+    assert _step_params(before, "match")["catalogue"] == f"{first.price_list}@{first.version}"  # then the newest active
     with store.connect() as c:
-        assert process_runtime.resource_of(c, after, "price_list") == second
+        assert process_runtime.resource_of(c, after, "price_list") == f"{second}@1"
     retired = _resource(process_settings.retire(PACK, "price_list", "anna"), "price_list")
     assert (retired["own"], retired["value"]) == (False, "newest_active")
-    assert _step_params(_start(cases[2]), "match")["catalogue"] == "newest_active"
+    assert _step_params(_start(cases[2]), "match")["catalogue"] == f"{second}@1"  # the newest active one now
 
 
 @pytest.mark.parametrize(("rule", "who", "allowed"), [

@@ -10,6 +10,8 @@ that kind. A package that is no case's has none of them (its quote is kept under
 - `rebuild(conn, table, ddl, capability)`: an older store's quote table keyed by the case alone, rebuilt with the step
   of the case that used the capability (the store's schema change helper).
 - `key(wp_id, step)`: the decision journal's key of a step's quote state (`<case>:<step>`).
+- `catalogue(wp_id, step)` (D0-e): the price list a case's step prices from, as the case started (its definition's
+  parameter: a version kept from the start, or a choice made before D0-e); the newest active one without a case.
 
 Layer: application operation of the quotes domain over the process runtime's view of a case's pack.
 """
@@ -121,4 +123,22 @@ def key(wp_id: str, step: str) -> str:
     return f"{wp_id}:{step}" if step else wp_id
 
 
-__all__ = ["COMPOSE", "LETTER", "MATCH", "NONE", "Steps", "key", "of", "rebuild"]
+def catalogue(wp_id: str, step: str) -> str:
+    """D0-e: the price list the case's `step` prices from, as its definition holds it (the process's resource as the
+    case started); the newest active one for a package that is no case's, or a step that names none."""
+    from jav.core import store
+    from jav.core.process import cases
+    from jav.domains.quotes import price_lists
+
+    with store.connect() as c:
+        row = cases.find_case_in(c, wp_id)
+    if row is None or not step:
+        return price_lists.NEWEST_ACTIVE
+    try:
+        value = cases.definition_of(row).step(step).params.get("catalogue")
+    except KeyError:
+        return price_lists.NEWEST_ACTIVE
+    return str(value) if value else price_lists.NEWEST_ACTIVE
+
+
+__all__ = ["COMPOSE", "LETTER", "MATCH", "NONE", "Steps", "catalogue", "key", "of", "rebuild"]

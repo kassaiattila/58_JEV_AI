@@ -151,6 +151,49 @@ def effective_rules(pack: process_packs.ProcessPack) -> tuple[dict[str, dict[str
     return values, refs
 
 
+def kept_resources(pack: process_packs.ProcessPack, resources: dict[str, str]) -> dict[str, str]:
+    """Stage D0 (D0-e; the owner's decision of 2026-10-26): the resources a case keeps from its start: each one naming
+    a versioned thing (a parameter its capability keeps, `Capability.at_start`, as a price list; an output's template)
+    at the version current now, so a newer version reaches only the cases started after it."""
+    keepers = _keepers(pack)
+    return {key: keepers[key].kept(value) if key in keepers else value for key, value in resources.items()}
+
+
+def kept_view(pack: process_packs.ProcessPack, resources: dict[str, Any]) -> list[dict[str, Any]]:
+    """D0-e: the versioned resources a case keeps, as its history shows them: {key, label, name, version}."""
+    keepers = _keepers(pack)
+    out = []
+    for key in sorted(k for k in resources if k in keepers):
+        label = "Output template" if key.startswith(TEMPLATE_PREFIX) else _param_title(pack, key)
+        out.append({"key": key, "label": label, **keepers[key].named(str(resources[key]))})
+    return out
+
+
+def _keepers(pack: process_packs.ProcessPack) -> dict[str, capabilities.AtStart]:
+    """The pack's resources that name a versioned thing, each with how a case keeps it."""
+    from jav.app.outputs import templates
+
+    found: dict[str, capabilities.AtStart] = {}
+    for step in pack.steps:
+        cap = capabilities.of(step.uses)
+        for param, value in (step.params or {}).items():
+            if isinstance(value, str) and value.startswith("@") and param in cap.at_start:
+                found.setdefault(value[1:], cap.at_start[param])
+    found.update({key: capabilities.AtStart(templates.kept, templates.named) for key in pack.resources
+                  if key.startswith(TEMPLATE_PREFIX)})
+    return found
+
+
+def _param_title(pack: process_packs.ProcessPack, key: str) -> str:
+    """The title of the parameter a resource sets (its name on the settings page), else the key."""
+    for step in pack.steps:
+        cap = capabilities.of(step.uses)
+        for param, value in (step.params or {}).items():
+            if value == f"@{key}" and param in cap.params.model_fields and cap.params.model_fields[param].title:
+                return str(cap.params.model_fields[param].title)
+    return key
+
+
 def _template_choices(output: str) -> list[tuple[str, str]]:
     from jav.app.outputs import templates
 

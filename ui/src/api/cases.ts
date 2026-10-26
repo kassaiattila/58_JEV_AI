@@ -76,7 +76,13 @@ export interface ReplyData {
 }
 export interface CaseEvent {
   at: string; kind: string; step: string | null; step_title: string | null; who: string | null;
-  detail: { note?: string; timer?: string; task_kind?: string; answer?: string };
+  detail: { note?: string; timer?: string; task_kind?: string; answer?: string; kept?: CaseKept };
+}
+/** D0-e: the versions a case keeps from its start to its end (`jav/app/process_runtime.py` `kept_of`): its resources
+ *  naming a versioned thing (a price list, a template) and the rule files its steps read. */
+export interface CaseKept {
+  resources: { key: string; label: string; name: string; version: number | null }[];
+  rules: { file: string; version: string | null }[];
 }
 /** 231 (B1): a partner the case is about: linked, or proposed from its record with the partner it seems to be. */
 export interface CasePartnerBrief { partner_id: string; name: string; tax_number: string | null; email: string | null; roles: string[]; retired: boolean; version: number }

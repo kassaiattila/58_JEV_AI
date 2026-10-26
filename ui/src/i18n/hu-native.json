@@ -2786,5 +2786,9 @@
   "Return it": "Visszaadás",
   "Returned by {{who}}, {{when}}: {{reason}}": "Visszaadta: {{who}}, {{when}}. Indok: {{reason}}",
   "The quote has been returned; it waits for its approval.": "Az ajánlatot visszaadtad; továbbra is jóváhagyásra vár.",
-  "an earlier step it builds on changed: {{steps}}": "egy korábbi lépés, amelyre épül, megváltozott: {{steps}}"
+  "an earlier step it builds on changed: {{steps}}": "egy korábbi lépés, amelyre épül, megváltozott: {{steps}}",
+  "It keeps from its start: {{what}}": "Az induláskori változatokkal fut végig: {{what}}",
+  "{{label}}: {{name}}, version {{n}}": "{{label}}: {{name}}, {{n}}. változat",
+  "{{label}}: {{name}}": "{{label}}: {{name}}",
+  "rule files: {{files}}": "szabályfájlok: {{files}}"
 }

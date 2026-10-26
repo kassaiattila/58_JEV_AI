@@ -113,14 +113,17 @@ def _row(c: Any, wp_id: str, step: str) -> Any:
     return c.execute("SELECT * FROM quote_proposals WHERE workpackage_id=? AND step_id=?", (wp_id, step)).fetchone()
 
 
-def request(wp_id: str, *, actor: identity.Who, selection: str = price_lists.NEWEST_ACTIVE,
+def request(wp_id: str, *, actor: identity.Who, selection: str | None = None,
             step: str | None = None) -> dict[str, Any]:
     """Queues the package's proposal with the application's engine and the cap for its requested items; a proposal
     already queued or running is returned as it is. `ProposalRefused` when it cannot be asked. 231 (A5): `selection`
-    is the process's price list choice (`price_lists.chosen`). D0-b: of the case's match `step`."""
+    is the process's price list choice (`price_lists.chosen`). D0-b: of the case's match `step`. D0-e: without one,
+    the step's own (as the case started: a person asking again prices from the list the step keeps)."""
     from jav.core import queue
 
     step = _step(wp_id, step)
+    if selection is None:
+        selection = quote_steps.catalogue(wp_id, step)
     req = _source(wp_id)
     if not req.items:
         raise explained(ProposalRefused, "the request names no item")
@@ -199,7 +202,8 @@ def abandon(wp_id: str, error: str, *, step: str | None = None) -> None:
 
 def current(wp_id: str, *, step: str | None = None) -> dict[str, Any] | None:
     """The package's latest proposal; `stale` when its request items or the active price list changed since. D0-b: of
-    the case's match `step` (None: the case's first)."""
+    the case's match `step` (None: the case's first). D0-e: the price list the step prices from (a case keeps the
+    version current at its start, so a newer one does not make it stale)."""
     step = _step(wp_id, step)
     with store.connect() as c:
         row = _row(c, wp_id, step)
@@ -220,7 +224,7 @@ def current(wp_id: str, *, step: str | None = None) -> dict[str, Any] | None:
             stale = request_key(_source(wp_id).items) != row["request_key"]
         except ProposalRefused:
             stale = True
-        prices = _active()
+        prices = _active(quote_steps.catalogue(wp_id, step))  # D0-e: the list the step keeps, not the newest one
         stale = stale or prices is None or prices.fingerprint != row["fingerprint"]
     out["stale"] = stale
     return out

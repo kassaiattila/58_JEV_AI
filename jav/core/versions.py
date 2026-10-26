@@ -14,6 +14,8 @@ their changes are the same everywhere and a third kind of editable rule gets the
 - `row`, `latest`, `active`: reading versions; `activate`, `retire`: the state changes, in the caller's write
   transaction; `grouped`: the rows of a listing, one entry per thing with its versions.
 - `VersionNotFound`, `VersionStateError`: the shared errors; an owner raises its own subclasses of them.
+- A reference (stage D0, D0-e): `<id>` names the thing's active version, `<id>@<n>` one version (`split`, `ref`); a
+  case keeps the version active at its start to its end (`kept`), and reads the one its reference names (`at`).
 
 Layer: shared core; it imports only the clock and who acts.
 """
@@ -30,6 +32,18 @@ from jav.core.clock import utc_stamp as _now
 
 DRAFT, ACTIVE, SUPERSEDED, RETIRED = "draft", "active", "superseded", "retired"
 STATES = (DRAFT, ACTIVE, SUPERSEDED, RETIRED)
+AT = "@"  # D0-e: a reference to one version: `<id>@<n>`
+
+
+def split(reference: str) -> tuple[str, int | None]:
+    """D0-e: (the thing, the version a reference names; None: its active one)."""
+    ident, mark, n = reference.partition(AT)
+    return (ident, int(n)) if mark and n.isdigit() else (reference, None)
+
+
+def ref(ident: str, version: int) -> str:
+    """D0-e: the reference to one version."""
+    return f"{ident}{AT}{version}"
 
 
 class VersionNotFound(KeyError):
@@ -67,6 +81,21 @@ class VersionTable:
     def active(self, c: sqlite3.Connection, ident: str) -> Any:
         """The thing's active version, or None."""
         return c.execute(f"SELECT * FROM {self.table} WHERE {self.key}=? AND state=?", (ident, ACTIVE)).fetchone()
+
+    def at(self, c: sqlite3.Connection, reference: str) -> Any:
+        """D0-e: the version a reference names: `<id>@<n>` that one (`not_found` when there is none, whatever its state
+        now), `<id>` the active one (None when there is none)."""
+        ident, n = split(reference)
+        return self.active(c, ident) if n is None else self.row(c, ident, n)
+
+    def kept(self, c: sqlite3.Connection, reference: str) -> str:
+        """D0-e: the reference a case keeps from its start: `<id>` becomes its active version's `<id>@<n>`; a reference
+        to one version, or a thing without an active one, stays as it is."""
+        ident, n = split(reference)
+        if n is not None:
+            return reference
+        found = self.active(c, ident)
+        return ref(ident, found["version"]) if found is not None else reference
 
     def activate(self, c: sqlite3.Connection, ident: str, version: int, *, actor: identity.Who) -> None:
         """Makes the version the active one (a draft, or an earlier version again), in the caller's write transaction;

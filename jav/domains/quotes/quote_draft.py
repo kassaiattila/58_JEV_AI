@@ -256,11 +256,12 @@ def _from_request(row: int, item: dict[str, Any]) -> dict[str, Any]:
 
 
 def start(wp_id: str, *, source: Literal["proposal", "request"], actor: identity.Who, expected_state: int | None,
-          replace: bool = False, catalogue: str = price_lists.NEWEST_ACTIVE, step: str | None = None) -> dict[str, Any]:
+          replace: bool = False, catalogue: str | None = None, step: str | None = None) -> dict[str, Any]:
     """The package's draft from its latest proposal (`proposal`, priced from the list version the proposal used) or
     from its requested items alone (`request`, priced from the list `catalogue` names: 231 B0, a process pack's
-    resource, by default the newest active one); a draft already there is replaced only with `replace`. Returns the
-    view. D0-b: the draft of the case's composition `step`, from the proposal of the match step it names."""
+    resource; D0-e: by default the step's own, as the case started); a draft already there is replaced only with
+    `replace`. Returns the view. D0-b: the draft of the case's composition `step`, from the proposal of the match step it
+    names."""
     _package(wp_id)
     step = _step(wp_id, step)
     req = _request(wp_id)
@@ -274,7 +275,8 @@ def start(wp_id: str, *, source: Literal["proposal", "request"], actor: identity
         prices = price_lists.version(proposal["price_list"], proposal["version"])
         lines = [_from_proposal(line) for line in proposal["lines"]]
     else:
-        chosen = price_lists.chosen(catalogue)  # 231 (A3b): the same choice as the proposal's; (B0) the step's
+        # 231 (A3b): the same choice as the proposal's; (B0) the step's; D0-e: without one, the step keeps its own
+        chosen = price_lists.chosen(catalogue or quote_steps.catalogue(wp_id, step))
         if chosen is None:
             raise explained(QuoteDraftError, "there is no active price list")
         prices = chosen

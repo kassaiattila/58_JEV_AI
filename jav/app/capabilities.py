@@ -29,6 +29,12 @@ waits instead of running (the process core's rule for an unknown kind).
   the other step's result a step reads and which versions of its form it takes (`reference_problem`, the pack check);
   `read_result(ctx, params, name)` reads that result checked against its form (`ResultMismatch` otherwise), and the
   step kind checks its own result before it is kept. `DatasetRef` is the form a large list is handed on in.
+- `KEPT_RULES`, `AtStart` (D0-e; the owner's decision of 2026-10-26): a case runs to its end with the rule files and
+  the versions it started with. A case started since D0-e names in its data the rule files its pack's capabilities read;
+  where one changed since, its steps, events, timers and other work read the copy its start's calculation snapshot holds
+  (`case_overlay`), and a copy of another main version stops the step with the file and both versions (`RulesUnfit`).
+  A parameter naming a resource of which a case keeps the version current at its start (a price list) says so in
+  `Capability.at_start`.
 
 Layer: application; it uses the process core, the call log and the shared registries' completion. The capabilities
 themselves live in the domains and register from their `register()`.
@@ -37,22 +43,25 @@ themselves live in the domains and register from their `register()`.
 from __future__ import annotations
 
 import dataclasses
+import json
 import re
 import time
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from decimal import Decimal
+from functools import lru_cache
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from jav.core import calls, cfg, completion, identity, store
+from jav.core import calls, cfg, completion, identity, rulebook, store
 from jav.core.process import cases, kinds, tasks
 from jav.core.process.engine import StepContext
 
-__all__ = ["Action", "Capability", "CapabilityError", "DatasetRef", "OwnVersionResult", "PROVIDERS", "RULES", "RULE_REFS",
-           "Result", "ResultMismatch", "RuleKey", "case_overlay", "case_rules", "catalogue", "of", "of_step_kind",
+__all__ = ["KEPT_RULES", "Action", "AtStart", "Capability", "CapabilityError", "DatasetRef", "OwnVersionResult", "PROVIDERS",
+           "RULES", "RULE_REFS", "Result", "ResultMismatch", "RuleKey", "case_overlay", "case_rules", "catalogue", "kept_rules",
+           "of", "of_step_kind",
            "read_result", "reference_problem", "register", "step_budget", "step_reads", "step_ref", "step_refs",
            "step_scopes"]
 
@@ -64,6 +73,7 @@ SKIPPED = "skipped"  # 231 (C2c): the phase of an optional step nobody started, 
 OPTIONAL_CHECK_S = 60.0  # how soon an optional step nobody started looks again whether the case's other steps are done
 _NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 RULES, RULE_REFS = "rules", "rule_settings"  # 231 (B3): a case's own rule values in its data, and where they came from
+KEPT_RULES = "kept_rule_files"  # D0-e: the rule files a case reads as it started (its data; none: it reads the files)
 
 
 class CapabilityError(ValueError):
@@ -213,6 +223,17 @@ class RuleKey:
 
 
 @dataclass(frozen=True)
+class AtStart:
+    """Stage D0 (D0-e): a parameter naming a resource of which a case keeps the version current at its start.
+    `kept(value)`: the value then, naming a concrete version (a price list's `newest_active` -> `<list>@<version>`;
+    unchanged when there is none, so the step says so when it runs); `named(value)`: how a kept value reads to a person,
+    {"name": ..., "version": n or None}."""
+
+    kept: Callable[[str], str]
+    named: Callable[[str], dict[str, Any]]
+
+
+@dataclass(frozen=True)
 class Capability:
     """One general building block.
 
@@ -264,6 +285,8 @@ class Capability:
     - `output`, `output_version` (stage D0, D0-c): the form of its step's result (a `Result` model: the fields it
       promises) and its version; a capability that can run names it. Its result is checked against it before it is
       kept, and before another step reads it (`read_result`).
+    - `at_start` (stage D0, D0-e): its parameters that name a resource of which a case keeps the version current at its
+      start (`AtStart`), by parameter.
     """
 
     name: str
@@ -297,6 +320,7 @@ class Capability:
     state: Literal["case", "step"] | None = None
     output: type[BaseModel] | None = None
     output_version: int = 1
+    at_start: Mapping[str, AtStart] = field(default_factory=dict)
 
     @property
     def key(self) -> str:
@@ -352,6 +376,8 @@ def _check(cap: Capability) -> None:
         problems.append("its rule keys are distinct")
     if unknown := sorted(set(cap.choices) - set(cap.params.model_fields)):
         problems.append(f"it offers choices for parameters it does not have: {unknown}")
+    if unknown := sorted(set(cap.at_start) - set(cap.params.model_fields)):  # D0-e
+        problems.append(f"it keeps the start's version of parameters it does not have: {unknown}")
     if problems:
         raise CapabilityError(f"capability {cap.key}: " + "; ".join(problems))
 
@@ -387,32 +413,78 @@ def _optional_wait(ctx: StepContext) -> kinds.StepOutcome:
     return ctx.wait(tasks.EVENT, timer=("check", time.time() + OPTIONAL_CHECK_S))
 
 
-def case_overlay(data: dict[str, Any] | None) -> cfg.Overlay | None:
-    """231 (B3): a case's own rule values, from its data (None: it has none, the files alone count)."""
-    values = (data or {}).get(RULES) or {}
-    return cfg.Overlay(values, (data or {}).get(RULE_REFS) or {}) if values else None
+def case_overlay(data: dict[str, Any] | None, case_id: str | None = None) -> cfg.Overlay | None:
+    """231 (B3): a case's own rule values, from its data (None: it has none, the files alone count); D0-e: with
+    `case_id`, the kept copies of the rule files it names (`KEPT_RULES`) that changed since it started."""
+    data = data or {}
+    values = data.get(RULES) or {}
+    names = tuple(sorted(data.get(KEPT_RULES) or ()))
+    base, unfit = kept_rules(case_id, names) if case_id and names else ({}, {})
+    if not (values or base or unfit):
+        return None
+    return cfg.Overlay(values, data.get(RULE_REFS) or {}, base=base, unfit=unfit)
+
+
+def kept_rules(case_id: str, names: tuple[str, ...]) -> tuple[dict[str, cfg.Kept], dict[str, str]]:
+    """D0-e: of the rule files `names`, those that changed since the case started: ({name: its kept copy}, {name: why
+    it does not fit}); both empty for a case without a calculation snapshot."""
+    with store.connect() as c:
+        start = rulebook.of_in(c, rulebook.CASE, case_id)
+    if start is None:
+        return {}, {}
+    now = rulebook.current()
+    return _kept(start, now.snapshot_id, names)
+
+
+@lru_cache(maxsize=256)
+def _kept(start: str, now: str, names: tuple[str, ...]) -> tuple[dict[str, cfg.Kept], dict[str, str]]:
+    """`kept_rules` by the two calculation snapshots (a snapshot's id names its contents, so the answer keeps)."""
+    current = rulebook.current().files
+    base: dict[str, cfg.Kept] = {}
+    unfit: dict[str, str] = {}
+    with store.connect() as c:
+        files = (rulebook.get_in(c, start) or {}).get("files", {})
+        for name in names:
+            path = cfg.path_of(name).relative_to(cfg.CONFIG_DIR).as_posix()
+            was, is_ = files.get(path), current.get(path)
+            if was is None or (is_ is not None and was["sha256"] == is_.sha256):
+                continue  # not there at the start (it reads the file), or unchanged
+            if is_ is not None and cfg.major(was["version"]) != cfg.major(is_.version):
+                unfit[name] = (f"the case started with the rule file {name} {was['version']}, and the code now runs "
+                               f"{is_.version}: another main version, which this code does not read")
+                continue
+            content = rulebook.content_in(c, was["sha256"])
+            if content is None:
+                unfit[name] = f"the rule file {name} {was['version']} the case started with is not stored"
+                continue
+            older = json.loads(content)
+            with cfg.overlay(None):
+                newer = cfg.load(name) if is_ is not None else {}
+            base[name] = cfg.Kept(cfg.filled(older, newer), was["sha256"], was["version"])
+    return base, unfit
 
 
 @contextmanager
 def case_rules(case_id: str | None) -> Iterator[None]:
     """231 (B3): the work inside runs with the case's own rule values over the files; a package that is no case (or
-    None) runs with the files alone."""
+    None) runs with the files alone. D0-e: and with the rule files as the case started, where it keeps them."""
     over = None
     if case_id:
         with store.connect() as c:
             row = cases.find_case_in(c, case_id)
-        over = case_overlay(row.get("data")) if row else None
+        over = case_overlay(row.get("data"), case_id) if row else None
     with cfg.overlay(over):
         yield
 
 
 def _with_rules(fn: Callable[..., str] | None) -> Callable[..., str] | None:
-    """An event or timer handler run with its case's own rule values (B3)."""
+    """An event or timer handler run with its case's own rule values (B3) and kept rule files (D0-e). A kept file that
+    does not fit raises: the event or timer is left for the next round (logged), and the step itself stops with why."""
     if fn is None:
         return None
 
     def handle(ctx: StepContext, *args: Any) -> str:
-        with cfg.overlay(case_overlay(ctx.data)):
+        with cfg.overlay(case_overlay(ctx.data, ctx.case_id)):
             return fn(ctx, *args)
 
     return handle
@@ -420,10 +492,14 @@ def _with_rules(fn: Callable[..., str] | None) -> Callable[..., str] | None:
 
 def _runner(cap: Capability) -> Callable[[StepContext], kinds.StepOutcome]:
     """The capability's step kind: the step's parameters checked first (keys starting with `_` are the process pack's
-    own, e.g. how the step starts, and are not the capability's); 231 (B3): it runs with the case's own rule values."""
+    own, e.g. how the step starts, and are not the capability's); 231 (B3): it runs with the case's own rule values;
+    D0-e: and with the rule files as the case started, where it keeps them (one that does not fit stops the step)."""
     def run(ctx: StepContext) -> kinds.StepOutcome:
-        with cfg.overlay(case_overlay(ctx.data)):
-            return _run(ctx)
+        with cfg.overlay(case_overlay(ctx.data, ctx.case_id)):
+            try:
+                return _run(ctx)
+            except cfg.RulesUnfit as exc:  # D0-e: the file and both versions, instead of reading it differently
+                return kinds.Fail(str(exc))
 
     def _run(ctx: StepContext) -> kinds.StepOutcome:
         if (ctx.step.params or {}).get("_start") == "person":

@@ -25,7 +25,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from jav.app import human_tasks
-from jav.app.capabilities import Capability, OwnVersionResult, Result, RuleKey, step_ref
+from jav.app.capabilities import AtStart, Capability, OwnVersionResult, Result, RuleKey, step_ref
 from jav.core.process import kinds
 
 POLL_S = 5.0  # how soon a waiting step looks again at the job or the person it waits for
@@ -68,12 +68,29 @@ class RecordAssembly(_Params):
 
 
 def _catalogue(value: str) -> str:
-    """231 (B2): `newest_active`, or a price list that has an active version (a process's own value is checked so)."""
+    """231 (B2): `newest_active`, or a price list that has an active version (a process's own value is checked so);
+    D0-e: or one version of a list (`<list>@<version>`), as a case keeps it from its start, whatever its state now."""
+    from jav.core import versions
     from jav.domains.quotes import price_lists
 
-    if value != price_lists.NEWEST_ACTIVE and price_lists.active(value) is None:
+    if value == price_lists.NEWEST_ACTIVE:
+        return value
+    ident, n = versions.split(value)
+    if n is None and price_lists.active(value) is None:
         raise ValueError(f"no active price list {value!r}")
+    if n is not None:
+        try:
+            price_lists.version(ident, n)
+        except price_lists.PriceListNotFound:
+            raise ValueError(f"no price list version {value!r}") from None
     return value
+
+
+def _kept_list() -> AtStart:
+    """D0-e: a case keeps the price list version current at its start."""
+    from jav.domains.quotes import price_lists
+
+    return AtStart(price_lists.kept, price_lists.named)
 
 
 def _catalogues() -> list[tuple[str, str]]:
@@ -279,17 +296,17 @@ CAPABILITIES = (
     Capability(name="catalogue_match", version=1, module=_OWNER, run=_catalogue_match, kind="machine", params=CatalogueMatch, state="step", output=MatchResult,
                providers=("jev", "openai"), rule_files=("callsite:quote_match", "gpt_quote_match", "quotes", "price_lists"),
                summary="Matches each requested item with a catalogue item: sure, to check, or not listed.",
-               spent=_spent("quote_proposals"), choices={"catalogue": _catalogues},
+               spent=_spent("quote_proposals"), choices={"catalogue": _catalogues}, at_start={"catalogue": _kept_list()},
                # 231 (B3): only fewer items than the file's (more would raise what a proposal may spend)
                rule_keys=(RuleKey("quotes", "proposal.max_items", "int", "At most this many requested items are matched in one"
                                   " proposal", least=1, most=200),)),
     Capability(name="line_pricing", version=1, module=_OWNER, kind="machine", params=LinePricing, effects="pure",
                rule_files=("price_lists",), summary="Prices lines from a catalogue: unit price, discount rules, totals.",
-               choices={"catalogue": _catalogues}),
+               choices={"catalogue": _catalogues}, at_start={"catalogue": _kept_list()}),
     Capability(name="line_draft", version=1, module=_OWNER, run=_line_draft, kind="human", params=LineDraft, state="step", output=OwnVersionResult,
                rule_files=("quotes", "price_lists"), own_version=True,  # 231 (C2d): reopening the quote reopens it
                summary="A person composes the lines from the match, gives own prices with a note, and approves.",
-               choices={"catalogue": _catalogues},
+               choices={"catalogue": _catalogues}, at_start={"catalogue": _kept_list()},
                rule_keys=(RuleKey("quotes", "draft.max_lines", "int", "A quote holds at most this many lines", least=1, most=1000),
                           RuleKey("price_lists", "rounding.HUF", "choice", "A forint quote's amounts are rounded to this unit",
                                   options=("1", "0.01")),

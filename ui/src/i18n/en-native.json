@@ -2780,5 +2780,9 @@
   "Return it": "Return it",
   "Returned by {{who}}, {{when}}: {{reason}}": "Returned by {{who}}, {{when}}: {{reason}}",
   "The quote has been returned; it waits for its approval.": "The quote has been returned; it waits for its approval.",
-  "an earlier step it builds on changed: {{steps}}": "an earlier step it builds on changed: {{steps}}"
+  "an earlier step it builds on changed: {{steps}}": "an earlier step it builds on changed: {{steps}}",
+  "It keeps from its start: {{what}}": "It keeps from its start: {{what}}",
+  "{{label}}: {{name}}, version {{n}}": "{{label}}: {{name}}, version {{n}}",
+  "{{label}}: {{name}}": "{{label}}: {{name}}",
+  "rule files: {{files}}": "rule files: {{files}}"
 }

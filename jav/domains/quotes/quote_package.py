@@ -100,7 +100,8 @@ def request_gaps(request: quote_request.Request) -> list[dict[str, str]]:
 def view(wp_id: str, step: str | None = None) -> dict[str, Any]:
     """The package's own part of its page: its request put together (None when it can no longer be read), where it came
     from, the active price lists and the gaps that keep the quote from being made. D0-b: the proposal, draft and letter
-    of the case's steps that go with `step` (`steps`: which ones, for the page's addresses)."""
+    of the case's steps that go with `step` (`steps`: which ones, for the page's addresses). D0-e: a case that keeps
+    the price list version of its start shows that one."""
     steps = quote_steps.of(wp_id, step)
     ref = request_of(wp_id) or {}
     request = None
@@ -113,7 +114,7 @@ def view(wp_id: str, step: str | None = None) -> dict[str, Any]:
         source_name = work.get(ref["workpackage_id"])["name"] if ref else None
     except KeyError:
         source_name = None
-    lists = price_lists.active_lists()
+    lists = price_lists.listed(quote_steps.catalogue(wp_id, steps.match))  # D0-e: the version the case keeps
     blockers = []
     if request is None:
         blockers.append(_blocker("quote:request_missing", "The request can no longer be read"))

@@ -1177,6 +1177,29 @@ the changed ones with examples and the failed ones counted; nothing is written a
 decision reads yet (a quote's lines, a proposal's items) previews as no decision. Tests:
 `tests/test_process_rules_231.py`.
 
+**A case keeps the versions of its start (231, stage D0, D0-e; the owner's decision of 2026-10-26).** A case runs to
+its end with the price list, template and rule files it started with; a newer one reaches only the cases started after
+it. At its start (`process_runtime.start_case`, and a case taken over or wrapped likewise) each resource naming a
+versioned thing is resolved to its version then (`process_settings.kept_resources`): a parameter whose capability keeps
+it (`Capability.at_start`, `capabilities.AtStart`: the quote's `catalogue`, `newest_active` or a named list becoming
+`<list>@<version>`) and an output's template (`template:<output>`, an own template's active version; the built-in one
+is the code's). A version reference is the shared versions' (`versions.split`, `ref`, `VersionTable.at`, `kept`), so
+`price_lists.chosen` and `templates._chosen` read the version named, whatever its state now; the quote's steps and its
+service addresses price from the step's own list (`quote_steps.catalogue`: a person asking again, a draft started from
+the request, the proposal's staleness and the price list the quote page shows). The case names in its data the rule
+files its steps' capabilities read (`capabilities.KEPT_RULES`); where one changed since, its work reads the copy its
+start's calculation snapshot holds (`capabilities.case_overlay` with the case: `cfg.Overlay.base`, `cfg.Kept`, built
+once per pair of snapshots), with a key added to the file since taken from the file (`cfg.filled`), so newer code reads
+what it expects; `config_hash` and `version` name that copy, and a traced decision records it (`kept: true`, its
+version and fingerprint) and replays with it. A kept copy of another main version is not read differently: reading it
+raises `cfg.RulesUnfit` with the file and both versions, which stops the step that reads it (`kinds.Fail`), and the
+command `cases-kept` lists, before a release, the open cases it would stop (`process_runtime.unfit_cases`; on a copy of
+the live store, `--store`). The case's history names on its start what it keeps (`process_runtime.kept_of`, the
+timeline element). A case started before D0-e keeps nothing and reads the files and the active versions, as before.
+Limits: only the rule files the capabilities declare are kept (a non-JSON file, a module's copy taken when it loaded,
+and the process pack itself, which a case keeps by its version, are not). Tests: `tests/test_case_keeps_versions_231.py`,
+`ui/src/elements/caseKept231.test.tsx`.
+
 **A process's settings page (231, plan stage B, B4).** Settings › Processes (`ui/src/views/settings/ProcessSettingsPanel.tsx`,
 `ui/src/api/processes.ts`) shows each process pack's resources and rule values, each with the value in use, the file's
 value and whether it is the process's own, and the roles its partners play. A setting opens with a new value (a

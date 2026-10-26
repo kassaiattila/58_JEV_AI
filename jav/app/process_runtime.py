@@ -46,8 +46,8 @@ from jav.core import activity_kinds, identity, rulebook, store
 from jav.core.process import cases
 from jav.core.user_messages import explained
 
-__all__ = ["CONTAINER", "CONTAINER_PACK", "adopt_all", "adopt_case", "approval_steps", "basis_of", "outdated", "outputs_of",
-           "own_version_steps",
+__all__ = ["CONTAINER", "CONTAINER_PACK", "adopt_all", "adopt_case", "approval_steps", "basis_of", "kept_of", "outdated",
+           "outputs_of", "own_version_steps", "unfit_cases",
            "owns_approval", "pack_for", "pack_of", "pack_step_kind", "register", "start_case", "step_using", "wrap_case",
            "wrap_into"]
 
@@ -59,24 +59,74 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
     """Starts a case of the pack's current version with this scope (checked by its parts); returns its id. 231 (B2):
     with the process's own active values over the file's resources, kept in the case's data (a later change reaches
     only the cases started after it); (B3) and its own active rule values, which the case's work reads over the rule
-    files (`capabilities.case_rules`)."""
+    files (`capabilities.case_rules`). Stage D0 (D0-e): it keeps the versions current at its start to its end: its
+    resources naming a versioned thing (a price list, a template) at their version then, and the rule files its steps
+    read as its calculation snapshot holds them (`capabilities.KEPT_RULES`)."""
     from jav.app import process_settings
 
     pack = process_packs.load(pack_id)
     checked = scopes.check(pack.scope.needs(), scope, optional=pack.scope.optional)
-    resources = process_settings.effective_resources(pack)
+    resources = process_settings.kept_resources(pack, process_settings.effective_resources(pack))
     rules, rule_refs = process_settings.effective_rules(pack)
     definition = process_packs.definition(pack.model_copy(update={"resources": resources}))
     wp = work.create_workpackage(name=name, source_kind=CONTAINER, source_ref=f"pack:{pack.id}@{pack.version}", owner=actor)
     case_id = wp["id"]
     data = {"pack": pack.id, "pack_version": pack.version, "container": case_id, "name": wp["name"], "scope": checked,
-            "resources": resources, capabilities.RULES: rules, capabilities.RULE_REFS: rule_refs}
+            "resources": resources, capabilities.RULES: rules, capabilities.RULE_REFS: rule_refs,
+            capabilities.KEPT_RULES: _kept_rule_files(pack)}
     with cases.transaction() as c:
         package_scope.save(c, case_id, parts=checked, actor=actor, **_scope_columns(checked))
         cases.start_in(c, case_id, definition, data, identity.who(actor))
         for step_id in _approving(pack, from_start=True):  # C3a-1: it waits for that approval as a person's task
             human_tasks.own_approval_waits(c, case_id, step_id)  # D0-b: each approving step for its own
     return case_id
+
+
+def _kept_rule_files(pack: process_packs.ProcessPack) -> list[str]:
+    """D0-e: the rule files a case of the pack reads as it started: those its steps' capabilities read."""
+    return sorted({name for step in pack.steps for name in capabilities.of(step.uses).rule_files})
+
+
+def kept_of(case_id: str) -> dict[str, Any] | None:
+    """D0-e: what a case keeps from its start, as its history shows it: its resources at their versions ({key, label,
+    name, version}) and the rule files at the versions its calculation snapshot holds ({file, version}); None for a
+    case started before D0-e, which reads the files and the active versions."""
+    from jav.app import process_settings
+
+    with store.connect() as c:
+        row = cases.find_case_in(c, case_id)
+        data = (row or {}).get("data") or {}
+        if capabilities.KEPT_RULES not in data:
+            return None
+        snapshot = rulebook.get_in(c, rulebook.of_in(c, rulebook.CASE, case_id) or "")
+    files = (snapshot or {}).get("files", {})
+    pack = pack_for(case_id)
+    return {"resources": process_settings.kept_view(pack, data.get("resources") or {}) if pack else [],
+            "rules": [{"file": name, "version": (files.get(_config_path(name)) or {}).get("version")}
+                      for name in data[capabilities.KEPT_RULES]]}
+
+
+def _config_path(name: str) -> str:
+    from jav.core import cfg
+
+    return cfg.path_of(name).relative_to(cfg.CONFIG_DIR).as_posix()
+
+
+def unfit_cases() -> list[dict[str, Any]]:
+    """D0-e, before a release: the open cases whose kept copy of a rule file the code running now does not read
+    (another main version), each {case, name, file, why}; their steps that read it stop with why until a person
+    decides (an empty list: every open case goes on)."""
+    out = []
+    with store.connect() as c:
+        rows = [cases.find_case_in(c, case_id) for case_id in cases.open_ids_in(c)]
+    for row in rows:
+        data = (row or {}).get("data") or {}
+        names = tuple(sorted(data.get(capabilities.KEPT_RULES) or ()))
+        if not names:
+            continue
+        _base, unfit = capabilities.kept_rules(row["case_id"], names)
+        out += [{"case": row["case_id"], "name": data.get("name"), "file": name, "why": why} for name, why in sorted(unfit.items())]
+    return out
 
 
 def _scope_columns(checked: dict[str, Any]) -> dict[str, Any]:
@@ -99,7 +149,7 @@ def adopt_case(pack_id: str, wp_id: str, scope: dict[str, Any], *, actor: identi
     pack = process_packs.load(pack_id)
     checked = scopes.check(pack.scope.needs(), scope, optional=pack.scope.optional)
     wp = work.get(wp_id)
-    resources = process_settings.effective_resources(pack)
+    resources = process_settings.kept_resources(pack, process_settings.effective_resources(pack))  # D0-e
     rules, rule_refs = process_settings.effective_rules(pack)
     definition = process_packs.definition(pack.model_copy(update={"resources": resources}))
     states = {}
@@ -109,6 +159,7 @@ def adopt_case(pack_id: str, wp_id: str, scope: dict[str, Any], *, actor: identi
             states[step.id] = state
     data = {"pack": pack.id, "pack_version": pack.version, "container": wp_id, "name": wp["name"], "scope": checked,
             "resources": resources, capabilities.RULES: rules, capabilities.RULE_REFS: rule_refs,
+            capabilities.KEPT_RULES: _kept_rule_files(pack),
             "adopted_from": {"source_kind": wp["source_kind"], "source_ref": wp.get("source_ref")}}
     who = identity.who(actor)
     with cases.transaction() as c:
@@ -191,7 +242,7 @@ def _wrap(pack: process_packs.ProcessPack, wp_id: str, *, step_id: str, package_
     wp = work.get(wp_id)
     scope = {**scope, package_part: {"kind": "package", "workpackage_id": wp_id}}
     checked = scopes.check(pack.scope.needs(), scope, optional=pack.scope.optional)
-    resources = process_settings.effective_resources(pack)
+    resources = process_settings.kept_resources(pack, process_settings.effective_resources(pack))  # D0-e
     rules, rule_refs = process_settings.effective_rules(pack)
     definition = process_packs.definition(pack.model_copy(update={"resources": resources}))
     params = definition.step(step.id).params
@@ -208,7 +259,7 @@ def _wrap(pack: process_packs.ProcessPack, wp_id: str, *, step_id: str, package_
             state = cap.adopt(wp_id, params) if cap.adopt is not None else None
             data = {"pack": pack.id, "pack_version": pack.version, "container": case_id, "name": wp["name"],
                     "scope": checked, "resources": resources, capabilities.RULES: rules,
-                    capabilities.RULE_REFS: rule_refs,
+                    capabilities.RULE_REFS: rule_refs, capabilities.KEPT_RULES: _kept_rule_files(pack),
                     "wrapped": {"workpackage_id": wp_id, "source_kind": wp["source_kind"]}}
             cases.adopt(c, case_id, definition, data, owner, who, {step.id: state} if state is not None else {})
             if wp["status"] == "archived":  # an archived package's case is archived too

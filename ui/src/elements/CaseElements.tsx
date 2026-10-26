@@ -3,7 +3,7 @@
 // spent (cost). Each renders the data its step's capability gives (jav/app/sending.py, jav/app/replies.py,
 // jav/app/case_views.py); a person's actions are the step's own (`actions`), and the send itself is the step's start.
 import { useState, type ReactNode } from "react";
-import { api, ApiError, type ApprovalState, type CaseCost, type CaseEvent, type CasePartnerLink, type HandoverAttempt, type HandoverData, type ReplyData, type StartedCase } from "../api";
+import { api, ApiError, type ApprovalState, type CaseCost, type CaseEvent, type CaseKept, type CasePartnerLink, type HandoverAttempt, type HandoverData, type ReplyData, type StartedCase } from "../api";
 import { ApprovalStateNotes, EarlierVersions, ReturnControl } from "../components/ApprovalPanel";
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
@@ -224,6 +224,17 @@ export function GeneralApproval(p: ElementProps) {
   );
 }
 
+/** D0-e: the versions a case keeps from its start to its end: a price list's, a template's, the rule files'. */
+function KeptLine({ kept }: { kept: CaseKept }) {
+  const parts = kept.resources.map((r) => r.version != null
+    ? t("{{label}}: {{name}}, version {{n}}", { label: t(r.label), name: t(r.name), n: r.version })
+    : t("{{label}}: {{name}}", { label: t(r.label), name: t(r.name) }));
+  if (kept.rules.length) {
+    parts.push(t("rule files: {{files}}", { files: kept.rules.map((f) => `${f.file} ${f.version ?? ""}`.trim()).join(", ") }));
+  }
+  return <div className="muted small">{t("It keeps from its start: {{what}}", { what: parts.join(" · ") })}</div>;
+}
+
 export function Timeline(p: ElementProps) {
   useLocale();
   const d = p.element.data as { events: CaseEvent[] } | null;
@@ -238,7 +249,8 @@ export function Timeline(p: ElementProps) {
             <tr key={`${e.at}-${i}`}>
               <td className="tnum">{when(e.at)}</td>
               <td>{e.step_title ? t(e.step_title) : "–"}</td>
-              <td>{eventText(e)}{e.detail.note ? <div className="muted small">{e.detail.note}</div> : null}</td>
+              <td>{eventText(e)}{e.detail.note ? <div className="muted small">{e.detail.note}</div> : null}
+                {e.detail.kept ? <KeptLine kept={e.detail.kept} /> : null}</td>
               <td>{e.who ?? <span className="muted">{t("The system")}</span>}</td>
             </tr>
           ))}
