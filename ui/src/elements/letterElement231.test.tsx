@@ -1,6 +1,7 @@
 // 231 (stage D, D-f8): a letter that goes with a printed document: the draft from its frame, changed and accepted with
 // the page's document version; a marker left in it or an address that is none keeps it from being accepted; the
-// accepted letter shows its email file with its download and fingerprint. Invented data, a mocked service.
+// accepted letter shows its email file with its download and fingerprint. What a person typed survives a refresh of
+// the page with the same draft; a new document's draft starts the form again. Invented data, a mocked service.
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type CaseView, type LetterData } from "../api";
@@ -20,15 +21,23 @@ const waiting = (over: Partial<LetterData> = {}): LetterData => ({
   limits: { subject_chars: 200, body_chars: 5000 }, ...over,
 });
 
-function show(data: LetterData) {
+function page(data: LetterData): CaseView {
   const step = (title: string, uses: string): CaseView["steps"][string] => ({ title, uses, start: "auto", state: "running", phase: null,
     waiting_for: null, awaiting_start: false, note: null, result: null, actions: [] });
-  const page: CaseView = {
+  return {
     case: { id: CASE, pack: "insurance_offer", version: "1.5.0", title: "Insurance quote", name: "Minta Kft.", status: "open" },
     steps: { letter: step("Covering letter", "letter@1"), document: step("Offer document", "priced_document@1") },
     tabs: [{ id: "decision", label: "Decision and release", elements: [{ type: "letter", step: "letter", data }] }], next: null,
   };
-  render(<>{elementOf("letter")!.render({ caseId: CASE, element: page.tabs[0].elements[0], page, onChanged: () => {} })}</>);
+}
+
+const view = (data: LetterData) => {
+  const shown = page(data);
+  return <>{elementOf("letter")!.render({ caseId: CASE, element: shown.tabs[0].elements[0], page: shown, onChanged: () => {} })}</>;
+};
+
+function show(data: LetterData) {
+  return render(view(data));
 }
 
 describe("a covering letter", () => {
@@ -55,6 +64,19 @@ describe("a covering letter", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "To" }), { target: { value: "anna.minta.hu" } });
     expect(screen.getByText("This is not an email address.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Accept the letter" })).toHaveProperty("disabled", true);
+  });
+
+  it("keeps what a person typed when the page refreshes, and starts again on a new document's draft", async () => {
+    const { rerender } = show(waiting());
+    const text = await screen.findByRole("textbox", { name: "The letter's text" });
+    fireEvent.change(text, { target: { value: "Tisztelt Minta Anna!\n\nKöszönjük.\n" } });
+    rerender(view(waiting()));  // the page asked again: the same draft
+    expect((screen.getByRole("textbox", { name: "The letter's text" }) as HTMLTextAreaElement).value).toBe("Tisztelt Minta Anna!\n\nKöszönjük.\n");
+    const reprinted = { ...document, version: 5, sha256: "ef56".padEnd(64, "1") };
+    rerender(view(waiting({ document: reprinted, draft: { to: "anna@minta.hu", subject: "Biztosítási ajánlat – Minta Kft.",
+      body: "Tisztelt Minta Anna!\n\nAz éves díj 490 000 HUF.\n" } })));
+    await waitFor(() => expect((screen.getByRole("textbox", { name: "The letter's text" }) as HTMLTextAreaElement).value)
+      .toBe("Tisztelt Minta Anna!\n\nAz éves díj 490 000 HUF.\n"));
   });
 
   it("shows the accepted letter with its email file", async () => {

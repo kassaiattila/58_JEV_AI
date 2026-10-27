@@ -2,7 +2,7 @@
 // from its frame: the address, the subject and the text, which a person may change, and the document it attaches; one
 // solid button accepts it with the page's document version (an older page is refused). Accepted, the letter as it was
 // accepted, who accepted it and when, and its email file with its fingerprint: the send step hands over that file.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type LetterData } from "../api";
 import { ApprovalStateNotes } from "../components/ApprovalPanel";
 import { errorText } from "../hooks";
@@ -27,8 +27,10 @@ export function LetterView(p: ElementProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const draftKey = d?.draft ? `${d.document?.sha256}:${d.draft.subject}:${d.draft.body}` : null;
-  useEffect(() => {  // a new draft (a new document) starts the form again
-    if (!d?.draft) return;
+  const shownKey = useRef(draftKey);
+  useEffect(() => {  // only a new draft (a new document) starts the form again, never what a person typed meanwhile
+    if (!d?.draft || shownKey.current === draftKey) return;
+    shownKey.current = draftKey;
     setTo(d.draft.to ?? "");
     setSubject(d.draft.subject);
     setBody(d.draft.body);
