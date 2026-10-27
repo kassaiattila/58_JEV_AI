@@ -98,8 +98,7 @@ def _factor(cat: facts.Catalogue, name: str, f: Factor, unit: _Unit) -> tuple[De
 
 
 def _typed(cat: facts.Catalogue, name: str, d: Any, op: str, want: Any) -> Any:
-    return ([facts.typed_value(name, d, w) for w in want] if op in ("in", "not_in", "between")
-            else facts.typed_value(name, d, want))
+    return facts.compared_value(name, d, op, want)
 
 
 def _priced(cat: facts.Catalogue, code: str, only: dict[str, dict[str, Any]], unit: _Unit) -> tuple[bool, str | None]:

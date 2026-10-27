@@ -95,3 +95,15 @@ def test_only_a_proposal_code_found_nothing_blocking_in_is_sent() -> None:
     assert [p.check.blocking for p in proposed] == [False, True]
     assert [p.support.mark if p.support else None for p in proposed] == ["supported", None]
     assert len(stand_in.asked) == 1
+
+
+def test_a_list_of_codes_is_written_out_by_the_codes_it_is_compared_with() -> None:
+    """231 (U-A3): a rule comparing the requested modules (a list of codes) with codes is written out for JEV by those
+    codes, as the evaluation compares them. Before, writing it out raised, so the re-check stopped on such a rule."""
+    row = CASH.table.rows[0]
+    rows = (row.model_copy(update={"when": {**row.when, "requested_modules": {"in": ["burglary"]}}}),
+            row.model_copy(update={"when": {"requested_modules": {"eq": "burglary"}}}))
+    rule = CASH.model_copy(update={"table": CASH.table.model_copy(update={"rows": rows})})
+    written = rule_support.rule_sentences(rule)["rows"]
+    assert "and Requested cover modules is one of Burglary and robbery:" in written[0]
+    assert written[1].startswith("2. When Requested cover modules is Burglary and robbery:")

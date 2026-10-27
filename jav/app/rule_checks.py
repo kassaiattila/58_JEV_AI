@@ -127,7 +127,7 @@ def _rule_numbers(rule: Rule, cat: facts.Catalogue) -> list[_Number]:
     found: list[_Number] = []
     for row in rule.table.rows:
         for name, condition in row.when.items():
-            d = cat.facts.get(name)
+            d = facts.compared_as(cat.facts[name]) if name in cat.facts else None
             for op, value in condition.items():
                 if d is None or op in ("present", "absent"):
                     continue
