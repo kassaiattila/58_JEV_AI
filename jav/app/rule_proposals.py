@@ -124,7 +124,8 @@ def to_rule(record: ProposedRule, catalogue_id: str, document_ref: str) -> tuple
         rows.append({"when": when, "then": {o.outcome: _value(o.value) for o in row.then}})
     data = {"catalogue": catalogue_id, "kind": record.kind, "title": record.title, "level": record.level,
             "modules": list(record.modules), "facts": list(record.facts), "table": {"hit": record.hit, "rows": rows},
-            "source": {"document": document_ref, "page": record.page, "clause": record.clause.strip() or None,
+            # D-h: a clause as printed ("3.1.") is the clause the registry names without its closing dot ("3.1")
+            "source": {"document": document_ref, "page": record.page, "clause": record.clause.strip().rstrip(".").strip() or None,
                        "quote": record.quote.strip() or None},
             "origin": {"kind": "proposal"}}
     try:

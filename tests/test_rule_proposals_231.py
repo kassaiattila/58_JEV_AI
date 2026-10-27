@@ -116,3 +116,11 @@ def test_a_value_that_is_no_json_is_read_as_a_code() -> None:
     bare = row.model_copy(update={"when": [row.when[0].model_copy(update={"value": "high"})]})
     rule, problem = rule_proposals.to_rule(record.model_copy(update={"rows": [bare]}), "property", GENERAL)
     assert problem is None and rule.table.rows[0].when == {"flood_zone": {"eq": "high"}}
+
+
+def test_a_clause_cited_as_printed_is_the_registry_s_clause() -> None:
+    """D-h: the first paid round cited every clause as printed, with its closing dot ("3.1."); the registry names it
+    without ("3.1"), so none was paired and the code check would have found no such clause."""
+    record = rule_proposals.record_of(SET.rules["inv_claims_factor"])
+    rule, problem = rule_proposals.to_rule(record.model_copy(update={"clause": " 3.2. "}), "property", GENERAL)
+    assert problem is None and rule.source.clause == SET.rules["inv_claims_factor"].source.clause == "3.2"
