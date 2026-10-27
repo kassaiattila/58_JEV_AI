@@ -614,6 +614,26 @@ def _print_run(run: dict) -> None:
               f" clause {p['clause']})" + (f" -> {p['rule_ref']}" if p["rule_ref"] else ""))
 
 
+def cmd_rule_proposals_recheck(args: argparse.Namespace) -> int:
+    """231 (stage U, U-A3): a finished run's undecided proposals checked again with the code as it is now, from the
+    answers it keeps (free: no model is asked again; with `--jev-budget-usd`, JEV judges the ones code no longer blocks).
+    0: checked; 2: refused."""
+    from decimal import Decimal
+
+    from jav.app import rule_proposal_runs
+
+    try:
+        run = rule_proposal_runs.recheck(args.run, document_ref=args.document,
+                                         jev_budget=Decimal(str(args.jev_budget_usd)) if args.jev_budget_usd else None)
+    except rule_proposal_runs.ProposalError as exc:
+        print(f"refused: {exc}")
+        return 2
+    ready = {r: sum(1 for p in run["proposals"] if p["readiness"] == r) for r in ("ready", "confirm", "blocked")}
+    print(f"{run['run_id']} ({run['document_ref']}): {len(run['proposals'])} proposal(s); " +
+          ", ".join(f"{k}: {v}" for k, v in ready.items()))
+    return 0
+
+
 def cmd_rule_proposals(args: argparse.Namespace) -> int:
     """231 (D-c7e): the proposal runs (of one document version), or one run with its proposals."""
     from jav.app import rule_proposal_runs
@@ -780,6 +800,12 @@ def register(sub) -> None:
     p.add_argument("--document", help="only the runs of this document version")
     p.add_argument("--run", help="one run with its proposals")
     p.set_defaults(fn=cmd_rule_proposals)
+    p = sub.add_parser("rule-proposals-recheck", help="231 U-A3: a finished run's undecided proposals checked again with the "
+                                                      "code as it is now, from its kept answers (free; JEV with a budget)")
+    p.add_argument("run", help="the run (rpr-...)")
+    p.add_argument("--document", help="a newer version of the run's document (<id>@<n>) the rules cite from now on")
+    p.add_argument("--jev-budget-usd", type=float, help="JEV judges the proposals code no longer blocks, within this budget")
+    p.set_defaults(fn=cmd_rule_proposals_recheck)
     p = sub.add_parser("rule-proposal-decide", help="231 D-c7e: accept, correct or reject one proposal (an accepted one becomes a draft rule)")
     p.add_argument("proposal", type=int)
     p.add_argument("action", choices=("accept", "correct", "reject"))

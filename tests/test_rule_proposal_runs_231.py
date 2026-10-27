@@ -149,3 +149,26 @@ def test_a_file_the_owner_allowed_whole_is_read_with_its_marked_pages(env, tmp_p
     monkeypatch.setattr(cfg, "load", lambda name: {**real_load(name), "marked_allowed": [{"sha256": sha}]}
                         if name == "rule_proposals" else real_load(name))
     assert _run(marked)["skipped"] == {}
+
+
+def test_a_finished_run_is_checked_again_from_its_answers_without_asking_again(env) -> None:
+    """231 (U-A3): the code that turns an answer into a rule and checks it improved after a paid round; the run's
+    undecided proposals are checked again from the answers it keeps, against the pages it read, with no model asked.
+    A decided proposal stays as it was; a run is checked only against a version of its own document."""
+    import json
+
+    run = _run(env["inv_general_conditions"])
+    first, second = run["proposals"][0], run["proposals"][1]
+    with store.connect() as c:  # as an older code left them: the clause as printed with a lettered point, and blocked
+        record = json.loads(c.execute("SELECT record FROM rule_proposals WHERE id=?", (first["id"],)).fetchone()[0])
+        clause = record["clause"]
+        record["clause"] = f"{clause}.b)"
+        c.execute("UPDATE rule_proposals SET record=?, rule=NULL, findings=? WHERE id=?",
+                  (json.dumps(record), json.dumps([{"code": "citation_clause", "severity": "blocking", "text": {"text": "x"}}]), first["id"]))
+    rule_proposal_runs.reject(second["id"], "not this one", actor=ANNA, expected_state=0)
+    again = rule_proposal_runs.recheck(run["run_id"])
+    by_id = {p["id"]: p for p in again["proposals"]}
+    assert by_id[first["id"]]["readiness"] != "blocked" and by_id[first["id"]]["rule"]["source"]["clause"] == clause
+    assert by_id[second["id"]]["state"] == "rejected"
+    with pytest.raises(rule_proposal_runs.ProposalError):
+        rule_proposal_runs.recheck(run["run_id"], document_ref="inv_burglary_conditions@1")

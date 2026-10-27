@@ -41,7 +41,7 @@ from jav.core.user_messages import Said, explained, said, said_back, said_fields
 from jav.documents import page_text
 
 __all__ = ["JOB_KIND", "KIND", "ProposalError", "ProposalRefused", "abandon", "accept", "correct", "naming", "process",
-           "process_job", "reject", "run", "runs", "start"]
+           "process_job", "recheck", "reject", "run", "runs", "start"]
 
 JOB_KIND = "rule_propose"
 KIND = "rule_proposal"  # the decision kind: a person's accept, correction or rejection of one proposal
@@ -240,6 +240,54 @@ def process(run_id: str) -> dict[str, Any]:
                        json.dumps(sorted(pages.ocr_pages)), _now(), run_id))
     except Exception as exc:  # noqa: BLE001 - the run shows why it failed; the worker goes on
         abandon(run_id, f"{type(exc).__name__}: {exc}")
+    return run(run_id)
+
+
+def _stored_pages(row: Any) -> page_text.DocumentPages:
+    """U-A3: a run's pages as it read them (kept with the run, never read from the file again)."""
+    return page_text.DocumentPages({int(k): v for k, v in json.loads(row["pages"] or "{}").items()}, int(row["page_count"] or 0),
+                                   row["text_source"], frozenset(int(n) for n in json.loads(row["ocr_pages"] or "[]")),
+                                   {int(k): v for k, v in json.loads(row["skipped"] or "{}").items()}, row["file_sha256"])
+
+
+def recheck(run_id: str, *, document_ref: str | None = None, jev_budget: Decimal | None = None) -> dict[str, Any]:
+    """231 (stage U, U-A3): a finished run's undecided proposals checked again with the code as it is now, from the
+    answers it keeps (no model is asked again): each record turned into a rule, its clause found on its page, the code's
+    check on the pages the run read. `document_ref` names a newer version of the same document (its clauses read again
+    from the same file) the rules cite from now on. With a JEV budget, JEV judges the proposals that code no longer
+    blocks and that it has not judged."""
+    with store.connect() as c:
+        row = c.execute("SELECT * FROM rule_proposal_runs WHERE run_id=?", (run_id,)).fetchone()
+    if row is None:
+        raise KeyError(run_id)
+    if row["state"] != "done":
+        raise explained(ProposalError, "only a finished run is checked again, not one {{state}}", state=row["state"])
+    ref = document_ref or row["document_ref"]
+    if versions.split(ref)[0] != versions.split(row["document_ref"])[0] or versions.split(ref)[1] is None:
+        raise explained(ProposalError, "a run is checked again against a version of its own document, not {{document}}", document=ref)
+    pages, document, modules = _stored_pages(row), _document(ref), _modules(row["product"])
+    with store.connect() as c:
+        rows = c.execute("SELECT * FROM rule_proposals WHERE run_id=? AND state='proposed' ORDER BY n", (run_id,)).fetchall()
+    updates = []
+    scope = f"rule-proposal-recheck-{run_id}"
+    with calls.outside_run(scope, {"jev": jev_budget} if jev_budget else {}) as scope:
+        for p in rows:
+            record = rule_proposals.ProposedRule.model_validate(json.loads(p["record"]))
+            rule, problem = rule_proposals.to_rule(record, row["catalogue"], ref, modules=tuple(modules))
+            rule = rule_proposals.on_its_page(rule, document) if rule is not None else None
+            check = rule_checks.check(rule, pages, document_ref=ref, document=document) if rule is not None else None
+            support = p["support"]
+            if support is None and jev_budget and rule is not None and check is not None and not check.blocking:
+                support = json.dumps(asdict(rule_support.support(rule, pages, run_id=scope)), ensure_ascii=False)
+            findings, numbers = _check_json(check)
+            updates.append((json.dumps(rule.model_dump(mode="json"), ensure_ascii=False) if rule else None,
+                            json.dumps(said_fields(problem), ensure_ascii=False) if problem else None, findings, numbers,
+                            support, p["id"]))
+    with store.connect() as c:
+        store.begin_immediate(c)
+        c.executemany("UPDATE rule_proposals SET rule=?, problem=?, findings=?, numbers=?, support=? WHERE id=? AND state='proposed'",
+                      updates)
+        c.execute("UPDATE rule_proposal_runs SET document_ref=? WHERE run_id=?", (ref, run_id))
     return run(run_id)
 
 

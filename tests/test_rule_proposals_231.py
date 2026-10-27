@@ -163,3 +163,35 @@ def test_an_amount_written_as_text_is_read_as_money(printed: str) -> None:
                                            "property", GENERAL)
     assert problem is None
     assert rule.model_dump(mode="json")["table"]["rows"][0]["when"][fact][op] == {"amount": "10000000", "currency": "HUF"}
+
+
+@pytest.mark.parametrize(("printed", "clause"), [("3.1.b)", "3.1"), ("1-4", "1"), ("2.2.", "2.2"), ("VIL 4.", "VIL 4"),
+                                                  ("FOGALMAK", None), ("Jelen kiegészítő biztosítás szerint", None)])
+def test_a_clause_cited_with_a_point_a_range_or_a_word_is_the_clause_or_none(printed: str, clause: str | None) -> None:
+    """U-A3 (the paid round): the model cited "3.1.b)" (a lettered point of 3.1), "1-4" (a range), a heading word or a
+    sentence; the registry's clause is the clause it stands in, the first of a range, or none."""
+    record = rule_proposals.record_of(SET.rules["inv_flood_high"]).model_copy(update={"clause": printed})
+    rule, problem = rule_proposals.to_rule(record, "property", GENERAL)
+    assert problem is None and rule.source.clause == clause
+
+
+def test_a_single_code_where_the_catalogue_wants_a_list_is_a_list() -> None:
+    """U-A3: the model gave "x" for an outcome that is a list of codes (measures); it is ["x"]."""
+    record = rule_proposals.record_of(SET.rules["inv_flood_high"])
+    row = record.rows[0].model_copy(update={"then": [rule_proposals.ProposedOutcome(outcome="measures", value='"alarm"')]})
+    rule, problem = rule_proposals.to_rule(record.model_copy(update={"rows": [row]}), "property", GENERAL)
+    assert problem is None and rule.table.rows[0].then["measures"] == ["alarm"]
+
+
+def test_a_clause_numbered_again_under_an_extension_s_code_is_found_by_its_page() -> None:
+    """U-A3: an extension numbers its clauses from 1 again under its code ("I29 2" in the registry); the model cites
+    "2" on that page; on the cited page it is the code's clause."""
+    from jav.app.product_rules import ConditionDocument, Section
+
+    document = ConditionDocument(kind="special", title="Feltételek", valid_from="2024-09-01", sections=(
+        Section(clause="2", page=5), Section(clause="I29 1", page=14), Section(clause="I29 2", page=14), Section(clause="I28 2", page=15)))
+    rule = rule_proposals.to_rule(rule_proposals.record_of(SET.rules["inv_flood_high"]), "property", GENERAL)[0]
+    cited = rule.model_copy(update={"source": rule.source.model_copy(update={"page": 14, "clause": "2"})})
+    assert rule_proposals.on_its_page(cited, document).source.clause == "I29 2"
+    on_five = cited.model_copy(update={"source": cited.source.model_copy(update={"page": 5})})
+    assert rule_proposals.on_its_page(on_five, document).source.clause == "2"  # the main part's own clause stays

@@ -112,3 +112,12 @@ def test_letter_points_stand_beside_numbered_annexes() -> None:
     """U-A2 (the real protection rules): its "1/A." points and its numbered annexes are both clauses, in printed order."""
     assert _clauses({1: "1/A. Védelmi osztályok\n1/B. Vagyoncsoportok", 2: "1. Melléklet\n2. Melléklet\n3. Melléklet"}) == [
         "1/A", "1/B", "1", "2", "3"]
+
+
+def test_a_dash_after_the_number_and_a_misread_code_keep_their_clauses() -> None:
+    """U-A3 (the paid round's lesson): text recognition printed "2.2. — Afelek …" (a dash before the title) and an
+    extension's code as "(129)" for "(I29)"; the clause stays a clause, and the code is read as printed (the product's
+    source maps it to the real code)."""
+    pages = {1: "2. Tárgy\n2.1. Épületek\n2.2. — Afelek megállapodása hiányában",
+             2: "KIEGÉSZÍTŐ BIZTOSÍTÁS (129)\n1. Jelen kiegészítő biztosítás szerint\n2. Kizárások"}
+    assert _clauses(pages) == ["2", "2.1", "2.2", "129 1", "129 2"]

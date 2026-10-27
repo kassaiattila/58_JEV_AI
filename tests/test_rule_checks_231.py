@@ -122,3 +122,32 @@ def test_the_documents_read_back_from_their_pdfs_give_the_same(tmp_path) -> None
         from_pdf = rule_checks.check(rule, pages, document_ref=f"{doc_id}@1", document=SET.documents[doc_id].content)
         assert _texts(from_pdf) == _texts(_check(rule)), ident
         assert from_pdf.numbers == _check(rule).numbers, ident
+
+
+def _misread(text: str) -> str:
+    """Text recognition's kind of errors: an accent lost, one letter for another, two words run together."""
+    return text.replace("á", "a", 2).replace("e", "c", 1).replace(" a ", " a", 1)
+
+
+def test_a_quote_on_a_page_text_recognition_read_matches_roughly_for_a_person_to_compare() -> None:
+    """U-A3 (the paid round's lesson): on the all risks conditions, read by text recognition, the model quoted the words
+    as they are printed, while the recognised text had misread letters; 17 of 27 proposals were blocked as quoting words
+    the document did not have. On a recognised page a close quote is found, for a person to compare; on a page with a
+    text layer it must be there as printed, apart from a word broken at the line's end."""
+    rule = SET.rules["inv_valuables_sublimit"]
+    rows = product_sets.document_pages(SET, "inv_burglary_conditions")
+    misread = [[_misread(line) for line in page] for page in rows]
+    pages = page_text.DocumentPages(**(page_text.from_rows(misread, MARKERS).__dict__ | {"ocr_pages": frozenset({1, 2})}))
+    texts = _texts(_check(rule, pages=pages))
+    assert "attention: its quote matches page 1 only roughly (text recognition): a person compares it" in texts
+    assert not any(t.startswith("blocking: its quote") for t in texts)
+    as_text = page_text.from_rows(misread, MARKERS)  # the same words on a page with a text layer
+    assert "blocking: its quote is not in the document" in _texts(_check(rule, pages=as_text))
+
+
+def test_a_word_broken_at_the_line_s_end_is_the_same_word() -> None:
+    """U-A3: "vagyon-\nvédelmi" in the page is "vagyonvédelmi" in a quote."""
+    rule = _changed("inv_valuables_sublimit", source__quote="értéktárgyak")
+    rows = product_sets.document_pages(SET, "inv_burglary_conditions")
+    broken = [[line.replace("értéktárgyak", "érték-\ntárgyak") for line in page] for page in rows]
+    assert not any("quote" in t for t in _texts(_check(rule, pages=page_text.from_rows(broken, MARKERS))))

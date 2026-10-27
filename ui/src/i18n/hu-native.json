@@ -3391,5 +3391,8 @@
   "the example material stays: the cases {{cases}} keep it": "a példaanyag marad: ezek az ügyek őrzik: {{cases}}",
   "the example material stays: the rule proposal runs {{runs}} name it": "a példaanyag marad: ezek a szabályjavaslat-futások nevezik meg: {{runs}}",
   "Choose a process on the left: its form opens here.": "Válassz bal oldalt egy folyamatot: az űrlapja itt nyílik meg.",
-  "the product source cannot be read: {{problems}}": "a termékforrás nem olvasható be: {{problems}}"
+  "the product source cannot be read: {{problems}}": "a termékforrás nem olvasható be: {{problems}}",
+  "its quote matches page {{page}} only roughly (text recognition): a person compares it": "az idézete csak közelítőleg egyezik a(z) {{page}}. oldallal (szövegfelismerés): egy személy összeveti",
+  "only a finished run is checked again, not one {{state}}": "csak lezárt futás ellenőrizhető újra, ez most: {{state}}",
+  "a run is checked again against a version of its own document, not {{document}}": "egy futás csak a saját iratának egy változatával ellenőrizhető újra, ezzel nem: {{document}}"
 }
