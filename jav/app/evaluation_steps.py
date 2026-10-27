@@ -11,8 +11,9 @@ with them: never a default. The cover modules evaluated and priced are the ones 
 unit, `requested_modules` by default); an input that does not say them has the rules of every module evaluated, names
 the missing fact and is not priced.
 
-- `EVALUATION` (`rule_evaluation@1`): params `from_step` (a field check), `modules_fact`; result: the record's version,
-  the input version, the verdict, the missing facts, the blockers, the product and the modules.
+- `EVALUATION` (`rule_evaluation@1`): params `from_step` (a field check), `modules_fact`, `sums` (U-A6: named sums of a
+  money fact over the input's units); result: the record's version, the input version, the verdict, the missing facts,
+  the blockers, the product, the modules and the named sums.
 - `RATING` (`rating@1`): params `from_step` (a rule evaluation), `tariff` (kept at its version at the start); result: the
   record's version, the total, the tariff.
 - `record(case_id, step, version)`: a step's record as kept; `records(case_id, step)`: all of them, the newest first.
@@ -34,6 +35,7 @@ from jav.core import store, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.measures import Money
 from jav.core.process import kinds
+from jav.core.user_messages import explained
 
 __all__ = ["EVALUATION", "RATING", "EvaluationResult", "RatingResult", "record", "records", "register", "unit_names"]
 
@@ -73,6 +75,9 @@ class RuleEvaluation(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     from_step: str = capabilities.step_ref(min_length=1, of="field_check", expects=_Frozen)
     modules_fact: str = Field("requested_modules", min_length=1, title="The fact naming the cover modules asked for")
+    # U-A6: {name: money fact}: each fact's amounts over the input's units summed, a part of the result under its name
+    # (the case's total sum insured, for a decision's limit)
+    sums: dict[str, str] = Field(default_factory=dict, title="Named sums of a money fact over the input's units")
 
 
 class Rating(BaseModel):
@@ -91,6 +96,7 @@ class EvaluationResult(capabilities.Result):
     blockers: list[str]
     product: str
     modules: list[str]
+    sums: dict[str, Money] = Field(default_factory=dict)  # U-A6: the sums the pack names
 
 
 class RatingResult(capabilities.Result):
@@ -235,7 +241,24 @@ def _unsaid(cat: facts.Catalogue, verdict: str | None) -> str | None:
 
 def _summary(n: int, input_version: int, content: dict[str, Any]) -> dict[str, Any]:
     return {"version": n, "input_version": input_version, "verdict": content["verdict"], "missing": content["missing_named"],
-            "blockers": content["blockers"], "product": content["product"], "modules": content["modules"]}
+            "blockers": content["blockers"], "product": content["product"], "modules": content["modules"]} | (
+        {"sums": content["sums"]} if "sums" in content else {})
+
+
+def _sums(checked: facts.CheckedInput, cat: facts.Catalogue, named: dict[str, str]) -> dict[str, Any]:
+    """U-A6: each named money fact's amounts over the input's units, summed in its one currency (none: zero)."""
+    out: dict[str, Any] = {}
+    for name, fact in named.items():
+        d = cat.facts.get(fact)
+        if d is None or d.type != "money":
+            raise explained(facts.FactError, "the sum {{name}} adds {{fact}}, which is no money fact of the catalogue",
+                            name=name, fact=fact)
+        amounts = [u.facts[fact] for u in checked.units if fact in u.facts]
+        if len({a.currency for a in amounts}) > 1:
+            raise explained(facts.FactError, "the sum {{name}} adds amounts in more than one currency; nothing is converted",
+                            name=name)
+        out[name] = rule_evaluation.plain(sum(amounts, Money(amount="0", currency=amounts[0].currency if amounts else d.currency)))
+    return out
 
 
 def _evaluate(ctx: Any, params: RuleEvaluation) -> kinds.StepOutcome:
@@ -258,7 +281,11 @@ def _evaluate(ctx: Any, params: RuleEvaluation) -> kinds.StepOutcome:
     if not said:
         top = next(u.unit_id for u in checked.units if u.parent_id is None)
         missing = [(top, params.modules_fact), *missing]
-    content = rule_evaluation.to_json(evaluation) | {
+    try:
+        sums = _sums(checked, cat, params.sums)
+    except facts.FactError as exc:
+        return kinds.Fail(str(exc))
+    content = rule_evaluation.to_json(evaluation) | ({"sums": sums} if params.sums else {}) | {
         "modules": list(modules), "modules_said": said, "input_step": params.from_step,
         "verdict": evaluation.verdict if said else _unsaid(cat, evaluation.verdict),
         "missing_named": [{"unit_id": u, "fact": f, "title": cat.facts[f].title if f in cat.facts else f} for u, f in missing]}

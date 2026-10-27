@@ -23,6 +23,7 @@ ANNA = "Minta Anna"
 SRC = {"item": "invented-document", "page": 1}
 SET = product_sets.load()
 CASES = {case.id: case for case in SET.cases}
+SUMS = {"sum_insured_total": "sum_insured"}
 
 
 class _Offer(BaseModel):
@@ -42,7 +43,8 @@ def _claims(case: product_sets.Case, *, modules: bool = True) -> list[dict]:
     return out
 
 
-def _pack(pid: str, claims: list[dict]) -> dict:
+def _pack(pid: str, claims: list[dict], sums: dict[str, str] | None = None) -> dict:
+    evaluate = {"from_step": "check"} | ({"sums": sums} if sums else {})
     return {"meta": {"name": f"process:{pid}", "version": "1.0.0"}, "id": pid, "title": "Invented evaluation",
             "intake": [{"on": "manual", "starts": "manual"}],
             "resources": {"product": "inv_business_property", "tariff": "inv_business_property_tariff"},
@@ -50,7 +52,7 @@ def _pack(pid: str, claims: list[dict]) -> dict:
             "steps": [{"id": "read", "uses": "invented_offer@1", "params": {"claims": claims}},
                       {"id": "check", "uses": "field_check@1", "params": {"catalogue": "property", "product": "@product"},
                        "after": ["read"]},
-                      {"id": "evaluate", "uses": "rule_evaluation@1", "params": {"from_step": "check"}, "after": ["check"]},
+                      {"id": "evaluate", "uses": "rule_evaluation@1", "params": evaluate, "after": ["check"]},
                       {"id": "rate", "uses": "rating@1", "params": {"from_step": "evaluate", "tariff": "@tariff"},
                        "after": ["evaluate"]}],
             "screens": {"tabs": [{"id": "history", "label": "History", "elements": [{"type": "timeline"}]}]}}
@@ -65,6 +67,7 @@ def packs(monkeypatch, tmp_path):
         run=lambda ctx, p: kinds.Done({"claims": p.claims}), state="step", output=capabilities.Result))
     data = {f"process:invented_eval_{cid}": _pack(f"invented_eval_{cid}", _claims(case)) for cid, case in CASES.items()}
     data["process:invented_eval_unsaid"] = _pack("invented_eval_unsaid", _claims(CASES["reference"], modules=False))
+    data["process:invented_eval_sums"] = _pack("invented_eval_sums", _claims(CASES["reference"]), sums=SUMS)
     real = cfg.load
     monkeypatch.setattr(cfg, "load", lambda name: data[name] if name in data else real(name))
     with store.use_store(tmp_path / "evaluation.sqlite"):
@@ -141,3 +144,12 @@ def test_an_input_that_does_not_say_its_modules_is_unknown_and_not_priced(packs)
     assert evaluated["verdict"] == rule_evaluation.UNKNOWN and evaluated["modules"] == []
     assert evaluated["missing"][0]["fact"] == "requested_modules"
     assert steps["rate"]["state"] == "failed" and "requested_modules" in steps["rate"]["note"]
+
+
+def test_a_named_sum_of_a_money_fact_over_the_units_is_part_of_the_result(packs) -> None:
+    """231 (U-A6): a pack names a sum of a money fact over the input's units (the case's total sum insured), for a
+    decision's limit to compare; the result of a pack that names none is as before."""
+    want = sum(int(u["facts"]["sum_insured"]["amount"]) for u in CASES["reference"].input["units"] if "sum_insured" in u["facts"])
+    evaluated = engine.state(_frozen_case("invented_eval_sums"))["steps"]["evaluate"]["result"]
+    assert evaluated["sums"] == {"sum_insured_total": {"amount": str(want), "currency": "HUF"}}
+    assert "sums" not in engine.state(_frozen_case("invented_eval_reference"))["steps"]["evaluate"]["result"]
