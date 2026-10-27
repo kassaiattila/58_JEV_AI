@@ -1,7 +1,7 @@
 // The connection to the local service (jav/service/api.py): one address (/api), so no cross-origin request; on error an
 // `ApiError` with the service's error code and message. The person working, sent with every request.
 import { t } from "../i18n";
-import type { Blocker } from "./types";
+import type { Blocker, Said } from "./types";
 import type { OutputTemplateCheck } from "./outputs";
 
 /** 231 (C3e): the check a refused upload names every problem with (`ApiError.check`), by its kind; a domain adds its
@@ -16,8 +16,9 @@ export class ApiError extends Error {
     message: string,
     public blockers: Blocker[] = [],
     /** 153: the field a correction's value could not be read in, and its kind (money, number or date); 231 (B1): the
-     *  identifier of the existing thing a conflict names (`other_id`) */
-    public detail: { field?: string | null; kind?: string | null; other?: string | null } = {},
+     *  identifier of the existing thing a conflict names (`other_id`); stage D (D-c6): every problem of a version that
+     *  could not be made active (`manifest_refused`) */
+    public detail: { field?: string | null; kind?: string | null; other?: string | null; problems?: Said[] | null } = {},
     /** 179: a refused output template's check (`template_refused`), naming every problem; 191: or a refused price
      *  list's (`price_list_refused`) */
     public check: UploadCheck | null = null,
@@ -143,7 +144,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
   }
   if (!res.ok) {
     const d = (data ?? {}) as { error?: string; message?: string; detail?: unknown; blockers?: Blocker[]; field?: string; kind?: string;
-      template?: string; params?: Record<string, string>; check?: UploadCheck; other_id?: string };
+      template?: string; params?: Record<string, string>; check?: UploadCheck; other_id?: string; problems?: Said[] };
     const missingActor = Array.isArray(d.detail) && d.detail.some((x) => Array.isArray(x?.loc) && x.loc.includes("x-actor"));
     // 167 (review 160 U-1): a message the service wrote as a template is translated like the interface's own labels
     const message = missingActor ? t(NO_ACTOR) : d.error === "unknown_user" ? t(UNKNOWN_ACTOR)
@@ -152,7 +153,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
       : Array.isArray(d.detail) ? t("The service refused a value: {{fields}}", { fields: refusedFields(d.detail) })
       : d.message ?? (typeof d.detail === "string" ? d.detail : `HTTP ${res.status}`);
     throw new ApiError(res.status, d.error ?? (res.status === 422 ? "invalid" : "error"), message, d.blockers ?? [],
-      { field: d.field ?? null, kind: d.kind ?? null, other: d.other_id ?? null }, d.check ?? null);
+      { field: d.field ?? null, kind: d.kind ?? null, other: d.other_id ?? null, problems: d.problems ?? null }, d.check ?? null);
   }
   return data as T;
 }

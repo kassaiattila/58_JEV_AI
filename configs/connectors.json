@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "connectors",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "231 (plan stage C, C2a; glossary: Connector): the external services the system asks, one description each (jav/core/connectors.py). A lookup asks without changing the other system; every question goes into the call log under the connector's name, and what leaves the machine is listed in `sends`. A free lookup whose answer was lost is a plain failure (asked again later); a priced one reserves its price from the running work's budget. A message that changes another system is not a connector's question: it goes through the process core's handover record.",
     "changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-10-26",
+        "note": "231 D-d5: two invented lookups on this machine for the tests and the trial (jav/devtools/invented_services.py, `python -m jav.cli invented-services`, port 8941): a company register asked with a tax number and a sanctions list asked with a company name and a tax number; free, answers in JSON, one retry after a second."
+      },
       {
         "version": "1.0.0",
         "date": "2026-10-25",
@@ -12,6 +17,32 @@
     ]
   },
   "connectors": {
+    "invented_company_register": {
+      "what": "An invented company register on this machine, for the tests and the trial (configs/golden_registers.json)",
+      "kind": "lookup",
+      "url": "http://127.0.0.1:8941/company",
+      "headers": {"Content-Type": "application/json"},
+      "sends": ["a tax number"],
+      "price_usd": "0",
+      "timeout_s": 5,
+      "retries": 1,
+      "retry_wait_s": 1,
+      "max_per_minute": 60,
+      "max_response_bytes": 100000
+    },
+    "invented_sanctions_list": {
+      "what": "An invented sanctions list on this machine, for the tests and the trial (configs/golden_registers.json)",
+      "kind": "lookup",
+      "url": "http://127.0.0.1:8941/sanctions",
+      "headers": {"Content-Type": "application/json"},
+      "sends": ["a company name", "a tax number"],
+      "price_usd": "0",
+      "timeout_s": 5,
+      "retries": 1,
+      "retry_wait_s": 1,
+      "max_per_minute": 60,
+      "max_response_bytes": 100000
+    },
     "mnb_rates": {
       "what": "The Hungarian central bank's official daily exchange rates (GetExchangeRates, SOAP 1.1 over plain HTTP; DECISIONS 130)",
       "kind": "lookup",

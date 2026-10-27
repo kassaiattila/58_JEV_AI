@@ -24,12 +24,12 @@ COMMANDS = {
     "calls-resolve", "calls-uncertain", "candidates", "configs", "data-guard", "deps-audit", "detect", "detect-corpus",
     "detect-determinism", "detect-golden", "detect-sample", "determinism", "docs", "duplicates", "email",
     "email-determinism", "email-golden", "email-inbox", "email-ingest-server", "email-injection-probe", "email-sample",
-    "eval-report", "flows", "fx-rates", "golden", "hooks-install", "lang-guard", "legacy-compare", "legacy-import",
+    "eval-report", "flows", "fx-rates", "golden", "hooks-install", "invented-services", "lang-guard", "legacy-compare", "legacy-import",
     "measure", "ocr", "ocr-rekey",
     "output-template-activate", "output-template-add", "output-template-choose", "output-template-preview",
     "output-template-retire", "output-templates", "own-tax", "package-versions-backfill", "preflight",
-    "processing-migrate", "recall", "recipes", "reconcile", "reconcile-ai", "reconcile-versions-backfill", "reground",
-    "rules-preview", "run", "run-approve", "run-cancel", "run-list", "run-names", "run-show", "run-start", "serve", "snapshot",
+    "processing-migrate", "product-set", "recall", "recipes", "reconcile", "reconcile-ai", "reconcile-versions-backfill", "reground",
+    "rule-proposal-decide", "rule-proposals", "rule-propose", "rules-preview", "run", "run-approve", "run-cancel", "run-list", "run-names", "run-show", "run-start", "serve", "snapshot",
     "statement-table",
     "store", "test-worktree", "trace", "type-activate", "type-candidate", "type-propose", "type-withdraw",
     "verifier-probe", "worker", "worker-status", "worker-stop", "wp-assign", "wp-create", "wp-list", "wp-show",
@@ -49,7 +49,8 @@ def _registered() -> dict[str, dict[str, argparse.ArgumentParser]]:
 def test_the_command_line_has_the_same_commands_as_before_the_split():
     registered = _registered()
     names = [c for commands in registered.values() for c in commands]
-    assert len(names) == len(set(names)) == 82  # 231: test-worktree; C1c: cases-adopt; D0-e: cases-kept
+    assert len(names) == len(set(names)) == 87  # 231: test-worktree; C1c: cases-adopt; D0-e: cases-kept; D-c5: product-set;
+    # D-c7e: rule-propose, rule-proposals, rule-proposal-decide; D-d5: invented-services
     assert set(names) == COMMANDS
 
 

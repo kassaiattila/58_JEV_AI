@@ -13,6 +13,8 @@ for byte years later, and two snapshots show which files changed between them.
   (`jav.runtime.preload` asks for it at start-up).
 - `link_in(c, kind, subject)` stores the current snapshot (only the contents not stored yet) and links it to the
   subject; `of`, `get`, `changes` and `content` read them back.
+- `later_in`, `store_content_in` (stage D, D-a): a file's contents stored after a given one, in order (where a key added
+  since a case started takes the value it came with); a content a case read, stored under `<path>#effective`.
 
 Limits: the commit names the code only when the working tree was clean (`dirty` says when it was not); a non-JSON
 file read lazily after start-up and changed on disk in between is not the content the snapshot names.
@@ -164,6 +166,25 @@ def link_in(c: sqlite3.Connection, kind: str, subject: str, snapshot: Snapshot |
     return sid
 
 
+EFFECTIVE = "#effective"  # D-a: the mark of a stored content a case read (its kept copy with the keys added since)
+
+
+def later_in(c: sqlite3.Connection, path: str, sha256: str) -> list[bytes]:
+    """Stage D (D-a): the contents of the file at `path` stored after the one with this fingerprint, oldest first (a
+    process stores its configs when it starts, `jav.runtime.preload`); none when that one is not stored."""
+    return [bytes(r["content"]) for r in c.execute(
+        "SELECT content FROM rule_files WHERE path=? AND rowid > (SELECT rowid FROM rule_files WHERE sha256=?) ORDER BY rowid",
+        (path, sha256))]
+
+
+def store_content_in(c: sqlite3.Connection, path: str, version: str | None, content: bytes) -> str:
+    """D-a: one content stored by its fingerprint (once), under `path`; returns the fingerprint."""
+    sha = hashlib.sha256(content).hexdigest()
+    c.execute("INSERT INTO rule_files(sha256, path, version, content, first_seen_at, first_commit) VALUES (?,?,?,?,?,?)"
+              " ON CONFLICT(sha256) DO NOTHING", (sha, path, version, content, _now(), None))
+    return sha
+
+
 def run_item_subject(run_id: str, item_id: str) -> str:
     return f"{run_id}/{item_id}"
 
@@ -220,5 +241,5 @@ def content_in(c: sqlite3.Connection, sha256: str) -> bytes | None:
     return bytes(row["content"]) if row else None
 
 
-__all__ = ["CASE", "PACKAGE_VERSION", "RUN", "RUN_ITEM", "RuleFile", "Snapshot", "changes", "content_in", "current",
-           "get_in", "link_in", "of_in", "of_run_in", "reset", "run_item_subject", "store_in", "take"]
+__all__ = ["CASE", "EFFECTIVE", "PACKAGE_VERSION", "RUN", "RUN_ITEM", "RuleFile", "Snapshot", "changes", "content_in", "current",
+           "get_in", "later_in", "link_in", "of_in", "of_run_in", "reset", "run_item_subject", "store_content_in", "store_in", "take"]

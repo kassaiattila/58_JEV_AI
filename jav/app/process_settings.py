@@ -38,9 +38,9 @@ from jav.core import cfg, identity, store, trace, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
-__all__ = ["CONFIG", "KINDS", "RESOURCE", "RULE", "SettingError", "SettingRefused", "UnknownSetting", "activate",
+__all__ = ["CONFIG", "KINDS", "RESOURCE", "RULE", "MissingAtStart", "SettingError", "SettingRefused", "UnknownSetting", "activate", "at_start",
            "effective_resources", "effective_rules", "may_activate", "policy", "preview", "propose", "resource_info", "retire",
-           "rule_keys", "view"]
+           "kept_resources", "kept_view", "rule_keys", "view"]
 
 CONFIG = "process_settings"
 RESOURCE = "resource"  # a value over a pack's resource (B2)
@@ -74,6 +74,10 @@ CREATE TABLE IF NOT EXISTS process_setting_versions (
 );
 CREATE INDEX IF NOT EXISTS ix_process_settings_pack ON process_setting_versions(pack_id, state);
 """)
+
+
+class MissingAtStart(ValueError):
+    """Stage D (D-a): a case of the pack cannot start: a resource it needs at its start has no version to keep."""
 
 
 class SettingError(ValueError):
@@ -159,6 +163,29 @@ def kept_resources(pack: process_packs.ProcessPack, resources: dict[str, str]) -
     return {key: keepers[key].kept(value) if key in keepers else value for key, value in resources.items()}
 
 
+def at_start(pack: process_packs.ProcessPack) -> process_packs.ProcessPack:
+    """Stage D (D-a; the reassessment after D0, P04): the pack as a case starts it: its resources at the versions it keeps
+    (`kept_resources`), and a step parameter naming a versioned thing itself (a price list's id or `newest_active`,
+    not a resource) at its version now too. `MissingAtStart` when a resource the pack needs at its start
+    (`needs_at_start`) has no version to keep (none is active): the case does not start, rather than read another
+    version later."""
+    keepers = _keepers(pack)
+    resources = kept_resources(pack, effective_resources(pack))
+    missing = [key for key in pack.needs_at_start if key in keepers and not keepers[key].resolved(str(resources.get(key, "")))]
+    if missing:
+        names = ", ".join("Output template" if k.startswith(TEMPLATE_PREFIX) else _param_title(pack, k) for k in missing)
+        raise explained(MissingAtStart, "the case cannot start: {{what}} has no active version to keep", what=names)
+    steps = [step.model_copy(update={"params": _kept_params(step)}) for step in pack.steps]
+    return pack.model_copy(update={"resources": resources, "steps": tuple(steps)})
+
+
+def _kept_params(step: Any) -> dict[str, Any]:
+    """D-a: a step's parameters with each one naming a versioned thing itself (not `@<resource>`) at its version now."""
+    cap = capabilities.of(step.uses)
+    return {name: cap.at_start[name].kept(value) if name in cap.at_start and isinstance(value, str) and not value.startswith("@")
+            else value for name, value in (step.params or {}).items()}
+
+
 def kept_view(pack: process_packs.ProcessPack, resources: dict[str, Any]) -> list[dict[str, Any]]:
     """D0-e: the versioned resources a case keeps, as its history shows them: {key, label, name, version}."""
     keepers = _keepers(pack)
@@ -179,8 +206,9 @@ def _keepers(pack: process_packs.ProcessPack) -> dict[str, capabilities.AtStart]
         for param, value in (step.params or {}).items():
             if isinstance(value, str) and value.startswith("@") and param in cap.at_start:
                 found.setdefault(value[1:], cap.at_start[param])
-    found.update({key: capabilities.AtStart(templates.kept, templates.named) for key in pack.resources
-                  if key.startswith(TEMPLATE_PREFIX)})
+    found.update({key: capabilities.AtStart(templates.kept, templates.named,
+                                            resolved=lambda value: value == templates.BUILTIN or "@" in value)
+                  for key in pack.resources if key.startswith(TEMPLATE_PREFIX)})
     return found
 
 

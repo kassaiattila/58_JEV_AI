@@ -10,6 +10,10 @@ log, the command line and the existing callers.
 Every template must be a translated interface label: an identity entry in `ui/src/i18n/en-native.json` and a
 Hungarian one in `hu-native.json` (checked by `tests/test_user_messages_167.py`). A template is a single literal, so
 the check can find it; the values go into the parameters, never into the template.
+
+231 (stage D, D-c6): a sentence a person reads that is not an error - a problem a check lists - is built with
+`said(...)` the same way (`Said`: a `str` with its template and parameters), with where it applies (`within`, another
+`Said`, shown before it: "rule x@1: row 2: ..."); `said_fields` gives the service's form of it.
 """
 
 from __future__ import annotations
@@ -27,17 +31,23 @@ def fill(template: str, params: dict[str, str]) -> str:
     return _SLOT.sub(lambda m: params[m.group(1)], template)
 
 
-def explained(exc_type: type[E], template: str, /, *args: Any, **params: Any) -> E:
-    """An exception of `exc_type` whose message is `template` filled with `params` (each turned into text), carrying
-    `template` and `params` for the interface. Further positional arguments go to the exception after the message
-    (for example the blockers of `work.NotReady`). A slot without a parameter or a parameter without a slot is a
-    programming error."""
+def _values(template: str, params: dict[str, Any]) -> dict[str, str]:
+    """The parameters as text; a slot without a parameter or a parameter without a slot is a programming error."""
     values = {k: str(v) for k, v in params.items()}
     slots = set(_SLOT.findall(template))
     if slots - values.keys():
         raise KeyError(f"missing parameter(s) for the message template: {sorted(slots - values.keys())}")
     if values.keys() - slots:
         raise TypeError(f"parameter(s) not in the message template: {sorted(values.keys() - slots)}")
+    return values
+
+
+def explained(exc_type: type[E], template: str, /, *args: Any, **params: Any) -> E:
+    """An exception of `exc_type` whose message is `template` filled with `params` (each turned into text), carrying
+    `template` and `params` for the interface. Further positional arguments go to the exception after the message
+    (for example the blockers of `work.NotReady`). A slot without a parameter or a parameter without a slot is a
+    programming error."""
+    values = _values(template, params)
     exc = exc_type(fill(template, values), *args)
     exc.template = template  # type: ignore[attr-defined]
     exc.params = values  # type: ignore[attr-defined]
@@ -51,3 +61,54 @@ def message_fields(exc: BaseException) -> dict[str, Any]:
     if not isinstance(template, str):
         return {}
     return {"template": template, "params": dict(getattr(exc, "params", {}) or {})}
+
+
+class Said(str):
+    """231 (stage D, D-c6): a sentence a person reads (a problem a check lists): the filled English text, a `str` as
+    such problems were before, with its template and parameters for the interface's language and where it applies
+    (`within`, shown before it)."""
+
+    template: str
+    params: dict[str, str]
+    within: Said | None
+
+
+def _said(template: str, values: dict[str, str], within: Said | None) -> Said:
+    text = fill(template, values)
+    out = Said(f"{within}: {text}" if within is not None else text)
+    out.template, out.params, out.within = template, values, within
+    return out
+
+
+def said(template: str, /, *, within: Said | None = None, **params: Any) -> Said:
+    """The sentence `template` filled with `params`, said within `within` (a literal template, as `explained`'s)."""
+    return _said(template, _values(template, params), within)
+
+
+def inside(outer: Said, inner: Said) -> Said:
+    """`inner` said within `outer` too (the outermost first)."""
+    return _said(inner.template, inner.params, inside(outer, inner.within) if inner.within is not None else outer)
+
+
+def said_from(exc: BaseException, *, within: Said | None = None) -> Said:
+    """An error as a sentence a person reads: one built by `explained` keeps its template; another its text."""
+    template = getattr(exc, "template", None)
+    if isinstance(template, str):
+        return _said(template, dict(getattr(exc, "params", {}) or {}), within)
+    return _said(str(exc).replace("{{", "{ {"), {}, within)
+
+
+def said_fields(text: str) -> dict[str, Any]:
+    """A sentence in the service's form: its text, and for a `Said` its template, parameters and where it applies."""
+    if not isinstance(text, Said):
+        return {"text": str(text)}
+    return {"text": str(text), "template": text.template, "params": dict(text.params),
+            "within": said_fields(text.within) if text.within is not None else None}
+
+
+def said_back(fields: dict[str, Any]) -> Said:
+    """231 (D-c7e): a sentence again from its service form (`said_fields`), as it was stored."""
+    within = said_back(fields["within"]) if fields.get("within") else None
+    if isinstance(fields.get("template"), str):
+        return _said(fields["template"], {k: str(v) for k, v in (fields.get("params") or {}).items()}, within)
+    return _said(str(fields.get("text", "")).replace("{{", "{ {"), {}, within)

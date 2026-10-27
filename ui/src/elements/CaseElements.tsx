@@ -31,7 +31,8 @@ function StepActions({ p, primary }: { p: ElementProps; primary?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const step = p.element.step;
-  const actions = (step && p.page.steps[step]?.actions) || [];
+  // D-f2: an action with a form is its step's own element's, not a button here
+  const actions = ((step && p.page.steps[step]?.actions) || []).filter((a) => !a.form);
   if (!step || !actions.length) return null;
   const act = async (name: string) => {
     setBusy(true);

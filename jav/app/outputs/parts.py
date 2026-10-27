@@ -123,12 +123,20 @@ class OwnOutput:
 class VersionDocument:
     """D0-c: the output an approved own version is printed into: `data(content, package=, version=, approved_by=,
     approved_at=, output=)` builds the output's data from the version's content as it was approved; `file(wp_id, n,
-    package)` (optional) is the document stored with version `n` and its name (a letter attaches it)."""
+    package)` (optional) is the document stored with version `n` and its name (a letter attaches it). D-f7: with
+    `reads_case`, `data` takes the case too (`case_id=`: it reads the case's other records); without `file`, the shared
+    priced document stores the document with the version, named by `name(content, package, n)`."""
 
     output: str
     module: str
     data: Callable[..., contract.OutputData]
     file: Callable[[str, int, str], tuple[bytes, str]] | None = None
+    reads_case: bool = False
+    name: Callable[[dict[str, Any], str, int], str] | None = None
+
+    def build(self, content: dict[str, Any], *, case_id: str, **values: Any) -> contract.OutputData:
+        """D-f7: the output's data from a version's content; the case goes to a builder that reads it."""
+        return self.data(content, **values, **({"case_id": case_id} if self.reads_case else {}))
 
 
 class UnknownOutput(KeyError):

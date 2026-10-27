@@ -66,9 +66,10 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
 
     pack = process_packs.load(pack_id)
     checked = scopes.check(pack.scope.needs(), scope, optional=pack.scope.optional)
-    resources = process_settings.kept_resources(pack, process_settings.effective_resources(pack))
+    kept = process_settings.at_start(pack)  # D-a: before anything is made, so a refused start leaves nothing
+    resources = kept.resources
     rules, rule_refs = process_settings.effective_rules(pack)
-    definition = process_packs.definition(pack.model_copy(update={"resources": resources}))
+    definition = process_packs.definition(kept)
     wp = work.create_workpackage(name=name, source_kind=CONTAINER, source_ref=f"pack:{pack.id}@{pack.version}", owner=actor)
     case_id = wp["id"]
     data = {"pack": pack.id, "pack_version": pack.version, "container": case_id, "name": wp["name"], "scope": checked,
@@ -83,8 +84,17 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
 
 
 def _kept_rule_files(pack: process_packs.ProcessPack) -> list[str]:
-    """D0-e: the rule files a case of the pack reads as it started: those its steps' capabilities read."""
-    return sorted({name for step in pack.steps for name in capabilities.of(step.uses).rule_files})
+    """D0-e: the rule files a case of the pack reads as it started: those its steps' capabilities read. D-d1: and those a
+    step reads by its parameters (a fact catalogue a parameter names; a parameter naming a resource reads its value)."""
+    names: set[str] = set()
+    for step in pack.steps:
+        cap = capabilities.of(step.uses)
+        names |= set(cap.rule_files)
+        if cap.reads is not None:
+            params = {k: pack.resources.get(v[1:], v) if isinstance(v, str) and v.startswith("@") else v
+                      for k, v in (step.params or {}).items()}
+            names |= set(cap.reads(params))
+    return sorted(names)
 
 
 def kept_of(case_id: str) -> dict[str, Any] | None:
@@ -149,9 +159,10 @@ def adopt_case(pack_id: str, wp_id: str, scope: dict[str, Any], *, actor: identi
     pack = process_packs.load(pack_id)
     checked = scopes.check(pack.scope.needs(), scope, optional=pack.scope.optional)
     wp = work.get(wp_id)
-    resources = process_settings.kept_resources(pack, process_settings.effective_resources(pack))  # D0-e
+    kept = process_settings.at_start(pack)  # D0-e, D-a
+    resources = kept.resources
     rules, rule_refs = process_settings.effective_rules(pack)
-    definition = process_packs.definition(pack.model_copy(update={"resources": resources}))
+    definition = process_packs.definition(kept)
     states = {}
     for step in pack.steps:
         cap = capabilities.of(step.uses)
@@ -242,9 +253,10 @@ def _wrap(pack: process_packs.ProcessPack, wp_id: str, *, step_id: str, package_
     wp = work.get(wp_id)
     scope = {**scope, package_part: {"kind": "package", "workpackage_id": wp_id}}
     checked = scopes.check(pack.scope.needs(), scope, optional=pack.scope.optional)
-    resources = process_settings.kept_resources(pack, process_settings.effective_resources(pack))  # D0-e
+    kept = process_settings.at_start(pack)  # D0-e, D-a
+    resources = kept.resources
     rules, rule_refs = process_settings.effective_rules(pack)
-    definition = process_packs.definition(pack.model_copy(update={"resources": resources}))
+    definition = process_packs.definition(kept)
     params = definition.step(step.id).params
     who = identity.who(actor)
     owner = identity.who(wp["owner"]) if wp.get("owner") else who

@@ -186,7 +186,10 @@ def measurement(scope: str, limits: dict[str, Decimal], *, reuse: bool = False):
     budgeted a provider this one gives none: then the name gets a suffix, so that provider stays uncallable here. The
     scope actually used is yielded. 160-D: `reuse` lets the measurement reuse an earlier answer to the same question
     (090), free and without a budget, as a work run does; a golden measurement passes its cache setting, a determinism
-    measurement never reuses. At the end it prints how many calls were live and how many answers were reused."""
+    measurement never reuses. At the end it prints how many calls were live and how many answers were reused. 231
+    (D-h): at its start it names a budgeted provider whose key this environment lacks (a live call to it is refused)."""
+    for provider in missing_keys(limits):
+        print(KEY_MISSING_NOTE.format(provider=PROVIDER_NAMES.get(provider, provider)), flush=True)
     scope = _fresh_scope(scope, set(limits))
     for provider, limit in limits.items():
         set_budget(scope, provider, limit)
@@ -197,6 +200,30 @@ def measurement(scope: str, limits: dict[str, Decimal], *, reuse: bool = False):
         counts = scope_calls(scope)
         if counts["live"] or counts["reused"]:
             print(scope_calls_text(counts), flush=True)
+
+
+KEY_MISSING_NOTE = ("No {provider} key in this environment: its budget cannot be spent, and every live {provider} call is "
+                    "refused and becomes the item's to-do. Give the key (the .env of the folder the command runs from, or the "
+                    "environment) and run again.")
+PROVIDER_NAMES = {"jev": "JEV", "openai": "OpenAI"}
+
+
+def missing_keys(limits: dict[str, Decimal]) -> list[str]:
+    """231 (D-h): the budgeted providers whose key this environment lacks (JEV's TypeSafe key, OpenAI's), in the
+    budget's order; a provider without a key of its own here (Azure) is not checked."""
+    from jav.core import config
+
+    checks = {"jev": config.get_api_key, "openai": config.get_openai_key}
+    missing = []
+    for provider in limits:
+        check = checks.get(provider)
+        if check is None:
+            continue
+        try:
+            check()
+        except config.MissingAPIKeyError:
+            missing.append(provider)
+    return missing
 
 
 def scope_calls(scope: str) -> dict[str, Any]:

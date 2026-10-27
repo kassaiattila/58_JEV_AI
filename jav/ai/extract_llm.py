@@ -26,10 +26,9 @@ from pydantic import BaseModel
 from pydantic_ai import Agent, NativeOutput, capture_run_messages
 from pydantic_ai.messages import ModelResponse
 from pydantic_ai.models.openai import OpenAIChatModelSettings
-from pydantic_ai.models.wrapper import WrapperModel
 from pydantic_ai.usage import UsageLimits
 
-from jav.ai import token_confidence
+from jav.ai import output_cap, token_confidence
 from jav.core import cfg, store
 from jav.core import calls
 from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, load_prompt, openai_chat_model, openai_cost, openai_price
@@ -96,27 +95,10 @@ def config_hash(pack: TypePack) -> str:
     return cfg.combine(pack.config_hash, cfg.config_hash("gpt_extract"))
 
 
-class OutputTruncated(RuntimeError):
-    """167 (review AI-7): the answer stopped at its output cap (finish reason `length`), so its JSON is cut off. Asked
-    again, it would stop at the same place and be paid again, so it is not retried; the item gets the `llm:truncated`
-    to-do. Carries the cut answer's model and usage, for the ledger."""
-
-    def __init__(self, model_name: str | None, usage: Any) -> None:
-        super().__init__("the extraction's answer reached its output token cap and was cut off")
-        self.model_name = model_name
-        self.usage = usage
-
-
-class StopOnTruncation(WrapperModel):
-    """167 (review AI-7): the extraction's model, unchanged on the wire. An answer cut off at the output cap ends the
-    run at once (`OutputTruncated`), instead of Pydantic AI's validation retries, each a paid request that would be
-    cut off again."""
-
-    async def request(self, messages, model_settings, model_request_parameters):
-        response = await super().request(messages, model_settings, model_request_parameters)
-        if response.finish_reason == "length":
-            raise OutputTruncated(response.model_name, response.usage)
-        return response
+# 167 (review AI-7): an answer cut off at its output cap ends the run at once (the item gets the `llm:truncated` to-do);
+# D-h: shared with every structured answer (`jav/ai/output_cap.py`), its names kept here for the extraction's callers
+OutputTruncated = output_cap.OutputTruncated
+StopOnTruncation = output_cap.StopOnTruncation
 
 
 def build_agent(pack: TypePack, model) -> Agent[None, BaseModel]:

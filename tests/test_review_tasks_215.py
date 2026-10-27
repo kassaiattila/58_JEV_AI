@@ -12,6 +12,7 @@ temporary store, no paid calls.
 
 from __future__ import annotations
 
+import time
 import uuid
 
 import pytest
@@ -263,11 +264,12 @@ def test_the_approval_of_a_workflows_reconciliation_moves_the_chain_on_at_the_wo
     _process_all()
     work_runs.approve_run(_steps(wf.view(wf_id))["statements"]["run_id"], actor="Example Person")
     assert engine.turn_due() == 2  # 231 (C3a-2): and the reconciliation case its step started
+    looked = time.time()  # the later looks at this moment: the step's check timer, 5 s on, never comes due in them
     wp_id = _steps(wf.view(wf_id))["reconcile"]["package"]["id"]
     assert _core(wf_id)["reconcile"] == "running:approval"
-    assert engine.turn_due() == 0
+    assert engine.turn_due(looked) == 0
     rs.approve(wp_id, fingerprint=rs.current(wp_id)["fingerprint"], actor="Example Person")
-    assert engine.turn_due() == 1  # no check timer came due: the approval's event moved it
+    assert engine.turn_due(looked) == 1  # no check timer came due: the approval's event moved it
     assert _core(wf_id)["reconcile"] == "done"
 
 

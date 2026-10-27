@@ -23,6 +23,9 @@ const SHARED: SettingsSectionSpec[] = [
   { key: "partners", label: "Partners", hint: "The outside parties of the processes: customers, suppliers, insured persons and brokers, each with its roles; every change is kept as a version", order: 40 },
   // 231 (B4): each process's own values over its file's: what it uses and the rule values its steps let it set
   { key: "processes", label: "Processes", hint: "Each process's own settings: the price list, template and send mode it uses and the rule values its steps let it set; a draft, its preview and making it active", order: 50 },
+  // 231 (stage D, D-c6): the product registry: what an offer is built from and what its premium is computed from
+  { key: "products", label: "Products", hint: "What an offer is built from: the products with their cover modules, the condition documents and the rules read from them, each kept as versions; a draft's checks and making it active", order: 54 },
+  { key: "tariffs", label: "Tariffs", hint: "What a premium is computed from: each cover module's rate per thousand, the factors, the minimums and the roundings, kept as versions", order: 56 },
   { key: "recipes", label: "Feldolgozás", hint: "Hogyan dolgozza fel a rendszer az iratokat és a leveleket, mit jelentenek a beállítások, mennyibe kerülnek", order: 60 },
   // 218 (plan G-process-core P3e, DECISIONS 222): how the system decides on its own, read only
   { key: "rules", label: "Rules", hint: "How the system decides on its own: each kind of decision, the values it decides with and the version of its rules in use", order: 70 },

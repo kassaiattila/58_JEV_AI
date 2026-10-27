@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "name": "letter_frames",
+    "version": "1.1.0",
+    "description": "231 (stage D, D-f8): the frames of a letter that goes with a printed document (jav/app/letters.py, letter@1): per frame its language, the subject, the greeting with the addressee's name and without one, the paragraphs, the closing and the email file's name. A marker {{key}} is a value of the printed document's output (configs/outputs.json), written by code in the frame's language as the document writes it; an unknown marker is left as it is and the letter cannot be accepted with one. The texts are document vocabulary (the letter a client reads). limits: the subject's and the body's length a person may accept.",
+    "changelog": [
+      {"version": "1.1.0", "date": "2026-10-27", "note": "231 (D-g): the renewal's covering letter in Hungarian."},
+      {"version": "1.0.0", "date": "2026-10-27", "note": "231 (D-f8): the first version: the insurance offer's covering letter in Hungarian."}
+    ]
+  },
+  "frames": {
+    "offer_letter": {
+      "language": "hu",
+      "subject": "Biztosítási ajánlat – {{policyholder}}",
+      "greeting": "Tisztelt {{contact_name}}!",
+      "greeting_none": "Tisztelt Hölgyem/Uram!",
+      "paragraphs": [
+        "Köszönjük ajánlatkérését. Mellékelten küldjük a(z) {{product}} ajánlatunkat {{cover_start}} kockázatviselési kezdettel.",
+        "Az éves díj {{total}} {{currency}}. A fedezetek díját és a vonatkozó feltételeket a mellékelt dokumentum tartalmazza."
+      ],
+      "closing": "Üdvözlettel:",
+      "file": "ajanlat-kiserolevel"
+    },
+    "renewal_letter": {
+      "language": "hu",
+      "subject": "Biztosítás megújítása – {{policyholder}}",
+      "greeting": "Tisztelt {{contact_name}}!",
+      "greeting_none": "Tisztelt Hölgyem/Uram!",
+      "paragraphs": [
+        "Köszönjük, hogy továbbra is nálunk biztosítja vállalkozását. Mellékelten küldjük a(z) {{product}} megújítási ajánlatunkat {{cover_start}} kezdettel.",
+        "A megújított szerződés éves díja {{total}} {{currency}}. A fedezetek díját és a vonatkozó feltételeket a mellékelt dokumentum tartalmazza."
+      ],
+      "closing": "Üdvözlettel:",
+      "file": "megujitas-kiserolevel"
+    }
+  },
+  "limits": {"subject_chars": 200, "body_chars": 5000}
+}

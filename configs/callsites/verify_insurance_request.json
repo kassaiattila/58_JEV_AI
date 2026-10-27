@@ -1,0 +1,79 @@
+{
+ "meta": {
+  "name": "verify_insurance_request",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-26",
+    "note": "231 (stage D, D-e1): the G-path verification of an insurance quote request form. It inherits `verify` for the shared document guard and the request size budget; its own question texts name the document, it asks no invoice question (document_nouls empty), and each list is asked about missing and extra rows (list_nouls)."
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_insurance_request",
+ "document": "A business's insurance quote request form: the policyholder, the covers wanted, the sites and the payment terms",
+ "own_glossary": true,
+ "glossary": "Document type: a business's insurance quote request form (biztosítási ajánlatkérő lap) for property insurance. The policyholder is the business that wants to be insured; the insurer and the broker are never the policyholder. Field names are English identifiers; the form's text is verbatim, Hungarian or English. Amounts are plain decimal strings.",
+ "glossary_in_state": false,
+ "field_specs": {
+  "policyholder_name": "the business that wants to be insured (szerződő, ajánlatkérő), with its legal form; never the insurer or the broker",
+  "policyholder_tax_number": "the tax number (adószám) of the business that wants to be insured",
+  "activity_code": "the policyholder's main activity code (TEÁOR, NACE), digits only",
+  "contact_name": "the person named as the contact (kapcsolattartó)",
+  "contact_email": "the contact's email address",
+  "cover_start": "the day cover should start (kockázatviselés kezdete), ISO format",
+  "payment_frequency": "how often the premium is to be paid, as printed",
+  "accounting_method": "what the business interruption sum insured is counted from, as printed",
+  "interruption_sum_insured": "the business interruption cover's sum insured, a plain decimal string",
+  "currency": "the ISO 4217 code of the form's amounts",
+  "requested_covers": "the covers the form marks as wanted, one row each",
+  "sites": "the sites the form lists, each with its number, address and country"
+ },
+ "incomplete_fields": [
+  "policyholder_name",
+  "contact_name"
+ ],
+ "wrong_kind_fields": [
+  "policyholder_tax_number",
+  "activity_code",
+  "interruption_sum_insured"
+ ],
+ "document_nouls": [],
+ "list_nouls": [
+  "missing_rows",
+  "extra_rows"
+ ],
+ "nouls": {
+  "absence_wrong": {
+   "question": "The extraction left the field described in `field_spec` EMPTY (`extracted_field` is null). Look at `source_lines`: does the form state a value that should have been extracted for this field?",
+   "true": "the form states a value for this field, so leaving it empty is wrong",
+   "false": "the form does not state such a value, so empty is correct"
+  },
+  "off_target": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Is this value actually a DIFFERENT field's value in this form (for example the broker's or the insurer's name placed into policyholder_name, a signature date placed into cover_start, a site's address placed into the contact)?",
+   "true": "the value belongs to another field; it is wrongly placed here",
+   "false": "the value is the correct value for this field"
+  },
+  "wrong_kind": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Look at what the form prints around it. Is this value actually a DIFFERENT KIND of number or identifier that merely looks similar - for example a phone number or a postcode where a tax number is expected, a tax number or a year where an activity code is expected, a sum insured of another cover where the business interruption sum insured is expected - rather than what `field_spec` describes?",
+   "true": "the value is a different kind of number or identifier, not this field's value",
+   "false": "the value is indeed this field's value"
+  },
+  "incomplete": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Is the extracted value a truncated or partial form of what is printed (a missing legal form such as Kft. / Bt. / Zrt., a missing part of a name or an address)?",
+   "true": "the printed value is longer or more complete than the extracted value",
+   "false": "the extracted value is the complete printed value (formatting differences do not count)"
+  },
+  "missing_rows": {
+   "question": "Compare `extraction[list_field]` (the list described in `list_spec`) with `source_lines`. Does the form list at least one site or wanted cover that is ABSENT from that list?",
+   "true": "at least one site or wanted cover is missing from the extracted list",
+   "false": "every site or wanted cover is in the extracted list"
+  },
+  "extra_rows": {
+   "question": "Compare `extraction[list_field]` (the list described in `list_spec`) with `source_lines`. Does that list contain a row that is NOT a site or wanted cover of this form (for example a cover left unmarked, the insurer's address or a total, or one row split into two)?",
+   "true": "the extracted list contains a row that is not a site or wanted cover",
+   "false": "every extracted row is a site or wanted cover"
+  }
+ }
+}

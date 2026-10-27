@@ -117,6 +117,8 @@ export interface Change {
   theirs: unknown;
   /** they changed it too since the version I started from */
   both: boolean;
+  /** D-a: the row it belongs to is not there now (they removed it): my change cannot be applied */
+  gone: boolean;
 }
 
 const isRow = (path: string[]) => path[path.length - 1]?.startsWith("#") ?? false;
@@ -168,12 +170,16 @@ export function compare(base: unknown, mine: unknown, theirs: unknown): Change[]
     if (isAdded(path)) {
       const there = addedThere(at(theirs, path.slice(0, -1)), a, path.slice(0, -1), value, taken);
       if (there !== undefined) taken.add(there);
-      return { path, before, mine: value, theirs: there, both: false };
+      return { path, before, mine: value, theirs: there, both: false, gone: false };
     }
     const now = c.get(key)?.value;
     const gone = path.some((s, i) => s.startsWith("#") && !c.has(JSON.stringify(path.slice(0, i + 1))));
+    // D-a: a row I removed that they changed meanwhile: removing it would drop their change
+    const changedUnder = isRow(path) && value === undefined && [...a.values(), ...c.values()].some((l) =>
+      l.path.length > path.length && path.every((s, i) => l.path[i] === s)
+      && !same(a.get(JSON.stringify(l.path))?.value, c.get(JSON.stringify(l.path))?.value));
     return { path, before, mine: value === ROW ? true : value, theirs: gone ? undefined : now === ROW ? true : now,
-             both: gone || !same(now, before) };
+             both: gone || changedUnder || !same(now, before), gone: gone && !isRow(path) };
   });
 }
 

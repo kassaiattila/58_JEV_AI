@@ -1,8 +1,28 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.35.0",
+  "version": "1.39.0",
   "changelog": [
+   {
+    "version": "1.39.0",
+    "date": "2026-10-27",
+    "note": "231 (stage D, D-f8): letter_approve and letter_reopen - a case's covering letter accepted, and an accepted letter reopened (its document changed), in the activity log with a label."
+   },
+   {
+    "version": "1.38.0",
+    "date": "2026-10-26",
+    "note": "231 (stage D, D-d6): the task kind missing_info - getting the facts the rules miss, by a deadline."
+   },
+   {
+    "version": "1.37.0",
+    "date": "2026-10-26",
+    "note": "231 (stage D, D-d4): decision_approve and decision_reopen - a case's decision made, and a made decision reopened (out of date), in the activity log with a label."
+   },
+   {
+    "version": "1.36.0",
+    "date": "2026-10-26",
+    "note": "231 (stage D, D-d2): field_check_approve and field_check_reopen - a field check's facts frozen as its version, and the frozen version reopened, in the activity log with a label."
+   },
    {
     "version": "1.35.0",
     "date": "2026-10-26",
@@ -225,6 +245,9 @@
    "approval_return": "approval: result returned with a reason",
    "quote_approve": "quote: version approved", "quote_reopen": "quote: approval reopened",
    "quote_letter_accept": "quote: reply letter accepted",
+   "field_check_approve": "field check: facts frozen", "field_check_reopen": "field check: reopened",
+   "decision_approve": "decision: made", "decision_reopen": "decision: reopened",
+   "letter_approve": "letter: accepted", "letter_reopen": "letter: reopened",
    "output_template_choose": "output: template chosen",
    "case_wrapped": "package: taken over as a case's package",
    "scope_set": "package: party, period and role set", "scope_clear": "package: own party, period and role removed",
@@ -244,7 +267,7 @@
    "workflow_nothing_new": "workflow: nothing new for a step",
    "workflow_left_out": "workflow: documents a live run processed left out",
    "workflow_failed": "workflow: a step did not start"},
-  "task_kind": {"review": "To-do", "run_approval": "Run approval", "own_approval": "Approval", "workflow_budget": "Budget decision", "step_start": "Step to start", "handover_settle": "Did it arrive?", "follow_up": "Follow-up"},
+  "task_kind": {"review": "To-do", "run_approval": "Run approval", "own_approval": "Approval", "workflow_budget": "Budget decision", "step_start": "Step to start", "handover_settle": "Did it arrive?", "follow_up": "Follow-up", "missing_info": "Missing facts"},
   "task_origin": {"live": "Live", "trial": "Trial", "measurement": "Measurement"},
   "task_assignee": {"mine": "You", "anyone": "Anyone"}
  },

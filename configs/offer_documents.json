@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "name": "offer_documents",
+    "version": "1.0.0",
+    "description": "231 (stage D, D-f7): the printed text of a rated offer's Word document (jav/app/rated_offer.py; the output rated_offer of configs/outputs.json): its value labels and its two tables' headers (the modules' premiums, the factors on the total; for a person's own template's marker list too), the built-in template's texts (document vocabulary, Hungarian: the document a client reads) and its page layout. A change of the text is a version; it changes no figure.",
+    "changelog": [
+      {"version": "1.0.0", "date": "2026-10-26", "note": "231 (D-f7): the first version: the insurance quote's Word document in Hungarian."}
+    ]
+  },
+  "labels": {
+    "package": "Ügy",
+    "version": "Változat",
+    "state": "Állapot",
+    "offer_date": "Kelt",
+    "approved_by": "Jóváhagyta",
+    "policyholder": "Szerződő",
+    "tax_number": "Adószám",
+    "contact_name": "Kapcsolattartó",
+    "contact_email": "Kapcsolattartó e-mail-címe",
+    "product": "Termék",
+    "cover_start": "Kockázatviselés kezdete",
+    "verdict": "Kockázatelbírálás",
+    "currency": "Pénznem",
+    "subtotal": "Részösszeg",
+    "total": "Éves díj",
+    "rounded": "Kerekítés",
+    "policy_minimum": "Minimális díj",
+    "conditions": "Feltételek"
+  },
+  "heads": {"modules": {"name": "Fedezet", "premium": "Díj"}, "adjustments": {"name": "Díjmódosító tényező", "factor": "Szorzó"}},
+  "verdicts": {"allow": "elfogadható", "refer": "egyedi elbírálással elfogadva", "refuse": "elutasítva", "unknown": "nem dönthető el"},
+  "texts": {
+    "title": "Biztosítási ajánlat",
+    "draft": "Tervezet",
+    "file": "biztositasi-ajanlat",
+    "intro": "Az alábbi ajánlatot a benyújtott adatok és a kockázatelbírálás alapján adjuk.",
+    "minimum": "a szerződés minimális díja érvényes",
+    "rounded": "kerekítve",
+    "page": ["", ". oldal"],
+    "version": "{{version}}. változat"
+  },
+  "page": {"width_cm": 21.0, "height_cm": 29.7, "margin_cm": 2.0},
+  "widths_cm": {"modules": {"name": 11.0, "premium": 4.0}, "adjustments": {"name": 11.0, "factor": 4.0}}
+}

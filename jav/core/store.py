@@ -252,6 +252,19 @@ def active_path() -> Path:
 # every connection took ~7 ms and one fetch of the work package list ~3 s). An external schema change (e.g. a dropped
 # table) and a new file also give a new key.
 _initialized: dict[str, tuple[int, tuple[str, ...]]] = {}
+_setting_up: ContextVar[frozenset[str]] = ContextVar("jav_store_setting_up", default=frozenset())
+
+
+def _set_up(conn: sqlite3.Connection, key: str, registry: tuple[str, ...]) -> None:
+    """The schema and the migrations of the store `key`, then its key. 231 (D-d4): a connection a migration opens
+    meanwhile (one that loads a process pack, which reads a price list) does not set the same store up again inside it:
+    it did, without end, whenever a module registered its tables after the store was first set up."""
+    token = _setting_up.set(_setting_up.get() | {key})
+    try:
+        _initialize(conn)
+    finally:
+        _setting_up.reset(token)
+    _initialized[key] = (conn.execute("PRAGMA schema_version").fetchone()[0], registry)
 
 
 def _registry_key() -> tuple[str, ...]:
@@ -372,9 +385,9 @@ def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
     try:
         key = str(path)
         registry = _registry_key()
-        if _initialized.get(key) != (conn.execute("PRAGMA schema_version").fetchone()[0], registry):
-            _initialize(conn)
-            _initialized[key] = (conn.execute("PRAGMA schema_version").fetchone()[0], registry)
+        if key not in _setting_up.get() and _initialized.get(key) != (conn.execute("PRAGMA schema_version").fetchone()[0],
+                                                                       registry):
+            _set_up(conn, key, registry)
         yield conn
         conn.commit()
     finally:
@@ -394,7 +407,7 @@ def _shared_block(shared: _Session) -> Iterator[sqlite3.Connection]:
     # 174: a module first imported within the session registers its tables on import; the shared connection was set up
     # before, so its schema runs again here (before, its tables were missing until the session ended)
     registry = _registry_key()
-    if _initialized.get(shared.path, (None, None))[1] != registry:
+    if shared.path not in _setting_up.get() and _initialized.get(shared.path, (None, None))[1] != registry:
         if conn.in_transaction:
             # 207: the set-up commits (`executescript`, the migrations), so inside a transaction only the tables are
             # made, as part of it; the full set-up runs in the next block entered outside a transaction
@@ -402,8 +415,7 @@ def _shared_block(shared: _Session) -> Iterator[sqlite3.Connection]:
                 for statement in _schema_statements(ddl):
                     conn.execute(statement)
         else:
-            _initialize(conn)
-            _initialized[shared.path] = (conn.execute("PRAGMA schema_version").fetchone()[0], registry)
+            _set_up(conn, shared.path, registry)
     if not conn.in_transaction:
         try:
             yield conn

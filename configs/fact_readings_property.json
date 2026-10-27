@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "name": "fact_readings_property",
+    "version": "1.1.0",
+    "description": "231 (stage D, D-e2): how the values a type pack extracts from a document become facts of the property catalogue's assessed units (jav/app/fact_readings.py), a rule file a case keeps as it started. units: per type pack, the units its values describe, each with its level, its key (a template of the document's own values: {site_no}; {row} is a list row's number), its parent's key, the list whose rows are units of it (rows), and its facts, each read from a header field (field) or a row's column (column), through a code table (codes: printed words, compared without case, extra spaces or punctuation at their ends, to the catalogue's codes), with the field holding an amount's currency (currency_field), or from a list's column as a list of codes (list, column). A value that does not fit is never guessed: it is listed as unread with why. The printed words are document vocabulary (Hungarian).",
+    "changelog": [
+      {"version": "1.1.0", "date": "2026-10-27", "note": "231 (D-f8): the request form's contact person and email address become the policyholder's facts (the offer's letter addresses them)."},
+      {"version": "1.0.0", "date": "2026-10-26", "note": "231 (D-e2): the first version: the insurance application's three packs (the request form, the property schedule, the claims history)."}
+    ]
+  },
+  "catalogue": "property",
+  "codes": {
+    "yes_no": {"igen": true, "van": true, "x": true, "nem": false, "nincs": false},
+    "country": {"magyarország": "HU", "magyarorszag": "HU", "hungary": "HU", "ausztria": "AT", "austria": "AT"},
+    "flood_zone": {"nincs": "none", "nem árvízveszélyes": "none", "alacsony": "low", "közepes": "medium", "magas": "high"},
+    "surge_protection": {"nincs": "none", "t3": "t3", "t2+t3": "t2_t3", "t2 + t3": "t2_t3", "t1+t2+t3": "t1_t2_t3", "t1 + t2 + t3": "t1_t2_t3"},
+    "payment_frequency": {"éves": "yearly", "évente": "yearly", "féléves": "half_yearly", "félévente": "half_yearly", "negyedéves": "quarterly", "negyedévente": "quarterly"},
+    "accounting_method": {"fedezeti összeg": "gross_profit", "bruttó fedezet": "gross_profit", "állandó költségek": "costs", "állandó költség": "costs"},
+    "asset_group": {"épület": "buildings", "épületek": "buildings", "gépek és berendezések": "equipment", "gépek, berendezések": "equipment", "gépek": "equipment", "készlet": "stock", "készletek": "stock", "készpénz": "cash", "értéktárgyak": "valuables", "értéktárgy": "valuables"},
+    "valuation": {"új érték": "new_value", "újérték": "new_value", "avult érték": "current_value", "avult": "current_value"},
+    "requested_modules": {"vagyonbiztosítás": "property", "betöréses lopás és rablás": "burglary", "betöréses lopás": "burglary", "túlfeszültség": "surge", "túlfeszültség-kár": "surge", "üzemszünet": "interruption", "üzemszüneti biztosítás": "interruption"}
+  },
+  "packs": {
+    "insurance_request": [
+      {"level": "holder", "key": "holder", "parent": null,
+       "facts": {"company_name": {"field": "policyholder_name"}, "tax_number": {"field": "policyholder_tax_number"},
+                 "contact_name": {"field": "contact_name"}, "contact_email": {"field": "contact_email"},
+                 "activity_code": {"field": "activity_code"},
+                 "payment_frequency": {"field": "payment_frequency", "codes": "payment_frequency"},
+                 "accounting_method": {"field": "accounting_method", "codes": "accounting_method"},
+                 "interruption_sum_insured": {"field": "interruption_sum_insured", "currency_field": "currency"},
+                 "requested_modules": {"list": "requested_covers", "column": "cover", "codes": "requested_modules"}}},
+      {"level": "site", "key": "site:{site_no}", "parent": "holder", "rows": "sites",
+       "facts": {"site_address": {"column": "address"}, "country": {"column": "country", "codes": "country"}}}
+    ],
+    "property_schedule": [
+      {"level": "holder", "key": "holder", "parent": null, "facts": {"company_name": {"field": "policyholder_name"}}},
+      {"level": "site", "key": "site:{site_no}", "parent": "holder",
+       "facts": {"site_address": {"field": "site_address"}, "floor_area": {"field": "floor_area"},
+                 "flood_zone": {"field": "flood_zone", "codes": "flood_zone"}, "alarm_remote": {"field": "alarm_remote", "codes": "yes_no"},
+                 "surge_protection": {"field": "surge_protection", "codes": "surge_protection"},
+                 "basement_storage": {"field": "basement_storage", "codes": "yes_no"},
+                 "protection_class_in_place": {"field": "protection_class"}}},
+      {"level": "asset_group", "key": "site:{site_no}/{row}", "parent": "site:{site_no}", "rows": "asset_groups",
+       "facts": {"asset_group": {"column": "asset_group", "codes": "asset_group"},
+                 "sum_insured": {"column": "sum_insured", "currency_field": "currency"},
+                 "valuation": {"column": "valuation", "codes": "valuation"}, "wear": {"column": "wear"}}}
+    ],
+    "claims_history": [
+      {"level": "holder", "key": "holder", "parent": null,
+       "facts": {"company_name": {"field": "policyholder_name"}, "tax_number": {"field": "policyholder_tax_number"},
+                 "claims_5y_count": {"field": "claims_count"}, "claims_5y_paid": {"field": "claims_paid_total", "currency_field": "currency"}}}
+    ]
+  }
+}

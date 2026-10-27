@@ -16,6 +16,10 @@ another), a screen element the catalogue lists as planned, and an element that s
 its type and its step's capability (or, without a step, for its type alone). A refused pack starts no case. D0-b: a
 capability whose state belongs to the whole case (`Capability.state`) stands once in a pack. D0-c: a step reference
 reads only fields the other step's result form gives, in a version of the form it takes (`capabilities.reference_problem`).
+Stage D (D-a; the reassessment after D0, P02): a reference names a step of the kind it reads (`step_ref(of=)`); one
+left out reads the pack's only step of that kind, which the step must wait for, and is refused where there are several,
+so the step's source, the step it waits for and its approval's basis are the same step. `needs_at_start`: the resources
+a case cannot start without a version of to keep (`process_settings.at_start` refuses the start).
 
 - `load(pack_id)`, `packs()`: a pack read and checked (`PackError` with every problem).
 - `definition(pack)`: the process core's definition of the pack's current version: one step per pack step, its kind
@@ -168,6 +172,8 @@ class ProcessPack(_Model):
     outputs: tuple[str, ...] = ()
     goldens: tuple[str, ...] = ()
     partners: tuple[PartnerLink, ...] = ()  # 231 (B1)
+    # stage D (D-a, P04): the resources a case cannot start without a version of to keep (a tariff); none: it may start
+    needs_at_start: tuple[str, ...] = ()
 
     @property
     def version(self) -> str:
@@ -220,6 +226,20 @@ def _waited_for(step_id: str, needs: dict[str, tuple[str, ...]]) -> set[str]:
     return seen
 
 
+def _implicit_source(pack: ProcessPack, step_id: str, name: str, of: str | None, needs: dict[str, tuple[str, ...]],
+                     where: str) -> list[str]:
+    """D-a: what is wrong with a step reference left out: several steps of the kind it reads (nothing says which), or
+    the only one is a step the step does not wait for (its approval would not build on what it read)."""
+    if of is None:
+        return []
+    found = [s.id for s in pack.steps if s.uses.split("@", 1)[0] == of and s.id != step_id]
+    if len(found) > 1:
+        return [f"{where}: {name} names no step, and the pack has several {of} steps ({', '.join(found)}): name the one it reads"]
+    if found and found[0] not in _waited_for(step_id, needs):
+        return [f"{where}: {name} names no step, and the step does not wait for the only {of} step {found[0]!r}"]
+    return []
+
+
 def _problems(pack: ProcessPack) -> list[str]:
     from jav.app import case_views  # it reads the packs, so it is imported when a pack is checked
 
@@ -254,12 +274,17 @@ def _problems(pack: ProcessPack) -> list[str]:
             problems.append(f"{where}: {step.uses} cannot run: it is described only")
         for name in capabilities.step_refs(cap.params):  # D0-a: the step reads that step's result
             ref = step.params.get(name)
-            if ref is None:
+            of = capabilities.step_ref_of(cap.params, name)
+            if ref is None:  # D-a: the pack's only such step; D-d1: or none, for an optional reference
+                if not capabilities.step_ref_optional(cap.params, name):
+                    problems += _implicit_source(pack, step.id, name, of, needs, where)
                 continue
             if ref not in ids:
                 problems.append(f"{where}: {name} names no step {ref!r}")
             elif ref not in _waited_for(step.id, needs):
                 problems.append(f"{where}: {name} names step {ref!r}, which it does not wait for")
+            elif of is not None and uses[ref].split("@", 1)[0] != of:
+                problems.append(f"{where}: {name} names step {ref!r}, a {uses[ref].split('@', 1)[0]} step, not a {of} step")
             elif (giver := _capability(uses[ref])) is not None and (wrong := capabilities.reference_problem(cap, name, giver)):
                 problems.append(f"{where}: {wrong}")  # D0-c: it reads what the other step's result form gives
         try:
@@ -274,6 +299,13 @@ def _problems(pack: ProcessPack) -> list[str]:
     case_owned = [s.uses for s in pack.steps if (c := _capability(s.uses)) is not None and c.state == "case"]
     for key in sorted({k for k in case_owned if case_owned.count(k) > 1}):  # D0-b: two steps would share one state
         problems.append(f"{key} keeps its state for the whole case: a pack uses it once")
+    problems += [f"needs_at_start names {key!r}, which is no resource of the pack" for key in pack.needs_at_start
+                 if key not in pack.resources]  # D-a
+    kept_keys = {value[1:] for step in pack.steps if (cap := _capability(step.uses)) is not None
+                 for name, value in (step.params or {}).items()
+                 if isinstance(value, str) and value.startswith("@") and name in cap.at_start}
+    problems += [f"needs_at_start names {key!r}, which no step keeps at a version" for key in pack.needs_at_start
+                 if key in pack.resources and key not in kept_keys and not key.startswith("template:")]  # D-c4
     for wrap in pack.wraps:  # 231 (C3b4): the step that takes the package binds it, and its parts are the scope's
         if (wrap.kind is None) == (wrap.rule is None):
             problems.append(f"wrap {wrap.kind or wrap.rule!r}: names its packages by a kind or by a rule, one of them")

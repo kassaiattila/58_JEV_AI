@@ -4,12 +4,13 @@ from jav.devtools.capability_catalog import build_catalog
 def test_catalog_covers_legacy_types_nested_datapoints_and_active_intents():
     catalog=build_catalog()
     docs={d['key']:d for d in catalog['documents']}
-    assert len(docs)==26  # 122: the pro forma invoice pack joined the 23; 190: the quote request; 197: the taught ticket
+    assert len(docs)==29  # 122: the pro forma invoice pack joined the 23; 190: the quote request; 197: the taught ticket;
+    # 231 D-e1: the insurance application's three packs
     # 199: the taught ticket replaced the converted one (type-activate --replace); 197: it was a candidate before
     assert docs['belepo_jegy_taught']['legacy_catalog_active'] is True and docs['belepo_jegy']['legacy_catalog_active'] is False
     assert len(catalog['intents'])==12  # 190: the quote request joined the 11 legacy intents
     assert len(catalog['retired_intent_keys'])==5
-    assert sum(d['legacy_catalog_active'] for d in docs.values())==22
+    assert sum(d['legacy_catalog_active'] for d in docs.values())==25
     bank=docs['statement_cib']
     assert bank['recognition']['broad_key']=='bank_statement'
     # 047 T1.1: the legacy type is a full pack too (G path only, legacy copy as source); automatic route in T1.2

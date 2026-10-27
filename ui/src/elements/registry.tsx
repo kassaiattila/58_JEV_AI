@@ -5,10 +5,12 @@
 // are listed here; a domain's capability registers its own when the interface loads (`registerElement`, from
 // `ui/src/domains/<domain>/index.tsx`), and a case page finds both (`elementOf`).
 import { lazy, Suspense, type ReactNode } from "react";
-import type { CaseElement, CaseView, PackageWorkView, RoutingView } from "../api";
+import type { BlockersData, CalculationData, CaseElement, CaseView, DecisionData, DocumentViewData, EvaluationData, FieldReviewData, LetterData,
+  MissingInfoData, PackageWorkView, RoutingView } from "../api";
 import { t } from "../i18n";
 import { moneyText } from "../labels";
-import { costTotal, handoverStatus, replyStatus } from "./caseStatus";
+import { blockersStatus, calculationStatus, costTotal, decisionStatus, documentStatus, fieldReviewLine, handoverStatus, letterStatus,
+  missingStatus, replyStatus, verdictStatus } from "./caseStatus";
 import { packageWorkLine } from "./packageWorkStatus";
 
 export interface ElementProps { caseId: string; element: CaseElement; page: CaseView; onChanged: () => void }
@@ -35,6 +37,21 @@ const StartedCases = lazy(() => general().then((m) => ({ default: m.StartedCases
 const FilePlacement = lazy(() => import("./FilePlacement").then((m) => ({ default: m.FilePlacement })));
 // 231 (C3b3): the document processing step's element (its page loads only when a case shows it); its tab line is small
 const PackageWork = lazy(() => import("./PackageWork").then((m) => ({ default: m.PackageWork })));
+// 231 (stage D, D-f4): an assessment's data check: the field review, the facts read from the documents, a register's answer
+const facts = () => import("./FactElements");
+const FieldReview = lazy(() => facts().then((m) => ({ default: m.FieldReview })));
+const DocumentFacts = lazy(() => facts().then((m) => ({ default: m.DocumentFacts })));
+const LookupView = lazy(() => facts().then((m) => ({ default: m.LookupView })));
+// 231 (stage D, D-f5): an assessment's calculation: the rules' evaluation, the missing facts, the premium
+const assessment = () => import("./AssessmentElements");
+const EvaluationView = lazy(() => assessment().then((m) => ({ default: m.EvaluationView })));
+const CalculationView = lazy(() => assessment().then((m) => ({ default: m.CalculationView })));
+const MissingInfoView = lazy(() => assessment().then((m) => ({ default: m.MissingInfoView })));
+// 231 (stage D, D-f6): a person's decision on another step's result
+const DecisionView = lazy(() => import("./DecisionElement").then((m) => ({ default: m.DecisionView })));
+const DocumentView = lazy(() => import("./DocumentElement").then((m) => ({ default: m.DocumentView })));
+const LetterView = lazy(() => import("./LetterElement").then((m) => ({ default: m.LetterView })));
+const BlockersView = lazy(() => import("./BlockersElement").then((m) => ({ default: m.BlockersView })));
 /** An element whose page loads only when a case shows it (its module imported on first render). */
 export const lazily = (C: (p: ElementProps) => ReactNode) =>
   (p: ElementProps) => <Suspense fallback={<p className="muted">{t("Loading…")}</p>}><C {...p} /></Suspense>;
@@ -77,6 +94,16 @@ export const ELEMENTS: Record<string, ElementSpec> = {
   file_placement: { render: lazily(FilePlacement), status: placementLine, summary: placementSummaryOf },  // 231 (C1c)
   package_work: { render: lazily(PackageWork), status: (p) => packageWorkLine(p.element.data as PackageWorkView | null) },  // 231 (C3b3)
   cost: { render: lazily(CostView), status: (p) => { const usd = costTotal(p); return usd === null ? null : `${moneyText(usd)} USD`; } },
+  field_review: { render: lazily(FieldReview), status: (p) => fieldReviewLine(p.element.data as FieldReviewData | null) },  // D-f4
+  document_facts: { render: lazily(DocumentFacts) },  // D-f4
+  lookup: { render: lazily(LookupView) },  // D-f4
+  evaluation: { render: lazily(EvaluationView), status: (p) => verdictStatus(p.element.data as EvaluationData | null)?.text ?? null },  // D-f5
+  calculation: { render: lazily(CalculationView), status: (p) => calculationStatus(p.element.data as CalculationData | null)?.text ?? null },
+  missing_info: { render: lazily(MissingInfoView), status: (p) => missingStatus(p.element.data as MissingInfoData | null)?.text ?? null },
+  decision: { render: lazily(DecisionView), status: (p) => decisionStatus(p.element.data as DecisionData | null)?.text ?? null },  // D-f6
+  document_view: { render: lazily(DocumentView), status: (p) => documentStatus(p.element.data as DocumentViewData | null)?.text ?? null },  // D-f7
+  letter: { render: lazily(LetterView), status: (p) => letterStatus(p.element.data as LetterData | null)?.text ?? null },  // D-f8
+  blockers: { render: lazily(BlockersView), status: (p) => blockersStatus(p.element.data as BlockersData | null)?.text ?? null },  // D-f9
 };
 
 const OWN = new Map<string, ElementSpec>();

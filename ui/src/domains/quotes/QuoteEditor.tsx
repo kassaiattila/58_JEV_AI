@@ -68,9 +68,12 @@ type Edits = Record<string, Partial<Record<Edited, string>>>;
 /** D0-g: a save the service refused (someone else saved meanwhile) or whose outcome is not known: what it was sent on
  *  (`state`, `base`), what it sent (`mine`), and the typed values it carried. */
 interface Failed { kind: "conflict" | "unknown"; state: number; base: QuoteDraftIn; mine: QuoteDraftIn; edits: Edits; header: Record<string, string> }
-/** D0-g: a quote's unsaved work in this page's memory: typed values not saved yet, a failed save, saves under way. */
-interface QuoteWork { edits: Edits; header: Record<string, string>; failed: Failed | null; saving: number }
-const NO_WORK: QuoteWork = { edits: {}, header: {}, failed: null, saving: 0 };
+/** D0-g: a quote's unsaved work in this page's memory: typed values not saved yet, a failed save, saves under way;
+ *  D-a: and the version the typing started from (`base`), so a newer one met later is compared with it. */
+interface QuoteWork { edits: Edits; header: Record<string, string>; failed: Failed | null; saving: number;
+  base?: { state: number; draft: QuoteDraftIn } | null }
+const NO_WORK: QuoteWork = { edits: {}, header: {}, failed: null, saving: 0, base: null };
+const typed = (w: QuoteWork) => Object.keys(w.edits).length > 0 || Object.keys(w.header).length > 0;
 const idle = (w: QuoteWork) => !w.saving && !w.failed && !Object.keys(w.edits).length && !Object.keys(w.header).length;
 /** D0-g: where a case step's quote keeps its unsaved work */
 export const quoteWorkKey = (wpId: string, step?: string | null) => `quote:${wpId}:${step ?? ""}`;
@@ -86,6 +89,11 @@ function leftEdits(now: Edits, sentEdits: Edits): Edits {
 }
 const leftHeader = (now: Record<string, string>, sentHeader: Record<string, string>) =>
   Object.fromEntries(Object.entries(now).filter(([k, v]) => sentHeader[k] !== v));
+
+/** D-a: the work on the version `view` holds now (the base of what is still typed; none when nothing is). */
+function rebased(w: QuoteWork, view: QuoteDraftView): QuoteWork {
+  return { ...w, base: typed(w) && view.draft ? { state: view.state, draft: sent(view.draft, {}, {}, {}) } : null };
+}
 
 function sent(draft: QuoteDraftIn, edits: Edits, header: Record<string, string>, shown: Shown): QuoteDraftIn {
   return {
@@ -169,8 +177,11 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
   const { edits, header, failed } = work;
   const saving = work.saving > 0;
   const update = (fn: (w: QuoteWork) => QuoteWork) => updateWork(key, NO_WORK, idle, fn);
-  const setEdits = (fn: (e: Edits) => Edits) => update((w) => ({ ...w, edits: fn(w.edits) }));
-  const setHeader = (fn: (h: Record<string, string>) => Record<string, string>) => update((w) => ({ ...w, header: fn(w.header) }));
+  // D-a: the first typing records the version it starts from
+  const started = (w: QuoteWork): QuoteWork => (w.base || !typed(w) || !answered.current.draft ? w
+    : { ...w, base: { state: answered.current.state, draft: sent(answered.current.draft, {}, {}, latest.current.shown) } });
+  const setEdits = (fn: (e: Edits) => Edits) => update((w) => started({ ...w, edits: fn(w.edits) }));
+  const setHeader = (fn: (h: Record<string, string>) => Record<string, string>) => update((w) => started({ ...w, header: fn(w.header) }));
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const shown: Shown = Object.fromEntries(dv.lines.map((l) => [l.id, {
@@ -220,8 +231,8 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
     try {
       const next = await api.saveQuoteDraft(wpId, body, cur.state, cur.step);  // D0-b: the composition step's draft
       adopt(next);
-      // what was sent is saved; what was typed since stays to be saved
-      update((x) => ({ ...x, edits: leftEdits(x.edits, w.edits), header: leftHeader(x.header, w.header) }));
+      // what was sent is saved; what was typed since stays to be saved, on the version saved now
+      update((x) => rebased({ ...x, edits: leftEdits(x.edits, w.edits), header: leftHeader(x.header, w.header) }, next));
       setSavedAt(new Date().toISOString());
       onChanged();
     } catch (err) {
@@ -238,21 +249,34 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
   // D0-g: after a refused save, the version saved now (read again) beside the person's changes
   const theirs = failed?.kind === "conflict" && dv.state > failed.state && dv.draft ? sent(dv.draft, {}, {}, shown) : null;
   const conflicts = failed && theirs ? compare(failed.base, failed.mine, theirs) : null;
-  const settled = theirs !== null && failed !== null && JSON.stringify(merge(theirs, failed.base, failed.mine)) === JSON.stringify(theirs);
+  // D-a: a change on a row they removed cannot be applied: only the person settles it
+  const settled = theirs !== null && failed !== null && !(conflicts ?? []).some((c) => c.gone)
+    && JSON.stringify(merge(theirs, failed.base, failed.mine)) === JSON.stringify(theirs);
   useEffect(() => {
     // what the refused save sent is in the version saved now already (an earlier try went through): nothing to keep
-    if (settled) update((x) => (x.failed ? { ...x, failed: null, edits: leftEdits(x.edits, x.failed.edits), header: leftHeader(x.header, x.failed.header) } : x));
+    if (settled) update((x) => (x.failed ? rebased({ ...x, failed: null, edits: leftEdits(x.edits, x.failed.edits), header: leftHeader(x.header, x.failed.header) }, dv) : x));
   }, [settled]); // eslint-disable-line react-hooks/exhaustive-deps
+  // D-a: a newer version met while typing (another person's save, the editor opened again): where they changed what the
+  // person changed, the person compares; elsewhere the typing goes on over the newer version
+  useEffect(() => {
+    const w = workOf<QuoteWork>(key);
+    if (!w || !w.base || w.failed || w.saving || !typed(w) || !dv.draft || dv.state <= w.base.state) return;
+    const mine = sent(w.base.draft, w.edits, w.header, shown);
+    const now = sent(dv.draft, {}, {}, shown);
+    if (compare(w.base.draft, mine, now).some((c) => c.both)) {
+      update((x) => ({ ...x, failed: { kind: "conflict", state: w.base!.state, base: w.base!.draft, mine, edits: w.edits, header: w.header } }));
+    } else update((x) => rebased(x, dv));
+  }, [dv.state, work.base?.state, failed, saving]); // eslint-disable-line react-hooks/exhaustive-deps
   /** My changes over the version saved now (or, when it is not known whether mine went through, over the one shown). */
   const keepMine = () => {
     const f = workOf<QuoteWork>(key)?.failed;
     const now = theirs ?? (answered.current.draft ? sent(answered.current.draft, {}, {}, shown) : null);
     if (!f || !now) return;
     const mine = merge(now, f.base, f.mine);
-    update((x) => ({ ...x, failed: null }));
+    update((x) => rebased({ ...x, failed: null }, answered.current));  // D-a: kept over the version shown now
     void save(() => { const w = workOf<QuoteWork>(key) ?? NO_WORK; return sent(mine, w.edits, w.header, latest.current.shown); });
   };
-  const takeTheirs = () => update((x) => ({ ...x, failed: null, edits: {}, header: {} }));
+  const takeTheirs = () => update((x) => ({ ...x, failed: null, edits: {}, header: {}, base: null }));
   const changeLabel = (path: string[]) => {
     const [top, at, field] = path;
     if (top === "header") return at === "note" ? t("Note on the quote") : fieldLabel(at);
@@ -315,13 +339,15 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
     return [{ value: OWN, label: t("A line of my own (outside the price list)"), group: t("Outside the price list") }, ...near, ...rest];
   };
   const ready = dv.blockers.length === 0;
+  const local = typed(work) || failed !== null;  // D-a: the head says ready only for what is saved
   const superseded = dv.warnings.find((w) => w.code === "quote:price_list_superseded");
   return (
     <section className="card wide quote-draft" aria-label={t("The quote")}>
       <div className="card-head">
         <div className="quote-draft-title">
           <h3>{t("The quote")}</h3>
-          {ready ? <span className="status s-done">{t("ready to approve")}</span>
+          {local ? <span className="status s-review">{t("save the changes first")}</span>
+            : ready ? <span className="status s-done">{t("ready to approve")}</span>
             : <span className="status s-review">{t("{{n}} thing(s) to settle before the approval", { n: dv.blockers.length })}</span>}
           <SaveLine state={saveState({ saving, failed: failed?.kind ?? null, savedAt,
             changed: Object.keys(edits).length > 0 || Object.keys(header).length > 0 })} savedAt={savedAt} idle={t("Every change is saved at once.")} />

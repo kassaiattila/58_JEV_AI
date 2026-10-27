@@ -8,6 +8,8 @@ import argparse
 import json
 from pathlib import Path
 
+from jav.cli.cli_options import budget_args
+
 
 def _refresh_jev_version() -> None:
     """200: the daily backup looks where JEV's moving name points (one tiny probe a day); a failure never fails the
@@ -448,6 +450,145 @@ def cmd_cases_kept(args: argparse.Namespace) -> int:
     return 1 if rows else 0
 
 
+def cmd_invented_services(args: argparse.Namespace) -> int:
+    """231 (stage D, D-d5): the invented company register and sanctions list as a local web service on this machine
+    (127.0.0.1), answering from `configs/golden_registers.json` until stopped (Ctrl+C)."""
+    from jav.devtools import invented_services
+
+    print(f"invented registers on http://127.0.0.1:{args.port} (company, sanctions); Ctrl+C stops them")
+    try:
+        invented_services.serve(args.port)
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+def cmd_product_set(args: argparse.Namespace) -> int:
+    """231 (stage D, D-c5): a product set kept as data (`configs/<name>.json`): whether it holds together and its
+    reference cases give what they expect (free: no AI call); with `--install`, its things into the store as drafts by
+    `--maker`, made active by `--approver` when given. 0: in order; 1: problems or differences, listed; 2: refused."""
+    from contextlib import nullcontext
+    from pathlib import Path
+
+    from jav.app import product_sets
+    from jav.core import store
+
+    product_set = product_sets.load(args.name)
+    found = product_sets.problems(product_set)
+    for p in found:
+        print(f"problem: {p}")
+    differing = 0
+    for case in product_set.cases if not found else ():
+        differences = product_sets.case_differences(product_set, case)
+        differing += bool(differences)
+        print(f"case {case.id}: " + ("as expected" if not differences else "; ".join(differences)))
+    print(f"{len(product_set.documents)} document(s), {len(product_set.rules)} rule(s), {len(product_set.tariffs)} "
+          f"tariff(s), {len(product_set.products)} product(s), {len(product_set.cases)} case(s); "
+          f"{len(found)} problem(s), {differing} case(s) differing")
+    if args.write_pdfs:  # D-c7a: the condition documents as PDFs, as a rule proposal reads them
+        written = product_sets.write_documents(product_set, Path(args.write_pdfs))
+        print(f"wrote {len(written)} condition document(s) as PDFs into {args.write_pdfs}")
+    if not args.install:
+        return 1 if found or differing else 0
+    if not args.maker:
+        print("--install needs --maker (and --approver to make the things active)")
+        return 2
+    if args.store and not Path(args.store).is_file():
+        print(f"no store at {args.store}")
+        return 2
+    with store.use_store(Path(args.store)) if args.store else nullcontext():
+        try:
+            refs = product_sets.install(product_set, maker=args.maker, approver=args.approver)
+        except product_sets.SetRefused as exc:
+            for p in exc.problems:
+                print(f"refused: {p}")
+            return 2
+    print(f"installed {len(refs)} thing(s)" + (f", made active by {args.approver}" if args.approver else " as drafts"))
+    return 0
+
+
+def cmd_rule_propose(args: argparse.Namespace) -> int:
+    """231 (stage D, D-c7e): rules proposed from a condition document's file, at once: by GPT within `--budget-usd`
+    (and, with `--verify`, judged by JEV within `--jev-budget-usd`; without a budget only earlier answers count), or by
+    the stand-in (`--stand-in SET`, free). 0: done; 1: the run failed; 2: refused."""
+    from decimal import Decimal
+
+    from jav.app import rule_proposal_runs
+    from jav.core import calls
+
+    limits = {p: Decimal(v) for p, v in (("openai", args.budget_usd), ("jev", args.jev_budget_usd)) if v}
+    proposer = f"stand_in:{args.stand_in}" if args.stand_in else "gpt"
+    if proposer == "gpt" and not limits:
+        print(calls.NO_BUDGET_NOTE)
+    try:
+        started = rule_proposal_runs.start(args.document, args.pdf, catalogue=args.catalogue, actor=args.maker,
+                                           product=args.product, proposer=proposer, limits=limits, verify=args.verify,
+                                           enqueue=False)
+    except rule_proposal_runs.ProposalError as exc:
+        print(f"refused: {exc}")
+        return 2
+    done = rule_proposal_runs.process(started["run_id"])
+    _print_run(done)
+    return 0 if done["state"] == "done" else 1
+
+
+def _print_run(run: dict) -> None:
+    print(f"run {run['run_id']} ({run['state']}): {run['document_ref']} from {run['file']}, {run['proposer']}"
+          + (f"; pages left out: {run['skipped']}" if run.get("skipped") else "") + (f"; error: {run['error']}" if run["error"] else ""))
+    for p in run.get("proposals", []):
+        mark = p["support"]["mark"] if p["support"] else "-"
+        print(f"  #{p['id']} [{p['state']}, {p['readiness']}, JEV {mark}] {p['title']} ({p['kind']}, page {p['page']},"
+              f" clause {p['clause']})" + (f" -> {p['rule_ref']}" if p["rule_ref"] else ""))
+
+
+def cmd_rule_proposals(args: argparse.Namespace) -> int:
+    """231 (D-c7e): the proposal runs (of one document version), or one run with its proposals."""
+    from jav.app import rule_proposal_runs
+
+    if args.run:
+        _print_run(rule_proposal_runs.run(args.run))
+        return 0
+    for r in rule_proposal_runs.runs(args.document):
+        print(f"{r['run_id']} {r['state']} {r['document_ref']} {r['file']} {r['proposer']} {r['counts']}")
+    return 0
+
+
+def cmd_rule_proposal_decide(args: argparse.Namespace) -> int:
+    """231 (D-c7e): a person's decision on one proposal: accept (confirming the numbers the document does not print),
+    correct (a rule file in its place) or reject (with a reason). 0: done; 2: refused."""
+    import json
+    from pathlib import Path
+
+    from jav.app import rule_proposal_runs
+    from jav.core import decisions
+
+    confirmed = [v.strip() for v in (args.confirm or "").split(",") if v.strip()]
+    try:
+        state = next(p["decision_state"] for r in rule_proposal_runs.runs() for p in rule_proposal_runs.run(r["run_id"])["proposals"]
+                     if p["id"] == args.proposal)
+    except StopIteration:
+        print(f"no proposal #{args.proposal}")
+        return 2
+    try:
+        if args.action == "accept":
+            done = rule_proposal_runs.accept(args.proposal, actor=args.maker, expected_state=state, confirmed=confirmed, ident=args.ident)
+        elif args.action == "correct":
+            rule = json.loads(Path(args.rule_file).read_text(encoding="utf-8"))
+            done = rule_proposal_runs.correct(args.proposal, rule, actor=args.maker, expected_state=state, confirmed=confirmed,
+                                              ident=args.ident)
+        else:
+            done = rule_proposal_runs.reject(args.proposal, args.reason or "", actor=args.maker, expected_state=state)
+    except rule_proposal_runs.ProposalRefused as exc:
+        for p in exc.problems:
+            print(f"refused: {p}")
+        return 2
+    except (rule_proposal_runs.ProposalError, decisions.RevisionConflict) as exc:
+        print(f"refused: {exc}")
+        return 2
+    print(f"#{done['id']} {done['state']}" + (f" -> {done['rule_ref']} (a draft rule)" if done["rule_ref"] else ""))
+    return 0
+
+
 def cmd_burr_prune(args: argparse.Namespace) -> int:
     from jav.runtime import worker
     from jav.flows import persistence
@@ -518,6 +659,43 @@ def register(sub) -> None:
                                           "the code here does not read (another main version); read only")
     p.add_argument("--store", help="a store copy to read instead of the active store (read only)")
     p.set_defaults(fn=cmd_cases_kept)
+    p = sub.add_parser("product-set", help="231 D-c5: a product set kept as data (condition documents, rules, products, "
+                                           "tariffs, reference cases): checked, its cases compared (free); --install puts it into the store")
+    p.add_argument("name", nargs="?", default="golden_products", help="the set's config (default: golden_products, the invented insurer)")
+    p.add_argument("--install", action="store_true", help="add its things as drafts (a thing there with the same content is kept)")
+    p.add_argument("--maker", help="the person adding them")
+    p.add_argument("--approver", help="another person, making them active (a product needs a second person)")
+    p.add_argument("--store", help="a store file to install into instead of the active store")
+    p.add_argument("--write-pdfs", metavar="DIR", help="231 D-c7a: write the set's condition documents as PDFs into DIR")
+    p.set_defaults(fn=cmd_product_set)
+    p = sub.add_parser("invented-services", help="231 D-d5: the invented company register and sanctions list as a local "
+                                                 "web service (127.0.0.1), for the trial; the tests answer them inside the process")
+    p.add_argument("--port", type=int, default=8941, help="the port the connectors name (default 8941)")
+    p.set_defaults(fn=cmd_invented_services)
+    p = sub.add_parser("rule-propose", help="231 D-c7e: rules proposed from a condition document's file (GPT within --budget-usd, "
+                                            "JEV with --verify within --jev-budget-usd; or --stand-in SET, free), kept for a person")
+    p.add_argument("document", help="the document version the rules cite (<id>@<n>)")
+    p.add_argument("--pdf", required=True, help="the document's file (local)")
+    p.add_argument("--catalogue", default="property", help="the fact catalogue (configs/facts_<id>.json)")
+    p.add_argument("--product", help="the product whose cover modules the proposer is told (its active version)")
+    p.add_argument("--stand-in", metavar="SET", help="answer from a product set's rules instead of GPT (free)")
+    p.add_argument("--verify", action="store_true", help="have JEV judge each proposal code found nothing blocking in")
+    p.add_argument("--maker", required=True, help="the person asking")
+    budget_args(p)
+    p.set_defaults(fn=cmd_rule_propose)
+    p = sub.add_parser("rule-proposals", help="231 D-c7e: the rule proposal runs, or one run with its proposals")
+    p.add_argument("--document", help="only the runs of this document version")
+    p.add_argument("--run", help="one run with its proposals")
+    p.set_defaults(fn=cmd_rule_proposals)
+    p = sub.add_parser("rule-proposal-decide", help="231 D-c7e: accept, correct or reject one proposal (an accepted one becomes a draft rule)")
+    p.add_argument("proposal", type=int)
+    p.add_argument("action", choices=("accept", "correct", "reject"))
+    p.add_argument("--maker", required=True, help="the person deciding")
+    p.add_argument("--confirm", help="the numbers you confirm, comma separated (those the document does not print)")
+    p.add_argument("--rule-file", help="correct: the corrected rule (JSON)")
+    p.add_argument("--reason", help="reject: why")
+    p.add_argument("--ident", help="the draft rule's identifier (default: <document>.<clause>.<kind>)")
+    p.set_defaults(fn=cmd_rule_proposal_decide)
     p = sub.add_parser("flows", help="Burr-kontraktok lintje + FLOW.md / FLOW.mmd generálás (docs/flows/)")
     p.add_argument("--check", action="store_true", help="csak lint, fájlírás nélkül")
     p.set_defaults(fn=cmd_flows)

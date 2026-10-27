@@ -44,7 +44,8 @@ def _site(monkeypatch, **changes) -> VerifySite:
 
 
 def test_every_call_site_before_the_quote_request_asks_the_three_invoice_questions_and_none_per_list():
-    for key in (k for k in typepack.keys() if k != "quote_request"):  # 190 (A2e): its own questions
+    own = {"quote_request", "insurance_request", "property_schedule", "claims_history"}  # 190 (A2e), 231 (D-e1): their own
+    for key in (k for k in typepack.keys() if k not in own):
         site = site_for(key)
         assert site.document_nouls == INVOICE_DOCUMENT_NOULS and site.list_nouls == (), key
 

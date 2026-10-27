@@ -5,7 +5,7 @@
 import fieldLabels from "../../configs/field_labels.json";
 import intentRegistry from "../../configs/intents.json";
 import emailTasks from "../../configs/email_tasks.json";
-import type { MailboxRequest, Recipe, RunPlan } from "./api";
+import type { MailboxRequest, Recipe, RunPlan, Said } from "./api";
 import { getLocale, t } from "./i18n";
 
 /** A label map that translates on read (`MAP[code]` → in the chosen language). `Object.entries` gives the Hungarian
@@ -389,6 +389,13 @@ export function when(iso: string | null | undefined): string {
 
 export const fileName = (p: string) => p.split(/[\\/]/).pop() ?? p;
 
+/** 231 (stage D, D-c6): a sentence the service wrote for a person (a problem a check lists), in the chosen language:
+ *  where it applies first ("rule x@1: row 2: …"), then the sentence; one not written as a template stays as it is. */
+export function saidText(s: Said): string {
+  const own = s.template ? t(s.template, s.params ?? {}) : s.text;
+  return s.within ? `${saidText(s.within)}: ${own}` : own;
+}
+
 /** For search: lower case, without accents (the counterpart of the service's `tablequery.fold`) — „szamla” finds
  *  „Számla”. */
 export const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -461,6 +468,11 @@ export function stepLabel(code: string, params: Record<string, unknown> | undefi
   if (code === "quote_request_check") return t("Check the request: {{n}} gap(s)", { n: params?.n ?? 0 }); // 191
   if (code === "quote_compose" && params?.n) return t("Compose the quote: {{n}} to settle", { n: params.n }); // 192
   if (code === "quote_approved") return t("Approved: version {{n}}", { n: params?.version ?? "" }); // 192
+  // D-f4: an assessment's field check waits for its freeze (with the disagreements still to settle)
+  if (code === "facts_check") return params?.n ? t("Check the facts: {{n}} to settle", { n: params.n }) : t("Check and freeze the facts");
+  if (code === "missing_facts") return t("Get the missing facts: {{n}}", { n: params?.n ?? 0 }); // D-f5
+  if (code === "decision_make" && typeof params?.title === "string") return t("Decide: {{what}}", { what: t(params.title) }); // D-f6
+  if (code === "letter_accept") return t("Accept the letter"); // D-f8
   return Object.prototype.hasOwnProperty.call(STEP_LABEL, code) ? STEP_LABEL[code] : fallback;
 }
 

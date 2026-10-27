@@ -25,6 +25,11 @@ waits instead of running (the process core's rule for an unknown kind).
   (the worker's jobs, the service's requests about it).
 - `step_ref(...)`, `step_refs(params)` (stage D0, D0-a): a parameter that names another step of the case (whose result
   the step reads) is declared one, so the pack check can see that the step is there and that the step waits for it.
+- `step_ref(of=)`, `step_ref_of` (stage D, D-a; the reassessment after D0, P02): the capability the named step uses,
+  so the pack check refuses a step of another kind, and a reference left out where the pack has several such steps.
+- `step_ref(expects=)`, `expected_result` (D-b2; P05, T03): the form the reader expects of the other step's result;
+  the pack check refuses a field the giver does not give, gives as another type or may leave empty where the reader
+  needs a value (a subclass fits), and the result read is checked against it before any effect.
 - `Result`, `Capability.output` (D0-c): the form of a step's result; `step_ref(reads=, versions=)` says which fields of
   the other step's result a step reads and which versions of its form it takes (`reference_problem`, the pack check);
   `read_result(ctx, params, name)` reads that result checked against its form (`ResultMismatch` otherwise), and the
@@ -43,15 +48,17 @@ themselves live in the domains and register from their `register()`.
 from __future__ import annotations
 
 import dataclasses
+import inspect
 import json
 import re
 import time
+import types
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import lru_cache
-from typing import Any, Literal
+from typing import Any, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -62,7 +69,8 @@ from jav.core.process.engine import StepContext
 __all__ = ["KEPT_RULES", "Action", "AtStart", "Capability", "CapabilityError", "DatasetRef", "OwnVersionResult", "PROVIDERS",
            "RULES", "RULE_REFS", "Result", "ResultMismatch", "RuleKey", "case_overlay", "case_rules", "catalogue", "kept_rules",
            "of", "of_step_kind",
-           "read_result", "reference_problem", "register", "step_budget", "step_reads", "step_ref", "step_refs",
+           "expected_result", "read_result", "reference_problem", "register", "step_budget", "step_reads", "step_ref",
+           "step_ref_expects", "step_ref_of", "step_ref_optional", "step_refs",
            "step_scopes"]
 
 PROVIDERS = ("jev", "openai", "azure_di")
@@ -109,13 +117,68 @@ class DatasetRef(BaseModel):
 _STEP_REF = "step_ref"  # D0-a: the mark of a parameter that names another step, in its field's JSON schema extras
 
 
+_EXPECTED: dict[str, type[BaseModel]] = {}  # D-b2: the forms readers expect, by the name their reference carries
+
+
 def step_ref(default: Any = ..., *, reads: tuple[str, ...] = (), versions: tuple[int, ...] | None = None,
-             **field: Any) -> Any:
+             of: str | None = None, expects: type[BaseModel] | None = None, optional: bool = False, **field: Any) -> Any:
     """D0-a: a parameter that names another step of the case, whose result the step reads (`Field` otherwise). D0-c:
     `reads`, the fields of that result it reads, and `versions`, the versions of the other capability's result form it
-    takes (None: any)."""
-    extra = {_STEP_REF: True, "reads": list(reads), "versions": list(versions) if versions is not None else None}
+    takes (None: any). D-a: `of`, the capability (by name) the named step uses; a reference that may be left out reads
+    the pack's only such step, so the pack check refuses one left out where there are several. D-b2: `expects`, the
+    form the reader expects of that result (its fields are what it reads, typed). D-d1: `optional`, a reference that,
+    left out, names no step (the step reads none), never the pack's only step of its kind."""
+    token = None
+    if expects is not None:
+        token = f"{expects.__module__}.{expects.__qualname__}"
+        _EXPECTED[token] = expects
+        reads = reads or tuple(expects.model_fields)
+    extra = {_STEP_REF: True, "reads": list(reads), "versions": list(versions) if versions is not None else None, "of": of,
+             "expects": token, "optional": optional}
     return Field(default, json_schema_extra=extra, **field)
+
+
+def step_ref_expects(params: type[BaseModel], name: str) -> type[BaseModel] | None:
+    """D-b2: the form a step reference expects of the other step's result; None: only the fields it reads."""
+    extra = params.model_fields[name].json_schema_extra
+    token = extra.get("expects") if isinstance(extra, dict) else None
+    return _EXPECTED.get(token) if isinstance(token, str) else None
+
+
+def _parts(annotation: Any) -> tuple[Any, bool]:
+    """(the type without None, whether it may be None)."""
+    if get_origin(annotation) in (Union, types.UnionType):
+        args = get_args(annotation)
+        rest = tuple(a for a in args if a is not type(None))
+        return (rest[0] if len(rest) == 1 else Union[rest]), len(rest) < len(args)  # noqa: UP007 - built from parts
+    return annotation, False
+
+
+def _type_name(t: Any) -> str:
+    return getattr(t, "__name__", None) or str(t)
+
+
+def _type_problem(name: str, field: str, giver_key: str, gives: Any, expects: Any) -> str | None:
+    """D-b2: what is wrong with a field the giver gives as `gives` where the reader expects `expects`."""
+    g, g_empty = _parts(gives)
+    e, e_empty = _parts(expects)
+    if g_empty and not e_empty:
+        return f"{name} reads {field!r} as {_type_name(e)}, and {giver_key} may leave it empty"
+    if g == e or (inspect.isclass(g) and inspect.isclass(e) and issubclass(g, e)):
+        return None
+    return f"{name} reads {field!r} as {_type_name(e)}, and {giver_key} gives {_type_name(g)}"
+
+
+def step_ref_of(params: type[BaseModel], name: str) -> str | None:
+    """D-a: the capability (by name) the step a reference names uses; None: any."""
+    extra = params.model_fields[name].json_schema_extra
+    return extra.get("of") if isinstance(extra, dict) else None
+
+
+def step_ref_optional(params: type[BaseModel], name: str) -> bool:
+    """D-d1: whether a reference left out names no step (rather than the pack's only step of its kind)."""
+    extra = params.model_fields[name].json_schema_extra
+    return bool(extra.get("optional")) if isinstance(extra, dict) else False
 
 
 def step_refs(params: type[BaseModel]) -> tuple[str, ...]:
@@ -140,6 +203,12 @@ def reference_problem(cap: Capability, name: str, giver: Capability) -> str | No
         return f"{name} names a step of {giver.key}, which gives no result form" if reads else None
     if missing := [f for f in reads if f not in giver.output.model_fields]:
         return f"{name} reads {missing[0]!r}, which {giver.key} does not give"
+    if (expects := step_ref_expects(cap.params, name)) is not None:  # D-b2: of the type the reader expects
+        for field, info in expects.model_fields.items():
+            if field not in giver.output.model_fields:
+                return f"{name} reads {field!r}, which {giver.key} does not give"
+            if wrong := _type_problem(name, field, giver.key, giver.output.model_fields[field].annotation, info.annotation):
+                return wrong
     if versions is not None and giver.output_version not in versions:
         return (f"{name} takes the form of version {', '.join(map(str, versions))} of {giver.key}'s result, not version"
                 f" {giver.output_version}")
@@ -165,18 +234,48 @@ def read_result(ctx: StepContext, params: BaseModel, name: str) -> dict[str, Any
             raise ResultMismatch(f"the result of step {ref!r} does not fit the form {giver.key} gives: {_fields(exc)}") from None
     if missing := [f for f in reads if (result or {}).get(f) is None]:
         raise ResultMismatch(f"the result of step {ref!r} does not fit: it has no {missing[0]!r}")
+    expected_result(type(params), name, result or {}, ref)
     return dict(result or {})
+
+
+def expected_result(params: type[BaseModel], name: str, result: dict[str, Any], ref: str | None = None) -> BaseModel | None:
+    """D-b2: the result read as the form the reference expects (None: it names none); `ResultMismatch` when it does not
+    fit, before the step does anything with it."""
+    expects = step_ref_expects(params, name)
+    if expects is None:
+        return None
+    try:
+        return expects.model_validate(result)
+    except ValidationError as exc:
+        where = f"of step {ref!r} " if ref else ""
+        raise ResultMismatch(f"the result {where}does not fit the form the step expects: {_fields(exc)}") from None
 
 
 @dataclass(frozen=True)
 class Action:
     """231 (A7d): a person's action on a step: its `name`, its English `label` (the interface translates it),
-    `available(case_id, step_id)` (whether the step waits for it now) and `run(case_id, step_id, actor, note)`."""
+    `available(case_id, step_id)` (whether the step waits for it now) and `run(case_id, step_id, actor, note)`. D-f2:
+    an action with a `form` (a pydantic model forbidding other fields) takes its values instead of a note, checked by
+    the form, and `submit(case_id, step_id, actor, values)` does it; its step's own element offers it, not a button.
+    `on_done`: offered on a done step too (a reopening); otherwise only while the step runs."""
 
     name: str
     label: str
     available: Callable[[str, str], bool]
     run: Callable[[str, str, identity.Who, str | None], None]
+    form: type[BaseModel] | None = None
+    submit: Callable[[str, str, identity.Who, Any], Any] | None = None
+    on_done: bool = False
+
+
+def _takes_values(case_id: str, step_id: str, _actor: identity.Who, _note: str | None) -> None:
+    raise ValueError("this action takes values")
+
+
+def form_action(name: str, label: str, available: Callable[[str, str], bool], form: type[BaseModel],
+                submit: Callable[[str, str, identity.Who, Any], Any]) -> Action:
+    """D-f2: an action whose values a form checks (a freeze with the day cover starts, a decision with its choice)."""
+    return Action(name, label, available, _takes_values, form=form, submit=submit)
 
 
 @dataclass(frozen=True)
@@ -231,6 +330,8 @@ class AtStart:
 
     kept: Callable[[str], str]
     named: Callable[[str], dict[str, Any]]
+    # D-a: whether a value names a version a case keeps (`<id>@<n>`); a pack's `needs_at_start` refuses one that does not
+    resolved: Callable[[str], bool] = field(default=lambda value: "@" in value)
 
 
 @dataclass(frozen=True)
@@ -243,7 +344,9 @@ class Capability:
       event or a time).
     - `summary`: one English line (the interface translates it).
     - `params`: the pydantic model of what a process pack sets for the step (it must forbid other fields).
-    - `providers`: the paid services it may call (empty: free); `rule_files`: the rule files it reads.
+    - `providers`: the paid services it may call (empty: free); `rule_files`: the rule files it reads; D-d1: `reads`,
+      the rule files a step of it reads by its parameters (a fact catalogue a parameter names), kept at the case's
+      start beside `rule_files`.
     - `effects`: `pure` (computes only), `store` (writes the store) or `external` (reaches another system; only through
       the process core's handover record).
     - `run(ctx, params)`: the step's work (`kinds.StepOutcome`); None while the capability is described but not yet usable
@@ -297,6 +400,7 @@ class Capability:
     params: type[BaseModel]
     providers: tuple[str, ...] = ()
     rule_files: tuple[str, ...] = ()
+    reads: Callable[[dict[str, Any]], tuple[str, ...]] | None = None
     effects: Literal["pure", "store", "external"] = "store"
     run: Callable[[StepContext, Any], kinds.StepOutcome] | None = None
     events: tuple[str, ...] = ()
@@ -457,10 +561,16 @@ def _kept(start: str, now: str, names: tuple[str, ...]) -> tuple[dict[str, cfg.K
             if content is None:
                 unfit[name] = f"the rule file {name} {was['version']} the case started with is not stored"
                 continue
-            older = json.loads(content)
+            # D-a: a key added since takes the value of the first later version that had it (a later change of its
+            # value does not reach the case), then the file now
+            data = json.loads(content)
+            for later in rulebook.later_in(c, path, was["sha256"]):
+                text = json.loads(later)
+                if cfg.major(str((text.get("meta") or {}).get("version"))) == cfg.major(was["version"]):
+                    data = cfg.filled(data, text)
             with cfg.overlay(None):
                 newer = cfg.load(name) if is_ is not None else {}
-            base[name] = cfg.Kept(cfg.filled(older, newer), was["sha256"], was["version"])
+            base[name] = cfg.Kept(cfg.filled(data, newer), was["sha256"], was["version"])
     return base, unfit
 
 

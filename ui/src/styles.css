@@ -1094,3 +1094,78 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
    finance domain's, they are here, after every other shared rule. */
 .rc-accounts { display: grid; gap: 6px; }
 .rc-accounts label { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; align-items: start; cursor: pointer; }
+
+/* 231 (stage D, D-c6): the product registry in Settings (Products, Tariffs). A list, a card opening below it; a rule's
+   decision table keeps its conditions and its outcomes apart with a double rule, like a ledger's total; the clause a rule
+   was read from is quoted under a hairline indent; a tariff reads as the numbered order its premium is computed in. */
+.registry { display: grid; gap: var(--sp-4); align-content: start; }
+.registry > .segmented-tabs { justify-self: start; }
+.registry-table td:first-child { font-weight: 500; }
+.registry-card { display: grid; gap: var(--sp-3); }
+.registry-card h3:focus { outline: none; }
+.registry-card h4 { margin: var(--sp-3) 0 0; font-size: var(--fs-sm); font-weight: 600; }
+.registry-card > .table, .registry-rule .table { margin: 0; }
+.registry-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); margin: 0; }
+.registry-activation { display: grid; gap: var(--sp-2); padding: var(--sp-3) 0; border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
+.registry-activation h4 { margin: 0; }
+.registry-activation .plain { margin: 0; }
+.registry-rule { display: grid; gap: var(--sp-2); padding-top: var(--sp-3); border-top: 1px solid var(--line-soft); }
+.registry-rule h4 { margin: 0; }
+.nowrap { white-space: nowrap; }
+.decision-table th.dt-then, .decision-table td.dt-then { border-left: 3px double var(--line-strong); }
+.dt-any { color: var(--faint); }
+.citation { margin: 0; padding: var(--sp-1) 0 var(--sp-1) var(--sp-3); border-left: 1px solid var(--line-strong); font-size: var(--fs-sm); }
+.citation figcaption { color: var(--ink-2); }
+.citation blockquote { margin: var(--sp-1) 0 0; color: var(--ink); }
+.calc-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); }
+.calc-steps > li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
+.calc-steps > li p { margin: 2px 0 var(--sp-2); }
+.step-no { display: inline-grid; place-items: center; width: 22px; height: 22px; border: 1px solid var(--ink); border-radius: var(--r-sm);
+  font-size: var(--fs-xs); font-weight: 600; }
+.factor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--sp-4); align-items: start; }
+.factor-head { margin: 0 0 var(--sp-2); display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: baseline; }
+/* 231 (stage D, D-c7g): rule proposals. The proposer is a plain radio fieldset; a number a person confirms reads in the
+   to-do colour; the correction is a record in the code face, folded away until asked for. */
+.todo-text { color: var(--todo); }
+.proposal-proposer, .proposal-confirm { border: 0; padding: 0; margin: 0; display: grid; gap: var(--sp-1); }
+.proposal-proposer legend, .proposal-confirm legend { font-size: var(--fs-xs); color: var(--ink-2); font-weight: 500; padding: 0; margin-bottom: var(--sp-1); }
+.proposal-verify { align-self: end; }
+.proposal-correct summary { cursor: pointer; font-size: var(--fs-sm); color: var(--ink-2); }
+.proposal-correct textarea { width: 100%; margin: var(--sp-2) 0; font-size: var(--fs-xs); }
+.registry-card .form-row .picker { min-width: 280px; }
+
+/* 231 (stage D, D-f4): an assessment's data check: the units ledger (a unit's head row on the soft tint, its facts
+   under it, values in ink at 500), a fact's input with its unit, and the freeze under a quiet hairline */
+.facts-ledger .unit-head > * { background: var(--soft); vertical-align: middle; }
+.facts-ledger .unit-head th { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); text-align: left; }
+.facts-ledger td.fact-value { font-weight: 500; }
+.fact-input { display: inline-flex; gap: var(--sp-2); align-items: center; }
+.fact-input input, .facts-ledger select { border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--paper);
+  padding: 4px 8px; font: inherit; color: var(--ink); }
+.faint { color: var(--faint); }
+.button-row.end { justify-content: flex-end; }
+.freeze { border-top: 1px solid var(--line-soft); padding-top: var(--sp-3); display: grid; gap: var(--sp-2); max-width: 520px; }
+
+/* 231 (stage D, D-f5): an assessment's calculation: a unit's outcomes as a short list, a module's total row in ink at
+   500 under a hairline, the premium's total as the ledger's sum (a 3 px double rule, 22 px semibold, tabular), and the
+   earlier versions as a quiet fold */
+.outcomes { margin: 0; gap: 2px; }
+.premium-lines .module-total td { font-weight: 500; border-top: 1px solid var(--line); }
+.premium-lines td.num { white-space: nowrap; }
+.ledger-total { display: flex; align-items: baseline; gap: var(--sp-3); justify-content: flex-end; border-top: 3px double var(--ink);
+  padding-top: var(--sp-2); }
+.ledger-total strong { font-size: var(--fs-xl); font-weight: 600; }
+details.earlier > summary { cursor: pointer; }
+details.earlier[open] > summary { margin-bottom: var(--sp-2); }
+
+/* 231 (stage D, D-f6): a decision's choices as plain radio buttons in ink (one the result does not allow is muted and
+   cannot be taken), its note or reason, and its one solid button under them */
+.decision-form { display: grid; gap: var(--sp-3); border-top: 1px solid var(--line-soft); padding-top: var(--sp-3); }
+.choices { border: 0; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.choice { display: flex; align-items: baseline; gap: var(--sp-2); }
+.choice input { accent-color: var(--ink); }
+
+/* 231 (stage D, D-f8): a letter that goes with a printed document */
+.letter-text { resize: vertical; line-height: 1.5; min-height: 240px; }
+.letter-form .todo-text { margin: calc(-1 * var(--sp-2)) 0 var(--sp-2); }
+.letter-form .button-row { margin-top: var(--sp-3); }

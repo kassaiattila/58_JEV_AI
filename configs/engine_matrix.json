@@ -1,9 +1,19 @@
 {
   "meta": {
     "name": "engine_matrix",
-    "version": "1.0.16",
+    "version": "1.0.18",
     "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/devtools/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
     "changelog": [
+      {
+        "version": "1.0.18",
+        "date": "2026-10-26",
+        "note": "231 (stage D, D-e1): the verification call sites of the three insurance application packs, each with the code's own source check as its counterpart without JEV"
+      },
+      {
+        "version": "1.0.17",
+        "date": "2026-10-26",
+        "note": "231 (stage D, D-c7d): the JEV check of a rule proposed from a condition document (jav/app/rule_support.py), skipped without JEV: the code's checks and a person decide."
+      },
       {
         "version": "1.0.16",
         "date": "2026-10-24",
@@ -155,6 +165,20 @@
       "tests": [
         "tests/test_quote_match_191.py::test_the_gpt_engine_asks_the_same_questions",
         "tests/test_quote_match_191.py::test_the_gpt_engine_cannot_ask_jev"
+      ]
+    },
+    "rule_proposal": {
+      "call_site": "rule_proposal",
+      "modules": [
+        "jav/app/rule_support.py"
+      ],
+      "exception": {
+        "kind": "skipped",
+        "reason": "Without JEV the proposal is not judged by a model: the code's checks (form, citation, quote, every number) stay, and a person decides every proposal. GPT judging its own proposal would be no independent check (231, stage D, D-c7d)."
+      },
+      "tests": [
+        "tests/test_rule_support_231.py::test_a_supported_rule_is_marked_supported_and_never_accepted",
+        "tests/test_rule_support_231.py::test_without_jev_the_proposal_is_not_asked_and_keeps_the_code_checks"
       ]
     },
     "reconcile_line": {
@@ -531,6 +555,48 @@
       },
       "tests": [
         "tests/test_measure_jev_budget_127.py::test_the_verifier_probe_with_a_jev_budget_runs_under_that_budget_only"
+      ]
+    },
+    "verify_insurance_request": {
+      "call_site": "verify_insurance_request",
+      "modules": [
+        "jav/ai/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/ai/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check with GPT's token confidence on the scored fields (jav/ai/policy.py apply_gpt_confidence_policy); the list questions have no counterpart: the list checks of the pack's validators stand in"
+      },
+      "tests": [
+        "tests/test_insurance_packs_231.py::test_without_jev_the_code_checks_the_request"
+      ]
+    },
+    "verify_property_schedule": {
+      "call_site": "verify_property_schedule",
+      "modules": [
+        "jav/ai/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/ai/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check with GPT's token confidence on the scored fields (jav/ai/policy.py apply_gpt_confidence_policy); the list questions have no counterpart: the list checks of the pack's validators stand in"
+      },
+      "tests": [
+        "tests/test_insurance_packs_231.py::test_without_jev_the_code_checks_the_schedule"
+      ]
+    },
+    "verify_claims_history": {
+      "call_site": "verify_claims_history",
+      "modules": [
+        "jav/ai/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/ai/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check with GPT's token confidence on the scored fields (jav/ai/policy.py apply_gpt_confidence_policy); the list questions have no counterpart: the list checks of the pack's validators stand in"
+      },
+      "tests": [
+        "tests/test_insurance_packs_231.py::test_without_jev_the_code_checks_the_statement"
       ]
     }
   },

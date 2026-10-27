@@ -18,7 +18,8 @@ steps wait for a person's start; starting one decides its start task, and the wo
   step spent, by service); (B1) `partner_link`: the partners the case is about, by the pack's partner links, each
   linked, or proposed from the record's fields with the partner it seems to be. `link_partner(case_id, role,
   partner_id, actor)`: a person links one (the case's scope names it). The next step comes from the first step that is not done, through the elements that show
-  it; a step no element shows leaves it to the first element that names one.
+  it; a step no element shows leaves it to the first element that names one. D-f9: `blockers`, what holds an open
+  case, each with the tab where it is resolved.
 
 Layer: application; it uses the process packs, the capability registry, the process runtime and the process core's
 public operations.
@@ -101,9 +102,12 @@ def _actions(case_id: str, step: process_packs.Step, row: dict[str, Any]) -> lis
     """The actions available on the step now: a failed step's retry (A7e), a running step's capability's (A7d)."""
     if row.get("state") == cases.FAILED:
         return [{"name": RETRY, "label": "Try again"}]
-    if row.get("state") != cases.RUNNING:
+    state = row.get("state")
+    if state not in (cases.RUNNING, cases.DONE):
         return []
-    return [{"name": a.name, "label": a.label} for a in capabilities.of(step.uses).actions if a.available(case_id, step.id)]
+    return [{"name": a.name, "label": a.label, **({"form": True} if a.form is not None else {})}  # D-f2: its element's
+            for a in capabilities.of(step.uses).actions
+            if (state == cases.RUNNING or a.on_done) and a.available(case_id, step.id)]  # D-f2: a reopening on a done one
 
 
 def _step_view(case_id: str, step: process_packs.Step, row: dict[str, Any]) -> dict[str, Any]:
@@ -173,9 +177,11 @@ def start_step(case_id: str, step_id: str, actor: identity.Who) -> dict[str, Any
     return view(case_id)
 
 
-def act(case_id: str, step_id: str, name: str, actor: identity.Who, note: str | None = None) -> dict[str, Any]:
+def act(case_id: str, step_id: str, name: str, actor: identity.Who, note: str | None = None,
+        values: dict[str, Any] | None = None) -> dict[str, Any]:
     """A person's action on the case's step (A7d): one its capability offers and the step waits for now; `CaseError`
-    otherwise. The worker moves the case on."""
+    otherwise. The worker moves the case on. D-f2: an action with a form takes `values`, checked by the form (422 when
+    they do not fit; a page showing an older state is refused by the action itself, 409)."""
     pack = process_runtime.pack_for(case_id)
     if pack is None:
         raise KeyError(case_id)
@@ -189,6 +195,12 @@ def act(case_id: str, step_id: str, name: str, actor: identity.Who, note: str | 
     action = next((a for a in capabilities.of(step.uses).actions if a.name == name), None) if step else None
     if step is None or action is None or not action.available(case_id, step_id):
         raise explained(CaseError, "the step {{step}} does not wait for this action", step=step_id)
+    if action.form is not None:
+        if values is None:
+            raise explained(CaseError, "the action {{name}} takes values", name=name)
+        assert action.submit is not None
+        action.submit(case_id, step_id, actor, action.form.model_validate(values))
+        return view(case_id)
     action.run(case_id, step_id, actor, note.strip() if note and note.strip() else None)
     return view(case_id)
 
@@ -364,6 +376,42 @@ def _started_cases(case_id: str, _step: str | None, shared: dict[str, Any]) -> l
     return out
 
 
+def _blockers(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """D-f9: the shared blockers element: what holds an open case, step by step in the pack's order, each with the tab
+    whose element shows that step (where it is resolved): a step that stopped (its note says why) or must run again, one
+    that waits for a person's start, one that waits for a person's decision, and one that waits for something else (a
+    task's deadline, a run, a handover). A step not reached yet, or working by itself, holds nothing."""
+    pack = process_runtime.pack_for(case_id)
+    if pack is None:
+        raise KeyError(case_id)
+    state = engine.state(case_id)
+    if state["status"] != cases.OPEN:
+        return {"status": state["status"], "items": []}
+    where: dict[str, str] = {}
+    for tab in pack.screens.tabs:
+        for element in tab.elements:
+            if element.step and element.step not in where:
+                where[element.step] = tab.id
+    items = []
+    for step in pack.steps:
+        row = state["steps"].get(step.id, {})
+        shown = _step_view(case_id, step, row)
+        if row.get("state") in (cases.FAILED, cases.STALE):
+            kind = "stopped" if row["state"] == cases.FAILED else "stale"
+        elif row.get("state") != cases.RUNNING or not row.get("waiting_for"):
+            continue
+        elif shown["awaiting_start"]:
+            kind = "start"
+        elif shown["by_person"]:
+            kind = "person"
+        else:
+            kind = "waits"
+        items.append({"step": step.id, "kind": kind, "note": row.get("note"), "waiting_for": row.get("waiting_for"),
+                      "tab": where.get(step.id)})
+    return {"status": state["status"], "items": items}
+
+
+register(ElementData("blockers", None, __name__, _blockers))  # D-f9
 register(ElementData("started_cases", None, __name__, _started_cases))
 register(ElementData("timeline", None, __name__, _timeline))
 register(ElementData("cost", None, __name__, _cost))

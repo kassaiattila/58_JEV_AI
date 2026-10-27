@@ -53,7 +53,7 @@ def test_a_template_is_uploaded_activated_chosen_and_used_by_the_download_and_th
     tpl = up.json()["template"]
     listing = c.get("/api/output-templates").json()
     assert [t["template"] for t in listing["templates"]] == [tpl]
-    assert set(listing["outputs"]) == {"package_result", "utility_cost", "reconcile_statement", "quote"}  # 196: the quote
+    assert set(listing["outputs"]) == {"package_result", "utility_cost", "reconcile_statement", "quote", "rated_offer"}  # 196; D-f7
     preview = c.get(f"/api/output-templates/{tpl}/versions/1/preview.xlsx")
     assert preview.status_code == 200 and load_workbook(io.BytesIO(preview.content)).active["A7"].value == "3 invoices"  # below three made-up rows
     assert c.get(f"/api/output-templates/{tpl}/versions/1/file").content == open(path, "rb").read()

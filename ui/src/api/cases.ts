@@ -2,6 +2,7 @@
 // process pack, and one running instance of it is a case. The service gives a case's page as data
 // (jav/app/case_views.py): its steps and its pack's tabs, each element with what its step's capability shows.
 import { enc, request } from "./client";
+import type { Catalogue } from "./products";
 import type { ApprovalState } from "./types";
 
 /** 231 (C1a): one part a record was read from (the email's text, an attachment, a document). */
@@ -26,7 +27,8 @@ export interface StartedCase {
 }
 
 /** A person's action on a step (A7d): a failed step's retry, or one its capability offers while the step waits for it. */
-export interface CaseAction { name: string; label: string }
+/** D-f2: `form`: the action takes values, which its step's own element asks for (no button of its own). */
+export interface CaseAction { name: string; label: string; form?: boolean }
 /** 231 (C3b3): the documents of a document processing case: a folder (with its subfolders when asked) or files. */
 export interface CaseSource {
   kind: "folder" | "files" | "mailbox"; folder?: string; recursive?: boolean; files?: string[];
@@ -74,6 +76,94 @@ export interface ReplyData {
   state: string | null; since: string | null; remind_at: string | null; reminded_at: string | null;
   follow_up: string | null; reply: "replied" | "not_needed" | null; by: string | null; at: string | null; note: string | null;
 }
+/** D-f4: an assessed unit of a field check, with where each fact came from (jav/app/field_check.py `view`). */
+export interface AssessedUnit {
+  unit_id: string; level: string; parent_id: string | null; facts: Record<string, unknown>; state: number; removed?: boolean;
+  sources: Record<string, { value?: unknown; original?: string | null;
+    source?: { item?: string; file?: string | null; page?: number | null; quote?: string | null } | null;
+    interpretation?: { reading?: string } | null }>;
+}
+/** D-f4: a fact another step offered and where it went: a new unit, filled, agrees, a conflict (open: still differs), not placed. */
+export interface OfferedClaim {
+  from_step: string; unit_key: string; fact: string; value: unknown;
+  placement: "new_unit" | "filled" | "agrees" | "conflict" | "unplaced"; unit_id: string | null; open: boolean;
+}
+export interface FieldReviewData {
+  units: AssessedUnit[]; claims: OfferedClaim[]; state: number; approval: ApprovalState; catalogue: Catalogue;
+  frozen: { version: number; cover_start: string; by: string; at: string } | null; conflicts: number; waits: boolean;
+}
+/** D-f4: the facts a step read from a case's documents, per document. */
+export interface DocumentFactsData {
+  state: string | null; catalogue: Catalogue | null;
+  documents: { item: string; file: string; doc_type: string; claims: number; unread: { unit: string | null; fact: string; value: unknown; why: string }[]; note?: string }[];
+}
+/** D-f4: an outside register's question and answer. */
+export interface LookupData {
+  state: string | null; note: string | null; connector: string; what: string | null; asked: boolean | null; missing: string[];
+  question: Record<string, unknown>; claims: { unit: string; fact: string; value: unknown }[]; catalogue: Catalogue | null;
+}
+/** D-f5: a rule evaluation's latest record in full, and its versions (jav/app/evaluation_steps.py). */
+export interface EvaluatedUnit {
+  unit_id: string; level: string; named: Record<string, unknown>; combined: Record<string, unknown>;
+  rules: Record<string, { matched: number[]; outcomes: Record<string, unknown>; missing: string[] }>;
+}
+export interface EvaluationData {
+  versions: { version: number; input_version: number; made_at: string; verdict: string | null; missing: number; blockers: number }[];
+  latest: { version: number; input_version: number; verdict: string | null; modules: string[]; modules_said: boolean;
+    missing: { unit_id: string; fact: string; title: string }[]; blockers: string[]; product: string; units: EvaluatedUnit[] } | null;
+  catalogue: Catalogue | null;
+  rules: Record<string, { title: string; kind: string; source: { document?: string; page?: number | null; clause?: string } }>;
+}
+export interface PremiumMoney { amount: string; currency: string }
+export interface PremiumStep { name: string; factor: string; after: PremiumMoney }
+export interface CalculationData {
+  versions: { version: number; input_version: number; made_at: string; total: PremiumMoney | null; blockers: number }[];
+  latest: {
+    version: number; evaluation_version: number; tariff_ref: string; modules: string[]; total: PremiumMoney | null;
+    subtotal: PremiumMoney | null; policy_minimum_applied: boolean; blockers: string[];
+    lines: { unit_id: string; module: string; basis: PremiumMoney; base: PremiumMoney; steps: PremiumStep[]; amount: PremiumMoney }[];
+    module_totals: Record<string, { lines: PremiumMoney; minimum_applied: boolean; total: PremiumMoney }>; total_steps: PremiumStep[];
+  } | null;
+  tariff?: { ref: string; title: string | null; currency: string; factors: Record<string, string | null> };
+  modules?: Record<string, string>; units?: Record<string, { level: string; named: Record<string, unknown> }>; catalogue?: Catalogue;
+}
+/** D-f5: the wait for missing facts. */
+export interface MissingInfoData {
+  state: string | null; missing: { unit_id: string; fact: string; title: string }[]; closes: string | null; days: number | null;
+  units?: Record<string, { level: string; named: Record<string, unknown>; label?: string }>;
+  task: { status: "open" | "decided" | "expired" | "withdrawn"; due_at: string | null; opened_at: string; closed_at: string | null;
+    note: string | null; outcome: string | null } | null;
+}
+/** D-f6: a person's decision on another step's result (jav/app/case_decisions.py). */
+export interface DecisionData {
+  about: string; result: Record<string, unknown> | null; basis: Record<string, number>;
+  choices: { code: string; title: string; closes: string | null; allowed: boolean }[];
+  second_person: { limit: string; amount: PremiumMoney; above: PremiumMoney; needed: boolean; other_than: string;
+    earlier_by: string | null; earlier_by_id: string | null } | null;
+  problem: string | null; approval: ApprovalState; waits: boolean;
+  decided: { version: number; choice: string; title: string; note: string | null; by: string; at: string } | null;
+}
+/** D-f7: the document a priced document's step printed (jav/app/approved_document.py). */
+export interface DocumentViewData {
+  state: string | null; from_step: string | null; output: string | null; version: number | null;
+  file: { name: string; sha256: string } | null;
+}
+/** D-f9: what holds an open case, each with the tab where it is resolved (jav/app/case_views.py). */
+export interface BlockersData {
+  status: string;
+  items: { step: string; kind: "stopped" | "stale" | "start" | "person" | "waits"; note: string | null; waiting_for: string | null;
+    tab: string | null }[];
+}
+/** D-f8: a letter that goes with a printed document (jav/app/letters.py). */
+export interface LetterData {
+  frame: string;
+  document: { step: string; version: number; output: string; name: string; sha256: string } | null;
+  draft: { to: string | null; subject: string; body: string } | null;
+  problem: string | null; basis: Record<string, number>; approval: ApprovalState; waits: boolean;
+  accepted: { version: number; to: string | null; subject: string; body: string; by: string; at: string;
+    document: { name: string; sha256: string }; file: { name: string; sha256: string } | null } | null;
+  limits: { subject_chars: number; body_chars: number };
+}
 export interface CaseEvent {
   at: string; kind: string; step: string | null; step_title: string | null; who: string | null;
   detail: { note?: string; timer?: string; task_kind?: string; answer?: string; kept?: CaseKept };
@@ -100,12 +190,15 @@ export const casesApi = {
     party_id?: string; period_start?: string; period_end?: string; source?: CaseSource }) =>
     request<{ case_id: string }>("POST", "/cases", body),
   casePage: (caseId: string) => request<CaseView>("GET", `/cases/${enc(caseId)}`),
+  // D-f7: the document a step printed and stored with its version (a link, not a request)
+  caseStepFileUrl: (caseId: string, stepId: string) => `/api/cases/${enc(caseId)}/steps/${enc(stepId)}/file`,
   startCaseStep: (caseId: string, stepId: string) =>
     request<CaseView>("POST", `/cases/${enc(caseId)}/steps/${enc(stepId)}/start`, {}),
   linkCasePartner: (caseId: string, role: string, partnerId: string) =>
     request<CaseView>("POST", `/cases/${enc(caseId)}/partners`, { role, partner_id: partnerId }),
-  caseStepAction: (caseId: string, stepId: string, name: string, note?: string) =>
-    request<CaseView>("POST", `/cases/${enc(caseId)}/steps/${enc(stepId)}/actions/${enc(name)}`, note ? { note } : {}),
+  caseStepAction: (caseId: string, stepId: string, name: string, note?: string, values?: Record<string, unknown>) =>
+    request<CaseView>("POST", `/cases/${enc(caseId)}/steps/${enc(stepId)}/actions/${enc(name)}`,
+      { ...(note ? { note } : {}), ...(values ? { values } : {}) }),
   /** D0-d: the approval's state of a case's approving step, and a person's return of its result with a reason */
   caseApproval: (caseId: string, stepId: string) =>
     request<ApprovalState>("GET", `/cases/${enc(caseId)}/steps/${enc(stepId)}/approval`),

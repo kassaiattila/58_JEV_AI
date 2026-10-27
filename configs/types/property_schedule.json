@@ -1,0 +1,58 @@
+{
+ "meta": {
+  "name": "type:property_schedule",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-26",
+    "note": "231 (stage D, D-e1; the owner's decision of 2026-10-26: a new detection type of its own): the property schedule of one insured site, under the detection type insurance_application. G path only. The site's address, size, flood zone and protection, and its asset groups (one row each) with their sum insured, valuation basis and wear. One schedule per site, as a list cannot hold another list."
+   }
+  ]
+ },
+ "document": "A property schedule (vagyonadatlap) of one insured site: its address, size, flood zone and protection, and its asset groups with their sums insured",
+ "golden_type_key": "property_schedule",
+ "candidate_profile": "intl",
+ "arms": ["G"],
+ "default_arm": "G",
+ "inputs": ["pdf"],
+ "parent": "insurance_application",
+ "auto_detect": true,
+ "detect": {
+  "required_any": ["vagyonadatlap", "vagyonleltár", "biztosítási összeg"],
+  "supporting": ["telephely", "vagyoncsoport", "épület", "készlet", "gépek", "értékelés", "avulás", "védelmi", "árvíz"],
+  "excluders": ["kárelőzmény", "kárbejelent", "kért fedezet"]
+ },
+ "prompt_file": "property_schedule_prompt.md",
+ "schema_file": "property_schedule_schema.json",
+ "source_prefix": null,
+ "select_callsite": null,
+ "verify_callsite": "verify_property_schedule",
+ "fields": {
+  "policyholder_name": "name",
+  "site_no": "text",
+  "site_address": "address",
+  "floor_area": "number",
+  "flood_zone": "text",
+  "alarm_remote": "text",
+  "surge_protection": "text",
+  "basement_storage": "text",
+  "protection_class": "number",
+  "currency": "currency",
+  "asset_groups": "list"
+ },
+ "list_fields": {
+  "asset_groups": {"asset_group": "text", "sum_insured": "money", "valuation": "text", "wear": "number"}
+ },
+ "scored_fields": ["policyholder_name", "site_no", "site_address", "floor_area", "flood_zone", "alarm_remote", "surge_protection",
+                   "basement_storage", "protection_class", "currency"],
+ "informational_fields": [],
+ "required": ["site_address"],
+ "required_review": true,
+ "high_stakes": [],
+ "validators": [
+  {"check": "list_rows", "field": "asset_groups", "min": 1},
+  {"check": "list_values", "field": "asset_groups", "columns": ["asset_group", "sum_insured"]},
+  {"check": "list_positive", "field": "asset_groups", "columns": ["sum_insured"]}
+ ]
+}

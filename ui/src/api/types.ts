@@ -6,6 +6,10 @@ import type { PackageOffer } from "./processes";
 import type { EmailItem, MailboxRequest, RoutingView } from "./email";
 
 export interface Blocker { code: string; message: string }
+/** 231 (stage D, D-c6): a sentence a person reads (a problem a check lists): the service's English text, and when it was
+ *  written as a template, the template, its values and where it applies (`within`, shown before it), translated by
+ *  `saidText` (`labels.ts`). */
+export interface Said { text: string; template?: string; params?: Record<string, string>; within?: Said | null }
 /** 083: `field` is the simple field the to-do is about (null: about the document or a line item). */
 /** 150: `trial` (on an earlier reason only): raised by a trial run; the review page hides those by default. */
 export interface Reason { id: number; reason: string; producer: string; run_id: string; field?: string | null; trial?: boolean }

@@ -22,7 +22,7 @@ describe("the screen element catalogue", () => {
   });
 
   it("has none for a planned element yet", () => {
-    expect(names(true)).toEqual(["actions", "blockers", "data_table", "document_view", "field_review", "form"]);
+    expect(names(true)).toEqual(["actions", "data_table", "form"]);  // built: D-f4 the field review, D-f7 the document view, D-f9 the blockers
     expect(names(true).filter((k) => elementOf(k))).toEqual([]);
   });
 

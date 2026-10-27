@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "outputs",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "description": "The output contract (178, plan 170 L4, jav/outputs/contract.py): each output a person downloads or a release stores, and the data it is filled with: its values (one value each, such as the package's name) and its tables, each column with its kind. A key is an English identifier (lowercase letters, digits and `_`); a person's own template (planned: the second round of L4) may use only the keys listed here. A table with `per` is one table for each document type, its columns the listed ones followed by the type pack's fields (`fields: type_pack`) or the columns of its lists' rows (`fields: type_pack_lists`); `months` adds one column per month, keyed `month_<yyyy>_<mm>`. Kinds: text, date, money and number (a decimal number; written as one when the text reads as one), count (a whole number), probability (between 0 and 1), flag (yes or empty), json (structured text). builtin: the layout of the built-in template, the one every download had until 178 (sheet per table; `heading`: the values as a block above every table; `min_width`: the narrowest column; `marks`: the fill colour of a marked cell). A table's `footer` rows (the utility cost's grand total) are written by the built-in template only; an own template takes the value (`grand_total`). templates: the limits of an own template (its size, the made-up rows of a preview) and (196) the fields a Word template may hold (`word_fields`: page numbers, dates, links and references; any other field, a calculation (`=`) above all, refuses the template). The column headers and sheet names of the built-in layout come from field_labels.json, reports.json and the code that builds the data.",
     "changelog": [
+      {
+        "version": "1.4.0",
+        "date": "2026-10-26",
+        "note": "231 (stage D, D-f7): a rated offer as a Word document (`rated_offer`): the policyholder and its contact person, the product, the day cover starts, the risk's verdict, each cover module's premium, their subtotal, the factors on the total and the total, from an approved premium decision."
+      },
       {
         "version": "1.3.0",
         "date": "2026-10-22",
@@ -338,6 +343,47 @@
             "unit_price": "money",
             "discount_percent": "number",
             "net": "money"
+          }
+        }
+      }
+    },
+    "rated_offer": {
+      "what": "A rated offer as a Word document (231, stage D, D-f7): from an approved premium decision, the policyholder, its tax number, the product, the day cover starts, the risk's verdict, each cover module's premium, their subtotal, the tariff's factors on the total, the total (and whether it was rounded or the policy's minimum applies), with the condition documents it is offered under. The built-in template is Hungarian (configs/offer_documents.json).",
+      "format": "docx",
+      "builtin": {
+        "version": "1.0.0"
+      },
+      "values": {
+        "package": "text",
+        "version": "count",
+        "state": "text",
+        "offer_date": "date",
+        "approved_by": "text",
+        "policyholder": "text",
+        "tax_number": "text",
+        "contact_name": "text",
+        "contact_email": "text",
+        "product": "text",
+        "cover_start": "date",
+        "verdict": "text",
+        "currency": "text",
+        "subtotal": "money",
+        "total": "money",
+        "rounded": "text",
+        "policy_minimum": "text",
+        "conditions": "text"
+      },
+      "tables": {
+        "modules": {
+          "columns": {
+            "name": "text",
+            "premium": "money"
+          }
+        },
+        "adjustments": {
+          "columns": {
+            "name": "text",
+            "factor": "number"
           }
         }
       }

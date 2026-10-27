@@ -50,7 +50,7 @@ def db(tmp_path):
 
 def test_every_name_of_the_contract_is_an_identifier_and_every_kind_is_known():
     outputs = contract.outputs()
-    assert set(outputs) == {"package_result", "utility_cost", "reconcile_statement", "quote"}  # 196: the quote
+    assert set(outputs) == {"package_result", "utility_cost", "reconcile_statement", "quote", "rated_offer"}  # 196: the quote; D-f7
     for name, out in outputs.items():
         assert out["format"] in ("xlsx", "docx") and out["what"]  # 196: a Word output
         layout = {"version", "heading", "min_width", "marks"} if out["format"] == "xlsx" else {"version"}
