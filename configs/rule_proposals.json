@@ -16,59 +16,12 @@
       }
     ]
   },
-  "skip_page_markers": [
-    "(?mi)^\\s*(?:internal|belső)\\s*$"
-  ],
-  "number_words": {
-    "nulla": 0,
-    "két": 2,
-    "kettő": 2,
-    "három": 3,
-    "négy": 4,
-    "öt": 5,
-    "hat": 6,
-    "hét": 7,
-    "nyolc": 8,
-    "kilenc": 9,
-    "tíz": 10
-  },
-  "number_word_endings": [
-    "",
-    "t",
-    "et",
-    "at",
-    "ot",
-    "öt",
-    "ig",
-    "en",
-    "an",
-    "re",
-    "ra",
-    "ről",
-    "ből",
-    "ben",
-    "nél",
-    "szer",
-    "szor",
-    "ször"
-  ],
-  "derive": {
-    "percent_factor": true,
-    "count_boundary": true,
-    "neutral_factor": true
-  },
+  "skip_page_markers": ["(?mi)^\\s*(?:internal|belső)\\s*$"],
   "marked_allowed": [
-    {
-      "sha256": "27c3c2ee694c6478d2b9ca59feac93773b245e102db59570939e6ac26708db4e",
-      "file": "AHE-43500_8_VABF_2026_mod_FINAL.pdf",
-      "decided": "2026-10-27",
-      "by": "the owner (AskUserQuestion: 'Felhasználhatók teljesen')"
-    },
-    {
-      "sha256": "67a869a0620ed28f482755a9a171512ee18c91d015ec511b7b48c737209005b9",
-      "file": "AHE_11888_1_BETLOP_KBF_UT_ZAR_FINAL_MSz.pdf",
-      "decided": "2026-10-27",
-      "by": "the owner (AskUserQuestion: 'Felhasználhatók teljesen')"
-    }
-  ]
+    {"sha256": "27c3c2ee694c6478d2b9ca59feac93773b245e102db59570939e6ac26708db4e", "file": "AHE-43500_8_VABF_2026_mod_FINAL.pdf", "decided": "2026-10-27", "by": "the owner (AskUserQuestion: 'Felhasználhatók teljesen')"},
+    {"sha256": "67a869a0620ed28f482755a9a171512ee18c91d015ec511b7b48c737209005b9", "file": "AHE_11888_1_BETLOP_KBF_UT_ZAR_FINAL_MSz.pdf", "decided": "2026-10-27", "by": "the owner (AskUserQuestion: 'Felhasználhatók teljesen')"}
+  ],
+  "number_words": {"nulla": 0, "két": 2, "kettő": 2, "három": 3, "négy": 4, "öt": 5, "hat": 6, "hét": 7, "nyolc": 8, "kilenc": 9, "tíz": 10},
+  "number_word_endings": ["", "t", "et", "at", "ot", "öt", "ig", "en", "an", "re", "ra", "ről", "ből", "ben", "nél", "szer", "szor", "ször"],
+  "derive": {"percent_factor": true, "count_boundary": true, "neutral_factor": true}
 }
