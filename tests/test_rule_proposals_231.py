@@ -211,3 +211,28 @@ def test_of_several_extensions_numbering_a_clause_on_one_page_the_quote_tells_wh
                                                                               "quote": "Gépek külső okból bekövetkező törése"})})
     assert rule_proposals.on_its_page(cited, document, page).source.clause == "IKO 2"
     assert rule_proposals.on_its_page(cited, document).source.clause == "2"  # without the page's text it stays
+
+
+def test_a_record_s_form_is_set_right_where_its_meaning_is_plain() -> None:
+    """U-A3 (the paid round on the real conditions): 41 proposals gave an amount or a percentage as a bare number, 16 put
+    the rule above the level of the facts it reads, others compared a fact they did not list or gave `in` one value.
+    Where the meaning is plain code sets it right: a bare number of a money fact is an amount in its currency, of a
+    percentage its per cent; the rule's level is the lowest of its facts'; a compared fact is one it reads; `in` with
+    one value is a list of it. A list of codes compared with codes keeps single codes."""
+    record = rule_proposals.ProposedRule(
+        title="Avult érték", kind="valuation", level="holder", modules=[], facts=["wear"], hit="first",
+        rows=[rule_proposals.ProposedRow(when=[rule_proposals.ProposedCondition(fact="wear", op="gte", value='"30"'),
+                                               rule_proposals.ProposedCondition(fact="sum_insured", op="gt", value="10000000"),
+                                               rule_proposals.ProposedCondition(fact="asset_group", op="in", value='"stock"'),
+                                               rule_proposals.ProposedCondition(fact="requested_modules", op="in", value='["burglary"]')],
+                                         then=[rule_proposals.ProposedOutcome(outcome="verdict", value='"refer"')])],
+        page=1, clause="1", quote="x")
+    rule, problem = rule_proposals.to_rule(record, "property", GENERAL)
+    assert problem is None, problem
+    when = rule.model_dump(mode="json")["table"]["rows"][0]["when"]
+    assert when["wear"] == {"gte": {"value": "30"}} and when["sum_insured"] == {"gt": {"amount": "10000000", "currency": "HUF"}}
+    assert when["asset_group"] == {"in": ["stock"]} and when["requested_modules"] == {"in": ["burglary"]}
+    assert rule.level == "asset_group" and set(rule.facts) == {"wear", "sum_insured", "asset_group", "requested_modules"}
+    from jav.app import product_rules
+
+    assert product_rules.rule_problems(rule) == []

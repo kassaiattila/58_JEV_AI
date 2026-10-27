@@ -80,7 +80,18 @@ def _number(value: Any) -> Any:
 
 
 def holds(op: str, have: Any, want: Any) -> bool:
-    """Whether a comparison holds between a typed value and the typed value(s) it is compared with."""
+    """Whether a comparison holds between a typed value and the typed value(s) it is compared with. 231 (U-A3): a list of
+    codes (the requested modules) is compared as a set: `in` holds when any of its codes is among the given ones,
+    `not_in` when none is, `eq` and `ne` when it holds the one given code or not."""
+    if isinstance(have, list):
+        if op == "in":
+            return bool(set(have) & set(want))
+        if op == "not_in":
+            return not set(have) & set(want)
+        if op == "eq":
+            return want in have
+        if op == "ne":
+            return want not in have
     if op == "eq":
         return have == want
     if op == "ne":
@@ -98,7 +109,7 @@ def holds(op: str, have: Any, want: Any) -> bool:
 
 
 def _typed_values(cat: facts.Catalogue, name: str, op: str, value: Any) -> Any:
-    d = cat.facts[name]
+    d = facts.compared_as(cat.facts[name])
     if op in ("in", "not_in"):
         return [facts.typed_value(name, d, v) for v in value]
     if op == "between":

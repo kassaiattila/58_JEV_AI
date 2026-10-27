@@ -118,3 +118,14 @@ def test_every_evaluation_is_traced_and_replays_the_same(tmp_path) -> None:
             assert trace.replay(row) == row["outcome"]
         row = next(r for r in rows if r["inputs"]["rule"] == "cash_class@1" and r["subject_id"].endswith("u-0000000004"))
         assert row["outcome"]["outcomes"]["protection_class_required"] == 3 and row["inputs"]["facts"]["sum_insured"]["amount"] == "3000000"
+
+
+def test_a_list_of_codes_is_compared_as_a_set() -> None:
+    """231 (U-A3): a fact that is a list of codes (the requested modules) compared with codes: `in` holds when any of
+    its codes is among them, `not_in` when none is, `eq` and `ne` when it holds that one code or not. The model's
+    proposals from the real conditions compare the requested modules so ("in": ["property_ar", "burglary"])."""
+    assert rule_evaluation.holds("in", ["property_ar", "VIL"], ["burglary", "VIL"])
+    assert not rule_evaluation.holds("in", ["property_ar"], ["burglary", "VIL"])
+    assert rule_evaluation.holds("not_in", ["property_ar"], ["burglary"]) and not rule_evaluation.holds("not_in", ["VIL"], ["VIL"])
+    assert rule_evaluation.holds("eq", ["property_ar", "VIL"], "VIL") and rule_evaluation.holds("ne", ["property_ar"], "VIL")
+    assert rule_evaluation.holds("in", "stock", ["stock", "cash"])  # a single code as before

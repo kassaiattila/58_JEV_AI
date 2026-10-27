@@ -120,16 +120,28 @@ _MONEY_TEXT = re.compile(r"^\s*(\d[\d ., ]*?)\s*(HUF|Ft|EUR|€|USD)?\s*$")
 _CURRENCY = {"Ft": "HUF", "€": "EUR"}
 
 
+_RATE_TEXT = re.compile(r"^\s*(\d+(?:[.,]\d+)?)\s*(?:%|‰)?\s*$")
+
+
 def _typed(kind: str | None, currency: str | None, value: Any) -> Any:
-    """231 (U-A0; the D-h measurement): an amount written as text ("10000000 HUF", "10 000 000 Ft") for a money fact or
-    outcome, as the registry's amount with its currency (Ft is HUF; none named: the catalogue's); a list's or a
-    range's amounts each so; anything else as given."""
+    """231 (U-A0; the D-h measurement): an amount written as text ("10000000 HUF", "10 000 000 Ft") or as a bare number
+    for a money fact or outcome, as the registry's amount with its currency (Ft is HUF; none named: the catalogue's); a
+    list's or a range's amounts each so. U-A3: a bare number or "30 %" of a percentage or a permille as its rate; a
+    decimal factor given as a number as its text; one code where an outcome wants a list of codes as that list; anything
+    else as given."""
     if kind == "codes" and isinstance(value, str):  # U-A3: one code where the catalogue wants a list of them
         return [value]
+    if isinstance(value, list) and kind in ("money", "percentage", "permille", "decimal"):
+        return [_typed(kind, currency, v) for v in value]
+    if kind in ("percentage", "permille") and isinstance(value, (int, float, str)) and not isinstance(value, bool):
+        m = _RATE_TEXT.match(str(value))
+        return {"value": m.group(1).replace(",", ".")} if m else value
+    if kind == "decimal" and isinstance(value, (int, float)) and not isinstance(value, bool):
+        return str(value)
     if kind != "money":
         return value
-    if isinstance(value, list):
-        return [_typed(kind, currency, v) for v in value]
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        value = str(value)
     if not isinstance(value, str) or not (m := _MONEY_TEXT.match(value)):
         return value
     amount = numbers.read_number(m.group(1)).value
@@ -186,18 +198,30 @@ def to_rule(record: ProposedRule, catalogue_id: str, document_ref: str, *,
     product's `modules` applies to every module (none named, so a module added later is covered too), and an amount
     written as text is read as money."""
     cat = facts.catalogue(catalogue_id)
-    fact_kind = {name: (d.type, d.currency) for name, d in cat.facts.items()}
+    # U-A3: a fact compared is typed as it is compared (a list of codes by single codes, `jav/app/facts.py` `compared_as`)
+    fact_kind = {name: (facts.compared_as(d).type, d.currency) for name, d in cat.facts.items()}
     outcome_kind = {name: (o.type, o.currency) for name, o in cat.outcomes.items()}
     rows = []
+    compared: list[str] = []
     for row in record.rows:
         when: dict[str, dict[str, Any]] = {}
         for c in row.when:
-            when.setdefault(c.fact, {})[c.op] = _typed(*fact_kind.get(c.fact, (None, None)), _value(c.value))
+            value = _typed(*fact_kind.get(c.fact, (None, None)), _value(c.value))
+            if c.op in ("in", "not_in") and not isinstance(value, list):
+                value = [value]  # U-A3: one value where a list is wanted
+            when.setdefault(c.fact, {})[c.op] = value
+            compared += [c.fact] if c.fact not in compared else []
         rows.append({"when": when, "then": {o.outcome: _typed(*outcome_kind.get(o.outcome, (None, None)), _value(o.value))
                                             for o in row.then}})
     named = [] if modules and set(modules) <= set(record.modules) else list(record.modules)
-    data = {"catalogue": catalogue_id, "kind": record.kind, "title": record.title, "level": record.level,
-            "modules": named, "facts": list(record.facts), "table": {"hit": record.hit, "rows": rows},
+    # U-A3: a fact the rule compares is a fact it reads, and its level is the lowest of the facts it reads (when the
+    # catalogue knows them all; else as given, for the check to name)
+    read = list(record.facts) + [f for f in compared if f not in record.facts]
+    level = record.level
+    if read and all(f in cat.facts for f in read):
+        level = max((cat.facts[f].level for f in read), key=cat.levels.index)
+    data = {"catalogue": catalogue_id, "kind": record.kind, "title": record.title, "level": level,
+            "modules": named, "facts": read, "table": {"hit": record.hit, "rows": rows},
             # D-h: a clause as printed ("3.1.") is the clause the registry names without its closing dot ("3.1"); U-A3: a
             # lettered point, a range or a word as above
             "source": {"document": document_ref, "page": record.page, "clause": _clause(record.clause),
