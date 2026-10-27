@@ -21,14 +21,14 @@ from jav.domains import DOMAINS
 
 COMMANDS = {
     "admin", "backup", "before-after-diff", "before-after-replay", "before-after-snapshot", "burr-prune", "cases-adopt", "cases-kept",
-    "calls-resolve", "calls-uncertain", "candidates", "configs", "data-guard", "deps-audit", "detect", "detect-corpus",
+    "calls-resolve", "calls-uncertain", "candidates", "condition-import", "configs", "data-guard", "deps-audit", "detect", "detect-corpus",
     "detect-determinism", "detect-golden", "detect-sample", "determinism", "docs", "duplicates", "email",
     "email-determinism", "email-golden", "email-inbox", "email-ingest-server", "email-injection-probe", "email-sample",
     "eval-report", "examples", "flows", "fx-rates", "golden", "hooks-install", "invented-services", "lang-guard", "legacy-compare", "legacy-import",
     "measure", "ocr", "ocr-rekey",
     "output-template-activate", "output-template-add", "output-template-choose", "output-template-preview",
     "output-template-retire", "output-templates", "own-tax", "package-versions-backfill", "preflight",
-    "processing-migrate", "product-set", "recall", "recipes", "reconcile", "reconcile-ai", "reconcile-versions-backfill", "reground",
+    "processing-migrate", "product-set", "product-source", "recall", "recipes", "reconcile", "reconcile-ai", "reconcile-versions-backfill", "reground",
     "rule-proposal-decide", "rule-proposals", "rule-propose", "rules-preview", "run", "run-approve", "run-cancel", "run-list", "run-names", "run-show", "run-start", "serve", "snapshot",
     "statement-table",
     "store", "test-worktree", "trace", "type-activate", "type-candidate", "type-propose", "type-withdraw",
@@ -49,8 +49,8 @@ def _registered() -> dict[str, dict[str, argparse.ArgumentParser]]:
 def test_the_command_line_has_the_same_commands_as_before_the_split():
     registered = _registered()
     names = [c for commands in registered.values() for c in commands]
-    assert len(names) == len(set(names)) == 88  # 231: test-worktree; C1c: cases-adopt; D0-e: cases-kept; D-c5: product-set;
-    # D-c7e: rule-propose, rule-proposals, rule-proposal-decide; D-d5: invented-services; U0: examples
+    assert len(names) == len(set(names)) == 90  # 231: test-worktree; C1c: cases-adopt; D0-e: cases-kept; D-c5: product-set;
+    # D-c7e: rule-propose, rule-proposals, rule-proposal-decide; D-d5: invented-services; U0: examples; U-A2: condition-import, product-source
     assert set(names) == COMMANDS
 
 

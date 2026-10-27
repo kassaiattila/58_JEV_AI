@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "name": "product_source_allianz_property",
+    "version": "1.0.0",
+    "description": "231 (stage U, U-A2; the owner's decisions of 2026-10-27): where the real corporate property product comes from: its six public condition documents, each by its file name and SHA-256 fingerprint (so only these very versions are read), its kind and title as printed, and the product's frame: its name, its fact catalogue and its cover modules (the all risks base, its seventeen extensions, burglary and robbery with the vehicle stock clause, business interruption and stock in cold stores). The files stay on the machine they are on (`product-source allianz_property --folder <dir>`); the machine reads them (jav/app/condition_import.py) and adds each document and the product as drafts, without rules or a tariff yet: the rules come from proposals a person decides on, the tariff is invented and marked so. A person makes each one active.",
+    "changelog": [
+      {"version": "1.0.0", "date": "2026-10-27", "note": "231 (U-A2): the six documents and the product's 22 modules."}
+    ]
+  },
+  "issuer": "Allianz Hungária Zrt.",
+  "documents": {
+    "az_general": {"file": "AHE-43500_8_VABF_2026_mod_FINAL.pdf", "sha256": "27c3c2ee694c6478d2b9ca59feac93773b245e102db59570939e6ac26708db4e", "kind": "general", "title": "Vállalati vagyonbiztosítások – Általános biztosítási feltételek és ügyfél-tájékoztató (AHE-43500/8)"},
+    "az_all_risks": {"file": "AHE_11936_6_AR_KBF_UT_ZAR_2024_mod1121_final_MSz.pdf", "sha256": "2a52de1bd27fba5a102d9bbd52e4679ee713d8d384d52a4fcfe6c7a349d3ee67", "kind": "special", "title": "Vállalkozások All Risks vagyonbiztosítása – Különös, kiegészítő és záradéki biztosítási feltételek és ügyfél-tájékoztató (AHE-11936/6)"},
+    "az_burglary": {"file": "AHE_11888_1_BETLOP_KBF_UT_ZAR_FINAL_MSz.pdf", "sha256": "67a869a0620ed28f482755a9a171512ee18c91d015ec511b7b48c737209005b9", "kind": "special", "title": "Betöréses lopás és rablásbiztosítás – Különös és záradéki biztosítási feltételek és ügyfél-tájékoztató (AHE-11888/1)"},
+    "az_protection_rules": {"file": "AHE_11899_5_Vagyonvedszab_FINAL.pdf", "sha256": "a985db2ba383c07168e1d68dd8592651ef04c58ff58cbe280450439aeb1acef0", "kind": "supplementary", "title": "A betöréses lopás és rablás eseteire szóló vagyonvédelmi szabályzat (AHE-11899/5)"},
+    "az_interruption": {"file": "AHE_11933_Uzemszunet_KBF_FINAL_MSz_mod.pdf", "sha256": "76e568c90254a77e95238eeacd634375b29db2bf449fa173c3b9082c7a58a260", "kind": "supplementary", "title": "Allianz Üzemszünet Védelem – Kiegészítő biztosítási feltételek, záradékok és ügyfél-tájékoztató (AHE-11933)"},
+    "az_cold_store": {"file": "AHE-11928-2.pdf", "sha256": "2380f4bc0f4ab5f1b51c7833d9f44af5859f18aa716e094556ce2462267f9052", "kind": "supplementary", "title": "Hűtőházakban és mélyhűtő berendezésekben tárolt készlet biztosítása – Kiegészítő biztosítás (AHE-11928/2)"}
+  },
+  "product": {
+    "id": "az_corporate_property",
+    "name": "Allianz vállalati vagyonbiztosítás",
+    "catalogue": "allianz_property",
+    "modules": [
+      {"code": "property_ar", "name": "Vállalkozások All Risks vagyonbiztosítása", "kind": "base"},
+      {"code": "VIL", "name": "Villámcsapás okozta túlfeszültség", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "I05", "name": "Tűzivízvezeték és tűzoltó berendezés törése", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "J01", "name": "Technológiai csővezetékek törése", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "J21", "name": "Vandalizmus", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "I13", "name": "Kisebb javítások, felújítások", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "J22", "name": "Közúti szállítás", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "J24", "name": "Dekontaminációs költségek", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "J23", "name": "Füst, korom és hő", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "GLASS", "name": "Üvegtörés", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "IBV", "name": "Irodai elektronikus eszközök", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "G19", "name": "Küldöttrablás", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "IKO", "name": "Gépek külső okból bekövetkező törése", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "I29", "name": "Szabadban tárolt vagyontárgyak vihar kárai", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "I28", "name": "Megújuló energiát termelő berendezések vihar- és jégverés kárai", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "IHA", "name": "Hordozható elektronikus eszközök telephelyen kívül", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "IFH", "name": "Fűtő- vagy hűtőberendezések nem megfelelő működése", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "IAK", "name": "Adathordozók, adatok", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "burglary", "name": "Betöréses lopás és rablás", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "V111", "name": "Gépjármű készletek telephelyi biztosítása", "kind": "extension", "requires": ["burglary"]},
+      {"code": "interruption", "name": "Allianz Üzemszünet Védelem", "kind": "extension", "requires": ["property_ar"]},
+      {"code": "cold_store", "name": "Hűtőházakban és mélyhűtő berendezésekben tárolt készlet", "kind": "extension", "requires": ["property_ar"]}
+    ]
+  }
+}

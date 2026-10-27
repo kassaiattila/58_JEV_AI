@@ -157,6 +157,15 @@ def start(document_ref: str, path: str | Path, *, catalogue: str, actor: identit
     return run(run_id)
 
 
+def markers(file_sha256: str | None) -> list[str]:
+    """The markings that keep a page from a model (`skip_page_markers`), none for a file the owner allowed whole by its
+    fingerprint (`marked_allowed`; 231 U-A, the owner's decision of 2026-10-27: two documents marked internal may be read
+    whole)."""
+    rules = cfg.load("rule_proposals")
+    allowed = {entry["sha256"] for entry in rules.get("marked_allowed", [])}
+    return [] if file_sha256 in allowed else list(rules["skip_page_markers"])
+
+
 def _document(ref: str) -> ConditionDocument | None:
     try:
         return ConditionDocument.model_validate(product_rules.resolve("document", ref)["content"])
@@ -201,7 +210,7 @@ def process(run_id: str) -> dict[str, Any]:
     with store.connect() as c:
         c.execute("UPDATE rule_proposal_runs SET state='running' WHERE run_id=?", (run_id,))
     try:
-        pages = page_text.read_pages(row["path"], cfg.load("rule_proposals")["skip_page_markers"])
+        pages = page_text.read_pages(row["path"], markers(row["file_sha256"]))
         if pages.sha256 != row["file_sha256"]:
             raise explained(ProposalError, "the file changed since the run was asked: {{path}}", path=row["path"])
         limits = {k: Decimal(v) for k, v in json.loads(row["limits"] or "{}").items()}

@@ -1,13 +1,26 @@
 {
   "meta": {
     "name": "rule_proposals",
-    "version": "1.0.0",
-    "description": "231 (stage D, D-c7b): how a rule proposed from a condition document is checked by code before any model judges it (jav/app/rule_checks.py), and which pages are read at all (jav/documents/page_text.py). skip_page_markers: a page whose text has a line matching one of these is left out whole and never sent to a model (the owner's decision of 2026-10-26: the pages marked internal; in the real samples the marking is a line of its own, 'Internal'). number_words: the words a document may write a small whole number with (document vocabulary, Hungarian), each with the endings it may take, so 'négyet' is four and 'hatály' is not six; 'egy' is left out, as it is mostly the article ('a'). derive: the derivations a number of a rule may stand on when the document does not print it: percent_factor, a factor of 1 minus or plus a stated percentage (a 10 % discount as 0.9); count_boundary, a whole number one away from a stated one at the edge of a comparison (more than four as above 4, or a band up to 2 below a stated 3); neutral_factor, a factor of 1, which changes nothing. Nothing here makes a number accepted: a number not found or read by text recognition is listed for a person to confirm.",
+    "version": "1.1.0",
+    "description": "231 (stage D, D-c7b): how a rule proposed from a condition document is checked by code before any model judges it (jav/app/rule_checks.py), and which pages are read at all (jav/documents/page_text.py). skip_page_markers: a page whose text has a line matching one of these is left out whole and never sent to a model (the owner's decision of 2026-10-26: the pages marked internal; in the real samples the marking is a line of its own, 'Internal'). number_words: the words a document may write a small whole number with (document vocabulary, Hungarian), each with the endings it may take, so 'négyet' is four and 'hatály' is not six; 'egy' is left out, as it is mostly the article ('a'). derive: the derivations a number of a rule may stand on when the document does not print it: percent_factor, a factor of 1 minus or plus a stated percentage (a 10 % discount as 0.9); count_boundary, a whole number one away from a stated one at the edge of a comparison (more than four as above 4, or a band up to 2 below a stated 3); neutral_factor, a factor of 1, which changes nothing. Nothing here makes a number accepted: a number not found or read by text recognition is listed for a person to confirm. marked_allowed (231 U-A): the files a model may read whole although their pages carry a marking, each by its SHA-256 fingerprint with the owner's decision (the owner's decision of 2026-10-27: the general conditions and the burglary conditions, marked internal, may be read whole); any other file keeps the markings.",
     "changelog": [
-      {"version": "1.0.0", "date": "2026-10-26", "note": "231 (D-c7b): the first version: the internal marking, ten number words, three derivations."}
+      {
+        "version": "1.1.0",
+        "date": "2026-10-27",
+        "note": "231 (U-A3; the owner's decision of 2026-10-27): marked_allowed, the two real condition documents marked internal that may be read whole, by fingerprint."
+      },
+      {
+        "version": "1.0.0",
+        "date": "2026-10-26",
+        "note": "231 (D-c7b): the first version: the internal marking, ten number words, three derivations."
+      }
     ]
   },
   "skip_page_markers": ["(?mi)^\\s*(?:internal|belső)\\s*$"],
+  "marked_allowed": [
+    {"sha256": "27c3c2ee694c6478d2b9ca59feac93773b245e102db59570939e6ac26708db4e", "file": "AHE-43500_8_VABF_2026_mod_FINAL.pdf", "decided": "2026-10-27", "by": "the owner, AskUserQuestion of 2026-10-27 (read whole)"},
+    {"sha256": "67a869a0620ed28f482755a9a171512ee18c91d015ec511b7b48c737209005b9", "file": "AHE_11888_1_BETLOP_KBF_UT_ZAR_FINAL_MSz.pdf", "decided": "2026-10-27", "by": "the owner, AskUserQuestion of 2026-10-27 (read whole)"}
+  ],
   "number_words": {"nulla": 0, "két": 2, "kettő": 2, "három": 3, "négy": 4, "öt": 5, "hat": 6, "hét": 7, "nyolc": 8, "kilenc": 9, "tíz": 10},
   "number_word_endings": ["", "t", "et", "at", "ot", "öt", "ig", "en", "an", "re", "ra", "ről", "ből", "ben", "nél", "szer", "szor", "ször"],
   "derive": {"percent_factor": true, "count_boundary": true, "neutral_factor": true}

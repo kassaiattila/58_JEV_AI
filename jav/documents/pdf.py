@@ -274,15 +274,17 @@ def read_pdf(path: str | Path) -> PdfText:
     )
 
 
-def read_document(path: str | Path, *, ocr: bool = True) -> PdfText:
+def read_document(path: str | Path, *, ocr: bool = True, every_page: bool = False) -> PdfText:
     """Text layer, and if there is none, OCR (from the disk cache if it has run before). The entry point of the evals
-    and the CLI; the flows do the same in two steps (`load_pdf` -> `ocr_pdf`) so that it shows in the contract."""
+    and the CLI; the flows do the same in two steps (`load_pdf` -> `ocr_pdf`) so that it shows in the contract. 231
+    (U-A2): `every_page` recognises every page, not only the first `max_pages` (`configs/ocr.json`) a processed document
+    is recognised on (a condition document's later pages hold its clauses)."""
     pdf = read_pdf(path)
     if pdf.has_text_layer or not ocr:
         return pdf
     from jav.documents.ocr import OcrUnavailableError, ocr_pdf
 
     try:
-        return ocr_pdf(path, page_count=pdf.page_count)
+        return ocr_pdf(path, page_count=pdf.page_count, **({"max_pages": pdf.page_count} if every_page else {}))
     except OcrUnavailableError:
         return pdf

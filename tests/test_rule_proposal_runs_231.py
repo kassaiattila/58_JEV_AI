@@ -125,3 +125,27 @@ def test_the_command_line_proposes_lists_and_decides(env, capsys) -> None:
     assert cli.main(["rule-proposal-decide", str(proposal), "accept", "--maker", ANNA]) == 0
     assert "a draft rule" in capsys.readouterr().out
     assert cli.main(["rule-proposals"]) == 0 and run_id in capsys.readouterr().out
+
+
+def test_a_file_the_owner_allowed_whole_is_read_with_its_marked_pages(env, tmp_path, monkeypatch) -> None:
+    """231 (U-A3; the owner's decision of 2026-10-27): the two real documents marked internal may be read whole. By
+    their fingerprint, and only theirs, a run keeps no marked page out; any other file keeps the markings."""
+    import hashlib
+
+    from jav.core import cfg
+    from jav.documents.synthetic_pdf import write_unicode_pdf_pages
+
+    rules = cfg.load("rule_proposals")
+    assert rule_proposal_runs.markers("0" * 64) == rules["skip_page_markers"]
+    assert {e["file"] for e in rules["marked_allowed"]} == {"AHE-43500_8_VABF_2026_mod_FINAL.pdf",
+                                                             "AHE_11888_1_BETLOP_KBF_UT_ZAR_FINAL_MSz.pdf"}
+    assert all(rule_proposal_runs.markers(e["sha256"]) == [] for e in rules["marked_allowed"])
+
+    rows = product_sets.document_pages(SET, "inv_general_conditions")
+    marked = write_unicode_pdf_pages(tmp_path / "marked.pdf", [rows[0], [*rows[1], "Internal"], *rows[2:]])
+    assert _run(marked)["skipped"] == {2: "Internal"}
+    sha = hashlib.sha256(marked.read_bytes()).hexdigest()
+    real_load = cfg.load
+    monkeypatch.setattr(cfg, "load", lambda name: {**real_load(name), "marked_allowed": [{"sha256": sha}]}
+                        if name == "rule_proposals" else real_load(name))
+    assert _run(marked)["skipped"] == {}
