@@ -31,13 +31,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from jav.app import facts, product_rules, rating, rule_evaluation
 from jav.app.product_rules import ConditionDocument, Product, Resolved, Rule, Tariff
-from jav.core import cfg, identity, versions
+from jav.core import cfg, identity, store, versions
 from jav.core.measures import Money
 from jav.documents.synthetic_pdf import write_unicode_pdf_pages
 from jav.core.user_messages import explained
 
 __all__ = ["SETS", "Case", "DocumentEntry", "Expected", "ProductSet", "SetRefused", "case_differences", "document_pages", "install",
-           "load", "problems", "run_case", "write_documents"]
+           "load", "problems", "register", "run_case", "write_documents"]
 
 FIRST = 1  # a set names the first version of each of its things
 SETS = ("golden_products",)  # D-c7g: the product sets kept as data (`configs/<name>.json`), a stand-in proposer's answers
@@ -185,6 +185,56 @@ def install(product_set: ProductSet, *, maker: identity.Who, approver: identity.
             found = product_rules.activate(kind, ident, FIRST, actor=approver)
         refs.append(f"{kind}:{found['ref']}")
     return refs
+
+
+def _example_state(name: str) -> dict[str, Any]:
+    """231 (stage U, U0): a set as a process's example material: `installed` (every thing of it with an active
+    version), `missing` (none there) or `partial`; whether the examples' machine made all that is there; its title."""
+    from jav.app import examples
+
+    ps = load(name)
+    found = [product_rules.latest(kind, ident) for kind, ident, _ in _things(ps)]
+    there = [f for f in found if f is not None]
+    state = (examples.MISSING if not there else
+             examples.INSTALLED if len(there) == len(found) and all(f["state"] == versions.ACTIVE for f in there) else
+             examples.PARTIAL)
+    title = ", ".join(p.name for p in ps.products.values())
+    return {"state": state, "example": bool(there) and all(examples.is_example(f["made_by_id"]) for f in there),
+            "title": f"{ps.issuer}: {title}" if title else ps.issuer}
+
+
+def _install_example(name: str, maker: identity.Who, approver: identity.Who) -> None:
+    install(load(name), maker=maker, approver=approver)
+
+
+def _remove_example(name: str, maker_id: str) -> None:
+    """U0: every thing of the set taken out in one transaction, once no case keeps one of them, no rule proposal run
+    names one, and the examples' machine made every version of each; otherwise nothing goes."""
+    from jav.app import examples, rule_proposal_runs
+    from jav.core.process import cases
+
+    things = [(kind, ident) for kind, ident, _ in _things(load(name))]
+    with store.connect() as c:
+        store.begin_immediate(c)
+        made = {(kind, ident): product_rules.made_by_ids_in(c, kind, ident) for kind, ident in things}
+        there = [thing for thing in things if made[thing]]
+        if by_person := [f"{kind} {ident}" for kind, ident in there if made[(kind, ident)] != {maker_id}]:
+            raise explained(examples.ExampleRefused, "a person made {{things}}: it is not example material to remove",
+                            things=", ".join(by_person))
+        if holding := cases.holding_in(c, [f'"{ident}{versions.AT}' for _, ident in there]):
+            raise explained(examples.ExampleInUse, "the example material stays: the cases {{cases}} keep it",
+                            cases=", ".join(holding))
+        if runs := rule_proposal_runs.naming({i for k, i in there if k == "document"}, {i for k, i in there if k == "product"}):
+            raise explained(examples.ExampleInUse, "the example material stays: the rule proposal runs {{runs}} name it",
+                            runs=", ".join(runs))
+        for kind, ident in reversed(there):  # the things that name others go first
+            product_rules.remove_in(c, kind, ident)
+
+
+def register() -> None:
+    from jav.app import examples
+
+    examples.register("product_set", examples.ExampleKind(_example_state, _install_example, _remove_example))
 
 
 def document_pages(product_set: ProductSet, ident: str) -> list[list[str]]:

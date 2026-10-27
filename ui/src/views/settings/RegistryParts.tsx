@@ -161,7 +161,18 @@ export function ThingState<C>({ thing }: { thing: RegistryThing<C> }) {
     <span className="registry-state nowrap">
       <VersionState state={shown.state} /> <span className="muted small tnum">{t("version {{n}}", { n: shown.version })}</span>
       {draft ? <span className="muted small"> · {t("draft {{n}}", { n: draft.version })}</span> : null}
+      {thing.example ? <span className="muted small"> · {t("example")}</span> : null}
     </span>
+  );
+}
+
+/** 231 (U0): an empty registry list, with where its things come from: a process's example material, installed where a
+ *  case of the process is started. */
+export function NoneYet({ text }: { text: string }) {
+  useLocale();
+  return (
+    <p className="muted">{text} {t("A process's example material installs an invented one: ")}
+      <a href="#/cases/new">{t("Cases › New case")}</a>{t(", then the process.")}</p>
   );
 }
 

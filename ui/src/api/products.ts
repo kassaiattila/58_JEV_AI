@@ -40,7 +40,11 @@ export interface RegistryVersion<C> {
   /** a draft's: what keeps it from being made active now (empty: nothing) */
   problems?: Said[];
 }
-export interface RegistryThing<C> { ident: string; name: string; active: number | null; retired: boolean; versions: RegistryVersion<C>[] }
+export interface RegistryThing<C> {
+  ident: string; name: string; active: number | null; retired: boolean; versions: RegistryVersion<C>[];
+  /** 231 (U0): a process's example material (the examples' machine made every version of it) */
+  example?: boolean;
+}
 
 export interface CatalogueFact { type: string; level: string; title: string; unit: string | null; currency: string | null; options: string[] | null }
 export interface CatalogueOutcome { type: string; title: string; combine: string; unit: string | null; currency: string | null; options: string[] | null }

@@ -507,6 +507,30 @@ def cmd_product_set(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_examples(args: argparse.Namespace) -> int:
+    """231 (stage U, U0): the example documents a process's cases can start on (`configs/examples_property_documents.
+    json`), printed from the golden set as the measurement prints it; the packets' titles stay as the file has them.
+    0: the file is up to date (or, with `--write`, written); 1: it differs."""
+    import json
+
+    from jav.core.cfg import CONFIG_DIR
+    from jav.evals import property_documents
+
+    path = CONFIG_DIR / "examples_property_documents.json"
+    current = json.loads(path.read_text(encoding="utf-8"))
+    packets = property_documents.example_packets({p["id"]: p["title"] for p in current.get("packets", [])})
+    if packets == current.get("packets"):
+        print(f"{path.name}: up to date ({len(packets)} packet(s))")
+        return 0
+    if not args.write:
+        print(f"{path.name}: differs from the golden set; --write writes it (then raise its version)")
+        return 1
+    text = json.dumps({**current, "packets": packets}, ensure_ascii=False, indent=2) + "\n"
+    path.write_text(text, encoding="utf-8", newline="\n")
+    print(f"{path.name}: written ({len(packets)} packet(s)); raise its version in meta")
+    return 0
+
+
 def cmd_rule_propose(args: argparse.Namespace) -> int:
     """231 (stage D, D-c7e): rules proposed from a condition document's file, at once: by GPT within `--budget-usd`
     (and, with `--verify`, judged by JEV within `--jev-budget-usd`; without a budget only earlier answers count), or by
@@ -668,6 +692,10 @@ def register(sub) -> None:
     p.add_argument("--store", help="a store file to install into instead of the active store")
     p.add_argument("--write-pdfs", metavar="DIR", help="231 D-c7a: write the set's condition documents as PDFs into DIR")
     p.set_defaults(fn=cmd_product_set)
+    p = sub.add_parser("examples", help="231 U0: the example documents a process's cases start on, printed from the golden "
+                                        "set (configs/examples_property_documents.json); checked, --write writes it (free)")
+    p.add_argument("--write", action="store_true", help="write the file when it differs")
+    p.set_defaults(fn=cmd_examples)
     p = sub.add_parser("invented-services", help="231 D-d5: the invented company register and sanctions list as a local "
                                                  "web service (127.0.0.1), for the trial; the tests answer them inside the process")
     p.add_argument("--port", type=int, default=8941, help="the port the connectors name (default 8941)")

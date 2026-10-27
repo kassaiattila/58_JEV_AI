@@ -9,7 +9,7 @@ import type { ConditionDocument, Product, ProductRegistry, RegistryThing, Rule }
 import { t, useLocale } from "../../i18n";
 import { ProposalsView } from "./ProposalsView";
 import {
-  Activation, Citation, DecisionTable, DOCUMENT_KIND, documentsByRef, current, inForce, levelLabel, RULE_KIND,
+  Activation, Citation, DecisionTable, DOCUMENT_KIND, documentsByRef, current, inForce, levelLabel, NoneYet, RULE_KIND,
   ThingState, useRegistry, versionOf, VersionLine, VersionPicker, VersionsTable,
 } from "./RegistryParts";
 
@@ -52,7 +52,7 @@ interface ViewProps { registry: ProductRegistry; open: string | null; onOpen: (i
 function ProductsView({ registry, open, onOpen, onClose, onChanged }: ViewProps) {
   useLocale();
   const tariffs = new Map(registry.tariffs.map((x) => [x.ident, x]));
-  if (!registry.products.length) return <p className="muted">{t("No product yet. A product set is added with the command python -m jav.cli product-set --install.")}</p>;
+  if (!registry.products.length) return <NoneYet text={t("No product yet.")} />;
   const chosen = registry.products.find((p) => p.ident === open);
   return (
     <>

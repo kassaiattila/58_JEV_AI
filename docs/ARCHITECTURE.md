@@ -1009,6 +1009,23 @@ definition of the pack's version (`pack_<id>`), each step's kind its capability'
 as `_`-prefixed parameters the capability does not see. The first pack is the IT quote (`it_quote.json`); its cases
 start in A5. Tests: `tests/test_process_packs_231.py`.
 
+**Starting a case by hand, and a process's example material (231, stage U, U0).** The processes list
+(`GET /processes`) says for each pack whether a person may start a case by hand (an intake `manual`), what it is for
+(the pack's `summary`, shown on the case list's New case page), what a case of it cannot start without now
+(`process_settings.missing_at_start`: each resource of `needs_at_start` with no active version, without trying a start)
+and whether it has example material. A pack's `examples` names that material as data: the sets of versioned things it
+installs, each of a kind a module registers (`jav/app/examples.py` `register`; `jav/app/product_sets.py` registers
+`product_set`, the invented product set), and a file of invented documents in packets (`configs/examples_<name>.json`:
+each document's printed pages, made from a golden set by `python -m jav.cli examples --write`; a test keeps them equal to
+what the measurement prints). Installing makes the examples' machine (`machine:examples`) each thing's maker and the
+person its approver, so a product's four eyes hold; a thing the machine made reads as an example in the registry
+(`example`). Removing takes the set out in one transaction, and is refused while any case keeps one of its things (the
+core's `cases.holding_in`) or a rule proposal run names one, and for a thing a person made. A packet's documents are
+written beside the store (`<store folder>/examples/<pack>/<packet>/`) and a case starts on those files. The product and
+tariff parameters offer the registry's active things as choices, so a process's own value is picked, not typed.
+`scripts/dev.ps1 start` also starts the invented registers (`invented-services`, 127.0.0.1:8941) the insurance case's
+lookups ask.
+
 **A process pack's cases (231, plan stage A, A5).** `jav/app/process_runtime.py` `start_case(pack_id, scope, name,
 actor)` makes the case's container (a general work package of kind `case`, so every table keyed by a package keeps
 working) and, in one write transaction, its scope and the process core's case of the pack's version under the same id.

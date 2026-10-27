@@ -320,7 +320,7 @@ EVALUATION = capabilities.Capability(
     summary="Evaluates the rules of the product version a frozen input names on its units, and keeps the evaluation.")
 RATING = capabilities.Capability(
     name="rating", version=1, module=__name__, run=_rate, kind="machine", params=Rating, state="step", output=RatingResult,
-    effects="store", at_start={"tariff": product_rules.keeper("tariff")},
+    effects="store", at_start={"tariff": product_rules.keeper("tariff")}, choices={"tariff": product_rules.choices("tariff")},
     summary="Computes the premium from the tariff the case kept, itemised, and keeps it; a blocker stops it.")
 
 

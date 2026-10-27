@@ -1,14 +1,17 @@
 {
   "meta": {
     "name": "process:insurance_renewal",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "231 (stage D, D-g; the owner's decision of 2026-10-26: the second small composition): the renewal of an existing client's business property insurance, composed from the very capabilities the insurance quote uses, in another structure and with no code of its own. An existing client is not asked from the company register, only from the sanctions list; there is no wait for missing facts: the risk is accepted only when the rules allow it, and a risk they refer, refuse or cannot decide (facts missing) goes to the full quote (the case closes as referred); the premium is decided by another person than the risk's above a lower limit; the offer is printed, its covering letter written from the renewal's own frame, and a person sends it into the output folder. The product, the tariff, the register and the limit are invented.",
     "changelog": [
+      {"version": "1.1.0", "date": "2026-10-27", "note": "231 (U0): what the process is for, shown when a person picks a process to start a case of; its example material (the invented product set and the invented documents' packets)"},
       {"version": "1.0.0", "date": "2026-10-27", "note": "231 (D-g): the first version: the renewal, from the documents to the sent letter, of the insurance quote's capabilities only."}
     ]
   },
   "id": "insurance_renewal",
   "title": "Insurance renewal",
+  "summary": "The renewal of an existing client's business property insurance: its documents read, the product's rules and tariff applied, and the renewal offer sent; a risk that is not plainly acceptable goes to a full quote.",
+  "examples": {"sets": [{"kind": "product_set", "name": "golden_products"}], "documents": "property_documents"},
   "scope": {"parts": ["source"]},
   "intake": [{"on": "manual", "starts": "manual"}],
   "resources": {"product": "inv_business_property", "tariff": "inv_business_property_tariff"},

@@ -2,10 +2,11 @@
 // what that step waits for (a person's start or decision, the other side's reply, the machine's work); the closed ones
 // on request. Above them, only while there are some, the handovers to check: the cases whose last attempt to send
 // something failed or has an unknown outcome. The rows come from the `cases` and `handovers` datasets
-// (jav/app/case_lists.py); a case's name opens its page.
+// (jav/app/case_lists.py); a case's name opens its page. 231 (U0): "New case" starts a case of any process.
 import { useState } from "react";
 import { api, type DsColumn, type DsRow } from "../api";
 import { DataTable } from "../components/DataTable";
+import { Icon } from "../components/Icon";
 import { PageHeader } from "../components/PageHeader";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
@@ -34,10 +35,13 @@ export function CaseList() {
       <PageHeader title={title}
         summary={t("Every case of the processes: the step it is at and what that step waits for.")}
         actions={
-          <label className="check small">
-            <input type="checkbox" checked={closed} onChange={(e) => setClosed(e.target.checked)} />
-            {t("Closed cases too")}
-          </label>
+          <>
+            <label className="check small">
+              <input type="checkbox" checked={closed} onChange={(e) => setClosed(e.target.checked)} />
+              {t("Closed cases too")}
+            </label>
+            <a className="primary" href="#/cases/new"><Icon name="plus" />{t("New case")}</a>
+          </>
         } />
       {toCheck.data && toCheck.data.total > 0 ? (
         <section className="case-list-check" aria-label={t("Handovers to check")}>

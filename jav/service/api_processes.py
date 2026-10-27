@@ -19,7 +19,7 @@ from fastapi import Depends, FastAPI, Query, Request
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav.app import document_processing, process_packs, process_settings, scopes, work_views
+from jav.app import document_processing, examples, intake, process_packs, process_settings, scopes, work_views
 from jav.core import identity
 from jav.core.user_messages import message_fields
 from jav.service.service_shared import Empty, In, error, human_actor
@@ -28,6 +28,7 @@ PackId = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
 SettingKey = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_:]{0,79}$")]
 RuleKey = Annotated[str, PathParam(pattern=r"^[a-z][A-Za-z0-9_:.]{0,119}$")]  # 231 (B3): <rule file>.<dotted key>
 Version = Annotated[int, PathParam(ge=1)]
+PacketId = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_]{0,63}$")]  # 231 (U0): an example packet
 
 
 class SettingIn(In):
@@ -55,11 +56,42 @@ def routes(app: FastAPI, r: str) -> None:
     def process_list() -> dict[str, Any]:
         # 231 (C1c): what a case of each needs (its scope parts) and the kinds of package that offer one; (C2d) which of
         # the parts a person gives (the others take their default)
+        # 231 (U0): whether a person may start a case by hand, what the process is for, what a case of it cannot start
+        # without now, and whether it has example material
         return {"processes": [{"id": p.id, "title": p.title, "version": p.version, "scope": list(p.scope.parts),
                                "asks": scopes.asks(p.scope.parts),
                                "package_kinds": sorted({k for i in p.intake if i.on == "package" for k in i.package_kinds}),
-                               "source_kinds": document_processing.source_kinds(p)}  # 231 (C3d)
+                               "source_kinds": document_processing.source_kinds(p),  # 231 (C3d)
+                               "manual": any(i.on == intake.MANUAL for i in p.intake), "summary": p.summary,
+                               "missing_at_start": process_settings.missing_at_start(p),
+                               "examples": p.examples is not None and bool(p.examples.sets or p.examples.documents)}
                               for p in process_packs.packs()]}
+
+    @app.exception_handler(examples.ExampleInUse)
+    async def example_in_use(_request: Request, exc: examples.ExampleInUse):
+        return error(409, "example_in_use", str(exc), **message_fields(exc))
+
+    @app.get(r + "/processes/{pack_id}/examples")
+    def process_examples(pack_id: PackId) -> dict[str, Any]:
+        """231 (U0): the process's example material: the sets it installs, each with its state, and its packets of
+        invented documents."""
+        return work_views.jsonable(examples.of(pack_id))
+
+    @app.post(r + "/processes/{pack_id}/examples/install")
+    def process_examples_install(pack_id: PackId, _body: Empty,
+                                 who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        return work_views.jsonable(examples.install(pack_id, who))
+
+    @app.post(r + "/processes/{pack_id}/examples/remove")
+    def process_examples_remove(pack_id: PackId, _body: Empty,
+                                who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        return work_views.jsonable(examples.remove(pack_id, who))
+
+    @app.post(r + "/processes/{pack_id}/examples/packets/{packet_id}/files")
+    def process_example_files(pack_id: PackId, packet_id: PacketId, _body: Empty,
+                              _who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        """The packet's invented documents written as PDFs beside the store, for a case to start on."""
+        return {"files": examples.packet_files(pack_id, packet_id)}
 
     @app.get(r + "/processes/{pack_id}/records")
     def process_records(pack_id: PackId, q: Annotated[str | None, Query(max_length=200)] = None) -> dict[str, Any]:

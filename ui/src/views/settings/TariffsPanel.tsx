@@ -9,7 +9,7 @@ import type { Catalogue, Factor, ProductRegistry, RegistryThing, Tariff } from "
 import { t, useLocale } from "../../i18n";
 import { numText } from "../../labels";
 import {
-  Activation, amountText, ConditionText, current, factTitle, inForce, levelLabel, outcomeTitle, roundingText, ThingState,
+  Activation, amountText, ConditionText, current, factTitle, inForce, levelLabel, NoneYet, outcomeTitle, roundingText, ThingState,
   useRegistry, versionOf, VersionLine, VersionPicker, VersionsTable,
 } from "./RegistryParts";
 
@@ -20,7 +20,7 @@ export function TariffsPanel() {
   if (registry.error) return <p className="notice error" role="alert">{registry.error.message}</p>;
   if (!registry.data) return <p className="muted">{t("Loading…")}</p>;
   const r = registry.data;
-  if (!r.tariffs.length) return <p className="muted">{t("No tariff yet. A product set is added with the command python -m jav.cli product-set --install.")}</p>;
+  if (!r.tariffs.length) return <NoneYet text={t("No tariff yet.")} />;
   const chosen = r.tariffs.find((x) => x.ident === open);
   return (
     <div className="registry">

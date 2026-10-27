@@ -25,8 +25,10 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [name, setName] = useState("");
-  // 231 (C3b3): the documents of a document processing case (its scope part `source`)
-  const [sourceKind, setSourceKind] = useState<"folder" | "files">("folder");
+  // 231 (C3b3): the documents of a document processing case (its scope part `source`); (U0) or a packet of the
+  // process's invented example documents
+  const [sourceKind, setSourceKind] = useState<"folder" | "files" | "example">("folder");
+  const [packet, setPacket] = useState("");
   const [folder, setFolder] = useState("");
   const [recursive, setRecursive] = useState(false);
   const [files, setFiles] = useState("");
@@ -34,6 +36,8 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   const [domainSource, setDomainSource] = useState<CaseSource | null>(null);  // 231 (C3d): a domain's source kind's
   const { busy, error, run } = useAction();
   const info = packs.data?.processes.find((p) => p.id === pack);
+  const examples = useLoad(info?.examples ? `examples:${pack}` : null, () => api.processExamples(pack));  // 231 (U0)
+  const packets = examples.data?.packets ?? [];
   if (packs.error) return <p className="notice error" role="alert">{packs.error.message}</p>;
   if (!info) return <p className="muted">{t("Loading…")}</p>;
   const title = t(info.title);
@@ -55,7 +59,9 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   const Chooser = kinds.includes("folder") || kinds.includes("files") ? undefined : chooserOf(kinds[0])?.Case;
   const source: CaseSource | null = Chooser ? domainSource
     : sourceKind === "folder" ? { kind: "folder", folder: folder.trim(), recursive } : { kind: "files", files: fileLines };
-  const hasSource = Chooser ? !!domainSource : sourceKind === "folder" ? !!folder.trim() : fileLines.length > 0;
+  const hasSource = Chooser ? !!domainSource : sourceKind === "folder" ? !!folder.trim()
+    : sourceKind === "example" ? packets.some((x) => x.id === packet) : fileLines.length > 0;
+  const packetTitle = packets.find((x) => x.id === packet)?.title;
   const candidates = (list.data?.workpackages ?? []).filter((w) => (info.package_kinds ?? []).includes(w.source_kind));
   const partyName = (parties.data?.parties ?? []).find((p) => p.id === partyId)?.name ?? "";
   const ready = (!wantsSources || chosen.length > 0) && (!wantsParty || !!partyId) && (!wantsPeriod || (!!start && !!end && start <= end))
@@ -63,15 +69,21 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   const defaultName = () => {
     if (wantsSources) return `${title}: ${candidates.filter((w) => chosen.includes(w.id)).map((w) => w.name).join(", ")}`;
     if (wantsRecord && record) return `${title}: ${record.name ?? record.label ?? record.workpackage_name}`;
+    if (wantsSource && !Chooser && sourceKind === "example" && packetTitle) return `${title} · ${t("Example")}: ${t(packetTitle)}`;
     const where = wantsSource ? (sourceKind === "folder" ? folder.trim().split(/[\\/]/).filter(Boolean).pop() ?? "" : "") : "";
     return [title, partyName, wantsPeriod ? `${start} – ${end}` : "", where].filter(Boolean).join(" · ");
   };
-  const submit = () => run(() => api.startCase({
-    pack, name: (name.trim() || defaultName()).slice(0, 200),
-    ...(wantsSources ? { sources: chosen } : {}), ...(wantsParty ? { party_id: partyId } : {}),
-    ...(wantsPeriod ? { period_start: start, period_end: end } : {}), ...(wantsSource && source ? { source } : {}),
-    ...(wantsRecord && record ? { record: { workpackage_id: record.workpackage_id, item_id: record.item_id } } : {}),
-  }), { then: (made) => onDone(made.case_id) });
+  const submit = () => run(async () => {
+    // 231 (U0): an example packet's documents are written as files first, and the case starts on those files
+    const documents: CaseSource | null = wantsSource && !Chooser && sourceKind === "example"
+      ? { kind: "files", files: (await api.examplePacketFiles(pack, packet)).files } : source;
+    return api.startCase({
+      pack, name: (name.trim() || defaultName()).slice(0, 200),
+      ...(wantsSources ? { sources: chosen } : {}), ...(wantsParty ? { party_id: partyId } : {}),
+      ...(wantsPeriod ? { period_start: start, period_end: end } : {}), ...(wantsSource && documents ? { source: documents } : {}),
+      ...(wantsRecord && record ? { record: { workpackage_id: record.workpackage_id, item_id: record.item_id } } : {}),
+    });
+  }, { then: (made) => onDone(made.case_id) });
   return (
     <form className="create rc-stack" aria-label={title} onSubmit={(e) => { e.preventDefault(); if (ready) void submit(); }}>
       {list.error ? <p className="notice error" role="alert">{list.error.message}</p> : null}
@@ -114,8 +126,20 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
           <div className="segmented" role="radiogroup" aria-label={t("Source")}>
             <label><input type="radio" name="case-source" checked={sourceKind === "folder"} onChange={() => setSourceKind("folder")} /> {t("Documents from a folder")}</label>
             <label><input type="radio" name="case-source" checked={sourceKind === "files"} onChange={() => setSourceKind("files")} /> {t("Chosen files")}</label>
+            {packets.length ? (
+              <label><input type="radio" name="case-source" checked={sourceKind === "example"} onChange={() => setSourceKind("example")} /> {t("Example documents")}</label>
+            ) : null}
           </div>
-          {sourceKind === "folder" ? (
+          {sourceKind === "example" ? (
+            <label className="block">{t("The packet of invented documents")}
+              <select value={packet} onChange={(e) => setPacket(e.target.value)} required>
+                <option value="">{t("Choose…")}</option>
+                {packets.map((x) => (
+                  <option key={x.id} value={x.id}>{t(x.title)} ({t("{{n}} documents", { n: x.documents })})</option>
+                ))}
+              </select>
+            </label>
+          ) : sourceKind === "folder" ? (
             <>
               <div className="path-row">
                 <label className="block grow">{t("The folder's full path")}

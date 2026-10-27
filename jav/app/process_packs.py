@@ -19,7 +19,9 @@ reads only fields the other step's result form gives, in a version of the form i
 Stage D (D-a; the reassessment after D0, P02): a reference names a step of the kind it reads (`step_ref(of=)`); one
 left out reads the pack's only step of that kind, which the step must wait for, and is refused where there are several,
 so the step's source, the step it waits for and its approval's basis are the same step. `needs_at_start`: the resources
-a case cannot start without a version of to keep (`process_settings.at_start` refuses the start).
+a case cannot start without a version of to keep (`process_settings.at_start` refuses the start). Stage U (U0): its
+`summary` (what the process is for, when a person picks one) and its `examples` (its example material: the sets of
+things it installs, and a file of invented documents, which the check requires to be there; `jav/app/examples.py`).
 
 - `load(pack_id)`, `packs()`: a pack read and checked (`PackError` with every problem).
 - `definition(pack)`: the process core's definition of the pack's current version: one step per pack step, its kind
@@ -40,10 +42,11 @@ from jav.app import capabilities, scopes
 from jav.core import cfg
 from jav.core.process.definition import NAME, ProcessDef, StepDef
 
-__all__ = ["Adopt", "Element", "Intake", "PackError", "PartnerLink", "ProcessPack", "Step", "Tab", "UnknownPack", "definition", "load",
-           "packs"]
+__all__ = ["Adopt", "Element", "ExampleSet", "Examples", "Intake", "PackError", "PartnerLink", "ProcessPack", "Step", "Tab",
+           "UnknownPack", "definition", "load", "packs"]
 
 ELEMENTS = "screen_elements"
+EXAMPLE_DOCUMENTS = "examples_"  # 231 (U0): `configs/examples_<name>.json`, a pack's invented documents
 PLANNED = "planned"  # D0-a: a screen element the catalogue lists before it is built; no pack may use it
 _MODULE = re.compile(r"\bjav\.[a-z_]+")
 
@@ -157,10 +160,28 @@ class PartnerLink(_Model):
     fields: dict[str, str] = Field(min_length=1)
 
 
+class ExampleSet(_Model):
+    """231 (stage U, U0): a set of versioned things a process's examples install: its kind (the module that keeps such
+    things registers how a set of them is installed, `jav/app/examples.py`) and its name."""
+
+    kind: str = Field(pattern=NAME)
+    name: str = Field(pattern=NAME)
+
+
+class Examples(_Model):
+    """231 (U0): a process's invented example material: the sets of things it installs, and the invented documents
+    (`configs/examples_<documents>.json`, packets of printed pages) a case of it can start on."""
+
+    sets: tuple[ExampleSet, ...] = ()
+    documents: str | None = Field(default=None, pattern=NAME)
+
+
 class ProcessPack(_Model):
     meta: dict[str, Any]
     id: str = Field(pattern=NAME)
     title: str = Field(min_length=1)
+    summary: str | None = Field(default=None, min_length=1)  # 231 (U0): what the process is for, when a person picks one
+    examples: Examples | None = None  # 231 (U0)
     scope: Scope = Scope()
     intake: tuple[Intake, ...] = ()
     adopts: tuple[Adopt, ...] = ()
@@ -306,6 +327,11 @@ def _problems(pack: ProcessPack) -> list[str]:
                  if isinstance(value, str) and value.startswith("@") and name in cap.at_start}
     problems += [f"needs_at_start names {key!r}, which no step keeps at a version" for key in pack.needs_at_start
                  if key in pack.resources and key not in kept_keys and not key.startswith("template:")]  # D-c4
+    if pack.examples is not None and pack.examples.documents is not None:  # 231 (U0): the invented documents are there
+        try:
+            cfg.load(EXAMPLE_DOCUMENTS + pack.examples.documents)
+        except FileNotFoundError:
+            problems.append(f"examples: no invented documents {pack.examples.documents!r}")
     for wrap in pack.wraps:  # 231 (C3b4): the step that takes the package binds it, and its parts are the scope's
         if (wrap.kind is None) == (wrap.rule is None):
             problems.append(f"wrap {wrap.kind or wrap.rule!r}: names its packages by a kind or by a rule, one of them")

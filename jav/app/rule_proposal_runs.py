@@ -40,7 +40,7 @@ from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import Said, explained, said, said_back, said_fields
 from jav.documents import page_text
 
-__all__ = ["JOB_KIND", "KIND", "ProposalError", "ProposalRefused", "abandon", "accept", "correct", "process",
+__all__ = ["JOB_KIND", "KIND", "ProposalError", "ProposalRefused", "abandon", "accept", "correct", "naming", "process",
            "process_job", "reject", "run", "runs", "start"]
 
 JOB_KIND = "rule_propose"
@@ -287,6 +287,14 @@ def runs(document_ref: str | None = None) -> list[dict[str, Any]]:
         rows = c.execute("SELECT * FROM rule_proposal_runs WHERE ? IS NULL OR document_ref=? ORDER BY requested_at DESC, run_id",
                          (document_ref, document_ref)).fetchall()
         return [_run_view(c, r, proposals=False) for r in rows]
+
+
+def naming(documents: set[str], products: set[str]) -> list[str]:
+    """231 (stage U, U0): the runs that cite a version of one of `documents` or name one of `products` (by id)."""
+    with store.connect() as c:
+        rows = c.execute("SELECT run_id, document_ref, product FROM rule_proposal_runs ORDER BY requested_at, run_id").fetchall()
+    return [r["run_id"] for r in rows if versions.split(r["document_ref"])[0] in documents
+            or (r["product"] and versions.split(r["product"])[0] in products)]
 
 
 def run(run_id: str) -> dict[str, Any]:
