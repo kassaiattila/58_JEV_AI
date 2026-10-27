@@ -397,6 +397,9 @@
   "Védelmi szint": "Protection class",
   "Árvízi zóna": "Flood zone",
   "Értékelés": "Valuation",
+  "Választott önrész": "Chosen deductible",
+  "Szerződés tartama": "Contract term",
+  "Üzemszüneti időönrész (nap)": "Business interruption waiting period (days)",
   "Üzemszüneti biztosítási összeg": "Business interruption sum insured",
   "Üzemszüneti elszámolás módja": "Business interruption accounting method"
 }

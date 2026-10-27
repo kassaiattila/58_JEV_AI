@@ -3182,6 +3182,8 @@
   "Remove the unit": "Az egység eltávolítása",
   "Decide": "Döntés",
   "the action {{name}} takes values": "a(z) {{name}} művelethez értékek kellenek",
+  "Allianz corporate property quote": "Allianz vállalati vagyonbiztosítási ajánlat",
+  "A corporate property insurance quote on the Allianz product: the request form, a property schedule per site and the claims history are read and checked, the product's rules applied, the premium worked out from its tariff (example rates), a large risk's premium decided by a second person, and the offer sent with a covering letter.": "Vállalati vagyonbiztosítási ajánlat az Allianz termékére: az ajánlatkérő lap, telephelyenként a vagyonadatlap és a kárelőzmény kiolvasva és ellenőrizve, a termék szabályai alkalmazva, a díj a díjtáblából (példa díjtételekkel), nagy kockázatnál a díjról második személy dönt, az ajánlat kísérőlevéllel megy ki.",
   "Insurance quote": "Biztosítási ajánlat",
   "Calculation and versions": "Számítás és változatok",
   "Data check": "Adatok ellenőrzése",
