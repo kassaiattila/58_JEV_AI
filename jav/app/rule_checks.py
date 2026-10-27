@@ -17,6 +17,7 @@ Layer: application, code only (`configs/rule_proposals.json`); it names no proce
 
 from __future__ import annotations
 
+import difflib
 import re
 from dataclasses import dataclass
 from decimal import Decimal
@@ -240,6 +241,11 @@ def _citation(rule: Rule, pages: DocumentPages, document_ref: str, document: Con
         if section is None:
             out.append(Finding("citation_clause", "blocking", said(
                 "it cites clause {{clause}}, which the document does not have", clause=source.clause)))
+        elif section.page is not None and source.page is not None and abs(section.page - source.page) == 1                 and _quoted_on(rule, pages):
+            # U-A3: a clause that starts at a page's foot and goes on over the next; the quote's page is checked apart
+            out.append(Finding("citation_clause", "attention", said(
+                "clause {{clause}} starts on page {{actual}}, the rule cites page {{page}}", clause=source.clause,
+                actual=section.page, page=source.page)))
         elif section.page is not None and source.page is not None and section.page != source.page:
             out.append(Finding("citation_clause", "blocking", said(
                 "clause {{clause}} is on page {{actual}}, not on page {{page}}", clause=source.clause, actual=section.page,
@@ -250,13 +256,53 @@ def _citation(rule: Rule, pages: DocumentPages, document_ref: str, document: Con
     return out
 
 
+def _letters(text: str) -> str:
+    """231 (U-A3): only the letters and digits, lowercase: a word broken at a line's end ("vagyon-\\nvédelmi") and its
+    whole form ("vagyonvédelmi") read the same."""
+    return re.sub(r"[\W_]+", "", text.casefold())
+
+
+ROUGH = 0.85  # U-A3: the share of a quote's letters a recognised page holds in order, near together
+
+
+def _roughly(quote: str, page: str) -> bool:
+    """U-A3: whether a page read by text recognition holds the quote with a few letters misread: at least `ROUGH` of its
+    letters in order, within a stretch not much longer than the quote."""
+    if not quote:
+        return False
+    # around the quote's longest stretch found as it is, a window a little longer than the quote
+    anchor = difflib.SequenceMatcher(None, quote, page, autojunk=False).find_longest_match(0, len(quote), 0, len(page))
+    if not anchor.size:
+        return False
+    slack = len(quote) // 4 + 2
+    start = max(0, anchor.b - anchor.a - slack)
+    window = page[start:anchor.b + (len(quote) - anchor.a) + slack]
+    held = sum(b.size for b in difflib.SequenceMatcher(None, quote, window, autojunk=False).get_matching_blocks())
+    return held >= ROUGH * len(quote)
+
+
+def _quoted_on(rule: Rule, pages: DocumentPages) -> bool:
+    """U-A3: whether the rule's quote stands on the page it cites (as printed, a broken word joined, or roughly on a page
+    read by text recognition)."""
+    source = rule.source
+    if not source.quote or source.page not in pages.pages:
+        return False
+    quote, page = _plain(source.quote), pages.pages[source.page]
+    return (quote in _plain(page) or _letters(quote) in _letters(page)
+            or (source.page in pages.ocr_pages and _roughly(_letters(quote), _letters(page))))
+
+
 def _quote(rule: Rule, pages: DocumentPages) -> list[Finding]:
     source = rule.source
     if not source.quote or not source.quote.strip():
         return [Finding("quote", "attention", said("it quotes nothing"))]
     quote = _plain(source.quote)
-    if source.page in pages.pages and quote in _plain(pages.pages[source.page]):
+    if source.page in pages.pages and (quote in _plain(pages.pages[source.page])
+                                       or _letters(quote) in _letters(pages.pages[source.page])):
         return []
+    if source.page in pages.ocr_pages and source.page in pages.pages and _roughly(_letters(quote), _letters(pages.pages[source.page])):
+        return [Finding("quote", "attention", said("its quote matches page {{page}} only roughly (text recognition): a person "
+                                                   "compares it", page=source.page))]
     elsewhere = next((n for n, text in sorted(pages.pages.items()) if quote in _plain(text)), None)
     if elsewhere is not None:
         return [Finding("quote", "attention", said("its quote is on page {{actual}}, not on page {{page}}", actual=elsewhere,

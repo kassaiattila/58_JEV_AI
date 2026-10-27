@@ -19,16 +19,17 @@ Layer: application; it names no insurer and no product (the source is data).
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from jav.app import condition_import, product_rules
-from jav.app.product_rules import Module, Product
+from jav.app.product_rules import Module, Product, Section
 from jav.core import cfg, identity
 from jav.core.user_messages import explained
 
-__all__ = ["MACHINE", "ProductSource", "SourceRefused", "install", "load", "read"]
+__all__ = ["MACHINE", "ProductSource", "SourceRefused", "install", "known_codes", "load", "read"]
 
 MACHINE = identity.machine("product assembly")
 PREFIX = "product_source_"
@@ -60,6 +61,28 @@ class ProductSource(_Model):
     issuer: str
     documents: dict[str, SourceDocument] = Field(min_length=1)
     product: SourceProduct
+    codes: tuple[str, ...] = ()  # U-A3: the clause codes the documents print besides the modules' (I16, J25, …)
+
+
+# U-A3: the letters and digits text recognition takes for one another in an extension's code ("129" for "I29")
+_LOOKALIKE = {"1": "I", "I": "1", "0": "O", "O": "0", "J": "I", "T": "I", "S": "J", "5": "S", "8": "B", "B": "8"}
+
+
+def _alike(read: str, code: str) -> bool:
+    return len(read) == len(code) and all(a == b or _LOOKALIKE.get(a) == b for a, b in zip(read, code))
+
+
+def known_codes(sections: tuple[Section, ...] | list[Section], codes: tuple[str, ...] | list[str]) -> list[Section]:
+    """U-A3: each section named with a code (`"129 1"`) whose code is none of `codes` but looks like exactly one of them
+    as text recognition misreads letters ("129" is "I29", "JHA" is "IHA", "TKO" is "IKO", "S25" is "J25"), named with
+    that one; any other section as it is."""
+    out = []
+    for s in sections:
+        head, _, rest = s.clause.partition(" ")
+        if rest and head not in codes and len(alike := [c for c in codes if _alike(head, c)]) == 1:
+            s = s.model_copy(update={"clause": f"{alike[0]} {rest}"})
+        out.append(s)
+    return out
 
 
 def load(name: str) -> ProductSource:
@@ -82,6 +105,9 @@ def read(source: ProductSource, folder: str | Path) -> dict[str, condition_impor
         raise explained(SourceRefused, "the product source cannot be read: {{problems}}", problems="; ".join(problems))
     out = {ident: condition_import.read(path, kind=source.documents[ident].kind, title=source.documents[ident].title)
            for ident, path in found.items()}
+    codes = tuple(m.code for m in source.product.modules) + source.codes
+    out = {ident: replace(got, content=got.content.model_copy(update={"sections": tuple(known_codes(got.content.sections, codes))}))
+           for ident, got in out.items()}
     if unread := [f"{ident}: {p}" for ident, got in out.items() for p in got.problems]:
         raise explained(SourceRefused, "the product source cannot be read: {{problems}}", problems="; ".join(unread))
     return out

@@ -36,7 +36,7 @@ from jav.core import cfg, numbers, versions
 from jav.core.user_messages import Said, said
 from jav.documents.page_text import DocumentPages
 
-__all__ = ["SITE", "Proposal", "ProposedRule", "ProposedRules", "Request", "gpt_proposer", "propose", "record_of",
+__all__ = ["SITE", "Proposal", "ProposedRule", "ProposedRules", "Request", "gpt_proposer", "on_its_page", "propose", "record_of",
            "set_proposer", "to_rule"]
 
 SITE = "rule_proposal"
@@ -124,6 +124,8 @@ def _typed(kind: str | None, currency: str | None, value: Any) -> Any:
     """231 (U-A0; the D-h measurement): an amount written as text ("10000000 HUF", "10 000 000 Ft") for a money fact or
     outcome, as the registry's amount with its currency (Ft is HUF; none named: the catalogue's); a list's or a
     range's amounts each so; anything else as given."""
+    if kind == "codes" and isinstance(value, str):  # U-A3: one code where the catalogue wants a list of them
+        return [value]
     if kind != "money":
         return value
     if isinstance(value, list):
@@ -134,6 +136,48 @@ def _typed(kind: str | None, currency: str | None, value: Any) -> Any:
     if amount is None:
         return value
     return {"amount": str(amount), "currency": _CURRENCY.get(m.group(2) or "", m.group(2)) or currency or "HUF"}
+
+
+# U-A3: a clause as the registry names it: a code's clause ("VIL 4"), or numbers and dots ("3.1"), with what the model
+# may print after it (a closing dot, a lettered point "b)", a range "-4") left off
+_CLAUSE = re.compile(r"^\s*(?P<code>[A-Z][A-Z0-9]{1,3}\s+)?(?P<n>\d{1,2}(?:\.\d{1,2}){0,3})(?:\.|(?![\d.]))")
+
+
+def _clause(printed: str) -> str | None:
+    """U-A3: the registry's clause a record's clause stands for: "3.1.b)" is 3.1, "1-4" is 1, "VIL 4." is VIL 4; a word
+    or a sentence is none (the check then says it names no clause)."""
+    m = _CLAUSE.match(printed)
+    if m is None:
+        return None
+    return f"{m.group('code').strip()} {m.group('n')}" if m.group("code") else m.group("n")
+
+
+def _letters(text: str) -> str:
+    return re.sub(r"[\W_]+", "", text.casefold())
+
+
+def on_its_page(rule: Rule, document: ConditionDocument | None, page_text_: str | None = None) -> Rule:
+    """U-A3: a rule citing a clause the document has elsewhere but that is numbered again on the cited page under an
+    extension's code ("2" on the page of "I29 2"), citing that clause; else as it is. Where several extensions on the page
+    number a clause so (G19 2, IKO 2, I29 2 on one page), the one whose heading stands last before the quote in the
+    page's text (the k-th such heading is the k-th such clause, in the order printed)."""
+    source = rule.source
+    if document is None or source.clause is None or source.page is None:
+        return rule
+    here = [s for s in document.sections if s.page == source.page]
+    if any(s.clause == source.clause for s in here):
+        return rule
+    coded = [s.clause for s in here if s.clause.partition(" ")[2] == source.clause]
+    if len(coded) > 1 and page_text_ and source.quote:
+        heading = re.compile(rf"(?m)^\s*{re.escape(source.clause)}(?:\.|\s)")
+        starts = [m.start() for m in heading.finditer(page_text_)]
+        quote_at = _letters(page_text_).find(_letters(source.quote)[:40])
+        if len(starts) == len(coded) and quote_at >= 0:
+            before = [k for k, at in enumerate(starts) if len(_letters(page_text_[:at])) <= quote_at]
+            coded = [coded[before[-1]]] if before else coded
+    if len(coded) != 1:
+        return rule
+    return rule.model_copy(update={"source": source.model_copy(update={"clause": coded[0]})})
 
 
 def to_rule(record: ProposedRule, catalogue_id: str, document_ref: str, *,
@@ -154,8 +198,9 @@ def to_rule(record: ProposedRule, catalogue_id: str, document_ref: str, *,
     named = [] if modules and set(modules) <= set(record.modules) else list(record.modules)
     data = {"catalogue": catalogue_id, "kind": record.kind, "title": record.title, "level": record.level,
             "modules": named, "facts": list(record.facts), "table": {"hit": record.hit, "rows": rows},
-            # D-h: a clause as printed ("3.1.") is the clause the registry names without its closing dot ("3.1")
-            "source": {"document": document_ref, "page": record.page, "clause": record.clause.strip().rstrip(".").strip() or None,
+            # D-h: a clause as printed ("3.1.") is the clause the registry names without its closing dot ("3.1"); U-A3: a
+            # lettered point, a range or a word as above
+            "source": {"document": document_ref, "page": record.page, "clause": _clause(record.clause),
                        "quote": record.quote.strip() or None},
             "origin": {"kind": "proposal"}}
     try:
@@ -234,6 +279,7 @@ def propose(document_ref: str, pages: DocumentPages, catalogue_id: str, *, propo
         request = Request(document_ref, chunk, _prompt(cat, modules or {}, {n: pages.pages[n] for n in chunk}))
         for record in proposer(request).rules:
             rule, problem = to_rule(record, catalogue_id, document_ref, modules=tuple(modules or {}))
+            rule = on_its_page(rule, document, pages.pages.get(rule.source.page)) if rule is not None else None
             check = rule_checks.check(rule, pages, document_ref=document_ref, document=document) if rule is not None else None
             judged = verifier(rule, pages) if verifier is not None and rule is not None and check and not check.blocking else None
             out.append(Proposal(record, rule, problem, check, chunk, judged))

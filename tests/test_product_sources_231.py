@@ -66,3 +66,15 @@ def test_a_missing_or_changed_file_refuses_the_source(tmp_path) -> None:
     with pytest.raises(product_sources.SourceRefused) as refused:
         product_sources.read(source, tmp_path / "files")
     assert "another version" in str(refused.value) and "no file" in str(refused.value)
+
+
+def test_a_code_text_recognition_misread_is_the_product_s_code() -> None:
+    """U-A3: the all risks conditions were read by text recognition, which printed I29 as "129", IHA as "JHA", IKO as
+    "TKO" and J25 as "S25"; a section's code is the product's (or the source's other codes) that differs only in such
+    letters, when exactly one does."""
+    from jav.app.product_rules import Section
+
+    codes = ("I29", "IHA", "IKO", "I05", "J25", "VIL")
+    got = product_sources.known_codes([Section(clause=c, page=1) for c in ("129 1", "JHA 2", "TKO 3", "105 1", "S25 4", "VIL 1", "2.1")],
+                                      codes)
+    assert [s.clause for s in got] == ["I29 1", "IHA 2", "IKO 3", "I05 1", "J25 4", "VIL 1", "2.1"]

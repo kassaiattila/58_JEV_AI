@@ -36,7 +36,7 @@ __all__ = ["MACHINE", "Imported", "install", "read", "sections_of", "valid_from_
 MACHINE = identity.machine("condition import")
 Kind = Literal["general", "special", "supplementary", "clause"]
 _CAPITAL = "A-ZÁÉÍÓÖŐÚÜŰ"
-_TITLE = rf"(?:\s*(?P<title>[{_CAPITAL}].{{0,150}}?))?\s*$"
+_TITLE = rf"(?:\s*(?:[—–-]\s*)?(?P<title>[{_CAPITAL}].{{0,150}}?))?\s*$"  # U-A3: a dash may stand before the title
 # the numbering styles a clause heading starts its line with, each with its title starting with a capital letter (or
 # nothing): a number of up to four parts ("3", "3.1.2", its closing dot or not, "8.3.2.Ellenkező" with no space), a
 # Roman chapter with an optional number ("II.", "II. 2."), or a number with a letter ("1/A.")
@@ -46,7 +46,7 @@ _STYLES = {
     "letter": re.compile(r"^\s*(?P<n>\d{1,2})/(?P<l>[A-Z])\.?" + _TITLE),
 }
 # an extension's or a clause's heading that names its own code at the line's end: "… – KIEGÉSZÍTŐ BIZTOSÍTÁS (VIL)"
-_CODED = re.compile(r"(?i)(?:kieg[eé]sz[ií]t[oőö]\s+biztos[ií]t[aá]s|z[aá]rad[eé]k)\W{0,4}\((?P<code>[A-Z]{1,3}\d{0,3})\)\s*$")
+_CODED = re.compile(r"(?i)(?:kieg[eé]sz[ií]t[oőö]\s+biztos[ií]t[aá]s|z[aá]rad[eé]k)\W{0,4}\((?P<code>[A-Z0-9]{2,4})\)\s*$")  # U-A3: as text recognition printed it ("129" for "I29")
 _ROMAN = {"I": 1, "V": 5, "X": 10}
 
 
