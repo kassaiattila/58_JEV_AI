@@ -179,18 +179,25 @@ def record_of(rule: Rule) -> ProposedRule:
                         quote=rule.source.quote or "")
 
 
+def _given(entry: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in entry.items() if v is not None}
+
+
 def _prompt(cat: facts.Catalogue, modules: dict[str, str], pages: dict[int, str]) -> str:
+    """The request: the catalogue and the cover modules, then the pages. 231 (U-A3): the catalogue in compact JSON
+    without the fields a fact or an outcome does not have, as every request repeats it (with the real product's 95
+    facts it was most of a round's cost)."""
     known = {
         "levels": [{"code": level, "title": cat.labels.get(level, level)} for level in cat.levels],
-        "facts": [{"name": name, "title": d.title, "type": d.type, "level": d.level, "unit": d.unit, "currency": d.currency,
-                   "options": list(d.options) if d.options else None} for name, d in cat.facts.items()],
-        "outcomes": [{"name": name, "title": o.title, "type": o.type, "options": list(o.options) if o.options else None,
-                      "currency": o.currency} for name, o in cat.outcomes.items()],
+        "facts": [_given({"name": name, "title": d.title, "type": d.type, "level": d.level, "unit": d.unit, "currency": d.currency,
+                          "options": list(d.options) if d.options else None}) for name, d in cat.facts.items()],
+        "outcomes": [_given({"name": name, "title": o.title, "type": o.type, "options": list(o.options) if o.options else None,
+                             "currency": o.currency}) for name, o in cat.outcomes.items()],
         "kinds": list(KINDS), "comparisons": list(OPS),
         "cover_modules": [{"code": code, "name": name} for code, name in modules.items()],
     }
     text = "\n\n".join(f"=== page {n} ===\n{pages[n]}" for n in sorted(pages))
-    return f"CATALOGUE (JSON):\n{json.dumps(known, ensure_ascii=False)}\n\nPAGES (data):\n{text}"
+    return f"CATALOGUE (JSON):\n{json.dumps(known, ensure_ascii=False, separators=(',', ':'))}\n\nPAGES (data):\n{text}"
 
 
 def gpt_proposer(run_id: str) -> Proposer:
