@@ -195,3 +195,19 @@ def test_a_clause_numbered_again_under_an_extension_s_code_is_found_by_its_page(
     assert rule_proposals.on_its_page(cited, document).source.clause == "I29 2"
     on_five = cited.model_copy(update={"source": cited.source.model_copy(update={"page": 5})})
     assert rule_proposals.on_its_page(on_five, document).source.clause == "2"  # the main part's own clause stays
+
+
+def test_of_several_extensions_numbering_a_clause_on_one_page_the_quote_tells_which() -> None:
+    """U-A3: one page holds three extensions, each with its clause 2 (G19 2, IKO 2, I29 2); the model cites "2" with a
+    quote; the clause is the one whose heading stands last before the quote."""
+    from jav.app.product_rules import ConditionDocument, Section
+
+    document = ConditionDocument(kind="special", title="Feltételek", valid_from="2024-09-01", sections=tuple(
+        Section(clause=c, page=14) for c in ("G19 1", "G19 2", "IKO 1", "IKO 2", "I29 1", "I29 2")))
+    page = ("KIEGÉSZÍTŐ BIZTOSÍTÁS (G19)\n1. Küldött\n2. Küldött korlát\nKIEGÉSZÍTŐ BIZTOSÍTÁS (IKO)\n1. Törés\n"
+            "2. Gépek külső okból bekövetkező törése\nKIEGÉSZÍTŐ BIZTOSÍTÁS (129)\n1. Vihar\n2. Szabadban tárolt vagyontárgyak")
+    rule = rule_proposals.to_rule(rule_proposals.record_of(SET.rules["inv_flood_high"]), "property", GENERAL)[0]
+    cited = rule.model_copy(update={"source": rule.source.model_copy(update={"page": 14, "clause": "2",
+                                                                              "quote": "Gépek külső okból bekövetkező törése"})})
+    assert rule_proposals.on_its_page(cited, document, page).source.clause == "IKO 2"
+    assert rule_proposals.on_its_page(cited, document).source.clause == "2"  # without the page's text it stays

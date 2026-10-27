@@ -274,7 +274,7 @@ def recheck(run_id: str, *, document_ref: str | None = None, jev_budget: Decimal
         for p in rows:
             record = rule_proposals.ProposedRule.model_validate(json.loads(p["record"]))
             rule, problem = rule_proposals.to_rule(record, row["catalogue"], ref, modules=tuple(modules))
-            rule = rule_proposals.on_its_page(rule, document) if rule is not None else None
+            rule = rule_proposals.on_its_page(rule, document, pages.pages.get(rule.source.page)) if rule is not None else None
             check = rule_checks.check(rule, pages, document_ref=ref, document=document) if rule is not None else None
             support = p["support"]
             if support is None and jev_budget and rule is not None and check is not None and not check.blocking:

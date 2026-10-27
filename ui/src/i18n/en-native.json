@@ -3389,5 +3389,6 @@
   "the product source cannot be read: {{problems}}": "the product source cannot be read: {{problems}}",
   "its quote matches page {{page}} only roughly (text recognition): a person compares it": "its quote matches page {{page}} only roughly (text recognition): a person compares it",
   "only a finished run is checked again, not one {{state}}": "only a finished run is checked again, not one {{state}}",
-  "a run is checked again against a version of its own document, not {{document}}": "a run is checked again against a version of its own document, not {{document}}"
+  "a run is checked again against a version of its own document, not {{document}}": "a run is checked again against a version of its own document, not {{document}}",
+  "clause {{clause}} starts on page {{actual}}, the rule cites page {{page}}": "clause {{clause}} starts on page {{actual}}, the rule cites page {{page}}"
 }

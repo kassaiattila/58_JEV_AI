@@ -241,6 +241,11 @@ def _citation(rule: Rule, pages: DocumentPages, document_ref: str, document: Con
         if section is None:
             out.append(Finding("citation_clause", "blocking", said(
                 "it cites clause {{clause}}, which the document does not have", clause=source.clause)))
+        elif section.page is not None and source.page is not None and abs(section.page - source.page) == 1                 and _quoted_on(rule, pages):
+            # U-A3: a clause that starts at a page's foot and goes on over the next; the quote's page is checked apart
+            out.append(Finding("citation_clause", "attention", said(
+                "clause {{clause}} starts on page {{actual}}, the rule cites page {{page}}", clause=source.clause,
+                actual=section.page, page=source.page)))
         elif section.page is not None and source.page is not None and section.page != source.page:
             out.append(Finding("citation_clause", "blocking", said(
                 "clause {{clause}} is on page {{actual}}, not on page {{page}}", clause=source.clause, actual=section.page,
@@ -274,6 +279,17 @@ def _roughly(quote: str, page: str) -> bool:
     window = page[start:anchor.b + (len(quote) - anchor.a) + slack]
     held = sum(b.size for b in difflib.SequenceMatcher(None, quote, window, autojunk=False).get_matching_blocks())
     return held >= ROUGH * len(quote)
+
+
+def _quoted_on(rule: Rule, pages: DocumentPages) -> bool:
+    """U-A3: whether the rule's quote stands on the page it cites (as printed, a broken word joined, or roughly on a page
+    read by text recognition)."""
+    source = rule.source
+    if not source.quote or source.page not in pages.pages:
+        return False
+    quote, page = _plain(source.quote), pages.pages[source.page]
+    return (quote in _plain(page) or _letters(quote) in _letters(page)
+            or (source.page in pages.ocr_pages and _roughly(_letters(quote), _letters(page))))
 
 
 def _quote(rule: Rule, pages: DocumentPages) -> list[Finding]:

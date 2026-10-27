@@ -1076,7 +1076,7 @@
     "tests/test_review_reasons.py": 1,
     "tests/test_round_b_texts_127.py": 7,
     "tests/test_rule_checks_231.py": 5,
-    "tests/test_rule_proposals_231.py": 2,
+    "tests/test_rule_proposals_231.py": 6,
     "tests/test_runtime_adapters.py": 6,
     "tests/test_runtime_calls.py": 3,
     "tests/test_runtime_queue.py": 1,

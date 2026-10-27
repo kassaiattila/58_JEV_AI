@@ -3394,5 +3394,6 @@
   "the product source cannot be read: {{problems}}": "a termékforrás nem olvasható be: {{problems}}",
   "its quote matches page {{page}} only roughly (text recognition): a person compares it": "az idézete csak közelítőleg egyezik a(z) {{page}}. oldallal (szövegfelismerés): egy személy összeveti",
   "only a finished run is checked again, not one {{state}}": "csak lezárt futás ellenőrizhető újra, ez most: {{state}}",
-  "a run is checked again against a version of its own document, not {{document}}": "egy futás csak a saját iratának egy változatával ellenőrizhető újra, ezzel nem: {{document}}"
+  "a run is checked again against a version of its own document, not {{document}}": "egy futás csak a saját iratának egy változatával ellenőrizhető újra, ezzel nem: {{document}}",
+  "clause {{clause}} starts on page {{actual}}, the rule cites page {{page}}": "a(z) {{clause}} pont a(z) {{actual}}. oldalon kezdődik, a szabály a(z) {{page}}. oldalt idézi"
 }
