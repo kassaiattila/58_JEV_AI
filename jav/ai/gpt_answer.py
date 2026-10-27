@@ -5,7 +5,9 @@ call through the call log and the ledger rows the same way (the quote letter's p
 This module is that one way for a new call site: the model from the shared settings (`configs/models.json`), the
 instructions and the answer's form from the call site, the call through the call log under the caller's budget (a
 repeated question with the same text returns the saved answer, a sent call with no answer is uncertain), and every
-attempt in the ledger, failed ones too. Nothing is asked without a budget. A stand-in model can be put in place for a
+attempt in the ledger, failed ones too. D-h: an answer cut off at its output cap ends the call at once (no paid
+retries that would be cut off again), and a call that failed after an answer came back is settled at what it cost,
+with why the answer was not taken in the ledger (`jav/ai/output_cap.py`). Nothing is asked without a budget. A stand-in model can be put in place for a
 block (`use_agent_factory`), so the tests and a free demonstration never reach OpenAI.
 
 - `ask(site, prompt, output_model, instructions=, max_output_tokens=, run_id=, config_hash=)`: the answer, validated.
@@ -61,24 +63,37 @@ def _agent(output_model: type[BaseModel], instructions: str) -> Any:
 
     model_settings = OpenAIChatModelSettings(openai_reasoning_effort=OPENAI_SETTINGS["reasoning_effort"],
                                              temperature=OPENAI_SETTINGS["temperature"])
-    return Agent(openai_chat_model(), output_type=NativeOutput(output_model), instructions=instructions,
+    from jav.ai.output_cap import StopOnTruncation
+
+    return Agent(StopOnTruncation(openai_chat_model()), output_type=NativeOutput(output_model), instructions=instructions,
                  model_settings=model_settings, retries=OPENAI_SETTINGS["retries"])
 
 
 def _physical(agent: Any, site: str, prompt: str, *, max_output_tokens: int, run_id: str, rounds: int,
               config_hash: str | None) -> calls.Outcome:
-    """One `run_sync` of at most `rounds` requests; into the ledger, errors too."""
+    """One `run_sync` of at most `rounds` requests; into the ledger, errors too. D-h: a failed run that got an answer
+    is settled at what it cost (`calls.known_outcome`), with why its answer was not taken."""
+    from pydantic_ai import capture_run_messages
     from pydantic_ai.usage import UsageLimits
 
+    from jav.ai import output_cap
     from jav.core.config import OPENAI_MODEL, openai_cost
 
     t0 = time.perf_counter()
     try:
-        result = agent.run_sync(prompt, model_settings={"max_tokens": max_output_tokens}, usage_limits=UsageLimits(request_limit=rounds))
+        with capture_run_messages() as messages:
+            result = agent.run_sync(prompt, model_settings={"max_tokens": max_output_tokens},
+                                    usage_limits=UsageLimits(request_limit=rounds))
     except Exception as exc:
-        store.ledger_add(run_id=run_id, step=f"{site}_gpt", provider="openai", model=OPENAI_MODEL, input_tokens=None,
-                         output_tokens=None, cost_usd=None, seconds=round(time.perf_counter() - t0, 3),
-                         config_hash=config_hash, error=type(exc).__name__)
+        known = output_cap.paid(messages, exc, requested=OPENAI_MODEL)
+        why = output_cap.retry_reason(messages)
+        store.ledger_add(run_id=run_id, step=f"{site}_gpt", provider="openai", model=known.model if known else OPENAI_MODEL,
+                         input_tokens=known.input_tokens if known else None,
+                         output_tokens=known.output_tokens if known else None,
+                         cost_usd=float(known.cost_usd) if known else None, seconds=round(time.perf_counter() - t0, 3),
+                         config_hash=config_hash, error=type(exc).__name__ + (f": {why}" if why else ""))
+        if known is not None:  # its certain cost settles the call
+            exc.known_outcome = known
         raise
     usage = result.usage() if callable(result.usage) else result.usage
     in_tok, out_tok = usage.input_tokens or 0, usage.output_tokens or 0
