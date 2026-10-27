@@ -489,6 +489,29 @@ def cmd_condition_import(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_product_source(args: argparse.Namespace) -> int:
+    """231 (stage U, U-A2): a real product's source (`configs/product_source_<name>.json`): its documents read from
+    `--folder` by code (free; nothing goes to a model), each with its clauses and the day it is in force; with
+    `--install`, the machine adds the documents and the product as drafts (a person makes them active). 0: read (and
+    installed); 2: refused (a file missing or of another version, or one that could not be read)."""
+    from jav.app import product_sources
+
+    source = product_sources.load(args.name)
+    try:
+        read = product_sources.read(source, args.folder)
+    except product_sources.SourceRefused as exc:
+        print(f"refused: {exc}")
+        return 2
+    for ident, got in read.items():
+        print(f"{ident}: {got.pages.page_count} page(s) ({got.pages.source}), in force from {got.content.valid_from}, "
+              f"{len(got.content.sections)} clause(s)")
+    print(f"product {source.product.id}: {len(source.product.modules)} module(s) on the catalogue {source.product.catalogue}")
+    if args.install:
+        for ref in product_sources.install(source, read):
+            print(f"installed: {ref} (a draft; a person makes it active)")
+    return 0
+
+
 def cmd_product_set(args: argparse.Namespace) -> int:
     """231 (stage D, D-c5): a product set kept as data (`configs/<name>.json`): whether it holds together and its
     reference cases give what they expect (free: no AI call); with `--install`, its things into the store as drafts by
@@ -728,6 +751,12 @@ def register(sub) -> None:
     p.add_argument("--list", action="store_true", help="list every clause with its page and title")
     p.add_argument("--install", action="store_true", help="the machine adds it to the registry as a draft")
     p.set_defaults(fn=cmd_condition_import)
+    p = sub.add_parser("product-source", help="231 U-A2: a real product's source: its condition documents read from a folder "
+                                              "by code (free), and with --install its documents and product as drafts")
+    p.add_argument("name", help="the source (configs/product_source_<name>.json), e.g. allianz_property")
+    p.add_argument("--folder", required=True, help="the folder holding the documents' files (local)")
+    p.add_argument("--install", action="store_true", help="the machine adds the documents and the product as drafts")
+    p.set_defaults(fn=cmd_product_source)
     p = sub.add_parser("examples", help="231 U0: the example documents a process's cases start on, printed from the golden "
                                         "set (configs/examples_property_documents.json); checked, --write writes it (free)")
     p.add_argument("--write", action="store_true", help="write the file when it differs")
