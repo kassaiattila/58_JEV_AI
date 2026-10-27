@@ -35,9 +35,26 @@ __all__ = ["MACHINE", "Imported", "install", "read", "sections_of", "valid_from_
 
 MACHINE = identity.machine("condition import")
 Kind = Literal["general", "special", "supplementary", "clause"]
-# a clause heading starts its line: a number of up to four parts ("3", "3.1", "3.1.2"), its closing dot or not, then
-# a title starting with a capital letter, or nothing
-_HEADING = re.compile(r"^\s*(?P<clause>\d{1,2}(?:\.\d{1,2}){0,3})\.?(?:\s+(?P<title>[A-ZÁÉÍÓÖŐÚÜŰ].{0,150}?))?\s*$")
+_CAPITAL = "A-ZÁÉÍÓÖŐÚÜŰ"
+_TITLE = rf"(?:\s*(?P<title>[{_CAPITAL}].{{0,150}}?))?\s*$"
+# the numbering styles a clause heading starts its line with, each with its title starting with a capital letter (or
+# nothing): a number of up to four parts ("3", "3.1.2", its closing dot or not, "8.3.2.Ellenkező" with no space), a
+# Roman chapter with an optional number ("II.", "II. 2."), or a number with a letter ("1/A.")
+_STYLES = {
+    "number": re.compile(r"^\s*(?P<n>\d{1,2}(?:\.\d{1,2}){0,3})(?:\.|(?=\s|$))" + _TITLE),
+    "roman": re.compile(r"^\s*(?P<r>[IVX]{1,5})\.(?:\s*(?P<n>\d{1,2})\.?)?" + _TITLE),
+    "letter": re.compile(r"^\s*(?P<n>\d{1,2})/(?P<l>[A-Z])\.?" + _TITLE),
+}
+# an extension's or a clause's heading that names its own code at the line's end: "… – KIEGÉSZÍTŐ BIZTOSÍTÁS (VIL)"
+_CODED = re.compile(r"(?i)(?:kieg[eé]sz[ií]t[oőö]\s+biztos[ií]t[aá]s|z[aá]rad[eé]k)\W{0,4}\((?P<code>[A-Z]{1,3}\d{0,3})\)\s*$")
+_ROMAN = {"I": 1, "V": 5, "X": 10}
+
+
+def _roman(text: str) -> int:
+    values = [_ROMAN[ch] for ch in text]
+    return sum(-v if i + 1 < len(values) and v < values[i + 1] else v for i, v in enumerate(values))
+
+
 _IN_FORCE = re.compile(r"hat[aá]lyos", re.IGNORECASE)
 
 
@@ -48,39 +65,74 @@ class Imported:
     problems: list[str] = field(default_factory=list)  # what could not be read (the day in force, any clause)
 
 
-def _key(clause: str) -> tuple[int, ...]:
-    return tuple(int(p) for p in clause.split("."))
-
-
 _LEADER = re.compile(r"\.{5,}|…{2,}")  # a table of contents' dot leaders
 
 
-def sections_of(pages: dict[int, str]) -> list[Section]:
-    """The clause headings of the pages: of every line that looks like one (a table of contents' line, with its dot
-    leaders, is none), the longest run whose numbers rise in the order printed, the later of two equally long ones (the
-    body over a table of contents); a numbered item in a clause's text or a number printed again falls out. A clause's
-    title is the words after its number on the heading's line (a short heading's whole title; the first words of a
-    clause whose text starts there)."""
-    found: list[Section] = []
-    for page in sorted(pages):
-        for line in pages[page].splitlines():
-            if not _LEADER.search(line) and (m := _HEADING.match(line)) is not None:
-                found.append(Section(clause=m.group("clause"), page=page, title=(m.group("title") or "").strip() or None))
-    keys = [_key(s.clause) for s in found]
+def _candidates(line: str) -> list[tuple[str, tuple[int, ...], str, str | None]]:
+    """The ways a line may head a clause: (style, its order key, its number as named, its title)."""
+    out = []
+    for style, rx in _STYLES.items():
+        if (m := rx.match(line)) is None:
+            continue
+        title = (m.group("title") or "").strip() or None
+        if style == "number":
+            out.append((style, tuple(int(p) for p in m.group("n").split(".")), m.group("n"), title))
+        elif style == "roman":
+            n = m.group("n")
+            out.append((style, (_roman(m.group("r")), int(n) if n else 0), m.group("r") + (f".{n}" if n else ""), title))
+        else:
+            out.append((style, (int(m.group("n")), ord(m.group("l"))), f"{m.group('n')}/{m.group('l')}", title))
+    return out
+
+
+def _rising(found: list[tuple[tuple[int, ...], Section]]) -> list[Section]:
+    """The longest run of `found` whose keys rise in the order given, the later of two equally long ones."""
+    if not found:
+        return []
     length = [1] * len(found)
     before: list[int | None] = [None] * len(found)
     for i in range(len(found)):
         for j in range(i):
-            if keys[j] < keys[i] and length[j] + 1 >= length[i]:  # `>=`: the later predecessor of two
+            if found[j][0] < found[i][0] and length[j] + 1 >= length[i]:  # `>=`: the later predecessor of two
                 length[i], before[i] = length[j] + 1, j
-    if not found:
-        return []
     end: int | None = max(range(len(found)), key=lambda i: (length[i], i))
     out: list[Section] = []
     while end is not None:
-        out.append(found[end])
+        out.append(found[end][1])
         end = before[end]
     return out[::-1]
+
+
+def sections_of(pages: dict[int, str]) -> list[Section]:
+    """The clause headings of the pages. A heading that names its own code (an extension's "… – KIEGÉSZÍTŐ BIZTOSÍTÁS
+    (VIL)") starts a part whose clauses are numbered again and named with the code ("VIL 2"). In each part, of every line
+    that looks like a heading (a table of contents' line, with its dot leaders, is none), the longest run of one
+    numbering style (numbers, Roman chapters, a number with a letter) whose numbers rise in the order printed counts, the
+    later of two equally long ones (the body over a table of contents); a numbered item in a clause's text or a number
+    printed again falls out. A clause's title is the words after its number on the heading's line (a short heading's
+    whole title; the first words of a clause whose text starts there)."""
+    parts: list[tuple[str | None, list[tuple[str, tuple[int, ...], Section, int]]]] = [(None, [])]
+    order = 0
+    for page in sorted(pages):
+        for line in pages[page].splitlines():
+            if (coded := _CODED.search(line)) is not None:
+                parts.append((coded.group("code"), []))
+                continue
+            if _LEADER.search(line):
+                continue
+            prefix, found = parts[-1]
+            order += 1
+            for style, key, number, title in _candidates(line):
+                found.append((style, key, Section(clause=f"{prefix} {number}" if prefix else number, page=page, title=title), order))
+    out: list[Section] = []
+    for _prefix, found in parts:
+        at = {id(s): n for _st, _key, s, n in found}
+        runs = {style: _rising([(key, s) for st, key, s, _n in found if st == style]) for style in _STYLES}
+        chosen = max(runs["number"], runs["roman"], key=len)
+        if len(runs["letter"]) >= 2:  # the protection rules' "1/A." points stand beside its numbered annexes
+            chosen = sorted(chosen + runs["letter"], key=lambda s: at[id(s)])
+        out += chosen
+    return out
 
 
 def valid_from_of(first_page: str) -> date | None:

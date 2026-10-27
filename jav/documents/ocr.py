@@ -551,7 +551,8 @@ def _note_azure_reuse(path: Path, key: str) -> None:
 
 
 def ocr_pdf(
-    path: str | Path, *, page_count: int | None = None, use_cache: bool = True, psm: int | None = None, engine_name: str | None = None
+    path: str | Path, *, page_count: int | None = None, use_cache: bool = True, psm: int | None = None, engine_name: str | None = None,
+    max_pages: int | None = None,
 ) -> PdfText:
     """OCR of one PDF: from the cache if present; otherwise page images + tesseract per page (or Azure DI via the
     sidecar) + the shared layout builder. `has_text_layer` stays False (a fact), `text_source="ocr"` if the recognised
@@ -561,6 +562,9 @@ def ocr_pdf(
     eng = engine(engine_name)  # OcrUnavailableError if there is no engine
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     key = cache_key(path, eng) + (f"_psm{psm}" if psm is not None and eng != "azure_di" else "")
+    # 231 (U-A2): more pages than a processed document is recognised on is another result (its own cache entry)
+    wider = max_pages is not None and max_pages > int(_CFG["max_pages"]) and eng != "azure_di"
+    key += f"_pages{max_pages}" if wider else ""
     cache_file = CACHE_DIR / f"{key}.json"
     if use_cache and cache_file.exists():
         cached = json.loads(cache_file.read_text(encoding="utf-8"))
@@ -578,7 +582,7 @@ def ocr_pdf(
     else:
         with tempfile.TemporaryDirectory(prefix="jav_ocr_") as tmp:
             tmp_dir = Path(tmp)
-            pngs = render_pages(path, tmp_dir)
+            pngs = render_pages(path, tmp_dir, max_pages=max_pages if wider else None)
             pages = []
             all_conf = []
             for png in pngs:

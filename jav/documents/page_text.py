@@ -83,7 +83,7 @@ def _columns(lines: list[LineLayout], width: float | None) -> str:
 def read_pages(path: str | Path, skip_markers: Iterable[str] = ()) -> DocumentPages:
     """A PDF's text by page: its text layer, else local text recognition (cached; never the paid escalation); a page
     set in two columns column by column (231 U-A2)."""
-    doc = pdf.read_document(path)
+    doc = pdf.read_document(path, every_page=True)
     by_page: dict[int, list[LineLayout]] = {n: [] for n in range(1, doc.page_count + 1)}
     for line in doc.layout:
         by_page.setdefault(line.page, []).append(line)

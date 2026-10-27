@@ -84,3 +84,31 @@ def test_a_stray_number_or_a_table_of_contents_takes_no_clause_away() -> None:
     its dot leaders) and a stray early number do not hide the body's clauses."""
     pages = {1: "1. Fogalmak ........ 3\n2. Tárgy ........ 4\n10. Megszűnés", 2: "1. Fogalmak\n2. Tárgy\n2.1. Kiterjesztés\n3. Díj"}
     assert [(s.clause, s.page) for s in condition_import.sections_of(pages)] == [("1", 2), ("2", 2), ("2.1", 2), ("3", 2)]
+
+
+def _clauses(pages: dict[int, str]) -> list[str]:
+    return [s.clause for s in condition_import.sections_of(pages)]
+
+
+def test_an_extension_with_its_own_code_numbers_its_clauses_under_the_code() -> None:
+    """U-A2 (the real all risks conditions): each extension is headed "… – KIEGÉSZÍTŐ BIZTOSÍTÁS (CODE)" and numbers
+    its clauses from 1 again; under such a heading a clause is named with the code ("VIL 2"), so none is lost."""
+    pages = {1: "1. Fogalmak\n2. A biztosítás tárgya\n2.1. Épületek",
+             2: "VILLÁMCSAPÁS OKOZTA TÚLFESZÜLTSÉG – KIEGÉSZÍTŐ BIZTOSÍTÁS (VIL)\n1. Biztosítási esemény\n2. Önrész",
+             3: "Vandalizmus – kiegészítő biztosítás (J21)\n1. Biztosítási esemény\n2. Kizárások\n3. Önrész"}
+    assert _clauses(pages) == ["1", "2", "2.1", "VIL 1", "VIL 2", "J21 1", "J21 2", "J21 3"]
+
+
+def test_roman_chapters_slash_points_and_a_missing_space_are_clauses() -> None:
+    """U-A2: the cold-store conditions' Roman chapters ("II. 2." is "II.2"), the protection rules' "1/A." points, and a
+    clause number run into its first word ("8.3.2.Ellenkező") are clauses too."""
+    assert _clauses({1: "I. Fogalmak\nII. A biztosítás tárgya\nII. 2. Hűtött készlet", 2: "III. Kizárások\nIII. 1. Áramszünet"}) == [
+        "I", "II", "II.2", "III", "III.1"]
+    assert _clauses({1: "1/A. Védelmi osztályok\n1/B. Vagyoncsoportok\n1/C. Védelmi szintek"}) == ["1/A", "1/B", "1/C"]
+    assert _clauses({1: "8. Díj\n8.3. Díjfizetés\n8.3.2.Ellenkező megállapodás hiányában\n8.4 A díj"}) == ["8", "8.3", "8.3.2", "8.4"]
+
+
+def test_letter_points_stand_beside_numbered_annexes() -> None:
+    """U-A2 (the real protection rules): its "1/A." points and its numbered annexes are both clauses, in printed order."""
+    assert _clauses({1: "1/A. Védelmi osztályok\n1/B. Vagyoncsoportok", 2: "1. Melléklet\n2. Melléklet\n3. Melléklet"}) == [
+        "1/A", "1/B", "1", "2", "3"]
