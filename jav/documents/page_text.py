@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from jav.documents import pdf
+from jav.documents.layout import LineLayout
 
 __all__ = ["DocumentPages", "from_rows", "read_pages"]
 
@@ -54,12 +55,40 @@ def from_rows(pages: list[list[str]], skip_markers: Iterable[str] = ()) -> Docum
     return DocumentPages(kept, len(pages), "given", skipped=skipped)
 
 
+def _columns(lines: list[LineLayout], width: float | None) -> str:
+    """231 (stage U, U-A2): a page's text, read column by column when it is set in two: the left column's lines, then
+    the right one's, so a clause and its sentences stay together (line by line across both columns, the real condition
+    documents' clauses came mixed: 1.2, 1.13, 1.3, …). Two columns: no line's text runs across the page's middle except a
+    few (a heading over both), every other piece of text stands wholly left or right of it, and most of the right ones
+    start at one place (a table's columns start at several). A page that is not so reads line by line, as before."""
+    plain = "\n".join(ln.text for ln in lines)
+    cells = [c for ln in lines for c in ln.cells]
+    if len(cells) < 12:
+        return plain
+    edge = width or max(c.x1 for c in cells)
+    mid, margin = edge / 2, edge * 0.03
+    across = [c for c in cells if c.x0 < mid - margin and c.x1 > mid + margin]
+    right = [c.x0 for c in cells if c.x0 >= mid - margin]
+    left = [c for c in cells if c.x1 <= mid + margin]
+    if len(across) > 0.1 * len(cells) or len(right) < 5 or len(left) < 5:
+        return plain
+    start = sorted(right)[len(right) // 2]
+    if sum(1 for x in right if abs(x - start) <= edge * 0.02) < 0.6 * len(right):
+        return plain
+    left_lines = ["   ".join(c.text for c in ln.cells if c.x0 < mid - margin) for ln in lines]
+    right_lines = ["   ".join(c.text for c in ln.cells if c.x0 >= mid - margin) for ln in lines]
+    return "\n".join([t for t in left_lines if t] + [t for t in right_lines if t])
+
+
 def read_pages(path: str | Path, skip_markers: Iterable[str] = ()) -> DocumentPages:
-    """A PDF's text by page: its text layer, else local text recognition (cached; never the paid escalation)."""
+    """A PDF's text by page: its text layer, else local text recognition (cached; never the paid escalation); a page
+    set in two columns column by column (231 U-A2)."""
     doc = pdf.read_document(path)
-    texts: dict[int, list[str]] = {n: [] for n in range(1, doc.page_count + 1)}
+    by_page: dict[int, list[LineLayout]] = {n: [] for n in range(1, doc.page_count + 1)}
     for line in doc.layout:
-        texts.setdefault(line.page, []).append(line.text)
-    kept, skipped = _kept({n: "\n".join(lines) for n, lines in texts.items()}, skip_markers)
+        by_page.setdefault(line.page, []).append(line)
+    sizes = doc.page_sizes
+    texts = {n: _columns(lines, sizes[n - 1][0] if n - 1 < len(sizes) else None) for n, lines in by_page.items()}
+    kept, skipped = _kept(texts, skip_markers)
     ocr = frozenset(kept) if doc.text_source == "ocr" else frozenset()
     return DocumentPages(kept, doc.page_count, doc.text_source, ocr, skipped, hashlib.sha256(Path(path).read_bytes()).hexdigest())

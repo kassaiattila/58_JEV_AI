@@ -1026,6 +1026,16 @@ tariff parameters offer the registry's active things as choices, so a process's 
 `scripts/dev.ps1 start` also starts the invented registers (`invented-services`, 127.0.0.1:8941) the insurance case's
 lookups ask.
 
+**A condition document read from its PDF (231, stage U, U-A2).** `jav/app/condition_import.py` reads an insurer's
+condition document into the product registry's form by code alone (nothing goes to a model): its pages as a rule
+proposal reads them (`jav/documents/page_text.py`: the text layer, else local text recognition; a page set in two
+columns is read column by column, its left column's lines then its right one's, decided from where the text's pieces
+stand: none across the middle but a few, the right ones starting at one place), the clause headings at the start of a
+line (`3.1. Title`, `3.1.`; a table of contents' dot-leader lines are none), of which the longest run whose numbers rise
+in the order printed counts (a stray number, a numbered item or a table of contents falls out), and the day it is in
+force, the first date after "hatályos" on its first page. `python -m jav.cli condition-import <pdf> --id --kind --title
+[--install]`: the machine (`machine:condition import`) adds it as a draft; a person makes it active.
+
 **A process pack's cases (231, plan stage A, A5).** `jav/app/process_runtime.py` `start_case(pack_id, scope, name,
 actor)` makes the case's container (a general work package of kind `case`, so every table keyed by a package keeps
 working) and, in one write transaction, its scope and the process core's case of the pack's version under the same id.

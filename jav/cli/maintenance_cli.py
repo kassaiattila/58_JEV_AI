@@ -463,6 +463,32 @@ def cmd_invented_services(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_condition_import(args: argparse.Namespace) -> int:
+    """231 (stage U, U-A2): a condition document's PDF read into the registry's form by code (free; nothing goes to a
+    model): its clauses with their pages and the day it is in force; with `--install`, the machine adds it as a draft.
+    0: read (and installed); 1: something could not be read (listed; give it, or fix the file)."""
+    from datetime import date
+    from pathlib import Path
+
+    from jav.app import condition_import
+
+    day = date.fromisoformat(args.valid_from) if args.valid_from else None
+    got = condition_import.read(Path(args.pdf), kind=args.kind, title=args.title, valid_from=day)
+    secs = got.content.sections
+    print(f"{args.id}: {got.pages.page_count} page(s) ({got.pages.source}), in force from {got.content.valid_from}, "
+          f"{len(secs)} clause(s) on {len({s.page for s in secs})} page(s)")
+    for p in got.problems:
+        print(f"problem: {p}")
+    if args.list:
+        for s in secs:
+            print(f"  {s.clause:>10}  p{s.page}  {s.title or ''}")
+    if got.problems:
+        return 1
+    if args.install:
+        print(f"installed: {condition_import.install(args.id, got)} (a draft; a person makes it active)")
+    return 0
+
+
 def cmd_product_set(args: argparse.Namespace) -> int:
     """231 (stage D, D-c5): a product set kept as data (`configs/<name>.json`): whether it holds together and its
     reference cases give what they expect (free: no AI call); with `--install`, its things into the store as drafts by
@@ -692,6 +718,16 @@ def register(sub) -> None:
     p.add_argument("--store", help="a store file to install into instead of the active store")
     p.add_argument("--write-pdfs", metavar="DIR", help="231 D-c7a: write the set's condition documents as PDFs into DIR")
     p.set_defaults(fn=cmd_product_set)
+    p = sub.add_parser("condition-import", help="231 U-A2: a condition document's PDF read into the product registry's form "
+                                                "by code (its clauses, pages, the day in force; free); --install adds it as a draft")
+    p.add_argument("pdf", help="the document's file (local)")
+    p.add_argument("--id", required=True, help="the document's identifier in the registry")
+    p.add_argument("--kind", required=True, choices=("general", "special", "supplementary", "clause"))
+    p.add_argument("--title", required=True, help="the document's title as printed")
+    p.add_argument("--valid-from", help="the day it is in force (YYYY-MM-DD), when its first page does not print it")
+    p.add_argument("--list", action="store_true", help="list every clause with its page and title")
+    p.add_argument("--install", action="store_true", help="the machine adds it to the registry as a draft")
+    p.set_defaults(fn=cmd_condition_import)
     p = sub.add_parser("examples", help="231 U0: the example documents a process's cases start on, printed from the golden "
                                         "set (configs/examples_property_documents.json); checked, --write writes it (free)")
     p.add_argument("--write", action="store_true", help="write the file when it differs")
