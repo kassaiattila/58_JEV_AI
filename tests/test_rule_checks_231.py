@@ -151,3 +151,15 @@ def test_a_word_broken_at_the_line_s_end_is_the_same_word() -> None:
     rows = product_sets.document_pages(SET, "inv_burglary_conditions")
     broken = [[line.replace("értéktárgyak", "érték-\ntárgyak") for line in page] for page in rows]
     assert not any("quote" in t for t in _texts(_check(rule, pages=page_text.from_rows(broken, MARKERS))))
+
+
+def test_a_quote_with_an_omission_matches_when_each_part_stands_in_order() -> None:
+    """U-A3 (the paid round): the model quoted with an omission ("A biztosító … nem áll be"); each part stands on the
+    page as printed, in the order given, so the quote counts; parts out of order or one not printed do not."""
+    rule = SET.rules["inv_valuables_sublimit"]
+    words = rule.source.quote.split()
+    head, tail = " ".join(words[:2]), " ".join(words[-2:])
+    for quote, ok in ((f"{head} … {tail}", True), (f"{head} ... {tail}", True), (f"{tail} … {head}", False),
+                      (f"{head} … nincs ilyen szó", False)):
+        changed = _changed("inv_valuables_sublimit", source__quote=quote)
+        assert (not any("quote" in t for t in _texts(_check(changed)))) is ok, quote

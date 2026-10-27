@@ -383,7 +383,7 @@ def rule_problems(rule: Rule, documents: dict[str, ConditionDocument] | None = N
             if name not in rule.facts:
                 problems.append(said("compares {{fact}}, which it does not read", within=at, fact=name))
                 continue
-            d = cat.facts.get(name)
+            d = facts.compared_as(cat.facts[name]) if name in cat.facts else None  # U-A3: a list of codes, by single codes
             for op, value in condition.items():
                 if op not in OPS:
                     problems.append(said("no comparison {{op}}", within=at, op=op))

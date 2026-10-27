@@ -31,7 +31,7 @@ from jav.core.user_messages import explained
 from jav.core.versions import AT
 
 __all__ = ["Catalogue", "CheckedInput", "FactDef", "FactError", "OutcomeDef", "SourceClaim", "Unit", "catalogue",
-           "checked_input", "plain", "typed_fact", "typed_value"]
+           "checked_input", "compared_as", "plain", "typed_fact", "typed_value"]
 
 FactType = Literal["money", "quantity", "code", "codes", "bool", "date", "count", "decimal", "percentage", "permille", "text"]
 
@@ -100,6 +100,12 @@ def _exact(name: str, value: Any) -> Decimal:
     if not number.is_finite():
         raise explained(FactError, "{{name}} is a finite number", name=name)
     return number
+
+
+def compared_as(d: FactDef) -> FactDef:
+    """231 (U-A3): the definition a fact's compared values are typed by: a list of codes is compared with single codes
+    (`in`: any of them), any other fact with values of its own type."""
+    return d.model_copy(update={"type": "code"}) if d.type == "codes" else d
 
 
 def typed_fact(cat: Catalogue, name: str, level: str, value: Any) -> Any:

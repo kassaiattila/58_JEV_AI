@@ -281,6 +281,23 @@ def _roughly(quote: str, page: str) -> bool:
     return held >= ROUGH * len(quote)
 
 
+_OMISSION = re.compile(r"\.\.\.|…|\[\.\.\.\]")
+
+
+def _in_order(quote: str, page: str) -> bool:
+    """U-A3: a quote with an omission ("A biztosító … nem áll be"): each of its parts on the page as printed, in order."""
+    parts = [_letters(part) for part in _OMISSION.split(quote) if _letters(part)]
+    if len(parts) < 2:
+        return False
+    at, text = 0, _letters(page)
+    for part in parts:
+        found = text.find(part, at)
+        if found < 0:
+            return False
+        at = found + len(part)
+    return True
+
+
 def _quoted_on(rule: Rule, pages: DocumentPages) -> bool:
     """U-A3: whether the rule's quote stands on the page it cites (as printed, a broken word joined, or roughly on a page
     read by text recognition)."""
@@ -288,7 +305,7 @@ def _quoted_on(rule: Rule, pages: DocumentPages) -> bool:
     if not source.quote or source.page not in pages.pages:
         return False
     quote, page = _plain(source.quote), pages.pages[source.page]
-    return (quote in _plain(page) or _letters(quote) in _letters(page)
+    return (quote in _plain(page) or _letters(quote) in _letters(page) or _in_order(quote, page)
             or (source.page in pages.ocr_pages and _roughly(_letters(quote), _letters(page))))
 
 
@@ -298,7 +315,8 @@ def _quote(rule: Rule, pages: DocumentPages) -> list[Finding]:
         return [Finding("quote", "attention", said("it quotes nothing"))]
     quote = _plain(source.quote)
     if source.page in pages.pages and (quote in _plain(pages.pages[source.page])
-                                       or _letters(quote) in _letters(pages.pages[source.page])):
+                                       or _letters(quote) in _letters(pages.pages[source.page])
+                                       or _in_order(quote, pages.pages[source.page])):
         return []
     if source.page in pages.ocr_pages and source.page in pages.pages and _roughly(_letters(quote), _letters(pages.pages[source.page])):
         return [Finding("quote", "attention", said("its quote matches page {{page}} only roughly (text recognition): a person "
