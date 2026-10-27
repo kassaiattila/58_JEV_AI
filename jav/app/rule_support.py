@@ -85,7 +85,7 @@ def _condition(cat: facts.Catalogue, name: str, op: str, value: Any) -> str:
     if op in ("present", "absent"):
         given = (op == "present") == bool(value)
         return f"{title} is {'given' if given else 'not given'}"
-    typed = [facts.typed_value(name, d, v) for v in value] if op in ("in", "not_in", "between") else facts.typed_value(name, d, value)
+    typed = facts.compared_value(name, d, op, value)
     if op == "in":
         return f"{title} is one of {', '.join(_shown(cat, v) for v in typed)}"
     if op == "not_in":

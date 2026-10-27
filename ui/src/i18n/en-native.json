@@ -3033,6 +3033,7 @@
   "it quotes nothing": "it quotes nothing",
   "its quote is on page {{actual}}, not on page {{page}}": "its quote is on page {{actual}}, not on page {{page}}",
   "its quote is not in the document": "its quote is not in the document",
+  "it gives {{code}} for {{name}}, a code the catalogue does not name: a person decides on it": "it gives {{code}} for {{name}}, a code the catalogue does not name: a person decides on it",
   "{{value}} is not in the document: a person confirms it": "{{value}} is not in the document: a person confirms it",
   "{{value}} was read by text recognition on page {{page}}: a person confirms it": "{{value}} was read by text recognition on page {{page}}: a person confirms it",
   "GPT is asked only under a budget": "GPT is asked only under a budget",

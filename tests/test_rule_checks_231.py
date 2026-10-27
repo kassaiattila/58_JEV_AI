@@ -163,3 +163,15 @@ def test_a_quote_with_an_omission_matches_when_each_part_stands_in_order() -> No
                       (f"{head} … nincs ilyen szó", False)):
         changed = _changed("inv_valuables_sublimit", source__quote=quote)
         assert (not any("quote" in t for t in _texts(_check(changed)))) is ok, quote
+
+
+def test_a_code_a_rule_gives_that_the_catalogue_does_not_name_asks_a_person() -> None:
+    """U-A3 (the paid round on the real conditions): accepted-looking proposals gave measures, excluded perils and
+    required documents under codes of their own ("weekly_backup"); an outcome's list of codes is open, so it does not
+    block, but a person decides on each code the catalogue does not name. A code it names says nothing."""
+    known = list(SET.rules["inv_class_cash"].table.rows[0].then["measures"])
+    result = _check(_changed("inv_class_cash", table__rows__0__then__measures=[*known, "weekly_backup"]))
+    assert not result.blocking
+    assert [t for t in _texts(result) if "weekly_backup" in t] == [
+        "attention: it gives weekly_backup for measures, a code the catalogue does not name: a person decides on it"]
+    assert not [t for t in _texts(_check(SET.rules["inv_class_cash"])) if "does not name" in t]

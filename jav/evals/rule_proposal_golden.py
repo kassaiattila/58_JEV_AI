@@ -88,7 +88,8 @@ def _typed(d: Any, name: str, op: str, value: Any) -> Any:
 def _rows(rule: Rule, cat: facts.Catalogue) -> list[tuple[Any, Any]]:
     out = []
     for row in rule.table.rows:
-        when = {f: {op: _typed(cat.facts.get(f), f, op, v) for op, v in cond.items()} for f, cond in row.when.items()}
+        when = {f: {op: _typed(facts.compared_as(cat.facts[f]) if f in cat.facts else None, f, op, v) for op, v in cond.items()}
+                for f, cond in row.when.items()}  # U-A3: a list of codes compared by single codes, as the evaluation does
         then = {o: _typed(cat.outcomes.get(o), o, "eq", v) for o, v in row.then.items()}
         out.append((json.dumps(when, sort_keys=True, default=sorted), json.dumps(then, sort_keys=True, default=str)))
     return out

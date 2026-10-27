@@ -109,12 +109,7 @@ def holds(op: str, have: Any, want: Any) -> bool:
 
 
 def _typed_values(cat: facts.Catalogue, name: str, op: str, value: Any) -> Any:
-    d = facts.compared_as(cat.facts[name])
-    if op in ("in", "not_in"):
-        return [facts.typed_value(name, d, v) for v in value]
-    if op == "between":
-        return [facts.typed_value(name, d, v) for v in value]
-    return facts.typed_value(name, d, value)
+    return facts.compared_value(name, cat.facts[name], op, value)
 
 
 def evaluate_rule(rule: Rule, ref: str, seen: dict[str, Any], cat: facts.Catalogue) -> RuleOutcome:

@@ -108,6 +108,16 @@ def compared_as(d: FactDef) -> FactDef:
     return d.model_copy(update={"type": "code"}) if d.type == "codes" else d
 
 
+def compared_value(name: str, d: FactDef, op: str, value: Any) -> Any:
+    """231 (U-A3): what a rule's or a factor's comparison compares a fact with, typed by `compared_as`: a list for
+    `in`, `not_in` and `between`, one value for any other comparison. The one place the evaluation, the rating and the
+    rule written out for JEV type it, so none of them can read a list of codes otherwise."""
+    d = compared_as(d)
+    if op in ("in", "not_in", "between"):
+        return [typed_value(name, d, v) for v in value]
+    return typed_value(name, d, value)
+
+
 def typed_fact(cat: Catalogue, name: str, level: str, value: Any) -> Any:
     """One fact's value as its catalogue types it."""
     d = cat.facts.get(name)
