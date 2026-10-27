@@ -1300,7 +1300,8 @@ answer from GPT through the call log and a budget, for a new call site (`jav/ai/
 shared settings, the call reserved, a repeated question answered from the saved one, every attempt in the ledger, a
 stand-in model for a block; nothing asked without a budget; D-h: an answer cut off at its output cap ends the call at
 once, and a call that failed after an answer came back is settled at that answer's cost with why it was not taken,
-through `jav/ai/output_cap.py`, which the extraction shares), and the rule proposer (`jav/app/rule_proposals.py`,
+through `jav/ai/output_cap.py`, which the extraction shares; the answer's form is strict, so the provider holds the
+model to it, every field required), and the rule proposer (`jav/app/rule_proposals.py`,
 `configs/gpt_rule_proposal.json`): a document's pages a few at a time (never a page its marking keeps out), after the
 fact catalogue and the cover modules, answered with rule records (each value as JSON text of the catalogue's type, the
 page, clause and quoted words), each turned into a registry rule (or kept with why it is none) and checked by code. A

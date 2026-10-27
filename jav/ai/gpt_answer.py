@@ -65,8 +65,10 @@ def _agent(output_model: type[BaseModel], instructions: str) -> Any:
                                              temperature=OPENAI_SETTINGS["temperature"])
     from jav.ai.output_cap import StopOnTruncation
 
-    return Agent(StopOnTruncation(openai_chat_model()), output_type=NativeOutput(output_model), instructions=instructions,
-                 model_settings=model_settings, retries=OPENAI_SETTINGS["retries"])
+    # D-h: strict, so the provider holds the answer to its form (a form that cannot be strict is refused at once, free,
+    # instead of an answer that names its fields as it likes)
+    return Agent(StopOnTruncation(openai_chat_model()), output_type=NativeOutput(output_model, strict=True),
+                 instructions=instructions, model_settings=model_settings, retries=OPENAI_SETTINGS["retries"])
 
 
 def _physical(agent: Any, site: str, prompt: str, *, max_output_tokens: int, run_id: str, rounds: int,

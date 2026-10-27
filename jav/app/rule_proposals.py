@@ -25,7 +25,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from jav.ai import gpt_answer
 from jav.app import facts, rule_checks, rule_support
@@ -77,7 +77,9 @@ class ProposedRule(_Answer):
 
 
 class ProposedRules(_Answer):
-    rules: list[ProposedRule] = Field(default_factory=list)
+    # D-h: required, as every field of the answer is, so the provider holds the model to this form strictly (a default
+    # made the form not strict, and the first paid answer named its fields as it liked)
+    rules: list[ProposedRule]
 
 
 @dataclass(frozen=True)

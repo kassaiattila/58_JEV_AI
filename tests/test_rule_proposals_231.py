@@ -83,7 +83,7 @@ def test_gpt_proposes_through_the_call_log_a_few_pages_at_a_time(db) -> None:
 
 
 def test_gpt_is_not_asked_without_a_budget(db) -> None:
-    agent = _Agent(rule_proposals.ProposedRules())
+    agent = _Agent(rule_proposals.ProposedRules(rules=[]))
     with gpt_answer.use_agent_factory(lambda model, instructions: agent), pytest.raises(gpt_answer.NoBudget):
         rule_proposals.propose(GENERAL, _pages("inv_general_conditions"), "property", proposer=rule_proposals.gpt_proposer("x"))
     assert agent.prompts == []
@@ -92,7 +92,7 @@ def test_gpt_is_not_asked_without_a_budget(db) -> None:
 def test_a_page_its_marking_keeps_out_is_never_sent(db) -> None:
     rows = product_sets.document_pages(SET, "inv_general_conditions")
     rows[1] = [*rows[1], "Internal"]
-    agent = _Agent(rule_proposals.ProposedRules())
+    agent = _Agent(rule_proposals.ProposedRules(rules=[]))
     with gpt_answer.use_agent_factory(lambda model, instructions: agent):
         with calls.outside_run("proposal-marked", {"openai": Decimal("1.00")}) as scope:
             rule_proposals.propose(GENERAL, _pages("inv_general_conditions", rows), "property",
