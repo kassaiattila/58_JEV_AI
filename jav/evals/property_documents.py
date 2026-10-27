@@ -113,8 +113,10 @@ def _request(v: dict[str, Any]) -> list[list[str]]:
               "Kért fedezetek:", *[f"[{'X' if c in wanted else ' '}] {c}" for c in _COVERS],
               *_line("Üzemszüneti elszámolás módja", v.get("accounting_method")),
               *_line("Üzemszüneti biztosítási összeg", v.get("interruption_sum_insured"), _amount),
-              "Telephelyek:", "Sorszám   Cím   Ország",
-              *["   ".join(str(s.get(c) or "") for c in ("site_no", "address", "country")) for s in v.get("sites") or []]]
+              # 231 (D-h): the address last, where it has room (the writer puts cells at fixed points; a long address
+              # in the middle ran into the country's cell and the two were read as one, measured on 2026-10-27)
+              "Telephelyek:", "Sorszám   Ország   Cím",
+              *["   ".join(str(s.get(c) or "") for c in ("site_no", "country", "address")) for s in v.get("sites") or []]]
     return [lines]
 
 
