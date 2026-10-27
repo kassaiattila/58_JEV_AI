@@ -1169,3 +1169,14 @@ details.earlier[open] > summary { margin-bottom: var(--sp-2); }
 .letter-text { resize: vertical; line-height: 1.5; min-height: 240px; }
 .letter-form .todo-text { margin: calc(-1 * var(--sp-2)) 0 var(--sp-2); }
 .letter-form .button-row { margin-top: var(--sp-3); }
+
+/* 231 (stage U, U0): a new case: the processes on the left, the chosen one's example material and form beside them, so
+   its next step shows without scrolling on a laptop */
+.new-case { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 720px); gap: var(--sp-4); align-items: start; }
+.new-case .card { max-width: none; margin: 0; }
+.new-case-list .wizard-choices { margin: 0; }
+.new-case-form h2 { font-size: var(--fs-lg); font-weight: 600; margin: 0; }
+.example-material:not(:last-child) { padding-bottom: var(--sp-3); border-bottom: 1px solid var(--line-soft); }
+.example-material h3 { font-size: var(--fs-sm); font-weight: 600; margin: 0; }
+.example-material .plain { margin: 0; }
+.example-set { font-weight: 500; }

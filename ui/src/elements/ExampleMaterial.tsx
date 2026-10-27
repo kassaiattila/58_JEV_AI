@@ -33,7 +33,7 @@ export function ExampleMaterial({ pack, needed, onChanged }: { pack: string; nee
             const [mark, label] = STATE[s.state] ?? STATE.missing;
             return (
               <li key={`${s.kind}:${s.name}`}>
-                <span className={`status ${mark}`}>{t(label)}</span> {s.title}
+                <span className={`status ${mark}`}>{t(label)}</span> · <span className="example-set">{s.title}</span>
                 {s.state !== "missing" && !s.example ? <span className="muted small"> · {t("made by a person, not an example")}</span> : null}
               </li>
             );

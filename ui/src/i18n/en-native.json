@@ -3384,5 +3384,6 @@
   "no module installs example sets of the kind {{kind}}": "no module installs example sets of the kind {{kind}}",
   "a person made {{things}}: it is not example material to remove": "a person made {{things}}: it is not example material to remove",
   "the example material stays: the cases {{cases}} keep it": "the example material stays: the cases {{cases}} keep it",
-  "the example material stays: the rule proposal runs {{runs}} name it": "the example material stays: the rule proposal runs {{runs}} name it"
+  "the example material stays: the rule proposal runs {{runs}} name it": "the example material stays: the rule proposal runs {{runs}} name it",
+  "Choose a process on the left: its form opens here.": "Choose a process on the left: its form opens here."
 }

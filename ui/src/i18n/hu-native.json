@@ -3389,5 +3389,6 @@
   "no module installs example sets of the kind {{kind}}": "a(z) {{kind}} fajta példakészletet egyetlen modul sem telepíti",
   "a person made {{things}}: it is not example material to remove": "ezt egy személy készítette: {{things}}; nem eltávolítható példaanyag",
   "the example material stays: the cases {{cases}} keep it": "a példaanyag marad: ezek az ügyek őrzik: {{cases}}",
-  "the example material stays: the rule proposal runs {{runs}} name it": "a példaanyag marad: ezek a szabályjavaslat-futások nevezik meg: {{runs}}"
+  "the example material stays: the rule proposal runs {{runs}} name it": "a példaanyag marad: ezek a szabályjavaslat-futások nevezik meg: {{runs}}",
+  "Choose a process on the left: its form opens here.": "Válassz bal oldalt egy folyamatot: az űrlapja itt nyílik meg."
 }
