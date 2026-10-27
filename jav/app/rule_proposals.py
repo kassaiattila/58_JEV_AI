@@ -109,11 +109,22 @@ def _site() -> dict[str, Any]:
     return cfg.load(f"gpt_{SITE}")
 
 
-def _value(text: str) -> Any:
+class _CutOff(ValueError):
+    """U-A3: a value begun as JSON (a list, an object, a string) that is no JSON: cut off or mistyped, not a bare code
+    (the model gave a lone "[" where a list of codes was due)."""
+
+    def __init__(self, where: str, text: str):
+        super().__init__(f"{where}: {text}")
+        self.where, self.text = where, text
+
+
+def _value(text: str, where: str) -> Any:
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        return text.strip()  # a bare code
+        if text.strip()[:1] in ("[", "{", '"'):
+            raise _CutOff(where, text.strip()) from None
+        return text.strip()  # a bare code, or an amount written as text
 
 
 _MONEY_TEXT = re.compile(r"^\s*(\d[\d ., ]*?)\s*(HUF|Ft|EUR|€|USD)?\s*$")
@@ -203,16 +214,21 @@ def to_rule(record: ProposedRule, catalogue_id: str, document_ref: str, *,
     outcome_kind = {name: (o.type, o.currency) for name, o in cat.outcomes.items()}
     rows = []
     compared: list[str] = []
-    for row in record.rows:
-        when: dict[str, dict[str, Any]] = {}
-        for c in row.when:
-            value = _typed(*fact_kind.get(c.fact, (None, None)), _value(c.value))
-            if c.op in ("in", "not_in") and not isinstance(value, list):
-                value = [value]  # U-A3: one value where a list is wanted
-            when.setdefault(c.fact, {})[c.op] = value
-            compared += [c.fact] if c.fact not in compared else []
-        rows.append({"when": when, "then": {o.outcome: _typed(*outcome_kind.get(o.outcome, (None, None)), _value(o.value))
-                                            for o in row.then}})
+    try:
+        for i, row in enumerate(record.rows):
+            when: dict[str, dict[str, Any]] = {}
+            for c in row.when:
+                value = _typed(*fact_kind.get(c.fact, (None, None)), _value(c.value, f"table.rows.{i}.when.{c.fact}"))
+                if c.op in ("in", "not_in") and not isinstance(value, list):
+                    value = [value]  # U-A3: one value where a list is wanted
+                when.setdefault(c.fact, {})[c.op] = value
+                compared += [c.fact] if c.fact not in compared else []
+            rows.append({"when": when, "then": {
+                o.outcome: _typed(*outcome_kind.get(o.outcome, (None, None)), _value(o.value, f"table.rows.{i}.then.{o.outcome}"))
+                for o in row.then}})
+    except _CutOff as exc:
+        return None, said("its record is no rule: {{where}}: {{reason}}", where=exc.where,
+                          reason=f"a value begun as JSON is none: {exc.text[:60]}")
     named = [] if modules and set(modules) <= set(record.modules) else list(record.modules)
     # U-A3: a fact the rule compares is a fact it reads, and its level is the lowest of the facts it reads (when the
     # catalogue knows them all; else as given, for the check to name)

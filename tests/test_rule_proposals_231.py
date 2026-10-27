@@ -183,6 +183,24 @@ def test_a_single_code_where_the_catalogue_wants_a_list_is_a_list() -> None:
     assert problem is None and rule.table.rows[0].then["measures"] == ["alarm"]
 
 
+
+@pytest.mark.parametrize(("where", "name", "printed"), [("then", "measures", "["), ("then", "measures", '["alarm"'),
+                                                        ("when", "asset_group", "["), ("when", "asset_group", '{"amount": 5')])
+def test_a_value_begun_as_json_and_cut_off_is_no_rule(where: str, name: str, printed: str) -> None:
+    """U-A3 (the paid round on the real conditions): 23 values of the model's records were a lone "[" where a list of
+    codes was due. A value begun as JSON (a list, an object, a string) that is no JSON is cut off, not a bare code: the
+    record is no rule and says which value, so it is never accepted as a list holding "[" (v1.53.0 made it one)."""
+    record = rule_proposals.record_of(SET.rules["inv_flood_high"])
+    row = record.rows[0]
+    if where == "then":
+        row = row.model_copy(update={"then": [rule_proposals.ProposedOutcome(outcome=name, value=printed)]})
+    else:
+        row = row.model_copy(update={"when": [rule_proposals.ProposedCondition(fact=name, op="in", value=printed)]})
+    rule, problem = rule_proposals.to_rule(record.model_copy(update={"rows": [row]}), "property", GENERAL)
+    assert rule is None and problem.template == "its record is no rule: {{where}}: {{reason}}"
+    assert problem.params["where"] == f"table.rows.0.{where}.{name}" and printed in problem.params["reason"]
+
+
 def test_a_clause_numbered_again_under_an_extension_s_code_is_found_by_its_page() -> None:
     """U-A3: an extension numbers its clauses from 1 again under its code ("I29 2" in the registry); the model cites
     "2" on that page; on the cited page it is the code's clause."""

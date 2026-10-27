@@ -328,6 +328,26 @@ def _quote(rule: Rule, pages: DocumentPages) -> list[Finding]:
     return [Finding("quote", "blocking", said("its quote is not in the document"))]
 
 
+def _codes(rule: Rule, cat: facts.Catalogue) -> list[Finding]:
+    """U-A3 (the paid round on the real conditions): a code a rule gives (an outcome's code or list of codes, the list
+    open as the catalogue gives no options) that the catalogue does not name: made up, or missing from the catalogue; a
+    person decides on it. It does not block, as an open list may take a new code."""
+    out: list[Finding] = []
+    seen: set[tuple[str, str]] = set()
+    for row in rule.table.rows:
+        for name, value in row.then.items():
+            o = cat.outcomes.get(name)
+            if o is None or o.type not in ("code", "codes") or o.options:
+                continue
+            for code in value if isinstance(value, list) else [value]:
+                if isinstance(code, str) and code not in cat.labels and (name, code) not in seen:
+                    seen.add((name, code))
+                    out.append(Finding("catalogue", "attention", said(
+                        "it gives {{code}} for {{name}}, a code the catalogue does not name: a person decides on it",
+                        code=code, name=name)))
+    return out
+
+
 def check(rule: Rule, pages: DocumentPages, *, document_ref: str, document: ConditionDocument | None = None) -> RuleCheck:
     """What code finds about a proposed rule read from the document `document_ref` (its pages as read)."""
     settings = cfg.load("rule_proposals")
@@ -342,6 +362,7 @@ def check(rule: Rule, pages: DocumentPages, *, document_ref: str, document: Cond
     if cat is not None:
         text = _Text(pages, rule.source.quote, settings)
         seen = [_where(n, text, rule.source.page, settings["derive"]) for n in _rule_numbers(rule, cat)]
+        findings += _codes(rule, cat)
     for n in seen:
         if n.where == "not_found":
             findings.append(Finding("number", "attention", said("{{value}} is not in the document: a person confirms it", value=n.value)))
