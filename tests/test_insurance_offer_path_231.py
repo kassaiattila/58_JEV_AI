@@ -10,6 +10,7 @@ are the case's (the policyholder, the product, each module's premium, the approv
 Decision and release view name that file. D-f8: the covering letter is written from its frame with the document's
 values and addressed to the contact the request form names; a person accepts it, it is kept as an email file with the
 document attached, a person starts the send and that very file lands in the output folder; then the case closes.
+D-f9: the Overview names what holds the case, each with the view where it is resolved, and nothing once it closed.
 Invented data; no paid call.
 """
 
@@ -72,6 +73,12 @@ def _read_as_correct(run_id: str, wp_id: str) -> None:
     work_runs.refresh_run_status(run_id)
 
 
+def _holding(page: dict) -> list[dict]:
+    """D-f9: what the Overview's blockers element names."""
+    [blockers] = [e["data"] for tab in page["tabs"] if tab["id"] == "overview" for e in tab["elements"] if e["type"] == "blockers"]
+    return blockers["items"]
+
+
 def _decide(case_id: str, step: str, actor: str) -> None:
     case_views.act(case_id, step, "decide", actor, values={"choice": "accept",
                                                           "expected_basis": case_decisions.view(case_id, step)["basis"]})
@@ -129,6 +136,7 @@ def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder, tmp_pat
     assert shown["risk"]["decided"]["choice"] == "accept" and not shown["risk"]["waits"]
     assert shown["premium"]["waits"] and shown["premium"]["second_person"]["earlier_by"] == ANNA
     assert page["next"]["code"] == "decision_make" and page["next"]["tab"] == "decision"
+    assert _holding(page) == [{"step": "premium", "kind": "person", "note": None, "waiting_for": "decision", "tab": "decision"}]
     with pytest.raises(case_decisions.AnotherDeciderNeeded):
         _decide(case_id, "premium", ANNA)
     _decide(case_id, "premium", BELA)
@@ -178,6 +186,7 @@ def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder, tmp_pat
     out = tmp_path / "out"
     out.mkdir()
     monkeypatch.setattr(app_settings, "output_folder", lambda: str(out))
+    assert [(b["step"], b["kind"], b["tab"]) for b in _holding(case_views.view(case_id))] == [("send", "start", "decision")]
     case_views.start_step(case_id, "send", ANNA)  # a person starts the send
     state = _turn(case_id)
     assert state["steps"]["send"]["state"] == "done" and state["steps"]["send"]["result"]["file_name"] == eml_name
@@ -189,4 +198,5 @@ def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder, tmp_pat
     assert (attached.get_filename(), attached.get_content()) == (name, content)  # the offer as it was stored
     with store.connect() as c:
         assert cases.find_case_in(c, case_id)["status"] == cases.CLOSED
+    assert _holding(case_views.view(case_id)) == []  # a closed case: nothing holds it
     assert all(trace.replay(r) == r["outcome"] for r in trace.rows(case_id=case_id))

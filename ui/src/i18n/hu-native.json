@@ -3331,5 +3331,15 @@
   "No address: the letter goes without one, into the output folder.": "Nincs cím: a levél cím nélkül kerül a kimeneti mappába.",
   "This is not an email address.": "Ez nem e-mail-cím.",
   "A marker is left in the letter: {{marker}}": "A levélben jelölő maradt: {{marker}}",
-  "Written once the document is printed.": "Akkor készül el, amikor a dokumentum elkészült."
+  "Written once the document is printed.": "Akkor készül el, amikor a dokumentum elkészült.",
+  "What holds the case": "Mi tartja fel az ügyet",
+  "The case is closed: nothing holds it.": "Az ügy lezárult: semmi nem tartja fel.",
+  "Nothing holds the case: its steps work by themselves.": "Semmi nem tartja fel az ügyet: a lépései maguktól haladnak.",
+  "What holds it": "Mi tartja fel",
+  "Where": "Hol",
+  "Runs again": "Újra fut",
+  "Waits for its start": "Indításra vár",
+  "Nothing holds it": "Semmi nem tartja fel",
+  "{{n}} holding": "{{n}} akadály",
+  "Did not finish": "Nem futott le"
 }

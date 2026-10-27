@@ -3326,5 +3326,15 @@
   "No address: the letter goes without one, into the output folder.": "No address: the letter goes without one, into the output folder.",
   "This is not an email address.": "This is not an email address.",
   "A marker is left in the letter: {{marker}}": "A marker is left in the letter: {{marker}}",
-  "Written once the document is printed.": "Written once the document is printed."
+  "Written once the document is printed.": "Written once the document is printed.",
+  "What holds the case": "What holds the case",
+  "The case is closed: nothing holds it.": "The case is closed: nothing holds it.",
+  "Nothing holds the case: its steps work by themselves.": "Nothing holds the case: its steps work by themselves.",
+  "What holds it": "What holds it",
+  "Where": "Where",
+  "Runs again": "Runs again",
+  "Waits for its start": "Waits for its start",
+  "Nothing holds it": "Nothing holds it",
+  "{{n}} holding": "{{n}} holding",
+  "Did not finish": "Did not finish"
 }

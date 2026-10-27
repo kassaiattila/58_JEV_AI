@@ -148,6 +148,12 @@ export interface DocumentViewData {
   state: string | null; from_step: string | null; output: string | null; version: number | null;
   file: { name: string; sha256: string } | null;
 }
+/** D-f9: what holds an open case, each with the tab where it is resolved (jav/app/case_views.py). */
+export interface BlockersData {
+  status: string;
+  items: { step: string; kind: "stopped" | "stale" | "start" | "person" | "waits"; note: string | null; waiting_for: string | null;
+    tab: string | null }[];
+}
 /** D-f8: a letter that goes with a printed document (jav/app/letters.py). */
 export interface LetterData {
   frame: string;

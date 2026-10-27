@@ -18,7 +18,8 @@ steps wait for a person's start; starting one decides its start task, and the wo
   step spent, by service); (B1) `partner_link`: the partners the case is about, by the pack's partner links, each
   linked, or proposed from the record's fields with the partner it seems to be. `link_partner(case_id, role,
   partner_id, actor)`: a person links one (the case's scope names it). The next step comes from the first step that is not done, through the elements that show
-  it; a step no element shows leaves it to the first element that names one.
+  it; a step no element shows leaves it to the first element that names one. D-f9: `blockers`, what holds an open
+  case, each with the tab where it is resolved.
 
 Layer: application; it uses the process packs, the capability registry, the process runtime and the process core's
 public operations.
@@ -375,6 +376,42 @@ def _started_cases(case_id: str, _step: str | None, shared: dict[str, Any]) -> l
     return out
 
 
+def _blockers(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """D-f9: the shared blockers element: what holds an open case, step by step in the pack's order, each with the tab
+    whose element shows that step (where it is resolved): a step that stopped (its note says why) or must run again, one
+    that waits for a person's start, one that waits for a person's decision, and one that waits for something else (a
+    task's deadline, a run, a handover). A step not reached yet, or working by itself, holds nothing."""
+    pack = process_runtime.pack_for(case_id)
+    if pack is None:
+        raise KeyError(case_id)
+    state = engine.state(case_id)
+    if state["status"] != cases.OPEN:
+        return {"status": state["status"], "items": []}
+    where: dict[str, str] = {}
+    for tab in pack.screens.tabs:
+        for element in tab.elements:
+            if element.step and element.step not in where:
+                where[element.step] = tab.id
+    items = []
+    for step in pack.steps:
+        row = state["steps"].get(step.id, {})
+        shown = _step_view(case_id, step, row)
+        if row.get("state") in (cases.FAILED, cases.STALE):
+            kind = "stopped" if row["state"] == cases.FAILED else "stale"
+        elif row.get("state") != cases.RUNNING or not row.get("waiting_for"):
+            continue
+        elif shown["awaiting_start"]:
+            kind = "start"
+        elif shown["by_person"]:
+            kind = "person"
+        else:
+            kind = "waits"
+        items.append({"step": step.id, "kind": kind, "note": row.get("note"), "waiting_for": row.get("waiting_for"),
+                      "tab": where.get(step.id)})
+    return {"status": state["status"], "items": items}
+
+
+register(ElementData("blockers", None, __name__, _blockers))  # D-f9
 register(ElementData("started_cases", None, __name__, _started_cases))
 register(ElementData("timeline", None, __name__, _timeline))
 register(ElementData("cost", None, __name__, _cost))

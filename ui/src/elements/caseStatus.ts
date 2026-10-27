@@ -1,7 +1,7 @@
 // 231 (plan stage A, A7e): the status lines of the general elements of a case's page (a send step's, a reply step's,
 // the cost's), small enough to load with the page; the elements themselves load when a case shows one.
-import type { CalculationData, CaseCost, DecisionData, DocumentViewData, EvaluationData, FieldReviewData, HandoverData, LetterData,
-  MissingInfoData, ReplyData } from "../api";
+import type { BlockersData, CalculationData, CaseCost, DecisionData, DocumentViewData, EvaluationData, FieldReviewData, HandoverData,
+  LetterData, MissingInfoData, ReplyData } from "../api";
 import { t } from "../i18n";
 import { numText, tmap, when } from "../labels";
 import type { ElementProps } from "./registry";
@@ -40,6 +40,25 @@ export function documentStatus(d: DocumentViewData | null): { mark: string; text
   if (d.file) return { mark: "s-done", text: t("Version {{n}}", { n: d.version ?? "–" }) };
   if (d.state === "failed") return { mark: "s-failed", text: t("Not printed") };
   return { mark: "s-waiting", text: t("Waits for the approval") };
+}
+
+/** D-f9: what holds a step, as one mark: stopped, to run again, its start, a person's decision, or waiting. */
+export function blockerKind(kind: BlockersData["items"][number]["kind"]): { mark: string; text: string } {
+  switch (kind) {
+    case "stopped": return { mark: "s-failed", text: t("Did not finish") };
+    case "stale": return { mark: "s-warn", text: t("Runs again") };
+    case "start": return { mark: "s-review", text: t("Waits for its start") };
+    case "person": return { mark: "s-review", text: t("Waits for a person") };
+    default: return { mark: "s-waiting", text: t("Waits") };
+  }
+}
+
+/** D-f9: the blockers' state as one mark: how many hold the case, or nothing. */
+export function blockersStatus(d: BlockersData | null): { mark: string; text: string } | null {
+  if (!d || d.status !== "open") return null;
+  if (!d.items.length) return { mark: "s-done", text: t("Nothing holds it") };
+  const stopped = d.items.some((b) => b.kind === "stopped");
+  return { mark: stopped ? "s-failed" : "s-review", text: t("{{n}} holding", { n: d.items.length }) };
 }
 
 /** D-f8: a letter's state as one mark: accepted, out of date, returned, to accept, or waiting for its document. */

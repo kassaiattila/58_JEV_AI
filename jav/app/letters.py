@@ -47,7 +47,7 @@ _OWNER = __name__
 activity_kinds.register_events("package", ("letter_approve", "letter_reopen"), __name__)
 
 
-class LetterError(ValueError):
+class CoveringLetterError(ValueError):
     """A letter that cannot be accepted: no printed document yet, an empty or too long text, a marker left in it, or an
     address that is none."""
 
@@ -197,20 +197,20 @@ def accept(case_id: str, step: str, *, to: str | None, subject: str, body: str, 
            actor: identity.Who) -> dict[str, Any]:
     """A person's letter as the step's next own version, kept as an email file with the document attached. Refused: a
     page showing an older document (`RevisionConflict`), no printed document, an empty or too long subject or text, a
-    marker left in it, an address that is none (`LetterError`)."""
+    marker left in it, an address that is none (`CoveringLetterError`)."""
     from jav.app import process_runtime
 
     to, subject, body = (to or "").strip() or None, (subject or "").strip(), (body or "").strip()
     settings = _settings(case_id)
     limits = settings["limits"]
     if not subject or len(subject) > limits["subject_chars"]:
-        raise explained(LetterError, "the subject is empty or longer than {{n}} characters", n=limits["subject_chars"])
+        raise explained(CoveringLetterError, "the subject is empty or longer than {{n}} characters", n=limits["subject_chars"])
     if not body or len(body) > limits["body_chars"]:
-        raise explained(LetterError, "the letter is empty or longer than {{n}} characters", n=limits["body_chars"])
+        raise explained(CoveringLetterError, "the letter is empty or longer than {{n}} characters", n=limits["body_chars"])
     if (left := markers.ANY.search(subject + "\n" + body)) is not None:
-        raise explained(LetterError, "the letter still holds a marker: {{marker}}", marker=left.group(0))
+        raise explained(CoveringLetterError, "the letter still holds a marker: {{marker}}", marker=left.group(0))
     if to is not None and not ADDRESS.match(to):
-        raise explained(LetterError, "{{to}} is not an email address", to=to)
+        raise explained(CoveringLetterError, "{{to}} is not an email address", to=to)
     with store.connect() as c:
         store.begin_immediate(c)
         params = _params(c, case_id, step)
@@ -219,10 +219,10 @@ def accept(case_id: str, step: str, *, to: str | None, subject: str, body: str, 
             raise explained(decisions.RevisionConflict, "the document the letter goes with changed meanwhile; reload it")
         document = _document(c, case_id, params)
         if document is None:
-            raise explained(LetterError, "the document is not printed yet")
+            raise explained(CoveringLetterError, "the document is not printed yet")
         stored = package_release.own_file(case_id, document["version"], package_release.APPROVED, c)
         if stored is None or stored["sha256"] != document["sha256"]:
-            raise explained(LetterError, "the document's stored file is not the one printed")
+            raise explained(CoveringLetterError, "the document's stored file is not the one printed")
         content = {"frame": params.frame, "to": to, "subject": subject, "body": body + "\n", "document": document}
         fingerprint = hashlib.sha256(json.dumps(content, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
         email = _eml(content, stored)
@@ -327,4 +327,4 @@ def register() -> None:
                                                     "An accepted letter's email file, with the document it goes with."))
 
 
-__all__ = ["AcceptForm", "CAPABILITY", "Letter", "LetterError", "LetterResult", "accept", "compose", "register", "view"]
+__all__ = ["AcceptForm", "CAPABILITY", "Letter", "CoveringLetterError", "LetterResult", "accept", "compose", "register", "view"]

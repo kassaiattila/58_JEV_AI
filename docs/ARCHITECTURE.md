@@ -1465,7 +1465,15 @@ message builder `letter` hands that file to the send step (`send@1`). `approved_
 any done step's file its result names by version and sha256 (the letter's email file too). The special element
 `letter` (`ui/src/elements/LetterElement.tsx`); `insurance_offer.json` 1.5.0 adds the letter and the send (a person
 starts it) to the Decision and release view, and the case closes once the file is handed over
-(`tests/test_letters_231.py`, `ui/src/elements/letterElement231.test.tsx`).
+(`tests/test_letters_231.py`, `ui/src/elements/letterElement231.test.tsx`). D-f9: the shared `blockers` element is built
+from the planned list (`case_views._blockers`, any pack's): what holds an open case, step by step in the pack's order,
+from the process core's step states alone - a step that did not finish (its note says why) or must run again, one
+waiting for a person's start, one waiting for a person's decision (a human capability's), one waiting for something
+else (a task's deadline, a run, a handover) - each with the first tab whose element shows that step, where it is
+resolved; a step not reached yet, or working by itself, holds nothing, and a closed case nothing at all
+(`ui/src/elements/BlockersElement.tsx`). `insurance_offer.json` 1.6.0 opens its Overview with it, and the five work
+views are complete: Overview (what holds the case, the documents' processing, the cost), Data check, Calculation and
+versions, Decision and release (the two decisions, the offer document, the covering letter, the send) and History.
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

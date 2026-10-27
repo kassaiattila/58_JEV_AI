@@ -137,6 +137,35 @@ def test_the_letter_is_written_from_its_frame_accepted_and_sent_as_that_file(cas
         assert cases.find_case_in(c, case_id)["status"] == cases.CLOSED
 
 
+def test_a_document_its_builder_cannot_print_holds_the_case_with_the_reason(monkeypatch, tmp_path) -> None:
+    """D-f9: a step that did not finish is what holds the case, with its note (the invented pack shows no element for
+    it, so no view resolves it)."""
+    from jav.app import case_views
+
+    registrations.load_all()
+    monkeypatch.setattr(capabilities, "_CAPS", dict(capabilities._CAPS))
+    monkeypatch.setattr(kinds, "_KINDS", dict(kinds._KINDS))
+    capabilities.register(capabilities.Capability(
+        name="invented_approval", version=1, module="tests.synthetic", kind="machine", summary="Invented.", params=_Nothing,
+        run=_approve, state="step", output=capabilities.OwnVersionResult))
+
+    def broken(content, **kw):
+        raise rated_offer.RatedOfferError("the premium has no total")
+
+    monkeypatch.setattr(parts, "_VERSIONS", {**parts._VERSIONS, rated_offer.OUTPUT: parts.VersionDocument(
+        rated_offer.OUTPUT, "tests.synthetic", broken, reads_case=True)})
+    data = {"process:invented_letter": {**_pack("invented_letter"), "screens": {"tabs": [
+        {"id": "overview", "label": "Overview", "elements": [{"type": "blockers"}]}]}}}
+    real = cfg.load
+    monkeypatch.setattr(cfg, "load", lambda name: data[name] if name in data else real(name))
+    with store.use_store(tmp_path / "broken.sqlite"):
+        case_id = process_runtime.start_case("invented_letter", {}, name="Minta Kft.", actor=ANNA)
+        _turn(case_id)
+        [blockers] = [e["data"] for tab in case_views.view(case_id)["tabs"] for e in tab["elements"]]
+    assert blockers == {"status": "open", "items": [{"step": "document", "kind": "stopped", "note": "the premium has no total",
+                                                     "waiting_for": None, "tab": None}]}
+
+
 def test_without_the_addressee_s_name_it_greets_without_one(case) -> None:
     case_id, named, _out = case
     named["on"] = False
@@ -152,7 +181,7 @@ def test_without_the_addressee_s_name_it_greets_without_one(case) -> None:
 ])
 def test_a_letter_that_cannot_go_is_refused_with_the_reason(case, over, why) -> None:
     case_id, _named, _out = case
-    with pytest.raises(letters.LetterError) as refused:
+    with pytest.raises(letters.CoveringLetterError) as refused:
         _accept(case_id, **over)
     assert str(refused.value) == why
     assert package_release.own_approval(case_id, step="letter")["active"] is None
