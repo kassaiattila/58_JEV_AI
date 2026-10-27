@@ -12,7 +12,7 @@ Extract these fields; leave a field null when the sheet does not state it:
 - `basement_storage`: whether goods are stored in a basement (pinceszinti tárolás), the answer as printed (igen, nem).
 - `protection_class`: the protection class in place (védelmi szint, mechanikai és elektronikai védelem fokozata), a plain number string ("3").
 - `currency`: the currency the sheet's amounts are in, as an ISO 4217 code (Ft and forint = HUF).
-- `asset_groups`: every asset group the sheet lists for the site, one row each, in the order printed; a total row is not an asset group:
+- `asset_groups`: every asset group the sheet lists for the site, one row each, in the order printed; a group whose name is none of the ones below is a row too (copy its name as printed), never left out; a total row is not an asset group:
   - `asset_group`: the group as printed (épület, gépek és berendezések, készlet, készpénz, értéktárgyak);
   - `sum_insured`: its sum insured (biztosítási összeg), a plain decimal string with a dot separator, no thousands separators;
   - `valuation`: its valuation basis as printed (új érték, avult érték);

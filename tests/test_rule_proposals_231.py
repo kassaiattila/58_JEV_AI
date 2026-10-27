@@ -9,6 +9,7 @@ GPT; no paid call.
 
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -124,3 +125,39 @@ def test_a_clause_cited_as_printed_is_the_registry_s_clause() -> None:
     record = rule_proposals.record_of(SET.rules["inv_claims_factor"])
     rule, problem = rule_proposals.to_rule(record.model_copy(update={"clause": " 3.2. "}), "property", GENERAL)
     assert problem is None and rule.source.clause == SET.rules["inv_claims_factor"].source.clause == "3.2"
+
+
+def _money_condition(rules) -> tuple[str, str, str]:
+    """A rule of the set whose table compares a money fact, with that fact and comparison."""
+    cat_facts = rule_proposals.facts.catalogue("property").facts
+    for ident, rule in rules.items():
+        for row in rule.table.rows:
+            for fact, cond in row.when.items():
+                if cat_facts[fact].type == "money":
+                    return ident, fact, next(iter(cond))
+    raise AssertionError("no money condition in the set")
+
+
+def test_a_rule_listing_every_module_applies_to_every_module() -> None:
+    """231 (U-A0; the D-h measurement): GPT listed every cover module where the rule is the product's whole ("none for
+    every module"); the registry's form for that is no module named, so a later module is covered too."""
+    record = rule_proposals.record_of(SET.rules["inv_flood_high"])
+    every = record.model_copy(update={"modules": sorted(MODULES)})
+    rule, problem = rule_proposals.to_rule(every, "property", GENERAL, modules=MODULES)
+    assert problem is None and rule.modules == ()
+    some = record.model_copy(update={"modules": sorted(MODULES)[:2]})
+    assert rule_proposals.to_rule(some, "property", GENERAL, modules=MODULES)[0].modules == tuple(sorted(MODULES)[:2])
+
+
+@pytest.mark.parametrize("printed", ["10000000 HUF", "10 000 000 Ft", "10.000.000 HUF"])
+def test_an_amount_written_as_text_is_read_as_money(printed: str) -> None:
+    """U-A0 (D-h): GPT wrote an amount as text ("10000000 HUF") where the catalogue's type is money; code reads it as
+    an amount with its currency (Ft is HUF), so the rule is the registry's form and the code check sees its number."""
+    ident, fact, op = _money_condition(SET.rules)
+    record = rule_proposals.record_of(SET.rules[ident])
+    row = next(r for r in record.rows if any(c.fact == fact for c in r.when))
+    texts = [c.model_copy(update={"value": json.dumps(printed)}) if c.fact == fact else c for c in row.when]
+    rule, problem = rule_proposals.to_rule(record.model_copy(update={"rows": [row.model_copy(update={"when": texts})]}),
+                                           "property", GENERAL)
+    assert problem is None
+    assert rule.model_dump(mode="json")["table"]["rows"][0]["when"][fact][op] == {"amount": "10000000", "currency": "HUF"}

@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "type:property_schedule",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-10-27",
+    "note": "231 (U-A0; the D-h measurement): an asset group whose name is none of the listed ones is a row too, copied as printed, never left out (the paid round left out a schedule's fifth row, an unlisted group). A new GPT request: its earlier answers are asked again."
+   },
    {
     "version": "1.0.0",
     "date": "2026-10-26",
