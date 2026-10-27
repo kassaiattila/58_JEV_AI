@@ -13,6 +13,15 @@ export interface ProcessRow {
   scope?: string[]; package_kinds?: string[]; asks?: string[];
   /** 231 (C3d): the source kinds its case's documents may come from (a folder, files, a mailbox download) */
   source_kinds?: string[];
+  /** 231 (U0): whether a person may start a case by hand, what the process is for, what a case of it cannot start
+   *  without now (a resource it needs at its start with no active version), and whether it has example material */
+  manual?: boolean; summary?: string | null; missing_at_start?: { key: string; label: string }[]; examples?: boolean;
+}
+/** 231 (U0): a process's example material: the sets of things it installs (each `installed`, `partial` or `missing`;
+ *  `example`: the examples' machine made all that is there) and its packets of invented documents. */
+export interface ProcessExamples {
+  sets: { kind: string; name: string; title: string; state: "installed" | "partial" | "missing"; example: boolean }[];
+  packets: { id: string; title: string; documents: number }[];
 }
 /** 231 (C3c): a record a case may start from (an email or a document read as the pack's record), with the cases
  *  already started from it; `detail` holds plain values (its customer, package, day). */
@@ -62,4 +71,10 @@ export const processesApi = {
     request<ProcessSettings>("POST", `${base(pack, kind, key)}/retire`, {}),
   previewRule: (pack: string, key: string, value: string | number) =>
     request<RulePreview>("POST", `${base(pack, "rules", key)}/preview`, { value }),
+  /** 231 (U0): the example material, its installation and removal, and a packet's documents written as files */
+  processExamples: (pack: string) => request<ProcessExamples>("GET", `/processes/${enc(pack)}/examples`),
+  installExamples: (pack: string) => request<ProcessExamples>("POST", `/processes/${enc(pack)}/examples/install`, {}),
+  removeExamples: (pack: string) => request<ProcessExamples>("POST", `/processes/${enc(pack)}/examples/remove`, {}),
+  examplePacketFiles: (pack: string, packet: string) =>
+    request<{ files: string[] }>("POST", `/processes/${enc(pack)}/examples/packets/${enc(packet)}/files`, {}),
 };

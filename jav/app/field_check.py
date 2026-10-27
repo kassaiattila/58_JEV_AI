@@ -379,7 +379,8 @@ ACTIONS = (
 CAPABILITY = capabilities.Capability(
     name="field_check", version=1, module=__name__, run=_run, kind="human", params=FieldCheck, state="step",
     output=CheckedResult, own_version=True, reads=lambda p: (f"facts_{p['catalogue']}",), actions=ACTIONS,
-    at_start={"product": product_rules.keeper("product")}, approval_what="Check and freeze the facts",
+    at_start={"product": product_rules.keeper("product")}, choices={"product": product_rules.choices("product")},
+    approval_what="Check and freeze the facts",
     summary="A person checks the assessed units and their sources, with the facts other steps offer, and freezes them as "
             "the checked input.")
 

@@ -62,7 +62,7 @@ __all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest 
     "step_rows", "step_row", "without_case_in", "steps_in_phase_in", "get", "marks", "pending_events", "view", "record",
     "start", "send_event", "cancel", "override_order", "retry", "reopen", "start_in", "send_event_in",
     "override_order_in", "retry_in", "reopen_in", "adopt", "adopt_phases_in", "set_phase", "set_result", "end_wait",
-    "fail", "close", "hold", "resume", "open_ids_in",
+    "fail", "close", "hold", "resume", "open_ids_in", "holding_in",
 ]
 
 OPEN, CLOSED = "open", "closed"
@@ -296,6 +296,21 @@ def open_ids_in(c: sqlite3.Connection) -> list[str]:
     """Stage D0 (D0-e): the open cases' ids, oldest first."""
     return [r["case_id"] for r in c.execute("SELECT case_id FROM process_cases WHERE status=? ORDER BY created_at, case_id",
                                             (OPEN,))]
+
+
+def _like(text: str) -> str:
+    return "%" + text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+
+
+def holding_in(c: sqlite3.Connection, texts: list[str]) -> list[str]:
+    """231 (stage U, U0): the cases, open or closed, whose start data holds any of `texts` as written (a version a case
+    keeps from its start, `"<id>@`), oldest first."""
+    found: dict[str, None] = {}
+    for text in texts:
+        for r in c.execute("SELECT case_id FROM process_cases WHERE data LIKE ? ESCAPE '\\' ORDER BY created_at, case_id",
+                           (_like(text),)):
+            found.setdefault(r["case_id"])
+    return list(found)
 
 
 def marks() -> list[Any]:

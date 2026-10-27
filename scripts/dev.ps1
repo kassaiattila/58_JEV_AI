@@ -1,5 +1,6 @@
 # Helyi szolgaltatas + feldolgozo inditasa / leallitasa (040 K2).
 #   .\scripts\dev.ps1 start    # API (127.0.0.1:8930) + egy feldolgozo, hatterben; naplo: runs\dev\*.log
+#                              # 231 U0: also the invented registers (127.0.0.1:8941) the insurance case asks
 #   .\scripts\dev.ps1 status   # futnak-e, es mennyi feladat var
 #   .\scripts\dev.ps1 stop     # a feldolgozo a folyamatban levo tetel utan lep ki, az API azonnal all le
 # A szoveg szandekosan ASCII: a Windows PowerShell 5.1 a nem ASCII literalt hibasan olvashatja (CLAUDE.md 7.).
@@ -51,9 +52,10 @@ switch ($Action) {
     "start" {
         Start-Tracked "api" @("serve", "--port", "$Port")
         Start-Tracked "worker" @("worker")
+        Start-Tracked "registers" @("invented-services")
     }
     "status" {
-        foreach ($name in @("api", "worker")) {
+        foreach ($name in @("api", "worker", "registers")) {
             $p = Get-Tracked $name
             if ($null -eq $p) { Write-Output "$name : not running" } else { Write-Output "$name : running (pid $($p.Id))" }
         }
@@ -71,11 +73,13 @@ switch ($Action) {
             Remove-Item (Join-Path $DevDir "worker.pid") -Force -ErrorAction SilentlyContinue
             Write-Output "worker stopped"
         }
-        $a = Get-Tracked "api"
-        if ($null -ne $a) {
-            Stop-Process -Id $a.Id -Force
-            Remove-Item (Join-Path $DevDir "api.pid") -Force -ErrorAction SilentlyContinue
-            Write-Output "api stopped"
+        foreach ($name in @("api", "registers")) {
+            $a = Get-Tracked $name
+            if ($null -ne $a) {
+                Stop-Process -Id $a.Id -Force
+                Remove-Item (Join-Path $DevDir "$name.pid") -Force -ErrorAction SilentlyContinue
+                Write-Output "$name stopped"
+            }
         }
     }
 }

@@ -1,0 +1,531 @@
+{
+  "meta": {
+    "name": "examples_property_documents",
+    "version": "1.0.0",
+    "date": "2026-10-27",
+    "description": "231 (stage U, U0; the owner's decisions of 2026-10-27): the invented documents a business property insurance case can start on, in packets, as a process's example material (`configs/processes/<id>.json` `examples.documents`). Each document is its printed pages, made from the golden set `configs/golden_property_documents.json` as the measurement prints it (`python -m jav.cli examples --write`; a test keeps them the same). The packets' titles are the interface's (English source, translated). Every name and number is invented.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-27",
+        "note": "231 U0: the eight sets of the golden set as packets, with titles a person picks from."
+      }
+    ]
+  },
+  "packets": [
+    {
+      "id": "reference",
+      "title": "A complete request: everything an offer needs",
+      "documents": [
+        {
+          "file": "reference-request.pdf",
+          "pages": [
+            [
+              "BIZTOSÍTÁSI AJÁNLATKÉRŐ LAP",
+              "Vállalkozói vagyonbiztosítás",
+              "Szerződő: Minta Kereskedő Kft.",
+              "Adószám: 12345676-2-41",
+              "Fő tevékenység (TEÁOR): 4719",
+              "Kapcsolattartó: Minta Anna, anna@minta.hu",
+              "Kockázatviselés kezdete: 2027. január 1.",
+              "Díjfizetés: féléves",
+              "Kért fedezetek:",
+              "[X] vagyonbiztosítás",
+              "[X] betöréses lopás és rablás",
+              "[X] túlfeszültség",
+              "[X] üzemszünet",
+              "Üzemszüneti elszámolás módja: fedezeti összeg",
+              "Üzemszüneti biztosítási összeg: 60 000 000 Ft",
+              "Telephelyek:",
+              "Sorszám   Ország   Cím",
+              "1   Magyarország   1111 Budapest, Minta utca 1."
+            ]
+          ]
+        },
+        {
+          "file": "reference-schedule-1.pdf",
+          "pages": [
+            [
+              "VAGYONADATLAP",
+              "Szerződő: Minta Kereskedő Kft.",
+              "Telephely száma: 1",
+              "Telephely címe: 1111 Budapest, Minta utca 1.",
+              "Alapterület: 450 m²",
+              "Árvízi zóna: alacsony",
+              "Távfelügyeletes riasztó: igen",
+              "Túlfeszültség-védelem: T3",
+              "Pinceszinti tárolás: nem",
+              "Védelmi szint: 3",
+              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
+              "épület   180 000 000 Ft   új érték   10%",
+              "gépek és berendezések   25 000 000 Ft   új érték   20%",
+              "készlet   40 000 000 Ft   avult érték   –",
+              "készpénz   2 500 000 Ft   avult érték   –"
+            ]
+          ]
+        },
+        {
+          "file": "reference-claims.pdf",
+          "pages": [
+            [
+              "KÁRELŐZMÉNY-NYILATKOZAT",
+              "Nyilatkozattevő: Minta Kereskedő Kft., adószám: 12345676-2-41",
+              "Vizsgált időszak: 2022. január 1. – 2026. december 31.",
+              "Káresemény napja   Kár oka   Kifizetett kárösszeg",
+              "2023. március 4.   csőtörés   800 000 Ft",
+              "Károk száma összesen: 1",
+              "Kifizetett kárösszeg összesen: 800 000 Ft"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_facts",
+      "title": "A request with facts missing: they are asked for",
+      "documents": [
+        {
+          "file": "missing_facts-request.pdf",
+          "pages": [
+            [
+              "BIZTOSÍTÁSI AJÁNLATKÉRŐ LAP",
+              "Vállalkozói vagyonbiztosítás",
+              "Szerződő: Minta Fémmegmunkáló Kft.",
+              "Adószám: 24681353-1-43",
+              "Fő tevékenység (TEÁOR): 4719",
+              "Kapcsolattartó: Minta Béla, bela@minta.hu",
+              "Kockázatviselés kezdete: 2027. január 1.",
+              "Díjfizetés: féléves",
+              "Kért fedezetek:",
+              "[X] vagyonbiztosítás",
+              "[X] betöréses lopás és rablás",
+              "[X] túlfeszültség",
+              "[X] üzemszünet",
+              "Üzemszüneti biztosítási összeg: 60 000 000 Ft",
+              "Telephelyek:",
+              "Sorszám   Ország   Cím",
+              "1   Magyarország   6000 Kecskemét, Minta köz 7."
+            ]
+          ]
+        },
+        {
+          "file": "missing_facts-schedule-1.pdf",
+          "pages": [
+            [
+              "VAGYONADATLAP",
+              "Szerződő: Minta Fémmegmunkáló Kft.",
+              "Telephely száma: 1",
+              "Telephely címe: 6000 Kecskemét, Minta köz 7.",
+              "Alapterület: 450 m²",
+              "Árvízi zóna: alacsony",
+              "Távfelügyeletes riasztó: igen",
+              "Túlfeszültség-védelem: T3",
+              "Pinceszinti tárolás: nem",
+              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
+              "épület   180 000 000 Ft   új érték   10%",
+              "gépek és berendezések   25 000 000 Ft   új érték   20%",
+              "készlet   40 000 000 Ft   avult érték   –",
+              "készpénz   2 500 000 Ft   avult érték   –"
+            ]
+          ]
+        },
+        {
+          "file": "missing_facts-claims.pdf",
+          "pages": [
+            [
+              "KÁRELŐZMÉNY-NYILATKOZAT",
+              "Nyilatkozattevő: Minta Fémmegmunkáló Kft., adószám: 24681353-1-43",
+              "Vizsgált időszak: 2022. január 1. – 2026. december 31.",
+              "Káresemény napja   Kár oka   Kifizetett kárösszeg",
+              "2023. március 4.   csőtörés   800 000 Ft",
+              "Károk száma összesen: 1",
+              "Kifizetett kárösszeg összesen: 800 000 Ft"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "excluded_activity",
+      "title": "An excluded activity: the risk is declined",
+      "documents": [
+        {
+          "file": "excluded_activity-request.pdf",
+          "pages": [
+            [
+              "BIZTOSÍTÁSI AJÁNLATKÉRŐ LAP",
+              "Vállalkozói vagyonbiztosítás",
+              "Szerződő: Minta Raktározó Zrt.",
+              "Adószám: 21357912-1-13",
+              "Fő tevékenység (TEÁOR): 3822",
+              "Kapcsolattartó: Példa Csaba, csaba@pelda.hu",
+              "Kockázatviselés kezdete: 2027. január 1.",
+              "Díjfizetés: féléves",
+              "Kért fedezetek:",
+              "[X] vagyonbiztosítás",
+              "[ ] betöréses lopás és rablás",
+              "[ ] túlfeszültség",
+              "[ ] üzemszünet",
+              "Üzemszüneti elszámolás módja: fedezeti összeg",
+              "Üzemszüneti biztosítási összeg: 60 000 000 Ft",
+              "Telephelyek:",
+              "Sorszám   Ország   Cím",
+              "1   Magyarország   2040 Budaörs, Példa út 12."
+            ]
+          ]
+        },
+        {
+          "file": "excluded_activity-schedule-1.pdf",
+          "pages": [
+            [
+              "VAGYONADATLAP",
+              "Szerződő: Minta Raktározó Zrt.",
+              "Telephely száma: 1",
+              "Telephely címe: 2040 Budaörs, Példa út 12.",
+              "Alapterület: 450 m²",
+              "Árvízi zóna: alacsony",
+              "Távfelügyeletes riasztó: igen",
+              "Túlfeszültség-védelem: T3",
+              "Pinceszinti tárolás: nem",
+              "Védelmi szint: 3",
+              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
+              "épület   180 000 000 Ft   új érték   10%",
+              "gépek és berendezések   25 000 000 Ft   új érték   20%",
+              "készlet   40 000 000 Ft   avult érték   –",
+              "készpénz   2 500 000 Ft   avult érték   –"
+            ]
+          ]
+        },
+        {
+          "file": "excluded_activity-claims.pdf",
+          "pages": [
+            [
+              "KÁRELŐZMÉNY-NYILATKOZAT",
+              "Nyilatkozattevő: Minta Raktározó Zrt., adószám: 21357912-1-13",
+              "Vizsgált időszak: 2022. január 1. – 2026. december 31.",
+              "Káresemény napja   Kár oka   Kifizetett kárösszeg",
+              "2023. március 4.   csőtörés   800 000 Ft",
+              "Károk száma összesen: 1",
+              "Kifizetett kárösszeg összesen: 800 000 Ft"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "referred",
+      "title": "A risk for an underwriter's own assessment",
+      "documents": [
+        {
+          "file": "referred-request.pdf",
+          "pages": [
+            [
+              "BIZTOSÍTÁSI AJÁNLATKÉRŐ LAP",
+              "Vállalkozói vagyonbiztosítás",
+              "Szerződő: Példa Szolgáltató Kft.",
+              "Adószám: 13570008-1-13",
+              "Fő tevékenység (TEÁOR): 4719",
+              "Kapcsolattartó: Példa Dóra, dora@pelda.hu",
+              "Kockázatviselés kezdete: 2027. január 1.",
+              "Díjfizetés: éves",
+              "Kért fedezetek:",
+              "[X] vagyonbiztosítás",
+              "[X] betöréses lopás és rablás",
+              "[ ] túlfeszültség",
+              "[ ] üzemszünet",
+              "Üzemszüneti elszámolás módja: fedezeti összeg",
+              "Üzemszüneti biztosítási összeg: 60 000 000 Ft",
+              "Telephelyek:",
+              "Sorszám   Ország   Cím",
+              "1   Magyarország   9021 Győr, Minta tér 3."
+            ]
+          ]
+        },
+        {
+          "file": "referred-schedule-1.pdf",
+          "pages": [
+            [
+              "VAGYONADATLAP",
+              "Szerződő: Példa Szolgáltató Kft.",
+              "Telephely száma: 1",
+              "Telephely címe: 9021 Győr, Minta tér 3.",
+              "Alapterület: 450 m²",
+              "Árvízi zóna: magas",
+              "Távfelügyeletes riasztó: nem",
+              "Túlfeszültség-védelem: T3",
+              "Pinceszinti tárolás: igen",
+              "Védelmi szint: 2"
+            ],
+            [
+              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
+              "készlet   30 000 000 Ft   avult érték   –",
+              "értéktárgyak   4 000 000 Ft   új érték   40%"
+            ]
+          ]
+        },
+        {
+          "file": "referred-claims.pdf",
+          "pages": [
+            [
+              "KÁRELŐZMÉNY-NYILATKOZAT",
+              "Nyilatkozattevő: Példa Szolgáltató Kft., adószám: 13570008-1-13",
+              "Vizsgált időszak: 2022. január 1. – 2026. december 31.",
+              "Káresemény napja   Kár oka   Kifizetett kárösszeg",
+              "2023. március 4.   csőtörés   800 000 Ft",
+              "Károk száma összesen: 1",
+              "Kifizetett kárösszeg összesen: 800 000 Ft"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "minimums",
+      "title": "A small risk: the minimum premiums apply",
+      "documents": [
+        {
+          "file": "minimums-request.pdf",
+          "pages": [
+            [
+              "BIZTOSÍTÁSI AJÁNLATKÉRŐ LAP",
+              "Vállalkozói vagyonbiztosítás",
+              "Szerződő: Példa Bolt Bt.",
+              "Adószám: 16694855-2-42",
+              "Fő tevékenység (TEÁOR): 4719",
+              "Kapcsolattartó: Példa Edit, edit@pelda.hu",
+              "Kockázatviselés kezdete: 2027. január 1.",
+              "Díjfizetés: éves",
+              "Kért fedezetek:",
+              "[X] vagyonbiztosítás",
+              "[X] betöréses lopás és rablás",
+              "[ ] túlfeszültség",
+              "[ ] üzemszünet",
+              "Üzemszüneti elszámolás módja: fedezeti összeg",
+              "Üzemszüneti biztosítási összeg: 60 000 000 Ft",
+              "Telephelyek:",
+              "Sorszám   Ország   Cím",
+              "1   Magyarország   7621 Pécs, Példa sor 5."
+            ]
+          ]
+        },
+        {
+          "file": "minimums-schedule-1.pdf",
+          "pages": [
+            [
+              "VAGYONADATLAP",
+              "Szerződő: Példa Bolt Bt.",
+              "Telephely száma: 1",
+              "Telephely címe: 7621 Pécs, Példa sor 5.",
+              "Alapterület: 450 m²",
+              "Árvízi zóna: alacsony",
+              "Távfelügyeletes riasztó: igen",
+              "Túlfeszültség-védelem: T3",
+              "Pinceszinti tárolás: nem",
+              "Védelmi szint: 2",
+              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
+              "készlet   2 000 000 Ft   avult érték   –"
+            ]
+          ]
+        },
+        {
+          "file": "minimums-claims.pdf",
+          "pages": [
+            [
+              "KÁRELŐZMÉNY-NYILATKOZAT",
+              "Nyilatkozattevő: Példa Bolt Bt., adószám: 16694855-2-42",
+              "Vizsgált időszak: 2022. január 1. – 2026. december 31.",
+              "Az időszakban káresemény nem történt.",
+              "Károk száma összesen: 0",
+              "Kifizetett kárösszeg összesen: 0 Ft"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "two_sites",
+      "title": "One policyholder with two sites",
+      "documents": [
+        {
+          "file": "two_sites-request.pdf",
+          "pages": [
+            [
+              "BIZTOSÍTÁSI AJÁNLATKÉRŐ LAP",
+              "Vállalkozói vagyonbiztosítás",
+              "Szerződő: Példa Logisztika Kft.",
+              "Adószám: 28642099-2-42",
+              "Fő tevékenység (TEÁOR): 5210",
+              "Kapcsolattartó: Példa Ferenc, ferenc@pelda.hu",
+              "Kockázatviselés kezdete: 2027. március 1.",
+              "Díjfizetés: negyedéves",
+              "Kért fedezetek:",
+              "[X] vagyonbiztosítás",
+              "[X] betöréses lopás és rablás",
+              "[ ] túlfeszültség",
+              "[X] üzemszünet",
+              "Üzemszüneti elszámolás módja: állandó költségek",
+              "Üzemszüneti biztosítási összeg: 40 000 000 Ft",
+              "Telephelyek:",
+              "Sorszám   Ország   Cím",
+              "1   Magyarország   1097 Budapest, Példa utca 20.",
+              "2   Magyarország   2310 Szigetszentmiklós, Minta park 4."
+            ]
+          ]
+        },
+        {
+          "file": "two_sites-schedule-1.pdf",
+          "pages": [
+            [
+              "VAGYONADATLAP",
+              "Szerződő: Példa Logisztika Kft.",
+              "Telephely száma: 1",
+              "Telephely címe: 1097 Budapest, Példa utca 20.",
+              "Alapterület: 1200 m²",
+              "Árvízi zóna: nincs",
+              "Távfelügyeletes riasztó: igen",
+              "Túlfeszültség-védelem: T2+T3",
+              "Pinceszinti tárolás: nem",
+              "Védelmi szint: 4",
+              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
+              "épület   300 000 000 Ft   új érték   5%",
+              "gépek és berendezések   45 000 000 Ft   új érték   15%"
+            ]
+          ]
+        },
+        {
+          "file": "two_sites-schedule-2.pdf",
+          "pages": [
+            [
+              "VAGYONADATLAP",
+              "Szerződő: Példa Logisztika Kft.",
+              "Telephely száma: 2",
+              "Telephely címe: 2310 Szigetszentmiklós, Minta park 4.",
+              "Alapterület: 3400 m²",
+              "Árvízi zóna: közepes",
+              "Távfelügyeletes riasztó: igen",
+              "Túlfeszültség-védelem: T1+T2+T3",
+              "Pinceszinti tárolás: nem",
+              "Védelmi szint: 3",
+              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
+              "készlet   80 000 000 Ft   avult érték   –"
+            ]
+          ]
+        },
+        {
+          "file": "two_sites-claims.pdf",
+          "pages": [
+            [
+              "KÁRELŐZMÉNY-NYILATKOZAT",
+              "Nyilatkozattevő: Példa Logisztika Kft., adószám: 28642099-2-42",
+              "Vizsgált időszak: 2022. március 1. – 2027. február 28.",
+              "Káresemény napja   Kár oka   Kifizetett kárösszeg",
+              "2023. március 4.   csőtörés   625 000 Ft",
+              "2024. április 4.   betöréses lopás   625 000 Ft",
+              "Károk száma összesen: 2",
+              "Kifizetett kárösszeg összesen: 1 250 000 Ft"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "conflict",
+      "title": "Two documents give two tax numbers",
+      "documents": [
+        {
+          "file": "conflict-request.pdf",
+          "pages": [
+            [
+              "BIZTOSÍTÁSI AJÁNLATKÉRŐ LAP",
+              "Vállalkozói vagyonbiztosítás",
+              "Szerződő: Minta Kereskedő Kft.",
+              "Adószám: 12345676-2-41",
+              "Fő tevékenység (TEÁOR): 4719",
+              "Kapcsolattartó: Minta Anna, anna@minta.hu",
+              "Kockázatviselés kezdete: 2027. január 1.",
+              "Díjfizetés: féléves",
+              "Kért fedezetek:",
+              "[X] vagyonbiztosítás",
+              "[X] betöréses lopás és rablás",
+              "[X] túlfeszültség",
+              "[X] üzemszünet",
+              "Üzemszüneti elszámolás módja: fedezeti összeg",
+              "Üzemszüneti biztosítási összeg: 60 000 000 Ft",
+              "Telephelyek:",
+              "Sorszám   Ország   Cím",
+              "1   Magyarország   1111 Budapest, Minta utca 1."
+            ]
+          ]
+        },
+        {
+          "file": "conflict-claims.pdf",
+          "pages": [
+            [
+              "KÁRELŐZMÉNY-NYILATKOZAT",
+              "Nyilatkozattevő: Minta Kereskedő Kft., adószám: 38756887-2-41",
+              "Vizsgált időszak: 2022. január 1. – 2026. december 31.",
+              "Káresemény napja   Kár oka   Kifizetett kárösszeg",
+              "2023. március 4.   csőtörés   800 000 Ft",
+              "Károk száma összesen: 1",
+              "Kifizetett kárösszeg összesen: 800 000 Ft"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "unknown_code",
+      "title": "A schedule with words no code table knows",
+      "documents": [
+        {
+          "file": "unknown_code-request.pdf",
+          "pages": [
+            [
+              "BIZTOSÍTÁSI AJÁNLATKÉRŐ LAP",
+              "Vállalkozói vagyonbiztosítás",
+              "Szerződő: Minta Kereskedő Kft.",
+              "Adószám: 12345676-2-41",
+              "Fő tevékenység (TEÁOR): 4719",
+              "Kapcsolattartó: Minta Anna, anna@minta.hu",
+              "Kockázatviselés kezdete: 2027. január 1.",
+              "Díjfizetés: féléves",
+              "Kért fedezetek:",
+              "[X] vagyonbiztosítás",
+              "[X] betöréses lopás és rablás",
+              "[X] túlfeszültség",
+              "[X] üzemszünet",
+              "Üzemszüneti elszámolás módja: fedezeti összeg",
+              "Üzemszüneti biztosítási összeg: 60 000 000 Ft",
+              "Telephelyek:",
+              "Sorszám   Ország   Cím",
+              "1   Magyarország   1111 Budapest, Minta utca 1."
+            ]
+          ]
+        },
+        {
+          "file": "unknown_code-schedule-1.pdf",
+          "pages": [
+            [
+              "VAGYONADATLAP",
+              "Szerződő: Minta Kereskedő Kft.",
+              "Telephely száma: 1",
+              "Telephely címe: 1111 Budapest, Minta utca 1.",
+              "Alapterület: 450 m²",
+              "Árvízi zóna: nagyon magas",
+              "Távfelügyeletes riasztó: igen",
+              "Túlfeszültség-védelem: T3",
+              "Pinceszinti tárolás: nem",
+              "Védelmi szint: 3",
+              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
+              "épület   180 000 000 Ft   új érték   10%",
+              "gépek és berendezések   25 000 000 Ft   új érték   20%",
+              "készlet   40 000 000 Ft   avult érték   –",
+              "készpénz   2 500 000 Ft   avult érték   –",
+              "műalkotások   6 000 000 Ft   új érték   –"
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

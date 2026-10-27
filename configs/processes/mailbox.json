@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "process:mailbox",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "231 (plan stage C, C3d; DECISIONS 231): the download of a mailbox's new emails as a process pack (until C3d the wizard's mailbox form and the workflows' emails step kind): a case downloads its mailbox's emails into its package (an asynchronous fetch through the Outlook bridge, the worker's download job), a person starts its live run within the package's estimate, and the case is done once a live run is approved. A download no step takes (a scheduled one) wraps its package by a case too (the owner's decision of 2026-10-26).",
     "changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-10-27",
+        "note": "231 (U0): what the process is for, shown when a person picks a process to start a case of"
+      },
       {
         "version": "1.0.0",
         "date": "2026-10-26",
@@ -13,6 +18,7 @@
   },
   "id": "mailbox",
   "title": "Emails from a mailbox",
+  "summary": "A mailbox's new emails downloaded and read with their attachments: each email's intent and each attachment's type.",
   "scope": {
     "parts": [
       "source"

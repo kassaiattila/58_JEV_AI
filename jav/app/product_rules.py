@@ -28,6 +28,7 @@ import json
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from collections.abc import Callable
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -39,9 +40,9 @@ from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import Said, explained, inside, said, said_fields, said_from
 
 __all__ = ["KINDS", "Citation", "ConditionDocument", "Factor", "ManifestRefused", "Product", "ProductAt", "Rule",
-           "SecondPersonNeeded", "Tariff", "TariffModule", "activate", "add", "add_in", "get", "keeper", "kept", "latest", "listing",
-           "named", "overview", "problems_of", "product_at",
-           "resolve", "retire", "rule_problems"]
+           "SecondPersonNeeded", "Tariff", "TariffModule", "activate", "add", "add_in", "choices", "get", "keeper", "kept", "latest",
+           "listing", "made_by_ids_in", "named", "overview", "problems_of", "product_at", "remove_in", "resolve", "retire",
+           "rule_problems"]
 
 KINDS = ("document", "rule", "product", "tariff")
 _TABLES = {"document": "condition_documents", "rule": "product_rules", "product": "products", "tariff": "tariffs"}
@@ -307,10 +308,14 @@ def activate(kind: str, ident: str, version: int, *, actor: identity.Who) -> dic
 def overview() -> dict[str, Any]:
     """D-c6: every product, condition document, rule and tariff with its versions (a draft with what keeps it from
     being made active, `problems`: sentences in the service's form), and the fact catalogues their rules read."""
+    from jav.app import examples
+
     found: dict[str, list[dict[str, Any]]] = {}
     for kind in KINDS:
         things = listing(kind)
         for thing in things:
+            # 231 (U0): a thing the examples' machine made every version of is a process's example material
+            thing["example"] = all(examples.is_example(v["made_by_id"]) for v in thing["versions"])
             for v in thing["versions"]:
                 if v["state"] == versions.DRAFT:
                     v["problems"] = [said_fields(p) for p in problems_of(kind, v["content"])]
@@ -323,6 +328,17 @@ def overview() -> dict[str, Any]:
             continue  # a draft naming a catalogue that is not there says so in its problems
     return {"products": found["product"], "documents": found["document"], "rules": found["rule"],
             "tariffs": found["tariff"], "catalogues": catalogues}
+
+
+def made_by_ids_in(c: Any, kind: str, ident: str) -> set[str | None]:
+    """231 (stage U, U0): who made each version of a thing (their stable ids)."""
+    return {r[0] for r in c.execute(f"SELECT made_by_id FROM {_TABLES[_kind(kind)]} WHERE ident=?", (ident,))}  # noqa: S608
+
+
+def remove_in(c: Any, kind: str, ident: str) -> int:
+    """231 (U0): every version of a thing taken out of the store, inside the caller's write transaction; only for a
+    process's example material that nothing keeps (`jav/app/examples.py` checks); the versions removed."""
+    return c.execute(f"DELETE FROM {_TABLES[_kind(kind)]} WHERE ident=?", (ident,)).rowcount  # noqa: S608 - own table name
 
 
 def retire(kind: str, ident: str, *, actor: identity.Who) -> dict[str, Any]:
@@ -505,3 +521,10 @@ def keeper(kind: str) -> capabilities.AtStart:
     (`Capability.at_start`)."""
     _kind(kind)
     return capabilities.AtStart(lambda value: kept(value, kind), lambda value: named(value, kind))
+
+
+def choices(kind: str) -> Callable[[], list[tuple[str, str]]]:
+    """231 (stage U, U0): the values a parameter naming a product, a tariff, ... may take (`Capability.choices`): the
+    things of the kind with an active version, each with its name, so a process's own value is picked, not typed."""
+    _kind(kind)
+    return lambda: [(t["ident"], t["name"] or t["ident"]) for t in listing(kind) if t["active"] is not None]

@@ -1,9 +1,10 @@
 {
   "meta": {
     "name": "process:insurance_offer",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "description": "231 (stage D, D-f3; the owner's decisions of 2026-10-26): a business property insurance quote as a process pack of shared capabilities only. A case processes the documents of its source (the quote request form, a property schedule per site, the claims history), turns what they hold into facts of the assessed units, asks the company register and the sanctions list, and a person checks and freezes the facts; the rules of the product version the case kept are evaluated, missing facts are asked for by a deadline, a person decides on the risk, the premium is computed from the tariff the case kept, and a person decides on the premium (above the limit another person than the risk's). The product, its rules, its tariff, the registers and the limit are invented (the trial); a live product and a live limit are the owner's decisions.",
     "changelog": [
+      {"version": "1.7.0", "date": "2026-10-27", "note": "231 (U0): what the process is for, shown when a person picks a process to start a case of; its example material (the invented product set and the invented documents' packets)"},
       {"version": "1.6.0", "date": "2026-10-27", "note": "231 (D-f9): the Overview opens with what holds the case, each with the view where it is resolved; the five work views are complete."},
       {"version": "1.5.0", "date": "2026-10-27", "note": "231 (D-f8): the covering letter (letter@1, a person accepts it; the offer's document attached) and its send into the output folder (send@1, a person starts it), on the Decision and release view."},
       {"version": "1.4.0", "date": "2026-10-26", "note": "231 (D-f7): the offer's Word document, printed from the accepted premium and stored with its version, on the Decision and release view."},
@@ -15,6 +16,8 @@
   },
   "id": "insurance_offer",
   "title": "Insurance quote",
+  "summary": "A business property insurance quote: the request form, a property schedule per site and the claims history are read and checked, the product's rules applied, the premium worked out from its tariff, and the offer sent with a covering letter.",
+  "examples": {"sets": [{"kind": "product_set", "name": "golden_products"}], "documents": "property_documents"},
   "scope": {"parts": ["source"]},
   "intake": [{"on": "manual", "starts": "manual"}],
   "resources": {"product": "inv_business_property", "tariff": "inv_business_property_tariff"},

@@ -23,6 +23,7 @@ it starts and keeps them: a change reaches the cases started after it.
 - B4: a resource's name and the values it may take come from the capabilities whose parameters it sets (`Capability.
   choices`, the parameter's field title); a process's own value of such a resource is one of them. The settings page
   also shows the roles the process's partners play.
+- 231 (stage U, U0): `missing_at_start(pack)`: what a case of the pack cannot start without now, before anyone tries.
 
 Layer: application, the shared library; it uses the process packs, the capabilities, the shared versioning and the
 output templates.
@@ -39,8 +40,8 @@ from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
 __all__ = ["CONFIG", "KINDS", "RESOURCE", "RULE", "MissingAtStart", "SettingError", "SettingRefused", "UnknownSetting", "activate", "at_start",
-           "effective_resources", "effective_rules", "may_activate", "policy", "preview", "propose", "resource_info", "retire",
-           "kept_resources", "kept_view", "rule_keys", "view"]
+           "effective_resources", "effective_rules", "may_activate", "missing_at_start", "policy", "preview", "propose",
+           "resource_info", "retire", "kept_resources", "kept_view", "rule_keys", "view"]
 
 CONFIG = "process_settings"
 RESOURCE = "resource"  # a value over a pack's resource (B2)
@@ -169,14 +170,28 @@ def at_start(pack: process_packs.ProcessPack) -> process_packs.ProcessPack:
     not a resource) at its version now too. `MissingAtStart` when a resource the pack needs at its start
     (`needs_at_start`) has no version to keep (none is active): the case does not start, rather than read another
     version later."""
-    keepers = _keepers(pack)
     resources = kept_resources(pack, effective_resources(pack))
-    missing = [key for key in pack.needs_at_start if key in keepers and not keepers[key].resolved(str(resources.get(key, "")))]
-    if missing:
-        names = ", ".join("Output template" if k.startswith(TEMPLATE_PREFIX) else _param_title(pack, k) for k in missing)
+    if missing := _missing(pack, resources):
+        names = ", ".join(_resource_title(pack, k) for k in missing)
         raise explained(MissingAtStart, "the case cannot start: {{what}} has no active version to keep", what=names)
     steps = [step.model_copy(update={"params": _kept_params(step)}) for step in pack.steps]
     return pack.model_copy(update={"resources": resources, "steps": tuple(steps)})
+
+
+def _missing(pack: process_packs.ProcessPack, kept: dict[str, str]) -> list[str]:
+    keepers = _keepers(pack)
+    return [key for key in pack.needs_at_start if key in keepers and not keepers[key].resolved(str(kept.get(key, "")))]
+
+
+def _resource_title(pack: process_packs.ProcessPack, key: str) -> str:
+    return "Output template" if key.startswith(TEMPLATE_PREFIX) else _param_title(pack, key)
+
+
+def missing_at_start(pack: process_packs.ProcessPack) -> list[dict[str, str]]:
+    """231 (stage U, U0): what a case of the pack cannot start without now, before anyone tries: each resource it needs
+    at its start (`needs_at_start`) with no active version to keep, {key, label}; empty when a case may start."""
+    return [{"key": key, "label": _resource_title(pack, key)}
+            for key in _missing(pack, kept_resources(pack, effective_resources(pack)))]
 
 
 def _kept_params(step: Any) -> dict[str, Any]:
@@ -191,8 +206,7 @@ def kept_view(pack: process_packs.ProcessPack, resources: dict[str, Any]) -> lis
     keepers = _keepers(pack)
     out = []
     for key in sorted(k for k in resources if k in keepers):
-        label = "Output template" if key.startswith(TEMPLATE_PREFIX) else _param_title(pack, key)
-        out.append({"key": key, "label": label, **keepers[key].named(str(resources[key]))})
+        out.append({"key": key, "label": _resource_title(pack, key), **keepers[key].named(str(resources[key]))})
     return out
 
 

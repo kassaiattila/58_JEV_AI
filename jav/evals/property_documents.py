@@ -9,7 +9,8 @@ the facts two documents disagree on), and the five sets of the invented product 
 facts: the documents are read into the same facts the rules were measured on.
 
 - `load()`, `PropertyDocuments`: the documents, by set.
-- `pages(document)`: its printed lines, page by page; `write_pdfs(folder)`: every document as a PDF.
+- `pages(document)`: its printed lines, page by page; `write_pdfs(folder)`: every document as a PDF; (231 U0)
+  `example_packets(titles)`: every set as a packet of a process's example documents, printed.
 - `facts_of(document_set, readings)`: the units, the values not read and the disagreements its documents give.
 - `score(document, got)`, `measure(options, *, read=, recognise=)`: the golden set
   `insurance_application:documents` (`jav/evals/goldens.py`): each document recognised (its main and its
@@ -158,6 +159,13 @@ def pages(document: Document) -> list[list[str]]:
     if document.pack == "claims_history":
         return _statement(document.values)
     raise ValueError(f"no page layout for {document.pack}")
+
+
+def example_packets(titles: dict[str, str]) -> list[dict[str, Any]]:
+    """231 (stage U, U0): every set as a packet of a process's example documents (`configs/examples_property_documents.
+    json`): its id, its title (from `titles`, else the set's), and each document's file name and printed pages."""
+    return [{"id": s.id, "title": titles.get(s.id, s.title),
+             "documents": [{"file": f"{d.id}.pdf", "pages": pages(d)} for d in s.documents]} for s in load().sets]
 
 
 def write_pdfs(folder: Path) -> list[Path]:

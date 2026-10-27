@@ -141,6 +141,11 @@ export function serverKeys() {
     if (pack.title) keys.add(pack.title);
     for (const tab of pack.screens?.tabs ?? []) if (tab.label) keys.add(tab.label);
     for (const s of pack.steps ?? []) if (s.title) keys.add(s.title);
+    if (pack.summary) keys.add(pack.summary);  // 231 (U0): what the process is for, on the new case page
+  }
+  // 231 (U0): the titles of a process's packets of example documents (configs/examples_*.json)
+  for (const f of fs.readdirSync(path.join(ROOT, "configs")).filter((n) => /^examples_.*\.json$/.test(n))) {
+    for (const packet of JSON.parse(fs.readFileSync(path.join(ROOT, "configs", f), "utf8")).packets ?? []) if (packet.title) keys.add(packet.title);
   }
   return keys;
 }
