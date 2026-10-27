@@ -78,3 +78,36 @@ def test_a_code_text_recognition_misread_is_the_product_s_code() -> None:
     got = product_sources.known_codes([Section(clause=c, page=1) for c in ("129 1", "JHA 2", "TKO 3", "105 1", "S25 4", "VIL 1", "2.1")],
                                       codes)
     assert [s.clause for s in got] == ["I29 1", "IHA 2", "IKO 3", "I05 1", "J25 4", "VIL 1", "2.1"]
+
+
+def test_the_machine_assembles_the_product_from_the_rules_a_person_decided_on(tmp_path) -> None:
+    """U-A4 (the owner's decision of 2026-10-27: the system assembles the product, a person makes it active): once a
+    person decided on the rules proposed from the product's documents, the machine drafts the product's next version
+    naming the latest version of each document, every rule a person accepted or corrected (a rejected one never) and
+    the tariff the source names; with no new decision it makes nothing new."""
+    from jav.app import rule_proposal_runs
+    from jav.core import queue
+
+    source = _source(tmp_path / "files")
+    source = source.model_copy(update={"product": source.product.model_copy(update={"tariff": "trial_tariff"})})
+    read = {ident: product_sources.condition_import.read(tmp_path / "files" / d.file, kind=d.kind, title=d.title,
+                                                         valid_from=SET.documents[ident].content.valid_from)
+            for ident, d in source.documents.items()}
+    with store.use_store(tmp_path / "registry.sqlite"):
+        documents = [r.removeprefix("document:") for r in product_sources.install(source, read)[:-1]]
+        started = rule_proposal_runs.start("inv_general_conditions@1", tmp_path / "files" / source.documents["inv_general_conditions"].file,
+                                           catalogue="property", actor="Minta Anna", proposer="stand_in:golden_products")
+        rule_proposal_runs.process_job(queue.claim("test", kinds=(rule_proposal_runs.JOB_KIND,)))
+        run = rule_proposal_runs.run(started["run_id"])
+        ready = [p for p in run["proposals"] if p["readiness"] == "ready"]
+        kept = [rule_proposal_runs.accept(p["id"], actor="Minta Anna", expected_state=0)["rule_ref"] for p in ready[:2]]
+        rule_proposal_runs.reject(ready[2]["id"], "not for this product", actor="Minta Anna", expected_state=0)
+        ref = product_sources.assemble(source)
+        assert ref == "trial_product@2"
+        product = product_rules.get("product", "trial_product", 2)
+        assert product["state"] == "draft" and product["made_by_id"] == product_sources.MACHINE.id
+        assert product["content"]["documents"] == documents and product["content"]["rules"] == kept
+        assert product["content"]["tariff"] == "trial_tariff"
+        assert product_sources.assemble(source) == "trial_product@2"  # no new decision: nothing new
+        rule_proposal_runs.accept(ready[3]["id"], actor="Minta Anna", expected_state=0)
+        assert product_sources.assemble(source) == "trial_product@3"

@@ -1,9 +1,10 @@
 {
   "meta": {
     "name": "product_source_allianz_property",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "231 (stage U, U-A2; the owner's decisions of 2026-10-27): where the real corporate property product comes from: its six public condition documents, each by its file name and SHA-256 fingerprint (so only these very versions are read), its kind and title as printed, and the product's frame: its name, its fact catalogue and its cover modules (the all risks base, its seventeen extensions, burglary and robbery with the vehicle stock clause, business interruption and stock in cold stores). The files stay on the machine they are on (`product-source allianz_property --folder <dir>`); the machine reads them (jav/app/condition_import.py) and adds each document and the product as drafts, without rules or a tariff yet: the rules come from proposals a person decides on, the tariff is invented and marked so. A person makes each one active.",
     "changelog": [
+      {"version": "1.2.0", "date": "2026-10-27", "note": "231 (U-A4): the tariff the assembled product is priced by, az_corporate_property_tariff (an example, invented rates; configs/product_set_allianz_tariff.json)."},
       {"version": "1.1.0", "date": "2026-10-27", "note": "231 (U-A3): the clause codes the documents print besides the modules' (I16, J25 and the business interruption's I17, I14, IKV, IMK, IKU, IFV), so a code text recognition misread is mapped to its real one."},
       {"version": "1.0.0", "date": "2026-10-27", "note": "231 (U-A2): the six documents and the product's 22 modules."}
     ]
@@ -22,6 +23,7 @@
     "id": "az_corporate_property",
     "name": "Allianz vállalati vagyonbiztosítás",
     "catalogue": "allianz_property",
+    "tariff": "az_corporate_property_tariff",
     "modules": [
       {"code": "property_ar", "name": "Vállalkozások All Risks vagyonbiztosítása", "kind": "base"},
       {"code": "VIL", "name": "Villámcsapás okozta túlfeszültség", "kind": "extension", "requires": ["property_ar"]},

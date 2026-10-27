@@ -1035,6 +1035,13 @@ line (`3.1. Title`, `3.1.`; a table of contents' dot-leader lines are none), of 
 in the order printed counts (a stray number, a numbered item or a table of contents falls out), and the day it is in
 force, the first date after "hatályos" on its first page. `python -m jav.cli condition-import <pdf> --id --kind --title
 [--install]`: the machine (`machine:condition import`) adds it as a draft; a person makes it active.
+A real product's source (`jav/app/product_sources.py`, `configs/product_source_<name>.json`: its documents by file
+name and fingerprint, its frame and, U-A4, its tariff): `python -m jav.cli product-source <name> --folder <dir>
+--install` reads the files and the machine (`machine:product assembly`) adds the documents and the product's frame as
+drafts; once a person decided on the rules proposed from those documents, `--assemble` drafts the product's next
+version naming the latest version of each document, every rule a person accepted or corrected (a rejected one never)
+and the tariff (no new decision: nothing new). A person makes the documents, the rules and the product active, the
+product by another person than its maker.
 
 **A process pack's cases (231, plan stage A, A5).** `jav/app/process_runtime.py` `start_case(pack_id, scope, name,
 actor)` makes the case's container (a general work package of kind `case`, so every table keyed by a package keeps

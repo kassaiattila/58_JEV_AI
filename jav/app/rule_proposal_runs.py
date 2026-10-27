@@ -291,6 +291,19 @@ def recheck(run_id: str, *, document_ref: str | None = None, jev_budget: Decimal
     return run(run_id)
 
 
+def decided_rules(documents: set[str]) -> list[str]:
+    """U-A4: the rules a person accepted or corrected from a proposal of a run on one of these documents (by
+    identifier), in the order decided: each rule's identifier once."""
+    out: list[str] = []
+    with store.connect() as c:
+        for row in c.execute("SELECT p.rule_ref, r.document_ref FROM rule_proposals p JOIN rule_proposal_runs r USING(run_id)"
+                             " WHERE p.state IN ('accepted', 'corrected') AND p.rule_ref IS NOT NULL ORDER BY p.decided_at, p.id"):
+            ident = versions.split(row["rule_ref"])[0]
+            if versions.split(row["document_ref"])[0] in documents and ident not in out:
+                out.append(ident)
+    return out
+
+
 def abandon(run_id: str, error: str) -> None:
     with store.connect() as c:
         c.execute("UPDATE rule_proposal_runs SET state='failed', error=?, finished_at=? WHERE run_id=?", (error[:500], _now(), run_id))
