@@ -6,7 +6,7 @@ Extract these fields; leave a field null when the sheet does not state it:
 - `site_no`: the site's number or mark (telephely száma, 1, 2, A), as printed.
 - `site_address`: the site's address as printed.
 - `floor_area`: the site's floor area in square metres (alapterület, m²), a plain decimal string (1 250 m² = "1250").
-- `flood_zone`: the site's flood zone (árvízi kockázati zóna), as printed (nincs, alacsony, közepes, magas).
+- `flood_zone`: the site's flood zone or flood area class (árvízi zóna, árvízi kockázati zóna, árvízi besorolás), word for word as printed (for example nincs, alacsony, közepes, magas, ármentesített, nem ármentesített ártér, nagyvízi meder); never put into another scale.
 - `alarm_remote`: whether the site has an alarm with remote signalling (távfelügyeletre kötött riasztó), the answer as printed (igen, nem, van, nincs).
 - `surge_protection`: the surge protection in place (túlfeszültség-védelem), as printed (nincs, T3, T2+T3, T1+T2+T3).
 - `basement_storage`: whether goods are stored in a basement (pinceszinti tárolás), the answer as printed (igen, nem).
