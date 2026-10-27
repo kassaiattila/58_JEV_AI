@@ -9,6 +9,9 @@
     "contact_email": { "type": ["string", "null"], "description": "The contact's email address" },
     "cover_start": { "type": ["string", "null"], "description": "The day cover should start, ISO YYYY-MM-DD" },
     "payment_frequency": { "type": ["string", "null"], "description": "How often the premium is to be paid, as printed" },
+    "chosen_deductible": { "type": ["string", "null"], "description": "The deductible the policyholder chooses, plain decimal STRING, dot separator" },
+    "contract_term": { "type": ["string", "null"], "description": "The contract's term, as printed" },
+    "bi_deductible_days": { "type": ["number", "null"], "description": "The business interruption's waiting period in days or working days, as printed" },
     "accounting_method": { "type": ["string", "null"], "description": "What the business interruption sum insured is counted from, as printed" },
     "interruption_sum_insured": { "type": ["string", "null"], "description": "The business interruption sum insured, plain decimal STRING, dot separator" },
     "currency": { "type": ["string", "null"], "description": "ISO 4217 code of the form's amounts (Ft = HUF)" },
@@ -40,5 +43,6 @@
     }
   },
   "required": ["policyholder_name", "policyholder_tax_number", "activity_code", "contact_name", "contact_email", "cover_start",
-               "payment_frequency", "accounting_method", "interruption_sum_insured", "currency", "requested_covers", "sites"]
+               "payment_frequency", "chosen_deductible", "contract_term", "bi_deductible_days", "accounting_method",
+               "interruption_sum_insured", "currency", "requested_covers", "sites"]
 }

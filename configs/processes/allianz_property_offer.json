@@ -1,0 +1,345 @@
+{
+  "meta": {
+    "name": "process:allianz_property_offer",
+    "version": "1.0.0",
+    "description": "231 (stage U, U-A6; the owner's decisions of 2026-10-27): the real corporate property product's quote (configs/product_source_allianz_property.json) as a process pack of the same shared capabilities as the invented insurer's (configs/processes/insurance_offer.json): the documents of its source read into the facts of configs/facts_allianz_property.json (configs/fact_readings_allianz_property.json), the company register and the sanctions list asked, a person checks and freezes the facts; the rules of the product version the case kept are evaluated with the case's total sum insured, missing facts are asked for, a person decides on the risk, the premium is computed from the tariff the case kept (an example, invented rates) and a person decides on it - another person than the risk's above the authority's plan value of the total sum insured (configs/case_decisions.json az_authority_sum_insured_plan); the offer document, its covering letter and the sending as before. The product is made active by a person (the owner's decision of 2026-10-27), so a case starts once it is; the example material is the tariff and three invented customers' documents.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-27",
+        "note": "231 (U-A6): the first version."
+      }
+    ]
+  },
+  "id": "allianz_property_offer",
+  "title": "Allianz corporate property quote",
+  "summary": "A corporate property insurance quote on the Allianz product: the request form, a property schedule per site and the claims history are read and checked, the product's rules applied, the premium worked out from its tariff (example rates), a large risk's premium decided by a second person, and the offer sent with a covering letter.",
+  "examples": {
+    "sets": [
+      {
+        "kind": "product_set",
+        "name": "product_set_allianz_tariff"
+      }
+    ],
+    "documents": "allianz_property_documents"
+  },
+  "scope": {
+    "parts": [
+      "source"
+    ]
+  },
+  "intake": [
+    {
+      "on": "manual",
+      "starts": "manual"
+    }
+  ],
+  "resources": {
+    "product": "az_corporate_property",
+    "tariff": "az_corporate_property_tariff"
+  },
+  "needs_at_start": [
+    "product",
+    "tariff"
+  ],
+  "steps": [
+    {
+      "id": "documents",
+      "uses": "process_documents@1",
+      "title": "Documents",
+      "params": {}
+    },
+    {
+      "id": "facts",
+      "uses": "fact_claims@1",
+      "title": "Facts from the documents",
+      "after": [
+        "documents"
+      ],
+      "params": {
+        "from_step": "documents",
+        "readings": "fact_readings_allianz_property"
+      }
+    },
+    {
+      "id": "company",
+      "uses": "lookup@1",
+      "title": "Company register",
+      "after": [
+        "facts"
+      ],
+      "params": {
+        "connector": "invented_company_register",
+        "from_step": "facts",
+        "asks": {
+          "tax_number": "tax_number"
+        },
+        "answers": {
+          "company.status": "company_status",
+          "company.activity_code": "activity_code"
+        }
+      }
+    },
+    {
+      "id": "sanctions",
+      "uses": "lookup@1",
+      "title": "Sanctions list",
+      "after": [
+        "facts"
+      ],
+      "params": {
+        "connector": "invented_sanctions_list",
+        "from_step": "facts",
+        "asks": {
+          "name": "company_name"
+        },
+        "asks_if_known": {
+          "tax_number": "tax_number"
+        },
+        "answers": {
+          "listed": "sanctions_listed"
+        }
+      }
+    },
+    {
+      "id": "check",
+      "uses": "field_check@1",
+      "title": "Data check",
+      "after": [
+        "facts",
+        "company",
+        "sanctions"
+      ],
+      "params": {
+        "catalogue": "allianz_property",
+        "product": "@product"
+      }
+    },
+    {
+      "id": "evaluate",
+      "uses": "rule_evaluation@1",
+      "title": "Rules",
+      "after": [
+        "check"
+      ],
+      "params": {
+        "from_step": "check",
+        "sums": {
+          "sum_insured_total": "sum_insured"
+        }
+      }
+    },
+    {
+      "id": "missing",
+      "uses": "missing_info@1",
+      "title": "Missing facts",
+      "after": [
+        "evaluate"
+      ],
+      "params": {
+        "from_step": "evaluate",
+        "days": 14,
+        "closes": "expired"
+      }
+    },
+    {
+      "id": "risk",
+      "uses": "decision@1",
+      "title": "Risk decision",
+      "after": [
+        "missing"
+      ],
+      "params": {
+        "about": "evaluate",
+        "choices": {
+          "accept": {
+            "title": "Accept the risk",
+            "allowed_when": {
+              "verdict": [
+                "allow",
+                "refer"
+              ]
+            }
+          },
+          "decline": {
+            "title": "Decline the risk",
+            "closes": "declined"
+          }
+        }
+      }
+    },
+    {
+      "id": "rate",
+      "uses": "rating@1",
+      "title": "Premium",
+      "after": [
+        "risk"
+      ],
+      "params": {
+        "from_step": "evaluate",
+        "tariff": "@tariff"
+      }
+    },
+    {
+      "id": "premium",
+      "uses": "decision@1",
+      "title": "Premium decision",
+      "after": [
+        "rate"
+      ],
+      "params": {
+        "about": "rate",
+        "choices": {
+          "accept": {
+            "title": "Accept the premium"
+          },
+          "decline": {
+            "title": "Decline the quote",
+            "closes": "declined"
+          }
+        },
+        "other_than": "risk",
+        "limit": "az_authority_sum_insured_plan",
+        "amount_step": "evaluate",
+        "amount_field": "sums.sum_insured_total"
+      }
+    },
+    {
+      "id": "document",
+      "uses": "priced_document@1",
+      "title": "Offer document",
+      "after": [
+        "premium"
+      ],
+      "params": {
+        "output": "rated_offer",
+        "from_step": "premium"
+      }
+    },
+    {
+      "id": "letter",
+      "uses": "letter@1",
+      "title": "Covering letter",
+      "after": [
+        "document"
+      ],
+      "params": {
+        "frame": "offer_letter",
+        "from_step": "document"
+      }
+    },
+    {
+      "id": "send",
+      "uses": "send@1",
+      "title": "Send",
+      "after": [
+        "letter"
+      ],
+      "start": "person",
+      "params": {
+        "message": "letter",
+        "mode": "output_folder",
+        "from_step": "letter"
+      }
+    }
+  ],
+  "screens": {
+    "tabs": [
+      {
+        "id": "overview",
+        "label": "Overview",
+        "elements": [
+          {
+            "type": "blockers"
+          },
+          {
+            "type": "package_work",
+            "step": "documents"
+          },
+          {
+            "type": "cost"
+          }
+        ]
+      },
+      {
+        "id": "data",
+        "label": "Data check",
+        "elements": [
+          {
+            "type": "field_review",
+            "step": "check"
+          },
+          {
+            "type": "document_facts",
+            "step": "facts"
+          },
+          {
+            "type": "lookup",
+            "step": "company"
+          },
+          {
+            "type": "lookup",
+            "step": "sanctions"
+          }
+        ]
+      },
+      {
+        "id": "calculation",
+        "label": "Calculation and versions",
+        "elements": [
+          {
+            "type": "evaluation",
+            "step": "evaluate"
+          },
+          {
+            "type": "missing_info",
+            "step": "missing"
+          },
+          {
+            "type": "calculation",
+            "step": "rate"
+          }
+        ]
+      },
+      {
+        "id": "decision",
+        "label": "Decision and release",
+        "elements": [
+          {
+            "type": "decision",
+            "step": "risk"
+          },
+          {
+            "type": "decision",
+            "step": "premium"
+          },
+          {
+            "type": "document_view",
+            "step": "document"
+          },
+          {
+            "type": "letter",
+            "step": "letter"
+          },
+          {
+            "type": "handover_view",
+            "step": "send"
+          }
+        ]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "elements": [
+          {
+            "type": "timeline"
+          }
+        ]
+      }
+    ]
+  },
+  "outputs": [
+    "rated_offer"
+  ],
+  "goldens": []
+}

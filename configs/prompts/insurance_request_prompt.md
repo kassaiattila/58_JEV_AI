@@ -9,6 +9,9 @@ Extract these fields; leave a field null when the form does not state it:
 - `contact_email`: the contact's email address.
 - `cover_start`: the day cover should start (kockázatviselés kezdete, a biztosítás kezdete), as an ISO date (YYYY-MM-DD).
 - `payment_frequency`: how often the premium is to be paid, as printed (éves, féléves, negyedéves, yearly).
+- `chosen_deductible`: the deductible the policyholder chooses for the property cover (választott önrész, önrészesedés), a plain decimal string with a dot separator, no thousands separators (500 000 Ft = "500000"); null when the form states none or only a percentage.
+- `contract_term`: the contract's term as printed (határozatlan, határozott, határozott tartamú, 1 év).
+- `bi_deductible_days`: the business interruption cover's waiting period (időönrész), the number of days or working days as printed (3 munkanap = 3); null when no business interruption cover is asked for or the form states none.
 - `accounting_method`: for the business interruption cover, what its sum insured is counted from, as printed (fedezeti összeg, bruttó fedezet, állandó költségek); null when no business interruption cover is asked for.
 - `interruption_sum_insured`: the business interruption cover's sum insured (üzemszüneti biztosítási összeg), a plain decimal string with a dot separator, no thousands separators (4 000 000 Ft = "4000000").
 - `currency`: the currency the form's amounts are in, as an ISO 4217 code (Ft and forint = HUF).

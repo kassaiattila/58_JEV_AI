@@ -1512,6 +1512,18 @@ quote and the case closes as referred), a lower limit above which another person
 (`case_decisions.json` 1.1.0) and the renewal's own letter frame (`letter_frames.json` 1.1.0). No module names it; its
 test runs the reference set to the sent letter and the referred set to the full quote
 (`tests/test_insurance_renewal_231.py`).
+U-A6, the real corporate property product's quote (the owner's decisions of 2026-10-27):
+`configs/processes/allianz_property_offer.json` is the invented insurer's quote with the same capabilities and screens
+and the real product's data: its documents read into `facts_allianz_property.json` by
+`fact_readings_allianz_property.json`, the product `az_corporate_property` (from its condition documents, made active by
+a person) and its example tariff (`product_set_allianz_tariff.json`, invented rates). The rule evaluation names the
+case's total sum insured (`sums`), and the premium decision compares it (`amount_step`, `amount_field`) with the
+authority's plan value (`case_decisions.json` `az_authority_sum_insured_plan`): above it, another person than the risk's
+decides the premium. Its example material is the tariff and three invented customers' documents
+(`golden_allianz_property_documents.json` printed into `examples_allianz_property_documents.json`); the quote request
+form states the chosen deductible, the contract term and the waiting days (`insurance_request` 1.1.0), and the schedule
+its protection class as printed (`property_schedule` 1.2.0). Tests: `tests/test_allianz_tariff_231.py`,
+`tests/test_allianz_documents_231.py`, `tests/test_allianz_offer_path_231.py`.
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

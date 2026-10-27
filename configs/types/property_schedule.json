@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "type:property_schedule",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "changelog": [
+   {
+    "version": "1.2.0",
+    "date": "2026-10-27",
+    "note": "231 (stage U, U-A6): the protection class as printed, a number (3) or a Roman numeral (IV), as the real product's protection rules number their classes VII to I; a text field. A new question: every earlier answer is asked again."
+   },
    {
     "version": "1.1.0",
     "date": "2026-10-27",
@@ -42,7 +47,7 @@
   "alarm_remote": "text",
   "surge_protection": "text",
   "basement_storage": "text",
-  "protection_class": "number",
+  "protection_class": "text",
   "currency": "currency",
   "asset_groups": "list"
  },

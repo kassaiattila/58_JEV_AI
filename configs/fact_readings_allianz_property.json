@@ -1,0 +1,259 @@
+{
+ "meta": {
+  "name": "fact_readings_allianz_property",
+  "version": "1.0.0",
+  "description": "231 (stage U, U-A6; jav/app/fact_readings.py): how the invented customer documents of the real corporate property product (a quote request, a property schedule per site, a claims history) are read into the facts of configs/facts_allianz_property.json: each type pack's field or row column to a fact of a unit, the printed words to codes (document vocabulary in Hungarian). The schedule's protection class, printed once per site, is each asset group's. A word no table knows is not read.",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-27",
+    "note": "231 (U-A6): the first version."
+   }
+  ]
+ },
+ "catalogue": "allianz_property",
+ "codes": {
+  "yes_no": {
+   "igen": true,
+   "nem": false,
+   "yes": true,
+   "no": false
+  },
+  "country": {
+   "magyarország": "HU",
+   "hungary": "HU",
+   "hu": "HU"
+  },
+  "flood_area_class": {
+   "ármentesített": "protected",
+   "nem ármentesített ártér": "unprotected_floodplain",
+   "nagyvízi meder": "floodway"
+  },
+  "surge_protection": {
+   "nincs": "none",
+   "t3": "t3",
+   "t1+t2": "t1_t2",
+   "t1+t2+t3": "t1_t2_t3"
+  },
+  "protection_class": {
+   "i": "I",
+   "ii": "II",
+   "iii": "III",
+   "iv": "IV",
+   "v": "V",
+   "vi": "VI",
+   "vii": "VII"
+  },
+  "payment_frequency": {
+   "éves": "yearly",
+   "féléves": "half_yearly",
+   "negyedéves": "quarterly",
+   "havi": "monthly",
+   "egyszeri": "single",
+   "yearly": "yearly"
+  },
+  "contract_term": {
+   "határozatlan": "indefinite",
+   "határozatlan tartamú": "indefinite",
+   "határozott": "fixed",
+   "határozott tartamú": "fixed"
+  },
+  "bi_cover_basis": {
+   "fedezeti összeg": "gross_profit",
+   "bruttó fedezet": "gross_profit",
+   "állandó költségek": "standing_costs"
+  },
+  "asset_group": {
+   "épület": "buildings",
+   "épületek": "buildings",
+   "gépek és berendezések": "machinery",
+   "gépek": "machinery",
+   "egyéb berendezések": "other_equipment",
+   "készlet": "stock",
+   "készletek": "stock",
+   "készpénz": "cash",
+   "értékpapír": "securities",
+   "értéktárgyak": "valuables",
+   "irodai elektronikus eszközök": "office_electronics",
+   "üvegfelületek": "glazing",
+   "mélyhűtött készlet": "frozen_stock",
+   "hordozható elektronikus eszközök": "portable_electronics",
+   "adathordozók": "data_carriers"
+  },
+  "valuation": {
+   "új érték": "new_value",
+   "avult érték": "technical_worn_value",
+   "beszerzési érték": "invoice_value",
+   "névérték": "nominal_value",
+   "piaci érték": "market_value",
+   "könyv szerinti bruttó érték": "gross_book_value"
+  },
+  "requested_modules": {
+   "vállalkozások all risks vagyonbiztosítása": "property_ar",
+   "villámcsapás okozta túlfeszültség": "VIL",
+   "vandalizmus": "J21",
+   "üvegtörés": "GLASS",
+   "irodai elektronikus eszközök": "IBV",
+   "gépek külső okból bekövetkező törése": "IKO",
+   "fűtő- vagy hűtőberendezések nem megfelelő működése": "IFH",
+   "betöréses lopás és rablás": "burglary",
+   "allianz üzemszünet védelem": "interruption",
+   "hűtőházakban és mélyhűtő berendezésekben tárolt készlet": "cold_store"
+  }
+ },
+ "packs": {
+  "insurance_request": [
+   {
+    "level": "holder",
+    "key": "holder",
+    "parent": null,
+    "facts": {
+     "company_name": {
+      "field": "policyholder_name"
+     },
+     "tax_number": {
+      "field": "policyholder_tax_number"
+     },
+     "contact_name": {
+      "field": "contact_name"
+     },
+     "contact_email": {
+      "field": "contact_email"
+     },
+     "activity_code": {
+      "field": "activity_code"
+     },
+     "payment_frequency": {
+      "field": "payment_frequency",
+      "codes": "payment_frequency"
+     },
+     "chosen_deductible": {
+      "field": "chosen_deductible",
+      "currency_field": "currency"
+     },
+     "contract_term": {
+      "field": "contract_term",
+      "codes": "contract_term"
+     },
+     "bi_cover_basis": {
+      "field": "accounting_method",
+      "codes": "bi_cover_basis"
+     },
+     "interruption_sum_insured": {
+      "field": "interruption_sum_insured",
+      "currency_field": "currency"
+     },
+     "bi_deductible_days": {
+      "field": "bi_deductible_days"
+     },
+     "requested_modules": {
+      "list": "requested_covers",
+      "column": "cover",
+      "codes": "requested_modules"
+     }
+    }
+   },
+   {
+    "level": "site",
+    "key": "site:{site_no}",
+    "parent": "holder",
+    "rows": "sites",
+    "facts": {
+     "site_address": {
+      "column": "address"
+     },
+     "country": {
+      "column": "country",
+      "codes": "country"
+     }
+    }
+   }
+  ],
+  "property_schedule": [
+   {
+    "level": "holder",
+    "key": "holder",
+    "parent": null,
+    "facts": {
+     "company_name": {
+      "field": "policyholder_name"
+     }
+    }
+   },
+   {
+    "level": "site",
+    "key": "site:{site_no}",
+    "parent": "holder",
+    "facts": {
+     "site_address": {
+      "field": "site_address"
+     },
+     "floor_area": {
+      "field": "floor_area"
+     },
+     "flood_area_class": {
+      "field": "flood_zone",
+      "codes": "flood_area_class"
+     },
+     "surge_protection": {
+      "field": "surge_protection",
+      "codes": "surge_protection"
+     },
+     "basement_storage": {
+      "field": "basement_storage",
+      "codes": "yes_no"
+     }
+    }
+   },
+   {
+    "level": "asset_group",
+    "key": "site:{site_no}/{row}",
+    "parent": "site:{site_no}",
+    "rows": "asset_groups",
+    "facts": {
+     "asset_group": {
+      "column": "asset_group",
+      "codes": "asset_group"
+     },
+     "sum_insured": {
+      "column": "sum_insured",
+      "currency_field": "currency"
+     },
+     "valuation": {
+      "column": "valuation",
+      "codes": "valuation"
+     },
+     "wear": {
+      "column": "wear"
+     },
+     "protection_class_in_place": {
+      "field": "protection_class",
+      "codes": "protection_class"
+     }
+    }
+   }
+  ],
+  "claims_history": [
+   {
+    "level": "holder",
+    "key": "holder",
+    "parent": null,
+    "facts": {
+     "company_name": {
+      "field": "policyholder_name"
+     },
+     "tax_number": {
+      "field": "policyholder_tax_number"
+     },
+     "claims_5y_count": {
+      "field": "claims_count"
+     },
+     "claims_5y_paid": {
+      "field": "claims_paid_total",
+      "currency_field": "currency"
+     }
+    }
+   }
+  ]
+ }
+}

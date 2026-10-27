@@ -50,8 +50,9 @@ GPT_KEYS = {
     "vizmuvek_szamla": "8b607daa57d74606",
     "quote_request": "026aa29aa98ab0be",  # 190 (A2e): the new pack, pinned when it was added
     # 231 (stage D, D-e1): the insurance application's packs, pinned when they were added
-    # 231 (U-A0): the property schedule reads every asset group row, an unlisted one too (a new request on purpose)
-    "insurance_request": "8526a00ed5623034", "property_schedule": "e74791f3b792318f", "claims_history": "1f6311eee41aebbd",
+    # 231 (U-A0): the property schedule reads every asset group row, an unlisted one too (a new request on purpose);
+    # (U-A6) the request's chosen deductible, term and waiting days, the schedule's protection class as printed
+    "insurance_request": "d921b3b97184de1f", "property_schedule": "2064b179a569fe6e", "claims_history": "1f6311eee41aebbd",
 }
 JEV_KEYS = {
     "altalanos_szerzodesi_feltetelek": "9aca1d3bc4265e76", "belepo_jegy": "e667b3f8f487207e",
@@ -66,7 +67,8 @@ JEV_KEYS = {
     "villamos_energia_szamla": "985ca0f22575a6d4", "viz_szamla": "71ed6531db577f64",
     "vizmuvek_szamla": "4dcef8aafebc6084",
     "quote_request": "c3cb7a88278eca49",  # 190 (A2e)
-    "insurance_request": "1967225b266f6740", "property_schedule": "0c1a03dac6dad0db", "claims_history": "7a7e2ad253fecb3c",  # D-e1
+    "insurance_request": "8cfa2602f2d734d2", "property_schedule": "0c1a03dac6dad0db", "claims_history": "7a7e2ad253fecb3c",  # D-e1
+    # (U-A6: the request's three new fields' meanings)
 }
 
 
