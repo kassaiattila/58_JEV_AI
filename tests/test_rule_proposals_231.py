@@ -75,9 +75,11 @@ def test_gpt_proposes_through_the_call_log_a_few_pages_at_a_time(db) -> None:
                                               document=SET.documents["inv_general_conditions"].content)
     per = cfg.load("gpt_rule_proposal")["pages_per_request"]
     assert len(agent.prompts) == -(-4 // per)  # four pages, `per` at a time
-    assert "=== page 1 ===" in agent.prompts[0] and "=== page 4 ===" not in agent.prompts[0]
-    assert '"name": "sum_insured"' in agent.prompts[0] and '"code": "burglary"' in agent.prompts[0]
-    assert per == 3 and [p.pages for p in proposed] == [(1, 2, 3), (4,)]
+    assert "=== page 1 ===" in agent.prompts[0] and "=== page 4 ===" in agent.prompts[-1]
+    # 231 (U-A3): the catalogue in compact JSON, without the fields a fact does not have
+    assert '"name":"sum_insured"' in agent.prompts[0] and '"code":"burglary"' in agent.prompts[0]
+    assert '"unit":null' not in agent.prompts[0] and '"options":null' not in agent.prompts[0]
+    assert per == 4 and [p.pages for p in proposed] == [(1, 2, 3, 4)]
     assert all(p.rule is not None and not p.check.blocking for p in proposed)
     rows = store.ledger_for_run(scope)
     assert [(r["step"], r["provider"], r["input_tokens"]) for r in rows] == [("rule_proposal_gpt", "openai", 3000)] * len(agent.prompts)
