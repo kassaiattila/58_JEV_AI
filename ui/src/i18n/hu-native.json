@@ -3341,5 +3341,10 @@
   "Waits for its start": "Indításra vár",
   "Nothing holds it": "Semmi nem tartja fel",
   "{{n}} holding": "{{n}} akadály",
-  "Did not finish": "Nem futott le"
+  "Did not finish": "Nem futott le",
+  "Insurance renewal": "Biztosítás megújítása",
+  "Renewal decision": "Megújítási döntés",
+  "Renew": "Megújítás",
+  "Send to the full quote": "Teljes ajánlatba küldés",
+  "Decline the renewal": "A megújítás elutasítása"
 }

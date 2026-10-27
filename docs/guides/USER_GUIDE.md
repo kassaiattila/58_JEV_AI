@@ -363,6 +363,8 @@ An insurance quote (*Biztosítási ajánlat*, stage D) is a case of the `insuran
 
 A decision, the offer and the letter are approved versions: one made on a page that shows an older result is refused (reload and decide again), and when a step they build on gets a new result (the facts are frozen again, say), they go out of date and wait for a person again.
 
+An **Insurance renewal** (*Biztosítás megújítása*) case works the same way with fewer steps: an existing client is asked only from the sanctions list, there is no wait for missing facts, and the **Renewal decision** (*Megújítási döntés*) offers **Renew** (*Megújítás*) only when the rules allow the risk; otherwise **Send to the full quote** (*Teljes ajánlatba küldés*) closes it with your reason, and the client gets a full insurance quote instead. Above a lower limit (for now an invented 100 000 HUF) another person decides the premium, and the covering letter has the renewal's own text.
+
 ## 6. Processing
 
 ### 6.1 Processing settings

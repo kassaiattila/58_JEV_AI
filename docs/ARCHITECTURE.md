@@ -1474,6 +1474,14 @@ resolved; a step not reached yet, or working by itself, holds nothing, and a clo
 (`ui/src/elements/BlockersElement.tsx`). `insurance_offer.json` 1.6.0 opens its Overview with it, and the five work
 views are complete: Overview (what holds the case, the documents' processing, the cost), Data check, Calculation and
 versions, Decision and release (the two decisions, the offer document, the covering letter, the send) and History.
+D-g, the second small composition (the owner's decision of 2026-10-26: a second composition uses the same new
+capabilities without code): `configs/processes/insurance_renewal.json`, the renewal of an existing client's insurance,
+composed only of the quote's capabilities in another structure - no company register, no wait for missing facts, a
+stricter risk rule (only a risk the rules allow is renewed; one they refer, refuse or cannot decide goes to the full
+quote and the case closes as referred), a lower limit above which another person decides the premium
+(`case_decisions.json` 1.1.0) and the renewal's own letter frame (`letter_frames.json` 1.1.0). No module names it; its
+test runs the reference set to the sent letter and the referred set to the full quote
+(`tests/test_insurance_renewal_231.py`).
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,
