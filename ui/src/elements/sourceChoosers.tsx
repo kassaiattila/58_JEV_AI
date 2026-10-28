@@ -23,6 +23,8 @@ export type SourceChooser<D = unknown> = {
   step: StepChooser<D>;
   /** A workflow step's stored source in a few words (the workflow's page). */
   words: (source: WorkflowStep["source"]) => string;
+  /** 231 (U3): a case's source in a few words, for the case's name when a person gives none (the mailbox, the period). */
+  name?: (source: CaseSource) => string;
 };
 
 const CHOOSERS = new Map<string, SourceChooser>();

@@ -5,7 +5,7 @@
 import { lazyPage } from "../../components/LazyPage";
 import { registerSourceChooser } from "../../elements/sourceChoosers";
 import { registerSettingsSection } from "../../logic/settingsSections";
-import { stepDraft, stepSource, stepWords, type MailboxStepDraft } from "./mailboxSource";
+import { caseName, stepDraft, stepSource, stepWords, type MailboxStepDraft } from "./mailboxSource";
 
 const screens = () => import("./Mailbox");
 const MailboxRequestFields = lazyPage(() => screens().then((m) => m.MailboxRequestFields));
@@ -18,6 +18,7 @@ registerSourceChooser<MailboxStepDraft>("mailbox", {
   Case: ({ onChange }) => <MailboxRequestFields onChange={(req) => onChange(req ? { kind: "mailbox", request: req } : null)} />,
   step: { draft: stepDraft, Fields: (p) => <MailboxStepFields {...p} />, source: stepSource },
   words: stepWords,
+  name: caseName,
 });
 
 registerSettingsSection({

@@ -77,6 +77,9 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
     if (wantsSources) return `${title}: ${candidates.filter((w) => chosen.includes(w.id)).map((w) => w.name).join(", ")}`;
     if (wantsRecord && record) return `${title}: ${record.name ?? record.label ?? record.workpackage_name}`;
     if (wantsSource && !domainChooser(kinds) && choice.kind === "example" && packetTitle) return `${title} · ${t("Example")}: ${t(packetTitle)}`;
+    // 231 (U3, the backlog's mailbox case name): a domain's source in its own words (the mailbox and the period)
+    const words = wantsSource && domainChooser(kinds) && choice.domain ? chooserOf(kinds[0])?.name?.(choice.domain) : undefined;
+    if (words) return `${title} · ${words}`;
     const where = wantsSource && !domainChooser(kinds) && choice.kind === "folder" ? choice.folder.trim().split(/[\\/]/).filter(Boolean).pop() ?? "" : "";
     return [title, partyName, wantsPeriod ? `${start} – ${end}` : "", where].filter(Boolean).join(" · ");
   };
