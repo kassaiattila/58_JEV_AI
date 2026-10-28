@@ -198,7 +198,8 @@ def _example_state(name: str) -> dict[str, Any]:
     state = (examples.MISSING if not there else
              examples.INSTALLED if len(there) == len(found) and all(f["state"] == versions.ACTIVE for f in there) else
              examples.PARTIAL)
-    title = ", ".join(p.name for p in ps.products.values())
+    # U-A6: a set with no product (a tariff alone) reads by its tariffs' titles
+    title = ", ".join(p.name for p in ps.products.values()) or ", ".join(t.title or ident for ident, t in ps.tariffs.items())
     return {"state": state, "example": bool(there) and all(examples.is_example(f["made_by_id"]) for f in there),
             "title": f"{ps.issuer}: {title}" if title else ps.issuer}
 

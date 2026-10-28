@@ -121,3 +121,17 @@ def test_an_extension_requested_without_a_unit_it_prices_costs_its_minimum(code:
     result = _priced(_case(interruption=False, groups=(("buildings", "100000000", {}),)), ("property_ar", code))
     assert result.blockers == ()
     assert result.modules[code]["minimum_applied"] is True and result.modules[code]["lines"] == HUF(0)
+
+
+def test_the_process_offers_the_tariff_as_its_example_material_by_its_title(tmp_path) -> None:
+    """231 (U-A6): the real product's process names the tariff set and three packets of invented customers; a set with
+    no product (the tariff alone) reads by its tariff's title, so the person sees it is an example."""
+    from jav.app import examples, registrations
+
+    registrations.load_all()
+    with store.use_store(tmp_path / "examples.sqlite"):
+        material = examples.of("allianz_property_offer")
+        [one] = material["sets"]
+        assert (one["name"], one["state"]) == ("product_set_allianz_tariff", examples.MISSING)
+        assert one["title"] == f"Allianz Hungária Zrt.: {TARIFF.title}" and "PÉLDA" in one["title"]
+        assert [p["documents"] for p in material["packets"]] == [3, 3, 3]
