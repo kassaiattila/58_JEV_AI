@@ -1,9 +1,14 @@
 {
  "meta": {
   "name": "golden_allianz_property_documents",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "231 (stage U, U-A6; jav/evals/property_documents.py): invented customers of the real corporate property product asking for a quote: a quote request form, a property schedule per site and a claims history statement each, in sets, as the invented insurer's (golden_property_documents) but on the real product's form (its covers as printed boxes) and terms, read into its facts by configs/fact_readings_allianz_property.json. Each document is kept as what a correct reading gives; its printed page is made from it. Each set names the facts its documents hold. Every name, tax number and amount is invented.",
   "changelog": [
+   {
+    "version": "1.2.0",
+    "date": "2026-10-28",
+    "note": "231 (U1; the owner's decision of 2026-10-28): the cold store has an invented tax number of its own (53102467-2-26): 13570008-1-13 was the invented insurer's and the IT quote's invented companies' too, so the invented register gave the cold store for them. Its three documents are measured again."
+   },
    {
     "version": "1.1.0",
     "date": "2026-10-28",
@@ -548,7 +553,7 @@
      "pack": "insurance_request",
      "values": {
       "policyholder_name": "Minta Hűtőház Kft.",
-      "policyholder_tax_number": "13570008-1-13",
+      "policyholder_tax_number": "53102467-2-26",
       "activity_code": "5210",
       "contact_name": "Minta Péter",
       "contact_email": "peter@minta.hu",
@@ -642,7 +647,7 @@
      "pack": "claims_history",
      "values": {
       "policyholder_name": "Minta Hűtőház Kft.",
-      "policyholder_tax_number": "13570008-1-13",
+      "policyholder_tax_number": "53102467-2-26",
       "period_start": "2022-01-01",
       "period_end": "2026-12-31",
       "claims_count": "2",
@@ -670,7 +675,7 @@
      "parent": null,
      "facts": {
       "company_name": "Minta Hűtőház Kft.",
-      "tax_number": "13570008-1-13",
+      "tax_number": "53102467-2-26",
       "contact_name": "Minta Péter",
       "contact_email": "peter@minta.hu",
       "activity_code": "5210",

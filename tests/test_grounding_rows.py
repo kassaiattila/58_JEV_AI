@@ -87,6 +87,22 @@ def test_a_statement_row_is_found_by_its_amount_printed_with_a_minus_sign():
     assert found["status"] == "located" and found["quote"].endswith("-44.970,00")
 
 
+def test_a_row_of_text_values_is_found_by_its_longest_value():
+    """U1 (the walkthrough of 2026-10-28): a site's row of text values only was searched by its first value, its number
+    ("1"), and landed on the first line holding a 1 ("Kockazatviseles kezdete: 2027. januar 1."); it is searched by its
+    longest value (the address)."""
+    layer = layer_of([  # the invented request form's lines
+        [("Kockazatviseles", 20), ("kezdete:", 120), ("2027.", 200), ("januar", 240), ("1.", 290)],
+        [("Telephelyek:", 20)],
+        [("Sorszam", 20), ("Orszag", 90), ("Cim", 160)],
+        [("1", 20), ("Magyarorszag", 90), ("6000", 160), ("Kecskemet,", 200), ("Minta", 280), ("koz", 330), ("7.", 360)],
+    ])
+    kinds = {"site_no": "text", "address": "text", "country": "text"}  # as the request's pack gives them: no anchor
+    rows = [{"site_no": "1", "address": "6000 Kecskemet, Minta koz 7.", "country": "Magyarorszag"}]
+    [found] = grounding.locate_rows(layer, rows, kinds)
+    assert found["quote"].startswith("1 Magyarorszag 6000 Kecskemet")
+
+
 def test_row_without_findable_values_has_no_frame():
     out = grounding.locate_rows(_table(), [{"description": "Nincs ilyen", "net_amount": "999999"}, {}], KINDS)
     assert [r["status"] for r in out] == ["not_found", "no_value"]

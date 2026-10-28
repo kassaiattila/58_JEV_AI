@@ -42,7 +42,8 @@ from jav.app import capabilities, scopes
 from jav.core import cfg
 from jav.core.process.definition import NAME, ProcessDef, StepDef
 
-__all__ = ["Adopt", "Element", "ExampleSet", "Examples", "Intake", "PackError", "PartnerLink", "ProcessPack", "Step", "Tab",
+__all__ = ["Adopt", "Element", "ExampleSet", "Examples", "FollowUp", "Intake", "PackError", "PartnerLink", "ProcessPack", "Step",
+           "Tab",
            "UnknownPack", "definition", "load", "packs"]
 
 ELEMENTS = "screen_elements"
@@ -151,6 +152,15 @@ class Scope(_Model):
 PARTNER_FIELDS = ("name", "tax_number", "email", "phone", "address")
 
 
+class FollowUp(_Model):
+    """231 (U1; the owner's decision of 2026-10-28): what may follow a case closed with an outcome: another process a
+    person starts from the case's own scope (its documents), offered on the closed case's page."""
+
+    on: str = Field(pattern=NAME)  # the outcome the case closed with
+    pack: str = Field(pattern=NAME)
+    title: str = Field(min_length=1)  # the button's text, English (the interface translates it)
+
+
 class PartnerLink(_Model):
     """231 (B1): a partner a case is about: its role (`configs/partners.json`), the step whose result holds the record's
     fields, and which of them give the partner's values (`name` at least)."""
@@ -170,10 +180,12 @@ class ExampleSet(_Model):
 
 class Examples(_Model):
     """231 (U0): a process's invented example material: the sets of things it installs, and the invented documents
-    (`configs/examples_<documents>.json`, packets of printed pages) a case of it can start on."""
+    (`configs/examples_<documents>.json`, packets of printed pages or texts) a case of it can start on; (U1e) a
+    sentence on how the material is tried, shown with it."""
 
     sets: tuple[ExampleSet, ...] = ()
     documents: str | None = Field(default=None, pattern=NAME)
+    note: str | None = Field(default=None, min_length=1)
 
 
 class ProcessPack(_Model):
@@ -193,6 +205,7 @@ class ProcessPack(_Model):
     outputs: tuple[str, ...] = ()
     goldens: tuple[str, ...] = ()
     partners: tuple[PartnerLink, ...] = ()  # 231 (B1)
+    follow_ups: tuple[FollowUp, ...] = ()  # 231 (U1): a process a closed case's person may start from its scope
     # stage D (D-a, P04): the resources a case cannot start without a version of to keep (a tariff); none: it may start
     needs_at_start: tuple[str, ...] = ()
 
@@ -269,6 +282,16 @@ def _problems(pack: ProcessPack) -> list[str]:
         problems.append("a process pack holds no code: it names a Python module")
     known_parts = {p.name for p in scopes.parts()}
     problems += [f"unknown scope part {p!r}" for p in pack.scope.parts if p not in known_parts]
+    for follow in pack.follow_ups:  # 231 (U1): the process that follows takes what this one's scope holds
+        try:
+            needs = cfg.load(f"process:{follow.pack}").get("scope", {})
+        except FileNotFoundError:
+            problems.append(f"a follow-up names no process pack {follow.pack!r}")
+            continue
+        wanted = set(needs.get("parts", ())) - set(needs.get("optional", ()))
+        if not wanted <= set(pack.scope.parts):
+            problems.append(f"the follow-up {follow.pack!r} needs scope parts this pack does not hold: "
+                            + ", ".join(sorted(wanted - set(pack.scope.parts))))
     problems += [f"optional scope part {p!r} is not one of its parts" for p in pack.scope.optional if p not in pack.scope.parts]
     if any(i.on == "email_intent" and not i.intent for i in pack.intake):
         problems.append("an email intake names its intent")

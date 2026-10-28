@@ -45,7 +45,7 @@ def test_the_processes_list_says_what_a_start_by_hand_needs(client) -> None:
     assert [m["key"] for m in _process(client, PACK)["missing_at_start"]] == ["product", "tariff"]
     assert all(m["label"] for m in _process(client, PACK)["missing_at_start"])
     assert _process(client, "it_quote")["missing_at_start"] == []
-    assert _process(client, PACK)["examples"] is True and _process(client, "it_quote")["examples"] is False
+    assert _process(client, PACK)["examples"] is True and _process(client, "it_quote")["examples"] is True  # U1e: its price list
     refused = client.post("/api/cases", headers=ANNA, json={"pack": PACK, "name": "x", "source": {"kind": "folder", "folder": "C:/x"}})
     assert refused.status_code == 422, refused.text
 
@@ -103,6 +103,21 @@ def test_the_examples_print_what_the_golden_set_prints() -> None:
     for doc_set in pd.load().sets:
         printed = {d["file"]: d["pages"] for d in packets[doc_set.id]["documents"]}
         assert printed == {f"{d.id}.pdf": pd.pages(d) for d in doc_set.documents}, doc_set.id
+
+
+def test_the_documents_process_offers_invented_invoices_and_quote_requests(tmp_path) -> None:
+    """U1e (the owner's decision of 2026-10-28): the documents process has example material of its own: the invented
+    invoices of the measurement and the invented quote requests' printed forms, written as PDFs a case starts on; the
+    file is what `examples --set documents` prints."""
+    from jav.evals import document_examples
+
+    packets = {p["id"]: p["documents"] for p in examples.of("documents")["packets"]}
+    assert packets == {"invoices": 5, "foreign": 7, "quote_requests": 2, "own_party_invoices": 4}
+    current = cfg.load(examples.DOCUMENTS_PREFIX + "documents")["packets"]
+    assert document_examples.example_packets({p["id"]: p["title"] for p in current}) == current
+    with store.use_store(tmp_path / "docs.sqlite"):
+        files = examples.packet_files("documents", "quote_requests")
+    assert [Path(f).name for f in files] == ["keroiv_halozat.pdf", "igenyek.pdf"] and all(Path(f).stat().st_size for f in files)
 
 
 def test_every_example_packet_s_id_is_one_the_service_s_route_takes() -> None:

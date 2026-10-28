@@ -1,8 +1,23 @@
 {
  "meta": {
   "name": "field_labels",
-  "version": "1.13.0",
+  "version": "1.16.0",
   "changelog": [
+   {
+    "version": "1.16.0",
+    "date": "2026-10-28",
+    "note": "231 (stage U, the walkthrough): a statement read by code is named by the bank's export, not a table export only (an XML statement is read so too)."
+   },
+   {
+    "version": "1.15.0",
+    "date": "2026-10-28",
+    "note": "231 (stage U, U1; finding 7 of the walkthrough): the names of a field's enumerated values (`values`, keyed `field=value`): the kind of a bank statement, a document's and a meeting's kind, which the result table showed as codes."
+   },
+   {
+    "version": "1.14.0",
+    "date": "2026-10-28",
+    "note": "231 (stage U, U1; the walkthrough of 2026-10-28): the name of a statement read by code from a bank's table export, which a result table showed as its code."
+   },
    {
     "version": "1.13.0",
     "date": "2026-10-28",
@@ -288,6 +303,7 @@
  "doc_types": {
   "altalanos_szerzodesi_feltetelek": "Általános szerződési feltételek",
   "bank_statement": "Bankszámlakivonat",
+  "statement_table": "Bankszámlakivonat a bank exportjából, kódból olvasva",
   "belepo_jegy": "Belépőjegy",
   "belepo_jegy_taught": "Belépőjegy (tanított)",
   "certificate": "Igazolás, tanúsítvány",
@@ -331,5 +347,16 @@
   "quote_request": {
    "customer_name": "Ajánlatkérő neve"
   }
+ },
+ "values": {
+  "statement_type=bank_account": "bankszámla",
+  "statement_type=credit_card": "hitelkártya",
+  "document_kind=jegyzokonyv": "jegyzőkönyv",
+  "document_kind=jelenleti_iv": "jelenléti ív",
+  "document_kind=meghivo": "meghívó",
+  "document_kind=egyeb": "egyéb irat",
+  "meeting_type=elnoksegi": "elnökségi ülés",
+  "meeting_type=kozgyules": "közgyűlés",
+  "meeting_type=egyeb": "egyéb ülés"
  }
 }

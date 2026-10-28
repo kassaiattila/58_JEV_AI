@@ -8,6 +8,10 @@ export function packageWorkLine(data: PackageWorkView | null): string | null {
   if (!data) return null;
   if (!data.package) return t("no documents");
   const live = (data.runs ?? []).filter((r) => r.mode === "apply");
-  const state = live.some((r) => r.approval) ? t("approved") : live.length ? t("live run in progress") : t("waiting for its live run");
+  const has = (...statuses: string[]) => live.some((r) => statuses.includes(r.status));
+  // U1 (the walkthrough): a live run that has ended says what it waits for, not that it is in progress
+  const state = live.some((r) => r.approval) ? t("approved") : !live.length ? t("waiting for its live run")
+    : has("queued", "running") ? t("live run in progress") : has("needs_review") ? t("its live run has to-dos")
+      : has("done") ? t("its live run waits for approval") : t("its live run stopped");
   return `${t("{{n}} documents", { n: data.package.items })} · ${state}`;
 }

@@ -122,13 +122,16 @@ def _reasons(state: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
 def _step_view(case_id: str, step: process_packs.Step, row: dict[str, Any],
                reasons: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     # 231 (C2d): `by_person`: a step of a human capability waits for a person, so its page need not ask again by itself;
-    # U-A8: `reasons`, why a stopped step stopped in a person's words (none: its note says it)
+    # U-A8: `reasons`, why a stopped step stopped in a person's words (none: its note says it); U1: `waits_on`, what
+    # the event a running step waits for means, as its capability says (`Capability.waits`: a person's start, the
+    # machine's work, a person) - a documents step waits for the machine while its live run works
+    waits_on = capabilities.of(step.uses).waits.get(str(row.get("waiting_for"))) if row.get("state") == cases.RUNNING else None
     return {"title": step.title, "uses": step.uses, "start": step.start, "state": row.get("state"),
             "phase": row.get("phase"), "waiting_for": row.get("waiting_for"),
             "awaiting_start": row.get("phase") == capabilities.AWAITING_START, "note": row.get("note"),
             "result": row.get("result"), "actions": _actions(case_id, step, row),
             "by_person": capabilities.of(step.uses).kind == "human"} | (
-        {"reasons": reasons} if reasons and row.get("state") == cases.FAILED else {})
+        {"reasons": reasons} if reasons and row.get("state") == cases.FAILED else {}) | ({"waits_on": waits_on} if waits_on else {})
 
 
 def view(case_id: str) -> dict[str, Any]:
@@ -155,6 +158,8 @@ def view(case_id: str) -> dict[str, Any]:
                      # asks again until it moved
                      "due": state["status"] == cases.OPEN and engine.is_due(case_id)},
             "steps": {s.id: _step_view(case_id, s, rows.get(s.id, {}), said.get(s.id)) for s in pack.steps}, "tabs": tabs,
+            # 231 (U1): what may follow a closed case (its pack's follow-ups for the outcome it closed with)
+            "follow_ups": process_runtime.follow_ups(case_id) if state["status"] != "open" else [],
             "next": _next(tabs, [s.id for s in pack.steps if rows.get(s.id, {}).get("state") != "done"])
             if state["status"] == "open" else None}  # A7e: a closed case has no next step on its page
 
@@ -241,10 +246,13 @@ def _who(actor_id: str) -> str | None:
 
 
 def _detail(detail: Any) -> dict[str, Any]:
-    """What an event's row says beyond its kind: a note, a task's kind, a person's answer, a timer's name."""
+    """What an event's row says beyond its kind: a note, a task's kind, a person's answer, a timer's name; U1: a stopped
+    step's reasons in a person's words."""
     if not isinstance(detail, dict):
         return {}
     out: dict[str, Any] = {k: detail[k] for k in ("note", "timer") if isinstance(detail.get(k), str)}
+    if isinstance(detail.get("reasons"), list) and detail["reasons"]:
+        out["reasons"] = detail["reasons"]
     if isinstance(detail.get("task"), str):
         out["task_kind"] = detail["task"].partition(":")[0]
     outcome = detail.get("outcome")
@@ -392,6 +400,9 @@ def _started_cases(case_id: str, _step: str | None, shared: dict[str, Any]) -> l
     return out
 
 
+_WAITS_ON = {"person_start": "start", "work": "waits", "person": "person"}  # U1: a step's wait, as the Overview names it
+
+
 def _blockers(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
     """D-f9: the shared blockers element: what holds an open case, step by step in the pack's order, each with the tab
     whose element shows that step (where it is resolved): a step that stopped (its note says why) or must run again, one
@@ -417,6 +428,8 @@ def _blockers(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[
             kind = "stopped" if row["state"] == cases.FAILED else "stale"
         elif row.get("state") != cases.RUNNING or not row.get("waiting_for"):
             continue
+        elif shown.get("waits_on") in _WAITS_ON:  # U1: what the capability says its wait means
+            kind = _WAITS_ON[shown["waits_on"]]
         elif shown["awaiting_start"]:
             kind = "start"
         elif shown["by_person"]:

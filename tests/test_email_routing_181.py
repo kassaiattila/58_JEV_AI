@@ -218,6 +218,7 @@ def test_an_email_package_offers_the_email_routing_and_names_the_cases_reading_i
     [offer] = work_views.workpackage_view(wp)["intake"]  # 231 (C1c): the general package intake
     assert (offer["pack"], offer["title"], offer["sources"], offer["cases"]) == ("mail_routing", "Email routing", [wp], [])
     assert offer["name"] == "Email routing: Office mailbox"
+    assert offer["package_name"] == "Office mailbox"  # U1: the interface names the case in its own language
     routing = _routing(wp, "June routing")
     assert work_views.workpackage_view(wp)["intake"][0]["cases"] == [{"id": routing, "name": "June routing"}]
     folder = work.create_workpackage(name="Folder", source_kind="folder", source_ref=None, owner="tester")

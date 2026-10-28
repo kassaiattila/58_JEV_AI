@@ -52,6 +52,8 @@ export interface CaseStep {
   by_person?: boolean;
   /** U-A8: why a stopped step stopped, in a person's words (none: its note says it) */
   reasons?: Said[];
+  /** U1: what a running step's wait means, as its capability says: a person's start, the machine's work, a person */
+  waits_on?: "person_start" | "work" | "person";
 }
 /** One element of a tab: its registered type, the step it shows and its data. */
 export interface CaseElement { type: string; step: string | null; data: unknown; [setting: string]: unknown }
@@ -63,6 +65,8 @@ export interface CaseView {
   tabs: CaseTab[];
   /** the case's next step, named by its elements, and the tab it is done on */
   next: { code: string; label: string; stage: string; tab: string; params?: Record<string, number> } | null;
+  /** 231 (U1): what may follow a closed case: another process started from its documents (the case once started) */
+  follow_ups?: { pack: string; title: string; case_id: string | null }[];
 }
 
 // 231 (A7e): the data of the shared elements: a send step's handovers, a reply step's wait, the case's events and cost
@@ -88,12 +92,16 @@ export interface AssessedUnit {
 }
 /** D-f4: a fact another step offered and where it went: a new unit, filled, agrees, a conflict (open: still differs), not placed. */
 export interface OfferedClaim {
-  from_step: string; unit_key: string; fact: string; value: unknown;
+  claim_key: string; from_step: string; unit_key: string; fact: string; value: unknown;
   placement: "new_unit" | "filled" | "agrees" | "conflict" | "unplaced"; unit_id: string | null; open: boolean;
+  /** U1: a disagreement settled by a person keeping the value shown */
+  kept?: { by: string; at: string } | null;
 }
 export interface FieldReviewData {
   units: AssessedUnit[]; claims: OfferedClaim[]; state: number; approval: ApprovalState; catalogue: Catalogue;
   frozen: { version: number; cover_start: string; by: string; at: string } | null; conflicts: number; waits: boolean;
+  /** U1: the day cover starts the freeze offers to begin with (a document's, else the last freeze's) */
+  cover_start_hint?: string | null;
 }
 /** D-f4: the facts a step read from a case's documents, per document. */
 export interface DocumentFactsData {
@@ -171,7 +179,9 @@ export interface LetterData {
 }
 export interface CaseEvent {
   at: string; kind: string; step: string | null; step_title: string | null; who: string | null;
-  detail: { note?: string; timer?: string; task_kind?: string; answer?: string; kept?: CaseKept };
+  detail: { note?: string; timer?: string; task_kind?: string; answer?: string; kept?: CaseKept;
+    /** U1: a stopped step's reasons in a person's words, shown instead of its note */
+    reasons?: Said[] };
 }
 /** D0-e: the versions a case keeps from its start to its end (`jav/app/process_runtime.py` `kept_of`): its resources
  *  naming a versioned thing (a price list, a template) and the rule files its steps read. */
@@ -195,6 +205,8 @@ export const casesApi = {
     party_id?: string; period_start?: string; period_end?: string; source?: CaseSource }) =>
     request<{ case_id: string }>("POST", "/cases", body),
   casePage: (caseId: string) => request<CaseView>("GET", `/cases/${enc(caseId)}`),
+  /** 231 (U1): a case of the process that follows the closed case, started from its documents */
+  caseFollowUp: (caseId: string, pack: string) => request<{ case_id: string }>("POST", `/cases/${enc(caseId)}/follow-ups`, { pack }),
   // D-f7: the document a step printed and stored with its version (a link, not a request)
   caseStepFileUrl: (caseId: string, stepId: string) => `/api/cases/${enc(caseId)}/steps/${enc(stepId)}/file`,
   startCaseStep: (caseId: string, stepId: string) =>

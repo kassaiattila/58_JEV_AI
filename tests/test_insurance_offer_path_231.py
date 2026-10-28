@@ -148,7 +148,8 @@ def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder, tmp_pat
     version = printed["result"]["version"]
     assert version == package_release.own_approval(case_id, step="premium")["active"]["version"]
     content, name = approved_document.step_file(case_id, "document")
-    assert name == f"biztositasi-ajanlat-Minta-Kereskedo-Kft-v{version}.docx"
+    # U1 (finding 18 of the walkthrough): the file is named by the decision's own number, not the case's version
+    assert version > 1 and name == "biztositasi-ajanlat-Minta-Kereskedo-Kft-v1.docx"
     assert printed["result"]["file"] == {"name": name, "sha256": hashlib.sha256(content).hexdigest()}
     from docx import Document
 
@@ -175,14 +176,14 @@ def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder, tmp_pat
     assert letter["waits"] and letter["document"]["sha256"] == printed["result"]["file"]["sha256"]
     draft = letter["draft"]
     assert (draft["to"], draft["subject"]) == ("anna@minta.hu", "Biztosítási ajánlat – Minta Kereskedő Kft.")
-    assert draft["body"].startswith("Tisztelt Minta Anna!") and "Az éves díj 487\u00a0000 HUF." in draft["body"]
+    assert draft["body"].startswith("Tisztelt Minta Anna!") and "Az éves díj 487\u00a0000 Ft." in draft["body"]
     assert case_views.view(case_id)["next"]["code"] == "letter_accept"
     case_views.act(case_id, "letter", "accept", ANNA, values={**draft, "expected_basis": letter["basis"]})
     state = _turn(case_id)
     accepted = state["steps"]["letter"]["result"]
     assert state["steps"]["letter"]["state"] == "done" and accepted["to"] == "anna@minta.hu"
     eml, eml_name = approved_document.step_file(case_id, "letter")
-    assert accepted["file"] == {"name": eml_name, "sha256": hashlib.sha256(eml).hexdigest()} and eml_name.endswith(".eml")
+    assert accepted["file"] == {"name": eml_name, "sha256": hashlib.sha256(eml).hexdigest()} and eml_name.endswith("-v1.eml")
     out = tmp_path / "out"
     out.mkdir()
     monkeypatch.setattr(app_settings, "output_folder", lambda: str(out))

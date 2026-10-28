@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError, setActor, type CaseView } from "../api";
 import type { QuoteView } from "../domains/quotes/api";
 import { setLanguage } from "../i18n";
-import { CasePage, moving } from "./CasePage";
+import { CasePage, moving, settling } from "./CasePage";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -61,6 +61,35 @@ describe("a process pack's case (231)", () => {
     expect(moving(PAGE)).toBe(false);  // its steps wait for a person's start or for steps before them
     expect(moving({ ...PAGE, case: { ...PAGE.case, due: true } })).toBe(true);  // a person's decision the worker takes next
     expect(moving({ ...PAGE, case: { ...PAGE.case, due: true, status: "closed" } })).toBe(false);
+    // U1: a step of a person's capability whose wait is the machine's (a live run working)
+    expect(moving({ ...PAGE, steps: { ...PAGE.steps, match: step("running", { by_person: true, waiting_for: "run_end", waits_on: "work" }) } })).toBe(true);
+  });
+
+  it("shows a step a closed case never reached as not run, not as waiting (U1)", async () => {
+    vi.spyOn(api, "casePage").mockResolvedValue({ ...PAGE, case: { ...PAGE.case, status: "closed" }, next: null });
+    render(<CasePage caseId="wp-000000000231" tab="quote" />);
+    expect(await screen.findAllByText("The case closed before this step ran.")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /Ask for the proposal/ })).toBeNull();
+  });
+
+  it("offers what follows a closed case and starts it, then names the case it started (U1)", async () => {
+    const closed = { ...PAGE, case: { ...PAGE.case, status: "closed" }, next: null,
+                     follow_ups: [{ pack: "insurance_offer", title: "Start the full quote from these documents", case_id: null }] };
+    vi.spyOn(api, "casePage").mockResolvedValue(closed);
+    const made = vi.spyOn(api, "caseFollowUp").mockResolvedValue({ case_id: "wp-000000000999" });
+    render(<CasePage caseId="wp-000000000231" />);
+    fireEvent.click(await screen.findByRole("button", { name: /Start the full quote from these documents/ }));
+    await waitFor(() => expect(made).toHaveBeenCalledWith("wp-000000000231", "insurance_offer"));
+    cleanup();
+    vi.spyOn(api, "casePage").mockResolvedValue({ ...closed, follow_ups: [{ ...closed.follow_ups[0], case_id: "wp-000000000999" }] });
+    render(<CasePage caseId="wp-000000000231" />);
+    expect((await screen.findByRole("link", { name: "Followed by: wp-000000000999" })).getAttribute("href")).toBe("#/cases/wp-000000000999");
+  });
+
+  it("asks again for a while after a person's action, for a step that looks again on its own (U1)", () => {
+    expect(settling(null, 1000)).toBe(false);
+    expect(settling(1000 + 12000, 1000)).toBe(true);
+    expect(settling(1000 + 12000, 1000 + 12001)).toBe(false);
   });
 
   it("asks for the proposal by starting the case's step", async () => {

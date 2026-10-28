@@ -99,6 +99,13 @@ describe("the case page's document processing element (231 C3b3)", () => {
     expect(screen.getByRole("link", { name: "run-1" }).getAttribute("href")).toBe("#/runs/run-1");
   });
 
+  it("names a finished run's state, not its code (U1)", () => {
+    const done = { ...VIEW, can_start: false, runs: [{ run_id: "run-2", mode: "apply", status: "done", approval: null }] };
+    render(<PackageWork {...props(done)} />);
+    expect(screen.getByText("Done")).toBeTruthy();
+    expect(screen.queryByText("done")).toBeNull();
+  });
+
   it("says why a case has no package", () => {
     const { unmount } = render(<PackageWork {...props({ package: null }, "done")} />);
     expect(screen.getByText("The source held no document: the case is done without a package.")).toBeTruthy();
@@ -117,13 +124,21 @@ describe("the case page's document processing element (231 C3b3)", () => {
       .toBe("3 documents · live run in progress");
     expect(packageWorkLine({ ...VIEW, runs: [{ run_id: "r", mode: "apply", status: "done", approval: "a1" }] }))
       .toBe("3 documents · approved");
+    // U1 (the walkthrough): a live run that has ended waits for its approval or its to-dos, not "in progress"
+    expect(packageWorkLine({ ...VIEW, runs: [{ run_id: "r", mode: "apply", status: "done", approval: null }] }))
+      .toBe("3 documents · its live run waits for approval");
+    expect(packageWorkLine({ ...VIEW, runs: [{ run_id: "r", mode: "apply", status: "needs_review", approval: null }] }))
+      .toBe("3 documents · its live run has to-dos");
+    expect(packageWorkLine({ ...VIEW, runs: [{ run_id: "r", mode: "apply", status: "failed", approval: null }] }))
+      .toBe("3 documents · its live run stopped");
   });
 
   it("has a Hungarian translation for every new label", () => {
     const labels = ["The case's documents", "Chosen files", "The folder's full path", "Its subfolders too",
       "The files' full paths, one a line", "Start the live run", "Starts the package's live run, which can spend up to {{usd}}",
       "The package is being made…", "The package's pages", "The source held no document: the case is done without a package.",
-      "live run in progress", "no documents", "waiting for its live run", "Processing", "Review", "Result"];
+      "live run in progress", "no documents", "waiting for its live run", "Processing", "Review", "Result",
+      "its live run waits for approval", "its live run has to-dos", "its live run stopped"];
     expect(labels.filter((l) => !(l in hungarian))).toEqual([]);
   });
 });

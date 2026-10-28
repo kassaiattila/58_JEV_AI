@@ -47,7 +47,7 @@ from jav.core.process import cases
 from jav.core.user_messages import explained
 
 __all__ = ["CONTAINER", "CONTAINER_PACK", "adopt_all", "adopt_case", "approval_steps", "basis_of", "kept_of", "outdated",
-           "outputs_of", "own_version_steps", "unfit_cases",
+           "outputs_of", "own_version_steps", "unfit_cases", "FollowUpError", "follow_up", "follow_ups",
            "owns_approval", "pack_for", "pack_of", "pack_step_kind", "register", "start_case", "step_using", "wrap_case",
            "wrap_into"]
 
@@ -55,13 +55,15 @@ CONTAINER = "case"  # the container work package's kind
 activity_kinds.register_events("package", ("case_wrapped",), __name__)  # C3b4: a wrapped package's log names its case
 
 
-def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identity.Who) -> str:
+def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identity.Who, follows: str | None = None,
+               owner: identity.Who | None = None) -> str:
     """Starts a case of the pack's current version with this scope (checked by its parts); returns its id. 231 (B2):
     with the process's own active values over the file's resources, kept in the case's data (a later change reaches
     only the cases started after it); (B3) and its own active rule values, which the case's work reads over the rule
     files (`capabilities.case_rules`). Stage D0 (D0-e): it keeps the versions current at its start to its end: its
     resources naming a versioned thing (a price list, a template) at their version then, and the rule files its steps
-    read as its calculation snapshot holds them (`capabilities.KEPT_RULES`)."""
+    read as its calculation snapshot holds them (`capabilities.KEPT_RULES`). U1: the case belongs to `owner` when given
+    (a case the email intake starts belongs to whom the email's package belongs), else to who starts it."""
     from jav.app import process_settings
 
     pack = process_packs.load(pack_id)
@@ -70,17 +72,57 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
     resources = kept.resources
     rules, rule_refs = process_settings.effective_rules(pack)
     definition = process_packs.definition(kept)
-    wp = work.create_workpackage(name=name, source_kind=CONTAINER, source_ref=f"pack:{pack.id}@{pack.version}", owner=actor)
+    wp = work.create_workpackage(name=name, source_kind=CONTAINER, source_ref=f"pack:{pack.id}@{pack.version}",
+                                 owner=owner or actor)
     case_id = wp["id"]
     data = {"pack": pack.id, "pack_version": pack.version, "container": case_id, "name": wp["name"], "scope": checked,
             "resources": resources, capabilities.RULES: rules, capabilities.RULE_REFS: rule_refs,
-            capabilities.KEPT_RULES: _kept_rule_files(pack)}
+            capabilities.KEPT_RULES: _kept_rule_files(pack)} | ({"follows": follows} if follows else {})
     with cases.transaction() as c:
         package_scope.save(c, case_id, parts=checked, actor=actor, **_scope_columns(checked))
         cases.start_in(c, case_id, definition, data, identity.who(actor))
         for step_id in _approving(pack, from_start=True):  # C3a-1: it waits for that approval as a person's task
             human_tasks.own_approval_waits(c, case_id, step_id)  # D0-b: each approving step for its own
     return case_id
+
+
+class FollowUpError(ValueError):
+    """No such follow-up of the case now: it is open, closed otherwise, or the follow-up was started already."""
+
+
+FOLLOWED = "followed_up"  # 231 (U1): the history row of a follow-up started from a closed case
+
+
+def follow_ups(case_id: str) -> list[dict[str, Any]]:
+    """231 (U1; the owner's decision of 2026-10-28): what may follow the case now: its pack's follow-ups for the outcome
+    it closed with ({pack, title, case_id}: the case started from it, None until one was); none while it is open."""
+    pack = pack_for(case_id)
+    with store.connect() as c:
+        row = cases.find_case_in(c, case_id) or {}
+        started = {h["detail"].get("pack"): h["detail"].get("case") for h in cases.history_in(c, case_id, FOLLOWED)}
+    if pack is None or row.get("status") != cases.CLOSED:
+        return []
+    return [{"pack": f.pack, "title": f.title, "case_id": started.get(f.pack)} for f in pack.follow_ups
+            if f.on == row.get("outcome")]
+
+
+def follow_up(case_id: str, pack_id: str, *, actor: identity.Who) -> str:
+    """231 (U1): a case of the follow-up process `pack_id` started from the closed case's own scope (its documents),
+    named as it is and knowing the case it follows (`follows` in its data); recorded on the closed case. Refused
+    (`FollowUpError`) when the case offers no such follow-up now or it was started already."""
+    offered = next((f for f in follow_ups(case_id) if f["pack"] == pack_id), None)
+    if offered is None:
+        raise explained(FollowUpError, "the case offers no follow-up {{pack}} now", pack=pack_id)
+    if offered["case_id"] is not None:
+        raise explained(FollowUpError, "the follow-up was started already: {{case}}", case=offered["case_id"])
+    with store.connect() as c:
+        data = (cases.find_case_in(c, case_id) or {}).get("data") or {}
+    target = process_packs.load(pack_id)
+    scope = {k: v for k, v in (data.get("scope") or {}).items() if k in target.scope.parts}
+    new = start_case(pack_id, scope, name=str(data.get("name") or case_id), actor=actor, follows=case_id)
+    with cases.transaction() as c:
+        cases.record(c, case_id, None, FOLLOWED, identity.who(actor), {"pack": pack_id, "case": new})
+    return new
 
 
 def _kept_rule_files(pack: process_packs.ProcessPack) -> list[str]:

@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "name": "example_mailboxes",
+    "version": "1.0.0",
+    "description": "231 (stage U, U1e; the owner's decision of 2026-10-28): the invented mailboxes the mailbox download and the email routing are tried on (jav/domains/email/mailbox_examples.py). A download of an invented mailbox's address is served by the invented bridge instead of Outlook: it sends each message of the requested folders (Inbox, Sent Items) and period to the system's own email receiver, as the Outlook bridge does, its attachments printed as PDFs. A message is written here, or taken from a golden set (`golden`: the set and its case, the email with its printed attachments); an attachment is a golden set's printed document. Every address is invented (the .example domain is reserved); the consultancy is the invented own party of example_parties.json, and its two sent emails carry two of its invented invoices.",
+    "changelog": [
+      {"version": "1.0.0", "date": "2026-10-28", "note": "231 (U1e): the invented consultancy's mailbox: two invoices it sent (March and June 2026), a customer's payment notice and an invented customer's quote request."}
+    ]
+  },
+  "mailboxes": [
+    {
+      "id": "example_consultancy",
+      "address": "iroda@minta-tanacsado.example",
+      "name": "Minta Tanácsadó Kft.",
+      "messages": [
+        {"id": "sent_abcd0005", "folder": "Sent Items", "received": "2026-03-10T10:05:00+01:00",
+         "from": "iroda@minta-tanacsado.example", "sender": "Minta Tanácsadó Kft.", "to": ["penzugy@pelda-vasarlo.example"],
+         "subject": "Számla: ABCD0005",
+         "body": "Tisztelt Partnerünk!\n\nMellékelten küldjük az ABCD0005 számú számlánkat az informatikai tanácsadásról. Fizetési határidő: 2026. március 20.\n\nÜdvözlettel:\nMinta Tanácsadó Kft.\n",
+         "attachments": [{"file": "ABCD0005.pdf", "golden": "golden_synthetic", "case": "synthetic_out_hu_huf"}]},
+        {"id": "payment_abcd0005", "folder": "Inbox", "received": "2026-03-18T14:20:00+01:00",
+         "from": "penzugy@pelda-vasarlo.example", "sender": "Példa Vásárló Zrt. pénzügy", "to": ["iroda@minta-tanacsado.example"],
+         "subject": "Utalás: ABCD0005",
+         "body": "Tisztelt Minta Tanácsadó Kft.!\n\nA mai napon átutaltuk az ABCD0005 számú számla összegét, 1 270 000 forintot.\n\nÜdvözlettel:\nPélda Vásárló Zrt. pénzügy\n",
+         "attachments": []},
+        {"id": "sent_abcd0011", "folder": "Sent Items", "received": "2026-06-15T16:40:00+02:00",
+         "from": "iroda@minta-tanacsado.example", "sender": "Minta Tanácsadó Kft.", "to": ["teszt.elek@pelda.example"],
+         "subject": "Számla: ABCD0011",
+         "body": "Kedves Teszt Elek!\n\nMellékelten küldöm a számítógép beállításáról szóló ABCD0011 számú számlát. Fizetési határidő: 2026. június 23.\n\nÜdvözlettel:\nMinta Tanácsadó Kft.\n",
+         "attachments": [{"file": "ABCD0011.pdf", "golden": "golden_synthetic", "case": "synthetic_out_hu_aam_person"}]},
+        {"id": "quote_request", "folder": "Inbox", "golden": "golden_quotes", "case": "q04_hu_network_pdf"}
+      ]
+    }
+  ]
+}

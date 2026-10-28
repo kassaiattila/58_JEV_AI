@@ -693,6 +693,13 @@ def fill_new(wp: dict[str, Any], fill: Callable[[], dict[str, Any]]) -> dict[str
 
 
 @store.one_connection
+def person_owner(wp: dict[str, Any]) -> str | None:
+    """231 (U1): the package's owner when a person owns it; None when nobody or a machine does (a case the email intake
+    started before its owner was the email package's: a letter of it is signed by nobody rather than by the machine)."""
+    owner, owner_id = wp.get("owner"), str(wp.get("owner_id") or "")
+    return None if not owner or owner_id.startswith("machine:") else str(owner)
+
+
 def get(wp_id: str) -> dict[str, Any]:
     with store.connect() as c:
         row = c.execute("SELECT * FROM workpackages WHERE id=?", (wp_id,)).fetchone()

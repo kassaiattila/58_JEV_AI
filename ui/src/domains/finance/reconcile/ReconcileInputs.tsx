@@ -180,7 +180,10 @@ export function ReconcileInputs({ ws, readOnly, onWorkspace, kind }: {
         label={t("The package's items")} selectable={!readOnly}
         scope={{ workpackage_id: wpId, ...(showLeftOut ? { left_out: "1" } : {}), ...(showOthers ? { others: "1" } : {}),
           ...(kind ? { kind } : {}) }}
-        emptyText={t("No statement or invoice is in the scope yet.")} storageId="reconcile_inputs" maxHeight="50vh" cell={cell}
+        // U1: the invoices' and the statements' own tabs say which of them is missing
+        emptyText={kind === "invoice" ? t("No invoice is in the scope yet: the invoices other packages processed for its party and period show here.")
+          : kind === "statement" ? t("No statement is in the scope yet.") : t("No statement or invoice is in the scope yet.")}
+        storageId="reconcile_inputs" maxHeight="50vh" cell={cell}
         toolbar={<>
           <label className="check small"><input type="checkbox" checked={showLeftOut} onChange={(e) => setShowLeftOut(e.target.checked)} />
             {" "}{leftOut ? t("Left-out documents too ({{n}})", { n: leftOut }) : t("Left-out documents too")}</label>

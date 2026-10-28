@@ -80,7 +80,7 @@ def test_the_data_is_the_approved_quotes_and_an_unpriced_line_is_refused():
 def test_the_built_in_template_writes_hungarian_or_english_and_leaves_out_an_empty_line():
     hu = _text(builtin.render(quote_document.data(_content(), package="Office", version=1, approved_at="2026-10-22")))
     assert "Árajánlat" in hu and "Ajánlatkérő: Példa Kft." in hu and "Kért határidő: 2026. 11. 05." in hu
-    assert "Bruttó összesen: 209 169 HUF" in hu and "ÁFA (27 %): 44 469 HUF" in hu
+    assert "Bruttó összesen: 209 169 Ft" in hu and "ÁFA (27 %): 44 469 Ft" in hu
     assert "Adószám" not in hu and "Hivatkozás" not in hu and "Piszkozat" not in hu
     assert hu.endswith("Office · 1. változat · . oldal")  # the page number is a field, outside the paragraph's text
     en = _text(builtin.render(quote_document.data(_content("en", reference="RFQ-7"), package="Office")))
@@ -113,7 +113,7 @@ def test_the_approval_stores_the_document_and_the_download_never_changes(quote):
     files = package_release.own_files(wp_id, 1)
     assert [(f["state"], f["template"]) for f in files] == [("approved", "builtin")]
     stored, name = quote_draft.version_docx(wp_id, 1)
-    assert name == "arajanlat-Office-v1.docx" and "1 228 979 HUF" in _text(stored)
+    assert name == "arajanlat-Office-v1.docx" and "1 228 979 Ft" in _text(stored)
     kept = quote_draft.approved_version(wp_id, 1)["quote"]
     assert kept["language"] == "hu"
     after = quote_draft.reopen(wp_id, note="Another monitor", actor="anna")
@@ -162,7 +162,7 @@ def test_an_own_word_template_chosen_for_the_package_makes_the_stored_document(q
     quote_draft.approve(wp_id, fingerprint=v["fingerprint"], actor="anna")
     assert package_release.own_files(wp_id, 1)[0]["template"] == made["template"]
     text = _text(quote_draft.version_docx(wp_id, 1)[0])
-    assert "Our offer to " in text and "1 228 979 HUF" in text and "Monitor 24 colos" in text
+    assert "Our offer to " in text and "1 228 979 Ft" in text and "Monitor 24 colos" in text
 
 
 def test_the_service_gives_the_draft_and_the_versions_document(quote, tmp_path):

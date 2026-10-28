@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "connectors",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "231 (plan stage C, C2a; glossary: Connector): the external services the system asks, one description each (jav/core/connectors.py). A lookup asks without changing the other system; every question goes into the call log under the connector's name, and what leaves the machine is listed in `sends`. A free lookup whose answer was lost is a plain failure (asked again later); a priced one reserves its price from the running work's budget. A message that changes another system is not a connector's question: it goes through the process core's handover record.",
     "changelog": [
+      {
+        "version": "1.2.0",
+        "date": "2026-10-28",
+        "note": "231 (U1; the walkthrough of 2026-10-28): the two invented lookups' descriptions, which a person reads on a case's page, no longer name their data file."
+      },
       {
         "version": "1.1.0",
         "date": "2026-10-26",
@@ -18,7 +23,7 @@
   },
   "connectors": {
     "invented_company_register": {
-      "what": "An invented company register on this machine, for the tests and the trial (configs/golden_registers.json)",
+      "what": "An invented company register on this machine, for the tests and the trial",
       "kind": "lookup",
       "url": "http://127.0.0.1:8941/company",
       "headers": {"Content-Type": "application/json"},
@@ -31,7 +36,7 @@
       "max_response_bytes": 100000
     },
     "invented_sanctions_list": {
-      "what": "An invented sanctions list on this machine, for the tests and the trial (configs/golden_registers.json)",
+      "what": "An invented sanctions list on this machine, for the tests and the trial",
       "kind": "lookup",
       "url": "http://127.0.0.1:8941/sanctions",
       "headers": {"Content-Type": "application/json"},

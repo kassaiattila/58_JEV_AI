@@ -66,6 +66,8 @@ NOT_XML = re.compile("[^\t\n\r\x20-퟿-�\U00010000-\U0010ffff]")
 NBSP = " "
 MONTHS_EN = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
              "November", "December")
+# 231 (U1; finding 19 of the walkthrough): a currency in Hungarian text, as Hungarian writes it after an amount
+CURRENCY_HU = {"HUF": "Ft"}
 
 
 def _w(tag: str) -> str:
@@ -322,6 +324,8 @@ def shown(value: Any, kind: str, language: str = "hu") -> str:
     if kind == "date" and isinstance(value, str) and ISO_DATE.match(value):
         d = date.fromisoformat(value)
         return f"{d.day} {MONTHS_EN[d.month - 1]} {d.year}" if english else f"{d.year}. {d.month:02d}. {d.day:02d}."
+    if kind == "currency" and not english:  # the forint reads "Ft" after an amount; another code stays as it is
+        return CURRENCY_HU.get(str(value).upper(), str(value))
     return str(value)
 
 

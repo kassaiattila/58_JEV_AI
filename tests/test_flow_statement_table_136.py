@@ -142,3 +142,10 @@ def test_the_service_surveys_an_export_and_adds_the_chosen_accounts(tmp_path, mo
         bad = client.post(f"/api/workpackages/{wp['id']}/statement-tables", headers=HUMAN,
                           json={"path": str(export), "keys": ["unknown"], "expected_revision": r.json()["workpackage"]["revision"]})
         assert bad.status_code == 422
+
+
+def test_a_table_export_statement_has_a_name_in_the_result_tables() -> None:
+    """U1 (the walkthrough of 2026-10-28): the result table's type column names it instead of showing its code."""
+    from jav.app import datasets
+
+    assert "statement_table" in datasets.label_set("doc_type")

@@ -98,6 +98,10 @@ def test_a_new_email_starts_its_case_once_and_its_paid_step_waits_for_a_person(e
     assert started["record"] == {"workpackage_id": wp_id, "item_id": item["item_id"]}
     case_id = started["case_id"]
     assert _taken()[(wp_id, item["item_id"])] == ("started", case_id)
+    from jav.app import work
+
+    # U1 (the walkthrough): the case belongs to whom the email package belongs, not to the machine that started it
+    assert work.get(case_id)["owner"] == work.get(wp_id)["owner"] == "teszt"
     assert intake.start_due() == []  # once
     engine.turn(case_id, wake=True)
     steps = engine.state(case_id)["steps"]

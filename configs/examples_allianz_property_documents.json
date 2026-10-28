@@ -1,10 +1,15 @@
 {
   "meta": {
     "name": "examples_allianz_property_documents",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "date": "2026-10-27",
     "description": "231 (stage U, U-A6; the owner's decisions of 2026-10-27): the invented documents a case of the real corporate property product can start on, in packets, as its process's example material (`configs/processes/<id>.json` `examples.documents`). Each document is its printed pages, made from the golden set `configs/golden_allianz_property_documents.json` as the measurement prints it (`python -m jav.cli examples --set allianz_property_documents --write`; a test keeps them the same). The packets' titles are the interface's (English source, translated). Every name and number is invented.",
     "changelog": [
+      {
+        "version": "1.2.0",
+        "date": "2026-10-28",
+        "note": "231 U1: the cold store's own invented tax number (from the golden set 1.2.0)."
+      },
       {
         "version": "1.1.0",
         "date": "2026-10-28",
@@ -192,7 +197,7 @@
               "BIZTOSÍTÁSI AJÁNLATKÉRŐ LAP",
               "Vállalati vagyonbiztosítás",
               "Szerződő: Minta Hűtőház Kft.",
-              "Adószám: 13570008-1-13",
+              "Adószám: 53102467-2-26",
               "Fő tevékenység (TEÁOR): 5210",
               "Kapcsolattartó: Minta Péter, peter@minta.hu",
               "Kockázatviselés kezdete: 2027. január 1.",
@@ -251,7 +256,7 @@
           "pages": [
             [
               "KÁRELŐZMÉNY-NYILATKOZAT",
-              "Nyilatkozattevő: Minta Hűtőház Kft., adószám: 13570008-1-13",
+              "Nyilatkozattevő: Minta Hűtőház Kft., adószám: 53102467-2-26",
               "Vizsgált időszak: 2022. január 1. – 2026. december 31.",
               "Káresemény napja   Kár oka   Kifizetett kárösszeg",
               "2023. augusztus 2.   hűtéskimaradás   2 500 000 Ft",

@@ -98,8 +98,8 @@ def test_the_priced_document_stores_the_offer_with_the_version_once(decided) -> 
     text = _text(stored["content"])
     assert "Szerződő: Minta Kft." in text and "Díj (HUF)" in text
     assert "Túlfeszültség\n72\u00a0825\n" in text  # each module's premium in its row
-    assert "Részösszeg: 472\u00a0825 HUF" in text and "Díjfizetési gyakoriság\n1,03" in text  # the factor on the total
-    assert "Éves díj: 487\u00a0000 HUF (kerekítve)" in text
+    assert "Részösszeg: 472\u00a0825 Ft" in text and "Díjfizetési gyakoriság\n1,03" in text  # the factor on the total
+    assert "Éves díj: 487\u00a0000 Ft (kerekítve)" in text
 
 
 def test_the_built_in_template_leaves_out_an_empty_line_and_marks_a_draft() -> None:
@@ -109,7 +109,7 @@ def test_the_built_in_template_leaves_out_an_empty_line_and_marks_a_draft() -> N
     draft = _text(builtin.render(_offer(state="Tervezet")))
     assert "Biztosítási ajánlat – Tervezet" in draft and "minimális díja" not in draft and "változat" not in draft
     plain = _text(builtin.render(_offer(factors=False)))  # no factor on the total: the modules add up to it
-    assert "Részösszeg" not in plain and "Díjmódosító tényező" not in plain and "Éves díj: 472\u00a0825 HUF\n" in plain
+    assert "Részösszeg" not in plain and "Díjmódosító tényező" not in plain and "Éves díj: 472\u00a0825 Ft\n" in plain
 
 
 def test_a_decision_that_names_no_kept_premium_is_no_offer(tmp_path) -> None:

@@ -667,8 +667,12 @@ def _documents(scope: dict[str, str]) -> Rows:
         shown = any(row[first] for row in rows)
         cols += [col(c.key, c.head, c.kind, hidden=not shown, labels=c.labels) for c in part.columns]
     # 197: a field of one type only reads as that type's own name (the quote request's customer is the requester)
-    cols += [col(f"f:{f}", field_names.field_label(f, field_names.shared_type(f, records)), _field_kind(kinds.get(f)),
-                 field=f) for f in fields]
+    for f in fields:
+        # 231 (U1): an enumerated field's column shows its values' names
+        names = field_names.value_labels(f)
+        c = col(f"f:{f}", field_names.field_label(f, field_names.shared_type(f, records)),
+                "enum" if names else _field_kind(kinds.get(f)), field=f)
+        cols.append(replace(c, labels=names) if names else c)
     if not any(r.get("source_email") for r in records):  # only meaningful in an email package: hidden otherwise
         cols = [replace(c, hidden=True) if c.key == "source_email" else c for c in cols]
     return cols, _zip_rows([c.key for c in cols], rows, link, lambda d: d["item_id"])

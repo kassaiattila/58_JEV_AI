@@ -64,7 +64,8 @@ def routes(app: FastAPI, r: str) -> None:
                                "source_kinds": document_processing.source_kinds(p),  # 231 (C3d)
                                "manual": any(i.on == intake.MANUAL for i in p.intake), "summary": p.summary,
                                "missing_at_start": process_settings.missing_at_start(p),
-                               "examples": p.examples is not None and bool(p.examples.sets or p.examples.documents)}
+                               "examples": p.examples is not None and bool(p.examples.sets or p.examples.documents
+                                                                            or p.examples.note)}
                               for p in process_packs.packs()]}
 
     @app.exception_handler(examples.ExampleInUse)

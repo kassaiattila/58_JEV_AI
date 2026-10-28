@@ -2,7 +2,9 @@
 // person may start by hand, each with what it is for, in the left column; one whose case cannot start yet (a product or
 // a tariff with no active version) says what it needs. The chosen process's part stands beside the list, so its next
 // step shows without scrolling: its example material where it has some, then its own start form (the shared one,
-// `elements/ProcessStart.tsx`), which asks what a case of it needs and starts it.
+// `elements/ProcessStart.tsx`), which asks what a case of it needs and starts it. U1e: once the material changes, the
+// form is made anew, so its choices (an own party the material made) are read again.
+import { useState } from "react";
 import { api } from "../api";
 import { ExampleMaterial } from "../elements/ExampleMaterial";
 import { ProcessCreate } from "../elements/ProcessStart";
@@ -17,6 +19,8 @@ export function NewCase({ pack }: { pack?: string }) {
   const startable = (processes.data?.processes ?? []).filter((p) => p.manual);
   const chosen = startable.find((p) => p.id === pack) ?? null;
   const missing = chosen?.missing_at_start ?? [];
+  const [material, setMaterial] = useState(0);
+  const materialChanged = () => { processes.reload(); setMaterial((n) => n + 1); };
   return (
     <>
       <PageHeader crumbs={[{ label: t("Cases"), href: "#/cases" }]} title={t("New case")}
@@ -46,12 +50,12 @@ export function NewCase({ pack }: { pack?: string }) {
           </section>
           <section className="card new-case-form" aria-label={chosen ? t(chosen.title) : t("New case")}>
             {chosen ? <h2>{t(chosen.title)}</h2> : <p className="muted">{t("Choose a process on the left: its form opens here.")}</p>}
-            {chosen?.examples ? <ExampleMaterial pack={chosen.id} needed={missing.length > 0} onChanged={processes.reload} /> : null}
+            {chosen?.examples ? <ExampleMaterial pack={chosen.id} needed={missing.length > 0} onChanged={materialChanged} /> : null}
             {chosen && missing.length && !chosen.examples ? (
               <p className="small">{t("Make them active first:")} <a href="#/settings/processes">{t("Settings › Processes")}</a></p>
             ) : null}
             {chosen && !missing.length ? (
-              <ProcessCreate key={chosen.id} pack={chosen.id} onDone={(caseId) => go({ view: "cases", caseId })} />
+              <ProcessCreate key={`${chosen.id}:${material}`} pack={chosen.id} onDone={(caseId) => go({ view: "cases", caseId })} />
             ) : null}
           </section>
         </div>

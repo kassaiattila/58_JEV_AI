@@ -306,8 +306,9 @@ def register() -> None:
         statement_package.RULE_NAME, statement_package.__name__, statement_package.make_for_case,
         rule=statement_package.RULE_NAME, package_kinds=(statement_package.PLAIN,), step_offer=statement_package.workflow_offer,
         repeat_from=statement_package.workflow_repeat_from, estimate=statement_package.workflow_estimate))
-    from jav.domains.finance import capabilities
+    from jav.domains.finance import capabilities, party_examples
 
+    party_examples.register()  # 231 (U1e): an invented own party and its statements as a process's example material
     # 231 (C2b): the pairing of two lists as a general capability's step (the monthly reconciliation's pack names it, C2d);
     # (C2d) the accounts a case reconciles as a scope part, by default its party's; (C2e) the party its accounts imply
     capabilities.register()

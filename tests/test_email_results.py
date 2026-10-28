@@ -209,6 +209,22 @@ def test_attachments_can_be_added_to_an_older_mail_package(env):  # noqa: F811
     assert mailbox.add_attachments(wp_id, expected_revision=wp["revision"])["revision"] == wp["revision"]  # nothing new: no revision step
 
 
+def test_a_mail_package_whose_messages_left_the_disk_still_opens(env):  # noqa: F811
+    """U1 (the walkthrough of 2026-10-28): a mailbox package whose messages' folders are gone from the disk (the mailbox
+    folder removed) opens with no attachment to add, instead of failing its page with an unreadable file."""
+    import shutil
+
+    res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge([_mail_with_pdf(env)]), inbox_root=env["inbox"])
+    wp_id = res["workpackage"]
+    wp = work.get(wp_id)
+    for item in wp["items"]:
+        if item["kind"] == "email":
+            shutil.rmtree(Path(item["source_path"]).parent)
+    assert mailbox.missing_attachments(wp) == []
+    view = work_views.workpackage_view(wp_id)
+    assert view["workpackage"]["id"] == wp_id and view["attachments_missing"] == 0
+
+
 def test_old_results_do_not_count_bookkeeping_files_as_attachments():
     res = {"intent": "other", "intent_conf": 0.9, "attachments": [{"filename": "receipt.json", "status": "unsupported"},
                                                                  {"filename": "szamla.pdf", "doc_type": "invoice_hu"}]}

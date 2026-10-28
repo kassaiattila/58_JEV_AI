@@ -129,6 +129,13 @@ def test_a_risk_the_rules_refer_goes_to_the_full_quote(renewal) -> None:
     with store.connect() as c:
         row = cases.find_case_in(c, case_id)
     assert (state["status"], row["status"]) == (cases.CLOSED, cases.CLOSED)
+    # U1 (the owner's decision of 2026-10-28): the closed renewal offers the full quote from its documents
+    [offer] = case_views.view(case_id)["follow_ups"]
+    assert (offer["pack"], offer["case_id"]) == ("insurance_offer", None)
+    full = process_runtime.follow_up(case_id, "insurance_offer", actor=ANNA)
+    with store.connect() as c:
+        started = cases.find_case_in(c, full)
+    assert started["data"]["pack"] == "insurance_offer" and started["data"]["scope"] == row["data"]["scope"]
 
 
 def test_it_is_composed_of_the_quote_s_capabilities_only() -> None:

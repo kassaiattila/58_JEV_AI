@@ -1,9 +1,11 @@
 {
   "meta": {
     "name": "process:it_quote",
-    "version": "1.4.0",
+    "version": "1.6.0",
     "description": "231 (plan stage A, A4; DECISIONS 231): the IT quote as a process pack. A quote request read from an email (its text, its table attachments, its attachments) or from a document becomes a case: the request put together, each requested item matched with the active price list, a person composes and approves the lines, the priced Word quote and the reply letter. Since 1.1.0 a person sends the accepted letter (into the output folder) and the case waits for the reply, with a follow-up task after 5 days. Every step names a general capability; the pack holds no code.",
     "changelog": [
+      {"version": "1.6.0", "date": "2026-10-28", "note": "231 (U1e, the walkthrough): how its example material is tried: its record is a quote request read first (the documents process's packet of printed forms, or a download of the invented mailbox)."},
+      {"version": "1.5.0", "date": "2026-10-28", "note": "231 (U1e; the owner's decision of 2026-10-28): its example material, the invented seller's price list of the golden set (configs/golden_quotes.json); the request it starts from is an invented quote request the documents process reads."},
       {"version": "1.0.0", "date": "2026-10-24", "note": "231 (A4): the first version: the quote package's path as capability steps, with its three tabs."},
       {"version": "1.1.0", "date": "2026-10-24", "note": "231 (A7e): the send step (send@1, a person starts it, into the output folder) and the reply wait (wait_reply@1, a follow-up after 5 days); the Sent, Follow-up and History tabs."},
       {"version": "1.2.0", "date": "2026-10-24", "note": "231 (B1): the request's customer as the case's partner (role customer, from the request step's fields), shown on the Request tab; (B2) the quote's Word template as a resource (template:quote, the built-in one), which the process may set."},
@@ -14,6 +16,8 @@
   "id": "it_quote",
   "title": "IT quote",
   "summary": "An IT quote from a customer's quote request (an email or a document already read): the requested lines matched with the price list, approved by a person and sent.",
+  "examples": {"sets": [{"kind": "price_list", "name": "golden_quotes"}],
+               "note": "Its record is a quote request read already: first read one (the Documents process, its packet of printed quote request forms, or a download of the invented mailbox), then choose it here."},
   "scope": {"parts": ["record"]},
   "intake": [
     {"on": "email_intent", "intent": "quote_request", "starts": "case"},

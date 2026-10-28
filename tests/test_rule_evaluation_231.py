@@ -95,6 +95,18 @@ def test_a_missing_fact_makes_the_outcome_unknown_and_names_it() -> None:
     assert result.verdict == "refer"  # the worst of the units: the worn valuables are referred
 
 
+def test_a_missing_fact_of_an_ancestor_is_named_once_on_the_unit_that_holds_it() -> None:
+    """U1 (the walkthrough of 2026-10-28): an asset group's rule reading its site's fact names the site as where the
+    fact is missing - once, not once for each asset group - since only the site can be given it."""
+    checked = _input()
+    site = next(u for u in checked.units if u.level == "site")
+    units = [u.model_copy(update={"facts": {k: v for k, v in u.facts.items() if k != "flood_zone"}}) if u is site else u
+             for u in checked.units]
+    result = rule_evaluation.evaluate(RULES, checked.model_copy(update={"units": tuple(units)}), modules=("property",))
+    assert [m for m in result.missing if m[1] == "flood_zone"] == [("u-0000000002", "flood_zone")]
+    assert result.units["u-0000000003"].rules["asset_flood@1"].missing == ("flood_zone",)  # the rule's own record stays
+
+
 def test_a_rule_of_a_module_not_requested_does_not_apply() -> None:
     result = rule_evaluation.evaluate(RULES, _input(), modules=("property",))
     assert "cash_class@1" not in result.units["u-0000000004"].rules

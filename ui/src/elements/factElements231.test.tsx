@@ -31,7 +31,8 @@ const review = (over: Partial<FieldReviewData> = {}): FieldReviewData => ({
       sources: { company_name: SRC } },
     { unit_id: "u-2", level: "site", parent_id: "u-1", state: 1, facts: { flood_zone: "low" }, sources: {} },
   ],
-  claims: [{ from_step: "company", unit_key: "holder", fact: "activity_code", value: "2562", placement: "conflict", unit_id: "u-1", open: true }],
+  claims: [{ claim_key: "k-1", from_step: "company", unit_key: "holder", fact: "activity_code", value: "2562", placement: "conflict",
+              unit_id: "u-1", open: true, kept: null }],
   state: 7, approval: { state: "missing", step: "check", active: null, versions: [], returned: null, outdated: null },
   catalogue: CAT, frozen: null, conflicts: 1, waits: true, ...over,
 });
@@ -66,6 +67,20 @@ describe("the field review", () => {
       unit_id: "u-1", facts: { company_name: "Minta Kft.", activity_code: "2562" }, expected_state: 3, note: "taken from Company register" }));
   });
 
+  it("lets a person keep the value shown instead, as the page says they may (U1)", async () => {
+    const act = vi.spyOn(api, "caseStepAction").mockResolvedValue({} as CaseView);
+    show("field_review", "check", review(), "field_check@1", "Data check");
+    fireEvent.click(await screen.findByRole("button", { name: "Keep the value shown" }));
+    await waitFor(() => expect(act).toHaveBeenCalledWith(CASE, "check", "keep_value", undefined, { claim_key: "k-1" }));
+  });
+
+  it("offers the day cover starts to begin with, as a document gave it or the last freeze had it (U1)", async () => {
+    show("field_review", "check", review({ claims: [], conflicts: 0, cover_start_hint: "2027-01-01" }), "field_check@1", "Data check");
+    const day = await screen.findByLabelText("Cover starts");
+    expect((day as HTMLInputElement).value).toBe("2027-01-01");
+    expect(screen.getByRole("button", { name: "Freeze the facts" }).className).toBe("primary");
+  });
+
   it("offers the freeze as the solid button only once nothing is to settle and the day is given", async () => {
     const act = vi.spyOn(api, "caseStepAction").mockResolvedValue({} as CaseView);
     show("field_review", "check", review({ claims: [], conflicts: 0 }), "field_check@1", "Data check");
@@ -94,6 +109,26 @@ describe("the field review", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save the unit" }));
     await waitFor(() => expect(act).toHaveBeenCalledWith(CASE, "check", "unit_save", undefined,
       { unit_id: "u-2", facts: { flood_zone: "high" }, expected_state: 1, note: null }));
+  });
+
+  it("edits a list of codes as its options' boxes and names a free code it knows (U1)", async () => {
+    const act = vi.spyOn(api, "caseStepAction").mockResolvedValue({} as CaseView);
+    const cat: Catalogue = { ...CAT, facts: { ...CAT.facts,
+      country: { type: "code", level: "site", title: "Country of the site", unit: null, currency: null, options: null },
+      yard: { type: "codes", level: "site", title: "Protection of a vehicle yard", unit: null, currency: null,
+        options: ["fence_2m", "lit_yard", "manned_guard"] } },
+      labels: { ...CAT.labels, HU: "Hungary", fence_2m: "Fence of 2 metres", lit_yard: "Lit yard" } };
+    const units = review().units.map((u) => (u.unit_id === "u-2" ? { ...u, facts: { flood_zone: "low", country: "HU", yard: ["fence_2m"] } } : u));
+    show("field_review", "check", review({ claims: [], conflicts: 0, catalogue: cat, units }), "field_check@1", "Data check");
+    fireEvent.click((await screen.findAllByRole("button", { name: "Edit" }))[1]);
+    const yard = screen.getByRole("group", { name: "Protection of a vehicle yard" });
+    expect((screen.getByRole("checkbox", { name: "Fence of 2 metres" }) as HTMLInputElement).checked).toBe(true);
+    expect(yard.textContent).toContain("manned_guard");  // an option without a name shows its code
+    expect(screen.getByText("Hungary")).toBeTruthy();  // the free code's name beside its input
+    fireEvent.click(screen.getByRole("checkbox", { name: "Lit yard" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save the unit" }));
+    await waitFor(() => expect(act).toHaveBeenCalledWith(CASE, "check", "unit_save", undefined,
+      { unit_id: "u-2", facts: { flood_zone: "low", country: "HU", yard: ["fence_2m", "lit_yard"] }, expected_state: 1, note: null }));
   });
 
   it("says a frozen check's version and reopens it with a reason", async () => {

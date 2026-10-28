@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "process:mailbox",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "231 (plan stage C, C3d; DECISIONS 231): the download of a mailbox's new emails as a process pack (until C3d the wizard's mailbox form and the workflows' emails step kind): a case downloads its mailbox's emails into its package (an asynchronous fetch through the Outlook bridge, the worker's download job), a person starts its live run within the package's estimate, and the case is done once a live run is approved. A download no step takes (a scheduled one) wraps its package by a case too (the owner's decision of 2026-10-26).",
     "changelog": [
+      {
+        "version": "1.2.0",
+        "date": "2026-10-28",
+        "note": "231 (U1e; the owner's decision of 2026-10-28): how its example material is tried: the invented consultancy's mailbox, read by the invented bridge instead of Outlook."
+      },
       {
         "version": "1.1.0",
         "date": "2026-10-27",
@@ -19,6 +24,9 @@
   "id": "mailbox",
   "title": "Emails from a mailbox",
   "summary": "A mailbox's new emails downloaded and read with their attachments: each email's intent and each attachment's type.",
+  "examples": {
+    "note": "Try it on the invented consultancy's mailbox, iroda@minta-tanacsado.example: its Inbox and Sent Items from 1 March to 31 October 2026 hold four invented emails (two invoices it sent, a payment notice, a quote request), read without Outlook."
+  },
   "scope": {
     "parts": [
       "source"

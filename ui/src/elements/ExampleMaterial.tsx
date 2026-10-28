@@ -18,15 +18,16 @@ export function ExampleMaterial({ pack, needed, onChanged }: { pack: string; nee
   const { busy, error, run } = useAction();
   if (examples.error) return <p className="notice error" role="alert">{examples.error.message}</p>;
   if (!examples.data) return <p className="muted">{t("Loading…")}</p>;
-  const { sets, packets } = examples.data;
-  if (!sets.length && !packets.length) return null;
+  const { sets, packets, note } = examples.data;
+  if (!sets.length && !packets.length && !note) return null;
   const installed = sets.every((s) => s.state === "installed");
   const removable = sets.length > 0 && installed && sets.every((s) => s.example);
   const changed = () => { examples.reload(); onChanged(); };
   return (
     <section className="example-material rc-stack" aria-label={t("Example material")}>
       <h3>{t("Example material")}</h3>
-      <p className="muted small">{t("Invented data to try the process on: nothing in it is real, and it goes in one go while no case keeps it.")}</p>
+      <p className="muted small">{sets.length ? t("Invented data to try the process on: nothing in it is real, and it goes in one go while no case keeps it.")
+        : t("Invented data to try the process on: nothing in it is real.")}</p>
       {sets.length ? (
         <ul className="plain">
           {sets.map((s) => {
@@ -41,6 +42,7 @@ export function ExampleMaterial({ pack, needed, onChanged }: { pack: string; nee
         </ul>
       ) : null}
       {packets.length ? <p className="muted small">{t("{{n}} packets of invented documents to start a case on: the form offers them as its documents.", { n: packets.length })}</p> : null}
+      {note ? <p className="small">{t(note)}</p> : null}
       {(!installed || removable) ? (
         <div className="button-row">
           {!installed ? (

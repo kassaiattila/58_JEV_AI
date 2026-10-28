@@ -7,7 +7,7 @@ import { api, ApiError, type ApprovalState, type CaseCost, type CaseEvent, type 
 import { ApprovalStateNotes, EarlierVersions, ReturnControl } from "../components/ApprovalPanel";
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { fileName, moneyText, providerName, tmap, when } from "../labels";
+import { fileName, moneyText, providerName, saidText, tmap, when } from "../labels";
 import { handoverStatus, replyStatus } from "./caseStatus";
 import type { ElementProps } from "./registry";
 
@@ -257,7 +257,9 @@ export function Timeline(p: ElementProps) {
             <tr key={`${e.at}-${i}`}>
               <td className="tnum">{when(e.at)}</td>
               <td>{e.step_title ? t(e.step_title) : "–"}</td>
-              <td>{eventText(e)}{e.detail.note ? <div className="muted small">{noteText(e.detail.note)}</div> : null}
+              <td>{eventText(e)}{e.detail.reasons?.length
+                ? <div className="muted small">{e.detail.reasons.map(saidText).join("; ")}</div>
+                : e.detail.note ? <div className="muted small">{noteText(e.detail.note)}</div> : null}
                 {e.detail.kept ? <KeptLine kept={e.detail.kept} /> : null}</td>
               <td>{e.who ?? <span className="muted">{t("The system")}</span>}</td>
             </tr>

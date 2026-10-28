@@ -17,6 +17,9 @@ changes, it is frozen again and the steps after it run again.
 - `view(case_id, step)`, `freeze(case_id, step, cover_start=, expected_state=, actor=)`, `reopen(case_id, step, note=,
   actor=)`. D-f2: the step's actions (`ACTIONS`): freeze, reopen, and a unit added, saved or removed, each with the state
   of the page it was made on (an older one is refused).
+- U1 (the walkthrough of 2026-10-28): `keep(case_id, step, claim_key, actor=)`: a person keeps the value shown in a
+  disagreement instead of the one another source offers; it is settled in their name (`KEPT`, journaled), so the units
+  can be frozen with it.
 
 Layer: application; it names no process and no business (the catalogue and the claims are data).
 """
@@ -37,10 +40,11 @@ from jav.core.clock import utc_stamp as _now
 from jav.core.process import kinds
 from jav.core.user_messages import explained
 
-__all__ = ["CAPABILITY", "POINT", "CheckedResult", "Claim", "FieldCheck", "FieldCheckError", "freeze", "placement", "register",
-           "reopen", "view"]
+__all__ = ["CAPABILITY", "KEPT", "POINT", "CheckedResult", "Claim", "FieldCheck", "FieldCheckError", "freeze", "keep", "placement",
+           "register", "reopen", "view"]
 
 POINT = "claims.offered"
+KEPT = "field_check_claim"  # U1: a person's decision on a disagreement (the value shown kept)
 EVENT = "field_check"
 POLL_S = 5.0
 Placement = Literal["new_unit", "filled", "agrees", "conflict", "unplaced"]
@@ -70,6 +74,10 @@ CREATE TABLE IF NOT EXISTS field_check_claims (
     PRIMARY KEY (case_id, step_id, claim_key)
 );
 """)
+store.register_migration("field_check_claims_kept", lambda conn: (store.add_columns(conn, "field_check_claims", {
+    "kept_by": "TEXT", "kept_at": "TEXT"}), store.add_actor_ids(conn, "field_check_claims", ("kept_by",))))
+# U1: a disagreement settled by keeping the value shown, with who kept it (its name and its stable id)
+decisions.register(decisions.Kind(KEPT, ("keep",), __name__))
 
 
 class FieldCheckError(ValueError):
@@ -259,15 +267,31 @@ def view(case_id: str, step: str) -> dict[str, Any]:
     units = assessed_units.units(case_id, step, include_removed=True)
     by_id = {u["unit_id"]: u for u in units}
     with store.connect() as c:
-        claims = [dict(r) for r in c.execute("SELECT from_step, unit_key, fact, value, placement, unit_id, placed_at"
-                                             " FROM field_check_claims WHERE case_id=? AND step_id=? ORDER BY placed_at",
-                                             (case_id, step))]
+        claims = [dict(r) for r in c.execute("SELECT claim_key, from_step, unit_key, fact, value, placement, unit_id, placed_at,"
+                                             " kept_by, kept_at FROM field_check_claims WHERE case_id=? AND step_id=?"
+                                             " ORDER BY placed_at", (case_id, step))]
         state = assessed_units.state_in(c, case_id, step)
     for claim in claims:
         claim["value"] = json.loads(claim["value"])
         unit = by_id.get(claim["unit_id"] or "")
-        claim["open"] = claim["placement"] == "conflict" and bool(unit) and unit["facts"].get(claim["fact"]) != claim["value"]
+        kept_by, kept_at = claim.pop("kept_by"), claim.pop("kept_at")
+        claim["kept"] = {"by": kept_by, "at": kept_at} if kept_by else None  # U1: settled by keeping the value shown
+        claim["open"] = (claim["placement"] == "conflict" and bool(unit) and unit["facts"].get(claim["fact"]) != claim["value"]
+                         and not kept_by)
     return {"units": units, "claims": claims, "approval": package_release.approval_state(case_id, step=step), "state": state}
+
+
+def keep(case_id: str, step: str, claim_key: str, *, actor: identity.Who) -> None:
+    """U1: a person keeps the value shown instead of the one the claim offers (an open disagreement): settled in their
+    name and journaled. A claim that is no open disagreement is refused."""
+    if not any(c["claim_key"] == claim_key and c["open"] for c in view(case_id, step)["claims"]):
+        raise explained(FieldCheckError, "there is no open disagreement to settle here")
+    who = identity.who(actor)
+    with store.connect() as c:
+        store.begin_immediate(c)
+        c.execute("UPDATE field_check_claims SET kept_by=?, kept_by_id=?, kept_at=? WHERE case_id=? AND step_id=?"
+                  " AND claim_key=?", (who.name, who.id, _now(), case_id, step, claim_key))
+        decisions.record(c, KEPT, f"{case_id}:{step}:{claim_key}", "keep", actor=actor, workpackage_id=case_id)
 
 
 def freeze(case_id: str, step: str, *, cover_start: str | date, expected_state: int | None, actor: identity.Who) -> dict[str, Any]:
@@ -327,6 +351,10 @@ class UnitSaveForm(_Form):
     note: str | None = None
 
 
+class KeepForm(_Form):
+    claim_key: str = Field(min_length=1)  # U1: the disagreement whose value shown is kept
+
+
 class UnitRemoveForm(_Form):
     unit_id: str
     reason: str = Field(min_length=1)
@@ -370,6 +398,8 @@ ACTIONS = (
                              lambda case_id, step, actor, v: assessed_units.save(
                                  case_id, step, _catalogue(case_id, step), v.unit_id, facts=v.facts, actor=actor,
                                  expected_state=v.expected_state, note=v.note)),
+    capabilities.form_action("keep_value", "Keep the value shown", _open, KeepForm,
+                             lambda case_id, step, actor, v: keep(case_id, step, v.claim_key, actor=actor)),
     capabilities.form_action("unit_remove", "Remove the unit", _open, UnitRemoveForm,
                              lambda case_id, step, actor, v: assessed_units.remove(
                                  case_id, step, v.unit_id, reason=v.reason, actor=actor, expected_state=v.expected_state)),
@@ -407,7 +437,20 @@ def _review(case_id: str, step: str | None, _shared: dict[str, Any]) -> dict[str
     nxt = {"code": "facts_check", "label": "Check and freeze the facts", "stage": "review", "element": "field_review",
            "params": {"n": conflicts}} if waits else None
     return {**shown, "catalogue": facts.catalogue(params.catalogue).model_dump(mode="json"), "frozen": frozen,
-            "conflicts": conflicts, "waits": waits, "next": nxt}
+            "conflicts": conflicts, "waits": waits, "next": nxt, "cover_start_hint": _cover_start_hint(case_id, step_id, shown)}
+
+
+def _cover_start_hint(case_id: str, step: str, shown: dict[str, Any]) -> str | None:
+    """U1 (the walkthrough of 2026-10-28): the day cover starts the freeze offers to begin with: the one a unit's facts
+    give (a document read it), else the one the check was last frozen with (it was reopened); a person changes it."""
+    for unit in shown["units"]:
+        if not unit.get("removed") and isinstance(unit["facts"].get("cover_start"), str):
+            return str(unit["facts"]["cover_start"])
+    versions = shown["approval"].get("versions") or []
+    if not versions:
+        return None
+    latest = max(int(v["version"]) for v in versions)
+    return str(package_release.own_version(case_id, latest, step=step)["content"].get("cover_start") or "") or None
 
 
 def register() -> None:

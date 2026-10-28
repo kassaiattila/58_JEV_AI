@@ -1,0 +1,553 @@
+{
+  "meta": {
+    "name": "examples_documents",
+    "version": "1.1.0",
+    "date": "2026-10-28",
+    "description": "231 (stage U, U1e; the owner's decision of 2026-10-28): the invented documents a case of the documents process can start on: the invented invoices, credit notes and receipts of configs/golden_synthetic.json and the invented customers' quote requests on a printed form of configs/golden_quotes.json, each as the measurement prints it (jav/evals/document_examples.py; `python -m jav.cli examples --set documents --write`). Every name and number is invented.",
+    "changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-10-28",
+        "note": "231 U1e: a fourth packet, the invented consultancy's invoices (and a credit note) the reconciliation's example pairs with its statements."
+      },
+      {
+        "version": "1.0.0",
+        "date": "2026-10-28",
+        "note": "231 U1e: three packets: invoices, foreign invoices and receipts, quote requests."
+      }
+    ]
+  },
+  "packets": [
+    {
+      "id": "invoices",
+      "title": "Invented invoices in forints and euros, with a credit note",
+      "documents": [
+        {
+          "file": "synthetic_out_hu_huf.pdf",
+          "pages": [
+            [
+              "e-Számla",
+              "Kiállító",
+              "Minta Tanácsadó Kft.",
+              "1111 Budapest,",
+              "Teszt utca 1.",
+              "+36 1 234 5678",
+              "nev@ceg.hu",
+              "12121216-2-42",
+              "HU12121216",
+              "Fizetési információk",
+              "ÁTUTALÁS - Példa Bank",
+              "12100028-46813574-00000000",
+              "Vevő   Számlaszám   ABCD0005",
+              "Példa Vásárló Zrt.   Számla kelte   2026. márc. 10.",
+              "Teljesítés időpontja   2026. márc. 10.",
+              "2222 Mintaváros",
+              "Fizetési határidő   2026. márc. 20.",
+              "Próba út 2.",
+              "Adószám / Csoportazonosító   12345676-2-41",
+              "Megnevezés   Mennyiség   Menny. egység   Nettó egységár   Nettó érték   ÁFA   ÁFA érték   Bruttó érték",
+              "(HUF)   (HUF)   (HUF)   (HUF)",
+              "Informatikai tanácsadás   1   darab   1 000 000,00   1 000 000,00   27%   270 000,00   1 270 000,00",
+              "Tanácsadás a 2026. február 1-jén kelt szerződés szerint",
+              "ÁFA kulcs   Adóalap   ÁFA érték   Számla érték",
+              "(HUF)   (HUF)   (HUF)",
+              "27%   1 000 000   270 000   1 270 000",
+              "Összesen   1 000 000   270 000   1 270 000",
+              "Fizetendő végösszeg   1 270 000 HUF",
+              "Szolgáltató szamlazo.example   Minta Tanácsadó Kft.",
+              "1111 Budapest, Teszt utca 1.",
+              "Kiállító   +36 1 234 5678; nev@ceg.hu;",
+              "Példa Bank; 12100028-46813574-00000000;"
+            ]
+          ]
+        },
+        {
+          "file": "synthetic_out_hu_eur.pdf",
+          "pages": [
+            [
+              "Számla",
+              "Kiállító",
+              "Minta Tanácsadó Kft.",
+              "1111 Budapest,",
+              "Teszt utca 1.",
+              "+36 1 234 5678",
+              "nev@ceg.hu",
+              "12121216-2-42",
+              "HU12121216",
+              "Fizetési információk",
+              "ÁTUTALÁS - Példa Bank",
+              "12100028-46813574-00000000",
+              "Vevő   Számlaszám   ABCD0012",
+              "Példa Partner Kft.   Számla kelte   2026. júl. 01.",
+              "Teljesítés időpontja   2026. jún. 30.",
+              "2222 Mintaváros",
+              "Fizetési határidő   2026. júl. 15.",
+              "Próba út 2.",
+              "Adószám   12345676-2-41",
+              "Megnevezés   Mennyiség   Nettó egységár   Nettó érték   ÁFA   ÁFA érték   Bruttó érték",
+              "(EUR)   (EUR)   (EUR)   (EUR)",
+              "Szoftverfejlesztés június   1   2 000,00   2 000,00   27%   540,00   2 540,00",
+              "ÁFA kulcs   Adóalap   ÁFA érték   Számla érték   ÁFA kulcs   Adóalap   ÁFA érték   Számla érték",
+              "(HUF)   (HUF)   (HUF)   (EUR)   (EUR)   (EUR)",
+              "27%   800 000   216 000   1 016 000   27%   2 000,00   540,00   2 540,00",
+              "Összesen   800 000   216 000   1 016 000   Összesen   2 000,00   540,00   2 540,00",
+              "Árfolyam   1 EUR = 400,00 HUF   Fizetendő végösszeg   2 540,00 EUR",
+              "Szolgáltató szamlazo.example   Minta Tanácsadó Kft.",
+              "1111 Budapest, Teszt utca 1.",
+              "Kiállító   +36 1 234 5678; nev@ceg.hu;",
+              "Példa Bank; 12100028-46813574-00000000;"
+            ]
+          ]
+        },
+        {
+          "file": "synthetic_out_hu_credit_note.pdf",
+          "pages": [
+            [
+              "Helyesbítő számla (sztornó)",
+              "Kiállító",
+              "Minta Tanácsadó Kft.",
+              "1111 Budapest,",
+              "Teszt utca 1.",
+              "+36 1 234 5678",
+              "nev@ceg.hu",
+              "12121216-2-42",
+              "HU12121216",
+              "Fizetési információk",
+              "ÁTUTALÁS - Példa Bank",
+              "12100028-46813574-00000000",
+              "Vevő   Számla sorszáma   ABCD0007",
+              "Példa Vásárló Zrt.   Számla kelte   2026. ápr. 02.",
+              "Teljesítés időpontja   2026. márc. 10.",
+              "2222 Mintaváros",
+              "Fizetési határidő   2026. ápr. 02.",
+              "Próba út 2.",
+              "Adószám   12345676-2-41",
+              "Az eredeti számla sorszáma: ABCD0005",
+              "Megnevezés   Mennyiség   Nettó érték   ÁFA   ÁFA érték   Bruttó érték",
+              "Informatikai tanácsadás   -1   -1 000 000,00   27%   -270 000,00   -1 270 000,00",
+              "Összesen   -1 000 000   -270 000   -1 270 000",
+              "Fizetendő végösszeg   -1 270 000 HUF",
+              "Szolgáltató szamlazo.example   Minta Tanácsadó Kft.",
+              "1111 Budapest, Teszt utca 1.",
+              "Kiállító   +36 1 234 5678; nev@ceg.hu;",
+              "Példa Bank; 12100028-46813574-00000000;"
+            ]
+          ]
+        },
+        {
+          "file": "synthetic_credit_note_hu.pdf",
+          "pages": [
+            [
+              "JÓVÁÍRÓ SZÁMLA",
+              "Jóváíró számla sorszáma: JV-2026-0012",
+              "Eladó:   Vevő:",
+              "Minta Kereskedő Kft.   Példa Vásárló Bt.",
+              "1111 Budapest, Teszt utca 1.   2222 Mintaváros, Próba út 2.",
+              "Adószám: 12121216-2-42   Adószám: 12345676-2-41",
+              "Helyesbített számla sorszáma: KI-2026-0417",
+              "Kiállítás dátuma: 2026.03.10.   Teljesítés dátuma: 2026.03.10.",
+              "Fizetési határidő: 2026.03.18.   Fizetési mód: átutalás",
+              "Megnevezés   Mennyiség   Nettó ár   Áfa   Bruttó ár",
+              "Visszáru: irodaszer   1   -10 000 Ft   27%   -12 700 Ft",
+              "Nettó összesen: -10 000 Ft",
+              "Áfa összesen: -2 700 Ft",
+              "Bruttó összesen: -12 700 Ft"
+            ]
+          ]
+        },
+        {
+          "file": "synthetic_out_hu_aam_person.pdf",
+          "pages": [
+            [
+              "Számla",
+              "Kiállító",
+              "Minta Tanácsadó Kft.",
+              "1111 Budapest,",
+              "Teszt utca 1.",
+              "+36 1 234 5678",
+              "nev@ceg.hu",
+              "12121216-2-42",
+              "HU12121216",
+              "Fizetési információk",
+              "ÁTUTALÁS - Példa Bank",
+              "12100028-46813574-00000000",
+              "Vevő   Számlaszám   ABCD0011",
+              "Teszt Elek   Számla kelte   2026. jún. 15.",
+              "Teljesítés időpontja   2026. jún. 12.",
+              "3333 Példafalu",
+              "Fizetési határidő   2026. jún. 23.",
+              "Kossuth utca 9.",
+              "Megnevezés   Mennyiség   Nettó érték   ÁFA   ÁFA érték   Bruttó érték",
+              "Számítógép-beállítás   1   150 000,00   AAM   0,00   150 000,00",
+              "AAM - alanyi adómentes",
+              "Összesen   150 000   0   150 000",
+              "Fizetendő végösszeg   150 000 HUF",
+              "Szolgáltató szamlazo.example   Minta Tanácsadó Kft.",
+              "1111 Budapest, Teszt utca 1.",
+              "Kiállító   +36 1 234 5678; nev@ceg.hu;",
+              "Példa Bank; 12100028-46813574-00000000;"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "foreign",
+      "title": "Invented foreign invoices and receipts",
+      "documents": [
+        {
+          "file": "synthetic_out_en_usd.pdf",
+          "pages": [
+            [
+              "Invoice",
+              "Issuer",
+              "Minta Tanácsadó Kft.",
+              "Hungary, 1111 Budapest,",
+              "Teszt utca 1.",
+              "+36 1 234 5678",
+              "nev@ceg.hu",
+              "12121216-2-42",
+              "HU12121216",
+              "Payment Information",
+              "TRANSFER - Example Bank",
+              "12100028-46813574-00000000",
+              "HU82 1210 0028 4681 3574 0000 0000",
+              "Customer   Invoice No.   AB002",
+              "Példa Partner Kft.   Invoice date   2026. Feb 27.",
+              "Delivery date   2026. Feb 28.",
+              "Hungary,",
+              "Payment due   2026. Mar 15.",
+              "2222 Mintaváros",
+              "Próba út 2.",
+              "VAT registration No. / Group identification No.: 12345676-2-41",
+              "Description   Quantity   UOM   Unit price   Amount   VAT   VAT amount   Gross amount",
+              "(USD)   (USD)   (USD)   (USD)",
+              "IT consulting February 2026   10   days   500.00   5,000.00   27%   1,350.00   6,350.00",
+              "VAT rate   VAT basis   VAT amount   Gross amount   VAT rate   VAT basis   VAT amount   Gross amount",
+              "(HUF)   (HUF)   (HUF)   (USD)   (USD)   (USD)",
+              "27%   1,800,000   486,000   2,286,000   27%   5,000.00   1,350.00   6,350.00",
+              "Sum   1,800,000   486,000   2,286,000   Sum   5,000.00   1,350.00   6,350.00",
+              "Exchange rate   1 USD = 360.00 HUF   Invoice total   6,350.00 USD",
+              "Service provider szamlazo.example   Minta Tanácsadó Kft.",
+              "Hungary, 1111 Budapest, Teszt utca 1.",
+              "Issuer   +36 1 234 5678; nev@ceg.hu;",
+              "Example Bank; 12100028-46813574-00000000; IBAN: HU82 1210 0028 4681 3574 0000 0000;"
+            ]
+          ]
+        },
+        {
+          "file": "synthetic_out_en_chf.pdf",
+          "pages": [
+            [
+              "Invoice",
+              "Issuer",
+              "Minta Tanácsadó Kft.",
+              "Hungary, 1111 Budapest,",
+              "Teszt utca 1.",
+              "+36 1 234 5678",
+              "nev@ceg.hu",
+              "12121216-2-42",
+              "HU12121216",
+              "Payment Information",
+              "TRANSFER - Example Bank",
+              "12100028-46813574-00000000",
+              "HU82 1210 0028 4681 3574 0000 0000",
+              "Customer   Invoice No.   AB001",
+              "Example Consulting B.V.   Invoice date   2026. Mar 31.",
+              "Delivery date   2026. Apr 02.",
+              "Netherlands,",
+              "Payment due   2026. Apr 30.",
+              "3000 AA Rotterdam",
+              "Watermanweg 1",
+              "VAT registration No. / Group identification No.: NL123456789B01",
+              "Description   Quantity   UOM   Unit price   Amount   VAT   VAT amount   Gross amount",
+              "(CHF)   (CHF)   (CHF)   (CHF)",
+              "Consultancy services March 2026   1   pcs   3,877.50   3,877.50   E-AAC   0.00   3,877.50",
+              "Per diem March 2026   1   pcs   1,890.00   1,890.00   E-AAC   0.00   1,890.00",
+              "Visa fee   1   pcs   214.00   214.00   E-AAC   0.00   214.00",
+              "E-AAC - Intra-Community supply - VAT free",
+              "Project number: 3050-108; contract number UR-0054",
+              "VAT rate   VAT basis   VAT amount   Gross amount   VAT rate   VAT basis   VAT amount   Gross amount",
+              "(HUF)   (HUF)   (HUF)   (CHF)   (CHF)   (CHF)",
+              "E-AAC   2,392,600   0   2,392,600   E-AAC   5,981.50   0.00   5,981.50",
+              "Sum   2,392,600   0   2,392,600   Sum   5,981.50   0.00   5,981.50",
+              "Exchange rate   1 CHF = 400.00 HUF   Invoice total   5,981.50 CHF",
+              "Service provider szamlazo.example   Minta Tanácsadó Kft.",
+              "Hungary, 1111 Budapest, Teszt utca 1.",
+              "Issuer   +36 1 234 5678; nev@ceg.hu;",
+              "Example Bank; 12100028-46813574-00000000; IBAN: HU82 1210 0028 4681 3574 0000 0000;"
+            ]
+          ]
+        },
+        {
+          "file": "synthetic_out_en_eur_reverse_charge.pdf",
+          "pages": [
+            [
+              "INVOICE",
+              "From: Minta Tanácsadó Kft., 1111 Budapest, Teszt utca 1., Hungary",
+              "Tax number: 12121216-2-42   EU VAT number: HU12121216",
+              "Bill to: Beispiel Handels GmbH",
+              "Musterstraße 5, 10115 Berlin, Germany",
+              "VAT ID: DE123456789",
+              "Invoice No.: AB004",
+              "Invoice date: 2026-05-04",
+              "Date of performance: 2026-04-30",
+              "Due date: 2026-06-03",
+              "Description   Quantity   Unit price   Amount",
+              "Software development April 2026   80 h   45.00 EUR   3,600.00 EUR",
+              "Net total: 3,600.00 EUR",
+              "Reverse charge: VAT to be accounted for by the recipient (Art. 196 2006/112/EC)",
+              "Total due: 3,600.00 EUR",
+              "Bank transfer to IBAN: HU82 1210 0028 4681 3574 0000 0000"
+            ]
+          ]
+        },
+        {
+          "file": "synthetic_credit_note_en.pdf",
+          "pages": [
+            [
+              "CREDIT NOTE",
+              "Credit Note Number: AB12CD34-0008-CN-01",
+              "Invoice: AB12CD34-0008",
+              "Date of issue: March 12, 2026",
+              "From:   Bill to:",
+              "Example Software Ltd   Példa Vásárló Kft.",
+              "One Example Place, Dublin 2, Ireland   1111 Budapest, Teszt utca 1.",
+              "VAT ID: IE8256796U   VAT ID: HU12121216",
+              "Description   Qty   Amount",
+              "Refund of unused service   1   -EUR 20.00",
+              "Total: -EUR 20.00"
+            ]
+          ]
+        },
+        {
+          "file": "synthetic_receipt_transaction_id.pdf",
+          "pages": [
+            [
+              "Receipt",
+              "Example Code Platform, Inc.",
+              "88 Sample Street, San Francisco, CA 94107, USA",
+              "Billed to: Példa Vásárló Kft.",
+              "Date: 2026-03-01",
+              "Order Number: 900117",
+              "Transaction ID: TXN-48151623",
+              "Pro plan (monthly)   USD 4.00",
+              "Total: USD 4.00"
+            ]
+          ]
+        },
+        {
+          "file": "synthetic_receipt_receipt_number.pdf",
+          "pages": [
+            [
+              "Receipt from Example Learning Ltd",
+              "Receipt #2459-8602-1123",
+              "Transaction ID: TXN-77001234",
+              "Date paid: March 5, 2026",
+              "Billed to: Példa Vásárló Kft.",
+              "Course subscription   EUR 39.00",
+              "Amount paid: EUR 39.00"
+            ]
+          ]
+        },
+        {
+          "file": "synthetic_out_en_distractors.pdf",
+          "pages": [
+            [
+              "INVOICE",
+              "Issuer: Minta Tanácsadó Kft.   Tax number: 12121216-2-42",
+              "Customer: Minta Egyesület   Tax number: 13570008-1-13",
+              "Customer address: 4444 Mintahely, Fő tér 3.",
+              "Order No.: PO-2026-0077   Contract No.: KSZ-2026-14",
+              "Invoice No.: AB003",
+              "Invoice date: 2026-05-05",
+              "Delivery date: 2026-05-05",
+              "Payment due: 2026-05-20",
+              "Description   Net amount   VAT   VAT amount   Gross amount",
+              "Training, 2 days   400,000.00 HUF   27%   108,000.00 HUF   508,000.00 HUF",
+              "Total net: 400,000.00 HUF   Total VAT: 108,000.00 HUF",
+              "Total payable: 508,000.00 HUF",
+              "Account: 12100028-46813574-00000000"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quote_requests",
+      "title": "Invented quote requests on a printed form (an IT quote starts from one once it is read)",
+      "documents": [
+        {
+          "file": "keroiv_halozat.pdf",
+          "pages": [
+            [
+              "AJÁNLATKÉRŐ ÍV – HÁLÓZATFELÚJÍTÁS",
+              "Ajánlatkérő:   Pelda Logisztika Kft.",
+              "Adószám:   16694855-2-42",
+              "Kapcsolattartó:   Szabó Gábor, it@pelda.hu",
+              "Telephely:   2222 Mintaváros, Raktár utca 5.",
+              "",
+              "Tétel   Mennyiség   Egység",
+              "Switch, 24 port, menedzselhető   1   db",
+              "Wi-Fi 6 AP, mennyezeti   4   db",
+              "Szünetmentes táp, 1500 VA   1   db",
+              "Hálózatkiépítés (becslés)   16   óra",
+              "",
+              "Kiállítva: 2026.10.12."
+            ]
+          ]
+        },
+        {
+          "file": "igenyek.pdf",
+          "pages": [
+            [
+              "Példa Iroda Kft. – igények",
+              "Adószám: 21357912-1-13",
+              "",
+              "1. Tíz darab USB-s headset zajszűrős mikrofonnal (ügyfélszolgálatra)",
+              "2. Egy szett vezeték nélküli billentyűzet és egér a vezetőnek",
+              "3. Fél nap helyszíni rendszergazdai munka (4 óra) a beüzemeléshez",
+              "",
+              "Az ajánlatot 2026. október 30-ig kérjük."
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "own_party_invoices",
+      "title": "The invented consultancy's invoices, which the reconciliation's example pairs with its statements",
+      "documents": [
+        {
+          "file": "synthetic_out_hu_huf.pdf",
+          "pages": [
+            [
+              "e-Számla",
+              "Kiállító",
+              "Minta Tanácsadó Kft.",
+              "1111 Budapest,",
+              "Teszt utca 1.",
+              "+36 1 234 5678",
+              "nev@ceg.hu",
+              "12121216-2-42",
+              "HU12121216",
+              "Fizetési információk",
+              "ÁTUTALÁS - Példa Bank",
+              "12100028-46813574-00000000",
+              "Vevő   Számlaszám   ABCD0005",
+              "Példa Vásárló Zrt.   Számla kelte   2026. márc. 10.",
+              "Teljesítés időpontja   2026. márc. 10.",
+              "2222 Mintaváros",
+              "Fizetési határidő   2026. márc. 20.",
+              "Próba út 2.",
+              "Adószám / Csoportazonosító   12345676-2-41",
+              "Megnevezés   Mennyiség   Menny. egység   Nettó egységár   Nettó érték   ÁFA   ÁFA érték   Bruttó érték",
+              "(HUF)   (HUF)   (HUF)   (HUF)",
+              "Informatikai tanácsadás   1   darab   1 000 000,00   1 000 000,00   27%   270 000,00   1 270 000,00",
+              "Tanácsadás a 2026. február 1-jén kelt szerződés szerint",
+              "ÁFA kulcs   Adóalap   ÁFA érték   Számla érték",
+              "(HUF)   (HUF)   (HUF)",
+              "27%   1 000 000   270 000   1 270 000",
+              "Összesen   1 000 000   270 000   1 270 000",
+              "Fizetendő végösszeg   1 270 000 HUF",
+              "Szolgáltató szamlazo.example   Minta Tanácsadó Kft.",
+              "1111 Budapest, Teszt utca 1.",
+              "Kiállító   +36 1 234 5678; nev@ceg.hu;",
+              "Példa Bank; 12100028-46813574-00000000;"
+            ]
+          ]
+        },
+        {
+          "file": "synthetic_out_hu_credit_note.pdf",
+          "pages": [
+            [
+              "Helyesbítő számla (sztornó)",
+              "Kiállító",
+              "Minta Tanácsadó Kft.",
+              "1111 Budapest,",
+              "Teszt utca 1.",
+              "+36 1 234 5678",
+              "nev@ceg.hu",
+              "12121216-2-42",
+              "HU12121216",
+              "Fizetési információk",
+              "ÁTUTALÁS - Példa Bank",
+              "12100028-46813574-00000000",
+              "Vevő   Számla sorszáma   ABCD0007",
+              "Példa Vásárló Zrt.   Számla kelte   2026. ápr. 02.",
+              "Teljesítés időpontja   2026. márc. 10.",
+              "2222 Mintaváros",
+              "Fizetési határidő   2026. ápr. 02.",
+              "Próba út 2.",
+              "Adószám   12345676-2-41",
+              "Az eredeti számla sorszáma: ABCD0005",
+              "Megnevezés   Mennyiség   Nettó érték   ÁFA   ÁFA érték   Bruttó érték",
+              "Informatikai tanácsadás   -1   -1 000 000,00   27%   -270 000,00   -1 270 000,00",
+              "Összesen   -1 000 000   -270 000   -1 270 000",
+              "Fizetendő végösszeg   -1 270 000 HUF",
+              "Szolgáltató szamlazo.example   Minta Tanácsadó Kft.",
+              "1111 Budapest, Teszt utca 1.",
+              "Kiállító   +36 1 234 5678; nev@ceg.hu;",
+              "Példa Bank; 12100028-46813574-00000000;"
+            ]
+          ]
+        },
+        {
+          "file": "synthetic_out_en_distractors.pdf",
+          "pages": [
+            [
+              "INVOICE",
+              "Issuer: Minta Tanácsadó Kft.   Tax number: 12121216-2-42",
+              "Customer: Minta Egyesület   Tax number: 13570008-1-13",
+              "Customer address: 4444 Mintahely, Fő tér 3.",
+              "Order No.: PO-2026-0077   Contract No.: KSZ-2026-14",
+              "Invoice No.: AB003",
+              "Invoice date: 2026-05-05",
+              "Delivery date: 2026-05-05",
+              "Payment due: 2026-05-20",
+              "Description   Net amount   VAT   VAT amount   Gross amount",
+              "Training, 2 days   400,000.00 HUF   27%   108,000.00 HUF   508,000.00 HUF",
+              "Total net: 400,000.00 HUF   Total VAT: 108,000.00 HUF",
+              "Total payable: 508,000.00 HUF",
+              "Account: 12100028-46813574-00000000"
+            ]
+          ]
+        },
+        {
+          "file": "synthetic_out_hu_aam_person.pdf",
+          "pages": [
+            [
+              "Számla",
+              "Kiállító",
+              "Minta Tanácsadó Kft.",
+              "1111 Budapest,",
+              "Teszt utca 1.",
+              "+36 1 234 5678",
+              "nev@ceg.hu",
+              "12121216-2-42",
+              "HU12121216",
+              "Fizetési információk",
+              "ÁTUTALÁS - Példa Bank",
+              "12100028-46813574-00000000",
+              "Vevő   Számlaszám   ABCD0011",
+              "Teszt Elek   Számla kelte   2026. jún. 15.",
+              "Teljesítés időpontja   2026. jún. 12.",
+              "3333 Példafalu",
+              "Fizetési határidő   2026. jún. 23.",
+              "Kossuth utca 9.",
+              "Megnevezés   Mennyiség   Nettó érték   ÁFA   ÁFA érték   Bruttó érték",
+              "Számítógép-beállítás   1   150 000,00   AAM   0,00   150 000,00",
+              "AAM - alanyi adómentes",
+              "Összesen   150 000   0   150 000",
+              "Fizetendő végösszeg   150 000 HUF",
+              "Szolgáltató szamlazo.example   Minta Tanácsadó Kft.",
+              "1111 Budapest, Teszt utca 1.",
+              "Kiállító   +36 1 234 5678; nev@ceg.hu;",
+              "Példa Bank; 12100028-46813574-00000000;"
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

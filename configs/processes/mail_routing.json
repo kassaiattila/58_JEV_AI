@@ -1,9 +1,10 @@
 {
   "meta": {
     "name": "process:mail_routing",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "231 (plan stage C, C1c; DECISIONS 231): the routing of emailed documents as a process pack (until C1c its own kind of package). A case reads the email packages its scope names: every PDF attachment that arrived in them is proposed for the package of its party, period and role, and a person accepts, rejects or redirects each one; the case is done once every attachment it can route is decided. The emails that start a case of another process (an IT quote) are listed with those cases. Every step names a general capability; the pack holds no code.",
     "changelog": [
+      {"version": "1.2.0", "date": "2026-10-28", "note": "231 (U1e; the owner's decision of 2026-10-28): its example material: the invented own party its invoices belong to, and how it is tried (a download of the invented consultancy's mailbox first)."},
       {"version": "1.1.0", "date": "2026-10-27", "note": "231 (U0): what the process is for, shown when a person picks a process to start a case of"},
       {"version": "1.0.0", "date": "2026-10-25", "note": "231 (C1c): the first version: the routing step (file_placement@1) and its tabs: Emails, Routing, Routed, Started cases, History; an email package's page offers a case that reads it; the routing packages made before are taken over as its cases."}
     ]
@@ -11,6 +12,8 @@
   "id": "mail_routing",
   "title": "Email routing",
   "summary": "The documents of emails already downloaded, sent where they belong: invoices, outgoing invoices and bank statements to their packages, a quote request to a case of its own.",
+  "examples": {"sets": [{"kind": "own_party", "name": "example_parties"}],
+               "note": "First download the invented consultancy's mailbox (the Emails from a mailbox process) and approve its run, then route that download: its two invoices go to the consultancy's outgoing invoices, its quote request starts an IT quote."},
   "scope": {"parts": ["sources"]},
   "intake": [
     {"on": "package", "package_kinds": ["mailbox"], "starts": "offer"},

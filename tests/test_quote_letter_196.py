@@ -65,8 +65,16 @@ def test_the_frame_greets_by_name_writes_the_totals_by_code_and_closes():
                "request": {"title": "Ajánlatkérés monitorokra"}}
     body = quote_letter.compose(content, package="Office", n=1, paragraph=None)
     assert body.startswith("Tisztelt Minta Anna!\n\nKöszönjük ajánlatkérését")
-    assert "bruttó végösszege 209 169 HUF (nettó 164 700 HUF + ÁFA)" in body and body.endswith("Üdvözlettel:\n")
+    assert "bruttó végösszege 209 169 Ft (nettó 164 700 Ft + ÁFA)" in body and body.endswith("Üdvözlettel:\n")
     assert body.count("mellékelten küldjük") == 1  # W4: said once, by the paragraph, not again by the totals line
+    # U1 (the walkthrough): signed by the person the quote belongs to, never by a machine that started it
+    signed = quote_letter.compose(content, package="Office", n=1, paragraph=None, signer="Minta Anna")
+    assert signed.endswith("Üdvözlettel:\nMinta Anna\n")
+    from jav.app import work
+
+    assert work.person_owner({"owner": "Minta Anna", "owner_id": "local:Minta Anna"}) == "Minta Anna"
+    assert work.person_owner({"owner": "email intake", "owner_id": "machine:email intake"}) is None
+    assert work.person_owner({"owner": None}) is None
     assert quote_letter.subject(content) == "Re: Ajánlatkérés monitorokra"
     english = {**content, "language": "en", "header": {}, "request": {"title": "RE: monitors"}}
     body = quote_letter.compose(english, package="Office", n=1, paragraph="Thank you for asking us.")

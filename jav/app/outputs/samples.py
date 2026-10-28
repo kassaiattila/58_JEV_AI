@@ -121,6 +121,8 @@ def _sample(kind: str, label: str, i: int) -> Any:
         return "igen" if i == 0 else ""
     if kind == "json":
         return "{}"
+    if kind == "currency":
+        return "HUF"
     return f"{label} {i + 1}"
 
 

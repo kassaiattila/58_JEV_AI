@@ -224,7 +224,9 @@ function PackageOfferCard({ offer: o }: { offer: PackageOffer }) {
   useLocale();
   const { busy, error, run } = useAction();
   const title = t(o.title);
-  const start = () => run(() => api.startCase({ pack: o.pack, name: o.name, sources: o.sources }),
+  // U1: the case is named with the process's title in the interface's language (the service's name has its English one)
+  const name = o.package_name ? `${title}: ${o.package_name}`.slice(0, 200) : o.name;
+  const start = () => run(() => api.startCase({ pack: o.pack, name, sources: o.sources }),
     { then: (made) => go({ view: "cases", caseId: made.case_id }) });
   return (
     <section className="card rc-stack" aria-label={title}>

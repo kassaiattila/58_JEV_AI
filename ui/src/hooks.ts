@@ -72,7 +72,10 @@ export function useLoad<T>(key: string | null, fn: () => Promise<T>, pollMs?: nu
   }, [pollMs, key]);
 
   const reload = useCallback(() => setTick((n) => n + 1), []);
-  return { data, error, loading, reload };
+  // 231 (U1): under a key not loaded yet there is no data: the render before the new key's effect would otherwise show
+  // the old key's data under the new key (a case page asked for the reconciliation of a mailbox case)
+  const current = loadedKey.current === key;
+  return { data: current ? data : null, error: current ? error : null, loading: loading || (!current && key !== null), reload };
 }
 
 /** 061: the current value of „Ki dolgozik?” (Who is working?); it updates on a change (from any view). */

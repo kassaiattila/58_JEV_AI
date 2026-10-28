@@ -18,10 +18,12 @@ export interface ProcessRow {
   manual?: boolean; summary?: string | null; missing_at_start?: { key: string; label: string }[]; examples?: boolean;
 }
 /** 231 (U0): a process's example material: the sets of things it installs (each `installed`, `partial` or `missing`;
- *  `example`: the examples' machine made all that is there) and its packets of invented documents. */
+ *  `example`: the examples' machine made all that is there) and its packets of invented documents; (U1e) the pack's
+ *  sentence on how the material is tried. */
 export interface ProcessExamples {
   sets: { kind: string; name: string; title: string; state: "installed" | "partial" | "missing"; example: boolean }[];
   packets: { id: string; title: string; documents: number }[];
+  note?: string;
 }
 /** 231 (C3c): a record a case may start from (an email or a document read as the pack's record), with the cases
  *  already started from it; `detail` holds plain values (its customer, package, day). */
@@ -30,7 +32,10 @@ export interface ProcessRecord {
   cases: { id: string; name: string }[];
 }
 /** 231 (C1c): a process whose case may read a package (`jav/app/intake.py` `package_offers`). */
-export interface PackageOffer { pack: string; title: string; name: string; sources: string[]; cases: { id: string; name: string }[] }
+export interface PackageOffer {
+  pack: string; title: string; name: string; sources: string[]; cases: { id: string; name: string }[];
+  package_name?: string;  // 231 (U1): the package's own name, so the case is named with the title in the interface's language
+}
 export interface SettingVersion {
   version: number; state: OutputTemplateState; value: string | number; note: string | null; made_by: string; made_at: string;
   activated_by: string | null; activated_at: string | null;
