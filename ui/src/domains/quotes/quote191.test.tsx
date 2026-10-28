@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type CaseView, type ProcessRecord, type WorkpackageView } from "../../api";
 import type { QuoteProposal, QuoteView } from "./api";
 import { ProcessCreate } from "../../elements/ProcessStart";
-import { setLanguage } from "../../i18n";
+import { setLanguage, t } from "../../i18n";
 import { partOf } from "../../logic/packageParts";
 import { stepLabel } from "../../labels";
 import { QUOTE_BLOCKER } from "./Quote";
@@ -168,7 +168,7 @@ describe("the quote package (191)", () => {
   it("says a request that can no longer be read", () => {
     const gone: QuoteView = { ...QUOTE, request: null, blockers: [{ code: "quote:request_missing", message: "" }] };
     render(<QuoteStages view={view(gone)} stage="process" onChanged={() => {}} />);
-    expect(screen.getByText(QUOTE_BLOCKER["quote:request_missing"])).toBeTruthy();
+    expect(screen.getByText(t(QUOTE_BLOCKER["quote:request_missing"]))).toBeTruthy();  // as the page shows it
     expect(screen.queryByRole("table", { name: "The request's data" })).toBeNull();
   });
 });

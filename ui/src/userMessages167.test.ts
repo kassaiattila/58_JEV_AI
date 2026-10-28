@@ -31,7 +31,7 @@ it("a templated message is translated with its parameters", async () => {
 it("in English the template is filled as it is", async () => {
   await setLanguage("en");
   failWith({ error: "not_ready", message: "x", template: "In the package: {{items}}", params: { items: "3 documents" }, blockers: [] }, 409);
-  expect((await caught()).message).toBe("In the package: 3 documents");
+  expect((await caught()).message).toBe("In the batch: 3 documents");
 });
 
 it("a message without a template is shown as the service wrote it", async () => {

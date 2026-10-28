@@ -1,6 +1,6 @@
 {
   "Betöltés…": "Loading…",
-  "Ezen a csomagon még nem futott recept, ezért nincs mit ellenőrizni. Indíts futást a": "No recipe has run on this package yet, so there is nothing to review. Start a run in the",
+  "Ezen a csomagon még nem futott recept, ezért nincs mit ellenőrizni. Indíts futást a": "No recipe has run on this batch yet, so there is nothing to review. Start a run in the",
   "Feldolgozás": "Processing",
   "szakaszban.": "section.",
   "{{n}} nyitott teendő ebben a futásban": "Open to-dos in this run: {{n}}",

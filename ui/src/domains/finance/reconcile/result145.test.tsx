@@ -103,7 +103,7 @@ describe("the Result stage of a reconciliation package (145)", () => {
     }));
     const accept = vi.spyOn(api, "reconcileAcceptSources").mockResolvedValue(draft());
     result();
-    expect(await screen.findByText(/Processed on the command line, not in a work package: elmu002.pdf/)).toBeTruthy();
+    expect(await screen.findByText(/Processed on the command line, not in a document batch: elmu002.pdf/)).toBeTruthy();
     expect((screen.getByRole("button", { name: /Approve the reconciliation/ }) as HTMLButtonElement).disabled).toBe(true);
     const button = screen.getByRole("button", { name: "Accept 1 command-line documents as sources" });
     fireEvent.click(button);

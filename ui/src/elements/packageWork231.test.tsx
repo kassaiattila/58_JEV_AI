@@ -83,11 +83,11 @@ describe("the case page's document processing element (231 C3b3)", () => {
     expect(screen.getByText("3 documents")).toBeTruthy();
     const button = screen.getByRole("button", { name: /Start the live run/ });
     expect(button.textContent).toContain("≤ 0.15 USD");
-    expect(button.getAttribute("title")).toBe("Starts the package's live run, which can spend up to 0.15 USD");
+    expect(button.getAttribute("title")).toBe("Starts the batch's live run, which can spend up to 0.15 USD");
     fireEvent.click(button);
     await waitFor(() => expect(act).toHaveBeenCalledWith(CASE, "process", "start_run"));
     await waitFor(() => expect(p.onChanged).toHaveBeenCalled());
-    const pages = screen.getByRole("navigation", { name: "The package's pages" });
+    const pages = screen.getByRole("navigation", { name: "The batch's pages" });
     expect([...pages.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(
       [`#/workpackages/${WP}/process`, `#/workpackages/${WP}/review`, `#/workpackages/${WP}/result`]);
   });
@@ -108,10 +108,10 @@ describe("the case page's document processing element (231 C3b3)", () => {
 
   it("says why a case has no package", () => {
     const { unmount } = render(<PackageWork {...props({ package: null }, "done")} />);
-    expect(screen.getByText("The source held no document: the case is done without a package.")).toBeTruthy();
+    expect(screen.getByText("The source held no document: the case is done without a batch.")).toBeTruthy();
     unmount();
     render(<PackageWork {...props({ package: null })} />);
-    expect(screen.getByText("The package is being made…")).toBeTruthy();
+    expect(screen.getByText("The batch is being made…")).toBeTruthy();
   });
 
   it("gives its tab a line of the documents and where the live run stands", () => {

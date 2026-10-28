@@ -68,7 +68,7 @@ it("a release refused as not ready names the reason, not a correction", async ()
   await waitFor(() => expect(button.disabled).toBe(false));
   fireEvent.click(button);
   fireEvent.click(button);
-  await waitFor(() => expect(line.textContent).toContain("The package cannot be released: a live run of the package is not ready for approval"));
+  await waitFor(() => expect(line.textContent).toContain("The batch cannot be released: a live run of the package is not ready for approval"));
   expect(line.textContent).not.toContain("changed");
 });
 

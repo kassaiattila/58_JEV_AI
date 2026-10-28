@@ -32,7 +32,7 @@ describe("the application's AI engine (Settings › Processing)", () => {
     fireEvent.click(screen.getByRole("radio", { name: /GPT only, without JEV/ }));
     expect(button.disabled).toBe(false);
     expect(button.classList.contains("primary")).toBe(true);
-    expect(screen.getByText(/Packages with saved settings keep their engine/)).toBeTruthy();
+    expect(screen.getByText(/Batches with saved settings keep their engine/)).toBeTruthy();
     fireEvent.click(button);
     await waitFor(() => expect(save).toHaveBeenCalledWith("gpt"));
     expect(await screen.findByText("Saved. New processing settings use: GPT only.")).toBeTruthy();

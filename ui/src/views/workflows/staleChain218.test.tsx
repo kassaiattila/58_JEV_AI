@@ -49,7 +49,7 @@ describe("a step built on a reopened step", () => {
     vi.spyOn(api, "workflowView").mockResolvedValue(view({ status: "pairing", stale_of: ["invoices"] }));
     render(<Workflows route={{ view: "workflows", wfId: "wf-00000000000c" }} />);
     expect(await screen.findAllByText(/^Built on an earlier result of/)).toHaveLength(1);
-    expect(screen.getByText("pairing in its package")).toBeTruthy();
+    expect(screen.getByText("pairing in its batch")).toBeTruthy();
   });
 });
 

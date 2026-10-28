@@ -41,7 +41,7 @@ describe("181 the email routing package", () => {
     const props = (show: string) => ({ caseId: "wp-00000000000r", element: { ...element(items), show }, page: PAGE, onChanged: () => {} });
     const line = ELEMENTS.file_placement.status!;
     expect([line(props("sources")), line(props("decide")), line(props("routed"))])
-      .toEqual(["1 email package(s), 2 attachment(s)", "1 to decide", "0 routed"]);
+      .toEqual(["1 email batch(es), 2 attachment(s)", "1 to decide", "0 routed"]);
   });
 
   it("shows each document's proposal or blocker and accepts every clear one at once", async () => {
@@ -63,7 +63,7 @@ describe("181 the email routing package", () => {
     expect(row("invoice.pdf").textContent).toContain("June incoming");
     expect(row("invoice.pdf").textContent).toContain("Incoming invoices · Example Kft. · 2026-06-08");
     expect(row("sold.pdf").textContent).toContain("sent · 2026-06-20");
-    expect(row("sold.pdf").textContent).toContain("New package: Example Kft. · 2026-06 · Outgoing invoices");
+    expect(row("sold.pdf").textContent).toContain("New batch: Example Kft. · 2026-06 · Outgoing invoices");
     expect(row("odd.pdf").textContent).toContain("It came with a suspicious email");
     expect(within(row("odd.pdf")).queryByRole("button", { name: "Accept" })).toBeNull(); // a blocker: choose or do not route
     expect(row("done.pdf").textContent).toContain("added");

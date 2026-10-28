@@ -48,7 +48,7 @@ describe("183 the email routing after its first real trial", () => {
     expect(row("forwarded.pdf").textContent).toContain("June incoming");
     expect(row("forwarded.pdf").textContent).toContain("An incoming invoice in a sent email");
     expect(within(row("forwarded.pdf")).getByRole("button", { name: "Accept" })).toBeTruthy();
-    expect(row("scanned.pdf").textContent).toContain("Read, but it has no data: see its to-dos in its email package");
+    expect(row("scanned.pdf").textContent).toContain("Read, but it has no data: see its to-dos in its email batch");
     expect(within(row("scanned.pdf")).queryByRole("button", { name: "Accept" })).toBeNull();
     expect(screen.getByRole("button", { name: "Accept every clear proposal (1)" })).toBeTruthy();
     expect(screen.getByText("Attachments of another kind (1)").closest("details")?.textContent).toContain(`return.pdf · ${docTypeLabel("tax_return")}`);

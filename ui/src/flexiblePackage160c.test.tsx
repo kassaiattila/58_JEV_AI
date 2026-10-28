@@ -49,7 +49,7 @@ it("a removal asks for a reason and sends it with the package's revision", async
   const remove = vi.spyOn(api, "removeItem").mockResolvedValue({ workpackage: WP });
   const { onChanged } = panel();
   fireEvent.click(screen.getByRole("button", { name: "Remove" }));
-  const submit = screen.getByRole("button", { name: "Remove from the package" }) as HTMLButtonElement;
+  const submit = screen.getByRole("button", { name: "Remove from the batch" }) as HTMLButtonElement;
   expect(submit.disabled).toBe(true); // no reason yet
   fireEvent.change(screen.getByRole("textbox"), { target: { value: "  a duplicate scan " } });
   expect(submit.disabled).toBe(false);
@@ -75,7 +75,7 @@ it("the switch asks for the removed items too, and a removed item offers only it
 it("the package says what it was created from by its kind", () => {
   rows.current = [];
   render(<PackageItemsPanel view={{ ...viewOf({ ...WP, source_kind: "manual" } as Workpackage), rule: { name: "statements", adds: "own", parts: ["statements"] } }} onChanged={() => {}} />);  // 231 C3b5a
-  expect(screen.getByText(/Created from: a statement package/)).toBeTruthy();
+  expect(screen.getByText(/Created from: a statement batch/)).toBeTruthy();
 });
 
 it("the review list marks a removed item and does not count its to-dos as the run's work", async () => {
@@ -134,8 +134,8 @@ it("adding documents sends the paths with the revision and shows the service's o
   fireEvent.click(screen.getByRole("button", { name: "Check what would be added" }));
   fireEvent.click(await screen.findByRole("button", { name: "Add 2 document(s)" }));
   await waitFor(() => expect(add).toHaveBeenCalledWith("wp-1", { paths: ["C:/in/a.pdf", "C:/in/b.pdf"] }, 3, { exclude: [], restore: [] }));
-  expect(await screen.findByText("Added: 1 · already in the package: 1 · restored: 0")).toBeTruthy();
-  expect(screen.getByText(/Already processed in a live run of another package: invoice_2.pdf/)).toBeTruthy();
+  expect(await screen.findByText("Added: 1 · already in the batch: 1 · restored: 0")).toBeTruthy();
+  expect(screen.getByText(/Already processed in a live run of another batch: invoice_2.pdf/)).toBeTruthy();
   expect(onChanged).toHaveBeenCalled();
 });
 

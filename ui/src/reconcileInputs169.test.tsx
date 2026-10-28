@@ -70,7 +70,7 @@ it("several documents are left out of this reconciliation with one reason", asyn
   const why = screen.getByRole("textbox", { name: "Why leave these documents (2) out of this reconciliation?" });
   const submit = screen.getByRole("button", { name: "Leave out of this reconciliation" }) as HTMLButtonElement;
   expect(submit.disabled).toBe(true); // the reason is required
-  expect(screen.getByText("The document stays in its own package and in every other reconciliation, and it can be restored here.")).toBeTruthy();
+  expect(screen.getByText("The document stays in its own batch and in every other reconciliation, and it can be restored here.")).toBeTruthy();
   fireEvent.change(why, { target: { value: "another company's" } });
   fireEvent.click(submit);
   await waitFor(() => expect(leave).toHaveBeenCalledWith("wp-rc", ["d1", "d2"], "another company's"));
@@ -94,14 +94,14 @@ it("files go to a chosen documents package, the givers first, with that package'
   const load = vi.spyOn(api, "workpackage").mockResolvedValue(view);
   render(<ReconcileInputs ws={wsOf()} readOnly={false} onWorkspace={() => {}} />);
   fireEvent.click(screen.getByRole("button", { name: "Add documents" }));
-  const select = await screen.findByRole("combobox", { name: "Add them to the documents package" }) as HTMLSelectElement;
+  const select = await screen.findByRole("combobox", { name: "Add them to the documents batch" }) as HTMLSelectElement;
   expect([...select.options].map((o) => o.textContent)).toEqual([
     "March invoices · 9 of its documents are in this reconciliation", "Loose files · 3 items"]);
   await waitFor(() => expect(load).toHaveBeenCalledWith("wp-giver"));
-  expect(await screen.findByRole("form", { name: "Add documents to the package" })).toBeTruthy();
+  expect(await screen.findByRole("form", { name: "Add documents to the batch" })).toBeTruthy();
   expect((screen.getByRole("radio", { name: "A folder" }) as HTMLInputElement).checked).toBe(true);
   fireEvent.click(screen.getByRole("radio", { name: "Bank statements" }));
-  expect(screen.getByText("This party has no statement package yet; create one from the package list.")).toBeTruthy();
+  expect(screen.getByText("This party has no statement batch yet; create one from the batch list.")).toBeTruthy();
 });
 
 it("an approved package lists its inputs without adding or leaving out", () => {
