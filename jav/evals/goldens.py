@@ -453,11 +453,30 @@ def _measure_property_documents(options: Options) -> Outcome:
     return property_documents.measure(options)
 
 
+AZ_DOCUMENTS = "golden_allianz_property_documents"  # 231 (U-A6): the real corporate property product's invented customers
+
+
+def _count_allianz_documents() -> int:
+    from jav.evals import property_documents
+
+    return property_documents.count(AZ_DOCUMENTS)
+
+
+def _measure_allianz_documents(options: Options) -> Outcome:
+    from jav.evals import property_documents
+
+    return property_documents.measure(options, name=AZ_DOCUMENTS)
+
+
 PROPERTY_GOLDENS = (
     Golden(key="insurance_application:documents", layer="datapoints", owner="insurance_application",
            what="the 23 invented insurance application documents recognised and read with their type packs, and their "
                 "sets' facts read from them", engines=ENGINES, count=_count_property_documents,
            measure=_measure_property_documents, module=__name__),
+    Golden(key="insurance_application:allianz_documents", layer="datapoints", owner="insurance_application",
+           what="the real corporate property product's 9 invented customer documents recognised and read with their type "
+                "packs, and their sets' facts read into the product's catalogue", engines=ENGINES,
+           count=_count_allianz_documents, measure=_measure_allianz_documents, module=__name__),
 )
 
 

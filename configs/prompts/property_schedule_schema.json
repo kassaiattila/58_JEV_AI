@@ -10,7 +10,7 @@
     "alarm_remote": { "type": ["string", "null"], "description": "Whether the site has an alarm with remote signalling, as printed (igen, nem)" },
     "surge_protection": { "type": ["string", "null"], "description": "The surge protection in place, as printed" },
     "basement_storage": { "type": ["string", "null"], "description": "Whether goods are stored in a basement, as printed (igen, nem)" },
-    "protection_class": { "type": ["string", "null"], "description": "The protection class in place, plain number STRING" },
+    "protection_class": { "type": ["string", "null"], "description": "The protection class in place as printed: a number or a Roman numeral" },
     "currency": { "type": ["string", "null"], "description": "ISO 4217 code of the sheet's amounts (Ft = HUF)" },
     "asset_groups": {
       "type": "array",

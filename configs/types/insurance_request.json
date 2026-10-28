@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "type:insurance_request",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-10-27",
+    "note": "231 (stage U, U-A6): three fields a quote request states and a premium needs: the deductible the policyholder chooses (an amount), the contract's term and the business interruption's waiting period, as printed. A new question: every earlier answer is asked again."
+   },
    {
     "version": "1.0.0",
     "date": "2026-10-26",
@@ -36,6 +41,9 @@
   "contact_email": "text",
   "cover_start": "date",
   "payment_frequency": "text",
+  "chosen_deductible": "money",
+  "contract_term": "text",
+  "bi_deductible_days": "number",
   "accounting_method": "text",
   "interruption_sum_insured": "money",
   "currency": "currency",
@@ -47,7 +55,8 @@
   "sites": {"site_no": "text", "address": "text", "country": "text"}
  },
  "scored_fields": ["policyholder_name", "policyholder_tax_number", "activity_code", "contact_name", "contact_email", "cover_start",
-                   "payment_frequency", "accounting_method", "interruption_sum_insured", "currency"],
+                   "payment_frequency", "chosen_deductible", "contract_term", "bi_deductible_days", "accounting_method",
+                   "interruption_sum_insured", "currency"],
  "informational_fields": [],
  "required": ["policyholder_name"],
  "required_review": true,

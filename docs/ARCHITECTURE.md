@@ -1035,6 +1035,13 @@ line (`3.1. Title`, `3.1.`; a table of contents' dot-leader lines are none), of 
 in the order printed counts (a stray number, a numbered item or a table of contents falls out), and the day it is in
 force, the first date after "hatályos" on its first page. `python -m jav.cli condition-import <pdf> --id --kind --title
 [--install]`: the machine (`machine:condition import`) adds it as a draft; a person makes it active.
+A real product's source (`jav/app/product_sources.py`, `configs/product_source_<name>.json`: its documents by file
+name and fingerprint, its frame and, U-A4, its tariff): `python -m jav.cli product-source <name> --folder <dir>
+--install` reads the files and the machine (`machine:product assembly`) adds the documents and the product's frame as
+drafts; once a person decided on the rules proposed from those documents, `--assemble` drafts the product's next
+version naming the latest version of each document, every rule a person accepted or corrected (a rejected one never)
+and the tariff (no new decision: nothing new). A person makes the documents, the rules and the product active, the
+product by another person than its maker.
 
 **A process pack's cases (231, plan stage A, A5).** `jav/app/process_runtime.py` `start_case(pack_id, scope, name,
 actor)` makes the case's container (a general work package of kind `case`, so every table keyed by a package keeps
@@ -1512,6 +1519,18 @@ quote and the case closes as referred), a lower limit above which another person
 (`case_decisions.json` 1.1.0) and the renewal's own letter frame (`letter_frames.json` 1.1.0). No module names it; its
 test runs the reference set to the sent letter and the referred set to the full quote
 (`tests/test_insurance_renewal_231.py`).
+U-A6, the real corporate property product's quote (the owner's decisions of 2026-10-27):
+`configs/processes/allianz_property_offer.json` is the invented insurer's quote with the same capabilities and screens
+and the real product's data: its documents read into `facts_allianz_property.json` by
+`fact_readings_allianz_property.json`, the product `az_corporate_property` (from its condition documents, made active by
+a person) and its example tariff (`product_set_allianz_tariff.json`, invented rates). The rule evaluation names the
+case's total sum insured (`sums`), and the premium decision compares it (`amount_step`, `amount_field`) with the
+authority's plan value (`case_decisions.json` `az_authority_sum_insured_plan`): above it, another person than the risk's
+decides the premium. Its example material is the tariff and three invented customers' documents
+(`golden_allianz_property_documents.json` printed into `examples_allianz_property_documents.json`); the quote request
+form states the chosen deductible, the contract term and the waiting days (`insurance_request` 1.1.0), and the schedule
+its protection class as printed (`property_schedule` 1.2.0). Tests: `tests/test_allianz_tariff_231.py`,
+`tests/test_allianz_documents_231.py`, `tests/test_allianz_offer_path_231.py`.
 
 **An editor's save behaviour (231, stage D0, D0-g; the reassessment of 2026-10-26, F15, P12).** The interface's shared
 save behaviour (`ui/src/components/editing.ts`, `SaveConflict.tsx`): an editor's save line names its state (no change,

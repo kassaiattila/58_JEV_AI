@@ -497,6 +497,16 @@ def cmd_product_source(args: argparse.Namespace) -> int:
     from jav.app import product_sources
 
     source = product_sources.load(args.name)
+    if args.assemble:  # U-A4: the product's next version from the rules a person decided on (no file is read)
+        try:
+            print(f"assembled: product:{product_sources.assemble(source)} (a draft; a person makes it active)")
+        except product_sources.SourceRefused as exc:
+            print(f"refused: {exc}")
+            return 2
+        return 0
+    if not args.folder:
+        print("refused: --folder names the folder holding the documents' files")
+        return 2
     try:
         read = product_sources.read(source, args.folder)
     except product_sources.SourceRefused as exc:
@@ -557,17 +567,19 @@ def cmd_product_set(args: argparse.Namespace) -> int:
 
 
 def cmd_examples(args: argparse.Namespace) -> int:
-    """231 (stage U, U0): the example documents a process's cases can start on (`configs/examples_property_documents.
-    json`), printed from the golden set as the measurement prints it; the packets' titles stay as the file has them.
+    """231 (stage U, U0): the example documents a process's cases can start on (`configs/examples_<set>.json`),
+    printed from the golden set `configs/golden_<set>.json` as the measurement prints it (U-A6: `--set`, by default the
+    invented insurer's `property_documents`); the packets' titles stay as the file has them.
     0: the file is up to date (or, with `--write`, written); 1: it differs."""
     import json
 
     from jav.core.cfg import CONFIG_DIR
     from jav.evals import property_documents
 
-    path = CONFIG_DIR / "examples_property_documents.json"
+    path = CONFIG_DIR / f"examples_{args.set}.json"
     current = json.loads(path.read_text(encoding="utf-8"))
-    packets = property_documents.example_packets({p["id"]: p["title"] for p in current.get("packets", [])})
+    packets = property_documents.example_packets({p["id"]: p["title"] for p in current.get("packets", [])},
+                                                 name=f"golden_{args.set}")
     if packets == current.get("packets"):
         print(f"{path.name}: up to date ({len(packets)} packet(s))")
         return 0
@@ -774,11 +786,17 @@ def register(sub) -> None:
     p = sub.add_parser("product-source", help="231 U-A2: a real product's source: its condition documents read from a folder "
                                               "by code (free), and with --install its documents and product as drafts")
     p.add_argument("name", help="the source (configs/product_source_<name>.json), e.g. allianz_property")
-    p.add_argument("--folder", required=True, help="the folder holding the documents' files (local)")
+    p.add_argument("--folder", help="the folder holding the documents' files (local)")
     p.add_argument("--install", action="store_true", help="the machine adds the documents and the product as drafts")
+    p.add_argument("--assemble", action="store_true",
+                   help="231 U-A4: the machine drafts the product's next version: its documents, the rules a person "
+                        "accepted or corrected from proposals on them, its tariff (no file is read)")
     p.set_defaults(fn=cmd_product_source)
     p = sub.add_parser("examples", help="231 U0: the example documents a process's cases start on, printed from the golden "
                                         "set (configs/examples_property_documents.json); checked, --write writes it (free)")
+    p.add_argument("--set", default="property_documents",
+                   help="231 U-A6: the documents (configs/golden_<set>.json into configs/examples_<set>.json; default "
+                        "property_documents, the invented insurer's)")
     p.add_argument("--write", action="store_true", help="write the file when it differs")
     p.set_defaults(fn=cmd_examples)
     p = sub.add_parser("invented-services", help="231 D-d5: the invented company register and sanctions list as a local "

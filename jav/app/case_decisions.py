@@ -11,8 +11,9 @@ reason instead (`case_views.return_step`). Above a limit of a versioned rule fil
 pack names: whether a second person is needed is a row of the decision trace, and the task goes to anyone but them.
 
 - `CAPABILITY` (`decision@1`): params `about` (the step decided on), `choices`, `other_than` and `limit` (both or
-  neither), `amount_field` (the result's amount compared with the limit); result: the version, the choice and the
-  result version decided on.
+  neither), `amount_field` (the result's amount compared with the limit; U-A6: a path, such as `sums.sum_insured_total`),
+  `amount_step` (U-A6: the step whose result holds it, by default the step decided on); result: the version, the choice
+  and the result version decided on.
 - `view(case_id, step)`, `decide(case_id, step, choice=, note=, expected_basis=, actor=)`, `needs_second(amount, above)`.
   A return goes through `case_views.return_step`. D-f2: the step's action `decide` (`DecideForm`), with the result
   versions the page showed (an older page is refused).
@@ -74,11 +75,15 @@ class Decision(BaseModel):
     other_than: str | None = capabilities.step_ref(None, of="decision", optional=True)
     limit: str | None = Field(None, min_length=1, title="Limit for a second person")
     amount_field: str = Field("total", min_length=1, title="The amount compared with the limit")
+    # U-A6: the step whose result holds the amount (default: the step decided on); `amount_field` may be a path ("sums.x")
+    amount_step: str | None = capabilities.step_ref(None, optional=True)
 
     @model_validator(mode="after")
     def _paired(self) -> Decision:
         if (self.other_than is None) != (self.limit is None):
             raise ValueError("a second person needs both the earlier decision (other_than) and the limit")
+        if self.amount_step is not None and self.limit is None:
+            raise ValueError("an amount from another step is compared with a limit: the pack names none")
         return self
 
 
@@ -125,7 +130,14 @@ def _second(c: Any, case_id: str, params: Decision, result: dict[str, Any]) -> d
     if params.limit is None:
         return None
     above = _limit(case_id, params.limit)
-    raw = result.get(params.amount_field)
+    if params.amount_step is not None:
+        row = cases.step_row(c, case_id, params.amount_step)
+        if row is None or row["state"] != cases.DONE:
+            raise explained(CaseDecisionError, "the step {{step}} has no result to compare with the limit", step=params.amount_step)
+        result = row["result"] or {}
+    raw: Any = result
+    for key in params.amount_field.split("."):  # U-A6: a path into the result ("sums.sum_insured_total")
+        raw = raw.get(key) if isinstance(raw, dict) else None
     if raw is None:
         raise explained(CaseDecisionError, "the result decided on has no {{field}} to compare with the limit",
                         field=params.amount_field)

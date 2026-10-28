@@ -20,7 +20,7 @@ from jav.app import (capabilities, case_decisions, case_views, field_check, pack
                      rating)
 from jav.core import cfg, decisions, store, trace
 from jav.core.process import cases, engine, kinds
-from tests.test_evaluation_steps_231 import CASES, _claims
+from tests.test_evaluation_steps_231 import CASES, SUMS, _claims
 
 ANNA, BELA = "Minta Anna", "Minta Bela"
 DECLINE = {"title": "Decline", "closes": "declined"}
@@ -28,6 +28,8 @@ RISK = {"about": "evaluate", "choices": {"accept": {"title": "Accept the risk", 
                                          "decline": DECLINE}}
 PREMIUM = {"about": "rate", "choices": {"accept": {"title": "Accept the premium"}, "decline": DECLINE},
            "other_than": "risk", "limit": "inv_premium_second_person"}
+# U-A6: the limit compared with another step's amount: the case's total sum insured, as the evaluation sums it
+BY_SUM = PREMIUM | {"limit": "az_authority_sum_insured_plan", "amount_step": "evaluate", "amount_field": "sums.sum_insured_total"}
 
 
 class _Offer(BaseModel):
@@ -35,7 +37,8 @@ class _Offer(BaseModel):
     claims: list[dict]
 
 
-def _pack(pid: str, claims: list[dict]) -> dict:
+def _pack(pid: str, claims: list[dict], premium: dict | None = None) -> dict:
+    evaluate = {"from_step": "check"} | ({"sums": SUMS} if premium else {})
     return {"meta": {"name": f"process:{pid}", "version": "1.0.0"}, "id": pid, "title": "Invented decisions",
             "intake": [{"on": "manual", "starts": "manual"}],
             "resources": {"product": "inv_business_property", "tariff": "inv_business_property_tariff"},
@@ -43,11 +46,11 @@ def _pack(pid: str, claims: list[dict]) -> dict:
             "steps": [{"id": "read", "uses": "invented_offer@1", "params": {"claims": claims}},
                       {"id": "check", "uses": "field_check@1", "params": {"catalogue": "property", "product": "@product"},
                        "after": ["read"]},
-                      {"id": "evaluate", "uses": "rule_evaluation@1", "params": {"from_step": "check"}, "after": ["check"]},
+                      {"id": "evaluate", "uses": "rule_evaluation@1", "params": evaluate, "after": ["check"]},
                       {"id": "risk", "uses": "decision@1", "params": RISK, "after": ["evaluate"]},
                       {"id": "rate", "uses": "rating@1", "params": {"from_step": "evaluate", "tariff": "@tariff"},
                        "after": ["risk"]},
-                      {"id": "premium", "uses": "decision@1", "params": PREMIUM, "after": ["rate"]}],
+                      {"id": "premium", "uses": "decision@1", "params": premium or PREMIUM, "after": ["rate"]}],
             "screens": {"tabs": [{"id": "history", "label": "History", "elements": [{"type": "timeline"}]}]}}
 
 
@@ -59,6 +62,7 @@ def packs(monkeypatch, tmp_path):
         name="invented_offer", version=1, module="tests.synthetic", kind="machine", summary="Invented.", params=_Offer,
         run=lambda ctx, p: kinds.Done({"claims": p.claims}), state="step", output=capabilities.Result))
     data = {f"process:invented_decide_{cid}": _pack(f"invented_decide_{cid}", _claims(case)) for cid, case in CASES.items()}
+    data["process:invented_decide_by_sum"] = _pack("invented_decide_by_sum", _claims(CASES["reference"]), premium=BY_SUM)
     real = cfg.load
     monkeypatch.setattr(cfg, "load", lambda name: data[name] if name in data else real(name))
     with store.use_store(tmp_path / "decisions.sqlite"):
@@ -165,3 +169,25 @@ def test_a_stale_page_is_refused_a_changed_result_puts_the_decision_out_of_date_
     assert rating.POINT in {r["point"] for r in trace.rows(case_id=case_id)}
     case_views.return_step(case_id, "premium", "the premium looks too high", BELA)
     assert package_release.approval_state(case_id, step="premium")["state"] == "returned"
+
+
+def test_the_limit_compares_another_step_s_amount_the_total_sum_insured(packs) -> None:
+    """231 (U-A6; the owner's design, a plan value): a case whose total sum insured is above 200 000 000 HUF has its
+    premium decided by another person than the risk; the amount compared is the evaluation's sum, not the premium."""
+    case_id = _started("by_sum")
+    _decide(case_id, "risk", "accept", ANNA)
+    second = case_decisions.view(case_id, "premium")["second_person"]
+    want = sum(int(u["facts"]["sum_insured"]["amount"]) for u in CASES["reference"].input["units"] if "sum_insured" in u["facts"])
+    assert want > 200_000_000
+    assert second["needed"] is True and second["amount"] == {"amount": str(want), "currency": "HUF"}
+    assert second["above"] == {"amount": "200000000", "currency": "HUF"} and second["limit"] == "az_authority_sum_insured_plan"
+    with pytest.raises(case_decisions.AnotherDeciderNeeded):
+        _decide(case_id, "premium", "accept", ANNA)
+    _decide(case_id, "premium", "accept", BELA)
+    assert _steps(case_id)["premium"]["state"] == "done"
+
+
+def test_an_amount_step_needs_a_limit() -> None:
+    with pytest.raises(ValueError):
+        case_decisions.Decision.model_validate({"about": "rate", "choices": {"accept": {"title": "Accept"}},
+                                                "amount_step": "evaluate"})

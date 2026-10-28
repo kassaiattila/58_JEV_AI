@@ -1,0 +1,821 @@
+{
+  "meta": {
+    "name": "product_set_allianz_tariff",
+    "version": "1.0.0",
+    "description": "231 (stage U, U-A5; jav/app/product_sets.py): the tariff of the real corporate property product (configs/product_source_allianz_property.json) as a product set of its own, an example: the condition documents print no premium rate, so every rate per thousand, minimum and factor value here is invented (the owner's decision of 2026-10-27: invented rates marked as an example), on the real premium factors and in the structure of the owner's design (its deductible factors 1.03 / 0.96 / 0.885 are kept). It prices each of the product's 22 modules on the facts of configs/facts_allianz_property.json; a process installs it as example material (made by the examples' machine) and removes it again. The design's factor for a cover without business interruption is not here: interruption is a module priced on its own sum insured. Live rates are the owner's to give.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-27",
+        "note": "231 (U-A5): the first version, invented rates."
+      }
+    ]
+  },
+  "issuer": "Allianz Hungária Zrt.",
+  "documents": {},
+  "rules": {},
+  "products": {},
+  "tariffs": {
+    "az_corporate_property_tariff": {
+      "title": "Allianz vállalati vagyonbiztosítás díjtáblája — PÉLDA, kitalált díjtételek",
+      "currency": "HUF",
+      "valid": {
+        "valid_from": "2024-09-01",
+        "valid_to": "2027-12-31"
+      },
+      "line_rounding": {
+        "unit": "1",
+        "mode": "half_up"
+      },
+      "total_rounding": {
+        "unit": "100",
+        "mode": "half_up"
+      },
+      "modules": {
+        "property_ar": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "0.6"
+          },
+          "minimum": {
+            "amount": "30000",
+            "currency": "HUF"
+          },
+          "factors": [
+            "activity",
+            "claims",
+            "deductible",
+            "flood"
+          ]
+        },
+        "VIL": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "0.04"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [
+            "surge"
+          ],
+          "only": {
+            "asset_group": {
+              "in": [
+                "machinery",
+                "other_equipment",
+                "office_electronics",
+                "renewables"
+              ]
+            }
+          }
+        },
+        "I05": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "0.03"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "buildings",
+                "machinery",
+                "stock"
+              ]
+            }
+          }
+        },
+        "J01": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "0.05"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "machinery"
+              ]
+            }
+          }
+        },
+        "J21": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "0.05"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "buildings",
+                "machinery",
+                "other_equipment",
+                "stock",
+                "glazing"
+              ]
+            }
+          }
+        },
+        "I13": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "0.02"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "buildings"
+              ]
+            }
+          }
+        },
+        "J22": {
+          "level": "asset_group",
+          "basis": "transit_peak_value",
+          "rate": {
+            "value": "1.5"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "stock",
+                "machinery",
+                "other_equipment"
+              ]
+            }
+          }
+        },
+        "J24": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "0.02"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "buildings"
+              ]
+            }
+          }
+        },
+        "J23": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "0.03"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "buildings",
+                "machinery",
+                "other_equipment",
+                "stock"
+              ]
+            }
+          }
+        },
+        "GLASS": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "2.5"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "glazing"
+              ]
+            }
+          }
+        },
+        "IBV": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "1.5"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "office_electronics"
+              ]
+            }
+          }
+        },
+        "G19": {
+          "level": "asset_group",
+          "basis": "transit_peak_value",
+          "rate": {
+            "value": "2.0"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "cash",
+                "securities",
+                "valuables"
+              ]
+            }
+          }
+        },
+        "IKO": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "0.8"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "machinery",
+                "other_equipment"
+              ]
+            }
+          }
+        },
+        "I29": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "1.2"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "outdoor_items"
+              ]
+            }
+          }
+        },
+        "I28": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "1.0"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "renewables"
+              ]
+            }
+          }
+        },
+        "IHA": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "3.0"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "portable_electronics"
+              ]
+            }
+          }
+        },
+        "IFH": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "0.6"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "stock",
+                "frozen_stock"
+              ]
+            }
+          }
+        },
+        "IAK": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "1.0"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [],
+          "only": {
+            "asset_group": {
+              "in": [
+                "data_carriers"
+              ]
+            }
+          }
+        },
+        "burglary": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "1.4"
+          },
+          "minimum": {
+            "amount": "15000",
+            "currency": "HUF"
+          },
+          "factors": [
+            "burglary_group",
+            "protection",
+            "claims",
+            "deductible"
+          ],
+          "only": {
+            "asset_group": {
+              "in": [
+                "stock",
+                "cash",
+                "securities",
+                "valuables",
+                "art",
+                "machinery",
+                "other_equipment",
+                "office_electronics",
+                "portable_electronics",
+                "employee_effects"
+              ]
+            }
+          }
+        },
+        "V111": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "0.9"
+          },
+          "minimum": {
+            "amount": "3000",
+            "currency": "HUF"
+          },
+          "factors": [
+            "protection"
+          ],
+          "only": {
+            "asset_group": {
+              "in": [
+                "vehicle_stock"
+              ]
+            }
+          }
+        },
+        "interruption": {
+          "level": "holder",
+          "basis": "interruption_sum_insured",
+          "rate": {
+            "value": "0.9"
+          },
+          "minimum": {
+            "amount": "25000",
+            "currency": "HUF"
+          },
+          "factors": [
+            "activity",
+            "claims",
+            "bi_waiting"
+          ]
+        },
+        "cold_store": {
+          "level": "asset_group",
+          "basis": "sum_insured",
+          "rate": {
+            "value": "1.8"
+          },
+          "minimum": {
+            "amount": "10000",
+            "currency": "HUF"
+          },
+          "factors": [
+            "cold_alarm",
+            "claims"
+          ],
+          "only": {
+            "asset_group": {
+              "in": [
+                "frozen_stock"
+              ]
+            }
+          }
+        }
+      },
+      "factors": {
+        "activity": {
+          "title": "Tevékenységi osztály (TEÁOR)",
+          "fact": "activity_code",
+          "table": [
+            {
+              "when": {
+                "in": [
+                  "4690",
+                  "4719",
+                  "4778",
+                  "6201",
+                  "6202",
+                  "6311",
+                  "6920",
+                  "7022",
+                  "7111",
+                  "8211"
+                ]
+              },
+              "factor": "1.0"
+            },
+            {
+              "when": {
+                "in": [
+                  "5210",
+                  "5229",
+                  "4941"
+                ]
+              },
+              "factor": "1.15"
+            },
+            {
+              "when": {
+                "in": [
+                  "1011",
+                  "1071",
+                  "1610",
+                  "2221",
+                  "2511",
+                  "2562",
+                  "2849",
+                  "3109"
+                ]
+              },
+              "factor": "1.25"
+            },
+            {
+              "when": {
+                "in": [
+                  "5510",
+                  "5610",
+                  "5630"
+                ]
+              },
+              "factor": "1.4"
+            },
+            {
+              "when": {},
+              "factor": "1.2"
+            }
+          ]
+        },
+        "claims": {
+          "title": "Kárelőzmény (5 év, kárszám)",
+          "fact": "claims_5y_count",
+          "table": [
+            {
+              "when": {
+                "eq": 0
+              },
+              "factor": "0.95"
+            },
+            {
+              "when": {
+                "eq": 1
+              },
+              "factor": "1.0"
+            },
+            {
+              "when": {
+                "eq": 2
+              },
+              "factor": "1.15"
+            },
+            {
+              "when": {},
+              "factor": "1.35"
+            }
+          ]
+        },
+        "deductible": {
+          "title": "Választott önrész",
+          "fact": "chosen_deductible",
+          "table": [
+            {
+              "when": {
+                "lte": {
+                  "amount": "250000",
+                  "currency": "HUF"
+                }
+              },
+              "factor": "1.03"
+            },
+            {
+              "when": {
+                "lte": {
+                  "amount": "500000",
+                  "currency": "HUF"
+                }
+              },
+              "factor": "0.96"
+            },
+            {
+              "when": {},
+              "factor": "0.885"
+            }
+          ]
+        },
+        "flood": {
+          "title": "Árvízi besorolás",
+          "fact": "flood_area_class",
+          "table": [
+            {
+              "when": {
+                "eq": "protected"
+              },
+              "factor": "1.0"
+            },
+            {
+              "when": {
+                "eq": "unprotected_floodplain"
+              },
+              "factor": "1.3"
+            },
+            {
+              "when": {
+                "eq": "floodway"
+              },
+              "factor": "1.8"
+            }
+          ]
+        },
+        "protection": {
+          "title": "Meglévő vagyonvédelmi osztály",
+          "fact": "protection_class_in_place",
+          "table": [
+            {
+              "when": {
+                "in": [
+                  "I",
+                  "II"
+                ]
+              },
+              "factor": "0.8"
+            },
+            {
+              "when": {
+                "in": [
+                  "III",
+                  "IV"
+                ]
+              },
+              "factor": "0.9"
+            },
+            {
+              "when": {
+                "eq": "V"
+              },
+              "factor": "0.95"
+            },
+            {
+              "when": {},
+              "factor": "1.0"
+            }
+          ]
+        },
+        "burglary_group": {
+          "title": "Vagyoncsoport (betöréses lopás)",
+          "fact": "asset_group",
+          "table": [
+            {
+              "when": {
+                "eq": "cash"
+              },
+              "factor": "3.0"
+            },
+            {
+              "when": {
+                "in": [
+                  "securities",
+                  "valuables",
+                  "art"
+                ]
+              },
+              "factor": "2.0"
+            },
+            {
+              "when": {},
+              "factor": "1.0"
+            }
+          ]
+        },
+        "surge": {
+          "title": "Túlfeszültség-védelem",
+          "fact": "surge_protection",
+          "table": [
+            {
+              "when": {
+                "eq": "none"
+              },
+              "factor": "1.5"
+            },
+            {
+              "when": {
+                "eq": "t3"
+              },
+              "factor": "1.2"
+            },
+            {
+              "when": {
+                "eq": "t1_t2"
+              },
+              "factor": "1.0"
+            },
+            {
+              "when": {
+                "eq": "t1_t2_t3"
+              },
+              "factor": "0.85"
+            }
+          ]
+        },
+        "bi_waiting": {
+          "title": "Üzemszüneti időönrész (munkanap)",
+          "fact": "bi_deductible_days",
+          "table": [
+            {
+              "when": {
+                "lte": 1
+              },
+              "factor": "1.15"
+            },
+            {
+              "when": {
+                "lte": 3
+              },
+              "factor": "1.0"
+            },
+            {
+              "when": {},
+              "factor": "0.9"
+            }
+          ]
+        },
+        "cold_alarm": {
+          "title": "Hűtéskimaradás-jelzés távfelügyelettel",
+          "fact": "cold_alarm_monitored",
+          "table": [
+            {
+              "when": {
+                "eq": true
+              },
+              "factor": "0.9"
+            },
+            {
+              "when": {},
+              "factor": "1.2"
+            }
+          ]
+        },
+        "frequency": {
+          "title": "Díjfizetési gyakoriság",
+          "fact": "payment_frequency",
+          "table": [
+            {
+              "when": {
+                "in": [
+                  "yearly",
+                  "single"
+                ]
+              },
+              "factor": "1.0"
+            },
+            {
+              "when": {
+                "eq": "half_yearly"
+              },
+              "factor": "1.02"
+            },
+            {
+              "when": {
+                "eq": "quarterly"
+              },
+              "factor": "1.04"
+            },
+            {
+              "when": {
+                "eq": "monthly"
+              },
+              "factor": "1.06"
+            }
+          ]
+        },
+        "term": {
+          "title": "Tartam",
+          "fact": "contract_term",
+          "table": [
+            {
+              "when": {
+                "eq": "indefinite"
+              },
+              "factor": "1.0"
+            },
+            {
+              "when": {
+                "eq": "fixed"
+              },
+              "factor": "1.05"
+            }
+          ]
+        }
+      },
+      "total_factors": [
+        "frequency",
+        "term"
+      ],
+      "policy_minimum": {
+        "amount": "50000",
+        "currency": "HUF"
+      }
+    }
+  }
+}

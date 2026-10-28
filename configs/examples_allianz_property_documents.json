@@ -1,0 +1,242 @@
+{
+  "meta": {
+    "name": "examples_allianz_property_documents",
+    "version": "1.0.0",
+    "date": "2026-10-27",
+    "description": "231 (stage U, U-A6; the owner's decisions of 2026-10-27): the invented documents a case of the real corporate property product can start on, in packets, as its process's example material (`configs/processes/<id>.json` `examples.documents`). Each document is its printed pages, made from the golden set `configs/golden_allianz_property_documents.json` as the measurement prints it (`python -m jav.cli examples --set allianz_property_documents --write`; a test keeps them the same). The packets' titles are the interface's (English source, translated). Every name and number is invented.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-27",
+        "note": "231 U-A6: the three sets of the golden set as packets."
+      }
+    ]
+  },
+  "packets": [
+    {
+      "id": "az-metalworks",
+      "title": "A metalworks above the authority's limit: another person decides the premium",
+      "documents": [
+        {
+          "file": "az-metalworks-request.pdf",
+          "pages": [
+            [
+              "BIZTOSÍTÁSI AJÁNLATKÉRŐ LAP",
+              "Vállalati vagyonbiztosítás",
+              "Szerződő: Minta Fémmegmunkáló Kft.",
+              "Adószám: 24681353-1-43",
+              "Fő tevékenység (TEÁOR): 2562",
+              "Kapcsolattartó: Minta Gábor, gabor@minta.hu",
+              "Kockázatviselés kezdete: 2027. január 1.",
+              "Díjfizetés: éves",
+              "Választott önrész: 500 000 Ft",
+              "Szerződés tartama: határozatlan",
+              "Kért fedezetek:",
+              "[X] Vállalkozások All Risks vagyonbiztosítása",
+              "[X] Villámcsapás okozta túlfeszültség",
+              "[ ] Vandalizmus",
+              "[ ] Üvegtörés",
+              "[ ] Irodai elektronikus eszközök",
+              "[X] Gépek külső okból bekövetkező törése",
+              "[ ] Fűtő- vagy hűtőberendezések nem megfelelő működése",
+              "[X] Betöréses lopás és rablás",
+              "[X] Allianz Üzemszünet Védelem",
+              "[ ] Hűtőházakban és mélyhűtő berendezésekben tárolt készlet",
+              "Üzemszüneti elszámolás módja: fedezeti összeg",
+              "Üzemszüneti biztosítási összeg: 80 000 000 Ft",
+              "Üzemszüneti időönrész: 3 munkanap",
+              "Telephelyek:",
+              "Sorszám   Ország   Cím",
+              "1   Magyarország   2400 Dunaújváros, Minta ipari park 4."
+            ]
+          ]
+        },
+        {
+          "file": "az-metalworks-schedule-1.pdf",
+          "pages": [
+            [
+              "VAGYONADATLAP",
+              "Szerződő: Minta Fémmegmunkáló Kft.",
+              "Telephely száma: 1",
+              "Telephely címe: 2400 Dunaújváros, Minta ipari park 4.",
+              "Alapterület: 2400 m²",
+              "Árvízi zóna: ármentesített",
+              "Távfelügyeletes riasztó: igen",
+              "Túlfeszültség-védelem: T1+T2",
+              "Pinceszinti tárolás: nem",
+              "Védelmi szint: IV",
+              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
+              "épület   150 000 000 Ft   új érték   15%",
+              "gépek és berendezések   60 000 000 Ft   új érték   25%",
+              "készlet   30 000 000 Ft   beszerzési érték   –",
+              "készpénz   1 500 000 Ft   névérték   –"
+            ]
+          ]
+        },
+        {
+          "file": "az-metalworks-claims.pdf",
+          "pages": [
+            [
+              "KÁRELŐZMÉNY-NYILATKOZAT",
+              "Nyilatkozattevő: Minta Fémmegmunkáló Kft., adószám: 24681353-1-43",
+              "Vizsgált időszak: 2022. január 1. – 2026. december 31.",
+              "Káresemény napja   Kár oka   Kifizetett kárösszeg",
+              "2024. június 12.   vihar   1 200 000 Ft",
+              "Károk száma összesen: 1",
+              "Kifizetett kárösszeg összesen: 1 200 000 Ft"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "az-retail",
+      "title": "A retail shop: a complete request",
+      "documents": [
+        {
+          "file": "az-retail-request.pdf",
+          "pages": [
+            [
+              "BIZTOSÍTÁSI AJÁNLATKÉRŐ LAP",
+              "Vállalati vagyonbiztosítás",
+              "Szerződő: Minta Kereskedő Kft.",
+              "Adószám: 12345676-2-41",
+              "Fő tevékenység (TEÁOR): 4719",
+              "Kapcsolattartó: Minta Anna, anna@minta.hu",
+              "Kockázatviselés kezdete: 2027. január 1.",
+              "Díjfizetés: negyedéves",
+              "Választott önrész: 250 000 Ft",
+              "Szerződés tartama: határozott",
+              "Kért fedezetek:",
+              "[X] Vállalkozások All Risks vagyonbiztosítása",
+              "[ ] Villámcsapás okozta túlfeszültség",
+              "[X] Vandalizmus",
+              "[X] Üvegtörés",
+              "[X] Irodai elektronikus eszközök",
+              "[ ] Gépek külső okból bekövetkező törése",
+              "[ ] Fűtő- vagy hűtőberendezések nem megfelelő működése",
+              "[X] Betöréses lopás és rablás",
+              "[ ] Allianz Üzemszünet Védelem",
+              "[ ] Hűtőházakban és mélyhűtő berendezésekben tárolt készlet",
+              "Telephelyek:",
+              "Sorszám   Ország   Cím",
+              "1   Magyarország   1111 Budapest, Minta utca 1."
+            ]
+          ]
+        },
+        {
+          "file": "az-retail-schedule-1.pdf",
+          "pages": [
+            [
+              "VAGYONADATLAP",
+              "Szerződő: Minta Kereskedő Kft.",
+              "Telephely száma: 1",
+              "Telephely címe: 1111 Budapest, Minta utca 1.",
+              "Alapterület: 450 m²",
+              "Árvízi zóna: ármentesített",
+              "Távfelügyeletes riasztó: igen",
+              "Túlfeszültség-védelem: T3",
+              "Pinceszinti tárolás: nem",
+              "Védelmi szint: V",
+              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
+              "készlet   25 000 000 Ft   beszerzési érték   –",
+              "egyéb berendezések   8 000 000 Ft   új érték   20%",
+              "irodai elektronikus eszközök   3 000 000 Ft   új érték   30%",
+              "üvegfelületek   2 000 000 Ft   új érték   –"
+            ]
+          ]
+        },
+        {
+          "file": "az-retail-claims.pdf",
+          "pages": [
+            [
+              "KÁRELŐZMÉNY-NYILATKOZAT",
+              "Nyilatkozattevő: Minta Kereskedő Kft., adószám: 12345676-2-41",
+              "Vizsgált időszak: 2022. január 1. – 2026. december 31.",
+              "Az időszakban káresemény nem történt.",
+              "Károk száma összesen: 0",
+              "Kifizetett kárösszeg összesen: 0 Ft"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "az-cold-store",
+      "title": "A cold store: a fact the premium needs is asked for",
+      "documents": [
+        {
+          "file": "az-cold-store-request.pdf",
+          "pages": [
+            [
+              "BIZTOSÍTÁSI AJÁNLATKÉRŐ LAP",
+              "Vállalati vagyonbiztosítás",
+              "Szerződő: Minta Hűtőház Kft.",
+              "Adószám: 13570008-1-13",
+              "Fő tevékenység (TEÁOR): 5210",
+              "Kapcsolattartó: Minta Péter, peter@minta.hu",
+              "Kockázatviselés kezdete: 2027. január 1.",
+              "Díjfizetés: féléves",
+              "Választott önrész: 1 000 000 Ft",
+              "Szerződés tartama: határozatlan",
+              "Kért fedezetek:",
+              "[X] Vállalkozások All Risks vagyonbiztosítása",
+              "[ ] Villámcsapás okozta túlfeszültség",
+              "[ ] Vandalizmus",
+              "[ ] Üvegtörés",
+              "[ ] Irodai elektronikus eszközök",
+              "[ ] Gépek külső okból bekövetkező törése",
+              "[X] Fűtő- vagy hűtőberendezések nem megfelelő működése",
+              "[X] Betöréses lopás és rablás",
+              "[X] Allianz Üzemszünet Védelem",
+              "[X] Hűtőházakban és mélyhűtő berendezésekben tárolt készlet",
+              "Üzemszüneti elszámolás módja: állandó költségek",
+              "Üzemszüneti biztosítási összeg: 40 000 000 Ft",
+              "Üzemszüneti időönrész: 5 munkanap",
+              "Telephelyek:",
+              "Sorszám   Ország   Cím",
+              "1   Magyarország   6000 Kecskemét, Minta hűtőház utca 2."
+            ]
+          ]
+        },
+        {
+          "file": "az-cold-store-schedule-1.pdf",
+          "pages": [
+            [
+              "VAGYONADATLAP",
+              "Szerződő: Minta Hűtőház Kft.",
+              "Telephely száma: 1",
+              "Telephely címe: 6000 Kecskemét, Minta hűtőház utca 2.",
+              "Alapterület: 1800 m²",
+              "Árvízi zóna: nem ármentesített ártér",
+              "Távfelügyeletes riasztó: igen",
+              "Túlfeszültség-védelem: T1+T2+T3",
+              "Pinceszinti tárolás: nem",
+              "Védelmi szint: III",
+              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
+              "épület   90 000 000 Ft   új érték   20%",
+              "gépek és berendezések   35 000 000 Ft   új érték   30%",
+              "mélyhűtött készlet   40 000 000 Ft   beszerzési érték   –",
+              "készlet   15 000 000 Ft   beszerzési érték   –"
+            ]
+          ]
+        },
+        {
+          "file": "az-cold-store-claims.pdf",
+          "pages": [
+            [
+              "KÁRELŐZMÉNY-NYILATKOZAT",
+              "Nyilatkozattevő: Minta Hűtőház Kft., adószám: 13570008-1-13",
+              "Vizsgált időszak: 2022. január 1. – 2026. december 31.",
+              "Káresemény napja   Kár oka   Kifizetett kárösszeg",
+              "2023. augusztus 2.   hűtéskimaradás   2 500 000 Ft",
+              "2025. január 15.   csőtörés   600 000 Ft",
+              "Károk száma összesen: 2",
+              "Kifizetett kárösszeg összesen: 3 100 000 Ft"
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

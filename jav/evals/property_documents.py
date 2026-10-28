@@ -8,9 +8,11 @@ expected is always what is printed. Each set of documents names the facts they h
 the facts two documents disagree on), and the five sets of the invented product set's reference cases hold that case's
 facts: the documents are read into the same facts the rules were measured on.
 
-- `load()`, `PropertyDocuments`: the documents, by set.
-- `pages(document)`: its printed lines, page by page; `write_pdfs(folder)`: every document as a PDF; (231 U0)
-  `example_packets(titles)`: every set as a packet of a process's example documents, printed.
+- `load(name)`, `PropertyDocuments`: the documents, by set (231 U-A6: a golden file of its own names its form - the
+  request's title and the covers it prints - and its readings; the invented insurer's is the default, and
+  `golden_allianz_property_documents` holds the real corporate product's invented customers).
+- `pages(document, form)`: its printed lines, page by page; `write_pdfs(folder, name)`: every document as a PDF; (231 U0)
+  `example_packets(titles, name)`: every set as a packet of a process's example documents, printed.
 - `facts_of(document_set, readings)`: the units, the values not read and the disagreements its documents give.
 - `score(document, got)`, `measure(options, *, read=, recognise=)`: the golden set
   `insurance_application:documents` (`jav/evals/goldens.py`): each document recognised (its main and its
@@ -79,12 +81,22 @@ class DocumentSet(_Model):
     conflicts: tuple[tuple[str, str], ...] = ()  # (unit, fact): two documents disagree
 
 
+class Form(_Model):
+    """231 (U-A6): what the quote request form prints of its own: its title line and the covers it lists as boxes."""
+
+    title: str = "Vállalkozói vagyonbiztosítás"
+    covers: tuple[str, ...] = _COVERS
+
+
 class PropertyDocuments(_Model):
+    form: Form = Form()
+    readings: str = "fact_readings_property"  # 231 (U-A6): the rule file its documents are read into facts by
+    key: str = KEY  # the golden set's key
     sets: tuple[DocumentSet, ...]
 
 
-def load() -> PropertyDocuments:
-    return PropertyDocuments.model_validate({k: v for k, v in cfg.load(DATA).items() if k != "meta"})
+def load(name: str = DATA) -> PropertyDocuments:
+    return PropertyDocuments.model_validate({k: v for k, v in cfg.load(name).items() if k != "meta"})
 
 
 # --- the printed page --------------------------------------------------------------------------------------------------
@@ -103,17 +115,21 @@ def _line(label: str, value: Any, fmt: Any = str) -> list[str]:
     return [] if value is None else [f"{label}: {fmt(value)}"]
 
 
-def _request(v: dict[str, Any]) -> list[list[str]]:
+def _request(v: dict[str, Any], form: Form) -> list[list[str]]:
     wanted = {row["cover"] for row in v.get("requested_covers") or []}
-    lines = ["BIZTOSÍTÁSI AJÁNLATKÉRŐ LAP", "Vállalkozói vagyonbiztosítás",
+    lines = ["BIZTOSÍTÁSI AJÁNLATKÉRŐ LAP", form.title,
              *_line("Szerződő", v.get("policyholder_name")), *_line("Adószám", v.get("policyholder_tax_number")),
              *_line("Fő tevékenység (TEÁOR)", v.get("activity_code"))]
     if v.get("contact_name"):
         lines.append(f"Kapcsolattartó: {v['contact_name']}" + (f", {v['contact_email']}" if v.get("contact_email") else ""))
     lines += [*_line("Kockázatviselés kezdete", v.get("cover_start"), _day), *_line("Díjfizetés", v.get("payment_frequency")),
-              "Kért fedezetek:", *[f"[{'X' if c in wanted else ' '}] {c}" for c in _COVERS],
+              # 231 (U-A6): the request's three new fields, printed only when given (the invented insurer's forms
+              # have none, so their pages stay as they were)
+              *_line("Választott önrész", v.get("chosen_deductible"), _amount), *_line("Szerződés tartama", v.get("contract_term")),
+              "Kért fedezetek:", *[f"[{'X' if c in wanted else ' '}] {c}" for c in form.covers],
               *_line("Üzemszüneti elszámolás módja", v.get("accounting_method")),
               *_line("Üzemszüneti biztosítási összeg", v.get("interruption_sum_insured"), _amount),
+              *_line("Üzemszüneti időönrész", v.get("bi_deductible_days"), lambda d: f"{d} munkanap"),
               # 231 (D-h): the address last, where it has room (the writer puts cells at fixed points; a long address
               # in the middle ran into the country's cell and the two were read as one, measured on 2026-10-27)
               "Telephelyek:", "Sorszám   Ország   Cím",
@@ -150,10 +166,11 @@ def _statement(v: dict[str, Any]) -> list[list[str]]:
     return [lines]
 
 
-def pages(document: Document) -> list[list[str]]:
-    """The document's printed lines, page by page, made from its values in its layout (Hungarian: document text)."""
+def pages(document: Document, form: Form | None = None) -> list[list[str]]:
+    """The document's printed lines, page by page, made from its values in its layout (Hungarian: document text); a
+    request on its golden file's form (the invented insurer's by default)."""
     if document.pack == "insurance_request":
-        return _request(document.values)
+        return _request(document.values, form or Form())
     if document.pack == "property_schedule":
         return _schedule(document.values, document.layout)
     if document.pack == "claims_history":
@@ -161,21 +178,23 @@ def pages(document: Document) -> list[list[str]]:
     raise ValueError(f"no page layout for {document.pack}")
 
 
-def example_packets(titles: dict[str, str]) -> list[dict[str, Any]]:
-    """231 (stage U, U0): every set as a packet of a process's example documents (`configs/examples_property_documents.
-    json`): its id, its title (from `titles`, else the set's), and each document's file name and printed pages."""
+def example_packets(titles: dict[str, str], name: str = DATA) -> list[dict[str, Any]]:
+    """231 (stage U, U0): every set as a packet of a process's example documents (`configs/examples_<name without
+    golden_>.json`): its id, its title (from `titles`, else the set's), and each document's file name and printed pages."""
+    docs = load(name)
     return [{"id": s.id, "title": titles.get(s.id, s.title),
-             "documents": [{"file": f"{d.id}.pdf", "pages": pages(d)} for d in s.documents]} for s in load().sets]
+             "documents": [{"file": f"{d.id}.pdf", "pages": pages(d, docs.form)} for d in s.documents]} for s in docs.sets]
 
 
-def write_pdfs(folder: Path) -> list[Path]:
+def write_pdfs(folder: Path, name: str = DATA) -> list[Path]:
     """Every document as a PDF in `folder` (`<set>/<document>.pdf`), as the measurement reads them."""
     out = []
-    for doc_set in load().sets:
+    docs = load(name)
+    for doc_set in docs.sets:
         for document in doc_set.documents:
             path = folder / doc_set.id / f"{document.id}.pdf"
             path.parent.mkdir(parents=True, exist_ok=True)
-            out.append(write_unicode_pdf_pages(path, pages(document)))
+            out.append(write_unicode_pdf_pages(path, pages(document, docs.form)))
     return out
 
 
@@ -213,8 +232,8 @@ Reader = Callable[[Document, Path], dict[str, Any] | None]  # what a document's 
 Recogniser = Callable[[Path], tuple[str | None, str | None]]  # (main type, detailed type)
 
 
-def count() -> int:
-    return sum(len(s.documents) for s in load().sets)
+def count(name: str = DATA) -> int:
+    return sum(len(s.documents) for s in load(name).sets)
 
 
 def _same(want: Any, got: Any) -> bool:
@@ -288,30 +307,32 @@ def _set_facts(doc_set: DocumentSet, got_values: dict[str, dict[str, Any]], read
     return marks
 
 
-def measure(options: Any, *, read: Reader | None = None, recognise: Recogniser | None = None) -> Any:
-    """The golden set's measurement, as `python -m jav.cli measure insurance_application:documents` runs it:
-    within the owner's sub-budgets, or earlier answers only without one. `read`, `recognise`: stand-ins (the tests)."""
+def measure(options: Any, *, read: Reader | None = None, recognise: Recogniser | None = None, name: str = DATA) -> Any:
+    """The golden set's measurement, as `python -m jav.cli measure insurance_application:documents` runs it (231 U-A6:
+    `name` another golden file, `insurance_application:allianz_documents`): within the owner's sub-budgets, or earlier
+    answers only without one. `read`, `recognise`: stand-ins (the tests)."""
     from jav.core import calls
     from jav.evals import goldens
 
     limits = {p: Decimal(str(v)) for p, v in (("openai", options.budget_usd), ("jev", options.jev_budget_usd)) if v is not None}
     if not limits:
         print(calls.NO_BUDGET_NOTE)
-    readings = fact_readings.load()
+    docs = load(name)
+    readings = fact_readings.load(docs.readings)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     rows: list[dict[str, Any]] = []
     right = scored = answered = 0
     failures: list[str] = []
     with tempfile.TemporaryDirectory(prefix="property-documents-") as tmp, \
-            calls.measurement(f"measure-{stamp}-property-documents", limits, reuse=options.use_cache):
+            calls.measurement(f"measure-{stamp}-{name.removeprefix('golden_').replace('_', '-')}", limits, reuse=options.use_cache):
         read = read or _flow_reader(use_cache=options.use_cache, jev=options.jev)
         recognise = recognise or _flow_recogniser(use_cache=options.use_cache, jev=options.jev)
-        for doc_set in load().sets:
+        for doc_set in docs.sets:
             got_values: dict[str, dict[str, Any]] = {}
             for document in doc_set.documents:
                 path = Path(tmp) / doc_set.id / f"{document.id}.pdf"
                 path.parent.mkdir(parents=True, exist_ok=True)
-                write_unicode_pdf_pages(path, pages(document))
+                write_unicode_pdf_pages(path, pages(document, docs.form))
                 t0 = time.perf_counter()
                 broad, detail = recognise(path)
                 got = read(document, path)
@@ -335,8 +356,8 @@ def measure(options: Any, *, read: Reader | None = None, recognise: Recogniser |
                 scored += len(marks_of_set)
                 failures += [f"{doc_set.id}: {k}" for k, ok in marks_of_set.items() if not ok]
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
-    out = RUNS_DIR / f"{stamp}_property_documents_{options.engine}.jsonl"
+    out = RUNS_DIR / f"{stamp}_{name.removeprefix('golden_')}_{options.engine}.jsonl"
     out.write_text("".join(json.dumps(r, ensure_ascii=False, default=str) + "\n" for r in rows), encoding="utf-8")
-    print(f"property documents ({options.engine}): {answered}/{count()} read; {right}/{scored} judgements right -> {out}")
-    return goldens.Outcome(cases=count(), answered=answered, right=right, scored=scored, unit="judgements",
+    print(f"{docs.key} ({options.engine}): {answered}/{count(name)} read; {right}/{scored} judgements right -> {out}")
+    return goldens.Outcome(cases=count(name), answered=answered, right=right, scored=scored, unit="judgements",
                            failures=tuple(failures))

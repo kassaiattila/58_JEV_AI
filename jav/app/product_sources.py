@@ -12,6 +12,9 @@ another version refuses the whole source before anything is written.
 
 - `load(name)`: the source; `read(source, folder)`: each document read (`SourceRefused`: a file missing or changed, or
   one that could not be read); `install(source, read_documents)`: the documents' and the product's references.
+- U-A4 `assemble(source)`: once a person decided on the rules proposed from its documents, the product's next version
+  as the machine drafts it: the latest version of each document, every rule a person accepted or corrected, the tariff
+  the source names; its reference (the same content as the latest version: that one).
 
 Layer: application; it names no insurer and no product (the source is data).
 """
@@ -29,7 +32,7 @@ from jav.app.product_rules import Module, Product, Section
 from jav.core import cfg, identity
 from jav.core.user_messages import explained
 
-__all__ = ["MACHINE", "ProductSource", "SourceRefused", "install", "known_codes", "load", "read"]
+__all__ = ["MACHINE", "ProductSource", "SourceRefused", "assemble", "install", "known_codes", "load", "read"]
 
 MACHINE = identity.machine("product assembly")
 PREFIX = "product_source_"
@@ -55,6 +58,7 @@ class SourceProduct(_Model):
     name: str = Field(min_length=1)
     catalogue: str = Field(min_length=1)
     modules: tuple[Module, ...] = Field(min_length=1)
+    tariff: str | None = None  # U-A4: the tariff the assembled product is priced by (an example until a live one is given)
 
 
 class ProductSource(_Model):
@@ -124,3 +128,29 @@ def install(source: ProductSource, documents: dict[str, condition_import.Importe
     product = latest["ref"] if latest is not None and latest["content"] == content else \
         product_rules.add("product", p.id, content, actor=MACHINE)["ref"]
     return [f"document:{ref}" for ref in refs.values()] + [f"product:{product}"]
+
+
+def assemble(source: ProductSource) -> str:
+    """U-A4 (the owner's decision of 2026-10-27: the system assembles the product, a person makes it active): the
+    product's next version, a draft the machine makes, naming the latest version of each of its documents, the latest
+    version of every rule a person accepted or corrected from a proposal of a run on one of them (in the order decided;
+    a rejected one never) and the tariff the source names. The same content as the latest version: that one, nothing
+    new. A product or document not installed yet: `SourceRefused`."""
+    from jav.app import rule_proposal_runs
+
+    p = source.product
+    if product_rules.latest("product", p.id) is None:
+        raise SourceRefused(f"the product {p.id} is not installed yet: install its source first")
+    documents = []
+    for ident in source.documents:
+        found = product_rules.latest("document", ident)
+        if found is None:
+            raise SourceRefused(f"the document {ident} is not installed yet: install its source first")
+        documents.append(found["ref"])
+    rules = [product_rules.latest("rule", ident)["ref"] for ident in rule_proposal_runs.decided_rules(set(source.documents))]
+    content = Product(name=p.name, catalogue=p.catalogue, modules=p.modules, documents=tuple(documents), rules=tuple(rules),
+                      tariff=p.tariff).model_dump(mode="json")
+    latest = product_rules.latest("product", p.id)
+    if latest["content"] == content:
+        return latest["ref"]
+    return product_rules.add("product", p.id, content, actor=MACHINE)["ref"]
