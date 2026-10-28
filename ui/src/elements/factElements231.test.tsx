@@ -31,7 +31,8 @@ const review = (over: Partial<FieldReviewData> = {}): FieldReviewData => ({
       sources: { company_name: SRC } },
     { unit_id: "u-2", level: "site", parent_id: "u-1", state: 1, facts: { flood_zone: "low" }, sources: {} },
   ],
-  claims: [{ from_step: "company", unit_key: "holder", fact: "activity_code", value: "2562", placement: "conflict", unit_id: "u-1", open: true }],
+  claims: [{ claim_key: "k-1", from_step: "company", unit_key: "holder", fact: "activity_code", value: "2562", placement: "conflict",
+              unit_id: "u-1", open: true, kept: null }],
   state: 7, approval: { state: "missing", step: "check", active: null, versions: [], returned: null, outdated: null },
   catalogue: CAT, frozen: null, conflicts: 1, waits: true, ...over,
 });
@@ -64,6 +65,13 @@ describe("the field review", () => {
     fireEvent.click(screen.getByRole("button", { name: "Take this value" }));
     await waitFor(() => expect(act).toHaveBeenCalledWith(CASE, "check", "unit_save", undefined, {
       unit_id: "u-1", facts: { company_name: "Minta Kft.", activity_code: "2562" }, expected_state: 3, note: "taken from Company register" }));
+  });
+
+  it("lets a person keep the value shown instead, as the page says they may (U1)", async () => {
+    const act = vi.spyOn(api, "caseStepAction").mockResolvedValue({} as CaseView);
+    show("field_review", "check", review(), "field_check@1", "Data check");
+    fireEvent.click(await screen.findByRole("button", { name: "Keep the value shown" }));
+    await waitFor(() => expect(act).toHaveBeenCalledWith(CASE, "check", "keep_value", undefined, { claim_key: "k-1" }));
   });
 
   it("offers the freeze as the solid button only once nothing is to settle and the day is given", async () => {

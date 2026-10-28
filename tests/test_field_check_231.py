@@ -96,6 +96,25 @@ def test_the_offered_facts_make_the_units_fill_what_is_missing_and_leave_a_confl
     assert len(rows) == len(view["claims"]) and all(trace.replay(r) == r["outcome"] for r in rows)
 
 
+def test_a_person_keeps_the_value_shown_and_the_disagreement_is_settled(case) -> None:
+    """U1 (the walkthrough of 2026-10-28): a person may keep the value shown instead of the one another source offers
+    (the page said so, but offered only taking the other one): the disagreement is settled in their name, journaled,
+    and the unit keeps its value; a claim that is no open disagreement is refused."""
+    view = field_check.view(case, "check")
+    [claim] = [c for c in view["claims"] if c["open"]]
+    with pytest.raises(field_check.FieldCheckError):
+        field_check.keep(case, "check", next(c["claim_key"] for c in view["claims"] if c["placement"] == "agrees"), actor=ANNA)
+    field_check.keep(case, "check", claim["claim_key"], actor=ANNA)
+    view = field_check.view(case, "check")
+    kept = next(c for c in view["claims"] if c["claim_key"] == claim["claim_key"])
+    assert kept["open"] is False and kept["kept"]["by"] == ANNA
+    assert _by_level(view)["holder"][0]["facts"]["activity_code"] == "4719"
+    assert [r["action"] for r in decisions.history(field_check.KEPT, f"{case}:check:{claim['claim_key']}")] == ["keep"]
+    with pytest.raises(field_check.FieldCheckError):
+        field_check.keep(case, "check", claim["claim_key"], actor=ANNA)  # settled already
+    assert field_check.freeze(case, "check", cover_start="2027-01-01", expected_state=view["state"], actor=ANNA)
+
+
 def test_a_frozen_check_is_the_steps_version_and_a_stale_page_is_refused(case) -> None:
     view = field_check.view(case, "check")
     holder = _by_level(view)["holder"][0]

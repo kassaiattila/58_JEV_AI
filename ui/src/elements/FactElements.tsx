@@ -213,7 +213,13 @@ function Conflicts({ d, p, act }: { d: FieldReviewData; p: ElementProps; act: Re
                 <td>{by ? t(by) : c.from_step}</td>
                 <td><Value cat={d.catalogue} def={def} value={c.value} /></td>
                 <td className="num">
-                  {d.waits ? <button type="button" className="secondary small-btn" disabled={act.busy} onClick={() => take(c)}>{t("Take this value")}</button> : null}
+                  {d.waits ? (
+                    <span className="button-row">
+                      <button type="button" className="secondary small-btn" disabled={act.busy}
+                        onClick={() => void act.run("keep_value", { claim_key: c.claim_key })}>{t("Keep the value shown")}</button>
+                      <button type="button" className="secondary small-btn" disabled={act.busy} onClick={() => take(c)}>{t("Take this value")}</button>
+                    </span>
+                  ) : null}
                 </td>
               </tr>
             );

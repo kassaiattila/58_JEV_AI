@@ -3439,6 +3439,8 @@
   "Offered": "Felkínált érték",
   "Offered by": "Felkínálta",
   "Settle the disagreements first.": "Előbb rendezd az eltéréseket.",
+  "Keep the value shown": "A mutatottat tartom meg",
+  "there is no open disagreement to settle here": "itt nincs rendezendő eltérés",
   "Take this value": "Ezt veszem át",
   "The case has no processed document.": "Az ügynek nincs feldolgozott irata.",
   "The documents are not processed yet.": "Az iratok még nincsenek feldolgozva.",

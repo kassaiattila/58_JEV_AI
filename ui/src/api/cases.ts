@@ -88,8 +88,10 @@ export interface AssessedUnit {
 }
 /** D-f4: a fact another step offered and where it went: a new unit, filled, agrees, a conflict (open: still differs), not placed. */
 export interface OfferedClaim {
-  from_step: string; unit_key: string; fact: string; value: unknown;
+  claim_key: string; from_step: string; unit_key: string; fact: string; value: unknown;
   placement: "new_unit" | "filled" | "agrees" | "conflict" | "unplaced"; unit_id: string | null; open: boolean;
+  /** U1: a disagreement settled by a person keeping the value shown */
+  kept?: { by: string; at: string } | null;
 }
 export interface FieldReviewData {
   units: AssessedUnit[]; claims: OfferedClaim[]; state: number; approval: ApprovalState; catalogue: Catalogue;
