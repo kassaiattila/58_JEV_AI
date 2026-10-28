@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "field_labels",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "changelog": [
+   {
+    "version": "1.14.0",
+    "date": "2026-10-28",
+    "note": "231 (stage U, U1; the walkthrough of 2026-10-28): the name of a statement read by code from a bank's table export, which a result table showed as its code."
+   },
    {
     "version": "1.13.0",
     "date": "2026-10-28",
@@ -288,6 +293,7 @@
  "doc_types": {
   "altalanos_szerzodesi_feltetelek": "Általános szerződési feltételek",
   "bank_statement": "Bankszámlakivonat",
+  "statement_table": "Bankszámlakivonat táblázatos exportból",
   "belepo_jegy": "Belépőjegy",
   "belepo_jegy_taught": "Belépőjegy (tanított)",
   "certificate": "Igazolás, tanúsítvány",
