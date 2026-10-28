@@ -30,7 +30,7 @@ def test_a_case_starts_from_its_record_and_its_page_is_its_packs_tabs(golden, tm
         case_id = made.json()["case_id"]
         engine.turn(case_id, wake=True)  # the worker: the request is put together, the match waits for its start
         page = c.get(f"/api/cases/{case_id}").json()
-        assert page["case"] == {"id": case_id, "pack": "it_quote", "version": "1.5.0", "title": "IT quote",
+        assert page["case"] == {"id": case_id, "pack": "it_quote", "version": "1.6.0", "title": "IT quote",
                                 "name": f"Quote {case.id}", "status": "open", "due": False}  # U-A8: the match waits for a person
         assert [t["id"] for t in page["tabs"]] == ["request", "quote", "approval", "sent", "follow_up", "history"]
         assert [e["type"] for e in page["tabs"][1]["elements"]] == ["match_proposal", "line_editor"]
@@ -51,7 +51,7 @@ def test_a_case_starts_from_its_record_and_its_page_is_its_packs_tabs(golden, tm
         # template choice answer (a store with a case once broke the package list)
         assert c.get("/api/workpackages").status_code == 200
         wp = c.get(f"/api/workpackages/{case_id}").json()
-        assert wp["case"] == {"id": case_id, "pack": "it_quote", "version": "1.5.0"}
+        assert wp["case"] == {"id": case_id, "pack": "it_quote", "version": "1.6.0"}
         # the container's next step is its case page's: the quote's own wording (as the quote package's was)
         assert wp["next"]["code"] == "quote_approve"
         assert c.get(f"/api/cases/{case_id}").json()["next"] | {"label": None} == {

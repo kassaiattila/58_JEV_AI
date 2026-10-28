@@ -26,7 +26,8 @@ export function ExampleMaterial({ pack, needed, onChanged }: { pack: string; nee
   return (
     <section className="example-material rc-stack" aria-label={t("Example material")}>
       <h3>{t("Example material")}</h3>
-      <p className="muted small">{t("Invented data to try the process on: nothing in it is real, and it goes in one go while no case keeps it.")}</p>
+      <p className="muted small">{sets.length ? t("Invented data to try the process on: nothing in it is real, and it goes in one go while no case keeps it.")
+        : t("Invented data to try the process on: nothing in it is real.")}</p>
       {sets.length ? (
         <ul className="plain">
           {sets.map((s) => {

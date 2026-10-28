@@ -37,17 +37,17 @@ def test_a_package_is_taken_over_as_a_case_under_its_own_id(golden) -> None:  # 
     wp_id = _old_package()
     assert process_runtime.adopt_case(PACK, wp_id, _scope(cases_[0]), actor="Kovacs Bela") == "adopted"
     wp = work.get(wp_id)
-    assert (wp["source_kind"], wp["source_ref"]) == (process_runtime.CONTAINER, f"pack:{PACK}@1.5.0")
+    assert (wp["source_kind"], wp["source_ref"]) == (process_runtime.CONTAINER, f"pack:{PACK}@1.6.0")
     with store.connect() as c:
         case = cases.find_case_in(c, wp_id)
     assert case["data"]["adopted_from"] == {"source_kind": "manual", "source_ref": "folder:invented"}
     assert case["data"]["scope"]["record"]["workpackage_id"] == rows.WP
-    assert process_runtime.pack_of(wp_id) == (PACK, "1.5.0")
+    assert process_runtime.pack_of(wp_id) == (PACK, "1.6.0")
     with store.connect() as c:
         logged = [json.loads(r["detail"]) for r in c.execute(
             "SELECT detail FROM workpackage_events WHERE workpackage_id=? AND action='retyped'", (wp_id,))]
     assert logged == [{"from": {"source_kind": "manual", "source_ref": "folder:invented"},
-                       "to": {"source_kind": process_runtime.CONTAINER, "source_ref": f"pack:{PACK}@1.5.0"}}]
+                       "to": {"source_kind": process_runtime.CONTAINER, "source_ref": f"pack:{PACK}@1.6.0"}}]
     assert process_runtime.adopt_case(PACK, wp_id, _scope(cases_[0]), actor="Kovacs Bela") == "exists"
     assert work.get(wp_id)["revision"] == wp["revision"]  # a second take-over changes nothing
     engine.turn(wp_id, wake=True)
