@@ -25,8 +25,9 @@ export type Route =
   // 167: `add` opens the add form at the top of Processing (the package's actions menu leads there)
   | { view: "workpackages"; wpId?: string; stage?: Stage; itemId?: string; table?: ResultTable; runId?: string; start?: StartRequest; add?: boolean }
   | { view: "run"; runId: string }
-  /** 146: the workflows (the work packages of one job, chained): the list, the new work wizard, a control view */
-  | { view: "workflows"; wfId?: string; create?: boolean; repeat?: string }
+  /** 146: the workflows (the work packages of one job, chained): the list and a control view; 231 (U2c): only the
+   *  earlier ones, readable (a new one is a multi-step process's case) */
+  | { view: "workflows"; wfId?: string }
   /** 231 (A6): a process pack's case, on one of its tabs (the tab ids come from its pack) */
   | { view: "cases"; caseId: string; tab?: string }
   /** 231 (U0): the case list; `create`: a new case, of the process `pack` when one is chosen */
@@ -81,8 +82,8 @@ export function parseRoute(hash: string): Route {
       if (parts[1] === "new") return parts[2] ? { view: "case-list", create: true, pack: parts[2] } : { view: "case-list", create: true };  // U0
       return parts[1] ? { view: "cases", caseId: parts[1], tab: parts[2] || undefined } : { view: "case-list" };  // A7e
     case "workflows":
-      if (parts[1] === "new") return { view: "workflows", create: true };
-      if (parts[1] && parts[2] === "repeat") return { view: "workflows", create: true, repeat: parts[1] };  // 147
+      // 231 (U2c): a new workflow is a case of a multi-step process; the repeat's address shows the earlier workflow
+      if (parts[1] === "new") return { view: "case-list", create: true };
       return parts[1] ? { view: "workflows", wfId: parts[1] } : { view: "workflows" };
     case "reports":
       return { view: "legacy-result", runId: parts[1], table: "utility" };
@@ -119,8 +120,7 @@ export function routeHash(r: Route): string {
     case "run": return `#/runs/${e(r.runId)}`;
     case "cases": return r.tab ? `#/cases/${e(r.caseId)}/${e(r.tab)}` : `#/cases/${e(r.caseId)}`;
     case "case-list": return r.create ? (r.pack ? `#/cases/new/${e(r.pack)}` : "#/cases/new") : "#/cases";
-    case "workflows": return r.repeat ? `#/workflows/${e(r.repeat)}/repeat` : r.create ? "#/workflows/new"
-      : r.wfId ? `#/workflows/${e(r.wfId)}` : "#/workflows";
+    case "workflows": return r.wfId ? `#/workflows/${e(r.wfId)}` : "#/workflows";
     case "legacy-result": return r.runId ? `#/reports/${e(r.runId)}` : "#/reports";
     case "workpackages": {
       if (!r.wpId) return "#/workpackages";

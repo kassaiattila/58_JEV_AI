@@ -4,18 +4,17 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError, type WorkflowTemplates } from "./api";
+import { api, ApiError } from "./api";
 import { BrowseButton } from "./components/BrowseButton";
-import { CreateForm } from "./views/Workpackages";
-import workflowConfig from "./views/workflows/workflowTemplates181.fixture.json";
+import { ProcessCreate } from "./elements/ProcessStart";
 
 afterEach(() => vi.restoreAllMocks());
 
-// 231 (C3b5a): the documents' one-step template is its process pack's case, started with the general form
+// 231 (C3b5a): the documents' one-step template is its process pack's case, started with the general form; (U2c) the
+// wizard went, so the general form is the documents process's own
 const PACKS = { processes: [{ id: "documents", title: "Documents", version: "1.0.0", scope: ["source"], asks: ["source"],
   package_kinds: [] }] };
 function mockCaseStart() {
-  vi.spyOn(api, "workflowTemplates").mockResolvedValue(workflowConfig as unknown as WorkflowTemplates);
   vi.spyOn(api, "processes").mockResolvedValue(PACKS);
   vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
   vi.spyOn(api, "parties").mockResolvedValue({ parties: [] } as never);
@@ -55,7 +54,7 @@ describe("081 package from a folder", () => {
     const start = mockCaseStart();
     const onDone = vi.fn();
     const user = userEvent.setup();
-    render(<CreateForm onDone={onDone} initialTemplate="documents" />);
+    render(<ProcessCreate pack="documents" onDone={onDone} />);
     const sub = await screen.findByRole("checkbox", { name: "Az almappái is" }) as HTMLInputElement; // 195: the form loads on first use
     expect(sub.checked).toBe(false);
     await user.click(screen.getByRole("button", { name: "Tallózás…" }));
@@ -70,7 +69,7 @@ describe("081 package from a folder", () => {
     vi.spyOn(api, "pickFiles").mockResolvedValue({ paths: ["C:\\a\\1.pdf", "C:\\b\\2.pdf"] });
     mockCaseStart();
     const user = userEvent.setup();
-    render(<CreateForm onDone={vi.fn()} initialTemplate="documents" />);
+    render(<ProcessCreate pack="documents" onDone={vi.fn()} />);
     await user.click(await screen.findByRole("radio", { name: "Megadott fájlok" }));
     const box = screen.getByLabelText("A fájlok teljes útvonala, soronként egy") as HTMLTextAreaElement;
     await user.type(box, "\"C:\\a\\1.pdf\"");

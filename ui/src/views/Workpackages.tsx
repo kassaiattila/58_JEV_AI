@@ -1,15 +1,11 @@
 import { useState } from "react";
 import { DataTable, linkOf } from "../components/DataTable";
-import { lazyPage } from "../components/LazyPage";
 import { PageHeader } from "../components/PageHeader";
 import { useActor } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { RUN_STATUS, stepLabel } from "../labels";
-import { go, type Route } from "../route";
+import { type Route } from "../route";
 import { WorkpackageDetail } from "./WorkpackageDetail";
-
-// 195 (plan G-tidy R5): the new work wizard and its forms load when it is first opened
-const NewWork = lazyPage(() => import("./workflows/NewWork").then((m) => m.NewWork));
 
 export function Workpackages({ route }: { route: Extract<Route, { view: "workpackages" }> }) {
   if (route.wpId) return <WorkpackageDetail route={route} wpId={route.wpId} />;
@@ -49,13 +45,6 @@ function WorkpackageList() {
         emptyText={t("No document batch outside the cases.")} />
     </>
   );
-}
-
-// 081: exported for its tests. 140: the goal first, then its source. 146 (DECISIONS 146): the new work wizard over the
-// templates of `configs/workflows.json` (a single kind makes a work package as before; a workflow goes to its page);
-// `initialTemplate` opens a template's form at once.
-export function CreateForm({ onDone, initialTemplate }: { onDone: (id: string) => void; initialTemplate?: string }) {
-  return <NewWork onPackage={onDone} onWorkflow={(id) => go({ view: "workflows", wfId: id })} initialTemplate={initialTemplate} />;
 }
 
 const STAGE_ORDER = ["process", "review", "result"];

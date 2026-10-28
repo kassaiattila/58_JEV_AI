@@ -98,7 +98,7 @@ function SystemPanel() {
         <p className="small">{t("The daily work is under Cases; these lists are for finding earlier work.")}</p>
         <p className="button-row">
           <a className="button secondary" href="#/workpackages">{t("All document batches")}</a>
-          <a className="button secondary" href="#/workflows">{t("Workflows")}</a>
+          <a className="button secondary" href="#/workflows">{t("Earlier workflows")}</a>
         </p>
       </section>
       <VersionPanel />

@@ -1,17 +1,14 @@
-// 181 (plan 170 L5; DECISIONS 181: a general scope): a template whose steps need no party and no period makes a
-// workflow without them, and a work package's party, period and role are shown and given by hand. Synthetic names
+// 181 (plan 170 L5; DECISIONS 181: a general scope): a work package's party, period and role are shown and given by
+// hand (until 231 U2c a template whose steps need no party and no period made a workflow without them here). Synthetic names
 // only; the local service is replaced by spies.
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import workflowConfig from "./workflows/workflowTemplates181.fixture.json";
 import {
-  api, setActor, type OwnParty, type PartiesOverview, type WorkflowTemplates, type WorkflowView, type WorkpackageView,
+  api, setActor, type OwnParty, type PartiesOverview, type WorkpackageView,
 } from "../api";
 import { setLanguage } from "../i18n";
-import { NewWork } from "./workflows/NewWork";
 import { ScopeForm, scopeEditable, scopeText } from "./PackageScope";
 
-const TEMPLATES = workflowConfig as unknown as WorkflowTemplates;
 const PARTY: OwnParty = {
   id: "party-00000000000a", name: "Example Kft.", invoices: 3, first: null, last: null, statements_first: null,
   statements_last: null, accounts: [], identities: [], updated_at: "",
@@ -28,33 +25,6 @@ const ROLES = { roles: [
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
-
-describe("181 a workflow without party or period", () => {
-  it("asks for neither when its steps need neither, and makes the workflow without them", async () => {
-    const extra = { id: "inbox_and_folder", group: "documents", title: "Inbox and folder", description: "Test only.",
-      steps: [{ id: "documents", kind: "documents" }, { id: "emails", kind: "emails" }] };
-    vi.spyOn(api, "workflowTemplates").mockResolvedValue({ ...TEMPLATES, templates: [...TEMPLATES.templates, extra] } as WorkflowTemplates);
-    const parties = vi.spyOn(api, "parties").mockResolvedValue(OVERVIEW);
-    const create = vi.spyOn(api, "createWorkflow").mockResolvedValue({ workflow: { id: "wf-00000000000b" } } as unknown as WorkflowView);
-    const onWorkflow = vi.fn();
-    render(<NewWork onPackage={vi.fn()} onWorkflow={onWorkflow} initialTemplate="inbox_and_folder" />);
-    fireEvent.change(await screen.findByLabelText("Folder of Documents: extract their data"), { target: { value: "C:\\work\\in" } });
-    fireEvent.change(await screen.findByLabelText(/Mailbox address/), { target: { value: "office@example.com" } });
-    expect(screen.queryByLabelText("Period from")).toBeNull();
-    expect(screen.queryByText("The emails received in the workflow's period")).toBeNull(); // by a number of days
-    expect(parties).not.toHaveBeenCalled();
-    const next = screen.getByRole("button", { name: "Next →" }) as HTMLButtonElement;
-    expect(next.disabled).toBe(false);
-    fireEvent.click(next);
-    fireEvent.click(screen.getByRole("button", { name: "Create the workflow" }));
-    await waitFor(() => expect(onWorkflow).toHaveBeenCalledWith("wf-00000000000b"));
-    const body = create.mock.calls[0][0];
-    expect(body.party_id).toBeUndefined();
-    expect(body.period_start).toBeUndefined();
-    expect(body.name).toBe("Inbox and folder");
-    expect(body.steps.emails.source).toEqual({ kind: "mailbox", request: { accounts: ["office@example.com"], folders: ["Inbox"], max_items: 0, since_days: 31 } });
-  });
-});
 
 function packageView(over: Partial<WorkpackageView> = {}): WorkpackageView {
   return { workpackage: { id: "wp-00000000000a", name: "June invoices", source_kind: "folder", status: "open", items: [] },

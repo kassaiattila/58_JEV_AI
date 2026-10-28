@@ -2,7 +2,9 @@
 // search), the new work wizard, and a workflow's control view: its steps as a chain, each with its state, its package
 // and the package's next step, what needs a person first, the switch of the automatic chain, a step's start (with a new
 // budget when its run's estimate did not fit) and an existing package linked as a step. 147: a workflow is repeated for
-// the next period (the wizard opens filled in), and the two are linked both ways.
+// the next period (the wizard opens filled in), and the two are linked both ways. 231 (stage U, U2c; the owner's decision
+// of 2026-10-28: a chain is a multi-step process): a new workflow is a case of a multi-step process (Cases › New case);
+// this list keeps the workflows made before readable, without a new one or a repeat (the links between repeats stay).
 import { Fragment, useEffect, useRef, useState } from "react";
 import {
   api, ApiError, type WorkflowBrief, type WorkflowBudget, type WorkflowRow, type WorkflowStep, type WorkflowView,
@@ -11,13 +13,12 @@ import { PageHeader } from "../../components/PageHeader";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { ENGINE, stepLabel, usdBudget } from "../../labels";
-import { go, wpHash, type Route } from "../../route";
+import { wpHash, type Route } from "../../route";
 import { budgetSum, budgetText, centsUp, PROVIDER, sourceText, STEP_STATUS, stepMark, stepNote } from "./labels";
-import { NewWork } from "./NewWork";
 
 export function Workflows({ route }: { route: Extract<Route, { view: "workflows" }> }) {
   if (route.wfId) return <WorkflowControl wfId={route.wfId} />;
-  return <WorkflowList creating={Boolean(route.create)} repeatOf={route.repeat} />;
+  return <WorkflowList />;
 }
 
 /** 157: a step's state as a state mark in its own colour, never the action colour. */
@@ -26,7 +27,7 @@ function StepState({ status }: { status: WorkflowStep["status"] }) {
   return <span className={`status s-${stepMark(status)}`}>{STEP_STATUS[status] ?? status}</span>;
 }
 
-function WorkflowList({ creating, repeatOf }: { creating: boolean; repeatOf?: string }) {
+function WorkflowList() {
   useLocale();
   const [archived, setArchived] = useState(false);
   const [party, setParty] = useState("");
@@ -41,12 +42,10 @@ function WorkflowList({ creating, repeatOf }: { creating: boolean; repeatOf?: st
   const parties = [...new Map((list.data?.workflows ?? []).filter((w) => w.party_id).map((w) => [w.party_id as string, w.party])).entries()];
   return (
     <>
-      <PageHeader title={t("Workflows")} badge={list.data ? <span className="count">{list.data.workflows.length}</span> : null}
-        summary={t("A workflow chains the work packages of one job for an own party and a period: invoices, statements and their reconciliation. Its page shows where the chain stands and what needs you.")}
-        actions={<a className={creating ? "button secondary" : "button primary"} href={creating ? "#/workflows" : "#/workflows/new"} aria-expanded={creating}>{t("New workflow")}</a>} />
-      {creating ? <NewWork key={repeatOf ?? "new"} initialGroup="monthly" repeatOf={repeatOf}
-        onPackage={(id) => go({ view: "workpackages", wpId: id, stage: "process" })}
-        onWorkflow={(id) => go({ view: "workflows", wfId: id })} /> : null}
+      <PageHeader title={t("Earlier workflows")} badge={list.data ? <span className="count">{list.data.workflows.length}</span> : null}
+        crumbs={[{ label: t("Settings"), href: "#/settings/system" }]}
+        summary={t("A workflow of several steps is a process now: start one under Cases › New case. These are the workflows made before; each one's page shows where its chain stands.")}
+        actions={<a className="button secondary" href="#/cases/new">{t("New case")}</a>} />
       <div className="toolbar wf-filters">
         <label className="inline small">{t("Search")}<input value={search} onChange={(e) => setSearch(e.target.value)} /></label>
         <label className="inline small">{t("Own party")}
@@ -65,9 +64,9 @@ function WorkflowList({ creating, repeatOf }: { creating: boolean; repeatOf?: st
         <label className="check small"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> {t("Archived ones too")}</label>
       </div>
       {list.error ? <p className="notice error" role="alert">{list.error.message}</p> : null}
-      {list.data && !rows.length ? <p className="muted">{list.data.workflows.length ? t("No workflow matches the filters.") : t("No workflow yet. Make one with New workflow.")}</p> : null}
+      {list.data && !rows.length ? <p className="muted">{list.data.workflows.length ? t("No workflow matches the filters.") : t("No earlier workflow.")}</p> : null}
       {rows.length ? (
-        <table className="table compact wf-list" aria-label={t("Workflows")}>
+        <table className="table compact wf-list" aria-label={t("Earlier workflows")}>
           <thead><tr><th>{t("Name")}</th><th>{t("Own party")}</th><th>{t("Period")}</th><th>{t("Steps")}</th><th>{t("Next")}</th></tr></thead>
           <tbody>{rows.map((w) => <WorkflowListRow key={w.id} w={w} />)}</tbody>
         </table>
@@ -143,10 +142,11 @@ function WorkflowControl({ wfId }: { wfId: string }) {
         actions={<>
           <label className="check small"><input type="checkbox" checked={wf.auto} disabled={busy || wf.status !== "open"}
             onChange={(e) => void act(() => api.updateWorkflow(wf.id, { auto: e.target.checked }))} /> {t("Start the steps by themselves")}</label>
-          <a className="button secondary small-btn" href={`#/workflows/${encodeURIComponent(wf.id)}/repeat`}>{t("Repeat for the next period")}</a>
-          <button type="button" className="secondary small-btn" disabled={busy} onClick={() => void act(() => api.updateWorkflow(wf.id, { archived: wf.status === "open" }))}>
-            {wf.status === "open" ? t("Archive") : t("Restore")}
-          </button>
+          {wf.status === "open" ? (  // 231 (U2c): an earlier workflow is archived, not restored
+            <button type="button" className="secondary small-btn" disabled={busy} onClick={() => void act(() => api.updateWorkflow(wf.id, { archived: true }))}>
+              {t("Archive")}
+            </button>
+          ) : null}
         </>} />
       {v.repeat_of || v.repeated_as?.length ? (
         <p className="small wf-repeats">
