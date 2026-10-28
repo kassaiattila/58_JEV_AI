@@ -392,10 +392,13 @@ def _insert(c: Any, values: dict[str, Any]) -> None:
 
 
 def add(name: str, file_name: str, content: bytes, *, actor: identity.Who, price_list: str | None = None,
-        currency: str | None = None, vat_percent: object = None) -> dict[str, Any]:
+        currency: str | None = None, vat_percent: object = None,
+        discounts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Checks and stores an upload as a draft version: of `price_list` (its next version, with the latest version's
     settings unless given; a rule whose category the new file no longer has is left out, with a warning), or of a new
-    list (the config's default currency and VAT rate unless given). `PriceListRefused` with the check."""
+    list (the config's default currency and VAT rate unless given). 231 (U3, the backlog's example price list
+    version): `discounts`, the rules the upload comes with (instead of the latest version's), so a list made with its
+    rules is one version. `PriceListRefused` with the check."""
     name = (name or "").strip()
     if not name:
         raise ValueError("a price list needs a name")
@@ -408,7 +411,7 @@ def add(name: str, file_name: str, content: bytes, *, actor: identity.Who, price
         raise PriceListRefused(check)
     with store.connect() as c:
         store.begin_immediate(c)
-        rules: list[dict[str, Any]] = []
+        rules: list[dict[str, Any]] = list(discounts or [])
         if price_list is None:
             price_list, version = "pl-" + secrets.token_hex(5), 1
             currency = currency or conf["currency"]["default"]
@@ -418,7 +421,7 @@ def add(name: str, file_name: str, content: bytes, *, actor: identity.Who, price
             version = latest["version"] + 1
             currency = currency or latest["currency"]
             vat_percent = latest["vat_percent"] if vat_percent is None else vat_percent
-            for rule in json.loads(latest["discounts"]):
+            for rule in json.loads(latest["discounts"]) if discounts is None else ():
                 if rule["category"] in check["categories"]:
                     rules.append(rule)
                 else:

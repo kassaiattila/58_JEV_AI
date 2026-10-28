@@ -78,11 +78,9 @@ def _install(name: str, maker: identity.Who, approver: identity.Who) -> None:
         latest = rows[-1]
         price_lists.activate(latest["price_list"], latest["version"], actor=approver)
         return
+    # U3 (the backlog's example price list version): the sheet and its rules in one version
     made = price_lists.add(list_name(golden), "price_list.csv", _sheet(prices), actor=maker, currency=prices["currency"],
-                           vat_percent=prices["vat_percent"])
-    if prices.get("discounts"):
-        made = price_lists.change_settings(made["price_list"], made["version"], actor=maker, currency=prices["currency"],
-                                           vat_percent=prices["vat_percent"], discounts=list(prices["discounts"]))
+                           vat_percent=prices["vat_percent"], discounts=list(prices.get("discounts") or []))
     price_lists.activate(made["price_list"], made["version"], actor=approver)
 
 
