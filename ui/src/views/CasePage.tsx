@@ -24,10 +24,11 @@ function defaultTab(page: CaseView): string {
 const PEOPLE = new Set(["approval", "task_closed", "acceptance", "reply"]);
 
 /** Whether a step waits for a job or the worker (not for a person), so the page should ask again soon; 231 (C2d): a
- *  step of a capability that waits for a person's decisions (the pairing, the routing) does not. */
-const moving = (page: CaseView) => page.case.status === "open"
-  && Object.values(page.steps).some((s) => s.state === "ready"
-    || (s.state === "running" && !s.awaiting_start && !s.by_person && !PEOPLE.has(s.waiting_for ?? "")));
+ *  step of a capability that waits for a person's decisions (the pairing, the routing) does not. U-A8: nor while the
+ *  worker has something to do for the case (`due`: a person's decision it takes at its next round). */
+export const moving = (page: CaseView) => page.case.status === "open" && (page.case.due === true
+  || Object.values(page.steps).some((s) => s.state === "ready"
+    || (s.state === "running" && !s.awaiting_start && !s.by_person && !PEOPLE.has(s.waiting_for ?? ""))));
 
 export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
   useLocale();

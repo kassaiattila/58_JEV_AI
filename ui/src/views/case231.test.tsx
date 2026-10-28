@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError, setActor, type CaseView } from "../api";
 import type { QuoteView } from "../domains/quotes/api";
 import { setLanguage } from "../i18n";
-import { CasePage } from "./CasePage";
+import { CasePage, moving } from "./CasePage";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -55,6 +55,12 @@ describe("a process pack's case (231)", () => {
     expect(await screen.findByRole("button", { name: /Ask for the proposal/ })).toBeTruthy();
     // the header's next step, as on a work package's page: a button beside the panel's own, until a tab is chosen
     await waitFor(() => expect(screen.getAllByRole("button", { name: /Ask for the proposal/ })).toHaveLength(2));
+  });
+
+  it("asks again while the worker has something to do for the case, not only while a step waits for it (U-A8)", () => {
+    expect(moving(PAGE)).toBe(false);  // its steps wait for a person's start or for steps before them
+    expect(moving({ ...PAGE, case: { ...PAGE.case, due: true } })).toBe(true);  // a person's decision the worker takes next
+    expect(moving({ ...PAGE, case: { ...PAGE.case, due: true, status: "closed" } })).toBe(false);
   });
 
   it("asks for the proposal by starting the case's step", async () => {

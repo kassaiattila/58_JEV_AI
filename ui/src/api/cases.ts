@@ -55,7 +55,8 @@ export interface CaseStep {
 export interface CaseElement { type: string; step: string | null; data: unknown; [setting: string]: unknown }
 export interface CaseTab { id: string; label: string; elements: CaseElement[] }
 export interface CaseView {
-  case: { id: string; pack: string; version: string; title: string; name: string | null; status: string };
+  /** U-A8: `due`, whether the worker has something to do for the case now (the page asks again while it has) */
+  case: { id: string; pack: string; version: string; title: string; name: string | null; status: string; due?: boolean };
   steps: Record<string, CaseStep>;
   tabs: CaseTab[];
   /** the case's next step, named by its elements, and the tab it is done on */

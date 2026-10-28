@@ -111,6 +111,21 @@ def test_the_due_cases_are_those_of_every_definition() -> None:
     assert engine.due_cases() == [] and cases.get("w1")["outcome"] == cases.get("w2")["outcome"] == "done"
 
 
+def test_whether_one_case_has_something_to_do_now() -> None:
+    """U-A8 (the walkthrough of 2026-10-28): whether the worker has something to do for one case now - a ready step, an
+    event a waiting step takes, a due timer - so its page asks again until the worker's next round moved it."""
+    cases.start("w1", define(StepDef(id="a", kind="turn_note")), {}, ME)
+    cases.start("deadline", define(StepDef(id="a", kind="turn_deadline")), {}, ME)
+    assert engine.is_due("w1") and engine.is_due("deadline")  # ready steps
+    list(engine.iterate_until_idle())
+    assert not engine.is_due("w1")  # done and closed
+    assert not engine.is_due("deadline")  # it waits an hour for a document
+    assert engine.is_due("deadline", now=time.time() + 7200)  # its timer is due then
+    cases.send_event("deadline", "doc-1", "document", {}, ME)
+    assert engine.is_due("deadline")  # the event its step takes
+    assert not engine.is_due("nowhere")
+
+
 def test_a_persons_overrides_can_share_the_callers_transaction() -> None:
     flow = define(StepDef(id="a", kind="turn_polled"), StepDef(id="b", kind="turn_note", after=("a",)))
     cases.start("c1", flow, {}, ME)

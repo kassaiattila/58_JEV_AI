@@ -121,6 +121,17 @@ def test_the_case_s_cost_counts_what_its_package_s_runs_spent(db):
         ("process", "openai", 1, "0.006053"), ("process", "jev", 1, "0.001599")}
 
 
+def test_the_case_page_says_while_the_worker_has_something_to_do_for_it(db):
+    """U-A8 (the walkthrough of 2026-10-28): the page asks again while the case is due (a ready step, an event a
+    waiting step takes), not only while a step waits for the machine; a step waiting for a person's start is not."""
+    folder = _invoices(db / "inv", n=2)
+    case = process_runtime.start_case("documents_test", {"source": {"kind": "folder", "folder": str(folder)}},
+                                      name="April invoices", actor=PERSON)
+    assert case_views.view(case)["case"]["due"] is True  # its first step is ready
+    _turns(case)
+    assert case_views.view(case)["case"]["due"] is False  # it waits for a person's start
+
+
 def test_a_folder_without_documents_finishes_the_step_without_a_package(db):
     empty = db / "empty"
     empty.mkdir()

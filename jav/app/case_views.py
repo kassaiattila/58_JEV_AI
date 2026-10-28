@@ -137,7 +137,10 @@ def view(case_id: str) -> dict[str, Any]:
             elements.append({**element.model_dump(), "data": provider.data(case_id, element.step, shared) if provider else None})
         tabs.append({"id": tab.id, "label": tab.label, "elements": elements})
     return {"case": {"id": case_id, "pack": pack.id, "version": pack.version, "title": pack.title,
-                     "name": state.get("data", {}).get("name"), "status": state["status"]},
+                     "name": state.get("data", {}).get("name"), "status": state["status"],
+                     # U-A8: the worker has something to do for it now (a person's decision it takes next), so the page
+                     # asks again until it moved
+                     "due": state["status"] == cases.OPEN and engine.is_due(case_id)},
             "steps": {s.id: _step_view(case_id, s, rows.get(s.id, {})) for s in pack.steps}, "tabs": tabs,
             "next": _next(tabs, [s.id for s in pack.steps if rows.get(s.id, {}).get("state") != "done"])
             if state["status"] == "open" else None}  # A7e: a closed case has no next step on its page

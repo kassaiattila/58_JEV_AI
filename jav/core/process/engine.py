@@ -45,7 +45,7 @@ from jav.core.process.definition import ProcessDef, StepDef
 
 __all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
     "POLL_S", "StepContext", "start", "send_event", "cancel", "state", "claim_case", "release", "turn", "due_cases",
-    "turn_due", "run_once", "run", "iterate_until_idle",
+    "is_due", "turn_due", "run_once", "run", "iterate_until_idle",
 ]
 
 log = logging.getLogger(__name__)
@@ -228,6 +228,14 @@ def due_cases(now: float | None = None) -> list[str]:
     process definition, oldest change first."""
     with store.connect() as c:
         return [r["case_id"] for r in c.execute(_DUE, (time.time() if now is None else now,))]
+
+
+def is_due(case_id: str, now: float | None = None) -> bool:
+    """U-A8: whether the case has something to do now (as `due_cases` tells it), so a page showing it asks again until
+    the worker's next round moved it (a person's decision is an event its step takes then)."""
+    with store.connect() as c:
+        return c.execute(f"SELECT 1 FROM process_cases c WHERE c.case_id=? AND {_DUE_WHERE}",
+                         (case_id, time.time() if now is None else now)).fetchone() is not None
 
 
 def turn_due(now: float | None = None, *, passes: int = DUE_PASSES) -> int:
