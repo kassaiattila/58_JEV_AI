@@ -4,14 +4,17 @@ minutes when nothing has changed.
 The workspace's safety bound (`KEEP_SECONDS`, 120 s: a change the marks miss shows within this time) also ended the
 list's rows, so the list built all six live reconciliation workspaces again every two minutes (5-6 s on one core,
 slowing every other request). The list's next step now has its own, longer bound (`LIST_KEEP_SECONDS`); the pairing
-page keeps the short one, and a change the marks see still shows at once. Synthetic data only; no AI call.
+page keeps the short one, and a change the marks see still shows at once. 231 (U2a; the owner's decision of 2026-10-28:
+one work list, the cases): a reconciliation is a case, so the list of every document batch leaves it out and builds no
+workspace at all; the list of every package (the service's full list, the command line's) still reads its container's
+next step by the list's bound. Synthetic data only; no AI call.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from jav.app import datasets
+from jav.app import datasets, work_views
 from jav.domains.finance import reconcile, reconcile_package as rp
 from jav.app.tablequery import Query
 from tests import test_list_speed_140 as l140
@@ -44,10 +47,13 @@ def built(monkeypatch) -> list[int]:
     return calls
 
 
-def _list() -> dict:
-    page = datasets.query("workpackages", None, Query())
-    datasets.wait_for_rebuilds()
-    return page
+def _list() -> list[dict]:
+    """231 (U2a): the list of every package, where a reconciliation's container still shows its next step."""
+    return work_views.workpackage_list()
+
+
+def _code(wp: str) -> str:
+    return next(r for r in _list() if r["id"] == wp)["next"]["code"]
 
 
 def _package(built: list[int]) -> str:
@@ -66,15 +72,15 @@ def test_the_list_keeps_its_workspaces_past_the_pairing_pages_bound(db, clock, b
     _list()
     assert len(built) == 1
     clock["t"] += rp.KEEP_SECONDS
-    page = _list()
-    assert "refreshing" not in page and len(built) == 1
+    _list()
+    assert len(built) == 1
 
 
 def test_the_list_rebuilds_its_workspaces_after_its_own_bound(db, clock, built):
     _package(built)
     _list()
     clock["t"] += rp.LIST_KEEP_SECONDS
-    assert _list()["refreshing"] is True
+    _list()
     assert len(built) == 2
 
 
@@ -97,9 +103,14 @@ def test_a_workspace_the_pairing_page_built_serves_the_list(db, clock, built):
 
 def test_a_change_still_shows_in_the_list_at_once(db, clock, built):
     wp = _package(built)
-    before = next(r for r in _list()["rows"] if r["id"] == wp)
+    before = _code(wp)
     for line in rp.workspace(wp)["lines"]:
         rp.mark(wp, [line["id"]], category="private", note=None, actor="reviewer")
-    _list()
-    after = next(r for r in _list()["rows"] if r["id"] == wp)
-    assert before["next_code"] == "reconcile_pair" and after["next_code"] == "reconcile_result"
+    assert before == "reconcile_pair" and _code(wp) == "reconcile_result"
+
+
+def test_the_list_of_every_batch_leaves_the_reconciliation_out_and_builds_none(db, clock, built):
+    wp = _package(built)
+    page = datasets.query("workpackages", None, Query())
+    datasets.wait_for_rebuilds()
+    assert all(r["id"] != wp for r in page["rows"]) and not built

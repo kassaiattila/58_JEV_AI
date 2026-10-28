@@ -3,12 +3,12 @@
 // spent (cost). Each renders the data its step's capability gives (jav/app/sending.py, jav/app/replies.py,
 // jav/app/case_views.py); a person's actions are the step's own (`actions`), and the send itself is the step's start.
 import { useState, type ReactNode } from "react";
-import { api, ApiError, type ApprovalState, type CaseCost, type CaseEvent, type CaseKept, type CasePartnerLink, type HandoverAttempt, type HandoverData, type ReplyData, type StartedCase } from "../api";
+import { api, ApiError, type ApprovalState, type CaseCost, type CaseEvent, type CaseKept, type CasePartnerLink, type HandoverAttempt, type HandoverData, type ReplyData, type StartedCase, type SubCaseData } from "../api";
 import { ApprovalStateNotes, EarlierVersions, ReturnControl } from "../components/ApprovalPanel";
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { fileName, moneyText, providerName, saidText, tmap, when } from "../labels";
-import { handoverStatus, replyStatus } from "./caseStatus";
+import { fileName, moneyText, providerName, saidText, stepLabel, tmap, when } from "../labels";
+import { handoverStatus, replyStatus, subCaseStatus } from "./caseStatus";
 import type { ElementProps } from "./registry";
 
 const loading = <p className="muted">{t("Loading…")}</p>;
@@ -317,6 +317,50 @@ export function StartedCases({ element }: ElementProps) {
         ))}
       </tbody>
     </table>
+  );
+}
+
+const OUTCOME = tmap({ done: "done", cancelled: "cancelled", gone: "deleted" });
+
+/** 231 (stage U, U2c; the owner's decision of 2026-10-28: a chain is a multi-step process): a step that runs a case of
+ *  another process, a sub-case: the sub-case linked with its state and its own next step (on the tab where it is done),
+ *  the earlier ones that closed otherwise, and a stopped step's retry, which starts a new one. */
+export function SubCaseView(p: ElementProps) {
+  useLocale();
+  const d = p.element.data as SubCaseData | null;
+  if (!d) return loading;
+  const step = p.element.step ? p.page.steps[p.element.step] : undefined;
+  const title = step?.title ? t(step.title) : d.process ? t(d.process) : t("Sub-case");
+  const state = subCaseStatus(d);
+  const sub = d.case;
+  const next = sub?.next;
+  const at = (id: string, tab?: string) => `#/cases/${encodeURIComponent(id)}${tab ? `/${encodeURIComponent(tab)}` : ""}`;
+  return (
+    <section className="card" aria-label={title}>
+      <div className="card-head">
+        <h2>{title}</h2>
+        {state ? <span className={`status ${state.mark}`}>{state.text}</span> : null}
+      </div>
+      {sub ? (
+        <dl className="kv">
+          <FragmentRow label={t("Its case")} value={<a href={at(sub.id)}>{sub.name}</a>} />
+          <FragmentRow label={t("Process")} value={d.process ? t(d.process) : "–"} />
+          {next ? <FragmentRow label={t("Its next step")} value={<a href={at(sub.id, next.tab)}>{stepLabel(next.code, next.params, next.label)}</a>} /> : null}
+        </dl>
+      ) : (
+        <p className="muted small">{d.state === "waiting"
+          ? t("A case of the process {{process}} starts once the steps before it are done.", { process: d.process ? t(d.process) : "–" })
+          : t("A case of the process {{process}} starts.", { process: d.process ? t(d.process) : "–" })}</p>
+      )}
+      {d.earlier.length ? (
+        <p className="small muted">{t("Earlier cases of the step:")}{" "}
+          {d.earlier.map((e, i) => (
+            <span key={e.case_id}>{i ? ", " : ""}<a href={at(e.case_id)}>{OUTCOME[e.outcome] ?? e.outcome}</a></span>
+          ))}
+        </p>
+      ) : null}
+      <StepActions p={p} primary="retry" />
+    </section>
   );
 }
 

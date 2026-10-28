@@ -390,6 +390,10 @@ class Capability:
       kept, and before another step reads it (`read_result`).
     - `at_start` (stage D0, D0-e): its parameters that name a resource of which a case keeps the version current at its
       start (`AtStart`), by parameter.
+    - `pack_check(pack)` (stage U, U2c): what is wrong with the pack's steps of it beyond their parameters' form, read
+      from the whole pack (the steps they wait for, the scope parts they need), checked with the pack (`process_packs`).
+    - `scope_check(pack, scope)` (U2c): raises `scopes.ScopeError` when a case's checked scope lacks what the pack's
+      steps of it need (a step's own documents), at the case's start before anything is made.
     """
 
     name: str
@@ -425,6 +429,8 @@ class Capability:
     output: type[BaseModel] | None = None
     output_version: int = 1
     at_start: Mapping[str, AtStart] = field(default_factory=dict)
+    pack_check: Callable[[Any], list[str]] | None = None
+    scope_check: Callable[[Any, dict[str, Any]], None] | None = None
 
     @property
     def key(self) -> str:

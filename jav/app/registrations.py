@@ -49,7 +49,7 @@ def order(domains: list[Any]) -> list[Callable[[], None]]:
     were given (party references, step kinds, logic packs), and this is the finance-workflows-email order of 180."""
     from jav.app import (approved_document, assessed_units, case_decisions, case_lists, document_processing, evaluation_steps,
                          fact_claims, field_check, letters, lookups, missing_info, package_scope, process_runtime,
-                         product_sets, rated_offer, replies, sending, workflows)
+                         product_sets, rated_offer, replies, sending, sub_cases, workflows)
 
     first, *others = domains
     # 231 (A6): the process packs' case container among the shared ones; (A7c, A7d) the general send and reply
@@ -57,7 +57,9 @@ def order(domains: list[Any]) -> list[Callable[[], None]]:
     # kinds of the packs that serve one, once every domain registered its package makers
     # D0-c: the priced document of an approved version, general since then
     return [first.register, workflows.register, package_scope.register, process_runtime.register, sending.register,
-            replies.register, document_processing.register, approved_document.register, case_lists.register,
+            replies.register, document_processing.register,
+            sub_cases.register,  # U2c: a step that runs a case of another process and waits for it
+            approved_document.register, case_lists.register,
             assessed_units.register,  # D-b4: the units a case's step assesses, as a pageable list
             field_check.register,  # D-d2: a person's check of the units, frozen as the checked input
             evaluation_steps.register,  # D-d3: the frozen input's rules evaluated, and its premium computed

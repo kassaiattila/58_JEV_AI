@@ -6,11 +6,11 @@
 // `ui/src/domains/<domain>/index.tsx`), and a case page finds both (`elementOf`).
 import { lazy, Suspense, type ReactNode } from "react";
 import type { BlockersData, CalculationData, CaseElement, CaseView, DecisionData, DocumentViewData, EvaluationData, FieldReviewData, LetterData,
-  MissingInfoData, PackageWorkView, RoutingView } from "../api";
+  MissingInfoData, PackageWorkView, RoutingView, SubCaseData } from "../api";
 import { t } from "../i18n";
 import { moneyText } from "../labels";
 import { blockersStatus, calculationStatus, costTotal, decisionStatus, documentStatus, fieldReviewLine, handoverStatus, letterStatus,
-  missingStatus, replyStatus, verdictStatus } from "./caseStatus";
+  missingStatus, replyStatus, subCaseStatus, verdictStatus } from "./caseStatus";
 import { packageWorkLine } from "./packageWorkStatus";
 
 export interface ElementProps { caseId: string; element: CaseElement; page: CaseView; onChanged: () => void }
@@ -32,6 +32,7 @@ const CostView = lazy(() => general().then((m) => ({ default: m.CostView })));
 const PartnerLink = lazy(() => general().then((m) => ({ default: m.PartnerLink })));
 const GeneralApproval = lazy(() => general().then((m) => ({ default: m.GeneralApproval })));
 const StartedCases = lazy(() => general().then((m) => ({ default: m.StartedCases })));
+const SubCaseView = lazy(() => general().then((m) => ({ default: m.SubCaseView })));  // 231 (U2c)
 // 231 (C1c): the file placement capability's element (its page loads only when a case shows it); (C3e) the pairing's
 // are the finance domain's
 const FilePlacement = lazy(() => import("./FilePlacement").then((m) => ({ default: m.FilePlacement })));
@@ -91,6 +92,7 @@ export const ELEMENTS: Record<string, ElementSpec> = {
   timeline: { render: lazily(Timeline) },
   partner_link: { render: lazily(PartnerLink) },  // 231 (B1)
   started_cases: { render: lazily(StartedCases) },  // 231 (C1c)
+  sub_case: { render: lazily(SubCaseView), status: (p) => subCaseStatus(p.element.data as SubCaseData | null)?.text ?? null },  // 231 (U2c)
   file_placement: { render: lazily(FilePlacement), status: placementLine, summary: placementSummaryOf },  // 231 (C1c)
   package_work: { render: lazily(PackageWork), status: (p) => packageWorkLine(p.element.data as PackageWorkView | null) },  // 231 (C3b3)
   cost: { render: lazily(CostView), status: (p) => { const usd = costTotal(p); return usd === null ? null : `${moneyText(usd)} USD`; } },

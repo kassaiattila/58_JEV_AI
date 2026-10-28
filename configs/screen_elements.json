@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "screen_elements",
-    "version": "1.13.0",
+    "version": "1.14.0",
     "description": "231 (plan stage A, A4; DECISIONS 231): the screen elements a process pack's tabs are built from. A shared element is one any process may use; a special element is registered once (with the capability whose step it shows) and from then on any process may use it too. A process pack naming an element not listed here is refused (jav/app/process_packs.py). The interface renders each type with one component (A6). Stage D0 (D0-a): an element with \"status\": \"planned\" is listed before it is built (the interface has no component for it and no capability gives its data); no pack may use it until it is built.",
     "changelog": [
       {"version": "1.0.0", "date": "2026-10-24", "note": "231 (A4): the first set: the shared elements of the process packs and the three special elements of the quote's back half."},
@@ -17,7 +17,8 @@
       {"version": "1.10.0", "date": "2026-10-26", "note": "231 (stage D, D-f6): a person's decision on another step's result (decision): the choices, the second person above a limit, the decision that holds, and its state."},
       {"version": "1.11.0", "date": "2026-10-26", "note": "231 (stage D, D-f7): the document view is built, for a step that prints a priced document: the file stored with the version it printed, its fingerprint and its download."},
       {"version": "1.12.0", "date": "2026-10-27", "note": "231 (stage D, D-f8): a letter that goes with a printed document (letter): the draft from its frame, a person's changes and acceptance, the accepted letter's email file."},
-      {"version": "1.13.0", "date": "2026-10-27", "note": "231 (stage D, D-f9): the blockers are built: what holds an open case (a step that stopped or must run again, one waiting for a person's start or decision, one waiting for something else), each with the tab where it is resolved."}
+      {"version": "1.13.0", "date": "2026-10-27", "note": "231 (stage D, D-f9): the blockers are built: what holds an open case (a step that stopped or must run again, one waiting for a person's start or decision, one waiting for something else), each with the tab where it is resolved."},
+      {"version": "1.14.0", "date": "2026-10-28", "note": "231 (U2c; the owner's decision of 2026-10-28: a chain is a multi-step process): the sub-case, a special element: the case of another process a step runs (its process, its state and its own next step) and the earlier ones that closed otherwise."}
     ]
   },
   "elements": {
@@ -37,6 +38,7 @@
     "letter": {"kind": "special", "capability": "letter", "what": "A letter that goes with a printed document: the draft from its frame with the document's values, the address, the subject and the text a person changes and accepts, the document it attaches, and the accepted letter's email file."},
     "handover_view": {"kind": "special", "capability": "send", "what": "What a send step sent: its mode, each attempt's file, recipient and outcome, and whether a person must say it arrived."},
     "reply_wait": {"kind": "special", "capability": "wait_reply", "what": "A reply step's wait: since when, when the follow-up opens, and the reply recorded."},
+    "sub_case": {"kind": "special", "capability": "run_case", "what": "The case of another process a step runs: its process, its state and its own next step, and the earlier ones that closed otherwise."},
     "started_cases": {"kind": "shared", "what": "The cases started from an item of the work packages the case reads, each with its process and state."},
     "file_placement": {"kind": "special", "capability": "file_placement", "what": "The routing of emailed documents: the email packages (show: sources), the decisions to make (show: decide) or what went where (show: routed)."},
     "pairing": {"kind": "special", "capability": "pairing", "what": "The pairing of two lists: the invoices the scope takes (show: invoices), its statements with the scope and the coverage (show: lines), the decisions on the pairs (show: decide) or the approved statement (show: result)."},

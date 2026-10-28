@@ -1,7 +1,7 @@
 // 231 (plan stage A, A7e): the status lines of the general elements of a case's page (a send step's, a reply step's,
 // the cost's), small enough to load with the page; the elements themselves load when a case shows one.
 import type { BlockersData, CalculationData, CaseCost, DecisionData, DocumentViewData, EvaluationData, FieldReviewData, HandoverData,
-  LetterData, MissingInfoData, ReplyData } from "../api";
+  LetterData, MissingInfoData, ReplyData, SubCaseData } from "../api";
 import { t } from "../i18n";
 import { numText, tmap, when } from "../labels";
 import type { ElementProps } from "./registry";
@@ -49,6 +49,7 @@ export function blockerKind(kind: BlockersData["items"][number]["kind"]): { mark
     case "stale": return { mark: "s-warn", text: t("Runs again") };
     case "start": return { mark: "s-review", text: t("Waits for its start") };
     case "person": return { mark: "s-review", text: t("Waits for a person") };
+    case "sub_case": return { mark: "s-waiting", text: t("Waits for its sub-case") };  // U2c
     default: return { mark: "s-waiting", text: t("Waits") };
   }
 }
@@ -111,6 +112,15 @@ export function replyStatus(p: ElementProps): { mark: string; text: string } | n
   if (d.follow_up === "open") return { mark: "s-review", text: t("Follow up the reply") };
   if (d.state === "running") return { mark: "s-waiting", text: t("Waiting since {{when}}", { when: when(d.since) }) };
   return { mark: "s-waiting", text: t("Waits for the send") };
+}
+
+/** 231 (U2c): a sub-case step's state as one mark: not started yet, its sub-case open, done, or stopped. */
+export function subCaseStatus(d: SubCaseData | null): { mark: string; text: string } | null {
+  if (!d) return null;
+  if (d.state === "done") return { mark: "s-done", text: t("Its case is done") };
+  if (d.state === "failed") return { mark: "s-failed", text: t("Did not finish") };
+  if (d.case?.status === "open") return { mark: "s-running", text: t("Its case is in progress") };
+  return { mark: "s-waiting", text: t("Not started yet") };
 }
 
 export const costTotal = (p: ElementProps) => (p.element.data as CaseCost | null)?.total_usd ?? null;

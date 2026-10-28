@@ -11,7 +11,8 @@ logic pack that needs another one (a client, a case) registers it, and the store
 - `check(needs, given)`: the scope a workflow is made with: every needed part given and checked (231: or taken from
   its default), the others kept when given and known; an unknown part is refused (`ScopeError`). `asks(needs)`: the
   needed parts a person gives.
-- `label(scope)`: the scope in words, in the parts' order (a workflow's default name).
+- `label(scope)`: the scope in words, in the parts' order (a workflow's default name). `fillable(name)` (231, U2c):
+  whether a needed part may be left out (its default or an implied value fills it).
 
 Layer: business module. It names the two parts it registers itself (`jav/app/parties.py` for the party).
 """
@@ -115,6 +116,11 @@ def check(needs: Iterable[str], given: Mapping[str, Any], *, error: type[Excepti
     return {p.name: checked[p.name] for p in _PARTS.values() if p.name in checked}
 
 
+def fillable(name: str) -> bool:
+    """231 (U2c): whether the needed part `name` may be left out: it takes its default or what the given parts imply."""
+    return of(name).default is not None or name in _IMPLIED
+
+
 def asks(needs: Iterable[str]) -> list[str]:
     """231 (C2d): the needed parts a person gives (those without a default), in the registry's order."""
     needed = set(needs)
@@ -194,8 +200,8 @@ register(Part(PARTY, __name__, _party, _party_name, _no_party))
 register(Part(PERIOD, __name__, _period, _period_words, _no_period))
 
 
-__all__ = ["PARTNERS", "PARTY", "PERIOD", "Part", "RECORD", "SOURCES", "ScopeError", "asks", "check", "imply", "label", "of",
-           "parts", "period", "register"]
+__all__ = ["PARTNERS", "PARTY", "PERIOD", "Part", "RECORD", "SOURCES", "ScopeError", "asks", "check", "fillable", "imply",
+           "label", "of", "parts", "period", "register"]
 register(Part(RECORD, __name__, _record, _record_words, _no_record))
 
 PARTNERS = "partners"  # 231 (B1): the partners a case is about, by role ({role: partner_id}; `jav/app/partners.py`)

@@ -20,6 +20,8 @@ person starts waits for that person's start task.
 - `pack_of(case_id)`: the pack id and version a case runs on; `pack_for(case_id)`: that version of the pack itself (A7a:
   an older version comes back from the calculation snapshot the case was linked to when it started, so a case keeps
   the screens and outputs it started with after its pack changes).
+- `parent_of(case_id)` (231, U2c): the case and step a sub-case is part of (a step of another case started it,
+  `jav/app/sub_cases.py`).
 - `own_version_steps(case_id)`, `approval_steps(case_id)`, `step_using(case_id, capability)` (stage D0, D0-b): the
   case's steps done with an approved own version of theirs, those of them it waits for from its start (each its own
   person's task, `own_approval:<case>:<step>`), and its step that uses a capability.
@@ -36,9 +38,11 @@ core's public operations.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import json
+import sqlite3
 from functools import cache
 
 from jav.app import capabilities, human_tasks, logic_packs, package_release, package_scope, process_packs, scopes, work
@@ -46,28 +50,35 @@ from jav.core import activity_kinds, identity, rulebook, store
 from jav.core.process import cases
 from jav.core.user_messages import explained
 
-__all__ = ["CONTAINER", "CONTAINER_PACK", "adopt_all", "adopt_case", "approval_steps", "basis_of", "kept_of", "outdated",
-           "outputs_of", "own_version_steps", "unfit_cases", "FollowUpError", "follow_up", "follow_ups",
-           "owns_approval", "pack_for", "pack_of", "pack_step_kind", "register", "start_case", "step_using", "wrap_case",
-           "wrap_into"]
+__all__ = ["CONTAINER", "CONTAINER_PACK", "PARENT", "adopt_all", "adopt_case", "approval_steps", "basis_of", "kept_of",
+           "outdated", "outputs_of", "own_version_steps", "unfit_cases", "FollowUpError", "follow_up", "follow_ups",
+           "owns_approval", "pack_for", "pack_of", "pack_step_kind", "parent_of", "register", "start_case", "step_using",
+           "wrap_case", "wrap_into"]
 
 CONTAINER = "case"  # the container work package's kind
 activity_kinds.register_events("package", ("case_wrapped",), __name__)  # C3b4: a wrapped package's log names its case
 
 
 def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identity.Who, follows: str | None = None,
-               owner: identity.Who | None = None) -> str:
+               owner: identity.Who | None = None, parent: tuple[str, str] | None = None,
+               then: Callable[[sqlite3.Connection, str], None] | None = None) -> str:
     """Starts a case of the pack's current version with this scope (checked by its parts); returns its id. 231 (B2):
     with the process's own active values over the file's resources, kept in the case's data (a later change reaches
     only the cases started after it); (B3) and its own active rule values, which the case's work reads over the rule
     files (`capabilities.case_rules`). Stage D0 (D0-e): it keeps the versions current at its start to its end: its
     resources naming a versioned thing (a price list, a template) at their version then, and the rule files its steps
     read as its calculation snapshot holds them (`capabilities.KEPT_RULES`). U1: the case belongs to `owner` when given
-    (a case the email intake starts belongs to whom the email's package belongs), else to who starts it."""
+    (a case the email intake starts belongs to whom the email's package belongs), else to who starts it. U2c: the
+    scope is checked by the pack's capabilities too (`Capability.scope_check`, a step's own documents); a sub-case names
+    the case and step it is part of (`parent`, in its data), and `then(c, case_id)` is written in its start's
+    transaction (the parent step's note of it)."""
     from jav.app import process_settings
 
     pack = process_packs.load(pack_id)
     checked = scopes.check(pack.scope.needs(), scope, optional=pack.scope.optional)
+    for key in dict.fromkeys(s.uses for s in pack.steps):  # U2c: before anything is made, as the parts' check
+        if (cap := capabilities.of(key)).scope_check is not None:
+            cap.scope_check(pack, checked)
     kept = process_settings.at_start(pack)  # D-a: before anything is made, so a refused start leaves nothing
     resources = kept.resources
     rules, rule_refs = process_settings.effective_rules(pack)
@@ -77,13 +88,33 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
     case_id = wp["id"]
     data = {"pack": pack.id, "pack_version": pack.version, "container": case_id, "name": wp["name"], "scope": checked,
             "resources": resources, capabilities.RULES: rules, capabilities.RULE_REFS: rule_refs,
-            capabilities.KEPT_RULES: _kept_rule_files(pack)} | ({"follows": follows} if follows else {})
+            capabilities.KEPT_RULES: _kept_rule_files(pack)} | ({"follows": follows} if follows else {}) | (
+        {PARENT: {"case": parent[0], "step": parent[1]}} if parent else {})
     with cases.transaction() as c:
         package_scope.save(c, case_id, parts=checked, actor=actor, **_scope_columns(checked))
         cases.start_in(c, case_id, definition, data, identity.who(actor))
         for step_id in _approving(pack, from_start=True):  # C3a-1: it waits for that approval as a person's task
             human_tasks.own_approval_waits(c, case_id, step_id)  # D0-b: each approving step for its own
+        if then is not None:
+            then(c, case_id)
     return case_id
+
+
+PARENT = "parent"  # 231 (U2c): in a sub-case's data, the case and step it is part of ({"case", "step"})
+
+
+def parent_of(case_id: str) -> dict[str, Any] | None:
+    """231 (U2c): the case a sub-case is part of and its step ({id, name, title, step, step_title}: the case's name, its
+    process's title, the step's title); None for a case that is no sub-case."""
+    with store.connect() as c:
+        row = cases.find_case_in(c, case_id)
+    parent = ((row or {}).get("data") or {}).get(PARENT)
+    if not parent:
+        return None
+    pack = pack_for(parent["case"])
+    step = next((s for s in pack.steps if s.id == parent["step"]), None) if pack is not None else None
+    return {"id": parent["case"], "name": work.get(parent["case"])["name"], "title": pack.title if pack else None,
+            "step": parent["step"], "step_title": step.title if step is not None and step.title else parent["step"]}
 
 
 class FollowUpError(ValueError):
