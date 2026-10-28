@@ -1023,6 +1023,11 @@ person its approver, so a product's four eyes hold; a thing the machine made rea
 core's `cases.holding_in`) or a rule proposal run names one, and for a thing a person made. A packet's documents are
 written beside the store (`<store folder>/examples/<pack>/<packet>/`) and a case starts on those files. The product and
 tariff parameters offer the registry's active things as choices, so a process's own value is picked, not typed.
+(U1e) Two more kinds of sets: the invented price list of the quotes' golden set (`jav/domains/quotes/price_list_examples.py`,
+`price_list`) and the invented own parties with their accounts (`jav/domains/finance/party_examples.py`, `own_party`; a
+party goes only while no case and no record names it). A packet's document is either printed pages, written as a PDF,
+or a text written as it is (the invented party's camt.053 statements), and a pack may add a sentence on how its material
+is tried (`examples.note`: the reconciliation pairs what the documents and the bank statements processes read).
 `scripts/dev.ps1 start` also starts the invented registers (`invented-services`, 127.0.0.1:8941) the insurance case's
 lookups ask.
 

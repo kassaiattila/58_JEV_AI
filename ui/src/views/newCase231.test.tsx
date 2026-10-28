@@ -78,4 +78,16 @@ describe("the new case page (231 U0)", () => {
       source: { kind: "files", files: ["C:\\store\\examples\\a.pdf", "C:\\store\\examples\\b.pdf"] } });
     await waitFor(() => expect(window.location.hash).toBe(`#/cases/${CASE}`));
   });
+
+  it("says how a process's example material is tried when its pack says so (U1e)", async () => {
+    vi.spyOn(api, "processes").mockResolvedValue({ processes: [{ ...DOCS, id: "pairing_pack", title: "Pairing", examples: true }] });
+    vi.spyOn(api, "processExamples").mockResolvedValue({
+      sets: [{ kind: "own_party", name: "invented", title: "Example Party Kft.", state: "missing", example: false }], packets: [],
+      note: "First read the invented party's documents in the other processes." });
+    vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
+    vi.spyOn(api, "parties").mockResolvedValue({ parties: [] } as never);
+    render(<NewCase pack="pairing_pack" />);
+    expect(await screen.findByText("First read the invented party's documents in the other processes.")).toBeTruthy();
+    expect(screen.getByText("Example Party Kft.")).toBeTruthy();
+  });
 });

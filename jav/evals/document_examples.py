@@ -30,6 +30,9 @@ PACKETS: tuple[tuple[str, str, tuple[str, ...], tuple[str, ...]], ...] = (
       "synthetic_receipt_transaction_id", "synthetic_receipt_receipt_number", "synthetic_out_en_distractors"), ()),
     ("quote_requests", "Invented quote requests on a printed form (an IT quote starts from one once it is read)",
      (), ("q04_hu_network_pdf", "q08_hu_words_pdf")),
+    # U1e: the invented consultancy's invoices its example statements pay (configs/example_parties.json), and a credit note
+    ("own_party_invoices", "The invented consultancy's invoices, which the reconciliation's example pairs with its statements",
+     ("synthetic_out_hu_huf", "synthetic_out_hu_credit_note", "synthetic_out_en_distractors", "synthetic_out_hu_aam_person"), ()),
 )
 
 

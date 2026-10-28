@@ -41,6 +41,7 @@ export function ExampleMaterial({ pack, needed, onChanged }: { pack: string; nee
         </ul>
       ) : null}
       {packets.length ? <p className="muted small">{t("{{n}} packets of invented documents to start a case on: the form offers them as its documents.", { n: packets.length })}</p> : null}
+      {examples.data.note ? <p className="small">{t(examples.data.note)}</p> : null}
       {(!installed || removable) ? (
         <div className="button-row">
           {!installed ? (

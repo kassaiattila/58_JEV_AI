@@ -1,0 +1,46 @@
+{
+  "meta": {
+    "name": "example_parties",
+    "version": "1.0.0",
+    "description": "231 (stage U, U1e; the owner's decision of 2026-10-28): the invented own parties the bank statements and the reconciliation are tried on (jav/domains/finance/party_examples.py). Each party has its tax number, its accounts and, per account, the months of its statements: every line's day, kind, amount (credit or debit), partner and memo. The examples' machine makes the party with its accounts; the statements are written as a bank's ISO 20022 camt.053 XML files (configs/examples_bank_statements.json, made by `python -m jav.cli examples --set bank_statements --write`), their balances and totals computed by code. The invented consultancy is the issuer of the invented invoices of golden_synthetic.json (its account is the one they print), so its statements pay some of them. Nothing in it is real: the bank, its BIC and every account are invented (the partners' accounts are the data guard's invented ones).",
+    "changelog": [
+      {"version": "1.0.0", "date": "2026-10-28", "note": "231 (U1e): the invented consultancy, its forint account and four months of statements (March to June 2026): three customers pay three of its invoices, it pays its office rent without an invoice, and the bank charges its monthly fee."}
+    ]
+  },
+  "parties": [
+    {
+      "id": "example_consultancy",
+      "name": "Minta Tanácsadó Kft.",
+      "tax_number": "12121216-2-42",
+      "accounts": [
+        {"iban": "HU82 1210 0028 4681 3574 0000 0000", "kind": "account", "currency": "HUF", "bank": "Példa Bank Zrt.", "bic": "PELDHUHB",
+         "statements": [
+           {"id": "2026/3", "from": "2026-03-01", "to": "2026-03-31", "opening": "500000.00",
+            "lines": [
+              {"day": "2026-03-18", "kind": "Bejövő átutalás", "credit": "1270000.00", "partner": "Példa Vásárló Zrt.",
+               "partner_iban": "HU50 1000 0001 2000 0002 0000 0000", "memo": "ABCD0005"},
+              {"day": "2026-03-31", "kind": "Számlavezetési díj", "debit": "2500.00", "memo": "Havi számlavezetési díj 2026. március"}
+            ]},
+           {"id": "2026/4", "from": "2026-04-01", "to": "2026-04-30",
+            "lines": [
+              {"day": "2026-04-09", "kind": "Kimenő átutalás", "debit": "180000.00", "partner": "Minta Irodaház Kft.",
+               "partner_iban": "HU59 7729 9679 8620 9763 7956 2891", "memo": "Irodabérlet 2026. április"},
+              {"day": "2026-04-30", "kind": "Számlavezetési díj", "debit": "2500.00", "memo": "Havi számlavezetési díj 2026. április"}
+            ]},
+           {"id": "2026/5", "from": "2026-05-01", "to": "2026-05-31",
+            "lines": [
+              {"day": "2026-05-15", "kind": "Bejövő átutalás", "credit": "508000.00", "partner": "Minta Egyesület",
+               "partner_iban": "HU42 1177 3016 1111 1018 0000 0000", "memo": "AB003"},
+              {"day": "2026-05-29", "kind": "Számlavezetési díj", "debit": "2500.00", "memo": "Havi számlavezetési díj 2026. május"}
+            ]},
+           {"id": "2026/6", "from": "2026-06-01", "to": "2026-06-30",
+            "lines": [
+              {"day": "2026-06-22", "kind": "Bejövő átutalás", "credit": "150000.00", "partner": "Teszt Elek",
+               "partner_iban": "HU28 2999 0285 1990 9218 8666 1204", "memo": "ABCD0011"},
+              {"day": "2026-06-30", "kind": "Számlavezetési díj", "debit": "2500.00", "memo": "Havi számlavezetési díj 2026. június"}
+            ]}
+         ]}
+      ]
+    }
+  ]
+}

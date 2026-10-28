@@ -112,7 +112,7 @@ def test_the_documents_process_offers_invented_invoices_and_quote_requests(tmp_p
     from jav.evals import document_examples
 
     packets = {p["id"]: p["documents"] for p in examples.of("documents")["packets"]}
-    assert packets == {"invoices": 5, "foreign": 7, "quote_requests": 2}
+    assert packets == {"invoices": 5, "foreign": 7, "quote_requests": 2, "own_party_invoices": 4}
     current = cfg.load(examples.DOCUMENTS_PREFIX + "documents")["packets"]
     assert document_examples.example_packets({p["id"]: p["title"] for p in current}) == current
     with store.use_store(tmp_path / "docs.sqlite"):

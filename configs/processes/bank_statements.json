@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "process:bank_statements",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "description": "231 (plan stage C, C3b3; DECISIONS 231): an own party's bank statements of a period as a process pack (until C3 the statement package, its own kind of work package): a case makes its statement package from its source (the statements of the party and the period the store has not got yet), a person starts its live run within the package's estimate, and the case is done once a live run is approved.",
     "changelog": [
+      {
+        "version": "1.5.0",
+        "date": "2026-10-28",
+        "note": "231 (U1e; the owner's decision of 2026-10-28): its example material: the invented own party with its account, and its four statements as a bank's XML files."
+      },
       {
         "version": "1.4.0",
         "date": "2026-10-27",
@@ -34,6 +39,15 @@
   "id": "bank_statements",
   "title": "Bank statements",
   "summary": "An own party's bank statements for a period, from a folder or chosen files: the statements the store has not got yet are read.",
+  "examples": {
+    "sets": [
+      {
+        "kind": "own_party",
+        "name": "example_parties"
+      }
+    ],
+    "documents": "bank_statements"
+  },
   "scope": {
     "parts": [
       "party",

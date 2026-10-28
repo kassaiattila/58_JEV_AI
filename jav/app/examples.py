@@ -8,15 +8,17 @@ golden set by `python -m jav.cli examples --write`). From the interface a person
 makes each thing, so every thing it made reads as an example, and the person makes it active (the four eyes a product
 needs); the same material again changes nothing. The material goes in one go while no case keeps any of it; while one
 does, the removal is refused, naming the cases. A thing a person made is never removed as an example. A packet's
-documents are written as PDFs in a folder beside the store, and a case starts on those files.
+documents are written in a folder beside the store, and a case starts on those files: a document with printed pages
+as a PDF, (U1e) one with a text (a bank's XML statement) as that text. (U1e) A pack may say in a sentence how its
+material is tried (`note`: the reconciliation pairs what two other processes read from their packets).
 
 - `register(kind, ExampleKind)`: a module that keeps versioned things says how a set of them is shown, installed and
   removed (`jav/app/product_sets.py` registers `product_set`).
 - `of(pack_id)`: the material: each set with its state (`installed`, `partial`, `missing`) and whether the machine made
-  all of it (`example`), and the packets (id, title, the number of documents).
+  all of it (`example`), the packets (id, title, the number of documents) and the pack's note on them.
 - `install(pack_id, actor)`, `remove(pack_id, actor)`: the material put in or taken out (`ExampleRefused`; a set a case
   keeps: `ExampleInUse`).
-- `packet_files(pack_id, packet_id)`: the packet's documents as PDFs; their paths (`UnknownPacket`).
+- `packet_files(pack_id, packet_id)`: the packet's documents as files; their paths (`UnknownPacket`).
 
 Layer: application, the shared library; it names no process and no business: what an example holds is the pack's data.
 """
@@ -97,7 +99,8 @@ def of(pack_id: str) -> dict[str, Any]:
     """The pack's example material: its sets, each with its state, and its packets of invented documents."""
     examples = _examples(pack_id)
     return {"sets": [{"kind": s.kind, "name": s.name, **_kind(s.kind).state(s.name)} for s in examples.sets],
-            "packets": [{"id": p["id"], "title": p["title"], "documents": len(p["documents"])} for p in _packets(examples)]}
+            "packets": [{"id": p["id"], "title": p["title"], "documents": len(p["documents"])} for p in _packets(examples)],
+            **({"note": examples.note} if examples.note else {})}
 
 
 def install(pack_id: str, actor: identity.Who) -> dict[str, Any]:
@@ -116,11 +119,19 @@ def remove(pack_id: str, actor: identity.Who) -> dict[str, Any]:
     return of(pack_id)
 
 
+def _write(path: Path, document: dict[str, Any]) -> Path:
+    """A document with printed pages as a PDF; (U1e) one with a text as that text."""
+    if "text" in document:
+        path.write_text(document["text"], encoding="utf-8", newline="\n")
+        return path
+    return write_unicode_pdf_pages(path, document["pages"])
+
+
 def packet_files(pack_id: str, packet_id: str) -> list[str]:
-    """The packet's documents written as PDFs in `<store folder>/examples/<pack>/<packet>/`; their paths."""
+    """The packet's documents written in `<store folder>/examples/<pack>/<packet>/`; their paths."""
     packet = next((p for p in _packets(_examples(pack_id)) if p["id"] == packet_id), None)
     if packet is None:
         raise UnknownPacket(packet_id)
     folder = Path(store.current_path()).parent / FOLDER / pack_id / packet_id
     folder.mkdir(parents=True, exist_ok=True)
-    return [str(write_unicode_pdf_pages(folder / d["file"], d["pages"])) for d in packet["documents"]]
+    return [str(_write(folder / d["file"], d)) for d in packet["documents"]]

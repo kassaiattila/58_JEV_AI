@@ -180,10 +180,12 @@ class ExampleSet(_Model):
 
 class Examples(_Model):
     """231 (U0): a process's invented example material: the sets of things it installs, and the invented documents
-    (`configs/examples_<documents>.json`, packets of printed pages) a case of it can start on."""
+    (`configs/examples_<documents>.json`, packets of printed pages or texts) a case of it can start on; (U1e) a
+    sentence on how the material is tried, shown with it."""
 
     sets: tuple[ExampleSet, ...] = ()
     documents: str | None = Field(default=None, pattern=NAME)
+    note: str | None = Field(default=None, min_length=1)
 
 
 class ProcessPack(_Model):
