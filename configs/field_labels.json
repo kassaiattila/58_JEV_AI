@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "field_labels",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "changelog": [
+   {
+    "version": "1.16.0",
+    "date": "2026-10-28",
+    "note": "231 (stage U, the walkthrough): a statement read by code is named by the bank's export, not a table export only (an XML statement is read so too)."
+   },
    {
     "version": "1.15.0",
     "date": "2026-10-28",
@@ -298,7 +303,7 @@
  "doc_types": {
   "altalanos_szerzodesi_feltetelek": "Általános szerződési feltételek",
   "bank_statement": "Bankszámlakivonat",
-  "statement_table": "Bankszámlakivonat táblázatos exportból",
+  "statement_table": "Bankszámlakivonat a bank exportjából, kódból olvasva",
   "belepo_jegy": "Belépőjegy",
   "belepo_jegy_taught": "Belépőjegy (tanított)",
   "certificate": "Igazolás, tanúsítvány",
