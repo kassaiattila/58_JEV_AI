@@ -3,7 +3,7 @@ import { downloadPost, enc, request } from "./client";
 import type { FilterOp } from "./types";
 
 export type ColKind = "text" | "number" | "money" | "date" | "datetime" | "enum" | "bool" | "id";
-export type LinkKind = "run" | "workpackage" | "next" | "reviews" | "review" | "item" | "process";
+export type LinkKind = "run" | "workpackage" | "case" | "next" | "reviews" | "review" | "item" | "process";
 export interface DsColumn {
   key: string; label: string; kind: ColKind; hidden: boolean; labels: Record<string, string> | null; link?: LinkKind; field?: string;
   badge?: boolean; alert?: boolean; // 057: status badge; a value above 0 is highlighted

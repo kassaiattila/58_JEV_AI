@@ -149,10 +149,26 @@ def workpackage_view(wp_id: str) -> dict[str, Any]:
     from jav.app import intake
 
     with store.session():  # 153 (review B1): one connection for the package's page
-        view = _workpackage_view(wp_id)
+        view = {**_workpackage_view(wp_id), **_owner_case(wp_id)}
         # 231 (C1c): the processes whose case may read this package (an email package's email routing)
         offers = intake.package_offers(view["workpackage"])
         return {**view, "intake": offers} if offers else view
+
+
+def _owner_case(wp_id: str) -> dict[str, Any]:
+    """231 (U2a; the owner's decision of 2026-10-28: one work list, the cases): the case and the step a case step's
+    package belongs to, with the case's tab that shows the step, so the package's page leads back to its case."""
+    from jav.app import document_processing, process_runtime
+
+    owner = document_processing.owner_of(wp_id)
+    if owner is None:
+        return {}
+    case_id, step_id = owner
+    pack = process_runtime.pack_for(case_id)
+    step = next((s for s in pack.steps if s.id == step_id), None) if pack else None
+    tab = next((tab.id for tab in pack.screens.tabs for e in tab.elements if e.step == step_id), None) if pack else None
+    return {"owner_case": {"id": case_id, "name": work.get(case_id)["name"], "step": step_id,
+                           "step_title": step.title if step else None, "tab": tab}}
 
 
 def _workpackage_view(wp_id: str) -> dict[str, Any]:

@@ -1,6 +1,7 @@
-// The frame of the workspace (057, decision of 2026-09-28): two main parts — Work packages (the daily work) and
-// Settings (mailboxes, work folders, users, appearance, language, system). The header shows the worker's status and
-// the user's name.
+// The frame of the workspace (057, decision of 2026-09-28): two main parts — the daily work and Settings (mailboxes,
+// work folders, users, appearance, language, system). 231 (U2a; the owner's decision of 2026-10-28: one work list) the
+// daily work is the Cases: a document batch and a run open under their case; the list of every batch and the chains
+// are reached from Settings › System. The header shows the worker's status and the user's name.
 import { useEffect, useState } from "react";
 import { api, setActor, USERS_EVENT } from "./api";
 import { useActor, useEvent, useHash, useLoad } from "./hooks";
@@ -27,10 +28,7 @@ const NewCase = lazyPage(() => import("./views/NewCase").then((m) => m.NewCase))
 // the label is the Hungarian source, translated at render time (058: the rail is wide enough for the label to fit
 // without hyphenation)
 const NAV = [
-  { view: "workpackages", href: "#/workpackages", label: "Munkacsomagok", icon: <path d="M4 7h16M4 12h16M4 17h10" /> },
-  // 146: the workflows (the work packages of one job, chained); an English source label, translated at render time
-  { view: "workflows", href: "#/workflows", label: "Workflows", icon: <path d="M5 6h4v4H5zM15 14h4v4h-4zM9 8h4a2 2 0 0 1 2 2v4" /> },
-  // 231 (A7e): the process packs' cases (an English source label, translated at render time)
+  // 231 (A7e): the process packs' cases (an English source label, translated at render time); (U2a) the one work list
   { view: "case-list", href: "#/cases", label: "Cases", icon: <path d="M4 8h16v11H4zM9 8V5h6v3M4 13h16" /> },
   { view: "settings", href: "#/settings", label: "Beállítások", icon: <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" /> },
 ] as const;
@@ -41,9 +39,9 @@ export function App() {
   useEffect(() => { document.title = t("JAV workspace"); }, [language]);
   const hash = useHash();
   const route = parseRoute(hash);
-  // the run page and the old result addresses belong to Work packages
-  const section = route.view === "settings" ? "settings" : route.view === "workflows" ? "workflows"
-    : route.view === "case-list" || route.view === "cases" ? "case-list" : "workpackages";
+  // U2a: the list of every batch belongs to Settings › System; a batch, a run, a chain and an old result address to
+  // the Cases (the work they are part of)
+  const section = route.view === "settings" || (route.view === "workpackages" && !route.wpId) ? "settings" : "case-list";
   return (
     <div className="shell">
       <a className="skip" href="#main">{t("Ugrás a tartalomra")}</a>

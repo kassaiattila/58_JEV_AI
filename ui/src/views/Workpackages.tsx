@@ -16,9 +16,10 @@ export function Workpackages({ route }: { route: Extract<Route, { view: "workpac
   return <WorkpackageList />;
 }
 
+/** 231 (U2a; the owner's decision of 2026-10-28: one work list, the cases): every document batch, to find an old one
+ *  (reached from Settings › System); new work starts as a case, so the list starts nothing. */
 function WorkpackageList() {
   useLocale();
-  const [creating, setCreating] = useState(false);
   const [count, setCount] = useState<number | null>(null);
   const [archived, setArchived] = useState(false); // 058: hidden work packages are only shown on request
   const [mine, setMine] = useState(false); // 061: only those whose owner is the „Ki dolgozik?” (Who is working?) person
@@ -26,11 +27,11 @@ function WorkpackageList() {
   const scope = { ...(archived ? { include_archived: "1" } : {}), ...(mine && actor ? { owner: actor } : {}) };
   return (
     <>
-      <PageHeader title={t("Munkacsomagok")} badge={count !== null ? <span className="count">{count}</span> : null}
-        summary={t("Egy munkacsomag iratai együtt futnak: feldolgozás, ellenőrzés, eredmény. A „Következő lépés” oszlop megmutatja, hol tart.")}
-        actions={<button type="button" className="primary" onClick={() => setCreating((v) => !v)} aria-expanded={creating}>{t("Új munkacsomag")}</button>} />
-      {creating ? <CreateForm onDone={(id) => go({ view: "workpackages", wpId: id, stage: "process" })} /> : null}
-      <DataTable dataset="workpackages" label={t("Munkacsomagok")} onPage={(pg) => setCount(pg.matched)} pollMs={10000}
+      <PageHeader crumbs={[{ label: t("Beállítások"), href: "#/settings/system" }]} title={t("All document batches")}
+        badge={count !== null ? <span className="count">{count}</span> : null}
+        summary={t("Every document batch that is not a case step's, to find an old one; the documents of a batch run together: processing, review, result. New work starts as a case, under Cases.")}
+        actions={<a className="button secondary" href="#/cases/new">{t("New case")}</a>} />
+      <DataTable dataset="workpackages" label={t("All document batches")} onPage={(pg) => setCount(pg.matched)} pollMs={10000}
         scope={Object.keys(scope).length ? scope : undefined}
         toolbar={<>
           <label className="check small" title={actor ? undefined : t("Előbb válaszd ki a neved fent")}>
@@ -45,7 +46,7 @@ function WorkpackageList() {
             <span>{stepLabel(String(row.next_code), row._next_params as Record<string, unknown>, String(row.next_label))}</span>
           </a>
         ) : undefined)}
-        emptyText={t("Még nincs munkacsomag. Az „Új munkacsomag” gombbal mappából, fájlokból vagy postafiókból hozhatsz létre.")} />
+        emptyText={t("No document batch outside the cases.")} />
     </>
   );
 }

@@ -64,7 +64,7 @@ def _cases(scope: dict[str, str]) -> Rows:
     """Every process pack's case; the closed ones only on request (`include_closed`)."""
     closed = scope.get("include_closed") == "1"
     cols = [
-        col("name", "Case", link="workpackage"),
+        col("name", "Case", link="case"),  # U2a: the case opens at its own address
         col("process", "Process", "enum"),
         col("status", "Status", "enum", labels="case_status", badge=True, hidden=not closed),  # all open otherwise
         col("step", "Current step"),
@@ -93,7 +93,7 @@ def _cases(scope: dict[str, str]) -> Rows:
 def _handovers(scope: dict[str, str]) -> Rows:
     """The open cases whose step's last handover failed or has an unknown outcome, oldest first."""
     cols = [
-        col("name", "Case", link="workpackage"),
+        col("name", "Case", link="case"),  # U2a: the case opens at its own address
         col("step", "Step"),
         col("status", "Outcome", "enum", labels="handover_status", badge=True),
         col("attempt", "Attempt", "number"),

@@ -159,7 +159,7 @@ describe("kiválasztott csomag identitása", () => {
     expect(routeHash(r)).toBe("#/workpackages/wp-000000000009/review/" + "b".repeat(64));
     // unknown section: the package opens at its next step (without a stage), not another package
     expect(parseRoute("#/workpackages/wp-1/ismeretlen")).toEqual({ view: "workpackages", wpId: "wp-1", stage: undefined });
-    expect(parseRoute("")).toEqual({ view: "workpackages" });
+    expect(parseRoute("")).toEqual({ view: "case-list" });  // 231 U2a: the one work list, the cases
   });
 
   it("kulcsváltáskor a régi, később érkező válasz nem írja felül az újat", async () => {

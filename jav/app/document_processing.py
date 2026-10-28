@@ -238,6 +238,15 @@ def bound(wp_id: str) -> bool:
     return OWNER_PART in ((package_scope.stored(wp_id) or {}).get("parts") or {})
 
 
+def owner_of(wp_id: str) -> tuple[str, str] | None:
+    """231 (U2a): the case and the step the package belongs to (None for a package of no case's step)."""
+    ref = ((package_scope.stored(wp_id) or {}).get("parts") or {}).get(OWNER_PART)
+    if not isinstance(ref, str) or ":" not in ref:
+        return None
+    case_id, step_id = ref.rsplit(":", 1)
+    return case_id, step_id
+
+
 def _bind(wp_id: str, case_id: str, step_id: str, scope: dict[str, Any], rule: str | None, actor: identity.Who) -> None:
     """The package's scope names the step that made it and the rule it runs by; the case's party and period go with
     them (a scope the maker gave stays, with these parts added)."""

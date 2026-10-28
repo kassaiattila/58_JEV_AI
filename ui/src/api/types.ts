@@ -51,6 +51,8 @@ export interface WorkpackageView {
   rule?: { name: string; adds: string; parts: string[] } | null;
   /** 146: the workflow the package is a step of */
   workflow?: WorkflowRef | null;
+  /** 231 (U2a): the case and the step a case step's package belongs to, and the case's tab that shows the step */
+  owner_case?: { id: string; name: string; step: string; step_title: string | null; tab: string | null };
   /** 152: the older live runs a person can supersede, oldest first */
   supersedable?: SupersedableRun[];
   /** 160-C S3: the open live runs (finished, not approved, not repeated by a later one), oldest first */

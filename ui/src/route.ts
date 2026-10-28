@@ -105,8 +105,8 @@ export function parseRoute(hash: string): Route {
       }
       return r;
     }
-    default:
-      return { view: "workpackages" };
+    default:  // 231 (U2a): an unknown address opens the one work list, the cases
+      return { view: "case-list" };
   }
 }
 

@@ -91,12 +91,16 @@ def test_a_routing_case_lists_the_cases_started_from_its_emails(db) -> None:  # 
     assert (started["id"], started["process"], started["record"]["item_id"]) == (quote, "IT quote", email)
 
 
-def test_the_package_list_shows_a_case_s_container_with_its_next_step(db) -> None:  # noqa: F811
-    """A case's next step names its parameters as every package's does (the list once failed on a case without them)."""
-    from jav.app import datasets
+def test_a_case_s_container_is_in_the_case_list_not_the_batches(db) -> None:  # noqa: F811
+    """A case's next step names its parameters as every package's does (the list once failed on a case without them);
+    U2a (the owner's decision of 2026-10-28: one work list) the case is listed among the cases, and the list of every
+    document batch leaves its container out (the email package it reads stays there)."""
+    from jav.app import datasets, work_views
     from jav.app.tablequery import Query
 
     wp, _ids = _sources(db)
     case_id = process_runtime.start_case(PACK, {"sources": [wp]}, name="June emails", actor="Example Person")
-    rows = {r["_key"] if "_key" in r else r["id"]: r for r in datasets.query("workpackages", {}, Query(limit=100))["rows"]}
-    assert case_id in rows
+    batches = {r["_key"] if "_key" in r else r["id"] for r in datasets.query("workpackages", {}, Query(limit=100))["rows"]}
+    assert case_id not in batches and wp in batches
+    assert case_id in {r["_key"] for r in datasets.query("cases", {}, Query(limit=100))["rows"]}
+    assert isinstance(work_views.workpackage_view(case_id)["next"]["params"], dict)
