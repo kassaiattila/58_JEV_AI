@@ -368,7 +368,7 @@ def _letter_message(case_id: str, source_step: str | None, source: Any) -> Any:
 
 
 def register() -> None:
-    from jav.app import capabilities, case_views, sending
+    from jav.app import capabilities, case_views, letter_frames, sending
     from jav.app.outputs import parts
     from jav.domains.quotes import quote_document
 
@@ -383,6 +383,31 @@ def register() -> None:
         case_views.register(case_views.ElementData(element, capability, _OWNER, _quote_view, mark=_marks))
     sending.register_builder(sending.MessageBuilder("quote_letter", _OWNER, _letter_message,
                                                     "The accepted reply letter with the quote's Word document."))
+    letter_frames.register_kind(_frame_kind())
+
+
+def _frame_kind() -> Any:
+    """231 (U3f; the owner's decision of 2026-10-28): the reply letters' frames, edited as versions in the shared
+    library: each frame a text per document language (`configs/quote_documents.json`, at the top)."""
+    from jav.app import letter_frames
+    from jav.domains.quotes import quote_document, quote_letter
+
+    F = letter_frames.FrameField
+    fields = tuple(field for language, group in (("hu", "Hungarian"), ("en", "English")) for field in (
+        F(f"{language}.subject_reply", "Subject of the reply", group=group),
+        F(f"{language}.subject_none", "Subject without a request", group=group),
+        F(f"{language}.greeting", "Greeting with the contact's name", group=group),
+        F(f"{language}.greeting_none", "Greeting without a name", group=group),
+        F(f"{language}.fallback", "The paragraph while none is written", letter_frames.TEXT, group=group),
+        F(f"{language}.totals", "The totals line", letter_frames.TEXT, group=group),
+        F(f"{language}.closing", "Closing", group=group)))
+    return letter_frames.FrameKind(
+        kind="quote_letter_frame", title="Quote reply letters",
+        what="The reply to a quote request, in the quote's language: its subject, greeting, totals line and closing,"
+             " the markers filled in from the quote; the first paragraph is written for each request.",
+        config="quote_documents", prefix="",
+        frames=lambda: {key: quote_document.settings()[key] for key in quote_letter.frames()},
+        fields=fields, outputs=lambda: (quote_document.OUTPUT,), module=_OWNER)
 
 
 __all__ = ["CAPABILITIES", "CatalogueMatch", "LetterDraft", "LineDraft", "LinePricing", "RecordAssembly", "register"]

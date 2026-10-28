@@ -40,6 +40,8 @@ const SHARED: SettingsSectionSpec[] = [
   { key: "products", label: "Products", hint: "What an offer is built from: the products with their cover modules and tariffs, the condition documents and the rules read from them, each kept as versions; a draft's checks and making it active", group: "library", order: 220 },
   // 179 (plan 170 L4, DECISIONS 178): own Excel templates of the downloads
   { key: "outputs", label: "Output templates", hint: "Your own Excel and Word templates for the downloads: upload, check, preview and make active; the markers to write in them", group: "library", order: 240 },
+  // 231 (U3f; the owner's decision of 2026-10-28): the letter frames, edited as versions
+  { key: "letters", label: "Letter frames", hint: "The texts of the letters that go with a printed document: a changed text is a draft until it is made active, and a case keeps the text it started with", group: "library", order: 250 },
   { key: "users", label: "Felhasználók", hint: "A „Ki dolgozik?” választéka", group: "system", order: 300 },
   { key: "appearance", label: "Megjelenés", hint: "The theme: light, dark or as the system is set", group: "system", order: 310 },
   { key: "language", label: "Nyelv", hint: "A felület nyelve: magyar vagy angol", group: "system", order: 320 },

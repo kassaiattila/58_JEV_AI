@@ -29,6 +29,8 @@ it starts and keeps them: a change reaches the cases started after it.
   process sets no value of its own for it.
 - 231 (U3d): `used_by(kind)`: for each shared thing of a kind, the processes that use it now (the "Used by" line of the
   shared library's lists).
+- 231 (U3f): `effective_rules` brings the active versions of the letter frames the process uses (`letter_frames`), so a
+  case keeps the frame's text active at its start.
 - 231 (U3a): `view` describes the process too (`description`: what it is for, its steps, outputs, golden sets, what
   starts a case of it, whether it has example material), for its own settings page.
 
@@ -41,7 +43,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav.app import capabilities, partners, process_packs, scopes
+from jav.app import capabilities, letter_frames, partners, process_packs, scopes
 from jav.core import cfg, identity, store, trace, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
@@ -164,7 +166,8 @@ def rule_keys(pack: process_packs.ProcessPack) -> dict[str, tuple[capabilities.R
 
 def effective_rules(pack: process_packs.ProcessPack) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     """231 (B3): the process's active rule values, as a case keeps them: ({config name: {key: value}}, {config name:
-    {key: {"setting": id, "version": n}}}); a key its capabilities no longer declare is left out."""
+    {key: {"setting": id, "version": n}}}); a key its capabilities no longer declare is left out. 231 (U3f): with the
+    letter frames it uses, as their active versions in the shared library have them (`letter_frames.in_effect`)."""
     keys = rule_keys(pack)
     values: dict[str, dict[str, Any]] = {}
     refs: dict[str, dict[str, Any]] = {}
@@ -174,6 +177,11 @@ def effective_rules(pack: process_packs.ProcessPack) -> tuple[dict[str, dict[str
                 rule = keys[r["key"]][0]
                 values.setdefault(rule.file, {})[rule.key] = json.loads(r["value"])
                 refs.setdefault(rule.file, {})[rule.key] = {"setting": r["setting_id"], "version": r["version"]}
+    for key, value in effective_resources(pack).items():
+        if (kind := _kind_of(pack, key)) and (frame := letter_frames.in_effect(kind, str(value))):
+            file, frame_key, content, ref = frame
+            values.setdefault(file, {})[frame_key] = content
+            refs.setdefault(file, {})[frame_key] = ref
     return values, refs
 
 

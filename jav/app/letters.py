@@ -31,7 +31,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from jav.app import capabilities, human_tasks, naming, package_release, work
+from jav.app import capabilities, human_tasks, letter_frames, naming, package_release, work
 from jav.app.approved_document import StoredFile
 from jav.app.outputs import contract, docx, markers, parts
 from jav.core import activity_kinds, cfg, decisions, identity, store
@@ -322,10 +322,25 @@ def _letter_view(case_id: str, step: str | None, _shared: dict[str, Any]) -> dic
             if waits else None}
 
 
+# 231 (U3f; the owner's decision of 2026-10-28): the covering letters' frames, edited as versions in the shared library
+FRAME_KIND = letter_frames.FrameKind(
+    kind="letter_frame", title="Covering letters",
+    what="The letter that goes with a printed document, such as an insurance offer: its subject, greeting, paragraphs"
+         " and closing, the markers filled in from the document.",
+    config=CONFIG, prefix="frames.", frames=letter_frames.config_frames(CONFIG, "frames."), outputs=parts.version_outputs,
+    fields=(letter_frames.FrameField("subject", "Subject"),
+            letter_frames.FrameField("greeting", "Greeting with the addressee's name"),
+            letter_frames.FrameField("greeting_none", "Greeting without a name"),
+            letter_frames.FrameField("paragraphs", "Paragraphs", letter_frames.PARAGRAPHS),
+            letter_frames.FrameField("closing", "Closing")),
+    module=_OWNER)
+
+
 def register() -> None:
     from jav.app import case_views, sending
 
     capabilities.register(CAPABILITY)
+    letter_frames.register_kind(FRAME_KIND)
     case_views.register(case_views.ElementData("letter", "letter", _OWNER, _letter_view))
     sending.register_builder(sending.MessageBuilder(MESSAGE, _OWNER, _message,
                                                     "An accepted letter's email file, with the document it goes with."))

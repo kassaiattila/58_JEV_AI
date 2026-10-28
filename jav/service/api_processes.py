@@ -8,7 +8,10 @@ value aside (the file's counts again). A person the rule does not let make a val
 (B3): the same for a rule key its capabilities let a process set (`/rules/...`; the value a whole number or one of
 the key's options), and its preview on the decision trace (nothing is written).
 
-Layer: UI/CLI (the local service) → `jav.app.process_settings`, `jav.app.process_packs`.
+231 (U3f): the letter frames of the shared library (`/library/letter-frames`): their texts and versions, a changed text
+saved as a draft, a version made active, the file's text brought back (`jav/app/letter_frames.py`).
+
+Layer: UI/CLI (the local service) → `jav.app.process_settings`, `jav.app.process_packs`, `jav.app.letter_frames`.
 """
 
 from __future__ import annotations
@@ -19,7 +22,8 @@ from fastapi import Depends, FastAPI, Query, Request
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav.app import document_processing, examples, intake, process_packs, process_settings, scopes, sub_cases, work_views
+from jav.app import (document_processing, examples, intake, letter_frames, process_packs, process_settings, scopes, sub_cases,
+                     work_views)
 from jav.core import identity
 from jav.core.user_messages import message_fields
 from jav.service.service_shared import Empty, In, error, human_actor
@@ -30,6 +34,7 @@ RuleKey = Annotated[str, PathParam(pattern=r"^[a-z][A-Za-z0-9_:.]{0,119}$")]  # 
 Version = Annotated[int, PathParam(ge=1)]
 PacketId = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_]{0,63}$")]  # 231 (U0): an example packet
 LibraryKind = Annotated[str, PathParam(pattern=r"^[a-z][a-z_]{0,39}$")]  # 231 (U3d): a shared library kind
+FrameId = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_]{0,63}$")]  # 231 (U3f): a letter frame
 
 
 class SettingIn(In):
@@ -39,6 +44,14 @@ class SettingIn(In):
 
 class RuleIn(In):
     value: int | Annotated[str, Field(min_length=1, max_length=200)]
+    note: Annotated[str | None, Field(max_length=2000)] = None
+
+
+class FrameIn(In):
+    """231 (U3f): the fields of a letter frame a person changed, by their path in the frame (a text, or paragraphs)."""
+
+    values: Annotated[dict[Annotated[str, Field(max_length=80)], str | list[Annotated[str, Field(max_length=6000)]]],
+                      Field(min_length=1, max_length=40)]
     note: Annotated[str | None, Field(max_length=2000)] = None
 
 
@@ -108,6 +121,27 @@ def routes(app: FastAPI, r: str) -> None:
         """231 (U3d): for each thing of a shared library kind (a product, a tariff, a price list, a letter frame, an
         output template, a partner role), the processes that use it now."""
         return {"used_by": process_settings.used_by(kind)}
+
+    @app.get(r + "/library/letter-frames")
+    def letter_frame_list() -> dict[str, Any]:
+        """231 (U3f): the letter frames of the shared library, each with its file's text, the text in effect and its
+        versions; the rule of who may make a version active."""
+        return work_views.jsonable(letter_frames.listing())
+
+    @app.post(r + "/library/letter-frames/{kind}/{ident}", status_code=201)
+    def letter_frame_propose(kind: LibraryKind, ident: FrameId, body: FrameIn,
+                             who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        return work_views.jsonable(letter_frames.propose(kind, ident, body.values, who, note=body.note))
+
+    @app.post(r + "/library/letter-frames/{kind}/{ident}/versions/{version}/activate")
+    def letter_frame_activate(kind: LibraryKind, ident: FrameId, version: Version, _body: Empty,
+                              who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        return work_views.jsonable(letter_frames.activate(kind, ident, version, who))
+
+    @app.post(r + "/library/letter-frames/{kind}/{ident}/retire")
+    def letter_frame_retire(kind: LibraryKind, ident: FrameId, _body: Empty,
+                            who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        return work_views.jsonable(letter_frames.retire(kind, ident, who))
 
     @app.get(r + "/processes/{pack_id}/settings")
     def process_settings_page(pack_id: PackId) -> dict[str, Any]:

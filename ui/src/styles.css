@@ -907,6 +907,20 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .template-output-head h3 { margin: 0; }
 /* 231 (U3d): the processes whose cases deal with a partner of the chosen role, above the list */
 .partners-role-use { margin: 0 0 var(--sp-3); }
+/* 231 (U3f): a letter frame: its text field by field (the label in muted 12 px text beside the value, kept as written),
+   a language's fields under its name, the form with the same groups */
+.letter-frame h4 { margin: 0; font-size: var(--fs-sm); font-weight: 600; }
+.frame-text { display: grid; gap: var(--sp-3); }
+.frame-group h5 { margin: 0 0 var(--sp-1); font-size: var(--fs-sm); font-weight: 600; }
+.frame-text dl { display: grid; gap: var(--sp-2); margin: 0; }
+.frame-field { display: grid; grid-template-columns: minmax(140px, 220px) minmax(0, 1fr); gap: var(--sp-3); }
+.frame-field dt { color: var(--muted); font-size: var(--fs-xs); padding-top: 1px; }
+.frame-field dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.frame-form { display: grid; gap: var(--sp-3); }
+.frame-form fieldset.frame-group { border: 0; padding: 0; margin: 0; display: grid; gap: var(--sp-2); min-width: 0; }
+.frame-form legend { padding: 0; margin-bottom: var(--sp-1); font-size: var(--fs-sm); font-weight: 600; }
+.frame-form textarea { resize: vertical; line-height: 1.5; }
+.frame-markers { margin: 0; overflow-wrap: anywhere; }
 .template-table { table-layout: fixed; }
 .template-table td { vertical-align: middle; overflow-wrap: anywhere; }
 .template-table .c-name { width: 22%; } .template-table .c-version { width: 9%; } .template-table .c-state { width: 10%; }

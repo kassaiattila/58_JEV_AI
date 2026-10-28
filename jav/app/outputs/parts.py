@@ -247,6 +247,13 @@ def output_labels(output: str) -> OutputLabels | None:
     return _LABELS.get(output)
 
 
+def version_outputs() -> tuple[str, ...]:
+    """231 (U3f): the outputs an approved own version is printed into, in the order they were registered (the values a
+    letter frame's markers may name)."""
+    _load()
+    return tuple(_VERSIONS)
+
+
 def version_document(output: str) -> VersionDocument:
     """D0-c: the builder of an output an approved own version is printed into; `UnknownOutput` when no domain
     registered one."""

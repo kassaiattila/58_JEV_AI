@@ -82,6 +82,18 @@ export type SettingKind = "settings" | "rules";
 /** 231 (U3d): the kinds of shared things the processes name, and for each thing of a kind the processes using it */
 export type LibraryKind = "product" | "tariff" | "price_list" | "letter_frame" | "quote_letter_frame" | "output_template" | "partner_role";
 export type UsedByMap = Record<string, { id: string; title: string }[]>;
+/** 231 (U3f): the letter frames of the shared library (jav/app/letter_frames.py): each kind's frames with the file's
+ *  text, the text in effect (its active version's, else the file's) and its versions; the fields a person edits. */
+export type FrameContent = Record<string, unknown>;
+export interface FrameField { path: string; label: string; form: "line" | "text" | "paragraphs"; group: string | null }
+export interface FrameVersion {
+  version: number; state: OutputTemplateState; content: FrameContent; note: string | null; made_by: string; made_at: string;
+  activated_by: string | null; activated_at: string | null;
+}
+export interface LetterFrame { ident: string; file: FrameContent; content: FrameContent; active: number | null; markers: string[]; versions: FrameVersion[] }
+export interface LetterFrameKind { kind: LibraryKind; title: string; what: string; fields: FrameField[]; frames: LetterFrame[]; markers: string[] }
+export interface LetterFrames { kinds: LetterFrameKind[]; policy: { activation: string; owners: string[] } }
+const frameBase = (kind: string, ident: string) => `/library/letter-frames/${enc(kind)}/${enc(ident)}`;
 
 const base = (pack: string, kind: SettingKind, key: string) => `/processes/${enc(pack)}/${kind}/${enc(key)}`;
 
@@ -106,4 +118,10 @@ export const processesApi = {
   examplePacketFiles: (pack: string, packet: string) =>
     request<{ files: string[] }>("POST", `/processes/${enc(pack)}/examples/packets/${enc(packet)}/files`, {}),
   usedBy: (kind: LibraryKind) => request<{ used_by: UsedByMap }>("GET", `/library/used-by/${enc(kind)}`),
+  letterFrames: () => request<LetterFrames>("GET", "/library/letter-frames"),
+  proposeLetterFrame: (kind: string, ident: string, values: Record<string, string | string[]>, note: string | null) =>
+    request<LetterFrames>("POST", frameBase(kind, ident), { values, note }),
+  activateLetterFrame: (kind: string, ident: string, version: number) =>
+    request<LetterFrames>("POST", `${frameBase(kind, ident)}/versions/${version}/activate`, {}),
+  retireLetterFrame: (kind: string, ident: string) => request<LetterFrames>("POST", `${frameBase(kind, ident)}/retire`, {}),
 };

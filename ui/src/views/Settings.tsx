@@ -19,6 +19,7 @@ import { JevVersionPanel } from "./settings/JevVersionPanel";
 import { EnginePanel } from "./settings/EnginePanel";
 import { FoldersPanel } from "./settings/FoldersPanel";
 import { LanguagePanel } from "./settings/LanguagePanel";
+import { LetterFramesPanel } from "./settings/LetterFramesPanel";
 import { OutputTemplatesPanel } from "./settings/OutputTemplatesPanel";
 import { PartnersPanel } from "./settings/PartnersPanel";
 import { ProcessNav, ProcessSettingsPanel } from "./settings/ProcessSettingsPanel";
@@ -70,6 +71,7 @@ export function Settings({ section, item, tab }: { section: SettingsSection; ite
           ) : null}
           {current.key === "rules" ? <RulesPanel /> : null}
           {current.key === "outputs" ? <OutputTemplatesPanel /> : null}
+          {current.key === "letters" ? <LetterFramesPanel /> : null}
           {current.key === "users" ? <UsersPanel /> : null}
           {current.key === "appearance" ? <AppearancePanel /> : null}
           {current.key === "language" ? <LanguagePanel /> : null}

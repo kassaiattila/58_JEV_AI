@@ -25,7 +25,7 @@ describe("the Settings menu in three groups (231 U3e)", () => {
     const items = (name: string) => within(within(nav).getByRole("group", { name })).getAllByRole("link").map((a) => a.textContent);
     expect(within(nav).getAllByRole("group").map((g) => g.getAttribute("aria-labelledby"))).toHaveLength(3);
     expect(items("Processes")).toEqual(["All processes"]);
-    expect(items("Shared library")).toEqual(["Partners", "Own parties", "Products", "Price lists", "Output templates"]);
+    expect(items("Shared library")).toEqual(["Partners", "Own parties", "Products", "Price lists", "Output templates", "Letter frames"]);
     expect(items("System")).toEqual(["Users", "Appearance", "Language", "Work folders", "Mailboxes", "Processing", "Rules", "Operations"]);
     expect(within(nav).getByRole("link", { name: "Users" }).getAttribute("aria-current")).toBe("page");
   });
