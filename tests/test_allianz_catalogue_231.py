@@ -40,3 +40,11 @@ def test_the_open_codes_the_product_s_rules_give_have_their_names() -> None:
     for outcome, codes in given.items():
         assert CAT.outcomes[outcome].type == "codes" and not CAT.outcomes[outcome].options
         assert [c for c in codes if c not in CAT.labels] == [], outcome
+
+
+def test_every_module_of_the_product_is_named() -> None:
+    """U1 (the walkthrough of 2026-10-28): a requested module, an evaluated one, shows by its name, not as its code."""
+    from jav.app import product_sources
+
+    modules = [m.code for m in product_sources.load("allianz_property").product.modules]
+    assert len(modules) == 22 and [m for m in modules if m not in CAT.labels] == []
