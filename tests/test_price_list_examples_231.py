@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 
 from jav.app import examples, registrations
-from jav.core import store
+from jav.core import cfg, store
 from jav.core.identity import person
 from jav.core.process import cases
 from jav.core.process.definition import StepDef
@@ -63,7 +63,7 @@ def test_the_example_price_list_goes_unless_a_case_keeps_it(db) -> None:
 
 def test_a_price_list_a_person_made_is_not_the_examples_to_remove(db, tmp_path) -> None:
     sheet = invented_golden.write_price_list(tmp_path / "list.xlsx")
-    made = price_lists.add(price_list_examples.list_name(invented_golden.load()), "list.xlsx", sheet.read_bytes(), actor=ANNA)
+    made = price_lists.add(price_list_examples.list_name(cfg.load("golden_quotes")), "list.xlsx", sheet.read_bytes(), actor=ANNA)
     with pytest.raises(examples.ExampleRefused):
         examples.remove("it_quote", ANNA)
     assert price_lists.get(made["price_list"], 1)["made_by"] == ANNA

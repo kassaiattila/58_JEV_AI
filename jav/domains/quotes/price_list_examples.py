@@ -5,7 +5,9 @@ so the quote could not be tried. The golden set of quotes (`configs/golden_quote
 price list with its discount rules; a process names it as example material (`{"kind": "price_list", "name":
 "golden_quotes"}`). Installed, the examples' machine uploads the seller's sheet as a new list with the set's rules,
 and the person installing it makes it active (the four eyes of the shared examples library); installed again, it
-changes nothing. It is taken out only while no case keeps it and only if the machine made every version of it.
+changes nothing. It is taken out only while no case keeps it and only if the machine made every version of it. The
+golden set is read here as the file holds it (its reader, `invented_golden.py`, is the measurement's), and the sheet
+is the seller's list as a CSV file, one row per item under the set's own column names.
 
 - `list_name(golden)`: the example list's name (the seller's name and the list's version).
 - `register()`: the example kind `price_list` for the shared examples library.
@@ -15,27 +17,36 @@ Layer: the quotes domain; it uses the price lists and the shared examples librar
 
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
+import csv
+import io
 from typing import Any
 
 from jav.core import cfg, identity, store
 from jav.core.user_messages import explained
-from jav.domains.quotes import invented_golden, price_lists
+from jav.domains.quotes import price_lists
 
 __all__ = ["KIND", "list_name", "register"]
 
 KIND = "price_list"
 
 
-def _golden(name: str) -> invented_golden.QuoteGolden:
-    data = cfg.load(name)
-    return invented_golden.QuoteGolden.model_validate({k: v for k, v in data.items() if k != "meta"})
+def _golden(name: str) -> dict[str, Any]:
+    return cfg.load(name)
 
 
-def list_name(golden: invented_golden.QuoteGolden) -> str:
+def list_name(golden: dict[str, Any]) -> str:
     """The example list's name: the invented seller's name and the list's version."""
-    return f"{golden.seller.name} {golden.price_list.version}"
+    return f"{golden['seller']['name']} {golden['price_list']['version']}"
+
+
+def _sheet(prices: dict[str, Any]) -> bytes:
+    """The seller's list as a CSV file: a header row of the set's column names, one row per item."""
+    keys = ("sku", "name", "unit", "unit_price", "category")
+    out = io.StringIO()
+    writer = csv.writer(out, delimiter=";", lineterminator="\n")
+    writer.writerow([prices["columns"][k] for k in keys])
+    writer.writerows([[item[k] for k in keys] for item in prices["items"]])
+    return out.getvalue().encode("utf-8")
 
 
 def _rows(name: str) -> list[Any]:
@@ -59,6 +70,7 @@ def _install(name: str, maker: identity.Who, approver: identity.Who) -> None:
     """The seller's sheet uploaded by `maker` with the set's rules and made active by `approver`; a list already
     there is made active if it is not."""
     golden = _golden(name)
+    prices = golden["price_list"]
     rows = _rows(name)
     if any(r["state"] == "active" for r in rows):
         return
@@ -66,15 +78,11 @@ def _install(name: str, maker: identity.Who, approver: identity.Who) -> None:
         latest = rows[-1]
         price_lists.activate(latest["price_list"], latest["version"], actor=approver)
         return
-    with tempfile.TemporaryDirectory() as folder:
-        sheet = invented_golden.write_price_list(Path(folder) / "price_list.xlsx", golden)
-        made = price_lists.add(list_name(golden), sheet.name, sheet.read_bytes(), actor=maker,
-                               currency=golden.price_list.currency, vat_percent=golden.price_list.vat_percent)
-    if golden.price_list.discounts:
-        made = price_lists.change_settings(
-            made["price_list"], made["version"], actor=maker, currency=golden.price_list.currency,
-            vat_percent=golden.price_list.vat_percent,
-            discounts=[d.model_dump(mode="json") for d in golden.price_list.discounts])
+    made = price_lists.add(list_name(golden), "price_list.csv", _sheet(prices), actor=maker, currency=prices["currency"],
+                           vat_percent=prices["vat_percent"])
+    if prices.get("discounts"):
+        made = price_lists.change_settings(made["price_list"], made["version"], actor=maker, currency=prices["currency"],
+                                           vat_percent=prices["vat_percent"], discounts=list(prices["discounts"]))
     price_lists.activate(made["price_list"], made["version"], actor=approver)
 
 
