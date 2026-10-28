@@ -32,7 +32,7 @@ PACK = {"meta": {"name": "process:documents_test", "version": "1.0.0", "descript
         "id": "documents_test", "title": "Documents", "scope": {"parts": ["source"]},
         "intake": [{"on": "manual", "starts": "manual"}], "resources": {},
         "steps": [{"id": "process", "uses": "process_documents@1", "title": "Processing", "params": {}}],
-        "screens": {"tabs": [{"id": "history", "label": "History", "elements": [{"type": "timeline"}, {"type": "cost"}]}]},
+        "screens": {"tabs": [{"id": "history", "label": "History", "elements": [{"type": "timeline"}, {"type": "cost"}, {"type": "blockers"}]}]},
         "outputs": [], "goldens": []}
 
 
@@ -130,6 +130,30 @@ def test_the_case_page_says_while_the_worker_has_something_to_do_for_it(db):
     assert case_views.view(case)["case"]["due"] is True  # its first step is ready
     _turns(case)
     assert case_views.view(case)["case"]["due"] is False  # it waits for a person's start
+
+
+def test_the_page_says_whether_the_step_waits_for_the_machine_or_a_person(db):
+    """U1 (the walkthrough of 2026-10-28): while its live run works, the documents step waits for the machine - the
+    Overview said "waits for a person" and the page did not ask again, so a finished run still showed as queued; it
+    waits for a person's start before and for a person's approval after."""
+    folder = _invoices(db / "inv", n=2)
+    case = process_runtime.start_case("documents_test", {"source": {"kind": "folder", "folder": str(folder)}},
+                                      name="April invoices", actor=PERSON)
+    _turns(case)
+
+    def held() -> tuple[str | None, str | None]:
+        view = case_views.view(case)
+        items = next(e["data"] for tab in view["tabs"] for e in tab["elements"] if e["type"] == "blockers")["items"]
+        return view["steps"]["process"].get("waits_on"), next(i["kind"] for i in items if i["step"] == "process")
+
+    assert held() == ("person_start", "start")
+    case_views.act(case, "process", "start_run", PERSON)
+    _turns(case)
+    assert held() == ("work", "waits")
+    [run] = work_runs.run_rows(document_processing.package_of(case, "process"))
+    _finish(run["run_id"])
+    _turns(case)
+    assert held() == ("person", "person")
 
 
 def test_a_folder_without_documents_finishes_the_step_without_a_package(db):

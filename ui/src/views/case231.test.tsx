@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError, setActor, type CaseView } from "../api";
 import type { QuoteView } from "../domains/quotes/api";
 import { setLanguage } from "../i18n";
-import { CasePage, moving } from "./CasePage";
+import { CasePage, moving, settling } from "./CasePage";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -61,6 +61,14 @@ describe("a process pack's case (231)", () => {
     expect(moving(PAGE)).toBe(false);  // its steps wait for a person's start or for steps before them
     expect(moving({ ...PAGE, case: { ...PAGE.case, due: true } })).toBe(true);  // a person's decision the worker takes next
     expect(moving({ ...PAGE, case: { ...PAGE.case, due: true, status: "closed" } })).toBe(false);
+    // U1: a step of a person's capability whose wait is the machine's (a live run working)
+    expect(moving({ ...PAGE, steps: { ...PAGE.steps, match: step("running", { by_person: true, waiting_for: "run_end", waits_on: "work" }) } })).toBe(true);
+  });
+
+  it("asks again for a while after a person's action, for a step that looks again on its own (U1)", () => {
+    expect(settling(null, 1000)).toBe(false);
+    expect(settling(1000 + 12000, 1000)).toBe(true);
+    expect(settling(1000 + 12000, 1000 + 12001)).toBe(false);
   });
 
   it("asks for the proposal by starting the case's step", async () => {

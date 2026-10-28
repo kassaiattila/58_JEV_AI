@@ -122,13 +122,16 @@ def _reasons(state: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
 def _step_view(case_id: str, step: process_packs.Step, row: dict[str, Any],
                reasons: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     # 231 (C2d): `by_person`: a step of a human capability waits for a person, so its page need not ask again by itself;
-    # U-A8: `reasons`, why a stopped step stopped in a person's words (none: its note says it)
+    # U-A8: `reasons`, why a stopped step stopped in a person's words (none: its note says it); U1: `waits_on`, what
+    # the event a running step waits for means, as its capability says (`Capability.waits`: a person's start, the
+    # machine's work, a person) - a documents step waits for the machine while its live run works
+    waits_on = capabilities.of(step.uses).waits.get(str(row.get("waiting_for"))) if row.get("state") == cases.RUNNING else None
     return {"title": step.title, "uses": step.uses, "start": step.start, "state": row.get("state"),
             "phase": row.get("phase"), "waiting_for": row.get("waiting_for"),
             "awaiting_start": row.get("phase") == capabilities.AWAITING_START, "note": row.get("note"),
             "result": row.get("result"), "actions": _actions(case_id, step, row),
             "by_person": capabilities.of(step.uses).kind == "human"} | (
-        {"reasons": reasons} if reasons and row.get("state") == cases.FAILED else {})
+        {"reasons": reasons} if reasons and row.get("state") == cases.FAILED else {}) | ({"waits_on": waits_on} if waits_on else {})
 
 
 def view(case_id: str) -> dict[str, Any]:
@@ -395,6 +398,9 @@ def _started_cases(case_id: str, _step: str | None, shared: dict[str, Any]) -> l
     return out
 
 
+_WAITS_ON = {"person_start": "start", "work": "waits", "person": "person"}  # U1: a step's wait, as the Overview names it
+
+
 def _blockers(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
     """D-f9: the shared blockers element: what holds an open case, step by step in the pack's order, each with the tab
     whose element shows that step (where it is resolved): a step that stopped (its note says why) or must run again, one
@@ -420,6 +426,8 @@ def _blockers(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[
             kind = "stopped" if row["state"] == cases.FAILED else "stale"
         elif row.get("state") != cases.RUNNING or not row.get("waiting_for"):
             continue
+        elif shown.get("waits_on") in _WAITS_ON:  # U1: what the capability says its wait means
+            kind = _WAITS_ON[shown["waits_on"]]
         elif shown["awaiting_start"]:
             kind = "start"
         elif shown["by_person"]:

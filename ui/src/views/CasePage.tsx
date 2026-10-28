@@ -28,16 +28,29 @@ const PEOPLE = new Set(["approval", "task_closed", "acceptance", "reply"]);
  *  worker has something to do for the case (`due`: a person's decision it takes at its next round). */
 export const moving = (page: CaseView) => page.case.status === "open" && (page.case.due === true
   || Object.values(page.steps).some((s) => s.state === "ready"
+    || (s.state === "running" && s.waits_on === "work")  // U1: a person's step whose wait is the machine's (a live run)
     || (s.state === "running" && !s.awaiting_start && !s.by_person && !PEOPLE.has(s.waiting_for ?? ""))));
+
+/** U1: how long the page asks again after a person's action, for a step that looks again on its own (a letter's step
+ *  checks for its acceptance every few seconds rather than being told), so the next step shows without a reload. */
+const SETTLE_MS = 12000;
+export const settling = (until: number | null, now: number) => until !== null && now <= until;
 
 export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
   useLocale();
   const [poll, setPoll] = useState(false);
+  const [settleUntil, setSettleUntil] = useState<number | null>(null);
   const page = useLoad(`case:${caseId}`, () => api.casePage(caseId), poll ? 3000 : undefined);
   // the case's container is a work package: its owner and its actions menu, as on a work package's page
   const container = useLoad(`wp:${caseId}`, () => api.workpackage(caseId));
-  const active = page.data ? moving(page.data) : false;
+  const active = (page.data ? moving(page.data) : false) || settling(settleUntil, Date.now());
   useEffect(() => setPoll(active), [active]);
+  useEffect(() => {  // U1: the settling ends by itself
+    if (settleUntil === null) return;
+    const timer = setTimeout(() => setSettleUntil(null), Math.max(0, settleUntil - Date.now()) + 50);
+    return () => clearTimeout(timer);
+  }, [settleUntil]);
+  const changed = () => { page.reload(); setSettleUntil(Date.now() + SETTLE_MS); };
 
   if (page.error?.status === 404 || page.error?.status === 422) {
     return (
@@ -49,7 +62,7 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
   if (!page.data) return <p className="muted">{t("Loading…")}</p>;
   const view = page.data;
   const shown = view.tabs.find((x) => x.id === tab) ?? view.tabs.find((x) => x.id === defaultTab(view)) ?? view.tabs[0];
-  const props = (element: ElementProps["element"]): ElementProps => ({ caseId, element, page: view, onChanged: page.reload });
+  const props = (element: ElementProps["element"]): ElementProps => ({ caseId, element, page: view, onChanged: changed });
   const all = view.tabs.flatMap((x) => x.elements);
   const summary: ReactNode = all.map((e) => elementOf(e.type)?.summary?.(props(e))).find(Boolean) ?? t(view.case.title);
   const statusOf = (elements: ElementProps["element"][]) => elements.map((e) => elementOf(e.type)?.status?.(props(e))).find(Boolean) ?? "";

@@ -52,6 +52,8 @@ export interface CaseStep {
   by_person?: boolean;
   /** U-A8: why a stopped step stopped, in a person's words (none: its note says it) */
   reasons?: Said[];
+  /** U1: what a running step's wait means, as its capability says: a person's start, the machine's work, a person */
+  waits_on?: "person_start" | "work" | "person";
 }
 /** One element of a tab: its registered type, the step it shows and its data. */
 export interface CaseElement { type: string; step: string | null; data: unknown; [setting: string]: unknown }
