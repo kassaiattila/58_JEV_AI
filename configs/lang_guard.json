@@ -765,6 +765,7 @@
     "configs/experiments/document_injection.json": 59,
     "configs/fact_readings_allianz_property.json": 44,
     "configs/fact_readings_property.json": 7,
+    "configs/facts_allianz_property.json": 1,
     "configs/field_labels.json": 224,
     "configs/golden_allianz_property_documents.json": 86,
     "configs/golden_products.json": 91,
