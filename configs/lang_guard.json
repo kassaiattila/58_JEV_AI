@@ -761,6 +761,7 @@
     "configs/doc_types.json": 207,
     "configs/email_tasks.json": 8,
     "configs/examples_allianz_property_documents.json": 150,
+    "configs/examples_documents.json": 123,
     "configs/examples_property_documents.json": 287,
     "configs/experiments/document_injection.json": 59,
     "configs/fact_readings_allianz_property.json": 53,

@@ -45,7 +45,7 @@ def test_the_processes_list_says_what_a_start_by_hand_needs(client) -> None:
     assert [m["key"] for m in _process(client, PACK)["missing_at_start"]] == ["product", "tariff"]
     assert all(m["label"] for m in _process(client, PACK)["missing_at_start"])
     assert _process(client, "it_quote")["missing_at_start"] == []
-    assert _process(client, PACK)["examples"] is True and _process(client, "it_quote")["examples"] is False
+    assert _process(client, PACK)["examples"] is True and _process(client, "it_quote")["examples"] is True  # U1e: its price list
     refused = client.post("/api/cases", headers=ANNA, json={"pack": PACK, "name": "x", "source": {"kind": "folder", "folder": "C:/x"}})
     assert refused.status_code == 422, refused.text
 
