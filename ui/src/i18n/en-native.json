@@ -3616,6 +3616,7 @@
   "The invented consultancy's invoices, which the reconciliation's example pairs with its statements": "The invented consultancy's invoices, which the reconciliation's example pairs with its statements",
   "The invented consultancy's monthly statements, March to June 2026 (a bank's XML files)": "The invented consultancy's monthly statements, March to June 2026 (a bank's XML files)",
   "First read the invented consultancy's invoices (the Documents process, its packet of the consultancy's invoices) and its statements (the Bank statements process), then reconcile March to June 2026: the code pairs three payments with their invoices.": "First read the invented consultancy's invoices (the Documents process, its packet of the consultancy's invoices) and its statements (the Bank statements process), then reconcile March to June 2026: the code pairs three payments with their invoices.",
+  "buyer of an outgoing invoice": "buyer of an outgoing invoice",
   "its live run waits for approval": "its live run waits for approval",
   "its live run has to-dos": "its live run has to-dos",
   "its live run stopped": "its live run stopped",

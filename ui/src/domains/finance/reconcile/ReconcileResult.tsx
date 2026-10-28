@@ -100,7 +100,7 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
       </ApprovalPanel>
 
       {/* 167 (review 160 U-11): the approved version that failed to load says so */}
-      {shown ? <StatementTables statement={shown} /> : approved.error ? <p className="notice error" role="alert">{approved.error.message}</p>
+      {shown ? <StatementTables statement={shown} buyers={buyers(ws)} /> : approved.error ? <p className="notice error" role="alert">{approved.error.message}</p>
         : <p className="muted">{t("Loading…")}</p>}
 
       <EarlierVersions versions={current.approval.versions}
@@ -111,8 +111,13 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
 
 const REASON = (code: string | null): string => (code ? MARK[code] ?? EXCLUDED[code] ?? code : "");
 
+/** U1 (the walkthrough): an own party's outgoing invoice is shown by its buyer, as the pairing shows it (148); the
+ *  statement itself keeps its supplier. */
+const buyers = (ws: ReconcileWorkspace): Record<string, string> =>
+  Object.fromEntries((ws.invoices ?? []).filter((i) => i.outgoing && i.partner_name).map((i) => [i.id, i.partner_name as string]));
+
 /** The statement's two tables: the invoices with their results and payments, the lines with their results. */
-function StatementTables({ statement: st }: { statement: ReconcileStatement }) {
+function StatementTables({ statement: st, buyers: buyerOf = {} }: { statement: ReconcileStatement; buyers?: Record<string, string> }) {
   useLocale();
   const [lineFilter, setLineFilter] = useState<string>("");
   const lines = useMemo(() => st.lines.filter((ln) => !lineFilter || ln.result === lineFilter), [st.lines, lineFilter]);
@@ -126,14 +131,15 @@ function StatementTables({ statement: st }: { statement: ReconcileStatement }) {
         <div className="dt-scroll">
           <table className="table compact">
             <thead><tr>
-              <th>{t("Invoice number")}</th><th>{t("Supplier")}</th><th>{t("Due date")}</th><th className="num">{t("Amount")}</th>
+              <th>{t("Invoice number")}</th><th>{t("Partner")}</th><th>{t("Due date")}</th><th className="num">{t("Amount")}</th>
               <th>{t("Result")}</th><th className="num">{t("Left")}</th><th>{t("Paid on")}</th><th className="num">{t("Days late")}</th>
             </tr></thead>
             <tbody>
               {st.invoices.map((i) => (
                 <tr key={i.id}>
                   <td>{i.number ?? "–"}</td>
-                  <td>{i.supplier_name ?? "–"}{i.other_party ? <span className="muted small"> · {t("another party's: {{name}}", { name: i.other_party })}</span> : null}</td>
+                  <td>{buyerOf[i.id] ? <>{buyerOf[i.id]} <span className="muted small">· {t("buyer of an outgoing invoice")}</span></>
+                    : i.supplier_name ?? "–"}{i.other_party ? <span className="muted small"> · {t("another party's: {{name}}", { name: i.other_party })}</span> : null}</td>
                   <td>{i.due_date ?? "–"}</td>
                   <td className="num">{show(i.amount, i.currency)}</td>
                   <td>{INVOICE_RESULT[i.result] ?? i.result}</td>

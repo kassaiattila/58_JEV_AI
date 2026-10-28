@@ -3621,6 +3621,7 @@
   "The invented consultancy's invoices, which the reconciliation's example pairs with its statements": "A kitalált tanácsadó cég számlái, amelyeket az egyeztetés példája a kivonataival párosít",
   "The invented consultancy's monthly statements, March to June 2026 (a bank's XML files)": "A kitalált tanácsadó cég havi kivonatai, 2026 márciusától júniusig (banki XML-fájlok)",
   "First read the invented consultancy's invoices (the Documents process, its packet of the consultancy's invoices) and its statements (the Bank statements process), then reconcile March to June 2026: the code pairs three payments with their invoices.": "Előbb olvasd be a kitalált tanácsadó cég számláit (az Iratok folyamatban a cég számláinak csomagjával) és a kivonatait (a Bankkivonatok folyamatban), majd egyeztesd 2026 márciusától júniusig: a gép három befizetést párosít a számlájával.",
+  "buyer of an outgoing invoice": "kimenő számla vevője",
   "its live run waits for approval": "az élő futása jóváhagyásra vár",
   "its live run has to-dos": "az élő futásában teendő van",
   "its live run stopped": "az élő futása leállt",

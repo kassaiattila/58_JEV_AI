@@ -54,10 +54,10 @@ const ws = { workpackage_id: WP, blockers: [], decision_state: [[0]] } as unknow
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => vi.restoreAllMocks());
 
-function result(archived = false) {
+function result(archived = false, workspace: ReconcileWorkspace = ws) {
   const onChanged = vi.fn();
   const reloadWorkspace = vi.fn();
-  render(<ReconcileResult ws={ws} archived={archived} onChanged={onChanged} reloadWorkspace={reloadWorkspace} />);
+  render(<ReconcileResult ws={workspace} archived={archived} onChanged={onChanged} reloadWorkspace={reloadWorkspace} />);
   return { onChanged, reloadWorkspace };
 }
 
@@ -83,6 +83,17 @@ describe("the Result stage of a reconciliation package (145)", () => {
     expect(await screen.findByText(/Approved: version 1, by Synthetic reviewer/)).toBeTruthy();
     expect(reloadWorkspace).toHaveBeenCalled();
     expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("shows an own party's outgoing invoice by its buyer (U1)", async () => {
+    vi.spyOn(api, "reconcileStatement").mockResolvedValue(draft());
+    const outgoing = { ...ws, invoices: [{ id: "b".repeat(64), outgoing: true, partner_name: "Example Buyer Zrt." }] } as unknown as ReconcileWorkspace;
+    result(false, outgoing);
+    const invoices = await screen.findByRole("region", { name: "Invoices" });
+    expect(within(invoices).getByRole("columnheader", { name: "Counterparty" })).toBeTruthy();
+    expect(within(invoices).getByText("Example Buyer Zrt.")).toBeTruthy();
+    expect(within(invoices).getByText("Example Supplier Kft.")).toBeTruthy();  // an incoming one keeps its supplier
+    expect(within(invoices).queryByText("Other Supplier Kft.")).toBeNull();
   });
 
   it("lists what blocks the approval and accepts the command-line documents as sources", async () => {
