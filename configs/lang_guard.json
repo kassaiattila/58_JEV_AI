@@ -1241,6 +1241,7 @@
     "ui/src/views/settings/UncertainCallsPanel.tsx": 11,
     "ui/src/views/settings/UsersPanel.tsx": 11,
     "ui/src/views/settings/VersionPanel.tsx": 5,
+    "ui/src/views/subCase231.test.tsx": 3,
     "ui/src/views/workflows/repeat147.test.tsx": 3,
     "ui/vite.config.ts": 3
   }

@@ -152,7 +152,8 @@ def test_no_new_ui_registry_key_or_create_form() -> None:
     _same(set(re.findall(r"^\s{2}([a-z_]+): \{", registry, re.M)), FROZEN_UI_LOGIC_KEYS, "UI logic registry keys")
     parts = (UI / "logic" / "packageParts.tsx").read_text(encoding="utf-8")  # C3b5a
     _same(set(re.findall(r"^\s{2}([a-z_]+): \{", parts, re.M)), FROZEN_UI_PACKAGE_PARTS, "UI package parts")
-    steps = (UI / "logic" / "steps.tsx").read_text(encoding="utf-8")
+    steps_file = UI / "logic" / "steps.tsx"  # U2c: gone with the new work wizard
+    steps = steps_file.read_text(encoding="utf-8") if steps_file.exists() else ""
     forms = set()
     if "const FORMS" in steps:  # C3d: gone, every one-step template is a process pack's case
         block = steps[steps.index("const FORMS"):steps.index("};", steps.index("const FORMS"))]

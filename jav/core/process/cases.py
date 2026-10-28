@@ -62,7 +62,7 @@ __all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest 
     "step_rows", "step_row", "without_case_in", "steps_in_phase_in", "get", "marks", "pending_events", "view", "record",
     "start", "send_event", "cancel", "override_order", "retry", "reopen", "start_in", "send_event_in",
     "override_order_in", "retry_in", "reopen_in", "adopt", "adopt_phases_in", "set_phase", "set_result", "end_wait",
-    "fail", "close", "hold", "resume", "open_ids_in", "holding_in", "history_in",
+    "fail", "close", "hold", "resume", "open_ids_in", "holding_in", "history_in", "person_actions_sql",
 ]
 
 OPEN, CLOSED = "open", "closed"
@@ -332,6 +332,18 @@ def pending_events(case_id: str) -> list[Event]:
 def _event(row: sqlite3.Row) -> Event:
     return Event(row["event_id"], row["case_id"], row["step_id"], row["kind"], json.loads(row["payload"]),
                  Actor.from_json(row["sent_by"]))
+
+
+def person_actions_sql(kinds: Iterable[str]) -> str:
+    """231 (stage U, U2d): the query of a person's own actions on the cases between two ISO times (its two parameters),
+    as "My work today" reads a source (`activity_kinds.Source`: at, actor, workpackage_id, run_id, detail): the history's
+    rows of `kinds` whose actor is a person, the case as its container, the time as ISO text (the history keeps epoch
+    seconds). The core names its own table, so the application reads the history through it."""
+    listed = ", ".join("'" + k.replace("'", "''") + "'" for k in kinds)
+    return ("SELECT strftime('%Y-%m-%dT%H:%M:%S+00:00', at, 'unixepoch') at, json_extract(actor, '$.name') actor,"
+            " case_id workpackage_id, NULL run_id, kind detail FROM process_history"
+            f" WHERE json_extract(actor, '$.kind') = 'human' AND kind IN ({listed})"
+            " AND at >= CAST(strftime('%s', ?) AS INTEGER) AND at < CAST(strftime('%s', ?) AS INTEGER)")
 
 
 def history_in(c: sqlite3.Connection, case_id: str, kind: str | None = None) -> list[dict[str, Any]]:

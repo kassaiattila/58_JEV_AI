@@ -114,12 +114,14 @@ export function replyStatus(p: ElementProps): { mark: string; text: string } | n
   return { mark: "s-waiting", text: t("Waits for the send") };
 }
 
-/** 231 (U2c): a sub-case step's state as one mark: not started yet, its sub-case open, done, or stopped. */
+/** 231 (U2c): a sub-case step's state as one mark: not started yet, its sub-case open, done, or stopped; a sub-case
+ *  closed a moment ago, before its step took the news, by how it closed. */
 export function subCaseStatus(d: SubCaseData | null): { mark: string; text: string } | null {
   if (!d) return null;
   if (d.state === "done") return { mark: "s-done", text: t("Its case is done") };
   if (d.state === "failed") return { mark: "s-failed", text: t("Did not finish") };
   if (d.case?.status === "open") return { mark: "s-running", text: t("Its case is in progress") };
+  if (d.case) return d.case.outcome === "done" ? { mark: "s-done", text: t("Its case is done") } : { mark: "s-warn", text: t("Its case closed") };
   return { mark: "s-waiting", text: t("Not started yet") };
 }
 

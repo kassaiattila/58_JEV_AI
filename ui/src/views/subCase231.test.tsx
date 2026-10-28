@@ -60,6 +60,16 @@ describe("a step that runs a sub-case (231 U2c)", () => {
     await waitFor(() => expect(act).toHaveBeenCalledWith(CHAIN, "invoices", "retry"));
   });
 
+  it("shows a sub-case closed a moment ago as done, and names the case's next step in Hungarian", async () => {
+    const invoices = data({ case: { id: SUB, name: "Invented March", status: "closed", outcome: "done", next: null } });
+    vi.spyOn(api, "casePage").mockResolvedValue(chain(invoices, data({ state: "waiting" })));
+    await setLanguage("hu");
+    render(<CasePage caseId={CHAIN} tab="overview" />);
+    const card = await screen.findByRole("region", { name: "Beérkező számlák" });
+    expect(within(card).getByText("A részügy kész")).toBeTruthy();
+    expect(screen.getByText("Következő lépés: Tovább a részügyben")).toBeTruthy();
+  });
+
   it("leads a sub-case's page back to the case it is part of", async () => {
     const view: CaseView = {
       case: { id: SUB, pack: "documents", version: "1.4.0", title: "Documents", name: "Invented March", status: "open",

@@ -452,6 +452,8 @@ const STEP_LABEL = tmap({
   // 231 (A7e): the send and the reply (jav/app/sending.py, jav/app/replies.py)
   case_send: "Send", case_send_settle: "Say whether it arrived", case_send_failed: "The send failed",
   case_reply_wait: "Waiting for the reply", case_follow_up: "Follow up the reply",
+  // 231 (U2c): a step that runs a case of another process waits for it (jav/app/sub_cases.py)
+  case_sub_case: "Continue in its sub-case",
 });
 
 /** The package's next step in the chosen language (057): from the service's code and parameters; for an unknown code,
