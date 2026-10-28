@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "verify_insurance_request",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "changelog": [
+   {
+    "version": "1.2.0",
+    "date": "2026-10-28",
+    "note": "231 (stage U, U-A7): the meaning of the request's new field, whether the loss of rental income is to be covered."
+   },
    {
     "version": "1.1.0",
     "date": "2026-10-27",
@@ -34,6 +39,7 @@
   "bi_deductible_days": "the business interruption cover's waiting period, the number of days or working days",
   "accounting_method": "what the business interruption sum insured is counted from, as printed",
   "interruption_sum_insured": "the business interruption cover's sum insured, a plain decimal string",
+  "rental_income_cover": "whether the loss of rental income is to be covered",
   "currency": "the ISO 4217 code of the form's amounts",
   "requested_covers": "the covers the form marks as wanted, one row each",
   "sites": "the sites the form lists, each with its number, address and country"

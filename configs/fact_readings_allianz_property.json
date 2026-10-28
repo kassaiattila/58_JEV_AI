@@ -1,9 +1,14 @@
 {
  "meta": {
   "name": "fact_readings_allianz_property",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "231 (stage U, U-A6; jav/app/fact_readings.py): how the invented customer documents of the real corporate property product (a quote request, a property schedule per site, a claims history) are read into the facts of configs/facts_allianz_property.json: each type pack's field or row column to a fact of a unit, the printed words to codes (document vocabulary in Hungarian). The schedule's protection class, printed once per site, is each asset group's. A word no table knows is not read.",
   "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-10-28",
+    "note": "231 (U-A7): the protection the product's rules ask for: the rental income cover, the inland water area, the alarm's maintenance and remote signalling, the guarding (each asset group's) and each asset group's insurance basis."
+   },
    {
     "version": "1.0.0",
     "date": "2026-10-27",
@@ -99,6 +104,26 @@
    "betöréses lopás és rablás": "burglary",
    "allianz üzemszünet védelem": "interruption",
    "hűtőházakban és mélyhűtő berendezésekben tárolt készlet": "cold_store"
+  },
+  "alarm_maintenance": {
+   "nincs": "none",
+   "rendszeres, dokumentált": "regular_documented",
+   "szakcég végzi": "by_specialist"
+  },
+  "guarding": {
+   "nincs": "none",
+   "állandó portaszolgálat": "porter_24h",
+   "fegyveres őrség": "armed_guard"
+  },
+  "remote_signalling": {
+   "nincs": "none",
+   "automatikus távjelzés": "automatic",
+   "közvetlen vezeték nélküli összeköttetés": "direct_wireless"
+  },
+  "insurance_basis": {
+   "teljes érték": "full_value",
+   "első kockázat": "first_loss",
+   "arányos": "pro_rata"
   }
  },
  "packs": {
@@ -145,6 +170,10 @@
      },
      "bi_deductible_days": {
       "field": "bi_deductible_days"
+     },
+     "rental_income_cover": {
+      "field": "rental_income_cover",
+      "codes": "yes_no"
      },
      "requested_modules": {
       "list": "requested_covers",
@@ -202,6 +231,10 @@
      "basement_storage": {
       "field": "basement_storage",
       "codes": "yes_no"
+     },
+     "inland_water_area": {
+      "field": "inland_water_area",
+      "codes": "yes_no"
      }
     }
    },
@@ -229,6 +262,22 @@
      "protection_class_in_place": {
       "field": "protection_class",
       "codes": "protection_class"
+     },
+     "insurance_basis": {
+      "column": "insurance_basis",
+      "codes": "insurance_basis"
+     },
+     "alarm_maintenance": {
+      "field": "alarm_maintenance",
+      "codes": "alarm_maintenance"
+     },
+     "guarding": {
+      "field": "guarding",
+      "codes": "guarding"
+     },
+     "remote_signalling": {
+      "field": "remote_signalling",
+      "codes": "remote_signalling"
      }
     }
    }

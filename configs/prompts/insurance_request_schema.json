@@ -15,6 +15,7 @@
     "accounting_method": { "type": ["string", "null"], "description": "What the business interruption sum insured is counted from, as printed" },
     "interruption_sum_insured": { "type": ["string", "null"], "description": "The business interruption sum insured, plain decimal STRING, dot separator" },
     "currency": { "type": ["string", "null"], "description": "ISO 4217 code of the form's amounts (Ft = HUF)" },
+    "rental_income_cover": { "type": ["string", "null"], "description": "Whether the loss of rental income is to be covered, as printed" },
     "requested_covers": {
       "type": "array",
       "description": "Every cover the form marks as wanted, in the order printed",
@@ -44,5 +45,5 @@
   },
   "required": ["policyholder_name", "policyholder_tax_number", "activity_code", "contact_name", "contact_email", "cover_start",
                "payment_frequency", "chosen_deductible", "contract_term", "bi_deductible_days", "accounting_method",
-               "interruption_sum_insured", "currency", "requested_covers", "sites"]
+               "interruption_sum_insured", "currency", "requested_covers", "sites", "rental_income_cover"]
 }

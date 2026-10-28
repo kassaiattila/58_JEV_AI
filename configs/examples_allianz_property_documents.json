@@ -1,10 +1,15 @@
 {
   "meta": {
     "name": "examples_allianz_property_documents",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "date": "2026-10-27",
     "description": "231 (stage U, U-A6; the owner's decisions of 2026-10-27): the invented documents a case of the real corporate property product can start on, in packets, as its process's example material (`configs/processes/<id>.json` `examples.documents`). Each document is its printed pages, made from the golden set `configs/golden_allianz_property_documents.json` as the measurement prints it (`python -m jav.cli examples --set allianz_property_documents --write`; a test keeps them the same). The packets' titles are the interface's (English source, translated). Every name and number is invented.",
     "changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-10-28",
+        "note": "231 U-A7: the documents print the protection the product's rules ask for (from the golden set 1.1.0)."
+      },
       {
         "version": "1.0.1",
         "date": "2026-10-28",
@@ -50,6 +55,7 @@
               "Üzemszüneti elszámolás módja: fedezeti összeg",
               "Üzemszüneti biztosítási összeg: 80 000 000 Ft",
               "Üzemszüneti időönrész: 3 munkanap",
+              "Bérleti díj kiesése: nem",
               "Telephelyek:",
               "Sorszám   Ország   Cím",
               "1   Magyarország   2400 Dunaújváros, Minta ipari park 4."
@@ -70,11 +76,15 @@
               "Túlfeszültség-védelem: T1+T2",
               "Pinceszinti tárolás: nem",
               "Védelmi szint: IV",
-              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
-              "épület   150 000 000 Ft   új érték   15%",
-              "gépek és berendezések   60 000 000 Ft   új érték   25%",
-              "készlet   30 000 000 Ft   beszerzési érték   –",
-              "készpénz   1 500 000 Ft   névérték   –"
+              "Belvízveszélyes terület: nem",
+              "A riasztó karbantartása: szakcég végzi",
+              "Őrzés: állandó portaszolgálat",
+              "A riasztó távjelzése: automatikus távjelzés",
+              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság   Biztosítási mód",
+              "épület   150 000 000 Ft   új érték   15%   teljes érték",
+              "gépek és berendezések   60 000 000 Ft   új érték   25%   teljes érték",
+              "készlet   30 000 000 Ft   beszerzési érték   –   első kockázat",
+              "készpénz   1 500 000 Ft   névérték   –   első kockázat"
             ]
           ]
         },
@@ -123,6 +133,7 @@
               "[X] Betöréses lopás és rablás",
               "[ ] Allianz Üzemszünet Védelem",
               "[ ] Hűtőházakban és mélyhűtő berendezésekben tárolt készlet",
+              "Bérleti díj kiesése: nem",
               "Telephelyek:",
               "Sorszám   Ország   Cím",
               "1   Magyarország   1111 Budapest, Minta utca 1."
@@ -143,11 +154,15 @@
               "Túlfeszültség-védelem: T3",
               "Pinceszinti tárolás: nem",
               "Védelmi szint: V",
-              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
-              "készlet   25 000 000 Ft   beszerzési érték   –",
-              "egyéb berendezések   8 000 000 Ft   új érték   20%",
-              "irodai elektronikus eszközök   3 000 000 Ft   új érték   30%",
-              "üvegfelületek   2 000 000 Ft   új érték   –"
+              "Belvízveszélyes terület: nem",
+              "A riasztó karbantartása: rendszeres, dokumentált",
+              "Őrzés: nincs",
+              "A riasztó távjelzése: automatikus távjelzés",
+              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság   Biztosítási mód",
+              "készlet   25 000 000 Ft   beszerzési érték   –   első kockázat",
+              "egyéb berendezések   8 000 000 Ft   új érték   20%   teljes érték",
+              "irodai elektronikus eszközök   3 000 000 Ft   új érték   30%   teljes érték",
+              "üvegfelületek   2 000 000 Ft   új érték   –   teljes érték"
             ]
           ]
         },
@@ -198,6 +213,7 @@
               "Üzemszüneti elszámolás módja: állandó költségek",
               "Üzemszüneti biztosítási összeg: 40 000 000 Ft",
               "Üzemszüneti időönrész: 5 munkanap",
+              "Bérleti díj kiesése: nem",
               "Telephelyek:",
               "Sorszám   Ország   Cím",
               "1   Magyarország   6000 Kecskemét, Minta hűtőház utca 2."
@@ -218,11 +234,15 @@
               "Túlfeszültség-védelem: T1+T2+T3",
               "Pinceszinti tárolás: nem",
               "Védelmi szint: III",
-              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
-              "épület   90 000 000 Ft   új érték   20%",
-              "gépek és berendezések   35 000 000 Ft   új érték   30%",
-              "mélyhűtött készlet   40 000 000 Ft   beszerzési érték   –",
-              "készlet   15 000 000 Ft   beszerzési érték   –"
+              "Belvízveszélyes terület: igen",
+              "A riasztó karbantartása: szakcég végzi",
+              "Őrzés: fegyveres őrség",
+              "A riasztó távjelzése: közvetlen vezeték nélküli összeköttetés",
+              "Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság   Biztosítási mód",
+              "épület   90 000 000 Ft   új érték   20%   teljes érték",
+              "gépek és berendezések   35 000 000 Ft   új érték   30%   teljes érték",
+              "mélyhűtött készlet   40 000 000 Ft   beszerzési érték   –   teljes érték",
+              "készlet   15 000 000 Ft   beszerzési érték   –   első kockázat"
             ]
           ]
         },

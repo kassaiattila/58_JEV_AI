@@ -8,12 +8,17 @@ Extract these fields; leave a field null when the sheet does not state it:
 - `floor_area`: the site's floor area in square metres (alapterület, m²), a plain decimal string (1 250 m² = "1250").
 - `flood_zone`: the site's flood zone or flood area class (árvízi zóna, árvízi kockázati zóna, árvízi besorolás), word for word as printed (for example nincs, alacsony, közepes, magas, ármentesített, nem ármentesített ártér, nagyvízi meder); never put into another scale.
 - `alarm_remote`: whether the site has an alarm with remote signalling (távfelügyeletre kötött riasztó), the answer as printed (igen, nem, van, nincs).
+- `alarm_maintenance`: how the alarm is maintained (a riasztó karbantartása), as printed (nincs, rendszeres, dokumentált, szakcég végzi).
+- `guarding`: the guarding of the site (őrzés), as printed (nincs, állandó portaszolgálat, fegyveres őrség).
+- `remote_signalling`: how the alarm signals to a post (a riasztó távjelzése), as printed (nincs, automatikus távjelzés, közvetlen vezeték nélküli összeköttetés).
 - `surge_protection`: the surge protection in place (túlfeszültség-védelem), as printed (nincs, T3, T2+T3, T1+T2+T3).
 - `basement_storage`: whether goods are stored in a basement (pinceszinti tárolás), the answer as printed (igen, nem).
+- `inland_water_area`: whether the site lies in an area declared at risk of inland water (belvízveszélyes terület), the answer as printed (igen, nem).
 - `protection_class`: the protection class in place (védelmi szint, védelmi osztály, mechanikai és elektronikai védelem fokozata), as printed: a number ("3") or a Roman numeral ("IV"), without a word after it (osztály, fokozat).
 - `currency`: the currency the sheet's amounts are in, as an ISO 4217 code (Ft and forint = HUF).
 - `asset_groups`: every asset group the sheet lists for the site, one row each, in the order printed; a group whose name is none of the ones below is a row too (copy its name as printed), never left out; a total row is not an asset group:
   - `asset_group`: the group as printed (épület, gépek és berendezések, készlet, készpénz, értéktárgyak);
   - `sum_insured`: its sum insured (biztosítási összeg), a plain decimal string with a dot separator, no thousands separators;
   - `valuation`: its valuation basis as printed (új érték, avult érték);
-  - `wear`: its technical wear (avultság) in percent, as a number, or null when not given.
+  - `wear`: its technical wear (avultság) in percent, as a number, or null when not given;
+  - `insurance_basis`: how it is insured (biztosítási mód), as printed (teljes érték, első kockázat, arányos), or null when not given.

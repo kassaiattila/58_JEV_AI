@@ -130,6 +130,7 @@ def _request(v: dict[str, Any], form: Form) -> list[list[str]]:
               *_line("Üzemszüneti elszámolás módja", v.get("accounting_method")),
               *_line("Üzemszüneti biztosítási összeg", v.get("interruption_sum_insured"), _amount),
               *_line("Üzemszüneti időönrész", v.get("bi_deductible_days"), lambda d: f"{d} munkanap"),
+              *_line("Bérleti díj kiesése", v.get("rental_income_cover")),  # 231 (U-A7)
               # 231 (D-h): the address last, where it has room (the writer puts cells at fixed points; a long address
               # in the middle ran into the country's cell and the two were read as one, measured on 2026-10-27)
               "Telephelyek:", "Sorszám   Ország   Cím",
@@ -142,10 +143,17 @@ def _schedule(v: dict[str, Any], layout: str) -> list[list[str]]:
             *_line("Telephely címe", v.get("site_address")), *_line("Alapterület", v.get("floor_area"), lambda a: f"{a} m²"),
             *_line("Árvízi zóna", v.get("flood_zone")), *_line("Távfelügyeletes riasztó", v.get("alarm_remote")),
             *_line("Túlfeszültség-védelem", v.get("surge_protection")), *_line("Pinceszinti tárolás", v.get("basement_storage")),
-            *_line("Védelmi szint", v.get("protection_class"))]
-    table = ["Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság",
+            *_line("Védelmi szint", v.get("protection_class")),
+            # 231 (U-A7): the protection the real product's rules ask for, printed only when given (the invented
+            # insurer's schedules have none, so their pages stay as they were)
+            *_line("Belvízveszélyes terület", v.get("inland_water_area")), *_line("A riasztó karbantartása", v.get("alarm_maintenance")),
+            *_line("Őrzés", v.get("guarding")), *_line("A riasztó távjelzése", v.get("remote_signalling"))]
+    rows = v.get("asset_groups") or []
+    basis = any(g.get("insurance_basis") for g in rows)  # U-A7: the column only when a row states it
+    table = ["Vagyoncsoport   Biztosítási összeg   Értékelés   Avultság" + ("   Biztosítási mód" if basis else ""),
              *[f"{g['asset_group']}   {_amount(g['sum_insured'])}   {g['valuation']}   "
-               + ("–" if g.get("wear") is None else f"{g['wear']}%") for g in v.get("asset_groups") or []]]
+               + ("–" if g.get("wear") is None else f"{g['wear']}%")
+               + (f"   {g.get('insurance_basis') or '–'}" if basis else "") for g in rows]]
     return [head, table] if layout == "two_pages" else [head + table]
 
 
