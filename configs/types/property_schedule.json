@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "type:property_schedule",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "changelog": [
+   {
+    "version": "1.4.0",
+    "date": "2026-10-28",
+    "note": "231 (stage U, U-A7; the owner's decision of 2026-10-28): the protection the real product's rules ask for: whether the site is an inland water area, how the alarm is maintained, the guarding, the alarm's remote signalling (as printed), and each asset group's insurance basis. A new question: every earlier answer is asked again."
+   },
    {
     "version": "1.3.0",
     "date": "2026-10-27",
@@ -50,17 +55,22 @@
   "floor_area": "number",
   "flood_zone": "text",
   "alarm_remote": "text",
+  "alarm_maintenance": "text",
+  "guarding": "text",
+  "remote_signalling": "text",
   "surge_protection": "text",
   "basement_storage": "text",
+  "inland_water_area": "text",
   "protection_class": "text",
   "currency": "currency",
   "asset_groups": "list"
  },
  "list_fields": {
-  "asset_groups": {"asset_group": "text", "sum_insured": "money", "valuation": "text", "wear": "number"}
+  "asset_groups": {"asset_group": "text", "sum_insured": "money", "valuation": "text", "wear": "number", "insurance_basis": "text"}
  },
  "scored_fields": ["policyholder_name", "site_no", "site_address", "floor_area", "flood_zone", "alarm_remote", "surge_protection",
-                   "basement_storage", "protection_class", "currency"],
+                   "basement_storage", "protection_class", "currency", "inland_water_area", "alarm_maintenance", "guarding",
+                   "remote_signalling"],
  "informational_fields": [],
  "required": ["site_address"],
  "required_review": true,

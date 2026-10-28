@@ -147,6 +147,12 @@ export function serverKeys() {
   for (const f of fs.readdirSync(path.join(ROOT, "configs")).filter((n) => /^examples_.*\.json$/.test(n))) {
     for (const packet of JSON.parse(fs.readFileSync(path.join(ROOT, "configs", f), "utf8")).packets ?? []) if (packet.title) keys.add(packet.title);
   }
+  // 231 (U-A7): the fact catalogues' titles and labels (configs/facts_*.json), shown on a case's data check and rules
+  for (const f of fs.readdirSync(path.join(ROOT, "configs")).filter((n) => /^facts_.*\.json$/.test(n))) {
+    const cat = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", f), "utf8"));
+    for (const d of [...Object.values(cat.facts ?? {}), ...Object.values(cat.outcomes ?? {})]) if (d.title) keys.add(d.title);
+    for (const v of Object.values(cat.labels ?? {})) keys.add(v);
+  }
   return keys;
 }
 

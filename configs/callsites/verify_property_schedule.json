@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "verify_property_schedule",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-10-28",
+    "note": "231 (stage U, U-A7): the meanings of the schedule's new protection fields, and the protection class as printed (a number or a Roman numeral)."
+   },
    {
     "version": "1.0.0",
     "date": "2026-10-26",
@@ -25,9 +30,13 @@
   "alarm_remote": "whether the site has an alarm with remote signalling (távfelügyelet)",
   "surge_protection": "the surge protection in place, as printed",
   "basement_storage": "whether goods are stored in a basement",
-  "protection_class": "the protection class in place, a number",
+  "protection_class": "the protection class in place, as printed: a number or a Roman numeral",
+  "alarm_maintenance": "how the alarm is maintained, as printed",
+  "guarding": "the guarding of the site, as printed",
+  "remote_signalling": "how the alarm signals to a post, as printed",
+  "inland_water_area": "whether the site lies in an inland water area",
   "currency": "the ISO 4217 code of the sheet's amounts",
-  "asset_groups": "the asset groups the sheet lists for the site, each with its sum insured, valuation basis and wear"
+  "asset_groups": "the asset groups the sheet lists for the site, each with its sum insured, valuation basis, wear and insurance basis"
  },
  "incomplete_fields": [
   "policyholder_name",

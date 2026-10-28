@@ -1,9 +1,14 @@
 {
  "meta": {
   "name": "golden_allianz_property_documents",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "231 (stage U, U-A6; jav/evals/property_documents.py): invented customers of the real corporate property product asking for a quote: a quote request form, a property schedule per site and a claims history statement each, in sets, as the invented insurer's (golden_property_documents) but on the real product's form (its covers as printed boxes) and terms, read into its facts by configs/fact_readings_allianz_property.json. Each document is kept as what a correct reading gives; its printed page is made from it. Each set names the facts its documents hold. Every name, tax number and amount is invented.",
   "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-10-28",
+    "note": "231 (U-A7): each set states the protection the product's rules ask for (the rental income cover, the inland water area, the alarm's maintenance and remote signalling, the guarding, each asset group's insurance basis), with the facts it gives."
+   },
    {
     "version": "1.0.1",
     "date": "2026-10-28",
@@ -78,7 +83,8 @@
         "address": "2400 Dunaújváros, Minta ipari park 4.",
         "country": "Magyarország"
        }
-      ]
+      ],
+      "rental_income_cover": "nem"
      }
     },
     {
@@ -100,27 +106,35 @@
         "asset_group": "épület",
         "sum_insured": "150000000",
         "valuation": "új érték",
-        "wear": 15
+        "wear": 15,
+        "insurance_basis": "teljes érték"
        },
        {
         "asset_group": "gépek és berendezések",
         "sum_insured": "60000000",
         "valuation": "új érték",
-        "wear": 25
+        "wear": 25,
+        "insurance_basis": "teljes érték"
        },
        {
         "asset_group": "készlet",
         "sum_insured": "30000000",
         "valuation": "beszerzési érték",
-        "wear": null
+        "wear": null,
+        "insurance_basis": "első kockázat"
        },
        {
         "asset_group": "készpénz",
         "sum_insured": "1500000",
         "valuation": "névérték",
-        "wear": null
+        "wear": null,
+        "insurance_basis": "első kockázat"
        }
-      ]
+      ],
+      "inland_water_area": "nem",
+      "alarm_maintenance": "szakcég végzi",
+      "guarding": "állandó portaszolgálat",
+      "remote_signalling": "automatikus távjelzés"
      }
     },
     {
@@ -178,7 +192,8 @@
       "claims_5y_paid": {
        "amount": "1200000",
        "currency": "HUF"
-      }
+      },
+      "rental_income_cover": false
      }
     },
     {
@@ -194,7 +209,8 @@
       },
       "flood_area_class": "protected",
       "surge_protection": "t1_t2",
-      "basement_storage": false
+      "basement_storage": false,
+      "inland_water_area": false
      }
     },
     {
@@ -212,7 +228,11 @@
        "value": "15",
        "per": 100
       },
-      "protection_class_in_place": "IV"
+      "protection_class_in_place": "IV",
+      "insurance_basis": "full_value",
+      "alarm_maintenance": "by_specialist",
+      "guarding": "porter_24h",
+      "remote_signalling": "automatic"
      }
     },
     {
@@ -230,7 +250,11 @@
        "value": "25",
        "per": 100
       },
-      "protection_class_in_place": "IV"
+      "protection_class_in_place": "IV",
+      "insurance_basis": "full_value",
+      "alarm_maintenance": "by_specialist",
+      "guarding": "porter_24h",
+      "remote_signalling": "automatic"
      }
     },
     {
@@ -244,7 +268,11 @@
        "currency": "HUF"
       },
       "valuation": "invoice_value",
-      "protection_class_in_place": "IV"
+      "protection_class_in_place": "IV",
+      "insurance_basis": "first_loss",
+      "alarm_maintenance": "by_specialist",
+      "guarding": "porter_24h",
+      "remote_signalling": "automatic"
      }
     },
     {
@@ -258,7 +286,11 @@
        "currency": "HUF"
       },
       "valuation": "nominal_value",
-      "protection_class_in_place": "IV"
+      "protection_class_in_place": "IV",
+      "insurance_basis": "first_loss",
+      "alarm_maintenance": "by_specialist",
+      "guarding": "porter_24h",
+      "remote_signalling": "automatic"
      }
     }
    ]
@@ -307,7 +339,8 @@
         "address": "1111 Budapest, Minta utca 1.",
         "country": "Magyarország"
        }
-      ]
+      ],
+      "rental_income_cover": "nem"
      }
     },
     {
@@ -329,27 +362,35 @@
         "asset_group": "készlet",
         "sum_insured": "25000000",
         "valuation": "beszerzési érték",
-        "wear": null
+        "wear": null,
+        "insurance_basis": "első kockázat"
        },
        {
         "asset_group": "egyéb berendezések",
         "sum_insured": "8000000",
         "valuation": "új érték",
-        "wear": 20
+        "wear": 20,
+        "insurance_basis": "teljes érték"
        },
        {
         "asset_group": "irodai elektronikus eszközök",
         "sum_insured": "3000000",
         "valuation": "új érték",
-        "wear": 30
+        "wear": 30,
+        "insurance_basis": "teljes érték"
        },
        {
         "asset_group": "üvegfelületek",
         "sum_insured": "2000000",
         "valuation": "új érték",
-        "wear": null
+        "wear": null,
+        "insurance_basis": "teljes érték"
        }
-      ]
+      ],
+      "inland_water_area": "nem",
+      "alarm_maintenance": "rendszeres, dokumentált",
+      "guarding": "nincs",
+      "remote_signalling": "automatikus távjelzés"
      }
     },
     {
@@ -395,7 +436,8 @@
       "claims_5y_paid": {
        "amount": "0",
        "currency": "HUF"
-      }
+      },
+      "rental_income_cover": false
      }
     },
     {
@@ -411,7 +453,8 @@
       },
       "flood_area_class": "protected",
       "surge_protection": "t3",
-      "basement_storage": false
+      "basement_storage": false,
+      "inland_water_area": false
      }
     },
     {
@@ -425,7 +468,11 @@
        "currency": "HUF"
       },
       "valuation": "invoice_value",
-      "protection_class_in_place": "V"
+      "protection_class_in_place": "V",
+      "insurance_basis": "first_loss",
+      "alarm_maintenance": "regular_documented",
+      "guarding": "none",
+      "remote_signalling": "automatic"
      }
     },
     {
@@ -443,7 +490,11 @@
        "value": "20",
        "per": 100
       },
-      "protection_class_in_place": "V"
+      "protection_class_in_place": "V",
+      "insurance_basis": "full_value",
+      "alarm_maintenance": "regular_documented",
+      "guarding": "none",
+      "remote_signalling": "automatic"
      }
     },
     {
@@ -461,7 +512,11 @@
        "value": "30",
        "per": 100
       },
-      "protection_class_in_place": "V"
+      "protection_class_in_place": "V",
+      "insurance_basis": "full_value",
+      "alarm_maintenance": "regular_documented",
+      "guarding": "none",
+      "remote_signalling": "automatic"
      }
     },
     {
@@ -475,7 +530,11 @@
        "currency": "HUF"
       },
       "valuation": "new_value",
-      "protection_class_in_place": "V"
+      "protection_class_in_place": "V",
+      "insurance_basis": "full_value",
+      "alarm_maintenance": "regular_documented",
+      "guarding": "none",
+      "remote_signalling": "automatic"
      }
     }
    ]
@@ -524,7 +583,8 @@
         "address": "6000 Kecskemét, Minta hűtőház utca 2.",
         "country": "Magyarország"
        }
-      ]
+      ],
+      "rental_income_cover": "nem"
      }
     },
     {
@@ -546,27 +606,35 @@
         "asset_group": "épület",
         "sum_insured": "90000000",
         "valuation": "új érték",
-        "wear": 20
+        "wear": 20,
+        "insurance_basis": "teljes érték"
        },
        {
         "asset_group": "gépek és berendezések",
         "sum_insured": "35000000",
         "valuation": "új érték",
-        "wear": 30
+        "wear": 30,
+        "insurance_basis": "teljes érték"
        },
        {
         "asset_group": "mélyhűtött készlet",
         "sum_insured": "40000000",
         "valuation": "beszerzési érték",
-        "wear": null
+        "wear": null,
+        "insurance_basis": "teljes érték"
        },
        {
         "asset_group": "készlet",
         "sum_insured": "15000000",
         "valuation": "beszerzési érték",
-        "wear": null
+        "wear": null,
+        "insurance_basis": "első kockázat"
        }
-      ]
+      ],
+      "inland_water_area": "igen",
+      "alarm_maintenance": "szakcég végzi",
+      "guarding": "fegyveres őrség",
+      "remote_signalling": "közvetlen vezeték nélküli összeköttetés"
      }
     },
     {
@@ -629,7 +697,8 @@
       "claims_5y_paid": {
        "amount": "3100000",
        "currency": "HUF"
-      }
+      },
+      "rental_income_cover": false
      }
     },
     {
@@ -645,7 +714,8 @@
       },
       "flood_area_class": "unprotected_floodplain",
       "surge_protection": "t1_t2_t3",
-      "basement_storage": false
+      "basement_storage": false,
+      "inland_water_area": true
      }
     },
     {
@@ -663,7 +733,11 @@
        "value": "20",
        "per": 100
       },
-      "protection_class_in_place": "III"
+      "protection_class_in_place": "III",
+      "insurance_basis": "full_value",
+      "alarm_maintenance": "by_specialist",
+      "guarding": "armed_guard",
+      "remote_signalling": "direct_wireless"
      }
     },
     {
@@ -681,7 +755,11 @@
        "value": "30",
        "per": 100
       },
-      "protection_class_in_place": "III"
+      "protection_class_in_place": "III",
+      "insurance_basis": "full_value",
+      "alarm_maintenance": "by_specialist",
+      "guarding": "armed_guard",
+      "remote_signalling": "direct_wireless"
      }
     },
     {
@@ -695,7 +773,11 @@
        "currency": "HUF"
       },
       "valuation": "invoice_value",
-      "protection_class_in_place": "III"
+      "protection_class_in_place": "III",
+      "insurance_basis": "full_value",
+      "alarm_maintenance": "by_specialist",
+      "guarding": "armed_guard",
+      "remote_signalling": "direct_wireless"
      }
     },
     {
@@ -709,7 +791,11 @@
        "currency": "HUF"
       },
       "valuation": "invoice_value",
-      "protection_class_in_place": "III"
+      "protection_class_in_place": "III",
+      "insurance_basis": "first_loss",
+      "alarm_maintenance": "by_specialist",
+      "guarding": "armed_guard",
+      "remote_signalling": "direct_wireless"
      }
     }
    ]

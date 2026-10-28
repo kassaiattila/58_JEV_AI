@@ -14,9 +14,10 @@ Extract these fields; leave a field null when the form does not state it:
 - `bi_deductible_days`: the business interruption cover's waiting period (időönrész), the number of days or working days as printed (3 munkanap = 3); null when no business interruption cover is asked for or the form states none.
 - `accounting_method`: for the business interruption cover, what its sum insured is counted from, as printed (fedezeti összeg, bruttó fedezet, állandó költségek); null when no business interruption cover is asked for.
 - `interruption_sum_insured`: the business interruption cover's sum insured (üzemszüneti biztosítási összeg), a plain decimal string with a dot separator, no thousands separators (4 000 000 Ft = "4000000").
+- `rental_income_cover`: whether the loss of rental income is to be covered (bérleti díj kiesése), the answer as printed (igen, nem).
 - `currency`: the currency the form's amounts are in, as an ISO 4217 code (Ft and forint = HUF).
 - `requested_covers`: every cover the form asks for, one row each, in the order printed: a cover marked as wanted (X, ☒, igen) counts, one left unmarked or marked "nem" does not.
-  - `cover`: the cover as printed (vagyonbiztosítás, betöréses lopás és rablás, túlfeszültség, üzemszünet).
+  - `cover`: the cover word for word as the form prints it beside its mark (for example vagyonbiztosítás, Betöréses lopás és rablás, Vandalizmus); only a cover the form itself prints, never one from these examples or from another form.
 - `sites`: every site (telephely, kockázatviselési hely) the form lists, one row each, in the order printed:
   - `site_no`: the site's number or mark on the form (1, 2, A), as printed;
   - `address`: the site's address as printed;

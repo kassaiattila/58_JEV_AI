@@ -400,6 +400,12 @@
   "Választott önrész": "Chosen deductible",
   "Szerződés tartama": "Contract term",
   "Üzemszüneti időönrész (nap)": "Business interruption waiting period (days)",
+  "Bérleti díj kiesése": "Loss of rental income",
+  "A riasztó karbantartása": "Alarm maintenance",
+  "Őrzés": "Guarding",
+  "A riasztó távjelzése": "Remote signalling of the alarm",
+  "Belvízveszélyes terület": "Inland water area",
+  "Biztosítási mód": "Insurance basis",
   "Üzemszüneti biztosítási összeg": "Business interruption sum insured",
   "Üzemszüneti elszámolás módja": "Business interruption accounting method"
 }

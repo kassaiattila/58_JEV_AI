@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "field_labels",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "changelog": [
+   {
+    "version": "1.13.0",
+    "date": "2026-10-28",
+    "note": "231 (stage U, U-A7): the Hungarian names of the quote request's and the property schedule's new protection fields."
+   },
    {
     "version": "1.12.0",
     "date": "2026-10-27",
@@ -200,6 +205,11 @@
   "cover_start": "Kockázatviselés kezdete",
   "payment_frequency": "Díjfizetés gyakorisága",
   "chosen_deductible": "Választott önrész",
+  "rental_income_cover": "Bérleti díj kiesése",
+  "alarm_maintenance": "A riasztó karbantartása",
+  "guarding": "Őrzés",
+  "remote_signalling": "A riasztó távjelzése",
+  "inland_water_area": "Belvízveszélyes terület",
   "contract_term": "Szerződés tartama",
   "bi_deductible_days": "Üzemszüneti időönrész (nap)",
   "accounting_method": "Üzemszüneti elszámolás módja",
@@ -270,6 +280,7 @@
   "sum_insured": "Biztosítási összeg",
   "valuation": "Értékelés",
   "wear": "Avultság (%)",
+  "insurance_basis": "Biztosítási mód",
   "claim_date": "Káresemény napja",
   "cause": "Kár oka",
   "paid": "Kifizetett kárösszeg"

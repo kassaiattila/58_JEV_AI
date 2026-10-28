@@ -1,9 +1,10 @@
 {
   "meta": {
     "name": "facts_allianz_property",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "231 (stage U, U-A1; the owner's decisions of 2026-10-27): the fact catalogue of the corporate property insurance offer on the real product's terms (the six public condition documents of the Allianz corporate property insurance: the general conditions, the all risks special conditions with their 17 extensions, burglary and robbery, the property protection rules, business interruption, stock in cold stores), a rule file a case keeps as it started (jav/app/facts.py). The levels: the policyholder, its sites, and their asset groups; an asset group is one group of property kept in one room, so the protection the burglary cover asks for (its class, mechanical and electronic protection, guarding, storage) is its fact. Each fact a rule may read, with its type, unit or currency, level and allowed codes; each outcome a rule may give, with how the outcomes of several rules combine. A duty that is no fact (a weekly backup, a thermometer read three times a day) is a measure code an outcome names. The invented insurer's catalogue (facts_property.json) stays the example's.",
     "changelog": [
+      {"version": "1.1.0", "date": "2026-10-28", "note": "231 (U-A7; the walkthrough of 2026-10-28): every option code has its label, so the interface shows a code by its name (and in Hungarian through the translation files) instead of the code itself. No fact, option or outcome changes."},
       {"version": "1.0.0", "date": "2026-10-27", "note": "231 (U-A1): the first catalogue, from a read of the six documents (the general conditions' chapters 2-9, the all risks conditions with the extensions VIL, I05, J01, J21, I13, J22, J24, J23, glass, IBV, G19, IKO, I29, I28, IHA, IFH, IAK, burglary and V111, the protection rules' classes, business interruption, cold stores): the levels of facts_property, its facts with their meaning kept where it is the same, and the protection class as a code from VII (the least) to I (the most)."}
     ]
   },
@@ -122,7 +123,46 @@
     "premium_factor": {"type": "decimal", "combine": "one", "title": "Premium factor"}
   },
   "labels": {
-    "holder": "Policyholder", "site": "Site", "asset_group": "Asset group",
-    "VII": "Class VII", "VI": "Class VI", "V": "Class V", "IV": "Class IV", "III": "Class III", "II": "Class II", "I": "Class I"
+    "holder": "Policyholder", "site": "Site", "asset_group": "Asset group", "VII": "Class VII", "VI": "Class VI",
+    "V": "Class V", "IV": "Class IV", "III": "Class III", "II": "Class II", "I": "Class I", "a": "Method a",
+    "active": "Operating", "all_risks": "All risks", "allow": "Allow", "approved_lock": "An approved lock",
+    "armed_guard": "Armed guard", "art": "Works of art", "automatic": "Automatic", "b": "Method b",
+    "bankruptcy": "Bankruptcy", "broker": "Broker", "building_services": "Building services",
+    "buildings": "Buildings", "by_specialist": "By a specialist firm", "c": "Method c", "cash": "Cash",
+    "catalogue_value": "Catalogue value", "cost_of_sales": "Cost of sales method", "costs": "Costs", "d": "Method d",
+    "data_carriers": "Data carriers", "demolition": "Demolition and clearance", "deposit_value": "Deposit value",
+    "direct_wireless": "Direct wireless link", "dissolved": "Dissolved", "e": "Method e",
+    "electronics_all_risks": "Electronics all risks", "employee": "Employees'",
+    "employee_effects": "Employees' belongings", "expensed_assets": "Assets written off at once",
+    "expert": "Experts' fees", "f": "Method f", "fence_2m": "A fence of 2 m",
+    "fire_elemental": "Fire and elemental perils", "first_loss": "First loss", "fixed": "Fixed term",
+    "floodway": "Floodway", "frozen_stock": "Frozen stock", "full": "Full", "full_value": "Full value",
+    "g": "Method g", "glazing": "Glazing", "gross_book_value": "Gross book value", "gross_profit": "Gross profit",
+    "half_yearly": "Half-yearly", "indefinite": "Indefinite", "invoice_value": "Purchase value",
+    "key_box_on_alarm": "A key box on the alarm", "leased": "Leased", "liquidation": "Liquidation",
+    "lit_yard": "A lit yard", "machinery": "Machinery and equipment", "machinery_breakdown": "Machinery breakdown",
+    "machinery_combined": "Combined machinery cover", "manned_guard": "A manned guard",
+    "market_value": "Market value", "metal_box": "Metal box", "metal_cabinet": "Metal cabinet", "minimal": "Minimal",
+    "mitigation": "Mitigation", "monthly": "Monthly", "nature_of_expense": "Nature of expense method", "new": "New",
+    "new_value": "New value", "nominal_value": "Nominal value",
+    "non_activated_investments": "Investments not yet activated", "none": "None",
+    "office_electronics": "Office electronics", "office_other": "Office and other",
+    "other_equipment": "Other equipment", "outdoor_items": "Outdoor items", "own": "Own",
+    "own_produced": "Produced in house", "park_plants": "Park plants", "partial": "Partial",
+    "portable_electronics": "Portable electronics", "porter_24h": "A porter round the clock", "pro_rata": "Pro rata",
+    "production": "Production", "protected": "Protected by flood defences", "purchased": "Purchased",
+    "quarterly": "Quarterly", "received": "Received for keeping", "refer": "Refer", "refuse": "Refuse",
+    "regular_documented": "Regular and documented", "reinforced_cabinet": "Reinforced cabinet",
+    "renewables": "Renewable energy equipment", "replanting_cost": "Replanting cost",
+    "reproduction_cost": "Reproduction cost", "rescue_extinguishing": "Rescue and extinguishing",
+    "returnable_packaging": "Returnable packaging", "safe": "Safe", "securities": "Securities",
+    "single": "Single payment", "standing_costs": "Standing costs", "stock": "Stock", "strong_room": "Strong room",
+    "t1_t2": "T1 and T2", "t1_t2_t3": "T1, T2 and T3", "t3": "T3", "teaor08": "TEÁOR'08", "teaor25": "TEÁOR'25",
+    "technical_worn_value": "Technical worn value", "third_party": "Third party", "tied_agent": "Tied agent",
+    "unknown": "Not known", "unprotected_floodplain": "Unprotected floodplain",
+    "unregistered_vehicles": "Unregistered vehicles", "used": "Used", "utilities": "Utilities",
+    "valuables": "Valuables", "vandalism_damage": "Vandalism damage", "vehicle_stock": "Vehicle stock",
+    "vg1": "Value group 1", "vg2": "Value group 2", "vg3": "Value group 3",
+    "voluntary_liquidation": "Voluntary liquidation", "yearly": "Yearly"
   }
 }
