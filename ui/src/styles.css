@@ -899,6 +899,8 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .template-output-block + .template-output-block { border-top: 1px solid var(--line-soft); padding-top: var(--sp-3); }
 .template-output-head { display: flex; align-items: baseline; gap: var(--sp-1) var(--sp-3); flex-wrap: wrap; }
 .template-output-head h3 { margin: 0; }
+/* 231 (U3d): the processes whose cases deal with a partner of the chosen role, above the list */
+.partners-role-use { margin: 0 0 var(--sp-3); }
 .template-table { table-layout: fixed; }
 .template-table td { vertical-align: middle; overflow-wrap: anywhere; }
 .template-table .c-name { width: 22%; } .template-table .c-version { width: 9%; } .template-table .c-state { width: 10%; }

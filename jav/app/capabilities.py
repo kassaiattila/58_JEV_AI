@@ -399,6 +399,8 @@ class Capability:
       steps of it need (a step's own documents), at the case's start before anything is made.
     - `choices_for` (U3b): for a parameter whose values depend on the step (a priced document's output prints only the
       version of the step it names), `(pack, step)` gives that step's values; over `choices`.
+    - `refers` (U3d): the shared library kind a parameter names (a letter frame), so a library element says which
+      processes use it; a kept parameter's keeper says it too (`AtStart.kind`).
     """
 
     name: str
@@ -437,6 +439,7 @@ class Capability:
     pack_check: Callable[[Any], list[str]] | None = None
     scope_check: Callable[[Any, dict[str, Any]], None] | None = None
     choices_for: Mapping[str, Callable[[Any, Any], list[tuple[str, str]]]] = field(default_factory=dict)
+    refers: Mapping[str, str] = field(default_factory=dict)
 
     @property
     def key(self) -> str:
@@ -490,7 +493,7 @@ def _check(cap: Capability) -> None:
             problems.append(f"its rule file has no {rule.id}")
     if len({r.id for r in cap.rule_keys}) != len(cap.rule_keys):
         problems.append("its rule keys are distinct")
-    if unknown := sorted((set(cap.choices) | set(cap.choices_for)) - set(cap.params.model_fields)):
+    if unknown := sorted((set(cap.choices) | set(cap.choices_for) | set(cap.refers)) - set(cap.params.model_fields)):
         problems.append(f"it offers choices for parameters it does not have: {unknown}")
     if unknown := sorted(set(cap.at_start) - set(cap.params.model_fields)):  # D0-e
         problems.append(f"it keeps the start's version of parameters it does not have: {unknown}")

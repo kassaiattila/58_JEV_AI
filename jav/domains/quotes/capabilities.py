@@ -90,7 +90,7 @@ def _kept_list() -> AtStart:
     """D0-e: a case keeps the price list version current at its start."""
     from jav.domains.quotes import price_lists
 
-    return AtStart(price_lists.kept, price_lists.named)
+    return AtStart(price_lists.kept, price_lists.named, kind="price_list")  # U3d: it names a price list
 
 
 def _catalogues() -> list[tuple[str, str]]:
@@ -316,6 +316,7 @@ CAPABILITIES = (
                rule_files=("gpt_quote_letter", "quote_documents", "quotes"),
                summary="Drafts a reply letter: the frame written by code around a model's checked paragraph; done once a person"
                        " accepted it.", spent=_spent("quote_letters"), choices={"frame": _frames},
+               refers={"frame": "quote_letter_frame"},  # U3d
                rule_keys=(RuleKey("quotes", "letter.max_chars", "int", "The model's paragraph is at most this many characters",
                                   least=100, most=2000),)),
 )

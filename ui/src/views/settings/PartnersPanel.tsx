@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError, type Partner, type PartnerRoles, type PartnerSuggestion, type PartnerValues } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { UsedBy, useUsedBy } from "../../components/UsedBy";
 import { VersionState } from "../../components/VersionState";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
@@ -33,6 +34,7 @@ export function PartnersPanel() {
   const [retired, setRetired] = useState(false);
   const list = useLoad(`partners:${q}:${role}:${retired}`, () => api.partners({ q: q.trim() || undefined, role: role || undefined, retired }));
   const [open, setOpen] = useState<Open>(null);
+  const usedRoles = useUsedBy("partner_role");
   const roles = list.data?.roles ?? {};
   const rows = list.data?.partners ?? [];
   return (
@@ -52,6 +54,8 @@ export function PartnersPanel() {
         </label>
         <button type="button" className={open ? "secondary" : "primary"} onClick={() => setOpen({ kind: "new" })}>{t("New partner")}</button>
       </div>
+      {/* 231 (U3d): the processes whose cases deal with a partner of the chosen role */}
+      {role ? <p className="partners-role-use"><UsedBy used={usedRoles} ident={role} /></p> : null}
       {list.error ? <p className="notice error" role="alert">{list.error.message}</p> : null}
       {!list.data ? <p className="muted">{t("Loading…")}</p> : rows.length ? (
         <table className="table compact partners-table" aria-label={t("Partners")}>

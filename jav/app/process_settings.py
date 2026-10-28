@@ -27,6 +27,8 @@ it starts and keeps them: a change reaches the cases started after it.
 - 231 (U3c; the owner's decision of 2026-10-28: the tariff is part of the product): a pack's `derived` resource follows
   from its source (a product brings its tariff, `AtStart.brings`): its value is the source's, shown read only, and a
   process sets no value of its own for it.
+- 231 (U3d): `used_by(kind)`: for each shared thing of a kind, the processes that use it now (the "Used by" line of the
+  shared library's lists).
 - 231 (U3a): `view` describes the process too (`description`: what it is for, its steps, outputs, golden sets, what
   starts a case of it, whether it has example material), for its own settings page.
 
@@ -438,6 +440,47 @@ def _description(pack: process_packs.ProcessPack) -> dict[str, Any]:
             "intake": [{"on": i.on, "starts": i.starts, "intent": i.intent} for i in pack.intake],
             "examples": pack.examples is not None and bool(pack.examples.sets or pack.examples.documents
                                                             or pack.examples.note)}
+
+
+OUTPUT_TEMPLATE, PARTNER_ROLE = "output_template", "partner_role"  # U3d: the kinds a pack names without a parameter
+
+
+def _kind_of(pack: process_packs.ProcessPack, key: str) -> str | None:
+    """231 (U3d): the shared library kind a resource names: an output template (`template:<output>`), or the kind the
+    capability parameter it sets names (`Capability.refers`, else its keeper's `AtStart.kind`); None: no library thing."""
+    if key.startswith(TEMPLATE_PREFIX):
+        return OUTPUT_TEMPLATE
+    for step in pack.steps:
+        cap = capabilities.of(step.uses)
+        for param, value in (step.params or {}).items():
+            if value == f"@{key}":
+                kind = cap.refers.get(param) or (cap.at_start[param].kind if param in cap.at_start else None)
+                if kind:
+                    return kind
+    return None
+
+
+def used_by(kind: str) -> dict[str, list[dict[str, str]]]:
+    """231 (U3d; the owner's decisions of 2026-10-28: every shared element says which processes use it): for each thing
+    of the kind (by its id), the processes that use it now ({id, title}, in the packs' order): a resource naming it as
+    the process has it (its file's value, its own active one, a derived one as its source brings it; a price list's
+    newest active one by the list it names now); a partner role by the pack's partner links."""
+    out: dict[str, list[dict[str, str]]] = {}
+    for pack in process_packs.packs():
+        entry = {"id": pack.id, "title": pack.title}
+        if kind == PARTNER_ROLE:
+            idents = [link.role for link in pack.partners]
+        else:
+            resources, keepers = effective_resources(pack), _keepers(pack)
+            idents = []
+            for key in pack.resources:
+                if _kind_of(pack, key) == kind:
+                    value = keepers[key].kept(resources[key]) if key in keepers else resources[key]
+                    idents.append(str(value).split("@", 1)[0])
+        for ident in idents:
+            if entry not in out.setdefault(ident, []):
+                out[ident].append(entry)
+    return out
 
 
 def _case_name(case_id: str) -> str:

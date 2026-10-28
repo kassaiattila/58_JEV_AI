@@ -296,7 +296,7 @@ def _run(ctx: Any, params: Letter) -> kinds.StepOutcome:
 CAPABILITY = capabilities.Capability(
     name="letter", version=1, module=_OWNER, run=_run, kind="human", params=Letter, state="step", output=LetterResult,
     own_version=True, reads=lambda p: (CONFIG,), actions=ACTIONS, approval_what="Accept the letter",
-    choices={"frame": _frame_choices},
+    choices={"frame": _frame_choices}, refers={"frame": "letter_frame"},  # U3d
     summary="A letter that goes with a printed document: its frame written by code with the document's values, read,"
             " changed and accepted by a person, kept as an email file with the document attached.")
 

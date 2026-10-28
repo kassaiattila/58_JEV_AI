@@ -29,6 +29,7 @@ SettingKey = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_:]{0,79}$")]
 RuleKey = Annotated[str, PathParam(pattern=r"^[a-z][A-Za-z0-9_:.]{0,119}$")]  # 231 (B3): <rule file>.<dotted key>
 Version = Annotated[int, PathParam(ge=1)]
 PacketId = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_]{0,63}$")]  # 231 (U0): an example packet
+LibraryKind = Annotated[str, PathParam(pattern=r"^[a-z][a-z_]{0,39}$")]  # 231 (U3d): a shared library kind
 
 
 class SettingIn(In):
@@ -101,6 +102,12 @@ def routes(app: FastAPI, r: str) -> None:
         """231 (C3c): the records a case of the pack may start from, matching `q` (its record step's capability, the
         general form's record chooser); none for a pack whose steps read no record."""
         return work_views.jsonable({"records": process_packs.records(pack_id, q)})
+
+    @app.get(r + "/library/used-by/{kind}")
+    def library_used_by(kind: LibraryKind) -> dict[str, Any]:
+        """231 (U3d): for each thing of a shared library kind (a product, a tariff, a price list, a letter frame, an
+        output template, a partner role), the processes that use it now."""
+        return {"used_by": process_settings.used_by(kind)}
 
     @app.get(r + "/processes/{pack_id}/settings")
     def process_settings_page(pack_id: PackId) -> dict[str, Any]:

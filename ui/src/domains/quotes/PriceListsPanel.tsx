@@ -5,13 +5,14 @@
 // price (a volume discount), the currency and the VAT rate are set here, not in the file (the owner's decision);
 // saving them makes a new draft version with the same items, so a version never changes and a quote names one.
 import { useMemo, useState } from "react";
-import { api, ApiError, type OutputTemplateIssue } from "../../api";
+import { api, ApiError, type OutputTemplateIssue, type UsedByMap } from "../../api";
 import type { PriceList, PriceListCheck, PriceListColumn, PriceListDetail, PriceListVersion, PriceListsListing, PriceRule } from "./api";
 import { BlockerList } from "../../components/BlockerList";
 import { BrowseButton } from "../../components/BrowseButton";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Icon } from "../../components/Icon";
 import { Picker } from "../../components/Picker";
+import { UsedBy, useUsedBy } from "../../components/UsedBy";
 import { VersionState } from "../../components/VersionState";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
@@ -84,6 +85,7 @@ export function PriceListsPanel() {
   const [again, setAgain] = useState<PriceList | null>(null);
   const [open, setOpen] = useState<{ priceList: string; version: number } | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const used = useUsedBy("price_list");
   const lists = data.data?.price_lists ?? [];
   return (
     <section className="stage-stack" aria-label={t("Price lists")}>
@@ -106,7 +108,7 @@ export function PriceListsPanel() {
           {lists.length === 0 ? <p className="muted small">{t("No price list yet. A quote needs an active one.")}</p> : null}
           {lists.map((pl) => (
             <PriceListVersions key={pl.price_list} list={pl} open={open} onOpen={setOpen} onNewVersion={setAgain}
-              onChanged={data.reload} />
+              onChanged={data.reload} used={used} />
           ))}
         </section>
       ) : null}
@@ -230,9 +232,10 @@ const changeText = (v: PriceListVersion) =>
   v.change === "settings" ? t("settings, from version {{n}}", { n: v.based_on ?? "" }) : t("upload");
 
 /** One price list: every version as a row, newest first, with its state, what made it, its items and rules. */
-function PriceListVersions({ list, open, onOpen, onNewVersion, onChanged }: {
+function PriceListVersions({ list, open, onOpen, onNewVersion, onChanged, used }: {
   list: PriceList; open: { priceList: string; version: number } | null;
   onOpen: (o: { priceList: string; version: number }) => void; onNewVersion: (pl: PriceList) => void; onChanged: () => void;
+  used: UsedByMap | null;
 }) {
   useLocale();
   const [busy, setBusy] = useState(false);
@@ -261,6 +264,7 @@ function PriceListVersions({ list, open, onOpen, onNewVersion, onChanged }: {
         </span>
         <button type="button" className="secondary small-btn" disabled={busy} onClick={() => onNewVersion(list)}>{t("New version")}</button>
       </div>
+      <UsedBy used={used} ident={list.price_list} />
       <table className="table compact price-table">
         <colgroup>
           <col className="c-version" /><col className="c-state" /><col className="c-change" /><col className="c-count" />

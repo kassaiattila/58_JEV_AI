@@ -79,6 +79,9 @@ export interface RulePreview {
   examples: { point: string; subject: string; case_id: string; case: string; at: string; before: unknown; after: unknown }[];
 }
 export type SettingKind = "settings" | "rules";
+/** 231 (U3d): the kinds of shared things the processes name, and for each thing of a kind the processes using it */
+export type LibraryKind = "product" | "tariff" | "price_list" | "letter_frame" | "quote_letter_frame" | "output_template" | "partner_role";
+export type UsedByMap = Record<string, { id: string; title: string }[]>;
 
 const base = (pack: string, kind: SettingKind, key: string) => `/processes/${enc(pack)}/${kind}/${enc(key)}`;
 
@@ -102,4 +105,5 @@ export const processesApi = {
   removeExamples: (pack: string) => request<ProcessExamples>("POST", `/processes/${enc(pack)}/examples/remove`, {}),
   examplePacketFiles: (pack: string, packet: string) =>
     request<{ files: string[] }>("POST", `/processes/${enc(pack)}/examples/packets/${enc(packet)}/files`, {}),
+  usedBy: (kind: LibraryKind) => request<{ used_by: UsedByMap }>("GET", `/library/used-by/${enc(kind)}`),
 };

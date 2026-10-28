@@ -7,6 +7,7 @@
 // product): the tariffs are a list of this page (until then a Settings item of their own).
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ConditionDocument, Product, ProductRegistry, RegistryThing, Rule } from "../../api";
+import { UsedBy, useUsedBy } from "../../components/UsedBy";
 import { t, useLocale } from "../../i18n";
 import { ProposalsView } from "./ProposalsView";
 import { TariffsPanel } from "./TariffsPanel";
@@ -56,12 +57,13 @@ interface ViewProps { registry: ProductRegistry; open: string | null; onOpen: (i
 function ProductsView({ registry, open, onOpen, onClose, onChanged }: ViewProps) {
   useLocale();
   const tariffs = new Map(registry.tariffs.map((x) => [x.ident, x]));
+  const used = useUsedBy("product");
   if (!registry.products.length) return <NoneYet text={t("No product yet.")} />;
   const chosen = registry.products.find((p) => p.ident === open);
   return (
     <>
       <table className="table compact registry-table" aria-label={t("Products")}>
-        <thead><tr><th>{t("Name")}</th><th>{t("State")}</th><th>{t("Cover modules")}</th><th className="num">{t("Rules")}</th><th>{t("Tariff")}</th></tr></thead>
+        <thead><tr><th>{t("Name")}</th><th>{t("State")}</th><th>{t("Cover modules")}</th><th className="num">{t("Rules")}</th><th>{t("Tariff")}</th><th>{t("Used by")}</th></tr></thead>
         <tbody>
           {registry.products.map((p) => {
             const c = current(p).content;
@@ -73,6 +75,7 @@ function ProductsView({ registry, open, onOpen, onClose, onChanged }: ViewProps)
                 <td>{c.modules.map((m) => m.name).join(" · ")}</td>
                 <td className="num">{c.rules.length}</td>
                 <td>{tariff ? current(tariff).content.title ?? tariff.ident : c.tariff ? <span className="mono">{c.tariff}</span> : "–"}</td>
+                <td><UsedBy used={used} ident={p.ident} cell /></td>
               </tr>
             );
           })}
