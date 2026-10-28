@@ -111,6 +111,26 @@ describe("the field review", () => {
       { unit_id: "u-2", facts: { flood_zone: "high" }, expected_state: 1, note: null }));
   });
 
+  it("edits a list of codes as its options' boxes and names a free code it knows (U1)", async () => {
+    const act = vi.spyOn(api, "caseStepAction").mockResolvedValue({} as CaseView);
+    const cat: Catalogue = { ...CAT, facts: { ...CAT.facts,
+      country: { type: "code", level: "site", title: "Country of the site", unit: null, currency: null, options: null },
+      yard: { type: "codes", level: "site", title: "Protection of a vehicle yard", unit: null, currency: null,
+        options: ["fence_2m", "lit_yard", "manned_guard"] } },
+      labels: { ...CAT.labels, HU: "Hungary", fence_2m: "Fence of 2 metres", lit_yard: "Lit yard" } };
+    const units = review().units.map((u) => (u.unit_id === "u-2" ? { ...u, facts: { flood_zone: "low", country: "HU", yard: ["fence_2m"] } } : u));
+    show("field_review", "check", review({ claims: [], conflicts: 0, catalogue: cat, units }), "field_check@1", "Data check");
+    fireEvent.click((await screen.findAllByRole("button", { name: "Edit" }))[1]);
+    const yard = screen.getByRole("group", { name: "Protection of a vehicle yard" });
+    expect((screen.getByRole("checkbox", { name: "Fence of 2 metres" }) as HTMLInputElement).checked).toBe(true);
+    expect(yard.textContent).toContain("manned_guard");  // an option without a name shows its code
+    expect(screen.getByText("Hungary")).toBeTruthy();  // the free code's name beside its input
+    fireEvent.click(screen.getByRole("checkbox", { name: "Lit yard" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save the unit" }));
+    await waitFor(() => expect(act).toHaveBeenCalledWith(CASE, "check", "unit_save", undefined,
+      { unit_id: "u-2", facts: { flood_zone: "low", country: "HU", yard: ["fence_2m", "lit_yard"] }, expected_state: 1, note: null }));
+  });
+
   it("says a frozen check's version and reopens it with a reason", async () => {
     const act = vi.spyOn(api, "caseStepAction").mockResolvedValue({} as CaseView);
     show("field_review", "check", review({ claims: [], conflicts: 0, waits: false,

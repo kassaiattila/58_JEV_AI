@@ -114,22 +114,46 @@ function FactInput({ cat, def, value, onChange, label }: {
       </select>
     );
   }
+  const name = (o: string) => (cat.labels[o] ? t(cat.labels[o]) : o);
   if (def.type === "code" && def.options) {
     return (
       <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">–</option>
-        {def.options.map((o) => <option key={o} value={o}>{cat.labels[o] ? t(cat.labels[o]) : o}</option>)}
+        {def.options.map((o) => <option key={o} value={o}>{name(o)}</option>)}
       </select>
+    );
+  }
+  if (def.type === "codes" && def.options) {
+    // U1 (finding 15 of the walkthrough): a list of codes from its options is ticked, each by its name
+    const options = def.options;
+    const chosen = new Set(value.split(",").map((x) => x.trim()).filter(Boolean));
+    const toggle = (o: string, on: boolean) => {
+      const next = new Set(chosen);
+      if (on) next.add(o); else next.delete(o);
+      onChange([...options.filter((x) => next.has(x)), ...[...next].filter((x) => !options.includes(x))].join(", "));
+    };
+    return (
+      <div className="check-list" role="group" aria-label={label}>
+        {options.map((o) => (
+          <label key={o} className="check">
+            <input type="checkbox" checked={chosen.has(o)} onChange={(e) => toggle(o, e.target.checked)} /> {name(o)}
+          </label>
+        ))}
+      </div>
     );
   }
   const unit = def.type === "money" ? def.currency : def.type === "quantity" ? (def.unit === "m2" ? "m²" : def.unit)
     : def.type === "percentage" ? "%" : null;
+  // U1: a free code (or list of codes) the catalogue names reads by its name beside the input
+  const named = def.type === "code" || def.type === "codes"
+    ? value.split(",").map((x) => x.trim()).filter((x) => x && cat.labels[x]).map((x) => t(cat.labels[x])).join(", ") : "";
   return (
     <span className="fact-input">
       <input aria-label={label} type={def.type === "date" ? "date" : "text"} value={value}
         inputMode={["money", "quantity", "percentage", "permille", "count", "decimal"].includes(def.type) ? "decimal" : undefined}
         onChange={(e) => onChange(e.target.value)} />
       {unit ? <span className="muted small">{unit}</span> : null}
+      {named ? <span className="muted small">{named}</span> : null}
     </span>
   );
 }
