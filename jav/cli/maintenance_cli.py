@@ -574,12 +574,15 @@ def cmd_examples(args: argparse.Namespace) -> int:
     import json
 
     from jav.core.cfg import CONFIG_DIR
-    from jav.evals import property_documents
+    from jav.evals import document_examples, property_documents
 
     path = CONFIG_DIR / f"examples_{args.set}.json"
     current = json.loads(path.read_text(encoding="utf-8"))
-    packets = property_documents.example_packets({p["id"]: p["title"] for p in current.get("packets", [])},
-                                                 name=f"golden_{args.set}")
+    titles = {p["id"]: p["title"] for p in current.get("packets", [])}
+    if args.set == "documents":  # U1e: the documents process's, from the invented invoices and quote requests
+        packets = document_examples.example_packets(titles)
+    else:
+        packets = property_documents.example_packets(titles, name=f"golden_{args.set}")
     if packets == current.get("packets"):
         print(f"{path.name}: up to date ({len(packets)} packet(s))")
         return 0
@@ -796,7 +799,8 @@ def register(sub) -> None:
                                         "set (configs/examples_property_documents.json); checked, --write writes it (free)")
     p.add_argument("--set", default="property_documents",
                    help="231 U-A6: the documents (configs/golden_<set>.json into configs/examples_<set>.json; default "
-                        "property_documents, the invented insurer's)")
+                        "property_documents, the invented insurer's); U1e: `documents`, the documents process's invented "
+                        "invoices and quote requests (jav/evals/document_examples.py)")
     p.add_argument("--write", action="store_true", help="write the file when it differs")
     p.set_defaults(fn=cmd_examples)
     p = sub.add_parser("invented-services", help="231 D-d5: the invented company register and sanctions list as a local "

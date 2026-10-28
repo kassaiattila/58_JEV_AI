@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "process:documents",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "description": "231 (plan stage C, C3b3; DECISIONS 231): the processing of a folder's or some chosen files' documents as a process pack (until C3 a plain kind of work package and a workflow step kind): a case makes its processing package from its source, a person starts its live run within the package's estimate, and the case is done once a live run is approved; the package's processing, review and result open from the case's page.",
     "changelog": [
+      {
+        "version": "1.3.0",
+        "date": "2026-10-28",
+        "note": "231 (U1e; the owner's decision of 2026-10-28): its example material: invented invoices, foreign invoices and receipts, and quote requests on a printed form (configs/examples_documents.json)."
+      },
       {
         "version": "1.2.0",
         "date": "2026-10-27",
@@ -24,6 +29,7 @@
   "id": "documents",
   "title": "Documents",
   "summary": "Documents from a folder or chosen files: their type is recognised and their data extracted, for a person to check and approve.",
+  "examples": {"documents": "documents"},
   "scope": {
     "parts": [
       "source"

@@ -105,6 +105,21 @@ def test_the_examples_print_what_the_golden_set_prints() -> None:
         assert printed == {f"{d.id}.pdf": pd.pages(d) for d in doc_set.documents}, doc_set.id
 
 
+def test_the_documents_process_offers_invented_invoices_and_quote_requests(tmp_path) -> None:
+    """U1e (the owner's decision of 2026-10-28): the documents process has example material of its own: the invented
+    invoices of the measurement and the invented quote requests' printed forms, written as PDFs a case starts on; the
+    file is what `examples --set documents` prints."""
+    from jav.evals import document_examples
+
+    packets = {p["id"]: p["documents"] for p in examples.of("documents")["packets"]}
+    assert packets == {"invoices": 5, "foreign": 7, "quote_requests": 2}
+    current = cfg.load(examples.DOCUMENTS_PREFIX + "documents")["packets"]
+    assert document_examples.example_packets({p["id"]: p["title"] for p in current}) == current
+    with store.use_store(tmp_path / "docs.sqlite"):
+        files = examples.packet_files("documents", "quote_requests")
+    assert [Path(f).name for f in files] == ["keroiv_halozat.pdf", "igenyek.pdf"] and all(Path(f).stat().st_size for f in files)
+
+
 def test_every_example_packet_s_id_is_one_the_service_s_route_takes() -> None:
     """U-A7 (the walkthrough on 2026-10-28): the real product's packets were named with hyphens (az-metalworks), which
     the route of a packet's files refuses (422), so no case could start on them. Every examples file's packet ids fit
