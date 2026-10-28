@@ -1035,7 +1035,7 @@
     "tests/test_fact_claims_231.py": 4,
     "tests/test_fact_readings_231.py": 6,
     "tests/test_field_names_197.py": 13,
-    "tests/test_field_value_labels_231.py": 2,
+    "tests/test_field_value_labels_231.py": 4,
     "tests/test_flow_statement_table_136.py": 2,
     "tests/test_gpt_reuse_090.py": 2,
     "tests/test_handoff_guard.py": 2,

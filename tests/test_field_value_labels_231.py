@@ -3,8 +3,8 @@
 A bank statement's kind was shown as its code ("bank_account", "credit_card") in the documents table. Every value a
 type pack enumerates for a field has a Hungarian name in `configs/field_labels.json` (`values`, keyed `field=value`, as
 the list columns' `direction=debit`); the documents table's column of such a field is enumerated with those names, so
-the table shows the name and the download writes it. A field without enumerated values keeps its text column.
-Synthetic records only.
+the table shows the name and the download writes it. A field without enumerated values keeps its text column. 231
+(U3): the data points table shows the name too, in its value column of every field. Synthetic records only.
 """
 
 from __future__ import annotations
@@ -42,3 +42,13 @@ def test_the_documents_column_of_an_enumerated_field_names_its_values(monkeypatc
     assert (kind.kind, kind.labels) == ("enum", {"bank_account": "bankszámla", "credit_card": "hitelkártya"})
     assert rows[0]["f:statement_type"] == "credit_card"  # the code stays the value; the name is its label
     assert (by_key["f:account_no"].kind, by_key["f:account_no"].labels) == ("text", None)
+
+
+def test_the_data_points_value_of_an_enumerated_field_is_its_name(monkeypatch) -> None:
+    record = {**_record({"statement_type": "credit_card", "account_no": "10700000-00000000"}), "provenance": {},
+              "corrected": [], "open_reasons": []}
+    monkeypatch.setattr(datasets, "linked_records", lambda scope: (lambda item: {"_run": "run-1", "_wp": "wp-1"}, [record]))
+    cols, rows = datasets._datapoints({"run_id": "run-1"})
+    values = {r["field"]: r["value"] for r in rows}
+    assert values == {"statement_type": "hitelkártya", "account_no": "10700000-00000000"}
+    assert next(c for c in cols if c.key == "value").labels == {"bankszámla": "bankszámla", "hitelkártya": "hitelkártya"}

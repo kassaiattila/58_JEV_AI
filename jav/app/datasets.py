@@ -680,7 +680,13 @@ def _datapoints(scope: dict[str, str]) -> Rows:
 
     link, records = linked_records(scope)
     _head, rows = export.datapoints_table(records)
-    cols = _fixed(_DP_KEYS)
+    # 231 (U3, the backlog's datapoint value names): an enumerated field's value reads by its name, as in the documents
+    # table; the value column holds every field's values, so the name is the cell (one code may name two things, as
+    # "egyeb" a document's and a meeting's kind) and the names are the column's labels, translated when shown
+    names = {f: field_names.value_labels(f) for f in {row[3] for row in rows}}
+    rows = [[*row[:4], names[row[3]].get(row[4], row[4]) if isinstance(row[4], str) else row[4], *row[5:]] for row in rows]
+    shown_names = {n: n for of_field in names.values() for n in of_field.values()}
+    cols = [replace(c, labels=shown_names) if c.key == "value" and shown_names else c for c in _fixed(_DP_KEYS)]
     return cols, _zip_rows([c.key for c in cols], rows, link, lambda d: f"{d['item_id']}:{d['field']}")
 
 
