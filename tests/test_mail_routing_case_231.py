@@ -63,11 +63,12 @@ def test_a_routing_package_made_before_is_taken_over_with_its_decisions(db) -> N
     wp, ids = _sources(db)
     routing = _old_routing(wp)
     email_routing.accept_clear(routing, actor="Example Person")
-    listed = process_runtime.adopt_all(actor="tester")  # without write: only listed
+    # U2b: the batches around it (its email package, the routed invoices') are the documents' and mailbox's to wrap
+    listed = [r for r in process_runtime.adopt_all(actor="tester") if r["pack"] == PACK]  # without write: only listed
     assert [(r["pack"], r["workpackage_id"], r["scope"], r["result"]) for r in listed] == [
         (PACK, routing, {"sources": [wp]}, "to adopt")]
     assert work.get(routing)["source_kind"] == "email_routing"
-    assert [r["result"] for r in process_runtime.adopt_all(actor="tester", write=True)] == ["adopted"]
+    assert [r["result"] for r in process_runtime.adopt_all(actor="tester", write=True) if r["pack"] == PACK] == ["adopted"]
     assert work.get(routing)["source_kind"] == process_runtime.CONTAINER
     assert process_runtime.adopt_all(actor="tester", write=True) == []  # its kind is the container's now
     view = email_routing.view(routing)  # the decisions stay where they were

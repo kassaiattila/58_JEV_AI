@@ -350,6 +350,9 @@ def adopt_all(*, actor: identity.Who, write: bool = False) -> list[dict[str, Any
                 named = wp.get("source_kind") == wrap.kind if wrap.kind else work.rule_name(wp["id"]) == wrap.rule
                 if not named or wp.get("status") == "deleted" or cap.bound(wp["id"]):
                     continue  # (C3b5a: by its kind or its rule) a step's package already (made by a case, or wrapped before)
+                if wrap.kind and (wp.get("status") == "archived" or work.rule_name(wp["id"]) is not None):
+                    continue  # U2b: by its kind, a hidden package stays in the list of every batch, and a package of a
+                    # rule is that rule's process's (the owner's decision of 2026-10-28)
                 stored = package_scope.stored(wp["id"]) or {}
                 scope = {part: _stored_value(stored, key) for part, key in wrap.scope.items()}
                 row = {"pack": pack.id, "workpackage_id": wp["id"], "name": wp["name"], "scope": scope}
