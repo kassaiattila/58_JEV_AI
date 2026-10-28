@@ -204,6 +204,17 @@ def package_of(case_id: str, step_id: str) -> str | None:
     return row["workpackage_id"] if row else None
 
 
+def _spent(case_id: str, step_id: str) -> list[str]:
+    """U-A8 (the walkthrough of 2026-10-28): the budgets the step spent from, oldest first: its package's runs (a run's
+    calls carry the run as their budget), so the case's cost shows what its documents' processing spent."""
+    wp_id = package_of(case_id, step_id)
+    if wp_id is None:
+        return []
+    with store.connect() as c:
+        return [r["run_id"] for r in c.execute(
+            "SELECT run_id FROM runs WHERE workpackage_id=? ORDER BY created_at, rowid", (wp_id,))]
+
+
 def owned_packages() -> set[str]:
     """231 (C3b3): the packages a case's step made: the work package list leaves them out (the owner's decision of
     2026-10-25: the cases are the main list; such a package opens from its case's page)."""
@@ -393,8 +404,9 @@ CAPABILITY = capabilities.Capability(
     name="process_documents", version=1, module=_OWNER, run=_run, kind="human", params=Process, effects="store",
     output=ProcessedResult,
     # no provider of its own: making the package is free, and its live run, which may call AI, is a person's action
-    # (`start_run`) within the package's own estimate and budget, as any live run
-    summary=("Makes a processing package of the case's documents; a person starts its live run within the package's "
+    # (`start_run`) within the package's own estimate and budget, as any live run; U-A8: what its runs spent is the
+    # step's (`_spent`)
+    spent=_spent, summary=("Makes a processing package of the case's documents; a person starts its live run within the package's "
              "estimate, and the step is done once a live run is approved."),
     actions=(capabilities.Action("start_run", "Start the live run", _can_start, start_run),),
     # C3b4: the case list says a person's start while the package waits for its live run, the machine's work while it
