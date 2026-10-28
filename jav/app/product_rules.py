@@ -335,6 +335,12 @@ def made_by_ids_in(c: Any, kind: str, ident: str) -> set[str | None]:
     return {r[0] for r in c.execute(f"SELECT made_by_id FROM {_TABLES[_kind(kind)]} WHERE ident=?", (ident,))}  # noqa: S608
 
 
+def origins_in(c: Any, kind: str, ident: str) -> list[dict[str, Any]]:
+    """231 (U-A4): where each version of a thing came from (its content's `origin`, a rule's proposal; none: `{}`)."""
+    return [json.loads(r[0]).get("origin") or {} for r in c.execute(
+        f"SELECT content FROM {_TABLES[_kind(kind)]} WHERE ident=? ORDER BY version", (ident,))]  # noqa: S608
+
+
 def remove_in(c: Any, kind: str, ident: str) -> int:
     """231 (U0): every version of a thing taken out of the store, inside the caller's write transaction; only for a
     process's example material that nothing keeps (`jav/app/examples.py` checks); the versions removed."""

@@ -404,8 +404,21 @@ def _draft(c: Any, rule: Rule, *, run_row: Any, proposal_id: int, corrected: boo
     origin = {"kind": "proposal", "run": run_row["run_id"], "proposal": proposal_id, "proposer": run_row["proposer"],
               "corrected": corrected, "confirmed": confirmed}
     content = rule.model_dump(mode="json") | {"origin": origin}
-    key = ident or _ident(rule)
+    key = ident or _free_ident(c, _ident(rule), proposal_id)
     return versions.ref(key, product_rules.add_in(c, "rule", key, content, actor=actor))
+
+
+def _free_ident(c: Any, base: str, proposal_id: int) -> str:
+    """U-A4 (the A group accepted on 2026-10-28): several rules decided from one clause, each one of its own kind, are
+    rules of their own, not versions of one: an identifier whose rule came from another proposal is taken, and the next
+    one (`-2`, `-3`, ...) is tried."""
+    n = 1
+    while True:
+        key = base if n == 1 else f"{base}-{n}"
+        origins = product_rules.origins_in(c, "rule", key)
+        if all(o.get("proposal") == proposal_id for o in origins):
+            return key
+        n += 1
 
 
 def accept(proposal_id: int, *, actor: identity.Who, expected_state: int | None, confirmed: list[str] | None = None,
