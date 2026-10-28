@@ -26,7 +26,7 @@ import logging
 import time
 from typing import Any
 
-from jav.app import capabilities, item_kinds, package_scope, process_packs, scopes
+from jav.app import capabilities, item_kinds, package_scope, process_packs, scopes, work
 from jav.core import identity, store
 from jav.core.clock import utc_stamp as _now
 
@@ -175,7 +175,10 @@ def start_due() -> list[dict[str, Any]]:
                     _remember(pack.id, wp_id, item_id, STARTING)
                     # the case is named by what it is about (a name the machine stores is in no interface language)
                     name = (_label(pack, shown.get("record")) or (shown.get("record") or {}).get("title") or item_id)[:200]
-                    case_id = process_runtime.start_case(pack.id, {scopes.RECORD: record}, name=name, actor=MACHINE)
+                    # U1: the case belongs to whom the email's package belongs; the machine only started it
+                    owner = work.get(wp_id).get("owner") or None
+                    case_id = process_runtime.start_case(pack.id, {scopes.RECORD: record}, name=name, actor=MACHINE,
+                                                         owner=owner)
                     _remember(pack.id, wp_id, item_id, STARTED, case_id)
                     started.append({"pack": pack.id, "record": record, "case_id": case_id})
                 taken.add((wp_id, item_id))

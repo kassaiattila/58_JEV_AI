@@ -197,16 +197,18 @@ def _values(content: dict[str, Any], package: str, n: int, output: str) -> tuple
 
 
 def compose(content: dict[str, Any], *, package: str, n: int, paragraph: str | None, frame_key: str = FRAME,
-            output: str = quote_document.OUTPUT) -> str:
+            output: str = quote_document.OUTPUT, signer: str | None = None) -> str:
     """The letter's body: the greeting, the paragraph (GPT's, or the frame's own), the totals, the closing. 231 (A3b):
     `frame_key` names the letter frame in the documents' settings; the default is the quote's. D0-c: `output` names
-    the output whose builder fills the frame's values."""
+    the output whose builder fills the frame's values. U1: signed by `signer` (the person the quote belongs to) under
+    the closing, when named."""
     language = content.get("language") or quote_document.default_language()
     frame = _frame(language, frame_key)
     values, kinds = _values(content, package, n, output)
     greeting = frame["greeting"] if values.get("contact_name") else frame["greeting_none"]
+    closing = frame["closing"] + (f"\n{signer.strip()}" if signer and signer.strip() else "")
     parts = [_fill(greeting, values, kinds, language), (paragraph or frame["fallback"]).strip(),
-             _fill(frame["totals"], values, kinds, language), frame["closing"]]
+             _fill(frame["totals"], values, kinds, language), closing]
     return "\n\n".join(parts) + "\n"
 
 
@@ -325,7 +327,8 @@ def view(wp_id: str, *, step: str | None = None) -> dict[str, Any]:
     except LetterError:
         return out
     n, content = v["version"], v["content"]
-    package = work.get(wp_id)["name"]
+    wp = work.get(wp_id)
+    package = wp["name"]
     with store.connect() as c:
         row = _row(c, wp_id, step, n)
         out["decision_state"] = decisions.state(c, KIND, _key(wp_id, step, n))
@@ -339,7 +342,7 @@ def view(wp_id: str, *, step: str | None = None) -> dict[str, Any]:
                problems=problems, error=row["error"] if row is not None else None,
                usage=json.loads(row["usage"]) if row is not None and row["usage"] else None,
                body=accepted["body"] if accepted else compose(content, package=package, n=n, paragraph=usable, frame_key=frame,
-                                                              output=_output_of(row)),
+                                                              output=_output_of(row), signer=work.person_owner(wp)),
                accepted=accepted, to=recipient(content, _request(content)), subject=subject(content, frame))
     return out
 

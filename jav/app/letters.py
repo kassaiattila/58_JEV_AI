@@ -166,7 +166,7 @@ def view(case_id: str, step: str) -> dict[str, Any]:
     if document is not None:
         try:
             values, kinds_of = _values(case_id, document, package)
-            draft = compose(settings["frames"][params.frame], values, kinds_of, params, signer=work.get(case_id).get("owner"))
+            draft = compose(settings["frames"][params.frame], values, kinds_of, params, signer=work.person_owner(work.get(case_id)))
         except (KeyError, ValueError) as exc:  # the document's version or its builder: the reason shows
             problem = str(exc)
     approval = package_release.approval_state(case_id, step=step)

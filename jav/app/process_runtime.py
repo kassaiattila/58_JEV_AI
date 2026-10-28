@@ -55,13 +55,15 @@ CONTAINER = "case"  # the container work package's kind
 activity_kinds.register_events("package", ("case_wrapped",), __name__)  # C3b4: a wrapped package's log names its case
 
 
-def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identity.Who, follows: str | None = None) -> str:
+def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identity.Who, follows: str | None = None,
+               owner: identity.Who | None = None) -> str:
     """Starts a case of the pack's current version with this scope (checked by its parts); returns its id. 231 (B2):
     with the process's own active values over the file's resources, kept in the case's data (a later change reaches
     only the cases started after it); (B3) and its own active rule values, which the case's work reads over the rule
     files (`capabilities.case_rules`). Stage D0 (D0-e): it keeps the versions current at its start to its end: its
     resources naming a versioned thing (a price list, a template) at their version then, and the rule files its steps
-    read as its calculation snapshot holds them (`capabilities.KEPT_RULES`)."""
+    read as its calculation snapshot holds them (`capabilities.KEPT_RULES`). U1: the case belongs to `owner` when given
+    (a case the email intake starts belongs to whom the email's package belongs), else to who starts it."""
     from jav.app import process_settings
 
     pack = process_packs.load(pack_id)
@@ -70,7 +72,8 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
     resources = kept.resources
     rules, rule_refs = process_settings.effective_rules(pack)
     definition = process_packs.definition(kept)
-    wp = work.create_workpackage(name=name, source_kind=CONTAINER, source_ref=f"pack:{pack.id}@{pack.version}", owner=actor)
+    wp = work.create_workpackage(name=name, source_kind=CONTAINER, source_ref=f"pack:{pack.id}@{pack.version}",
+                                 owner=owner or actor)
     case_id = wp["id"]
     data = {"pack": pack.id, "pack_version": pack.version, "container": case_id, "name": wp["name"], "scope": checked,
             "resources": resources, capabilities.RULES: rules, capabilities.RULE_REFS: rule_refs,

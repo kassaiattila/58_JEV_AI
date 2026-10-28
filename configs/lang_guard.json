@@ -1077,7 +1077,7 @@
     "tests/test_property_documents_231.py": 1,
     "tests/test_quick_review_speed_149.py": 1,
     "tests/test_quote_document_196.py": 11,
-    "tests/test_quote_letter_196.py": 21,
+    "tests/test_quote_letter_196.py": 22,
     "tests/test_quote_table_part_192.py": 1,
     "tests/test_rated_offer_231.py": 15,
     "tests/test_recipe_help.py": 1,
