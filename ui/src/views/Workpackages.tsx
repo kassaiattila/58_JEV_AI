@@ -35,9 +35,9 @@ function WorkpackageList() {
         scope={Object.keys(scope).length ? scope : undefined}
         toolbar={<>
           <label className="check small" title={actor ? undefined : t("Előbb válaszd ki a neved fent")}>
-            <input type="checkbox" checked={mine && Boolean(actor)} disabled={!actor} onChange={(e) => setMine(e.target.checked)} /> {t("Csak a saját csomagjaim")}
+            <input type="checkbox" checked={mine && Boolean(actor)} disabled={!actor} onChange={(e) => setMine(e.target.checked)} /> {t("Csak a saját kötegeim")}
           </label>
-          <label className="check small"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> {t("Elrejtett csomagok is")}</label>
+          <label className="check small"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> {t("Elrejtett kötegek is")}</label>
         </>}
         cell={(col, row) => (col.key === "next_label" ? (
           // the next step in the chosen language (from the local service's code), with a link to the stage

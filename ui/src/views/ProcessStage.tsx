@@ -132,11 +132,11 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
               </div>
             ) : null}
           </div>
-        ) : <p className="muted">{t("Ezen a csomagon még nem futott feldolgozás.")}</p>}
+        ) : <p className="muted">{t("Ezen a kötegen még nem futott feldolgozás.")}</p>}
         {view.attachments_missing ? (
           // 058 K5.2: in an email package from before 058 the PDF attachments are not items yet; once added, the email
           // recipe extracts their data
-          <p className="notice">{t("A levelek {{n}} PDF-csatolmánya még nincs a csomagban. Felvéve a következő futás a csatolmányok adatait is kinyeri.", { n: view.attachments_missing })}
+          <p className="notice">{t("A levelek {{n}} PDF-csatolmánya még nincs a kötegben. Felvéve a következő futás a csatolmányok adatait is kinyeri.", { n: view.attachments_missing })}
             {" "}<button type="button" className="secondary small-btn" disabled={busy || active} onClick={() => void addAttachments()}><Icon name="plus" />{t("Csatolmányok felvétele")}</button></p>
         ) : null}
         {!readiness.ready ? (
@@ -186,8 +186,8 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
       <SettingsCard view={view} onChanged={onChanged} />
 
       <section aria-label={t("Futások")} className="wide">
-        <h2>{t("A csomag futásai")}</h2>
-        <DataTable dataset="runs" scope={{ workpackage_id: wp.id }} label={t("A csomag futásai")} storageId="wp-runs" defaultHidden={["workpackage_name"]} pollMs={active ? 4000 : undefined}
+        <h2>{t("A köteg futásai")}</h2>
+        <DataTable dataset="runs" scope={{ workpackage_id: wp.id }} label={t("A köteg futásai")} storageId="wp-runs" defaultHidden={["workpackage_name"]} pollMs={active ? 4000 : undefined}
           emptyText={t("Még nem futott.")} initial={{ limit: 50 }} />
       </section>
 
@@ -350,12 +350,12 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
             <p><strong>{t(recipes.data?.titles?.[current.recipe_id] ?? current.recipe_id)}</strong>
               <span className="muted small"> — {t("mentette: {{actor}}, {{when}}", { actor: current.actor, when: when(current.created_at) })}</span></p>
             <p className="muted">{paramsText(current.params)}</p>
-            <p className="notice">{t("Ez a csomag egy korábbi feldolgozási változat beállításait őrzi. A Módosítás gombbal a mostani feldolgozásra állíthatod; a beállításai megmaradnak, az előre megadott irattípus elmarad, mert a rendszer felismeri.")}</p>
+            <p className="notice">{t("Ez a köteg egy korábbi feldolgozási változat beállításait őrzi. A Módosítás gombbal a mostani feldolgozásra állíthatod; a beállításai megmaradnak, az előre megadott irattípus elmarad, mert a rendszer felismeri.")}</p>
           </>
         ) : catalogue[0] ? (
           <>
             <p><strong>{recipeTitle(catalogue[0], help)}</strong></p>
-            <p className="muted">{t("Alapbeállítás: ha nem módosítod, a futás indításakor ez mentődik a csomaghoz.")}</p>
+            <p className="muted">{t("Alapbeállítás: ha nem módosítod, a futás indításakor ez mentődik a köteghez.")}</p>
             <RecipeParamList recipe={catalogue[0]} params={{}} help={help} kinds={kinds} />
           </>
         ) : null

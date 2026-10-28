@@ -85,7 +85,7 @@ def next_step(wp: dict[str, Any], last_run: dict[str, Any] | None, ready: bool |
     items = wp["items"] if isinstance(wp.get("items"), list) else None
     n_items = len(items) if items is not None else wp.get("items", 0)
     if not n_items:
-        return step("empty", "Üres csomag", "process")
+        return step("empty", "Üres köteg", "process")
     if last_run is None:  # 080: without an assignment the default processing settings apply
         return step("start", "Próbafutás indítása", "process") if ready is not False else step("blocked", "Nem indítható", "process")
     status = last_run["status"]

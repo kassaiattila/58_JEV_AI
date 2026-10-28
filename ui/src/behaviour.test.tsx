@@ -152,7 +152,7 @@ describe("a képen", () => {
   });
 });
 
-describe("kiválasztott csomag identitása", () => {
+describe("kiválasztott köteg identitása", () => {
   it("a címben lévő azonosító marad a kiválasztás, nincs visszaesés az első elemre", () => {
     const r = parseRoute("#/workpackages/wp-000000000009/review/" + "b".repeat(64));
     expect(r).toEqual({ view: "workpackages", wpId: "wp-000000000009", stage: "review", itemId: "b".repeat(64) });

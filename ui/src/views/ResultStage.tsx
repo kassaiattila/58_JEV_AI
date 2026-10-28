@@ -47,7 +47,7 @@ export function ResultStage({ view, table, runId, onChanged }: {
   useLocale();
   const wp = view.workpackage;
   if (!view.runs) {
-    return <div className="empty">{t("Még nincs eredmény: előbb futtasd a csomagot a")} <a href={`#/workpackages/${wp.id}/process`}>{t("Feldolgozás")}</a> {t("szakaszban.")}</div>;
+    return <div className="empty">{t("Még nincs eredmény: előbb futtasd a köteget a")} <a href={`#/workpackages/${wp.id}/process`}>{t("Feldolgozás")}</a> {t("szakaszban.")}</div>;
   }
   return runId ? <RunResult view={view} table={table} runId={runId} />
     : <PackageResultStage view={view} table={table} onChanged={onChanged} />;

@@ -92,8 +92,8 @@ export function FoldersPanel() {
             <label className="check"><input type="checkbox" checked={f.recursive} onChange={(e) => set(i, { recursive: e.target.checked })} /> {t("Almappák is")}</label>
             <fieldset className="segmented">
               <legend className="sr-only">{t("Csomagolás")}</legend>
-              <label><input type="radio" name={`mode-${i}`} checked={f.batch_mode === "folder"} onChange={() => set(i, { batch_mode: "folder" })} /> {t("Egy közös csomag")}</label>
-              <label><input type="radio" name={`mode-${i}`} checked={f.batch_mode === "daily"} onChange={() => set(i, { batch_mode: "daily" })} /> {t("Napi csomagok")}</label>
+              <label><input type="radio" name={`mode-${i}`} checked={f.batch_mode === "folder"} onChange={() => set(i, { batch_mode: "folder" })} /> {t("Egy közös köteg")}</label>
+              <label><input type="radio" name={`mode-${i}`} checked={f.batch_mode === "daily"} onChange={() => set(i, { batch_mode: "daily" })} /> {t("Napi kötegek")}</label>
             </fieldset>
           </div>
           <div className="form-row">
@@ -106,7 +106,7 @@ export function FoldersPanel() {
             <button type="button" className="quiet small-btn" onClick={() => setDraft((d) => d.filter((_, j) => j !== i))}>{t("Eltávolítás")}</button>
             <span className="muted small">
               {f.last_at ? <>{t("Legutóbb: {{when}}", { when: when(f.last_at) })} · {f.last_status === "error" ? <span className="error-text">{f.last_result?.error}</span>
-                : t("{{n}} új irat", { n: f.last_result?.new ?? 0 })}{f.last_result?.workpackage ? <> · <a href={`#/workpackages/${f.last_result.workpackage}`}>{t("csomag")}</a></> : null}</> : t("Még nem nézte át.")}
+                : t("{{n}} új irat", { n: f.last_result?.new ?? 0 })}{f.last_result?.workpackage ? <> · <a href={`#/workpackages/${f.last_result.workpackage}`}>{t("köteg")}</a></> : null}</> : t("Még nem nézte át.")}
             </span>
           </div>
         </fieldset>

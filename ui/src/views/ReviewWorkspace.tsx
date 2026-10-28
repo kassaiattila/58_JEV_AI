@@ -43,8 +43,8 @@ export function sourceFileNote(sf: ItemResult["source_file"]): string | null {
       : t("Az eredeti fájl a felvétel óta eltűnt vagy nem olvasható. Itt a felvételkori példány látható; az eredmény ebből készült.");
   }
   return sf.original === "changed"
-    ? t("Az eredeti fájl a felvétel óta megváltozott, ezért nem jeleníthető meg (az irat még azelőtt került a csomagba, hogy a rendszer példányt tett volna el róla).")
-    : t("Az eredeti fájl a felvétel óta eltűnt vagy nem olvasható, ezért nem jeleníthető meg (az irat még azelőtt került a csomagba, hogy a rendszer példányt tett volna el róla).");
+    ? t("Az eredeti fájl a felvétel óta megváltozott, ezért nem jeleníthető meg (az irat még azelőtt került a kötegbe, hogy a rendszer példányt tett volna el róla).")
+    : t("Az eredeti fájl a felvétel óta eltűnt vagy nem olvasható, ezért nem jeleníthető meg (az irat még azelőtt került a kötegbe, hogy a rendszer példányt tett volna el róla).");
 }
 
 function withNote(note: string | null, node: ReactNode): ReactNode {
@@ -90,7 +90,7 @@ export function ReviewWorkspace({ wp, itemId, onChanged, currentRunId, openRuns 
   if (latest.error) return <p className="notice error" role="alert">{latest.error.message}</p>;
   if (!latest.data) return <p className="muted">{t("Betöltés…")}</p>;
   if (latest.data.total === 0) {
-    return <div className="empty">{t("Ezen a csomagon még nem futott feldolgozás, ezért nincs mit ellenőrizni. Indíts futást a")} <a href={`#/workpackages/${wp.id}/process`}>{t("Feldolgozás")}</a> {t("szakaszban.")}</div>;
+    return <div className="empty">{t("Ezen a kötegen még nem futott feldolgozás, ezért nincs mit ellenőrizni. Indíts futást a")} <a href={`#/workpackages/${wp.id}/process`}>{t("Feldolgozás")}</a> {t("szakaszban.")}</div>;
   }
   if (!view.data) return view.error ? <p className="notice error">{view.error.message}</p> : <p className="muted">{t("Betöltés…")}</p>;
 

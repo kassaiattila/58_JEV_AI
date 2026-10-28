@@ -239,7 +239,7 @@ def _runs(scope: dict[str, str]) -> Rows:
         work.get(wp_id)  # unknown package: 404
     cols = [
         col("created_at", "Indítva", "datetime", link="run"),
-        col("workpackage_name", "Munkacsomag", link="workpackage"),
+        col("workpackage_name", "Iratköteg", link="workpackage"),
         col("recipe_id", "Feldolgozás", "enum", labels="recipe"),
         col("mode", "Mód", "enum", labels="mode"),
         col("scope", "Run scope", "enum", labels="run_scope"),  # 160-C S3: a run over only the pending items
@@ -294,7 +294,7 @@ def _workpackages(scope: dict[str, str]) -> Rows:
         r.pop("next", None)
         if not logic_packs.has_runs(r["source_kind"]):  # 167 (review 153 E): a reconciliation's lines are not
             r["items"] = None                               # items; "0" read as empty
-    if scope.get("owner"):  # 061: "Saját csomagjaim" (My packages) — the owner's name, case-insensitive
+    if scope.get("owner"):  # 061: "Saját kötegeim" (My packages) — the owner's name, case-insensitive
         who = " ".join(scope["owner"].split()).casefold()
         rows = [r for r in rows if (r.get("owner") or "").casefold() == who]
     return cols, rows
@@ -307,7 +307,7 @@ def _activity(scope: dict[str, str]) -> Rows:
     cols = [
         col("at", "Időpont", "datetime"),
         col("action", "Művelet", "enum", labels="activity_action"),
-        col("workpackage_name", "Munkacsomag", link="workpackage"),
+        col("workpackage_name", "Iratköteg", link="workpackage"),
         col("detail", "Részlet"),
         col("run_id", "Futás", "id", link="run"),
     ]
@@ -769,11 +769,11 @@ RESULT_SCOPE = ("run_id", "workpackage_id")
 REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     # 185 (plan G-full-move T1b): the shared tables; a domain's own are registered by its domain module (`register`)
     Dataset("runs", "Futások", (), _runs, optional_scope=("workpackage_id",)),
-    Dataset("workpackages", "Munkacsomagok", (), _workpackages, _workpackages_fingerprint, optional_scope=("include_archived", "owner"),
+    Dataset("workpackages", "Iratkötegek", (), _workpackages, _workpackages_fingerprint, optional_scope=("include_archived", "owner"),
             natural_sort=(("created_at", True),), refresh_behind=True),
-    Dataset("workpackage_items", "Csomag tételei", ("workpackage_id",), _workpackage_items, optional_scope=("names", "removed")),
+    Dataset("workpackage_items", "Köteg tételei", ("workpackage_id",), _workpackage_items, optional_scope=("names", "removed")),
     Dataset("run_items", "Futás tételei", ("run_id",), _run_items, _run_items_fingerprint, optional_scope=("names",)),
-    Dataset("package_costs", "A csomag költsége", ("workpackage_id",), _package_costs),
+    Dataset("package_costs", "A köteg költsége", ("workpackage_id",), _package_costs),
     # 172: a result table is a run's, or the package's current result (each item from its counted run)
     Dataset("documents", "Iratok", (), _documents, result_fingerprint, one_of=RESULT_SCOPE),
     Dataset("datapoints", "Adatpontok", (), _datapoints, result_fingerprint, one_of=RESULT_SCOPE),

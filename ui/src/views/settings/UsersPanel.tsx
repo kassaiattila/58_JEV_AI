@@ -41,7 +41,7 @@ export function UsersPanel() {
 
   return (
     <section className="card wide" aria-label={t("Felhasználók")}>
-      <p className="muted small">{t("A fejléc „Ki dolgozik?” választója ebből a listából kínál; ha a lista nem üres, módosítani csak a listán szereplő névvel lehet. A név kerül a javítások, a jóváhagyások és a futások mellé, és a csomag felelőse is innen választható.")}</p>
+      <p className="muted small">{t("A fejléc „Ki dolgozik?” választója ebből a listából kínál; ha a lista nem üres, módosítani csak a listán szereplő névvel lehet. A név kerül a javítások, a jóváhagyások és a futások mellé, és a köteg felelőse is innen választható.")}</p>
       {data.error ? <p className="notice error">{data.error.message}</p> : null}
       <ul className="plain user-list">
         {draft.map((u) => (

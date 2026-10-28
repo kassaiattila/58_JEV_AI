@@ -18,7 +18,7 @@ export interface SettingsSectionSpec {
 export interface SettingsPart { section: string; title: string; Panel: ComponentType }
 
 const SHARED: SettingsSectionSpec[] = [
-  { key: "folders", label: "Munkamappák", hint: "Figyelt mappák: az új iratokból magától lesz munkacsomag", order: 20 },
+  { key: "folders", label: "Munkamappák", hint: "Figyelt mappák: az új iratokból magától lesz iratköteg", order: 20 },
   // 231 (B1): the shared partner register, the outside parties of the processes
   { key: "partners", label: "Partners", hint: "The outside parties of the processes: customers, suppliers, insured persons and brokers, each with its roles; every change is kept as a version", order: 40 },
   // 231 (B4): each process's own values over its file's: what it uses and the rule values its steps let it set

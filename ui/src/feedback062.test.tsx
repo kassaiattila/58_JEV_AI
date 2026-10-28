@@ -22,7 +22,7 @@ describe("062 felület-javítások", () => {
     expect(queueStatus(undefined, 0)).toBe("még nem futott");
   });
 
-  it("B: levélcsomagnál a Levelek az alapfül; a valószínűség százalékban", () => {
+  it("B: levélkötegnél a Levelek az alapfül; a valószínűség százalékban", () => {
     expect(defaultResultTable(["emails", "tasks", "documents", "datapoints"])).toBe("emails");
     expect(defaultResultTable(["documents", "datapoints", "line_items"])).toBe("datapoints");
     expect(defaultResultTable(["utility"])).toBe("utility");
@@ -73,12 +73,12 @@ describe("062 felület-javítások", () => {
       { key: "created_at", label: "Létrehozva", kind: "datetime", hidden: false, labels: null },
     ];
     const pg: DsPage = {
-      dataset: { name: "workpackages", label: "Munkacsomagok", scope: [], optional_scope: [], natural_sort: [{ col: "created_at", desc: true }] },
-      columns: cols, rows: [{ _key: "wp-1", name: "Minta csomag", created_at: "2026-09-29T01:00:00Z" }], total: 1, matched: 1, offset: 0, limit: 100, facets: {},
+      dataset: { name: "workpackages", label: "Iratkötegek", scope: [], optional_scope: [], natural_sort: [{ col: "created_at", desc: true }] },
+      columns: cols, rows: [{ _key: "wp-1", name: "Minta köteg", created_at: "2026-09-29T01:00:00Z" }], total: 1, matched: 1, offset: 0, limit: 100, facets: {},
     };
     vi.spyOn(api, "datasetQuery").mockResolvedValue(pg);
-    const { container } = render(<DataTable dataset="workpackages" label="Munkacsomagok" />);
-    await screen.findByText("Minta csomag");
+    const { container } = render(<DataTable dataset="workpackages" label="Iratkötegek" />);
+    await screen.findByText("Minta köteg");
     expect([...container.querySelectorAll(".sort-mark")].map((m) => m.getAttribute("data-dir"))).toEqual(["none", "desc"]);
     const head = screen.getByRole("button", { name: /^Létrehozva/ });
     expect(head.closest("th")?.getAttribute("aria-sort")).toBe("descending");

@@ -945,7 +945,7 @@ def delete_workpackage(wp_id: str, *, actor: identity.Who) -> None:
             raise KeyError(wp_id)
         if c.execute("SELECT 1 FROM runs WHERE workpackage_id=? LIMIT 1", (wp_id,)).fetchone() is not None:
             raise explained(NotReady, "a work package with runs can only be archived",
-                            [{"code": "has_runs", "message": "A csomagnak van futása: csak elrejthető."}])
+                            [{"code": "has_runs", "message": "A kötegnek van futása: csak elrejthető."}])
         rows = c.execute("SELECT instance FROM workpackage_items WHERE workpackage_id=?", (wp_id,)).fetchall()
         pack = logic_packs.of(row["source_kind"])  # 176: an unknown kind is refused, not deleted unguarded
         if pack is not None and pack.delete_guard is not None:  # 131: a reconciliation with decisions is hidden

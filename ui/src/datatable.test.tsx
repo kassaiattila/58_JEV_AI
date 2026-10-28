@@ -163,7 +163,7 @@ describe("közös táblázat", () => {
 });
 
 describe("útvonalak (057)", () => {
-  it("a csomag szakaszai, az eredmény táblája és futása a címsorban; a régi címek az új helyre visznek", () => {
+  it("a köteg szakaszai, az eredmény táblája és futása a címsorban; a régi címek az új helyre visznek", () => {
     const h = routeHash({ view: "workpackages", wpId: "wp-1", stage: "result", table: "line_items", runId: "run-000000000001" });
     expect(h).toBe("#/workpackages/wp-1/result/line_items?run=run-000000000001");
     expect(parseRoute(h)).toEqual({ view: "workpackages", wpId: "wp-1", stage: "result", table: "line_items", runId: "run-000000000001" });

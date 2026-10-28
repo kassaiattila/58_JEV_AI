@@ -23,7 +23,7 @@ it("a templated message is translated with its parameters", async () => {
   failWith({ error: "invalid", message: "Documents to add: their full paths, one per line", template: "In the package: {{items}}",
     params: { items: "3 irat" } });
   const err = await caught();
-  expect(err.message).toBe("A csomagban: 3 irat");
+  expect(err.message).toBe("A kötegben: 3 irat");
   expect(err.code).toBe("invalid");
   expect(err.status).toBe(422);
 });

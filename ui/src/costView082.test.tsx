@@ -45,7 +45,7 @@ describe("082 planned and actual", () => {
 describe("082 package cost", () => {
   it("the package's cost is listed per provider and model, with the total over every run", async () => {
     const pg: DsPage = {
-      dataset: { name: "package_costs", label: "A csomag költsége", scope: ["workpackage_id"], optional_scope: [], natural_sort: [] },
+      dataset: { name: "package_costs", label: "A köteg költsége", scope: ["workpackage_id"], optional_scope: [], natural_sort: [] },
       columns: [{ key: "provider", label: "AI-szolgáltató", kind: "enum", hidden: false, labels: { jev: "JEV", openai: "OpenAI" } },
         { key: "usd", label: "Költség (USD)", kind: "number", hidden: false, labels: null }],
       rows: [{ _key: "jev:jev-1.13.0", provider: "jev", usd: "0.005000", reused: 4 }, { _key: "openai:gpt", provider: "openai", usd: "0.001000", reused: 0 }],

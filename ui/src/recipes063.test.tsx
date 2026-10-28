@@ -11,7 +11,7 @@ afterEach(() => vi.restoreAllMocks());
 
 const INVOICE: Recipe = {
   id: "invoice-extraction", version: 5, title: "Számlák adatainak kinyerése", description: "Leírás.", steps: ["Beolvasás (szükség esetén OCR)"],
-  requirements: ["Legalább egy PDF-irat a munkacsomagban"], result: "Iratonként mezőnkénti adat forrással, ellenőrzési eredménnyel és okonkénti teendőkkel.",
+  requirements: ["Legalább egy PDF-irat az iratkötegben"], result: "Iratonként mezőnkénti adat forrással, ellenőrzési eredménnyel és okonkénti teendőkkel.",
   manual_action: "A teendők rendezése, majd éles módban a futás jóváhagyása.",
   params: { arm: { allowed: ["auto", "S", "G"], default: "auto" }, jev_cache: { allowed: ["reuse", "live"], default: "reuse" } },
   max_item_usd: { S: { jev: "0.05" }, G: { jev: "0.05", openai: "0.10" }, auto: { jev: "0.05", openai: "0.10" } },
@@ -24,7 +24,7 @@ const EMAIL: Recipe = {
   param_item_usd: [{ param: "tasks", value: "propose", kind: "email", usd: { openai: "0.006" } }],
 };
 const HELP: RecipeHelp = {
-  recipes: { "invoice-extraction": { when: "Ha a csomagban egyféle, ismert típusú irat van (például csak magyar számlák vagy csak villamosenergia-számlák). A típust te adod meg, a rendszer külön nem ismeri fel." } },
+  recipes: { "invoice-extraction": { when: "Ha a kötegben egyféle, ismert típusú irat van (például csak magyar számlák vagy csak villamosenergia-számlák). A típust te adod meg, a rendszer külön nem ismeri fel." } },
   params: {
     arm: { help: "Hogyan olvassa ki a rendszer az adatokat az iratból. Bármelyik út után kódos ellenőrzés jön (például az adószám ellenőrzőszáma, az összegek egyezése); ami bizonytalan, teendő lesz.",
       options: { S: "A kód kigyűjti a lehetséges értékeket (számlaszám-, dátum- és összegjelölteket), a JEV mezőnként választ közülük. Csak JEV-hívás, ezért olcsóbb; tételsorokat nem olvas. Egyes irattípusok csak a G utat ismerik." } },
@@ -55,7 +55,7 @@ describe("063 a receptek magyarázata", () => {
     render(<RecipesPanel />);
     expect(await screen.findByRole("region", { name: "Számlák adatainak kinyerése" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: INVOICE.title })).toBeTruthy();
-    expect(screen.getByText("Legalább egy PDF-irat a munkacsomagban")).toBeTruthy();
+    expect(screen.getByText("Legalább egy PDF-irat az iratkötegben")).toBeTruthy();
     expect(screen.getByText("Beolvasás (szükség esetén OCR)")).toBeTruthy();
     expect(screen.getAllByText("alapbeállítás").length).toBe(2); // the default of the path and of the JEV answers
     // the path affects the cost too, so the budget is shown for each option; for the JEV answers it is not
