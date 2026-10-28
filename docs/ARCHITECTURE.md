@@ -1027,7 +1027,10 @@ tariff parameters offer the registry's active things as choices, so a process's 
 `price_list`) and the invented own parties with their accounts (`jav/domains/finance/party_examples.py`, `own_party`; a
 party goes only while no case and no record names it). A packet's document is either printed pages, written as a PDF,
 or a text written as it is (the invented party's camt.053 statements), and a pack may add a sentence on how its material
-is tried (`examples.note`: the reconciliation pairs what the documents and the bank statements processes read).
+is tried (`examples.note`: the reconciliation pairs what the documents and the bank statements processes read). An invented
+mailbox (`configs/example_mailboxes.json`, `jav/domains/email/mailbox_examples.py`) is read by the runner its module
+registers with the mailbox bridge (`mailbox_bridge.register_invented`) instead of the Outlook script: it sends each
+message to the temporary email receiver as the Outlook bridge does, so the package is made as for a real download.
 `scripts/dev.ps1 start` also starts the invented registers (`invented-services`, 127.0.0.1:8941) the insurance case's
 lookups ask.
 

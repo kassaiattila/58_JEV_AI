@@ -90,4 +90,14 @@ describe("the new case page (231 U0)", () => {
     expect(await screen.findByText("First read the invented party's documents in the other processes.")).toBeTruthy();
     expect(screen.getByText("Example Party Kft.")).toBeTruthy();
   });
+
+  it("shows example material that is only a note, with nothing to install (U1e)", async () => {
+    vi.spyOn(api, "processes").mockResolvedValue({ processes: [{ ...DOCS, id: "mail_pack", title: "Mail", examples: true }] });
+    vi.spyOn(api, "processExamples").mockResolvedValue({ sets: [], packets: [], note: "Try it on the invented mailbox." });
+    vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
+    vi.spyOn(api, "parties").mockResolvedValue({ parties: [] } as never);
+    render(<NewCase pack="mail_pack" />);
+    expect(await screen.findByText("Try it on the invented mailbox.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Install the example material" })).toBeNull();
+  });
 });

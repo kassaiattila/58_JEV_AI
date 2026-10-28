@@ -18,8 +18,8 @@ export function ExampleMaterial({ pack, needed, onChanged }: { pack: string; nee
   const { busy, error, run } = useAction();
   if (examples.error) return <p className="notice error" role="alert">{examples.error.message}</p>;
   if (!examples.data) return <p className="muted">{t("Loading…")}</p>;
-  const { sets, packets } = examples.data;
-  if (!sets.length && !packets.length) return null;
+  const { sets, packets, note } = examples.data;
+  if (!sets.length && !packets.length && !note) return null;
   const installed = sets.every((s) => s.state === "installed");
   const removable = sets.length > 0 && installed && sets.every((s) => s.example);
   const changed = () => { examples.reload(); onChanged(); };
@@ -41,7 +41,7 @@ export function ExampleMaterial({ pack, needed, onChanged }: { pack: string; nee
         </ul>
       ) : null}
       {packets.length ? <p className="muted small">{t("{{n}} packets of invented documents to start a case on: the form offers them as its documents.", { n: packets.length })}</p> : null}
-      {examples.data.note ? <p className="small">{t(examples.data.note)}</p> : null}
+      {note ? <p className="small">{t(note)}</p> : null}
       {(!installed || removable) ? (
         <div className="button-row">
           {!installed ? (

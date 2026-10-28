@@ -125,6 +125,9 @@ def register() -> None:
                                             data=email_export.result_tables, json_key="emails",
                                             views=email_export.shown_tables, heads=email_export.HEADS))
     workflow_steps.register_source(mailbox.SOURCE)  # 185: a mailbox download as a step's source
+    from jav.domains.email import mailbox_examples
+
+    mailbox_examples.register()  # 231 (U1e): the invented mailboxes, read by the invented bridge instead of Outlook
     from jav.app import document_processing
 
     # 231 (C3d): the mailbox download as a package maker of the document processing step (the mailbox pack's), with

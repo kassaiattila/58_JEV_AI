@@ -4,7 +4,9 @@ Plain-language summary: what a download reads (`MailboxRequest`: the addresses, 
 many emails), the free count preview and the download itself through the Outlook script (a test never reaches the
 script: it passes its own runner, and the tests' guard replaces `_subprocess_runner` here), the work package of the
 fresh messages with its owner, the PDF attachments added later, and the mark on an attachment of a suspicious email.
-The rules it follows are described in `mailbox.py`.
+231 (U1e): an invented mailbox's address is read by the runner its module registers (`register_invented`, the example
+mailboxes' invented bridge) instead of the Outlook script; a request naming an invented and a real mailbox together is
+refused. The rules it follows are described in `mailbox.py`.
 """
 
 from __future__ import annotations
@@ -52,6 +54,27 @@ Runner = Callable[[list[str], int], tuple[int, str, str]]
 
 class BridgeError(RuntimeError):
     """The legacy script failed (e.g. Outlook not running, unknown mailbox); the text is the script's message."""
+
+
+_INVENTED: dict[str, Runner] = {}  # 231 (U1e): an invented mailbox's address (lower case) -> the runner that reads it
+
+
+def register_invented(addresses: list[str], runner: Runner) -> None:
+    """Invented mailboxes, read by `runner` (the script's arguments in, its exit code and output out)."""
+    _INVENTED.update({a.lower(): runner for a in addresses})
+
+
+def _runner_for(req: MailboxRequest) -> Runner:
+    """The Outlook script, or the runner of the invented mailboxes the request names (all of them one runner's)."""
+    from jav.app import registrations
+
+    registrations.load_all()
+    invented = {_INVENTED[a.lower()] for a in req.accounts if a.lower() in _INVENTED}
+    if not invented:
+        return _subprocess_runner
+    if len(invented) > 1 or any(a.lower() not in _INVENTED for a in req.accounts):
+        raise explained(BridgeError, "an invented mailbox is read on its own, not together with a real one")
+    return invented.pop()
 
 
 class MailboxRequest(BaseModel):
@@ -143,7 +166,7 @@ def count(req: MailboxRequest, *, runner: Runner | None = None) -> dict[str, Any
 
     The legacy script's `eligible` is the number of messages to download (not yet read in); all messages of the period
     are `counts.mail` (065: the UI used to show `eligible` as the total)."""
-    code, out, err = (runner or _subprocess_runner)(_argv(req, "count"), COUNT_TIMEOUT_S)
+    code, out, err = (runner or _runner_for(req))(_argv(req, "count"), COUNT_TIMEOUT_S)
     lines = [line for line in out.strip().splitlines() if line.strip().startswith("{")]
     if code != 0 or not lines:
         raise BridgeError(_error_text(err, out, code))
@@ -159,6 +182,7 @@ def count(req: MailboxRequest, *, runner: Runner | None = None) -> dict[str, Any
 def fetch(req: MailboxRequest, *, actor: identity.Who, runner: Runner | None = None, inbox_root: Path | None = None) -> dict[str, Any]:
     """Download through our own temporary email receiver; new / changed messages become a work package with the
     default processing (080)."""
+    run = runner or _runner_for(req)
     token = secrets.token_urlsafe(24)
     stored: list[dict[str, Any]] = []
     lock = threading.Lock()
@@ -173,7 +197,7 @@ def fetch(req: MailboxRequest, *, actor: identity.Who, runner: Runner | None = N
     interrupted: Exception | None = None
     try:
         url = f"http://127.0.0.1:{httpd.server_address[1]}/ingest/email"
-        code, out, err = (runner or _subprocess_runner)(_argv(req, "fetch", OrchUrl=url, ApiToken=token), FETCH_TIMEOUT_S)
+        code, out, err = run(_argv(req, "fetch", OrchUrl=url, ApiToken=token), FETCH_TIMEOUT_S)
     except (subprocess.TimeoutExpired, OSError) as exc:
         # 063: messages that already arrived in an interrupted download (timeout, stopped script) must not be lost
         interrupted, code, out, err = exc, -1, "", f"{type(exc).__name__}: {exc}"
