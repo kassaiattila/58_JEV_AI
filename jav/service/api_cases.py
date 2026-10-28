@@ -58,6 +58,12 @@ class Source(In):
     request: dict[str, Any] | None = None
 
 
+class FollowUpIn(In):
+    """231 (U1): the process a closed case's follow-up starts."""
+
+    pack: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+
+
 class CaseIn(In):
     """The pack, the case's name and its scope: the record it starts from, or (231 C1c) the work packages it reads, or
     (C2d) the own party and the period it is about."""
@@ -93,6 +99,11 @@ def routes(app: FastAPI, r: str) -> None:
                  **({"source": _source(body.source)} if body.source else {})}
         case_id = process_runtime.start_case(body.pack, scope, name=body.name, actor=who)
         return {"case_id": case_id}
+
+    @app.post(r + "/cases/{case_id}/follow-ups", status_code=201)
+    def follow_up(case_id: CaseId, body: FollowUpIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        """231 (U1): a case of the process that follows the closed case, started from its documents."""
+        return {"case_id": process_runtime.follow_up(case_id, body.pack, actor=who)}
 
     @app.get(r + "/cases/{case_id}")
     def case_page(case_id: CaseId) -> dict[str, Any]:

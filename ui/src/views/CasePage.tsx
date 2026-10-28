@@ -6,7 +6,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { api, type CaseView } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { elementOf, type ElementProps } from "../elements/registry";
-import { useLoad } from "../hooks";
+import { errorText, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { stepLabel } from "../labels";
 import { go } from "../route";
@@ -35,6 +35,35 @@ export const moving = (page: CaseView) => page.case.status === "open" && (page.c
  *  checks for its acceptance every few seconds rather than being told), so the next step shows without a reload. */
 const SETTLE_MS = 12000;
 export const settling = (until: number | null, now: number) => until !== null && now <= until;
+
+/** 231 (U1; the owner's decision of 2026-10-28): what may follow a closed case - another process a person starts from
+ *  its documents - or the case started from it. */
+function FollowUps({ caseId, view }: { caseId: string; view: CaseView }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const items = view.case.status !== "open" ? view.follow_ups ?? [] : [];
+  if (!items.length) return null;
+  const start = async (pack: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const made = await api.caseFollowUp(caseId, pack);
+      go({ view: "cases", caseId: made.case_id });
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="button-row">
+      {items.map((f) => f.case_id
+        ? <a key={f.pack} href={`#/cases/${encodeURIComponent(f.case_id)}`}>{t("Followed by: {{case}}", { case: f.case_id })}</a>
+        : <button key={f.pack} type="button" className="primary" disabled={busy} onClick={() => void start(f.pack)}>{t(f.title)} →</button>)}
+      {error ? <span className="notice error small" role="alert">{error}</span> : null}
+    </div>
+  );
+}
 
 export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
   useLocale();
@@ -79,6 +108,7 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
       <PageHeader compact crumbs={[{ label: t("Cases"), href: "#/cases" }]} title={view.case.name ?? t(view.case.title)}
         summary={summary}
         actions={container.data ? <><OwnerPicker view={container.data} onChanged={reload} />{nextButton}<WorkpackageActions view={container.data} onChanged={reload} /></> : nextButton} />
+      <FollowUps caseId={caseId} view={view} />
       {/* A7e: one row however many tabs the pack has (the package page's three by default) */}
       <div className="stage-tabs" role="tablist" aria-label={t("The case's steps")} style={{ "--tabs": view.tabs.length } as CSSProperties}>
         {view.tabs.map((x, i) => (

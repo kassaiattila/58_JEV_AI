@@ -65,6 +65,8 @@ export interface CaseView {
   tabs: CaseTab[];
   /** the case's next step, named by its elements, and the tab it is done on */
   next: { code: string; label: string; stage: string; tab: string; params?: Record<string, number> } | null;
+  /** 231 (U1): what may follow a closed case: another process started from its documents (the case once started) */
+  follow_ups?: { pack: string; title: string; case_id: string | null }[];
 }
 
 // 231 (A7e): the data of the shared elements: a send step's handovers, a reply step's wait, the case's events and cost
@@ -203,6 +205,8 @@ export const casesApi = {
     party_id?: string; period_start?: string; period_end?: string; source?: CaseSource }) =>
     request<{ case_id: string }>("POST", "/cases", body),
   casePage: (caseId: string) => request<CaseView>("GET", `/cases/${enc(caseId)}`),
+  /** 231 (U1): a case of the process that follows the closed case, started from its documents */
+  caseFollowUp: (caseId: string, pack: string) => request<{ case_id: string }>("POST", `/cases/${enc(caseId)}/follow-ups`, { pack }),
   // D-f7: the document a step printed and stored with its version (a link, not a request)
   caseStepFileUrl: (caseId: string, stepId: string) => `/api/cases/${enc(caseId)}/steps/${enc(stepId)}/file`,
   startCaseStep: (caseId: string, stepId: string) =>

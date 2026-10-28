@@ -158,6 +158,8 @@ def view(case_id: str) -> dict[str, Any]:
                      # asks again until it moved
                      "due": state["status"] == cases.OPEN and engine.is_due(case_id)},
             "steps": {s.id: _step_view(case_id, s, rows.get(s.id, {}), said.get(s.id)) for s in pack.steps}, "tabs": tabs,
+            # 231 (U1): what may follow a closed case (its pack's follow-ups for the outcome it closed with)
+            "follow_ups": process_runtime.follow_ups(case_id) if state["status"] != "open" else [],
             "next": _next(tabs, [s.id for s in pack.steps if rows.get(s.id, {}).get("state") != "done"])
             if state["status"] == "open" else None}  # A7e: a closed case has no next step on its page
 

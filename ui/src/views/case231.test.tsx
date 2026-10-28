@@ -72,6 +72,20 @@ describe("a process pack's case (231)", () => {
     expect(screen.queryByRole("button", { name: /Ask for the proposal/ })).toBeNull();
   });
 
+  it("offers what follows a closed case and starts it, then names the case it started (U1)", async () => {
+    const closed = { ...PAGE, case: { ...PAGE.case, status: "closed" }, next: null,
+                     follow_ups: [{ pack: "insurance_offer", title: "Start the full quote from these documents", case_id: null }] };
+    vi.spyOn(api, "casePage").mockResolvedValue(closed);
+    const made = vi.spyOn(api, "caseFollowUp").mockResolvedValue({ case_id: "wp-000000000999" });
+    render(<CasePage caseId="wp-000000000231" />);
+    fireEvent.click(await screen.findByRole("button", { name: /Start the full quote from these documents/ }));
+    await waitFor(() => expect(made).toHaveBeenCalledWith("wp-000000000231", "insurance_offer"));
+    cleanup();
+    vi.spyOn(api, "casePage").mockResolvedValue({ ...closed, follow_ups: [{ ...closed.follow_ups[0], case_id: "wp-000000000999" }] });
+    render(<CasePage caseId="wp-000000000231" />);
+    expect((await screen.findByRole("link", { name: "Followed by: wp-000000000999" })).getAttribute("href")).toBe("#/cases/wp-000000000999");
+  });
+
   it("asks again for a while after a person's action, for a step that looks again on its own (U1)", () => {
     expect(settling(null, 1000)).toBe(false);
     expect(settling(1000 + 12000, 1000)).toBe(true);
