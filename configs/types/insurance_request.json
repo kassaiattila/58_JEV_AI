@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "type:insurance_request",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "changelog": [
+   {
+    "version": "1.3.0",
+    "date": "2026-10-28",
+    "note": "231 (stage U, U-A7; the paid round on the real product's invented customers): a requested cover word for word as the form prints it, never one from the prompt's examples (the model gave the invented insurer's four covers for a form that prints others). A new question."
+   },
    {
     "version": "1.2.0",
     "date": "2026-10-28",

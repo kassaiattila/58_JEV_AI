@@ -52,7 +52,7 @@ GPT_KEYS = {
     # 231 (stage D, D-e1): the insurance application's packs, pinned when they were added
     # 231 (U-A0): the property schedule reads every asset group row, an unlisted one too (a new request on purpose);
     # (U-A6) the request's chosen deductible, term and waiting days, the schedule's protection class and flood zone as printed; (U-A7) the protection the real product's rules ask for
-    "insurance_request": "3a2071df2520c034", "property_schedule": "110489c9c73fd3d9", "claims_history": "1f6311eee41aebbd",
+    "insurance_request": "d174d082a62a82d4", "property_schedule": "110489c9c73fd3d9", "claims_history": "1f6311eee41aebbd",
 }
 JEV_KEYS = {
     "altalanos_szerzodesi_feltetelek": "9aca1d3bc4265e76", "belepo_jegy": "e667b3f8f487207e",

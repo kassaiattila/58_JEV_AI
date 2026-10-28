@@ -17,7 +17,7 @@ Extract these fields; leave a field null when the form does not state it:
 - `rental_income_cover`: whether the loss of rental income is to be covered (bérleti díj kiesése), the answer as printed (igen, nem).
 - `currency`: the currency the form's amounts are in, as an ISO 4217 code (Ft and forint = HUF).
 - `requested_covers`: every cover the form asks for, one row each, in the order printed: a cover marked as wanted (X, ☒, igen) counts, one left unmarked or marked "nem" does not.
-  - `cover`: the cover as printed (vagyonbiztosítás, betöréses lopás és rablás, túlfeszültség, üzemszünet).
+  - `cover`: the cover word for word as the form prints it beside its mark (for example vagyonbiztosítás, Betöréses lopás és rablás, Vandalizmus); only a cover the form itself prints, never one from these examples or from another form.
 - `sites`: every site (telephely, kockázatviselési hely) the form lists, one row each, in the order printed:
   - `site_no`: the site's number or mark on the form (1, 2, A), as printed;
   - `address`: the site's address as printed;
