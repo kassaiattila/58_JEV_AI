@@ -99,13 +99,34 @@ def _templates() -> dict[str, str]:
     return found
 
 
+_MARKER = re.compile(r"\{\{[^}]*\}\}")
+_SOFTWARE = re.compile(r"Python|UI package|npm|pip\b|vulnerab|dependenc|audit", re.I)
+_BATCH = ((re.compile(r"\bwork packages\b"), "document batches"), (re.compile(r"\bwork package\b"), "document batch"),
+          (re.compile(r"\bpackage\(s\)"), "batch(es)"), (re.compile(r"\bpackages\b"), "batches"),
+          (re.compile(r"\bpackage\b"), "batch"))
+
+
+def _shown(template: str) -> str:
+    """231 (stage U; the owner's decision of 2026-10-28): the English interface shows the source, saying (document)
+    batch for a work package; a placeholder keeps its name, and a text about software packages stays as it is."""
+    if _SOFTWARE.search(template):
+        return template
+    parts, markers = _MARKER.split(template), _MARKER.findall(template)
+    out = []
+    for i, part in enumerate(parts):
+        for rule, new in _BATCH:
+            part = rule.sub(new, part)
+        out.append(part + (markers[i] if i < len(markers) else ""))
+    return "".join(out)
+
+
 def test_every_template_is_a_translated_interface_label() -> None:
     english = json.loads((I18N / "en-native.json").read_text(encoding="utf-8"))
     hungarian = json.loads((I18N / "hu-native.json").read_text(encoding="utf-8"))
     holes = re.compile(r"\{\{\w+\}\}")
     missing = []
     for template, where in _templates().items():
-        if english.get(template) != template or template not in hungarian:
+        if english.get(template) != _shown(template) or template not in hungarian:
             missing.append(f"{where}: {template}")
         elif sorted(holes.findall(template)) != sorted(holes.findall(hungarian[template])):
             missing.append(f"{where}: the Hungarian placeholders differ: {template}")
