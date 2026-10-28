@@ -211,7 +211,7 @@ def _install(name: str, maker: identity.Who, approver: identity.Who) -> None:
     for party in load(name).parties:
         found = _found(party)
         if found is not None and not examples.is_example(found["made_by_id"]):
-            raise explained(examples.ExampleRefused, "the tax number of {{name}} is a party's a person made: {{party}}",
+            raise explained(examples.ExampleRefused, "the tax number of {{name}} belongs to {{party}}, a party a person made",
                             name=party.name, party=found["name"])
         if found is None:
             party_id = parties.create(party.name, actor=maker, identities=[
@@ -227,7 +227,8 @@ def _install(name: str, maker: identity.Who, approver: identity.Who) -> None:
                 party_views.register_account(party_id, account.iban, kind=account.kind, currencies=[account.currency],
                                              bank=account.bank, actor=maker)
             except parties.PartyError as exc:  # another party holds the account
-                raise explained(examples.ExampleRefused, "{{name}}: {{why}}", name=party.name, why=str(exc)) from exc
+                raise explained(examples.ExampleRefused, "an account of {{name}} is another party's",
+                                name=party.name) from exc
 
 
 def _remove(name: str, maker_id: str) -> None:
@@ -248,7 +249,8 @@ def _remove(name: str, maker_id: str) -> None:
         try:
             parties.delete(f["party_id"], actor=examples.MACHINE)
         except parties.PartyError as exc:  # a package or a workflow names the party
-            raise explained(examples.ExampleInUse, "the example material stays: {{why}}", why=str(exc)) from exc
+            raise explained(examples.ExampleInUse, "the example material stays: a package or a workflow names {{name}}",
+                            name=party.name) from exc
         with store.connect() as c:
             c.executemany("DELETE FROM own_accounts WHERE key=?", [(k,) for k in _account_keys(party)])
 

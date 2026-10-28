@@ -37,7 +37,7 @@ def _actions(case_id: str, step: str) -> dict[str, dict]:
 def test_the_field_check_is_frozen_through_its_action_and_a_stale_page_is_refused(packs, client) -> None:  # noqa: F811
     case_id = _started()
     assert {n: a.get("form") for n, a in _actions(case_id, "check").items()} == {
-        "freeze": True, "unit_add": True, "unit_save": True, "unit_remove": True}
+        "freeze": True, "unit_add": True, "unit_save": True, "unit_remove": True, "keep_value": True}
     state = field_check.view(case_id, "check")["state"]
     url = f"/api/cases/{case_id}/steps/check/actions/"
     holder = next(u for u in assessed_units.units(case_id, "check") if u["level"] == "holder")

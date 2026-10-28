@@ -96,9 +96,7 @@ def follow_ups(case_id: str) -> list[dict[str, Any]]:
     pack = pack_for(case_id)
     with store.connect() as c:
         row = cases.find_case_in(c, case_id) or {}
-        started = {json.loads(r["detail"]).get("pack"): json.loads(r["detail"]).get("case")
-                   for r in c.execute("SELECT detail FROM process_history WHERE case_id=? AND kind=? ORDER BY id",
-                                      (case_id, FOLLOWED))}
+        started = {h["detail"].get("pack"): h["detail"].get("case") for h in cases.history_in(c, case_id, FOLLOWED)}
     if pack is None or row.get("status") != cases.CLOSED:
         return []
     return [{"pack": f.pack, "title": f.title, "case_id": started.get(f.pack)} for f in pack.follow_ups

@@ -74,8 +74,9 @@ CREATE TABLE IF NOT EXISTS field_check_claims (
     PRIMARY KEY (case_id, step_id, claim_key)
 );
 """)
-store.register_migration("field_check_claims_kept", lambda conn: store.add_columns(conn, "field_check_claims", {
-    "kept_by": "TEXT", "kept_at": "TEXT"}))  # U1: a disagreement settled by keeping the value shown
+store.register_migration("field_check_claims_kept", lambda conn: (store.add_columns(conn, "field_check_claims", {
+    "kept_by": "TEXT", "kept_at": "TEXT"}), store.add_actor_ids(conn, "field_check_claims", ("kept_by",))))
+# U1: a disagreement settled by keeping the value shown, with who kept it (its name and its stable id)
 decisions.register(decisions.Kind(KEPT, ("keep",), __name__))
 
 
@@ -288,8 +289,8 @@ def keep(case_id: str, step: str, claim_key: str, *, actor: identity.Who) -> Non
     who = identity.who(actor)
     with store.connect() as c:
         store.begin_immediate(c)
-        c.execute("UPDATE field_check_claims SET kept_by=?, kept_at=? WHERE case_id=? AND step_id=? AND claim_key=?",
-                  (who.name, _now(), case_id, step, claim_key))
+        c.execute("UPDATE field_check_claims SET kept_by=?, kept_by_id=?, kept_at=? WHERE case_id=? AND step_id=?"
+                  " AND claim_key=?", (who.name, who.id, _now(), case_id, step, claim_key))
         decisions.record(c, KEPT, f"{case_id}:{step}:{claim_key}", "keep", actor=actor, workpackage_id=case_id)
 
 

@@ -62,7 +62,7 @@ __all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest 
     "step_rows", "step_row", "without_case_in", "steps_in_phase_in", "get", "marks", "pending_events", "view", "record",
     "start", "send_event", "cancel", "override_order", "retry", "reopen", "start_in", "send_event_in",
     "override_order_in", "retry_in", "reopen_in", "adopt", "adopt_phases_in", "set_phase", "set_result", "end_wait",
-    "fail", "close", "hold", "resume", "open_ids_in", "holding_in",
+    "fail", "close", "hold", "resume", "open_ids_in", "holding_in", "history_in",
 ]
 
 OPEN, CLOSED = "open", "closed"
@@ -334,6 +334,16 @@ def _event(row: sqlite3.Row) -> Event:
                  Actor.from_json(row["sent_by"]))
 
 
+def history_in(c: sqlite3.Connection, case_id: str, kind: str | None = None) -> list[dict[str, Any]]:
+    """The case's history, oldest first (231, U1: only the rows of `kind` when given), in the caller's transaction."""
+    sql, args = "SELECT * FROM process_history WHERE case_id=?", [case_id]
+    if kind is not None:
+        sql, args = sql + " AND kind=?", [*args, kind]
+    return [{"step_id": r["step_id"], "kind": r["kind"], "actor": json.loads(r["actor"])["id"],
+             "detail": json.loads(r["detail"]), "pid": r["pid"], "at": r["at"]}
+            for r in c.execute(sql + " ORDER BY id", args)]
+
+
 def view(case_id: str) -> dict[str, Any]:
     """The case as the core keeps it: the case, its steps, its events and its history."""
     with store.connect() as c:
@@ -341,9 +351,7 @@ def view(case_id: str) -> dict[str, Any]:
         events = {r["event_id"]: {"kind": r["kind"], "status": r["status"], "conflicts": r["conflicts"]}
                   for r in c.execute("SELECT event_id, kind, status, conflicts FROM process_inbox WHERE case_id=?"
                                      " ORDER BY rowid", (case_id,))}
-        history = [{"step_id": r["step_id"], "kind": r["kind"], "actor": json.loads(r["actor"])["id"],
-                    "detail": json.loads(r["detail"]), "pid": r["pid"], "at": r["at"]}
-                   for r in c.execute("SELECT * FROM process_history WHERE case_id=? ORDER BY id", (case_id,))]
+        history = history_in(c, case_id)
         steps = {sid: {k: s[k] for k in ("state", "waiting_for", "result_version", "result", "note", "phase")}
                  for sid, s in step_rows(c, case_id).items()}
     return {"case_id": case_id, "definition": {"id": row["definition_id"], "version": row["definition_version"],
