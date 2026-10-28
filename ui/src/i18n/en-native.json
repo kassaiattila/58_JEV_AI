@@ -3616,6 +3616,7 @@
   "The invented consultancy's invoices, which the reconciliation's example pairs with its statements": "The invented consultancy's invoices, which the reconciliation's example pairs with its statements",
   "The invented consultancy's monthly statements, March to June 2026 (a bank's XML files)": "The invented consultancy's monthly statements, March to June 2026 (a bank's XML files)",
   "First read the invented consultancy's invoices (the Documents process, its packet of the consultancy's invoices) and its statements (the Bank statements process), then reconcile March to June 2026: the code pairs three payments with their invoices.": "First read the invented consultancy's invoices (the Documents process, its packet of the consultancy's invoices) and its statements (the Bank statements process), then reconcile March to June 2026: the code pairs three payments with their invoices.",
+  "{{name}}'s actions on the day: steps and decisions on the cases, processing settings, starting and approving runs, corrections, closing to-dos, task-proposal decisions, batch changes, mailbox downloads.": "{{name}}'s actions on the day: steps and decisions on the cases, processing settings, starting and approving runs, corrections, closing to-dos, task-proposal decisions, batch changes, mailbox downloads.",
   "Its case closed": "Its case closed",
   "Case or batch": "Case or batch",
   "case: started": "case: started",
