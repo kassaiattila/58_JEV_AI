@@ -3436,6 +3436,8 @@
   "Settle the disagreements first.": "Settle the disagreements first.",
   "Keep the value shown": "Keep the value shown",
   "there is no open disagreement to settle here": "there is no open disagreement to settle here",
+  "Did not run": "Did not run",
+  "The case closed before this step ran.": "The case closed before this step ran.",
   "Take this value": "Take this value",
   "The case has no processed document.": "The case has no processed document.",
   "The documents are not processed yet.": "The documents are not processed yet.",

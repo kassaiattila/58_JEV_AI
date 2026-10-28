@@ -92,6 +92,16 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
       <div role="tabpanel" aria-label={t(shown.label)}>
         {shown.elements.map((e, i) => {
           const spec = elementOf(e.type);
+          // U1: a step a closed case never reached is not waiting any more; its card would say it is
+          const step = e.step ? view.steps[e.step] : undefined;
+          if (view.case.status !== "open" && step && step.state !== "done" && step.state !== "failed") {
+            return (
+              <section key={`${e.type}-${e.step ?? ""}-${i}`} className="card" aria-label={step.title ? t(step.title) : e.step ?? ""}>
+                <div className="card-head"><h2>{step.title ? t(step.title) : e.step}</h2><span className="muted small">{t("Did not run")}</span></div>
+                <p className="muted small">{t("The case closed before this step ran.")}</p>
+              </section>
+            );
+          }
           // D0-a: the pack check refuses an element the interface cannot show; one that still comes is named, not hidden
           return <div key={`${e.type}-${e.step ?? ""}-${i}`}>{spec ? spec.render(props(e))
             : <p className="notice error" role="alert">{t("This screen element cannot be shown: {{type}}", { type: e.type })}</p>}</div>;

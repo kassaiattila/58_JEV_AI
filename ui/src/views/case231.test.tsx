@@ -65,6 +65,13 @@ describe("a process pack's case (231)", () => {
     expect(moving({ ...PAGE, steps: { ...PAGE.steps, match: step("running", { by_person: true, waiting_for: "run_end", waits_on: "work" }) } })).toBe(true);
   });
 
+  it("shows a step a closed case never reached as not run, not as waiting (U1)", async () => {
+    vi.spyOn(api, "casePage").mockResolvedValue({ ...PAGE, case: { ...PAGE.case, status: "closed" }, next: null });
+    render(<CasePage caseId="wp-000000000231" tab="quote" />);
+    expect(await screen.findAllByText("The case closed before this step ran.")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /Ask for the proposal/ })).toBeNull();
+  });
+
   it("asks again for a while after a person's action, for a step that looks again on its own (U1)", () => {
     expect(settling(null, 1000)).toBe(false);
     expect(settling(1000 + 12000, 1000)).toBe(true);
