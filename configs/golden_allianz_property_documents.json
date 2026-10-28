@@ -1,9 +1,14 @@
 {
  "meta": {
   "name": "golden_allianz_property_documents",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "231 (stage U, U-A6; jav/evals/property_documents.py): invented customers of the real corporate property product asking for a quote: a quote request form, a property schedule per site and a claims history statement each, in sets, as the invented insurer's (golden_property_documents) but on the real product's form (its covers as printed boxes) and terms, read into its facts by configs/fact_readings_allianz_property.json. Each document is kept as what a correct reading gives; its printed page is made from it. Each set names the facts its documents hold. Every name, tax number and amount is invented.",
   "changelog": [
+   {
+    "version": "1.0.1",
+    "date": "2026-10-28",
+    "note": "231 (U-A7): the sets named with underscores (az_metalworks, az_retail, az_cold_store), as the route of an example packet's files takes them."
+   },
    {
     "version": "1.0.0",
     "date": "2026-10-27",
@@ -30,7 +35,7 @@
  "key": "insurance_application:allianz_documents",
  "sets": [
   {
-   "id": "az-metalworks",
+   "id": "az_metalworks",
    "title": "A metalworking company: all risks with surge, machinery breakage, burglary and business interruption; its total sum insured is above the authority's plan value",
    "documents": [
     {
@@ -259,7 +264,7 @@
    ]
   },
   {
-   "id": "az-retail",
+   "id": "az_retail",
    "title": "A retail shop: all risks with vandalism, glass, office electronics and burglary, on a fixed term paid quarterly, with no claim in five years",
    "documents": [
     {
@@ -476,7 +481,7 @@
    ]
   },
   {
-   "id": "az-cold-store",
+   "id": "az_cold_store",
    "title": "A cold store on an unprotected floodplain: all risks with the cold store and refrigeration covers, burglary and business interruption, two claims in five years",
    "documents": [
     {
