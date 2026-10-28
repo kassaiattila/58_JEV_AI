@@ -31,7 +31,7 @@ def test_a_case_starts_from_its_record_and_its_page_is_its_packs_tabs(golden, tm
         engine.turn(case_id, wake=True)  # the worker: the request is put together, the match waits for its start
         page = c.get(f"/api/cases/{case_id}").json()
         assert page["case"] == {"id": case_id, "pack": "it_quote", "version": "1.4.0", "title": "IT quote",
-                                "name": f"Quote {case.id}", "status": "open"}
+                                "name": f"Quote {case.id}", "status": "open", "due": False}  # U-A8: the match waits for a person
         assert [t["id"] for t in page["tabs"]] == ["request", "quote", "approval", "sent", "follow_up", "history"]
         assert [e["type"] for e in page["tabs"][1]["elements"]] == ["match_proposal", "line_editor"]
         assert page["tabs"][0]["elements"][0]["data"]["quote"]["request"]["fields"]["customer_name"]
