@@ -24,7 +24,7 @@ const PARTNER: Partner = { ...ROW, versions: [
 
 describe("the partner register (231 B1)", () => {
   it("lists the partners and opens one with its versions; a change is saved as a new version", async () => {
-    vi.spyOn(api, "partners").mockResolvedValue({ partners: [ROW], roles: ROLES });
+    vi.spyOn(api, "partners").mockResolvedValue({ partners: [ROW], roles: ROLES, own: [] });
     vi.spyOn(api, "partner").mockResolvedValue(PARTNER);
     const update = vi.spyOn(api, "updatePartner").mockResolvedValue({ ...PARTNER, version: 3 });
     render(<PartnersPanel />);
@@ -46,7 +46,7 @@ describe("the partner register (231 B1)", () => {
   });
 
   it("records a new partner and leads to the other one on a conflict", async () => {
-    vi.spyOn(api, "partners").mockResolvedValue({ partners: [ROW], roles: ROLES });
+    vi.spyOn(api, "partners").mockResolvedValue({ partners: [ROW], roles: ROLES, own: [] });
     vi.spyOn(api, "partner").mockResolvedValue(PARTNER);
     const create = vi.spyOn(api, "createPartner").mockRejectedValue(
       new ApiError(409, "partner_conflict", "another partner has the same tax number or name", [], { other: "partner-000000000001" }));
@@ -64,7 +64,7 @@ describe("the partner register (231 B1)", () => {
   });
 
   it("shows the proposals on request and a person records one", async () => {
-    vi.spyOn(api, "partners").mockResolvedValue({ partners: [], roles: ROLES });
+    vi.spyOn(api, "partners").mockResolvedValue({ partners: [], roles: ROLES, own: [] });
     const proposals = vi.spyOn(api, "partnerSuggestions").mockResolvedValue({ suggestions: [
       { name: "Invented Supplier Kft.", tax_number: "12121216-2-42", roles: ["supplier"], seen: 3, sources: ["invoices"], last: "2026-09-30" }] });
     render(<PartnersPanel />);

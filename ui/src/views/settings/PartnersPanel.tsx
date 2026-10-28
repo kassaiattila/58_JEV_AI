@@ -3,15 +3,20 @@
 // number or email, records a new one or saves a change as a new version (a page that shows an older version is
 // refused), retires one rather than deleting it and restores it; the versions show who changed what and when. The
 // domains propose partners from what they have read (an invoice's supplier), on request; a person records them. A
-// partner with the same tax number or name as another one is refused, and the page leads to that one.
+// partner with the same tax number or name as another one is refused, and the page leads to that one. 231 (U3e; the
+// owner's decision of 2026-10-28): the own parties stand among them with the role "own", each leading to its register.
 import { useEffect, useMemo, useState } from "react";
-import { api, ApiError, type Partner, type PartnerRoles, type PartnerSuggestion, type PartnerValues } from "../../api";
+import {
+  api, ApiError, OWN_ROLE, type OwnPartnerRow, type Partner, type PartnerRoles, type PartnerRow, type PartnerSuggestion,
+  type PartnerValues,
+} from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { UsedBy, useUsedBy } from "../../components/UsedBy";
 import { VersionState } from "../../components/VersionState";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { when } from "../../labels";
+import { routeHash } from "../../route";
 
 const EMPTY: PartnerValues = { name: "", tax_number: null, email: null, phone: null, address: null, note: null, roles: [] };
 const TEXT_FIELDS: { key: "tax_number" | "email" | "phone"; label: string; max: number }[] = [
@@ -26,6 +31,10 @@ const valuesOf = (p: PartnerValues): PartnerValues =>
   ({ name: p.name, tax_number: p.tax_number, email: p.email, phone: p.phone, address: p.address, note: p.note, roles: p.roles });
 
 type Open = { kind: "new"; from?: PartnerValues } | { kind: "partner"; id: string } | null;
+type Row = { kind: "partner"; p: PartnerRow } | { kind: "own"; o: OwnPartnerRow };
+const nameOf = (r: Row) => (r.kind === "partner" ? r.p.name : r.o.name);
+/** the own parties' register, where an own party is edited (its Settings section) */
+const OWN_PARTIES = "parties";
 
 export function PartnersPanel() {
   useLocale();
@@ -36,7 +45,11 @@ export function PartnersPanel() {
   const [open, setOpen] = useState<Open>(null);
   const usedRoles = useUsedBy("partner_role");
   const roles = list.data?.roles ?? {};
-  const rows = list.data?.partners ?? [];
+  // 231 (U3e; the owner's decision of 2026-10-28): the own parties among the partners, by name, with the role "own";
+  // each leads to the own parties' register, where it is edited
+  const rows: Row[] = [...(list.data?.partners ?? []).map((p) => ({ kind: "partner" as const, p })),
+    ...(list.data?.own ?? []).map((o) => ({ kind: "own" as const, o }))]
+    .sort((a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: "base" }));
   return (
     <div className="partners">
       <div className="form-row partners-tools">
@@ -47,6 +60,7 @@ export function PartnersPanel() {
           <select value={role} onChange={(e) => setRole(e.target.value)}>
             <option value="">{t("Every role")}</option>
             {Object.entries(roles).map(([key, r]) => <option key={key} value={key}>{t(r.label)}</option>)}
+            <option value={OWN_ROLE}>{t("Own party")}</option>
           </select>
         </label>
         <label className="check small partners-retired">
@@ -61,16 +75,24 @@ export function PartnersPanel() {
         <table className="table compact partners-table" aria-label={t("Partners")}>
           <thead><tr><th>{t("Name")}</th><th>{t("Roles")}</th><th>{t("Tax number")}</th><th>{t("Email")}</th><th>{t("Changed")}</th></tr></thead>
           <tbody>
-            {rows.map((p) => (
-              <tr key={p.partner_id} aria-selected={open?.kind === "partner" && open.id === p.partner_id}>
+            {rows.map((r) => r.kind === "own" ? (
+              <tr key={r.o.party_id}>
+                <td><a className="partner-open" href={routeHash({ view: "settings", section: OWN_PARTIES })}>{r.o.name}</a></td>
+                <td>{t("Own party")}</td>
+                <td className="mono">{r.o.tax_number ?? "–"}</td>
+                <td>–</td>
+                <td className="tnum">{when(r.o.changed_at)}</td>
+              </tr>
+            ) : (
+              <tr key={r.p.partner_id} aria-selected={open?.kind === "partner" && open.id === r.p.partner_id}>
                 <td>
-                  <button type="button" className="link-btn partner-open" onClick={() => setOpen({ kind: "partner", id: p.partner_id })}>{p.name}</button>
-                  {p.retired ? <> <VersionState state="retired" /></> : null}
+                  <button type="button" className="link-btn partner-open" onClick={() => setOpen({ kind: "partner", id: r.p.partner_id })}>{r.p.name}</button>
+                  {r.p.retired ? <> <VersionState state="retired" /></> : null}
                 </td>
-                <td>{roleText(p.roles, roles)}</td>
-                <td className="mono">{p.tax_number ?? "–"}</td>
-                <td>{p.email ?? "–"}</td>
-                <td className="tnum">{when(p.changed_at)}</td>
+                <td>{roleText(r.p.roles, roles)}</td>
+                <td className="mono">{r.p.tax_number ?? "–"}</td>
+                <td>{r.p.email ?? "–"}</td>
+                <td className="tnum">{when(r.p.changed_at)}</td>
               </tr>
             ))}
           </tbody>
@@ -78,6 +100,7 @@ export function PartnersPanel() {
       ) : (
         <p className="muted">{q || role ? t("No partner matches.") : t("No partner yet. Record one, or take one from the proposals below.")}</p>
       )}
+      {rows.some((r) => r.kind === "own") ? <p className="muted small">{t("An own party is edited under Own parties.")}</p> : null}
       {open ? <PartnerCard key={open.kind === "partner" ? open.id : "new"} open={open} roles={roles}
         onOpen={(id) => setOpen({ kind: "partner", id })} onClose={() => setOpen(null)} onChanged={list.reload} /> : null}
       <Suggestions roles={roles} onTake={(s) => setOpen({ kind: "new", from: { ...EMPTY, name: s.name, tax_number: s.tax_number, roles: s.roles } })} />

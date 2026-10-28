@@ -32,5 +32,5 @@ registerApprovalBody("line_draft", { render: lazily(Approval), status: quoteLine
 // 191 (plan F-quote-package B2): the seller's price lists a quote is priced from
 registerSettingsSection({
   key: "prices", label: "Price lists", hint: "The price lists quotes are priced from: upload, check and make active; the volume discounts, the currency and the VAT rate",
-  order: 90, Panel: lazyPage(() => import("./PriceListsPanel").then((m) => m.PriceListsPanel)),
+  group: "library", order: 230, Panel: lazyPage(() => import("./PriceListsPanel").then((m) => m.PriceListsPanel)),
 });

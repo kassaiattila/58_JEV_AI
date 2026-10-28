@@ -13,6 +13,8 @@ propose partners from what they have read (an invoice's supplier, say), through 
   changes; the same tax number or name as another active partner is a `PartnerConflict` naming it.
 - `get(partner_id)`: the partner with its versions; `listing(q, role, retired)`: the partners, by name.
 - `roles()`: the roles a partner may play (`configs/partners.json`).
+- `own_listing(q, role)` (231, U3e): the own parties as the partner list shows them, with the role `OWN`; they are
+  edited in their own register.
 - `register_suggestions(source)`, `suggestions()`: the domains' proposals, without the parties already recorded.
 
 Layer: application, the shared library; it uses the shared versioning and the own parties' matching keys.
@@ -33,11 +35,14 @@ from jav.core import cfg, completion, identity, store, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
-__all__ = ["CONFIG", "PartnerConflict", "PartnerError", "PartnerIn", "SuggestionSource", "UnknownPartner", "VERSIONS",
-           "create", "get", "listing", "match", "register_suggestions", "restore", "retire", "roles", "suggestions",
-           "update"]
+__all__ = ["CONFIG", "OWN", "PartnerConflict", "PartnerError", "PartnerIn", "SuggestionSource", "UnknownPartner",
+           "VERSIONS", "create", "get", "listing", "match", "own_listing", "register_suggestions", "restore", "retire",
+           "roles", "suggestions", "update"]
 
 CONFIG = "partners"
+# 231 (U3e; the owner's decision of 2026-10-28): the role an own party shows with among the partners; no partner
+# record plays it, so a person cannot give it to one
+OWN = "own"
 FIELDS = ("name", "tax_number", "email", "phone", "address", "note")
 
 store.register_schema("partners", """
@@ -259,6 +264,23 @@ def listing(q: str | None = None, role: str | None = None, *, retired: bool = Fa
             continue
         out.append({"partner_id": r["partner_id"], **values, "version": r["version"], "retired": r["state"] == versions.RETIRED,
                     "changed_at": r["activated_at"] or r["made_at"]})
+    return out
+
+
+def own_listing(q: str | None = None, role: str | None = None) -> list[dict[str, Any]]:
+    """231 (U3e; the owner's decision of 2026-10-28: an own party shows among the partners with the role "own" and is
+    still edited in its own register): the own parties by name, each with its id, its first tax number and when it last
+    changed; none when `role` names another role; `q` matches the name or a tax number."""
+    if role and role != OWN:
+        return []
+    needle = " ".join((q or "").lower().split())
+    out = []
+    for p in parties.parties():
+        taxes = [i["label"] for i in p["identities"] if i["kind"] == "tax"]
+        if needle and needle not in " ".join([p["name"], *taxes]).lower():
+            continue
+        out.append({"party_id": p["id"], "name": p["name"], "tax_number": taxes[0] if taxes else None,
+                    "changed_at": p["updated_at"]})
     return out
 
 

@@ -41,7 +41,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav.app import capabilities, partners, process_packs
+from jav.app import capabilities, partners, process_packs, scopes
 from jav.core import cfg, identity, store, trace, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
@@ -464,12 +464,14 @@ def used_by(kind: str) -> dict[str, list[dict[str, str]]]:
     """231 (U3d; the owner's decisions of 2026-10-28: every shared element says which processes use it): for each thing
     of the kind (by its id), the processes that use it now ({id, title}, in the packs' order): a resource naming it as
     the process has it (its file's value, its own active one, a derived one as its source brings it; a price list's
-    newest active one by the list it names now); a partner role by the pack's partner links."""
+    newest active one by the list it names now); a partner role by the pack's partner links, and the own parties' role
+    by a scope with an own party (U3e)."""
     out: dict[str, list[dict[str, str]]] = {}
     for pack in process_packs.packs():
         entry = {"id": pack.id, "title": pack.title}
         if kind == PARTNER_ROLE:
-            idents = [link.role for link in pack.partners]
+            # U3e: an own party plays the role "own" in a process whose cases belong to one
+            idents = [link.role for link in pack.partners] + ([partners.OWN] if scopes.PARTY in pack.scope.parts else [])
         else:
             resources, keepers = effective_resources(pack), _keepers(pack)
             idents = []

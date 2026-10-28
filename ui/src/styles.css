@@ -684,6 +684,12 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .settings-nav a[aria-current="page"] { background: var(--tint); color: var(--ink); font-weight: 600; }
 /* 231 (U3a): a process's own item under Processes, indented one step */
 .settings-nav a.settings-sub { padding-left: var(--sp-6); font-weight: 400; }
+/* 231 (U3e): the menu's three groups, each under its name in muted text (in its own case, never capitals); a long
+   menu scrolls on its own beside the page */
+.settings-nav { max-height: calc(100vh - 24px); overflow-y: auto; }
+.settings-group { display: grid; gap: 2px; }
+.settings-group + .settings-group { margin-top: var(--sp-4); }
+.settings-group-name { padding: var(--sp-1) var(--sp-3); color: var(--muted); font-size: var(--fs-xs); font-weight: 600; }
 a.seg { text-decoration: none; }
 .settings-body { display: grid; gap: 14px; min-width: 0; }
 .settings-body > h2 { margin: 0; }

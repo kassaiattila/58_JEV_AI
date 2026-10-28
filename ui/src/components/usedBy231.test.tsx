@@ -36,7 +36,7 @@ describe("what uses a shared element (231 U3d)", () => {
 
   it("the partner register names the processes of the chosen role", async () => {
     const roles: PartnerRoles = { customer: { label: "Customer", what: "Asks for a quote" }, broker: { label: "Broker", what: "Brings a case" } };
-    vi.spyOn(api, "partners").mockResolvedValue({ partners: [], roles });
+    vi.spyOn(api, "partners").mockResolvedValue({ partners: [], roles, own: [] });
     vi.spyOn(api, "partnerSuggestions").mockResolvedValue({ suggestions: [] } as never);
     vi.spyOn(api, "usedBy").mockResolvedValue({ used_by: { customer: [{ id: "invented_quote", title: "Invented quote" }] } });
     render(<PartnersPanel />);

@@ -1,7 +1,7 @@
 // Settings (057, decision of 2026-09-28): the things that rarely change, in one place — mailboxes, work folders, users,
 // appearance, language and the system (worker, all runs); 063: the description of the recipes; 218: the rules, read only.
 // Sub-items on the left, content on the right. 231 (C3e): a domain's section, or what it adds to a shared one, comes
-// from the sections' registry (`logic/settingsSections.ts`).
+// from the sections' registry (`logic/settingsSections.ts`). 231 (U3e): the menu in three groups.
 import { Fragment, useState } from "react";
 import { api, ApiError } from "../api";
 import { Icon } from "../components/Icon";
@@ -9,7 +9,7 @@ import { PageHeader } from "../components/PageHeader";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import type { SettingsSection } from "../route";
-import { settingsParts, settingsSections } from "../logic/settingsSections";
+import { SETTINGS_GROUPS, settingsParts, settingsSections } from "../logic/settingsSections";
 import { RecipesPanel } from "./RecipeInfo";
 import { RunList } from "./Runs";
 import { AppearancePanel } from "./settings/AppearancePanel";
@@ -41,12 +41,18 @@ export function Settings({ section, item, tab }: { section: SettingsSection; ite
       <PageHeader title={t("Beállítások")} summary={t(current.hint)} />
       <div className="settings-layout">
         <nav className="settings-nav" aria-label={t("Beállítások")}>
-          {sections.map((s) => (
-            <Fragment key={s.key}>
-              <a href={`#/settings/${s.key}`} aria-current={s.key === current.key && !item ? "page" : undefined}>{t(s.label)}</a>
-              {/* 231 (U3a; the owner's decision of 2026-10-28): each process its own menu item and address */}
-              {s.key === "processes" && current.key === "processes" ? <ProcessNav current={item} /> : null}
-            </Fragment>
+          {/* 231 (U3e; the owner's decisions of 2026-10-28): the processes, the shared library and the system */}
+          {SETTINGS_GROUPS.map((g) => (
+            <div key={g.key} role="group" aria-labelledby={`settings-group-${g.key}`} className="settings-group">
+              <span id={`settings-group-${g.key}`} className="settings-group-name">{t(g.label)}</span>
+              {sections.filter((s) => s.group === g.key).map((s) => (
+                <Fragment key={s.key}>
+                  <a href={`#/settings/${s.key}`} aria-current={s.key === current.key && !item ? "page" : undefined}>{t(s.navLabel ?? s.label)}</a>
+                  {/* 231 (U3a; the owner's decision of 2026-10-28): each process its own menu item and address */}
+                  {s.key === "processes" && current.key === "processes" ? <ProcessNav current={item} /> : null}
+                </Fragment>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="settings-body">
