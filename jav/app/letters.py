@@ -31,7 +31,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from jav.app import capabilities, human_tasks, naming, package_release
+from jav.app import capabilities, human_tasks, naming, package_release, work
 from jav.app.approved_document import StoredFile
 from jav.app.outputs import contract, docx, markers, parts
 from jav.core import activity_kinds, cfg, decisions, identity, store
@@ -130,9 +130,11 @@ def _values(case_id: str, document: dict[str, Any], package: str) -> tuple[dict[
     return {v.key: v.value for v in d.values}, dict(contract.spec(document["output"])["values"])
 
 
-def compose(frame: dict[str, Any], values: dict[str, Any], kinds_of: dict[str, str], params: Letter) -> dict[str, Any]:
+def compose(frame: dict[str, Any], values: dict[str, Any], kinds_of: dict[str, str], params: Letter, *,
+            signer: str | None = None) -> dict[str, Any]:
     """The letter's draft from its frame: the address, the subject and the body (greeting, paragraphs, closing), each
-    marker written with the document's value as the document writes it; an unknown marker stays as it is."""
+    marker written with the document's value as the document writes it; an unknown marker stays as it is. U1: signed
+    by `signer` (the person the case belongs to) under the closing, when named."""
     language = frame.get("language") or "hu"
 
     def fill(text: str) -> str:
@@ -143,7 +145,8 @@ def compose(frame: dict[str, Any], values: dict[str, Any], kinds_of: dict[str, s
 
     named = params.name is not None and values.get(params.name) not in (None, "")
     greeting = fill(frame["greeting"]) if named else frame["greeting_none"]
-    body = "\n\n".join([greeting, *(fill(p) for p in frame["paragraphs"]), frame["closing"]]) + "\n"
+    closing = frame["closing"] + (f"\n{signer.strip()}" if signer and signer.strip() else "")
+    body = "\n\n".join([greeting, *(fill(p) for p in frame["paragraphs"]), closing]) + "\n"
     address = values.get(params.to)
     return {"to": str(address) if address not in (None, "") else None, "subject": fill(frame["subject"]), "body": body}
 
@@ -163,7 +166,7 @@ def view(case_id: str, step: str) -> dict[str, Any]:
     if document is not None:
         try:
             values, kinds_of = _values(case_id, document, package)
-            draft = compose(settings["frames"][params.frame], values, kinds_of, params)
+            draft = compose(settings["frames"][params.frame], values, kinds_of, params, signer=work.get(case_id).get("owner"))
         except (KeyError, ValueError) as exc:  # the document's version or its builder: the reason shows
             problem = str(exc)
     approval = package_release.approval_state(case_id, step=step)

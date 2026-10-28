@@ -119,7 +119,7 @@ def test_the_letter_is_written_from_its_frame_accepted_and_sent_as_that_file(cas
     assert draft["body"] == ("Tisztelt Minta Anna!\n\nKöszönjük ajánlatkérését. Mellékelten küldjük a(z) Kitalált vállalkozói"
                              " vagyonbiztosítás ajánlatunkat 2027. 01. 01. kockázatviselési kezdettel.\n\nAz éves díj"
                              " 487 000 HUF. A fedezetek díját és a vonatkozó feltételeket a mellékelt dokumentum"
-                             " tartalmazza.\n\nÜdvözlettel:\n")
+                             " tartalmazza.\n\nÜdvözlettel:\nMinta Anna\n")  # U1: signed by the case's owner
     assert shown["accepted"] is None and shown["approval"]["state"] == "missing"
     _accept(case_id, body=draft["body"] + "\nMinta Anna, Kitalált Biztosító Zrt.")  # a person adds a signature
     state = _turn(case_id)
@@ -213,3 +213,12 @@ def test_an_unknown_marker_of_the_frame_stays_as_it_is() -> None:
     drafted = letters.compose(frame, {"total": "487000"}, {"total": "money"}, letters.Letter(frame="offer_letter",
                                                                                             from_step="document"))
     assert drafted["subject"] == "{{nothing}} 487 000" and drafted["to"] is None  # so it cannot be accepted
+
+
+def test_the_letter_is_signed_by_the_case_s_owner() -> None:
+    """U1 (the walkthrough of 2026-10-28): the letter ended with its closing and no name; the draft signs it with the
+    name of the person the case belongs to, which a person may change before accepting it."""
+    frame = {"language": "hu", "subject": "s", "greeting": "x", "greeting_none": "y", "paragraphs": ["p"], "closing": "Regards,"}
+    params = letters.Letter(frame="offer_letter", from_step="document")
+    assert letters.compose(frame, {}, {}, params, signer="Minta Anna")["body"].endswith("Regards,\nMinta Anna\n")
+    assert letters.compose(frame, {}, {}, params)["body"].endswith("Regards,\n")  # nobody named: no name
