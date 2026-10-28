@@ -232,7 +232,7 @@ function Conflicts({ d, p, act }: { d: FieldReviewData; p: ElementProps; act: Re
 }
 
 function Freeze({ d, act }: { d: FieldReviewData; act: ReturnType<typeof useAct> }) {
-  const [start, setStart] = useState("");
+  const [start, setStart] = useState(d.cover_start_hint ?? "");  // U1: a document's day, else the last freeze's
   const ready = d.conflicts === 0 && !!start;
   return (
     <div className="freeze">

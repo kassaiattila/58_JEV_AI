@@ -7,7 +7,7 @@ import type { PackageWorkView } from "../api";
 import { api } from "../api";
 import { useAction } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { usdBudget } from "../labels";
+import { RUN_STATUS, usdBudget } from "../labels";
 import { PackageIntake } from "./ProcessStart";
 import type { ElementProps } from "./registry";
 
@@ -54,7 +54,7 @@ export function PackageWork({ caseId, element, page, onChanged }: ElementProps) 
           {live.map((r) => (
             <li key={r.run_id}>
               <a href={`#/runs/${encodeURIComponent(r.run_id)}`}>{r.run_id}</a>{" "}
-              <span className="muted">{r.approval ? t("approved") : t(r.status)}</span>
+              <span className="muted">{r.approval ? t("approved") : RUN_STATUS[r.status] ?? t(r.status)}</span>
             </li>
           ))}
         </ul>

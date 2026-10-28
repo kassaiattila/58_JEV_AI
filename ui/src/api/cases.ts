@@ -98,6 +98,8 @@ export interface OfferedClaim {
 export interface FieldReviewData {
   units: AssessedUnit[]; claims: OfferedClaim[]; state: number; approval: ApprovalState; catalogue: Catalogue;
   frozen: { version: number; cover_start: string; by: string; at: string } | null; conflicts: number; waits: boolean;
+  /** U1: the day cover starts the freeze offers to begin with (a document's, else the last freeze's) */
+  cover_start_hint?: string | null;
 }
 /** D-f4: the facts a step read from a case's documents, per document. */
 export interface DocumentFactsData {

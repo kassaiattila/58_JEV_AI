@@ -74,6 +74,13 @@ describe("the field review", () => {
     await waitFor(() => expect(act).toHaveBeenCalledWith(CASE, "check", "keep_value", undefined, { claim_key: "k-1" }));
   });
 
+  it("offers the day cover starts to begin with, as a document gave it or the last freeze had it (U1)", async () => {
+    show("field_review", "check", review({ claims: [], conflicts: 0, cover_start_hint: "2027-01-01" }), "field_check@1", "Data check");
+    const day = await screen.findByLabelText("Cover starts");
+    expect((day as HTMLInputElement).value).toBe("2027-01-01");
+    expect(screen.getByRole("button", { name: "Freeze the facts" }).className).toBe("primary");
+  });
+
   it("offers the freeze as the solid button only once nothing is to settle and the day is given", async () => {
     const act = vi.spyOn(api, "caseStepAction").mockResolvedValue({} as CaseView);
     show("field_review", "check", review({ claims: [], conflicts: 0 }), "field_check@1", "Data check");

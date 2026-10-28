@@ -146,6 +146,7 @@ def test_reopened_the_check_waits_for_a_new_freeze(case) -> None:
     field_check.reopen(case, "check", note="a site is missing", actor=ANNA)
     _later(case, 20)
     assert engine.state(case)["steps"]["check"]["state"] != "done"
+    assert field_check._review(case, "check", {})["cover_start_hint"] == "2027-01-01"  # U1: the day it was frozen with
     again = field_check.freeze(case, "check", cover_start="2027-02-01", expected_state=None, actor=BELA)
     _later(case, 30)
     step = engine.state(case)["steps"]["check"]

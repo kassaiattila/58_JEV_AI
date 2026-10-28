@@ -436,7 +436,20 @@ def _review(case_id: str, step: str | None, _shared: dict[str, Any]) -> dict[str
     nxt = {"code": "facts_check", "label": "Check and freeze the facts", "stage": "review", "element": "field_review",
            "params": {"n": conflicts}} if waits else None
     return {**shown, "catalogue": facts.catalogue(params.catalogue).model_dump(mode="json"), "frozen": frozen,
-            "conflicts": conflicts, "waits": waits, "next": nxt}
+            "conflicts": conflicts, "waits": waits, "next": nxt, "cover_start_hint": _cover_start_hint(case_id, step_id, shown)}
+
+
+def _cover_start_hint(case_id: str, step: str, shown: dict[str, Any]) -> str | None:
+    """U1 (the walkthrough of 2026-10-28): the day cover starts the freeze offers to begin with: the one a unit's facts
+    give (a document read it), else the one the check was last frozen with (it was reopened); a person changes it."""
+    for unit in shown["units"]:
+        if not unit.get("removed") and isinstance(unit["facts"].get("cover_start"), str):
+            return str(unit["facts"]["cover_start"])
+    versions = shown["approval"].get("versions") or []
+    if not versions:
+        return None
+    latest = max(int(v["version"]) for v in versions)
+    return str(package_release.own_version(case_id, latest, step=step)["content"].get("cover_start") or "") or None
 
 
 def register() -> None:

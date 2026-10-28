@@ -99,6 +99,13 @@ describe("the case page's document processing element (231 C3b3)", () => {
     expect(screen.getByRole("link", { name: "run-1" }).getAttribute("href")).toBe("#/runs/run-1");
   });
 
+  it("names a finished run's state, not its code (U1)", () => {
+    const done = { ...VIEW, can_start: false, runs: [{ run_id: "run-2", mode: "apply", status: "done", approval: null }] };
+    render(<PackageWork {...props(done)} />);
+    expect(screen.getByText("Done")).toBeTruthy();
+    expect(screen.queryByText("done")).toBeNull();
+  });
+
   it("says why a case has no package", () => {
     const { unmount } = render(<PackageWork {...props({ package: null }, "done")} />);
     expect(screen.getByText("The source held no document: the case is done without a package.")).toBeTruthy();

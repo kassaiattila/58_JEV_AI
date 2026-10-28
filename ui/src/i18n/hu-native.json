@@ -3428,7 +3428,7 @@
   "Fact": "Tény",
   "Facts": "Tények",
   "Freezing records the facts as they are now as the checked input: the rules and the premium are computed from it, and a later correction makes a new one.": "A rögzítés a tényeket a mostani állapotukban ellenőrzött bemenetként őrzi meg: ebből számol a szabály és a díj, egy későbbi javítás újat készít.",
-  "Frozen as version {{n}} by {{who}}, {{when}}; cover starts {{day}}.": "Rögzítve {{n}}. változatként, rögzítette: {{who}}, {{when}}; a kockázatviselés kezdete: {{day}}.",
+  "Frozen as version {{n}} by {{who}}, {{when}}; cover starts {{day}}.": "Rögzítve {{n}}. változatként, rögzítette: {{who}}, {{when}}; a kockázatviselés kezdete: {{day}}",
   "Frozen: version {{n}}": "Rögzítve: {{n}}. változat",
   "Give the day cover starts.": "Add meg a kockázatviselés kezdetét.",
   "No answer": "Nincs válasz",
