@@ -46,7 +46,7 @@ it.each(["datapoints", "native_facts"])("after a conflict only the mark of the %
   current = "m2"; // someone saves a correction in another tab
   fireEvent.click(button());
   fireEvent.click(screen.getByRole("button", { name: "Biztosan? Kattints újra" }));
-  await screen.findByText(/A csomag eredménye a megtekintés óta változott/);
+  await screen.findByText(/A köteg eredménye a megtekintés óta változott/);
   expect(give.mock.calls[0][1]).toBe("m1");
   // the table is loading again: the new result cannot be released with the old rows on screen
   await waitFor(() => expect(dataset.mock.calls.length).toBe(loadsBefore + 1));

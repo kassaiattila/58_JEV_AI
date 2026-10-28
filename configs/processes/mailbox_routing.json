@@ -1,0 +1,97 @@
+{
+  "meta": {
+    "name": "process:mailbox_routing",
+    "version": "1.0.0",
+    "description": "231 (stage U, U2c; the owner's decision of 2026-10-28: a chain is a multi-step process): a mailbox's new emails are downloaded and read with their attachments, and once they are done, the email routing reads that download and proposes where each invoice, outgoing invoice and bank statement belongs, as the workflow template of the same name was (configs/workflows.json until then). Each step runs a case of its own process, a sub-case (run_case@1), and waits until it closes; a paid run of a sub-case waits for a person's start with its cost cap.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-28",
+        "note": "231 (U2c): the first version: two sub-case steps (the emails of a mailbox, then the routing of their batch after them) and its tabs: Overview, History; started by hand with the mailbox's download."
+      }
+    ]
+  },
+  "id": "mailbox_routing",
+  "title": "From the mailbox to the packages",
+  "summary": "A mailbox's new emails are downloaded and read with their attachments; once they are done, the routing proposes where each invoice and statement belongs.",
+  "examples": {
+    "sets": [
+      {
+        "kind": "own_party",
+        "name": "example_parties"
+      }
+    ],
+    "note": "Download the invented consultancy's mailbox, iroda@minta-tanacsado.example, from 1 March to 31 October 2026; once its run is approved, the routing proposes where its two invoices go."
+  },
+  "scope": {
+    "parts": [
+      "step_sources"
+    ]
+  },
+  "intake": [
+    {
+      "on": "manual",
+      "starts": "manual"
+    }
+  ],
+  "resources": {},
+  "steps": [
+    {
+      "id": "emails",
+      "uses": "run_case@1",
+      "title": "Emails and their attachments",
+      "params": {
+        "pack": "mailbox"
+      }
+    },
+    {
+      "id": "routing",
+      "uses": "run_case@1",
+      "title": "Routing",
+      "after": [
+        "emails"
+      ],
+      "params": {
+        "pack": "mail_routing",
+        "sources_from": [
+          "emails"
+        ]
+      }
+    }
+  ],
+  "screens": {
+    "tabs": [
+      {
+        "id": "overview",
+        "label": "Overview",
+        "elements": [
+          {
+            "type": "blockers"
+          },
+          {
+            "type": "sub_case",
+            "step": "emails"
+          },
+          {
+            "type": "sub_case",
+            "step": "routing"
+          }
+        ]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "elements": [
+          {
+            "type": "timeline"
+          },
+          {
+            "type": "cost"
+          }
+        ]
+      }
+    ]
+  },
+  "outputs": [],
+  "goldens": []
+}

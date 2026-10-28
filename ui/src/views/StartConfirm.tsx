@@ -69,7 +69,7 @@ export function StartConfirm({ view, mode, rerun, pending = false, onChanged }: 
     } catch (e) {
       const err = e as ApiError;
       setMsg(err.status === 409 && err.code === "revision_conflict"
-        ? t("A csomag vagy a beállításai közben változtak. Frissítettük, nézd át és indítsd újra.") : err.message);
+        ? t("A köteg vagy a beállításai közben változtak. Frissítettük, nézd át és indítsd újra.") : err.message);
       onChanged();
     } finally {
       setBusy(false);
@@ -83,12 +83,12 @@ export function StartConfirm({ view, mode, rerun, pending = false, onChanged }: 
         ? ` ${t("Only the items no run of this kind has finished yet (added since, or failed). The earlier runs and their approval stay as they are; this run's result is reviewed and approved on its own.")}`
         : rerun && target ? ` ${t("The run of {{when}} again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not).", { when: when(target.created_at) })}` : ""}</p>
       <dl className="confirm-list">
-        <dt>{t("Munkacsomag")}</dt><dd>{wp.name}</dd>
+        <dt>{t("Iratköteg")}</dt><dd>{wp.name}</dd>
         <dt>{t("Tételek")}</dt><dd>{t("{{n}} tétel", { n: items })}</dd>
         <dt>{t("Feldolgozási beállítások")}</dt>
         <dd>
           {!recipe && assignment ? <>{t(recipes.data?.titles?.[assignment.recipe_id] ?? assignment.recipe_id)}: </> : null}
-          {readiness.assignment_default ? <span className="muted small">{t("alapbeállítás, az indításkor mentődik a csomaghoz")}</span> : null}
+          {readiness.assignment_default ? <span className="muted small">{t("alapbeállítás, az indításkor mentődik a köteghez")}</span> : null}
           <ul className="plain small">
             {/* 090: the processing path first (the documents' path and the use of JEV as one choice), then the settings
                 that count */}
@@ -113,7 +113,7 @@ export function StartConfirm({ view, mode, rerun, pending = false, onChanged }: 
         <BlockerList items={offer.warnings.map((w, i) => ({ key: String(i), warning: true, content: blockerText(w) }))} />
       ) : null}
       {pending && fresh.data && !supplement ? <p className="notice">{t("No item is pending any more: there is nothing to start on its own.")}</p> : null}
-      {active ? <p className="notice">{t("A csomagon éppen fut egy futás; új csak utána indítható.")}</p> : null}
+      {active ? <p className="notice">{t("A kötegen éppen fut egy futás; új csak utána indítható.")}</p> : null}
       {!fresh.data ? (
         <p className="muted small" role="status">
           {fresh.error ? t("A friss költségkeret nem kérhető le: {{message}}", { message: fresh.error.message }) : t("A költségkeret frissítése…")}

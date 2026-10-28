@@ -436,7 +436,7 @@ export function savedValues(fields: Record<string, unknown>, kinds: Record<strin
 }
 
 const STEP_LABEL = tmap({
-  empty: "Üres csomag", start: "Próbafutás indítása", blocked: "Nem indítható",
+  empty: "Üres köteg", start: "Próbafutás indítása", blocked: "Nem indítható",
   rerun: "Hibás vagy leállított futás: újrafuttatás", done: "Kiadva: eredmény letöltése", release: "Jóváhagyás és kiadás",
   go_live: "Próba rendben: éles futás",
   // 132: a reconciliation package's steps (jav/domains/finance/reconcile_package.py `next_step`)
@@ -452,6 +452,8 @@ const STEP_LABEL = tmap({
   // 231 (A7e): the send and the reply (jav/app/sending.py, jav/app/replies.py)
   case_send: "Send", case_send_settle: "Say whether it arrived", case_send_failed: "The send failed",
   case_reply_wait: "Waiting for the reply", case_follow_up: "Follow up the reply",
+  // 231 (U2c): a step that runs a case of another process waits for it (jav/app/sub_cases.py)
+  case_sub_case: "Continue in its sub-case",
 });
 
 /** The package's next step in the chosen language (057): from the service's code and parameters; for an unknown code,
@@ -481,10 +483,10 @@ export function stepLabel(code: string, params: Record<string, unknown> | undefi
 export function blockerText(b: { code: string; message: string }): string {
   const name = b.message.includes(": ") ? b.message.slice(b.message.indexOf(": ") + 2) : "";
   switch (b.code) {
-    case "no_items": return t("A munkacsomagban nincs tétel.");
+    case "no_items": return t("Az iratkötegben nincs tétel.");
     // 080: the processing settings replace the recipe; a package without settings runs with the default ones
     case "recipe_changed": return t("A feldolgozás a beállítások mentése óta változott; mentsd el újra a beállításokat.");
-    case "recipe_retired": return t("A csomag egy megszűnt feldolgozási változatot használ; állítsd át a mostani feldolgozásra.");
+    case "recipe_retired": return t("A köteg egy megszűnt feldolgozási változatot használ; állítsd át a mostani feldolgozásra.");
     case "unsupported_item": return t("A feldolgozás nem kezeli: {{name}}", { name });
     case "source_missing": return t("Hiányzó forrás: {{name}}", { name });
     case "source_changed": return t("A forrás tartalma a felvétel óta változott: {{name}}", { name });

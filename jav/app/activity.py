@@ -2,7 +2,7 @@
 
 No new bookkeeping; built from the existing rows that record an author: package events (rename, hide, owner…), recipe
 assignment, starting and approving a run, field correction (including correcting an email's intent), closing a to-do,
-task-proposal decision, mailbox pull. Modelled on the legacy V4 "Mai munkám" view (which read one shared audit table).
+task-proposal decision, mailbox pull; (231, U2d) a person's own steps and decisions on the cases. Modelled on the legacy V4 "Mai munkám" view (which read one shared audit table).
 
 The day is the machine's local calendar day; timestamps are stored as UTC ISO strings, so the day bounds are converted
 to UTC. Names match case-insensitively (rows from before 061 may spell the author differently). 175 (plan 170 E4): the
@@ -18,6 +18,12 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from jav.core import activity_kinds, store
+from jav.core.process import cases
+
+# 231 (U2d): the case history's rows that are a person's own action (a case started, a task decided, a step started
+# again or out of order, a case closed, held, resumed or reopened, a follow-up started, a task assigned or given a deadline)
+CASE_ACTIONS = ("started", "task_decided", "step_retried", "closed", "followed_up", "case_reopened", "reopened",
+                "order_overridden", "held", "resumed", "task_assigned", "task_due_set")
 
 # every query returns the columns (at, actor, workpackage_id, run_id, detail), bound by the day; a run, a correction
 # and a run's approval name the run itself, the others an item's flow id
@@ -44,6 +50,10 @@ for _source in (
                                       " json_extract(detail, '$.workpackage')) workpackage_id, json_extract(detail, '$.run_id') run_id,"
                                       " action detail FROM workflow_events WHERE created_at >= ? AND created_at < ?",
                           flow_run=False, action_prefix="workflow_"),
+    # 231 (stage U, U2d; the owner's decisions of 2026-10-28: one work list, the cases): a person's own steps and
+    # decisions on the cases, read through the process core from its history (the machine's work on a case is nobody's
+    # day); a case is named by its container
+    activity_kinds.Source("case", cases.person_actions_sql(CASE_ACTIONS), flow_run=False, action_prefix="case_"),
 ):
     activity_kinds.register_source(_source)
 

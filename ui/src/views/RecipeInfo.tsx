@@ -81,7 +81,7 @@ export function RecipesPanel() {
   const help = recipes.data.help;
   return (
     <>
-      <p className="page-summary">{help?.intro ? t(help.intro) : null} {t("A beállításokat a csomag Feldolgozás szakaszában lehet módosítani; a módosítás új változatként mentődik, a korábbi futások a saját beállításaikat őrzik.")}</p>
+      <p className="page-summary">{help?.intro ? t(help.intro) : null} {t("A beállításokat a köteg Feldolgozás szakaszában lehet módosítani; a módosítás új változatként mentődik, a korábbi futások a saját beállításaikat őrzik.")}</p>
       {recipes.data.recipes.map((r) => <RecipeDetails key={r.id} recipe={r} help={help} />)}
       {help?.paths ? <PathCompare paths={help.paths} /> : null}
     </>

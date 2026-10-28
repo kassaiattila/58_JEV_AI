@@ -226,7 +226,7 @@ def _readiness(wp_id: str, *, verify: bool) -> dict[str, Any]:
     warnings: list[dict[str, str]] = []
     a = wp["assignment"]
     if not wp["items"]:
-        blockers.append({"code": "no_items", "message": "A munkacsomagban nincs tétel."})
+        blockers.append({"code": "no_items", "message": "Az iratkötegben nincs tétel."})
     r = work_recipes.recipe(a["recipe_id"]) if a else work_recipes.default_recipe()
     params = a["params"] if a else work_recipes.default_params(r)  # 160-D: with the application's engine
     if a is not None and work_recipes.recipe_status(r) == "retired":

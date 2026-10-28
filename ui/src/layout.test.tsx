@@ -27,13 +27,13 @@ const EMPTY: DsPage = {
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("munkacsomag szakaszai", () => {
+describe("iratköteg szakaszai", () => {
   it("cím nélkül a következő lépés szakaszánál nyílik; a szakaszok állapottal, a fejléc gombja a következő lépés", async () => {
     vi.spyOn(api, "workpackage").mockResolvedValue(view());
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [] });
     vi.spyOn(api, "datasetQuery").mockResolvedValue(EMPTY);
     render(<WorkpackageDetail wpId="wp-1" route={{ view: "workpackages", wpId: "wp-1" }} />);
-    const tabs = await screen.findByRole("tablist", { name: "A csomag szakaszai" });
+    const tabs = await screen.findByRole("tablist", { name: "A köteg szakaszai" });
     const selected = within(tabs).getAllByRole("tab").find((t) => t.getAttribute("aria-selected") === "true");
     expect(selected?.textContent).toContain("Feldolgozás");
     expect(within(tabs).getByRole("tab", { name: /Feldolgozás.*indítható/ })).toBeTruthy();
@@ -54,7 +54,7 @@ describe("munkacsomag szakaszai", () => {
   });
 });
 
-describe("a csomag kezelése (058)", () => {
+describe("a köteg kezelése (058)", () => {
   it("postafiók-csomagnál „levél”, vegyesnél mindkettő a fejlécben", async () => {
     const mail = { item_id: "m", kind: "email", source_path: "C:/inbox/m/message.json", sha256: "m", added_revision: 1 };
     const doc = view().workpackage.items[0];
@@ -77,17 +77,17 @@ describe("a csomag kezelése (058)", () => {
     const del = vi.spyOn(api, "deleteWorkpackage").mockResolvedValue({ deleted: "wp-1" });
     const user = userEvent.setup();
     render(<WorkpackageDetail wpId="wp-1" route={{ view: "workpackages", wpId: "wp-1" }} />);
-    await user.click(await screen.findByRole("button", { name: "Csomag kezelése" }));
+    await user.click(await screen.findByRole("button", { name: "Köteg kezelése" }));
     await user.click(screen.getByRole("button", { name: "Végleges törlés…" }));
     expect(del).not.toHaveBeenCalled(); // confirmation first
     await user.click(screen.getByRole("button", { name: "Végleges törlés" }));
     expect(del).toHaveBeenCalledWith("wp-1");
-    await user.click(screen.getByRole("button", { name: "Csomag kezelése" }));
+    await user.click(screen.getByRole("button", { name: "Köteg kezelése" }));
     await user.click(screen.getByRole("button", { name: "Elrejtés a listából" }));
     expect(archive).toHaveBeenCalledWith("wp-1");
   });
 
-  it("futással rendelkező csomagnál nincs törlés, elrejtett csomagnál visszahozás és jelzés", async () => {
+  it("futással rendelkező kötegnél nincs törlés, elrejtett kötegnél visszahozás és jelzés", async () => {
     const hidden = view({ runs: 2, workpackage: { ...view().workpackage, status: "archived" } });
     vi.spyOn(api, "workpackage").mockResolvedValue(hidden);
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [] });
@@ -95,7 +95,7 @@ describe("a csomag kezelése (058)", () => {
     const user = userEvent.setup();
     render(<WorkpackageDetail wpId="wp-1" route={{ view: "workpackages", wpId: "wp-1", stage: "result" }} />);
     expect(await screen.findByText(/el van rejtve a listából/)).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Csomag kezelése" }));
+    await user.click(screen.getByRole("button", { name: "Köteg kezelése" }));
     expect(screen.getByRole("button", { name: "Visszahozás a listába" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Végleges törlés…" })).toBeNull();
   });
@@ -148,7 +148,7 @@ describe("futás indítása megerősítéssel (061)", () => {
     expect(window.location.hash).toBe("#/runs/run-000000000009");
   });
 
-  it("nem indítható csomagnál az indítás tiltva, az akadály látszik", async () => {
+  it("nem indítható kötegnél az indítás tiltva, az akadály látszik", async () => {
     vi.spyOn(api, "workpackage").mockResolvedValue(view({ readiness: { ...view().readiness, ready: false, blockers: [{ code: "no_items", message: "nincs tétel" }] } }));
     vi.spyOn(api, "readiness").mockResolvedValue({ ...view().readiness, ready: false, blockers: [{ code: "no_items", message: "nincs tétel" }] });
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [] });

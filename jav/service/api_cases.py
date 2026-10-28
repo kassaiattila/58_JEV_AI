@@ -66,7 +66,7 @@ class FollowUpIn(In):
 
 class CaseIn(In):
     """The pack, the case's name and its scope: the record it starts from, or (231 C1c) the work packages it reads, or
-    (C2d) the own party and the period it is about."""
+    (C2d) the own party and the period it is about; (U2c) each step's own documents."""
 
     pack: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
     record: Record | None = None
@@ -75,6 +75,9 @@ class CaseIn(In):
     period_start: IsoDay | None = None
     period_end: IsoDay | None = None
     source: Source | None = None
+    # 231 (U2c): each step's own documents, for a process whose steps run cases of other processes
+    step_sources: Annotated[dict[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")], Source],
+                            Field(min_length=1, max_length=20)] | None = None
     name: Annotated[str, Field(min_length=1, max_length=200)]
 
 
@@ -96,7 +99,8 @@ def routes(app: FastAPI, r: str) -> None:
                  **({"sources": body.sources} if body.sources else {}),
                  **({"party": body.party_id} if body.party_id else {}),
                  **({"period": [body.period_start, body.period_end]} if body.period_start or body.period_end else {}),
-                 **({"source": _source(body.source)} if body.source else {})}
+                 **({"source": _source(body.source)} if body.source else {}),
+                 **({"step_sources": {k: _source(v) for k, v in body.step_sources.items()}} if body.step_sources else {})}
         case_id = process_runtime.start_case(body.pack, scope, name=body.name, actor=who)
         return {"case_id": case_id}
 

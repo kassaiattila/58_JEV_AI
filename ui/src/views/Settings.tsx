@@ -92,6 +92,15 @@ function SystemPanel() {
   const [cmdBefore, cmdAfter] = t("A feldolgozót a {{cmd}} indítja; a lap bezárása nem állítja le a futásokat.").split("{{cmd}}");
   return (
     <div className="stage-stack">
+      {/* 231 (U2a; the owner's decision of 2026-10-28: one work list, the cases): the lists away from the daily work */}
+      <section className="card wide" aria-label={t("Earlier work")}>
+        <h3>{t("Earlier work")}</h3>
+        <p className="small">{t("The daily work is under Cases; these lists are for finding earlier work.")}</p>
+        <p className="button-row">
+          <a className="button secondary" href="#/workpackages">{t("All document batches")}</a>
+          <a className="button secondary" href="#/workflows">{t("Earlier workflows")}</a>
+        </p>
+      </section>
       <VersionPanel />
       <PdfProtectionPanel />
       <section className="card wide" aria-label={t("Feldolgozó")}>

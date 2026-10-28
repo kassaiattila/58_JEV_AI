@@ -84,11 +84,4 @@ describe("the workflows list (157)", () => {
     expect(document.querySelector(".wf-list .mono")).toBeNull();
   });
 
-  it("leaves the wizard's step the only solid button while a new workflow is being made", async () => {
-    vi.spyOn(api, "workflows").mockResolvedValue({ workflows: [] });
-    vi.spyOn(api, "workflowTemplates").mockReturnValue(new Promise(() => undefined));
-    render(<Workflows route={{ view: "workflows", create: true }} />);
-    const toggle = await screen.findByRole("link", { name: "New workflow" });
-    expect(toggle.classList.contains("primary")).toBe(false);
-  });
 });

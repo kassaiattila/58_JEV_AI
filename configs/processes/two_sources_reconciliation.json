@@ -1,0 +1,121 @@
+{
+  "meta": {
+    "name": "process:two_sources_reconciliation",
+    "version": "1.0.0",
+    "description": "231 (stage U, U2c; the owner's decision of 2026-10-28: a chain is a multi-step process): an own party's period in one case: invoices come from a folder and from a mailbox, the bank statements side by side, and once all three are done, the reconciliation pairs them, as the workflow template of the same name was (configs/workflows.json until then). Each step runs a case of its own process, a sub-case (run_case@1), and waits until it closes; a paid run of a sub-case waits for a person's start with its cost cap.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-28",
+        "note": "231 (U2c): the first version: four sub-case steps (the incoming invoices from a folder, the emails of a mailbox, the bank statements, then the reconciliation after all three) and its tabs: Overview, History; started by hand for a party and a period, each of the first three steps with its own source."
+      }
+    ]
+  },
+  "id": "two_sources_reconciliation",
+  "title": "Monthly reconciliation with invoices from a folder and a mailbox",
+  "summary": "An own party's period in one case: invoices from a folder and from a mailbox and the bank statements are read side by side, then reconciled.",
+  "examples": {
+    "sets": [
+      {
+        "kind": "own_party",
+        "name": "example_parties"
+      }
+    ]
+  },
+  "scope": {
+    "parts": [
+      "party",
+      "period",
+      "step_sources"
+    ]
+  },
+  "intake": [
+    {
+      "on": "manual",
+      "starts": "manual"
+    }
+  ],
+  "resources": {},
+  "steps": [
+    {
+      "id": "invoices",
+      "uses": "run_case@1",
+      "title": "Incoming invoices from a folder",
+      "params": {
+        "pack": "documents"
+      }
+    },
+    {
+      "id": "emails",
+      "uses": "run_case@1",
+      "title": "Emails and their attachments",
+      "params": {
+        "pack": "mailbox"
+      }
+    },
+    {
+      "id": "statements",
+      "uses": "run_case@1",
+      "title": "Bank statements",
+      "params": {
+        "pack": "bank_statements"
+      }
+    },
+    {
+      "id": "reconcile",
+      "uses": "run_case@1",
+      "title": "Reconciliation",
+      "after": [
+        "invoices",
+        "emails",
+        "statements"
+      ],
+      "params": {
+        "pack": "reconciliation"
+      }
+    }
+  ],
+  "screens": {
+    "tabs": [
+      {
+        "id": "overview",
+        "label": "Overview",
+        "elements": [
+          {
+            "type": "blockers"
+          },
+          {
+            "type": "sub_case",
+            "step": "invoices"
+          },
+          {
+            "type": "sub_case",
+            "step": "emails"
+          },
+          {
+            "type": "sub_case",
+            "step": "statements"
+          },
+          {
+            "type": "sub_case",
+            "step": "reconcile"
+          }
+        ]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "elements": [
+          {
+            "type": "timeline"
+          },
+          {
+            "type": "cost"
+          }
+        ]
+      }
+    ]
+  },
+  "outputs": [],
+  "goldens": []
+}

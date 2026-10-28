@@ -17,7 +17,7 @@ const NAME: DsColumn = { key: "name", label: "Tétel", kind: "text", hidden: fal
 const UNIFIED: DsColumn = { key: "unified_name", label: "Egységes név", kind: "text", hidden: true, labels: null, link: "review" };
 const row = (over: Partial<DsRow>): DsRow => ({ _key: "a", _wp: "wp-1", item_id: "a", name: "2026-09-01_SZAMLA_Minta-Kft_A-1.pdf",
   original_name: "scan_0001.pdf", unified_name: "2026-09-01_SZAMLA_Minta-Kft_A-1.pdf", name_state: "ready", _name_check: null, ...over });
-const page = (rows: DsRow[]): DsPage => ({ dataset: { name: "workpackage_items", label: "Csomag tételei", scope: ["workpackage_id"], optional_scope: ["names"], natural_sort: [] },
+const page = (rows: DsRow[]): DsPage => ({ dataset: { name: "workpackage_items", label: "Köteg tételei", scope: ["workpackage_id"], optional_scope: ["names"], natural_sort: [] },
   columns: [NAME, UNIFIED], rows, total: rows.length, matched: rows.length, offset: 0, limit: 100, facets: {} });
 
 describe("082 name choice", () => {

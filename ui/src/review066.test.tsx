@@ -20,7 +20,7 @@ describe("066 Á22: a letöltés fájlneve", () => {
 describe("066 Á12: a megerősítő oldal friss keretet mutat", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("a csomag régi nézete helyett a friss keretet és ujjlenyomatot használja; addig az indítás tiltva", async () => {
+  it("a köteg régi nézete helyett a friss keretet és ujjlenyomatot használja; addig az indítás tiltva", async () => {
     const user = userEvent.setup();
     const old = view();
     let answer: (r: Readiness) => void = () => {};

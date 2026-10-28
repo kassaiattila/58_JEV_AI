@@ -289,6 +289,22 @@ def _mark_seen(folder_id: str, files: list[tuple[Path, str, os.stat_result]]) ->
 WATCHER = identity.machine("figyelt mappa")
 
 
+DOCUMENTS = "documents"  # 231 (U2b): the process pack whose cases hold a watched folder's batches
+
+
+def _own_case(wp_id: str, actor: identity.Who) -> None:
+    """231 (U2b; the owner's decision of 2026-10-28: a watched folder starts a case): the batch gets a case of the
+    documents process, its owner the batch's; its live run stays a person's action. A failure is logged and never loses
+    the batch or the scan's outcome."""
+    from jav.app import process_runtime  # lazy: the process packs build on the settings
+
+    try:
+        owner = work.get(wp_id).get("owner") or actor
+        process_runtime.wrap_into(DOCUMENTS, wp_id, scope={}, actor=owner)
+    except Exception:  # noqa: BLE001 - the batch stays, as an ordinary one
+        log.exception("the watched folder's batch %s got no case", wp_id)
+
+
 def scan(folder_id: str, *, now: datetime | None = None, actor: identity.Who = WATCHER) -> dict[str, Any]:
     """Scans one folder now: new documents go into the package of the folder (or of the day). The result is recorded on
     the folder too. 063: one folder is scanned by one process at a time (the "now" button and the scheduled scan cannot
@@ -333,6 +349,8 @@ def _scan(folder: dict[str, Any], now: datetime, actor: identity.Who) -> dict[st
                     work_recipes.assign_recipe(wp_id, r["id"], params=params, expected_revision=0, actor=actor, note=WATCHER.name)
             wp = work.get(wp_id)
             work.add_documents(wp_id, fresh, expected_revision=wp["revision"])
+            if not existing:  # U2b: a new batch gets its case of the documents process at once
+                _own_case(wp_id, actor)
         _mark_seen(folder["id"], files)  # 063: "seen" only after a successful intake
         result = {"new": len(fresh), "settling": settling, "unreadable": unreadable,
                   "workpackage": wp_id if fresh else _package_for(folder, bucket)}

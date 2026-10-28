@@ -1,0 +1,109 @@
+{
+  "meta": {
+    "name": "process:monthly_reconciliation",
+    "version": "1.0.0",
+    "description": "231 (stage U, U2c; the owner's decision of 2026-10-28: a chain is a multi-step process): an own party's period in one case: its incoming invoices and its bank statements are read side by side, and once both are done, the reconciliation pairs them for the party and the period, as the workflow template of the same name was (configs/workflows.json until then). Each step runs a case of its own process, a sub-case (run_case@1), and waits until it closes; a paid run of a sub-case waits for a person's start with its cost cap.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-28",
+        "note": "231 (U2c): the first version: three sub-case steps (the incoming invoices from a folder or files, the bank statements, then the reconciliation after both) and its tabs: Overview, History; started by hand for a party and a period, each of the first two steps with its own documents."
+      }
+    ]
+  },
+  "id": "monthly_reconciliation",
+  "title": "Monthly reconciliation",
+  "summary": "An own party's period in one case: its incoming invoices and its bank statements are read side by side, then reconciled.",
+  "examples": {
+    "sets": [
+      {
+        "kind": "own_party",
+        "name": "example_parties"
+      }
+    ],
+    "note": "Choose the invented consultancy and March to June 2026; the invoices are the packet of the consultancy's invoices, the statements its monthly statements: the reconciliation then pairs three payments with their invoices."
+  },
+  "scope": {
+    "parts": [
+      "party",
+      "period",
+      "step_sources"
+    ]
+  },
+  "intake": [
+    {
+      "on": "manual",
+      "starts": "manual"
+    }
+  ],
+  "resources": {},
+  "steps": [
+    {
+      "id": "invoices",
+      "uses": "run_case@1",
+      "title": "Incoming invoices",
+      "params": {
+        "pack": "documents"
+      }
+    },
+    {
+      "id": "statements",
+      "uses": "run_case@1",
+      "title": "Bank statements",
+      "params": {
+        "pack": "bank_statements"
+      }
+    },
+    {
+      "id": "reconcile",
+      "uses": "run_case@1",
+      "title": "Reconciliation",
+      "after": [
+        "invoices",
+        "statements"
+      ],
+      "params": {
+        "pack": "reconciliation"
+      }
+    }
+  ],
+  "screens": {
+    "tabs": [
+      {
+        "id": "overview",
+        "label": "Overview",
+        "elements": [
+          {
+            "type": "blockers"
+          },
+          {
+            "type": "sub_case",
+            "step": "invoices"
+          },
+          {
+            "type": "sub_case",
+            "step": "statements"
+          },
+          {
+            "type": "sub_case",
+            "step": "reconcile"
+          }
+        ]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "elements": [
+          {
+            "type": "timeline"
+          },
+          {
+            "type": "cost"
+          }
+        ]
+      }
+    ]
+  },
+  "outputs": [],
+  "goldens": []
+}

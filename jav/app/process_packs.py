@@ -22,6 +22,8 @@ so the step's source, the step it waits for and its approval's basis are the sam
 a case cannot start without a version of to keep (`process_settings.at_start` refuses the start). Stage U (U0): its
 `summary` (what the process is for, when a person picks one) and its `examples` (its example material: the sets of
 things it installs, and a file of invented documents, which the check requires to be there; `jav/app/examples.py`).
+U2c: what a step reads from the whole pack (a sub-case's scope parts, the steps it waits for) is checked by its
+capability (`Capability.pack_check`).
 
 - `load(pack_id)`, `packs()`: a pack read and checked (`PackError` with every problem).
 - `definition(pack)`: the process core's definition of the pack's current version: one step per pack step, its kind
@@ -340,6 +342,9 @@ def _problems(pack: ProcessPack) -> list[str]:
             problems.append(f"{where}: a paid step ({step.uses}) is started by a person")
         if step.optional and step.start != "person":
             problems.append(f"{where}: only a step a person starts may be optional")
+    for key in dict.fromkeys(s.uses for s in pack.steps):  # 231 (U2c): what a capability reads from the whole pack
+        if (cap := _capability(key)) is not None and cap.pack_check is not None:
+            problems += cap.pack_check(pack)
     case_owned = [s.uses for s in pack.steps if (c := _capability(s.uses)) is not None and c.state == "case"]
     for key in sorted({k for k in case_owned if case_owned.count(k) > 1}):  # D0-b: two steps would share one state
         problems.append(f"{key} keeps its state for the whole case: a pack uses it once")

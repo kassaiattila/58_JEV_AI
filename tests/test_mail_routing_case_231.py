@@ -63,11 +63,12 @@ def test_a_routing_package_made_before_is_taken_over_with_its_decisions(db) -> N
     wp, ids = _sources(db)
     routing = _old_routing(wp)
     email_routing.accept_clear(routing, actor="Example Person")
-    listed = process_runtime.adopt_all(actor="tester")  # without write: only listed
+    # U2b: the batches around it (its email package, the routed invoices') are the documents' and mailbox's to wrap
+    listed = [r for r in process_runtime.adopt_all(actor="tester") if r["pack"] == PACK]  # without write: only listed
     assert [(r["pack"], r["workpackage_id"], r["scope"], r["result"]) for r in listed] == [
         (PACK, routing, {"sources": [wp]}, "to adopt")]
     assert work.get(routing)["source_kind"] == "email_routing"
-    assert [r["result"] for r in process_runtime.adopt_all(actor="tester", write=True)] == ["adopted"]
+    assert [r["result"] for r in process_runtime.adopt_all(actor="tester", write=True) if r["pack"] == PACK] == ["adopted"]
     assert work.get(routing)["source_kind"] == process_runtime.CONTAINER
     assert process_runtime.adopt_all(actor="tester", write=True) == []  # its kind is the container's now
     view = email_routing.view(routing)  # the decisions stay where they were
@@ -91,12 +92,16 @@ def test_a_routing_case_lists_the_cases_started_from_its_emails(db) -> None:  # 
     assert (started["id"], started["process"], started["record"]["item_id"]) == (quote, "IT quote", email)
 
 
-def test_the_package_list_shows_a_case_s_container_with_its_next_step(db) -> None:  # noqa: F811
-    """A case's next step names its parameters as every package's does (the list once failed on a case without them)."""
-    from jav.app import datasets
+def test_a_case_s_container_is_in_the_case_list_not_the_batches(db) -> None:  # noqa: F811
+    """A case's next step names its parameters as every package's does (the list once failed on a case without them);
+    U2a (the owner's decision of 2026-10-28: one work list) the case is listed among the cases, and the list of every
+    document batch leaves its container out (the email package it reads stays there)."""
+    from jav.app import datasets, work_views
     from jav.app.tablequery import Query
 
     wp, _ids = _sources(db)
     case_id = process_runtime.start_case(PACK, {"sources": [wp]}, name="June emails", actor="Example Person")
-    rows = {r["_key"] if "_key" in r else r["id"]: r for r in datasets.query("workpackages", {}, Query(limit=100))["rows"]}
-    assert case_id in rows
+    batches = {r["_key"] if "_key" in r else r["id"] for r in datasets.query("workpackages", {}, Query(limit=100))["rows"]}
+    assert case_id not in batches and wp in batches
+    assert case_id in {r["_key"] for r in datasets.query("cases", {}, Query(limit=100))["rows"]}
+    assert isinstance(work_views.workpackage_view(case_id)["next"]["params"], dict)

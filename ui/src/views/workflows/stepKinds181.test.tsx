@@ -43,8 +43,8 @@ describe("181 a step takes the packages its registered kind takes", () => {
     vi.spyOn(api, "workflowTemplates").mockResolvedValue(templates);
     vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: PACKAGES });
     render(<Workflows route={{ view: "workflows", wfId: "wf-00000000000a" }} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Use an existing package…" }));
-    const chooser = await screen.findByRole("combobox", { name: "Work package for Incoming invoices" });
+    fireEvent.click(await screen.findByRole("button", { name: "Use an existing batch…" }));
+    const chooser = await screen.findByRole("combobox", { name: "Document batch for Incoming invoices" });
     await screen.findByRole("option", { name: "June watch" });
     expect([...chooser.querySelectorAll("option")].map((o) => o.textContent)).toEqual(["Choose…", "June watch"]);
   });

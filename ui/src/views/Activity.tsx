@@ -1,6 +1,6 @@
 // Mai munkám (My work today; 061 decision: active user + assignment): the daily actions of the „Ki dolgozik?” (Who is
 // working?) person — recipe, starting and approving a run, correction, closing a to-do, task proposal decision, work
-// package events, mailbox download. Modelled on the old V4 „Mai munkám” view; the day can be chosen (today by default).
+// package events, mailbox download; 231 (U2d): a person's steps and decisions on the cases. Modelled on the old V4 „Mai munkám” view; the day can be chosen (today by default).
 import { DataTable } from "../components/DataTable";
 import { PageHeader } from "../components/PageHeader";
 import { useActor } from "../hooks";
@@ -42,7 +42,7 @@ export function Activity({ day }: { day?: string }) {
   }
   return (
     <>
-      <PageHeader title={title} summary={t("{{name}} műveletei a napon: feldolgozási beállítások, futás indítása és jóváhagyása, javítás, teendő lezárása, feladatjavaslat-döntés, csomag-módosítás, postafiók-letöltés.", { name: actor })}
+      <PageHeader title={title} summary={t("{{name}}'s actions on the day: steps and decisions on the cases, processing settings, starting and approving runs, corrections, closing to-dos, task-proposal decisions, batch changes, mailbox downloads.", { name: actor })}
         actions={
           <label className="check small">{t("Nap")}
             <input type="date" value={d} max={today} onChange={(e) => go({ view: "activity", day: e.target.value && e.target.value !== today ? e.target.value : undefined })} />

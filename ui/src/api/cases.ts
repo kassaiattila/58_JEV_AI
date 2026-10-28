@@ -60,7 +60,9 @@ export interface CaseElement { type: string; step: string | null; data: unknown;
 export interface CaseTab { id: string; label: string; elements: CaseElement[] }
 export interface CaseView {
   /** U-A8: `due`, whether the worker has something to do for the case now (the page asks again while it has) */
-  case: { id: string; pack: string; version: string; title: string; name: string | null; status: string; due?: boolean };
+  case: { id: string; pack: string; version: string; title: string; name: string | null; status: string; due?: boolean;
+    /** 231 (U2c): the case and step a sub-case is part of (the process's title, the step's title) */
+    parent?: { id: string; name: string; title: string | null; step: string; step_title: string } };
   steps: Record<string, CaseStep>;
   tabs: CaseTab[];
   /** the case's next step, named by its elements, and the tab it is done on */
@@ -164,8 +166,16 @@ export interface DocumentViewData {
 /** D-f9: what holds an open case, each with the tab where it is resolved (jav/app/case_views.py). */
 export interface BlockersData {
   status: string;
-  items: { step: string; kind: "stopped" | "stale" | "start" | "person" | "waits"; note: string | null; waiting_for: string | null;
+  items: { step: string; kind: "stopped" | "stale" | "start" | "person" | "waits" | "sub_case"; note: string | null; waiting_for: string | null;
     tab: string | null; reasons?: Said[] }[];
+}
+/** 231 (U2c): a step that runs a case of another process, a sub-case (jav/app/sub_cases.py): its process, the sub-case
+ *  (its state and, while it is open, its own next step) and the earlier ones that closed otherwise. */
+export interface SubCaseData {
+  state: string | null; pack: string | null; process: string | null;
+  case: { id: string; name: string; status: string | null; outcome: string | null;
+    next: { code: string; label: string; stage: string; tab: string; params?: Record<string, number> } | null } | null;
+  earlier: { case_id: string; outcome: string }[];
 }
 /** D-f8: a letter that goes with a printed document (jav/app/letters.py). */
 export interface LetterData {
@@ -200,9 +210,9 @@ export interface CostLine { step: string; step_title: string; provider: string; 
 export interface CaseCost { lines: CostLine[]; total_usd: string }
 
 export const casesApi = {
-  // 231 C1c: the packages it reads; C2d: its own party and period
+  // 231 C1c: the packages it reads; C2d: its own party and period; U2c: each step's own documents
   startCase: (body: { pack: string; record?: { workpackage_id: string; item_id: string }; sources?: string[]; name: string;
-    party_id?: string; period_start?: string; period_end?: string; source?: CaseSource }) =>
+    party_id?: string; period_start?: string; period_end?: string; source?: CaseSource; step_sources?: Record<string, CaseSource> }) =>
     request<{ case_id: string }>("POST", "/cases", body),
   casePage: (caseId: string) => request<CaseView>("GET", `/cases/${enc(caseId)}`),
   /** 231 (U1): a case of the process that follows the closed case, started from its documents */

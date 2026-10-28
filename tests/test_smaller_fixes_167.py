@@ -41,11 +41,19 @@ def test_a_correction_in_the_activity_log_names_its_fields_not_their_values() ->
 
 
 def test_a_reconciliation_package_shows_no_item_count(monkeypatch) -> None:
-    """167 (review 153 E): its lines are not items, so the list leaves the count empty instead of 0."""
+    """167 (review 153 E): its lines are not items, so the list left the count empty instead of 0. 231 (U2a; the
+    owner's decision of 2026-10-28: one work list, the cases): a reconciliation is a case, which the list of every
+    document batch asks to be left out, so no row of the list counts lines as items."""
     from jav.app import datasets, work_views
 
-    row = {"id": "wp-1", "name": "x", "source_kind": "case", "items": 0, "last_run_id": None,  # 231 (C3a-2): its case
-           "next": {"stage": "process", "label": "", "code": "reconcile_pair", "params": {}}}
-    monkeypatch.setattr(work_views, "workpackage_list", lambda include_archived=False: [dict(row), {**row, "id": "wp-2", "source_kind": "folder", "items": 3}])
+    asked: list[dict] = []
+    row = {"id": "wp-2", "name": "x", "source_kind": "folder", "items": 3, "last_run_id": None,
+           "next": {"stage": "process", "label": "", "code": "start", "params": {}}}
+
+    def listed(**kw):
+        asked.append(kw)
+        return [dict(row)]
+
+    monkeypatch.setattr(work_views, "workpackage_list", listed)
     _cols, rows = datasets._workpackages({})
-    assert [r["items"] for r in rows] == [None, 3]
+    assert [r["items"] for r in rows] == [3] and asked == [{"include_archived": False, "batches_only": True}]

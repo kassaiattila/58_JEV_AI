@@ -2,9 +2,10 @@
 
 Plain-language summary: two tables of the uniform data view. The case list shows every case of every process pack:
 its name (which opens its page), its process, whether it is open, the step it is at and what that step waits for (a
-person's start, a person's decision, the other side's reply, the machine's work), its owner and when it started and
-last changed. The handovers to check show the cases whose last attempt to send something failed or has an unknown
-outcome: the person sees where it went wrong and opens the case to try again or to say whether it arrived.
+person's start, a person's decision, the other side's reply, the machine's work; 231 U2c: its sub-case, the case of
+another process the step runs), its owner and when it started and last changed. The handovers to check show the
+cases whose last attempt to send something failed or has an unknown outcome: the person sees where it went wrong and
+opens the case to try again or to say whether it arrived.
 
 Layer: application view, read only; it uses the process core's public reads, the process packs and the work packages.
 """
@@ -22,9 +23,10 @@ from jav.core.process import cases, outbox, tasks
 __all__ = ["register"]
 
 PERSON_START, PERSON, REPLY, WORK, FAILED = "person_start", "person", "reply", "work", "failed"
+SUB_CASE = "sub_case"  # 231 (U2c): a step that waits for the case of another process it runs
 _STATUS = {"open": "Open", "closed": "Closed"}
 _WAITS = {PERSON_START: "A person's start", PERSON: "A person's decision", REPLY: "The reply", WORK: "The machine's work",
-          FAILED: "A failed step"}
+          FAILED: "A failed step", SUB_CASE: "Its sub-case"}
 _HANDOVER = {outbox.FAILED: "Failed", outbox.UNCERTAIN: "Arrival unknown"}
 
 
@@ -64,7 +66,7 @@ def _cases(scope: dict[str, str]) -> Rows:
     """Every process pack's case; the closed ones only on request (`include_closed`)."""
     closed = scope.get("include_closed") == "1"
     cols = [
-        col("name", "Case", link="workpackage"),
+        col("name", "Case", link="case"),  # U2a: the case opens at its own address
         col("process", "Process", "enum"),
         col("status", "Status", "enum", labels="case_status", badge=True, hidden=not closed),  # all open otherwise
         col("step", "Current step"),
@@ -93,7 +95,7 @@ def _cases(scope: dict[str, str]) -> Rows:
 def _handovers(scope: dict[str, str]) -> Rows:
     """The open cases whose step's last handover failed or has an unknown outcome, oldest first."""
     cols = [
-        col("name", "Case", link="workpackage"),
+        col("name", "Case", link="case"),  # U2a: the case opens at its own address
         col("step", "Step"),
         col("status", "Outcome", "enum", labels="handover_status", badge=True),
         col("attempt", "Attempt", "number"),

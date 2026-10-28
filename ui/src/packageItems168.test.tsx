@@ -97,7 +97,7 @@ it("a file processed live in another package is marked, and changing the choice 
   fireEvent.change(paths, { target: { value: "C:/in/a.pdf" } });
   fireEvent.click(screen.getByRole("button", { name: "Check what would be added" }));
   expect(await screen.findByText("processed live elsewhere")).toBeTruthy();
-  expect(screen.getByText(/1 of them were already processed in a live run of another package/)).toBeTruthy();
+  expect(screen.getByText(/1 of them were already processed in a live run of another batch/)).toBeTruthy();
   fireEvent.change(paths, { target: { value: "C:/in/b.pdf" } });
   expect(screen.queryByRole("table", { name: "Files to add" })).toBeNull();
   expect(screen.getByRole("button", { name: "Check what would be added" })).toBeTruthy();
@@ -110,8 +110,8 @@ it("several selected items are removed with one reason, and selected removed one
   const restore = vi.spyOn(api, "restoreItems").mockResolvedValue({} as WorkpackageView);
   const onChanged = vi.fn();
   render(<PackageItemsPanel view={viewOf()} onChanged={onChanged} />);
-  fireEvent.click(screen.getByRole("button", { name: "Remove 2 from the package…" }));
-  const submit = screen.getByRole("button", { name: "Remove from the package" }) as HTMLButtonElement;
+  fireEvent.click(screen.getByRole("button", { name: "Remove 2 from the batch…" }));
+  const submit = screen.getByRole("button", { name: "Remove from the batch" }) as HTMLButtonElement;
   expect(submit.disabled).toBe(true);
   fireEvent.change(screen.getByRole("textbox", { name: "Why remove these items (2)?" }), { target: { value: " the wrong folder " } });
   fireEvent.click(submit);

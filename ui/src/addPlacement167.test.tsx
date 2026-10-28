@@ -64,7 +64,7 @@ it("the open form previews, adds by path, shows the service's counts and closes 
   expect([...container.querySelectorAll("button.primary")]).toEqual([submit]);
   fireEvent.click(submit);
   await waitFor(() => expect(add).toHaveBeenCalledWith("wp-1", { paths: ["C:/in/new.pdf"] }, 4, { exclude: [], restore: [] }));
-  expect(await screen.findByText("Added: 1 · already in the package: 0 · restored: 0")).toBeTruthy();
+  expect(await screen.findByText("Added: 1 · already in the batch: 0 · restored: 0")).toBeTruthy();
   expect(onChanged).toHaveBeenCalled();
   expect(parseRoute(window.location.hash)).not.toHaveProperty("add");
 });
@@ -77,7 +77,7 @@ it("a statement package offers adding statements in processing", () => {
 
 it("the package's actions menu leads to the add form in processing", () => {
   render(<WorkpackageActions view={view()} onChanged={() => {}} />);
-  fireEvent.click(screen.getByRole("button", { name: "Manage package" }));
+  fireEvent.click(screen.getByRole("button", { name: "Manage batch" }));
   fireEvent.click(screen.getByRole("button", { name: "Add documents" }));
   expect(parseRoute(window.location.hash)).toMatchObject({ wpId: "wp-1", stage: "process", add: true });
 });
@@ -87,5 +87,5 @@ it("the package's actions menu leads to the add form in processing", () => {
 it("after a run, review's item list names adding in its title", async () => {
   vi.spyOn(api, "workpackage").mockResolvedValue(view({}, { runs: 1, next: { code: "review", label: "", stage: "review" } }));
   render(<WorkpackageDetail route={{ view: "workpackages", wpId: "wp-1", stage: "review" }} wpId="wp-1" />);
-  expect(await screen.findByText("The package's items: add, open, download, remove")).toBeTruthy();
+  expect(await screen.findByText("The batch's items: add, open, download, remove")).toBeTruthy();
 });

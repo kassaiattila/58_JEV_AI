@@ -103,9 +103,13 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
     <button type="button" className="primary" onClick={() => go({ view: "cases", caseId, tab: view.next!.tab })}>{nextStep} →</button>
   ) : <span className="next-hint">{t("Next step: {{step}}", { step: nextStep })}</span>;
 
+  // 231 (U2c): a sub-case leads back to the case it is part of, at the step that runs it
+  const parent = view.case.parent;
+  const crumbs = [{ label: t("Cases"), href: "#/cases" },
+    ...(parent ? [{ label: `${parent.name} · ${t(parent.step_title)}`, href: `#/cases/${encodeURIComponent(parent.id)}` }] : [])];
   return (
     <>
-      <PageHeader compact crumbs={[{ label: t("Cases"), href: "#/cases" }]} title={view.case.name ?? t(view.case.title)}
+      <PageHeader compact crumbs={crumbs} title={view.case.name ?? t(view.case.title)}
         summary={summary}
         actions={container.data ? <><OwnerPicker view={container.data} onChanged={reload} />{nextButton}<WorkpackageActions view={container.data} onChanged={reload} /></> : nextButton} />
       <FollowUps caseId={caseId} view={view} />

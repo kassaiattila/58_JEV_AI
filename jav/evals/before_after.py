@@ -63,6 +63,9 @@ _ACTIVITY_TIMES = (
     # 175: a person's duplicate decisions, statement choices and own workflow steps
     ("duplicate_decisions", "actor", "decided_at"), ("statement_choices", "actor", "decided_at"),
     ("workflow_events", "actor", "created_at"),
+    # 231 (U2d): a person's own steps and decisions on the cases (the history's actor is a record, its time epoch seconds)
+    ("process_history", "CASE WHEN json_extract(actor, '$.kind') = 'human' THEN json_extract(actor, '$.name') END",
+     "strftime('%Y-%m-%dT%H:%M:%S+00:00', at, 'unixepoch')"),
 )
 
 

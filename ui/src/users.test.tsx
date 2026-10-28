@@ -10,7 +10,7 @@ import { parseRoute, routeHash } from "./route";
 import { UsersPanel } from "./views/settings/UsersPanel";
 
 const EMPTY: DsPage = {
-  dataset: { name: "workpackages", label: "Munkacsomagok", scope: [], optional_scope: ["include_archived", "owner"] }, columns: [], rows: [],
+  dataset: { name: "workpackages", label: "Iratkötegek", scope: [], optional_scope: ["include_archived", "owner"] }, columns: [], rows: [],
   total: 0, matched: 0, offset: 0, limit: 50, facets: {},
 };
 
@@ -47,12 +47,13 @@ describe("Ki dolgozik? (061)", () => {
     expect(screen.getByLabelText("Ki dolgozik?")).toBeTruthy();
   });
 
-  it("„Csak a saját csomagjaim”: a lista a felelős szerint szűr", async () => {
+  it("„Csak a saját kötegeim”: a lista a felelős szerint szűr", async () => {
     setActor("Minta Anna");
     const query = shell(["Minta Anna"]);
     const user = userEvent.setup();
+    window.location.hash = "#/workpackages";  // 231 U2a: the list of every batch (the cases are the default list)
     render(<App />);
-    await user.click(await screen.findByRole("checkbox", { name: "Csak a saját csomagjaim" }));
+    await user.click(await screen.findByRole("checkbox", { name: "Csak a saját kötegeim" }));
     await waitFor(() => expect(query).toHaveBeenLastCalledWith("workpackages", { owner: "Minta Anna" }, expect.anything()));
   });
 });

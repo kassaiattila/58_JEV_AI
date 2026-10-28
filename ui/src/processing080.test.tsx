@@ -14,7 +14,7 @@ const PLAN: RunPlan = { documents: 3, emails: 1, attachments: 0, paths: { S: 1, 
 
 const PROCESSING: Recipe = {
   id: "processing", version: 1, status: "active", title: "Feldolgozás", description: "Leírás.", steps: ["Beolvasás (szükség esetén szövegfelismerés)"],
-  requirements: ["Legalább egy PDF-irat vagy levél a munkacsomagban"], result: "Eredmény.", manual_action: "Teendők.",
+  requirements: ["Legalább egy PDF-irat vagy levél az iratkötegben"], result: "Eredmény.", manual_action: "Teendők.",
   params: { arm: { allowed: ["auto", "S", "G"], default: "auto" }, jev_cache: { allowed: ["reuse", "live"], default: "reuse" },
     tasks: { allowed: ["off", "propose"], default: "off" }, azure_ocr: { allowed: ["on", "off"], default: "on" } },
   max_item_usd: { S: { jev: "0.07", openai: "0.15" }, G: { jev: "0.07", openai: "0.15" }, auto: { jev: "0.07", openai: "0.15" } },
@@ -22,7 +22,7 @@ const PROCESSING: Recipe = {
 };
 
 const HELP: RecipeHelp = {
-  intro: "A rendszer a csomag minden tételét a fajtája szerint dolgozza fel.",
+  intro: "A rendszer a köteg minden tételét a fajtája szerint dolgozza fel.",
   kinds: { document: "PDF-irat: a rendszer előbb felismeri a típusát.", email: "Levél: a rendszer felismeri, mi a levél célja." },
   recipes: {},
   paths: {
@@ -60,8 +60,8 @@ describe("080 indítás előtti áttekintés", () => {
   });
 });
 
-describe("080 csak a csomag tételeire ható beállítások", () => {
-  it("iratos csomagon nincs feladatjavaslat és levelenkénti keret; leveles csomagon nincs út és Azure", () => {
+describe("080 csak a köteg tételeire ható beállítások", () => {
+  it("iratos kötegen nincs feladatjavaslat és levelenkénti keret; leveles kötegen nincs út és Azure", () => {
     expect(paramApplies("tasks", ["document"])).toBe(false);
     expect(paramApplies("arm", ["email"])).toBe(false);
     expect(paramApplies("jev_cache", ["email"])).toBe(true);
@@ -79,7 +79,7 @@ describe("080 alapbeállítás és megerősítés", () => {
     vi.spyOn(api, "readiness").mockResolvedValue(v.readiness);
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [PROCESSING], help: HELP });
     render(<StartConfirm view={v} mode="shadow" rerun={false} onChanged={() => {}} />);
-    expect(await screen.findByText("alapbeállítás, az indításkor mentődik a csomaghoz")).toBeTruthy();
+    expect(await screen.findByText("alapbeállítás, az indításkor mentődik a köteghez")).toBeTruthy();
     await waitFor(() => expect(screen.getByText(/Út: Automatikus \(ajánlott\)/)).toBeTruthy());
     expect(screen.getByRole("heading", { name: "Mi történik indításkor" })).toBeTruthy();
     expect(screen.getByText(/1 irat típusfelismerése és adatkinyerése/)).toBeTruthy();

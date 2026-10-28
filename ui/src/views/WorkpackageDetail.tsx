@@ -11,7 +11,7 @@ import { useEvent, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { itemCountText, MODE, RUN_STATUS, stepLabel, tmap, when } from "../labels";
 import { partOf } from "../logic/packageParts";
-import { go, type Route, type Stage } from "../route";
+import { go, routeHash, type Route, type Stage } from "../route";
 import { PackageItemsPanel } from "./PackageItems";
 import { ProcessStage } from "./ProcessStage";
 import { scopeText } from "./PackageScope";
@@ -92,8 +92,8 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   if (wp.error?.status === 404 || wp.error?.status === 422) {
     // The work package requested in the address does not exist: we say so, and do not open another one instead.
     return (
-      <PageHeader crumbs={[{ label: t("Munkacsomagok"), href: "#/workpackages" }]} title={t("A munkacsomag nem található")}
-        summary={<><span className="mono">{wpId}</span>: {t("nincs ilyen azonosítójú munkacsomag (vagy törölték). Válassz a listából.")}</>} />
+      <PageHeader crumbs={[{ label: t("All document batches"), href: "#/workpackages" }]} title={t("Az iratköteg nem található")}
+        summary={<><span className="mono">{wpId}</span>: {t("nincs ilyen azonosítójú iratköteg (vagy törölték). Válassz a listából.")}</>} />
     );
   }
   if (wp.error) return <p className="notice error" role="alert">{wp.error.message}</p>;
@@ -127,15 +127,23 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
     <button type="button" className="primary" onClick={() => go({ view: "workpackages", wpId, stage: next.stage })}>{nextStepText(view)} →</button>
   ) : <span className="next-hint">{t("Következő lépés: {{step}}", { step: nextStepText(view) })}</span>;
 
+  // U2a (the owner's decision of 2026-10-28: one work list): a case step's batch leads back to its case and step; any
+  // other batch to the list of every batch
+  const owner = view.owner_case;
+  const crumbs = owner
+    ? [{ label: t("Cases"), href: "#/cases" },
+       { label: owner.name, href: routeHash({ view: "cases", caseId: owner.id, tab: owner.tab ?? undefined }) },
+       ...(owner.step_title ? [{ label: t(owner.step_title) }] : [])]
+    : [{ label: t("All document batches"), href: "#/workpackages" }];
   return (
     <>
-      <PageHeader compact crumbs={[{ label: t("Munkacsomagok"), href: "#/workpackages" }]} title={workpackage.name}
+      <PageHeader compact crumbs={crumbs} title={workpackage.name}
         summary={<>{summary}{scopeOf}{workflowOf}</>}
         actions={<><OwnerPicker view={view} onChanged={wp.reload} />{nextButton}<WorkpackageActions view={view} onChanged={wp.reload} /></>} />
       {workpackage.status === "archived" ? (
-        <p className="notice">{t("Ez a csomag el van rejtve a listából; a futásai és az eredményei megmaradtak. Visszahozni a „Csomag kezelése” gombbal lehet.")}</p>
+        <p className="notice">{t("Ez a köteg el van rejtve a listából; a futásai és az eredményei megmaradtak. Visszahozni a „Köteg kezelése” gombbal lehet.")}</p>
       ) : null}
-      <div className="stage-tabs" role="tablist" aria-label={t("A csomag szakaszai")}>
+      <div className="stage-tabs" role="tablist" aria-label={t("A köteg szakaszai")}>
         {(Object.keys(labels) as Stage[]).map((s, i) => (
           <a key={s} role="tab" aria-selected={stage === s} className={`stage-tab ${next.stage === s ? "is-next" : ""}`} href={`#/workpackages/${wpId}/${s}`}>
             <span className="stage-no" aria-hidden="true">{i + 1}</span>
@@ -160,7 +168,7 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
             </>
           ) : (
             <>
-              <p className="notice">{t("A csomagon még nem futott feldolgozás, ezért nincs mit ellenőrizni. Az iratok itt megnyithatók és letölthetők; a feldolgozást a")}{" "}
+              <p className="notice">{t("A kötegen még nem futott feldolgozás, ezért nincs mit ellenőrizni. Az iratok itt megnyithatók és letölthetők; a feldolgozást a")}{" "}
                 <a href={`#/workpackages/${wpId}/process`}>{STAGE_LABEL.process}</a> {t("szakaszban indíthatod.")}</p>
               <PackageItemsPanel view={view} onChanged={wp.reload} />
             </>

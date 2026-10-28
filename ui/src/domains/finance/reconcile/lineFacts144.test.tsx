@@ -127,7 +127,7 @@ describe("the documents' statement pane", () => {
   it("says when the bank's PDF is gone or changed since it was read", async () => {
     vi.spyOn(api, "reconcileLocate").mockResolvedValue(located(lineId(1), { original: { file: "20260430_statement.pdf", state: "missing" } }));
     render(<DocumentPair wpId={WP} line={line(1)} invoice={null} opens={{}} />);
-    expect(await screen.findByText(/The bank's PDF \(20260430_statement\.pdf\) is not in the package's source folder/)).toBeTruthy();
+    expect(await screen.findByText(/The bank's PDF \(20260430_statement\.pdf\) is not in the batch's source folder/)).toBeTruthy();
     expect(screen.queryByRole("img", { name: "Statement" })).toBeNull();
   });
 
@@ -137,6 +137,6 @@ describe("the documents' statement pane", () => {
     render(<DocumentPair wpId={WP} line={line(1)} invoice={null} opens={{}} />);
     const img = await screen.findByRole("img", { name: "Statement" });
     await waitFor(() => expect(img.getAttribute("src")).toBe(api.pageUrl(open.workpackage_id, STMT, 2)));
-    expect(screen.getByRole("link", { name: "Open in its package" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open in its batch" })).toBeTruthy();
   });
 });

@@ -16,7 +16,7 @@ keeps every feature of a work package (its items, runs, review and result); the 
   step takes as its own (a case wrapped around it, `process_runtime.wrap_case`).
 - `Maker`, `register_maker`, `maker_of`, `maker_names`: how a step's package is made from the case's scope.
 - `package_of(case_id, step_id)`: the package a case's step made (bound by its scope part `owner_step`); `bind`
-  (C3b4): an existing package bound to a case's step.
+  (C3b4): an existing package bound to a case's step; `case_packages(case_id)` (U2c): those of every step of a case.
 - `CAPABILITY`: the step kind; its action `start_run` starts the package's live run.
 - `register_workflow_steps()` (231, C3b5b): the workflow step kind of each pack that serves one (its `workflow` block),
   made by the process runtime from the pack and its maker's workflow hooks; its start wraps the step's new package by
@@ -204,6 +204,16 @@ def package_of(case_id: str, step_id: str) -> str | None:
     return row["workpackage_id"] if row else None
 
 
+def case_packages(case_id: str) -> list[str]:
+    """231 (U2c): the packages the case's steps made, oldest first (a sub-case's batches, which a later step's sub-case
+    reads)."""
+    with store.connect() as c:
+        return [r["workpackage_id"] for r in c.execute(
+            "SELECT s.workpackage_id FROM workpackage_scopes s JOIN workpackages w ON w.id = s.workpackage_id"
+            " WHERE instr(json_extract(s.parts, ?), ?) = 1 AND w.status != 'deleted' ORDER BY w.created_at, w.id",
+            (f"$.{OWNER_PART}", f"{case_id}:"))]
+
+
 def _spent(case_id: str, step_id: str) -> list[str]:
     """U-A8 (the walkthrough of 2026-10-28): the budgets the step spent from, oldest first: its package's runs (a run's
     calls carry the run as their budget), so the case's cost shows what its documents' processing spent."""
@@ -236,6 +246,15 @@ def bind(wp_id: str, case_id: str, step_id: str, params: dict[str, Any], scope: 
 def bound(wp_id: str) -> bool:
     """231 (C3b4): whether the package belongs to a case's step (made by it, or bound to it)."""
     return OWNER_PART in ((package_scope.stored(wp_id) or {}).get("parts") or {})
+
+
+def owner_of(wp_id: str) -> tuple[str, str] | None:
+    """231 (U2a): the case and the step the package belongs to (None for a package of no case's step)."""
+    ref = ((package_scope.stored(wp_id) or {}).get("parts") or {}).get(OWNER_PART)
+    if not isinstance(ref, str) or ":" not in ref:
+        return None
+    case_id, step_id = ref.rsplit(":", 1)
+    return case_id, step_id
 
 
 def _bind(wp_id: str, case_id: str, step_id: str, scope: dict[str, Any], rule: str | None, actor: identity.Who) -> None:
@@ -539,5 +558,5 @@ def register() -> None:
 
 
 __all__ = ["CAPABILITY", "DOCUMENTS", "OWNER_PART", "PACKAGE", "SOURCE", "SOURCE_PART", "Collected", "Maker", "Process",
-           "ProcessingError", "bind", "bound", "maker_names", "source_kinds", "maker_of", "owned_packages", "package_of", "paths_of",
+           "ProcessingError", "bind", "bound", "case_packages", "maker_names", "source_kinds", "maker_of", "owned_packages", "package_of", "paths_of",
            "register", "register_maker", "register_workflow_steps", "start_run"]

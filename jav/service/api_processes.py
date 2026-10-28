@@ -19,7 +19,7 @@ from fastapi import Depends, FastAPI, Query, Request
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav.app import document_processing, examples, intake, process_packs, process_settings, scopes, work_views
+from jav.app import document_processing, examples, intake, process_packs, process_settings, scopes, sub_cases, work_views
 from jav.core import identity
 from jav.core.user_messages import message_fields
 from jav.service.service_shared import Empty, In, error, human_actor
@@ -62,6 +62,8 @@ def routes(app: FastAPI, r: str) -> None:
                                "asks": scopes.asks(p.scope.parts),
                                "package_kinds": sorted({k for i in p.intake if i.on == "package" for k in i.package_kinds}),
                                "source_kinds": document_processing.source_kinds(p),  # 231 (C3d)
+                               # 231 (U2c): the steps whose case of another process takes its own documents
+                               "step_sources": sub_cases.step_sources(p) if sub_cases.STEP_SOURCES in p.scope.parts else [],
                                "manual": any(i.on == intake.MANUAL for i in p.intake), "summary": p.summary,
                                "missing_at_start": process_settings.missing_at_start(p),
                                "examples": p.examples is not None and bool(p.examples.sets or p.examples.documents

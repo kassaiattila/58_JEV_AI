@@ -49,9 +49,9 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
     <>
       <button ref={anchor} type="button" className="secondary" aria-expanded={open} aria-haspopup="dialog"
         onClick={() => { setName(wp.name); setMode("menu"); setError(null); setOpen((o) => !o); }}>
-        <Icon name="manage" />{t("Csomag kezelése")}
+        <Icon name="manage" />{t("Köteg kezelése")}
       </button>
-      <Popover open={open} onClose={close} anchor={anchor} label={t("Csomag kezelése")} align="right" className="wp-actions">
+      <Popover open={open} onClose={close} anchor={anchor} label={t("Köteg kezelése")} align="right" className="wp-actions">
         {mode === "menu" ? (
           <div className="menu-list">
             {/* 167: adding leads to its form at the top of Processing (176: unless the package's logic pack adds
@@ -75,11 +75,11 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
                 <Icon name="hide" />{t("Elrejtés a listából")}
               </button>
             )}
-            <p className="small muted">{t("Az elrejtett csomag futásai és eredményei megmaradnak; a lista „Elrejtett csomagok is” jelölőjével újra látszik.")}</p>
+            <p className="small muted">{t("Az elrejtett köteg futásai és eredményei megmaradnak; a lista „Elrejtett kötegek is” jelölőjével újra látszik.")}</p>
             {view.runs === 0 ? (
               <button type="button" className="menu-item danger-text" onClick={() => setMode("delete")}><Icon name="trash" />{t("Végleges törlés…")}</button>
             ) : (
-              <p className="small muted">{t("Végleges törlés csak futás nélküli csomagon lehetséges; ez a csomag elrejthető.")}</p>
+              <p className="small muted">{t("Végleges törlés csak futás nélküli kötegen lehetséges; ez a köteg elrejthető.")}</p>
             )}
           </div>
         ) : mode === "scope" ? (
@@ -98,8 +98,8 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
           </form>
         ) : (
           <div className="create">
-            <p><strong>{t("Biztosan törlöd a csomagot?")}</strong></p>
-            <p className="small">{t("A csomag és a tétel-listája törlődik, a fájlok a helyükön maradnak. A törlés nem vonható vissza; a ténye naplóban marad.")}</p>
+            <p><strong>{t("Biztosan törlöd a köteget?")}</strong></p>
+            <p className="small">{t("A köteg és a tétel-listája törlődik, a fájlok a helyükön maradnak. A törlés nem vonható vissza; a ténye naplóban marad.")}</p>
             <div className="button-row">
               <button type="button" className="danger" disabled={busy}
                 onClick={() => void act(() => api.deleteWorkpackage(wp.id), () => go({ view: "workpackages" }))}>

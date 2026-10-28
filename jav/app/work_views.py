@@ -85,7 +85,7 @@ def next_step(wp: dict[str, Any], last_run: dict[str, Any] | None, ready: bool |
     items = wp["items"] if isinstance(wp.get("items"), list) else None
     n_items = len(items) if items is not None else wp.get("items", 0)
     if not n_items:
-        return step("empty", "Üres csomag", "process")
+        return step("empty", "Üres köteg", "process")
     if last_run is None:  # 080: without an assignment the default processing settings apply
         return step("start", "Próbafutás indítása", "process") if ready is not False else step("blocked", "Nem indítható", "process")
     status = last_run["status"]
@@ -149,10 +149,26 @@ def workpackage_view(wp_id: str) -> dict[str, Any]:
     from jav.app import intake
 
     with store.session():  # 153 (review B1): one connection for the package's page
-        view = _workpackage_view(wp_id)
+        view = {**_workpackage_view(wp_id), **_owner_case(wp_id)}
         # 231 (C1c): the processes whose case may read this package (an email package's email routing)
         offers = intake.package_offers(view["workpackage"])
         return {**view, "intake": offers} if offers else view
+
+
+def _owner_case(wp_id: str) -> dict[str, Any]:
+    """231 (U2a; the owner's decision of 2026-10-28: one work list, the cases): the case and the step a case step's
+    package belongs to, with the case's tab that shows the step, so the package's page leads back to its case."""
+    from jav.app import document_processing, process_runtime
+
+    owner = document_processing.owner_of(wp_id)
+    if owner is None:
+        return {}
+    case_id, step_id = owner
+    pack = process_runtime.pack_for(case_id)
+    step = next((s for s in pack.steps if s.id == step_id), None) if pack else None
+    tab = next((tab.id for tab in pack.screens.tabs for e in tab.elements if e.step == step_id), None) if pack else None
+    return {"owner_case": {"id": case_id, "name": work.get(case_id)["name"], "step": step_id,
+                           "step_title": step.title if step else None, "tab": tab}}
 
 
 def _workpackage_view(wp_id: str) -> dict[str, Any]:
@@ -232,14 +248,22 @@ def run_packages() -> dict[str, str]:
         return {r["run_id"]: r["workpackage_id"] for r in c.execute("SELECT run_id, workpackage_id FROM runs")}
 
 
-def workpackage_list(*, include_archived: bool = False) -> list[dict[str, Any]]:
-    """List: name, source, item count, recipe, last run and the number of the items' open to-do reasons."""
+def workpackage_list(*, include_archived: bool = False, batches_only: bool = False) -> list[dict[str, Any]]:
+    """List: name, source, item count, recipe, last run and the number of the items' open to-do reasons. 231 (U2a; the
+    owner's decision of 2026-10-28: one work list, the cases): `batches_only`, the document batches that are no case's,
+    a case's container and its steps' packages left out before anything is read of them (the list of every batch builds
+    no reconciliation's workspace)."""
     with store.session():  # 061: one connection for the per-package queries
-        return _workpackage_list(include_archived=include_archived)
+        return _workpackage_list(include_archived=include_archived, batches_only=batches_only)
 
 
-def _workpackage_list(*, include_archived: bool) -> list[dict[str, Any]]:
+def _workpackage_list(*, include_archived: bool, batches_only: bool = False) -> list[dict[str, Any]]:
     rows = work.list_workpackages(include_archived=include_archived)
+    if batches_only:
+        from jav.app import document_processing, process_runtime  # lazy: they build on these views
+
+        owned = document_processing.owned_packages()
+        rows = [r for r in rows if r["id"] not in owned and r["source_kind"] != process_runtime.CONTAINER]
     packages = {r["id"]: work.get(r["id"]) for r in rows}
     # all to-dos open on the documents (including earlier runs') — for information; the list shows the latest run's;
     # one query for all items of all packages (061: instead of a connection per item)

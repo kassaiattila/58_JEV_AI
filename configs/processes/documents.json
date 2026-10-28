@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "process:documents",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "description": "231 (plan stage C, C3b3; DECISIONS 231): the processing of a folder's or some chosen files' documents as a process pack (until C3 a plain kind of work package and a workflow step kind): a case makes its processing package from its source, a person starts its live run within the package's estimate, and the case is done once a live run is approved; the package's processing, review and result open from the case's page.",
     "changelog": [
+      {
+        "version": "1.4.0",
+        "date": "2026-10-28",
+        "note": "231 (U2b; the owner's decisions of 2026-10-28: one work list, the cases): a document batch made before every batch was a case's (a folder's, chosen files', a watched folder's, an upload's), not hidden and of no rule another process takes, is wrapped by a case of the pack (wraps by its kind); a watched folder's new batch gets its case at once."
+      },
       {
         "version": "1.3.0",
         "date": "2026-10-28",
@@ -40,6 +45,12 @@
       "on": "manual",
       "starts": "manual"
     }
+  ],
+  "wraps": [
+    {"kind": "folder", "step": "process", "package_part": "source"},
+    {"kind": "manual", "step": "process", "package_part": "source"},
+    {"kind": "watch", "step": "process", "package_part": "source"},
+    {"kind": "upload", "step": "process", "package_part": "source"}
   ],
   "resources": {},
   "steps": [

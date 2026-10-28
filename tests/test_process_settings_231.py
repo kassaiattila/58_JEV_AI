@@ -122,7 +122,8 @@ def test_the_service_shows_saves_and_activates_a_process_value(golden, tmp_path)
     with TestClient(create_app(store_path=store.current_path()), base_url="http://127.0.0.1:8930") as c:
         assert [p["id"] for p in c.get("/api/processes").json()["processes"]] == [
             "allianz_property_offer", "bank_statements", "documents", "insurance_offer", "insurance_renewal", PACK,
-            "mail_routing", "mailbox", "reconciliation"]  # (U-A6) the real corporate property product's quote
+            "mail_routing", "mailbox", "mailbox_reconciliation", "mailbox_routing", "monthly_reconciliation", "reconciliation",
+            "two_sources_reconciliation"]  # (U-A6) the real corporate property product's quote; (U2c) the multi-step ones
         shown = c.get(f"/api/processes/{PACK}/settings").json()
         assert shown["policy"] == {"activation": "editor", "owners": []}
         assert {r["key"] for r in shown["resources"]} >= {"price_list", "send_mode", "letter_frame", "template:quote"}

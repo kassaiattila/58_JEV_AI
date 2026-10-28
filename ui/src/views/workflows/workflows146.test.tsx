@@ -1,25 +1,20 @@
-// 146 (DECISIONS 146): the new work wizard makes a workflow (the party, the period, each step's source and budget, an
-// overview), the control view shows the chain and starts a step that waits for a budget, and the list filters. The
+// 146 (DECISIONS 146): the control view shows the chain and starts a step that waits for a budget, and the list filters
+// (until 231 U2c the new work wizard made a workflow here; since then a new one is a case of a multi-step process). The
 // local service is replaced by spies; synthetic names only. Expectations use the English interface; a separate check
 // makes sure every text of the templates has a Hungarian translation.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import workflowConfig from "./workflowTemplates181.fixture.json";  // 181: the service's templates
 import {
-  api, setActor, type OwnParty, type PartiesOverview, type WorkflowRow, type WorkflowTemplates, type WorkflowView,
+  api, setActor, type OwnParty, type WorkflowRow, type WorkflowTemplates, type WorkflowView,
 } from "../../api";
 import hungarian from "../../i18n/hu-native.json";
 import { setLanguage } from "../../i18n";
-import { lastClosedMonth, NewWork } from "./NewWork";
 import { Workflows } from "./Workflows";
 
 const PARTY: OwnParty = {
   id: "party-00000000000a", name: "Example Kft.", invoices: 3, first: null, last: null, statements_first: null,
   statements_last: null, accounts: [], identities: [], updated_at: "",
-};
-const OVERVIEW: PartiesOverview = {
-  parties: [PARTY], suggestions: [], unassigned: [], dismissed: [], invoices: 0, unclaimed_invoices: 0, ambiguous_invoices: 0,
-  buyer_is_supplier: 0, no_buyer: 0, config_hash: "x",
 };
 const TEMPLATES = workflowConfig as unknown as WorkflowTemplates;
 
@@ -48,63 +43,6 @@ function view(over: Partial<WorkflowView> = {}): WorkflowView {
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
-
-describe("the new work wizard", () => {
-  it("makes a monthly reconciliation: the party, the period, each step's source and budget, then the overview", async () => {
-    vi.spyOn(api, "workflowTemplates").mockResolvedValue(TEMPLATES);
-    vi.spyOn(api, "parties").mockResolvedValue(OVERVIEW);
-    const estimate = vi.spyOn(api, "workflowEstimate").mockResolvedValue({ items: 3, usd: { jev: "0.0612", openai: "0.0301" }, note: null });
-    const create = vi.spyOn(api, "createWorkflow").mockResolvedValue(view());
-    const onWorkflow = vi.fn();
-    render(<NewWork onPackage={vi.fn()} onWorkflow={onWorkflow} />);
-    fireEvent.click(await screen.findByRole("radio", { name: "A whole period's work" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next →" }));
-    expect((screen.getByRole("radio", { name: "Monthly reconciliation" }) as HTMLInputElement).checked).toBe(true);
-    const chain = screen.getAllByLabelText("Steps")[0];
-    expect(within(chain).getAllByText(/Incoming invoices|Bank statements|Reconciliation/).map((e) => e.textContent))
-      .toEqual(["Incoming invoices", "Bank statements", "Reconciliation"]);
-    fireEvent.click(screen.getByRole("button", { name: "Next →" }));
-    const next = screen.getByRole("button", { name: "Next →" }) as HTMLButtonElement;
-    expect(next.disabled).toBe(true);
-    fireEvent.click(await screen.findByRole("radio", { name: /Example Kft\./ }));
-    fireEvent.change(screen.getByLabelText("Folder of Incoming invoices"), { target: { value: "C:\\work\\invoices" } });
-    fireEvent.change(screen.getByLabelText("Folder of Bank statements"), { target: { value: "C:\\work\\statements" } });
-    expect(next.disabled).toBe(false);
-    fireEvent.click(screen.getAllByRole("button", { name: "Estimate" })[0]);
-    await waitFor(() => expect((screen.getByLabelText("JEV budget of Incoming invoices") as HTMLInputElement).value).toBe("0.07"));
-    expect(estimate).toHaveBeenCalledWith(expect.objectContaining({ kind: "documents", source: { kind: "folder", folder: "C:\\work\\invoices", recursive: false } }));
-    expect((screen.getByLabelText("OpenAI budget of Incoming invoices") as HTMLInputElement).value).toBe("0.04");
-    expect(screen.getByText(/3 item\(s\), at most JEV 0.0612 USD \+ OpenAI 0.0301 USD/)).toBeTruthy();
-    fireEvent.click(next);
-    const overview = screen.getByLabelText("Overview");
-    expect(overview.textContent).toContain("starts once these are approved: Incoming invoices, Bank statements");
-    expect(overview.textContent).toContain("Budget for an automatic start: JEV 0.07 USD + OpenAI 0.04 USD");
-    fireEvent.click(screen.getByRole("button", { name: "Create the workflow" }));
-    await waitFor(() => expect(onWorkflow).toHaveBeenCalledWith("wf-00000000000a"));
-    const [from, to] = lastClosedMonth();
-    const body = create.mock.calls[0][0];
-    expect(body).toMatchObject({ template: "monthly_reconciliation", party_id: PARTY.id, period_start: from, period_end: to, auto: true });
-    expect(body.steps.invoices).toEqual({ source: { kind: "folder", folder: "C:\\work\\invoices", recursive: false }, budget: { jev: "0.07", openai: "0.04" } });
-    expect(body.steps.reconcile).toEqual({ source: { kind: "none" }, budget: {} });
-    expect(body.names?.reconcile).toBe(`Example Kft. · Monthly reconciliation · ${from} – ${to} · Reconciliation`);
-  });
-
-  it("a single template opens its process pack's general form (231 C3d: the mailbox download's asks for the download)", async () => {
-    vi.spyOn(api, "workflowTemplates").mockResolvedValue(TEMPLATES);
-    vi.spyOn(api, "processes").mockResolvedValue({ processes: [{ id: "mailbox", title: "Emails from a mailbox", version: "1.0.0",
-      scope: ["source"], asks: ["source"], package_kinds: [], source_kinds: ["mailbox"] }] });
-    vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
-    vi.spyOn(api, "parties").mockResolvedValue({ parties: [] } as never);
-    vi.spyOn(api, "mailbox").mockResolvedValue({ accounts: [], schedules: [], pulls: [], bridge_available: true } as never);
-    render(<NewWork onPackage={vi.fn()} onWorkflow={vi.fn()} />);
-    expect((await screen.findByRole("radio", { name: "Documents and emails" }) as HTMLInputElement).checked).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: "Next →" }));
-    fireEvent.click(screen.getByRole("radio", { name: "Emails from a mailbox" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next →" }));
-    expect(await screen.findByRole("form", { name: "Emails from a mailbox" })).toBeTruthy();
-    expect(await screen.findByLabelText(/Mailbox address/)).toBeTruthy();
-  });
-});
 
 describe("a workflow's control view", () => {
   it("a double click on Start sends one request (167, review 160 U-7)", async () => {
@@ -137,26 +75,6 @@ describe("a workflow's control view", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start with this budget" }));
     await waitFor(() => expect(start).toHaveBeenCalledWith("wf-00000000000a", "invoices", { jev: "0.5", openai: "0.08" }));
     expect(screen.getByRole("link", { name: "June · statements" }).getAttribute("href")).toBe("#/workpackages/wp-00000000000b/result");
-  });
-});
-
-describe("153 the wizard's estimate", () => {
-  it("keeps a cap typed while it runs", async () => {
-    vi.spyOn(api, "workflowTemplates").mockResolvedValue(TEMPLATES);
-    vi.spyOn(api, "parties").mockResolvedValue(OVERVIEW);
-    let answer!: (v: { items: number; usd: Record<string, string>; note: null }) => void;
-    vi.spyOn(api, "workflowEstimate").mockReturnValue(new Promise((resolve) => { answer = resolve; }));
-    render(<NewWork onPackage={vi.fn()} onWorkflow={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("radio", { name: "A whole period's work" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next →" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next →" }));
-    fireEvent.click(await screen.findByRole("radio", { name: /Example Kft\./ }));
-    fireEvent.change(screen.getByLabelText("Folder of Incoming invoices"), { target: { value: "C:\work\invoices" } });
-    fireEvent.click(screen.getAllByRole("button", { name: "Estimate" })[0]);
-    fireEvent.change(screen.getByLabelText("OpenAI budget of Incoming invoices"), { target: { value: "0.10" } }); // typed meanwhile
-    answer({ items: 3, usd: { jev: "0.0612", openai: "0.73" }, note: null });
-    await waitFor(() => expect((screen.getByLabelText("JEV budget of Incoming invoices") as HTMLInputElement).value).toBe("0.07"));
-    expect((screen.getByLabelText("OpenAI budget of Incoming invoices") as HTMLInputElement).value).toBe("0.10"); // before: 0.73
   });
 });
 

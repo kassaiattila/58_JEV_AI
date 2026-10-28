@@ -20,7 +20,7 @@ const COLS: DsColumn[] = [
 
 function page(name: string, refreshing: boolean): DsPage {
   return {
-    dataset: { name: "workpackages", label: "Munkacsomagok", scope: [], optional_scope: [] }, columns: COLS,
+    dataset: { name: "workpackages", label: "Iratkötegek", scope: [], optional_scope: [] }, columns: COLS,
     rows: [{ _key: "wp-1", _wp: "wp-1", name, older_runs: 2 }], total: 1, matched: 1, offset: 0, limit: 100, facets: {},
     ...(refreshing ? { refreshing: true } : {}),
   };
@@ -31,7 +31,7 @@ describe("153 the package list", () => {
     const query = vi.spyOn(api, "datasetQuery")
       .mockResolvedValueOnce(page("Régi név", true))
       .mockResolvedValue(page("Új név", false));
-    render(<DataTable dataset="workpackages" label="Munkacsomagok" pollMs={60_000} />);
+    render(<DataTable dataset="workpackages" label="Iratkötegek" pollMs={60_000} />);
     await screen.findByText("Régi név");
     expect(screen.getByText("Frissül…")).toBeTruthy();
     // asked again after the short retry, long before the next poll

@@ -223,7 +223,25 @@ def test_the_work_package_list_leaves_a_case_step_s_package_out(db):
     inner = document_processing.package_of(case, "process")
     _cols, rows = datasets.rows("workpackages", {})
     ids = {r["id"] for r in rows}
-    assert plain in ids and case in ids and inner not in ids  # the case's package opens from its page
+    # the case's package opens from its page; U2a (the owner's decision of 2026-10-28: one work list, the cases) the
+    # case itself is in the case list only, so the list of document batches leaves its container out too
+    assert plain in ids and case not in ids and inner not in ids
+
+
+def test_a_case_step_s_package_names_its_case_and_step(db):
+    """U2a: the package of a case's step opens under its case: its page names the case, the step and the case's tab
+    that shows the step."""
+    from jav.app import work_views
+
+    folder = _invoices(db / "inv", n=1)
+    case = process_runtime.start_case("documents", {"source": {"kind": "folder", "folder": str(folder)}},
+                                      name="Case invoices", actor=PERSON)
+    _turns(case)
+    inner = document_processing.package_of(case, "process")
+    assert work_views.workpackage_view(inner)["owner_case"] == {
+        "id": case, "name": "Case invoices", "step": "process", "step_title": "Processing", "tab": "documents"}
+    plain = work.create_from_folder(folder, name="Plain", owner=PERSON)["id"]
+    assert "owner_case" not in work_views.workpackage_view(plain)
 
 
 def test_a_person_s_scope_keeps_the_package_bound_to_its_case(db):

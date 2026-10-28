@@ -367,7 +367,7 @@ def package_values(wp: dict[str, Any], version: dict[str, Any] | None = None) ->
     when (empty for the current result)."""
     v = version or {}
     at = (v.get("released_at") or "")[:16].replace("T", " ")
-    return (contract.Value("package", "Csomag", wp["name"]), contract.Value("version", "Változat", str(v.get("version") or "")),
+    return (contract.Value("package", "Köteg", wp["name"]), contract.Value("version", "Változat", str(v.get("version") or "")),
             contract.Value("released_by", "Kiadta", v.get("released_by") or ""), contract.Value("released_at", "Kiadva", at))
 
 

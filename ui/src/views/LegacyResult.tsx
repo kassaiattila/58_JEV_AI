@@ -15,6 +15,6 @@ export function LegacyResult({ runId, table }: { runId?: string; table?: ResultT
     if (!runId) window.location.replace(routeHash({ view: "workpackages" }));
     else if (wpId) window.location.replace(routeHash({ view: "workpackages", wpId, stage: "result", runId, table }));
   }, [runId, wpId, table]);
-  if (run.error) return <p className="notice error" role="alert">{t("A régi címben szereplő futás nem található.")} <a href="#/workpackages">{t("Munkacsomagok")}</a></p>;
-  return <p className="muted">{t("Átirányítás a munkacsomag eredményéhez…")}</p>;
+  if (run.error) return <p className="notice error" role="alert">{t("A régi címben szereplő futás nem található.")} <a href="#/workpackages">{t("Iratkötegek")}</a></p>;
+  return <p className="muted">{t("Átirányítás az iratköteg eredményéhez…")}</p>;
 }

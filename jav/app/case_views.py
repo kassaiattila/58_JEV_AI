@@ -156,7 +156,9 @@ def view(case_id: str) -> dict[str, Any]:
                      "name": state.get("data", {}).get("name"), "status": state["status"],
                      # U-A8: the worker has something to do for it now (a person's decision it takes next), so the page
                      # asks again until it moved
-                     "due": state["status"] == cases.OPEN and engine.is_due(case_id)},
+                     "due": state["status"] == cases.OPEN and engine.is_due(case_id)}
+            # 231 (U2c): a sub-case names the case and step it is part of
+            | ({"parent": parent} if (parent := process_runtime.parent_of(case_id)) else {}),
             "steps": {s.id: _step_view(case_id, s, rows.get(s.id, {}), said.get(s.id)) for s in pack.steps}, "tabs": tabs,
             # 231 (U1): what may follow a closed case (its pack's follow-ups for the outcome it closed with)
             "follow_ups": process_runtime.follow_ups(case_id) if state["status"] != "open" else [],
@@ -400,7 +402,8 @@ def _started_cases(case_id: str, _step: str | None, shared: dict[str, Any]) -> l
     return out
 
 
-_WAITS_ON = {"person_start": "start", "work": "waits", "person": "person"}  # U1: a step's wait, as the Overview names it
+_WAITS_ON = {"person_start": "start", "work": "waits", "person": "person",  # U1: a step's wait, as the Overview names it
+             "sub_case": "sub_case"}  # U2c: the case of another process the step runs
 
 
 def _blockers(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:

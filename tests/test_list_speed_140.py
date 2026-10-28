@@ -138,15 +138,19 @@ def test_a_filter_on_the_unchanged_list_does_not_build_it_again(db, monkeypatch,
 
 
 def test_a_reconciliation_change_shows_in_the_lists_next_step(db, monkeypatch):
+    """231 (U2a; the owner's decision of 2026-10-28: one work list, the cases): a reconciliation is a case, outside the
+    list of every document batch; its container's next step in the list of every package follows a change at once."""
     wp, _statement, _invoice = _workspace_package()
-    before = next(r for r in datasets.query("workpackages", None, Query())["rows"] if r["id"] == wp)
+
+    def code() -> str:
+        return next(r for r in work_views.workpackage_list() if r["id"] == wp)["next"]["code"]
+
+    before = code()
     ws = rp.workspace(wp)
     for line in ws["lines"]:
         rp.mark(wp, [line["id"]], category="private", note=None, actor="reviewer")
-    datasets.query("workpackages", None, Query())  # 153: starts the rebuild behind
-    datasets.wait_for_rebuilds()
-    after = next(r for r in datasets.query("workpackages", None, Query())["rows"] if r["id"] == wp)
-    assert before["next_code"] == "reconcile_pair" and after["next_code"] == "reconcile_result"
+    assert before == "reconcile_pair" and code() == "reconcile_result"
+    assert all(r["id"] != wp for r in datasets.query("workpackages", None, Query())["rows"])
 
 
 def test_an_ai_answer_replaced_within_the_same_second_builds_the_workspace_again(db):

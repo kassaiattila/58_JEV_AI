@@ -113,10 +113,11 @@ def test_a_source_and_its_order(monkeypatch) -> None:
     codes = [s.code for s in activity_kinds.sources()]
     assert codes[0] == "event" and len(codes) == len(set(codes))
     assert [s.code for s in activity_kinds.sources() if not s.flow_run] == [
-        "run_start", "run_approve", "correction", "duplicate_decision", "statement_choice", "workflow"]
+        "run_start", "run_approve", "correction", "duplicate_decision", "statement_choice", "workflow", "case"]
     # 209 (plan G-process-core R2c): the domains' sources keep the place they had among the shared ones
     assert codes == ["event", "recipe", "run_start", "run_approve", "correction", "reason_resolve", "task_decision",
-                     "task_done", "mailbox_pull", "duplicate_decision", "statement_choice", "workflow"]
+                     "task_done", "mailbox_pull", "duplicate_decision", "statement_choice", "workflow",
+                     "case"]  # 231 (U2d): a person's own steps and decisions on the cases
     monkeypatch.setattr(activity_kinds, "_SOURCES", dict(activity_kinds._SOURCES))
     activity_kinds.register_source(replace(activity_kinds.sources()[0]))  # the same one again: nothing changes
     with pytest.raises(ValueError, match="registered twice"):

@@ -23,7 +23,7 @@ it("a templated message is translated with its parameters", async () => {
   failWith({ error: "invalid", message: "Documents to add: their full paths, one per line", template: "In the package: {{items}}",
     params: { items: "3 irat" } });
   const err = await caught();
-  expect(err.message).toBe("A csomagban: 3 irat");
+  expect(err.message).toBe("A kötegben: 3 irat");
   expect(err.code).toBe("invalid");
   expect(err.status).toBe(422);
 });
@@ -31,7 +31,7 @@ it("a templated message is translated with its parameters", async () => {
 it("in English the template is filled as it is", async () => {
   await setLanguage("en");
   failWith({ error: "not_ready", message: "x", template: "In the package: {{items}}", params: { items: "3 documents" }, blockers: [] }, 409);
-  expect((await caught()).message).toBe("In the package: 3 documents");
+  expect((await caught()).message).toBe("In the batch: 3 documents");
 });
 
 it("a message without a template is shown as the service wrote it", async () => {

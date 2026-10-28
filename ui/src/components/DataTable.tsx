@@ -62,6 +62,7 @@ export function linkOf(col: DsColumn, row: DsRow): string | null {
   switch (col.link) {
     case "run": return row._run ? `#/runs/${e(row._run)}` : null;
     case "workpackage": return wp;
+    case "case": return row._wp ? `#/cases/${e(row._wp)}` : null;  // 231 (U2a): a case at its own address
     case "next": return wp && row._stage ? `${wp}/${String(row._stage)}` : wp;
     case "reviews": return wp ? `${wp}/review` : null;
     case "process": return wp ? `${wp}/process` : null; // 153: older runs to supersede

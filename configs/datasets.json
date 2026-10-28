@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.39.0",
+  "version": "1.40.0",
   "changelog": [
+   {
+    "version": "1.40.0",
+    "date": "2026-10-28",
+    "note": "231 (stage U, U2d; the owner's decisions of 2026-10-28: one work list, the cases): the activity_action labels of a person's own steps and decisions on the cases (case_*), from the process core's history."
+   },
    {
     "version": "1.39.0",
     "date": "2026-10-27",
@@ -266,7 +271,7 @@
    "workflow_needs_budget": "workflow: a run's estimate is over the step's budget",
    "workflow_nothing_new": "workflow: nothing new for a step",
    "workflow_left_out": "workflow: documents a live run processed left out",
-   "workflow_failed": "workflow: a step did not start"},
+   "workflow_failed": "workflow: a step did not start", "case_started": "case: started", "case_task_decided": "case: a person's decision", "case_step_retried": "case: a step started again", "case_closed": "case: closed", "case_followed_up": "case: a follow-up started", "case_case_reopened": "case: reopened", "case_reopened": "case: a step reopened", "case_order_overridden": "case: a step started out of order", "case_held": "case: held", "case_resumed": "case: resumed", "case_task_assigned": "case: a task assigned", "case_task_due_set": "case: a task's deadline set"},
   "task_kind": {"review": "To-do", "run_approval": "Run approval", "own_approval": "Approval", "workflow_budget": "Budget decision", "step_start": "Step to start", "handover_settle": "Did it arrive?", "follow_up": "Follow-up", "missing_info": "Missing facts"},
   "task_origin": {"live": "Live", "trial": "Trial", "measurement": "Measurement"},
   "task_assignee": {"mine": "You", "anyone": "Anyone"}

@@ -30,7 +30,7 @@ export function RunDetail({ runId }: { runId: string }) {
 
   if (view.error?.status === 404 || view.error?.status === 422) {
     return (
-      <PageHeader crumbs={[{ label: t("Munkacsomagok"), href: "#/workpackages" }]} title={t("A futás nem található")}
+      <PageHeader crumbs={[{ label: t("Iratkötegek"), href: "#/workpackages" }]} title={t("A futás nem található")}
         summary={<><span className="mono">{runId}</span>: {t("nincs ilyen azonosítójú futás.")}</>} />
     );
   }
@@ -75,7 +75,7 @@ export function RunDetail({ runId }: { runId: string }) {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: t("Munkacsomagok"), href: "#/workpackages" }, { label: wp.data?.workpackage.name ?? run.workpackage_id, href: wpBase },
+        crumbs={[{ label: t("Iratkötegek"), href: "#/workpackages" }, { label: wp.data?.workpackage.name ?? run.workpackage_id, href: wpBase },
           { label: t("Feldolgozás"), href: `${wpBase}/process` }]}
         title={t("{{mode}} futás, {{when}}", { mode: MODE[run.mode], when: when(run.created_at) })} badge={<RunStatus status={run.status} />}
         summary={<>{run.recipe?.title ? t(run.recipe.title) : run.recipe_id} · {paramsText(run.params)} · {t("indította: {{actor}}", { actor: run.actor })}

@@ -169,8 +169,9 @@ def test_the_page_of_a_statement_package_has_these_parts(db) -> None:
     wp_id = _statement_package(db, _party())
     view = work_views.workpackage_view(wp_id)
     # 181: its scope (its own party and period, collecting bank statements) on purpose
-    assert _keys(view) == ["current_run", "item_counts", "last_run", "next", "open_runs", "readiness", "rule", "runs",
-                           "scope", "statements", "supersedable", "titles", "workflow", "workpackage"]  # 231 C3b5a: rule
+    # 231 C3b5a: rule; U2a: the case step it belongs to (its page leads back to the case)
+    assert _keys(view) == ["current_run", "item_counts", "last_run", "next", "open_runs", "owner_case", "readiness", "rule",
+                           "runs", "scope", "statements", "supersedable", "titles", "workflow", "workpackage"]
     assert _keys(view["statements"]) == ["scope", "statements"]
     assert (view["scope"]["role"], view["scope"]["from"]) == ("statements", "logic_pack")
     assert view["workpackage"]["source_kind"] == "manual"  # 231 (C3b5a): a plain package of the statements rule
@@ -198,8 +199,8 @@ def test_a_reconciliation_package_in_the_list(db) -> None:
     row = next(r for r in work_views.workpackage_list() if r["id"] == wp_id)
     assert (row["next"]["code"], row["older_runs"], row["open_reasons"]) == ("reconcile_pair", 0, 0)
     _cols, rows = datasets.rows("workpackages", {})
-    shown = next(r for r in rows if r["id"] == wp_id)
-    assert shown["items"] is None  # its lines are not items: an empty cell, not "0"
+    # U2a (the owner's decision of 2026-10-28: one work list): a reconciliation is a case, listed among the cases only
+    assert wp_id not in {r["id"] for r in rows}
 
 
 def test_a_reconciliation_package_is_released_in_its_own_statement(db) -> None:

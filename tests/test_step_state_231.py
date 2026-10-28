@@ -54,7 +54,8 @@ def test_every_registered_capability_that_can_run_names_its_state() -> None:
         "lookup@1": "step",  # D-d5
         "missing_info@1": "step",  # D-d6
         "fact_claims@1": "step",  # D-f1
-        "letter@1": "step"}  # D-f8
+        "letter@1": "step",  # D-f8
+        "run_case@1": "step"}  # U2c
 
 
 def test_a_capability_whose_state_belongs_to_the_case_stands_once_in_a_pack() -> None:

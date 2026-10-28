@@ -37,7 +37,7 @@ describe("download errors (073)", () => {
   });
 
   it("any other error is shown unchanged, without the Outlook prefix", () => {
-    const worker = "A letöltés megszakadt (JobCancelled); a megérkezett levelekből csomag készült.";
+    const worker = "A letöltés megszakadt (JobCancelled); a megérkezett levelekből köteg készült.";
     expect(pullErrorText(worker)).toBe(worker);
     expect(pullSummary({ status: "error", result: {} })).toBe("Hiba");
   });

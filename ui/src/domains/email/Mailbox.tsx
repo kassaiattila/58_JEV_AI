@@ -271,7 +271,7 @@ export function Mailbox() {
       <h2 className="mt">{t("Letöltések")}</h2>
       <DataTable dataset="mailbox_pulls" label={t("Postafiók-letöltések")} pollMs={5000} emptyText={t("Még nem volt letöltés.")}
         cell={(col, row) => (col.key === "workpackage" && row.workpackage
-          ? <a href={`#/workpackages/${encodeURIComponent(String(row.workpackage))}`}>{t("munkacsomag")}</a>
+          ? <a href={`#/workpackages/${encodeURIComponent(String(row.workpackage))}`}>{t("iratköteg")}</a>
           : col.key === "error" && row.error ? pullErrorText(String(row.error))
             // 183: the mailbox and period in the interface's language (the service's label is English)
             : col.key === "label" && row._request ? mailboxLabel(row._request as MailboxRequest) : undefined)} />

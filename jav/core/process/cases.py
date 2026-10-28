@@ -62,7 +62,7 @@ __all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest 
     "step_rows", "step_row", "without_case_in", "steps_in_phase_in", "get", "marks", "pending_events", "view", "record",
     "start", "send_event", "cancel", "override_order", "retry", "reopen", "start_in", "send_event_in",
     "override_order_in", "retry_in", "reopen_in", "adopt", "adopt_phases_in", "set_phase", "set_result", "end_wait",
-    "fail", "close", "hold", "resume", "open_ids_in", "holding_in", "history_in",
+    "fail", "close", "hold", "resume", "open_ids_in", "holding_in", "history_in", "person_actions_sql",
 ]
 
 OPEN, CLOSED = "open", "closed"
@@ -332,6 +332,21 @@ def pending_events(case_id: str) -> list[Event]:
 def _event(row: sqlite3.Row) -> Event:
     return Event(row["event_id"], row["case_id"], row["step_id"], row["kind"], json.loads(row["payload"]),
                  Actor.from_json(row["sent_by"]))
+
+
+def person_actions_sql(kinds: Iterable[str]) -> str:
+    """231 (stage U, U2d): the query of a person's own actions on the cases between two ISO times (its two parameters),
+    as "My work today" reads a source (`activity_kinds.Source`: at, actor, workpackage_id, run_id, detail): the history's
+    rows of `kinds` whose actor is a person, of a case whose data names its container (a process pack's; a workflow made
+    before has its own log), the container as the case, the time as ISO text (the history keeps epoch seconds). The
+    core names its own tables, so the application reads the history through it."""
+    listed = ", ".join("'" + k.replace("'", "''") + "'" for k in kinds)
+    return ("SELECT strftime('%Y-%m-%dT%H:%M:%S+00:00', h.at, 'unixepoch') at, json_extract(h.actor, '$.name') actor,"
+            " json_extract(c.data, '$.container') workpackage_id, NULL run_id, h.kind detail FROM process_history h"
+            " JOIN process_cases c ON c.case_id = h.case_id"
+            f" WHERE json_extract(h.actor, '$.kind') = 'human' AND h.kind IN ({listed})"
+            " AND json_extract(c.data, '$.container') IS NOT NULL"
+            " AND h.at >= CAST(strftime('%s', ?) AS INTEGER) AND h.at < CAST(strftime('%s', ?) AS INTEGER)")
 
 
 def history_in(c: sqlite3.Connection, case_id: str, kind: str | None = None) -> list[dict[str, Any]]:

@@ -163,8 +163,11 @@ describe("Settings › Rules (218)", () => {
     for (const p of Object.values(points)) {
       texts.push(p.title, p.what, p.not_for, ...p.values.map((x) => x.label));
     }
+    // 231 (U2z; the owner's decision of 2026-10-28): the English shows the source, saying batch for a work package
+    const shown = (text: string) => text.replace(/\bwork package/g, "document batch").replace(/\bpackage\(s\)/g, "batch(es)")
+      .replace(/\bpackages\b/g, "batches").replace(/\bpackage\b/g, "batch");
     for (const text of texts) {
-      expect(en[text], text).toBe(text);
+      expect(en[text], text).toBe(shown(text));
       expect(hu[text]?.trim(), text).toBeTruthy();
     }
   });

@@ -19,12 +19,12 @@ export function PackageCosts({ wpId, pollMs }: { wpId: string; pollMs?: number }
   useLocale();
   const [total, setTotal] = useState<string | null>(null);
   return (
-    <section aria-label={t("A csomag költsége")} className="wide">
-      <h2>{t("A csomag költsége")}</h2>
+    <section aria-label={t("A köteg költsége")} className="wide">
+      <h2>{t("A köteg költsége")}</h2>
       <p className="small"><strong>{total ?? t("Betöltés…")}</strong></p>
       <p className="muted small">{t("Minden futás fizetős hívásai, szolgáltatónként és modellenként; a futásonkénti költség a futások táblázatában látszik.")}</p>
-      <DataTable dataset="package_costs" scope={{ workpackage_id: wpId }} label={t("A csomag költsége")} storageId="wp-costs" pollMs={pollMs}
-        emptyText={t("Ezen a csomagon még nem volt fizetős hívás.")} onPage={(page) => setTotal(totalText(page))} />
+      <DataTable dataset="package_costs" scope={{ workpackage_id: wpId }} label={t("A köteg költsége")} storageId="wp-costs" pollMs={pollMs}
+        emptyText={t("Ezen a kötegen még nem volt fizetős hívás.")} onPage={(page) => setTotal(totalText(page))} />
     </section>
   );
 }
