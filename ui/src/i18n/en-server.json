@@ -408,5 +408,14 @@
   "Belvízveszélyes terület": "Inland water area",
   "Biztosítási mód": "Insurance basis",
   "Üzemszüneti biztosítási összeg": "Business interruption sum insured",
-  "Üzemszüneti elszámolás módja": "Business interruption accounting method"
+  "Üzemszüneti elszámolás módja": "Business interruption accounting method",
+  "bankszámla": "bank account",
+  "hitelkártya": "credit card",
+  "jegyzőkönyv": "minutes",
+  "jelenléti ív": "attendance sheet",
+  "meghívó": "invitation",
+  "egyéb irat": "other document",
+  "elnökségi ülés": "board meeting",
+  "közgyűlés": "general meeting",
+  "egyéb ülés": "other meeting"
 }

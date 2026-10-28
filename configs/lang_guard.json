@@ -767,7 +767,7 @@
     "configs/fact_readings_allianz_property.json": 53,
     "configs/fact_readings_property.json": 7,
     "configs/facts_allianz_property.json": 1,
-    "configs/field_labels.json": 231,
+    "configs/field_labels.json": 240,
     "configs/golden_allianz_property_documents.json": 106,
     "configs/golden_products.json": 91,
     "configs/golden_property_documents.json": 161,

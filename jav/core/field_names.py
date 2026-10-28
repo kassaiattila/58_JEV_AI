@@ -4,7 +4,8 @@
 Plain-language summary: a field's name comes from one shared dictionary, so the same field reads the same everywhere.
 A type may call a shared field by its own name (`by_type`): the quote request's customer is the requester, while the
 utility bills' customer is the consumer. Where a view or a download knows the document's type, it asks for that type's
-name; where it shows several types together, it uses the shared one.
+name; where it shows several types together, it uses the shared one. (231) A field's enumerated values have names too
+(`values`, keyed `field=value`): a table shows the name, not the code.
 """
 
 from __future__ import annotations
@@ -19,6 +20,12 @@ def field_label(field: str, doc_type: str | None = None) -> str:
     names = cfg.load("field_labels")
     own = names.get("by_type", {}).get(doc_type or "", {}).get(field)
     return own or names["fields"].get(field) or field
+
+
+def value_labels(field: str) -> dict[str, str]:
+    """The names of a field's enumerated values ({value: name}); empty when the field enumerates none."""
+    prefix = f"{field}="
+    return {k.removeprefix(prefix): v for k, v in cfg.load("field_labels").get("values", {}).items() if k.startswith(prefix)}
 
 
 def shared_type(field: str, records: Iterable[dict]) -> str | None:

@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "field_labels",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "changelog": [
+   {
+    "version": "1.15.0",
+    "date": "2026-10-28",
+    "note": "231 (stage U, U1; finding 7 of the walkthrough): the names of a field's enumerated values (`values`, keyed `field=value`): the kind of a bank statement, a document's and a meeting's kind, which the result table showed as codes."
+   },
    {
     "version": "1.14.0",
     "date": "2026-10-28",
@@ -337,5 +342,16 @@
   "quote_request": {
    "customer_name": "Ajánlatkérő neve"
   }
+ },
+ "values": {
+  "statement_type=bank_account": "bankszámla",
+  "statement_type=credit_card": "hitelkártya",
+  "document_kind=jegyzokonyv": "jegyzőkönyv",
+  "document_kind=jelenleti_iv": "jelenléti ív",
+  "document_kind=meghivo": "meghívó",
+  "document_kind=egyeb": "egyéb irat",
+  "meeting_type=elnoksegi": "elnökségi ülés",
+  "meeting_type=kozgyules": "közgyűlés",
+  "meeting_type=egyeb": "egyéb ülés"
  }
 }

@@ -72,7 +72,8 @@ export function serverKeys() {
   const ds = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "datasets.json"), "utf8"));
   for (const group of Object.values(ds.labels)) for (const v of Object.values(group)) keys.add(v);
   const fl = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "field_labels.json"), "utf8"));
-  for (const section of ["fields", "columns", "doc_types"]) for (const v of Object.values(fl[section] ?? {})) keys.add(v);
+  // 231 (U1): the names of the fields' enumerated values (`values`)
+  for (const section of ["fields", "columns", "doc_types", "values"]) for (const v of Object.values(fl[section] ?? {})) keys.add(v);
   // 197: a type's own names of shared fields (`by_type`)
   for (const own of Object.values(fl.by_type ?? {})) for (const v of Object.values(own)) keys.add(v);
   // 058: the names of the email intents (in the to-do text and in the email view) appear translated in the interface
