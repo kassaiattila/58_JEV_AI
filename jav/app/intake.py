@@ -99,8 +99,11 @@ def package_offers(wp: dict[str, Any]) -> list[dict[str, Any]]:
         if any(e.on == PACKAGE and wp.get("source_kind") in e.package_kinds for e in pack.intake):
             reading = [h for h in package_scope.holders(scopes.SOURCES, lambda v, wp_id=wp["id"]: wp_id in (v or []))
                        if process_runtime_pack(h["id"]) == pack.id]
-            out.append({"pack": pack.id, "title": pack.title, "name": f"{pack.title}: {wp.get('name') or wp['id']}"[:200],
-                        "sources": [wp["id"]], "cases": [{"id": h["id"], "name": h["name"]} for h in reading]})
+            # U1: the package's own name too, so the interface names the case with the title in its language
+            package_name = wp.get("name") or wp["id"]
+            out.append({"pack": pack.id, "title": pack.title, "name": f"{pack.title}: {package_name}"[:200],
+                        "package_name": package_name, "sources": [wp["id"]],
+                        "cases": [{"id": h["id"], "name": h["name"]} for h in reading]})
     return out
 
 
