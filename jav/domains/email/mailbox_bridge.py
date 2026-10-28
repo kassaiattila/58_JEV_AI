@@ -202,11 +202,13 @@ def fetch(req: MailboxRequest, *, actor: identity.Who, runner: Runner | None = N
 def pdf_attachments(messages: list[Path]) -> dict[Path, Path]:
     """058 K5.2: the messages' PDF attachments that exist as files (attachment → the message's `message.json`). An
     attachment is read only from the permitted location (checked by `emails.load_message_dir`); image attachments are
-    not included for now."""
+    not included for now. U1: a message gone from the disk (its mailbox folder removed) has none to add."""
     from jav.domains.email import emails
 
     out: dict[Path, Path] = {}
     for m in messages:
+        if not Path(m).is_file():
+            continue
         for a in emails.load_message_dir(Path(m).parent).attachments:
             if a.path and a.ext == ".pdf":
                 out.setdefault(Path(a.path).resolve(), Path(m))
