@@ -13,9 +13,16 @@ export interface ProcessRow {
   scope?: string[]; package_kinds?: string[]; asks?: string[];
   /** 231 (C3d): the source kinds its case's documents may come from (a folder, files, a mailbox download) */
   source_kinds?: string[];
+  /** 231 (U2c): the steps whose case of another process takes its own documents (each its source kinds, and whether
+   *  that process has invented documents to start on) */
+  step_sources?: StepSource[];
   /** 231 (U0): whether a person may start a case by hand, what the process is for, what a case of it cannot start
    *  without now (a resource it needs at its start with no active version), and whether it has example material */
   manual?: boolean; summary?: string | null; missing_at_start?: { key: string; label: string }[]; examples?: boolean;
+}
+/** 231 (U2c): a step of a multi-step process whose sub-case takes its own documents. */
+export interface StepSource {
+  step: string; title: string; pack: string; process: string; source_kinds: string[]; examples: boolean;
 }
 /** 231 (U0): a process's example material: the sets of things it installs (each `installed`, `partial` or `missing`;
  *  `example`: the examples' machine made all that is there) and its packets of invented documents; (U1e) the pack's

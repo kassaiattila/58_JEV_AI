@@ -210,9 +210,9 @@ export interface CostLine { step: string; step_title: string; provider: string; 
 export interface CaseCost { lines: CostLine[]; total_usd: string }
 
 export const casesApi = {
-  // 231 C1c: the packages it reads; C2d: its own party and period
+  // 231 C1c: the packages it reads; C2d: its own party and period; U2c: each step's own documents
   startCase: (body: { pack: string; record?: { workpackage_id: string; item_id: string }; sources?: string[]; name: string;
-    party_id?: string; period_start?: string; period_end?: string; source?: CaseSource }) =>
+    party_id?: string; period_start?: string; period_end?: string; source?: CaseSource; step_sources?: Record<string, CaseSource> }) =>
     request<{ case_id: string }>("POST", "/cases", body),
   casePage: (caseId: string) => request<CaseView>("GET", `/cases/${enc(caseId)}`),
   /** 231 (U1): a case of the process that follows the closed case, started from its documents */

@@ -3,7 +3,7 @@
 // choose) and from such a package's own page (the processes that take it, with the cases already reading it). Until
 // C1c the email routing's own form and offer.
 import { useEffect, useState } from "react";
-import { api, ApiError, type CaseSource, type PackageOffer, type ProcessRecord } from "../api";
+import { api, ApiError, type CaseSource, type PackageOffer, type ProcessRecord, type StepSource } from "../api";
 import { BrowseButton } from "../components/BrowseButton";
 import { Icon } from "../components/Icon";
 import { Picker } from "../components/Picker";
@@ -12,9 +12,31 @@ import { useAction, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { go } from "../route";
 
+/** 231 (U2c): what a person chose as a source: a folder, files, a packet of invented documents, or a domain's source
+ *  (a mailbox download). */
+interface SourceChoice { kind: "folder" | "files" | "example"; folder: string; recursive: boolean; files: string; packet: string;
+  domain: CaseSource | null }
+const NO_SOURCE: SourceChoice = { kind: "folder", folder: "", recursive: false, files: "", packet: "", domain: null };
+type ChoiceUpdate = (update: (c: SourceChoice) => SourceChoice) => void;
+
+// a path pasted with its quotes (Explorer's "Copy as path") is taken without them, as the documents form took it
+const linesOf = (files: string) => files.split(/\r?\n/).map((l) => l.trim().replace(/^"|"$/g, "")).filter(Boolean);
+// 231 (C3d): a maker takes a folder or files, or a source kind a domain adds (a mailbox download), chosen by its own form
+const domainChooser = (kinds: string[]) => (kinds.includes("folder") || kinds.includes("files") ? undefined : chooserOf(kinds[0])?.Case);
+const choiceReady = (c: SourceChoice, kinds: string[]) => (domainChooser(kinds) ? !!c.domain : c.kind === "folder" ? !!c.folder.trim()
+  : c.kind === "example" ? !!c.packet : linesOf(c.files).length > 0);
+
+/** The source as the service takes it; (U0) an example packet's documents are written as files first, and the case
+ *  starts on those files. */
+async function sourceOf(c: SourceChoice, kinds: string[], pack: string): Promise<CaseSource | null> {
+  if (domainChooser(kinds)) return c.domain;
+  if (c.kind === "example") return { kind: "files", files: (await api.examplePacketFiles(pack, c.packet)).files };
+  return c.kind === "folder" ? { kind: "folder", folder: c.folder.trim(), recursive: c.recursive } : { kind: "files", files: linesOf(c.files) };
+}
+
 /** The wizard's form of a one-step template of a process pack's case: what its scope asks a person (the packages it
  *  reads; 231 C2d: its own party and period; the other parts take their default, e.g. the party's accounts) and its
- *  name. */
+ *  name; (U2c) for a process whose steps run cases of other processes, each such step's own documents. */
 export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: string) => void }) {
   useLocale();
   const packs = useLoad("processes", api.processes);
@@ -26,14 +48,10 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   const [end, setEnd] = useState("");
   const [name, setName] = useState("");
   // 231 (C3b3): the documents of a document processing case (its scope part `source`); (U0) or a packet of the
-  // process's invented example documents
-  const [sourceKind, setSourceKind] = useState<"folder" | "files" | "example">("folder");
-  const [packet, setPacket] = useState("");
-  const [folder, setFolder] = useState("");
-  const [recursive, setRecursive] = useState(false);
-  const [files, setFiles] = useState("");
+  // process's invented example documents; (C3d) or a domain's source kind's
+  const [choice, setChoice] = useState<SourceChoice>(NO_SOURCE);
+  const [stepChoices, setStepChoices] = useState<Record<string, SourceChoice>>({});  // 231 (U2c): by step
   const [record, setRecord] = useState<ProcessRecord | null>(null);  // 231 (C3c): the record the case starts from
-  const [domainSource, setDomainSource] = useState<CaseSource | null>(null);  // 231 (C3d): a domain's source kind's
   const { busy, error, run } = useAction();
   const info = packs.data?.processes.find((p) => p.id === pack);
   const examples = useLoad(info?.examples ? `examples:${pack}` : null, () => api.processExamples(pack));  // 231 (U0)
@@ -47,41 +65,34 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   const wantsPeriod = asks.includes("period");
   const wantsSource = asks.includes("source");
   const wantsRecord = asks.includes("record");
-  // a path pasted with its quotes (Explorer's "Copy as path") is taken without them, as the documents form took it
-  const fileLines = files.split(/\r?\n/).map((l) => l.trim().replace(/^"|"$/g, "")).filter(Boolean);
-  // the picked files go after the lines already there, each path only once (081)
-  const addFiles = (picked: string[]) => {
-    const seen = new Set(fileLines.map((f) => f.toLowerCase()));
-    setFiles([...fileLines, ...picked.filter((f) => !seen.has(f.toLowerCase()))].join("\n"));
-  };
-  // 231 (C3d): the pack's maker takes a folder or files, or a source kind a domain adds (a mailbox download)
+  const steps = asks.includes("step_sources") ? info.step_sources ?? [] : [];
   const kinds = info.source_kinds ?? ["folder", "files"];
-  const Chooser = kinds.includes("folder") || kinds.includes("files") ? undefined : chooserOf(kinds[0])?.Case;
-  const source: CaseSource | null = Chooser ? domainSource
-    : sourceKind === "folder" ? { kind: "folder", folder: folder.trim(), recursive } : { kind: "files", files: fileLines };
-  const hasSource = Chooser ? !!domainSource : sourceKind === "folder" ? !!folder.trim()
-    : sourceKind === "example" ? packets.some((x) => x.id === packet) : fileLines.length > 0;
-  const packetTitle = packets.find((x) => x.id === packet)?.title;
+  const packetTitle = packets.find((x) => x.id === choice.packet)?.title;
   const candidates = (list.data?.workpackages ?? []).filter((w) => (info.package_kinds ?? []).includes(w.source_kind));
   const partyName = (parties.data?.parties ?? []).find((p) => p.id === partyId)?.name ?? "";
   const ready = (!wantsSources || chosen.length > 0) && (!wantsParty || !!partyId) && (!wantsPeriod || (!!start && !!end && start <= end))
-    && (!wantsSource || hasSource) && (!wantsRecord || !!record);
+    && (!wantsSource || choiceReady(choice, kinds)) && (!wantsRecord || !!record)
+    && steps.every((x) => choiceReady(stepChoices[x.step] ?? NO_SOURCE, x.source_kinds));
   const defaultName = () => {
     if (wantsSources) return `${title}: ${candidates.filter((w) => chosen.includes(w.id)).map((w) => w.name).join(", ")}`;
     if (wantsRecord && record) return `${title}: ${record.name ?? record.label ?? record.workpackage_name}`;
-    if (wantsSource && !Chooser && sourceKind === "example" && packetTitle) return `${title} · ${t("Example")}: ${t(packetTitle)}`;
-    const where = wantsSource ? (sourceKind === "folder" ? folder.trim().split(/[\\/]/).filter(Boolean).pop() ?? "" : "") : "";
+    if (wantsSource && !domainChooser(kinds) && choice.kind === "example" && packetTitle) return `${title} · ${t("Example")}: ${t(packetTitle)}`;
+    const where = wantsSource && !domainChooser(kinds) && choice.kind === "folder" ? choice.folder.trim().split(/[\\/]/).filter(Boolean).pop() ?? "" : "";
     return [title, partyName, wantsPeriod ? `${start} – ${end}` : "", where].filter(Boolean).join(" · ");
   };
   const submit = () => run(async () => {
-    // 231 (U0): an example packet's documents are written as files first, and the case starts on those files
-    const documents: CaseSource | null = wantsSource && !Chooser && sourceKind === "example"
-      ? { kind: "files", files: (await api.examplePacketFiles(pack, packet)).files } : source;
+    const documents = wantsSource ? await sourceOf(choice, kinds, pack) : null;
+    const bySteps: Record<string, CaseSource> = {};
+    for (const x of steps) {
+      const given = await sourceOf(stepChoices[x.step] ?? NO_SOURCE, x.source_kinds, x.pack);
+      if (given) bySteps[x.step] = given;
+    }
     return api.startCase({
       pack, name: (name.trim() || defaultName()).slice(0, 200),
       ...(wantsSources ? { sources: chosen } : {}), ...(wantsParty ? { party_id: partyId } : {}),
       ...(wantsPeriod ? { period_start: start, period_end: end } : {}), ...(wantsSource && documents ? { source: documents } : {}),
       ...(wantsRecord && record ? { record: { workpackage_id: record.workpackage_id, item_id: record.item_id } } : {}),
+      ...(steps.length ? { step_sources: bySteps } : {}),
     });
   }, { then: (made) => onDone(made.case_id) });
   return (
@@ -114,51 +125,14 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
           <label className="block">{t("to")}<input type="date" value={end} required onChange={(e) => setEnd(e.target.value)} /></label>
         </div>
       ) : null}
-      {wantsSource && Chooser ? (
-        <fieldset className="wizard-choices">
-          <legend>{t("The case's documents")}</legend>
-          <Chooser onChange={setDomainSource} />
-        </fieldset>
+      {wantsSource ? (
+        <SourceFields legend={t("The case's documents")} name="case-source" kinds={kinds} packets={packets} choice={choice}
+          onChange={setChoice} />
       ) : null}
-      {wantsSource && !Chooser ? (
-        <fieldset className="wizard-choices">
-          <legend>{t("The case's documents")}</legend>
-          <div className="segmented" role="radiogroup" aria-label={t("Source")}>
-            <label><input type="radio" name="case-source" checked={sourceKind === "folder"} onChange={() => setSourceKind("folder")} /> {t("Documents from a folder")}</label>
-            <label><input type="radio" name="case-source" checked={sourceKind === "files"} onChange={() => setSourceKind("files")} /> {t("Chosen files")}</label>
-            {packets.length ? (
-              <label><input type="radio" name="case-source" checked={sourceKind === "example"} onChange={() => setSourceKind("example")} /> {t("Example documents")}</label>
-            ) : null}
-          </div>
-          {sourceKind === "example" ? (
-            <label className="block">{t("The packet of invented documents")}
-              <select value={packet} onChange={(e) => setPacket(e.target.value)} required>
-                <option value="">{t("Choose…")}</option>
-                {packets.map((x) => (
-                  <option key={x.id} value={x.id}>{t(x.title)} ({t("{{n}} documents", { n: x.documents })})</option>
-                ))}
-              </select>
-            </label>
-          ) : sourceKind === "folder" ? (
-            <>
-              <div className="path-row">
-                <label className="block grow">{t("The folder's full path")}
-                  <input value={folder} onChange={(e) => setFolder(e.target.value)} required />
-                </label>
-                <BrowseButton kind="folder" initial={folder} onPick={([p]) => setFolder(p)} />
-              </div>
-              <label className="check"><input type="checkbox" checked={recursive} onChange={(e) => setRecursive(e.target.checked)} /> {t("Its subfolders too")}</label>
-            </>
-          ) : (
-            <div className="path-row">
-              <label className="block grow">{t("The files' full paths, one a line")}
-                <textarea value={files} onChange={(e) => setFiles(e.target.value)} rows={4} required />
-              </label>
-              <BrowseButton kind="files" initial={fileLines[fileLines.length - 1]} onPick={addFiles} />
-            </div>
-          )}
-        </fieldset>
-      ) : null}
+      {steps.map((x) => (
+        <StepSourceFields key={x.step} entry={x} choice={stepChoices[x.step] ?? NO_SOURCE}
+          onChange={(update) => setStepChoices((prev) => ({ ...prev, [x.step]: update(prev[x.step] ?? NO_SOURCE) }))} />
+      ))}
       <label className="block">{t("Name")} <span className="muted">{t("(optional)")}</span>
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
       </label>
@@ -167,6 +141,79 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
         <button type="submit" className="primary" disabled={busy || !ready}>{busy ? t("Creating…") : t("Create")}</button>
       </div>
     </form>
+  );
+}
+
+/** 231 (U2c): a step's own documents, for the case of another process it runs (that process's invented documents to
+ *  start on, where it has some). */
+function StepSourceFields({ entry, choice, onChange }: { entry: StepSource; choice: SourceChoice; onChange: ChoiceUpdate }) {
+  useLocale();
+  const examples = useLoad(entry.examples ? `examples:${entry.pack}` : null, () => api.processExamples(entry.pack));
+  return (
+    <SourceFields legend={`${t(entry.title)} · ${t(entry.process)}`} name={`case-source-${entry.step}`} kinds={entry.source_kinds}
+      packets={examples.data?.packets ?? []} choice={choice} onChange={onChange} />
+  );
+}
+
+/** Where documents come from: a domain's own chooser (a mailbox download), or a folder, chosen files or a packet of
+ *  invented documents. */
+function SourceFields({ legend, name, kinds, packets, choice, onChange }: { legend: string; name: string; kinds: string[];
+  packets: { id: string; title: string; documents: number }[]; choice: SourceChoice; onChange: ChoiceUpdate }) {
+  useLocale();
+  const set = (over: Partial<SourceChoice>) => onChange((c) => ({ ...c, ...over }));
+  const Chooser = domainChooser(kinds);
+  const fileLines = linesOf(choice.files);
+  // the picked files go after the lines already there, each path only once (081)
+  const addFiles = (picked: string[]) => {
+    const seen = new Set(fileLines.map((f) => f.toLowerCase()));
+    set({ files: [...fileLines, ...picked.filter((f) => !seen.has(f.toLowerCase()))].join("\n") });
+  };
+  if (Chooser) {
+    return (
+      <fieldset className="wizard-choices">
+        <legend>{legend}</legend>
+        <Chooser onChange={(domain) => set({ domain })} />
+      </fieldset>
+    );
+  }
+  return (
+    <fieldset className="wizard-choices">
+      <legend>{legend}</legend>
+      <div className="segmented" role="radiogroup" aria-label={t("Source")}>
+        <label><input type="radio" name={name} checked={choice.kind === "folder"} onChange={() => set({ kind: "folder" })} /> {t("Documents from a folder")}</label>
+        <label><input type="radio" name={name} checked={choice.kind === "files"} onChange={() => set({ kind: "files" })} /> {t("Chosen files")}</label>
+        {packets.length ? (
+          <label><input type="radio" name={name} checked={choice.kind === "example"} onChange={() => set({ kind: "example" })} /> {t("Example documents")}</label>
+        ) : null}
+      </div>
+      {choice.kind === "example" ? (
+        <label className="block">{t("The packet of invented documents")}
+          <select value={choice.packet} onChange={(e) => set({ packet: e.target.value })} required>
+            <option value="">{t("Choose…")}</option>
+            {packets.map((x) => (
+              <option key={x.id} value={x.id}>{t(x.title)} ({t("{{n}} documents", { n: x.documents })})</option>
+            ))}
+          </select>
+        </label>
+      ) : choice.kind === "folder" ? (
+        <>
+          <div className="path-row">
+            <label className="block grow">{t("The folder's full path")}
+              <input value={choice.folder} onChange={(e) => set({ folder: e.target.value })} required />
+            </label>
+            <BrowseButton kind="folder" initial={choice.folder} onPick={([p]) => set({ folder: p })} />
+          </div>
+          <label className="check"><input type="checkbox" checked={choice.recursive} onChange={(e) => set({ recursive: e.target.checked })} /> {t("Its subfolders too")}</label>
+        </>
+      ) : (
+        <div className="path-row">
+          <label className="block grow">{t("The files' full paths, one a line")}
+            <textarea value={choice.files} onChange={(e) => set({ files: e.target.value })} rows={4} required />
+          </label>
+          <BrowseButton kind="files" initial={fileLines[fileLines.length - 1]} onPick={addFiles} />
+        </div>
+      )}
+    </fieldset>
   );
 }
 

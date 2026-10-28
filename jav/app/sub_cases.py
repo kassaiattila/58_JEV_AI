@@ -303,6 +303,20 @@ def _left(c: Any, case_id: str, step_id: str | None, actor: identity.Actor) -> N
         cases.record(c, case_id, None, "parent_not_told", actor, {"why": str(exc)[:300]})
 
 
+def _spent(case_id: str, step_id: str) -> list[str]:
+    """The budget scopes the step's sub-cases spent from, the earlier ones first: each one's steps' own, so the case's
+    cost shows what its sub-cases spent."""
+    with store.connect() as c:
+        gathered = _gathered(cases.find_step_in(c, case_id, step_id) or {})
+    subs = [str(e["case_id"]) for e in gathered.get("earlier") or ()] + ([gathered["case_id"]] if gathered.get("case_id") else [])
+    out: list[str] = []
+    for sub in subs:
+        pack = process_runtime.pack_for(sub)
+        for step in pack.steps if pack is not None else ():
+            out += [s for s in capabilities.step_scopes(sub, step.id, step.uses) if s not in out]
+    return out
+
+
 def _sub_case_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
     """What a step that runs a sub-case shows on its case's page (the element `sub_case`): the sub-case's process, the
     sub-case (its name, state, outcome and, while it is open, its own next step) and the earlier ones that closed
@@ -335,7 +349,7 @@ def _sub_case_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) -
 
 CAPABILITY = capabilities.Capability(
     name="run_case", version=1, module=_OWNER, run=_run, kind="wait", params=RunCase, effects="store", state="step",
-    output=CaseRunResult, events=(CLOSED,), on_event=_on_event, waits={CLOSED: "sub_case"},
+    output=CaseRunResult, events=(CLOSED,), on_event=_on_event, waits={CLOSED: "sub_case"}, spent=_spent,
     summary="Runs a case of another process with this case's scope and the step's own documents, and waits until it closes.",
     pack_check=_pack_check, scope_check=_scope_check)
 
