@@ -84,7 +84,9 @@ def _run(ctx: Any, params: PricedDocument) -> kinds.StepOutcome:
     try:
         builder = parts.version_document(params.output)
         approved = package_release.own_version(case_id, version, step=params.from_step)
-        data = builder.build(approved["content"], case_id=case_id, package=package, version=version,
+        # U1: the document reads as the how-manyth version of its step (the case numbers its versions across its steps)
+        shown = package_release.step_number(case_id, version, params.from_step)
+        data = builder.build(approved["content"], case_id=case_id, package=package, version=shown,
                              approved_by=approved.get("approved_by"), approved_at=approved.get("approved_at"),
                              output=params.output)
     except (parts.UnknownOutput, KeyError, ValueError) as exc:  # a version its builder cannot print names why
@@ -95,7 +97,7 @@ def _run(ctx: Any, params: PricedDocument) -> kinds.StepOutcome:
             stored = package_release.own_file(case_id, version, package_release.APPROVED, c)
             if stored is None:
                 file, made = templates.render(data, case_id, c)
-                name = builder.name(approved["content"], package, version) if builder.name else f"{params.output}-v{version}.docx"
+                name = builder.name(approved["content"], package, shown) if builder.name else f"{params.output}-v{shown}.docx"
                 package_release.store_own_files(c, case_id, version, package_release.APPROVED,
                                                 [(name, sum(len(t.rows) for t in data.tables), file, made)])
                 stored = package_release.own_file(case_id, version, package_release.APPROVED, c)

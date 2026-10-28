@@ -125,7 +125,8 @@ def test_the_letter_is_written_from_its_frame_accepted_and_sent_as_that_file(cas
     state = _turn(case_id)
     result = state["steps"]["letter"]["result"]
     eml, name = package_release.own_file(case_id, result["version"], package_release.APPROVED)["content"], result["file"]["name"]
-    assert result["file"]["sha256"] == hashlib.sha256(eml).hexdigest() and name == f"ajanlat-kiserolevel-Minta-Kft-v{result['version']}.eml"
+    # U1 (finding 18 of the walkthrough): named by the letter's own first version, not the case's second
+    assert result["file"]["sha256"] == hashlib.sha256(eml).hexdigest() and name == "ajanlat-kiserolevel-Minta-Kft-v1.eml"
     message = email.message_from_bytes(eml, policy=default)
     assert (message["To"], message["Subject"], message["X-Unsent"]) == ("anna@minta.hu", "Biztosítási ajánlat – Minta Kft.", "1")
     assert message.get_body().get_content().rstrip().endswith("Minta Anna, Kitalált Biztosító Zrt.")

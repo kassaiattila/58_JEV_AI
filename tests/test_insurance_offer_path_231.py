@@ -148,7 +148,8 @@ def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder, tmp_pat
     version = printed["result"]["version"]
     assert version == package_release.own_approval(case_id, step="premium")["active"]["version"]
     content, name = approved_document.step_file(case_id, "document")
-    assert name == f"biztositasi-ajanlat-Minta-Kereskedo-Kft-v{version}.docx"
+    # U1 (finding 18 of the walkthrough): the file is named by the decision's own number, not the case's version
+    assert version > 1 and name == "biztositasi-ajanlat-Minta-Kereskedo-Kft-v1.docx"
     assert printed["result"]["file"] == {"name": name, "sha256": hashlib.sha256(content).hexdigest()}
     from docx import Document
 
@@ -182,7 +183,7 @@ def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder, tmp_pat
     accepted = state["steps"]["letter"]["result"]
     assert state["steps"]["letter"]["state"] == "done" and accepted["to"] == "anna@minta.hu"
     eml, eml_name = approved_document.step_file(case_id, "letter")
-    assert accepted["file"] == {"name": eml_name, "sha256": hashlib.sha256(eml).hexdigest()} and eml_name.endswith(".eml")
+    assert accepted["file"] == {"name": eml_name, "sha256": hashlib.sha256(eml).hexdigest()} and eml_name.endswith("-v1.eml")
     out = tmp_path / "out"
     out.mkdir()
     monkeypatch.setattr(app_settings, "output_folder", lambda: str(out))

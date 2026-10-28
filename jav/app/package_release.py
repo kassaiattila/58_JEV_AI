@@ -25,7 +25,8 @@ its content as the person approved it (the reconciliation: its statement), the f
 it and when, what it locks while it holds, and its files in the state they were made in (approved; earlier once a
 person reopened it with a reason). The logic pack decides what it approves, what blocks it and what a lock refuses;
 this module numbers and stores the versions and their files (`record_own`, `reopen_own`, `store_own_files`) and reads
-them back (`own_versions`, `own_version`, `own_approval`, `active_own`, `own_files`, `own_file`, `own_missing_files`).
+them back (`own_versions`, `own_version`, `own_approval`, `active_own`, `own_files`, `own_file`, `own_missing_files`;
+231 U1: `step_number`, a version's number among its own step's versions, which a file of it is named by).
 The release view of a package lists its released results only, so a logic pack's own versions show in its own page as
 before. An older store's own version tables of a logic pack are copied in once (`copy_older_own`, registered by the
 logic pack).
@@ -541,6 +542,19 @@ def own_version(wp_id: str, n: int, c: sqlite3.Connection | None = None, *, step
     if row is None:
         raise KeyError(f"{wp_id} version {n}")
     return {"content": json.loads(row["content"]), **_own_meta(row)}
+
+
+def step_number(wp_id: str, n: int, step: str | None, c: sqlite3.Connection | None = None) -> int:
+    """231 (U1; finding 18 of the walkthrough): the package's own version `n` as the how-manyth version of its own
+    approving `step` (a case's versions are numbered across its steps, so its offer printed from the premium decision
+    was its third version, its letter its fourth); `n` itself without a step."""
+    if step is None:
+        return n
+    where, args = _step_filter(step)
+    row = _connected(c, lambda conn: conn.execute(
+        "SELECT COUNT(*) FROM package_versions WHERE workpackage_id=? AND version<=? AND content IS NOT NULL" + where,
+        (wp_id, n, *args)).fetchone())
+    return int(row[0]) or n
 
 
 def own_approval(wp_id: str, c: sqlite3.Connection | None = None, *, step: str | None = None) -> dict[str, Any]:

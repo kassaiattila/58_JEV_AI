@@ -234,8 +234,9 @@ def accept(case_id: str, step: str, *, to: str | None, subject: str, body: str, 
         made = {"template": "builtin", "template_version": str(settings["meta"]["version"])}
         n = package_release.approve_own(
             c, case_id, event="letter", content=content, fingerprint=fingerprint, locks=[], actor=actor,
-            files=lambda conn, v: package_release.store_own_files(conn, case_id, v, package_release.APPROVED,
-                                                                  [(f"{prefix}-{slug}-v{v}.eml", 1, email, made)]),
+            files=lambda conn, v: package_release.store_own_files(  # U1: named by the letter's own number
+                conn, case_id, v, package_release.APPROVED,
+                [(f"{prefix}-{slug}-v{package_release.step_number(case_id, v, step, conn)}.eml", 1, email, made)]),
             details={"step": step, "document_version": document["version"]}, step=step, basis=basis)
     return {"version": n, "fingerprint": fingerprint}
 
