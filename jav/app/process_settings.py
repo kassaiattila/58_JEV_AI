@@ -24,6 +24,8 @@ it starts and keeps them: a change reaches the cases started after it.
   choices`, the parameter's field title); a process's own value of such a resource is one of them. The settings page
   also shows the roles the process's partners play.
 - 231 (stage U, U0): `missing_at_start(pack)`: what a case of the pack cannot start without now, before anyone tries.
+- 231 (U3a): `view` describes the process too (`description`: what it is for, its steps, outputs, golden sets, what
+  starts a case of it, whether it has example material), for its own settings page.
 
 Layer: application, the shared library; it uses the process packs, the capabilities, the shared versioning and the
 output templates.
@@ -389,7 +391,26 @@ def view(pack_id: str) -> dict[str, Any]:
     links = [{"role": link.role, "label": (roles.get(link.role) or {}).get("label", link.role), "step": link.from_step,
               "step_title": titles.get(link.from_step, link.from_step)} for link in pack.partners]
     return {"pack": {"id": pack.id, "title": pack.title, "version": pack.version}, "resources": resources, "rules": rules,
-            "partners": links, "policy": policy()}
+            "partners": links, "policy": policy(), "description": _description(pack)}
+
+
+def _description(pack: process_packs.ProcessPack) -> dict[str, Any]:
+    """231 (stage U, U3a; the owner's decision of 2026-10-28: each process its own settings page): what the process is
+    for, its steps in order (each with what its capability does, whether a person starts it, the steps it waits for by
+    their titles, whether it may be left out), its outputs, the golden sets that measure it, what may start a case of it
+    and whether it has example material."""
+    titles = {s.id: s.title or s.id for s in pack.steps}
+    outputs = cfg.load("outputs").get("outputs", {})
+    steps = [{"id": s.id, "title": titles[s.id], "uses": s.uses, "summary": capabilities.of(s.uses).summary,
+              "start": s.start, "after": [titles.get(x, x) for x in dict.fromkeys((*s.after, *s.gates))],
+              "optional": s.optional} for s in pack.steps]
+    return {"summary": pack.summary, "steps": steps,
+            "outputs": [{"id": o, "what": outputs.get(o, {}).get("what"), "format": outputs.get(o, {}).get("format")}
+                        for o in pack.outputs],
+            "goldens": list(pack.goldens),
+            "intake": [{"on": i.on, "starts": i.starts, "intent": i.intent} for i in pack.intake],
+            "examples": pack.examples is not None and bool(pack.examples.sets or pack.examples.documents
+                                                            or pack.examples.note)}
 
 
 def _case_name(case_id: str) -> str:

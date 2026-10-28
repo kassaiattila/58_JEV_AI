@@ -21,7 +21,7 @@ import { FoldersPanel } from "./settings/FoldersPanel";
 import { LanguagePanel } from "./settings/LanguagePanel";
 import { OutputTemplatesPanel } from "./settings/OutputTemplatesPanel";
 import { PartnersPanel } from "./settings/PartnersPanel";
-import { ProcessSettingsPanel } from "./settings/ProcessSettingsPanel";
+import { ProcessNav, ProcessSettingsPanel } from "./settings/ProcessSettingsPanel";
 import { ProductsPanel } from "./settings/ProductsPanel";
 import { TariffsPanel } from "./settings/TariffsPanel";
 import { RulesPanel } from "./settings/RulesPanel";
@@ -31,7 +31,7 @@ import { PdfProtectionPanel } from "./settings/PdfProtectionPanel";
 import { ConfirmButton } from "../components/ConfirmButton";
 import { UncertainCallsPanel } from "./settings/UncertainCallsPanel";
 
-export function Settings({ section }: { section: SettingsSection }) {
+export function Settings({ section, item, tab }: { section: SettingsSection; item?: string; tab?: string }) {
   useLocale();
   // 231 (C3e): the shared sections and the domains' own (`logic/settingsSections.ts`), in their order
   const sections = settingsSections();
@@ -43,7 +43,11 @@ export function Settings({ section }: { section: SettingsSection }) {
       <div className="settings-layout">
         <nav className="settings-nav" aria-label={t("Beállítások")}>
           {sections.map((s) => (
-            <a key={s.key} href={`#/settings/${s.key}`} aria-current={s.key === current.key ? "page" : undefined}>{t(s.label)}</a>
+            <Fragment key={s.key}>
+              <a href={`#/settings/${s.key}`} aria-current={s.key === current.key && !item ? "page" : undefined}>{t(s.label)}</a>
+              {/* 231 (U3a; the owner's decision of 2026-10-28): each process its own menu item and address */}
+              {s.key === "processes" && current.key === "processes" ? <ProcessNav current={item} /> : null}
+            </Fragment>
           ))}
         </nav>
         <div className="settings-body">
@@ -51,7 +55,7 @@ export function Settings({ section }: { section: SettingsSection }) {
           {Own ? <Own /> : null}
           {current.key === "folders" ? <FoldersPanel /> : null}
           {current.key === "partners" ? <PartnersPanel /> : null}
-          {current.key === "processes" ? <ProcessSettingsPanel /> : null}
+          {current.key === "processes" ? <ProcessSettingsPanel pack={item} tab={tab} /> : null}
           {current.key === "products" ? <ProductsPanel /> : null}
           {current.key === "tariffs" ? <TariffsPanel /> : null}
           {current.key === "recipes" ? (

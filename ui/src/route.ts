@@ -32,7 +32,8 @@ export type Route =
   | { view: "cases"; caseId: string; tab?: string }
   /** 231 (U0): the case list; `create`: a new case, of the process `pack` when one is chosen */
   | { view: "case-list"; create?: boolean; pack?: string }
-  | { view: "settings"; section: SettingsSection }
+  /** 231 (U3a): `item`, a process of the Processes section (its own page), and `tab`, the page's tab */
+  | { view: "settings"; section: SettingsSection; item?: string; tab?: string }
   /** 061: the selected person's actions on a day („Mai munkám” (My work today)); without a day, today's */
   | { view: "activity"; day?: string }
   /** 216: what waits for the selected person (their open human tasks and anyone's); `all`: trial runs' and
@@ -66,7 +67,9 @@ export function parseRoute(hash: string): Route {
   switch (parts[0]) {
     case "settings": {  // 231 (C3e): a section the domains registered too; an unknown one opens the first
       const keys = settingsSections().map((s) => s.key);
-      return { view: "settings", section: keys.includes(parts[1]) ? parts[1] : keys[0] };
+      const section = keys.includes(parts[1]) ? parts[1] : keys[0];
+      return { view: "settings", section, ...(section === parts[1] && parts[2] ? { item: parts[2] } : {}),
+        ...(section === parts[1] && parts[2] && parts[3] ? { tab: parts[3] } : {}) };
     }
     case "mailbox":
       return { view: "settings", section: "mailboxes" };
@@ -114,7 +117,7 @@ export function parseRoute(hash: string): Route {
 export function routeHash(r: Route): string {
   const e = encodeURIComponent;
   switch (r.view) {
-    case "settings": return `#/settings/${r.section}`;
+    case "settings": return `#/settings/${r.section}${r.item ? `/${e(r.item)}${r.tab ? `/${e(r.tab)}` : ""}` : ""}`;
     case "activity": return r.day ? `#/activity?day=${r.day}` : "#/activity";
     case "waiting": return r.all ? "#/waiting?all=1" : "#/waiting";
     case "run": return `#/runs/${e(r.runId)}`;

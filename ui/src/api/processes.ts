@@ -59,6 +59,17 @@ export interface ProcessSettings {
   pack: ProcessRow; resources: ResourceSetting[]; rules: RuleSetting[];
   partners: { role: string; label: string; step: string; step_title: string }[];
   policy: { activation: "editor" | "owner" | "second_person"; owners: string[] };
+  /** 231 (U3a): what the process is for, its steps, outputs, golden sets, what starts a case of it, its examples */
+  description: ProcessDescription;
+}
+/** 231 (U3a): a process described on its own settings page (jav/app/process_settings.py `_description`). */
+export interface ProcessDescription {
+  summary: string | null;
+  steps: { id: string; title: string; uses: string; summary: string; start: "auto" | "person"; after: string[]; optional: boolean }[];
+  outputs: { id: string; what: string | null; format: string | null }[];
+  goldens: string[];
+  intake: { on: "email_intent" | "package" | "manual"; starts: "offer" | "case" | "manual"; intent: string | null }[];
+  examples: boolean;
 }
 export interface RulePreview {
   key: string; value: string | number; file_value: string | number; decisions: number; changed: number; failed: number;

@@ -682,6 +682,9 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .settings-nav a { padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); text-decoration: none; color: var(--ink-2); font-size: var(--fs-sm); font-weight: 500; transition: background-color .12s; }
 .settings-nav a:hover { background: var(--hover); color: var(--ink); }
 .settings-nav a[aria-current="page"] { background: var(--tint); color: var(--ink); font-weight: 600; }
+/* 231 (U3a): a process's own item under Processes, indented one step */
+.settings-nav a.settings-sub { padding-left: var(--sp-6); font-weight: 400; }
+a.seg { text-decoration: none; }
 .settings-body { display: grid; gap: 14px; min-width: 0; }
 .settings-body > h2 { margin: 0; }
 @media (max-width: 800px) { .settings-layout { grid-template-columns: 1fr; } .stage-tabs { grid-template-columns: 1fr; } .stage-tab { border-right: 0; border-bottom: 1px solid var(--line); } }
