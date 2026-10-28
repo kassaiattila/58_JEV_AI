@@ -210,6 +210,9 @@ class ProcessPack(_Model):
     follow_ups: tuple[FollowUp, ...] = ()  # 231 (U1): a process a closed case's person may start from its scope
     # stage D (D-a, P04): the resources a case cannot start without a version of to keep (a tariff); none: it may start
     needs_at_start: tuple[str, ...] = ()
+    # 231 (U3c; the owner's decision of 2026-10-28): a resource that follows from another ({resource: source}): the
+    # source's thing brings it (a product its tariff), and a process does not set it on its own
+    derived: dict[str, str] = Field(default_factory=dict)
 
     @property
     def version(self) -> str:
@@ -348,6 +351,8 @@ def _problems(pack: ProcessPack) -> list[str]:
     case_owned = [s.uses for s in pack.steps if (c := _capability(s.uses)) is not None and c.state == "case"]
     for key in sorted({k for k in case_owned if case_owned.count(k) > 1}):  # D0-b: two steps would share one state
         problems.append(f"{key} keeps its state for the whole case: a pack uses it once")
+    problems += [f"derived {key!r} from {source!r}: both are resources of the pack, and differ" for key, source in
+                 pack.derived.items() if key not in pack.resources or source not in pack.resources or key == source]  # U3c
     problems += [f"needs_at_start names {key!r}, which is no resource of the pack" for key in pack.needs_at_start
                  if key not in pack.resources]  # D-a
     kept_keys = {value[1:] for step in pack.steps if (cap := _capability(step.uses)) is not None

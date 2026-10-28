@@ -41,7 +41,7 @@ from jav.core.user_messages import Said, explained, inside, said, said_fields, s
 
 __all__ = ["KINDS", "Citation", "ConditionDocument", "Factor", "ManifestRefused", "Product", "ProductAt", "Rule",
            "SecondPersonNeeded", "Tariff", "TariffModule", "activate", "add", "add_in", "choices", "get", "keeper", "kept", "latest",
-           "listing", "made_by_ids_in", "named", "overview", "problems_of", "product_at", "remove_in", "resolve", "retire",
+           "listing", "made_by_ids_in", "named", "overview", "problems_of", "product_at", "product_tariff", "remove_in", "resolve", "retire",
            "rule_problems"]
 
 KINDS = ("document", "rule", "product", "tariff")
@@ -522,11 +522,22 @@ def named(value: str, kind: str = "product") -> dict[str, Any]:
     return {"name": found["name"] or value, "version": versions.split(value)[1]}
 
 
+def product_tariff(value: str) -> str | None:
+    """231 (U3c; the owner's decision of 2026-10-28: the tariff is part of the product): the tariff the product names, by
+    its id (its active version when `value` is its id, the version it names otherwise); None when it names none or the
+    product cannot be read."""
+    try:
+        return Product.model_validate(resolve("product", value)["content"]).tariff
+    except (versions.VersionNotFound, ValidationError):
+        return None
+
+
 def keeper(kind: str) -> capabilities.AtStart:
     """D-c4: how a capability's parameter naming a product, a tariff, ... keeps the version of a case's start
-    (`Capability.at_start`)."""
+    (`Capability.at_start`); 231 (U3c): a product brings its tariff."""
     _kind(kind)
-    return capabilities.AtStart(lambda value: kept(value, kind), lambda value: named(value, kind))
+    return capabilities.AtStart(lambda value: kept(value, kind), lambda value: named(value, kind), kind=kind,
+                                brings={"tariff": product_tariff} if kind == "product" else {})
 
 
 def choices(kind: str) -> Callable[[], list[tuple[str, str]]]:

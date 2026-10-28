@@ -3,28 +3,31 @@
 // priced by), the rules (each a decision table over the facts of its catalogue, with the page and clause it was read
 // from) and the condition documents (their clauses). Each is kept as versions; a draft shows what keeps it from being
 // made active and is made active here, a product by another person than its maker; an active one can be retired, and
-// stays readable for the cases that keep it.
+// stays readable for the cases that keep it. 231 (U3c; the owner's decision of 2026-10-28: the tariff is part of the
+// product): the tariffs are a list of this page (until then a Settings item of their own).
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ConditionDocument, Product, ProductRegistry, RegistryThing, Rule } from "../../api";
 import { t, useLocale } from "../../i18n";
 import { ProposalsView } from "./ProposalsView";
+import { TariffsPanel } from "./TariffsPanel";
 import {
   Activation, Citation, DecisionTable, DOCUMENT_KIND, documentsByRef, current, inForce, levelLabel, NoneYet, RULE_KIND,
   ThingState, useRegistry, versionOf, VersionLine, VersionPicker, VersionsTable,
 } from "./RegistryParts";
 
-type View = "products" | "rules" | "documents" | "proposals";
+type View = "products" | "tariffs" | "rules" | "documents" | "proposals";
 type Open = { view: View; ident: string } | null;
 
-export function ProductsPanel() {
+export function ProductsPanel({ initial }: { initial?: string }) {
   useLocale();
   const registry = useRegistry();
-  const [view, setView] = useState<View>("products");
+  const [view, setView] = useState<View>(initial === "tariffs" ? "tariffs" : "products");
   const [open, setOpen] = useState<Open>(null);
   if (registry.error) return <p className="notice error" role="alert">{registry.error.message}</p>;
   if (!registry.data) return <p className="muted">{t("Loading…")}</p>;
   const r = registry.data;
-  const views: [View, string, number | null][] = [["products", t("Products"), r.products.length], ["rules", t("Rules"), r.rules.length],
+  const views: [View, string, number | null][] = [["products", t("Products"), r.products.length], ["tariffs", t("Tariffs"), null],
+    ["rules", t("Rules"), r.rules.length],
     ["documents", t("Condition documents"), r.documents.length], ["proposals", t("Proposals"), null]];
   const show = (v: View, ident: string) => { setView(v); setOpen({ view: v, ident }); };
   return (
@@ -43,6 +46,7 @@ export function ProductsPanel() {
       {view === "documents" ? <DocumentsView registry={r} open={open?.view === "documents" ? open.ident : null} onOpen={(i) => show("documents", i)}
         onClose={() => setOpen(null)} onChanged={registry.reload} /> : null}
       {view === "proposals" ? <ProposalsView registry={r} onChanged={registry.reload} /> : null}
+      {view === "tariffs" ? <TariffsPanel /> : null}
     </div>
   );
 }

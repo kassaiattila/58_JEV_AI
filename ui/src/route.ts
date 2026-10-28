@@ -66,6 +66,7 @@ export function parseRoute(hash: string): Route {
   const params = new URLSearchParams(search);
   switch (parts[0]) {
     case "settings": {  // 231 (C3e): a section the domains registered too; an unknown one opens the first
+      if (parts[1] === "tariffs") return { view: "settings", section: "products", item: "tariffs" };  // U3c: a product's list
       const keys = settingsSections().map((s) => s.key);
       const section = keys.includes(parts[1]) ? parts[1] : keys[0];
       return { view: "settings", section, ...(section === parts[1] && parts[2] ? { item: parts[2] } : {}),

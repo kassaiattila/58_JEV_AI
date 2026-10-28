@@ -326,12 +326,15 @@ class AtStart:
     """Stage D0 (D0-e): a parameter naming a resource of which a case keeps the version current at its start.
     `kept(value)`: the value then, naming a concrete version (a price list's `newest_active` -> `<list>@<version>`;
     unchanged when there is none, so the step says so when it runs); `named(value)`: how a kept value reads to a person,
-    {"name": ..., "version": n or None}."""
+    {"name": ..., "version": n or None}. 231 (U3c): `kind`, what it names (a product, a tariff); `brings`, for a thing
+    that brings another (a product its tariff), by the other's kind, the other's value it names (None: none)."""
 
     kept: Callable[[str], str]
     named: Callable[[str], dict[str, Any]]
     # D-a: whether a value names a version a case keeps (`<id>@<n>`); a pack's `needs_at_start` refuses one that does not
     resolved: Callable[[str], bool] = field(default=lambda value: "@" in value)
+    kind: str | None = None
+    brings: Mapping[str, Callable[[str], str | None]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

@@ -23,7 +23,6 @@ import { OutputTemplatesPanel } from "./settings/OutputTemplatesPanel";
 import { PartnersPanel } from "./settings/PartnersPanel";
 import { ProcessNav, ProcessSettingsPanel } from "./settings/ProcessSettingsPanel";
 import { ProductsPanel } from "./settings/ProductsPanel";
-import { TariffsPanel } from "./settings/TariffsPanel";
 import { RulesPanel } from "./settings/RulesPanel";
 import { UsersPanel } from "./settings/UsersPanel";
 import { VersionPanel } from "./settings/VersionPanel";
@@ -56,8 +55,7 @@ export function Settings({ section, item, tab }: { section: SettingsSection; ite
           {current.key === "folders" ? <FoldersPanel /> : null}
           {current.key === "partners" ? <PartnersPanel /> : null}
           {current.key === "processes" ? <ProcessSettingsPanel pack={item} tab={tab} /> : null}
-          {current.key === "products" ? <ProductsPanel /> : null}
-          {current.key === "tariffs" ? <TariffsPanel /> : null}
+          {current.key === "products" ? <ProductsPanel key={item ?? ""} initial={item} /> : null}
           {current.key === "recipes" ? (
             <>
               <EnginePanel />

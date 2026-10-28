@@ -50,7 +50,7 @@ def test_an_insurance_process_chooses_its_letter_frame_document_send_mode_and_te
 
 
 def test_a_priced_document_offers_only_the_outputs_that_print_its_step(db) -> None:
-    assert _options("it_quote", "quote_output") == ["quote"]  # Q-kimenet-választék: no rated offer for a quote
+    assert _options("it_quote", "quote_output") == ["quote"]  # the backlog item on the output choice: no rated offer for a quote
 
 
 def test_a_pack_whose_document_prints_another_step_s_version_is_refused(tmp_path, monkeypatch) -> None:

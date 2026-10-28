@@ -132,4 +132,22 @@ describe("a process's own settings (231 B4)", () => {
     const card = await screen.findByRole("region", { name: "Product" });
     expect(within(card).getByRole("status").textContent).toContain("nothing to choose yet");
   });
+
+  it("shows a tariff that follows from the product read only, and the old tariffs address opens the product's list (231 U3c)", async () => {
+    const withTariff: ProcessSettings = { ...PAGE, resources: [
+      { ...PAGE.resources[0], key: "product", label: "Product", options: [{ value: "invented_product", label: "Invented product" }],
+        file_value: "invented_product", value: "invented_product", own: false, versions: [] },
+      { ...PAGE.resources[0], key: "tariff", label: "Tariff", options: null, file_value: "invented_tariff", value: "invented_tariff",
+        own: false, versions: [], derived_from: "product" }] };
+    vi.spyOn(api, "processes").mockResolvedValue({ processes: [PAGE.pack] });
+    vi.spyOn(api, "processSettings").mockResolvedValue(withTariff);
+    render(<ProcessSettingsPanel pack="invented_quote" tab="uses" />);
+    const row = (await screen.findByRole("button", { name: "Tariff" })).closest("tr")!;
+    expect(within(row).getByText("From the Product")).toBeTruthy();
+    fireEvent.click(within(row).getByRole("button", { name: "Tariff" }));
+    const card = await screen.findByRole("region", { name: "Tariff" });
+    expect(within(card).getByRole("status").textContent).toBe("It follows from the Product: set the Product instead.");
+    expect(within(card).queryByRole("button", { name: "Save as a draft" })).toBeNull();
+    expect(parseRoute("#/settings/tariffs")).toEqual({ view: "settings", section: "products", item: "tariffs" });
+  });
 });

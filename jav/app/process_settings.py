@@ -24,6 +24,9 @@ it starts and keeps them: a change reaches the cases started after it.
   choices`, the parameter's field title); a process's own value of such a resource is one of them. The settings page
   also shows the roles the process's partners play.
 - 231 (stage U, U0): `missing_at_start(pack)`: what a case of the pack cannot start without now, before anyone tries.
+- 231 (U3c; the owner's decision of 2026-10-28: the tariff is part of the product): a pack's `derived` resource follows
+  from its source (a product brings its tariff, `AtStart.brings`): its value is the source's, shown read only, and a
+  process sets no value of its own for it.
 - 231 (U3a): `view` describes the process too (`description`: what it is for, its steps, outputs, golden sets, what
   starts a case of it, whether it has example material), for its own settings page.
 
@@ -128,10 +131,24 @@ def _active_rows(c: Any, pack_id: str, kind: str) -> list[Any]:
 
 
 def effective_resources(pack: process_packs.ProcessPack) -> dict[str, str]:
-    """The pack's resources: its file's, with the process's active values over them."""
+    """The pack's resources: its file's, with the process's active values over them; 231 (U3c) a derived resource as its
+    source brings it (a product its tariff), whatever value it had of its own."""
     with store.connect() as c:
         own = {r["key"]: json.loads(r["value"]) for r in _active_rows(c, pack.id, RESOURCE)}
-    return {**pack.resources, **{k: str(v) for k, v in own.items() if k in pack.resources}}
+    resources = {**pack.resources, **{k: str(v) for k, v in own.items() if k in pack.resources and k not in pack.derived}}
+    for key in pack.derived:
+        if (brought := _brought(pack, key, resources)) is not None:
+            resources[key] = brought
+    return resources
+
+
+def _brought(pack: process_packs.ProcessPack, key: str, resources: dict[str, str]) -> str | None:
+    """231 (U3c): a derived resource's value as its source brings it (the source's keeper's `brings`, by the derived
+    resource's kind); None when the source brings none."""
+    keepers = _keepers(pack)
+    source, mine = keepers.get(pack.derived[key]), keepers.get(key)
+    bring = source.brings.get(str(mine.kind)) if source is not None and mine is not None else None
+    return bring(resources[pack.derived[key]]) if bring is not None else None
 
 
 def rule_keys(pack: process_packs.ProcessPack) -> dict[str, tuple[capabilities.RuleKey, list[str]]]:
@@ -297,6 +314,9 @@ def propose(pack_id: str, key: str, value: Any, actor: identity.Who, *, kind: st
         value = " ".join(str(value).split())
     if value is None or value == "":
         raise explained(SettingError, "a setting needs a value")
+    if kind == RESOURCE and key in pack.derived:  # U3c: it follows its source (a product's tariff)
+        raise explained(SettingError, "the {{what}} follows from the {{source}}: set the {{source}} instead",
+                        what=_resource_title(pack, key), source=_resource_title(pack, pack.derived[key]))
     if problems := _problems(pack, kind, key, value):
         raise explained(SettingError, "the process cannot take this value: {{problems}}", problems="; ".join(problems))
     sid = _id(pack_id, kind, key)
@@ -369,14 +389,19 @@ def view(pack_id: str) -> dict[str, Any]:
     for r in rows:
         by_key.setdefault((r["kind"], r["key"]), []).append(r)
     resources = []
+    effective = effective_resources(pack)
     for key, file_value in pack.resources.items():
         mine = by_key.get((RESOURCE, key), [])
         value, own = _own(mine)
         label, options = resource_info(pack, key)
+        if key in pack.derived:  # U3c: shown as its source brings it, read only
+            resources.append({"key": key, "label": label, "options": None, "file_value": file_value,
+                              "value": effective[key], "own": False, "versions": [], "derived_from": pack.derived[key]})
+            continue
         resources.append({"key": key, "label": label,
                           "options": None if options is None else [{"value": v, "label": lbl} for v, lbl in options],
                           "file_value": file_value, "value": value if own else file_value, "own": own,
-                          "versions": _versions(mine)})
+                          "versions": _versions(mine), "derived_from": None})
     rules = []
     for key, (rule, steps) in rule_keys(pack).items():
         mine = by_key.get((RULE, key), [])

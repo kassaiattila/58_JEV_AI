@@ -7,7 +7,7 @@
       {
         "version": "1.2.0",
         "date": "2026-10-28",
-        "note": "231 (U3b; the owner's decisions of 2026-10-28: what a process uses is chosen from the shared library): its letter frame, its offer document, its send mode and its offer document's template are resources a process may set its own value of (until now fixed in its steps); the values are the same."
+        "note": "231 (U3b; the owner's decisions of 2026-10-28: what a process uses is chosen from the shared library): its letter frame, its offer document, its send mode and its offer document's template are resources a process may set its own value of (until now fixed in its steps); the values are the same. Its tariff follows from its product (`derived`, U3c; the owner's decision of 2026-10-28: the tariff is part of the product): a case keeps the active version of the tariff its product names, and a process sets no tariff of its own."
       },
       {
         "version": "1.1.0",
@@ -56,6 +56,9 @@
     "product",
     "tariff"
   ],
+  "derived": {
+    "tariff": "product"
+  },
   "steps": [
     {
       "id": "documents",

@@ -50,6 +50,8 @@ export interface SettingVersion {
 export interface ResourceSetting {
   key: string; label: string; options: { value: string; label: string }[] | null;
   file_value: string; value: string; own: boolean; versions: SettingVersion[];
+  /** 231 (U3c): the resource it follows from (a product brings its tariff), shown read only */
+  derived_from?: string | null;
 }
 export interface RuleSetting {
   key: string; file: string; path: string; what: string; kind: "int" | "choice"; least: number | null; most: number | null;

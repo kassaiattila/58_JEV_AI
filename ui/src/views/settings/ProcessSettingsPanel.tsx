@@ -122,7 +122,9 @@ function ProcessPage({ pack, tab }: { pack: string; tab: Tab }) {
                     <td><button type="button" className="link-btn" onClick={() => setOpen({ kind: "settings", key: r.key })}>{t(r.label)}</button></td>
                     <td className="process-in-use"><ResourceValue r={r} value={r.value} /></td>
                     <td className="muted"><ResourceValue r={r} value={r.file_value} /></td>
-                    <td><Origin own={r.own} drafts={r.versions.filter((v) => v.state === "draft").length} /></td>
+                    <td>{r.derived_from ? (  // U3c: as its source brings it
+                      <span className="process-origin small muted">{t("From the {{source}}", { source: t(page.resources.find((x) => x.key === r.derived_from)?.label ?? r.derived_from) })}</span>
+                    ) : <Origin own={r.own} drafts={r.versions.filter((v) => v.state === "draft").length} />}</td>
                   </tr>
                 ))}
               </tbody>
@@ -249,6 +251,7 @@ function SettingCard({ page, open, onClose, onChanged }: {
   const resource = open.kind === "settings" ? page.resources.find((r) => r.key === open.key) ?? null : null;
   const rule = open.kind === "rules" ? page.rules.find((r) => r.key === open.key) ?? null : null;
   const setting = resource ?? rule;
+  const source = resource?.derived_from ? page.resources.find((r) => r.key === resource.derived_from) ?? null : null;
   const start = useMemo<Value>(() => (setting ? setting.value : ""), [setting]);
   // what the person typed, over the value in use (null: nothing yet); a saved version starts afresh
   const [draft, setDraft] = useState<Value | null>(null);
@@ -304,6 +307,9 @@ function SettingCard({ page, open, onClose, onChanged }: {
       {resource?.options && !resource.options.length ? (  // U3b: an empty list says where its values come from
         <p className="notice small" role="status">{t("There is nothing to choose yet: make one active on its own Settings page first.")}</p>
       ) : null}
+      {source ? (  // U3c: it follows its source (a product brings its tariff); nothing to set here
+        <p className="notice small" role="status">{t("It follows from the {{source}}: set the {{source}} instead.", { source: t(source.label) })}</p>
+      ) : <>
       <div className="form-row">
         <label className="block">{t("New value")}
           {resource?.options || (rule && rule.kind === "choice") ? (
@@ -335,6 +341,7 @@ function SettingCard({ page, open, onClose, onChanged }: {
         ) : null}
         <span className="muted small">{ruleProblem ?? t("A draft changes nothing until it is made active.")}</span>
       </div>
+      </>}
       {error ? <p className="notice error small" role="alert">{error}</p> : null}
       {preview ? <PreviewResult preview={preview.result} /> : null}
       {setting.versions.length ? (
