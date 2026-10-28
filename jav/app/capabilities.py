@@ -394,6 +394,8 @@ class Capability:
       from the whole pack (the steps they wait for, the scope parts they need), checked with the pack (`process_packs`).
     - `scope_check(pack, scope)` (U2c): raises `scopes.ScopeError` when a case's checked scope lacks what the pack's
       steps of it need (a step's own documents), at the case's start before anything is made.
+    - `choices_for` (U3b): for a parameter whose values depend on the step (a priced document's output prints only the
+      version of the step it names), `(pack, step)` gives that step's values; over `choices`.
     """
 
     name: str
@@ -431,6 +433,7 @@ class Capability:
     at_start: Mapping[str, AtStart] = field(default_factory=dict)
     pack_check: Callable[[Any], list[str]] | None = None
     scope_check: Callable[[Any, dict[str, Any]], None] | None = None
+    choices_for: Mapping[str, Callable[[Any, Any], list[tuple[str, str]]]] = field(default_factory=dict)
 
     @property
     def key(self) -> str:
@@ -484,7 +487,7 @@ def _check(cap: Capability) -> None:
             problems.append(f"its rule file has no {rule.id}")
     if len({r.id for r in cap.rule_keys}) != len(cap.rule_keys):
         problems.append("its rule keys are distinct")
-    if unknown := sorted(set(cap.choices) - set(cap.params.model_fields)):
+    if unknown := sorted((set(cap.choices) | set(cap.choices_for)) - set(cap.params.model_fields)):
         problems.append(f"it offers choices for parameters it does not have: {unknown}")
     if unknown := sorted(set(cap.at_start) - set(cap.params.model_fields)):  # D0-e
         problems.append(f"it keeps the start's version of parameters it does not have: {unknown}")

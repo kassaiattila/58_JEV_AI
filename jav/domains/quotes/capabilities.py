@@ -376,7 +376,8 @@ def register() -> None:
     # D0-c: how the quote's approved version becomes its Word document (the shared priced document prints it)
     parts.register_version_document(parts.VersionDocument(
         quote_document.OUTPUT, _OWNER, quote_document.data,
-        file=lambda wp_id, n, package: quote_document.version_file(wp_id, n, package=package)))
+        file=lambda wp_id, n, package: quote_document.version_file(wp_id, n, package=package),
+        prints=("line_draft",)))  # U3b: the quote's approved lines
     for element, capability in ELEMENTS:
         case_views.register(case_views.ElementData(element, capability, _OWNER, _quote_view, mark=_marks))
     sending.register_builder(sending.MessageBuilder("quote_letter", _OWNER, _letter_message,

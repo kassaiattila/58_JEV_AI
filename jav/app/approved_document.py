@@ -13,6 +13,8 @@ another process prints its own approved versions with its own output and builder
   does not store at the approval (the insurance offer's; the quote's is stored then) is stored here with the version,
   once, with the case's chosen template: the result names the file and its sha256, and the version's download and a
   letter read that file ever after.
+- 231 (U3b): a step's output is chosen from those that print the version of the step it names (an output's
+  `VersionDocument.prints`); a pack naming another is refused.
 - `step_file(case_id, step)`: the stored document of a priced document's step (D-f7).
 - D-f7: the shared element `document_view` for such a step: the file, its fingerprint, the version printed.
 
@@ -75,6 +77,39 @@ class DocumentResult(capabilities.Result):
 def _outputs() -> list[tuple[str, str]]:
     """231 (B4): the Word outputs a priced document may fill."""
     return [(key, key) for key, o in (cfg.load("outputs").get("outputs") or {}).items() if o.get("format") == "docx"]
+
+
+def _fits(output: str, pack: Any, step: Any) -> bool | None:
+    """231 (U3b): whether the output prints the approved version of the step the priced document names (`from_step`):
+    its domain's version document names that step's capability, or any; None when no domain prints the output."""
+    try:
+        doc = parts.version_document(output)
+    except parts.UnknownOutput:
+        return None
+    if not doc.prints:
+        return True
+    source = next((s for s in pack.steps if s.id == (step.params or {}).get("from_step")), None)
+    return source is not None and source.uses.split("@", 1)[0] in doc.prints
+
+
+def _outputs_for(pack: Any, step: Any) -> list[tuple[str, str]]:
+    """231 (U3b): the Word outputs this step may fill: those that print the version of the step it names."""
+    return [(key, label) for key, label in _outputs() if _fits(key, pack, step)]
+
+
+def _pack_check(pack: Any) -> list[str]:
+    """231 (U3b): a priced document's output (its value, or its resource's in the pack's file) prints the version of the
+    step it names."""
+    problems = []
+    for step in pack.steps:
+        if step.uses != f"{CAPABILITY.name}@{CAPABILITY.version}":
+            continue
+        output = (step.params or {}).get("output")
+        if isinstance(output, str) and output.startswith("@"):
+            output = pack.resources.get(output[1:])
+        if isinstance(output, str) and _fits(output, pack, step) is False:
+            problems.append(f"step {step.id!r}: the output {output!r} does not print the version of the step it names")
+    return problems
 
 
 def _run(ctx: Any, params: PricedDocument) -> kinds.StepOutcome:
@@ -146,7 +181,8 @@ def _document_view(case_id: str, step: str | None, _shared: dict[str, Any]) -> d
 
 CAPABILITY = capabilities.Capability(
     name="priced_document", version=1, module=_OWNER, run=_run, kind="machine", params=PricedDocument, state="step",
-    output=DocumentResult, rule_files=("outputs",), choices={"output": _outputs},
+    output=DocumentResult, rule_files=("outputs",), choices={"output": _outputs}, choices_for={"output": _outputs_for},
+    pack_check=_pack_check,
     summary="Fills a priced document from an output template: an approved version of the step it names, as that"
             " output's domain builds it.")
 

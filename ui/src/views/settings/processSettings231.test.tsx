@@ -121,4 +121,15 @@ describe("a process's own settings (231 B4)", () => {
     expect(parseRoute("#/settings/processes/it_quote/uses")).toEqual({ view: "settings", section: "processes", item: "it_quote", tab: "uses" });
     expect(routeHash({ view: "settings", section: "processes", item: "it_quote" })).toBe("#/settings/processes/it_quote");
   });
+
+  it("says where the values come from when there is nothing to choose yet (231 U3b)", async () => {
+    const empty: ProcessSettings = { ...PAGE, resources: [{ ...PAGE.resources[0], key: "product", label: "Product", options: [],
+      file_value: "invented_product", value: "invented_product", own: false, versions: [] }] };
+    vi.spyOn(api, "processes").mockResolvedValue({ processes: [PAGE.pack] });
+    vi.spyOn(api, "processSettings").mockResolvedValue(empty);
+    render(<ProcessSettingsPanel pack="invented_quote" tab="uses" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Product" }));
+    const card = await screen.findByRole("region", { name: "Product" });
+    expect(within(card).getByRole("status").textContent).toContain("nothing to choose yet");
+  });
 });

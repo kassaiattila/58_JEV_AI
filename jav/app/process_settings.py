@@ -258,6 +258,8 @@ def resource_info(pack: process_packs.ProcessPack, key: str) -> tuple[str, list[
             if value != f"@{key}" or param not in cap.params.model_fields:
                 continue
             label = cap.params.model_fields[param].title or label
+            if param in cap.choices_for:  # U3b: the values that fit this step
+                return label, cap.choices_for[param](pack, step)
             if param in cap.choices:
                 return label, cap.choices[param]()
     return label, options

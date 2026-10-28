@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "process:allianz_property_offer",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "231 (stage U, U-A6; the owner's decisions of 2026-10-27): the real corporate property product's quote (configs/product_source_allianz_property.json) as a process pack of the same shared capabilities as the invented insurer's (configs/processes/insurance_offer.json): the documents of its source read into the facts of configs/facts_allianz_property.json (configs/fact_readings_allianz_property.json), the company register and the sanctions list asked, a person checks and freezes the facts; the rules of the product version the case kept are evaluated with the case's total sum insured, missing facts are asked for, a person decides on the risk, the premium is computed from the tariff the case kept (an example, invented rates) and a person decides on it - another person than the risk's above the authority's plan value of the total sum insured (configs/case_decisions.json az_authority_sum_insured_plan); the offer document, its covering letter and the sending as before. The product is made active by a person (the owner's decision of 2026-10-27), so a case starts once it is; the example material is the tariff and three invented customers' documents.",
     "changelog": [
+      {
+        "version": "1.2.0",
+        "date": "2026-10-28",
+        "note": "231 (U3b; the owner's decisions of 2026-10-28: what a process uses is chosen from the shared library): its letter frame, its offer document, its send mode and its offer document's template are resources a process may set its own value of (until now fixed in its steps); the values are the same."
+      },
       {
         "version": "1.1.0",
         "date": "2026-10-28",
@@ -41,7 +46,11 @@
   ],
   "resources": {
     "product": "az_corporate_property",
-    "tariff": "az_corporate_property_tariff"
+    "tariff": "az_corporate_property_tariff",
+    "letter_frame": "offer_letter",
+    "offer_output": "rated_offer",
+    "send_mode": "output_folder",
+    "template:rated_offer": "builtin"
   },
   "needs_at_start": [
     "product",
@@ -218,7 +227,7 @@
         "premium"
       ],
       "params": {
-        "output": "rated_offer",
+        "output": "@offer_output",
         "from_step": "premium"
       }
     },
@@ -230,7 +239,7 @@
         "document"
       ],
       "params": {
-        "frame": "offer_letter",
+        "frame": "@letter_frame",
         "from_step": "document"
       }
     },
@@ -244,7 +253,7 @@
       "start": "person",
       "params": {
         "message": "letter",
-        "mode": "output_folder",
+        "mode": "@send_mode",
         "from_step": "letter"
       }
     }

@@ -301,6 +301,9 @@ function SettingCard({ page, open, onClose, onChanged }: {
         <dt>{t("The file's value")}</dt><dd className="tnum">{text(setting.file_value)}</dd>
         {rule ? <><dt>{t("Read by the steps")}</dt><dd>{rule.steps.map((s) => t(s)).join(", ")}</dd></> : null}
       </dl>
+      {resource?.options && !resource.options.length ? (  // U3b: an empty list says where its values come from
+        <p className="notice small" role="status">{t("There is nothing to choose yet: make one active on its own Settings page first.")}</p>
+      ) : null}
       <div className="form-row">
         <label className="block">{t("New value")}
           {resource?.options || (rule && rule.kind === "choice") ? (
