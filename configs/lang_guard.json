@@ -984,7 +984,7 @@
     "smoke_test.py": 11,
     "tests/test_admin_docs.py": 5,
     "tests/test_allianz_documents_231.py": 4,
-    "tests/test_allianz_offer_path_231.py": 5,
+    "tests/test_allianz_offer_path_231.py": 6,
     "tests/test_allianz_tariff_231.py": 2,
     "tests/test_api.py": 15,
     "tests/test_assessment_path_231.py": 1,

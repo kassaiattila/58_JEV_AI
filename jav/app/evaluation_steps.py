@@ -17,6 +17,8 @@ the missing fact and is not priced.
 - `RATING` (`rating@1`): params `from_step` (a rule evaluation), `tariff` (kept at its version at the start); result: the
   record's version, the total, the tariff.
 - `record(case_id, step, version)`: a step's record as kept; `records(case_id, step)`: all of them, the newest first.
+- `tariff_missing(case_id, step, version, tariff)` (U-A8): the facts the premium by a tariff reads that an evaluation's
+  input does not give (the missing facts step asks for them).
 - D-f5: the elements `evaluation` and `calculation` (the latest record in full, every version in a line).
 
 Layer: application; it names no process and no business (the product, its rules and its tariff are data).
@@ -37,7 +39,8 @@ from jav.core.measures import Money
 from jav.core.process import kinds
 from jav.core.user_messages import explained
 
-__all__ = ["EVALUATION", "RATING", "EvaluationResult", "RatingResult", "record", "records", "register", "unit_names"]
+__all__ = ["EVALUATION", "RATING", "EvaluationResult", "RatingResult", "record", "records", "register", "tariff_missing",
+           "unit_names"]
 
 EVALUATION_KIND, RATING_KIND = "evaluation", "rating"
 
@@ -173,6 +176,22 @@ def unit_names(case_id: str, step: str) -> dict[str, dict[str, Any]]:
         code = next((v for v in u["named"].values() if isinstance(v, str) and v in labels), None)
         out[u["unit_id"]] = {"level": u["level"], "named": u["named"], **({"label": labels[code]} if code else {})}
     return out
+
+
+def tariff_missing(case_id: str, step: str, version: int, tariff: str) -> list[dict[str, str]]:
+    """U-A8 (the walkthrough of 2026-10-28): the facts the premium by the tariff (a kept reference) reads that the input
+    of the step's evaluation record does not give, named as the evaluation names its missing ones ({unit_id, fact,
+    title}); none when the input does not say the modules it asks for (nothing is priced then). KeyError: no record."""
+    row = record(case_id, step, version)
+    content = row["content"]
+    if not content.get("modules_said", True):
+        return []
+    checked = _checked(case_id, content["input_step"], int(row["input_version"]))
+    found = product_rules.resolve("tariff", tariff)
+    cat = facts.catalogue(checked.catalogue)
+    pairs = rating.missing_facts(product_rules.Tariff.model_validate(found["content"]), checked,
+                                 rule_evaluation.from_json(content), modules=tuple(content["modules"]))
+    return [{"unit_id": u, "fact": f, "title": cat.facts[f].title if f in cat.facts else f} for u, f in pairs]
 
 
 def _evaluation_view(case_id: str, step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:

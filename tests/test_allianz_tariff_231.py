@@ -60,7 +60,8 @@ def _case(*, activity="6201", claims=0, deductible="500000", frequency="yearly",
     holder |= {"interruption_sum_insured": {"amount": "50000000", "currency": "HUF"}, "bi_deductible_days": 3} if interruption else {}
     units = [{"unit_id": "u-0000000001", "level": "holder", "facts": holder},
              {"unit_id": "u-0000000002", "level": "site", "parent_id": "u-0000000001",
-              "facts": {"country": "HU", "flood_area_class": "protected", "surge_protection": surge}}]
+              "facts": {"country": "HU", "flood_area_class": "protected"}
+              | ({"surge_protection": surge} if surge is not None else {})}]
     units += [{"unit_id": f"u-00000000{10 + n}", "level": "asset_group", "parent_id": "u-0000000002",
                "facts": {"asset_group": g, "sum_insured": {"amount": s, "currency": "HUF"}} | more}
               for n, (g, s, more) in enumerate(groups)]
@@ -105,6 +106,20 @@ def test_a_missing_factor_gives_no_premium_but_a_blocker() -> None:
     result = _priced(_case(deductible=None), ("property_ar",))
     assert result.total is None
     assert "u-0000000010: no deductible factor: the fact chosen_deductible is missing" in result.blockers, result.blockers
+
+
+def test_the_facts_a_premium_reads_that_the_input_does_not_give() -> None:
+    """U-A8 (the walkthrough of 2026-10-28): each fact the requested modules' factors read that the input does not
+    give, named on the unit that holds it at its own level (the holder's chosen deductible once, not once for each asset
+    group it prices); a module's own condition is told first; nothing when the premium can be computed."""
+    full = ("property_ar", "burglary", "interruption")
+    assert rating.missing_facts(TARIFF, _case(), rule_evaluation.evaluate([], _case(), modules=full), modules=full) == ()
+    checked = _case(deductible=None, surge=None, groups=(("buildings", "100000000", {}), ("stock", "20000000", {}),
+                                                         ("machinery", "10000000", {})))
+    evaluation = rule_evaluation.evaluate([], checked, modules=full + ("VIL",))
+    assert rating.missing_facts(TARIFF, checked, evaluation, modules=full + ("VIL",)) == (
+        ("u-0000000001", "chosen_deductible"), ("u-0000000011", "protection_class_in_place"),
+        ("u-0000000012", "protection_class_in_place"), ("u-0000000002", "surge_protection"))  # the buildings: no burglary
 
 
 def test_the_set_installs_as_a_draft_and_goes_again(tmp_path) -> None:

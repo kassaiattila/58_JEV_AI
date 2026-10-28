@@ -29,16 +29,21 @@ class _Offer(BaseModel):
     claims: list[dict]
 
 
-def _pack(pid: str, claims: list[dict]) -> dict:
+def _pack(pid: str, claims: list[dict], *, prices: bool = False) -> dict:
+    """U-A8: `prices`, a premium step after the missing facts, and the tariff it computes by, whose facts the missing
+    facts step asks for too."""
+    missing = {"from_step": "evaluate", "days": DAYS, "closes": "expired"} | ({"tariff": "@tariff"} if prices else {})
+    rate = [{"id": "rate", "uses": "rating@1", "params": {"from_step": "evaluate", "tariff": "@tariff"},
+             "after": ["missing"]}] if prices else []
     return {"meta": {"name": f"process:{pid}", "version": "1.0.0"}, "id": pid, "title": "Invented missing facts",
-            "intake": [{"on": "manual", "starts": "manual"}], "resources": {"product": "inv_business_property"},
-            "needs_at_start": ["product"],
+            "intake": [{"on": "manual", "starts": "manual"}],
+            "resources": {"product": "inv_business_property"} | ({"tariff": "inv_business_property_tariff"} if prices else {}),
+            "needs_at_start": ["product"] + (["tariff"] if prices else []),
             "steps": [{"id": "read", "uses": "invented_offer@1", "params": {"claims": claims}},
                       {"id": "check", "uses": "field_check@1", "params": {"catalogue": "property", "product": "@product"},
                        "after": ["read"]},
                       {"id": "evaluate", "uses": "rule_evaluation@1", "params": {"from_step": "check"}, "after": ["check"]},
-                      {"id": "missing", "uses": "missing_info@1",
-                       "params": {"from_step": "evaluate", "days": DAYS, "closes": "expired"}, "after": ["evaluate"]}],
+                      {"id": "missing", "uses": "missing_info@1", "params": missing, "after": ["evaluate"]}, *rate],
             "screens": {"tabs": [{"id": "history", "label": "History", "elements": [{"type": "timeline"}]}]}}
 
 
@@ -51,6 +56,9 @@ def packs(monkeypatch, tmp_path):
         run=lambda ctx, p: kinds.Done({"claims": p.claims}), state="step", output=capabilities.Result))
     data = {f"process:invented_missing_{cid}": _pack(f"invented_missing_{cid}", _claims(CASES[cid]))
             for cid in ("reference", "missing_facts")}
+    no_frequency = [c for c in _claims(CASES["reference"]) if c["fact"] != "payment_frequency"]  # only the tariff reads it
+    data |= {f"process:invented_missing_{pid}": _pack(f"invented_missing_{pid}", claims, prices=True)
+             for pid, claims in (("priced", _claims(CASES["reference"])), ("no_frequency", no_frequency))}
     real = cfg.load
     monkeypatch.setattr(cfg, "load", lambda name: data[name] if name in data else real(name))
     with store.use_store(tmp_path / "missing.sqlite"):
@@ -133,3 +141,29 @@ def test_a_person_says_with_a_reason_that_the_facts_will_not_come(packs) -> None
     assert _closed(case_id) == (cases.CLOSED, "expired")
     with pytest.raises(missing_info.MissingInfoError, match="does not wait"):
         missing_info.will_not_come(case_id, "missing", ANNA, note="again")
+
+
+def test_the_facts_the_premium_reads_are_asked_for_with_the_rules_ones(packs) -> None:
+    """U-A8 (the walkthrough of 2026-10-28): with the case's tariff named, the facts it reads that the input does not
+    give are asked for too - before, the case went past this step and stopped at the premium; entered
+    in the field check, the step is done and the premium is computed. Nothing missing: done at once, as before."""
+    priced = _started("priced")
+    assert engine.state(priced)["steps"]["missing"]["state"] == "done" and _task(priced) is None
+    case_id = _started("no_frequency")
+    task = _task(case_id)
+    holder = next(u for u in assessed_units.units(case_id, "check") if u["level"] == "holder")
+    assert task is not None and task.status == tasks.OPEN
+    assert [(m["unit_id"], m["fact"], m["title"]) for m in task.detail["missing"]] == [
+        (holder["unit_id"], "payment_frequency", "Payment frequency")]
+    assert engine.state(case_id)["steps"]["rate"]["state"] == "waiting"
+    field_check.reopen(case_id, "check", note="the client said how it pays", actor=ANNA)
+    _turn(case_id)
+    unit = assessed_units.unit(case_id, "check", holder["unit_id"])
+    assessed_units.save(case_id, "check", "property", unit["unit_id"], facts={**unit["facts"], "payment_frequency": "yearly"},
+                        actor=ANNA, expected_state=unit["state"], note="from the client")
+    field_check.freeze(case_id, "check", cover_start="2027-01-01", expected_state=None, actor=ANNA)
+    for _ in range(3):
+        _turn(case_id)
+    steps = engine.state(case_id)["steps"]
+    assert steps["missing"]["state"] == "done" and steps["missing"]["result"]["missing"] == []
+    assert steps["rate"]["state"] == "done" and _task(case_id).status == tasks.WITHDRAWN

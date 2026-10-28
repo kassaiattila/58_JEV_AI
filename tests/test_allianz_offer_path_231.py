@@ -27,7 +27,8 @@ from jav.evals import property_documents as pd
 
 ANNA, BELA = "Minta Anna", "Minta Bela"
 DOCS = pd.load("golden_allianz_property_documents")
-SET = next(s for s in DOCS.sets if s.id == "az_metalworks")
+SETS = {s.id: s for s in DOCS.sets}
+SET = SETS["az_metalworks"]
 DOCUMENT = {"kind": "general", "title": "Kitalált próbafeltétel", "valid_from": "2024-09-01",
             "sections": [{"clause": "1", "page": 1, "title": "Biztosíthatóság"}]}
 RULE = {"catalogue": "allianz_property", "kind": "eligibility", "title": "An active company not on a sanctions list",
@@ -52,7 +53,9 @@ def _product() -> None:
 
 
 @pytest.fixture()
-def folder(tmp_path):
+def folder(tmp_path, request):
+    """The invented customer's documents (the metalworks', or the set a test names) in a store with the product."""
+    chosen = SETS[getattr(request, "param", SET.id)]
     with store.use_store(tmp_path / "allianz.sqlite"), connectors.use_transport(invented_services.transport()):
         product_sets.install(product_sets.load("product_set_allianz_tariff"), maker=ANNA, approver=BELA)
         _product()
@@ -60,7 +63,7 @@ def folder(tmp_path):
         out.mkdir()
         from jav.documents.synthetic_pdf import write_unicode_pdf_pages
 
-        for document in SET.documents:
+        for document in chosen.documents:
             write_unicode_pdf_pages(out / f"{document.id}.pdf", pd.pages(document, DOCS.form))
         yield out
 
@@ -75,8 +78,8 @@ def _turn(case_id: str, n: int = 2) -> dict:
     return engine.state(case_id)
 
 
-def _read_as_correct(run_id: str, wp_id: str) -> None:
-    by_name = {d.id: d for d in SET.documents}
+def _read_as_correct(run_id: str, wp_id: str, chosen: pd.DocumentSet = SET) -> None:
+    by_name = {d.id: d for d in chosen.documents}
     for item in work.get(wp_id)["items"]:
         document = by_name[str(item["source_path"]).replace("\\", "/").rsplit("/", 1)[-1].removesuffix(".pdf")]
         flow = work_runs.flow_run_id(run_id, item["item_id"])
@@ -143,3 +146,30 @@ def test_the_metalworks_quote_runs_to_the_offer_with_a_second_person_above_the_p
     cells = [c.text for t in Document(io.BytesIO(content)).tables for row in t.rows for c in row.cells]
     assert "Minta Fémmegmunkáló Kft." in text and "Allianz vállalati vagyonbiztosítás" in text and "Minta Bela" in text
     assert "Betöréses lopás és rablás" in cells and "Gépek külső okból bekövetkező törése" in cells
+
+
+@pytest.mark.parametrize("folder", ["az_cold_store"], indirect=True)
+def test_the_cold_store_is_asked_for_the_fact_its_premium_reads_before_the_risk_decision(folder) -> None:
+    """U-A8 (the walkthrough of 2026-10-28): the cold store's schedule does not say whether the cooling's failure is
+    signalled, which only the tariff reads (the frozen stock's factor). The missing facts step asks for it, on the
+    frozen stock's asset group, before a person decides on the risk; before, the case stopped at the premium."""
+    case_id = process_runtime.start_case("allianz_property_offer", {"source": {"kind": "folder", "folder": str(folder)}},
+                                         name="Minta Hűtőház Kft.", actor=ANNA)
+    _turn(case_id)
+    case_views.act(case_id, "documents", "start_run", ANNA)
+    wp = document_processing.package_of(case_id, "documents")
+    [run] = work_runs.run_rows(wp)
+    _read_as_correct(run["run_id"], wp, SETS["az_cold_store"])
+    _turn(case_id)
+    work_runs.approve_run(run["run_id"], actor=ANNA)
+    _turn(case_id, 3)
+    view = field_check.view(case_id, "check")
+    case_views.act(case_id, "check", "freeze", ANNA, values={"cover_start": "2027-01-01", "expected_state": view["state"]})
+    steps = _turn(case_id, 3)["steps"]
+    assert steps["evaluate"]["result"]["missing"] == [] and steps["missing"]["state"] == "running"
+    missing = case_views.view(case_id)
+    shown = next(e["data"] for tab in missing["tabs"] for e in tab["elements"] if e["type"] == "missing_info")
+    assert [m["fact"] for m in shown["missing"]] == ["cold_alarm_monitored"]
+    unit = shown["units"][shown["missing"][0]["unit_id"]]
+    assert unit["level"] == "asset_group" and unit["named"]["asset_group"] == "frozen_stock"
+    assert steps["risk"]["state"] == "waiting"

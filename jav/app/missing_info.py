@@ -9,7 +9,8 @@ pack names. Nothing is missing at all: the step is done at once, with no task. (
 owner's decision of 2026-10-26 on the D plan; the follow-up of a reply keeps none.)
 
 - `CAPABILITY` (`missing_info@1`): params `from_step` (a rule evaluation), `days` (the deadline), `closes` (the case's
-  outcome when the facts do not come); result: whether they were asked for and what is missing (nothing, once done).
+  outcome when the facts do not come), U-A8 `tariff` (optional: the facts the premium by it reads are asked for too);
+  result: whether they were asked for and what is missing (nothing, once done).
 - `will_not_come(case_id, step, actor, note)`: the person says the facts will not come (the step's action).
 
 Layer: application; it uses the process core's human tasks, timers and events.
@@ -22,8 +23,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from jav.app import capabilities, human_tasks
-from jav.core import identity, store
+from jav.app import capabilities, human_tasks, product_rules
+from jav.core import identity, store, versions
 from jav.core.process import kinds, tasks
 from jav.core.user_messages import explained
 
@@ -53,6 +54,9 @@ class MissingInfo(BaseModel):
     from_step: str = capabilities.step_ref(min_length=1, of="rule_evaluation", expects=_Evaluated)
     days: float = Field(gt=0, le=365, title="Days to supply the missing facts")
     closes: str = Field(pattern=r"^[a-z][a-z0-9_]*$", title="The case's outcome when they do not come")
+    # U-A8 (the walkthrough of 2026-10-28): the tariff the case's premium is computed by, kept at the case's start as
+    # the premium step keeps it: the facts it reads that the input does not give are asked for with the rules' ones
+    tariff: str | None = Field(None, min_length=1, title="Tariff")
 
 
 class MissingResult(capabilities.Result):
@@ -67,8 +71,18 @@ def _task_id(case_id: str, step: str) -> str:
 
 
 def _run(ctx: Any, params: MissingInfo) -> kinds.StepOutcome:
+    from jav.app import evaluation_steps
+
     evaluated = capabilities.read_result(ctx, params, "from_step")
     missing = list(evaluated["missing"])
+    if params.tariff is not None:  # U-A8: the facts the premium reads, after the rules' (each once)
+        asked = {(m["unit_id"], m["fact"]) for m in missing}
+        try:
+            priced = evaluation_steps.tariff_missing(str(ctx.data.get("container", ctx.case_id)), params.from_step,
+                                                     int(evaluated["version"]), params.tariff)
+        except (KeyError, versions.VersionNotFound) as exc:
+            return kinds.Fail(str(exc))
+        missing += [m for m in priced if (m["unit_id"], m["fact"]) not in asked]
     tid = _task_id(ctx.case_id, ctx.step.id)
     task = tasks.get(tid)
     if task is not None and (task.status == tasks.EXPIRED
@@ -108,6 +122,7 @@ def will_not_come(case_id: str, step_id: str, actor: identity.Who, note: str | N
 CAPABILITY = capabilities.Capability(
     name="missing_info", version=1, module=__name__, run=_run, kind="human", params=MissingInfo, state="step",
     output=MissingResult, events=(tasks.EVENT,),
+    at_start={"tariff": product_rules.keeper("tariff")}, choices={"tariff": product_rules.choices("tariff")},  # U-A8
     summary="Waits for the facts the rules miss with a person's task that expires; without them the case closes.",
     actions=(capabilities.Action(WILL_NOT_COME, "The facts will not come", _waits,
                                  lambda case_id, step_id, actor, note: will_not_come(case_id, step_id, actor, note)),))
