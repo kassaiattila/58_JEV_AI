@@ -559,7 +559,8 @@ def locate_rows(layer: SourceLayer | None, rows: list[Any], kinds: dict[str, str
                 per_line.setdefault(h[0].line_no, set()).add(i)
                 first_word.setdefault(h[0].line_no, h[0])
         if not per_line:
-            text = next((v for c, v in row.items() if kinds.get(c, "text") == "text" and v), None)
+            # U1: the row's most telling text, its longest (a site's address, not its number "1", which many lines hold)
+            text = max((str(v) for c, v in row.items() if kinds.get(c, "text") == "text" and v), key=len, default=None)
             for h in hits_of("text", text) if text else []:
                 if h[0].line_no is not None:
                     per_line.setdefault(h[0].line_no, {0})
