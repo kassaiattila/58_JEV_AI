@@ -1,4 +1,4 @@
-"""231 (stage U, U1; the owner's decision of 2026-10-28: "Gomb a lezárt ügyen"): a case closed with an outcome its pack
+"""231 (stage U, U1; the owner's decision of 2026-10-28: a button on the closed case): a case closed with an outcome its pack
 names offers a person to start another process from the same documents.
 
 A renewal a person sends to the full quote closes; its pack names the full quote as what follows that outcome, so the

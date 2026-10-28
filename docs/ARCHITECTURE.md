@@ -1415,10 +1415,10 @@ opens with them and a deadline of the days the pack sets (the step's own deadlin
 the D plan; a reply's follow-up keeps none); the person enters them in the field check and freezes it again, and once
 the evaluation misses nothing the task is withdrawn and the step is done (nothing missing at all: done at once, no
 task). The deadline passing, or a person saying with a reason that the facts will not come (the step's action), closes
-the case with the pack's outcome (`tests/test_missing_info_231.py`). U-A8: given the case's kept tariff (`tariff`,
+the case with the pack's outcome (`tests/test_missing_info_231.py`). U1: a missing fact is named on the unit that holds it at its own level (`rule_evaluation._holder`), so a site's fact a rule on its asset groups reads is asked for once, on the site. U-A8: given the case's kept tariff (`tariff`,
 the premium step's), the step asks for the facts the premium reads that the input does not give too, each on the unit
 that holds it at its level (`rating.missing_facts`), so a case no longer stops at the premium for a fact nobody was
-asked for (both insurance offer packs). D-d7: the whole path from these capabilities
+asked for (both insurance offer packs). U1 (the case page): a running step carries what its wait means as its capability says (`waits_on`: a person's start, the machine's work, a person), so the Overview names a live run's wait as the machine's and the page asks again while it works and for a while after a person's action; a step a closed case never reached shows as not run; a closed case offers its pack's follow-ups (`process_runtime.follow_ups`, `follow_up`: `POST /cases/{id}/follow-ups`). The data check lets a person keep the value shown in a disagreement (`field_check.keep`, the step's action `keep_value`, journaled as `field_check_claim`) and offers the day cover starts from a unit's fact or the last freeze (`cover_start_hint`). D-d7: the whole path from these capabilities
 alone, in a test-only pack: an invented reading with two facts left out, the two outside checks, the field check, the
 evaluation finding them missing and the task that waits for them, the facts entered and frozen again, the risk
 decision, the premium from the kept tariff and the premium decision by another person above the limit; the case is done
