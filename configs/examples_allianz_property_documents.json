@@ -1,10 +1,15 @@
 {
   "meta": {
     "name": "examples_allianz_property_documents",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "date": "2026-10-27",
     "description": "231 (stage U, U-A6; the owner's decisions of 2026-10-27): the invented documents a case of the real corporate property product can start on, in packets, as its process's example material (`configs/processes/<id>.json` `examples.documents`). Each document is its printed pages, made from the golden set `configs/golden_allianz_property_documents.json` as the measurement prints it (`python -m jav.cli examples --set allianz_property_documents --write`; a test keeps them the same). The packets' titles are the interface's (English source, translated). Every name and number is invented.",
     "changelog": [
+      {
+        "version": "1.0.1",
+        "date": "2026-10-28",
+        "note": "231 U-A7: the packets named with underscores, as the route of a packet's files takes them."
+      },
       {
         "version": "1.0.0",
         "date": "2026-10-27",
@@ -14,7 +19,7 @@
   },
   "packets": [
     {
-      "id": "az-metalworks",
+      "id": "az_metalworks",
       "title": "A metalworks above the authority's limit: another person decides the premium",
       "documents": [
         {
@@ -90,7 +95,7 @@
       ]
     },
     {
-      "id": "az-retail",
+      "id": "az_retail",
       "title": "A retail shop: a complete request",
       "documents": [
         {
@@ -162,7 +167,7 @@
       ]
     },
     {
-      "id": "az-cold-store",
+      "id": "az_cold_store",
       "title": "A cold store: a fact the premium needs is asked for",
       "documents": [
         {

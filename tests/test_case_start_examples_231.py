@@ -103,3 +103,17 @@ def test_the_examples_print_what_the_golden_set_prints() -> None:
     for doc_set in pd.load().sets:
         printed = {d["file"]: d["pages"] for d in packets[doc_set.id]["documents"]}
         assert printed == {f"{d.id}.pdf": pd.pages(d) for d in doc_set.documents}, doc_set.id
+
+
+def test_every_example_packet_s_id_is_one_the_service_s_route_takes() -> None:
+    """U-A7 (the walkthrough on 2026-10-28): the real product's packets were named with hyphens (az-metalworks), which
+    the route of a packet's files refuses (422), so no case could start on them. Every examples file's packet ids fit
+    the route's pattern."""
+    import re
+
+    from jav.core.cfg import CONFIG_DIR
+
+    route = re.compile(r"^[a-z][a-z0-9_]{0,63}$")  # jav/service/api_processes.py PacketId
+    for path in sorted(CONFIG_DIR.glob("examples_*.json")):
+        ids = [p["id"] for p in cfg.load(path.stem)["packets"]]
+        assert ids and all(route.match(i) for i in ids), (path.name, ids)

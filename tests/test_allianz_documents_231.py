@@ -79,12 +79,12 @@ def _priced(doc_set) -> tuple[rating.Calculation, int]:
 
 def test_the_sets_facts_are_priced_by_the_product_s_tariff() -> None:
     sets = {s.id: s for s in DOCS.sets}
-    metalworks, total = _priced(sets["az-metalworks"])
+    metalworks, total = _priced(sets["az_metalworks"])
     assert metalworks.blockers == () and metalworks.total is not None
     assert total > int(PLAN_LIMIT["amount"])  # the authority's plan value: the premium is another person's
-    retail, total = _priced(sets["az-retail"])
+    retail, total = _priced(sets["az_retail"])
     assert retail.blockers == () and total < int(PLAN_LIMIT["amount"])
-    cold, _total = _priced(sets["az-cold-store"])
+    cold, _total = _priced(sets["az_cold_store"])
     assert cold.total is None
     assert cold.blockers == ("u-0000000005: no cold_alarm factor: the fact cold_alarm_monitored is missing",)
 

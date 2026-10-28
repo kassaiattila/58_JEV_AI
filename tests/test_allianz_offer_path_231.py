@@ -27,7 +27,7 @@ from jav.evals import property_documents as pd
 
 ANNA, BELA = "Minta Anna", "Minta Bela"
 DOCS = pd.load("golden_allianz_property_documents")
-SET = next(s for s in DOCS.sets if s.id == "az-metalworks")
+SET = next(s for s in DOCS.sets if s.id == "az_metalworks")
 DOCUMENT = {"kind": "general", "title": "Kitalált próbafeltétel", "valid_from": "2024-09-01",
             "sections": [{"clause": "1", "page": 1, "title": "Biztosíthatóság"}]}
 RULE = {"catalogue": "allianz_property", "kind": "eligibility", "title": "An active company not on a sanctions list",
