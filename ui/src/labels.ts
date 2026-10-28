@@ -392,7 +392,8 @@ export const fileName = (p: string) => p.split(/[\\/]/).pop() ?? p;
 /** 231 (stage D, D-c6): a sentence the service wrote for a person (a problem a check lists), in the chosen language:
  *  where it applies first ("rule x@1: row 2: …"), then the sentence; one not written as a template stays as it is. */
 export function saidText(s: Said): string {
-  const own = s.template ? t(s.template, s.params ?? {}) : s.text;
+  const params = Object.fromEntries(Object.entries(s.params ?? {}).map(([k, v]) => [k, s.labels?.includes(k) ? t(v) : v]));
+  const own = s.template ? t(s.template, params) : s.text;
   return s.within ? `${saidText(s.within)}: ${own}` : own;
 }
 

@@ -15,7 +15,8 @@ import time
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from jav.app import capabilities, evaluation_steps, field_check, process_runtime, product_sets, rating, rule_evaluation
+from jav.app import (capabilities, case_views, evaluation_steps, facts, field_check, process_runtime, product_sets, rating,
+                     rule_evaluation)
 from jav.core import cfg, store, trace
 from jav.core.process import engine, kinds
 
@@ -55,7 +56,7 @@ def _pack(pid: str, claims: list[dict], sums: dict[str, str] | None = None) -> d
                       {"id": "evaluate", "uses": "rule_evaluation@1", "params": evaluate, "after": ["check"]},
                       {"id": "rate", "uses": "rating@1", "params": {"from_step": "evaluate", "tariff": "@tariff"},
                        "after": ["evaluate"]}],
-            "screens": {"tabs": [{"id": "history", "label": "History", "elements": [{"type": "timeline"}]}]}}
+            "screens": {"tabs": [{"id": "history", "label": "History", "elements": [{"type": "timeline"}, {"type": "blockers"}]}]}}
 
 
 @pytest.fixture()
@@ -153,3 +154,26 @@ def test_a_named_sum_of_a_money_fact_over_the_units_is_part_of_the_result(packs)
     evaluated = engine.state(_frozen_case("invented_eval_sums"))["steps"]["evaluate"]["result"]
     assert evaluated["sums"] == {"sum_insured_total": {"amount": str(want), "currency": "HUF"}}
     assert "sums" not in engine.state(_frozen_case("invented_eval_reference"))["steps"]["evaluate"]["result"]
+
+
+def test_a_blocked_premium_says_why_in_a_person_s_words(packs) -> None:
+    """U-A8 (the walkthrough of 2026-10-28): each blocker of a premium is kept in a person's words too - the unit by its
+    name, the factor and the fact by their titles, which the interface translates - and the stopped step gives them as
+    its reasons, for the calculation's card and the case's Overview; the trace keeps the text as before."""
+    case = CASES["missing_facts"]
+    case_id = _frozen_case("invented_eval_missing_facts", case.input["cover_start"])
+    content = evaluation_steps.record(case_id, "rate", 1)["content"]
+    words = content["blockers_said"]
+    assert len(words) == len(content["blockers"]) == 3  # the same blockers; the trace keeps their text as before
+    assert {w["template"] for w in words} == {"{{unit}}: no {{factor}} factor: the fact {{fact}} is missing"}
+    cat = facts.catalogue("property")
+    groups = {u["facts"]["asset_group"] for u in case.input["units"]
+              if u["unit_id"] in {"u-0000000012", "u-0000000013", "u-0000000014"}}
+    assert {w["params"]["unit"] for w in words} == {cat.labels[g] for g in groups}
+    assert {(w["params"]["factor"], w["params"]["fact"]) for w in words} == {
+        (SET.tariffs["inv_business_property_tariff"].factors["protection"].title, cat.facts["protection_class_in_place"].title)}
+    assert all(sorted(w["labels"]) == ["fact", "factor", "unit"] for w in words)
+    view = case_views.view(case_id)
+    assert view["steps"]["rate"]["state"] == "failed" and view["steps"]["rate"]["reasons"] == words
+    held = next(e["data"] for tab in view["tabs"] for e in tab["elements"] if e["type"] == "blockers")
+    assert next(i for i in held["items"] if i["step"] == "rate")["reasons"] == words

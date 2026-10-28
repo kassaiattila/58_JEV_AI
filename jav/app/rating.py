@@ -7,7 +7,9 @@ thousand; its factors in their order, each read from a fact the unit sees or an 
 ancestors, through the factor's table; rounded once per line; the module's minimum; the modules summed in the tariff's
 one currency; the total factors (the payment frequency, read from the top unit); rounded once more; the policy's
 minimum. Every step is itemised. A missing factor, a value no row of a factor's table takes, a cover start the tariff is
-not in force on, or an amount of another currency gives no total but a blocker: never a default. The calculation is a
+not in force on, or an amount of another currency gives no total but a blocker: never a default. U-A8: a blocker is a
+sentence with its template (`user_messages.said`), its text the same as before, so the premium step can say it in a
+person's words. The calculation is a
 row of the decision trace (point `rating.premium`, the tariff inline), and its replay gives the same outcome.
 
 - `calculate(tariff, tariff_ref, checked, evaluation, modules)`: the `Calculation`.
@@ -29,6 +31,7 @@ from jav.app import facts, rule_evaluation
 from jav.app.product_rules import Factor, Tariff
 from jav.core import trace
 from jav.core.measures import Money
+from jav.core.user_messages import said
 
 __all__ = ["POINT", "Calculation", "Line", "Step", "calculate", "missing_facts", "trace_in"]
 
@@ -82,11 +85,13 @@ def _factor(cat: facts.Catalogue, name: str, f: Factor, unit: _Unit) -> tuple[De
     """A factor's value for a unit, or why there is none."""
     if f.fact is not None:
         if f.fact not in unit.seen:
-            return None, f"{unit.unit_id}: no {name} factor: the fact {f.fact} is missing"
+            return None, said("{{unit}}: no {{factor}} factor: the fact {{fact}} is missing", unit=unit.unit_id, factor=name,
+                              fact=f.fact)
         value, d = unit.seen[f.fact], cat.facts[f.fact]
     else:
         if f.outcome not in unit.outcomes:
-            return None, f"{unit.unit_id}: no {name} factor: the outcome {f.outcome} is missing"
+            return None, said("{{unit}}: no {{factor}} factor: the outcome {{outcome}} is missing", unit=unit.unit_id,
+                              factor=name, outcome=f.outcome)
         value, d = unit.outcomes[f.outcome], cat.outcomes[f.outcome]  # type: ignore[index]
         if not f.table:
             return Decimal(str(value)), None
@@ -97,7 +102,7 @@ def _factor(cat: facts.Catalogue, name: str, f: Factor, unit: _Unit) -> tuple[De
                 fits = False
         if fits:
             return row.factor, None
-    return None, f"{unit.unit_id}: no row of the {name} factor takes {value}"
+    return None, said("{{unit}}: no row of the {{factor}} factor takes {{value}}", unit=unit.unit_id, factor=name, value=value)
 
 
 def _typed(cat: facts.Catalogue, name: str, d: Any, op: str, want: Any) -> Any:
@@ -108,7 +113,8 @@ def _priced(cat: facts.Catalogue, code: str, only: dict[str, dict[str, Any]], un
     """Whether a module prices a unit (its `only`), or why that cannot be told."""
     for name, condition in only.items():
         if name not in unit.seen:
-            return False, f"{unit.unit_id}: the module {code} prices by {name}, which is missing"
+            return False, said("{{unit}}: the module {{module}} prices by {{fact}}, which is missing", unit=unit.unit_id,
+                               module=code, fact=name)
         for op, want in condition.items():
             if not rule_evaluation.holds(op, unit.seen[name], _typed(cat, name, cat.facts[name], op, want)):
                 return False, None
@@ -119,13 +125,13 @@ def _compute(tariff: Tariff, tariff_ref: str, cat: facts.Catalogue, product: str
              modules: tuple[str, ...], units: list[_Unit], inputs: dict[str, Any]) -> Calculation:
     blockers: list[str] = []
     if not tariff.valid.covers(cover_start):
-        blockers.append(f"the tariff is not in force on {cover_start.isoformat()}")
+        blockers.append(said("the tariff is not in force on {{date}}", date=cover_start.isoformat()))
     lines: list[Line] = []
     totals: dict[str, dict[str, Any]] = {}
     for code in modules:
         module = tariff.modules.get(code)
         if module is None:
-            blockers.append(f"the tariff does not price the module {code}")
+            blockers.append(said("the tariff does not price the module {{module}}", module=code))
             continue
         module_lines: list[Line] = []
         for unit in units:
@@ -139,7 +145,8 @@ def _compute(tariff: Tariff, tariff_ref: str, cat: facts.Catalogue, product: str
             basis = unit.seen[module.basis]
             if not isinstance(basis, Money) or basis.currency != tariff.currency:
                 currency = basis.currency if isinstance(basis, Money) else "no currency"
-                blockers.append(f"the tariff is in {tariff.currency}, the {module.basis} of {unit.unit_id} in {currency}")
+                blockers.append(said("the tariff is in {{currency}}, the {{fact}} of {{unit}} in {{other}}", currency=tariff.currency,
+                                     fact=module.basis, unit=unit.unit_id, other=currency))
                 continue
             amount = base = module.rate.of(basis)
             steps: list[Step] = []

@@ -1,8 +1,10 @@
 // 231 (stage D, D-f9): what holds a case (blockers), on its Overview: each step that stopped, must run again, waits
 // for a person's start or decision, or waits for something else, in the pack's order, with the tab where it is
-// resolved as the row's one link. Nothing holding it is one quiet line; a closed case says so.
+// resolved as the row's one link. Nothing holding it is one quiet line; a closed case says so. U-A8: a stopped step
+// says why in a person's words where it gives them, its note otherwise.
 import type { BlockersData } from "../api";
 import { t, useLocale } from "../i18n";
+import { saidText } from "../labels";
 import { routeHash } from "../route";
 import { blockerKind, blockersStatus } from "./caseStatus";
 import type { ElementProps } from "./registry";
@@ -37,7 +39,8 @@ export function BlockersView(p: ElementProps) {
                 <tr key={b.step}>
                   <td>{title ? t(title) : b.step}</td>
                   <td><span className={`status ${kind.mark}`}>{kind.text}</span>
-                    {b.note ? <span className="muted small"> — {b.note}</span> : null}</td>
+                    {b.reasons?.length ? <span className="muted small"> — {b.reasons.map(saidText).join("; ")}</span>
+                      : b.note ? <span className="muted small"> — {b.note}</span> : null}</td>
                   <td>{label && b.tab ? <a href={routeHash({ view: "cases", caseId: p.caseId, tab: b.tab })}>{t(label)}</a>
                     : <span className="muted">–</span>}</td>
                 </tr>

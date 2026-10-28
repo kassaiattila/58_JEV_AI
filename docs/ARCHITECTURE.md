@@ -1386,7 +1386,11 @@ the cover modules its top unit asks for (`requested_modules`; an input that does
 evaluated, is no better than unknown and names the missing fact), each rule's outcome on each unit traced
 (`rules.outcome`); `rating@1` computes the premium from the tariff the case kept at its start (refused when it is not the
 product's), itemised and traced (`rating.premium`), and a blocker of the rules or the tariff stops it with the record
-kept, never a default. Each record belongs to the result version it was made from (`rule_evaluation.to_json`,
+kept, never a default. U-A8: a tariff's blocker is a sentence with its template (`user_messages.said`; its text, which
+the trace keeps, as before); the record keeps it in a person's words too (`blockers_said`: the unit by its name, the
+fact, factor and module by their titles, a code by its label, which the interface translates: `Said.labels`), and the
+stopped step gives them as its reasons (`kinds.Fail.reasons`, kept in the failure's history row), shown by the
+calculation's card and the case's Overview instead of the note. Each record belongs to the result version it was made from (`rule_evaluation.to_json`,
 `from_json`: the evaluation read back as the same typed values), so a later turn makes nothing new and a new freeze
 makes a new evaluation and premium; every reference case of the invented set runs as a case to the verdict, missing
 facts, total and blockers it expects (`tests/test_evaluation_steps_231.py`). D-d4: a person's decision on another step's

@@ -418,7 +418,7 @@ def _run_step(case_id: str, step: StepDef, *, rerun: bool = False) -> bool:
         elif isinstance(outcome, kinds.Close):
             cases.close(c, case_id, outcome.outcome, ctx.actor)
         elif isinstance(outcome, kinds.Fail):
-            cases.fail(c, case_id, step.id, ctx.actor, outcome.note)
+            cases.fail(c, case_id, step.id, ctx.actor, outcome.note, reasons=outcome.reasons)
         elif st["waiting_for"] is None:
             # 218: the wait the step named ended while it ran (a person settled an uncertain handover): it runs again,
             # as after any ended wait; a wait for nothing named would never be woken
