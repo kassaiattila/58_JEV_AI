@@ -7,10 +7,14 @@ thousand; its factors in their order, each read from a fact the unit sees or an 
 ancestors, through the factor's table; rounded once per line; the module's minimum; the modules summed in the tariff's
 one currency; the total factors (the payment frequency, read from the top unit); rounded once more; the policy's
 minimum. Every step is itemised. A missing factor, a value no row of a factor's table takes, a cover start the tariff is
-not in force on, or an amount of another currency gives no total but a blocker: never a default. The calculation is a
+not in force on, or an amount of another currency gives no total but a blocker: never a default. U-A8: a blocker is a
+sentence with its template (`user_messages.said`), its text the same as before, so the premium step can say it in a
+person's words. The calculation is a
 row of the decision trace (point `rating.premium`, the tariff inline), and its replay gives the same outcome.
 
 - `calculate(tariff, tariff_ref, checked, evaluation, modules)`: the `Calculation`.
+- `missing_facts(tariff, checked, evaluation, modules)` (U-A8): the facts it would read that the input does not give,
+  so a person is asked for them before the premium.
 - `trace_in(c, case_id, calculation)`: its trace row, in the caller's write transaction.
 
 Layer: application; pure apart from `trace_in`; it names no process and no business.
@@ -27,8 +31,9 @@ from jav.app import facts, rule_evaluation
 from jav.app.product_rules import Factor, Tariff
 from jav.core import trace
 from jav.core.measures import Money
+from jav.core.user_messages import said
 
-__all__ = ["POINT", "Calculation", "Line", "Step", "calculate", "trace_in"]
+__all__ = ["POINT", "Calculation", "Line", "Step", "calculate", "missing_facts", "trace_in"]
 
 POINT = "rating.premium"
 
@@ -73,17 +78,20 @@ class _Unit:
     level: str
     seen: dict[str, Any]  # facts: its own and its ancestors'
     outcomes: dict[str, Any]  # combined outcomes: its own and its ancestors'
+    parent_id: str | None = None
 
 
 def _factor(cat: facts.Catalogue, name: str, f: Factor, unit: _Unit) -> tuple[Decimal | None, str | None]:
     """A factor's value for a unit, or why there is none."""
     if f.fact is not None:
         if f.fact not in unit.seen:
-            return None, f"{unit.unit_id}: no {name} factor: the fact {f.fact} is missing"
+            return None, said("{{unit}}: no {{factor}} factor: the fact {{fact}} is missing", unit=unit.unit_id, factor=name,
+                              fact=f.fact)
         value, d = unit.seen[f.fact], cat.facts[f.fact]
     else:
         if f.outcome not in unit.outcomes:
-            return None, f"{unit.unit_id}: no {name} factor: the outcome {f.outcome} is missing"
+            return None, said("{{unit}}: no {{factor}} factor: the outcome {{outcome}} is missing", unit=unit.unit_id,
+                              factor=name, outcome=f.outcome)
         value, d = unit.outcomes[f.outcome], cat.outcomes[f.outcome]  # type: ignore[index]
         if not f.table:
             return Decimal(str(value)), None
@@ -94,7 +102,7 @@ def _factor(cat: facts.Catalogue, name: str, f: Factor, unit: _Unit) -> tuple[De
                 fits = False
         if fits:
             return row.factor, None
-    return None, f"{unit.unit_id}: no row of the {name} factor takes {value}"
+    return None, said("{{unit}}: no row of the {{factor}} factor takes {{value}}", unit=unit.unit_id, factor=name, value=value)
 
 
 def _typed(cat: facts.Catalogue, name: str, d: Any, op: str, want: Any) -> Any:
@@ -105,7 +113,8 @@ def _priced(cat: facts.Catalogue, code: str, only: dict[str, dict[str, Any]], un
     """Whether a module prices a unit (its `only`), or why that cannot be told."""
     for name, condition in only.items():
         if name not in unit.seen:
-            return False, f"{unit.unit_id}: the module {code} prices by {name}, which is missing"
+            return False, said("{{unit}}: the module {{module}} prices by {{fact}}, which is missing", unit=unit.unit_id,
+                               module=code, fact=name)
         for op, want in condition.items():
             if not rule_evaluation.holds(op, unit.seen[name], _typed(cat, name, cat.facts[name], op, want)):
                 return False, None
@@ -116,13 +125,13 @@ def _compute(tariff: Tariff, tariff_ref: str, cat: facts.Catalogue, product: str
              modules: tuple[str, ...], units: list[_Unit], inputs: dict[str, Any]) -> Calculation:
     blockers: list[str] = []
     if not tariff.valid.covers(cover_start):
-        blockers.append(f"the tariff is not in force on {cover_start.isoformat()}")
+        blockers.append(said("the tariff is not in force on {{date}}", date=cover_start.isoformat()))
     lines: list[Line] = []
     totals: dict[str, dict[str, Any]] = {}
     for code in modules:
         module = tariff.modules.get(code)
         if module is None:
-            blockers.append(f"the tariff does not price the module {code}")
+            blockers.append(said("the tariff does not price the module {{module}}", module=code))
             continue
         module_lines: list[Line] = []
         for unit in units:
@@ -136,7 +145,8 @@ def _compute(tariff: Tariff, tariff_ref: str, cat: facts.Catalogue, product: str
             basis = unit.seen[module.basis]
             if not isinstance(basis, Money) or basis.currency != tariff.currency:
                 currency = basis.currency if isinstance(basis, Money) else "no currency"
-                blockers.append(f"the tariff is in {tariff.currency}, the {module.basis} of {unit.unit_id} in {currency}")
+                blockers.append(said("the tariff is in {{currency}}, the {{fact}} of {{unit}} in {{other}}", currency=tariff.currency,
+                                     fact=module.basis, unit=unit.unit_id, other=currency))
                 continue
             amount = base = module.rate.of(basis)
             steps: list[Step] = []
@@ -182,10 +192,8 @@ def _plain(value: Any) -> Any:
     return rule_evaluation.plain(value)  # one JSON form for the trace
 
 
-def calculate(tariff: Tariff, tariff_ref: str, checked: facts.CheckedInput, evaluation: rule_evaluation.Evaluation, *,
-              modules: tuple[str, ...]) -> Calculation:
-    """The premium of the requested modules for the checked input, with the rules' outcomes."""
-    cat = facts.catalogue(checked.catalogue)
+def _units(checked: facts.CheckedInput, evaluation: rule_evaluation.Evaluation) -> list[_Unit]:
+    """The input's units as the tariff sees them: the facts and the rules' outcomes of each, its ancestors' with them."""
     by_id = {u.unit_id: u for u in checked.units}
     units: list[_Unit] = []
     for unit in checked.units:
@@ -196,7 +204,57 @@ def calculate(tariff: Tariff, tariff_ref: str, checked: facts.CheckedInput, eval
             outcomes = {**(found.combined if found else {}), **outcomes}
             node = by_id.get(node.parent_id) if node.parent_id else None
         seen = evaluation.units[unit.unit_id].seen if unit.unit_id in evaluation.units else dict(unit.facts)
-        units.append(_Unit(unit.unit_id, unit.level, seen, outcomes))
+        units.append(_Unit(unit.unit_id, unit.level, seen, outcomes, unit.parent_id))
+    return units
+
+
+def missing_facts(tariff: Tariff, checked: facts.CheckedInput, evaluation: rule_evaluation.Evaluation, *,
+                  modules: tuple[str, ...]) -> tuple[tuple[str, str], ...]:
+    """U-A8 (the walkthrough of 2026-10-28): the facts the premium of the requested modules reads that the input does
+    not give, as (unit, fact) in the order the calculation meets them, each on the unit that holds it at its own level:
+    the facts of a module's condition (`only`) on a unit it may price, then, on a unit it prices, every factor's fact
+    (not only the first one missing), and the total factors' facts on the top unit. An outcome a factor reads is the
+    rules' to give, never asked for. A person supplies them before the premium is computed (the missing facts step)."""
+    cat = facts.catalogue(checked.catalogue)
+    units = _units(checked, evaluation)
+    by_id = {u.unit_id: u for u in units}
+    out: dict[tuple[str, str], None] = {}
+
+    def need(unit: _Unit, fact: str) -> None:
+        level = cat.facts[fact].level if fact in cat.facts else unit.level
+        while unit.level != level and unit.parent_id in by_id:  # an ancestor's fact is asked for on the ancestor
+            unit = by_id[str(unit.parent_id)]
+        out[(unit.unit_id, fact)] = None
+
+    for code in modules:
+        module = tariff.modules.get(code)
+        if module is None:
+            continue
+        for unit in units:
+            if unit.level != module.level or module.basis not in unit.seen:
+                continue
+            unknown = [name for name in module.only if name not in unit.seen]
+            for name in unknown:
+                need(unit, name)
+            if unknown or not _priced(cat, code, module.only, unit)[0]:
+                continue
+            for name in module.factors:
+                fact = tariff.factors[name].fact
+                if fact is not None and fact not in unit.seen:
+                    need(unit, fact)
+    top = next((u for u in units if u.level == cat.levels[0]), None)
+    for name in tariff.total_factors:
+        fact = tariff.factors[name].fact
+        if top is not None and fact is not None and fact not in top.seen:
+            need(top, fact)
+    return tuple(out)
+
+
+def calculate(tariff: Tariff, tariff_ref: str, checked: facts.CheckedInput, evaluation: rule_evaluation.Evaluation, *,
+              modules: tuple[str, ...]) -> Calculation:
+    """The premium of the requested modules for the checked input, with the rules' outcomes."""
+    cat = facts.catalogue(checked.catalogue)
+    units = _units(checked, evaluation)
     inputs = {"tariff_ref": tariff_ref, "tariff": tariff.model_dump(mode="json"), "catalogue": cat.id,
               "product": checked.product, "cover_start": checked.cover_start.isoformat(), "modules": list(modules),
               "units": [{"unit_id": u.unit_id, "level": u.level, "seen": {k: _plain(v) for k, v in u.seen.items()},

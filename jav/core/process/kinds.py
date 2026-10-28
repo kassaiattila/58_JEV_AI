@@ -59,9 +59,11 @@ class Close:
 
 @dataclass(frozen=True)
 class Fail:
-    """The step failed; the note says why, and a person may retry it."""
+    """The step failed; the note says why, and a person may retry it. U-A8: `reasons`, why in a person's words (each a
+    `user_messages.Said`), kept with the failure in the case's history for its page."""
 
     note: str
+    reasons: tuple[Any, ...] = ()
 
 
 DONE, WAIT = Done(), Wait()

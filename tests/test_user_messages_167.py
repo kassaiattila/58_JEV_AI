@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 
 from jav.service import api
 from jav.app import work
-from jav.core.user_messages import explained, fill, inside, said, said_fields, said_from
+from jav.core.user_messages import explained, fill, inside, said, said_back, said_fields, said_from
 
 ROOT = Path(__file__).resolve().parents[1]
 I18N = ROOT / "ui" / "src" / "i18n"
@@ -110,3 +110,15 @@ def test_every_template_is_a_translated_interface_label() -> None:
         elif sorted(holes.findall(template)) != sorted(holes.findall(hungarian[template])):
             missing.append(f"{where}: the Hungarian placeholders differ: {template}")
     assert not missing, "\n".join(missing)
+
+
+def test_a_sentence_names_the_parameters_the_interface_translates() -> None:
+    """U-A8: a sentence whose parameters are interface labels too (a fact's title, an asset group's label) names them,
+    so the interface translates them with the template; it is kept and read back with them."""
+    sentence = said("{{unit}}: the fact {{fact}} is missing", labels=("unit", "fact"), unit="Stock", fact="Payment frequency")
+    assert sentence == "Stock: the fact Payment frequency is missing" and sentence.labels == ("unit", "fact")
+    fields = said_fields(sentence)
+    assert fields["labels"] == ["unit", "fact"] and said_back(fields).labels == ("unit", "fact")
+    assert "labels" not in said_fields(said("row {{row}}", row=2))
+    with pytest.raises(KeyError):
+        said("{{unit}} is missing", labels=("fact",), unit="Stock")  # a label that is no parameter

@@ -110,13 +110,25 @@ def _actions(case_id: str, step: process_packs.Step, row: dict[str, Any]) -> lis
             if (state == cases.RUNNING or a.on_done) and a.available(case_id, step.id)]  # D-f2: a reopening on a done one
 
 
-def _step_view(case_id: str, step: process_packs.Step, row: dict[str, Any]) -> dict[str, Any]:
-    # 231 (C2d): `by_person`: a step of a human capability waits for a person, so its page need not ask again by itself
+def _reasons(state: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """U-A8: why each step last stopped, in a person's words (its failure's history row), by step."""
+    out: dict[str, list[dict[str, Any]]] = {}
+    for row in state.get("history") or ():
+        if row["kind"] == "step_failed" and row["step_id"]:
+            out[row["step_id"]] = list(row["detail"].get("reasons") or [])
+    return out
+
+
+def _step_view(case_id: str, step: process_packs.Step, row: dict[str, Any],
+               reasons: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    # 231 (C2d): `by_person`: a step of a human capability waits for a person, so its page need not ask again by itself;
+    # U-A8: `reasons`, why a stopped step stopped in a person's words (none: its note says it)
     return {"title": step.title, "uses": step.uses, "start": step.start, "state": row.get("state"),
             "phase": row.get("phase"), "waiting_for": row.get("waiting_for"),
             "awaiting_start": row.get("phase") == capabilities.AWAITING_START, "note": row.get("note"),
             "result": row.get("result"), "actions": _actions(case_id, step, row),
-            "by_person": capabilities.of(step.uses).kind == "human"}
+            "by_person": capabilities.of(step.uses).kind == "human"} | (
+        {"reasons": reasons} if reasons and row.get("state") == cases.FAILED else {})
 
 
 def view(case_id: str) -> dict[str, Any]:
@@ -126,6 +138,7 @@ def view(case_id: str) -> dict[str, Any]:
         raise KeyError(case_id)
     state = engine.state(case_id)
     rows = state["steps"]
+    said = _reasons(state)
     by_id = {s.id: s for s in pack.steps}
     shared: dict[str, Any] = {}
     tabs = []
@@ -137,8 +150,11 @@ def view(case_id: str) -> dict[str, Any]:
             elements.append({**element.model_dump(), "data": provider.data(case_id, element.step, shared) if provider else None})
         tabs.append({"id": tab.id, "label": tab.label, "elements": elements})
     return {"case": {"id": case_id, "pack": pack.id, "version": pack.version, "title": pack.title,
-                     "name": state.get("data", {}).get("name"), "status": state["status"]},
-            "steps": {s.id: _step_view(case_id, s, rows.get(s.id, {})) for s in pack.steps}, "tabs": tabs,
+                     "name": state.get("data", {}).get("name"), "status": state["status"],
+                     # U-A8: the worker has something to do for it now (a person's decision it takes next), so the page
+                     # asks again until it moved
+                     "due": state["status"] == cases.OPEN and engine.is_due(case_id)},
+            "steps": {s.id: _step_view(case_id, s, rows.get(s.id, {}), said.get(s.id)) for s in pack.steps}, "tabs": tabs,
             "next": _next(tabs, [s.id for s in pack.steps if rows.get(s.id, {}).get("state") != "done"])
             if state["status"] == "open" else None}  # A7e: a closed case has no next step on its page
 
@@ -393,9 +409,10 @@ def _blockers(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[
             if element.step and element.step not in where:
                 where[element.step] = tab.id
     items = []
+    said = _reasons(state)
     for step in pack.steps:
         row = state["steps"].get(step.id, {})
-        shown = _step_view(case_id, step, row)
+        shown = _step_view(case_id, step, row, said.get(step.id))
         if row.get("state") in (cases.FAILED, cases.STALE):
             kind = "stopped" if row["state"] == cases.FAILED else "stale"
         elif row.get("state") != cases.RUNNING or not row.get("waiting_for"):
@@ -407,7 +424,7 @@ def _blockers(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[
         else:
             kind = "waits"
         items.append({"step": step.id, "kind": kind, "note": row.get("note"), "waiting_for": row.get("waiting_for"),
-                      "tab": where.get(step.id)})
+                      "tab": where.get(step.id)} | ({"reasons": shown["reasons"]} if shown.get("reasons") else {}))
     return {"status": state["status"], "items": items}
 
 

@@ -1,9 +1,10 @@
 {
   "meta": {
     "name": "process:insurance_offer",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "description": "231 (stage D, D-f3; the owner's decisions of 2026-10-26): a business property insurance quote as a process pack of shared capabilities only. A case processes the documents of its source (the quote request form, a property schedule per site, the claims history), turns what they hold into facts of the assessed units, asks the company register and the sanctions list, and a person checks and freezes the facts; the rules of the product version the case kept are evaluated, missing facts are asked for by a deadline, a person decides on the risk, the premium is computed from the tariff the case kept, and a person decides on the premium (above the limit another person than the risk's). The product, its rules, its tariff, the registers and the limit are invented (the trial); a live product and a live limit are the owner's decisions.",
     "changelog": [
+      {"version": "1.8.0", "date": "2026-10-28", "note": "231 (U-A8; the walkthrough of 2026-10-28): the missing facts step asks for the facts the case's tariff reads too, so a case no longer stops at the premium for a fact nobody was asked for."},
       {"version": "1.7.0", "date": "2026-10-27", "note": "231 (U0): what the process is for, shown when a person picks a process to start a case of; its example material (the invented product set and the invented documents' packets)"},
       {"version": "1.6.0", "date": "2026-10-27", "note": "231 (D-f9): the Overview opens with what holds the case, each with the view where it is resolved; the five work views are complete."},
       {"version": "1.5.0", "date": "2026-10-27", "note": "231 (D-f8): the covering letter (letter@1, a person accepts it; the offer's document attached) and its send into the output folder (send@1, a person starts it), on the Decision and release view."},
@@ -36,7 +37,7 @@
      "params": {"catalogue": "property", "product": "@product"}},
     {"id": "evaluate", "uses": "rule_evaluation@1", "title": "Rules", "after": ["check"], "params": {"from_step": "check"}},
     {"id": "missing", "uses": "missing_info@1", "title": "Missing facts", "after": ["evaluate"],
-     "params": {"from_step": "evaluate", "days": 14, "closes": "expired"}},
+     "params": {"from_step": "evaluate", "days": 14, "closes": "expired", "tariff": "@tariff"}},
     {"id": "risk", "uses": "decision@1", "title": "Risk decision", "after": ["missing"],
      "params": {"about": "evaluate",
                 "choices": {"accept": {"title": "Accept the risk", "allowed_when": {"verdict": ["allow", "refer"]}},

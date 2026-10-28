@@ -17,6 +17,8 @@ the missing fact and is not priced.
 - `RATING` (`rating@1`): params `from_step` (a rule evaluation), `tariff` (kept at its version at the start); result: the
   record's version, the total, the tariff.
 - `record(case_id, step, version)`: a step's record as kept; `records(case_id, step)`: all of them, the newest first.
+- `tariff_missing(case_id, step, version, tariff)` (U-A8): the facts the premium by a tariff reads that an evaluation's
+  input does not give (the missing facts step asks for them).
 - D-f5: the elements `evaluation` and `calculation` (the latest record in full, every version in a line).
 
 Layer: application; it names no process and no business (the product, its rules and its tariff are data).
@@ -35,9 +37,10 @@ from jav.core import store, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.measures import Money
 from jav.core.process import kinds
-from jav.core.user_messages import explained
+from jav.core.user_messages import Said, explained, said_back, said_fields
 
-__all__ = ["EVALUATION", "RATING", "EvaluationResult", "RatingResult", "record", "records", "register", "unit_names"]
+__all__ = ["EVALUATION", "RATING", "EvaluationResult", "RatingResult", "record", "records", "register", "tariff_missing",
+           "unit_names"]
 
 EVALUATION_KIND, RATING_KIND = "evaluation", "rating"
 
@@ -175,6 +178,22 @@ def unit_names(case_id: str, step: str) -> dict[str, dict[str, Any]]:
     return out
 
 
+def tariff_missing(case_id: str, step: str, version: int, tariff: str) -> list[dict[str, str]]:
+    """U-A8 (the walkthrough of 2026-10-28): the facts the premium by the tariff (a kept reference) reads that the input
+    of the step's evaluation record does not give, named as the evaluation names its missing ones ({unit_id, fact,
+    title}); none when the input does not say the modules it asks for (nothing is priced then). KeyError: no record."""
+    row = record(case_id, step, version)
+    content = row["content"]
+    if not content.get("modules_said", True):
+        return []
+    checked = _checked(case_id, content["input_step"], int(row["input_version"]))
+    found = product_rules.resolve("tariff", tariff)
+    cat = facts.catalogue(checked.catalogue)
+    pairs = rating.missing_facts(product_rules.Tariff.model_validate(found["content"]), checked,
+                                 rule_evaluation.from_json(content), modules=tuple(content["modules"]))
+    return [{"unit_id": u, "fact": f, "title": cat.facts[f].title if f in cat.facts else f} for u, f in pairs]
+
+
 def _evaluation_view(case_id: str, step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
     """D-f5: the evaluation element's data: the latest evaluation in full (the verdict, the modules, the missing facts,
     the blockers, each unit's outcomes and the rules that gave them), the catalogue and the rules' titles and citations,
@@ -295,6 +314,49 @@ def _evaluate(ctx: Any, params: RuleEvaluation) -> kinds.StepOutcome:
     return kinds.Done(_summary(n, input_version, content))
 
 
+def _name_of(key: str, value: str, cat: facts.Catalogue, tariff: product_rules.Tariff, modules: dict[str, str],
+             units: dict[str, Any]) -> tuple[str, bool]:
+    """A blocker's parameter for a person, and whether it is an interface label (translated with the sentence)."""
+    if key == "unit" and value in units:
+        unit = units[value]
+        own = next((k for k in _NAMED if k in cat.facts and cat.facts[k].level == unit.level and k in unit.facts), None)
+        named = unit.facts[own] if own else None
+        if isinstance(named, str):
+            return (cat.labels[named], True) if named in cat.labels else (named, False)
+        return value, False
+    if key == "fact" and value in cat.facts:
+        return cat.facts[value].title or value, bool(cat.facts[value].title)
+    if key == "outcome" and value in cat.outcomes:
+        return cat.outcomes[value].title or value, bool(cat.outcomes[value].title)
+    if key == "factor" and value in tariff.factors and tariff.factors[value].title:
+        return str(tariff.factors[value].title), True
+    if key == "module" and value in modules:
+        return modules[value], True
+    if key == "value" and value in cat.labels:
+        return cat.labels[value], True
+    return value, False
+
+
+def _in_words(blocker: str, cat: facts.Catalogue, tariff: product_rules.Tariff, modules: dict[str, str],
+              checked: facts.CheckedInput) -> Said:
+    """U-A8 (the walkthrough of 2026-10-28): a premium's blocker in a person's words: a unit by its name (its company,
+    its site's address, its asset group's label), a fact or an outcome by its title, a factor by its title, a module by
+    its name, a code by its label - the titles and labels translated by the interface with the sentence. A blocker no
+    template made (the rules' own) stays as it is."""
+    if not isinstance(blocker, Said):
+        return said_back({"text": str(blocker)})
+    units = {u.unit_id: u for u in checked.units}
+    named = {k: _name_of(k, v, cat, tariff, modules, units) for k, v in blocker.params.items()}
+    return said_back({"template": blocker.template, "params": {k: v for k, (v, _label) in named.items()},
+                      "labels": [k for k, (_v, label) in named.items() if label]})  # the same sentence, other names
+
+
+def _blocked(content: dict[str, Any]) -> kinds.Fail:
+    """The premium step stopped by its record's blockers, with them in a person's words (U-A8) where it keeps them."""
+    return kinds.Fail("blocked: " + "; ".join(content["blockers"]),
+                      reasons=tuple(said_back(w) for w in content.get("blockers_said") or ()))
+
+
 def _rate(ctx: Any, params: Rating) -> kinds.StepOutcome:
     case_id = str(ctx.data["container"])
     evaluated = capabilities.read_result(ctx, params, "from_step")
@@ -305,7 +367,7 @@ def _rate(ctx: Any, params: Rating) -> kinds.StepOutcome:
     if kept is not None:
         content = json.loads(kept["content"])
         if content["blockers"]:
-            return kinds.Fail("blocked: " + "; ".join(content["blockers"]))
+            return _blocked(content)
         return kinds.Done({"version": kept["version"], "total": content["total"], "tariff": content["tariff_ref"]})
     if ev_row is None:
         return kinds.Fail(f"no evaluation record {ev_version} of step {params.from_step}")
@@ -322,10 +384,16 @@ def _rate(ctx: Any, params: Rating) -> kinds.StepOutcome:
     if product.tariff != versions.split(found["ref"])[0]:
         return kinds.Fail(f"the tariff {found['ref']} is not the one the product {checked.product} is priced by ({product.tariff})")
     modules = tuple(ev_content["modules"])
-    calc = rating.calculate(product_rules.Tariff.model_validate(found["content"]), found["ref"], checked, evaluation, modules=modules)
+    tariff = product_rules.Tariff.model_validate(found["content"])
+    calc = rating.calculate(tariff, found["ref"], checked, evaluation, modules=modules)
+    blockers = [*evaluation.blockers, *calc.blockers]
+    names = {m.code: m.name for m in product.modules}
+    cat = facts.catalogue(checked.catalogue)
     content = {"tariff_ref": found["ref"], "modules": list(modules), "total": rule_evaluation.plain(calc.total) if calc.total else None,
                "subtotal": rule_evaluation.plain(calc.subtotal) if calc.subtotal else None,
-               "policy_minimum_applied": calc.policy_minimum_applied, "blockers": [*evaluation.blockers, *calc.blockers],
+               "policy_minimum_applied": calc.policy_minimum_applied, "blockers": list(blockers),
+               # U-A8: the blockers in a person's words, for the calculation's card and the case's Overview
+               "blockers_said": [said_fields(_in_words(b, cat, tariff, names, checked)) for b in blockers],
                "lines": [{"unit_id": line.unit_id, "module": line.module, "basis": rule_evaluation.plain(line.basis),
                           "base": rule_evaluation.plain(line.base),
                           "steps": [{"name": s.name, "factor": str(s.factor), "after": rule_evaluation.plain(s.after)} for s in line.steps],
@@ -337,7 +405,7 @@ def _rate(ctx: Any, params: Rating) -> kinds.StepOutcome:
         trace_id = rating.trace_in(c, case_id, calc)
         n = _keep(c, case_id, ctx.step.id, RATING_KIND, params.from_step, ev_version, content, [trace_id])
     if content["blockers"]:  # kept with its blockers (the rules' and the tariff's), so the reason shows; never a default
-        return kinds.Fail("blocked: " + "; ".join(content["blockers"]))
+        return _blocked(content)
     return kinds.Done({"version": n, "total": content["total"], "tariff": found["ref"]})
 
 

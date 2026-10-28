@@ -15,11 +15,12 @@ import shutil
 
 import pytest
 
-from jav.app import (case_views, document_processing, process_runtime, registrations, scopes, work, work_readiness,
-                     work_runs)
+from jav.app import (capabilities, case_views, document_processing, process_runtime, registrations, scopes, work,
+                     work_readiness, work_runs)
 from jav.core import cfg, store
 from jav.core.config import PROJECT_ROOT
 from jav.core.process import engine
+from tests.test_cost_view_082 import _call
 from tests.test_workflow_tasks_215 import _finish
 from tests.test_workflows_146 import _invoices
 from tests.statement_pdf import pdf_lines_as_text
@@ -31,7 +32,7 @@ PACK = {"meta": {"name": "process:documents_test", "version": "1.0.0", "descript
         "id": "documents_test", "title": "Documents", "scope": {"parts": ["source"]},
         "intake": [{"on": "manual", "starts": "manual"}], "resources": {},
         "steps": [{"id": "process", "uses": "process_documents@1", "title": "Processing", "params": {}}],
-        "screens": {"tabs": [{"id": "history", "label": "History", "elements": [{"type": "timeline"}]}]},
+        "screens": {"tabs": [{"id": "history", "label": "History", "elements": [{"type": "timeline"}, {"type": "cost"}]}]},
         "outputs": [], "goldens": []}
 
 
@@ -97,6 +98,38 @@ def test_a_person_starts_the_live_run_and_its_approval_finishes_the_step(db):
     state = _turns(case)
     assert state["steps"]["process"]["state"] == "done" and state["status"] == "closed"
     assert state["steps"]["process"]["result"] == {"package": wp, "runs": [run["run_id"]]}
+
+
+def test_the_case_s_cost_counts_what_its_package_s_runs_spent(db):
+    """U-A8 (the walkthrough of 2026-10-28): the calls of the step's package's runs are the step's, so the case's cost
+    shows them (before, it looked only for the step's own budgets and showed nothing spent)."""
+    folder = _invoices(db / "inv", n=2)
+    case = process_runtime.start_case("documents_test", {"source": {"kind": "folder", "folder": str(folder)}},
+                                      name="April invoices", actor=PERSON)
+    _turns(case)
+    assert capabilities.step_scopes(case, "process", "process_documents@1") == []
+    case_views.act(case, "process", "start_run", PERSON)
+    wp = document_processing.package_of(case, "process")
+    [run] = work_runs.run_rows(wp)
+    item = work.get(wp)["items"][0]["item_id"]
+    _call(run["run_id"], item, "openai", "gpt-test", cost="0.006053")
+    _call(run["run_id"], item, "jev", "jev-test", cost="0.001599")
+    assert capabilities.step_scopes(case, "process", "process_documents@1") == [run["run_id"]]
+    cost = next(e["data"] for tab in case_views.view(case)["tabs"] for e in tab["elements"] if e["type"] == "cost")
+    assert cost["total_usd"] == "0.007652"
+    assert {(line["step"], line["provider"], line["calls"], line["cost_usd"]) for line in cost["lines"]} == {
+        ("process", "openai", 1, "0.006053"), ("process", "jev", 1, "0.001599")}
+
+
+def test_the_case_page_says_while_the_worker_has_something_to_do_for_it(db):
+    """U-A8 (the walkthrough of 2026-10-28): the page asks again while the case is due (a ready step, an event a
+    waiting step takes), not only while a step waits for the machine; a step waiting for a person's start is not."""
+    folder = _invoices(db / "inv", n=2)
+    case = process_runtime.start_case("documents_test", {"source": {"kind": "folder", "folder": str(folder)}},
+                                      name="April invoices", actor=PERSON)
+    assert case_views.view(case)["case"]["due"] is True  # its first step is ready
+    _turns(case)
+    assert case_views.view(case)["case"]["due"] is False  # it waits for a person's start
 
 
 def test_a_folder_without_documents_finishes_the_step_without_a_package(db):

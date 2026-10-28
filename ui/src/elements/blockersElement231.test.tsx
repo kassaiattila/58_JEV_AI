@@ -36,6 +36,18 @@ describe("what holds a case", () => {
     expect(blockersStatus(data)).toEqual({ mark: "s-failed", text: "2 holding" });
   });
 
+  it("says why a step stopped in a person's words, its names translated, before its note (U-A8)", async () => {
+    await setLanguage("hu");
+    const reason = { text: "Stock: no Payment frequency factor: the fact Payment frequency is missing",
+                     template: "{{unit}}: no {{factor}} factor: the fact {{fact}} is missing",
+                     params: { unit: "Stock", factor: "Payment frequency", fact: "Payment frequency" },
+                     labels: ["unit", "factor", "fact"], within: null };
+    show({ status: "open", items: [{ step: "rate", kind: "stopped", note: "blocked: u-77715bd15f: no frequency factor",
+                                     reasons: [reason], waiting_for: null, tab: null }] });
+    expect(await screen.findByText(/Készlet: nem adható meg a\(z\) „Díjfizetési gyakoriság” szorzó/)).toBeTruthy();
+    expect(screen.queryByText(/u-77715bd15f/)).toBeNull();
+  });
+
   it("says nothing holds it, or that the case is closed", async () => {
     show({ status: "open", items: [] });
     expect(await screen.findByText("Nothing holds the case: its steps work by themselves.")).toBeTruthy();

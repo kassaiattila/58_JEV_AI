@@ -47,7 +47,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from jav.core import rulebook, store
+from jav.core import rulebook, store, user_messages
 from jav.core.clock import utc_stamp as _now
 from jav.core.process import definition as definitions
 from jav.core import access
@@ -477,14 +477,17 @@ def complete(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, re
     return version
 
 
-def fail(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, note: str) -> None:
-    """The step failed; a person retries it (`retry`)."""
+def fail(c: sqlite3.Connection, case_id: str, step_id: str, actor: Actor, note: str, *,
+         reasons: Iterable[Any] = ()) -> None:
+    """The step failed; a person retries it (`retry`). U-A8: `reasons`, why in a person's words (`Said` sentences),
+    kept in the failure's history row (`said_fields`) for the case's page."""
     st = step_row(c, case_id, step_id)
     if st["state"] not in (READY, RUNNING):
         return
     _set_step(c, case_id, step_id, state=FAILED, waiting_for=None, note=note[:1000])
     timers.cancel(c, case_id, step_id=step_id, effect="step failed")
-    record(c, case_id, step_id, "step_failed", actor, {"note": note[:1000]})
+    said = [user_messages.said_fields(r) for r in reasons]
+    record(c, case_id, step_id, "step_failed", actor, {"note": note[:1000]} | ({"reasons": said} if said else {}))
     _left(c, case_id, step_id, actor)
 
 

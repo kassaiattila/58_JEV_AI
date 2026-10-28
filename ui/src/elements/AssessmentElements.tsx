@@ -9,7 +9,7 @@ import { api, type CalculationData, type EvaluatedUnit, type EvaluationData, typ
 import type { Catalogue } from "../api/products";
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { numText, when } from "../labels";
+import { numText, saidText, when } from "../labels";
 import { amountText, factTitle, levelLabel, outcomeTitle, Value } from "../views/settings/RegistryParts";
 import { calculationStatus, missingStatus, VERDICT, verdictStatus } from "./caseStatus";
 import type { ElementProps } from "./registry";
@@ -146,7 +146,9 @@ export function CalculationView(p: ElementProps) {
         <>
           <p className="muted small">{t("Version {{n}}, from the evaluation's version {{m}}, by the tariff {{tariff}}.", {
             n: latest.version, m: latest.evaluation_version, tariff: d.tariff?.title ? t(d.tariff.title) : latest.tariff_ref })}</p>
-          {latest.blockers.length ? <ul className="plain">{latest.blockers.map((b, i) => <li key={i} className="blocker">{b}</li>)}</ul> : null}
+          {latest.blockers_said?.length
+            ? <ul className="plain">{latest.blockers_said.map((b, i) => <li key={i} className="blocker">{saidText(b)}</li>)}</ul>
+            : latest.blockers.length ? <ul className="plain">{latest.blockers.map((b, i) => <li key={i} className="blocker">{b}</li>)}</ul> : null}
           {latest.lines.length ? (
             <table className="table compact premium-lines" aria-label={t("The premium's lines")}>
               <thead><tr><th>{t("Module")}</th><th>{t("Assessed unit")}</th><th className="num">{t("Basis")}</th>

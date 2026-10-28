@@ -45,7 +45,7 @@ from jav.core.process.definition import ProcessDef, StepDef
 
 __all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest is the core's own
     "POLL_S", "StepContext", "start", "send_event", "cancel", "state", "claim_case", "release", "turn", "due_cases",
-    "turn_due", "run_once", "run", "iterate_until_idle",
+    "is_due", "turn_due", "run_once", "run", "iterate_until_idle",
 ]
 
 log = logging.getLogger(__name__)
@@ -230,6 +230,14 @@ def due_cases(now: float | None = None) -> list[str]:
         return [r["case_id"] for r in c.execute(_DUE, (time.time() if now is None else now,))]
 
 
+def is_due(case_id: str, now: float | None = None) -> bool:
+    """U-A8: whether the case has something to do now (as `due_cases` tells it), so a page showing it asks again until
+    the worker's next round moved it (a person's decision is an event its step takes then)."""
+    with store.connect() as c:
+        return c.execute(f"SELECT 1 FROM process_cases c WHERE c.case_id=? AND {_DUE_WHERE}",
+                         (case_id, time.time() if now is None else now)).fetchone() is not None
+
+
 def turn_due(now: float | None = None, *, passes: int = DUE_PASSES) -> int:
     """229 (SZ1a): the worker's round: a turn for every case with something to do now, of any process definition, and
     again for those a turn made due, at most `passes` looks. A case a live process or another thread holds is left to
@@ -410,7 +418,7 @@ def _run_step(case_id: str, step: StepDef, *, rerun: bool = False) -> bool:
         elif isinstance(outcome, kinds.Close):
             cases.close(c, case_id, outcome.outcome, ctx.actor)
         elif isinstance(outcome, kinds.Fail):
-            cases.fail(c, case_id, step.id, ctx.actor, outcome.note)
+            cases.fail(c, case_id, step.id, ctx.actor, outcome.note, reasons=outcome.reasons)
         elif st["waiting_for"] is None:
             # 218: the wait the step named ended while it ran (a person settled an uncertain handover): it runs again,
             # as after any ended wait; a wait for nothing named would never be woken

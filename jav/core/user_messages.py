@@ -66,28 +66,34 @@ def message_fields(exc: BaseException) -> dict[str, Any]:
 class Said(str):
     """231 (stage D, D-c6): a sentence a person reads (a problem a check lists): the filled English text, a `str` as
     such problems were before, with its template and parameters for the interface's language and where it applies
-    (`within`, shown before it)."""
+    (`within`, shown before it). U-A8: `labels`, the parameters whose values are interface labels too (a fact's title,
+    an asset group's label), which the interface translates with the template."""
 
     template: str
     params: dict[str, str]
     within: Said | None
+    labels: tuple[str, ...]
 
 
-def _said(template: str, values: dict[str, str], within: Said | None) -> Said:
+def _said(template: str, values: dict[str, str], within: Said | None, labels: tuple[str, ...] = ()) -> Said:
+    if set(labels) - values.keys():
+        raise KeyError(f"label(s) that are no parameter of the message template: {sorted(set(labels) - values.keys())}")
     text = fill(template, values)
     out = Said(f"{within}: {text}" if within is not None else text)
-    out.template, out.params, out.within = template, values, within
+    out.template, out.params, out.within, out.labels = template, values, within, tuple(labels)
     return out
 
 
-def said(template: str, /, *, within: Said | None = None, **params: Any) -> Said:
-    """The sentence `template` filled with `params`, said within `within` (a literal template, as `explained`'s)."""
-    return _said(template, _values(template, params), within)
+def said(template: str, /, *, within: Said | None = None, labels: tuple[str, ...] = (), **params: Any) -> Said:
+    """The sentence `template` filled with `params`, said within `within` (a literal template, as `explained`'s);
+    U-A8: `labels`, the parameters the interface translates too."""
+    return _said(template, _values(template, params), within, labels)
 
 
 def inside(outer: Said, inner: Said) -> Said:
     """`inner` said within `outer` too (the outermost first)."""
-    return _said(inner.template, inner.params, inside(outer, inner.within) if inner.within is not None else outer)
+    return _said(inner.template, inner.params, inside(outer, inner.within) if inner.within is not None else outer,
+                 inner.labels)
 
 
 def said_from(exc: BaseException, *, within: Said | None = None) -> Said:
@@ -103,12 +109,14 @@ def said_fields(text: str) -> dict[str, Any]:
     if not isinstance(text, Said):
         return {"text": str(text)}
     return {"text": str(text), "template": text.template, "params": dict(text.params),
-            "within": said_fields(text.within) if text.within is not None else None}
+            "within": said_fields(text.within) if text.within is not None else None} | (
+        {"labels": list(text.labels)} if text.labels else {})
 
 
 def said_back(fields: dict[str, Any]) -> Said:
     """231 (D-c7e): a sentence again from its service form (`said_fields`), as it was stored."""
     within = said_back(fields["within"]) if fields.get("within") else None
     if isinstance(fields.get("template"), str):
-        return _said(fields["template"], {k: str(v) for k, v in (fields.get("params") or {}).items()}, within)
+        return _said(fields["template"], {k: str(v) for k, v in (fields.get("params") or {}).items()}, within,
+                     tuple(fields.get("labels") or ()))
     return _said(str(fields.get("text", "")).replace("{{", "{ {"), {}, within)

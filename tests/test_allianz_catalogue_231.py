@@ -29,3 +29,14 @@ def test_of_two_required_protection_classes_the_stricter_counts() -> None:
     clashes: list[str] = []
     value, _ = rule_evaluation._combine(required, [("r1", "V"), ("r2", "III"), ("r3", "VI")], clashes)
     assert value == "III" and clashes == []
+
+
+def test_the_open_codes_the_product_s_rules_give_have_their_names() -> None:
+    """U-A8 (the walkthrough of 2026-10-28): the codes the real product's rules give where an outcome takes any code (an
+    excluded peril, a document asked for) are named, so the interface shows them by name and not as the bare code."""
+    given = {"perils_excluded": ("burglary", "inland_water", "transmission_distribution_networks"),
+             "documents_required": ("condition_protocol", "employee_written_consent", "manufacturer_maintenance",
+                                    "weekly_backup")}
+    for outcome, codes in given.items():
+        assert CAT.outcomes[outcome].type == "codes" and not CAT.outcomes[outcome].options
+        assert [c for c in codes if c not in CAT.labels] == [], outcome

@@ -3,7 +3,7 @@
 // (jav/app/case_views.py): its steps and its pack's tabs, each element with what its step's capability shows.
 import { enc, request } from "./client";
 import type { Catalogue } from "./products";
-import type { ApprovalState } from "./types";
+import type { ApprovalState, Said } from "./types";
 
 /** 231 (C1a): one part a record was read from (the email's text, an attachment, a document). */
 export interface RecordPart { kind: string; name: string | null }
@@ -50,12 +50,15 @@ export interface CaseStep {
   title: string | null; uses: string; start: "auto" | "person"; state: string | null; phase: string | null;
   waiting_for: string | null; awaiting_start: boolean; note: string | null; result: unknown; actions?: CaseAction[];
   by_person?: boolean;
+  /** U-A8: why a stopped step stopped, in a person's words (none: its note says it) */
+  reasons?: Said[];
 }
 /** One element of a tab: its registered type, the step it shows and its data. */
 export interface CaseElement { type: string; step: string | null; data: unknown; [setting: string]: unknown }
 export interface CaseTab { id: string; label: string; elements: CaseElement[] }
 export interface CaseView {
-  case: { id: string; pack: string; version: string; title: string; name: string | null; status: string };
+  /** U-A8: `due`, whether the worker has something to do for the case now (the page asks again while it has) */
+  case: { id: string; pack: string; version: string; title: string; name: string | null; status: string; due?: boolean };
   steps: Record<string, CaseStep>;
   tabs: CaseTab[];
   /** the case's next step, named by its elements, and the tab it is done on */
@@ -121,6 +124,8 @@ export interface CalculationData {
   latest: {
     version: number; evaluation_version: number; tariff_ref: string; modules: string[]; total: PremiumMoney | null;
     subtotal: PremiumMoney | null; policy_minimum_applied: boolean; blockers: string[];
+    /** U-A8: the blockers in a person's words (a record made before has none) */
+    blockers_said?: Said[];
     lines: { unit_id: string; module: string; basis: PremiumMoney; base: PremiumMoney; steps: PremiumStep[]; amount: PremiumMoney }[];
     module_totals: Record<string, { lines: PremiumMoney; minimum_applied: boolean; total: PremiumMoney }>; total_steps: PremiumStep[];
   } | null;
@@ -152,7 +157,7 @@ export interface DocumentViewData {
 export interface BlockersData {
   status: string;
   items: { step: string; kind: "stopped" | "stale" | "start" | "person" | "waits"; note: string | null; waiting_for: string | null;
-    tab: string | null }[];
+    tab: string | null; reasons?: Said[] }[];
 }
 /** D-f8: a letter that goes with a printed document (jav/app/letters.py). */
 export interface LetterData {

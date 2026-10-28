@@ -1,9 +1,10 @@
 {
   "meta": {
     "name": "facts_allianz_property",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "231 (stage U, U-A1; the owner's decisions of 2026-10-27): the fact catalogue of the corporate property insurance offer on the real product's terms (the six public condition documents of the Allianz corporate property insurance: the general conditions, the all risks special conditions with their 17 extensions, burglary and robbery, the property protection rules, business interruption, stock in cold stores), a rule file a case keeps as it started (jav/app/facts.py). The levels: the policyholder, its sites, and their asset groups; an asset group is one group of property kept in one room, so the protection the burglary cover asks for (its class, mechanical and electronic protection, guarding, storage) is its fact. Each fact a rule may read, with its type, unit or currency, level and allowed codes; each outcome a rule may give, with how the outcomes of several rules combine. A duty that is no fact (a weekly backup, a thermometer read three times a day) is a measure code an outcome names. The invented insurer's catalogue (facts_property.json) stays the example's.",
     "changelog": [
+      {"version": "1.2.0", "date": "2026-10-28", "note": "231 (U-A8; the walkthrough of 2026-10-28): the codes the real product's rules give where an outcome takes any code (the perils excluded, the documents required) have their labels too. No fact, option or outcome changes."},
       {"version": "1.1.0", "date": "2026-10-28", "note": "231 (U-A7; the walkthrough of 2026-10-28): every option code has its label, so the interface shows a code by its name (and in Hungarian through the translation files) instead of the code itself. No fact, option or outcome changes."},
       {"version": "1.0.0", "date": "2026-10-27", "note": "231 (U-A1): the first catalogue, from a read of the six documents (the general conditions' chapters 2-9, the all risks conditions with the extensions VIL, I05, J01, J21, I13, J22, J24, J23, glass, IBV, G19, IKO, I29, I28, IHA, IFH, IAK, burglary and V111, the protection rules' classes, business interruption, cold stores): the levels of facts_property, its facts with their meaning kept where it is the same, and the protection class as a code from VII (the least) to I (the most)."}
     ]
@@ -163,6 +164,13 @@
     "unregistered_vehicles": "Unregistered vehicles", "used": "Used", "utilities": "Utilities",
     "valuables": "Valuables", "vandalism_damage": "Vandalism damage", "vehicle_stock": "Vehicle stock",
     "vg1": "Value group 1", "vg2": "Value group 2", "vg3": "Value group 3",
-    "voluntary_liquidation": "Voluntary liquidation", "yearly": "Yearly"
+    "voluntary_liquidation": "Voluntary liquidation", "yearly": "Yearly",
+    "burglary": "Burglary",
+    "inland_water": "Inland water",
+    "transmission_distribution_networks": "Transmission and distribution networks",
+    "condition_protocol": "A condition report",
+    "employee_written_consent": "The employees' written consent",
+    "manufacturer_maintenance": "Maintenance as the manufacturer prescribes",
+    "weekly_backup": "A weekly backup"
   }
 }
