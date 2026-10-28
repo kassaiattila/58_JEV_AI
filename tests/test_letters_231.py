@@ -118,7 +118,7 @@ def test_the_letter_is_written_from_its_frame_accepted_and_sent_as_that_file(cas
     assert (draft["to"], draft["subject"]) == ("anna@minta.hu", "Biztosítási ajánlat – Minta Kft.")
     assert draft["body"] == ("Tisztelt Minta Anna!\n\nKöszönjük ajánlatkérését. Mellékelten küldjük a(z) Kitalált vállalkozói"
                              " vagyonbiztosítás ajánlatunkat 2027. 01. 01. kockázatviselési kezdettel.\n\nAz éves díj"
-                             " 487 000 HUF. A fedezetek díját és a vonatkozó feltételeket a mellékelt dokumentum"
+                             " 487 000 Ft. A fedezetek díját és a vonatkozó feltételeket a mellékelt dokumentum"
                              " tartalmazza.\n\nÜdvözlettel:\nMinta Anna\n")  # U1: signed by the case's owner
     assert shown["accepted"] is None and shown["approval"]["state"] == "missing"
     _accept(case_id, body=draft["body"] + "\nMinta Anna, Kitalált Biztosító Zrt.")  # a person adds a signature

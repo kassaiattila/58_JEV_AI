@@ -28,7 +28,8 @@ from jav.core import cfg
 
 KEY = re.compile(r"^[a-z][a-z0-9_]*$")
 MONTH = re.compile(r"^month_\d{4}_\d{2}$")
-KINDS = ("text", "date", "money", "number", "count", "probability", "flag", "json")
+KINDS = ("text", "date", "money", "number", "count", "probability", "flag", "json",
+         "currency")  # 231 (U1): a currency code, which a Hungarian text writes as Hungarian does (`docx.shown`)
 WRITER_KINDS = ("money", "number")  # the kinds the writer turns into a decimal number (`jav/app/outputs/xlsx.py`)
 
 

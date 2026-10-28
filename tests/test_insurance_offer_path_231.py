@@ -175,7 +175,7 @@ def test_a_quote_runs_from_its_documents_to_the_accepted_premium(folder, tmp_pat
     assert letter["waits"] and letter["document"]["sha256"] == printed["result"]["file"]["sha256"]
     draft = letter["draft"]
     assert (draft["to"], draft["subject"]) == ("anna@minta.hu", "Biztosítási ajánlat – Minta Kereskedő Kft.")
-    assert draft["body"].startswith("Tisztelt Minta Anna!") and "Az éves díj 487\u00a0000 HUF." in draft["body"]
+    assert draft["body"].startswith("Tisztelt Minta Anna!") and "Az éves díj 487\u00a0000 Ft." in draft["body"]
     assert case_views.view(case_id)["next"]["code"] == "letter_accept"
     case_views.act(case_id, "letter", "accept", ANNA, values={**draft, "expected_basis": letter["basis"]})
     state = _turn(case_id)
