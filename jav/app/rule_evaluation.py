@@ -179,6 +179,16 @@ def _shown(value: Any) -> str:
     return json.dumps(shown) if isinstance(shown, (dict, list)) else str(shown)
 
 
+def _holder(unit: Any, fact: str, cat: facts.Catalogue, by_id: dict[str, Any]) -> str:
+    """U1 (the walkthrough of 2026-10-28): the unit a missing fact is asked for on: the one of the fact's own level
+    among the unit and its ancestors (a site's fact a rule on an asset group reads is the site's to give)."""
+    level = cat.facts[fact].level if fact in cat.facts else unit.level
+    node = unit
+    while node.level != level and node.parent_id in by_id:
+        node = by_id[node.parent_id]
+    return str(node.unit_id if node.level == level else unit.unit_id)
+
+
 def evaluate(rules: list[Resolved], checked: facts.CheckedInput, *, modules: tuple[str, ...],
              at: str = "quote") -> Evaluation:
     """The rules that apply at `at` to a requested module, on every unit of their level, combined."""
@@ -207,7 +217,7 @@ def evaluate(rules: list[Resolved], checked: facts.CheckedInput, *, modules: tup
             if result.missing:
                 if "verdict" in cat.outcomes:
                     given.setdefault("verdict", []).append((ref, UNKNOWN))
-                missing += [(unit.unit_id, f) for f in result.missing]
+                missing += [(_holder(unit, f, cat, by_id), f) for f in result.missing]
         combined: dict[str, Any] = {}
         for name, values in given.items():
             clashes: list[str] = []
