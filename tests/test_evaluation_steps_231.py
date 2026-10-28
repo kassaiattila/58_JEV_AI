@@ -177,3 +177,5 @@ def test_a_blocked_premium_says_why_in_a_person_s_words(packs) -> None:
     assert view["steps"]["rate"]["state"] == "failed" and view["steps"]["rate"]["reasons"] == words
     held = next(e["data"] for tab in view["tabs"] for e in tab["elements"] if e["type"] == "blockers")
     assert next(i for i in held["items"] if i["step"] == "rate")["reasons"] == words
+    events = next(e["data"] for tab in view["tabs"] for e in tab["elements"] if e["type"] == "timeline")["events"]
+    assert next(e for e in events if e["kind"] == "step_failed")["detail"]["reasons"] == words  # U1: the history too

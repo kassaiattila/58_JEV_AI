@@ -241,10 +241,13 @@ def _who(actor_id: str) -> str | None:
 
 
 def _detail(detail: Any) -> dict[str, Any]:
-    """What an event's row says beyond its kind: a note, a task's kind, a person's answer, a timer's name."""
+    """What an event's row says beyond its kind: a note, a task's kind, a person's answer, a timer's name; U1: a stopped
+    step's reasons in a person's words."""
     if not isinstance(detail, dict):
         return {}
     out: dict[str, Any] = {k: detail[k] for k in ("note", "timer") if isinstance(detail.get(k), str)}
+    if isinstance(detail.get("reasons"), list) and detail["reasons"]:
+        out["reasons"] = detail["reasons"]
     if isinstance(detail.get("task"), str):
         out["task_kind"] = detail["task"].partition(":")[0]
     outcome = detail.get("outcome")

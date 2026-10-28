@@ -171,7 +171,9 @@ export interface LetterData {
 }
 export interface CaseEvent {
   at: string; kind: string; step: string | null; step_title: string | null; who: string | null;
-  detail: { note?: string; timer?: string; task_kind?: string; answer?: string; kept?: CaseKept };
+  detail: { note?: string; timer?: string; task_kind?: string; answer?: string; kept?: CaseKept;
+    /** U1: a stopped step's reasons in a person's words, shown instead of its note */
+    reasons?: Said[] };
 }
 /** D0-e: the versions a case keeps from its start to its end (`jav/app/process_runtime.py` `kept_of`): its resources
  *  naming a versioned thing (a price list, a template) and the rule files its steps read. */
