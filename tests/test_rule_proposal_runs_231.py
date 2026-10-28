@@ -172,3 +172,18 @@ def test_a_finished_run_is_checked_again_from_its_answers_without_asking_again(e
     assert by_id[second["id"]]["state"] == "rejected"
     with pytest.raises(rule_proposal_runs.ProposalError):
         rule_proposal_runs.recheck(run["run_id"], document_ref="inv_burglary_conditions@1")
+
+
+def test_two_rules_decided_from_one_clause_of_one_kind_are_two_rules(env) -> None:
+    """U-A4 (the A group accepted on 2026-10-28): the protection rules' clause 1 held five rules of one kind; each was
+    drafted under the clause's one identifier, so the later ones became new versions of the first and only one of them
+    could be made active. A rule decided from another proposal takes the next identifier (`-2`, `-3`, ...)."""
+    run = _run(env["inv_general_conditions"])
+    flood = _by_title(run)[SET.rules["inv_flood_high"].title]
+    first = rule_proposal_runs.accept(flood["id"], actor=ANNA, expected_state=0)["rule_ref"]
+    assert first == "inv_general_conditions.6.1.exclusion@1"
+    other = next(p for p in run["proposals"] if p["id"] != flood["id"] and p["readiness"] == "ready")
+    same_clause = flood["rule"] | {"title": "Another rule of the same clause"}
+    second = rule_proposal_runs.correct(other["id"], same_clause, actor=ANNA, expected_state=0)["rule_ref"]
+    assert second == "inv_general_conditions.6.1.exclusion-2@1"
+    assert product_rules.latest("rule", "inv_general_conditions.6.1.exclusion")["version"] == 1
