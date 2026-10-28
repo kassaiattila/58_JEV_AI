@@ -259,7 +259,8 @@ def test_the_activity_log_reads_these_sources() -> None:
         "mailbox_pull",
         # 175 (deliberate, the owner's decision of 2026-10-19): a person's duplicate decisions, statement choices and
         # own workflow steps
-        "duplicate_decision", "statement_choice", "workflow"]
+        "duplicate_decision", "statement_choice", "workflow",
+        "case"]  # 231 (U2d, the owner's decisions of 2026-10-28): a person's own steps and decisions on the cases
 
 
 PIN_ACTIVITY = [  # most recent first; another person's action is left out

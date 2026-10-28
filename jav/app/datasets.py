@@ -302,7 +302,7 @@ def _activity(scope: dict[str, str]) -> Rows:
     cols = [
         col("at", "Időpont", "datetime"),
         col("action", "Művelet", "enum", labels="activity_action"),
-        col("workpackage_name", "Iratköteg", link="workpackage"),
+        col("workpackage_name", "Case or batch", link="workpackage"),  # 231 (U2d): a case is its container
         col("detail", "Részlet"),
         col("run_id", "Futás", "id", link="run"),
     ]
