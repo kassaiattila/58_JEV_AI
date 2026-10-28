@@ -61,3 +61,12 @@ def test_a_person_s_start_decision_and_cancel_of_a_case_are_in_their_day(db) -> 
     assert _case_rows("someone else", case) == []
     labels = datasets.label_set("activity_action")
     assert all(labels.get(r["action"]) for r in rows)  # each one labelled for the interface
+
+
+def test_a_case_without_a_container_is_not_in_the_day(db) -> None:
+    """A workflow made before is a case of the core without a container: its own log names a person's steps."""
+    from jav.app import process_packs
+
+    cases.start("wf-000000000001", process_packs.definition(process_packs.load("day_test")), {"name": "old chain"},
+                person(PERSON))
+    assert _case_rows(PERSON, "wf-000000000001") == []

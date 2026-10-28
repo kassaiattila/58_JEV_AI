@@ -29,7 +29,7 @@ function StepState({ status }: { status: WorkflowStep["status"] }) {
 
 function WorkflowList() {
   useLocale();
-  const [archived, setArchived] = useState(false);
+  const [archived, setArchived] = useState(true);  // 231 (U2c): an earlier workflow is mostly an archived one
   const [party, setParty] = useState("");
   const [state, setState] = useState<"all" | "attention" | "done">("all");
   const [search, setSearch] = useState("");

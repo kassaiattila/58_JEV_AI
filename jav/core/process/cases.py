@@ -337,13 +337,16 @@ def _event(row: sqlite3.Row) -> Event:
 def person_actions_sql(kinds: Iterable[str]) -> str:
     """231 (stage U, U2d): the query of a person's own actions on the cases between two ISO times (its two parameters),
     as "My work today" reads a source (`activity_kinds.Source`: at, actor, workpackage_id, run_id, detail): the history's
-    rows of `kinds` whose actor is a person, the case as its container, the time as ISO text (the history keeps epoch
-    seconds). The core names its own table, so the application reads the history through it."""
+    rows of `kinds` whose actor is a person, of a case whose data names its container (a process pack's; a workflow made
+    before has its own log), the container as the case, the time as ISO text (the history keeps epoch seconds). The
+    core names its own tables, so the application reads the history through it."""
     listed = ", ".join("'" + k.replace("'", "''") + "'" for k in kinds)
-    return ("SELECT strftime('%Y-%m-%dT%H:%M:%S+00:00', at, 'unixepoch') at, json_extract(actor, '$.name') actor,"
-            " case_id workpackage_id, NULL run_id, kind detail FROM process_history"
-            f" WHERE json_extract(actor, '$.kind') = 'human' AND kind IN ({listed})"
-            " AND at >= CAST(strftime('%s', ?) AS INTEGER) AND at < CAST(strftime('%s', ?) AS INTEGER)")
+    return ("SELECT strftime('%Y-%m-%dT%H:%M:%S+00:00', h.at, 'unixepoch') at, json_extract(h.actor, '$.name') actor,"
+            " json_extract(c.data, '$.container') workpackage_id, NULL run_id, h.kind detail FROM process_history h"
+            " JOIN process_cases c ON c.case_id = h.case_id"
+            f" WHERE json_extract(h.actor, '$.kind') = 'human' AND h.kind IN ({listed})"
+            " AND json_extract(c.data, '$.container') IS NOT NULL"
+            " AND h.at >= CAST(strftime('%s', ?) AS INTEGER) AND h.at < CAST(strftime('%s', ?) AS INTEGER)")
 
 
 def history_in(c: sqlite3.Connection, case_id: str, kind: str | None = None) -> list[dict[str, Any]]:
