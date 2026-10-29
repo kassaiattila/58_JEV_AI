@@ -127,7 +127,8 @@ def test_a_step_runs_a_case_of_another_process_with_its_own_documents_and_the_ch
     shown = case_views.view(chain)["tabs"][0]["elements"][0]["data"]
     assert shown["case"]["id"] == first and shown["case"]["status"] == cases.OPEN and shown["process"] == "Documents sub_period"
     assert case_views.view(first)["case"]["parent"] == {"id": chain, "name": "Invented March", "step": "first",
-                                                        "step_title": "First documents", "title": "Chain"}
+                                                        "step_title": "First documents", "title": "Chain",
+                                                        "tab": "overview"}  # 261 (B1a): the tab it leads back to
 
 
 def test_a_sub_case_closed_as_done_makes_its_step_done_and_the_next_reads_the_earlier_batches(db) -> None:

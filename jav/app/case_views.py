@@ -38,8 +38,8 @@ from jav.core import calls, completion, identity, store
 from jav.core.process import cases, engine, tasks
 from jav.core.user_messages import explained
 
-__all__ = ["CaseError", "ElementData", "act", "gives", "link_partner", "marks", "next_of", "register", "return_step",
-           "start_step", "view"]
+__all__ = ["CaseError", "ElementData", "act", "briefs", "gives", "link_partner", "marks", "next_of", "register",
+           "return_step", "start_step", "view"]
 
 
 class CaseError(ValueError):
@@ -192,6 +192,14 @@ def _next(tabs: list[dict[str, Any]], open_steps: list[str] | None = None) -> di
 def next_of(case_id: str) -> dict[str, Any] | None:
     """The case's next step as its page names it (the work package list's next step of its container)."""
     return view(case_id)["next"]
+
+
+def briefs(page: dict[str, Any]) -> list[dict[str, Any]]:
+    """261 (B1a): what a parent case shows of a case (`page`, its `view`): each element whose data carries a `brief` (a
+    few counts of its step's work, the element's own), with the step, its title and the tab that shows it."""
+    return [{"step": e.get("step"), "title": (page["steps"].get(e.get("step") or "") or {}).get("title"), "tab": tab["id"],
+             **e["data"]["brief"]}
+            for tab in page["tabs"] for e in tab["elements"] if isinstance(e["data"], dict) and e["data"].get("brief")]
 
 
 def start_step(case_id: str, step_id: str, actor: identity.Who) -> dict[str, Any]:

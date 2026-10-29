@@ -1,0 +1,81 @@
+"""261 (plan B, the owner's decisions of 2026-10-29: the UI unification): a multi-step case shows its sub-cases' work
+as one table (B1a, the data): each sub-case says what its steps' elements give a parent to show (a document step's
+documents, its current run's open to-dos and state), and a sub-case's page names the parent's tab it leads back to.
+Synthetic documents and statements, no AI call (no run is processed).
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from jav.app import case_views, process_runtime, registrations
+from jav.core import store
+from jav.core.process import cases, engine
+from tests.statement_pdf import pdf_lines_as_text
+from tests.test_workflows_146 import _invoices, _party, _statements
+
+registrations.load_all()
+PERSON = "anna"
+MARCH = ["2026-03-01", "2026-03-31"]
+WIDE = {"openai": "9", "jev": "9", "azure_di": "9"}
+
+
+@pytest.fixture
+def db(tmp_path, monkeypatch):
+    pdf_lines_as_text(monkeypatch)  # as 146's statements
+    with store.use_store(tmp_path / "unify.sqlite"):
+        yield tmp_path
+
+
+def _monthly(folder, budgets: dict | None = None) -> str:
+    scope = {"party": _party(), "period": MARCH, "step_sources": {
+        "invoices": {"kind": "folder", "folder": str(_invoices(folder / "inv", n=2))},
+        "statements": {"kind": "folder", "folder": str(_statements(folder / "erste"))}}}
+    if budgets is not None:
+        scope["step_budgets"] = budgets
+    case = process_runtime.start_case("monthly_reconciliation", scope, name="Invented March", actor=PERSON)
+    for _ in range(2):
+        engine.turn(case, wake=True)
+    return case
+
+
+def _sub_cases(case: str) -> dict[str, dict]:
+    page = case_views.view(case)
+    return {e["step"]: e["data"] for tab in page["tabs"] for e in tab["elements"] if e["type"] == "sub_case"}
+
+
+def _sub(case: str, step: str) -> str:
+    with store.connect() as c:
+        return cases.step_row(c, case, step)["result"]["case_id"]
+
+
+def test_a_sub_case_says_what_its_document_step_holds_before_a_run(db) -> None:
+    case = _monthly(db)
+    invoices = _sub(case, "invoices")
+    for _ in range(2):
+        engine.turn(invoices, wake=True)
+    work = _sub_cases(case)["invoices"]["case"]["work"]
+    assert work == [{"step": "process", "title": work[0]["title"], "tab": "documents", "documents": 2, "todos": None,
+                     "run": None}]
+
+
+def test_a_sub_case_says_its_live_runs_state_once_it_started(db) -> None:
+    case = _monthly(db, {"invoices": WIDE})  # within the cap the live run starts by itself (261, M5)
+    invoices = _sub(case, "invoices")
+    for _ in range(2):
+        engine.turn(invoices, wake=True)
+    [brief] = _sub_cases(case)["invoices"]["case"]["work"]
+    assert brief["documents"] == 2 and brief["run"]["mode"] == "apply" and brief["run"]["approved"] is False
+
+
+def test_a_sub_cases_page_names_the_parents_tab_it_leads_back_to(db) -> None:
+    case = _monthly(db)
+    parent = case_views.view(_sub(case, "invoices"))["case"]["parent"]
+    assert {k: parent[k] for k in ("id", "step", "tab")} == {"id": case, "step": "invoices", "tab": "overview"}
+
+
+def test_an_element_without_a_brief_gives_none() -> None:
+    page = {"steps": {"a": {"title": "A"}}, "tabs": [{"id": "t", "elements": [
+        {"type": "x", "step": "a", "data": {"next": None}}, {"type": "y", "step": None, "data": None},
+        {"type": "z", "step": "a", "data": {"brief": {"documents": 3}}}]}]}
+    assert case_views.briefs(page) == [{"step": "a", "title": "A", "tab": "t", "documents": 3}]

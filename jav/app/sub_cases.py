@@ -375,7 +375,8 @@ def _spent(case_id: str, step_id: str) -> list[str]:
 def _sub_case_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
     """What a step that runs a sub-case shows on its case's page (the element `sub_case`): the sub-case's process, the
     sub-case (its name, state, outcome and, while it is open, its own next step) and the earlier ones that closed
-    otherwise; while the step waits for it, the case's next step is the sub-case's."""
+    otherwise; while the step waits for it, the case's next step is the sub-case's. 261 (B1a): the sub-case's `work`,
+    what its steps' elements give a parent to show (`case_views.briefs`: its documents, open to-dos, run)."""
     from jav.app import case_views  # lazy: the case page reads the registered capabilities
 
     step = str(step_id)
@@ -394,8 +395,10 @@ def _sub_case_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) -
         with store.connect() as c:
             sub_row = cases.find_case_in(c, sub) or {}
         is_open = sub_row.get("status") == cases.OPEN
+        page = case_views.view(sub)  # once: its next step and what its steps give to show here
         out["case"] = {"id": sub, "name": work.get(sub)["name"], "status": sub_row.get("status"),
-                       "outcome": sub_row.get("outcome"), "next": case_views.next_of(sub) if is_open else None}
+                       "outcome": sub_row.get("outcome"), "next": page["next"] if is_open else None,
+                       "work": case_views.briefs(page)}
         if row.get("state") == cases.RUNNING and is_open:
             out["next"] = {"code": "case_sub_case", "label": "Continue in its sub-case", "stage": "process",
                            "element": "sub_case"}

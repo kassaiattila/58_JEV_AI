@@ -603,19 +603,25 @@ def takes_only_new(pack: Any) -> bool:
 def _package_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
     """231 (C3b3): what the step shows on its case's page (the element `package_work`): its package (its name, its
     items, its runs) and, while its live run waits for a person, whether it can start and its estimate (the button's
-    cost cap); `package` is None before the step made one or when the source held nothing."""
+    cost cap); `package` is None before the step made one or when the source held nothing. 261 (B1a): `brief`, what a
+    parent case shows of the step (`case_views.briefs`): its documents and its current run's open to-dos and state."""
     wp_id = package_of(case_id, str(step_id))
     if wp_id is None:
         return {"package": None}
     wp = work.get(wp_id)
-    runs = [{"run_id": r["run_id"], "mode": r["mode"], "status": r["status"], "approval": r["approval"]}
-            for r in work_runs.run_rows(wp_id)]
-    from jav.app import intake  # lazy: the intake offers the processes, which build on this capability
+    rows = work_runs.run_rows(wp_id)
+    runs = [{"run_id": r["run_id"], "mode": r["mode"], "status": r["status"], "approval": r["approval"]} for r in rows]
+    from jav.app import intake, work_views  # lazy: the intake offers the processes, which build on this capability
 
+    current = work_views.current_run(rows)  # the run the package's next step is about, as its page says
     out: dict[str, Any] = {"package": {"id": wp_id, "name": wp["name"], "items": len(wp["items"]),
                                        "kind": wp["source_kind"]}, "runs": runs, "can_start": False,
                            # C3d (the owner's decision of 2026-10-26): the processes that read it (the email routing)
-                           "offers": intake.package_offers(wp)}
+                           "offers": intake.package_offers(wp),
+                           "brief": {"documents": len(wp["items"]),
+                                     "todos": current["open_reasons"] if current else None,
+                                     "run": {"mode": current["mode"], "status": current["status"],
+                                             "approved": bool(current["approval"])} if current else None}}
     if _workflow_starts(wp_id):
         out["blockers"] = [explained(ProcessingError, "its workflow starts the package's live run").args[0]]
     elif not _live_runs(wp_id):

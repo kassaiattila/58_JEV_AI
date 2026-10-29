@@ -47,6 +47,13 @@ export interface PackageWorkView {
     over: Record<string, string> };
   /** 231 (C3d): the processes whose case may read the package (`jav/app/intake.py` `package_offers`) */
   offers?: import("./processes").PackageOffer[];
+  /** 261 (B1a): what a parent case shows of the step */
+  brief?: StepBrief;
+}
+/** 261 (B1a): what an element gives a parent case to show of its step's work: its documents, its current run's open
+ *  to-dos (null before a run) and state (`jav/app/case_views.py` `briefs`). */
+export interface StepBrief {
+  documents?: number; todos?: number | null; run?: { mode: string; status: string; approved: boolean } | null;
 }
 /** One step of a case: its capability, how it starts, its state in the process core, whether it waits for a person's
  *  start (a paid step or a send), the actions a person may take on it now and (C2d) whether its capability waits for a
@@ -67,7 +74,9 @@ export interface CaseView {
   /** U-A8: `due`, whether the worker has something to do for the case now (the page asks again while it has) */
   case: { id: string; pack: string; version: string; title: string; name: string | null; status: string; due?: boolean;
     /** 231 (U2c): the case and step a sub-case is part of (the process's title, the step's title) */
-    parent?: { id: string; name: string; title: string | null; step: string; step_title: string };
+    parent?: { id: string; name: string; title: string | null; step: string; step_title: string;
+      /** 261 (B1a): the parent's tab that shows the step */
+      tab?: string | null };
     /** 231 (U1) / 261: the case it follows (a closed case's follow-up, or the previous period's case) */
     follows?: string };
   steps: Record<string, CaseStep>;
@@ -190,7 +199,9 @@ export interface BlockersData {
 export interface SubCaseData {
   state: string | null; pack: string | null; process: string | null;
   case: { id: string; name: string; status: string | null; outcome: string | null;
-    next: { code: string; label: string; stage: string; tab: string; params?: Record<string, number> } | null } | null;
+    next: { code: string; label: string; stage: string; tab: string; params?: Record<string, number> } | null;
+    /** 261 (B1a): what the sub-case's steps give to show here, each with its step, title and tab */
+    work?: (StepBrief & { step: string | null; title: string | null; tab: string })[] } | null;
   earlier: { case_id: string; outcome: string }[];
 }
 /** D-f8: a letter that goes with a printed document (jav/app/letters.py). */
