@@ -32,8 +32,7 @@ export interface CaseAction { name: string; label: string; form?: boolean }
 /** 231 (C3b3): the documents of a document processing case: a folder (with its subfolders when asked) or files. */
 export interface CaseSource {
   kind: "folder" | "files" | "mailbox"; folder?: string; recursive?: boolean; files?: string[];
-  /** 231 (C3d): a mailbox download's request */
-  request?: import("./email").MailboxRequest;
+  /** 231 (C3d): a mailbox download's request (261: by the email domain's declaration merging) */
 }
 /** 231 (C3b3): the package a document processing step made, its runs, and its live run's start with the estimate. */
 export interface PackageWorkView {

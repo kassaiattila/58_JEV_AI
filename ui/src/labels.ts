@@ -5,7 +5,7 @@
 import fieldLabels from "../../configs/field_labels.json";
 import intentRegistry from "../../configs/intents.json";
 import emailTasks from "../../configs/email_tasks.json";
-import type { MailboxRequest, Recipe, RunPlan, Said } from "./api";
+import type { Recipe, RunPlan, Said } from "./api";
 import { getLocale, t } from "./i18n";
 
 /** A label map that translates on read (`MAP[code]` → in the chosen language). `Object.entries` gives the Hungarian
@@ -48,21 +48,7 @@ export const MODE: Record<string, string> = tmap({ shadow: "Trial", apply: "Live
 // types are here too.
 export const FIELD: Record<string, string> = tmap(fieldLabels.fields);
 export const DOC_TYPE: Record<string, string> = tmap(fieldLabels.doc_types);
-
-/** 183: a download's mailbox, folders and period in one line, in the interface's language (the service's label and a
- *  package's stored source are English or, before 183, Hungarian text). */
-export function mailboxLabel(r: MailboxRequest): string {
-  const period = r.received_from ? `${r.received_from}–${r.received_to ?? ""}` : t("last {{n}} days", { n: r.since_days ?? 1 });
-  return [r.accounts.join(", "), (r.folders?.length ? r.folders : ["Inbox"]).join(", "), period].join(" · ");
-}
-
-/** 183: a stored download label (a mailbox package's source when no recorded download made it) with its last-days
- *  period in the interface's language; the service wrote it in Hungarian before 183 and in English since. */
-export function storedMailboxLabel(label: string): string {
-  // the Hungarian period is matched with the accented letter escaped (stored data, not interface text)
-  return label.replace(/(?:utols\u00f3 (\d+) nap|last (\d+) days)$/, (_m, hu: string | undefined, en: string | undefined) =>
-    t("last {{n}} days", { n: Number(hu ?? en) }));
-}
+// 261: a download's mailbox label is the email domain's (`ui/src/domains/email/labels.ts`)
 
 /** 197: a type's own name for a shared field (the quote request's customer is the requester). */
 const BY_TYPE = fieldLabels.by_type as Record<string, Record<string, string> | undefined>;

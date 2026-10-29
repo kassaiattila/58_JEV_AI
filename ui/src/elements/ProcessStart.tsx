@@ -41,7 +41,7 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
   useLocale();
   const packs = useLoad("processes", api.processes);
   const list = useLoad("workpackages-brief", api.workpackagesBrief);
-  const parties = useLoad("parties", api.parties);
+  const parties = useLoad("own-parties", api.ownParties);
   const [chosen, setChosen] = useState<string[]>([]);
   const [partyId, setPartyId] = useState("");
   const [start, setStart] = useState("");

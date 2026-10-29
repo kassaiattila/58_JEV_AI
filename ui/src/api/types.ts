@@ -3,7 +3,6 @@ import type { WorkflowRef } from "./workflows";
 import type { Engine } from "./system";
 import type { IntakeOffer } from "./cases";
 import type { PackageOffer } from "./processes";
-import type { EmailItem, MailboxRequest, RoutingView } from "./email";
 
 export interface Blocker { code: string; message: string }
 /** 231 (stage D, D-c6): a sentence a person reads (a problem a check lists): the service's English text, and when it was
@@ -43,9 +42,9 @@ export interface WorkpackageView {
   workpackage: Workpackage; readiness: Readiness; titles?: Record<string, string>; next: NextStep; last_run: RunRow | null; runs: number;
   /** 153: the run the next step is about (a later run a person stopped does not hide an earlier finished one) */
   current_run?: RunRow | null;
-  attachments_missing?: number; // 058 K5.2: in an email package, the number of PDF attachments not yet added
   /** 231 (C3e): a part a package's rule adds to its view comes by a domain's declaration merging (the finance domain's
-   *  statement package: `statements`); 131's reconciliation part went with the reconciliation logic pack (C3a-2) */
+   *  statement package: `statements`; 261: the email domain's `attachments_missing`, `routing`, `mailbox_request`);
+   *  131's reconciliation part went with the reconciliation logic pack (C3a-2) */
   /** 231 (C3b5a): the rule the package runs by, when it shows a part of its own or adds its own way
    *  (`ui/src/logic/packageParts.tsx`) */
   rule?: { name: string; adds: string; parts: string[] } | null;
@@ -63,13 +62,9 @@ export interface WorkpackageView {
   scope?: PackageScope;
   /** 181: a released package's release state and latest version (the stage bar's result) */
   release?: { state: PackageReleaseState; version: number };
-  /** 181: an email routing package's attachments, proposals and decisions */
-  routing?: RoutingView;
   /** 181: an email package offers the routing of its attachments (and names the routing packages that route it) */
   /** 231 (C1c): the processes whose case may read this package (until then the email routing's own offer) */
   intake?: PackageOffer[];
-  /** 183: a mailbox package: the request of the download that made it (null if no recorded download did) */
-  mailbox_request?: MailboxRequest | null;
   /** 231 (A6): a process pack's case container names its case (the interface opens the case's page) */
   case?: { id: string; pack: string; version: string } | null;
 }
@@ -216,8 +211,8 @@ export interface Extraction {
   review_reasons: string[];
 }
 export interface ItemResult {
-  run_id: string; item_id: string; kind?: "document" | "email" | "statement_table"; email?: EmailItem; page_count?: number | null; extraction: Extraction | null; correction: Correction;
-  attachment_items?: { item_id: string; filename: string }[]; // 058 K5.2: the email's attachments that ran as documents
+  run_id: string; item_id: string; kind?: "document" | "email" | "statement_table"; page_count?: number | null; extraction: Extraction | null; correction: Correction;
+  /** 261: an email item's email and its attachments come by the email domain's declaration merging */
   /** 192: what other domains add to this kind's item (`jav/app/item_kinds.py` item parts), by name */
   parts?: Record<string, unknown>;
   /** 231 (C1a): the processes whose case this email may start */

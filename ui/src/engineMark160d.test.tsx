@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type DsPage, type ItemResult, type PackageResult, type RunView, type WorkpackageView } from "./api";
 import { EngineMark } from "./components/EngineMark";
 import { setLanguage } from "./i18n";
-import { EmailReview } from "./review/EmailReview";
+import { EmailReview } from "./domains/email/EmailReview";
 import { ResultStage } from "./views/ResultStage";
 
 vi.mock("./components/DataTable", async () => {

@@ -1,15 +1,14 @@
 // Client of the local service (jav/service/api.py), split by theme (202, plan G-core-generalisation M3c): the connection
-// (client.ts), the shared records and calls, and each theme's own (email, cases, partners, the own parties). `api` puts every
+// (client.ts), the shared records and calls, and each theme's own (cases, partners, the own parties). `api` puts every
 // theme's calls together, so a caller keeps using `api.<call>`. 231 (C3e): a domain's calls and records live in its
-// folder (`ui/src/domains/<domain>/api.ts`); the domain adds its calls to `api` when the interface loads
-// (`registerCalls`) and their types by declaration merging (`DomainCalls`), so the shared code imports none.
+// folder (`ui/src/domains/<domain>/api.ts`; 261: the email domain's too); the domain adds its calls to `api` when the
+// interface loads (`registerCalls`) and their types by declaration merging (`DomainCalls`), so the shared code imports none.
 export * from "./types";
 export * from "./work";
 export * from "./workflows";
 export * from "./outputs";
 export * from "./datasets";
 export * from "./system";
-export * from "./email";
 export * from "./cases";
 export * from "./partners";
 export * from "./parties";
@@ -21,7 +20,6 @@ import { workflowsApi } from "./workflows";
 import { outputsApi } from "./outputs";
 import { datasetsApi } from "./datasets";
 import { systemApi } from "./system";
-import { emailApi } from "./email";
 import { casesApi } from "./cases";
 import { partnersApi } from "./partners";
 import { partiesApi } from "./parties";
@@ -34,7 +32,6 @@ const shared = {
   ...outputsApi,
   ...datasetsApi,
   ...systemApi,
-  ...emailApi,
   ...casesApi,
   ...partnersApi,
   ...partiesApi,

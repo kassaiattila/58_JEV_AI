@@ -1,10 +1,10 @@
 // 183 (backlog N-angol-felulet-maradek): a download's label and a mailbox package's source in the interface's language,
 // from the download's request (they were stored Hungarian text). Artificial data, no service.
 import { afterEach, expect, it } from "vitest";
-import type { Workpackage } from "./api";
-import { setLanguage } from "./i18n";
+import type { Workpackage, WorkpackageView } from "../../api";
+import { setLanguage } from "../../i18n";
 import { mailboxLabel, storedMailboxLabel } from "./labels";
-import { createdFrom } from "./views/PackageItems";
+import { createdFrom } from "../../views/PackageItems";
 
 afterEach(async () => { await setLanguage("hu"); });
 
@@ -23,7 +23,7 @@ it("writes a download's label in the interface's language", async () => {
 
 it("names a mailbox package's source from the request of the download that made it", async () => {
   await setLanguage("en");
-  expect(createdFrom(WP, RECENT)).toBe("mailbox office@example.com · Sent Items · last 90 days");
+  expect(createdFrom(WP, { mailbox_request: RECENT } as WorkpackageView)).toBe("mailbox office@example.com · Sent Items · last 90 days");
   // no recorded download: the stored label, its period (Hungarian before 183, English since) in the interface's language
   expect(createdFrom(WP)).toBe("mailbox office@example.com · Sent Items · last 90 days");
   expect(storedMailboxLabel("office@example.com · Inbox · last 3 days")).toBe("office@example.com · Inbox · last 3 days");

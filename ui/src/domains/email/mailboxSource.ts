@@ -2,7 +2,8 @@
 // the stored source it makes and its words on the workflow's page. Until C3e the wizard (`views/workflows/NewWork.tsx`)
 // and the workflow's words (`views/workflows/labels.ts`) held them; the email domain registers them with its chooser
 // (`./index.tsx`). A small module, so the interface's start does not load the mailbox screens.
-import type { CaseSource, MailboxRequest, WorkflowSource, WorkflowStep } from "../../api";
+import type { CaseSource, WorkflowSource, WorkflowStep } from "../../api";
+import type { MailboxRequest } from "./api";
 import { t } from "../../i18n";
 
 /** The part of the new work wizard's step draft a mailbox download fills. */

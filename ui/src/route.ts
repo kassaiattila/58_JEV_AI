@@ -72,8 +72,6 @@ export function parseRoute(hash: string): Route {
       return { view: "settings", section, ...(section === parts[1] && parts[2] ? { item: parts[2] } : {}),
         ...(section === parts[1] && parts[2] && parts[3] ? { tab: parts[3] } : {}) };
     }
-    case "mailbox":
-      return { view: "settings", section: "mailboxes" };
     case "activity": {
       const day = params.get("day");
       return { view: "activity", day: day && /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : undefined };
@@ -110,8 +108,11 @@ export function parseRoute(hash: string): Route {
       }
       return r;
     }
-    default:  // 231 (U2a): an unknown address opens the one work list, the cases
-      return { view: "case-list" };
+    default: {  // 231 (U2a): an unknown address opens the one work list, the cases
+      // 261: an older address of a settings section (the mailboxes' `#/mailbox`, 057) opens that section
+      const aliased = settingsSections().find((s) => parts[0] && s.aliases?.includes(parts[0]));
+      return aliased ? { view: "settings", section: aliased.key } : { view: "case-list" };
+    }
   }
 }
 

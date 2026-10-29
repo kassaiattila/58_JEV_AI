@@ -1,8 +1,9 @@
 // 231 (plan stage C, C3e): the own parties - the organisations whose money the processes handle - as the shared code
 // chooses from them: a package's, a case's and a workflow's party (the shared scope part `party`, `jav/app/scopes.py`;
-// the register is the application's, `jav/app/parties.py`). The service serves the overview with the finance domain's
-// addresses (`jav/domains/finance/api_parties.py`), whose changes and months are the finance domain's calls
-// (`ui/src/domains/finance/api.ts`); until C3e all of them were in `ui/src/api/finance.ts`.
+// the register is the application's, `jav/app/parties.py`). 261: the shared code lists them by the shared address
+// (`/own-parties`, their id and name); the overview with their invoices and accounts, its changes and the months are
+// the finance domain's addresses (`jav/domains/finance/api_parties.py`) and calls (`ui/src/domains/finance/api.ts`);
+// until C3e all of them were in `ui/src/api/finance.ts`.
 import { request } from "./client";
 
 export interface PartyRef { id: string; name: string }
@@ -34,5 +35,6 @@ export interface PartiesOverview {
 }
 
 export const partiesApi = {
-  parties: () => request<PartiesOverview>("GET", "/parties"),
+  /** 261: the own parties a package's or a case's scope can name, by name */
+  ownParties: () => request<{ parties: PartyRef[] }>("GET", "/own-parties"),
 };

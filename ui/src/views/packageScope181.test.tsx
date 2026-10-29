@@ -44,7 +44,7 @@ describe("181 a package's scope", () => {
   });
 
   it("is given by hand: the party, the period and a role the package's kind can hold", async () => {
-    vi.spyOn(api, "parties").mockResolvedValue(OVERVIEW);
+    vi.spyOn(api, "ownParties").mockResolvedValue(OVERVIEW);
     vi.spyOn(api, "packageRoles").mockResolvedValue(ROLES);
     const onSave = vi.fn();
     render(<ScopeForm view={packageView()} busy={false} onSave={onSave} onClear={vi.fn()} onCancel={vi.fn()} />);

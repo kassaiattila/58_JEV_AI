@@ -1,6 +1,9 @@
-// The email domain: mailboxes and their schedules, the email routing and the task proposals.
-import { enc, request } from "./client";
-import type { ItemResult, WorkpackageView } from "./types";
+// The email domain: mailboxes and their schedules, the email routing and the task proposals. 261 (the consolidation
+// round, DECISIONS 261): in the domain's folder (until then `ui/src/api/email.ts`), as the finance's and the quotes'
+// since 231 C3e; the domain adds its calls to the shared client when the interface loads (`./index.tsx`), and their
+// types and its parts of the shared records by declaration merging (below), so the shared code imports none.
+import { enc, request } from "../../api/client";
+import type { ItemResult, WorkpackageView } from "../../api/types";
 
 /** 181: what keeps an attachment from being routed by itself (183: `no_data` new; an incoming invoice in a sent email
  * is a note instead). */
@@ -85,13 +88,13 @@ export const emailApi = {
   decideTask: (runId: string, itemId: string, index: number, decision: "accepted" | "rejected", expectedState?: number) =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/tasks/${index}/decision`,
       { decision, ...(expectedState !== undefined ? { expected_state: expectedState } : {}) }),
-  /** 126: a person's decision on a suspected duplicate pair (copy, modified version, not the same invoice). */
+  /** 062: the accepted task marked as done by hand (or unmarked). */
   markTaskDone: (runId: string, itemId: string, index: number, done: boolean, expectedState?: number) =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/tasks/${index}/done`,
       { done, ...(expectedState !== undefined ? { expected_state: expectedState } : {}) }),
+  /** 058 K5.2: the emails' PDF attachments go into the package as documents. */
   addAttachments: (id: string, expected_revision: number) =>
     request<WorkpackageView>("POST", `/workpackages/${enc(id)}/attachments`, { expected_revision }),
-  createRoutingPackage: (body: { name: string; sources: string[] }) => request<WorkpackageView>("POST", "/email-routing/packages", body),
   /** `titles`: the roles' titles in the interface's language, for the names of the packages the routing makes */
   /** 187: `states`, each attachment's `decision_state` as the page read it (a change on a stale page is a 409). */
   routingAccept: (wpId: string, items: string[], target?: string, titles?: Record<string, string>, states?: Record<string, number>) =>
@@ -103,7 +106,6 @@ export const emailApi = {
     request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/reject`, { items, ...(states ? { expected_states: states } : {}) }),
   routingUndo: (wpId: string, item: string, state?: number) =>
     request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/undo`, { item, ...(state !== undefined ? { expected_state: state } : {}) }),
-  /** 181: the package roles a scope can name */
   mailbox: () => request<{ schedules: MailboxSchedule[]; pulls: MailboxPull[]; bridge_available: boolean; accounts?: string[];
     defaults: { interval_min: number; lookback_days: number } }>("GET", "/mailbox"),
   mailboxCount: (req: MailboxRequest) => request<MailboxCount>("POST", "/mailbox/count", req),
@@ -114,3 +116,36 @@ export const emailApi = {
     request<MailboxSchedule>("PATCH", `/mailbox/schedules/${enc(id)}`, body),
   deleteSchedule: (id: string) => request<{ deleted: string }>("POST", `/mailbox/schedules/${enc(id)}/delete`, {}),
 };
+
+type EmailCalls = typeof emailApi;
+declare module "../../api" {
+  interface DomainCalls extends EmailCalls {}
+}
+declare module "../../api/types" {
+  interface WorkpackageView {
+    /** 058 K5.2: in an email package, the number of PDF attachments not yet added */
+    attachments_missing?: number;
+    /** 181: an email routing package's attachments, proposals and decisions */
+    routing?: RoutingView;
+    /** 183: a mailbox package: the request of the download that made it (null if no recorded download did) */
+    mailbox_request?: MailboxRequest | null;
+  }
+  interface ItemResult {
+    /** 048 T2: an email item's email and its intent */
+    email?: EmailItem;
+    /** 058 K5.2: the email's attachments that ran as documents */
+    attachment_items?: { item_id: string; filename: string }[];
+  }
+}
+declare module "../../api/workflows" {
+  interface WorkflowSource {
+    /** a mailbox step's download */
+    request?: MailboxRequest;
+  }
+}
+declare module "../../api/cases" {
+  interface CaseSource {
+    /** 231 (C3d): a mailbox download's request */
+    request?: MailboxRequest;
+  }
+}

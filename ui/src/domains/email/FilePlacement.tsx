@@ -5,11 +5,12 @@
 // cannot place by itself shows why (an amber mark); a document of another kind is only listed. The element shows the
 // email packages it routes (show: sources), the routing itself (show: decide) or what went where (show: routed).
 import { useMemo, useState } from "react";
-import { api, type RoutingBlocker, type RoutingItem, type RoutingNote, type RoutingView } from "../api";
-import { useAction, useLoad } from "../hooks";
-import { t, useLocale } from "../i18n";
-import { docTypeLabel } from "../labels";
-import type { ElementProps } from "./registry";
+import { api } from "../../api";
+import type { RoutingBlocker, RoutingItem, RoutingNote, RoutingView } from "./api";
+import { useAction, useLoad } from "../../hooks";
+import { t, useLocale } from "../../i18n";
+import { docTypeLabel } from "../../labels";
+import type { ElementProps } from "../../elements/registry";
 
 export const BLOCKER: Record<RoutingBlocker, string> = {
   no_result: "Not processed yet: its email package's run has not read it",

@@ -3,13 +3,15 @@
 // download log, and the new emails become a work package with the email intent recipe (231 C3d: a mailbox case's). No
 // paid processing starts by itself (decision of 2026-09-28).
 import { useEffect, useState } from "react";
-import { api, ApiError, getActor, NO_ACTOR, type MailboxCount, type MailboxPull, type MailboxRequest } from "../../api";
+import { api, ApiError, getActor, NO_ACTOR } from "../../api";
+import type { MailboxCount, MailboxPull, MailboxRequest } from "./api";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { DataTable } from "../../components/DataTable";
 import { Picker } from "../../components/Picker";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
-import { intervals, intervalText, mailboxLabel, when } from "../../labels";
+import { intervals, intervalText, when } from "../../labels";
+import { mailboxLabel } from "./labels";
 import { splitAccounts, type MailboxStepDraft } from "./mailboxSource";
 
 export function pullSummary(p: Pick<MailboxPull, "status" | "result">): string {

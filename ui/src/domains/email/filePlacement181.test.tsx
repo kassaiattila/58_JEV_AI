@@ -3,9 +3,10 @@
 // only; the local service is replaced by spies.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setActor, type RoutingItem, type RoutingView, type CaseView } from "../api";
-import { setLanguage } from "../i18n";
-import { ELEMENTS } from "./registry";
+import { api, setActor, type CaseView } from "../../api";
+import type { RoutingItem, RoutingView } from "./api";
+import { setLanguage } from "../../i18n";
+import { elementOf } from "../../elements/registry";
 import { FilePlacement } from "./FilePlacement";
 
 const EMAIL = { item_id: "e1", subject: "June invoice", sender: "billing@example.com", received_at: "2026-06-20T10:00:00", folder: "inbox" };
@@ -39,7 +40,7 @@ describe("181 the email routing package", () => {
   it("is the file placement's element with its tabs' lines (231 C1c: until then a logic pack's three stages)", () => {
     const items = [item("invoice.pdf"), item("contract.pdf", { placement: { ...item("x").placement, routable: false, role: null } })];
     const props = (show: string) => ({ caseId: "wp-00000000000r", element: { ...element(items), show }, page: PAGE, onChanged: () => {} });
-    const line = ELEMENTS.file_placement.status!;
+    const line = elementOf("file_placement")!.status!;
     expect([line(props("sources")), line(props("decide")), line(props("routed"))])
       .toEqual(["1 email batch(es), 2 attachment(s)", "1 to decide", "0 routed"]);
   });

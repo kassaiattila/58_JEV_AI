@@ -3,9 +3,10 @@
 // Synthetic names only; the local service is not called.
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { setActor, type RoutingItem, type RoutingView, type CaseView } from "../api";
-import { setLanguage } from "../i18n";
-import { docTypeLabel } from "../labels";
+import { setActor, type CaseView } from "../../api";
+import type { RoutingItem, RoutingView } from "./api";
+import { setLanguage } from "../../i18n";
+import { docTypeLabel } from "../../labels";
 import { FilePlacement } from "./FilePlacement";
 
 const EMAIL = { item_id: "e1", subject: "Fwd: June invoice", sender: "office@example.com", received_at: "2026-06-20T10:00:00", folder: "sent" };

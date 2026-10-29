@@ -6,7 +6,7 @@
 // `ui/src/domains/<domain>/index.tsx`), and a case page finds both (`elementOf`).
 import { lazy, Suspense, type ReactNode } from "react";
 import type { BlockersData, CalculationData, CaseElement, CaseView, DecisionData, DocumentViewData, EvaluationData, FieldReviewData, LetterData,
-  MissingInfoData, PackageWorkView, RoutingView, SubCaseData } from "../api";
+  MissingInfoData, PackageWorkView, SubCaseData } from "../api";
 import { t } from "../i18n";
 import { moneyText } from "../labels";
 import { blockersStatus, calculationStatus, costTotal, decisionStatus, documentStatus, fieldReviewLine, handoverStatus, letterStatus,
@@ -33,9 +33,7 @@ const PartnerLink = lazy(() => general().then((m) => ({ default: m.PartnerLink }
 const GeneralApproval = lazy(() => general().then((m) => ({ default: m.GeneralApproval })));
 const StartedCases = lazy(() => general().then((m) => ({ default: m.StartedCases })));
 const SubCaseView = lazy(() => general().then((m) => ({ default: m.SubCaseView })));  // 231 (U2c)
-// 231 (C1c): the file placement capability's element (its page loads only when a case shows it); (C3e) the pairing's
-// are the finance domain's
-const FilePlacement = lazy(() => import("./FilePlacement").then((m) => ({ default: m.FilePlacement })));
+// 231 (C3e): the pairing's elements are the finance domain's; 261: the file placement's the email domain's
 // 231 (C3b3): the document processing step's element (its page loads only when a case shows it); its tab line is small
 const PackageWork = lazy(() => import("./PackageWork").then((m) => ({ default: m.PackageWork })));
 // 231 (stage D, D-f4): an assessment's data check: the field review, the facts read from the documents, a register's answer
@@ -56,18 +54,6 @@ const BlockersView = lazy(() => import("./BlockersElement").then((m) => ({ defau
 /** An element whose page loads only when a case shows it (its module imported on first render). */
 export const lazily = (C: (p: ElementProps) => ReactNode) =>
   (p: ElementProps) => <Suspense fallback={<p className="muted">{t("Loading…")}</p>}><C {...p} /></Suspense>;
-const placementOf = (p: ElementProps) => p.element.data as RoutingView | null;
-const placementLine = (p: ElementProps) => {
-  const r = placementOf(p);
-  if (!r) return null;
-  if (p.element.show === "sources") return t("{{n}} email package(s), {{m}} attachment(s)", { n: r.sources.length, m: r.counts.attachments });
-  if (p.element.show === "decide") return r.counts.routable - r.counts.decided ? t("{{n}} to decide", { n: r.counts.routable - r.counts.decided }) : t("every document decided");
-  return t("{{n}} routed", { n: r.counts.accepted });
-};
-const placementSummaryOf = (p: ElementProps) => {
-  const r = placementOf(p);
-  return r ? t("Routing of {{n}} email package(s): {{m}} document(s) to route", { n: r.sources.length, m: r.counts.routable }) : null;
-};
 
 /** D0-d: the capability (by name) of the step an element shows, from the case's page */
 const capabilityOf = (p: ElementProps) => (p.element.step ? p.page.steps[p.element.step]?.uses?.split("@")[0] ?? "" : "");
@@ -93,7 +79,6 @@ export const ELEMENTS: Record<string, ElementSpec> = {
   partner_link: { render: lazily(PartnerLink) },  // 231 (B1)
   started_cases: { render: lazily(StartedCases) },  // 231 (C1c)
   sub_case: { render: lazily(SubCaseView), status: (p) => subCaseStatus(p.element.data as SubCaseData | null)?.text ?? null },  // 231 (U2c)
-  file_placement: { render: lazily(FilePlacement), status: placementLine, summary: placementSummaryOf },  // 231 (C1c)
   package_work: { render: lazily(PackageWork), status: (p) => packageWorkLine(p.element.data as PackageWorkView | null) },  // 231 (C3b3)
   cost: { render: lazily(CostView), status: (p) => { const usd = costTotal(p); return usd === null ? null : `${moneyText(usd)} USD`; } },
   field_review: { render: lazily(FieldReview), status: (p) => fieldReviewLine(p.element.data as FieldReviewData | null) },  // D-f4

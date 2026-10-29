@@ -56,7 +56,7 @@ describe("the new case page (231 U0)", () => {
     vi.spyOn(api, "processExamples").mockResolvedValueOnce(EXAMPLES("missing")).mockResolvedValue(EXAMPLES("installed"));
     const install = vi.spyOn(api, "installExamples").mockResolvedValue(EXAMPLES("installed"));
     vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
-    vi.spyOn(api, "parties").mockResolvedValue({ parties: [] } as never);
+    vi.spyOn(api, "ownParties").mockResolvedValue({ parties: [] } as never);
     const files = vi.spyOn(api, "examplePacketFiles").mockResolvedValue({ files: ["C:\\store\\examples\\a.pdf", "C:\\store\\examples\\b.pdf"] });
     const start = vi.spyOn(api, "startCase").mockResolvedValue({ case_id: CASE });
     render(<NewCase pack="offer_pack" />);
@@ -85,7 +85,7 @@ describe("the new case page (231 U0)", () => {
       sets: [{ kind: "own_party", name: "invented", title: "Example Party Kft.", state: "missing", example: false }], packets: [],
       note: "First read the invented party's documents in the other processes." });
     vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
-    vi.spyOn(api, "parties").mockResolvedValue({ parties: [] } as never);
+    vi.spyOn(api, "ownParties").mockResolvedValue({ parties: [] } as never);
     render(<NewCase pack="pairing_pack" />);
     expect(await screen.findByText("First read the invented party's documents in the other processes.")).toBeTruthy();
     expect(screen.getByText("Example Party Kft.")).toBeTruthy();
@@ -100,7 +100,7 @@ describe("the new case page (231 U0)", () => {
       .mockResolvedValue({ sets: [{ ...party, state: "installed" }], packets: [] });
     vi.spyOn(api, "installExamples").mockResolvedValue({ sets: [{ ...party, state: "installed" }], packets: [] });
     vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
-    vi.spyOn(api, "parties").mockResolvedValueOnce({ parties: [] } as never)
+    vi.spyOn(api, "ownParties").mockResolvedValueOnce({ parties: [] } as never)
       .mockResolvedValue({ parties: [{ id: "party-000000000001", name: "Example Party Kft.", identities: [] }] } as never);
     render(<NewCase pack="statements_pack" />);
     fireEvent.click(await screen.findByRole("button", { name: "Install the example material" }));
@@ -111,7 +111,7 @@ describe("the new case page (231 U0)", () => {
     vi.spyOn(api, "processes").mockResolvedValue({ processes: [{ ...DOCS, id: "mail_pack", title: "Mail", examples: true }] });
     vi.spyOn(api, "processExamples").mockResolvedValue({ sets: [], packets: [], note: "Try it on the invented mailbox." });
     vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
-    vi.spyOn(api, "parties").mockResolvedValue({ parties: [] } as never);
+    vi.spyOn(api, "ownParties").mockResolvedValue({ parties: [] } as never);
     render(<NewCase pack="mail_pack" />);
     expect(await screen.findByText("Try it on the invented mailbox.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Install the example material" })).toBeNull();
