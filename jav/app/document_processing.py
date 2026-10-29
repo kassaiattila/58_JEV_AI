@@ -75,15 +75,29 @@ def _source(value: Any, error: type[Exception]) -> dict[str, Any]:
         return {"kind": PACKAGE, "workpackage_id": wp_id}
     if not isinstance(value, dict) or value.get("kind") not in ("folder", "files"):
         raise explained(error, "choose a folder or files")
+    # 261 (the owner's decision of 2026-10-29): a next period's source may take only the documents no live run has
+    # processed yet (147's rule, `work.unprocessed`)
+    only_new = {"only_new": True} if value.get("only_new") else {}
     if value["kind"] == "folder":
         folder = Path(str(value.get("folder") or ""))
         if not folder.is_dir():
             raise explained(error, "no such folder: {{folder}}", folder=str(folder))
-        return {"kind": "folder", "folder": str(folder), "recursive": bool(value.get("recursive"))}
+        return {"kind": "folder", "folder": str(folder), "recursive": bool(value.get("recursive"))} | only_new
     files = [str(f) for f in value.get("files") or []]
     if not files or any(not Path(f).is_file() for f in files):
         raise explained(error, "choose files that exist")
-    return {"kind": "files", "files": files}
+    return {"kind": "files", "files": files} | only_new
+
+
+def repeated_source(source: dict[str, Any], period: tuple[str, str], earlier: tuple[str, str]) -> dict[str, Any] | None:
+    """261: a case's source for its next period (`period`, after the `earlier` one): a folder or files again, taking only
+    the documents no live run has processed yet; a domain's source kind as it moves on (a mailbox's received range);
+    None for a package made before (a person gives the next one)."""
+    if (domain := workflow_steps.source_kind(str(source.get("kind")))) is not None:
+        return domain.repeated(source, period, {"period_start": earlier[0], "period_end": earlier[1]})
+    if source.get("kind") in ("folder", "files"):
+        return {**source, "only_new": True}
+    return None
 
 
 def _source_words(value: dict[str, Any]) -> str:
@@ -179,9 +193,17 @@ def _documents(scope: dict[str, Any], name: str, owner: identity.Who | None) -> 
     """The documents' maker: the folder's or the files' documents; none, no package (an empty one is not kept)."""
     source = scope[SOURCE_PART]
     if source["kind"] == "folder":
-        wp = work.create_from_folder(Path(source["folder"]), name=name, owner=owner, recursive=source["recursive"])
+        only = None
+        if source.get("only_new"):  # 261: the documents no live run has processed yet
+            only, _done = work.unprocessed(work.folder_documents(Path(source["folder"]), recursive=source["recursive"]))
+            if not only:
+                return None
+        wp = work.create_from_folder(Path(source["folder"]), name=name, owner=owner, recursive=source["recursive"], only=only)
     else:
-        wp = work.create_from_files([Path(f) for f in source["files"]], name=name, owner=owner)
+        files = [Path(f) for f in source["files"]]
+        if source.get("only_new") and not (files := work.unprocessed(files)[0]):
+            return None
+        wp = work.create_from_files(files, name=name, owner=owner)
     if not work.get(wp["id"])["items"]:
         work.delete_workpackage(wp["id"], actor=owner or "machine")
         return None

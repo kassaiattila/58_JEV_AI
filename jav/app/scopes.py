@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from jav.core.user_messages import explained
@@ -159,6 +159,23 @@ def period(start: Any, end: Any, error: type[Exception] = ScopeError) -> tuple[s
     if a > b:
         raise explained(error, "the period ends before it starts")
     return a.isoformat(), b.isoformat()
+
+
+def _first_of_month_after(d: date, months: int) -> date:
+    m = d.month - 1 + months
+    return date(d.year + m // 12, m % 12 + 1, 1)
+
+
+def next_period(start: Any, end: Any, error: type[Exception] = ScopeError) -> tuple[str, str]:
+    """The period after this one: whole calendar months are followed by as many months (a month by the next month, a
+    quarter by the next quarter); any other period by one as long, right after it (147: a workflow's repeat; 261 and a
+    case's next period; until 261 in `jav/app/workflows.py`)."""
+    a, b = (date.fromisoformat(d) for d in period(start, end, error))
+    after = b + timedelta(days=1)
+    if a.day == 1 and after.day == 1:
+        months = (after.year - a.year) * 12 + after.month - a.month
+        return after.isoformat(), (_first_of_month_after(after, months) - timedelta(days=1)).isoformat()
+    return after.isoformat(), (after + (b - a)).isoformat()
 
 
 def _period(value: Any, error: type[Exception]) -> tuple[str, str]:

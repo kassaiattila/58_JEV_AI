@@ -30,7 +30,8 @@ const Mailbox = lazyPage(() => screens().then((m) => m.Mailbox));
 // 048 T2 / 231 C3d: a mailbox download (its addresses, folders and period); 183: a mailbox package's origin
 registerSourceChooser<MailboxStepDraft>("mailbox", {
   label: "A mailbox",
-  Case: ({ onChange }) => <MailboxRequestFields onChange={(req) => onChange(req ? { kind: "mailbox", request: req } : null)} />,
+  Case: ({ onChange, initial }) => <MailboxRequestFields initial={initial?.request ?? null}
+    onChange={(req) => onChange(req ? { kind: "mailbox", request: req } : null)} />,
   step: { draft: stepDraft, Fields: (p) => <MailboxStepFields {...p} />, source: stepSource },
   words: stepWords,
   name: caseName,

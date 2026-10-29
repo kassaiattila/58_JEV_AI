@@ -53,18 +53,20 @@ export function toggleAccount(value: string, account: string): string {
 /** 231 (C3d): what a mailbox download reads - the addresses (the previously used ones a click away), the folders, the
  *  period, at most how many emails - with the free count of the emails it would bring; the request, or null while it
  *  is not complete. Settings › Mailboxes saves a schedule of it; a mailbox case's general form downloads it
- *  (its chooser, `./index.tsx`). Until C3d the wizard's own download form (the `pull` variant). */
-export function MailboxRequestFields({ onChange }: { onChange: (req: MailboxRequest | null) => void }) {
+ *  (its chooser, `./index.tsx`). Until C3d the wizard's own download form (the `pull` variant). 261: `initial`, the
+ *  request it starts from (a next period's form: the previous case's download, its range moved on). */
+export function MailboxRequestFields({ onChange, initial }: { onChange: (req: MailboxRequest | null) => void;
+  initial?: MailboxRequest | null }) {
   useLocale();
   const data = useLoad("mailbox", api.mailbox);
-  const [account, setAccount] = useState("");
-  const [folders, setFolders] = useState("Inbox");
-  const [subfolders, setSubfolders] = useState(false);
-  const [mode, setMode] = useState<"recent" | "range">("recent");
-  const [days, setDays] = useState(7);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [maxItems, setMaxItems] = useState(0);
+  const [account, setAccount] = useState((initial?.accounts ?? []).join(", "));
+  const [folders, setFolders] = useState(initial?.folders?.length ? initial.folders.join(", ") : "Inbox");
+  const [subfolders, setSubfolders] = useState(!!initial?.subfolders);
+  const [mode, setMode] = useState<"recent" | "range">(initial?.received_from ? "range" : "recent");
+  const [days, setDays] = useState(initial?.since_days ?? 7);
+  const [from, setFrom] = useState(initial?.received_from ?? "");
+  const [to, setTo] = useState(initial?.received_to ?? "");
+  const [maxItems, setMaxItems] = useState(initial?.max_items ?? 0);
   const [preview, setPreview] = useState<MailboxCount | null>(null);
   const [counting, setCounting] = useState(false);
   const [error, setError] = useState<string | null>(null);

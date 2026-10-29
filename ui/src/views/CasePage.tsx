@@ -65,6 +65,25 @@ function FollowUps({ caseId, view }: { caseId: string; view: CaseView }) {
   );
 }
 
+/** 261 (the owner's decisions of 2026-10-29): the case it follows (the previous period's, or the closed case whose
+ *  follow-up it is) and, for a case of a process repeated by period, open or closed, its next period: the button opens
+ *  the new case's form filled in from it, or the next period's case once one was started from it. */
+function Sequence({ caseId, view }: { caseId: string; view: CaseView }) {
+  const next = view.next_period;
+  const follows = view.case.follows;
+  if (!next && !follows) return null;
+  return (
+    <div className="button-row">
+      {follows ? <a href={`#/cases/${encodeURIComponent(follows)}`}>{t("Follows: {{case}}", { case: follows })}</a> : null}
+      {next?.case_id ? <a href={`#/cases/${encodeURIComponent(next.case_id)}`}>{t("Next period: {{case}}", { case: next.case_id })}</a> : null}
+      {next && !next.case_id ? (
+        <button type="button" className="secondary" onClick={() => go({ view: "case-list", create: true, pack: view.case.pack, after: caseId })}>
+          {t("Next period")} →</button>
+      ) : null}
+    </div>
+  );
+}
+
 export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
   useLocale();
   const [poll, setPoll] = useState(false);
@@ -115,6 +134,7 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
         summary={summary}
         actions={container.data ? <><OwnerPicker view={container.data} onChanged={reload} />{nextButton}<WorkpackageActions view={container.data} onChanged={reload} /></> : nextButton} />
       <FollowUps caseId={caseId} view={view} />
+      <Sequence caseId={caseId} view={view} />
       {/* A7e: one row however many tabs the pack has (the package page's three by default) */}
       <div className="stage-tabs" role="tablist" aria-label={t("The case's steps")} style={{ "--tabs": view.tabs.length } as CSSProperties}>
         {view.tabs.map((x, i) => (

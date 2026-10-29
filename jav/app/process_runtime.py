@@ -156,6 +156,78 @@ def follow_up(case_id: str, pack_id: str, *, actor: identity.Who) -> str:
     return new
 
 
+# --- the next period (261; the owner's decisions of 2026-10-29) ------------------------------------------------------
+
+
+class NextPeriodError(ValueError):
+    """No next period of the case now: its process is not repeated by period, it has no period, or the next period's
+    case was started from it already."""
+
+
+def next_period_of(case_id: str) -> dict[str, Any] | None:
+    """261: for a case of a process repeated by period (`ProcessPack.repeats`), the next period's case started from it
+    (`case_id`, None until one was), open or closed; None for any other case."""
+    pack = pack_for(case_id)
+    if pack is None or not pack.repeats:
+        return None
+    return {"case_id": _next_started(case_id)}
+
+
+def _next_started(case_id: str) -> str | None:
+    with store.connect() as c:
+        rows = cases.history_in(c, case_id, FOLLOWED)
+    return next((h["detail"].get("case") for h in rows if h["detail"].get("next_period")), None)
+
+
+def next_draft(case_id: str) -> dict[str, Any]:
+    """261: the case's next period as the new case's form shows it filled in, nothing written: the same process and own
+    party, the period after the case's, each source again (a folder or files taking only the documents no live run has
+    processed yet, a mailbox's received range moved on; a package made before left for a person to give) and the name
+    with the new period (None when the name does not hold the period: the form proposes one); `follows`, the case.
+    Refused (`NextPeriodError`) when the case offers none, or its next period's case was started already."""
+    from jav.app import document_processing, sub_cases
+
+    pack = pack_for(case_id)
+    with store.connect() as c:
+        data = (cases.find_case_in(c, case_id) or {}).get("data") or {}
+    scope = data.get("scope") or {}
+    earlier = scope.get(scopes.PERIOD)
+    if pack is None or not pack.repeats or not earlier:
+        raise explained(NextPeriodError, "the case offers no next period")
+    if (started := _next_started(case_id)) is not None:
+        raise explained(NextPeriodError, "the next period's case was started already: {{case}}", case=started)
+    period = scopes.next_period(*earlier, NextPeriodError)
+
+    def moved(source: dict[str, Any]) -> dict[str, Any] | None:
+        return document_processing.repeated_source(source, period, (earlier[0], earlier[1]))
+
+    draft: dict[str, Any] = {"pack": pack.id, "follows": case_id, "period_start": period[0], "period_end": period[1]}
+    if scope.get(scopes.PARTY):
+        draft["party_id"] = scope[scopes.PARTY]
+    if (source := scope.get(document_processing.SOURCE_PART)) and (again := moved(source)) is not None:
+        draft["source"] = again
+    if steps := {step: again for step, source in (scope.get(sub_cases.STEP_SOURCES) or {}).items()
+                 if (again := moved(source)) is not None}:
+        draft["step_sources"] = steps
+    name = str(data.get("name") or "")
+    draft["name"] = (name.replace(earlier[0], period[0]).replace(earlier[1], period[1])
+                     if earlier[0] in name and earlier[1] in name else None)
+    return draft
+
+
+def start_next(case_id: str, pack_id: str, scope: dict[str, Any], *, name: str, actor: identity.Who) -> str:
+    """261: the case's next period's case, of the same process, with the scope a person checked (the form filled in
+    from `next_draft`), knowing the case it follows (`follows` in its data) and recorded on that case, so each case has
+    one next case. Refused (`NextPeriodError`) as `next_draft` refuses, or for another process."""
+    draft = next_draft(case_id)
+    if pack_id != draft["pack"]:
+        raise explained(NextPeriodError, "the next period's case is a case of the same process")
+    new = start_case(pack_id, scope, name=name, actor=actor, follows=case_id)
+    with cases.transaction() as c:
+        cases.record(c, case_id, None, FOLLOWED, identity.who(actor), {"pack": pack_id, "case": new, "next_period": True})
+    return new
+
+
 def _kept_rule_files(pack: process_packs.ProcessPack) -> list[str]:
     """D0-e: the rule files a case of the pack reads as it started: those its steps' capabilities read. D-d1: and those a
     step reads by its parameters (a fact catalogue a parameter names; a parameter naming a resource reads its value)."""

@@ -3,7 +3,7 @@
 // choose) and from such a package's own page (the processes that take it, with the cases already reading it). Until
 // C1c the email routing's own form and offer.
 import { useEffect, useState } from "react";
-import { api, ApiError, type CaseSource, type PackageOffer, type ProcessRecord, type StepSource } from "../api";
+import { api, ApiError, type CaseNextDraft, type CaseSource, type PackageOffer, type ProcessRecord, type StepSource } from "../api";
 import { BrowseButton } from "../components/BrowseButton";
 import { Icon } from "../components/Icon";
 import { Picker } from "../components/Picker";
@@ -13,10 +13,15 @@ import { t, useLocale } from "../i18n";
 import { go } from "../route";
 
 /** 231 (U2c): what a person chose as a source: a folder, files, a packet of invented documents, or a domain's source
- *  (a mailbox download). */
+ *  (a mailbox download); 261: a folder's or files' `onlyNew`, only the documents no live run has processed yet. */
 interface SourceChoice { kind: "folder" | "files" | "example"; folder: string; recursive: boolean; files: string; packet: string;
-  domain: CaseSource | null }
-const NO_SOURCE: SourceChoice = { kind: "folder", folder: "", recursive: false, files: "", packet: "", domain: null };
+  domain: CaseSource | null; onlyNew: boolean }
+const NO_SOURCE: SourceChoice = { kind: "folder", folder: "", recursive: false, files: "", packet: "", domain: null, onlyNew: false };
+/** 261: a source the next period's form starts from (the previous case's, moved on by the service). */
+const choiceFrom = (s: CaseSource | undefined): SourceChoice => (!s ? NO_SOURCE
+  : s.kind === "folder" ? { ...NO_SOURCE, kind: "folder", folder: s.folder ?? "", recursive: !!s.recursive, onlyNew: !!s.only_new }
+  : s.kind === "files" ? { ...NO_SOURCE, kind: "files", files: (s.files ?? []).join("\n"), onlyNew: !!s.only_new }
+  : { ...NO_SOURCE, domain: s });
 type ChoiceUpdate = (update: (c: SourceChoice) => SourceChoice) => void;
 
 // a path pasted with its quotes (Explorer's "Copy as path") is taken without them, as the documents form took it
@@ -31,26 +36,39 @@ const choiceReady = (c: SourceChoice, kinds: string[]) => (domainChooser(kinds) 
 async function sourceOf(c: SourceChoice, kinds: string[], pack: string): Promise<CaseSource | null> {
   if (domainChooser(kinds)) return c.domain;
   if (c.kind === "example") return { kind: "files", files: (await api.examplePacketFiles(pack, c.packet)).files };
-  return c.kind === "folder" ? { kind: "folder", folder: c.folder.trim(), recursive: c.recursive } : { kind: "files", files: linesOf(c.files) };
+  const onlyNew = c.onlyNew ? { only_new: true } : {};  // 261
+  return c.kind === "folder" ? { kind: "folder", folder: c.folder.trim(), recursive: c.recursive, ...onlyNew }
+    : { kind: "files", files: linesOf(c.files), ...onlyNew };
 }
 
 /** The wizard's form of a one-step template of a process pack's case: what its scope asks a person (the packages it
  *  reads; 231 C2d: its own party and period; the other parts take their default, e.g. the party's accounts) and its
- *  name; (U2c) for a process whose steps run cases of other processes, each such step's own documents. */
-export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: string) => void }) {
+ *  name; (U2c) for a process whose steps run cases of other processes, each such step's own documents. 261: `after`, the
+ *  case whose next period it starts: the form is filled in from it (the service's draft) and the new case follows it. */
+export function ProcessCreate({ pack, onDone, after }: { pack: string; onDone: (wpId: string) => void; after?: string }) {
+  useLocale();
+  const draft = useLoad(after ? `case-next:${after}` : null, () => api.caseNext(after ?? ""));
+  if (!after) return <ProcessForm pack={pack} onDone={onDone} />;
+  if (draft.error) return <p className="notice error" role="alert">{draft.error.message}</p>;
+  if (!draft.data) return <p className="muted">{t("Loading…")}</p>;
+  return <ProcessForm pack={pack} onDone={onDone} draft={draft.data} />;
+}
+
+function ProcessForm({ pack, onDone, draft }: { pack: string; onDone: (wpId: string) => void; draft?: CaseNextDraft }) {
   useLocale();
   const packs = useLoad("processes", api.processes);
   const list = useLoad("workpackages-brief", api.workpackagesBrief);
   const parties = useLoad("own-parties", api.ownParties);
   const [chosen, setChosen] = useState<string[]>([]);
-  const [partyId, setPartyId] = useState("");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [name, setName] = useState("");
+  const [partyId, setPartyId] = useState(draft?.party_id ?? "");
+  const [start, setStart] = useState(draft?.period_start ?? "");
+  const [end, setEnd] = useState(draft?.period_end ?? "");
+  const [name, setName] = useState(draft?.name ?? "");
   // 231 (C3b3): the documents of a document processing case (its scope part `source`); (U0) or a packet of the
   // process's invented example documents; (C3d) or a domain's source kind's
-  const [choice, setChoice] = useState<SourceChoice>(NO_SOURCE);
-  const [stepChoices, setStepChoices] = useState<Record<string, SourceChoice>>({});  // 231 (U2c): by step
+  const [choice, setChoice] = useState<SourceChoice>(() => choiceFrom(draft?.source));
+  const [stepChoices, setStepChoices] = useState<Record<string, SourceChoice>>(  // 231 (U2c): by step
+    () => Object.fromEntries(Object.entries(draft?.step_sources ?? {}).map(([step, s]) => [step, choiceFrom(s)])));
   const [record, setRecord] = useState<ProcessRecord | null>(null);  // 231 (C3c): the record the case starts from
   const { busy, error, run } = useAction();
   const info = packs.data?.processes.find((p) => p.id === pack);
@@ -95,11 +113,15 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
       ...(wantsSources ? { sources: chosen } : {}), ...(wantsParty ? { party_id: partyId } : {}),
       ...(wantsPeriod ? { period_start: start, period_end: end } : {}), ...(wantsSource && documents ? { source: documents } : {}),
       ...(wantsRecord && record ? { record: { workpackage_id: record.workpackage_id, item_id: record.item_id } } : {}),
-      ...(steps.length ? { step_sources: bySteps } : {}),
+      ...(steps.length ? { step_sources: bySteps } : {}), ...(draft ? { follows: draft.follows } : {}),
     });
   }, { then: (made) => onDone(made.case_id) });
   return (
     <form className="create rc-stack" aria-label={title} onSubmit={(e) => { e.preventDefault(); if (ready) void submit(); }}>
+      {draft ? (
+        <p className="small muted">{t("Filled in from the previous period's case.")}{" "}
+          <a className="mono" href={`#/cases/${encodeURIComponent(draft.follows)}`}>{draft.follows}</a></p>
+      ) : null}
       {list.error ? <p className="notice error" role="alert">{list.error.message}</p> : null}
       {wantsRecord ? <RecordChooser pack={pack} chosen={record} onChoose={setRecord} /> : null}
       {wantsSources ? (
@@ -130,10 +152,10 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
       ) : null}
       {wantsSource ? (
         <SourceFields legend={t("The case's documents")} name="case-source" kinds={kinds} packets={packets} choice={choice}
-          onChange={setChoice} />
+          onChange={setChoice} offerOnlyNew={!!draft} />
       ) : null}
       {steps.map((x) => (
-        <StepSourceFields key={x.step} entry={x} choice={stepChoices[x.step] ?? NO_SOURCE}
+        <StepSourceFields key={x.step} entry={x} choice={stepChoices[x.step] ?? NO_SOURCE} offerOnlyNew={!!draft}
           onChange={(update) => setStepChoices((prev) => ({ ...prev, [x.step]: update(prev[x.step] ?? NO_SOURCE) }))} />
       ))}
       <label className="block">{t("Name")} <span className="muted">{t("(optional)")}</span>
@@ -149,19 +171,20 @@ export function ProcessCreate({ pack, onDone }: { pack: string; onDone: (wpId: s
 
 /** 231 (U2c): a step's own documents, for the case of another process it runs (that process's invented documents to
  *  start on, where it has some). */
-function StepSourceFields({ entry, choice, onChange }: { entry: StepSource; choice: SourceChoice; onChange: ChoiceUpdate }) {
+function StepSourceFields({ entry, choice, onChange, offerOnlyNew }: { entry: StepSource; choice: SourceChoice; onChange: ChoiceUpdate;
+  offerOnlyNew?: boolean }) {
   useLocale();
   const examples = useLoad(entry.examples ? `examples:${entry.pack}` : null, () => api.processExamples(entry.pack));
   return (
     <SourceFields legend={`${t(entry.title)} · ${t(entry.process)}`} name={`case-source-${entry.step}`} kinds={entry.source_kinds}
-      packets={examples.data?.packets ?? []} choice={choice} onChange={onChange} />
+      packets={examples.data?.packets ?? []} choice={choice} onChange={onChange} offerOnlyNew={offerOnlyNew} />
   );
 }
 
 /** Where documents come from: a domain's own chooser (a mailbox download), or a folder, chosen files or a packet of
- *  invented documents. */
-function SourceFields({ legend, name, kinds, packets, choice, onChange }: { legend: string; name: string; kinds: string[];
-  packets: { id: string; title: string; documents: number }[]; choice: SourceChoice; onChange: ChoiceUpdate }) {
+ *  invented documents. 261: in a next period's form a folder or files may take only the new documents (`offerOnlyNew`). */
+function SourceFields({ legend, name, kinds, packets, choice, onChange, offerOnlyNew }: { legend: string; name: string; kinds: string[];
+  packets: { id: string; title: string; documents: number }[]; choice: SourceChoice; onChange: ChoiceUpdate; offerOnlyNew?: boolean }) {
   useLocale();
   const set = (over: Partial<SourceChoice>) => onChange((c) => ({ ...c, ...over }));
   const Chooser = domainChooser(kinds);
@@ -175,7 +198,7 @@ function SourceFields({ legend, name, kinds, packets, choice, onChange }: { lege
     return (
       <fieldset className="wizard-choices">
         <legend>{legend}</legend>
-        <Chooser onChange={(domain) => set({ domain })} />
+        <Chooser initial={choice.domain} onChange={(domain) => set({ domain })} />
       </fieldset>
     );
   }
@@ -216,6 +239,9 @@ function SourceFields({ legend, name, kinds, packets, choice, onChange }: { lege
           <BrowseButton kind="files" initial={fileLines[fileLines.length - 1]} onPick={addFiles} />
         </div>
       )}
+      {offerOnlyNew && choice.kind !== "example" ? (
+        <label className="check"><input type="checkbox" checked={choice.onlyNew} onChange={(e) => set({ onlyNew: e.target.checked })} /> {t("Only the documents no live run has processed yet")}</label>
+      ) : null}
     </fieldset>
   );
 }

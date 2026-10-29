@@ -73,7 +73,7 @@ export function App() {
             {route.view === "workflows" ? <Workflows route={route} /> : null}
             {route.view === "cases" ? <CasePage caseId={route.caseId} tab={route.tab} /> : null}
             {route.view === "case-list" && !route.create ? <CaseList /> : null}
-            {route.view === "case-list" && route.create ? <NewCase pack={route.pack} /> : null}
+            {route.view === "case-list" && route.create ? <NewCase pack={route.pack} after={route.after} /> : null}
             {route.view === "settings" ? <Settings section={route.section} item={route.item} tab={route.tab} /> : null}
             {route.view === "legacy-result" ? <LegacyResult runId={route.runId} table={route.table} /> : null}
             {route.view === "activity" ? <Activity day={route.day} /> : null}

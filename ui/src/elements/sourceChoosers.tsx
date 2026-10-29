@@ -17,8 +17,9 @@ export type StepChooser<D> = {
 export type SourceChooser<D = unknown> = {
   /** The wizard's choice of the source (an English source text, translated when shown). */
   label: string;
-  /** A case's source: told whenever it changes (null while it is not complete). */
-  Case: (p: { onChange: (source: CaseSource | null) => void }) => ReactNode;
+  /** A case's source: told whenever it changes (null while it is not complete); 261: `initial`, the source it starts
+   *  from (a next period's form, filled in from the previous case). */
+  Case: (p: { onChange: (source: CaseSource | null) => void; initial?: CaseSource | null }) => ReactNode;
   /** A workflow step's source in the wizard. */
   step: StepChooser<D>;
   /** A workflow step's stored source in a few words (the workflow's page). */
