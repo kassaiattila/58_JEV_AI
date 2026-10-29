@@ -51,11 +51,11 @@ export function StartConfirm({ view, mode, rerun, pending = false, onChanged }: 
   const title = pending
     ? effectiveMode === "apply" ? t("Confirm the live run on the pending items") : t("Confirm the trial run on the pending items")
     : rerun
-    ? t("Újrafuttatás megerősítése ({{mode}})", { mode: MODE[effectiveMode].toLowerCase() })
-    : effectiveMode === "apply" ? t("Éles futás indításának megerősítése") : t("Próbafutás indításának megerősítése");
+    ? t("Confirm rerun ({{mode}})", { mode: MODE[effectiveMode].toLowerCase() })
+    : effectiveMode === "apply" ? t("Confirm starting a live run") : t("Confirm starting a trial run");
   const meaning = effectiveMode === "apply"
-    ? t("Az eredményt ember hagyja jóvá az Eredmény szakaszban, nyitott teendő nélkül.")
-    : t("Az eredmény megtekinthető és letölthető, de nem adható ki.");
+    ? t("A person approves the result in the Result stage, with no open issues.")
+    : t("The result can be viewed and downloaded, but not released.");
 
   async function confirm() {
     setBusy(true);
@@ -69,7 +69,7 @@ export function StartConfirm({ view, mode, rerun, pending = false, onChanged }: 
     } catch (e) {
       const err = e as ApiError;
       setMsg(err.status === 409 && err.code === "revision_conflict"
-        ? t("A köteg vagy a beállításai közben változtak. Frissítettük, nézd át és indítsd újra.") : err.message);
+        ? t("The batch or its settings changed meanwhile. We refreshed it; review it and start again.") : err.message);
       onChanged();
     } finally {
       setBusy(false);
@@ -83,26 +83,26 @@ export function StartConfirm({ view, mode, rerun, pending = false, onChanged }: 
         ? ` ${t("Only the items no run of this kind has finished yet (added since, or failed). The earlier runs and their approval stay as they are; this run's result is reviewed and approved on its own.")}`
         : rerun && target ? ` ${t("The run of {{when}} again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not).", { when: when(target.created_at) })}` : ""}</p>
       <dl className="confirm-list">
-        <dt>{t("Iratköteg")}</dt><dd>{wp.name}</dd>
-        <dt>{t("Tételek")}</dt><dd>{t("{{n}} tétel", { n: items })}</dd>
-        <dt>{t("Feldolgozási beállítások")}</dt>
+        <dt>{t("Document batch")}</dt><dd>{wp.name}</dd>
+        <dt>{t("Item list")}</dt><dd>{t("{{n}} items", { n: items })}</dd>
+        <dt>{t("Processing settings")}</dt>
         <dd>
           {!recipe && assignment ? <>{t(recipes.data?.titles?.[assignment.recipe_id] ?? assignment.recipe_id)}: </> : null}
-          {readiness.assignment_default ? <span className="muted small">{t("alapbeállítás, az indításkor mentődik a köteghez")}</span> : null}
+          {readiness.assignment_default ? <span className="muted small">{t("default settings, saved to the batch when the run starts")}</span> : null}
           <ul className="plain small">
             {/* 090: the processing path first (the documents' path and the use of JEV as one choice), then the settings
                 that count */}
             {shownParams(Object.keys(settings), settings, kinds).map((k) => <li key={k}>{PARAM_LABEL[k] ?? k}: {paramValue(k, shownValue(k, settings, kinds))}</li>)}
           </ul>
         </dd>
-        <dt>{t("Legnagyobb költség")}</dt>
+        <dt>{t("Maximum cost")}</dt>
         <dd>
           {budget.length
-            ? budget.map(([p, v]) => t("{{provider}} legfeljebb {{amount}}", { provider: providerName(p), amount: usdBudget(v) })).join(", ")
-            : t("nincs")}
+            ? budget.map(([p, v]) => t("{{provider}} up to {{amount}}", { provider: providerName(p), amount: usdBudget(v) })).join(", ")
+            : t("none")}
           <span className="muted small"> — {paid
-            ? t("fizetős hívásokkal jár; a tényleges költség általában kisebb, a futás oldalán követhető")
-            : t("nem jár fizetős hívással")}</span>
+            ? t("involves paid calls; the actual cost is usually lower and can be followed on the run page")
+            : t("involves no paid calls")}</span>
         </dd>
       </dl>
       {offer?.plan ? <RunPlanList plan={offer.plan} budget={offer.budget} /> : null}
@@ -113,18 +113,18 @@ export function StartConfirm({ view, mode, rerun, pending = false, onChanged }: 
         <BlockerList items={offer.warnings.map((w, i) => ({ key: String(i), warning: true, content: blockerText(w) }))} />
       ) : null}
       {pending && fresh.data && !supplement ? <p className="notice">{t("No item is pending any more: there is nothing to start on its own.")}</p> : null}
-      {active ? <p className="notice">{t("A kötegen éppen fut egy futás; új csak utána indítható.")}</p> : null}
+      {active ? <p className="notice">{t("A run is in progress on this batch; a new one can start only after it.")}</p> : null}
       {!fresh.data ? (
         <p className="muted small" role="status">
-          {fresh.error ? t("A friss költségkeret nem kérhető le: {{message}}", { message: fresh.error.message }) : t("A költségkeret frissítése…")}
+          {fresh.error ? t("The current cost limit could not be loaded: {{message}}", { message: fresh.error.message }) : t("Refreshing the cost limit…")}
         </p>
       ) : null}
       <div className="button-row">
         <button type="button" className="primary" disabled={blocked || busy} onClick={() => void confirm()}>
-          {busy ? t("Indítás…") : pending ? t("Start on the pending items") : rerun ? t("Újrafuttatás indítása")
-            : effectiveMode === "apply" ? t("Éles futás indítása") : t("Próbafutás indítása")}
+          {busy ? t("Launching…") : pending ? t("Start on the pending items") : rerun ? t("Start rerun")
+            : effectiveMode === "apply" ? t("Start live run") : t("Start trial run")}
         </button>
-        <button type="button" className="secondary" disabled={busy} onClick={back}>{t("Mégse")}</button>
+        <button type="button" className="secondary" disabled={busy} onClick={back}>{t("Cancel")}</button>
       </div>
       {msg ? <p role="alert" className="notice error">{msg}</p> : null}
     </section>

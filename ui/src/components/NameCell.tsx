@@ -31,7 +31,7 @@ export function nameCheckText(reasons: readonly string[]): string {
  *  written from the reasons' codes when the service gives them, else the service's text). */
 export function NameWarning({ check, reasons }: { check: string | null | undefined; reasons?: readonly string[] | null }) {
   const why = reasons?.length ? nameCheckText(reasons) : check;
-  const label = why ? t("Ellenőrzendő név: {{why}}", { why }) : t("Ellenőrzendő név");
+  const label = why ? t("Name to check: {{why}}", { why }) : t("Name to check");
   return <span className="name-warn" role="img" aria-label={label} title={label}>⚠</span>;
 }
 
@@ -41,11 +41,11 @@ export function nameCell(col: DsColumn, row: DsRow): ReactNode | undefined {
   const unifiedColumn = col.key === "unified_name";
   if (!unifiedColumn && !(col.key === "name" && col.names === "unified")) return undefined;
   const unified = row.unified_name ? String(row.unified_name) : null;
-  if (unifiedColumn && !unified) return <span className="muted">{row.name_state === "pending" ? t("még nincs") : "–"}</span>;
+  if (unifiedColumn && !unified) return <span className="muted">{row.name_state === "pending" ? t("none yet") : "–"}</span>;
   const text = unifiedColumn ? unified : String(row.name ?? "");
   const tip = unified
-    ? t("Eredeti név: {{name}}", { name: String(row.original_name ?? "") })
-    : row.name_state === "pending" ? t("Még nincs egységes név: a tétel még nem futott le.") : undefined;
+    ? t("Original name: {{name}}", { name: String(row.original_name ?? "") })
+    : row.name_state === "pending" ? t("No unified name yet: the item has not been processed.") : undefined;
   const warn = unified && row.name_state === "review" ? <NameWarning check={row._name_check as string | null} reasons={row._name_reasons as string[] | undefined} /> : null;
   const href = linkOf(col, row);
   const body = href ? <a href={href} title={tip}>{text}</a> : <span title={tip}>{text}</span>;
@@ -58,11 +58,11 @@ export function NameModeSwitch() {
   const mode = useNameMode();
   const group = useId();
   return (
-    <fieldset className="segmented name-switch" title={t("Az egységes név a tartalom alapján képzett fájlnév (dátum, típus, partner, azonosító). A feldolgozás előtt az eredeti név látszik.")}>
-      <legend className="sr-only">{t("Megjelenített név")}</legend>
-      <span className="small muted">{t("Név:")}</span>
-      <label><input type="radio" name={group} checked={mode === "original"} onChange={() => setNameMode("original")} /> {t("Eredeti")}</label>
-      <label><input type="radio" name={group} checked={mode === "unified"} onChange={() => setNameMode("unified")} /> {t("Egységes")}</label>
+    <fieldset className="segmented name-switch" title={t("The unified name is the file name built from the content (date, type, partner, identifier). Before processing, the original name is shown.")}>
+      <legend className="sr-only">{t("Name shown")}</legend>
+      <span className="small muted">{t("Name:")}</span>
+      <label><input type="radio" name={group} checked={mode === "original"} onChange={() => setNameMode("original")} /> {t("Original")}</label>
+      <label><input type="radio" name={group} checked={mode === "unified"} onChange={() => setNameMode("unified")} /> {t("Unified")}</label>
     </fieldset>
   );
 }

@@ -32,7 +32,7 @@ export function valueText(v: RuleValue): string {
   switch (v.format) {
     case "percent": return `${numText(Number(v.value) * 100, 1)}\u00a0%`; // the sign never on a line of its own
     case "points": return t("{{n}} percentage points", { n: numText(Number(v.value) * 100, 1) });
-    case "yes_no": return v.value ? t("igen") : t("nem");
+    case "yes_no": return v.value ? t("yes") : t("no");
     case "number": return numText(v.value);
     case "names": return (v.value as string[]).map((n) => t(n)).join(", ");
     case "name": return t(String(v.value));

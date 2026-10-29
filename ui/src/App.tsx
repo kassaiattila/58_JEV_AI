@@ -30,7 +30,7 @@ const NewCase = lazyPage(() => import("./views/NewCase").then((m) => m.NewCase))
 const NAV = [
   // 231 (A7e): the process packs' cases (an English source label, translated at render time); (U2a) the one work list
   { view: "case-list", href: "#/cases", label: "Cases", icon: <path d="M4 8h16v11H4zM9 8V5h6v3M4 13h16" /> },
-  { view: "settings", href: "#/settings", label: "Beállítások", icon: <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" /> },
+  { view: "settings", href: "#/settings", label: "Settings", icon: <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" /> },
 ] as const;
 
 export function App() {
@@ -44,10 +44,10 @@ export function App() {
   const section = route.view === "settings" || (route.view === "workpackages" && !route.wpId) ? "settings" : "case-list";
   return (
     <div className="shell">
-      <a className="skip" href="#main">{t("Ugrás a tartalomra")}</a>
+      <a className="skip" href="#main">{t("Skip to content")}</a>
       <aside className="rail">
         <div className="brand" aria-hidden="true">JAV</div>
-        <nav aria-label={t("Főmenü")}>
+        <nav aria-label={t("Main menu")}>
           {NAV.map((n) => (
             <a key={n.view} className="nav" href={n.href} aria-current={section === n.view ? "page" : undefined}>
               <svg viewBox="0 0 24 24" aria-hidden="true">{n.icon}</svg>
@@ -87,12 +87,12 @@ export function App() {
 
 function WorkerBadge() {
   const w = useLoad("worker", api.worker, 5000);
-  if (w.error) return <span className="pill error-pill" role="status">{t("A helyi szolgáltatás nem érhető el")}</span>;
+  if (w.error) return <span className="pill error-pill" role="status">{t("The local service is not reachable")}</span>;
   if (!w.data) return <span className="pill pending-pill">…</span>;
   const waiting = (w.data.jobs.queued ?? 0) + (w.data.jobs.claimed ?? 0);
   return (
     <span className={`pill ${w.data.running ? "" : "warn-pill"}`} role="status">
-      {w.data.running ? t("Feldolgozó fut") : t("Feldolgozó nem fut")}{waiting ? ` · ${t("{{n}} tétel vár", { n: waiting })}` : ""}
+      {w.data.running ? t("Worker running") : t("Worker not running")}{waiting ? ` · ${t("{{n}} items waiting", { n: waiting })}` : ""}
     </span>
   );
 }
@@ -125,22 +125,22 @@ function ActorField() {
     const known = list.find((u) => u.toLocaleLowerCase() === actor.toLocaleLowerCase()) ?? null;
     return (
       <div className="actor">
-        <Picker label={t("Ki dolgozik?")} value={known} placeholder={t("Válaszd ki a neved")} compact className={known ? "" : "needs-actor"}
+        <Picker label={t("Who is working?")} value={known} placeholder={t("Choose your name")} compact className={known ? "" : "needs-actor"}
           options={list.map((u) => ({ value: u, label: u }))} onChange={(v) => setActor(v)} />
-        {known ? <><WaitingLink actor={known} /><a className="small" href="#/activity">{t("Mai munkám")}</a></>
-          : <span className="small warn-text" role="status">{t("Módosítás előtt válaszd ki a neved.")}</span>}
+        {known ? <><WaitingLink actor={known} /><a className="small" href="#/activity">{t("My work today")}</a></>
+          : <span className="small warn-text" role="status">{t("Select your name before making changes.")}</span>}
       </div>
     );
   }
   const saved = Boolean(actor) && actor === name.trim();
   return (
     <form className="actor" onSubmit={(e) => { e.preventDefault(); setActor(name); }}>
-      <label htmlFor="actor">{t("Ki dolgozik?")}</label>
-      <input id="actor" value={name} maxLength={64} placeholder={t("Neved (jóváhagyáshoz, javításhoz)")}
+      <label htmlFor="actor">{t("Who is working?")}</label>
+      <input id="actor" value={name} maxLength={64} placeholder={t("Your name (for approvals and corrections)")}
         onChange={(e) => setName(e.target.value)} onBlur={() => { if (name.trim()) setActor(name); }} />
-      <button type="submit" className="secondary" disabled={saved || !name.trim()}>{saved ? t("Megjegyezve") : t("Mentés")}</button>
-      {actor ? <><WaitingLink actor={actor} /><a className="small" href="#/activity">{t("Mai munkám")}</a></> : null}
-      <a className="small" href="#/settings/users">{t("Felhasználók felvétele")}</a>
+      <button type="submit" className="secondary" disabled={saved || !name.trim()}>{saved ? t("Remembered") : t("Save")}</button>
+      {actor ? <><WaitingLink actor={actor} /><a className="small" href="#/activity">{t("My work today")}</a></> : null}
+      <a className="small" href="#/settings/users">{t("Add users")}</a>
     </form>
   );
 }

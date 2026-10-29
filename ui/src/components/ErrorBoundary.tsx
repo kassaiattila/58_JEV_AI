@@ -25,11 +25,11 @@ export class ErrorBoundary extends Component<{ children: ReactNode; view?: boole
     if (!this.state.error) return this.props.children;
     const body = (
       <>
-        <h1>{t("Váratlan hiba a felületen")}</h1>
-        <p>{t("Az oldal egy része nem jeleníthető meg. A mentetlen mezőjavításaid megmaradtak; töltsd újra az oldalt.")}</p>
+        <h1>{t("Unexpected error in the interface")}</h1>
+        <p>{t("Part of the page cannot be shown. Your unsaved field corrections have been kept; reload the page.")}</p>
         <p className="muted small mono">{this.state.error.message}</p>
         <div className="button-row">
-          <button type="button" className="primary" onClick={() => window.location.reload()}>{t("Újratöltés")}</button>
+          <button type="button" className="primary" onClick={() => window.location.reload()}>{t("Reload")}</button>
           {this.props.view ? <a className="secondary" href="#/workpackages">{t("Back to the work packages")}</a> : null}
         </div>
       </>

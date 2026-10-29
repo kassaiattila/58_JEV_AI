@@ -7,7 +7,7 @@ import { bandOf, bandsFor, type Bands } from "./geometry";
 
 export type FieldFilter = "fix" | "uncertain" | "all";
 export const FIELD_FILTERS: FieldFilter[] = ["fix", "uncertain", "all"];
-export const FILTER_LABEL: Record<FieldFilter, string> = tmap({ fix: "Javítandó", uncertain: "Bizonytalan", all: "Mind" });
+export const FILTER_LABEL: Record<FieldFilter, string> = tmap({ fix: "To fix", uncertain: "Uncertain", all: "All" });
 
 /** Whether a person has confirmed the field (its value then stays confirmed until it changes). */
 export const isConfirmed = (res: ItemResult, f: string) => Object.prototype.hasOwnProperty.call(res.correction.confirmed ?? {}, f);
@@ -52,7 +52,7 @@ export function nextAfterConfirm(before: string[], after: string[], field: strin
 
 /** The note when the chosen filter has no field left (for example after the last field to fix was confirmed). */
 export const EMPTY_FILTER: Record<FieldFilter, string> = tmap({
-  fix: "Ezen a tételen nincs több javítandó mező.",
-  uncertain: "Ezen a tételen nincs több bizonytalan, még nem ellenőrzött mező.",
-  all: "Ennek a tételnek nincs egyszerű mezője.",
+  fix: "Nothing is left to fix on this item.",
+  uncertain: "No uncertain, unverified field is left on this item.",
+  all: "This item has no simple fields.",
 });

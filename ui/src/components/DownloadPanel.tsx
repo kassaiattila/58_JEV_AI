@@ -16,9 +16,9 @@ const FORMATS: { value: ExportFormat; label: string }[] = [
 ];
 // the hint is translated when read (the Hungarian text is the key)
 const FORMAT_HINT: Record<string, string> = tmap({
-  xlsx: "egy munkalap, számok számként, szűrhető fejléc",
-  csv: "pontosvesszővel tagolva, a magyar Excel oszlopokra bontja",
-  json: "nyers értékek oszlopleírással, gépi feldolgozáshoz",
+  xlsx: "one worksheet, numbers as numbers, filterable header",
+  csv: "semicolon-separated; Hungarian Excel splits it into columns",
+  json: "raw values with column descriptions, for machine processing",
 });
 
 interface Props {
@@ -63,7 +63,7 @@ export function DownloadPanel(p: Props) {
       const res = await api.datasetExport(p.dataset, p.scope, {
         format, rows, query, columns: cols === "all" ? p.columns.map((c) => c.key) : p.visibleKeys,
       });
-      setMsg({ error: false, text: t("Letöltve: {{file}} ({{rows}} sor).", { file: res.filename, rows: res.rows.toLocaleString(getLocale()) }) });
+      setMsg({ error: false, text: t("Downloaded: {{file}} ({{rows}} rows).", { file: res.filename, rows: res.rows.toLocaleString(getLocale()) }) });
     } catch (e) {
       setMsg({ error: true, text: e instanceof ApiError ? e.message : String(e) });
     } finally {
@@ -74,12 +74,12 @@ export function DownloadPanel(p: Props) {
   return (
     <>
       <button ref={anchor} type="button" className="secondary small-btn" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        <Icon name="download" />{t("Letöltés")}
+        <Icon name="download" />{t("Download")}
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} label={t("Letöltés: {{label}}", { label: p.label })} className="download-pop" align="right">
-        <h3>{t("Letöltés — {{label}}", { label: p.label })}</h3>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} label={t("Download: {{label}}", { label: p.label })} className="download-pop" align="right">
+        <h3>{t("Download — {{label}}", { label: p.label })}</h3>
         <fieldset className="dl-group">
-          <legend>{t("Formátum")}</legend>
+          <legend>{t("Format")}</legend>
           {FORMATS.map((f) => (
             <label key={f.value} className="check">
               <input type="radio" name="dl-format" checked={format === f.value} onChange={() => setFormat(f.value)} />
@@ -88,25 +88,25 @@ export function DownloadPanel(p: Props) {
           ))}
         </fieldset>
         <fieldset className="dl-group">
-          <legend>{t("Sorok")}</legend>
+          <legend>{t("Rows")}</legend>
           <label className="check"><input type="radio" name="dl-rows" checked={rows === "all"} onChange={() => setRows("all")} />
-            {t("Minden sor ({{n}})", { n: p.total.toLocaleString(getLocale()) })}</label>
+            {t("All rows ({{n}})", { n: p.total.toLocaleString(getLocale()) })}</label>
           <label className="check"><input type="radio" name="dl-rows" checked={rows === "filtered"} disabled={!p.filtered} onChange={() => setRows("filtered")} />
-            {p.filtered ? t("A szűrt sorok ({{n}})", { n: p.matched.toLocaleString(getLocale()) }) : t("A szűrt sorok (nincs szűrés)")}</label>
+            {p.filtered ? t("Filtered rows ({{n}})", { n: p.matched.toLocaleString(getLocale()) }) : t("Filtered rows (no filter)")}</label>
           <label className="check"><input type="radio" name="dl-rows" checked={rows === "selected"} disabled={!p.selectedKeys.length} onChange={() => setRows("selected")} />
-            {p.selectedKeys.length ? t("A kijelölt sorok ({{n}})", { n: p.selectedKeys.length }) : t("A kijelölt sorok (nincs kijelölés)")}</label>
+            {p.selectedKeys.length ? t("Selected rows ({{n}})", { n: p.selectedKeys.length }) : t("Selected rows (no selection)")}</label>
         </fieldset>
         <fieldset className="dl-group">
-          <legend>{t("Oszlopok")}</legend>
+          <legend>{t("Columns")}</legend>
           <label className="check"><input type="radio" name="dl-cols" checked={cols === "visible"} onChange={() => setCols("visible")} />
-            {t("A látható oszlopok ({{n}})", { n: p.visibleKeys.length })}</label>
+            {t("Visible columns ({{n}})", { n: p.visibleKeys.length })}</label>
           <label className="check"><input type="radio" name="dl-cols" checked={cols === "all"} onChange={() => setCols("all")} />
-            {t("Minden oszlop, a rejtettek is ({{n}})", { n: p.columns.length })}</label>
+            {t("All columns, including hidden ones ({{n}})", { n: p.columns.length })}</label>
         </fieldset>
-        <p className="small muted">{t("A rendezés a táblázatéval azonos. {{rows}} sor × {{cols}} oszlop.", { rows: count.toLocaleString(getLocale()), cols: colCount })}</p>
+        <p className="small muted">{t("Sorted as in the table. {{rows}} rows × {{cols}} columns.", { rows: count.toLocaleString(getLocale()), cols: colCount })}</p>
         <div className="button-row">
           <button type="button" className="primary" disabled={busy || count === 0} onClick={() => void download()}>
-            {busy ? t("Készül…") : t("Letöltés ({{n}} sor)", { n: count.toLocaleString(getLocale()) })}
+            {busy ? t("Preparing…") : t("Download ({{n}} rows)", { n: count.toLocaleString(getLocale()) })}
           </button>
         </div>
         {msg ? <p role="status" className={msg.error ? "notice error" : "notice"}>{msg.text}</p> : null}

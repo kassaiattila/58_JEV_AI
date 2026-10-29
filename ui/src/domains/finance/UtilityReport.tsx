@@ -11,8 +11,8 @@ import { getLocale, t, useLocale } from "../../i18n";
 import { tmap } from "../../labels";
 
 // a cell that is in order (ok) has no label
-const STATUS: Record<string, string> = tmap({ missing: "hiányzik", overlap: "átfedés", partial: "részleges" });
-const REASON: Record<string, string> = tmap({ no_period: "nincs számlázási időszak", no_amount: "nincs összeg" });
+const STATUS: Record<string, string> = tmap({ missing: "missing", overlap: "overlap", partial: "partial" });
+const REASON: Record<string, string> = tmap({ no_period: "no billing period", no_amount: "no amount" });
 const statusText = (s: string) => STATUS[s] ?? "";
 
 export const huf = (v: string | null | undefined) =>
@@ -26,9 +26,9 @@ export function UtilityPanel({ runId, wpId }: { runId?: string; wpId: string }) 
     () => (runId ? api.utilityCost(runId) : api.packageUtilityCost(wpId)));
   const [cell, setCell] = useState<{ key: string; month: string; data: UtilityCell } | null>(null);
   return (
-    <section className="card wide" aria-label={t("Közmű-költség")}>
+    <section className="card wide" aria-label={t("Utility costs")}>
       <div className="card-head">
-        <h2>{t("Közmű-költség havonta")}</h2>
+        <h2>{t("Utility cost by month")}</h2>
         {/* 179 (DECISIONS 178): the package's utility cost as a workbook of its own, with the package's template */}
         {runId ? null : (
           <span className="button-row">
@@ -38,7 +38,7 @@ export function UtilityPanel({ runId, wpId }: { runId?: string; wpId: string }) 
         )}
       </div>
       {rep.error ? <p className="notice error" role="alert">{rep.error.message}</p> : null}
-      {!rep.data ? <p className="muted">{t("Betöltés…")}</p> : <UtilityTable rep={rep.data} onCell={(key, month, data) => setCell({ key, month, data })} />}
+      {!rep.data ? <p className="muted">{t("Loading…")}</p> : <UtilityTable rep={rep.data} onCell={(key, month, data) => setCell({ key, month, data })} />}
       {cell ? <CellSources cell={cell} wpId={wpId} onClose={() => setCell(null)} /> : null}
     </section>
   );
@@ -47,17 +47,17 @@ export function UtilityPanel({ runId, wpId }: { runId?: string; wpId: string }) 
 export function UtilityTable({ rep, onCell }: { rep: UtilityReport; onCell: (key: string, month: string, c: UtilityCell) => void }) {
   useLocale();
   if (rep.series.length === 0) {
-    return <p className="muted">{t("Ebben a futásban nincs közmű-számla (vagy egyiknek sincs számlázási időszaka és összege).")}</p>;
+    return <p className="muted">{t("This run has no utility invoices (or none has both a billing period and an amount).")}</p>;
   }
   return (
     <>
-      <p className="small">{t("Összesen (bruttó, a tájékoztató sorok nélkül):")} <strong>{t("{{amount}} Ft", { amount: huf(rep.grand_total) })}</strong>.
-        {" "}{t("A tétel a számlázási időszak napjai szerint oszlik a hónapokra; az elszámoló számla a záró hónapjába kerül.")}</p>
+      <p className="small">{t("Total (gross, excluding informational rows):")} <strong>{t("HUF {{amount}}", { amount: huf(rep.grand_total) })}</strong>.
+        {" "}{t("Each amount is split across months by the days of the billing period; a settlement invoice goes to its closing month.")}</p>
       <div className="list-scroll">
         <table className="table compact utility-table">
           <thead>
             <tr>
-              <th>{t("Fogyasztási hely")}</th><th>{t("Közmű")}</th><th className="num">{t("Összesen")}</th>
+              <th>{t("Point of consumption")}</th><th>{t("Utility")}</th><th className="num">{t("Total")}</th>
               {rep.months.map((m) => <th key={m} className="num">{m}</th>)}
             </tr>
           </thead>
@@ -67,13 +67,13 @@ export function UtilityTable({ rep, onCell }: { rep: UtilityReport; onCell: (key
               return (
                 <tr key={key} className={s.summary_only ? "summary-row" : ""}>
                   <td>{s.address}</td>
-                  <td>{s.utility}{s.summary_only ? <span className="muted small"> {t("(tájékoztató, nem számít bele)")}</span> : null}
+                  <td>{s.utility}{s.summary_only ? <span className="muted small"> {t("(for information, not included)")}</span> : null}
                     {s.suppliers.length ? <div className="muted small">{s.suppliers.join(", ")}</div> : null}</td>
                   <td className="num">{huf(s.total)}</td>
                   {rep.months.map((m) => {
                     const c = s.cells[m];
                     if (!c) return <td key={m} />;
-                    const label = `${s.utility}, ${m}: ${c.amount ? t("{{amount}} Ft", { amount: huf(c.amount) }) : statusText(c.status)}`;
+                    const label = `${s.utility}, ${m}: ${c.amount ? t("HUF {{amount}}", { amount: huf(c.amount) }) : statusText(c.status)}`;
                     return (
                       <td key={m} className={`num cell-${c.status}`}>
                         <button type="button" className="cell-btn" aria-label={label} title={label} onClick={() => onCell(key, m, c)}>
@@ -89,16 +89,16 @@ export function UtilityTable({ rep, onCell }: { rep: UtilityReport; onCell: (key
         </table>
       </div>
       <p className="muted small legend">
-        <span className="cell-missing">{STATUS.missing}</span> {t("egyik számla sem fedi a hónapot")} ·{" "}
-        <span className="cell-partial">{STATUS.partial}</span> {t("a hónap egy része fedetlen")} ·{" "}
-        <span className="cell-overlap">{STATUS.overlap}</span> {t("két számla is fedi")} · * {t("elszámoló számla")}
+        <span className="cell-missing">{STATUS.missing}</span> {t("no invoice covers the month")} ·{" "}
+        <span className="cell-partial">{STATUS.partial}</span> {t("part of the month is not covered")} ·{" "}
+        <span className="cell-overlap">{STATUS.overlap}</span> {t("covered by two invoices")} · * {t("settlement invoice")}
       </p>
       {rep.duplicates.length ? (
         <p className="small">{t("Duplicate invoice (same invoice number and supplier, counted once):")}{" "}
           {rep.duplicates.map((d) => `${d.file} = ${d.same_as_file}${d.status === "suspected" ? ` (${t("not yet confirmed")})` : ""}`).join("; ")}</p>
       ) : null}
       {rep.unplaced.length ? (
-        <p className="small warn-text">{t("Nem vetíthető közmű-számla:")} {rep.unplaced.map((u) => `${u.file} (${REASON[u.reason] ?? u.reason})`).join("; ")}</p>
+        <p className="small warn-text">{t("Utility invoice that cannot be allocated:")} {rep.unplaced.map((u) => `${u.file} (${REASON[u.reason] ?? u.reason})`).join("; ")}</p>
       ) : null}
     </>
   );
@@ -108,19 +108,19 @@ export function CellSources({ cell, wpId, onClose }: { cell: { key: string; mont
   useLocale();
   const [address, utility] = cell.key.split("|");
   return (
-    <div className="cell-sources" role="region" aria-label={t("A cella forrásai")}>
+    <div className="cell-sources" role="region" aria-label={t("Sources of the cell")}>
       <div className="list-head">
         <strong>{utility}, {cell.month}</strong><span className="muted small">{address}</span>
         <span className="spacer" />
-        <button type="button" className="quiet small-btn" onClick={onClose}>{t("Bezárás")}</button>
+        <button type="button" className="quiet small-btn" onClick={onClose}>{t("Close")}</button>
       </div>
-      {cell.data.sources.length === 0 ? <p className="muted small">{statusText(cell.data.status) || t("Nincs forrásszámla.")}</p> : (
+      {cell.data.sources.length === 0 ? <p className="muted small">{statusText(cell.data.status) || t("No source invoice.")}</p> : (
         <ul className="plain">
           {cell.data.sources.map((s) => (
             <li key={s.item_id + s.amount}>
-              {t("{{amount}} Ft", { amount: huf(s.amount) })} — {s.file}{s.page ? `, ${t("{{page}}. oldal", { page: s.page })}` : ""}{s.settlement ? ` ${t("(elszámolás)")}` : ""}
-              {s.corrected ? ` · ${t("javítva")}` : ""}{s.open_reasons ? ` · ${t("{{n}} nyitott teendő", { n: s.open_reasons })}` : ""}
-              {wpId ? <> · <a href={`#/workpackages/${encodeURIComponent(wpId)}/review/${encodeURIComponent(s.item_id)}`}>{t("megnyitás")}</a></> : null}
+              {t("HUF {{amount}}", { amount: huf(s.amount) })} — {s.file}{s.page ? `, ${t("page {{page}}", { page: s.page })}` : ""}{s.settlement ? ` ${t("(settlement)")}` : ""}
+              {s.corrected ? ` · ${t("corrected")}` : ""}{s.open_reasons ? ` · ${t("{{n}} open to-dos", { n: s.open_reasons })}` : ""}
+              {wpId ? <> · <a href={`#/workpackages/${encodeURIComponent(wpId)}/review/${encodeURIComponent(s.item_id)}`}>{t("open")}</a></> : null}
             </li>
           ))}
         </ul>

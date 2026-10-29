@@ -44,7 +44,7 @@ export async function downloadPost(path: string, body: unknown): Promise<{ filen
   try {
     res = await fetch(`/api${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   } catch {
-    throw new ApiError(0, "offline", t("A helyi szolgáltatás nem érhető el. Fut a scripts\\dev.ps1 start?"));
+    throw new ApiError(0, "offline", t("The local service is not reachable. Is scripts\\dev.ps1 start running?"));
   }
   if (!res.ok) {
     let d: { error?: string; message?: string } = {};
@@ -68,7 +68,7 @@ export async function downloadPost(path: string, body: unknown): Promise<{ filen
 const ACTOR_KEY = "jav.actor";
 /** For a human decision (correction, approval, closing a to-do) the service requires the author's name. The Hungarian
  *  text is the translation key: displayed as `t(NO_ACTOR)`. */
-export const NO_ACTOR = "add meg a neved fent a „Ki dolgozik?” mezőben (a javítás és a jóváhagyás szerzőhöz kötött)";
+export const NO_ACTOR = "enter your name in the “Who is working?” field at the top (corrections and approvals are tied to an author)";
 
 export function getActor(): string {
   try {
@@ -83,7 +83,7 @@ export function getActor(): string {
 export const ACTOR_EVENT = "jav-actor";
 export const USERS_EVENT = "jav-users";
 /** 061: the service rejected the name because it is not on the Users list. Displayed as `t(UNKNOWN_ACTOR)`. */
-export const UNKNOWN_ACTOR = "a „Ki dolgozik?” mezőben válaszd ki a neved a Felhasználók listájából";
+export const UNKNOWN_ACTOR = "select your name from the Users list in the “Who is working?” field";
 
 let memoryActor = ""; // if the browser does not allow storage (private window), the name lasts for the session
 
@@ -132,7 +132,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
     text = await res.text();
   } catch {
     if (abort?.signal.aborted) throw new ApiError(0, "timeout", t("The local service did not answer within a minute; the view will try again."));
-    throw new ApiError(0, "offline", t("A helyi szolgáltatás nem érhető el. Fut a scripts\\dev.ps1 start?"));
+    throw new ApiError(0, "offline", t("The local service is not reachable. Is scripts\\dev.ps1 start running?"));
   } finally {
     clearTimeout(timer);
   }

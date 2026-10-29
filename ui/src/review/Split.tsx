@@ -51,7 +51,7 @@ export function Split({ left, right, variant = "fields", label }: { left: ReactN
   return (
     <div ref={box} className="split" style={{ gridTemplateColumns: `minmax(0, ${ratio}fr) 10px minmax(0, ${100 - ratio}fr)` }}>
       <div className="split-pane">{left}</div>
-      <div className="split-handle" role="separator" aria-orientation="vertical" aria-label={label ?? t("A kép és a mezők aránya")}
+      <div className="split-handle" role="separator" aria-orientation="vertical" aria-label={label ?? t("Ratio of image and fields")}
         aria-valuenow={Math.round(ratio)} aria-valuemin={35} aria-valuemax={75} tabIndex={0} onPointerDown={onPointerDown}
         onKeyDown={(e) => {
           if (e.key === "ArrowLeft" || e.key === "ArrowRight") {

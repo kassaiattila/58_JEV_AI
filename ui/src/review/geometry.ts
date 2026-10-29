@@ -15,10 +15,10 @@ export function bandsFor(p: Provenance | undefined, bands: Bands): { confident: 
 
 // 057: translates when read (tmap); the rendering component refreshes via useLocale()
 export const BAND_LABEL: Record<Band, string> = tmap({
-  confident: "Magabiztos",
-  check: "Ellenőrzendő",
-  likely_wrong: "Valószínűleg hibás",
-  unknown: "Nincs becslés",
+  confident: "Confident",
+  check: "Needs checking",
+  likely_wrong: "Likely wrong",
+  unknown: "No estimate",
 }) as Record<Band, string>;
 
 /** The model's estimate sorted into a band. A corrected field is always „ellenőrzendő” (to check), because the estimate

@@ -49,9 +49,9 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
     <>
       <button ref={anchor} type="button" className="secondary" aria-expanded={open} aria-haspopup="dialog"
         onClick={() => { setName(wp.name); setMode("menu"); setError(null); setOpen((o) => !o); }}>
-        <Icon name="manage" />{t("Köteg kezelése")}
+        <Icon name="manage" />{t("Manage batch")}
       </button>
-      <Popover open={open} onClose={close} anchor={anchor} label={t("Köteg kezelése")} align="right" className="wp-actions">
+      <Popover open={open} onClose={close} anchor={anchor} label={t("Manage batch")} align="right" className="wp-actions">
         {mode === "menu" ? (
           <div className="menu-list">
             {/* 167: adding leads to its form at the top of Processing (176: unless the package's logic pack adds
@@ -61,25 +61,25 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
                 <Icon name="plus" />{adds === "own" && addLabel ? t(addLabel) : t("Add documents")}
               </button>
             )}
-            <button type="button" className="menu-item" onClick={() => setMode("rename")}><Icon name="edit" />{t("Átnevezés")}</button>
+            <button type="button" className="menu-item" onClick={() => setMode("rename")}><Icon name="edit" />{t("Rename")}</button>
             {/* 181: the party, period and role the email routing proposes the package for */}
             {scopeEditable(view) ? (
               <button type="button" className="menu-item" onClick={() => setMode("scope")}><Icon name="edit" />{t("Party, period and role…")}</button>
             ) : null}
             {archived ? (
               <button type="button" className="menu-item" disabled={busy} onClick={() => void act(() => api.restoreWorkpackage(wp.id))}>
-                <Icon name="restore" />{t("Visszahozás a listába")}
+                <Icon name="restore" />{t("Show in the list again")}
               </button>
             ) : (
               <button type="button" className="menu-item" disabled={busy} onClick={() => void act(() => api.archiveWorkpackage(wp.id))}>
-                <Icon name="hide" />{t("Elrejtés a listából")}
+                <Icon name="hide" />{t("Hide from the list")}
               </button>
             )}
-            <p className="small muted">{t("Az elrejtett köteg futásai és eredményei megmaradnak; a lista „Elrejtett kötegek is” jelölőjével újra látszik.")}</p>
+            <p className="small muted">{t("A hidden batch keeps its runs and results; tick “Hidden batches too” on the list to see it again.")}</p>
             {view.runs === 0 ? (
-              <button type="button" className="menu-item danger-text" onClick={() => setMode("delete")}><Icon name="trash" />{t("Végleges törlés…")}</button>
+              <button type="button" className="menu-item danger-text" onClick={() => setMode("delete")}><Icon name="trash" />{t("Delete permanently…")}</button>
             ) : (
-              <p className="small muted">{t("Végleges törlés csak futás nélküli kötegen lehetséges; ez a köteg elrejthető.")}</p>
+              <p className="small muted">{t("Only a batch without runs can be deleted permanently; this one can be hidden.")}</p>
             )}
           </div>
         ) : mode === "scope" ? (
@@ -88,24 +88,24 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
             onClear={() => void act(() => api.clearPackageScope(wp.id))} />
         ) : mode === "rename" ? (
           <form className="create" onSubmit={(e) => { e.preventDefault(); void act(() => api.renameWorkpackage(wp.id, name.trim())); }}>
-            <label className="block">{t("Új név")}
+            <label className="block">{t("New name")}
               <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} required autoFocus />
             </label>
             <div className="button-row">
-              <button type="submit" className={name.trim() && name.trim() !== wp.name ? "primary" : "secondary"} disabled={busy || !name.trim() || name.trim() === wp.name}>{t("Mentés")}</button>
-              <button type="button" className="secondary" onClick={() => setMode("menu")}>{t("Mégse")}</button>
+              <button type="submit" className={name.trim() && name.trim() !== wp.name ? "primary" : "secondary"} disabled={busy || !name.trim() || name.trim() === wp.name}>{t("Save")}</button>
+              <button type="button" className="secondary" onClick={() => setMode("menu")}>{t("Cancel")}</button>
             </div>
           </form>
         ) : (
           <div className="create">
-            <p><strong>{t("Biztosan törlöd a köteget?")}</strong></p>
-            <p className="small">{t("A köteg és a tétel-listája törlődik, a fájlok a helyükön maradnak. A törlés nem vonható vissza; a ténye naplóban marad.")}</p>
+            <p><strong>{t("Delete this batch permanently?")}</strong></p>
+            <p className="small">{t("The batch and its item list are deleted; the files stay where they are. Deletion cannot be undone; the fact of deletion is kept in the log.")}</p>
             <div className="button-row">
               <button type="button" className="danger" disabled={busy}
                 onClick={() => void act(() => api.deleteWorkpackage(wp.id), () => go({ view: "workpackages" }))}>
-                {t("Végleges törlés")}
+                {t("Delete permanently")}
               </button>
-              <button type="button" className="secondary" onClick={() => setMode("menu")}>{t("Mégse")}</button>
+              <button type="button" className="secondary" onClick={() => setMode("menu")}>{t("Cancel")}</button>
             </div>
           </div>
         )}

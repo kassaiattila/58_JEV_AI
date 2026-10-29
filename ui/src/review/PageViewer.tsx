@@ -108,22 +108,22 @@ export function PageViewer(props: Props) {
   const others = Object.entries(prov).filter(([k, p]) => k !== activeField && p.page === page && frameBoxes(p).length);
   const approx = active?.status === "approximate";
   const selectedSet = new Set(selected);
-  const status = failed ? t("Az oldalkép nem tölthető be.") : !ready ? t("Az oldalkép betöltődik…") : null;
+  const status = failed ? t("The page image could not be loaded.") : !ready ? t("Loading page image…") : null;
 
   return (
     <div className="viewer">
-      <div className="viewer-bar" role="toolbar" aria-label={t("Oldalkép")}>
+      <div className="viewer-bar" role="toolbar" aria-label={t("Page image")}>
         {total > 1 ? (
           <span className="pager">
-            <button type="button" className="icon-btn" aria-label={t("Előző oldal")} disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>‹</button>
+            <button type="button" className="icon-btn" aria-label={t("Previous page")} disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>‹</button>
             <span className="mono small">{page} / {total}</span>
-            <button type="button" className="icon-btn" aria-label={t("Következő oldal")} disabled={page >= total} onClick={() => setPage((p) => Math.min(total, p + 1))}>›</button>
+            <button type="button" className="icon-btn" aria-label={t("Next page")} disabled={page >= total} onClick={() => setPage((p) => Math.min(total, p + 1))}>›</button>
           </span>
-        ) : <span className="muted small">{t("1 oldal")}</span>}
+        ) : <span className="muted small">{t("1 page")}</span>}
         <span className="zoom">
-          <button type="button" className="icon-btn" aria-label={t("Kicsinyítés")} disabled={zoom <= 0.5} onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}>−</button>
-          <button type="button" className="quiet small-btn mono" aria-label={t("Nagyítás alaphelyzetbe")} onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button>
-          <button type="button" className="icon-btn" aria-label={t("Nagyítás")} disabled={zoom >= 3} onClick={() => setZoom((z) => Math.min(3, z + 0.25))}>+</button>
+          <button type="button" className="icon-btn" aria-label={t("Zoom out")} disabled={zoom <= 0.5} onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}>−</button>
+          <button type="button" className="quiet small-btn mono" aria-label={t("Reset zoom")} onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button>
+          <button type="button" className="icon-btn" aria-label={t("Zoom in")} disabled={zoom >= 3} onClick={() => setZoom((z) => Math.min(3, z + 0.25))}>+</button>
         </span>
       </div>
       <div className={`viewer-canvas ${selectMode ? "selecting" : ""}`}>
@@ -136,7 +136,7 @@ export function PageViewer(props: Props) {
           onPointerUp={onPointerUp}
           data-testid="page-canvas"
         >
-          <img key={src} src={src} alt={t("Az irat {{n}}. oldala", { n: page })} className="page-img" draggable={false}
+          <img key={src} src={src} alt={t("Page {{n}} of the document", { n: page })} className="page-img" draggable={false}
             onLoad={() => setLoadedSrc(src)} onError={() => setFailed(true)} />
           {status ? <div className="page-status" role="status">{status}</div> : null}
           {ready && !selectMode ? others.flatMap(([k, p]) => frameBoxes(p).map((b, i) => {
@@ -159,19 +159,19 @@ export function PageViewer(props: Props) {
             const r = inflate(group, 0.005);
             return (
               <div ref={activeBox} className={`field-box active ${approx ? "approx" : ""}`} data-testid={`box-${activeField}`}
-                title={approx ? t("{{field}} – közelítő hely (a sor, ahonnan a gép választott)", { field: labelOf(activeField) }) : labelOf(activeField)}
+                title={approx ? t("{{field}} – approximate location (the line the machine picked from)", { field: labelOf(activeField) }) : labelOf(activeField)}
                 style={{ left: `${r.left}%`, top: `${r.top}%`, width: `${r.width}%`, height: `${r.height}%`, outlineColor: colorOf(activeField) }} />
             );
           })() : null}
           {ready && activeField ? alternatives.map((a, i) => {
             const r = inflate(a.bbox!, 0.003);
-            const label = a.machine ? t("gépi érték") : a.p !== null ? `${Math.round(a.p * 100)}%` : t("lehetséges hely");
+            const label = a.machine ? t("machine value") : a.p !== null ? `${Math.round(a.p * 100)}%` : t("possible location");
             // 083: a candidate lying within the value would draw its dashed border over the value's text: it keeps only its tag
             const inside = group !== null && insideShare(a.bbox!, group) > 0.6;
             return (
               <div key={`alt${i}`} className={`alt-box ${inside ? "alt-inside" : ""}`} style={{ left: `${r.left}%`, top: `${r.top}%`, width: `${r.width}%`, height: `${r.height}%` }}>
                 <button type="button" className="alt-chip" onPointerDown={(e) => e.stopPropagation()}
-                  onClick={() => onChooseAlternative(activeField, a)} title={t("Ezt választom: „{{text}}”", { text: a.quote ?? a.value ?? "" })}>
+                  onClick={() => onChooseAlternative(activeField, a)} title={t("Choose this: “{{text}}”", { text: a.quote ?? a.value ?? "" })}>
                   {label}
                 </button>
               </div>

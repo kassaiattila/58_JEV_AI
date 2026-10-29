@@ -11,20 +11,20 @@ function totalText(page: DsPage): string {
   const spent = page.rows.reduce((n, r) => n + Number(r.usd ?? 0), 0);
   const reused = page.rows.reduce((n, r) => n + Number(r.reused ?? 0), 0);
   return reused
-    ? t("Összesen: {{usd}}, {{n}} kérdés korábbi válaszból (ingyenes).", { usd: usd(spent), n: reused })
-    : t("Összesen: {{usd}}.", { usd: usd(spent) });
+    ? t("Total: {{usd}}, {{n}} questions answered from earlier answers (free).", { usd: usd(spent), n: reused })
+    : t("Total: {{usd}}.", { usd: usd(spent) });
 }
 
 export function PackageCosts({ wpId, pollMs }: { wpId: string; pollMs?: number }) {
   useLocale();
   const [total, setTotal] = useState<string | null>(null);
   return (
-    <section aria-label={t("A köteg költsége")} className="wide">
-      <h2>{t("A köteg költsége")}</h2>
-      <p className="small"><strong>{total ?? t("Betöltés…")}</strong></p>
-      <p className="muted small">{t("Minden futás fizetős hívásai, szolgáltatónként és modellenként; a futásonkénti költség a futások táblázatában látszik.")}</p>
-      <DataTable dataset="package_costs" scope={{ workpackage_id: wpId }} label={t("A köteg költsége")} storageId="wp-costs" pollMs={pollMs}
-        emptyText={t("Ezen a kötegen még nem volt fizetős hívás.")} onPage={(page) => setTotal(totalText(page))} />
+    <section aria-label={t("Cost of the document batch")} className="wide">
+      <h2>{t("Cost of the document batch")}</h2>
+      <p className="small"><strong>{total ?? t("Loading…")}</strong></p>
+      <p className="muted small">{t("The paid calls of every run, per provider and model; the cost of each run is in the runs table.")}</p>
+      <DataTable dataset="package_costs" scope={{ workpackage_id: wpId }} label={t("Cost of the document batch")} storageId="wp-costs" pollMs={pollMs}
+        emptyText={t("There have been no paid calls on this batch yet.")} onPage={(page) => setTotal(totalText(page))} />
     </section>
   );
 }

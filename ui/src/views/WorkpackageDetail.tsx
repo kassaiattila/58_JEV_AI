@@ -23,7 +23,7 @@ import { WorkpackageActions } from "./WorkpackageActions";
 // 231 (C1c): the processes whose case may read this package (until then the email routing's own offer)
 const PackageIntake = lazyPage(() => import("../elements/ProcessStart").then((m) => m.PackageIntake));
 const CasePage = lazyPage(() => import("./CasePage").then((m) => m.CasePage));  // 231 (A6)
-const STAGE_LABEL = tmap({ process: "Feldolgozás", review: "Ellenőrzés", result: "Eredmény" }) as Record<Stage, string>;
+const STAGE_LABEL = tmap({ process: "Processing", review: "Review", result: "Result" }) as Record<Stage, string>;
 // 181: a released package's release state on the stage bar, as its release line says it
 const RELEASE_STATE = tmap({ released: "released", partly_released: "partly released",
   changed_since_release: "changed since the release", not_released: "awaiting release" });
@@ -36,15 +36,15 @@ export function stageStatus(view: WorkpackageView): Record<Stage, string> {
   return {
     // 080: without saved settings the default processing settings apply, so readiness alone decides
     process: last ? `${MODE[last.mode]} · ${(RUN_STATUS[last.status] ?? last.status).toLowerCase()} · ${last.items_done}/${last.items}`
-      : view.readiness.ready ? t("indítható") : t("nem indítható"),
-    review: current ? (current.open_reasons ? t("{{n}} teendő", { n: current.open_reasons }) : t("nincs teendő")) : itemCountText(view.workpackage.items),
+      : view.readiness.ready ? t("ready to start") : t("cannot start"),
+    review: current ? (current.open_reasons ? t("To-dos: {{n}}", { n: current.open_reasons }) : t("no to-dos")) : itemCountText(view.workpackage.items),
     // 167: a stopped or failed live run waits for no approval (the release line says so too). 172: released only once a
     // version holds the approval (the next step says Approve and release until then)
     result: current && current.mode !== "shadow" && !current.approval && (current.status === "failed" || current.status === "cancelled")
       ? t("cannot be approved")
       // 181: a trial after a release does not hide the release (backlog J-szakaszsav-kiadott-proba)
-      : !current ? t("még nincs") : current.mode === "shadow" ? (view.release ? RELEASE_STATE[view.release.state] : t("próba-eredmény"))
-        : current.approval && view.next?.code !== "release" ? t("kiadva") : t("awaiting release"),
+      : !current ? t("none yet") : current.mode === "shadow" ? (view.release ? RELEASE_STATE[view.release.state] : t("trial result"))
+        : current.approval && view.next?.code !== "release" ? t("released") : t("awaiting release"),
   };
 }
 
@@ -62,7 +62,7 @@ export function OwnerPicker({ view, onChanged }: { view: WorkpackageView; onChan
   const [error, setError] = useState<string | null>(null);
   const owner = view.workpackage.owner ?? "";
   const list = users.data?.users ?? [];
-  const options = [{ value: "", label: t("nincs felelős") }, ...list.map((u) => ({ value: u, label: u }))];
+  const options = [{ value: "", label: t("no owner") }, ...list.map((u) => ({ value: u, label: u }))];
   if (owner && !list.includes(owner)) options.push({ value: owner, label: owner });
   async function change(v: string) {
     setError(null);
@@ -75,8 +75,8 @@ export function OwnerPicker({ view, onChanged }: { view: WorkpackageView; onChan
   }
   return (
     <div className="owner-picker">
-      <Picker label={t("Felelős")} value={owner} options={options} compact onChange={(v) => void change(v)}
-        emptyText={t("Még nincs név a listában (Beállítások › Felhasználók).")} />
+      <Picker label={t("Assignee")} value={owner} options={options} compact onChange={(v) => void change(v)}
+        emptyText={t("No names in the list yet (Settings › Users).")} />
       {error ? <span className="small error-text" role="alert">{error}</span> : null}
     </div>
   );
@@ -92,12 +92,12 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   if (wp.error?.status === 404 || wp.error?.status === 422) {
     // The work package requested in the address does not exist: we say so, and do not open another one instead.
     return (
-      <PageHeader crumbs={[{ label: t("All document batches"), href: "#/workpackages" }]} title={t("Az iratköteg nem található")}
-        summary={<><span className="mono">{wpId}</span>: {t("nincs ilyen azonosítójú iratköteg (vagy törölték). Válassz a listából.")}</>} />
+      <PageHeader crumbs={[{ label: t("All document batches"), href: "#/workpackages" }]} title={t("Document batch not found")}
+        summary={<><span className="mono">{wpId}</span>: {t("no document batch exists with this ID (or it was deleted). Choose one from the list.")}</>} />
     );
   }
   if (wp.error) return <p className="notice error" role="alert">{wp.error.message}</p>;
-  if (!wp.data) return <p className="muted">{t("Betöltés…")}</p>;
+  if (!wp.data) return <p className="muted">{t("Loading…")}</p>;
   const view = wp.data;
   if (view.case) return <CasePage caseId={view.case.id} />;  // 231 (A6): a case's container shows its case
   const { workpackage, next, last_run: last } = view;
@@ -111,7 +111,7 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
     <>
       {part?.summary?.(view) ?? null}
       {itemCountText(workpackage.items)}
-      {last ? ` · ${t("utolsó futás: {{mode}}, {{when}}", { mode: MODE[last.mode].toLowerCase(), when: when(last.created_at) })}` : ` · ${t("még nem futott")}`}
+      {last ? ` · ${t("last run: {{mode}}, {{when}}", { mode: MODE[last.mode].toLowerCase(), when: when(last.created_at) })}` : ` · ${t("not run yet")}`}
     </>
   );
   // 146: the workflow the package is a step of, with a link to its control view (155: on the summary line)
@@ -125,7 +125,7 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   // the next-step button; not needed if we are already on that stage's page
   const nextButton = next.stage !== stage || route.stage === undefined ? (
     <button type="button" className="primary" onClick={() => go({ view: "workpackages", wpId, stage: next.stage })}>{nextStepText(view)} →</button>
-  ) : <span className="next-hint">{t("Következő lépés: {{step}}", { step: nextStepText(view) })}</span>;
+  ) : <span className="next-hint">{t("Next step: {{step}}", { step: nextStepText(view) })}</span>;
 
   // U2a (the owner's decision of 2026-10-28: one work list): a case step's batch leads back to its case and step; any
   // other batch to the list of every batch
@@ -141,9 +141,9 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
         summary={<>{summary}{scopeOf}{workflowOf}</>}
         actions={<><OwnerPicker view={view} onChanged={wp.reload} />{nextButton}<WorkpackageActions view={view} onChanged={wp.reload} /></>} />
       {workpackage.status === "archived" ? (
-        <p className="notice">{t("Ez a köteg el van rejtve a listából; a futásai és az eredményei megmaradtak. Visszahozni a „Köteg kezelése” gombbal lehet.")}</p>
+        <p className="notice">{t("This batch is hidden from the list; its runs and results are kept. Use “Manage batch” to bring it back.")}</p>
       ) : null}
-      <div className="stage-tabs" role="tablist" aria-label={t("A köteg szakaszai")}>
+      <div className="stage-tabs" role="tablist" aria-label={t("Document batch stages")}>
         {(Object.keys(labels) as Stage[]).map((s, i) => (
           <a key={s} role="tab" aria-selected={stage === s} className={`stage-tab ${next.stage === s ? "is-next" : ""}`} href={`#/workpackages/${wpId}/${s}`}>
             <span className="stage-no" aria-hidden="true">{i + 1}</span>
@@ -168,8 +168,8 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
             </>
           ) : (
             <>
-              <p className="notice">{t("A kötegen még nem futott feldolgozás, ezért nincs mit ellenőrizni. Az iratok itt megnyithatók és letölthetők; a feldolgozást a")}{" "}
-                <a href={`#/workpackages/${wpId}/process`}>{STAGE_LABEL.process}</a> {t("szakaszban indíthatod.")}</p>
+              <p className="notice">{t("No processing has run on this batch yet, so there is nothing to review. The documents can be opened and downloaded here; start the processing in the")}{" "}
+                <a href={`#/workpackages/${wpId}/process`}>{STAGE_LABEL.process}</a> {t("section.")}</p>
               <PackageItemsPanel view={view} onChanged={wp.reload} />
             </>
           )

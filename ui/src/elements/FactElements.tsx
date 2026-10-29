@@ -110,7 +110,7 @@ function FactInput({ cat, def, value, onChange, label }: {
   if (def.type === "bool") {
     return (
       <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">–</option><option value="yes">{t("Igen")}</option><option value="no">{t("Nem")}</option>
+        <option value="">–</option><option value="yes">{t("Yes")}</option><option value="no">{t("No")}</option>
       </select>
     );
   }

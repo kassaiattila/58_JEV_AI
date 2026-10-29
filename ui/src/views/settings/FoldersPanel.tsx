@@ -32,7 +32,7 @@ export function FoldersPanel() {
     const unload = (e: BeforeUnloadEvent) => { e.preventDefault(); };
     const click = (e: MouseEvent) => {
       const a = (e.target as HTMLElement).closest?.('a[href^="#"]');
-      if (a && !window.confirm(t("A munkamappák módosításai nincsenek mentve. Elveted őket?"))) { e.preventDefault(); e.stopPropagation(); }
+      if (a && !window.confirm(t("Your changes to the work folders are not saved. Discard them?"))) { e.preventDefault(); e.stopPropagation(); }
     };
     window.addEventListener("beforeunload", unload);
     document.addEventListener("click", click, true);
@@ -42,18 +42,18 @@ export function FoldersPanel() {
   const set = (i: number, patch: Partial<WatchedFolder>) => setDraft((d) => d.map((f, j) => (j === i ? { ...f, ...patch } : f)));
 
   async function save() {
-    if (!getActor()) { setMsg({ error: true, text: t("Nem menthető: {{reason}}.", { reason: t(NO_ACTOR) }) }); return; }
+    if (!getActor()) { setMsg({ error: true, text: t("Cannot save: {{reason}}.", { reason: t(NO_ACTOR) }) }); return; }
     setBusy(true);
     setMsg(null);
     try {
       const res = await api.saveFolders(draft);
       setDraft(res.folders);
-      setMsg({ error: false, text: t("Mentve. A feldolgozó a gyakoriság szerint nézi át a mappákat.") });
+      setMsg({ error: false, text: t("Saved. The worker checks the folders at the set frequency.") });
       data.reload();
     } catch (e) {
       const err = e as ApiError;
-      setMsg({ error: true, text: err.code === "forbidden_path" ? t("Egy útvonal az engedélyezett helyeken kívül van (lent látszanak).")
-        : err.code === "folder_overlap" ? t("Egy munkamappa nem lehet a kimeneti mappán belül, és nem is tartalmazhatja (lent).") : err.message });
+      setMsg({ error: true, text: err.code === "forbidden_path" ? t("A path is outside the allowed locations (listed below).")
+        : err.code === "folder_overlap" ? t("A work folder cannot be inside the output folder, nor contain it (below).") : err.message });
     } finally {
       setBusy(false);
     }
@@ -65,9 +65,9 @@ export function FoldersPanel() {
       const r = await api.scanFolder(id);
       setMsg({ error: r.status !== "ok", text: r.status === "ok"
         ? (r.settling
-          ? t("Átnézve: {{n}} új irat, {{settling}} még íródik (a következő átnézésre marad).", { n: r.new ?? 0, settling: r.settling })
-          : t("Átnézve: {{n}} új irat.", { n: r.new ?? 0 }))
-        : r.error ?? t("Hiba") });
+          ? t("Checked: {{n}} new documents, {{settling}} still being written (left for the next check).", { n: r.new ?? 0, settling: r.settling })
+          : t("Checked: {{n}} new documents.", { n: r.new ?? 0 }))
+        : r.error ?? t("Error") });
       data.reload();
     } catch (e) {
       setMsg({ error: true, text: (e as ApiError).message });
@@ -75,53 +75,53 @@ export function FoldersPanel() {
   }
 
   return (
-    <section className="stage-stack" aria-label={t("Munkamappák")}>
+    <section className="stage-stack" aria-label={t("Work folders")}>
       <p className="muted small">{t("The worker checks this folder at the chosen interval and adds new supported documents to a work package. Source files are read only. Check the package recipe before starting processing; paid runs never start automatically.")}</p>
       <DocumentFormats />
       {data.error ? <p className="notice error">{data.error.message}</p> : null}
       {draft.map((f, i) => (
         <fieldset key={f.id ?? `new-${i}`} className="card wide folder-card">
-          <legend>{f.name || t("Új munkamappa")}</legend>
+          <legend>{f.name || t("New work folder")}</legend>
           <div className="form-row">
-            <label className="block">{t("Név")}<input value={f.name} maxLength={160} placeholder={t("(üresen: a mappa neve)")} onChange={(e) => set(i, { name: e.target.value })} /></label>
-            <label className="block grow">{t("Mappa teljes útvonala")}<input value={f.path} maxLength={1024} required onChange={(e) => set(i, { path: e.target.value })} /></label>
+            <label className="block">{t("Name")}<input value={f.name} maxLength={160} placeholder={t("(empty: the folder name)")} onChange={(e) => set(i, { name: e.target.value })} /></label>
+            <label className="block grow">{t("Full folder path")}<input value={f.path} maxLength={1024} required onChange={(e) => set(i, { path: e.target.value })} /></label>
             <BrowseButton kind="folder" initial={f.path} onPick={([p]) => set(i, { path: p })} />
           </div>
           <div className="form-row">
-            <label className="check"><input type="checkbox" checked={f.enabled} onChange={(e) => set(i, { enabled: e.target.checked })} /> {t("Aktív")}</label>
-            <label className="check"><input type="checkbox" checked={f.recursive} onChange={(e) => set(i, { recursive: e.target.checked })} /> {t("Almappák is")}</label>
+            <label className="check"><input type="checkbox" checked={f.enabled} onChange={(e) => set(i, { enabled: e.target.checked })} /> {t("Active (state)")}</label>
+            <label className="check"><input type="checkbox" checked={f.recursive} onChange={(e) => set(i, { recursive: e.target.checked })} /> {t("Include subfolders")}</label>
             <fieldset className="segmented">
-              <legend className="sr-only">{t("Csomagolás")}</legend>
-              <label><input type="radio" name={`mode-${i}`} checked={f.batch_mode === "folder"} onChange={() => set(i, { batch_mode: "folder" })} /> {t("Egy közös köteg")}</label>
-              <label><input type="radio" name={`mode-${i}`} checked={f.batch_mode === "daily"} onChange={() => set(i, { batch_mode: "daily" })} /> {t("Napi kötegek")}</label>
+              <legend className="sr-only">{t("Packaging")}</legend>
+              <label><input type="radio" name={`mode-${i}`} checked={f.batch_mode === "folder"} onChange={() => set(i, { batch_mode: "folder" })} /> {t("One shared batch")}</label>
+              <label><input type="radio" name={`mode-${i}`} checked={f.batch_mode === "daily"} onChange={() => set(i, { batch_mode: "daily" })} /> {t("Daily batches")}</label>
             </fieldset>
           </div>
           <div className="form-row">
-            <Picker label={t("Átnézés")} value={String(f.interval_min)} options={intervals().map(([m, label]) => ({ value: String(m), label }))}
+            <Picker label={t("Look over")} value={String(f.interval_min)} options={intervals().map(([m, label]) => ({ value: String(m), label }))}
               onChange={(v) => set(i, { interval_min: Number(v) })} />
           </div>
           <div className="button-row">
-            {f.id && baseline.some((b) => b.id === f.id) ? <button type="button" className="secondary small-btn" disabled={dirty} title={dirty ? t("Előbb mentsd a módosításokat") : undefined}
-              onClick={() => void scan(f.id!)}>{t("Átnézés most")}</button> : null}
-            <button type="button" className="quiet small-btn" onClick={() => setDraft((d) => d.filter((_, j) => j !== i))}>{t("Eltávolítás")}</button>
+            {f.id && baseline.some((b) => b.id === f.id) ? <button type="button" className="secondary small-btn" disabled={dirty} title={dirty ? t("Save your changes first") : undefined}
+              onClick={() => void scan(f.id!)}>{t("Check now")}</button> : null}
+            <button type="button" className="quiet small-btn" onClick={() => setDraft((d) => d.filter((_, j) => j !== i))}>{t("Remove")}</button>
             <span className="muted small">
-              {f.last_at ? <>{t("Legutóbb: {{when}}", { when: when(f.last_at) })} · {f.last_status === "error" ? <span className="error-text">{f.last_result?.error}</span>
-                : t("{{n}} új irat", { n: f.last_result?.new ?? 0 })}{f.last_result?.workpackage ? <> · <a href={`#/workpackages/${f.last_result.workpackage}`}>{t("köteg")}</a></> : null}</> : t("Még nem nézte át.")}
+              {f.last_at ? <>{t("Last: {{when}}", { when: when(f.last_at) })} · {f.last_status === "error" ? <span className="error-text">{f.last_result?.error}</span>
+                : t("{{n}} new documents", { n: f.last_result?.new ?? 0 })}{f.last_result?.workpackage ? <> · <a href={`#/workpackages/${f.last_result.workpackage}`}>{t("batch")}</a></> : null}</> : t("Not checked yet.")}
             </span>
           </div>
         </fieldset>
       ))}
       <div className="button-row">
-        <button type="button" className="secondary" onClick={() => setDraft((d) => [...d, { ...EMPTY }])}><Icon name="plus" />{t("Munkamappa hozzáadása")}</button>
+        <button type="button" className="secondary" onClick={() => setDraft((d) => [...d, { ...EMPTY }])}><Icon name="plus" />{t("Add work folder")}</button>
         <span className="dt-spacer" />
-        <button type="button" className="secondary" disabled={!dirty || busy} onClick={() => setDraft(baseline)}>{t("Módosítások elvetése")}</button>
+        <button type="button" className="secondary" disabled={!dirty || busy} onClick={() => setDraft(baseline)}>{t("Discard changes")}</button>
         {/* 157: solid only while there is something to save (a faded solid button was noise) */}
-        <button type="button" className={dirty ? "primary" : "secondary"} disabled={!dirty || busy} onClick={() => void save()}>{busy ? t("Mentés…") : t("Mentés")}</button>
+        <button type="button" className={dirty ? "primary" : "secondary"} disabled={!dirty || busy} onClick={() => void save()}>{busy ? t("Saving…") : t("Save")}</button>
       </div>
-      <p className="muted small" role="status">{dirty ? t("Mentetlen módosítás van.") : ""}</p>
+      <p className="muted small" role="status">{dirty ? t("There are unsaved changes.") : ""}</p>
       {msg ? <p className={msg.error ? "notice error" : "notice"} role={msg.error ? "alert" : "status"}>{msg.text}</p> : null}
       {/* 061: by default there is no folder restriction; the list of locations only shows when it is switched on */}
-      {data.data?.roots.length ? <p className="muted small">{t("Engedélyezett helyek: {{roots}}", { roots: data.data.roots.join(" · ") })}</p> : null}
+      {data.data?.roots.length ? <p className="muted small">{t("Allowed locations: {{roots}}", { roots: data.data.roots.join(" · ") })}</p> : null}
       <OutputFolderCard />
     </section>
   );
@@ -140,34 +140,34 @@ export function OutputFolderCard() {
   const path = draft ?? saved;
 
   async function save() {
-    if (!getActor()) { setMsg({ error: true, text: t("Nem menthető: {{reason}}.", { reason: t(NO_ACTOR) }) }); return; }
+    if (!getActor()) { setMsg({ error: true, text: t("Cannot save: {{reason}}.", { reason: t(NO_ACTOR) }) }); return; }
     setBusy(true);
     setMsg(null);
     try {
       const res = await api.saveOutputFolder(path.trim() || null);
       setDraft(res.path ?? "");
-      setMsg({ error: false, text: res.path ? t("Mentve.") : t("A kimeneti mappa törölve.") });
+      setMsg({ error: false, text: res.path ? t("Saved.") : t("The output folder has been cleared.") });
       data.reload();
     } catch (e) {
       const err = e as ApiError;
-      setMsg({ error: true, text: err.code === "folder_overlap" ? t("A kimeneti mappa és egy figyelt munkamappa nem lehet egymásban (a figyelő újra felvenné a másolatokat), és a program saját adatmappáiban sem lehet.")
-        : err.code === "forbidden_path" ? t("Egy útvonal az engedélyezett helyeken kívül van (lent látszanak).") : err.message });
+      setMsg({ error: true, text: err.code === "folder_overlap" ? t("The output folder and a watched work folder cannot be inside one another (the watcher would take the copies in again), nor can it be in the application's own data folders.")
+        : err.code === "forbidden_path" ? t("A path is outside the allowed locations (listed below).") : err.message });
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <fieldset className="card wide folder-card" aria-label={t("Kimeneti mappa")}>
-      <legend>{t("Kimeneti mappa")}</legend>
-      <p className="muted small">{t("Ide kerülnek az iratok tartalom szerinti nevű másolatai (Eredmény › Fájlnevek). Minden kiírás új almappát kap; a program itt semmit nem ír felül és nem töröl. Nem lehet figyelt munkamappán belül.")}</p>
+    <fieldset className="card wide folder-card" aria-label={t("Output folder")}>
+      <legend>{t("Output folder")}</legend>
+      <p className="muted small">{t("The content-named copies of the documents go here (Result › File names). Every write gets a new subfolder; nothing here is ever overwritten or deleted. It cannot be inside a watched work folder.")}</p>
       <div className="form-row">
-        <label className="block grow">{t("Mappa teljes útvonala")}<input value={path} maxLength={1024} placeholder={t("(üresen: nincs kimeneti mappa)")} onChange={(e) => setDraft(e.target.value)} /></label>
+        <label className="block grow">{t("Full folder path")}<input value={path} maxLength={1024} placeholder={t("(empty: no output folder)")} onChange={(e) => setDraft(e.target.value)} /></label>
         <BrowseButton kind="folder" initial={path} onPick={([p]) => setDraft(p)} />
       </div>
       <div className="button-row">
         <span className="dt-spacer" />
-        <button type="button" className={path.trim() === saved ? "secondary" : "primary"} disabled={busy || path.trim() === saved} onClick={() => void save()}>{busy ? t("Mentés…") : t("Mentés")}</button>
+        <button type="button" className={path.trim() === saved ? "secondary" : "primary"} disabled={busy || path.trim() === saved} onClick={() => void save()}>{busy ? t("Saving…") : t("Save")}</button>
       </div>
       {msg ? <p className={msg.error ? "notice error" : "notice"} role={msg.error ? "alert" : "status"}>{msg.text}</p> : null}
     </fieldset>

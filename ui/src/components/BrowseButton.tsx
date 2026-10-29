@@ -19,17 +19,17 @@ export function BrowseButton({ kind, initial, onPick }: {
     const from = initial?.trim() || undefined;
     try {
       if (kind === "folder") {
-        const res = await api.pickFolder(t("Mappa kiválasztása"), from);
+        const res = await api.pickFolder(t("Choose a folder"), from);
         if (res.path) onPick([res.path]);
       } else {
-        const res = await api.pickFiles(t("Fájlok kiválasztása"), from);
+        const res = await api.pickFiles(t("Choose files"), from);
         if (res.paths.length) onPick(res.paths);
       }
     } catch (e) {
       const err = e as ApiError;
-      setError(err.code === "picker_busy" ? t("Már nyitva van egy választó ablak; előbb azt zárd be.")
-        : err.code === "picker_unavailable" ? t("A választó ablak itt nem nyitható meg; írd be az útvonalat.")
-        : err.code === "forbidden_path" ? t("A választott hely nincs az engedélyezett helyek között.")
+      setError(err.code === "picker_busy" ? t("A picker is already open; close that one first.")
+        : err.code === "picker_unavailable" ? t("The picker cannot open here; type the path instead.")
+        : err.code === "forbidden_path" ? t("The chosen location is not among the allowed locations.")
         : err.message);
     } finally {
       setBusy(false);
@@ -39,9 +39,9 @@ export function BrowseButton({ kind, initial, onPick }: {
   return (
     <span className="browse">
       <button type="button" className="secondary" onClick={() => void browse()} disabled={busy} aria-busy={busy}>
-        {busy ? t("A választó ablak nyitva…") : t("Tallózás…")}
+        {busy ? t("The picker is open…") : t("Browse…")}
       </button>
-      {busy ? <span className="muted">{t("Ha nem látod, nézd meg a tálcán.")}</span> : null}
+      {busy ? <span className="muted">{t("If you cannot see it, check the taskbar.")}</span> : null}
       {error ? <span className="notice error" role="alert">{error}</span> : null}
     </span>
   );

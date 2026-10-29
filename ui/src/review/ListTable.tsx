@@ -75,14 +75,14 @@ export function ListTable(p: Props) {
     <div className="list-view">
       <div className="list-head">
         <strong>{fieldLabel(field, p.docType)}</strong>
-        <span className="muted small">{t("{{n}} sor", { n: rows.length })}</span>
-        {p.edited ? <span className="badge">{t("mentetlen")}</span> : p.corrected ? <span className="badge">{t("javítva")}</span> : null}
+        <span className="muted small">{t("{{n}} rows", { n: rows.length })}</span>
+        {p.edited ? <span className="badge">{t("unsaved")}</span> : p.corrected ? <span className="badge">{t("corrected")}</span> : null}
         <span className="spacer" />
         {widths.sized ? <button type="button" className="quiet small-btn" onClick={widths.reset}>{t("Reset column widths")}</button> : null}
-        {p.edited ? <button type="button" className="quiet small-btn" onClick={p.onRevert}>{t("A lista visszaállítása")}</button> : null}
-        <button type="button" className="secondary small-btn" disabled={readOnly} onClick={add}><Icon name="plus" />{t("Sor hozzáadása")}</button>
+        {p.edited ? <button type="button" className="quiet small-btn" onClick={p.onRevert}>{t("Revert list")}</button> : null}
+        <button type="button" className="secondary small-btn" disabled={readOnly} onClick={add}><Icon name="plus" />{t("Add row")}</button>
       </div>
-      {rows.length === 0 ? <p className="muted small pad-s">{t("A lista üres: a gép nem talált ilyen sort. Ha az iraton van, add hozzá.")}</p> : (
+      {rows.length === 0 ? <p className="muted small pad-s">{t("The list is empty: the machine found no such rows. If there are any in the document, add them.")}</p> : (
         <div className="list-scroll">
           <table ref={tableRef} className={widths.sized ? "table compact list-table sized" : "table compact list-table"}
             style={widths.sized ? { width: widths.total(colIds) } : undefined}>
@@ -91,14 +91,14 @@ export function ListTable(p: Props) {
               <tr>
                 <th data-col="_n" className="num">#</th>
                 {columns.map((c) => {
-                  const label = simple ? t("Érték") : columnLabel(c.name);
+                  const label = simple ? t("Value") : columnLabel(c.name);
                   return (
                     <th key={c.name} data-col={c.name} className={NUMERIC.has(c.kind) ? "num" : ""}>
                       {label}<ColumnResizer col={c.name} label={label} widths={widths} />
                     </th>
                   );
                 })}
-                <th data-col="_delete" aria-label={t("Törlés")} />
+                <th data-col="_delete" aria-label={t("Delete")} />
               </tr>
             </thead>
             <tbody ref={body}>
@@ -107,23 +107,23 @@ export function ListTable(p: Props) {
                   onFocus={() => p.onRowPick?.(i + 1)} onClick={() => p.onRowPick?.(i + 1)}>
                   <td className="num muted">{i + 1}</td>
                   {columns.map((c) => {
-                    const label = t("{{n}}. sor: {{col}}", { n: i + 1, col: simple ? fieldLabel(field, p.docType) : columnLabel(c.name) });
+                    const label = t("Row {{n}}: {{col}}", { n: i + 1, col: simple ? fieldLabel(field, p.docType) : columnLabel(c.name) });
                     const v = r[c.name] ?? "";
                     return (
                       <td key={c.name}>
                         {c.options ? (
                           <Picker label={label} hideLabel compact value={v} disabled={readOnly} onChange={(x) => set(i, c.name, x)}
                             options={[{ value: "", label: "–" }, ...c.options.map((o) => ({ value: o, label: columnLabel(`${c.name}=${o}`) })),
-                              ...(v && !c.options.includes(v) ? [{ value: v, label: t("{{value}} (nem megengedett)", { value: v }) }] : [])]} />
+                              ...(v && !c.options.includes(v) ? [{ value: v, label: t("{{value}} (not allowed)", { value: v }) }] : [])]} />
                         ) : (
                           <input aria-label={label} value={v} readOnly={readOnly} className={NUMERIC.has(c.kind) ? "num" : c.kind === "date" ? "" : "wide"}
-                            placeholder={c.kind === "date" ? t("ÉÉÉÉ-HH-NN") : undefined} onChange={(e) => set(i, c.name, e.target.value)} />
+                            placeholder={c.kind === "date" ? t("YYYY-MM-DD") : undefined} onChange={(e) => set(i, c.name, e.target.value)} />
                         )}
                       </td>
                     );
                   })}
                   <td>
-                    <button type="button" className="quiet small-btn" aria-label={t("{{n}}. sor törlése", { n: i + 1 })} disabled={readOnly}
+                    <button type="button" className="quiet small-btn" aria-label={t("Delete row {{n}}", { n: i + 1 })} disabled={readOnly}
                       onClick={() => remove(i)}>×</button>
                   </td>
                 </tr>

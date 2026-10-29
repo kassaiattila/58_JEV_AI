@@ -23,10 +23,10 @@ const DEFAULT_BANDS: Bands = { confident: 0.9, check: 0.5 };
 /** The item's status in the list (062): based on the current to-dos, not on the moment of the run — an item that had
  *  to-dos at run time is „rendezve” (resolved) once its own to-dos have been closed since. */
 export function queueStatus(res: Pick<RunItem, "status" | "final_status"> | undefined, openOwn: number): string {
-  if (!res) return t("még nem futott");
+  if (!res) return t("not run yet");
   if (res.status !== "done") return ITEM_STATUS[res.status] ?? res.status;
-  if (res.final_status === "done") return t("lezárva");
-  return openOwn > 0 ? t("teendő") : t("rendezve");
+  if (res.final_status === "done") return t("closed");
+  return openOwn > 0 ? t("to-do") : t("resolved");
 }
 // 048: the tab viewed last (fields / line list) stays on the next item too, if that item has such a list as well
 let lastTab = "fields";
@@ -39,12 +39,12 @@ export function sourceFileNote(sf: ItemResult["source_file"]): string | null {
   if (!sf || sf.original === "same") return null;
   if (sf.copy) {
     return sf.original === "changed"
-      ? t("Az eredeti fájl a felvétel óta megváltozott. Itt a felvételkori példány látható; az eredmény ebből készült.")
-      : t("Az eredeti fájl a felvétel óta eltűnt vagy nem olvasható. Itt a felvételkori példány látható; az eredmény ebből készült.");
+      ? t("The original file has changed since it was added. The copy kept then is shown here; the result was made from it.")
+      : t("The original file has disappeared or cannot be read since it was added. The copy kept then is shown here; the result was made from it.");
   }
   return sf.original === "changed"
-    ? t("Az eredeti fájl a felvétel óta megváltozott, ezért nem jeleníthető meg (az irat még azelőtt került a kötegbe, hogy a rendszer példányt tett volna el róla).")
-    : t("Az eredeti fájl a felvétel óta eltűnt vagy nem olvasható, ezért nem jeleníthető meg (az irat még azelőtt került a kötegbe, hogy a rendszer példányt tett volna el róla).");
+    ? t("The original file has changed since it was added, so it cannot be shown (the document was added before the system kept a copy of what it adds).")
+    : t("The original file has disappeared or cannot be read since it was added, so it cannot be shown (the document was added before the system kept a copy of what it adds).");
 }
 
 function withNote(note: string | null, node: ReactNode): ReactNode {
@@ -88,11 +88,11 @@ export function ReviewWorkspace({ wp, itemId, onChanged, currentRunId, openRuns 
   const showTrial = useShowTrialReasons();
 
   if (latest.error) return <p className="notice error" role="alert">{latest.error.message}</p>;
-  if (!latest.data) return <p className="muted">{t("Betöltés…")}</p>;
+  if (!latest.data) return <p className="muted">{t("Loading…")}</p>;
   if (latest.data.total === 0) {
-    return <div className="empty">{t("Ezen a kötegen még nem futott feldolgozás, ezért nincs mit ellenőrizni. Indíts futást a")} <a href={`#/workpackages/${wp.id}/process`}>{t("Feldolgozás")}</a> {t("szakaszban.")}</div>;
+    return <div className="empty">{t("No processing has run on this batch yet, so there is nothing to review. Start a run in the")} <a href={`#/workpackages/${wp.id}/process`}>{t("Processing")}</a> {t("in the section.")}</div>;
   }
-  if (!view.data) return view.error ? <p className="notice error">{view.error.message}</p> : <p className="muted">{t("Betöltés…")}</p>;
+  if (!view.data) return view.error ? <p className="notice error">{view.error.message}</p> : <p className="muted">{t("Loading…")}</p>;
 
   const run = view.data.run;
   const items = run.input.items;
@@ -116,26 +116,26 @@ export function ReviewWorkspace({ wp, itemId, onChanged, currentRunId, openRuns 
   const unified = (i: (typeof items)[number]) => (names === "unified" ? view.data?.names?.[i.item_id] : undefined);
   const shown = (i: (typeof items)[number]) => unified(i)?.unified ?? original(i);
   const needle = fold(queueQ.trim());
-  const keysHelp = t("Tab / ↓ következő mező · Enter ✓ · Esc vissza · PageDown / PageUp tétel · Ctrl+Enter mentés");
+  const keysHelp = t("Tab / ↓ next field · Enter ✓ · Esc undo · PageDown / PageUp item · Ctrl+Enter save");
 
   return (
     <>
       <div className="review-bar">
-        <DatasetPicker dataset="runs" scope={{ workpackage_id: wp.id }} label={t("Futás")} hideLabel value={chosen} valueCol="run_id"
+        <DatasetPicker dataset="runs" scope={{ workpackage_id: wp.id }} label={t("A run")} hideLabel value={chosen} valueCol="run_id"
           toOption={runOption} onChange={setRunId} />
-        <span className="muted small">{ownTotal ? t("{{n}} nyitott teendő ebben a futásban", { n: ownTotal }) : t("Ebben a futásban nincs nyitott teendő.")}</span>
+        <span className="muted small">{ownTotal ? t("Open to-dos in this run: {{n}}", { n: ownTotal }) : t("There are no open to-dos in this run.")}</span>
         <EngineMark engine={view.data.engine} />
-        <a className="small" href={`#/runs/${run.run_id}`}>{t("A futás részletei")}</a>
+        <a className="small" href={`#/runs/${run.run_id}`}>{t("Run details")}</a>
         <NameModeSwitch />
         <span className="muted small kbd-help" title={keysHelp}>{keysHelp}</span>
       </div>
       <OtherOpenRuns runs={(openRuns ?? []).filter((r) => r.run_id !== run.run_id && r.open_reasons > 0)} onPick={setRunId} />
       <div className="review-grid" ref={gridRef}>
-        <nav className="queue" aria-label={t("Tételek")}>
+        <nav className="queue" aria-label={t("Item list")}>
           <div className="queue-filter">
-            <input type="search" aria-label={t("Tétel keresése")} placeholder={t("Keresés {{n}} tétel között…", { n: items.length })} value={queueQ}
+            <input type="search" aria-label={t("Search items")} placeholder={t("Search {{n}} items…", { n: items.length })} value={queueQ}
               onChange={(e) => setQueueQ(e.target.value)} />
-            <label className="check small"><input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} />{t("csak teendős")}</label>
+            <label className="check small"><input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} />{t("to-dos only")}</label>
             {anyTrial ? (
               <label className="check small" title={t("To-dos that trial runs left on these documents. A trial run cannot be approved, so they never close by themselves; they do not affect this run.")}>
                 <input type="checkbox" checked={showTrial} onChange={(e) => setShowTrialReasons(e.target.checked)} />{t("trial runs' to-dos too")}
@@ -150,7 +150,7 @@ export function ReviewWorkspace({ wp, itemId, onChanged, currentRunId, openRuns 
             const u = unified(i);
             return (
               <QueueItem key={i.item_id} runId={run.run_id} itemId={i.item_id} name={shown(i)} active={i.item_id === selectedId}
-                tip={u?.unified ? t("Eredeti név: {{name}}", { name: original(i) }) : undefined}
+                tip={u?.unified ? t("Original name: {{name}}", { name: original(i) }) : undefined}
                 warn={u?.state === "review" ? <NameWarning check={u.check} reasons={u.reasons} /> : null}
                 status={removed.has(i.item_id) ? t("Removed") : queueStatus(res, n)}
                 own={n} earlier={m} onClick={() => pick(i.item_id)} />
@@ -158,7 +158,7 @@ export function ReviewWorkspace({ wp, itemId, onChanged, currentRunId, openRuns 
           })}
         </nav>
         {!selected ? (
-          <div className="empty">{t("A kért tétel ({{id}}) nem része ennek a futásnak. Válassz a listából.", { id: selectedId?.slice(0, 12) ?? "" })}</div>
+          <div className="empty">{t("The requested item ({{id}}) is not part of this run. Choose one from the list.", { id: selectedId?.slice(0, 12) ?? "" })}</div>
         ) : (
           <ItemReview key={`${run.run_id}:${selected.item_id}`} wpId={wp.id} runId={run.run_id} itemId={selected.item_id}
             approved={Boolean(run.approval)} onChanged={() => itemChanged(wp.id, !itemId, selected.item_id, view.reload, onChanged)}
@@ -215,9 +215,9 @@ function QueueItem({ runId, itemId, name, tip, warn, active, status, own, earlie
       <span className="work-title" title={tip ? `${name}
 ${tip}` : name}>{warn}{name}</span>
       <small>{status}</small>
-      {own ? <span className="tag">{t("{{n}} teendő", { n: own })}</span> : null}
-      {earlier ? <span className="tag quiet-tag" title={t("Korábbi futásból vagy mérésből nyitva maradt teendő ezen a tételen. Ennek a futásnak az állapotát és jóváhagyását nem befolyásolja.")}>{t("{{n}} korábbi teendő", { n: earlier })}</span> : null}
-      {draft ? <span className="tag draft-tag">{t("mentetlen")}</span> : null}
+      {own ? <span className="tag">{t("To-dos: {{n}}", { n: own })}</span> : null}
+      {earlier ? <span className="tag quiet-tag" title={t("An open to-do left on this item by an earlier run or measurement. It does not affect this run's status or approval.")}>{t("{{n}} earlier to-dos", { n: earlier })}</span> : null}
+      {draft ? <span className="tag draft-tag">{t("unsaved")}</span> : null}
     </button>
   );
 }
@@ -234,7 +234,7 @@ export function ItemReview(props: ItemReviewProps) {
   const res = useLoad(`item:${runId}:${itemId}`, () => api.item(runId, itemId));
   const changed = () => { res.reload(); onChanged(); };
   if (res.error) return <p className="notice error" role="alert">{res.error.message}</p>;
-  if (!res.data) return <p className="muted pad">{t("Betöltés…")}</p>;
+  if (!res.data) return <p className="muted pad">{t("Loading…")}</p>;
   if ("result_kind" in res.data && res.data.result_kind === "native") return <NativeReview data={res.data} approved={props.approved} onChanged={changed} />;
   const data = res.data as ItemResult;
   if (data.kind === "email" && data.email) return <EmailReview data={data} wpId={wpId} onChanged={changed} />;
@@ -377,7 +377,7 @@ function PdfItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPre
   const labelOf = (k: string) => {
     const m = k.match(/^(.+)\[(\d+)\]$/);
     const type = data.extraction?.doc_type;  // 197: the type's own names
-    return m ? t("{{field}}: {{n}}. sor", { field: fieldLabel(m[1], type), n: m[2] }) : fieldLabel(k, type);
+    return m ? t("{{field}}: row {{n}}", { field: fieldLabel(m[1], type), n: m[2] }) : fieldLabel(k, type);
   };
   const chooseAlternative = (f: string, a: Alternative) => {
     const value = a.machine ? String(machine[f] ?? "") : String(a.value ?? a.quote ?? "");
@@ -406,7 +406,7 @@ function PdfItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPre
           selected={selected} onSelect={setSelected} />
       ) : (
         <div className="viewer-stack">
-          <p className="notice small">{t("Ehhez az irathoz nincs szóréteg (korábbi futás vagy régi OCR-eredmény), ezért a mezők helye nem keretezhető és a mezőre nem ugrik. Lapozni lehet; a keretekhez futtasd újra a receptet (a helyi OCR a szóhelyeket pótolja).")}</p>
+          <p className="notice small">{t("This document has no word layer (earlier run or old OCR result), so field locations cannot be boxed and the view does not jump to the field. You can page through it; to get boxes, run the recipe again (local OCR fills in the word positions).")}</p>
           <PageViewer pageUrl={(n) => api.pageUrl(wpId, itemId, n)} pages={[]} pageCount={data.page_count} prov={{}} activeField={null}
             focusRequest={0} colorOf={colorOf} labelOf={labelOf} onPickField={activate} onChooseAlternative={chooseAlternative}
             selectMode={false} words={null} selected={[]} onSelect={() => {}} />

@@ -21,9 +21,9 @@ export function activityDetail(action: string, detail: string | null | undefined
   if (!detail) return "";
   switch (action) {
     case "reason_resolve": return reasonText(detail);
-    case "task_decision": return detail === "accepted" ? t("elfogadva") : detail === "rejected" ? t("elvetve") : detail;
+    case "task_decision": return detail === "accepted" ? t("accepted") : detail === "rejected" ? t("rejected") : detail;
     case "run_start": return MODE[detail] ?? detail;
-    case "run_approve": return t("jóváhagyva");
+    case "run_approve": return t("approved");
     case "recipe": return t(detail);
     // 167 (review 153 E): the corrected fields by their labels
     case "correction": return detail.split(",").map((f) => fieldLabel(f)).join(", ");
@@ -36,20 +36,20 @@ export function Activity({ day }: { day?: string }) {
   const actor = useActor();
   const today = localDay();
   const d = day ?? today;
-  const title = d === today ? t("Mai munkám") : t("Munkám: {{day}}", { day: d });
+  const title = d === today ? t("My work today") : t("My work: {{day}}", { day: d });
   if (!actor) {
-    return <PageHeader title={title} summary={t("Válaszd ki fent a neved a „Ki dolgozik?” mezőben; itt a napi műveleteidet látod.")} />;
+    return <PageHeader title={title} summary={t("Select your name above in the “Who is working?” field; your actions of the day are shown here.")} />;
   }
   return (
     <>
       <PageHeader title={title} summary={t("{{name}}'s actions on the day: steps and decisions on the cases, processing settings, starting and approving runs, corrections, closing to-dos, task-proposal decisions, batch changes, mailbox downloads.", { name: actor })}
         actions={
-          <label className="check small">{t("Nap")}
+          <label className="check small">{t("Day")}
             <input type="date" value={d} max={today} onChange={(e) => go({ view: "activity", day: e.target.value && e.target.value !== today ? e.target.value : undefined })} />
           </label>
         } />
-      <DataTable dataset="activity" scope={{ actor, day: d }} label={t("Tevékenységnapló")} storageId="activity"
-        emptyText={t("Ezen a napon nincs rögzített műveleted.")}
+      <DataTable dataset="activity" scope={{ actor, day: d }} label={t("Activity log")} storageId="activity"
+        emptyText={t("You have no recorded actions on this day.")}
         cell={(col, row) => (col.key === "detail" ? activityDetail(String(row.action), row.detail as string | null) || undefined : undefined)} />
     </>
   );

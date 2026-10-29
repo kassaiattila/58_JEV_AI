@@ -14,7 +14,7 @@ export function PageHeader({ crumbs, title, badge, summary, actions, compact }: 
     <header className={compact ? "page-head compact" : "page-head"}>
       <div className="page-head-main">
         {crumbs?.length ? (
-          <nav aria-label={t("Hely")} className="crumb">
+          <nav aria-label={t("Location")} className="crumb">
             {crumbs.map((c, i) => (
               <span key={`${c.label}-${i}`}>{c.href ? <a href={c.href}>{c.label}</a> : c.label}{i < crumbs.length - 1 ? " / " : ""}</span>
             ))}

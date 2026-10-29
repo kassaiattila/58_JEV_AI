@@ -27,9 +27,9 @@ export function LanguagePanel() {
   }
 
   return (
-    <section className="card wide" aria-label={t("Nyelv")}>
+    <section className="card wide" aria-label={t("Language")}>
       <fieldset className="dl-group" disabled={loading} aria-busy={loading}>
-        <legend>{t("A felület nyelve")}</legend>
+        <legend>{t("Interface language")}</legend>
         {LANGUAGES.map((l) => (
           <label key={l.value} className="check">
             <input type="radio" name="language" checked={current === l.value} onChange={() => void choose(l.value)} />
@@ -37,8 +37,8 @@ export function LanguagePanel() {
           </label>
         ))}
       </fieldset>
-      {failed ? <p className="notice error" role="alert">{t("Az angol feliratok betöltése nem sikerült; a felület magyar marad. Próbáld újra.")}</p> : null}
-      <p className="muted small">{t("A nyelv csak a felület feliratait váltja; az iratok adatai, a nevek és a fájlnevek változatlanok. A beállítás ebben a böngészőben megmarad.")}</p>
+      {failed ? <p className="notice error" role="alert">{t("Loading the English labels failed; the interface stays in Hungarian. Please try again.")}</p> : null}
+      <p className="muted small">{t("The language only changes the interface labels; document data, names and file names stay unchanged. The setting is remembered in this browser.")}</p>
     </section>
   );
 }

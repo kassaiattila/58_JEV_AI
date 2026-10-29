@@ -24,28 +24,28 @@ import { BAND_COLOR } from "./PageViewer";
 const NUMERIC_KINDS = new Set(["money", "number"]);
 
 export const UNLOCATED: Record<string, string> = tmap({
-  approximate: "Az értéket nem találtuk meg szó szerint; a szaggatott keret azt a sort mutatja, ahonnan a gép választotta. Ellenőrizd a képen, és ha kell, jelöld ki a pontos helyét.",
-  ambiguous: "Az érték több helyen szerepel az iraton; nem választottunk bizonytalan keretet. A lehetséges helyek a képen szaggatottan látszanak.",
-  context_rejected: "Az értéket megtaláltuk, de egy másik mező címkéje mellett áll, ezért nem kereteztük. Ellenőrizd a képen.",
-  not_found: "Ezt az értéket nem találtuk meg szó szerint az iraton. Ellenőrizd a képen, vagy jelöld ki a helyét.",
-  no_value: "A mező üres: a gép nem talált hozzá értéket. Ha szerepel az iraton, jelöld ki a képen.",
-  no_layer: "Ehhez az irathoz nincs szóréteg (korábbi futás vagy régi OCR-eredmény), ezért keret sem. Az értéket a képen ellenőrizd.",
-  error: "A forráshely számítása nem sikerült; az értéket a képen ellenőrizd.",
+  approximate: "The value was not found verbatim; the dashed box shows the line the machine picked it from. Check it on the image and, if needed, select its exact location.",
+  ambiguous: "The value appears in several places in the document; no uncertain box was chosen. The possible locations are shown dashed on the image.",
+  context_rejected: "The value was found, but it sits next to another field's label, so it was not boxed. Check it on the image.",
+  not_found: "This value was not found verbatim in the document. Check it on the image or select its location.",
+  no_value: "The field is empty: the machine found no value for it. If it appears in the document, select it on the image.",
+  no_layer: "This document has no word layer (earlier run or old OCR result), so there is no box either. Check the value on the image.",
+  error: "Locating the source failed; check the value on the image.",
 });
 
 /** 091: the tooltip of a field's confidence. A GPT field's confidence (path without JEV) names its basis: the
  *  probability of the answer, lowered when its field check failed, or the failed check alone. */
 export function confidenceTitle(pv: Provenance | undefined): string {
-  if (pv?.confidence == null) return t("Nincs becslés");
+  if (pv?.confidence == null) return t("No estimate");
   const p = Math.round(pv.confidence * 100);
   const basis = pv.confidence_basis;
-  if (basis?.source !== "gpt") return t("Modellbecslés: {{p}}%", { p });
-  if (basis.token == null) return t("GPT-becslés: {{p}}% (csak a mezőellenőrzés alapján; a válasz valószínűsége nem ismert)", { p });
+  if (basis?.source !== "gpt") return t("Model confidence: {{p}}%", { p });
+  if (basis.token == null) return t("GPT estimate: {{p}}% (from the field check only; the probability of the answer is not known)", { p });
   if (pv.confidence < basis.token) {
-    return t("GPT-becslés: {{p}}% (a válasz valószínűsége {{token}}%, de a mezőellenőrzés nem ment át)",
+    return t("GPT estimate: {{p}}% (the probability of the answer is {{token}}%, but the field check failed)",
       { p, token: Math.round(basis.token * 100) });
   }
-  return t("GPT-becslés: {{p}}% (a válasz valószínűsége)", { p });
+  return t("GPT estimate: {{p}}% (the probability of the answer)", { p });
 }
 
 /** The full set of corrections to save: the earlier corrections + the draft's differences from the machine value
@@ -197,7 +197,7 @@ export function FieldPanel(p: Props) {
   async function save() {
     if (!dirty || conflict || readOnly || saving.current) return;
     if (!getActor()) {
-      setState({ kind: "error", msg: t("Nem sikerült menteni: {{reason}}. A módosításaid megmaradtak.", { reason: t(NO_ACTOR) }) });
+      setState({ kind: "error", msg: t("Could not save: {{reason}}. Your changes have been kept.", { reason: t(NO_ACTOR) }) });
       document.getElementById("actor")?.focus();
       return;
     }
@@ -212,7 +212,7 @@ export function FieldPanel(p: Props) {
       // 081: the amounts typed now, as the local service read them ("28.000" → 28 000); 084: the dates too
       const typed = Object.fromEntries(Object.keys(draft?.values ?? {}).map((f) => [f, saved.correction.fields[f]]));
       const values = savedValues(typed, kinds);
-      setState({ kind: "saved", msg: values ? t("Mentve. Rögzített érték: {{values}}", { values }) : t("Mentve.") });
+      setState({ kind: "saved", msg: values ? t("Saved. Recorded value: {{values}}", { values }) : t("Saved.") });
       p.onSaved();
     } catch (e) {
       reportSaveError(e);
@@ -230,12 +230,12 @@ export function FieldPanel(p: Props) {
       return;
     }
     setState({ kind: "error", field, msg: err.status === 409
-      ? t("Közben más is mentett erre a tételre. A módosításaid megmaradtak; frissítsd, és mentsd újra.")
+      ? t("Someone else saved this item in the meantime. Your changes have been kept; refresh and save again.")
       : err.code === "ambiguous_number"
-        ? t("Nem sikerült menteni: egy szám kétféleképpen is olvasható. Tizedesvesszővel (28,50) vagy tagolás nélkül (28000) írd be. A módosításaid megmaradtak.")
+        ? t("Could not save: a number can be read two ways. Type it with a decimal comma (28,50) or without grouping (28000). Your changes are kept.")
         : err.code === "ambiguous_date"
-        ? t("Nem sikerült menteni: egy dátumban a nap és a hónap kétféleképpen is olvasható. Írd be az évvel kezdve (2022-12-04) vagy a hónap nevével (4 Dec 2022). A módosításaid megmaradtak.")
-        : t("Nem sikerült menteni: {{reason}}. A módosításaid megmaradtak.", { reason: err.message }) });
+        ? t("Could not save: the day and the month of a date can be read two ways. Type it with the year first (2022-12-04) or with the month's name (4 Dec 2022). Your changes are kept.")
+        : t("Could not save: {{reason}}. Your changes have been kept.", { reason: err.message }) });
     if (err.status === 409) p.onSaved();
   }
 
@@ -245,7 +245,7 @@ export function FieldPanel(p: Props) {
   async function confirmField(f: string, viaKeyboard = false) {
     if (conflict || readOnly || saving.current) return;
     if (!getActor()) {
-      setState({ kind: "error", msg: t("Nem sikerült menteni: {{reason}}. A módosításaid megmaradtak.", { reason: t(NO_ACTOR) }) });
+      setState({ kind: "error", msg: t("Could not save: {{reason}}. Your changes have been kept.", { reason: t(NO_ACTOR) }) });
       document.getElementById("actor")?.focus();
       return;
     }
@@ -260,7 +260,7 @@ export function FieldPanel(p: Props) {
         fields: body.fields, expected_revision: base, ...(Object.keys(body.sources).length ? { sources: body.sources } : {}), confirm: [f],
       });
       settleDraft(key, own, saved.correction.revision); // 090 (N06): a value retyped during the save stays
-      setState({ kind: "saved", msg: t("Mentve: {{field}} ellenőrizve.", { field: fieldLabel(f) }) });
+      setState({ kind: "saved", msg: t("Saved: {{field}} verified.", { field: fieldLabel(f) }) });
       p.onSaved();
       p.onConfirmed?.(f, viaKeyboard, saved.correction.revision);
     } catch (e) {
@@ -323,33 +323,33 @@ export function FieldPanel(p: Props) {
   const goRow = (f: string, row: number) => { p.onTab?.(f); setFocusRow({ row, seq: Date.now() }); };
 
   return (
-    <section className="panel" aria-label={t("Teendők és mezők")}>
+    <section className="panel" aria-label={t("To-dos and fields")}>
       {p.onPrevItem || p.onNextItem ? (
-        <div className="item-nav" role="group" aria-label={t("Lapozás a tételek között")}>
-          <button type="button" className="quiet small-btn" disabled={!p.onPrevItem} onClick={p.onPrevItem} title="PageUp">← {t("Előző tétel")}</button>
-          <button type="button" className="secondary small-btn" disabled={!p.onNextItem} onClick={p.onNextItem} title="PageDown">{t("Következő tétel")} →</button>
+        <div className="item-nav" role="group" aria-label={t("Moving between the items")}>
+          <button type="button" className="quiet small-btn" disabled={!p.onPrevItem} onClick={p.onPrevItem} title="PageUp">← {t("Previous item")}</button>
+          <button type="button" className="secondary small-btn" disabled={!p.onNextItem} onClick={p.onNextItem} title="PageDown">{t("Next item")} →</button>
         </div>
       ) : null}
       {resolveError ? <p className="notice error" role="alert">{resolveError}</p> : null}
       {documentReasons.length ? (
-        <ul className="issues" aria-label={t("Nyitott teendők ebben a futásban")}>
+        <ul className="issues" aria-label={t("Open to-dos in this run")}>
           {documentReasons.map((r) => (
             <li key={r.id} className="issue">
               <span>{reasonText(r.reason)}</span>
-              <button type="button" className="secondary small-btn" disabled={resolving !== null} onClick={() => void resolve(r)}><Icon name="check" />{t("Rendezve")}</button>
+              <button type="button" className="secondary small-btn" disabled={resolving !== null} onClick={() => void resolve(r)}><Icon name="check" />{t("Resolved")}</button>
             </li>
           ))}
         </ul>
-      ) : result.open_reasons.length ? null : <p className="ok pad-s">{t("Ebben a futásban nincs nyitott teendő ezen a tételen.")}</p>}
+      ) : result.open_reasons.length ? null : <p className="ok pad-s">{t("There are no open to-dos for this item in this run.")}</p>}
       {itemPanels().map(([name, Panel]) => <Panel key={name} result={result} readOnly={readOnly} onDecided={p.onResolved} />)}
 
       {shownChecks.length ? (
-        <ul className="issues checks" aria-label={t("Ellenőrzések a mentett adaton")}>
+        <ul className="issues checks" aria-label={t("Checks on the saved data")}>
           {shownChecks.map((c) => (
             <li key={c.name} className="issue">
-              <span className="small">{checkText(c.code, c.detail)}{c.advisory ? ` — ${t("csak jelzés, nem teendő")}` : ""}</span>
+              <span className="small">{checkText(c.code, c.detail)}{c.advisory ? ` — ${t("advisory only, not a to-do")}` : ""}</span>
               {Object.entries(c.rows ?? {}).flatMap(([f, rows]) => rows.map((n) => (
-                <button key={`${f}:${n}`} type="button" className="secondary small-btn" onClick={() => goRow(f, n)}>{t("{{n}}. sor", { n })}</button>
+                <button key={`${f}:${n}`} type="button" className="secondary small-btn" onClick={() => goRow(f, n)}>{t("Row {{n}}", { n })}</button>
               )))}
             </li>
           ))}
@@ -357,13 +357,13 @@ export function FieldPanel(p: Props) {
       ) : null}
 
       {listNames.length ? (
-        <div className="tabs panel-tabs" role="tablist" aria-label={t("Mezők és tételes listák")}>
+        <div className="tabs panel-tabs" role="tablist" aria-label={t("Fields and line lists")}>
           {["fields", ...listNames].map((name) => {
             const n = name === "fields" ? null : listRows(name).length;
             const edited = name === "fields" ? Object.keys(draft?.values ?? {}).length > 0 : draft?.lists?.[name] !== undefined;
             return (
               <button key={name} type="button" role="tab" className="tab" aria-selected={tab === name} onClick={() => p.onTab?.(name)}>
-                {name === "fields" ? t("Mezők") : `${fieldLabel(name)} (${n})`}{edited ? " •" : ""}
+                {name === "fields" ? t("Fields") : `${fieldLabel(name)} (${n})`}{edited ? " •" : ""}
               </button>
             );
           })}
@@ -378,7 +378,7 @@ export function FieldPanel(p: Props) {
           onChange={(rows) => setList(key, base, tab, rows)} onRevert={() => revertField(key, tab)} />
       ) : <>
       {p.filter && p.counts ? (
-        <div className="field-filter" role="group" aria-label={t("Mezők szűrése")}>
+        <div className="field-filter" role="group" aria-label={t("Filter the fields")}>
           {FIELD_FILTERS.map((k) => (
             <button key={k} type="button" className="chip" aria-pressed={p.filter === k} onClick={() => p.onFilter?.(k)}>
               {FILTER_LABEL[k]} ({p.counts![k]})
@@ -387,8 +387,8 @@ export function FieldPanel(p: Props) {
         </div>
       ) : null}
       <div className="panel-tools">
-        {p.hasWords ? <span className="muted small">{t("A képen a szavakra kattintva vagy téglalapot húzva jelölöd ki az értéket.")}</span> : null}
-        <span className="legend" aria-label={t("A modellbecslés színei")}>
+        {p.hasWords ? <span className="muted small">{t("Click the words on the image, or drag a rectangle, to select the value.")}</span> : null}
+        <span className="legend" aria-label={t("Model confidence colours")}>
           {(["confident", "check", "likely_wrong"] as Band[]).map((b) => (
             <span key={b} className="legend-item"><i style={{ borderColor: BAND_COLOR[b] }} />{BAND_LABEL[b]}</span>
           ))}
@@ -397,30 +397,30 @@ export function FieldPanel(p: Props) {
 
       {selectMode && selection.ids.length ? (
         <div className="selection-bar" role="status">
-          <div className="small">{t("Kijelölve:")} „{selection.text}”</div>
+          <div className="small">{t("Selected:")} „{selection.text}”</div>
           {activeField ? (
             norm && norm.text === selection.text ? (
               norm.ok ? (
                 <div className="button-row">
                   <span className="small">→ {fieldLabel(activeField)}: <strong className="mono">{norm.value}</strong></span>
-                  <button type="button" className="primary small-btn" onClick={applySelection}>{t("Beírás a mezőbe")}</button>
-                  <button type="button" className="quiet small-btn" onClick={p.onClearSelection}>{t("Mégse")}</button>
+                  <button type="button" className="primary small-btn" onClick={applySelection}>{t("Enter into field")}</button>
+                  <button type="button" className="quiet small-btn" onClick={p.onClearSelection}>{t("Cancel")}</button>
                 </div>
               ) : norm.twoWayDate
-                ? <div className="error-text small">{t("A kijelölt dátumban a nap és a hónap kétféleképpen is olvasható. Gépeld be az évvel kezdve (2022-12-04).")}</div>
-                : <div className="error-text small">{t("Ez a szöveg nem értelmezhető „{{field}}” értékként. Jelölj ki mást.", { field: fieldLabel(activeField) })}</div>
-            ) : <div className="muted small">{t("Értelmezés…")}</div>
-          ) : <div className="muted small">{t("Válaszd ki, melyik mezőbe kerüljön.")}</div>}
+                ? <div className="error-text small">{t("The day and the month of the selected date can be read two ways. Type it with the year first (2022-12-04).")}</div>
+                : <div className="error-text small">{t("This text cannot be interpreted as a “{{field}}” value. Select something else.", { field: fieldLabel(activeField) })}</div>
+            ) : <div className="muted small">{t("Interpreting…")}</div>
+          ) : <div className="muted small">{t("Choose which field it should go into.")}</div>}
         </div>
       ) : null}
 
       {!fields.length && p.filter ? (
         <div className="pad-s filter-done">
           <p className="muted small">{EMPTY_FILTER[p.filter]}</p>
-          {p.onNextTodo ? <button type="button" className="primary small-btn" onClick={p.onNextTodo}>{t("Következő teendős tétel")} →</button> : null}
+          {p.onNextTodo ? <button type="button" className="primary small-btn" onClick={p.onNextTodo}>{t("Next item with to-dos")} →</button> : null}
         </div>
       ) : null}
-      <ol className="fields" aria-label={t("Mezők")}>
+      <ol className="fields" aria-label={t("Fields")}>
         {fields.map((f) => {
           const pv = result.provenance[f];
           const band = bandOf(f);
@@ -433,9 +433,9 @@ export function FieldPanel(p: Props) {
               <div className="frow-head">
                 <label htmlFor={`fv-${f}`}>{label}</label>
                 <span className="chips">
-                  {edited ? <span className="badge">{t("mentetlen")}</span>
-                    : isConfirmed(result, f) ? <span className="badge ok-badge" title={t("Egy ember ellenőrizte ezt az értéket.")}><Icon name="check" />{t("ellenőrizve")}</span>
-                    : pv?.corrected ? <span className="badge">{t("javítva")}</span> : null}
+                  {edited ? <span className="badge">{t("unsaved")}</span>
+                    : isConfirmed(result, f) ? <span className="badge ok-badge" title={t("A person verified this value.")}><Icon name="check" />{t("verified")}</span>
+                    : pv?.corrected ? <span className="badge">{t("corrected")}</span> : null}
                   {/* 167 (review 153 E): the machine's confidence belongs to the machine's value, not to a person's correction */}
                   {pv?.corrected ? null : (
                     <span className="band" style={{ color: BAND_COLOR[band], borderColor: BAND_COLOR[band] }}
@@ -444,7 +444,7 @@ export function FieldPanel(p: Props) {
                     </span>
                   )}
                   <span className={`src ${pv?.status === "located" ? "src-ok" : pv?.status === "approximate" ? "src-approx" : "src-none"}`}
-                    title={pv?.status === "located" ? t("Forrás: {{how}}", { how: pv.method === "manual" ? t("kézi kijelölés") : pv.method === "pick" ? t("a választott jelölt helye") : t("keresés") }) : UNLOCATED[pv?.status ?? "no_layer"]}>
+                    title={pv?.status === "located" ? t("Source: {{how}}", { how: pv.method === "manual" ? t("manual selection") : pv.method === "pick" ? t("location of the chosen candidate") : t("search") }) : UNLOCATED[pv?.status ?? "no_layer"]}>
                     {pv?.status === "located" ? "◉" : pv?.status === "approximate" ? "◎" : "○"}
                   </span>
                 </span>
@@ -453,53 +453,53 @@ export function FieldPanel(p: Props) {
                 <input id={`fv-${f}`} value={shown(f)} readOnly={readOnly} onFocus={() => onActivate(f)}
                   aria-invalid={state.kind === "error" && state.field === f ? true : undefined}
                   onChange={(e) => setField(key, base, f, e.target.value, null)} onKeyDown={(e) => onFieldKey(e, f)} />
-                <button type="button" className="verdict verdict-ok" aria-label={t("{{field}}: helyes", { field: label })}
-                  title={t("Helyes: mentés és ellenőrzöttnek jelölés (a mező teendői lezárulnak)")}
+                <button type="button" className="verdict verdict-ok" aria-label={t("{{field}}: correct", { field: label })}
+                  title={t("Correct: save it and mark it as verified (the field's to-dos are closed)")}
                   disabled={readOnly || conflict || state.kind === "saving"} onClick={(e) => { e.stopPropagation(); void confirmField(f); }}>
                   <Icon name="check" />
                 </button>
                 {edited ? (
-                  <button type="button" className="verdict" aria-label={t("{{field}}: visszaállítás", { field: label })} title={t("Az eredeti érték visszaállítása")}
+                  <button type="button" className="verdict" aria-label={t("{{field}}: restore", { field: label })} title={t("Restore the original value")}
                     disabled={readOnly} onClick={(e) => { e.stopPropagation(); revertField(key, f); }}>
                     <Icon name="restore" />
                   </button>
                 ) : (
-                  <button type="button" className="verdict verdict-bad" aria-label={t("{{field}}: hibás, javítom", { field: label })}
-                    title={t("Hibás: a mező kiürül, és a helyes értéket kijelölheted a képen vagy beírhatod")}
+                  <button type="button" className="verdict verdict-bad" aria-label={t("{{field}}: wrong, fix it", { field: label })}
+                    title={t("Wrong: the field is emptied, and you can select the right value on the image or type it")}
                     disabled={readOnly || conflict} onClick={(e) => { e.stopPropagation(); startFix(f); }}>
                     <Icon name="close" />
                   </button>
                 )}
               </div>
               {todo.length ? (
-                <ul className="field-issues" aria-label={t("{{field}}: teendők", { field: label })}>
+                <ul className="field-issues" aria-label={t("{{field}}: to-dos", { field: label })}>
                   {todo.map((r) => <li key={r.id}>{reasonText(r.reason)}</li>)}
                 </ul>
               ) : null}
               {earlierAt(f).length ? (
-                <ul className="field-issues earlier-issues" aria-label={t("{{field}}: korábbi teendők", { field: label })}>
+                <ul className="field-issues earlier-issues" aria-label={t("{{field}}: earlier to-dos", { field: label })}>
                   {sameText(earlierAt(f)).map(([text, n]) => (
-                    <li key={text}>{n > 1 ? t("{{n}} korábbi futásból: {{reason}}", { n, reason: text }) : t("korábbi futásból: {{reason}}", { reason: text })}</li>
+                    <li key={text}>{n > 1 ? t("from {{n}} earlier runs: {{reason}}", { n, reason: text }) : t("from an earlier run: {{reason}}", { reason: text })}</li>
                   ))}
                 </ul>
               ) : null}
               {edited && shown(f) === "" ? (
-                <p className="small muted fix-hint">{t("Jelöld ki a helyes értéket a képen, írd be, vagy válassz jelöltet; üresen hagyva a ✓ azt rögzíti, hogy az iraton nincs érték.")}</p>
+                <p className="small muted fix-hint">{t("Select the right value on the image, type it, or pick a candidate; left empty, ✓ records that the document has no value.")}</p>
               ) : null}
               {isActive ? (
                 <div className="fdetail">
-                  {prov?.status === "located" && prov.quote ? <div className="small">{t("Forrásszöveg:")} „{prov.quote}”{prov.page ? ` · ${t("{{n}}. oldal", { n: prov.page })}` : ""}
-                      {prov.multiple && prov.multiple > 1 ? ` · ${t("{{n}} helyen szerepel az iraton; a keret a legvalószínűbbön, a többi szaggatottan", { n: prov.multiple })}` : ""}</div>
+                  {prov?.status === "located" && prov.quote ? <div className="small">{t("Source text:")} „{prov.quote}”{prov.page ? ` · ${t("page {{n}}", { n: prov.page })}` : ""}
+                      {prov.multiple && prov.multiple > 1 ? ` · ${t("appears in {{n}} places in the document; the box is on the most likely one, the others are dashed", { n: prov.multiple })}` : ""}</div>
                     : <div className="small muted">{result.kind === "statement_table"  // 136: the value is the table export's; there is no page image
-                      ? t("Read by code from the bank's export; this statement has no page image.") : UNLOCATED[prov?.status ?? "no_layer"]}{prov?.status === "approximate" && prov.quote ? ` ${t("A sor:")} „${prov.quote}”.` : ""}</div>}
-                  {edited || pv?.corrected ? <div className="small muted">{t("Gépi érték:")} {machine[f] === null || machine[f] === undefined ? "–" : String(machine[f])}</div> : null}
+                      ? t("Read by code from the bank's export; this statement has no page image.") : UNLOCATED[prov?.status ?? "no_layer"]}{prov?.status === "approximate" && prov.quote ? ` ${t("Line:")} „${prov.quote}”.` : ""}</div>}
+                  {edited || pv?.corrected ? <div className="small muted">{t("Machine value:")} {machine[f] === null || machine[f] === undefined ? "–" : String(machine[f])}</div> : null}
                   {otherCandidates(prov?.alternatives, shown(f)).length ? (
                     <div className="alts">
-                      <span className="small muted">{t("Más jelöltek:")}</span>
+                      <span className="small muted">{t("Other candidates:")}</span>
                       {otherCandidates(prov?.alternatives, shown(f)).map((a, i) => (
                         <button key={i} type="button" className="secondary small-btn" disabled={readOnly}
                           onClick={(e) => { e.stopPropagation(); p.onChooseAlternative(f, a); }}>
-                          {a.machine ? t("gépi érték helye") : a.value ?? a.quote}{a.p != null ? ` · ${Math.round(a.p * 100)}%` : ""}
+                          {a.machine ? t("machine value location") : a.value ?? a.quote}{a.p != null ? ` · ${Math.round(a.p * 100)}%` : ""}
                         </button>
                       ))}
                     </div>
@@ -514,39 +514,39 @@ export function FieldPanel(p: Props) {
 
       {earlierDocument.length ? (
         <details className="details earlier-box">
-          <summary>{t("Korábbi, egész iratra szóló teendők ({{n}}) — ezt a futást nem akadályozzák", { n: earlierDocument.length })}</summary>
+          <summary>{t("Earlier to-dos about the whole document ({{n}}) — they do not block this run", { n: earlierDocument.length })}</summary>
           <ul className="issues">
             {earlierDocument.map((r) => (
               <li key={r.id} className="issue quiet-issue"><span>{reasonText(r.reason)}</span>
-                <button type="button" className="quiet small-btn" disabled={resolving !== null} onClick={() => void resolve(r)}>{t("Rendezve")}</button></li>
+                <button type="button" className="quiet small-btn" disabled={resolving !== null} onClick={() => void resolve(r)}>{t("Resolved")}</button></li>
             ))}
           </ul>
         </details>
       ) : null}
 
       <div className="actions">
-        {readOnly ? <p className="muted small">{t("A jóváhagyott futás javítása le van zárva.")}</p> : (
+        {readOnly ? <p className="muted small">{t("Corrections to an approved run are locked.")}</p> : (
           <>
             {conflict ? (
               <div className="notice error small" role="alert">
-                {t("A tételre közben újabb javítás került (verzió {{rev}}). A munkapéldányod megmaradt.", { rev: base })}
+                {t("A newer correction was saved for this item in the meantime (version {{rev}}). Your working copy has been kept.", { rev: base })}
                 <div className="button-row">
-                  <button type="button" className="secondary small-btn" onClick={() => rebaseDraft(key, base)}>{t("Alkalmazás az új verzióra")}</button>
-                  <button type="button" className="quiet small-btn" onClick={() => clearDraft(key)}>{t("Munkapéldány elvetése")}</button>
+                  <button type="button" className="secondary small-btn" onClick={() => rebaseDraft(key, base)}>{t("Apply to the new version")}</button>
+                  <button type="button" className="quiet small-btn" onClick={() => clearDraft(key)}>{t("Discard working copy")}</button>
                 </div>
               </div>
             ) : null}
             <button type="button" className={dirty ? "primary" : "secondary"} disabled={!dirty || conflict || state.kind === "saving"} onClick={() => void save()}>
-              {state.kind === "saving" ? t("Mentés…") : t("Javítás mentése")} <span className="kbd">Ctrl+Enter</span>
+              {state.kind === "saving" ? t("Saving…") : t("Save correction")} <span className="kbd">Ctrl+Enter</span>
             </button>
             {dirty ? <button type="button" className="quiet small-btn" onClick={() => {
               clearDraft(key);
               if (state.kind === "error") setState({ kind: "idle" }); // 153: "your changes are kept" no longer holds
-            }}>{t("Minden módosítás elvetése")}</button> : null}
+            }}>{t("Discard all changes")}</button> : null}
           </>
         )}
         <p role="status" className={`save-state ${state.kind === "error" ? "error" : ""}`}>
-          {state.msg ?? (dirty ? t("Mentetlen módosítás — tételváltáskor is megmarad.") : t("Javítás verziója: {{rev}}", { rev: base }))}
+          {state.msg ?? (dirty ? t("Unsaved changes — kept when switching items.") : t("Correction version: {{rev}}", { rev: base }))}
         </p>
       </div>
     </section>

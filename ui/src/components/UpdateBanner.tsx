@@ -40,8 +40,8 @@ export function UpdateBanner({ pollMs = VERSION_POLL_MS }: { pollMs?: number }) 
   if (!data || !first || !newerVersion(first, data)) return null;
   return (
     <div className="update-banner" role="status">
-      <span>{t("Újabb változat fut. Töltsd újra az oldalt az új felülethez; a mentetlen javításaid megmaradnak.")}</span>
-      <button type="button" className="primary" onClick={() => window.location.reload()}>{t("Újratöltés")}</button>
+      <span>{t("A newer version is running. Reload the page to get the new interface; your unsaved corrections are kept.")}</span>
+      <button type="button" className="primary" onClick={() => window.location.reload()}>{t("Reload")}</button>
     </div>
   );
 }
