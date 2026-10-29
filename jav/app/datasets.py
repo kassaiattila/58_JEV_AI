@@ -51,7 +51,7 @@ from pathlib import Path
 from typing import Any
 
 from jav.app import costs, logic_packs, work, work_recipes, work_runs, work_views
-from jav.core import activity_kinds, cfg, decisions, field_names, store
+from jav.core import activity_kinds, cfg, decisions, display, field_names, store
 from jav.app.outputs import parts
 from jav.core import calls
 from jav.app.tablequery import Column, Query, run_query, select, shown
@@ -1045,7 +1045,7 @@ def export_file(name: str, scope: dict[str, str] | None, q: Query, rows_mode: st
     cols, picked = export_rows(name, scope, q, rows_mode, columns)
     sc = _scope_of(ds, scope)
     fname = "-".join([name, *[v[:24] for v in sc.values()], rows_mode, _stamp()]) + f".{fmt}"
-    head = [c.label for c in cols]
+    head = [display.text(c.label) for c in cols]  # 231 (D4): in the requesting interface's language
     table = [[shown(c, r.get(c.key)) for c in cols] for r in picked]
     if fmt == "csv":
         data = export.csv_bytes(head, table)
@@ -1056,7 +1056,7 @@ def export_file(name: str, scope: dict[str, str] | None, q: Query, rows_mode: st
 
         wb = Workbook()
         ws = wb.active
-        ws.title = xlsx_writer.safe_sheet(ds.label, set())
+        ws.title = xlsx_writer.safe_sheet(display.text(ds.label), set())
         xlsx_writer.write_table(ws, head, table, [c.kind if c.kind in ("money", "number") else None for c in cols])
         buf = io.BytesIO()
         wb.save(buf)

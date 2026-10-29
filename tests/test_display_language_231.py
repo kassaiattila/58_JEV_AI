@@ -49,3 +49,18 @@ def test_the_service_reads_the_interface_s_cookie_for_the_whole_request(tmp_path
     assert client.get("/api/test-display-language").json() == {"language": "en", "emails": "Emails"}
     client.cookies.set(display.COOKIE, "xx")
     assert client.get("/api/test-display-language").json()["language"] == "hu"
+
+
+def test_a_caption_is_searched_sorted_and_offered_in_the_request_s_language():
+    from jav.app.tablequery import Column, Query, Sort, facets, select
+
+    col = Column(key="state", label="Status", kind="enum", labels={"d": "Done", "r": "Running"})
+    rows = [{"_key": "1", "state": "d"}, {"_key": "2", "state": "r"}]
+    by_state = Query(sort=[Sort(col="state")])
+    assert [r["state"] for r in select([col], rows, by_state)] == ["r", "d"]  # Fut < Kész
+    assert [r["_key"] for r in select([col], rows, Query(q="kész"))] == ["1"]
+    assert facets([col], rows)["state"] == ["r", "d"]
+    with display.use("en"):
+        assert [r["state"] for r in select([col], rows, by_state)] == ["d", "r"]  # Done < Running
+        assert select([col], rows, Query(q="kész")) == [] and [r["_key"] for r in select([col], rows, Query(q="done"))] == ["1"]
+        assert facets([col], rows)["state"] == ["d", "r"]

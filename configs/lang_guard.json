@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.143",
+    "version": "1.0.144",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.144",
+        "date": "2026-10-29",
+        "note": "baseline: 6217 -> 6219 Hungarian lines in 472 files; accepted: tests/test_display_language_231.py"
+      },
       {
         "version": "1.0.143",
         "date": "2026-10-29",
@@ -998,11 +1003,12 @@
     "tests/test_datetime_evidence_200.py": 6,
     "tests/test_detect.py": 4,
     "tests/test_detect_detail.py": 4,
+    "tests/test_display_language_231.py": 3,
     "tests/test_doc_links.py": 1,
     "tests/test_docs_071.py": 1,
     "tests/test_docsgen_067.py": 1,
     "tests/test_document_guard_127.py": 1,
-    "tests/test_document_injection_probe.py": 3,
+    "tests/test_document_injection_probe.py": 2,
     "tests/test_email_export_167.py": 8,
     "tests/test_email_intake_231.py": 2,
     "tests/test_email_results.py": 18,

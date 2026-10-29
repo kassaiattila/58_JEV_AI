@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav.core import numbers
+from jav.core import display, numbers
 from jav.app.tablequery import Column, Query, select
 
 COLS = [Column("name", "Name"), Column("amount", "Amount", "money"), Column("qty", "Quantity", "number")]
@@ -37,6 +37,9 @@ def test_a_quantity_keeps_its_decimal_point_reading() -> None:
 
 def test_an_ambiguous_amount_is_refused_with_a_message_naming_the_column() -> None:
     with pytest.raises(numbers.AmbiguousNumber) as caught:
+        keys({"col": "amount", "op": "eq", "value": "28,000"})
+    assert caught.value.params == {"column": "Összeg", "value": "28,000"}  # 231 (D4): in the request's language
+    with display.use("en"), pytest.raises(numbers.AmbiguousNumber) as caught:
         keys({"col": "amount", "op": "eq", "value": "28,000"})
     assert caught.value.params == {"column": "Amount", "value": "28,000"}
 
