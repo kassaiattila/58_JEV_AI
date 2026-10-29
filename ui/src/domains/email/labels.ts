@@ -16,7 +16,7 @@ export function mailboxLabel(r: MailboxRequest): string {
  *  period in the interface's language; the service wrote it in Hungarian before 183 and in English since. */
 export function storedMailboxLabel(label: string): string {
   // the Hungarian period is matched with the accented letter escaped (stored data, not interface text)
-  return label.replace(/(?:utolsó (\d+) nap|last (\d+) days)$/, (_m, hu: string | undefined, en: string | undefined) =>
+  return label.replace(/(?:utols\u00f3 (\d+) nap|last (\d+) days)$/, (_m, hu: string | undefined, en: string | undefined) =>
     t("last {{n}} days", { n: Number(hu ?? en) }));
 }
 
