@@ -122,6 +122,8 @@ function SystemPanel() {
         {w.data ? (
           <p>
             <span className={`status ${w.data.running ? "s-done" : "s-failed"}`}>{w.data.running ? t("Fut") : t("Nem fut")}</span>
+            {/* 231 (E1): how many of the allowed workers run, when more than one may */}
+            {(w.data.slots ?? 1) > 1 ? <> <span className="tnum">{t("{{n}} of {{slots}} workers", { n: w.data.workers ?? 0, slots: w.data.slots ?? 1 })}</span></> : null}
             {" "}{t("Sorban: {{queued}} · folyamatban: {{claimed}} · kész: {{done}} · leállítva: {{cancelled}}", { queued: jobs.queued ?? 0, claimed: jobs.claimed ?? 0, done: jobs.done ?? 0, cancelled: jobs.cancelled ?? 0 })}
             {jobs.dead ? ` · ${t("feladva: {{n}}", { n: jobs.dead })}` : ""}
           </p>

@@ -3616,6 +3616,7 @@
   "The invented consultancy's invoices, which the reconciliation's example pairs with its statements": "The invented consultancy's invoices, which the reconciliation's example pairs with its statements",
   "The invented consultancy's monthly statements, March to June 2026 (a bank's XML files)": "The invented consultancy's monthly statements, March to June 2026 (a bank's XML files)",
   "First read the invented consultancy's invoices (the Documents process, its packet of the consultancy's invoices) and its statements (the Bank statements process), then reconcile March to June 2026: the code pairs three payments with their invoices.": "First read the invented consultancy's invoices (the Documents process, its packet of the consultancy's invoices) and its statements (the Bank statements process), then reconcile March to June 2026: the code pairs three payments with their invoices.",
+  "{{n}} of {{slots}} workers": "{{n}} of {{slots}} workers",
   "One code a line, in their order.": "One code a line, in their order.",
   "Defaults": "Defaults",
   "How the system decides on its own: each kind of decision and the values it decides with, which the installation may set as its defaults": "How the system decides on its own: each kind of decision and the values it decides with, which the installation may set as its defaults",

@@ -46,7 +46,6 @@ from jav.documents import isolated_pdf
 from jav.core import access, cfg, dates, numbers, store, version
 from jav.core.config import PROJECT_ROOT
 from jav.runtime import pdf_status, worker
-from jav.core import lock
 from jav.service.service_shared import ForbiddenPath, In, JavJSONResponse, UnknownUser, access_guard, error, settings
 from jav.core.user_messages import explained, message_fields
 
@@ -429,7 +428,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                 "own_defaults": sorted(f"{file}.{key}" for file, keys in rule_defaults.active()[0].items() for key in keys),
                 "pdf_protection": {
                     "service": isolated_pdf.protection_status(),
-                    "worker": pdf_status.worker_status(store.current_path(), running=lock.is_held(worker.lock_path())),
+                    "worker": pdf_status.worker_status(store.current_path(), running=worker.running()),
                 }}
 
     _add_theme_routes(app, r)  # 195 (plan G-tidy R4): every other address, by theme; 203: built once per process

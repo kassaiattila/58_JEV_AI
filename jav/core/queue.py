@@ -7,7 +7,12 @@ Invariants kept from V4:
 - The attempt count survives a restart; beyond the limit the job is `dead`. Releasing (`release`) does not burn an
   attempt.
 - Orphaned claims are reset ONLY at start-up (`recover_orphans`): there is one worker, so at start-up every `claimed`
-  row is provably dead. Several workers would first need a lease/heartbeat (V4 has none either).
+  row is provably dead. Several workers would first need a lease/heartbeat (V4 has none either). 231 (stage E, E1; the
+  owner's decisions of 2026-10-29: several workers): a worker's claim records its process's holder (`calls.holder`, a
+  lock file the process keeps locked while it lives, as a paid call's reservation and a case's claim do), and the
+  recovery resets only the claims whose holder has stopped (a claim without one, as before, counts as stopped); the
+  workers run it at start-up and every so often, so a crashed worker's items go back to the queue at once while the
+  others' stay theirs.
 - 063: the attempt count of an orphaned job is bounded too (`ORPHAN_MAX_ATTEMPTS`; the behaviour of V4's
   `sweep_orphans(max_attempts)` and of its start-up cancellation completion, which the K1 port had left out); otherwise
   a job that "kills" the worker would come first again on every restart; a cancellation requested while the worker was
@@ -24,7 +29,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from jav.core import store
+from jav.core import calls, store
 
 TERMINAL = ("done", "dead", "cancelled")
 ORPHAN_MAX_ATTEMPTS = 3  # 063: after this many interrupted attempts the job is dead (it does not repeat forever)
@@ -50,6 +55,8 @@ CREATE INDEX IF NOT EXISTS ix_jobs_claim ON jobs(status, available_at, id);
 CREATE INDEX IF NOT EXISTS ix_jobs_run ON jobs(run_id, status);
 CREATE TABLE IF NOT EXISTS queue_control (id INTEGER PRIMARY KEY CHECK (id = 1), paused INTEGER NOT NULL DEFAULT 0);
 """)
+# 231 (E1): the claiming process's holder (`calls.holder`), so the recovery frees only a stopped process's claims
+store.register_migration("jobs_holder", lambda conn: store.add_columns(conn, "jobs", {"holder": "TEXT"}))
 
 
 class JobCancelled(Exception):
@@ -104,8 +111,9 @@ def get(job_id: int) -> Job | None:
     return _job(row) if row else None
 
 
-def claim(worker: str, kinds: tuple[str, ...] | None = None) -> Job | None:
-    """Claims the available job with the fewest attempts, oldest first; None when the queue is paused."""
+def claim(worker: str, kinds: tuple[str, ...] | None = None, *, holder: str | None = None) -> Job | None:
+    """Claims the available job with the fewest attempts, oldest first; None when the queue is paused. E1: `holder`,
+    the claiming process's holder (a worker names its own; a claim without one counts as stopped)."""
     with store.connect() as c:
         _begin(c)
         paused = c.execute("SELECT paused FROM queue_control WHERE id=1").fetchone()
@@ -117,18 +125,19 @@ def claim(worker: str, kinds: tuple[str, ...] | None = None) -> Job | None:
             + " ORDER BY attempts, id LIMIT 1", (_ts(), *(kinds or ()))).fetchone()
         if row is None:
             return None
-        c.execute("UPDATE jobs SET status='claimed', claimed_by=?, claimed_at=? WHERE id=?", (worker, _ts(), row["id"]))
+        c.execute("UPDATE jobs SET status='claimed', claimed_by=?, claimed_at=?, holder=? WHERE id=?",
+                  (worker, _ts(), holder, row["id"]))
         return _job(c.execute("SELECT * FROM jobs WHERE id=?", (row["id"],)).fetchone())
 
 
-def claim_job(job_id: int, worker: str) -> Job | None:
+def claim_job(job_id: int, worker: str, *, holder: str | None = None) -> Job | None:
     """173 (plan 170, E0b): claims one given job while it is queued, even before its retry back-off has passed and
     whether or not the queue is paused; None otherwise. The before/after replay settles its jobs one by one in a fixed
     order on a copy of the store, so that two replays process the same items the same way."""
     with store.connect() as c:
         _begin(c)
-        if c.execute("UPDATE jobs SET status='claimed', claimed_by=?, claimed_at=? WHERE id=? AND status='queued'"
-                     " AND cancel_requested_at IS NULL", (worker, _ts(), job_id)).rowcount == 0:
+        if c.execute("UPDATE jobs SET status='claimed', claimed_by=?, claimed_at=?, holder=? WHERE id=? AND status='queued'"
+                     " AND cancel_requested_at IS NULL", (worker, _ts(), holder, job_id)).rowcount == 0:
             return None
         return _job(c.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone())
 
@@ -234,14 +243,16 @@ class OrphanRecovery:
 
 
 def recover_orphans(*, max_attempts: int = ORPHAN_MAX_ATTEMPTS) -> OrphanRecovery:
-    """ONLY at worker start-up: every `claimed` row is a dead run. Back to the queue, attempts +1; at the limit `dead`
+    """A `claimed` row whose process has stopped is a dead run (E1: its holder is no longer held; a row without one, as
+    before E1, counts as stopped; a running worker's claims stay). Back to the queue, attempts +1; at the limit `dead`
     (063); if cancellation was requested meanwhile, `cancelled` (063: otherwise claiming would skip it and it would stay
     queued forever)."""
     now = _ts()
     requeued, dead_ids, cancelled_ids = 0, [], []
     with store.connect() as c:
         _begin(c)
-        for r in c.execute("SELECT id, attempts, cancel_requested_at FROM jobs WHERE status='claimed'").fetchall():
+        rows = c.execute("SELECT id, attempts, cancel_requested_at, holder FROM jobs WHERE status='claimed'").fetchall()
+        for r in (r for r in rows if not calls.holder_alive(r["holder"])):
             if r["cancel_requested_at"]:
                 c.execute("UPDATE jobs SET status='cancelled', finished_at=?, claimed_by=NULL, claimed_at=NULL,"
                           " error='orphaned: cancelled while the worker was down' WHERE id=?", (now, r["id"]))
