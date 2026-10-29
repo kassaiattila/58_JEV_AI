@@ -286,8 +286,8 @@ class RuleKey:
     - `kind`: `int` (a whole number between `least` and `most`) or `choice` (one of `options`, as the file writes it).
       231 (U4b): an installation default may be of more kinds (a capability's keys stay these two): `number` (a number
       between `least` and `most`, a probability's band), `bool` (yes or no), `amount` (a decimal number written as
-      text, at least `least`), `set` (a list of distinct `options`, at least `least` of them) and `map` (the file's keys,
-      each one of `options`).
+      text, at least `least`), `set` (a list of distinct `options`, at least `least` of them), `map` (the file's keys,
+      each one of `options`) and `list` (an ordered list of distinct codes, at least `least` of them).
     - `what`: one English line (the interface translates it).
 
     A key that would change what is asked from a paid service, or a budget, is never one: those stay changes of the
@@ -296,7 +296,7 @@ class RuleKey:
 
     file: str
     key: str
-    kind: Literal["int", "choice", "number", "bool", "amount", "set", "map"]
+    kind: Literal["int", "choice", "number", "bool", "amount", "set", "map", "list"]
     what: str
     least: float | None = None
     most: float | None = None
@@ -343,6 +343,12 @@ class RuleKey:
                 return [f"{self.id} is a list of distinct values"]
             if unknown := [v for v in value if v not in self.options]:
                 return [f"{self.id} takes no {', '.join(map(str, unknown))}"]
+            return [] if self.least is None or len(value) >= self.least else [f"{self.id} holds at least {int(self.least)}"]
+        if self.kind == "list":
+            if not isinstance(value, list) or len(set(map(str, value))) != len(value):
+                return [f"{self.id} is a list of distinct codes"]
+            if wrong := [str(v) for v in value if not isinstance(v, str) or not _NAME.match(v)]:
+                return [f"{self.id}: {', '.join(wrong)} is not a code (lowercase letters, digits and _)"]
             return [] if self.least is None or len(value) >= self.least else [f"{self.id} holds at least {int(self.least)}"]
         if self.kind == "map":
             keys = set(self.file_value())

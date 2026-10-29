@@ -59,6 +59,21 @@ describe("a rule value's default (231 U4d)", () => {
     await waitFor(() => expect(propose).toHaveBeenCalledWith("email.intent_route", { quote_request: "human:inbox" }, null));
   });
 
+  it("edits an ordered list of codes one a line (U4z: the catalogue's levels)", async () => {
+    const levels: RuleValue = { file: "facts_property.json", key: "levels", label: "The levels of the units", format: "names", value: [] };
+    const entry: DefaultKey = { ...BAND_KEY, id: "facts_property.levels", file: "facts_property", key: "levels", kind: "list", least: 1,
+      most: null, what: "The levels of the units", options: [], file_value: ["holder", "site", "asset_group"] };
+    const propose = vi.spyOn(api, "proposeDefault").mockResolvedValue(DONE);
+    render(<DefaultEditor v={levels} entry={entry} fixed={undefined} onChanged={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Set a default" }));
+    const form = screen.getByRole("form", { name: "Set a default" });
+    const box = within(form).getByLabelText(/The levels of the units/) as HTMLTextAreaElement;
+    expect(box.value).toBe(["holder", "site", "asset_group"].join(String.fromCharCode(10)));
+    fireEvent.change(box, { target: { value: [" holder", "", "asset_group "].join(String.fromCharCode(10)) } });
+    fireEvent.click(within(form).getByRole("button", { name: "Save as a draft" }));
+    await waitFor(() => expect(propose).toHaveBeenCalledWith("facts_property.levels", ["holder", "asset_group"], null));
+  });
+
   it("makes a draft active and sets the own value aside after a confirmation", async () => {
     const versions = [{ version: 1, state: "draft" as const, value: 0.7, note: null, made_by: "Synthetic reviewer", made_at: AT,
       activated_by: null, activated_at: null }];

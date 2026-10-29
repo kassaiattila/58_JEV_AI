@@ -103,7 +103,7 @@ export interface DefaultVersion {
   activated_by: string | null; activated_at: string | null;
 }
 export interface DefaultKey {
-  id: string; file: string; key: string; kind: "int" | "choice" | "number" | "bool" | "amount" | "set" | "map"; what: string;
+  id: string; file: string; key: string; kind: "int" | "choice" | "number" | "bool" | "amount" | "set" | "map" | "list"; what: string;
   least: number | null; most: number | null; options: string[]; file_value: DefaultValue; value: DefaultValue | null;
   active: number | null; versions: DefaultVersion[];
 }

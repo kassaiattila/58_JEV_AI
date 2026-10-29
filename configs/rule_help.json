@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "rule_help",
-    "version": "1.6.0",
-    "description": "218 (plan G-process-core P3e, the owner's request and decisions of 2026-10-23): the plain-language description of the rules for the read-only view in Settings › Rules. For every machine decision point of the decision trace (jav/core/trace.py): its area, a short title, what it decides and what it is not for, and the rule values the view shows (file, key, label, format; a percentage's label reads on into its value, as in 'below 60 %'); the values themselves are read from the rule files the running process loaded (jav/app/rules_view.py). Kept apart from the rule files, so their fingerprints and the AI requests do not change. Texts are English; the interface translates them (ui/src/i18n/hu-native.json). A test asks that every decision point has an entry and that every value's key is in a file its point reads. 231 (U4b; the owner's decisions of 2026-10-29): each value's `edit` says whether the installation may keep its own value, a default (jav/app/rule_defaults.py): its kind (number with its bounds, bool, amount, choice, set or map, the options given or taken from a registry: doc_types, fields, email_routes, email_signals; capability: the capability's own rule key), or `fixed` with why (cost: it changes a paid request or a budget; structure: the catalogue's structure; format: a property of a number's format).",
+    "version": "1.7.0",
+    "description": "218 (plan G-process-core P3e, the owner's request and decisions of 2026-10-23): the plain-language description of the rules for the read-only view in Settings › Rules. For every machine decision point of the decision trace (jav/core/trace.py): its area, a short title, what it decides and what it is not for, and the rule values the view shows (file, key, label, format; a percentage's label reads on into its value, as in 'below 60 %'); the values themselves are read from the rule files the running process loaded (jav/app/rules_view.py). Kept apart from the rule files, so their fingerprints and the AI requests do not change. Texts are English; the interface translates them (ui/src/i18n/hu-native.json). A test asks that every decision point has an entry and that every value's key is in a file its point reads. 231 (U4b; the owner's decisions of 2026-10-29): each value's `edit` says whether the installation may keep its own value, a default (jav/app/rule_defaults.py): its kind (number with its bounds, bool, amount, choice, set, map or list (an ordered list of codes), the options given or taken from a registry: doc_types, fields, email_routes, email_signals; capability: the capability's own rule key), or `fixed` with why (cost: it changes a paid request or a budget; structure: the catalogue's structure; format: a property of a number's format).",
     "changelog": [
+      {
+        "version": "1.7.0",
+        "date": "2026-10-29",
+        "note": "231 (U4z; the owner's decision of 2026-10-29): the product catalogue's levels and verdicts (an ordered list) and the tax number's stem (a whole number) may be defaults too; only the values that change a paid request or a budget stay fixed."
+      },
       {
         "version": "1.6.0",
         "date": "2026-10-29",
@@ -166,7 +171,7 @@
         {"file": "finance.json", "key": "duplicates.families.invoice", "label": "Invoice types compared with one another", "format": "doc_types", "edit": {"kind": "set", "options_from": "doc_types", "least": 1}},
         {"file": "finance.json", "key": "duplicates.families.proforma", "label": "Pro forma invoices compared with one another", "format": "doc_types", "edit": {"kind": "set", "options_from": "doc_types", "least": 1}},
         {"file": "finance.json", "key": "duplicates.compared_fields", "label": "An exact copy when these match too (otherwise a modified version)", "format": "fields", "edit": {"kind": "set", "options_from": "fields", "least": 1}},
-        {"file": "fact_checks.json", "key": "parties.domestic_tax_stem_digits", "label": "Leading digits compared in a Hungarian tax number", "format": "number", "edit": {"fixed": "format"}}
+        {"file": "fact_checks.json", "key": "parties.domestic_tax_stem_digits", "label": "Leading digits compared in a Hungarian tax number", "format": "number", "edit": {"kind": "int", "least": 1, "most": 11}}
       ]
     },
     "parties.own_tax_as_supplier": {
@@ -176,7 +181,7 @@
       "not_for": "The same number on both sides (another check), or the invoice's direction by the own parties.",
       "values": [
         {"file": "parties.json", "key": "supplier_check.doc_types", "label": "Invoice types checked", "format": "doc_types", "edit": {"kind": "set", "options_from": "doc_types", "least": 1}},
-        {"file": "fact_checks.json", "key": "parties.domestic_tax_stem_digits", "label": "Leading digits compared in a Hungarian tax number", "format": "number", "edit": {"fixed": "format"}}
+        {"file": "fact_checks.json", "key": "parties.domestic_tax_stem_digits", "label": "Leading digits compared in a Hungarian tax number", "format": "number", "edit": {"kind": "int", "least": 1, "most": 11}}
       ]
     },
     "workflow.budget_gate": {
@@ -215,7 +220,7 @@
       "not_for": "How several rules' outcomes combine on a unit (the catalogue's way: the worst verdict, the largest deductible, ...) or a person's decision on the risk.",
       "values": [
         {"file": "facts_property.json", "key": "outcomes.verdict.options", "label": "Verdicts, the best first", "format": "labels",
-         "labels": {"allow": "Allow", "unknown": "Not known", "refer": "Refer", "refuse": "Refuse"}, "edit": {"fixed": "structure"}}
+         "labels": {"allow": "Allow", "unknown": "Not known", "refer": "Refer", "refuse": "Refuse"}, "edit": {"kind": "list", "least": 2}}
       ]
     },
     "decision.second_person": {
@@ -235,7 +240,7 @@
       "not_for": "The person's own corrections or the freezing of the checked input.",
       "values": [
         {"file": "facts_property.json", "key": "levels", "label": "The levels of the units", "format": "labels",
-         "labels": {"holder": "Policyholder", "site": "Site", "asset_group": "Asset group"}, "edit": {"fixed": "structure"}}
+         "labels": {"holder": "Policyholder", "site": "Site", "asset_group": "Asset group"}, "edit": {"kind": "list", "least": 1}}
       ]
     },
     "rating.premium": {
@@ -245,7 +250,7 @@
       "not_for": "The tariff's rates and factors themselves (Settings › Tariffs) or a person's decision on the premium.",
       "values": [
         {"file": "facts_property.json", "key": "levels", "label": "The levels a tariff prices on", "format": "labels",
-         "labels": {"holder": "Policyholder", "site": "Site", "asset_group": "Asset group"}, "edit": {"fixed": "structure"}}
+         "labels": {"holder": "Policyholder", "site": "Site", "asset_group": "Asset group"}, "edit": {"kind": "list", "least": 1}}
       ]
     }
   }

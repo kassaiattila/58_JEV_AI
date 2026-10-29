@@ -18,9 +18,8 @@ value: a draft, tried on the earlier decisions, then made active.
   aside to bring the file's value back. The cases that start after it use it, and so does the work outside a case; a
   case keeps the values of its start, and a process's own value of the same key still goes over a default.
 - **What may be a default:** every value the page shows declares it, with its bounds or options (a probability's band,
-  yes or no, an amount, one of a list, a set of document types or fields, each intent's next step); the values that
-  change a paid request or a budget, the product catalogue's structure and the tax number's format stay the file's,
-  and the page says why.
+  yes or no, an amount, one of a list, a set of document types or fields, each intent's next step, an ordered list of
+  codes); only the values that change a paid request or a budget stay the file's, and the page says why.
 - **Tried before it is made active:** a value is run again on every earlier decision that read it, in a case or
   outside one; the page shows how many would come out differently, with examples, and names apart the ones a
   process's own value decided.

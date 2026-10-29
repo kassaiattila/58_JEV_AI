@@ -1,6 +1,7 @@
 // 231 (stage U, U4d; the owner's decisions of 2026-10-29): a rule value's default, under the value on the rule's sheet
 // (Settings › Defaults). A value the installation may set shows whether its own value or the file's counts, a form
-// fitting its kind (a percentage, a whole number, an amount, yes or no, one of a list, a set, a map of routes), the
+// fitting its kind (a percentage, a whole number, an amount, yes or no, one of a list, a set, a map of routes, an
+// ordered list of codes), the
 // value's try on the earlier decisions, and its versions: a draft is made active by the process values' rule, and
 // "Back to the file's value" sets the own value aside. A value that stays the file's says why. A case keeps the values
 // of its start; a process's own value still goes over a default.
@@ -31,19 +32,21 @@ export function defaultText(entry: DefaultKey, v: RuleValue, value: DefaultValue
   }
   if (entry.kind === "bool") return value ? t("igen") : t("nem");
   if (entry.kind === "int" || entry.kind === "amount") return numText(value as number | string);
-  if (entry.kind === "set") return (value as string[]).map(codeText).join(", ") || "–";
+  if (entry.kind === "set" || entry.kind === "list") return (value as string[]).map(codeText).join(", ") || "–";
   if (entry.kind === "map") return Object.entries(value as Record<string, string>).map(([k, code]) => `${t(k)} → ${optionText(v, code)}`).join("; ");
   if (entry.kind === "choice") return v.format === "number" ? numText(String(value)) : optionText(v, String(value));
   return String(value);
 }
 
 type Draft = string | boolean | string[] | Record<string, string>;
+const NL = String.fromCharCode(10);  // a list's codes, one a line
 
 function draftOf(entry: DefaultKey, v: RuleValue): Draft {
   const value = entry.value ?? entry.file_value;
   if (asPercent(entry, v)) return numText(Number(value) * 100, 2);
   if (entry.kind === "int" || entry.kind === "number") return String(value);
   if (entry.kind === "set") return [...(value as string[])];
+  if (entry.kind === "list") return (value as string[]).join(NL);
   if (entry.kind === "map") return { ...(value as Record<string, string>) };
   return value as Draft;
 }
@@ -58,6 +61,7 @@ function valueOf(entry: DefaultKey, v: RuleValue, draft: Draft): DefaultValue | 
   }
   if (entry.kind === "amount") return String(draft).replace(",", ".").replace(/\s/g, "");
   if (entry.kind === "set") return entry.options.filter((o) => (draft as string[]).includes(o));
+  if (entry.kind === "list") return String(draft).split(NL).map((line) => line.trim()).filter(Boolean);
   return draft as DefaultValue;
 }
 
@@ -184,6 +188,11 @@ function DefaultForm({ v, entry, busy, onCancel, onSave }: {
             </label>
           ))}
         </fieldset>
+      ) : entry.kind === "list" ? (
+        <label className="block">{label}
+          <textarea value={String(draft)} rows={Math.max(3, String(draft).split(NL).length + 1)} onChange={(e) => change(e.target.value)} />
+          <span className="muted small">{t("One code a line, in their order.")}</span>
+        </label>
       ) : entry.kind === "map" ? (
         <fieldset className="default-map">
           <legend>{label}</legend>

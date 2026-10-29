@@ -3,7 +3,8 @@
 Every value the rules view shows says whether the installation may keep its own value of it (`configs/rule_help.json`
 `edit`): a kind with its bounds or options, the capability's own rule key, or fixed with why. A value that changes a
 paid request or a budget (the paid text recognition, a run's item budget) is fixed as a cost, and no key a person may
-set names one. The file's value fits every declaration, and a default of each kind is checked before it is saved.
+set names one; U4z (the owner's decision of 2026-10-29): the only fixed values are those, the product catalogue's levels
+and verdicts and the tax number's stem are defaults too. The file's value fits every declaration, and a default of each kind is checked before it is saved.
 Real rule files, an empty store; nothing runs and no AI is asked.
 """
 
@@ -39,8 +40,10 @@ def _shown() -> set[str]:
 def test_every_value_the_rules_view_shows_is_a_default_or_fixed_with_why() -> None:
     editable, fixed = rule_defaults.editable(), rule_defaults.fixed()
     assert _shown() <= set(editable) | set(fixed)
-    assert set(fixed.values()) <= set(rule_defaults.FIXED)
+    assert set(fixed.values()) == {"cost"}  # U4z: only the cost ones
     assert not set(editable) & set(fixed)
+    assert {"facts_property.levels", "facts_property.outcomes.verdict.options",
+            "fact_checks.parties.domestic_tax_stem_digits"} <= set(editable)
 
 
 def test_no_value_that_costs_is_a_default() -> None:
@@ -66,6 +69,10 @@ def test_the_file_s_value_fits_every_declaration() -> None:
     ("email", "m2_types", [], "at least 1"),
     ("email", "default_route", "human:nowhere", "is one of"),
     ("email", "intent_route", {"quote_request": "m2:quote_request"}, "names each of"),
+    ("facts_property", "levels", ["holder", "Site!"], "is not a code"),
+    ("facts_property", "levels", ["holder", "holder"], "distinct codes"),
+    ("facts_property", "outcomes.verdict.options", ["allow"], "at least 2"),
+    ("fact_checks", "parties.domestic_tax_stem_digits", 12, "between"),
 ])
 def test_a_default_of_each_kind_is_checked(db, file, key, value, problem) -> None:
     with pytest.raises(rule_defaults.DefaultError, match=problem):
