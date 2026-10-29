@@ -4016,7 +4016,7 @@
   "No text could be extracted from the document": "Az iratból nem sikerült szöveget kinyerni",
   "Document batch not found": "Az iratköteg nem található",
   "The document batch has no items.": "Az iratkötegben nincs tétel.",
-  "Copies of the documents with uniform, content-based names; the original files do not change. Copies with an uncertain name go to the “ellenorzendo” (to review) subfolder, and the manifest (jegyzek.csv) shows which original became which name.": "Az iratok másolatai egységes, tartalom szerinti névvel; az eredeti fájlok nem változnak. A bizonytalan nevűek az „ellenorzendo” almappába kerülnek, a jegyzék (jegyzek.csv) mutatja, melyik eredetiből melyik név lett.",
+  "Copies of the documents with uniform, content-based names; the original files do not change. Copies with an uncertain name go to the “{{folder}}” subfolder, and the manifest ({{manifest}}) shows which original became which name.": "Az iratok másolatai egységes, tartalom szerinti névvel; az eredeti fájlok nem változnak. A bizonytalan nevűek az „{{folder}}” almappába kerülnek, a jegyzék ({{manifest}}) mutatja, melyik eredetiből melyik név lett.",
   "Present on the document, but the code found no candidate for it: {{field}} ({{p}})": "Az iraton van, de a kód nem talált hozzá jelöltet: {{field}} ({{p}})",
   "Present on the document but could not be selected: {{field}} ({{p}})": "Az iraton van, de nem sikerült kiválasztani: {{field}} ({{p}})",
   "Part of the page cannot be shown. Your unsaved field corrections have been kept; reload the page.": "Az oldal egy része nem jeleníthető meg. A mentetlen mezőjavításaid megmaradtak; töltsd újra az oldalt.",

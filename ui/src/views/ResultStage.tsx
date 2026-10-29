@@ -368,7 +368,7 @@ export function NamedCopiesBar({ runId }: { runId: string }) {
 
   return (
     <div className="named-copies">
-      <span>{t("Copies of the documents with uniform, content-based names; the original files do not change. Copies with an uncertain name go to the “ellenorzendo” (to review) subfolder, and the manifest (jegyzek.csv) shows which original became which name.")}</span>
+      <span>{t("Copies of the documents with uniform, content-based names; the original files do not change. Copies with an uncertain name go to the “{{folder}}” subfolder, and the manifest ({{manifest}}) shows which original became which name.", { folder: t("to-check"), manifest: t("manifest.csv") })}</span>
       <span className="button-row">
         <a className="secondary dl-btn small-btn" href={api.namedCopiesZipUrl(runId)} download><Icon name="download" />{t("Download as ZIP")}</a>
         <button type="button" className="secondary small-btn" disabled={busy || !folder} onClick={() => void write()}

@@ -3977,7 +3977,7 @@
   "No text could be extracted from the document": "No text could be extracted from the document",
   "Document batch not found": "Document batch not found",
   "The document batch has no items.": "The document batch has no items.",
-  "Copies of the documents with uniform, content-based names; the original files do not change. Copies with an uncertain name go to the “ellenorzendo” (to review) subfolder, and the manifest (jegyzek.csv) shows which original became which name.": "Copies of the documents with uniform, content-based names; the original files do not change. Copies with an uncertain name go to the “ellenorzendo” (to review) subfolder, and the manifest (jegyzek.csv) shows which original became which name.",
+  "Copies of the documents with uniform, content-based names; the original files do not change. Copies with an uncertain name go to the “{{folder}}” subfolder, and the manifest ({{manifest}}) shows which original became which name.": "Copies of the documents with uniform, content-based names; the original files do not change. Copies with an uncertain name go to the “{{folder}}” subfolder, and the manifest ({{manifest}}) shows which original became which name.",
   "Present on the document, but the code found no candidate for it: {{field}} ({{p}})": "Present on the document, but the code found no candidate for it: {{field}} ({{p}})",
   "Present on the document but could not be selected: {{field}} ({{p}})": "Present on the document but could not be selected: {{field}} ({{p}})",
   "Part of the page cannot be shown. Your unsaved field corrections have been kept; reload the page.": "Part of the page cannot be shown. Your unsaved field corrections have been kept; reload the page.",
