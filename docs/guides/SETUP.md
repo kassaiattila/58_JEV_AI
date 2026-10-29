@@ -22,7 +22,7 @@ python -m jav.cli preflight          # tests (Python + UI) + contract lint + eng
 
 ```powershell
 cd ui; npm ci; npm run build; cd ..   # dependencies as pinned in package-lock.json; type check and build into ui/dist
-.\scripts\dev.ps1 start             # local service + one worker in the background; user interface: http://127.0.0.1:8930/
+.\scripts\dev.ps1 start             # local service + the configured workers (one by default) in the background; user interface: http://127.0.0.1:8930/
 .\scripts\dev.ps1 status            # are they running?
 .\scripts\dev.ps1 stop              # stop both; an interrupted run resumes from its saved step
 ```

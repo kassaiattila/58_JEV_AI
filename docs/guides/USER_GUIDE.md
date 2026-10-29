@@ -756,7 +756,7 @@ On the sheet each value shows whether the rule file's value counts (‘The file'
 **Starting and stopping** (from the project root, in PowerShell; installation: [SETUP](SETUP.md)):
 
 ```powershell
-.\scripts\dev.ps1 start    # local service (127.0.0.1:8930) + one worker in the background; parts already running are not restarted
+.\scripts\dev.ps1 start    # local service (127.0.0.1:8930) + the configured workers (one by default) in the background; parts already running are not restarted
 .\scripts\dev.ps1 status   # whether the service and the worker are running, and how many jobs are waiting
 .\scripts\dev.ps1 stop     # the worker exits after the item in progress; the service stops immediately
 ```
