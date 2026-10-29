@@ -375,7 +375,7 @@ def _native_item_result(run: dict[str, Any], item: dict[str, Any]) -> dict[str, 
     run_id, item_id = run["run_id"], item["item_id"]
     reasons = work_runs.item_reasons(run_id, item_id, item)
     with store.connect() as c:
-        c.execute("BEGIN")
+        store.begin_immediate(c)  # 231 (E3): the write lock before the first read, as everywhere
         version = review_version(run_id, c)
         publication = native_results.get_publication(run_id, item_id, c=c)
         corr = current(run_id, item_id, c)

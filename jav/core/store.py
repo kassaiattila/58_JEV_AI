@@ -13,17 +13,21 @@ import functools
 import json
 import sqlite3
 import threading
+import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, ParamSpec, TypeVar
 
-from jav.core import identity
+from jav.core import identity, observability
 from jav.core.config import STORE_PATH
 from jav.core.clock import utc_stamp as _now
 
-SCHEMA_VERSION = 1
+# 231 (stage E, E3): the version of the store's layout this program sets up; a release raises it when it adds a
+# change an earlier program cannot work with (2: the work queue's claiming process, the defaults' and the letter
+# frames' versions). A store a newer program set up stops this one before it writes (`SchemaTooNew`).
+SCHEMA_VERSION = 2
 P = ParamSpec("P")
 R = TypeVar("R")
 _scoped_path: ContextVar[Path | None] = ContextVar("jav_scoped_store", default=None)
@@ -33,6 +37,9 @@ _read_only: ContextVar[bool] = ContextVar("jav_read_only_store", default=False)
 # which the application uses. The test suite sets "OFF" (tests/conftest.py): its stores are temporary files, so a write
 # lost in a crash costs nothing there, while waiting for the disk took about a third of the suite's time.
 SYNCHRONOUS: str | None = None
+
+# 231 (stage E): how long a connection waits for the lock that switches a fresh store to WAL (`_wal`)
+WAL_WAIT_S = 30.0
 
 
 def tune(conn: sqlite3.Connection) -> None:
@@ -44,6 +51,70 @@ def tune(conn: sqlite3.Connection) -> None:
 
 class StoreMissing(FileNotFoundError):
     """A read-only look (`read_only`) at a store that does not exist yet, e.g. in a fresh clone before the first run."""
+
+
+class ForeignStore(RuntimeError):
+    """231 (stage E, E2): the store belongs to another installation than the start-up description names."""
+
+
+class SchemaTooNew(RuntimeError):
+    """231 (stage E, E3): a newer program set the store up (its schema version is above this program's)."""
+
+
+def _schema_in(conn: sqlite3.Connection) -> int | None:
+    """The schema version a store records (None: none yet)."""
+    try:
+        row = conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
+    except sqlite3.OperationalError:
+        return None
+    return int(row[0]) if row and str(row[0]).isdigit() else None
+
+
+def _refuse_newer(path: str | Path, found: int | None) -> None:
+    if found is not None and found > SCHEMA_VERSION:
+        raise SchemaTooNew(f"a newer program set the store {path} up (schema version {found}, this program knows"
+                           f" {SCHEMA_VERSION}): start the newer program, or restore a backup made with this one")
+
+
+INSTALLATION_KEY = "installation_id"  # E2: the `meta` row naming the installation a store belongs to
+
+
+def _installation_in(conn: sqlite3.Connection) -> str | None:
+    """The installation a store names (None: none yet, or a store with no tables yet)."""
+    try:
+        row = conn.execute("SELECT value FROM meta WHERE key=?", (INSTALLATION_KEY,)).fetchone()
+    except sqlite3.OperationalError:
+        return None
+    return row[0] if row else None
+
+
+def _expected_installation(path: str | Path) -> str | None:
+    """The installation the start-up description names, for the installation's own store only (a copy or a store a
+    command names says nothing of it)."""
+    from jav.core import config
+
+    return config.INSTALLATION_ID if Path(path) == STORE_PATH else None
+
+
+def _refuse_foreign(path: str | Path, found: str | None, expected: str) -> None:
+    if found is not None and found != expected:
+        raise ForeignStore(f"the store {path} belongs to the installation {found!r}, not to {expected!r} the start-up"
+                           " description names: nothing is written to it")
+
+
+def check_installation() -> None:
+    """E2: at a long-running process's start, read only: the installation's store, when it names another installation
+    than the start-up description, stops the start (`ForeignStore`); a new store, or one that names none yet, is
+    stamped when it is first set up. E3: so does a store a newer program set up (`SchemaTooNew`)."""
+    from jav.core import config
+
+    expected = config.INSTALLATION_ID
+    if not STORE_PATH.is_file():
+        return
+    with read_only(), connect(STORE_PATH) as conn:
+        if expected is not None:
+            _refuse_foreign(STORE_PATH, _installation_in(conn), expected)
+        _refuse_newer(STORE_PATH, _schema_in(conn))
 
 
 @contextmanager
@@ -259,11 +330,18 @@ def _set_up(conn: sqlite3.Connection, key: str, registry: tuple[str, ...]) -> No
     """The schema and the migrations of the store `key`, then its key. 231 (D-d4): a connection a migration opens
     meanwhile (one that loads a process pack, which reads a price list) does not set the same store up again inside it:
     it did, without end, whenever a module registered its tables after the store was first set up."""
+    expected = _expected_installation(key)
+    if expected is not None:  # 231 (E2): never a schema or a migration on another installation's store
+        _refuse_foreign(key, _installation_in(conn), expected)
+    _refuse_newer(key, _schema_in(conn))  # E3: nor on one a newer program set up
     token = _setting_up.set(_setting_up.get() | {key})
     try:
         _initialize(conn)
     finally:
         _setting_up.reset(token)
+    if expected is not None:
+        conn.execute("INSERT OR IGNORE INTO meta(key, value) VALUES (?, ?)", (INSTALLATION_KEY, expected))
+        conn.commit()
     _initialized[key] = (conn.execute("PRAGMA schema_version").fetchone()[0], registry)
 
 
@@ -273,7 +351,7 @@ def _registry_key() -> tuple[str, ...]:
 
 def _initialize(conn: sqlite3.Connection) -> None:
     """Schema + additive migrations; idempotent."""
-    conn.execute("PRAGMA journal_mode=WAL")
+    _wal(conn)
     conn.executescript(_SCHEMA)
     for ddl in _EXTRA_SCHEMAS.values():
         conn.executescript(ddl)
@@ -287,8 +365,28 @@ def _initialize(conn: sqlite3.Connection) -> None:
             raise
         conn.rollback()
         _run_migrations(conn)
-    conn.execute("INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
+    # 231 (E3): the store records the newest program's version that set it up
+    conn.execute("INSERT INTO meta(key, value) VALUES ('schema_version', ?) ON CONFLICT(key) DO UPDATE SET"
+                 " value=excluded.value WHERE CAST(meta.value AS INTEGER) < CAST(excluded.value AS INTEGER)",
+                 (str(SCHEMA_VERSION),))
     conn.commit()
+
+
+def _wal(conn: sqlite3.Connection) -> None:
+    """Switches the store to WAL once. 231 (stage E): the switch needs the whole file, and SQLite does not wait for that
+    lock the way it waits for a write: processes and threads setting up a fresh store at the same moment (the service's
+    first requests, several workers started together) failed with "database is locked". A store already in WAL is
+    left as it is; a busy one is tried again until `WAL_WAIT_S`."""
+    deadline = time.monotonic() + WAL_WAIT_S
+    while True:
+        try:
+            if conn.execute("PRAGMA journal_mode").fetchone()[0].lower() != "wal":
+                conn.execute("PRAGMA journal_mode=WAL")
+            return
+        except sqlite3.OperationalError as exc:
+            if "locked" not in str(exc) or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.05)
 
 
 def _run_migrations(conn: sqlite3.Connection) -> None:
@@ -508,6 +606,11 @@ def ledger_add(
             " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (run_id, step, provider, model, input_tokens, output_tokens, cost_usd, seconds, int(cached), cache_key, config_hash, error, _now()),
         )
+    # 231 (E4): every paid or reading call measured in one place, its attributes cleaned by the measuring point
+    observability.observe(observability.Measurement(
+        f"call.{step}", float(seconds or 0.0), "error" if error else "cached" if cached else "ok",
+        attributes={"provider": provider, "model": model or "", "input_tokens": input_tokens or 0,
+                    "output_tokens": output_tokens or 0, "cost_usd": cost_usd or 0.0, "cached": cached}))
 
 
 def upsert_document(

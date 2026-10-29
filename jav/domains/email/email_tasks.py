@@ -23,7 +23,6 @@ import hashlib
 import json
 import os
 import re
-import time
 from datetime import date
 from decimal import Decimal
 from functools import lru_cache
@@ -37,6 +36,7 @@ from pydantic_ai.usage import UsageLimits
 from jav.core import activity_kinds, cfg, store
 from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, PROMPTS_DIR, load_prompt, openai_chat_model, openai_cost, openai_price
 from jav.core import calls
+from jav.core import observability  # 231 (E4): the calls are timed through one helper
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
@@ -262,7 +262,7 @@ def get_agent() -> Agent[None, TaskOutput]:
 
 
 def _physical(agent, prompt: str, *, run_id: str, limited: bool) -> calls.Outcome:
-    t0 = time.perf_counter()
+    t0 = observability.start()
     kwargs: dict[str, Any] = {}
     if limited:
         kwargs = {"model_settings": {"max_tokens": CFG["max_output_tokens"]},
@@ -271,14 +271,14 @@ def _physical(agent, prompt: str, *, run_id: str, limited: bool) -> calls.Outcom
         result = agent.run_sync(prompt, **kwargs)
     except Exception as exc:
         store.ledger_add(run_id=run_id, step="email_tasks", provider="openai", model=OPENAI_MODEL, input_tokens=None, output_tokens=None,
-                         cost_usd=None, seconds=round(time.perf_counter() - t0, 3), config_hash=CONFIG_HASH, error=type(exc).__name__)
+                         cost_usd=None, seconds=observability.since(t0), config_hash=CONFIG_HASH, error=type(exc).__name__)
         raise
     usage = result.usage() if callable(result.usage) else result.usage
     in_tok, out_tok = usage.input_tokens or 0, usage.output_tokens or 0
     actual = getattr(getattr(result, "response", None), "model_name", None) or OPENAI_MODEL
     cost = openai_cost(usage, requested=OPENAI_MODEL, actual=actual)  # 167 (AI-12): the shared price rule
     store.ledger_add(run_id=run_id, step="email_tasks", provider="openai", model=actual, input_tokens=in_tok, output_tokens=out_tok,
-                     cost_usd=None if cost is None else float(cost), seconds=round(time.perf_counter() - t0, 3),
+                     cost_usd=None if cost is None else float(cost), seconds=observability.since(t0),
                      config_hash=CONFIG_HASH)
     return calls.Outcome(response=result.output.model_dump(mode="json"), model=actual, input_tokens=in_tok, output_tokens=out_tok,
                          cost_usd=cost)

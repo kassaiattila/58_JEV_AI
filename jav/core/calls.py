@@ -458,9 +458,9 @@ def release_all_holders() -> None:
         lock.release(f)
 
 
-def _holder_alive(token: str | None) -> bool:
-    """Whether the process behind a reservation is still running; a reservation without a holder (before 092) or with
-    an unreadable one counts as stopped, as all reservations did before."""
+def holder_alive(token: str | None) -> bool:
+    """Whether the process behind a reservation (231 E1: or a work queue claim) is still running; one without a holder
+    (before 092) or with an unreadable one counts as stopped, as all reservations did before."""
     return bool(token) and _HOLDER_TOKEN.fullmatch(token) is not None and lock.is_held(holder_path(token))
 
 
@@ -604,7 +604,7 @@ def recover_uncertain() -> int:
         store.begin_immediate(c)
         live = sorted(r["holder"] for r in c.execute(
             "SELECT DISTINCT holder FROM invocations WHERE status IN ('reserved','uncertain') AND holder IS NOT NULL")
-            if _holder_alive(r["holder"]))
+            if holder_alive(r["holder"]))
         stopped = f" AND (holder IS NULL OR holder NOT IN ({','.join('?' * len(live))}))" if live else ""
         if live:
             log.info("%d running process(es) still hold reservations; their calls stay in progress", len(live))

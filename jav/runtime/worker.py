@@ -1,8 +1,14 @@
 """Worker (040 K1): runs the job queue's `run_item` jobs, with resumable Burr state and a budget.
 
-One worker runs at a time (the queue's orphaned-claim handling relies on this; guarded by a lock since 040 K2). At
-start-up: `queue.recover_orphans()` (interrupted claims go back to the queue) and `calls.recover_uncertain()` (unsettled
-paid attempts become uncertain and are not retried automatically).
+231 (stage E, E1; the owner's decisions of 2026-10-29): several workers may run on one store, as many as the service
+configuration says (`configs/service.json` `workers`, one by default). Each takes a numbered slot (an operating-system
+lock next to the store, `lock_path(slot)`; the first slot's is the old `worker.lock`), claims its jobs with its
+process's holder, and frees the claims of a stopped process at start-up and every `RECOVER_EVERY_S` seconds
+(`queue.recover_orphans`), so a crashed worker's items go back to the queue while the others' stay theirs. Only the
+first slot runs the scheduled ticks (the watched folders, the mailbox schedules, the cases' due turns), so they never
+run twice at once. A stop request (`request_stop`) stops every worker after its item in progress. At start-up:
+`calls.recover_uncertain()` (unsettled paid attempts of stopped processes become uncertain and are not retried
+automatically).
 
 Processing one item:
 1. check the frozen input: whether the source's content hash matches (otherwise `source_changed`, no retry); a document
@@ -22,6 +28,8 @@ import json
 import logging
 import socket
 import time
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -31,11 +39,11 @@ from burr.integrations.serde import pydantic as burr_pydantic
 
 from jav.app import app_settings, capabilities, intake, item_kinds, rule_defaults, work, work_readiness, work_runs, workflows
 from jav.documents import isolated_pdf, pdf
-from jav.core import store
+from jav.core import cfg, store
 from jav.runtime import job_kinds, pdf_status
 from jav import flows
 from jav.flows import persistence
-from jav.core import applog, calls, lock, queue
+from jav.core import applog, calls, lock, observability, queue
 from jav.core.process import engine as process_engine
 from jav.flows.persistence import ClosingSQLitePersister
 from jav.core.digest import file_sha256 as _sha256_file
@@ -410,17 +418,11 @@ def _prune_state(app_id: str) -> None:
 
 
 def startup() -> dict[str, int]:
-    """Start-up: settles interrupted claims and marks unsettled paid calls. The result of an item that became dead or
-    cancelled shows on the run too (063: otherwise the run's item would be left without a result)."""
+    """Start-up: settles a stopped process's claims and marks unsettled paid calls. The result of an item that became
+    dead or cancelled shows on the run too (063: otherwise the run's item would be left without a result)."""
     from jav.documents import native_results  # noqa: F401 - register native tables before the startup store connection
 
-    rec = queue.recover_orphans()
-    for job in [*rec.dead, *rec.cancelled]:
-        status = "failed" if job in rec.dead else "cancelled"
-        log.warning("orphaned job %s (%s) -> %s: %s", job.id, job.kind, job.status, job.error)
-        _settle_abandoned(job, status, job.error or "orphaned")
-    return {"orphans_requeued": rec.requeued, "orphans_dead": len(rec.dead), "orphans_cancelled": len(rec.cancelled),
-            "uncertain_marked": calls.recover_uncertain()}
+    return {**_recover(), "uncertain_marked": calls.recover_uncertain()}
 
 
 def _settle_abandoned(job: queue.Job, status: str, error: str) -> None:
@@ -447,8 +449,32 @@ def _fail_unexpected(job: queue.Job, exc: Exception) -> str:
     return result
 
 
-def lock_path() -> Path:
-    return store.current_path().with_name("worker.lock")
+RECOVER_EVERY_S = 30.0  # E1: how often a running worker frees a stopped process's claims
+
+
+def slots() -> int:
+    """E1: how many workers may run on a store (`configs/service.json` `workers`, at least one)."""
+    return max(1, int(cfg.load("service").get("workers", 1)))
+
+
+def lock_path(slot: int = 0) -> Path:
+    """The lock of a worker slot (E1: slot 0 keeps the name of the single worker's lock)."""
+    return store.current_path().with_name("worker.lock" if slot == 0 else f"worker-{slot + 1}.lock")
+
+
+def running_slots() -> list[int]:
+    """E1: the slots whose worker is running (its lock is held), the configured ones and any other lock file found."""
+    found = {0, *range(slots())}
+    for path in store.current_path().parent.glob("worker-*.lock"):
+        number = path.stem.removeprefix("worker-")
+        if number.isdigit() and int(number) >= 2:
+            found.add(int(number) - 1)
+    return [slot for slot in sorted(found) if lock.is_held(lock_path(slot))]
+
+
+def running() -> bool:
+    """Whether any worker runs on the store."""
+    return bool(running_slots())
 
 
 def stop_path() -> Path:
@@ -456,16 +482,53 @@ def stop_path() -> Path:
 
 
 def request_stop() -> None:
-    """Requests an orderly stop: the worker exits after the item in progress (040 K2, start/stop script)."""
+    """Requests an orderly stop: every worker exits after the item in progress (040 K2, start/stop script)."""
     stop_path().parent.mkdir(parents=True, exist_ok=True)
     stop_path().write_text("stop", encoding="utf-8")
 
 
+def _stop_requested(started: float) -> bool:
+    """E1: a stop request made since this worker started (an older one was meant for the workers before it)."""
+    try:
+        return stop_path().stat().st_mtime >= started
+    except FileNotFoundError:
+        return False
+
+
 def status() -> dict[str, Any]:
-    """Whether a worker is running (the lock is held), whether a stop was requested, and the job counts by state."""
-    running = lock.is_held(lock_path())
-    return {"running": running, "stop_requested": stop_path().exists(), "jobs": queue.counts(),
-            "pdf_protection": pdf_status.worker_status(store.current_path(), running=running)}
+    """Whether a worker is running (E1: how many, of how many slots), whether a stop was requested, and the job counts by
+    state."""
+    held = running_slots()
+    return {"running": bool(held), "workers": len(held), "slots": slots(), "stop_requested": stop_path().exists(),
+            "jobs": queue.counts(), "pdf_protection": pdf_status.worker_status(store.current_path(), running=bool(held))}
+
+
+@contextmanager
+def _slot(slot: int | None) -> Iterator[int]:
+    """E1: holds the given slot's lock, or the first free one of the configured slots; `lock.AlreadyRunning` when it
+    (or every one) is taken."""
+    with ExitStack() as held:
+        for candidate in [slot] if slot is not None else range(slots()):
+            try:  # only the lock's taking: an error of the work inside is never taken for a busy slot
+                held.enter_context(lock.single_instance(lock_path(candidate)))
+            except lock.AlreadyRunning:
+                if slot is not None:
+                    raise
+                continue
+            yield candidate
+            return
+        raise lock.AlreadyRunning(f"every worker slot of the store is taken ({slots()})")
+
+
+def _recover() -> dict[str, int]:
+    """Frees a stopped process's claims and settles the items whose job became dead or cancelled (063: otherwise the
+    run's item would be left without a result)."""
+    rec = queue.recover_orphans()
+    for job in [*rec.dead, *rec.cancelled]:
+        status_ = "failed" if job in rec.dead else "cancelled"
+        log.warning("orphaned job %s (%s) -> %s: %s", job.id, job.kind, job.status, job.error)
+        _settle_abandoned(job, status_, job.error or "orphaned")
+    return {"orphans_requeued": rec.requeued, "orphans_dead": len(rec.dead), "orphans_cancelled": len(rec.cancelled)}
 
 
 def handle(job: queue.Job) -> str:
@@ -479,41 +542,59 @@ def handle(job: queue.Job) -> str:
 
 
 def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int | None = None,
-               name: str | None = None) -> dict[str, Any]:
+               name: str | None = None, slot: int | None = None) -> dict[str, Any]:
     """Worker loop. `once=True`: runs until the queue is empty, then exits (for the CLI and tests).
 
-    Only one instance may run at a time (`lock.single_instance`; `lock.AlreadyRunning` if the lock is held). On a stop
-    request (`request_stop`) it exits after finishing the item in progress; the request is cleared at start-up."""
+    E1: it takes `slot` (counted from 0), or the first free one of the configured slots (`lock.AlreadyRunning` when it
+    is, or every one is, taken). On a stop request made since it started (`request_stop`) it exits after finishing the
+    item in progress; the last worker to stop clears the request."""
+    store.check_installation()  # 231 (E2): another installation's store stops the start, before anything is written
     worker = name or f"{socket.gethostname()}:{int(time.time())}"
-    with lock.single_instance(lock_path()), pdf_status.publish(store.current_path()):
+    started = time.time()
+    with _slot(slot) as mine, pdf_status.publish(store.current_path()):
         from jav.runtime import preload
 
         preload.preload()  # 091: all the code now, so later changes on disk cannot mix into this process
         rule_defaults.use()  # 231 (U4a): the installation's defaults over the rule files, outside a case
-        stop_path().unlink(missing_ok=True)
-        info: dict[str, Any] = {"startup": startup(), "processed": 0, "results": {}, "stopped": False, "errors": 0}
-        log.info("worker %s started: %s", worker, info["startup"])
+        observability.use_config()  # 231 (E4): the measurements into a local file, when switched on
+        if running_slots() == [mine]:  # an old request no worker is left to answer
+            stop_path().unlink(missing_ok=True)
+        holder = calls.holder()  # E1: this process's claims stay its own while it runs
+        info: dict[str, Any] = {"startup": startup(), "processed": 0, "results": {}, "stopped": False, "errors": 0,
+                                "slot": mine}
+        recovered_at = time.monotonic()
+        log.info("worker %s (slot %s) started: %s", worker, mine + 1, info["startup"])
         while max_jobs is None or info["processed"] < max_jobs:
-            if stop_path().exists():
-                stop_path().unlink(missing_ok=True)
+            if _stop_requested(started):
+                if running_slots() == [mine]:
+                    stop_path().unlink(missing_ok=True)
                 info["stopped"] = True
                 break
+            if time.monotonic() - recovered_at >= RECOVER_EVERY_S:  # E1: another worker's crash frees its items
+                recovered_at = time.monotonic()
+                try:
+                    _recover()
+                except Exception:  # noqa: BLE001 - operational safety net, logged; tried again next time
+                    log.exception("recovering stopped claims failed")
+                    info["errors"] += 1
             # 048 T2: a download job for each due mailbox schedule (185: a domain's tick, `jav/runtime/job_kinds.py`);
             # 057: scan the watched work folders that are due. 063: a scheduler error does not stop the worker (the
             # error is logged and retried in the next round). 146: the workflows' automatic chain moves on (at most
             # every workflows.TICK_EVERY_S); 229: then every case of the process core with something to do now (an
             # event, a due timer, a ready step), of any process definition (before, only the workflows' cases)
             # 231 (C1b): the cases an email starts by itself (at most every intake.TICK_EVERY_S)
-            for name, tick in ((*((t.name, t.run) for t in job_kinds.ticks()), ("folders.tick", app_settings.tick),
-                                ("workflows.tick", workflows.tick), ("intake.tick", intake.tick),
-                                ("process.turn_due", process_engine.turn_due))):
+            # E1: only the first slot's worker runs the ticks, so a schedule never runs twice at once
+            ticks = ((*((t.name, t.run) for t in job_kinds.ticks()), ("folders.tick", app_settings.tick),
+                      ("workflows.tick", workflows.tick), ("intake.tick", intake.tick),
+                      ("process.turn_due", process_engine.turn_due))) if mine == 0 else ()
+            for name, tick in ticks:
                 try:
                     tick()
                 except Exception:  # noqa: BLE001 - operational safety net, logged
                     log.exception("%s failed", name)
                     info["errors"] += 1
             try:
-                job = queue.claim(worker, kinds=(work.JOB_KIND, *(k.kind for k in job_kinds.kinds())))
+                job = queue.claim(worker, kinds=(work.JOB_KIND, *(k.kind for k in job_kinds.kinds())), holder=holder)
             except Exception:  # noqa: BLE001 - e.g. a store locked for long: wait, then try again
                 log.exception("claim failed")
                 info["errors"] += 1
@@ -534,5 +615,6 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
                 res = _fail_unexpected(job, exc)
             info["processed"] += 1
             info["results"][res] = info["results"].get(res, 0) + 1
-        log.info("worker %s stopped: processed=%s results=%s errors=%s", worker, info["processed"], info["results"], info["errors"])
+        log.info("worker %s (slot %s) stopped: processed=%s results=%s errors=%s", worker, mine + 1, info["processed"],
+                 info["results"], info["errors"])
     return info

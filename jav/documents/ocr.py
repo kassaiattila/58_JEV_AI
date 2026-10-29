@@ -43,10 +43,11 @@ from typing import Any
 from jav.documents import pdf as pdfmod
 from jav.core import cfg, trace
 from jav.documents import azure_di
-from jav.core.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, OLD_DATA_ROOT, PROJECT_ROOT
+from jav.core.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, DATA_ROOT, OLD_DATA_ROOT, PROJECT_ROOT
 from jav.documents.layout import LineLayout
 from jav.documents.pdf import PdfText, build_layout, text_layer_ok
 from jav.core.digest import file_sha256 as _sha256
+from jav.core import observability  # 231 (E4): the calls are timed through one helper
 
 log = logging.getLogger("jav.documents.ocr")
 
@@ -90,7 +91,7 @@ def output_hash(conf: dict[str, Any]) -> str:
 CACHE_HASH = output_hash(_CFG)
 _TESS = _CFG["tesseract"]
 DPI: int = int(_CFG["dpi"])
-CACHE_DIR = PROJECT_ROOT / _CFG["cache_dir"]
+CACHE_DIR = DATA_ROOT / _CFG["cache_dir"]  # 231 (E2): written data
 LOW_CONF_WORD: float = float(_CFG["quality"]["low_conf_word"])
 _TSV_LEVEL_WORD = "5"
 
@@ -296,18 +297,18 @@ def azure_recognise(path: Path) -> tuple[list[list[dict[str, Any]]], list[float]
     ledger_run = (ctx.budget_scope if ctx else None) or "jav-ocr"
 
     def physical() -> calls.Outcome:
-        t0 = time.perf_counter()
+        t0 = observability.start()
         try:
             pages, confs, meta = azure_words(path)
         except OcrUnavailableError as exc:
             store.ledger_add(run_id=ledger_run, step="ocr_azure", provider=AZURE_PROVIDER, model=AZURE_DI_MODEL,
-                             input_tokens=None, output_tokens=None, cost_usd=None, seconds=round(time.perf_counter() - t0, 3),
+                             input_tokens=None, output_tokens=None, cost_usd=None, seconds=observability.since(t0),
                              config_hash=config_hash(), error=type(exc).__name__)
             raise
         cost = AZURE_USD_PER_PAGE * len(pages)
         model = meta.get("model_id") or AZURE_DI_MODEL
         store.ledger_add(run_id=ledger_run, step="ocr_azure", provider=AZURE_PROVIDER, model=model, input_tokens=None,
-                         output_tokens=None, cost_usd=float(cost), seconds=round(time.perf_counter() - t0, 3), config_hash=config_hash())
+                         output_tokens=None, cost_usd=float(cost), seconds=observability.since(t0), config_hash=config_hash())
         return calls.Outcome(response={"pages": pages, "confs": confs, "meta": meta}, model=model, cost_usd=cost)
 
     if ctx is not None and ctx.budget_scope is not None and not calls.has_budget(ctx.budget_scope, AZURE_PROVIDER):

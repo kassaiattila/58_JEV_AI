@@ -35,7 +35,6 @@ import hashlib
 import json
 import re
 import sqlite3
-import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
@@ -56,6 +55,7 @@ from jav.app.outputs import contract, docx, markers
 from jav.runtime import job_kinds
 from jav.core import calls
 from jav.core.user_messages import explained
+from jav.core import observability  # 231 (E4): the calls are timed through one helper
 
 JOB_KIND = "quote_letter"
 KIND = "quote_letter"  # the decision kind: the accepted body of a version's letter, keyed by package and version
@@ -385,13 +385,13 @@ def _physical(agent: Any, prompt: str, *, run_id: str, rounds: int) -> calls.Out
 
     from jav.core.config import OPENAI_MODEL, openai_cost
 
-    t0 = time.perf_counter()
+    t0 = observability.start()
     try:
         result = agent.run_sync(prompt, model_settings={"max_tokens": int(_site()["max_output_tokens"])},
                                 usage_limits=UsageLimits(request_limit=rounds))
     except Exception as exc:
         store.ledger_add(run_id=run_id, step=f"{REQUEST_ID}_gpt", provider="openai", model=OPENAI_MODEL, input_tokens=None,
-                         output_tokens=None, cost_usd=None, seconds=round(time.perf_counter() - t0, 3),
+                         output_tokens=None, cost_usd=None, seconds=observability.since(t0),
                          config_hash=config_hash(), error=type(exc).__name__)
         raise
     usage = result.usage() if callable(result.usage) else result.usage
@@ -400,7 +400,7 @@ def _physical(agent: Any, prompt: str, *, run_id: str, rounds: int) -> calls.Out
     cost = openai_cost(usage, requested=OPENAI_MODEL, actual=actual)
     store.ledger_add(run_id=run_id, step=f"{REQUEST_ID}_gpt", provider="openai", model=actual, input_tokens=in_tok,
                      output_tokens=out_tok, cost_usd=None if cost is None else float(cost),
-                     seconds=round(time.perf_counter() - t0, 3), config_hash=config_hash())
+                     seconds=observability.since(t0), config_hash=config_hash())
     saved = {"output": result.output.model_dump(mode="json"), "model": actual, "input_tokens": in_tok,
              "output_tokens": out_tok, "cost_usd": None if cost is None else float(cost)}
     return calls.Outcome(response=saved, model=actual, input_tokens=in_tok, output_tokens=out_tok, cost_usd=cost)

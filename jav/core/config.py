@@ -26,16 +26,63 @@ if TYPE_CHECKING:
     from typesafe_sdk import AsyncTypeSafeClient, RetryPolicy, TypeSafeClient
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]  # 208: jav/core/config.py
-ENV_FILE = PROJECT_ROOT / ".env"
+
+# 231 (stage E, E2; the owner's decisions of 2026-10-29): the start-up description. `JAV_START` names a JSON file that
+# says where this installation's configs (`configs`), writable data (`data`: the store, the runs, the caches, the
+# inbox, the logs) and keys (`env`) are, and which installation its store belongs to (`installation`); a relative path
+# is read from the file's folder. Without it everything stays under the program's folder, as before. It is read when
+# this module is first imported, before any config is read; a description that cannot be read, names an unknown key or
+# a data folder that does not exist stops the start (`StartError`), so a typo never starts an empty installation.
+START_ENV = "JAV_START"
+_START_KEYS = ("configs", "data", "env", "installation")
+_INSTALLATION = re.compile(r"^[a-z0-9][a-z0-9-]{2,63}$")
+
+
+class StartError(RuntimeError):
+    """The start-up description cannot be used (unreadable, an unknown key, a data folder that does not exist)."""
+
+
+def _start_description() -> dict[str, Any]:
+    named = os.environ.get(START_ENV)
+    if not named:
+        return {}
+    path = Path(named)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise StartError(f"the start-up description {path} cannot be read: {exc}") from exc
+    if not isinstance(data, dict) or (unknown := sorted(set(data) - set(_START_KEYS))):
+        raise StartError(f"the start-up description {path} names unknown keys: {unknown if isinstance(data, dict) else data!r}")
+    out: dict[str, Any] = {}
+    for key in ("configs", "data", "env"):
+        if key in data:
+            out[key] = (path.parent / str(data[key])).resolve()
+    if "installation" in data:
+        if not isinstance(data["installation"], str) or not _INSTALLATION.fullmatch(data["installation"]):
+            raise StartError(f"the installation in {path} is 3 to 64 lowercase letters, digits and hyphens")
+        out["installation"] = data["installation"]
+    for key in ("configs", "data"):
+        if key in out and not out[key].is_dir():
+            raise StartError(f"the {key} folder of the start-up description does not exist: {out[key]}")
+    return out
+
+
+_START = _start_description()
+CONFIG_ROOT: Path = _START.get("configs", PROJECT_ROOT / "configs")  # E2: the rule files, registries and prompts
+DATA_ROOT: Path = _START.get("data", PROJECT_ROOT)  # E2: everything the installation writes
+INSTALLATION_ID: str | None = _START.get("installation")  # E2: the store's own installation (None: not checked)
+ENV_FILE: Path = _START.get("env", PROJECT_ROOT / ".env")
 # 227 (plan R3c): a secret of `.env` or the environment, by its name and length; the data guard and the operations
 # log mask these (`read_env_secrets`)
 ENV_SECRET_NAME = re.compile(r"(?i)key|token|secret|passw|pwd")
 ENV_SECRET_MIN_LEN = 12
 _ENV_LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$")
-PROMPTS_DIR = PROJECT_ROOT / "configs" / "prompts"  # 209 (R2b): the instructions sent to a model are config data
-RUNS_DIR = PROJECT_ROOT / "runs"
+PROMPTS_DIR = CONFIG_ROOT / "prompts"  # 209 (R2b): the instructions sent to a model are config data
+RUNS_DIR = DATA_ROOT / "runs"
 CACHE_DIR = RUNS_DIR / "cache"  # JEV request-hash cache
-STORE_PATH = PROJECT_ROOT / "store" / "jav.sqlite"  # durable store (git-ignored, PII)
+STORE_PATH = DATA_ROOT / "store" / "jav.sqlite"  # durable store (git-ignored, PII)
+INBOX_ROOT = DATA_ROOT / "inbox"  # E2: the downloaded emails
+LOG_DIR = RUNS_DIR / "logs"  # E2: the long-running processes' rotating logs
 
 # The golden set and the sample PDFs stay in the legacy project; we only reference them.
 # Location: the JAV_LEGACY_ROOT environment variable (or the .env); default: the `10_AIFLOW_V4` folder next to this
@@ -49,7 +96,7 @@ OLD_DATA_ROOT = OLD_PROJECT_ROOT / "data"
 # in our own git-ignored inbox folder, not in the (read-only) legacy project. 148: the script is ported from the legacy
 # project (it reads the Sent Items folder too; an unknown folder is an error).
 OUTLOOK_BRIDGE_SCRIPT = PROJECT_ROOT / "scripts" / "outlook_bridge.ps1"
-BRIDGE_ROOT = PROJECT_ROOT / "inbox" / ".bridge"
+BRIDGE_ROOT = INBOX_ROOT / ".bridge"
 BRIDGE_DATA_ROOT = BRIDGE_ROOT / "data"
 GOLDEN_MANIFEST = OLD_PROJECT_ROOT / "flows" / "doc-extract-bare" / "golden" / "manifest.json"
 GOLDEN_EXPECTED_DIR = OLD_DATA_ROOT / "golden" / "doc-extract-bare"
@@ -61,7 +108,7 @@ OPENAI_KEY_ENV_VAR = "OPENAI_API_KEY"
 AZURE_DI_ENV_VARS = ("AZURE_DI_ENDPOINT", "AZURE_DI_KEY")
 
 # Model administration: configs/models.json (config as data; read with json directly, as jav.core.cfg imports this module).
-MODELS_CONFIG = PROJECT_ROOT / "configs" / "models.json"
+MODELS_CONFIG = CONFIG_ROOT / "models.json"
 _MODELS = json.loads(MODELS_CONFIG.read_text(encoding="utf-8"))
 MODELS_VERSION: str = _MODELS["meta"]["version"]
 JEV_MODEL: str = _MODELS["jev"]["model"]

@@ -1,8 +1,18 @@
 {
   "meta": {
     "name": "service",
-    "version": "1.10.0",
+    "version": "1.12.0",
     "changelog": [
+      {
+        "version": "1.12.0",
+        "date": "2026-10-29",
+        "note": "231 (stage E, E4; the owner's decisions of 2026-10-29): `metrics`, the measurements of the long-running processes into a local file (`folder` under the data folder's runs), off by default."
+      },
+      {
+        "version": "1.11.0",
+        "date": "2026-10-29",
+        "note": "231 (stage E, E1; the owner's decisions of 2026-10-29): `workers`, how many workers may run on the store at once (one by default; each takes its own slot, and only the first runs the scheduled ticks)."
+      },
       {
         "version": "1.10.0",
         "date": "2026-10-25",
@@ -67,6 +77,8 @@
   },
   "host": "127.0.0.1",
   "port": 8930,
+  "workers": 1,
+  "metrics": {"enabled": false, "folder": "metrics"},
   "allowed_hosts": [
     "127.0.0.1",
     "localhost"

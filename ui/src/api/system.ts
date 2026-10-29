@@ -70,7 +70,9 @@ export interface WatchedFolder {
 
 export const systemApi = {
   documentFormats: () => request<{ formats: DocumentFormat[]; native_limits: Record<string, unknown> }>("GET", "/document-formats"),
-  worker: () => request<{ running: boolean; stop_requested: boolean; jobs: Record<string, number>; pdf_protection?: PdfProtection }>("GET", "/worker"),
+  /** 231 (E1): `workers` running of the `slots` the service configuration allows */
+  worker: () => request<{ running: boolean; workers?: number; slots?: number; stop_requested: boolean; jobs: Record<string, number>;
+    pdf_protection?: PdfProtection }>("GET", "/worker"),
   users: () => request<{ users: string[] }>("GET", "/settings/users"),
   saveUsers: (users: string[]) => request<{ users: string[] }>("PUT", "/settings/users", { users }),
   folders: () => request<{ folders: WatchedFolder[]; roots: string[] }>("GET", "/settings/folders"),

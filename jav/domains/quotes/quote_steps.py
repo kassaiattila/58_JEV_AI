@@ -100,8 +100,9 @@ def rebuild(conn: sqlite3.Connection, table: str, ddl: str, capability: str) -> 
 
     if not older():
         return
-    conn.commit()
-    conn.execute("BEGIN IMMEDIATE")
+    from jav.core import store
+
+    store.begin_immediate(conn)  # 231 (E3): the shared write lock
     try:
         if older():
             cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})")]

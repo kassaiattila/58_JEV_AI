@@ -19,7 +19,6 @@ import hashlib
 import json
 import math
 import re
-import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from decimal import Decimal
@@ -34,6 +33,7 @@ from jav.core import store
 from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_chat_model, openai_cost, openai_price
 from jav.ai.models import JevCall
 from jav.core import calls
+from jav.core import observability  # 231 (E4): the calls are timed through one helper
 
 OTHER_BRANCHES = "(other)"  # probability of alternative branches that do not lead to a single option
 
@@ -155,7 +155,7 @@ ROUNDS = 1 + int(OPENAI_SETTINGS["retries"])  # requests of one call: the first 
 
 def _physical(agent, prompt: str, *, run_id: str, step: str, limits: Limits, limited: bool, rounds: int = ROUNDS) -> calls.Outcome:
     """One `run_sync` (at most `rounds` requests in a worker run); the call goes into the ledger, errors too."""
-    t0 = time.perf_counter()
+    t0 = observability.start()
     kwargs: dict[str, Any] = {}
     if limited:
         kwargs = {"model_settings": {"max_tokens": limits.max_output_tokens}, "usage_limits": UsageLimits(request_limit=rounds)}
@@ -163,7 +163,7 @@ def _physical(agent, prompt: str, *, run_id: str, step: str, limits: Limits, lim
         result = agent.run_sync(prompt, **kwargs)
     except Exception as exc:
         store.ledger_add(run_id=run_id, step=step, provider="openai", model=OPENAI_MODEL, input_tokens=None, output_tokens=None,
-                         cost_usd=None, seconds=round(time.perf_counter() - t0, 3), config_hash=limits.config_hash, error=type(exc).__name__)
+                         cost_usd=None, seconds=observability.since(t0), config_hash=limits.config_hash, error=type(exc).__name__)
         raise
     usage = result.usage() if callable(result.usage) else result.usage
     in_tok, out_tok = usage.input_tokens or 0, usage.output_tokens or 0
@@ -171,7 +171,7 @@ def _physical(agent, prompt: str, *, run_id: str, step: str, limits: Limits, lim
     actual = getattr(response, "model_name", None) or OPENAI_MODEL
     cost = openai_cost(usage, requested=OPENAI_MODEL, actual=actual)  # 167 (AI-12): the shared price rule
     store.ledger_add(run_id=run_id, step=step, provider="openai", model=actual, input_tokens=in_tok, output_tokens=out_tok,
-                     cost_usd=None if cost is None else float(cost), seconds=round(time.perf_counter() - t0, 3),
+                     cost_usd=None if cost is None else float(cost), seconds=observability.since(t0),
                      config_hash=limits.config_hash)
     details = getattr(response, "provider_details", None) or {}
     saved = {"output": result.output.model_dump(mode="json"), "logprobs": details.get("logprobs"), "model": actual,
@@ -198,7 +198,7 @@ def ask(request_id: str, instructions: str, prompt: str, fields: dict[str, list[
     output_model = _output_model(f"{request_id}_answer", fields)
     agent = _agent(output_model, instructions, limits)
     step = f"{request_id}_gpt"
-    t0 = time.perf_counter()
+    t0 = observability.start()
     ctx = calls.current()
     if ctx is None:
         saved = _physical(agent, prompt, run_id=run_id, step=step, limits=limits, limited=False).response
@@ -223,6 +223,6 @@ def ask(request_id: str, instructions: str, prompt: str, fields: dict[str, list[
         confidence[f], probabilities[f] = conf, probs
     call = JevCall(request_id=request_id, n_questions=len(fields), state_chars=len(prompt), model=saved.get("model"),
                    input_tokens=saved.get("input_tokens"), output_tokens=saved.get("output_tokens"),
-                   seconds=round(time.perf_counter() - t0, 3), cost_usd=float(saved.get("cost_usd") or 0.0))
+                   seconds=observability.since(t0), cost_usd=float(saved.get("cost_usd") or 0.0))
     return GptAnswer(values=values, confidence=confidence, probabilities=probabilities,
                      measured=all(c is not None for c in confidence.values()), call=call)

@@ -222,9 +222,10 @@ def cmd_worker(args):
     from jav.core import applog, lock
     applog.setup("worker")  # 063: persistent rotating log (runs/logs/worker.log): start, errors with traceback, stop
     try:
-        info = worker.run_worker(once=args.once, max_jobs=args.max_jobs)
-    except lock.AlreadyRunning:
-        print("Már fut egy feldolgozó ezen az adattáron; egyszerre csak egy futhat.")
+        info = worker.run_worker(once=args.once, max_jobs=args.max_jobs,
+                                 slot=args.slot - 1 if args.slot is not None else None)
+    except lock.AlreadyRunning as exc:  # 231 (E1): the slot asked for, or every configured one, is taken
+        print(f"No worker slot is free on this store ({exc}); configs/service.json `workers` says how many may run.")
         return 3
     note = ", leállítási kérésre kilépett" if info["stopped"] else ""
     return _out(args, info, f"Feldolgozó: indulás {info['startup']}, feldolgozva {info['processed']}, eredmény {info['results']}{note}")
@@ -235,6 +236,7 @@ def cmd_worker_status(args):
     from jav.runtime import worker
     st = work_views.jsonable(worker.status())
     text = (f"Feldolgozó: {'fut' if st['running'] else 'nem fut'}"
+            f"{f' ({st['workers']} of {st['slots']} slots)' if st['slots'] > 1 else ''}"  # 231 (E1)
             f"{', leállítás kérve' if st['stop_requested'] else ''}  feladatok: {st['jobs']}")
     return _out(args, st, text)
 
@@ -332,6 +334,8 @@ def register(sub) -> None:
     p = add("worker", cmd_worker, "feldolgozó: a munkasor tételeinek futtatása")
     p.add_argument("--once", action="store_true", help="a sor kiürüléséig fut, utána kilép")
     p.add_argument("--max-jobs", type=int)
+    p.add_argument("--slot", type=int, help="231 (E1): the worker's slot, from 1 (default: the first free one of the"
+                                            " configured slots, configs/service.json workers)")
     add("worker-status", cmd_worker_status, "fut-e feldolgozó, és mennyi feladat vár")
     add("worker-stop", cmd_worker_stop, "a feldolgozó szabályos leállításának kérése")
     add("calls-uncertain", cmd_calls_uncertain, "bizonytalan kimenetű fizetős hívások (kézi rendezésre várnak)")

@@ -118,8 +118,7 @@ def _general_scope(conn) -> None:
 
     if not required():
         return
-    conn.commit()
-    conn.execute("BEGIN IMMEDIATE")
+    store.begin_immediate(conn)  # 231 (E3): the shared write lock
     try:
         if required():
             conn.execute("DROP TABLE IF EXISTS workflows_181")

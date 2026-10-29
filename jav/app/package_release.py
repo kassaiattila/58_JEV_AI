@@ -157,8 +157,7 @@ def _file_states(conn: sqlite3.Connection) -> None:
 
     if not older():
         return
-    conn.commit()
-    conn.execute("BEGIN IMMEDIATE")
+    store.begin_immediate(conn)  # 231 (E3): the shared write lock
     try:
         if older():
             conn.execute("DROP TABLE IF EXISTS package_version_files_186")
@@ -755,8 +754,7 @@ def copy_older_own(conn: sqlite3.Connection, versions: str, files: str) -> None:
     if not pending():
         return
     _migrate(conn)
-    conn.commit()
-    conn.execute("BEGIN IMMEDIATE")
+    store.begin_immediate(conn)  # 231 (E3): the shared write lock
     try:
         if pending():
             has_files = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (files,)).fetchone()

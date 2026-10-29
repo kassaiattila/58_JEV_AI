@@ -15,7 +15,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from decimal import Decimal
@@ -33,6 +32,7 @@ from jav.core import cfg, store
 from jav.core import calls
 from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, load_prompt, openai_chat_model, openai_cost, openai_price
 from jav.ai.typepack import TypePack, get as get_pack
+from jav.core import observability  # 231 (E4): the calls are timed through one helper
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
@@ -127,7 +127,7 @@ ROUNDS = 1 + int(OPENAI_SETTINGS["retries"])  # requests of one call: the first 
 def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool, rounds: int = ROUNDS) -> calls.Outcome:
     """One `run_sync` (including Pydantic AI's validation retries, at most `rounds` requests in a worker run). Errors
     go into the ledger too (F05); a cut-off answer (167) with its tokens and cost, since it was paid for."""
-    t0 = time.perf_counter()
+    t0 = observability.start()
     kwargs: dict[str, Any] = {}
     if limited:
         kwargs = {"model_settings": {"max_tokens": RUN_MAX_OUTPUT_TOKENS}, "usage_limits": UsageLimits(request_limit=rounds)}
@@ -144,13 +144,13 @@ def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool,
         out_tok = sum(getattr(u, "output_tokens", 0) or 0 for u in usages)
         store.ledger_add(run_id=run_id, step="extract_llm", provider="openai", model=actual, input_tokens=in_tok,
                          output_tokens=out_tok, cost_usd=None if cost is None else float(cost),
-                         seconds=round(time.perf_counter() - t0, 3), config_hash=config_hash(pack), error=type(exc).__name__)
+                         seconds=observability.since(t0), config_hash=config_hash(pack), error=type(exc).__name__)
         if cost is not None:  # its certain cost settles the call (`calls.known_outcome`)
             exc.known_outcome = calls.Outcome(response=None, model=actual, input_tokens=in_tok, output_tokens=out_tok, cost_usd=cost)
         raise
     except Exception as exc:
         store.ledger_add(run_id=run_id, step="extract_llm", provider="openai", model=OPENAI_MODEL, input_tokens=None,
-                         output_tokens=None, cost_usd=None, seconds=round(time.perf_counter() - t0, 3),
+                         output_tokens=None, cost_usd=None, seconds=observability.since(t0),
                          config_hash=config_hash(pack), error=type(exc).__name__)
         raise
     usage = result.usage() if callable(result.usage) else result.usage  # pydantic-ai: it was a method, newer versions have a property
@@ -165,7 +165,7 @@ def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool,
         input_tokens=in_tok,
         output_tokens=out_tok,
         cost_usd=None if cost is None else float(cost),
-        seconds=round(time.perf_counter() - t0, 3),
+        seconds=observability.since(t0),
         config_hash=config_hash(pack),
     )
     details = getattr(getattr(result, "response", None), "provider_details", None) or {}

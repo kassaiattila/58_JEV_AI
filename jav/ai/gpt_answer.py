@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -31,6 +30,7 @@ from pydantic import BaseModel
 
 from jav.core import calls, store
 from jav.core.user_messages import explained
+from jav.core import observability  # 231 (E4): the calls are timed through one helper
 
 __all__ = ["NoBudget", "ask", "use_agent_factory"]
 
@@ -81,7 +81,7 @@ def _physical(agent: Any, site: str, prompt: str, *, max_output_tokens: int, run
     from jav.ai import output_cap
     from jav.core.config import OPENAI_MODEL, openai_cost
 
-    t0 = time.perf_counter()
+    t0 = observability.start()
     try:
         with capture_run_messages() as messages:
             result = agent.run_sync(prompt, model_settings={"max_tokens": max_output_tokens},
@@ -92,7 +92,7 @@ def _physical(agent: Any, site: str, prompt: str, *, max_output_tokens: int, run
         store.ledger_add(run_id=run_id, step=f"{site}_gpt", provider="openai", model=known.model if known else OPENAI_MODEL,
                          input_tokens=known.input_tokens if known else None,
                          output_tokens=known.output_tokens if known else None,
-                         cost_usd=float(known.cost_usd) if known else None, seconds=round(time.perf_counter() - t0, 3),
+                         cost_usd=float(known.cost_usd) if known else None, seconds=observability.since(t0),
                          config_hash=config_hash, error=type(exc).__name__ + (f": {why}" if why else ""))
         if known is not None:  # its certain cost settles the call
             exc.known_outcome = known
@@ -103,7 +103,7 @@ def _physical(agent: Any, site: str, prompt: str, *, max_output_tokens: int, run
     cost = openai_cost(usage, requested=OPENAI_MODEL, actual=actual)
     store.ledger_add(run_id=run_id, step=f"{site}_gpt", provider="openai", model=actual, input_tokens=in_tok,
                      output_tokens=out_tok, cost_usd=None if cost is None else float(cost),
-                     seconds=round(time.perf_counter() - t0, 3), config_hash=config_hash)
+                     seconds=observability.since(t0), config_hash=config_hash)
     saved = {"output": result.output.model_dump(mode="json"), "model": actual, "input_tokens": in_tok,
              "output_tokens": out_tok, "cost_usd": None if cost is None else float(cost)}
     return calls.Outcome(response=saved, model=actual, input_tokens=in_tok, output_tokens=out_tok, cost_usd=cost)

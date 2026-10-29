@@ -395,7 +395,7 @@ def check_output_folder(p: Path) -> Path:
     """The output folder may not lie inside a watched folder or contain one (the watcher would take the copies in
     again as new documents), nor overlap the store or the mailbox folders. Returns the resolved path; `ValueError`
     otherwise."""
-    from jav.core.config import PROJECT_ROOT
+    from jav.core.config import DATA_ROOT
 
     p = p.resolve()
     if not p.is_dir():
@@ -404,7 +404,7 @@ def check_output_folder(p: Path) -> Path:
         if _overlaps(p, Path(f["path"])):
             raise explained(FolderOverlap, "the output folder cannot overlap the watched folder {{name}}",
                             name=repr(f["name"]))
-    for internal in (PROJECT_ROOT / "store", PROJECT_ROOT / "inbox", PROJECT_ROOT / "runs"):
+    for internal in (DATA_ROOT / "store", DATA_ROOT / "inbox", DATA_ROOT / "runs"):  # 231 (E2): the data folder's
         if _overlaps(p, internal):
             raise explained(FolderOverlap, "the output folder cannot overlap the application's own data folders (store, inbox, runs)")
     return p

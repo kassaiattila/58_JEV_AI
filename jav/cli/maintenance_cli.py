@@ -703,7 +703,7 @@ def cmd_rule_proposal_decide(args: argparse.Namespace) -> int:
 def cmd_burr_prune(args: argparse.Namespace) -> int:
     from jav.runtime import worker
     from jav.flows import persistence
-    from jav.core import lock, queue
+    from jav.core import queue
 
     path = worker.persister_path()
     active = queue.active_run_ids()
@@ -712,7 +712,7 @@ def cmd_burr_prune(args: argparse.Namespace) -> int:
     print(f"Ritkítva: {out['deleted']} köztes állapotsor törölve; kihagyott futó futás: {len(active)}.")
     if args.no_vacuum or not path.is_file():
         return 0
-    if lock.is_held(worker.lock_path()):
+    if worker.running():
         print("A feldolgozó fut: a tömörítés (a hely visszaadása a lemeznek) kimarad. "
               "Állítsd le (.\\scripts\\dev.ps1 stop), és futtasd újra a parancsot.")
         return 0

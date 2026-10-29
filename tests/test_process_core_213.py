@@ -456,7 +456,9 @@ def test_the_authorisation_check_is_asked_and_the_observer_gets_only_allowed_fie
         observability.set_observer(None)
         access.set_authorizer(None)
     assert [(m.operation, m.outcome) for m in seen] == [("step:note", "ok")]
-    assert set(vars(seen[0])) == {"operation", "seconds", "outcome", "attempts"}
+    # 231 (E4): the cleaned attributes (none here) and the start beside them, nothing else
+    assert set(vars(seen[0])) == {"operation", "seconds", "outcome", "attempts", "attributes", "started_at"}
+    assert seen[0].attributes == {}
 
 
 def test_an_actor_has_a_stable_id_and_the_machine_names_whom_it_acts_for() -> None:

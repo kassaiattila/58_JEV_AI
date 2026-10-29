@@ -1,5 +1,6 @@
 # Helyi szolgaltatas + feldolgozo inditasa / leallitasa (040 K2).
 #   .\scripts\dev.ps1 start    # API (127.0.0.1:8930) + egy feldolgozo, hatterben; naplo: runs\dev\*.log
+#                              # 231 E1: as many workers as configs\service.json "workers" says (one by default)
 #                              # 231 U0: also the invented registers (127.0.0.1:8941) the insurance case asks
 #   .\scripts\dev.ps1 status   # futnak-e, es mennyi feladat var
 #   .\scripts\dev.ps1 stop     # a feldolgozo a folyamatban levo tetel utan lep ki, az API azonnal all le
@@ -15,6 +16,12 @@ $Root = Split-Path -Parent $PSScriptRoot
 $Python = Join-Path $Root ".venv\Scripts\python.exe"
 $DevDir = Join-Path $Root "runs\dev"
 New-Item -ItemType Directory -Force -Path $DevDir | Out-Null
+
+# 231 (E1): the workers the service configuration allows: "worker" is slot 1, then "worker-2", "worker-3" ...
+$WorkerCount = 1
+try { $WorkerCount = [int]((Get-Content (Join-Path $Root "configs\service.json") -Raw | ConvertFrom-Json).workers) } catch { $WorkerCount = 1 }
+if ($WorkerCount -lt 1) { $WorkerCount = 1 }
+$WorkerNames = @(1..$WorkerCount | ForEach-Object { if ($_ -eq 1) { "worker" } else { "worker-$_" } })
 
 function Get-Tracked([string]$Name) {
     $pidFile = Join-Path $DevDir "$Name.pid"
@@ -51,27 +58,30 @@ function Invoke-Cli([string[]]$CliArgs) {
 switch ($Action) {
     "start" {
         Start-Tracked "api" @("serve", "--port", "$Port")
-        Start-Tracked "worker" @("worker")
+        for ($slot = 1; $slot -le $WorkerCount; $slot++) { Start-Tracked $WorkerNames[$slot - 1] @("worker", "--slot", "$slot") }
         Start-Tracked "registers" @("invented-services")
     }
     "status" {
-        foreach ($name in @("api", "worker", "registers")) {
+        foreach ($name in (@("api") + $WorkerNames + @("registers"))) {
             $p = Get-Tracked $name
             if ($null -eq $p) { Write-Output "$name : not running" } else { Write-Output "$name : running (pid $($p.Id))" }
         }
         Invoke-Cli @("worker-status")
     }
     "stop" {
-        $w = Get-Tracked "worker"
-        if ($null -ne $w) {
+        $running = @($WorkerNames | ForEach-Object { $p = Get-Tracked $_; if ($null -ne $p) { [pscustomobject]@{ Name = $_; Proc = $p } } })
+        if ($running.Count -gt 0) {
+            # one request stops every worker after its item in progress
             Invoke-Cli @("worker-stop") | Out-Null
-            if ($LASTEXITCODE -ne 0) { Write-Output "worker-stop request failed (exit $LASTEXITCODE); waiting for the worker anyway" }
-            if (-not $w.WaitForExit($StopTimeoutSec * 1000)) {
-                Write-Output "worker did not stop in $StopTimeoutSec s, killing (the run resumes from the saved step)"
-                Stop-Process -Id $w.Id -Force
+            if ($LASTEXITCODE -ne 0) { Write-Output "worker-stop request failed (exit $LASTEXITCODE); waiting for the workers anyway" }
+            foreach ($r in $running) {
+                if (-not $r.Proc.WaitForExit($StopTimeoutSec * 1000)) {
+                    Write-Output "$($r.Name) did not stop in $StopTimeoutSec s, killing (the run resumes from the saved step)"
+                    Stop-Process -Id $r.Proc.Id -Force
+                }
+                Remove-Item (Join-Path $DevDir "$($r.Name).pid") -Force -ErrorAction SilentlyContinue
+                Write-Output "$($r.Name) stopped"
             }
-            Remove-Item (Join-Path $DevDir "worker.pid") -Force -ErrorAction SilentlyContinue
-            Write-Output "worker stopped"
         }
         foreach ($name in @("api", "registers")) {
             $a = Get-Tracked $name

@@ -139,8 +139,14 @@ def request(wp_id: str, *, actor: identity.Who, selection: str | None = None,
         row = _row(c, wp_id, step)
         if row is not None and row["state"] in ("queued", "running"):
             return current(wp_id, step=step) or {}
-        c.execute("INSERT OR REPLACE INTO quote_proposals(workpackage_id, step_id, state, engine, request_key, price_list,"
-                  " version, fingerprint, limits, requested_by, requested_by_id, requested_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        # 231 (E3): a proposal asked again starts afresh, in the form every database takes (until then a replacing insert)
+        c.execute("INSERT INTO quote_proposals(workpackage_id, step_id, state, engine, request_key, price_list,"
+                  " version, fingerprint, limits, requested_by, requested_by_id, requested_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
+                  " ON CONFLICT(workpackage_id, step_id) DO UPDATE SET state=excluded.state, engine=excluded.engine,"
+                  " request_key=excluded.request_key, price_list=excluded.price_list, version=excluded.version,"
+                  " fingerprint=excluded.fingerprint, limits=excluded.limits, requested_by=excluded.requested_by,"
+                  " requested_by_id=excluded.requested_by_id, requested_at=excluded.requested_at, lines=NULL, usage=NULL,"
+                  " error=NULL, scope=NULL, finished_at=NULL",
                   (wp_id, step, "queued", engine, request_key(req.items), prices.price_list, prices.version, prices.fingerprint,
                    json.dumps({k: str(v) for k, v in limits.items()}), identity.name_of(actor), identity.id_of(actor), _now()))
     queue.enqueue(JOB_KIND, run_id=None, payload={"workpackage_id": wp_id, "step_id": step, "requested_at": _now()})

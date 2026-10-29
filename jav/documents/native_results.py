@@ -172,7 +172,7 @@ def prepare_reading(read_path: Path, *, original_name: str, expected_sha256: str
         attempt_ids=tuple(r.attempt.attempt_id for r in saved.bundle.results), reading=_summary(saved))
     payload = canonical_bytes(ref)
     with store.connect() as c:
-        c.execute("INSERT OR IGNORE INTO native_readings VALUES (?,?,?,?)",
+        c.execute("INSERT INTO native_readings VALUES (?,?,?,?) ON CONFLICT DO NOTHING",
                   (reading_id, key, payload.decode(), digest(payload)))
         # A concurrent identical reader may have published first. Its verified
         # reference wins; an unreferenced directory is never published implicitly.
@@ -280,8 +280,8 @@ def publish(*, run_id: str, item_id: str, source_sha256: str, recipe_hash: str,
             interpretation: Interpretation | None = None, c=None) -> Publication:
     """Publish once under the caller's writer transaction, after evidence checks."""
     with _connection(c) as conn:
-        if not conn.in_transaction:
-            conn.execute("BEGIN IMMEDIATE")
+        if not conn.in_transaction:  # the caller's transaction is joined; otherwise the shared write lock (231 E3)
+            store.begin_immediate(conn)
         ref = _reading(reading_id, conn)
         load_reading(reading_id, c=conn)
         if ref.source_sha256 != source_sha256:

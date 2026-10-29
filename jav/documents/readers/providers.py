@@ -7,7 +7,7 @@ the JEV check of the facts is the AI layer's (`jav/ai/native_verification.py`).
 """
 from __future__ import annotations
 
-import time
+from jav.core import observability  # 231 (E4): the calls are timed through one helper
 from decimal import Decimal
 from pathlib import Path
 from typing import Callable
@@ -53,18 +53,18 @@ def _ledgered_gpt(agent, prompt: str, settings, model: str, *, run_id: str, conf
     """167 (review R-8): one physical request, written to the ledger as every other AI call is, a failure too. A
     received answer that failed validation is a row with its tokens and cost and the failure's type."""
     from jav.core import store
-    t0 = time.perf_counter()
+    t0 = observability.start()
     try:
         out = run_gpt_once(agent, prompt, settings, model)
     except Exception as exc:
         store.ledger_add(run_id=run_id, step=LEDGER_STEP, provider="openai", model=model, input_tokens=None,
-                         output_tokens=None, cost_usd=None, seconds=round(time.perf_counter() - t0, 3),
+                         output_tokens=None, cost_usd=None, seconds=observability.since(t0),
                          cache_key=cache_key, config_hash=config_hash, error=type(exc).__name__)
         raise
     failure = out.response.get("validation_error")
     store.ledger_add(run_id=run_id, step=LEDGER_STEP, provider="openai", model=out.model, input_tokens=out.input_tokens,
                      output_tokens=out.output_tokens, cost_usd=None if out.cost_usd is None else float(out.cost_usd),
-                     seconds=round(time.perf_counter() - t0, 3), cache_key=cache_key, config_hash=config_hash,
+                     seconds=observability.since(t0), cache_key=cache_key, config_hash=config_hash,
                      error=failure["type"] if failure else None)
     return out
 
