@@ -1,7 +1,7 @@
 {
  "meta": {
   "name": "verify",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "changelog": [
    {
     "version": "1.0.0",
@@ -22,6 +22,11 @@
     "version": "1.3.0",
     "date": "2026-10-22",
     "note": "202 (plan G-core-generalisation M2a): the call site states what the code used to infer from a request's name or fill in itself: the document's description and the three document-level questions, which every other verify call site inherits (189: they are invoice questions; asking a non-invoice type other ones is a new request and a paid measurement). The requests sent to JEV are unchanged."
+   },
+   {
+    "version": "1.4.0",
+    "date": "2026-10-29",
+    "note": "231 (stage F, F1; the owner's decisions of 2026-10-29): each document-level question names the extraction fields it reads (`fields`), and a pack is asked it only when it has every one of them: swapped parties needs the supplier's and the buyer's name and tax number, the missing and extra rows the line items. A type whose extraction (the answer's schema) has not got them (the terms and conditions, the tickets, the certificates, the statements; the utility bills name a customer, not a buyer) is no longer asked an invoice question about fields it does not have: a new request for those 21 packs; the Hungarian, the foreign, the proforma and the outgoing invoice's are unchanged."
    }
   ]
  },
@@ -85,17 +90,20 @@
   "parties_swapped": {
    "question": "Look at `extraction.supplier_name`, `extraction.supplier_tax_id`, `extraction.buyer_name`, `extraction.buyer_tax_id` and the `source_lines`. Are the supplier (issuer) and the buyer (recipient) SWAPPED, i.e. does the extraction put the issuing party under buyer_* and the receiving party under supplier_*?",
    "true": "the parties are swapped",
-   "false": "the supplier is the issuer and the buyer is the recipient, as printed"
+   "false": "the supplier is the issuer and the buyer is the recipient, as printed",
+   "fields": ["supplier_name", "supplier_tax_id", "buyer_name", "buyer_tax_id"]
   },
   "line_items_missing_rows": {
    "question": "Compare `extraction.line_items` with the goods/service rows printed on the invoice in `source_lines`. Does the invoice print at least one goods/service row that is ABSENT from extraction.line_items?",
    "true": "at least one printed goods/service row is missing from the extraction",
-   "false": "every printed goods/service row is present in the extraction"
+   "false": "every printed goods/service row is present in the extraction",
+   "fields": ["line_items"]
   },
   "line_items_extra_rows": {
    "question": "Compare `extraction.line_items` with the goods/service rows printed on the invoice in `source_lines`. Does extraction.line_items contain a row that is NOT a goods/service row printed on the invoice (for example a totals row, a duplicated row from a repeated page, or a note)?",
    "true": "the extraction contains a row that is not a printed goods/service row",
-   "false": "every extracted row corresponds to a printed goods/service row"
+   "false": "every extracted row corresponds to a printed goods/service row",
+   "fields": ["line_items"]
   }
  },
  "document": "Hungarian supplier invoice",

@@ -75,6 +75,9 @@ class Options:
 
     - `engine`: "jev" (JEV, and GPT where the path asks it: the G path's extraction) or "gpt" (GPT alone, 160-D);
     - `use_cache`: False asks every question again (live calls, so it needs a budget);
+    - `jev_again` (231, F1): asks JEV again without its cache but reuses the earlier GPT answers, so the G path's JEV
+      check can be measured again, and its determinism measured, without an OpenAI budget (a live call, so it needs a
+      JEV budget; only a set that runs the data points' flow takes it);
     - `jev_budget_usd`, `budget_usd`: the owner's sub-budgets for JEV and OpenAI; without them earlier answers only.
     """
 
@@ -82,10 +85,23 @@ class Options:
     use_cache: bool = True
     jev_budget_usd: Decimal | None = None
     budget_usd: Decimal | None = None
+    jev_again: bool = False
 
     def __post_init__(self) -> None:
         if self.engine not in ENGINES:
             raise ValueError(f"unknown engine {self.engine!r}: one of {ENGINES}")
+        if self.jev_again and (self.engine != "jev" or not self.use_cache):
+            raise RoundRefused("asking JEV again keeps the earlier GPT answers: it takes the JEV engine and not --no-cache")
+
+    @property
+    def jev_cache(self) -> bool:
+        """Whether JEV answers from its cache (231, F1: not when it is asked again)."""
+        return self.use_cache and not self.jev_again
+
+    @property
+    def reuse_kwargs(self) -> dict[str, bool]:
+        """231 (F1): the earlier GPT answers stay reused when JEV is asked again (otherwise as the set's own command)."""
+        return {"reuse": True} if self.jev_again else {}
 
     @property
     def jev(self) -> bool:
@@ -143,7 +159,8 @@ class Golden:
     - `engines`: the engines it can be measured with (`ENGINES`); none: code only, it asks no AI and is always free;
     - `count()`: its number of cases, without measuring;
     - `measure(options)`: measures it, printing its own report, and returns the `Outcome`;
-    - `module`: the module that describes it.
+    - `module`: the module that describes it;
+    - `jev_again` (231, F1): whether it can ask JEV again while keeping the earlier GPT answers (`Options.jev_again`).
     """
 
     key: str
@@ -154,6 +171,7 @@ class Golden:
     count: Callable[[], int]
     measure: Callable[[Options], Outcome]
     module: str
+    jev_again: bool = False
 
     def __post_init__(self) -> None:
         if not self.key or any(ch.isspace() for ch in self.key):
@@ -199,15 +217,16 @@ def _datapoint_golden(type_key: str, arm: str, *, synthetic: bool) -> Golden:
         cases = evals.load_synthetic_cases(type_key) if synthetic else None
         if synthetic and not cases:
             return Outcome(unit="fields", refused=f"no synthetic case for {type_key}")
-        rows = evals.golden(arm, run_one, cases=cases, tracker=False, use_cache=options.use_cache, type_key=type_key,
+        rows = evals.golden(arm, run_one, cases=cases, tracker=False, use_cache=options.jev_cache, type_key=type_key,
                             jev=options.jev, budget_usd=options.budget_usd, jev_budget_usd=options.jev_budget_usd,
-                            label=SYNTHETIC if synthetic else "golden")
+                            label=SYNTHETIC if synthetic else "golden", **options.reuse_kwargs)
         return _datapoint_outcome(rows, type_key)
 
     where = "its synthetic cases (configs/golden_synthetic.json)" if synthetic else "the legacy golden documents"
     return Golden(key=f"datapoints:{type_key}:{arm}" + (f":{SYNTHETIC}" if synthetic else ""), layer="datapoints",
                   owner=type_key, what=f"the data points of {type_key} on the {arm} path, on {where}",
-                  engines=("jev",) if arm == "S" else ENGINES, count=count, measure=measure, module=__name__)
+                  engines=("jev",) if arm == "S" else ENGINES, count=count, measure=measure, module=__name__,
+                  jev_again=True)
 
 
 def datapoint_goldens() -> list[Golden]:
@@ -361,15 +380,15 @@ def _taught_golden(key: str, half: str = "evaluation") -> Golden:
     def measure(options: Options) -> Outcome:
         from jav.flows.flow import run_one
 
-        rows = evals.golden("G", run_one, cases=cases(), tracker=False, use_cache=options.use_cache, type_key=key,
+        rows = evals.golden("G", run_one, cases=cases(), tracker=False, use_cache=options.jev_cache, type_key=key,
                             jev=options.jev, budget_usd=options.budget_usd, jev_budget_usd=options.jev_budget_usd,
-                            label="taught" if half == "evaluation" else "taught_development")
+                            label="taught" if half == "evaluation" else "taught_development", **options.reuse_kwargs)
         return _datapoint_outcome(rows, key)
 
     own = " (its own training examples: an in-sample check)" if half == "development" else ""
     return Golden(key=f"taught:{key}:{half}", layer="datapoints", owner=key,
                   what=f"the taught type {key} on the {family} family's {half} half{own}, on the G path",
-                  engines=ENGINES, count=count, measure=measure, module=__name__)
+                  engines=ENGINES, count=count, measure=measure, module=__name__, jev_again=True)
 
 
 def taught_goldens() -> list[Golden]:
@@ -549,9 +568,12 @@ def _check(selected: list[Golden], options: Options) -> None:
                                f"{len(selected)} are named")
         if not selected[0].engines:
             raise RoundRefused(f"{selected[0].key} asks no AI: it is measured without a budget")
-    elif not options.use_cache and any(g.engines for g in selected):
-        raise RoundRefused("asking again (--no-cache) makes live calls, which need the owner's sub-budget "
+    elif not options.jev_cache and any(g.engines for g in selected):
+        raise RoundRefused("asking again (--no-cache, --jev-again) makes live calls, which need the owner's sub-budget "
                            "(--jev-budget-usd, --budget-usd)")
+    if options.jev_again and (cannot := [g.key for g in selected if not g.jev_again]):
+        raise RoundRefused(f"asking JEV again while keeping the earlier GPT answers is only for the data points' sets: "
+                           f"{', '.join(cannot)}")
 
 
 def _measure_one(golden: Golden, options: Options) -> Outcome:
@@ -600,6 +622,7 @@ def _head(selected: list[Golden], options: Options, started: datetime, store_pat
     return {"receipt": RECEIPT, "started": started.isoformat(timespec="seconds"),
             "commit": git.head if git else None, "branch": git.branch if git else None,
             "clean": git.dirty == 0 if git else None, "engine": options.engine, "use_cache": options.use_cache,
+            "jev_again": options.jev_again,
             "jev_budget_usd": str(options.jev_budget_usd) if options.jev_budget_usd is not None else None,
             "budget_usd": str(options.budget_usd) if options.budget_usd is not None else None,
             "store": str(store_path) if store_path else None, "selected": [g.key for g in selected],

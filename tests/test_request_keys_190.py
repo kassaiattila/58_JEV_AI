@@ -55,20 +55,23 @@ GPT_KEYS = {
     "insurance_request": "d174d082a62a82d4", "property_schedule": "110489c9c73fd3d9", "claims_history": "1f6311eee41aebbd",
 }
 JEV_KEYS = {
-    "altalanos_szerzodesi_feltetelek": "9aca1d3bc4265e76", "belepo_jegy": "e667b3f8f487207e",
-    "belepo_jegy_taught": "a04fc9ebdf3e3a9a",  # 197: the taught candidate, when it was made
-    "certificate": "25525f4a1e88e086", "csapatmenedzser_utasitas": "0fc3a27c2635489b",
-    "csatorna_szamla": "84442fb2aa7592ec", "foldgaz_szamla": "120d22b35532e292", "id_document": "a97c56f172b35b29",
-    "insurance_claim_form": "d5eaa9b215e079b6", "invoice_foreign": "221e7b3e9901a0ff",
-    "invoice_hu": "9dadd7d2de6aa5b1", "invoice_out": "2c153ae26424ac44", "meeting_minutes": "012b387f4ef962af",
-    "meghivo": "95435fc98512d19e", "mohu_szamla": "c8857f266dcb4a49", "nav_certificate": "2e7ea037241ee91f",
-    "nav_receipt": "29b74679656c40dd", "nav_tax_return": "9b919b558c9fb2b6", "proforma_invoice": "9dadd7d2de6aa5b1",
-    "statement_cib": "c9fdc78dc8dc1e97", "statement_erste": "004233b10aedc4f5", "terkep_adat": "cfba1c8adb79e75b",
-    "villamos_energia_szamla": "985ca0f22575a6d4", "viz_szamla": "71ed6531db577f64",
-    "vizmuvek_szamla": "4dcef8aafebc6084",
+    "altalanos_szerzodesi_feltetelek": "4be1a38d837ebe3d", "belepo_jegy": "f4973f0d2a07bc02",
+    "belepo_jegy_taught": "b8e8ec743fae4499",  # 197: the taught candidate, when it was made
+    "certificate": "588ca07d0de9fd7e", "csapatmenedzser_utasitas": "8de8f0792574066c",
+    "csatorna_szamla": "bd9a7cb201456622", "foldgaz_szamla": "bf681f047acf48c2", "id_document": "f3629687b5ff18d4",
+    "insurance_claim_form": "212a7e23eb536504", "invoice_foreign": "221e7b3e9901a0ff",
+    "invoice_hu": "9dadd7d2de6aa5b1", "invoice_out": "2c153ae26424ac44", "meeting_minutes": "abfdd9a01086529f",
+    "meghivo": "af6b3f969087a48e", "mohu_szamla": "b3898fb450131f03", "nav_certificate": "cc55618d3cffb01b",
+    "nav_receipt": "5173d94d7155493c", "nav_tax_return": "3a98645a4cb21423", "proforma_invoice": "9dadd7d2de6aa5b1",
+    "statement_cib": "38f3b0b861300f46", "statement_erste": "1f36e67ef8c2e4d5", "terkep_adat": "bcbde1504beb0e8b",
+    "villamos_energia_szamla": "0312741c5dfc7789", "viz_szamla": "e499cb4d9a7dba73",
+    "vizmuvek_szamla": "40a4b0f87655833c",
     "quote_request": "c3cb7a88278eca49",  # 190 (A2e)
     "insurance_request": "096c5ca1871c1f4a", "property_schedule": "9c7d3b480742458b", "claims_history": "7a7e2ad253fecb3c",  # D-e1
     # (U-A6: the request's three new fields' meanings; U-A7: the protection fields')
+    # 231 (stage F, F1): a document-level question is asked only of a pack whose extraction has the fields it reads;
+    # the 21 packs without the parties or the line items were re-pinned then (the Hungarian, the foreign, the proforma
+    # and the outgoing invoice's, the quote request's and the insurance packs' keys stayed the same)
 }
 
 

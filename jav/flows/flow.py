@@ -146,10 +146,9 @@ def ocr_pdf(state: FlowState) -> FlowState:
 
 @action.pydantic(reads=["layout", "doc_type"], writes=["candidates"])
 def find_candidates(state: FlowState) -> FlowState:
-    from jav.ai.candidates import find_all
+    from jav.ai.jev_select import find_candidates as s_path_candidates
 
-    pack = get_pack(state.doc_type)
-    state.candidates = find_all(state.layout, pack.candidate_profile, text_labels=pack.text_labels)
+    state.candidates = s_path_candidates(state.layout, get_pack(state.doc_type))  # 231 (F2c): the S path's own profile
     return state
 
 

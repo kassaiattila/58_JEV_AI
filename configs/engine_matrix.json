@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "engine_matrix",
-    "version": "1.0.18",
+    "version": "1.0.19",
     "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/devtools/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
     "changelog": [
+      {
+        "version": "1.0.19",
+        "date": "2026-10-29",
+        "note": "231 (stage F, F2c): the terms and conditions' select call site, with the other select sites' counterpart: without JEV the document runs on the G path"
+      },
       {
         "version": "1.0.18",
         "date": "2026-10-26",
@@ -198,6 +203,20 @@
     },
     "select": {
       "call_site": "select",
+      "modules": [
+        "jav/ai/jev_select.py"
+      ],
+      "exception": {
+        "kind": "replaced",
+        "reason": "The S path has no counterpart without JEV: it is refused, and the document runs on the G path, GPT's extraction verified by the code (086, the owner's decision of 2026-10-02)."
+      },
+      "tests": [
+        "tests/test_no_jev_085.py::test_s_path_is_refused_without_jev",
+        "tests/test_no_jev_switch_086.py::test_without_jev_the_extraction_stage_runs_on_the_g_path"
+      ]
+    },
+    "select_altalanos_szerzodesi_feltetelek": {
+      "call_site": "select_altalanos_szerzodesi_feltetelek",
       "modules": [
         "jav/ai/jev_select.py"
       ],

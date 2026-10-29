@@ -141,7 +141,8 @@ def test_select_foreign_site_builds_country_and_currency_questions():
     assert isinstance(site.build_presence("supplier_tax_id"), Noul)
     assert site.config_hash != site_for("invoice_hu").config_hash
     # 067 (066 Á18): the Hungarian call site's identifier includes the pack too (earlier it was the call site only)
-    assert site_for("invoice_hu").config_hash == cfg.combine(cfg.config_hash("callsite:select"), typepack.get("invoice_hu").config_hash)
+    assert site_for("invoice_hu").config_hash == cfg.combine(cfg.config_hash("callsite:select", "candidate_profiles"),  # 231 (F2)
+                                                             typepack.get("invoice_hu").config_hash)
 
 
 def test_select_foreign_picks_to_record_by_kind():

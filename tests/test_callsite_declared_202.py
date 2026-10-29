@@ -84,11 +84,12 @@ def test_the_verify_site_declares_its_document_and_document_questions():
 
 
 def test_a_non_invoice_type_inherits_the_invoice_document_questions_visibly():
-    """What 189 found (every type is asked whether the parties are swapped and line items are missing) is now stated by
-    `verify.json`, which every other verify call site inherits; changing it is a new request and a paid measurement."""
+    """What 189 found (every type is asked whether the parties are swapped and line items are missing) is stated by
+    `verify.json`, which every other verify call site inherits. 231 (F1): a question names the fields it reads, so the
+    terms and conditions, which have neither parties nor line items, inherit the three and are asked none of them."""
     site = jev_verify.site_for("altalanos_szerzodesi_feltetelek")
     assert "document_nouls" not in cfg.load("callsite:verify_altalanos_szerzodesi_feltetelek")
-    assert site.document_nouls == ("parties_swapped", "line_items_missing_rows", "line_items_extra_rows")
+    assert site.document_nouls == ()
 
 
 def test_a_type_without_an_s_path_gets_one_from_configuration_alone(monkeypatch, tmp_path):

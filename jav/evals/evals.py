@@ -210,7 +210,8 @@ def field_equal_lenient(field: str, got: Any, expected: Any, kind: str) -> bool:
 
 
 def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True, *, type_key: str) -> dict[str, tuple[int, int]]:
-    from jav.ai.candidates import find_all, find_currencies
+    from jav.ai.candidates import find_currencies
+    from jav.ai.jev_select import find_candidates as s_path_candidates, s_path_profile
     from jav.documents.pdf import read_document
 
     pack = get_pack(type_key)
@@ -224,8 +225,8 @@ def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True
         if pdf.text_source is None:
             misses.append(f"{case.case_id}: nincs szöveg (szövegréteg és OCR sem)")
             continue
-        cands = find_all(pdf.layout, pack.candidate_profile, text_labels=pack.text_labels)
-        currencies = find_currencies(pdf.layout, pack.candidate_profile)
+        cands = s_path_candidates(pdf.layout, pack)  # 231 (F2c): the S path's profile and whole-line texts
+        currencies = find_currencies(pdf.layout, s_path_profile(pack))
         for kind, items in cands.items():
             counts[kind].append(len(items))
         for field in pack.scored_fields:
@@ -233,7 +234,7 @@ def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True
             if expected is None:
                 continue
             kind = pack.kind(field)
-            if kind == "country" or (kind == "text" and field not in pack.text_labels):
+            if kind == "country" or (kind == "text" and field not in pack.text_labels and field not in pack.text_lines):
                 continue  # closed Choice list (country, payment method, reading method), not from candidates - recall is undefined here
             totals[field] += 1
             if kind == "currency":
@@ -338,9 +339,11 @@ def _dump_rows(rows: list[dict[str, Any]], name: str) -> Path:
 def golden(
     arm: str, run_one: Callable[..., FlowState], cases: list[GoldenCase] | None = None, tracker: bool = False, use_cache: bool = True,
     *, type_key: str, jev: bool = True, budget_usd: Decimal | None = None,
-    jev_budget_usd: Decimal | None = None, label: str = "golden",
+    jev_budget_usd: Decimal | None = None, label: str = "golden", reuse: bool | None = None,
 ) -> list[dict[str, Any]]:
-    """`jev=False` (086): the G path verified by the code alone (no JEV question). `budget_usd`: a hard OpenAI budget
+    """`jev=False` (086): the G path verified by the code alone (no JEV question). `reuse` (231, F1): whether earlier
+    answers in the call log (GPT's) are reused; by default as `use_cache`, so JEV can be asked again while GPT's earlier
+    answers are kept. `budget_usd`: a hard OpenAI budget
     for the whole measurement (the owner's sub-budget); `jev_budget_usd` (127): a hard JEV budget. With either one the
     measurement runs under a budget, and a provider without its own budget (Azure always) cannot be called. `label`
     (127): the run file's name part (`synthetic` for the synthetic cases, so they never pass for a legacy golden run)."""
@@ -353,7 +356,8 @@ def golden(
     limits = {p: b for p, b in (("openai", budget_usd), ("jev", jev_budget_usd)) if b is not None}
     if not limits:  # 160 (review AI-8): without a budget only earlier answers count, never an unbudgeted live call
         print(calls.NO_BUDGET_NOTE)
-    guard = calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{name}", limits, reuse=use_cache)
+    guard = calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{name}", limits,
+                              reuse=use_cache if reuse is None else reuse)
     with guard:
         for case in cases:
             t0 = time.perf_counter()

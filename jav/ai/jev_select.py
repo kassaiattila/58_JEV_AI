@@ -23,7 +23,7 @@ from typesafe_sdk import Choice, Noul
 
 from jav.core import cfg
 from jav.ai.jev import JevAdapter
-from jav.ai.candidates import MAX_OPTIONS, candidate_lines, find_currencies, finder_cap, found_before_cut, payment_method_lines, trim_after_legal_form
+from jav.ai.candidates import MAX_OPTIONS, candidate_lines, find_all, find_currencies, finder_cap, found_before_cut, payment_method_lines, trim_after_legal_form
 from jav.ai.candidates import TOTAL_LINE_RE as _TOTAL_LINE_RE
 from jav.core.dates import read_date
 from jav.ai.jev_budget import ask_within_budget
@@ -49,7 +49,11 @@ class SelectSite:
         self.callsite = pack.select_callsite
         cfg_data = cfg.load(f"callsite:{self.callsite}")
         # 067 (066 Á18): the pack's identity (type JSON + instruction + schema) is included for the default pack too
-        self.config_hash = cfg.combine(cfg.config_hash(f"callsite:{self.callsite}"), pack.config_hash)
+        # 231 (F2): the candidate profiles shape the candidates the questions offer, so their file is part of it too
+        self.config_hash = cfg.combine(cfg.config_hash(f"callsite:{self.callsite}", "candidate_profiles"), pack.config_hash)
+        # 231 (F2c): the profile the S path reads its candidates with: the call site's, or the pack's (which the G path's
+        # evidence search keeps reading with)
+        self.candidate_profile: str = cfg_data.get("candidate_profile") or pack.candidate_profile
         self.glossary: str = cfg_data["glossary"]
         # 127 (S-injection, JEV part): the document text is data, not instructions; sent after the glossary in every
         # question's instructions (never in the state, where the document text itself is)
@@ -274,11 +278,11 @@ class SelectSite:
         """The distinct candidates code found for a kind: the listed ones, or, when the list stands at its finder's cap,
         the number the finder found before cutting it."""
         listed = len({c.label for c in cands.get(kind, [])})
-        cap = finder_cap(kind, self.pack.candidate_profile)
+        cap = finder_cap(kind, self.candidate_profile)
         if cap is None or listed < cap:
             return listed
         if kind not in uncut:
-            uncut[kind] = found_before_cut(kind, lines, self.pack.candidate_profile)
+            uncut[kind] = found_before_cut(kind, lines, self.candidate_profile)
         return max(listed, uncut[kind] or 0)
 
     def select_fields(
@@ -379,6 +383,17 @@ def field_confidence(picks: dict[str, FieldPick]) -> dict[str, float | None]:
     return {f: effective_conf(p) for f, p in picks.items()}
 
 
+def s_path_profile(pack: TypePack) -> str:
+    """231 (F2c): the candidate profile of the pack's S path: its select call site's, or the pack's own."""
+    return site_for(pack.key).candidate_profile if pack.select_callsite else pack.candidate_profile
+
+
+def find_candidates(lines: list[LineLayout], pack: TypePack) -> dict[str, list[Candidate]]:
+    """231 (F2c): the S path's candidates: with its profile (`s_path_profile`), the pack's labelled texts and its
+    whole-line texts (`text_lines`)."""
+    return find_all(lines, s_path_profile(pack), text_labels=pack.text_labels, text_lines=pack.text_lines)
+
+
 def select_fields(
     jev: JevAdapter, lines: list[LineLayout], cands: dict[str, list[Candidate]], *, pack: TypePack, run_id: str = "adhoc", use_cache: bool = True
 ) -> tuple[dict[str, FieldPick], list[JevCall]]:
@@ -390,5 +405,5 @@ def picks_to_record(picks: dict[str, FieldPick], cands: dict[str, list[Candidate
     return site_for(pack.key).picks_to_record(picks, cands, lines)
 
 
-__all__ = ["SelectSite", "site_for", "effective_conf", "record_conf", "field_confidence",
-           "picks_to_record", "select_fields", "find_currencies", "CANDIDATE_KIND_OF"]
+__all__ = ["SelectSite", "site_for", "effective_conf", "record_conf", "field_confidence", "find_candidates",
+           "picks_to_record", "select_fields", "find_currencies", "s_path_profile", "CANDIDATE_KIND_OF"]
