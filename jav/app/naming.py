@@ -25,6 +25,11 @@ Reuse (CLAUDE.md §3): ported from the legacy project's `orchestrator/framework/
 the collision suffix), `scripts/ingest_folder.py` (`content_filename`, the `_review/` folder, the street part of the
 address) and `orchestrator/framework/batchdelivery.py` (copies with a sha256 manifest), generalised: the per-type rules
 moved from code to configuration, and the to-dos decide the review folder.
+
+231 (D4; the owner's decision of 2026-10-29): a name follows the requesting interface's language (Hungarian by default,
+and outside a request): the configuration's words are English sources, shown through the interface's dictionary
+(`jav/core/display.py`), so a type's token, the placeholders, the review folder, the manifest and its labels are
+Hungarian from a Hungarian interface (as before) and English from an English one.
 """
 
 from __future__ import annotations
@@ -42,7 +47,7 @@ from pathlib import Path
 from typing import IO, Any
 
 from jav.app import item_kinds, work, work_runs
-from jav.core import cfg, field_names, store
+from jav.core import cfg, display, field_names, store
 
 log = logging.getLogger("jav.app.naming")
 
@@ -179,7 +184,18 @@ def parse_rules(raw: dict[str, Any]) -> Rules:
 
 
 def rules() -> Rules:
-    return parse_rules(cfg.load("naming"))
+    """The rules in the request's language (231, D4)."""
+    return parse_rules(_in_language(cfg.load("naming")))
+
+
+def _in_language(raw: dict[str, Any]) -> dict[str, Any]:
+    """231 (D4): the configuration's words in the request's language (they are English sources): the type tokens, the
+    placeholders, the review folder, the manifest's name and the reasons', columns' and statuses' labels."""
+    t = display.text
+    return {**raw, "review_folder": t(raw["review_folder"]), "manifest_file": t(raw["manifest_file"]),
+            "placeholders": {k: t(v) for k, v in raw["placeholders"].items()},
+            "types": {k: {**spec, "token": t(spec["token"])} for k, spec in raw["types"].items()},
+            **{part: {k: t(v) for k, v in raw[part].items()} for part in ("reason_labels", "manifest_columns", "status_labels")}}
 
 
 # --- parts ----------------------------------------------------------------------------------------------------
@@ -341,7 +357,7 @@ def review_reasons(name: Name, *, open_reasons: list[str], corrected: list[str] 
 
 def reason_text(codes: list[str] | tuple[str, ...]) -> str:
     """The review reasons as everyday words (the display language's labels from the configuration)."""
-    labels = cfg.load("naming")["reason_labels"]
+    labels = rules().reason_labels
     out = []
     for code in codes:
         kind, _, rest = code.partition(":")
@@ -507,8 +523,8 @@ def _manifest(rows: list[tuple[NamedCopy, str, str]]) -> bytes:
     rules: BOM, `;`, CRLF, formula guard)."""
     from jav.app import export
 
-    raw = cfg.load("naming")
-    cols, status_labels = raw["manifest_columns"], raw["status_labels"]
+    r = rules()
+    cols, status_labels = r.manifest_columns, r.status_labels
     head = [cols[k] for k in ("path", "status", "why", "original", "source_path", "sha256", "doc_type", "item_id")]
     where = _shared_folder_paths([c.source_path for c, _status, _why in rows])
     body = [[c.path if status != "skipped" else "", status_labels[status], why, c.original, where[c.source_path], c.sha256,
@@ -564,7 +580,7 @@ def write_zip(run_id: str, fh: IO[bytes]) -> dict[str, int]:
 
 def zip_name(run_id: str) -> str:
     run = work_runs.get_run(run_id)
-    return f"{safe_part(work.get(run['workpackage_id'])['name'], limit=60) or 'csomag'}_{run_id}.zip"
+    return f"{safe_part(work.get(run['workpackage_id'])['name'], limit=60) or display.text('package')}_{run_id}.zip"
 
 
 def write_to_folder(run_id: str, root: Path) -> dict[str, Any]:

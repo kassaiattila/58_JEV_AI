@@ -616,7 +616,8 @@ The worker and the local service never import these tools (the start-up preload 
 from their content, for example `2026-09-12_SZAMLA_Minta-Kft_SZ-2026-001234.pdf`. The original files are only read,
 never renamed or changed. The name comes from the run's valid data (the machine value with any human correction), in
 code, with no AI call. A copy whose name rests on something uncertain goes into a separate review subfolder, and a
-manifest lists which original became which name.
+manifest lists which original became which name. 231 (D4): the names follow the requesting interface's language (the
+configuration's words are English sources, Hungarian through the interface's dictionary).
 
 | Part | File | What it does | Guarantee (test) |
 |---|---|---|---|

@@ -6,7 +6,7 @@ as a column. Synthetic PDFs and a fake JEV client, no paid calls.
 """
 
 from jav.app import naming, work
-from jav.core import cfg
+from jav.core import cfg, display
 from jav.runtime import worker
 from tests import test_api
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
@@ -53,7 +53,7 @@ def test_a_run_names_its_finished_documents_and_marks_the_uncertain_ones(env):
     other = next(n for k, n in names.items() if k != first)
     # the display name is the file name only, without the review folder of the copies
     assert other.state == "review" and other.unified.startswith("2026-09-01_SZAMLA_") and "/" not in other.unified
-    assert cfg.load("field_labels")["fields"]["invoice_number"] in other.check
+    assert display.text(cfg.load("field_labels")["fields"]["invoice_number"]) in other.check  # 231 (D4): as shown
 
 
 def test_an_item_not_yet_processed_has_no_unified_name(env):
@@ -93,13 +93,15 @@ def test_the_run_items_list_shows_the_chosen_name_and_offers_both_as_columns(env
     assert row["unified_name"] == READY and row["name_state"] == "ready"
     cols = {col["key"]: col for col in plain["columns"]}
     assert cols["unified_name"]["hidden"] and cols["original_name"]["hidden"] and cols["name_state"]["hidden"]
-    assert cols["name_state"]["labels"]["review"] == "Ellenőrzendő"
+    review = cols["name_state"]["labels"]["review"]
+    assert (review, display.text(review)) == ("To check (value)", "Ellenőrzendő")  # 231 (D4): the source and its display
 
     unified = _query(c, "run_items", {"run_id": run_id, "names": "unified"}, sort=[{"col": "name"}])
     rows = {r["item_id"]: r for r in unified["rows"]}
     assert rows[first]["name"] == READY and rows[first]["original_name"] == "szamla_1.pdf"
     other = next(r for k, r in rows.items() if k != first)
-    assert other["name_state"] == "review" and cfg.load("field_labels")["fields"]["invoice_number"] in other["_name_check"]
+    shown = display.text(cfg.load("field_labels")["fields"]["invoice_number"])  # 231 (D4): as shown
+    assert other["name_state"] == "review" and shown in other["_name_check"]
     # sorting and searching follow the name that is shown
     assert [r["name"] for r in unified["rows"]] == sorted(r["name"] for r in unified["rows"])
     found = _query(c, "run_items", {"run_id": run_id, "names": "unified"}, q="MINTA-2026-001")

@@ -150,3 +150,30 @@ def test_the_recipe_help_and_the_service_s_english_follow_the_interface():
     assert [t for t in texts if t not in hungarian] == []
     assert display.text("Számlaküldés", "en") == "Invoice sent"  # an intent's name
     assert display.text(cfg.load("email_tasks")["actions"]["review_invoice"], "en") == "Review invoice / payment request"
+
+
+def test_a_file_name_is_built_in_the_request_s_language():
+    """D4/7: the naming rules' words are English sources; a Hungarian interface (and the worker, the command line)
+    gets the earlier Hungarian words, an English one English words."""
+    import json
+    from pathlib import Path
+
+    from jav.app import naming
+    from jav.core import cfg
+    from jav.core.config import UI_HUNGARIAN
+
+    hu = naming.rules()
+    with display.use("en"):
+        en = naming.rules()
+    assert (hu.types["invoice_hu"].token, en.types["invoice_hu"].token) == ("SZAMLA", "HU-INVOICE")
+    assert (hu.types["unknown"].token, en.types["unknown"].token) == ("ISMERETLEN", "UNKNOWN")
+    assert (hu.review_folder, en.review_folder) == ("ellenorzendo", "to-check")
+    assert (hu.manifest_file, en.manifest_file) == ("jegyzek.csv", "manifest.csv")
+    assert (hu.placeholders["date"], en.placeholders["date"]) == ("datum-nelkul", "no-date")
+    assert (hu.status_labels["review"], en.status_labels["review"]) == ("ellenőrzendő", "to check")
+    raw = cfg.load("naming")
+    words = [spec["token"] for spec in raw["types"].values()] + [raw["review_folder"], raw["manifest_file"]]
+    words += [w for part in ("placeholders", "reason_labels", "manifest_columns", "status_labels") for w in raw[part].values()]
+    hungarian = json.loads(Path(UI_HUNGARIAN).read_text(encoding="utf-8"))
+    assert sorted({w for w in words if w not in hungarian}) == []
+    assert len({spec["token"] for spec in raw["types"].values()}) == len({hu.types[k].token for k in raw["types"]})
