@@ -191,3 +191,17 @@ def test_a_record_s_words_are_written_in_the_request_s_language():
     with display.use("en"):
         assert display.text("automatically after a mailbox download (the run is started by hand)") == (
             "automatically after a mailbox download (the run is started by hand)")
+
+
+def test_a_source_s_hungarian_is_what_the_interface_shows():
+    """D4: the dictionary has a few Hungarian-to-Hungarian wording fixes (an earlier "csomag" shown as "köteg"); an
+    English source's Hungarian is the shown wording, never a text the dictionary itself rewrites."""
+    import json
+    from pathlib import Path
+
+    from jav.core.config import UI_HUNGARIAN
+
+    hungarian = json.loads(Path(UI_HUNGARIAN).read_text(encoding="utf-8"))
+    rewritten = {s: h for s, h in hungarian.items() if h in hungarian and hungarian[h] != h and s != h}
+    assert rewritten == {}
+    assert display.text("document batch hidden") == "köteg elrejtése"
