@@ -117,3 +117,36 @@ def test_a_download_is_written_in_the_request_s_language(tmp_path):
         assert reconcile_statement._labels()["sheets"] == {"invoices": "Invoices", "lines": "Items"}
         assert reconcile_statement._labels()["file"]["prefix"] == "egyeztetes"  # a file name's parts: slice 7
     assert reconcile_statement._labels()["sheets"] == {"invoices": "Számlák", "lines": "Tételek"}
+
+
+def test_the_recipe_help_and_the_service_s_english_follow_the_interface():
+    """D4/6: the recipe help's texts are English sources with a Hungarian entry; the service's English is the
+    interface's whole English dictionary, so a text that stays a Hungarian source (an intent's name, a task's action, a
+    recipe's title: a model call's or a package's saved settings' identity holds them) reads in English too."""
+    import json
+    import re
+    from pathlib import Path
+
+    from jav.core import cfg
+    from jav.core.config import UI_HUNGARIAN
+
+    hungarian = json.loads(Path(UI_HUNGARIAN).read_text(encoding="utf-8"))
+    texts: list[str] = []
+
+    def walk(x):
+        if isinstance(x, dict):
+            for k, v in x.items():
+                if k != "meta":
+                    walk(v)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v)
+        elif isinstance(x, str) and " " in x:
+            texts.append(x)
+
+    walk(cfg.load("recipe_help"))
+    assert len(texts) > 40
+    assert [t for t in texts if re.search(r"[áéíóöőúüű]", t)] == []
+    assert [t for t in texts if t not in hungarian] == []
+    assert display.text("Számlaküldés", "en") == "Invoice sent"  # an intent's name
+    assert display.text(cfg.load("email_tasks")["actions"]["review_invoice"], "en") == "Review invoice / payment request"

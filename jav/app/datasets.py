@@ -258,7 +258,7 @@ def _runs(scope: dict[str, str]) -> Rows:
     runs = work_runs.run_rows(wp_id)
     spent = costs.run_usd([r["run_id"] for r in runs])  # 082: the known actual cost of each run
     rows = [{**r, "_key": r["run_id"], "_run": r["run_id"], "_wp": r["workpackage_id"],
-             "recipe": titles.get(r["recipe_id"], r["recipe_id"]), "cost_usd": spent[r["run_id"]]} for r in runs]
+             "recipe": display.text(titles.get(r["recipe_id"], r["recipe_id"])), "cost_usd": spent[r["run_id"]]} for r in runs]
     return cols, rows
 
 
@@ -285,7 +285,8 @@ def _workpackages(scope: dict[str, str]) -> Rows:
     # 231 (C3b3): a case step's package opens from its case's page; (U2a; the owner's decision of 2026-10-28) a case's
     # container is in the case list only (one work list): both are left out before their next steps are read
     rows = [{**r, "_key": r["id"], "_wp": r["id"], "_run": r["last_run_id"], "_stage": r["next"]["stage"],
-             "next_label": r["next"]["label"], "next_code": r["next"]["code"], "_next_params": r["next"]["params"]}
+             # 231 (D4): the step's caption in the request's language (the interface shows it from the code)
+             "next_label": work_views.step_text(r["next"]), "next_code": r["next"]["code"], "_next_params": r["next"]["params"]}
             for r in work_views.workpackage_list(include_archived=archived, batches_only=True)]
     for r in rows:
         r.pop("next", None)
@@ -307,7 +308,7 @@ def _activity(scope: dict[str, str]) -> Rows:
         col("run_id", "Run (column)", "id", link="run"),
     ]
     titles = label_set("recipe")  # 062: the recipe's title (translated by the UI), not its code name
-    rows = [{**e, "detail": titles.get(e["detail"], e["detail"]) if e["action"] == "recipe" else e["detail"],
+    rows = [{**e, "detail": display.text(titles.get(e["detail"], e["detail"])) if e["action"] == "recipe" else e["detail"],
              "_key": f"{e['at']}|{e['action']}|{n}", "_wp": e["workpackage_id"], "_run": e["run_id"]}
             for n, e in enumerate(activity.entries(scope["actor"], scope.get("day") or None))]
     return cols, rows

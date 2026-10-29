@@ -1,7 +1,8 @@
 """The package's "next step" (057): computed in one place, shown by both the list and the package header. Synthetic
 data."""
 
-from jav.app.work_views import next_step
+from jav.app.work_views import next_step, step_text
+from jav.core import display
 from tests import test_api
 from tests.test_api import HUMAN, _ready_wp, _start
 
@@ -20,14 +21,21 @@ def test_rules_in_order():
     assert next_step({"items": [{"item_id": "a"}], "assignment": None}, None)["code"] == "start"
     assert next_step(WP, None)["code"] == "start"
     assert next_step(WP, None, ready=False)["code"] == "blocked"
-    assert next_step(WP, _run(status="running", items_done=12))["label"] == "Fut: 12/49"
+    running = next_step(WP, _run(status="running", items_done=12))
+    # 231 (D4): the caption is the interface's English source; the list shows it in the request's language
+    assert running["label"] == "Running: 12/49" and step_text(running) == "Fut: 12/49"
     assert next_step(WP, _run(status="failed"))["code"] == "rerun"
     # 150: only a live run's to-dos are the next step (after a trial: tests/test_trial_todos_150.py)
     review = next_step(WP, _run(mode="apply", status="needs_review", open_reasons=187))
-    assert review == {"code": "review", "label": "Ellenőrzés: 187 teendő", "stage": "review", "params": {"n": 187}}
+    assert review == {"code": "review", "label": "Review: 187 to-dos", "stage": "review", "params": {"n": 187}}
+    assert step_text(review) == "Ellenőrzés: 187 teendő"
+    with display.use("en"):
+        assert step_text(review) == "Review: 187 to-dos"
     assert next_step(WP, _run())["code"] == "go_live"
     # 172: the package's Approve and release
-    assert next_step(WP, _run(mode="apply")) == {"code": "release", "label": "Jóváhagyás és kiadás", "stage": "result", "params": {}}
+    release = next_step(WP, _run(mode="apply"))
+    assert release == {"code": "release", "label": "Approve and release", "stage": "result", "params": {}}
+    assert step_text(release) == "Jóváhagyás és kiadás"
     assert next_step(WP, _run(mode="apply", approval="approved"))["stage"] == "result"
 
 
@@ -64,3 +72,16 @@ def test_rerun_starts_a_new_run_once(env):
     assert again.status_code == 201 and again.json()["run_id"] != first
     twice = c.post(f"/api/workpackages/{wp['id']}/workflow/start", headers=HUMAN, json={**body, "rerun_of": first})
     assert twice.status_code == 200 and twice.json()["run_id"] == again.json()["run_id"]  # double click: one run
+
+
+def test_every_kind_s_step_reads_as_the_interface_shows_it():
+    """231 (D4): a step with a number reads from its parameters, as the interface's `stepLabel`; any other by its
+    caption, which is the interface's source text."""
+    assert step_text({"code": "reconcile_pair", "label": "Pairing: 3 open lines", "params": {"n": 3}}) == display.text(
+        "Pairing: {{n}} open lines", n=3)
+    assert step_text({"code": "quote_approved", "label": "Approved: version 2", "params": {"version": 2}}) == display.text(
+        "Approved: version {{n}}", n=2)
+    assert step_text({"code": "case_send", "label": "Send", "params": {}}) == display.text("Send")
+    with display.use("en"):
+        assert step_text({"code": "go_live", "label": "x", "params": {"trial_reasons": 4}}) == "Trial finished: live run (4 to-dos in the trial)"
+        assert step_text({"code": "go_live", "label": "Trial OK: live run", "params": {}}) == "Trial OK: live run"

@@ -29,7 +29,7 @@ from typing import Any
 from jav.app import human_tasks, item_kinds, logic_packs
 
 from jav.documents import source_instances
-from jav.core import activity_kinds, decisions, identity, store
+from jav.core import activity_kinds, decisions, display, identity, store
 from jav.documents.native_contracts import DOCUMENT_SUFFIXES
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
@@ -945,7 +945,7 @@ def delete_workpackage(wp_id: str, *, actor: identity.Who) -> None:
             raise KeyError(wp_id)
         if c.execute("SELECT 1 FROM runs WHERE workpackage_id=? LIMIT 1", (wp_id,)).fetchone() is not None:
             raise explained(NotReady, "a work package with runs can only be archived",
-                            [{"code": "has_runs", "message": "A kötegnek van futása: csak elrejthető."}])
+                            [{"code": "has_runs", "message": display.text("The batch has runs: it can only be hidden.")}])
         rows = c.execute("SELECT instance FROM workpackage_items WHERE workpackage_id=?", (wp_id,)).fetchall()
         pack = logic_packs.of(row["source_kind"])  # 176: an unknown kind is refused, not deleted unguarded
         if pack is not None and pack.delete_guard is not None:  # 131: a reconciliation with decisions is hidden

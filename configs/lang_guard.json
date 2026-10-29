@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.152",
+    "version": "1.0.153",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.153",
+        "date": "2026-10-29",
+        "note": "baseline: 5747 -> 5680 Hungarian lines in 470 files; accepted: tests/test_display_language_231.py"
+      },
       {
         "version": "1.0.152",
         "date": "2026-10-29",
@@ -894,7 +899,6 @@
     "configs/prompts/viz_szamla_schema.json": 2,
     "configs/prompts/vizmuvek_szamla_prompt.md": 17,
     "configs/quote_documents.json": 25,
-    "configs/recipe_help.json": 48,
     "configs/recipes.json": 46,
     "configs/reports.json": 1,
     "configs/rule_proposals.json": 4,
@@ -955,11 +959,10 @@
     "jav/app/datasets.py": 2,
     "jav/app/rule_checks.py": 3,
     "jav/app/tablequery.py": 6,
-    "jav/app/work.py": 2,
-    "jav/app/work_readiness.py": 5,
+    "jav/app/work.py": 1,
+    "jav/app/work_readiness.py": 2,
     "jav/app/work_recipes.py": 2,
     "jav/app/work_runs.py": 5,
-    "jav/app/work_views.py": 8,
     "jav/cli/work_cli.py": 1,
     "jav/core/calls.py": 3,
     "jav/core/cfg.py": 1,
@@ -976,7 +979,6 @@
     "jav/documents/ocr.py": 2,
     "jav/documents/pdf.py": 8,
     "jav/documents/synthetic_pdf.py": 3,
-    "jav/domains/email/email_items.py": 7,
     "jav/domains/email/email_tasks.py": 4,
     "jav/domains/email/emails.py": 4,
     "jav/domains/email/flow_email.py": 1,
@@ -1001,7 +1003,7 @@
     "jav/legacy/typepack_convert.py": 1,
     "jav/runtime/backup.py": 1,
     "jav/runtime/worker.py": 1,
-    "jav/service/api.py": 5,
+    "jav/service/api.py": 3,
     "jav/service/api_settings.py": 1,
     "jav/service/api_system.py": 1,
     "jav/service/service_shared.py": 4,
@@ -1040,7 +1042,7 @@
     "tests/test_datetime_evidence_200.py": 6,
     "tests/test_detect.py": 4,
     "tests/test_detect_detail.py": 4,
-    "tests/test_display_language_231.py": 6,
+    "tests/test_display_language_231.py": 8,
     "tests/test_doc_links.py": 1,
     "tests/test_docs_071.py": 1,
     "tests/test_docsgen_067.py": 1,

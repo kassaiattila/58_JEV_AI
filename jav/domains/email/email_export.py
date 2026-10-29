@@ -92,8 +92,10 @@ def emails_table(records: list[dict[str, Any]]) -> tuple[list[str], list[list[An
     shown = lambda a: a.get("shown_type") or a.get("doc_type")  # noqa: E731 - 126: the type the document was processed as
     # 231 (D4): the type's name in the request's language
     att = lambda a: f"{a.get('filename')} ({field_names.type_name(shown(a)) or a.get('status') or '–'})"  # noqa: E731
-    rows = [[r["subject"], r["sender"], r["received_at"], r["mailbox"], mailbox.intent_name(r["intent"]),
-             mailbox.intent_name(r["machine_intent"]), r["confidence"], display.text("yes") if r["corrected"] else "",
+    # 231 (D4): an intent's name stays its Hungarian source (the model calls' identity holds the registry); the
+    # interface's English dictionary gives its English
+    intent = lambda key: display.text(mailbox.intent_name(key)) if key else mailbox.intent_name(key)  # noqa: E731
+    rows = [[r["subject"], r["sender"], r["received_at"], r["mailbox"], intent(r["intent"]), intent(r["machine_intent"]), r["confidence"], display.text("yes") if r["corrected"] else "",
              # 231 (D4): the captions in the request's language (a type's step is made in it already)
              display.text(flows.get(r["next_flow"] or "", r["next_flow"] or "")), ", ".join(att(a) for a in r["attachments"]),
              display.text(body.get(r["body"]["status"], r["body"]["status"])), r["body"]["chars"], "; ".join(r["open_reasons"]), r["item_id"]]
@@ -111,7 +113,7 @@ def result_tables(mails: list[dict[str, Any]]) -> tuple[contract.Table, ...]:
         actions = cfg.load("email_tasks")["actions"]
         decisions = {"accepted": display.text("accepted"), "rejected": display.text("rejected")}
         tables.append(contract.table("tasks", display.text("Tasks"), TASK_COLUMNS, [display.text(h) for h in TASK_HEAD],
-                                     [[t["subject"], actions.get(t["action"], t["action"]), t["title"], t["due_date"], t["assignee_hint"],
+                                     [[t["subject"], display.text(actions.get(t["action"], t["action"])), t["title"], t["due_date"], t["assignee_hint"],
                                        t["evidence"], decisions.get(t["decision"] or "", display.text("awaiting a decision")), t["decided_by"], t["done_at"],
                                        t["done_by"], t["item_id"]] for t in tasks]))
     return tuple(tables)
