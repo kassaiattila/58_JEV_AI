@@ -94,7 +94,7 @@ def test_plan_fits_the_budget_and_dry_run_makes_no_calls(capsys):
     assert est["openai"] <= CFG["budget_usd"]["openai"] and est["jev"] <= CFG["budget_usd"]["jev"]
     assert est["runs"] == {"detect": 15, "S": 12, "G": 12}
     assert probe.main([]) == 0
-    assert "becslés" in capsys.readouterr().out
+    assert "estimate" in capsys.readouterr().out
 
 
 def test_summary_counts_silent_errors():
