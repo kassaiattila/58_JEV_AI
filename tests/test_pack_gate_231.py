@@ -82,14 +82,27 @@ def test_the_step_parameters_that_name_a_step_are_known_by_the_capability() -> N
 def test_a_planned_element_is_refused() -> None:
     elements = cfg.load(process_packs.ELEMENTS)["elements"]
     planned = sorted(k for k, v in elements.items() if v.get("status") == "planned")
-    # built: D-f4 the field review, D-f7 the document view, D-f9 the blockers; 261 (B1e) the actions
-    assert planned == ["data_table", "form"]
+    # built: D-f4 the field review, D-f7 the document view, D-f9 the blockers; 261 the actions (B1e), the data table (B1f)
+    assert planned == ["form"]
     data = _it_quote()
-    _tab(data, "history")["elements"].append({"type": "data_table"})
+    _tab(data, "history")["elements"].append({"type": "form", "step": "match"})
     _tab(data, "history")["elements"].append({"type": "actions", "step": "match"})  # 261 (B1e): any step's, now built
     problems = _problems(data)
-    assert any("tab 'history': screen element 'data_table' is planned, not built" in p for p in problems), problems
+    assert any("tab 'history': screen element 'form' is planned, not built" in p for p in problems), problems
     assert not any("'actions'" in p for p in problems), problems
+
+
+@pytest.mark.parametrize(("element", "expected"), [
+    ({"type": "data_table"}, "element 'data_table' names no dataset"),
+    ({"type": "data_table", "dataset": "nothing_such"}, "element 'data_table' names an unknown dataset 'nothing_such'"),
+    ({"type": "data_table", "dataset": "run_items"}, "dataset 'run_items' needs a scope a case does not give: ['run_id']"),
+    ({"type": "data_table", "dataset": "started_cases"}, None),
+])
+def test_a_data_table_names_a_dataset_the_case_gives_the_scope_of(element, expected) -> None:  # 261 (B1f)
+    data = _it_quote()
+    _tab(data, "history")["elements"].append(element)
+    problems = [p for p in _problems(data) if "data_table" in p or "dataset" in p]
+    assert problems == ([f"tab 'history': {expected}"] if expected else []), problems
 
 
 @pytest.mark.parametrize(("tab", "element", "expected"), [

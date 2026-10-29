@@ -88,8 +88,17 @@ def test_a_routing_case_lists_the_cases_started_from_its_emails(db) -> None:  # 
                                        actor="Example Person")
     process_runtime.start_case("it_quote", {"record": {"workpackage_id": "wp-000000000000", "item_id": "x"}},
                                name="Another", actor="Example Person")  # from another package: not listed
-    [started] = _element(case_views.view(case_id), "cases", "started_cases")["data"]
+    [started] = case_views.started_cases(case_id)
     assert (started["id"], started["process"], started["record"]["item_id"]) == (quote, "IT quote", email)
+    # 261 (B1f): the element shows the shared data table's dataset of them, scoped by the case
+    from jav.app import datasets
+    from jav.app.tablequery import Query
+
+    shown = _element(case_views.view(case_id), "cases", "started_cases")["data"]
+    assert shown == {"dataset": "started_cases", "scope": {"case_id": case_id}}
+    [row] = datasets.query("started_cases", shown["scope"], Query(limit=10))["rows"]
+    assert {k: row[k] for k in ("name", "process", "status", "_wp")} == {
+        "name": "IT quote: Example", "process": "IT quote", "status": "open", "_wp": quote}
 
 
 def test_a_case_s_container_is_in_the_case_list_not_the_batches(db) -> None:  # noqa: F811

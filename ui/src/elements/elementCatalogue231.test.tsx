@@ -22,8 +22,8 @@ describe("the screen element catalogue", () => {
   });
 
   it("has none for a planned element yet", () => {
-    // built: D-f4 the field review, D-f7 the document view, D-f9 the blockers; 261 (B1e) the actions
-    expect(names(true)).toEqual(["data_table", "form"]);
+    // built: D-f4 the field review, D-f7 the document view, D-f9 the blockers; 261 the actions (B1e), the data table (B1f)
+    expect(names(true)).toEqual(["form"]);
     expect(names(true).filter((k) => elementOf(k))).toEqual([]);
   });
 

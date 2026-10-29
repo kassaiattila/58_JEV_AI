@@ -3,7 +3,7 @@
 // spent (cost). Each renders the data its step's capability gives (jav/app/sending.py, jav/app/replies.py,
 // jav/app/case_views.py); a person's actions are the step's own (`actions`), and the send itself is the step's start.
 import { useState, type ReactNode } from "react";
-import { api, ApiError, type ApprovalState, type CaseCost, type CaseEvent, type CaseKept, type CasePartnerLink, type HandoverAttempt, type HandoverData, type ReplyData, type StartedCase, type SubCaseData } from "../api";
+import { api, ApiError, type ApprovalState, type CaseCost, type CaseEvent, type CaseKept, type CasePartnerLink, type HandoverAttempt, type HandoverData, type ReplyData, type SubCaseData } from "../api";
 import { ApprovalStateNotes, EarlierVersions, ReturnControl } from "../components/ApprovalPanel";
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
@@ -11,6 +11,7 @@ import { fileName, MODE as MODE_OF_RUN, moneyText, providerName, RUN_STATUS, sai
 import { batchOfCase, wpHash } from "../route";
 import { handoverStatus, replyStatus, subCaseStatus } from "./caseStatus";
 import { ActionButtons } from "./ActionsElement";  // 261 (B1e): the shared actions
+import { DataTableCard } from "./DataTableElement";  // 261 (B1f): the shared data table
 import type { ElementProps } from "./registry";
 
 const loading = <p className="muted">{t("Loading…")}</p>;
@@ -266,26 +267,10 @@ export function CostView(p: ElementProps) {
 }
 
 /** 231 (C1c): the cases started from an item of the work packages the case reads (an email routing's emails started
- *  IT quotes): each with its process and state, linked to its page. */
-export function StartedCases({ element }: ElementProps) {
-  useLocale();
-  const rows = element.data as StartedCase[] | null;
-  if (!rows) return loading;
-  if (!rows.length) return <p className="muted">{t("No case has been started from these emails yet.")}</p>;
-  return (
-    <table className="table compact" aria-label={t("Started cases")}>
-      <thead><tr><th>{t("Case")}</th><th>{t("Process")}</th><th>{t("State")}</th></tr></thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.id}>
-            <td><a href={`#/cases/${encodeURIComponent(r.id)}`}>{r.name}</a></td>
-            <td>{r.process ? t(r.process) : "–"}</td>
-            <td>{r.status === "closed" ? t("Case closed") : t("Case open")}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+ *  IT quotes): each with its process and state, linked to its page. 261 (B1f): the shared data table's first user. */
+export function StartedCases(p: ElementProps) {
+  return <DataTableCard p={p} dataset="started_cases" label={t("Started cases")}
+    emptyText={t("No case has been started from these emails yet.")} />;
 }
 
 const OUTCOME = tmap({ done: "done", cancelled: "cancelled", gone: "deleted" });

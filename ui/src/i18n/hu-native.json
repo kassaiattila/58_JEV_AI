@@ -3455,6 +3455,7 @@
   "the next period's case is a case of the same process": "a következő időszak ügye ugyanannak a folyamatnak az ügye",
   "a process repeated for its next period needs a period in its scope": "az időszakonként ismételt folyamat kötésében időszak kell",
   "Next period": "Következő időszak",
+  "Nothing to show yet.": "Még nincs mit mutatni.",
   "{{action}}: it can spend up to {{usd}}": "{{action}}: legfeljebb {{usd}} költhet",
   "← Back to the main case": "← Vissza a főügyhöz",
   "Starts once the steps before it are done.": "Az előtte lévő lépések után indul.",

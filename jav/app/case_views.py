@@ -38,8 +38,10 @@ from jav.core import calls, completion, identity, store
 from jav.core.process import cases, engine, tasks
 from jav.core.user_messages import explained
 
-__all__ = ["CaseError", "ElementData", "act", "briefs", "gives", "link_partner", "marks", "next_of", "register",
-           "return_step", "start_step", "view"]
+__all__ = ["CASE_SCOPE", "CaseError", "ElementData", "act", "briefs", "gives", "link_partner", "marks", "next_of", "register",
+           "return_step", "start_step", "started_cases", "view"]
+
+CASE_SCOPE = frozenset({"case_id"})  # 261 (B1f): the scope keys a case gives the shared data table's dataset
 
 
 class CaseError(ValueError):
@@ -415,9 +417,20 @@ def return_step(case_id: str, step_id: str, reason: str, actor: identity.Who) ->
     return package_release.approval_state(case_id, step=step_id)
 
 
-def _started_cases(case_id: str, _step: str | None, shared: dict[str, Any]) -> list[dict[str, Any]]:
+def _started_cases(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """231 (C1c): the element `started_cases`; 261 (B1f): the shared data table's dataset of them, for the case."""
+    return {"dataset": "started_cases", "scope": {"case_id": case_id}}
+
+
+def _data_table(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """261 (B1f): the shared element `data_table`: the scope the case gives its dataset (the pack's element names the
+    dataset, one the case can scope, `process_packs.check`)."""
+    return {"scope": {"case_id": case_id}}
+
+
+def started_cases(case_id: str) -> list[dict[str, Any]]:
     """231 (C1c): the cases started from an item of the work packages the case reads (its scope's `sources`): each with
-    its process and state."""
+    its process and state (261, B1f: the dataset `started_cases`)."""
     sources = set(((package_scope.stored(case_id) or {}).get("parts") or {}).get(scopes.SOURCES) or [])
     out = []
     for h in package_scope.holders(scopes.RECORD, lambda v: isinstance(v, dict) and v.get("workpackage_id") in sources):
@@ -474,6 +487,7 @@ def _blockers(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[
 
 register(ElementData("blockers", None, __name__, _blockers))  # D-f9
 register(ElementData("started_cases", None, __name__, _started_cases))
+register(ElementData("data_table", None, __name__, _data_table))  # 261 (B1f)
 register(ElementData("timeline", None, __name__, _timeline))
 register(ElementData("actions", None, __name__, _step_actions))  # 261 (B1e)
 register(ElementData("cost", None, __name__, _cost))

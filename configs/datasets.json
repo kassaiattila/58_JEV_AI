@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.42.0",
+  "version": "1.43.0",
   "changelog": [
+   {
+    "version": "1.43.0",
+    "date": "2026-10-29",
+    "note": "261 (plan B, B1f): the case state's labels (case_status), for the started cases a case's shared data table shows."
+   },
    {
     "version": "1.42.0",
     "date": "2026-10-29",
@@ -234,6 +239,7 @@
   "run_scope": {"pending": "Pending items only"},
   "approval": {"approved": "Approved"},
   "wp_status": {"open": "Active (value)", "archived": "Hidden"},
+  "case_status": {"open": "Case open", "closed": "Case closed"},
   "kind": {"document": "Document (value)", "email": "Email (value)"},
   "source_kind": {"folder": "folder", "mailbox": "mailbox", "manual": "manual selection (value)", "watch": "watched folder", "reconcile": "reconciliation", "statements": "bank statements", "email_routing": "email routing", "quote": "quote"},
   "pull_status": {"queued": "Queued (value)", "running": "Running", "ok": "Done", "error": "Failed (value)"},

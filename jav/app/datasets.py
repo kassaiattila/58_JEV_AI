@@ -354,6 +354,18 @@ def _rules(scope: dict[str, str]) -> Rows:
     return cols, rules_view.rows()
 
 
+def _started_cases(scope: dict[str, str]) -> Rows:
+    """261 (plan B, B1f): the cases started from an item of the work packages a case reads (the email routing's started
+    IT quotes), each linked to its own page, with its process and state; the shared data table shows it on the case."""
+    from jav.app import case_views
+
+    started = case_views.started_cases(scope["case_id"])
+    titles = {r["process"]: r["process"] for r in started if r["process"]}  # the processes' titles, which the interface translates
+    cols = [col("name", "Case", link="case"), Column("process", "Process", "enum", labels=titles),
+            col("status", "State", "enum", labels="case_status")]
+    return cols, [{"name": r["name"], "process": r["process"], "status": r["status"], "_wp": r["id"]} for r in started]
+
+
 def _item_name(item: dict[str, Any], titles: dict[str, str]) -> str:
     return titles.get(item["item_id"]) or Path(item["source_path"]).name
 
@@ -786,6 +798,7 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("activity", "Activity log", ("actor",), _activity, optional_scope=("day",)),
     Dataset("waiting", "Waiting for me", ("actor",), _waiting, optional_scope=("all",)),  # 216
     Dataset("rules", "Rules", (), _rules),  # 218 (P3e)
+    Dataset("started_cases", "Started cases", ("case_id",), _started_cases),  # 261 (B1f): a case's, by the data table
 ]}
 
 
