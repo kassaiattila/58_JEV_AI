@@ -43,11 +43,14 @@ def _site(monkeypatch, **changes) -> VerifySite:
     return VerifySite(typepack.get("meeting_minutes"))
 
 
-def test_every_call_site_before_the_quote_request_asks_the_three_invoice_questions_and_none_per_list():
+def test_every_call_site_before_the_quote_request_states_the_three_invoice_questions_and_none_per_list():
+    """231 (F1): each is stated by `verify.json` and inherited, but a pack is asked only those whose fields it has
+    (tests/test_document_questions_231.py)."""
     own = {"quote_request", "insurance_request", "property_schedule", "claims_history"}  # 190 (A2e), 231 (D-e1): their own
     for key in (k for k in typepack.keys() if k not in own):
         site = site_for(key)
-        assert site.document_nouls == INVOICE_DOCUMENT_NOULS and site.list_nouls == (), key
+        assert set(site.document_nouls) <= set(INVOICE_DOCUMENT_NOULS) and site.list_nouls == (), key
+    assert site_for("invoice_hu").document_nouls == INVOICE_DOCUMENT_NOULS
 
 
 def test_a_call_site_names_its_own_document_and_list_questions(monkeypatch):
@@ -84,7 +87,7 @@ def test_the_verification_answers_a_list_question_as_a_flag_of_the_list(monkeypa
     lines = [LineLayout(no=1, page=1, text="Jegyzokonyv")]
     verdicts, _ = site.verify(Jev(), lines, {"organization_name": None, "resolutions": []}, run_id="t")
     assert verdicts.flags["resolutions"] == {"missing_rows": 0.9}
-    assert verdicts.doc_flags == {"parties_swapped": 0.1}
+    assert verdicts.doc_flags == {}  # 231 (F1): stated, but the minutes have no supplier and buyer to swap
 
 
 def test_the_source_words_are_the_packs_own_or_the_invoice_pdfs():

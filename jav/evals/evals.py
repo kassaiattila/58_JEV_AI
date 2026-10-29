@@ -338,9 +338,11 @@ def _dump_rows(rows: list[dict[str, Any]], name: str) -> Path:
 def golden(
     arm: str, run_one: Callable[..., FlowState], cases: list[GoldenCase] | None = None, tracker: bool = False, use_cache: bool = True,
     *, type_key: str, jev: bool = True, budget_usd: Decimal | None = None,
-    jev_budget_usd: Decimal | None = None, label: str = "golden",
+    jev_budget_usd: Decimal | None = None, label: str = "golden", reuse: bool | None = None,
 ) -> list[dict[str, Any]]:
-    """`jev=False` (086): the G path verified by the code alone (no JEV question). `budget_usd`: a hard OpenAI budget
+    """`jev=False` (086): the G path verified by the code alone (no JEV question). `reuse` (231, F1): whether earlier
+    answers in the call log (GPT's) are reused; by default as `use_cache`, so JEV can be asked again while GPT's earlier
+    answers are kept. `budget_usd`: a hard OpenAI budget
     for the whole measurement (the owner's sub-budget); `jev_budget_usd` (127): a hard JEV budget. With either one the
     measurement runs under a budget, and a provider without its own budget (Azure always) cannot be called. `label`
     (127): the run file's name part (`synthetic` for the synthetic cases, so they never pass for a legacy golden run)."""
@@ -353,7 +355,8 @@ def golden(
     limits = {p: b for p, b in (("openai", budget_usd), ("jev", jev_budget_usd)) if b is not None}
     if not limits:  # 160 (review AI-8): without a budget only earlier answers count, never an unbudgeted live call
         print(calls.NO_BUDGET_NOTE)
-    guard = calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{name}", limits, reuse=use_cache)
+    guard = calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{name}", limits,
+                              reuse=use_cache if reuse is None else reuse)
     with guard:
         for case in cases:
             t0 = time.perf_counter()

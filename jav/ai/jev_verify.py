@@ -11,8 +11,9 @@ Call site object (`VerifySite`): the type pack's `verify_callsite` (`verify.json
 `verify_foreign.json` for the foreign one; the latter inherits the Noul questions via the `inherits` key, only its field
 descriptions are its own). 190 (plan 189 A2d): the call site names its document-level questions (`document_nouls`;
 202: `verify.json` states the three invoice questions, which every other call site inherits) and the questions asked
-of each list field of the pack (`list_nouls`, e.g. missing and extra rows; none without the key). The module-level
-`build_questions` and `verify` take the pack explicitly (202: no Hungarian invoice default).
+of each list field of the pack (`list_nouls`, e.g. missing and extra rows; none without the key). 231 (F1): a
+document-level question names the extraction fields it reads (`fields`), and a pack without every one of them is not
+asked it. The module-level `build_questions` and `verify` take the pack explicitly (202: no Hungarian invoice default).
 """
 
 from __future__ import annotations
@@ -280,11 +281,13 @@ class VerifySite:
         self.incomplete_fields = tuple(data["incomplete_fields"])
         self.wrong_kind_fields = tuple(data["wrong_kind_fields"])
         self.nouls: dict[str, dict[str, str]] = data["nouls"]
-        self.document_nouls: tuple[str, ...] = tuple(data["document_nouls"])  # 190; 202: stated (verify.json's are inherited)
+        declared = tuple(data["document_nouls"])  # 190; 202: stated (verify.json's are inherited)
         self.list_nouls: tuple[str, ...] = tuple(data.get("list_nouls", ()))  # 190: asked of each list field
-        unknown = [n for n in (*self.document_nouls, *self.list_nouls) if n not in self.nouls]
+        unknown = [n for n in (*declared, *self.list_nouls) if n not in self.nouls]
         if unknown:
             raise ValueError(f"callsite:{self.callsite}: no question text for {unknown}")
+        # 231 (F1): a document-level question names the fields it reads, and only a pack that has them all is asked it
+        self.document_nouls: tuple[str, ...] = tuple(n for n in declared if self._has_fields(n))
         self.intl = pack.candidate_profile != "hu"
         # the glossary once, in the state (not in every Noul's instruction): for a pack with many fields (utility: ~30
         # fields × 3 questions) the request would otherwise exceed JEV's token limit (max_tokens_exceeded); unchanged
@@ -294,6 +297,16 @@ class VerifySite:
         # every Noul's instructions (never in the state, where the document text itself is)
         self.document_guard: str | None = data.get("document_guard")
         self.request_char_budget: int | None = data.get("request_char_budget")  # request size budget (chars) or None
+
+    def _has_fields(self, name: str) -> bool:
+        """231 (F1): whether the pack has every field the document-level question `name` reads (its `fields`). The
+        invoice questions (swapped parties, missing and extra line items) were asked of every type, also of those
+        without parties or line items, and gave false to-dos there."""
+        fields = self.nouls[name].get("fields")
+        if not fields:
+            raise ValueError(f"callsite:{self.callsite}: the document-level question {name} names no fields")
+        own = {*self.pack.header_fields, *self.pack.list_fields}
+        return all(field in own for field in fields)
 
     def _noul(self, name: str, **data: object) -> Noul:
         """Structured Noul instruction (sde_cascade pattern, v1.1.0): an object holding the question text (`question`)

@@ -77,13 +77,15 @@ def test_probe_summary_counts_bands_per_variant():
 
 
 def test_verify_config_is_structured():
-    """v1.1.0: every Noul gives a `question` text (without template placeholders); the code builds the object."""
+    """v1.1.0: every Noul gives a `question` text (without template placeholders); the code builds the object. 231
+    (F1): a document-level question also names the fields it reads, which are never sent."""
     from jav.core import cfg
 
     data = cfg.load("callsite:verify")
     assert tuple(int(x) for x in data["meta"]["version"].split(".")) >= (1, 1, 0)
     for name, q in data["nouls"].items():
-        assert set(q) == {"question", "true", "false"}, name
+        assert set(q) - {"fields"} == {"question", "true", "false"}, name
+        assert ("fields" in q) == (name in data["document_nouls"]), name
         assert "{" not in q["question"] and "instructions" not in q, name
 
 

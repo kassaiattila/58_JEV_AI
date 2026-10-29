@@ -325,6 +325,25 @@ def test_a_paid_round_measures_exactly_one_golden_set_that_asks_ai(tmp_path):
         goldens.measure_round(goldens.select(["reconcile:pairs"]), paid, runs_dir=tmp_path)
 
 
+def test_asking_jev_again_keeps_the_earlier_gpt_answers_and_needs_a_jev_budget(monkeypatch, tmp_path):
+    """231 (F1): `--jev-again` asks JEV without its cache but reuses GPT's earlier answers, so the G path's JEV check
+    is measured again without an OpenAI budget; only the data points' sets take it."""
+    again = goldens.Options(jev_again=True, jev_budget_usd=Decimal("0.02"))
+    assert again.jev_cache is False and again.use_cache is True
+    fake = record(monkeypatch, evals, "golden", [])
+    goldens.get("datapoints:belepo_jegy:G").measure(again)
+    (args, kwargs), = fake.calls
+    assert kwargs["use_cache"] is False and kwargs["reuse"] is True and kwargs["jev_budget_usd"] == Decimal("0.02")
+    with pytest.raises(goldens.RoundRefused, match="sub-budget"):
+        goldens.measure_round(goldens.select(["datapoints:belepo_jegy:G"]), goldens.Options(jev_again=True),
+                              runs_dir=tmp_path)
+    with pytest.raises(goldens.RoundRefused, match="only for the data points"):
+        goldens.measure_round(goldens.select(["types"]), again, runs_dir=tmp_path)
+    for wrong in ({"engine": "gpt"}, {"use_cache": False}):
+        with pytest.raises(goldens.RoundRefused, match="keeps the earlier GPT answers"):
+            goldens.Options(jev_again=True, **wrong)
+
+
 def test_a_failing_golden_set_does_not_stop_the_round(monkeypatch, tmp_path):
     def broken(**kw):
         raise RuntimeError("legacy golden set missing")

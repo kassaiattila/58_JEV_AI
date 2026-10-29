@@ -268,7 +268,8 @@ def cmd_measure(args: argparse.Namespace) -> int:
     try:
         options = goldens.Options(engine=args.engine, use_cache=not args.no_cache,
                                   jev_budget_usd=Decimal(args.jev_budget_usd) if args.jev_budget_usd else None,
-                                  budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
+                                  budget_usd=Decimal(args.budget_usd) if args.budget_usd else None,
+                                  jev_again=args.jev_again)
         result = goldens.measure_round(goldens.select(args.golden), options,
                                        store_path=Path(args.store) if args.store else None)
     except (goldens.UnknownGolden, goldens.RoundRefused) as exc:
@@ -407,6 +408,8 @@ def register(sub) -> None:
                                              "reconcile); a whole key names its own set alone; none: every golden set")
     p.add_argument("--list", action="store_true", help="list the golden sets with their case counts, measure nothing")
     p.add_argument("--no-cache", action="store_true", help="ask again (live calls; needs a budget)")
+    p.add_argument("--jev-again", action="store_true", help="231 (F1): ask JEV again but keep the earlier GPT answers "
+                                                            "(live JEV calls; needs a JEV budget; the data points' sets)")
     engine_args(p, measurement=True)
     budget_args(p)
     p.add_argument("--store", help="122: a separate measurement store (results, to-dos and call log stay out of the work store)")
