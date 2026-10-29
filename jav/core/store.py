@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, ParamSpec, TypeVar
 
-from jav.core import identity
+from jav.core import identity, observability
 from jav.core.config import STORE_PATH
 from jav.core.clock import utc_stamp as _now
 
@@ -585,6 +585,11 @@ def ledger_add(
             " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (run_id, step, provider, model, input_tokens, output_tokens, cost_usd, seconds, int(cached), cache_key, config_hash, error, _now()),
         )
+    # 231 (E4): every paid or reading call measured in one place, its attributes cleaned by the measuring point
+    observability.observe(observability.Measurement(
+        f"call.{step}", float(seconds or 0.0), "error" if error else "cached" if cached else "ok",
+        attributes={"provider": provider, "model": model or "", "input_tokens": input_tokens or 0,
+                    "output_tokens": output_tokens or 0, "cost_usd": cost_usd or 0.0, "cached": cached}))
 
 
 def upsert_document(

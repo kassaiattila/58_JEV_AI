@@ -43,7 +43,7 @@ from jav.core import cfg, store
 from jav.runtime import job_kinds, pdf_status
 from jav import flows
 from jav.flows import persistence
-from jav.core import applog, calls, lock, queue
+from jav.core import applog, calls, lock, observability, queue
 from jav.core.process import engine as process_engine
 from jav.flows.persistence import ClosingSQLitePersister
 from jav.core.digest import file_sha256 as _sha256_file
@@ -556,6 +556,7 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
 
         preload.preload()  # 091: all the code now, so later changes on disk cannot mix into this process
         rule_defaults.use()  # 231 (U4a): the installation's defaults over the rule files, outside a case
+        observability.use_config()  # 231 (E4): the measurements into a local file, when switched on
         if running_slots() == [mine]:  # an old request no worker is left to answer
             stop_path().unlink(missing_ok=True)
         holder = calls.holder()  # E1: this process's claims stay its own while it runs

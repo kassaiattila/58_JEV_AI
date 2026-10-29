@@ -37,7 +37,6 @@ import json
 import os
 import re
 import sys
-import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -53,6 +52,7 @@ from pydantic import ValidationError
 from jav.core import store
 from jav.core.config import CACHE_DIR, JEV_ALIAS_TTL_H, JEV_CACHE_VERSION, JEV_MODEL, JEV_RETRY, JEV_USD_PER_MTOK, MissingAPIKeyError, make_client
 from jav.ai.models import JevCall
+from jav.core import observability  # 231 (E4): the calls are timed through one helper
 
 Question = Choice | Noul | Score
 CACHE_VERSION = JEV_CACHE_VERSION  # configs/models.json - bumping it invalidates every cache key
@@ -316,21 +316,21 @@ class JevAdapter:
         self, request_id: str, state: object, questions: dict[str, Question], *, model: str, run_id: str, config_hash: str | None
     ) -> tuple[SystemOneResponse, float]:
         """Live SDK call. SDK exception -> ledger row with `error` + JevUnavailableError (the caller decides)."""
-        t0 = time.perf_counter()
+        t0 = observability.start()
         try:
             response = self.client.system_one(state=state, questions=questions, model=model)
             validate_response(response, questions)
         except (TypeSafeError, ValidationError, InvalidJevResponse) as exc:
             if isinstance(exc, ValidationError) and exc.title != "SystemOneResponse":
                 raise  # An input / programming error is not reported as a service failure.
-            seconds = round(time.perf_counter() - t0, 3)
+            seconds = observability.since(t0)
             reason, ledger_error, retry_after = _error_slugs(exc)
             store.ledger_add(
                 run_id=run_id, step=request_id, provider="jev", model=model, input_tokens=None, output_tokens=None,
                 cost_usd=0.0, seconds=seconds, cached=False, cache_key=None, config_hash=config_hash, error=ledger_error,
             )
             raise JevUnavailableError(reason, retry_after_ms=retry_after) from exc
-        seconds = round(time.perf_counter() - t0, 3)
+        seconds = observability.since(t0)
         if request_id == "model_probe":  # the probe's cost goes to the ledger too, so no call is invisible
             usage = getattr(response, "usage", None)
             in_tok = getattr(usage, "input_tokens", None)
@@ -361,7 +361,7 @@ class JevAdapter:
         key = request_hash(concrete, state, questions)
         path = self._cache_path(key)
         cached = False
-        t0 = time.perf_counter()
+        t0 = observability.start()
         response = self._read_cached(path) if use_cache else None
         if response is None and use_cache and (known := self._known_too_large(key)) is not None:
             store.ledger_add(run_id=run_id, step=request_id, provider="jev", model=concrete, input_tokens=None,
@@ -370,7 +370,7 @@ class JevAdapter:
             raise JevUnavailableError(known)  # 200: the same refusal as the live one, without a call
         if response is not None:
             cached = True
-            seconds = round(time.perf_counter() - t0, 3)
+            seconds = observability.since(t0)
         else:
             token = _REPLAYED.set(False)
             try:

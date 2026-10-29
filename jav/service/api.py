@@ -43,7 +43,7 @@ from jav.service import local_picker
 from jav.app import app_settings, capabilities, corrections, package_release, rule_defaults, work, work_views
 from jav.ai import policy
 from jav.documents import isolated_pdf
-from jav.core import access, cfg, config, dates, numbers, store, version
+from jav.core import access, cfg, config, dates, numbers, observability, store, version
 from jav.core.config import PROJECT_ROOT
 from jav.runtime import pdf_status, worker
 from jav.service.service_shared import ForbiddenPath, In, JavJSONResponse, UnknownUser, access_guard, error, settings
@@ -463,6 +463,7 @@ def serve(*, host: str | None = None, port: int | None = None) -> None:
     store.check_installation()  # 231 (E2): another installation's store stops the start, before anything is written
     preload.preload()  # 091: all the code now, so later changes on disk cannot mix into the running service
     rule_defaults.use()  # 231 (U4a): the installation's defaults over the rule files, outside a case
+    observability.use_config()  # 231 (E4): the measurements into a local file, when the configuration switches it on
     datasets.warm_up()  # 158: the package list is built in the background, so its first request does not wait 5-8 s
     # 063: the service log also goes to a persistent rotating file (runs/logs/api.log), with tracebacks for 500 errors
     uvicorn.run(create_app(), host=host, port=port or int(s["port"]), log_level="info", access_log=False,
