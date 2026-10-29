@@ -682,6 +682,15 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .settings-nav a { padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); text-decoration: none; color: var(--ink-2); font-size: var(--fs-sm); font-weight: 500; transition: background-color .12s; }
 .settings-nav a:hover { background: var(--hover); color: var(--ink); }
 .settings-nav a[aria-current="page"] { background: var(--tint); color: var(--ink); font-weight: 600; }
+/* 231 (U3a): a process's own item under Processes, indented one step */
+.settings-nav a.settings-sub { padding-left: var(--sp-6); font-weight: 400; }
+/* 231 (U3e): the menu's three groups, each under its name in muted text (in its own case, never capitals); a long
+   menu scrolls on its own beside the page */
+.settings-nav { max-height: calc(100vh - 24px); overflow-y: auto; }
+.settings-group { display: grid; gap: 2px; }
+.settings-group + .settings-group { margin-top: var(--sp-4); }
+.settings-group-name { padding: var(--sp-1) var(--sp-3); color: var(--muted); font-size: var(--fs-xs); font-weight: 600; }
+a.seg { text-decoration: none; }
 .settings-body { display: grid; gap: 14px; min-width: 0; }
 .settings-body > h2 { margin: 0; }
 @media (max-width: 800px) { .settings-layout { grid-template-columns: 1fr; } .stage-tabs { grid-template-columns: 1fr; } .stage-tab { border-right: 0; border-bottom: 1px solid var(--line); } }
@@ -896,6 +905,22 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .template-output-block + .template-output-block { border-top: 1px solid var(--line-soft); padding-top: var(--sp-3); }
 .template-output-head { display: flex; align-items: baseline; gap: var(--sp-1) var(--sp-3); flex-wrap: wrap; }
 .template-output-head h3 { margin: 0; }
+/* 231 (U3d): the processes whose cases deal with a partner of the chosen role, above the list */
+.partners-role-use { margin: 0 0 var(--sp-3); }
+/* 231 (U3f): a letter frame: its text field by field (the label in muted 12 px text beside the value, kept as written),
+   a language's fields under its name, the form with the same groups */
+.letter-frame h4 { margin: 0; font-size: var(--fs-sm); font-weight: 600; }
+.frame-text { display: grid; gap: var(--sp-3); }
+.frame-group h5 { margin: 0 0 var(--sp-1); font-size: var(--fs-sm); font-weight: 600; }
+.frame-text dl { display: grid; gap: var(--sp-2); margin: 0; }
+.frame-field { display: grid; grid-template-columns: minmax(140px, 220px) minmax(0, 1fr); gap: var(--sp-3); }
+.frame-field dt { color: var(--muted); font-size: var(--fs-xs); padding-top: 1px; }
+.frame-field dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.frame-form { display: grid; gap: var(--sp-3); }
+.frame-form fieldset.frame-group { border: 0; padding: 0; margin: 0; display: grid; gap: var(--sp-2); min-width: 0; }
+.frame-form legend { padding: 0; margin-bottom: var(--sp-1); font-size: var(--fs-sm); font-weight: 600; }
+.frame-form textarea { resize: vertical; line-height: 1.5; }
+.frame-markers { margin: 0; overflow-wrap: anywhere; }
 .template-table { table-layout: fixed; }
 .template-table td { vertical-align: middle; overflow-wrap: anywhere; }
 .template-table .c-name { width: 22%; } .template-table .c-version { width: 9%; } .template-table .c-state { width: 10%; }

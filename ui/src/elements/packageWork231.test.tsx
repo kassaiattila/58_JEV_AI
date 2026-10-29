@@ -162,6 +162,8 @@ describe("the mailbox download as a case (231 C3d)", () => {
     const body = start.mock.calls[0][0];
     expect(body.source).toEqual({ kind: "mailbox", request: { accounts: ["office@example.com"], folders: ["Inbox"], subfolders: false,
       max_items: 0, since_days: 7 } });
+    // 231 (U3, the backlog's mailbox case name): without a name of its own, the case is named by its mailbox and period
+    expect(body.name).toBe("Emails from a mailbox · office@example.com · the last 7 days");
   });
 
   it("the case page offers the processes that read its package (the owner's decision of 2026-10-26)", () => {

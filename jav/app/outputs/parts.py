@@ -125,7 +125,9 @@ class VersionDocument:
     approved_at=, output=)` builds the output's data from the version's content as it was approved; `file(wp_id, n,
     package)` (optional) is the document stored with version `n` and its name (a letter attaches it). D-f7: with
     `reads_case`, `data` takes the case too (`case_id=`: it reads the case's other records); without `file`, the shared
-    priced document stores the document with the version, named by `name(content, package, n)`."""
+    priced document stores the document with the version, named by `name(content, package, n)`. 231 (U3b): `prints`,
+    the capabilities (by name) whose approved version it prints; a priced document prints it only from a step of one of
+    them (empty: from any)."""
 
     output: str
     module: str
@@ -133,6 +135,7 @@ class VersionDocument:
     file: Callable[[str, int, str], tuple[bytes, str]] | None = None
     reads_case: bool = False
     name: Callable[[dict[str, Any], str, int], str] | None = None
+    prints: tuple[str, ...] = ()
 
     def build(self, content: dict[str, Any], *, case_id: str, **values: Any) -> contract.OutputData:
         """D-f7: the output's data from a version's content; the case goes to a builder that reads it."""
@@ -242,6 +245,13 @@ def item_parts() -> list[ItemPart]:
 def output_labels(output: str) -> OutputLabels | None:
     _load()
     return _LABELS.get(output)
+
+
+def version_outputs() -> tuple[str, ...]:
+    """231 (U3f): the outputs an approved own version is printed into, in the order they were registered (the values a
+    letter frame's markers may name)."""
+    _load()
+    return tuple(_VERSIONS)
 
 
 def version_document(output: str) -> VersionDocument:

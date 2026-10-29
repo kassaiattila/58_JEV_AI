@@ -6,6 +6,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type ProcessSettings, type RulePreview } from "../../api";
 import { setLanguage } from "../../i18n";
+import { parseRoute, routeHash } from "../../route";
 import { ProcessSettingsPanel } from "./ProcessSettingsPanel";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
@@ -26,6 +27,10 @@ const PAGE: ProcessSettings = {
   ],
   partners: [{ role: "customer", label: "Customer", step: "request", step_title: "Request" }],
   policy: { activation: "editor", owners: [] },
+  description: { summary: "An invented quote from a request.", outputs: [], goldens: ["invented:lines"], examples: false,
+    intake: [{ on: "manual", starts: "manual", intent: null }],
+    steps: [{ id: "request", title: "Request", uses: "record_assembly@1", summary: "Reads the request.", start: "auto", after: [], optional: false },
+      { id: "compose", title: "Quote", uses: "line_draft@1", summary: "Drafts the lines.", start: "person", after: ["Request"], optional: false }] },
 };
 const DRAFTED: ProcessSettings = { ...PAGE, rules: [{ ...PAGE.rules[0], versions: [
   { version: 1, state: "draft", value: 40, note: null, made_by: "Synthetic reviewer", made_at: AT, activated_by: null, activated_at: null }] }] };
@@ -36,16 +41,18 @@ describe("a process's own settings (231 B4)", () => {
   it("shows the value in use beside the file's, and where it comes from", async () => {
     vi.spyOn(api, "processes").mockResolvedValue({ processes: [PAGE.pack] });
     vi.spyOn(api, "processSettings").mockResolvedValue(PAGE);
-    render(<ProcessSettingsPanel />);
+    const { rerender } = render(<ProcessSettingsPanel pack="invented_quote" tab="uses" />);  // 231 (U3a): its tabs
     const resources = await screen.findByRole("table", { name: "Resources" });
     const row = within(resources).getByRole("button", { name: "Send mode" }).closest("tr")!;
     expect(within(row).getByText("As a draft in the person's Outlook")).toBeTruthy();
     expect(within(row).getByText("Into the output folder")).toBeTruthy();
     expect(within(row).getByText("Own value")).toBeTruthy();
-    const rules = screen.getByRole("table", { name: "Rule values" });
-    expect(within(rules).getByText("From the file")).toBeTruthy();
     expect(screen.getByText("The person who saves a value may make it active.", { exact: false })).toBeTruthy();
-    expect(screen.getByText("Customer", { exact: false })).toBeTruthy();
+    rerender(<ProcessSettingsPanel pack="invented_quote" tab="values" />);
+    const rules = await screen.findByRole("table", { name: "Rule values" });
+    expect(within(rules).getByText("From the file")).toBeTruthy();
+    rerender(<ProcessSettingsPanel pack="invented_quote" tab="partners" />);
+    expect(await screen.findByText("Customer", { exact: false })).toBeTruthy();
   });
 
   it("saves a rule value as a draft within its bounds, tries it on earlier decisions and makes it active", async () => {
@@ -54,7 +61,7 @@ describe("a process's own settings (231 B4)", () => {
     const propose = vi.spyOn(api, "proposeSetting").mockResolvedValue(DRAFTED);
     const preview = vi.spyOn(api, "previewRule").mockResolvedValue(PREVIEW);
     const activate = vi.spyOn(api, "activateSetting").mockResolvedValue(DRAFTED);
-    render(<ProcessSettingsPanel />);
+    render(<ProcessSettingsPanel pack="invented_quote" tab="values" />);
     fireEvent.click(await screen.findByRole("button", { name: "A quote holds at most this many lines" }));
     const card = await screen.findByRole("region", { name: "A quote holds at most this many lines" });
     const save = within(card).getByRole("button", { name: "Save as a draft" }) as HTMLButtonElement;
@@ -82,7 +89,7 @@ describe("a process's own settings (231 B4)", () => {
     vi.spyOn(api, "processSettings").mockResolvedValue(PAGE);
     const propose = vi.spyOn(api, "proposeSetting").mockResolvedValue(PAGE);
     const retire = vi.spyOn(api, "retireSetting").mockResolvedValue(PAGE);
-    render(<ProcessSettingsPanel />);
+    render(<ProcessSettingsPanel pack="invented_quote" tab="uses" />);
     fireEvent.click(await screen.findByRole("button", { name: "Send mode" }));
     const card = await screen.findByRole("region", { name: "Send mode" });
     fireEvent.change(within(card).getByRole("combobox", { name: "New value" }), { target: { value: "output_folder" } });
@@ -94,5 +101,53 @@ describe("a process's own settings (231 B4)", () => {
     fireEvent.click(aside);
     fireEvent.click(within(versions).getByRole("button", { name: /Sure/ }));
     await waitFor(() => expect(retire).toHaveBeenCalledWith("invented_quote", "settings", "send_mode"));
+  });
+
+  it("lists the processes, each at its own address, and describes one on its first tab (231 U3a)", async () => {
+    vi.spyOn(api, "processes").mockResolvedValue({ processes: [{ ...PAGE.pack, summary: "An invented quote from a request." }] });
+    vi.spyOn(api, "processSettings").mockResolvedValue(PAGE);
+    const { rerender } = render(<ProcessSettingsPanel />);
+    const list = await screen.findByRole("table", { name: "Processes" });
+    expect(within(list).getByRole("link", { name: "Invented quote" }).getAttribute("href")).toBe("#/settings/processes/invented_quote");
+    rerender(<ProcessSettingsPanel pack="invented_quote" />);
+    const tabs = await screen.findByRole("tablist", { name: "The process's settings" });
+    expect(within(tabs).getByRole("tab", { name: "Description" }).getAttribute("aria-selected")).toBe("true");
+    expect(within(tabs).getByRole("tab", { name: "What it uses" }).getAttribute("href")).toBe("#/settings/processes/invented_quote/uses");
+    const steps = screen.getByRole("table", { name: "Its steps" });
+    expect(within(steps).getByText("Drafts the lines.")).toBeTruthy();
+    expect(within(steps).getByText(/A person starts it/).textContent).toContain("after Request");
+    expect(screen.getByText("A person starts it from New case.")).toBeTruthy();
+    expect(screen.getByText("invented:lines")).toBeTruthy();
+    expect(parseRoute("#/settings/processes/it_quote/uses")).toEqual({ view: "settings", section: "processes", item: "it_quote", tab: "uses" });
+    expect(routeHash({ view: "settings", section: "processes", item: "it_quote" })).toBe("#/settings/processes/it_quote");
+  });
+
+  it("says where the values come from when there is nothing to choose yet (231 U3b)", async () => {
+    const empty: ProcessSettings = { ...PAGE, resources: [{ ...PAGE.resources[0], key: "product", label: "Product", options: [],
+      file_value: "invented_product", value: "invented_product", own: false, versions: [] }] };
+    vi.spyOn(api, "processes").mockResolvedValue({ processes: [PAGE.pack] });
+    vi.spyOn(api, "processSettings").mockResolvedValue(empty);
+    render(<ProcessSettingsPanel pack="invented_quote" tab="uses" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Product" }));
+    const card = await screen.findByRole("region", { name: "Product" });
+    expect(within(card).getByRole("status").textContent).toContain("nothing to choose yet");
+  });
+
+  it("shows a tariff that follows from the product read only, and the old tariffs address opens the product's list (231 U3c)", async () => {
+    const withTariff: ProcessSettings = { ...PAGE, resources: [
+      { ...PAGE.resources[0], key: "product", label: "Product", options: [{ value: "invented_product", label: "Invented product" }],
+        file_value: "invented_product", value: "invented_product", own: false, versions: [] },
+      { ...PAGE.resources[0], key: "tariff", label: "Tariff", options: null, file_value: "invented_tariff", value: "invented_tariff",
+        own: false, versions: [], derived_from: "product" }] };
+    vi.spyOn(api, "processes").mockResolvedValue({ processes: [PAGE.pack] });
+    vi.spyOn(api, "processSettings").mockResolvedValue(withTariff);
+    render(<ProcessSettingsPanel pack="invented_quote" tab="uses" />);
+    const row = (await screen.findByRole("button", { name: "Tariff" })).closest("tr")!;
+    expect(within(row).getByText("From the Product")).toBeTruthy();
+    fireEvent.click(within(row).getByRole("button", { name: "Tariff" }));
+    const card = await screen.findByRole("region", { name: "Tariff" });
+    expect(within(card).getByRole("status").textContent).toBe("It follows from the Product: set the Product instead.");
+    expect(within(card).queryByRole("button", { name: "Save as a draft" })).toBeNull();
+    expect(parseRoute("#/settings/tariffs")).toEqual({ view: "settings", section: "products", item: "tariffs" });
   });
 });

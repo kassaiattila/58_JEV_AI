@@ -8,8 +8,9 @@
 import { useMemo, useState } from "react";
 import {
   api, ApiError, type OutputMarkerGroup, type OutputName, type OutputTemplate, type OutputTemplateCheck,
-  type OutputTemplateIssue, type OutputTemplateVersion,
+  type OutputTemplateIssue, type OutputTemplateVersion, type UsedByMap,
 } from "../../api";
+import { UsedBy, useUsedBy } from "../../components/UsedBy";
 import { BlockerList } from "../../components/BlockerList";
 import { BrowseButton } from "../../components/BrowseButton";
 import { ConfirmButton } from "../../components/ConfirmButton";
@@ -110,6 +111,7 @@ export function OutputTemplatesPanel() {
   const data = useLoad("output-templates", api.outputTemplates);
   const [again, setAgain] = useState<OutputTemplate | null>(null);
   const [uploaded, setUploaded] = useState<string | null>(null);
+  const used = useUsedBy("output_template");
   const templates = data.data?.templates ?? [];
   return (
     <section className="stage-stack" aria-label={t("Output templates")}>
@@ -127,7 +129,7 @@ export function OutputTemplatesPanel() {
         <section className="card wide" aria-label={t("Templates")}>
           {OUTPUTS.map((o) => (
             <OutputTemplates key={o.key} output={o.key} templates={templates.filter((x) => x.output === o.key)}
-              onChanged={data.reload} onNewVersion={setAgain} />
+              onChanged={data.reload} onNewVersion={setAgain} used={used} />
           ))}
         </section>
       ) : null}
@@ -208,8 +210,9 @@ function UploadCard({ again, onDone, onCancel, onStart }: {
 }
 
 /** One output's templates: every version as a row, newest first, with its state, its check's warnings and actions. */
-function OutputTemplates({ output, templates, onChanged, onNewVersion }: {
+function OutputTemplates({ output, templates, onChanged, onNewVersion, used }: {
   output: OutputName; templates: OutputTemplate[]; onChanged: () => void; onNewVersion: (t: OutputTemplate) => void;
+  used: UsedByMap | null;
 }) {
   useLocale();
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
@@ -260,6 +263,7 @@ function OutputTemplates({ output, templates, onChanged, onNewVersion }: {
                       <strong>{tpl.name}</strong>
                       <button type="button" className="secondary small-btn" disabled={busy} onClick={() => onNewVersion(tpl)}>{t("New version")}</button>
                     </div>
+                    <UsedBy used={used} ident={tpl.template} />
                   </td>
                 ) : null}
                 <td className="num tnum">{t("version {{n}}", { n: v.version })}</td>

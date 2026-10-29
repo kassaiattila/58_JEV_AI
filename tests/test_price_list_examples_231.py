@@ -44,6 +44,7 @@ def test_the_it_quote_installs_the_invented_price_list_as_its_example(db) -> Non
     assert chosen is not None and len(chosen.items) == len(golden.price_list.items) and chosen.currency == "HUF"
     assert [(r.category, str(r.percent)) for r in chosen.discounts] == [
         (d.category, str(d.percent)) for d in golden.price_list.discounts]
+    assert chosen.version == 1  # U3: the sheet and its rules in one version (until then a second for the rules)
     examples.install("it_quote", ANNA)  # again: nothing new
     assert len(price_lists.listing()) == 1
 

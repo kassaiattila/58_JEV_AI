@@ -173,6 +173,7 @@ describe("útvonalak (057)", () => {
     expect(parseRoute("#/data/datapoints?run_id=run-1")).toEqual({ view: "legacy-result", runId: "run-1", table: "datapoints" });
     expect(parseRoute("#/runs")).toEqual({ view: "settings", section: "system" });
     expect(parseRoute("#/runs/run-1")).toEqual({ view: "run", runId: "run-1" });
-    expect(parseRoute("#/settings/nincs")).toEqual({ view: "settings", section: "mailboxes" });
+    // 231 (U3e): an unknown section opens the first, the processes (the menu's first group)
+    expect(parseRoute("#/settings/nincs")).toEqual({ view: "settings", section: "processes" });
   });
 });

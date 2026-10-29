@@ -6,6 +6,7 @@
 // policy minimum. Each tariff is kept as versions; a draft is made active here, an active one retired.
 import { useEffect, useRef, useState } from "react";
 import type { Catalogue, Factor, ProductRegistry, RegistryThing, Tariff } from "../../api";
+import { UsedBy, useUsedBy } from "../../components/UsedBy";
 import { t, useLocale } from "../../i18n";
 import { numText } from "../../labels";
 import {
@@ -17,6 +18,7 @@ export function TariffsPanel() {
   useLocale();
   const registry = useRegistry();
   const [open, setOpen] = useState<string | null>(null);
+  const used = useUsedBy("tariff");
   if (registry.error) return <p className="notice error" role="alert">{registry.error.message}</p>;
   if (!registry.data) return <p className="muted">{t("Loading…")}</p>;
   const r = registry.data;
@@ -25,7 +27,7 @@ export function TariffsPanel() {
   return (
     <div className="registry">
       <table className="table compact registry-table" aria-label={t("Tariffs")}>
-        <thead><tr><th>{t("Title")}</th><th>{t("In force")}</th><th>{t("Currency")}</th><th className="num">{t("Cover modules")}</th><th className="num">{t("Policy minimum")}</th><th>{t("State")}</th></tr></thead>
+        <thead><tr><th>{t("Title")}</th><th>{t("In force")}</th><th>{t("Currency")}</th><th className="num">{t("Cover modules")}</th><th className="num">{t("Policy minimum")}</th><th>{t("State")}</th><th>{t("Used by")}</th></tr></thead>
         <tbody>
           {r.tariffs.map((x) => {
             const c = current(x).content;
@@ -37,6 +39,7 @@ export function TariffsPanel() {
                 <td className="num">{Object.keys(c.modules).length}</td>
                 <td className="num">{c.policy_minimum ? amountText(c.policy_minimum) : "–"}</td>
                 <td><ThingState thing={x} /></td>
+                <td><UsedBy used={used} ident={x.ident} cell /></td>
               </tr>
             );
           })}

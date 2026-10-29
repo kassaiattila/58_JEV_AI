@@ -237,7 +237,9 @@ def register() -> None:
 
     builtin.register_word(OUTPUT, builtin_template)
     parts.register_output_labels(parts.OutputLabels(OUTPUT, __name__, sample_heads, sample_values))
-    parts.register_version_document(parts.VersionDocument(OUTPUT, __name__, data, reads_case=True, name=file_name))
+    # U3b: it prints the premium decision's approved version
+    parts.register_version_document(parts.VersionDocument(OUTPUT, __name__, data, reads_case=True, name=file_name,
+                                                          prints=("decision",)))
 
 
 __all__ = ["ADJUSTMENTS", "ADJUSTMENT_COLUMNS", "COLUMNS", "OUTPUT", "RatedOfferError", "builtin_template", "data", "file_name",

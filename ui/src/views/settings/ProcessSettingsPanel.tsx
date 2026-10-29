@@ -5,12 +5,14 @@
 // earlier decisions (the preview writes nothing), and makes a draft active by the installation's rule of who may; the
 // process's own value can be set aside, and the file's counts again. A case keeps the values it started with.
 import { useEffect, useMemo, useState } from "react";
-import { api, ApiError, type ProcessSettings, type ResourceSetting, type RulePreview, type SettingKind } from "../../api";
+import { api, ApiError, type ProcessDescription, type ProcessSettings, type ResourceSetting, type RulePreview, type SettingKind } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { ExampleMaterial } from "../../elements/ExampleMaterial";
 import { VersionState } from "../../components/VersionState";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { numText, when } from "../../labels";
+import { routeHash } from "../../route";
 
 type Open = { kind: SettingKind; key: string } | null;
 type Value = string | number;
@@ -38,32 +40,53 @@ function policyText(p: ProcessSettings["policy"]) {
   return t("The person who saves a value may make it active.");
 }
 
-export function ProcessSettingsPanel() {
+/** 231 (stage U, U3a; the owner's decision of 2026-10-28: each process its own menu item and address): the processes
+ *  under the Processes item of the Settings menu, each linked to its own page. */
+export function ProcessNav({ current }: { current?: string }) {
   useLocale();
   const list = useLoad("processes", api.processes);
-  const packs = list.data?.processes ?? [];
-  const [pack, setPack] = useState<string | null>(null);
-  const chosen = pack ?? packs[0]?.id ?? null;
-  if (list.error) return <p className="notice error" role="alert">{list.error.message}</p>;
-  if (!list.data) return <p className="muted">{t("Loading…")}</p>;
-  if (!chosen) return <p className="muted">{t("No process is installed.")}</p>;
   return (
-    <div className="process-settings">
-      {packs.length > 1 ? (
-        <div className="form-row">
-          <label className="block">{t("Process")}
-            <select value={chosen} onChange={(e) => setPack(e.target.value)}>
-              {packs.map((p) => <option key={p.id} value={p.id}>{t(p.title)}</option>)}
-            </select>
-          </label>
-        </div>
-      ) : null}
-      <ProcessPage key={chosen} pack={chosen} />
-    </div>
+    <>
+      {(list.data?.processes ?? []).map((p) => (
+        <a key={p.id} className="settings-sub" href={routeHash({ view: "settings", section: "processes", item: p.id })}
+          aria-current={p.id === current ? "page" : undefined}>{t(p.title)}</a>
+      ))}
+    </>
   );
 }
 
-function ProcessPage({ pack }: { pack: string }) {
+const TABS = [["about", "Description"], ["uses", "What it uses"], ["values", "Rule values"], ["partners", "Partner roles"],
+  ["examples", "Examples"]] as const;
+type Tab = (typeof TABS)[number][0];
+
+export function ProcessSettingsPanel({ pack, tab }: { pack?: string; tab?: string }) {
+  useLocale();
+  const list = useLoad("processes", api.processes);
+  const packs = list.data?.processes ?? [];
+  if (list.error) return <p className="notice error" role="alert">{list.error.message}</p>;
+  if (!list.data) return <p className="muted">{t("Loading…")}</p>;
+  if (!packs.length) return <p className="muted">{t("No process is installed.")}</p>;
+  const chosen = packs.find((p) => p.id === pack);
+  if (!chosen) {
+    return (
+      <table className="table compact" aria-label={t("Processes")}>
+        <thead><tr><th>{t("Process")}</th><th>{t("What it is for")}</th></tr></thead>
+        <tbody>
+          {packs.map((p) => (
+            <tr key={p.id}>
+              <td><a href={routeHash({ view: "settings", section: "processes", item: p.id })}>{t(p.title)}</a></td>
+              <td className="muted small">{p.summary ? t(p.summary) : "–"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+  const current: Tab = TABS.some(([key]) => key === tab) ? (tab as Tab) : "about";
+  return <ProcessPage key={chosen.id} pack={chosen.id} tab={current} />;
+}
+
+function ProcessPage({ pack, tab }: { pack: string; tab: Tab }) {
   useLocale();
   const loaded = useLoad(`process-settings:${pack}`, () => api.processSettings(pack));
   const [open, setOpen] = useState<Open>(null);
@@ -73,62 +96,141 @@ function ProcessPage({ pack }: { pack: string }) {
   const selected = (kind: SettingKind, key: string) => open?.kind === kind && open.key === key;
   const card = open ? <SettingCard key={`${open.kind}:${open.key}`} page={page} open={open} onClose={() => setOpen(null)} onChanged={loaded.reload} /> : null;
   return (
-    <>
+    <div className="process-settings">
       <div className="process-head">
         <h3>{t(page.pack.title)} <span className="muted small tnum">{page.pack.version}</span></h3>
-        <p className="muted small">{policyText(page.policy)} {t("A case keeps the values it started with; a change reaches the cases started after it.")}</p>
+        {page.description.summary ? <p className="muted">{t(page.description.summary)}</p> : null}
+      </div>
+      <div className="segmented-tabs" role="tablist" aria-label={t("The process's settings")}>
+        {TABS.map(([key, label]) => (
+          <a key={key} role="tab" className="seg" aria-selected={tab === key}
+            href={routeHash({ view: "settings", section: "processes", item: pack, tab: key })}>{t(label)}</a>
+        ))}
       </div>
 
-      <section aria-label={t("Resources")}>
-        <h4>{t("Resources")}</h4>
-        <table className="table compact process-values" aria-label={t("Resources")}>
-          <thead><tr><th>{t("Setting")}</th><th>{t("In use")}</th><th>{t("The file's value")}</th><th /></tr></thead>
+      {tab === "about" ? <ProcessAbout page={page} /> : null}
+
+      {tab === "uses" ? (
+        <section aria-label={t("What it uses")}>
+          <p className="muted small">{policyText(page.policy)} {t("A case keeps the values it started with; a change reaches the cases started after it.")}</p>
+          {page.resources.length ? (
+            <table className="table compact process-values" aria-label={t("Resources")}>
+              <thead><tr><th>{t("Setting")}</th><th>{t("In use")}</th><th>{t("The file's value")}</th><th /></tr></thead>
+              <tbody>
+                {page.resources.map((r) => (
+                  <tr key={r.key} aria-selected={selected("settings", r.key)}>
+                    <td><button type="button" className="link-btn" onClick={() => setOpen({ kind: "settings", key: r.key })}>{t(r.label)}</button></td>
+                    <td className="process-in-use"><ResourceValue r={r} value={r.value} /></td>
+                    <td className="muted"><ResourceValue r={r} value={r.file_value} /></td>
+                    <td>{r.derived_from ? (  // U3c: as its source brings it
+                      <span className="process-origin small muted">{t("From the {{source}}", { source: t(page.resources.find((x) => x.key === r.derived_from)?.label ?? r.derived_from) })}</span>
+                    ) : <Origin own={r.own} drafts={r.versions.filter((v) => v.state === "draft").length} />}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <p className="muted small">{t("The process uses nothing from the shared library.")}</p>}
+          {open?.kind === "settings" ? card : null}
+        </section>
+      ) : null}
+
+      {tab === "values" ? (
+        <section aria-label={t("Rule values")}>
+          <p className="muted small">{policyText(page.policy)} {t("A case keeps the values it started with; a change reaches the cases started after it.")}</p>
+          {page.rules.length ? (
+            <table className="table compact process-values" aria-label={t("Rule values")}>
+              <thead><tr><th>{t("Rule")}</th><th className="num">{t("In use")}</th><th className="num">{t("The file's value")}</th><th /></tr></thead>
+              <tbody>
+                {page.rules.map((r) => (
+                  <tr key={r.key} aria-selected={selected("rules", r.key)}>
+                    <td><button type="button" className="link-btn" onClick={() => setOpen({ kind: "rules", key: r.key })}>{t(r.what)}</button></td>
+                    <td className="num tnum process-in-use">{show(r.value)}</td>
+                    <td className="num tnum muted">{show(r.file_value)}</td>
+                    <td><Origin own={r.own} drafts={r.versions.filter((v) => v.state === "draft").length} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <p className="muted small">{t("The process's steps let it set no rule value.")}</p>}
+          {open?.kind === "rules" ? card : null}
+        </section>
+      ) : null}
+
+      {tab === "partners" ? (
+        <section aria-label={t("Partner roles")}>
+          {page.partners.length ? (
+            <ul className="plain process-partners">
+              {page.partners.map((p) => (
+                <li key={p.role}>{t(p.label)} <span className="muted small">{t("from the step {{step}}", { step: t(p.step_title) })}</span></li>
+              ))}
+            </ul>
+          ) : <p className="muted small">{t("The process names no partner.")}</p>}
+        </section>
+      ) : null}
+
+      {tab === "examples" ? (
+        <section aria-label={t("Examples")}>
+          {page.description.examples ? <ExampleMaterial pack={pack} needed={false} onChanged={loaded.reload} />
+            : <p className="muted small">{t("The process has no example material.")}</p>}
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+/** 231 (U3a): what the process is for: how a case of it starts, its steps in order (what each does, who starts it,
+ *  what it waits for), its outputs and the golden sets that measure it. */
+function ProcessAbout({ page }: { page: ProcessSettings }) {
+  useLocale();
+  const d = page.description;
+  return (
+    <section className="rc-stack" aria-label={t("Description")}>
+      <div>
+        <h4>{t("How a case starts")}</h4>
+        <ul className="plain">
+          {d.intake.map((i, n) => <li key={n}>{intakeText(i)}</li>)}
+        </ul>
+      </div>
+      <div>
+        <h4>{t("Its steps")}</h4>
+        <table className="table compact" aria-label={t("Its steps")}>
+          <thead><tr><th>{t("Step")}</th><th>{t("What it does")}</th><th>{t("Starts")}</th></tr></thead>
           <tbody>
-            {page.resources.map((r) => (
-              <tr key={r.key} aria-selected={selected("settings", r.key)}>
-                <td><button type="button" className="link-btn" onClick={() => setOpen({ kind: "settings", key: r.key })}>{t(r.label)}</button></td>
-                <td className="process-in-use"><ResourceValue r={r} value={r.value} /></td>
-                <td className="muted"><ResourceValue r={r} value={r.file_value} /></td>
-                <td><Origin own={r.own} drafts={r.versions.filter((v) => v.state === "draft").length} /></td>
+            {d.steps.map((s) => (
+              <tr key={s.id}>
+                <td>{t(s.title)}</td>
+                <td className="small">{t(s.summary)}</td>
+                <td className="small">
+                  {s.start === "person" ? t("A person starts it") : t("By itself")}
+                  {s.optional ? <> · {t("may be left out")}</> : null}
+                  {s.after.length ? <span className="muted"> · {t("after {{steps}}", { steps: s.after.map((x) => t(x)).join(", ") })}</span> : null}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {open?.kind === "settings" ? card : null}
-      </section>
-
-      <section aria-label={t("Rule values")}>
-        <h4>{t("Rule values")}</h4>
-        {page.rules.length ? (
-          <table className="table compact process-values" aria-label={t("Rule values")}>
-            <thead><tr><th>{t("Rule")}</th><th className="num">{t("In use")}</th><th className="num">{t("The file's value")}</th><th /></tr></thead>
-            <tbody>
-              {page.rules.map((r) => (
-                <tr key={r.key} aria-selected={selected("rules", r.key)}>
-                  <td><button type="button" className="link-btn" onClick={() => setOpen({ kind: "rules", key: r.key })}>{t(r.what)}</button></td>
-                  <td className="num tnum process-in-use">{show(r.value)}</td>
-                  <td className="num tnum muted">{show(r.file_value)}</td>
-                  <td><Origin own={r.own} drafts={r.versions.filter((v) => v.state === "draft").length} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : <p className="muted small">{t("The process's steps let it set no rule value.")}</p>}
-        {open?.kind === "rules" ? card : null}
-      </section>
-
-      <section aria-label={t("Partners")}>
-        <h4>{t("Partners")}</h4>
-        {page.partners.length ? (
-          <ul className="plain process-partners">
-            {page.partners.map((p) => (
-              <li key={p.role}>{t(p.label)} <span className="muted small">{t("from the step {{step}}", { step: t(p.step_title) })}</span></li>
-            ))}
-          </ul>
-        ) : <p className="muted small">{t("The process names no partner.")}</p>}
-      </section>
-    </>
+      </div>
+      <div>
+        <h4>{t("Its outputs")}</h4>
+        {d.outputs.length ? (
+          <ul className="plain">{d.outputs.map((o) => <li key={o.id}>{o.what ? t(o.what) : o.id} <span className="muted small">{o.format?.toUpperCase()}</span></li>)}</ul>
+        ) : <p className="muted small">{t("The process makes no document of its own.")}</p>}
+      </div>
+      <div>
+        <h4>{t("How it is measured")}</h4>
+        {d.goldens.length ? (
+          <p className="small">{t("Golden sets:")} {d.goldens.map((g, n) => <span key={g}>{n ? ", " : ""}<span className="mono">{g}</span></span>)}</p>
+        ) : <p className="muted small">{t("No golden set measures this process yet.")}</p>}
+      </div>
+    </section>
   );
+}
+
+function intakeText(i: ProcessDescription["intake"][number]): string {
+  if (i.on === "manual") return t("A person starts it from New case.");
+  if (i.on === "package") return t("A document batch's page offers it.");
+  return i.starts === "case" ? t("An email with the intent {{intent}} starts it by itself.", { intent: i.intent ?? "–" })
+    : t("An email with the intent {{intent}} offers it.", { intent: i.intent ?? "–" });
 }
 
 /** Where the value in use comes from: the process's own value, or the file's; and the drafts waiting. */
@@ -149,6 +251,7 @@ function SettingCard({ page, open, onClose, onChanged }: {
   const resource = open.kind === "settings" ? page.resources.find((r) => r.key === open.key) ?? null : null;
   const rule = open.kind === "rules" ? page.rules.find((r) => r.key === open.key) ?? null : null;
   const setting = resource ?? rule;
+  const source = resource?.derived_from ? page.resources.find((r) => r.key === resource.derived_from) ?? null : null;
   const start = useMemo<Value>(() => (setting ? setting.value : ""), [setting]);
   // what the person typed, over the value in use (null: nothing yet); a saved version starts afresh
   const [draft, setDraft] = useState<Value | null>(null);
@@ -201,6 +304,12 @@ function SettingCard({ page, open, onClose, onChanged }: {
         <dt>{t("The file's value")}</dt><dd className="tnum">{text(setting.file_value)}</dd>
         {rule ? <><dt>{t("Read by the steps")}</dt><dd>{rule.steps.map((s) => t(s)).join(", ")}</dd></> : null}
       </dl>
+      {resource?.options && !resource.options.length ? (  // U3b: an empty list says where its values come from
+        <p className="notice small" role="status">{t("There is nothing to choose yet: make one active on its own Settings page first.")}</p>
+      ) : null}
+      {source ? (  // U3c: it follows its source (a product brings its tariff); nothing to set here
+        <p className="notice small" role="status">{t("It follows from the {{source}}: set the {{source}} instead.", { source: t(source.label) })}</p>
+      ) : <>
       <div className="form-row">
         <label className="block">{t("New value")}
           {resource?.options || (rule && rule.kind === "choice") ? (
@@ -232,6 +341,7 @@ function SettingCard({ page, open, onClose, onChanged }: {
         ) : null}
         <span className="muted small">{ruleProblem ?? t("A draft changes nothing until it is made active.")}</span>
       </div>
+      </>}
       {error ? <p className="notice error small" role="alert">{error}</p> : null}
       {preview ? <PreviewResult preview={preview.result} /> : null}
       {setting.versions.length ? (

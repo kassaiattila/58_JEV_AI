@@ -50,6 +50,8 @@ export interface SettingVersion {
 export interface ResourceSetting {
   key: string; label: string; options: { value: string; label: string }[] | null;
   file_value: string; value: string; own: boolean; versions: SettingVersion[];
+  /** 231 (U3c): the resource it follows from (a product brings its tariff), shown read only */
+  derived_from?: string | null;
 }
 export interface RuleSetting {
   key: string; file: string; path: string; what: string; kind: "int" | "choice"; least: number | null; most: number | null;
@@ -59,6 +61,17 @@ export interface ProcessSettings {
   pack: ProcessRow; resources: ResourceSetting[]; rules: RuleSetting[];
   partners: { role: string; label: string; step: string; step_title: string }[];
   policy: { activation: "editor" | "owner" | "second_person"; owners: string[] };
+  /** 231 (U3a): what the process is for, its steps, outputs, golden sets, what starts a case of it, its examples */
+  description: ProcessDescription;
+}
+/** 231 (U3a): a process described on its own settings page (jav/app/process_settings.py `_description`). */
+export interface ProcessDescription {
+  summary: string | null;
+  steps: { id: string; title: string; uses: string; summary: string; start: "auto" | "person"; after: string[]; optional: boolean }[];
+  outputs: { id: string; what: string | null; format: string | null }[];
+  goldens: string[];
+  intake: { on: "email_intent" | "package" | "manual"; starts: "offer" | "case" | "manual"; intent: string | null }[];
+  examples: boolean;
 }
 export interface RulePreview {
   key: string; value: string | number; file_value: string | number; decisions: number; changed: number; failed: number;
@@ -66,6 +79,21 @@ export interface RulePreview {
   examples: { point: string; subject: string; case_id: string; case: string; at: string; before: unknown; after: unknown }[];
 }
 export type SettingKind = "settings" | "rules";
+/** 231 (U3d): the kinds of shared things the processes name, and for each thing of a kind the processes using it */
+export type LibraryKind = "product" | "tariff" | "price_list" | "letter_frame" | "quote_letter_frame" | "output_template" | "partner_role";
+export type UsedByMap = Record<string, { id: string; title: string }[]>;
+/** 231 (U3f): the letter frames of the shared library (jav/app/letter_frames.py): each kind's frames with the file's
+ *  text, the text in effect (its active version's, else the file's) and its versions; the fields a person edits. */
+export type FrameContent = Record<string, unknown>;
+export interface FrameField { path: string; label: string; form: "line" | "text" | "paragraphs"; group: string | null }
+export interface FrameVersion {
+  version: number; state: OutputTemplateState; content: FrameContent; note: string | null; made_by: string; made_at: string;
+  activated_by: string | null; activated_at: string | null;
+}
+export interface LetterFrame { ident: string; file: FrameContent; content: FrameContent; active: number | null; markers: string[]; versions: FrameVersion[] }
+export interface LetterFrameKind { kind: LibraryKind; title: string; what: string; fields: FrameField[]; frames: LetterFrame[]; markers: string[] }
+export interface LetterFrames { kinds: LetterFrameKind[]; policy: { activation: string; owners: string[] } }
+const frameBase = (kind: string, ident: string) => `/library/letter-frames/${enc(kind)}/${enc(ident)}`;
 
 const base = (pack: string, kind: SettingKind, key: string) => `/processes/${enc(pack)}/${kind}/${enc(key)}`;
 
@@ -89,4 +117,11 @@ export const processesApi = {
   removeExamples: (pack: string) => request<ProcessExamples>("POST", `/processes/${enc(pack)}/examples/remove`, {}),
   examplePacketFiles: (pack: string, packet: string) =>
     request<{ files: string[] }>("POST", `/processes/${enc(pack)}/examples/packets/${enc(packet)}/files`, {}),
+  usedBy: (kind: LibraryKind) => request<{ used_by: UsedByMap }>("GET", `/library/used-by/${enc(kind)}`),
+  letterFrames: () => request<LetterFrames>("GET", "/library/letter-frames"),
+  proposeLetterFrame: (kind: string, ident: string, values: Record<string, string | string[]>, note: string | null) =>
+    request<LetterFrames>("POST", frameBase(kind, ident), { values, note }),
+  activateLetterFrame: (kind: string, ident: string, version: number) =>
+    request<LetterFrames>("POST", `${frameBase(kind, ident)}/versions/${version}/activate`, {}),
+  retireLetterFrame: (kind: string, ident: string) => request<LetterFrames>("POST", `${frameBase(kind, ident)}/retire`, {}),
 };

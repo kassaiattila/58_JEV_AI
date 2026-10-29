@@ -24,6 +24,15 @@ it starts and keeps them: a change reaches the cases started after it.
   choices`, the parameter's field title); a process's own value of such a resource is one of them. The settings page
   also shows the roles the process's partners play.
 - 231 (stage U, U0): `missing_at_start(pack)`: what a case of the pack cannot start without now, before anyone tries.
+- 231 (U3c; the owner's decision of 2026-10-28: the tariff is part of the product): a pack's `derived` resource follows
+  from its source (a product brings its tariff, `AtStart.brings`): its value is the source's, shown read only, and a
+  process sets no value of its own for it.
+- 231 (U3d): `used_by(kind)`: for each shared thing of a kind, the processes that use it now (the "Used by" line of the
+  shared library's lists).
+- 231 (U3f): `effective_rules` brings the active versions of the letter frames the process uses (`letter_frames`), so a
+  case keeps the frame's text active at its start.
+- 231 (U3a): `view` describes the process too (`description`: what it is for, its steps, outputs, golden sets, what
+  starts a case of it, whether it has example material), for its own settings page.
 
 Layer: application, the shared library; it uses the process packs, the capabilities, the shared versioning and the
 output templates.
@@ -34,7 +43,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav.app import capabilities, partners, process_packs
+from jav.app import capabilities, letter_frames, partners, process_packs, scopes
 from jav.core import cfg, identity, store, trace, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
@@ -126,10 +135,24 @@ def _active_rows(c: Any, pack_id: str, kind: str) -> list[Any]:
 
 
 def effective_resources(pack: process_packs.ProcessPack) -> dict[str, str]:
-    """The pack's resources: its file's, with the process's active values over them."""
+    """The pack's resources: its file's, with the process's active values over them; 231 (U3c) a derived resource as its
+    source brings it (a product its tariff), whatever value it had of its own."""
     with store.connect() as c:
         own = {r["key"]: json.loads(r["value"]) for r in _active_rows(c, pack.id, RESOURCE)}
-    return {**pack.resources, **{k: str(v) for k, v in own.items() if k in pack.resources}}
+    resources = {**pack.resources, **{k: str(v) for k, v in own.items() if k in pack.resources and k not in pack.derived}}
+    for key in pack.derived:
+        if (brought := _brought(pack, key, resources)) is not None:
+            resources[key] = brought
+    return resources
+
+
+def _brought(pack: process_packs.ProcessPack, key: str, resources: dict[str, str]) -> str | None:
+    """231 (U3c): a derived resource's value as its source brings it (the source's keeper's `brings`, by the derived
+    resource's kind); None when the source brings none."""
+    keepers = _keepers(pack)
+    source, mine = keepers.get(pack.derived[key]), keepers.get(key)
+    bring = source.brings.get(str(mine.kind)) if source is not None and mine is not None else None
+    return bring(resources[pack.derived[key]]) if bring is not None else None
 
 
 def rule_keys(pack: process_packs.ProcessPack) -> dict[str, tuple[capabilities.RuleKey, list[str]]]:
@@ -143,7 +166,8 @@ def rule_keys(pack: process_packs.ProcessPack) -> dict[str, tuple[capabilities.R
 
 def effective_rules(pack: process_packs.ProcessPack) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     """231 (B3): the process's active rule values, as a case keeps them: ({config name: {key: value}}, {config name:
-    {key: {"setting": id, "version": n}}}); a key its capabilities no longer declare is left out."""
+    {key: {"setting": id, "version": n}}}); a key its capabilities no longer declare is left out. 231 (U3f): with the
+    letter frames it uses, as their active versions in the shared library have them (`letter_frames.in_effect`)."""
     keys = rule_keys(pack)
     values: dict[str, dict[str, Any]] = {}
     refs: dict[str, dict[str, Any]] = {}
@@ -153,6 +177,11 @@ def effective_rules(pack: process_packs.ProcessPack) -> tuple[dict[str, dict[str
                 rule = keys[r["key"]][0]
                 values.setdefault(rule.file, {})[rule.key] = json.loads(r["value"])
                 refs.setdefault(rule.file, {})[rule.key] = {"setting": r["setting_id"], "version": r["version"]}
+    for key, value in effective_resources(pack).items():
+        if (kind := _kind_of(pack, key)) and (frame := letter_frames.in_effect(kind, str(value))):
+            file, frame_key, content, ref = frame
+            values.setdefault(file, {})[frame_key] = content
+            refs.setdefault(file, {})[frame_key] = ref
     return values, refs
 
 
@@ -256,6 +285,8 @@ def resource_info(pack: process_packs.ProcessPack, key: str) -> tuple[str, list[
             if value != f"@{key}" or param not in cap.params.model_fields:
                 continue
             label = cap.params.model_fields[param].title or label
+            if param in cap.choices_for:  # U3b: the values that fit this step
+                return label, cap.choices_for[param](pack, step)
             if param in cap.choices:
                 return label, cap.choices[param]()
     return label, options
@@ -293,6 +324,9 @@ def propose(pack_id: str, key: str, value: Any, actor: identity.Who, *, kind: st
         value = " ".join(str(value).split())
     if value is None or value == "":
         raise explained(SettingError, "a setting needs a value")
+    if kind == RESOURCE and key in pack.derived:  # U3c: it follows its source (a product's tariff)
+        raise explained(SettingError, "the {{what}} follows from the {{source}}: set the {{source}} instead",
+                        what=_resource_title(pack, key), source=_resource_title(pack, pack.derived[key]))
     if problems := _problems(pack, kind, key, value):
         raise explained(SettingError, "the process cannot take this value: {{problems}}", problems="; ".join(problems))
     sid = _id(pack_id, kind, key)
@@ -365,14 +399,19 @@ def view(pack_id: str) -> dict[str, Any]:
     for r in rows:
         by_key.setdefault((r["kind"], r["key"]), []).append(r)
     resources = []
+    effective = effective_resources(pack)
     for key, file_value in pack.resources.items():
         mine = by_key.get((RESOURCE, key), [])
         value, own = _own(mine)
         label, options = resource_info(pack, key)
+        if key in pack.derived:  # U3c: shown as its source brings it, read only
+            resources.append({"key": key, "label": label, "options": None, "file_value": file_value,
+                              "value": effective[key], "own": False, "versions": [], "derived_from": pack.derived[key]})
+            continue
         resources.append({"key": key, "label": label,
                           "options": None if options is None else [{"value": v, "label": lbl} for v, lbl in options],
                           "file_value": file_value, "value": value if own else file_value, "own": own,
-                          "versions": _versions(mine)})
+                          "versions": _versions(mine), "derived_from": None})
     rules = []
     for key, (rule, steps) in rule_keys(pack).items():
         mine = by_key.get((RULE, key), [])
@@ -389,7 +428,69 @@ def view(pack_id: str) -> dict[str, Any]:
     links = [{"role": link.role, "label": (roles.get(link.role) or {}).get("label", link.role), "step": link.from_step,
               "step_title": titles.get(link.from_step, link.from_step)} for link in pack.partners]
     return {"pack": {"id": pack.id, "title": pack.title, "version": pack.version}, "resources": resources, "rules": rules,
-            "partners": links, "policy": policy()}
+            "partners": links, "policy": policy(), "description": _description(pack)}
+
+
+def _description(pack: process_packs.ProcessPack) -> dict[str, Any]:
+    """231 (stage U, U3a; the owner's decision of 2026-10-28: each process its own settings page): what the process is
+    for, its steps in order (each with what its capability does, whether a person starts it, the steps it waits for by
+    their titles, whether it may be left out), its outputs, the golden sets that measure it, what may start a case of it
+    and whether it has example material."""
+    titles = {s.id: s.title or s.id for s in pack.steps}
+    outputs = cfg.load("outputs").get("outputs", {})
+    steps = [{"id": s.id, "title": titles[s.id], "uses": s.uses, "summary": capabilities.of(s.uses).summary,
+              "start": s.start, "after": [titles.get(x, x) for x in dict.fromkeys((*s.after, *s.gates))],
+              "optional": s.optional} for s in pack.steps]
+    return {"summary": pack.summary, "steps": steps,
+            "outputs": [{"id": o, "what": outputs.get(o, {}).get("what"), "format": outputs.get(o, {}).get("format")}
+                        for o in pack.outputs],
+            "goldens": list(pack.goldens),
+            "intake": [{"on": i.on, "starts": i.starts, "intent": i.intent} for i in pack.intake],
+            "examples": pack.examples is not None and bool(pack.examples.sets or pack.examples.documents
+                                                            or pack.examples.note)}
+
+
+OUTPUT_TEMPLATE, PARTNER_ROLE = "output_template", "partner_role"  # U3d: the kinds a pack names without a parameter
+
+
+def _kind_of(pack: process_packs.ProcessPack, key: str) -> str | None:
+    """231 (U3d): the shared library kind a resource names: an output template (`template:<output>`), or the kind the
+    capability parameter it sets names (`Capability.refers`, else its keeper's `AtStart.kind`); None: no library thing."""
+    if key.startswith(TEMPLATE_PREFIX):
+        return OUTPUT_TEMPLATE
+    for step in pack.steps:
+        cap = capabilities.of(step.uses)
+        for param, value in (step.params or {}).items():
+            if value == f"@{key}":
+                kind = cap.refers.get(param) or (cap.at_start[param].kind if param in cap.at_start else None)
+                if kind:
+                    return kind
+    return None
+
+
+def used_by(kind: str) -> dict[str, list[dict[str, str]]]:
+    """231 (U3d; the owner's decisions of 2026-10-28: every shared element says which processes use it): for each thing
+    of the kind (by its id), the processes that use it now ({id, title}, in the packs' order): a resource naming it as
+    the process has it (its file's value, its own active one, a derived one as its source brings it; a price list's
+    newest active one by the list it names now); a partner role by the pack's partner links, and the own parties' role
+    by a scope with an own party (U3e)."""
+    out: dict[str, list[dict[str, str]]] = {}
+    for pack in process_packs.packs():
+        entry = {"id": pack.id, "title": pack.title}
+        if kind == PARTNER_ROLE:
+            # U3e: an own party plays the role "own" in a process whose cases belong to one
+            idents = [link.role for link in pack.partners] + ([partners.OWN] if scopes.PARTY in pack.scope.parts else [])
+        else:
+            resources, keepers = effective_resources(pack), _keepers(pack)
+            idents = []
+            for key in pack.resources:
+                if _kind_of(pack, key) == kind:
+                    value = keepers[key].kept(resources[key]) if key in keepers else resources[key]
+                    idents.append(str(value).split("@", 1)[0])
+        for ident in idents:
+            if entry not in out.setdefault(ident, []):
+                out[ident].append(entry)
+    return out
 
 
 def _case_name(case_id: str) -> str:

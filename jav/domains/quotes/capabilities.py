@@ -90,7 +90,7 @@ def _kept_list() -> AtStart:
     """D0-e: a case keeps the price list version current at its start."""
     from jav.domains.quotes import price_lists
 
-    return AtStart(price_lists.kept, price_lists.named)
+    return AtStart(price_lists.kept, price_lists.named, kind="price_list")  # U3d: it names a price list
 
 
 def _catalogues() -> list[tuple[str, str]]:
@@ -316,6 +316,7 @@ CAPABILITIES = (
                rule_files=("gpt_quote_letter", "quote_documents", "quotes"),
                summary="Drafts a reply letter: the frame written by code around a model's checked paragraph; done once a person"
                        " accepted it.", spent=_spent("quote_letters"), choices={"frame": _frames},
+               refers={"frame": "quote_letter_frame"},  # U3d
                rule_keys=(RuleKey("quotes", "letter.max_chars", "int", "The model's paragraph is at most this many characters",
                                   least=100, most=2000),)),
 )
@@ -367,7 +368,7 @@ def _letter_message(case_id: str, source_step: str | None, source: Any) -> Any:
 
 
 def register() -> None:
-    from jav.app import capabilities, case_views, sending
+    from jav.app import capabilities, case_views, letter_frames, sending
     from jav.app.outputs import parts
     from jav.domains.quotes import quote_document
 
@@ -376,11 +377,37 @@ def register() -> None:
     # D0-c: how the quote's approved version becomes its Word document (the shared priced document prints it)
     parts.register_version_document(parts.VersionDocument(
         quote_document.OUTPUT, _OWNER, quote_document.data,
-        file=lambda wp_id, n, package: quote_document.version_file(wp_id, n, package=package)))
+        file=lambda wp_id, n, package: quote_document.version_file(wp_id, n, package=package),
+        prints=("line_draft",)))  # U3b: the quote's approved lines
     for element, capability in ELEMENTS:
         case_views.register(case_views.ElementData(element, capability, _OWNER, _quote_view, mark=_marks))
     sending.register_builder(sending.MessageBuilder("quote_letter", _OWNER, _letter_message,
                                                     "The accepted reply letter with the quote's Word document."))
+    letter_frames.register_kind(_frame_kind())
+
+
+def _frame_kind() -> Any:
+    """231 (U3f; the owner's decision of 2026-10-28): the reply letters' frames, edited as versions in the shared
+    library: each frame a text per document language (`configs/quote_documents.json`, at the top)."""
+    from jav.app import letter_frames
+    from jav.domains.quotes import quote_document, quote_letter
+
+    F = letter_frames.FrameField
+    fields = tuple(field for language, group in (("hu", "Hungarian"), ("en", "English")) for field in (
+        F(f"{language}.subject_reply", "Subject of the reply", group=group),
+        F(f"{language}.subject_none", "Subject without a request", group=group),
+        F(f"{language}.greeting", "Greeting with the contact's name", group=group),
+        F(f"{language}.greeting_none", "Greeting without a name", group=group),
+        F(f"{language}.fallback", "The paragraph while none is written", letter_frames.TEXT, group=group),
+        F(f"{language}.totals", "The totals line", letter_frames.TEXT, group=group),
+        F(f"{language}.closing", "Closing", group=group)))
+    return letter_frames.FrameKind(
+        kind="quote_letter_frame", title="Quote reply letters",
+        what="The reply to a quote request, in the quote's language: its subject, greeting, totals line and closing,"
+             " the markers filled in from the quote; the first paragraph is written for each request.",
+        config="quote_documents", prefix="",
+        frames=lambda: {key: quote_document.settings()[key] for key in quote_letter.frames()},
+        fields=fields, outputs=lambda: (quote_document.OUTPUT,), module=_OWNER)
 
 
 __all__ = ["CAPABILITIES", "CatalogueMatch", "LetterDraft", "LineDraft", "LinePricing", "RecordAssembly", "register"]

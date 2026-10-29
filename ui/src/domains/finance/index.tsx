@@ -51,7 +51,7 @@ registerElement("pairing_proposal", { render: lazily(PairingProposal) });
 // 133: new labels have an English source (the Hungarian translation is in hu-native.json)
 registerSettingsSection({
   key: "parties", label: "Own parties", hint: "Whose money is reconciled: companies, associations and people, with their names, tax numbers and accounts",
-  order: 30, Panel: lazyPage(() => import("./PartiesPanel").then((m) => m.PartiesPanel)),
+  group: "library", order: 210, Panel: lazyPage(() => import("./PartiesPanel").then((m) => m.PartiesPanel)),
 });
 // 146: the bank exports the statement reader knows, under the description of the processing
 registerSettingsPart({

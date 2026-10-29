@@ -326,12 +326,15 @@ class AtStart:
     """Stage D0 (D0-e): a parameter naming a resource of which a case keeps the version current at its start.
     `kept(value)`: the value then, naming a concrete version (a price list's `newest_active` -> `<list>@<version>`;
     unchanged when there is none, so the step says so when it runs); `named(value)`: how a kept value reads to a person,
-    {"name": ..., "version": n or None}."""
+    {"name": ..., "version": n or None}. 231 (U3c): `kind`, what it names (a product, a tariff); `brings`, for a thing
+    that brings another (a product its tariff), by the other's kind, the other's value it names (None: none)."""
 
     kept: Callable[[str], str]
     named: Callable[[str], dict[str, Any]]
     # D-a: whether a value names a version a case keeps (`<id>@<n>`); a pack's `needs_at_start` refuses one that does not
     resolved: Callable[[str], bool] = field(default=lambda value: "@" in value)
+    kind: str | None = None
+    brings: Mapping[str, Callable[[str], str | None]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -394,6 +397,10 @@ class Capability:
       from the whole pack (the steps they wait for, the scope parts they need), checked with the pack (`process_packs`).
     - `scope_check(pack, scope)` (U2c): raises `scopes.ScopeError` when a case's checked scope lacks what the pack's
       steps of it need (a step's own documents), at the case's start before anything is made.
+    - `choices_for` (U3b): for a parameter whose values depend on the step (a priced document's output prints only the
+      version of the step it names), `(pack, step)` gives that step's values; over `choices`.
+    - `refers` (U3d): the shared library kind a parameter names (a letter frame), so a library element says which
+      processes use it; a kept parameter's keeper says it too (`AtStart.kind`).
     """
 
     name: str
@@ -431,6 +438,8 @@ class Capability:
     at_start: Mapping[str, AtStart] = field(default_factory=dict)
     pack_check: Callable[[Any], list[str]] | None = None
     scope_check: Callable[[Any, dict[str, Any]], None] | None = None
+    choices_for: Mapping[str, Callable[[Any, Any], list[tuple[str, str]]]] = field(default_factory=dict)
+    refers: Mapping[str, str] = field(default_factory=dict)
 
     @property
     def key(self) -> str:
@@ -484,7 +493,7 @@ def _check(cap: Capability) -> None:
             problems.append(f"its rule file has no {rule.id}")
     if len({r.id for r in cap.rule_keys}) != len(cap.rule_keys):
         problems.append("its rule keys are distinct")
-    if unknown := sorted(set(cap.choices) - set(cap.params.model_fields)):
+    if unknown := sorted((set(cap.choices) | set(cap.choices_for) | set(cap.refers)) - set(cap.params.model_fields)):
         problems.append(f"it offers choices for parameters it does not have: {unknown}")
     if unknown := sorted(set(cap.at_start) - set(cap.params.model_fields)):  # D0-e
         problems.append(f"it keeps the start's version of parameters it does not have: {unknown}")

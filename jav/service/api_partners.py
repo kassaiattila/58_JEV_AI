@@ -40,7 +40,9 @@ def routes(app: FastAPI, r: str) -> None:
     @app.get(r + "/partners")
     def partner_list(q: Annotated[str | None, Query(max_length=200)] = None,
                      role: Annotated[str | None, Query(max_length=40)] = None, retired: bool = False) -> dict[str, Any]:
-        return {"partners": partners.listing(q, role, retired=retired), "roles": partners.roles()}
+        # 231 (U3e): the own parties beside them, with the role "own" (edited in their own register)
+        return {"partners": partners.listing(q, role, retired=retired), "roles": partners.roles(),
+                "own": partners.own_listing(q, role)}
 
     @app.get(r + "/partners/suggestions")
     def partner_suggestions() -> dict[str, Any]:
