@@ -573,6 +573,9 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .default-set { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .default-set legend, .default-map legend { padding: 0; margin-bottom: var(--sp-1); font-weight: 500; }
 .default-tried p { margin: 0; }
+.default-versions-wrap { overflow-x: auto; }
+.default-note { display: block; }
+.rule-values:has(.default-editor) { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
 .tight { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
 .tight.columns { display: block; columns: 3 220px; margin-top: 6px; }
 .param-doc { border-top: 1px solid var(--line-soft); padding-top: 10px; display: grid; gap: 6px; font-size: var(--fs-sm); }

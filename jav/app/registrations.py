@@ -96,6 +96,11 @@ def load_all() -> None:
         _loading = False
 
 
+def loaded() -> bool:
+    """231 (U4a): whether every registration is made (the installation's defaults are read only then)."""
+    return _loaded
+
+
 completion.set_completer(load_all)  # 229 (MD1): the shared registries complete themselves through it
 
 

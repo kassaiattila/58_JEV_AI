@@ -111,3 +111,28 @@ def test_the_service_saves_tries_makes_active_and_sets_aside_a_default(db) -> No
         assert c.post(f"/api/defaults/{rid}/versions/9/activate", headers=human, json={}).status_code == 404
         assert c.post(f"/api/defaults/{rid}/retire", headers=human, json={}).status_code == 200
         assert c.post(f"/api/defaults/{rid}/retire", headers=human, json={}).status_code == 409
+
+
+def test_no_default_is_read_while_the_registrations_are_being_made(db, monkeypatch) -> None:
+    from jav.app import registrations
+
+    file_value = _lines()
+    rule_defaults.propose(FILE, KEY, 40, "anna")
+    rule_defaults.activate(FILE, KEY, 1, "anna")
+    monkeypatch.setattr(registrations, "_loaded", False)
+    rule_defaults._forget()
+    assert rule_defaults.overlay_now() is None and _lines() == file_value
+    monkeypatch.setattr(registrations, "_loaded", True)
+    assert _lines() == 40
+
+
+def test_a_process_that_names_the_defaults_first_still_starts(tmp_path) -> None:
+    """A long-running process may name the defaults before the registrations are made: a module read at its import
+    then reads the files (until U4z this stopped the start, a domain's options not yet registered)."""
+    import subprocess
+    import sys
+
+    code = ("from pathlib import Path\nfrom jav.app import rule_defaults\nrule_defaults.use()\n"
+            "from jav.service import api\napi.create_app(store_path=Path(r'%s'))\nprint('started')" % (tmp_path / "s.sqlite"))
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=300)
+    assert done.returncode == 0 and "started" in done.stdout, done.stderr[-2000:]

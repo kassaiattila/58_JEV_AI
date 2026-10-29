@@ -210,7 +210,13 @@ _seen: dict[str, Any] = {"at": 0.0, "overlay": None}
 
 def overlay_now() -> cfg.Overlay | None:
     """The active defaults as an overlay over the files (None: none is active), read from the store again at most every
-    `REFRESH_S` seconds; the same object while nothing changed, so the reader's applied copies are kept."""
+    `REFRESH_S` seconds; the same object while nothing changed, so the reader's applied copies are kept. None while the
+    application's registrations are still being made (a module read at its import then reads the files; what may be a
+    default needs every registry, the domains' options among them)."""
+    from jav.app import registrations
+
+    if not registrations.loaded():
+        return None
     with _lock:
         if time.monotonic() - _seen["at"] < REFRESH_S:
             return _seen["overlay"]

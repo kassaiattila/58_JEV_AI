@@ -101,16 +101,19 @@ export function DefaultEditor({ v, entry, fixed, onChanged }: {
           }} />
       ) : null}
       {entry.versions.length ? (
+        <div className="default-versions-wrap">
         <table className="table compact default-versions" aria-label={t("Versions")}>
-          <thead><tr><th className="num">{t("Version")}</th><th>{t("Value")}</th><th>{t("State")}</th><th>{t("Made by")}</th><th>{t("Note")}</th><th><span className="sr-only">{t("Actions")}</span></th></tr></thead>
+          <thead><tr><th className="num">{t("Version")}</th><th>{t("Value")}</th><th>{t("State")}</th><th>{t("Made by")}</th><th><span className="sr-only">{t("Actions")}</span></th></tr></thead>
           <tbody>
             {entry.versions.map((x) => (
               <tr key={x.version}>
                 <td className="num tnum">{t("version {{n}}", { n: x.version })}</td>
                 <td>{defaultText(entry, v, x.value)}</td>
                 <td><VersionState state={x.state} /></td>
-                <td><span>{x.made_by}</span> <span className="muted tnum">{when(x.made_at)}</span></td>
-                <td>{x.note ?? "–"}</td>
+                <td>
+                  <span>{x.made_by}</span> <span className="muted tnum">{when(x.made_at)}</span>
+                  {x.note ? <span className="muted small default-note">{x.note}</span> : null}
+                </td>
                 <td className="button-row">
                   {x.state === "draft" || x.state === "superseded" ? (
                     <button type="button" className={x.state === "draft" ? "primary small-btn" : "secondary small-btn"} disabled={busy}
@@ -129,6 +132,7 @@ export function DefaultEditor({ v, entry, fixed, onChanged }: {
             ))}
           </tbody>
         </table>
+        </div>
       ) : null}
       {msg ? <p role="status" className={msg.error ? "notice error" : "small ok"}>{msg.text}</p> : null}
     </div>
