@@ -113,6 +113,7 @@ def routes(app: FastAPI, r: str) -> None:
                                "asks": scopes.asks(p.scope.parts),
                                "package_kinds": sorted({k for i in p.intake if i.on == "package" for k in i.package_kinds}),
                                "source_kinds": document_processing.source_kinds(p),  # 231 (C3d)
+                               "only_new": document_processing.takes_only_new(p),  # 261
                                # 231 (U2c): the steps whose case of another process takes its own documents
                                "step_sources": sub_cases.step_sources(p) if sub_cases.STEP_SOURCES in p.scope.parts else [],
                                "manual": any(i.on == intake.MANUAL for i in p.intake), "summary": p.summary,

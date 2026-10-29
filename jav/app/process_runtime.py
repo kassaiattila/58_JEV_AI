@@ -198,16 +198,20 @@ def next_draft(case_id: str) -> dict[str, Any]:
         raise explained(NextPeriodError, "the next period's case was started already: {{case}}", case=started)
     period = scopes.next_period(*earlier, NextPeriodError)
 
-    def moved(source: dict[str, Any]) -> dict[str, Any] | None:
-        return document_processing.repeated_source(source, period, (earlier[0], earlier[1]))
+    def moved(source: dict[str, Any], target: process_packs.ProcessPack) -> dict[str, Any] | None:
+        return document_processing.repeated_source(source, period, (earlier[0], earlier[1]),
+                                                   only_new=document_processing.takes_only_new(target))
+
+    runs = {step.id: process_packs.load(str((step.params or {}).get("pack"))) for step in pack.steps
+            if step.uses == sub_cases.KEY}  # each step's sub-case's process, whose maker says what only-new means
 
     draft: dict[str, Any] = {"pack": pack.id, "follows": case_id, "period_start": period[0], "period_end": period[1]}
     if scope.get(scopes.PARTY):
         draft["party_id"] = scope[scopes.PARTY]
-    if (source := scope.get(document_processing.SOURCE_PART)) and (again := moved(source)) is not None:
+    if (source := scope.get(document_processing.SOURCE_PART)) and (again := moved(source, pack)) is not None:
         draft["source"] = again
     if steps := {step: again for step, source in (scope.get(sub_cases.STEP_SOURCES) or {}).items()
-                 if (again := moved(source)) is not None}:
+                 if step in runs and (again := moved(source, runs[step])) is not None}:
         draft["step_sources"] = steps
     if budgets := scope.get(sub_cases.STEP_BUDGETS):  # 261: the caps come filled in, and a person approves them again
         draft["step_budgets"] = budgets

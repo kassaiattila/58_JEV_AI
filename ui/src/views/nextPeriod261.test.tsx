@@ -21,7 +21,9 @@ const MONTHLY: ProcessRow = {
   asks: ["party", "period", "step_sources"], package_kinds: [], manual: true, examples: false, missing_at_start: [],
   summary: "An own party's period in one case.",
   step_sources: [
-    { step: "invoices", title: "Incoming invoices", pack: "documents", process: "Documents", source_kinds: ["folder", "files"], examples: false },
+    { step: "invoices", title: "Incoming invoices", pack: "documents", process: "Documents", source_kinds: ["folder", "files"], examples: false,
+      only_new: true },
+    // the statements' survey takes only the statements not in the store anyway: no such box
     { step: "statements", title: "Bank statements", pack: "bank_statements", process: "Bank statements", source_kinds: ["folder", "files"], examples: false },
   ],
 };
@@ -61,7 +63,7 @@ describe("a case's next period (261)", () => {
     const next = vi.spyOn(api, "caseNext").mockResolvedValue({
       pack: "monthly_reconciliation", follows: PREV, party_id: PARTY, period_start: "2026-04-01", period_end: "2026-04-30", name: NAME,
       step_sources: { invoices: { kind: "folder", folder: "D:\\Invented\\invoices", recursive: false, only_new: true },
-                      statements: { kind: "folder", folder: "D:\\Invented\\statements", recursive: false, only_new: true } } });
+                      statements: { kind: "folder", folder: "D:\\Invented\\statements", recursive: false } } });
     const start = vi.spyOn(api, "startCase").mockResolvedValue({ case_id: CASE });
     render(<NewCase pack="monthly_reconciliation" after={PREV} />);
     const form = await screen.findByRole("form", { name: "Monthly reconciliation" });
@@ -75,11 +77,12 @@ describe("a case's next period (261)", () => {
     expect((within(invoices).getByLabelText("The folder's full path") as HTMLInputElement).value).toBe("D:\\Invented\\invoices");
     const onlyNew = within(invoices).getByRole("checkbox", { name: "Only the documents no live run has processed yet" }) as HTMLInputElement;
     expect(onlyNew.checked).toBe(true);
-    fireEvent.click(within(statements).getByRole("checkbox", { name: "Only the documents no live run has processed yet" }));
+    expect(within(statements).queryByRole("checkbox", { name: "Only the documents no live run has processed yet" })).toBeNull();
+    fireEvent.click(onlyNew);  // a person may take every document of the folder again
     fireEvent.click(within(form).getByRole("button", { name: "Create" }));
     await waitFor(() => expect(start).toHaveBeenCalledWith({
       pack: "monthly_reconciliation", name: NAME, party_id: PARTY, period_start: "2026-04-01", period_end: "2026-04-30",
-      step_sources: { invoices: { kind: "folder", folder: "D:\\Invented\\invoices", recursive: false, only_new: true },
+      step_sources: { invoices: { kind: "folder", folder: "D:\\Invented\\invoices", recursive: false },
                       statements: { kind: "folder", folder: "D:\\Invented\\statements", recursive: false } },
       follows: PREV }));
     await waitFor(() => expect(window.location.hash).toBe(`#/cases/${CASE}`));

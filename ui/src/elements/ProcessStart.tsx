@@ -204,10 +204,10 @@ function ProcessForm({ pack, onDone, draft }: { pack: string; onDone: (wpId: str
       ) : null}
       {wantsSource ? (
         <SourceFields legend={t("The case's documents")} name="case-source" kinds={kinds} packets={packets} choice={choice}
-          onChange={setChoice} offerOnlyNew={!!draft} />
+          onChange={setChoice} offerOnlyNew={!!draft && !!info.only_new} />
       ) : null}
       {steps.map((x) => (
-        <StepSourceFields key={x.step} entry={x} choice={stepChoices[x.step] ?? NO_SOURCE} offerOnlyNew={!!draft}
+        <StepSourceFields key={x.step} entry={x} choice={stepChoices[x.step] ?? NO_SOURCE} offerOnlyNew={!!draft && !!x.only_new}
           onChange={(update) => setStepChoices((prev) => ({ ...prev, [x.step]: update(prev[x.step] ?? NO_SOURCE) }))}
           extra={<StepBudgetFields estimate={estimates[x.step]} budget={budgets[x.step]}
             onChange={(b) => setBudgets((prev) => ({ ...prev, [x.step]: b }))} />} />
@@ -248,19 +248,23 @@ function StepBudgetFields({ estimate, budget, onChange }: { estimate?: StepEstim
   useLocale();
   if (!estimate) return null;
   const providers = Object.keys(estimate.usd);
-  if (!providers.length) {
-    return <p className="small muted">{estimate.note ? t(estimate.note) : t("The cost cannot be told ahead: a person starts its run.")}</p>;
+  if (!providers.length) {  // nothing to cap: its run calls no paid service, or its cost cannot be told ahead
+    return <p className="small muted">{estimate.items !== null && !estimate.note
+      ? t("Estimate: {{n}} documents, without a paid call", { n: estimate.items })
+      : estimate.note ? t(estimate.note) : t("The cost cannot be told ahead: a person starts its run.")}</p>;
   }
-  const caps = { ...estimate.usd, ...(budget?.caps ?? {}) };
+  // the caps shown are those sent: an approved one as given (a provider it leaves out has none), else the estimate
+  const caps = budget ? budget.caps : estimate.usd;
   const on = !!budget?.on;
   return (
     <div className="rc-stack">
       <p className="small">{t("Estimate: {{n}} documents, up to {{usd}}", { n: estimate.items ?? 0, usd: usdBudget(capsTotal(estimate.usd)) })}</p>
-      <label className="check"><input type="checkbox" checked={on} onChange={(e) => onChange({ on: e.target.checked, caps })} /> {t("Start its live run by itself, up to:")}</label>
+      <label className="check"><input type="checkbox" checked={on}
+        onChange={(e) => onChange({ on: e.target.checked, caps: budget ? caps : { ...estimate.usd } })} /> {t("Start its live run by itself, up to:")}</label>
       <div className="button-row">
         {providers.map((p) => (
           <label key={p} className="small">{providerName(p)}{" "}
-            <input type="number" inputMode="decimal" min="0" step="0.01" value={caps[p] ?? ""} disabled={!on}
+            <input className="cap-input" type="number" inputMode="decimal" min="0" step="0.01" value={caps[p] ?? ""} disabled={!on}
               aria-label={t("{{provider}} cap, USD", { provider: providerName(p) })}
               onChange={(e) => onChange({ on, caps: { ...caps, [p]: e.target.value } })} /> USD</label>
         ))}

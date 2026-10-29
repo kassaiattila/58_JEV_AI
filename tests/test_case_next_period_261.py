@@ -67,7 +67,7 @@ def test_an_open_case_offers_its_next_period_filled_in_and_starts_it_once(db) ->
         "period_end": APRIL[1], "name": "Monthly reconciliation · Example Kft. · 2026-04-01 – 2026-04-30"}
     assert draft["step_sources"]["invoices"] == {"kind": "folder", "folder": str(db / "inv"), "recursive": False,
                                                  "only_new": True}
-    assert draft["step_sources"]["statements"]["only_new"] is True
+    assert "only_new" not in draft["step_sources"]["statements"]  # its survey takes only the statements not in the store
     scope = {"party": party, "period": list(APRIL), "step_sources": draft["step_sources"]}
     with pytest.raises(process_runtime.NextPeriodError):  # the next period's case is a case of the same process
         process_runtime.start_next(case, "two_sources_reconciliation", scope, name=draft["name"], actor=PERSON)

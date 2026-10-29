@@ -90,14 +90,15 @@ def _source(value: Any, error: type[Exception]) -> dict[str, Any]:
     return {"kind": "files", "files": files} | only_new
 
 
-def repeated_source(source: dict[str, Any], period: tuple[str, str], earlier: tuple[str, str]) -> dict[str, Any] | None:
+def repeated_source(source: dict[str, Any], period: tuple[str, str], earlier: tuple[str, str], *,
+                    only_new: bool = True) -> dict[str, Any] | None:
     """261: a case's source for its next period (`period`, after the `earlier` one): a folder or files again, taking only
-    the documents no live run has processed yet; a domain's source kind as it moves on (a mailbox's received range);
-    None for a package made before (a person gives the next one)."""
+    the documents no live run has processed yet where its maker can (`only_new`); a domain's source kind as it moves on
+    (a mailbox's received range); None for a package made before (a person gives the next one)."""
     if (domain := workflow_steps.source_kind(str(source.get("kind")))) is not None:
         return domain.repeated(source, period, {"period_start": earlier[0], "period_end": earlier[1]})
     if source.get("kind") in ("folder", "files"):
-        return {**source, "only_new": True}
+        return {**source, "only_new": True} if only_new else {k: v for k, v in source.items() if k != "only_new"}
     return None
 
 
@@ -590,6 +591,15 @@ def source_kinds(pack: Any) -> list[str]:
     return []
 
 
+def takes_only_new(pack: Any) -> bool:
+    """261: whether a case of the pack may take only the documents no live run has processed yet (its document processing
+    step's maker leaves them out: the documents'; the statements' survey takes only the statements not in the store)."""
+    for step in pack.steps:
+        if capabilities.of(step.uses) is CAPABILITY:
+            return maker_of(Process.model_validate(step.params).maker).only_new
+    return False
+
+
 def _package_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
     """231 (C3b3): what the step shows on its case's page (the element `package_work`): its package (its name, its
     items, its runs) and, while its live run waits for a person, whether it can start and its estimate (the button's
@@ -722,4 +732,5 @@ trace.register(trace.Point(
 __all__ = ["CAPABILITY", "DOCUMENTS", "OWNER_PART", "PACKAGE", "RUN_BUDGET", "RUN_BUDGET_GATE", "RUN_BUDGET_PART",
            "RUN_BUDGET_TASK", "SOURCE", "SOURCE_PART", "Collected", "budget_caps", "Maker", "Process",
            "ProcessingError", "bind", "bound", "case_packages", "maker_names", "source_kinds", "maker_of", "owned_packages", "package_of", "paths_of",
-           "register", "register_maker", "register_workflow_steps", "repeated_source", "run_budget_gate", "start_run"]
+           "register", "register_maker", "register_workflow_steps", "repeated_source", "run_budget_gate", "start_run",
+           "takes_only_new"]

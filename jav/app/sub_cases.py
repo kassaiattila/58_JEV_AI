@@ -219,6 +219,7 @@ def step_sources(pack: Any) -> list[dict[str, Any]]:
         target = process_packs.load(RunCase.model_validate(step.params).pack)
         out.append({"step": step.id, "title": step.title or step.id, "pack": target.id, "process": target.title,
                     "source_kinds": document_processing.source_kinds(target),
+                    "only_new": document_processing.takes_only_new(target),  # 261: a next period may take only new ones
                     "examples": target.examples is not None and target.examples.documents is not None})
     return out
 
