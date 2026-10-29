@@ -520,19 +520,27 @@ def preview(pack_id: str, key: str, value: Any) -> dict[str, Any]:
     from jav.app import process_runtime
 
     packs: dict[str, str | None] = {}
-    decided = changed = failed = 0
-    examples: list[dict[str, Any]] = []
-    first_error: str | None = None
+    rows = []
     for row in trace.reading(trace.file_of(rule.file), rule.key):
         case_id = row.get("case_id")
         if case_id and case_id not in packs:
             packs[case_id] = (process_runtime.pack_of(case_id) or (None, None))[0]
-        if not case_id or packs[case_id] != pack.id:
-            continue
-        decided += 1
+        if case_id and packs[case_id] == pack.id:
+            rows.append(row)
+    return {"key": key, "value": value, "file_value": rule.file_value(), **replayed(rows, rule.file, rule.key, value)}
+
+
+def replayed(rows: list[dict[str, Any]], file: str, key: str, value: Any) -> dict[str, Any]:
+    """231 (B3; U4c: shared with the installation's defaults): the decisions `rows` run again with the values each was
+    made with and with `value` in place of `file`'s `key`: how many, how many changed (with up to `PREVIEW_EXAMPLES`
+    of them) and how many failed (the first one named). Nothing is written, no AI is asked."""
+    changed = failed = 0
+    examples: list[dict[str, Any]] = []
+    first_error: str | None = None
+    for row in rows:
         try:
             before = trace.replay(row)
-            after = trace.replay(row, over=_with(trace.recorded_overlay(row), rule.file, rule.key, value))
+            after = trace.replay(row, over=_with(trace.recorded_overlay(row), file, key, value))
         except Exception as exc:  # noqa: BLE001 - a rule that fails on this value is counted in the preview, the first named
             failed += 1
             first_error = first_error or f"{row['point']}: {type(exc).__name__}: {exc}"
@@ -540,8 +548,8 @@ def preview(pack_id: str, key: str, value: Any) -> dict[str, Any]:
         if after != before:
             changed += 1
             if len(examples) < PREVIEW_EXAMPLES:
+                case_id = row.get("case_id")
                 examples.append({"point": row["point"], "subject": f"{row['subject_kind']}:{row['subject_id']}",
-                                 "case_id": case_id, "case": _case_name(case_id), "at": row["at"], "before": before,
-                                 "after": after})
-    return {"key": key, "value": value, "file_value": rule.file_value(), "decisions": decided, "changed": changed,
-            "failed": failed, "first_error": first_error, "examples": examples}
+                                 "case_id": case_id, "case": _case_name(case_id) if case_id else None, "at": row["at"],
+                                 "before": before, "after": after})
+    return {"decisions": len(rows), "changed": changed, "failed": failed, "first_error": first_error, "examples": examples}

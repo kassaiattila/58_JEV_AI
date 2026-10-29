@@ -17,6 +17,8 @@ long-running processes name this module to the config reader, `cfg.use_defaults`
 - `active()`: the active defaults as a case keeps them ({file: {key: value}}, {file: {key: origin}}); `overlay_now()`:
   the same as an overlay for the config reader, read again at most every `REFRESH_S` seconds; `use()`: names it.
 - `view()`: every key a person may set with its file value, its active default and its versions.
+- `preview(file, key, value)` (U4c): what the value would have changed: every earlier decision that read the key and
+  that no process's own value decided, its rule run again with it (nothing is written, no AI is asked).
 
 Layer: application; it uses the capabilities' rule keys, the shared versioning and the process values' rule of who may
 make a value active.
@@ -31,15 +33,16 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from jav.app import capabilities
-from jav.core import cfg, completion, identity, store, versions
+from jav.core import cfg, completion, identity, store, trace, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
 __all__ = ["DefaultError", "DefaultStateError", "FIXED", "REFRESH_S", "UnknownDefault", "activate", "active", "editable",
-           "fixed", "overlay_now", "propose", "register_options", "retire", "use", "view"]
+           "fixed", "overlay_now", "preview", "propose", "register_options", "retire", "use", "view"]
 
 REFRESH_S = 2.0  # how stale a process's view of the active defaults may be (a case reads them afresh at its start)
 FIXED = ("cost", "structure", "format")  # U4b: why a value the rules view shows stays the file's
+DEFAULT_SETTING = "default:"  # the origin a default's value carries in a case's values and the decision trace
 
 store.register_schema("rule_defaults", """
 -- 231 (U4a): the installation's own value of a rule key, every change a version of its own
@@ -196,7 +199,8 @@ def active() -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     for r in rows:
         if r["default_id"] in keys:
             values.setdefault(r["file"], {})[r["key"]] = json.loads(r["value"])
-            refs.setdefault(r["file"], {})[r["key"]] = {"setting": f"default:{r['default_id']}", "version": r["version"]}
+            refs.setdefault(r["file"], {})[r["key"]] = {"setting": DEFAULT_SETTING + r["default_id"],
+                                                         "version": r["version"]}
     return values, refs
 
 
@@ -313,3 +317,31 @@ def view() -> dict[str, Any]:
                     "file_value": rule.file_value(), "value": json.loads(current["value"]) if current else None,
                     "active": current["version"] if current else None, "versions": [_version(r) for r in own]})
     return {"keys": out, "policy": process_settings.policy()}
+
+
+def _process_own(row: dict[str, Any], file: str, key: str) -> bool:
+    """Whether a process's own value of the key decided the row (a default would not have reached it)."""
+    name = trace.file_of(file)
+    return any(e["file"] == name and any(v["key"] == key and not str(v.get("setting", "")).startswith(DEFAULT_SETTING)
+                                         for v in e.get("process_values") or [])
+               for e in row.get("rules") or [])
+
+
+def preview(file: str, key: str, value: Any) -> dict[str, Any]:
+    """U4c: what the default `value` of the key would have changed, from the decision trace: every decision that read
+    the key, in a case or outside one, run again with the values it was made with and with `value` in place of the
+    key's; a decision a process's own value of the key decided is counted apart (`covered`), as a default would not
+    have reached it. Nothing is written, no AI is asked."""
+    from jav.app import process_settings
+
+    rule = _rule(file, key)
+    if problems := rule.problems(value):
+        raise explained(DefaultError, "the default cannot take this value: {{problems}}", problems="; ".join(problems))
+    rows, covered = [], 0
+    for row in trace.reading(trace.file_of(file), key):
+        if _process_own(row, file, key):
+            covered += 1
+        else:
+            rows.append(row)
+    return {"id": rule.id, "value": value, "file_value": rule.file_value(), "covered": covered,
+            **process_settings.replayed(rows, file, key, value)}

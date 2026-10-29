@@ -93,3 +93,21 @@ def test_the_service_names_the_active_defaults(db) -> None:
     rule_defaults.activate(FILE, KEY, 1, "anna")
     with TestClient(create_app(store_path=store.current_path()), base_url="http://127.0.0.1:8930") as c:
         assert c.get("/api/health").json()["own_defaults"] == [f"{FILE}.{KEY}"]
+
+
+def test_the_service_saves_tries_makes_active_and_sets_aside_a_default(db) -> None:
+    rid = "policy.bands.default.choice_human_max_conf"
+    with TestClient(create_app(store_path=store.current_path()), base_url="http://127.0.0.1:8930") as c:
+        human = {"X-Actor": "anna"}
+        listed = c.get("/api/defaults").json()
+        assert rid in {k["id"] for k in listed["keys"]} and listed["fixed"]["ocr.escalation.enabled"] == "cost"
+        assert c.post(f"/api/defaults/{rid}", headers=human, json={"value": 0.7, "note": "fewer to-dos"}).status_code == 201
+        assert c.post(f"/api/defaults/{rid}", headers=human, json={"value": 1.5}).status_code == 422
+        assert c.post("/api/defaults/recipes.max_item_usd_by_kind", headers=human, json={"value": 1}).status_code == 422
+        tried = c.post(f"/api/defaults/{rid}/preview", headers=human, json={"value": 0.7}).json()
+        assert tried["decisions"] == 0 and tried["covered"] == 0
+        on = c.post(f"/api/defaults/{rid}/versions/1/activate", headers=human, json={})
+        assert on.status_code == 200 and next(k for k in on.json()["keys"] if k["id"] == rid)["value"] == 0.7
+        assert c.post(f"/api/defaults/{rid}/versions/9/activate", headers=human, json={}).status_code == 404
+        assert c.post(f"/api/defaults/{rid}/retire", headers=human, json={}).status_code == 200
+        assert c.post(f"/api/defaults/{rid}/retire", headers=human, json={}).status_code == 409
