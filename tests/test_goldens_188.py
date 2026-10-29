@@ -393,3 +393,20 @@ def test_the_command_refuses_an_unknown_golden_set_and_a_paid_round_of_many(caps
     assert "nonsense" in capsys.readouterr().out
     assert cli.main(["measure", "types", "intents", "--jev-budget-usd", "0.01"]) == 2
     assert "one golden set" in capsys.readouterr().out
+
+
+def test_a_round_names_the_installation_s_active_defaults_it_does_not_read(monkeypatch, tmp_path, capsys):
+    """231 (U4; the owner's decision of 2026-10-29): a measurement reads the rule files, and says so when the work
+    store keeps an active default."""
+    from jav.app import registrations, rule_defaults
+    from jav.core import store
+
+    registrations.load_all()
+    _fake_round(monkeypatch)
+    with store.use_store(tmp_path / "work.sqlite"):
+        rule_defaults.propose("quotes", "draft.max_lines", 40, "anna")
+        rule_defaults.activate("quotes", "draft.max_lines", 1, "anna")
+        r = goldens.measure_round(goldens.select(["types"]), goldens.Options(), runs_dir=tmp_path)
+    head = json.loads(r.receipt.read_text(encoding="utf-8").splitlines()[0])
+    assert head["own_defaults"] == ["quotes.draft.max_lines"]
+    assert "own defaults of quotes.draft.max_lines; this measurement reads the rule files" in capsys.readouterr().out
