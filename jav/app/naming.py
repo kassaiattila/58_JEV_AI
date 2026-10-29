@@ -42,7 +42,7 @@ from pathlib import Path
 from typing import IO, Any
 
 from jav.app import item_kinds, work, work_runs
-from jav.core import cfg, store
+from jav.core import cfg, field_names, store
 
 log = logging.getLogger("jav.app.naming")
 
@@ -342,14 +342,13 @@ def review_reasons(name: Name, *, open_reasons: list[str], corrected: list[str] 
 def reason_text(codes: list[str] | tuple[str, ...]) -> str:
     """The review reasons as everyday words (the display language's labels from the configuration)."""
     labels = cfg.load("naming")["reason_labels"]
-    fields = cfg.load("field_labels")["fields"]
     out = []
     for code in codes:
         kind, _, rest = code.partition(":")
         if code == "todo:*":
             out.append(labels["todo_all"])
         elif kind in ("missing", "todo"):
-            out.append(labels[kind].format(field=fields.get(rest, rest)))
+            out.append(labels[kind].format(field=field_names.field_name(rest)))  # 231 (D4): the request's language
         elif kind in labels:
             out.append(labels[kind])
         else:
@@ -510,11 +509,10 @@ def _manifest(rows: list[tuple[NamedCopy, str, str]]) -> bytes:
 
     raw = cfg.load("naming")
     cols, status_labels = raw["manifest_columns"], raw["status_labels"]
-    doc_types = cfg.load("field_labels")["doc_types"]
     head = [cols[k] for k in ("path", "status", "why", "original", "source_path", "sha256", "doc_type", "item_id")]
     where = _shared_folder_paths([c.source_path for c, _status, _why in rows])
     body = [[c.path if status != "skipped" else "", status_labels[status], why, c.original, where[c.source_path], c.sha256,
-             doc_types.get(c.doc_type or "", c.doc_type or ""), c.item_id] for c, status, why in rows]
+             field_names.type_name(c.doc_type), c.item_id] for c, status, why in rows]  # 231 (D4): the request's language
     return export.csv_bytes(head, body)
 
 

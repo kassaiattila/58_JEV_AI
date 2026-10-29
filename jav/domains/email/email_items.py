@@ -14,7 +14,7 @@ from typing import Any
 
 
 from jav.app import item_kinds, work, work_runs
-from jav.core import decisions, identity, store
+from jav.core import decisions, display, field_names, identity, store
 from jav.domains.email import email_store
 from jav.core.user_messages import explained
 
@@ -153,16 +153,16 @@ def reads_text(next_flow: str | None) -> bool:
 
 
 def next_flow_labels() -> dict[str, str]:
-    """Hungarian names of the proposed next steps (058 K5.1): the fixed codes from `configs/datasets.json`, and "data
-    extraction from the attachment" per type, with the document type's name. The UI translates the same with its own
-    dictionary."""
+    """The names of the proposed next steps (058 K5.1): the fixed codes from `configs/datasets.json`, and "data
+    extraction from the attachment" per type, with the document type's name. 231 (D4): a fixed code's name is its English
+    source (shown in the request's language where it is displayed); a type's step is made in the request's language."""
     from jav.core import cfg
 
     out = dict(cfg.load("datasets")["labels"]["next_flow"])
-    for key, name in cfg.load("field_labels")["doc_types"].items():
+    for key in cfg.load("field_labels")["doc_types"]:
         # 192 (backlog Q-m2-label-text): a type that reads the email's own text too says so (the quote request)
-        out[f"m2:{key}"] = (f"Adatkinyerés a levélből és a csatolmányokból ({name})" if reads_text(f"m2:{key}")
-                            else f"Adatkinyerés a csatolmányból ({name})")
+        out[f"m2:{key}"] = display.text("Data extraction from the email and its attachments ({{what}})" if reads_text(f"m2:{key}")
+                                        else "Data extraction from the attachment ({{what}})", what=field_names.type_name(key))
     return out
 
 

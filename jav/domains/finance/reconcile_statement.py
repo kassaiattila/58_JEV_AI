@@ -46,7 +46,7 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from jav.app import naming, package_release, work
-from jav.core import activity_kinds, cfg, decisions, identity, store, values
+from jav.core import activity_kinds, cfg, decisions, display, identity, store, values
 from jav.domains.finance import reconcile_package as rp
 from jav.app.outputs import builtin, contract, templates
 from jav.core.user_messages import explained
@@ -295,6 +295,7 @@ def _invoice_table(st: dict[str, Any], lab: dict[str, Any]) -> tuple[list[str], 
             fields["fulfillment_date"], fields["due_date"], col["amount"], fields["currency"], fields["payment_method"],
             col["result"], col["allocated"], col["rest"], col["paid_on"], col["days_from_due"], col["overdue_days"],
             col["paid_by"], col["other_party"], col["source"], col["file"]]
+    head = [display.text(h) for h in head]  # 231 (D4): in the requesting interface's language
     kinds = [None] * 6 + ["money", None, None, None, "money", "money", None, "number", "number", None, None, None, None]
     rows = [[i["number"], i["supplier_name"], i["supplier_tax_id"], i["issue_date"], i["fulfillment_date"], i["due_date"],
              i["amount"], i["currency"], i["payment_method"], lab["invoice_results"].get(i["result"], i["result"]),
@@ -311,8 +312,9 @@ def _line_table(st: dict[str, Any], lab: dict[str, Any]) -> tuple[list[str], lis
             names["fields"]["currency"], cols["original_amount"], cols["original_currency"], cols["counterparty_name"],
             cols["counterparty_account"], cols["memo"], cols["description"], col["result"], col["reason"], col["note"],
             col["allocated"], col["rest"], col["pays"], col["statement_file"], col["statement_verified"]]
+    head = [display.text(h) for h in head]  # 231 (D4): in the requesting interface's language
     kinds = [None, None, None, None, "money", None, "money"] + [None] * 8 + ["money", "money", None, None, None]
-    rows = [[ln["booking_date"], ln["value_date"], ln["account"], cols.get(f"direction={ln['direction']}", ln["direction"]),
+    rows = [[ln["booking_date"], ln["value_date"], ln["account"], display.text(cols.get(f"direction={ln['direction']}", ln["direction"])),
              ln["amount"], ln["currency"], ln["original_amount"], ln["original_currency"], ln["counterparty_name"],
              ln["counterparty_account"], ln["memo"], ln["description"], lab["line_results"].get(ln["result"], ln["result"]),
              lab["reasons"].get(ln["reason"], ln["reason"]) if ln["reason"] else None, ln["note"], ln["allocated"], ln["rest"],

@@ -15,7 +15,7 @@ import pytest
 from jav import cli
 from jav.app import datasets, naming, work
 from jav.ai import typepack
-from jav.core import cfg, store
+from jav.core import cfg, display, store
 from jav.runtime import worker
 from tests import test_api
 from tests.test_api import HUMAN, _cli_json, _ready_wp, _start
@@ -170,7 +170,7 @@ def test_missing_fields_and_an_unknown_type_are_review_reasons():
 
 
 def test_review_texts_name_the_field_in_everyday_words():
-    labels = cfg.load("field_labels")["fields"]
+    labels = {k: display.text(v) for k, v in cfg.load("field_labels")["fields"].items()}  # 231 (D4): as shown
     text = naming.reason_text(["missing:invoice_number", "todo:supplier_name", "type", "todo:*", "not_done:failed"])
     assert labels["invoice_number"] in text and labels["supplier_name"] in text and ";" in text
 
@@ -254,7 +254,7 @@ def test_names_follow_the_corrections_and_uncertain_copies_go_to_review(env):
     body = c.post("/api/datasets/file_names/query", json={"scope": {"run_id": run_id}, "query": {}}).json()
     rows = {r["item_id"]: r for r in body["rows"]}
     assert rows[first]["filename"] == READY and rows[first]["status"] == "ready" and rows[first]["why"] is None
-    labels = cfg.load("field_labels")["fields"]
+    labels = {k: display.text(v) for k, v in cfg.load("field_labels")["fields"].items()}  # 231 (D4): as shown
     assert labels["invoice_number"] in rows[other.item_id]["why"]
     assert next(col for col in body["columns"] if col["key"] == "status")["labels"]["review"] == "Ellenőrzendő"
 

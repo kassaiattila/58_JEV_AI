@@ -80,6 +80,7 @@ _ENV_LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\
 PROMPTS_DIR = CONFIG_ROOT / "prompts"  # 209 (R2b): the instructions sent to a model are config data
 # 231 (F, D4): the interface's Hungarian dictionary, which the service's labels are displayed with too (jav/core/display.py)
 UI_HUNGARIAN = PROJECT_ROOT / "ui" / "src" / "i18n" / "hu-native.json"
+UI_ENGLISH = PROJECT_ROOT / "ui" / "src" / "i18n" / "en-native.json"
 RUNS_DIR = DATA_ROOT / "runs"
 CACHE_DIR = RUNS_DIR / "cache"  # JEV request-hash cache
 STORE_PATH = DATA_ROOT / "store" / "jav.sqlite"  # durable store (git-ignored, PII)

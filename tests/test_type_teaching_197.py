@@ -152,7 +152,7 @@ def test_the_registry_checklist_names_only_what_is_missing(tmp_path):
     (tmp_path / "tests" / "test_request_keys_190.py").write_text("", encoding="utf-8")
     todo = type_teaching.registry_entries(_draft(), root=tmp_path)
     assert len(todo) == 8  # its name, a new field (price), its own name of a shared one (issued), and five registries
-    assert any('"by_type": {"demo_taught": {"issued": "Kiállítva"}}' in t for t in todo)
+    assert any('"by_type": "demo_taught"' in t and '{"issued": "Kiállítva"}' in t and "hu-native.json" in t for t in todo)
     labels = {"fields": {"ticket_id": "Jegyazonosító", "issued": "Kelt", "price": "Ár"},
               "doc_types": {"demo_taught": "Demó (tanított)"}, "by_type": {"demo_taught": {"issued": "Kiállítva"}}}
     (tmp_path / "configs" / "field_labels.json").write_text(json.dumps(labels), encoding="utf-8")

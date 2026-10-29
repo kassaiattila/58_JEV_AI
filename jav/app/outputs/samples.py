@@ -15,7 +15,7 @@ from decimal import Decimal
 from typing import Any
 
 from jav.ai import typepack
-from jav.core import cfg, field_names
+from jav.core import cfg, display, field_names
 from jav.app.outputs import contract, markers as marker_names, parts
 
 SAMPLE_MONTHS = ("2026-01", "2026-02", "2026-03")
@@ -148,13 +148,13 @@ def data(output: str, parts: tuple[str, ...] | None = None) -> contract.OutputDa
                 pack = typepack.get(part)
                 for f in pack.header_fields:
                     columns[f] = pack.kind(f) if pack.kind(f) in ("money", "number", "date") else "text"
-                    heads[f] = field_label(f, part)
+                    heads[f] = display.text(field_label(f, part))  # 231 (D4): the preview in the request's language
             elif t.get("fields") == "type_pack_lists":
                 for p in parts:
                     for lf in typepack.get(p).list_fields.values():
                         for c, k in lf.items():
                             columns.setdefault(c, k if k in ("money", "number") else "text")
-                            heads.setdefault(c, field_label(c))
+                            heads.setdefault(c, display.text(field_label(c)))
             if "months" in t:
                 for m in SAMPLE_MONTHS:
                     columns[f"month_{m.replace('-', '_')}"] = t["months"]

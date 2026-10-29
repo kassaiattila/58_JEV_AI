@@ -211,9 +211,10 @@ PIN_RUN_FINGERPRINT = ("1|2026-10-08T10:00:00+00:00|1|1|1|None|0|dc937b59892604f
 
 
 def test_a_run_dataset_is_cached_by_store_name_and_scope(db) -> None:
-    assert datasets._key("documents", {"run_id": RUN}) == (str(store.active_path()), "documents", (("run_id", RUN),))
+    # 231 (D4): and by the display language, as some text cells are made in it
+    assert datasets._key("documents", {"run_id": RUN}) == (str(store.active_path()), "documents", (("run_id", RUN),), "hu")
     assert datasets._key("run_items", {"run_id": RUN, "names": "content"}) == (
-        str(store.active_path()), "run_items", (("names", "content"), ("run_id", RUN)))
+        str(store.active_path()), "run_items", (("names", "content"), ("run_id", RUN)), "hu")
     datasets.catalog()  # 185: complete with the domains' tables (`registrations.load_all`)
     assert {d.name: getattr(d.fingerprint, "__name__", None) for d in datasets.REGISTRY.values()
             if "run_id" in (*d.scope, *d.one_of)} == PIN_FINGERPRINTS

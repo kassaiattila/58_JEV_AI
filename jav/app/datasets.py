@@ -866,7 +866,8 @@ def rows(name: str, scope: dict[str, str] | None = None) -> Rows:
 
 
 def _key(name: str, sc: dict[str, str]) -> tuple:
-    return (str(store.active_path()), name, tuple(sorted(sc.items())))
+    # 231 (D4): rows per display language, as some text cells are made in it (a next step's name with its type's)
+    return (str(store.active_path()), name, tuple(sorted(sc.items())), display.current())
 
 
 def _rows(name: str, scope: dict[str, str] | None, *, stale_ok: bool) -> tuple[Rows, bool]:
@@ -902,10 +903,11 @@ def _rebuild_behind(key: tuple, ds: Dataset, sc: dict[str, str]) -> None:
     if key in _rebuilding:
         return
     path = store.active_path()
+    language = display.current()  # 231 (D4): a thread does not inherit the request's language
 
     def rebuild() -> None:
         try:
-            with store.use_store(path):
+            with store.use_store(path), display.use(language):
                 fp = ds.fingerprint(sc)  # type: ignore[misc] - only datasets with a fingerprint are kept
                 with store.session():
                     built = ds.build(sc)

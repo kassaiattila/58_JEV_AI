@@ -12,6 +12,7 @@ from __future__ import annotations
 from jav.ai import typepack
 from jav.app import datasets
 from jav.app.outputs import parts
+from jav.app.tablequery import shown
 from jav.core import cfg, field_names
 
 
@@ -23,7 +24,7 @@ def test_every_enumerated_value_of_a_field_has_a_name() -> None:
 
 
 def test_a_fields_value_names() -> None:
-    assert field_names.value_labels("statement_type") == {"bank_account": "bankszámla", "credit_card": "hitelkártya"}
+    assert field_names.value_labels("statement_type") == {"bank_account": "bank account", "credit_card": "credit card"}
     assert field_names.value_labels("supplier_name") == {}
 
 
@@ -39,7 +40,8 @@ def test_the_documents_column_of_an_enumerated_field_names_its_values(monkeypatc
     cols, rows = datasets._documents({"run_id": "run-1"})
     by_key = {c.key: c for c in cols}
     kind = by_key["f:statement_type"]
-    assert (kind.kind, kind.labels) == ("enum", {"bank_account": "bankszámla", "credit_card": "hitelkártya"})
+    assert (kind.kind, kind.labels) == ("enum", {"bank_account": "bank account", "credit_card": "credit card"})
+    assert shown(kind, "credit_card") == "hitelkártya"  # 231 (D4): the name is shown in the request's language
     assert rows[0]["f:statement_type"] == "credit_card"  # the code stays the value; the name is its label
     assert (by_key["f:account_no"].kind, by_key["f:account_no"].labels) == ("text", None)
 
@@ -50,5 +52,7 @@ def test_the_data_points_value_of_an_enumerated_field_is_its_name(monkeypatch) -
     monkeypatch.setattr(datasets, "linked_records", lambda scope: (lambda item: {"_run": "run-1", "_wp": "wp-1"}, [record]))
     cols, rows = datasets._datapoints({"run_id": "run-1"})
     values = {r["field"]: r["value"] for r in rows}
-    assert values == {"statement_type": "hitelkártya", "account_no": "10700000-00000000"}
-    assert next(c for c in cols if c.key == "value").labels == {"bankszámla": "bankszámla", "hitelkártya": "hitelkártya"}
+    assert values == {"statement_type": "credit card", "account_no": "10700000-00000000"}
+    value = next(c for c in cols if c.key == "value")
+    assert value.labels == {"bank account": "bank account", "credit card": "credit card"}
+    assert shown(value, "credit card") == "hitelkártya"  # 231 (D4): shown in the request's language

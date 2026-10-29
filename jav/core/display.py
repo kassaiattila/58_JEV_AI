@@ -20,7 +20,7 @@ from contextvars import ContextVar
 from functools import lru_cache
 from typing import Any, Iterator
 
-from jav.core.config import UI_HUNGARIAN
+from jav.core.config import UI_ENGLISH, UI_HUNGARIAN
 from jav.core.user_messages import fill
 
 LANGUAGES = ("hu", "en")
@@ -50,9 +50,16 @@ def _hungarian() -> dict[str, str]:
     return json.loads(UI_HUNGARIAN.read_text(encoding="utf-8"))
 
 
+@lru_cache(maxsize=1)
+def _english() -> dict[str, str]:
+    """The interface's English for its English sources: mostly the source itself, but a named variant (a source that
+    differs only to keep two Hungarian texts apart, e.g. "Issue date (field)") shows its plain English."""
+    return json.loads(UI_ENGLISH.read_text(encoding="utf-8"))
+
+
 def text(source: str, language: str | None = None, **params: Any) -> str:
-    """`source` in `language` (by default the request's): English as it is, Hungarian from the interface's dictionary
-    (a text it does not know stays as it is); each `{{name}}` filled from `params`."""
+    """`source` in `language` (by default the request's), from the interface's dictionaries (a text they do not know
+    stays as it is); each `{{name}}` filled from `params`."""
     chosen = language or current()
-    shown = source if chosen == "en" else _hungarian().get(source, source)
+    shown = (_english() if chosen == "en" else _hungarian()).get(source, source)
     return fill(shown, {k: str(v) for k, v in params.items()}) if params else shown

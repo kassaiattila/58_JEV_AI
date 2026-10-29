@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.144",
+    "version": "1.0.145",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.145",
+        "date": "2026-10-29",
+        "note": "baseline: 6219 -> 5976 Hungarian lines in 473 files; accepted: tests/test_proforma_invoice_122.py"
+      },
       {
         "version": "1.0.144",
         "date": "2026-10-29",
@@ -772,7 +777,7 @@
     "configs/fact_readings_allianz_property.json": 53,
     "configs/fact_readings_property.json": 7,
     "configs/facts_allianz_property.json": 1,
-    "configs/field_labels.json": 237,
+    "configs/field_labels.json": 4,
     "configs/golden_allianz_property_documents.json": 106,
     "configs/golden_products.json": 91,
     "configs/golden_property_documents.json": 161,
@@ -939,7 +944,7 @@
     "jav/documents/synthetic_pdf.py": 3,
     "jav/domains/email/email_datasets.py": 37,
     "jav/domains/email/email_export.py": 5,
-    "jav/domains/email/email_items.py": 9,
+    "jav/domains/email/email_items.py": 7,
     "jav/domains/email/email_tasks.py": 4,
     "jav/domains/email/emails.py": 4,
     "jav/domains/email/flow_email.py": 1,
@@ -1019,8 +1024,8 @@
     "tests/test_evals_quotes_190.py": 2,
     "tests/test_fact_claims_231.py": 4,
     "tests/test_fact_readings_231.py": 6,
-    "tests/test_field_names_197.py": 13,
-    "tests/test_field_value_labels_231.py": 4,
+    "tests/test_field_names_197.py": 6,
+    "tests/test_field_value_labels_231.py": 2,
     "tests/test_flow_statement_table_136.py": 2,
     "tests/test_gpt_reuse_090.py": 2,
     "tests/test_ingest_security.py": 8,
@@ -1058,6 +1063,7 @@
     "tests/test_product_set_231.py": 1,
     "tests/test_product_set_pdfs_231.py": 1,
     "tests/test_product_sources_231.py": 1,
+    "tests/test_proforma_invoice_122.py": 1,
     "tests/test_properties_067.py": 12,
     "tests/test_property_documents_231.py": 1,
     "tests/test_quick_review_speed_149.py": 1,
