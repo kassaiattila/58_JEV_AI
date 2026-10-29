@@ -27,7 +27,7 @@ export function ProductsPanel({ initial }: { initial?: string }) {
   if (registry.error) return <p className="notice error" role="alert">{registry.error.message}</p>;
   if (!registry.data) return <p className="muted">{t("Loading…")}</p>;
   const r = registry.data;
-  const views: [View, string, number | null][] = [["products", t("Products"), r.products.length], ["tariffs", t("Tariffs"), null],
+  const views: [View, string, number | null][] = [["products", t("Products"), r.products.length], ["tariffs", t("Tariffs"), r.tariffs.length],
     ["rules", t("Rules"), r.rules.length],
     ["documents", t("Condition documents"), r.documents.length], ["proposals", t("Proposals"), null]];
   const show = (v: View, ident: string) => { setView(v); setOpen({ view: v, ident }); };

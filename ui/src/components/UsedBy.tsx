@@ -16,9 +16,11 @@ export function UsedBy({ used, ident, cell = false }: { used: UsedByMap | null; 
   useLocale();
   if (!used) return null;
   const processes = used[ident] ?? [];
-  if (!processes.length) return <span className="muted small used-by">{t("No process uses it")}</span>;
+  // in a table's column the cell's own size, under a name the small line's
+  const size = cell ? "" : " small";
+  if (!processes.length) return <span className={`muted used-by${size}`}>{t("No process uses it")}</span>;
   return (
-    <span className="small used-by">
+    <span className={`used-by${size}`}>
       {cell ? null : <>{t("Used by:")}{" "}</>}
       {processes.map((p, i) => (
         <Fragment key={p.id}>
