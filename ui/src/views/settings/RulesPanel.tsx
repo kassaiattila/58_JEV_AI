@@ -4,13 +4,16 @@
 // A row stays within four lines (a title of up to two, what it decides in two); a decision's title opens its whole rule below the table: what it decides and what it
 // is not for, every value, the rule files with their versions and since when they are in use, and the count. The texts
 // are English source strings from `configs/rule_help.json`, translated here; a value's codes come as the interface's
-// own labels, an email's next step by its code (named as everywhere). Nothing on the page changes a rule; the price
-// lists and the output templates, which a person edits, are linked to their own pages.
+// own labels, an email's next step by its code (named as everywhere). The price lists and the output templates, which a
+// person edits, are linked to their own pages. 231 (U4d; the owner's decisions of 2026-10-29): the page is Settings ›
+// Defaults: a value on a decision's sheet may be given the installation's own value (`DefaultEditor`).
 import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import type { DsColumn, DsPage, DsRow } from "../../api";
+import { api, type Defaults, type DsColumn, type DsPage, type DsRow } from "../../api";
 import { DataTable } from "../../components/DataTable";
+import { useLoad } from "../../hooks";
 import { getLocale, t, useLocale } from "../../i18n";
 import { moneyText, nextFlowText, numText, when } from "../../labels";
+import { DefaultEditor } from "./DefaultEditor";
 
 type Step = { code: string; reads_text: boolean };
 export interface RuleValue {
@@ -87,8 +90,14 @@ function FilesCell({ files }: { files: RuleFile[] }) {
   );
 }
 
-function RuleSheet({ row, area, sheet, onClose }: { row: DsRow; area: string; sheet: RefObject<HTMLElement | null>; onClose: () => void }) {
+/** 231 (U4d): a value's default by its id (`<file>.<key>`, the file without its `.json`). */
+const defaultId = (v: RuleValue) => `${v.file.replace(/\.json$/, "")}.${v.key}`;
+
+function RuleSheet({ row, area, sheet, onClose, defaults, onDefaults }: {
+  row: DsRow; area: string; sheet: RefObject<HTMLElement | null>; onClose: () => void; defaults: Defaults | null; onDefaults: () => void;
+}) {
   const values = (row._values ?? []) as RuleValue[];
+  const byId = new Map((defaults?.keys ?? []).map((k) => [k.id, k]));
   const files = (row._files ?? []) as RuleFile[];
   const n = Number(row.decisions ?? 0);
   return (
@@ -114,6 +123,7 @@ function RuleSheet({ row, area, sheet, onClose }: { row: DsRow; area: string; sh
                     {(v.value as [string, Step][]).map(([intent, step]) => <li key={intent}>{t(intent)} → {stepText(step)}</li>)}
                   </ul>
                 ) : valueText(v)}
+                {defaults ? <DefaultEditor v={v} entry={byId.get(defaultId(v))} fixed={defaults.fixed[defaultId(v)]} onChanged={onDefaults} /> : null}
               </dd>
             </Fragment>
           ))}
@@ -141,6 +151,7 @@ export function RulesPanel() {
   useLocale();
   const [page, setPage] = useState<DsPage | null>(null);
   const [open, setOpen] = useState<DsRow | null>(null);
+  const defaults = useLoad("defaults", api.defaults);  // 231 (U4d): what the installation may set, and its own values
   const sheet = useRef<HTMLElement>(null);
   useEffect(() => { // the opened rule comes into view whole, and its title takes the focus (a screen reader reads it)
     if (!open) return;
@@ -173,7 +184,7 @@ export function RulesPanel() {
   return (
     <div className="rc-stack">
       <p className="page-summary">
-        {t("Each row is one kind of decision the system records: what it decides, the values it decides with, the version of its rule files in use, and how many decisions it has made. This page only reads: a rule changes with a new release of the application.")}
+        {t("Each row is one kind of decision the system records: what it decides, the values it decides with, the version of its rule files in use, and how many decisions it has made. Open a decision to set its values' defaults: a draft, tried on the earlier decisions, then made active; the cases that start after use it, and a process's own value still goes over it. A value that costs money stays the file's.")}
       </p>
       <p className="small muted">
         {t("You edit the price lists and the output templates yourself, on their own pages:")}{" "}
@@ -183,7 +194,7 @@ export function RulesPanel() {
         emptyText={t("No decision is described yet.")} />
       {open ? (
         <RuleSheet row={open} area={open.area ? t(areas[String(open.area)] ?? String(open.area)) : ""} sheet={sheet}
-          onClose={() => setOpen(null)} />
+          onClose={() => setOpen(null)} defaults={defaults.data ?? null} onDefaults={defaults.reload} />
       ) : <p className="muted small">{t("Choose a decision's title to read its whole rule.")}</p>}
     </div>
   );

@@ -563,6 +563,16 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .rule-values dt { color: var(--ink-2); }
 .rule-values dd { margin: 0; color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
 .rule-values dd .tight { font-weight: 400; }
+/* 231 (U4d): a value's default under it on the rule's sheet: a muted line whose own value it is, the form, its versions */
+.default-editor { display: grid; gap: var(--sp-2); margin-top: var(--sp-1); font-weight: 400; }
+.default-line { margin: 0; }
+.default-form { display: grid; gap: var(--sp-2); max-width: 720px; }
+.default-number { display: inline-flex; align-items: baseline; gap: var(--sp-2); }
+.default-number input { width: 10ch; }
+.default-set, .default-map { border: 0; padding: 0; margin: 0; display: grid; gap: var(--sp-1) var(--sp-4); min-width: 0; }
+.default-set { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.default-set legend, .default-map legend { padding: 0; margin-bottom: var(--sp-1); font-weight: 500; }
+.default-tried p { margin: 0; }
 .tight { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
 .tight.columns { display: block; columns: 3 220px; margin-top: 6px; }
 .param-doc { border-top: 1px solid var(--line-soft); padding-top: 10px; display: grid; gap: 6px; font-size: var(--fs-sm); }

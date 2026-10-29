@@ -85,7 +85,7 @@ describe("Settings › Rules (218)", () => {
 
   it("lists each decision within four lines: its title, what it decides, its values, its files and its count", async () => {
     render(<Settings section="rules" />);
-    expect(screen.getByRole("heading", { level: 2, name: hu["Rules"] })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: hu["Defaults"] })).toBeTruthy();  // 231 (U4d): named Defaults
     const open = await screen.findByRole("button", { name: hu[points["detect.doc_type"].title] });
     const tr = open.closest("tr") as HTMLElement;
     const cells = within(tr);
