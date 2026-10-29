@@ -9,8 +9,10 @@ processes), and set aside to bring the file's value back. A process's own value 
 A case keeps the defaults active at its start among its own values; work outside a case reads the active ones (the
 long-running processes name this module to the config reader, `cfg.use_defaults`). A measurement reads the files.
 
-- `editable()`: the keys a person may set, by id (`<file>.<key>`), each a `capabilities.RuleKey`; a key that changes
-  a paid request or a budget is never one.
+- `editable()`: the keys a person may set, by id (`<file>.<key>`), each a `capabilities.RuleKey`: the capabilities'
+  rule keys and (U4b) every value the rules view shows that its description (`configs/rule_help.json`, `edit`) lets a
+  person set; `fixed()`: the values it shows that stay the file's, with why (a cost or a budget, the catalogue's
+  structure, a number's format). A key that changes a paid request or a budget is never one.
 - `propose(file, key, value, actor, note=)`, `activate(file, key, version, actor)`, `retire(file, key, actor)`.
 - `active()`: the active defaults as a case keeps them ({file: {key: value}}, {file: {key: origin}}); `overlay_now()`:
   the same as an overlay for the config reader, read again at most every `REFRESH_S` seconds; `use()`: names it.
@@ -25,17 +27,19 @@ from __future__ import annotations
 import json
 import threading
 import time
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from jav.app import capabilities
-from jav.core import cfg, identity, store, versions
+from jav.core import cfg, completion, identity, store, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
-__all__ = ["DefaultError", "DefaultStateError", "REFRESH_S", "UnknownDefault", "activate", "active", "editable",
-           "overlay_now", "propose", "retire", "use", "view"]
+__all__ = ["DefaultError", "DefaultStateError", "FIXED", "REFRESH_S", "UnknownDefault", "activate", "active", "editable",
+           "fixed", "overlay_now", "propose", "register_options", "retire", "use", "view"]
 
 REFRESH_S = 2.0  # how stale a process's view of the active defaults may be (a case reads them afresh at its start)
+FIXED = ("cost", "structure", "format")  # U4b: why a value the rules view shows stays the file's
 
 store.register_schema("rule_defaults", """
 -- 231 (U4a): the installation's own value of a rule key, every change a version of its own
@@ -78,12 +82,95 @@ VERSIONS = versions.VersionTable("rule_default_versions", "default_id", UnknownD
 
 
 def editable() -> dict[str, capabilities.RuleKey]:
-    """The keys a person may set for the installation, by id: the rule keys the capabilities let a process set."""
+    """The keys a person may set for the installation, by id: the rule keys the capabilities let a process set and
+    (U4b) the values the rules view shows that their description lets a person set."""
     out: dict[str, capabilities.RuleKey] = {}
     for cap in capabilities.catalogue():
         for rule in cap.rule_keys:
             out.setdefault(rule.id, rule)
+    for rule in _declared()[0]:
+        out.setdefault(rule.id, rule)
     return out
+
+
+def fixed() -> dict[str, str]:
+    """U4b: the values the rules view shows that stay the file's, by id, with why (one of `FIXED`)."""
+    return dict(_declared()[1])
+
+
+def _file_value(file: str, key: str) -> Any:
+    with cfg.overlay(None):
+        node: Any = cfg.load(file)
+    for part in key.split("."):
+        node = node[part]
+    return node
+
+
+def _members(value: Any) -> list[str]:
+    """The option-like values a file value holds (a list's items, a map's values, or itself)."""
+    if isinstance(value, list):
+        return [str(v) for v in value]
+    if isinstance(value, dict):
+        return [str(v) for v in value.values()]
+    return [str(value)]
+
+
+def _doc_types() -> set[str]:
+    from jav.ai import doc_types, typepack
+
+    return set(typepack.keys()) | {t.key for t in doc_types.DOC_TYPES}
+
+
+def _fields() -> set[str]:
+    return set(cfg.load("field_labels")["fields"])
+
+
+# U4b: where a declaration's options come from (`options_from`), by name: the shared ones here, a domain's registered
+# by the domain (the email's routes and warning signs)
+_OPTIONS: dict[str, Callable[[], Iterable[str]]] = {"doc_types": _doc_types, "fields": _fields}
+
+
+def register_options(source: str, values: Callable[[], Iterable[str]]) -> None:
+    """A domain names the values a default's options may come from (a second registration replaces the first)."""
+    _OPTIONS[source] = values
+
+
+def _options_from(source: str) -> set[str]:
+    if source not in _OPTIONS:
+        completion.complete("rule_default_options")
+    if source not in _OPTIONS:
+        raise ValueError(f"no registry of options {source!r}")
+    return {str(v) for v in _OPTIONS[source]()}
+
+
+def _declared() -> tuple[list[capabilities.RuleKey], list[tuple[str, str]]]:
+    """U4b: the values the rules view shows, as keys a person may set (each with the options it may take, the file's
+    own values among them) and as values that stay the file's ((id, why)); a capability's own key is the capability's."""
+    with cfg.overlay(None):  # the files' values and the registries as released
+        return _declared_from(cfg.load("rule_help")["points"])
+
+
+def _declared_from(points: dict[str, Any]) -> tuple[list[capabilities.RuleKey], list[tuple[str, str]]]:
+    keys: list[capabilities.RuleKey] = []
+    kept: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for point in points.values():
+        for v in point["values"]:
+            file, key, edit = v["file"].removesuffix(".json"), v["key"], v.get("edit") or {}
+            rid = f"{file}.{key}"
+            if rid in seen or edit.get("kind") == "capability":
+                continue
+            seen.add(rid)
+            if "fixed" in edit:
+                kept.append((rid, str(edit["fixed"])))
+                continue
+            options: tuple[str, ...] = ()
+            if edit["kind"] in ("choice", "set", "map"):
+                found = set(edit.get("options") or ()) | (_options_from(edit["options_from"]) if "options_from" in edit else set())
+                options = tuple(sorted(found | set(_members(_file_value(file, key)))))
+            keys.append(capabilities.RuleKey(file, key, edit["kind"], v["label"], least=edit.get("least"),
+                                             most=edit.get("most"), options=options))
+    return keys, kept
 
 
 def _rule(file: str, key: str) -> capabilities.RuleKey:

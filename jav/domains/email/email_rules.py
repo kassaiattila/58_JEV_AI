@@ -49,6 +49,17 @@ def sent_route() -> str:
     return str(_CFG["sent_route"])
 
 
+def route_options() -> set[str]:
+    """231 (U4b): every route the email's rules name, the values an installation default of a route takes."""
+    routes = {str(v) for k, v in _CFG.items() if k.endswith("_route") and isinstance(v, str)}
+    return routes | {str(v) for v in INTENT_ROUTE.values()} | {str(v) for v in EMAIL_SIGNAL_ROUTES.values()}
+
+
+def signal_options() -> set[str]:
+    """231 (U4b): the warning signs the rules route, the values a default of the signals to review takes."""
+    return set(EMAIL_SIGNAL_ROUTES)
+
+
 def signal_review() -> tuple[str, ...]:
     """The signals whose yes band means a review."""
     return tuple(_CFG.get("signal_review", ()))

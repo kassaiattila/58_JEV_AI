@@ -56,7 +56,7 @@ import types
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from functools import lru_cache
 from typing import Any, Literal, Union, get_args, get_origin
 
@@ -284,6 +284,10 @@ class RuleKey:
 
     - `file`: a config name among the capability's `rule_files`; `key`: dotted, from the file's top.
     - `kind`: `int` (a whole number between `least` and `most`) or `choice` (one of `options`, as the file writes it).
+      231 (U4b): an installation default may be of more kinds (a capability's keys stay these two): `number` (a number
+      between `least` and `most`, a probability's band), `bool` (yes or no), `amount` (a decimal number written as
+      text, at least `least`), `set` (a list of distinct `options`, at least `least` of them) and `map` (the file's keys,
+      each one of `options`).
     - `what`: one English line (the interface translates it).
 
     A key that would change what is asked from a paid service, or a budget, is never one: those stay changes of the
@@ -292,10 +296,10 @@ class RuleKey:
 
     file: str
     key: str
-    kind: Literal["int", "choice"]
+    kind: Literal["int", "choice", "number", "bool", "amount", "set", "map"]
     what: str
-    least: int | None = None
-    most: int | None = None
+    least: float | None = None
+    most: float | None = None
     options: tuple[str, ...] = ()
 
     @property
@@ -317,6 +321,35 @@ class RuleKey:
                 return [f"{self.id} is a whole number"]
             if (self.least is not None and value < self.least) or (self.most is not None and value > self.most):
                 return [f"{self.id} is between {self.least} and {self.most}"]
+            return []
+        if self.kind == "number":
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                return [f"{self.id} is a number"]
+            if (self.least is not None and value < self.least) or (self.most is not None and value > self.most):
+                return [f"{self.id} is between {self.least} and {self.most}"]
+            return []
+        if self.kind == "bool":
+            return [] if isinstance(value, bool) else [f"{self.id} is yes or no"]
+        if self.kind == "amount":
+            try:
+                amount = Decimal(value) if isinstance(value, str) else None
+            except InvalidOperation:
+                amount = None
+            if amount is None or not amount.is_finite():
+                return [f"{self.id} is an amount written as text"]
+            return [] if self.least is None or amount >= Decimal(str(self.least)) else [f"{self.id} is at least {self.least}"]
+        if self.kind == "set":
+            if not isinstance(value, list) or len(set(map(str, value))) != len(value):
+                return [f"{self.id} is a list of distinct values"]
+            if unknown := [v for v in value if v not in self.options]:
+                return [f"{self.id} takes no {', '.join(map(str, unknown))}"]
+            return [] if self.least is None or len(value) >= self.least else [f"{self.id} holds at least {int(self.least)}"]
+        if self.kind == "map":
+            keys = set(self.file_value())
+            if not isinstance(value, dict) or set(value) != keys:
+                return [f"{self.id} names each of {', '.join(sorted(keys))} once"]
+            if wrong := sorted(k for k, v in value.items() if v not in self.options):
+                return [f"{self.id}: {', '.join(wrong)} is one of {', '.join(self.options)}"]
             return []
         return [] if value in self.options else [f"{self.id} is one of {', '.join(self.options)}"]
 
