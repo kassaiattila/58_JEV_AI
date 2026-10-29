@@ -43,7 +43,7 @@ from typing import Any
 from jav.documents import pdf as pdfmod
 from jav.core import cfg, trace
 from jav.documents import azure_di
-from jav.core.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, OLD_DATA_ROOT, PROJECT_ROOT
+from jav.core.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, DATA_ROOT, OLD_DATA_ROOT, PROJECT_ROOT
 from jav.documents.layout import LineLayout
 from jav.documents.pdf import PdfText, build_layout, text_layer_ok
 from jav.core.digest import file_sha256 as _sha256
@@ -90,7 +90,7 @@ def output_hash(conf: dict[str, Any]) -> str:
 CACHE_HASH = output_hash(_CFG)
 _TESS = _CFG["tesseract"]
 DPI: int = int(_CFG["dpi"])
-CACHE_DIR = PROJECT_ROOT / _CFG["cache_dir"]
+CACHE_DIR = DATA_ROOT / _CFG["cache_dir"]  # 231 (E2): written data
 LOW_CONF_WORD: float = float(_CFG["quality"]["low_conf_word"])
 _TSV_LEVEL_WORD = "5"
 

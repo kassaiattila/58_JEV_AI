@@ -44,9 +44,9 @@ from pathlib import Path
 from typing import Any
 
 from jav.core import path_text
-from jav.core.config import BRIDGE_DATA_ROOT, OLD_DATA_ROOT, PROJECT_ROOT
+from jav.core.config import BRIDGE_DATA_ROOT, OLD_DATA_ROOT, INBOX_ROOT as _INBOX_ROOT
 
-INBOX_ROOT = PROJECT_ROOT / "inbox"
+INBOX_ROOT = _INBOX_ROOT  # 231 (E2): under the start-up description's data folder
 WORKFLOW_HASH = "jav-m3-email-intent"
 TOKEN_ENV = "JAV_INGEST_TOKEN"
 MAX_BODY_BYTES = 2 * 1024 * 1024

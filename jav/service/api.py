@@ -43,7 +43,7 @@ from jav.service import local_picker
 from jav.app import app_settings, capabilities, corrections, package_release, rule_defaults, work, work_views
 from jav.ai import policy
 from jav.documents import isolated_pdf
-from jav.core import access, cfg, dates, numbers, store, version
+from jav.core import access, cfg, config, dates, numbers, store, version
 from jav.core.config import PROJECT_ROOT
 from jav.runtime import pdf_status, worker
 from jav.service.service_shared import ForbiddenPath, In, JavJSONResponse, UnknownUser, access_guard, error, settings
@@ -424,6 +424,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                 # 231 (an incident of 2026-10-25): what the config folder holds differently from the configs this
                 # service froze at start-up (None: it froze none); a mismatch names the files
                 "config_drift": _drift(),
+                "installation": config.INSTALLATION_ID,  # 231 (E2): the start-up description's (None: none named)
                 # 231 (U4a): the keys whose installation default is active (the rule files' values do not count there)
                 "own_defaults": sorted(f"{file}.{key}" for file, keys in rule_defaults.active()[0].items() for key in keys),
                 "pdf_protection": {
@@ -459,6 +460,7 @@ def serve(*, host: str | None = None, port: int | None = None) -> None:
     from jav.runtime import preload
     from jav.core import applog
 
+    store.check_installation()  # 231 (E2): another installation's store stops the start, before anything is written
     preload.preload()  # 091: all the code now, so later changes on disk cannot mix into the running service
     rule_defaults.use()  # 231 (U4a): the installation's defaults over the rule files, outside a case
     datasets.warm_up()  # 158: the package list is built in the background, so its first request does not wait 5-8 s

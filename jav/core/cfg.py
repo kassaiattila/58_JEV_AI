@@ -48,11 +48,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from jav.core.config import PROJECT_ROOT
+from jav.core.config import CONFIG_ROOT
 
 log = logging.getLogger(__name__)
 
-CONFIG_DIR = PROJECT_ROOT / "configs"
+CONFIG_DIR = CONFIG_ROOT  # 231 (E2): the start-up description's, by default configs/
 CALLSITE_DIR = CONFIG_DIR / "callsites"
 HASH_LEN = 16
 

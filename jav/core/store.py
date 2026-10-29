@@ -46,6 +46,49 @@ class StoreMissing(FileNotFoundError):
     """A read-only look (`read_only`) at a store that does not exist yet, e.g. in a fresh clone before the first run."""
 
 
+class ForeignStore(RuntimeError):
+    """231 (stage E, E2): the store belongs to another installation than the start-up description names."""
+
+
+INSTALLATION_KEY = "installation_id"  # E2: the `meta` row naming the installation a store belongs to
+
+
+def _installation_in(conn: sqlite3.Connection) -> str | None:
+    """The installation a store names (None: none yet, or a store with no tables yet)."""
+    try:
+        row = conn.execute("SELECT value FROM meta WHERE key=?", (INSTALLATION_KEY,)).fetchone()
+    except sqlite3.OperationalError:
+        return None
+    return row[0] if row else None
+
+
+def _expected_installation(path: str | Path) -> str | None:
+    """The installation the start-up description names, for the installation's own store only (a copy or a store a
+    command names says nothing of it)."""
+    from jav.core import config
+
+    return config.INSTALLATION_ID if Path(path) == STORE_PATH else None
+
+
+def _refuse_foreign(path: str | Path, found: str | None, expected: str) -> None:
+    if found is not None and found != expected:
+        raise ForeignStore(f"the store {path} belongs to the installation {found!r}, not to {expected!r} the start-up"
+                           " description names: nothing is written to it")
+
+
+def check_installation() -> None:
+    """E2: at a long-running process's start, read only: the installation's store, when it names another installation
+    than the start-up description, stops the start (`ForeignStore`); a new store, or one that names none yet, is
+    stamped when it is first set up."""
+    from jav.core import config
+
+    expected = config.INSTALLATION_ID
+    if expected is None or not STORE_PATH.is_file():
+        return
+    with read_only(), connect(STORE_PATH) as conn:
+        _refuse_foreign(STORE_PATH, _installation_in(conn), expected)
+
+
 @contextmanager
 def use_store(path: Path):
     """Run-local store, without switching the global one."""
@@ -259,11 +302,17 @@ def _set_up(conn: sqlite3.Connection, key: str, registry: tuple[str, ...]) -> No
     """The schema and the migrations of the store `key`, then its key. 231 (D-d4): a connection a migration opens
     meanwhile (one that loads a process pack, which reads a price list) does not set the same store up again inside it:
     it did, without end, whenever a module registered its tables after the store was first set up."""
+    expected = _expected_installation(key)
+    if expected is not None:  # 231 (E2): never a schema or a migration on another installation's store
+        _refuse_foreign(key, _installation_in(conn), expected)
     token = _setting_up.set(_setting_up.get() | {key})
     try:
         _initialize(conn)
     finally:
         _setting_up.reset(token)
+    if expected is not None:
+        conn.execute("INSERT OR IGNORE INTO meta(key, value) VALUES (?, ?)", (INSTALLATION_KEY, expected))
+        conn.commit()
     _initialized[key] = (conn.execute("PRAGMA schema_version").fetchone()[0], registry)
 
 

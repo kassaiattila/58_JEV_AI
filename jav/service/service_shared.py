@@ -28,7 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from jav.app import app_settings
 from jav.core import access, cfg, identity
-from jav.core.config import OLD_DATA_ROOT, PROJECT_ROOT
+from jav.core.config import DATA_ROOT, OLD_DATA_ROOT
 from jav.core.user_messages import explained
 
 
@@ -55,7 +55,7 @@ def allowed_roots() -> list[Path]:
     s = settings()
     if not paths_restricted():
         return []
-    roots = [PROJECT_ROOT / r for r in s["allowed_roots"]]
+    roots = [DATA_ROOT / r for r in s["allowed_roots"]]  # 231 (E2): the installation's data folder
     if s.get("allow_legacy_data_root"):
         roots.append(OLD_DATA_ROOT)
     extra = os.environ.get(s.get("extra_roots_env", ""), "")

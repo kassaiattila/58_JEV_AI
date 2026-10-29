@@ -23,9 +23,9 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from jav.core.config import ENV_FILE, ENV_SECRET_MIN_LEN, ENV_SECRET_NAME, PROJECT_ROOT, read_env_secrets
+from jav.core.config import ENV_FILE, ENV_SECRET_MIN_LEN, ENV_SECRET_NAME, LOG_DIR as _LOG_DIR, read_env_secrets
 
-LOG_DIR = PROJECT_ROOT / "runs" / "logs"
+LOG_DIR = _LOG_DIR  # 231 (E2): under the start-up description's data folder
 MAX_BYTES = 5_000_000
 BACKUPS = 5
 FORMAT = "%(asctime)s %(levelname)s %(name)s [%(process)d] %(message)s"

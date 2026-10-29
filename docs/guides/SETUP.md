@@ -87,6 +87,28 @@ The start-up check is green on a fresh clone too, once the hooks are installed (
 | `ui/node_modules/`, `ui/dist/` | user-interface dependencies and build | Yes: `npm ci` and `npm run build` recreate them |
 | `.venv/` | the Python environment | Yes, it can be rebuilt from the lockfile |
 
+### 5.1 A second installation: the start-up description
+
+By default everything above lies in the program's folder. A second installation on the same machine (for example an
+invented one to try something) gets its own folders through a start-up description: a JSON file that the environment
+variable `JAV_START` names, read before anything else.
+
+```json
+{"data": "D:/jav-minta", "installation": "minta-a", "configs": "D:/jav-minta/configs", "env": "D:/jav-minta/.env"}
+```
+
+- `data`: where the installation writes everything: `store/` (with the backups and the worker's files next to the
+  store), `runs/` (with the caches and the logs) and `inbox/`. The folder must exist.
+- `installation`: the installation's own name (3 to 64 lowercase letters, digits and hyphens). Its store is stamped with
+  it; a service or a worker started with a description naming another installation stops before it writes anything.
+- `configs` and `env` (optional): its own rule files (for example another port in `service.json`) and keys; by default
+  the program's.
+- A relative path is read from the description's folder. A description that cannot be read, names an unknown key or a
+  data folder that does not exist stops the start.
+
+Start the second installation's service and worker from a shell with `JAV_START` set (`python -m jav.cli serve --port
+<another port>` and `python -m jav.cli worker`); `scripts\dev.ps1` runs the installation of the program's own folder.
+
 ## 6. Backup, restore and logs
 
 **Plain-language summary:** the database (work packages, runs, corrections and decisions) can be backed up with one command, even while the local service is running. The backup also checks that the database is intact. It can run by itself every day at a set time (12:00 by default), and a verified copy can also go to a second location, such as a network drive; both places keep the last 14 daily backups. Manual backups (the command below, or Back up now on the System page) are kept apart, the last 14 of them, so they never push out a daily one. The daily backup also takes the internal working documents (handoffs, plans, reports, the backlog, the decisions log), because git does not track them, the copies the system keeps of the documents added to work packages, each only once, and this machine's local settings (`.env`: the keys and the second backup location), so the machine can be set up again from a backup alone. The state of the last backup is shown on the Settings › System page. Errors of the local service and the worker go to permanent log files, so the cause of a stop can be found later.

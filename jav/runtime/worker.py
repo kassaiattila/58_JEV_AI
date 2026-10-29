@@ -548,6 +548,7 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
     E1: it takes `slot` (counted from 0), or the first free one of the configured slots (`lock.AlreadyRunning` when it
     is, or every one is, taken). On a stop request made since it started (`request_stop`) it exits after finishing the
     item in progress; the last worker to stop clears the request."""
+    store.check_installation()  # 231 (E2): another installation's store stops the start, before anything is written
     worker = name or f"{socket.gethostname()}:{int(time.time())}"
     started = time.time()
     with _slot(slot) as mine, pdf_status.publish(store.current_path()):
