@@ -21,7 +21,8 @@ Operability. Visible only where it is switched on: Settings › Operations names
   store is stamped with its installation, and a service or worker started for another installation stops before it
   writes. Two installations can run on one machine (the setup guide says how).
 - **The store's order:** every write lock goes through one helper, the inserts take a form other databases read too,
-  and the schema version is read: a store a newer program set up stops an older one before it writes.
+  and the schema version is read: a store a newer program set up stops an older one before it writes. The service's
+  first requests and workers started together on a new store no longer fail with “database is locked”.
 - **Measuring:** a measurement has the shape of an OpenTelemetry span with no document text, request, response, file
   name or address in it; every paid or reading call is measured in one place, and `metrics` (off by default) writes
   the measurements into a local file.

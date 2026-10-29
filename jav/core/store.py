@@ -13,6 +13,7 @@ import functools
 import json
 import sqlite3
 import threading
+import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -36,6 +37,9 @@ _read_only: ContextVar[bool] = ContextVar("jav_read_only_store", default=False)
 # which the application uses. The test suite sets "OFF" (tests/conftest.py): its stores are temporary files, so a write
 # lost in a crash costs nothing there, while waiting for the disk took about a third of the suite's time.
 SYNCHRONOUS: str | None = None
+
+# 231 (stage E): how long a connection waits for the lock that switches a fresh store to WAL (`_wal`)
+WAL_WAIT_S = 30.0
 
 
 def tune(conn: sqlite3.Connection) -> None:
@@ -347,7 +351,7 @@ def _registry_key() -> tuple[str, ...]:
 
 def _initialize(conn: sqlite3.Connection) -> None:
     """Schema + additive migrations; idempotent."""
-    conn.execute("PRAGMA journal_mode=WAL")
+    _wal(conn)
     conn.executescript(_SCHEMA)
     for ddl in _EXTRA_SCHEMAS.values():
         conn.executescript(ddl)
@@ -366,6 +370,23 @@ def _initialize(conn: sqlite3.Connection) -> None:
                  " value=excluded.value WHERE CAST(meta.value AS INTEGER) < CAST(excluded.value AS INTEGER)",
                  (str(SCHEMA_VERSION),))
     conn.commit()
+
+
+def _wal(conn: sqlite3.Connection) -> None:
+    """Switches the store to WAL once. 231 (stage E): the switch needs the whole file, and SQLite does not wait for that
+    lock the way it waits for a write: processes and threads setting up a fresh store at the same moment (the service's
+    first requests, several workers started together) failed with "database is locked". A store already in WAL is
+    left as it is; a busy one is tried again until `WAL_WAIT_S`."""
+    deadline = time.monotonic() + WAL_WAIT_S
+    while True:
+        try:
+            if conn.execute("PRAGMA journal_mode").fetchone()[0].lower() != "wal":
+                conn.execute("PRAGMA journal_mode=WAL")
+            return
+        except sqlite3.OperationalError as exc:
+            if "locked" not in str(exc) or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.05)
 
 
 def _run_migrations(conn: sqlite3.Connection) -> None:

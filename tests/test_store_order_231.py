@@ -4,7 +4,8 @@ Every write lock goes through the store's shared helper, and no module writes an
 that ignores or replaces a row): a later database takes the same statements. The other SQLite-specific constructs
 (PRAGMA, sqlite_master, json_extract, instr, a direct connection) stay where they are and grow nowhere: their count per
 module is frozen here. The store records the newest program version that set it up; a store a newer program set up
-stops this one before it writes, and an older one is raised to this program's version. Temporary stores; nothing runs.
+stops this one before it writes, and an older one is raised to this program's version. Connections setting up a fresh
+store at the same moment all get it (they failed with "database is locked"). Temporary stores; nothing runs.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import re
 import sqlite3
+import threading
 from pathlib import Path
 
 import pytest
@@ -91,3 +93,28 @@ def test_a_store_a_newer_program_set_up_stops_this_one_before_it_writes(tmp_path
     with pytest.raises(store.SchemaTooNew):
         store.check_installation()
     assert _digest(path) == before
+
+
+def test_connections_setting_up_a_fresh_store_at_the_same_moment_all_get_it(tmp_path) -> None:
+    # before the switch to WAL waited, about half of these failed: 44 of 80 threads, 9 of 20 processes started together
+    for n in range(5):
+        db = tmp_path / f"s{n}.sqlite"
+        gate = threading.Barrier(8)
+        errors: list[Exception] = []
+
+        def one() -> None:
+            gate.wait()
+            try:
+                with store.connect(db) as c:
+                    c.execute("SELECT count(*) FROM meta").fetchone()
+            except sqlite3.OperationalError as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=one) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert errors == []
+        with sqlite3.connect(db) as c:
+            assert c.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
