@@ -76,12 +76,14 @@ describe("a step that runs a sub-case (231 U2c)", () => {
 
   it("says each sub-case's work: its documents, open to-dos and its live run", async () => {
     const invoices = data({ case: { id: SUB, name: "Invented March", status: "open", outcome: null, next: null,
-      work: [{ step: "process", title: "Process the documents", tab: "documents", documents: 4, todos: 3,
+      work: [{ step: "process", title: "Process the documents", tab: "documents", batch: "wp-00000000e231", documents: 4, todos: 3,
                run: { mode: "apply", status: "needs_review", approved: false } }] } });
     vi.spyOn(api, "casePage").mockResolvedValue(chain(invoices, data({ state: "waiting" })));
     render(<CasePage caseId={CHAIN} tab="overview" />);
     const card = await screen.findByRole("row", { name: "Incoming invoices" });
-    expect(within(card).getByText("4 documents · To-dos: 3 · Live: to-dos pending")).toBeTruthy();
+    expect(within(card).getAllByRole("cell")[1].textContent).toBe("4 documents · To-dos: 3 · Live: to-dos pending");
+    // 261 (B1c): the open to-dos lead to their review, under the sub-case's address
+    expect(within(card).getByRole("link", { name: "To-dos: 3" }).getAttribute("href")).toBe(`#/cases/${SUB}/batches/wp-00000000e231/review`);
     const [, work] = within(screen.getByRole("row", { name: "Reconciliation" })).getAllByRole("cell");
     expect(work.textContent).toBe("–");  // a step not started yet has no work to say
   });

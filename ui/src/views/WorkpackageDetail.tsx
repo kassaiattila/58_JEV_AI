@@ -11,7 +11,7 @@ import { useEvent, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { itemCountText, MODE, RUN_STATUS, stepLabel, tmap, when } from "../labels";
 import { partOf } from "../logic/packageParts";
-import { go, routeHash, type Route, type Stage } from "../route";
+import { batchOfCase, go, routeHash, wpHash, type Route, type Stage } from "../route";
 import { PackageItemsPanel } from "./PackageItems";
 import { ProcessStage } from "./ProcessStage";
 import { scopeText } from "./PackageScope";
@@ -100,6 +100,14 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   if (!wp.data) return <p className="muted">{t("Loading…")}</p>;
   const view = wp.data;
   if (view.case) return <CasePage caseId={view.case.id} />;  // 231 (A6): a case's container shows its case
+  // 261 (plan B, B1c; the owner's decision of 2026-10-29): a case's step's batch opens under its case's address, an
+  // older address of it leads there
+  const owner = view.owner_case;
+  if (owner) batchOfCase(wpId, owner.id);
+  if (owner && route.inCase !== owner.id) {
+    window.location.replace(routeHash({ ...route, inCase: owner.id }));
+    return <p className="muted">{t("Loading…")}</p>;
+  }
   const { workpackage, next, last_run: last } = view;
   const stage: Stage = route.stage ?? next.stage;
   const status = stageStatus(view);
@@ -128,24 +136,30 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   ) : <span className="next-hint">{t("Next step: {{step}}", { step: nextStepText(view) })}</span>;
 
   // U2a (the owner's decision of 2026-10-28: one work list): a case step's batch leads back to its case and step; any
-  // other batch to the list of every batch
-  const owner = view.owner_case;
-  const crumbs = owner
+  // other batch to the list of every batch. 261 (B1c): a sub-case's batch leads back to the main case too, by its name,
+  // and to the sub-case by the main case's step
+  const caseAt = (id: string, tab?: string | null) => routeHash({ view: "cases", caseId: id, tab: tab ?? undefined });
+  const main = owner?.parent;
+  const crumbs = main && owner
+    ? [{ label: t("Cases"), href: "#/cases" }, { label: main.name, href: caseAt(main.id, main.tab) },
+       { label: t(main.step_title), href: caseAt(owner.id, owner.tab) }]
+    : owner
     ? [{ label: t("Cases"), href: "#/cases" },
-       { label: owner.name, href: routeHash({ view: "cases", caseId: owner.id, tab: owner.tab ?? undefined }) },
+       { label: owner.name, href: caseAt(owner.id, owner.tab) },
        ...(owner.step_title ? [{ label: t(owner.step_title) }] : [])]
     : [{ label: t("All document batches"), href: "#/workpackages" }];
+  const back = main ? <a className="button secondary" href={caseAt(main.id, main.tab)}>{t("← Back to the main case")}</a> : null;
   return (
     <>
       <PageHeader compact crumbs={crumbs} title={workpackage.name}
         summary={<>{summary}{scopeOf}{workflowOf}</>}
-        actions={<><OwnerPicker view={view} onChanged={wp.reload} />{nextButton}<WorkpackageActions view={view} onChanged={wp.reload} /></>} />
+        actions={<>{back}<OwnerPicker view={view} onChanged={wp.reload} />{nextButton}<WorkpackageActions view={view} onChanged={wp.reload} /></>} />
       {workpackage.status === "archived" ? (
         <p className="notice">{t("This batch is hidden from the list; its runs and results are kept. Use “Manage batch” to bring it back.")}</p>
       ) : null}
       <div className="stage-tabs" role="tablist" aria-label={t("Document batch stages")}>
         {(Object.keys(labels) as Stage[]).map((s, i) => (
-          <a key={s} role="tab" aria-selected={stage === s} className={`stage-tab ${next.stage === s ? "is-next" : ""}`} href={`#/workpackages/${wpId}/${s}`}>
+          <a key={s} role="tab" aria-selected={stage === s} className={`stage-tab ${next.stage === s ? "is-next" : ""}`} href={wpHash(wpId, s)}>
             <span className="stage-no" aria-hidden="true">{i + 1}</span>
             <span className="stage-text"><strong>{labels[s]}</strong><span className="small">{status[s]}</span></span>
           </a>
@@ -169,7 +183,7 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
           ) : (
             <>
               <p className="notice">{t("No processing has run on this batch yet, so there is nothing to review. The documents can be opened and downloaded here; start the processing in the")}{" "}
-                <a href={`#/workpackages/${wpId}/process`}>{STAGE_LABEL.process}</a> {t("section.")}</p>
+                <a href={wpHash(wpId, "process")}>{STAGE_LABEL.process}</a> {t("section.")}</p>
               <PackageItemsPanel view={view} onChanged={wp.reload} />
             </>
           )

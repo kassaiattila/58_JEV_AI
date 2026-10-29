@@ -8,6 +8,7 @@ import { ApprovalStateNotes, EarlierVersions, ReturnControl } from "../component
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { fileName, MODE as MODE_OF_RUN, moneyText, providerName, RUN_STATUS, saidText, stepLabel, tmap, when } from "../labels";
+import { batchOfCase, wpHash } from "../route";
 import { handoverStatus, replyStatus, subCaseStatus } from "./caseStatus";
 import type { ElementProps } from "./registry";
 
@@ -322,14 +323,19 @@ export function StartedCases({ element }: ElementProps) {
 
 const OUTCOME = tmap({ done: "done", cancelled: "cancelled", gone: "deleted" });
 
-/** 261 (B1a): a sub-case's work in a few words: its documents, its current run's open to-dos and the run's state. */
-export function workText(work: NonNullable<SubCaseData["case"]>["work"]): string | null {
-  const parts = (work ?? []).flatMap((w) => [
-    w.documents != null ? t("{{n}} documents", { n: w.documents }) : null,
-    w.todos != null ? (w.todos ? t("To-dos: {{n}}", { n: w.todos }) : t("no to-dos")) : null,
-    w.run ? `${MODE_OF_RUN[w.run.mode] ?? w.run.mode}: ${(w.run.approved ? t("approved") : RUN_STATUS[w.run.status] ?? t(w.run.status)).toLowerCase()}` : null,
-  ]).filter(Boolean);
-  return parts.length ? parts.join(" · ") : null;
+/** 261 (B1a): a sub-case's work in a few words: its documents, its current run's open to-dos (B1c: leading to their
+ *  review, under the sub-case's address) and the run's state. */
+function WorkCell({ sub }: { sub: NonNullable<SubCaseData["case"]> }) {
+  const parts: ReactNode[] = (sub.work ?? []).flatMap((w) => {
+    if (w.batch) batchOfCase(w.batch, sub.id);
+    const todos = w.todos ? t("To-dos: {{n}}", { n: w.todos }) : t("no to-dos");
+    return [
+      w.documents != null ? t("{{n}} documents", { n: w.documents }) : null,
+      w.todos == null ? null : w.todos && w.batch ? <a key={`${w.step}-todos`} href={wpHash(w.batch, "review")}>{todos}</a> : todos,
+      w.run ? `${MODE_OF_RUN[w.run.mode] ?? w.run.mode}: ${(w.run.approved ? t("approved") : RUN_STATUS[w.run.status] ?? t(w.run.status)).toLowerCase()}` : null,
+    ];
+  }).filter((x) => x !== null);
+  return parts.length ? <>{parts.map((x, i) => <span key={i}>{i ? " · " : ""}{x}</span>)}</> : <>–</>;
 }
 
 /** 261 (plan B, B1b; the owner's decision of 2026-10-29: one sub-work table): a multi-step case's sub-cases as rows of
@@ -365,7 +371,7 @@ export function SubWorkTable({ rows }: { rows: ElementProps[] }) {
                   {next && sub ? <div className="small"><a href={at(sub.id, next.tab)}>{stepLabel(next.code, next.params, next.label)}</a></div> : null}
                   {why ? <div className="small muted">{why}</div> : null}
                 </td>
-                <td className="small">{workText(sub?.work) ?? "–"}</td>
+                <td className="small">{sub ? <WorkCell sub={sub} /> : "–"}</td>
                 <td>
                   {sub ? <a href={at(sub.id)}>{sub.name}</a> : "–"}
                   {d?.earlier.length ? (

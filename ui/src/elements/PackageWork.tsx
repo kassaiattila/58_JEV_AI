@@ -7,6 +7,7 @@ import type { PackageWorkView } from "../api";
 import { api } from "../api";
 import { useAction } from "../hooks";
 import { t, useLocale } from "../i18n";
+import { batchOfCase, wpHash } from "../route";
 import { RUN_STATUS, usdBudget } from "../labels";
 import { PackageIntake } from "./ProcessStart";
 import type { ElementProps } from "./registry";
@@ -32,7 +33,7 @@ export function PackageWork({ caseId, element, page, onChanged }: ElementProps) 
   const cap = capOf(data.estimate);
   const live = (data.runs ?? []).filter((r) => r.mode === "apply");
   const start = () => run(() => api.caseStepAction(caseId, stepId, "start_run"), { then: onChanged });
-  const base = `#/workpackages/${encodeURIComponent(pkg.id)}`;
+  batchOfCase(pkg.id, caseId);  // 261 (B1c): its pages open under the case's address
   return (
     <>
     <section className="card wide rc-stack" aria-label={t("The case's documents")}>
@@ -68,9 +69,9 @@ export function PackageWork({ caseId, element, page, onChanged }: ElementProps) 
         </ul>
       ) : null}
       <nav className="button-row" aria-label={t("The package's pages")}>
-        <a className="button secondary" href={`${base}/process`}>{t("Processing")}</a>
-        <a className="button secondary" href={`${base}/review`}>{t("Review")}</a>
-        <a className="button secondary" href={`${base}/result`}>{t("Result")}</a>
+        <a className="button secondary" href={wpHash(pkg.id, "process")}>{t("Processing")}</a>
+        <a className="button secondary" href={wpHash(pkg.id, "review")}>{t("Review")}</a>
+        <a className="button secondary" href={wpHash(pkg.id, "result")}>{t("Result")}</a>
       </nav>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
     </section>

@@ -12,6 +12,7 @@ import { Picker } from "../../components/Picker";
 import { getLocale, t, useLocale } from "../../i18n";
 import { docTypeLabel, intentLabel, intentOptions, nextFlowText, reasonText, TASK_ACTION, tmap, when } from "../../labels";
 import { Split } from "../../review/Split";
+import { wpHash } from "../../route";
 import { useResolve } from "../../review/useResolve";
 
 export function EmailReview({ data, onChanged, wpId }: { data: ItemResult; onChanged: () => void; wpId?: string }) {
@@ -89,7 +90,7 @@ export function EmailReview({ data, onChanged, wpId }: { data: ItemResult; onCha
               <div className="muted small">{t("Attachment data")}</div>
               <ul className="plain small">
                 {data.attachment_items.map((a) => (
-                  <li key={a.item_id}><a href={wpId ? `#/workpackages/${wpId}/review/${encodeURIComponent(a.item_id)}` : undefined}>{t("{{file}}: extraction result", { file: a.filename })} →</a></li>
+                  <li key={a.item_id}><a href={wpId ? wpHash(wpId, "review", a.item_id) : undefined}>{t("{{file}}: extraction result", { file: a.filename })} →</a></li>
                 ))}
               </ul>
             </div>

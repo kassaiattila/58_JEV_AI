@@ -89,7 +89,8 @@ describe("the case page's document processing element (231 C3b3)", () => {
     await waitFor(() => expect(p.onChanged).toHaveBeenCalled());
     const pages = screen.getByRole("navigation", { name: "The batch's pages" });
     expect([...pages.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(
-      [`#/workpackages/${WP}/process`, `#/workpackages/${WP}/review`, `#/workpackages/${WP}/result`]);
+      // 261 (B1c): under the case's address
+      [`#/cases/${CASE}/batches/${WP}/process`, `#/cases/${CASE}/batches/${WP}/review`, `#/cases/${CASE}/batches/${WP}/result`]);
   });
 
   it("lists the live runs once one has started, and offers no second start", () => {

@@ -618,7 +618,7 @@ def _package_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) ->
                                        "kind": wp["source_kind"]}, "runs": runs, "can_start": False,
                            # C3d (the owner's decision of 2026-10-26): the processes that read it (the email routing)
                            "offers": intake.package_offers(wp),
-                           "brief": {"documents": len(wp["items"]),
+                           "brief": {"batch": wp_id, "documents": len(wp["items"]),
                                      "todos": current["open_reasons"] if current else None,
                                      "run": {"mode": current["mode"], "status": current["status"],
                                              "approved": bool(current["approval"])} if current else None}}

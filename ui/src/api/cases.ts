@@ -53,6 +53,8 @@ export interface PackageWorkView {
 /** 261 (B1a): what an element gives a parent case to show of its step's work: its documents, its current run's open
  *  to-dos (null before a run) and state (`jav/app/case_views.py` `briefs`). */
 export interface StepBrief {
+  /** 261 (B1c): the step's batch, whose review a parent's row opens */
+  batch?: string;
   documents?: number; todos?: number | null; run?: { mode: string; status: string; approved: boolean } | null;
 }
 /** One step of a case: its capability, how it starts, its state in the process core, whether it waits for a person's

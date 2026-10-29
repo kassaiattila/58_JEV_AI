@@ -12,7 +12,7 @@ import { DatasetPicker, runOption } from "../components/DatasetPicker";
 import { ACTIVE_RUN, useLoad, useRunView } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { nextFlowText, tmap, when } from "../labels";
-import { go, type ResultTable } from "../route";
+import { go, wpHash, type ResultTable } from "../route";
 import { resultTables } from "../logic/resultTables";
 import { Icon } from "../components/Icon";
 import { EngineMark } from "../components/EngineMark";
@@ -47,7 +47,7 @@ export function ResultStage({ view, table, runId, onChanged }: {
   useLocale();
   const wp = view.workpackage;
   if (!view.runs) {
-    return <div className="empty">{t("No result yet: first run the document batch in the")} <a href={`#/workpackages/${wp.id}/process`}>{t("Processing")}</a> {t("in the section.")}</div>;
+    return <div className="empty">{t("No result yet: first run the document batch in the")} <a href={wpHash(wp.id, "process")}>{t("Processing")}</a> {t("in the section.")}</div>;
   }
   return runId ? <RunResult view={view} table={table} runId={runId} />
     : <PackageResultStage view={view} table={table} onChanged={onChanged} />;
@@ -419,7 +419,7 @@ function RunState({ runId, wpId }: { runId: string; wpId: string }) {
       ) : null}
       {run.data.rule_changes ? <RuleChangeNote changes={run.data.rule_changes} /> : null}
       {state === "ready" ? (
-        <a className="secondary small-btn" href={`#/workpackages/${encodeURIComponent(wpId)}/result`}>{t("To the package's result")}</a>
+        <a className="secondary small-btn" href={wpHash(wpId, "result")}>{t("To the package's result")}</a>
       ) : null}
     </div>
   );

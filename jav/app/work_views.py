@@ -185,7 +185,8 @@ def workpackage_view(wp_id: str) -> dict[str, Any]:
 
 def _owner_case(wp_id: str) -> dict[str, Any]:
     """231 (U2a; the owner's decision of 2026-10-28: one work list, the cases): the case and the step a case step's
-    package belongs to, with the case's tab that shows the step, so the package's page leads back to its case."""
+    package belongs to, with the case's tab that shows the step, so the package's page leads back to its case. 261 (B1c):
+    `parent`, the case that case is a sub-case of (its tab that shows the step), so the page leads back to it too."""
     from jav.app import document_processing, process_runtime
 
     owner = document_processing.owner_of(wp_id)
@@ -195,8 +196,10 @@ def _owner_case(wp_id: str) -> dict[str, Any]:
     pack = process_runtime.pack_for(case_id)
     step = next((s for s in pack.steps if s.id == step_id), None) if pack else None
     tab = next((tab.id for tab in pack.screens.tabs for e in tab.elements if e.step == step_id), None) if pack else None
+    parent = process_runtime.parent_of(case_id)
     return {"owner_case": {"id": case_id, "name": work.get(case_id)["name"], "step": step_id,
-                           "step_title": step.title if step else None, "tab": tab}}
+                           "step_title": step.title if step else None, "tab": tab,
+                           "parent": {k: parent[k] for k in ("id", "name", "step_title", "tab")} if parent else None}}
 
 
 def _workpackage_view(wp_id: str) -> dict[str, Any]:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav.app import case_views, process_runtime, registrations
+from jav.app import case_views, document_processing, process_runtime, registrations, work_views
 from jav.core import store
 from jav.core.process import cases, engine
 from tests.statement_pdf import pdf_lines_as_text
@@ -55,8 +55,10 @@ def test_a_sub_case_says_what_its_document_step_holds_before_a_run(db) -> None:
     for _ in range(2):
         engine.turn(invoices, wake=True)
     work = _sub_cases(case)["invoices"]["case"]["work"]
-    assert work == [{"step": "process", "title": work[0]["title"], "tab": "documents", "documents": 2, "todos": None,
-                     "run": None}]
+    batch = work[0]["batch"]
+    assert batch == document_processing.package_of(invoices, "process")
+    assert work == [{"step": "process", "title": work[0]["title"], "tab": "documents", "batch": batch, "documents": 2,
+                     "todos": None, "run": None}]
 
 
 def test_a_sub_case_says_its_live_runs_state_once_it_started(db) -> None:
@@ -72,6 +74,17 @@ def test_a_sub_cases_page_names_the_parents_tab_it_leads_back_to(db) -> None:
     case = _monthly(db)
     parent = case_views.view(_sub(case, "invoices"))["case"]["parent"]
     assert {k: parent[k] for k in ("id", "step", "tab")} == {"id": case, "step": "invoices", "tab": "overview"}
+
+
+def test_a_sub_cases_batch_leads_back_to_its_case_and_the_case_it_is_part_of(db) -> None:
+    case = _monthly(db)
+    invoices = _sub(case, "invoices")
+    for _ in range(2):
+        engine.turn(invoices, wake=True)
+    owner = work_views.workpackage_view(document_processing.package_of(invoices, "process"))["owner_case"]
+    assert owner["id"] == invoices and owner["tab"] == "documents"
+    assert owner["parent"] == {"id": case, "name": "Invented March", "step_title": owner["parent"]["step_title"],
+                               "tab": "overview"}
 
 
 def test_an_element_without_a_brief_gives_none() -> None:
