@@ -11,7 +11,7 @@
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "kiszervezés a Python-konstansokból (ROADMAP §1 konfig mint adat); tartalom változatlan"
+    "note": "moved out of the Python constants (ROADMAP §1 config as data); the content unchanged"
    }
   ]
  },

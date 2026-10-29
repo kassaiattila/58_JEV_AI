@@ -56,32 +56,32 @@
    {
     "version": "1.5.0",
     "date": "2026-09-28",
-    "note": "058 K5.2 (döntés 2026-09-28: automatikus lánc): a levél-szándék recept 2. változata több tétel-fajtát kezel (flows): a levélen a szándék-felismerés, a levél PDF-csatolmányán (a csomagban a levélre mutató irat) a teljes irat-feldolgozás; tételkeret fajtánként (max_item_usd_by_kind: levél JEV 0,05; csatolmány JEV 0,07 + OpenAI 0,10 USD). 058 K5.3: új paraméter `tasks` (off / propose, alapból off - aktiválás felhasználói döntéssel): feladatjavaslat a levélen; bekapcsolva levelenként +0,006 USD OpenAI keret (param_item_usd)"
+    "note": "058 K5.2 (decision of 2026-09-28: an automatic chain): the email intent recipe's version 2 handles several item kinds (flows): the intent recognition on the email, the whole document processing on its PDF attachment (a document in the batch pointing to the email); an item budget by kind (max_item_usd_by_kind: email JEV 0.05; attachment JEV 0.07 + OpenAI 0.10 USD). 058 K5.3: a new parameter `tasks` (off / propose, off by default - turned on by the owner's decision): task proposals on the email; when on, +0.006 USD OpenAI budget per email (param_item_usd)"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-27",
-    "note": "040 K3: jev_cache paraméter (reuse = korábbi JEV-válasz újrahasználható; live = gyorsítótár olvasása nélkül, minden hívás a hívásnaplón és a kereten át). Az élő próbához kell; a recept 2-es verziója."
+    "note": "040 K3: the jev_cache parameter (reuse = an earlier JEV answer may be reused; live = without reading the cache, every call through the call log and the budget). Needed for the live trial; the recipe's version 2."
    },
    {
     "version": "1.0.0",
     "date": "2026-09-27",
-    "note": "040 K1: a folyamatrecept-katalógus (a V4 flows/business-workflows.json szerkezete); első recept a számla-kivonatolás (040/3 döntés)"
+    "note": "040 K1: the catalogue of process recipes (the structure of the V4 flows/business-workflows.json); the first recipe is invoice extraction (decision 040/3)"
    },
    {
     "version": "1.2.0",
     "date": "2026-09-28",
-    "note": "047 T1.3: új recept document-processing - felismerés (durva + részletes típus), majd a részletes típus csomagjával kinyerés; a kar a kért, ha a csomag támogatja (a régi típusokból átalakított csomagok csak G); tételkeret mindkét karnál JEV 0,07 + OpenAI 0,10 USD, mert a G-kar a csomag miatt S kérésnél is előfordulhat"
+    "note": "047 T1.3: a new recipe, document-processing - recognition (broad and detailed type), then extraction with the detailed type's pack; the path the one asked for if the pack supports it (the packs converted from legacy types run G only); an item budget of JEV 0.07 + OpenAI 0.10 USD on both paths, as the G path may run on an S request because of the pack"
    },
    {
     "version": "1.3.0",
     "date": "2026-09-28",
-    "note": "048 T2: új recept email-intent - levél-szándék (a régi 11 szándék) a postafiókból letöltött leveleken; a PDF-csatolmányokon iratfelismerés; tétel = a levél message.json-ja; tételkeret JEV 0,05 USD (szándék + csatolmányok felismerése)"
+    "note": "048 T2: a new recipe, email-intent - the email intent (the legacy 11 intents) on the emails downloaded from a mailbox; document recognition on the PDF attachments; an item = the email's message.json; an item budget of JEV 0.05 USD (the intent and the attachments' recognition)"
    },
    {
     "version": "1.4.0",
     "date": "2026-09-28",
-    "note": "053 T3.1 (döntés 2026-09-28: A út): a kar alapértéke auto = az irattípus csomagjának ajánlott útja (közmű: G, mert a fejadatot és a tételeket egy GPT-hívás adja; magyar számla: S); a kifejezett S / G kérés megmarad; az auto kar tételkerete a G-karé"
+    "note": "053 T3.1 (decision of 2026-09-28: option A): the path's default auto = the recommended path of the document type's pack (utility: G, as one GPT call gives the header data and the line items; Hungarian invoice: S); an explicit S or G request stays; the auto path's item budget is the G path's"
    }
   ]
  },

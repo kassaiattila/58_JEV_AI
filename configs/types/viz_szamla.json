@@ -11,17 +11,17 @@
    {
     "version": "1.3.0",
     "date": "2026-09-28",
-    "note": "053 (döntés 2026-09-28): a vat_consistency (nettó + ÁFA = bruttó) csak jelzés (review: false) - az összesítő fedőlapján nincs nettó és ÁFA, ezért a T3.4 mérésen mind a 6 iraton teendőt nyitott; a tételösszeg-ellenőrzés továbbra is teendőt nyit"
+    "note": "053 (decision of 2026-09-28): vat_consistency (net + VAT = gross) only a mark (review: false) - the summary's cover sheet has no net and VAT, so it opened a to-do on all 6 documents of measurement T3.4; the items' sum check still opens a to-do"
    },
    {
     "version": "1.2.0",
     "date": "2026-09-28",
-    "note": "053 T3.0/T3.2: számlatételek - line_items tételes lista a GPT-séma tétel-mezőivel (a prompt és a séma változatlan, a kinyerés költsége nem nő); tétel-ellenőrzések kódban: line_items_total (tételösszeg = végösszeg) és line_items_arithmetic (soronként mennyiség × egységár ≈ nettó, nettó × (1 + ÁFA-kulcs) ≈ bruttó); a soronkénti számtan itt csak jelzés (review: false, döntés 2026-09-28): egy visszatérő, időarányos havidíj-tétel egységára nem a mennyiségre vonatkozik, a 10 tárolt eredmény mindegyikén jelezne"
+    "note": "053 T3.0/T3.2: invoice line items - the line_items list with the GPT schema's item fields (the prompt and the schema unchanged, the extraction costs no more); line item checks in code: line_items_total (the items' sum = the total) and line_items_arithmetic (per row quantity × unit price ≈ net, net × (1 + VAT rate) ≈ gross); the per-row arithmetic is only a mark here (review: false, decision of 2026-09-28): a recurring, pro rata monthly fee item's unit price does not refer to the quantity, so it would mark every one of the 10 stored results"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "047 T1.2: parent + a régi detect.json kulcsszavai a részletes típus kiválasztásához (forrás: 10_AIFLOW_V4/flows/doc-extract-bare/types/viz_szamla/detect.json, sha256 7f3e0b378188ec21); a kinyerés változatlan"
+    "note": "047 T1.2: parent and the legacy detect.json's keywords for choosing the detailed type (source: 10_AIFLOW_V4/flows/doc-extract-bare/types/viz_szamla/detect.json, sha256 7f3e0b378188ec21); the extraction unchanged"
    },
    {
     "version": "1.0.0",

@@ -110,7 +110,7 @@ def run_ui_checks(folder: Path | None = None, *, ui_dir: Path = UI_DIR) -> tuple
     tsc = subprocess.run([npx, "tsc", "--noEmit"], cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if tsc.returncode != 0:
         first = next((ln for ln in (tsc.stdout or "").splitlines() if ln.strip()), "tsc hiba")
-        return False, f"típusellenőrzés: {first[:160]}"
+        return False, f"type check: {first[:160]}"
     node = shutil.which("node")
     for extra in (["--audit"], []):
         if node is None:
@@ -118,7 +118,7 @@ def run_ui_checks(folder: Path | None = None, *, ui_dir: Path = UI_DIR) -> tuple
         i18n = subprocess.run([node, "scripts/check-i18n.mjs", *extra], cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace")
         if i18n.returncode != 0:
             last = [ln for ln in (i18n.stderr or "").splitlines() if ln.strip()]
-            return False, f"fordítás: {(last[-1] if last else 'check-i18n hiba')[:160]}"
+            return False, f"translations: {(last[-1] if last else 'check-i18n error')[:160]}"
     folder = folder or log_folder()
     junit = folder / "vitest-junit.xml"
     r = subprocess.run(
@@ -127,7 +127,7 @@ def run_ui_checks(folder: Path | None = None, *, ui_dir: Path = UI_DIR) -> tuple
     )
     (folder / "vitest.txt").write_text((r.stdout or "") + (f"\n--- stderr ---\n{r.stderr}" if r.stderr else ""), encoding="utf-8")
     tests = next((ln.strip() for ln in (r.stdout or "").splitlines() if ln.strip().startswith("Tests")), "")
-    summary = f"típusellenőrzés és fordítás OK; {re.sub(r'\s+', ' ', tests) or 'vitest: nincs összegzés'}"
+    summary = f"type check and translations OK; {re.sub(r'\s+', ' ', tests) or 'vitest: no summary'}"
     if r.returncode != 0:
         failed = _failed_ui_tests(junit)
         if failed:
@@ -163,12 +163,12 @@ def newest_watched_mtime() -> float:
 def handoff_status() -> tuple[bool, str]:
     handoff, num = latest_handoff()
     if handoff is None:  # 070: the handoff is an internal document, absent in a fresh clone - a notice, not an error
-        return True, "nincs helyi átadó a docs/handoffs/ alatt (belső munkaanyag; friss klón?)"
+        return True, "no local handoff under docs/handoffs/ (internal working documents; a fresh clone?)"
     minutes = (newest_watched_mtime() - handoff.stat().st_mtime) / 60
     rel = handoff.relative_to(PROJECT_ROOT).as_posix()
     if minutes > 60:  # decision 040/4: a handoff is due only at session end / stage close, so a notice, not an error
-        return True, f"{rel} - a kód {minutes:.0f} perccel frissebb; session végén írd meg a {num + 1:03d}-at"
-    return True, f"{rel} (friss; következő sorszám: {num + 1:03d})"
+        return True, f"{rel} - the code is {minutes:.0f} minute(s) newer; write {num + 1:03d} at the end of the session"
+    return True, f"{rel} (fresh; next number: {num + 1:03d})"
 
 
 def data_guard_status() -> tuple[bool, str]:
@@ -179,11 +179,11 @@ def data_guard_status() -> tuple[bool, str]:
     try:
         found = data_guard.scan_tracked(PROJECT_ROOT, data_guard.load_guard(PROJECT_ROOT))
     except data_guard.DataGuardError as e:
-        return True, f"nem ellenőrizhető ({e})"
+        return True, f"cannot be checked ({e})"
     stop = data_guard.blocking(found)
-    parts = [f"{len(stop)} megállító, {len(found) - len(stop)} tűrt találat a verziókövetett fájlokban"]
+    parts = [f"{len(stop)} blocking, {len(found) - len(stop)} tolerated finding(s) in the tracked files"]
     if stop:
-        parts.append("átnézés: python -m jav.cli data-guard")
+        parts.append("review: python -m jav.cli data-guard")
     installed = data_guard.hooks_installed(PROJECT_ROOT)
     if not installed:
         parts.insert(0, "a horgok nincsenek bekapcsolva (python -m jav.cli hooks-install)")
@@ -213,7 +213,7 @@ def preflight(*, skip_pytest: bool = False) -> int:
     if not skip_pytest:
         (ok, summary), ui = run_tests(log_folder())
         results.append(("pytest", ok, summary))
-        results.append(("felület", ui[0], ui[1]) if ui else ("felület", True, "kihagyva (ui/node_modules nincs telepítve)"))
+        results.append(("interface", ui[0], ui[1]) if ui else ("interface", True, "skipped (ui/node_modules is not installed)"))
 
     lint = flow_lint_summary()
     results.append(("kontrakt-lint", all(ok for _, ok, _ in lint), ", ".join(f"{n}: {'PASS' if ok else f'FAIL({f})'}" for n, ok, f in lint)))
@@ -230,10 +230,10 @@ def preflight(*, skip_pytest: bool = False) -> int:
     results.append(("handoff", ok, msg))
 
     g = devstate.git_state()
-    results.append(("git", True, g.line() if g else "nem git-repó / git nem érhető el"))
+    results.append(("git", True, g.line() if g else "not a git repository / git is not available"))
 
     ok, msg = data_guard_status()
-    results.append(("adatőr", ok, msg))
+    results.append(("data guard", ok, msg))
 
     ok, msg = lang_guard_status()
     results.append(("language guard", ok, msg))
@@ -258,5 +258,5 @@ def preflight(*, skip_pytest: bool = False) -> int:
     print(f"# preflight ({time.perf_counter() - t0:.1f} s)\n")
     for name, ok, detail in results:
         print(f"- {'OK  ' if ok else 'FAIL'} {name}: {detail}")
-    print(f"\nÁllapot-pillanatkép: {STATE_PATH.relative_to(PROJECT_ROOT).as_posix()} · teendők: docs/BACKLOG.md · döntések: docs/DECISIONS.md")
+    print(f"\nState snapshot: {STATE_PATH.relative_to(PROJECT_ROOT).as_posix()} · backlog: docs/BACKLOG.md · decisions: docs/DECISIONS.md")
     return 0 if all(ok for _, ok, _ in results) else 1

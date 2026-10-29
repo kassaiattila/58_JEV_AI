@@ -27,8 +27,8 @@ const EMPTY: DsPage = {
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("iratköteg szakaszai", () => {
-  it("cím nélkül a következő lépés szakaszánál nyílik; a szakaszok állapottal, a fejléc gombja a következő lépés", async () => {
+describe("a document batch's sections", () => {
+  it("without an address it opens at the next step's section; the sections with their state, the header's button the next step", async () => {
     vi.spyOn(api, "workpackage").mockResolvedValue(view());
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [] });
     vi.spyOn(api, "datasetQuery").mockResolvedValue(EMPTY);
@@ -41,7 +41,7 @@ describe("iratköteg szakaszai", () => {
     expect(screen.getByRole("button", { name: "Újrafuttatás…" }).hasAttribute("disabled")).toBe(true); // there is nothing to repeat
   });
 
-  it("a szakaszok állapota a legutóbbi futásból", () => {
+  it("the sections' state from the latest run", () => {
     const run = { run_id: "run-000000000001", workpackage_id: "wp-1", workpackage_name: "x", recipe_id: "r", recipe_version: 1, mode: "shadow" as const,
       status: "needs_review", approval: null, approved_by: null, actor: "a", created_at: "", finished_at: null, items: 49, items_done: 49, open_reasons: 53 };
     const st = stageStatus(view({ last_run: run, runs: 1 }));
@@ -54,8 +54,8 @@ describe("iratköteg szakaszai", () => {
   });
 });
 
-describe("a köteg kezelése (058)", () => {
-  it("postafiók-csomagnál „levél”, vegyesnél mindkettő a fejlécben", async () => {
+describe("handling a batch (058)", () => {
+  it("‘email’ in the header of a mailbox batch, both in a mixed one", async () => {
     const mail = { item_id: "m", kind: "email", source_path: "C:/inbox/m/message.json", sha256: "m", added_revision: 1 };
     const doc = view().workpackage.items[0];
     vi.spyOn(api, "workpackage").mockResolvedValue(view({ workpackage: { ...view().workpackage, items: [mail, { ...mail, item_id: "n" }] } }));
@@ -69,7 +69,7 @@ describe("a köteg kezelése (058)", () => {
     expect((await screen.findAllByText(/^1 irat, 1 levél/)).length).toBe(2);
   });
 
-  it("elrejtés és törlés: futás nélkül törölhető megerősítéssel, futással csak elrejthető", async () => {
+  it("hiding and deleting: without a run it can be deleted with a confirmation, with a run only hidden", async () => {
     vi.spyOn(api, "workpackage").mockResolvedValue(view());
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [] });
     vi.spyOn(api, "datasetQuery").mockResolvedValue(EMPTY);
@@ -87,7 +87,7 @@ describe("a köteg kezelése (058)", () => {
     expect(archive).toHaveBeenCalledWith("wp-1");
   });
 
-  it("futással rendelkező kötegnél nincs törlés, elrejtett kötegnél visszahozás és jelzés", async () => {
+  it("a batch with a run has no delete, a hidden batch a restore and a mark", async () => {
     const hidden = view({ runs: 2, workpackage: { ...view().workpackage, status: "archived" } });
     vi.spyOn(api, "workpackage").mockResolvedValue(hidden);
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [] });
@@ -101,8 +101,8 @@ describe("a köteg kezelése (058)", () => {
   });
 });
 
-describe("Feldolgozás szakasz (058 D)", () => {
-  it("egyetlen kiemelt futás-gomb a következő lépés szerint; a költségkeret két tizedessel, szolgáltatónévvel", async () => {
+describe("The Processing section (058 D)", () => {
+  it("one highlighted run button by the next step; the budget with two decimals and the provider's name", async () => {
     const run = { run_id: "run-000000000001", workpackage_id: "wp-1", workpackage_name: "x", recipe_id: "r", recipe_version: 1, mode: "shadow" as const,
       status: "done", approval: null, approved_by: null, actor: "a", created_at: "", finished_at: null, items: 1, items_done: 1, open_reasons: 0 };
     vi.spyOn(api, "workpackage").mockResolvedValue(view({ last_run: run, runs: 1, next: { code: "go_live", label: "Próba rendben: éles futás", stage: "process" },
@@ -118,8 +118,8 @@ describe("Feldolgozás szakasz (058 D)", () => {
   });
 });
 
-describe("futás indítása megerősítéssel (061)", () => {
-  it("a gomb nem indít, hanem a megerősítő oldalra visz; ott az összegzés, indítás csak onnan, a Mégse visszavisz", async () => {
+describe("starting a run with a confirmation (061)", () => {
+  it("the button does not start but leads to the confirmation page; the summary is there, a start only from there, Cancel leads back", async () => {
     const user = userEvent.setup();
     const start = vi.spyOn(api, "start").mockResolvedValue({ run_id: "run-000000000009", deduped: false } as Awaited<ReturnType<typeof api.start>>);
     vi.spyOn(api, "workpackage").mockResolvedValue(view({ readiness: { ...view().readiness, budget: { jev: "0.1", openai: "0.25" } } }));
@@ -148,7 +148,7 @@ describe("futás indítása megerősítéssel (061)", () => {
     expect(window.location.hash).toBe("#/runs/run-000000000009");
   });
 
-  it("nem indítható kötegnél az indítás tiltva, az akadály látszik", async () => {
+  it("a batch that cannot start has its start disabled, the blocker shows", async () => {
     vi.spyOn(api, "workpackage").mockResolvedValue(view({ readiness: { ...view().readiness, ready: false, blockers: [{ code: "no_items", message: "nincs tétel" }] } }));
     vi.spyOn(api, "readiness").mockResolvedValue({ ...view().readiness, ready: false, blockers: [{ code: "no_items", message: "nincs tétel" }] });
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [] });

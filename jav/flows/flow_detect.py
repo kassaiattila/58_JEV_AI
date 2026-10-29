@@ -368,18 +368,18 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/fl
     "name": "doc_detect",
     "phases": ["load", "classify", "persist", "terminal"],
     "steps": [("load_pdf", "load"), ("ocr_pdf", "load"), ("detect", "classify"), ("save", "persist"), ("done", "terminal"), ("needs_ocr", "terminal")],
-    "edges": [("load_pdf", "ocr_pdf", "nincs szövegréteg"), ("load_pdf", "detect"), ("ocr_pdf", "needs_ocr", "nincs OCR / nincs szöveg"), ("ocr_pdf", "detect", "OCR-szöveg"),
+    "edges": [("load_pdf", "ocr_pdf", "no text layer"), ("load_pdf", "detect"), ("ocr_pdf", "needs_ocr", "no OCR / no text"), ("ocr_pdf", "detect", "OCR text"),
               ("detect", "save"), ("save", "done")],
     "step_meta": {
         "load_pdf": {"kind": "det", "note": "pdfplumber word-level reconstruction, sha256 doc_id, year hint from the folder; the text-layer test of the document and of each page (167: scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do, kept open by the ocr_coverage producer)"},
-        "ocr_pdf": {"kind": "det", "note": "szöveg nélküli PDF: OCR (jav/documents/ocr.py: oldalkép + tesseract, natív / régi sidecar-kép, lemez-gyorsítótár) ugyanarra az elrendezésre; minőségjelek a state-ben"},
-        "detect": {"kind": "jev", "note": "egy kérés, három ítélet: Choice doc_type (regiszter + unknown), Noul issuer_is_hungarian, Choice language; anchor-találatok feature-ként; utána részletes típus a kategória csomagjai közül (jav/ai/detect_detail.py: régi horgony-pontszám, szükség esetén JEV Choice). Without JEV: the same three questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/ai/detect_gpt.py); a failed call is a detect:gpt_failed to-do"},
-        "save": {"kind": "store", "note": "documents tábla (részletes típus is; nyitva maradt részletes típus = detect_detail teendő; a típuscsomag nélküli kategória is); conf < policy.detect.low_confidence -> review_queue (okonként, additív), különben a detect saját korábbi okai zárulnak"},
-        "done": {"kind": "terminal", "note": "kategorizálva"},
-        "needs_ocr": {"kind": "terminal", "note": "szöveg nélküli / törött szövegrétegű PDF, és az OCR sem adott szöveget (vagy nincs motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja; 218: one write transaction with the OCR escalation's trace (ocr.escalation)"},
+        "ocr_pdf": {"kind": "det", "note": "a PDF without text: OCR (jav/documents/ocr.py: page images and tesseract, native or the legacy sidecar image, a disk cache) onto the same layout; the quality signals in the state"},
+        "detect": {"kind": "jev", "note": "one request, three judgements: Choice doc_type (the registry and unknown), Noul issuer_is_hungarian, Choice language; anchor hits as features; then the detailed type among the category's packs (jav/ai/detect_detail.py: the legacy anchor score, a JEV Choice when needed). Without JEV: the same three questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/ai/detect_gpt.py); a failed call is a detect:gpt_failed to-do"},
+        "save": {"kind": "store", "note": "the documents table (the detailed type too; a detailed type left open is a detect_detail to-do; a category without a type pack too); conf < policy.detect.low_confidence -> review_queue (by reason, additive), otherwise the detect step's own earlier reasons close"},
+        "done": {"kind": "terminal", "note": "typed"},
+        "needs_ocr": {"kind": "terminal", "note": "a PDF without text or with a broken text layer, and OCR gave no text either (or there is no engine): documents has_text=0; a to-do (producer `ocr`, ocr:*), closed by a save with text; 218: one write transaction with the OCR escalation's trace (ocr.escalation)"},
     },
     "terminals": TERMINALS,
-    "doc_note": "M1 - a típus a documents táblába kerül; a típus szerinti M2-flow onnan indul. A run_id a gerinc, a Jev-hívás az adapteren megy (cache + ledger + config_hash).",
+    "doc_note": "M1 - the type goes into the documents table; the M2 flow of the type starts from there. The run_id is the backbone; the JEV call goes through the adapter (cache, ledger, config_hash).",
 }
 
 

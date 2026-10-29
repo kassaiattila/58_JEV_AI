@@ -6,7 +6,7 @@
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "053 T3.1 (döntés 2026-09-28: A út): default_arm G - a közmű-számlák a recept automatikus karával a GPT-úton futnak, mert a fejadatot és a tételeket egy hívás adja (a G-kar fejadat-egyezése a 015-ös mérésen 98,7 %); a kifejezett S kérés továbbra is fut"
+    "note": "053 T3.1 (decision of 2026-09-28: option A): default_arm G - utility bills run on the GPT path with the recipe's automatic path, as one call gives the header data and the line items (the G path's header agreement in measurement 015: 98.7 %); an explicit S request still runs"
    },
    {
     "version": "1.0.0",

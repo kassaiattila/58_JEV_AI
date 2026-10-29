@@ -202,7 +202,7 @@ class JevAdapter:
             response, _ = self._live("model_probe", _PROBE_STATE, _PROBE_QUESTIONS, model=model, run_id=run_id, config_hash=None)
         except JevUnavailableError:
             if entry:  # expired but usable: offline cache hits keep working; the ledger's `model` field shows the truth
-                print(f"[jev] figyelem: '{model}' feloldása nem frissíthető, a {entry['resolved_at'][:10]}-i '{entry['model']}' marad", file=sys.stderr)
+                print(f"[jev] warning: '{model}' cannot be resolved again; '{entry['model']}' of {entry['resolved_at'][:10]} stays", file=sys.stderr)
                 self._resolved[model] = entry["model"]
                 return entry["model"]
             raise
@@ -230,7 +230,7 @@ class JevAdapter:
         except FileNotFoundError:
             return None
         except (OSError, ValueError) as exc:  # pydantic's ValidationError is a ValueError too
-            print(f"[jev] figyelem: olvashatatlan gyorsítótár-fájl, élő kérdés lesz belőle: {path.name} ({type(exc).__name__})",
+            print(f"[jev] warning: an unreadable cache file, it becomes a live question: {path.name} ({type(exc).__name__})",
                   file=sys.stderr)
             return None
 

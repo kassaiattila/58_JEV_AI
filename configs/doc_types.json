@@ -31,17 +31,17 @@
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "kiszervezés a Python-konstansokból (ROADMAP §1 konfig mint adat); tartalom változatlan; Upwork-policy 2026-09-20 a két számla-leírásban"
+    "note": "moved out of the Python constants (ROADMAP §1 config as data); the content unchanged; the Upwork policy of 2026-09-20 in the two invoice descriptions"
    },
    {
     "version": "2.0.0",
     "date": "2026-09-20",
-    "note": "regiszter-séma v2 (BACKLOG regiszter-séma): description -> what + not_for + examples + parent (családok: invoice_like, contract_like, bank_like, official_like, other); a Choice-kritérium strukturált objektum; a leírások tartalma változatlan, a not_for a testvér-típusokra mutat"
+    "note": "registry schema v2 (BACKLOG registry schema): description -> what + not_for + examples + parent (families: invoice_like, contract_like, bank_like, official_like, other); the Choice criterion is a structured object; the descriptions' content unchanged, not_for points to the sibling types"
    },
    {
     "version": "2.0.1",
     "date": "2026-09-29",
-    "note": "066 Á13: anonimizálás - egy valódi adószám a példában kitalált, ellenőrzőszám-helyes értékre cserélve (a kritérium jelentése változatlan; új gyorsítótár-kulcs, felismerési etalon kell)"
+    "note": "066 Á13: anonymisation - a real tax number in an example replaced with an invented value with a valid check digit (the criterion means the same; a new cache key, a recognition golden run needed)"
    }
   ]
  },

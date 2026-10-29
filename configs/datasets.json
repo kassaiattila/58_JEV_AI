@@ -186,27 +186,27 @@
    {
     "version": "1.4.0",
     "date": "2026-09-29",
-    "note": "062 (döntés 2026-09-29): a tevékenységnapló új művelete: az elfogadott feladat kézi elvégzése (activity_action.task_done)"
+    "note": "062 (decision of 2026-09-29): a new action in the activity log: an accepted task done by hand (activity_action.task_done)"
    },
    {
     "version": "1.3.0",
     "date": "2026-09-28",
-    "note": "061 (döntés 2026-09-28, aktív felhasználó + kiosztás): a tevékenységnapló műveleteinek feliratai (activity_action)"
+    "note": "061 (decision of 2026-09-28, the active user and assignment): the labels of the activity log's actions (activity_action)"
    },
    {
     "version": "1.2.0",
     "date": "2026-09-28",
-    "note": "058 K5.1: a Levelek eredménytábla feliratai - a javasolt következő lépések (next_flow) és hogy a levél szövegéből mennyit látott a szándék-felismerés (body_status); K5.3: a feladatjavaslat döntése (task_decision)"
+    "note": "058 K5.1: the labels of the Emails result table - the proposed next steps (next_flow) and how much of the email's text the intent recognition saw (body_status); K5.3: the task proposal's decision (task_decision)"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "058 (döntés 2026-09-28): a munkacsomag elrejthető - wp_status felirat (aktív / elrejtve) az elrejtettekkel együtt kért listához"
+    "note": "058 (decision of 2026-09-28): a batch can be hidden - the wp_status label (active / hidden) for a list asked with the hidden ones"
    },
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "056 U1 (döntések 2026-09-28): egységes adatnézet - az adatkészletek felsorolt oszlopainak magyar feliratai (a keresés és a rendezés a feliratra is megy), a gyorsítótár mérete és a letöltés felső határa"
+    "note": "056 U1 (decisions of 2026-09-28): the uniform data view - the Hungarian labels of the datasets' enumerated columns (search and sorting go by the label too), the cache's size and the download's upper limit"
    }
   ]
  },

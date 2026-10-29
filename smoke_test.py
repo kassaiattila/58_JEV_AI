@@ -14,7 +14,7 @@ from jav.core.config import ENV_FILE, MissingAPIKeyError, get_api_key, make_clie
 
 def main() -> int:
     print(f"Python : {sys.version.split()[0]}  ({sys.executable})")
-    print(f".env   : {ENV_FILE}  ({'megvan' if ENV_FILE.exists() else 'HIÁNYZIK'})")
+    print(f".env   : {ENV_FILE}  ({'present' if ENV_FILE.exists() else 'MISSING'})")
 
     try:
         key = get_api_key()
@@ -23,7 +23,7 @@ def main() -> int:
         return 1
     print(f"Kulcs  : {key[:6]}…{key[-4:]}  ({len(key)} karakter)")
 
-    print("\nÉlő System One hívás…")
+    print("\nA live System One call…")
     try:
         with make_client() as client:
             response = client.system_one(
@@ -41,10 +41,10 @@ def main() -> int:
                 },
             )
     except TypeSafeAuthenticationError as exc:
-        print(f"[HIBA] A kulcsot elutasította az API: {exc}")
+        print(f"[ERROR] The API refused the key: {exc}")
         return 1
     except TypeSafeError as exc:
-        print(f"[HIBA] TypeSafe hívás sikertelen: {type(exc).__name__}: {exc}")
+        print(f"[ERROR] The TypeSafe call failed: {type(exc).__name__}: {exc}")
         return 1
 
     billing = response.nouls["billing"]
@@ -54,7 +54,7 @@ def main() -> int:
     print(f"  billing : {billing.noul}")
     print(f"  tone    : {tone.choice}")
     print(f"  urgency : {urgency.score}")
-    print("\nOK - a környezet működik.")
+    print("\nOK - the environment works.")
     return 0
 
 

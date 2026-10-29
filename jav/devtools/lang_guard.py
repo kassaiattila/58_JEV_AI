@@ -24,6 +24,7 @@ import json
 import re
 import subprocess
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 CONFIG_REL = "configs/lang_guard.json"
@@ -107,10 +108,15 @@ def lowered_baseline(counts: dict[str, int], guard: Guard, accept: tuple[str, ..
     return out
 
 
-def write_baseline(root: Path, baseline: dict[str, int]) -> None:
+def write_baseline(root: Path, baseline: dict[str, int], note: str) -> None:
+    """231 (F3): every change of the baseline steps the file's version and says what changed (newest first): the
+    baseline used to grow while the version stayed, so a raised file could hide in the history."""
     path = root / CONFIG_REL
     data = json.loads(path.read_text(encoding="utf-8"))
     data["baseline"] = dict(sorted(baseline.items()))
+    major, minor, patch = (int(x) for x in data["meta"]["version"].split("."))
+    data["meta"]["version"] = f"{major}.{minor}.{patch + 1}"
+    data["meta"]["changelog"].insert(0, {"version": data["meta"]["version"], "date": date.today().isoformat(), "note": note})
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 

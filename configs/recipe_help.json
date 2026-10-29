@@ -56,7 +56,7 @@
       {
         "version": "1.0.0",
         "date": "2026-09-29",
-        "note": "063 (döntés 2026-09-29): a receptek magyarázata a csomag Recept-kártyáján és a Beállítások › Receptek oldalon. Külön fájl, nem a recept része: a recept ujjlenyomata (a hozzárendelés és a futás pillanatképe) így nem változik. A költségkeret számát a felület a recept adataiból számolja, itt nincs szám."
+        "note": "063 (decision of 2026-09-29): the recipes explained on a batch's recipe card and on the Settings › Recipes page. A file of its own, not part of the recipe, so the recipe's fingerprint (the assignment's and the run's snapshot) does not change. The interface computes the budget from the recipe's data; there is no number here."
       },
       {
         "version": "1.1.0",

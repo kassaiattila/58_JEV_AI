@@ -105,7 +105,7 @@ def cmd_data_guard(args: argparse.Namespace) -> int:
     from jav.core.config import PROJECT_ROOT
 
     found = data_guard.scan_tracked(PROJECT_ROOT, data_guard.load_guard(PROJECT_ROOT))
-    print(data_guard.report(found, "a kiadás") or "adatőr: a verziókövetett fájlokban nincs találat")
+    print(data_guard.report(found, "the release") or "data guard: no finding in the tracked files")
     if args.all:  # the locations of the tolerated known values too (masked)
         for f in found:
             if f.known:
@@ -130,14 +130,15 @@ def cmd_lang_guard(args: argparse.Namespace) -> int:
         if guard.baseline:
             print("the baseline is not empty; use --update (lower) or --accept PATH (raise one file)")
             return 1
-        lang_guard.write_baseline(PROJECT_ROOT, counts)
+        lang_guard.write_baseline(PROJECT_ROOT, counts, f"baseline initialised: {sum(counts.values())} lines")
         guard = lang_guard.load_guard(PROJECT_ROOT)
         print(f"baseline initialised: {sum(counts.values())} Hungarian lines in {len(counts)} files")
     elif args.update or args.accept:
         new = lang_guard.lowered_baseline(counts, guard, tuple(args.accept))
-        lang_guard.write_baseline(PROJECT_ROOT, new)
-        print(f"baseline: {sum(guard.baseline.values())} -> {sum(new.values())} Hungarian lines in {len(new)} files"
-              + (f"; accepted: {', '.join(args.accept)}" if args.accept else ""))
+        change = (f"baseline: {sum(guard.baseline.values())} -> {sum(new.values())} Hungarian lines in {len(new)} files"
+                  + (f"; accepted: {', '.join(args.accept)}" if args.accept else ""))
+        lang_guard.write_baseline(PROJECT_ROOT, new, change)
+        print(change)
         guard = lang_guard.load_guard(PROJECT_ROOT)
     over = lang_guard.excess(counts, guard)
     for e in over:

@@ -6,12 +6,12 @@
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "kiszervezés a Python-konstansokból (ROADMAP §1 konfig mint adat); tartalom változatlan"
+    "note": "moved out of the Python constants (ROADMAP §1 config as data); the content unchanged"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-20",
-    "note": "M3 jelek (JEV_PLAYBOOK §4/7): tone_urgent Noul -> urgency Score (4 helyzet-szint, primitives/score); új Noul: multiple_requests (több önálló kérés egy levélben - csak mérhető jel) és prompt_injection (a feldolgozó rendszernek címzett utasítás a szövegben - review-ok + human:suspicious útvonal a policy-ban); az intent Choice és a régi 3 Noul változatlan"
+    "note": "M3 signals (JEV_PLAYBOOK §4/7): the tone_urgent Noul -> an urgency Score (4 levels, primitives/score); new Nouls: multiple_requests (several separate requests in one email - a signal only measured) and prompt_injection (an instruction in the text addressed to the processing system - a review reason and the human:suspicious route in the policy); the intent Choice and the old 3 Nouls unchanged"
    }
   ]
  },

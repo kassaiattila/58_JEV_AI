@@ -117,4 +117,4 @@ def test_eval_report_parent_section(tmp_path):
     rows_ = er.parent_fallback_summary(js)
     r = next(r for r in rows_ if r["flow"] == "doc_detect")
     assert r["human"] == 1 and r["parent_usable"] == 1 and r["parent_correct"] == 1
-    assert "## Szülő-címke" in er.report_markdown([p])
+    assert "## Parent label" in er.report_markdown([p])

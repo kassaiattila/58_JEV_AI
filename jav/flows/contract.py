@@ -138,20 +138,20 @@ def lint_flow(contract: dict[str, Any], app: Any, module: ModuleType) -> dict[st
 
     # 1. steps: every action of the live graph is declared, and every declared step is live
     live = {a.name for a in app.graph.actions}
-    checks.append(("kontrakt lefedi az élő gráfot", live == declared_set,
-                   f"élő: {len(live)}, deklarált: {len(declared_set)}; hiányzó: {sorted(live - declared_set) or '-'}, felesleges: {sorted(declared_set - live) or '-'}"))
+    checks.append(("the contract covers the live graph", live == declared_set,
+                   f"live: {len(live)}, declared: {len(declared_set)}; missing: {sorted(live - declared_set) or '-'}, superfluous: {sorted(declared_set - live) or '-'}"))
 
     # 2. edges: declared == live (without labels)
     decl_edges = {(e[0], e[1]) for e in contract["edges"]}
     live_edges = _live_edges(app)
-    checks.append(("élek egyeznek", decl_edges == live_edges,
-                   f"hiányzó a kontraktból: {sorted(live_edges - decl_edges) or '-'}; nincs az élő gráfban: {sorted(decl_edges - live_edges) or '-'}"))
+    checks.append(("the edges match", decl_edges == live_edges,
+                   f"missing from the contract: {sorted(live_edges - decl_edges) or '-'}; not in the live graph: {sorted(decl_edges - live_edges) or '-'}"))
 
     # 3. phases: every step is in an existing phase; no step is duplicated
     phases = set(contract["phases"])
     bad_phase = [n for n, ph in contract["steps"] if ph not in phases]
-    checks.append(("fázisok érvényesek, lépés egyszer szerepel", not bad_phase and len(declared) == len(declared_set),
-                   f"rossz fázis: {bad_phase or '-'}"))
+    checks.append(("the phases are valid, each step stands once", not bad_phase and len(declared) == len(declared_set),
+                   f"wrong phase: {bad_phase or '-'}"))
 
     # 4. step kinds: a known kind, and a call matching the kind appears in the action's source
     meta = contract.get("step_meta", {})
@@ -159,30 +159,30 @@ def lint_flow(contract: dict[str, Any], app: Any, module: ModuleType) -> dict[st
     for name in declared:
         kind = meta.get(name, {}).get("kind")
         if kind not in KINDS:
-            kind_problems.append(f"{name}:ismeretlen({kind})")
+            kind_problems.append(f"{name}:unknown({kind})")
             continue
         fn = getattr(module, name, None)
         fn_src = inspect.getsource(getattr(fn, "fn", fn)) if fn is not None else ""
         markers = _KIND_MARKERS.get(kind, ())
         matched, ledger = _step_trace(fn_src, kind)
         if markers and not matched:
-            kind_problems.append(f"{name}:{kind} nyoma hiányzik")
+            kind_problems.append(f"{name}:{kind} its trace is missing")
         if kind in ("jev", "llm") and not ledger:
-            kind_problems.append(f"{name}:{kind} run_id nélkül (ledger)")
-    checks.append(("lépés-fajták és nyomaik", not kind_problems, ", ".join(kind_problems) or "rendben"))
+            kind_problems.append(f"{name}:{kind} without a run_id (ledger)")
+    checks.append(("the step kinds and their traces", not kind_problems, ", ".join(kind_problems) or "fine"))
 
     # 5. adapter only: the flow module imports no SDK
     direct = [m for m in _FORBIDDEN_IMPORTS if re.search(rf"^\s*(from|import)\s+{m}", src, re.M)]
-    checks.append(("adapter-only (nincs közvetlen SDK-import)", not direct, f"közvetlen: {direct or '-'}"))
+    checks.append(("adapter only (no direct SDK import)", not direct, f"direct: {direct or '-'}"))
 
     # 6. additive review latch
-    checks.append(("additív latch (nincs needs_review = False)", not _UNLATCH.search(src), "require_review() csak False->True"))
+    checks.append(("an additive latch (no needs_review = False)", not _UNLATCH.search(src), "require_review() only False->True"))
 
     # 7. terminals: the contract's and the module's TERMINALS lists match, and they are declared steps
     terms = set(contract.get("terminals", []))
     mod_terms = set(getattr(module, "TERMINALS", []))
-    checks.append(("terminálisok egyeznek", terms == mod_terms and terms <= declared_set,
-                   f"kontrakt: {sorted(terms)}, modul: {sorted(mod_terms)}"))
+    checks.append(("the terminals match", terms == mod_terms and terms <= declared_set,
+                   f"contract: {sorted(terms)}, module: {sorted(mod_terms)}"))
 
     return {"name": contract["name"], "checks": checks, "passed": all(ok for _, ok, _ in checks)}
 

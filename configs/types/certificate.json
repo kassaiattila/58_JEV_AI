@@ -6,7 +6,7 @@
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+    "note": "047 T1.1: converted from the legacy type copy (jav/typepack_convert.py); the schema and the prompt verbatim; the G path only"
    }
   ],
   "source": {

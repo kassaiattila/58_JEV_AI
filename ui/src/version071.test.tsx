@@ -12,19 +12,19 @@ const health = (over: Partial<Health> = {}): Health => ({
   started_at: "2026-09-30T10:00:00+00:00", ...over,
 });
 
-describe("071 verzió a Rendszer oldalon", () => {
-  it("a sor: verzió és commit; commit nélkül csak a verzió", () => {
+describe("071 the version on the System page", () => {
+  it("the row: the version and the commit; without a commit only the version", () => {
     expect(versionLine(health())).toBe("v1.0.5 · commit abc1234");
     expect(versionLine(health({ commit: null, dirty: null }))).toBe("v1.0.5");
   });
 
-  it("figyelmeztet a commitolatlan változásra és az ismeretlen commitra", () => {
+  it("it warns of an uncommitted change and an unknown commit", () => {
     expect(versionWarning(health())).toBeNull();
     expect(versionWarning(health({ dirty: true }))).toMatch(/commitolatlan/);
     expect(versionWarning(health({ commit: null, dirty: null }))).toMatch(/nem ismert/);
   });
 
-  it("a kártya a szolgáltatás válaszából rajzol", async () => {
+  it("the card draws from the service's answer", async () => {
     vi.spyOn(api, "health").mockResolvedValue(health({ dirty: true }));
     render(<VersionPanel />);
     expect(await screen.findByText("v1.0.5 · commit abc1234")).toBeTruthy();

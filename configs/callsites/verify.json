@@ -6,12 +6,12 @@
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "kiszervezés a Python-konstansokból (ROADMAP §1 konfig mint adat); tartalom változatlan; a {value} helyőrző a repr-t kapja (mint eddig)"
+    "note": "moved out of the Python constants (ROADMAP §1 config as data); the content unchanged; the {value} placeholder gets the repr (as before)"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-20",
-    "note": "BACKLOG 1: strukturált Noul-instrukció (sde_cascade minta) - a kód egy objektumot ad át: field_spec {name, meaning}, extracted_field (nyers érték, nem repr), printed_on (evidencia-sorok), question; a sablon-mondat helyett minden Noul csak a `question` szöveget adja; a glosszár a `glossary` kulcsban; a kérdés-szövegek tartalma változatlan, csak az objektum-kulcsokra hivatkoznak"
+    "note": "BACKLOG 1: a structured Noul instruction (the sde_cascade pattern) - the code passes an object: field_spec {name, meaning}, extracted_field (the raw value, not a repr), printed_on (the evidence lines), question; instead of the template sentence every Noul gives only its `question` text; the glossary under the `glossary` key; the questions' content unchanged, they only refer to the object's keys"
    },
    {
     "version": "1.2.0",

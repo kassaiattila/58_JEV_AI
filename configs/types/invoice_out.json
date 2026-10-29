@@ -21,17 +21,17 @@
    {
     "version": "1.2.0",
     "date": "2026-09-29",
-    "note": "069 (066 Á05, döntés 2026-09-29): adószám-ellenőrzés tax_id néven mindkét félre (a kiállítóé új): felismert alak (jav/taxid.py), különben teendő. A kinyerés változatlan"
+    "note": "069 (066 Á05, decision of 2026-09-29): a tax number check named tax_id for both parties (the issuer's is new): a recognised form (jav/taxid.py), otherwise a to-do. The extraction unchanged"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "053 T3.2: tétel-ellenőrzések kódban (line_items_total, line_items_arithmetic); a tételes lista már deklarált"
+    "note": "053 T3.2: line item checks in code (line_items_total, line_items_arithmetic); the itemised list is declared already"
    },
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+    "note": "047 T1.1: converted from the legacy type copy (jav/typepack_convert.py); the schema and the prompt verbatim; the G path only"
    }
   ],
   "source": {

@@ -5,22 +5,22 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, filenameFromDisposition, type Readiness, type WorkpackageView } from "./api";
 import { StartConfirm } from "./views/StartConfirm";
 
-describe("066 Á22: a letöltés fájlneve", () => {
-  it("az ékezetes pontos nevet adja, ha a szolgáltatás küldi", () => {
+describe("066 Á22: the download's file name", () => {
+  it("it gives the exact name with accents when the service sends it", () => {
     const disp = "attachment; filename=\"activity-Komuves_Odon-all.csv\"; filename*=UTF-8''activity-K%C5%91m%C5%B1ves%20%C3%96d%C3%B6n-all.csv";
     expect(filenameFromDisposition(disp)).toBe("activity-Kőműves Ödön-all.csv");
   });
 
-  it("a régi fejlécből az ASCII-nevet, fejléc nélkül a tartalék nevet adja", () => {
+  it("it gives the ASCII name from the old header, the fallback name without a header", () => {
     expect(filenameFromDisposition("attachment; filename=\"futas.xlsx\"")).toBe("futas.xlsx");
     expect(filenameFromDisposition("")).toBe("letoltes");
   });
 });
 
-describe("066 Á12: a megerősítő oldal friss keretet mutat", () => {
+describe("066 Á12: the confirmation page shows a fresh budget", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("a köteg régi nézete helyett a friss keretet és ujjlenyomatot használja; addig az indítás tiltva", async () => {
+  it("it uses the fresh budget and fingerprint instead of the batch's old view; until then the start is disabled", async () => {
     const user = userEvent.setup();
     const old = view();
     let answer: (r: Readiness) => void = () => {};

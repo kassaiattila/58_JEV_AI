@@ -23,10 +23,10 @@ OLD_GPT_ACCURACY = 0.958  # golden result of the legacy email-intake-bare (gpt-4
 def _cases(limit: int | None = None) -> list[GoldenEmail]:
     cases = load_old_golden()
     if not cases:
-        raise SystemExit("A régi intent-golden nem található (jav.domains.email.emails.OLD_INTENT_GOLDEN).")
+        raise SystemExit("The legacy intent golden set is not found (jav.domains.email.emails.OLD_INTENT_GOLDEN).")
     unknown = {c.expected for c in cases} - set(INTENT_KEYS)
     if unknown:
-        raise SystemExit(f"A golden ismeretlen szándékokat tartalmaz: {sorted(unknown)}")
+        raise SystemExit(f"The golden set holds unknown intents: {sorted(unknown)}")
     return cases[:limit] if limit else cases
 
 
@@ -78,18 +78,18 @@ def email_golden(use_cache: bool = True, limit: int | None = None, *, jev: bool 
         for i, case in enumerate(cases, 1):
             rows.append(_run_case(case, use_cache=use_cache, jev=jev))
             if i % 20 == 0 or i == len(cases):
-                print(f"  {i}/{len(cases)}  utolsó: {case.case_id[:40]} -> {rows[-1]['got']} {rows[-1]['confidence']:.2f}")
+                print(f"  {i}/{len(cases)}  last: {case.case_id[:40]} -> {rows[-1]['got']} {rows[-1]['confidence']:.2f}")
     RUNS_DIR.mkdir(exist_ok=True)
     out = RUNS_DIR / f"{stamp}_email_golden{'' if jev else '_gpt'}.jsonl"
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
     print_email_report(rows)
-    print(f"\nNyers futások: {out}")
+    print(f"\nRaw runs: {out}")
     return rows
 
 
 def print_email_report(rows: list[dict[str, Any]]) -> None:
-    print(f"\n### E-mail intent golden - {len(rows)} eset\n")
-    print("| elvárt szándék | n | pontosság | átlag conf | tévesztések |\n|---|---|---|---|---|")
+    print(f"\n### Email intent golden - {len(rows)} case(s)\n")
+    print("| expected intent | n | as expected | mean conf | mistakes |\n|---|---|---|---|---|")
     by_exp: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for r in rows:
         by_exp[r["expected"]].append(r)
@@ -101,24 +101,24 @@ def print_email_report(rows: list[dict[str, Any]]) -> None:
         print(f"| {exp} | {len(rs)} | {ok / len(rs):.0%} | {statistics.mean(r['confidence'] for r in rs):.2f} | "
               f"{', '.join(f'{k}×{v}' for k, v in wrong.items()) or '-'} |")
     acc = total_ok / max(len(rows), 1)
-    print(f"\n**Összesen:** {total_ok}/{len(rows)} = {acc:.1%}  (régi gpt-golden: {OLD_GPT_ACCURACY:.1%})")
+    print(f"\n**In all:** {total_ok}/{len(rows)} = {acc:.1%}  (the legacy GPT golden: {OLD_GPT_ACCURACY:.1%})")
     low = [r for r in rows if r["confidence"] < intent_human_max_conf()]
     low_ok = sum(r["got"] == r["expected"] for r in low)
     high = [r for r in rows if r["confidence"] >= intent_human_max_conf()]
     high_ok = sum(r["got"] == r["expected"] for r in high)
-    print(f"**confidence < 0,6 (kézi sor):** {len(low)}/{len(rows)} = {len(low) / max(len(rows), 1):.0%}, ebből helyes {low_ok}")
-    print(f"**confidence ≥ 0,6 pontosság (auto-sáv):** {high_ok}/{len(high)} = {high_ok / max(len(high), 1):.1%}")
+    print(f"**confidence < 0.6 (manual queue):** {len(low)}/{len(rows)} = {len(low) / max(len(rows), 1):.0%}, of them as expected {low_ok}")
+    print(f"**confidence ≥ 0.6, as expected (the auto band):** {high_ok}/{len(high)} = {high_ok / max(len(high), 1):.1%}")
     cost = sum(r["cost_usd"] for r in rows)
     live = [r for r in rows if not r["cached"]]
     secs = statistics.mean(r["seconds"] for r in live) if live else 0.0
     toks = statistics.mean(r["input_tokens"] or 0 for r in rows)
-    print(f"**Költség:** ${cost:.4f} ({len(live)} élő hívás, átlag {secs:.2f} s, átlag {toks:.0f} input token)")
-    print("\n**next_flow eloszlás:** " + ", ".join(f"{k}×{v}" for k, v in Counter(r["next_flow"] for r in rows).most_common()))
+    print(f"**Cost:** ${cost:.4f} ({len(live)} live call(s), mean {secs:.2f} s, mean {toks:.0f} input tokens)")
+    print("\n**next_flow:** " + ", ".join(f"{k}×{v}" for k, v in Counter(r["next_flow"] for r in rows).most_common()))
     sig = defaultdict(list)
     for r in rows:
         for k, v in r["signals"].items():
             sig[k].append(v)
-    print("**Noul-jelek átlaga:** " + ", ".join(f"{k}={statistics.mean(v):.2f}" for k, v in sig.items()))
+    print("**Noul signals, mean:** " + ", ".join(f"{k}={statistics.mean(v):.2f}" for k, v in sig.items()))
     print_signal_bands(rows)
     unmeasured = [r for r in rows if r.get("measured") is False]
     failed = [r for r in rows if r["got"] is None]
@@ -126,7 +126,7 @@ def print_email_report(rows: list[dict[str, Any]]) -> None:
         print(f"**Confidence not measurable:** {len(unmeasured)}; **no answer (GPT call failed):** {len(failed)}")
     for r in rows:
         if r["got"] != r["expected"]:
-            print(f"  - {r['case_id']}: várt {r['expected']}, kapott {r['got']} ({r['confidence']:.2f}) top3={r['top3']}")
+            print(f"  - {r['case_id']}: expected {r['expected']}, got {r['got']} ({r['confidence']:.2f}) top3={r['top3']}")
 
 
 def print_signal_bands(rows: list[dict[str, Any]]) -> None:
@@ -139,7 +139,7 @@ def print_signal_bands(rows: list[dict[str, Any]]) -> None:
         for k, v in (r.get("signals") or {}).items():
             sig[k].append(float(v))
     if sig:
-        print("\n| Noul-jel | n | nem | bizonytalan | igen | átlag P |\n|---|---|---|---|---|---|")
+        print("\n| Noul signal | n | no | uncertain | yes | mean P |\n|---|---|---|---|---|---|")
         for k, vs in sig.items():
             b = Counter(noul_band(v, "email.signal") for v in vs)
             print(f"| {k} | {len(vs)} | {b.get('no', 0)} | {b.get('uncertain', 0)} | {b.get('yes', 0)} | {statistics.mean(vs):.2f} |")
@@ -149,11 +149,11 @@ def print_signal_bands(rows: list[dict[str, Any]]) -> None:
             scores[k].append(s)
     for k, ss in scores.items():
         levels = Counter(int(s["level"]) for s in ss)
-        print(f"\n**Score `{k}`** ({len(ss)} eset): szint-eloszlás " + ", ".join(f"{lv}×{n}" for lv, n in sorted(levels.items()))
-              + f"; várható érték átlag {statistics.mean(float(s['score']) for s in ss):.2f}; conf átlag {statistics.mean(float(s['confidence']) for s in ss):.2f}")
+        print(f"\n**Score `{k}`** ({len(ss)} case(s)): levels " + ", ".join(f"{lv}×{n}" for lv, n in sorted(levels.items()))
+              + f"; mean expected value {statistics.mean(float(s['score']) for s in ss):.2f}; mean conf {statistics.mean(float(s['confidence']) for s in ss):.2f}")
     reasons = Counter(rr.split(":")[1] if rr.count(":") >= 1 else rr for r in rows for rr in (r.get("review_reasons") or []))
     if reasons:
-        print("**Jel-review-okok:** " + ", ".join(f"{k}×{v}" for k, v in reasons.most_common()))
+        print("**Signal review reasons:** " + ", ".join(f"{k}×{v}" for k, v in reasons.most_common()))
 
 
 # Injected-instruction probe (v1.1.0): sentences addressed to the processing system, appended to the body of the golden
@@ -208,14 +208,14 @@ def email_injection_probe(limit: int = 8, use_cache: bool = True, *, jev: bool =
     if not limits:  # 160 (review AI-8): without a budget only earlier answers count
         print(calls.NO_BUDGET_NOTE)
     guard = calls.measurement(f"measure-{stamp}-injection", limits, reuse=use_cache)
-    print("| eset | variáns | P(injekció) | sáv | szándék | útvonal | review-okok |\n|---|---|---|---|---|---|---|")
+    print("| case | variant | P(injection) | band | intent | route | review reasons |\n|---|---|---|---|---|---|---|")
     with guard:
         _probe_cases(cases, rows, use_cache=use_cache, jev=jev)
     _print_probe_summary(rows)
     RUNS_DIR.mkdir(exist_ok=True)
     out = RUNS_DIR / f"{stamp}_email_injection_probe{'' if jev else '_gpt'}.jsonl"
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
-    print(f"\nNyers futás: {out}")
+    print(f"\nRaw run: {out}")
     return rows
 
 
@@ -247,7 +247,7 @@ def _probe_cases(cases: list[GoldenEmail], rows: list[dict[str, Any]], *, use_ca
 
 
 def _print_probe_summary(rows: list[dict[str, Any]]) -> None:
-    print("\n**Összegzés variánsonként:**\n\n| variáns | n | nem | bizonytalan | igen | P átlag (min) | szándék-flip | human:suspicious |\n|---|---|---|---|---|---|---|---|")
+    print("\n**Summary by variant:**\n\n| variant | n | no | uncertain | yes | mean P (min) | intent flips | human:suspicious |\n|---|---|---|---|---|---|---|---|")
     for variant in INJECTIONS:
         rs = [r for r in rows if r["variant"] == variant]
         if not rs:
@@ -269,7 +269,7 @@ def email_determinism(n: int = 3, limit: int | None = None, *, jev: bool = True)
         for k in range(n):
             for case in cases:
                 per_case[case.case_id].append(_run_case(case, use_cache=False, jev=jev))
-            print(f"  {k + 1}/{n} kör kész")
+            print(f"  {k + 1}/{n} round(s) done")
     flips = 0
     level_flips = 0
     stds: list[float] = []
@@ -288,16 +288,16 @@ def email_determinism(n: int = 3, limit: int | None = None, *, jev: bool = True)
                 score_stds.append(statistics.pstdev(float(r["scores"][key]["score"]) for r in rs))
                 if len({int(r["scores"][key]["level"]) for r in rs}) > 1:
                     level_flips += 1
-    print(f"\n### Determinizmus - {len(per_case)} eset × {n} futás (cache nélkül)")
-    print(f"**Flip (eltérő intent futások közt):** {flips}/{len(per_case)}")
-    print(f"**Choice confidence szórás:** átlag {statistics.mean(stds):.4f}, max {max(stds):.4f}")
-    print(f"**Noul-jelek szórása:** átlag {statistics.mean(sig_stds):.4f}, max {max(sig_stds):.4f}")
+    print(f"\n### Determinism - {len(per_case)} case(s) × {n} run(s) (without the cache)")
+    print(f"**Flips (another intent between runs):** {flips}/{len(per_case)}")
+    print(f"**Choice confidence spread:** mean {statistics.mean(stds):.4f}, max {max(stds):.4f}")
+    print(f"**Noul signal spread:** mean {statistics.mean(sig_stds):.4f}, max {max(sig_stds):.4f}")
     if score_stds:
-        print(f"**Score-jelek (várható érték) szórása:** átlag {statistics.mean(score_stds):.4f}, max {max(score_stds):.4f}; szint-flip {level_flips}/{len(per_case)}")
+        print(f"**Score signal (expected value) spread:** mean {statistics.mean(score_stds):.4f}, max {max(score_stds):.4f}; level flips {level_flips}/{len(per_case)}")
     RUNS_DIR.mkdir(exist_ok=True)
     out = RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_email_determinism{'' if jev else '_gpt'}.jsonl"
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for rs in per_case.values() for r in rs) + "\n", encoding="utf-8")
-    print(f"Nyers futások: {out}")
+    print(f"Raw runs: {out}")
 
 
 def load_rows(path: Path | str) -> list[dict[str, Any]]:
@@ -322,14 +322,14 @@ def email_inbox(root: str | Path, *, limit: int | None = None, force: bool = Fal
     todo = [f for f in folders if f.name not in done]
     if limit:
         todo = todo[:limit]
-    print(f"{len(folders)} levél, ebből feldolgozandó: {len(todo)} (kész: {len(folders) - len(todo)})")
+    print(f"{len(folders)} email(s), to process: {len(todo)} (done: {len(folders) - len(todo)})")
     rows: list[dict[str, Any]] = []
     t0 = time.perf_counter()
     for i, folder in enumerate(todo, 1):
         try:
             st = run_email(str(folder), use_cache=use_cache, jev=jev)
         except Exception as exc:  # noqa: BLE001 - one faulty email must not stop the walk
-            print(f"  HIBA {folder.name}: {type(exc).__name__}: {exc}")
+            print(f"  ERROR {folder.name}: {type(exc).__name__}: {exc}")
             continue
         r, m = st.result, st.message
         assert r is not None and m is not None
@@ -341,12 +341,12 @@ def email_inbox(root: str | Path, *, limit: int | None = None, force: bool = Fal
             "cost_usd": r.call.cost_usd, "seconds": r.call.seconds, "run_id": st.run_id,
         })
         if i % 10 == 0 or i == len(todo):
-            print(f"  {i}/{len(todo)}  {time.perf_counter() - t0:5.0f}s  utolsó: {m.subject[:50]!r} -> {r.intent} {r.confidence:.2f} -> {st.next_flow}")
+            print(f"  {i}/{len(todo)}  {time.perf_counter() - t0:5.0f}s  last: {m.subject[:50]!r} -> {r.intent} {r.confidence:.2f} -> {st.next_flow}")
     if rows:
         RUNS_DIR.mkdir(exist_ok=True)
         out = RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_email_inbox.jsonl"
         out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
-        print(f"\nNyers futások: {out}")
+        print(f"\nRaw runs: {out}")
     print_inbox_report()
     return rows
 
@@ -356,10 +356,10 @@ def print_inbox_report() -> None:
     with store.connect() as c:
         rows = [dict(r) for r in c.execute("SELECT * FROM emails WHERE message_id NOT LIKE 'golden:%' ORDER BY received_at")]
     if not rows:
-        print("\n(nincs élő levél a store-ban)")
+        print("\n(no live email in the store)")
         return
-    print(f"\n### Inbox - {len(rows)} levél a store-ban\n")
-    print("| szándék | n | átlag conf | < 0,6 | next_flow |\n|---|---|---|---|---|")
+    print(f"\n### Inbox - {len(rows)} email(s) in the store\n")
+    print("| intent | n | mean conf | < 0.6 | next_flow |\n|---|---|---|---|---|")
     by_intent: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for r in rows:
         by_intent[r["intent"] or "-"].append(r)
@@ -371,10 +371,10 @@ def print_inbox_report() -> None:
     for r in rows:
         for a in json.loads(r["attachments"] or "[]"):
             atts[a.get("doc_type") or a.get("status") or "?"] += 1
-    print("\n**Csatolmányok:** " + (", ".join(f"{k}×{v}" for k, v in atts.most_common()) or "-"))
+    print("\n**Attachments:** " + (", ".join(f"{k}×{v}" for k, v in atts.most_common()) or "-"))
     low = [r for r in rows if (r["intent_conf"] or 0) < intent_human_max_conf()]
     for r in low:
-        print(f"  - kézi sor: {r['received_at']} {r['sender']} {r['subject']!r} -> {r['intent']} ({r['intent_conf']:.2f})")
+        print(f"  - manual queue: {r['received_at']} {r['sender']} {r['subject']!r} -> {r['intent']} ({r['intent_conf']:.2f})")
 
 
 def email_manual_sample(out: Path | None = None) -> Path:
@@ -384,14 +384,14 @@ def email_manual_sample(out: Path | None = None) -> Path:
         rows = [dict(r) for r in c.execute("SELECT * FROM emails WHERE message_id NOT LIKE 'golden:%' ORDER BY intent_conf")]
     RUNS_DIR.mkdir(exist_ok=True)
     out = out or RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_email_manual_sample.md"
-    lines = [f"# E-mail szándék kézi ellenőrzés - {len(rows)} élő levél ({datetime.now():%Y-%m-%d})", "",
-             "Jelöld: ok? oszlop = ✅ helyes / ❌ hibás (+ helyes szándék). Conf szerint növekvő sorrend, a bizonytalanok elöl.",
-             "Szándékok: " + ", ".join(INTENT_KEYS), "",
-             "| # | ok? | predikció | conf | next_flow | dátum | feladó | tárgy | törzs eleje |", "|---|---|---|---|---|---|---|---|---|"]
+    lines = [f"# Email intent manual check - {len(rows)} live email(s) ({datetime.now():%Y-%m-%d})", "",
+             "Mark in the right? column: ✅ right / ❌ wrong (+ the right intent). By confidence, the uncertain first.",
+             "Intents: " + ", ".join(INTENT_KEYS), "",
+             "| # | right? | prediction | conf | next_flow | date | sender | subject | body start |", "|---|---|---|---|---|---|---|---|---|"]
     for i, r in enumerate(rows, 1):
         body = (r["body_excerpt"] or "").replace("|", "/").replace(chr(10), " ⏎ ")[:110]
         subj = (r["subject"] or "").replace("|", "/")[:70]
         lines.append(f"| {i} | | {r['intent']} | {r['intent_conf']:.2f} | {r['next_flow']} | {(r['received_at'] or '')[:10]} | {r['sender']} | {subj} | {body} |")
     out.write_text(chr(10).join(lines) + chr(10), encoding="utf-8")
-    print(f"Kézi minta: {out} ({len(rows)} levél)")
+    print(f"Manual sample: {out} ({len(rows)} email(s))")
     return out

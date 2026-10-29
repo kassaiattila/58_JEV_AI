@@ -53,13 +53,13 @@ CREATE TABLE IF NOT EXISTS workpackages (
 );
 CREATE TABLE IF NOT EXISTS workpackage_items (
     workpackage_id TEXT NOT NULL REFERENCES workpackages(id),
-    item_id     TEXT NOT NULL,                 -- dokumentumnál a tartalom sha256-a (= documents.doc_id)
+    item_id     TEXT NOT NULL,                 -- for a document the content's sha256 (= documents.doc_id)
     kind        TEXT NOT NULL,                 -- document | email
     source_path TEXT NOT NULL,
     sha256      TEXT NOT NULL,
     added_revision   INTEGER NOT NULL,
     removed_revision INTEGER,
-    parent_item_id   TEXT,                     -- 058 K5.2: a levél csatolmányánál a levél tétele (a csatolmány eredete)
+    parent_item_id   TEXT,                     -- 058 K5.2: for an email's attachment, the email's item (where the attachment came from)
     instance    TEXT,                          -- source instance (jav/documents/source_instances.py), relative path; NULL: none
     removed_at  TEXT,                          -- 160-C S1: when, by whom and why the item was removed (NULL: in use)
     removed_by  TEXT,
@@ -89,9 +89,9 @@ CREATE TABLE IF NOT EXISTS runs (
     recipe_id   TEXT NOT NULL,
     recipe_version INTEGER NOT NULL,
     recipe_hash TEXT NOT NULL,
-    recipe      TEXT NOT NULL,                 -- a recept pillanatképe (JSON)
+    recipe      TEXT NOT NULL,                 -- the recipe's snapshot (JSON)
     params      TEXT NOT NULL,
-    input       TEXT NOT NULL,                 -- rögzített bemenet: tételek + hash-ek
+    input       TEXT NOT NULL,                 -- the fixed input: the items and their hashes
     input_hash  TEXT NOT NULL,
     status      TEXT NOT NULL,                 -- queued | running | needs_review | done | failed | cancelled
     approval    TEXT,                          -- NULL | approved
@@ -107,9 +107,9 @@ CREATE INDEX IF NOT EXISTS ix_runs_wp ON runs(workpackage_id, created_at);
 -- 204 (R1i): a package's removed items only; the run list leaves their to-dos out (`work_runs.run_rows`), and without it
 -- read every item of the package for each open to-do (10.4 s for one run of 10,000 items, 0.014 s with it)
 CREATE INDEX IF NOT EXISTS ix_workpackage_items_removed ON workpackage_items(workpackage_id) WHERE removed_revision IS NOT NULL;
--- 058: a csomag elrejtése, visszahozása, átnevezése és törlése (ki, mikor, mit); a törölt csomag nyoma is itt marad
--- 058: a forrásfájl ujjlenyomata méret + módosítási idő szerint megjegyezve (a csomag megnyitása ne hasheljen újra
--- minden fájlt); az indítás és a feldolgozó mindig teljesen ellenőriz
+-- 058: a batch hidden, restored, renamed and deleted (who, when, what); a deleted batch leaves its trace here too
+-- 058: a source file's fingerprint remembered by size and modification time (opening a batch need not hash every
+-- file again); a start and the worker always check in full
 CREATE TABLE IF NOT EXISTS file_fingerprints (
     path        TEXT PRIMARY KEY,
     size        INTEGER NOT NULL,
@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS run_items (
     run_id      TEXT NOT NULL REFERENCES runs(run_id),
     item_id     TEXT NOT NULL,
     status      TEXT NOT NULL,                 -- done | failed | cancelled
-    final_status TEXT,                         -- a folyamat végállapota (done | needs_review | needs_ocr | jev_unavailable ...)
+    final_status TEXT,                         -- the flow's final state (done | needs_review | needs_ocr | jev_unavailable ...)
     flow_run_id TEXT,
     error       TEXT,
     updated_at  TEXT NOT NULL,

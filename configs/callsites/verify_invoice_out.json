@@ -16,12 +16,12 @@
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "047 T1.5: request_char_budget 110000 (mint a közmű-hívási helyen): a hosszú iratoknál (általános szerződési feltételek) a teljes szöveg-state max_tokens_exceeded hibát adott"
+    "note": "047 T1.5: request_char_budget 110000 (as at the utility call site): on long documents (general terms and conditions) the full-text state gave max_tokens_exceeded"
    },
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "047 T1.1: G-kar ellenőrző hívási hely a régi típusból átalakítva; a Noul-kérdések a verify.json-ból öröklődnek"
+    "note": "047 T1.1: the G path's verify call site converted from the legacy type; the Noul questions are inherited from verify.json"
    }
   ]
  },

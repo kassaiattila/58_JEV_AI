@@ -22,8 +22,8 @@ afterEach(async () => {
   localStorage.removeItem(LANGUAGE_STORAGE_KEY);
 });
 
-describe("nyelvváltás", () => {
-  it("angolra váltva a felirat helyben frissül, a beírt érték megmarad, a választás tárolódik", async () => {
+describe("switching the language", () => {
+  it("switched to English, a label updates in place, the value typed stays, the choice is kept", async () => {
     render(<><LanguageSwitch /><Draft /></>);
     await userEvent.type(screen.getByLabelText("Számlaszám"), "MINTA-7");
     await userEvent.click(screen.getByRole("button", { name: "EN" }));
@@ -35,7 +35,7 @@ describe("nyelvváltás", () => {
     expect(getLocale()).toBe("en-GB");
   });
 
-  it("címkeszótár, paraméteres mondat, és hiányzó kulcsnál a magyar forrás", async () => {
+  it("the label dictionary, a sentence with parameters, and the Hungarian source for a missing key", async () => {
     await act(() => setLanguage("en"));
     expect(MODE.apply).toBe("Live");
     expect(reasonText("pick:none:invoice_number")).toBe("No value: Invoice number");

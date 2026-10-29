@@ -37,12 +37,12 @@
       {
         "version": "1.0.0",
         "date": "2026-09-30",
-        "note": "071 S-adatőr (070 terv 2.1): első változat; a régi projekt scripts/hooks/pre-commit + scripts/secret_scan.py mintájára, ellenőrzőszám-szűréssel, kulcs-, .env- és tiltottkifejezés-kereséssel, feltöltés előtti történet-tiltással. Az allow/known/deny lista a verziókövetett fa 2026-09-30-i átnézéséből."
+        "note": "071 data guard (plan 070 2.1): the first version, after the legacy project's scripts/hooks/pre-commit and scripts/secret_scan.py, with a check-digit filter, a search for keys, .env values and forbidden phrases, and a forbidden history before a push. The allow, known and deny lists come from a review of the tracked tree on 2026-09-30."
       },
       {
         "version": "1.0.1",
         "date": "2026-09-30",
-        "note": "071 D-teljesség: a telepítési útmutatóból kikerült a NAS-útvonal (általános leírás lett), ezért ott a felhasználónév már nem tűrt; a tűrés csak a szolgáltatás beállításfájljában marad."
+        "note": "071 D completeness: the NAS path left the setup guide (it became a general description), so the user name is no longer tolerated there; it stays tolerated only in the service's settings file."
       },
       {
         "version": "1.0.2",

@@ -15,8 +15,8 @@ function Poller({ fn }: { fn: () => Promise<number> }) {
   return null;
 }
 
-describe("Automatikus frissítés (066 Á36)", () => {
-  it("függő kérés alatt nem indít újat", async () => {
+describe("Automatic refresh (066 Á36)", () => {
+  it("it starts no new request while one is pending", async () => {
     vi.useFakeTimers();
     const fn = vi.fn(() => new Promise<number>(() => {})); // never returns
     render(<Poller fn={fn} />);
@@ -24,7 +24,7 @@ describe("Automatikus frissítés (066 Á36)", () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it("rejtett lapon nem kérdez", async () => {
+  it("it does not ask on a hidden tab", async () => {
     vi.useFakeTimers();
     const fn = vi.fn(async () => 1);
     render(<Poller fn={fn} />);

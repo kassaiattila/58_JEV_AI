@@ -196,7 +196,7 @@ class MissingAPIKeyError(RuntimeError):
 
 
 def _env_hint() -> str:
-    return f"\nKeresett .env: {ENV_FILE}" + ("  (nem létezik)" if not ENV_FILE.exists() else "") + "\nMinta: .env.example"
+    return f"\n.env looked for: {ENV_FILE}" + ("  (it does not exist)" if not ENV_FILE.exists() else "") + "\nSample: .env.example"
 
 
 def get_api_key() -> str:
@@ -210,7 +210,7 @@ def get_api_key() -> str:
         if value and value.strip():
             return value.strip()
 
-    raise MissingAPIKeyError("Nincs TypeSafe API kulcs. Várt változók: " + ", ".join(API_KEY_ENV_VARS) + _env_hint())
+    raise MissingAPIKeyError("No TypeSafe API key. Expected variables: " + ", ".join(API_KEY_ENV_VARS) + _env_hint())
 
 
 def get_openai_key() -> str:
@@ -218,7 +218,7 @@ def get_openai_key() -> str:
     value = os.environ.get(OPENAI_KEY_ENV_VAR)
     if value and value.strip():
         return value.strip()
-    raise MissingAPIKeyError(f"Nincs OpenAI API kulcs. Várt változó: {OPENAI_KEY_ENV_VAR}" + _env_hint())
+    raise MissingAPIKeyError(f"No OpenAI API key. Expected variable: {OPENAI_KEY_ENV_VAR}" + _env_hint())
 
 
 def build_retry_policy() -> RetryPolicy:
@@ -246,7 +246,7 @@ def guard_sdk_logging() -> bool:
     if level not in ("debug", "info") or os.environ.get(SDK_DEBUG_ALLOW_ENV, "").strip() == "1":
         return False
     logging.getLogger("typesafe_sdk").setLevel(logging.WARNING)
-    print(f"[jav] {SDK_LOG_LEVEL_ENV}={level} figyelmen kívül hagyva (PII a naplóban); engedélyezés: {SDK_DEBUG_ALLOW_ENV}=1", file=sys.stderr)
+    print(f"[jav] {SDK_LOG_LEVEL_ENV}={level} ignored (personal data in the log); to allow it: {SDK_DEBUG_ALLOW_ENV}=1", file=sys.stderr)
     return True
 
 

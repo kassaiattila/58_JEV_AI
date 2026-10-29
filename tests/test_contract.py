@@ -32,12 +32,12 @@ def test_lint_catches_drift():
     result = contract.lint_flow(c, app, module)
     assert not result["passed"]
     failed = {name for name, ok, _ in result["checks"] if not ok}
-    assert "kontrakt lefedi az élő gráfot" in failed and "élek egyeznek" in failed
+    assert "the contract covers the live graph" in failed and "the edges match" in failed
     c2 = copy.deepcopy(module.CONTRACT)
     c2["step_meta"]["detect"]["kind"] = "det"  # JEV step disguised as code: no trace needed, but only known kinds pass
     c2["step_meta"]["load_pdf"]["kind"] = "jev"  # a code step disguised as JEV: no adapter trace -> error
     result2 = contract.lint_flow(c2, app, module)
-    assert "lépés-fajták és nyomaik" in {name for name, ok, _ in result2["checks"] if not ok}
+    assert "the step kinds and their traces" in {name for name, ok, _ in result2["checks"] if not ok}
 
 
 def test_mermaid_and_md_from_contract(tmp_path):
@@ -52,7 +52,7 @@ def test_mermaid_and_md_from_contract(tmp_path):
     assert b"\r" not in (tmp_path / "email_intent" / "FLOW.md").read_bytes()
     assert b"\r" not in (tmp_path / "email_intent" / "FLOW.mmd").read_bytes()
     mmd2 = contract.overview_mermaid(flow.CONTRACT)
-    assert "load_pdf -->|S-kar| find_candidates" in mmd2 and "save -->|route auto| done" in mmd2
+    assert "load_pdf -->|S path| find_candidates" in mmd2 and "save -->|route auto| done" in mmd2
 
 
 def test_native_application_wrappers_are_actual_calls_not_comment_markers():

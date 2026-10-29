@@ -71,22 +71,22 @@
    {
     "version": "1.3.0",
     "date": "2026-09-29",
-    "note": "065: a felismerés tág kategóriáinak (M1) magyar neve is (egyéb irat, szerződés, nyugta, közműszámla…); a levél csatolmányánál eddig a gépi név látszott (például „other”)"
+    "note": "065: the Hungarian names of the recognition's broad categories (M1) too (egyéb irat, szerződés, nyugta, közműszámla…); an email's attachment used to show the machine name (for example ‘other’)"
    },
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "056 U1: a mezők és a tételes lista oszlopainak magyar nevei egy helyen (a felület ui/src/labels.ts-éből költöztetve), hogy a szolgáltatás oldali keresés és rendezés is a magyar névre menjen"
+    "note": "056 U1: the Hungarian names of the fields and of the itemised list's columns in one place (moved from the interface's ui/src/labels.ts), so the service's search and sorting go by the Hungarian name too"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "057: a 23 irattípus magyar neve (doc_types), a felület és a szolgáltatás közös szótára; a típuscsomagokban csak angol leírás volt"
+    "note": "057: the Hungarian names of the 23 document types (doc_types), the interface's and the service's shared dictionary; the type packs had only an English description"
    },
    {
     "version": "1.2.0",
     "date": "2026-09-28",
-    "note": "058: a közmű-típusok és a régi típusok 83 hiányzó mezőneve (eddig gépi névvel látszottak) és a szöveglista-oszlop (*) neve; teszt őrzi, hogy minden típuscsomag-mezőnek legyen magyar neve"
+    "note": "058: the 83 missing field names of the utility types and the legacy types (until now they showed their machine names) and the text list column's (*) name; a test keeps every type pack field named in Hungarian"
    }
   ]
  },

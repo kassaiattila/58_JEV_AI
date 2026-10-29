@@ -16,17 +16,17 @@
    {
     "version": "1.3.0",
     "date": "2026-09-29",
-    "note": "069 (066 Á05, döntés 2026-09-29): adószám-ellenőrzés tax_id néven mindkét félre (a vevőé új): felismert alak (jav/taxid.py), különben teendő; eddig minden nem 11 jegyű érték „külföldiként” átment. A kinyerés változatlan"
+    "note": "069 (066 Á05, decision of 2026-09-29): a tax number check named tax_id for both parties (the buyer's is new): a recognised form (jav/taxid.py), otherwise a to-do; until now every value not of 11 digits passed as ‘foreign’. The extraction unchanged"
    },
    {
     "version": "1.2.0",
     "date": "2026-09-28",
-    "note": "053 T3.0/T3.2: számlatételek - line_items tételes lista a GPT-séma tétel-mezőivel (a prompt és a séma változatlan, a kinyerés költsége nem nő); tétel-ellenőrzések kódban: line_items_total (tételösszeg = végösszeg) és line_items_arithmetic (soronként mennyiség × egységár ≈ nettó, nettó × (1 + ÁFA-kulcs) ≈ bruttó)"
+    "note": "053 T3.0/T3.2: invoice line items - the line_items list with the GPT schema's item fields (the prompt and the schema unchanged, the extraction costs no more); line item checks in code: line_items_total (the items' sum = the total) and line_items_arithmetic (per row quantity × unit price ≈ net, net × (1 + VAT rate) ≈ gross)"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "047 T1.2: parent + a régi detect.json kulcsszavai a részletes típus kiválasztásához (forrás: 10_AIFLOW_V4/flows/doc-extract-bare/types/invoice_hu/detect.json, sha256 d6f72f9ef0f7da28); a kinyerés változatlan"
+    "note": "047 T1.2: parent and the legacy detect.json's keywords for choosing the detailed type (source: 10_AIFLOW_V4/flows/doc-extract-bare/types/invoice_hu/detect.json, sha256 d6f72f9ef0f7da28); the extraction unchanged"
    },
    {
     "version": "1.0.0",

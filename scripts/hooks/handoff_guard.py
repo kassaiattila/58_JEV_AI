@@ -115,10 +115,10 @@ def git_summary(handoff: Path | None) -> dict | None:
 
 def format_git_line(g: dict | None) -> str:
     if g is None:
-        return "git: nem elérhető"
-    since = ("az átadó óta készült commitok száma nem állapítható meg" if g["commits_since_handoff"] is None
-             else f"{g['commits_since_handoff']} commit a legutóbbi átadó óta")
-    return f"git: ág {g['branch']} @ {g['head']}, {g['dirty']} commitolatlan fájl, {since}"
+        return "git: not available"
+    since = ("the number of commits since the handoff cannot be told" if g["commits_since_handoff"] is None
+             else f"{g['commits_since_handoff']} commit(s) since the latest handoff")
+    return f"git: branch {g['branch']} @ {g['head']}, {g['dirty']} uncommitted file(s), {since}"
 
 
 def stop_message(stale: float, g: dict | None, next_num: int) -> str | None:
@@ -127,23 +127,23 @@ def stop_message(stale: float, g: dict | None, next_num: int) -> str | None:
         return None
     parts = [f"[handoff-guard] {format_git_line(g)}."]
     if g is not None and g["dirty"]:
-        parts.append("Commitold a kész logikai egységet (docs/guides/DEVELOPMENT.md).")
-    parts.append(f"Session végén vagy szakaszzáráskor írd meg a(z) {next_num:03d}-as átadót (docs/handoffs/TEMPLATE.md).")
+        parts.append("Commit the finished logical unit (docs/guides/DEVELOPMENT.md).")
+    parts.append(f"At the end of the session or when a stage closes, write handoff {next_num:03d} (docs/handoffs/TEMPLATE.md).")
     return " ".join(parts)
 
 
 def refresh_state(timeout_s: float = 15.0) -> str:
     """Regenerates `docs/STATE.md` with the venv's Python if the code is newer. Never raises; returns a short status."""
     if not VENV_PY.exists():
-        return "STATE.md: a venv hiányzik, nem frissült"
+        return "STATE.md: the venv is missing, not refreshed"
     if STATE.exists() and STATE.stat().st_mtime >= newest_code_mtime():
         return "STATE.md friss"
     try:
         r = subprocess.run([str(VENV_PY), "-m", "jav.cli", "admin", "--write"], cwd=ROOT, capture_output=True,
                            text=True, encoding="utf-8", errors="replace", timeout=timeout_s)
-        return "STATE.md frissítve" if r.returncode == 0 else f"STATE.md frissítés hibával: {(r.stderr or '').strip()[-160:]}"
+        return "STATE.md refreshed" if r.returncode == 0 else f"STATE.md refresh failed: {(r.stderr or '').strip()[-160:]}"
     except (OSError, subprocess.SubprocessError) as exc:
-        return f"STATE.md nem frissült: {exc}"
+        return f"STATE.md not refreshed: {exc}"
 
 
 def autopilot_state() -> dict | None:
@@ -275,8 +275,8 @@ def main() -> int:
     rel = handoff.relative_to(ROOT).as_posix() if handoff else "(nincs handoff)"
 
     if event == "session-start":
-        state_age = f"{(time.time() - STATE.stat().st_mtime) / 60:.0f} perce" if STATE.exists() else "HIÁNYZIK"
-        lines = [f"[handoff-guard] Legfrissebb handoff: {rel} - a következő sorszám: {num + 1:03d}. docs/STATE.md: {state_age}.",
+        state_age = f"{(time.time() - STATE.stat().st_mtime) / 60:.0f} minute(s) old" if STATE.exists() else "MISSING"
+        lines = [f"[handoff-guard] Latest handoff: {rel} - the next number: {num + 1:03d}. docs/STATE.md: {state_age}.",
                  "Session protocol: read AGENTS.md and the shared CLAUDE.md rules, then the latest handoff below, "
                  "docs/BACKLOG.md, docs/DECISIONS.md and docs/GLOSSARY.md. Use `.venv\\Scripts\\python.exe -m jav.cli preflight` "
                  "for the required checks; reuse completed checks when the relevant code and environment are unchanged. "
@@ -284,10 +284,10 @@ def main() -> int:
                  "ask only about unresolved scope, policy or budget decisions.",
                  f"[handoff-guard] {format_git_line(git_summary(handoff))}."]
         if stale > STALE_MINUTES:
-            lines.append(f"FIGYELEM: a kód {stale:.0f} perccel frissebb a handoffnál - az állapot-leírás elavult lehet, ellenőrizd.")
+            lines.append(f"WARNING: the code is {stale:.0f} minute(s) newer than the handoff - its state may be out of date; check it.")
         if handoff:
             body = handoff.read_text(encoding="utf-8").splitlines()
-            lines += ["", f"--- {rel} (teljes, {len(body)} sor) ---", *body, f"--- {rel} vége ---"]
+            lines += ["", f"--- {rel} (whole, {len(body)} line(s)) ---", *body, f"--- end of {rel} ---"]
         if autopilot:
             lines += autopilot_lines(autopilot)
         print("\n".join(lines))
@@ -296,10 +296,10 @@ def main() -> int:
     if event == "pre-compact":
         trigger = payload.get("trigger") or payload.get("matcher") or "?"
         if stale > STALE_MINUTES or handoff is None:
-            msg = (f"[handoff-guard] Kontextus-tömörítés ({trigger}) jön, és a handoff elavult ({rel}, a kód {stale:.0f} perccel"
-                   f" frissebb). Tömörítés után az első teendő: írd meg a {num + 1:03d}-as handoffot a docs/handoffs/ mappába.")
+            msg = (f"[handoff-guard] The context is being compacted ({trigger}), and the handoff is out of date ({rel}, the code is"
+                   f" {stale:.0f} minute(s) newer). After the compaction, first write handoff {num + 1:03d} into docs/handoffs/.")
         else:
-            msg = f"[handoff-guard] Kontextus-tömörítés ({trigger}); a handoff friss ({rel})."
+            msg = f"[handoff-guard] The context is being compacted ({trigger}); the handoff is fresh ({rel})."
         print(json.dumps({"systemMessage": msg}, ensure_ascii=False))
         return 0
 
@@ -322,7 +322,7 @@ def main() -> int:
             print(json.dumps({"systemMessage": msg}, ensure_ascii=False))
         return 0
 
-    print(f"[handoff-guard] ismeretlen esemény: {event}", file=sys.stderr)
+    print(f"[handoff-guard] unknown event: {event}", file=sys.stderr)
     return 1
 
 

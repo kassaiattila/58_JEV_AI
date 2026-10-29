@@ -6,7 +6,7 @@
       {
         "version": "1.0.0",
         "date": "2026-09-28",
-        "note": "045 K3b: a forráshely-keresés címkeszótára (a V4 sidecar/app/grounding/context.py _SCALAR portja, ékezet nélküli, kisbetűs alakban). Ha egy érték több helyen szerepel, a mező címkéje a sor elején vagy közvetlenül fölötte dönt; ha nincs egyértelmű címke, nincs keret. Az általános címkék (pl. „Adószám”) csoportként mindkét fél mezőjét igazolják (label_groups)."
+        "note": "045 K3b: the label dictionary of the source place search (a port of the V4 sidecar/app/grounding/context.py _SCALAR, without accents, in lower case). When a value stands in more than one place, the field's label at the line's start or right above it decides; without a clear label there is no box. The general labels (e.g. ‘Adószám’) confirm both parties' fields as a group (label_groups)."
       },
       {
         "version": "1.1.0",

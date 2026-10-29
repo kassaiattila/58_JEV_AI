@@ -29,12 +29,12 @@ function page(query: DsQuery, total = 3): DsPage {
 
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
-describe("egységes választó", () => {
+describe("the uniform picker", () => {
   const OPTS = [
     { value: "shadow", label: "Próba" }, { value: "apply", label: "Éles" }, { value: "x", label: "Számla-feldolgozás", detail: "v2" },
   ];
 
-  it("mindig kereshető: ékezet nélkül is szűr, Enterrel választ", async () => {
+  it("always searchable: it filters without accents too, Enter chooses", async () => {
     const onChange = vi.fn();
     render(<Picker label="Mód" value="shadow" options={OPTS} onChange={onChange} />);
     await userEvent.click(screen.getByRole("button", { name: /Mód/ }));
@@ -46,7 +46,7 @@ describe("egységes választó", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
   });
 
-  it("billentyűzettel léptethető, Esc bezárja; gépelés a gombon azonnal keres", async () => {
+  it("it steps with the keyboard, Esc closes it; typing on the button searches at once", async () => {
     const onChange = vi.fn();
     render(<Picker label="Mód" value="shadow" options={OPTS} onChange={onChange} />);
     const trigger = screen.getByRole("button", { name: /Mód/ });
@@ -60,7 +60,7 @@ describe("egységes választó", () => {
     expect(onChange).toHaveBeenCalledWith("apply");
   });
 
-  it("szolgáltatás oldali keresésnél a beírt szöveg a hívóhoz megy, a lista nem szűrődik helyben", async () => {
+  it("with a search on the service's side the text typed goes to the caller, the list is not filtered locally", async () => {
     const onSearch = vi.fn();
     render(<Picker label="Futás" value={null} options={OPTS} onChange={() => {}} onSearch={onSearch} more={40} />);
     await userEvent.click(screen.getByRole("button", { name: /Futás/ }));
@@ -71,8 +71,8 @@ describe("egységes választó", () => {
   });
 });
 
-describe("közös táblázat", () => {
-  it("a keresést, a rendezést, a szűrőt és a lapozást a szolgáltatástól kéri", async () => {
+describe("the shared table", () => {
+  it("it asks the service for the search, the sorting, the filter and the paging", async () => {
     const spy = vi.spyOn(api, "datasetQuery").mockImplementation(async (_n, _s, q) => page(q, 250));
     render(<DataTable dataset="datapoints" scope={{ run_id: "run-1" }} label="Adatpontok" />);
     expect(await screen.findByText("a.pdf")).toBeTruthy();
@@ -96,7 +96,7 @@ describe("közös táblázat", () => {
     await waitFor(() => expect(spy).toHaveBeenLastCalledWith("datapoints", expect.anything(), expect.objectContaining({ q: "brutt", offset: 0 })));
   });
 
-  it("058: a rendezhetőség minden fejlécen látszik, a rendezett oszlopon az irány; a súgó a következő kattintást mondja", async () => {
+  it("058: every header shows it can be sorted, the sorted column its direction; the tooltip says the next click", async () => {
     vi.spyOn(api, "datasetQuery").mockImplementation(async (_n, _s, q) => page(q));
     const { container } = render(<DataTable dataset="datapoints" scope={{ run_id: "run-1" }} label="Adatpontok" />);
     await screen.findByText("a.pdf");
@@ -112,7 +112,7 @@ describe("közös táblázat", () => {
     await waitFor(() => expect(marks()).toEqual(["none", "desc", "none"]));
   });
 
-  it("felsorolt kód helyett felirat, pénz magyar írásmóddal, rejtett oszlop bekapcsolható és megmarad", async () => {
+  it("a label instead of an enumerated code, money in the Hungarian notation, a hidden column can be turned on and stays", async () => {
     localStorage.clear();
     vi.spyOn(api, "datasetQuery").mockImplementation(async (_n, _s, q) => page(q));
     const { unmount } = render(<DataTable dataset="datapoints" scope={{ run_id: "run-1" }} label="Adatpontok" />);
@@ -129,7 +129,7 @@ describe("közös táblázat", () => {
     localStorage.clear();
   });
 
-  it("a letöltés-panel a legszűkebb terjedelmet ajánlja, és a táblázat lekérdezésével kér fájlt", async () => {
+  it("the download panel offers the narrowest scope and asks for a file with the table's query", async () => {
     vi.spyOn(api, "datasetQuery").mockImplementation(async (_n, _s, q) => page(q));
     const dl = vi.spyOn(api, "datasetExport").mockResolvedValue({ filename: "datapoints-run-1-selected.xlsx", rows: 1 });
     render(<DataTable dataset="datapoints" scope={{ run_id: "run-1" }} label="Adatpontok" selectable />);
@@ -148,7 +148,7 @@ describe("közös táblázat", () => {
     expect(await within(panel).findByText(/Letöltve: datapoints-run-1-selected.xlsx \(1 sor\)/)).toBeTruthy();
   });
 
-  it("hivatkozás, felirat és szűrő-szöveg a cellákhoz", () => {
+  it("a link, a label and a filter text for the cells", () => {
     const row = { _key: "a:x", _wp: "wp-1", _run: "run-1", item_id: "a" };
     expect(linkOf(COLS[0], row)).toBe("#/workpackages/wp-1/review/a");
     expect(linkOf({ ...COLS[0], link: "next" }, { ...row, _stage: "result" })).toBe("#/workpackages/wp-1/result");
@@ -162,8 +162,8 @@ describe("közös táblázat", () => {
   });
 });
 
-describe("útvonalak (057)", () => {
-  it("a köteg szakaszai, az eredmény táblája és futása a címsorban; a régi címek az új helyre visznek", () => {
+describe("routes (057)", () => {
+  it("the batch's sections, the result's table and its run in the address; the old addresses lead to the new place", () => {
     const h = routeHash({ view: "workpackages", wpId: "wp-1", stage: "result", table: "line_items", runId: "run-000000000001" });
     expect(h).toBe("#/workpackages/wp-1/result/line_items?run=run-000000000001");
     expect(parseRoute(h)).toEqual({ view: "workpackages", wpId: "wp-1", stage: "result", table: "line_items", runId: "run-000000000001" });

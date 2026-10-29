@@ -35,8 +35,8 @@ class GitState:
     dirty: int
 
     def line(self) -> str:
-        tree = "tiszta munkafa" if self.dirty == 0 else f"{self.dirty} commitolatlan fájl"
-        return f"ág {self.branch} @ {self.head}, {tree}"
+        tree = "clean working tree" if self.dirty == 0 else f"{self.dirty} uncommitted file(s)"
+        return f"branch {self.branch} @ {self.head}, {tree}"
 
 
 def git_state() -> GitState | None:
@@ -83,10 +83,10 @@ def ruff_findings() -> tuple[int, dict[str, int]] | None:
 def lint_verdict(count: int | None, limit: int | None) -> tuple[bool, str]:
     """The ratchet's verdict. A missing Ruff or limit is not an error, only a notice."""
     if count is None:
-        return True, "Ruff nem érhető el (telepítés: uv tool install ruff) - kihagyva"
+        return True, "Ruff is not available (install: uv tool install ruff) - skipped"
     if limit is None:
-        return True, f"{count} jelzés (nincs max_findings a pyproject.toml-ban)"
+        return True, f"{count} finding(s) (no max_findings in pyproject.toml)"
     if count > limit:
-        return False, f"{count} jelzés > határ {limit}: új jelzés került a kódba, javítsd"
-    extra = f"; a határ {count}-ra csökkenthető" if count < limit else ""
-    return True, f"{count} jelzés (határ {limit}{extra})"
+        return False, f"{count} finding(s) > limit {limit}: a new finding entered the code; fix it"
+    extra = f"; the limit can be lowered to {count}" if count < limit else ""
+    return True, f"{count} finding(s) (limit {limit}{extra})"

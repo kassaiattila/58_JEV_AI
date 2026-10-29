@@ -32,8 +32,8 @@ const HELP: RecipeHelp = {
   },
 };
 
-describe("063 a receptek magyarázata", () => {
-  it("a tételkeret a szolgáltatás számítását követi: út szerint, tétel-fajtánként, a feladatjavaslat többletével", () => {
+describe("063 the recipes explained", () => {
+  it("the item budget follows the service's computation: by path, by item kind, with the task proposals' extra", () => {
     expect(itemBudget(INVOICE, { arm: "S" })).toEqual({ jev: 0.05 });
     expect(itemBudget(INVOICE, { arm: "G" })).toEqual({ jev: 0.05, openai: 0.1 });
     expect(itemBudget(EMAIL, { arm: "auto", tasks: "off" }, "email")).toEqual({ jev: 0.05 });
@@ -43,14 +43,14 @@ describe("063 a receptek magyarázata", () => {
     expect(itemBudgetLines(EMAIL, { arm: "auto", tasks: "off" })).toEqual(["levelenként: JEV legfeljebb 0,05 USD", "PDF-iratonként: JEV legfeljebb 0,07 USD, OpenAI legfeljebb 0,10 USD"]);
   });
 
-  it("a kártyán a választott érték jelentése látszik, érték-szöveg híján a beállításé, és a keret", () => {
+  it("the card shows the chosen value's meaning, without a value text the setting's, and the budget", () => {
     render(<RecipeParamList recipe={INVOICE} params={{ arm: "S", jev_cache: "live" }} help={HELP} />);
     expect(screen.getByText(/A kód kigyűjti a lehetséges értékeket/)).toBeTruthy();
     expect(screen.getByText(/Mi történjen, ha ugyanazt a kérdést/)).toBeTruthy(); // the test has no text for the „mindig élő” (always live) value
     expect(screen.getByText("tételenként: JEV legfeljebb 0,05 USD")).toBeTruthy();
   });
 
-  it("a Feldolgozás oldal a teljes leírást adja: feltételek, lépések, eredmény, alapbeállítás, lehetőségenkénti keret", async () => {
+  it("the Processing page gives the whole description: conditions, steps, result, default setting, a budget per option", async () => {
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [INVOICE], help: HELP });
     render(<RecipesPanel />);
     expect(await screen.findByRole("region", { name: "Számlák adatainak kinyerése" })).toBeTruthy();

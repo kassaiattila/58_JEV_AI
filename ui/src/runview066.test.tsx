@@ -17,8 +17,8 @@ function Status({ runId }: { runId: string }) {
 
 const view = (status: string) => ({ run: { run_id: "run-1", status } }) as unknown as RunView;
 
-describe("Futás-nézet frissítése (066 Á24)", () => {
-  it("futás közben frissít, lezárás után leáll", async () => {
+describe("Refreshing the run view (066 Á24)", () => {
+  it("it refreshes while running, stops after the end", async () => {
     vi.useFakeTimers();
     const spy = vi.spyOn(api, "run")
       .mockResolvedValueOnce(view("running"))

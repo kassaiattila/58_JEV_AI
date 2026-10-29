@@ -29,20 +29,20 @@ flowchart TD
     needs_ocr["needs_ocr (terminal)"]
   end
   load_text -->|empty text| decide_route
-  load_text -->|S-kar| find_candidates
-  load_text -->|G-kar| extract_llm
-  load_pdf -->|nincs szövegréteg| ocr_pdf
-  load_pdf -->|S-kar| find_candidates
-  load_pdf -->|G-kar| extract_llm
-  ocr_pdf -->|nincs OCR / nincs szöveg| needs_ocr
-  ocr_pdf -->|S-kar| find_candidates
-  ocr_pdf -->|G-kar| extract_llm
+  load_text -->|S path| find_candidates
+  load_text -->|G path| extract_llm
+  load_pdf -->|no text layer| ocr_pdf
+  load_pdf -->|S path| find_candidates
+  load_pdf -->|G path| extract_llm
+  ocr_pdf -->|no OCR / no text| needs_ocr
+  ocr_pdf -->|S path| find_candidates
+  ocr_pdf -->|G path| extract_llm
   find_candidates --> jev_select
   jev_select --> normalize_picks
   normalize_picks --> validate
   extract_llm -->|extract, without JEV| code_verify
-  extract_llm -->|van kivonat| jev_verify
-  extract_llm -->|LLM-hiba| decide_route
+  extract_llm -->|an extraction| jev_verify
+  extract_llm -->|LLM error| decide_route
   jev_verify --> normalize_llm
   code_verify --> normalize_llm
   normalize_llm --> validate
@@ -50,4 +50,4 @@ flowchart TD
   decide_route --> ground
   ground --> save
   save -->|route auto| done
-  save -->|különben| needs_review
+  save -->|otherwise| needs_review

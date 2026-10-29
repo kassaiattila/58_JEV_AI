@@ -20,8 +20,8 @@ function Probe({ onDone }: { onDone: () => void }) {
   );
 }
 
-describe("Teendő rendezése (066 Á23)", () => {
-  it("a hiba látszik, és a lista akkor is frissül", async () => {
+describe("Settling a to-do (066 Á23)", () => {
+  it("the error shows, and the list refreshes anyway", async () => {
     vi.spyOn(api, "resolveReason").mockRejectedValue(new ApiError(409, "conflict", "already resolved"));
     const onDone = vi.fn();
     render(<Probe onDone={onDone} />);
@@ -30,7 +30,7 @@ describe("Teendő rendezése (066 Á23)", () => {
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
-  it("két gyors kattintás egy kérést küld", async () => {
+  it("two quick clicks send one request", async () => {
     let finish: (v: { status: string }) => void = () => {};
     const spy = vi.spyOn(api, "resolveReason").mockImplementation(() => new Promise((res) => { finish = res; }));
     render(<Probe onDone={() => {}} />);
