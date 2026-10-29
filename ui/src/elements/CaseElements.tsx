@@ -297,11 +297,13 @@ export function SubWorkTable({ rows }: { rows: ElementProps[] }) {
   useLocale();
   if (!rows.length) return null;
   const at = (id: string, tab?: string) => `#/cases/${encodeURIComponent(id)}${tab ? `/${encodeURIComponent(tab)}` : ""}`;
+  // the actions' column only when a row has a button (a stopped step's retry)
+  const acts = rows.some((p) => (p.element.step ? p.page.steps[p.element.step]?.actions ?? [] : []).some((a) => !a.form));
   return (
     <section className="card wide" aria-label={t("Sub-work")}>
       <div className="card-head"><h2>{t("Sub-work")}</h2></div>
       <table className="table compact" aria-label={t("Sub-work")}>
-        <thead><tr><th>{t("Step")}</th><th>{t("State")}</th><th>{t("Work")}</th><th>{t("Its case")}</th><th aria-label={t("Actions")} /></tr></thead>
+        <thead><tr><th>{t("Step")}</th><th>{t("State")}</th><th>{t("Work")}</th><th>{t("Its case")}</th>{acts ? <th aria-label={t("Actions")} /> : null}</tr></thead>
         <tbody>
           {rows.map((p) => {
             const d = p.element.data as SubCaseData | null;
@@ -317,7 +319,7 @@ export function SubWorkTable({ rows }: { rows: ElementProps[] }) {
               : d?.state === "failed" && step?.note ? t(step.note) : null;
             return (
               <tr key={p.element.step ?? title} aria-label={title}>
-                <th scope="row">{title}{d?.process ? <div className="small muted">{t(d.process)}</div> : null}</th>
+                <td><strong>{title}</strong>{d?.process ? <div className="small muted">{t(d.process)}</div> : null}</td>
                 <td>
                   {state ? <span className={`status ${state.mark}`}>{state.text}</span> : "–"}
                   {next && sub ? <div className="small"><a href={at(sub.id, next.tab)}>{stepLabel(next.code, next.params, next.label)}</a></div> : null}
@@ -334,7 +336,7 @@ export function SubWorkTable({ rows }: { rows: ElementProps[] }) {
                     </div>
                   ) : null}
                 </td>
-                <td><ActionButtons p={p} primary="retry" /></td>
+                {acts ? <td><ActionButtons p={p} primary="retry" /></td> : null}
               </tr>
             );
           })}

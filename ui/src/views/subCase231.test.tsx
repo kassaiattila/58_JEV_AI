@@ -81,10 +81,10 @@ describe("a step that runs a sub-case (231 U2c)", () => {
     vi.spyOn(api, "casePage").mockResolvedValue(chain(invoices, data({ state: "waiting" })));
     render(<CasePage caseId={CHAIN} tab="overview" />);
     const card = await screen.findByRole("row", { name: "Incoming invoices" });
-    expect(within(card).getAllByRole("cell")[1].textContent).toBe("4 documents · To-dos: 3 · Live: to-dos pending");
+    expect(within(card).getAllByRole("cell")[2].textContent).toBe("4 documents · To-dos: 3 · Live: to-dos pending");
     // 261 (B1c): the open to-dos lead to their review, under the sub-case's address
     expect(within(card).getByRole("link", { name: "To-dos: 3" }).getAttribute("href")).toBe(`#/cases/${SUB}/batches/wp-00000000e231/review`);
-    const [, work] = within(screen.getByRole("row", { name: "Reconciliation" })).getAllByRole("cell");
+    const [, , work] = within(screen.getByRole("row", { name: "Reconciliation" })).getAllByRole("cell");
     expect(work.textContent).toBe("–");  // a step not started yet has no work to say
   });
 
