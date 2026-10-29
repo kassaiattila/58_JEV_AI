@@ -86,8 +86,8 @@ def _lint_email(mod: Any) -> Any:
 def register() -> None:
     """Every registration of the email domain (`registrations.load_all`)."""
     from jav import flows
-    from jav.app import datasets, item_kinds, workflow_steps
-    from jav.domains.email import email_datasets, email_export, email_routing, email_store, flow_email, mailbox  # noqa: F401
+    from jav.app import datasets, item_kinds, rule_defaults, workflow_steps
+    from jav.domains.email import email_datasets, email_export, email_routing, email_rules, email_store, flow_email, mailbox  # noqa: F401
     from jav.app.outputs import parts
     from jav.runtime import job_kinds
 
@@ -96,6 +96,9 @@ def register() -> None:
     item_kinds.claim(item_kinds.EMAIL, __name__)
     item_kinds.claim_source("mailbox", __name__)
     flows.register(flows.FlowSpec("email", "jav.domains.email.flow_email", _build_email, _lint_email))
+    # 231 (U4b): the values an installation default of a route, or of the signs to review, takes
+    rule_defaults.register_options("email_routes", email_rules.route_options)
+    rule_defaults.register_options("email_signals", email_rules.signal_options)
 
     item_kinds.register_rule(item_kinds.ItemRule(kind=item_kinds.EMAIL, name="suspicious_email_source", module=__name__,
                                                  after_item=mailbox.mark_suspicious_source))

@@ -43,7 +43,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav.app import capabilities, letter_frames, partners, process_packs, scopes
+from jav.app import capabilities, letter_frames, partners, process_packs, rule_defaults, scopes
 from jav.core import cfg, identity, store, trace, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
@@ -167,10 +167,10 @@ def rule_keys(pack: process_packs.ProcessPack) -> dict[str, tuple[capabilities.R
 def effective_rules(pack: process_packs.ProcessPack) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     """231 (B3): the process's active rule values, as a case keeps them: ({config name: {key: value}}, {config name:
     {key: {"setting": id, "version": n}}}); a key its capabilities no longer declare is left out. 231 (U3f): with the
-    letter frames it uses, as their active versions in the shared library have them (`letter_frames.in_effect`)."""
+    letter frames it uses, as their active versions in the shared library have them (`letter_frames.in_effect`). 231
+    (U4a): under the process's own values, the installation's active defaults (`rule_defaults.active`)."""
     keys = rule_keys(pack)
-    values: dict[str, dict[str, Any]] = {}
-    refs: dict[str, dict[str, Any]] = {}
+    values, refs = rule_defaults.active()
     with store.connect() as c:
         for r in _active_rows(c, pack.id, RULE):
             if r["key"] in keys:
@@ -520,19 +520,27 @@ def preview(pack_id: str, key: str, value: Any) -> dict[str, Any]:
     from jav.app import process_runtime
 
     packs: dict[str, str | None] = {}
-    decided = changed = failed = 0
-    examples: list[dict[str, Any]] = []
-    first_error: str | None = None
+    rows = []
     for row in trace.reading(trace.file_of(rule.file), rule.key):
         case_id = row.get("case_id")
         if case_id and case_id not in packs:
             packs[case_id] = (process_runtime.pack_of(case_id) or (None, None))[0]
-        if not case_id or packs[case_id] != pack.id:
-            continue
-        decided += 1
+        if case_id and packs[case_id] == pack.id:
+            rows.append(row)
+    return {"key": key, "value": value, "file_value": rule.file_value(), **replayed(rows, rule.file, rule.key, value)}
+
+
+def replayed(rows: list[dict[str, Any]], file: str, key: str, value: Any) -> dict[str, Any]:
+    """231 (B3; U4c: shared with the installation's defaults): the decisions `rows` run again with the values each was
+    made with and with `value` in place of `file`'s `key`: how many, how many changed (with up to `PREVIEW_EXAMPLES`
+    of them) and how many failed (the first one named). Nothing is written, no AI is asked."""
+    changed = failed = 0
+    examples: list[dict[str, Any]] = []
+    first_error: str | None = None
+    for row in rows:
         try:
             before = trace.replay(row)
-            after = trace.replay(row, over=_with(trace.recorded_overlay(row), rule.file, rule.key, value))
+            after = trace.replay(row, over=_with(trace.recorded_overlay(row), file, key, value))
         except Exception as exc:  # noqa: BLE001 - a rule that fails on this value is counted in the preview, the first named
             failed += 1
             first_error = first_error or f"{row['point']}: {type(exc).__name__}: {exc}"
@@ -540,8 +548,8 @@ def preview(pack_id: str, key: str, value: Any) -> dict[str, Any]:
         if after != before:
             changed += 1
             if len(examples) < PREVIEW_EXAMPLES:
+                case_id = row.get("case_id")
                 examples.append({"point": row["point"], "subject": f"{row['subject_kind']}:{row['subject_id']}",
-                                 "case_id": case_id, "case": _case_name(case_id), "at": row["at"], "before": before,
-                                 "after": after})
-    return {"key": key, "value": value, "file_value": rule.file_value(), "decisions": decided, "changed": changed,
-            "failed": failed, "first_error": first_error, "examples": examples}
+                                 "case_id": case_id, "case": _case_name(case_id) if case_id else None, "at": row["at"],
+                                 "before": before, "after": after})
+    return {"decisions": len(rows), "changed": changed, "failed": failed, "first_error": first_error, "examples": examples}

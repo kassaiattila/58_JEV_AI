@@ -584,7 +584,16 @@ def _exit_code(results: list[Result]) -> int:
     return 0
 
 
-def _head(selected: list[Golden], options: Options, started: datetime, store_path: Path | None) -> dict[str, Any]:
+def own_defaults() -> list[str]:
+    """231 (U4; the owner's decision of 2026-10-29: a measurement reads the rule files): the rule keys the work store
+    keeps an active default of, which this measurement does not read."""
+    from jav.app import rule_defaults
+
+    return sorted(f"{file}.{key}" for file, keys in rule_defaults.active()[0].items() for key in keys)
+
+
+def _head(selected: list[Golden], options: Options, started: datetime, store_path: Path | None,
+          defaults: list[str]) -> dict[str, Any]:
     from jav.core import devstate
 
     git = devstate.git_state()
@@ -593,7 +602,8 @@ def _head(selected: list[Golden], options: Options, started: datetime, store_pat
             "clean": git.dirty == 0 if git else None, "engine": options.engine, "use_cache": options.use_cache,
             "jev_budget_usd": str(options.jev_budget_usd) if options.jev_budget_usd is not None else None,
             "budget_usd": str(options.budget_usd) if options.budget_usd is not None else None,
-            "store": str(store_path) if store_path else None, "selected": [g.key for g in selected]}
+            "store": str(store_path) if store_path else None, "selected": [g.key for g in selected],
+            "own_defaults": defaults}
 
 
 def measure_round(selected: list[Golden], options: Options, *, runs_dir: Path | None = None,
@@ -609,7 +619,10 @@ def measure_round(selected: list[Golden], options: Options, *, runs_dir: Path | 
     started = datetime.now()
     stamp = f"{started:%Y%m%d_%H%M%S}"
     log, receipt = runs_dir / f"{stamp}_{RECEIPT}.log", runs_dir / f"{stamp}_{RECEIPT}.jsonl"
-    head = _head(selected, options, started, store_path)
+    defaults = own_defaults()  # read from the work store, before a measurement store is used
+    head = _head(selected, options, started, store_path, defaults)
+    if defaults:
+        print(f"The installation keeps its own defaults of {', '.join(defaults)}; this measurement reads the rule files.")
     results: list[Result] = []
     where = store.use_store(store_path) if store_path else contextlib.nullcontext()
     with where, log.open("w", encoding="utf-8", newline="\n") as fh:

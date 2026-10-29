@@ -575,7 +575,7 @@ The left-hand menu of Settings stands in three groups (since `v1.59.0`), each un
 
 - **Processes** (*Folyamatok*): **All processes** (*Minden folyamat*) and, on its page, each process as an item of its own (section 10.10).
 - **Shared library** (*Közös tár*), what the processes choose from: Partners (*Partnerek*), Own parties (*Saját gazdálkodók*), Products (*Termékek*, with the tariffs), Price lists (*Árlisták*), Output templates (*Kimeneti sablonok*) and Letter frames (*Levélkeretek*). Each element says which processes use it (‘Used by: …’ (*Használja: …*), each a link to the process's page; ‘No process uses it’ (*Egy folyamat sem használja*)): the Products and Tariffs lists in a column, a price list and an own output template under their names, the partner list for the role chosen in its filter.
-- **System** (*Rendszer*): Users, Appearance (*Megjelenés*), Language, Work folders (*Munkamappák*), Mailboxes (*Postafiókok*), Processing (*Feldolgozás*), Rules (*Szabályok*, read only) and Operations (*Üzemeltetés*, until `v1.59.0` called System).
+- **System** (*Rendszer*): Users, Appearance (*Megjelenés*), Language, Work folders (*Munkamappák*), Mailboxes (*Postafiókok*), Processing (*Feldolgozás*), Defaults (*Alapértékek*, until `v1.60.0` the read-only Rules, section 10.14) and Operations (*Üzemeltetés*, until `v1.59.0` called System).
 
 An address of a section that does not exist opens the processes.
 
@@ -700,6 +700,17 @@ A line above the values says who may make a value active (by default the person 
 - **Change the text** (*Szöveg módosítása*) opens the frame's fields; a blank line starts a new paragraph. The markers, such as `{{total}}` or `{{policyholder}}`, are filled in by the system from the document, and the form lists the ones you can use. **Save as a draft** (*Mentés piszkozatként*) saves only what you changed, with a note; a draft changes no letter. A text is refused, with every problem named, when a field is empty or too long, a one-line field holds a line break, or a marker is not closed or names no value of the documents.
 - **Make version N active** (*A(z) N. változat élesítése*) makes the draft the frame's text, by the same rule as a process's own values: the cases that start from then on use it, and a case keeps the text it started with. **Back to the system's text** (*Vissza a rendszer szövegéhez*, two clicks) sets the own text aside for the cases that start after. **Versions** lists every text with its note, who saved it and when.
 - A frame is not added or removed here: the processes name the frames the system comes with.
+
+### 10.14 Defaults
+
+**Defaults** (*Alapértékek*; until `v1.60.0` the read-only Rules (*Szabályok*)) lists how the system decides on its own: one row per kind of decision it records, with what it decides, the values it decides with, the version of its rule files in use and how many decisions it has made. Choose a decision's title to open its sheet below the table.
+
+On the sheet each value shows whether the rule file's value counts (‘The file's value counts.’ (*A fájl értéke érvényes.*)) or the installation's own value, its default (‘The installation's own value: version N’ (*A telepítés saját értéke: N. változat*), with the file's beside it).
+
+- **Set a default** (*Alapérték megadása*) opens a form that fits the value: a percentage or a gap in percentage points as a percentage (between 0 and 100), a whole number or an amount, yes or no, one of a list (an email's next step), a set of ticks (document types, fields, warning signs), each intent's next step, or an ordered list of codes, one a line (the product catalogue's levels, its verdicts best first). **Try it on earlier decisions** (*Kipróbálás a korábbi döntéseken*) shows how many earlier decisions read the value and how many would have come out differently, with examples; the ones a process's own value decided are named apart, as a default does not reach them. Nothing is written and no AI is asked. **Save as a draft** (*Mentés piszkozatként*) saves it with a note; a draft changes nothing.
+- **Make version N active** (*A(z) N. változat élesítése*) makes the draft the default, by the same rule as a process's own values (section 10.10). From then on the cases that start use it, and so does the work outside a case; a case keeps the values of its start, and a process's own value of the same key still goes over the default. **Back to the file's value** (*Vissza a fájl értékére*, two clicks) sets the default aside. **Versions** list every value with its note, who saved it and when.
+- A value that changes a paid request or a budget (the paid text recognition, a run's item budget) stays the file's, and the sheet says so. Every other value may have a default, even the product catalogue's levels and verdicts and the digits compared in a tax number: a wrong one there can break the products' rules or the tax number check, so try it first.
+- A measurement (`python -m jav.cli measure`) reads the rule files, not the defaults; it says when the installation keeps defaults.
 
 ## 11. Troubleshooting
 

@@ -74,12 +74,14 @@ def _no_default_store(tmp_path_factory, monkeypatch):
 @pytest.fixture(autouse=True)
 def _configs_not_frozen():
     """231: a test that runs the long-running processes' start-up (`preload.preload`) freezes the configs (`cfg.freeze`);
-    the next test reads the folder as it is again, as a command does."""
+    the next test reads the folder as it is again, as a command does. U4a: and without the installation's defaults,
+    which that start-up names to the config reader (`rule_defaults.use`)."""
     yield
     from jav.core import cfg
 
     if cfg.frozen():
         cfg.unfreeze()
+    cfg.use_defaults(None)
 
 
 @pytest.fixture(autouse=True)

@@ -1,9 +1,19 @@
 {
   "meta": {
     "name": "rule_help",
-    "version": "1.5.0",
-    "description": "218 (plan G-process-core P3e, the owner's request and decisions of 2026-10-23): the plain-language description of the rules for the read-only view in Settings › Rules. For every machine decision point of the decision trace (jav/core/trace.py): its area, a short title, what it decides and what it is not for, and the rule values the view shows (file, key, label, format; a percentage's label reads on into its value, as in 'below 60 %'); the values themselves are read from the rule files the running process loaded (jav/app/rules_view.py). Kept apart from the rule files, so their fingerprints and the AI requests do not change. Texts are English; the interface translates them (ui/src/i18n/hu-native.json). A test asks that every decision point has an entry and that every value's key is in a file its point reads.",
+    "version": "1.7.0",
+    "description": "218 (plan G-process-core P3e, the owner's request and decisions of 2026-10-23): the plain-language description of the rules for the read-only view in Settings › Rules. For every machine decision point of the decision trace (jav/core/trace.py): its area, a short title, what it decides and what it is not for, and the rule values the view shows (file, key, label, format; a percentage's label reads on into its value, as in 'below 60 %'); the values themselves are read from the rule files the running process loaded (jav/app/rules_view.py). Kept apart from the rule files, so their fingerprints and the AI requests do not change. Texts are English; the interface translates them (ui/src/i18n/hu-native.json). A test asks that every decision point has an entry and that every value's key is in a file its point reads. 231 (U4b; the owner's decisions of 2026-10-29): each value's `edit` says whether the installation may keep its own value, a default (jav/app/rule_defaults.py): its kind (number with its bounds, bool, amount, choice, set, map or list (an ordered list of codes), the options given or taken from a registry: doc_types, fields, email_routes, email_signals; capability: the capability's own rule key), or `fixed` with why (cost: it changes a paid request or a budget; structure: the catalogue's structure; format: a property of a number's format).",
     "changelog": [
+      {
+        "version": "1.7.0",
+        "date": "2026-10-29",
+        "note": "231 (U4z; the owner's decision of 2026-10-29): the product catalogue's levels and verdicts (an ordered list) and the tax number's stem (a whole number) may be defaults too; only the values that change a paid request or a budget stay fixed."
+      },
+      {
+        "version": "1.6.0",
+        "date": "2026-10-29",
+        "note": "231 (U4b): every value's edit declaration; the values that change a paid request or a budget, the catalogue's structure and the tax number's format are fixed."
+      },
       {
         "version": "1.5.0",
         "date": "2026-10-26",
@@ -66,10 +76,10 @@
       "what": "Whether the weak local text recognition of a scanned document is sent to the more accurate, paid engine, which text goes on, and the to-do when the run's budget or an uncertain earlier attempt blocked it.",
       "not_for": "The recognition itself, or the to-dos of the text that goes on (weak words, pages left out: those belong to the data extraction).",
       "values": [
-        {"file": "ocr.json", "key": "escalation.enabled", "label": "The paid engine is switched on", "format": "yes_no"},
-        {"file": "ocr.json", "key": "escalation.engine", "label": "The paid engine", "format": "provider"},
-        {"file": "policy.json", "key": "ocr.escalate_min_mean_conf", "label": "Sent when the average word confidence is below", "format": "percent"},
-        {"file": "policy.json", "key": "ocr.escalate_max_low_conf_ratio", "label": "Or when the share of weak words is above", "format": "percent"}
+        {"file": "ocr.json", "key": "escalation.enabled", "label": "The paid engine is switched on", "format": "yes_no", "edit": {"fixed": "cost"}},
+        {"file": "ocr.json", "key": "escalation.engine", "label": "The paid engine", "format": "provider", "edit": {"fixed": "cost"}},
+        {"file": "policy.json", "key": "ocr.escalate_min_mean_conf", "label": "Sent when the average word confidence is below", "format": "percent", "edit": {"fixed": "cost"}},
+        {"file": "policy.json", "key": "ocr.escalate_max_low_conf_ratio", "label": "Or when the share of weak words is above", "format": "percent", "edit": {"fixed": "cost"}}
       ]
     },
     "detect.doc_type": {
@@ -78,9 +88,9 @@
       "what": "Whether the type recognised for a document is accepted or waits for a person: an unknown or not yet measured type, or one recognised with too low a probability, waits.",
       "not_for": "Which type the recogniser chose (the AI's answer), or the detailed type within it.",
       "values": [
-        {"file": "policy.json", "key": "bands.default.choice_human_max_conf", "label": "Waits for a person when the type's probability is below", "format": "percent"},
-        {"file": "policy.json", "key": "bands.default.choice_second_min_gap", "label": "A second type counts as close within", "format": "points"},
-        {"file": "policy.json", "key": "bands.default.uncertain_review", "label": "A close second type also waits for a person", "format": "yes_no"}
+        {"file": "policy.json", "key": "bands.default.choice_human_max_conf", "label": "Waits for a person when the type's probability is below", "format": "percent", "edit": {"kind": "number", "least": 0, "most": 1}},
+        {"file": "policy.json", "key": "bands.default.choice_second_min_gap", "label": "A second type counts as close within", "format": "points", "edit": {"kind": "number", "least": 0, "most": 1}},
+        {"file": "policy.json", "key": "bands.default.uncertain_review", "label": "A close second type also waits for a person", "format": "yes_no", "edit": {"kind": "bool"}}
       ]
     },
     "detect.detail_type": {
@@ -89,12 +99,12 @@
       "what": "The to-dos of a document's detailed type (for example a Hungarian or a foreign invoice): no type pack for it yet, not decided, not yet measured, recognised with too low a probability, or a type that presumes a Hungarian issuer while the recogniser judged the issuer foreign.",
       "not_for": "How the detailed type was found (from the issuer, the only pack, typical words or a question), or its later check against the own parties' direction.",
       "values": [
-        {"file": "policy.json", "key": "bands.default.choice_human_max_conf", "label": "Waits for a person when the detailed type's probability is below", "format": "percent"},
-        {"file": "policy.json", "key": "bands.default.choice_second_min_gap", "label": "A second type counts as close within", "format": "points"},
-        {"file": "policy.json", "key": "bands.default.uncertain_review", "label": "A close second type also waits for a person", "format": "yes_no"},
-        {"file": "policy.json", "key": "detect_issuer.hungarian_types", "label": "Types that presume a Hungarian issuer", "format": "doc_types"},
-        {"file": "policy.json", "key": "bands.default.noul_no_max", "label": "The issuer counts as foreign when the probability of a Hungarian issuer is below", "format": "percent"},
-        {"file": "policy.json", "key": "detect_issuer.engines", "label": "The issuer is checked on the recognition of", "format": "labels", "labels": {"gpt": "GPT", "jev": "JEV"}}
+        {"file": "policy.json", "key": "bands.default.choice_human_max_conf", "label": "Waits for a person when the detailed type's probability is below", "format": "percent", "edit": {"kind": "number", "least": 0, "most": 1}},
+        {"file": "policy.json", "key": "bands.default.choice_second_min_gap", "label": "A second type counts as close within", "format": "points", "edit": {"kind": "number", "least": 0, "most": 1}},
+        {"file": "policy.json", "key": "bands.default.uncertain_review", "label": "A close second type also waits for a person", "format": "yes_no", "edit": {"kind": "bool"}},
+        {"file": "policy.json", "key": "detect_issuer.hungarian_types", "label": "Types that presume a Hungarian issuer", "format": "doc_types", "edit": {"kind": "set", "options_from": "doc_types", "least": 1}},
+        {"file": "policy.json", "key": "bands.default.noul_no_max", "label": "The issuer counts as foreign when the probability of a Hungarian issuer is below", "format": "percent", "edit": {"kind": "number", "least": 0, "most": 1}},
+        {"file": "policy.json", "key": "detect_issuer.engines", "label": "The issuer is checked on the recognition of", "format": "labels", "labels": {"gpt": "GPT", "jev": "JEV"}, "edit": {"kind": "set", "options": ["gpt", "jev"], "least": 0}}
       ]
     },
     "parties.detail_direction": {
@@ -103,8 +113,8 @@
       "what": "When a document's detailed type was uncertain between an outgoing and an incoming invoice, whether the own parties on its two sides settle it: confirmed (the uncertainty's to-dos close) or contradicted (a to-do).",
       "not_for": "The direction itself (which side is an own party), or any other uncertainty of the detailed type.",
       "values": [
-        {"file": "policy.json", "key": "detect_detail.direction_sides.outgoing", "label": "Outgoing invoice types", "format": "doc_types"},
-        {"file": "policy.json", "key": "detect_detail.direction_sides.incoming", "label": "Incoming invoice types", "format": "doc_types"}
+        {"file": "policy.json", "key": "detect_detail.direction_sides.outgoing", "label": "Outgoing invoice types", "format": "doc_types", "edit": {"kind": "set", "options_from": "doc_types", "least": 1}},
+        {"file": "policy.json", "key": "detect_detail.direction_sides.incoming", "label": "Incoming invoice types", "format": "doc_types", "edit": {"kind": "set", "options_from": "doc_types", "least": 1}}
       ]
     },
     "extract.route": {
@@ -113,13 +123,13 @@
       "what": "Whether a document's extracted data is accepted or waits for a person, and which to-dos it opens: a value chosen with too low a probability, a value without its source on the page, a failed verification, a missing required field, a low GPT confidence without JEV, or a failed code check.",
       "not_for": "The extraction itself (the AI's answers), the to-dos opened before it (text, text recognition, a failed question) or the checks across documents.",
       "values": [
-        {"file": "policy.json", "key": "bands.default.choice_human_max_conf", "label": "A value waits for a person when its probability is below", "format": "percent"},
-        {"file": "policy.json", "key": "bands.high_stakes.choice_human_max_conf", "label": "For a field its type pack marks high-stakes (such as an amount or a tax number), below", "format": "percent"},
-        {"file": "policy.json", "key": "bands.default.choice_second_min_gap", "label": "A second candidate counts as close within", "format": "points"},
-        {"file": "policy.json", "key": "bands.default.uncertain_review", "label": "A close or uncertain answer also waits for a person", "format": "yes_no"},
-        {"file": "policy.json", "key": "bands.default.noul_no_max", "label": "A yes-or-no answer counts as no below", "format": "percent"},
-        {"file": "policy.json", "key": "bands.default.noul_yes_min", "label": "And as yes from", "format": "percent"},
-        {"file": "policy.json", "key": "gpt_field_confidence.review_below", "label": "Without JEV, a value waits for a person when GPT's own confidence is below", "format": "percent"}
+        {"file": "policy.json", "key": "bands.default.choice_human_max_conf", "label": "A value waits for a person when its probability is below", "format": "percent", "edit": {"kind": "number", "least": 0, "most": 1}},
+        {"file": "policy.json", "key": "bands.high_stakes.choice_human_max_conf", "label": "For a field its type pack marks high-stakes (such as an amount or a tax number), below", "format": "percent", "edit": {"kind": "number", "least": 0, "most": 1}},
+        {"file": "policy.json", "key": "bands.default.choice_second_min_gap", "label": "A second candidate counts as close within", "format": "points", "edit": {"kind": "number", "least": 0, "most": 1}},
+        {"file": "policy.json", "key": "bands.default.uncertain_review", "label": "A close or uncertain answer also waits for a person", "format": "yes_no", "edit": {"kind": "bool"}},
+        {"file": "policy.json", "key": "bands.default.noul_no_max", "label": "A yes-or-no answer counts as no below", "format": "percent", "edit": {"kind": "number", "least": 0, "most": 1}},
+        {"file": "policy.json", "key": "bands.default.noul_yes_min", "label": "And as yes from", "format": "percent", "edit": {"kind": "number", "least": 0, "most": 1}},
+        {"file": "policy.json", "key": "gpt_field_confidence.review_below", "label": "Without JEV, a value waits for a person when GPT's own confidence is below", "format": "percent", "edit": {"kind": "number", "least": 0, "most": 1}}
       ]
     },
     "email.intent": {
@@ -128,11 +138,11 @@
       "what": "Whether the intent recognised for an email is accepted or waits for a person (not yet measured, or recognised with too low a probability), and the to-do of a warning sign such as an instruction hidden in the email.",
       "not_for": "Which intent the recogniser chose (the AI's answer), or the email's next step.",
       "values": [
-        {"file": "policy.json", "key": "bands.default.choice_human_max_conf", "label": "Waits for a person when the intent's probability is below", "format": "percent"},
-        {"file": "policy.json", "key": "bands.default.choice_second_min_gap", "label": "A second intent counts as close within", "format": "points"},
-        {"file": "policy.json", "key": "bands.default.uncertain_review", "label": "A close second intent also waits for a person", "format": "yes_no"},
-        {"file": "email.json", "key": "signal_review", "label": "Warning signs that always wait for a person", "format": "labels", "labels": {"prompt_injection": "An instruction hidden in the email"}},
-        {"file": "policy.json", "key": "bands.default.noul_yes_min", "label": "A warning sign counts when its probability is at least", "format": "percent"}
+        {"file": "policy.json", "key": "bands.default.choice_human_max_conf", "label": "Waits for a person when the intent's probability is below", "format": "percent", "edit": {"kind": "number", "least": 0, "most": 1}},
+        {"file": "policy.json", "key": "bands.default.choice_second_min_gap", "label": "A second intent counts as close within", "format": "points", "edit": {"kind": "number", "least": 0, "most": 1}},
+        {"file": "policy.json", "key": "bands.default.uncertain_review", "label": "A close second intent also waits for a person", "format": "yes_no", "edit": {"kind": "bool"}},
+        {"file": "email.json", "key": "signal_review", "label": "Warning signs that always wait for a person", "format": "labels", "labels": {"prompt_injection": "An instruction hidden in the email"}, "edit": {"kind": "set", "options_from": "email_signals", "least": 0}},
+        {"file": "policy.json", "key": "bands.default.noul_yes_min", "label": "A warning sign counts when its probability is at least", "format": "percent", "edit": {"kind": "number", "least": 0, "most": 1}}
       ]
     },
     "email.next_flow": {
@@ -141,15 +151,15 @@
       "what": "Where an email goes next, by its intent, its warning signs and its attachments: data extraction of an attachment, text or type recognition, a person's queue, or archiving.",
       "not_for": "The data extraction itself, or a person's later routing of an attachment.",
       "values": [
-        {"file": "email.json", "key": "intent_route", "label": "By intent", "format": "intent_routes"},
-        {"file": "email.json", "key": "m2_types", "label": "Attachment types that go to data extraction", "format": "doc_types"},
-        {"file": "email.json", "key": "detect_route", "label": "Any other attachment", "format": "route"},
-        {"file": "email.json", "key": "needs_ocr_route", "label": "An attachment without text", "format": "route"},
-        {"file": "email.json", "key": "low_conf_route", "label": "An uncertain intent", "format": "route"},
-        {"file": "email.json", "key": "signal_routes.prompt_injection", "label": "An email with a hidden instruction", "format": "route"},
-        {"file": "email.json", "key": "jev_unavailable_route", "label": "When JEV did not answer", "format": "route"},
-        {"file": "email.json", "key": "sent_route", "label": "An email from the Sent Items folder", "format": "route"},
-        {"file": "email.json", "key": "default_route", "label": "Any other email", "format": "route"}
+        {"file": "email.json", "key": "intent_route", "label": "By intent", "format": "intent_routes", "edit": {"kind": "map", "options_from": "email_routes"}},
+        {"file": "email.json", "key": "m2_types", "label": "Attachment types that go to data extraction", "format": "doc_types", "edit": {"kind": "set", "options_from": "doc_types", "least": 1}},
+        {"file": "email.json", "key": "detect_route", "label": "Any other attachment", "format": "route", "edit": {"kind": "choice", "options_from": "email_routes"}},
+        {"file": "email.json", "key": "needs_ocr_route", "label": "An attachment without text", "format": "route", "edit": {"kind": "choice", "options_from": "email_routes"}},
+        {"file": "email.json", "key": "low_conf_route", "label": "An uncertain intent", "format": "route", "edit": {"kind": "choice", "options_from": "email_routes"}},
+        {"file": "email.json", "key": "signal_routes.prompt_injection", "label": "An email with a hidden instruction", "format": "route", "edit": {"kind": "choice", "options_from": "email_routes"}},
+        {"file": "email.json", "key": "jev_unavailable_route", "label": "When JEV did not answer", "format": "route", "edit": {"kind": "choice", "options_from": "email_routes"}},
+        {"file": "email.json", "key": "sent_route", "label": "An email from the Sent Items folder", "format": "route", "edit": {"kind": "choice", "options_from": "email_routes"}},
+        {"file": "email.json", "key": "default_route", "label": "Any other email", "format": "route", "edit": {"kind": "choice", "options_from": "email_routes"}}
       ]
     },
     "finance.duplicate": {
@@ -158,10 +168,10 @@
       "what": "Whether an invoice is the same invoice as another one in the store (the same kind, number and supplier), and of which kind: an exact copy, a modified version, or undecidable because a field is missing.",
       "not_for": "A person's decision on the pair, or how the totals count a confirmed copy.",
       "values": [
-        {"file": "finance.json", "key": "duplicates.families.invoice", "label": "Invoice types compared with one another", "format": "doc_types"},
-        {"file": "finance.json", "key": "duplicates.families.proforma", "label": "Pro forma invoices compared with one another", "format": "doc_types"},
-        {"file": "finance.json", "key": "duplicates.compared_fields", "label": "An exact copy when these match too (otherwise a modified version)", "format": "fields"},
-        {"file": "fact_checks.json", "key": "parties.domestic_tax_stem_digits", "label": "Leading digits compared in a Hungarian tax number", "format": "number"}
+        {"file": "finance.json", "key": "duplicates.families.invoice", "label": "Invoice types compared with one another", "format": "doc_types", "edit": {"kind": "set", "options_from": "doc_types", "least": 1}},
+        {"file": "finance.json", "key": "duplicates.families.proforma", "label": "Pro forma invoices compared with one another", "format": "doc_types", "edit": {"kind": "set", "options_from": "doc_types", "least": 1}},
+        {"file": "finance.json", "key": "duplicates.compared_fields", "label": "An exact copy when these match too (otherwise a modified version)", "format": "fields", "edit": {"kind": "set", "options_from": "fields", "least": 1}},
+        {"file": "fact_checks.json", "key": "parties.domestic_tax_stem_digits", "label": "Leading digits compared in a Hungarian tax number", "format": "number", "edit": {"kind": "int", "least": 1, "most": 11}}
       ]
     },
     "parties.own_tax_as_supplier": {
@@ -170,8 +180,8 @@
       "what": "Whether an incoming invoice names an own party's tax number as the supplier's while the buyer's is another number or missing: the numbers are likely swapped, or it is an outgoing invoice.",
       "not_for": "The same number on both sides (another check), or the invoice's direction by the own parties.",
       "values": [
-        {"file": "parties.json", "key": "supplier_check.doc_types", "label": "Invoice types checked", "format": "doc_types"},
-        {"file": "fact_checks.json", "key": "parties.domestic_tax_stem_digits", "label": "Leading digits compared in a Hungarian tax number", "format": "number"}
+        {"file": "parties.json", "key": "supplier_check.doc_types", "label": "Invoice types checked", "format": "doc_types", "edit": {"kind": "set", "options_from": "doc_types", "least": 1}},
+        {"file": "fact_checks.json", "key": "parties.domestic_tax_stem_digits", "label": "Leading digits compared in a Hungarian tax number", "format": "number", "edit": {"kind": "int", "least": 1, "most": 11}}
       ]
     },
     "workflow.budget_gate": {
@@ -180,8 +190,8 @@
       "what": "Whether a workflow step's package starts its live run or waits for a person to approve a budget: the run's estimated cost for each AI provider against the budget a person approved for the step.",
       "not_for": "The run's spending while it runs (the call log keeps that).",
       "values": [
-        {"file": "recipes.json", "key": "recipes[processing].max_item_usd_by_kind.document.auto", "label": "Estimated cost of a document", "format": "usd_by_provider"},
-        {"file": "recipes.json", "key": "recipes[processing].max_item_usd_by_kind.email.*", "label": "Estimated cost of an email", "format": "usd_by_provider"}
+        {"file": "recipes.json", "key": "recipes[processing].max_item_usd_by_kind.document.auto", "label": "Estimated cost of a document", "format": "usd_by_provider", "edit": {"fixed": "cost"}},
+        {"file": "recipes.json", "key": "recipes[processing].max_item_usd_by_kind.email.*", "label": "Estimated cost of an email", "format": "usd_by_provider", "edit": {"fixed": "cost"}}
       ]
     },
     "quote.amounts": {
@@ -190,8 +200,8 @@
       "what": "An approved quote's net, VAT and gross totals, computed by code from its lines' unit prices, quantities and discounts, each line's amount and the VAT rounded to the unit of its currency.",
       "not_for": "The lines' prices and discounts themselves (the price list and a person's own prices), or which item a requested line is.",
       "values": [
-        {"file": "price_lists.json", "key": "rounding.HUF", "label": "Forint amounts rounded to", "format": "number"},
-        {"file": "price_lists.json", "key": "rounding.default", "label": "Other currencies' amounts rounded to", "format": "number"}
+        {"file": "price_lists.json", "key": "rounding.HUF", "label": "Forint amounts rounded to", "format": "number", "edit": {"kind": "capability"}},
+        {"file": "price_lists.json", "key": "rounding.default", "label": "Other currencies' amounts rounded to", "format": "number", "edit": {"kind": "capability"}}
       ]
     },
     "quote.letter_check": {
@@ -200,7 +210,7 @@
       "what": "Whether the paragraph a model wrote for a quote's reply letter can be used: not empty, with no number, amount, date, address or link in it, and not longer than the limit; otherwise the letter waits for a person.",
       "not_for": "The letter's frame (written by code) or a person's acceptance of the letter.",
       "values": [
-        {"file": "quotes.json", "key": "letter.max_chars", "label": "Longest paragraph, in characters", "format": "number"}
+        {"file": "quotes.json", "key": "letter.max_chars", "label": "Longest paragraph, in characters", "format": "number", "edit": {"kind": "capability"}}
       ]
     },
     "rules.outcome": {
@@ -210,7 +220,7 @@
       "not_for": "How several rules' outcomes combine on a unit (the catalogue's way: the worst verdict, the largest deductible, ...) or a person's decision on the risk.",
       "values": [
         {"file": "facts_property.json", "key": "outcomes.verdict.options", "label": "Verdicts, the best first", "format": "labels",
-         "labels": {"allow": "Allow", "unknown": "Not known", "refer": "Refer", "refuse": "Refuse"}}
+         "labels": {"allow": "Allow", "unknown": "Not known", "refer": "Refer", "refuse": "Refuse"}, "edit": {"kind": "list", "least": 2}}
       ]
     },
     "decision.second_person": {
@@ -220,7 +230,7 @@
       "not_for": "The decision itself, or the rules and the premium it decides on.",
       "values": [
         {"file": "case_decisions.json", "key": "limits.inv_premium_second_person.above.amount",
-         "label": "Invented limit: a premium above it is another person's decision (HUF)", "format": "number"}
+         "label": "Invented limit: a premium above it is another person's decision (HUF)", "format": "number", "edit": {"kind": "amount", "least": 0}}
       ]
     },
     "claims.offered": {
@@ -230,7 +240,7 @@
       "not_for": "The person's own corrections or the freezing of the checked input.",
       "values": [
         {"file": "facts_property.json", "key": "levels", "label": "The levels of the units", "format": "labels",
-         "labels": {"holder": "Policyholder", "site": "Site", "asset_group": "Asset group"}}
+         "labels": {"holder": "Policyholder", "site": "Site", "asset_group": "Asset group"}, "edit": {"kind": "list", "least": 1}}
       ]
     },
     "rating.premium": {
@@ -240,7 +250,7 @@
       "not_for": "The tariff's rates and factors themselves (Settings › Tariffs) or a person's decision on the premium.",
       "values": [
         {"file": "facts_property.json", "key": "levels", "label": "The levels a tariff prices on", "format": "labels",
-         "labels": {"holder": "Policyholder", "site": "Site", "asset_group": "Asset group"}}
+         "labels": {"holder": "Policyholder", "site": "Site", "asset_group": "Asset group"}, "edit": {"kind": "list", "least": 1}}
       ]
     }
   }

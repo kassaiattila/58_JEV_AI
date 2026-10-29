@@ -94,6 +94,27 @@ export interface LetterFrame { ident: string; file: FrameContent; content: Frame
 export interface LetterFrameKind { kind: LibraryKind; title: string; what: string; fields: FrameField[]; frames: LetterFrame[]; markers: string[] }
 export interface LetterFrames { kinds: LetterFrameKind[]; policy: { activation: string; owners: string[] } }
 const frameBase = (kind: string, ident: string) => `/library/letter-frames/${enc(kind)}/${enc(ident)}`;
+/** 231 (U4): the installation's defaults (jav/app/rule_defaults.py): each key a person may set with its declaration,
+ *  the file's value, the active default (null: the file's counts) and its versions; the values that stay the file's,
+ *  with why; the rule of who may make a value active. */
+export type DefaultValue = number | boolean | string | string[] | Record<string, string>;
+export interface DefaultVersion {
+  version: number; state: OutputTemplateState; value: DefaultValue; note: string | null; made_by: string; made_at: string;
+  activated_by: string | null; activated_at: string | null;
+}
+export interface DefaultKey {
+  id: string; file: string; key: string; kind: "int" | "choice" | "number" | "bool" | "amount" | "set" | "map" | "list"; what: string;
+  least: number | null; most: number | null; options: string[]; file_value: DefaultValue; value: DefaultValue | null;
+  active: number | null; versions: DefaultVersion[];
+}
+export type FixedWhy = "cost" | "structure" | "format";
+export interface Defaults { keys: DefaultKey[]; fixed: Record<string, FixedWhy>; policy: { activation: string; owners: string[] } }
+export interface DefaultPreview {
+  id: string; value: DefaultValue; file_value: DefaultValue; decisions: number; changed: number; failed: number; covered: number;
+  first_error: string | null;
+  examples: { point: string; subject: string; case_id: string | null; case: string | null; at: string; before: unknown; after: unknown }[];
+}
+const defaultBase = (id: string) => `/defaults/${enc(id)}`;
 
 const base = (pack: string, kind: SettingKind, key: string) => `/processes/${enc(pack)}/${kind}/${enc(key)}`;
 
@@ -124,4 +145,10 @@ export const processesApi = {
   activateLetterFrame: (kind: string, ident: string, version: number) =>
     request<LetterFrames>("POST", `${frameBase(kind, ident)}/versions/${version}/activate`, {}),
   retireLetterFrame: (kind: string, ident: string) => request<LetterFrames>("POST", `${frameBase(kind, ident)}/retire`, {}),
+  defaults: () => request<Defaults>("GET", "/defaults"),
+  proposeDefault: (id: string, value: DefaultValue, note: string | null) =>
+    request<Defaults>("POST", defaultBase(id), { value, note }),
+  previewDefault: (id: string, value: DefaultValue) => request<DefaultPreview>("POST", `${defaultBase(id)}/preview`, { value }),
+  activateDefault: (id: string, version: number) => request<Defaults>("POST", `${defaultBase(id)}/versions/${version}/activate`, {}),
+  retireDefault: (id: string) => request<Defaults>("POST", `${defaultBase(id)}/retire`, {}),
 };
