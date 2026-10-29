@@ -5,8 +5,9 @@ The verification's three document-level questions (swapped parties, missing and 
 questions, and every verify call site inherited them: a terms and conditions document, a ticket or a tax authority
 receipt was asked whether its supplier and buyer were swapped and whether invoice rows were missing, and a "yes" became
 a to-do no correction could clear. Now each such question names the extraction fields it reads (`fields` in its call
-site), and a pack is asked it only when it has every one of them; a question that names none is refused. The requests
-of the packs that have them all (the Hungarian invoice, the proforma, the outgoing invoice) stay bit for bit the same
+site), and a pack is asked it only when its extraction (the answer's schema) has every one of them; a question that
+names none is refused. The requests
+of the packs that have them all (the Hungarian, the foreign, the proforma and the outgoing invoice) stay bit for bit the same
 (tests/test_request_keys_190.py). Stand-in clients only; no model call.
 """
 
@@ -37,7 +38,7 @@ class _Yes:
 
 @pytest.mark.parametrize(("key", "asked"), [
     ("invoice_hu", PARTIES + ROWS), ("proforma_invoice", PARTIES + ROWS), ("invoice_out", PARTIES + ROWS),
-    ("invoice_foreign", PARTIES),  # it has no line items list
+    ("invoice_foreign", PARTIES + ROWS),  # its pack names no line items, but its answer's schema has them
     ("viz_szamla", ROWS), ("foldgaz_szamla", ROWS),  # a utility bill names a customer, not a buyer
     ("nav_receipt", ()), ("belepo_jegy", ()), ("altalanos_szerzodesi_feltetelek", ()), ("statement_cib", ()),
     ("meeting_minutes", ()), ("certificate", ()),

@@ -13,7 +13,7 @@ descriptions are its own). 190 (plan 189 A2d): the call site names its document-
 202: `verify.json` states the three invoice questions, which every other call site inherits) and the questions asked
 of each list field of the pack (`list_nouls`, e.g. missing and extra rows; none without the key). 231 (F1): a
 document-level question names the extraction fields it reads (`fields`), and a pack without every one of them is not
-asked it. The module-level `build_questions` and `verify` take the pack explicitly (202: no Hungarian invoice default).
+asked it (the fields of its answer's schema). The module-level `build_questions` and `verify` take the pack explicitly (202: no Hungarian invoice default).
 """
 
 from __future__ import annotations
@@ -299,14 +299,15 @@ class VerifySite:
         self.request_char_budget: int | None = data.get("request_char_budget")  # request size budget (chars) or None
 
     def _has_fields(self, name: str) -> bool:
-        """231 (F1): whether the pack has every field the document-level question `name` reads (its `fields`). The
-        invoice questions (swapped parties, missing and extra line items) were asked of every type, also of those
-        without parties or line items, and gave false to-dos there."""
+        """231 (F1): whether the pack's extraction can hold every field the document-level question `name` reads (its
+        `fields`): the fields of the answer's schema, which may hold more than the pack names (the foreign invoice's
+        answer has line items). The invoice questions (swapped parties, missing and extra line items) were asked of
+        every type, also of those without parties or line items, and gave false to-dos there."""
         fields = self.nouls[name].get("fields")
         if not fields:
             raise ValueError(f"callsite:{self.callsite}: the document-level question {name} names no fields")
-        own = {*self.pack.header_fields, *self.pack.list_fields}
-        return all(field in own for field in fields)
+        extracted = set(self.pack.llm_model().model_fields)
+        return all(field in extracted for field in fields)
 
     def _noul(self, name: str, **data: object) -> Noul:
         """Structured Noul instruction (sde_cascade pattern, v1.1.0): an object holding the question text (`question`)

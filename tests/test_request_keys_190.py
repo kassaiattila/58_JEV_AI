@@ -59,7 +59,7 @@ JEV_KEYS = {
     "belepo_jegy_taught": "b8e8ec743fae4499",  # 197: the taught candidate, when it was made
     "certificate": "588ca07d0de9fd7e", "csapatmenedzser_utasitas": "8de8f0792574066c",
     "csatorna_szamla": "bd9a7cb201456622", "foldgaz_szamla": "bf681f047acf48c2", "id_document": "f3629687b5ff18d4",
-    "insurance_claim_form": "212a7e23eb536504", "invoice_foreign": "2277972c0f5a0c0b",
+    "insurance_claim_form": "212a7e23eb536504", "invoice_foreign": "221e7b3e9901a0ff",
     "invoice_hu": "9dadd7d2de6aa5b1", "invoice_out": "2c153ae26424ac44", "meeting_minutes": "abfdd9a01086529f",
     "meghivo": "af6b3f969087a48e", "mohu_szamla": "b3898fb450131f03", "nav_certificate": "cc55618d3cffb01b",
     "nav_receipt": "5173d94d7155493c", "nav_tax_return": "3a98645a4cb21423", "proforma_invoice": "9dadd7d2de6aa5b1",
@@ -69,9 +69,9 @@ JEV_KEYS = {
     "quote_request": "c3cb7a88278eca49",  # 190 (A2e)
     "insurance_request": "096c5ca1871c1f4a", "property_schedule": "9c7d3b480742458b", "claims_history": "7a7e2ad253fecb3c",  # D-e1
     # (U-A6: the request's three new fields' meanings; U-A7: the protection fields')
-    # 231 (stage F, F1): a document-level question is asked only of a pack that has the fields it reads; the
-    # 22 packs without the parties or the line items were re-pinned then (the Hungarian invoice's, the proforma's,
-    # the outgoing invoice's, the quote request's and the insurance packs' keys stayed the same)
+    # 231 (stage F, F1): a document-level question is asked only of a pack whose extraction has the fields it reads;
+    # the 21 packs without the parties or the line items were re-pinned then (the Hungarian, the foreign, the proforma
+    # and the outgoing invoice's, the quote request's and the insurance packs' keys stayed the same)
 }
 
 

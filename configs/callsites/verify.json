@@ -26,7 +26,7 @@
    {
     "version": "1.4.0",
     "date": "2026-10-29",
-    "note": "231 (stage F, F1; the owner's decisions of 2026-10-29): each document-level question names the extraction fields it reads (`fields`), and a pack is asked it only when it has every one of them: swapped parties needs the supplier's and the buyer's name and tax number, the missing and extra rows the line items. A type without them (the terms and conditions, the tickets, the certificates, the statements, the utility bills' customer, the foreign invoice without line items) is no longer asked an invoice question about fields it does not have: a new request for those packs; the Hungarian invoice's, the proforma's and the outgoing invoice's are unchanged."
+    "note": "231 (stage F, F1; the owner's decisions of 2026-10-29): each document-level question names the extraction fields it reads (`fields`), and a pack is asked it only when it has every one of them: swapped parties needs the supplier's and the buyer's name and tax number, the missing and extra rows the line items. A type whose extraction (the answer's schema) has not got them (the terms and conditions, the tickets, the certificates, the statements; the utility bills name a customer, not a buyer) is no longer asked an invoice question about fields it does not have: a new request for those 21 packs; the Hungarian, the foreign, the proforma and the outgoing invoice's are unchanged."
    }
   ]
  },
