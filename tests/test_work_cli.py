@@ -53,7 +53,7 @@ def test_cli_run_start_refuses_unready(tmp_path: Path, capsys):
         wp = _run(capsys, "wp-create", str(folder))
         assert cli.main(["run-start", wp["id"]]) == 2
         out = capsys.readouterr().out
-        assert "Nem indítható" in out and "nincs tétel" in out
+        assert "Cannot start" in out and "nincs tétel" in out  # 231 (F3a): the command's words; the blocker is the service's
 
 
 def test_cli_wp_create_from_files(tmp_path: Path, capsys):
