@@ -166,7 +166,7 @@ def engine(want: str | None = None) -> str:
     if want in ("auto", "docker") and docker_available():
         return "docker"
     raise OcrUnavailableError(
-        f"nincs OCR-motor ({want}): natív tesseract ({', '.join(_TESS['exe_candidates'])}) és a Docker-kép ({_CFG['docker']['image']}) sem elérhető"
+        f"no OCR engine ({want}): neither the native tesseract ({', '.join(_TESS['exe_candidates'])}) nor the Docker image ({_CFG['docker']['image']}) is available"
     )
 
 
@@ -263,7 +263,7 @@ def azure_words(path: Path, *, run_id: str = "jav-ocr") -> tuple[list[list[dict[
     try:
         rel = _sidecar_relative(path, data_root)
     except ValueError as exc:
-        raise OcrUnavailableError(f"azure_di: a PDF nincs a sidecar adat-mappája alatt ({data_root}): {path}") from exc
+        raise OcrUnavailableError(f"azure_di: the PDF is not under the sidecar's data folder ({data_root}): {path}") from exc
     container_path = f"{az['container_root']}/{rel.as_posix()}"
     body = _json.dumps({"path": container_path, "chain": ["azure_di"], "ai_run_id": run_id}).encode("utf-8")
     req = urllib.request.Request(f"{az['sidecar_url']}/parse", data=body, headers={"Content-Type": "application/json"}, method="POST")
@@ -271,7 +271,7 @@ def azure_words(path: Path, *, run_id: str = "jav-ocr") -> tuple[list[list[dict[
         with urllib.request.urlopen(req, timeout=float(az["timeout_s"])) as resp:
             result = _json.loads(resp.read().decode("utf-8"))
     except (OSError, ValueError) as exc:
-        raise OcrUnavailableError(f"azure_di: a sidecar nem válaszolt ({az['sidecar_url']}): {exc}") from exc
+        raise OcrUnavailableError(f"azure_di: the sidecar did not answer ({az['sidecar_url']}): {exc}") from exc
     if result.get("provider_used") != "azure_di" or not result.get("evidence_ref"):
         raise OcrUnavailableError(f"azure_di: nem futott le (provider={result.get('provider_used')}, chain={result.get('fallback_chain')})")
     evidence = _json.loads((data_root / result["evidence_ref"]["path"]).read_text(encoding="utf-8"))

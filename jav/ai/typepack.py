@@ -244,17 +244,17 @@ def get(key: str) -> TypePack:
     fields = {**dict(base.get("fields", {})), **dict(data["fields"])}
     bad = [f"{f}:{k}" for f, k in fields.items() if k not in KINDS]
     if bad:
-        raise ValueError(f"ismeretlen mező-fajta a(z) {key} típus-csomagban: {bad}")
+        raise ValueError(f"an unknown field kind in the {key} type pack: {bad}")
     lists = {name: _dedup(list(base.get(name, [])), list(data.get(name, []))) for name in ("scored_fields", "informational_fields", "required", "high_stakes")}
     for name, lst in lists.items():
         unknown = [f for f in lst if f not in fields]
         if unknown:
-            raise ValueError(f"{key}.{name}: nem a csomag mezője: {unknown}")
+            raise ValueError(f"{key}.{name}: not a field of the pack: {unknown}")
     validators = _dedup([dict(v) for v in base.get("validators", ())], [dict(v) for v in data.get("validators", ())])
     text_labels = {**{f: tuple(v) for f, v in base.get("text_labels", {}).items()}, **{f: tuple(v) for f, v in data.get("text_labels", {}).items()}}
     unknown_labels = [f for f in text_labels if fields.get(f) != "text"]
     if unknown_labels:
-        raise ValueError(f"{key}.text_labels: csak `text` fajtájú mezőhöz adható címke: {unknown_labels}")
+        raise ValueError(f"{key}.text_labels: only a `text` field takes labels: {unknown_labels}")
     text_lines = {**{f: tuple(v) for f, v in base.get("text_lines", {}).items()}, **{f: tuple(v) for f, v in data.get("text_lines", {}).items()}}
     if unknown_lines := [f for f in text_lines if fields.get(f) != "text"]:
         raise ValueError(f"{key}.text_lines: only a `text` field takes whole-line candidates: {unknown_lines}")
@@ -262,11 +262,11 @@ def get(key: str) -> TypePack:
     bad_lists = [f for f in list_fields if fields.get(f) != "list"] + [f for f, k in fields.items() if k == "list" and f not in list_fields]
     bad_items = [f"{f}.{sub}:{k}" for f, v in list_fields.items() for sub, k in v.items() if k in ("list",) or k not in KINDS]
     if bad_lists or bad_items:
-        raise ValueError(f"{key}.list_fields: a `list` mezők és a tétel-leírások nem egyeznek: {bad_lists + bad_items}")
+        raise ValueError(f"{key}.list_fields: the `list` fields and the item descriptions do not match: {bad_lists + bad_items}")
     enums = {**{f: tuple(v) for f, v in base.get("enums", {}).items()}, **{f: tuple(v) for f, v in data.get("enums", {}).items()}}
     bad_enums = [e for e in enums if e.split("[")[0] not in fields]
     if bad_enums:
-        raise ValueError(f"{key}.enums: nem a csomag mezője: {bad_enums}")
+        raise ValueError(f"{key}.enums: not a field of the pack: {bad_enums}")
     inherit = lambda name, default=None: data.get(name, base.get(name, default))  # noqa: E731
     arms = tuple(inherit("arms", ["S", "G"]))
     default_arm = inherit("default_arm")

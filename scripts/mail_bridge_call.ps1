@@ -1,14 +1,14 @@
 # Calls the Outlook script (scripts/outlook_bridge.ps1, 148: ported from 10_AIFLOW_V4) from the local service
 # (048 T2, jav/domains/email/mailbox.py). It only assembles the parameters and returns the count preview's result as JSON.
-#   -Mode count : ingyenes előnézet (a régi -CountOnly), fájlt nem ír, semmit nem küld; kimenet: egy JSON-sor
-#   -Mode fetch : letöltés; a levelek a megadott fogadóra mennek (-OrchUrl, -ApiToken), a naplósorok a kimenetre
-# Mindig: -ManualRun (nincs régi beállításfájl), -ExistingOutlook (az Outlooknak futnia kell), -NoArchive, -AllEmails
-# (2026-09-28 döntés: minden levél), -RepoRoot a saját repó bridge-gyökere (a régi projekt csak olvasható).
+#   -Mode count : a free preview (the legacy -CountOnly), writes no file, sends nothing; output: one JSON line
+#   -Mode fetch : the download; the emails go to the receiver given (-OrchUrl, -ApiToken), the log lines to the output
+# Always: -ManualRun (no legacy settings file), -ExistingOutlook (Outlook must be running), -NoArchive, -AllEmails
+# (the decision of 2026-09-28: every email), -RepoRoot the own repository's bridge root (the legacy project is read only).
 param(
     [Parameter(Mandatory = $true)][string]$Script,
     [Parameter(Mandatory = $true)][ValidateSet('count', 'fetch')][string]$Mode,
-    [Parameter(Mandatory = $true)][string]$Accounts,        # vesszővel elválasztva
-    [string]$Folders = 'Inbox',                             # vesszővel elválasztva
+    [Parameter(Mandatory = $true)][string]$Accounts,        # comma-separated
+    [string]$Folders = 'Inbox',                             # comma-separated
     [switch]$Subfolders,
     [int]$SinceDays = 0,
     [string]$ReceivedFrom = '',

@@ -3,6 +3,7 @@ verifiable (jav/devtools/lang_guard.py)."""
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -15,6 +16,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _guard(baseline: dict[str, int] | None = None, allow: tuple[str, ...] = ()) -> lang_guard.Guard:
     return lang_guard.Guard(version="test", allow=allow, baseline=baseline or {})
+
+
+def test_a_baseline_write_steps_the_version_and_says_what_changed(tmp_path):
+    """231 (F3): the baseline grew while the version stayed; now every write is a version with its note."""
+    config = tmp_path / lang_guard.CONFIG_REL
+    config.parent.mkdir(parents=True)
+    config.write_text('{"meta": {"name": "lang_guard", "version": "1.0.7", "changelog": [{"version": "1.0.7", '
+                      '"date": "2026-10-01", "note": "x"}]}, "baseline": {"a.py": 3}}', encoding="utf-8")
+    lang_guard.write_baseline(tmp_path, {"a.py": 2, "b.py": 1}, "baseline: 3 -> 3; accepted: b.py")
+    data = json.loads(config.read_text(encoding="utf-8"))
+    assert data["meta"]["version"] == "1.0.8" and data["baseline"] == {"a.py": 2, "b.py": 1}
+    assert data["meta"]["changelog"][0]["version"] == "1.0.8" and "accepted: b.py" in data["meta"]["changelog"][0]["note"]
 
 
 def test_counts_lines_with_hungarian_letters_only():

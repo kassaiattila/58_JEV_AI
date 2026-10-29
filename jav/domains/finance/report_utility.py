@@ -25,7 +25,7 @@ from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
-from jav.core import cfg, type_roles, values
+from jav.core import cfg, display, type_roles, values
 from jav.domains.finance import duplicates
 from jav.app.outputs import contract
 
@@ -112,11 +112,13 @@ def build(records: list[dict[str, Any]]) -> dict[str, Any]:
         if amount_field is None:
             unplaced.append({**base, "reason": "no_amount"})
             continue
-        key_addr = _addr_key(raw_addr) if raw_addr else "(ismeretlen hely)"
-        addresses.setdefault(key_addr, raw_addr or "(ismeretlen hely)")
+        unknown = display.text("(unknown place)")  # 231 (D4): the request's language
+        key_addr = _addr_key(raw_addr) if raw_addr else unknown
+        addresses.setdefault(key_addr, raw_addr or unknown)
         cons_field = u.get("consumption_field")
         mark = r.get("duplicate") or {}
-        bills.append({**base, "addr": key_addr, "utility": u["label"], "summary_only": bool(u.get("summary_only")),
+        # 231 (D4): the utility's name in the request's language
+        bills.append({**base, "addr": key_addr, "utility": display.text(u["label"]), "summary_only": bool(u.get("summary_only")),
                       "unit": u.get("unit"), "start": start, "end": end, "amount": values.stored_decimal(f.get(amount_field)),
                       "amount_field": amount_field, "page": (r.get("pages") or {}).get(amount_field),
                       "consumption": values.stored_decimal(f.get(cons_field)) if cons_field else None,
@@ -198,17 +200,17 @@ def build(records: list[dict[str, Any]]) -> dict[str, Any]:
 # --- the utility cost in the downloads (180, plan 170 E7: the finance domain's parts, `jav/domains/finance/__init__.py`; until
 # then in `jav/app/export.py`) ------------------------------------------------------------------------------------------
 
-STATUS_TEXT = {"missing": "hiányzik", "overlap": "átfedés", "partial": "részleges", "ok": ""}
-GRAND_TOTAL_LABEL = "Mindösszesen (a tájékoztató sorok nélkül)"
-PERIOD_LABEL = "Időszak"
+STATUS_TEXT = {"missing": "missing", "overlap": "overlap", "partial": "partial", "ok": ""}
+GRAND_TOTAL_LABEL = "Grand total (without the information-only rows)"
+PERIOD_LABEL = "Period"
 
 # the column keys of the two tables (`configs/outputs.json`), in the order of their headers
 UTILITY_COLUMNS = ("address", "utility", "suppliers", "summary_only", "total")
-UTILITY_HEAD = ("Fogyasztási hely", "Közmű", "Szolgáltató", "Csak tájékoztató", "Összesen (bruttó)")
+UTILITY_HEAD = ("Point of consumption", "Utility", "Supplier (column)", "Information only", "Total (gross)")
 UTILITY_SOURCE_COLUMNS = ("address", "utility", "month", "status", "amount", "file", "item_id", "page", "field", "corrected",
                           "open_reasons")
-UTILITY_SOURCE_HEAD = ("Fogyasztási hely", "Közmű", "Hónap", "Állapot", "Összeg (hónapra jutó)", "Irat", "Tétel-azonosító", "Oldal",
-                       "Mező", "Javítva", "Nyitott teendők")
+UTILITY_SOURCE_HEAD = ("Point of consumption", "Utility", "Month", "Status", "Amount for the month", "Document (column)", "Item ID", "Page",
+                       "Field", "Corrected (column)", "Open to-dos")
 HEADS = {"utility_cost": dict(zip(UTILITY_COLUMNS, UTILITY_HEAD)),
          "utility_sources": dict(zip(UTILITY_SOURCE_COLUMNS, UTILITY_SOURCE_HEAD))}
 RESULT_VALUE_LABELS = {"grand_total": GRAND_TOTAL_LABEL}
@@ -216,33 +218,37 @@ OUTPUT_VALUE_LABELS = {"period": PERIOD_LABEL, "grand_total": GRAND_TOTAL_LABEL}
 
 
 def tables(report: dict[str, Any]) -> list[contract.Table]:
-    """The utility cost by month (a missing, overlapping or partly covered month marked) and its sources."""
+    """The utility cost by month (a missing, overlapping or partly covered month marked) and its sources. 231 (D4):
+    the headers, the sheet names and the marks in the request's language; a status code stays a code."""
     months = report["months"]
+    text, yes = display.text, display.text("yes")
     rows, marks = [], {}
     for r_i, s in enumerate(report["series"]):
-        rows.append([s["address"], s["utility"], ", ".join(s["suppliers"]), "igen" if s["summary_only"] else "", s["total"]]
-                    + [(s["cells"].get(m) or {}).get("amount") or STATUS_TEXT.get((s["cells"].get(m) or {}).get("status", ""), "")
+        rows.append([s["address"], s["utility"], ", ".join(s["suppliers"]), yes if s["summary_only"] else "", s["total"]]
+                    + [(s["cells"].get(m) or {}).get("amount") or text(STATUS_TEXT.get((s["cells"].get(m) or {}).get("status", ""), ""))
                        for m in months])
         for m_i, m in enumerate(months):
             st = (s["cells"].get(m) or {}).get("status")
             if st in ("missing", "overlap", "partial"):
                 marks[(r_i, len(UTILITY_COLUMNS) + m_i)] = st
-    footer = [[GRAND_TOTAL_LABEL, "", "", "", report["grand_total"]] + [""] * len(months)]
-    series = contract.table("utility_cost", "Közmű-költség", UTILITY_COLUMNS + tuple(f"month_{m.replace('-', '_')}" for m in months),
-                            UTILITY_HEAD + tuple(months), rows, [None, None, None, None, "money"] + ["money"] * len(months),
+    footer = [[text(GRAND_TOTAL_LABEL), "", "", "", report["grand_total"]] + [""] * len(months)]
+    series = contract.table("utility_cost", text("Utility cost (sheet)"), UTILITY_COLUMNS + tuple(f"month_{m.replace('-', '_')}" for m in months),
+                            tuple(text(h) for h in UTILITY_HEAD) + tuple(months), rows, [None, None, None, None, "money"] + ["money"] * len(months),
                             marks=marks, footer=footer)
-    srows = [[s["address"], s["utility"], m, "elszámolás" if x.get("settlement") else c["status"], x["amount"], x["file"],
-              x["item_id"], x["page"], x["field"], "igen" if x["corrected"] else "", x["open_reasons"] or ""]
+    srows = [[s["address"], s["utility"], m, text("settlement") if x.get("settlement") else c["status"], x["amount"], x["file"],
+              x["item_id"], x["page"], x["field"], yes if x["corrected"] else "", x["open_reasons"] or ""]
              for s in report["series"] for m, c in s["cells"].items() for x in c["sources"]]
-    srows += [[None, None, None, "nem vetíthető: " + u["reason"], None, u["file"], u["item_id"], None, None, "", ""] for u in report["unplaced"]]
-    srows += [[None, None, None, f"ismétlődő (azonos: {d['same_as_file']})", None, d["file"], d["item_id"], None, None, "", ""]
-              for d in report.get("duplicates", [])]
-    return [series, contract.table("utility_sources", "Közmű-források", UTILITY_SOURCE_COLUMNS, UTILITY_SOURCE_HEAD, srows,
+    srows += [[None, None, None, text("cannot be spread over months: {{reason}}", reason=u["reason"]), None, u["file"], u["item_id"],
+               None, None, "", ""] for u in report["unplaced"]]
+    srows += [[None, None, None, text("repeated (same as {{file}})", file=d["same_as_file"]), None, d["file"], d["item_id"], None,
+               None, "", ""] for d in report.get("duplicates", [])]
+    return [series, contract.table("utility_sources", text("Utility sources"), UTILITY_SOURCE_COLUMNS,
+                                   tuple(text(h) for h in UTILITY_SOURCE_HEAD), srows,
                                    [None] * 4 + ["money"] + [None] * 6)]
 
 
 def grand_total(report: dict[str, Any]) -> contract.Value:
-    return contract.Value("grand_total", GRAND_TOTAL_LABEL, report["grand_total"])
+    return contract.Value("grand_total", display.text(GRAND_TOTAL_LABEL), report["grand_total"])
 
 
 def result_part(records: list[dict[str, Any]]) -> tuple[tuple[contract.Table, ...], tuple[contract.Value, ...]]:
@@ -256,7 +262,7 @@ def output_data(records: list[dict[str, Any]], values: tuple[contract.Value, ...
     the period (the first and the last month) and the grand total; `values`: the package's (its name is taken)."""
     report = build(records)
     months = report["months"]
-    period = contract.Value("period", PERIOD_LABEL, f"{months[0]} – {months[-1]}" if months else "")
+    period = contract.Value("period", display.text(PERIOD_LABEL), f"{months[0]} – {months[-1]}" if months else "")
     return contract.OutputData("utility_cost", (*values[:1], period, grand_total(report)), tuple(tables(report)))
 
 

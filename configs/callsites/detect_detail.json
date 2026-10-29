@@ -11,7 +11,7 @@
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "047 T1.2: részletes típus a durva kategórián belül, csak ha a régi kulcsszavak után is több típus marad; a jelöltek a típuscsomagok (parent), a leírásuk a csomag `document` mezője; mindig van `none`"
+    "note": "047 T1.2: the detailed type within the broad category, only when more than one type is left after the legacy keywords; the candidates are the type packs (parent), their description the pack's `document` field; `none` is always there"
    }
   ]
  },

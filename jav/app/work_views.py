@@ -15,7 +15,7 @@ from typing import Any
 
 from jav.app import item_kinds, logic_packs, work, work_readiness, work_recipes, work_runs
 from jav.ai import typepack
-from jav.core import cfg, store
+from jav.core import cfg, display, store
 from jav.core import calls
 
 
@@ -79,35 +79,63 @@ def next_step(wp: dict[str, Any], last_run: dict[str, Any] | None, ready: bool |
     step leads to. `ready` is needed only for a package without runs (the readiness check is expensive: it computes the
     files' fingerprints)."""
     def step(code: str, label: str, stage: str, **params: Any) -> dict[str, Any]:
-        # the UI translates from the code and the parameters (057 language switch); `label` is the Hungarian caption
+        # the UI translates from the code and the parameters (057 language switch); `label` is the English caption (231,
+        # D4: the interface's source; `step_text` shows it in the request's language)
         return {"code": code, "label": label, "stage": stage, "params": params}
 
     items = wp["items"] if isinstance(wp.get("items"), list) else None
     n_items = len(items) if items is not None else wp.get("items", 0)
     if not n_items:
-        return step("empty", "Üres köteg", "process")
+        return step("empty", "Empty document batch", "process")
     if last_run is None:  # 080: without an assignment the default processing settings apply
-        return step("start", "Próbafutás indítása", "process") if ready is not False else step("blocked", "Nem indítható", "process")
+        return step("start", "Start trial run", "process") if ready is not False else step("blocked", "Cannot start", "process")
     status = last_run["status"]
     if status in ACTIVE:
         done, total = last_run.get("items_done", 0), last_run.get("items", 0)
-        return step("running", f"Fut: {done}/{total}", "process", done=done, total=total)
+        return step("running", f"Running: {done}/{total}", "process", done=done, total=total)
     if status in ("failed", "cancelled"):
-        return step("rerun", "Hibás vagy leállított futás: újrafuttatás", "process")
+        return step("rerun", "Failed or stopped run: rerun", "process")
     # 160-C S2: items added after the run come first: their processing may raise further to-dos (`work_runs.pending_items`)
     if wp.get("id") and (pending := len(work_runs.pending_items(wp["id"], last_run["mode"]))):
         return step("pending", f"{pending} new item(s) to process", "process", n=pending)
     if last_run.get("open_reasons"):
         if last_run["mode"] == "shadow":  # 150: a trial cannot be approved; its to-dos are information, the step is going live
-            return step("go_live", "Próba kész: éles futás", "process", trial_reasons=last_run["open_reasons"])
-        return step("review", f"Ellenőrzés: {last_run['open_reasons']} teendő", "review", n=last_run["open_reasons"])
+            return step("go_live", f"Trial finished: live run ({last_run['open_reasons']} to-dos in the trial)", "process",
+                        trial_reasons=last_run["open_reasons"])
+        return step("review", f"Review: {last_run['open_reasons']} to-dos", "review", n=last_run["open_reasons"])
     if last_run["mode"] == "apply":
         # 172 (plan 170 L1): the step is the package's Approve and release; an approval without a released version
         # (the way before v1.20.0, or a release stopped after its approvals) still needs it
         if last_run.get("approval") and not (wp.get("id") and _unreleased_approval(wp["id"])):
-            return step("done", "Kiadva: eredmény letöltése", "result")
-        return step("release", "Jóváhagyás és kiadás", "result")
-    return step("go_live", "Próba rendben: éles futás", "process")
+            return step("done", "Released: download result", "result")
+        return step("release", "Approve and release", "result")
+    return step("go_live", "Trial OK: live run", "process")
+
+
+def step_text(step: dict[str, Any]) -> str:
+    """231 (D4): a next step's caption in the request's language, as the interface's `stepLabel` makes it
+    (`ui/src/labels.ts`), for what the service writes itself (a download of the package list): a step with a number
+    from its parameters, any other by its caption, which is the interface's source text (each kind's `next_step`)."""
+    code, p = step["code"], step.get("params") or {}
+    text = display.text
+    if code == "running":
+        return text("Running: {{done}}/{{total}}", done=p.get("done", 0), total=p.get("total", 0))
+    if code == "go_live" and p.get("trial_reasons"):
+        return text("Trial finished: live run ({{n}} to-dos in the trial)", n=p["trial_reasons"])
+    if code == "decision_make" and isinstance(p.get("title"), str):
+        return text("Decide: {{what}}", what=text(p["title"]))
+    counted = {"review": "Review: {{n}} to-dos", "pending": "{{n}} new item(s) to process",
+               "reconcile_pair": "Pairing: {{n}} open lines", "routing_decide": "Route the documents: {{n}} to decide",
+               "quote_request_check": "Check the request: {{n}} gap(s)", "missing_facts": "Get the missing facts: {{n}}"}
+    if code in counted:
+        return text(counted[code], n=p.get("n", 0))
+    if code in ("reconcile_approved", "quote_approved"):
+        return text("Approved: version {{n}}", n=p.get("version", ""))
+    if code == "quote_compose" and p.get("n"):
+        return text("Compose the quote: {{n}} to settle", n=p["n"])
+    if code == "facts_check" and p.get("n"):
+        return text("Check the facts: {{n}} to settle", n=p["n"])
+    return text(step["label"])
 
 
 def _unreleased_approval(wp_id: str) -> bool:

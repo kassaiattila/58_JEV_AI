@@ -19,7 +19,7 @@ export function useResolve(onDone: () => void) {
     try {
       await api.resolveReason(r.id);
     } catch (e) {
-      setError(t("Nem sikerült rendezni: {{reason}}", { reason: e instanceof ApiError ? e.message : String(e) }));
+      setError(t("Could not resolve: {{reason}}", { reason: e instanceof ApiError ? e.message : String(e) }));
     } finally {
       busy.current = false;
       setPending(null);

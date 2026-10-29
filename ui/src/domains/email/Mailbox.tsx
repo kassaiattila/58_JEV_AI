@@ -14,26 +14,26 @@ import { splitAccounts, type MailboxStepDraft } from "./mailboxSource";
 
 export function pullSummary(p: Pick<MailboxPull, "status" | "result">): string {
   const r = p.result;
-  if (p.status === "error") return r?.error ? pullErrorText(r.error) : t("Hiba");
+  if (p.status === "error") return r?.error ? pullErrorText(r.error) : t("Error");
   if (!r) return "–";
-  const parts = [t("{{n}} új levél", { n: (r.new ?? 0) + (r.changed ?? 0) })];
-  if (r.changed) parts[0] += ` ${t("({{n}} megváltozott)", { n: r.changed })}`;
-  if (r.duplicate) parts.push(t("{{n}} már megvolt", { n: r.duplicate }));
+  const parts = [t("{{n}} new emails", { n: (r.new ?? 0) + (r.changed ?? 0) })];
+  if (r.changed) parts[0] += ` ${t("({{n}} changed)", { n: r.changed })}`;
+  if (r.duplicate) parts.push(t("{{n}} already present", { n: r.duplicate }));
   return parts.join(" · ");
 }
 
 /** Known errors of the legacy Outlook script in the UI language; `undefined` for anything else. */
 function knownBridgeError(message: string): string | undefined {
   if (/must match exactly one Outlook account/.test(message)) {
-    return t("Ez a cím egyetlen Outlook-fiókkal sem egyezik ezen a gépen. Ellenőrizd a címet (pontosan úgy, ahogy az Outlookban szerepel).");
+    return t("This address does not match any Outlook account on this computer. Check the address (exactly as it appears in Outlook).");
   }
-  if (/Outlook must already be running/.test(message)) return t("Az Outlook nem fut ezen a gépen. Indítsd el, és próbáld újra.");
+  if (/Outlook must already be running/.test(message)) return t("Outlook is not running on this computer. Start it and try again.");
   return undefined;
 }
 
 /** Error of the preview request (mailbox_unavailable): a known script error, otherwise the original text with context. */
 export function bridgeErrorText(message: string): string {
-  return knownBridgeError(message) ?? t("Az Outlook-olvasás nem sikerült: {{message}}", { message });
+  return knownBridgeError(message) ?? t("Reading from Outlook failed: {{message}}", { message });
 }
 
 /** 073: error of a finished download (download log, schedule "last run"): a known script error in the UI language,
@@ -96,14 +96,14 @@ export function MailboxRequestFields({ onChange }: { onChange: (req: MailboxRequ
 
   return (
     <div className="rc-stack">
-      {data.data && !data.data.bridge_available ? <p className="notice error" role="alert">{t("A régi Outlook-szkript nem található a régi projektben; a letöltés nem működik.")}</p> : null}
-      <label className="block">{t("Postafiók címe")} <span className="muted">{t("(több is, vesszővel)")}</span>
+      {data.data && !data.data.bridge_available ? <p className="notice error" role="alert">{t("The legacy Outlook script was not found in the old project; downloading does not work.")}</p> : null}
+      <label className="block">{t("Mailbox address")} <span className="muted">{t("(several, comma-separated)")}</span>
         <input value={account} onChange={(e) => changed(setAccount)(e.target.value)} placeholder="nev@ceg.hu" required />
       </label>
       {data.data?.accounts?.length ? (
         // 058: the previously used addresses with a single click (no need to type them again)
-        <div className="chip-row" role="group" aria-label={t("Korábban használt postafiókok")}>
-          <span className="muted small">{t("Korábban használt:")}</span>
+        <div className="chip-row" role="group" aria-label={t("Previously used mailboxes")}>
+          <span className="muted small">{t("Previously used:")}</span>
           {data.data.accounts.map((a) => (
             // 065: adds / removes (several addresses may be given), does not replace the field
             <button key={a} type="button" className="chip" aria-pressed={splitAccounts(account).includes(a)}
@@ -112,42 +112,42 @@ export function MailboxRequestFields({ onChange }: { onChange: (req: MailboxRequ
         </div>
       ) : null}
       <div className="form-row">
-        <label className="block">{t("Mappa")} <span className="muted">{t("(vesszővel)")}</span>
+        <label className="block">{t("Folder")} <span className="muted">{t("(comma-separated)")}</span>
           <input value={folders} placeholder="Inbox, Sent Items" onChange={(e) => changed(setFolders)(e.target.value)} />
         </label>
-        <label className="check"><input type="checkbox" checked={subfolders} onChange={(e) => setSubfolders(e.target.checked)} /> {t("almappákkal")}</label>
+        <label className="check"><input type="checkbox" checked={subfolders} onChange={(e) => setSubfolders(e.target.checked)} /> {t("with subfolders")}</label>
       </div>
       <fieldset className="segmented">
-        <legend className="sr-only">{t("Időszak")}</legend>
-        <label><input type="radio" name="mailbox-period" checked={mode === "recent"} onChange={() => changed(setMode)("recent")} /> {t("Az utolsó napok")}</label>
-        <label><input type="radio" name="mailbox-period" checked={mode === "range"} onChange={() => changed(setMode)("range")} /> {t("Dátumtól dátumig")}</label>
+        <legend className="sr-only">{t("Period")}</legend>
+        <label><input type="radio" name="mailbox-period" checked={mode === "recent"} onChange={() => changed(setMode)("recent")} /> {t("The last days")}</label>
+        <label><input type="radio" name="mailbox-period" checked={mode === "range"} onChange={() => changed(setMode)("range")} /> {t("Date range")}</label>
       </fieldset>
       <div className="form-row">
         {mode === "recent" ? (
-          <label className="block">{t("Napok száma")}
+          <label className="block">{t("Number of days")}
             <input type="number" min={1} max={3650} value={days} onChange={(e) => changed(setDays)(Number(e.target.value))} />
           </label>
         ) : (
           <>
-            <label className="block">{t("Ettől")}<input type="date" value={from} onChange={(e) => changed(setFrom)(e.target.value)} required /></label>
-            <label className="block">{t("Eddig")}<input type="date" value={to} onChange={(e) => changed(setTo)(e.target.value)} required /></label>
+            <label className="block">{t("From")}<input type="date" value={from} onChange={(e) => changed(setFrom)(e.target.value)} required /></label>
+            <label className="block">{t("Up to")}<input type="date" value={to} onChange={(e) => changed(setTo)(e.target.value)} required /></label>
           </>
         )}
-        <label className="block">{t("Legfeljebb ennyi levél")} <span className="muted">{t("(0 = nincs korlát)")}</span>
+        <label className="block">{t("At most this many emails")} <span className="muted">{t("(0 = no limit)")}</span>
           <input type="number" min={0} max={10000} value={maxItems} onChange={(e) => setMaxItems(Number(e.target.value))} />
         </label>
       </div>
       <div className="button-row">
-        <button type="button" className="secondary" disabled={counting || !complete} onClick={() => void count()}>{counting ? t("Számolás…") : t("Hány levél? (ingyenes)")}</button>
+        <button type="button" className="secondary" disabled={counting || !complete} onClick={() => void count()}>{counting ? t("Counting…") : t("How many emails? (free)")}</button>
       </div>
       {preview ? (
         <p className="notice" role="status">
           {/* 065: the number of new emails separately; it used to print the number of new emails as all the emails in
               the period */}
           {preview.already_read
-            ? t("{{total}} levél esik az időszakba: {{n}} új, {{read}} már be volt olvasva (azokat kihagyja).",
+            ? t("{{total}} emails fall in the period: {{n}} new, {{read}} already read (they will be skipped).",
               { total: preview.in_period, n: preview.eligible, read: preview.already_read })
-            : t("{{n}} új levél esik az időszakba.", { n: preview.eligible })}
+            : t("{{n}} new emails fall in the period.", { n: preview.eligible })}
           {" "}<span className="muted small">({preview.label})</span>
         </p>
       ) : null}
@@ -206,12 +206,12 @@ export function Mailbox() {
 
   async function schedule() {
     if (!request) return;
-    if (!getActor()) { setMsg({ kind: "error", text: t("Nem indítható: {{reason}}.", { reason: t(NO_ACTOR) }) }); return; }
+    if (!getActor()) { setMsg({ kind: "error", text: t("Cannot start: {{reason}}.", { reason: t(NO_ACTOR) }) }); return; }
     setBusy(true);
     setMsg(null);
     try {
       await api.createSchedule(request, interval);
-      setMsg({ kind: "ok", text: t("Ütemezés mentve ({{interval}}). Az első letöltés a feldolgozó következő körében indul.", { interval: intervalText(interval) }) });
+      setMsg({ kind: "ok", text: t("Schedule saved ({{interval}}). The first download starts in the worker's next round.", { interval: intervalText(interval) }) });
       data.reload();
     } catch (e) {
       const err = e as ApiError;
@@ -224,14 +224,14 @@ export function Mailbox() {
   const d = data.data;
   return (
     <>
-      <form className="card create" aria-label={t("Mit olvassunk")} onSubmit={(e) => e.preventDefault()}>
+      <form className="card create" aria-label={t("What to read")} onSubmit={(e) => e.preventDefault()}>
         <MailboxRequestFields onChange={setRequest} />
         <div className="schedule-row">
-          <span className="small muted">{t("Ütemezés (csak „az utolsó napok” időszakkal):")}</span>
-          <Picker label={t("Gyakoriság")} hideLabel compact value={String(interval)} onChange={(v) => setIntervalMin(Number(v))}
+          <span className="small muted">{t("Schedule (only with the “last days” period):")}</span>
+          <Picker label={t("Frequency")} hideLabel compact value={String(interval)} onChange={(v) => setIntervalMin(Number(v))}
             options={intervals().map(([m, label]) => ({ value: String(m), label }))} />
           <button type="button" className="secondary small-btn" disabled={busy || !request || !request.since_days}
-            onClick={() => void schedule()}>{t("Ütemezés mentése")}</button>
+            onClick={() => void schedule()}>{t("Save schedule")}</button>
         </div>
         {msg ? <p className={`notice ${msg.kind === "error" ? "error" : ""}`} role={msg.kind === "error" ? "alert" : "status"}>{msg.text}</p> : null}
       </form>
@@ -239,39 +239,39 @@ export function Mailbox() {
       {data.error ? <p className="notice error" role="alert">{data.error.message}</p> : null}
 
 
-      <h2 className="mt">{t("Ütemezések")}</h2>
-      {d && d.schedules.length === 0 ? <div className="empty">{t("Nincs ütemezés. Fent egy postafiókkal és gyakorisággal menthetsz egyet.")}</div> : null}
+      <h2 className="mt">{t("Schedules")}</h2>
+      {d && d.schedules.length === 0 ? <div className="empty">{t("No schedules. You can save one above with a mailbox and a frequency.")}</div> : null}
       {d && d.schedules.length ? (
         <table className="table">
-          <thead><tr><th>{t("Mit olvas")}</th><th>{t("Gyakoriság")}</th><th>{t("Következő")}</th><th>{t("Legutóbb")}</th><th /></tr></thead>
+          <thead><tr><th>{t("Reads")}</th><th>{t("Frequency")}</th><th>{t("Next")}</th><th>{t("Most recently")}</th><th /></tr></thead>
           <tbody>
             {d.schedules.map((s) => (
               <tr key={s.id}>
                 <td>{mailboxLabel(s.request)}</td>
                 <td>
-                  <Picker label={t("Gyakoriság: {{label}}", { label: mailboxLabel(s.request) })} hideLabel compact value={String(s.interval_min)}
+                  <Picker label={t("Frequency: {{label}}", { label: mailboxLabel(s.request) })} hideLabel compact value={String(s.interval_min)}
                     options={intervals().map(([m, label]) => ({ value: String(m), label }))}
                     onChange={(v) => void api.updateSchedule(s.id, { interval_min: Number(v) }).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))} />
                 </td>
-                <td className="muted">{s.enabled ? when(s.next_at) : t("kikapcsolva")}</td>
+                <td className="muted">{s.enabled ? when(s.next_at) : t("off")}</td>
                 <td>{s.last_at ? <><span className={s.last_status === "error" ? "error-text" : ""}>{pullSummary({ status: s.last_status ?? "ok", result: s.last_result })}</span>
-                  <div className="muted small">{when(s.last_at)}</div></> : <span className="muted">{t("még nem futott")}</span>}</td>
+                  <div className="muted small">{when(s.last_at)}</div></> : <span className="muted">{t("not run yet")}</span>}</td>
                 <td className="right">
                   <button type="button" className="secondary small-btn" onClick={() => void api.updateSchedule(s.id, { enabled: !s.enabled }).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))}>
-                    {s.enabled ? t("Kikapcsolás") : t("Bekapcsolás")}</button>{" "}
-                  <ConfirmButton className="quiet small-btn" onConfirm={() => void api.deleteSchedule(s.id).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))}>{t("Törlés")}</ConfirmButton>
+                    {s.enabled ? t("Turn off") : t("Turn on")}</button>{" "}
+                  <ConfirmButton className="quiet small-btn" onConfirm={() => void api.deleteSchedule(s.id).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))}>{t("Delete")}</ConfirmButton>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       ) : null}
-      <p className="muted small">{t("Az ütemezés csak akkor fut, ha a feldolgozó fut, és az Outlook nyitva van ezen a gépen.")}</p>
+      <p className="muted small">{t("Schedules only run while the worker is running and Outlook is open on this computer.")}</p>
 
-      <h2 className="mt">{t("Letöltések")}</h2>
-      <DataTable dataset="mailbox_pulls" label={t("Postafiók-letöltések")} pollMs={5000} emptyText={t("Még nem volt letöltés.")}
+      <h2 className="mt">{t("Downloads")}</h2>
+      <DataTable dataset="mailbox_pulls" label={t("Mailbox downloads")} pollMs={5000} emptyText={t("No downloads yet.")}
         cell={(col, row) => (col.key === "workpackage" && row.workpackage
-          ? <a href={`#/workpackages/${encodeURIComponent(String(row.workpackage))}`}>{t("iratköteg")}</a>
+          ? <a href={`#/workpackages/${encodeURIComponent(String(row.workpackage))}`}>{t("document batch")}</a>
           : col.key === "error" && row.error ? pullErrorText(String(row.error))
             // 183: the mailbox and period in the interface's language (the service's label is English)
             : col.key === "label" && row._request ? mailboxLabel(row._request as MailboxRequest) : undefined)} />

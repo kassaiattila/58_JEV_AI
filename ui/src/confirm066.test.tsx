@@ -6,8 +6,8 @@ import { CONFIRM_WINDOW_MS, ConfirmButton } from "./components/ConfirmButton";
 
 afterEach(() => vi.useRealTimers());
 
-describe("Megerősítés (066 Á36)", () => {
-  it("az első kattintás csak élesít, a második végrehajt", async () => {
+describe("Confirmation (066 Á36)", () => {
+  it("the first click only arms, the second acts", async () => {
     const run = vi.fn();
     const user = userEvent.setup();
     render(<ConfirmButton onConfirm={run}>Jóváhagyás és kiadás</ConfirmButton>);
@@ -18,7 +18,7 @@ describe("Megerősítés (066 Á36)", () => {
     expect(screen.getByRole("button", { name: "Jóváhagyás és kiadás" })).toBeTruthy();
   });
 
-  it("néhány másodperc után visszaáll, és újra két kattintás kell", async () => {
+  it("after a few seconds it resets, and two clicks are needed again", async () => {
     vi.useFakeTimers();
     const run = vi.fn();
     render(<ConfirmButton onConfirm={run}>Leállítás</ConfirmButton>);

@@ -47,7 +47,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from jav.ai import typepack
-from jav.core import cfg, store
+from jav.core import cfg, display, store
 from jav.core.config import PROJECT_ROOT, PROMPTS_DIR
 
 MIN_DOCUMENTS = 3
@@ -352,14 +352,22 @@ def registry_entries(draft: TaughtDraft, root: Path = PROJECT_ROOT) -> list[str]
     labels, catalog = read("configs/field_labels.json"), read("configs/capability_catalog.json")
     named = draft.key in read("configs/naming.json")["types"]
     shared, own_names = labels["fields"], labels.get("by_type", {}).get(draft.key, {})
+
+    def hungarian(source: str | None) -> str | None:
+        # 231 (D4): a registry name is an English source; the draft names its Hungarian
+        return display.text(source, "hu") if source else None
+
     new = {f.key: f.label for f in draft.fields if f.key not in shared}
     own = {f.key: f.label for f in draft.fields
-           if f.key in shared and shared[f.key] != f.label and own_names.get(f.key) != f.label}
+           if f.key in shared and hungarian(shared[f.key]) != f.label and hungarian(own_names.get(f.key)) != f.label}
     pins = (root / "tests" / "test_request_keys_190.py").read_text(encoding="utf-8").count(f'"{draft.key}":')
-    out = [f'configs/field_labels.json "doc_types": "{draft.key}": "{draft.label}" and its English name in '
-           "ui/src/i18n/en-server.json" if labels["doc_types"].get(draft.key) != draft.label else None,
-           f'configs/field_labels.json "fields": {json.dumps(new, ensure_ascii=False)}' if new else None,
-           f'configs/field_labels.json "by_type": {{"{draft.key}": {json.dumps(own, ensure_ascii=False)}}}' if own else None,
+    dictionary = "and its Hungarian in ui/src/i18n/hu-native.json"
+    out = [f'configs/field_labels.json "doc_types": "{draft.key}": its English name, {dictionary}: "{draft.label}"'
+           if hungarian(labels["doc_types"].get(draft.key)) != draft.label else None,
+           f'configs/field_labels.json "fields": the English names, {dictionary}: {json.dumps(new, ensure_ascii=False)}'
+           if new else None,
+           f'configs/field_labels.json "by_type": "{draft.key}": the English names, {dictionary}: '
+           f'{json.dumps(own, ensure_ascii=False)}' if own else None,
            f'configs/doc_types.json "old_type_map": "{draft.key}": "{draft.parent}"'
            if read("configs/doc_types.json")["old_type_map"].get(draft.key) != draft.parent else None,
            f'configs/capability_catalog.json "expected_document_keys": "{draft.key}"'

@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 
 from jav.app import datasets, work, work_readiness, work_recipes, work_runs, work_views
-from jav.core import store
-from jav.app.work_views import next_step
+from jav.core import display, store
+from jav.app.work_views import next_step, step_text
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 WP = {"items": [{"item_id": "a"}], "assignment": {"recipe_id": "r"}}
@@ -24,7 +24,10 @@ def _row(**kw):
 
 def test_after_a_trial_with_todos_the_next_step_is_the_live_run():
     step = next_step(WP, _row(open_reasons=462))
-    assert step == {"code": "go_live", "label": "Próba kész: éles futás", "stage": "process", "params": {"trial_reasons": 462}}
+    # 231 (D4): the caption is the interface's English source; the list shows it in the request's language
+    assert step == {"code": "go_live", "label": "Trial finished: live run (462 to-dos in the trial)", "stage": "process",
+                    "params": {"trial_reasons": 462}}
+    assert step_text(step) == display.text("Trial finished: live run ({{n}} to-dos in the trial)", n=462)
     live = next_step(WP, _row(mode="apply", open_reasons=5))
     assert live["code"] == "review" and live["params"] == {"n": 5}  # a live run's to-dos are still the next step
     assert next_step(WP, _row(status="done"))["params"] == {}  # a trial without to-dos: as before

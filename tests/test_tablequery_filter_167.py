@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav.core import numbers
-from jav.app.tablequery import Column, Query, select
+from jav.core import display, numbers
+from jav.app.tablequery import Column, Query, select, shown
 
 COLS = [Column("name", "Name"), Column("amount", "Amount", "money"), Column("qty", "Quantity", "number")]
 ROWS = [{"_key": "a", "name": "a", "amount": "1000000.00", "qty": "1.5"},
@@ -38,6 +38,9 @@ def test_a_quantity_keeps_its_decimal_point_reading() -> None:
 def test_an_ambiguous_amount_is_refused_with_a_message_naming_the_column() -> None:
     with pytest.raises(numbers.AmbiguousNumber) as caught:
         keys({"col": "amount", "op": "eq", "value": "28,000"})
+    assert caught.value.params == {"column": "Összeg", "value": "28,000"}  # 231 (D4): in the request's language
+    with display.use("en"), pytest.raises(numbers.AmbiguousNumber) as caught:
+        keys({"col": "amount", "op": "eq", "value": "28,000"})
     assert caught.value.params == {"column": "Amount", "value": "28,000"}
 
 
@@ -66,5 +69,6 @@ def test_the_yes_marks_of_the_data_points_are_enumerated() -> None:
     from jav.app import datasets
 
     cols = {c.key: c for c in datasets._fixed(datasets._DP_KEYS)}
-    assert cols["corrected"].labels == {"igen": "igen"}
-    assert cols["field_reason"].labels == {"igen": "igen"}
+    assert cols["corrected"].labels == {"igen": "yes"}  # 231 (D4): the English source; "igen" stays the code
+    assert cols["field_reason"].labels == {"igen": "yes"}
+    assert shown(cols["corrected"], "igen") == "igen"

@@ -39,9 +39,9 @@ export function Settings({ section, item, tab }: { section: SettingsSection; ite
   const Own = current.Panel;
   return (
     <>
-      <PageHeader title={t("Beállítások")} summary={t(current.hint)} />
+      <PageHeader title={t("Settings")} summary={t(current.hint)} />
       <div className="settings-layout">
-        <nav className="settings-nav" aria-label={t("Beállítások")}>
+        <nav className="settings-nav" aria-label={t("Settings")}>
           {/* 231 (U3e; the owner's decisions of 2026-10-28): the processes, the shared library and the system */}
           {SETTINGS_GROUPS.map((g) => (
             <div key={g.key} role="group" aria-labelledby={`settings-group-${g.key}`} className="settings-group">
@@ -92,14 +92,14 @@ function SystemPanel() {
   async function stop() {
     try {
       await api.workerStop();
-      setMsg(t("Leállítás kérve: a feldolgozó a folyamatban lévő tétel után áll le."));
+      setMsg(t("Stop requested: the worker stops after the item in progress."));
       w.reload();
     } catch (e) {
       setMsg((e as ApiError).message);
     }
   }
   const jobs = w.data?.jobs ?? {};
-  const [cmdBefore, cmdAfter] = t("A feldolgozót a {{cmd}} indítja; a lap bezárása nem állítja le a futásokat.").split("{{cmd}}");
+  const [cmdBefore, cmdAfter] = t("The worker is started by {{cmd}}; closing the page does not stop the runs.").split("{{cmd}}");
   return (
     <div className="stage-stack">
       {/* 231 (U2a; the owner's decision of 2026-10-28: one work list, the cases): the lists away from the daily work */}
@@ -113,19 +113,19 @@ function SystemPanel() {
       </section>
       <VersionPanel />
       <PdfProtectionPanel />
-      <section className="card wide" aria-label={t("Feldolgozó")}>
+      <section className="card wide" aria-label={t("Worker")}>
         <div className="card-head">
-          <h3>{t("Feldolgozó")}</h3>
-          {w.data?.running ? <ConfirmButton className="secondary small-btn" onConfirm={() => void stop()}><Icon name="stop" />{t("Leállítás")}</ConfirmButton> : null}
+          <h3>{t("Worker")}</h3>
+          {w.data?.running ? <ConfirmButton className="secondary small-btn" onConfirm={() => void stop()}><Icon name="stop" />{t("Stop")}</ConfirmButton> : null}
         </div>
         {w.error ? <p className="notice error">{w.error.message}</p> : null}
         {w.data ? (
           <p>
-            <span className={`status ${w.data.running ? "s-done" : "s-failed"}`}>{w.data.running ? t("Fut") : t("Nem fut")}</span>
+            <span className={`status ${w.data.running ? "s-done" : "s-failed"}`}>{w.data.running ? t("Running") : t("Not running")}</span>
             {/* 231 (E1): how many of the allowed workers run, when more than one may */}
             {(w.data.slots ?? 1) > 1 ? <> <span className="tnum">{t("{{n}} of {{slots}} workers", { n: w.data.workers ?? 0, slots: w.data.slots ?? 1 })}</span> ·</> : null}
-            {" "}{t("Sorban: {{queued}} · folyamatban: {{claimed}} · kész: {{done}} · leállítva: {{cancelled}}", { queued: jobs.queued ?? 0, claimed: jobs.claimed ?? 0, done: jobs.done ?? 0, cancelled: jobs.cancelled ?? 0 })}
-            {jobs.dead ? ` · ${t("feladva: {{n}}", { n: jobs.dead })}` : ""}
+            {" "}{t("Queued: {{queued}} · in progress: {{claimed}} · done: {{done}} · stopped: {{cancelled}}", { queued: jobs.queued ?? 0, claimed: jobs.claimed ?? 0, done: jobs.done ?? 0, cancelled: jobs.cancelled ?? 0 })}
+            {jobs.dead ? ` · ${t("given up: {{n}}", { n: jobs.dead })}` : ""}
           </p>
         ) : null}
         <p className="muted small">{cmdBefore}<span className="mono">scripts\dev.ps1 start</span>{cmdAfter}</p>
@@ -135,8 +135,8 @@ function SystemPanel() {
       <DepsAuditPanel />
       <JevVersionPanel />
       <UncertainCallsPanel />
-      <section aria-label={t("Minden futás")}>
-        <h3>{t("Minden futás")}</h3>
+      <section aria-label={t("All runs")}>
+        <h3>{t("All runs")}</h3>
         <RunList />
       </section>
     </div>

@@ -18,30 +18,30 @@ export function tmap(source: Record<string, string>): Record<string, string> {
 export const ENGINE: Record<string, string> = tmap({ jev: "JEV and GPT", gpt: "GPT only" });
 
 export const RUN_STATUS: Record<string, string> = tmap({
-  queued: "Sorban áll",
-  running: "Fut",
-  needs_review: "Teendő vár",
-  done: "Kész",
-  failed: "Hibás",
-  cancelled: "Leállítva",
+  queued: "Waiting in the queue",
+  running: "Running",
+  needs_review: "To-dos pending",
+  done: "Done",
+  failed: "Faulty",
+  cancelled: "Stopped",
 });
 
 export const ITEM_STATUS: Record<string, string> = tmap({
-  done: "Lefutott",
-  failed: "Hibás",
-  cancelled: "Leállítva",
-  needs_review: "Teendő",
-  needs_ocr: "OCR kell",
+  done: "Processed",
+  failed: "Faulty",
+  cancelled: "Stopped",
+  needs_review: "To-do",
+  needs_ocr: "OCR needed",
 });
 
 export const FINAL_STATUS: Record<string, string> = tmap({
-  done: "Lezárva, teendő nélkül",
-  needs_review: "Teendő",
-  needs_ocr: "OCR kell",
-  jev_unavailable: "JEV nem volt elérhető",
+  done: "Closed, no to-dos",
+  needs_review: "To-do",
+  needs_ocr: "OCR needed",
+  jev_unavailable: "JEV was unavailable",
 });
 
-export const MODE: Record<string, string> = tmap({ shadow: "Próba", apply: "Éles" });
+export const MODE: Record<string, string> = tmap({ shadow: "Trial", apply: "Live" });
 
 // 056 U1: the Hungarian names of the fields and the list columns are in configs/field_labels.json — the service reads
 // the same file, so service-side search and sorting also go by the Hungarian name. 057: the names of the 23 document
@@ -85,57 +85,57 @@ export function nextFlowText(code: string | null | undefined, readsText = false)
   if (kind === "m2" && what !== "needs_ocr" && readsText) {
     return t("Data extraction from the email and its attachments ({{what}})", { what: docTypeLabel(what) });
   }
-  if (kind === "m2") return what === "needs_ocr" ? t("Csatolmány: szövegfelismerés kell") : t("Adatkinyerés a csatolmányból ({{what}})", { what: docTypeLabel(what) });
-  if (kind === "m1") return t("Csatolmány: típusfelismerés");
-  const archive = tmap({ payment_proof: "fizetési igazolás", calendar: "naptár", order_status: "rendelés állapota",
+  if (kind === "m2") return what === "needs_ocr" ? t("Attachment: OCR needed") : t("Data extraction from the attachment ({{what}})", { what: docTypeLabel(what) });
+  if (kind === "m1") return t("Attachment: type recognition");
+  const archive = tmap({ payment_proof: "payment proof", calendar: "calendar", order_status: "order status",
     sent: "sent message" });
-  if (kind === "archive") return what ? t("Archiválás ({{what}})", { what: archive[what] ?? what }) : t("Archiválás");
-  const human = tmap({ inbox: "Kézi feldolgozás", fetch_document: "Kézi: a számla feldolgozása",
-    low_confidence: "Kézi ellenőrzés: bizonytalan szándék", jev_unavailable: "Kézi ellenőrzés: a JEV nem volt elérhető",
-    suspicious: "Kézi ellenőrzés: gyanús tartalom" });
-  if (kind === "human") return human[what] ?? t("Kézi feldolgozás");
+  if (kind === "archive") return what ? t("Archive ({{what}})", { what: archive[what] ?? what }) : t("Archive");
+  const human = tmap({ inbox: "Manual processing", fetch_document: "Manual: process the invoice",
+    low_confidence: "Manual review: uncertain intent", jev_unavailable: "Manual review: JEV was unavailable",
+    suspicious: "Manual review: suspicious content" });
+  if (kind === "human") return human[what] ?? t("Manual processing");
   return code;
 }
 
-const INTERVAL_NAMES = tmap({ "15": "15 percenként", "30": "félóránként", "60": "óránként", "240": "4 óránként", "1440": "naponta" });
+const INTERVAL_NAMES = tmap({ "15": "every 15 minutes", "30": "every 30 minutes", "60": "hourly", "240": "every 4 hours", "1440": "daily" });
 /** Intervals in the chosen language (as a function, so that they update on a language switch). */
 export const intervals = (): [number, string][] => [15, 30, 60, 240, 1440].map((m) => [m, INTERVAL_NAMES[String(m)]]);
-export const intervalText = (min: number) => intervals().find(([m]) => m === min)?.[1] ?? t("{{min}} percenként", { min });
+export const intervalText = (min: number) => intervals().find(([m]) => m === min)?.[1] ?? t("every {{min}} minutes", { min });
 
 const CHECK_TEXT: Record<string, string> = tmap({
-  "balance.discontinuity": "A futó egyenleg megszakad",
-  "balance.opening_unparseable": "A nyitó egyenleg nem értelmezhető",
-  "balance.amount_unparseable": "Egy tranzakció összege nem értelmezhető",
-  "balance.running_unparseable": "Egy tranzakció egyenlege nem értelmezhető",
-  "closing.mismatch": "A nyitó egyenleg + tranzakciók nem adják ki a záró egyenleget",
-  "closing.unparseable": "A nyitó vagy a záró egyenleg hiányzik / nem értelmezhető",
-  "closing.amount_unparseable": "Egy tranzakció összege nem értelmezhető",
+  "balance.discontinuity": "The running balance is broken",
+  "balance.opening_unparseable": "The opening balance cannot be parsed",
+  "balance.amount_unparseable": "A transaction amount cannot be parsed",
+  "balance.running_unparseable": "A transaction balance cannot be parsed",
+  "closing.mismatch": "Opening balance + transactions do not add up to the closing balance",
+  "closing.unparseable": "The opening or closing balance is missing / cannot be parsed",
+  "closing.amount_unparseable": "A transaction amount cannot be parsed",
   "closing.from_lines": "The balances were taken from the lines themselves (no total row)",  // 174 (review 160 M-12)
-  "totals.mismatch": "Az összesített terhelés / jóváírás nem egyezik a tranzakciókkal",
-  "totals.amount_unparseable": "Egy tranzakció összege nem értelmezhető",
-  "totals.unparseable": "A nettó, ÁFA vagy bruttó összeg hiányzik",
-  "dates.out_of_period": "Tranzakció a kivonat időszakán kívül",
-  "dates.due_before_issue": "A fizetési határidő korábbi a kiállításnál",
-  "dates.unparseable": "A dátumok nem értelmezhetők",
-  "taxid.checkdigit": "Az adószám ellenőrző számjegye hibás",
-  "taxid.unrecognized": "Az adószám alakja nem ismerhető fel",
-  "taxid.vatcode": "Az adószám áfakódja érvénytelen",
-  "taxid.county": "Az adószám megyekódja érvénytelen",
-  "iban.checksum": "A bankszámlaszám ellenőrző összege hibás",
-  "iban.hu_account_checksum": "Az IBAN-ban lévő belföldi számlaszám ellenőrző számjegye hibás",
-  "account.hu_checksum": "A belföldi bankszámlaszám ellenőrző számjegye hibás",
-  "format.mismatch": "Formátum nem megfelelő",
-  "lines.total_mismatch": "A tételek összege nem egyezik a számla végösszegével",
-  "lines.incomplete": "Tételsoron hiányzik az összeg, ezért a tételösszeg nem ellenőrizhető",
-  "lines.arithmetic_mismatch": "Tételsoron a mennyiség × egységár vagy a nettó + ÁFA nem adja ki a sor összegét",
+  "totals.mismatch": "The total debits / credits do not match the transactions",
+  "totals.amount_unparseable": "A transaction amount cannot be parsed",
+  "totals.unparseable": "The net, VAT or gross amount is missing",
+  "dates.out_of_period": "Transaction outside the statement period",
+  "dates.due_before_issue": "The payment due date is before the issue date",
+  "dates.unparseable": "The dates cannot be parsed",
+  "taxid.checkdigit": "The tax ID check digit is wrong",
+  "taxid.unrecognized": "The tax ID format is not recognised",
+  "taxid.vatcode": "The tax ID VAT code is invalid",
+  "taxid.county": "The tax ID county code is invalid",
+  "iban.checksum": "The bank account number checksum is wrong",
+  "iban.hu_account_checksum": "The check digit of the domestic account number inside the IBAN is wrong",
+  "account.hu_checksum": "The check digit of the domestic bank account number is wrong",
+  "format.mismatch": "Invalid format",
+  "lines.total_mismatch": "The sum of the line items does not match the invoice total",
+  "lines.incomplete": "A line item has no amount, so the line total cannot be checked",
+  "lines.arithmetic_mismatch": "On a line item, quantity × unit price or net + VAT does not equal the line amount",
   // 190: the checks of any list field by its name (jav/ai/validators.py list_rows, list_values, list_positive)
   "lines.too_few": "A list has fewer rows than it should (for example, no requested item at all)",
   "lines.value_missing": "A list row lacks a value it needs",
   "lines.not_positive": "A quantity in a list row is zero or less",
   // 120: the role-pair check (jav/documents/fact_checks.py); written with codepoints for the language guard
-  "parties.same_entity": "Ugyanaz a szerepl\u0151 k\u00e9t k\u00fcl\u00f6nb\u00f6z\u0151 szerepben",
+  "parties.same_entity": "The same party appears in two different roles",
   // 121: the pair against the earlier documents of the same type (jav/ai/party_history.py)
-  "parties.orientation_reversed": "A k\u00e9t f\u00e9l szerepe ford\u00edtott ahhoz k\u00e9pest, ahogy a kor\u00e1bbi, azonos t\u00edpus\u00fa iratokon \u00e1lltak",
+  "parties.orientation_reversed": "The two parties stand the other way round than on their earlier documents of the same type",
 });
 
 /** The result of one of the package's checks as an everyday sentence (on the corrected, saved data). */
@@ -147,15 +147,15 @@ export function checkText(code: string, detail?: string | null): string {
     return diff ? `${base} (${t("difference: {{diff}}", { diff: num(diff) })})` : base;
   }
   const known = Object.prototype.hasOwnProperty.call(CHECK_TEXT, code);
-  const base = known ? CHECK_TEXT[code] : t("Ellenőrzés nem ment át ({{code}})", { code });
+  const base = known ? CHECK_TEXT[code] : t("Check failed ({{code}})", { code });
   if (code.startsWith("lines.") && detail) {
     // 053 T3: a line-item check may name several rows; for the line-item total, the difference (line-item sum −
     // invoice total) per side
     // 190: a row named twice (two of its values) is listed once
     const rows = [...new Set([...detail.matchAll(/\bline (\d+)\b/g)].map((m) => m[1]))];
     const diffs = [...detail.matchAll(/\b(net|gross): sum-total=([-\d.]+)/g)]
-      .map((m) => t(m[1] === "net" ? "nettó: eltérés {{diff}}" : "bruttó: eltérés {{diff}}", { diff: num(m[2]) }));
-    const extra = [rows.length ? t("{{rows}}. sor", { rows: rows.join("., ") }) : "", ...diffs].filter(Boolean).join("; ");
+      .map((m) => t(m[1] === "net" ? "net: difference {{diff}}" : "gross: difference {{diff}}", { diff: num(m[2]) }));
+    const extra = [rows.length ? t("row {{rows}}", { rows: rows.join("., ") }) : "", ...diffs].filter(Boolean).join("; ");
     return extra ? `${base} (${extra})` : base;
   }
   const row = detail?.match(/\bline (\d+)\b(.*)$/);
@@ -163,8 +163,8 @@ export function checkText(code: string, detail?: string | null): string {
     // for the running balance: „expected” = the balance printed on the statement, „computed” = the one computed from
     // the opening balance
     const m = row[2].match(/expected ([-\d.]+), computed ([-\d.]+)/);
-    return m ? t("{{base}}: {{row}}. sor (a kivonaton {{expected}}, számolva {{computed}})", { base, row: row[1], expected: num(m[1]), computed: num(m[2]) })
-      : t("{{base}}: {{row}}. sor", { base, row: row[1] });
+    return m ? t("{{base}}: row {{row}} (on the statement {{expected}}, computed {{computed}})", { base, row: row[1], expected: num(m[1]), computed: num(m[2]) })
+      : t("{{base}}: row {{row}}", { base, row: row[1] });
   }
   return detail && !known ? `${base}: ${detail}` : base;
 }
@@ -174,19 +174,19 @@ const num = (s: string | undefined) => (s === undefined ? "" : getLocale() === "
 
 /** 120: the reading, interpretation and claim states named in native to-dos (codepoints for the language guard). */
 const NATIVE_STATUS: Record<string, string> = tmap({
-  partial: "r\u00e9szleges",
-  resource_limited: "olvas\u00e1si korl\u00e1t",
-  unsupported: "nem t\u00e1mogatott",
-  corrupt: "s\u00e9r\u00fclt",
-  password_required: "jelsz\u00f3val v\u00e9dett",
-  excluded: "kiz\u00e1rva",
-  temporary_error: "\u00e1tmeneti hiba",
-  not_attempted: "nem t\u00f6rt\u00e9nt meg",
-  failed: "sikertelen",
-  rejected: "elutas\u00edtott v\u00e1lasz",
-  uncertain: "bizonytalan",
-  missing: "hi\u00e1nyzik",
-  conflicting: "ellentmond\u00e1sos",
+  partial: "partial",
+  resource_limited: "reading limit",
+  unsupported: "unsupported",
+  corrupt: "damaged",
+  password_required: "password-protected",
+  excluded: "excluded",
+  temporary_error: "temporary error",
+  not_attempted: "not attempted",
+  failed: "failed",
+  rejected: "rejected answer",
+  uncertain: "uncertain",
+  missing: "missing",
+  conflicting: "conflicting",
 });
 /** A to-do reason code as an everyday sentence (for an unknown code, the code itself). */
 export function reasonText(code: string): string {
@@ -194,18 +194,18 @@ export function reasonText(code: string): string {
   const f = p[2] ? fieldLabel(p[2]) : "";
   const v = num(p[3]);
   switch (`${p[0]}:${p[1] ?? ""}`) {
-    case "pick:low_conf": return t("Bizonytalan érték: {{field}} (valószínűség {{p}})", { field: f, p: v });
-    case "pick:high_stakes_conf": return t("Kiemelt mező nem elég biztos: {{field}} ({{p}})", { field: f, p: v });
-    case "pick:absent_but_chosen": return t("Valószínűleg nincs az iraton, mégis kiválasztódott: {{field}} ({{p}})", { field: f, p: v });
-    case "pick:present_but_none": return t("Az iraton van, de nem sikerült kiválasztani: {{field}} ({{p}})", { field: f, p: v });
-    case "pick:no_candidates": return t("Nincs jelölt: {{field}}", { field: f });
-    case "pick:present_no_candidates": return t("Az iraton van, de a kód nem talált hozzá jelöltet: {{field}} ({{p}})", { field: f, p: v });
-    case "pick:none": return t("Nincs érték: {{field}}", { field: f });
+    case "pick:low_conf": return t("Uncertain value: {{field}} (probability {{p}})", { field: f, p: v });
+    case "pick:high_stakes_conf": return t("Key field not certain enough: {{field}} ({{p}})", { field: f, p: v });
+    case "pick:absent_but_chosen": return t("Probably not on the document, yet selected: {{field}} ({{p}})", { field: f, p: v });
+    case "pick:present_but_none": return t("Present on the document but could not be selected: {{field}} ({{p}})", { field: f, p: v });
+    case "pick:no_candidates": return t("No candidate: {{field}}", { field: f });
+    case "pick:present_no_candidates": return t("Present on the document, but the code found no candidate for it: {{field}} ({{p}})", { field: f, p: v });
+    case "pick:none": return t("No value: {{field}}", { field: f });
     case "pick:none_on_cut_list": {
       const [sent, found] = (p[3] ?? "").split("/");
-      return t("Nincs érték, pedig a jelöltlista le volt vágva: {{field}} ({{found}} jelöltből {{sent}} ment a modellnek)", { field: f, sent, found });
+      return t("No value, but the candidate list was cut: {{field}} ({{sent}} of {{found}} candidates went to the model)", { field: f, sent, found });
     }
-    case "jev:unsupported": return t("A modell nem támasztja alá: {{field}}", { field: f });
+    case "jev:unsupported": return t("Not supported by the model: {{field}}", { field: f });
     // 167 (review AI-10): a list left out of the JEV verification so that the request fits its size limit
     case "jev:list_omitted": return t("JEV did not check this list, to keep the request within its size limit: {{field}}; check its rows by hand", { field: f });
     // 177 (plan 170 E6): the JEV verification's field and document flags (jav/ai/policy.py); until now the raw code showed
@@ -220,39 +220,39 @@ export function reasonText(code: string): string {
     case "jev:extra_rows": return t("JEV: the extracted list has rows the document does not: {{field}} ({{p}})", { field: f, p: v });
     case "jev:line_items_extra_rows": return t("JEV: the extracted list has line items the document does not ({{p}})", { p: num(p[2]) });
     // 085: processing without JEV: the extracted value is printed nowhere on the document (the code's own check)
-    case "source:not_found": return t("A kinyert érték nem szerepel az iratban: {{field}}", { field: f });
+    case "source:not_found": return t("The extracted value is not printed on the document: {{field}}", { field: f });
     // 092: without JEV, an accounting field GPT is not sure enough of (below the policy's review_below)
-    case "gpt:low_conf": return t("A GPT nem elég biztos az értékben: {{field}} (valószínűség {{p}})", { field: f, p: v });
+    case "gpt:low_conf": return t("GPT is not sure enough of the value: {{field}} (probability {{p}})", { field: f, p: v });
     // 160 (review AI-6): without JEV, an accounting field whose GPT answer carried no token probability
     case "gpt:confidence_unavailable": return t("GPT's confidence cannot be measured for this value: {{field}}; check by hand", { field: f });
-    case "llm:required_missing": return t("Kötelező mező hiányzik: {{field}}", { field: f });
+    case "llm:required_missing": return t("Required field missing: {{field}}", { field: f });
     // 167 (review AI-7): GPT's answer stopped at its output cap; it is not asked again
     case "llm:truncated": return t("GPT's answer was cut off at its length limit, so nothing was extracted: the document is probably too long for one extraction; check it by hand");
-    case "money:separator_ambiguous": return t("Kétértelmű tizedesjel: {{field}}", { field: f });
+    case "money:separator_ambiguous": return t("Ambiguous decimal separator: {{field}}", { field: f });
     // 081: the S path's safety net: the picked number stands on the page only as a piece of a longer number
-    case "money:token_cut": return t("A kiválasztott érték csak egy része az iraton nyomtatott számnak: {{field}}", { field: f });
+    case "money:token_cut": return t("The chosen value is only part of the number printed on the document: {{field}}", { field: f });
     // 084: the shared date reader: the printed date's day and month can be read two ways ("04/12/2022")
-    case "date:order_ambiguous": return t("A nap és a hónap sorrendje kétes: {{field}}", { field: f });
-    case "ocr:partial_pages": return t("Nem minden oldal lett felismerve ({{pages}})", { pages: p[2] });
+    case "date:order_ambiguous": return t("Uncertain order of day and month: {{field}}", { field: f });
+    case "ocr:partial_pages": return t("Not all pages were recognised ({{pages}})", { pages: p[2] });
     // 167 (review AI-3): pages without a text layer of their own in a document that has one: neither read nor recognised
     case "pdf:pages_without_text": return t("Pages without a text layer of their own were not read ({{pages}} pages); look at them in the document", { pages: p[2] });
-    case "ocr:no_text": return t("Az iratból nem sikerült szöveget kinyerni");
+    case "ocr:no_text": return t("No text could be extracted from the document");
     // 190: a document given as text (an email's own text) had no text at all (jav/flows/flow.py load_text)
     // 190: an item's follow-up stage (the extraction of an email's own text) ended without a to-do of its own
     case `follow_up:${p[1] ?? ""}`: return t("An item's follow-up step did not finish cleanly ({{status}}); look at the item by hand", { status: p[1] ?? "" });
     case "text:empty": return t("The text given as the document is empty, so nothing was extracted from it");
     // 177: the text recognition itself could not run (jav/flows/flow.py, jav/flows/flow_detect.py)
     case "ocr:unavailable": return t("Text recognition could not run ({{why}}); look at the document by hand", { why: p[2] ?? "" });
-    case "ocr:low_confidence": return t("Gyenge szövegfelismerés ({{p}})", { p: num(p[2]) });
-    case "ocr:low_conf_words": return t("Sok bizonytalan szó a felismerésben ({{p}})", { p: num(p[2]) });
+    case "ocr:low_confidence": return t("Weak text recognition ({{p}})", { p: num(p[2]) });
+    case "ocr:low_conf_words": return t("Many uncertain words in the recognition ({{p}})", { p: num(p[2]) });
     // 075: the Azure escalation of a weak scan did not run (jav/documents/ocr.py escalation_review_reasons); 121: no route, failed call
     case "ocr:escalation_blocked":
-      if (p[2] === "uncertain_attempt") return t("Gyenge helyi felismerés; egy korábbi Azure-hívás kimenete bizonytalan, ezért nem ismételtük meg");
+      if (p[2] === "uncertain_attempt") return t("Weak local recognition; an earlier Azure call has an uncertain outcome, so it was not repeated");
       if (p[2] === "unreachable") return t("Weak local recognition; Azure recognition is not set up for this document");
       if (p[2] === "unavailable") return t("Weak local recognition; Azure recognition failed");
-      return t("Gyenge helyi felismerés; az Azure-felismerés a futás kerete miatt elmaradt");
+      return t("Weak local recognition; Azure recognition was skipped because of the run's budget");
     // 078: a PDF attachment the reader could not read; the email's intent was still recognised
-    case "attachment:unreadable": return t("Egy PDF-csatolmány nem olvasható (sérült, túl nagy, vagy túllépte az olvasási időt vagy memóriát); a levél szándéka ettől még elkészült");
+    case "attachment:unreadable": return t("A PDF attachment could not be read (corrupt, too large, or over the reading time or memory); the email's intent was still recognised");
     // 154: an attachment of an email routed as suspicious (an injected instruction); processed, but a person looks first
     case "attachment:suspicious_email": return t("An attachment of an email marked as suspicious (it may carry a hidden instruction): check the document and the email before relying on it");
     // 177: the email itself (the signal's yes band, policy email.signal_review)
@@ -280,42 +280,42 @@ export function reasonText(code: string): string {
     case "statements:other_party": return t("The statement's account belongs to another own party, and it stayed there. If it is this package's party's, move it in Settings › Own parties.");
     // 171 (plan 170, K20): the flow built no record from the document (`policy.decide`); until now the raw code showed
     case "no_invoice:": return t("No data was extracted from the document, so it has no values to check or download; its other to-dos show why");
-    case "parties:same_tax_id": return t("A szállító és a vevő adószáma azonos");
-    case "parties:same_name": return t("A szállító és a vevő neve azonos");
+    case "parties:same_tax_id": return t("The supplier and the buyer have the same tax ID");
+    case "parties:same_name": return t("The supplier and the buyer have the same name");
     // 134: the supplier tax number is an own party's (jav/app/parties.py review_reasons)
     case "parties:own_tax_as_supplier": return t("The supplier's tax number is an own party's: the two tax numbers may be swapped, or this is an outgoing invoice");
-    case "detect:low_conf": return t("Bizonytalan típusfelismerés: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
-    case "detect:detail_open": return t("A részletes típus nem dönthető el (kategória: {{type}}); válaszd ki kézzel", { type: docTypeLabel(p[2]) });
-    case "detect:no_type_pack": return t("Ehhez az irattípushoz nincs adatkinyerés ({{type}}); nézd meg kézzel", { type: docTypeLabel(p[2]) });
+    case "detect:low_conf": return t("Uncertain type recognition: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
+    case "detect:detail_open": return t("The detailed type cannot be decided (category: {{type}}); choose it manually", { type: docTypeLabel(p[2]) });
+    case "detect:no_type_pack": return t("There is no data extraction for this document type ({{type}}); check it manually", { type: docTypeLabel(p[2]) });
     // 177: the recognition gave no result and named no reason of its own (jav/flows/flow_detect.py)
     case "detect:no_result": return t("Type recognition gave no result; choose the type by hand");
     // 090: the type / issuer cross-check in code (configs/policy.json detect_issuer): the type is kept
-    case "detect:issuer_mismatch": return t("A típus ({{type}}) magyar kiállítót feltételez, de a felismerés szerint a kiállító nem magyar; ellenőrizd a típust", { type: docTypeLabel(p[2]) });
-    case "detect_detail:low_conf": return t("Bizonytalan részletes típus: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
+    case "detect:issuer_mismatch": return t("The type ({{type}}) presumes a Hungarian issuer, but the recognition says the issuer is not Hungarian; check the type", { type: docTypeLabel(p[2]) });
+    case "detect_detail:low_conf": return t("Uncertain detailed type: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
     // 149: the direction the own parties give contradicts the detailed type
     case "detect_detail:direction_mismatch": return t("The detailed type ({{type}}) contradicts the parties: by them the invoice is {{direction}}; check the type", {
       type: docTypeLabel(p[2]), direction: p[3] === "outgoing" ? t("outgoing") : p[3] === "incoming" ? t("incoming") : p[3] ?? "" });
-    case "detect_detail:second_option": return t("A részletes típusnál a második lehetőség is közel van: {{type}}", { type: docTypeLabel(p[2]) });
+    case "detect_detail:second_option": return t("For the detailed type, the second option is also close: {{type}}", { type: docTypeLabel(p[2]) });
     // 086: type recognition by GPT (processing without JEV)
-    case "detect:gpt_failed": return t("A GPT-s típusfelismerés nem sikerült ({{why}}); válaszd ki kézzel", { why: p[2] ?? "" });
-    case "detect:confidence_unavailable": return t("A típusfelismerés bizonyossága nem mérhető: {{type}}; ellenőrizd kézzel", { type: docTypeLabel(p[2]) });
-    case "detect_detail:gpt_failed": return t("A részletes típus GPT-s felismerése nem sikerült ({{why}}); válaszd ki kézzel", { why: p[2] ?? "" });
-    case "detect_detail:confidence_unavailable": return t("A részletes típus bizonyossága nem mérhető: {{type}}; ellenőrizd kézzel", { type: docTypeLabel(p[2]) });
-    case "intent:low_conf": return t("Bizonytalan levél-szándék: {{intent}} ({{p}})", { intent: intentLabel(p[2]), p: v });
-    case "intent:no_result": return t("A levél szándékát nem sikerült felismerni");
+    case "detect:gpt_failed": return t("Type recognition by GPT failed ({{why}}); choose the type by hand", { why: p[2] ?? "" });
+    case "detect:confidence_unavailable": return t("The confidence of the recognised type cannot be measured: {{type}}; check it by hand", { type: docTypeLabel(p[2]) });
+    case "detect_detail:gpt_failed": return t("Recognising the detailed type by GPT failed ({{why}}); choose it by hand", { why: p[2] ?? "" });
+    case "detect_detail:confidence_unavailable": return t("The confidence of the detailed type cannot be measured: {{type}}; check it by hand", { type: docTypeLabel(p[2]) });
+    case "intent:low_conf": return t("Uncertain email intent: {{intent}} ({{p}})", { intent: intentLabel(p[2]), p: v });
+    case "intent:no_result": return t("The email's intent could not be recognised");
     // 089: the intent recognised by GPT (processing without JEV)
-    case "intent:gpt_failed": return t("A GPT-s szándékfelismerés nem sikerült ({{why}}); olvasd el a levelet, és döntsd el kézzel", { why: p[2] ?? "" });
-    case "intent:confidence_unavailable": return t("A levél-szándék bizonyossága nem mérhető; ellenőrizd kézzel");
+    case "intent:gpt_failed": return t("GPT intent recognition failed ({{why}}); read the email and decide by hand", { why: p[2] ?? "" });
+    case "intent:confidence_unavailable": return t("The confidence of the email's intent cannot be measured; check it by hand");
     // 086: processing without JEV, before 089 (older runs): the intent was not recognised at all
-    case "intent:jev_off": return t("JEV nélküli feldolgozás: a levél szándékát a rendszer nem ismeri fel; olvasd el, és döntsd el kézzel");
+    case "intent:jev_off": return t("Processing without JEV: the system does not recognise the email's intent; read it and decide by hand");
     // 073: task proposals from an e-mail (jav/domains/email/flow_email.py); until now these showed the raw code
-    case "tasks:proposed": return t("{{n}} feladatjavaslat vár döntésre", { n: p[2] ?? "" });
-    case "tasks:failed": return t("A feladatjavaslat nem sikerült ({{why}})", { why: p[2] ?? "" });
+    case "tasks:proposed": return t("{{n}} task proposal(s) awaiting a decision", { n: p[2] ?? "" });
+    case "tasks:failed": return t("Task proposal failed ({{why}})", { why: p[2] ?? "" });
     // 120: the to-dos of Word, Excel, text and continuing PDF documents (jav/flows/flow_native.py)
-    case "native:reading": return t("Az irat nem teljesen olvashat\u00f3 ({{status}}); n\u00e9zd meg a forr\u00e1st \u00e9s a hi\u00e1nyokat", { status: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
-    case "native:interpretation": return t("Az adatkinyer\u00e9s nem siker\u00fclt ({{status}}); n\u00e9zd meg az ok\u00e1t", { status: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
-    case "native:no_facts": return t("Az iratb\u00f3l nem keletkezett adatjavaslat");
-    case "native:interpretation_gaps": return t("Az adatkinyer\u00e9s hi\u00e1nyt jelzett");
+    case "native:reading": return t("The document is not fully readable ({{status}}); check the source and the gaps", { status: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
+    case "native:interpretation": return t("The extraction did not succeed ({{status}}); check the reason", { status: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
+    case "native:no_facts": return t("The document produced no facts");
+    case "native:interpretation_gaps": return t("The extraction reported a gap");
     // 124: a scan read from its Azure recognition (weak word confidences), or the native step's own Azure call
     // did not run (jav/flows/flow_native.py review_native)
     case "native:recognition":
@@ -326,14 +326,14 @@ export function reasonText(code: string): string {
       if (p[3] === "unavailable") return t("Azure recognition failed; local recognition was used");
       return t("Azure recognition was skipped because of the run's budget; local recognition was used");
     // 123: facts left out of a received answer for breaking the presence rule
-    case "native:discarded_facts": return t("{{n}} adatjavaslat hib\u00e1s szerkezet\u0171 volt, ez\u00e9rt kimaradt; n\u00e9zd meg a forr\u00e1st", { n: p[2] ?? "" });
-    case "native:grounding": return t("Egy adatjavaslat nem tal\u00e1lhat\u00f3 sz\u00f3 szerint a forr\u00e1sban");
-    case "native:claim": return t("Egy adatjavaslat nem biztos ({{state}})", { state: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
+    case "native:discarded_facts": return t("{{n}} proposed facts were malformed and left out; check the source", { n: p[2] ?? "" });
+    case "native:grounding": return t("A fact is not found word for word in the source");
+    case "native:claim": return t("A fact is not certain ({{state}})", { state: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
     case "native:fact": {
       const n = Number(p[2]) + 1;
-      if (p[3] === "unsupported") return t("A JEV nem t\u00e1masztja al\u00e1 a(z) {{n}}. adatjavaslatot ({{p}})", { n, p: num(p[4]) });
-      if (p[3] === "uncertain") return t("A JEV bizonytalan a(z) {{n}}. adatjavaslatban ({{p}})", { n, p: num(p[4]) });
-      return t("A(z) {{n}}. adatjavaslathoz figyelmeztet\u00e9s tartozik; ellen\u0151rizd", { n });
+      if (p[3] === "unsupported") return t("JEV does not support fact {{n}} ({{p}})", { n, p: num(p[4]) });
+      if (p[3] === "uncertain") return t("JEV is uncertain about fact {{n}} ({{p}})", { n, p: num(p[4]) });
+      return t("Fact {{n}} has a warning; check it", { n });
     }
   }
   // 090: a field check's to-do names its field third (`validator:taxid.unrecognized:supplier_tax_id`)
@@ -341,8 +341,8 @@ export function reasonText(code: string): string {
   if (p[0] === "validator") return checkText(p[1] ?? "", p.slice(2).join(":") || null);
   // 160: in processing without JEV a JEV question asked anyway is refused before it is sent
   if (code === "jev_unavailable:disabled") return t("The JEV question was not sent: this processing runs without JEV, on GPT only; check by hand");
-  if (p[0] === "jev_unavailable") return t("A JEV nem volt elérhető ({{why}}); ellenőrizd kézzel", { why: p.slice(1).join(":") });
-  if (p[0] === "llm" && p[1] === "failed") return t("A GPT-kivonat nem sikerült ({{why}})", { why: p[2] ?? "" });
+  if (p[0] === "jev_unavailable") return t("JEV was unavailable ({{why}}); check manually", { why: p.slice(1).join(":") });
+  if (p[0] === "llm" && p[1] === "failed") return t("GPT extraction failed ({{why}})", { why: p[2] ?? "" });
   // 177: an amount or a quantity of the record that cannot be read as a number (`<field>:unparseable:<raw>`, jav/ai/models.py)
   if (p[1] === "unparseable") return t("A number cannot be read: {{field}}", { field: fieldPathLabel(p[0]) });
   // 177: a value the type pack does not allow for the field (`<field>:not_in_enum:<value>`, jav/ai/models.py)
@@ -436,9 +436,9 @@ export function savedValues(fields: Record<string, unknown>, kinds: Record<strin
 }
 
 const STEP_LABEL = tmap({
-  empty: "Üres köteg", start: "Próbafutás indítása", blocked: "Nem indítható",
-  rerun: "Hibás vagy leállított futás: újrafuttatás", done: "Kiadva: eredmény letöltése", release: "Jóváhagyás és kiadás",
-  go_live: "Próba rendben: éles futás",
+  empty: "Empty document batch", start: "Start trial run", blocked: "Cannot start",
+  rerun: "Failed or stopped run: rerun", done: "Released: download result", release: "Approve and release",
+  go_live: "Trial OK: live run",
   // 132: a reconciliation package's steps (jav/domains/finance/reconcile_package.py `next_step`)
   reconcile_empty: "No statement line in the scope", reconcile_result: "Reconciliation result",
   // 181: an email routing package's steps (jav/domains/email/email_routing.py `_next`)
@@ -459,8 +459,8 @@ const STEP_LABEL = tmap({
 /** The package's next step in the chosen language (057): from the service's code and parameters; for an unknown code,
  *  the service's (Hungarian) label. Both the package header and the work package list column use it. */
 export function stepLabel(code: string, params: Record<string, unknown> | undefined, fallback: string): string {
-  if (code === "running") return t("Fut: {{done}}/{{total}}", { done: params?.done ?? 0, total: params?.total ?? 0 });
-  if (code === "review") return t("Ellenőrzés: {{n}} teendő", { n: params?.n ?? 0 });
+  if (code === "running") return t("Running: {{done}}/{{total}}", { done: params?.done ?? 0, total: params?.total ?? 0 });
+  if (code === "review") return t("Review: {{n}} to-dos", { n: params?.n ?? 0 });
   // 160-C S2: items added after the run wait for processing
   if (code === "pending") return t("{{n}} new item(s) to process", { n: params?.n ?? 0 });
   // 150: after a trial with to-dos the step is going live; the trial's to-dos are only information
@@ -483,16 +483,16 @@ export function stepLabel(code: string, params: Record<string, unknown> | undefi
 export function blockerText(b: { code: string; message: string }): string {
   const name = b.message.includes(": ") ? b.message.slice(b.message.indexOf(": ") + 2) : "";
   switch (b.code) {
-    case "no_items": return t("Az iratkötegben nincs tétel.");
+    case "no_items": return t("The document batch has no items.");
     // 080: the processing settings replace the recipe; a package without settings runs with the default ones
-    case "recipe_changed": return t("A feldolgozás a beállítások mentése óta változott; mentsd el újra a beállításokat.");
-    case "recipe_retired": return t("A köteg egy megszűnt feldolgozási változatot használ; állítsd át a mostani feldolgozásra.");
-    case "unsupported_item": return t("A feldolgozás nem kezeli: {{name}}", { name });
-    case "source_missing": return t("Hiányzó forrás: {{name}}", { name });
-    case "source_changed": return t("A forrás tartalma a felvétel óta változott: {{name}}", { name });
-    case "instance_damaged": return t("A felvételkori példány hiányzik vagy sérült: {{name}}", { name });
-    case "original_changed": return t("Az eredeti fájl a felvétel óta megváltozott; a felvételkori példány kerül feldolgozásra: {{name}}", { name });
-    case "original_missing": return t("Az eredeti fájl a felvétel óta eltűnt; a felvételkori példány kerül feldolgozásra: {{name}}", { name });
+    case "recipe_changed": return t("The processing changed since the settings were saved; save the settings again.");
+    case "recipe_retired": return t("The batch uses a retired version of the processing; switch it to the current processing.");
+    case "unsupported_item": return t("The processing does not handle: {{name}}", { name });
+    case "source_missing": return t("Missing source: {{name}}", { name });
+    case "source_changed": return t("The source content changed since it was added: {{name}}", { name });
+    case "instance_damaged": return t("The copy kept when it was added is missing or damaged: {{name}}", { name });
+    case "original_changed": return t("The original file has changed since it was added; the copy kept then is processed: {{name}}", { name });
+    case "original_missing": return t("The original file has disappeared since it was added; the copy kept then is processed: {{name}}", { name });
     default: return b.message;
   }
 }
@@ -502,8 +502,8 @@ export function blockerText(b: { code: string; message: string }): string {
 export function itemCountText(items: { kind: string }[]): string {
   const mails = items.filter((i) => i.kind === "email").length;
   const docs = items.length - mails;
-  if (mails && docs) return t("{{docs}} irat, {{mails}} levél", { docs, mails });
-  return mails ? t("{{n}} levél", { n: mails }) : t("{{n}} irat", { n: docs });
+  if (mails && docs) return t("{{docs}} documents, {{mails}} emails", { docs, mails });
+  return mails ? t("{{n}} emails", { n: mails }) : t("{{n}} documents", { n: docs });
 }
 
 // 058: the email intent's name from the registry (configs/intents.json), in the chosen language — no code name is shown
@@ -512,30 +512,30 @@ export const intentLabel = (key: string | null | undefined): string => (key ? IN
 
 /** Labels of the processing settings (058; 080: the path by what it does, the owner's decision of 2026-10-01): a short
  *  value without code names; the long explanation is in the settings editor and on Settings › Processing. */
-export const PARAM_LABEL: Record<string, string> = tmap({ path: "Feldolgozási út", arm: "Út", doc_type: "Irattípus", jev_cache: "Korábbi válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés", jev: "JEV használata",
-  unknown_documents: "Ismeretlen PDF-ek",  // 120
+export const PARAM_LABEL: Record<string, string> = tmap({ path: "Processing path", arm: "Path", doc_type: "Document type", jev_cache: "Earlier answers", tasks: "Task proposal", azure_ocr: "Azure recognition", jev: "Use of JEV",
+  unknown_documents: "Unknown PDFs",  // 120
   email_text: "Quote requests from the email's text" });  // 190
 const PARAM_SHORT: Record<string, string> = tmap({
-  "jev:on": "bekapcsolva",
-  "jev:off": "kikapcsolva — csak GPT (OpenAI)",
+  "jev:on": "on",
+  "jev:off": "off — GPT only (OpenAI)",
   // 090: the path and the use of JEV as one choice (`path`, shown only)
-  "path:auto": "Automatikus (ajánlott) — JEV és GPT",
-  "path:S": "JEV, ahol lehet — olcsóbb, tételsorok nélkül; máshol GPT (S)",
-  "path:G": "GPT + JEV — tételsorokkal (G)",
-  "path:gpt": "Csak GPT, JEV nélkül (OpenAI)",
-  "path:jev": "JEV-vel (ajánlott)",
-  "arm:auto": "Automatikus (ajánlott)",
-  "arm:S": "JEV, ahol lehet — olcsóbb, tételsorok nélkül; máshol GPT (S)",
-  "arm:G": "GPT + JEV — tételsorokkal (G)",
-  "jev_cache:reuse": "korábbi válasz újrahasználható",
-  "jev_cache:live": "mindig élő hívás",
-  "tasks:off": "kikapcsolva",
-  "tasks:propose": "bekapcsolva (GPT)",
-  "azure_ocr:on": "gyenge szkennelésnél",
-  "azure_ocr:off": "kikapcsolva",
+  "path:auto": "Automatic (recommended) — JEV and GPT",
+  "path:S": "JEV where possible — cheaper, no line items; GPT elsewhere (S)",
+  "path:G": "GPT + JEV — with line items (G)",
+  "path:gpt": "GPT only, without JEV (OpenAI)",
+  "path:jev": "With JEV (recommended)",
+  "arm:auto": "Automatic (recommended)",
+  "arm:S": "JEV where possible — cheaper, no line items; GPT elsewhere (S)",
+  "arm:G": "GPT + JEV — with line items (G)",
+  "jev_cache:reuse": "earlier answer may be reused",
+  "jev_cache:live": "always a live call",
+  "tasks:off": "off",
+  "tasks:propose": "on (GPT)",
+  "azure_ocr:on": "for weak scans",
+  "azure_ocr:off": "off",
   // 120: a text PDF without a fitting type pack (written with codepoints for the language guard)
-  "unknown_documents:facts": "\u00e1ltal\u00e1nos adatjavaslat (GPT + JEV)",
-  "unknown_documents:review": "meg\u00e1ll, k\u00e9zi ellen\u0151rz\u00e9s",
+  "unknown_documents:facts": "general facts (GPT + JEV)",
+  "unknown_documents:review": "stops for manual review",
   // 190: the extraction of a quote request written in the email itself (the owner's decision of 2026-10-21: on)
   "email_text:extract": "extracted (GPT + JEV)",
   "email_text:off": "not extracted",
@@ -605,7 +605,7 @@ export function itemBudget(r: Recipe, params: Record<string, string>, kind?: str
   return Object.fromEntries(Object.entries(out).filter(([p]) => !drop.has(p)));
 }
 
-const KIND_BUDGET: Record<string, string> = tmap({ email: "levelenként", document: "PDF-iratonként",
+const KIND_BUDGET: Record<string, string> = tmap({ email: "per email", document: "per PDF document",
   statement_table: "per statement from a table export" });  // 136: read by code, so its budget is empty
 /** The per-item budget line by line (one line per item kind), e.g. „levelenként: JEV legfeljebb 0,05 USD” (per email:
  *  JEV at most 0.05 USD). */
@@ -615,8 +615,8 @@ export function itemBudgetLines(r: Recipe, params: Record<string, string>, only?
     .filter((kind) => !kind || !only?.length || only.includes(kind));
   return kinds.map((kind) => {
     const amounts = Object.entries(itemBudget(r, params, kind))
-      .map(([p, v]) => t("{{provider}} legfeljebb {{amount}}", { provider: providerName(p), amount: usdBudget(v) })).join(", ") || t("nincs");
-    return kind ? `${KIND_BUDGET[kind] ?? kind}: ${amounts}` : t("tételenként: {{amounts}}", { amounts });
+      .map(([p, v]) => t("{{provider}} up to {{amount}}", { provider: providerName(p), amount: usdBudget(v) })).join(", ") || t("none");
+    return kind ? `${KIND_BUDGET[kind] ?? kind}: ${amounts}` : t("per item: {{amounts}}", { amounts });
   });
 }
 
@@ -624,28 +624,28 @@ export function itemBudgetLines(r: Recipe, params: Record<string, string>, only?
  *  what it is for, from the readiness check's `plan` and `budget`. A service with no budget is said not to be called. */
 export function planLines(plan: RunPlan, budget: Record<string, string>): string[] {
   const amount = (p: string) => Number(budget[p] ?? 0);
-  const head = (p: string) => t("{{provider}} legfeljebb {{amount}}", { provider: providerName(p), amount: usdBudget(budget[p]) });
+  const head = (p: string) => t("{{provider}} up to {{amount}}", { provider: providerName(p), amount: usdBudget(budget[p]) });
   const join = (parts: (string | false)[]) => parts.filter(Boolean).join("; ");
   const out: string[] = [];
-  if (plan.documents) out.push(t("Helyi szövegfelismerés: ingyenes, minden iraton."));
+  if (plan.documents) out.push(t("Local text recognition: free, on every document."));
   // 136: a statement from a bank's table export is read by code; no service is called for it
   if (plan.statement_tables) out.push(t("{{n}} statement(s) from a table export: read by code, free.", { n: plan.statement_tables }));
   if (amount("jev") > 0) {
     out.push(`${head("jev")}: ${join([
-      plan.documents > 0 && t("{{n}} irat típusfelismerése és adatkinyerése", { n: plan.documents }),
-      plan.emails > 0 && t("{{n}} levél szándékfelismerése", { n: plan.emails }),
-      plan.jev_reuse ? t("a korábban már feltett kérdésekért nem kell újra fizetni") : t("minden kérdés élő hívás, a korábbi válaszok nem számítanak"),
+      plan.documents > 0 && t("type recognition and data extraction of {{n}} document(s)", { n: plan.documents }),
+      plan.emails > 0 && t("intent recognition of {{n}} email(s)", { n: plan.emails }),
+      plan.jev_reuse ? t("questions asked before are not paid for again") : t("every question is a live call; earlier answers do not count"),
     ])}.`);
   }
   if (plan.jev === false) {
     // 086: processing without JEV — no JEV budget, so not even a stray JEV call could start
-    out.push(t("JEV: nem hívódik (kikapcsolva)."));
+    out.push(t("JEV: not called (switched off)."));
   }
   if (amount("openai") > 0 && plan.jev === false) {
     out.push(`${head("openai")}: ${join([
-      plan.documents > 0 && t("{{n}} irat típusfelismerése és adatkinyerése a G-úton, kódos ellenőrzéssel", { n: plan.documents }),
-      plan.emails > 0 && t("{{n}} levél szándékfelismerése", { n: plan.emails }),  // 089: by GPT without JEV
-      plan.tasks_emails > 0 && t("{{n}} levél feladatjavaslata", { n: plan.tasks_emails }),
+      plan.documents > 0 && t("type recognition and extraction of {{n}} document(s) on the G path, checked by the code", { n: plan.documents }),
+      plan.emails > 0 && t("intent recognition of {{n}} email(s)", { n: plan.emails }),  // 089: by GPT without JEV
+      plan.tasks_emails > 0 && t("task proposal for {{n}} email(s)", { n: plan.tasks_emails }),
       // 190: the extraction of a quote request written in the email itself (spent only on such emails)
       (plan.text_emails ?? 0) > 0 && t("{{n}} email(s): a quote request written in the email is read from its text", { n: plan.text_emails }),
       // 192: an Excel or CSV request list attached to a quote request email (spent only on such a list)
@@ -654,20 +654,20 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
   } else if (amount("openai") > 0) {
     out.push(`${head("openai")}: ${join([
       plan.paths.G > 0 && (plan.arm === "S"  // 082: the S path runs on G where the type has no JEV path
-        ? t("{{n}} irat a G-úton, mert a típusának nincs JEV-útja", { n: plan.paths.G })
-        : t("{{n}} irat a G-úton", { n: plan.paths.G })),
-      plan.paths.unknown > 0 && t("{{n}} még ismeretlen típusú irat, ha a felismert típus a G-utat kéri", { n: plan.paths.unknown }),
-      plan.tasks_emails > 0 && t("{{n}} levél feladatjavaslata", { n: plan.tasks_emails }),
+        ? t("{{n}} documents on the G path, because their type has no JEV path", { n: plan.paths.G })
+        : t("{{n}} document(s) on the G path", { n: plan.paths.G })),
+      plan.paths.unknown > 0 && t("{{n}} document(s) of a type not yet known, if the recognised type takes the G path", { n: plan.paths.unknown }),
+      plan.tasks_emails > 0 && t("task proposal for {{n}} email(s)", { n: plan.tasks_emails }),
       // 190: the extraction of a quote request written in the email itself (spent only on such emails)
       (plan.text_emails ?? 0) > 0 && t("{{n}} email(s): a quote request written in the email is read from its text", { n: plan.text_emails }),
       // 192: an Excel or CSV request list attached to a quote request email (spent only on such a list)
       (plan.text_tables ?? 0) > 0 && t("{{n}} table attachment(s): a request list attached to a quote request is read with it", { n: plan.text_tables }),
     ])}.`);
   } else if (plan.documents || plan.emails) {
-    out.push(plan.documents ? t("OpenAI: nem hívódik, minden irat az S-úton fut.") : t("OpenAI: nem hívódik."));
+    out.push(plan.documents ? t("OpenAI: not called, every document runs on the S path.") : t("OpenAI: not called."));
   }
-  if (amount("azure_di") > 0) out.push(`${head("azure_di")}: ${t("csak gyenge minőségű szkennelésnél, a helyi felismerés helyett")}.`);
-  else if (plan.documents) out.push(t("Azure DI: nem hívódik (kikapcsolva)."));
+  if (amount("azure_di") > 0) out.push(`${head("azure_di")}: ${t("only for poor-quality scans, instead of the local recognition")}.`);
+  else if (plan.documents) out.push(t("Azure DI: not called (switched off)."));
   return out;
 }
 

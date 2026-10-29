@@ -54,11 +54,11 @@ function panel(res: ItemResult) {
 
 afterEach(() => { resetDrafts(); vi.restoreAllMocks(); });
 
-describe("javítás mentése (munkapéldány)", () => {
+describe("saving a correction (the working copy)", () => {
   beforeEach(() => setActor("Teszt Elek"));
   afterEach(() => setActor(""));
 
-  it("név nélkül nem küld mentést, hanem megmondja, mi hiányzik; a beírt érték megmarad", async () => {
+  it("without a name it sends no save but says what is missing; the value typed stays", async () => {
     setActor("");
     const spy = vi.spyOn(api, "saveCorrection");
     render(panel(result()));
@@ -71,7 +71,7 @@ describe("javítás mentése (munkapéldány)", () => {
     expect((screen.getByLabelText("Számlaszám") as HTMLInputElement).value).toBe("MINTA-2");
   });
 
-  it("hálózati hiba után a beírt érték megmarad, és újra menthető", async () => {
+  it("after a network error the value typed stays and can be saved again", async () => {
     const spy = vi.spyOn(api, "saveCorrection").mockRejectedValueOnce(new ApiError(0, "offline", "nem érhető el")).mockResolvedValueOnce(result());
     render(panel(result()));
     const input = screen.getByLabelText("Számlaszám");
@@ -86,7 +86,7 @@ describe("javítás mentése (munkapéldány)", () => {
     expect(await screen.findByText("Mentve.")).toBeTruthy();
   });
 
-  it("a munkapéldány tételváltáskor megmarad; ha közben újabb verzió lett, nincs vak mentés", async () => {
+  it("the working copy stays when the item changes; if a newer version came meanwhile, there is no blind save", async () => {
     const key = draftKey(RUN, ITEM);
     setField(key, 0, "invoice_number", "X-2");
     const spy = vi.spyOn(api, "saveCorrection");
@@ -102,7 +102,7 @@ describe("javítás mentése (munkapéldány)", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it("a mentett halmaz: korábbi javítások és források + a munkapéldány; üres = nincs érték", () => {
+  it("the set saved: earlier corrections and sources plus the working copy; empty = no value", () => {
     const prev = { ...result().correction, fields: { b: "20", c: "x" }, sources: { b: [4], c: [9] } };
     const out = buildSave({ a: "1", b: "2", c: "3" }, prev, { baseRevision: 0, values: { a: "10", c: "" }, sources: { a: [1, 2] } });
     expect(out).toEqual({ fields: { a: "10", b: "20", c: null }, sources: { a: [1, 2], b: [4] } });
@@ -111,7 +111,7 @@ describe("javítás mentése (munkapéldány)", () => {
   });
 });
 
-describe("a képen", () => {
+describe("on the image", () => {
   const prov: Record<string, Provenance> = {
     a: { status: "located", method: "pick", page: 1, bbox: [0.1, 0.1, 0.4, 0.2], boxes: [[0.1, 0.1, 0.4, 0.2]], alternatives: [] },
     b: { status: "located", method: "pick", page: 1, bbox: [0.3, 0.15, 0.5, 0.2], boxes: [[0.3, 0.15, 0.5, 0.2]], alternatives: [] },
@@ -119,13 +119,13 @@ describe("a képen", () => {
     d: { status: "approximate", method: "pick_line", page: 1, bbox: [0.1, 0.5, 0.6, 0.52], boxes: [[0.1, 0.5, 0.6, 0.52]], alternatives: [] },
   };
 
-  it("a közelítő (sor-szintű) keret is kattintható és keretezhető", () => {
+  it("an approximate (line-level) box can be clicked and framed too", () => {
     expect(fieldsAtPoint(prov, 1, 0.3, 0.51)).toEqual(["d"]);
     expect(frameBoxes(prov.d)).toEqual([[0.1, 0.5, 0.6, 0.52]]);
     expect(frameBoxes(prov.c)).toEqual([]);
   });
 
-  it("a pont alatti mezők között ismételt kattintás lépked", () => {
+  it("repeated clicks step through the fields under the point", () => {
     const hits = fieldsAtPoint(prov, 1, 0.35, 0.17);
     expect(hits).toEqual(["a", "b"]);
     expect(cyclePick(hits, null)).toBe("a");
@@ -134,7 +134,7 @@ describe("a képen", () => {
     expect(fieldsAtPoint(prov, 2, 0.35, 0.17)).toEqual([]);
   });
 
-  it("téglalappal a közepükkel beleeső szavak jelölődnek ki, olvasási sorrendben", () => {
+  it("a rectangle selects the words whose centre falls inside, in reading order", () => {
     const words: SourceWord[] = [
       { id: 2, page: 1, line_no: 1, text: "880", x0: 0.3, y0: 0.1, x1: 0.34, y1: 0.12 },
       { id: 1, page: 1, line_no: 1, text: "071", x0: 0.25, y0: 0.1, x1: 0.29, y1: 0.12 },
@@ -143,7 +143,7 @@ describe("a képen", () => {
     expect(wordsInRect(words, 1, { x: 0.35, y: 0.13 }, { x: 0.24, y: 0.09 }).map((w) => w.id)).toEqual([1, 2]);
   });
 
-  it("bizonyosság-sávok (a V4 határai) és mezősorrend (teendő, gyenge becslés, alap)", () => {
+  it("confidence bands (the V4 limits) and the field order (to-do, weak estimate, default)", () => {
     const bands = { confident: 0.9, check: 0.5 };
     expect([0.95, 0.9, 0.6, 0.2, null].map((c) => bandOf(c, bands))).toEqual(["confident", "confident", "check", "likely_wrong", "unknown"]);
     expect(bandOf(0.99, bands, true)).toBe("check"); // corrected field: the estimate referred to the machine value
@@ -152,8 +152,8 @@ describe("a képen", () => {
   });
 });
 
-describe("kiválasztott köteg identitása", () => {
-  it("a címben lévő azonosító marad a kiválasztás, nincs visszaesés az első elemre", () => {
+describe("the identity of the selected batch", () => {
+  it("the id in the address stays the selection, with no fallback to the first item", () => {
     const r = parseRoute("#/workpackages/wp-000000000009/review/" + "b".repeat(64));
     expect(r).toEqual({ view: "workpackages", wpId: "wp-000000000009", stage: "review", itemId: "b".repeat(64) });
     expect(routeHash(r)).toBe("#/workpackages/wp-000000000009/review/" + "b".repeat(64));
@@ -162,7 +162,7 @@ describe("kiválasztott köteg identitása", () => {
     expect(parseRoute("")).toEqual({ view: "case-list" });  // 231 U2a: the one work list, the cases
   });
 
-  it("kulcsváltáskor a régi, később érkező válasz nem írja felül az újat", async () => {
+  it("when the key changes, the old answer arriving later does not overwrite the new one", async () => {
     let resolveOld: (v: string) => void = () => {};
     const old = new Promise<string>((r) => { resolveOld = r; });
     const fns: Record<string, () => Promise<string>> = { "wp:A": () => old, "wp:B": () => Promise.resolve("B adatai") };
@@ -174,8 +174,8 @@ describe("kiválasztott köteg identitása", () => {
   });
 });
 
-describe("teendő-szövegek", () => {
-  it("az okkód hétköznapi mondat lesz, ismeretlen kód változatlan", () => {
+describe("to-do texts", () => {
+  it("a reason code becomes an everyday sentence; an unknown code stays as it is", () => {
     expect(reasonText("pick:low_conf:payment_iban:0.58")).toBe("Bizonytalan érték: Bankszámlaszám (valószínűség 0,58)");
     expect(reasonText("ocr:partial_pages:12/13")).toBe("Nem minden oldal lett felismerve (12/13)");
     expect(reasonText("valami:uj")).toBe("valami:uj");
@@ -188,7 +188,7 @@ describe("teendő-szövegek", () => {
     expect(reasonText("detect:no_type_pack:payment_reminder")).toMatch(/^Ehhez az irattípushoz nincs adatkinyerés \(.+\); nézd meg kézzel$/);
   });
 
-  it("058: kódnév helyett magyar név — szándék, recept-paraméterek", () => {
+  it("058: a Hungarian name instead of a code name — the intent, the recipe parameters", () => {
     expect(reasonText("intent:low_conf:newsletter_marketing:0.49")).toBe("Bizonytalan levél-szándék: Hírlevél / Marketing (0,49)");
     expect(intentLabel("ismeretlen_kulcs")).toBe("ismeretlen_kulcs");
     // 080: the path by what it does (the owner's decision of 2026-10-01)
@@ -196,7 +196,7 @@ describe("teendő-szövegek", () => {
   });
 });
 
-describe("tételes lista (048)", () => {
+describe("an itemised list (048)", () => {
   const COLS = [{ name: "direction", kind: "text", options: ["debit", "credit"] }, { name: "amount", kind: "money" }, { name: "memo", kind: "text" }];
   const TXS = [{ direction: "credit", amount: "200", memo: null }, { direction: "debit", amount: "500", memo: "díj" }];
 
@@ -228,7 +228,7 @@ describe("tételes lista (048)", () => {
   beforeEach(() => setActor("Teszt Elek"));
   afterEach(() => setActor(""));
 
-  it("a mentett halmaz: változatlan lista kimarad; változott lista teljes egészében megy, üres cella = nincs érték", () => {
+  it("the set saved: an unchanged list is left out; a changed list goes whole, an empty cell = no value", () => {
     const prev = result().correction;
     const lists = { transactions: { columns: COLS } };
     const same = buildSave({ transactions: TXS }, prev, { baseRevision: 0, values: {}, sources: {}, lists: {
@@ -241,7 +241,7 @@ describe("tételes lista (048)", () => {
     expect(kept.fields).toEqual({ transactions: [TXS[0]] }); // the earlier list correction is kept
   });
 
-  it("külön fülön látszik, a hibás sor kiemelve, cella javítható, sor törölhető, a teljes lista mentődik", async () => {
+  it("it shows on a tab of its own, the faulty row highlighted, a cell can be corrected, a row deleted, the whole list is saved", async () => {
     const spy = vi.spyOn(api, "saveCorrection").mockResolvedValue(statement());
     render(listPanel(statement()));
     expect(screen.getByText(/futó egyenleg megszakad: 2\. sor/)).toBeTruthy();
@@ -258,13 +258,13 @@ describe("tételes lista (048)", () => {
     expect(spy.mock.calls[0][2]).toEqual({ fields: { transactions: [{ direction: "debit", amount: "50", memo: "díj" }] }, expected_revision: 0 });
   });
 
-  it("az ellenőrzés eredménye hétköznapi mondat, a sorral és az értékekkel", () => {
+  it("the check's result is an everyday sentence, with the row and the values", () => {
     expect(checkText("balance.discontinuity", "line 2: expected 1150.00, computed 700.00"))
       .toBe("A futó egyenleg megszakad: 2. sor (a kivonaton 1150,00, számolva 700,00)");
     expect(checkText("closing.mismatch", "open+S-close=10.00")).toBe("A nyitó egyenleg + tranzakciók nem adják ki a záró egyenleget");
   });
 
-  it("a tétel-ellenőrzés minden hibás sort és az összeg-eltérést megnevezi (053 T3)", () => {
+  it("the line item check names every faulty row and the difference of the totals (053 T3)", () => {
     expect(checkText("lines.arithmetic_mismatch", "line 2: qty*price=300.00 vs 350; line 5: net*(1+vat)=127.00 vs 150"))
       .toBe("Tételsoron a mennyiség × egységár vagy a nettó + ÁFA nem adja ki a sor összegét (2., 5. sor)");
     expect(checkText("lines.total_mismatch", "net: sum-total=-100.5"))
@@ -272,8 +272,8 @@ describe("tételes lista (048)", () => {
   });
 });
 
-describe("postafiók és levél-tétel (048 T2)", () => {
-  it("a postafiók útvonala és a letöltés összefoglalója", () => {
+describe("the mailbox and an email item (048 T2)", () => {
+  it("the mailbox's path and the download's summary", () => {
     expect(parseRoute("#/mailbox")).toEqual({ view: "settings", section: "mailboxes" }); // 057: the old address leads to Settings
     expect(routeHash({ view: "settings", section: "mailboxes" })).toBe("#/settings/mailboxes");
     expect(pullSummary({ status: "ok", result: { new: 3, changed: 1, duplicate: 2, workpackage: "wp-1" } })).toBe("4 új levél (1 megváltozott) · 2 már megvolt");
@@ -289,7 +289,7 @@ describe("postafiók és levél-tétel (048 T2)", () => {
     expect(itemName({ item_id: "x", source_path: "C:\\inbox\\a\\message.json" }, { x: "Számla — Kft." })).toBe("Számla — Kft.");
   });
 
-  it("a levél-tétel: a levél, a felismert szándék és a teendő rendezése", async () => {
+  it("an email item: the email, the recognised intent and settling the to-do", async () => {
     const spy = vi.spyOn(api, "resolveReason").mockResolvedValue({ status: "resolved" });
     const onChanged = vi.fn();
     const base = result();
@@ -311,7 +311,7 @@ describe("postafiók és levél-tétel (048 T2)", () => {
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
   });
 
-  it("058 K5.1: a szándék kézzel javítható; a levágott szöveg jelölve", async () => {
+  it("058 K5.1: the intent can be corrected by hand; a cut text is marked", async () => {
     const save = vi.spyOn(api, "saveCorrection").mockResolvedValue(result());
     const onChanged = vi.fn();
     const base = result();
@@ -332,7 +332,7 @@ describe("postafiók és levél-tétel (048 T2)", () => {
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
   });
 
-  it("058 K5.2: a levél iratként futott csatolmánya a saját eredményére visz", () => {
+  it("058 K5.2: an email's attachment run as a document leads to its own result", () => {
     const base = result();
     const mail: ItemResult = {
       ...base, kind: "email", extraction: null, source: null, provenance: {}, open_reasons: [],
@@ -347,7 +347,7 @@ describe("postafiók és levél-tétel (048 T2)", () => {
     expect(link.getAttribute("href")).toBe(`#/workpackages/wp-000000000001/review/${"b".repeat(64)}`);
   });
 
-  it("058 K5.3: a feladatjavaslatot csak ember fogadja el; a kiesett javaslatok száma látszik", async () => {
+  it("058 K5.3: only a person accepts a task proposal; the number of proposals dropped shows", async () => {
     const decide = vi.spyOn(api, "decideTask").mockResolvedValue(result());
     const onChanged = vi.fn();
     const base = result();
@@ -370,7 +370,7 @@ describe("postafiók és levél-tétel (048 T2)", () => {
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
   });
 
-  it("062: az összevont javaslat és a kiesett javaslat tartalma az elbukott résszel látszik", async () => {
+  it("062: the merged proposal and the content of a dropped one show with the part that failed", async () => {
     const base = result();
     const mail: ItemResult = {
       ...base, kind: "email", extraction: null, source: null, provenance: {}, open_reasons: [],
@@ -396,7 +396,7 @@ describe("postafiók és levél-tétel (048 T2)", () => {
     expect(screen.getByText(/A javaslat szövege ennél a korábbi futásnál nem maradt meg/)).toBeTruthy();
   });
 
-  it("058: a levél hosszú linkjei rövid, nem kattintható jelöléssé válnak", () => {
+  it("058: an email's long links become a short mark that cannot be clicked", () => {
     const parts = splitLinks("Nézd meg: <https://link.minta.hu/ls/click?upn=u001.AAAA-2Fp> vagy https://www.pelda.hu/a?b=c\nKöszönjük");
     expect(parts).toEqual([
       { text: "Nézd meg: " }, { url: "https://link.minta.hu/ls/click?upn=u001.AAAA-2Fp", host: "link.minta.hu" },
@@ -406,10 +406,10 @@ describe("postafiók és levél-tétel (048 T2)", () => {
   });
 });
 
-describe("keretek a képen és tételsorok helye (053)", () => {
+describe("boxes on the image and the places of line items (053)", () => {
   const box = (y: number): Provenance => ({ status: "located", method: "search", alternatives: [], page: 1, bbox: [0.1, y, 0.3, y + 0.02] });
 
-  it("minden megtalált keret látszik, a kiválasztott erősen; a lista[n] kulcs sorszámmá alakul", async () => {
+  it("every box found shows, the selected one strongly; a list[n] key becomes a row number", async () => {
     const prov = { supplier_name: box(0.1), invoice_number: box(0.2), due_date: { status: "ambiguous", method: "search", alternatives: [] } as Provenance };
     const { container } = render(<PageViewer pageUrl={() => "/p/1.png"} pages={[{ page: 1, width_pt: 600, height_pt: 800 }]} prov={prov}
       activeField="supplier_name" focusRequest={0} colorOf={() => "#008A2E"} labelOf={(f) => f} onPickField={() => {}}
@@ -422,7 +422,7 @@ describe("keretek a képen és tételsorok helye (053)", () => {
     expect(rowOf("supplier_name", "line_items")).toBeNull();
   });
 
-  it("a tételsorra kattintva a sor kiválasztódik, az aktív sor kiemelve", async () => {
+  it("clicking a line item selects its row, the active row highlighted", async () => {
     const pick = vi.fn();
     const cols = [{ name: "description", kind: "text" }, { name: "net_amount", kind: "money" }];
     render(<ListTable field="line_items" columns={cols} rows={[{ description: "Alapdíj", net_amount: "261" }, { description: "Energiadíj", net_amount: "6551" }]}
@@ -434,8 +434,8 @@ describe("keretek a képen és tételsorok helye (053)", () => {
   });
 });
 
-describe("hosszú irat lapozása (048)", () => {
-  it("szóréteg nélkül is az irat valódi oldalszámáig lapoz", async () => {
+describe("paging a long document (048)", () => {
+  it("it pages up to the document's real page count without a word layer too", async () => {
     render(<PageViewer pageUrl={(n) => `/p/${n}.png`} pages={[]} pageCount={9} prov={{}} activeField={null} focusRequest={0}
       colorOf={() => "#000"} labelOf={(f) => f} onPickField={() => {}} onChooseAlternative={() => {}} selectMode={false}
       words={null} selected={[]} onSelect={() => {}} />);
@@ -447,7 +447,7 @@ describe("hosszú irat lapozása (048)", () => {
 });
 
 describe("riportok (054 K4)", () => {
-  it("a közmű-költség rács jelöli a hiányt és az átfedést, a cella a forrásaira visz", async () => {
+  it("the utility cost grid marks a gap and an overlap, a cell leads to its sources", async () => {
     const src = { item_id: "a", file: "a.pdf", amount: "10000.00", page: 1, field: "gross_total", corrected: false, open_reasons: 0 };
     const rep: UtilityReport = {
       run_id: "run-1", months: ["2026-01", "2026-02", "2026-03"], grand_total: "22000.00", unplaced: [],

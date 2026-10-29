@@ -21,52 +21,52 @@ export function EmailReview({ data, onChanged, wpId }: { data: ItemResult; onCha
   return (
     <Split
       left={
-        <article className="mail-view" aria-label={t("A levél")}>
+        <article className="mail-view" aria-label={t("The email")}>
           {/* 086 (audit N04): the email as the item was added, never a later version's text */}
           {m.source_status === "changed" ? (
-            <p className="notice error" role="alert">{t("A levélnek az a változata, amelyet ez a tétel feldolgozott, már nem található; ezért a szövege nem jeleníthető meg.")}</p>
+            <p className="notice error" role="alert">{t("The version of the email this item processed can no longer be found, so its text cannot be shown.")}</p>
           ) : m.source_status === "earlier" ? (
-            <p className="notice">{t("Ez a levél azóta módosult tartalommal újra beérkezett; itt a feldolgozott változata látszik.")}</p>
+            <p className="notice">{t("This email has since arrived again with a changed content; the version that was processed is shown here.")}</p>
           ) : null}
-          <h2>{m.subject || <span className="muted">{t("(tárgy nélkül)")}</span>}</h2>
+          <h2>{m.subject || <span className="muted">{t("(without subject)")}</span>}</h2>
           <dl className="mail-meta">
-            <dt>{t("Feladó")}</dt><dd>{m.sender_name ? `${m.sender_name} <${m.sender ?? ""}>` : m.sender ?? "–"}</dd>
-            <dt>{t("Címzett")}</dt><dd>{m.to.join(", ") || "–"}</dd>
-            <dt>{t("Érkezett")}</dt><dd>{when(m.received_at)}</dd>
-            <dt>{t("Csatolmány")}</dt><dd>{m.attachments.length ? m.attachments.join(", ") : t("nincs")}</dd>
+            <dt>{t("Sender")}</dt><dd>{m.sender_name ? `${m.sender_name} <${m.sender ?? ""}>` : m.sender ?? "–"}</dd>
+            <dt>{t("To")}</dt><dd>{m.to.join(", ") || "–"}</dd>
+            <dt>{t("Received")}</dt><dd>{when(m.received_at)}</dd>
+            <dt>{t("Attachment")}</dt><dd>{m.attachments.length ? m.attachments.join(", ") : t("none")}</dd>
           </dl>
           <BodyCoverage c={m.body_coverage} />
-          <div className="mail-body">{m.body ? <MailText text={m.body} /> : <span className="muted">{t("(üres levél)")}</span>}</div>
+          <div className="mail-body">{m.body ? <MailText text={m.body} /> : <span className="muted">{t("(empty email)")}</span>}</div>
         </article>
       }
       right={
-        <section className="panel" aria-label={t("Szándék és teendők")}>
+        <section className="panel" aria-label={t("Intent and to-dos")}>
           {resolveError ? <p className="notice error" role="alert">{resolveError}</p> : null}
           {data.open_reasons.length ? (
-            <ul className="issues" aria-label={t("Nyitott teendők ebben a futásban")}>
+            <ul className="issues" aria-label={t("Open to-dos in this run")}>
               {data.open_reasons.map((x) => (
                 <li key={x.id} className="issue"><span>{reasonText(x.reason)}</span>
-                  <button type="button" className="secondary small-btn" disabled={resolving !== null} onClick={() => void resolve(x)}><Icon name="check" />{t("Rendezve")}</button></li>
+                  <button type="button" className="secondary small-btn" disabled={resolving !== null} onClick={() => void resolve(x)}><Icon name="check" />{t("Resolved")}</button></li>
               ))}
             </ul>
-          ) : <p className="ok pad-s">{t("Ebben a futásban nincs nyitott teendő ezen a levélen.")}</p>}
+          ) : <p className="ok pad-s">{t("There are no open to-dos for this email in this run.")}</p>}
           {r ? (
             <div className="intent-box">
-              <div className="muted small">{t("Felismert szándék")}</div>
+              <div className="muted small">{t("Detected intent")}</div>
               <div className="intent">{r.sent ? t("Sent message: its intent is not asked")
-                : r.intent ? intentLabel(r.intent) : r.intent_label ?? t("nem sikerült felismerni")}</div>
+                : r.intent ? intentLabel(r.intent) : r.intent_label ?? t("could not be detected")}</div>
               {r.corrected ? (
                 <div className="small">{r.machine_intent && r.machine_intent !== r.intent
-                  ? t("Kézzel javítva (a gép szerint: {{intent}})", { intent: intentLabel(r.machine_intent) })
-                  : t("Kézzel megerősítve")}</div>
-              ) : r.confidence != null ? <div className="small">{t("Modellbecslés: {{p}}%", { p: Math.round(r.confidence * 100) })}</div> : null}
+                  ? t("Corrected by hand (the machine said: {{intent}})", { intent: intentLabel(r.machine_intent) })
+                  : t("Confirmed by hand")}</div>
+              ) : r.confidence != null ? <div className="small">{t("Model confidence: {{p}}%", { p: Math.round(r.confidence * 100) })}</div> : null}
               {!r.corrected && data.engine ? <div className="mt-s"><EngineMark engine={data.engine} /></div> : null}
               <IntentEditor data={data} onChanged={onChanged} />
               <TasksPanel data={data} onChanged={onChanged} />
-              <div className="small mt-s">{t("Javasolt következő lépés:")} <strong>{nextFlowText(r.next_flow, r.next_flow_reads_text)}</strong></div>
-              {!r.from_this_run ? <p className="notice small mt-s">{t("Ez az eredmény egy későbbi futásból való ugyanerről a levélről.")}</p> : null}
+              <div className="small mt-s">{t("Suggested next step:")} <strong>{nextFlowText(r.next_flow, r.next_flow_reads_text)}</strong></div>
+              {!r.from_this_run ? <p className="notice small mt-s">{t("This result comes from a later run on the same email.")}</p> : null}
             </div>
-          ) : <p className="muted pad-s">{t("A levelet ez a futás még nem dolgozta fel.")}</p>}
+          ) : <p className="muted pad-s">{t("This run has not processed the email yet.")}</p>}
           {/* 231 (C1a): the processes whose case this email may start (until then the quote's own part) */}
           {data.intake?.length ? <IntakeOffers offers={data.intake} /> : null}
           {/* 192: what other domains add under the email, by the registry */}
@@ -76,7 +76,7 @@ export function EmailReview({ data, onChanged, wpId }: { data: ItemResult; onCha
           })}
           {r && r.attachments.length ? (
             <div className="pad-s">
-              <div className="muted small">{t("Csatolmányok felismerése")}</div>
+              <div className="muted small">{t("Attachment detection")}</div>
               <ul className="plain small">
                 {r.attachments.map((a, i) => <li key={i}>{a.filename}: {a.shown_type ?? a.doc_type ? docTypeLabel((a.shown_type ?? a.doc_type)!) : a.status ? ATTACHMENT_STATUS[a.status] ?? a.status : "–"}</li>)}
               </ul>
@@ -85,10 +85,10 @@ export function EmailReview({ data, onChanged, wpId }: { data: ItemResult; onCha
           {data.attachment_items?.length ? (
             // 058 K5.2: the attachment ran as a document in this run: the extraction result is in its own view
             <div className="pad-s">
-              <div className="muted small">{t("A csatolmányok adatai")}</div>
+              <div className="muted small">{t("Attachment data")}</div>
               <ul className="plain small">
                 {data.attachment_items.map((a) => (
-                  <li key={a.item_id}><a href={wpId ? `#/workpackages/${wpId}/review/${encodeURIComponent(a.item_id)}` : undefined}>{t("{{file}}: az adatkinyerés eredménye", { file: a.filename })} →</a></li>
+                  <li key={a.item_id}><a href={wpId ? `#/workpackages/${wpId}/review/${encodeURIComponent(a.item_id)}` : undefined}>{t("{{file}}: extraction result", { file: a.filename })} →</a></li>
                 ))}
               </ul>
             </div>
@@ -118,7 +118,7 @@ function IntentEditor({ data, onChanged }: { data: ItemResult; onChanged: () => 
       onChanged();
     } catch (e) {
       const err = e as ApiError;
-      setError(err.status === 409 ? t("Közben más is javította ezt a levelet. Frissítettük; nézd át és mentsd újra.") : err.message);
+      setError(err.status === 409 ? t("Someone else corrected this email in the meantime. We refreshed it; review and save again.") : err.message);
       onChanged();
     } finally {
       setBusy(false);
@@ -126,9 +126,9 @@ function IntentEditor({ data, onChanged }: { data: ItemResult; onChanged: () => 
   };
   return (
     <div className="intent-edit mt-s">
-      <Picker label={t("Szándék javítása")} value={value} options={intentOptions()} onChange={setValue} />
+      <Picker label={t("Correct the intent")} value={value} options={intentOptions()} onChange={setValue} />
       <button type="button" className="secondary small-btn" disabled={busy || !value || (value === current && !!data.email?.result?.corrected)}
-        onClick={() => void save()}>{value === current ? t("Megerősítés") : t("Javítás mentése")}</button>
+        onClick={() => void save()}>{value === current ? t("Confirm") : t("Save correction")}</button>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
     </div>
   );
@@ -143,8 +143,8 @@ function TasksPanel({ data, onChanged }: { data: ItemResult; onChanged: () => vo
   const [error, setError] = useState<string | null>(null);
   const tv = data.email?.tasks;
   if (!tv) return null;
-  if (tv.status === "skipped") return <p className="muted small mt-s">{t("Feladatjavaslat: archiválandó levélen nem kértünk.")}</p>;
-  if (tv.status === "error") return <p className="notice error small mt-s">{t("A feladatjavaslat nem készült el ({{why}}); a teendők között látszik.", { why: tv.error ?? "?" })}</p>;
+  if (tv.status === "skipped") return <p className="muted small mt-s">{t("Task proposal: not requested for an email to be archived.")}</p>;
+  if (tv.status === "error") return <p className="notice error small mt-s">{t("The task proposal failed ({{why}}); it is listed among the to-dos.", { why: tv.error ?? "?" })}</p>;
   const decide = async (index: number, decision: "accepted" | "rejected" | "done" | "undone") => {
     setBusy(index);
     setError(null);
@@ -161,31 +161,31 @@ function TasksPanel({ data, onChanged }: { data: ItemResult; onChanged: () => vo
   };
   return (
     <div className="task-box mt-s">
-      <div className="muted small">{t("Feladatjavaslatok (elfogadni csak ember tud)")}</div>
-      {tv.tasks.length === 0 ? <p className="small">{t("A levélből nem adódik teendő.")}</p> : (
+      <div className="muted small">{t("Task proposals (only a person can accept them)")}</div>
+      {tv.tasks.length === 0 ? <p className="small">{t("No task follows from this email.")}</p> : (
         <ul className="plain task-list">
           {tv.tasks.map((tk) => (
             <li key={tk.index} className="task-item">
               <div><strong>{tk.title}</strong> <span className="muted small">· {TASK_ACTION[tk.action] ?? tk.action}</span>
-                {tk.merged ? <span className="muted small"> · {t("{{n}} azonos javaslat összevonva", { n: tk.merged + 1 })}</span> : null}</div>
-              {tk.due_date ? <div className="small">{t("Határidő: {{date}}", { date: tk.due_date })}</div> : null}
-              {tk.assignee_hint ? <div className="small">{t("Felelős: {{who}}", { who: tk.assignee_hint })}</div> : null}
-              <div className="small muted">{t("Bizonyíték:")} {tk.evidence.map((e) => `„${e.quote}”`).join(" · ")}</div>
+                {tk.merged ? <span className="muted small"> · {t("{{n}} identical proposals merged", { n: tk.merged + 1 })}</span> : null}</div>
+              {tk.due_date ? <div className="small">{t("Deadline: {{date}}", { date: tk.due_date })}</div> : null}
+              {tk.assignee_hint ? <div className="small">{t("Assignee: {{who}}", { who: tk.assignee_hint })}</div> : null}
+              <div className="small muted">{t("Evidence:")} {tk.evidence.map((e) => `„${e.quote}”`).join(" · ")}</div>
               {tk.decision ? (
                 <div className="small">{tk.decision.decision === "accepted"
-                  ? t("Elfogadta: {{who}}", { who: tk.decision.actor }) : t("Elvetette: {{who}}", { who: tk.decision.actor })}</div>
+                  ? t("Accepted by {{who}}", { who: tk.decision.actor }) : t("Rejected by {{who}}", { who: tk.decision.actor })}</div>
               ) : null}
               {tk.decision?.done_at ? (
-                <div className="small"><strong>{t("Elvégezte: {{who}}, {{when}}", { who: tk.decision.done_by ?? "", when: when(tk.decision.done_at) })}</strong></div>
+                <div className="small"><strong>{t("Done by {{who}}, {{when}}", { who: tk.decision.done_by ?? "", when: when(tk.decision.done_at) })}</strong></div>
               ) : null}
               <div className="button-row">
                 <button type="button" className="secondary small-btn" disabled={busy !== null || tk.decision?.decision === "accepted"}
-                  onClick={() => void decide(tk.index, "accepted")}><Icon name="check" />{t("Elfogadás")}</button>
+                  onClick={() => void decide(tk.index, "accepted")}><Icon name="check" />{t("Accept")}</button>
                 <button type="button" className="quiet small-btn" disabled={busy !== null || tk.decision?.decision === "rejected"}
-                  onClick={() => void decide(tk.index, "rejected")}>{t("Elvetés")}</button>
+                  onClick={() => void decide(tk.index, "rejected")}>{t("Discard")}</button>
                 {tk.decision?.decision === "accepted" ? (tk.decision.done_at
-                  ? <button type="button" className="quiet small-btn" disabled={busy !== null} onClick={() => void decide(tk.index, "undone")}>{t("Elvégzés visszavonása")}</button>
-                  : <button type="button" className="secondary small-btn" disabled={busy !== null} onClick={() => void decide(tk.index, "done")}><Icon name="check" />{t("Elvégezve")}</button>) : null}
+                  ? <button type="button" className="quiet small-btn" disabled={busy !== null} onClick={() => void decide(tk.index, "undone")}>{t("Undo done")}</button>
+                  : <button type="button" className="secondary small-btn" disabled={busy !== null} onClick={() => void decide(tk.index, "done")}><Icon name="check" />{t("Done (task)")}</button>) : null}
               </div>
             </li>
           ))}
@@ -202,27 +202,27 @@ function TasksPanel({ data, onChanged }: { data: ItemResult; onChanged: () => vo
 function RejectedTasks({ rejected }: { rejected: RejectedTask[] }) {
   useLocale();
   const partLabel: Record<string, string> = {
-    task: t("a teendő (ismeretlen fajta vagy üres cím)"), evidence: t("a teendő bizonyítéka"), due_date: t("a határidő"), assignee: t("a felelős"),
+    task: t("the task (unknown kind or empty title)"), evidence: t("the task's evidence"), due_date: t("the deadline"), assignee: t("the assignee"),
   };
   return (
     <details className="small mt-s">
-      <summary className="muted">{t("{{n}} javaslat kiesett a bizonyíték-ellenőrzésen (nem szó szerinti idézet, kitalált határidő vagy felelős).", { n: rejected.length })}</summary>
+      <summary className="muted">{t("{{n}} proposals failed the evidence check (not a verbatim quote, invented deadline or assignee).", { n: rejected.length })}</summary>
       <ul className="plain task-list">
         {rejected.map((r, n) => (
           <li key={r.index ?? `x${n}`} className="task-item">
             {r.title ? (
               <>
                 <div><strong>{r.title}</strong>{r.action ? <span className="muted"> · {TASK_ACTION[r.action] ?? r.action}</span> : null}</div>
-                {r.due_date ? <div>{t("Határidő: {{date}}", { date: r.due_date })}</div> : null}
-                {r.assignee_hint ? <div>{t("Felelős: {{who}}", { who: r.assignee_hint })}</div> : null}
-                {r.failed_parts?.length ? <div>{t("Nem igazolható: {{parts}}", { parts: r.failed_parts.map((p) => partLabel[p] ?? p).join(", ") })}</div> : null}
+                {r.due_date ? <div>{t("Deadline: {{date}}", { date: r.due_date })}</div> : null}
+                {r.assignee_hint ? <div>{t("Assignee: {{who}}", { who: r.assignee_hint })}</div> : null}
+                {r.failed_parts?.length ? <div>{t("Not verifiable: {{parts}}", { parts: r.failed_parts.map((p) => partLabel[p] ?? p).join(", ") })}</div> : null}
                 {(r.quotes ?? []).map((q, k) => (
                   <div key={k} className={q.ok ? "muted" : undefined}>
-                    „{q.quote}” – {q.ok ? t("szó szerint megvan") : t("nem áll szó szerint a levélben")}
+                    „{q.quote}” – {q.ok ? t("found verbatim") : t("not verbatim in the email")}
                   </div>
                 ))}
               </>
-            ) : <div className="muted">{t("A javaslat szövege ennél a korábbi futásnál nem maradt meg.")}</div>}
+            ) : <div className="muted">{t("The proposal text was not kept for this earlier run.")}</div>}
           </li>
         ))}
       </ul>
@@ -236,20 +236,20 @@ function BodyCoverage({ c }: { c?: NonNullable<ItemResult["email"]>["body_covera
   useLocale();
   if (!c) return null;
   if (c.status === "capped") {
-    return <p className="notice error small">{t("A levél szövege a letöltéskor elvágódhatott ({{n}} karakternél): a vége hiányozhat, a szándék-felismerés sem látta.", { n: c.chars.toLocaleString(getLocale()) })}</p>;
+    return <p className="notice error small">{t("The email text may have been cut at download (at {{n}} characters): the end may be missing, and intent recognition did not see it either.", { n: c.chars.toLocaleString(getLocale()) })}</p>;
   }
   if (c.status === "shortened") {
-    return <p className="notice small">{t("A szándék-felismerés a levél szövegének csak az elejét látta: {{seen}} / {{all}} karakter.", { seen: c.seen_chars.toLocaleString(getLocale()), all: c.own_chars.toLocaleString(getLocale()) })}</p>;
+    return <p className="notice small">{t("Intent recognition saw only the beginning of the email text: {{seen}} / {{all}} characters.", { seen: c.seen_chars.toLocaleString(getLocale()), all: c.own_chars.toLocaleString(getLocale()) })}</p>;
   }
-  return c.quoted_removed ? <p className="muted small">{t("A szándék-felismerés a levél teljes saját szövegét látta; az idézett korábbi levelet nem.")}</p> : null;
+  return c.quoted_removed ? <p className="muted small">{t("Intent recognition saw the email's own text in full, but not the quoted earlier message.")}</p> : null;
 }
 
 // 058: the processing status of the attachment in everyday words (instead of the local service's code)
 const ATTACHMENT_STATUS: Record<string, string> = tmap({
-  unsupported: "nem olvasható (kép vagy más formátum)",
-  name_only: "csak a neve ismert",
-  needs_ocr: "szövegfelismerés kell",
-  unreadable: "a PDF nem olvasható (sérült vagy túl nagy)",
+  unsupported: "not readable (image or other format)",
+  name_only: "only its name is known",
+  needs_ocr: "needs text recognition",
+  unreadable: "the PDF cannot be read (corrupt or too large)",
 });
 
 const URL_RE = /<?(https?:\/\/[^\s<>"]+)>?/g;

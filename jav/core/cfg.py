@@ -90,10 +90,10 @@ def _file(name: str) -> dict[str, Any]:
 def _disk(name: str) -> dict[str, Any]:
     p = path_of(name)
     if not p.exists():
-        raise FileNotFoundError(f"konfig hiányzik: {p}")
+        raise FileNotFoundError(f"a config is missing: {p}")
     data = json.loads(p.read_text(encoding="utf-8"))
     if "meta" not in data or "version" not in data["meta"]:
-        raise ValueError(f"konfig meta.version hiányzik: {p}")
+        raise ValueError(f"a config has no meta.version: {p}")
     return data
 
 

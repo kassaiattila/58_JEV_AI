@@ -26,37 +26,37 @@
       {
         "version": "1.0.0",
         "date": "2026-09-27",
-        "note": "040 K2: a helyi szolgáltatás határai. Csak a saját gépről érhető el (loopback cím, Host- és Origin-ellenőrzés), a kérés törzse korlátos, iratot csak az engedélyezett gyökérmappákból lehet felvenni."
+        "note": "040 K2: the local service's limits. It answers only the own machine (a loopback address, Host and Origin checks), a request's body is limited, and documents can be added only from the allowed root folders."
       },
       {
         "version": "1.1.0",
         "date": "2026-09-28",
-        "note": "045 K3b: a felület bizonyosság-sávjai (a V4 fieldConfidence.ts értékei): >= 0,90 magabiztos, >= 0,50 ellenőrzendő, alatta valószínűleg hibás. Csak megjelenítés; üzemi küszöb a policy.json-ban marad."
+        "note": "045 K3b: the interface's confidence bands (the values of the V4 fieldConfidence.ts): >= 0.90 confident, >= 0.50 to check, below likely wrong. Display only; the working thresholds stay in policy.json."
       },
       {
         "version": "1.2.0",
         "date": "2026-09-28",
-        "note": "061 döntés (a felhasználó): mappa- és fájlmegadás korlát nélkül — bármely létező helyi mappa vagy fájl megadható, mint a régi projektben. A korlát a restrict_paths: true beállítással visszakapcsolható; ekkor az allowed_roots (+ a régi adatmappa, + a JAV_API_ROOTS) alá kell esnie."
+        "note": "061 decision (the owner's): folders and files without a limit — any existing local folder or file may be given, as in the legacy project. The limit can be turned back on with restrict_paths: true; then a path must fall under allowed_roots (+ the legacy data folder, + JAV_API_ROOTS)."
       },
       {
         "version": "1.3.0",
         "date": "2026-09-29",
-        "note": "064 döntés (a felhasználó): napi adattár-mentés 12:00-kor (Windows Feladatütemező, scripts/backup-task.ps1), helyben és egy második helyen, mindkét helyen a legutóbbi 14 mentés marad. A folyamatállapot-tár alapból nem kerül a mentésbe (with_burr: false). A felület figyelmeztet, ha a legutóbbi sikeres mentés max_age_hours óránál régebbi."
+        "note": "064 decision (the owner's): a daily store backup at 12:00 (Windows Task Scheduler, scripts/backup-task.ps1), locally and in a second place, the latest 14 backups kept in both. The process state store is not backed up by default (with_burr: false). The interface warns when the latest successful backup is older than max_age_hours."
       },
       {
         "version": "1.4.0",
         "date": "2026-09-29",
-        "note": "067 (a felhasználó döntése: méret- és képpont-korlát): bemeneti korlátok minden belépési pontra (felület, parancssor, feldolgozó). A szövegkinyerés a max_document_mb-nél nagyobb fájlt és a max_document_pages-nél több oldalas PDF-et nevesített hibával elutasítja (a helyi adattár 988 iratának legnagyobbika 37 oldal). Az ellenőrző oldalkép max_page_megapixels fölött kisebb felbontással készül, a szövegfelismerés ilyen oldalt nem dolgoz fel (teendő)."
+        "note": "067 (the owner's decision: a size and a pixel limit): input limits for every entry point (interface, command line, worker). Text extraction refuses a file larger than max_document_mb and a PDF with more pages than max_document_pages with a named error (the largest of the local store's 988 documents has 37 pages). The review page image is made at a lower resolution above max_page_megapixels, and text recognition does not process such a page (a to-do)."
       },
       {
         "version": "1.5.0",
         "date": "2026-09-29",
-        "note": "067 (066 Á34): a böngésző-eredet pontos egyezéssel: a szolgáltatás saját címe (ugyanaz a gép és port, mint a kérésé), vagy a dev_origins listán szereplő fejlesztői felület (Vite, 5173). Eddig bármely helyi porton futó oldal elfogadott volt."
+        "note": "067 (066 Á34): the browser origin by an exact match: the service's own address (the same machine and port as the request's), or a development interface on the dev_origins list (Vite, 5173). Until now a page on any local port was accepted."
       },
       {
         "version": "1.6.0",
         "date": "2026-09-30",
-        "note": "070 D-mentés (a felhasználó döntése): a belső munkaanyag (átadók, tervek, jelentések, teendőlista, döntésnapló; jav/doc_scope.py) 2026-09-29 óta nincs gitben, ezért a napi mentés ezt is viszi (with_docs: true), egy tömörített fájlban, helyben és a második helyen is."
+        "note": "070 D backup (the owner's decision): the internal working documents (handoffs, plans, reports, backlog, decisions log; jav/doc_scope.py) are not in git since 2026-09-29, so the daily backup takes them too (with_docs: true), in one compressed file, locally and in the second place."
       },
       {
         "version": "1.7.0",

@@ -29,7 +29,7 @@ function Get-Tracked([string]$Name) {
     $procId = [int](Get-Content $pidFile -Raw)
     $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
     if ($null -eq $proc) { Remove-Item $pidFile -Force; return $null }
-    # 066 Á38: újraindítás után a szám már egy másik programé lehet; csak a saját (jav.cli) folyamatunkat kezeljük
+    # 066 Á38: after a restart the number may be another program's; only our own (jav.cli) processes are handled
     $cim = Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction SilentlyContinue
     if ($null -eq $cim -or $cim.CommandLine -notmatch 'jav\.cli') { Remove-Item $pidFile -Force; return $null }
     return $proc

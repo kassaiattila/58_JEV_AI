@@ -15,7 +15,7 @@ from decimal import Decimal
 from typing import Any
 
 from jav.ai import typepack
-from jav.core import cfg, field_names
+from jav.core import cfg, display, field_names
 from jav.app.outputs import contract, markers as marker_names, parts
 
 SAMPLE_MONTHS = ("2026-01", "2026-02", "2026-03")
@@ -71,7 +71,8 @@ def labels(output: str) -> dict[str, Any]:
 
 
 def doc_type_label(key: str) -> str:
-    return cfg.load("field_labels")["doc_types"].get(key) or key
+    """A type's name, shown as it is (231, D4: in the request's language)."""
+    return field_names.type_name(key)
 
 
 def _row(name: str, column: str, label: str, kind: str) -> dict[str, Any]:
@@ -118,7 +119,7 @@ def _sample(kind: str, label: str, i: int) -> Any:
     if kind == "date":
         return f"2026-04-{i + 1:02d}"
     if kind == "flag":
-        return "igen" if i == 0 else ""
+        return display.text("yes") if i == 0 else ""
     if kind == "json":
         return "{}"
     if kind == "currency":
@@ -138,23 +139,25 @@ def data(output: str, parts: tuple[str, ...] | None = None) -> contract.OutputDa
     parts = default_parts() if parts is None else parts
     spec, names = contract.spec(output), labels(output)
     n = contract.templates()["sample_rows"]
-    values = tuple(contract.Value(k, names["values"][k], _sample(kind, names["values"][k], 0)) for k, kind in spec["values"].items())
+    # 231 (D4): the labels and the made-up texts in the request's language, as a real output's
+    shown = {k: display.text(v) for k, v in names["values"].items()}
+    values = tuple(contract.Value(k, shown[k], _sample(kind, shown[k], 0)) for k, kind in spec["values"].items())
     tables = []
     for key, t in spec["tables"].items():
         for part in (parts if t.get("per") else (None,)):
             columns = dict(t["columns"])
-            heads = dict(names["tables"][key]["columns"])
+            heads = {c: display.text(h) for c, h in names["tables"][key]["columns"].items()}
             if t.get("fields") == "type_pack":
                 pack = typepack.get(part)
                 for f in pack.header_fields:
                     columns[f] = pack.kind(f) if pack.kind(f) in ("money", "number", "date") else "text"
-                    heads[f] = field_label(f, part)
+                    heads[f] = display.text(field_label(f, part))  # 231 (D4): the preview in the request's language
             elif t.get("fields") == "type_pack_lists":
                 for p in parts:
                     for lf in typepack.get(p).list_fields.values():
                         for c, k in lf.items():
                             columns.setdefault(c, k if k in ("money", "number") else "text")
-                            heads.setdefault(c, field_label(c))
+                            heads.setdefault(c, display.text(field_label(c)))
             if "months" in t:
                 for m in SAMPLE_MONTHS:
                     columns[f"month_{m.replace('-', '_')}"] = t["months"]

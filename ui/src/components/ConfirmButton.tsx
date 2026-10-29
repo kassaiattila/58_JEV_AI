@@ -24,7 +24,7 @@ export function ConfirmButton({ onConfirm, children, className, disabled, ariaLa
         setArmed(false);
         onConfirm();
       }}>
-      {armed ? t("Biztosan? Kattints újra") : children}
+      {armed ? t("Sure? Click again") : children}
     </button>
   );
 }

@@ -30,7 +30,7 @@ export function defaultText(entry: DefaultKey, v: RuleValue, value: DefaultValue
     const n = numText(Number(value) * 100, 1);
     return v.format === "points" ? t("{{n}} percentage points", { n }) : `${n} %`;
   }
-  if (entry.kind === "bool") return value ? t("igen") : t("nem");
+  if (entry.kind === "bool") return value ? t("yes") : t("no");
   if (entry.kind === "int" || entry.kind === "amount") return numText(value as number | string);
   if (entry.kind === "set" || entry.kind === "list") return (value as string[]).map(codeText).join(", ") || "–";
   if (entry.kind === "map") return Object.entries(value as Record<string, string>).map(([k, code]) => `${t(k)} → ${optionText(v, code)}`).join("; ");
@@ -169,7 +169,7 @@ function DefaultForm({ v, entry, busy, onCancel, onSave }: {
       {entry.kind === "bool" ? (
         <label className="block">{label}
           <select value={draft ? "yes" : "no"} onChange={(e) => change(e.target.value === "yes")}>
-            <option value="yes">{t("igen")}</option><option value="no">{t("nem")}</option>
+            <option value="yes">{t("yes")}</option><option value="no">{t("no")}</option>
           </select>
         </label>
       ) : entry.kind === "choice" ? (

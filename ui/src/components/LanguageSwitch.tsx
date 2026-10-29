@@ -29,7 +29,7 @@ export function LanguageSwitch() {
 
   return (
     <>
-      <div role="group" className="lang-switch" aria-label={t("A felület nyelve")} aria-busy={busy}>
+      <div role="group" className="lang-switch" aria-label={t("Interface language")} aria-busy={busy}>
         {LANGUAGES.map((l) => (
           <button key={l.value} type="button" className="secondary small-btn" lang={l.value} title={l.name}
             aria-pressed={current === l.value} disabled={busy} onClick={() => void choose(l.value)}>
@@ -37,7 +37,7 @@ export function LanguageSwitch() {
           </button>
         ))}
       </div>
-      {failed ? <span className="small lang-error" role="alert">{t("A nyelv betöltése nem sikerült.")}</span> : null}
+      {failed ? <span className="small lang-error" role="alert">{t("Could not load the language.")}</span> : null}
     </>
   );
 }

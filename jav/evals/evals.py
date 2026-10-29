@@ -223,7 +223,7 @@ def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True
     for case in cases:
         pdf = read_document(case.pdf)  # text layer, or OCR (from the cache)
         if pdf.text_source is None:
-            misses.append(f"{case.case_id}: nincs szöveg (szövegréteg és OCR sem)")
+            misses.append(f"{case.case_id}: no text (neither a text layer nor OCR)")
             continue
         cands = s_path_candidates(pdf.layout, pack)  # 231 (F2c): the S path's profile and whole-line texts
         currencies = find_currencies(pdf.layout, s_path_profile(pack))
@@ -246,21 +246,21 @@ def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True
             if ok:
                 hits[field] += 1
             else:
-                misses.append(f"{case.case_id}: {field} = {expected!r} nincs a jelöltek közt")
+                misses.append(f"{case.case_id}: {field} = {expected!r} is not among the candidates")
     result = {f: (hits[f], totals[f]) for f in pack.scored_fields if totals[f]}
     if verbose:
-        print(f"### Jelölt-recall - {type_key} ({len(cases)} eset, profil: {pack.candidate_profile})\n")
-        print("| mező | recall | n |\n|---|---|---|")
+        print(f"### Candidate recall - {type_key} ({len(cases)} case(s), profile: {s_path_profile(pack)})\n")
+        print("| field | recall | n |\n|---|---|---|")
         for f, (h, t) in result.items():
-            tag = " (informatív)" if f in pack.informational_fields else ""
+            tag = " (informational)" if f in pack.informational_fields else ""
             print(f"| {f}{tag} | {h / t:.0%} | {h}/{t} |")
         all_h = sum(h for f, (h, t) in result.items() if f in pack.strict_scored)
         all_t = sum(t for f, (h, t) in result.items() if f in pack.strict_scored)
-        print(f"\n**Összes pontozott:** {all_h}/{all_t} = {all_h / max(all_t, 1):.1%}")
-        print("\nJelöltszám fajtánként (min/medián/max): " + ", ".join(
+        print(f"\n**All scored:** {all_h}/{all_t} = {all_h / max(all_t, 1):.1%}")
+        print("\nCandidates per kind (min/median/max): " + ", ".join(
             f"{k} {min(v)}/{int(statistics.median(v))}/{max(v)}" for k, v in counts.items() if v))
         if misses:
-            print("\nHiányok:")
+            print("\nMisses:")
             for m in misses:
                 print("  - " + m)
     return result
@@ -367,14 +367,14 @@ def golden(
             print(f"  {case.case_id:40} {state.final_status:12} {state.route or '-':6} {time.perf_counter() - t0:5.1f}s")
     path = _dump_rows(rows, name)
     print_golden_report(rows, arm, pack)
-    print(f"\nNyers futások: {path}")
+    print(f"\nRaw runs: {path}")
     return rows
 
 
 def print_golden_report(rows: list[dict[str, Any]], arm: str, pack: TypePack) -> None:
     scored = [r for r in rows if r["datapoints"] is not None]
-    print(f"\n### Golden - {pack.key} {arm}-kar ({len(scored)}/{len(rows)} eset kivonatolva)\n")
-    print("| mező | pontosság | n | átlag conf (S) / max flag (G) |\n|---|---|---|---|")
+    print(f"\n### Golden - {pack.key} {arm} path ({len(scored)}/{len(rows)} case(s) extracted)\n")
+    print("| field | as expected | n | mean conf (S) / max flag (G) |\n|---|---|---|---|")
     for f in pack.scored_fields:
         vals = [r["scores"][f] for r in scored if r["scores"].get(f) is not None]
         if not vals:
@@ -386,24 +386,24 @@ def print_golden_report(rows: list[dict[str, Any]], arm: str, pack: TypePack) ->
         else:
             flags = [max(r["verdicts"]["flags"].get(f, {"_": 0.0}).values()) for r in scored if r["verdicts"]]
             extra = f"{statistics.mean(flags):.2f}" if flags else "-"
-        tag = " (informatív)" if f in pack.informational_fields else ""
+        tag = " (informational)" if f in pack.informational_fields else ""
         print(f"| {f}{tag} | {acc:.0%} | {len(vals)} | {extra} |")
     strict = [r["scores"][f] for r in scored for f in pack.strict_scored if r["scores"].get(f) is not None]
-    print(f"\n**Pontozott mezők összesen:** {sum(strict)}/{len(strict)} = {sum(strict) / max(len(strict), 1):.1%}")
+    print(f"\n**Scored fields in all:** {sum(strict)}/{len(strict)} = {sum(strict) / max(len(strict), 1):.1%}")
     if any(r.get("text_source") == "ocr" for r in rows):
         lenient = [r["scores_lenient"][f] for r in scored for f in pack.strict_scored if r.get("scores_lenient", {}).get(f) is not None]
-        print(f"**OCR-tűrő (ékezet-, kisbetű-, írásjel-független) egyezés:** {sum(lenient)}/{len(lenient)} = {sum(lenient) / max(len(lenient), 1):.1%}"
-              f"  (a különbség = csak az OCR ékezet-zaja; OCR-szövegű esetek: {sum(1 for r in rows if r.get('text_source') == 'ocr')}/{len(rows)})")
+        print(f"**OCR-tolerant agreement (accents, case and punctuation ignored):** {sum(lenient)}/{len(lenient)} = {sum(lenient) / max(len(lenient), 1):.1%}"
+              f"  (the difference is only OCR's accent noise; cases with OCR text: {sum(1 for r in rows if r.get('text_source') == 'ocr')}/{len(rows)})")
     routes = Counter(r["route"] or r["final_status"] for r in rows)
-    print("**Route-eloszlás:** " + ", ".join(f"{k}: {v}" for k, v in routes.items()))
+    print("**Routes:** " + ", ".join(f"{k}: {v}" for k, v in routes.items()))
     secs = [r["seconds"] for r in rows]
-    print(f"**Idő:** átlag {statistics.mean(secs):.1f}s / eset")
+    print(f"**Time:** mean {statistics.mean(secs):.1f}s / case")
     for r in rows:
         if r["route"] == "human":
             print(f"  - {r['case_id']}: " + "; ".join(r["review_reasons"][:6]))
     wrong = [(r["case_id"], f, (r["datapoints"] or {}).get(f)) for r in scored for f in pack.strict_scored if r["scores"].get(f) is False]
     if wrong:
-        print("\n**Hibás mezők:**")
+        print("\n**Fields not as expected:**")
         for cid, f, got in wrong:
             print(f"  - {cid}: {f} = {got!r}")
 
@@ -428,10 +428,10 @@ def determinism(
                 state = run_one(str(case.pdf), case.case_id, arm, run_no=run_no, tracker=False, use_cache=False, doc_type=type_key,
                                 jev=jev)
                 rows.append(_state_row(case, state, run_no, time.perf_counter() - t0, pack))
-            print(f"  {case.case_id:40} {n} futás kész")
+            print(f"  {case.case_id:40} {n} run(s) done")
     path = _dump_rows(rows, _run_name(type_key, f"determinism_{arm}_n{n}" + ("" if jev else "_nojev")))
     print_determinism_report(rows, arm, n, pack)
-    print(f"\nNyers futások: {path}")
+    print(f"\nRaw runs: {path}")
     return rows
 
 
@@ -439,8 +439,8 @@ def print_determinism_report(rows: list[dict[str, Any]], arm: str, n: int, pack:
     by_case: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for r in rows:
         by_case[r["case_id"]].append(r)
-    print(f"\n### Determinizmus - {pack.key} {arm}-kar, n={n}, {len(by_case)} eset\n")
-    print("| mező | egyezés | flip-esetek | conf átlag | conf szórás |\n|---|---|---|---|---|")
+    print(f"\n### Determinism - {pack.key} {arm} path, n={n}, {len(by_case)} case(s)\n")
+    print("| field | agreement | cases with a flip | mean conf | conf spread |\n|---|---|---|---|---|")
     # after the scored fields, the unscored ones too (informational): LLM drift often shows up there
     for f in pack.scored_fields + tuple(x for x in pack.header_fields if x not in pack.scored_fields):
         agree: list[float] = []
@@ -463,7 +463,7 @@ def print_determinism_report(rows: list[dict[str, Any]], arm: str, n: int, pack:
         if not agree:
             continue
         if f not in pack.scored_fields:
-            f = f + " (informatív)"
+            f = f + " (informational)"
         print(
             f"| {f} | {statistics.mean(agree):.1%} | {len(flips)} | "
             f"{statistics.mean(confs):.2f} | {statistics.mean(stds):.3f} |"
@@ -484,9 +484,9 @@ def print_determinism_report(rows: list[dict[str, Any]], arm: str, n: int, pack:
                 if len(ps) > 1:
                     flag_std.append(statistics.pstdev(ps))
         if flag_std:
-            print(f"\n**Jev-flag szórás (átlag, minden mező×flag):** {statistics.mean(flag_std):.3f}")
+            print(f"\n**JEV flag spread (mean over every field and flag):** {statistics.mean(flag_std):.3f}")
     route_flips = [cid for cid, runs in by_case.items() if len({r["route"] for r in runs}) > 1]
-    print(f"**Route-flip esetek:** {len(route_flips)}" + (f" ({', '.join(route_flips)})" if route_flips else ""))
+    print(f"**Cases with a route flip:** {len(route_flips)}" + (f" ({', '.join(route_flips)})" if route_flips else ""))
 
 
 # --- JEV verifier probe (the JEV half of the G path, without OpenAI) ----------------------
@@ -592,7 +592,7 @@ def _verifier_probe(cases: list[GoldenCase] | None, use_cache: bool, type_key: s
     jev = get_adapter()
     flag_p = review_flag_p()
     rows: list[dict[str, Any]] = []
-    print("| eset | variáns | várt flag | P | sáv | review-okok |\n|---|---|---|---|---|---|")
+    print("| case | variant | expected flag | P | band | review reasons |\n|---|---|---|---|---|---|")
     for case in cases:
         pdf = read_document(case.pdf)
         header = {k: v for k, v in case.expected.items() if k != "line_items" and k in pack.fields}
@@ -642,15 +642,15 @@ def _verifier_probe(cases: list[GoldenCase] | None, use_cache: bool, type_key: s
             print(f"| {case.case_id} | {variant} | {row['target']} | {p:.2f} | {row['band']} | {'; '.join(hot)[:120] or '-'} |")
     print_probe_report(rows)
     path = _dump_rows(rows, _run_name(type_key, "verifier_probe"))
-    print(f"\nnyers futás: {path}")
+    print(f"\nraw run: {path}")
     return rows
 
 
 def print_probe_report(rows: list[dict[str, Any]]) -> None:
-    print("\n**Összegzés variánsonként (a várt flag P-je; a tökéletesnél a legmagasabb golden-mezős flag):**\n")
-    print("| variáns | várt flag | n | átlag | min | max | nem | bizonytalan | igen | fals pozitív |\n|---|---|---|---|---|---|---|---|---|---|")
+    print("\n**Summary by variant (the expected flag's P; for the perfect one the highest flag of a golden field):**\n")
+    print("| variant | expected flag | n | mean | min | max | no | uncertain | yes | false positive |\n|---|---|---|---|---|---|---|---|---|---|")
     for variant, s in probe_summary(rows).items():
         b = s["bands"]
         fp = f"{s['false_positives']}/{s['n']}" if variant == "perfect" else "-"
         print(f"| {variant} | {s['target']} | {s['n']} | {s['mean']:.2f} | {s['min']:.2f} | {s['max']:.2f} | {b['no']} | {b['uncertain']} | {b['yes']} | {fp} |")
-    print("\n(tökéletes kivonatnál a jó: `nem` sáv; hibás variánsnál a jó: `igen` sáv; a `bizonytalan` sáv ma nem review-ok)")
+    print("\n(for the perfect extraction the right band is `no`; for a broken variant it is `yes`; the `uncertain` band is not a review reason today)")

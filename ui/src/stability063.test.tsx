@@ -10,8 +10,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("063 automatikus frissítés", () => {
-  it("4xx után nem ismétel, a kézi frissítés igen; átmeneti hibánál (5xx) tovább próbál", async () => {
+describe("063 automatic refresh", () => {
+  it("after a 4xx it does not repeat, a manual refresh does; on a passing error (5xx) it keeps trying", async () => {
     vi.useFakeTimers();
     const seconds = async (n: number) => { // step by step, so that React does not batch the updates
       for (let i = 0; i < n; i++) await act(async () => { await vi.advanceTimersByTimeAsync(1000); });

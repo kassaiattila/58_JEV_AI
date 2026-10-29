@@ -42,16 +42,16 @@ const SHARED: SettingsSectionSpec[] = [
   { key: "outputs", label: "Output templates", hint: "Your own Excel and Word templates for the downloads: upload, check, preview and make active; the markers to write in them", group: "library", order: 240 },
   // 231 (U3f; the owner's decision of 2026-10-28): the letter frames, edited as versions
   { key: "letters", label: "Letter frames", hint: "The texts of the letters that go with a printed document: a changed text is a draft until it is made active, and a case keeps the text it started with", group: "library", order: 250 },
-  { key: "users", label: "Felhasználók", hint: "A „Ki dolgozik?” választéka", group: "system", order: 300 },
-  { key: "appearance", label: "Megjelenés", hint: "The theme: light, dark or as the system is set", group: "system", order: 310 },
-  { key: "language", label: "Nyelv", hint: "A felület nyelve: magyar vagy angol", group: "system", order: 320 },
-  { key: "folders", label: "Munkamappák", hint: "Figyelt mappák: az új iratokból magától lesz iratköteg", group: "system", order: 330 },
-  { key: "recipes", label: "Feldolgozás", hint: "Hogyan dolgozza fel a rendszer az iratokat és a leveleket, mit jelentenek a beállítások, mennyibe kerülnek", group: "system", order: 350 },
+  { key: "users", label: "Users", hint: "The options of “Who is working?”", group: "system", order: 300 },
+  { key: "appearance", label: "Appearance", hint: "The theme: light, dark or as the system is set", group: "system", order: 310 },
+  { key: "language", label: "Language", hint: "Interface language: Hungarian or English", group: "system", order: 320 },
+  { key: "folders", label: "Work folders", hint: "Watched folders: new documents automatically become a document batch", group: "system", order: 330 },
+  { key: "recipes", label: "Processing", hint: "How the system processes documents and emails, what the settings mean, what they cost", group: "system", order: 350 },
   // 218 (plan G-process-core P3e, DECISIONS 222): how the system decides on its own
   // 231 (U4d; the owner's decisions of 2026-10-29): the rule values' defaults are set here (until then read only, "Rules")
   { key: "rules", label: "Defaults", hint: "How the system decides on its own: each kind of decision and the values it decides with, which the installation may set as its defaults", group: "system", order: 360 },
   // U3e: the running system itself (until then "System", now the name of its group)
-  { key: "system", label: "Operations", hint: "A futó verzió, a feldolgozó állapota, az adattár mentése, minden futás", group: "system", order: 370 },
+  { key: "system", label: "Operations", hint: "Running version, worker status, database backup, all runs", group: "system", order: 370 },
 ];
 const OWN = new Map<string, SettingsSectionSpec>();
 const PARTS = new Map<string, SettingsPart>();

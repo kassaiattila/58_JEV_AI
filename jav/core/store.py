@@ -152,12 +152,12 @@ CREATE TABLE IF NOT EXISTS artifacts (
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 CREATE TABLE IF NOT EXISTS documents (
-    doc_id        TEXT PRIMARY KEY,          -- sha256 a fájl tartalmáról
+    doc_id        TEXT PRIMARY KEY,          -- sha256 of the file's content
     source_path   TEXT NOT NULL,
-    source_email  TEXT,                      -- emails.message_id, ha e-mailből jött
-    doc_type      TEXT,                      -- M1 kategória (invoice_hu, utility_bill_hu, ...)
+    source_email  TEXT,                      -- emails.message_id, when it came from an email
+    doc_type      TEXT,                      -- M1 category (invoice_hu, utility_bill_hu, ...)
     type_conf     REAL,
-    issuer_hu     REAL,                      -- P(kiállító magyar)
+    issuer_hu     REAL,                      -- P(the issuer is Hungarian)
     has_text      INTEGER,
     page_count    INTEGER,
     year          INTEGER,
@@ -170,8 +170,8 @@ CREATE TABLE IF NOT EXISTS datapoints (
     doc_id        TEXT NOT NULL,
     doc_type      TEXT NOT NULL,
     arm           TEXT NOT NULL,             -- S | G
-    datapoints    TEXT NOT NULL,             -- JSON (a típus sémája szerint)
-    field_conf    TEXT NOT NULL,             -- JSON: mező -> confidence (S) / max flag (G)
+    datapoints    TEXT NOT NULL,             -- JSON (by the type's schema)
+    field_conf    TEXT NOT NULL,             -- JSON: field -> confidence (S) / max flag (G)
     validation    TEXT NOT NULL,             -- JSON: CheckResult lista
     route         TEXT,
     review_reasons TEXT NOT NULL,            -- JSON lista
@@ -179,8 +179,8 @@ CREATE TABLE IF NOT EXISTS datapoints (
     config_hash   TEXT,
     record_conf   REAL,                      -- a rekord leggyengebb Jev-itelete (S-kar, jelenlet-Noullal)
     evidence      TEXT,                      -- JSON: mezo -> {line_no, present_p}
-    provenance    TEXT,                      -- JSON: mezo -> forráshely (045, jav/ai/grounding.py)
-    source_layer_id TEXT,                    -- a szóréteg (045, jav/documents/source_layer.py)
+    provenance    TEXT,                      -- JSON: field -> source place (045, jav/ai/grounding.py)
+    source_layer_id TEXT,                    -- the word layer (045, jav/documents/source_layer.py)
     created_at    TEXT NOT NULL,
     PRIMARY KEY (run_id, doc_id)
 );
@@ -194,7 +194,7 @@ CREATE TABLE IF NOT EXISTS review_queue (
     reasons       TEXT NOT NULL,             -- JSON lista
     payload       TEXT,                      -- JSON: S-G diff, flagek, stb.
     status        TEXT NOT NULL DEFAULT 'open',
-    decision      TEXT,                      -- JSON: a kézi döntés
+    decision      TEXT,                      -- JSON: the manual decision
     created_at    TEXT NOT NULL,
     decided_at    TEXT
 );
@@ -202,8 +202,8 @@ CREATE INDEX IF NOT EXISTS ix_review_open ON review_queue(status, created_at);
 -- 167 (review R-10): the lookups by subject (the approval's re-check under its write lock, adding and closing reasons)
 CREATE INDEX IF NOT EXISTS ix_review_subject ON review_queue(subject_kind, subject_id, status);
 
--- Okonkénti teendő (040 K1, F04): a review_queue.reasons JSON csak a nyitott okok tükre; a tétel akkor zárul,
--- ha az utolsó nyitott oka is lezárult. producer = a felvevő lépés (detect, m2, email_intent, ...; 'legacy' = régi sor).
+-- A to-do per reason (040 K1, F04): the review_queue.reasons JSON only mirrors the open reasons; an item closes
+-- when its last open reason closes. producer = the step that opened it (detect, m2, email_intent, ...; 'legacy' = an old row).
 CREATE TABLE IF NOT EXISTS review_reasons (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     review_id     INTEGER NOT NULL REFERENCES review_queue(id),
@@ -211,9 +211,9 @@ CREATE TABLE IF NOT EXISTS review_reasons (
     producer      TEXT NOT NULL,
     run_id        TEXT,
     status        TEXT NOT NULL DEFAULT 'open',   -- open | resolved | superseded
-    actor         TEXT,                          -- emberi döntésnél ki döntött
+    actor         TEXT,                          -- who decided, for a person's decision
     actor_id      TEXT,                          -- 229 (SZ2c): that person's stable id (`jav.core.identity`)
-    resolution    TEXT,                          -- JSON: a döntés tartalma
+    resolution    TEXT,                          -- JSON: the decision's content
     note          TEXT,
     created_at    TEXT NOT NULL,
     closed_at     TEXT
@@ -233,8 +233,8 @@ CREATE TABLE IF NOT EXISTS ledger (
     seconds       REAL,
     cached        INTEGER NOT NULL DEFAULT 0,
     cache_key     TEXT,
-    config_hash   TEXT,                      -- a hívási hely konfig-verziója (jav/core/cfg.py)
-    error         TEXT,                      -- SDK-hiba rövid alakja (pl. TypeSafeRateLimitError:429:retry_after_ms=1500), különben NULL
+    config_hash   TEXT,                      -- the call site's config version (jav/core/cfg.py)
+    error         TEXT,                      -- the SDK error's short form (e.g. TypeSafeRateLimitError:429:retry_after_ms=1500), otherwise NULL
     created_at    TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_ledger_run ON ledger(run_id);

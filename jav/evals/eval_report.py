@@ -372,7 +372,7 @@ EXTRACTORS: dict[str, Callable[[dict[str, Any]], list[Judgment]]] = {
 def judgments_from_file(path: Path | str) -> list[Judgment]:
     flow = flow_of(path)
     if flow is None:
-        raise ValueError(f"ismeretlen futás-fájl (nincs flow-minta): {path}")
+        raise ValueError(f"an unknown run file (no flow pattern): {path}")
     extract = EXTRACTORS[flow]
     out: list[Judgment] = []
     seen: dict[str, int] = defaultdict(int)  # determinism file without run_no (email): numbered per case
@@ -599,19 +599,19 @@ def report_markdown(paths: list[Path | str]) -> str:
     det = [p for p in paths if is_determinism(p)]
     js = [j for p in golden for j in judgments_from_file(p)]
     jd = [j for p in det for j in judgments_from_file(p)]
-    L = [f"# Eval-riport ({datetime.now():%Y-%m-%d %H:%M}) — hívás nélkül, a nyers futásokból", "",
-         f"Sávok: `configs/policy.json` v{policy.cfg.version('policy')} (`bands` / `band_for`); a Choice-sáv = conf-küszöb + második-opció rés, a Noul-sáv kétoldali.", "",
-         "## Források", ""]
+    L = [f"# Eval report ({datetime.now():%Y-%m-%d %H:%M}) — without calls, from the raw runs", "",
+         f"Bands: `configs/policy.json` v{policy.cfg.version('policy')} (`bands` / `band_for`); a Choice band = a confidence threshold and a gap to the second option, a Noul band is two-sided.", "",
+         "## Sources", ""]
     for p in paths:
         n = len(load_rows(p))
-        L.append(f"- `{p.name}` → {flow_of(p)}{' (determinizmus)' if is_determinism(p) else ''}, {n} sor")
-    L += ["", "## Kérdésenként (1. futás)", "", "| flow | kérdés | fajta | n | pontos | átlag | szórás | sávok | pontosság sávonként |", "|---|---|---|---|---|---|---|---|---|"]
+        L.append(f"- `{p.name}` → {flow_of(p)}{' (determinism)' if is_determinism(p) else ''}, {n} row(s)")
+    L += ["", "## By question (run 1)", "", "| flow | question | kind | n | as expected | mean | spread | bands | as expected by band |", "|---|---|---|---|---|---|---|---|---|"]
     for r in per_question(js):
         acc = f"{r['correct']}/{r['n_scored']} = {r['accuracy']:.0%}" if r["n_scored"] else "-"
         bands = ", ".join(f"{b} {n}" for b, n in r["bands"].items())
         accb = ", ".join(f"{b} {a:.0%}" for b, a in r["acc_by_band"].items()) or "-"
         L.append(f"| {r['flow']} | {r['question']} | {r['kind']} | {r['n']} | {acc} | {_f(r['mean'])} | {_f(r['std'])} | {bands} | {accb} |")
-    L += ["", "## Kalibráció (Choice-ítéletek igazsággal)", "",
+    L += ["", "## Calibration (Choice judgements with a known truth)", "",
           "GPT flows (`_gpt`, 160-D): their own call sites (`.gpt`) and finer bins near 1; a GPT field's band is `auto` "
           f"at or above {policy.GPT_FIELD_CONFIDENCE['review_below']} (`gpt_field_confidence.review_below`), a to-do below.", ""]
     flows = sorted({j.flow for j in js if j.kind in ("choice", "field") and j.correct is not None})
@@ -623,19 +623,19 @@ def report_markdown(paths: list[Path | str]) -> str:
             cal = calibration(fj, key=key, edges=edges)
             if cal["n"] == 0:
                 continue
-            L += [f"**{flow} · {key}** — n = {cal['n']}, ECE = {cal['ece']:.3f}", "", "| sáv | n | átlag P | találat |", "|---|---|---|---|"]
+            L += [f"**{flow} · {key}** — n = {cal['n']}, ECE = {cal['ece']:.3f}", "", "| band | n | mean P | hits |", "|---|---|---|---|"]
             for b in cal["bins"]:
                 if b["n"]:
                     L.append(f"| {b['lo']:.2f}–{b['hi']:.2f} | {b['n']} | {b['mean_p']:.3f} | {b['hit_rate']:.0%} |")
             L.append("")
-    L += ["## top-prob vs. confidence", "", "| flow | n | átlag eltérés | max eltérés | más sáv a top-prob szerint |", "|---|---|---|---|---|"]
+    L += ["## top-prob vs. confidence", "", "| flow | n | mean difference | max difference | another band by top-prob |", "|---|---|---|---|---|"]
     for r in top_prob_vs_confidence(js):
         L.append(f"| {r['flow']} | {r['n']} | {r['mean_abs_diff']:.3f} | {r['max_abs_diff']:.3f} | {r['band_differs']} |")
-    L += ["", "## Policy-sáv újraértékelés (hívás nélkül)", "",
-          "`cases_human`: most is kézi sor; `cases_uncertain_only`: CSAK a második-opció rés miatt bizonytalan — ezek `uncertain_review: true` "
-          "mellett kézi sorba kerülnének. A `pontosság` az ilyen ítéleteké: ha alacsony, a sáv jó jelzés; ha magas, a kapcsoló csak kézi munkát adna. "
-          "`noul_uncertain`: Noul-jelek a középső sávban.", "",
-          "| flow | esetek | human | csak uncertain | uncertain pontosság | Noul uncertain |", "|---|---|---|---|---|---|"]
+    L += ["", "## The policy bands evaluated again (without calls)", "",
+          "`cases_human`: in the manual queue already; `cases_uncertain_only`: uncertain ONLY for the gap to the second option — these "
+          "would go to the manual queue with `uncertain_review: true`. `as expected` is of those judgements: if it is low, the band is a good signal; if high, the switch would only add manual work. "
+          "`noul_uncertain`: Noul signals in the middle band.", "",
+          "| flow | cases | human | uncertain only | uncertain, as expected | Noul uncertain |", "|---|---|---|---|---|---|"]
     for r in policy_reeval(js):
         acc = f"{r['uncertain_only_accuracy']:.0%}" if r["uncertain_only_accuracy"] is not None else "-"
         L.append(f"| {r['flow']} | {r['cases']} | {r['cases_human']} | {r['cases_uncertain_only']} | {acc} | {r['noul_uncertain']} |")
@@ -651,23 +651,23 @@ def report_markdown(paths: list[Path | str]) -> str:
             L.append(f"| {r['flow']} | {r['scored']} | {r['wrong']} | {r['flagged']} | {r['silent']} | {', '.join(r['silent_cases']) or '-'} |")
     else:
         L.append("(no input row records its to-dos)")
-    L += ["", "## Szülő-címke (regiszter v2, `parent_min_prob`)", ""]
+    L += ["", "## Parent label (registry v2, `parent_min_prob`)", ""]
     prows = parent_fallback_summary(js)
     if prows:
-        L += ["`használható`: nem-auto sávú ítélet, ahol a család összesített valószínűsége eléri a `parent_min_prob`-ot; `helyes`: a várt címke családja egyezik.", "",
-              "| flow | n | human | uncertain | szülő használható | ebből helyes | szülő helyes összesen |", "|---|---|---|---|---|---|---|"]
+        L += ["`usable`: a judgement outside the auto band whose family's summed probability reaches `parent_min_prob`; `right`: the expected label's family matches.", "",
+              "| flow | n | human | uncertain | parent usable | of them right | parent right in all |", "|---|---|---|---|---|---|---|"]
         for r in prows:
             L.append(f"| {r['flow']} | {r['n']} | {r['human']} | {r['uncertain']} | {r['parent_usable']} | {r['parent_correct']} | {r['parent_correct_all']}/{r['parent_scored']} |")
     else:
-        L.append("(a futás-sorokban nincs `parent` mező - regiszter v1 futás)")
-    L += ["", "## Determinizmus (ismételt futások)", ""]
+        L.append("(the run rows have no `parent` field - a registry v1 run)")
+    L += ["", "## Determinism (repeated runs)", ""]
     rows = determinism_summary(jd)
     if rows:
-        L += ["| flow | kérdés | esetek | futás | szórás átlag | szórás max | flip |", "|---|---|---|---|---|---|---|"]
+        L += ["| flow | question | cases | runs | mean spread | max spread | flips |", "|---|---|---|---|---|---|---|"]
         for r in rows:
             L.append(f"| {r['flow']} | {r['question']} | {r['cases']} | {r['runs']} | {r['std_mean']:.4f} | {r['std_max']:.4f} | {r['flips']} |")
     else:
-        L.append("(nincs determinizmus-fájl a bemenetben)")
+        L.append("(no determinism file among the inputs)")
     L.append("")
     return "\n".join(L)
 

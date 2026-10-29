@@ -12,8 +12,8 @@ function leaving(): boolean {
   return e.defaultPrevented;
 }
 
-describe("Munkapéldány újratöltés után (066 Á20)", () => {
-  it("a lap tárolójából visszajön", () => {
+describe("The working copy after a reload (066 Á20)", () => {
+  it("it comes back from the tab's storage", () => {
     const key = draftKey("run-1", "it-1");
     setField(key, 3, "gross_total", "127000");
     const saved = sessionStorage.getItem("jav.drafts");
@@ -24,13 +24,13 @@ describe("Munkapéldány újratöltés után (066 Á20)", () => {
     expect(getDraft(key)).toEqual({ baseRevision: 3, values: { gross_total: "127000" }, sources: {} });
   });
 
-  it("mentetlen javításnál a lap elhagyása figyelmeztet, tiszta állapotban nem", () => {
+  it("leaving the page warns with an unsaved correction, not in a clean state", () => {
     expect(leaving()).toBe(false);
     setField(draftKey("run-1", "it-1"), 1, "invoice_number", "X-1");
     expect(leaving()).toBe(true);
   });
 
-  it("sérült tárolt adat nem töri el a felületet", () => {
+  it("damaged stored data does not break the interface", () => {
     sessionStorage.setItem("jav.drafts", "{nem json");
     hydrateDrafts();
     expect(getDraft(draftKey("run-1", "it-1"))).toBeUndefined();

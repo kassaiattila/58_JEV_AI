@@ -27,7 +27,7 @@ function shell(users: string[]) {
 }
 
 describe("Ki dolgozik? (061)", () => {
-  it("nem üres listánál a listán nem szereplő tárolt név nem kiválasztott; választás után „Mai munkám”", async () => {
+  it("with a list, a stored name not on it is not selected; after a choice ‘My work today’", async () => {
     setActor("Régi Név");
     shell(["Minta Anna", "Teszt Elek"]);
     const user = userEvent.setup();
@@ -40,14 +40,14 @@ describe("Ki dolgozik? (061)", () => {
     expect(screen.queryByText("Módosítás előtt válaszd ki a neved.")).toBeNull();
   });
 
-  it("üres listánál szabadon írható, és a Felhasználók felvételére hivatkozik", async () => {
+  it("with an empty list it can be typed freely and points to adding Users", async () => {
     shell([]);
     render(<App />);
     expect(await screen.findByRole("link", { name: "Felhasználók felvétele" })).toBeTruthy();
     expect(screen.getByLabelText("Ki dolgozik?")).toBeTruthy();
   });
 
-  it("„Csak a saját kötegeim”: a lista a felelős szerint szűr", async () => {
+  it("‘Only my batches’: the list filters by the person responsible", async () => {
     setActor("Minta Anna");
     const query = shell(["Minta Anna"]);
     const user = userEvent.setup();
@@ -58,8 +58,8 @@ describe("Ki dolgozik? (061)", () => {
   });
 });
 
-describe("Felhasználók listája (061)", () => {
-  it("a felvétel és a törlés azonnal mentődik, külön Mentés nélkül", async () => {
+describe("The users' list (061)", () => {
+  it("adding and deleting are saved at once, without a separate Save", async () => {
     vi.spyOn(api, "users").mockResolvedValue({ users: ["Minta Anna"] });
     const save = vi.spyOn(api, "saveUsers").mockImplementation(async (users) => ({ users }));
     const user = userEvent.setup();
@@ -77,8 +77,8 @@ describe("Felhasználók listája (061)", () => {
   });
 });
 
-describe("Felhasználónév szabálya (066 Á25)", () => {
-  it("a szerző-fejlécben nem használható nevet mentés előtt magyarul elutasítja", async () => {
+describe("The user name's rule (066 Á25)", () => {
+  it("a name the author header cannot carry is refused in Hungarian before the save", async () => {
     vi.spyOn(api, "users").mockResolvedValue({ users: ["Minta Anna"] });
     const save = vi.spyOn(api, "saveUsers").mockImplementation(async (users) => ({ users }));
     const user = userEvent.setup();
@@ -95,8 +95,8 @@ describe("Felhasználónév szabálya (066 Á25)", () => {
   });
 });
 
-describe("Mai munkám címe (061)", () => {
-  it("nap nélkül és nappal is visszaalakítható", () => {
+describe("The address of My work today (061)", () => {
+  it("it can be turned back without a day and with one", () => {
     expect(parseRoute("#/activity")).toEqual({ view: "activity", day: undefined });
     expect(parseRoute("#/activity?day=2026-09-27")).toEqual({ view: "activity", day: "2026-09-27" });
     expect(parseRoute("#/activity?day=tegnap")).toEqual({ view: "activity", day: undefined });

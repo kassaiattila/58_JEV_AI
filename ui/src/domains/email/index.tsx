@@ -22,5 +22,5 @@ registerSourceChooser<MailboxStepDraft>("mailbox", {
 });
 
 registerSettingsSection({
-  key: "mailboxes", label: "Postafiókok", hint: "Outlook-fiókok, ütemezett letöltés, letöltési napló", group: "system", order: 340, Panel: Mailbox,
+  key: "mailboxes", label: "Mailboxes", hint: "Outlook accounts, scheduled download, download log", group: "system", order: 340, Panel: Mailbox,
 });

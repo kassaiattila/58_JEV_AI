@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "reports",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "changelog": [
+   {
+    "version": "1.2.0",
+    "date": "2026-10-29",
+    "note": "231 (stage F, F3 D4; the owner's decision of 2026-10-29: the downloads follow the interface's language): the utilities' names and the reconciliation statement's labels (sheet names, heading, columns, results, reasons, sources, yes and no) are English sources; their Hungarian comes from the interface's dictionary (ui/src/i18n/hu-native.json), and the statement and the utility cost are written in the requesting interface's language. The file name's parts are unchanged."
+   },
    {
     "version": "1.1.0",
     "date": "2026-10-11",
@@ -11,39 +16,39 @@
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "054 K4 (döntések 2026-09-28): közmű-költség idősor - bontás fogyasztási hely + közmű szerint, havi rács, napos arányosítás; a közös vízösszesítő (Díjbeszedő-fedőlap) csak tájékoztató, mert a részszámlái külön iratként is bejönnek (kettős számolás)"
+    "note": "054 K4 (decisions of 2026-09-28): the utility cost series - split by consumption place and utility, a monthly grid, apportioned by day; the shared water summary (the Díjbeszedő cover sheet) is for information only, as its part bills come in as documents of their own too (counting twice)"
    }
   ]
  },
  "utility_cost": {
   "utilities": {
    "villamos_energia_szamla": {
-    "label": "Villamos energia",
+    "label": "Electricity",
     "consumption_field": "consumption_kwh",
     "unit": "kWh"
    },
    "foldgaz_szamla": {
-    "label": "Földgáz",
+    "label": "Natural gas",
     "consumption_field": "consumption_m3",
     "unit": "m3"
    },
    "vizmuvek_szamla": {
-    "label": "Ivóvíz",
+    "label": "Drinking water",
     "consumption_field": "consumption_m3",
     "unit": "m3"
    },
    "csatorna_szamla": {
-    "label": "Csatorna",
+    "label": "Sewerage",
     "consumption_field": "consumption_m3",
     "unit": "m3"
    },
    "mohu_szamla": {
-    "label": "Hulladék",
+    "label": "Waste",
     "consumption_field": null,
     "unit": null
    },
    "viz_szamla": {
-    "label": "Díjbeszedő-összesítő (víz, csatorna, hulladék)",
+    "label": "Bill collector's summary (water, sewerage, waste)",
     "consumption_field": "consumption_m3",
     "unit": "m3",
     "summary_only": true
@@ -81,76 +86,76 @@
    "version": "v{n}"
   },
   "sheets": {
-   "invoices": "Számlák",
-   "lines": "Tételek"
+   "invoices": "Invoices",
+   "lines": "Items (statement)"
   },
   "heading": {
-   "package": "Egyeztetési csomag",
-   "party": "Gazdálkodó",
-   "period": "Időszak",
-   "accounts": "Számlák és kártyák",
-   "state": "Állapot",
-   "draft": "Tervezet — nem jóváhagyott",
-   "approved": "{n}. változat, jóváhagyta: {by}, {at}",
-   "earlier": "{n}. változat (korábbi; újranyitotta: {by}, {at}; indok: {note})",
-   "open_lines": "Nyitott tételek"
+   "package": "Reconciliation package",
+   "party": "Party",
+   "period": "Period",
+   "accounts": "Accounts and cards",
+   "state": "Status",
+   "draft": "Draft — not approved",
+   "approved": "Version {n}, approved by {by}, {at}",
+   "earlier": "Version {n} (earlier; reopened by {by}, {at}; reason: {note})",
+   "open_lines": "Open lines (statement)"
   },
   "columns": {
-   "amount": "Összeg",
-   "result": "Eredmény",
-   "allocated": "Párosítva",
-   "rest": "Maradék",
-   "paid_by": "Fizette (tétel)",
-   "pays": "Ezt fizette (számla)",
-   "paid_on": "Fizetés napja",
-   "days_from_due": "Késés a határidőhöz (nap)",
-   "overdue_days": "Lejárt, fizetés nélkül (nap)",
-   "other_party": "Más gazdálkodó számlája",
-   "source": "Forrás",
-   "file": "Fájl",
-   "account": "Számla vagy kártya",
-   "reason": "Ok",
-   "note": "Megjegyzés",
-   "statement_file": "Kivonat",
-   "statement_verified": "Egyenleg stimmel"
+   "amount": "Amount",
+   "result": "Result",
+   "allocated": "Paired",
+   "rest": "Left",
+   "paid_by": "Paid by (line)",
+   "pays": "Paid this (invoice)",
+   "paid_on": "Paid on",
+   "days_from_due": "Days late against the due date",
+   "overdue_days": "Overdue, unpaid (days)",
+   "other_party": "Another party's invoice",
+   "source": "Source",
+   "file": "File",
+   "account": "Account or card",
+   "reason": "Reason",
+   "note": "Note",
+   "statement_file": "Statement",
+   "statement_verified": "Balance agrees"
   },
   "invoice_results": {
-   "paid": "Kifizetve",
-   "partly_paid": "Részben kifizetve",
-   "credited": "Sztornó számla rendezi",
-   "undecided": "Eldöntetlen javaslat",
-   "no_payment_found": "Nincs fizetés a lefedett időszakban",
-   "not_covered": "A kivonatok nem fedik le"
+   "paid": "Paid",
+   "partly_paid": "Partly paid",
+   "credited": "Settled by a credit note",
+   "undecided": "Undecided proposal",
+   "no_payment_found": "No payment in the covered period",
+   "not_covered": "Statements do not cover it"
   },
   "line_results": {
-   "paired": "Párosítva",
-   "partly_paired": "Részben párosítva",
-   "needs_no_invoice": "Nem kell számla",
-   "left_out": "Kimaradt",
-   "open": "Nyitott"
+   "paired": "Paired",
+   "partly_paired": "Partly paired",
+   "needs_no_invoice": "Needs no invoice",
+   "left_out": "Left out",
+   "open": "Open"
   },
   "reasons": {
-   "private": "Magánkiadás",
-   "fee": "Banki díj vagy kamat",
-   "own_transfer": "Átvezetés saját számlák között",
-   "tax": "Adó vagy járulék",
-   "cash": "Készpénzfelvétel",
-   "salary": "Bér",
-   "other": "Egyéb (megjegyzéssel)",
-   "not_outgoing_payment": "Nem kifizetés",
-   "own_account_transfer": "Átvezetés saját számlák között",
-   "payment_kind_review": "Díj, kamat, törlesztés vagy kártyaelszámolás",
-   "missing_amount": "Nincs összeg",
-   "non_positive_amount": "Nulla vagy negatív összeg",
-   "invalid_amount": "Olvashatatlan összeg",
-   "unsupported_currency": "Nem kezelt pénznem",
-   "missing_booking_date": "Nincs könyvelési dátum"
+   "private": "Private expense",
+   "fee": "Bank fee or interest",
+   "own_transfer": "Transfer between own accounts",
+   "tax": "Tax or contribution",
+   "cash": "Cash withdrawal",
+   "salary": "Salary",
+   "other": "Other (with a note)",
+   "not_outgoing_payment": "Not an outgoing payment",
+   "own_account_transfer": "Transfer between own accounts",
+   "payment_kind_review": "Fee, interest, repayment or card settlement",
+   "missing_amount": "No amount",
+   "non_positive_amount": "Zero or negative amount",
+   "invalid_amount": "Unreadable amount",
+   "unsupported_currency": "Currency not handled",
+   "missing_booking_date": "No booking date"
   },
   "sources": {
-   "approved": "jóváhagyott futás",
-   "accepted": "személyesen elfogadva"
+   "approved": "approved run",
+   "accepted": "accepted by a person"
   },
-  "yes": "igen",
-  "no": "nem"
+  "yes": "yes",
+  "no": "no"
  }
 }

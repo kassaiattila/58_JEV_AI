@@ -71,7 +71,7 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
       for (const [k, spec] of Object.entries(r.params)) params[k] = a.params[k] ?? spec.default ?? "";
       // the note is data (in the assignment's log), not a label
       await api.saveWorkflow(wp.id, { recipe_id: r.id, params, expected_revision: a.revision, note: "frissítés a feldolgozás mostani változatára" }); // i18n-ignore
-      setMsg({ error: false, text: t("A beállítások a feldolgozás mostani változatára frissültek.") });
+      setMsg({ error: false, text: t("The settings now use the current version of the processing.") });
     } catch (e) {
       setMsg({ error: true, text: (e as ApiError).message });
     } finally {
@@ -116,28 +116,28 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
 
   return (
     <div className="stage-grid">
-      <section className="card wide" aria-label={t("Futtatás")}>
+      <section className="card wide" aria-label={t("Run")}>
         <div className="card-head">
-          <h2>{t("Futtatás")}</h2>
-          {last ? <a className="small" href={`#/runs/${last.run_id}`}>{t("A legutóbbi futás részletei")}</a> : null}
+          <h2>{t("Run")}</h2>
+          {last ? <a className="small" href={`#/runs/${last.run_id}`}>{t("Details of the latest run")}</a> : null}
         </div>
         {last ? (
           <div className="run-summary">
             <span className={`status s-${last.status}`}>{RUN_STATUS[last.status] ?? last.status}</span>
-            <span>{t("{{mode}} futás · {{when}} · {{done}}/{{total}} tétel", { mode: MODE[last.mode], when: when(last.created_at), done: last.items_done, total: last.items })}</span>
-            {last.open_reasons ? <a href={`#/workpackages/${wp.id}/review`}>{t("{{n}} teendő", { n: last.open_reasons })}</a> : null}
+            <span>{t("{{mode}} run · {{when}} · {{done}}/{{total}} items", { mode: MODE[last.mode], when: when(last.created_at), done: last.items_done, total: last.items })}</span>
+            {last.open_reasons ? <a href={`#/workpackages/${wp.id}/review`}>{t("To-dos: {{n}}", { n: last.open_reasons })}</a> : null}
             {active ? (
-              <div className="bar wide-bar" role="meter" aria-label={t("Haladás")} aria-valuemin={0} aria-valuemax={last.items} aria-valuenow={last.items_done}>
+              <div className="bar wide-bar" role="meter" aria-label={t("Progress")} aria-valuemin={0} aria-valuemax={last.items} aria-valuenow={last.items_done}>
                 <span style={{ width: `${(100 * last.items_done) / Math.max(1, last.items)}%` }} />
               </div>
             ) : null}
           </div>
-        ) : <p className="muted">{t("Ezen a kötegen még nem futott feldolgozás.")}</p>}
+        ) : <p className="muted">{t("No processing has run on this batch yet.")}</p>}
         {view.attachments_missing ? (
           // 058 K5.2: in an email package from before 058 the PDF attachments are not items yet; once added, the email
           // recipe extracts their data
-          <p className="notice">{t("A levelek {{n}} PDF-csatolmánya még nincs a kötegben. Felvéve a következő futás a csatolmányok adatait is kinyeri.", { n: view.attachments_missing })}
-            {" "}<button type="button" className="secondary small-btn" disabled={busy || active} onClick={() => void addAttachments()}><Icon name="plus" />{t("Csatolmányok felvétele")}</button></p>
+          <p className="notice">{t("{{n}} PDF attachments of the emails are not yet in the batch. Once added, the next run also extracts their data.", { n: view.attachments_missing })}
+            {" "}<button type="button" className="secondary small-btn" disabled={busy || active} onClick={() => void addAttachments()}><Icon name="plus" />{t("Add attachments")}</button></p>
         ) : null}
         {!readiness.ready ? (
           <BlockerList items={readiness.blockers.map((b, i) => ({ key: String(i), content: blockerText(b) }))} />
@@ -145,25 +145,25 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
         {readiness.warnings.length ? (
           <BlockerList items={readiness.warnings.map((w, i) => ({ key: String(i), warning: true, content: <>{blockerText(w)}
             {w.code === "recipe_changed" || w.code === "recipe_retired" ? <> <button type="button" className="secondary small-btn" disabled={busy || active || !recipes.data}
-              onClick={() => void refreshAssignment()}><Icon name="rerun" />{t("Átállítás a mostani feldolgozásra")}</button></> : null}</> }))} />
+              onClick={() => void refreshAssignment()}><Icon name="rerun" />{t("Switch to the current processing")}</button></> : null}</> }))} />
         ) : null}
         <OlderRunsOffer runs={view.supersedable ?? []} busy={busy || active} onSupersede={(id) => void supersede(id)} />
         <div className="button-row">
           {pendingButtons((m) => btn(`pending-${m}`))}
           <button type="button" className={btn("shadow")} data-run="shadow" title={withSpend(cap)} disabled={!readiness.ready || busy || active}
-            onClick={() => start("shadow")}><Icon name="trial" />{t("Próbafutás")}…{spend}</button>
+            onClick={() => start("shadow")}><Icon name="trial" />{t("Trial run")}…{spend}</button>
           {/* the live run is the consequential one: only its result can be released */}
           <button type="button" className={btn("apply")} data-run="apply" title={withSpend(cap)}
-            disabled={!readiness.ready || busy || active} onClick={() => start("apply")}><Icon name="play" />{t("Éles futás")}…{spend}</button>
+            disabled={!readiness.ready || busy || active} onClick={() => start("apply")}><Icon name="play" />{t("Live run")}…{spend}</button>
           <button type="button" className={btn("rerun")} data-run="rerun" disabled={!target || !readiness.ready || busy || active}
-            title={withSpend(cap, target ? t("Again as a new {{mode}} run, on the package's documents as they are now", { mode: MODE[target.mode].toLowerCase() }) : t("Még nincs megismételhető futás"))}
-            onClick={() => target && start(target.mode, true)}><Icon name="rerun" />{t("Újrafuttatás")}…{spend}</button>
+            title={withSpend(cap, target ? t("Again as a new {{mode}} run, on the package's documents as they are now", { mode: MODE[target.mode].toLowerCase() }) : t("No run to repeat yet"))}
+            onClick={() => target && start(target.mode, true)}><Icon name="rerun" />{t("Rerun")}…{spend}</button>
         </div>
         <dl className="run-help small">
-          <dt>{t("Próbafutás")}</dt><dd>{t("az eredmény megtekinthető és letölthető, de nem adható ki")}</dd>
-          <dt>{t("Éles futás")}</dt><dd>{t("az eredményt ember hagyja jóvá az Eredmény szakaszban, nyitott teendő nélkül")}</dd>
+          <dt>{t("Trial run")}</dt><dd>{t("the result can be viewed and downloaded but not released")}</dd>
+          <dt>{t("Live run")}</dt><dd>{t("a person approves the result in the Result stage, with no open to-dos")}</dd>
           {/* 160-C S2: a rerun takes the package as it is now, not the earlier run's input */}
-          <dt>{t("Újrafuttatás")}</dt><dd>{t("the last run again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not), for example after an error, a stop or a change of settings")}</dd>
+          <dt>{t("Rerun")}</dt><dd>{t("the last run again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not), for example after an error, a stop or a change of settings")}</dd>
           {supplements.length ? <>
             <dt>{t("Pending items only")}</dt>
             <dd>{t("a new run over only the items no run of that kind has finished yet (added since, or failed); the earlier runs and their approval stay as they are, and its result is reviewed and approved on its own")}</dd>
@@ -171,8 +171,8 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
         </dl>
         {readiness.plan ? <RunPlanList plan={readiness.plan} budget={readiness.budget} /> : (
           <p className="muted small">
-            {t("Költségkeret: {{budget}}.", { budget: Object.entries(readiness.budget)
-              .map(([p, v]) => t("{{provider}} legfeljebb {{amount}}", { provider: providerName(p), amount: usdBudget(v) })).join(", ") || t("nincs") })}
+            {t("Budget: {{budget}}.", { budget: Object.entries(readiness.budget)
+              .map(([p, v]) => t("{{provider}} up to {{amount}}", { provider: providerName(p), amount: usdBudget(v) })).join(", ") || t("none") })}
           </p>
         )}
         {msg ? <p role="status" className={msg.error ? "notice error" : "notice"}>{msg.text}</p> : null}
@@ -185,10 +185,10 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
 
       <SettingsCard view={view} onChanged={onChanged} />
 
-      <section aria-label={t("Futások")} className="wide">
-        <h2>{t("A köteg futásai")}</h2>
-        <DataTable dataset="runs" scope={{ workpackage_id: wp.id }} label={t("A köteg futásai")} storageId="wp-runs" defaultHidden={["workpackage_name"]} pollMs={active ? 4000 : undefined}
-          emptyText={t("Még nem futott.")} initial={{ limit: 50 }} />
+      <section aria-label={t("Runs")} className="wide">
+        <h2>{t("Runs of the document batch")}</h2>
+        <DataTable dataset="runs" scope={{ workpackage_id: wp.id }} label={t("Runs of the document batch")} storageId="wp-runs" defaultHidden={["workpackage_name"]} pollMs={active ? 4000 : undefined}
+          emptyText={t("Not run yet.")} initial={{ limit: 50 }} />
       </section>
 
       <PackageCosts wpId={wp.id} pollMs={active ? 4000 : undefined} />
@@ -197,24 +197,24 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
 }
 
 const PARAM_VALUE: Record<string, string> = tmap({
-  "jev_cache:reuse": "Korábbi válasz újrahasználható",
-  "jev_cache:live": "Mindig élő hívás",
-  "tasks:off": "Nincs feladatjavaslat",
-  "tasks:propose": "Feladatjavaslat a levelekből (GPT; archiválandó levélen nem; elfogadni csak ember tud)",
-  "azure_ocr:on": "Gyenge helyi felismerésnél Azure-felismerés (fizetős, a futás Azure-keretén belül)",
-  "azure_ocr:off": "Csak helyi felismerés",
+  "jev_cache:reuse": "Previous answer may be reused",
+  "jev_cache:live": "Always a live call",
+  "tasks:off": "No task proposals",
+  "tasks:propose": "Task proposals from the emails (GPT; not for emails to be archived; only a person can accept them)",
+  "azure_ocr:on": "Azure recognition when the local recognition is weak (paid, within the run's Azure budget)",
+  "azure_ocr:off": "Local recognition only",
   // 120 (the owner's decision of 2026-10-06; codepoints for the language guard)
-  "unknown_documents:facts": "PDF, amelynek t\u00edpus\u00e1hoz nincs illeszked\u0151 t\u00edpusle\u00edr\u00e1s: \u00e1ltal\u00e1nos, forr\u00e1shoz k\u00f6t\u00f6tt adatjavaslatok (GPT + JEV; a szkennelt iratot helyi sz\u00f6vegfelismer\u00e9ssel, teend\u0151vel); a felismert t\u00edpus \u00e9s bizonytalans\u00e1ga megmarad",
-  "unknown_documents:review": "Az ilyen PDF feldolgoz\u00e1sa meg\u00e1ll, \u00e9s teend\u0151t kap (kor\u00e1bbi viselked\u00e9s)",
+  "unknown_documents:facts": "A PDF whose type has no fitting type pack: general, source-bound facts (GPT + JEV; a scan through local text recognition, with a to-do); the recognised type and its uncertainty are kept",
+  "unknown_documents:review": "Processing of such a PDF stops with a to-do (earlier behaviour)",
   // 190: a quote request written in the email itself
   "email_text:extract": "A quote request written in the email itself is extracted from its text (GPT + JEV, about 0.006 USD per such email, at most 0.03 USD reserved per email)",
   "email_text:off": "The email's own text is not extracted; its attachments still are",
-  "jev:on": "Bekapcsolva: a JEV ismeri fel a típust és a levél szándékát, és választ vagy ellenőriz az adatkinyerésnél",
-  "jev:off": "Kikapcsolva: csak GPT (OpenAI) — típusfelismerés, adatkinyerés és levélszándék GPT-vel, kódos ellenőrzéssel",
+  "jev:on": "On: JEV recognises the type and the email's intent, and chooses or checks during extraction",
+  "jev:off": "Off: GPT only (OpenAI) — type recognition, extraction and email intent by GPT, checked by the code",
   // 090: the processing path (the documents' path and the use of JEV as one choice)
-  "path:auto": "Automatikus (ajánlott) — JEV és GPT, iratonként az irattípus ajánlott útja",
-  "path:gpt": "Csak GPT, JEV nélkül — típusfelismerés, adatkinyerés és levélszándék GPT-vel, kódos ellenőrzéssel (OpenAI)",
-  "path:jev": "JEV-vel (ajánlott) — a JEV ismeri fel a levél szándékát",
+  "path:auto": "Automatic (recommended) — JEV and GPT, the document type's recommended path for each document",
+  "path:gpt": "GPT only, without JEV — type recognition, data extraction and email intent with GPT, checked in code (OpenAI)",
+  "path:jev": "With JEV (recommended) — JEV recognises the email's intent",
 });
 /** Label of a setting's value in the editor and on the confirmation page; the path by what it does (080, the owner's
  *  decision of 2026-10-01), a document type by its name. */
@@ -265,9 +265,9 @@ export function RunPlanList({ plan, budget }: { plan: RunPlan; budget: Record<st
   useLocale();
   return (
     <div className="run-plan">
-      <h3>{t("Mi történik indításkor")}</h3>
+      <h3>{t("What happens when the run starts")}</h3>
       <ul className="plain small">{planLines(plan, budget).map((line) => <li key={line}>{line}</li>)}</ul>
-      <p className="muted small">{t("A keret felső határ: ennyit foglal le a rendszer az indításkor; a tényleges költség általában kisebb, és a futás oldalán követhető.")}</p>
+      <p className="muted small">{t("The budget is an upper limit: the system reserves this much when the run starts; the actual cost is usually lower and can be followed on the run's page.")}</p>
     </div>
   );
 }
@@ -314,13 +314,13 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
       const full: Record<string, string> = {};
       for (const [k, spec] of Object.entries(recipe.params)) full[k] = params[k] ?? spec.default ?? "";
       await api.saveWorkflow(wp.id, { recipe_id: recipe.id, params: full, expected_revision: current?.revision ?? 0, note: note || undefined });
-      setMsg({ error: false, text: t("Beállítások elmentve.") });
+      setMsg({ error: false, text: t("Settings saved.") });
       setNote("");
       setOpen(false);
       onChanged();
     } catch (e) {
       const err = e as ApiError;
-      setMsg({ error: true, text: err.status === 409 ? t("Közben más módosította a beállításokat. Frissítettük; a választásaid megmaradtak, mentsd újra.") : err.message });
+      setMsg({ error: true, text: err.status === 409 ? t("Someone else changed the settings meanwhile. We refreshed them; your choices are kept, save again.") : err.message });
       onChanged();
     } finally {
       setBusy(false);
@@ -328,12 +328,12 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
   }
 
   return (
-    <section className="card wide" aria-label={t("Feldolgozási beállítások")}>
+    <section className="card wide" aria-label={t("Processing settings")}>
       <div className="card-head">
-        <h2>{t("Feldolgozási beállítások")}</h2>
+        <h2>{t("Processing settings")}</h2>
         <button type="button" className="secondary" aria-expanded={open} disabled={!catalogue.length}
           onClick={() => { setRecipeId(currentRecipe?.id ?? catalogue[0]?.id ?? ""); setOpen((o) => !o); }}>
-          {open ? <><Icon name="close" />{t("Bezárás")}</> : <><Icon name="edit" />{t("Módosítás")}</>}
+          {open ? <><Icon name="close" />{t("Close")}</> : <><Icon name="edit" />{t("Modify")}</>}
         </button>
       </div>
       {recipes.error ? <p className="notice error">{recipes.error.message}</p> : null}
@@ -341,21 +341,21 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
         current && currentRecipe ? (
           <>
             <p><strong>{recipeTitle(currentRecipe, help)}</strong></p>
-            <p className="muted small">{t("mentette: {{actor}}, {{when}}", { actor: current.actor, when: when(current.created_at) })}</p>
+            <p className="muted small">{t("saved by {{actor}}, {{when}}", { actor: current.actor, when: when(current.created_at) })}</p>
             {/* 063: each setting's meaning and the per-item cost budget */}
             <RecipeParamList recipe={currentRecipe} params={current.params} help={help} kinds={kinds} />
           </>
         ) : current ? (
           <>
             <p><strong>{t(recipes.data?.titles?.[current.recipe_id] ?? current.recipe_id)}</strong>
-              <span className="muted small"> — {t("mentette: {{actor}}, {{when}}", { actor: current.actor, when: when(current.created_at) })}</span></p>
+              <span className="muted small"> — {t("saved by {{actor}}, {{when}}", { actor: current.actor, when: when(current.created_at) })}</span></p>
             <p className="muted">{paramsText(current.params)}</p>
-            <p className="notice">{t("Ez a köteg egy korábbi feldolgozási változat beállításait őrzi. A Módosítás gombbal a mostani feldolgozásra állíthatod; a beállításai megmaradnak, az előre megadott irattípus elmarad, mert a rendszer felismeri.")}</p>
+            <p className="notice">{t("This batch keeps the settings of an earlier version of the processing. With the Change button you can move it onto the current processing; its settings are kept, and a document type given in advance is dropped, because the system recognises it.")}</p>
           </>
         ) : catalogue[0] ? (
           <>
             <p><strong>{recipeTitle(catalogue[0], help)}</strong></p>
-            <p className="muted">{t("Alapbeállítás: ha nem módosítod, a futás indításakor ez mentődik a köteghez.")}</p>
+            <p className="muted">{t("Default settings: if you do not change them, they are saved to the batch when a run starts.")}</p>
             <RecipeParamList recipe={catalogue[0]} params={{}} help={help} kinds={kinds} />
           </>
         ) : null
@@ -363,7 +363,7 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
         <div className="recipe-form">
           {help?.recipes[recipe.id]?.when ? <p className="notice small">{t(help.recipes[recipe.id].when)}</p> : null}
           {catalogue.length > 1 ? (
-            <Picker label={t("Feldolgozás")} value={recipe.id} className="block-picker"
+            <Picker label={t("Processing")} value={recipe.id} className="block-picker"
               options={catalogue.map((r) => ({ value: r.id, label: recipeTitle(r, help) }))}
               onChange={(v) => setRecipeId(v)} />
           ) : null}
@@ -382,14 +382,14 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
               </div>
             );
           })}
-          <p className="small"><strong>{t("Költségkeret")}:</strong> {itemBudgetLines(recipe, full, kinds).join("; ")}</p>
-          <label className="block">{t("Megjegyzés")} <span className="muted">{t("(elhagyható)")}</span>
+          <p className="small"><strong>{t("Cost budget")}:</strong> {itemBudgetLines(recipe, full, kinds).join("; ")}</p>
+          <label className="block">{t("Note")} <span className="muted">{t("(may be omitted)")}</span>
             <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />
           </label>
-          <button type="button" className="primary" disabled={busy} onClick={() => void save()}>{t("Beállítások mentése")}</button>
+          <button type="button" className="primary" disabled={busy} onClick={() => void save()}>{t("Save settings")}</button>
         </div>
       ) : null}
-      <p className="small"><a href={`#/settings/recipes`}>{t("Hogyan dolgozik a rendszer, és mit jelentenek a beállítások")} ›</a></p>
+      <p className="small"><a href={`#/settings/recipes`}>{t("How the system works and what the settings mean")} ›</a></p>
       {msg ? <p role="status" className={msg.error ? "notice error" : "notice"}>{msg.text}</p> : null}
     </section>
   );

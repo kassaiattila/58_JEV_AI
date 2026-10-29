@@ -14,7 +14,7 @@ from typing import Any
 
 
 from jav.app import item_kinds, work, work_runs
-from jav.core import decisions, identity, store
+from jav.core import decisions, display, field_names, identity, store
 from jav.domains.email import email_store
 from jav.core.user_messages import explained
 
@@ -35,12 +35,14 @@ def item_titles(items: list[dict[str, Any]]) -> dict[str, str]:
         m, status = message_version(i)  # 086 N04: the version the item was added with, not the latest
         if not m and status != "changed":
             continue  # unreadable: the file name stays the title
-        subjects[i["item_id"]] = ("(a levél futáskori változata nem található)" if status == "changed"
-                                  else m.get("subject") or "(tárgy nélkül)")[:100]
+        # 231 (D4): the placeholders in the request's language
+        subjects[i["item_id"]] = (display.text("(the email's version of the run was not found)") if status == "changed"
+                                  else m.get("subject") or display.text("(without subject)"))[:100]
         out[i["item_id"]] = f"{subjects[i['item_id']]} — {m.get('sender_name') or m.get('sender') or '?'}"
     for i in items:  # 058 K5.2: the attachment's origin in its name (which email it came from)
         if i.get("parent_item_id") in subjects:
-            out[i["item_id"]] = f"{Path(i['source_path']).name} (a levél csatolmánya: {subjects[i['parent_item_id']]})"
+            out[i["item_id"]] = display.text("{{name}} (an attachment of the email: {{subject}})", name=Path(i["source_path"]).name,
+                                             subject=subjects[i["parent_item_id"]])
     return out
 
 
@@ -55,8 +57,8 @@ def parent_labels(items: list[dict[str, Any]]) -> dict[str, str]:
         if i["item_id"] in parents:
             msg, status = message_version(i)  # 086 N04: the version the run processed
             # data (a cell of the download), not a label
-            out[i["item_id"]] = ("(a levél futáskori változata nem található)" if status == "changed"
-                                 else msg.get("subject") or ("(tárgy nélkül)" if msg else "(a levél nem olvasható)"))
+            out[i["item_id"]] = (display.text("(the email's version of the run was not found)") if status == "changed"
+                                 else msg.get("subject") or display.text("(without subject)" if msg else "(the email cannot be read)"))
     return out
 
 
@@ -111,7 +113,8 @@ def correct_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], 
         if key is not None:
             for r in work_runs.item_reasons(run_id, item_id, item)["run"]:
                 if r["reason"].startswith("intent:"):
-                    work_runs.resolve_reason(r["id"], actor=actor, resolution={"intent": key}, note="a szándék kézzel javítva")
+                    work_runs.resolve_reason(r["id"], actor=actor, resolution={"intent": key},
+                                             note=display.text("intent corrected by hand"))  # 231 (D4): the person's language
     return corrections.current(run_id, item_id)
 
 
@@ -153,16 +156,16 @@ def reads_text(next_flow: str | None) -> bool:
 
 
 def next_flow_labels() -> dict[str, str]:
-    """Hungarian names of the proposed next steps (058 K5.1): the fixed codes from `configs/datasets.json`, and "data
-    extraction from the attachment" per type, with the document type's name. The UI translates the same with its own
-    dictionary."""
+    """The names of the proposed next steps (058 K5.1): the fixed codes from `configs/datasets.json`, and "data
+    extraction from the attachment" per type, with the document type's name. 231 (D4): a fixed code's name is its English
+    source (shown in the request's language where it is displayed); a type's step is made in the request's language."""
     from jav.core import cfg
 
     out = dict(cfg.load("datasets")["labels"]["next_flow"])
-    for key, name in cfg.load("field_labels")["doc_types"].items():
+    for key in cfg.load("field_labels")["doc_types"]:
         # 192 (backlog Q-m2-label-text): a type that reads the email's own text too says so (the quote request)
-        out[f"m2:{key}"] = (f"Adatkinyerés a levélből és a csatolmányokból ({name})" if reads_text(f"m2:{key}")
-                            else f"Adatkinyerés a csatolmányból ({name})")
+        out[f"m2:{key}"] = display.text("Data extraction from the email and its attachments ({{what}})" if reads_text(f"m2:{key}")
+                                        else "Data extraction from the attachment ({{what}})", what=field_names.type_name(key))
     return out
 
 
@@ -287,7 +290,8 @@ def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: 
             summary = {"decisions": [{"index": t["index"], "decision": t["decision"]["decision"]} for t in view["tasks"]]}
             for r in work_runs.item_reasons(run_id, item_id, item)["run"]:
                 if r["reason"].startswith("tasks:proposed"):
-                    work_runs.resolve_reason(r["id"], actor=actor, resolution=summary, note="minden feladatjavaslatról döntöttek")
+                    work_runs.resolve_reason(r["id"], actor=actor, resolution=summary,
+                                             note=display.text("every task proposal decided"))  # 231 (D4): the person's language
     return view
 
 

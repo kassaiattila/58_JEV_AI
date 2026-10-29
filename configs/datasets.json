@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.40.0",
+  "version": "1.41.0",
   "changelog": [
+   {
+    "version": "1.41.0",
+    "date": "2026-10-29",
+    "note": "231 (stage F, F3 D4; the owner's decision of 2026-10-29: the service's texts follow the interface's language): every value caption is an English source; the Hungarian comes from the interface's dictionary (ui/src/i18n/hu-native.json), and a download shows it in the requesting interface's language. Named variants (value) where one English text has two Hungarian ones."
+   },
    {
     "version": "1.40.0",
     "date": "2026-10-28",
@@ -186,62 +191,62 @@
    {
     "version": "1.4.0",
     "date": "2026-09-29",
-    "note": "062 (döntés 2026-09-29): a tevékenységnapló új művelete: az elfogadott feladat kézi elvégzése (activity_action.task_done)"
+    "note": "062 (decision of 2026-09-29): a new action in the activity log: an accepted task done by hand (activity_action.task_done)"
    },
    {
     "version": "1.3.0",
     "date": "2026-09-28",
-    "note": "061 (döntés 2026-09-28, aktív felhasználó + kiosztás): a tevékenységnapló műveleteinek feliratai (activity_action)"
+    "note": "061 (decision of 2026-09-28, the active user and assignment): the labels of the activity log's actions (activity_action)"
    },
    {
     "version": "1.2.0",
     "date": "2026-09-28",
-    "note": "058 K5.1: a Levelek eredménytábla feliratai - a javasolt következő lépések (next_flow) és hogy a levél szövegéből mennyit látott a szándék-felismerés (body_status); K5.3: a feladatjavaslat döntése (task_decision)"
+    "note": "058 K5.1: the labels of the Emails result table - the proposed next steps (next_flow) and how much of the email's text the intent recognition saw (body_status); K5.3: the task proposal's decision (task_decision)"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "058 (döntés 2026-09-28): a munkacsomag elrejthető - wp_status felirat (aktív / elrejtve) az elrejtettekkel együtt kért listához"
+    "note": "058 (decision of 2026-09-28): a batch can be hidden - the wp_status label (active / hidden) for a list asked with the hidden ones"
    },
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "056 U1 (döntések 2026-09-28): egységes adatnézet - az adatkészletek felsorolt oszlopainak magyar feliratai (a keresés és a rendezés a feliratra is megy), a gyorsítótár mérete és a letöltés felső határa"
+    "note": "056 U1 (decisions of 2026-09-28): the uniform data view - the Hungarian labels of the datasets' enumerated columns (search and sorting go by the label too), the cache's size and the download's upper limit"
    }
   ]
  },
  "labels": {
-  "run_status": {"queued": "Sorban áll", "running": "Fut", "needs_review": "Teendő vár", "done": "Kész", "failed": "Hibás", "cancelled": "Leállítva"},
-  "naming_status": {"ready": "Kész", "review": "Ellenőrzendő"},
-  "name_state": {"ready": "Kész", "review": "Ellenőrzendő", "pending": "Még nincs", "none": "Nincs (levél)"},
-  "item_status": {"done": "Lefutott", "failed": "Hibás", "cancelled": "Leállítva", "needs_review": "Teendő", "needs_ocr": "OCR kell"},
-  "final_status": {"done": "Lezárva, teendő nélkül", "needs_review": "Teendő", "settled": "Teendő, rendezve", "needs_ocr": "OCR kell", "jev_unavailable": "JEV nem volt elérhető"},
-  "mode": {"shadow": "Próba", "apply": "Éles"},
+  "run_status": {"queued": "Queued (value)", "running": "Running", "needs_review": "To-dos pending", "done": "Done", "failed": "Failed (value)", "cancelled": "Stopped"},
+  "naming_status": {"ready": "Done", "review": "To check (value)"},
+  "name_state": {"ready": "Done", "review": "To check (value)", "pending": "Not yet", "none": "None (email)"},
+  "item_status": {"done": "Processed", "failed": "Failed (value)", "cancelled": "Stopped", "needs_review": "To-do", "needs_ocr": "OCR needed"},
+  "final_status": {"done": "Closed, no to-dos", "needs_review": "To-do", "settled": "To-dos settled", "needs_ocr": "OCR needed", "jev_unavailable": "JEV was unavailable"},
+  "mode": {"shadow": "Trial", "apply": "Live"},
   "package_item_state": {"approved": "Approved", "live": "Processed live", "trial": "Processed in a trial", "running": "Being processed", "failed": "Failed with an error", "pending": "Pending", "removed": "Removed"},
   "reconcile_input_kind": {"statement": "Statement", "incoming": "Incoming invoice", "outgoing": "Outgoing invoice"},
   "reconcile_input_source": {"approved": "Approved", "live": "Processed live", "trial": "Processed in a trial", "accepted": "Accepted as a source", "no_run": "Evaluation on the command line"},
   "reconcile_invoice_state": {"confirmed": "Paid", "credited": "Cancelled by a credit note", "proposed": "Proposed pair", "amount_only": "Same amount only", "partly_paid": "Partly paid", "amount_differs": "Related line, different amount", "rate_missing": "No exchange rate yet", "no_payment_found": "No payment found", "partly_covered": "Statements cover part of its period", "not_covered": "No statement for its period", "excluded": "Left out"},
   "run_scope": {"pending": "Pending items only"},
-  "approval": {"approved": "Jóváhagyva"},
-  "wp_status": {"open": "Aktív", "archived": "Elrejtve"},
-  "kind": {"document": "Irat", "email": "Levél"},
-  "source_kind": {"folder": "mappa", "mailbox": "postafiók", "manual": "kézi válogatás", "watch": "figyelt mappa", "reconcile": "egyeztetés", "statements": "bankkivonatok", "email_routing": "levél-becsatornázás", "quote": "ajánlat"},
-  "pull_status": {"queued": "Sorban áll", "running": "Fut", "ok": "Kész", "error": "Hibás"},
-  "provenance": {"located": "pontos", "approximate": "közelítő", "ambiguous": "több helyen", "context_rejected": "más mező mellett", "not_found": "nem található", "no_value": "nincs érték", "no_layer": "nincs szóréteg", "error": "hiba", "list": "lista"},
-  "utility_status": {"ok": "rendben", "missing": "hiányzik", "partial": "részleges", "overlap": "átfedés", "settlement": "elszámolás", "no_period": "nem vetíthető: nincs számlázási időszak", "no_amount": "nem vetíthető: nincs összeg", "duplicate": "ismétlődő számla (egyszer számít)"},
-  "yes": {"igen": "igen"},
-  "native_state": {"stated": "k\u00f6z\u00f6lt", "missing": "hi\u00e1nyzik", "uncertain": "bizonytalan", "conflicting": "ellentmond\u00e1sos", "literal_match": "sz\u00f3 szerint egyezik", "rejected": "elutas\u00edtva", "missing_claim": "hi\u00e1nyz\u00f3 adat", "complete": "teljes", "partial": "r\u00e9szleges", "not_attempted": "nem t\u00f6rt\u00e9nt meg", "unsupported": "nem t\u00e1mogatott", "password_required": "jelsz\u00f3val v\u00e9dett", "corrupt": "s\u00e9r\u00fclt", "resource_limited": "olvas\u00e1si korl\u00e1t", "temporary_error": "\u00e1tmeneti hiba", "excluded": "kiz\u00e1rva", "succeeded": "sikeres", "failed": "sikertelen", "not_started": "nem indult", "running": "fut", "not_established": "nem meg\u00e1llap\u00edtott"},
-  "next_flow": {"human:inbox": "Kézi feldolgozás", "human:fetch_document": "Kézi: a számla feldolgozása", "human:low_confidence": "Kézi ellenőrzés: bizonytalan szándék", "human:jev_unavailable": "Kézi ellenőrzés: a JEV nem volt elérhető", "human:suspicious": "Kézi ellenőrzés: gyanús tartalom", "m1:detect": "Csatolmány: típusfelismerés", "m2:needs_ocr": "Csatolmány: szövegfelismerés kell", "archive": "Archiválás", "archive:payment_proof": "Archiválás (fizetési igazolás)", "archive:calendar": "Archiválás (naptár)", "archive:order_status": "Archiválás (rendelés állapota)", "archive:sent": "Archiválás (elküldött levél)"},
-  "body_status": {"full": "teljesen látta", "shortened": "csak az elejét látta", "capped": "letöltéskor elvágódhatott"},
-  "task_decision": {"accepted": "elfogadva", "rejected": "elvetve"},
+  "approval": {"approved": "Approved"},
+  "wp_status": {"open": "Active (value)", "archived": "Hidden"},
+  "kind": {"document": "Document (value)", "email": "Email (value)"},
+  "source_kind": {"folder": "folder", "mailbox": "mailbox", "manual": "manual selection (value)", "watch": "watched folder", "reconcile": "reconciliation", "statements": "bank statements", "email_routing": "email routing", "quote": "quote"},
+  "pull_status": {"queued": "Queued (value)", "running": "Running", "ok": "Done", "error": "Failed (value)"},
+  "provenance": {"located": "exact", "approximate": "approximate", "ambiguous": "in several places", "context_rejected": "next to another field", "not_found": "not found", "no_value": "no value", "no_layer": "no word layer", "error": "error", "list": "list"},
+  "utility_status": {"ok": "ok", "missing": "missing", "partial": "partial", "overlap": "overlap", "settlement": "settlement", "no_period": "cannot be allocated: no billing period", "no_amount": "cannot be allocated: no amount", "duplicate": "duplicate invoice (counted once)"},
+  "yes": {"igen": "yes"},
+  "native_state": {"stated": "stated", "missing": "missing", "uncertain": "uncertain", "conflicting": "conflicting", "literal_match": "literal match", "rejected": "rejected (value)", "missing_claim": "missing claim", "complete": "complete", "partial": "partial", "not_attempted": "not attempted", "unsupported": "unsupported", "password_required": "password-protected", "corrupt": "damaged", "resource_limited": "reading limit", "temporary_error": "temporary error", "excluded": "excluded", "succeeded": "succeeded", "failed": "failed", "not_started": "not started", "running": "running", "not_established": "not established"},
+  "next_flow": {"human:inbox": "Manual processing", "human:fetch_document": "Manual: process the invoice", "human:low_confidence": "Manual review: uncertain intent", "human:jev_unavailable": "Manual review: JEV was unavailable", "human:suspicious": "Manual review: suspicious content", "m1:detect": "Attachment: type recognition", "m2:needs_ocr": "Attachment: OCR needed", "archive": "Archive", "archive:payment_proof": "Archive (payment proof)", "archive:calendar": "Archive (calendar)", "archive:order_status": "Archive (order status)", "archive:sent": "Archive (sent message)"},
+  "body_status": {"full": "saw all of it", "shortened": "saw only the beginning", "capped": "may have been cut at download"},
+  "task_decision": {"accepted": "accepted", "rejected": "rejected"},
   "direction": {"incoming": "Incoming", "outgoing": "Outgoing", "internal": "Between own parties", "not_own": "Not an own party's",
    "unclear": "Unclear"},
   "duplicate": {"copy": "Copy (confirmed)", "variant": "Modified version (confirmed)", "suspected:copy": "Suspected copy",
    "suspected:variant": "Suspected modified version", "suspected:undecidable": "Possible duplicate (a compared value is missing)"},
-  "activity_action": {"archive": "csomag elrejtése", "restore": "csomag visszahozása", "rename": "csomag átnevezése",
-   "delete": "csomag törlése", "owner": "felelős beállítása", "recipe": "feldolgozási beállítások mentése", "run_start": "futás indítása",
-   "run_approve": "futás jóváhagyása", "run_cancel": "futás leállítása", "run_supersede": "futás leváltása", "retyped": "taken over as a case", "item_remove": "item removed", "item_restore": "item restored", "items_add": "items added", "items_remove": "items removed", "items_restore": "items restored","correction": "javítás", "reason_resolve": "teendő lezárása",
-   "task_decision": "feladatjavaslat döntése", "task_done": "feladat elvégezve", "mailbox_pull": "postafiók-letöltés", "reconcile_scope": "egyeztetési kör beállítása", "reconcile_allocate": "egyeztetés: párosítás", "reconcile_reject": "egyeztetés: elutasítás", "reconcile_mark": "egyeztetés: nem kell számla", "reconcile_revoke": "egyeztetés: visszavonás",
+  "activity_action": {"archive": "document batch hidden", "restore": "document batch restored", "rename": "document batch renamed",
+   "delete": "document batch deleted", "owner": "owner set", "recipe": "saving the processing settings", "run_start": "run started",
+   "run_approve": "run approved", "run_cancel": "run stopped", "run_supersede": "run superseded", "retyped": "taken over as a case", "item_remove": "item removed", "item_restore": "item restored", "items_add": "items added", "items_remove": "items removed", "items_restore": "items restored","correction": "correction", "reason_resolve": "issue closed",
+   "task_decision": "task suggestion decided", "task_done": "task done", "mailbox_pull": "mailbox download", "reconcile_scope": "reconciliation scope set", "reconcile_allocate": "reconciliation: pairing", "reconcile_reject": "reconciliation: rejection", "reconcile_mark": "reconciliation: needs no invoice", "reconcile_revoke": "reconciliation: revocation",
    "reconcile_leave_out": "reconciliation: documents left out", "reconcile_restore": "reconciliation: documents restored",
    "reconcile_accept_sources": "reconciliation: command-line results accepted as sources", "reconcile_approve": "reconciliation: version approved",
    "reconcile_reopen": "reconciliation: approval reopened", "statement_scope": "statement package: party and period set",

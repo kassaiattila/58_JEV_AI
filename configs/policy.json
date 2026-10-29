@@ -91,7 +91,7 @@
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "kiszervezés a Python-konstansokból (ROADMAP §1 konfig mint adat); tartalom változatlan"
+    "note": "moved out of the Python constants (ROADMAP §1 config as data); the content unchanged"
    },
    {
     "version": "1.1.0",
@@ -126,7 +126,7 @@
    {
     "version": "1.7.0",
     "date": "2026-09-20",
-    "note": "OCR-eszkalacio (a felhasznalo dontese, handoff 013 §8): escalate_min_mean_conf 0.9 / escalate_max_low_conf_ratio 0.1 - a helyi tesseract-szoveg ez alatt / folott a fizetos Azure DI-re eszkalal (configs/ocr.json escalation); a 49 kozmu-etalon tesseract-jelei 0,81-0,92 / 6-19 %, tehat a tobbseg eszkalal - a kuszob adat, a merés utan finomithato"
+    "note": "OCR escalation (the owner's decision, handoff 013 §8): escalate_min_mean_conf 0.9 / escalate_max_low_conf_ratio 0.1 - local tesseract text below / above these escalates to the paid Azure DI (configs/ocr.json escalation); the tesseract signals of the 49 utility golden documents are 0.81-0.92 / 6-19 %, so most escalate - the threshold is data, to be refined after measuring"
    },
    {
     "version": "1.8.0",
@@ -136,7 +136,7 @@
    {
     "version": "1.9.0",
     "date": "2026-09-28",
-    "note": "047 T1.2: detect_detail.anchor_margin 0.75 - a régi horgony-pontszám (kötelező 1 + támogató 0,25 - kizáró 0,5, 0-2) előnye, amely mellett a kód JEV nélkül dönt a részletes típusról; band_for detect.detail_type = default. Hangolva a régi felismerési etalonon (102 irat, első 1500 karakter): 78 kód-döntés, 0 eltérés a régi címkétől, 24 JEV-hez (tanító példán mért, runs/20260928_t1/)"
+    "note": "047 T1.2: detect_detail.anchor_margin 0.75 - the lead in the legacy anchor score (required 1 + supporting 0.25 - excluding 0.5, 0-2) at which the code decides the detailed type without JEV; band_for detect.detail_type = default. Tuned on the legacy recognition golden set (102 documents, first 1500 characters): 78 decided by code, 0 different from the legacy label, 24 to JEV (measured on its training examples, runs/20260928_t1/)"
    }
   ]
  },

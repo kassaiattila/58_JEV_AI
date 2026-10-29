@@ -40,7 +40,7 @@ registerItemPanel("duplicates", DuplicatePanel);
 registerItemPanel("statements", StatementPanel);
 
 // 058: the utility bills' cost by meter and month, above its table (only a package with utility bills has it)
-registerResultTable({ key: "utility", dataset: "utility_cost", label: "Közmű-költség", order: 70, Panel: UtilityPanel });
+registerResultTable({ key: "utility", dataset: "utility_cost", label: "Utility costs", order: 70, Panel: UtilityPanel });
 
 // 231 (C2d): the pairing capability's element (its page loads only when a case shows it); (C2c) the AI proposal's
 const Pairing = lazy(() => import("./Pairing").then((m) => ({ default: m.Pairing })));

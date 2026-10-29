@@ -106,7 +106,7 @@ def detect_golden(use_cache: bool = True, *, jev: bool = True, descriptions: boo
     out = RUNS_DIR / f"{stamp}_detect_{label}{variant}.jsonl"
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
     print_detect_report(rows)
-    print(f"\nNyers futások: {out}")
+    print(f"\nRaw runs: {out}")
     return rows
 
 
@@ -134,7 +134,7 @@ def detect_determinism(n: int = 3, limit: int | None = None, *, jev: bool = True
                     "top3": dict(sorted(r.probabilities.items(), key=lambda kv: -kv[1])[:3]), "parent": r.parent, "parent_prob": r.parent_prob,
                     "run_no": k + 1,
                 })
-            print(f"  {k + 1}/{n} kör kész")
+            print(f"  {k + 1}/{n} round(s) done")
     flips = 0
     stds: list[float] = []
     for cid, rs in per_case.items():
@@ -143,21 +143,21 @@ def detect_determinism(n: int = 3, limit: int | None = None, *, jev: bool = True
             print(f"  FLIP {cid}: {[r['got'] for r in rs]} conf={[r['confidence'] for r in rs]}")
         if len(rs) > 1:
             stds.append(statistics.pstdev(r["confidence"] for r in rs))
-    print(f"\n### Detect determinizmus - {len(per_case)} eset × {n} futás (cache nélkül)")
-    print(f"**Flip (eltérő típus futások közt):** {flips}/{len(per_case)}")
+    print(f"\n### Detect determinism - {len(per_case)} case(s) × {n} run(s) (without the cache)")
+    print(f"**Flips (another type between runs):** {flips}/{len(per_case)}")
     if stds:
-        print(f"**Choice confidence szórás:** átlag {statistics.mean(stds):.4f}, max {max(stds):.4f}")
+        print(f"**Choice confidence spread:** mean {statistics.mean(stds):.4f}, max {max(stds):.4f}")
     RUNS_DIR.mkdir(exist_ok=True)
     out = RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_detect_determinism{'' if jev else '_gpt'}.jsonl"
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for rs in per_case.values() for r in rs) + "\n", encoding="utf-8")
-    print(f"Nyers futások: {out}")
+    print(f"Raw runs: {out}")
 
 
 def print_detect_report(rows: list[dict[str, Any]]) -> None:
     scored = [r for r in rows if r["status"] == "done"]
     ocr = [r for r in rows if r["status"] == "needs_ocr"]
-    print(f"\n### Detect golden - {len(scored)} szöveges eset (+{len(ocr)} needs_ocr, kihagyva)\n")
-    print("| elvárt típus | n | pontosság | átlag conf | tévesztések |\n|---|---|---|---|---|")
+    print(f"\n### Detect golden - {len(scored)} case(s) with text (+{len(ocr)} needs_ocr, left out)\n")
+    print("| expected type | n | as expected | mean conf | mistakes |\n|---|---|---|---|---|")
     by_exp: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for r in scored:
         by_exp[r["expected"]].append(r)
@@ -168,12 +168,12 @@ def print_detect_report(rows: list[dict[str, Any]]) -> None:
         wrong = Counter(r["got"] for r in rs if r["got"] != exp)
         print(f"| {exp} | {len(rs)} | {ok / len(rs):.0%} | {statistics.mean(r['confidence'] for r in rs):.2f} | "
               f"{', '.join(f'{k}×{v}' for k, v in wrong.items()) or '-'} |")
-    print(f"\n**Összesen:** {total_ok}/{len(scored)} = {total_ok / max(len(scored), 1):.1%}")
+    print(f"\n**In all:** {total_ok}/{len(scored)} = {total_ok / max(len(scored), 1):.1%}")
     low = [r for r in scored if r["confidence"] < detect_low_confidence()]
     print(f"**confidence < 0,6:** {len(low)}/{len(scored)}")
     for r in scored:
         if r["got"] != r["expected"]:
-            print(f"  - {r['case_id']}: várt {r['expected']}, kapott {r['got']} ({r['confidence']:.2f}) top3={r['top3']}")
+            print(f"  - {r['case_id']}: expected {r['expected']}, got {r['got']} ({r['confidence']:.2f}) top3={r['top3']}")
     detailed = [r for r in scored if r.get("expected_detail")]
     if detailed:  # 122: a case list may name the expected detailed type; an open one (None) is counted as such
         same = sum(r.get("detail_type") == r["expected_detail"] for r in detailed)
@@ -210,7 +210,7 @@ def detect_corpus(root: Path, *, limit: int | None = None, force: bool = False, 
         todo = [p for p in pdfs if str(p) not in done_paths]
     if limit:
         todo = todo[:limit]
-    print(f"{len(pdfs)} PDF, ebből feldolgozandó: {len(todo)} (kész: {len(pdfs) - len(todo)})")
+    print(f"{len(pdfs)} PDF(s), to process: {len(todo)} (done: {len(pdfs) - len(todo)})")
     t0 = time.perf_counter()
     errors: list[str] = []
     for i, p in enumerate(todo, 1):
@@ -222,9 +222,9 @@ def detect_corpus(root: Path, *, limit: int | None = None, force: bool = False, 
             errors.append(f"{p.name}: {type(exc).__name__}: {exc}")
             tag, conf = "ERROR", "-"
         if i % 25 == 0 or i == len(todo):
-            print(f"  {i}/{len(todo)}  {time.perf_counter() - t0:6.0f}s  utolsó: {p.name[:50]} -> {tag} {conf}")
+            print(f"  {i}/{len(todo)}  {time.perf_counter() - t0:6.0f}s  last: {p.name[:50]} -> {tag} {conf}")
     if errors:
-        print(f"\nHibák ({len(errors)}):")
+        print(f"\nErrors ({len(errors)}):")
         for e in errors[:20]:
             print("  - " + e)
     print_corpus_report(root)
@@ -234,12 +234,12 @@ def print_corpus_report(root: Path) -> None:
     with store.connect() as c:
         rows = [dict(r) for r in c.execute("SELECT * FROM documents WHERE source_path LIKE ?", (str(root) + "%",))]
     if not rows:
-        print("nincs adat")
+        print("no data")
         return
     years = sorted({r["year"] for r in rows if r["year"]}, key=int)
     types = [t for t in DOC_TYPE_KEYS if any(r["doc_type"] == t for r in rows)] + ["needs_ocr"]
-    print(f"\n### Korpusz - {len(rows)} dokumentum, típus × év\n")
-    print("| típus | " + " | ".join(str(y) for y in years) + " | össz | átlag conf |\n|---|" + "---|" * (len(years) + 2))
+    print(f"\n### Corpus - {len(rows)} document(s), type × year\n")
+    print("| type | " + " | ".join(str(y) for y in years) + " | total | mean conf |\n|---|" + "---|" * (len(years) + 2))
     for t in types:
         rs = [r for r in rows if (r["doc_type"] == t) or (t == "needs_ocr" and r["has_text"] == 0)]
         if not rs:
@@ -268,14 +268,14 @@ def write_manual_sample(root: Path, n: int = 40, seed: int = 1) -> Path:
         k = max(2, round(n * len(rs) / max(len(rows), 1)))
         sample.extend(random.sample(rs, min(k, len(rs))))
     sample = sample[:n] if len(sample) > n else sample
-    lines = [f"# Detect kézi ellenőrzés - {len(sample)} minta ({datetime.now():%Y-%m-%d})", "",
-             "Jelöld: ✅ helyes / ❌ hibás (+ helyes típus). A fájlnév kattintható a OneDrive-ban.", "",
-             "| # | ok? | predikció | conf | issuer_hu | fájl | első sorok |", "|---|---|---|---|---|---|---|"]
+    lines = [f"# Detect manual check - {len(sample)} sample(s) ({datetime.now():%Y-%m-%d})", "",
+             "Mark: ✅ right / ❌ wrong (+ the right type). The file name opens in OneDrive.", "",
+             "| # | right? | prediction | conf | issuer_hu | file | first lines |", "|---|---|---|---|---|---|---|"]
     for i, r in enumerate(sorted(sample, key=lambda r: (r["doc_type"], r["type_conf"])), 1):
         try:
             head = " ⏎ ".join(read_document(r["source_path"]).lines[:3])[:140].replace("|", "¦")
         except Exception:  # noqa: BLE001
-            head = "(nem olvasható)"
+            head = "(unreadable)"
         lines.append(f"| {i} | | {r['doc_type']} | {r['type_conf']:.2f} | {r['issuer_hu']:.2f} | {Path(r['source_path']).name[:60].replace('|', '¦')} | {head} |")
     RUNS_DIR.mkdir(exist_ok=True)
     out = RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_detect_manual_sample.md"

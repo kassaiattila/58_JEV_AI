@@ -14,7 +14,7 @@ from typing import Any
 
 from jav.app import item_kinds
 from jav.core import store
-from jav.core import calls, identity, queue, rulebook
+from jav.core import calls, display, identity, queue, rulebook
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 from jav.app import human_tasks, work, work_readiness, work_recipes, workflow_cases
@@ -77,7 +77,7 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
             # data (the assignment history, shown in the UI as written), not a label
             # 160-D: with the engine the readiness check (its budget) used, even if the application's changed since
             work_recipes._insert_assignment(c, wp_id, d, work_recipes.default_params(d, "jev" if ready["plan"]["jev"] else "gpt"), expected_revision=0, actor=actor,
-                               note="alapbeállítás, a futás indításakor mentve")
+                               note=display.text("default settings, saved when the run started"))  # 231 (D4)
             a = work_recipes.current_assignment(wp_id, c)
         r = work_recipes.recipe(a["recipe_id"])
         dedup = f"{wp_id}:{a['revision']}:{input_hash}:{mode}" + (f":rerun:{rerun_of}" if rerun_of else "")

@@ -8,7 +8,7 @@ import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { applyPath, docTypeLabel, itemBudgetLines, PARAM_LABEL, paramShort, PATH, pathOptions, pathValue, shownParams, shownValue } from "../labels";
 
-const BUDGET_NOTE = "felső határ: ennyit foglal le a rendszer a futás indításakor; a tényleges költség általában kisebb, és a futás oldalán követhető";
+const BUDGET_NOTE = "upper limit: the system reserves this much when the run starts; the actual cost is usually lower and can be followed on the run page";
 
 /** The recipe's default settings (the parameters' default values). */
 export const recipeDefaults = (r: Recipe): Record<string, string> =>
@@ -62,7 +62,7 @@ export function RecipeParamList({ recipe, params, help, kinds }: { recipe: Recip
         );
       })}
       <div className="param-row">
-        <dt>{t("Költségkeret")}</dt>
+        <dt>{t("Cost budget")}</dt>
         <dd>
           {itemBudgetLines(recipe, full, kinds).map((line) => <strong key={line} className="budget-line">{line}</strong>)}
           <span className="param-note">{t(BUDGET_NOTE)}</span>
@@ -77,11 +77,11 @@ export function RecipesPanel() {
   useLocale();
   const recipes = useLoad("recipes", api.recipes);
   if (recipes.error) return <p className="notice error">{recipes.error.message}</p>;
-  if (!recipes.data) return <p className="muted">{t("Betöltés…")}</p>;
+  if (!recipes.data) return <p className="muted">{t("Loading…")}</p>;
   const help = recipes.data.help;
   return (
     <>
-      <p className="page-summary">{help?.intro ? t(help.intro) : null} {t("A beállításokat a köteg Feldolgozás szakaszában lehet módosítani; a módosítás új változatként mentődik, a korábbi futások a saját beállításaikat őrzik.")}</p>
+      <p className="page-summary">{help?.intro ? t(help.intro) : null} {t("The settings can be changed in the batch's Processing section; a change is saved as a new version, and earlier runs keep their own settings.")}</p>
       {recipes.data.recipes.map((r) => <RecipeDetails key={r.id} recipe={r} help={help} />)}
       {help?.paths ? <PathCompare paths={help.paths} /> : null}
     </>
@@ -99,7 +99,7 @@ function PathCompare({ paths }: { paths: NonNullable<RecipeHelp["paths"]> }) {
       <p>{t(paths.intro)}</p>
       <div className="table-scroll">
         <table className="path-compare">
-          <thead><tr><th scope="col"><span className="sr-only">{t("Szempont")}</span></th><th scope="col">{t(paths.columns.S)}</th><th scope="col">{t(paths.columns.G)}</th></tr></thead>
+          <thead><tr><th scope="col"><span className="sr-only">{t("Aspect")}</span></th><th scope="col">{t(paths.columns.S)}</th><th scope="col">{t(paths.columns.G)}</th></tr></thead>
           <tbody>
             {paths.rows.map((row) => (
               <tr key={row.label}><th scope="row">{t(row.label)}</th><td>{t(row.S)}</td><td>{t(row.G)}</td></tr>
@@ -129,19 +129,19 @@ function RecipeDetails({ recipe, help }: { recipe: Recipe; help?: RecipeHelp }) 
       <p>{t(details?.when ?? recipe.description)}</p>
       <dl className="recipe-kv">
         {inputs.map((input) => <Fragment key={input.label}><dt>{t(input.label)}</dt><dd>{t(input.description)}</dd></Fragment>)}
-        <dt>{t("Mi kell hozzá")}</dt>
+        <dt>{t("What it needs")}</dt>
         <dd><ul className="tight">{recipe.requirements.map((x) => <li key={x}>{t(x)}</li>)}</ul></dd>
-        <dt>{t("Lépések")}</dt>
+        <dt>{t("Steps")}</dt>
         <dd><ol className="tight">{recipe.steps.map((x) => <li key={x}>{t(x)}</li>)}</ol></dd>
-        <dt>{t("Eredmény")}</dt><dd>{t(recipe.result)}</dd>
-        <dt>{t("Az ember teendője")}</dt><dd>{t(recipe.manual_action)}</dd>
-        <dt>{t("Költségkeret alapbeállítással")}</dt>
+        <dt>{t("Result")}</dt><dd>{t(recipe.result)}</dd>
+        <dt>{t("What a person does")}</dt><dd>{t(recipe.manual_action)}</dd>
+        <dt>{t("Cost budget with the default settings")}</dt>
         <dd>
           {itemBudgetLines(recipe, defaults).map((line) => <div key={line}>{line}</div>)}
           <span className="muted small">{t(BUDGET_NOTE)}</span>
         </dd>
       </dl>
-      <h4>{t("Beállítások")}</h4>
+      <h4>{t("Settings")}</h4>
       {/* 090: the processing path as one setting with its four values */}
       {shownParams(Object.keys(recipe.params), defaults).map((k) => {
         const isPath = k === PATH;
@@ -156,7 +156,7 @@ function RecipeDetails({ recipe, help }: { recipe: Recipe; help?: RecipeHelp }) 
             <p><strong>{PARAM_LABEL[k] ?? k}</strong>{p?.help ? <> — {t(p.help)}</> : null}</p>
             {k === "doc_type" ? (
               <details>
-                <summary>{t("{{n}} választható irattípus; alapbeállítás: {{name}}", { n: options.length, name: docTypeLabel(spec.default ?? "") })}</summary>
+                <summary>{t("{{n}} document types to choose from; default: {{name}}", { n: options.length, name: docTypeLabel(spec.default ?? "") })}</summary>
                 <ul className="tight columns">{options.map((o) => <li key={o}>{docTypeLabel(o)}</li>)}</ul>
               </details>
             ) : (
@@ -164,9 +164,9 @@ function RecipeDetails({ recipe, help }: { recipe: Recipe; help?: RecipeHelp }) 
                 {options.map((o, i) => (
                   <li key={o}>
                     <strong>{paramShort(k, o)}</strong>
-                    {o === spec.default ? <span className="status s-ok">{t("alapbeállítás")}</span> : null}
+                    {o === spec.default ? <span className="status s-ok">{t("default")}</span> : null}
                     {p?.options[o] ? <span className="option-text">{t(p.options[o])}</span> : null}
-                    {costVaries ? <span className="muted small option-text">{t("Költségkeret: {{cost}}", { cost: costs[i] })}</span> : null}
+                    {costVaries ? <span className="muted small option-text">{t("Cost budget: {{cost}}", { cost: costs[i] })}</span> : null}
                   </li>
                 ))}
               </ul>

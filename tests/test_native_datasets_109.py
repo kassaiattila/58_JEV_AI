@@ -7,7 +7,7 @@ from openpyxl import load_workbook
 
 from jav.app import corrections, datasets, export, work, work_runs, work_views
 from jav.documents import native_results
-from jav.core import store
+from jav.core import display, store
 from jav.documents.readers import native, pipeline
 from jav.app.tablequery import Query
 from tests.test_native_review_api_109 import published_run
@@ -31,7 +31,7 @@ def test_native_dataset_cache_version_and_exports(tmp_path):
         assert body["native_items"][0]["interpretation"]["correctness"] == "not_established"
         assert body["review_version"] == after["review_version"]
         book = load_workbook(io.BytesIO(export.xlsx_bytes(rid)), data_only=False)
-        sheet = book["Native facts"]
+        sheet = book[display.text("Native facts")]  # 231 (D4): the request's language (Hungarian by default)
         value_column = export.NATIVE_COLUMNS.index("effective_value") + 1
         assert sheet.cell(2, value_column).value == "=00123"
         assert sheet.cell(2, value_column).data_type == "s"

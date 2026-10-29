@@ -79,7 +79,7 @@ export function Picker(p: Props) {
 
   let lastGroup: string | undefined;
   const listId = `${id}-list`;
-  const text = current?.label ?? p.selectedLabel ?? p.placeholder ?? t("Válassz…");
+  const text = current?.label ?? p.selectedLabel ?? p.placeholder ?? t("Choose…");
   return (
     <div className={`picker ${p.compact ? "compact" : ""} ${p.className ?? ""}`}>
       <label htmlFor={`${id}-btn`} className={p.hideLabel ? "sr-only" : "picker-label"}>{p.label}</label>
@@ -91,7 +91,7 @@ export function Picker(p: Props) {
       </button>
       <Popover open={open} onClose={close} anchor={trigger} label={p.label} role="presentation" className="picker-pop">
         <input autoFocus className="picker-search" role="combobox" aria-expanded aria-controls={listId} aria-autocomplete="list"
-          aria-label={t("{{label}}: keresés", { label: p.label })} placeholder={t("Keresés…")} value={q}
+          aria-label={t("{{label}}: search", { label: p.label })} placeholder={t("Search…")} value={q}
           aria-activedescendant={enabled[active] ? `${id}-o-${shown.indexOf(enabled[active])}` : undefined}
           onChange={(e) => { setQ(e.target.value); p.onSearch?.(e.target.value); }} onKeyDown={onInputKey} />
         <ul ref={listRef} id={listId} role="listbox" aria-label={p.label} className="picker-list">
@@ -108,9 +108,9 @@ export function Picker(p: Props) {
               </li>,
             ];
           })}
-          {p.loading ? <li role="presentation" className="picker-empty">{t("Keresés…")}</li> : null}
-          {!p.loading && shown.length === 0 ? <li role="presentation" className="picker-empty">{p.emptyText ?? t("Nincs találat.")}</li> : null}
-          {p.more ? <li role="presentation" className="picker-empty">{t("…és még {{n}} találat — szűkíts a kereséssel.", { n: p.more })}</li> : null}
+          {p.loading ? <li role="presentation" className="picker-empty">{t("Search…")}</li> : null}
+          {!p.loading && shown.length === 0 ? <li role="presentation" className="picker-empty">{p.emptyText ?? t("No results.")}</li> : null}
+          {p.more ? <li role="presentation" className="picker-empty">{t("…and {{n}} more results — refine your search.", { n: p.more })}</li> : null}
         </ul>
       </Popover>
     </div>

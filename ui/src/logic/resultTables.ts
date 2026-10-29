@@ -22,8 +22,8 @@ const SHARED: ResultTableSpec[] = [
   { key: "documents", dataset: "documents", label: "Iratok", order: 30 },
   { key: "datapoints", dataset: "datapoints", label: "Adatpontok", order: 40 },
   { key: "native_facts", dataset: "native_facts", label: "Native facts", order: 50 },
-  { key: "line_items", dataset: "line_items", label: "Tételsorok", order: 60 },
-  { key: "file_names", dataset: "file_names", label: "Fájlnevek", order: 80 },
+  { key: "line_items", dataset: "line_items", label: "Line items", order: 60 },
+  { key: "file_names", dataset: "file_names", label: "File names", order: 80 },
 ];
 const OWN = new Map<string, ResultTableSpec>();
 

@@ -62,7 +62,7 @@ export function Value({ cat, def, value }: { cat?: Catalogue; def?: CatalogueFac
     case "quantity": return <span className="tnum">{numText(v.value, 3)} {UNIT[v.unit] ?? v.unit}</span>;
     case "percentage": return <span className="tnum">{numText(v.value, 2)} %</span>;
     case "permille": return <span className="tnum">{numText(v.value, 4)} ‰</span>;
-    case "bool": return <>{value ? t("Igen") : t("Nem")}</>;
+    case "bool": return <>{value ? t("Yes") : t("No")}</>;
     case "code": return <Code cat={cat} code={String(value)} />;
     case "codes": return <>{joined((value as string[]).map((c) => <Code key={c} cat={cat} code={c} />))}</>;
     case "count": case "decimal": return <span className="tnum">{numText(value, 4)}</span>;

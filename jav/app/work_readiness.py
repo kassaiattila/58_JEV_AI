@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from jav.app import item_kinds
-from jav.core import store
+from jav.core import display, store
 from jav.documents.native_contracts import NATIVE_SUFFIXES
 from jav import flows
 from jav.app import work, work_recipes, work_runs
@@ -226,7 +226,7 @@ def _readiness(wp_id: str, *, verify: bool) -> dict[str, Any]:
     warnings: list[dict[str, str]] = []
     a = wp["assignment"]
     if not wp["items"]:
-        blockers.append({"code": "no_items", "message": "Az iratkötegben nincs tétel."})
+        blockers.append({"code": "no_items", "message": display.text("The document batch has no items.")})
     r = work_recipes.recipe(a["recipe_id"]) if a else work_recipes.default_recipe()
     params = a["params"] if a else work_recipes.default_params(r)  # 160-D: with the application's engine
     if a is not None and work_recipes.recipe_status(r) == "retired":
@@ -269,9 +269,10 @@ def _item_checks(r: dict[str, Any], params: dict[str, Any], items: list[dict[str
                     f"The original file has {'changed' if state == 'changed' else 'disappeared'} since it was added; "
                     f"the copy kept then is processed: {p.name}")}))
         elif not p.exists():
-            found.append(("blocker", {"code": "source_missing", "message": f"Hiányzó forrás: {p.name}"}))
+            found.append(("blocker", {"code": "source_missing", "message": display.text("Missing source: {{name}}", name=p.name)}))
         elif work.fingerprint(p, verify=verify) != i["sha256"]:
-            found.append(("blocker", {"code": "source_changed", "message": f"A forrás tartalma a felvétel óta változott: {p.name}"}))
+            found.append(("blocker", {"code": "source_changed",
+                                    "message": display.text("The source content changed since it was added: {{name}}", name=p.name)}))
         out += [(i["item_id"], level, finding) for level, finding in found]
     return out
 

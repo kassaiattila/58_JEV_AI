@@ -45,21 +45,21 @@ HOOKS_DIR = "scripts/githooks"
 ZERO_SHA = "0" * 40
 
 KIND_LABELS = {
-    "hu_tax_id": "adószám",
-    "eu_vat": "külföldi adószám",
+    "hu_tax_id": "Hungarian tax number",
+    "eu_vat": "foreign tax number",
     "iban": "IBAN",
-    "bank_account": "bankszámlaszám",
-    "email": "e-mail-cím",
-    "phone": "telefonszám",
+    "bank_account": "bank account number",
+    "email": "email address",
+    "phone": "phone number",
     "card_number": "card number",  # 153 (review C2)
     "api_key": "kulcs",
     "env_secret": ".env-titok",
-    "deny_term": "tiltott kifejezés",
-    "internal_doc": "belső munkaanyag",
-    "blocked_path": "tiltott útvonal",
-    "blocked_file": "tiltott fájltípus",
-    "binary_file": "bináris fájl",
-    "forbidden_history": "tiltott történet",
+    "deny_term": "forbidden phrase",
+    "internal_doc": "internal working document",
+    "blocked_path": "blocked path",
+    "blocked_file": "blocked file type",
+    "binary_file": "binary file",
+    "forbidden_history": "forbidden history",
 }
 
 _VALUE_KINDS = frozenset({"hu_tax_id", "eu_vat", "iban", "bank_account", "email", "phone", "card_number", "api_key",
@@ -83,7 +83,7 @@ class Finding:
 
     def describe(self) -> str:
         where = f"{self.path}:{self.line}" if self.line else self.path
-        tail = " (tűrt ismert érték)" if self.known else ""
+        tail = " (a tolerated known value)" if self.known else ""
         return f"  {where}  {KIND_LABELS.get(self.kind, self.kind)}  {self.shown}{tail}"
 
 
@@ -235,12 +235,12 @@ class Guard:
             out.extend(Finding(path, line, "api_key", _mask("api_key", m.group(0))) for m in pat.finditer(text))
         for name, secret in self.env_secrets.items():
             if secret in text:
-                out.append(Finding(path, line, "env_secret", f"(a .env {name} értéke)"))
+                out.append(Finding(path, line, "env_secret", f"(the value of .env {name})"))
         if self.deny:
             hits: set[str] = set()
             for token in set(_TOKEN.findall(text.lower())):
                 hits |= self._deny_in_token(token)
-            out.extend(Finding(path, line, "deny_term", f"(tiltott kifejezés {d[:8]})", self._is_known(d, path))
+            out.extend(Finding(path, line, "deny_term", f"(forbidden phrase {d[:8]})", self._is_known(d, path))
                        for d in sorted(hits))
         return out
 
@@ -252,13 +252,13 @@ class Guard:
         if any(fnmatchcase(rel, a) for a in self.conf.get("allowed_paths", [])):
             return None
         if doc_scope.is_internal(rel):
-            return Finding(rel, 0, "internal_doc", "a belső munkaanyag helyben marad (070)")
+            return Finding(rel, 0, "internal_doc", "the internal working documents stay local (070)")
         for pattern in self.conf.get("blocked_paths", []):
             if (pattern.endswith("/") and rel.startswith(pattern)) or fnmatchcase(rel, pattern) \
                     or fnmatchcase(p.name, pattern):
                 return Finding(rel, 0, "blocked_path", f"minta: {pattern}")
         if p.suffix.lower() in self.conf.get("blocked_extensions", []):
-            return Finding(rel, 0, "blocked_file", f"{p.suffix.lower()}: irat, kép vagy adattár nem kerülhet a gitbe")
+            return Finding(rel, 0, "blocked_file", f"{p.suffix.lower()}: a document, an image or a store cannot go into git")
         return None
 
     def binary_allowed(self, path: str) -> bool:
@@ -328,7 +328,7 @@ def _scan_change(root: Path, guard: Guard, diff_args: list[str]) -> list[Finding
     blocked = {f.path for f in found}
     for name in _numstat_binaries(_git(root, *diff_args, "--numstat", "-z", "--diff-filter=ACMR").stdout):
         if name not in blocked and not guard.binary_allowed(name):
-            found.append(Finding(name, 0, "binary_file", "bináris fájl csak kivétellistával kerülhet a gitbe"))
+            found.append(Finding(name, 0, "binary_file", "a binary file goes into git only on the exception list"))
     diff = _git(root, *diff_args, "-p", "-U0", "--no-color", "--no-ext-diff", "--diff-filter=ACMR").stdout
     for path, line, text in added_lines(diff.decode("utf-8", "replace")):
         found.extend(guard.scan_line(path, line, text))
@@ -390,7 +390,7 @@ def scan_tracked(root: Path, guard: Guard) -> list[Finding]:
         data = p.read_bytes()
         if b"\0" in data:
             if not guard.binary_allowed(name):
-                found.append(Finding(name, 0, "binary_file", "bináris fájl csak kivétellistával kerülhet a gitbe"))
+                found.append(Finding(name, 0, "binary_file", "a binary file goes into git only on the exception list"))
             continue
         for i, text in enumerate(data.decode("utf-8", "replace").splitlines(), start=1):
             found.extend(guard.scan_line(name, i, text))
@@ -408,27 +408,27 @@ def hooks_installed(root: Path = PROJECT_ROOT) -> bool:
 def install_hooks(root: Path = PROJECT_ROOT) -> str:
     """Enables the versioned hooks in this working tree (`core.hooksPath`); `.git/hooks` no longer runs after this."""
     _git(root, "config", "core.hooksPath", HOOKS_DIR)
-    return f"core.hooksPath = {HOOKS_DIR}: a commit és a feltöltés előtt az adatőr fut"
+    return f"core.hooksPath = {HOOKS_DIR}: the data guard runs before every commit and push"
 
 
 def report(findings: list[Finding], action: str) -> str:
     stop = blocking(findings)
     lines = []
     if stop:
-        lines.append(f"adatőr: {len(stop)} megállító találat - {action} nem történt meg")
+        lines.append(f"data guard: {len(stop)} blocking finding(s) - {action} did not happen")
         lines.extend(f.describe() for f in stop)
         kinds = {f.kind for f in stop}
         if kinds & _VALUE_KINDS:
-            lines.append("Tartalom: ha kitalált érték, vedd fel a configs/data_guard.json `allow` listájára "
-                         "(verziólépéssel); ha valódi adat vagy kulcs, cseréld kitaláltra.")
+            lines.append("Content: if it is an invented value, add it to the `allow` list of configs/data_guard.json "
+                         "(with a version step); if it is real data or a key, replace it with an invented one.")
         if kinds & _PATH_KINDS:
-            lines.append("Fájl: vedd ki a commitból: `git restore --staged <fájl>` (a belső munkaanyag helyben marad).")
+            lines.append("File: take it out of the commit: `git restore --staged <file>` (the internal working documents stay local).")
         if "forbidden_history" in kinds:
             lines.append("History: this branch or tag is built on a forbidden history; it cannot be pushed.")
-        lines.append("Leírás: docs/guides/DEVELOPMENT.md §1. A horog megkerülése (--no-verify) tilos.")
+        lines.append("Description: docs/guides/DEVELOPMENT.md §1. Bypassing the hook (--no-verify) is forbidden.")
     tolerated = [f for f in findings if f.known]
     if tolerated:
-        lines.append(f"adatőr: {len(tolerated)} tűrt ismert érték "
+        lines.append(f"data guard: {len(tolerated)} tolerated known value(s) "
                      "(configs/data_guard.json `known`)")
     return "\n".join(lines)
 
@@ -445,11 +445,11 @@ def main(argv: list[str] | None = None) -> int:
         findings, action = check_staged(root, guard), "a commit"
     elif cmd == "pre-push":
         remote = args[1] if len(args) > 1 else "origin"
-        findings, action = check_push(root, guard, sys.stdin.read().splitlines(), remote), "a feltöltés"
+        findings, action = check_push(root, guard, sys.stdin.read().splitlines(), remote), "the push"
     elif cmd == "scan":
-        findings, action = scan_tracked(root, guard), "a kiadás"
+        findings, action = scan_tracked(root, guard), "the release"
         if not findings:
-            print("adatőr: a verziókövetett fájlokban nincs találat")
+            print("data guard: no finding in the tracked files")
     else:
         print(f"ismeretlen parancs: {cmd} (pre-commit | pre-push <remote> | scan | install)", file=sys.stderr)
         return 2

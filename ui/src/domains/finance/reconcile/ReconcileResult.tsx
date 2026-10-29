@@ -131,7 +131,7 @@ function StatementTables({ statement: st, buyers: buyerOf = {} }: { statement: R
         <div className="dt-scroll">
           <table className="table compact">
             <thead><tr>
-              <th>{t("Invoice number")}</th><th>{t("Partner")}</th><th>{t("Due date")}</th><th className="num">{t("Amount")}</th>
+              <th>{t("Invoice number")}</th><th>{t("Counterparty")}</th><th>{t("Due date")}</th><th className="num">{t("Amount")}</th>
               <th>{t("Result")}</th><th className="num">{t("Left")}</th><th>{t("Paid on")}</th><th className="num">{t("Days late")}</th>
             </tr></thead>
             <tbody>
@@ -165,7 +165,7 @@ function StatementTables({ statement: st, buyers: buyerOf = {} }: { statement: R
         <div className="dt-scroll">
           <table className="table compact">
             <thead><tr>
-              <th>{t("Booking date")}</th><th>{t("Partner")}</th><th>{t("Remittance info")}</th><th className="num">{t("Amount")}</th>
+              <th>{t("Booking date")}</th><th>{t("Counterparty")}</th><th>{t("Remittance info")}</th><th className="num">{t("Amount")}</th>
               <th>{t("Result")}</th><th>{t("Reason or invoice")}</th>
             </tr></thead>
             <tbody>

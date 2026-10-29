@@ -415,16 +415,16 @@ CONTRACT = {  # the graph declaration: FLOW.md + Mermaid + lint come from it (ja
     "edges": [("load_message", "classify_attachments"), ("classify_attachments", "intent"), ("intent", "route"), ("route", "tasks"),
               ("tasks", "save"), ("save", "done")],
     "step_meta": {
-        "load_message": {"kind": "det", "note": "inbox/<mailbox>/<msgid>/message.json + fájlok, vagy kész EmailMessage (golden)"},
-        "classify_attachments": {"kind": "flow", "note": "minden PDF-csatolmányon az M1 doc_detect gráf (a levél run_id-je alatt: <run_id>-doc_detect), eredmény a csatolmányra + documents.source_email; kép -> unsupported, névből ismert -> name_only; olvashatatlan PDF -> unreadable + teendő (attachment:unreadable), a levél tovább fut"},
-        "intent": {"kind": "jev", "note": "egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben. Without JEV: the same questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/domains/email/intent_gpt.py); a failed call is an intent:gpt_failed to-do (and no attachment recognition in this flow: the attachments are recognised as items of their own). A sent message (folder = sent, 149) is not asked: no call, no to-do"},
+        "load_message": {"kind": "det", "note": "inbox/<mailbox>/<msgid>/message.json and files, or a ready EmailMessage (golden)"},
+        "classify_attachments": {"kind": "flow", "note": "the M1 doc_detect graph on every PDF attachment (under the email's run_id: <run_id>-doc_detect), the result onto the attachment and documents.source_email; an image -> unsupported, known from its name -> name_only; an unreadable PDF -> unreadable and a to-do (attachment:unreadable), the email goes on"},
+        "intent": {"kind": "jev", "note": "one request: Choice intent (11 intents, the sender's purpose) and 4 Noul signals; the cleaned body and the code's features in the state. Without JEV: the same questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/domains/email/intent_gpt.py); a failed call is an intent:gpt_failed to-do (and no attachment recognition in this flow: the attachments are recognised as items of their own). A sent message (folder = sent, 149) is not asked: no call, no to-do"},
         "route": {"kind": "det", "note": "email_rules.email_next_flow (224: the email domain's own rules, configs/email.json): the confidence threshold -> the attachment's M1 type -> the intent's default route. A sent message (149): email_rules.email_sent_route, its attachments' types, else archive:sent. 190: a route to a type pack that reads text (the quote request), with the recipe's email_text setting on, names the follow-up stage: the extraction flow on the email's own text; 192: and one on each table attachment when the pack reads tables"},
-        "tasks": {"kind": "llm", "note": "feladatjavaslat (GPT, a régi email-actions v1.3.0 utasítása) + kódos bizonyíték-kapu; csak ha a recept kéri, archiválandó levélen nem; javaslat -> teendő (ember fogadja el). Not for a sent message (149)"},
-        "save": {"kind": "store", "note": "emails + email_results (a futás sora, a feladatjavaslat is); bizonytalan intent / javaslat -> review_queue (additív), különben a korábbi tétel zárul; 190: the email's own text as a document tied to the email (documents.source_email), when a follow-up extracts it"},
-        "done": {"kind": "terminal", "note": "szándék + next_flow mentve"},
+        "tasks": {"kind": "llm", "note": "task proposals (GPT, the legacy email-actions v1.3.0 instruction) and an evidence gate in code; only when the recipe asks, not on an email to archive; a proposal -> a to-do (a person accepts it). Not for a sent message (149)"},
+        "save": {"kind": "store", "note": "emails + email_results (the run's row, the task proposals too); an uncertain intent or a proposal -> review_queue (additive), otherwise the earlier item closes; 190: the email's own text as a document tied to the email (documents.source_email), when a follow-up extracts it"},
+        "done": {"kind": "terminal", "note": "intent and next_flow saved"},
     },
     "terminals": TERMINALS,
-    "doc_note": "M3 - a bemenet a régi outlook_bridge.ps1 -> jav/domains/email/ingest_server.py -> inbox-mappa; a next_flow kódban dől el, nem Jev-kérdés.",
+    "doc_note": "M3 - the input: the legacy outlook_bridge.ps1 -> jav/domains/email/ingest_server.py -> the inbox folder; next_flow is decided in code, not by a JEV question.",
 }
 
 

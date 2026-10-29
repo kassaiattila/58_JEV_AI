@@ -25,7 +25,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from jav.app import item_kinds, work, work_recipes, work_runs
-from jav.core import identity, store, todo_kinds
+from jav.core import display, identity, store, todo_kinds
 from jav.domains.email import email_store, ingest_server
 from jav.core.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
 from jav.core.user_messages import explained
@@ -215,7 +215,9 @@ def fetch(req: MailboxRequest, *, actor: identity.Who, runner: Runner | None = N
                               "changed": sum(s["status"] == "changed" for s in stored),
                               "duplicate": sum(s["status"] == "duplicate" for s in stored), "workpackage": None}
     if interrupted is not None:
-        result["error"] = f"A letöltés megszakadt ({type(interrupted).__name__}); a megérkezett levelekből csomag készült."
+        # 231 (D4): in the request's language (Hungarian in the worker, as before)
+        result["error"] = display.text("The download was interrupted ({{error}}); a package was made from the emails that arrived.",
+                                       error=type(interrupted).__name__)
     if code != 0 and not stored:
         raise BridgeError(_error_text(err, out, code))
     if fresh:
@@ -306,6 +308,7 @@ def mark_suspicious_source(run: dict[str, Any], item: dict[str, Any]) -> bool:
     return False
 
 
+# 231 (D4): stored data (the schedule's word in the name every scheduled download recorded), so it stays as stored
 _SCHEDULED_ACTOR = re.compile(r"^ütemezés \((.+)\)$")
 
 
@@ -326,12 +329,13 @@ def owner_of(actor: identity.Who) -> identity.Who:
 
 
 def _workpackage(req: MailboxRequest, messages: list[Path], *, actor: identity.Who) -> dict[str, Any]:
-    name = f"Postafiók: {', '.join(req.accounts)} · {datetime.now():%Y-%m-%d %H:%M}"
+    # 231 (D4): the package's name in the request's language (Hungarian for a schedule, as before)
+    name = display.text("Mailbox: {{accounts}} · {{at}}", accounts=", ".join(req.accounts), at=f"{datetime.now():%Y-%m-%d %H:%M}")
     wp = work.create_workpackage(name=name, source_kind="mailbox", source_ref=req.label(), owner=owner_of(actor))
     wp = work.add_items(wp["id"], messages, kind="email", expected_revision=0)
     wp = add_attachments(wp["id"], expected_revision=wp["revision"])  # 058 K5.2: plus the PDF attachments
     r = work_recipes.default_recipe()  # 080: one processing; on an email, intent + attachments
     # the recipe's defaults; 160-D: the application's engine (`assign_recipe` fills what is not named)
     work_recipes.assign_recipe(wp["id"], r["id"], params={}, expected_revision=0, actor=actor,
-                       note="postafiók-letöltés után automatikusan (a futtatás kézi)")
+                       note=display.text("automatically after a mailbox download (the run is started by hand)"))
     return work.get(wp["id"])

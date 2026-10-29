@@ -25,7 +25,7 @@ import re
 from typing import Any
 
 from jav.ai import typepack
-from jav.core import cfg, rulebook, store, trace
+from jav.core import cfg, display, rulebook, store, trace
 
 # the formats of a shown value (`configs/rule_help.json`) and the form each is served in: a number the interface sets
 # as a percentage or percentage points, yes or no, a number, a label or labels (the interface translates them), an
@@ -110,25 +110,26 @@ def _value(spec: dict[str, Any]) -> dict[str, Any]:
 
 def _text(v: dict[str, Any], steps: dict[str, str]) -> str:
     """A shown value as searchable plain text (the interface sets it in the chosen language); a next step by its
-    label (`steps`)."""
+    label (`steps`). 231 (D4): the names and the label in the request's language, as a download shows them."""
     value, fmt = v["value"], v["format"]
     if fmt == "percent":
         shown = f"{value * 100:g} %"
     elif fmt == "points":
-        shown = f"{value * 100:g} percentage points"
+        shown = display.text("{{n}} percentage points", n=f"{value * 100:g}")
     elif fmt == "yes_no":
-        shown = "yes" if value else "no"
+        shown = display.text("yes" if value else "no")
     elif fmt == "names":
-        shown = ", ".join(value)
+        shown = ", ".join(display.text(n) for n in value)
     elif fmt == "route":
-        shown = steps.get(value["code"], value["code"])
+        shown = display.text(steps.get(value["code"], value["code"]))
     elif fmt == "routes":
-        shown = ", ".join(f"{a} → {steps.get(b['code'], b['code'])}" for a, b in value)
+        shown = ", ".join(f"{display.text(a)} → {display.text(steps.get(b['code'], b['code']))}" for a, b in value)
     elif fmt == "usd":
         shown = ", ".join(f"{p} {amount} USD" for p, amount in value)
     else:
         shown = str(value)
-    return f"{v['label']} {shown}" if fmt in COMPARED else f"{v['label']}: {shown}"
+    label = display.text(v["label"])
+    return f"{label} {shown}" if fmt in COMPARED else f"{label}: {shown}"
 
 
 def _dated(file: str, version: str | None) -> str | None:

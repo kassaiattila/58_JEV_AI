@@ -17,7 +17,7 @@ from openpyxl.formatting.rule import CellIsRule
 from openpyxl.styles import Font, PatternFill
 
 from jav.app import export, work
-from jav.core import store
+from jav.core import display, store
 from jav.domains.finance import report_utility
 from jav.domains.finance import reconcile_statement as rs
 from jav.app.outputs import contract, fill, markers, samples, templates
@@ -185,7 +185,8 @@ def test_the_months_spread_to_the_right_with_their_names(db):
     ws = load_workbook(io.BytesIO(fill.fill(data, _bytes(wb)))).active
     assert [ws.cell(1, c).value for c in range(2, 6)] == ["2026-01", "2026-02", "2026-03", "2026-04"]
     assert ws.cell(2, 1).value == "1111 Budapest, Minta utca 11" and ws.cell(2, 2).value == Decimal("10000.00")
-    assert ws.cell(2, 3).value == report_utility.STATUS_TEXT["missing"]  # a missing month says so, as in the built-in template
+    # a missing month says so, as in the built-in template (231, D4: in the request's language)
+    assert ws.cell(2, 3).value == display.text(report_utility.STATUS_TEXT["missing"]) == "hiányzik"
     assert ws.cell(4, 2).value == Decimal("31000.00") and ws.cell(4, 2).number_format == "#,##0.00"
 
 

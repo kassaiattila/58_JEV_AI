@@ -154,7 +154,7 @@ def test_determinism_summary(runs: dict[str, Path]):
 
 def test_markdown_report_has_every_section(runs: dict[str, Path]):
     md = er.report_markdown(list(runs.values()))
-    for h in ("## Források", "## Kérdésenként", "## Kalibráció", "## top-prob vs. confidence", "## Policy-sáv újraértékelés", "## Determinizmus"):
+    for h in ("## Sources", "## By question", "## Calibration", "## top-prob vs. confidence", "## The policy bands evaluated again", "## Determinism"):
         assert h in md, h
     assert "invoice_S" in md and "email_intent" in md and "ECE" in md
     assert "uncertain_review" in md  # the name of the switch needed for the decision is present

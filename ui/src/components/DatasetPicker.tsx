@@ -78,7 +78,7 @@ export function runOption(r: DsRow): PickerOption {
   const status = RUN_STATUS[String(r.status)] ?? String(r.status);
   return {
     value: String(r.run_id), label: `${at} · ${String(r.workpackage_name ?? "")} · ${mode}`,
-    detail: t("{{recipe}} · {{status}} · {{items}} tétel", { recipe: t(String(r.recipe ?? "")), status, items: String(r.items ?? "") }),
+    detail: t("{{recipe}} · {{status}} · {{items}} items", { recipe: t(String(r.recipe ?? "")), status, items: String(r.items ?? "") }),
     group: Number.isNaN(d.getTime()) ? undefined : d.toLocaleDateString(getLocale(), { year: "numeric", month: "long" }),
   };
 }

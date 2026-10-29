@@ -47,7 +47,7 @@ export function ResultStage({ view, table, runId, onChanged }: {
   useLocale();
   const wp = view.workpackage;
   if (!view.runs) {
-    return <div className="empty">{t("Még nincs eredmény: előbb futtasd a köteget a")} <a href={`#/workpackages/${wp.id}/process`}>{t("Feldolgozás")}</a> {t("szakaszban.")}</div>;
+    return <div className="empty">{t("No result yet: first run the document batch in the")} <a href={`#/workpackages/${wp.id}/process`}>{t("Processing")}</a> {t("in the section.")}</div>;
   }
   return runId ? <RunResult view={view} table={table} runId={runId} />
     : <PackageResultStage view={view} table={table} onChanged={onChanged} />;
@@ -65,7 +65,7 @@ function ResultPicker({ wpId, runId, table }: { wpId: string; runId?: string; ta
 
 function ViewTabs({ available, current, onPick }: { available: ResultTable[]; current: ResultTable; onPick: (x: ResultTable) => void }) {
   return (
-    <div className="segmented-tabs" role="tablist" aria-label={t("Eredmény nézetei")}>
+    <div className="segmented-tabs" role="tablist" aria-label={t("Result views")}>
       {available.map((x) => (
         <button key={x} type="button" role="tab" aria-selected={x === current} className="seg" onClick={() => onPick(x)}>{tableLabel(x)}</button>
       ))}
@@ -120,12 +120,12 @@ function PackageResultStage({ view, table, onChanged }: { view: WorkpackageView;
           // stay together at the row's end
           <span className="result-actions">
             <TemplateChoice wpId={wp.id} output="package_result" />
-            <a className="secondary dl-btn small-btn" href={xlsx} download><Icon name="download" />{t("Teljes Excel-csomag")}</a>
+            <a className="secondary dl-btn small-btn" href={xlsx} download><Icon name="download" />{t("Full Excel batch")}</a>
           </span>
         ) : null}
       </div>
       {result.error ? <p className="notice error" role="alert">{result.error.message}</p> : null}
-      {!data && !result.error ? <p className="muted">{t("Betöltés…")}</p> : null}
+      {!data && !result.error ? <p className="muted">{t("Loading…")}</p> : null}
       {data ? (
         <PackageRelease wpId={wp.id} data={data} running={!!cur && ACTIVE_RUN.has(cur.status)} mark={mark}
           onReleased={() => { again(); onChanged(); }} onConflict={again} />
@@ -196,7 +196,7 @@ function PackageRelease({ wpId, data, running, mark, onReleased, onConflict }: {
       } else if (err.status === 409) {
         setMsg({ error: true, text: t("The package's result changed since it was shown. Check it again, then release it.") });
       } else {
-        setMsg({ error: true, text: err.status === 422 && !getActor() ? t("A jóváhagyáshoz válaszd ki a neved a fejlécben.") : err.message });
+        setMsg({ error: true, text: err.status === 422 && !getActor() ? t("To approve, select your name in the header.") : err.message });
         return;
       }
       onConflict();
@@ -247,7 +247,7 @@ function PackageRelease({ wpId, data, running, mark, onReleased, onConflict }: {
       ) : null}
       {line === "ready" || line === "todo" || line === "running" ? (
         <ConfirmButton className={line === "ready" ? "primary" : "secondary"} disabled={busy || line !== "ready" || mark === undefined}
-          onConfirm={() => void release()}>{t("Jóváhagyás és kiadás")}</ConfirmButton>
+          onConfirm={() => void release()}>{t("Approve and release")}</ConfirmButton>
       ) : null}
       {msg ? <span role="status" className={msg.error ? "error-text" : ""}>{msg.text}</span> : null}
     </div>
@@ -327,16 +327,16 @@ function RunResult({ view, table, runId }: { view: WorkpackageView; table?: Resu
         <ResultPicker wpId={wp.id} runId={runId} table={current} />
         <ViewTabs available={available} current={current} onPick={nav} />
         <span className="dt-spacer" />
-        <a className="secondary dl-btn small-btn" href={api.exportUrl(runId, "xlsx")} download><Icon name="download" />{t("Teljes Excel-csomag")}</a>
+        <a className="secondary dl-btn small-btn" href={api.exportUrl(runId, "xlsx")} download><Icon name="download" />{t("Full Excel batch")}</a>
       </div>
       <RunState runId={runId} wpId={wp.id} />
-      {run.data && !available.length ? <p className="notice">{t("Ennek a futásnak nincs irat-eredménye (például csak leveleket dolgozott fel).")}</p> : null}
+      {run.data && !available.length ? <p className="notice">{t("This run has no document results (for example, it only processed emails).")}</p> : null}
       {spec.key === current && spec.Panel ? <spec.Panel runId={runId} wpId={wp.id} /> : null}
       {current === "file_names" ? <NamedCopiesBar runId={runId} /> : null}
       {available.length ? <DataTable key={`${spec.dataset}:${runId}`} dataset={spec.dataset} scope={{ run_id: runId }} label={tableLabel(spec.key)} selectable
         storageId={`result-${spec.dataset}`} defaultHidden={DEFAULT_HIDDEN[spec.dataset]}
         cell={spec.key === "emails" ? (col, row) => (col.key === "next_flow" ? nextFlowText(row.next_flow as string | null, row.next_flow_reads_text === true) : undefined) : undefined}
-        downloadExtras={<a className="small" href={api.exportUrl(runId, "xlsx")} download>{t("A futás teljes Excel-csomagja (minden tábla és a közmű-költség)")}</a>} /> : null}
+        downloadExtras={<a className="small" href={api.exportUrl(runId, "xlsx")} download>{t("Full Excel batch of the run (all tables and the utility cost)")}</a>} /> : null}
     </div>
   );
 }
@@ -355,12 +355,12 @@ export function NamedCopiesBar({ runId }: { runId: string }) {
     setMsg(null);
     try {
       const r = await api.writeNamedCopies(runId);
-      setMsg({ error: false, text: t("Kiírva: {{path}} — {{ready}} kész, {{review}} ellenőrzendő, {{skipped}} kimaradt.",
+      setMsg({ error: false, text: t("Written: {{path}} — {{ready}} ready, {{review}} to review, {{skipped}} skipped.",
         { path: r.path, ready: r.ready, review: r.review, skipped: r.skipped }) });
     } catch (e) {
       const err = e as ApiError;
-      setMsg({ error: true, text: err.code === "no_output_folder" ? t("Nincs kimeneti mappa; add meg a Beállítások › Munkamappák oldalon.")
-        : err.status === 422 && !getActor() ? t("A kiíráshoz válaszd ki a neved a fejlécben.") : err.message });
+      setMsg({ error: true, text: err.code === "no_output_folder" ? t("No output folder; set one under Settings › Work folders.")
+        : err.status === 422 && !getActor() ? t("To write the copies, choose your name in the header.") : err.message });
     } finally {
       setBusy(false);
     }
@@ -368,12 +368,12 @@ export function NamedCopiesBar({ runId }: { runId: string }) {
 
   return (
     <div className="named-copies">
-      <span>{t("Az iratok másolatai egységes, tartalom szerinti névvel; az eredeti fájlok nem változnak. A bizonytalan nevűek az „ellenorzendo” almappába kerülnek, a jegyzék (jegyzek.csv) mutatja, melyik eredetiből melyik név lett.")}</span>
+      <span>{t("Copies of the documents with uniform, content-based names; the original files do not change. Copies with an uncertain name go to the “{{folder}}” subfolder, and the manifest ({{manifest}}) shows which original became which name.", { folder: t("to-check"), manifest: t("manifest.csv") })}</span>
       <span className="button-row">
-        <a className="secondary dl-btn small-btn" href={api.namedCopiesZipUrl(runId)} download><Icon name="download" />{t("Letöltés ZIP-ben")}</a>
+        <a className="secondary dl-btn small-btn" href={api.namedCopiesZipUrl(runId)} download><Icon name="download" />{t("Download as ZIP")}</a>
         <button type="button" className="secondary small-btn" disabled={busy || !folder} onClick={() => void write()}
-          title={folder ?? t("Előbb adj meg kimeneti mappát a Beállítások › Munkamappák oldalon.")}>{busy ? t("Kiírás…") : t("Kiírás a kimeneti mappába")}</button>
-        {out.data && !folder ? <span className="muted small">{t("Nincs kimeneti mappa:")} <a href="#/settings/folders">{t("Beállítások › Munkamappák")}</a></span> : null}
+          title={folder ?? t("First set an output folder under Settings › Work folders.")}>{busy ? t("Writing…") : t("Write to the output folder")}</button>
+        {out.data && !folder ? <span className="muted small">{t("No output folder:")} <a href="#/settings/folders">{t("Settings › Work folders")}</a></span> : null}
       </span>
       {msg ? <span role="status" className={msg.error ? "error-text" : ""}>{msg.text}</span> : null}
     </div>

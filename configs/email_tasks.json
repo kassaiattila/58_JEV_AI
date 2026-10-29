@@ -6,7 +6,7 @@
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "058 K5.3 (döntés 2026-09-28): a régi 10_AIFLOW_V4/flows/email-actions-bare feladatjavaslata (prompt v1.3.0 szó szerint, akció-szótár, kódos bizonyíték-kapu) a levél-folyamat lépéseként; a javaslatot csak ember fogadja el. Eltérés a régitől: a bizonyíték csak a levél tárgya és szövege lehet (a csatolmány adatai ugyanabban a futásban külön tételként készülnek); az archiválandó levelek kimaradnak (költség)"
+    "note": "058 K5.3 (decision of 2026-09-28): the legacy 10_AIFLOW_V4/flows/email-actions-bare task proposals (prompt v1.3.0 verbatim, the action dictionary, an evidence gate in code) as a step of the email flow; only a person accepts a proposal. Unlike the legacy one, the evidence can only be the email's subject and text (the attachment's data come as separate items in the same run); the emails to archive are left out (cost)"
    }
   ]
  },

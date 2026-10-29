@@ -41,7 +41,7 @@ The interface starts in Hungarian; the **HU / EN** buttons in the header switch 
 
 ### 2.2 Language
 
-The **HU / EN** buttons switch only the interface labels. Document data, names and file names do not change, and unsaved corrections are kept. The choice is remembered in this browser. You can set the same on the Settings › Language (*Nyelv*) page.
+The **HU / EN** buttons switch the interface labels, and what the system makes for you from then on follows the same language (since `v1.63.0`): a download's headers, sheet names and labels (Excel and CSV), and the content-based file names (the type's word, the review subfolder and the manifest; section 8). Document data and original file names do not change, and unsaved corrections are kept. The choice is remembered in this browser. You can set the same on the Settings › Language (*Nyelv*) page.
 
 ## 3. The list of every document batch
 
@@ -557,6 +557,7 @@ In **Result**, the **Native facts** table joins the existing PDF views. Its **So
 - **Utility cost:** the gross amount of utility invoices per point of consumption and utility, month by month. An invoice that covers several months is split in proportion to the days. A cell shows the amount, or ‘missing’ (*hiányzik*: no invoice covers the month), ‘partial’ (*részleges*: part of the month is not covered) or ‘overlap’ (*átfedés*: two invoices cover it). An * marks a settlement invoice. Informational rows do not count towards the total. Clicking a cell shows its source invoices, each with an ‘open’ (*megnyitás*) link. The report counts a duplicated invoice (the same invoice number and supplier) only once, and says so, also while it is not yet confirmed; a pair you marked as ‘Not the same invoice’ counts twice.
 - **File names:** copies of the documents under uniform, content-based names, for example `2026-09-12_SZAMLA_Minta-Kft_SZ-2026-001234.pdf` (date first, then the type, the partner and the identifier, without accents). The original files never change; the copies are exact byte-for-byte copies of the processed documents. The table shows each document's ‘New file name’ (*Új fájlnév*), whether it is ready or goes to review (‘Folder’ (*Mappa*)), and ‘Why to review’ (*Miért ellenőrzendő*).
   - A copy goes into the `ellenorzendo` (to review) subfolder when its name rests on something uncertain: the document did not finish processing, its type is unknown or uncertain, a field of the name is empty, or an open to-do concerns a field of the name. Correcting that field in Review makes the name certain.
+  - The names follow the interface's language (section 2.2): from the English interface the same copy is `2026-09-12_HU-INVOICE_Minta-Kft_SZ-2026-001234.pdf`, the review subfolder is `to-check` and the manifest is `manifest.csv`.
   - **Download as ZIP** (*Letöltés ZIP-ben*) gives the copies and a manifest (`jegyzek.csv`: which original became which name, with its fingerprint). **Write to the output folder** (*Kiírás a kimeneti mappába*) puts the same into a new subfolder of the output folder (section 10.2); nothing there is ever overwritten. A document whose source file changed since it was added is left out and listed in the manifest as ‘skipped’ (*kimaradt*).
 - **Approval:**
   - For a trial run, the interface states that the result cannot be released; that needs a live run.

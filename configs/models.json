@@ -6,12 +6,12 @@
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "modell-adminisztráció kiszervezése a jav/config.py konstansaiból: azonosítók, árak, timeout, cache-verzió"
+    "note": "the model administration moved out of jav/config.py's constants: ids, prices, timeout, cache version"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-20",
-    "note": "Jev keret-kör 1 (BACKLOG 1): cache_version 2 (a konkrét modellverzió a cache-kulcsban, egyszeri érvénytelenítés), alias_ttl_hours, explicit retry (typesafe_sdk.RetryPolicy mezői)"
+    "note": "JEV framework round 1 (BACKLOG 1): cache_version 2 (the concrete model version in the cache key, a one-off invalidation), alias_ttl_hours, an explicit retry (the fields of typesafe_sdk.RetryPolicy)"
    },
    {
     "version": "1.2.0",

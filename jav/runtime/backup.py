@@ -233,7 +233,7 @@ def _archive_docs(docs_root: Path, target: Path) -> dict[str, Any] | None:
     with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as z:
         for p in docs:
             z.write(p, p.relative_to(docs_root).as_posix())
-    return {"file": target.name, "source": f"{docs_root / 'docs'} (belső munkaanyag)", "bytes": target.stat().st_size,
+    return {"file": target.name, "source": f"{docs_root / 'docs'} (internal working documents)", "bytes": target.stat().st_size,
             "entries": len(docs), "integrity": _zip_integrity(target)}
 
 

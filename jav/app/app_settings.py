@@ -35,7 +35,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from jav.app import work, work_recipes
-from jav.core import identity, store
+from jav.core import display, identity, store
 from jav.documents.native_contracts import DOCUMENT_SUFFIXES
 from jav.core import lock
 from jav.core.user_messages import explained
@@ -285,7 +285,8 @@ def _mark_seen(folder_id: str, files: list[tuple[Path, str, os.stat_result]]) ->
                       [(folder_id, str(rp), st.st_size, st.st_mtime_ns, digest) for rp, digest, st in files])
 
 
-# data: the name the package log and the settings history show for a scheduled scan (229: the machine's id beside it)
+# data: the name the package log and the settings history show for a scheduled scan (229: the machine's id beside it;
+# 231, D4: the id is made of the name, so it stays as stored)
 WATCHER = identity.machine("figyelt mappa")
 
 
@@ -315,7 +316,7 @@ def scan(folder_id: str, *, now: datetime | None = None, actor: identity.Who = W
         raise KeyError(folder_id)
     with lock.try_exclusive(store.current_path().with_name(f"watch-{folder_id}.lock")) as got:
         if not got:
-            return {"status": "busy", "error": "Az átnézés éppen folyamatban van; néhány másodperc múlva próbáld újra."}
+            return {"status": "busy", "error": display.text("The scan is running right now; try again in a few seconds.")}
         return _scan(folder, now, actor)
 
 

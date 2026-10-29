@@ -11,7 +11,7 @@
    {
     "version": "1.0.1",
     "date": "2026-09-29",
-    "note": "066 Á13: anonimizálás - a bankszámla-, ügyfélkód-, mérősor- és keresztnév-példák kitalált értékekre cserélve (a kérdések jelentése változatlan; új gyorsítótár-kulcs, S-kar etalon kell)"
+    "note": "066 Á13: anonymisation - the bank account, customer code, meter row and first name examples replaced with invented values (the questions mean the same; a new cache key, an S path golden run needed)"
    },
    {
     "version": "1.1.0",

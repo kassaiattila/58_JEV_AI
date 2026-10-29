@@ -105,7 +105,7 @@ def cmd_data_guard(args: argparse.Namespace) -> int:
     from jav.core.config import PROJECT_ROOT
 
     found = data_guard.scan_tracked(PROJECT_ROOT, data_guard.load_guard(PROJECT_ROOT))
-    print(data_guard.report(found, "a kiadás") or "adatőr: a verziókövetett fájlokban nincs találat")
+    print(data_guard.report(found, "the release") or "data guard: no finding in the tracked files")
     if args.all:  # the locations of the tolerated known values too (masked)
         for f in found:
             if f.known:
@@ -130,14 +130,15 @@ def cmd_lang_guard(args: argparse.Namespace) -> int:
         if guard.baseline:
             print("the baseline is not empty; use --update (lower) or --accept PATH (raise one file)")
             return 1
-        lang_guard.write_baseline(PROJECT_ROOT, counts)
+        lang_guard.write_baseline(PROJECT_ROOT, counts, f"baseline initialised: {sum(counts.values())} lines")
         guard = lang_guard.load_guard(PROJECT_ROOT)
         print(f"baseline initialised: {sum(counts.values())} Hungarian lines in {len(counts)} files")
     elif args.update or args.accept:
         new = lang_guard.lowered_baseline(counts, guard, tuple(args.accept))
-        lang_guard.write_baseline(PROJECT_ROOT, new)
-        print(f"baseline: {sum(guard.baseline.values())} -> {sum(new.values())} Hungarian lines in {len(new)} files"
-              + (f"; accepted: {', '.join(args.accept)}" if args.accept else ""))
+        change = (f"baseline: {sum(guard.baseline.values())} -> {sum(new.values())} Hungarian lines in {len(new)} files"
+                  + (f"; accepted: {', '.join(args.accept)}" if args.accept else ""))
+        lang_guard.write_baseline(PROJECT_ROOT, new, change)
+        print(change)
         guard = lang_guard.load_guard(PROJECT_ROOT)
     over = lang_guard.excess(counts, guard)
     for e in over:
@@ -247,7 +248,7 @@ def cmd_hooks_install(args: argparse.Namespace) -> int:
 def cmd_configs(args: argparse.Namespace) -> int:
     from jav.core import cfg
 
-    print("| konfig | verzió | hash | utolsó changelog |\n|---|---|---|---|")
+    print("| config | version | hash | last changelog entry |\n|---|---|---|---|")
     for r in cfg.report():
         print(f"| {r['name']} | {r['version']} | `{r['hash']}` | {r['last']} |")
     return 0
@@ -403,12 +404,12 @@ def cmd_backup(args: argparse.Namespace) -> int:
                           copy_to=Path(args.copy_to) if args.copy_to else None, with_docs=args.with_docs,
                           with_env=args.with_env)
     for f in m["files"]:
-        entries = f" ({f['entries']} fájl)" if "entries" in f else ""
-        print(f"{f['file']}{entries}: {f['bytes'] / 1e6:.1f} MB, ellenőrzés: {f['integrity']}")
-    print(f"Mentés: {m['dir']}" + (f" (törölt régi mentések: {', '.join(m['removed'])})" if m.get("removed") else ""))
+        entries = f" ({f['entries']} file(s))" if "entries" in f else ""
+        print(f"{f['file']}{entries}: {f['bytes'] / 1e6:.1f} MB, check: {f['integrity']}")
+    print(f"Backup: {m['dir']}" + (f" (older backups removed: {', '.join(m['removed'])})" if m.get("removed") else ""))
     copy = m.get("copy")
     if copy:
-        print(f"Másolat: {copy['dir']} - " + ("ellenőrizve" if copy["ok"] else f"HIBA: {copy.get('error')}"))
+        print(f"Copy: {copy['dir']} - " + ("checked" if copy["ok"] else f"ERROR: {copy.get('error')}"))
     if not m["ok"]:
         return 1
     return 2 if copy and not copy["ok"] else 0
@@ -709,15 +710,15 @@ def cmd_burr_prune(args: argparse.Namespace) -> int:
     active = queue.active_run_ids()
     before = path.stat().st_size if path.is_file() else 0
     out = persistence.prune_to_last(path, skip_prefixes=tuple(f"{r}:" for r in active))
-    print(f"Ritkítva: {out['deleted']} köztes állapotsor törölve; kihagyott futó futás: {len(active)}.")
+    print(f"Thinned out: {out['deleted']} intermediate state row(s) deleted; running runs left out: {len(active)}.")
     if args.no_vacuum or not path.is_file():
         return 0
     if worker.running():
-        print("A feldolgozó fut: a tömörítés (a hely visszaadása a lemeznek) kimarad. "
-              "Állítsd le (.\\scripts\\dev.ps1 stop), és futtasd újra a parancsot.")
+        print("The worker is running: the compaction (giving the space back to the disk) is left out. "
+              "Stop it (.\\scripts\\dev.ps1 stop) and run the command again.")
         return 0
     v = persistence.vacuum(path)
-    print(f"Tömörítve: {before / 1e6:.1f} MB -> {v['bytes_after'] / 1e6:.1f} MB")
+    print(f"Compacted: {before / 1e6:.1f} MB -> {v['bytes_after'] / 1e6:.1f} MB")
     return 0
 
 
@@ -732,7 +733,7 @@ def cmd_ocr(args: argparse.Namespace) -> int:
     from jav.documents.pdf import read_document
 
     pdf = read_document(args.pdf) if not args.force else ocr.ocr_pdf(args.pdf, use_cache=False, psm=args.psm)
-    print(f"{pdf.path}: {pdf.page_count} oldal, {len(pdf.lines)} sor, szövegréteg={pdf.has_text_layer}, szöveg-forrás={pdf.text_source}")
+    print(f"{pdf.path}: {pdf.page_count} page(s), {len(pdf.lines)} line(s), text layer={pdf.has_text_layer}, text source={pdf.text_source}")
     if pdf.ocr:
         print("OCR: " + json.dumps(pdf.ocr, ensure_ascii=False))
     for ln in pdf.layout[: args.limit or None]:
@@ -841,22 +842,22 @@ def register(sub) -> None:
     p.add_argument("--reason", help="reject: why")
     p.add_argument("--ident", help="the draft rule's identifier (default: <document>.<clause>.<kind>)")
     p.set_defaults(fn=cmd_rule_proposal_decide)
-    p = sub.add_parser("flows", help="Burr-kontraktok lintje + FLOW.md / FLOW.mmd generálás (docs/flows/)")
-    p.add_argument("--check", action="store_true", help="csak lint, fájlírás nélkül")
+    p = sub.add_parser("flows", help="lint the Burr contracts and generate FLOW.md / FLOW.mmd (docs/flows/)")
+    p.add_argument("--check", action="store_true", help="lint only, without writing files")
     p.set_defaults(fn=cmd_flows)
     p = sub.add_parser("docs", help="generated docs: docs/callsites/ (JEV call sites) + docs/flows/ (contracts) + docs/BANK_FILES.md (bank files)")
     p.set_defaults(fn=cmd_docs)
-    p = sub.add_parser("admin", help="egy képernyő: konfigok, modellek, flow-lint, store, utolsó golden-eredmények, review-sor")
-    p.add_argument("--write", action="store_true", help="a képernyő fájlba: docs/STATE.md (generált állapot-pillanatkép)")
+    p = sub.add_parser("admin", help="one screen: configs, models, flow lint, store, the latest golden results, the review queue")
+    p.add_argument("--write", action="store_true", help="the screen into a file: docs/STATE.md (a generated state snapshot)")
     p.set_defaults(fn=cmd_admin)
-    p = sub.add_parser("preflight", help="session-indító ellenőrzés API nélkül: pytest, kontrakt-lint, konfigok, handoff-frissesség, STATE.md")
+    p = sub.add_parser("preflight", help="the session start check without API calls: pytest, contract lint, configs, handoff freshness, STATE.md")
     p.add_argument("--skip-pytest", action="store_true")
     p.set_defaults(fn=cmd_preflight)
     p = sub.add_parser("test-worktree", help="231: the full test suite (pytest + UI) in a separate git worktree, with the uncommitted changes, so the main working tree stays free meanwhile")
     p.add_argument("--no-ui", action="store_true", help="pytest only")
     p.set_defaults(fn=cmd_test_worktree)
-    p = sub.add_parser("data-guard", help="071 adatőr: a verziókövetett fájlok átnézése (személyes adat, kulcs, belső anyag)")
-    p.add_argument("--all", action="store_true", help="a tűrt ismert értékek helyét is kiírja (maszkolva)")
+    p = sub.add_parser("data-guard", help="071 data guard: scan the tracked files (personal data, keys, internal material)")
+    p.add_argument("--all", action="store_true", help="print where the tolerated known values are too (masked)")
     p.set_defaults(fn=cmd_data_guard)
     p = sub.add_parser("lang-guard", help="073 language guard: tracked files may not gain Hungarian lines (baseline: configs/lang_guard.json)")
     p.add_argument("--init", action="store_true", help="take the current counts as the first baseline (only when it is empty)")
@@ -894,17 +895,17 @@ def register(sub) -> None:
                                                          " v1.20.0, recorded afterwards (idempotent)")
     p.add_argument("--dry-run", action="store_true", help="list the packages, write nothing")
     p.set_defaults(fn=cmd_package_versions_backfill)
-    p = sub.add_parser("hooks-install", help="071 adatőr: a verziózott git-horgok bekapcsolása (core.hooksPath = scripts/githooks)")
+    p = sub.add_parser("hooks-install", help="071 data guard: turn on the versioned git hooks (core.hooksPath = scripts/githooks)")
     p.set_defaults(fn=cmd_hooks_install)
-    p = sub.add_parser("configs", help="konfig mint adat: configs/*.json verziók és config_hash-ek")
+    p = sub.add_parser("configs", help="config as data: the versions and config hashes of configs/*.json")
     p.set_defaults(fn=cmd_configs)
-    p = sub.add_parser("legacy-import", help="047: a régi projekt köteg-exportjai (csak olvasva) a legacy_results táblába, ujjlenyomat szerint")
-    p.add_argument("--root", help="a régi data/output mappa (alap: JAV_LEGACY_ROOT/data/output)")
+    p = sub.add_parser("legacy-import", help="047: the legacy project's batch exports (read only) into the legacy_results table, by fingerprint")
+    p.add_argument("--root", help="the legacy data/output folder (default: JAV_LEGACY_ROOT/data/output)")
     p.set_defaults(fn=cmd_legacy_import)
-    p = sub.add_parser("legacy-compare", help="047: az új és a régi eredmény összevetése (egyezés, nem pontosság)")
+    p = sub.add_parser("legacy-compare", help="047: the new and the legacy result compared (agreement, not accuracy)")
     p.add_argument("--out")
     p.set_defaults(fn=cmd_legacy_compare)
-    p = sub.add_parser("reground", help="053: a futás(ok) forráshelyének újraszámolása (mező- és tételsor-keretek; AI-hívás nélkül)")
+    p = sub.add_parser("reground", help="053: compute the source places of a run again (field and line item boxes; no AI call)")
     p.add_argument("runs", nargs="+")
     p.set_defaults(fn=cmd_reground)
     p = sub.add_parser("snapshot", help="218: calculation snapshots - the code and the rules a run, an item, a case or an"
@@ -941,25 +942,25 @@ def register(sub) -> None:
     p.add_argument("--size", type=int, default=150, help="with --replay: about how many units (default 150)")
     p.add_argument("--jev-cache", help="with --replay: the JEV answer cache to read (default: runs/cache)")
     p.set_defaults(fn=cmd_rules_preview)
-    p = sub.add_parser("store", help="adattár statisztika (documents, datapoints, review_queue, ledger)")
+    p = sub.add_parser("store", help="store statistics (documents, datapoints, review_queue, ledger)")
     p.set_defaults(fn=cmd_store)
-    p = sub.add_parser("backup", help="063: az adattár mentése futás közben is (SQLite-mentés + sértetlenség-ellenőrzés), store/backups/ alá")
-    p.add_argument("--out", help="a mentések gyökere (alapból store/backups)")
-    p.add_argument("--with-burr", action="store_true", help="a folyamat-állapotok tára (store/burr_state.sqlite, nagy) is")
-    p.add_argument("--with-docs", action="store_true", help="070: a belső munkaanyag (jav/core/doc_scope.py) is, internal-docs.zip")
+    p = sub.add_parser("backup", help="063: back up the store, even while it runs (an SQLite backup and an integrity check), under store/backups/")
+    p.add_argument("--out", help="the backups' root folder (default: store/backups)")
+    p.add_argument("--with-burr", action="store_true", help="the process state store too (store/burr_state.sqlite, large)")
+    p.add_argument("--with-docs", action="store_true", help="070: the internal working documents too (jav/core/doc_scope.py), internal-docs.zip")
     p.add_argument("--with-env", action="store_true", help="231: the local settings (.env, with the keys) too, into local-env.zip")
-    p.add_argument("--keep", type=int, default=None, help="ennyi legutóbbi mentés marad (alapból a napi mentésé: configs/service.json backup.keep)")
-    p.add_argument("--copy-to", help="064: a kész mentés ellenőrzött másolata ide is (pl. NAS-mappa); ott is a --keep marad")
-    p.add_argument("--scheduled", action="store_true", help="064: a napi ütemezett mentés a configs/service.json backup szakasza szerint")
+    p.add_argument("--keep", type=int, default=None, help="how many of the latest backups stay (default: the daily backup's, configs/service.json backup.keep)")
+    p.add_argument("--copy-to", help="064: a checked copy of the backup here too (e.g. a NAS folder); --keep applies there as well")
+    p.add_argument("--scheduled", action="store_true", help="064: the daily scheduled backup, by configs/service.json's backup section")
     p.set_defaults(fn=cmd_backup)
-    p = sub.add_parser("burr-prune", help="064: a folyamatállapot-tár ritkítása (folyamatonként csak az utolsó állapot) és tömörítése")
-    p.add_argument("--no-vacuum", action="store_true", help="csak ritkítás, tömörítés nélkül (a fájl mérete ekkor nem csökken)")
+    p = sub.add_parser("burr-prune", help="064: thin out the process state store (only the last state of each process) and compact it")
+    p.add_argument("--no-vacuum", action="store_true", help="thin out only, without compacting (the file does not shrink then)")
     p.set_defaults(fn=cmd_burr_prune)
-    p = sub.add_parser("ocr", help="OCR-lánc: egy PDF felismert szövege és minőségjelei (gyorsítótárból, --force: újra), PDF nélkül a motor állapota")
+    p = sub.add_parser("ocr", help="the OCR chain: a PDF's recognised text and quality signals (from the cache, --force: again); without a PDF, the engine's state")
     p.add_argument("pdf", nargs="?")
-    p.add_argument("--force", action="store_true", help="gyorsítótár nélkül újra OCR-ezi (a cache-t nem írja)")
-    p.add_argument("--psm", type=int, default=None, help="tesseract oldalfelbontási mód (alap: configs/ocr.json)")
-    p.add_argument("--limit", type=int, default=0, help="csak az első N sor")
+    p.add_argument("--force", action="store_true", help="recognise again without the cache (the cache is not written)")
+    p.add_argument("--psm", type=int, default=None, help="tesseract page segmentation mode (default: configs/ocr.json)")
+    p.add_argument("--limit", type=int, default=0, help="only the first N lines")
     p.set_defaults(fn=cmd_ocr)
     p = sub.add_parser("ocr-rekey", help="076: move the OCR cache written under an older configs/ocr.json to the current "
                                          "key, if the older file's output settings are the same (no new OCR)")

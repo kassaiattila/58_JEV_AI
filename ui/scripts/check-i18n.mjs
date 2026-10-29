@@ -21,13 +21,13 @@ export function validate(required, dictionaries) {
   const holes = (s) => (s.match(/\{\{\w+\}\}/g) ?? []).sort().join("|");
   for (const [file, dict] of dictionaries) {
     for (const [k, v] of Object.entries(dict)) {
-      if (typeof v !== "string" || !v.trim()) errors.push(`${file}: üres fordítás: ${k}`);
-      else if (holes(k) !== holes(v)) errors.push(`${file}: eltérő helyőrző: ${k}`);
-      if (k in merged && merged[k] !== v) errors.push(`${file}: eltérő fordítás: ${k}`);
+      if (typeof v !== "string" || !v.trim()) errors.push(`${file}: empty translation: ${k}`);
+      else if (holes(k) !== holes(v)) errors.push(`${file}: different placeholders: ${k}`);
+      if (k in merged && merged[k] !== v) errors.push(`${file}: different translation: ${k}`);
       merged[k] = v;
     }
   }
-  for (const k of required) if (!(k in merged)) errors.push(`hiányzó angol fordítás: ${k}`);
+  for (const k of required) if (!(k in merged)) errors.push(`missing English translation: ${k}`);
   return errors;
 }
 
@@ -199,28 +199,28 @@ if (!direct) {
   // loaded as a module (e.g. for the key list): no check runs
 } else if (process.argv.includes("--self-test")) {
   assert.deepEqual(validate(["Szia {{név}}"], [["ok", { "Szia {{név}}": "Hi {{név}}" }]]), []);
-  assert.ok(validate(["Szia"], [["hiány", {}]]).some((e) => e.includes("hiányzó")));
-  assert.ok(validate(["Szia"], [["üres", { Szia: "" }]]).some((e) => e.includes("üres")));
-  assert.ok(validate(["Szia {{a}}"], [["rossz", { "Szia {{a}}": "Hi {{b}}" }]]).some((e) => e.includes("helyőrző")));
-  assert.ok(validate(["Szia"], [["egy", { Szia: "Hi" }], ["kettő", { Szia: "Hey" }]]).some((e) => e.includes("eltérő fordítás")));
-  console.log("check-i18n önteszt: rendben");
+  assert.ok(validate(["Szia"], [["hiány", {}]]).some((e) => e.includes("missing")));
+  assert.ok(validate(["Szia"], [["üres", { Szia: "" }]]).some((e) => e.includes("empty")));
+  assert.ok(validate(["Szia {{a}}"], [["rossz", { "Szia {{a}}": "Hi {{b}}" }]]).some((e) => e.includes("placeholders")));
+  assert.ok(validate(["Szia"], [["egy", { Szia: "Hi" }], ["kettő", { Szia: "Hey" }]]).some((e) => e.includes("different translation")));
+  console.log("check-i18n self-test: passed");
 } else if (process.argv.includes("--audit")) {
   const known = new Set(dictionaries().flatMap(([, d]) => Object.keys(d)));
   const files = walk(path.join(UI, "src")).filter((f) => !f.includes(`${path.sep}i18n${path.sep}`));
   const found = audit(files, known);
   if (found.length) {
     console.error(found.join("\n"));
-    console.error(`\n${found.length} fordítatlan magyar szöveg (vagy jelöld // i18n-ignore megjegyzéssel, ha nem felirat).`);
+    console.error(`\n${found.length} untranslated Hungarian text(s) (or mark one with an // i18n-ignore comment if it is not a label).`);
     process.exit(1);
   }
-  console.log("check-i18n --audit: nincs fordítatlan magyar szöveg.");
+  console.log("check-i18n --audit: no untranslated Hungarian text.");
 } else {
   const required = new Set([...uiKeys(walk(path.join(UI, "src"))), ...serverKeys()]);
   const errors = validate([...required].sort(), dictionaries());
   if (errors.length) {
     console.error(errors.join("\n"));
-    console.error(`\n${errors.length} hiba (${required.size} kötelező felirat).`);
+    console.error(`\n${errors.length} error(s) (${required.size} required label(s)).`);
     process.exit(1);
   }
-  console.log(`check-i18n: rendben, ${required.size} felirat mind lefordítva.`);
+  console.log(`check-i18n: passed, all ${required.size} label(s) translated.`);
 }

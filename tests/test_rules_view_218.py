@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 from jav.ai import policy
 from jav.app import datasets, registrations, rules_view
 from jav.app.tablequery import Query
-from jav.core import cfg, rulebook, store, trace
+from jav.core import cfg, display, rulebook, store, trace
 from jav.service import api
 from tests.test_workflow_tasks_215 import _monthly
 from tests.test_workflows_146 import db  # noqa: F401 - the fixture is used by name
@@ -94,7 +94,8 @@ def test_the_view_shows_the_running_rules_in_their_areas(db, monkeypatch):  # no
     assert by_intent["format"] == "routes"
     assert by_intent["value"][0] == [intents["quote_request"], {"code": "m2:quote_request", "reads_text": True}]
     assert by_intent["value"][1] == [intents["szamlakuldes"], {"code": "human:fetch_document", "reads_text": False}]
-    assert datasets.label_set("next_flow")["archive:sent"] in rows["email.next_flow"]["values"]
+    # 231 (D4): the searchable text in the request's language (Hungarian by default)
+    assert display.text(datasets.label_set("next_flow")["archive:sent"]) in rows["email.next_flow"]["values"]
     assert _value(rows["email.intent"], "signal_review")["value"] == ["An instruction hidden in the email"]
     engine = _value(rows["ocr.escalation"], "escalation.engine")
     assert (engine["format"], engine["value"]) == ("name", "Azure DI")
@@ -103,8 +104,10 @@ def test_the_view_shows_the_running_rules_in_their_areas(db, monkeypatch):  # no
     # a changed rule shows at once: the values are read from the loaded rule file, not kept
     monkeypatch.setitem(cfg.load("policy")["ocr"], "escalate_min_mean_conf", 0.9)
     assert _value(_rows()["ocr.escalation"], "ocr.escalate_min_mean_conf")["value"] == 0.9
-    # the searchable text of the values names each label and value
-    assert "Sent when the average word confidence is below 90 %" in _rows()["ocr.escalation"]["values"]
+    # the searchable text of the values names each label and value, in the request's language (231, D4)
+    assert "Elküldi, ha a szavak átlagos bizonyossága kisebb, mint 90 %" in _rows()["ocr.escalation"]["values"]
+    with display.use("en"):
+        assert "Sent when the average word confidence is below 90 %" in _rows()["ocr.escalation"]["values"]
 
 
 def test_each_rule_file_shows_its_version_and_since_when_it_is_in_use(db):  # noqa: F811

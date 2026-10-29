@@ -100,8 +100,8 @@ def test_cli_prune_refuses_to_compact_while_the_worker_runs(wp_env, capsys):  # 
     with lock.single_instance(worker.lock_path()):
         code = cli.main(["burr-prune"])
     out = capsys.readouterr().out
-    assert code == 0 and "2 köztes állapotsor törölve" in out  # prunes even while the worker runs
-    assert "feldolgozó fut" in out  # but compacts only with the worker stopped
+    assert code == 0 and "2 intermediate state row(s) deleted" in out  # prunes even while the worker runs
+    assert "The worker is running" in out  # but compacts only with the worker stopped
     assert _rows(worker.persister_path()) == {"run-k:eeeeeeeeeeeeeeee": [2]}
 
 

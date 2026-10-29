@@ -7,8 +7,8 @@ import { t, useLocale } from "../../i18n";
 // the labels as Hungarian source; translation at render time (`t()`)
 const THEMES: { value: Theme; label: string; halves: ("light" | "dark")[] }[] = [
   { value: "system", label: "A rendszer szerint", halves: ["light", "dark"] },
-  { value: "light", label: "Világos", halves: ["light"] },
-  { value: "dark", label: "Sötét", halves: ["dark"] },
+  { value: "light", label: "Light", halves: ["light"] },
+  { value: "dark", label: "Dark", halves: ["dark"] },
 ];
 
 export function AppearancePanel() {
@@ -20,9 +20,9 @@ export function AppearancePanel() {
     setAppearance(next);
   };
   return (
-    <section className="card wide" aria-label={t("Megjelenés")}>
+    <section className="card wide" aria-label={t("Appearance")}>
       <fieldset className="dl-group">
-        <legend>{t("Téma")}</legend>
+        <legend>{t("Theme")}</legend>
         <div className="theme-choice">
           {THEMES.map((th) => (
             <label key={th.value}>
@@ -34,7 +34,7 @@ export function AppearancePanel() {
           ))}
         </div>
       </fieldset>
-      <p className="muted small">{t("A beállítás azonnal érvényes, és ebben a böngészőben megmarad.")}</p>
+      <p className="muted small">{t("The setting applies immediately and is remembered in this browser.")}</p>
     </section>
   );
 }

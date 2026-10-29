@@ -35,7 +35,7 @@ def reconcile_inputs(scope: dict[str, str]) -> Rows:
         col("name", "Document", link="review"),
         col("kind", "Kind", "enum", labels="reconcile_input_kind"),
         col("subject", "Number or account"),
-        col("partner", "Partner"),
+        col("partner", "Counterparty"),
         col("date", "Date or period"),
         col("amount", "Amount", "money"),
         col("currency", "Currency", hidden=True),
@@ -108,17 +108,17 @@ def utility_cost(scope: dict[str, str]) -> Rows:
     link, rep = _utility_report(scope)
     to = link(None)
     cols = [
-        col("address", "Fogyasztási hely"),
-        col("utility", "Közmű", "enum"),
-        col("month", "Hónap", "date"),
-        col("status", "Állapot", "enum", labels="utility_status"),
-        col("amount", "Összeg (bruttó, a hónapra jutó)", "money"),
-        col("consumption", "Fogyasztás", "number"),
-        col("unit", "Egység", "enum", hidden=True),
-        col("settlement", "Elszámoló számla", "enum", labels="yes", hidden=True),
-        col("summary_only", "Csak tájékoztató", "enum", labels="yes"),
-        col("bills", "Forrásszámla", "number"),
-        col("suppliers", "Szolgáltató", hidden=True),
+        col("address", "Point of consumption"),
+        col("utility", "Utility", "enum"),
+        col("month", "Month", "date"),
+        col("status", "Status", "enum", labels="utility_status"),
+        col("amount", "Amount (gross, for the month)", "money"),
+        col("consumption", "Consumption", "number"),
+        col("unit", "Unit (column)", "enum", hidden=True),
+        col("settlement", "Settlement invoice", "enum", labels="yes", hidden=True),
+        col("summary_only", "Information only", "enum", labels="yes"),
+        col("bills", "Source invoices", "number"),
+        col("suppliers", "Supplier (column)", hidden=True),
     ]
     rows = []
     for s_ in rep["series"]:
@@ -135,17 +135,17 @@ def utility_sources(scope: dict[str, str]) -> Rows:
     """Source invoices of each utility-cost cell (the report's "Közmű-források" sheet): cell → document, page, sum."""
     link, rep = _utility_report(scope)
     cols = [
-        col("address", "Fogyasztási hely"),
-        col("utility", "Közmű", "enum"),
-        col("month", "Hónap", "date"),
-        col("status", "Állapot", "enum", labels="utility_status"),
-        col("amount", "Összeg (a hónapra jutó)", "money"),
-        col("file", "Irat", link="review"),
-        col("page", "Oldal", "number"),
-        col("field", "Mező", "enum", labels="field"),
-        col("corrected", "Javítva", "enum", labels="yes"),
-        col("open_reasons", "Nyitott teendő", "number", alert=True),
-        col("item_id", "Tétel-azonosító", "id", hidden=True),
+        col("address", "Point of consumption"),
+        col("utility", "Utility", "enum"),
+        col("month", "Month", "date"),
+        col("status", "Status", "enum", labels="utility_status"),
+        col("amount", "Amount (for the month)", "money"),
+        col("file", "Document (column)", link="review"),
+        col("page", "Page", "number"),
+        col("field", "Field", "enum", labels="field"),
+        col("corrected", "Corrected (column)", "enum", labels="yes"),
+        col("open_reasons", "Open to-dos (column)", "number", alert=True),
+        col("item_id", "Item ID", "id", hidden=True),
     ]
     rows = []
     for s_ in rep["series"]:
@@ -170,9 +170,9 @@ def utility_sources(scope: dict[str, str]) -> Rows:
 DATASETS = (
     (datasets.Dataset("reconcile_inputs", "A reconciliation's inputs", ("workpackage_id",), reconcile_inputs,
                       optional_scope=("others", "left_out", "kind")), "workpackage_items"),
-    (datasets.Dataset("utility_cost", "Közmű-költség havonta", (), utility_cost, datasets.result_fingerprint,
+    (datasets.Dataset("utility_cost", "Utility cost by month", (), utility_cost, datasets.result_fingerprint,
                       one_of=datasets.RESULT_SCOPE), "line_items"),
-    (datasets.Dataset("utility_sources", "Közmű-költség forrásai", (), utility_sources, datasets.result_fingerprint,
+    (datasets.Dataset("utility_sources", "Sources of the utility costs", (), utility_sources, datasets.result_fingerprint,
                       one_of=datasets.RESULT_SCOPE), "utility_cost"),
 )
 

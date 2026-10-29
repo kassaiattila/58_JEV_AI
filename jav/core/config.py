@@ -78,6 +78,10 @@ ENV_SECRET_NAME = re.compile(r"(?i)key|token|secret|passw|pwd")
 ENV_SECRET_MIN_LEN = 12
 _ENV_LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$")
 PROMPTS_DIR = CONFIG_ROOT / "prompts"  # 209 (R2b): the instructions sent to a model are config data
+# 231 (F, D4): the interface's dictionaries, which the service's labels are displayed with too (jav/core/display.py):
+# the Hungarian of the English sources, and the English dictionary's parts (`en-*.json`, merged as the interface merges them)
+UI_I18N = PROJECT_ROOT / "ui" / "src" / "i18n"
+UI_HUNGARIAN = UI_I18N / "hu-native.json"
 RUNS_DIR = DATA_ROOT / "runs"
 CACHE_DIR = RUNS_DIR / "cache"  # JEV request-hash cache
 STORE_PATH = DATA_ROOT / "store" / "jav.sqlite"  # durable store (git-ignored, PII)
@@ -196,7 +200,7 @@ class MissingAPIKeyError(RuntimeError):
 
 
 def _env_hint() -> str:
-    return f"\nKeresett .env: {ENV_FILE}" + ("  (nem létezik)" if not ENV_FILE.exists() else "") + "\nMinta: .env.example"
+    return f"\n.env looked for: {ENV_FILE}" + ("  (it does not exist)" if not ENV_FILE.exists() else "") + "\nSample: .env.example"
 
 
 def get_api_key() -> str:
@@ -210,7 +214,7 @@ def get_api_key() -> str:
         if value and value.strip():
             return value.strip()
 
-    raise MissingAPIKeyError("Nincs TypeSafe API kulcs. Várt változók: " + ", ".join(API_KEY_ENV_VARS) + _env_hint())
+    raise MissingAPIKeyError("No TypeSafe API key. Expected variables: " + ", ".join(API_KEY_ENV_VARS) + _env_hint())
 
 
 def get_openai_key() -> str:
@@ -218,7 +222,7 @@ def get_openai_key() -> str:
     value = os.environ.get(OPENAI_KEY_ENV_VAR)
     if value and value.strip():
         return value.strip()
-    raise MissingAPIKeyError(f"Nincs OpenAI API kulcs. Várt változó: {OPENAI_KEY_ENV_VAR}" + _env_hint())
+    raise MissingAPIKeyError(f"No OpenAI API key. Expected variable: {OPENAI_KEY_ENV_VAR}" + _env_hint())
 
 
 def build_retry_policy() -> RetryPolicy:
@@ -246,7 +250,7 @@ def guard_sdk_logging() -> bool:
     if level not in ("debug", "info") or os.environ.get(SDK_DEBUG_ALLOW_ENV, "").strip() == "1":
         return False
     logging.getLogger("typesafe_sdk").setLevel(logging.WARNING)
-    print(f"[jav] {SDK_LOG_LEVEL_ENV}={level} figyelmen kívül hagyva (PII a naplóban); engedélyezés: {SDK_DEBUG_ALLOW_ENV}=1", file=sys.stderr)
+    print(f"[jav] {SDK_LOG_LEVEL_ENV}={level} ignored (personal data in the log); to allow it: {SDK_DEBUG_ALLOW_ENV}=1", file=sys.stderr)
     return True
 
 

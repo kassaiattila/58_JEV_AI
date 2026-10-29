@@ -14,10 +14,13 @@ from jav.app.outputs import parts, samples
 
 
 def test_a_type_names_a_shared_field_its_own_way():
-    assert field_names.field_label("customer_name") == "Felhasználó neve"
-    assert field_names.field_label("customer_name", "viz_szamla") == "Felhasználó neve"
-    assert field_names.field_label("customer_name", "quote_request") == "Ajánlatkérő neve"
-    assert field_names.field_label("contact_name", "quote_request") == "Kapcsolattartó"  # the shared name
+    assert field_names.field_label("customer_name") == "Customer name"
+    assert field_names.field_label("customer_name", "viz_szamla") == "Customer name"
+    assert field_names.field_label("customer_name", "quote_request") == "Requesting customer"
+    assert field_names.field_label("contact_name", "quote_request") == "Contact"  # the shared name
+    # 231 (D4): the English sources, shown in the request's language (Hungarian by default)
+    assert field_names.field_name("customer_name", "viz_szamla") == "Felhasználó neve"
+    assert field_names.field_name("customer_name", "quote_request") == "Ajánlatkérő neve"
     assert field_names.field_label("no_such_field", "quote_request") == "no_such_field"
 
 
@@ -41,8 +44,8 @@ def _record(doc_type: str, fields: dict) -> dict:
             "open_reasons": [], "fields": fields, "kinds": {f: "text" for f in fields}}
 
 
-@pytest.mark.parametrize(("types", "label"), [(["quote_request"], "Ajánlatkérő neve"), (["viz_szamla"], "Felhasználó neve"),
-                                              (["quote_request", "viz_szamla"], "Felhasználó neve")])
+@pytest.mark.parametrize(("types", "label"), [(["quote_request"], "Requesting customer"), (["viz_szamla"], "Customer name"),
+                                              (["quote_request", "viz_szamla"], "Customer name")])
 def test_the_documents_column_of_the_field(monkeypatch, types, label):
     records = [_record(t, {"customer_name": "Példa"}) for t in types]
     monkeypatch.setattr(datasets, "linked_records", lambda scope: (lambda item: {"_run": "run-1", "_wp": "wp-1"}, records))
@@ -52,6 +55,6 @@ def test_the_documents_column_of_the_field(monkeypatch, types, label):
 
 
 def test_an_output_templates_sample_rows_use_the_types_names():
-    assert samples.field_label("customer_name", "quote_request") == "Ajánlatkérő neve"
-    assert samples.field_label("customer_name", "viz_szamla") == "Felhasználó neve"
-    assert samples.field_label("*") == "Érték"  # a list column keeps its own name
+    assert samples.field_label("customer_name", "quote_request") == "Requesting customer"
+    assert samples.field_label("customer_name", "viz_szamla") == "Customer name"
+    assert samples.field_label("*") == "Value"  # a list column keeps its own name

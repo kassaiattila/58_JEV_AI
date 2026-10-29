@@ -6,8 +6,8 @@ from jav.core import devstate
 def test_lint_verdict_ratchet():
     assert devstate.lint_verdict(190, 189)[0] is False
     ok, msg = devstate.lint_verdict(180, 189)
-    assert ok and "180-ra csökkenthető" in msg
-    assert devstate.lint_verdict(189, 189) == (True, "189 jelzés (határ 189)")
+    assert ok and "can be lowered to 180" in msg
+    assert devstate.lint_verdict(189, 189) == (True, "189 finding(s) (limit 189)")
 
 
 def test_lint_verdict_missing_tool_is_not_failure():
@@ -23,5 +23,5 @@ def test_lint_limit_reads_pyproject(tmp_path):
 
 
 def test_git_state_line():
-    assert devstate.GitState("main", "abc1234", 0).line() == "ág main @ abc1234, tiszta munkafa"
-    assert "3 commitolatlan" in devstate.GitState("k0", "abc1234", 3).line()
+    assert devstate.GitState("main", "abc1234", 0).line() == "branch main @ abc1234, clean working tree"
+    assert "3 uncommitted" in devstate.GitState("k0", "abc1234", 3).line()

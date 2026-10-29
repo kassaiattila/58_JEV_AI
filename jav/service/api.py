@@ -43,7 +43,7 @@ from jav.service import local_picker
 from jav.app import app_settings, capabilities, corrections, package_release, rule_defaults, work, work_views
 from jav.ai import policy
 from jav.documents import isolated_pdf
-from jav.core import access, cfg, config, dates, numbers, observability, store, version
+from jav.core import access, cfg, config, dates, display, numbers, observability, store, version
 from jav.core.config import PROJECT_ROOT
 from jav.runtime import pdf_status, worker
 from jav.service.service_shared import ForbiddenPath, In, JavJSONResponse, UnknownUser, access_guard, error, settings
@@ -257,7 +257,7 @@ def _new_app() -> FastAPI:
     # 071 decision (2026-09-30): the clickable endpoint list (/api/docs) would load program code from an external host
     # onto the local address, so it is switched off; the machine-readable endpoint list (/api/openapi.json) stays
     # 229 (SZ2b): every address goes through the shared entrance (who acts, the authorisation check)
-    app = FastAPI(title="JAV helyi szolgáltatás", version=API_VERSION, default_response_class=JavJSONResponse,
+    app = FastAPI(title="JAV local service", version=API_VERSION, default_response_class=JavJSONResponse,
                   docs_url=None, openapi_url="/api/openapi.json", redoc_url=None, dependencies=[Depends(access_guard)])
     app.router.route_class = CaseRoute
     return app
@@ -357,7 +357,9 @@ def _add_error_handlers(app: FastAPI) -> None:
         # traceback goes to the log
         log.warning("OSError %s %s: %s", request.method, request.url.path, exc, exc_info=exc)
         name = Path(exc.filename).name if getattr(exc, "filename", None) else ""
-        return error(422, "unreadable", f"A fájl nem olvasható{': ' + name if name else ''} ({type(exc).__name__}).")
+        error_name = type(exc).__name__  # 231 (D4): the message in the request's language
+        return error(422, "unreadable", display.text("The file cannot be read: {{name}} ({{error}}).", name=name, error=error_name)
+                     if name else display.text("The file cannot be read ({{error}}).", error=error_name))
 
 
 def create_app(*, store_path: Path | None = None) -> FastAPI:
@@ -373,6 +375,13 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         async def scoped_store(request: Request, call_next):
             with store.use_store(store_path):
                 return await call_next(request)
+
+    @app.middleware("http")
+    async def display_language(request: Request, call_next):
+        # 231 (F, D4): the requesting interface's language (its cookie), for the labels, downloads and file names the
+        # service makes; set here, as a middleware, so that a synchronous endpoint's thread sees it too
+        with display.use(request.cookies.get(display.COOKIE)):
+            return await call_next(request)
 
     _add_error_handlers(app)
 

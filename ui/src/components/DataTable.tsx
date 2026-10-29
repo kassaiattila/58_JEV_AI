@@ -83,7 +83,7 @@ export function cellText(col: DsColumn, v: unknown): string {
   if (col.kind === "number" && col.percent) return `${numText(Math.round(Number(v) * 100), 0)} %`; // 062: probability
   if (col.kind === "number") return numText(v, 6);
   if (col.kind === "datetime") return when(String(v));
-  if (col.kind === "bool") return v ? t("igen") : t("nem");
+  if (col.kind === "bool") return v ? t("yes") : t("no");
   if (typeof v === "object") return JSON.stringify(v);
   return String(v);
 }
@@ -133,7 +133,7 @@ function SortMark({ dir, level }: { dir: false | "asc" | "desc"; level: number |
 
 // --- filters -----------------------------------------------------------------------------------------------------
 
-const OP_TEXT: Record<string, string> = tmap({ contains: "tartalmazza", eq: "=", neq: "≠", gte: "≥", lte: "≤", empty: "üres", notempty: "nem üres" });
+const OP_TEXT: Record<string, string> = tmap({ contains: "contains", eq: "=", neq: "≠", gte: "≥", lte: "≤", empty: "is empty", notempty: "is not empty" });
 
 export function filterText(f: DsFilter, col: DsColumn | undefined): string {
   const label = col ? t(col.label) : f.col;
@@ -189,18 +189,18 @@ function ColumnFilter({ col, facets, current, onApply }: {
   return (
     <>
       <button ref={anchor} type="button" className={`th-filter ${current.length ? "on" : ""}`} aria-expanded={open}
-        aria-label={current.length ? t("Szűrő: {{label}} (aktív)", { label }) : t("Szűrő: {{label}}", { label })} title={t("Szűrő: {{label}}", { label })} onClick={() => setOpen((o) => !o)}>
+        aria-label={current.length ? t("Filter: {{label}} (active)", { label }) : t("Filter: {{label}}", { label })} title={t("Filter: {{label}}", { label })} onClick={() => setOpen((o) => !o)}>
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12l-4.5 5.5V13l-3 1V8.5z" /></svg>
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} label={t("Szűrő: {{label}}", { label })} className="filter-pop">
+      <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} label={t("Filter: {{label}}", { label })} className="filter-pop">
         <form onSubmit={(e) => { e.preventDefault(); apply(); }} className="filter-form">
           <strong className="small">{label}</strong>
           {isSet ? (
             <>
               {(facets?.length ?? 0) > 8 ? (
-                <input autoFocus className="picker-search" aria-label={t("Értékek keresése")} placeholder={t("Keresés…")} value={search} onChange={(e) => setSearch(e.target.value)} />
+                <input autoFocus className="picker-search" aria-label={t("Search values")} placeholder={t("Search…")} value={search} onChange={(e) => setSearch(e.target.value)} />
               ) : null}
-              <div className="check-list" role="group" aria-label={t("Értékek")}>
+              <div className="check-list" role="group" aria-label={t("Values")}>
                 {options.map((v) => (
                   <label key={v} className="check">
                     <input type="checkbox" checked={chosen.includes(v)}
@@ -208,25 +208,25 @@ function ColumnFilter({ col, facets, current, onApply }: {
                     {cellText(col, v) || v}
                   </label>
                 ))}
-                {options.length === 0 ? <span className="muted small">{t("Nincs érték.")}</span> : null}
+                {options.length === 0 ? <span className="muted small">{t("No values.")}</span> : null}
               </div>
             </>
           ) : isRange ? (
             <div className="range">
-              <label>{t("Legalább")}<input type={isDate ? "date" : "text"} inputMode={isDate ? undefined : "decimal"} value={from} onChange={(e) => setFrom(e.target.value)} /></label>
-              <label>{t("Legfeljebb")}<input type={isDate ? "date" : "text"} inputMode={isDate ? undefined : "decimal"} value={to} onChange={(e) => setTo(e.target.value)} /></label>
+              <label>{t("At least")}<input type={isDate ? "date" : "text"} inputMode={isDate ? undefined : "decimal"} value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+              <label>{t("At most")}<input type={isDate ? "date" : "text"} inputMode={isDate ? undefined : "decimal"} value={to} onChange={(e) => setTo(e.target.value)} /></label>
             </div>
           ) : (
-            <label className="block-label">{t("Tartalmazza")}<input autoFocus value={text} onChange={(e) => setText(e.target.value)} /></label>
+            <label className="block-label">{t("Contains")}<input autoFocus value={text} onChange={(e) => setText(e.target.value)} /></label>
           )}
-          <div className="blank-row" role="radiogroup" aria-label={t("Üres értékek")}>
-            {([["", t("mind")], ["empty", t("csak üres")], ["notempty", t("csak kitöltött")]] as const).map(([v, text]) => (
+          <div className="blank-row" role="radiogroup" aria-label={t("Empty values")}>
+            {([["", t("all")], ["empty", t("empty only")], ["notempty", t("filled only")]] as const).map(([v, text]) => (
               <label key={v} className="check"><input type="radio" name={`blank-${col.key}`} checked={blank === v} onChange={() => setBlank(v)} />{text}</label>
             ))}
           </div>
           <div className="button-row">
-            <button type="submit" className="primary small-btn">{t("Szűrés")}</button>
-            <button type="button" className="secondary small-btn" onClick={() => { onApply([]); setOpen(false); }}>{t("Szűrő törlése")}</button>
+            <button type="submit" className="primary small-btn">{t("Filter")}</button>
+            <button type="button" className="secondary small-btn" onClick={() => { onApply([]); setOpen(false); }}>{t("Clear filter")}</button>
           </div>
         </form>
       </Popover>
@@ -250,18 +250,18 @@ function ColumnMenu({ columns, visible, onChange, onReset, onResetWidths }: {
   return (
     <>
       <button ref={anchor} type="button" className="secondary small-btn" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        <Icon name="columns" />{t("Oszlopok ({{shown}}/{{all}})", { shown: count, all: columns.length })}
+        <Icon name="columns" />{t("Columns ({{shown}}/{{all}})", { shown: count, all: columns.length })}
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} label={t("Oszlopok")} className="filter-pop" align="right">
-        {columns.length > 8 ? <input className="picker-search" aria-label={t("Oszlop keresése")} placeholder={t("Keresés…")} value={q} onChange={(e) => setQ(e.target.value)} /> : null}
-        <div className="check-list" role="group" aria-label={t("Látható oszlopok")}>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} label={t("Columns")} className="filter-pop" align="right">
+        {columns.length > 8 ? <input className="picker-search" aria-label={t("Search columns")} placeholder={t("Search…")} value={q} onChange={(e) => setQ(e.target.value)} /> : null}
+        <div className="check-list" role="group" aria-label={t("Visible columns")}>
           {shown.map((c) => (
             <label key={c.key} className="check">
               <input type="checkbox" checked={visible(c)} onChange={(e) => onChange(c.key, e.target.checked)} />{t(c.label)}
             </label>
           ))}
         </div>
-        <button type="button" className="link-btn small" onClick={onReset}>{t("Alaphelyzet")}</button>
+        <button type="button" className="link-btn small" onClick={onReset}>{t("Reset")}</button>
         {onResetWidths ? <button type="button" className="link-btn small" onClick={onResetWidths}>{t("Reset column widths")}</button> : null}
       </Popover>
     </>
@@ -334,12 +334,12 @@ export function DataTable(p: Props) {
       cols.unshift({
         id: "_select", enableSorting: false, enableHiding: false,
         header: ({ table }) => (
-          <input type="checkbox" aria-label={t("A lap összes sorának kijelölése")} checked={table.getIsAllPageRowsSelected()}
+          <input type="checkbox" aria-label={t("Select all rows on this page")} checked={table.getIsAllPageRowsSelected()}
             ref={(el) => { if (el) el.indeterminate = table.getIsSomePageRowsSelected(); }}
             onChange={table.getToggleAllPageRowsSelectedHandler()} />
         ),
         cell: ({ row }) => (
-          <input type="checkbox" aria-label={t("Sor kijelölése")} checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} />
+          <input type="checkbox" aria-label={t("Select row")} checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} />
         ),
       });
     }
@@ -347,7 +347,7 @@ export function DataTable(p: Props) {
       const render = p.actions;
       cols.push({
         id: "_actions", enableSorting: false, enableHiding: false,
-        header: () => <span className="sr-only">{p.actionsLabel ?? t("Műveletek")}</span>,
+        header: () => <span className="sr-only">{p.actionsLabel ?? t("Actions")}</span>,
         cell: ({ row }) => <span className="dt-actions">{render(row.original)}</span>,
       });
     }
@@ -413,7 +413,7 @@ export function DataTable(p: Props) {
   return (
     <div className="dt" aria-busy={page.loading}>
       <div className="dt-bar">
-        <input type="search" className="dt-search" aria-label={t("Keresés: {{label}}", { label: p.label })} placeholder={t("Keresés az összes oszlopban…")}
+        <input type="search" className="dt-search" aria-label={t("Search: {{label}}", { label: p.label })} placeholder={t("Search all columns…")}
           value={search} onChange={(e) => setSearch(e.target.value)} />
         {p.toolbar}
         <span className="dt-spacer" />
@@ -424,25 +424,25 @@ export function DataTable(p: Props) {
           extras={p.downloadExtras} />
       </div>
       {state.filters.length || selectedKeys.length ? (
-        <div className="dt-chips" aria-label={t("Aktív szűrők")}>
+        <div className="dt-chips" aria-label={t("Active filters")}>
           {state.filters.map((f, i) => (
             <span key={`${f.col}-${f.op}-${i}`} className="chip">
               {filterText(f, byKey[f.col])}
-              <button type="button" aria-label={t("Szűrő törlése: {{filter}}", { filter: filterText(f, byKey[f.col]) })}
+              <button type="button" aria-label={t("Remove filter: {{filter}}", { filter: filterText(f, byKey[f.col]) })}
                 onClick={() => patch({ filters: state.filters.filter((_, j) => j !== i) })}>×</button>
             </span>
           ))}
-          {state.filters.length > 1 ? <button type="button" className="link-btn small" onClick={() => patch({ filters: [] })}>{t("Minden szűrő törlése")}</button> : null}
+          {state.filters.length > 1 ? <button type="button" className="link-btn small" onClick={() => patch({ filters: [] })}>{t("Clear all filters")}</button> : null}
           {selectedKeys.length ? (
-            <span className="chip sel">{t("{{n}} kijelölt sor", { n: selectedKeys.length })}
+            <span className="chip sel">{t("{{n}} rows selected", { n: selectedKeys.length })}
               {offPage ? ` · ${t("{{n}} of them not on this page", { n: offPage })}` : null}
-              <button type="button" aria-label={t("Kijelölés törlése")} onClick={() => setSelection({})}>×</button></span>
+              <button type="button" aria-label={t("Clear selection")} onClick={() => setSelection({})}>×</button></span>
           ) : null}
           {selectedKeys.length && p.selectionActions ? p.selectionActions(selectedRows, () => setSelection({})) : null}
         </div>
       ) : null}
       {page.error ? <p className="notice error" role="alert">{page.error.message}</p> : null}
-      {!data && !page.error ? <p className="muted small pad">{t("Betöltés…")}</p> : null}
+      {!data && !page.error ? <p className="muted small pad">{t("Loading…")}</p> : null}
       {data ? (
         <div className="dt-scroll" ref={scrollRef} style={{ maxHeight: p.maxHeight ?? "70vh" }}>
           <table ref={tableRef} className={widths.sized ? "table dt-table sized" : "table dt-table"} aria-label={p.label} aria-rowcount={matched + 1}
@@ -460,14 +460,14 @@ export function DataTable(p: Props) {
                     const dir = sorted || (nat ? (nat.desc ? "desc" : "asc") : false);
                     const idx = h.column.getSortIndex();
                     const next = h.column.getNextSortingOrder();
-                    const hint = `${next === "asc" ? t("Kattints: növekvő sorrend") : next === "desc" ? t("Kattints: csökkenő sorrend") : t("Kattints: rendezés kikapcsolása")} · ${t("Shift + kattintás: további rendezési szint")}`;
+                    const hint = `${next === "asc" ? t("Click: ascending order") : next === "desc" ? t("Click: descending order") : t("Click: turn sorting off")} · ${t("Shift + click: add another sort level")}`;
                     return (
                       <th key={h.id} data-col={h.column.id} className={c && NUMERIC.has(c.kind) ? "num" : undefined}
                         aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : undefined}>
                         {c ? (
                           <span className="th-in">
                             <button type="button" className={dir ? "th-sort sorted" : "th-sort"} onClick={h.column.getToggleSortingHandler()}
-                              title={nat ? `${nat.desc ? t("Alapsorrend: csökkenő") : t("Alapsorrend: növekvő")} · ${hint}` : hint}>
+                              title={nat ? `${nat.desc ? t("Default order: descending") : t("Default order: ascending")} · ${hint}` : hint}>
                               {flexRender(h.column.columnDef.header, h.getContext())}
                               <SortMark dir={dir} level={sorted && sorting.length > 1 ? idx + 1 : null} />
                             </button>
@@ -503,7 +503,7 @@ export function DataTable(p: Props) {
               ))}
               {padBottom > 0 ? <tr aria-hidden="true"><td colSpan={visibleCount} style={{ height: padBottom, padding: 0 }} /></tr> : null}
               {rows.length === 0 ? (
-                <tr><td colSpan={Math.max(1, visibleCount)} className="muted">{filtered ? t("Nincs a szűrésnek megfelelő sor.") : p.emptyText ?? t("Nincs adat.")}</td></tr>
+                <tr><td colSpan={Math.max(1, visibleCount)} className="muted">{filtered ? t("No rows match the filter.") : p.emptyText ?? t("No data.")}</td></tr>
               ) : null}
             </tbody>
           </table>
@@ -513,20 +513,20 @@ export function DataTable(p: Props) {
         <div className="dt-foot">
           <span className="small" role="status">
             {filtered
-              ? t("{{from}}–{{to}} / {{matched}} sor (szűrve, összesen {{total}})", { from, to, matched: matched.toLocaleString(getLocale()), total: total.toLocaleString(getLocale()) })
-              : t("{{from}}–{{to}} / {{matched}} sor", { from, to, matched: matched.toLocaleString(getLocale()) })}
+              ? t("{{from}}–{{to}} of {{matched}} rows (filtered, {{total}} in total)", { from, to, matched: matched.toLocaleString(getLocale()), total: total.toLocaleString(getLocale()) })
+              : t("{{from}}–{{to}} of {{matched}} rows", { from, to, matched: matched.toLocaleString(getLocale()) })}
           </span>
           {data.refreshing ? <span className="small muted">{t("Updating…")}</span> : null}
           <span className="dt-spacer" />
-          <Picker label={t("Sor laponként")} compact value={String(state.limit)}
-            options={PAGE_SIZES.map((n) => ({ value: String(n), label: t("{{n}} / lap", { n }) }))} onChange={(v) => patch({ limit: Number(v) })} hideLabel />
-          <div className="pager" role="group" aria-label={t("Lapozás")}>
-            <button type="button" className="secondary small-btn" aria-label={t("Első lap")} disabled={state.offset === 0} onClick={() => setState({ ...state, offset: 0 })}>«</button>
-            <button type="button" className="secondary small-btn" aria-label={t("Előző lap")} disabled={state.offset === 0}
+          <Picker label={t("Rows per page")} compact value={String(state.limit)}
+            options={PAGE_SIZES.map((n) => ({ value: String(n), label: t("{{n}} / page", { n }) }))} onChange={(v) => patch({ limit: Number(v) })} hideLabel />
+          <div className="pager" role="group" aria-label={t("Pagination")}>
+            <button type="button" className="secondary small-btn" aria-label={t("First page")} disabled={state.offset === 0} onClick={() => setState({ ...state, offset: 0 })}>«</button>
+            <button type="button" className="secondary small-btn" aria-label={t("Previous sheet")} disabled={state.offset === 0}
               onClick={() => setState({ ...state, offset: Math.max(0, state.offset - state.limit) })}>‹</button>
-            <button type="button" className="secondary small-btn" aria-label={t("Következő lap")} disabled={to >= matched}
+            <button type="button" className="secondary small-btn" aria-label={t("Next sheet")} disabled={to >= matched}
               onClick={() => setState({ ...state, offset: state.offset + state.limit })}>›</button>
-            <button type="button" className="secondary small-btn" aria-label={t("Utolsó lap")} disabled={to >= matched}
+            <button type="button" className="secondary small-btn" aria-label={t("Last page")} disabled={to >= matched}
               onClick={() => setState({ ...state, offset: lastOffset })}>»</button>
           </div>
         </div>

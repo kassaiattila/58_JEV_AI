@@ -38,7 +38,7 @@ export function JevVersionPanel() {
       {state ? (
         <p role="status" className={state.level === "ok" ? "" : "notice"}>
           <span className={`status ${state.level === "ok" ? "s-done" : "s-needs_review"}`}>
-            {state.level === "ok" ? t("Rendben") : t("Figyelem")}
+            {state.level === "ok" ? t("OK") : t("Attention")}
           </span>{" "}{state.text}
         </p>
       ) : null}

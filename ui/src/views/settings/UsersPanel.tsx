@@ -40,30 +40,30 @@ export function UsersPanel() {
   }
 
   return (
-    <section className="card wide" aria-label={t("Felhasználók")}>
-      <p className="muted small">{t("A fejléc „Ki dolgozik?” választója ebből a listából kínál; ha a lista nem üres, módosítani csak a listán szereplő névvel lehet. A név kerül a javítások, a jóváhagyások és a futások mellé, és a köteg felelőse is innen választható.")}</p>
+    <section className="card wide" aria-label={t("Users")}>
+      <p className="muted small">{t("The header's “Who is working?” picker offers names from this list; when the list is not empty, changes can only be made with a name on the list. The name is recorded with corrections, approvals and runs, and document batch owners are chosen from here as well.")}</p>
       {data.error ? <p className="notice error">{data.error.message}</p> : null}
       <ul className="plain user-list">
         {draft.map((u) => (
           <li key={u}>
             <span>{u}</span>
-            <ConfirmButton className="quiet small-btn" disabled={busy} ariaLabel={t("{{name}} törlése a listából", { name: u })}
-              onConfirm={() => void save(draft.filter((x) => x !== u), t("{{name}} törölve a listából.", { name: u }))}>{t("Törlés")}</ConfirmButton>
+            <ConfirmButton className="quiet small-btn" disabled={busy} ariaLabel={t("Remove {{name}} from the list", { name: u })}
+              onConfirm={() => void save(draft.filter((x) => x !== u), t("{{name}} removed from the list.", { name: u }))}>{t("Delete")}</ConfirmButton>
           </li>
         ))}
-        {data.data && draft.length === 0 ? <li className="muted">{t("Még nincs név a listában; addig a fejlécben szabadon írható.")}</li> : null}
+        {data.data && draft.length === 0 ? <li className="muted">{t("No names in the list yet; until then any name can be typed in the header.")}</li> : null}
       </ul>
       <form className="form-row" onSubmit={(e) => {
         e.preventDefault();
         const name = add.trim();
         if (name && !ACTOR_NAME.test(name)) {
-          setMsg({ error: true, text: t("A név csak betűt, számot, szóközt, pontot, @ jelet és kötőjelet tartalmazhat (legfeljebb 64 karakter).") });
+          setMsg({ error: true, text: t("A name may contain only letters, digits, spaces, dots, @ and hyphens (at most 64 characters).") });
           return;
         }
-        if (name) void save([...draft, name], t("{{name}} felvéve és mentve.", { name })).then((ok) => { if (ok) setAdd(""); });
+        if (name) void save([...draft, name], t("{{name}} added and saved.", { name })).then((ok) => { if (ok) setAdd(""); });
       }}>
-        <label className="block">{t("Új név")}<input value={add} maxLength={64} onChange={(e) => setAdd(e.target.value)} /></label>
-        <button type="submit" className={add.trim() ? "primary" : "secondary"} disabled={!add.trim() || busy}>{t("Felvétel")}</button>
+        <label className="block">{t("New name")}<input value={add} maxLength={64} onChange={(e) => setAdd(e.target.value)} /></label>
+        <button type="submit" className={add.trim() ? "primary" : "secondary"} disabled={!add.trim() || busy}>{t("Add entry")}</button>
       </form>
       {msg ? <p className={msg.error ? "notice error" : "muted small"} role={msg.error ? "alert" : "status"}>{msg.text}</p> : null}
     </section>

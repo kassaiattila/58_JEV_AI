@@ -72,4 +72,4 @@ def type_pack_help() -> str:
     """The `--type` option's help: every type pack and the reference default."""
     from jav.ai.typepack import keys as pack_keys
 
-    return "típus-csomag (configs/types/<típus>.json): " + " | ".join(pack_keys()) + f" (alap: {REFERENCE_TYPE})"
+    return "type pack (configs/types/<type>.json): " + " | ".join(pack_keys()) + f" (default: {REFERENCE_TYPE})"

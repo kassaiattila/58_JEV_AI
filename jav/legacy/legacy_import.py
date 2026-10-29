@@ -29,14 +29,14 @@ PRODUCER = "legacy:10_AIFLOW_V4"
 
 store.register_schema("legacy_results", """
 CREATE TABLE IF NOT EXISTS legacy_results (
-    doc_id        TEXT NOT NULL,              -- sha256 a fájl tartalmáról (a mi doc_id-nk)
-    legacy_id     TEXT NOT NULL,              -- a régi projekt dokumentum-azonosítója
+    doc_id        TEXT NOT NULL,              -- sha256 of the file's content (our doc_id)
+    legacy_id     TEXT NOT NULL,              -- the legacy project's document id
     producer      TEXT NOT NULL,
     doc_type      TEXT,
-    datapoints    TEXT NOT NULL,              -- JSON, a lapított oszlopokból visszaállítva
+    datapoints    TEXT NOT NULL,              -- JSON, rebuilt from the flattened columns
     is_valid      INTEGER,
     needs_review  INTEGER,
-    source        TEXT NOT NULL,              -- a köteg mappája (a régi data/output alatt)
+    source        TEXT NOT NULL,              -- the batch's folder (under the legacy data/output)
     imported_at   TEXT NOT NULL,
     PRIMARY KEY (doc_id, legacy_id)
 );

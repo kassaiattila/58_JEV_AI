@@ -13,8 +13,8 @@ import { queueStatus } from "./views/ReviewWorkspace";
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("062 felület-javítások", () => {
-  it("A: a tétellista a mostani állapotot mutatja — a lezárt teendőjű tétel „rendezve”", () => {
+describe("062 interface fixes", () => {
+  it("A: the item list shows the present state — an item whose to-do is closed is ‘settled’", () => {
     expect(queueStatus({ status: "done", final_status: "needs_review" }, 0)).toBe("rendezve");
     expect(queueStatus({ status: "done", final_status: "needs_review" }, 2)).toBe("teendő");
     expect(queueStatus({ status: "done", final_status: "done" }, 0)).toBe("lezárva");
@@ -22,7 +22,7 @@ describe("062 felület-javítások", () => {
     expect(queueStatus(undefined, 0)).toBe("még nem futott");
   });
 
-  it("B: levélkötegnél a Levelek az alapfül; a valószínűség százalékban", () => {
+  it("B: in an email batch Emails is the default tab; the probability in per cent", () => {
     expect(defaultResultTable(["emails", "tasks", "documents", "datapoints"])).toBe("emails");
     expect(defaultResultTable(["documents", "datapoints", "line_items"])).toBe("datapoints");
     expect(defaultResultTable(["utility"])).toBe("utility");
@@ -32,7 +32,7 @@ describe("062 felület-javítások", () => {
     expect(cellText(col, null)).toBe("");
   });
 
-  it("C: a „Mai munkám” részlete felirat, nem belső kód", () => {
+  it("C: the detail of ‘My work today’ is a label, not an internal code", () => {
     expect(activityDetail("reason_resolve", "intent:low_conf:system_notification:0.43")).toMatch(/^Bizonytalan levél-szándék: .*\(0,43\)$/);
     expect(activityDetail("task_decision", "accepted")).toBe("elfogadva");
     expect(activityDetail("run_start", "shadow")).toBe("Próba");
@@ -41,7 +41,7 @@ describe("062 felület-javítások", () => {
     expect(activityDetail("mailbox_pull", "minta@pelda.hu")).toBe("minta@pelda.hu");
   });
 
-  it("E: az elfogadott feladat elvégezve jelölhető; az elvégzett a névvel látszik és visszavonható", async () => {
+  it("E: an accepted task can be marked done; a done one shows with the name and can be undone", async () => {
     const done = vi.spyOn(api, "markTaskDone").mockResolvedValue({} as ItemResult);
     const task = (decision: EmailTask["decision"]): EmailTask => ({
       index: 0, action: "provide_document", title: "Számla beküldése", due_date: null, assignee_hint: null,
@@ -67,7 +67,7 @@ describe("062 felület-javítások", () => {
     expect(screen.queryAllByRole("button", { name: "Elvégezve" })).toHaveLength(0); // without a decision it cannot be marked done
   });
 
-  it("D: rendezés nélkül a szolgáltatás alapsorrendje látszik a fejlécen", async () => {
+  it("D: without sorting the header shows the service's default order", async () => {
     const cols: DsColumn[] = [
       { key: "name", label: "Név", kind: "text", hidden: false, labels: null },
       { key: "created_at", label: "Létrehozva", kind: "datetime", hidden: false, labels: null },

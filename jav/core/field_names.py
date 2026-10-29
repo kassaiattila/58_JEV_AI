@@ -12,14 +12,27 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from jav.core import cfg
+from jav.core import cfg, display
 
 
 def field_label(field: str, doc_type: str | None = None) -> str:
-    """A field's name: the type's own one when it has one, else the shared one, else the field's key."""
+    """A field's name: the type's own one when it has one, else the shared one, else the field's key. 231 (D4): its
+    English source, which the interface shows in its language; a download or a file name the service makes itself
+    takes `field_name`."""
     names = cfg.load("field_labels")
     own = names.get("by_type", {}).get(doc_type or "", {}).get(field)
     return own or names["fields"].get(field) or field
+
+
+def field_name(field: str, doc_type: str | None = None) -> str:
+    """231 (D4): a field's name in the request's language (`jav/core/display.py`), for what the service writes itself."""
+    return display.text(field_label(field, doc_type))
+
+
+def type_name(doc_type: str | None) -> str:
+    """231 (D4): a document type's name in the request's language; the key when the type has no name."""
+    name = cfg.load("field_labels")["doc_types"].get(doc_type or "")
+    return display.text(name) if name else (doc_type or "")
 
 
 def value_labels(field: str) -> dict[str, str]:

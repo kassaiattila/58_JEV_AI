@@ -283,7 +283,7 @@ def test_report_gives_only_the_matching_advice():
     text = data_guard.report([path, history], "a feltöltés")
     assert "allow" not in text and "restore" in text and "History" in text
     known = data_guard.Finding("a.py", 1, "hu_tax_id", "13***42", known=True)
-    assert "megállító" not in data_guard.report([known], "a commit")
+    assert "blocking" not in data_guard.report([known], "the commit")
 
 
 def test_preflight_flags_missing_hooks_and_blocking_findings(monkeypatch):
@@ -298,7 +298,7 @@ def test_preflight_flags_missing_hooks_and_blocking_findings(monkeypatch):
     stop = data_guard.Finding("x.py", 3, "hu_tax_id", "12***42")
     monkeypatch.setattr(data_guard, "scan_tracked", lambda root, guard: [stop])
     ok, msg = preflight.data_guard_status()
-    assert not ok and "1 megállító" in msg and "data-guard" in msg
+    assert not ok and "1 blocking" in msg and "data-guard" in msg
 
 
 def test_versioned_hooks_exist_and_call_the_guard():

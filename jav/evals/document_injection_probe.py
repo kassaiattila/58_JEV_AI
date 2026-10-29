@@ -187,7 +187,7 @@ def run(cfg: dict[str, Any], out: Path, *, flows: set[str] | None = None, jev: b
         for case in cases:
             spent, nxt = _spent(db), _next_cost(cfg, case.flow, jev)
             if any(spent[p] + nxt[p] > budget[p] for p in ("openai", "jev")):
-                print(f"[stop] költségplafon: elköltve {spent}, a következő ({case.case_id}/{case.flow}) becslése {nxt}")
+                print(f"[stop] cost ceiling: spent {spent}, the next one ({case.case_id}/{case.flow}) estimated at {nxt}")
                 break
             inv = next(i for i in cfg["invoices"] if i["id"] == case.invoice_id)
             pdf = out / "pdfs" / f"{case.case_id}.pdf"
@@ -203,8 +203,8 @@ def run(cfg: dict[str, Any], out: Path, *, flows: set[str] | None = None, jev: b
 
 
 def summarize(rows: list[dict[str, Any]]) -> str:
-    lines = ["| kar | változat | eset | ellenállt | terelve, teendővel | terelve, teendő nélkül | más hiba, teendővel | "
-             "más hiba, teendő nélkül | hibás elfogadás (bármely mező) |", "|---|---|---|---|---|---|---|---|---|"]
+    lines = ["| path | variant | cases | resisted | steered, with a to-do | steered, without a to-do | another error, with a to-do | "
+             "another error, without a to-do | false acceptance (any field) |", "|---|---|---|---|---|---|---|---|---|"]
     for flow in ("S", "G"):
         for variant in sorted({r["variant"] for r in rows if r["flow"] == flow}):
             rs = [r for r in rows if r["flow"] == flow and r["variant"] == variant]
@@ -213,7 +213,7 @@ def summarize(rows: list[dict[str, Any]]) -> str:
             lines.append(f"| {flow} | {variant} | {len(rs)} | {o['resisted']} | {o['steered_caught']} | {o['steered_silent']} | "
                          f"{o['wrong_caught']} | {o['wrong_silent']} | {silent} |")
     det = [r for r in rows if r["flow"] == "detect"]
-    lines += ["", "| típusfelismerés: változat | eset | típus | átfordult |", "|---|---|---|---|"]
+    lines += ["", "| type recognition: variant | cases | type | flipped |", "|---|---|---|---|"]
     for variant in sorted({r["variant"] for r in det}):
         rs = [r for r in det if r["variant"] == variant]
         types = ", ".join(sorted({str(r.get("doc_type")) for r in rs}))
@@ -223,7 +223,7 @@ def summarize(rows: list[dict[str, Any]]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--live", action="store_true", help="élő, fizetős futás (tiszta munkafa kell)")
+    ap.add_argument("--live", action="store_true", help="a live, paid run (needs a clean working tree)")
     ap.add_argument("--flows", help="122: comma-separated subset of detect,S,G")
     ap.add_argument("--no-jev", action="store_true", help="122: GPT recognises the type, the code verifies the G path; no S path")
     ap.add_argument("--budget-usd", action="append", default=[], metavar="PROVIDER=USD",
@@ -234,15 +234,15 @@ def main(argv: list[str] | None = None) -> int:
     jev = not args.no_jev
     hard = {p: Decimal(v) for p, v in (item.split("=", 1) for item in args.budget_usd)} or None
     est = estimate(cfg, flows=flows, jev=jev)
-    print(f"terv: {est['runs']} futás; becslés: {est['openai']} USD OpenAI + {est['jev']} USD JEV; "
-          f"plafon: {cfg['budget_usd']}; hard limit: {hard}")
+    print(f"plan: {est['runs']} run(s); estimate: {est['openai']} USD OpenAI + {est['jev']} USD JEV; "
+          f"ceiling: {cfg['budget_usd']}; hard limit: {hard}")
     if not args.live:
         return 0
     from jav.core.devstate import git_state
 
     git = git_state()
     if git is None or git.dirty:
-        print("élő futás csak tiszta munkafán (CLAUDE.md §4)")
+        print("a live run only on a clean working tree (CLAUDE.md §4)")
         return 2
     out = RUNS / f"{datetime.now():%Y%m%d_%H%M%S}_067_injection{'' if jev else '_nojev'}"
     started = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -257,7 +257,7 @@ def main(argv: list[str] | None = None) -> int:
         "budget_usd": cfg["budget_usd"],
         "spent_usd": {k: round(v, 6) for k, v in spent.items()}}, ensure_ascii=False, indent=1), encoding="utf-8")
     print(summary)
-    print(f"költség: {spent}; kimenet: {out}")
+    print(f"cost: {spent}; output: {out}")
     return 0
 
 

@@ -8,7 +8,9 @@ Rules (ported from the legacy project's `ui/src/utils/table-sort.ts` to the serv
   texts; an accented letter comes after its base letter: a < á, o < ó < ö < ő; double letters — cs, sz … — are not
   handled separately), numbers and money as numbers, dates as ISO text; an empty value is **always last**, in
   descending order too; the sort is stable;
-- search and the "contains" filter: case- and accent-insensitive ("szamla" finds "Számla").
+- search and the "contains" filter: case- and accent-insensitive ("szamla" finds "Számla");
+- 231 (D4): an enum's caption is in the request's language (`jav/core/display.py`), so search, the "contains" filter,
+  sorting and the filter choices go by what the person sees.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from jav.core import numbers
+from jav.core import display, numbers
 from jav.core.user_messages import explained
 
 Kind = Literal["text", "number", "money", "date", "datetime", "enum", "bool", "id"]
@@ -37,7 +39,7 @@ class Column:
     label: str
     kind: Kind = "text"
     hidden: bool = False  # hidden by default (can be switched on in the column picker)
-    labels: dict[str, str] | None = None  # enum code -> Hungarian caption; search and sort use the caption
+    labels: dict[str, str] | None = None  # enum code -> caption (231, D4: its source; shown in the request's language)
     extra: dict[str, Any] = field(default_factory=dict)  # extras for the interface (e.g. link target)
 
     def spec(self) -> dict[str, Any]:
@@ -104,9 +106,10 @@ def to_number(value: Any) -> Decimal | None:
 
 
 def shown(col: Column, value: Any) -> Any:
-    """The displayed value: the caption for an enum code."""
+    """The displayed value: the caption for an enum code, in the request's language (231, D4)."""
     if col.labels and value is not None:
-        return col.labels.get(str(value), value)
+        caption = col.labels.get(str(value))
+        return display.text(caption) if caption is not None else value
     return value
 
 
@@ -188,9 +191,10 @@ def _typed(f: Filter, col: Column) -> Filter:
         value = numbers.read_input(f.value, kind="money" if col.kind == "money" else "number")
     except numbers.AmbiguousNumber:
         raise explained(numbers.AmbiguousNumber, "The filter of {{column}} can be read two ways: {{value}}. Write it as 1 234,50.",
-                        column=col.label, value=f.value) from None
+                        column=display.text(col.label), value=f.value) from None
     except ValueError:
-        raise explained(ValueError, "The filter of {{column}} is not a number: {{value}}", column=col.label, value=f.value) from None
+        raise explained(ValueError, "The filter of {{column}} is not a number: {{value}}", column=display.text(col.label),
+                        value=f.value) from None
     return f.model_copy(update={"value": value})
 
 

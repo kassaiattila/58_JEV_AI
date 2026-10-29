@@ -6,12 +6,12 @@
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "kiszervezés a Python-konstansokból (ROADMAP §1 konfig mint adat); tartalom változatlan; a régi 11 osztály verbatim kulcsokkal, 2. körös határszabályok"
+    "note": "moved out of the Python constants (ROADMAP §1 config as data); the content unchanged; the legacy 11 classes with verbatim keys, the second round's boundary rules"
    },
    {
     "version": "2.0.0",
     "date": "2026-09-20",
-    "note": "regiszter-séma v2: description -> what + not_for (a NOT-szabályok külön mezőben, testvér-szándékokra mutatva), few_shot -> examples (verbatim, változatlan), parent (payment_documents, automated_notices, broadcast, human_correspondence, community_events, other); egy általános bővítés: a szolgáltató saját ügyfeleinek szóló csomag-/terv-ajánlata newsletter_marketing (in-sample: live_22)"
+    "note": "registry schema v2: description -> what + not_for (the NOT rules in a field of their own, pointing to the sibling intents), few_shot -> examples (verbatim, unchanged), parent (payment_documents, automated_notices, broadcast, human_correspondence, community_events, other); one general extension: a provider's package or plan offer to its own customers is newsletter_marketing (in-sample: live_22)"
    },
    {
     "version": "2.1.0",

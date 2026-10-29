@@ -21,7 +21,7 @@ type Value = string | number;
  *  parts of an outcome (a quote's totals) named. */
 function show(v: unknown): string {
   if (v === null || v === undefined || v === "") return "–";
-  if (typeof v === "boolean") return v ? t("Igen") : t("Nem");
+  if (typeof v === "boolean") return v ? t("Yes") : t("No");
   if (Array.isArray(v)) return v.length ? v.map(show).join(", ") : t("none");
   if (typeof v === "object") return Object.entries(v as Record<string, unknown>).map(([k, x]) => `${t(k)} ${show(x)}`).join(" · ");
   return numText(v, 4);

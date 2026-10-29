@@ -16,8 +16,8 @@ const ok = (created_at: string, copyOk = true): BackupInfo => ({
     copy: { dir: "\\\\nas\\mentes\\20260930-120000", ok: copyOk, verified: copyOk, error: copyOk ? undefined : "OSError: a hálózati hely nem érhető el" } },
 });
 
-describe("064 adattár-mentés", () => {
-  it("az állapot szintje: rendben, túl régi, sikertelen másolat, hiba, még nincs", () => {
+describe("064 store backup", () => {
+  it("the state's level: fine, too old, a failed copy, an error, none yet", () => {
     expect(backupState(ok("2026-09-30T12:00:00"), NOW).level).toBe("ok");
     const stale = backupState(ok("2026-09-28T12:00:00"), NOW);
     expect(stale.level).toBe("warn");
@@ -27,7 +27,7 @@ describe("064 adattár-mentés", () => {
     expect(backupState({ config: CONFIG, status: null }, NOW).text).toBe("Még nem készült mentés.");
   });
 
-  it("070: a belső dokumentumok sora — a mentésben, hiányzik, vagy ki van kapcsolva", () => {
+  it("070: the internal documents' row — in the backup, missing, or turned off", () => {
     const withDocs = ok("2026-09-30T12:00:00");
     withDocs.status!.files!.push({ file: "internal-docs.zip", bytes: 420_000, integrity: "ok", entries: 154 });
     expect(docsLine(withDocs)).toBe("154 fájl (0.4 MB)");
@@ -35,7 +35,7 @@ describe("064 adattár-mentés", () => {
     expect(docsLine(ok("2026-09-30T12:00:00"))).toBe("kikapcsolva");
   });
 
-  it("a Mentés most a napi beállítással ment, és frissíti az állapotot", async () => {
+  it("Back up now backs up with the daily setting and refreshes the state", async () => {
     const status = vi.spyOn(api, "backupStatus").mockResolvedValue(ok(new Date().toISOString()));
     const now = vi.spyOn(api, "backupNow").mockResolvedValue({ created_at: new Date().toISOString(), ok: true, dir: "store\\backups\\uj", copy: null });
     render(<BackupPanel />);

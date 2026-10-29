@@ -33,8 +33,8 @@ const HELP: RecipeHelp = {
   params: {},
 };
 
-describe("080 indítás előtti áttekintés", () => {
-  it("szolgáltatónként a keretet és az okát mondja", () => {
+describe("080 the pre-start overview", () => {
+  it("it says the budget and its reason per provider", () => {
     const lines = planLines(PLAN, { jev: "0.26", openai: "0.306", azure_di: "0.06" });
     expect(lines).toEqual([
       "Helyi szövegfelismerés: ingyenes, minden iraton.",
@@ -44,7 +44,7 @@ describe("080 indítás előtti áttekintés", () => {
     ]);
   });
 
-  it("a nem hívott szolgáltatót is megnevezi", () => {
+  it("it names the provider not called too", () => {
     const sOnly: RunPlan = { ...PLAN, emails: 0, tasks_emails: 0, paths: { S: 3, G: 0, unknown: 0 }, azure: false, jev_reuse: false };
     const lines = planLines(sOnly, { jev: "0.21" });
     expect(lines).toContain("OpenAI: nem hívódik, minden irat az S-úton fut.");
@@ -52,7 +52,7 @@ describe("080 indítás előtti áttekintés", () => {
     expect(lines[1]).toMatch(/minden kérdés élő hívás/);
   });
 
-  it("az út a beszédes nevét kapja, és nincs „recept kiválasztása” lépés", () => {
+  it("a path gets its meaningful name, and there is no ‘choose a recipe’ step", () => {
     expect(paramShort("arm", "auto")).toBe("Automatikus (ajánlott)");
     expect(paramShort("arm", "S")).toBe("JEV, ahol lehet — olcsóbb, tételsorok nélkül; máshol GPT (S)");
     expect(paramShort("arm", "G")).toBe("GPT + JEV — tételsorokkal (G)");
@@ -60,8 +60,8 @@ describe("080 indítás előtti áttekintés", () => {
   });
 });
 
-describe("080 csak a köteg tételeire ható beállítások", () => {
-  it("iratos kötegen nincs feladatjavaslat és levelenkénti keret; leveles kötegen nincs út és Azure", () => {
+describe("080 only the settings that act on the batch's items", () => {
+  it("a document batch has no task proposals and no per-email budget; an email batch has no path and no Azure", () => {
     expect(paramApplies("tasks", ["document"])).toBe(false);
     expect(paramApplies("arm", ["email"])).toBe(false);
     expect(paramApplies("jev_cache", ["email"])).toBe(true);
@@ -73,8 +73,8 @@ describe("080 csak a köteg tételeire ható beállítások", () => {
   });
 });
 
-describe("080 alapbeállítás és megerősítés", () => {
-  it("mentett beállítás nélkül az alapbeállítást és az áttekintést mutatja", async () => {
+describe("080 the default setting and the confirmation", () => {
+  it("without a saved setting it shows the default setting and the overview", async () => {
     const v = view();
     vi.spyOn(api, "readiness").mockResolvedValue(v.readiness);
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [PROCESSING], help: HELP });
@@ -87,8 +87,8 @@ describe("080 alapbeállítás és megerősítés", () => {
   });
 });
 
-describe("080 Beállítások › Feldolgozás", () => {
-  it("a tételfajtákat és az utak összevetését mutatja", async () => {
+describe("080 Settings › Processing", () => {
+  it("it shows the item kinds and the paths compared", async () => {
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [PROCESSING], help: HELP });
     render(<RecipesPanel />);
     expect(await screen.findByText("PDF-irat: a rendszer előbb felismeri a típusát.")).toBeTruthy();

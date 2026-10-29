@@ -37,24 +37,24 @@ function CallRow({ call, onDone }: { call: UncertainCall; onDone: () => void }) 
     <li className="uncertain-call">
       <p className="small">
         <span className="mono">#{call.id}</span>{" "}
-        {t("{{provider}}, {{step}} lépés, futás: {{run}}, {{when}}; lefoglalva legfeljebb {{max}} USD", {
+        {t("{{provider}}, step {{step}}, run {{run}}, {{when}}; at most {{max}} USD reserved", {
           provider: call.provider, step: call.step_id, run: call.run_id, when: when(call.created_at), max: call.max_cost_usd,
         })}
       </p>
       <div className="row">
         <label>
-          {t("Tényleges költség (USD, üresen: ismeretlen)")}
+          {t("Actual cost (USD; leave empty if unknown)")}
           <input value={cost} onChange={(e) => setCost(e.target.value)} inputMode="decimal" aria-invalid={!parsed.ok} />
         </label>
         <label>
-          {t("Megjegyzés (például mit mutatott a szolgáltató felülete)")}
+          {t("Note (for example what the provider's console showed)")}
           <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
         </label>
-        <ConfirmButton onConfirm={() => void resolve()} disabled={!ready} ariaLabel={t("Lezárás")}>
-          {t("Lezárás")}
+        <ConfirmButton onConfirm={() => void resolve()} disabled={!ready} ariaLabel={t("Settle")}>
+          {t("Settle")}
         </ConfirmButton>
       </div>
-      {!parsed.ok ? <p className="notice error">{t("A költség nem szám (például 0.012).")}</p> : null}
+      {!parsed.ok ? <p className="notice error">{t("The cost is not a number (for example 0.012).")}</p> : null}
       {error ? <p className="notice error">{error}</p> : null}
     </li>
   );
@@ -65,19 +65,19 @@ export function UncertainCallsPanel() {
   const d = useLoad("uncertain-calls", api.uncertainCalls, 60000);
   const calls = d.data?.calls ?? [];
   return (
-    <section className="card wide" aria-label={t("Bizonytalan kimenetű hívások")}>
+    <section className="card wide" aria-label={t("Calls with an uncertain outcome")}>
       <div className="card-head">
-        <h3>{t("Bizonytalan kimenetű hívások")}</h3>
+        <h3>{t("Calls with an uncertain outcome")}</h3>
       </div>
       {d.error ? <p className="notice error">{d.error.message}</p> : null}
       {/* 085 (re-audit U01): "none" only for a list actually loaded, not while loading or after a failed request */}
       {d.data ? (
         <p role="status" className={calls.length ? "notice" : ""}>
           {calls.length
-            ? t("{{n}} fizetős hívásnál nem tudni, lefutott-e; amíg nincs lezárva, a futás kerete a legnagyobb költséggel számol vele, és a lépés nem ismétlődik.", { n: calls.length })
-            : t("Nincs lezáratlan, bizonytalan kimenetű hívás.")}
+            ? t("For {{n}} paid call(s) it is not known whether they went through; until they are settled, the run's budget counts them at their maximum cost, and the step is not repeated.", { n: calls.length })
+            : t("No paid call with an uncertain outcome is waiting to be settled.")}
         </p>
-      ) : !d.error ? <p className="muted">{t("Betöltés…")}</p> : null}
+      ) : !d.error ? <p className="muted">{t("Loading…")}</p> : null}
       {calls.length ? <ul className="plain">{calls.map((c) => <CallRow key={c.id} call={c} onDone={d.reload} />)}</ul> : null}
     </section>
   );

@@ -91,7 +91,7 @@ def test_preflight_without_local_handoffs_is_not_a_failure(tmp_path, monkeypatch
 
     monkeypatch.setattr(preflight, "HANDOFFS", tmp_path / "nincs")
     ok, msg = preflight.handoff_status()
-    assert ok and "nincs helyi átadó" in msg
+    assert ok and "no local handoff" in msg
 
 
 def test_preflight_names_the_failed_tests(monkeypatch, tmp_path):

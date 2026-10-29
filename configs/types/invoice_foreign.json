@@ -16,12 +16,12 @@
    {
     "version": "1.2.0",
     "date": "2026-09-29",
-    "note": "069 (066 Á05, döntés 2026-09-29): adószám-ellenőrzés mindkét félre (tax_id, optional): felismert alak (jav/taxid.py), különben teendő; eddig a külföldi számlán nem volt adószám-ellenőrzés. A kinyerés változatlan"
+    "note": "069 (066 Á05, decision of 2026-09-29): a tax number check for both parties (tax_id, optional): a recognised form (jav/taxid.py), otherwise a to-do; the foreign invoice had no tax number check until now. The extraction unchanged"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "047 T1.2: parent + a régi detect.json kulcsszavai a részletes típus kiválasztásához (forrás: 10_AIFLOW_V4/flows/doc-extract-bare/types/invoice_foreign/detect.json, sha256 dbb231004da3e1e5); a kinyerés változatlan"
+    "note": "047 T1.2: parent and the legacy detect.json's keywords for choosing the detailed type (source: 10_AIFLOW_V4/flows/doc-extract-bare/types/invoice_foreign/detect.json, sha256 dbb231004da3e1e5); the extraction unchanged"
    },
    {
     "version": "1.0.0",

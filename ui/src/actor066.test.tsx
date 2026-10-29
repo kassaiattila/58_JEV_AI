@@ -12,8 +12,8 @@ function Who() {
 
 afterEach(() => setActor(""));
 
-describe("Aktív felhasználó több lapon (066 Á21)", () => {
-  it("egy másik lapon végzett váltás ezen a lapon is látszik", () => {
+describe("The active user across tabs (066 Á21)", () => {
+  it("a switch made in another tab shows in this tab too", () => {
     setActor("Minta Anna");
     render(<Who />);
     expect(screen.getByTestId("who").textContent).toBe("Minta Anna");

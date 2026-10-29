@@ -13,9 +13,9 @@ flowchart TD
     done["done (terminal)"]
     needs_ocr["needs_ocr (terminal)"]
   end
-  load_pdf -->|nincs szövegréteg| ocr_pdf
+  load_pdf -->|no text layer| ocr_pdf
   load_pdf --> detect
-  ocr_pdf -->|nincs OCR / nincs szöveg| needs_ocr
-  ocr_pdf -->|OCR-szöveg| detect
+  ocr_pdf -->|no OCR / no text| needs_ocr
+  ocr_pdf -->|OCR text| detect
   detect --> save
   save --> done

@@ -23,17 +23,17 @@ function WorkpackageList() {
   const scope = { ...(archived ? { include_archived: "1" } : {}), ...(mine && actor ? { owner: actor } : {}) };
   return (
     <>
-      <PageHeader crumbs={[{ label: t("Beállítások"), href: "#/settings/system" }]} title={t("All document batches")}
+      <PageHeader crumbs={[{ label: t("Settings"), href: "#/settings/system" }]} title={t("All document batches")}
         badge={count !== null ? <span className="count">{count}</span> : null}
         summary={t("Every document batch that is not a case step's, to find an old one; the documents of a batch run together: processing, review, result. New work starts as a case, under Cases.")}
         actions={<a className="button secondary" href="#/cases/new">{t("New case")}</a>} />
       <DataTable dataset="workpackages" label={t("All document batches")} onPage={(pg) => setCount(pg.matched)} pollMs={10000}
         scope={Object.keys(scope).length ? scope : undefined}
         toolbar={<>
-          <label className="check small" title={actor ? undefined : t("Előbb válaszd ki a neved fent")}>
-            <input type="checkbox" checked={mine && Boolean(actor)} disabled={!actor} onChange={(e) => setMine(e.target.checked)} /> {t("Csak a saját kötegeim")}
+          <label className="check small" title={actor ? undefined : t("First select your name above")}>
+            <input type="checkbox" checked={mine && Boolean(actor)} disabled={!actor} onChange={(e) => setMine(e.target.checked)} /> {t("Only my document batches")}
           </label>
-          <label className="check small"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> {t("Elrejtett kötegek is")}</label>
+          <label className="check small"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> {t("Hidden batches too")}</label>
         </>}
         cell={(col, row) => (col.key === "next_label" ? (
           // the next step in the chosen language (from the local service's code), with a link to the stage

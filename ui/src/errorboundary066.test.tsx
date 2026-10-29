@@ -9,8 +9,8 @@ function Broken(): never {
   throw new Error("kitalált hiba");
 }
 
-describe("Hibahatár (066 Á36)", () => {
-  it("üzenetet és újratöltés-gombot mutat üres oldal helyett", () => {
+describe("Error boundary (066 Á36)", () => {
+  it("it shows a message and a reload button instead of an empty page", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     render(<ErrorBoundary><Broken /></ErrorBoundary>);
     expect(screen.getByRole("heading").textContent).toBe("Váratlan hiba a felületen");
