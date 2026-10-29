@@ -29,7 +29,7 @@ from typing import Any, Callable
 
 from burr.integrations.serde import pydantic as burr_pydantic
 
-from jav.app import app_settings, capabilities, intake, item_kinds, work, work_readiness, work_runs, workflows
+from jav.app import app_settings, capabilities, intake, item_kinds, rule_defaults, work, work_readiness, work_runs, workflows
 from jav.documents import isolated_pdf, pdf
 from jav.core import store
 from jav.runtime import job_kinds, pdf_status
@@ -489,6 +489,7 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
         from jav.runtime import preload
 
         preload.preload()  # 091: all the code now, so later changes on disk cannot mix into this process
+        rule_defaults.use()  # 231 (U4a): the installation's defaults over the rule files, outside a case
         stop_path().unlink(missing_ok=True)
         info: dict[str, Any] = {"startup": startup(), "processed": 0, "results": {}, "stopped": False, "errors": 0}
         log.info("worker %s started: %s", worker, info["startup"])

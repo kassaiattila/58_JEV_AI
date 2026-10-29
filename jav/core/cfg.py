@@ -26,6 +26,12 @@ snapshot), which `load`, `version` and `config_hash` read instead of the file; a
 from the file (`filled`), so newer code reads what it expects; stage D (D-a): from the first later version that had it,
 so a later change of its value does not reach an old case. A kept copy of another main version does not fit the
 code: reading it raises `RulesUnfit`, with the file and both versions, instead of reading it differently.
+
+231 (stage U, U4a; the owner's decisions of 2026-10-29): the installation may keep its own values of some keys, its
+defaults (`jav/app/rule_defaults.py`). A long-running process names where they come from (`use_defaults`); a read
+outside any `overlay` context sees them over the files, and a case keeps the ones active at its start among its own
+values, so inside a case's context (and inside `overlay(None)`, the files alone) the installation's values now do not
+reach it. A command or a test names none: a measurement reads the files.
 """
 
 from __future__ import annotations
@@ -124,27 +130,45 @@ class Overlay:
 
 
 _overlay: ContextVar[Overlay | None] = ContextVar("cfg_overlay", default=None)
+# U4a: inside an `overlay` context (a case's values, or the files alone) the installation's defaults do not apply
+_bound: ContextVar[bool] = ContextVar("cfg_overlay_bound", default=False)
+_defaults: Callable[[], Overlay | None] | None = None
+
+
+def use_defaults(provider: Callable[[], Overlay | None] | None) -> None:
+    """U4a: where this process takes the installation's own values from (None: nowhere, the files alone); a
+    long-running process names it at start-up."""
+    global _defaults
+    _defaults = provider
 
 
 @contextmanager
 def overlay(values: Overlay | None) -> Iterator[None]:
-    """231 (B3): the reads inside this context see these values over the files (None: the files alone)."""
+    """231 (B3): the reads inside this context see these values over the files (None: the files alone); U4a: and never
+    the installation's defaults (a case keeps the ones of its start among its values)."""
     token = _overlay.set(values if values is not None and (values.values or values.base or values.unfit) else None)
+    bound = _bound.set(True)
     try:
         yield
     finally:
+        _bound.reset(bound)
         _overlay.reset(token)
 
 
 def current_overlay() -> Overlay | None:
-    """The values lying over the files in this context (None: the files alone)."""
-    return _overlay.get()
+    """The values lying over the files in this context (None: the files alone): a case's, or (U4a) outside any context
+    the installation's defaults."""
+    if _bound.get() or _defaults is None:
+        return _overlay.get()
+    with overlay(None):  # the provider's own reads see the files
+        return _defaults()
 
 
 def load(name: str) -> dict[str, Any]:
-    """The config file `name`, with the values of the case at hand over it (`overlay`, 231 B3); D0-e: the case's kept
-    copy of the file as it started, when it keeps one (`RulesUnfit` for one that does not fit the code). Read only."""
-    over = _overlay.get()
+    """The config file `name`, with the values of the case at hand over it (`overlay`, 231 B3), or (U4a) outside one
+    the installation's defaults; D0-e: the case's kept copy of the file as it started, when it keeps one
+    (`RulesUnfit` for one that does not fit the code). Read only."""
+    over = current_overlay()
     if over is None:
         return _file(name)
     if name in over.unfit:
@@ -218,7 +242,7 @@ def canonical(data: dict[str, Any]) -> str:
 def config_hash(*names: str) -> str:
     """The joint hash of one or more configs (e.g. the detect call site + the doc_types registry); 231 (B3): the files',
     never a case's own values; D0-e: a case's kept copy of a file counts as the file."""
-    over = _overlay.get()
+    over = current_overlay()
     kept = tuple((n, over.base[n].sha256) for n in sorted(set(names)) if over is not None and n in over.base)
     return _joint_hash(names, kept)
 
@@ -228,7 +252,7 @@ def _joint_hash(names: tuple[str, ...], kept: tuple[tuple[str, str], ...]) -> st
     """`config_hash` of the files, with the kept copies `kept` names by fingerprint read from the case's overlay in
     place (its own values never)."""
     h = hashlib.sha256()
-    current = _overlay.get()
+    current = current_overlay()
     with overlay(Overlay({}, base=current.base) if kept and current is not None else None):
         for name in sorted(names):
             h.update(name.encode("utf-8"))

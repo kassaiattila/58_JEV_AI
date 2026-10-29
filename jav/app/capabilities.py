@@ -592,13 +592,17 @@ def _kept(start: str, now: str, names: tuple[str, ...]) -> tuple[dict[str, cfg.K
 @contextmanager
 def case_rules(case_id: str | None) -> Iterator[None]:
     """231 (B3): the work inside runs with the case's own rule values over the files; a package that is no case (or
-    None) runs with the files alone. D0-e: and with the rule files as the case started, where it keeps them."""
-    over = None
+    None) runs with the files alone. D0-e: and with the rule files as the case started, where it keeps them. U4a: a
+    package that is no case reads the installation's defaults over the files (no context is bound); a case reads the
+    ones it kept at its start among its own values."""
+    row = None
     if case_id:
         with store.connect() as c:
             row = cases.find_case_in(c, case_id)
-        over = case_overlay(row.get("data"), case_id) if row else None
-    with cfg.overlay(over):
+    if row is None:
+        yield
+        return
+    with cfg.overlay(case_overlay(row.get("data"), case_id)):
         yield
 
 

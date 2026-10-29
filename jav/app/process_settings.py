@@ -43,7 +43,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav.app import capabilities, letter_frames, partners, process_packs, scopes
+from jav.app import capabilities, letter_frames, partners, process_packs, rule_defaults, scopes
 from jav.core import cfg, identity, store, trace, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
@@ -167,10 +167,10 @@ def rule_keys(pack: process_packs.ProcessPack) -> dict[str, tuple[capabilities.R
 def effective_rules(pack: process_packs.ProcessPack) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     """231 (B3): the process's active rule values, as a case keeps them: ({config name: {key: value}}, {config name:
     {key: {"setting": id, "version": n}}}); a key its capabilities no longer declare is left out. 231 (U3f): with the
-    letter frames it uses, as their active versions in the shared library have them (`letter_frames.in_effect`)."""
+    letter frames it uses, as their active versions in the shared library have them (`letter_frames.in_effect`). 231
+    (U4a): under the process's own values, the installation's active defaults (`rule_defaults.active`)."""
     keys = rule_keys(pack)
-    values: dict[str, dict[str, Any]] = {}
-    refs: dict[str, dict[str, Any]] = {}
+    values, refs = rule_defaults.active()
     with store.connect() as c:
         for r in _active_rows(c, pack.id, RULE):
             if r["key"] in keys:

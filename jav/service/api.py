@@ -40,7 +40,7 @@ from pydantic import Field
 from starlette.routing import BaseRoute
 
 from jav.service import local_picker
-from jav.app import app_settings, capabilities, corrections, package_release, work, work_views
+from jav.app import app_settings, capabilities, corrections, package_release, rule_defaults, work, work_views
 from jav.ai import policy
 from jav.documents import isolated_pdf
 from jav.core import access, cfg, dates, numbers, store, version
@@ -425,6 +425,8 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                 # 231 (an incident of 2026-10-25): what the config folder holds differently from the configs this
                 # service froze at start-up (None: it froze none); a mismatch names the files
                 "config_drift": _drift(),
+                # 231 (U4a): the keys whose installation default is active (the rule files' values do not count there)
+                "own_defaults": sorted(f"{file}.{key}" for file, keys in rule_defaults.active()[0].items() for key in keys),
                 "pdf_protection": {
                     "service": isolated_pdf.protection_status(),
                     "worker": pdf_status.worker_status(store.current_path(), running=lock.is_held(worker.lock_path())),
@@ -459,6 +461,7 @@ def serve(*, host: str | None = None, port: int | None = None) -> None:
     from jav.core import applog
 
     preload.preload()  # 091: all the code now, so later changes on disk cannot mix into the running service
+    rule_defaults.use()  # 231 (U4a): the installation's defaults over the rule files, outside a case
     datasets.warm_up()  # 158: the package list is built in the background, so its first request does not wait 5-8 s
     # 063: the service log also goes to a persistent rotating file (runs/logs/api.log), with tracebacks for 500 errors
     uvicorn.run(create_app(), host=host, port=port or int(s["port"]), log_level="info", access_log=False,
