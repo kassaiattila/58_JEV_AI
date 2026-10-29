@@ -11,9 +11,10 @@ number must not become money candidates). The name/address finders work on cells
 Candidate profiles (type pack `candidate_profile`): `hu` is the original regex set for Hungarian invoices, unchanged;
 `intl` is the international extension (EU / Turkish / Polish / US tax IDs, English and continental date forms,
 `$1,600.00` money notation, foreign legal forms, English party labels, reverse charge = synthetic 0 VAT candidate).
-The profile is data (`PROFILES`), the finders are the mechanism. When introduced, the `hu` profile was bit-identical to
-the previous behaviour; since then the invoice number below the title (065) and the masking of invoice-number
-candidates (066: standalone occurrences only) are shared by both profiles.
+231 (F2): the patterns, the limits and the profiles are data, `configs/candidate_profiles.json`; the finders are
+the mechanism. When introduced, the `hu` profile was bit-identical to the previous behaviour; since then the invoice
+number below the title (065) and the masking of invoice-number candidates (066: standalone occurrences only) are
+shared by both profiles. A new profile is data alone: a type pack names it in `candidate_profile`.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ import re
 from collections import OrderedDict
 from dataclasses import dataclass, field
 
+from jav.core import cfg
 from jav.core.dates import document_date_order, document_short_order, find_dates_in
 from jav.ai.models import (
     DATE_NUMERIC_RE,
@@ -38,188 +40,76 @@ from jav.core.taxid import recognize as recognize_tax_id
 from jav.ai.validators import hu_tax_id
 
 MAX_OPTIONS = 250  # the 255-option Choice limit, minus "none" and a margin
-MAX_NAME_FALLBACK = 60
-CONTEXT_MAX_CHARS = 140
-
-# --- regular expressions ----------------------------------------------------------------
-
-IBAN_RES = (
-    re.compile(r"\bHU\d{2}(?:[  ]?\d{4}){6}\b"),
-    re.compile(r"(?<!\d)\d{8}[- ]\d{8}[- ]\d{8}(?!\d)"),
-    re.compile(r"(?<!\d)\d{8}[- ]\d{8}(?!\d)"),
-    # 065: the unseparated form must be a standalone token (part of a hyphenated identifier is not a bank account
-    # number: "6300001234567890-4" is an invoice number)
-    re.compile(r"(?<![\w-])\d{24}(?![\w-])"),
-    re.compile(r"(?<![\w-])\d{16}(?![\w-])"),
-)
-# Foreign IBAN (not HU): country code + 2 check digits + 11-30 alphanumerics, also in space-separated groups
-IBAN_INTL_RE = re.compile(r"\b(?!HU)[A-Z]{2}\d{2}(?:[  ]?[A-Z0-9]{4}){2,7}(?:[  ]?[A-Z0-9]{1,4})?\b")
-TAXID_FORMATTED_RE = re.compile(r"(?<!\d)\d{8}-\d-\d{2}(?!\d)")
-TAXID_CONTIGUOUS_RE = re.compile(r"(?<![\d-])\d{11}(?![\d-])")
-TAXID_EU_RE = re.compile(r"\bHU\d{8}\b")
-# EU / UK / Swiss tax number (not HU): country code + 8-12 alphanumerics; also the Irish form (IE + 7 digits +
-# 1-2 letters)
-# 065: also the EU OSS registration number (EU + 9 digits, e.g. the EU VAT of US providers) and the Dutch "…B01" suffix
-_EU_CC = "AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|HR|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK|GB|XI|NO|CH|TR|UA|RS|EU"  # real country-code prefixes ("ID 512345678" is not a tax number)
-# 069 (066 Á27): the spaced Norwegian form with the MVA suffix; the separate trailing letter of the Irish form
-# ("IE 8256796 U") is part of the candidate. A match is a candidate only as a recognised form (jav/core/taxid.py), in its
-# canonical spelling; the spaced "NO …" without MVA is not ("INVOICE NO 123456789" is a serial number, not a Norwegian
-# tax number).
-TAXID_EU_INTL_RE = re.compile(
-    rf"\b(?:NO[ ]?\d{{3}}[ ]?\d{{3}}[ ]?\d{{3}}[ ]?MVA"
-    rf"|(?:{_EU_CC})[- ]?\d{{7,12}}(?:[A-Z]{{1,2}}\d{{0,2}})?(?: [A-Z]{{1,2}}(?!\w))?"
-    rf"|IE\d[A-Z0-9+*]\d{{5}}[A-Z]{{1,2}}|CHE[- ]?\d{{3}}\.?\d{{3}}\.?\d{{3}})\b")
-# 069 (066 Á27): EIN is a label only in capitals (the German article "ein" is not)
-TAXID_LABEL_INTL_RE = re.compile(r"(?i)\b(?:vat\s*(?:id|no|number|reg)|tax\s*(?:id|number|no)|(?-i:EIN)|vkn|tckn|nip|ust[-.]?\s?idnr|steuernummer|abn|gstin|vergi\s*no|áfaazonosító|adószám)\b")
-TAXID_LABEL_TOKEN_RE = re.compile(r"(?<![\w-])(?:\d{2}-\d{7}|\d{9,11}|\d{3}[- ]\d{3}[- ]\d{3}[- ]\d{2,3})(?![\w-])")  # EIN 12-3456789, VKN 10 digits, ABN 11 digits
-
-# 127: the own number of a credit note or corrective invoice is labelled by the document's own name; the referenced
-# original stays a candidate too, the Choice text tells them apart
-CREDIT_NOTE_LABEL_HU = (r"|jóváír\w*\s*(?:számla\s*)?(?:száma|sorszáma|dokumentum)|helyesbítő\s*számla|sztornó\s*számla"
-                        r"|érvénytelenítő\s*számla")
-INVOICE_LABEL_RE = re.compile(
-    r"(?i)számla\s*sorszám|sorszám|számlaszám|számla\s*száma|bizonylatszám|invoice\s*(?:no|number|#)|számla\s*azonosító"
-    + CREDIT_NOTE_LABEL_HU
-)
-INVOICE_LABEL_INTL_RE = re.compile(
-    r"(?i)számla\s*sorszám|sorszám|számlaszám|számla\s*száma|bizonylatszám|invoice\s*(?:no|number|#|id)|számla\s*azonosító"
-    r"|fatura\s*no|belge\s*no|bilet\s*no|rechnungs?-?(?:nr|nummer)|faktura(?:\s*(?:nr|vat|no))?|document\s*(?:no|number)|receipt\s*(?:no|number|#)|invoice\s*$"
-    # 065: on a receipt the order / transaction ID is the document number; credit note; Microsoft's billing summary
-    # 066 Á03: with word boundaries ("Order now…" advertising line, "recorder Number" are not labels)
-    r"|\border\s*(?:no|number|id)\b|\border\s*#|\btransaction\s*id\b|\bcredit\s*note\b|számlázási\s*szám"
-    # 127: credit memo, a receipt's payment / receipt id and transaction number (owner's decision of 2026-10-07: on a
-    # receipt without an invoice number its own identifier is the invoice number)
-    r"|\bcredit\s*memo\b|\bpayment\s*id\b|\breceipt\s*id\b|\btransaction\s*(?:no|number)\b|\btransaction\s*#"
-    + CREDIT_NOTE_LABEL_HU
-)
-# 065: title line ("Elektronikus számla", "Invoice") with a single identifier below it (Billingo: the number stands
-# below the title without a label)
-INVOICE_TITLE_RE = re.compile(r"(?i)^\s*(?:elektronikus\s+|e-)?(?:számla|invoice|tax\s+invoice|receipt|credit\s+note)\s*[:：]?\s*$")
-INVOICE_TOKEN_RE = re.compile(r"(?<![\w/\-])[A-Za-z0-9][A-Za-z0-9\-/._]{1,}(?![\w/\-])")
-# 066 Á03: amount-shaped token (1 250,00 / 45.00 / 1,250.00): not an invoice-number candidate, the money finder's job
-AMOUNT_TOKEN_RE = re.compile(r"-?\d{1,3}(?:[,.  ]\d{3})*[.,]\d{2}|-?\d+[.,]\d{2}")
-
-# 081 (number reading): a number is matched whole, never a piece of it. The English thousands group ("28,000",
-# "28,000.00") is matched as one number in the Hungarian profile too (it was cut to "28,00" = 28), and no match may be
-# followed by a further digit of the same number. The reading itself is `jav/core/numbers.py`.
-MONEY_RE = re.compile(
-    r"(?<![\d.,])"
-    r"(-?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?"  # 28,000 / 28,000.00 (English notation on a Hungarian document)
-    r"|-?\d{1,3}(?:[  .]\d{3})+(?:,\d{1,2})?"  # 1 234 567 / 1.234.567 / 400 000,00
-    r"|-?\d+,\d{1,2}"  # 20619,05
-    r"|-?\d+\.\d{1,2}"  # 12.34 (ambiguous)
-    r"|-?\d+)"  # 1000000 / 0
-    r"(?![\d.,]\d)(?!\d)"
-)
-# intl: also English thousands comma + decimal point ("1,600.00", "12,345", "$42.50") as one match
-MONEY_INTL_RE = re.compile(
-    r"(?<![\d.,])"
-    r"(-?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?"  # 1,600.00 / 12,345
-    r"|-?\d{1,3}(?:[  .]\d{3})+(?:,\d{1,2})?"  # 1 234 567 / 1.234.567 / 400 000,00
-    r"|-?\d+,\d{1,2}"  # 20619,05
-    r"|-?\d+\.\d{1,2}"  # 12.34
-    r"|-?\d+)"  # 1000000 / 0
-    r"(?![\d.,]\d)(?!\d)"
-)
-# 081: quantities also take a fraction of three or more digits ("1.0000" correction factor, "0,9853"), which money never
-# has; before 081 "1.0000" was cut to "1.000" and read as a thousand
-QUANTITY_RE = re.compile(
-    r"(?<![\d.,])"
-    r"(-?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?"
-    r"|-?\d{1,3}(?:[  .]\d{3})+(?:,\d{1,2})?"
-    r"|-?\d+[.,]\d{3,6}"  # 1.0000 / 0,9853 / 3,3900
-    r"|-?\d+,\d{1,2}"
-    r"|-?\d+\.\d{1,2}"
-    r"|-?\d+)"
-    r"(?![\d.,]\d)(?!\d)"
-)
-PERCENT_AFTER_RE = re.compile(r"^\s*%")
-TOTAL_LINE_RE = re.compile(r"(?i)összesen|fizetendő|végösszeg|nettó|áfa|bruttó|total|adóalap|számla érték|ellenérték")
-REVERSE_CHARGE_RE = re.compile(r"(?i)reverse\s*charge|fordított\s*áfa|fordított\s*adóz|steuerschuldnerschaft|odwrotne\s*obciążenie|KDV\s*muaf")
-CURRENCY_HINT_RE = re.compile(r"(?i)[$€£₺]|\b(?:USD|EUR|GBP|TRY|PLN|CZK|CHF|AUD|CAD|HUF)\b")
-
-CURRENCY_TOKENS = {
-    "HUF": re.compile(r"(?i)\bHUF\b|\bFt\b|\bforint\b"),
-    "EUR": re.compile(r"(?i)\bEUR\b|€"),
-    "USD": re.compile(r"(?i)\bUSD\b|\$"),
-}
-CURRENCY_TOKENS_INTL = {
-    **CURRENCY_TOKENS,
-    "GBP": re.compile(r"(?i)\bGBP\b|£"),
-    "TRY": re.compile(r"(?i)\bTRY\b|\bTL\b|₺"),
-    "PLN": re.compile(r"(?i)\bPLN\b|zł"),
-    "CZK": re.compile(r"(?i)\bCZK\b|Kč"),
-    "CHF": re.compile(r"(?i)\bCHF\b"),
-    "AUD": re.compile(r"(?i)\bAUD\b|A\$"),
-    "CAD": re.compile(r"(?i)\bCAD\b|C\$"),
-}
-
-LEGAL_FORM_RE = re.compile(
-    r"(?i)(?:\bkft\b|\bzrt\b|\bbt\b|\bnyrt\b|\bkkt\b|\brészvénytársaság\b|\be\.\s?v\.?(?=\W|$)|\bev\b|\begyéni vállalkozó\b|\bkisadózó\b"
-    r"|\begyesület\b|\balapítvány\b|\bltd\b|\bgmbh\b|\bs\.r\.o\.|\bsrl\b|\bag\b"
-    r"|\btársaság\b|\bkorlátolt felelősségű\b|\bbetéti\b|\bközkereseti\b|\bintézmény\b|\bönkormányzat\b)"
-)
-LEGAL_FORM_INTL_RE = re.compile(
-    r"(?i)(?:\bkft\b|\bzrt\b|\bbt\b|\bnyrt\b|\bkkt\b|\brészvénytársaság\b|\be\.\s?v\.?(?=\W|$)|\begyesület\b|\balapítvány\b"
-    r"|\bltd\.?(?=\W|$)|\blimited\b|\binc\.?(?=\W|$)|\bincorporated\b|\bllc\b|\bl\.l\.c\.|\bcorp\.?(?=\W|$)|\bcorporation\b|\bplc\b|\bpty\b"
-    r"|\bgmbh\b|\bag\b|\bs\.r\.o\.|\bsrl\b|\bs\.r\.l\.|\bs\.p\.a\.|\bs\.a\.s\.|\bsarl\b|\bs\.à\s?r\.l\.|\bsp\.\s?z\s?o\.?\s?o\.?|\ba\.s\.|\ba\.ş\.|\bşti\.?(?=\W|$)"
-    r"|\bb\.v\.|\bbv\b|\bn\.v\.|\boy\b|\bab\b|\bapS\b|\ba/s\b|\bd\.o\.o\.|\bpte\.?\s+ltd|\boü\b|\bsia\b|\buab\b"
-    r"|\btársaság\b|\bkorlátolt felelősségű\b|\bbetéti\b|\bközkereseti\b|\bintézmény\b|\bönkormányzat\b)"
-)
-# 127: a label is a whole word (a customer-code label is not the buyer label followed by "code"); two more buyer labels
-PARTY_LABEL_RE = re.compile(
-    r"(?i)^(?:szállító|eladó|kibocsátó|kiállító|vevő|vásárló|ügyfél|megrendelő|szolgáltató|supplier|seller|buyer|customer|vendor)"
-    r"(?!\w)\s*(?:neve|name)?\s*[:：]?\s*"
-)
-PARTY_LABEL_INTL_RE = re.compile(
-    r"(?i)^(?:szállító|eladó|kibocsátó|kiállító|vevő|vásárló|ügyfél|megrendelő|szolgáltató|számlafizető|supplier|seller|buyer|customer|vendor|client"
-    r"|from|bill(?:ed)?\s+to|sold\s+to|ship\s+to|invoice\s+to|remit\s+to|issued\s+by|sayın)"
-    r"(?!\w)\s*(?:neve|name)?\s*[:：]?\s*"
-)
-LABEL_ONLY_RE = re.compile(r"(?i)^(?:számla|e-számla|szamla|sorszám|kiállító|vevő|eladó|szállító|megrendelő)\s*[:：]?$")
-LABEL_ONLY_INTL_RE = re.compile(
-    r"(?i)^(?:számla|e-számla|szamla|sorszám|kiállító|vevő|eladó|szállító|megrendelő|számlafizető|invoice|i\s*n\s*v\s*o\s*i\s*c\s*e|r\s*e\s*m\s*i\s*t\s*t\s*o"
-    r"|date|due\s+date|total(?:\s+(?:amount|due))?|amount|bill\s+to|from|remit\s+to|description(?:\s*/\s*memo)?|subtotal|vat|tax|invoice\s*#|page\s*\d+.*|támogatás|rendelés\s+részletei)\s*[:：]?$"
-)
-NAME_TRAILING_ID_RE = re.compile(r"\s*,\s*\d{6,}\s*$")  # "Rádóczi Lajos István, 51455257"
-ADDRESS_RE = re.compile(r"(?<!\d)\d{4}(?!\d)\s*,?\s*[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüűA-ZÁÉÍÓÖŐÚÜŰ]+")
-ADDRESS_INTL_RE = re.compile(r"(?<!\d)\d{4,6}(?!\d)|\b[A-Z]{2}\s\d{5}\b|\b[A-Z]\d{1,2}\s?[A-Z0-9]{3,4}\b|\d+\s+[A-Z][a-z]+\s+(?:St|Str|Street|Ave|Avenue|Rd|Road|Blvd|Place|Park|Suite)\b")
-ADDRESS_STOP_INTL_RE = re.compile(
-    r"(?i)vat|tax|invoice|date|total|amount|bill\s+to|from|@|www\.|http|description|áfaazonosító|adószám|számla|határidő|időszak|rendelés"
-    r"|^\d{4}\.\s|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}|\d{4}/\d{2}/\d{2}|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}|[$€£]"
-)  # date-, period-, identifier- and amount-like cells are not addresses
-PAYMENT_METHOD_LINE_RE = re.compile(r"(?i)fizetési\s*mód|fizetés\s*módja|átutalás|utalás|készpénz|bankkártya|kártya")
 COLUMN_X_TOLERANCE = 15.0  # pt - x0 difference of cells in the same column
 
-# --- utility profile (OCR-text Hungarian utility bills: MVM electricity / gas, Díjbeszedő batch water / sewage / waste)
-LEGAL_FORM_UTILITY_RE = re.compile(
-    r"(?i)(?:\bkft\b|\bzrt\b|\bbt\b|\bnyrt\b|\bkkt\b|\brészvénytársaság\b|\bkorlátolt felelősségű\b|\btársaság\b|\bművek\b|\bholding\b"
-    r"|\begyesület\b|\balapítvány\b|\bintézmény\b|\bönkormányzat\b|\bltd\b|\bgmbh\b)"
-)
-# OCR-tolerant labels: a character class in place of accented letters (OCR may also read "Elosztéi engedélyes",
-# "Felhasznalo")
-PARTY_LABEL_UTILITY_RE = re.compile(
-    r"(?i)^(?:szolg[áa]ltat[óo] neve|szolg[áa]ltat[óo]|felhaszn[áa]l[óo] neve|felhaszn[áa]l[óo]|vev[őo]\s*\(fizet[őo]\)\s*neve|vev[őo]\s*\(fizet[őo]\)|vev[őo] neve|vev[őo]"
-    r"|sz[áa]mlatulajdonos neve|sz[áa]mlatulajdonos|eloszt[óoóée]i enged[ée]lyes|f[öoóé]ldg[áa]zeloszt[óoé]|fizet[őo] neve|megb[íi]z[óo]\s*\(befizet[őo]\)\s*neve"
-    r"|kibocs[áa]t[óo]|sz[áa]ll[íi]t[óo]|elad[óo]|ki[áa]ll[íi]t[óo]|d[íi]jbeszed[őo] jogosult|fogyaszt[óo] neve)"
-    r"\s*[:：]?\s*"
-)
-ADDRESS_LABEL_UTILITY_RE = re.compile(
-    r"(?i)^(?:(?:felhaszn[áa]l[óo]|vev[őo]\s*\(fizet[őo]\)|fogyaszt[óo]|felhaszn[áa]l[áa]si hely|szolg[áa]ltat[óo]|sz[ée]khely)?\s*c[íi]me?\s*[:：]?\s*"
-    r"|(?:felhaszn[áa]l[áa]si hely|fogyaszt[áa]si hely)\s*[:：]?\s*)"
-)
-LABEL_ONLY_UTILITY_RE = re.compile(
-    r"(?i)^(?:számla|e-számla|sorszám|kiállító|vevő|eladó|szállító|felhasználó|vevő\s*\(fizető\)|szolgáltató|számlatulajdonos|elosztói engedélyes"
-    r"|oldalszám.*|számlarészletező|terhelési összesítő|feladóvevény|postai számlabefizetési megbízás|villamos energia|elszámoló számla|részszámla"
-    r"|számla sorszáma|fizetési mód|fizetendő összeg|elszámolási időszak|fizetési határidő|összeg|forint|posta|tájékoztató adatok|áfa összesítő.*)\s*[:：]?$"
-)
-INVOICE_LABEL_UTILITY_RE = re.compile(
-    r"(?i)számla\s*sorszám|sorszám|számlaszám|számla\s*száma|bizonylatszám|számla\s*azonosító|terhelési\s*összesítő\s*(?:száma|sorszáma)|bizonylat\s*sorszáma"
-)
-# OCR: a space may slip into the 8-digit block of the tax number ("2690357 0-2-44", "26903 570-2-44"); the form with
-# the spaces removed becomes a candidate if it passes the check-digit test
-TAXID_OCR_RE = re.compile(r"(?<!\d)\d(?:[  ]?\d){7}[- ]\d[- ]\d{2}(?!\d)")
-TAXID_LABEL_HU_RE = re.compile(r"(?i)ad[óoóé]sz[áa]m")
+# --- the patterns, the limits and the profiles: data (231, F2) ----------------------------
+# `configs/candidate_profiles.json` holds every pattern (with its note), the limits and the profiles; the finders below
+# are the mechanism. The module keeps the names it always had, so its importers are unchanged.
+
+_DATA = cfg.load("candidate_profiles")
+_PATTERNS: dict[str, re.Pattern[str]] = {key: re.compile(spec["regex"]) for key, spec in _DATA["patterns"].items()}
+_LIMITS: dict[str, int] = _DATA["limits"]
+
+MAX_NAME_FALLBACK: int = _LIMITS["max_name_fallback"]
+CONTEXT_MAX_CHARS: int = _LIMITS["context_max_chars"]
+MAX_QUANTITY_OPTIONS: int = _LIMITS["max_quantity_options"]
+TEXT_VALUE_MAX: int = _LIMITS["text_value_max"]
+_TEXT_STRIP: str = _DATA["text_strip"]
+
+IBAN_RES: tuple[re.Pattern[str], ...] = tuple(re.compile(p) for p in _DATA["iban"])
+IBAN_INTL_RE = _PATTERNS["iban_intl"]
+PARTIAL_HU_IBAN_RE = _PATTERNS["partial_hu_iban"]
+IBAN_GROUP_RE = _PATTERNS["iban_group"]
+TAXID_FORMATTED_RE = _PATTERNS["taxid_formatted"]
+TAXID_CONTIGUOUS_RE = _PATTERNS["taxid_contiguous"]
+TAXID_EU_RE = _PATTERNS["taxid_eu"]
+TAXID_EU_INTL_RE = _PATTERNS["taxid_eu_intl"]
+TAXID_LABEL_INTL_RE = _PATTERNS["taxid_label_intl"]
+TAXID_LABEL_TOKEN_RE = _PATTERNS["taxid_label_token"]
+TAXID_OCR_RE = _PATTERNS["taxid_ocr"]
+TAXID_LABEL_HU_RE = _PATTERNS["taxid_label_hu"]
+INVOICE_LABEL_RE = _PATTERNS["invoice_label"]
+INVOICE_LABEL_INTL_RE = _PATTERNS["invoice_label_intl"]
+INVOICE_LABEL_UTILITY_RE = _PATTERNS["invoice_label_utility"]
+INVOICE_TITLE_RE = _PATTERNS["invoice_title"]
+INVOICE_TOKEN_RE = _PATTERNS["invoice_token"]
+AMOUNT_TOKEN_RE = _PATTERNS["amount_token"]
+MONEY_RE = _PATTERNS["money"]
+MONEY_INTL_RE = _PATTERNS["money_intl"]
+QUANTITY_RE = _PATTERNS["quantity"]
+QUANTITY_LINE_RE = _PATTERNS["quantity_line"]
+PERCENT_AFTER_RE = _PATTERNS["percent_after"]
+TOTAL_LINE_RE = _PATTERNS["total_line"]
+REVERSE_CHARGE_RE = _PATTERNS["reverse_charge"]
+CURRENCY_HINT_RE = _PATTERNS["currency_hint"]
+LEGAL_FORM_RE = _PATTERNS["legal_form"]
+LEGAL_FORM_INTL_RE = _PATTERNS["legal_form_intl"]
+LEGAL_FORM_UTILITY_RE = _PATTERNS["legal_form_utility"]
+PARTY_LABEL_RE = _PATTERNS["party_label"]
+PARTY_LABEL_INTL_RE = _PATTERNS["party_label_intl"]
+PARTY_LABEL_UTILITY_RE = _PATTERNS["party_label_utility"]
+LABEL_ONLY_RE = _PATTERNS["label_only"]
+LABEL_ONLY_INTL_RE = _PATTERNS["label_only_intl"]
+LABEL_ONLY_UTILITY_RE = _PATTERNS["label_only_utility"]
+ADDRESS_LABEL_UTILITY_RE = _PATTERNS["address_label_utility"]
+NAME_TRAILING_ID_RE = _PATTERNS["name_trailing_id"]
+NAME_STOP_RE = _PATTERNS["name_stop"]
+ADDRESS_RE = _PATTERNS["address"]
+ADDRESS_INTL_RE = _PATTERNS["address_intl"]
+ADDRESS_STOP_INTL_RE = _PATTERNS["address_stop_intl"]
+PAYMENT_METHOD_LINE_RE = _PATTERNS["payment_method_line"]
+_LEADING_ARTICLE_RE = _PATTERNS["leading_article"]
+_PAREN_WRAP_RE = _PATTERNS["paren_wrap"]
+_GREETING_RE = _PATTERNS["greeting"]
+_ADDRESS_TAIL_RE = _PATTERNS["address_tail"]
+_INCOMPLETE_LEGAL_FORM_RE = _PATTERNS["incomplete_legal_form"]
+_NAME_GOES_ON_RE = _PATTERNS["name_goes_on"]
+_NAME_TAIL_SEPARATOR_RE = _PATTERNS["name_tail_separator"]
+
+_CURRENCY_SETS: dict[str, dict[str, re.Pattern[str]]] = {
+    name: {code: re.compile(p) for code, p in tokens.items()} for name, tokens in _DATA["currency_tokens"].items()}
+CURRENCY_TOKENS = _CURRENCY_SETS["base"]
+CURRENCY_TOKENS_INTL = _CURRENCY_SETS["intl"]
 
 
 @dataclass(frozen=True)
@@ -247,25 +137,30 @@ class Profile:
     invoice_lookahead: int = 1  # lines after the invoice-number label searched for the value (OCR: a line may fall between label and value)
     ocr_taxid: bool = False  # OCR tolerance: a Hungarian tax number broken by a space is a candidate too if its check digit is correct
     max_money_options: int = MAX_OPTIONS  # upper limit of money candidates (smaller on number-heavy OCR-text utility bills: the request token limit)
+    name_fallback_combined: bool = False  # 231 (F2): the name fallback's earlier, combined limit (the `hu` profile's)
+    evidence_intl: bool = False  # 231 (F2): the G path's evidence reads numbers in the international forms
 
 
-HU = Profile(
-    name="hu", intl=False, legal_form_re=LEGAL_FORM_RE, party_label_re=PARTY_LABEL_RE, label_only_re=LABEL_ONLY_RE,
-    invoice_label_re=INVOICE_LABEL_RE, money_re=MONEY_RE, currency_tokens=CURRENCY_TOKENS,
-)
-INTL = Profile(
-    name="intl", intl=True, legal_form_re=LEGAL_FORM_INTL_RE, party_label_re=PARTY_LABEL_INTL_RE, label_only_re=LABEL_ONLY_INTL_RE,
-    invoice_label_re=INVOICE_LABEL_INTL_RE, money_re=MONEY_INTL_RE, currency_tokens=CURRENCY_TOKENS_INTL,
-    extra_iban_res=(IBAN_INTL_RE,), extra_taxid_res=(TAXID_EU_INTL_RE,), short_dates=True,
-    taxid_label_re=TAXID_LABEL_INTL_RE, name_cut_after_legal_form=True, reverse_charge_zero=True, intl_addresses=True,
-)
-UTILITY = Profile(
-    name="utility", intl=False, legal_form_re=LEGAL_FORM_UTILITY_RE, party_label_re=PARTY_LABEL_UTILITY_RE, label_only_re=LABEL_ONLY_UTILITY_RE,
-    invoice_label_re=INVOICE_LABEL_UTILITY_RE, money_re=MONEY_RE, currency_tokens=CURRENCY_TOKENS,
-    ocr_dates=True, name_cut_after_legal_form=True, address_label_re=ADDRESS_LABEL_UTILITY_RE, invoice_lookahead=2,
-    ocr_taxid=True, max_money_options=100,
-)
-PROFILES: dict[str, Profile] = {"hu": HU, "intl": INTL, "utility": UTILITY}
+def _profile(name: str, spec: dict) -> Profile:
+    """A profile from its description in `configs/candidate_profiles.json` (its patterns named by key)."""
+    def pattern(key: str | None) -> re.Pattern[str] | None:
+        return None if key is None else _PATTERNS[key]
+
+    return Profile(
+        name=name, intl=spec["intl"], legal_form_re=_PATTERNS[spec["legal_form"]], party_label_re=_PATTERNS[spec["party_label"]],
+        label_only_re=_PATTERNS[spec["label_only"]], invoice_label_re=_PATTERNS[spec["invoice_label"]],
+        money_re=_PATTERNS[spec["money"]], currency_tokens=_CURRENCY_SETS[spec["currency_tokens"]],
+        extra_iban_res=tuple(_PATTERNS[k] for k in spec["extra_iban"]), extra_taxid_res=tuple(_PATTERNS[k] for k in spec["extra_taxid"]),
+        taxid_label_re=pattern(spec["taxid_label"]), name_cut_after_legal_form=spec["name_cut_after_legal_form"],
+        reverse_charge_zero=spec["reverse_charge_zero"], intl_addresses=spec["intl_addresses"], ocr_dates=spec["ocr_dates"],
+        short_dates=spec["short_dates"], address_label_re=pattern(spec["address_label"]), invoice_lookahead=spec["invoice_lookahead"],
+        ocr_taxid=spec["ocr_taxid"], max_money_options=spec["max_money_options"],
+        name_fallback_combined=spec["name_fallback_combined"], evidence_intl=spec["evidence_intl"],
+    )
+
+
+PROFILES: dict[str, Profile] = {name: _profile(name, spec) for name, spec in _DATA["profiles"].items()}
+HU, INTL, UTILITY = PROFILES["hu"], PROFILES["intl"], PROFILES["utility"]
 
 
 def profile_of(profile: str | Profile | None) -> Profile:
@@ -319,8 +214,6 @@ def _mask(text: str, start: int, end: int) -> str:
 # --- finders ---------------------------------------------------------------------------
 
 
-PARTIAL_HU_IBAN_RE = re.compile(r"^HU\d{2}(?:[  ]\d{4}){1,5}$")
-IBAN_GROUP_RE = re.compile(r"^\d{4}$")
 
 
 def _account_merge_keys(raw: str) -> tuple[str, str | None]:
@@ -565,14 +458,6 @@ def _money_items(lines: list[LineLayout], work: list[str], profile: Profile, con
     return bucket.items()
 
 
-# Quantity lines (utility bill itemisation / meter table): a unit or a meter label in the line
-QUANTITY_LINE_RE = re.compile(
-    r"(?i)\bkwh\b|\bm3\b|m³|\bm\?|\bmj\b|mérőállás|mer[őo]all[áa]s|fogyaszt[áa]s|mennyis[ée]g|f[űu]t[őo][ée]rt[ée]k|korrekci|indul[óo]|z[áa]r[óo]|h[őo]mennyis[ée]g|leolvas"
-    r"|szorz[óo]|\b(?:Leol|Becs|Dikt|EII|Ell)\b"  # the meter line is also recognised by its reading code (LM column) if OCR garbled the header
-)
-MAX_QUANTITY_OPTIONS = 80
-
-
 def find_quantities(lines: list[LineLayout], profile: Profile = HU, convention: Convention | None = None) -> list[Candidate]:
     """Quantity candidates (`number` kind: consumption in kWh / m3 / MJ, meter readings, calorific value, correction
     factor): the numbers of the quantity lines, normalised like the money candidates (`money_label`), but only from
@@ -621,18 +506,6 @@ def finder_cap(kind: str, profile: str | Profile | None = None) -> int | None:
 def find_currencies(lines: list[LineLayout], profile: str | Profile | None = None) -> list[str]:
     text = "\n".join(ln.text for ln in lines)
     return [code for code, rx in profile_of(profile).currency_tokens.items() if rx.search(text)]
-
-
-_LEADING_ARTICLE_RE = re.compile(r"(?i)^(?:az?|the)\s+")
-_PAREN_WRAP_RE = re.compile(r"^\((.+)\)\.?$")
-# 127: a greeting before the addressee's name ("Dear <Name>,") is not part of the name
-_GREETING_RE = re.compile(r"(?i)^(?:dear|hello|hi|kedves|tisztelt)\s+(?=\S)")
-# 127: an address after a complete name in the same cell: a postcode ("1141", "1119 Budapest") or a street with a house
-# number, optionally after a comma
-_ADDRESS_TAIL_RE = re.compile(
-    r"^[\s,;-]*(?:\d{4}(?!\d)|(?:[A-ZÁÉÍÓÖŐÚÜŰ][\w.\-]*\s+){1,4}(?:utca|u\.|út|útja|tér|tere|körút|krt\.|köz|sor|sétány|fasor"
-    r"|rakpart|street|st\.|road|rd\.|avenue|ave\.)\s*\d)"
-)
 
 
 def _clean_name(text: str, profile: Profile = HU) -> str:
@@ -700,13 +573,6 @@ def _column_join(lines: list[LineLayout], i: int, cell_idx: int, depth: int) -> 
     return out
 
 
-NAME_STOP_RE = re.compile(r"[:：]|\d{4}[ ,]|\d{8}|adószám|iban|bank|telefon|tel\.|e-mail|@|www\.")
-
-
-# 127: a legal-form adjective that still wants its noun ("társaság") from the next line
-_INCOMPLETE_LEGAL_FORM_RE = re.compile(r"(?i)^(?:korlátolt felelősségű|betéti|közkereseti)$")
-
-
 def _ends_with_legal_form(text: str, legal_form_re: re.Pattern[str]) -> bool:
     """127: the name is complete when its last word is a legal form ("Minta Kft.", "... Ltd"); a legal-form adjective
     at the end is not complete."""
@@ -718,13 +584,10 @@ def _ends_with_legal_form(text: str, legal_form_re: re.Pattern[str]) -> bool:
     return not _INCOMPLETE_LEGAL_FORM_RE.match(" ".join(last.group(0).split()))
 
 
-# 129: the legal forms of every profile, for the name-tail rule that runs after the choice on both paths
+# 129: the legal forms of every profile, for the name-tail rule that runs after the choice on both paths (231, F2: of
+# every profile the rule file describes, each once, in its order)
 _ANY_LEGAL_FORM_RE = re.compile("|".join(f"(?:{rx.pattern.removeprefix('(?i)')})"
-                                         for rx in (LEGAL_FORM_RE, LEGAL_FORM_INTL_RE, LEGAL_FORM_UTILITY_RE)), re.IGNORECASE)
-# a continuation that still belongs to a registered name: a partner, a branch, a winding-up state, a trading name
-_NAME_GOES_ON_RE = re.compile(r"(?i)^(?:&|and\b|és\s+társa|fióktelep|branch\b|f\.\s?a\.|v\.\s?a\.|cs\.\s?a\.|kv\.\s?a\.|dba\b"
-                              r"|d/b/a|t/a\b|trading as\b|spółka\b|co\.|kg\b)")
-_NAME_TAIL_SEPARATOR_RE = re.compile(r"^\s*[,\-–—:|/]")
+                                         for rx in dict.fromkeys(p.legal_form_re for p in PROFILES.values())), re.IGNORECASE)
 
 
 def trim_after_legal_form(name: str) -> str:
@@ -808,7 +671,7 @@ def find_names(lines: list[LineLayout], profile: Profile = HU) -> list[Candidate
                 continue  # a sentence, not a name
             if DATE_NUMERIC_RE.search(name) or MONEY_RE.fullmatch(name):
                 continue
-            if fallback >= MAX_NAME_FALLBACK or (profile.name == "hu" and len(bucket.items()) >= MAX_NAME_FALLBACK):
+            if fallback >= MAX_NAME_FALLBACK or (profile.name_fallback_combined and len(bucket.items()) >= MAX_NAME_FALLBACK):
                 break  # the `hu` profile's behaviour is unchanged (the earlier, combined limit)
             if not bucket.has(name):
                 fallback += 1
@@ -854,10 +717,6 @@ def find_addresses(lines: list[LineLayout], profile: Profile = HU) -> list[Candi
 
 def payment_method_lines(lines: list[LineLayout]) -> list[int]:
     return [i for i, ln in enumerate(lines) if PAYMENT_METHOD_LINE_RE.search(ln.text)]
-
-
-TEXT_VALUE_MAX = 120
-_TEXT_STRIP = " :：;,.-–—|"
 
 
 def find_labelled_text(lines: list[LineLayout], field: str, labels: tuple[str, ...] | list[str]) -> list[Candidate]:

@@ -49,7 +49,8 @@ class SelectSite:
         self.callsite = pack.select_callsite
         cfg_data = cfg.load(f"callsite:{self.callsite}")
         # 067 (066 Á18): the pack's identity (type JSON + instruction + schema) is included for the default pack too
-        self.config_hash = cfg.combine(cfg.config_hash(f"callsite:{self.callsite}"), pack.config_hash)
+        # 231 (F2): the candidate profiles shape the candidates the questions offer, so their file is part of it too
+        self.config_hash = cfg.combine(cfg.config_hash(f"callsite:{self.callsite}", "candidate_profiles"), pack.config_hash)
         self.glossary: str = cfg_data["glossary"]
         # 127 (S-injection, JEV part): the document text is data, not instructions; sent after the glossary in every
         # question's instructions (never in the state, where the document text itself is)

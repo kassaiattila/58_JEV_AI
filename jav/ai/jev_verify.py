@@ -266,6 +266,7 @@ class VerifySite:
         # 151: also for a call site with `own_glossary` (its G questions stay as they were when the S path came)
         own_glossary = bool(data.get("own_glossary")) or not pack.select_callsite
         names = [f"callsite:{self.callsite}"] + ([] if own_glossary else [f"callsite:{pack.select_callsite}"])
+        names.append("candidate_profiles")  # 231 (F2): the code's evidence search reads the candidates
         parent = data.get("inherits")
         if parent:
             base = cfg.load(f"callsite:{parent}")
@@ -288,7 +289,7 @@ class VerifySite:
             raise ValueError(f"callsite:{self.callsite}: no question text for {unknown}")
         # 231 (F1): a document-level question names the fields it reads, and only a pack that has them all is asked it
         self.document_nouls: tuple[str, ...] = tuple(n for n in declared if self._has_fields(n))
-        self.intl = pack.candidate_profile != "hu"
+        self.intl = profile_of(pack.candidate_profile).evidence_intl  # 231 (F2): a switch of the profile, not its name
         # the glossary once, in the state (not in every Noul's instruction): for a pack with many fields (utility: ~30
         # fields × 3 questions) the request would otherwise exceed JEV's token limit (max_tokens_exceeded); unchanged
         # (false) for the Hungarian / foreign invoice

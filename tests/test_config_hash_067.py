@@ -42,7 +42,8 @@ def test_pack_hash_covers_its_prompt_and_schema_files(monkeypatch):
 def test_select_and_verify_hashes_include_the_pack(key):
     pack = typepack.get(key)
     if pack.select_callsite:
-        assert select_site(key).config_hash == cfg.combine(cfg.config_hash(f"callsite:{pack.select_callsite}"), pack.config_hash)
+        assert select_site(key).config_hash == cfg.combine(cfg.config_hash(f"callsite:{pack.select_callsite}", "candidate_profiles"),
+                                                           pack.config_hash)  # 231 (F2): the candidate profiles too
     names = verify_site(key).hash_names
     assert f"callsite:{pack.verify_callsite}" in names
     assert verify_site(key).config_hash == cfg.combine(cfg.config_hash(*names), pack.config_hash)

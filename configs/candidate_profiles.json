@@ -1,0 +1,315 @@
+{
+ "meta": {
+  "name": "candidate_profiles",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-29",
+    "note": "231 (stage F, F2; the owner's decisions of 2026-10-29: the full move into a data file): the S path's candidate finder's patterns, limits and profiles, until now constants of jav/ai/candidates.py, moved here unchanged (every pattern's text and flags are pinned in tests/test_candidate_profiles_231.py; the S path's requests and the candidates in tests/test_select_keys_231.py). A profile names its patterns by key; two switches replace a profile name the code used to compare: `name_fallback_combined` (the `hu` profile's combined name fallback limit) and `evidence_intl` (the G path's evidence reads numbers in the international forms). A new profile is data alone; a type pack names it in `candidate_profile`."
+   }
+  ]
+ },
+ "limits": {
+  "max_name_fallback": 60,
+  "context_max_chars": 140,
+  "max_quantity_options": 80,
+  "text_value_max": 120
+ },
+ "text_strip": " :：;,.-–—|",
+ "iban": [
+  "\\bHU\\d{2}(?:[  ]?\\d{4}){6}\\b",
+  "(?<!\\d)\\d{8}[- ]\\d{8}[- ]\\d{8}(?!\\d)",
+  "(?<!\\d)\\d{8}[- ]\\d{8}(?!\\d)",
+  "(?<![\\w-])\\d{24}(?![\\w-])",
+  "(?<![\\w-])\\d{16}(?![\\w-])"
+ ],
+ "patterns": {
+  "iban_intl": {
+   "regex": "\\b(?!HU)[A-Z]{2}\\d{2}(?:[  ]?[A-Z0-9]{4}){2,7}(?:[  ]?[A-Z0-9]{1,4})?\\b",
+   "note": "A foreign IBAN (not HU): country code, 2 check digits and 11-30 letters or digits, also in space-separated groups."
+  },
+  "taxid_formatted": {
+   "regex": "(?<!\\d)\\d{8}-\\d-\\d{2}(?!\\d)",
+   "note": "The Hungarian tax number in its printed form (12345678-1-23)."
+  },
+  "taxid_contiguous": {
+   "regex": "(?<![\\d-])\\d{11}(?![\\d-])",
+   "note": "The Hungarian tax number without hyphens (11 digits, standalone)."
+  },
+  "taxid_eu": {
+   "regex": "\\bHU\\d{8}\\b",
+   "note": "The Hungarian EU VAT number (HU + 8 digits)."
+  },
+  "taxid_eu_intl": {
+   "regex": "\\b(?:NO[ ]?\\d{3}[ ]?\\d{3}[ ]?\\d{3}[ ]?MVA|(?:AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|HR|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK|GB|XI|NO|CH|TR|UA|RS|EU)[- ]?\\d{7,12}(?:[A-Z]{1,2}\\d{0,2})?(?: [A-Z]{1,2}(?!\\w))?|IE\\d[A-Z0-9+*]\\d{5}[A-Z]{1,2}|CHE[- ]?\\d{3}\\.?\\d{3}\\.?\\d{3})\\b",
+   "note": "065, 069: a foreign tax number: an EU / UK / Swiss / Norwegian (with MVA) / Turkish / Ukrainian / Serbian form after a real country code, the Irish form with its trailing letter, the EU OSS registration number, the Swiss CHE form; a match is a candidate only as a recognised form (jav/core/taxid.py), in its canonical spelling."
+  },
+  "taxid_label_intl": {
+   "regex": "(?i)\\b(?:vat\\s*(?:id|no|number|reg)|tax\\s*(?:id|number|no)|(?-i:EIN)|vkn|tckn|nip|ust[-.]?\\s?idnr|steuernummer|abn|gstin|vergi\\s*no|áfaazonosító|adószám)\\b",
+   "note": "069: a tax number label; EIN is a label only in capitals (the German article 'ein' is not)."
+  },
+  "taxid_label_token": {
+   "regex": "(?<![\\w-])(?:\\d{2}-\\d{7}|\\d{9,11}|\\d{3}[- ]\\d{3}[- ]\\d{3}[- ]\\d{2,3})(?![\\w-])",
+   "note": "An identifier token after a tax number label: EIN 12-3456789, VKN 10 digits, ABN 11 digits."
+  },
+  "invoice_label": {
+   "regex": "(?i)számla\\s*sorszám|sorszám|számlaszám|számla\\s*száma|bizonylatszám|invoice\\s*(?:no|number|#)|számla\\s*azonosító|jóváír\\w*\\s*(?:számla\\s*)?(?:száma|sorszáma|dokumentum)|helyesbítő\\s*számla|sztornó\\s*számla|érvénytelenítő\\s*számla",
+   "note": "The invoice number labels of a Hungarian invoice; 127: a credit note's or corrective invoice's own number is labelled by the document's own name."
+  },
+  "invoice_label_intl": {
+   "regex": "(?i)számla\\s*sorszám|sorszám|számlaszám|számla\\s*száma|bizonylatszám|invoice\\s*(?:no|number|#|id)|számla\\s*azonosító|fatura\\s*no|belge\\s*no|bilet\\s*no|rechnungs?-?(?:nr|nummer)|faktura(?:\\s*(?:nr|vat|no))?|document\\s*(?:no|number)|receipt\\s*(?:no|number|#)|invoice\\s*$|\\border\\s*(?:no|number|id)\\b|\\border\\s*#|\\btransaction\\s*id\\b|\\bcredit\\s*note\\b|számlázási\\s*szám|\\bcredit\\s*memo\\b|\\bpayment\\s*id\\b|\\breceipt\\s*id\\b|\\btransaction\\s*(?:no|number)\\b|\\btransaction\\s*#|jóváír\\w*\\s*(?:számla\\s*)?(?:száma|sorszáma|dokumentum)|helyesbítő\\s*számla|sztornó\\s*számla|érvénytelenítő\\s*számla",
+   "note": "065, 066, 127: the invoice number labels in several languages; on a receipt the order, payment, receipt or transaction id is the document number (with word boundaries: an advertising line 'Order now' is not a label)."
+  },
+  "invoice_title": {
+   "regex": "(?i)^\\s*(?:elektronikus\\s+|e-)?(?:számla|invoice|tax\\s+invoice|receipt|credit\\s+note)\\s*[:：]?\\s*$",
+   "note": "065: a title line ('Elektronikus számla', 'Invoice') with a single identifier below it (the number stands below the title without a label)."
+  },
+  "invoice_token": {
+   "regex": "(?<![\\w/\\-])[A-Za-z0-9][A-Za-z0-9\\-/._]{1,}(?![\\w/\\-])",
+   "note": "An identifier-shaped token: an invoice number candidate."
+  },
+  "amount_token": {
+   "regex": "-?\\d{1,3}(?:[,.  ]\\d{3})*[.,]\\d{2}|-?\\d+[.,]\\d{2}",
+   "note": "066: an amount-shaped token (1 250,00 / 45.00 / 1,250.00) is not an invoice number candidate: the money finder's job."
+  },
+  "money": {
+   "regex": "(?<![\\d.,])(-?\\d{1,3}(?:,\\d{3})+(?:\\.\\d{1,2})?|-?\\d{1,3}(?:[  .]\\d{3})+(?:,\\d{1,2})?|-?\\d+,\\d{1,2}|-?\\d+\\.\\d{1,2}|-?\\d+)(?![\\d.,]\\d)(?!\\d)",
+   "note": "081: a number is matched whole, never a piece of it; the English thousands group is one number in the Hungarian profile too, and no match is followed by a further digit of the same number. The reading itself is jav/core/numbers.py."
+  },
+  "money_intl": {
+   "regex": "(?<![\\d.,])(-?\\d{1,3}(?:,\\d{3})+(?:\\.\\d{1,2})?|-?\\d{1,3}(?:[  .]\\d{3})+(?:,\\d{1,2})?|-?\\d+,\\d{1,2}|-?\\d+\\.\\d{1,2}|-?\\d+)(?![\\d.,]\\d)(?!\\d)",
+   "note": "The international money form: also the English thousands comma with a decimal point ('1,600.00', '12,345', '$42.50') as one match."
+  },
+  "quantity": {
+   "regex": "(?<![\\d.,])(-?\\d{1,3}(?:,\\d{3})+(?:\\.\\d{1,2})?|-?\\d{1,3}(?:[  .]\\d{3})+(?:,\\d{1,2})?|-?\\d+[.,]\\d{3,6}|-?\\d+,\\d{1,2}|-?\\d+\\.\\d{1,2}|-?\\d+)(?![\\d.,]\\d)(?!\\d)",
+   "note": "081: a quantity also takes a fraction of three or more digits ('1.0000' correction factor, '0,9853'), which money never has."
+  },
+  "percent_after": {
+   "regex": "^\\s*%",
+   "note": "A number followed by a percent sign is a rate, not an amount or a quantity."
+  },
+  "total_line": {
+   "regex": "(?i)összesen|fizetendő|végösszeg|nettó|áfa|bruttó|total|adóalap|számla érték|ellenérték",
+   "note": "A totals line: kept when a request's lines are cut to its budget (jav/ai/jev_select.py)."
+  },
+  "reverse_charge": {
+   "regex": "(?i)reverse\\s*charge|fordított\\s*áfa|fordított\\s*adóz|steuerschuldnerschaft|odwrotne\\s*obciążenie|KDV\\s*muaf",
+   "note": "Reverse charge printed: with no 0 amount a synthetic 0 money candidate (VAT) is offered, as JEV can only choose an offered value."
+  },
+  "currency_hint": {
+   "regex": "(?i)[$€£₺]|\\b(?:USD|EUR|GBP|TRY|PLN|CZK|CHF|AUD|CAD|HUF)\\b",
+   "note": "A currency sign or code in the text."
+  },
+  "legal_form": {
+   "regex": "(?i)(?:\\bkft\\b|\\bzrt\\b|\\bbt\\b|\\bnyrt\\b|\\bkkt\\b|\\brészvénytársaság\\b|\\be\\.\\s?v\\.?(?=\\W|$)|\\bev\\b|\\begyéni vállalkozó\\b|\\bkisadózó\\b|\\begyesület\\b|\\balapítvány\\b|\\bltd\\b|\\bgmbh\\b|\\bs\\.r\\.o\\.|\\bsrl\\b|\\bag\\b|\\btársaság\\b|\\bkorlátolt felelősségű\\b|\\bbetéti\\b|\\bközkereseti\\b|\\bintézmény\\b|\\bönkormányzat\\b)",
+   "note": "The Hungarian invoice's legal forms (a name candidate is a cell with one)."
+  },
+  "legal_form_intl": {
+   "regex": "(?i)(?:\\bkft\\b|\\bzrt\\b|\\bbt\\b|\\bnyrt\\b|\\bkkt\\b|\\brészvénytársaság\\b|\\be\\.\\s?v\\.?(?=\\W|$)|\\begyesület\\b|\\balapítvány\\b|\\bltd\\.?(?=\\W|$)|\\blimited\\b|\\binc\\.?(?=\\W|$)|\\bincorporated\\b|\\bllc\\b|\\bl\\.l\\.c\\.|\\bcorp\\.?(?=\\W|$)|\\bcorporation\\b|\\bplc\\b|\\bpty\\b|\\bgmbh\\b|\\bag\\b|\\bs\\.r\\.o\\.|\\bsrl\\b|\\bs\\.r\\.l\\.|\\bs\\.p\\.a\\.|\\bs\\.a\\.s\\.|\\bsarl\\b|\\bs\\.à\\s?r\\.l\\.|\\bsp\\.\\s?z\\s?o\\.?\\s?o\\.?|\\ba\\.s\\.|\\ba\\.ş\\.|\\bşti\\.?(?=\\W|$)|\\bb\\.v\\.|\\bbv\\b|\\bn\\.v\\.|\\boy\\b|\\bab\\b|\\bapS\\b|\\ba/s\\b|\\bd\\.o\\.o\\.|\\bpte\\.?\\s+ltd|\\boü\\b|\\bsia\\b|\\buab\\b|\\btársaság\\b|\\bkorlátolt felelősségű\\b|\\bbetéti\\b|\\bközkereseti\\b|\\bintézmény\\b|\\bönkormányzat\\b)",
+   "note": "The legal forms of several countries."
+  },
+  "party_label": {
+   "regex": "(?i)^(?:szállító|eladó|kibocsátó|kiállító|vevő|vásárló|ügyfél|megrendelő|szolgáltató|supplier|seller|buyer|customer|vendor)(?!\\w)\\s*(?:neve|name)?\\s*[:：]?\\s*",
+   "note": "127: a party label is a whole word (a customer-code label is not the buyer label followed by 'code')."
+  },
+  "party_label_intl": {
+   "regex": "(?i)^(?:szállító|eladó|kibocsátó|kiállító|vevő|vásárló|ügyfél|megrendelő|szolgáltató|számlafizető|supplier|seller|buyer|customer|vendor|client|from|bill(?:ed)?\\s+to|sold\\s+to|ship\\s+to|invoice\\s+to|remit\\s+to|issued\\s+by|sayın)(?!\\w)\\s*(?:neve|name)?\\s*[:：]?\\s*",
+   "note": "The party labels in several languages."
+  },
+  "label_only": {
+   "regex": "(?i)^(?:számla|e-számla|szamla|sorszám|kiállító|vevő|eladó|szállító|megrendelő)\\s*[:：]?$",
+   "note": "A cell holding only a label is not a name."
+  },
+  "label_only_intl": {
+   "regex": "(?i)^(?:számla|e-számla|szamla|sorszám|kiállító|vevő|eladó|szállító|megrendelő|számlafizető|invoice|i\\s*n\\s*v\\s*o\\s*i\\s*c\\s*e|r\\s*e\\s*m\\s*i\\s*t\\s*t\\s*o|date|due\\s+date|total(?:\\s+(?:amount|due))?|amount|bill\\s+to|from|remit\\s+to|description(?:\\s*/\\s*memo)?|subtotal|vat|tax|invoice\\s*#|page\\s*\\d+.*|támogatás|rendelés\\s+részletei)\\s*[:：]?$",
+   "note": "A cell holding only a label is not a name (several languages, letter-spaced headings too)."
+  },
+  "name_trailing_id": {
+   "regex": "\\s*,\\s*\\d{6,}\\s*$",
+   "note": "An identifier after a comma at a name's end is cut from it."
+  },
+  "address": {
+   "regex": "(?<!\\d)\\d{4}(?!\\d)\\s*,?\\s*[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüűA-ZÁÉÍÓÖŐÚÜŰ]+",
+   "note": "A Hungarian address: a four-digit postcode before a capitalised place name."
+  },
+  "address_intl": {
+   "regex": "(?<!\\d)\\d{4,6}(?!\\d)|\\b[A-Z]{2}\\s\\d{5}\\b|\\b[A-Z]\\d{1,2}\\s?[A-Z0-9]{3,4}\\b|\\d+\\s+[A-Z][a-z]+\\s+(?:St|Str|Street|Ave|Avenue|Rd|Road|Blvd|Place|Park|Suite)\\b",
+   "note": "A foreign address: a postcode form or a street with a house number."
+  },
+  "address_stop_intl": {
+   "regex": "(?i)vat|tax|invoice|date|total|amount|bill\\s+to|from|@|www\\.|http|description|áfaazonosító|adószám|számla|határidő|időszak|rendelés|^\\d{4}\\.\\s|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}|\\d{4}/\\d{2}/\\d{2}|\\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2},?\\s+\\d{4}|[$€£]",
+   "note": "Date-, period-, identifier- and amount-like cells are not addresses."
+  },
+  "payment_method_line": {
+   "regex": "(?i)fizetési\\s*mód|fizetés\\s*módja|átutalás|utalás|készpénz|bankkártya|kártya",
+   "note": "A payment method line: kept when a request's lines are cut to its budget."
+  },
+  "legal_form_utility": {
+   "regex": "(?i)(?:\\bkft\\b|\\bzrt\\b|\\bbt\\b|\\bnyrt\\b|\\bkkt\\b|\\brészvénytársaság\\b|\\bkorlátolt felelősségű\\b|\\btársaság\\b|\\bművek\\b|\\bholding\\b|\\begyesület\\b|\\balapítvány\\b|\\bintézmény\\b|\\bönkormányzat\\b|\\bltd\\b|\\bgmbh\\b)",
+   "note": "The utility bills' legal forms (OCR text of Hungarian utility bills)."
+  },
+  "party_label_utility": {
+   "regex": "(?i)^(?:szolg[áa]ltat[óo] neve|szolg[áa]ltat[óo]|felhaszn[áa]l[óo] neve|felhaszn[áa]l[óo]|vev[őo]\\s*\\(fizet[őo]\\)\\s*neve|vev[őo]\\s*\\(fizet[őo]\\)|vev[őo] neve|vev[őo]|sz[áa]mlatulajdonos neve|sz[áa]mlatulajdonos|eloszt[óoóée]i enged[ée]lyes|f[öoóé]ldg[áa]zeloszt[óoé]|fizet[őo] neve|megb[íi]z[óo]\\s*\\(befizet[őo]\\)\\s*neve|kibocs[áa]t[óo]|sz[áa]ll[íi]t[óo]|elad[óo]|ki[áa]ll[íi]t[óo]|d[íi]jbeszed[őo] jogosult|fogyaszt[óo] neve)\\s*[:：]?\\s*",
+   "note": "OCR-tolerant party labels: a character class in place of accented letters (OCR may also read 'Elosztéi engedélyes', 'Felhasznalo')."
+  },
+  "address_label_utility": {
+   "regex": "(?i)^(?:(?:felhaszn[áa]l[óo]|vev[őo]\\s*\\(fizet[őo]\\)|fogyaszt[óo]|felhaszn[áa]l[áa]si hely|szolg[áa]ltat[óo]|sz[ée]khely)?\\s*c[íi]me?\\s*[:：]?\\s*|(?:felhaszn[áa]l[áa]si hely|fogyaszt[áa]si hely)\\s*[:：]?\\s*)",
+   "note": "Address labels cut from an address candidate ('Felhasználó címe:')."
+  },
+  "label_only_utility": {
+   "regex": "(?i)^(?:számla|e-számla|sorszám|kiállító|vevő|eladó|szállító|felhasználó|vevő\\s*\\(fizető\\)|szolgáltató|számlatulajdonos|elosztói engedélyes|oldalszám.*|számlarészletező|terhelési összesítő|feladóvevény|postai számlabefizetési megbízás|villamos energia|elszámoló számla|részszámla|számla sorszáma|fizetési mód|fizetendő összeg|elszámolási időszak|fizetési határidő|összeg|forint|posta|tájékoztató adatok|áfa összesítő.*)\\s*[:：]?$",
+   "note": "A cell holding only a utility bill label is not a name."
+  },
+  "invoice_label_utility": {
+   "regex": "(?i)számla\\s*sorszám|sorszám|számlaszám|számla\\s*száma|bizonylatszám|számla\\s*azonosító|terhelési\\s*összesítő\\s*(?:száma|sorszáma)|bizonylat\\s*sorszáma",
+   "note": "The invoice number labels of a utility bill."
+  },
+  "taxid_ocr": {
+   "regex": "(?<!\\d)\\d(?:[  ]?\\d){7}[- ]\\d[- ]\\d{2}(?!\\d)",
+   "note": "OCR: a space may slip into the 8-digit block of the tax number; the form with the spaces removed is a candidate if it passes the check-digit test."
+  },
+  "taxid_label_hu": {
+   "regex": "(?i)ad[óoóé]sz[áa]m",
+   "note": "A Hungarian tax number label, OCR-tolerant."
+  },
+  "partial_hu_iban": {
+   "regex": "^HU\\d{2}(?:[  ]\\d{4}){1,5}$",
+   "note": "A Hungarian IBAN broken over lines: its first part."
+  },
+  "iban_group": {
+   "regex": "^\\d{4}$",
+   "note": "A Hungarian IBAN broken over lines: a further group of four digits."
+  },
+  "quantity_line": {
+   "regex": "(?i)\\bkwh\\b|\\bm3\\b|m³|\\bm\\?|\\bmj\\b|mérőállás|mer[őo]all[áa]s|fogyaszt[áa]s|mennyis[ée]g|f[űu]t[őo][ée]rt[ée]k|korrekci|indul[óo]|z[áa]r[óo]|h[őo]mennyis[ée]g|leolvas|szorz[óo]|\\b(?:Leol|Becs|Dikt|EII|Ell)\\b",
+   "note": "A quantity line (utility bill itemisation, meter table): a unit or a meter label in the line; the meter line is also recognised by its reading code if OCR garbled the header."
+  },
+  "leading_article": {
+   "regex": "(?i)^(?:az?|the)\\s+",
+   "note": "A leading article is not part of a name."
+  },
+  "paren_wrap": {
+   "regex": "^\\((.+)\\)\\.?$",
+   "note": "A name wrapped in parentheses."
+  },
+  "greeting": {
+   "regex": "(?i)^(?:dear|hello|hi|kedves|tisztelt)\\s+(?=\\S)",
+   "note": "127: a greeting before the addressee's name ('Dear <Name>,') is not part of the name."
+  },
+  "address_tail": {
+   "regex": "^[\\s,;-]*(?:\\d{4}(?!\\d)|(?:[A-ZÁÉÍÓÖŐÚÜŰ][\\w.\\-]*\\s+){1,4}(?:utca|u\\.|út|útja|tér|tere|körút|krt\\.|köz|sor|sétány|fasor|rakpart|street|st\\.|road|rd\\.|avenue|ave\\.)\\s*\\d)",
+   "note": "127: an address after a complete name in the same cell: a postcode or a street with a house number, optionally after a comma."
+  },
+  "name_stop": {
+   "regex": "[:：]|\\d{4}[ ,]|\\d{8}|adószám|iban|bank|telefon|tel\\.|e-mail|@|www\\.",
+   "note": "A name cell with any of these is not a name candidate."
+  },
+  "incomplete_legal_form": {
+   "regex": "(?i)^(?:korlátolt felelősségű|betéti|közkereseti)$",
+   "note": "127: a legal-form adjective that still wants its noun ('társaság') from the next line."
+  },
+  "name_goes_on": {
+   "regex": "(?i)^(?:&|and\\b|és\\s+társa|fióktelep|branch\\b|f\\.\\s?a\\.|v\\.\\s?a\\.|cs\\.\\s?a\\.|kv\\.\\s?a\\.|dba\\b|d/b/a|t/a\\b|trading as\\b|spółka\\b|co\\.|kg\\b)",
+   "note": "129: a continuation that still belongs to a registered name: a partner, a branch, a winding-up state, a trading name."
+  },
+  "name_tail_separator": {
+   "regex": "^\\s*[,\\-–—:|/]",
+   "note": "129: a remark after a name starts after a separator."
+  }
+ },
+ "currency_tokens": {
+  "base": {
+   "HUF": "(?i)\\bHUF\\b|\\bFt\\b|\\bforint\\b",
+   "EUR": "(?i)\\bEUR\\b|€",
+   "USD": "(?i)\\bUSD\\b|\\$"
+  },
+  "intl": {
+   "HUF": "(?i)\\bHUF\\b|\\bFt\\b|\\bforint\\b",
+   "EUR": "(?i)\\bEUR\\b|€",
+   "USD": "(?i)\\bUSD\\b|\\$",
+   "GBP": "(?i)\\bGBP\\b|£",
+   "TRY": "(?i)\\bTRY\\b|\\bTL\\b|₺",
+   "PLN": "(?i)\\bPLN\\b|zł",
+   "CZK": "(?i)\\bCZK\\b|Kč",
+   "CHF": "(?i)\\bCHF\\b",
+   "AUD": "(?i)\\bAUD\\b|A\\$",
+   "CAD": "(?i)\\bCAD\\b|C\\$"
+  }
+ },
+ "profiles": {
+  "hu": {
+   "intl": false,
+   "legal_form": "legal_form",
+   "party_label": "party_label",
+   "label_only": "label_only",
+   "invoice_label": "invoice_label",
+   "money": "money",
+   "address_label": null,
+   "taxid_label": null,
+   "currency_tokens": "base",
+   "extra_iban": [],
+   "extra_taxid": [],
+   "name_cut_after_legal_form": false,
+   "reverse_charge_zero": false,
+   "intl_addresses": false,
+   "ocr_dates": false,
+   "short_dates": false,
+   "invoice_lookahead": 1,
+   "ocr_taxid": false,
+   "max_money_options": 250,
+   "name_fallback_combined": true,
+   "evidence_intl": false
+  },
+  "intl": {
+   "intl": true,
+   "legal_form": "legal_form_intl",
+   "party_label": "party_label_intl",
+   "label_only": "label_only_intl",
+   "invoice_label": "invoice_label_intl",
+   "money": "money_intl",
+   "address_label": null,
+   "taxid_label": "taxid_label_intl",
+   "currency_tokens": "intl",
+   "extra_iban": [
+    "iban_intl"
+   ],
+   "extra_taxid": [
+    "taxid_eu_intl"
+   ],
+   "name_cut_after_legal_form": true,
+   "reverse_charge_zero": true,
+   "intl_addresses": true,
+   "ocr_dates": false,
+   "short_dates": true,
+   "invoice_lookahead": 1,
+   "ocr_taxid": false,
+   "max_money_options": 250,
+   "name_fallback_combined": false,
+   "evidence_intl": true
+  },
+  "utility": {
+   "intl": false,
+   "legal_form": "legal_form_utility",
+   "party_label": "party_label_utility",
+   "label_only": "label_only_utility",
+   "invoice_label": "invoice_label_utility",
+   "money": "money",
+   "address_label": "address_label_utility",
+   "taxid_label": null,
+   "currency_tokens": "base",
+   "extra_iban": [],
+   "extra_taxid": [],
+   "name_cut_after_legal_form": true,
+   "reverse_charge_zero": false,
+   "intl_addresses": false,
+   "ocr_dates": true,
+   "short_dates": false,
+   "invoice_lookahead": 2,
+   "ocr_taxid": true,
+   "max_money_options": 100,
+   "name_fallback_combined": false,
+   "evidence_intl": true
+  }
+ }
+}
