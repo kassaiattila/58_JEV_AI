@@ -67,7 +67,9 @@ const VIEW: PackageWorkView = { package: { id: WP, name: "April invoices", items
 const page = (state: string) => ({
   case: { id: CASE, pack: "documents", version: "1.0.0", title: "Documents", name: "April invoices", status: "open" },
   steps: { process: { title: "Processing", uses: "process_documents@1", start: "auto", state, phase: null, waiting_for: "run_start",
-    awaiting_start: false, note: null, result: null } },
+    awaiting_start: false, note: null, result: null,
+    // 261 (B1e): the service names the start with its cost cap, the shared actions show it
+    actions: [{ name: "start_run", label: "Start the live run", cap: { jev: "0.12", openai: "0.03" } }] } },
   next: null, tabs: [],
 } as unknown as CaseView);
 const props = (data: PackageWorkView | null, state = "running") => ({
@@ -83,7 +85,7 @@ describe("the case page's document processing element (231 C3b3)", () => {
     expect(screen.getByText("3 documents")).toBeTruthy();
     const button = screen.getByRole("button", { name: /Start the live run/ });
     expect(button.textContent).toContain("≤ 0.15 USD");
-    expect(button.getAttribute("title")).toBe("Starts the batch's live run, which can spend up to 0.15 USD");
+    expect(button.getAttribute("title")).toBe("Start the live run: it can spend up to 0.15 USD");
     fireEvent.click(button);
     await waitFor(() => expect(act).toHaveBeenCalledWith(CASE, "process", "start_run"));
     await waitFor(() => expect(p.onChanged).toHaveBeenCalled());

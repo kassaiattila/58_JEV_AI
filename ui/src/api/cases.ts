@@ -28,7 +28,8 @@ export interface StartedCase {
 
 /** A person's action on a step (A7d): a failed step's retry, or one its capability offers while the step waits for it. */
 /** D-f2: `form`: the action takes values, which its step's own element asks for (no button of its own). */
-export interface CaseAction { name: string; label: string; form?: boolean }
+/** 261 (B1e): `cap`, an action that may spend: its cost cap by provider (USD as text), shown on its button */
+export interface CaseAction { name: string; label: string; form?: boolean; cap?: Record<string, string> }
 /** 231 (C3b3): the documents of a document processing case: a folder (with its subfolders when asked) or files. */
 export interface CaseSource {
   kind: "folder" | "files" | "mailbox"; folder?: string; recursive?: boolean; files?: string[];

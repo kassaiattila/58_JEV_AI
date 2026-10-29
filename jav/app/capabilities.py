@@ -257,7 +257,8 @@ class Action:
     `available(case_id, step_id)` (whether the step waits for it now) and `run(case_id, step_id, actor, note)`. D-f2:
     an action with a `form` (a pydantic model forbidding other fields) takes its values instead of a note, checked by
     the form, and `submit(case_id, step_id, actor, values)` does it; its step's own element offers it, not a button.
-    `on_done`: offered on a done step too (a reopening); otherwise only while the step runs."""
+    `on_done`: offered on a done step too (a reopening); otherwise only while the step runs. 261 (B1e): `cap(case_id,
+    step_id)`, for an action that may spend, its cost cap by provider (USD as text) that its button shows (DESIGN §9)."""
 
     name: str
     label: str
@@ -266,6 +267,7 @@ class Action:
     form: type[BaseModel] | None = None
     submit: Callable[[str, str, identity.Who, Any], Any] | None = None
     on_done: bool = False
+    cap: Callable[[str, str], Mapping[str, str] | None] | None = None
 
 
 def _takes_values(case_id: str, step_id: str, _actor: identity.Who, _note: str | None) -> None:

@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "screen_elements",
-    "version": "1.14.0",
+    "version": "1.15.0",
     "description": "231 (plan stage A, A4; DECISIONS 231): the screen elements a process pack's tabs are built from. A shared element is one any process may use; a special element is registered once (with the capability whose step it shows) and from then on any process may use it too. A process pack naming an element not listed here is refused (jav/app/process_packs.py). The interface renders each type with one component (A6). Stage D0 (D0-a): an element with \"status\": \"planned\" is listed before it is built (the interface has no component for it and no capability gives its data); no pack may use it until it is built.",
     "changelog": [
       {"version": "1.0.0", "date": "2026-10-24", "note": "231 (A4): the first set: the shared elements of the process packs and the three special elements of the quote's back half."},
@@ -18,6 +18,7 @@
       {"version": "1.11.0", "date": "2026-10-26", "note": "231 (stage D, D-f7): the document view is built, for a step that prints a priced document: the file stored with the version it printed, its fingerprint and its download."},
       {"version": "1.12.0", "date": "2026-10-27", "note": "231 (stage D, D-f8): a letter that goes with a printed document (letter): the draft from its frame, a person's changes and acceptance, the accepted letter's email file."},
       {"version": "1.13.0", "date": "2026-10-27", "note": "231 (stage D, D-f9): the blockers are built: what holds an open case (a step that stopped or must run again, one waiting for a person's start or decision, one waiting for something else), each with the tab where it is resolved."},
+      {"version": "1.15.0", "date": "2026-10-29", "note": "261 (plan B, B1e; the owner's decision of 2026-10-29: the three shared elements now, each with a first user): the actions are built: a step's actions as buttons, one that may spend with its cost cap from the service (Action.cap); the case page's step buttons and the document step's live run start are its first users."},
       {"version": "1.14.0", "date": "2026-10-28", "note": "231 (U2c; the owner's decision of 2026-10-28: a chain is a multi-step process): the sub-case, a special element: the case of another process a step runs (its process, its state and its own next step) and the earlier ones that closed otherwise."}
     ]
   },
@@ -28,7 +29,7 @@
     "document_view": {"kind": "shared", "what": "A step's document: the file a priced document's step printed and stored with the version it printed, its fingerprint and its download (its pages are planned)."},
     "approval": {"kind": "shared", "what": "The approval of a step that approves a version of its own: its state (missing, approved, out of date, returned with a reason), its versions, and the step's own approval when its domain shows one (the quote's lines and Word document)."},
     "blockers": {"kind": "shared", "what": "What holds an open case, step by step: a step that stopped or must run again, one waiting for a person's start or decision, one waiting for something else, each with the tab where it is resolved."},
-    "actions": {"kind": "shared", "status": "planned", "what": "The step's actions, each with its cost cap when it may spend."},
+    "actions": {"kind": "shared", "what": "The step's actions as buttons, each that may spend with its cost cap (its estimate by provider); an action with a form is its step's own element's."},
     "timeline": {"kind": "shared", "what": "The case's events in order: who did what and when."},
     "cost": {"kind": "shared", "what": "What the case's steps spent, by step and service."},
     "partner_link": {"kind": "shared", "what": "The partners a case is about, by its pack's partner links: linked, or proposed from its record with the partner they seem to be."},

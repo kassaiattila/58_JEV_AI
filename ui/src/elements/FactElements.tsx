@@ -5,43 +5,18 @@
 // jav/app/fact_claims.py, jav/app/lookups.py); a person's actions go through the step's action endpoint with the state of
 // the page they were made on.
 import { Fragment, useState } from "react";
-import { api, ApiError, type AssessedUnit, type DocumentFactsData, type FieldReviewData, type LookupData, type OfferedClaim } from "../api";
+import type { AssessedUnit, DocumentFactsData, FieldReviewData, LookupData, OfferedClaim } from "../api";
 import type { Catalogue, CatalogueFact } from "../api/products";
-import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { docTypeLabel, when } from "../labels";
 import { day, factTitle, levelLabel, Value } from "../views/settings/RegistryParts";
 import { fieldReviewStatus } from "./caseStatus";
 import type { ElementProps } from "./registry";
+import { useStepAction } from "./stepAction";
 
 const loading = <p className="muted">{t("Loading…")}</p>;
 
-/** A step's action with values, then the page again. 261 (Q-rogzites-409): the action's answer is the page after it,
- *  taken at once (a unit saved, then the facts frozen right after, is frozen on the saved state, not on the page's
- *  earlier one); a page made stale by someone else meanwhile is reloaded and says so. */
-function useAct(p: ElementProps) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const run = async (name: string, values?: Record<string, unknown>, note?: string) => {
-    if (!p.element.step) return false;
-    setBusy(true);
-    setError(null);
-    try {
-      const view = await api.caseStepAction(p.caseId, p.element.step, name, note, values);
-      if (p.onView) p.onView(view);
-      else p.onChanged();
-      return true;
-    } catch (e) {
-      const stale = e instanceof ApiError && e.status === 409 && e.code === "revision_conflict";
-      if (stale) p.onChanged();
-      setError(stale ? t("The case changed since it was shown; it has been reloaded. Check it and try again.") : errorText(e));
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  };
-  return { busy, error, run };
-}
+const useAct = useStepAction;  // 261 (B1e): shared by the elements that offer a step's action
 
 /** A unit's name as a person reads it: the company's, the site's address, the asset group's kind. */
 function unitName(cat: Catalogue, u: AssessedUnit): string {

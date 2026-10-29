@@ -540,6 +540,14 @@ def _can_start(case_id: str, step_id: str) -> bool:
     return wp_id is not None and not _live_runs(wp_id) and not _workflow_starts(wp_id)
 
 
+def _start_cap(case_id: str, step_id: str) -> dict[str, str] | None:
+    """261 (B1e): the live run's cost cap by provider, its package's estimate (what its start button shows)."""
+    wp_id = package_of(case_id, step_id)
+    if wp_id is None:
+        return None
+    return {p: str(v) for p, v in (work_readiness.readiness(wp_id).get("budget") or {}).items()} or None
+
+
 def start_run(case_id: str, step_id: str, actor: identity.Who, _note: str | None = None) -> str:
     """A person starts the live run of the step's package within its own estimate; returns the run's id."""
     wp_id = package_of(case_id, step_id)
@@ -575,7 +583,7 @@ CAPABILITY = capabilities.Capability(
     # step's (`_spent`)
     spent=_spent, summary=("Makes a processing package of the case's documents; a person starts its live run within the package's "
              "estimate, and the step is done once a live run is approved."),
-    actions=(capabilities.Action("start_run", "Start the live run", _can_start, start_run),),
+    actions=(capabilities.Action("start_run", "Start the live run", _can_start, start_run, cap=_start_cap),),
     # C3b4: the case list says a person's start while the package waits for its live run, the machine's work while it
     # runs, a person's decision while it waits for its approval (`_state_of`)
     waits={"run_start": "person_start", "run_end": "work", "run_approval": "person", "fetching": "work"}, adopt=_adopt, bind=bind, bound=bound,

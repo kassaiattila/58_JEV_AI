@@ -10,6 +10,7 @@ import { t, useLocale } from "../i18n";
 import { fileName, MODE as MODE_OF_RUN, moneyText, providerName, RUN_STATUS, saidText, stepLabel, tmap, when } from "../labels";
 import { batchOfCase, wpHash } from "../route";
 import { handoverStatus, replyStatus, subCaseStatus } from "./caseStatus";
+import { ActionButtons } from "./ActionsElement";  // 261 (B1e): the shared actions
 import type { ElementProps } from "./registry";
 
 const loading = <p className="muted">{t("Loading…")}</p>;
@@ -25,40 +26,6 @@ const ATTEMPT = tmap({ recorded: "Recorded", sent: "Being handed over", acknowle
 const ATTEMPT_MARK: Record<HandoverAttempt["status"], string> = {
   recorded: "s-queued", sent: "s-running", acknowledged: "s-done", uncertain: "s-warn", failed: "s-failed",
 };
-
-/** A step's actions as buttons (the step's own: a failed step's retry, whether a message arrived, a reply). */
-function StepActions({ p, primary }: { p: ElementProps; primary?: string }) {
-  useLocale();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const step = p.element.step;
-  // D-f2: an action with a form is its step's own element's, not a button here
-  const actions = ((step && p.page.steps[step]?.actions) || []).filter((a) => !a.form);
-  if (!step || !actions.length) return null;
-  const act = async (name: string) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await api.caseStepAction(p.caseId, step, name);
-      p.onChanged();
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <>
-      <div className="button-row">
-        {actions.map((a) => (
-          <button key={a.name} type="button" className={a.name === primary ? "primary" : "secondary"} disabled={busy}
-            onClick={() => void act(a.name)}>{t(a.label)}</button>
-        ))}
-      </div>
-      {error ? <p className="notice error small" role="alert">{error}</p> : null}
-    </>
-  );
-}
 
 export function HandoverView(p: ElementProps) {
   useLocale();
@@ -111,7 +78,7 @@ export function HandoverView(p: ElementProps) {
       ) : null}
       {step.state === "failed" && step.note && step.note !== d.attempts[d.attempts.length - 1]?.error
         ? <p className="status long s-failed">{t(step.note)}</p> : null}
-      <StepActions p={p} />
+      <ActionButtons p={p} />
       {d.attempts.length ? (
         <table className="table compact" aria-label={t("Handovers")}>
           <thead><tr><th>{t("Attempt")}</th><th>{t("Outcome")}</th><th>{t("File")}</th><th>{t("Recipient")}</th><th>{t("When")}</th></tr></thead>
@@ -159,7 +126,7 @@ export function ReplyWait(p: ElementProps) {
       ) : d.state === "running" ? (
         <p className="muted small">{t("When the reply arrives, record it here. If none comes, a follow-up task opens in Waiting for me.")}</p>
       ) : null}
-      <StepActions p={p} primary={d.follow_up === "open" ? "replied" : undefined} />
+      <ActionButtons p={p} primary={d.follow_up === "open" ? "replied" : undefined} />
     </section>
   );
 }
@@ -382,7 +349,7 @@ export function SubWorkTable({ rows }: { rows: ElementProps[] }) {
                     </div>
                   ) : null}
                 </td>
-                <td><StepActions p={p} primary="retry" /></td>
+                <td><ActionButtons p={p} primary="retry" /></td>
               </tr>
             );
           })}

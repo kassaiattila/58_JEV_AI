@@ -87,6 +87,18 @@ def test_a_sub_cases_batch_leads_back_to_its_case_and_the_case_it_is_part_of(db)
                                "tab": "overview"}
 
 
+def test_a_steps_start_that_may_spend_names_its_cost_cap_and_the_shared_actions_show_it(db) -> None:
+    case = _monthly(db)
+    invoices = _sub(case, "invoices")
+    for _ in range(2):
+        engine.turn(invoices, wake=True)
+    [start] = case_views.view(invoices)["steps"]["process"]["actions"]
+    assert start["name"] == "start_run" and start["cap"]  # B1e: the package's estimate by provider
+    assert all(float(v) >= 0 for v in start["cap"].values())
+    assert case_views._step_actions(invoices, "process", {}) == {"actions": [start]}
+    assert case_views.gives("actions", "process_documents") and case_views.gives("actions", None)
+
+
 def test_an_element_without_a_brief_gives_none() -> None:
     page = {"steps": {"a": {"title": "A"}}, "tabs": [{"id": "t", "elements": [
         {"type": "x", "step": "a", "data": {"next": None}}, {"type": "y", "step": None, "data": None},
