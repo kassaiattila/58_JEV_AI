@@ -43,7 +43,7 @@ from jav.service import local_picker
 from jav.app import app_settings, capabilities, corrections, package_release, rule_defaults, work, work_views
 from jav.ai import policy
 from jav.documents import isolated_pdf
-from jav.core import access, cfg, config, dates, numbers, observability, store, version
+from jav.core import access, cfg, config, dates, display, numbers, observability, store, version
 from jav.core.config import PROJECT_ROOT
 from jav.runtime import pdf_status, worker
 from jav.service.service_shared import ForbiddenPath, In, JavJSONResponse, UnknownUser, access_guard, error, settings
@@ -373,6 +373,13 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         async def scoped_store(request: Request, call_next):
             with store.use_store(store_path):
                 return await call_next(request)
+
+    @app.middleware("http")
+    async def display_language(request: Request, call_next):
+        # 231 (F, D4): the requesting interface's language (its cookie), for the labels, downloads and file names the
+        # service makes; set here, as a middleware, so that a synchronous endpoint's thread sees it too
+        with display.use(request.cookies.get(display.COOKIE)):
+            return await call_next(request)
 
     _add_error_handlers(app)
 

@@ -33,6 +33,8 @@ describe("switching the language", () => {
     expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("en");
     expect(document.documentElement.lang).toBe("en");
     expect(getLocale()).toBe("en-GB");
+    // 231 (D4): the service's downloads and file names follow the language it is told by this cookie
+    expect(document.cookie).toContain("jav-language=en");
   });
 
   it("the label dictionary, a sentence with parameters, and the Hungarian source for a missing key", async () => {

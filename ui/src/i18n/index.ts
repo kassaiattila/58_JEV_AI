@@ -12,6 +12,8 @@ import hungarianNative from "./hu-native.json";
 export type Language = "hu" | "en";
 export type Messages = Record<string, string>;
 export const LANGUAGE_STORAGE_KEY = "jav.ui-language";
+/** 231 (D4): the cookie that tells the service the interface's language (`jav/core/display.py` COOKIE). */
+export const LANGUAGE_COOKIE = "jav-language";
 
 let language: Language = "hu";
 let english: Messages = {};
@@ -45,7 +47,12 @@ export async function setLanguage(next: Language): Promise<void> {
   }
   if (mine !== request) return;
   language = next;
-  if (typeof document !== "undefined") document.documentElement.lang = next;
+  if (typeof document !== "undefined") {
+    document.documentElement.lang = next;
+    // 231 (D4): the service's downloads and file names follow the interface's language; the cookie goes with every
+    // request of the page, a download link's too
+    document.cookie = `${LANGUAGE_COOKIE}=${next}; path=/; SameSite=Strict`;
+  }
   try {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
   } catch {
