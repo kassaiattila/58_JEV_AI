@@ -2,8 +2,8 @@
 // Its review page says so instead of "could not be detected", and its suggested next step has a name.
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { ItemResult } from "../api";
-import { nextFlowText } from "../labels";
+import type { ItemResult } from "../../api";
+import { nextFlowText } from "../../labels";
 import { EmailReview } from "./EmailReview";
 
 const mail = (sent: boolean): ItemResult => ({

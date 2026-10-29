@@ -29,16 +29,17 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from jav.app import capabilities, package_scope, scopes, work, work_readiness, work_runs, workflow_steps
-from jav.core import identity, store
-from jav.core.process import cases, kinds
+from jav.core import identity, store, trace
+from jav.core.process import cases, kinds, tasks
 from jav.core.process.engine import StepContext
 from jav.core.user_messages import explained
 
@@ -75,15 +76,30 @@ def _source(value: Any, error: type[Exception]) -> dict[str, Any]:
         return {"kind": PACKAGE, "workpackage_id": wp_id}
     if not isinstance(value, dict) or value.get("kind") not in ("folder", "files"):
         raise explained(error, "choose a folder or files")
+    # 261 (the owner's decision of 2026-10-29): a next period's source may take only the documents no live run has
+    # processed yet (147's rule, `work.unprocessed`)
+    only_new = {"only_new": True} if value.get("only_new") else {}
     if value["kind"] == "folder":
         folder = Path(str(value.get("folder") or ""))
         if not folder.is_dir():
             raise explained(error, "no such folder: {{folder}}", folder=str(folder))
-        return {"kind": "folder", "folder": str(folder), "recursive": bool(value.get("recursive"))}
+        return {"kind": "folder", "folder": str(folder), "recursive": bool(value.get("recursive"))} | only_new
     files = [str(f) for f in value.get("files") or []]
     if not files or any(not Path(f).is_file() for f in files):
         raise explained(error, "choose files that exist")
-    return {"kind": "files", "files": files}
+    return {"kind": "files", "files": files} | only_new
+
+
+def repeated_source(source: dict[str, Any], period: tuple[str, str], earlier: tuple[str, str], *,
+                    only_new: bool = True) -> dict[str, Any] | None:
+    """261: a case's source for its next period (`period`, after the `earlier` one): a folder or files again, taking only
+    the documents no live run has processed yet where its maker can (`only_new`); a domain's source kind as it moves on
+    (a mailbox's received range); None for a package made before (a person gives the next one)."""
+    if (domain := workflow_steps.source_kind(str(source.get("kind")))) is not None:
+        return domain.repeated(source, period, {"period_start": earlier[0], "period_end": earlier[1]})
+    if source.get("kind") in ("folder", "files"):
+        return {**source, "only_new": True} if only_new else {k: v for k, v in source.items() if k != "only_new"}
+    return None
 
 
 def _source_words(value: dict[str, Any]) -> str:
@@ -99,6 +115,62 @@ def _no_source(error: type[Exception]) -> Exception:
 
 
 SOURCE = scopes.Part(SOURCE_PART, __name__, _source, _source_words, _no_source)
+
+
+# --- the live run's budget (261; the owner's decisions of 2026-10-29) ---------------------------------------------------
+
+RUN_BUDGET_PART = "run_budget"  # the cap a person approved for the step's live run, and who: the run starts by itself
+RUN_BUDGET_GATE = "case.run_budget"  # the decision point: the run's estimate against that cap
+RUN_BUDGET_TASK = "run_budget"  # the human task of a step whose run's estimate is over its cap, `run_budget:<case>:<step>`
+AUTO = "case-budget"  # the machine that starts a run within its cap, acting for the person who approved it
+
+
+def budget_caps(usd: Any, error: type[Exception]) -> dict[str, str]:
+    """261: a budget's cap per provider ({provider: USD}, each a known provider and an amount not below zero), as text."""
+    from jav.app.workflow_records import PROVIDERS  # lazy: the workflows build on the packages this module makes
+
+    if not (isinstance(usd, Mapping) and usd):
+        raise explained(error, "a run's budget names its cap per provider and who approved it")
+    caps: dict[str, str] = {}
+    for provider, amount in sorted(usd.items()):
+        if provider not in PROVIDERS:
+            raise explained(error, "unknown provider of a budget: {{provider}}", provider=repr(provider))
+        try:
+            cap = Decimal(str(amount))
+        except InvalidOperation as exc:
+            raise explained(error, "a budget is an amount in USD: {{amount}}", amount=repr(amount)) from exc
+        if not cap.is_finite() or cap < 0:
+            raise explained(error, "a budget is an amount in USD: {{amount}}", amount=repr(amount))
+        caps[provider] = str(cap)
+    return caps
+
+
+def _run_budget(value: Any, error: type[Exception]) -> dict[str, Any]:
+    by = value.get("approved_by") if isinstance(value, Mapping) else None
+    if not (isinstance(by, Mapping) and isinstance(by.get("id"), str) and by["id"] and isinstance(by.get("name"), str)
+            and by["name"].strip()):
+        raise explained(error, "a run's budget names its cap per provider and who approved it")
+    return {"usd": budget_caps(value.get("usd"), error), "approved_by": {"id": by["id"], "name": by["name"].strip()}}
+
+
+def _run_budget_words(value: Mapping[str, Any]) -> str:
+    return " + ".join(f"{p} ≤ {v} USD" for p, v in value["usd"].items())
+
+
+def _no_run_budget(error: type[Exception]) -> Exception:
+    return explained(error, "a run's budget names its cap per provider and who approved it")
+
+
+RUN_BUDGET = scopes.Part(RUN_BUDGET_PART, __name__, _run_budget, _run_budget_words, _no_run_budget)
+
+
+def run_budget_gate(inputs: Mapping[str, Any]) -> dict[str, Any]:
+    """261: a case step's run budget gate, a pure rule (the workflows' rule of 146 for a case's step): each provider whose
+    estimate (`estimate`, USD as text) is over the cap a person approved (`budget`; a provider without one has none);
+    the step's package starts its live run by itself only when none is, otherwise it waits for a person's start."""
+    budget = inputs["budget"]
+    over = {p: str(Decimal(v)) for p, v in sorted(inputs["estimate"].items()) if Decimal(v) > Decimal(budget.get(p, "0"))}
+    return {"over": over, "decision": "needs_budget" if over else "start"}
 
 
 def paths_of(source: dict[str, Any]) -> list[Path]:
@@ -179,9 +251,17 @@ def _documents(scope: dict[str, Any], name: str, owner: identity.Who | None) -> 
     """The documents' maker: the folder's or the files' documents; none, no package (an empty one is not kept)."""
     source = scope[SOURCE_PART]
     if source["kind"] == "folder":
-        wp = work.create_from_folder(Path(source["folder"]), name=name, owner=owner, recursive=source["recursive"])
+        only = None
+        if source.get("only_new"):  # 261: the documents no live run has processed yet
+            only, _done = work.unprocessed(work.folder_documents(Path(source["folder"]), recursive=source["recursive"]))
+            if not only:
+                return None
+        wp = work.create_from_folder(Path(source["folder"]), name=name, owner=owner, recursive=source["recursive"], only=only)
     else:
-        wp = work.create_from_files([Path(f) for f in source["files"]], name=name, owner=owner)
+        files = [Path(f) for f in source["files"]]
+        if source.get("only_new") and not (files := work.unprocessed(files)[0]):
+            return None
+        wp = work.create_from_files(files, name=name, owner=owner)
     if not work.get(wp["id"])["items"]:
         work.delete_workpackage(wp["id"], actor=owner or "machine")
         return None
@@ -356,9 +436,72 @@ def _run(ctx: StepContext, params: Process) -> kinds.StepOutcome:
         with ctx.transaction() as c:  # the step remembers its package while it runs
             cases.set_result(c, case_id, step_id, {"workpackage_id": wp_id})
     found = _state_of(wp_id)
+    if found == "run_start" and (gated := _budget_gate(ctx, wp_id)) is not None:
+        return gated
+    if found != "run_start" and RUN_BUDGET_PART in (ctx.data.get("scope") or {}):
+        _settle_budget_task(ctx)  # 261: a run started some other way settles the step's budget task
     if isinstance(found, str):
         return ctx.wait(found, timer=("check", time.time() + POLL_S), detail={"workpackage_id": wp_id})
     return kinds.Done(found)
+
+
+def _budget_gate(ctx: StepContext, wp_id: str) -> kinds.StepOutcome | None:
+    """261 (the owner's decisions of 2026-10-29): a step whose case holds a run budget a person approved decides once,
+    when its package is made, by the run's estimate against that cap (`run_budget_gate`, traced): within it the live run
+    starts by itself, for the person who approved it (the machine acting for them); over it, or with no estimate to
+    hold, the step waits for a person's start as without a budget, over it with a person's task naming the estimate and
+    the cap. None: the step goes on as without a budget (none given, or decided before)."""
+    budget = (ctx.data.get("scope") or {}).get(RUN_BUDGET_PART)
+    gathered = ctx.result_of(ctx.step.id)[1] or {}
+    if budget is None or "budget_gate" in gathered:
+        return None
+    ready = work_readiness.readiness(wp_id)
+    estimate = {p: str(Decimal(str(v))) for p, v in (ready.get("budget") or {}).items()}
+    inputs = {"estimate": estimate, "budget": budget["usd"]}
+    gate = run_budget_gate(inputs) if ready["ready"] else {"over": {}, "decision": "not_ready"}
+    approver = identity.Actor(id=budget["approved_by"]["id"], name=budget["approved_by"]["name"], kind=identity.HUMAN)
+    subject = (RUN_BUDGET_TASK, f"{ctx.case_id}:{ctx.step.id}")
+    keys = {"recipes.json": _recipe_keys(wp_id)}
+    if gate["decision"] != "start":
+        with ctx.transaction() as c:
+            cases.set_result(c, ctx.case_id, ctx.step.id, {**gathered, "budget_gate": gate["decision"], "over": gate["over"]})
+            trace.record_in(c, RUN_BUDGET_GATE, subject=subject, inputs=inputs, outcome=gate, keys=keys, case_id=ctx.case_id)
+            if gate["decision"] == "needs_budget":
+                from jav.app import human_tasks  # lazy: the human tasks name the workflows, which build on this module
+
+                tasks.open_in(c, RUN_BUDGET_TASK, subject[1], ctx.actor, case_id=ctx.case_id, step_id=ctx.step.id,
+                              assignee=human_tasks.assignee_for(c, wp_id, approver.name),
+                              detail={**inputs, "over": gate["over"]})
+        if gate["decision"] == "needs_budget":
+            return ctx.wait(tasks.EVENT, timer=("check", time.time() + POLL_S), detail={"workpackage_id": wp_id})
+        return None
+    run = work_runs.start_run(wp_id, mode="apply", expected_assignment_revision=ready["assignment_revision"],
+                              input_hash=ready["input_hash"],
+                              actor=identity.acting_for(AUTO, f"{approver.name} (auto)", approver))
+    with ctx.transaction() as c:
+        cases.set_result(c, ctx.case_id, ctx.step.id, {**gathered, "budget_gate": "start", "run_id": run["run_id"]})
+        trace.record_in(c, RUN_BUDGET_GATE, subject=subject, inputs=inputs, outcome=gate, keys=keys,
+                        run_id=run["run_id"], case_id=ctx.case_id)
+    return ctx.wait("run_end", timer=("check", time.time() + POLL_S), detail={"workpackage_id": wp_id})
+
+
+def _settle_budget_task(ctx: StepContext) -> None:
+    """261: the step's budget task, still open while its package's live run started (from the package's own page): the
+    start settled what it asked."""
+    tid = tasks.task_id(RUN_BUDGET_TASK, f"{ctx.case_id}:{ctx.step.id}")
+    with ctx.transaction() as c:
+        task = tasks.task_in(c, tid)
+        if task is not None and task.status == tasks.OPEN:
+            tasks.withdraw_in(c, tid, ctx.actor, note="its live run started", notify=False)
+
+
+def _recipe_keys(wp_id: str) -> tuple[str, ...]:
+    """The rule keys the run's estimate was made with: the item budgets of the package's recipe."""
+    from jav.app import work_recipes
+
+    a = work_recipes.current_assignment(wp_id)
+    rid = a["recipe_id"] if a else work_recipes.default_recipe()["id"]
+    return (f"recipes[{rid}].max_item_usd", f"recipes[{rid}].max_item_usd_by_kind")
 
 
 def _state_of(wp_id: str) -> str | dict[str, Any]:
@@ -407,8 +550,13 @@ def start_run(case_id: str, step_id: str, actor: identity.Who, _note: str | None
     ready = work_readiness.readiness(wp_id)
     if not ready["ready"]:
         raise ProcessingError("; ".join(b["message"] for b in ready["blockers"]) or "the package cannot start")
-    return work_runs.start_run(wp_id, mode="apply", expected_assignment_revision=ready["assignment_revision"],
-                               input_hash=ready["input_hash"], actor=actor)["run_id"]
+    run_id = work_runs.start_run(wp_id, mode="apply", expected_assignment_revision=ready["assignment_revision"],
+                                 input_hash=ready["input_hash"], actor=actor)["run_id"]
+    tid = tasks.task_id(RUN_BUDGET_TASK, f"{case_id}:{step_id}")  # 261: the person's start decides the budget task
+    task = tasks.get(tid)
+    if task is not None and task.status == tasks.OPEN:
+        tasks.decide(tid, identity.who(actor), outcome={"run_id": run_id})
+    return run_id
 
 
 class ProcessedResult(capabilities.Result):
@@ -443,6 +591,15 @@ def source_kinds(pack: Any) -> list[str]:
     return []
 
 
+def takes_only_new(pack: Any) -> bool:
+    """261: whether a case of the pack may take only the documents no live run has processed yet (its document processing
+    step's maker leaves them out: the documents'; the statements' survey takes only the statements not in the store)."""
+    for step in pack.steps:
+        if capabilities.of(step.uses) is CAPABILITY:
+            return maker_of(Process.model_validate(step.params).maker).only_new
+    return False
+
+
 def _package_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
     """231 (C3b3): what the step shows on its case's page (the element `package_work`): its package (its name, its
     items, its runs) and, while its live run waits for a person, whether it can start and its estimate (the button's
@@ -465,6 +622,12 @@ def _package_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) ->
         ready = work_readiness.readiness(wp_id)
         out.update(can_start=bool(ready["ready"]), estimate={p: str(v) for p, v in (ready.get("budget") or {}).items()},
                    blockers=[b["message"] for b in ready["blockers"]])
+    with store.connect() as c:  # 261: the cap a person approved for its live run and what the gate decided
+        budget = ((cases.find_case_in(c, case_id) or {}).get("data") or {}).get("scope", {}).get(RUN_BUDGET_PART)
+        gathered = (cases.find_step_in(c, case_id, str(step_id)) or {}).get("result") or {}
+    if budget is not None:
+        out["budget"] = {"usd": budget["usd"], "approved_by": budget["approved_by"]["name"],
+                         "decision": gathered.get("budget_gate"), "over": gathered.get("over") or {}}
     return out
 
 
@@ -551,12 +714,23 @@ def register() -> None:
     from jav.app import case_views, workflows  # lazy: the case page reads the registered capabilities
 
     scopes.register(SOURCE)
+    scopes.register(RUN_BUDGET)  # 261
     register_maker(Maker(DOCUMENTS, __name__, _documents, package_kinds=workflows.DOCUMENT_PACKAGES, only_new=True,
                          subfolders=True, step_offer=workflows.documents_offer, repeat_from=workflows.repeat_from_folder))
     capabilities.register(CAPABILITY)
     case_views.register(case_views.ElementData("package_work", CAPABILITY.name, _OWNER, _package_view))
 
 
-__all__ = ["CAPABILITY", "DOCUMENTS", "OWNER_PART", "PACKAGE", "SOURCE", "SOURCE_PART", "Collected", "Maker", "Process",
+# 261: the run budget's task and decision point, registered on import (a case waiting for the task must know its kind)
+tasks.register_kind(tasks.TaskKind(RUN_BUDGET_TASK, __name__))
+trace.register(trace.Point(
+    RUN_BUDGET_GATE, owner=__name__, files=("recipes.json",), rule=run_budget_gate,
+    what="whether a case step's package starts its live run by itself: the run's estimate per provider against the cap "
+         "a person approved for the step when the case started",
+    not_for="the run's reservations while it runs (the call log keeps those), or a step without an approved cap"))
+
+__all__ = ["CAPABILITY", "DOCUMENTS", "OWNER_PART", "PACKAGE", "RUN_BUDGET", "RUN_BUDGET_GATE", "RUN_BUDGET_PART",
+           "RUN_BUDGET_TASK", "SOURCE", "SOURCE_PART", "Collected", "budget_caps", "Maker", "Process",
            "ProcessingError", "bind", "bound", "case_packages", "maker_names", "source_kinds", "maker_of", "owned_packages", "package_of", "paths_of",
-           "register", "register_maker", "register_workflow_steps", "start_run"]
+           "register", "register_maker", "register_workflow_steps", "repeated_source", "run_budget_gate", "start_run",
+           "takes_only_new"]

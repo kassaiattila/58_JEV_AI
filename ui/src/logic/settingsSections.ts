@@ -25,6 +25,8 @@ export interface SettingsSectionSpec {
   order: number;
   /** a domain's section's content (a shared section's is the Settings page's own) */
   Panel?: ComponentType;
+  /** 261: older top-level addresses that open the section (`#/<alias>`), e.g. the mailboxes' `#/mailbox` (057) */
+  aliases?: string[];
 }
 
 /** A part a domain adds at the end of a shared section, under its own heading. */

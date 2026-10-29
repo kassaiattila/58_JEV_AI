@@ -32,7 +32,7 @@ export function ScopeForm({ view, busy, onSave, onClear, onCancel }: {
   useLocale();
   const wp = view.workpackage;
   const scope = view.scope;
-  const parties = useLoad("parties", api.parties);
+  const parties = useLoad("own-parties", api.ownParties);
   const roles = useLoad("package-roles", api.packageRoles);
   const [party, setParty] = useState(scope?.party_id ?? "");
   const [start, setStart] = useState(scope?.period_start ?? "");

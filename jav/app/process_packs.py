@@ -208,6 +208,8 @@ class ProcessPack(_Model):
     goldens: tuple[str, ...] = ()
     partners: tuple[PartnerLink, ...] = ()  # 231 (B1)
     follow_ups: tuple[FollowUp, ...] = ()  # 231 (U1): a process a closed case's person may start from its scope
+    # 261 (the owner's decision of 2026-10-29): a case of it may be repeated for its next period (its page offers it)
+    repeats: bool = False
     # stage D (D-a, P04): the resources a case cannot start without a version of to keep (a tariff); none: it may start
     needs_at_start: tuple[str, ...] = ()
     # 231 (U3c; the owner's decision of 2026-10-28): a resource that follows from another ({resource: source}): the
@@ -298,6 +300,8 @@ def _problems(pack: ProcessPack) -> list[str]:
             problems.append(f"the follow-up {follow.pack!r} needs scope parts this pack does not hold: "
                             + ", ".join(sorted(wanted - set(pack.scope.parts))))
     problems += [f"optional scope part {p!r} is not one of its parts" for p in pack.scope.optional if p not in pack.scope.parts]
+    if pack.repeats and scopes.PERIOD not in pack.scope.parts:  # 261: its next case is the next period's
+        problems.append("a process repeated for its next period needs a period in its scope")
     if any(i.on == "email_intent" and not i.intent for i in pack.intake):
         problems.append("an email intake names its intent")
     for i in pack.intake:  # 231 (C1c): a package offers a case that reads it

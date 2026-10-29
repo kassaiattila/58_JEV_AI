@@ -9,8 +9,8 @@ import { FIELD, fieldLabel, fold, ITEM_STATUS, itemName, when } from "../labels"
 import { useNameMode } from "../names";
 import { go, routeHash } from "../route";
 import { draftKey, getDraft, setField, useDraft } from "../review/drafts";
-import { EmailReview } from "../review/EmailReview";
 import { FieldPanel } from "../review/FieldPanel";
+import { itemReviewOf } from "../review/itemReviews";
 import { classifyFields, initialFilter, nextAfterConfirm, type FieldFilter } from "../review/fieldFilter";
 import { bandOf, bandsFor, orderFields, selectionText, type Bands } from "../review/geometry";
 import { BAND_COLOR, PageViewer } from "../review/PageViewer";
@@ -237,7 +237,9 @@ export function ItemReview(props: ItemReviewProps) {
   if (!res.data) return <p className="muted pad">{t("Loading…")}</p>;
   if ("result_kind" in res.data && res.data.result_kind === "native") return <NativeReview data={res.data} approved={props.approved} onChanged={changed} />;
   const data = res.data as ItemResult;
-  if (data.kind === "email" && data.email) return <EmailReview data={data} wpId={wpId} onChanged={changed} />;
+  // 261: an item of a kind a domain adds (an email) is that domain's review, when it gives one for the item
+  const own = itemReviewOf(data.kind)?.({ data, wpId, onChanged: changed });
+  if (own) return own;
   return <PdfItemReview {...props} data={data} onChanged={changed} />;
 }
 

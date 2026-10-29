@@ -12,7 +12,7 @@ import { api, ApiError, setActor, type ItemResult, type Provenance, type SourceW
 import type { UtilityReport } from "./domains/finance/api";
 import { useLoad } from "./hooks";
 import { checkText, intentLabel, itemName, nextFlowText, paramsText, reasonText } from "./labels";
-import { EmailReview, splitLinks } from "./review/EmailReview";
+import { EmailReview, splitLinks } from "./domains/email/EmailReview";
 import { PageViewer } from "./review/PageViewer";
 import { bridgeErrorText, pullSummary, toggleAccount } from "./domains/email/Mailbox";
 import { draftKey, getDraft, resetDrafts, setField } from "./review/drafts";

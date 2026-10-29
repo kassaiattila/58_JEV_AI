@@ -471,7 +471,8 @@ export const financeApi = {
     request<ReconcileStatementCurrent>("POST", `/workpackages/${enc(wpId)}/reconcile/reopen`, { note }),
   reconcileStatementXlsxUrl: (wpId: string, version?: number) =>
     `/api/workpackages/${enc(wpId)}/reconcile/statement.xlsx${version ? `?version=${version}` : ""}`,
-  // 133: the own parties; every change answers with the whole overview
+  // 133: the own parties' overview (261: until then a shared call); every change answers with the whole overview
+  parties: () => request<PartiesOverview>("GET", "/parties"),
   acceptPartySuggestions: (ids: string[], names: Record<string, string> = {}) =>
     request<PartiesOverview>("POST", "/parties/accept", { ids, names }),
   createParty: (name: string, identities: PartyIdentity[]) =>

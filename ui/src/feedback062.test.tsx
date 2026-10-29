@@ -4,9 +4,10 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api, type DsColumn, type DsPage, type EmailTask, type ItemResult } from "./api";
+import { api, type DsColumn, type DsPage, type ItemResult } from "./api";
+import type { EmailTask } from "./domains/email/api";
 import { cellText, DataTable } from "./components/DataTable";
-import { EmailReview } from "./review/EmailReview";
+import { EmailReview } from "./domains/email/EmailReview";
 import { activityDetail } from "./views/Activity";
 import { defaultResultTable } from "./views/ResultStage";
 import { queueStatus } from "./views/ReviewWorkspace";

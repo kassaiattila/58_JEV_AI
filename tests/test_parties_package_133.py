@@ -155,3 +155,13 @@ def test_the_service_accepts_the_suggestions_and_rearranges_the_parties(env):
     assert r.status_code == 201 and {p["name"] for p in r.json()["parties"]} == {"Household", "New Party"}
     assert c.post(f"/api/parties/{home}/delete", headers=human, json={}).status_code == 200
     assert c.post("/api/parties/party-000000000000/delete", headers=human, json={}).status_code == 404
+
+
+def test_the_shared_list_names_the_own_parties_a_scope_can_take(env):
+    """261: a package's and a case's scope form list the own parties by the shared address, their id and name by name,
+    without the finance domain's counting of invoices and accounts."""
+    c = env["client"]
+    assert c.get("/api/own-parties").json() == {"parties": []}
+    home, club = _parties()
+    assert c.get("/api/own-parties").json() == {"parties": [{"id": home, "name": "Example Home"}, {"id": club, "name": "Sporting Club"}]}
+    assert [p["id"] for p in c.get("/api/parties").json()["parties"]] == [home, club]  # the overview's order is the same

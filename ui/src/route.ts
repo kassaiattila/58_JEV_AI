@@ -31,7 +31,7 @@ export type Route =
   /** 231 (A6): a process pack's case, on one of its tabs (the tab ids come from its pack) */
   | { view: "cases"; caseId: string; tab?: string }
   /** 231 (U0): the case list; `create`: a new case, of the process `pack` when one is chosen */
-  | { view: "case-list"; create?: boolean; pack?: string }
+  | { view: "case-list"; create?: boolean; pack?: string; after?: string }  // 261: `after`, the case whose next period it is
   /** 231 (U3a): `item`, a process of the Processes section (its own page), and `tab`, the page's tab */
   | { view: "settings"; section: SettingsSection; item?: string; tab?: string }
   /** 061: the selected person's actions on a day („Mai munkám” (My work today)); without a day, today's */
@@ -72,8 +72,6 @@ export function parseRoute(hash: string): Route {
       return { view: "settings", section, ...(section === parts[1] && parts[2] ? { item: parts[2] } : {}),
         ...(section === parts[1] && parts[2] && parts[3] ? { tab: parts[3] } : {}) };
     }
-    case "mailbox":
-      return { view: "settings", section: "mailboxes" };
     case "activity": {
       const day = params.get("day");
       return { view: "activity", day: day && /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : undefined };
@@ -83,7 +81,10 @@ export function parseRoute(hash: string): Route {
     case "runs":
       return parts[1] ? { view: "run", runId: parts[1] } : { view: "settings", section: "system" };
     case "cases":  // 231 (A6)
-      if (parts[1] === "new") return parts[2] ? { view: "case-list", create: true, pack: parts[2] } : { view: "case-list", create: true };  // U0
+      if (parts[1] === "new") {  // U0; 261: a case's next period (`?after=<case>`)
+        const after = params.get("after");
+        return parts[2] ? { view: "case-list", create: true, pack: parts[2], ...(after ? { after } : {}) } : { view: "case-list", create: true };
+      }
       return parts[1] ? { view: "cases", caseId: parts[1], tab: parts[2] || undefined } : { view: "case-list" };  // A7e
     case "workflows":
       // 231 (U2c): a new workflow is a case of a multi-step process; the repeat's address shows the earlier workflow
@@ -110,8 +111,11 @@ export function parseRoute(hash: string): Route {
       }
       return r;
     }
-    default:  // 231 (U2a): an unknown address opens the one work list, the cases
-      return { view: "case-list" };
+    default: {  // 231 (U2a): an unknown address opens the one work list, the cases
+      // 261: an older address of a settings section (the mailboxes' `#/mailbox`, 057) opens that section
+      const aliased = settingsSections().find((s) => parts[0] && s.aliases?.includes(parts[0]));
+      return aliased ? { view: "settings", section: aliased.key } : { view: "case-list" };
+    }
   }
 }
 
@@ -123,7 +127,7 @@ export function routeHash(r: Route): string {
     case "waiting": return r.all ? "#/waiting?all=1" : "#/waiting";
     case "run": return `#/runs/${e(r.runId)}`;
     case "cases": return r.tab ? `#/cases/${e(r.caseId)}/${e(r.tab)}` : `#/cases/${e(r.caseId)}`;
-    case "case-list": return r.create ? (r.pack ? `#/cases/new/${e(r.pack)}` : "#/cases/new") : "#/cases";
+    case "case-list": return r.create ? (r.pack ? `#/cases/new/${e(r.pack)}${r.after ? `?after=${e(r.after)}` : ""}` : "#/cases/new") : "#/cases";
     case "workflows": return r.wfId ? `#/workflows/${e(r.wfId)}` : "#/workflows";
     case "legacy-result": return r.runId ? `#/reports/${e(r.runId)}` : "#/reports";
     case "workpackages": {

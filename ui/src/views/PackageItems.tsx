@@ -5,28 +5,30 @@
 // Before 168 this was the document list of Review (057; 160-C S1: a removal names the chosen person and needs a reason;
 // removed items show behind a switch, with who removed them, when and why, and can be restored).
 import { useState, type FormEvent, type ReactNode } from "react";
-import { api, ApiError, getActor, type AddSummary, type DsRow, type MailboxRequest, type Workpackage, type WorkpackageView } from "../api";
+import { api, ApiError, getActor, type AddSummary, type DsRow, type Workpackage, type WorkpackageView } from "../api";
 import { DataTable } from "../components/DataTable";
 import { Icon } from "../components/Icon";
 import { nameCell, NameModeSwitch } from "../components/NameCell";
+import { chooserOf } from "../elements/sourceChoosers";
 import { t, useLocale } from "../i18n";
-import { mailboxLabel, storedMailboxLabel } from "../labels";
 import { addsOwnWay, partOf, type PackagePart } from "../logic/packageParts";
 import { useNameMode } from "../names";
 import { wpHash } from "../route";
 import { AddDocuments, AddSummaryLine, type AddSource } from "./PackageAdd";
 
 /** 153 (review E): where the package was created from, by its kind; later additions may come from elsewhere. 183: a
- *  mailbox package is named from the request of the download that made it, in the interface's language. */
-export function createdFrom(wp: Workpackage, request?: MailboxRequest | null, part?: PackagePart): string {
+ *  mailbox package is named from the request of the download that made it, in the interface's language; 261: a source
+ *  kind a domain adds names its packages' origin itself (its chooser's `createdFrom`, e.g. the email domain's mailbox). */
+export function createdFrom(wp: Workpackage, view?: WorkpackageView | null, part?: PackagePart): string {
   const own = part?.createdFrom; // 176: a package's rule names its own origin (231 C3b5a: a statement package's)
   if (own) return own(wp);
+  const kinds = chooserOf(wp.source_kind)?.createdFrom;
+  if (kinds) return kinds(wp, view);
   const ref = wp.source_ref ?? "";
   const file = ref.split(/[\\/]/).pop() ?? ref;
   switch (wp.source_kind) {
     case "folder": return ref;
     case "watch": return t("the watched folder {{path}}", { path: ref }); // 177: was "the file <folder>"
-    case "mailbox": return t("mailbox {{name}}", { name: request ? mailboxLabel(request) : storedMailboxLabel(file) });
     default: return ref ? t("the file {{name}}", { name: file }) : t("files chosen by hand");
   }
 }
@@ -128,7 +130,7 @@ export function PackageItems({ view, adding, onAddingChange, onChanged, pendingA
           </div>
         )}
       </div>
-      <p className="muted small">{t("Created from: {{source}} · revision {{rev}} of the package", { source: createdFrom(wp, view.mailbox_request, partOf(view)), rev: wp.revision })}</p>
+      <p className="muted small">{t("Created from: {{source}} · revision {{rev}} of the package", { source: createdFrom(wp, view, partOf(view)), rev: wp.revision })}</p>
       {adding && own && OwnAdd ? <OwnAdd wp={wp} source={adding} onCancel={close} onDone={() => { close(); onChanged(); }} /> : null}
       {adding && !own ? <AddDocuments wp={wp} source={adding} onCancel={close} onDone={(s) => { close(); setAdded(s); onChanged(); }} /> : null}
       {added ? <AddSummaryLine summary={added} /> : null}

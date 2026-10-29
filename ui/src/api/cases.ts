@@ -32,14 +32,19 @@ export interface CaseAction { name: string; label: string; form?: boolean }
 /** 231 (C3b3): the documents of a document processing case: a folder (with its subfolders when asked) or files. */
 export interface CaseSource {
   kind: "folder" | "files" | "mailbox"; folder?: string; recursive?: boolean; files?: string[];
-  /** 231 (C3d): a mailbox download's request */
-  request?: import("./email").MailboxRequest;
+  /** 261: a folder or files taking only the documents no live run has processed yet */
+  only_new?: boolean;
+  /** 231 (C3d): a mailbox download's request (261: by the email domain's declaration merging) */
 }
 /** 231 (C3b3): the package a document processing step made, its runs, and its live run's start with the estimate. */
 export interface PackageWorkView {
   package: { id: string; name: string; items: number; kind: string } | null;
   runs?: { run_id: string; mode: string; status: string; approval: string | null }[];
   can_start?: boolean; estimate?: Record<string, string>; blockers?: string[];
+  /** 261: the cap a person approved for its live run, who, and what the gate decided (`start`: it started by itself;
+   *  `needs_budget`: over the cap, `over` the providers over it; null before its package was made) */
+  budget?: { usd: Record<string, string>; approved_by: string; decision: "start" | "needs_budget" | "not_ready" | null;
+    over: Record<string, string> };
   /** 231 (C3d): the processes whose case may read the package (`jav/app/intake.py` `package_offers`) */
   offers?: import("./processes").PackageOffer[];
 }
@@ -62,13 +67,24 @@ export interface CaseView {
   /** U-A8: `due`, whether the worker has something to do for the case now (the page asks again while it has) */
   case: { id: string; pack: string; version: string; title: string; name: string | null; status: string; due?: boolean;
     /** 231 (U2c): the case and step a sub-case is part of (the process's title, the step's title) */
-    parent?: { id: string; name: string; title: string | null; step: string; step_title: string } };
+    parent?: { id: string; name: string; title: string | null; step: string; step_title: string };
+    /** 231 (U1) / 261: the case it follows (a closed case's follow-up, or the previous period's case) */
+    follows?: string };
   steps: Record<string, CaseStep>;
   tabs: CaseTab[];
   /** the case's next step, named by its elements, and the tab it is done on */
   next: { code: string; label: string; stage: string; tab: string; params?: Record<string, number> } | null;
   /** 231 (U1): what may follow a closed case: another process started from its documents (the case once started) */
   follow_ups?: { pack: string; title: string; case_id: string | null }[];
+  /** 261: a case of a process repeated by period: its next period's case (null until one was started from it) */
+  next_period?: { case_id: string | null } | null;
+}
+/** 261: a case's next period as the new case's form shows it filled in (`GET /cases/{id}/next`) */
+export interface CaseNextDraft {
+  pack: string; follows: string; party_id?: string; period_start: string; period_end: string; name: string | null;
+  source?: CaseSource; step_sources?: Record<string, CaseSource>;
+  /** 261: the caps of the case, filled in again for a person to approve */
+  step_budgets?: Record<string, Record<string, string>>;
 }
 
 // 231 (A7e): the data of the shared elements: a send step's handovers, a reply step's wait, the case's events and cost
@@ -212,8 +228,11 @@ export interface CaseCost { lines: CostLine[]; total_usd: string }
 export const casesApi = {
   // 231 C1c: the packages it reads; C2d: its own party and period; U2c: each step's own documents
   startCase: (body: { pack: string; record?: { workpackage_id: string; item_id: string }; sources?: string[]; name: string;
-    party_id?: string; period_start?: string; period_end?: string; source?: CaseSource; step_sources?: Record<string, CaseSource> }) =>
+    party_id?: string; period_start?: string; period_end?: string; source?: CaseSource; step_sources?: Record<string, CaseSource>;
+    follows?: string; step_budgets?: Record<string, Record<string, string>> }) =>
     request<{ case_id: string }>("POST", "/cases", body),
+  /** 261: the case's next period as the new case's form shows it filled in (nothing is written) */
+  caseNext: (caseId: string) => request<CaseNextDraft>("GET", `/cases/${enc(caseId)}/next`),
   casePage: (caseId: string) => request<CaseView>("GET", `/cases/${enc(caseId)}`),
   /** 231 (U1): a case of the process that follows the closed case, started from its documents */
   caseFollowUp: (caseId: string, pack: string) => request<{ case_id: string }>("POST", `/cases/${enc(caseId)}/follow-ups`, { pack }),

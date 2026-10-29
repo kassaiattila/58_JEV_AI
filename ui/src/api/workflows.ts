@@ -2,7 +2,6 @@
 import { enc, request } from "./client";
 import type { Assignment, NextStep } from "./types";
 import type { Engine } from "./system";
-import type { MailboxRequest } from "./email";
 
 export interface RecipeParam { allowed?: string[]; allowed_from?: string; default?: string }
 export interface Recipe {
@@ -55,7 +54,8 @@ export interface WorkflowTemplates {
   templates: WorkflowTemplate[];
 }
 export interface WorkflowSource {
-  kind: WorkSourceKind; folder?: string; recursive?: boolean; paths?: string[]; request?: MailboxRequest; workpackage_id?: string;
+  kind: WorkSourceKind; folder?: string; recursive?: boolean; paths?: string[]; workpackage_id?: string;
+  /** 261: a mailbox step's download (`request`) comes by the email domain's declaration merging */
   /** 147: a documents step takes only the documents no live run has processed yet */
   only_new?: boolean;
 }

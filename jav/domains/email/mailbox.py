@@ -386,7 +386,7 @@ def _shown_source(source: Mapping[str, Any]) -> dict[str, Any]:
 def _repeated_source(source: Mapping[str, Any], period: tuple[str, str] | None, wf: Mapping[str, Any]) -> dict[str, Any]:
     """The download's received range moves on with the workflow's period, or by its own length; a number of days stays
     as it is."""
-    from jav.app.workflows import next_period
+    from jav.app.scopes import next_period
 
     req = dict(source["request"])
     if req.get("received_from") or req.get("received_to"):

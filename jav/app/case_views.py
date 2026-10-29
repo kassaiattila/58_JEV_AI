@@ -158,10 +158,14 @@ def view(case_id: str) -> dict[str, Any]:
                      # asks again until it moved
                      "due": state["status"] == cases.OPEN and engine.is_due(case_id)}
             # 231 (U2c): a sub-case names the case and step it is part of
-            | ({"parent": parent} if (parent := process_runtime.parent_of(case_id)) else {}),
+            | ({"parent": parent} if (parent := process_runtime.parent_of(case_id)) else {})
+            # 231 (U1) / 261: the case it follows (a closed case's follow-up, or the previous period's case)
+            | ({"follows": follows} if (follows := state.get("data", {}).get("follows")) else {}),
             "steps": {s.id: _step_view(case_id, s, rows.get(s.id, {}), said.get(s.id)) for s in pack.steps}, "tabs": tabs,
             # 231 (U1): what may follow a closed case (its pack's follow-ups for the outcome it closed with)
             "follow_ups": process_runtime.follow_ups(case_id) if state["status"] != "open" else [],
+            # 261: a case of a process repeated by period, open or closed: its next period's case (None until started)
+            "next_period": process_runtime.next_period_of(case_id),
             "next": _next(tabs, [s.id for s in pack.steps if rows.get(s.id, {}).get("state") != "done"])
             if state["status"] == "open" else None}  # A7e: a closed case has no next step on its page
 

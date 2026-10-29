@@ -71,7 +71,6 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import date, timedelta
 from typing import Any
 
 from jav.app import (
@@ -80,7 +79,7 @@ from jav.app import (
 from jav.core import activity_kinds, identity, store
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
-from jav.app.workflow_records import (WorkflowError, _brief, _budget, _engine, _event, _period, _row, _source,
+from jav.app.workflow_records import (WorkflowError, _brief, _budget, _engine, _event, _row, _source,
     _step_title, _steps, is_workflow, template, view)
 from jav.app.workflow_advance import advance
 
@@ -163,20 +162,9 @@ def create(*, template_id: str, party_id: str | None, period_start: Any, period_
     return view(wf_id)
 
 
-def _first_of_month_after(d: date, months: int) -> date:
-    m = d.month - 1 + months
-    return date(d.year + m // 12, m % 12 + 1, 1)
-
-
 def next_period(start: Any, end: Any) -> tuple[str, str]:
-    """The period after this one: whole calendar months are followed by as many months (a month by the next month, a
-    quarter by the next quarter); any other period by one as long, right after it."""
-    a, b = (date.fromisoformat(d) for d in _period(start, end))
-    after = b + timedelta(days=1)
-    if a.day == 1 and after.day == 1:
-        months = (after.year - a.year) * 12 + after.month - a.month
-        return after.isoformat(), (_first_of_month_after(after, months) - timedelta(days=1)).isoformat()
-    return after.isoformat(), (after + (b - a)).isoformat()
+    """The period after this one (147); 261: the period part's own (`scopes.next_period`), a case's next period too."""
+    return scopes.next_period(start, end, WorkflowError)
 
 
 def _package_source(kind: str, wp_id: str) -> dict[str, Any] | None:

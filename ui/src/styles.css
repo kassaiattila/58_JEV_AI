@@ -1218,3 +1218,5 @@ details.earlier[open] > summary { margin-bottom: var(--sp-2); }
 .example-material h3 { font-size: var(--fs-sm); font-weight: 600; margin: 0; }
 .example-material .plain { margin: 0; }
 .example-set { font-weight: 500; }
+/* 261: a run cap's field in the new case's form: an amount, right-aligned, in tabular figures */
+.new-case-form .cap-input { width: 7em; margin-left: var(--sp-1); margin-right: var(--sp-1); text-align: right; font-variant-numeric: tabular-nums; }

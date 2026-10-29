@@ -3,9 +3,10 @@
 // emails. Synthetic data, a mocked service.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setActor, type CaseView, type RoutingView, type StartedCase } from "../api";
-import { setLanguage } from "../i18n";
-import { StartedCases } from "./CaseElements";
+import { api, setActor, type CaseView, type StartedCase } from "../../api";
+import type { RoutingView } from "./api";
+import { setLanguage } from "../../i18n";
+import { StartedCases } from "../../elements/CaseElements";
 import { FilePlacement } from "./FilePlacement";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });

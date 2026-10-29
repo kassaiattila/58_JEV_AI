@@ -3,13 +3,15 @@
 // download log, and the new emails become a work package with the email intent recipe (231 C3d: a mailbox case's). No
 // paid processing starts by itself (decision of 2026-09-28).
 import { useEffect, useState } from "react";
-import { api, ApiError, getActor, NO_ACTOR, type MailboxCount, type MailboxPull, type MailboxRequest } from "../../api";
+import { api, ApiError, getActor, NO_ACTOR } from "../../api";
+import type { MailboxCount, MailboxPull, MailboxRequest } from "./api";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { DataTable } from "../../components/DataTable";
 import { Picker } from "../../components/Picker";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
-import { intervals, intervalText, mailboxLabel, when } from "../../labels";
+import { intervals, intervalText, when } from "../../labels";
+import { mailboxLabel } from "./labels";
 import { splitAccounts, type MailboxStepDraft } from "./mailboxSource";
 
 export function pullSummary(p: Pick<MailboxPull, "status" | "result">): string {
@@ -51,18 +53,20 @@ export function toggleAccount(value: string, account: string): string {
 /** 231 (C3d): what a mailbox download reads - the addresses (the previously used ones a click away), the folders, the
  *  period, at most how many emails - with the free count of the emails it would bring; the request, or null while it
  *  is not complete. Settings › Mailboxes saves a schedule of it; a mailbox case's general form downloads it
- *  (its chooser, `./index.tsx`). Until C3d the wizard's own download form (the `pull` variant). */
-export function MailboxRequestFields({ onChange }: { onChange: (req: MailboxRequest | null) => void }) {
+ *  (its chooser, `./index.tsx`). Until C3d the wizard's own download form (the `pull` variant). 261: `initial`, the
+ *  request it starts from (a next period's form: the previous case's download, its range moved on). */
+export function MailboxRequestFields({ onChange, initial }: { onChange: (req: MailboxRequest | null) => void;
+  initial?: MailboxRequest | null }) {
   useLocale();
   const data = useLoad("mailbox", api.mailbox);
-  const [account, setAccount] = useState("");
-  const [folders, setFolders] = useState("Inbox");
-  const [subfolders, setSubfolders] = useState(false);
-  const [mode, setMode] = useState<"recent" | "range">("recent");
-  const [days, setDays] = useState(7);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [maxItems, setMaxItems] = useState(0);
+  const [account, setAccount] = useState((initial?.accounts ?? []).join(", "));
+  const [folders, setFolders] = useState(initial?.folders?.length ? initial.folders.join(", ") : "Inbox");
+  const [subfolders, setSubfolders] = useState(!!initial?.subfolders);
+  const [mode, setMode] = useState<"recent" | "range">(initial?.received_from ? "range" : "recent");
+  const [days, setDays] = useState(initial?.since_days ?? 7);
+  const [from, setFrom] = useState(initial?.received_from ?? "");
+  const [to, setTo] = useState(initial?.received_to ?? "");
+  const [maxItems, setMaxItems] = useState(initial?.max_items ?? 0);
   const [preview, setPreview] = useState<MailboxCount | null>(null);
   const [counting, setCounting] = useState(false);
   const [error, setError] = useState<string | null>(null);

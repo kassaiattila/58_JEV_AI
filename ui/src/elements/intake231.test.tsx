@@ -9,7 +9,7 @@ import { api, setActor, type IntakeOffer, type ItemResult } from "../api";
 import { setLanguage } from "../i18n";
 import { nextFlowText } from "../labels";
 import { ITEM_PARTS } from "../logic/registry";
-import { EmailReview } from "../review/EmailReview";
+import { EmailReview } from "../domains/email/EmailReview";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); window.location.hash = ""; });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });

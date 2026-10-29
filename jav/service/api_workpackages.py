@@ -22,7 +22,7 @@ from pydantic import Field
 
 from jav.core import identity
 from jav.service import local_picker
-from jav.app import app_settings, package_scope, work, work_recipes, work_views
+from jav.app import app_settings, package_scope, parties, work, work_recipes, work_views
 from jav.service.service_shared import Empty, In, IsoDay, ItemId, PartyId, Revision, WpId, checked_path, human_actor
 from jav.core.user_messages import explained
 
@@ -175,6 +175,12 @@ def routes(app: FastAPI, r: str) -> None:
         """181: the roles a package's scope can name, with the package kinds that can hold each."""
         return {"roles": [{"name": x.name, "title": x.title, "package_kinds": list(x.package_kinds)}
                           for x in package_scope.roles()]}
+
+    @app.get(r + "/own-parties")
+    def own_parties() -> dict[str, Any]:
+        """261: the own parties a scope can name (a package's, a case's), by name; the finance domain's overview
+        (`/parties`) counts their invoices and accounts too."""
+        return {"parties": [{"id": p["id"], "name": p["name"]} for p in parties.parties()]}
 
     @app.post(r + "/workpackages/{wp_id}/scope")
     def set_package_scope(wp_id: WpId, body: SetPackageScope, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:

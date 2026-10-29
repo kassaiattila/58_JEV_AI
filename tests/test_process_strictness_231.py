@@ -26,7 +26,11 @@ from jav.app import item_kinds, logic_packs, registrations, workflow_steps
 
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "ui" / "src"
-PROCESS_NAMES = ("reconcile", "statements", "email_routing", "routing", "quote", "mailbox")
+# 261: the names of the logic packs and workflow steps before 231, and every process pack's (`configs/processes/`), so
+# a new pack is watched too; `documents` is also the name of a store table and a step kind, so it is no process's mark
+_GENERAL_WORDS = {"documents"}
+PROCESS_NAMES = tuple(sorted({"reconcile", "statements", "email_routing", "routing", "quote", "mailbox"}
+                             | {p.stem for p in (ROOT / "configs" / "processes").glob("*.json")} - _GENERAL_WORDS))
 UI_PROCESS_DIRS: set[str] = set()  # C1c: routing went; C3e: the quotes' and the reconciliation's moved to their domains' folders
 UI_SHARED_DIRS = {"settings", "workflows"}
 
@@ -47,12 +51,14 @@ FROZEN_PY_NAME_COMPARISONS: set[tuple[str, str]] = set()
 
 # C3e: the own parties are the application's (`jav/app/parties.py`, the shared scope part `party`), so a shared module of
 # them (`ui/src/api/parties.ts`) is not process-specific; the finance domain's party screens live in its folder
-_FILE_NAME = re.compile(r"(reconcil|quote|routing|statement|mailbox|utility|bankfile|bank_file|pricelist|price_list|finance)", re.I)
+_FILE_NAME = re.compile(r"(reconcil|quote|routing|statement|mail|utility|bankfile|bank_file|pricelist|price_list|finance)", re.I)
 _NAMES = "|".join(PROCESS_NAMES)
-_UI_COMPARISON = re.compile(rf"""(?:===?|!==?)\s*["']({_NAMES})["']|["']({_NAMES})["']\s*(?:===?|!==?)""")
+# 261: a switch's branch names a process as a comparison does
+_UI_COMPARISON = re.compile(
+    rf"""(?:===?|!==?)\s*["']({_NAMES})["']|["']({_NAMES})["']\s*(?:===?|!==?)|\bcase\s+["']({_NAMES})["']\s*:""")
 _IMPORT = re.compile(r"""(?:\bfrom\s+|\bimport\s*\(?\s*)["'](\.[^"']*)["']""")
 _REGISTRATION = re.compile(r"(?<!function )(?<![\w.])register[A-Z]\w*(?:<[^>]*>)?\(")  # a call, not a definition or a method
-_PY_COMPARISON = re.compile(rf"""(?:==|!=|\bin\b)\s*\(?["']({_NAMES})["']""")
+_PY_COMPARISON = re.compile(rf"""(?:==|!=|\bin\b|\bcase)\s*\(?["']({_NAMES})["']""")
 _SHARED_PY = ("app", "core", "service", "runtime", "flows", "ai", "documents")
 
 
@@ -164,9 +170,47 @@ def test_no_new_ui_registry_key_or_create_form() -> None:
 
 
 def test_shared_code_compares_with_no_new_process_name() -> None:
-    ui = {(p.relative_to(ROOT).as_posix(), m.group(1) or m.group(2)) for p in _ui_files() if _shared(p)
+    ui = {(p.relative_to(ROOT).as_posix(), m.group(1) or m.group(2) or m.group(3)) for p in _ui_files() if _shared(p)
           for m in _UI_COMPARISON.finditer(p.read_text(encoding="utf-8"))}
     _same(ui, FROZEN_UI_NAME_COMPARISONS, "shared UI code comparing with a process name")
     py = {(p.relative_to(ROOT).as_posix(), m.group(1)) for d in _SHARED_PY for p in (ROOT / "jav" / d).rglob("*.py")
           for m in _PY_COMPARISON.finditer(p.read_text(encoding="utf-8"))}
     _same(py, FROZEN_PY_NAME_COMPARISONS, "shared Python code comparing with a process name")
+
+
+def test_a_domains_capability_has_its_element_from_the_domain() -> None:
+    """261: the special screen element of a capability a domain registers is that domain's screen, so the domain
+    registers it (`registerElement` in `ui/src/domains/<domain>/`), and the shared registry does not hold it."""
+    import json
+
+    from jav.app import capabilities
+
+    elements = json.loads((ROOT / "configs" / "screen_elements.json").read_text(encoding="utf-8"))["elements"]
+    shared = (UI / "elements" / "registry.tsx").read_text(encoding="utf-8")
+    shared = shared[shared.index("export const ELEMENTS"):shared.index("\n};", shared.index("export const ELEMENTS"))]
+    owned = {c.name: c.module.split(".")[2] for c in capabilities.catalogue() if c.module.startswith("jav.domains.")}
+    wrong = []
+    for key, spec in elements.items():
+        if (domain := owned.get(spec.get("capability", ""))) is None:
+            continue
+        registered = any(f'registerElement("{key}"' in p.read_text(encoding="utf-8") for p in (UI_DOMAINS / domain).rglob("*.ts*"))
+        if re.search(rf"^\s*{key}:", shared, re.M) or not registered:
+            wrong.append((key, domain))
+    assert not wrong, f"a domain capability's element not registered by its domain's folder: {wrong}"
+
+
+_ROUTE = re.compile(r"""@app\.(get|post|patch|put|delete)\(\s*r\s*\+\s*["']([^"']+)["']""")
+_CALL = re.compile(r"""request<[^(]*?>\(\s*["'](GET|POST|PATCH|PUT|DELETE)["']\s*,\s*(`[^`]*`|"[^"]*"|'[^']*')""", re.S)
+
+
+def test_shared_ui_code_calls_no_domains_address() -> None:
+    """261: the shared interface reaches no address a domain of the service serves (`jav/domains/*`, compared by method
+    and path), so a domain's calls live in its folder (`ui/src/domains/<domain>/api.ts`) and come through its screens."""
+    routes = [(m.group(1).upper(), re.compile(re.sub(r"\\\{[^}]*\\\}", "[^/]+", re.escape(m.group(2))) + "$"), m.group(2))
+              for p in (ROOT / "jav" / "domains").rglob("*.py") for m in _ROUTE.finditer(p.read_text(encoding="utf-8"))]
+    assert routes, "the domains' addresses were not found (the pattern no longer fits the service's code)"
+    found = sorted((p.relative_to(ROOT).as_posix(), path) for p in _ui_files() if _shared(p)
+                   for m in _CALL.finditer(p.read_text(encoding="utf-8"))
+                   for path in [re.sub(r"\$\{[^}]*\}", "x", m.group(2)[1:-1]).split("?", 1)[0]]
+                   if any(method == m.group(1) and rx.match(path) for method, rx, _ in routes))
+    assert not found, f"shared UI code calling a domain's address: {found}"

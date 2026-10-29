@@ -15,6 +15,7 @@ import { PackageCosts } from "./PackageCosts";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { applyPath, itemBudgetLines, MODE, PARAM_LABEL, paramShort, paramsText, PATH, pathOptions, planLines, providerName, RUN_STATUS, shownParams, shownValue, tmap, usdBudget, when, blockerText } from "../labels";
+import { processNotices } from "../logic/processNotices";
 import { go } from "../route";
 import { type AddSource } from "./PackageAdd";
 import { PackageItems } from "./PackageItems";
@@ -45,11 +46,13 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
   const [source, setSource] = useState<AddSource>("files"); // 168: the add form's source (the address holds whether it is open)
   const recipes = useLoad("recipes", api.recipes);
 
-  async function addAttachments() {
+  // 261: a domain's notice runs its action as the section's own buttons (058 K5.2: until 261, adding an email package's
+  // attachments here)
+  async function runNotice(action: () => Promise<unknown>) {
     setBusy(true);
     setMsg(null);
     try {
-      await api.addAttachments(wp.id, wp.revision);
+      await action();
     } catch (e) {
       setMsg({ error: true, text: (e as ApiError).message });
     } finally {
@@ -133,12 +136,7 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
             ) : null}
           </div>
         ) : <p className="muted">{t("No processing has run on this batch yet.")}</p>}
-        {view.attachments_missing ? (
-          // 058 K5.2: in an email package from before 058 the PDF attachments are not items yet; once added, the email
-          // recipe extracts their data
-          <p className="notice">{t("{{n}} PDF attachments of the emails are not yet in the batch. Once added, the next run also extracts their data.", { n: view.attachments_missing })}
-            {" "}<button type="button" className="secondary small-btn" disabled={busy || active} onClick={() => void addAttachments()}><Icon name="plus" />{t("Add attachments")}</button></p>
-        ) : null}
+        {processNotices().map((Notice, i) => <Notice key={i} view={view} disabled={busy || active} run={runNotice} />)}
         {!readiness.ready ? (
           <BlockerList items={readiness.blockers.map((b, i) => ({ key: String(i), content: blockerText(b) }))} />
         ) : null}

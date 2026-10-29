@@ -2,16 +2,17 @@
 // proposed next step and the to-dos on the right. There are no extracted fields or page images here; the attachments
 // can be processed separately as documents.
 import { useEffect, useState } from "react";
-import { api, ApiError, type ItemResult, type RejectedTask } from "../api";
-import { IntakeOffers } from "../elements/IntakeOffers";
-import { ITEM_PARTS } from "../logic/registry";
-import { EngineMark } from "../components/EngineMark";
-import { Icon } from "../components/Icon";
-import { Picker } from "../components/Picker";
-import { getLocale, t, useLocale } from "../i18n";
-import { docTypeLabel, intentLabel, intentOptions, nextFlowText, reasonText, TASK_ACTION, tmap, when } from "../labels";
-import { Split } from "./Split";
-import { useResolve } from "./useResolve";
+import { api, ApiError, type ItemResult } from "../../api";
+import type { RejectedTask } from "./api";
+import { IntakeOffers } from "../../elements/IntakeOffers";
+import { ITEM_PARTS } from "../../logic/registry";
+import { EngineMark } from "../../components/EngineMark";
+import { Icon } from "../../components/Icon";
+import { Picker } from "../../components/Picker";
+import { getLocale, t, useLocale } from "../../i18n";
+import { docTypeLabel, intentLabel, intentOptions, nextFlowText, reasonText, TASK_ACTION, tmap, when } from "../../labels";
+import { Split } from "../../review/Split";
+import { useResolve } from "../../review/useResolve";
 
 export function EmailReview({ data, onChanged, wpId }: { data: ItemResult; onChanged: () => void; wpId?: string }) {
   useLocale();

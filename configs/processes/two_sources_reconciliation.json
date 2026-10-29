@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "process:two_sources_reconciliation",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "231 (stage U, U2c; the owner's decision of 2026-10-28: a chain is a multi-step process): an own party's period in one case: invoices come from a folder and from a mailbox, the bank statements side by side, and once all three are done, the reconciliation pairs them, as the workflow template of the same name was (configs/workflows.json until then). Each step runs a case of its own process, a sub-case (run_case@1), and waits until it closes; a paid run of a sub-case waits for a person's start with its cost cap.",
     "changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-10-29",
+        "note": "261 (the owner's decision of 2026-10-29): repeated for the next period: a case's page offers its next period's case, the new case's form filled in (the next period, the same sources taking only the new documents, a mailbox's range moved on)."
+      },
       {
         "version": "1.0.0",
         "date": "2026-10-28",
@@ -35,6 +40,7 @@
       "starts": "manual"
     }
   ],
+  "repeats": true,
   "resources": {},
   "steps": [
     {

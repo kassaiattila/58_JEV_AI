@@ -13,7 +13,7 @@ import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { go } from "../route";
 
-export function NewCase({ pack }: { pack?: string }) {
+export function NewCase({ pack, after }: { pack?: string; after?: string }) {
   useLocale();
   const processes = useLoad("processes:new-case", api.processes);
   const startable = (processes.data?.processes ?? []).filter((p) => p.manual);
@@ -55,7 +55,8 @@ export function NewCase({ pack }: { pack?: string }) {
               <p className="small">{t("Make them active first:")} <a href="#/settings/processes">{t("Settings › Processes")}</a></p>
             ) : null}
             {chosen && !missing.length ? (
-              <ProcessCreate key={`${chosen.id}:${material}`} pack={chosen.id} onDone={(caseId) => go({ view: "cases", caseId })} />
+              <ProcessCreate key={`${chosen.id}:${material}:${after ?? ""}`} pack={chosen.id} after={after}
+                onDone={(caseId) => go({ view: "cases", caseId })} />
             ) : null}
           </section>
         </div>

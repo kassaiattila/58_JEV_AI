@@ -40,7 +40,7 @@ describe("the reconciliation's case (231 C2d)", () => {
     vi.spyOn(api, "processes").mockResolvedValue({ processes: [{ id: "reconciliation", title: "Reconciliation", version: "1.0.0",
       scope: ["party", "period", "accounts"], asks: ["party", "period"], package_kinds: [] }] });
     vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
-    vi.spyOn(api, "parties").mockResolvedValue({ parties: [{ id: "party-0000000000a1", name: "Example Home" }] } as never);
+    vi.spyOn(api, "ownParties").mockResolvedValue({ parties: [{ id: "party-0000000000a1", name: "Example Home" }] } as never);
     const start = vi.spyOn(api, "startCase").mockResolvedValue({ case_id: CASE });
     const done = vi.fn();
     render(<ProcessCreate pack="reconciliation" onDone={done} />);

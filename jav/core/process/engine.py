@@ -21,7 +21,10 @@ whose closing event the same turn then takes; a wake never fires it early.
 definition (`turn_due`); before, it looked only at the workflows' cases, so a case of another kind never started. A
 case whose turn raises is logged and left to the next round, so it never holds the others up.
 
-The engine does not use the job queue: the queue's start-up reset (`queue.recover_orphans`) assumes one worker.
+The engine does not use the job queue; its claims are its own (above). 231 (E1): several workers may run on one store,
+but only the first slot's worker runs the round (`turn_due`, with the schedules), so the cases' turns do not spread
+over the workers: the others take the queue's jobs (a document processing run's items). A worker that stopped frees its
+claims at once (its holder is no longer held), and the queue puts its jobs back the same way (`queue.recover_orphans`).
 """
 
 from __future__ import annotations

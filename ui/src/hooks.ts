@@ -8,10 +8,17 @@ export interface Loaded<T> {
   reload: () => void;
 }
 
+/** A keyed load whose data an action's answer can stand in for. */
+export interface Replaceable<T> extends Loaded<T> {
+  /** 261 (Q-rogzites-409): takes data the service already sent (an action's answer) as the key's current data; a load
+   *  that started before it does not overwrite it when it ends. */
+  replace: (data: T) => void;
+}
+
 /** Data loading bound to a key. On a key change the previous request's result is discarded, so a slow old response
  *  cannot overwrite the data of the newly selected package (the V4 lesson „kiválasztott csomag identitása” (identity of
  *  the selected package)). */
-export function useLoad<T>(key: string | null, fn: () => Promise<T>, pollMs?: number): Loaded<T> {
+export function useLoad<T>(key: string | null, fn: () => Promise<T>, pollMs?: number): Replaceable<T> {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [loading, setLoading] = useState(false);
@@ -27,6 +34,8 @@ export function useLoad<T>(key: string | null, fn: () => Promise<T>, pollMs?: nu
   // not clear it
   const inFlight = useRef(0);
   const requests = useRef(0);
+  // 261: the last request started before the data was replaced (its answer, read earlier, would be older)
+  const replacedAt = useRef(0);
 
   useEffect(() => {
     if (key === null) return;
@@ -41,14 +50,14 @@ export function useLoad<T>(key: string | null, fn: () => Promise<T>, pollMs?: nu
     inFlight.current = my;
     fnRef.current()
       .then((d) => {
-        if (!alive) return;
+        if (!alive || my <= replacedAt.current) return;
         loadedKey.current = key;
         gone.current = false;
         setData(d);
         setError(null);
       })
       .catch((e: unknown) => {
-        if (!alive) return;
+        if (!alive || my <= replacedAt.current) return;
         loadedKey.current = key;
         const err = e instanceof ApiError ? e : new ApiError(0, "error", String(e));
         gone.current = err.status >= 400 && err.status < 500;
@@ -72,10 +81,17 @@ export function useLoad<T>(key: string | null, fn: () => Promise<T>, pollMs?: nu
   }, [pollMs, key]);
 
   const reload = useCallback(() => setTick((n) => n + 1), []);
+  const replace = useCallback((d: T) => {
+    replacedAt.current = requests.current;
+    loadedKey.current = key;
+    gone.current = false;
+    setData(d);
+    setError(null);
+  }, [key]);
   // 231 (U1): under a key not loaded yet there is no data: the render before the new key's effect would otherwise show
   // the old key's data under the new key (a case page asked for the reconciliation of a mailbox case)
   const current = loadedKey.current === key;
-  return { data: current ? data : null, error: current ? error : null, loading: loading || (!current && key !== null), reload };
+  return { data: current ? data : null, error: current ? error : null, loading: loading || (!current && key !== null), reload, replace };
 }
 
 /** 061: the current value of „Ki dolgozik?” (Who is working?); it updates on a change (from any view). */

@@ -56,6 +56,7 @@ class Source(In):
     recursive: bool = False
     files: Annotated[list[Annotated[str, Field(min_length=1, max_length=1000)]], Field(min_length=1, max_length=10000)] | None = None
     request: dict[str, Any] | None = None
+    only_new: bool = False  # 261: a folder or files taking only the documents no live run has processed yet
 
 
 class FollowUpIn(In):
@@ -79,14 +80,21 @@ class CaseIn(In):
     step_sources: Annotated[dict[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")], Source],
                             Field(min_length=1, max_length=20)] | None = None
     name: Annotated[str, Field(min_length=1, max_length=200)]
+    # 261: the case whose next period this one is (its form filled in from `GET /cases/{id}/next`)
+    follows: Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")] | None = None
+    # 261: the cap a person approves for each step's sub-case's live run, which then starts by itself within it
+    step_budgets: Annotated[dict[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")],
+                                 dict[Literal["jev", "openai", "azure_di"], Annotated[str, Field(max_length=20)]]],
+                            Field(min_length=1, max_length=20)] | None = None
 
 
 def _source(source: Source) -> dict[str, Any]:
     """The source's paths checked as the service checks every path a person gives (the allowed roots)."""
+    only_new = {"only_new": True} if source.only_new else {}  # 261
     if source.kind == "folder":
-        return {"kind": "folder", "folder": str(checked_path(source.folder or "", want_dir=True)), "recursive": source.recursive}
+        return {"kind": "folder", "folder": str(checked_path(source.folder or "", want_dir=True)), "recursive": source.recursive} | only_new
     if source.kind == "files":
-        return {"kind": "files", "files": [str(checked_path(f, want_dir=False)) for f in source.files or []]}
+        return {"kind": "files", "files": [str(checked_path(f, want_dir=False)) for f in source.files or []]} | only_new
     return {"kind": source.kind, "request": source.request or {}}  # C3d: a domain's (no path); the scope's part checks it
 
 
@@ -100,9 +108,17 @@ def routes(app: FastAPI, r: str) -> None:
                  **({"party": body.party_id} if body.party_id else {}),
                  **({"period": [body.period_start, body.period_end]} if body.period_start or body.period_end else {}),
                  **({"source": _source(body.source)} if body.source else {}),
-                 **({"step_sources": {k: _source(v) for k, v in body.step_sources.items()}} if body.step_sources else {})}
+                 **({"step_sources": {k: _source(v) for k, v in body.step_sources.items()}} if body.step_sources else {}),
+                 **({"step_budgets": body.step_budgets} if body.step_budgets else {})}
+        if body.follows:  # 261: the next period's case of a case, recorded on it
+            return {"case_id": process_runtime.start_next(body.follows, body.pack, scope, name=body.name, actor=who)}
         case_id = process_runtime.start_case(body.pack, scope, name=body.name, actor=who)
         return {"case_id": case_id}
+
+    @app.get(r + "/cases/{case_id}/next")
+    def next_period(case_id: CaseId) -> dict[str, Any]:
+        """261: the case's next period as the new case's form shows it filled in (nothing is written)."""
+        return process_runtime.next_draft(case_id)
 
     @app.post(r + "/cases/{case_id}/follow-ups", status_code=201)
     def follow_up(case_id: CaseId, body: FollowUpIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:

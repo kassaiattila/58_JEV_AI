@@ -50,7 +50,7 @@ def _routes() -> list[APIRoute]:
 
 # --- the addresses of the local service ---------------------------------------------------------------------------------
 
-ROUTE_COUNT = 221  # (method, path) pairs of 176 routes: the unknown-address answer has five methods
+ROUTE_COUNT = 224  # (method, path) pairs of 176 routes: the unknown-address answer has five methods
 # 178 (plan 170 L4): nine new addresses on purpose - the own output templates (list, upload, activate, retire, file,
 # preview), a package's choice of them (read, choose) and the utility cost's workbook (jav/service/api_outputs.py)
 # 181 (plan 170 L5): three more on purpose - the package roles, and a package's scope given and taken away
@@ -101,7 +101,11 @@ ROUTE_COUNT = 221  # (method, path) pairs of 176 routes: the unknown-address ans
 # changed text saved as a draft, a version made active, the file's text brought back)
 # 231 (stage U, U4c): five more, the installation's defaults (`jav/service/api_processes.py`: the list, a value saved
 # as a draft, tried on the earlier decisions, made active, set aside)
-ROUTE_TABLE = "661e98484b57b5c8135fbad2629b587399bcb6e9d030fffed0543036a06d53f8"
+# 261 (the consolidation round): one more, the own parties a scope can name (`jav/service/api_workpackages.py`), so the
+# shared interface no longer reads the finance domain's overview for its party lists; and one more, a case's next
+# period as the new case's form shows it filled in (`jav/service/api_cases.py`); and one more, what each step's sub-case's
+# live run would cost at most, for the start form's caps (`jav/service/api_processes.py`)
+ROUTE_TABLE = "60f7e8c0efd6517183cbb413691ca6a3daab8d7b0ca0172ce6ee7099362ac0b5"
 
 
 def test_the_service_has_these_addresses() -> None:

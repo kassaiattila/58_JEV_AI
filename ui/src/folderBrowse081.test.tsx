@@ -17,7 +17,7 @@ const PACKS = { processes: [{ id: "documents", title: "Documents", version: "1.0
 function mockCaseStart() {
   vi.spyOn(api, "processes").mockResolvedValue(PACKS);
   vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
-  vi.spyOn(api, "parties").mockResolvedValue({ parties: [] } as never);
+  vi.spyOn(api, "ownParties").mockResolvedValue({ parties: [] } as never);
   return vi.spyOn(api, "startCase").mockResolvedValue({ case_id: "wp-1" });
 }
 

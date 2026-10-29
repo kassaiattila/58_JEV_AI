@@ -26,7 +26,7 @@ const PACKS = { processes: [
 function mockStart() {
   vi.spyOn(api, "processes").mockResolvedValue(PACKS);
   vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
-  vi.spyOn(api, "parties").mockResolvedValue({ parties: [{ id: PARTY, name: "Example Home" }] } as never);
+  vi.spyOn(api, "ownParties").mockResolvedValue({ parties: [{ id: PARTY, name: "Example Home" }] } as never);
   return vi.spyOn(api, "startCase").mockResolvedValue({ case_id: CASE });
 }
 
@@ -148,7 +148,7 @@ describe("the mailbox download as a case (231 C3d)", () => {
     vi.spyOn(api, "processes").mockResolvedValue({ processes: [{ id: "mailbox", title: "Emails from a mailbox", version: "1.0.0",
       scope: ["source"], asks: ["source"], package_kinds: [], source_kinds: ["mailbox"] }] });
     vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
-    vi.spyOn(api, "parties").mockResolvedValue({ parties: [] } as never);
+    vi.spyOn(api, "ownParties").mockResolvedValue({ parties: [] } as never);
     vi.spyOn(api, "mailbox").mockResolvedValue({ accounts: ["office@example.com"], schedules: [], pulls: [], bridge_available: true } as never);
     const start = vi.spyOn(api, "startCase").mockResolvedValue({ case_id: CASE });
     const done = vi.fn();

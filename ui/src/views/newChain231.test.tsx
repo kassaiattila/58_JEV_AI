@@ -29,7 +29,7 @@ describe("a multi-step process's form (231 U2c)", () => {
     const examples = vi.spyOn(api, "processExamples").mockResolvedValue({ sets: [], packets: [
       { id: "own_party_invoices", title: "The invented consultancy's invoices", documents: 4 }] });
     vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [] } as never);
-    vi.spyOn(api, "parties").mockResolvedValue({ parties: [{ id: PARTY, name: "Example Party Kft.", identities: [] }] } as never);
+    vi.spyOn(api, "ownParties").mockResolvedValue({ parties: [{ id: PARTY, name: "Example Party Kft.", identities: [] }] } as never);
     const files = vi.spyOn(api, "examplePacketFiles").mockResolvedValue({ files: ["C:\\store\\examples\\inv-1.pdf"] });
     const start = vi.spyOn(api, "startCase").mockResolvedValue({ case_id: CASE });
     render(<NewCase pack="monthly_reconciliation" />);
