@@ -238,21 +238,21 @@ def _runs(scope: dict[str, str]) -> Rows:
     if wp_id:
         work.get(wp_id)  # unknown package: 404
     cols = [
-        col("created_at", "Indítva", "datetime", link="run"),
-        col("workpackage_name", "Iratköteg", link="workpackage"),
-        col("recipe_id", "Feldolgozás", "enum", labels="recipe"),
-        col("mode", "Mód", "enum", labels="mode"),
+        col("created_at", "Started (column)", "datetime", link="run"),
+        col("workpackage_name", "Document batch", link="workpackage"),
+        col("recipe_id", "Processing", "enum", labels="recipe"),
+        col("mode", "Mode", "enum", labels="mode"),
         col("scope", "Run scope", "enum", labels="run_scope"),  # 160-C S3: a run over only the pending items
-        col("status", "Állapot", "enum", labels="run_status", badge=True),
-        col("approval", "Jóváhagyás", "enum", labels="approval"),
-        col("approved_by", "Jóváhagyta", hidden=True),
-        col("items_done", "Lefutott tétel", "number"),
-        col("items", "Tétel", "number"),
-        col("open_reasons", "Nyitott teendő", "number", alert=True),
-        col("cost_usd", "Költség (USD)", "number"),
-        col("actor", "Indította", hidden=True),
-        col("finished_at", "Befejeződött", "datetime", hidden=True),
-        col("run_id", "Futás-azonosító", "id", hidden=True, link="run"),
+        col("status", "Status", "enum", labels="run_status", badge=True),
+        col("approval", "Approval", "enum", labels="approval"),
+        col("approved_by", "Approved by", hidden=True),
+        col("items_done", "Processed items", "number"),
+        col("items", "Item", "number"),
+        col("open_reasons", "Open to-dos (column)", "number", alert=True),
+        col("cost_usd", "Cost (USD)", "number"),
+        col("actor", "Started by", hidden=True),
+        col("finished_at", "Finished", "datetime", hidden=True),
+        col("run_id", "Run ID", "id", hidden=True, link="run"),
     ]
     titles = label_set("recipe")  # 058: the recipe's title (translated by the UI), not its code name
     runs = work_runs.run_rows(wp_id)
@@ -265,22 +265,22 @@ def _runs(scope: dict[str, str]) -> Rows:
 def _workpackages(scope: dict[str, str]) -> Rows:
     archived = scope.get("include_archived") == "1"  # 058: hidden packages only on request
     cols = [
-        col("name", "Név", link="workpackage"),
-        *([col("status", "Csomag", "enum", labels="wp_status", badge=True)] if archived else []),
-        col("next_label", "Következő lépés", link="next"),
-        col("last_status", "Utolsó futás", "enum", labels="run_status", badge=True),
-        col("items", "Tétel", "number"),  # 058: document or email
-        col("open_reasons", "Nyitott teendő", "number", link="reviews", alert=True),
-        col("open_reasons_all", "Nyitott teendő a korábbi futásokkal", "number", hidden=True),
+        col("name", "Name", link="workpackage"),
+        *([col("status", "Package (column)", "enum", labels="wp_status", badge=True)] if archived else []),
+        col("next_label", "Next step", link="next"),
+        col("last_status", "Last run", "enum", labels="run_status", badge=True),
+        col("items", "Item", "number"),  # 058: document or email
+        col("open_reasons", "Open to-dos (column)", "number", link="reviews", alert=True),
+        col("open_reasons_all", "Open to-dos incl. earlier runs", "number", hidden=True),
         col("older_runs", "Older runs to supersede", "number", link="process", alert=True),  # 153
-        col("source_kind", "Forrás", "enum", labels="source_kind"),
-        col("recipe_id", "Feldolgozás", "enum", labels="recipe"),
-        col("owner", "Felelős"),  # 061
-        col("last_activity", "Utolsó tevékenység", "datetime"),
-        col("created_at", "Létrehozva", "datetime"),  # 062: visible, because this is the list's default order
-        col("source_ref", "Forrás helye", hidden=True),
-        col("next_code", "Lépés kódja", "enum", hidden=True),
-        col("id", "Azonosító", "id", hidden=True),
+        col("source_kind", "Source", "enum", labels="source_kind"),
+        col("recipe_id", "Processing", "enum", labels="recipe"),
+        col("owner", "Assignee"),  # 061
+        col("last_activity", "Last activity", "datetime"),
+        col("created_at", "Created", "datetime"),  # 062: visible, because this is the list's default order
+        col("source_ref", "Source location", hidden=True),
+        col("next_code", "Step code", "enum", hidden=True),
+        col("id", "ID", "id", hidden=True),
     ]
     # 231 (C3b3): a case step's package opens from its case's page; (U2a; the owner's decision of 2026-10-28) a case's
     # container is in the case list only (one work list): both are left out before their next steps are read
@@ -300,11 +300,11 @@ def _activity(scope: dict[str, str]) -> Rows:
     from jav.app import activity
 
     cols = [
-        col("at", "Időpont", "datetime"),
-        col("action", "Művelet", "enum", labels="activity_action"),
+        col("at", "Time", "datetime"),
+        col("action", "Action", "enum", labels="activity_action"),
         col("workpackage_name", "Case or batch", link="workpackage"),  # 231 (U2d): a case is its container
-        col("detail", "Részlet"),
-        col("run_id", "Futás", "id", link="run"),
+        col("detail", "Detail"),
+        col("run_id", "Run (column)", "id", link="run"),
     ]
     titles = label_set("recipe")  # 062: the recipe's title (translated by the UI), not its code name
     rows = [{**e, "detail": titles.get(e["detail"], e["detail"]) if e["action"] == "recipe" else e["detail"],
@@ -370,9 +370,9 @@ def _name_choice(scope: dict[str, str]) -> str:
 
 def _name_cols() -> list[Column]:
     """082: the unified and the original name as columns that can be added, and the state of the unified name."""
-    return [col("unified_name", "Egységes név", hidden=True, link="review"),
-            col("original_name", "Eredeti név", hidden=True),
-            col("name_state", "Egységes név állapota", "enum", labels="name_state", hidden=True)]
+    return [col("unified_name", "Unified name", hidden=True, link="review"),
+            col("original_name", "Original name", hidden=True),
+            col("name_state", "Unified name status", "enum", labels="name_state", hidden=True)]
 
 
 def _name_fields(item: dict[str, Any], titles: dict[str, str], name: Any, choice: str) -> dict[str, Any]:
@@ -394,18 +394,18 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
     names = naming.package_item_names(wp)
     # 168 (plan F-item-list-and-adding): each item's state and the run whose result counts now (`work_runs.item_states`)
     cols = [
-        col("name", "Tétel", link="review", names=choice),
+        col("name", "Item", link="review", names=choice),
         *_name_cols(),
         col("state", "State", "enum", labels="package_item_state", badge=True),
         col("run_mode", "Counted run", "enum", labels="mode", link="run"),
         col("run_at", "Run started", "datetime", link="run", hidden=True),  # the mode says which run; its page has the time
         col("final_status", "Result", "enum", labels="final_status"),
-        col("open_reasons", "Nyitott teendő", "number", link="review", alert=True),
-        col("kind", "Fajta", "enum", labels="kind", hidden=True),
-        col("added_revision", "Felvéve (verzió)", "number", hidden=True),
-        col("source_path", "Útvonal", hidden=True),
-        col("sha256", "Ujjlenyomat", "id", hidden=True),
-        col("item_id", "Tétel-azonosító", "id", hidden=True),
+        col("open_reasons", "Open to-dos (column)", "number", link="review", alert=True),
+        col("kind", "Kind", "enum", labels="kind", hidden=True),
+        col("added_revision", "Added (version)", "number", hidden=True),
+        col("source_path", "Path (column)", hidden=True),
+        col("sha256", "Fingerprint", "id", hidden=True),
+        col("item_id", "Item ID", "id", hidden=True),
     ]
     open_by_subject = store.review_open_reasons_many([work_runs.review_subject(i) for i in wp["items"]])
     owners = work_views.run_packages()  # 153: not another package's runs' to-dos
@@ -449,16 +449,16 @@ def _run_items(scope: dict[str, str]) -> Rows:
     results = {r["item_id"]: r for r in run["items"]}
     names = naming.run_item_names(run["run_id"])
     cols = [
-        col("name", "Tétel", link="review", names=choice),
+        col("name", "Item", link="review", names=choice),
         *_name_cols(),
-        col("kind", "Fajta", "enum", labels="kind", hidden=True),
-        col("status", "Futás", "enum", labels="item_status", badge=True),
-        col("final_status", "Eredmény", "enum", labels="final_status"),
-        col("open_reasons", "Teendő", "number", link="review", alert=True),
-        col("earlier_reasons", "Korábbi teendő", "number", hidden=True),
-        col("error", "Hiba", hidden=True),
-        col("updated_at", "Frissítve", "datetime", hidden=True),
-        col("item_id", "Tétel-azonosító", "id", hidden=True),
+        col("kind", "Kind", "enum", labels="kind", hidden=True),
+        col("status", "Run (column)", "enum", labels="item_status", badge=True),
+        col("final_status", "Result", "enum", labels="final_status"),
+        col("open_reasons", "To-do", "number", link="review", alert=True),
+        col("earlier_reasons", "Earlier to-dos", "number", hidden=True),
+        col("error", "Error", hidden=True),
+        col("updated_at", "Updated", "datetime", hidden=True),
+        col("item_id", "Item ID", "id", hidden=True),
     ]
     spent = costs.run_costs(run["run_id"])
     cols += _cost_cols(spent)
@@ -496,9 +496,9 @@ def _cost_cols(spent: costs.RunCosts) -> list[Column]:
         return f"{name} · {x.model} (USD)" if models[x.provider] > 1 else f"{name} (USD)"
 
     per_model = [col(_cost_key(x), label(x), "number", model=x.model) for x in shown]
-    return [*per_model, col("cost_total", "Költség összesen (USD)", "number"),
-            col("cost_reused", "Korábbi válaszból (db)", "number", hidden=True),
-            col("cost_held", "Lefoglalt, ismeretlen kimenetelű (USD)", "number", hidden=not spent.held_usd)]
+    return [*per_model, col("cost_total", "Total cost (USD)", "number"),
+            col("cost_reused", "From earlier answers (count)", "number", hidden=True),
+            col("cost_held", "Reserved, outcome unknown (USD)", "number", hidden=not spent.held_usd)]
 
 
 def _cost_fields(item: costs.Summary) -> dict[str, Any]:
@@ -510,14 +510,14 @@ def _package_costs(scope: dict[str, str]) -> Rows:
     """082: the package's cost over all its runs, one row per provider and model."""
     pkg = costs.package_costs(scope["workpackage_id"])
     cols = [
-        col("provider", "AI-szolgáltató", "enum", labels="provider"),
-        col("model", "Modell"),
-        col("calls", "Fizetős hívás", "number"),
-        col("failed", "Ebből sikertelen", "number", hidden=not any(x.failed for x in pkg.lines)),
-        col("reused", "Korábbi válaszból", "number"),
-        col("usd", "Költség (USD)", "number"),
-        col("held_usd", "Lefoglalt, ismeretlen kimenetelű (USD)", "number", hidden=not pkg.held_usd),
-        col("runs", "Futás", "number"),
+        col("provider", "AI provider", "enum", labels="provider"),
+        col("model", "Model"),
+        col("calls", "Paid calls", "number"),
+        col("failed", "Of which failed", "number", hidden=not any(x.failed for x in pkg.lines)),
+        col("reused", "From earlier answers", "number"),
+        col("usd", "Cost (USD)", "number"),
+        col("held_usd", "Reserved, outcome unknown (USD)", "number", hidden=not pkg.held_usd),
+        col("runs", "Run (column)", "number"),
     ]
     used = {(x.provider, x.model): sum(1 for r in pkg.runs if any((y.provider, y.model) == (x.provider, x.model) for y in r.lines))
             for x in pkg.lines}
@@ -583,14 +583,14 @@ def linker(scope: dict[str, str], run_of: dict[str, dict[str, Any]]) -> Callable
 
 
 # the export tables (jav/app/export.py) by column key, in header order
-_DOC_KEYS = [("file", "Irat", "text"), ("item_id", "Tétel-azonosító", "id"), ("doc_type", "Típus", "enum"), ("arm", "Út", "enum"),
-             ("final_status", "Állapot", "enum"), ("open_reasons", "Nyitott teendők", "text"),
-             ("source_email", "Forrás-levél", "text")]  # 058 K5.2: for an email attachment, the email's subject
+_DOC_KEYS = [("file", "Document (column)", "text"), ("item_id", "Item ID", "id"), ("doc_type", "Type", "enum"), ("arm", "Path", "enum"),
+             ("final_status", "Status", "enum"), ("open_reasons", "Open to-dos", "text"),
+             ("source_email", "Source email", "text")]  # 058 K5.2: for an email attachment, the email's subject
 # 180 (plan 170 E7): a domain's columns follow these (`jav/app/outputs/parts.py`; the duplicate mark and the direction)
-_DP_KEYS = _DOC_KEYS[:3] + [("field", "Mező", "enum"), ("value", "Érték", "text"), ("page", "Oldal", "number"),
-                            ("quote", "Forrásszöveg", "text"), ("place", "Hely", "enum"), ("corrected", "Javítva", "enum"),
-                            ("field_reason", "Teendő a mezőn", "enum")]
-_LI_KEYS = _DOC_KEYS[:3] + [("list", "Lista", "enum"), ("row", "Sor", "number"), ("page", "Oldal", "number")]
+_DP_KEYS = _DOC_KEYS[:3] + [("field", "Field", "enum"), ("value", "Value", "text"), ("page", "Page", "number"),
+                            ("quote", "Source text", "text"), ("place", "Location", "enum"), ("corrected", "Corrected (column)", "enum"),
+                            ("field_reason", "To-do on the field", "enum")]
+_LI_KEYS = _DOC_KEYS[:3] + [("list", "List", "enum"), ("row", "Row", "number"), ("page", "Page", "number")]
 _HIDDEN = {"item_id"}
 # 167 (review 153 E): the export's "igen" marks (corrected, a to-do on the field) are enumerated, so English shows "yes"
 _LABELS = {"final_status": "final_status", "place": "provenance", "field": "field", "list": "field", "doc_type": "doc_type",
@@ -731,12 +731,12 @@ def _file_names(scope: dict[str, str]) -> Rows:
 
     run = work_runs.get_run(scope["run_id"])
     cols = [
-        col("filename", "Új fájlnév", link="review"),
-        col("status", "Mappa", "enum", labels="naming_status", badge=True),
-        col("why", "Miért ellenőrzendő"),
-        col("original", "Eredeti fájlnév"),
-        col("doc_type", "Típus", "enum", labels="doc_type"),
-        col("item_id", "Tétel-azonosító", "id", hidden=True),
+        col("filename", "New file name", link="review"),
+        col("status", "Folder", "enum", labels="naming_status", badge=True),
+        col("why", "Why to review"),
+        col("original", "Original file name"),
+        col("doc_type", "Type", "enum", labels="doc_type"),
+        col("item_id", "Item ID", "id", hidden=True),
     ]
     rows = [{"_key": c.item_id, "_wp": run["workpackage_id"], "_run": run["run_id"], "item_id": c.item_id,
              "filename": c.filename, "status": c.status, "why": naming.reason_text(c.reasons) or None, "original": c.original,
@@ -747,16 +747,16 @@ def _file_names(scope: dict[str, str]) -> Rows:
 def _calls(scope: dict[str, str]) -> Rows:
     work_runs.get_run(scope["run_id"])
     cols = [
-        col("created_at", "Időpont", "datetime"),
-        col("step", "Lépés"),
-        col("provider", "Szolgáltató", "enum"),
-        col("model_actual", "Modell", "enum"),
-        col("status", "Állapot", "enum"),
-        col("cost_usd", "Költség (USD)", "number"),
-        col("max_cost_usd", "Lefoglalt (USD)", "number", hidden=True),
-        col("input_tokens", "Bemeneti token", "number", hidden=True),
-        col("error", "Hiba", hidden=True),
-        col("step_id", "Lépés (teljes)", "id", hidden=True),
+        col("created_at", "Time", "datetime"),
+        col("step", "Step"),
+        col("provider", "Supplier (column)", "enum"),
+        col("model_actual", "Model", "enum"),
+        col("status", "Status", "enum"),
+        col("cost_usd", "Cost (USD)", "number"),
+        col("max_cost_usd", "Reserved (USD)", "number", hidden=True),
+        col("input_tokens", "Input tokens", "number", hidden=True),
+        col("error", "Error", hidden=True),
+        col("step_id", "Step (full)", "id", hidden=True),
     ]
     rows = [{**{k: c.get(k) for k in ("created_at", "provider", "model_actual", "status", "cost_usd", "max_cost_usd",
                                       "input_tokens", "error", "step_id")},
@@ -769,20 +769,20 @@ RESULT_SCOPE = ("run_id", "workpackage_id")
 
 REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     # 185 (plan G-full-move T1b): the shared tables; a domain's own are registered by its domain module (`register`)
-    Dataset("runs", "Futások", (), _runs, optional_scope=("workpackage_id",)),
-    Dataset("workpackages", "Iratkötegek", (), _workpackages, _workpackages_fingerprint, optional_scope=("include_archived", "owner"),
+    Dataset("runs", "Runs", (), _runs, optional_scope=("workpackage_id",)),
+    Dataset("workpackages", "Document batches", (), _workpackages, _workpackages_fingerprint, optional_scope=("include_archived", "owner"),
             natural_sort=(("created_at", True),), refresh_behind=True),
-    Dataset("workpackage_items", "Köteg tételei", ("workpackage_id",), _workpackage_items, optional_scope=("names", "removed")),
-    Dataset("run_items", "Futás tételei", ("run_id",), _run_items, _run_items_fingerprint, optional_scope=("names",)),
-    Dataset("package_costs", "A köteg költsége", ("workpackage_id",), _package_costs),
+    Dataset("workpackage_items", "Items of the document batch", ("workpackage_id",), _workpackage_items, optional_scope=("names", "removed")),
+    Dataset("run_items", "Items of the run (column)", ("run_id",), _run_items, _run_items_fingerprint, optional_scope=("names",)),
+    Dataset("package_costs", "Cost of the document batch", ("workpackage_id",), _package_costs),
     # 172: a result table is a run's, or the package's current result (each item from its counted run)
-    Dataset("documents", "Iratok", (), _documents, result_fingerprint, one_of=RESULT_SCOPE),
-    Dataset("datapoints", "Adatpontok", (), _datapoints, result_fingerprint, one_of=RESULT_SCOPE),
+    Dataset("documents", "Documents", (), _documents, result_fingerprint, one_of=RESULT_SCOPE),
+    Dataset("datapoints", "Data points", (), _datapoints, result_fingerprint, one_of=RESULT_SCOPE),
     Dataset("native_facts", "Native facts", (), _native_facts, result_fingerprint, one_of=RESULT_SCOPE),
-    Dataset("line_items", "Tételsorok", (), _line_items, result_fingerprint, one_of=RESULT_SCOPE),
-    Dataset("file_names", "Fájlnevek", ("run_id",), _file_names, _run_fingerprint),
-    Dataset("calls", "Hívásnapló", ("run_id",), _calls, _calls_fingerprint),
-    Dataset("activity", "Tevékenységnapló", ("actor",), _activity, optional_scope=("day",)),
+    Dataset("line_items", "Line items", (), _line_items, result_fingerprint, one_of=RESULT_SCOPE),
+    Dataset("file_names", "File names", ("run_id",), _file_names, _run_fingerprint),
+    Dataset("calls", "Call log", ("run_id",), _calls, _calls_fingerprint),
+    Dataset("activity", "Activity log", ("actor",), _activity, optional_scope=("day",)),
     Dataset("waiting", "Waiting for me", ("actor",), _waiting, optional_scope=("all",)),  # 216
     Dataset("rules", "Rules", (), _rules),  # 218 (P3e)
 ]}

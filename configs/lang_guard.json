@@ -1,9 +1,29 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.145",
+    "version": "1.0.149",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.149",
+        "date": "2026-10-29",
+        "note": "baseline: 5818 -> 5818 Hungarian lines in 474 files"
+      },
+      {
+        "version": "1.0.148",
+        "date": "2026-10-29",
+        "note": "baseline: 5817 -> 5818 Hungarian lines in 474 files; accepted: tests/test_tablequery_filter_167.py"
+      },
+      {
+        "version": "1.0.147",
+        "date": "2026-10-29",
+        "note": "baseline: 5816 -> 5817 Hungarian lines in 473 files; accepted: tests/test_rules_view_218.py"
+      },
+      {
+        "version": "1.0.146",
+        "date": "2026-10-29",
+        "note": "baseline: 5976 -> 5816 Hungarian lines in 472 files; accepted: tests/test_display_language_231.py"
+      },
       {
         "version": "1.0.145",
         "date": "2026-10-29",
@@ -764,7 +784,7 @@
     "configs/callsites/verify_utility.json": 35,
     "configs/candidate_profiles.json": 32,
     "configs/data_guard.json": 11,
-    "configs/datasets.json": 20,
+    "configs/datasets.json": 1,
     "configs/doc_types.json": 205,
     "configs/email_tasks.json": 7,
     "configs/example_mailboxes.json": 10,
@@ -917,7 +937,7 @@
     "jav/app/app_settings.py": 6,
     "jav/app/condition_import.py": 10,
     "jav/app/corrections.py": 1,
-    "jav/app/datasets.py": 85,
+    "jav/app/datasets.py": 2,
     "jav/app/export.py": 6,
     "jav/app/rule_checks.py": 3,
     "jav/app/tablequery.py": 6,
@@ -942,7 +962,6 @@
     "jav/documents/ocr.py": 2,
     "jav/documents/pdf.py": 8,
     "jav/documents/synthetic_pdf.py": 3,
-    "jav/domains/email/email_datasets.py": 37,
     "jav/domains/email/email_export.py": 5,
     "jav/domains/email/email_items.py": 7,
     "jav/domains/email/email_tasks.py": 4,
@@ -952,7 +971,7 @@
     "jav/domains/email/intent.py": 5,
     "jav/domains/email/mailbox.py": 4,
     "jav/domains/email/mailbox_bridge.py": 5,
-    "jav/domains/finance/finance_datasets.py": 23,
+    "jav/domains/finance/finance_datasets.py": 1,
     "jav/domains/finance/report_utility.py": 13,
     "jav/domains/quotes/quote_document.py": 1,
     "jav/domains/quotes/quote_letter.py": 3,
@@ -1008,7 +1027,7 @@
     "tests/test_datetime_evidence_200.py": 6,
     "tests/test_detect.py": 4,
     "tests/test_detect_detail.py": 4,
-    "tests/test_display_language_231.py": 3,
+    "tests/test_display_language_231.py": 4,
     "tests/test_doc_links.py": 1,
     "tests/test_docs_071.py": 1,
     "tests/test_docsgen_067.py": 1,
@@ -1083,6 +1102,7 @@
     "tests/test_round_b_texts_127.py": 7,
     "tests/test_rule_checks_231.py": 7,
     "tests/test_rule_proposals_231.py": 7,
+    "tests/test_rules_view_218.py": 1,
     "tests/test_runtime_adapters.py": 6,
     "tests/test_runtime_calls.py": 3,
     "tests/test_runtime_queue.py": 1,
@@ -1100,6 +1120,7 @@
     "tests/test_statement_table_136.py": 38,
     "tests/test_store_tx_067.py": 1,
     "tests/test_tablequery.py": 9,
+    "tests/test_tablequery_filter_167.py": 1,
     "tests/test_taxid_069.py": 5,
     "tests/test_terms_s_path_231.py": 9,
     "tests/test_trial_todos_150.py": 1,

@@ -7,7 +7,7 @@ from __future__ import annotations
 import pytest
 
 from jav.core import display, numbers
-from jav.app.tablequery import Column, Query, select
+from jav.app.tablequery import Column, Query, select, shown
 
 COLS = [Column("name", "Name"), Column("amount", "Amount", "money"), Column("qty", "Quantity", "number")]
 ROWS = [{"_key": "a", "name": "a", "amount": "1000000.00", "qty": "1.5"},
@@ -69,5 +69,6 @@ def test_the_yes_marks_of_the_data_points_are_enumerated() -> None:
     from jav.app import datasets
 
     cols = {c.key: c for c in datasets._fixed(datasets._DP_KEYS)}
-    assert cols["corrected"].labels == {"igen": "igen"}
-    assert cols["field_reason"].labels == {"igen": "igen"}
+    assert cols["corrected"].labels == {"igen": "yes"}  # 231 (D4): the English source; "igen" stays the code
+    assert cols["field_reason"].labels == {"igen": "yes"}
+    assert shown(cols["corrected"], "igen") == "igen"

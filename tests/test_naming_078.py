@@ -256,7 +256,8 @@ def test_names_follow_the_corrections_and_uncertain_copies_go_to_review(env):
     assert rows[first]["filename"] == READY and rows[first]["status"] == "ready" and rows[first]["why"] is None
     labels = {k: display.text(v) for k, v in cfg.load("field_labels")["fields"].items()}  # 231 (D4): as shown
     assert labels["invoice_number"] in rows[other.item_id]["why"]
-    assert next(col for col in body["columns"] if col["key"] == "status")["labels"]["review"] == "Ellenőrzendő"
+    review = next(col for col in body["columns"] if col["key"] == "status")["labels"]["review"]
+    assert (review, display.text(review)) == ("To check (value)", "Ellenőrzendő")  # 231 (D4): the source and its display
 
 
 def test_zip_holds_exact_copies_and_a_manifest_and_leaves_the_originals_alone(env):

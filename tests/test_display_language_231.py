@@ -64,3 +64,32 @@ def test_a_caption_is_searched_sorted_and_offered_in_the_request_s_language():
         assert [r["state"] for r in select([col], rows, by_state)] == ["d", "r"]  # Done < Running
         assert select([col], rows, Query(q="kész")) == [] and [r["_key"] for r in select([col], rows, Query(q="done"))] == ["1"]
         assert facets([col], rows)["state"] == ["d", "r"]
+
+
+DATASET_MODULES = ("jav/app/datasets.py", "jav/domains/email/email_datasets.py", "jav/domains/finance/finance_datasets.py")
+
+
+def test_every_dataset_caption_is_an_english_source_the_dictionary_shows_in_hungarian():
+    """D4/4: the datasets' column names, the datasets' names and the value captions are English sources; each has its
+    Hungarian in the interface's dictionary, so the Hungarian interface and its downloads show what they showed."""
+    import json
+    import re
+    from pathlib import Path
+
+    from jav.core import cfg
+    from jav.core.config import UI_HUNGARIAN
+
+    hungarian = json.loads(Path(UI_HUNGARIAN).read_text(encoding="utf-8"))
+    accented = re.compile(r"[áéíóöőúüűÁÉÍÓÖŐÚÜŰ]")
+    literal = r'"((?:[^"\\]|\\.)*)"'
+    sources = []
+    for module in DATASET_MODULES:
+        text = Path(module).read_text(encoding="utf-8")
+        for pattern in (rf'\bcol\("[^"]+", {literal}', rf'\bDataset\("[^"]+", {literal}',
+                        rf'\("[a-z_]+", {literal}, "(?:text|id|enum|number)"\)'):
+            sources += [json.loads(f'"{m}"') for m in re.findall(pattern, text)]
+    captions = cfg.load("datasets")["labels"]
+    sources += [c for group in captions.values() for c in group.values()]
+    assert len(sources) > 300
+    assert [s for s in sources if accented.search(s)] == []
+    assert sorted({s for s in sources if s not in hungarian}) == []

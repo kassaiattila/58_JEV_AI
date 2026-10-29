@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from jav.app import corrections, item_kinds, work_runs
-from jav.core import cfg, field_names
+from jav.core import cfg, display, field_names
 from jav.app.outputs import contract
 
 
@@ -82,7 +82,8 @@ TASK_HEAD = ("Levél", "Akció", "Feladat", "Határidő", "Felelős", "Bizonyít
 
 
 def emails_table(records: list[dict[str, Any]]) -> tuple[list[str], list[list[Any]]]:
-    """The email table with Hungarian captions (intent, next step, the part of the text seen, attachment type)."""
+    """The email table with its captions (intent, next step, the part of the text seen, attachment type); 231 (D4): in
+    the request's language."""
     from jav.domains.email import mailbox
 
     flows = mailbox.next_flow_labels()
@@ -92,8 +93,9 @@ def emails_table(records: list[dict[str, Any]]) -> tuple[list[str], list[list[An
     att = lambda a: f"{a.get('filename')} ({field_names.type_name(shown(a)) or a.get('status') or '–'})"  # noqa: E731
     rows = [[r["subject"], r["sender"], r["received_at"], r["mailbox"], mailbox.intent_name(r["intent"]),
              mailbox.intent_name(r["machine_intent"]), r["confidence"], "igen" if r["corrected"] else "",
-             flows.get(r["next_flow"] or "", r["next_flow"]), ", ".join(att(a) for a in r["attachments"]),
-             body.get(r["body"]["status"], r["body"]["status"]), r["body"]["chars"], "; ".join(r["open_reasons"]), r["item_id"]]
+             # 231 (D4): the captions in the request's language (a type's step is made in it already)
+             display.text(flows.get(r["next_flow"] or "", r["next_flow"] or "")), ", ".join(att(a) for a in r["attachments"]),
+             display.text(body.get(r["body"]["status"], r["body"]["status"])), r["body"]["chars"], "; ".join(r["open_reasons"]), r["item_id"]]
             for r in records]
     return EMAIL_HEAD, rows
 

@@ -7,6 +7,7 @@ import json
 from openpyxl import load_workbook
 
 from jav.app import datasets
+from jav.core import display
 from jav.runtime import worker
 from tests import test_api
 from tests.test_api import HUMAN, _ready_wp, _start
@@ -45,7 +46,9 @@ def test_lists_are_queried_on_the_service_without_silent_cut(env):
     runs = _q(c, "runs")
     assert runs["total"] == 1 and runs["rows"][0]["run_id"] == run_id and runs["rows"][0]["workpackage_name"] == "Mesterséges számlák"
     status = next(col for col in runs["columns"] if col["key"] == "status")
-    assert status["labels"]["done"] == "Kész"  # the label comes from the service: search matches it too
+    # the label comes from the service (231, D4: its English source, shown in the request's language); search
+    # matches the shown text
+    assert status["labels"]["done"] == "Done" and display.text("Done") == "Kész"
     assert _q(c, "runs", q="Éles")["matched"] == 1
     assert _q(c, "runs", {"workpackage_id": wp["id"]})["total"] == 1
 

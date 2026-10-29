@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 from jav.app import datasets
-from jav.core import cfg
+from jav.core import cfg, display, field_names
 from jav.app.datasets import Rows, col
 
 
@@ -24,35 +24,34 @@ def emails(scope: dict[str, str]) -> Rows:
     of the email's text the recognition saw."""
     from jav.domains.email import email_export, mailbox
 
-    doc_types = datasets.label_set("doc_type")
     records, run_of = datasets.merged(scope, email_export.email_records)
     link = datasets.linker(scope, run_of)
     cols = [
-        col("subject", "Tárgy", link="item"),
-        col("sender", "Feladó"),
-        col("received_at", "Érkezett", "datetime"),
-        col("mailbox", "Postafiók", hidden=True),
-        col("intent", "Szándék", "enum", labels="intent"),
-        col("confidence", "Valószínűség", "number", percent=True),
-        col("corrected", "Javítva", "enum", labels="yes"),
-        col("machine_intent", "Gépi szándék", "enum", labels="intent", hidden=True),
-        col("next_flow", "Javasolt következő lépés", "enum", labels="next_flow"),
-        col("attachments", "Csatolmány", "number"),
-        col("attachment_types", "Csatolmányok típusa"),
-        col("body_status", "Levél szövege", "enum", labels="body_status"),
-        col("body_chars", "Levél hossza (karakter)", "number", hidden=True),
-        col("tasks", "Feladatjavaslat", "number", hidden=not any(r.get("tasks") for r in records)),
-        col("open_reasons", "Nyitott teendő", "number", link="item", alert=True),
-        col("message_id", "Levél-azonosító", "id", hidden=True),
-        col("item_id", "Tétel-azonosító", "id", hidden=True),
+        col("subject", "Subject", link="item"),
+        col("sender", "From (column)"),
+        col("received_at", "Received", "datetime"),
+        col("mailbox", "Mailbox", hidden=True),
+        col("intent", "Intent", "enum", labels="intent"),
+        col("confidence", "Probability", "number", percent=True),
+        col("corrected", "Corrected (column)", "enum", labels="yes"),
+        col("machine_intent", "Machine intent", "enum", labels="intent", hidden=True),
+        col("next_flow", "Suggested next step", "enum", labels="next_flow"),
+        col("attachments", "Attachment", "number"),
+        col("attachment_types", "Attachment types"),
+        col("body_status", "Email text", "enum", labels="body_status"),
+        col("body_chars", "Email length (characters)", "number", hidden=True),
+        col("tasks", "Task proposal", "number", hidden=not any(r.get("tasks") for r in records)),
+        col("open_reasons", "Open to-dos (column)", "number", link="item", alert=True),
+        col("message_id", "Email ID", "id", hidden=True),
+        col("item_id", "Item ID", "id", hidden=True),
     ]
     rows = []
     for r in records:
         # 126: the type each attachment was processed as (`shown_type`), else the recognised one
         shown = [a.get("shown_type") or a.get("doc_type") for a in r["attachments"]]
-        types = sorted({doc_types.get(x, x) for x in shown if x})
+        types = sorted({field_names.type_name(x) for x in shown if x})  # 231 (D4): in the request's language
         rows.append({"_key": r["item_id"], **link(r["item_id"]), "item_id": r["item_id"],
-                     "message_id": r["message_id"], "subject": r["subject"] or "(tárgy nélkül)", "sender": r["sender"],
+                     "message_id": r["message_id"], "subject": r["subject"] or display.text("(without subject)"), "sender": r["sender"],
                      "received_at": r["received_at"], "mailbox": r["mailbox"], "intent": r["intent"],
                      "machine_intent": r["machine_intent"], "confidence": r["confidence"],
                      "corrected": "igen" if r["corrected"] else None, "next_flow": r["next_flow"],
@@ -71,18 +70,18 @@ def email_tasks(scope: dict[str, str]) -> Rows:
     records, run_of = datasets.merged(scope, email_export.email_records)
     link = datasets.linker(scope, run_of)
     cols = [
-        col("subject", "Levél", link="item"),
-        col("action", "Akció", "enum", labels="task_action"),
-        col("title", "Feladat"),
-        col("due_date", "Határidő", "date"),
-        col("assignee_hint", "Felelős"),
-        col("evidence", "Bizonyíték"),
-        col("decision", "Döntés", "enum", labels="task_decision"),
-        col("decided_by", "Döntött", hidden=True),
-        col("decided_at", "Döntés ideje", "datetime", hidden=True),
-        col("done_at", "Elvégezve", "datetime"),  # 062: manual "done" on an accepted task
-        col("done_by", "Elvégezte", hidden=True),
-        col("item_id", "Tétel-azonosító", "id", hidden=True),
+        col("subject", "Email (column)", link="item"),
+        col("action", "Action (column)", "enum", labels="task_action"),
+        col("title", "Task"),
+        col("due_date", "Deadline", "date"),
+        col("assignee_hint", "Assignee"),
+        col("evidence", "Evidence"),
+        col("decision", "Decision", "enum", labels="task_decision"),
+        col("decided_by", "Decided by", hidden=True),
+        col("decided_at", "Decided at", "datetime", hidden=True),
+        col("done_at", "Done (column)", "datetime"),  # 062: manual "done" on an accepted task
+        col("done_by", "Done by", hidden=True),
+        col("item_id", "Item ID", "id", hidden=True),
     ]
     rows = [{**t, "_key": f"{t['item_id']}:{t['index']}", **link(t["item_id"])} for t in email_export.task_rows(records)]
     return cols, rows
@@ -92,16 +91,16 @@ def mailbox_pulls(_scope: dict[str, str]) -> Rows:
     from jav.domains.email import mailbox
 
     cols = [
-        col("created_at", "Indítva", "datetime"),
-        col("label", "Postafiók / időszak"),
-        col("status", "Állapot", "enum", labels="pull_status", badge=True),
-        col("new", "Új levél", "number"),
-        col("changed", "Változott", "number", hidden=True),
-        col("duplicate", "Már megvolt", "number", hidden=True),
-        col("workpackage", "Munkacsomag", "id", link="workpackage"),
-        col("actor", "Indította"),
-        col("error", "Hiba"),
-        col("finished_at", "Befejeződött", "datetime", hidden=True),
+        col("created_at", "Started (column)", "datetime"),
+        col("label", "Mailbox / period"),
+        col("status", "Status", "enum", labels="pull_status", badge=True),
+        col("new", "New emails", "number"),
+        col("changed", "Changed (column)", "number", hidden=True),
+        col("duplicate", "Already fetched", "number", hidden=True),
+        col("workpackage", "Work package (column)", "id", link="workpackage"),
+        col("actor", "Started by"),
+        col("error", "Error"),
+        col("finished_at", "Finished", "datetime", hidden=True),
     ]
     rows = []
     for p in mailbox.pulls(limit=cfg.load("datasets")["export_max_rows"]):
@@ -135,10 +134,10 @@ def next_flow_labels() -> dict[str, Any]:
 # the tables, each with the table it follows in the catalogue (the order they always had), and the label sets;
 # registered by `jav/domains/email/__init__.py`
 DATASETS = (
-    (datasets.Dataset("emails", "Levelek", (), emails, datasets.result_fingerprint, one_of=datasets.RESULT_SCOPE), "package_costs"),
-    (datasets.Dataset("email_tasks", "Feladatjavaslatok", (), email_tasks, datasets.result_fingerprint,
+    (datasets.Dataset("emails", "Emails", (), emails, datasets.result_fingerprint, one_of=datasets.RESULT_SCOPE), "package_costs"),
+    (datasets.Dataset("email_tasks", "Task proposals", (), email_tasks, datasets.result_fingerprint,
                       one_of=datasets.RESULT_SCOPE), "emails"),
-    (datasets.Dataset("mailbox_pulls", "Postafiók-letöltések", (), mailbox_pulls), "calls"),
+    (datasets.Dataset("mailbox_pulls", "Mailbox downloads", (), mailbox_pulls), "calls"),
 )
 LABELS = (
     datasets.LabelSet("intent", __name__, intent_labels),
