@@ -565,7 +565,7 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .rule-values dd .tight { font-weight: 400; }
 /* 231 (U4d): a value's default under it on the rule's sheet: a muted line whose own value it is, the form, its versions */
 .default-editor { display: grid; gap: var(--sp-2); margin-top: var(--sp-1); font-weight: 400; }
-.default-line { margin: 0; }
+.default-line { margin: 0; font-weight: 400; }
 .default-form { display: grid; gap: var(--sp-2); max-width: 720px; }
 .default-number { display: inline-flex; align-items: baseline; gap: var(--sp-2); }
 .default-number input { width: 10ch; }
