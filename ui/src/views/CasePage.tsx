@@ -80,6 +80,8 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
     return () => clearTimeout(timer);
   }, [settleUntil]);
   const changed = () => { page.reload(); setSettleUntil(Date.now() + SETTLE_MS); };
+  // 261 (Q-rogzites-409): an action's answer is the case's page after it: shown at once, before any reload ends
+  const answered = (fresh: CaseView) => { page.replace(fresh); setSettleUntil(Date.now() + SETTLE_MS); };
 
   if (page.error?.status === 404 || page.error?.status === 422) {
     return (
@@ -91,7 +93,7 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
   if (!page.data) return <p className="muted">{t("Loading…")}</p>;
   const view = page.data;
   const shown = view.tabs.find((x) => x.id === tab) ?? view.tabs.find((x) => x.id === defaultTab(view)) ?? view.tabs[0];
-  const props = (element: ElementProps["element"]): ElementProps => ({ caseId, element, page: view, onChanged: changed });
+  const props = (element: ElementProps["element"]): ElementProps => ({ caseId, element, page: view, onChanged: changed, onView: answered });
   const all = view.tabs.flatMap((x) => x.elements);
   const summary: ReactNode = all.map((e) => elementOf(e.type)?.summary?.(props(e))).find(Boolean) ?? t(view.case.title);
   const statusOf = (elements: ElementProps["element"][]) => elements.map((e) => elementOf(e.type)?.status?.(props(e))).find(Boolean) ?? "";

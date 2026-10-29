@@ -2288,6 +2288,7 @@
   "The proposed item is the right one": "A javasolt tétel a helyes",
   "The quote cannot be approved yet: see what blocks it.": "Az ajánlat még nem hagyható jóvá: nézd meg, mi tartja vissza.",
   "The quote changed since it was shown; it has been reloaded. Check it and try again.": "Az ajánlat megváltozott, mióta megjelent; újratöltöttük. Nézd át, és próbáld újra.",
+  "The case changed since it was shown; it has been reloaded. Check it and try again.": "Az ügy megváltozott, mióta megjelent; újratöltöttük. Nézd át, és próbáld újra.",
   "The quote has been approved.": "Az ajánlat jóváhagyva.",
   "The quote has not been composed yet.": "Az ajánlat még nincs összeállítva.",
   "The quote is not changed while this version stands. To change it, reopen the approval with a reason; this version stays as an earlier one.": "Amíg ez a változat áll, az ajánlat nem módosítható. Módosításhoz nyisd újra a jóváhagyást, indokkal; ez a változat korábbiként megmarad.",

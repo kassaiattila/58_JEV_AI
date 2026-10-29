@@ -13,7 +13,12 @@ import { blockersStatus, calculationStatus, costTotal, decisionStatus, documentS
   missingStatus, replyStatus, subCaseStatus, verdictStatus } from "./caseStatus";
 import { packageWorkLine } from "./packageWorkStatus";
 
-export interface ElementProps { caseId: string; element: CaseElement; page: CaseView; onChanged: () => void }
+export interface ElementProps {
+  caseId: string; element: CaseElement; page: CaseView; onChanged: () => void;
+  /** 261 (Q-rogzites-409): the case's page as an action answered it, taken at once instead of reloading it, so the next
+   *  action is made on the state the person sees (the case page gives it) */
+  onView?: (view: CaseView) => void;
+}
 export interface ElementSpec {
   render: (p: ElementProps) => ReactNode;
   /** the line under its tab's name (the first element of a tab that gives one) */

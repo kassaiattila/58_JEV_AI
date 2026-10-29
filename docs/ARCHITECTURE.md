@@ -1478,7 +1478,10 @@ version and the page's next step `facts_check`), and two special elements, `docu
 document with how many facts it gave and what it could not read) and `lookup` (`lookup@1`: the register, what it was
 asked with by fact, the facts it offers; the catalogue of the field check it offers them to); the interface's
 `ui/src/elements/FactElements.tsx`. A reading's reason is one of a few sentences (the interface translates it), the
-words no table knows in its value (`ui/src/elements/factElements231.test.tsx`). D-f5: the Calculation and versions
+words no table knows in its value (`ui/src/elements/factElements231.test.tsx`). 261: a person's action on the field
+review takes its answer, the case's page after the action, at once (`ElementProps.onView`, the loader's `replace`), so
+the next action (a freeze right after a unit's save) is made on the saved state even before a reload ends; a page
+someone else made stale (409 `revision_conflict`) is reloaded and says so (`ui/src/elements/factActions261.test.tsx`). D-f5: the Calculation and versions
 view: three special elements, `evaluation` (`rule_evaluation@1`: the latest evaluation in full, its units named by their
 own level's facts, the rules' titles and citations, every version), `calculation` (`rating@1`: the latest premium's
 lines, the modules' totals and minimums, the total, the tariff's and the factors' titles, the product's module names,
