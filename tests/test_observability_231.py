@@ -31,7 +31,7 @@ def seen():
 def test_only_safe_attributes_reach_a_sink() -> None:
     kept = observability.clean({
         "provider": "jev", "tokens": 12, "cost_usd": 0.01, "cached": False, "model": "gpt-5.1-mini",
-        "document_text": "Számla 1234", "request": "{...}", "file_name": "a.pdf", "email": "anna@example.com",
+        "document_text": "Invoice 1234", "request": "{...}", "file_name": "a.pdf", "email": "anna@example.com",
         "step": "C:/Users/anna/Documents/a.pdf", "note": "anna@example.com", "label": "a sentence with spaces"})
     assert kept == {"provider": "jev", "tokens": 12, "cost_usd": 0.01, "cached": False, "model": "gpt-5.1-mini"}
 
