@@ -333,7 +333,7 @@ class _Form(BaseModel):
 
 
 class FreezeForm(_Form):
-    cover_start: date
+    cover_start: date = Field(title="Cover starts")  # 261 (B1g): a field the shared form shows
     expected_state: int  # the state of the units the page showed
 
 
@@ -379,6 +379,16 @@ def _frozen(case_id: str, step: str) -> bool:
     return package_release.own_approval(case_id, step=step)["active"] is not None
 
 
+def _freeze_start(case_id: str, step: str) -> dict[str, Any]:
+    """261 (B1g): the freeze's form as the shared form starts it: the day cover starts the units give (or the last
+    freeze's), the units' state the page shows (which the freeze checks), and why it cannot be sent while a
+    disagreement is open."""
+    shown = view(case_id, step)
+    open_claims = sum(1 for c in shown["claims"] if c["open"])
+    return {"values": {"cover_start": _cover_start_hint(case_id, step, shown), "expected_state": shown["state"]},
+            "blocked": "Settle the disagreements first." if open_claims else None}
+
+
 def _reopen_action(case_id: str, step: str, actor: identity.Who, note: str | None) -> None:
     if not note:
         raise explained(FieldCheckError, "reopening needs a reason")
@@ -388,7 +398,8 @@ def _reopen_action(case_id: str, step: str, actor: identity.Who, note: str | Non
 ACTIONS = (
     capabilities.form_action("freeze", "Freeze the facts", _open, FreezeForm,
                              lambda case_id, step, actor, v: freeze(case_id, step, cover_start=v.cover_start,
-                                                                     expected_state=v.expected_state, actor=actor)),
+                                                                     expected_state=v.expected_state, actor=actor),
+                             prefill=_freeze_start),
     capabilities.Action("reopen", "Reopen the check", _frozen, _reopen_action, on_done=True),
     capabilities.form_action("unit_add", "Add a unit", _open, UnitAddForm,
                              lambda case_id, step, actor, v: assessed_units.add(

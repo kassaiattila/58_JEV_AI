@@ -112,9 +112,19 @@ def _actions(case_id: str, step: process_packs.Step, row: dict[str, Any]) -> lis
     for a in capabilities.of(step.uses).actions:
         if (state == cases.RUNNING or a.on_done) and a.available(case_id, step.id):  # D-f2: a reopening on a done one
             cap = a.cap(case_id, step.id) if a.cap is not None else None
-            out.append({"name": a.name, "label": a.label, **({"form": True} if a.form is not None else {}),  # D-f2: its element's
+            out.append({"name": a.name, "label": a.label, **({"form": _form(case_id, step.id, a)} if a.form is not None else {}),
                         **({"cap": dict(cap)} if cap else {})})
     return out
+
+
+def _form(case_id: str, step_id: str, action: capabilities.Action) -> Any:
+    """D-f2: an action with a form is its step's element's (True); 261 (B1g): one whose form has fields a person gives
+    is described for the shared form: its fields, its start values and whether it can be sent now."""
+    fields = capabilities.form_fields(action.form) if action.form is not None else []
+    if not fields:
+        return True
+    start = dict(action.prefill(case_id, step_id)) if action.prefill is not None else {}
+    return {"fields": fields, "values": start.get("values") or {}, "blocked": start.get("blocked")}
 
 
 def _step_actions(case_id: str, step_id: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
@@ -488,6 +498,7 @@ def _blockers(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[
 register(ElementData("blockers", None, __name__, _blockers))  # D-f9
 register(ElementData("started_cases", None, __name__, _started_cases))
 register(ElementData("data_table", None, __name__, _data_table))  # 261 (B1f)
+register(ElementData("form", None, __name__, _step_actions))  # 261 (B1g): a step's described forms, among its actions
 register(ElementData("timeline", None, __name__, _timeline))
 register(ElementData("actions", None, __name__, _step_actions))  # 261 (B1e)
 register(ElementData("cost", None, __name__, _cost))

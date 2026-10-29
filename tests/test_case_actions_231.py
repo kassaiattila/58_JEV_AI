@@ -36,9 +36,13 @@ def _actions(case_id: str, step: str) -> dict[str, dict]:
 
 def test_the_field_check_is_frozen_through_its_action_and_a_stale_page_is_refused(packs, client) -> None:  # noqa: F811
     case_id = _started()
-    assert {n: a.get("form") for n, a in _actions(case_id, "check").items()} == {
-        "freeze": True, "unit_add": True, "unit_save": True, "unit_remove": True, "keep_value": True}
+    forms = {n: a.get("form") for n, a in _actions(case_id, "check").items()}
     state = field_check.view(case_id, "check")["state"]
+    # 261 (B1g): the freeze's form is described for the shared form (the day a person gives, its first value, the
+    # units' state the page shows); the others are the field review's own
+    assert forms.pop("freeze") == {"fields": [{"name": "cover_start", "label": "Cover starts", "kind": "date", "required": True}],
+                                   "values": {"cover_start": None, "expected_state": state}, "blocked": None}
+    assert forms == {"unit_add": True, "unit_save": True, "unit_remove": True, "keep_value": True}
     url = f"/api/cases/{case_id}/steps/check/actions/"
     holder = next(u for u in assessed_units.units(case_id, "check") if u["level"] == "holder")
     saved = client.post(url + "unit_save", json={"values": {"unit_id": holder["unit_id"], "facts": {**holder["facts"],

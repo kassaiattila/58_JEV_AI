@@ -25,11 +25,16 @@ const review = (state: number, open: boolean): FieldReviewData => ({
   state, approval: { state: "missing", step: "check", active: null, versions: [], returned: null, outdated: null },
   catalogue: CAT, frozen: null, conflicts: open ? 1 : 0, waits: true, cover_start_hint: "2027-01-01",
 });
+/** 261 (B1g): the freeze's form as the service describes it for the shared form, from the review's data */
+const freeze = (d: FieldReviewData) => ({ name: "freeze", label: "Freeze the facts", form: {
+  fields: [{ name: "cover_start", label: "Cover starts", kind: "date" as const, required: true }],
+  values: { cover_start: d.cover_start_hint ?? null, expected_state: d.state },
+  blocked: d.conflicts ? "Settle the disagreements first." : null } });
 const page = (data: FieldReviewData): CaseView => ({
   case: { id: CASE, pack: "insurance_offer", version: "1.1.0", title: "Insurance quote", name: "Minta Kft.", status: "open" },
   steps: {
     check: { title: "Data check", uses: "field_check@1", start: "auto", state: "running", phase: null, waiting_for: null,
-      awaiting_start: false, note: null, result: null, actions: [] },
+      awaiting_start: false, note: null, result: null, actions: [freeze(data)] },
     company: { title: "Company register", uses: "lookup@1", start: "auto", state: "done", phase: null, waiting_for: null,
       awaiting_start: false, note: null, result: null, actions: [] },
   },

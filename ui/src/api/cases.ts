@@ -28,8 +28,16 @@ export interface StartedCase {
 
 /** A person's action on a step (A7d): a failed step's retry, or one its capability offers while the step waits for it. */
 /** D-f2: `form`: the action takes values, which its step's own element asks for (no button of its own). */
-/** 261 (B1e): `cap`, an action that may spend: its cost cap by provider (USD as text), shown on its button */
-export interface CaseAction { name: string; label: string; form?: boolean; cap?: Record<string, string> }
+/** 261 (B1g): an action's form as the shared form shows it: the fields a person gives (an English label, its kind,
+ *  whether it must be given), their first values with the page's state, and why it cannot be sent now. */
+export interface CaseFormSpec {
+  fields: { name: string; label: string; kind: "text" | "date" | "int" | "number" | "bool"; required: boolean }[];
+  values: Record<string, unknown>; blocked: string | null;
+}
+/** 261 (B1e): `cap`, an action that may spend: its cost cap by provider (USD as text), shown on its button. D-f2:
+ *  `form`, an action with a form (its step's element's); B1g: described for the shared form when a person gives its
+ *  fields. */
+export interface CaseAction { name: string; label: string; form?: boolean | CaseFormSpec; cap?: Record<string, string> }
 /** 231 (C3b3): the documents of a document processing case: a folder (with its subfolders when asked) or files. */
 export interface CaseSource {
   kind: "folder" | "files" | "mailbox"; folder?: string; recursive?: boolean; files?: string[];

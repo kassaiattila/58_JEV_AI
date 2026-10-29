@@ -99,6 +99,37 @@ def test_a_steps_start_that_may_spend_names_its_cost_cap_and_the_shared_actions_
     assert case_views.gives("actions", "process_documents") and case_views.gives("actions", None)
 
 
+def test_a_forms_fields_a_person_gives_are_described_and_the_pages_state_is_not() -> None:  # B1g
+    from datetime import date
+
+    from pydantic import BaseModel, ConfigDict, Field
+
+    from jav.app import capabilities
+
+    class Invented(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        day: date = Field(title="The day")
+        reason: str = Field(title="Why", min_length=1)
+        note: str | None = Field(default=None, title="A note")
+        count: int = Field(default=1, title="How many")
+        expected_state: int  # the page's state, sent back as given
+
+    assert capabilities.form_fields(Invented) == [
+        {"name": "day", "label": "The day", "kind": "date", "required": True},
+        {"name": "reason", "label": "Why", "kind": "text", "required": True},
+        {"name": "note", "label": "A note", "kind": "text", "required": False},
+        {"name": "count", "label": "How many", "kind": "int", "required": False}]
+    action = capabilities.form_action("invent", "Invent", lambda c, s: True, Invented, lambda c, s, a, v: None,
+                                      prefill=lambda c, s: {"values": {"expected_state": 3}, "blocked": None})
+    assert case_views._form("wp-x", "s", action) == {"fields": capabilities.form_fields(Invented),
+                                                     "values": {"expected_state": 3}, "blocked": None}
+    class Hidden(BaseModel):
+        expected_state: int
+
+    assert case_views._form("wp-x", "s", capabilities.form_action("h", "H", lambda c, s: True, Hidden,
+                                                                  lambda c, s, a, v: None)) is True
+
+
 def test_an_element_without_a_brief_gives_none() -> None:
     page = {"steps": {"a": {"title": "A"}}, "tabs": [{"id": "t", "elements": [
         {"type": "x", "step": "a", "data": {"next": None}}, {"type": "y", "step": None, "data": None},

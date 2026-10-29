@@ -12,6 +12,7 @@ import { docTypeLabel, when } from "../labels";
 import { day, factTitle, levelLabel, Value } from "../views/settings/RegistryParts";
 import { fieldReviewStatus } from "./caseStatus";
 import type { ElementProps } from "./registry";
+import { StepForm } from "./FormElement";  // 261 (B1g): the shared form
 import { useStepAction } from "./stepAction";
 
 const loading = <p className="muted">{t("Loading…")}</p>;
@@ -235,24 +236,11 @@ function Conflicts({ d, p, act }: { d: FieldReviewData; p: ElementProps; act: Re
   );
 }
 
-function Freeze({ d, act }: { d: FieldReviewData; act: ReturnType<typeof useAct> }) {
-  const [start, setStart] = useState(d.cover_start_hint ?? "");  // U1: a document's day, else the last freeze's
-  const ready = d.conflicts === 0 && !!start;
-  return (
-    <div className="freeze">
-      <div className="field">
-        <label htmlFor="cover-start">{t("Cover starts")}</label>
-        <input id="cover-start" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
-      </div>
-      <div className="button-row">
-        <button type="button" className={ready ? "primary" : "secondary"} disabled={!ready || act.busy}
-          onClick={() => void act.run("freeze", { cover_start: start, expected_state: d.state })}>{t("Freeze the facts")}</button>
-        {d.conflicts ? <span className="todo-text small">{t("Settle the disagreements first.")}</span>
-          : !start ? <span className="muted small">{t("Give the day cover starts.")}</span> : null}
-      </div>
-      <p className="muted small">{t("Freezing records the facts as they are now as the checked input: the rules and the premium are computed from it, and a later correction makes a new one.")}</p>
-    </div>
-  );
+/** The freeze: 261 (B1g) the shared form's first user (the day cover starts, as a document gave it or the last freeze
+ *  had it, U1; the units' state the page shows; why not while a disagreement is open), with what freezing means. */
+function Freeze({ p }: { p: ElementProps }) {
+  return <StepForm p={p} action="freeze" className="freeze"
+    note={<p className="muted small">{t("Freezing records the facts as they are now as the checked input: the rules and the premium are computed from it, and a later correction makes a new one.")}</p>} />;
 }
 
 function Reopen({ act }: { act: ReturnType<typeof useAct> }) {
@@ -311,7 +299,7 @@ export function FieldReview(p: ElementProps) {
           ))}
         </ul>
       ) : null}
-      {d.waits ? <Freeze d={d} act={act} /> : null}
+      {d.waits ? <Freeze p={p} /> : null}
       {act.error ? <p className="notice error small" role="alert">{act.error}</p> : null}
     </section>
   );

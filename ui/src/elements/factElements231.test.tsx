@@ -37,11 +37,18 @@ const review = (over: Partial<FieldReviewData> = {}): FieldReviewData => ({
   catalogue: CAT, frozen: null, conflicts: 1, waits: true, ...over,
 });
 
+/** 261 (B1g): the freeze's form as the service describes it for the shared form, from the review's data */
+const freeze = (d: FieldReviewData) => ({ name: "freeze", label: "Freeze the facts", form: {
+  fields: [{ name: "cover_start", label: "Cover starts", kind: "date" as const, required: true }],
+  values: { cover_start: d.cover_start_hint ?? null, expected_state: d.state },
+  blocked: d.conflicts ? "Settle the disagreements first." : null } });
+
 function page(type: string, step: string, data: unknown, uses: string, title: string, state = "running"): CaseView {
   return {
     case: { id: CASE, pack: "insurance_offer", version: "1.1.0", title: "Insurance quote", name: "Minta Kft.", status: "open" },
     steps: {
-      [step]: { title, uses, start: "auto", state, phase: null, waiting_for: null, awaiting_start: false, note: null, result: null, actions: [] },
+      [step]: { title, uses, start: "auto", state, phase: null, waiting_for: null, awaiting_start: false, note: null, result: null,
+        actions: type === "field_review" ? [freeze(data as FieldReviewData)] : [] },
       company: { title: "Company register", uses: "lookup@1", start: "auto", state: "done", phase: null, waiting_for: null,
         awaiting_start: false, note: null, result: null, actions: [] },
     },

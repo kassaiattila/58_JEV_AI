@@ -61,6 +61,7 @@ const LetterView = lazy(() => import("./LetterElement").then((m) => ({ default: 
 const BlockersView = lazy(() => import("./BlockersElement").then((m) => ({ default: m.BlockersView })));
 const ActionsView = lazy(() => import("./ActionsElement").then((m) => ({ default: m.ActionsView })));  // 261 (B1e)
 const DataTableView = lazy(() => import("./DataTableElement").then((m) => ({ default: m.DataTableView })));  // 261 (B1f)
+const FormView = lazy(() => import("./FormElement").then((m) => ({ default: m.FormView })));  // 261 (B1g)
 /** An element whose page loads only when a case shows it (its module imported on first render). */
 export const lazily = (C: (p: ElementProps) => ReactNode) =>
   (p: ElementProps) => <Suspense fallback={<p className="muted">{t("Loading…")}</p>}><C {...p} /></Suspense>;
@@ -92,6 +93,7 @@ export const ELEMENTS: Record<string, ElementSpec> = {
   timeline: { render: lazily(Timeline) },
   actions: { render: lazily(ActionsView) },  // 261 (B1e): a step's actions, each that may spend with its cost cap
   data_table: { render: lazily(DataTableView) },  // 261 (B1f): a registered dataset the case gives the scope of
+  form: { render: lazily(FormView) },  // 261 (B1g): a step's action's form, as its capability describes it
   partner_link: { render: lazily(PartnerLink) },  // 231 (B1)
   started_cases: { render: lazily(StartedCases) },  // 231 (C1c)
   sub_case: { render: (p) => subWork([p]), rows: subWork,  // 231 (U2c); 261 (B1b): a multi-step case's sub-work table

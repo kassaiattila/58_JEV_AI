@@ -79,17 +79,23 @@ def test_the_step_parameters_that_name_a_step_are_known_by_the_capability() -> N
     assert capabilities.step_refs(Plain) == ()
 
 
-def test_a_planned_element_is_refused() -> None:
+def test_a_planned_element_is_refused(monkeypatch) -> None:
     elements = cfg.load(process_packs.ELEMENTS)["elements"]
     planned = sorted(k for k, v in elements.items() if v.get("status") == "planned")
-    # built: D-f4 the field review, D-f7 the document view, D-f9 the blockers; 261 the actions (B1e), the data table (B1f)
-    assert planned == ["form"]
+    # built: D-f4 the field review, D-f7 the document view, D-f9 the blockers; 261 the actions (B1e), the data table
+    # (B1f) and the form (B1g): none is planned any more
+    assert planned == []
+    real = cfg.load
+    listed = {**elements, "pages": {"kind": "shared", "status": "planned", "what": "An invented element not built yet."}}
+    monkeypatch.setattr(process_packs.cfg, "load", lambda name, *a, **k: {"elements": listed} if name == process_packs.ELEMENTS
+                        else real(name, *a, **k))
     data = _it_quote()
-    _tab(data, "history")["elements"].append({"type": "form", "step": "match"})
+    _tab(data, "history")["elements"].append({"type": "pages"})
     _tab(data, "history")["elements"].append({"type": "actions", "step": "match"})  # 261 (B1e): any step's, now built
+    _tab(data, "history")["elements"].append({"type": "form", "step": "match"})  # 261 (B1g)
     problems = _problems(data)
-    assert any("tab 'history': screen element 'form' is planned, not built" in p for p in problems), problems
-    assert not any("'actions'" in p for p in problems), problems
+    assert any("tab 'history': screen element 'pages' is planned, not built" in p for p in problems), problems
+    assert not any("'actions'" in p or "'form'" in p for p in problems), problems
 
 
 @pytest.mark.parametrize(("element", "expected"), [
