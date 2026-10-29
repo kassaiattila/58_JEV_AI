@@ -929,7 +929,7 @@
     "jav/cli/cli_options.py": 1,
     "jav/cli/maintenance_cli.py": 38,
     "jav/cli/measure_cli.py": 25,
-    "jav/cli/work_cli.py": 57,
+    "jav/cli/work_cli.py": 56,
     "jav/core/calls.py": 3,
     "jav/core/cfg.py": 3,
     "jav/core/config.py": 5,
