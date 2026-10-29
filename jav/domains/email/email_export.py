@@ -4,8 +4,9 @@ Plain-language summary: a run's or a package's result holds its emails beside it
 email items as the downloads show them (058 K5.1: the email's data, the recognised intent with the manual correction,
 the suggested next step, the attachments' recognition and how much of the email's text the recognition saw), their
 task proposals one per row (058 K5.3, with the person's decision), and builds the two sheets of the result's workbook,
-the emails and the tasks, with their Hungarian headers. The email domain registers it as an item kind's part of a
-result (`jav/app/outputs/parts.py` `ItemPart`), so the shared export writes it before the documents as it always did.
+the emails and the tasks, with their headers in the requesting interface's language (231, D4). The email domain
+registers it as an item kind's part of a result (`jav/app/outputs/parts.py` `ItemPart`), so the shared export writes it
+before the documents as it always did.
 
 Layer: application operation (a read view) → `jav.domains.email.emails`, `jav.domains.email.mailbox`, `jav.app.corrections`, `jav.app.work`.
 """
@@ -70,15 +71,15 @@ def task_rows(mails: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
-EMAIL_HEAD = ["Tárgy", "Feladó", "Érkezett", "Postafiók", "Szándék", "Gépi szándék", "Valószínűség", "Javítva",
-              "Javasolt következő lépés", "Csatolmányok", "Levél szövege", "Levél hossza (karakter)", "Nyitott teendők", "Tétel-azonosító"]
+EMAIL_HEAD = ["Subject", "From (column)", "Received", "Mailbox", "Intent", "Machine intent", "Probability", "Corrected (column)",
+              "Suggested next step", "Attachments", "Email text", "Email length (characters)", "Open to-dos", "Item ID"]
 # 178 (plan 170 L4): the column keys of the email sheets (`configs/outputs.json` `package_result`), in header order
 EMAIL_COLUMNS = ("subject", "sender", "received_at", "mailbox", "intent", "machine_intent", "confidence", "corrected", "next_flow",
                  "attachments", "body_status", "body_chars", "open_reasons", "item_id")
 TASK_COLUMNS = ("subject", "action", "title", "due_date", "assignee_hint", "evidence", "decision", "decided_by", "done_at", "done_by",
                 "item_id")
-TASK_HEAD = ("Levél", "Akció", "Feladat", "Határidő", "Felelős", "Bizonyíték", "Döntés", "Döntött", "Elvégezve", "Elvégezte",
-             "Tétel-azonosító")
+TASK_HEAD = ("Email (column)", "Action (column)", "Task", "Deadline", "Assignee", "Evidence", "Decision", "Decided by", "Done (column)", "Done by",
+             "Item ID")
 
 
 def emails_table(records: list[dict[str, Any]]) -> tuple[list[str], list[list[Any]]]:
@@ -92,26 +93,26 @@ def emails_table(records: list[dict[str, Any]]) -> tuple[list[str], list[list[An
     # 231 (D4): the type's name in the request's language
     att = lambda a: f"{a.get('filename')} ({field_names.type_name(shown(a)) or a.get('status') or '–'})"  # noqa: E731
     rows = [[r["subject"], r["sender"], r["received_at"], r["mailbox"], mailbox.intent_name(r["intent"]),
-             mailbox.intent_name(r["machine_intent"]), r["confidence"], "igen" if r["corrected"] else "",
+             mailbox.intent_name(r["machine_intent"]), r["confidence"], display.text("yes") if r["corrected"] else "",
              # 231 (D4): the captions in the request's language (a type's step is made in it already)
              display.text(flows.get(r["next_flow"] or "", r["next_flow"] or "")), ", ".join(att(a) for a in r["attachments"]),
              display.text(body.get(r["body"]["status"], r["body"]["status"])), r["body"]["chars"], "; ".join(r["open_reasons"]), r["item_id"]]
             for r in records]
-    return EMAIL_HEAD, rows
+    return [display.text(h) for h in EMAIL_HEAD], rows  # 231 (D4): the request's language
 
 
 def result_tables(mails: list[dict[str, Any]]) -> tuple[contract.Table, ...]:
     """058 K5.1: the email items on their own sheet; 058 K5.3: the task proposals on a separate sheet, with the
     decision, when there is one."""
     head, rows = emails_table(mails)
-    tables = [contract.table("emails", "Levelek", EMAIL_COLUMNS, head, rows)]
+    tables = [contract.table("emails", display.text("Emails"), EMAIL_COLUMNS, head, rows)]
     tasks = task_rows(mails)
     if tasks:
         actions = cfg.load("email_tasks")["actions"]
-        decisions = {"accepted": "elfogadva", "rejected": "elvetve"}
-        tables.append(contract.table("tasks", "Feladatok", TASK_COLUMNS, TASK_HEAD,
+        decisions = {"accepted": display.text("accepted"), "rejected": display.text("rejected")}
+        tables.append(contract.table("tasks", display.text("Tasks"), TASK_COLUMNS, [display.text(h) for h in TASK_HEAD],
                                      [[t["subject"], actions.get(t["action"], t["action"]), t["title"], t["due_date"], t["assignee_hint"],
-                                       t["evidence"], decisions.get(t["decision"] or "", "vár döntésre"), t["decided_by"], t["done_at"],
+                                       t["evidence"], decisions.get(t["decision"] or "", display.text("awaiting a decision")), t["decided_by"], t["done_at"],
                                        t["done_by"], t["item_id"]] for t in tasks]))
     return tuple(tables)
 

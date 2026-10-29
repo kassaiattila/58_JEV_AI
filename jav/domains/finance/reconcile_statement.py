@@ -277,7 +277,11 @@ def accept_sources(wp_id: str, doc_ids: Iterable[str], *, actor: identity.Who, e
 
 
 def _labels() -> dict[str, Any]:
-    return cfg.load("reports")["reconcile_statement"]
+    """The statement's labels in the request's language (231, D4: the config holds their English sources); the file
+    name's parts as they are."""
+    lab = cfg.load("reports")["reconcile_statement"]
+    return {k: v if k == "file" else display.text(v) if isinstance(v, str) else {n: display.text(t) for n, t in v.items()}
+            for k, v in lab.items()}
 
 
 def _yes_no(value: Any, lab: dict[str, Any]) -> str | None:

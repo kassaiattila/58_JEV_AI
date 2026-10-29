@@ -95,7 +95,9 @@ def _mails() -> list[dict]:
              "open_reasons": [], "tasks": {"tasks": [task]}, "source_status": "same"}]
 
 
-# The parts of each workbook on 5b4ca9c.
+# The parts of each workbook on 5b4ca9c. 231 (D4): the documents sheets (3, 4) show the domain columns' headers in
+# Hungarian too ("Ismétlődés", "Azonos ezzel", "Irány" instead of "Duplicate", "Duplicate of", "Direction"); every
+# other part is as it was.
 RESULT_PARTS = {
     "[Content_Types].xml": "8920c6c45c2b4be7",
     "_rels/.rels": "c545941ba36c15fc",
@@ -106,8 +108,8 @@ RESULT_PARTS = {
     "xl/workbook.xml": "28c40aaa5d422190",
     "xl/worksheets/sheet1.xml": "39103a698d1e3b0b",
     "xl/worksheets/sheet2.xml": "cb612e42da98d5a3",
-    "xl/worksheets/sheet3.xml": "4fbc06eab5937150",
-    "xl/worksheets/sheet4.xml": "77395c2030bfac0d",
+    "xl/worksheets/sheet3.xml": "3bedda718843f5a9",
+    "xl/worksheets/sheet4.xml": "cf1a1b030f467a01",
     "xl/worksheets/sheet5.xml": "633d372acc7b0dbd",
     "xl/worksheets/sheet6.xml": "503809b154a30e2d",
     "xl/worksheets/sheet7.xml": "9127cbfb5c0aaf38",

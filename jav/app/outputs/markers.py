@@ -2,7 +2,7 @@
 
 Plain-language summary: a person writes markers into their own Excel file, and the system fills them in. The names are
 the output contract's English keys (`configs/outputs.json`, the owner's decision of 2026-10-19); the settings page lists
-them with their Hungarian labels. Five kinds:
+them with their labels in the interface's language. Five kinds:
 - `{{package}}` - one value of the output;
 - `{{invoices.amount}}` - a column of a table, written once per row: the row holding it is repeated for every row of
   the table, with that row's formatting; a table per document type is named by the type (`{{invoice_hu.gross_total}}`);

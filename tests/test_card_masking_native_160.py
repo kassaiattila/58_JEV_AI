@@ -13,7 +13,7 @@ from openpyxl import load_workbook
 
 from jav.app import corrections, export
 from jav.documents import native_results
-from jav.core import card_numbers, store
+from jav.core import card_numbers, display, store
 from tests.test_native_review_api_109 import published_run
 
 CARD = " ".join(["4111"] + ["1111"] * 3)  # the schemes' published test number
@@ -33,7 +33,7 @@ def test_the_native_facts_csv_and_excel_sheet_mask_a_full_card_number(tmp_path):
         rid = _run_with_a_card_number(tmp_path)
         csv = export.render(rid, "csv", "native_facts")[0].decode("utf-8-sig")
         book = load_workbook(io.BytesIO(export.xlsx_bytes(rid)))
-        cells = [str(c.value) for row in book["Native facts"].iter_rows() for c in row if c.value is not None]
+        cells = [str(c.value) for row in book[display.text("Native facts")].iter_rows() for c in row if c.value is not None]
     assert FULL not in csv and MASKED in csv
     assert not any(FULL in c for c in cells) and any(MASKED in c for c in cells)
 

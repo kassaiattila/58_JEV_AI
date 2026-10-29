@@ -34,7 +34,7 @@ from typing import Any
 from jav.app import corrections, item_kinds, package_result, work_runs
 from jav.ai import typepack
 from jav.documents import native_results
-from jav.core import card_numbers, cfg, store
+from jav.core import card_numbers, cfg, display, store
 from jav.app.outputs import builtin, contract, parts
 
 NUMBER = re.compile(r"^-?\d[\d\s.,]*$")
@@ -188,7 +188,7 @@ def _field_reason(reasons: list[str], field: str) -> bool:
 # --- tables ----------------------------------------------------------------------------------------------------
 
 # the documents table's general columns; the columns a domain adds follow them (`document_head`, `document_columns`)
-DOC_HEAD = ["Irat", "Tétel-azonosító", "Típus", "Út", "Állapot", "Nyitott teendők", "Forrás-levél"]
+DOC_HEAD = ["Document (column)", "Item ID", "Type", "Path", "Status", "Open to-dos", "Source email"]
 
 
 def document_head() -> list[str]:
@@ -219,9 +219,9 @@ def documents_table(records: list[dict[str, Any]], doc_type: str | None = None) 
     return document_head() + fields, rows
 
 
-DATAPOINT_HEAD = ("Irat", "Tétel-azonosító", "Típus", "Mező", "Érték", "Oldal", "Forrásszöveg", "Hely", "Javítva", "Teendő a mezőn")
-LINE_HEAD = ("Irat", "Tétel-azonosító", "Típus", "Lista", "Sor", "Oldal")
-LIST_VALUE = "érték"  # the column of a list whose rows are single values
+DATAPOINT_HEAD = ("Document (column)", "Item ID", "Type", "Field", "Value", "Page", "Source text", "Location", "Corrected (column)", "To-do on the field")
+LINE_HEAD = ("Document (column)", "Item ID", "Type", "List", "Row", "Page")
+LIST_VALUE = "value"  # the column of a list whose rows are single values
 
 
 def datapoints_table(records: list[dict[str, Any]]) -> tuple[list[str], list[list[Any]]]:
@@ -322,11 +322,13 @@ def result_data(records: list[dict[str, Any]], items: Mapping[str, list[dict[str
     readings, each item kind's part (185: `items`, by the part's name; the emails and their tasks, `jav/domains/email/email_export.py`),
     the documents by type, the data points, the line items, then each domain's result part (180: the utility cost's
     sheets and its grand total, `jav/domains/finance/__init__.py`); `values`: the package's (`package_values`)."""
+    # 231 (D4): the fixed headers, the sheet names and the marks in the requesting interface's language; a type's
+    # fields and a list's columns keep their keys
     tables: list[contract.Table] = []
     if native:
         head, rows = native_facts_table(native)
-        tables.append(_table("native_facts", "Native facts", NATIVE_COLUMNS, head, rows))
-        tables.append(_table("native_readings", "Native readings", NATIVE_READING_COLUMNS, NATIVE_READING_HEAD,
+        tables.append(_table("native_facts", display.text("Native facts"), NATIVE_COLUMNS, _shown(head), rows))
+        tables.append(_table("native_readings", display.text("Native readings"), NATIVE_READING_COLUMNS, _shown(NATIVE_READING_HEAD),
                              [[record["file"], record["item_id"], record["reading"]["status"],
                                record["interpretation_outcome"]["status"], record["result_version"],
                                json.dumps(record["reading"], ensure_ascii=False, sort_keys=True)] for record in native]))
@@ -341,10 +343,10 @@ def result_data(records: list[dict[str, Any]], items: Mapping[str, list[dict[str
         kinds = next(r["kinds"] for r in records if r["doc_type"] == doc_type)
         fixed = document_columns()
         fields = head[len(fixed):]
-        tables.append(_table("documents", doc_type, fixed + tuple(fields), head, rows,
+        tables.append(_table("documents", doc_type, fixed + tuple(fields), *shown_table("documents", head, rows),
                              [None] * len(fixed) + [kinds.get(h) for h in fields], part=doc_type))
-    head, rows = datapoints_table(records)
-    tables.append(_table("datapoints", "Adatpontok", DATAPOINT_COLUMNS, head, rows))
+    tables.append(_table("datapoints", display.text("Data points"), DATAPOINT_COLUMNS,
+                         *shown_table("datapoints", *datapoints_table(records))))
     head, rows = line_items_table(records)
     list_kinds: dict[str, str] = {}
     for r in records:
@@ -352,7 +354,7 @@ def result_data(records: list[dict[str, Any]], items: Mapping[str, list[dict[str
         for lf in pack.list_fields.values():
             for c, k in lf.items():
                 list_kinds.setdefault(c, k)
-    tables.append(_table("line_items", "Tételsorok", LINE_COLUMNS + tuple("value" if c == LIST_VALUE else c for c in head[6:]), head, rows,
+    tables.append(_table("line_items", display.text("Line items"), LINE_COLUMNS + tuple(head[6:]), *shown_table("line_items", head, rows),
                          [None] * 6 + [list_kinds.get(h) for h in head[6:]]))
     added: list[contract.Value] = []
     for part in parts.result_parts():
@@ -367,8 +369,26 @@ def package_values(wp: dict[str, Any], version: dict[str, Any] | None = None) ->
     when (empty for the current result)."""
     v = version or {}
     at = (v.get("released_at") or "")[:16].replace("T", " ")
-    return (contract.Value("package", "Köteg", wp["name"]), contract.Value("version", "Változat", str(v.get("version") or "")),
-            contract.Value("released_by", "Kiadta", v.get("released_by") or ""), contract.Value("released_at", "Kiadva", at))
+    labels = [display.text(s) for s in ("Batch", "Version", "Released by", "Released")]  # 231 (D4): the request's language
+    return (contract.Value("package", labels[0], wp["name"]), contract.Value("version", labels[1], str(v.get("version") or "")),
+            contract.Value("released_by", labels[2], v.get("released_by") or ""), contract.Value("released_at", labels[3], at))
+
+
+def _shown(head: Any) -> list[str]:
+    """231 (D4): fixed headers (English sources) in the request's language."""
+    return [display.text(h) for h in head]
+
+
+def shown_table(table: str, head: list[str], rows: list[list[Any]]) -> tuple[list[str], list[list[Any]]]:
+    """231 (D4): a download's table (`TABLES`, the native facts) with its fixed headers and the data points' marks in
+    the request's language; a type's fields and a list's columns keep their keys (a plain list's items read as
+    "value"). The tables themselves keep the sources and the "igen" code, which the datasets use."""
+    fixed = {"documents": len(document_head()), "line_items": len(LINE_HEAD)}.get(table, len(head))
+    head = _shown(head[:fixed]) + [display.text(c) if table == "line_items" and c == LIST_VALUE else c for c in head[fixed:]]
+    if table == "datapoints":
+        yes = display.text("yes")
+        rows = [[*row[:8], *(yes if v == "igen" else v for v in row[8:])] for row in rows]
+    return head, rows
 
 
 def workbook_bytes(records: list[dict[str, Any]], items: Mapping[str, list[dict[str, Any]]], native: list[dict[str, Any]]) -> bytes:
@@ -423,6 +443,7 @@ def render(run_id: str, fmt: str, table: str = "documents") -> tuple[bytes, str,
     records = datasets.run_records(run_id)  # 056: cache shared with the tables and the utility report
     if fmt == "csv":
         head, rows = native_facts_table(native_records(run_id)) if table == "native_facts" else TABLES[table](records)
+        head, rows = shown_table(table, head, rows)
         return csv_bytes(head, rows), "text/csv; charset=utf-8", f"{run_id}-{table}.csv", len(rows)
     if fmt == "xlsx":
         return (xlsx_bytes(run_id, records), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -431,4 +452,5 @@ def render(run_id: str, fmt: str, table: str = "documents") -> tuple[bytes, str,
 
 
 __all__ = ["TABLES", "csv_bytes", "datapoints_table", "document_columns", "document_head", "documents_table", "item_rows",
-           "json_bytes", "json_parts", "line_items_table", "render", "result_data", "run_records", "workbook_bytes", "xlsx_bytes"]
+           "json_bytes", "json_parts", "line_items_table", "render", "result_data", "run_records", "shown_table", "workbook_bytes",
+           "xlsx_bytes"]

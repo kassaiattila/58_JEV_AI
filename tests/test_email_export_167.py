@@ -13,6 +13,7 @@ from openpyxl import load_workbook
 
 from jav.domains.email import email_export, mailbox
 from jav.app import export
+from jav.core import display
 from tests.test_audit_fixes_1002 import _reviewed_email
 from tests.test_mailbox import env  # noqa: F401 - `env` is a fixture
 
@@ -28,7 +29,7 @@ def test_an_email_run_has_its_emails_and_its_decided_tasks_on_their_own_sheets(e
     assert list(sheets) == ["Levelek", "Feladatok"]  # emails only: no document, datapoint or utility sheet
 
     head, *mails = sheets["Levelek"]
-    assert head == email_export.EMAIL_HEAD
+    assert head == [display.text(h) for h in email_export.EMAIL_HEAD]  # 231 (D4): the request's language
     by_subject = {row[0]: dict(zip(head, row)) for row in mails}
     assert sorted(by_subject) == ["Kérdés", "Számla 2026/09"]
     question = by_subject["Kérdés"]

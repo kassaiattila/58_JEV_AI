@@ -93,3 +93,27 @@ def test_every_dataset_caption_is_an_english_source_the_dictionary_shows_in_hung
     assert len(sources) > 300
     assert [s for s in sources if accented.search(s)] == []
     assert sorted({s for s in sources if s not in hungarian}) == []
+
+
+def test_a_download_is_written_in_the_request_s_language(tmp_path):
+    """D4/5: a result's sheet names, fixed headers and marks, and the reconciliation statement's labels, in the
+    requesting interface's language (the owner's decision); a type's fields keep their keys."""
+    from jav.app import export
+    from jav.core import store
+    from jav.domains.finance import reconcile_statement
+    from tests import test_characterisation_178 as c178
+
+    with store.use_store(tmp_path / "s.sqlite"):
+        hungarian = export.result_data(c178._records(), {"emails": c178._mails()}, [])
+        with display.use("en"):
+            english = export.result_data(c178._records(), {"emails": c178._mails()}, [])
+    assert [t.title for t in hungarian.tables][:2] == ["Levelek", "Feladatok"]
+    assert [t.title for t in english.tables][:2] == ["Emails", "Tasks"]
+    hu_heads, en_heads = ({t.key: t.head for t in d.tables} for d in (hungarian, english))
+    assert hu_heads["datapoints"][:4] == ("Irat", "Tétel-azonosító", "Típus", "Mező")
+    assert en_heads["datapoints"][:4] == ("Document", "Item ID", "Type", "Field")
+    assert en_heads["documents"][7:11] == ("Duplicate", "Duplicate of", "Direction", "supplier_name")
+    with display.use("en"):
+        assert reconcile_statement._labels()["sheets"] == {"invoices": "Invoices", "lines": "Items"}
+        assert reconcile_statement._labels()["file"]["prefix"] == "egyeztetes"  # a file name's parts: slice 7
+    assert reconcile_statement._labels()["sheets"] == {"invoices": "Számlák", "lines": "Tételek"}
