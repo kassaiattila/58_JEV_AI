@@ -210,7 +210,8 @@ def field_equal_lenient(field: str, got: Any, expected: Any, kind: str) -> bool:
 
 
 def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True, *, type_key: str) -> dict[str, tuple[int, int]]:
-    from jav.ai.candidates import find_all, find_currencies
+    from jav.ai.candidates import find_currencies
+    from jav.ai.jev_select import find_candidates as s_path_candidates, s_path_profile
     from jav.documents.pdf import read_document
 
     pack = get_pack(type_key)
@@ -224,8 +225,8 @@ def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True
         if pdf.text_source is None:
             misses.append(f"{case.case_id}: nincs szöveg (szövegréteg és OCR sem)")
             continue
-        cands = find_all(pdf.layout, pack.candidate_profile, text_labels=pack.text_labels)
-        currencies = find_currencies(pdf.layout, pack.candidate_profile)
+        cands = s_path_candidates(pdf.layout, pack)  # 231 (F2c): the S path's profile and whole-line texts
+        currencies = find_currencies(pdf.layout, s_path_profile(pack))
         for kind, items in cands.items():
             counts[kind].append(len(items))
         for field in pack.scored_fields:
@@ -233,7 +234,7 @@ def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True
             if expected is None:
                 continue
             kind = pack.kind(field)
-            if kind == "country" or (kind == "text" and field not in pack.text_labels):
+            if kind == "country" or (kind == "text" and field not in pack.text_labels and field not in pack.text_lines):
                 continue  # closed Choice list (country, payment method, reading method), not from candidates - recall is undefined here
             totals[field] += 1
             if kind == "currency":

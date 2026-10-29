@@ -14,6 +14,9 @@ What the pack contains (a mirror of the legacy 10_AIFLOW_V4 `types/<key>/` pack,
   extension, `utility` = the OCR-tolerant set for Hungarian utility bills);
 - `text_labels` (2026-09-20, utility round): the labels of the free-text fields (`text` kind) on the document (a regex
   list per field) - the labelled text finder (`candidates.find_labelled_text`) yields candidates from it, JEV chooses;
+- `text_lines` (231, F2c): a `text` field whose value is a whole printed cell, such as a document's title (a regex list
+  per field): every cell one of them finds is a candidate (`candidates.find_line_text`); the S path's only, so the G
+  path's evidence search keeps reading the labelled texts alone;
 - `prompt_note` (122): instructions added after the prompt file on the G path, so a variant pack (the pro forma
   invoice) reuses another pack's verbatim prompt without copying it (`jav.ai.extract_llm.instructions`);
 - `inputs` (190, plan 189 A2b): the kinds of input the pack takes: `pdf` (the default, every pack before 190), `text`
@@ -86,6 +89,7 @@ class TypePack(BaseModel):
     high_stakes: tuple[str, ...] = ()
     validators: tuple[dict[str, Any], ...] = ()
     text_labels: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # `text`-kind field -> label regexes (finder)
+    text_lines: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # 231 (F2c): `text`-kind field -> whole-cell regexes
     list_fields: dict[str, dict[str, str]] = Field(default_factory=dict)  # 047: `list` field -> item field -> kind ({"*": kind}: plain list)
     enums: dict[str, tuple[Any, ...]] = Field(default_factory=dict)  # 047: `field` / `field[].item` -> allowed values
     config_hash: str
@@ -251,6 +255,9 @@ def get(key: str) -> TypePack:
     unknown_labels = [f for f in text_labels if fields.get(f) != "text"]
     if unknown_labels:
         raise ValueError(f"{key}.text_labels: csak `text` fajtájú mezőhöz adható címke: {unknown_labels}")
+    text_lines = {**{f: tuple(v) for f, v in base.get("text_lines", {}).items()}, **{f: tuple(v) for f, v in data.get("text_lines", {}).items()}}
+    if unknown_lines := [f for f in text_lines if fields.get(f) != "text"]:
+        raise ValueError(f"{key}.text_lines: only a `text` field takes whole-line candidates: {unknown_lines}")
     list_fields = {**{f: dict(v) for f, v in base.get("list_fields", {}).items()}, **{f: dict(v) for f, v in data.get("list_fields", {}).items()}}
     bad_lists = [f for f in list_fields if fields.get(f) != "list"] + [f for f, k in fields.items() if k == "list" and f not in list_fields]
     bad_items = [f"{f}.{sub}:{k}" for f, v in list_fields.items() for sub, k in v.items() if k in ("list",) or k not in KINDS]
@@ -300,6 +307,7 @@ def get(key: str) -> TypePack:
         high_stakes=lists["high_stakes"],
         validators=validators,
         text_labels=text_labels,
+        text_lines=text_lines,
         list_fields=list_fields,
         enums=enums,
         config_hash=cfg.combine(cfg.config_hash(*type_names), *(cfg.file_digest(PROMPTS_DIR / f) for f in prompt_files)),

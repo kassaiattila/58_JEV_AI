@@ -1,12 +1,17 @@
 {
  "meta": {
   "name": "candidate_profiles",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "changelog": [
    {
     "version": "1.0.0",
     "date": "2026-10-29",
     "note": "231 (stage F, F2; the owner's decisions of 2026-10-29: the full move into a data file): the S path's candidate finder's patterns, limits and profiles, until now constants of jav/ai/candidates.py, moved here unchanged (every pattern's text and flags are pinned in tests/test_candidate_profiles_231.py; the S path's requests and the candidates in tests/test_select_keys_231.py). A profile names its patterns by key; two switches replace a profile name the code used to compare: `name_fallback_combined` (the `hu` profile's combined name fallback limit) and `evidence_intl` (the G path's evidence reads numbers in the international forms). A new profile is data alone; a type pack names it in `candidate_profile`."
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-10-29",
+    "note": "231 (F2c; the owner's decision of 2026-10-29: the terms and conditions' S path): the `terms` profile, the international one with the party labels of a seller's terms and conditions (`party_label_terms`). Read only by the terms and conditions' S path (its select call site names it); every other profile is unchanged."
    }
   ]
  },
@@ -216,6 +221,10 @@
   "name_tail_separator": {
    "regex": "^\\s*[,\\-–—:|/]",
    "note": "129: a remark after a name starts after a separator."
+  },
+  "party_label_terms": {
+   "regex": "(?i)^(?:szállító|eladó|kibocsátó|kiállító|vevő|vásárló|ügyfél|megrendelő|szolgáltató|számlafizető|supplier|seller|buyer|customer|vendor|client|from|bill(?:ed)?\\s+to|sold\\s+to|ship\\s+to|invoice\\s+to|remit\\s+to|issued\\s+by|sayın|cégnév|cég\\s+neve|üzlet\\s+üzemeltetője|üzemeltetője|üzemeltető)(?!\\w)\\s*(?:neve|name)?\\s*[:：]?\\s*",
+   "note": "231 (F2c): the international party labels and those of a seller's terms and conditions: the company name ('Cégnév:') and the operator of a shop ('Üzlet üzemeltetője:')."
   }
  },
  "currency_tokens": {
@@ -308,6 +317,33 @@
    "invoice_lookahead": 2,
    "ocr_taxid": true,
    "max_money_options": 100,
+   "name_fallback_combined": false,
+   "evidence_intl": true
+  },
+  "terms": {
+   "intl": true,
+   "legal_form": "legal_form_intl",
+   "party_label": "party_label_terms",
+   "label_only": "label_only_intl",
+   "invoice_label": "invoice_label_intl",
+   "money": "money_intl",
+   "address_label": null,
+   "taxid_label": "taxid_label_intl",
+   "currency_tokens": "intl",
+   "extra_iban": [
+    "iban_intl"
+   ],
+   "extra_taxid": [
+    "taxid_eu_intl"
+   ],
+   "name_cut_after_legal_form": true,
+   "reverse_charge_zero": true,
+   "intl_addresses": true,
+   "ocr_dates": false,
+   "short_dates": true,
+   "invoice_lookahead": 1,
+   "ocr_taxid": false,
+   "max_money_options": 250,
    "name_fallback_combined": false,
    "evidence_intl": true
   }

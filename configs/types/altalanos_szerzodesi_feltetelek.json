@@ -1,12 +1,17 @@
 {
  "meta": {
   "name": "type:altalanos_szerzodesi_feltetelek",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "changelog": [
    {
     "version": "1.0.0",
     "date": "2026-09-28",
     "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-10-29",
+    "note": "231 (F2c; the owner's decision of 2026-10-29): an S path beside the G path, described by data alone: the select call site `select_altalanos_szerzodesi_feltetelek` (it reads with the `terms` candidate profile), and the title as a whole printed line (`text_lines`, short lines naming terms and conditions). The G path stays the default and its requests are unchanged (its verify call site keeps its own glossary)."
    }
   ],
   "source": {
@@ -25,6 +30,7 @@
  "golden_type_key": "altalanos_szerzodesi_feltetelek",
  "candidate_profile": "intl",
  "arms": [
+  "S",
   "G"
  ],
  "parent": "contract",
@@ -54,7 +60,7 @@
  },
  "prompt_file": "altalanos_szerzodesi_feltetelek_prompt.md",
  "schema_file": "altalanos_szerzodesi_feltetelek_schema.json",
- "select_callsite": null,
+ "select_callsite": "select_altalanos_szerzodesi_feltetelek",
  "verify_callsite": "verify_altalanos_szerzodesi_feltetelek",
  "fields": {
   "document_title": "text",
@@ -75,5 +81,13 @@
  "informational_fields": [],
  "required": [],
  "validators": [],
- "legacy_transforms": []
+ "legacy_transforms": [],
+ "default_arm": "G",
+ "text_lines": {
+  "document_title": [
+   "^.{0,40}szerz[őo]d[ée]si\\s+felt[ée]telek.{0,30}$",
+   "^.{0,20}(?:[üu]zleti|felhaszn[áa]l[áa]si|v[áa]s[áa]rl[áa]si)\\s+felt[ée]telek.{0,30}$",
+   "^.{0,20}terms\\s+(?:and|&)\\s+conditions.{0,20}$"
+  ]
+ }
 }

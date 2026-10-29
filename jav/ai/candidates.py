@@ -748,14 +748,30 @@ def find_labelled_text(lines: list[LineLayout], field: str, labels: tuple[str, .
     return bucket.items()
 
 
+def find_line_text(lines: list[LineLayout], patterns: tuple[str, ...] | list[str]) -> list[Candidate]:
+    """231 (F2c): candidates of a text field whose value is a whole printed cell (type pack `text_lines`), such as a
+    document's title: every cell one of the patterns finds, as printed (spaces closed up, at most `TEXT_VALUE_MAX`)."""
+    bucket = _Bucket("text")
+    regexes = [re.compile(p, re.IGNORECASE) for p in patterns]
+    for i, ln in enumerate(lines):
+        for cell in ln.cells:
+            if any(rx.search(cell.text) for rx in regexes):
+                text = " ".join(cell.text.split())[:TEXT_VALUE_MAX].strip(_TEXT_STRIP)
+                if len(text) >= 2:
+                    bucket.add(text, cell.text, lines, i)
+    return bucket.items()
+
+
 # --- entry point -----------------------------------------------------------------------
 
 
 def find_all(
-    lines: list[LineLayout], profile: str | Profile | None = None, text_labels: dict[str, tuple[str, ...]] | None = None
+    lines: list[LineLayout], profile: str | Profile | None = None, text_labels: dict[str, tuple[str, ...]] | None = None,
+    text_lines: dict[str, tuple[str, ...]] | None = None,
 ) -> dict[str, list[Candidate]]:
     """Every candidate kind according to the given profile (`hu` by default = the original Hungarian-invoice behaviour).
-    `text_labels` (type pack): labelled text candidates per field under the key `text:<field>`."""
+    `text_labels` (type pack): labelled text candidates per field under the key `text:<field>`; 231 (F2c) `text_lines`:
+    whole cells as candidates of a field, after its labelled ones under the same key."""
     prof = profile_of(profile)
     work = [ln.text for ln in lines]
     convention = document_convention(work)  # 081: the document's own number notation
@@ -770,6 +786,10 @@ def find_all(
     out["quantity"] = find_quantities(lines, prof, convention)
     for key, labels in (text_labels or {}).items():
         out[f"text:{key}"] = find_labelled_text(lines, key, labels)
+    for key, patterns in (text_lines or {}).items():
+        found = out.get(f"text:{key}", [])
+        seen = {c.label for c in found}
+        out[f"text:{key}"] = found + [c for c in find_line_text(lines, patterns) if c.label not in seen]
     return out
 
 

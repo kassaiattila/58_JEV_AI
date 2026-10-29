@@ -72,7 +72,8 @@ def test_every_pattern_has_a_note_and_every_profile_names_known_patterns():
 
 def test_two_switches_of_the_profile_replace_its_name():
     assert [p.name for p in candidates.PROFILES.values() if p.name_fallback_combined] == ["hu"]
-    assert {p.name: p.evidence_intl for p in candidates.PROFILES.values()} == {"hu": False, "intl": True, "utility": True}
+    assert {p.name: p.evidence_intl for p in candidates.PROFILES.values()} == {"hu": False, "intl": True, "utility": True,
+                                                                                "terms": True}  # F2c
     assert site_for("invoice_hu").intl is False and site_for("viz_szamla").intl is True
     assert "candidate_profiles" in site_for("invoice_hu").hash_names
 

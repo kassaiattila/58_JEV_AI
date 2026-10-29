@@ -5,7 +5,8 @@ request: otherwise every S path golden set would need a paid re-measurement. The
 S path, the fingerprint of the JEV requests its selection sends (the JEV cache keys: the state with the candidate
 options and the questions), and for every candidate profile the candidates the finders offer, on synthetic documents
 written into a PDF and read back as a work run reads them: the synthetic golden cases (configs/golden_synthetic.json)
-and an invented utility bill. Pinned on `2cb7b31`, before the move. Synthetic values only; no model call.
+and an invented utility bill. Pinned on `2cb7b31`, before the move; the terms and conditions' S path and its `terms`
+profile (F2c) on an invented web shop's terms when they were added. Synthetic values only; no model call.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from typesafe_sdk import Choice, Noul
 from jav.ai import typepack
 from jav.ai.candidates import PROFILES, find_all
 from jav.ai.jev import request_hash
-from jav.ai.jev_select import site_for
+from jav.ai.jev_select import find_candidates, s_path_profile, site_for
 from jav.ai.policy import NONE_LABEL
 from jav.core import cfg
 from jav.documents.pdf import read_pdf
@@ -46,16 +47,29 @@ UTILITY_BILL = [  # an invented water bill, its labels as a utility bill prints 
     "Mérőállás: 1234,5 m3   Korrekciós tényező: 1,0000",
 ]
 
+TERMS = [  # invented general terms and conditions of a web shop (231, F2c: the `terms` profile)
+    "Általános Szerződési Feltételek",
+    "Fogyasztók részére",
+    "Hatályos: 2026. március 1-től",
+    "Cégnév: Minta Webáruház Korlátolt Felelősségű Társaság",
+    "Székhely: 1111 Budapest, Teszt utca 1.   Adószám: 12121216-2-42",
+    "1. A jelen Általános Szerződési Feltételek a Minta Webáruház és a Vevő jogait és kötelezettségeit tartalmazzák.",
+    "2. Az Eladó a megrendelést három munkanapon belül teljesíti.",
+    "1/3 oldal",
+]
+
 S_PACKS = sorted(k for k in typepack.keys() if "S" in typepack.get(k).arms)
 
 # the first 16 hexadecimal digits of each fingerprint on `2cb7b31`
 SELECT_KEYS = {
+    "altalanos_szerzodesi_feltetelek": "6d592cf7ba6ae7d8",  # F2c, when it was added
     "csatorna_szamla": "b61926e4f8293edc", "foldgaz_szamla": "2deddea27efb0824", "invoice_foreign": "252275f3a774ca10",
     "invoice_hu": "58a7d4ce2f773677", "invoice_out": "0ced44c4d2788876", "mohu_szamla": "eb50cff9474b13bd",
     "proforma_invoice": "58a7d4ce2f773677", "villamos_energia_szamla": "22beb4e9d412b5a5", "viz_szamla": "aecf7385ca096b74",
     "vizmuvek_szamla": "909132b3c4bcd0e8",
 }
-CANDIDATE_KEYS = {"hu": "de00dc6e2e01f24e", "intl": "b441ff11b81ae63b", "utility": "32dbb3ae9982887e"}
+CANDIDATE_KEYS = {"hu": "de00dc6e2e01f24e", "intl": "b441ff11b81ae63b", "utility": "32dbb3ae9982887e",
+                  "terms": "b885976a365233ec"}  # F2c, when it was added
 
 
 def _documents() -> dict[str, list[list[str]]]:
@@ -65,6 +79,7 @@ def _documents() -> dict[str, list[list[str]]]:
     for case in cases:
         by_profile[typepack.get(case["type_key"]).candidate_profile].append(list(case["rows"]))
     by_profile["utility"].append(UTILITY_BILL)
+    by_profile["terms"].append(TERMS)
     return by_profile
 
 
@@ -96,9 +111,8 @@ def _digest(value: object) -> str:
 def select_key(key: str, folder: str) -> str:
     pack = typepack.get(key)
     jev = _Jev()
-    for layout in _layouts(pack.candidate_profile, folder):
-        cands = find_all(layout, pack.candidate_profile, text_labels=pack.text_labels)
-        site_for(key).select_fields(jev, layout, cands, run_id="select-keys-231")
+    for layout in _layouts(s_path_profile(pack), folder):  # 231 (F2c): the S path's own profile and candidates
+        site_for(key).select_fields(jev, layout, find_candidates(layout, pack), run_id="select-keys-231")
     return _digest(jev.sent)
 
 

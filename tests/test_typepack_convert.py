@@ -34,8 +34,9 @@ def test_every_legacy_type_converts_and_loads(key):
     assert pack["parent"] == OLD_MAP[key] and pack["auto_detect"] is (key not in PENDING)
     assert set(out["callsite"]["field_specs"]) == {f for f, k in pack["fields"].items() if k != "list"}
     loaded = typepack.get(key)  # the (converted) pack in the repo loads and matches the converter
-    # 151: the outgoing invoice has an S path of its own since; its automatic path stays the converted G path
-    arms = ("S", "G") if key == "invoice_out" else ("G",)
+    # 151: the outgoing invoice has an S path of its own since; 231 (F2c): the terms and conditions too; their automatic
+    # path stays the converted G path
+    arms = ("S", "G") if key in ("invoice_out", "altalanos_szerzodesi_feltetelek") else ("G",)
     assert dict(loaded.fields) == pack["fields"] and loaded.arms == arms
     assert typepack.resolve_arm(key, "auto") == "G"
 
