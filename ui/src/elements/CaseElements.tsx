@@ -7,7 +7,7 @@ import { api, ApiError, type ApprovalState, type CaseCost, type CaseEvent, type 
 import { ApprovalStateNotes, EarlierVersions, ReturnControl } from "../components/ApprovalPanel";
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { fileName, moneyText, providerName, saidText, stepLabel, tmap, when } from "../labels";
+import { fileName, MODE as MODE_OF_RUN, moneyText, providerName, RUN_STATUS, saidText, stepLabel, tmap, when } from "../labels";
 import { handoverStatus, replyStatus, subCaseStatus } from "./caseStatus";
 import type { ElementProps } from "./registry";
 
@@ -322,44 +322,66 @@ export function StartedCases({ element }: ElementProps) {
 
 const OUTCOME = tmap({ done: "done", cancelled: "cancelled", gone: "deleted" });
 
-/** 231 (stage U, U2c; the owner's decision of 2026-10-28: a chain is a multi-step process): a step that runs a case of
- *  another process, a sub-case: the sub-case linked with its state and its own next step (on the tab where it is done),
- *  the earlier ones that closed otherwise, and a stopped step's retry, which starts a new one. */
-export function SubCaseView(p: ElementProps) {
+/** 261 (B1a): a sub-case's work in a few words: its documents, its current run's open to-dos and the run's state. */
+export function workText(work: NonNullable<SubCaseData["case"]>["work"]): string | null {
+  const parts = (work ?? []).flatMap((w) => [
+    w.documents != null ? t("{{n}} documents", { n: w.documents }) : null,
+    w.todos != null ? (w.todos ? t("To-dos: {{n}}", { n: w.todos }) : t("no to-dos")) : null,
+    w.run ? `${MODE_OF_RUN[w.run.mode] ?? w.run.mode}: ${(w.run.approved ? t("approved") : RUN_STATUS[w.run.status] ?? t(w.run.status)).toLowerCase()}` : null,
+  ]).filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
+}
+
+/** 261 (plan B, B1b; the owner's decision of 2026-10-29: one sub-work table): a multi-step case's sub-cases as rows of
+ *  one table, each with its step, its state and why, its work and its case (with its own next step), and a stopped
+ *  step's retry. */
+export function SubWorkTable({ rows }: { rows: ElementProps[] }) {
   useLocale();
-  const d = p.element.data as SubCaseData | null;
-  if (!d) return loading;
-  const step = p.element.step ? p.page.steps[p.element.step] : undefined;
-  const title = step?.title ? t(step.title) : d.process ? t(d.process) : t("Sub-case");
-  const state = subCaseStatus(d);
-  const sub = d.case;
-  const next = sub?.next;
+  if (!rows.length) return null;
   const at = (id: string, tab?: string) => `#/cases/${encodeURIComponent(id)}${tab ? `/${encodeURIComponent(tab)}` : ""}`;
   return (
-    <section className="card" aria-label={title}>
-      <div className="card-head">
-        <h2>{title}</h2>
-        {state ? <span className={`status ${state.mark}`}>{state.text}</span> : null}
-      </div>
-      {sub ? (
-        <dl className="kv">
-          <FragmentRow label={t("Its case")} value={<a href={at(sub.id)}>{sub.name}</a>} />
-          <FragmentRow label={t("Process")} value={d.process ? t(d.process) : "–"} />
-          {next ? <FragmentRow label={t("Its next step")} value={<a href={at(sub.id, next.tab)}>{stepLabel(next.code, next.params, next.label)}</a>} /> : null}
-        </dl>
-      ) : (
-        <p className="muted small">{d.state === "waiting"
-          ? t("A case of the process {{process}} starts once the steps before it are done.", { process: d.process ? t(d.process) : "–" })
-          : t("A case of the process {{process}} starts.", { process: d.process ? t(d.process) : "–" })}</p>
-      )}
-      {d.earlier.length ? (
-        <p className="small muted">{t("Earlier cases of the step:")}{" "}
-          {d.earlier.map((e, i) => (
-            <span key={e.case_id}>{i ? ", " : ""}<a href={at(e.case_id)}>{OUTCOME[e.outcome] ?? e.outcome}</a></span>
-          ))}
-        </p>
-      ) : null}
-      <StepActions p={p} primary="retry" />
+    <section className="card wide" aria-label={t("Sub-work")}>
+      <div className="card-head"><h2>{t("Sub-work")}</h2></div>
+      <table className="table compact" aria-label={t("Sub-work")}>
+        <thead><tr><th>{t("Step")}</th><th>{t("State")}</th><th>{t("Work")}</th><th>{t("Its case")}</th><th aria-label={t("Actions")} /></tr></thead>
+        <tbody>
+          {rows.map((p) => {
+            const d = p.element.data as SubCaseData | null;
+            const step = p.element.step ? p.page.steps[p.element.step] : undefined;
+            const title = step?.title ? t(step.title) : d?.process ? t(d.process) : t("Sub-case");
+            // U1: a step a closed case never reached is not waiting any more
+            const never = p.page.case.status !== "open" && step && step.state !== "done" && step.state !== "failed";
+            const state = never ? { mark: "s-waiting", text: t("Did not run") } : subCaseStatus(d);
+            const sub = d?.case;
+            const next = sub?.next;
+            const why = never ? t("The case closed before this step ran.")
+              : !sub && d?.state === "waiting" ? t("Starts once the steps before it are done.")
+              : d?.state === "failed" && step?.note ? t(step.note) : null;
+            return (
+              <tr key={p.element.step ?? title} aria-label={title}>
+                <th scope="row">{title}{d?.process ? <div className="small muted">{t(d.process)}</div> : null}</th>
+                <td>
+                  {state ? <span className={`status ${state.mark}`}>{state.text}</span> : "–"}
+                  {next && sub ? <div className="small"><a href={at(sub.id, next.tab)}>{stepLabel(next.code, next.params, next.label)}</a></div> : null}
+                  {why ? <div className="small muted">{why}</div> : null}
+                </td>
+                <td className="small">{workText(sub?.work) ?? "–"}</td>
+                <td>
+                  {sub ? <a href={at(sub.id)}>{sub.name}</a> : "–"}
+                  {d?.earlier.length ? (
+                    <div className="small muted">{t("Earlier cases of the step:")}{" "}
+                      {d.earlier.map((e, i) => (
+                        <span key={e.case_id}>{i ? ", " : ""}<a href={at(e.case_id)}>{OUTCOME[e.outcome] ?? e.outcome}</a></span>
+                      ))}
+                    </div>
+                  ) : null}
+                </td>
+                <td><StepActions p={p} primary="retry" /></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </section>
   );
 }
