@@ -23,7 +23,10 @@ from jav.core import identity
 from jav.core.config import STORE_PATH
 from jav.core.clock import utc_stamp as _now
 
-SCHEMA_VERSION = 1
+# 231 (stage E, E3): the version of the store's layout this program sets up; a release raises it when it adds a
+# change an earlier program cannot work with (2: the work queue's claiming process, the defaults' and the letter
+# frames' versions). A store a newer program set up stops this one before it writes (`SchemaTooNew`).
+SCHEMA_VERSION = 2
 P = ParamSpec("P")
 R = TypeVar("R")
 _scoped_path: ContextVar[Path | None] = ContextVar("jav_scoped_store", default=None)
@@ -48,6 +51,25 @@ class StoreMissing(FileNotFoundError):
 
 class ForeignStore(RuntimeError):
     """231 (stage E, E2): the store belongs to another installation than the start-up description names."""
+
+
+class SchemaTooNew(RuntimeError):
+    """231 (stage E, E3): a newer program set the store up (its schema version is above this program's)."""
+
+
+def _schema_in(conn: sqlite3.Connection) -> int | None:
+    """The schema version a store records (None: none yet)."""
+    try:
+        row = conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
+    except sqlite3.OperationalError:
+        return None
+    return int(row[0]) if row and str(row[0]).isdigit() else None
+
+
+def _refuse_newer(path: str | Path, found: int | None) -> None:
+    if found is not None and found > SCHEMA_VERSION:
+        raise SchemaTooNew(f"a newer program set the store {path} up (schema version {found}, this program knows"
+                           f" {SCHEMA_VERSION}): start the newer program, or restore a backup made with this one")
 
 
 INSTALLATION_KEY = "installation_id"  # E2: the `meta` row naming the installation a store belongs to
@@ -79,14 +101,16 @@ def _refuse_foreign(path: str | Path, found: str | None, expected: str) -> None:
 def check_installation() -> None:
     """E2: at a long-running process's start, read only: the installation's store, when it names another installation
     than the start-up description, stops the start (`ForeignStore`); a new store, or one that names none yet, is
-    stamped when it is first set up."""
+    stamped when it is first set up. E3: so does a store a newer program set up (`SchemaTooNew`)."""
     from jav.core import config
 
     expected = config.INSTALLATION_ID
-    if expected is None or not STORE_PATH.is_file():
+    if not STORE_PATH.is_file():
         return
     with read_only(), connect(STORE_PATH) as conn:
-        _refuse_foreign(STORE_PATH, _installation_in(conn), expected)
+        if expected is not None:
+            _refuse_foreign(STORE_PATH, _installation_in(conn), expected)
+        _refuse_newer(STORE_PATH, _schema_in(conn))
 
 
 @contextmanager
@@ -305,6 +329,7 @@ def _set_up(conn: sqlite3.Connection, key: str, registry: tuple[str, ...]) -> No
     expected = _expected_installation(key)
     if expected is not None:  # 231 (E2): never a schema or a migration on another installation's store
         _refuse_foreign(key, _installation_in(conn), expected)
+    _refuse_newer(key, _schema_in(conn))  # E3: nor on one a newer program set up
     token = _setting_up.set(_setting_up.get() | {key})
     try:
         _initialize(conn)
@@ -336,7 +361,10 @@ def _initialize(conn: sqlite3.Connection) -> None:
             raise
         conn.rollback()
         _run_migrations(conn)
-    conn.execute("INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
+    # 231 (E3): the store records the newest program's version that set it up
+    conn.execute("INSERT INTO meta(key, value) VALUES ('schema_version', ?) ON CONFLICT(key) DO UPDATE SET"
+                 " value=excluded.value WHERE CAST(meta.value AS INTEGER) < CAST(excluded.value AS INTEGER)",
+                 (str(SCHEMA_VERSION),))
     conn.commit()
 
 

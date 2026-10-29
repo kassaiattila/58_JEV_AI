@@ -184,8 +184,7 @@ def adopt_missing(conn: sqlite3.Connection) -> int:
     its own, so it never stops the store from opening. Returns how many were adopted."""
     if not _missing(conn):
         return 0
-    conn.commit()
-    conn.execute("BEGIN IMMEDIATE")
+    store.begin_immediate(conn)  # 231 (E3): the shared write lock
     adopted = 0
     try:
         for wf_id in _missing(conn):
@@ -211,8 +210,7 @@ def move_phases(conn: sqlite3.Connection) -> int:
     steps' states for a later start. Returns how many phases it moved."""
     if not _keeps_old_states(conn):
         return 0
-    conn.commit()
-    conn.execute("BEGIN IMMEDIATE")
+    store.begin_immediate(conn)  # 231 (E3): the shared write lock
     try:
         moved = 0
         if _keeps_old_states(conn):

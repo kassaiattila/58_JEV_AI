@@ -89,8 +89,13 @@ def request(case_id: str, step_id: str, round_: int, *, actor: identity.Who) -> 
         row = _row(c, case_id, step_id)
         if row is not None and row["state"] in ("queued", "running"):
             return latest(case_id, step_id) or {}
-        c.execute("INSERT OR REPLACE INTO pairing_proposals(case_id, step_id, round, state, engines, limits, requested_by,"
-                  " requested_by_id, requested_at) VALUES (?,?,?,?,?,?,?,?,?)",
+        # 231 (E3): a round asked again starts afresh, in the form every database takes (until then a replacing insert)
+        c.execute("INSERT INTO pairing_proposals(case_id, step_id, round, state, engines, limits, requested_by,"
+                  " requested_by_id, requested_at) VALUES (?,?,?,?,?,?,?,?,?)"
+                  " ON CONFLICT(case_id, step_id, round) DO UPDATE SET state=excluded.state, engines=excluded.engines,"
+                  " limits=excluded.limits, requested_by=excluded.requested_by, requested_by_id=excluded.requested_by_id,"
+                  " requested_at=excluded.requested_at, scope=NULL, lines=NULL, counts=NULL, usage=NULL, error=NULL,"
+                  " reported=0, finished_at=NULL",
                   (case_id, step_id, round_, "queued", json.dumps(engines), json.dumps({k: str(v) for k, v in limits.items()}),
                    identity.name_of(actor), identity.id_of(actor), _now()))
     queue.enqueue(JOB_KIND, run_id=None, payload={"workpackage_id": case_id, "step_id": step_id, "round": round_})

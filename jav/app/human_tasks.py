@@ -371,8 +371,7 @@ def adopt_missing(conn: sqlite3.Connection) -> int:
     once. Returns how many tasks it opened or withdrew."""
     if not any(_missing(conn)):
         return 0
-    conn.commit()
-    conn.execute("BEGIN IMMEDIATE")
+    store.begin_immediate(conn)  # 231 (E3): the shared write lock
     try:
         reviews, runs, own, stale = _missing(conn)
         for item in reviews:
@@ -412,8 +411,7 @@ def own_approvals_per_step(conn: sqlite3.Connection) -> int:
     inside it. Returns how many moved."""
     if not _whole_case_tasks(conn):
         return 0
-    conn.commit()
-    conn.execute("BEGIN IMMEDIATE")
+    store.begin_immediate(conn)  # 231 (E3): the shared write lock
     try:
         moved = sum(_move_to_step(conn, task, own_parts(task.subject)[0], steps) for task, steps in _whole_case_tasks(conn))
         conn.commit()

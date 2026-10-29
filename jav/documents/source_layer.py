@@ -102,15 +102,15 @@ def build(doc_id: str, pages_words: list[list[dict[str, Any]]], page_sizes: list
 def save(layer: SourceLayer) -> str:
     """Idempotent save (the same content gets the same id)."""
     with store.connect() as c:
-        c.execute("INSERT OR IGNORE INTO source_layers(layer_id, doc_id, text_source, engine, pages, words, created_at)"
-                  " VALUES (?,?,?,?,?,?,?)",
+        c.execute("INSERT INTO source_layers(layer_id, doc_id, text_source, engine, pages, words, created_at)"
+                  " VALUES (?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
                   (layer.layer_id, layer.doc_id, layer.text_source, layer.engine,
                    json.dumps([p.model_dump() for p in layer.pages]),
                    json.dumps([w.model_dump() for w in layer.words], ensure_ascii=False), store._now()))
     return layer.layer_id
 
 
-# 061: a layer is identified by its content and never changes (`INSERT OR IGNORE`), so a loaded layer can be kept;
+# 061: a layer is identified by its content and never changes (the first insert stays), so a loaded layer can be kept;
 # after a correction, building the result therefore does not read and convert the words of every document again.
 # The key includes the store path too (tests, per-run stores). Callers only read the layer.
 _loaded: OrderedDict[tuple[str, str], SourceLayer] = OrderedDict()

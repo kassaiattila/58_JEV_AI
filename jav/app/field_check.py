@@ -219,10 +219,10 @@ def _place(ctx: Any, case_id: str, params: FieldCheck) -> None:
         with store.connect() as c:
             store.begin_immediate(c)
             if where == "new_unit":
-                c.execute("INSERT OR IGNORE INTO field_check_units(case_id, step_id, unit_key, unit_id) VALUES (?,?,?,?)",
+                c.execute("INSERT INTO field_check_units(case_id, step_id, unit_key, unit_id) VALUES (?,?,?,?) ON CONFLICT DO NOTHING",
                           (case_id, step, claim.unit, unit_id))
-            c.execute("INSERT OR IGNORE INTO field_check_claims(case_id, step_id, claim_key, from_step, unit_key, fact, value,"
-                      " placement, unit_id, placed_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            c.execute("INSERT INTO field_check_claims(case_id, step_id, claim_key, from_step, unit_key, fact, value,"
+                      " placement, unit_id, placed_at) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
                       (case_id, step, key, from_step, claim.unit, claim.fact, json.dumps(claim.value, ensure_ascii=False),
                        where, unit_id, _now()))
             trace.record_in(c, POINT, subject=("field_check", f"{case_id}:{step}"), inputs=inputs, outcome=where,

@@ -266,8 +266,8 @@ def accept_sources(wp_id: str, doc_ids: Iterable[str], *, actor: identity.Who, e
         decisions.check_package(c, wp_id, rp.DECISION_KINDS, expected_state)
         now = _now()
         for d in ids:
-            if c.execute("INSERT OR IGNORE INTO reconcile_source_acceptances(doc_id, flow_run_id, workpackage_id, actor,"
-                         " actor_id, accepted_at) VALUES (?,?,?,?,?,?)", (d, results[d], wp_id, identity.name_of(actor), identity.id_of(actor), now)).rowcount:
+            if c.execute("INSERT INTO reconcile_source_acceptances(doc_id, flow_run_id, workpackage_id, actor,"
+                         " actor_id, accepted_at) VALUES (?,?,?,?,?,?) ON CONFLICT DO NOTHING", (d, results[d], wp_id, identity.name_of(actor), identity.id_of(actor), now)).rowcount:
                 decisions.record(c, rp.SOURCE_KIND, f"{d}#{results[d]}", "accept", actor=actor, workpackage_id=wp_id, at=now)
         work.record_event(c, wp_id, "reconcile_accept_sources", actor, {"documents": ids})
     return len(ids)
