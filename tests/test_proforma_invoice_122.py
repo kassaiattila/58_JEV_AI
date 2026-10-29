@@ -4,6 +4,7 @@
 import json
 
 from jav.ai import detect_detail, extract_llm, typepack
+from jav.app import naming
 from jav.core import cfg
 from jav.core.config import PROJECT_ROOT, load_prompt
 from jav.ai.doc_types import BY_KEY, DOC_TYPE_KEYS
@@ -35,7 +36,9 @@ def test_the_g_path_instructions_add_the_pro_forma_note_to_the_invoice_prompt():
 
 
 def test_naming_labels_and_email_routing_know_the_type():
-    assert cfg.load("naming")["types"]["proforma_invoice"]["token"] == "DIJBEKERO"
+    # 231 (D4): the token's English source, a Hungarian name as before
+    assert cfg.load("naming")["types"]["proforma_invoice"]["token"] == "PROFORMA"
+    assert naming.rules().types["proforma_invoice"].token == "DIJBEKERO"
     label = cfg.load("field_labels")["doc_types"]["proforma_invoice"]  # 231 (D4): the English source, shown in Hungarian
     hungarian = json.loads((PROJECT_ROOT / "ui" / "src" / "i18n" / "hu-native.json").read_text(encoding="utf-8"))
     assert label == "Pro forma invoice" and hungarian[label] == "Díjbekérő"

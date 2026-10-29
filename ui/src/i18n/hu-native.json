@@ -5136,5 +5136,10 @@
   "skipped": "kimaradt",
   "to-check": "ellenorzendo",
   "manifest.csv": "jegyzek.csv",
-  "package": "csomag"
+  "package": "csomag",
+  "default settings, saved when the run started": "alapbeállítás, a futás indításakor mentve",
+  "The download was interrupted ({{error}}); a package was made from the emails that arrived.": "A letöltés megszakadt ({{error}}); a megérkezett levelekből csomag készült.",
+  "Mailbox: {{accounts}} · {{at}}": "Postafiók: {{accounts}} · {{at}}",
+  "automatically after a mailbox download (the run is started by hand)": "postafiók-letöltés után automatikusan (a futtatás kézi)",
+  "The scan is running right now; try again in a few seconds.": "Az átnézés éppen folyamatban van; néhány másodperc múlva próbáld újra."
 }

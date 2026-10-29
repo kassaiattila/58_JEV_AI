@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.154",
+    "version": "1.0.155",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.155",
+        "date": "2026-10-29",
+        "note": "baseline: 5666 -> 5663 Hungarian lines in 469 files; accepted: tests/test_display_language_231.py"
+      },
       {
         "version": "1.0.154",
         "date": "2026-10-29",
@@ -958,7 +963,7 @@
     "jav/ai/typepack.py": 3,
     "jav/ai/validators.py": 1,
     "jav/app/activity.py": 2,
-    "jav/app/app_settings.py": 6,
+    "jav/app/app_settings.py": 5,
     "jav/app/condition_import.py": 10,
     "jav/app/corrections.py": 1,
     "jav/app/datasets.py": 2,
@@ -967,7 +972,7 @@
     "jav/app/work.py": 1,
     "jav/app/work_readiness.py": 2,
     "jav/app/work_recipes.py": 2,
-    "jav/app/work_runs.py": 5,
+    "jav/app/work_runs.py": 4,
     "jav/cli/work_cli.py": 1,
     "jav/core/calls.py": 3,
     "jav/core/cfg.py": 1,
@@ -990,7 +995,7 @@
     "jav/domains/email/ingest_server.py": 8,
     "jav/domains/email/intent.py": 5,
     "jav/domains/email/mailbox.py": 4,
-    "jav/domains/email/mailbox_bridge.py": 5,
+    "jav/domains/email/mailbox_bridge.py": 2,
     "jav/domains/finance/finance_datasets.py": 1,
     "jav/domains/finance/report_utility.py": 2,
     "jav/domains/quotes/quote_document.py": 1,
@@ -1047,7 +1052,7 @@
     "tests/test_datetime_evidence_200.py": 6,
     "tests/test_detect.py": 4,
     "tests/test_detect_detail.py": 4,
-    "tests/test_display_language_231.py": 9,
+    "tests/test_display_language_231.py": 12,
     "tests/test_doc_links.py": 1,
     "tests/test_docs_071.py": 1,
     "tests/test_docsgen_067.py": 1,
@@ -1144,7 +1149,6 @@
     "tests/test_tablequery_filter_167.py": 1,
     "tests/test_taxid_069.py": 5,
     "tests/test_terms_s_path_231.py": 9,
-    "tests/test_trial_todos_150.py": 1,
     "tests/test_type_teaching_197.py": 15,
     "tests/test_typepack.py": 6,
     "tests/test_typepack_lists.py": 3,

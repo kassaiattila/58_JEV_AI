@@ -5098,5 +5098,10 @@
   "skipped": "skipped",
   "to-check": "to-check",
   "manifest.csv": "manifest.csv",
-  "package": "package"
+  "package": "package",
+  "default settings, saved when the run started": "default settings, saved when the run started",
+  "The download was interrupted ({{error}}); a package was made from the emails that arrived.": "The download was interrupted ({{error}}); a package was made from the emails that arrived.",
+  "Mailbox: {{accounts}} · {{at}}": "Mailbox: {{accounts}} · {{at}}",
+  "automatically after a mailbox download (the run is started by hand)": "automatically after a mailbox download (the run is started by hand)",
+  "The scan is running right now; try again in a few seconds.": "The scan is running right now; try again in a few seconds."
 }

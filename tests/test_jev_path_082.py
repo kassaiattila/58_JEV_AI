@@ -7,7 +7,7 @@ and the help says the same. Synthetic PDFs, no paid calls.
 
 from jav.app import work_readiness
 from jav.ai import typepack
-from jav.core import cfg
+from jav.core import cfg, display
 from tests import test_api
 from tests.test_api import HUMAN
 
@@ -30,6 +30,8 @@ def test_with_s_chosen_a_type_without_a_jev_path_is_planned_on_the_g_path_with_a
 def test_the_help_says_the_s_path_runs_gpt_where_there_is_no_jev_path():
     help_ = cfg.load("recipe_help")
     option = help_["params"]["arm"]["options"]["S"]
-    assert "nincs JEV-útja" in option and "OpenAI" in option
-    providers = next(row for row in help_["paths"]["rows"] if row["label"] == "Szolgáltatók")
+    # 231 (D4): the help's English sources (the interface shows them in its language)
+    assert "no JEV path" in option and "OpenAI" in option
+    assert "nincs JEV-útja" in display.text(option)
+    providers = next(row for row in help_["paths"]["rows"] if display.text(row["label"]) == "Szolgáltatók")
     assert "OpenAI" in providers["S"]

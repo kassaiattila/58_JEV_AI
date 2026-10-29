@@ -177,3 +177,17 @@ def test_a_file_name_is_built_in_the_request_s_language():
     hungarian = json.loads(Path(UI_HUNGARIAN).read_text(encoding="utf-8"))
     assert sorted({w for w in words if w not in hungarian}) == []
     assert len({spec["token"] for spec in raw["types"].values()}) == len({hu.types[k].token for k in raw["types"]})
+
+
+def test_a_record_s_words_are_written_in_the_request_s_language():
+    """D4/8: what the service writes into a record (an assignment's note, a mailbox package's name, a download's error,
+    a busy answer) is in the request's language; the worker and a schedule, outside a request, write the earlier
+    Hungarian words."""
+    assert display.text("Mailbox: {{accounts}} · {{at}}", accounts="a@example.com", at="2026-10-29 10:00") == (
+        "Postafiók: a@example.com · 2026-10-29 10:00")
+    assert display.text("default settings, saved when the run started") == "alapbeállítás, a futás indításakor mentve"
+    assert display.text("The download was interrupted ({{error}}); a package was made from the emails that arrived.",
+                        error="JobCancelled") == "A letöltés megszakadt (JobCancelled); a megérkezett levelekből csomag készült."
+    with display.use("en"):
+        assert display.text("automatically after a mailbox download (the run is started by hand)") == (
+            "automatically after a mailbox download (the run is started by hand)")
