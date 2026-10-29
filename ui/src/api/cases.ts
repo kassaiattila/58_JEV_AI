@@ -41,6 +41,10 @@ export interface PackageWorkView {
   package: { id: string; name: string; items: number; kind: string } | null;
   runs?: { run_id: string; mode: string; status: string; approval: string | null }[];
   can_start?: boolean; estimate?: Record<string, string>; blockers?: string[];
+  /** 261: the cap a person approved for its live run, who, and what the gate decided (`start`: it started by itself;
+   *  `needs_budget`: over the cap, `over` the providers over it; null before its package was made) */
+  budget?: { usd: Record<string, string>; approved_by: string; decision: "start" | "needs_budget" | "not_ready" | null;
+    over: Record<string, string> };
   /** 231 (C3d): the processes whose case may read the package (`jav/app/intake.py` `package_offers`) */
   offers?: import("./processes").PackageOffer[];
 }
@@ -79,6 +83,8 @@ export interface CaseView {
 export interface CaseNextDraft {
   pack: string; follows: string; party_id?: string; period_start: string; period_end: string; name: string | null;
   source?: CaseSource; step_sources?: Record<string, CaseSource>;
+  /** 261: the caps of the case, filled in again for a person to approve */
+  step_budgets?: Record<string, Record<string, string>>;
 }
 
 // 231 (A7e): the data of the shared elements: a send step's handovers, a reply step's wait, the case's events and cost
@@ -223,7 +229,7 @@ export const casesApi = {
   // 231 C1c: the packages it reads; C2d: its own party and period; U2c: each step's own documents
   startCase: (body: { pack: string; record?: { workpackage_id: string; item_id: string }; sources?: string[]; name: string;
     party_id?: string; period_start?: string; period_end?: string; source?: CaseSource; step_sources?: Record<string, CaseSource>;
-    follows?: string }) =>
+    follows?: string; step_budgets?: Record<string, Record<string, string>> }) =>
     request<{ case_id: string }>("POST", "/cases", body),
   /** 261: the case's next period as the new case's form shows it filled in (nothing is written) */
   caseNext: (caseId: string) => request<CaseNextDraft>("GET", `/cases/${enc(caseId)}/next`),

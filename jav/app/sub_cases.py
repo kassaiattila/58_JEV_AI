@@ -38,14 +38,15 @@ from jav.core.process.definition import NAME
 from jav.core.process.engine import StepContext
 from jav.core.user_messages import explained, said
 
-__all__ = ["CAPABILITY", "CLOSED", "RunCase", "STEP_SOURCES", "register", "step_sources"]
+__all__ = ["CAPABILITY", "CLOSED", "RunCase", "STEP_BUDGETS", "STEP_SOURCES", "estimates", "register", "step_sources"]
 
 CLOSED = "case_closed"  # the event a sub-case's closing sends the step that runs it
 STEP_SOURCES = "step_sources"
+STEP_BUDGETS = "step_budgets"  # 261: the cap a person approved for each step's sub-case's live run ({step: {provider: USD}})
 DONE = "done"
 KEY = "run_case@1"
 _OWNER = __name__
-_TAKEN = (document_processing.SOURCE_PART, scopes.SOURCES, STEP_SOURCES)  # parts a sub-case gets by its step, not as such
+_TAKEN = (document_processing.SOURCE_PART, scopes.SOURCES, STEP_SOURCES, STEP_BUDGETS)  # parts a sub-case gets by its step
 
 
 class RunCase(BaseModel):
@@ -81,6 +82,26 @@ def _no_step_sources(error: type[Exception]) -> Exception:
 
 
 STEP_SOURCES_PART = scopes.Part(STEP_SOURCES, __name__, _step_sources, _step_sources_words, _no_step_sources)
+
+
+# --- 261: the scope part of each step's approved run budget (the owner's decisions of 2026-10-29) ---------------------
+
+
+def _step_budgets(value: Any, error: type[Exception]) -> dict[str, Any]:
+    if not (isinstance(value, Mapping) and value and all(isinstance(k, str) and re.fullmatch(NAME, k) for k in value)):
+        raise explained(error, "each step's budget is named by the step")
+    return {str(k): document_processing.budget_caps(v, error) for k, v in sorted(value.items())}
+
+
+def _step_budgets_words(value: Mapping[str, Any]) -> str:
+    return ", ".join(f"{k}: " + " + ".join(f"{p} ≤ {v} USD" for p, v in caps.items()) for k, caps in value.items())
+
+
+def _no_step_budgets(error: type[Exception]) -> Exception:
+    return explained(error, "each step's budget is named by the step")
+
+
+STEP_BUDGETS_PART = scopes.Part(STEP_BUDGETS, __name__, _step_budgets, _step_budgets_words, _no_step_budgets)
 
 
 # --- the pack's steps of it ----------------------------------------------------------------------------------------------
@@ -202,6 +223,34 @@ def step_sources(pack: Any) -> list[dict[str, Any]]:
     return out
 
 
+def estimates(pack_id: str, sources: Mapping[str, Mapping[str, Any]], *, party_id: str | None = None,
+              period: tuple[str, str] | None = None) -> dict[str, Any]:
+    """261 (the owner's decisions of 2026-10-29): what each step's sub-case's live run would cost at most with the
+    default processing, for the start form's caps: {step: {items, usd: {provider: USD}, note}}, for the steps whose
+    documents are given (the workflow step kind's estimate of the sub-case's process). A step whose cost cannot be told
+    ahead (a mailbox download with no most) has no `usd`; one whose source does not fit says why in `note`."""
+    from jav.app import workflows  # lazy: the workflows build on the process packs
+
+    pack = process_packs.load(pack_id)
+    out: dict[str, Any] = {}
+    for step, params in _steps(pack):
+        target = process_packs.load(params.pack)
+        given = sources.get(step.id)
+        if given is None or target.workflow is None:
+            continue
+        try:
+            source = scopes.of(document_processing.SOURCE_PART).check(dict(given), ValueError)
+            raw = {**source, "paths": source.pop("files")} if source["kind"] == "files" else source
+            found = workflows.estimate(kind=target.workflow.kind, source=raw, party_id=party_id,
+                                       period_start=period[0] if period else None, period_end=period[1] if period else None)
+        except ValueError as exc:
+            out[step.id] = {"items": None, "usd": {}, "note": str(exc)}
+            continue
+        out[step.id] = {"items": found.get("items"), "usd": found.get("usd") or {}, "note": found.get("note"),
+                        **({"left_out": found["left_out"]} if found.get("left_out") is not None else {})}
+    return {"steps": out}
+
+
 # --- the step ------------------------------------------------------------------------------------------------------------
 
 
@@ -232,6 +281,11 @@ def _start(ctx: StepContext, params: RunCase, gathered: dict[str, Any]) -> None:
             given[document_processing.SOURCE_PART] = own
     if params.sources_from:
         given[scopes.SOURCES] = _batches(ctx, params.sources_from)
+    # 261: the cap a person approved for the step's sub-case's live run, as approved by the person who started the case
+    if (caps := (scope.get(STEP_BUDGETS) or {}).get(ctx.step.id)) and document_processing.SOURCE_PART in target.scope.parts:
+        with store.connect() as c:
+            starter = identity.Actor.from_json(cases.case_row(c, ctx.case_id)["started_by"])
+        given[document_processing.RUN_BUDGET_PART] = {"usd": caps, "approved_by": {"id": starter.id, "name": starter.name}}
     container = work.get(ctx.case_id)
 
     def note(c: Any, sub: str) -> None:
@@ -358,6 +412,7 @@ def register() -> None:
     from jav.app import case_views
 
     scopes.register(STEP_SOURCES_PART)
+    scopes.register(STEP_BUDGETS_PART)  # 261
     capabilities.register(CAPABILITY)
     cases.on_leave(_left)
     case_views.register(case_views.ElementData("sub_case", CAPABILITY.name, _OWNER, _sub_case_view))

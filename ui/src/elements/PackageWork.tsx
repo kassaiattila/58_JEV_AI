@@ -46,6 +46,14 @@ export function PackageWork({ caseId, element, page, onChanged }: ElementProps) 
         ) : null}
       </div>
       <p className="small">{t("{{n}} documents", { n: pkg.items })}</p>
+      {/* 261: the cap a person approved for its live run, and what the gate decided */}
+      {data.budget?.decision === "start" ? (
+        <p className="small muted">{t("Started by itself within the cap {{name}} approved ({{cap}}).", { name: data.budget.approved_by, cap: usdBudget(capOf(data.budget.usd)) })}</p>
+      ) : null}
+      {data.budget?.decision === "needs_budget" ? (
+        <p className="notice small" role="status">{t("Over the cap {{name}} approved: the estimate is {{estimate}}, the cap {{cap}}. Start the run yourself if it is right.",
+          { name: data.budget.approved_by, estimate: usdBudget(capOf(data.estimate)), cap: usdBudget(capOf(data.budget.usd)) })}</p>
+      ) : null}
       {!data.can_start && !live.length && data.blockers?.length ? (
         <p className="notice small" role="status">{data.blockers.map((b) => t(b)).join(" ")}</p>
       ) : null}

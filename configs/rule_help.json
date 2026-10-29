@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "rule_help",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "description": "218 (plan G-process-core P3e, the owner's request and decisions of 2026-10-23): the plain-language description of the rules for the read-only view in Settings › Rules. For every machine decision point of the decision trace (jav/core/trace.py): its area, a short title, what it decides and what it is not for, and the rule values the view shows (file, key, label, format; a percentage's label reads on into its value, as in 'below 60 %'); the values themselves are read from the rule files the running process loaded (jav/app/rules_view.py). Kept apart from the rule files, so their fingerprints and the AI requests do not change. Texts are English; the interface translates them (ui/src/i18n/hu-native.json). A test asks that every decision point has an entry and that every value's key is in a file its point reads. 231 (U4b; the owner's decisions of 2026-10-29): each value's `edit` says whether the installation may keep its own value, a default (jav/app/rule_defaults.py): its kind (number with its bounds, bool, amount, choice, set, map or list (an ordered list of codes), the options given or taken from a registry: doc_types, fields, email_routes, email_signals; capability: the capability's own rule key), or `fixed` with why (cost: it changes a paid request or a budget; structure: the catalogue's structure; format: a property of a number's format).",
     "changelog": [
+      {
+        "version": "1.8.0",
+        "date": "2026-10-29",
+        "note": "261 (the owner's decisions of 2026-10-29): a case step's run budget, the decision whether its live run starts by itself within the cap a person approved when the case started."
+      },
       {
         "version": "1.7.0",
         "date": "2026-10-29",
@@ -189,6 +194,16 @@
       "title": "A workflow step's budget",
       "what": "Whether a workflow step's package starts its live run or waits for a person to approve a budget: the run's estimated cost for each AI provider against the budget a person approved for the step.",
       "not_for": "The run's spending while it runs (the call log keeps that).",
+      "values": [
+        {"file": "recipes.json", "key": "recipes[processing].max_item_usd_by_kind.document.auto", "label": "Estimated cost of a document", "format": "usd_by_provider", "edit": {"fixed": "cost"}},
+        {"file": "recipes.json", "key": "recipes[processing].max_item_usd_by_kind.email.*", "label": "Estimated cost of an email", "format": "usd_by_provider", "edit": {"fixed": "cost"}}
+      ]
+    },
+    "case.run_budget": {
+      "area": "workflows",
+      "title": "A case step's run budget",
+      "what": "Whether a case step's package starts its live run by itself: the run's estimated cost for each AI provider against the cap a person approved for the step when the case started; over it, the step waits for a person's start.",
+      "not_for": "The run's spending while it runs (the call log keeps that), or a step without an approved cap.",
       "values": [
         {"file": "recipes.json", "key": "recipes[processing].max_item_usd_by_kind.document.auto", "label": "Estimated cost of a document", "format": "usd_by_provider", "edit": {"fixed": "cost"}},
         {"file": "recipes.json", "key": "recipes[processing].max_item_usd_by_kind.email.*", "label": "Estimated cost of an email", "format": "usd_by_provider", "edit": {"fixed": "cost"}}

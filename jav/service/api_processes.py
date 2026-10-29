@@ -30,7 +30,8 @@ from jav.app import (document_processing, examples, intake, letter_frames, proce
                      scopes, sub_cases, work_views)
 from jav.core import identity
 from jav.core.user_messages import message_fields
-from jav.service.service_shared import Empty, In, error, human_actor
+from jav.service.api_cases import Source, _source
+from jav.service.service_shared import Empty, In, IsoDay, PartyId, error, human_actor
 
 PackId = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
 SettingKey = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_:]{0,79}$")]
@@ -74,6 +75,16 @@ class FrameIn(In):
     note: Annotated[str | None, Field(max_length=2000)] = None
 
 
+class EstimateIn(In):
+    """261: what a new case's form asks the estimate of: each step's documents, with the own party and the period."""
+
+    party_id: PartyId | None = None
+    period_start: IsoDay | None = None
+    period_end: IsoDay | None = None
+    step_sources: Annotated[dict[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")], Source],
+                            Field(min_length=1, max_length=20)]
+
+
 def routes(app: FastAPI, r: str) -> None:
     """The process packs' addresses under the service's prefix `r`."""
 
@@ -84,6 +95,13 @@ def routes(app: FastAPI, r: str) -> None:
     @app.exception_handler(process_packs.UnknownPack)
     async def unknown_pack(_request: Request, exc: process_packs.UnknownPack):
         return error(404, "not_found", str(exc))
+
+    @app.post(r + "/processes/{pack_id}/estimate")
+    def step_estimates(pack_id: PackId, body: EstimateIn) -> dict[str, Any]:
+        """261: what each step's sub-case's live run would cost at most (the start form's caps); nothing is written."""
+        period = (body.period_start, body.period_end) if body.period_start and body.period_end else None
+        return sub_cases.estimates(pack_id, {k: _source(v) for k, v in body.step_sources.items()}, party_id=body.party_id,
+                                   period=period)
 
     @app.get(r + "/processes")
     def process_list() -> dict[str, Any]:

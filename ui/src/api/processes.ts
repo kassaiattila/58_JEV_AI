@@ -3,8 +3,13 @@
 // its capabilities let it set (how many lines a quote holds, the rounding unit), every change a version: a draft,
 // made active by the rule of who may, set aside to bring the file's value back; a rule value's preview on the
 // process's traced decisions.
+import type { CaseSource } from "./cases";
 import { enc, request } from "./client";
 import type { OutputTemplateState } from "./outputs";
+
+/** 261: what a step's sub-case's live run would cost at most with the default processing (the start form's caps);
+ *  no `usd` when it cannot be told ahead (a mailbox download with no most), with why in `note`. */
+export interface StepEstimate { items: number | null; usd: Record<string, string>; note: string | null; left_out?: number }
 
 export interface ProcessRow {
   id: string; title: string; version: string;
@@ -120,6 +125,10 @@ const base = (pack: string, kind: SettingKind, key: string) => `/processes/${enc
 
 export const processesApi = {
   processes: () => request<{ processes: ProcessRow[] }>("GET", "/processes"),
+  /** 261: each step's estimate for the start form's caps (nothing is written) */
+  processEstimate: (pack: string, body: { party_id?: string; period_start?: string; period_end?: string;
+    step_sources: Record<string, CaseSource> }) =>
+    request<{ steps: Record<string, StepEstimate> }>("POST", `/processes/${enc(pack)}/estimate`, body),
   /** 231 (C3c): the records a case of the pack may start from (the general form's record chooser) */
   processRecords: (pack: string, q?: string) =>
     request<{ records: ProcessRecord[] }>("GET", `/processes/${enc(pack)}/records${q ? `?q=${enc(q)}` : ""}`),

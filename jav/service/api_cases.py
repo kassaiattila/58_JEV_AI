@@ -82,6 +82,10 @@ class CaseIn(In):
     name: Annotated[str, Field(min_length=1, max_length=200)]
     # 261: the case whose next period this one is (its form filled in from `GET /cases/{id}/next`)
     follows: Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")] | None = None
+    # 261: the cap a person approves for each step's sub-case's live run, which then starts by itself within it
+    step_budgets: Annotated[dict[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")],
+                                 dict[Literal["jev", "openai", "azure_di"], Annotated[str, Field(max_length=20)]]],
+                            Field(min_length=1, max_length=20)] | None = None
 
 
 def _source(source: Source) -> dict[str, Any]:
@@ -104,7 +108,8 @@ def routes(app: FastAPI, r: str) -> None:
                  **({"party": body.party_id} if body.party_id else {}),
                  **({"period": [body.period_start, body.period_end]} if body.period_start or body.period_end else {}),
                  **({"source": _source(body.source)} if body.source else {}),
-                 **({"step_sources": {k: _source(v) for k, v in body.step_sources.items()}} if body.step_sources else {})}
+                 **({"step_sources": {k: _source(v) for k, v in body.step_sources.items()}} if body.step_sources else {}),
+                 **({"step_budgets": body.step_budgets} if body.step_budgets else {})}
         if body.follows:  # 261: the next period's case of a case, recorded on it
             return {"case_id": process_runtime.start_next(body.follows, body.pack, scope, name=body.name, actor=who)}
         case_id = process_runtime.start_case(body.pack, scope, name=body.name, actor=who)

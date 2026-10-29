@@ -2,14 +2,16 @@
 // `sources`), the same way for every process: from the new work wizard (the packages of the kinds its intake takes, to
 // choose) and from such a package's own page (the processes that take it, with the cases already reading it). Until
 // C1c the email routing's own form and offer.
-import { useEffect, useState } from "react";
-import { api, ApiError, type CaseNextDraft, type CaseSource, type PackageOffer, type ProcessRecord, type StepSource } from "../api";
+import { useEffect, useState, type ReactNode } from "react";
+import { api, ApiError, type CaseNextDraft, type CaseSource, type PackageOffer, type ProcessRecord, type StepEstimate,
+  type StepSource } from "../api";
 import { BrowseButton } from "../components/BrowseButton";
 import { Icon } from "../components/Icon";
 import { Picker } from "../components/Picker";
 import { chooserOf } from "./sourceChoosers";
 import { useAction, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
+import { providerName, usdBudget } from "../labels";
 import { go } from "../route";
 
 /** 231 (U2c): what a person chose as a source: a folder, files, a packet of invented documents, or a domain's source
@@ -41,6 +43,40 @@ async function sourceOf(c: SourceChoice, kinds: string[], pack: string): Promise
     : { kind: "files", files: linesOf(c.files), ...onlyNew };
 }
 
+/** 261: a step's source as far as its estimate needs it, without writing an example packet's files (none: no estimate). */
+function estimateSourceOf(c: SourceChoice, kinds: string[]): CaseSource | null {
+  if (!choiceReady(c, kinds)) return null;
+  if (domainChooser(kinds)) return c.domain;
+  if (c.kind === "example") return null;
+  const onlyNew = c.onlyNew ? { only_new: true } : {};
+  return c.kind === "folder" ? { kind: "folder", folder: c.folder.trim(), recursive: c.recursive, ...onlyNew }
+    : { kind: "files", files: linesOf(c.files), ...onlyNew };
+}
+
+/** 261 (the owner's decisions of 2026-10-29): a step's approved cap for its sub-case's live run, which then starts by
+ *  itself within it; `caps` per provider (USD as typed). */
+type StepBudget = { on: boolean; caps: Record<string, string> };
+const capsTotal = (caps: Record<string, string>) => Object.values(caps).reduce((s, v) => s + (Number(v) || 0), 0);
+
+/** 261: what each step's sub-case's live run would cost at most, asked of the service once its documents are given
+ *  (and again, after a pause, when they or the party and the period change). */
+function useStepEstimates(pack: string, sources: Record<string, CaseSource>, partyId: string, start: string, end: string) {
+  const [found, setFound] = useState<Record<string, StepEstimate>>({});
+  const key = JSON.stringify([sources, partyId, start, end]);
+  useEffect(() => {
+    let live = true;
+    const timer = window.setTimeout(() => {
+      if (!Object.keys(sources).length) { setFound({}); return; }
+      api.processEstimate(pack, { step_sources: sources, ...(partyId ? { party_id: partyId } : {}),
+                                   ...(start && end ? { period_start: start, period_end: end } : {}) })
+        .then((r) => { if (live) setFound(r.steps); })
+        .catch(() => { if (live) setFound({}); });
+    }, 400);
+    return () => { live = false; window.clearTimeout(timer); };
+  }, [pack, key]);  // eslint-disable-line react-hooks/exhaustive-deps -- the key holds what the estimate depends on
+  return found;
+}
+
 /** The wizard's form of a one-step template of a process pack's case: what its scope asks a person (the packages it
  *  reads; 231 C2d: its own party and period; the other parts take their default, e.g. the party's accounts) and its
  *  name; (U2c) for a process whose steps run cases of other processes, each such step's own documents. 261: `after`, the
@@ -70,8 +106,15 @@ function ProcessForm({ pack, onDone, draft }: { pack: string; onDone: (wpId: str
   const [stepChoices, setStepChoices] = useState<Record<string, SourceChoice>>(  // 231 (U2c): by step
     () => Object.fromEntries(Object.entries(draft?.step_sources ?? {}).map(([step, s]) => [step, choiceFrom(s)])));
   const [record, setRecord] = useState<ProcessRecord | null>(null);  // 231 (C3c): the record the case starts from
+  const [budgets, setBudgets] = useState<Record<string, StepBudget>>(  // 261: by step; a next period's come filled in
+    () => Object.fromEntries(Object.entries(draft?.step_budgets ?? {}).map(([step, caps]) => [step, { on: true, caps }])));
   const { busy, error, run } = useAction();
   const info = packs.data?.processes.find((p) => p.id === pack);
+  const stepList = (info?.asks ?? info?.scope ?? []).includes("step_sources") ? info?.step_sources ?? [] : [];
+  const estimates = useStepEstimates(pack, Object.fromEntries(stepList.flatMap((x) => {
+    const given = estimateSourceOf(stepChoices[x.step] ?? NO_SOURCE, x.source_kinds);
+    return given ? [[x.step, given]] : [];
+  })), partyId, start, end);
   const examples = useLoad(info?.examples ? `examples:${pack}` : null, () => api.processExamples(pack));  // 231 (U0)
   const packets = examples.data?.packets ?? [];
   if (packs.error) return <p className="notice error" role="alert">{packs.error.message}</p>;
@@ -91,6 +134,14 @@ function ProcessForm({ pack, onDone, draft }: { pack: string; onDone: (wpId: str
   const ready = (!wantsSources || chosen.length > 0) && (!wantsParty || !!partyId) && (!wantsPeriod || (!!start && !!end && start <= end))
     && (!wantsSource || choiceReady(choice, kinds)) && (!wantsRecord || !!record)
     && steps.every((x) => choiceReady(stepChoices[x.step] ?? NO_SOURCE, x.source_kinds));
+  // 261: the caps a person approves, of the steps whose estimate is known (a step whose estimate went is no longer one)
+  const approved = Object.fromEntries(steps.flatMap((x) => {
+    const b = budgets[x.step];
+    const caps = b?.on && Object.keys(estimates[x.step]?.usd ?? {}).length
+      ? Object.fromEntries(Object.entries(b.caps).filter(([, v]) => v.trim() !== "" && Number(v) >= 0).map(([p, v]) => [p, v.trim()])) : {};
+    return Object.keys(caps).length ? [[x.step, caps]] : [];
+  }));
+  const capTotal = Object.values(approved).reduce((s, caps) => s + capsTotal(caps), 0);
   const defaultName = () => {
     if (wantsSources) return `${title}: ${candidates.filter((w) => chosen.includes(w.id)).map((w) => w.name).join(", ")}`;
     if (wantsRecord && record) return `${title}: ${record.name ?? record.label ?? record.workpackage_name}`;
@@ -114,6 +165,7 @@ function ProcessForm({ pack, onDone, draft }: { pack: string; onDone: (wpId: str
       ...(wantsPeriod ? { period_start: start, period_end: end } : {}), ...(wantsSource && documents ? { source: documents } : {}),
       ...(wantsRecord && record ? { record: { workpackage_id: record.workpackage_id, item_id: record.item_id } } : {}),
       ...(steps.length ? { step_sources: bySteps } : {}), ...(draft ? { follows: draft.follows } : {}),
+      ...(Object.keys(approved).length ? { step_budgets: approved } : {}),
     });
   }, { then: (made) => onDone(made.case_id) });
   return (
@@ -156,14 +208,21 @@ function ProcessForm({ pack, onDone, draft }: { pack: string; onDone: (wpId: str
       ) : null}
       {steps.map((x) => (
         <StepSourceFields key={x.step} entry={x} choice={stepChoices[x.step] ?? NO_SOURCE} offerOnlyNew={!!draft}
-          onChange={(update) => setStepChoices((prev) => ({ ...prev, [x.step]: update(prev[x.step] ?? NO_SOURCE) }))} />
+          onChange={(update) => setStepChoices((prev) => ({ ...prev, [x.step]: update(prev[x.step] ?? NO_SOURCE) }))}
+          extra={<StepBudgetFields estimate={estimates[x.step]} budget={budgets[x.step]}
+            onChange={(b) => setBudgets((prev) => ({ ...prev, [x.step]: b }))} />} />
       ))}
       <label className="block">{t("Name")} <span className="muted">{t("(optional)")}</span>
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
       </label>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
       <div className="button-row">
-        <button type="submit" className="primary" disabled={busy || !ready}>{busy ? t("Creating…") : t("Create")}</button>
+        {/* 261 (DESIGN §9): a start that also starts paid runs by themselves carries their caps' sum */}
+        <button type="submit" className="primary" disabled={busy || !ready}
+          title={capTotal > 0 ? t("Starts the steps' live runs by themselves within their caps: up to {{usd}} in all", { usd: usdBudget(capTotal) }) : undefined}>
+          {busy ? t("Creating…") : t("Create")}
+          {capTotal > 0 ? <span className="spend" aria-hidden="true">≤ {usdBudget(capTotal)}</span> : null}
+        </button>
       </div>
     </form>
   );
@@ -171,20 +230,50 @@ function ProcessForm({ pack, onDone, draft }: { pack: string; onDone: (wpId: str
 
 /** 231 (U2c): a step's own documents, for the case of another process it runs (that process's invented documents to
  *  start on, where it has some). */
-function StepSourceFields({ entry, choice, onChange, offerOnlyNew }: { entry: StepSource; choice: SourceChoice; onChange: ChoiceUpdate;
-  offerOnlyNew?: boolean }) {
+function StepSourceFields({ entry, choice, onChange, offerOnlyNew, extra }: { entry: StepSource; choice: SourceChoice;
+  onChange: ChoiceUpdate; offerOnlyNew?: boolean; extra?: ReactNode }) {
   useLocale();
   const examples = useLoad(entry.examples ? `examples:${entry.pack}` : null, () => api.processExamples(entry.pack));
   return (
     <SourceFields legend={`${t(entry.title)} · ${t(entry.process)}`} name={`case-source-${entry.step}`} kinds={entry.source_kinds}
-      packets={examples.data?.packets ?? []} choice={choice} onChange={onChange} offerOnlyNew={offerOnlyNew} />
+      packets={examples.data?.packets ?? []} choice={choice} onChange={onChange} offerOnlyNew={offerOnlyNew} extra={extra} />
+  );
+}
+
+/** 261 (the owner's decisions of 2026-10-29): a step's estimate and, when it can be told ahead, the cap within which its
+ *  sub-case's live run starts by itself: unticked until a person approves it (a next period's comes ticked, filled in
+ *  from the earlier case), each provider's cap filled in with its estimate. */
+function StepBudgetFields({ estimate, budget, onChange }: { estimate?: StepEstimate; budget?: StepBudget;
+  onChange: (b: StepBudget) => void }) {
+  useLocale();
+  if (!estimate) return null;
+  const providers = Object.keys(estimate.usd);
+  if (!providers.length) {
+    return <p className="small muted">{estimate.note ? t(estimate.note) : t("The cost cannot be told ahead: a person starts its run.")}</p>;
+  }
+  const caps = { ...estimate.usd, ...(budget?.caps ?? {}) };
+  const on = !!budget?.on;
+  return (
+    <div className="rc-stack">
+      <p className="small">{t("Estimate: {{n}} documents, up to {{usd}}", { n: estimate.items ?? 0, usd: usdBudget(capsTotal(estimate.usd)) })}</p>
+      <label className="check"><input type="checkbox" checked={on} onChange={(e) => onChange({ on: e.target.checked, caps })} /> {t("Start its live run by itself, up to:")}</label>
+      <div className="button-row">
+        {providers.map((p) => (
+          <label key={p} className="small">{providerName(p)}{" "}
+            <input type="number" inputMode="decimal" min="0" step="0.01" value={caps[p] ?? ""} disabled={!on}
+              aria-label={t("{{provider}} cap, USD", { provider: providerName(p) })}
+              onChange={(e) => onChange({ on, caps: { ...caps, [p]: e.target.value } })} /> USD</label>
+        ))}
+      </div>
+    </div>
   );
 }
 
 /** Where documents come from: a domain's own chooser (a mailbox download), or a folder, chosen files or a packet of
  *  invented documents. 261: in a next period's form a folder or files may take only the new documents (`offerOnlyNew`). */
-function SourceFields({ legend, name, kinds, packets, choice, onChange, offerOnlyNew }: { legend: string; name: string; kinds: string[];
-  packets: { id: string; title: string; documents: number }[]; choice: SourceChoice; onChange: ChoiceUpdate; offerOnlyNew?: boolean }) {
+function SourceFields({ legend, name, kinds, packets, choice, onChange, offerOnlyNew, extra }: { legend: string; name: string;
+  kinds: string[]; packets: { id: string; title: string; documents: number }[]; choice: SourceChoice; onChange: ChoiceUpdate;
+  offerOnlyNew?: boolean; extra?: ReactNode }) {
   useLocale();
   const set = (over: Partial<SourceChoice>) => onChange((c) => ({ ...c, ...over }));
   const Chooser = domainChooser(kinds);
@@ -199,6 +288,7 @@ function SourceFields({ legend, name, kinds, packets, choice, onChange, offerOnl
       <fieldset className="wizard-choices">
         <legend>{legend}</legend>
         <Chooser initial={choice.domain} onChange={(domain) => set({ domain })} />
+        {extra}
       </fieldset>
     );
   }
@@ -242,6 +332,7 @@ function SourceFields({ legend, name, kinds, packets, choice, onChange, offerOnl
       {offerOnlyNew && choice.kind !== "example" ? (
         <label className="check"><input type="checkbox" checked={choice.onlyNew} onChange={(e) => set({ onlyNew: e.target.checked })} /> {t("Only the documents no live run has processed yet")}</label>
       ) : null}
+      {extra}
     </fieldset>
   );
 }

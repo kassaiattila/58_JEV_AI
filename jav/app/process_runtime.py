@@ -209,6 +209,8 @@ def next_draft(case_id: str) -> dict[str, Any]:
     if steps := {step: again for step, source in (scope.get(sub_cases.STEP_SOURCES) or {}).items()
                  if (again := moved(source)) is not None}:
         draft["step_sources"] = steps
+    if budgets := scope.get(sub_cases.STEP_BUDGETS):  # 261: the caps come filled in, and a person approves them again
+        draft["step_budgets"] = budgets
     name = str(data.get("name") or "")
     draft["name"] = (name.replace(earlier[0], period[0]).replace(earlier[1], period[1])
                      if earlier[0] in name and earlier[1] in name else None)

@@ -62,7 +62,8 @@ def test_a_scope_is_checked_part_by_part_with_the_callers_error(db) -> None:
     # 231 C1c: sources; (C2d) the accounts a case reconciles, registered by the finance domain; (C3b2) the documents'
     # source of a document processing step
     assert [p.name for p in scopes.parts()] == ["party", "period", "record", "sources", "partners", "accounts", "source",
-                                             "step_sources"]  # 231 (U2c): each step's own documents
+                                             "run_budget", "step_sources", "step_budgets"]  # 231 (U2c): each step's own
+    # documents; 261: a run's approved cap, each step's
 
 
 # --- a workflow's scope -------------------------------------------------------------------------------------------------
