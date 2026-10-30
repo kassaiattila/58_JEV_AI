@@ -165,6 +165,29 @@ def utility_sources(scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
+def own_parties(_scope: dict[str, str]) -> Rows:
+    """263 (plan E, E1; the owner's decisions of 2026-10-30: one list everywhere): the own parties as a Settings list -
+    each with its tax numbers, how many invoices name it and their span, its accounts and their statements' span; a row
+    opens the party's page in Settings (`link="settings"`, section `parties`)."""
+    from jav.domains.finance import party_views
+
+    cols = [
+        col("name", "Name", link="settings", section="parties"),
+        col("tax", "Tax number", "id"),
+        col("invoices", "Invoices", "number"),
+        col("first", "First invoice", "date"),
+        col("last", "Last invoice", "date"),
+        col("accounts", "Accounts", "number"),
+        col("statements_last", "Last statement", "date"),
+        col("updated_at", "Changed", "datetime", hidden=True),
+    ]
+    rows = [{"_key": p["id"], "name": p["name"],
+             "tax": ", ".join(i["label"] for i in p["identities"] if i["kind"] == "tax") or None,
+             "invoices": p["invoices"], "first": p["first"], "last": p["last"], "accounts": len(p["accounts"]),
+             "statements_last": p["statements_last"], "updated_at": p["updated_at"]} for p in party_views.overview()["parties"]]
+    return cols, rows
+
+
 # the tables, each with the table it follows in the catalogue (the order they always had); registered by
 # `jav/domains/finance/__init__.py`
 DATASETS = (
@@ -174,7 +197,8 @@ DATASETS = (
                       one_of=datasets.RESULT_SCOPE), "line_items"),
     (datasets.Dataset("utility_sources", "Sources of the utility costs", (), utility_sources, datasets.result_fingerprint,
                       one_of=datasets.RESULT_SCOPE), "utility_cost"),
+    (datasets.Dataset("settings_own_parties", "Own parties", (), own_parties), "started_cases"),  # 263 (E1)
 )
 
 
-__all__ = ["DATASETS", "reconcile_inputs", "utility_cost", "utility_sources"]
+__all__ = ["DATASETS", "own_parties", "reconcile_inputs", "utility_cost", "utility_sources"]
