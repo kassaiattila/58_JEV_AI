@@ -56,6 +56,7 @@ import types
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
 from typing import Any, Literal, Union, get_args, get_origin
@@ -69,7 +70,7 @@ from jav.core.process.engine import StepContext
 __all__ = ["KEPT_RULES", "Action", "AtStart", "Capability", "CapabilityError", "DatasetRef", "OwnVersionResult", "PROVIDERS",
            "RULES", "RULE_REFS", "Result", "ResultMismatch", "RuleKey", "case_overlay", "case_rules", "catalogue", "kept_rules",
            "of", "of_step_kind",
-           "expected_result", "read_result", "reference_problem", "register", "step_budget", "step_reads", "step_ref",
+           "expected_result", "form_fields", "read_result", "reference_problem", "register", "step_budget", "step_reads", "step_ref",
            "step_ref_expects", "step_ref_of", "step_ref_optional", "step_refs",
            "step_scopes"]
 
@@ -257,7 +258,10 @@ class Action:
     `available(case_id, step_id)` (whether the step waits for it now) and `run(case_id, step_id, actor, note)`. D-f2:
     an action with a `form` (a pydantic model forbidding other fields) takes its values instead of a note, checked by
     the form, and `submit(case_id, step_id, actor, values)` does it; its step's own element offers it, not a button.
-    `on_done`: offered on a done step too (a reopening); otherwise only while the step runs."""
+    `on_done`: offered on a done step too (a reopening); otherwise only while the step runs. 261 (B1e): `cap(case_id,
+    step_id)`, for an action that may spend, its cost cap by provider (USD as text) that its button shows (DESIGN §9).
+    261 (B1g): `prefill(case_id, step_id)`, a form's start as the shared form shows it: `values` (the fields' first
+    values, and the state the page shows that the action checks) and `blocked` (why it cannot be sent now, or None)."""
 
     name: str
     label: str
@@ -266,6 +270,8 @@ class Action:
     form: type[BaseModel] | None = None
     submit: Callable[[str, str, identity.Who, Any], Any] | None = None
     on_done: bool = False
+    cap: Callable[[str, str], Mapping[str, str] | None] | None = None
+    prefill: Callable[[str, str], Mapping[str, Any]] | None = None
 
 
 def _takes_values(case_id: str, step_id: str, _actor: identity.Who, _note: str | None) -> None:
@@ -273,9 +279,28 @@ def _takes_values(case_id: str, step_id: str, _actor: identity.Who, _note: str |
 
 
 def form_action(name: str, label: str, available: Callable[[str, str], bool], form: type[BaseModel],
-                submit: Callable[[str, str, identity.Who, Any], Any]) -> Action:
+                submit: Callable[[str, str, identity.Who, Any], Any],
+                prefill: Callable[[str, str], Mapping[str, Any]] | None = None) -> Action:
     """D-f2: an action whose values a form checks (a freeze with the day cover starts, a decision with its choice)."""
-    return Action(name, label, available, _takes_values, form=form, submit=submit)
+    return Action(name, label, available, _takes_values, form=form, submit=submit, prefill=prefill)
+
+
+_FIELD_KINDS: dict[Any, str] = {date: "date", int: "int", float: "number", bool: "bool", str: "text"}
+
+
+def form_fields(form: type[BaseModel]) -> list[dict[str, Any]]:
+    """261 (plan B, B1g): what the shared form shows of an action's form: each field with a `title` (its English label,
+    the interface translates it), its kind (text, a date, a whole number, a number, yes or no) and whether it must be
+    given; a field without a title is the page's context (the state it shows), which the form sends back as given."""
+    out = []
+    for name, info in form.model_fields.items():
+        if info.title is None:
+            continue
+        kinds = [a for a in (get_args(info.annotation) or (info.annotation,)) if a is not type(None)]
+        least = next((m.min_length for m in info.metadata if getattr(m, "min_length", None)), 0)
+        out.append({"name": name, "label": info.title, "kind": _FIELD_KINDS.get(kinds[0] if kinds else str, "text"),
+                    "required": info.is_required() or bool(least)})
+    return out
 
 
 @dataclass(frozen=True)

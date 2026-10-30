@@ -7,6 +7,7 @@ import { ACTIVE_RUN, useLoad, useRunView } from "../hooks";
 import { getLocale, t, useLocale } from "../i18n";
 import { MODE, paramsText, providerName, reasonText, tmap, usd, when } from "../labels";
 import { useNameMode } from "../names";
+import { wpHash } from "../route";
 import { RunStatus } from "./Workpackages";
 import { Icon } from "../components/Icon";
 import { ConfirmButton } from "../components/ConfirmButton";
@@ -42,7 +43,7 @@ export function RunDetail({ runId }: { runId: string }) {
   const ownTotal = Object.values(own).reduce((n, r) => n + r.length, 0);
   // 083: a to-do left by a budget stop opens the budget part by itself
   const budgetBlocked = Object.values(own).some((rs) => rs.some((r) => /BudgetExceeded|budget_exceeded/.test(r.reason)));
-  const wpBase = `#/workpackages/${encodeURIComponent(run.workpackage_id)}`;
+  const wpBase = wpHash(run.workpackage_id);  // 261 (B1c): a case's batch under its case
 
   async function supersede() {
     setBusy(true);

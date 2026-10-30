@@ -540,6 +540,14 @@ def _can_start(case_id: str, step_id: str) -> bool:
     return wp_id is not None and not _live_runs(wp_id) and not _workflow_starts(wp_id)
 
 
+def _start_cap(case_id: str, step_id: str) -> dict[str, str] | None:
+    """261 (B1e): the live run's cost cap by provider, its package's estimate (what its start button shows)."""
+    wp_id = package_of(case_id, step_id)
+    if wp_id is None:
+        return None
+    return {p: str(v) for p, v in (work_readiness.readiness(wp_id).get("budget") or {}).items()} or None
+
+
 def start_run(case_id: str, step_id: str, actor: identity.Who, _note: str | None = None) -> str:
     """A person starts the live run of the step's package within its own estimate; returns the run's id."""
     wp_id = package_of(case_id, step_id)
@@ -575,7 +583,7 @@ CAPABILITY = capabilities.Capability(
     # step's (`_spent`)
     spent=_spent, summary=("Makes a processing package of the case's documents; a person starts its live run within the package's "
              "estimate, and the step is done once a live run is approved."),
-    actions=(capabilities.Action("start_run", "Start the live run", _can_start, start_run),),
+    actions=(capabilities.Action("start_run", "Start the live run", _can_start, start_run, cap=_start_cap),),
     # C3b4: the case list says a person's start while the package waits for its live run, the machine's work while it
     # runs, a person's decision while it waits for its approval (`_state_of`)
     waits={"run_start": "person_start", "run_end": "work", "run_approval": "person", "fetching": "work"}, adopt=_adopt, bind=bind, bound=bound,
@@ -603,19 +611,25 @@ def takes_only_new(pack: Any) -> bool:
 def _package_view(case_id: str, step_id: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
     """231 (C3b3): what the step shows on its case's page (the element `package_work`): its package (its name, its
     items, its runs) and, while its live run waits for a person, whether it can start and its estimate (the button's
-    cost cap); `package` is None before the step made one or when the source held nothing."""
+    cost cap); `package` is None before the step made one or when the source held nothing. 261 (B1a): `brief`, what a
+    parent case shows of the step (`case_views.briefs`): its documents and its current run's open to-dos and state."""
     wp_id = package_of(case_id, str(step_id))
     if wp_id is None:
         return {"package": None}
     wp = work.get(wp_id)
-    runs = [{"run_id": r["run_id"], "mode": r["mode"], "status": r["status"], "approval": r["approval"]}
-            for r in work_runs.run_rows(wp_id)]
-    from jav.app import intake  # lazy: the intake offers the processes, which build on this capability
+    rows = work_runs.run_rows(wp_id)
+    runs = [{"run_id": r["run_id"], "mode": r["mode"], "status": r["status"], "approval": r["approval"]} for r in rows]
+    from jav.app import intake, work_views  # lazy: the intake offers the processes, which build on this capability
 
+    current = work_views.current_run(rows)  # the run the package's next step is about, as its page says
     out: dict[str, Any] = {"package": {"id": wp_id, "name": wp["name"], "items": len(wp["items"]),
                                        "kind": wp["source_kind"]}, "runs": runs, "can_start": False,
                            # C3d (the owner's decision of 2026-10-26): the processes that read it (the email routing)
-                           "offers": intake.package_offers(wp)}
+                           "offers": intake.package_offers(wp),
+                           "brief": {"batch": wp_id, "documents": len(wp["items"]),
+                                     "todos": current["open_reasons"] if current else None,
+                                     "run": {"mode": current["mode"], "status": current["status"],
+                                             "approved": bool(current["approval"])} if current else None}}
     if _workflow_starts(wp_id):
         out["blockers"] = [explained(ProcessingError, "its workflow starts the package's live run").args[0]]
     elif not _live_runs(wp_id):

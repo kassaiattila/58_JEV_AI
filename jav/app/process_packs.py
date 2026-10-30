@@ -51,6 +51,21 @@ __all__ = ["Adopt", "Element", "ExampleSet", "Examples", "FollowUp", "Intake", "
 ELEMENTS = "screen_elements"
 EXAMPLE_DOCUMENTS = "examples_"  # 231 (U0): `configs/examples_<name>.json`, a pack's invented documents
 PLANNED = "planned"  # D0-a: a screen element the catalogue lists before it is built; no pack may use it
+
+
+def _data_table_problems(where: str, name: Any) -> list[str]:
+    """261 (B1f): a shared data table names a registered dataset whose mandatory scope a case gives."""
+    from jav.app import case_views, datasets  # lazy: the datasets read the packages, which read the packs
+
+    if not isinstance(name, str):
+        return [f"{where}: element 'data_table' names no dataset"]
+    try:
+        dataset = datasets.get(name)
+    except datasets.UnknownDataset:
+        return [f"{where}: element 'data_table' names an unknown dataset {name!r}"]
+    if not set(dataset.scope) <= case_views.CASE_SCOPE:
+        return [f"{where}: dataset {name!r} needs a scope a case does not give: {sorted(set(dataset.scope) - case_views.CASE_SCOPE)}"]
+    return []
 _MODULE = re.compile(r"\bjav\.[a-z_]+")
 
 
@@ -404,6 +419,8 @@ def _problems(pack: ProcessPack) -> list[str]:
             if not case_views.gives(element.type, cap.name if cap is not None else None):  # D0-a: it would stay empty
                 problems.append(f"{where}: element {element.type!r} shows nothing "
                                 + (f"for a step of {uses[element.step]}" if element.step is not None else "without a step"))
+            if element.type == "data_table":  # 261 (B1f): a registered dataset the case gives the scope of
+                problems += _data_table_problems(where, (element.model_extra or {}).get("dataset"))
     known_roles = set(cfg.load("partners")["roles"])
     for link in pack.partners:  # 231 (B1)
         where = f"partner {link.role!r}"

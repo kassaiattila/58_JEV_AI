@@ -3,7 +3,7 @@
 // looks like a work package's (the same header and numbered tabs). While a step waits for a job or the worker, the
 // page asks again every few seconds.
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { api, type CaseView } from "../api";
+import { api, type CaseElement, type CaseView } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { elementOf, type ElementProps } from "../elements/registry";
 import { errorText, useLoad } from "../hooks";
@@ -35,6 +35,18 @@ export const moving = (page: CaseView) => page.case.status === "open" && (page.c
  *  checks for its acceptance every few seconds rather than being told), so the next step shows without a reload. */
 const SETTLE_MS = 12000;
 export const settling = (until: number | null, now: number) => until !== null && now <= until;
+
+/** 261 (B1b): a tab's elements in blocks, each from its place on the tab (`at`): a run of consecutive elements of a
+ *  type shown as rows of one table (its spec's `rows`) is one block, any other element a block of its own. */
+export function blocksOf(elements: CaseElement[]): { at: number; elements: CaseElement[] }[] {
+  const out: { at: number; elements: CaseElement[] }[] = [];
+  elements.forEach((e, i) => {
+    const last = out[out.length - 1];
+    if (last && last.elements[0].type === e.type && elementOf(e.type)?.rows) last.elements.push(e);
+    else out.push({ at: i, elements: [e] });
+  });
+  return out;
+}
 
 /** 231 (U1; the owner's decision of 2026-10-28): what may follow a closed case - another process a person starts from
  *  its documents - or the case started from it. */
@@ -124,15 +136,18 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
     <button type="button" className="primary" onClick={() => go({ view: "cases", caseId, tab: view.next!.tab })}>{nextStep} →</button>
   ) : <span className="next-hint">{t("Next step: {{step}}", { step: nextStep })}</span>;
 
-  // 231 (U2c): a sub-case leads back to the case it is part of, at the step that runs it
+  // 231 (U2c): a sub-case leads back to the case it is part of, at the step that runs it (261, B1c: on the tab that
+  // shows the step, and by a button too)
   const parent = view.case.parent;
+  const parentAt = parent ? `#/cases/${encodeURIComponent(parent.id)}${parent.tab ? `/${encodeURIComponent(parent.tab)}` : ""}` : null;
   const crumbs = [{ label: t("Cases"), href: "#/cases" },
-    ...(parent ? [{ label: `${parent.name} · ${t(parent.step_title)}`, href: `#/cases/${encodeURIComponent(parent.id)}` }] : [])];
+    ...(parent && parentAt ? [{ label: `${parent.name} · ${t(parent.step_title)}`, href: parentAt }] : [])];
+  const back = parentAt ? <a className="button secondary" href={parentAt}>{t("← Back to the main case")}</a> : null;
   return (
     <>
       <PageHeader compact crumbs={crumbs} title={view.case.name ?? t(view.case.title)}
         summary={summary}
-        actions={container.data ? <><OwnerPicker view={container.data} onChanged={reload} />{nextButton}<WorkpackageActions view={container.data} onChanged={reload} /></> : nextButton} />
+        actions={container.data ? <>{back}<OwnerPicker view={container.data} onChanged={reload} />{nextButton}<WorkpackageActions view={container.data} onChanged={reload} /></> : <>{back}{nextButton}</>} />
       <FollowUps caseId={caseId} view={view} />
       <Sequence caseId={caseId} view={view} />
       {/* A7e: one row however many tabs the pack has (the package page's three by default) */}
@@ -146,8 +161,11 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
         ))}
       </div>
       <div role="tabpanel" aria-label={t(shown.label)}>
-        {shown.elements.map((e, i) => {
+        {blocksOf(shown.elements).map(({ at: i, elements }) => {
+          const e = elements[0];
           const spec = elementOf(e.type);
+          // 261 (B1b): consecutive elements of a type shown as rows of one table (a multi-step case's sub-cases)
+          if (spec?.rows) return <div key={`${e.type}-${e.step ?? ""}-${i}`}>{spec.rows(elements.map(props))}</div>;
           // U1: a step a closed case never reached is not waiting any more; its card would say it is
           const step = e.step ? view.steps[e.step] : undefined;
           if (view.case.status !== "open" && step && step.state !== "done" && step.state !== "failed") {

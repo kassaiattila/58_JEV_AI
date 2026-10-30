@@ -28,7 +28,16 @@ export interface StartedCase {
 
 /** A person's action on a step (A7d): a failed step's retry, or one its capability offers while the step waits for it. */
 /** D-f2: `form`: the action takes values, which its step's own element asks for (no button of its own). */
-export interface CaseAction { name: string; label: string; form?: boolean }
+/** 261 (B1g): an action's form as the shared form shows it: the fields a person gives (an English label, its kind,
+ *  whether it must be given), their first values with the page's state, and why it cannot be sent now. */
+export interface CaseFormSpec {
+  fields: { name: string; label: string; kind: "text" | "date" | "int" | "number" | "bool"; required: boolean }[];
+  values: Record<string, unknown>; blocked: string | null;
+}
+/** 261 (B1e): `cap`, an action that may spend: its cost cap by provider (USD as text), shown on its button. D-f2:
+ *  `form`, an action with a form (its step's element's); B1g: described for the shared form when a person gives its
+ *  fields. */
+export interface CaseAction { name: string; label: string; form?: boolean | CaseFormSpec; cap?: Record<string, string> }
 /** 231 (C3b3): the documents of a document processing case: a folder (with its subfolders when asked) or files. */
 export interface CaseSource {
   kind: "folder" | "files" | "mailbox"; folder?: string; recursive?: boolean; files?: string[];
@@ -47,6 +56,15 @@ export interface PackageWorkView {
     over: Record<string, string> };
   /** 231 (C3d): the processes whose case may read the package (`jav/app/intake.py` `package_offers`) */
   offers?: import("./processes").PackageOffer[];
+  /** 261 (B1a): what a parent case shows of the step */
+  brief?: StepBrief;
+}
+/** 261 (B1a): what an element gives a parent case to show of its step's work: its documents, its current run's open
+ *  to-dos (null before a run) and state (`jav/app/case_views.py` `briefs`). */
+export interface StepBrief {
+  /** 261 (B1c): the step's batch, whose review a parent's row opens */
+  batch?: string;
+  documents?: number; todos?: number | null; run?: { mode: string; status: string; approved: boolean } | null;
 }
 /** One step of a case: its capability, how it starts, its state in the process core, whether it waits for a person's
  *  start (a paid step or a send), the actions a person may take on it now and (C2d) whether its capability waits for a
@@ -67,7 +85,9 @@ export interface CaseView {
   /** U-A8: `due`, whether the worker has something to do for the case now (the page asks again while it has) */
   case: { id: string; pack: string; version: string; title: string; name: string | null; status: string; due?: boolean;
     /** 231 (U2c): the case and step a sub-case is part of (the process's title, the step's title) */
-    parent?: { id: string; name: string; title: string | null; step: string; step_title: string };
+    parent?: { id: string; name: string; title: string | null; step: string; step_title: string;
+      /** 261 (B1a): the parent's tab that shows the step */
+      tab?: string | null };
     /** 231 (U1) / 261: the case it follows (a closed case's follow-up, or the previous period's case) */
     follows?: string };
   steps: Record<string, CaseStep>;
@@ -190,7 +210,9 @@ export interface BlockersData {
 export interface SubCaseData {
   state: string | null; pack: string | null; process: string | null;
   case: { id: string; name: string; status: string | null; outcome: string | null;
-    next: { code: string; label: string; stage: string; tab: string; params?: Record<string, number> } | null } | null;
+    next: { code: string; label: string; stage: string; tab: string; params?: Record<string, number> } | null;
+    /** 261 (B1a): what the sub-case's steps give to show here, each with its step, title and tab */
+    work?: (StepBrief & { step: string | null; title: string | null; tab: string })[] } | null;
   earlier: { case_id: string; outcome: string }[];
 }
 /** D-f8: a letter that goes with a printed document (jav/app/letters.py). */

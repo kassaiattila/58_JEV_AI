@@ -16,7 +16,7 @@ import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { applyPath, itemBudgetLines, MODE, PARAM_LABEL, paramShort, paramsText, PATH, pathOptions, planLines, providerName, RUN_STATUS, shownParams, shownValue, tmap, usdBudget, when, blockerText } from "../labels";
 import { processNotices } from "../logic/processNotices";
-import { go } from "../route";
+import { go, wpHash } from "../route";
 import { type AddSource } from "./PackageAdd";
 import { PackageItems } from "./PackageItems";
 import { paramExplanation, RecipeParamList, recipeDefaults, recipeTitle } from "./RecipeInfo";
@@ -128,7 +128,7 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
           <div className="run-summary">
             <span className={`status s-${last.status}`}>{RUN_STATUS[last.status] ?? last.status}</span>
             <span>{t("{{mode}} run · {{when}} · {{done}}/{{total}} items", { mode: MODE[last.mode], when: when(last.created_at), done: last.items_done, total: last.items })}</span>
-            {last.open_reasons ? <a href={`#/workpackages/${wp.id}/review`}>{t("To-dos: {{n}}", { n: last.open_reasons })}</a> : null}
+            {last.open_reasons ? <a href={wpHash(wp.id, "review")}>{t("To-dos: {{n}}", { n: last.open_reasons })}</a> : null}
             {active ? (
               <div className="bar wide-bar" role="meter" aria-label={t("Progress")} aria-valuemin={0} aria-valuemax={last.items} aria-valuenow={last.items_done}>
                 <span style={{ width: `${(100 * last.items_done) / Math.max(1, last.items)}%` }} />

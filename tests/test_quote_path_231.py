@@ -45,20 +45,29 @@ _VOLATILE = {"id", "line", "fingerprint", "state", "scope", "usage", "revision",
              "basis"}  # D0-d: the result versions an approval was built on, metadata as the versions' numbers are
 
 
+DATED = "quote_date"  # the day the quote is made, today's; 261: an invented request's own dates (a deadline) stay
+
+
+def _today(text: str) -> str:
+    """Today's date written as a word (the local one, or the UTC one, which a stamp written after local midnight may
+    still carry)."""
+    for today in {date.today().isoformat(), datetime.now(timezone.utc).date().isoformat()}:
+        text = text.replace(today, "<today>")
+    return text
+
+
 def _clean(value: Any) -> Any:
     """The business content: identifiers (a line's, a price list's random one), times, fingerprints and states left
-    out; today's date written as a word (the local one, or the UTC one, which a stamp written after local midnight
-    may still carry)."""
+    out; the quote's own date (`DATED`, a field row's value) written as a word. 261: only that date, so an invented
+    request's deadline that falls on the day of the run (2026-10-30) stays as recorded."""
     if isinstance(value, dict):
-        return {k: ("<price list>" if k == "price_list" and isinstance(v, str) and v.startswith("pl-") else _clean(v))
+        dated = value.get("key") == DATED  # a field row: {key, label, value}
+        return {k: ("<price list>" if k == "price_list" and isinstance(v, str) and v.startswith("pl-")
+                    else _today(v) if isinstance(v, str) and (k == DATED or (dated and k == "value")) else _clean(v))
                 for k, v in sorted(value.items())
                 if k not in _VOLATILE and not k.endswith(("_id", "_at", "_ids"))}
     if isinstance(value, (list, tuple)):
         return [_clean(v) for v in value]
-    if isinstance(value, str):
-        for today in {date.today().isoformat(), datetime.now(timezone.utc).date().isoformat()}:
-            value = value.replace(today, "<today>")
-        return value
     return value
 
 

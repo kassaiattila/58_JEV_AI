@@ -22,7 +22,9 @@ describe("the screen element catalogue", () => {
   });
 
   it("has none for a planned element yet", () => {
-    expect(names(true)).toEqual(["actions", "data_table", "form"]);  // built: D-f4 the field review, D-f7 the document view, D-f9 the blockers
+    // built: D-f4 the field review, D-f7 the document view, D-f9 the blockers; 261 the actions (B1e), the data table
+    // (B1f) and the form (B1g): none is planned any more
+    expect(names(true)).toEqual([]);
     expect(names(true).filter((k) => elementOf(k))).toEqual([]);
   });
 

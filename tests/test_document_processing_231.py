@@ -239,7 +239,8 @@ def test_a_case_step_s_package_names_its_case_and_step(db):
     _turns(case)
     inner = document_processing.package_of(case, "process")
     assert work_views.workpackage_view(inner)["owner_case"] == {
-        "id": case, "name": "Case invoices", "step": "process", "step_title": "Processing", "tab": "documents"}
+        "id": case, "name": "Case invoices", "step": "process", "step_title": "Processing", "tab": "documents",
+        "parent": None}  # 261 (B1c): a case that is no sub-case
     plain = work.create_from_folder(folder, name="Plain", owner=PERSON)["id"]
     assert "owner_case" not in work_views.workpackage_view(plain)
 

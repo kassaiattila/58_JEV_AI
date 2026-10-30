@@ -38,8 +38,10 @@ from jav.core import calls, completion, identity, store
 from jav.core.process import cases, engine, tasks
 from jav.core.user_messages import explained
 
-__all__ = ["CaseError", "ElementData", "act", "gives", "link_partner", "marks", "next_of", "register", "return_step",
-           "start_step", "view"]
+__all__ = ["CASE_SCOPE", "CaseError", "ElementData", "act", "briefs", "gives", "link_partner", "marks", "next_of", "register",
+           "return_step", "start_step", "started_cases", "view"]
+
+CASE_SCOPE = frozenset({"case_id"})  # 261 (B1f): the scope keys a case gives the shared data table's dataset
 
 
 class CaseError(ValueError):
@@ -98,16 +100,42 @@ def gives(element: str, capability: str | None) -> bool:
 RETRY = "retry"  # A7e: every failed step's own action: a person starts it again
 
 
-def _actions(case_id: str, step: process_packs.Step, row: dict[str, Any]) -> list[dict[str, str]]:
-    """The actions available on the step now: a failed step's retry (A7e), a running step's capability's (A7d)."""
+def _actions(case_id: str, step: process_packs.Step, row: dict[str, Any]) -> list[dict[str, Any]]:
+    """The actions available on the step now: a failed step's retry (A7e), a running step's capability's (A7d), each
+    that may spend with its cost cap (261, B1e)."""
     if row.get("state") == cases.FAILED:
         return [{"name": RETRY, "label": "Try again"}]
     state = row.get("state")
     if state not in (cases.RUNNING, cases.DONE):
         return []
-    return [{"name": a.name, "label": a.label, **({"form": True} if a.form is not None else {})}  # D-f2: its element's
-            for a in capabilities.of(step.uses).actions
-            if (state == cases.RUNNING or a.on_done) and a.available(case_id, step.id)]  # D-f2: a reopening on a done one
+    out = []
+    for a in capabilities.of(step.uses).actions:
+        if (state == cases.RUNNING or a.on_done) and a.available(case_id, step.id):  # D-f2: a reopening on a done one
+            cap = a.cap(case_id, step.id) if a.cap is not None else None
+            out.append({"name": a.name, "label": a.label, **({"form": _form(case_id, step.id, a)} if a.form is not None else {}),
+                        **({"cap": dict(cap)} if cap else {})})
+    return out
+
+
+def _form(case_id: str, step_id: str, action: capabilities.Action) -> Any:
+    """D-f2: an action with a form is its step's element's (True); 261 (B1g): one whose form has fields a person gives
+    is described for the shared form: its fields, its start values and whether it can be sent now."""
+    fields = capabilities.form_fields(action.form) if action.form is not None else []
+    if not fields:
+        return True
+    start = dict(action.prefill(case_id, step_id)) if action.prefill is not None else {}
+    return {"fields": fields, "values": start.get("values") or {}, "blocked": start.get("blocked")}
+
+
+def _step_actions(case_id: str, step_id: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """261 (B1e): the shared element `actions`: the step's actions now, each that may spend with its cost cap."""
+    pack = process_runtime.pack_for(case_id)
+    step = next((s for s in pack.steps if s.id == step_id), None) if pack is not None else None
+    if step is None:
+        return {"actions": []}
+    with store.connect() as c:
+        row = cases.find_step_in(c, case_id, step.id) or {}
+    return {"actions": _actions(case_id, step, row)}
 
 
 def _reasons(state: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
@@ -192,6 +220,14 @@ def _next(tabs: list[dict[str, Any]], open_steps: list[str] | None = None) -> di
 def next_of(case_id: str) -> dict[str, Any] | None:
     """The case's next step as its page names it (the work package list's next step of its container)."""
     return view(case_id)["next"]
+
+
+def briefs(page: dict[str, Any]) -> list[dict[str, Any]]:
+    """261 (B1a): what a parent case shows of a case (`page`, its `view`): each element whose data carries a `brief` (a
+    few counts of its step's work, the element's own), with the step, its title and the tab that shows it."""
+    return [{"step": e.get("step"), "title": (page["steps"].get(e.get("step") or "") or {}).get("title"), "tab": tab["id"],
+             **e["data"]["brief"]}
+            for tab in page["tabs"] for e in tab["elements"] if isinstance(e["data"], dict) and e["data"].get("brief")]
 
 
 def start_step(case_id: str, step_id: str, actor: identity.Who) -> dict[str, Any]:
@@ -391,9 +427,20 @@ def return_step(case_id: str, step_id: str, reason: str, actor: identity.Who) ->
     return package_release.approval_state(case_id, step=step_id)
 
 
-def _started_cases(case_id: str, _step: str | None, shared: dict[str, Any]) -> list[dict[str, Any]]:
+def _started_cases(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """231 (C1c): the element `started_cases`; 261 (B1f): the shared data table's dataset of them, for the case."""
+    return {"dataset": "started_cases", "scope": {"case_id": case_id}}
+
+
+def _data_table(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[str, Any]:
+    """261 (B1f): the shared element `data_table`: the scope the case gives its dataset (the pack's element names the
+    dataset, one the case can scope, `process_packs.check`)."""
+    return {"scope": {"case_id": case_id}}
+
+
+def started_cases(case_id: str) -> list[dict[str, Any]]:
     """231 (C1c): the cases started from an item of the work packages the case reads (its scope's `sources`): each with
-    its process and state."""
+    its process and state (261, B1f: the dataset `started_cases`)."""
     sources = set(((package_scope.stored(case_id) or {}).get("parts") or {}).get(scopes.SOURCES) or [])
     out = []
     for h in package_scope.holders(scopes.RECORD, lambda v: isinstance(v, dict) and v.get("workpackage_id") in sources):
@@ -450,7 +497,10 @@ def _blockers(case_id: str, _step: str | None, _shared: dict[str, Any]) -> dict[
 
 register(ElementData("blockers", None, __name__, _blockers))  # D-f9
 register(ElementData("started_cases", None, __name__, _started_cases))
+register(ElementData("data_table", None, __name__, _data_table))  # 261 (B1f)
+register(ElementData("form", None, __name__, _step_actions))  # 261 (B1g): a step's described forms, among its actions
 register(ElementData("timeline", None, __name__, _timeline))
+register(ElementData("actions", None, __name__, _step_actions))  # 261 (B1e)
 register(ElementData("cost", None, __name__, _cost))
 register(ElementData("partner_link", None, __name__, _partner_link))
 register(ElementData("approval", None, __name__, _approval, applies=_approves))  # D0-d: shared, for approving steps

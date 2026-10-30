@@ -23,7 +23,9 @@ export interface StartRequest { mode: "shadow" | "apply"; rerun: boolean; pendin
 
 export type Route =
   // 167: `add` opens the add form at the top of Processing (the package's actions menu leads there)
-  | { view: "workpackages"; wpId?: string; stage?: Stage; itemId?: string; table?: ResultTable; runId?: string; start?: StartRequest; add?: boolean }
+  | { view: "workpackages"; wpId?: string; stage?: Stage; itemId?: string; table?: ResultTable; runId?: string; start?: StartRequest; add?: boolean;
+      /** 261 (B1c): the case whose step made the batch; its pages open under the case's address */
+      inCase?: string }
   | { view: "run"; runId: string }
   /** 146: the workflows (the work packages of one job, chained): the list and a control view; 231 (U2c): only the
    *  earlier ones, readable (a new one is a multi-step process's case) */
@@ -60,6 +62,32 @@ function decodePart(part: string): string {
   }
 }
 
+/** 261 (plan B, B1c; the owner's decision of 2026-10-29: the review opens under the case's address): the batches a
+ *  case's step made, each with its case, as the service named them (a batch's page names its case, a document step its
+ *  batch) or an address did; a link to such a batch's pages leads under its case. */
+const CASE_OF_BATCH = new Map<string, string>();
+export function batchOfCase(wpId: string, caseId: string): void {
+  CASE_OF_BATCH.set(wpId, caseId);
+}
+
+/** A batch's address after its id (`parts[0]`): its section, item, run start, adding, result table and run. */
+function batchRoute(parts: string[], params: URLSearchParams): Extract<Route, { view: "workpackages" }> {
+  const raw = parts[1] ?? "";
+  const stage = STAGES.includes(raw as Stage) ? (raw as Stage) : OLD_TAB[raw];
+  const r: Extract<Route, { view: "workpackages" }> = { view: "workpackages", wpId: parts[0], stage };
+  if (stage === "review" && parts[2]) r.itemId = parts[2];
+  if (stage === "process" && parts[2] === "start") {
+    r.start = { mode: params.get("mode") === "apply" ? "apply" : "shadow", rerun: params.get("rerun") === "1" };
+    if (params.get("pending") === "1") r.start.pending = true;
+  }
+  if (stage === "process" && parts[2] === "add") r.add = true;
+  if (stage === "result") {
+    if (resultTables().some((x) => x.key === parts[2])) r.table = parts[2];
+    if (params.get("run")) r.runId = params.get("run")!;
+  }
+  return r;
+}
+
 export function parseRoute(hash: string): Route {
   const [path, search = ""] = hash.replace(/^#\/?/, "").split("?", 2);
   const parts = path.split("/").filter(Boolean).map(decodePart);
@@ -85,6 +113,10 @@ export function parseRoute(hash: string): Route {
         const after = params.get("after");
         return parts[2] ? { view: "case-list", create: true, pack: parts[2], ...(after ? { after } : {}) } : { view: "case-list", create: true };
       }
+      if (parts[1] && parts[2] === "batches" && parts[3]) {  // 261 (B1c): a case's step's batch, under the case
+        batchOfCase(parts[3], parts[1]);
+        return { ...batchRoute(parts.slice(3), params), inCase: parts[1] };
+      }
       return parts[1] ? { view: "cases", caseId: parts[1], tab: parts[2] || undefined } : { view: "case-list" };  // A7e
     case "workflows":
       // 231 (U2c): a new workflow is a case of a multi-step process; the repeat's address shows the earlier workflow
@@ -94,23 +126,8 @@ export function parseRoute(hash: string): Route {
       return { view: "legacy-result", runId: parts[1], table: "utility" };
     case "data":
       return { view: "legacy-result", runId: params.get("run_id") ?? undefined, table: OLD_DATASET[parts[1] ?? ""] };
-    case "workpackages": {
-      if (!parts[1]) return { view: "workpackages" };
-      const raw = parts[2] ?? "";
-      const stage = STAGES.includes(raw as Stage) ? (raw as Stage) : OLD_TAB[raw];
-      const r: Route = { view: "workpackages", wpId: parts[1], stage };
-      if (stage === "review" && parts[3]) r.itemId = parts[3];
-      if (stage === "process" && parts[3] === "start") {
-        r.start = { mode: params.get("mode") === "apply" ? "apply" : "shadow", rerun: params.get("rerun") === "1" };
-        if (params.get("pending") === "1") r.start.pending = true;
-      }
-      if (stage === "process" && parts[3] === "add") r.add = true;
-      if (stage === "result") {
-        if (resultTables().some((x) => x.key === parts[3])) r.table = parts[3];
-        if (params.get("run")) r.runId = params.get("run")!;
-      }
-      return r;
-    }
+    case "workpackages":
+      return parts[1] ? batchRoute(parts.slice(1), params) : { view: "workpackages" };
     default: {  // 231 (U2a): an unknown address opens the one work list, the cases
       // 261: an older address of a settings section (the mailboxes' `#/mailbox`, 057) opens that section
       const aliased = settingsSections().find((s) => parts[0] && s.aliases?.includes(parts[0]));
@@ -132,8 +149,11 @@ export function routeHash(r: Route): string {
     case "legacy-result": return r.runId ? `#/reports/${e(r.runId)}` : "#/reports";
     case "workpackages": {
       if (!r.wpId) return "#/workpackages";
-      if (!r.stage) return `#/workpackages/${e(r.wpId)}`;
-      let h = `#/workpackages/${e(r.wpId)}/${r.stage}`;
+      // 261 (B1c): a case's step's batch under its case
+      const owner = r.inCase ?? CASE_OF_BATCH.get(r.wpId);
+      const base = owner ? `#/cases/${e(owner)}/batches/${e(r.wpId)}` : `#/workpackages/${e(r.wpId)}`;
+      if (!r.stage) return base;
+      let h = `${base}/${r.stage}`;
       if (r.stage === "review" && r.itemId) h += `/${e(r.itemId)}`;
       if (r.stage === "process" && r.start) h += `/start?mode=${r.start.mode}${r.start.rerun ? "&rerun=1" : ""}${r.start.pending ? "&pending=1" : ""}`;
       else if (r.stage === "process" && r.add) h += "/add";

@@ -3,7 +3,7 @@
 // emails. Synthetic data, a mocked service.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setActor, type CaseView, type StartedCase } from "../../api";
+import { api, setActor, type CaseView, type DsPage } from "../../api";
 import type { RoutingView } from "./api";
 import { setLanguage } from "../../i18n";
 import { StartedCases } from "../../elements/CaseElements";
@@ -43,11 +43,21 @@ describe("the email routing on a case's tabs (231 C1c)", () => {
     await waitFor(() => expect(changed).toHaveBeenCalled());
   });
 
-  it("lists the cases started from the emails", () => {
-    const rows: StartedCase[] = [{ id: "wp-000000000196", name: "IT quote: Example", record: { workpackage_id: "wp-000000000001", item_id: "m1" },
-      pack: "it_quote", process: "IT quote", status: "open" }];
-    render(<StartedCases caseId="wp-000000000231" element={{ type: "started_cases", step: null, data: rows }} page={PAGE} onChanged={() => {}} />);
-    expect(screen.getByRole("link", { name: "IT quote: Example" }).getAttribute("href")).toBe("#/cases/wp-000000000196");
+  it("lists the cases started from the emails, in the shared data table (261 B1f)", async () => {
+    const started: DsPage = {
+      dataset: { name: "started_cases", label: "Started cases", scope: ["case_id"], optional_scope: [] },
+      columns: [{ key: "name", label: "Case", kind: "text", hidden: false, labels: null, link: "case" },
+        { key: "process", label: "Process", kind: "enum", hidden: false, labels: { "IT quote": "IT quote" } },
+        { key: "status", label: "State", kind: "enum", hidden: false, labels: { open: "Case open", closed: "Case closed" } }],
+      rows: [{ _key: "wp-000000000196", _wp: "wp-000000000196", name: "IT quote: Example", process: "IT quote", status: "open" }],
+      total: 1, matched: 1, offset: 0, limit: 50, facets: {},
+    } as unknown as DsPage;
+    const query = vi.spyOn(api, "datasetQuery").mockResolvedValue(started);
+    render(<StartedCases caseId="wp-000000000231" element={{ type: "started_cases", step: null,
+      data: { dataset: "started_cases", scope: { case_id: "wp-000000000231" } } }} page={PAGE} onChanged={() => {}} />);
+    expect((await screen.findByRole("link", { name: "IT quote: Example" })).getAttribute("href")).toBe("#/cases/wp-000000000196");
     expect(screen.getByText("Case open")).toBeTruthy();
+    expect(query.mock.calls[0][0]).toBe("started_cases");
+    expect(query.mock.calls[0][1]).toEqual({ case_id: "wp-000000000231" });
   });
 });

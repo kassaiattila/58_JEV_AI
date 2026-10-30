@@ -7,7 +7,7 @@ import { useDataset, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { FIELD, fieldLabel, fold, ITEM_STATUS, itemName, when } from "../labels";
 import { useNameMode } from "../names";
-import { go, routeHash } from "../route";
+import { go, routeHash, wpHash } from "../route";
 import { draftKey, getDraft, setField, useDraft } from "../review/drafts";
 import { FieldPanel } from "../review/FieldPanel";
 import { itemReviewOf } from "../review/itemReviews";
@@ -90,7 +90,7 @@ export function ReviewWorkspace({ wp, itemId, onChanged, currentRunId, openRuns 
   if (latest.error) return <p className="notice error" role="alert">{latest.error.message}</p>;
   if (!latest.data) return <p className="muted">{t("Loading…")}</p>;
   if (latest.data.total === 0) {
-    return <div className="empty">{t("No processing has run on this batch yet, so there is nothing to review. Start a run in the")} <a href={`#/workpackages/${wp.id}/process`}>{t("Processing")}</a> {t("in the section.")}</div>;
+    return <div className="empty">{t("No processing has run on this batch yet, so there is nothing to review. Start a run in the")} <a href={wpHash(wp.id, "process")}>{t("Processing")}</a> {t("in the section.")}</div>;
   }
   if (!view.data) return view.error ? <p className="notice error">{view.error.message}</p> : <p className="muted">{t("Loading…")}</p>;
 

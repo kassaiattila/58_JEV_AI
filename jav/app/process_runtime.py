@@ -105,7 +105,8 @@ PARENT = "parent"  # 231 (U2c): in a sub-case's data, the case and step it is pa
 
 def parent_of(case_id: str) -> dict[str, Any] | None:
     """231 (U2c): the case a sub-case is part of and its step ({id, name, title, step, step_title}: the case's name, its
-    process's title, the step's title); None for a case that is no sub-case."""
+    process's title, the step's title); None for a case that is no sub-case. 261 (B1a): `tab`, the parent's tab that
+    shows the step (a sub-case's page leads back there)."""
     with store.connect() as c:
         row = cases.find_case_in(c, case_id)
     parent = ((row or {}).get("data") or {}).get(PARENT)
@@ -113,8 +114,10 @@ def parent_of(case_id: str) -> dict[str, Any] | None:
         return None
     pack = pack_for(parent["case"])
     step = next((s for s in pack.steps if s.id == parent["step"]), None) if pack is not None else None
+    tab = next((t.id for t in pack.screens.tabs for e in t.elements if e.step == parent["step"]), None) if pack else None
     return {"id": parent["case"], "name": work.get(parent["case"])["name"], "title": pack.title if pack else None,
-            "step": parent["step"], "step_title": step.title if step is not None and step.title else parent["step"]}
+            "step": parent["step"], "step_title": step.title if step is not None and step.title else parent["step"],
+            "tab": tab}
 
 
 class FollowUpError(ValueError):

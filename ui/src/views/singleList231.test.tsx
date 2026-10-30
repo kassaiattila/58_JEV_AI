@@ -43,7 +43,8 @@ describe("one work list (231 U2a)", () => {
       step_title: "Processing", tab: "documents" } }));
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [] });
     vi.spyOn(api, "datasetQuery").mockResolvedValue(EMPTY);
-    render(<WorkpackageDetail wpId="wp-00000000b001" route={{ view: "workpackages", wpId: "wp-00000000b001" }} />);
+    // 261 (B1c): a case's step's batch is shown under its case's address
+    render(<WorkpackageDetail wpId="wp-00000000b001" route={{ view: "workpackages", wpId: "wp-00000000b001", inCase: "wp-00000000c001" }} />);
     const crumbs = await screen.findByRole("navigation", { name: "Location" });
     expect(within(crumbs).getByRole("link", { name: "Cases" }).getAttribute("href")).toBe("#/cases");
     expect(within(crumbs).getByRole("link", { name: "April case" }).getAttribute("href")).toBe("#/cases/wp-00000000c001/documents");

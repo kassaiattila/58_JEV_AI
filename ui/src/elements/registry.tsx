@@ -25,6 +25,9 @@ export interface ElementSpec {
   status?: (p: ElementProps) => string | null;
   /** the page's summary (the first element of the page that gives one) */
   summary?: (p: ElementProps) => string | null;
+  /** 261 (B1b): consecutive elements of the type on a tab shown together, each a row of one table (the case page groups
+   *  them; `render` shows one alone the same way) */
+  rows?: (ps: ElementProps[]) => ReactNode;
 }
 
 // 231 (A7e): the general elements any pack may show: a send step's handovers, a reply step's wait, the case's events and
@@ -37,7 +40,7 @@ const CostView = lazy(() => general().then((m) => ({ default: m.CostView })));
 const PartnerLink = lazy(() => general().then((m) => ({ default: m.PartnerLink })));
 const GeneralApproval = lazy(() => general().then((m) => ({ default: m.GeneralApproval })));
 const StartedCases = lazy(() => general().then((m) => ({ default: m.StartedCases })));
-const SubCaseView = lazy(() => general().then((m) => ({ default: m.SubCaseView })));  // 231 (U2c)
+const SubWorkTable = lazy(() => general().then((m) => ({ default: m.SubWorkTable })));  // 231 (U2c), 261 (B1b)
 // 231 (C3e): the pairing's elements are the finance domain's; 261: the file placement's the email domain's
 // 231 (C3b3): the document processing step's element (its page loads only when a case shows it); its tab line is small
 const PackageWork = lazy(() => import("./PackageWork").then((m) => ({ default: m.PackageWork })));
@@ -56,9 +59,16 @@ const DecisionView = lazy(() => import("./DecisionElement").then((m) => ({ defau
 const DocumentView = lazy(() => import("./DocumentElement").then((m) => ({ default: m.DocumentView })));
 const LetterView = lazy(() => import("./LetterElement").then((m) => ({ default: m.LetterView })));
 const BlockersView = lazy(() => import("./BlockersElement").then((m) => ({ default: m.BlockersView })));
+const ActionsView = lazy(() => import("./ActionsElement").then((m) => ({ default: m.ActionsView })));  // 261 (B1e)
+const DataTableView = lazy(() => import("./DataTableElement").then((m) => ({ default: m.DataTableView })));  // 261 (B1f)
+const FormView = lazy(() => import("./FormElement").then((m) => ({ default: m.FormView })));  // 261 (B1g)
 /** An element whose page loads only when a case shows it (its module imported on first render). */
 export const lazily = (C: (p: ElementProps) => ReactNode) =>
   (p: ElementProps) => <Suspense fallback={<p className="muted">{t("Loading…")}</p>}><C {...p} /></Suspense>;
+/** 261 (B1b): elements shown as rows of one table, whose page loads only when a case shows them. */
+const lazilyRows = (C: (p: { rows: ElementProps[] }) => ReactNode) =>
+  (rows: ElementProps[]) => <Suspense fallback={<p className="muted">{t("Loading…")}</p>}><C rows={rows} /></Suspense>;
+const subWork = lazilyRows(SubWorkTable);
 
 /** D0-d: the capability (by name) of the step an element shows, from the case's page */
 const capabilityOf = (p: ElementProps) => (p.element.step ? p.page.steps[p.element.step]?.uses?.split("@")[0] ?? "" : "");
@@ -81,9 +91,13 @@ export const ELEMENTS: Record<string, ElementSpec> = {
   handover_view: { render: lazily(HandoverView), status: (p) => handoverStatus(p)?.text ?? null },
   reply_wait: { render: lazily(ReplyWait), status: (p) => replyStatus(p)?.text ?? null },
   timeline: { render: lazily(Timeline) },
+  actions: { render: lazily(ActionsView) },  // 261 (B1e): a step's actions, each that may spend with its cost cap
+  data_table: { render: lazily(DataTableView) },  // 261 (B1f): a registered dataset the case gives the scope of
+  form: { render: lazily(FormView) },  // 261 (B1g): a step's action's form, as its capability describes it
   partner_link: { render: lazily(PartnerLink) },  // 231 (B1)
   started_cases: { render: lazily(StartedCases) },  // 231 (C1c)
-  sub_case: { render: lazily(SubCaseView), status: (p) => subCaseStatus(p.element.data as SubCaseData | null)?.text ?? null },  // 231 (U2c)
+  sub_case: { render: (p) => subWork([p]), rows: subWork,  // 231 (U2c); 261 (B1b): a multi-step case's sub-work table
+    status: (p) => subCaseStatus(p.element.data as SubCaseData | null)?.text ?? null },
   package_work: { render: lazily(PackageWork), status: (p) => packageWorkLine(p.element.data as PackageWorkView | null) },  // 231 (C3b3)
   cost: { render: lazily(CostView), status: (p) => { const usd = costTotal(p); return usd === null ? null : `${moneyText(usd)} USD`; } },
   field_review: { render: lazily(FieldReview), status: (p) => fieldReviewLine(p.element.data as FieldReviewData | null) },  // D-f4

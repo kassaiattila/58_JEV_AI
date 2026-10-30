@@ -13,6 +13,7 @@ import type { DsColumn, DsFilter, DsPage, DsRow, DsScope, DsSort } from "../api"
 import { useDataset, useDebounced } from "../hooks";
 import { getLocale, t, useLocale } from "../i18n";
 import { fold, moneyText, numText, tmap, when } from "../labels";
+import { wpHash } from "../route";
 import { ColumnResizer, useColumnWidths } from "./ColumnResize";
 import { DownloadPanel } from "./DownloadPanel";
 import { Picker } from "./Picker";
@@ -58,7 +59,7 @@ interface Props {
 export function linkOf(col: DsColumn, row: DsRow): string | null {
   const e = encodeURIComponent;
   const item = (row.item_id as string | undefined) ?? row._key;
-  const wp = row._wp ? `#/workpackages/${e(row._wp)}` : null;
+  const wp = row._wp ? wpHash(String(row._wp)) : null;  // 261 (B1c): a case's batch under its case
   switch (col.link) {
     case "run": return row._run ? `#/runs/${e(row._run)}` : null;
     case "workpackage": return wp;
