@@ -95,3 +95,14 @@ def test_the_price_lists_and_the_own_parties_are_their_domains_lists(db):
     assert _spec(prices, "name")["section"] == "prices"
     own = datasets.query("settings_own_parties", {}, ALL)
     assert len(own["rows"]) == 1 and _spec(own, "name")["section"] == "parties"
+
+
+def test_a_processs_settings_name_every_library_value_not_only_the_active_choices(db):
+    from jav.app import process_settings
+
+    examples.install("allianz_property_offer", ANNA)  # the invented tariff
+    with display.use("hu"):
+        by = {r["key"]: r for r in process_settings.view("allianz_property_offer")["resources"]}
+    assert by["tariff"]["names"][by["tariff"]["value"]].startswith("Allianz")
+    assert by["letter_frame"]["names"]["offer_letter"] == "Biztosítási ajánlat – {{policyholder}}"  # its subject
+    assert by["offer_output"]["names"]["rated_offer"] == "Díjazott ajánlat"

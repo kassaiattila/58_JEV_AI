@@ -273,6 +273,28 @@ def _frames(_scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
+def library_names() -> dict[str, str]:
+    """263 (E1; the owner's request of 2026-10-30: a process's "What it uses" showed codes): the readable name of every
+    thing of the shared library a process may use, by its code - a product and a tariff by their name (a draft's too),
+    an output template by its name, a letter frame by its subject, an output by its name - so a page names a thing
+    wherever a name exists, not only for the active choices."""
+    from jav.app import letter_frames
+    from jav.app.outputs import templates
+
+    names: dict[str, str] = {}
+    for kind in ("product", "tariff"):
+        for thing in _registry(kind):
+            v = _shown(thing)
+            names[thing["ident"]] = str((v["content"].get("title") if kind == "tariff" else None) or v.get("name") or thing["name"])
+    for x in templates.listing():
+        names[x["template"]] = x["name"]
+    for k in letter_frames.listing()["kinds"]:
+        for f in k["frames"]:
+            names[f["ident"]] = str(f["content"].get("subject") or f["ident"])
+    names |= {code: display.text(name) for code, name in _OUTPUT.items()}
+    return names
+
+
 _LABEL_SETS = tuple(LabelSet(name, __name__, labels.copy) for name, labels in (
     ("registry_state", _STATE), ("rule_kind", _RULE_KIND), ("document_kind", _DOCUMENT_KIND), ("partner_kind", _PARTNER_KIND),
     ("proposal_run_state", _RUN_STATE), ("output_name", _OUTPUT), ("frame_state", _FRAME_STATE)))
@@ -300,4 +322,4 @@ def register() -> None:
         after = ds.name
 
 
-__all__ = ["DATASETS", "register"]
+__all__ = ["DATASETS", "library_names", "register"]

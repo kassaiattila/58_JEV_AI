@@ -61,6 +61,8 @@ export interface ResourceSetting {
   file_value: string; value: string; own: boolean; versions: SettingVersion[];
   /** 231 (U3c): the resource it follows from (a product brings its tariff), shown read only */
   derived_from?: string | null;
+  /** 263 (E1): the readable name of each value it shows (a draft's or a retired thing's too), by its code */
+  names?: Record<string, string>;
 }
 export interface RuleSetting {
   key: string; file: string; path: string; what: string; kind: "int" | "choice"; least: number | null; most: number | null;

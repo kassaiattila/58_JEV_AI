@@ -141,6 +141,18 @@ describe("a process's own settings (231 B4)", () => {
     expect(routeHash({ view: "settings", section: "processes", item: "it_quote" })).toBe("#/settings/processes/it_quote");
   });
 
+  it("names a value no active choice names by the library's name, a code only where none exists (263)", async () => {
+    const named: ProcessSettings = { ...PAGE, resources: [{ ...PAGE.resources[0], key: "product", label: "Product", options: [],
+      file_value: "invented_product", value: "invented_draft", own: false, versions: [],
+      names: { invented_draft: "Invented product (a draft)" } }] };
+    vi.spyOn(api, "processes").mockResolvedValue({ processes: [PAGE.pack] });
+    vi.spyOn(api, "processSettings").mockResolvedValue(named);
+    render(<ProcessSettingsPanel pack="invented_quote" tab="uses" />);
+    const row = (await screen.findByRole("button", { name: "Product" })).closest("tr")!;
+    expect(within(row).getByText("Invented product (a draft)").className).not.toContain("mono");
+    expect(within(row).getByText("invented_product").className).toContain("mono");  // no name: the code
+  });
+
   it("says where the values come from when there is nothing to choose yet (231 U3b)", async () => {
     const empty: ProcessSettings = { ...PAGE, resources: [{ ...PAGE.resources[0], key: "product", label: "Product", options: [],
       file_value: "invented_product", value: "invented_product", own: false, versions: [] }] };

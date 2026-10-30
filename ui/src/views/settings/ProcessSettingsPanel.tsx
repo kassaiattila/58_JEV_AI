@@ -33,11 +33,13 @@ function show(v: unknown): string {
   return numText(v, 4);
 }
 
-/** A resource's value as a person reads it: its option's label; a code (an option without a label of its own, or a
- *  value no option names) in the code face. */
+/** A resource's value as a person reads it: its option's label, else the library's name for it (263: a draft's or a
+ *  retired thing's too); a code only where no name exists, in the code face. */
 function ResourceValue({ r, value }: { r: ResourceSetting; value: Value }) {
   const found = r.options?.find((o) => o.value === value);
-  return found && found.label !== found.value ? <>{t(found.label)}</> : <span className="mono">{String(value)}</span>;
+  if (found && found.label !== found.value) return <>{t(found.label)}</>;
+  const named = r.names?.[String(value)];
+  return named ? <>{named}</> : <span className="mono">{String(value)}</span>;
 }
 
 function policyText(p: ProcessSettings["policy"]) {
