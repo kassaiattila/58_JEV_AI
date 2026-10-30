@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type LetterFrames } from "../../api";
 import { setLanguage } from "../../i18n";
 import hungarian from "../../i18n/hu-native.json";
-import { LetterFramesPanel } from "./LetterFramesPanel";
+import { Settings } from "../Settings";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -35,7 +35,7 @@ describe("the letter frames (231 U3f)", () => {
   it("shows a frame's text field by field with the processes that use it", async () => {
     vi.spyOn(api, "letterFrames").mockResolvedValue(LISTING([]));
     vi.spyOn(api, "usedBy").mockResolvedValue({ used_by: { invented_letter: [{ id: "invented_offer", title: "Invented offer" }] } });
-    render(<LetterFramesPanel />);
+    render(<Settings section="letters" item="letter_frame" tab="invented_letter" />);  // 263: a frame's own page
     const frame = await screen.findByLabelText("invented_letter");
     expect(within(frame).getByText("the system's text")).toBeTruthy();
     expect(within(frame).getByText("Our offer - {{policyholder}}")).toBeTruthy();
@@ -47,7 +47,7 @@ describe("the letter frames (231 U3f)", () => {
     vi.spyOn(api, "letterFrames").mockResolvedValue(LISTING([]));
     vi.spyOn(api, "usedBy").mockResolvedValue({ used_by: {} });
     const propose = vi.spyOn(api, "proposeLetterFrame").mockResolvedValue(LISTING([DRAFT]));
-    render(<LetterFramesPanel />);
+    render(<Settings section="letters" item="letter_frame" tab="invented_letter" />);  // 263: a frame's own page
     fireEvent.click(await screen.findByRole("button", { name: "Change the text" }));
     const form = screen.getByRole("form", { name: "Change the text" });
     expect((within(form).getByRole("button", { name: "Save as a draft" }) as HTMLButtonElement).disabled).toBe(true);
@@ -65,7 +65,7 @@ describe("the letter frames (231 U3f)", () => {
     vi.spyOn(api, "usedBy").mockResolvedValue({ used_by: {} });
     const listing = vi.spyOn(api, "letterFrames").mockResolvedValue(LISTING([DRAFT]));
     const activate = vi.spyOn(api, "activateLetterFrame").mockResolvedValue(LISTING([{ ...DRAFT, state: "active" }], 1));
-    render(<LetterFramesPanel />);
+    render(<Settings section="letters" item="letter_frame" tab="invented_letter" />);  // 263: a frame's own page
     fireEvent.click(await screen.findByRole("button", { name: "Make version 1 active" }));
     await waitFor(() => expect(activate).toHaveBeenCalledWith("letter_frame", "invented_letter", 1));
     listing.mockResolvedValue(LISTING([{ ...DRAFT, state: "active" }], 1));

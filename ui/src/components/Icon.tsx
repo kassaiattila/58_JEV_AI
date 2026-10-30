@@ -19,6 +19,8 @@ const PATHS = {
   restore: "M4 10h11a5 5 0 0 1 0 10h-4M4 10l4-4M4 10l4 4",
   trash: "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6",
   info: "M12 8h.01M11 12h1v5h1M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z",
+  chevron: "M9 6l6 6-6 6", // 263: a branch of the table of contents (turned down when open)
+  panel: "M4 5h16v14H4zM9 5v14", // 263: shows a hidden side panel
 } as const;
 
 export type IconName = keyof typeof PATHS;

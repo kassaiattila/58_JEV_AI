@@ -34,8 +34,10 @@ export type Route =
   | { view: "cases"; caseId: string; tab?: string }
   /** 231 (U0): the case list; `create`: a new case, of the process `pack` when one is chosen */
   | { view: "case-list"; create?: boolean; pack?: string; after?: string }  // 261: `after`, the case whose next period it is
-  /** 231 (U3a): `item`, a process of the Processes section (its own page), and `tab`, the page's tab */
-  | { view: "settings"; section: SettingsSection; item?: string; tab?: string }
+  /** 231 (U3a): `item`, a process of the Processes section (its own page), and `tab`, the page's tab. 263 (E1): a
+   *  section's chosen thing is its `item` (a partner, a decision; a product's list and its `tab` the chosen one), and
+   *  `open` a part opened inside it (a setting of a process, a rule of a product) */
+  | { view: "settings"; section: SettingsSection; item?: string; tab?: string; open?: string }
   /** 061: the selected person's actions on a day („Mai munkám” (My work today)); without a day, today's */
   | { view: "activity"; day?: string }
   /** 216: what waits for the selected person (their open human tasks and anyone's); `all`: trial runs' and
@@ -97,8 +99,9 @@ export function parseRoute(hash: string): Route {
       if (parts[1] === "tariffs") return { view: "settings", section: "products", item: "tariffs" };  // U3c: a product's list
       const keys = settingsSections().map((s) => s.key);
       const section = keys.includes(parts[1]) ? parts[1] : keys[0];
+      const open = section === parts[1] && parts[2] ? params.get("open") : null;
       return { view: "settings", section, ...(section === parts[1] && parts[2] ? { item: parts[2] } : {}),
-        ...(section === parts[1] && parts[2] && parts[3] ? { tab: parts[3] } : {}) };
+        ...(section === parts[1] && parts[2] && parts[3] ? { tab: parts[3] } : {}), ...(open ? { open } : {}) };
     }
     case "activity": {
       const day = params.get("day");
@@ -139,7 +142,7 @@ export function parseRoute(hash: string): Route {
 export function routeHash(r: Route): string {
   const e = encodeURIComponent;
   switch (r.view) {
-    case "settings": return `#/settings/${r.section}${r.item ? `/${e(r.item)}${r.tab ? `/${e(r.tab)}` : ""}` : ""}`;
+    case "settings": return `#/settings/${r.section}${r.item ? `/${e(r.item)}${r.tab ? `/${e(r.tab)}` : ""}${r.open ? `?open=${e(r.open)}` : ""}` : ""}`;
     case "activity": return r.day ? `#/activity?day=${r.day}` : "#/activity";
     case "waiting": return r.all ? "#/waiting?all=1" : "#/waiting";
     case "run": return `#/runs/${e(r.runId)}`;
@@ -169,6 +172,10 @@ export function routeHash(r: Route): string {
 export function go(r: Route): void {
   window.location.hash = routeHash(r);
 }
+
+/** 263 (E1): the address of a section of Settings, its chosen thing and what is opened inside it. */
+export const settingsHash = (section: SettingsSection, item?: string | null, tab?: string | null, open?: string | null) =>
+  routeHash({ view: "settings", section, ...(item ? { item } : {}), ...(item && tab ? { tab } : {}), ...(item && open ? { open } : {}) });
 
 /** The address of one of the package's sections (for the links of cells and buttons). */
 export const wpHash = (wpId: string, stage?: Stage, itemId?: string) => routeHash({ view: "workpackages", wpId, stage, itemId });

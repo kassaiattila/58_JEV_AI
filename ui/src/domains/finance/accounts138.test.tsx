@@ -65,7 +65,7 @@ describe("an account registered on the settings page", () => {
   it("registers a new account by its number with its details", async () => {
     vi.spyOn(api, "parties").mockResolvedValue(overview({ parties: [party({ accounts: [], identities: [] })] }));
     const register = vi.spyOn(api, "registerPartyAccount").mockResolvedValue(overview());
-    render(<PartiesPanel />);
+    render(<PartiesPanel item={HOME.id} />);  // 263: a party's own page
     const card = await screen.findByRole("region", { name: "Example Home" });
     fireEvent.click(within(card).getByRole("button", { name: "Register a bank account or card" }));
     const form = within(card).getByRole("form", { name: "New account or card" });
@@ -82,7 +82,7 @@ describe("an account registered on the settings page", () => {
   it("shows a registered account's details and edits them", async () => {
     vi.spyOn(api, "parties").mockResolvedValue(overview());
     const set = vi.spyOn(api, "setPartyAccount").mockResolvedValue(overview());
-    render(<PartiesPanel />);
+    render(<PartiesPanel item={HOME.id} />);  // 263: a party's own page
     const card = await screen.findByRole("region", { name: "Example Home" });
     expect(within(card).getByText("Bank account · Example Bank · HUF · 2026-01-01 – …")).toBeTruthy();
     expect(within(card).getAllByText("no statement yet").length).toBeGreaterThan(0);
@@ -101,7 +101,7 @@ describe("an account registered on the settings page", () => {
   it("folds the party's months open on request", async () => {
     vi.spyOn(api, "parties").mockResolvedValue(overview());
     const load = vi.spyOn(api, "partyMonths").mockResolvedValue(months());
-    render(<PartiesPanel />);
+    render(<PartiesPanel item={HOME.id} />);  // 263: a party's own page
     const card = await screen.findByRole("region", { name: "Example Home" });
     expect(load).not.toHaveBeenCalled();
     const details = within(card).getByText("Data status by month").closest("details")!;

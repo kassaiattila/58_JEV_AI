@@ -11,6 +11,7 @@ import {
 } from "../../api";
 import { BlockerList } from "../../components/BlockerList";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { PageActions } from "../../components/PageActions";
 import { VersionState, versionStateLabel } from "../../components/VersionState";
 import { useActor, useLoad } from "../../hooks";
 import { getLocale, t, useLocale } from "../../i18n";
@@ -268,14 +269,15 @@ export function Activation<C>({ kind, thing, version, secondPerson, onDone }: {
           </>
         ) : <p className="small ok">{t("Nothing keeps it from being made active.")}</p>}
         {secondPerson ? <p className="muted small">{t("Another person than its maker ({{who}}) makes it active.", { who: version.made_by ?? "–" })}</p> : null}
-        <div className="button-row">
+        {/* 263 (E1): the activation is the page's main action, at the right end of its title row */}
+        <PageActions>
           <ConfirmButton className={blocked ? "secondary" : "primary"} disabled={busy || blocked}
             onConfirm={() => void run(() => api.activateRegistryVersion(kind, thing.ident, version.version))}>
             {t("Make version {{n}} active", { n: version.version })}
           </ConfirmButton>
-          {own ? <span className="muted small">{t("You made this version: another person makes it active.")}</span>
-            : !actor ? <span className="muted small">{t("Choose your name at “Who is working?” first.")}</span> : null}
-        </div>
+        </PageActions>
+        {own ? <p className="muted small">{t("You made this version: another person makes it active.")}</p>
+          : !actor ? <p className="muted small">{t("Choose your name at “Who is working?” first.")}</p> : null}
         {failed}
       </div>
     );
@@ -283,10 +285,10 @@ export function Activation<C>({ kind, thing, version, secondPerson, onDone }: {
   if (version.state === "active") {
     return (
       <div className="registry-activation">
-        <div className="button-row">
+        <PageActions>
           <ConfirmButton className="secondary" disabled={busy} onConfirm={() => void run(() => api.retireRegistryThing(kind, thing.ident))}>{t("Retire")}</ConfirmButton>
-          <span className="muted small">{t("A retired version stays readable: a case started with it keeps it.")}</span>
-        </div>
+        </PageActions>
+        <p className="muted small">{t("A retired version stays readable: a case started with it keeps it.")}</p>
         {failed}
       </div>
     );

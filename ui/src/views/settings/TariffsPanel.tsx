@@ -3,55 +3,21 @@
 // the itemised calculation follows (`jav/app/rating.py`): each cover module on the units of its level (the basis times
 // the rate per thousand), its factors in their order, each read from a fact or an outcome of the rules through its
 // table, the line's rounding, a module's minimum, the modules summed, the total factors, the total's rounding and the
-// policy minimum. Each tariff is kept as versions; a draft is made active here, an active one retired.
-import { useEffect, useRef, useState } from "react";
+// policy minimum. Each tariff is kept as versions; a draft is made active here, an active one retired. 263 (E1): the
+// list is the Products section's (the one list); a tariff is a page of its own.
+import { useState } from "react";
 import type { Catalogue, Factor, ProductRegistry, RegistryThing, Tariff } from "../../api";
 import { UsedBy, useUsedBy } from "../../components/UsedBy";
+import { useSettingsTitle } from "./settingsTree";
 import { t, useLocale } from "../../i18n";
 import { numText } from "../../labels";
 import {
-  Activation, amountText, ConditionText, current, factTitle, inForce, levelLabel, NoneYet, outcomeTitle, roundingText, ThingState,
-  useRegistry, versionOf, VersionLine, VersionPicker, VersionsTable,
+  Activation, amountText, ConditionText, current, factTitle, inForce, levelLabel, outcomeTitle, roundingText,
+  versionOf, VersionLine, VersionPicker, VersionsTable,
 } from "./RegistryParts";
 
-export function TariffsPanel() {
-  useLocale();
-  const registry = useRegistry();
-  const [open, setOpen] = useState<string | null>(null);
-  const used = useUsedBy("tariff");
-  if (registry.error) return <p className="notice error" role="alert">{registry.error.message}</p>;
-  if (!registry.data) return <p className="muted">{t("Loading…")}</p>;
-  const r = registry.data;
-  if (!r.tariffs.length) return <NoneYet text={t("No tariff yet.")} />;
-  const chosen = r.tariffs.find((x) => x.ident === open);
-  return (
-    <div className="registry">
-      <table className="table compact registry-table" aria-label={t("Tariffs")}>
-        <thead><tr><th>{t("Title")}</th><th>{t("In force")}</th><th>{t("Currency")}</th><th className="num">{t("Cover modules")}</th><th className="num">{t("Policy minimum")}</th><th>{t("State")}</th><th>{t("Used by")}</th></tr></thead>
-        <tbody>
-          {r.tariffs.map((x) => {
-            const c = current(x).content;
-            return (
-              <tr key={x.ident} aria-selected={x.ident === open}>
-                <td><button type="button" className="link-btn registry-open" onClick={() => setOpen(x.ident)}>{c.title ?? x.ident}</button></td>
-                <td className="tnum">{inForce(c.valid.valid_from, c.valid.valid_to)}</td>
-                <td className="mono">{c.currency}</td>
-                <td className="num">{Object.keys(c.modules).length}</td>
-                <td className="num">{c.policy_minimum ? amountText(c.policy_minimum) : "–"}</td>
-                <td><ThingState thing={x} /></td>
-                <td><UsedBy used={used} ident={x.ident} cell /></td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {chosen ? <TariffCard key={chosen.ident} registry={r} thing={chosen} onClose={() => setOpen(null)} onChanged={registry.reload} /> : null}
-    </div>
-  );
-}
-
-function TariffCard({ registry, thing, onClose, onChanged }: {
-  registry: ProductRegistry; thing: RegistryThing<Tariff>; onClose: () => void; onChanged: () => void;
+export function TariffCard({ registry, thing, onChanged }: {
+  registry: ProductRegistry; thing: RegistryThing<Tariff>; onChanged: () => void;
 }) {
   useLocale();
   const [n, setN] = useState(thing.versions[0].state === "draft" ? thing.versions[0].version : current(thing).version);
@@ -66,19 +32,15 @@ function TariffCard({ registry, thing, onClose, onChanged }: {
   const order = [...moduleName.keys()];
   const rank = (code: string) => (order.includes(code) ? order.indexOf(code) : order.length);
   const modules = Object.entries(tariff.modules).sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
-  const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { heading.current?.scrollIntoView?.({ block: "nearest" }); heading.current?.focus(); }, [thing.ident]);
   const title = tariff.title ?? thing.ident;
+  useSettingsTitle(title);
+  const used = useUsedBy("tariff");
   return (
-    <section className="card wide registry-card" aria-label={title}>
-      <div className="card-head">
-        <h3 ref={heading} tabIndex={-1}>{title}</h3>
-        <span className="button-row">
-          <VersionPicker thing={thing} version={version.version} onChange={setN} />
-          <button type="button" className="quiet small-btn" onClick={onClose}>{t("Close")}</button>
-        </span>
+    <section className="sheet registry-card" aria-label={title}>
+      <div className="sheet-bar">
+        <VersionLine version={version} />
+        <span className="button-row"><UsedBy used={used} ident={thing.ident} /><VersionPicker thing={thing} version={version.version} onChange={setN} /></span>
       </div>
-      <VersionLine version={version} />
       <p className="muted small">
         {t("In force {{days}}", { days: inForce(tariff.valid.valid_from, tariff.valid.valid_to) })} · {t("in {{currency}}", { currency: tariff.currency })}
         {products.length ? ` · ${t("prices {{products}}", { products: products.map((p) => p.name).join(", ") })}` : ""}

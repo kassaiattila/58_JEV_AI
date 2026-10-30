@@ -6,13 +6,19 @@
 // are English source strings from `configs/rule_help.json`, translated here; a value's codes come as the interface's
 // own labels, an email's next step by its code (named as everywhere). The price lists and the output templates, which a
 // person edits, are linked to their own pages. 231 (U4d; the owner's decisions of 2026-10-29): the page is Settings ›
-// Defaults: a value on a decision's sheet may be given the installation's own value (`DefaultEditor`).
-import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+// Defaults: a value on a decision's sheet may be given the installation's own value (`DefaultEditor`). 263 (plan E, E1;
+// the owner's decisions of 2026-10-30): the section's page is the table; a decision's sheet is a page of its own (in the
+// address and in the Settings table of contents), no longer below the table.
+import { Fragment, useState, type ReactNode } from "react";
 import { api, type Defaults, type DsColumn, type DsPage, type DsRow } from "../../api";
 import { DataTable } from "../../components/DataTable";
-import { useLoad } from "../../hooks";
+import { ItemSteps } from "../../components/ItemSteps";
+import { PageActions } from "../../components/PageActions";
+import { useDataset, useLoad } from "../../hooks";
 import { getLocale, t, useLocale } from "../../i18n";
 import { moneyText, nextFlowText, numText, when } from "../../labels";
+import { settingsHash } from "../../route";
+import { useSettingsTitle } from "./settingsTree";
 import { DefaultEditor } from "./DefaultEditor";
 
 type Step = { code: string; reads_text: boolean };
@@ -93,22 +99,16 @@ function FilesCell({ files }: { files: RuleFile[] }) {
 /** 231 (U4d): a value's default by its id (`<file>.<key>`, the file without its `.json`). */
 const defaultId = (v: RuleValue) => `${v.file.replace(/\.json$/, "")}.${v.key}`;
 
-function RuleSheet({ row, area, sheet, onClose, defaults, onDefaults }: {
-  row: DsRow; area: string; sheet: RefObject<HTMLElement | null>; onClose: () => void; defaults: Defaults | null; onDefaults: () => void;
+function RuleSheet({ row, area, defaults, onDefaults }: {
+  row: DsRow; area: string; defaults: Defaults | null; onDefaults: () => void;
 }) {
   const values = (row._values ?? []) as RuleValue[];
   const byId = new Map((defaults?.keys ?? []).map((k) => [k.id, k]));
   const files = (row._files ?? []) as RuleFile[];
   const n = Number(row.decisions ?? 0);
   return (
-    <section id="rule-sheet" ref={sheet} className="card wide recipe-doc rule-sheet" aria-labelledby="rule-sheet-title">
-      <div className="card-head">
-        <div>
-          <h3 id="rule-sheet-title" tabIndex={-1}>{t(String(row.decision))}</h3>
-          {area ? <span className="muted small">{area}</span> : null}
-        </div>
-        <button type="button" className="quiet small-btn" onClick={onClose}>{t("Close")}</button>
-      </div>
+    <section className="sheet recipe-doc rule-sheet" aria-label={t(String(row.decision))}>
+      {area ? <p className="muted small">{area}</p> : null}
       <p className="rule-what">{t(String(row.what))}</p>
       <p className="muted rule-what">{t("Not for: {{text}}", { text: t(String(row.not_for)) })}</p>
       <h4>{t("Rule values")}</h4>
@@ -147,18 +147,36 @@ function RuleSheet({ row, area, sheet, onClose, defaults, onDefaults }: {
   );
 }
 
-export function RulesPanel() {
+const ALL = { limit: 1000 };
+
+export function RulesPanel({ item }: { item?: string }) {
+  useLocale();
+  return item ? <RulePage item={item} /> : <RulesTable />;
+}
+
+/** One decision's page: its whole rule and the defaults its values may take. */
+function RulePage({ item }: { item: string }) {
+  useLocale();
+  const page = useDataset("rules", NO_SCOPE, ALL);
+  const defaults = useLoad("defaults", api.defaults);  // 231 (U4d): what the installation may set, and its own values
+  const row = page.data?.rows.find((r) => String(r._key) === item);
+  useSettingsTitle(row ? t(String(row.decision)) : null);
+  if (page.error) return <p className="notice error" role="alert">{page.error.message}</p>;
+  if (!page.data) return <p className="muted">{t("Loading…")}</p>;
+  if (!row) return <p className="notice warn">{t("This decision is not described here (any more).")}</p>;
+  const areas = page.data.columns.find((c) => c.key === "area")?.labels ?? {};
+  return (
+    <>
+      <PageActions><ItemSteps list="rules" /></PageActions>
+      <RuleSheet row={row} area={row.area ? t(areas[String(row.area)] ?? String(row.area)) : ""} defaults={defaults.data ?? null} onDefaults={defaults.reload} />
+    </>
+  );
+}
+
+/** The section's page: every decision in one table; a decision's title opens its page. */
+function RulesTable() {
   useLocale();
   const [page, setPage] = useState<DsPage | null>(null);
-  const [open, setOpen] = useState<DsRow | null>(null);
-  const defaults = useLoad("defaults", api.defaults);  // 231 (U4d): what the installation may set, and its own values
-  const sheet = useRef<HTMLElement>(null);
-  useEffect(() => { // the opened rule comes into view whole, and its title takes the focus (a screen reader reads it)
-    if (!open) return;
-    sheet.current?.scrollIntoView?.({ block: "start" });
-    sheet.current?.querySelector<HTMLElement>("h3")?.focus({ preventScroll: true });
-  }, [open]);
-  const areas = page?.columns.find((c) => c.key === "area")?.labels ?? {};
   const rows = page?.rows ?? [];
   const cell = (col: DsColumn, row: DsRow): ReactNode | undefined => {
     if (col.key === "area") { // an area's name heads its group once, in the order shown; a screen reader hears it on each row
@@ -171,8 +189,7 @@ export function RulesPanel() {
       const what = t(String(row.what));
       return (
         <>
-          <button type="button" className="link-btn rule-open" aria-expanded={open?._key === row._key} aria-controls="rule-sheet"
-            onClick={() => setOpen(open?._key === row._key ? null : row)}>{t(String(row.decision))}</button>
+          <a className="rule-open" href={settingsHash("rules", String(row._key))}>{t(String(row.decision))}</a>
           <Clamp lines={2} title={what} className="muted">{what}</Clamp>
         </>
       );
@@ -190,12 +207,8 @@ export function RulesPanel() {
         {t("You edit the price lists and the output templates yourself, on their own pages:")}{" "}
         <a href="#/settings/prices">{t("Price lists")}</a> · <a href="#/settings/outputs">{t("Output templates")}</a>
       </p>
-      <DataTable dataset="rules" scope={NO_SCOPE} label={t("Rules")} storageId="rules" onPage={setPage} cell={cell}
+      <DataTable dataset="rules" scope={NO_SCOPE} label={t("Rules")} storageId="rules" persist="rules" onPage={setPage} cell={cell}
         emptyText={t("No decision is described yet.")} />
-      {open ? (
-        <RuleSheet row={open} area={open.area ? t(areas[String(open.area)] ?? String(open.area)) : ""} sheet={sheet}
-          onClose={() => setOpen(null)} defaults={defaults.data ?? null} onDefaults={defaults.reload} />
-      ) : <p className="muted small">{t("Choose a decision's title to read its whole rule.")}</p>}
     </div>
   );
 }

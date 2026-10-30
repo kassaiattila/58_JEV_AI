@@ -2,7 +2,12 @@
 // local service (decision of 2026-09-28); here there is only the request state and the rendering. The headless
 // engine (TanStack Table) provides the header, the sorting state, column visibility and selection; on a large page
 // TanStack Virtual renders only the visible rows. Column visibility is kept per table (following the legacy project's
-// DataTable.tsx, in local storage), and so are the column widths set by dragging (139, ColumnResize.tsx).
+// DataTable.tsx, in local storage), and so are the column widths set by dragging (139, ColumnResize.tsx). 263 (plan E,
+// E1; the owner's decisions of 2026-10-30: one list everywhere, searchable, sortable, grouped by more than one thing, a
+// row opening its thing's page and the way back finding the list as it was): the rows may be grouped by a column the
+// dataset offers (the service orders them and counts each group), a group closes and opens; a table with `persist`
+// keeps its search, filters, order and grouping for the browser tab, and the order of its rows' pages for the previous
+// and next buttons of a thing's page (`ItemSteps`).
 import {
   flexRender, getCoreRowModel, useReactTable,
   type ColumnDef, type RowSelectionState, type SortingState, type VisibilityState,
@@ -13,14 +18,14 @@ import type { DsColumn, DsFilter, DsPage, DsRow, DsScope, DsSort } from "../api"
 import { useDataset, useDebounced } from "../hooks";
 import { getLocale, t, useLocale } from "../i18n";
 import { fold, moneyText, numText, tmap, when } from "../labels";
-import { wpHash } from "../route";
+import { settingsHash, wpHash } from "../route";
 import { ColumnResizer, useColumnWidths } from "./ColumnResize";
 import { DownloadPanel } from "./DownloadPanel";
 import { Picker } from "./Picker";
 import { Popover } from "./Popover";
 import { Icon } from "./Icon";
 
-export interface TableState { q: string; filters: DsFilter[]; sort: DsSort[]; offset: number; limit: number }
+export interface TableState { q: string; filters: DsFilter[]; sort: DsSort[]; offset: number; limit: number; group?: string; closed?: string[] }
 export const EMPTY_STATE: TableState = { q: "", filters: [], sort: [], offset: 0, limit: 100 };
 const PAGE_SIZES = [50, 100, 250, 500];
 const VIRTUAL_MIN = 80; // above this many rows only the visible rows are rendered
@@ -52,6 +57,36 @@ interface Props {
   /** 168: actions on the selected rows (with `selectable`), shown beside the selection's count */
   selectionActions?: (rows: DsRow[], clear: () => void) => ReactNode;
   actionsLabel?: string;
+  /** 263: the name under which the table keeps its state for the browser tab and the order of its rows' pages */
+  persist?: string;
+  /** 263: the column the rows are grouped by at first */
+  defaultGroup?: string;
+}
+
+// --- kept state and the rows' order (263) --------------------------------------------------------------------------
+
+const stateKey = (id: string) => `jav.table.${id}`;
+const orderKey = (id: string) => `jav.table.${id}.order`;
+function loadState(id: string | undefined): Partial<TableState> {
+  if (!id) return {};
+  try {
+    return JSON.parse(sessionStorage.getItem(stateKey(id)) ?? "{}") as Partial<TableState>;
+  } catch {
+    return {};
+  }
+}
+function keep(key: string, value: unknown) {
+  try { sessionStorage.setItem(key, JSON.stringify(value)); } catch { /* private window: no storage */ }
+}
+
+/** The pages of the rows of a kept table, in the order they were last shown (empty when it was not shown here). */
+export function rowOrder(id: string): string[] {
+  try {
+    const hrefs = JSON.parse(sessionStorage.getItem(orderKey(id)) ?? "[]") as unknown;
+    return Array.isArray(hrefs) ? hrefs.filter((h): h is string => typeof h === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 // --- cells -------------------------------------------------------------------------------------------------------
@@ -67,6 +102,11 @@ export function linkOf(col: DsColumn, row: DsRow): string | null {
     case "next": return wp && row._stage ? `${wp}/${String(row._stage)}` : wp;
     case "reviews": return wp ? `${wp}/review` : null;
     case "process": return wp ? `${wp}/process` : null; // 153: older runs to supersede
+    case "settings": { // 263: a thing of Settings (an own party's row names its own section)
+      const own = row._settings as string[] | undefined;
+      if (own?.length) return settingsHash(own[0], own[1], own[2]);
+      return col.section ? (col.list ? settingsHash(col.section, col.list, row._key) : settingsHash(col.section, row._key)) : null;
+    }
     case "review":
     case "item": return wp ? `${wp}/review/${e(item)}` : null;
     default: return null;
@@ -99,7 +139,7 @@ function Cell({ col, row, custom }: { col: DsColumn; row: DsRow; custom?: Props[
   if (col.alert && Number(raw) === 0) return <span className="muted">{text}</span>;
   const href = linkOf(col, row);
   // 057: status as a badge, an attention count above 0 highlighted (the column description says which column is one)
-  const body = col.badge ? <span className={`status s-${String(raw)}`}>{text}</span>
+  const body = col.badge ? <span className={`status s-${col.marks?.[String(raw)] ?? String(raw)}`}>{text}</span>
     : col.alert && Number(raw) > 0 ? <span className="count-alert">{text}</span>
       : col.kind === "id" ? <span className="mono small">{text}</span>
         : col.kind === "datetime" ? <When text={text} /> : text;
@@ -291,9 +331,13 @@ function saveVisibility(id: string, v: VisibilityState): void {
 
 export function DataTable(p: Props) {
   const lang = useLocale();
-  const [own, setOwn] = useState<TableState>({ ...EMPTY_STATE, ...p.initial });
+  const [own, setOwn] = useState<TableState>(() => ({ ...EMPTY_STATE, group: p.defaultGroup, ...p.initial, ...loadState(p.persist) }));
   const state = p.state ?? own;
-  const setState = (next: TableState) => (p.onStateChange ? p.onStateChange(next) : setOwn(next));
+  const setState = (next: TableState) => {
+    if (p.persist) keep(stateKey(p.persist), next);
+    if (p.onStateChange) p.onStateChange(next);
+    else setOwn(next);
+  };
   const patch = (x: Partial<TableState>) => setState({ ...state, offset: 0, ...x });
 
   const [search, setSearch] = useState(state.q);
@@ -304,11 +348,16 @@ export function DataTable(p: Props) {
   }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scope = p.scope ?? {};
-  const query = useMemo(() => ({ q: state.q || undefined, filters: state.filters, sort: state.sort, offset: state.offset, limit: state.limit }),
-    [state.q, state.filters, state.sort, state.offset, state.limit]);
+  const query = useMemo(() => ({ q: state.q || undefined, filters: state.filters, sort: state.sort, offset: state.offset, limit: state.limit,
+    ...(state.group ? { group: state.group } : {}) }), [state.q, state.filters, state.sort, state.offset, state.limit, state.group]);
   const page = useDataset(p.dataset, scope, query, p.pollMs);
   const data = page.data;
   useEffect(() => { if (data) p.onPage?.(data); }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { // 263: the order of the rows' pages, for a thing's previous and next
+    if (!data || !p.persist) return;
+    const linked = data.columns.find((c) => c.link);
+    if (linked) keep(orderKey(p.persist), data.rows.map((r) => linkOf(linked, r)).filter(Boolean));
+  }, [data, p.persist]);
 
   // a different dataset or scope: the selection cannot be carried over
   const ident = JSON.stringify([p.dataset, scope]);
@@ -369,11 +418,22 @@ export function DataTable(p: Props) {
     onRowSelectionChange: setSelection, enableRowSelection: Boolean(p.selectable),
   });
 
-  const rows = table.getRowModel().rows;
+  // 263: the grouping column, each group's count, and the closed groups (their rows are not drawn)
+  const groupCol = data?.group ? columns.find((c) => c.key === data.group) : undefined;
+  const groupOf = (r: DsRow) => (groupCol ? (r[groupCol.key] === null || r[groupCol.key] === undefined || r[groupCol.key] === "" ? null : String(r[groupCol.key])) : null);
+  const groupCount = new Map((data?.groups ?? []).map((g) => [g.value, g.count]));
+  const closed = new Set(state.closed ?? []);
+  const closedKey = (v: string | null) => v ?? "\u0000";
+  const toggleGroup = (v: string | null) => {
+    const k = closedKey(v);
+    setState({ ...state, closed: closed.has(k) ? [...closed].filter((x) => x !== k) : [...closed, k] });
+  };
+  const allRows = table.getRowModel().rows;
+  const rows = groupCol ? allRows.filter((r) => !closed.has(closedKey(groupOf(r.original)))) : allRows;
   const scrollRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
   const widths = useColumnWidths(storageId, tableRef);
-  const virtual = rows.length > VIRTUAL_MIN;
+  const virtual = !groupCol && rows.length > VIRTUAL_MIN;  // a grouped page draws every row (at most a page of them)
   // 139: a wrapped row is taller than the estimate, so the drawn rows are measured
   const virtualizer = useVirtualizer({
     count: virtual ? rows.length : 0, getScrollElement: () => scrollRef.current, estimateSize: () => ROW_PX, overscan: 12,
@@ -382,6 +442,13 @@ export function DataTable(p: Props) {
   const padTop = virtual && items.length ? items[0].start : 0;
   const padBottom = virtual && items.length ? virtualizer.getTotalSize() - items[items.length - 1].end : 0;
   const drawn = virtual ? items.map((v) => ({ row: rows[v.index], index: v.index })) : rows.map((row, index) => ({ row, index }));
+  // 263: a grouped page as its lines - a group's head before its first row, its rows unless it is closed
+  type Line = { kind: "head"; value: string | null } | { kind: "row"; row: (typeof rows)[number]; index: number };
+  const lines: Line[] = groupCol ? allRows.flatMap((row, index): Line[] => {
+    const v = groupOf(row.original);
+    const head: Line[] = index === 0 || groupOf(allRows[index - 1].original) !== v ? [{ kind: "head", value: v }] : [];
+    return closed.has(closedKey(v)) ? head : [...head, { kind: "row", row, index }];
+  }) : drawn.map((d) => ({ kind: "row" as const, ...d }));
   const leafIds = table.getVisibleLeafColumns().map((c) => c.id);
   const visibleCount = leafIds.length;
 
@@ -416,6 +483,11 @@ export function DataTable(p: Props) {
       <div className="dt-bar">
         <input type="search" className="dt-search" aria-label={t("Search: {{label}}", { label: p.label })} placeholder={t("Search all columns…")}
           value={search} onChange={(e) => setSearch(e.target.value)} />
+        {columns.some((c) => c.group) ? (  // 263: the columns the dataset lets the rows be grouped by
+          <Picker label={t("Group by")} hideLabel compact value={state.group ?? ""}
+            options={[{ value: "", label: t("No grouping") }, ...columns.filter((c) => c.group).map((c) => ({ value: c.key, label: t("Grouped by {{name}}", { name: t(c.label) }) }))]}
+            onChange={(v) => patch({ group: v || undefined, closed: [] })} />
+        ) : null}
         {p.toolbar}
         <span className="dt-spacer" />
         {columns.length ? <ColumnMenu columns={columns} visible={isVisible} onChange={setVisible}
@@ -484,7 +556,18 @@ export function DataTable(p: Props) {
             </thead>
             <tbody>
               {padTop > 0 ? <tr aria-hidden="true"><td colSpan={visibleCount} style={{ height: padTop, padding: 0 }} /></tr> : null}
-              {drawn.map(({ row, index }) => (
+              {lines.map((line) => line.kind === "head" ? (
+                <tr key={`group:${closedKey(line.value)}`} className="dt-group">
+                  <td colSpan={Math.max(1, visibleCount)}>
+                    <button type="button" className="dt-group-toggle" aria-expanded={!closed.has(closedKey(line.value))} onClick={() => toggleGroup(line.value)}>
+                      <Icon name="chevron" />
+                      <span className="dt-group-name">{line.value === null ? t("(not given)") : groupCol?.kind === "bool" ? (line.value === "true" ? t("yes") : t("no"))
+                        : groupCol ? cellText(groupCol, line.value) : line.value}</span>
+                      <span className="dt-group-count">{groupCount.get(line.value) ?? 0}</span>
+                    </button>
+                  </td>
+                </tr>
+              ) : (({ row, index }) => (
                 <tr key={row.id} className={row.getIsSelected() ? "row-selected" : undefined}
                   data-index={index} ref={virtual ? virtualizer.measureElement : undefined}>
                   {row.getVisibleCells().map((cell) => {
@@ -501,7 +584,7 @@ export function DataTable(p: Props) {
                     );
                   })}
                 </tr>
-              ))}
+              ))(line))}
               {padBottom > 0 ? <tr aria-hidden="true"><td colSpan={visibleCount} style={{ height: padBottom, padding: 0 }} /></tr> : null}
               {rows.length === 0 ? (
                 <tr><td colSpan={Math.max(1, visibleCount)} className="muted">{filtered ? t("No rows match the filter.") : p.emptyText ?? t("No data.")}</td></tr>

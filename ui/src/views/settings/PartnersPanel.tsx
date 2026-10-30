@@ -5,18 +5,26 @@
 // domains propose partners from what they have read (an invoice's supplier), on request; a person records them. A
 // partner with the same tax number or name as another one is refused, and the page leads to that one. 231 (U3e; the
 // owner's decision of 2026-10-28): the own parties stand among them with the role "own", each leading to its register.
+// 263 (plan E, E1; the owner's decisions of 2026-10-30): the section's page is the table of the partners; a partner, a
+// new one and the proposals are pages of their own (in the address and in the Settings table of contents), and "New
+// partner" is the page's main action at the right end of its title row.
 import { useEffect, useMemo, useState } from "react";
 import {
-  api, ApiError, OWN_ROLE, type OwnPartnerRow, type Partner, type PartnerRoles, type PartnerRow, type PartnerSuggestion,
-  type PartnerValues,
+  api, ApiError, type Partner, type PartnerRoles, type PartnerSuggestion, type PartnerValues,
 } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { DataTable } from "../../components/DataTable";
+import { ItemSteps } from "../../components/ItemSteps";
+import { PageActions } from "../../components/PageActions";
 import { UsedBy, useUsedBy } from "../../components/UsedBy";
 import { VersionState } from "../../components/VersionState";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { when } from "../../labels";
-import { routeHash } from "../../route";
+import { go, settingsHash } from "../../route";
+import { PARTNER_NEW, PARTNER_PROPOSALS, settingsChanged, useSettingsTitle } from "./settingsTree";
+
+const LIST = "settings_partners";
 
 const EMPTY: PartnerValues = { name: "", tax_number: null, email: null, phone: null, address: null, note: null, roles: [] };
 const TEXT_FIELDS: { key: "tax_number" | "email" | "phone"; label: string; max: number }[] = [
@@ -31,86 +39,44 @@ const valuesOf = (p: PartnerValues): PartnerValues =>
   ({ name: p.name, tax_number: p.tax_number, email: p.email, phone: p.phone, address: p.address, note: p.note, roles: p.roles });
 
 type Open = { kind: "new"; from?: PartnerValues } | { kind: "partner"; id: string } | null;
-type Row = { kind: "partner"; p: PartnerRow } | { kind: "own"; o: OwnPartnerRow };
-const nameOf = (r: Row) => (r.kind === "partner" ? r.p.name : r.o.name);
-/** the own parties' register, where an own party is edited (its Settings section) */
-const OWN_PARTIES = "parties";
 
-export function PartnersPanel() {
+export function PartnersPanel({ item }: { item?: string }) {
   useLocale();
-  const [q, setQ] = useState("");
-  const [role, setRole] = useState("");
-  const [retired, setRetired] = useState(false);
-  const list = useLoad(`partners:${q}:${role}:${retired}`, () => api.partners({ q: q.trim() || undefined, role: role || undefined, retired }));
-  const [open, setOpen] = useState<Open>(null);
-  const usedRoles = useUsedBy("partner_role");
-  const roles = list.data?.roles ?? {};
-  // 231 (U3e; the owner's decision of 2026-10-28): the own parties among the partners, by name, with the role "own";
-  // each leads to the own parties' register, where it is edited
-  const rows: Row[] = [...(list.data?.partners ?? []).map((p) => ({ kind: "partner" as const, p })),
-    ...(list.data?.own ?? []).map((o) => ({ kind: "own" as const, o }))]
-    .sort((a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: "base" }));
+  // a proposal taken: the new partner's form starts from it (the address says only "new")
+  const [from, setFrom] = useState<PartnerValues | undefined>(undefined);
+  const show = (id: string) => go({ view: "settings", section: "partners", item: id });
+  const newPartner = (values?: PartnerValues) => { setFrom(values); show(PARTNER_NEW); };
+  const roles = useLoad("partner-roles", () => api.partners()).data?.roles ?? {};
+  if (item === PARTNER_PROPOSALS) return <Suggestions roles={roles} onTake={(s) => newPartner({ ...EMPTY, name: s.name, tax_number: s.tax_number, roles: s.roles })} />;
+  if (item) {
+    const open: NonNullable<Open> = item === PARTNER_NEW ? { kind: "new", from } : { kind: "partner", id: item };
+    return (
+      <>
+        {item !== PARTNER_NEW ? <PageActions><ItemSteps list={LIST} /><button type="button" className="secondary" onClick={() => newPartner()}>{t("New partner")}</button></PageActions> : null}
+        <PartnerCard key={item === PARTNER_NEW ? `new:${from?.name ?? ""}` : item} open={open} roles={roles} onOpen={show} onChanged={settingsChanged} />
+      </>
+    );
+  }
+  return <PartnerTable onNew={() => newPartner()} />;
+}
+
+/** The section's page: the partners and the own parties in the one list (search, filters, grouping); a name opens the
+ *  partner's page. */
+function PartnerTable({ onNew }: { onNew: () => void }) {
+  useLocale();
   return (
-    <div className="partners">
-      <div className="form-row partners-tools">
-        <label className="block grow">{t("Search")}
-          <input value={q} maxLength={200} autoComplete="off" placeholder={t("Name, tax number or email…")} onChange={(e) => setQ(e.target.value)} />
-        </label>
-        <label className="block">{t("Role")}
-          <select value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="">{t("Every role")}</option>
-            {Object.entries(roles).map(([key, r]) => <option key={key} value={key}>{t(r.label)}</option>)}
-            <option value={OWN_ROLE}>{t("Own party")}</option>
-          </select>
-        </label>
-        <label className="check small partners-retired">
-          <input type="checkbox" checked={retired} onChange={(e) => setRetired(e.target.checked)} /> {t("Retired ones too")}
-        </label>
-        <button type="button" className={open ? "secondary" : "primary"} onClick={() => setOpen({ kind: "new" })}>{t("New partner")}</button>
-      </div>
-      {/* 231 (U3d): the processes whose cases deal with a partner of the chosen role */}
-      {role ? <p className="partners-role-use"><UsedBy used={usedRoles} ident={role} /></p> : null}
-      {list.error ? <p className="notice error" role="alert">{list.error.message}</p> : null}
-      {!list.data ? <p className="muted">{t("Loading…")}</p> : rows.length ? (
-        <table className="table compact partners-table" aria-label={t("Partners")}>
-          <thead><tr><th>{t("Name")}</th><th>{t("Roles")}</th><th>{t("Tax number")}</th><th>{t("Email")}</th><th>{t("Changed")}</th></tr></thead>
-          <tbody>
-            {rows.map((r) => r.kind === "own" ? (
-              <tr key={r.o.party_id}>
-                <td><a className="partner-open" href={routeHash({ view: "settings", section: OWN_PARTIES })}>{r.o.name}</a></td>
-                <td>{t("Own party")}</td>
-                <td className="mono">{r.o.tax_number ?? "–"}</td>
-                <td>–</td>
-                <td className="tnum">{when(r.o.changed_at)}</td>
-              </tr>
-            ) : (
-              <tr key={r.p.partner_id} aria-selected={open?.kind === "partner" && open.id === r.p.partner_id}>
-                <td>
-                  <button type="button" className="link-btn partner-open" onClick={() => setOpen({ kind: "partner", id: r.p.partner_id })}>{r.p.name}</button>
-                  {r.p.retired ? <> <VersionState state="retired" /></> : null}
-                </td>
-                <td>{roleText(r.p.roles, roles)}</td>
-                <td className="mono">{r.p.tax_number ?? "–"}</td>
-                <td>{r.p.email ?? "–"}</td>
-                <td className="tnum">{when(r.p.changed_at)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p className="muted">{q || role ? t("No partner matches.") : t("No partner yet. Record one, or take one from the proposals below.")}</p>
-      )}
-      {rows.some((r) => r.kind === "own") ? <p className="muted small">{t("An own party is edited under Own parties.")}</p> : null}
-      {open ? <PartnerCard key={open.kind === "partner" ? open.id : "new"} open={open} roles={roles}
-        onOpen={(id) => setOpen({ kind: "partner", id })} onClose={() => setOpen(null)} onChanged={list.reload} /> : null}
-      <Suggestions roles={roles} onTake={(s) => setOpen({ kind: "new", from: { ...EMPTY, name: s.name, tax_number: s.tax_number, roles: s.roles } })} />
-    </div>
+    <>
+      <PageActions><button type="button" className="primary" onClick={onNew}>{t("New partner")}</button></PageActions>
+      <DataTable dataset={LIST} label={t("Partners")} storageId={LIST} persist={LIST}
+        toolbar={<a className="small" href={settingsHash("partners", PARTNER_PROPOSALS)}>{t("Proposals from the documents read")} →</a>}
+        emptyText={t("No partner yet. Record one, or take one from the proposals.")} />
+    </>
   );
 }
 
 /** One partner (or a new one): its values to change, its retirement, its versions. */
-function PartnerCard({ open, roles, onOpen, onClose, onChanged }: {
-  open: NonNullable<Open>; roles: PartnerRoles; onOpen: (id: string) => void; onClose: () => void; onChanged: () => void;
+function PartnerCard({ open, roles, onOpen, onChanged }: {
+  open: NonNullable<Open>; roles: PartnerRoles; onOpen: (id: string) => void; onChanged: () => void;
 }) {
   useLocale();
   const id = open.kind === "partner" ? open.id : null;
@@ -144,18 +110,14 @@ function PartnerCard({ open, roles, onOpen, onClose, onChanged }: {
       setBusy(false);
     }
   }
+  useSettingsTitle(partner ? partner.name : open.kind === "new" ? t("New partner") : null);
+  const usedRoles = useUsedBy("partner_role");
   if (id && !partner) return loaded.error ? <p className="notice error" role="alert">{loaded.error.message}</p> : <p className="muted">{t("Loading…")}</p>;
   const save = () => run(() => (partner ? api.updatePartner(partner.partner_id, values, partner.version) : api.createPartner(values)));
 
   return (
-    <section className="card wide partner-card" aria-label={partner ? partner.name : t("New partner")}>
-      <div className="card-head">
-        <h3>{partner ? partner.name : t("New partner")}</h3>
-        <span className="button-row">
-          {partner?.retired ? <VersionState state="retired" /> : null}
-          <button type="button" className="quiet small-btn" onClick={onClose}>{t("Close")}</button>
-        </span>
-      </div>
+    <section className="sheet partner-card" aria-label={partner ? partner.name : t("New partner")}>
+      {partner?.retired ? <p><VersionState state="retired" /></p> : null}
       <div className="form-row">
         <label className="block grow">{t("Name")}
           <input value={values.name} maxLength={200} autoComplete="off" disabled={partner?.retired} onChange={(e) => set({ name: e.target.value })} />
@@ -180,21 +142,27 @@ function PartnerCard({ open, roles, onOpen, onClose, onChanged }: {
           </label>
         ))}
       </fieldset>
+      {/* 231 (U3d; 263: on the partner's page): the processes whose cases deal with a partner of each of its roles */}
+      {values.roles.length ? (
+        <ul className="plain small partner-role-use" aria-label={t("The processes of its roles")}>
+          {values.roles.map((r) => <li key={r}>{t(roles[r]?.label ?? r)} — <UsedBy used={usedRoles} ident={r} /></li>)}
+        </ul>
+      ) : null}
       <label className="block">{t("Note")}
         <textarea value={values.note ?? ""} maxLength={2000} rows={2} disabled={partner?.retired} onChange={(e) => set({ note: e.target.value || null })} />
       </label>
-      <div className="button-row">
+      <div className="form-actions">
         {partner?.retired ? (
           <button type="button" className="secondary" disabled={busy} onClick={() => void run(() => api.restorePartner(partner.partner_id))}>{t("Restore")}</button>
         ) : (
           <>
-            <button type="button" className={changed && ready ? "primary" : "secondary"} disabled={busy || !changed || !ready} onClick={() => void save()}>
-              {partner ? t("Save as a new version") : t("Record the partner")}
-            </button>
             {partner ? (
               <ConfirmButton className="secondary" disabled={busy} onConfirm={() => void run(() => api.retirePartner(partner.partner_id))}>{t("Retire")}</ConfirmButton>
             ) : null}
-            <span className="muted small">{partner ? t("A change is kept as a new version; the earlier ones stay.") : t("A name and at least one role are needed.")}</span>
+            <span className="muted small form-actions-note">{partner ? t("A change is kept as a new version; the earlier ones stay.") : t("A name and at least one role are needed.")}</span>
+            <button type="button" className={changed && ready ? "primary" : "secondary"} disabled={busy || !changed || !ready} onClick={() => void save()}>
+              {partner ? t("Save as a new version") : t("Record the partner")}
+            </button>
           </>
         )}
       </div>
@@ -229,12 +197,10 @@ function Suggestions({ roles, onTake }: { roles: PartnerRoles; onTake: (s: Partn
   useLocale();
   const [shown, setShown] = useState(false);
   const found = useLoad(`partner-suggestions:${shown}`, () => (shown ? api.partnerSuggestions() : Promise.resolve(null)));
+  useSettingsTitle(t("Proposals from the documents read"));
   return (
-    <section className="partner-suggestions" aria-label={t("Proposals from the documents read")}>
-      <div className="card-head">
-        <h3>{t("Proposals from the documents read")}</h3>
-        {!shown ? <button type="button" className="secondary small-btn" onClick={() => setShown(true)}>{t("Show the proposals")}</button> : null}
-      </div>
+    <section className="sheet partner-suggestions" aria-label={t("Proposals from the documents read")}>
+      {!shown ? <PageActions><button type="button" className="primary" onClick={() => setShown(true)}>{t("Show the proposals")}</button></PageActions> : null}
       <p className="muted small">{t("The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Nothing is recorded by itself.")}</p>
       {shown && !found.data ? <p className="muted">{t("Loading…")}</p> : null}
       {found.data && !found.data.suggestions.length ? <p className="muted small">{t("No proposal: every party read is a partner already.")}</p> : null}

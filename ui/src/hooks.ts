@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ACTOR_EVENT, api, ApiError, getActor, type DsPage, type DsQuery, type DsScope } from "./api";
 
 export interface Loaded<T> {
@@ -120,6 +120,22 @@ export function useHash(): string {
     return () => window.removeEventListener("hashchange", on);
   }, []);
   return hash;
+}
+
+/** 155: a pane that ends just above the bottom of the screen however tall the header above it is (a title on one or two
+ *  lines, a notice): the element measures its own top and sets a CSS variable its height uses. 263 (E1): shared by the
+ *  review panes (`--review-offset`) and the list and detail view (`--ld-offset`). */
+export function useFitToScreen<T extends HTMLElement>(variable = "--review-offset") {
+  const ref = useRef<T>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => el.style.setProperty(variable, `${Math.round(el.getBoundingClientRect().top + window.scrollY) + 12}px`);
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  });
+  return ref;
 }
 
 /** 153: how soon rows marked `refreshing` are asked for again. */

@@ -34,17 +34,16 @@ describe("what uses a shared element (231 U3d)", () => {
     expect(asked).toHaveBeenCalledWith("product");
   });
 
-  it("the partner register names the processes of the chosen role", async () => {
+  it("a partner's page names the processes of each of its roles (263: on the partner's own page)", async () => {
     const roles: PartnerRoles = { customer: { label: "Customer", what: "Asks for a quote" }, broker: { label: "Broker", what: "Brings a case" } };
     vi.spyOn(api, "partners").mockResolvedValue({ partners: [], roles, own: [] });
-    vi.spyOn(api, "partnerSuggestions").mockResolvedValue({ suggestions: [] } as never);
     vi.spyOn(api, "usedBy").mockResolvedValue({ used_by: { customer: [{ id: "invented_quote", title: "Invented quote" }] } });
-    render(<PartnersPanel />);
-    const role = (await screen.findByLabelText("Role")) as HTMLSelectElement;
+    render(<PartnersPanel item="new" />);
+    const customer = await screen.findByRole("checkbox", { name: "Customer" });
     expect(screen.queryByText(/Used by:/)).toBeNull();
-    fireEvent.change(role, { target: { value: "customer" } });
-    expect((await screen.findByRole("link", { name: "Invented quote" })).closest("p")?.textContent).toBe("Used by: Invented quote");
-    fireEvent.change(role, { target: { value: "broker" } });
+    fireEvent.click(customer);
+    expect((await screen.findByRole("link", { name: "Invented quote" })).closest("li")?.textContent).toBe("Customer — Used by: Invented quote");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Broker" }));
     expect(await screen.findByText("No process uses it")).toBeTruthy();
   });
 

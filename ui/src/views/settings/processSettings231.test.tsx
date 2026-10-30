@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type ProcessSettings, type RulePreview } from "../../api";
 import { setLanguage } from "../../i18n";
 import { parseRoute, routeHash } from "../../route";
+import { linkCol, listPage } from "./listPage.testutil";
 import { ProcessSettingsPanel } from "./ProcessSettingsPanel";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
@@ -121,6 +122,9 @@ describe("a process's own settings (231 B4)", () => {
   it("lists the processes, each at its own address, and describes one on its first tab (231 U3a)", async () => {
     vi.spyOn(api, "processes").mockResolvedValue({ processes: [{ ...PAGE.pack, summary: "An invented quote from a request." }] });
     vi.spyOn(api, "processSettings").mockResolvedValue(PAGE);
+    // 263 (E1): the processes are the one list (a dataset); a row opens the process's page
+    vi.spyOn(api, "datasetQuery").mockResolvedValue(listPage("settings_processes", [linkCol("title", "Process", "processes")],
+      [{ _key: "invented_quote", title: "Invented quote" }]));
     const { rerender } = render(<ProcessSettingsPanel />);
     const list = await screen.findByRole("table", { name: "Processes" });
     expect(within(list).getByRole("link", { name: "Invented quote" }).getAttribute("href")).toBe("#/settings/processes/invented_quote");

@@ -8,17 +8,27 @@
 import { useMemo, useState } from "react";
 import {
   api, ApiError, type OutputMarkerGroup, type OutputName, type OutputTemplate, type OutputTemplateCheck,
-  type OutputTemplateIssue, type OutputTemplateVersion, type UsedByMap,
+  type OutputTemplateIssue, type OutputTemplateVersion,
 } from "../../api";
 import { UsedBy, useUsedBy } from "../../components/UsedBy";
 import { BlockerList } from "../../components/BlockerList";
 import { BrowseButton } from "../../components/BrowseButton";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { DataTable } from "../../components/DataTable";
+import { ItemSteps } from "../../components/ItemSteps";
+import { PageActions } from "../../components/PageActions";
 import { Icon } from "../../components/Icon";
 import { Picker } from "../../components/Picker";
 import { VersionState } from "../../components/VersionState";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
+import { go, settingsHash } from "../../route";
+import { settingsChanged, useSettingsTitle } from "./settingsTree";
+
+const LIST = "settings_output_templates";
+const NEW = "new";
+const UPLOAD = "upload";
+const MARKERS = "markers";
 import { when } from "../../labels";
 
 /** The outputs in the order the settings page shows them; the labels name the downloads as the Result section does. */
@@ -106,39 +116,47 @@ const sizeText = (bytes: number | null | undefined) =>
   bytes === null || bytes === undefined || Number.isNaN(bytes) ? "" : bytes < 1024 ? t("{{n}} B", { n: bytes })
     : bytes < 1024 * 1024 ? t("{{n}} kB", { n: Math.round(bytes / 1024) }) : t("{{n}} MB", { n: (bytes / 1024 / 1024).toFixed(1) });
 
-export function OutputTemplatesPanel() {
+/** 263 (plan E, E1; the owner's decisions of 2026-10-30): the templates are the one list; a template is a page of its
+ *  own, an upload (a new template or a new version) a page of its own, and the markers to copy a page of their own. */
+export function OutputTemplatesPanel({ item, tab }: { item?: string; tab?: string }) {
   useLocale();
   const data = useLoad("output-templates", api.outputTemplates);
-  const [again, setAgain] = useState<OutputTemplate | null>(null);
-  const [uploaded, setUploaded] = useState<string | null>(null);
-  const used = useUsedBy("output_template");
   const templates = data.data?.templates ?? [];
+  const tpl = item && item !== NEW && item !== MARKERS ? templates.find((x) => x.template === item) : undefined;
+  const changed = () => { data.reload(); settingsChanged(); };
+  useSettingsTitle(item === NEW ? t("Upload a template") : item === MARKERS ? t("The markers") : tpl ? (tab === UPLOAD ? t("New version of {{name}}", { name: tpl.name }) : tpl.name) : null);
+  if (data.error) return <p className="notice error" role="alert">{data.error.message}</p>;
+  if (!data.data) return <p className="muted">{t("Loading…")}</p>;
+  if (item === MARKERS) return <MarkersCard groups={data.data.outputs} />;
+  if (item === NEW || (tpl && tab === UPLOAD)) {
+    return <UploadCard key={tpl?.template ?? NEW} again={tpl ?? null} onCancel={() => window.history.back()} onStart={() => undefined}
+      onDone={() => { changed(); go({ view: "settings", section: "outputs", ...(tpl ? { item: tpl.template } : {}) }); }} />;
+  }
+  if (item && !tpl) return <p className="notice warn">{t("It is not among the templates (any more).")}</p>;
+  if (tpl) {
+    return (
+      <>
+        <PageActions>
+          <ItemSteps list={LIST} />
+          <a className="button secondary" href={settingsHash("outputs", tpl.template, UPLOAD)}>{t("New version")}</a>
+        </PageActions>
+        <OutputTemplates output={tpl.output} templates={[tpl]} onChanged={changed} />
+      </>
+    );
+  }
   return (
     <section className="stage-stack" aria-label={t("Output templates")}>
+      <PageActions><a className="button primary" href={settingsHash("outputs", NEW)}>{t("Upload a template")}</a></PageActions>
       <p className="muted small">
         {t("An own template is an Excel workbook or, for a quote, a Word document with markers, such as {{package}} or {{invoices.amount}}: the system writes the data into them and keeps the file's look. Without one, a download is made with the built-in template, as before. A package chooses its template next to each download.")}
       </p>
-      {/* a new version starts the form afresh (its key), with the template's output and name */}
-      <UploadCard key={again?.template ?? "new"} again={again} onCancel={() => setAgain(null)}
-        onDone={(text) => { setUploaded(text); setAgain(null); data.reload(); }} onStart={() => setUploaded(null)} />
-      {uploaded ? <p role="status" className="small ok">{uploaded}</p> : null}
-      {data.error ? <p className="notice error" role="alert">{data.error.message}</p> : null}
-      {!data.data && !data.error ? <p className="muted">{t("Loading…")}</p> : null}
-      {data.data ? (
-        // each output's name is the heading of its part (a card title above them would stand on the same level)
-        <section className="card wide" aria-label={t("Templates")}>
-          {OUTPUTS.map((o) => (
-            <OutputTemplates key={o.key} output={o.key} templates={templates.filter((x) => x.output === o.key)}
-              onChanged={data.reload} onNewVersion={setAgain} used={used} />
-          ))}
-        </section>
-      ) : null}
-      {data.data ? <MarkersCard groups={data.data.outputs} /> : null}
+      <DataTable dataset={LIST} label={t("Output templates")} storageId={LIST} persist={LIST}
+        toolbar={<a className="small" href={settingsHash("outputs", MARKERS)}>{t("The markers")} →</a>}
+        emptyText={t("No own template: the built-in template makes every download.")} />
     </section>
   );
 }
 
-/** Uploading a template, or (`again`) a new version of one: the output, a name, the file's path. */
 function UploadCard({ again, onDone, onCancel, onStart }: {
   again: OutputTemplate | null; onDone: (text: string) => void; onCancel: () => void; onStart: () => void;
 }) {
@@ -210,11 +228,9 @@ function UploadCard({ again, onDone, onCancel, onStart }: {
 }
 
 /** One output's templates: every version as a row, newest first, with its state, its check's warnings and actions. */
-function OutputTemplates({ output, templates, onChanged, onNewVersion, used }: {
-  output: OutputName; templates: OutputTemplate[]; onChanged: () => void; onNewVersion: (t: OutputTemplate) => void;
-  used: UsedByMap | null;
-}) {
+function OutputTemplates({ output, templates, onChanged }: { output: OutputName; templates: OutputTemplate[]; onChanged: () => void }) {
   useLocale();
+  const used = useUsedBy("output_template");
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const spec = OUTPUTS.find((o) => o.key === output)!;
@@ -234,11 +250,8 @@ function OutputTemplates({ output, templates, onChanged, onNewVersion, used }: {
   }
 
   return (
-    <div className="template-output-block">
-      <div className="template-output-head">
-        <h3>{t(spec.label)}</h3>
-        <span className="muted small">{t(spec.hint)}</span>
-      </div>
+    <div className="sheet template-output-block">
+      <p className="muted small">{t(spec.label)} — {t(spec.hint)}</p>
       {templates.length === 0 ? (
         <p className="muted small">{t("No own template: the built-in template makes this download.")}</p>
       ) : (
@@ -259,10 +272,7 @@ function OutputTemplates({ output, templates, onChanged, onNewVersion, used }: {
               <tr key={`${tpl.template}:${v.version}`} className={i === 0 ? "template-first" : ""}>
                 {i === 0 ? (
                   <td rowSpan={tpl.versions.length} className="template-name">
-                    <div>
-                      <strong>{tpl.name}</strong>
-                      <button type="button" className="secondary small-btn" disabled={busy} onClick={() => onNewVersion(tpl)}>{t("New version")}</button>
-                    </div>
+                    <div><strong>{tpl.name}</strong></div>
                     <UsedBy used={used} ident={tpl.template} />
                   </td>
                 ) : null}

@@ -1,9 +1,9 @@
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, type Alternative, type ItemResult, type Provenance, type RunItem, type RunRow, type Workpackage } from "../api";
 import { DatasetPicker, runOption } from "../components/DatasetPicker";
 import { EngineMark } from "../components/EngineMark";
 import { NameModeSwitch, NameWarning } from "../components/NameCell";
-import { useDataset, useLoad } from "../hooks";
+import { useDataset, useFitToScreen, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { FIELD, fieldLabel, fold, ITEM_STATUS, itemName, when } from "../labels";
 import { useNameMode } from "../names";
@@ -54,21 +54,6 @@ function withNote(note: string | null, node: ReactNode): ReactNode {
 
 /** To-dos: the items on the left, the page image with the field frames in the middle, the to-dos and the fields on
  *  the right (045 K3b). We work on the result of one run (the latest by default); a correction belongs to that run. */
-/** 155: the review panes end just above the bottom of the screen however tall the header above them is (a title on one
- *  or two lines, a notice): the grid measures its own top and sets `--review-offset`, which the panes' heights use. */
-function useFitToScreen<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const fit = () => el.style.setProperty("--review-offset", `${Math.round(el.getBoundingClientRect().top + window.scrollY) + 12}px`);
-    fit();
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  });
-  return ref;
-}
-
 /** 153 (review): `onChanged` tells the package page that a to-do or a value changed, so its header and stage tabs
  *  follow (they kept the old count until the browser was reloaded). 160-C S3: the review opens on the run the package's
  *  next step is about (`currentRunId`), and names the other open live runs that have to-dos (`openRuns`). */
