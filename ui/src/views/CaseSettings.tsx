@@ -6,14 +6,17 @@ import { useState } from "react";
 import { api, type CaseSettings } from "../api";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
+import { numText } from "../labels";
 
 const ORIGIN: Record<string, string> = { process: "The process's own value", installation: "The installation's default", file: "From the file" };
 
+/** A rule value as a person reads it, as the process's settings page writes it: numbers in the language's notation. */
 function show(v: unknown): string {
   if (v === null || v === undefined || v === "") return "–";
-  if (Array.isArray(v)) return v.map(show).join(", ");
+  if (typeof v === "boolean") return v ? t("Yes") : t("No");
+  if (Array.isArray(v)) return v.length ? v.map(show).join(", ") : t("none");
   if (typeof v === "object") return Object.entries(v as Record<string, unknown>).map(([k, x]) => `${t(k)} ${show(x)}`).join(" · ");
-  return String(v);
+  return numText(v, 4);
 }
 
 const named = (r: { name: string; version: number | null } | null) =>
