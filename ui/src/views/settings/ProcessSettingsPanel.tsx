@@ -5,7 +5,7 @@
 // earlier decisions (the preview writes nothing), and makes a draft active by the installation's rule of who may; the
 // process's own value can be set aside, and the file's counts again. A case keeps the values it started with.
 import { useEffect, useMemo, useState } from "react";
-import { api, ApiError, type ProcessDescription, type ProcessSettings, type ResourceSetting, type RulePreview, type SettingKind } from "../../api";
+import { api, ApiError, type ProcessDescription, type ProcessSettings, type ResourceSetting, type RulePreview, type RuleSetting, type SettingKind } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { ExampleMaterial } from "../../elements/ExampleMaterial";
 import { VersionState } from "../../components/VersionState";
@@ -146,7 +146,7 @@ function ProcessPage({ pack, tab }: { pack: string; tab: Tab }) {
                     <td><button type="button" className="link-btn" onClick={() => setOpen({ kind: "rules", key: r.key })}>{t(r.what)}</button></td>
                     <td className="num tnum process-in-use">{show(r.value)}</td>
                     <td className="num tnum muted">{show(r.file_value)}</td>
-                    <td><Origin own={r.own} drafts={r.versions.filter((v) => v.state === "draft").length} /></td>
+                    <td><Origin own={r.own} origin={r.origin} drafts={r.versions.filter((v) => v.state === "draft").length} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -233,11 +233,14 @@ function intakeText(i: ProcessDescription["intake"][number]): string {
     : t("An email with the intent {{intent}} offers it.", { intent: i.intent ?? "–" });
 }
 
-/** Where the value in use comes from: the process's own value, or the file's; and the drafts waiting. */
-function Origin({ own, drafts }: { own: boolean; drafts: number }) {
+/** Where the value in use comes from: the process's own value, the installation's default (261, B2: a rule value), or
+ *  the file's; and the drafts waiting. */
+function Origin({ own, origin, drafts }: { own: boolean; origin?: RuleSetting["origin"]; drafts: number }) {
   return (
     <span className="process-origin small">
-      {own ? <span className="status s-done">{t("Own value")}</span> : <span className="muted">{t("From the file")}</span>}
+      {own ? <span className="status s-done">{t("Own value")}</span>
+        : origin === "installation" ? <span className="muted">{t("The installation's default")}</span>
+        : <span className="muted">{t("From the file")}</span>}
       {drafts ? <span className="status s-trial">{t("{{n}} draft(s)", { n: drafts })}</span> : null}
     </span>
   );
@@ -302,6 +305,7 @@ function SettingCard({ page, open, onClose, onChanged }: {
       <dl className="process-facts">
         <dt>{t("In use")}</dt><dd className="process-in-use tnum">{text(setting.value)}</dd>
         <dt>{t("The file's value")}</dt><dd className="tnum">{text(setting.file_value)}</dd>
+        {rule?.installation_value !== undefined ? <><dt>{t("The installation's default")}</dt><dd className="tnum">{text(rule.installation_value)}</dd></> : null}
         {rule ? <><dt>{t("Read by the steps")}</dt><dd>{rule.steps.map((s) => t(s)).join(", ")}</dd></> : null}
       </dl>
       {resource?.options && !resource.options.length ? (  // U3b: an empty list says where its values come from

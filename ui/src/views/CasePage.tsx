@@ -10,6 +10,7 @@ import { errorText, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { stepLabel } from "../labels";
 import { go } from "../route";
+import { CaseSettingsCard } from "./CaseSettings";
 import { WorkpackageActions } from "./WorkpackageActions";
 import { OwnerPicker } from "./WorkpackageDetail";
 
@@ -181,6 +182,8 @@ export function CasePage({ caseId, tab }: { caseId: string; tab?: string }) {
             : <p className="notice error" role="alert">{t("This screen element cannot be shown: {{type}}", { type: e.type })}</p>}</div>;
         })}
       </div>
+      {/* 261 (B2b): what the case keeps from its start, beside what a case started now would use */}
+      <CaseSettingsCard caseId={caseId} pack={view.case.pack} />
     </>
   );
 }

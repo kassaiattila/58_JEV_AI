@@ -237,6 +237,15 @@ export interface CaseKept {
   resources: { key: string; label: string; name: string; version: number | null }[];
   rules: { file: string; version: string | null }[];
 }
+/** 261 (plan B, B2b): what a case keeps from its start, beside what a case started now would use (read only):
+ *  `kept` false for a case started before its values were kept (it reads the files and the active versions). */
+export interface CaseSettings {
+  pack: string; kept: boolean;
+  resources: { key: string; label: string; name: string; version: number | null;
+    now: { name: string; version: number | null } | null }[];
+  rules: { key: string; what: string; value: unknown; origin: "process" | "installation" | "file"; version: number | null;
+    now: unknown; now_origin: "process" | "installation" | "file" | null }[];
+}
 /** 231 (B1): a partner the case is about: linked, or proposed from its record with the partner it seems to be. */
 export interface CasePartnerBrief { partner_id: string; name: string; tax_number: string | null; email: string | null; roles: string[]; retired: boolean; version: number }
 export interface CasePartnerLink {
@@ -255,6 +264,8 @@ export const casesApi = {
     request<{ case_id: string }>("POST", "/cases", body),
   /** 261: the case's next period as the new case's form shows it filled in (nothing is written) */
   caseNext: (caseId: string) => request<CaseNextDraft>("GET", `/cases/${enc(caseId)}/next`),
+  /** 261 (B2b): what the case keeps from its start, beside what a case started now would use */
+  caseSettings: (caseId: string) => request<CaseSettings>("GET", `/cases/${enc(caseId)}/settings`),
   casePage: (caseId: string) => request<CaseView>("GET", `/cases/${enc(caseId)}`),
   /** 231 (U1): a case of the process that follows the closed case, started from its documents */
   caseFollowUp: (caseId: string, pack: string) => request<{ case_id: string }>("POST", `/cases/${enc(caseId)}/follow-ups`, { pack }),

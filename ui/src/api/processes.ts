@@ -65,6 +65,9 @@ export interface ResourceSetting {
 export interface RuleSetting {
   key: string; file: string; path: string; what: string; kind: "int" | "choice"; least: number | null; most: number | null;
   options: string[]; steps: string[]; file_value: string | number; value: string | number; own: boolean; versions: SettingVersion[];
+  /** 261 (B2, F07): where the value a new case uses comes from: the process's own, the installation's default, or the
+   *  released file's; `installation_value`, the installation's default when one is active */
+  origin?: "process" | "installation" | "file"; installation_value?: string | number;
 }
 export interface ProcessSettings {
   pack: ProcessRow; resources: ResourceSetting[]; rules: RuleSetting[];
