@@ -3455,6 +3455,7 @@
   "the next period's case is a case of the same process": "a következő időszak ügye ugyanannak a folyamatnak az ügye",
   "a process repeated for its next period needs a period in its scope": "az időszakonként ismételt folyamat kötésében időszak kell",
   "Next period": "Következő időszak",
+  "The installation's default": "A telepítés alapértéke",
   "Form": "Űrlap",
   "Give: {{fields}}": "Add meg: {{fields}}",
   "Nothing to show yet.": "Még nincs mit mutatni.",

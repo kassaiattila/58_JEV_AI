@@ -55,6 +55,21 @@ describe("a process's own settings (231 B4)", () => {
     expect(await screen.findByText("Customer", { exact: false })).toBeTruthy();
   });
 
+  it("says when the installation's default is in use, the value a new case keeps (261 B2, F07)", async () => {
+    vi.spyOn(api, "processes").mockResolvedValue({ processes: [PAGE.pack] });
+    vi.spyOn(api, "processSettings").mockResolvedValue({ ...PAGE, rules: [{ ...PAGE.rules[0], value: 320, origin: "installation",
+      installation_value: 320 }] });
+    render(<ProcessSettingsPanel pack="invented_quote" tab="values" />);
+    const rules = await screen.findByRole("table", { name: "Rule values" });
+    const row = within(rules).getByRole("button", { name: "A quote holds at most this many lines" }).closest("tr")!;
+    expect(within(row).getByText("320")).toBeTruthy();
+    expect(within(row).getByText("300")).toBeTruthy();
+    expect(within(row).getByText("The installation's default")).toBeTruthy();
+    fireEvent.click(within(row).getByRole("button", { name: "A quote holds at most this many lines" }));
+    const card = await screen.findByRole("region", { name: "A quote holds at most this many lines" });
+    expect(within(card).getByText("The installation's default").nextElementSibling?.textContent).toBe("320");
+  });
+
   it("saves a rule value as a draft within its bounds, tries it on earlier decisions and makes it active", async () => {
     vi.spyOn(api, "processes").mockResolvedValue({ processes: [PAGE.pack] });
     const load = vi.spyOn(api, "processSettings").mockResolvedValue(PAGE);

@@ -390,7 +390,9 @@ def _own(rows: list[Any]) -> Any:
 
 def view(pack_id: str) -> dict[str, Any]:
     """The pack's resources and rule keys: each with its file value, the process's active value (the file's when it
-    has none) and its versions newest first; and the rule of who may make a value active."""
+    has none) and its versions newest first; and the rule of who may make a value active. 261 (B2, F07): a rule key's
+    `value` is the one a new case keeps (`effective_rules`: the process's own, else the installation's default, else
+    the file's), its `origin` says which (`process`, `installation`, `file`), and `installation_value` the default."""
     pack = process_packs.load(pack_id)
     with store.connect() as c:
         rows = c.execute("SELECT * FROM process_setting_versions WHERE pack_id=? ORDER BY kind, key, version DESC",
@@ -413,15 +415,21 @@ def view(pack_id: str) -> dict[str, Any]:
                           "file_value": file_value, "value": value if own else file_value, "own": own,
                           "versions": _versions(mine), "derived_from": None})
     rules = []
+    installed, _refs = rule_defaults.active()  # 261 (B2): the installation's defaults, as a case's start keeps them
     for key, (rule, steps) in rule_keys(pack).items():
         mine = by_key.get((RULE, key), [])
         value, own = _own(mine)
         file_value = rule.file_value()
+        defaults = installed.get(rule.file) or {}
+        origin = "process" if own else "installation" if rule.key in defaults else "file"
         titles = {s.id: s.title for s in pack.steps}
         rules.append({"key": key, "file": rule.file, "path": rule.key, "what": rule.what, "kind": rule.kind,
                       "least": rule.least, "most": rule.most, "options": list(rule.options),
                       "steps": [titles.get(s, s) for s in steps],
-                      "file_value": file_value, "value": value if own else file_value, "own": own,
+                      "file_value": file_value,
+                      "value": value if own else defaults[rule.key] if origin == "installation" else file_value,
+                      "own": own, "origin": origin,
+                      **({"installation_value": defaults[rule.key]} if rule.key in defaults else {}),
                       "versions": _versions(mine)})
     roles = partners.roles()
     titles = {s.id: s.title for s in pack.steps}
