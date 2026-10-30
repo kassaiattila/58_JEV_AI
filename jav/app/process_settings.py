@@ -49,6 +49,7 @@ from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
 __all__ = ["CONFIG", "KINDS", "RESOURCE", "RULE", "MissingAtStart", "SettingError", "SettingRefused", "UnknownSetting", "activate", "at_start",
+           "case_settings",
            "effective_resources", "effective_rules", "may_activate", "missing_at_start", "policy", "preview", "propose",
            "resource_info", "retire", "kept_resources", "kept_view", "rule_keys", "view"]
 
@@ -437,6 +438,47 @@ def view(pack_id: str) -> dict[str, Any]:
               "step_title": titles.get(link.from_step, link.from_step)} for link in pack.partners]
     return {"pack": {"id": pack.id, "title": pack.title, "version": pack.version}, "resources": resources, "rules": rules,
             "partners": links, "policy": policy(), "description": _description(pack)}
+
+
+def case_settings(case_id: str) -> dict[str, Any]:
+    """261 (plan B, B2b): what a case keeps from its start, as its page shows it (read only): its resources at their
+    versions and each rule value its process's steps let it set - the value the case reads and where it came from (the
+    process's own, the installation's default, or the rule file as the case keeps it) - each beside what a case started
+    now would use (`now`, from this page's `view`); `kept` False for a case started before D0-e (it reads the files and
+    the active versions), whose values are not shown. `KeyError` for an unknown case."""
+    from jav.app import process_runtime  # lazy: the runtime starts cases with these settings
+    from jav.core.process import cases
+
+    pack = process_runtime.pack_for(case_id)
+    if pack is None:
+        raise KeyError(case_id)
+    with store.connect() as c:
+        data = (cases.find_case_in(c, case_id) or {}).get("data") or {}
+    if capabilities.KEPT_RULES not in data:
+        return {"pack": pack.id, "kept": False, "resources": [], "rules": []}
+    refs = data.get(capabilities.RULE_REFS) or {}
+    now = {r["key"]: r for r in view(pack.id)["rules"]}
+    rules = []
+    with cfg.overlay(capabilities.case_overlay(data, case_id)):  # the values as the case reads them
+        for key, (rule, _steps) in rule_keys(pack).items():
+            node: Any = cfg.load(rule.file)
+            try:
+                for part in rule.key.split("."):
+                    node = node[part]
+            except (KeyError, TypeError):
+                continue
+            ref = (refs.get(rule.file) or {}).get(rule.key)
+            origin = "file" if ref is None else (
+                "installation" if str(ref.get("setting", "")).startswith(rule_defaults.DEFAULT_SETTING) else "process")
+            current = now.get(key)
+            rules.append({"key": key, "what": rule.what, "value": node, "origin": origin,
+                          "version": ref.get("version") if ref else None,
+                          "now": current["value"] if current else None, "now_origin": current["origin"] if current else None})
+    resources = kept_view(pack, data.get("resources") or {})
+    current_resources, keepers = kept_resources(pack, effective_resources(pack)), _keepers(pack)
+    for r in resources:  # what a case started now would keep (a "newest active" at its version now)
+        r["now"] = keepers[r["key"]].named(str(current_resources[r["key"]])) if r["key"] in current_resources else None
+    return {"pack": pack.id, "kept": True, "resources": resources, "rules": rules}
 
 
 def _description(pack: process_packs.ProcessPack) -> dict[str, Any]:

@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, Response
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav.app import case_views, process_runtime, work_views
+from jav.app import case_views, process_runtime, process_settings, work_views
 from jav.core import identity
 from jav.service.service_shared import Empty, In, IsoDay, PartyId, attachment_header, checked_path, human_actor
 
@@ -119,6 +119,11 @@ def routes(app: FastAPI, r: str) -> None:
     def next_period(case_id: CaseId) -> dict[str, Any]:
         """261: the case's next period as the new case's form shows it filled in (nothing is written)."""
         return process_runtime.next_draft(case_id)
+
+    @app.get(r + "/cases/{case_id}/settings")
+    def case_settings(case_id: CaseId) -> dict[str, Any]:
+        """261 (B2b): what the case keeps from its start, beside what a case started now would use (read only)."""
+        return work_views.jsonable(process_settings.case_settings(case_id))
 
     @app.post(r + "/cases/{case_id}/follow-ups", status_code=201)
     def follow_up(case_id: CaseId, body: FollowUpIn, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:

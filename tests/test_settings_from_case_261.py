@@ -10,6 +10,8 @@ import pytest
 
 from jav.app import process_packs, process_settings, registrations, rule_defaults
 from jav.core import cfg, store
+from tests.test_process_settings_231 import _start
+from tests.test_quote_path_231 import golden  # noqa: F401 - the fixture
 
 registrations.load_all()
 
@@ -53,3 +55,22 @@ def test_the_settings_say_the_value_a_new_case_uses_and_where_it_comes_from(db) 
     shown = _shown()
     assert (shown["value"], shown["origin"]) == (320, "installation") and _used() == 320
     assert [v["value"] for v in shown["versions"] if v["state"] == "draft"] == [360]
+
+
+def test_a_case_says_what_it_keeps_from_its_start_beside_what_a_new_case_uses(golden) -> None:  # noqa: F811 - B2b
+    cases, _seen = golden
+    rule_defaults.propose(FILE, KEY, 320, "anna")
+    rule_defaults.activate(FILE, KEY, 1, "anna")
+    case_id = _start(cases[0])
+    process_settings.propose(PACK, RULE, 350, "anna", kind=process_settings.RULE)  # after the case started
+    process_settings.activate(PACK, RULE, 1, "anna", kind=process_settings.RULE)
+    kept = process_settings.case_settings(case_id)
+    assert kept["pack"] == PACK and kept["kept"] is True
+    row = next(r for r in kept["rules"] if r["key"] == RULE)
+    assert (row["value"], row["origin"], row["version"], row["now"], row["now_origin"]) == (320, "installation", 1, 350, "process")
+    price = next(r for r in kept["resources"] if r["key"] == "price_list")
+    assert price["version"] == price["now"]["version"] and price["name"] == price["now"]["name"]  # the same list since
+    others = [r for r in kept["rules"] if r["key"] != RULE]
+    assert all(r["origin"] == "file" and r["version"] is None for r in others)
+    with pytest.raises(KeyError):
+        process_settings.case_settings("wp-000000000000")
