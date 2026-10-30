@@ -4,15 +4,21 @@
 // use; and the roles its partners play. A person saves a new value as a draft, tries a rule value on the process's
 // earlier decisions (the preview writes nothing), and makes a draft active by the installation's rule of who may; the
 // process's own value can be set aside, and the file's counts again. A case keeps the values it started with.
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { api, ApiError, type ProcessDescription, type ProcessSettings, type ResourceSetting, type RulePreview, type RuleSetting, type SettingKind } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { DataTable } from "../../components/DataTable";
+import { ItemSteps } from "../../components/ItemSteps";
+import { PageActions } from "../../components/PageActions";
 import { ExampleMaterial } from "../../elements/ExampleMaterial";
 import { VersionState } from "../../components/VersionState";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { numText, when } from "../../labels";
 import { routeHash } from "../../route";
+import { useSettingsTitle } from "./settingsTree";
+
+const LIST = "settings_processes";
 
 type Open = { kind: SettingKind; key: string } | null;
 type Value = string | number;
@@ -27,32 +33,19 @@ function show(v: unknown): string {
   return numText(v, 4);
 }
 
-/** A resource's value as a person reads it: its option's label; a code (an option without a label of its own, or a
- *  value no option names) in the code face. */
+/** A resource's value as a person reads it: its option's label, else the library's name for it (263: a draft's or a
+ *  retired thing's too); a code only where no name exists, in the code face. */
 function ResourceValue({ r, value }: { r: ResourceSetting; value: Value }) {
   const found = r.options?.find((o) => o.value === value);
-  return found && found.label !== found.value ? <>{t(found.label)}</> : <span className="mono">{String(value)}</span>;
+  if (found && found.label !== found.value) return <>{t(found.label)}</>;
+  const named = r.names?.[String(value)];
+  return named ? <>{named}</> : <span className="mono">{String(value)}</span>;
 }
 
 function policyText(p: ProcessSettings["policy"]) {
   if (p.activation === "owner") return t("Only these people make a value active: {{names}}.", { names: p.owners.join(", ") || "–" });
   if (p.activation === "second_person") return t("A second person makes a value active, not the one who saved it.");
   return t("The person who saves a value may make it active.");
-}
-
-/** 231 (stage U, U3a; the owner's decision of 2026-10-28: each process its own menu item and address): the processes
- *  under the Processes item of the Settings menu, each linked to its own page. */
-export function ProcessNav({ current }: { current?: string }) {
-  useLocale();
-  const list = useLoad("processes", api.processes);
-  return (
-    <>
-      {(list.data?.processes ?? []).map((p) => (
-        <a key={p.id} className="settings-sub" href={routeHash({ view: "settings", section: "processes", item: p.id })}
-          aria-current={p.id === current ? "page" : undefined}>{t(p.title)}</a>
-      ))}
-    </>
-  );
 }
 
 const TABS = [["about", "Description"], ["uses", "What it uses"], ["values", "Rule values"], ["partners", "Partner roles"],
@@ -67,21 +60,8 @@ export function ProcessSettingsPanel({ pack, tab }: { pack?: string; tab?: strin
   if (!list.data) return <p className="muted">{t("Loading…")}</p>;
   if (!packs.length) return <p className="muted">{t("No process is installed.")}</p>;
   const chosen = packs.find((p) => p.id === pack);
-  if (!chosen) {
-    return (
-      <table className="table compact" aria-label={t("Processes")}>
-        <thead><tr><th>{t("Process")}</th><th>{t("What it is for")}</th></tr></thead>
-        <tbody>
-          {packs.map((p) => (
-            <tr key={p.id}>
-              <td><a href={routeHash({ view: "settings", section: "processes", item: p.id })}>{t(p.title)}</a></td>
-              <td className="muted small">{p.summary ? t(p.summary) : "–"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
-  }
+  // 263 (E1): the processes in the one list; a process opens its own page
+  if (!chosen) return <DataTable dataset={LIST} label={t("Processes")} storageId={LIST} persist={LIST} />;
   const current: Tab = TABS.some(([key]) => key === tab) ? (tab as Tab) : "about";
   return <ProcessPage key={chosen.id} pack={chosen.id} tab={current} />;
 }
@@ -91,16 +71,20 @@ function ProcessPage({ pack, tab }: { pack: string; tab: Tab }) {
   const loaded = useLoad(`process-settings:${pack}`, () => api.processSettings(pack));
   const [open, setOpen] = useState<Open>(null);
   const page = loaded.data;
+  useSettingsTitle(page ? t(page.pack.title) : null);
   if (loaded.error) return <p className="notice error" role="alert">{loaded.error.message}</p>;
   if (!page) return <p className="muted">{t("Loading…")}</p>;
   const selected = (kind: SettingKind, key: string) => open?.kind === kind && open.key === key;
+  // 263 (E1): a setting opens under its own row, and its name closes it again
+  const toggle = (o: NonNullable<Open>) => setOpen(selected(o.kind, o.key) ? null : o);
   const card = open ? <SettingCard key={`${open.kind}:${open.key}`} page={page} open={open} onClose={() => setOpen(null)} onChanged={loaded.reload} /> : null;
   return (
     <div className="process-settings">
-      <div className="process-head">
-        <h3>{t(page.pack.title)} <span className="muted small tnum">{page.pack.version}</span></h3>
-        {page.description.summary ? <p className="muted">{t(page.description.summary)}</p> : null}
-      </div>
+      <PageActions><ItemSteps list={LIST} /></PageActions>
+      {/* 263 (E1): the process's name is the page's title; its version and what it is for stand under it */}
+      <p className="muted process-head">
+        {page.description.summary ? <>{t(page.description.summary)} · </> : null}<span className="tnum">{t("version {{version}}", { version: page.pack.version })}</span>
+      </p>
       <div className="segmented-tabs" role="tablist" aria-label={t("The process's settings")}>
         {TABS.map(([key, label]) => (
           <a key={key} role="tab" className="seg" aria-selected={tab === key}
@@ -118,19 +102,21 @@ function ProcessPage({ pack, tab }: { pack: string; tab: Tab }) {
               <thead><tr><th>{t("Setting")}</th><th>{t("In use")}</th><th>{t("The file's value")}</th><th /></tr></thead>
               <tbody>
                 {page.resources.map((r) => (
-                  <tr key={r.key} aria-selected={selected("settings", r.key)}>
-                    <td><button type="button" className="link-btn" onClick={() => setOpen({ kind: "settings", key: r.key })}>{t(r.label)}</button></td>
-                    <td className="process-in-use"><ResourceValue r={r} value={r.value} /></td>
-                    <td className="muted"><ResourceValue r={r} value={r.file_value} /></td>
-                    <td>{r.derived_from ? (  // U3c: as its source brings it
-                      <span className="process-origin small muted">{t("From the {{source}}", { source: t(page.resources.find((x) => x.key === r.derived_from)?.label ?? r.derived_from) })}</span>
-                    ) : <Origin own={r.own} drafts={r.versions.filter((v) => v.state === "draft").length} />}</td>
-                  </tr>
+                  <Fragment key={r.key}>
+                    <tr aria-selected={selected("settings", r.key)}>
+                      <td><button type="button" className="link-btn" aria-expanded={selected("settings", r.key)} onClick={() => toggle({ kind: "settings", key: r.key })}>{t(r.label)}</button></td>
+                      <td className="process-in-use"><ResourceValue r={r} value={r.value} /></td>
+                      <td className="muted"><ResourceValue r={r} value={r.file_value} /></td>
+                      <td>{r.derived_from ? (  // U3c: as its source brings it
+                        <span className="process-origin small muted">{t("From the {{source}}", { source: t(page.resources.find((x) => x.key === r.derived_from)?.label ?? r.derived_from) })}</span>
+                      ) : <Origin own={r.own} drafts={r.versions.filter((v) => v.state === "draft").length} />}</td>
+                    </tr>
+                    {selected("settings", r.key) ? <tr className="row-detail"><td colSpan={4}>{card}</td></tr> : null}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
           ) : <p className="muted small">{t("The process uses nothing from the shared library.")}</p>}
-          {open?.kind === "settings" ? card : null}
         </section>
       ) : null}
 
@@ -142,17 +128,19 @@ function ProcessPage({ pack, tab }: { pack: string; tab: Tab }) {
               <thead><tr><th>{t("Rule")}</th><th className="num">{t("In use")}</th><th className="num">{t("The file's value")}</th><th /></tr></thead>
               <tbody>
                 {page.rules.map((r) => (
-                  <tr key={r.key} aria-selected={selected("rules", r.key)}>
-                    <td><button type="button" className="link-btn" onClick={() => setOpen({ kind: "rules", key: r.key })}>{t(r.what)}</button></td>
-                    <td className="num tnum process-in-use">{show(r.value)}</td>
-                    <td className="num tnum muted">{show(r.file_value)}</td>
-                    <td><Origin own={r.own} origin={r.origin} drafts={r.versions.filter((v) => v.state === "draft").length} /></td>
-                  </tr>
+                  <Fragment key={r.key}>
+                    <tr aria-selected={selected("rules", r.key)}>
+                      <td><button type="button" className="link-btn" aria-expanded={selected("rules", r.key)} onClick={() => toggle({ kind: "rules", key: r.key })}>{t(r.what)}</button></td>
+                      <td className="num tnum process-in-use">{show(r.value)}</td>
+                      <td className="num tnum muted">{show(r.file_value)}</td>
+                      <td><Origin own={r.own} origin={r.origin} drafts={r.versions.filter((v) => v.state === "draft").length} /></td>
+                    </tr>
+                    {selected("rules", r.key) ? <tr className="row-detail"><td colSpan={4}>{card}</td></tr> : null}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
           ) : <p className="muted small">{t("The process's steps let it set no rule value.")}</p>}
-          {open?.kind === "rules" ? card : null}
         </section>
       ) : null}
 

@@ -11,6 +11,7 @@ import {
 import { TemplateChoice } from "../../components/TemplateChoice";
 import { setLanguage } from "../../i18n";
 import { UtilityPanel } from "../../domains/finance/UtilityReport";
+import { linkCol, listPage } from "./listPage.testutil";
 import { issueText, OutputTemplatesPanel } from "./OutputTemplatesPanel";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
@@ -51,7 +52,7 @@ const board = (versions: OutputTemplateVersion[]): OutputTemplate => ({
 describe("Settings › Output templates (179)", () => {
   it("shows each output's versions with their state, and says the built-in template makes an output without one", async () => {
     vi.spyOn(api, "outputTemplates").mockResolvedValue(listing([board([version({ version: 2, state: "draft" }), version({ state: "active" })])]));
-    render(<OutputTemplatesPanel />);
+    const { unmount } = render(<OutputTemplatesPanel item="tpl-0123456789" />);  // 263: a template's own page
     await screen.findByText("Board report");
     const rows = within(document.querySelector(".template-table") as HTMLElement).getAllByRole("row").slice(1);
     expect(rows.map((r) => within(r).getByText(/^(Draft|Active)$/).textContent)).toEqual(["Draft", "Active"]);
@@ -62,7 +63,11 @@ describe("Settings › Output templates (179)", () => {
     expect(within(rows[1]).getByRole("button", { name: "Retire" })).toBeTruthy();
     expect(within(rows[0]).getByRole("link", { name: "Preview (made-up data)" }).getAttribute("href"))
       .toBe("/api/output-templates/tpl-0123456789/versions/2/preview.xlsx");
-    expect(screen.getAllByText("No own template: the built-in template makes this download.")).toHaveLength(3); // 196: and the quote
+    unmount();
+    // 263: the templates are the one list; without one, every download is made by the built-in template
+    vi.spyOn(api, "datasetQuery").mockResolvedValue(listPage("settings_output_templates", [linkCol("name", "Name", "outputs")], []));
+    render(<OutputTemplatesPanel />);
+    expect(await screen.findByText("No own template: the built-in template makes every download.")).toBeTruthy();
   });
 
   it("names every problem of a refused upload with its cell, and stores nothing", async () => {
@@ -72,7 +77,7 @@ describe("Settings › Output templates (179)", () => {
       { code: "unknown_marker", where: "Sheet1!A2", detail: "{{invoices.amount}}: no table invoices" },
     ], warnings: [{ code: "conditional_formatting", where: "Sheet1", detail: "" }] };
     const upload = vi.spyOn(api, "uploadOutputTemplate").mockRejectedValue(new ApiError(422, "template_refused", "refused", [], {}, check));
-    render(<OutputTemplatesPanel />);
+    render(<OutputTemplatesPanel item="new" />);  // 263: the upload's own page
     const button = await screen.findByRole("button", { name: "Upload and check" });
     expect(button).toHaveProperty("disabled", true); // a form's main step is solid and disabled until it is complete
     expect(button.className).toContain("primary");
@@ -93,23 +98,22 @@ describe("Settings › Output templates (179)", () => {
   it("uploads a new version of a template with its output, and says it is a draft", async () => {
     const load = vi.spyOn(api, "outputTemplates").mockResolvedValue(listing([board([version({ state: "active" })])]));
     const upload = vi.spyOn(api, "uploadOutputTemplate").mockResolvedValue(version({ version: 2 }));
-    render(<OutputTemplatesPanel />);
-    fireEvent.click(await screen.findByRole("button", { name: "New version" }));
-    expect(screen.getByRole("heading", { name: "New version of Board report" })).toBeTruthy();
+    window.location.hash = "";
+    render(<OutputTemplatesPanel item="tpl-0123456789" tab="upload" />);  // 263: a new version's own page
+    expect(await screen.findByRole("heading", { name: "New version of Board report" })).toBeTruthy();
     expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("Board report");
     fireEvent.change(screen.getByLabelText("The workbook's full path (.xlsx)"), { target: { value: "D:\\Synthetic\\board2.xlsx" } });
     fireEvent.click(screen.getByRole("button", { name: "Upload and check" }));
-    expect(await screen.findByText(/Uploaded: Board report, version 2, as a draft/)).toBeTruthy();
+    await waitFor(() => expect(window.location.hash).toBe("#/settings/outputs/tpl-0123456789"));  // back to the template's page
     expect(upload).toHaveBeenCalledWith({ output: "package_result", name: "Board report", path: "D:\\Synthetic\\board2.xlsx", template: "tpl-0123456789" });
     expect(load).toHaveBeenCalledTimes(2);
-    expect(screen.getByRole("heading", { name: "Upload a template" })).toBeTruthy();
   });
 
   it("makes a version active and retires the active one (with a confirmation)", async () => {
     vi.spyOn(api, "outputTemplates").mockResolvedValue(listing([board([version({ version: 2 }), version({ state: "active" })])]));
     const activate = vi.spyOn(api, "activateOutputTemplate").mockResolvedValue(version({ version: 2, state: "active" }));
     const retire = vi.spyOn(api, "retireOutputTemplate").mockResolvedValue(version({ state: "retired" }));
-    render(<OutputTemplatesPanel />);
+    render(<OutputTemplatesPanel item="tpl-0123456789" />);
     fireEvent.click(await screen.findByRole("button", { name: "Make active" }));
     expect(await screen.findByText(/Active: Board report, version 2/)).toBeTruthy();
     expect(activate).toHaveBeenCalledWith("tpl-0123456789", 2);
@@ -124,7 +128,7 @@ describe("Settings › Output templates (179)", () => {
     vi.spyOn(api, "outputTemplates").mockResolvedValue(listing([]));
     const write = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText: write }, configurable: true });
-    render(<OutputTemplatesPanel />);
+    render(<OutputTemplatesPanel item="markers" />);  // 263: the markers' own page
     const card = await screen.findByRole("region", { name: "Markers" });
     const table = card.querySelector(".marker-table") as HTMLElement; // the help above it shows examples too
     for (const m of ["{{package}}", "{{invoice_hu.gross_total}}", "{{invoice_hu.gross_total:sum}}", "{{invoice_hu:count}}",
@@ -201,7 +205,7 @@ describe("Settings › Output templates: a Word template (196)", () => {
       check: { ...CHECK, output: "quote" } });
     vi.spyOn(api, "outputTemplates").mockResolvedValue(listing([{ template: "tpl-00000000aa", output: "quote", name: "Our offer",
       active: 1, retired: false, versions: [offer] }]));
-    render(<OutputTemplatesPanel />);
+    render(<OutputTemplatesPanel item="tpl-00000000aa" />);
     await screen.findByText("Our offer");
     expect(screen.getByRole("link", { name: "Preview (made-up data)" }).getAttribute("href"))
       .toBe("/api/output-templates/tpl-00000000aa/versions/1/preview.docx");

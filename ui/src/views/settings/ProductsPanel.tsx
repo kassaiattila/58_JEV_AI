@@ -4,99 +4,101 @@
 // from) and the condition documents (their clauses). Each is kept as versions; a draft shows what keeps it from being
 // made active and is made active here, a product by another person than its maker; an active one can be retired, and
 // stays readable for the cases that keep it. 231 (U3c; the owner's decision of 2026-10-28: the tariff is part of the
-// product): the tariffs are a list of this page (until then a Settings item of their own).
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { ConditionDocument, Product, ProductRegistry, RegistryThing, Rule } from "../../api";
-import { UsedBy, useUsedBy } from "../../components/UsedBy";
+// product): the tariffs are a list of this page (until then a Settings item of their own). 263 (plan E, E1; the owner's
+// decisions of 2026-10-30): each list is a page of its own and each thing in it too (in the address and in the Settings
+// table of contents), no longer a card below its list; a rule a product names opens under its own row.
+import { Fragment, useMemo, useState, type ReactNode } from "react";
+import type { ConditionDocument, Product, ProductRegistry, RegistryThing, Rule, Tariff } from "../../api";
+import { DataTable } from "../../components/DataTable";
+import { ItemSteps } from "../../components/ItemSteps";
+import { PageActions } from "../../components/PageActions";
 import { t, useLocale } from "../../i18n";
+import { settingsHash } from "../../route";
 import { ProposalsView } from "./ProposalsView";
-import { TariffsPanel } from "./TariffsPanel";
+import { PRODUCT_LISTS, settingsChanged, useSettingsTitle, type ProductList } from "./settingsTree";
+import { TariffCard } from "./TariffsPanel";
 import {
-  Activation, Citation, DecisionTable, DOCUMENT_KIND, documentsByRef, current, inForce, levelLabel, NoneYet, RULE_KIND,
+  Activation, Citation, DecisionTable, DOCUMENT_KIND, documentsByRef, current, inForce, levelLabel, RULE_KIND,
   ThingState, useRegistry, versionOf, VersionLine, VersionPicker, VersionsTable,
 } from "./RegistryParts";
 
-type View = "products" | "tariffs" | "rules" | "documents" | "proposals";
-type Open = { view: View; ident: string } | null;
+/** What each list holds, under its name on the section's page. */
+const LIST_WHAT: Record<ProductList, string> = {
+  products: "The products an offer is built from: their cover modules, condition documents, rules and tariff",
+  tariffs: "How a product's premium is computed: the rates of its cover modules and the factors",
+  rules: "The rules read from the condition documents: who and what may be insured, and on what terms",
+  documents: "The condition documents and their clauses, which the rules cite",
+  proposals: "Rules proposed from a condition document, for a person to accept, correct or reject",
+};
 
-export function ProductsPanel({ initial }: { initial?: string }) {
+/** `list` is the chosen list (none: the section's page), `ident` a thing in it, `open` a rule opened on a product. */
+export function ProductsPanel({ list, ident, open }: { list?: string; ident?: string; open?: string }) {
   useLocale();
   const registry = useRegistry();
-  const [view, setView] = useState<View>(initial === "tariffs" ? "tariffs" : "products");
-  const [open, setOpen] = useState<Open>(null);
   if (registry.error) return <p className="notice error" role="alert">{registry.error.message}</p>;
   if (!registry.data) return <p className="muted">{t("Loading…")}</p>;
   const r = registry.data;
-  const views: [View, string, number | null][] = [["products", t("Products"), r.products.length], ["tariffs", t("Tariffs"), r.tariffs.length],
-    ["rules", t("Rules"), r.rules.length],
-    ["documents", t("Condition documents"), r.documents.length], ["proposals", t("Proposals"), null]];
-  const show = (v: View, ident: string) => { setView(v); setOpen({ view: v, ident }); };
-  return (
-    <div className="registry">
-      <div className="segmented-tabs" role="tablist" aria-label={t("Product registry")}>
-        {views.map(([key, label, n]) => (
-          <button key={key} type="button" role="tab" className="seg" aria-selected={view === key} onClick={() => setView(key)}>
-            {label}{n != null ? <> <span className="tnum muted">{n}</span></> : null}
-          </button>
+  const changed = () => { registry.reload(); settingsChanged(); };
+  const counts: Record<ProductList, number | null> = {
+    products: r.products.length, tariffs: r.tariffs.length, rules: r.rules.length, documents: r.documents.length, proposals: null,
+  };
+  const spec = PRODUCT_LISTS.find((l) => l.key === list);
+  if (spec && ident) { // a thing's page, with the previous and next thing of its list
+    return (
+      <>
+        <PageActions><ItemSteps list={spec.dataset} /></PageActions>
+        <Thing registry={r} list={spec.key} ident={ident} open={open ?? null} onChanged={changed} />
+      </>
+    );
+  }
+  // 263 (E1): a list is the one list: searchable, sortable, grouped; a row opens its thing's page
+  if (spec?.key === "proposals") return <ProposalsView registry={r} onChanged={changed} />;
+  if (spec) return <DataTable key={spec.key} dataset={spec.dataset} label={t(spec.label)} storageId={spec.dataset} persist={spec.dataset} />;
+  return ( // the section's page: its lists, each with what it holds and how many
+    <table className="table compact registry-table" aria-label={t("Product registry")}>
+      <thead><tr><th>{t("List")}</th><th className="num">{t("Count")}</th><th>{t("What it holds")}</th></tr></thead>
+      <tbody>
+        {PRODUCT_LISTS.map(({ key, label }) => (
+          <tr key={key}>
+            <td><a className="registry-open" href={settingsHash("products", key)}>{t(label)}</a></td>
+            <td className="num">{counts[key] ?? "–"}</td>
+            <td className="muted">{t(LIST_WHAT[key])}</td>
+          </tr>
         ))}
-      </div>
-      {view === "products" ? <ProductsView registry={r} open={open?.view === "products" ? open.ident : null} onOpen={(i) => show("products", i)}
-        onClose={() => setOpen(null)} onChanged={registry.reload} /> : null}
-      {view === "rules" ? <RulesView registry={r} open={open?.view === "rules" ? open.ident : null} onOpen={(i) => show("rules", i)}
-        onClose={() => setOpen(null)} onChanged={registry.reload} /> : null}
-      {view === "documents" ? <DocumentsView registry={r} open={open?.view === "documents" ? open.ident : null} onOpen={(i) => show("documents", i)}
-        onClose={() => setOpen(null)} onChanged={registry.reload} /> : null}
-      {view === "proposals" ? <ProposalsView registry={r} onChanged={registry.reload} /> : null}
-      {view === "tariffs" ? <TariffsPanel /> : null}
+      </tbody>
+    </table>
+  );
+}
+
+/** One thing of a list, found in the registry (a run of rule proposals is read by its own page). */
+function Thing({ registry, list, ident, open, onChanged }: {
+  registry: ProductRegistry; list: ProductList; ident: string; open: string | null; onChanged: () => void;
+}) {
+  useLocale();
+  const documents = useMemo(() => documentsByRef(registry.documents), [registry.documents]);
+  if (list === "proposals") return <ProposalsView registry={registry} runId={ident} onChanged={onChanged} />;
+  const things: RegistryThing<unknown>[] = list === "products" ? registry.products : list === "tariffs" ? registry.tariffs
+    : list === "rules" ? registry.rules : registry.documents;
+  const thing = things.find((x) => x.ident === ident);
+  if (!thing) return <p className="notice warn">{t("It is not in the registry (any more).")}</p>;
+  if (list === "products") return <ProductCard key={ident} registry={registry} thing={thing as RegistryThing<Product>} open={open} onChanged={onChanged} />;
+  if (list === "tariffs") return <TariffCard key={ident} registry={registry} thing={thing as RegistryThing<Tariff>} onChanged={onChanged} />;
+  if (list === "rules") return <RuleCard key={ident} registry={registry} thing={thing as RegistryThing<Rule>} documents={documents} onChanged={onChanged} />;
+  return <DocumentCard key={ident} registry={registry} thing={thing as RegistryThing<ConditionDocument>} onChanged={onChanged} />;
+}
+
+/** A thing's sheet opens with its version line and, on the right, the version shown. */
+function SheetBar<C>({ thing, version, onChange }: { thing: RegistryThing<C>; version: ReturnType<typeof versionOf<C>>; onChange: (n: number) => void }) {
+  return (
+    <div className="sheet-bar">
+      <VersionLine version={version} />
+      <VersionPicker thing={thing} version={version.version} onChange={onChange} />
     </div>
   );
 }
 
-interface ViewProps { registry: ProductRegistry; open: string | null; onOpen: (ident: string) => void; onClose: () => void; onChanged: () => void }
-
-function ProductsView({ registry, open, onOpen, onClose, onChanged }: ViewProps) {
-  useLocale();
-  const tariffs = new Map(registry.tariffs.map((x) => [x.ident, x]));
-  const used = useUsedBy("product");
-  if (!registry.products.length) return <NoneYet text={t("No product yet.")} />;
-  const chosen = registry.products.find((p) => p.ident === open);
-  return (
-    <>
-      <table className="table compact registry-table" aria-label={t("Products")}>
-        <thead><tr><th>{t("Name")}</th><th>{t("State")}</th><th>{t("Cover modules")}</th><th className="num">{t("Rules")}</th><th>{t("Tariff")}</th><th>{t("Used by")}</th></tr></thead>
-        <tbody>
-          {registry.products.map((p) => {
-            const c = current(p).content;
-            const tariff = c.tariff ? tariffs.get(c.tariff) : undefined;
-            return (
-              <tr key={p.ident} aria-selected={p.ident === open}>
-                <td><button type="button" className="link-btn registry-open" onClick={() => onOpen(p.ident)}>{current(p).name}</button></td>
-                <td><ThingState thing={p} /></td>
-                <td>{c.modules.map((m) => m.name).join(" · ")}</td>
-                <td className="num">{c.rules.length}</td>
-                <td>{tariff ? current(tariff).content.title ?? tariff.ident : c.tariff ? <span className="mono">{c.tariff}</span> : "–"}</td>
-                <td><UsedBy used={used} ident={p.ident} cell /></td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {chosen ? <ProductCard key={chosen.ident} registry={registry} thing={chosen} onClose={onClose} onChanged={onChanged} /> : null}
-    </>
-  );
-}
-
-function useScrolled(ident: string) {
-  const ref = useRef<HTMLHeadingElement>(null);
-  useEffect(() => {
-    ref.current?.scrollIntoView?.({ block: "nearest" });
-    ref.current?.focus();
-  }, [ident]);
-  return ref;
-}
-
-function ProductCard({ registry, thing, onClose, onChanged }: {
-  registry: ProductRegistry; thing: RegistryThing<Product>; onClose: () => void; onChanged: () => void;
+function ProductCard({ registry, thing, open, onChanged }: {
+  registry: ProductRegistry; thing: RegistryThing<Product>; open: string | null; onChanged: () => void;
 }) {
   useLocale();
   const [n, setN] = useState(newestDraftOrCurrent(thing));
@@ -106,19 +108,11 @@ function ProductCard({ registry, thing, onClose, onChanged }: {
   const documents = useMemo(() => documentsByRef(registry.documents), [registry.documents]);
   const rules = useMemo(() => new Map(registry.rules.flatMap((r) => r.versions.map((v) => [v.ref, v.content] as const))), [registry.rules]);
   const tariff = product.tariff ? registry.tariffs.find((x) => x.ident === product.tariff) : undefined;
-  const [rule, setRule] = useState<string | null>(null);
-  const heading = useScrolled(thing.ident);
   const names = new Map(product.modules.map((m) => [m.code, m.name]));
+  useSettingsTitle(version.name);
   return (
-    <section className="card wide registry-card" aria-label={version.name}>
-      <div className="card-head">
-        <h3 ref={heading} tabIndex={-1}>{version.name}</h3>
-        <span className="button-row">
-          <VersionPicker thing={thing} version={version.version} onChange={setN} />
-          <button type="button" className="quiet small-btn" onClick={onClose}>{t("Close")}</button>
-        </span>
-      </div>
-      <VersionLine version={version} />
+    <section className="sheet registry-card" aria-label={version.name}>
+      <SheetBar thing={thing} version={version} onChange={setN} />
       <Activation kind="product" thing={thing} version={version} secondPerson onDone={onChanged} />
       <h4>{t("Cover modules")}</h4>
       <table className="table compact" aria-label={t("Cover modules")}>
@@ -153,14 +147,11 @@ function ProductCard({ registry, thing, onClose, onChanged }: {
         </tbody>
       </table>
       <h4>{t("Rules")}</h4>
-      <RuleRows refs={product.rules} rules={rules} documents={documents} registry={registry} modules={names} open={rule} onOpen={setRule} />
-      {rule && rules.get(rule) ? (
-        <RuleDetail key={rule} rule={rules.get(rule)!} title={rules.get(rule)!.title} registry={registry} documents={documents}
-          modules={names} onClose={() => setRule(null)} />
-      ) : null}
+      <RuleRows refs={product.rules} rules={rules} documents={documents} registry={registry} modules={names} open={open}
+        href={(ref) => settingsHash("products", "products", thing.ident, ref === open ? null : ref)} />
       <h4>{t("Tariff")}</h4>
       <p className="registry-line">
-        {tariff ? <>{current(tariff).content.title ?? tariff.ident} <ThingState thing={tariff} /> <a href="#/settings/tariffs">{t("Open the tariffs")}</a></>
+        {tariff ? <>{current(tariff).content.title ?? tariff.ident} <ThingState thing={tariff} /> <a href={settingsHash("products", "tariffs")}>{t("Open the tariffs")}</a></>
           : product.tariff ? <span className="error-text">{t("The tariff {{tariff}} is not in the registry.", { tariff: product.tariff })}</span>
             : <span className="muted">{t("No tariff: the product's premium is not computed.")}</span>}
       </p>
@@ -175,9 +166,10 @@ function ProductCard({ registry, thing, onClose, onChanged }: {
 const newestDraftOrCurrent = <C,>(thing: RegistryThing<C>) =>
   (thing.versions[0].state === "draft" ? thing.versions[0].version : current(thing).version);
 
-function RuleRows({ refs, rules, documents, registry, modules, open, onOpen }: {
+/** A product's rules; the open one shows its whole rule under its own row (its link opens and closes it). */
+function RuleRows({ refs, rules, documents, registry, modules, open, href }: {
   refs: string[]; rules: Map<string, Rule>; documents: Map<string, ConditionDocument>; registry: ProductRegistry;
-  modules?: Map<string, string>; open: string | null; onOpen: (ref: string) => void;
+  modules?: Map<string, string>; open: string | null; href: (ref: string) => string;
 }) {
   useLocale();
   return (
@@ -190,13 +182,20 @@ function RuleRows({ refs, rules, documents, registry, modules, open, onOpen }: {
           const cat = registry.catalogues[rule.catalogue];
           const doc = documents.get(rule.source.document);
           return (
-            <tr key={ref} aria-selected={ref === open}>
-              <td><button type="button" className="link-btn registry-open" onClick={() => onOpen(ref)}>{rule.title}</button></td>
-              <td>{RULE_KIND[rule.kind] ?? rule.kind}</td>
-              <td>{levelLabel(cat, rule.level)}</td>
-              <td>{rule.modules.length ? rule.modules.map((m) => modules?.get(m) ?? m).join(", ") : <span className="muted">{t("every module")}</span>}</td>
-              <td>{citeShort(rule, doc)}</td>
-            </tr>
+            <Fragment key={ref}>
+              <tr aria-selected={ref === open}>
+                <td><a className="registry-open" href={href(ref)} aria-expanded={ref === open}>{rule.title}</a></td>
+                <td>{RULE_KIND[rule.kind] ?? rule.kind}</td>
+                <td>{levelLabel(cat, rule.level)}</td>
+                <td>{rule.modules.length ? rule.modules.map((m) => modules?.get(m) ?? m).join(", ") : <span className="muted">{t("every module")}</span>}</td>
+                <td>{citeShort(rule, doc)}</td>
+              </tr>
+              {ref === open ? (
+                <tr className="row-detail">
+                  <td colSpan={5}><RuleDetail rule={rule} title={rule.title} registry={registry} documents={documents} modules={modules} /></td>
+                </tr>
+              ) : null}
+            </Fragment>
           );
         })}
       </tbody>
@@ -211,18 +210,15 @@ const citeShort = (rule: Rule, doc?: ConditionDocument) =>
 /** A document's short name: the code in its title's last brackets ("… (GC-2026)"), else the title. */
 const shortTitle = (title: string) => /\(([^()]+)\)\s*$/.exec(title)?.[1] ?? title;
 
-function RuleDetail({ rule, title, registry, documents, modules, onClose, children }: {
+function RuleDetail({ rule, title, registry, documents, modules, children }: {
   rule: Rule; title: string; registry: ProductRegistry; documents: Map<string, ConditionDocument>; modules?: Map<string, string>;
-  onClose?: () => void; children?: ReactNode;
+  children?: ReactNode;
 }) {
   useLocale();
   const cat = registry.catalogues[rule.catalogue];
   return (
     <div className="registry-rule" aria-label={title} role="group">
-      <div className="card-head">
-        <h4>{title}</h4>
-        {onClose ? <button type="button" className="quiet small-btn" onClick={onClose}>{t("Close")}</button> : null}
-      </div>
+      <h4>{title}</h4>
       <p className="muted small">
         {RULE_KIND[rule.kind] ?? rule.kind} · {t("on each {{level}}", { level: levelLabel(cat, rule.level) })}
         {" · "}{rule.modules.length ? t("for {{modules}}", { modules: rule.modules.map((m) => modules?.get(m) ?? m).join(", ") }) : t("for every module")}
@@ -234,53 +230,17 @@ function RuleDetail({ rule, title, registry, documents, modules, onClose, childr
   );
 }
 
-function RulesView({ registry, open, onOpen, onClose, onChanged }: ViewProps) {
-  useLocale();
-  const documents = useMemo(() => documentsByRef(registry.documents), [registry.documents]);
-  if (!registry.rules.length) return <p className="muted">{t("No rule yet.")}</p>;
-  const chosen = registry.rules.find((r) => r.ident === open);
-  return (
-    <>
-      <table className="table compact registry-table" aria-label={t("Rules")}>
-        <thead><tr><th>{t("Title")}</th><th>{t("Kind")}</th><th>{t("Level")}</th><th>{t("Read from")}</th><th>{t("State")}</th></tr></thead>
-        <tbody>
-          {registry.rules.map((r) => {
-            const rule = current(r).content;
-            return (
-              <tr key={r.ident} aria-selected={r.ident === open}>
-                <td><button type="button" className="link-btn registry-open" onClick={() => onOpen(r.ident)}>{rule.title}</button></td>
-                <td>{RULE_KIND[rule.kind] ?? rule.kind}</td>
-                <td>{levelLabel(registry.catalogues[rule.catalogue], rule.level)}</td>
-                <td>{citeShort(rule, documents.get(rule.source.document))}</td>
-                <td><ThingState thing={r} /></td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {chosen ? <RuleCard key={chosen.ident} registry={registry} thing={chosen} documents={documents} onClose={onClose} onChanged={onChanged} /> : null}
-    </>
-  );
-}
-
-function RuleCard({ registry, thing, documents, onClose, onChanged }: {
-  registry: ProductRegistry; thing: RegistryThing<Rule>; documents: Map<string, ConditionDocument>; onClose: () => void; onChanged: () => void;
+function RuleCard({ registry, thing, documents, onChanged }: {
+  registry: ProductRegistry; thing: RegistryThing<Rule>; documents: Map<string, ConditionDocument>; onChanged: () => void;
 }) {
   useLocale();
   const [n, setN] = useState(newestDraftOrCurrent(thing));
   const version = versionOf(thing, n);
-  const heading = useScrolled(thing.ident);
   const modules = new Map(registry.products.flatMap((p) => current(p).content.modules.map((m) => [m.code, m.name] as const)));
+  useSettingsTitle(version.content.title);
   return (
-    <section className="card wide registry-card" aria-label={version.content.title}>
-      <div className="card-head">
-        <h3 ref={heading} tabIndex={-1}>{version.content.title}</h3>
-        <span className="button-row">
-          <VersionPicker thing={thing} version={version.version} onChange={setN} />
-          <button type="button" className="quiet small-btn" onClick={onClose}>{t("Close")}</button>
-        </span>
-      </div>
-      <VersionLine version={version} />
+    <section className="sheet registry-card" aria-label={version.content.title}>
+      <SheetBar thing={thing} version={version} onChange={setN} />
       <Activation kind="rule" thing={thing} version={version} onDone={onChanged} />
       <RuleDetail rule={version.content} title={t("What it decides")} registry={registry} documents={documents} modules={modules} />
       <h4>{t("Versions")}</h4>
@@ -289,42 +249,14 @@ function RuleCard({ registry, thing, documents, onClose, onChanged }: {
   );
 }
 
-function DocumentsView({ registry, open, onOpen, onClose, onChanged }: ViewProps) {
-  useLocale();
-  if (!registry.documents.length) return <p className="muted">{t("No condition document yet.")}</p>;
-  const chosen = registry.documents.find((d) => d.ident === open);
-  return (
-    <>
-      <table className="table compact registry-table" aria-label={t("Condition documents")}>
-        <thead><tr><th>{t("Title")}</th><th>{t("Kind")}</th><th>{t("In force")}</th><th className="num">{t("Clauses")}</th><th>{t("State")}</th></tr></thead>
-        <tbody>
-          {registry.documents.map((d) => {
-            const doc = current(d).content;
-            return (
-              <tr key={d.ident} aria-selected={d.ident === open}>
-                <td><button type="button" className="link-btn registry-open" onClick={() => onOpen(d.ident)}>{doc.title}</button></td>
-                <td>{DOCUMENT_KIND[doc.kind] ?? doc.kind}</td>
-                <td className="tnum">{inForce(doc.valid_from, doc.valid_to)}</td>
-                <td className="num">{doc.sections.length}</td>
-                <td><ThingState thing={d} /></td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {chosen ? <DocumentCard key={chosen.ident} registry={registry} thing={chosen} onClose={onClose} onChanged={onChanged} /> : null}
-    </>
-  );
-}
-
-function DocumentCard({ registry, thing, onClose, onChanged }: {
-  registry: ProductRegistry; thing: RegistryThing<ConditionDocument>; onClose: () => void; onChanged: () => void;
+function DocumentCard({ registry, thing, onChanged }: {
+  registry: ProductRegistry; thing: RegistryThing<ConditionDocument>; onChanged: () => void;
 }) {
   useLocale();
   const [n, setN] = useState(newestDraftOrCurrent(thing));
   const version = versionOf(thing, n);
   const doc = version.content;
-  const heading = useScrolled(thing.ident);
+  useSettingsTitle(doc.title);
   // the rules (in use) that cite each clause of this version
   const citing = new Map<string, string[]>();
   for (const r of registry.rules) {
@@ -332,15 +264,8 @@ function DocumentCard({ registry, thing, onClose, onChanged }: {
     if (rule.source.document === version.ref && rule.source.clause) citing.set(rule.source.clause, [...(citing.get(rule.source.clause) ?? []), rule.title]);
   }
   return (
-    <section className="card wide registry-card" aria-label={doc.title}>
-      <div className="card-head">
-        <h3 ref={heading} tabIndex={-1}>{doc.title}</h3>
-        <span className="button-row">
-          <VersionPicker thing={thing} version={version.version} onChange={setN} />
-          <button type="button" className="quiet small-btn" onClick={onClose}>{t("Close")}</button>
-        </span>
-      </div>
-      <VersionLine version={version} />
+    <section className="sheet registry-card" aria-label={doc.title}>
+      <SheetBar thing={thing} version={version} onChange={setN} />
       <p className="muted small">{DOCUMENT_KIND[doc.kind] ?? doc.kind} · {t("in force {{days}}", { days: inForce(doc.valid_from, doc.valid_to) })} · <span className="mono">{version.ref}</span></p>
       <Activation kind="document" thing={thing} version={version} onDone={onChanged} />
       <h4>{t("Clauses")}</h4>

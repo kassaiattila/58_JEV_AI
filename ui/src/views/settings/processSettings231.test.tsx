@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type ProcessSettings, type RulePreview } from "../../api";
 import { setLanguage } from "../../i18n";
 import { parseRoute, routeHash } from "../../route";
+import { linkCol, listPage } from "./listPage.testutil";
 import { ProcessSettingsPanel } from "./ProcessSettingsPanel";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
@@ -121,6 +122,9 @@ describe("a process's own settings (231 B4)", () => {
   it("lists the processes, each at its own address, and describes one on its first tab (231 U3a)", async () => {
     vi.spyOn(api, "processes").mockResolvedValue({ processes: [{ ...PAGE.pack, summary: "An invented quote from a request." }] });
     vi.spyOn(api, "processSettings").mockResolvedValue(PAGE);
+    // 263 (E1): the processes are the one list (a dataset); a row opens the process's page
+    vi.spyOn(api, "datasetQuery").mockResolvedValue(listPage("settings_processes", [linkCol("title", "Process", "processes")],
+      [{ _key: "invented_quote", title: "Invented quote" }]));
     const { rerender } = render(<ProcessSettingsPanel />);
     const list = await screen.findByRole("table", { name: "Processes" });
     expect(within(list).getByRole("link", { name: "Invented quote" }).getAttribute("href")).toBe("#/settings/processes/invented_quote");
@@ -135,6 +139,18 @@ describe("a process's own settings (231 B4)", () => {
     expect(screen.getByText("invented:lines")).toBeTruthy();
     expect(parseRoute("#/settings/processes/it_quote/uses")).toEqual({ view: "settings", section: "processes", item: "it_quote", tab: "uses" });
     expect(routeHash({ view: "settings", section: "processes", item: "it_quote" })).toBe("#/settings/processes/it_quote");
+  });
+
+  it("names a value no active choice names by the library's name, a code only where none exists (263)", async () => {
+    const named: ProcessSettings = { ...PAGE, resources: [{ ...PAGE.resources[0], key: "product", label: "Product", options: [],
+      file_value: "invented_product", value: "invented_draft", own: false, versions: [],
+      names: { invented_draft: "Invented product (a draft)" } }] };
+    vi.spyOn(api, "processes").mockResolvedValue({ processes: [PAGE.pack] });
+    vi.spyOn(api, "processSettings").mockResolvedValue(named);
+    render(<ProcessSettingsPanel pack="invented_quote" tab="uses" />);
+    const row = (await screen.findByRole("button", { name: "Product" })).closest("tr")!;
+    expect(within(row).getByText("Invented product (a draft)").className).not.toContain("mono");
+    expect(within(row).getByText("invented_product").className).toContain("mono");  // no name: the code
   });
 
   it("says where the values come from when there is nothing to choose yet (231 U3b)", async () => {

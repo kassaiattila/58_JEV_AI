@@ -3,13 +3,19 @@
 // category); the service reads the file the system's file picker chose and checks it, and a refused file names every
 // problem with its row. A stored list is a version: a draft, then active; a list can be retired. The rules that lower a
 // price (a volume discount), the currency and the VAT rate are set here, not in the file (the owner's decision);
-// saving them makes a new draft version with the same items, so a version never changes and a quote names one.
-import { useMemo, useState } from "react";
-import { api, ApiError, type OutputTemplateIssue, type UsedByMap } from "../../api";
+// saving them makes a new draft version with the same items, so a version never changes and a quote names one. 263
+// (plan E, E1; the owner's decisions of 2026-10-30): the lists are the one list (searchable, sortable, grouped); a list is
+// a page of its own with its versions, a version opening under its row; an upload, of a new list or a new version, is a
+// page of its own.
+import { Fragment, useMemo, useState } from "react";
+import { api, ApiError, type OutputTemplateIssue } from "../../api";
 import type { PriceList, PriceListCheck, PriceListColumn, PriceListDetail, PriceListVersion, PriceListsListing, PriceRule } from "./api";
 import { BlockerList } from "../../components/BlockerList";
 import { BrowseButton } from "../../components/BrowseButton";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { DataTable } from "../../components/DataTable";
+import { ItemSteps } from "../../components/ItemSteps";
+import { PageActions } from "../../components/PageActions";
 import { Icon } from "../../components/Icon";
 import { Picker } from "../../components/Picker";
 import { UsedBy, useUsedBy } from "../../components/UsedBy";
@@ -17,6 +23,13 @@ import { VersionState } from "../../components/VersionState";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { editNumber, fold, moneyText, numText, when } from "../../labels";
+import type { SettingsPanelProps } from "../../logic/settingsSections";
+import { go, settingsHash } from "../../route";
+import { settingsChanged, useSettingsTitle } from "../../views/settings/settingsTree";
+
+const LIST = "settings_price_lists";
+const NEW = "new";
+const UPLOAD = "upload";
 
 const COLUMNS: PriceListColumn[] = ["sku", "name", "unit", "unit_price", "category"];
 export const columnName = (c: PriceListColumn) => ({
@@ -79,44 +92,43 @@ function Issues({ items, warning }: { items: OutputTemplateIssue[]; warning?: bo
 /** A rate or a quantity as the person reads it ("27 %", "2,5 %"). */
 const percentText = (v: string) => `${numText(v, 4)} %`;
 
-export function PriceListsPanel() {
+export function PriceListsPanel({ item, tab, open }: SettingsPanelProps) {
   useLocale();
   const data = useLoad("price-lists", api.priceLists);
-  const [again, setAgain] = useState<PriceList | null>(null);
-  const [open, setOpen] = useState<{ priceList: string; version: number } | null>(null);
-  const [done, setDone] = useState<string | null>(null);
-  const used = useUsedBy("price_list");
   const lists = data.data?.price_lists ?? [];
+  const list = item && item !== NEW ? lists.find((x) => x.price_list === item) ?? null : null;
+  const changed = () => { data.reload(); settingsChanged(); };
+  const show = (priceList: string, version?: number) =>
+    go({ view: "settings", section: "prices", item: priceList, ...(version ? { open: String(version) } : {}) });
+  useSettingsTitle(item === NEW ? t("Upload a price list") : list ? (tab === UPLOAD ? t("New version of {{name}}", { name: list.name }) : list.name) : null);
+  if (data.error) return <p className="notice error" role="alert">{data.error.message}</p>;
+  if (!data.data) return <p className="muted">{t("Loading…")}</p>;
+  if (item === NEW || (list && tab === UPLOAD)) { // an upload, of a new list or of a list's new version
+    return <UploadCard key={list?.price_list ?? NEW} again={list} listing={data.data} onCancel={() => window.history.back()}
+      onDone={(v) => { changed(); show(v.price_list, v.version); }} />;
+  }
+  if (item && !list) return <p className="notice warn">{t("It is not among the price lists (any more).")}</p>;
+  if (list) {
+    return (
+      <>
+        <PageActions>
+          <ItemSteps list={LIST} />
+          <a className="button secondary" href={settingsHash("prices", list.price_list, UPLOAD)}>{t("New version")}</a>
+        </PageActions>
+        <PriceListVersions list={list} open={open ? Number(open) : null} currencies={data.data.currencies}
+          onChanged={changed} onSaved={(v) => { changed(); show(v.price_list, v.version); }} />
+      </>
+    );
+  }
   return (
     <section className="stage-stack" aria-label={t("Price lists")}>
+      <PageActions><a className="button primary" href={settingsHash("prices", NEW)}>{t("Upload a price list")}</a></PageActions>
       <p className="muted small">
         {t("A price list is an Excel or CSV file with one row per item: its code, name, unit and net unit price, and its category if it has one. The rules that lower a price, the currency and the VAT rate are set here, not in the file. A quote is priced from a list's active version and records which version it was.")}
       </p>
-      {data.data ? <ColumnsHelp columns={data.data.columns} /> : null}
-      {/* the form starts from the listing's defaults (currency, VAT rate); a new version starts it afresh (its key) */}
-      {data.data ? (
-        <UploadCard key={again?.price_list ?? "new"} again={again} listing={data.data}
-          onCancel={() => setAgain(null)} onStart={() => setDone(null)}
-          onDone={(v, text) => { setDone(text); setAgain(null); setOpen({ priceList: v.price_list, version: v.version }); data.reload(); }} />
-      ) : null}
-      {done ? <p role="status" className="small ok">{done}</p> : null}
-      {data.error ? <p className="notice error" role="alert">{data.error.message}</p> : null}
-      {!data.data && !data.error ? <p className="muted">{t("Loading…")}</p> : null}
-      {data.data ? (
-        <section className="card wide" aria-label={t("The price lists")}>
-          <h3>{t("The price lists")}</h3>
-          {lists.length === 0 ? <p className="muted small">{t("No price list yet. A quote needs an active one.")}</p> : null}
-          {lists.map((pl) => (
-            <PriceListVersions key={pl.price_list} list={pl} open={open} onOpen={setOpen} onNewVersion={setAgain}
-              onChanged={data.reload} used={used} />
-          ))}
-        </section>
-      ) : null}
-      {open && data.data ? (
-        <VersionCard key={`${open.priceList}:${open.version}`} priceList={open.priceList} version={open.version}
-          currencies={data.data.currencies} onClose={() => setOpen(null)}
-          onSaved={(v) => { setDone(t("Saved as version {{n}}, a draft. Make it active to price quotes from it.", { n: v.version })); setOpen({ priceList: v.price_list, version: v.version }); data.reload(); }} />
-      ) : null}
+      <ColumnsHelp columns={data.data.columns} />
+      <DataTable dataset={LIST} label={t("Price lists")} storageId={LIST} persist={LIST}
+        emptyText={t("No price list yet. A quote needs an active one.")} />
     </section>
   );
 }
@@ -142,9 +154,8 @@ function ColumnsHelp({ columns }: { columns: PriceListsListing["columns"] }) {
 }
 
 /** Uploading a price list, or (`again`) a new version of one: a name, the currency and VAT rate of a new list, the path. */
-function UploadCard({ again, listing, onDone, onCancel, onStart }: {
-  again: PriceList | null; listing: PriceListsListing; onDone: (v: PriceListVersion, text: string) => void;
-  onCancel: () => void; onStart: () => void;
+function UploadCard({ again, listing, onDone, onCancel }: {
+  again: PriceList | null; listing: PriceListsListing; onDone: (v: PriceListVersion) => void; onCancel: () => void;
 }) {
   useLocale();
   const [name, setName] = useState(again?.name ?? "");
@@ -160,7 +171,6 @@ function UploadCard({ again, listing, onDone, onCancel, onStart }: {
     setBusy(true);
     setRefused(null);
     setMsg(null);
-    onStart();
     try {
       const v = await api.uploadPriceList({
         name: name.trim(), path: path.trim(),
@@ -168,8 +178,7 @@ function UploadCard({ again, listing, onDone, onCancel, onStart }: {
       });
       setName("");
       setPath("");
-      onDone(v, t("Uploaded: {{name}}, version {{n}}, {{items}} items, as a draft. Check its items and rules below, then make it active.",
-        { name: v.name, n: v.version, items: v.items }));
+      onDone(v);
     } catch (e) {
       const err = e as ApiError;
       if (err.code === "price_list_refused" && err.check && !("output" in err.check)) setRefused(err.check);
@@ -181,11 +190,7 @@ function UploadCard({ again, listing, onDone, onCancel, onStart }: {
 
   const title = again ? t("New version of {{name}}", { name: again.name }) : t("Upload a price list");
   return (
-    <section className="card wide template-upload" aria-label={title}>
-      <div className="card-head">
-        <h3>{title}</h3>
-        {again ? <button type="button" className="quiet small-btn" onClick={onCancel}>{t("Cancel")}</button> : null}
-      </div>
+    <section className="sheet template-upload" aria-label={title}>
       <div className="form-row">
         <label className="block grow">{t("Name")}
           <input value={name} maxLength={120} autoComplete="off" placeholder={t("for example: Price list 2026")} onChange={(e) => setName(e.target.value)} />
@@ -206,14 +211,15 @@ function UploadCard({ again, listing, onDone, onCancel, onStart }: {
         </label>
         <BrowseButton kind="files" initial={path} onPick={([p]) => setPath(p)} />
       </div>
-      <div className="button-row">
-        <button type="button" className="primary" disabled={!ready} onClick={() => void upload()}>
-          {busy ? t("Checking…") : t("Upload and check")}
-        </button>
-        <span className="muted small">
+      <div className="form-actions">
+        <button type="button" className="secondary" onClick={onCancel}>{t("Cancel")}</button>
+        <span className="muted small form-actions-note">
           {again ? t("A new version keeps the list's rules, currency and VAT rate; a stored version never changes.")
             : t("The file is checked before it is stored; a stored version never changes.")}
         </span>
+        <button type="button" className="primary" disabled={!ready} onClick={() => void upload()}>
+          {busy ? t("Checking…") : t("Upload and check")}
+        </button>
       </div>
       {refused ? (
         <div role="alert" className="template-refused">
@@ -232,12 +238,11 @@ const changeText = (v: PriceListVersion) =>
   v.change === "settings" ? t("settings, from version {{n}}", { n: v.based_on ?? "" }) : t("upload");
 
 /** One price list: every version as a row, newest first, with its state, what made it, its items and rules. */
-function PriceListVersions({ list, open, onOpen, onNewVersion, onChanged, used }: {
-  list: PriceList; open: { priceList: string; version: number } | null;
-  onOpen: (o: { priceList: string; version: number }) => void; onNewVersion: (pl: PriceList) => void; onChanged: () => void;
-  used: UsedByMap | null;
+function PriceListVersions({ list, open, currencies, onChanged, onSaved }: {
+  list: PriceList; open: number | null; currencies: string[]; onChanged: () => void; onSaved: (v: PriceListVersion) => void;
 }) {
   useLocale();
+  const used = useUsedBy("price_list");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
 
@@ -256,15 +261,11 @@ function PriceListVersions({ list, open, onOpen, onNewVersion, onChanged, used }
   }
 
   return (
-    <div className="template-output-block">
-      <div className="template-output-head">
-        <h3>{list.name}</h3>
-        <span className="muted small">
-          {list.active ? t("active: version {{n}}", { n: list.active }) : list.retired ? t("retired") : t("no active version")}
-        </span>
-        <button type="button" className="secondary small-btn" disabled={busy} onClick={() => onNewVersion(list)}>{t("New version")}</button>
-      </div>
-      <UsedBy used={used} ident={list.price_list} />
+    <div className="sheet">
+      <p className="muted small">
+        {list.active ? t("active: version {{n}}", { n: list.active }) : list.retired ? t("retired") : t("no active version")}
+        {" · "}<UsedBy used={used} ident={list.price_list} />
+      </p>
       <table className="table compact price-table">
         <colgroup>
           <col className="c-version" /><col className="c-state" /><col className="c-change" /><col className="c-count" />
@@ -278,9 +279,10 @@ function PriceListVersions({ list, open, onOpen, onNewVersion, onChanged, used }
         </thead>
         <tbody>
           {list.versions.map((v) => {
-            const isOpen = open?.priceList === v.price_list && open.version === v.version;
+            const isOpen = open === v.version;
             return (
-              <tr key={v.version} className={isOpen ? "row-selected" : ""}>
+              <Fragment key={v.version}>
+              <tr aria-selected={isOpen}>
                 <td className="num tnum">{t("version {{n}}", { n: v.version })}</td>
                 <td><VersionState state={v.state} /></td>
                 <td>{changeText(v)}{v.check.warnings.length ? <> <span className="status s-warn">{t("{{n}} warning(s)", { n: v.check.warnings.length })}</span></> : null}</td>
@@ -288,10 +290,10 @@ function PriceListVersions({ list, open, onOpen, onNewVersion, onChanged, used }
                 <td className="num tnum">{v.discounts.length}</td>
                 <td className="template-uploaded"><span>{v.made_by}</span><span className="muted tnum">{when(v.made_at)}</span></td>
                 <td className="template-actions">
-                  <button type="button" className="quiet small-btn" aria-pressed={isOpen} aria-label={t("Open version {{n}}", { n: v.version })}
-                    onClick={() => onOpen({ priceList: v.price_list, version: v.version })}>
+                  <a className="button quiet small-btn" aria-expanded={isOpen} aria-label={t("Open version {{n}}", { n: v.version })}
+                    href={settingsHash("prices", v.price_list, null, isOpen ? null : String(v.version))}>
                     {t("Open version")}
-                  </button>
+                  </a>
                   {v.state === "active" ? (
                     <ConfirmButton className="quiet small-btn" disabled={busy}
                       onConfirm={() => void act(() => api.retirePriceList(v.price_list),
@@ -307,6 +309,12 @@ function PriceListVersions({ list, open, onOpen, onNewVersion, onChanged, used }
                   )}
                 </td>
               </tr>
+              {isOpen ? ( // 263 (E1): the version opens under its own row
+                <tr className="row-detail"><td colSpan={7}>
+                  <VersionCard key={`${v.price_list}:${v.version}`} priceList={v.price_list} version={v.version} currencies={currencies} onSaved={onSaved} />
+                </td></tr>
+              ) : null}
+              </Fragment>
             );
           })}
         </tbody>
@@ -322,8 +330,8 @@ const asRows = (rules: PriceRule[]): RuleRow[] =>
 const SHOWN = 300; // the items shown at once; the search narrows a long list
 
 /** A version: its settings (the rules, the currency, the VAT rate) to change, and its items. */
-function VersionCard({ priceList, version, currencies, onClose, onSaved }: {
-  priceList: string; version: number; currencies: string[]; onClose: () => void; onSaved: (v: PriceListVersion) => void;
+function VersionCard({ priceList, version, currencies, onSaved }: {
+  priceList: string; version: number; currencies: string[]; onSaved: (v: PriceListVersion) => void;
 }) {
   useLocale();
   const load = useLoad(`price-list:${priceList}:${version}`, () => api.priceListVersion(priceList, version));
@@ -336,7 +344,6 @@ function VersionCard({ priceList, version, currencies, onClose, onSaved }: {
           {v ? <VersionState state={v.state} /> : null}
           {v ? <a href={api.priceListFileUrl(v.price_list, v.version)} download title={v.file_name}>{t("The uploaded file")}</a> : null}
         </div>
-        <button type="button" className="quiet small-btn" onClick={onClose}>{t("Close")}</button>
       </div>
       {load.error ? <p className="notice error" role="alert">{load.error.message}</p> : null}
       {!v && !load.error ? <p className="muted">{t("Loading…")}</p> : null}

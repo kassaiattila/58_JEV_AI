@@ -3,17 +3,22 @@
 // proposals: the code's check (ready, numbers to confirm, blocked), JEV's mark and the decision. A proposal opens with
 // its decision table, the clause it was read from, the code's findings and where each number stands; a person accepts
 // it as a draft rule (confirming the numbers the document does not print), corrects it or rejects it with a reason.
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   api, ApiError, type ConditionDocument, type ProductRegistry, type ProposalNumber, type RuleProposal, type RuleProposalRun, type Said,
 } from "../../api";
 import { BrowseButton } from "../../components/BrowseButton";
+import { DataTable } from "../../components/DataTable";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Picker } from "../../components/Picker";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { numText, tmap, usdBudget, when } from "../../labels";
+import { go } from "../../route";
 import { Citation, current, DecisionTable, documentsByRef, levelLabel, RULE_KIND, SaidLines } from "./RegistryParts";
+import { useSettingsTitle } from "./settingsTree";
+
+const LIST = "settings_proposal_runs";
 
 const RUN_STATE: Record<string, [string, string]> = {
   queued: ["s-queued", "Queued"], running: ["s-running", "Running"], done: ["s-done", "Done"], failed: ["s-failed", "Failed"],
@@ -46,43 +51,19 @@ function Mark({ table, value }: { table: Record<string, [string, string]>; value
   return <span className={`status ${cls}`}>{t(label)}</span>;
 }
 
-export function ProposalsView({ registry, onChanged }: { registry: ProductRegistry; onChanged: () => void }) {
+/** 263 (E1): the list's page - asking for proposals, then the runs in the one list; or a run's own page (`runId`). */
+export function ProposalsView({ registry, runId, onChanged }: { registry: ProductRegistry; runId?: string; onChanged: () => void }) {
   useLocale();
-  const [open, setOpen] = useState<string | null>(null);
-  const list = useLoad("rule-proposals", api.ruleProposalRuns, 3000);
+  const list = useLoad("rule-proposals", api.ruleProposalRuns);
   const documents = useMemo(() => documentsByRef(registry.documents), [registry.documents]);
-  const runs = list.data?.runs ?? [];
+  if (runId) return <RunCard key={runId} runId={runId} registry={registry} documents={documents} onChanged={onChanged} />;
   return (
     <>
-      <StartCard registry={registry} standIns={list.data?.stand_ins ?? []} onStarted={(run) => { setOpen(run.run_id); list.reload(); }} />
-      {list.error ? <p className="notice error" role="alert">{list.error.message}</p> : null}
-      {runs.length ? (
-        <table className="table compact registry-table" aria-label={t("Proposal runs")}>
-          <thead><tr><th>{t("Document")}</th><th>{t("File")}</th><th>{t("Proposer")}</th><th>{t("State")}</th><th>{t("Proposals")}</th><th>{t("Asked")}</th></tr></thead>
-          <tbody>
-            {runs.map((r) => (
-              <tr key={r.run_id} aria-selected={r.run_id === open}>
-                <td><button type="button" className="link-btn registry-open" onClick={() => setOpen(r.run_id)}>{documents.get(r.document_ref)?.title ?? r.document_ref}</button></td>
-                <td>{r.file}</td>
-                <td>{r.stand_in ? <span className="muted">{t("Stand-in (free)")}</span> : "GPT"}</td>
-                <td><Mark table={RUN_STATE} value={r.state} /></td>
-                <td className="tnum">{countsText(r.counts)}</td>
-                <td className="tnum">{when(r.requested_at)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : list.data ? <p className="muted">{t("No proposal run yet.")}</p> : null}
-      {open ? <RunCard key={open} runId={open} registry={registry} documents={documents} onClose={() => setOpen(null)}
-        onChanged={() => { list.reload(); onChanged(); }} /> : null}
+      <StartCard registry={registry} standIns={list.data?.stand_ins ?? []}
+        onStarted={(run) => { onChanged(); go({ view: "settings", section: "products", item: "proposals", tab: run.run_id }); }} />
+      <DataTable dataset={LIST} label={t("Proposal runs")} storageId={LIST} persist={LIST} pollMs={3000} emptyText={t("No proposal run yet.")} />
     </>
   );
-}
-
-function countsText(counts: Record<string, number>): string {
-  const total = Object.values(counts).reduce((s, n) => s + n, 0);
-  const decided = total - (counts.proposed ?? 0);
-  return total ? t("{{n}} · {{decided}} decided", { n: total, decided }) : "–";
 }
 
 function StartCard({ registry, standIns, onStarted }: { registry: ProductRegistry; standIns: string[]; onStarted: (r: RuleProposalRun) => void }) {
@@ -160,22 +141,18 @@ function StartCard({ registry, standIns, onStarted }: { registry: ProductRegistr
   );
 }
 
-function RunCard({ runId, registry, documents, onClose, onChanged }: {
-  runId: string; registry: ProductRegistry; documents: Map<string, ConditionDocument>; onClose: () => void; onChanged: () => void;
+function RunCard({ runId, registry, documents, onChanged }: {
+  runId: string; registry: ProductRegistry; documents: Map<string, ConditionDocument>; onChanged: () => void;
 }) {
   useLocale();
   const loaded = useLoad(`rule-proposal-run:${runId}`, () => api.ruleProposalRun(runId), 3000);
   const [open, setOpen] = useState<number | null>(null);
   const run = loaded.data;
+  useSettingsTitle(run ? documents.get(run.document_ref)?.title ?? run.document_ref : null);
   if (!run) return loaded.error ? <p className="notice error" role="alert">{loaded.error.message}</p> : <p className="muted">{t("Loading…")}</p>;
   const skipped = Object.entries(run.skipped);
-  const chosen = run.proposals?.find((p) => p.id === open);
   return (
-    <section className="card wide registry-card" aria-label={t("Proposal run")}>
-      <div className="card-head">
-        <h3>{documents.get(run.document_ref)?.title ?? run.document_ref}</h3>
-        <button type="button" className="quiet small-btn" onClick={onClose}>{t("Close")}</button>
-      </div>
+    <section className="sheet registry-card" aria-label={t("Proposal run")}>
       <p className="registry-line">
         <Mark table={RUN_STATE} value={run.state} />
         <span className="muted small">
@@ -191,21 +168,27 @@ function RunCard({ runId, registry, documents, onClose, onChanged }: {
           <thead><tr><th className="num">#</th><th>{t("Title")}</th><th>{t("Kind")}</th><th>{t("Read from")}</th><th>{t("Code's check")}</th><th>{t("JEV")}</th><th>{t("Decision")}</th></tr></thead>
           <tbody>
             {run.proposals.map((p) => (
-              <tr key={p.id} aria-selected={p.id === open}>
+              <Fragment key={p.id}>
+              <tr aria-selected={p.id === open}>
                 <td className="num muted">{p.n}</td>
-                <td><button type="button" className="link-btn registry-open" onClick={() => setOpen(p.id)}>{p.title}</button></td>
+                <td><button type="button" className="link-btn registry-open" aria-expanded={p.id === open} onClick={() => setOpen(p.id === open ? null : p.id)}>{p.title}</button></td>
                 <td>{RULE_KIND[p.kind] ?? p.kind}</td>
                 <td className="nowrap">{t("p. {{n}}", { n: p.page })} · {t("clause {{clause}}", { clause: p.clause || "–" })}</td>
                 <td><Mark table={READINESS} value={p.readiness} /></td>
                 <td>{p.support ? <Mark table={SUPPORT} value={p.support.mark} /> : <span className="muted">–</span>}</td>
                 <td><Mark table={DECISION} value={p.state} /></td>
               </tr>
+              {p.id === open ? ( // 263 (E1): a proposal opens under its own row
+                <tr className="row-detail"><td colSpan={7}>
+                  <ProposalDetail key={`${p.id}:${p.decision_state}`} proposal={p} registry={registry} documents={documents}
+                    onDone={() => { loaded.reload(); onChanged(); }} />
+                </td></tr>
+              ) : null}
+              </Fragment>
             ))}
           </tbody>
         </table>
       ) : run.state === "done" ? <p className="muted">{t("No rule was proposed.")}</p> : null}
-      {chosen ? <ProposalDetail key={`${chosen.id}:${chosen.decision_state}`} proposal={chosen} registry={registry} documents={documents}
-        onDone={() => { loaded.reload(); onChanged(); }} /> : null}
     </section>
   );
 }

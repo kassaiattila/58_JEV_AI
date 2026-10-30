@@ -342,7 +342,7 @@ def _rules(scope: dict[str, str]) -> Rows:
 
     cols = [
         Column("area", "Area", "enum", labels=rules_view.area_labels()),
-        col("decision", "Decision"),
+        col("decision", "Decision", link="settings", section="rules"),  # 263 (E1): the decision's page
         col("values", "Rule values"),
         col("files", "Rule files"),
         col("decisions", "Decisions", "number"),

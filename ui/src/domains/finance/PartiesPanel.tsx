@@ -11,9 +11,14 @@ import {
   type PartyIdentity, type PartySuggestion,
 } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { DataTable } from "../../components/DataTable";
+import { ItemSteps } from "../../components/ItemSteps";
+import { PageActions } from "../../components/PageActions";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { tmap } from "../../labels";
+import type { SettingsPanelProps } from "../../logic/settingsSections";
+import { settingsChanged, useSettingsTitle } from "../../views/settings/settingsTree";
 import { MonthStatus } from "./MonthStatus";
 import "./parties.css";
 
@@ -52,7 +57,11 @@ function Identities({ list }: { list: PartyIdentity[] }) {
   );
 }
 
-export function PartiesPanel() {
+const LIST = "settings_own_parties";
+
+/** 263 (plan E, E1; the owner's decisions of 2026-10-30): the section's page holds what to accept or place and the
+ *  parties in the one list; a party is a page of its own. */
+export function PartiesPanel({ item }: SettingsPanelProps) {
   useLocale();
   const loaded = useLoad("parties", api.parties);
   const [data, setData] = useState<PartiesOverview | null>(null);
@@ -66,6 +75,7 @@ export function PartiesPanel() {
     try {
       setData(await fn());
       setMsg({ error: false, text: done });
+      settingsChanged();
       return true;
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
@@ -78,7 +88,18 @@ export function PartiesPanel() {
     }
   };
 
+  const party = item ? data?.parties.find((p) => p.id === item) : undefined;
+  useSettingsTitle(party?.name ?? null);
   if (!data) return loaded.error ? <p className="notice error" role="alert">{loaded.error.message}</p> : <p className="muted">{t("Loading…")}</p>;
+  if (item) {
+    return party ? (
+      <>
+        <PageActions><ItemSteps list={LIST} /></PageActions>
+        {msg ? <p className={msg.error ? "notice error" : "small ok"} role={msg.error ? "alert" : "status"}>{msg.text}</p> : null}
+        <PartyCard key={party.id} party={party} others={data.parties.filter((o) => o.id !== party.id)} busy={busy} act={act} />
+      </>
+    ) : <p className="notice warn">{t("It is not among the own parties (any more).")}</p>;
+  }
   const claimed = data.invoices - data.unclaimed_invoices;
   return (
     <div className="pt-stack">
@@ -91,7 +112,7 @@ export function PartiesPanel() {
         {msg ? <p className={msg.error ? "notice error" : "small ok"} role={msg.error ? "alert" : "status"}>{msg.text}</p> : null}
       </section>
       {data.suggestions.length ? <Suggestions data={data} busy={busy} act={act} /> : null}
-      {data.parties.map((p) => <PartyCard key={p.id} party={p} others={data.parties.filter((o) => o.id !== p.id)} busy={busy} act={act} />)}
+      {data.parties.length ? <DataTable dataset={LIST} label={t("Own parties")} storageId={LIST} persist={LIST} /> : null}
       {!data.parties.length && !data.suggestions.length ? <p className="muted">{t("No invoice or statement names a buyer or a holder yet.")}</p> : null}
       {data.unassigned.length ? <Unassigned data={data} busy={busy} act={act} /> : null}
       {data.dismissed.length ? <Dismissed list={data.dismissed} busy={busy} act={act} /> : null}
@@ -301,10 +322,10 @@ function PartyCard({ party, others, busy, act }: { party: OwnParty; others: OwnP
   const names = party.identities.filter((i) => i.kind === "name");
   const span = party.first ? ` · ${party.first} – ${party.last}` : "";
   return (
-    <section className="card wide" aria-label={party.name}>
+    <section className="sheet" aria-label={party.name}>
       <div className="card-head">
         {editing === null ? (
-          <h3>{party.name} <button type="button" className="quiet small-btn" disabled={busy} onClick={() => setEditing(party.name)}>{t("Rename")}</button></h3>
+          <PageActions><button type="button" className="secondary" disabled={busy} onClick={() => setEditing(party.name)}>{t("Rename")}</button></PageActions>
         ) : (
           <form className="pt-main" onSubmit={(e) => {
             e.preventDefault();

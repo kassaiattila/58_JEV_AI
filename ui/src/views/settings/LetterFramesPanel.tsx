@@ -2,15 +2,23 @@
 // frames of the shared library (`jav/app/letter_frames.py`). Each kind (the covering letters, the quote's reply letters)
 // lists its frames: the text in effect field by field, the processes that use it, and its versions. A person changes
 // the text in a form and saves it as a draft; the draft is made active by the rule of who may (the process values'
-// rule), and "Back to the system's text" sets the own text aside. A case keeps the text active when it starts.
+// rule), and "Back to the system's text" sets the own text aside. A case keeps the text active when it starts. 263 (plan
+// E, E1; the owner's decisions of 2026-10-30): the frames are the one list (by kind, language, own or the system's
+// text); a frame is a page of its own (its kind and id in the address).
 import { useState } from "react";
-import { api, ApiError, type FrameContent, type FrameField, type LetterFrame, type LetterFrameKind, type UsedByMap } from "../../api";
+import { api, ApiError, type FrameContent, type FrameField, type LetterFrame, type LetterFrameKind } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { DataTable } from "../../components/DataTable";
+import { ItemSteps } from "../../components/ItemSteps";
+import { PageActions } from "../../components/PageActions";
 import { UsedBy, useUsedBy } from "../../components/UsedBy";
 import { VersionState } from "../../components/VersionState";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { when } from "../../labels";
+import { settingsChanged, useSettingsTitle } from "./settingsTree";
+
+const LIST = "settings_letter_frames";
 
 type Values = Record<string, string>;
 
@@ -32,35 +40,38 @@ function groups(fields: FrameField[]): [string | null, FrameField[]][] {
   return [...out.entries()];
 }
 
-export function LetterFramesPanel() {
+export function LetterFramesPanel({ item, tab }: { item?: string; tab?: string }) {
   useLocale();
   const data = useLoad("letter-frames", api.letterFrames);
+  const kind = item ? data.data?.kinds.find((k) => k.kind === item) : undefined;
+  const frame = kind && tab ? kind.frames.find((f) => f.ident === tab) : undefined;
+  const subject = frame ? String(fieldValue(frame.content, "subject") ?? "") : "";
+  useSettingsTitle(frame ? subject || frame.ident : null);
+  if (data.error) return <p className="notice error" role="alert">{data.error.message}</p>;
+  if (!data.data) return <p className="muted">{t("Loading…")}</p>;
+  if (item) {
+    if (!kind || !frame) return <p className="notice warn">{t("It is not among the letter frames (any more).")}</p>;
+    return (
+      <>
+        <PageActions><ItemSteps list={LIST} /></PageActions>
+        <p className="muted small">{t(kind.title)} · <span className="mono">{frame.ident}</span> — {t(kind.what)}</p>
+        <Frame key={frame.ident} kind={kind} frame={frame} onChanged={() => { data.reload(); settingsChanged(); }} />
+      </>
+    );
+  }
   return (
     <section className="stage-stack" aria-label={t("Letter frames")}>
       <p className="muted small">
         {t("A letter frame is the text of a letter that goes with a printed document: its subject, greeting, paragraphs and closing, with markers such as {{total}} that the system fills in from the document. A changed text is saved as a draft and used once it is made active, by the cases that start after it; a case keeps the text it started with.")}
       </p>
-      {data.error ? <p className="notice error" role="alert">{data.error.message}</p> : null}
-      {!data.data && !data.error ? <p className="muted">{t("Loading…")}</p> : null}
-      {data.data?.kinds.map((k) => <FrameKind key={k.kind} kind={k} onChanged={data.reload} />)}
+      <DataTable dataset={LIST} label={t("Letter frames")} storageId={LIST} persist={LIST} />
     </section>
   );
 }
 
-function FrameKind({ kind, onChanged }: { kind: LetterFrameKind; onChanged: () => void }) {
+function Frame({ kind, frame, onChanged }: { kind: LetterFrameKind; frame: LetterFrame; onChanged: () => void }) {
   useLocale();
   const used = useUsedBy(kind.kind);
-  return (
-    <section className="card wide" aria-label={t(kind.title)}>
-      <h3>{t(kind.title)}</h3>
-      <p className="muted small">{t(kind.what)}</p>
-      {kind.frames.map((f) => <Frame key={f.ident} kind={kind} frame={f} used={used} onChanged={onChanged} />)}
-    </section>
-  );
-}
-
-function Frame({ kind, frame, used, onChanged }: { kind: LetterFrameKind; frame: LetterFrame; used: UsedByMap | null; onChanged: () => void }) {
-  useLocale();
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
@@ -82,14 +93,12 @@ function Frame({ kind, frame, used, onChanged }: { kind: LetterFrameKind; frame:
   }
 
   return (
-    <div className="template-output-block letter-frame" aria-label={frame.ident}>
-      <div className="template-output-head">
-        <h4 className="mono">{frame.ident}</h4>
-        <span className="muted small">
-          {frame.active ? t("its own text: version {{n}}", { n: frame.active }) : t("the system's text")}
-        </span>
-        {!editing ? <button type="button" className="secondary small-btn" disabled={busy} onClick={() => { setMsg(null); setEditing(true); }}>{t("Change the text")}</button> : null}
-      </div>
+    <div className="sheet letter-frame" aria-label={frame.ident}>
+      <p className="small">
+        {frame.active ? <VersionState state="active" /> : null}{" "}
+        {frame.active ? t("its own text: version {{n}}", { n: frame.active }) : t("the system's text")}
+      </p>
+      {!editing ? <PageActions><button type="button" className="primary" disabled={busy} onClick={() => { setMsg(null); setEditing(true); }}>{t("Change the text")}</button></PageActions> : null}
       <UsedBy used={used} ident={frame.ident} />
       {editing ? (
         <FrameForm kind={kind} frame={frame} busy={busy} onCancel={() => setEditing(false)}

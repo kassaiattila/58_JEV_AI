@@ -1,7 +1,8 @@
 // 218 (plan G-process-core P3e): Settings › Rules — how the system decides on its own, read only. The section has its own
 // address after Processing; each decision is a row within four lines (its title, what it decides, its values, its rule
 // files, its count); a title opens the whole rule below the table; every text of the rules' description is translated.
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+// 263 (E1): a decision's title opens its own page (its address), the decision's name the page's title.
+import { act, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import intents from "../../../../configs/intents.json";
 import help from "../../../../configs/rule_help.json";
@@ -85,8 +86,9 @@ describe("Settings › Rules (218)", () => {
 
   it("lists each decision within four lines: its title, what it decides, its values, its files and its count", async () => {
     render(<Settings section="rules" />);
-    expect(screen.getByRole("heading", { level: 2, name: hu["Defaults"] })).toBeTruthy();  // 231 (U4d): named Defaults
-    const open = await screen.findByRole("button", { name: hu[points["detect.doc_type"].title] });
+    expect(screen.getByRole("heading", { level: 1, name: hu["Defaults"] })).toBeTruthy();  // 231 (U4d): named Defaults
+    const open = await screen.findByRole("link", { name: hu[points["detect.doc_type"].title] });
+    expect(open.getAttribute("href")).toBe("#/settings/rules/detect.doc_type");  // 263: the decision's own page
     const tr = open.closest("tr") as HTMLElement;
     const cells = within(tr);
     expect(cells.getByText(hu["Document recognition"])).toBeTruthy();
@@ -98,7 +100,7 @@ describe("Settings › Rules (218)", () => {
     expect(tr.textContent).toContain(`${hu["Shared decision thresholds"]} 1.25.0`);
     expect(cells.getByText("13")).toBeTruthy();
     // the area heads its group once (a screen reader still hears it on each row); no decision yet is a quiet zero
-    const detail = (await screen.findByRole("button", { name: hu[points["detect.detail_type"].title] })).closest("tr") as HTMLElement;
+    const detail = (await screen.findByRole("link", { name: hu[points["detect.detail_type"].title] })).closest("tr") as HTMLElement;
     expect(detail.querySelector('td[data-col="area"] .sr-only')?.textContent).toBe(hu["Document recognition"]);
     expect(tr.querySelector('td[data-col="area"] .sr-only')).toBeNull();
     expect(detail.querySelector('td[data-col="decisions"] .count-zero')?.textContent).toBe("0");
@@ -106,18 +108,14 @@ describe("Settings › Rules (218)", () => {
     const clamps = [...tr.querySelectorAll<HTMLElement>(".dt-clamp")];
     expect(clamps.map((c) => c.style.webkitLineClamp)).toEqual(["2", "4", "4"]);
     // an amount by provider, in the chosen language's figures
-    const gate = (await screen.findByRole("button", { name: hu[points["workflow.budget_gate"].title] })).closest("tr") as HTMLElement;
+    const gate = (await screen.findByRole("link", { name: hu[points["workflow.budget_gate"].title] })).closest("tr") as HTMLElement;
     expect(gate.textContent).toContain(`${hu[label("workflow.budget_gate", "recipes[processing].max_item_usd_by_kind.email.*")]}: JEV 0,05 USD`);
   });
 
-  it("opens a decision's whole rule below the table, and closes it", async () => {
-    render(<Settings section="rules" />);
-    expect(await screen.findByText(hu["Choose a decision's title to read its whole rule."])).toBeTruthy();
-    const open = await screen.findByRole("button", { name: hu[points["email.next_flow"].title] });
-    fireEvent.click(open);
-    expect(open.getAttribute("aria-expanded")).toBe("true");
-    const sheet = screen.getByRole("region", { name: hu[points["email.next_flow"].title] });
-    expect(document.activeElement).toBe(within(sheet).getByRole("heading", { level: 3 }));
+  it("opens a decision's whole rule on its own page, named by the decision (263)", async () => {
+    render(<Settings section="rules" item="email.next_flow" />);
+    const sheet = await screen.findByRole("region", { name: hu[points["email.next_flow"].title] });
+    expect(await screen.findByRole("heading", { level: 1, name: hu[points["email.next_flow"].title] })).toBeTruthy();
     expect(sheet.textContent).toContain(hu["Emails"]);
     expect(sheet.textContent).toContain(fill(hu["Not for: {{text}}"], { text: hu[points["email.next_flow"].not_for] }));
     // each intent's next step is its own line, named as everywhere else
@@ -131,18 +129,14 @@ describe("Settings › Rules (218)", () => {
     expect(file).toContain(hu["in use here since {{when}}"].split("{{when}}")[0]);
     expect(steps.find((s) => s?.includes("email.json")) ?? "").toContain(hu["Email routes"]);
     expect(sheet.textContent).toContain(hu["No decision of this kind has been recorded yet."]);
-    fireEvent.click(within(sheet).getByRole("button", { name: hu["Close"] }));
-    expect(screen.queryByRole("region", { name: hu[points["email.next_flow"].title] })).toBeNull();
-    expect(open.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("names a rule file no run has used yet, counts the decisions, and keeps the open rule on a language switch", async () => {
-    render(<Settings section="rules" />);
-    fireEvent.click(await screen.findByRole("button", { name: hu[points["workflow.budget_gate"].title] }));
-    const gate = screen.getByRole("region", { name: hu[points["workflow.budget_gate"].title] });
+    const { rerender } = render(<Settings section="rules" item="workflow.budget_gate" />);
+    const gate = await screen.findByRole("region", { name: hu[points["workflow.budget_gate"].title] });
     expect(gate.textContent).toContain(`${fill(hu["version {{version}}"], { version: "1.15.0" })} · ${hu["no run or decision has used it here yet"]}`);
-    fireEvent.click(screen.getByRole("button", { name: hu[points["detect.doc_type"].title] }));
-    const type = screen.getByRole("region", { name: hu[points["detect.doc_type"].title] });
+    rerender(<Settings section="rules" item="detect.doc_type" />);
+    const type = await screen.findByRole("region", { name: hu[points["detect.doc_type"].title] });
     expect(type.textContent).toContain(fill(hu["{{n}} decisions recorded, {{current}} of them with the rules in use now; the last on {{when}}."],
       { n: "13", current: "12", when: new Date("2026-10-24T08:00:00+00:00").toLocaleString("hu-HU", { dateStyle: "short", timeStyle: "short" }) }));
     await act(() => setLanguage("en"));

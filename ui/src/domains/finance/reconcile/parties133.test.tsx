@@ -10,6 +10,7 @@ import type { ReconcileInvoice, ReconcileLine, ReconcileWorkspace } from "../api
 import hungarian from "../../../i18n/hu-native.json";
 import { setLanguage, t } from "../../../i18n";
 import { settingsSections } from "../../../logic/settingsSections";
+import { linkCol, listPage } from "../../../views/settings/listPage.testutil";
 import { PartiesPanel } from "../PartiesPanel";
 import { ReconcilePairing } from "./ReconcilePairing";
 
@@ -97,6 +98,9 @@ describe("the own parties in the settings", () => {
   it("accepts every suggestion with the names a person gave", async () => {
     vi.spyOn(api, "parties").mockResolvedValue(overview({ suggestions: [suggestion("a".repeat(16), "Jane Example", 3), suggestion("b".repeat(16), "City Transport", 2)] }));
     const accept = vi.spyOn(api, "acceptPartySuggestions").mockResolvedValue(overview({ parties: [party({})] }));
+    // 263: the parties are the one list (a dataset), each opening its own page
+    vi.spyOn(api, "datasetQuery").mockResolvedValue(listPage("settings_own_parties", [linkCol("name", "Name", "parties")],
+      [{ _key: HOME.id, name: HOME.name }]));
     render(<PartiesPanel />);
     const name = await screen.findByDisplayValue("Jane Example");
     fireEvent.change(name, { target: { value: "Example Home" } });
@@ -104,7 +108,7 @@ describe("the own parties in the settings", () => {
     fireEvent.click(all);
     fireEvent.click(all); // a second click confirms
     await waitFor(() => expect(accept).toHaveBeenCalledWith(["a".repeat(16), "b".repeat(16)], { ["a".repeat(16)]: "Example Home" }));
-    expect(await screen.findByRole("region", { name: "Example Home" })).toBeTruthy();
+    expect((await screen.findByRole("link", { name: "Example Home" })).getAttribute("href")).toBe(`#/settings/parties/${HOME.id}`);
   });
 
   it("moves an identity to another party and dismisses an unassigned one", async () => {
@@ -112,12 +116,15 @@ describe("the own parties in the settings", () => {
     const lonely = { kind: "name" as const, key: "lonely name", label: "Lonely Name Bt.", invoices: 1 };
     vi.spyOn(api, "parties").mockResolvedValue(overview({ parties: [party({}), club], unassigned: [lonely] }));
     const set = vi.spyOn(api, "setPartyIdentity").mockResolvedValue(overview({ parties: [party({}), club], unassigned: [lonely] }));
-    render(<PartiesPanel />);
+    const { unmount } = render(<PartiesPanel item={CLUB.id} />);  // 263: a party's own page
     const card = await screen.findByRole("region", { name: "Sporting Club" });
     fireEvent.change(within(card).getByRole("combobox", { name: "Move 13570008-1-13" }), { target: { value: HOME.id } });
     fireEvent.click(within(card).getByRole("button", { name: "Move" }));
     await waitFor(() => expect(set).toHaveBeenCalledWith(club.identities[0], "assign", HOME.id));
     set.mockClear();
+    unmount();
+    vi.spyOn(api, "datasetQuery").mockResolvedValue(listPage("settings_own_parties", [linkCol("name", "Name", "parties")], []));
+    render(<PartiesPanel />);  // the section's page: what is not placed yet
     // 149: every button of the panel stays disabled until the move's request has finished; under the load of a full
     // check the clicks used to land on the disabled button now and then
     const notOwn = await waitFor(() => {

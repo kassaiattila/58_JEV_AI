@@ -13,6 +13,9 @@ export const SETTINGS_GROUPS: { key: SettingsGroup; label: string }[] = [
   { key: "processes", label: "Processes" }, { key: "library", label: "Shared library" }, { key: "system", label: "System" },
 ];
 
+/** 263 (E1): what the address chose inside a section: its thing (`item`), a tab or list of it, a part opened inside. */
+export interface SettingsPanelProps { item?: string; tab?: string; open?: string }
+
 export interface SettingsSectionSpec {
   key: string;
   label: string;
@@ -24,7 +27,7 @@ export interface SettingsSectionSpec {
   /** its place in its group (the shared ones step by ten, so a domain's falls between them) */
   order: number;
   /** a domain's section's content (a shared section's is the Settings page's own) */
-  Panel?: ComponentType;
+  Panel?: ComponentType<SettingsPanelProps>;
   /** 261: older top-level addresses that open the section (`#/<alias>`), e.g. the mailboxes' `#/mailbox` (057) */
   aliases?: string[];
 }

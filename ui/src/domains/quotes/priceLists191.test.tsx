@@ -63,7 +63,7 @@ describe("Settings › Price lists (191)", () => {
       { code: "duplicate_sku", where: "Prices!3", detail: "HW-1" },
     ] };
     const upload = vi.spyOn(api, "uploadPriceList").mockRejectedValue(new ApiError(422, "price_list_refused", "refused", [], {}, check));
-    render(<PriceListsPanel />);
+    render(<PriceListsPanel item="new" />);  // 263: the upload's own page
     const button = await screen.findByRole("button", { name: "Upload and check" });
     expect(button).toHaveProperty("disabled", true);
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Invented 2026" } });
@@ -84,18 +84,19 @@ describe("Settings › Price lists (191)", () => {
       version({ state: "active" }),
     ])]));
     const one = vi.spyOn(api, "priceListVersion").mockResolvedValue(detail());
-    render(<PriceListsPanel />);
-    await screen.findByText("active: version 1");
+    const { rerender } = render(<PriceListsPanel item="pl-0123456789" />);  // 263: the list's own page
+    await screen.findByText(/active: version 1/);
     const rows = within(document.querySelector(".price-table") as HTMLElement).getAllByRole("row").slice(1);
     expect(within(rows[0]).getByText("Draft").className).toContain("s-trial");
     expect(within(rows[0]).getByText("settings, from version 1")).toBeTruthy();
     expect(within(rows[1]).getByText("Active").className).toContain("s-done");
     expect(within(rows[0]).getByRole("button", { name: "Make active" })).toBeTruthy();
     expect(within(rows[1]).getByRole("button", { name: "Retire" })).toBeTruthy();
-    fireEvent.click(within(rows[1]).getByRole("button", { name: "Open version 1" }));
+    expect(within(rows[1]).getByRole("link", { name: "Open version 1" }).getAttribute("href")).toBe("#/settings/prices/pl-0123456789?open=1");
+    rerender(<PriceListsPanel item="pl-0123456789" open="1" />);  // the version opens under its own row
     await screen.findByText("Invented laptop");
     expect(one).toHaveBeenCalledWith("pl-0123456789", 1);
-    expect(within(rows[1]).getByRole("button", { name: "Open version 1" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("link", { name: "Open version 1" }).getAttribute("aria-expanded")).toBe("true");
     const items = document.querySelector(".price-items-table") as HTMLElement;
     expect(within(items).getByText("489,000.00").className).toContain("tnum"); // amounts in tabular figures, grouped
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "support" } });
@@ -107,8 +108,7 @@ describe("Settings › Price lists (191)", () => {
     vi.spyOn(api, "priceLists").mockResolvedValue(listing([list([version({ state: "active" })])]));
     vi.spyOn(api, "priceListVersion").mockResolvedValue(detail());
     const save = vi.spyOn(api, "changePriceListSettings").mockResolvedValue(version({ version: 2 }));
-    render(<PriceListsPanel />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open version 1" }));
+    render(<PriceListsPanel item="pl-0123456789" open="1" />);
     const button = await screen.findByRole("button", { name: "Save as a new version" });
     expect(button).toHaveProperty("disabled", true);
     expect(button.className).toContain("secondary");
@@ -122,7 +122,7 @@ describe("Settings › Price lists (191)", () => {
     await waitFor(() => expect(save).toHaveBeenCalledWith("pl-0123456789", 1, {
       discounts: [{ category: "hardware", min_quantity: "10", percent: "2,5" }], currency: "HUF", vat_percent: "27",
     }));
-    expect(await screen.findByText("Saved as version 2, a draft. Make it active to price quotes from it.")).toBeTruthy();
+    await waitFor(() => expect(window.location.hash).toBe("#/settings/prices/pl-0123456789?open=2"));  // the new draft opens
   });
 
   it("names a refused rule by its number", async () => {
@@ -130,8 +130,7 @@ describe("Settings › Price lists (191)", () => {
     vi.spyOn(api, "priceListVersion").mockResolvedValue(detail({ discounts: [{ category: "hardware", min_quantity: "10", percent: "5" }] }));
     const check: PriceListCheck = { ...CHECK, ok: false, problems: [{ code: "percent_out_of_range", where: "rule 1", detail: "" }] };
     vi.spyOn(api, "changePriceListSettings").mockRejectedValue(new ApiError(422, "price_list_refused", "refused", [], {}, check));
-    render(<PriceListsPanel />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open version 1" }));
+    render(<PriceListsPanel item="pl-0123456789" open="1" />);
     const percent = await screen.findByLabelText("Discount, rule 1");
     expect((percent as HTMLInputElement).value).toBe("5");
     fireEvent.change(percent, { target: { value: "100" } });
@@ -144,8 +143,7 @@ describe("Settings › Price lists (191)", () => {
   it("says a list without categories can have no volume discount", async () => {
     vi.spyOn(api, "priceLists").mockResolvedValue(listing([list([version({ state: "active" })])]));
     vi.spyOn(api, "priceListVersion").mockResolvedValue(detail({ categories: [] }));
-    render(<PriceListsPanel />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open version 1" }));
+    render(<PriceListsPanel item="pl-0123456789" open="1" />);
     expect(await screen.findByText("The items have no category, so the list can have no volume discount.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Add a rule" })).toBeNull();
   });

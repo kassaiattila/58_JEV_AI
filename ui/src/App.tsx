@@ -1,7 +1,9 @@
 // The frame of the workspace (057, decision of 2026-09-28): two main parts — the daily work and Settings (mailboxes,
 // work folders, users, appearance, language, system). 231 (U2a; the owner's decision of 2026-10-28: one work list) the
 // daily work is the Cases: a document batch and a run open under their case; the list of every batch and the chains
-// are reached from Settings › System. The header shows the worker's status and the user's name.
+// are reached from Settings › System. The header shows the worker's status and the user's name. 263 (plan E, E1; the
+// owner's decision of 2026-10-30): the two main parts are in the header's left end beside the brand - the dark side rail
+// that held only them is gone, so the work has the whole width.
 import { useEffect, useState } from "react";
 import { api, setActor, USERS_EVENT } from "./api";
 import { useActor, useEvent, useHash, useLoad } from "./hooks";
@@ -29,8 +31,8 @@ const NewCase = lazyPage(() => import("./views/NewCase").then((m) => m.NewCase))
 // without hyphenation)
 const NAV = [
   // 231 (A7e): the process packs' cases (an English source label, translated at render time); (U2a) the one work list
-  { view: "case-list", href: "#/cases", label: "Cases", icon: <path d="M4 8h16v11H4zM9 8V5h6v3M4 13h16" /> },
-  { view: "settings", href: "#/settings", label: "Settings", icon: <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" /> },
+  { view: "case-list", href: "#/cases", label: "Cases" },
+  { view: "settings", href: "#/settings", label: "Settings" },
 ] as const;
 
 export function App() {
@@ -45,25 +47,24 @@ export function App() {
   return (
     <div className="shell">
       <a className="skip" href="#main">{t("Skip to content")}</a>
-      <aside className="rail">
-        <div className="brand" aria-hidden="true">JAV</div>
-        <nav aria-label={t("Main menu")}>
-          {NAV.map((n) => (
-            <a key={n.view} className="nav" href={n.href} aria-current={section === n.view ? "page" : undefined}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">{n.icon}</svg>
-              {t(n.label)}
-            </a>
-          ))}
-        </nav>
-      </aside>
       <div className="main-col">
         <UpdateBanner />
         <header className="top">
-          <div className="top-status">
-            <WorkerBadge />
-            <LanguageSwitch />
+          <div className="top-nav">
+            <div className="brand" aria-hidden="true">JAV</div>
+            <nav aria-label={t("Main menu")} className="main-nav">
+              {NAV.map((n) => (
+                <a key={n.view} className="nav" href={n.href} aria-current={section === n.view ? "page" : undefined}>{t(n.label)}</a>
+              ))}
+            </nav>
           </div>
-          <ActorField />
+          <div className="top-right">
+            <div className="top-status">
+              <WorkerBadge />
+              <LanguageSwitch />
+            </div>
+            <ActorField />
+          </div>
         </header>
         <main id="main" className="main" tabIndex={-1}>
           {/* 167 (review 160 U-12): a view's error leaves the menu working; another address clears it */}
@@ -74,7 +75,7 @@ export function App() {
             {route.view === "cases" ? <CasePage caseId={route.caseId} tab={route.tab} /> : null}
             {route.view === "case-list" && !route.create ? <CaseList /> : null}
             {route.view === "case-list" && route.create ? <NewCase pack={route.pack} after={route.after} /> : null}
-            {route.view === "settings" ? <Settings section={route.section} item={route.item} tab={route.tab} /> : null}
+            {route.view === "settings" ? <Settings section={route.section} item={route.item} tab={route.tab} open={route.open} /> : null}
             {route.view === "legacy-result" ? <LegacyResult runId={route.runId} table={route.table} /> : null}
             {route.view === "activity" ? <Activity day={route.day} /> : null}
             {route.view === "waiting" ? <Waiting all={Boolean(route.all)} /> : null}

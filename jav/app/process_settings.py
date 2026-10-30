@@ -403,18 +403,27 @@ def view(pack_id: str) -> dict[str, Any]:
         by_key.setdefault((r["kind"], r["key"]), []).append(r)
     resources = []
     effective = effective_resources(pack)
+    from jav.app import settings_lists
+
+    known = settings_lists.library_names()  # 263 (E1): every value by its name, not only the active choices'
+
+    def names(*values: Any) -> dict[str, str]:
+        return {str(v): known[str(v)] for v in values if str(v) in known}
+
     for key, file_value in pack.resources.items():
         mine = by_key.get((RESOURCE, key), [])
         value, own = _own(mine)
         label, options = resource_info(pack, key)
         if key in pack.derived:  # U3c: shown as its source brings it, read only
             resources.append({"key": key, "label": label, "options": None, "file_value": file_value,
-                              "value": effective[key], "own": False, "versions": [], "derived_from": pack.derived[key]})
+                              "value": effective[key], "own": False, "versions": [], "derived_from": pack.derived[key],
+                              "names": names(file_value, effective[key])})
             continue
         resources.append({"key": key, "label": label,
                           "options": None if options is None else [{"value": v, "label": lbl} for v, lbl in options],
                           "file_value": file_value, "value": value if own else file_value, "own": own,
-                          "versions": _versions(mine), "derived_from": None})
+                          "versions": _versions(mine), "derived_from": None,
+                          "names": names(file_value, value, *(json.loads(r["value"]) for r in mine))})
     rules = []
     installed, _refs = rule_defaults.active()  # 261 (B2): the installation's defaults, as a case's start keeps them
     for key, (rule, steps) in rule_keys(pack).items():

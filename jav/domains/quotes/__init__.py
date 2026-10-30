@@ -38,7 +38,7 @@ GOLDENS = ("jav.domains.quotes.goldens",)
 def register() -> None:
     """Every registration of the quotes domain (`registrations.load_all`): its parts and capabilities (231 C3c: the
     quote's kind of work went; the wizard's quote template is the IT quote pack's)."""
-    from jav.domains.quotes import capabilities, price_list_examples, quote_document, quote_letter, quote_proposal
+    from jav.domains.quotes import capabilities, price_list_examples, quote_document, quote_letter, quote_proposal, settings_list
     from jav.domains.quotes import quote_pricing  # noqa: F401 - D-e2: registers the approved quote's decision point
     from jav.app.outputs import builtin, parts
     from jav.runtime import job_kinds
@@ -50,6 +50,7 @@ def register() -> None:
                                                     quote_document.sample_values))
     capabilities.register()  # 231 (A3c): the back half's general capabilities, described
     price_list_examples.register()  # 231 (U1e): an invented price list as a process's example material
+    settings_list.register()  # 263 (E1): the price lists as a Settings list
 
 
 __all__ = ["register"]

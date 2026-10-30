@@ -2,7 +2,7 @@
 // by the free stand-in or by GPT within a budget its button shows; a run lists its proposals with the code's check, JEV's
 // mark and the decision; a proposal opens with its decision table, its findings and where its numbers stand; a person
 // accepts it once the numbers the document does not print are confirmed, or rejects it with a reason; a blocked one
-// cannot be accepted. Invented data, a mocked service.
+// cannot be accepted. 263 (E1): the runs are the one list, a run a page of its own. Invented data, a mocked service.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type ProductRegistry, type Rule, type RuleProposal, type RuleProposalRun } from "../../api";
@@ -53,9 +53,9 @@ function mockRuns() {
   vi.spyOn(api, "ruleProposalRun").mockResolvedValue(RUN);
 }
 
+/** 263 (E1): a run is a page of its own (its id in the address); its proposals open under their rows. */
 async function openRun() {
-  render(<ProposalsView registry={REGISTRY} onChanged={() => undefined} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Invented general conditions (GC-2026)" }));
+  render(<ProposalsView registry={REGISTRY} runId={RUN.run_id} onChanged={() => undefined} />);
   return screen.findByRole("region", { name: "Proposal run" });
 }
 

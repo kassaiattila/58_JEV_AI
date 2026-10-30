@@ -10,7 +10,10 @@ Rules (ported from the legacy project's `ui/src/utils/table-sort.ts` to the serv
   descending order too; the sort is stable;
 - search and the "contains" filter: case- and accent-insensitive ("szamla" finds "Számla");
 - 231 (D4): an enum's caption is in the request's language (`jav/core/display.py`), so search, the "contains" filter,
-  sorting and the filter choices go by what the person sees.
+  sorting and the filter choices go by what the person sees;
+- 263 (plan E, E1; the owner's decision of 2026-10-30: one list everywhere, grouped by more than one thing): the rows
+  may be grouped by a column; a group's rows stand together in the chosen order, the groups in their captions' order
+  with the empty one last, and each group says how many rows match (the whole result, not only the page).
 """
 
 from __future__ import annotations
@@ -68,6 +71,7 @@ class Query(BaseModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=100, ge=1, le=1000)
     keys: list[str] | None = Field(default=None, max_length=10000)  # only these rows (selection)
+    group: str | None = Field(default=None, max_length=60)  # 263: the column whose values group the rows
 
 
 # --- normalisation ---------------------------------------------------------------------------------------------
@@ -206,6 +210,7 @@ def select(columns: list[Column], rows: list[dict[str, Any]], q: Query) -> list[
     filters = [_typed(f, cols[f.col]) for f in q.filters]
     for s in q.sort:
         _check_col(cols, s.col)
+    group = _check_col(cols, q.group) if q.group else None
     out = rows
     if q.keys is not None:
         wanted = set(q.keys)
@@ -224,14 +229,33 @@ def select(columns: list[Column], rows: list[dict[str, Any]], q: Query) -> list[
         nums = sorted((p for p in keyed if isinstance(p[0], Decimal)), key=lambda p: p[0], reverse=s.desc)
         rest = sorted((p for p in keyed if not isinstance(p[0], Decimal)), key=lambda p: p[0], reverse=s.desc)
         out = [r for _, r in nums] + [r for _, r in rest] + blank
+    if group is not None:  # 263: the groups in their captions' order (stable: the chosen order inside each), the empty last
+        keyed = sorted(((_sort_value(shown(group, r.get(group.key)), group.kind), r) for r in out if not _empty(r.get(group.key))),
+                       key=lambda p: (not isinstance(p[0], Decimal), p[0]))
+        out = [r for _, r in keyed] + [r for r in out if _empty(r.get(group.key))]
     return list(out)
+
+
+def groups(rows: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
+    """263: the groups of rows already in their order, each its value (None: empty) and how many rows it holds."""
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        v = r.get(key)
+        value = None if _empty(v) else "true" if v is True else "false" if v is False else str(v)  # a yes/no as the interface reads it
+        if out and out[-1]["value"] == value:
+            out[-1]["count"] += 1
+        else:
+            out.append({"value": value, "count": 1})
+    return out
 
 
 def run_query(columns: list[Column], rows: list[dict[str, Any]], q: Query) -> dict[str, Any]:
     """One page of the filtered, sorted rows; `total` is the full count, `matched` the count after filtering."""
     matched = select(columns, rows, q)
     return {"columns": [c.spec() for c in columns], "rows": matched[q.offset: q.offset + q.limit], "total": len(rows),
-            "matched": len(matched), "offset": q.offset, "limit": q.limit, "facets": facets(columns, rows)}
+            "matched": len(matched), "offset": q.offset, "limit": q.limit, "facets": facets(columns, rows),
+            # 263: a grouped page names its column and its groups (an ungrouped one stays as it was)
+            **({"group": q.group, "groups": groups(matched, q.group)} if q.group else {})}
 
 
-__all__ = ["Column", "Filter", "Query", "Sort", "facets", "fold", "run_query", "select", "shown", "to_number"]
+__all__ = ["Column", "Filter", "Query", "Sort", "facets", "fold", "groups", "run_query", "select", "shown", "to_number"]

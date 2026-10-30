@@ -1,5 +1,5 @@
 // Appearance (057): the theme, effective at once, remembered per viewer. 157: the density switch is gone; each theme's
-// swatch is a small drawing of the workspace in that theme (rail, canvas, a card), from the preview tokens.
+// swatch is a small drawing of the workspace in that theme (263: the header, the canvas, a card), from the preview tokens.
 import { useState } from "react";
 import { getAppearance, setAppearance, type Appearance, type Theme } from "../../appearance";
 import { t, useLocale } from "../../i18n";
