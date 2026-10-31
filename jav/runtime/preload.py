@@ -32,11 +32,12 @@ class PreloadError(RuntimeError):
 
 def preload() -> list[str]:
     """Imports every module of the `jav` package except the excluded ones and freezes the configs (231); returns the
-    modules' names."""
-    loaded = _import_all()
+    modules' names. 265 (code review CORE-07): the configs are frozen first, so a module that reads one as it is
+    imported reads the frozen content, the one the snapshot names, even when the file is edited during the start."""
     from jav.core import cfg, rulebook, store
 
     cfg.freeze()  # 231: the configs of this moment, whatever the folder holds later
+    loaded = _import_all()
     with store.connect() as c:  # stage D (D-a): every version of the configs a process ran with is kept, so a key added
         store.begin_immediate(c)  # after a case started takes the value it came with (`rulebook.later_in`)
         rulebook.store_in(c, rulebook.current())

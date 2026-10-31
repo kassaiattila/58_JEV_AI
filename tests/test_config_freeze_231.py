@@ -91,9 +91,9 @@ def test_the_preload_of_the_service_and_the_worker_freezes_the_configs(monkeypat
 
     seen = []
     monkeypatch.setattr(cfg, "freeze", lambda: seen.append("frozen") or [])
-    monkeypatch.setattr(preload, "_import_all", lambda: [])
+    monkeypatch.setattr(preload, "_import_all", lambda: seen.append("imported") or [])
     preload.preload()
-    assert seen == ["frozen"]
+    assert seen == ["frozen", "imported"]  # 265 (code review CORE-07): frozen before a module reads one as it is imported
 
 
 def test_the_service_s_health_names_the_drift(folder, tmp_path):
