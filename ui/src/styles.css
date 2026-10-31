@@ -88,7 +88,10 @@ a.secondary:hover, a.quiet:hover { color: var(--ink); }
 .update-banner { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding: var(--sp-2) var(--sp-6); background: var(--warn-tint); color: var(--warn); border-bottom: 1px solid var(--warn-line); font-weight: 600; }
 .top { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-4); min-height: 52px; padding: var(--sp-2) var(--sp-6); border-bottom: 1px solid var(--line); background: var(--canvas); flex-wrap: wrap; }
 .top-status { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
-.main { padding: var(--sp-1) var(--sp-6) var(--sp-8); max-width: 1600px; margin: 0 auto; outline: none; }
+/* 264 (G2; the owner's report of 2026-10-31): the page starts at the header's left edge and uses the width - until then
+   a centred 1600-pixel column left an empty band on the left of a wide screen, as if the old side menu were still there.
+   Forms and texts keep their own readable widths (`.sheet`, `.card`). */
+.main { padding: var(--sp-1) var(--sp-6) var(--sp-8); outline: none; }
 .actor { display: flex; align-items: center; gap: var(--sp-3); font-size: var(--fs-xs); white-space: nowrap; }
 .actor input { border: 1px solid var(--line-strong); border-radius: var(--r-md); padding: 6px 10px; width: 250px; background: var(--paper); }
 /* the worker's state in the header: a state, so a dot in the state's colour, never the accent */
@@ -626,6 +629,8 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .rt-table td { overflow-wrap: anywhere; vertical-align: top; }
 .rt-table .status { white-space: normal; align-items: baseline; }
 .rt-actions { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
+/* 264 (G1): a list's row actions on one line, so a row keeps one line's height */
+.dt-actions .rt-actions { flex-direction: row; align-items: center; gap: var(--sp-2); white-space: nowrap; }
 .path-compare { width: 100%; max-width: 980px; border-collapse: collapse; font-size: var(--fs-sm); }
 .path-compare th, .path-compare td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line-soft); }
 .path-compare thead th { color: var(--muted); font-weight: 600; }

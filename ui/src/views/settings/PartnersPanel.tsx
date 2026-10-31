@@ -18,13 +18,14 @@ import { ItemSteps } from "../../components/ItemSteps";
 import { PageActions } from "../../components/PageActions";
 import { UsedBy, useUsedBy } from "../../components/UsedBy";
 import { VersionState } from "../../components/VersionState";
-import { useLoad } from "../../hooks";
+import { useAction, useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { when } from "../../labels";
 import { go, settingsHash } from "../../route";
 import { PARTNER_NEW, PARTNER_PROPOSALS, settingsChanged, useSettingsTitle } from "./settingsTree";
 
 const LIST = "settings_partners";
+const PROPOSALS = "settings_partner_proposals";  // 264 (G1)
 
 const EMPTY: PartnerValues = { name: "", tax_number: null, email: null, phone: null, address: null, note: null, roles: [] };
 const TEXT_FIELDS: { key: "tax_number" | "email" | "phone"; label: string; max: number }[] = [
@@ -64,11 +65,14 @@ export function PartnersPanel({ item }: { item?: string }) {
  *  partner's page. */
 function PartnerTable({ onNew }: { onNew: () => void }) {
   useLocale();
+  // 264 (G1): how many proposals wait, beside the way to them (read after the list; the first reading takes a moment)
+  const waiting = useLoad("partner-proposal-count", () => api.datasetQuery(PROPOSALS, {}, { limit: 1 })).data?.total;
   return (
     <>
       <PageActions><button type="button" className="primary" onClick={onNew}>{t("New partner")}</button></PageActions>
       <DataTable dataset={LIST} label={t("Partners")} storageId={LIST} persist={LIST}
-        toolbar={<a className="small" href={settingsHash("partners", PARTNER_PROPOSALS)}>{t("Suggestions from the data")} →</a>}
+        toolbar={<a className="small" href={settingsHash("partners", PARTNER_PROPOSALS)}>
+          {waiting ? t("Suggestions from the data ({{n}})", { n: waiting }) : t("Suggestions from the data")} →</a>}
         emptyText={t("No partner yet. Record one, or take one from the proposals.")} />
     </>
   );
@@ -199,25 +203,64 @@ function PartnerCard({ open, roles, onOpen, onChanged }: {
   );
 }
 
-/** The domains' proposals, on request (reading them goes through every invoice); a person records one. 264 (plan E,
- *  F6): the one list of the service (search, sort, grouped by the first role, no cap of 200); a row's Accept opens the
- *  new partner's form from it. */
+/** The domains' proposals (reading them goes through every invoice; the service keeps them until that changes). 264
+ *  (plan G, G1; the owner's decision of 2026-10-31: as the own parties have them): the one list, shown at once; a
+ *  proposal is recorded at once with its suggested name, tax number and roles - one, the selected ones, or all - or
+ *  edited first on the new partner's form; one that is no partner is dismissed, and restored from the dismissed ones. */
 function Suggestions({ onTake }: { onTake: (s: Pick<PartnerSuggestion, "name" | "tax_number" | "roles">) => void }) {
   useLocale();
-  const [shown, setShown] = useState(false);
   useSettingsTitle(t("Suggestions from the data"));
+  const [rev, setRev] = useState(0);
+  const [total, setTotal] = useState(0);
+  const { busy, error, notice, run, setNotice } = useAction();
+  const changed = () => { setRev((n) => n + 1); settingsChanged(); };
+  const accept = (keys: string[] | null) => run(() => api.acceptPartnerSuggestions(keys), { then: (r) => {
+    changed();
+    setNotice(r.skipped ? t("{{n}} recorded as partners; {{m}} skipped (a partner meanwhile, or seen in no role).", { n: r.created.length, m: r.skipped })
+      : t("{{n}} recorded as partners.", { n: r.created.length }));
+  } });
+  const dismiss = (keys: string[]) => run(() => api.dismissPartnerSuggestions(keys),
+    { then: changed, done: t("Dismissed: not proposed again until restored.") });
+  const restore = (keys: string[]) => run(() => api.restorePartnerSuggestions(keys), { then: changed, done: t("Restored among the proposals.") });
   return (
     <section className="sheet partner-suggestions" aria-label={t("Suggestions from the data")}>
-      {!shown ? <PageActions><button type="button" className="primary" onClick={() => setShown(true)}>{t("Show the proposals")}</button></PageActions> : null}
-      <p className="muted small">{t("The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Nothing is recorded by itself.")}</p>
-      {shown ? (
-        <DataTable dataset="settings_partner_proposals" label={t("Proposals")} storageId="settings_partner_proposals" defaultGroup="role"
-          emptyText={t("No proposal: every party read is a partner already.")} actionsLabel={t("Record it")}
-          actions={(row) => (
-            <button type="button" className="secondary small-btn" onClick={() => onTake({ name: String(row.name),
-              tax_number: (row.tax_number as string | null) ?? null, roles: (row._roles as string[] | undefined) ?? [] })}>{t("Accept")}</button>
-          )} />
+      {total ? (
+        <PageActions>
+          <ConfirmButton className="primary" disabled={busy} onConfirm={() => void accept(null)}
+            question={t("Record all {{n}} proposals as partners, with their suggested names, tax numbers and roles? A partner can be retired later.", { n: total })}>
+            {t("Record all {{n}}", { n: total })}
+          </ConfirmButton>
+        </PageActions>
       ) : null}
+      <p className="muted small">{t("The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Record them at once, edit one first, or dismiss what is no partner of yours (a misread name, a one-off seller); nothing is recorded by itself.")}</p>
+      {error ? <p className="notice error" role="alert">{error}</p> : null}
+      {notice ? <p className="small ok" role="status">{notice}</p> : null}
+      <DataTable dataset={PROPOSALS} label={t("Proposals")} storageId={PROPOSALS} defaultGroup="role" refreshKey={String(rev)}
+        onPage={(page) => setTotal(page.total)} emptyText={t("No proposal: every party read is a partner already.")}
+        selectable
+        selectionActions={(rows, clear) => (
+          <>
+            <button type="button" className="secondary small-btn" disabled={busy}
+              onClick={() => void accept(rows.map((r) => r._key)).then(clear)}>{t("Record the selected ({{n}})", { n: rows.length })}</button>
+            <button type="button" className="quiet small-btn" disabled={busy}
+              onClick={() => void dismiss(rows.map((r) => r._key)).then(clear)}>{t("Not partners ({{n}})", { n: rows.length })}</button>
+          </>
+        )}
+        actionsLabel={t("Record it")}
+        actions={(row) => (
+          <span className="rt-actions small">
+            <button type="button" className="secondary small-btn" disabled={busy} onClick={() => void accept([row._key])}>{t("Record")}</button>
+            <button type="button" className="quiet small-btn" onClick={() => onTake({ name: String(row.name),
+              tax_number: (row.tax_number as string | null) ?? null, roles: (row._roles as string[] | undefined) ?? [] })}>{t("Edit first…")}</button>
+            <button type="button" className="quiet small-btn" disabled={busy} onClick={() => void dismiss([row._key])}>{t("Not a partner")}</button>
+          </span>
+        )} />
+      <details className="details">
+        <summary>{t("Dismissed proposals")}</summary>
+        <DataTable dataset="settings_partner_dismissed" label={t("Dismissed partner proposals")} storageId="settings_partner_dismissed"
+          refreshKey={String(rev)} emptyText={t("Nothing is dismissed.")} actionsLabel={t("Restore")}
+          actions={(row) => <button type="button" className="quiet small-btn" disabled={busy} onClick={() => void restore([row._key])}>{t("Restore")}</button>} />
+      </details>
     </section>
   );
 }

@@ -363,6 +363,10 @@ export function DataTable(p: Props) {
   const query = useMemo(() => ({ q: state.q || undefined, filters: state.filters, sort: state.sort, offset: state.offset, limit: state.limit,
     ...(state.group ? { group: state.group } : {}) }), [state.q, state.filters, state.sort, state.offset, state.limit, state.group]);
   const page = useDataset(p.dataset, scope, query, p.pollMs);
+  const actions = useRef(p.actions);  // 264: the latest row actions and their label, read by the stable actions column
+  actions.current = p.actions;
+  const actionsLabel = useRef(p.actionsLabel);
+  actionsLabel.current = p.actionsLabel;
   // 264: read again when the page says something changed (not on the first render: the rows are being read then)
   const shownKey = useRef(p.refreshKey);
   useEffect(() => {
@@ -413,15 +417,16 @@ export function DataTable(p: Props) {
       });
     }
     if (p.actions) {
-      const render = p.actions;
+      // 264: the latest actions through a ref - a page passes a new function on every render, and a new column would
+      // rebuild every row's buttons (one could be swapped under a click, or lose the keyboard focus)
       cols.push({
         id: "_actions", enableSorting: false, enableHiding: false,
-        header: () => <span className="sr-only">{p.actionsLabel ?? t("Actions")}</span>,
-        cell: ({ row }) => <span className="dt-actions">{render(row.original)}</span>,
+        header: () => <span className="sr-only">{actionsLabel.current ?? t("Actions")}</span>,
+        cell: ({ row }) => <span className="dt-actions">{actions.current?.(row.original)}</span>,
       });
     }
     return cols;
-  }, [columns, p.selectable, p.actions, lang]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [columns, p.selectable, Boolean(p.actions), lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sorting: SortingState = state.sort.map((s) => ({ id: s.col, desc: Boolean(s.desc) }));
   const natural = data?.dataset.natural_sort ?? [];

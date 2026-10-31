@@ -79,11 +79,10 @@ describe("the partner register (231 B1; 263 E1: the one list, a partner's own pa
     ], [{ _key: "12121216-2-42", name: "Invented Supplier Kft.", tax_number: "12121216-2-42", role: "supplier", seen: 3,
       _roles: ["supplier"] }]));
     const { rerender } = render(<Settings section="partners" item="proposals" />);
-    const show = await screen.findByRole("button", { name: "Show the proposals" });  // the page's main action
-    expect(proposals).not.toHaveBeenCalled();  // reading them goes through every invoice: only on request
-    fireEvent.click(show);
+    // 264 (G1): shown at once (the service keeps them); a proposal edited first opens the new partner's form from it
     const table = await screen.findByRole("table", { name: "Proposals" });
-    fireEvent.click(within(table).getByRole("button", { name: "Accept" }));
+    expect(proposals).toHaveBeenCalled();
+    fireEvent.click(await within(table).findByRole("button", { name: "Edit first…" }));
     expect(window.location.hash).toBe("#/settings/partners/new");
     rerender(<Settings section="partners" item="new" />);  // the address's new page, the proposal taken
     const card = await screen.findByRole("region", { name: "New partner" });

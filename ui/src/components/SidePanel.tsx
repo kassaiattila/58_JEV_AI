@@ -10,9 +10,10 @@ import { t, useLocale } from "../i18n";
 import { Icon } from "./Icon";
 
 interface Prefs { pinned: boolean; width: number }
-const MIN = 200;
+const MIN = 180;
 const MAX = 480;
-const DEFAULT: Prefs = { pinned: true, width: 264 };
+// 264 (G2): narrower at first (until then 264): the longest section name fits, the page gets the rest
+const DEFAULT: Prefs = { pinned: true, width: 224 };
 const clamp = (w: number) => Math.min(MAX, Math.max(MIN, Math.round(w)));
 const key = (id: string) => `jav.panel.${id}`;
 

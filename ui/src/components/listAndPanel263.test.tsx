@@ -49,7 +49,7 @@ describe("the left panel (263)", () => {
     expect(screen.getByText("the tree")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Hide" }));
     expect(screen.queryByText("the tree")).toBeNull();
-    expect(JSON.parse(localStorage.getItem("jav.panel.test")!)).toEqual({ pinned: false, width: 264 });
+    expect(JSON.parse(localStorage.getItem("jav.panel.test")!)).toEqual({ pinned: false, width: 224 });  // 264 (G2): narrower at first
     const reveal = screen.getByRole("button", { name: "Contents" });
     fireEvent.click(reveal);
     expect(reveal.getAttribute("aria-expanded")).toBe("true");
@@ -74,10 +74,10 @@ describe("the left panel (263)", () => {
     render(<SidePanel id="test" label="Contents"><p>the tree</p></SidePanel>);
     const edge = screen.getByRole("separator", { name: "Width of the panel" });
     fireEvent.keyDown(edge, { key: "ArrowRight" });
-    expect(edge.getAttribute("aria-valuenow")).toBe("280");
+    expect(edge.getAttribute("aria-valuenow")).toBe("240");  // 264 (G2): 224 at first, at least 180
     for (let i = 0; i < 20; i++) fireEvent.keyDown(edge, { key: "ArrowLeft" });
-    expect(edge.getAttribute("aria-valuenow")).toBe("200");
-    expect(JSON.parse(localStorage.getItem("jav.panel.test")!).width).toBe(200);
+    expect(edge.getAttribute("aria-valuenow")).toBe("180");
+    expect(JSON.parse(localStorage.getItem("jav.panel.test")!).width).toBe(180);
   });
 });
 
