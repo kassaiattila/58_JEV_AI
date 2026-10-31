@@ -41,6 +41,7 @@ import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from decimal import ROUND_CEILING, Decimal
 from pathlib import Path
 from typing import IO, Any, Callable
@@ -78,6 +79,7 @@ CREATE TABLE IF NOT EXISTS invocations (
 );
 CREATE INDEX IF NOT EXISTS ix_invocations_step ON invocations(run_id, step_id);
 CREATE INDEX IF NOT EXISTS ix_invocations_scope ON invocations(budget_scope, provider);
+CREATE INDEX IF NOT EXISTS ix_invocations_provider_at ON invocations(provider, created_at);
 -- 204 (R1i): the reservation's look for an overrun in its budget (`_reserve`) is one lookup, not a read of its every call
 CREATE INDEX IF NOT EXISTS ix_invocations_scope_note ON invocations(budget_scope, provider, note);
 CREATE TABLE IF NOT EXISTS budgets (
@@ -108,6 +110,11 @@ class BudgetExceeded(RuntimeError):
 
 class UncertainAttempt(RuntimeError):
     """The step has an unfinished attempt (crashed or with an uncertain outcome); an automatic new call is forbidden."""
+
+
+class RateLimited(RuntimeError):
+    """265 (code review CORE-10): the provider's calls of the last minute reached its limit; the network was never
+    reached."""
 
 
 class NotUncertain(ValueError):
@@ -479,11 +486,14 @@ def _remove_stopped_holder_files() -> None:
 
 def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max_cost_usd: Decimal,
              budget_scope: str | None, request_hash: str | None, reuse: bool = False,
-             lean_cost_usd: Decimal | None = None, note: str | None = None) -> tuple[int | None, Any]:
+             lean_cost_usd: Decimal | None = None, note: str | None = None,
+             per_minute: int | None = None) -> tuple[int | None, Any]:
     """Reserves in one transaction. Returns (new invocation id, None), or on a repeat (None, (id, saved response)), or,
     090, with `reuse`, an earlier answer to the same question: (None, (id, response, the call it came from)). 149: when
     `max_cost_usd` does not fit the budget left but `lean_cost_usd` does, the lean bound is reserved and the row is
-    marked `LEAN_NOTE`. `note`: the row's note otherwise (231: `REPEATABLE_NOTE`)."""
+    marked `LEAN_NOTE`. `note`: the row's note otherwise (231: `REPEATABLE_NOTE`). 265 (code review CORE-10):
+    `per_minute`, the provider's calls a minute, counted in this transaction (`RateLimited`), so two callers at once
+    cannot both pass a count taken before either reserved."""
     me = holder()
     with store.connect() as c:
         store.begin_immediate(c)
@@ -497,6 +507,12 @@ def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max
             if p["status"] in ("reserved", "uncertain"):
                 raise UncertainAttempt(f"{run_id}/{step_id} attempt {p['attempt']} is {p['status']}")
         attempt = (prior[-1]["attempt"] + 1) if prior else 1
+        if per_minute is not None:
+            since = (datetime.fromisoformat(_now()) - timedelta(minutes=1)).isoformat(timespec="seconds")
+            asked = c.execute("SELECT COUNT(*) FROM invocations WHERE provider=? AND created_at>=?",
+                              (provider, since)).fetchone()[0]
+            if asked >= per_minute:
+                raise RateLimited(f"{provider}: {asked} calls in the last minute, the limit is {per_minute}")
         if reuse and request_hash:
             reused = _reuse_earlier(c, run_id=run_id, step_id=step_id, attempt=attempt, provider=provider, model=model,
                                     request_hash=request_hash, budget_scope=budget_scope)
@@ -524,7 +540,7 @@ def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max
 def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_cost_usd: Decimal,
            fn: Callable[[], Outcome], budget_scope: str | None = None, request_hash: str | None = None,
            reusable: bool = False, lean: tuple[Decimal, Callable[[], Outcome]] | None = None,
-           repeatable: bool = False) -> Result:
+           repeatable: bool = False, per_minute: int | None = None) -> Result:
     """One physical call through the call log and the budget. Repeating a successful step returns the saved response.
     090: a `reusable` caller (its `request_hash` is an `answer_key`) gets an earlier answer to the same question when
     the run allows it (`use_run(reuse=True)`): no call, cost 0, a cached row in the ledger. 149: `lean` = (a lower
@@ -537,7 +553,8 @@ def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_c
     reuse = reusable and ctx is not None and ctx.reuse
     inv_id, replay = _reserve(run_id=run_id, step_id=step_id, provider=provider, model=model, max_cost_usd=max_cost_usd,
                               budget_scope=budget_scope, request_hash=request_hash, reuse=reuse,
-                              lean_cost_usd=lean[0] if lean else None, note=REPEATABLE_NOTE if repeatable else None)
+                              lean_cost_usd=lean[0] if lean else None, note=REPEATABLE_NOTE if repeatable else None,
+                              per_minute=per_minute)
     if inv_id is None:
         if len(replay) == 3:  # 090: reused from another call
             store.ledger_add(run_id=run_id, step=step_id, provider=provider, model=model, input_tokens=None, output_tokens=None,

@@ -32,12 +32,10 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any, Callable, Iterator, Literal
 
-from jav.core import calls, cfg, store
-from jav.core.clock import utc_now as _now
+from jav.core import calls, cfg
 
 __all__ = ["Connector", "ConnectorError", "ConnectorUnavailable", "Transport", "ask", "catalogue", "of", "use_transport"]
 
@@ -168,17 +166,7 @@ def use_transport(transport: Transport) -> Iterator[None]:
 # --- asking ---------------------------------------------------------------------------------------------------------
 
 
-def _busy(connector: Connector) -> bool:
-    since = (_now() - timedelta(minutes=1)).isoformat(timespec="seconds")
-    with store.connect() as c:
-        asked = c.execute("SELECT COUNT(*) FROM invocations WHERE provider=? AND created_at>=?",
-                          (connector.name, since)).fetchone()[0]
-    return asked >= connector.max_per_minute
-
-
 def _ask_once(connector: Connector, body: bytes | None, *, purpose: str, run_id: str) -> bytes:
-    if _busy(connector):
-        raise ConnectorUnavailable(connector.name, "busy")
     transport = _transport.get() or _network(connector.max_response_bytes)
     answer: list[bytes] = []
 
@@ -200,9 +188,13 @@ def _ask_once(connector: Connector, body: bytes | None, *, purpose: str, run_id:
             raise calls.BudgetExceeded(f"connector {connector.name} costs {connector.price_usd} USD a question:"
                                        " it is asked only within a budget")
         scope = ctx.budget_scope
-    calls.invoke(run_id=run_id, step_id=f"{purpose}:{secrets.token_hex(6)}", provider=connector.name, model=None,
-                 max_cost_usd=connector.price_usd, fn=question, budget_scope=scope,
-                 request_hash=hashlib.sha256(body or b"").hexdigest(), repeatable=connector.free)
+    try:  # 265 (code review CORE-10): the per-minute limit is counted in the reservation's own transaction
+        calls.invoke(run_id=run_id, step_id=f"{purpose}:{secrets.token_hex(6)}", provider=connector.name, model=None,
+                     max_cost_usd=connector.price_usd, fn=question, budget_scope=scope,
+                     request_hash=hashlib.sha256(body or b"").hexdigest(), repeatable=connector.free,
+                     per_minute=connector.max_per_minute)
+    except calls.RateLimited:
+        raise ConnectorUnavailable(connector.name, "busy") from None
     return answer[0]
 
 
