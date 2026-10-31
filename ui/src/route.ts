@@ -100,10 +100,9 @@ function batchRoute(parts: string[], params: URLSearchParams): Extract<Route, { 
     if (params.get("pending") === "1") r.start.pending = true;
   }
   if (stage === "process" && parts[2] === "add") r.add = true;
-  if (stage === "result") {
-    if (resultTables().some((x) => x.key === parts[2])) r.table = parts[2];
-    if (params.get("run")) r.runId = params.get("run")!;
-  }
+  if (stage === "result" && resultTables().some((x) => x.key === parts[2])) r.table = parts[2];
+  // 265 (code review UI-06): the run a review shows stays in the address too, as a result's does
+  if ((stage === "result" || stage === "review") && params.get("run")) r.runId = params.get("run")!;
   return r;
 }
 
@@ -197,6 +196,7 @@ export function routeHash(r: Route): string {
       if (!r.stage) return base;
       let h = `${base}/${r.stage}`;
       if (r.stage === "review" && r.itemId) h += `/${e(r.itemId)}`;
+      if (r.stage === "review" && r.runId) h += `?run=${e(r.runId)}`;
       if (r.stage === "process" && r.start) h += `/start?mode=${r.start.mode}${r.start.rerun ? "&rerun=1" : ""}${r.start.pending ? "&pending=1" : ""}`;
       else if (r.stage === "process" && r.add) h += "/add";
       if (r.stage === "result") {
