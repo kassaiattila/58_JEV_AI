@@ -120,3 +120,14 @@ def test_the_service_only_reads_the_last_result(tmp_path, monkeypatch):
                                 "npm": {"ok": True, "packages": 137, "findings": []}}), encoding="utf-8")
     body = client.get("/api/system/deps-audit").json()["status"]
     assert body["finding_count"] == 0 and body["python"]["packages"] == 2 and not body["stale"]
+
+
+def test_the_audit_runs_a_pinned_tool_without_the_keys(monkeypatch):
+    """265 (code review TOOL-01): uvx downloaded the newest pip-audit unattended, and both tools inherited every key."""
+    monkeypatch.setattr(deps_audit.shutil, "which", lambda name: None if name == "pip-audit" else f"/bin/{name}")
+    assert deps_audit._pip_audit_cmd() == ["/bin/uvx", "--from", f"pip-audit=={deps_audit.PIP_AUDIT_VERSION}", "pip-audit"]
+    monkeypatch.setenv("OPENAI_API_KEY", "invented-value-for-the-test")
+    monkeypatch.setenv("SOME_SERVICE_TOKEN", "x" * 30)
+    monkeypatch.setenv("PATH_FOR_AUDIT", "kept")
+    env = deps_audit.clean_env()
+    assert "OPENAI_API_KEY" not in env and "SOME_SERVICE_TOKEN" not in env and env["PATH_FOR_AUDIT"] == "kept"

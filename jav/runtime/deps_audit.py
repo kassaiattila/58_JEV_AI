@@ -1,8 +1,8 @@
 """Regular dependency audit (075): known vulnerabilities in the pinned packages, with a date.
 
 Three checks, all free and read-only (they query public databases, not our data):
-- Python: `pip-audit -r requirements.lock --no-deps` (the installed `pip-audit`, or `uvx pip-audit` when only uv is
-  present);
+- Python: `pip-audit -r requirements.lock --no-deps` (the installed `pip-audit`, or, when only uv is present,
+  `uvx --from pip-audit==<PIP_AUDIT_VERSION> pip-audit`: 265, code review TOOL-01, never the newest one unattended);
 - UI: `npm audit --json` in `ui/` (the pinned `package-lock.json`);
 - runtime (158, review item C7 of 153): the latest patch release of the running Python's version line, from the public
   release list of endoflife.date (only the version line, e.g. 3.12, is in the address). uv's own download list is not
@@ -48,17 +48,30 @@ class Finding:
     fix: str | None = None
 
 
+PIP_AUDIT_VERSION = "2.10.0"  # 265 (code review TOOL-01): the version uvx runs; raised by hand, after a look at it
+
+
 def _pip_audit_cmd() -> list[str] | None:
     exe = shutil.which("pip-audit")
     if exe:
         return [exe]
     uvx = shutil.which("uvx")
-    return [uvx, "pip-audit"] if uvx else None
+    return [uvx, "--from", f"pip-audit=={PIP_AUDIT_VERSION}", "pip-audit"] if uvx else None
+
+
+def clean_env() -> dict[str, str]:
+    """265 (code review TOOL-01): the audit tools' environment: this process's without the provider keys and any
+    variable whose name says it holds a secret (`config.ENV_SECRET_NAME`); they query public databases only."""
+    from jav.core.config import API_KEY_ENV_VARS, AZURE_DI_ENV_VARS, ENV_SECRET_NAME, OPENAI_KEY_ENV_VAR
+
+    drop = {*API_KEY_ENV_VARS, OPENAI_KEY_ENV_VAR, *AZURE_DI_ENV_VARS}
+    return {k: v for k, v in os.environ.items() if k not in drop and not ENV_SECRET_NAME.search(k)} | {
+        "PYTHONIOENCODING": "utf-8"}
 
 
 def _run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                          timeout=TIMEOUT_S, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+                          timeout=TIMEOUT_S, env=clean_env())
 
 
 def parse_pip_audit(report: dict[str, Any]) -> tuple[int, list[Finding]]:
