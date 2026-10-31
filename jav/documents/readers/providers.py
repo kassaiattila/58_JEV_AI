@@ -121,6 +121,7 @@ def extract_gpt(delivery: Delivery, *, run_id: str, isolated_store: Path, max_tr
                       instructions=instructions, model_settings=settings, retries=0)
     completed = []
     config_hash = digest(json_bytes({"instructions": instructions, "response_format": response_format}))[:16]
+    planned = []
     for part in chunks:
         prompt = json_bytes(part).decode("utf-8")
         key = calls.answer_key("openai", OPENAI_MODEL, instructions, schema, prompt,
@@ -128,6 +129,16 @@ def extract_gpt(delivery: Delivery, *, run_id: str, isolated_store: Path, max_tr
         maximum = calls.estimate_max_cost(input_bytes=request_size(part), max_output_tokens=max_output_tokens,
             usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), rounds=1,
             repeats=1 + int(OPENAI_SETTINGS["sdk_max_retries"]))
+        planned.append((part, prompt, key, maximum))
+    # 265 (code review AI-01): a source in several parts is asked only when the budget left covers every part not
+    # answered before; otherwise nothing is spent (the second part used to be refused after the first was paid for)
+    if ctx.budget_scope is not None and len(planned) > 1:
+        needed = sum((m for _p, _t, k, m in planned if not (ctx.reuse and calls.answered("openai", k))), Decimal(0))
+        room = calls.left(ctx.budget_scope, "openai")
+        if room is not None and needed > room:
+            raise calls.BudgetExceeded(f"the source is read in {len(planned)} parts, up to {needed} USD; the budget has "
+                                       f"{room} USD left: nothing was asked")
+    for part, prompt, key, maximum in planned:
         result = calls.invoke(run_id=run_id, step_id=f"reader:gpt:{key}", provider="openai", model=OPENAI_MODEL,
             max_cost_usd=maximum, budget_scope=ctx.budget_scope, request_hash=key, reusable=True,
             fn=lambda: _ledgered_gpt(agent, prompt, settings, OPENAI_MODEL, run_id=run_id, config_hash=config_hash,

@@ -380,6 +380,21 @@ def has_budget(scope: str, provider: str) -> bool:
         return c.execute("SELECT 1 FROM budgets WHERE scope=? AND provider=?", (scope, provider)).fetchone() is not None
 
 
+def left(scope: str, provider: str) -> Decimal | None:
+    """265 (code review AI-01): what the provider's budget in `scope` has left (its limit less what is committed); None
+    when the scope has no budget for it."""
+    with store.connect() as c:
+        lim = c.execute("SELECT limit_usd FROM budgets WHERE scope=? AND provider=?", (scope, provider)).fetchone()
+        return None if lim is None else Decimal(lim["limit_usd"]) - _committed(c, scope, provider)
+
+
+def answered(provider: str, request_hash: str) -> bool:
+    """265 (code review AI-01): whether a call to the same question already succeeded (its answer may be reused)."""
+    with store.connect() as c:
+        return c.execute("SELECT 1 FROM invocations WHERE provider=? AND request_hash=? AND status='succeeded' LIMIT 1",
+                         (provider, request_hash)).fetchone() is not None
+
+
 def budget_usage(scope: str) -> dict[str, Any]:
     with store.connect() as c:
         limits = {r["provider"]: Decimal(r["limit_usd"]) for r in c.execute("SELECT provider, limit_usd FROM budgets WHERE scope=?", (scope,))}
