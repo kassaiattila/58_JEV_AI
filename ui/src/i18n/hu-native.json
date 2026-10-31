@@ -5360,5 +5360,6 @@
   "a disagreement is still open; settle it before the facts are frozen": "egy eltérés még nincs rendezve; rendezd, mielőtt a tényeket rögzíted",
   "the module {{module}} requires {{required}}, which is not asked for": "a(z) „{{module}}” modulhoz a(z) „{{required}}” is kell, de azt nem kérték",
   "the module {{module}} excludes {{other}}, which is asked for too": "a(z) „{{module}}” modul kizárja a(z) „{{other}}” modult, amelyet szintén kértek",
-  "the condition document {{document}} is not in force on {{date}}": "a(z) „{{document}}” feltételdokumentum nincs hatályban ekkor: {{date}}"
+  "the condition document {{document}} is not in force on {{date}}": "a(z) „{{document}}” feltételdokumentum nincs hatályban ekkor: {{date}}",
+  "the number can be read two ways; a person checks it": "a szám kétféleképpen olvasható; egy személy ellenőrzi"
 }
