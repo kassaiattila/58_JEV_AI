@@ -639,7 +639,7 @@ Below the processing's description, **Bank files the system reads** (*A rendszer
 
 ### 10.5 Users
 
-The names offered by **Who is working?**. Add a new name with the ‘New name’ (*Új név*) field and the **Add** (*Felvétel*) button; delete one with **Delete** (it asks for confirmation). Both are saved immediately. A name may contain letters, digits, spaces, dots, @ and hyphens, up to 64 characters. If the list is not empty, changes can only be made with a name on the list, and the batch owner is also chosen from it.
+The names offered by **Who is working?**, as the one list (since `v1.70.0`): each name opens its own page, with when it was added. **New user** (*Új felhasználó*) in the title row opens the ‘New name’ (*Új név*) field with **Cancel** and **Add** (*Felvétel*); a name's page removes it with **Remove from the list** (*Eltávolítás a listáról*, it asks for confirmation; the name stays on what it did before). Both are saved immediately. A name may contain letters, digits, spaces, dots, @ and hyphens, up to 64 characters. If the list is not empty, changes can only be made with a name on the list, and the batch owner is also chosen from it.
 
 ### 10.6 Appearance and language
 

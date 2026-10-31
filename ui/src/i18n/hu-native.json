@@ -5304,5 +5304,11 @@
   "No schedules yet: “New schedule” saves one.": "Még nincs ütemezés: az „Új ütemezés” ment egyet.",
   "Give a mailbox address.": "Adj meg egy postafiókcímet.",
   "The schedule has been saved.": "Az ütemezés mentve.",
-  "It is not among the schedules (any more).": "Nincs (már) az ütemezések között."
+  "It is not among the schedules (any more).": "Nincs (már) az ütemezések között.",
+  "New user": "Új felhasználó",
+  "Added": "Felvéve",
+  "Remove from the list": "Eltávolítás a listáról",
+  "Remove {{name}} from the list?": "Eltávolítod {{name}} nevét a listáról?",
+  "The name stays on what it did before (corrections, approvals, runs); it is only no longer offered.": "A név megmarad azon, amit korábban tett (javítások, jóváhagyások, futások); csak többé nem kínáljuk fel.",
+  "It is not on the list (any more).": "Nincs (már) a listán."
 }

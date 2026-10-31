@@ -147,10 +147,19 @@ def save_users(names: list[str]) -> list[str]:
         raise ValueError("user names may contain letters, digits, space, dot, @ or hyphen (max 64): " + ", ".join(bad))
     if len(clean) > 200:
         raise explained(ValueError, "at most 200 users")
+    # 264 (F6): a name that stays keeps when it was added (its page says so); only the new ones get the time now
     with store.connect() as c:
+        added = {r["name"]: r["created_at"] for r in c.execute("SELECT name, created_at FROM app_users")}
         c.execute("DELETE FROM app_users")
-        c.executemany("INSERT INTO app_users(name, created_at) VALUES (?,?)", [(n, _iso(_now())) for n in clean.values()])
+        c.executemany("INSERT INTO app_users(name, created_at) VALUES (?,?)",
+                      [(n, added.get(n) or _iso(_now())) for n in clean.values()])
     return users()
+
+
+def user_rows() -> list[dict[str, Any]]:
+    """264 (F6): every name of the list with when it was added (Settings › Users)."""
+    with store.connect() as c:
+        return [dict(r) for r in c.execute("SELECT name, created_at FROM app_users ORDER BY name COLLATE NOCASE")]
 
 
 # --- watched work folders -----------------------------------------------------------------------------------

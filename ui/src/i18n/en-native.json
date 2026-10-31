@@ -5266,5 +5266,11 @@
   "No schedules yet: “New schedule” saves one.": "No schedules yet: “New schedule” saves one.",
   "Give a mailbox address.": "Give a mailbox address.",
   "The schedule has been saved.": "The schedule has been saved.",
-  "It is not among the schedules (any more).": "It is not among the schedules (any more)."
+  "It is not among the schedules (any more).": "It is not among the schedules (any more).",
+  "New user": "New user",
+  "Added": "Added",
+  "Remove from the list": "Remove from the list",
+  "Remove {{name}} from the list?": "Remove {{name}} from the list?",
+  "The name stays on what it did before (corrections, approvals, runs); it is only no longer offered.": "The name stays on what it did before (corrections, approvals, runs); it is only no longer offered.",
+  "It is not on the list (any more).": "It is not on the list (any more)."
 }

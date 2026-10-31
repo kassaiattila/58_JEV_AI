@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav.app import datasets, partners, process_packs, product_rules, rule_proposal_runs
+from jav.app import app_settings, datasets, partners, process_packs, product_rules, rule_proposal_runs
 from jav.app.datasets import Dataset, LabelSet, Rows, col
 from jav.app.tablequery import fold
 from jav.core import display, versions
@@ -97,6 +97,13 @@ def _partners(_scope: dict[str, str]) -> Rows:
               "roles": display.text("Own party"), "tax_number": o["tax_number"], "email": None, "state": versions.ACTIVE,
               "changed_at": o["changed_at"]} for o in partners.own_listing()]
     return cols, sorted(rows, key=lambda r: fold(r["name"]))  # by name, the own parties among them
+
+
+def _users(_scope: dict[str, str]) -> Rows:
+    """264 (plan E, F6; the owner's decision of 2026-10-31: the small lists the one list too): the names "Who is
+    working?" offers, each opening its own page."""
+    cols = [col("name", "Name", link="settings", section="users"), col("added", "Added", "datetime")]
+    return cols, [{"_key": u["name"], "name": u["name"], "added": u["created_at"]} for u in app_settings.user_rows()]
 
 
 def _registry(kind: str) -> list[dict[str, Any]]:
@@ -310,6 +317,7 @@ DATASETS = (
     Dataset("settings_proposal_runs", "Rule proposals", (), _proposal_runs, natural_sort=(("requested_at", True),)),
     Dataset("settings_output_templates", "Output templates", (), _templates),
     Dataset("settings_letter_frames", "Letter frames", (), _frames),
+    Dataset("settings_users", "Users", (), _users, natural_sort=(("name", False),)),  # 264 (F6)
 )
 
 

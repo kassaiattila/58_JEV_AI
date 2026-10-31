@@ -119,7 +119,7 @@ export function Settings({ section, item, tab, open: part }: { section: Settings
             {current.key === "rules" ? <RulesPanel item={item} /> : null}
             {current.key === "outputs" ? <OutputTemplatesPanel item={item} tab={tab} /> : null}
             {current.key === "letters" ? <LetterFramesPanel item={item} tab={tab} /> : null}
-            {current.key === "users" ? <UsersPanel /> : null}
+            {current.key === "users" ? <UsersPanel item={item} /> : null}
             {current.key === "appearance" ? <AppearancePanel /> : null}
             {current.key === "system" ? <SystemPanel /> : null}
             {settingsParts(current.key).map(({ title, Panel }) => (  // 231 (C3e): what the domains add to a shared section

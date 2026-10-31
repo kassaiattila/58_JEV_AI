@@ -47,7 +47,7 @@ describe("work folders (157)", () => {
 describe("users (157)", () => {
   it("makes the add button solid only once a name is typed", async () => {
     vi.spyOn(api, "users").mockResolvedValue({ users: ["Synthetic reviewer"] });
-    render(<UsersPanel />);
+    render(<UsersPanel item="new" />);  // 264 (F6): a name is added on its own page
     const add = await screen.findByRole("button", { name: "Add" });
     expect(add.classList.contains("primary")).toBe(false);
     fireEvent.change(screen.getByLabelText("New name"), { target: { value: "Second reviewer" } });
