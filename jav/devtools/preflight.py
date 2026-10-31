@@ -37,6 +37,8 @@ KEEP_LOGS = 20
 _LOG_DIR = re.compile(r"^\d{8}_\d{6}$")
 # 189: pytest-xdist runs the tests in this many processes at most (the full suite took 30 min in one, under 5 in six)
 MAX_TEST_WORKERS = 6
+GB_PER_TEST_WORKER = 1.5  # 265 (code review TOOL-05): what one pytest process may take at its peak
+UI_TEST_WORKERS = 2  # 265 (TOOL-05): the UI's test processes beside the Python ones (vitest took 7 of 8 cores)
 SLOWEST_SHOWN = 25  # the slowest tests listed in the raw output, so a new time sink shows
 
 
@@ -46,7 +48,32 @@ def parallel_workers() -> int:
     if importlib.util.find_spec("xdist") is None:
         return 0
     workers = min(MAX_TEST_WORKERS, (os.cpu_count() or 1) - 2)
+    free = available_memory_gb()
+    if free is not None:  # 265 (code review TOOL-05): no more processes than the free memory holds
+        workers = min(workers, int(free // GB_PER_TEST_WORKER))
     return workers if workers >= 2 else 0
+
+
+def available_memory_gb() -> float | None:
+    """The machine's free physical memory in GB (Windows: `GlobalMemoryStatusEx`; elsewhere `sysconf`), or None."""
+    try:
+        if os.name == "nt":
+            import ctypes
+
+            class _Status(ctypes.Structure):
+                _fields_ = [("length", ctypes.c_ulong), ("load", ctypes.c_ulong), ("total", ctypes.c_ulonglong),
+                            ("avail", ctypes.c_ulonglong), ("total_page", ctypes.c_ulonglong),
+                            ("avail_page", ctypes.c_ulonglong), ("total_virtual", ctypes.c_ulonglong),
+                            ("avail_virtual", ctypes.c_ulonglong), ("avail_ext", ctypes.c_ulonglong)]
+
+            status = _Status()
+            status.length = ctypes.sizeof(_Status)
+            if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+                return None
+            return status.avail / 1e9
+        return os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") / 1e9
+    except (AttributeError, OSError, ValueError):
+        return None
 
 
 def log_folder() -> Path:
@@ -133,7 +160,8 @@ def run_ui_checks(folder: Path | None = None, *, ui_dir: Path = UI_DIR) -> tuple
     folder = folder or log_folder()
     junit = folder / "vitest-junit.xml"
     r = subprocess.run(
-        [str(vitest_bin), "run", "--reporter=default", "--reporter=junit", f"--outputFile.junit={junit}"],
+        [str(vitest_bin), "run", f"--maxWorkers={UI_TEST_WORKERS}", "--reporter=default", "--reporter=junit",
+         f"--outputFile.junit={junit}"],
         cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     (folder / "vitest.txt").write_text((r.stdout or "") + (f"\n--- stderr ---\n{r.stderr}" if r.stderr else ""), encoding="utf-8")

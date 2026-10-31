@@ -17,7 +17,8 @@ export default defineConfig({
   // D0 (2026-10-26): Node 26 turns its own Web Storage on, whose `localStorage` (undefined without a storage file) hides
   // jsdom's in the test workers; the workers start with it off, so the tests read the browser-like storage as before.
   test: {
-    environment: "jsdom", globals: true, setupFiles: ["src/test-setup.ts"], testTimeout: 30000,
+    // 265 (code review TOOL-05): two test processes, beside the Python suite's (all cores but one before)
+    environment: "jsdom", globals: true, setupFiles: ["src/test-setup.ts"], testTimeout: 30000, maxWorkers: 2,
     execArgv: ["--no-experimental-webstorage"],
   },
 });
