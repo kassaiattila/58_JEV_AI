@@ -2,9 +2,9 @@
 
 ## Plain-language summary
 
-The experimental reader package processes local files and decoded email attachments through the same bounded reading path. It preserves original bytes, source occurrences, structural evidence and visible gaps. It can propose flexible business facts through GPT, choose requested fields with JEV, or ask JEV to assess GPT proposals. Model results remain unreviewed; literal source matching is not a claim of business correctness.
+The reader package processes local files and decoded email attachments through the same bounded reading path; the live native processing of DOCX, XLSX, TXT and CSV documents uses it. It preserves original bytes, source occurrences, structural evidence and visible gaps. It can propose flexible business facts through GPT, choose requested fields with JEV, or ask JEV to assess GPT proposals. Model results remain unreviewed; literal source matching is not a claim of business correctness.
 
-The package runs separately from application ingestion, workers, review and the production store. Its command does not download mail or call a provider. Its PDF adapter reuses the application's line builder and word-layer model without changing the existing application PDF path.
+Its own command runs separately from application ingestion, workers, review and the production store, and does not download mail or call a provider; the application's native path calls the same readers inside a run. Its PDF adapter reuses the application's line builder and word-layer model without changing the existing application PDF path.
 
 ## Run a local experiment
 
