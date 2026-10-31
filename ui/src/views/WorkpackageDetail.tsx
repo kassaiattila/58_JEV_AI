@@ -101,7 +101,14 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
         summary={<><span className="mono">{wpId}</span>: {t("no document batch exists with this ID (or it was deleted). Choose one from the list.")}</>} />
     );
   }
-  if (wp.error) return <p className="notice error" role="alert">{wp.error.message}</p>;
+  if (wp.error) {  // 263 (F2): the crumbs stay on an error too
+    return (
+      <>
+        <PageHeader crumbs={[{ label: t("Cases"), href: "#/cases" }]} title={t("The document batch cannot be shown")} />
+        <p className="notice error" role="alert">{wp.error.message}</p>
+      </>
+    );
+  }
   if (!wp.data) return <p className="muted">{t("Loading…")}</p>;
   const view = wp.data;
   if (view.case) return <CasePage caseId={view.case.id} />;  // 231 (A6): a case's container shows its case

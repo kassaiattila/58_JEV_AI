@@ -5211,5 +5211,11 @@
   "Delete {{party}}? Its names and accounts are proposed again.": "Delete {{party}}? Its names and accounts are proposed again.",
   "Make version {{n}} active? New cases use it from now on; the cases started earlier keep theirs.": "Make version {{n}} active? New cases use it from now on; the cases started earlier keep theirs.",
   "Retire it? New cases no longer use it; a case started with it keeps it.": "Retire it? New cases no longer use it; a case started with it keeps it.",
-  "Retire {{name}}? New cases no longer offer it; the earlier ones keep it.": "Retire {{name}}? New cases no longer offer it; the earlier ones keep it."
+  "Retire {{name}}? New cases no longer offer it; the earlier ones keep it.": "Retire {{name}}? New cases no longer offer it; the earlier ones keep it.",
+  "The case cannot be shown": "The case cannot be shown",
+  "The document batch cannot be shown": "The document batch cannot be shown",
+  "The run cannot be shown": "The run cannot be shown",
+  "The workflow cannot be shown": "The workflow cannot be shown",
+  "There is no such page": "There is no such page",
+  "no page of the workspace has this address. Choose one from the menu.": "no page of the workspace has this address. Choose one from the menu."
 }

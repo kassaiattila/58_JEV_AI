@@ -23,7 +23,7 @@ function WorkpackageList() {
   const scope = { ...(archived ? { include_archived: "1" } : {}), ...(mine && actor ? { owner: actor } : {}) };
   return (
     <>
-      <PageHeader crumbs={[{ label: t("Settings"), href: "#/settings/system" }]} title={t("All document batches")}
+      <PageHeader crumbs={[{ label: t("Settings"), href: "#/settings" }, { label: t("Operations"), href: "#/settings/system" }]} title={t("All document batches")}
         badge={count !== null ? <span className="count">{count}</span> : null}
         summary={t("Every document batch that is not a case step's, to find an old one; the documents of a batch run together: processing, review, result. New work starts as a case, under Cases.")}
         actions={<a className="button secondary" href="#/cases/new">{t("New case")}</a>} />

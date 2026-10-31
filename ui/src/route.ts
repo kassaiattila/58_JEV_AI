@@ -47,7 +47,9 @@ export type Route =
   | { view: "waiting"; all?: boolean }
   /** an old report or data address: leads to the Result section of the run's package (the package has to be looked up
    *  from the run) */
-  | { view: "legacy-result"; runId?: string; table?: ResultTable };
+  | { view: "legacy-result"; runId?: string; table?: ResultTable }
+  /** 263 (F2): an address no page has; it says so instead of opening another page silently */
+  | { view: "not-found"; path: string };
 
 /** A work package's three sections (057). */
 export const STAGES: Stage[] = ["process", "review", "result"];
@@ -145,10 +147,12 @@ export function parseRoute(hash: string): Route {
       return { view: "legacy-result", runId: params.get("run_id") ?? undefined, table: OLD_DATASET[parts[1] ?? ""] };
     case "workpackages":
       return parts[1] ? batchRoute(parts.slice(1), params) : { view: "workpackages" };
-    default: {  // 231 (U2a): an unknown address opens the one work list, the cases
+    default: {  // 231 (U2a): no address opens the one work list, the cases
       // 261: an older address of a settings section (the mailboxes' `#/mailbox`, 057) opens that section
       const aliased = settingsSections().find((s) => parts[0] && s.aliases?.includes(parts[0]));
-      return aliased ? { view: "settings", section: aliased.key } : { view: "case-list" };
+      if (aliased) return { view: "settings", section: aliased.key };
+      // 263 (F2): an address no page has says so
+      return parts[0] ? { view: "not-found", path: parts.join("/") } : { view: "case-list" };
     }
   }
 }
@@ -165,6 +169,7 @@ export function routeHash(r: Route): string {
     case "case-list": return r.create ? (r.pack ? `#/cases/new/${e(r.pack)}${r.after ? `?after=${e(r.after)}` : ""}` : "#/cases/new") : "#/cases";
     case "workflows": return r.wfId ? `#/workflows/${e(r.wfId)}` : "#/workflows";
     case "legacy-result": return r.runId ? `#/reports/${e(r.runId)}` : "#/reports";
+    case "not-found": return `#/${r.path}`;
     case "workpackages": {
       if (!r.wpId) return "#/workpackages";
       // 261 (B1c): a case's step's batch under its case

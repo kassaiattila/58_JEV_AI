@@ -62,11 +62,14 @@ export function StartConfirm({ view, mode, rerun, pending = false, onChanged }: 
     setBusy(true);
     setMsg(null);
     try {
-      const res = await api.start(wp.id, supplement
+      await api.start(wp.id, supplement
         ? { mode: effectiveMode, scope: "pending", expected_revision: readiness.assignment_revision, input_hash: supplement.input_hash }
         : { mode: effectiveMode, expected_revision: readiness.assignment_revision, input_hash: readiness.input_hash,
           ...(rerun && target ? { rerun_of: target.run_id } : {}) });
-      go({ view: "run", runId: res.run_id });
+      // 263 (F2; the owner's decision of 2026-10-31): the person stays where the work is - the batch's Processing
+      // stage shows the run's progress, under its case
+      onChanged();
+      go({ view: "workpackages", wpId: wp.id, stage: "process" });
     } catch (e) {
       const err = e as ApiError;
       setMsg(err.status === 409 && err.code === "revision_conflict"

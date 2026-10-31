@@ -30,7 +30,8 @@ export class ErrorBoundary extends Component<{ children: ReactNode; view?: boole
         <p className="muted small mono">{this.state.error.message}</p>
         <div className="button-row">
           <button type="button" className="primary" onClick={() => window.location.reload()}>{t("Reload")}</button>
-          {this.props.view ? <a className="secondary" href="#/workpackages">{t("Back to the work packages")}</a> : null}
+          {/* 263 (F2): the way out is the cases, the one work list */}
+          {this.props.view ? <a className="button secondary" href="#/cases">{t("Cases")}</a> : null}
         </div>
       </>
     );

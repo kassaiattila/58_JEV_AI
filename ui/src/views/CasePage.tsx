@@ -359,7 +359,14 @@ export function CasePage({ caseId, tab, sub, of, batch }: { caseId: string; tab?
         summary={<><span className="mono">{caseId}</span>: {t("there is no case with this identifier.")}</>} />
     );
   }
-  if (page.error) return <p className="notice error" role="alert">{page.error.message}</p>;
+  if (page.error) {  // 263 (F2): the crumbs stay on an error too
+    return (
+      <>
+        <PageHeader crumbs={[{ label: t("Cases"), href: "#/cases" }]} title={t("The case cannot be shown")} />
+        <p className="notice error" role="alert">{page.error.message}</p>
+      </>
+    );
+  }
   if (!page.data || parent) return <p className="muted">{t("Loading…")}</p>;
   const view = page.data;
   const props = (element: CaseElement): ElementProps => ({ caseId, element, page: view, onChanged: changed, onView: answered });

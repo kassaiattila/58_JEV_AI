@@ -5249,5 +5249,11 @@
   "Delete {{party}}? Its names and accounts are proposed again.": "Törlöd: {{party}}? A nevei és a bankszámlái újra javaslatként jelennek meg.",
   "Make version {{n}} active? New cases use it from now on; the cases started earlier keep theirs.": "Élesíted a(z) {{n}}. változatot? Mostantól az új ügyek ezt használják; a korábban indult ügyek megtartják a sajátjukat.",
   "Retire it? New cases no longer use it; a case started with it keeps it.": "Kivezeted? Az új ügyek már nem használják; az ezzel indult ügy megtartja.",
-  "Retire {{name}}? New cases no longer offer it; the earlier ones keep it.": "Kivezeted: {{name}}? Az új ügyek már nem kínálják; a korábbiak megtartják."
+  "Retire {{name}}? New cases no longer offer it; the earlier ones keep it.": "Kivezeted: {{name}}? Az új ügyek már nem kínálják; a korábbiak megtartják.",
+  "The case cannot be shown": "Az ügy nem jeleníthető meg",
+  "The document batch cannot be shown": "Az iratköteg nem jeleníthető meg",
+  "The run cannot be shown": "A futás nem jeleníthető meg",
+  "The workflow cannot be shown": "A munkafolyamat nem jeleníthető meg",
+  "There is no such page": "Nincs ilyen lap",
+  "no page of the workspace has this address. Choose one from the menu.": "a munkafelületnek nincs ilyen című lapja. Válassz a menüből."
 }
