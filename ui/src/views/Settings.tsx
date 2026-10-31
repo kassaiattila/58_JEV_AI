@@ -17,7 +17,7 @@ import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { settingsHash, type SettingsSection } from "../route";
 import { SETTINGS_GROUPS, settingsParts, settingsSections } from "../logic/settingsSections";
-import { groupKey, isThing, sectionKey, selectedKey, SettingsTitleSlot, useSettingsTree } from "./settings/settingsTree";
+import { groupKey, isThing, sectionKey, selectedKey, SettingsCrumbSlot, SettingsTitleSlot, useSettingsTree, type SettingsCrumb } from "./settings/settingsTree";
 import { RecipesPanel } from "./RecipeInfo";
 import { RunList } from "./Runs";
 import { AppearancePanel } from "./settings/AppearancePanel";
@@ -58,6 +58,7 @@ export function Settings({ section, item, tab, open: part }: { section: Settings
   const [slot, setSlot] = useState<HTMLDivElement | null>(null);
   const [open, setOpen] = useState<Set<string>>(loadOpen);
   const [thingTitle, setThingTitle] = useState<string | null>(null);
+  const [thingCrumb, setThingCrumb] = useState<SettingsCrumb | null>(null);  // 264: a sub-page's thing
   // 231 (C3e): the shared sections and the domains' own (`logic/settingsSections.ts`), in their order
   const sections = settingsSections();
   const current = sections.find((s) => s.key === section) ?? sections[0];
@@ -76,7 +77,7 @@ export function Settings({ section, item, tab, open: part }: { section: Settings
   const way = pathTo(tree, chosen).map((k) => findNode(tree, k)).filter((n): n is NavNode => n !== null);
   const node = findNode(tree, chosen);
   const crumbs = [{ label: t("Settings"), href: "#/settings" }, ...way.map((n) => ({ label: n.label, href: n.href })),
-    ...(thing && node ? [{ label: node.label, href: node.href }] : [])];
+    ...(thing && node ? [{ label: node.label, href: node.href }] : []), ...(thing && thingCrumb ? [thingCrumb] : [])];
   const Own = current.Panel;
   // 264 (F5): the bare address (the Settings crumb) is Settings' own page: its groups and sections, each with what it is for
   if (!section) {
@@ -101,6 +102,7 @@ export function Settings({ section, item, tab, open: part }: { section: Settings
         <PageHeader crumbs={crumbs} title={(thing ? thingTitle : null) ?? node?.label ?? t(current.label)} compact
           summary={!thing && chosen === sectionKey(current.key) && !OWN_INTRO.has(current.key) ? t(current.hint) : undefined} actionsSlot={setSlot} />
         <SettingsTitleSlot value={setThingTitle}>
+        <SettingsCrumbSlot value={setThingCrumb}>
         <PageActionsSlot value={slot}>
           <div className="settings-body">
             {Own ? <Own item={item} tab={tab} open={part} /> : null}
@@ -125,6 +127,7 @@ export function Settings({ section, item, tab, open: part }: { section: Settings
             ))}
           </div>
         </PageActionsSlot>
+        </SettingsCrumbSlot>
         </SettingsTitleSlot>
       </div>
     </div>

@@ -24,7 +24,7 @@ import { VersionState } from "../../components/VersionState";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { go, settingsHash } from "../../route";
-import { settingsChanged, useSettingsTitle } from "./settingsTree";
+import { settingsChanged, useSettingsCrumb, useSettingsTitle } from "./settingsTree";
 
 const LIST = "settings_output_templates";
 const NEW = "new";
@@ -125,7 +125,9 @@ export function OutputTemplatesPanel({ item, tab }: { item?: string; tab?: strin
   const templates = data.data?.templates ?? [];
   const tpl = item && item !== NEW && item !== MARKERS ? templates.find((x) => x.template === item) : undefined;
   const changed = () => { data.reload(); settingsChanged(); };
-  useSettingsTitle(item === NEW ? t("Upload a template") : item === MARKERS ? t("The markers") : tpl ? (tab === UPLOAD ? t("New version of {{name}}", { name: tpl.name }) : tpl.name) : null);
+  useSettingsTitle(item === NEW ? t("Upload a template") : item === MARKERS ? t("The markers") : tpl ? (tab === UPLOAD ? t("New version") : tpl.name) : null);
+  // 264 (F5): a new version's page has its template among the crumbs
+  useSettingsCrumb(tpl && tab === UPLOAD ? { label: tpl.name, href: settingsHash("outputs", tpl.template) } : null);
   if (data.error) return <p className="notice error" role="alert">{data.error.message}</p>;
   if (!data.data) return <p className="muted">{t("Loading…")}</p>;
   if (item === MARKERS) return <MarkersCard groups={data.data.outputs} />;
