@@ -112,7 +112,8 @@ def _case_rows(c: Any, *, closed: bool) -> list[dict[str, Any]]:
             "wp": wp, "case": case, "pack": pack, "parent": parent, "open": _open_steps(case, steps, order),
             "row": {"id": wp["id"], "name": wp["name"], "process": pack.title, "version": pack.version, "pack": pack.id,
                     "_repeats": pack.repeats,
-                    "status": case["status"], "owner": wp["owner"], "created_at": wp["created_at"],
+                    "status": case["status"], "_hidden": wp["status"] == "archived", "owner": wp["owner"],
+                    "created_at": wp["created_at"],
                     "updated_at": case["updated_at"],
                     "party": party_names.get(scope.get("party_id") or "") if scope.get("party_id") else None,
                     "period": f"{start} – {end}" if start and end else start or None, "_key": wp["id"], "_wp": wp["id"],
@@ -123,8 +124,8 @@ def _case_rows(c: Any, *, closed: bool) -> list[dict[str, Any]]:
     for case_id, info in found.items():
         if info["parent"] and info["parent"]["case"] in found:
             continue  # 263 (F3): a sub-case is its main case's step, not a row of its own
-        if info["case"]["status"] != cases.OPEN and not closed:
-            continue
+        if not closed and (info["case"]["status"] != cases.OPEN or info["row"]["_hidden"]):
+            continue  # 265 (code review APPW-02): a hidden case only with the closed ones, as before 263 F3
         shown: list[tuple[str, str]] = []  # (the step's title, what it waits for), a sub-case's own resolved
         for step_id, title, waits in info["open"]:
             sub = found.get(subs.get((case_id, step_id), ""))
@@ -180,7 +181,7 @@ def _fingerprint(_scope: dict[str, str]) -> str:
 def _in_view(row: dict[str, Any], view: str, actor: str | None, pack: str | None) -> bool:
     if pack and row["pack"] != pack:
         return False
-    is_open = row["status"] == cases.OPEN
+    is_open = row["status"] == cases.OPEN and not row.get("_hidden")  # 265 (APPW-02): a hidden case is no open one
     if view == "all":
         return True
     if view == "closed":
@@ -203,7 +204,7 @@ def view_counts(actor: str | None) -> dict[str, Any]:
     for r in rows:
         entry = by.setdefault(r["pack"], {"pack": r["pack"], "title": r["process"], "open": 0, "all": 0, "repeats": r["_repeats"]})
         entry["all"] += 1
-        entry["open"] += r["status"] == cases.OPEN
+        entry["open"] += r["status"] == cases.OPEN and not r.get("_hidden")
     return {"views": counts, "processes": sorted(by.values(), key=lambda e: e["title"])}
 
 
