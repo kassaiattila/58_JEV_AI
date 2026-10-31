@@ -24,9 +24,9 @@ def test_a_text_file_over_the_limit_is_refused_before_it_is_read(tmp_path, monke
 
 def test_a_text_that_is_not_utf8_is_a_named_error(tmp_path) -> None:
     latin = tmp_path / "level.txt"
-    latin.write_bytes("Számla összege: 1 500 Ft".encode("cp1250"))
+    latin.write_bytes(b"Total: 1500 \xe9\xe1 \xf5")  # accented letters in Windows-1250, not UTF-8
     with pytest.raises(text_document.TextDocumentError, match="not UTF-8"):
         text_document.read_file(latin)
     utf8 = tmp_path / "ok.txt"
-    utf8.write_text("Számla", encoding="utf-8")
-    assert text_document.read_file(utf8) == "Számla"
+    utf8.write_text("Invoice", encoding="utf-8")
+    assert text_document.read_file(utf8) == "Invoice"
