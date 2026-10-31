@@ -109,6 +109,7 @@ export function linkOf(col: DsColumn, row: DsRow): string | null {
     }
     case "review":
     case "item": return wp ? `${wp}/review/${e(item)}` : null;
+    case "workflow": return `#/workflows/${e(row._key)}`;  // 264 (F6): an earlier workflow's page
     default: return null;
   }
 }

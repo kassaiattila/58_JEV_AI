@@ -7,8 +7,11 @@
 // this list keeps the workflows made before readable, without a new one or a repeat (the links between repeats stay).
 import { Fragment, useEffect, useRef, useState } from "react";
 import {
-  api, ApiError, type WorkflowBrief, type WorkflowBudget, type WorkflowRow, type WorkflowStep, type WorkflowView,
+  api, ApiError, type DsRow, type WorkflowBrief, type WorkflowBudget, type WorkflowStep, type WorkflowView,
 } from "../../api";
+import { ConfirmButton } from "../../components/ConfirmButton";
+import { DataTable } from "../../components/DataTable";
+import { ItemSteps } from "../../components/ItemSteps";
 import { PageHeader } from "../../components/PageHeader";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
@@ -27,70 +30,36 @@ function StepState({ status }: { status: WorkflowStep["status"] }) {
   return <span className={`status s-${stepMark(status)}`}>{STEP_STATUS[status] ?? status}</span>;
 }
 
+const LIST = "earlier_workflows";
+
+/** 264 (plan E, F6; the owner's decision of 2026-10-31: the small lists the one list too): the workflows made before are
+ *  the one list of the service - search, sort, grouped or filtered by their template, party, next step's state or
+ *  their own state (the archived ones among them, until now behind a checkbox) - each opening its page. */
 function WorkflowList() {
   useLocale();
-  const [archived, setArchived] = useState(true);  // 231 (U2c): an earlier workflow is mostly an archived one
-  const [party, setParty] = useState("");
-  const [state, setState] = useState<"all" | "attention" | "done">("all");
-  const [search, setSearch] = useState("");
-  const list = useLoad(`workflows:${archived}`, () => api.workflows(archived), 10000);
-  const rows = (list.data?.workflows ?? []).filter((w) =>
-    (!party || w.party_id === party)
-    && (state === "all" || (state === "done" ? w.done === w.total : w.done < w.total && w.next !== null))
-    && (!search.trim() || `${w.name} ${w.party} ${w.template_title}`.toLowerCase().includes(search.trim().toLowerCase())));
-  // 181: a workflow whose steps need no party has none
-  const parties = [...new Map((list.data?.workflows ?? []).filter((w) => w.party_id).map((w) => [w.party_id as string, w.party])).entries()];
   return (
     <>
-      <PageHeader title={t("Earlier workflows")} badge={list.data ? <span className="count">{list.data.workflows.length}</span> : null}
+      <PageHeader title={t("Earlier workflows")}
         crumbs={[{ label: t("Settings"), href: "#/settings" }, { label: t("Operations"), href: "#/settings/system" }]}
         summary={t("A workflow of several steps is a process now: start one under Cases › New case. These are the workflows made before; each one's page shows where its chain stands.")}
         actions={<a className="button secondary" href="#/cases/new">{t("New case")}</a>} />
-      <div className="toolbar wf-filters">
-        <label className="inline small">{t("Search")}<input value={search} onChange={(e) => setSearch(e.target.value)} /></label>
-        <label className="inline small">{t("Own party")}
-          <select value={party} onChange={(e) => setParty(e.target.value)}>
-            <option value="">{t("All")}</option>
-            {parties.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-          </select>
-        </label>
-        <label className="inline small">{t("State")}
-          <select value={state} onChange={(e) => setState(e.target.value as typeof state)}>
-            <option value="all">{t("All")}</option>
-            <option value="attention">{t("Needs a person")}</option>
-            <option value="done">{t("Every step done")}</option>
-          </select>
-        </label>
-        <label className="check small"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> {t("Archived ones too")}</label>
-      </div>
-      {list.error ? <p className="notice error" role="alert">{list.error.message}</p> : null}
-      {list.data && !rows.length ? <p className="muted">{list.data.workflows.length ? t("No workflow matches the filters.") : t("No earlier workflow.")}</p> : null}
-      {rows.length ? (
-        <table className="table compact wf-list" aria-label={t("Earlier workflows")}>
-          <thead><tr><th>{t("Name")}</th><th>{t("Own party")}</th><th>{t("Period")}</th><th>{t("Steps")}</th><th>{t("Next")}</th></tr></thead>
-          <tbody>{rows.map((w) => <WorkflowListRow key={w.id} w={w} />)}</tbody>
-        </table>
-      ) : null}
+      <DataTable dataset={LIST} label={t("Earlier workflows")} storageId={LIST} persist={LIST} pollMs={10000}
+        emptyText={t("No earlier workflow.")} cell={(col, row) => (col.key === "done" ? <StepChain row={row} /> : undefined)} />
     </>
   );
 }
 
-function WorkflowListRow({ w }: { w: WorkflowRow }) {
+/** How many of a workflow's steps are done, and its chain with each step's state mark. */
+function StepChain({ row }: { row: DsRow }) {
   useLocale();
-  const next = w.next ? w.steps.find((s) => s.id === w.next!.step) : null;
+  const steps = (row._steps ?? []) as { title: string; status: WorkflowStep["status"] }[];
   return (
-    <tr className={w.status === "archived" ? "muted" : undefined}>
-      <td><a href={`#/workflows/${encodeURIComponent(w.id)}`}><strong>{w.name}</strong></a><div className="small muted">{t(w.template_title)}</div></td>
-      <td>{w.party ?? "—"}</td>
-      <td className="wf-period">{w.period_start ? `${w.period_start} – ${w.period_end}` : "—"}</td>
-      <td>
-        <span className="small">{t("{{done}} of {{total}} done", { done: w.done, total: w.total })}</span>
-        <div className="wz-chain small">{w.steps.map((s, i) => (
-          <Fragment key={s.id}>{i ? <span aria-hidden="true"> → </span> : null}<span title={STEP_STATUS[s.status]} className={`status s-${stepMark(s.status)}`}>{t(s.title)}</span></Fragment>
-        ))}</div>
-      </td>
-      <td>{next && w.next ? <div className="wf-next-cell"><span>{t(next.title)}</span> <StepState status={w.next.status} /></div> : w.done === w.total ? t("Every step done") : "–"}</td>
-    </tr>
+    <>
+      <span className="small">{t("{{done}} of {{total}} done", { done: Number(row.done), total: Number(row.total) })}</span>
+      <div className="wz-chain small">{steps.map((st, i) => (
+        <Fragment key={i}>{i ? <span aria-hidden="true"> → </span> : null}<span title={STEP_STATUS[st.status]} className={`status s-${stepMark(st.status)}`}>{st.title}</span></Fragment>
+      ))}</div>
+    </>
   );
 }
 
@@ -150,11 +119,15 @@ function WorkflowControl({ wfId }: { wfId: string }) {
             scope: [wf.party, wf.period_start ? `${wf.period_start} – ${wf.period_end}` : null].filter(Boolean).map((x) => `${x} · `).join(""),
             done: v.done, total: v.total })}
         actions={<>
+          {/* 264 (F6): the previous and next earlier workflow of the list */}
+          <ItemSteps list={LIST} />
           {/* 263 (F1): what retires first, at the left */}
-          {wf.status === "open" ? (  // 231 (U2c): an earlier workflow is archived, not restored
-            <button type="button" className="secondary small-btn" disabled={busy} onClick={() => void act(() => api.updateWorkflow(wf.id, { archived: true }))}>
+          {wf.status === "open" ? (  // 231 (U2c): an earlier workflow is archived, not restored; 264 (F6): it asks first
+            <ConfirmButton className="secondary small-btn" disabled={busy}
+              question={t("Archive this workflow? It cannot be restored here; its batches stay as they are.")}
+              onConfirm={() => void act(() => api.updateWorkflow(wf.id, { archived: true }))}>
               {t("Archive")}
-            </button>
+            </ConfirmButton>
           ) : null}
           <label className="check small"><input type="checkbox" checked={wf.auto} disabled={busy || wf.status !== "open"}
             onChange={(e) => void act(() => api.updateWorkflow(wf.id, { auto: e.target.checked }))} /> {t("Start the steps by themselves")}</label>
@@ -300,6 +273,8 @@ function LinkPackage({ step, onLink }: { step: WorkflowStep; onLink: (wpId: stri
         <option value="">{t("Choose…")}</option>
         {options.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
       </select>
+      {/* 264 (F6): the chooser closes again without linking */}
+      <button type="button" className="quiet small-btn" onClick={() => { setOpen(false); setChoice(""); }}>{t("Cancel")}</button>
       <button type="button" className="secondary small-btn" disabled={!choice} onClick={() => onLink(choice)}>{t("Link")}</button>
     </span>
   );

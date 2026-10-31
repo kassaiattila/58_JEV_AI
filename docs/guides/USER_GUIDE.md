@@ -107,7 +107,7 @@ A **multi-step process** (*többlépéses folyamat*; until 2026-10-28 a workflow
 - **The sub-cases:** each is a case of its own process, named after its step (‘… · Incoming invoices’); since 263 it opens under its step on the main case's page and has no row of its own in the case list (the main case's row names its step). Its paid run waits for a person's start with its cost cap shown. Once a sub-case is done, the steps after it start by themselves; the reconciliation's sub-case takes the party, the period and the party's accounts.
 - **A sub-case closed otherwise** (cancelled, or its batch deleted): its step stops with why, and **Try again** (*Újrapróbálás*) starts a new sub-case; the earlier one stays linked.
 - **The cost:** the Log adds up what the sub-cases spent, step by step.
-- **The workflows made before** are under Settings › Operations › **Earlier workflows** (*Korábbi munkafolyamatok*): each one's page shows its chain as it stood; no new one is made there and none is repeated, and an open one may still be archived. The old address of a new workflow opens New case.
+- **The workflows made before** are under Settings › Operations › **Earlier workflows** (*Korábbi munkafolyamatok*): since `v1.70.0` the one list (search, grouping by template, party, the next step's state or its own state, the archived ones among them), each opening its page with ← Previous and Next →; the page shows its chain as it stood; no new one is made there and none is repeated, and an open one may still be archived (it asks for confirmation). The old address of a new workflow opens New case.
 
 ### 4.2 New case
 

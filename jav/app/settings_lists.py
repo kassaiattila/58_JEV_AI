@@ -218,6 +218,48 @@ def _output_markers(scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
+# 264 (F6): a workflow step's state, as the workflow screens say it (`ui/src/views/workflows/labels.ts`), and its mark
+_STEP_STATUS = {"waiting": "waits for its earlier steps", "ready": "ready to start", "starting": "starting…",
+                "pulling": "downloading the emails…", "needs_budget": "waits for a budget", "nothing_new": "nothing new: done",
+                "failed": "did not start", "running": "running", "review": "to-dos in its package", "approve": "awaiting approval",
+                "approved": "approved", "pairing": "pairing in its package", "attention": "needs a person in its package",
+                "missing": "its package is missing", "stale": "out of date"}
+_STEP_MARKS = {"approved": "done", "nothing_new": "done", "failed": "failed", "missing": "failed", "needs_budget": "review",
+               "review": "review", "approve": "review", "attention": "review", "pairing": "review", "running": "running",
+               "pulling": "running", "starting": "queued", "waiting": "waiting", "stale": "waiting", "ready": "startable"}
+_WORKFLOW_STATUS = {"open": "Open", "archived": "Archived"}
+
+
+def _earlier_workflows(_scope: dict[str, str]) -> Rows:
+    """264 (plan E, F6; the owner's decision of 2026-10-31: the small lists the one list too): the workflows made before
+    the processes (Settings › Operations › Earlier workflows) - each with its template, party, period, how many of its
+    steps are done, its next step and its state - each opening its own page; the archived ones among them."""
+    from jav.app import workflow_records
+
+    cols = [
+        col("name", "Name", link="workflow"),
+        col("template", "Template", group=True),
+        col("party", "Own party", group=True),
+        col("period", "Period"),
+        col("done", "Steps done", "number"),
+        col("total", "Steps", "number", hidden=True),
+        col("next_step", "Next"),
+        col("next_status", "Its state", "enum", labels="workflow_step_status", badge=True, group=True, marks=_STEP_MARKS),
+        col("status", "State", "enum", labels="workflow_status", badge=True, group=True, marks={"open": "done", "archived": "muted"}),
+        col("updated_at", "Changed", "datetime"),
+    ]
+    rows = []
+    for w in workflow_records.workflows(include_archived=True):
+        nxt = next((s for s in w["steps"] if w["next"] and s["id"] == w["next"]["step"]), None)
+        rows.append({"_key": w["id"], "name": w["name"], "template": display.text(w["template_title"]), "party": w.get("party"),
+                     "period": f"{w['period_start']} – {w['period_end']}" if w.get("period_start") else None,
+                     "done": w["done"], "total": w["total"], "next_step": display.text(nxt["title"]) if nxt else None,
+                     "next_status": w["next"]["status"] if w["next"] else None, "status": w["status"],
+                     "updated_at": w.get("updated_at"),
+                     "_steps": [{"title": display.text(s["title"]), "status": s["status"]} for s in w["steps"]]})
+    return cols, rows
+
+
 def _registry(kind: str) -> list[dict[str, Any]]:
     return product_rules.listing(kind)
 
@@ -417,7 +459,7 @@ def library_names() -> dict[str, str]:
 _LABEL_SETS = tuple(LabelSet(name, __name__, labels.copy) for name, labels in (
     ("registry_state", _STATE), ("rule_kind", _RULE_KIND), ("document_kind", _DOCUMENT_KIND), ("partner_kind", _PARTNER_KIND),
     ("proposal_run_state", _RUN_STATE), ("output_name", _OUTPUT), ("frame_state", _FRAME_STATE), *_FOLDER_LABELS,
-    ("marker_kind", _MARKER_KIND)))
+    ("marker_kind", _MARKER_KIND), ("workflow_step_status", _STEP_STATUS), ("workflow_status", _WORKFLOW_STATUS)))
 _ROLE_LABELS = LabelSet("partner_role", __name__, lambda: {k: v["label"] for k, v in partners.roles().items()})
 
 DATASETS = (
@@ -435,6 +477,7 @@ DATASETS = (
     Dataset("settings_partner_proposals", "Partner proposals", (), _partner_proposals, _proposals_fingerprint,
             natural_sort=(("seen", True),)),
     Dataset("output_markers", "Template markers", ("output",), _output_markers),
+    Dataset("earlier_workflows", "Earlier workflows", (), _earlier_workflows, natural_sort=(("updated_at", True),)),
 )
 
 

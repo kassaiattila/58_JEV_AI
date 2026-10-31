@@ -5282,5 +5282,9 @@
   "every 5 minutes": "every 5 minutes",
   "Partner proposals": "Partner proposals",
   "Template markers": "Template markers",
-  "the months' names": "the months' names"
+  "the months' names": "the months' names",
+  "Its state": "Its state",
+  "Steps done": "Steps done",
+  "Archived": "Archived",
+  "Archive this workflow? It cannot be restored here; its batches stay as they are.": "Archive this workflow? It cannot be restored here; its batches stay as they are."
 }

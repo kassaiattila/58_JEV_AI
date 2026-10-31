@@ -5320,5 +5320,9 @@
   "every 5 minutes": "5 percenként",
   "Partner proposals": "Partnerjavaslatok",
   "Template markers": "Sablonjelölők",
-  "the months' names": "a hónapok nevei"
+  "the months' names": "a hónapok nevei",
+  "Its state": "Az állapota",
+  "Steps done": "Kész lépések",
+  "Archived": "Archiválva",
+  "Archive this workflow? It cannot be restored here; its batches stay as they are.": "Archiválod ezt a munkafolyamatot? Itt nem állítható vissza; a kötegei változatlanok maradnak."
 }
