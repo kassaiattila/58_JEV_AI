@@ -392,9 +392,11 @@ def dismiss_suggestions(keys: list[str], actor: identity.Who) -> dict[str, Any]:
     with store.connect() as c:
         for key in dict.fromkeys(keys):
             if (s := shown.get(key)) is not None:
-                c.execute("INSERT OR REPLACE INTO partner_suggestion_dismissals(key, name, tax_number, dismissed_by, dismissed_by_id,"
-                          " dismissed_at) VALUES (?,?,?,?,?,?)", (key, s["name"], s["tax_number"], identity.name_of(actor),
-                                                                  identity.id_of(actor), _now()))
+                c.execute("INSERT INTO partner_suggestion_dismissals(key, name, tax_number, dismissed_by, dismissed_by_id,"
+                          " dismissed_at) VALUES (?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET name=excluded.name,"
+                          " tax_number=excluded.tax_number, dismissed_by=excluded.dismissed_by,"
+                          " dismissed_by_id=excluded.dismissed_by_id, dismissed_at=excluded.dismissed_at",
+                          (key, s["name"], s["tax_number"], identity.name_of(actor), identity.id_of(actor), _now()))
     return {"dismissed": [k for k in keys if k in shown]}
 
 
