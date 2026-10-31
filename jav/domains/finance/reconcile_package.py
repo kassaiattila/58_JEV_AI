@@ -955,9 +955,14 @@ def _source_state(doc: dict[str, Any], approved: set[str], accepted: set[tuple[s
 
 
 def active_versions(c=None) -> dict[str, dict[str, Any]]:
-    """The approved versions not reopened, per package, with the lines they lock (186: the shared version store's)."""
-    return {wp_id: {**{k: v for k, v in found.items() if k != "locks"}, "line_ids": found["locks"]}
-            for wp_id, found in package_release.active_own(c).items()}
+    """The approved versions not reopened, per package, with the lines they lock (186: the shared version store's). 265
+    (code review APPW-13): a case's approving steps each hold a version; the package shows its latest one and locks the
+    lines of every one of them."""
+    out: dict[str, dict[str, Any]] = {}
+    for (wp_id, _step), found in package_release.active_own(c).items():  # the oldest first
+        locked = [*out.get(wp_id, {}).get("line_ids", []), *found["locks"]]
+        out[wp_id] = {**{k: v for k, v in found.items() if k != "locks"}, "line_ids": list(dict.fromkeys(locked))}
+    return out
 
 
 def approval(wp_id: str, c=None) -> dict[str, Any]:

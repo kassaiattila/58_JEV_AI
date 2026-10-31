@@ -586,9 +586,12 @@ def own_approval(wp_id: str, c: sqlite3.Connection | None = None, *, step: str |
     return {"active": next((v for v in versions if v["reopened_at"] is None), None), "versions": versions}
 
 
-def active_own(c: sqlite3.Connection | None = None) -> dict[str, dict[str, Any]]:
-    """The logic packs' own versions not reopened, per package, with what each locks (`locks`)."""
-    return _connected(c, lambda conn: {r["workpackage_id"]: {**_own_meta(r), "locks": json.loads(r["locks"] or "[]")}
+def active_own(c: sqlite3.Connection | None = None) -> dict[tuple[str, str | None], dict[str, Any]]:
+    """The logic packs' own versions not reopened, per (package, approving step), with what each locks (`locks`). 265
+    (code review APPW-13): a case holds one per approving step (D0-b), so a later step's version (a letter) no longer
+    hides an earlier one's (the pairing's locked lines); a package that is no case's has the step None."""
+    return _connected(c, lambda conn: {(r["workpackage_id"], r["step_id"]): {**_own_meta(r),
+                                                                             "locks": json.loads(r["locks"] or "[]")}
                                        for r in conn.execute(_OWN_SELECT + " WHERE content IS NOT NULL AND reopened_at IS NULL"
                                                              " ORDER BY id")})
 
