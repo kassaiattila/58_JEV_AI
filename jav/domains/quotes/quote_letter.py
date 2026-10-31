@@ -375,7 +375,10 @@ def _agent():
 
     model_settings = OpenAIChatModelSettings(openai_reasoning_effort=OPENAI_SETTINGS["reasoning_effort"],
                                              temperature=OPENAI_SETTINGS["temperature"])
-    return Agent(openai_chat_model(), output_type=NativeOutput(Paragraph), instructions=site["instructions"],
+    from jav.ai.output_cap import StopOnTruncation
+
+    # 265 (code review X-11): a cut-off answer ends the call at once, as every other structured answer's
+    return Agent(StopOnTruncation(openai_chat_model()), output_type=NativeOutput(Paragraph), instructions=site["instructions"],
                  model_settings=model_settings, retries=OPENAI_SETTINGS["retries"])
 
 
@@ -385,14 +388,18 @@ def _physical(agent: Any, prompt: str, *, run_id: str, rounds: int) -> calls.Out
 
     from jav.core.config import OPENAI_MODEL, openai_cost
 
+    from pydantic_ai import capture_run_messages
+
+    from jav.ai import output_cap
+
     t0 = observability.start()
     try:
-        result = agent.run_sync(prompt, model_settings={"max_tokens": int(_site()["max_output_tokens"])},
-                                usage_limits=UsageLimits(request_limit=rounds))
-    except Exception as exc:
-        store.ledger_add(run_id=run_id, step=f"{REQUEST_ID}_gpt", provider="openai", model=OPENAI_MODEL, input_tokens=None,
-                         output_tokens=None, cost_usd=None, seconds=observability.since(t0),
-                         config_hash=config_hash(), error=type(exc).__name__)
+        with capture_run_messages() as messages:
+            result = agent.run_sync(prompt, model_settings={"max_tokens": int(_site()["max_output_tokens"])},
+                                    usage_limits=UsageLimits(request_limit=rounds))
+    except Exception as exc:  # 265 (code review X-11): settled at what it certainly cost (`output_cap.ledger_failure`)
+        output_cap.ledger_failure(messages, exc, run_id=run_id, step=f"{REQUEST_ID}_gpt", config_hash=config_hash(),
+                                  seconds=observability.since(t0))
         raise
     usage = result.usage() if callable(result.usage) else result.usage
     in_tok, out_tok = usage.input_tokens or 0, usage.output_tokens or 0

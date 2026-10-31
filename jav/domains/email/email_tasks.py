@@ -29,10 +29,12 @@ from functools import lru_cache
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
-from pydantic_ai import Agent
+from pydantic_ai import Agent, capture_run_messages
 from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.usage import UsageLimits
 
+from jav.ai import output_cap
+from jav.ai.output_cap import StopOnTruncation
 from jav.core import activity_kinds, cfg, store
 from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, PROMPTS_DIR, load_prompt, openai_chat_model, openai_cost, openai_price
 from jav.core import calls
@@ -257,8 +259,9 @@ def gate(snap: dict[str, Any], output: dict[str, Any]) -> tuple[list[dict[str, A
 def get_agent() -> Agent[None, TaskOutput]:
     model = openai_chat_model()
     settings = OpenAIChatModelSettings(openai_reasoning_effort=OPENAI_SETTINGS["reasoning_effort"], temperature=OPENAI_SETTINGS["temperature"])
-    return Agent(model, output_type=TaskOutput, instructions=load_prompt(CFG["prompt_file"]), model_settings=settings,
-                 retries=OPENAI_SETTINGS["retries"])
+    # 265 (code review X-11): a cut-off answer ends the call at once, as every other structured answer's
+    return Agent(StopOnTruncation(model), output_type=TaskOutput, instructions=load_prompt(CFG["prompt_file"]),
+                 model_settings=settings, retries=OPENAI_SETTINGS["retries"])
 
 
 def _physical(agent, prompt: str, *, run_id: str, limited: bool) -> calls.Outcome:
@@ -268,10 +271,11 @@ def _physical(agent, prompt: str, *, run_id: str, limited: bool) -> calls.Outcom
         kwargs = {"model_settings": {"max_tokens": CFG["max_output_tokens"]},
                   "usage_limits": UsageLimits(request_limit=1 + int(OPENAI_SETTINGS["retries"]))}
     try:
-        result = agent.run_sync(prompt, **kwargs)
-    except Exception as exc:
-        store.ledger_add(run_id=run_id, step="email_tasks", provider="openai", model=OPENAI_MODEL, input_tokens=None, output_tokens=None,
-                         cost_usd=None, seconds=observability.since(t0), config_hash=CONFIG_HASH, error=type(exc).__name__)
+        with capture_run_messages() as messages:
+            result = agent.run_sync(prompt, **kwargs)
+    except Exception as exc:  # 265 (code review X-11): settled at what it certainly cost (`output_cap.ledger_failure`)
+        output_cap.ledger_failure(messages, exc, run_id=run_id, step="email_tasks", config_hash=CONFIG_HASH,
+                                  seconds=observability.since(t0))
         raise
     usage = result.usage() if callable(result.usage) else result.usage
     in_tok, out_tok = usage.input_tokens or 0, usage.output_tokens or 0
