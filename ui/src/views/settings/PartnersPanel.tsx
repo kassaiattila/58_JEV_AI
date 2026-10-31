@@ -241,9 +241,9 @@ function Suggestions({ onTake }: { onTake: (s: Pick<PartnerSuggestion, "name" | 
         selectionActions={(rows, clear) => (
           <>
             <button type="button" className="secondary small-btn" disabled={busy}
-              onClick={() => void accept(rows.map((r) => r._key)).then(clear)}>{t("Record the selected ({{n}})", { n: rows.length })}</button>
+              onClick={() => void accept(rows.map((r) => r._key)).then((ok) => { if (ok) clear(); })}>{t("Record the selected ({{n}})", { n: rows.length })}</button>
             <button type="button" className="quiet small-btn" disabled={busy}
-              onClick={() => void dismiss(rows.map((r) => r._key)).then(clear)}>{t("Not partners ({{n}})", { n: rows.length })}</button>
+              onClick={() => void dismiss(rows.map((r) => r._key)).then((ok) => { if (ok) clear(); })}>{t("Not partners ({{n}})", { n: rows.length })}</button>
           </>
         )}
         actionsLabel={t("Record it")}
