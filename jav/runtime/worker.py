@@ -422,7 +422,7 @@ def startup() -> dict[str, int]:
     dead or cancelled shows on the run too (063: otherwise the run's item would be left without a result)."""
     from jav.documents import native_results  # noqa: F401 - register native tables before the startup store connection
 
-    return {**_recover(), "uncertain_marked": calls.recover_uncertain()}
+    return _recover()
 
 
 def _settle_abandoned(job: queue.Job, status: str, error: str) -> None:
@@ -522,13 +522,18 @@ def _slot(slot: int | None) -> Iterator[int]:
 
 def _recover() -> dict[str, int]:
     """Frees a stopped process's claims and settles the items whose job became dead or cancelled (063: otherwise the
-    run's item would be left without a result)."""
+    run's item would be left without a result). 265 (code review CORE-01): first the stopped process's paid calls
+    still reserved are settled (`calls.recover_uncertain`, which leaves a running process's calls alone), at start-up
+    and in the running worker's recovery alike: before, a worker that died beside a running one left its calls reserved
+    until a restart, and its requeued items met a false `uncertain_attempt` to-do."""
+    uncertain = calls.recover_uncertain()
     rec = queue.recover_orphans()
     for job in [*rec.dead, *rec.cancelled]:
         status_ = "failed" if job in rec.dead else "cancelled"
         log.warning("orphaned job %s (%s) -> %s: %s", job.id, job.kind, job.status, job.error)
         _settle_abandoned(job, status_, job.error or "orphaned")
-    return {"orphans_requeued": rec.requeued, "orphans_dead": len(rec.dead), "orphans_cancelled": len(rec.cancelled)}
+    return {"orphans_requeued": rec.requeued, "orphans_dead": len(rec.dead), "orphans_cancelled": len(rec.cancelled),
+            "uncertain_marked": uncertain}
 
 
 def handle(job: queue.Job) -> str:
