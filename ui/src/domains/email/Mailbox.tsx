@@ -3,14 +3,20 @@
 // download log, and the new emails become a work package with the email intent recipe (231 C3d: a mailbox case's). No
 // paid processing starts by itself (decision of 2026-09-28).
 import { useEffect, useState } from "react";
-import { api, ApiError, getActor, NO_ACTOR } from "../../api";
+import { api, ApiError, getActor, NO_ACTOR, type DsColumn, type DsRow } from "../../api";
 import type { MailboxCount, MailboxPull, MailboxRequest } from "./api";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { DataTable } from "../../components/DataTable";
+import { FormActions } from "../../components/FormActions";
+import { ItemSteps } from "../../components/ItemSteps";
+import { PageActions } from "../../components/PageActions";
 import { Picker } from "../../components/Picker";
-import { useLoad } from "../../hooks";
+import { errorText, useAction, useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
-import { intervals, intervalText, when } from "../../labels";
+import { intervals, when } from "../../labels";
+import type { SettingsPanelProps } from "../../logic/settingsSections";
+import { go, settingsHash } from "../../route";
+import { settingsChanged, useSettingsTitle } from "../../views/settings/settingsTree";
 import { mailboxLabel } from "./labels";
 import { splitAccounts, type MailboxStepDraft } from "./mailboxSource";
 
@@ -55,8 +61,8 @@ export function toggleAccount(value: string, account: string): string {
  *  is not complete. Settings › Mailboxes saves a schedule of it; a mailbox case's general form downloads it
  *  (its chooser, `./index.tsx`). Until C3d the wizard's own download form (the `pull` variant). 261: `initial`, the
  *  request it starts from (a next period's form: the previous case's download, its range moved on). */
-export function MailboxRequestFields({ onChange, initial }: { onChange: (req: MailboxRequest | null) => void;
-  initial?: MailboxRequest | null }) {
+export function MailboxRequestFields({ onChange, initial, periods = "both" }: { onChange: (req: MailboxRequest | null) => void;
+  initial?: MailboxRequest | null; periods?: "both" | "days" }) {
   useLocale();
   const data = useLoad("mailbox", api.mailbox);
   const [account, setAccount] = useState((initial?.accounts ?? []).join(", "));
@@ -121,11 +127,12 @@ export function MailboxRequestFields({ onChange, initial }: { onChange: (req: Ma
         </label>
         <label className="check"><input type="checkbox" checked={subfolders} onChange={(e) => setSubfolders(e.target.checked)} /> {t("with subfolders")}</label>
       </div>
-      <fieldset className="segmented">
+      {/* 264 (F6): a schedule reads the last days, never a date range (`periods="days"`) */}
+      {periods === "days" ? null : <fieldset className="segmented">
         <legend className="sr-only">{t("Period")}</legend>
         <label><input type="radio" name="mailbox-period" checked={mode === "recent"} onChange={() => changed(setMode)("recent")} /> {t("The last days")}</label>
         <label><input type="radio" name="mailbox-period" checked={mode === "range"} onChange={() => changed(setMode)("range")} /> {t("Date range")}</label>
-      </fieldset>
+      </fieldset>}
       <div className="form-row">
         {mode === "recent" ? (
           <label className="block">{t("Number of days")}
@@ -198,87 +205,138 @@ export function MailboxStepFields({ draft, hasPeriod, onChange }: { draft: Mailb
   );
 }
 
-/** Settings › Mailboxes: saving a schedule of a download, the schedules and the download log. 231 (C3d): a download
- *  now is a mailbox case's (the new work wizard), so the wizard's own download variant went. */
-export function Mailbox() {
+/** Settings › Mailboxes (264, plan E, F5-F6; the owner's decision of 2026-10-31: every list the one list): the
+ *  schedules are the one list, each opening its own page with its own downloads; "New schedule" is the title row's main
+ *  action and has a page of its own; a one-off download (a date range too) is a new mailbox case's, its form counts and
+ *  downloads (until 264 this page's form offered a date range that it could only count). The download log below. */
+export function Mailbox({ item }: SettingsPanelProps) {
   useLocale();
-  const data = useLoad("mailbox", api.mailbox, 5000);
-  const [request, setRequest] = useState<MailboxRequest | null>(null);
-  const [interval, setIntervalMin] = useState(60);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  if (item === NEW) return <NewSchedule />;
+  if (item) return <SchedulePage id={item} />;
+  return <MailboxLists />;
+}
 
-  async function schedule() {
-    if (!request) return;
-    if (!getActor()) { setMsg({ kind: "error", text: t("Cannot start: {{reason}}.", { reason: t(NO_ACTOR) }) }); return; }
-    setBusy(true);
-    setMsg(null);
-    try {
-      await api.createSchedule(request, interval);
-      setMsg({ kind: "ok", text: t("Schedule saved ({{interval}}). The first download starts in the worker's next round.", { interval: intervalText(interval) }) });
-      data.reload();
-    } catch (e) {
-      const err = e as ApiError;
-      setMsg({ kind: "error", text: err.code === "mailbox_unavailable" ? bridgeErrorText(err.message) : err.message });
-    } finally {
-      setBusy(false);
-    }
-  }
+const LIST = "mailbox-schedules";
+const NEW = "new";
 
-  const d = data.data;
+const scheduleCell = (col: DsColumn, row: DsRow) => (col.key === "label" && row._request
+  // the mailbox and period in the interface's language (the service's label is English), still the link to its page
+  ? <a href={settingsHash("mailboxes", row._key)}>{mailboxLabel(row._request as MailboxRequest)}</a> : undefined);
+
+function MailboxLists() {
+  useLocale();
+  const data = useLoad("mailbox", api.mailbox);
   return (
     <>
-      <form className="card create" aria-label={t("What to read")} onSubmit={(e) => e.preventDefault()}>
-        <MailboxRequestFields onChange={setRequest} />
-        <div className="schedule-row">
-          <span className="small muted">{t("Schedule (only with the “last days” period):")}</span>
-          <Picker label={t("Frequency")} hideLabel compact value={String(interval)} onChange={(v) => setIntervalMin(Number(v))}
-            options={intervals().map(([m, label]) => ({ value: String(m), label }))} />
-          <button type="button" className="secondary small-btn" disabled={busy || !request || !request.since_days}
-            onClick={() => void schedule()}>{t("Save schedule")}</button>
-        </div>
-        {msg ? <p className={`notice ${msg.kind === "error" ? "error" : ""}`} role={msg.kind === "error" ? "alert" : "status"}>{msg.text}</p> : null}
-      </form>
-
-      {data.error ? <p className="notice error" role="alert">{data.error.message}</p> : null}
-
-
-      <h2 className="mt">{t("Schedules")}</h2>
-      {d && d.schedules.length === 0 ? <div className="empty">{t("No schedules. You can save one above with a mailbox and a frequency.")}</div> : null}
-      {d && d.schedules.length ? (
-        <table className="table">
-          <thead><tr><th>{t("Reads")}</th><th>{t("Frequency")}</th><th>{t("Next")}</th><th>{t("Most recently")}</th><th /></tr></thead>
-          <tbody>
-            {d.schedules.map((s) => (
-              <tr key={s.id}>
-                <td>{mailboxLabel(s.request)}</td>
-                <td>
-                  <Picker label={t("Frequency: {{label}}", { label: mailboxLabel(s.request) })} hideLabel compact value={String(s.interval_min)}
-                    options={intervals().map(([m, label]) => ({ value: String(m), label }))}
-                    onChange={(v) => void api.updateSchedule(s.id, { interval_min: Number(v) }).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))} />
-                </td>
-                <td className="muted">{s.enabled ? when(s.next_at) : t("off")}</td>
-                <td>{s.last_at ? <><span className={s.last_status === "error" ? "error-text" : ""}>{pullSummary({ status: s.last_status ?? "ok", result: s.last_result })}</span>
-                  <div className="muted small">{when(s.last_at)}</div></> : <span className="muted">{t("not run yet")}</span>}</td>
-                <td className="right">
-                  <button type="button" className="secondary small-btn" onClick={() => void api.updateSchedule(s.id, { enabled: !s.enabled }).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))}>
-                    {s.enabled ? t("Turn off") : t("Turn on")}</button>{" "}
-                  <ConfirmButton className="quiet small-btn" danger onConfirm={() => void api.deleteSchedule(s.id).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))}>{t("Delete")}</ConfirmButton>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
+      <PageActions>
+        <a className="button secondary" href="#/cases/new/mailbox">{t("Download once, in a new case")}</a>
+        <a className="button primary" href={settingsHash("mailboxes", NEW)}>{t("New schedule")}</a>
+      </PageActions>
+      {data.data && !data.data.bridge_available ? <p className="notice error" role="alert">{t("The legacy Outlook script was not found in the old project; downloading does not work.")}</p> : null}
+      <h2>{t("Schedules")}</h2>
+      <DataTable dataset="mailbox_schedules" label={t("Mailbox schedules")} storageId={LIST} persist={LIST} pollMs={10000}
+        emptyText={t("No schedules yet: “New schedule” saves one.")} cell={scheduleCell} />
       <p className="muted small">{t("Schedules only run while the worker is running and Outlook is open on this computer.")}</p>
-
       <h2 className="mt">{t("Downloads")}</h2>
-      <DataTable dataset="mailbox_pulls" label={t("Mailbox downloads")} pollMs={5000} emptyText={t("No downloads yet.")} persist="mailbox-pulls"
-        cell={(col, row) => (col.key === "workpackage" && row.workpackage
-          ? <a href={`#/workpackages/${encodeURIComponent(String(row.workpackage))}`}>{t("document batch")}</a>
-          : col.key === "error" && row.error ? pullErrorText(String(row.error))
-            // 183: the mailbox and period in the interface's language (the service's label is English)
-            : col.key === "label" && row._request ? mailboxLabel(row._request as MailboxRequest) : undefined)} />
+      <Pulls />
+    </>
+  );
+}
+
+/** The download log, every download's or (on a schedule's page) one schedule's. */
+function Pulls({ scheduleId }: { scheduleId?: string }) {
+  useLocale();
+  return (
+    <DataTable dataset="mailbox_pulls" label={t("Mailbox downloads")} pollMs={5000} emptyText={t("No downloads yet.")}
+      {...(scheduleId ? { scope: { schedule_id: scheduleId } } : { persist: "mailbox-pulls" })}
+      cell={(col, row) => (col.key === "workpackage" && row.workpackage
+        ? <a href={`#/workpackages/${encodeURIComponent(String(row.workpackage))}`}>{t("document batch")}</a>
+        : col.key === "error" && row.error ? pullErrorText(String(row.error))
+          // 183: the mailbox and period in the interface's language (the service's label is English)
+          : col.key === "label" && row._request ? mailboxLabel(row._request as MailboxRequest) : undefined)} />
+  );
+}
+
+function FrequencyPicker({ value, onChange }: { value: number; onChange: (min: number) => void }) {
+  useLocale();
+  return (
+    <Picker label={t("Frequency")} value={String(value)} onChange={(v) => onChange(Number(v))}
+      options={intervals().map(([m, label]) => ({ value: String(m), label }))} />
+  );
+}
+
+/** A new schedule's page: what it reads over the last days (a schedule reads relative days, never a date range), and
+ *  how often; saved, it opens its own page. */
+function NewSchedule() {
+  useLocale();
+  useSettingsTitle(t("New schedule"));
+  const [request, setRequest] = useState<MailboxRequest | null>(null);
+  const [interval, setIntervalMin] = useState(60);
+  const { busy, error, run } = useAction();
+  const actor = !!getActor();
+  const save = () => request && run(() => api.createSchedule(request, interval), {
+    then: (s) => { settingsChanged(); go({ view: "settings", section: "mailboxes", item: s.id }); },
+    failed: (e) => (e instanceof ApiError && e.code === "mailbox_unavailable" ? bridgeErrorText(e.message) : errorText(e)),
+  });
+  return (
+    <section className="sheet sheet-narrow" aria-label={t("New schedule")}>
+      <MailboxRequestFields onChange={setRequest} periods="days" />
+      <div className="form-row"><FrequencyPicker value={interval} onChange={setIntervalMin} /></div>
+      {error ? <p className="notice error" role="alert">{error}</p> : null}
+      <FormActions busy={busy} onCancel={() => go({ view: "settings", section: "mailboxes" })}
+        note={!actor ? t("Cannot start: {{reason}}.", { reason: t(NO_ACTOR) }) : !request ? t("Give a mailbox address.") : undefined}>
+        <button type="button" className="primary" disabled={busy || !request || !actor} onClick={() => void save()}>{t("Save schedule")}</button>
+      </FormActions>
+    </section>
+  );
+}
+
+/** A schedule's page: what it reads, how often and whether it is on (saved together; Delete at the left), and its own
+ *  downloads. */
+function SchedulePage({ id }: { id: string }) {
+  useLocale();
+  const data = useLoad("mailbox", api.mailbox, 5000);
+  const s = data.data?.schedules.find((x) => x.id === id);
+  useSettingsTitle(s ? mailboxLabel(s.request) : null);
+  const [interval, setIntervalMin] = useState<number | null>(null);
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const { busy, error, notice, run } = useAction();
+  if (data.error) return <p className="notice error" role="alert">{data.error.message}</p>;
+  if (!data.data) return <p className="muted">{t("Loading…")}</p>;
+  if (!s) return <p className="notice warn">{t("It is not among the schedules (any more).")}</p>;
+  const iv = interval ?? s.interval_min;
+  const on = enabled ?? s.enabled;
+  const dirty = iv !== s.interval_min || on !== s.enabled;
+  const reset = () => { setIntervalMin(null); setEnabled(null); };
+  const save = () => run(() => api.updateSchedule(s.id, { interval_min: iv, enabled: on }), {
+    then: () => { reset(); data.reload(); settingsChanged(); }, done: t("The schedule has been saved."),
+  });
+  const remove = () => run(() => api.deleteSchedule(s.id), {
+    then: () => { settingsChanged(); go({ view: "settings", section: "mailboxes" }); },
+  });
+  return (
+    <>
+      <PageActions><ItemSteps list={LIST} /></PageActions>
+      <section className="sheet" aria-label={t("Schedule")}>
+        <dl className="kv">
+          <dt>{t("Reads")}</dt><dd>{mailboxLabel(s.request)}</dd>
+          <dt>{t("Next")}</dt><dd>{s.enabled ? when(s.next_at) : t("off")}</dd>
+          <dt>{t("Most recently")}</dt>
+          <dd>{s.last_at ? <><span className={s.last_status === "error" ? "error-text" : ""}>{pullSummary({ status: s.last_status ?? "ok", result: s.last_result })}</span>
+            {" "}<span className="muted small">{when(s.last_at)}</span></> : <span className="muted">{t("not run yet")}</span>}</dd>
+        </dl>
+        <div className="form-row"><FrequencyPicker value={iv} onChange={setIntervalMin} /></div>
+        <label className="check"><input type="checkbox" checked={on} onChange={(e) => setEnabled(e.target.checked)} /> {t("On: it downloads by itself")}</label>
+        {error ? <p className="notice error" role="alert">{error}</p> : null}
+        {notice ? <p className="small ok" role="status">{notice}</p> : null}
+        <FormActions busy={busy} onCancel={dirty ? reset : undefined}
+          start={<ConfirmButton className="quiet" danger disabled={busy} question={t("Delete this schedule? Its downloads so far stay in the log.")}
+            onConfirm={() => void remove()}>{t("Delete")}</ConfirmButton>}>
+          <button type="button" className={dirty ? "primary" : "secondary"} disabled={!dirty || busy} onClick={() => void save()}>{t("Save")}</button>
+        </FormActions>
+      </section>
+      <h2 className="mt">{t("Its downloads")}</h2>
+      <Pulls scheduleId={s.id} />
     </>
   );
 }

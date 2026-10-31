@@ -1,7 +1,7 @@
 // 061 decision: active user + assignment. In the header a name must be chosen from the name list (a stored name that is
 // not on the list does not count as chosen); the Users list is saved at once; the „Mai munkám” (My work today) title;
 // „Csak a saját csomagjaim” (Only my own packages).
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -64,17 +64,22 @@ describe("The users' list (061)", () => {
     vi.spyOn(api, "users").mockResolvedValue({ users: ["Minta Anna"] });
     const save = vi.spyOn(api, "saveUsers").mockImplementation(async (users) => ({ users }));
     const user = userEvent.setup();
-    render(<UsersPanel />);
-    await screen.findByText("Minta Anna");
-    await user.type(screen.getByLabelText("Új név"), "Teszt Elek");
+    vi.spyOn(api, "datasetQuery").mockResolvedValue(EMPTY);
+    // 264 (F6): a name is added on its own page, which then opens the name's page
+    const added = render(<UsersPanel item="new" />);
+    await user.type(await screen.findByLabelText("Új név"), "Teszt Elek");
+    await waitFor(() => expect((screen.getByRole("button", { name: "Felvétel" }) as HTMLButtonElement).disabled).toBe(false));
     await user.click(screen.getByRole("button", { name: "Felvétel" }));
     expect(save).toHaveBeenLastCalledWith(["Minta Anna", "Teszt Elek"]);
-    expect(await screen.findByText("Teszt Elek felvéve és mentve.")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Minta Anna törlése a listából" }));
-    await user.click(confirmAction()); // 073: two-click confirmation
+    await waitFor(() => expect(window.location.hash).toBe("#/settings/users/Teszt%20Elek"));
+    added.unmount();
+    // ... and removed on its own page (073: it asks first)
+    vi.spyOn(api, "users").mockResolvedValue({ users: ["Minta Anna", "Teszt Elek"] });
+    render(<UsersPanel item="Minta Anna" />);
+    await user.click(await screen.findByRole("button", { name: "Minta Anna törlése a listából" }));
+    await user.click(confirmAction());
     expect(save).toHaveBeenLastCalledWith(["Teszt Elek"]);
     expect(screen.queryByRole("button", { name: "Mentés" })).toBeNull();
-    expect(within(screen.getByRole("region", { name: "Felhasználók" })).queryByText("Mentetlen módosítás van.")).toBeNull();
   });
 });
 
@@ -83,8 +88,8 @@ describe("The user name's rule (066 Á25)", () => {
     vi.spyOn(api, "users").mockResolvedValue({ users: ["Minta Anna"] });
     const save = vi.spyOn(api, "saveUsers").mockImplementation(async (users) => ({ users }));
     const user = userEvent.setup();
-    render(<UsersPanel />);
-    await screen.findByText("Minta Anna");
+    render(<UsersPanel item="new" />);  // 264 (F6): a name is added on its own page
+    await waitFor(() => expect(screen.getByLabelText("Új név")).toBeTruthy());
     await user.type(screen.getByLabelText("Új név"), "O'Brien");
     await user.click(screen.getByRole("button", { name: "Felvétel" }));
     expect(save).not.toHaveBeenCalled();

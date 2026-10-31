@@ -6,6 +6,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type WorkflowRow, type WorkflowStep, type WorkflowView } from "../../api";
 import { setLanguage } from "../../i18n";
+import { listPage } from "../settings/listPage.testutil";
 import { Workflows } from "./Workflows";
 
 type Status = WorkflowStep["status"];
@@ -75,13 +76,20 @@ describe("the workflows list (157)", () => {
   };
 
   it("shows the chain with state marks and keeps the period on one line", async () => {
-    vi.spyOn(api, "workflows").mockResolvedValue({ workflows: [row(["review", "approved", "waiting"])] });
+    // 264 (F6): the one list of the service; the steps' chain is drawn from the row's steps
+    void row;
+    vi.spyOn(api, "datasetQuery").mockResolvedValue(listPage("earlier_workflows", [
+      { key: "name", label: "Name", kind: "text", hidden: false, labels: null, link: "workflow" },
+      { key: "period", label: "Period", kind: "text", hidden: false, labels: null },
+      { key: "done", label: "Steps done", kind: "number", hidden: false, labels: null },
+    ], [{ _key: "wf-00000000000a", name: "June", period: "2026-06-01 – 2026-06-30", done: 1, total: 3,
+      _steps: [{ title: "Incoming invoices", status: "review" }, { title: "Bank statements", status: "approved" },
+        { title: "Reconciliation", status: "waiting" }] }]));
     render(<Workflows route={{ view: "workflows" }} />);
     await screen.findByRole("link", { name: "June" });
     const chain = [...document.querySelectorAll(".wz-chain .status")].map((el) => el.className);
     expect(chain).toEqual(["status s-review", "status s-done", "status s-waiting"]);
-    expect(document.querySelector(".wf-period")?.textContent).toBe("2026-06-01 – 2026-06-30");
-    expect(document.querySelector(".wf-list .mono")).toBeNull();
+    expect(screen.getByText("2026-06-01 – 2026-06-30")).toBeTruthy();
   });
 
 });

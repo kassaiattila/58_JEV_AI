@@ -10,6 +10,7 @@ import {
 } from "../../api";
 import hungarian from "../../i18n/hu-native.json";
 import { setLanguage } from "../../i18n";
+import { listPage } from "../settings/listPage.testutil";
 import { Workflows } from "./Workflows";
 
 const PARTY: OwnParty = {
@@ -102,16 +103,15 @@ describe("the workflows list", () => {
       steps: [{ id: "invoices", title: "Incoming invoices", status: done ? "approved" : "needs_budget" },
         { id: "statements", title: "Bank statements", status: "approved" }, { id: "reconcile", title: "Reconciliation", status: done === 3 ? "approved" : "waiting" }],
     });
-    vi.spyOn(api, "workflows").mockResolvedValue({ workflows: [
-      row("wf-00000000000a", "June", 1, { step: "invoices", status: "needs_budget" }), row("wf-00000000000b", "May", 3, null)] });
+    // 264 (F6): the list is the one list of the service; its search, filters and grouping are the service's
+    void row;
+    const query = vi.spyOn(api, "datasetQuery").mockResolvedValue(listPage("earlier_workflows",
+      [{ key: "name", label: "Name", kind: "text", hidden: false, labels: null, link: "workflow" }],
+      [{ _key: "wf-00000000000a", name: "June" }, { _key: "wf-00000000000b", name: "May" }]));
     render(<Workflows route={{ view: "workflows" }} />);
-    expect(await screen.findByRole("link", { name: "June" })).toBeTruthy();
+    expect((await screen.findByRole("link", { name: "June" })).getAttribute("href")).toBe("#/workflows/wf-00000000000a");
     expect(screen.getByRole("link", { name: "May" })).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("State"), { target: { value: "attention" } });
-    expect(screen.queryByRole("link", { name: "May" })).toBeNull();
-    fireEvent.change(screen.getByLabelText("State"), { target: { value: "all" } });
-    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "may" } });
-    expect(screen.queryByRole("link", { name: "June" })).toBeNull();
+    expect(query.mock.calls[0][0]).toBe("earlier_workflows");
   });
 });
 

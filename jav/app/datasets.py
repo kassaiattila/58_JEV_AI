@@ -341,7 +341,7 @@ def _rules(scope: dict[str, str]) -> Rows:
     from jav.app import rules_view
 
     cols = [
-        Column("area", "Area", "enum", labels=rules_view.area_labels()),
+        Column("area", "Area", "enum", labels=rules_view.area_labels(), extra={"group": True}),  # 264: grouped for real
         col("decision", "Decision", link="settings", section="rules"),  # 263 (E1): the decision's page
         col("values", "Rule values"),
         col("files", "Rule files"),
@@ -453,14 +453,25 @@ def shown_final(final_status: str | None, open_reasons: int) -> str | None:
     return "settled" if final_status == "needs_review" and not open_reasons else final_status
 
 
-def _run_items(scope: dict[str, str]) -> Rows:
+def run_item_names(run: dict[str, Any]) -> dict[str, Any]:
+    """264 (plan E, F5): a run's items by their unified names: this run's own, and for an item that did not finish in
+    it (a trial, a stopped or a failed item) the name of the run whose result counts, as the batch's list names it."""
     from jav.app import naming
 
+    names = naming.run_item_names(run["run_id"])
+    if any(n is naming.PENDING for n in names.values()):
+        counted = naming.package_item_names(work.get(run["workpackage_id"]))
+        names = {k: counted[k] if n is naming.PENDING and counted.get(k, naming.PENDING).unified else n
+                 for k, n in names.items()}
+    return names
+
+
+def _run_items(scope: dict[str, str]) -> Rows:
     choice = _name_choice(scope)
     run = work_runs.get_run(scope["run_id"])
     titles = work_views.item_titles(run["input"]["items"], work_views.package_root(work.get(run["workpackage_id"])))
     results = {r["item_id"]: r for r in run["items"]}
-    names = naming.run_item_names(run["run_id"])
+    names = run_item_names(run)
     cols = [
         col("name", "Item", link="review", names=choice),
         *_name_cols(),
@@ -700,7 +711,14 @@ def _datapoints(scope: dict[str, str]) -> Rows:
     rows = [[*row[:4], names[row[3]].get(row[4], row[4]) if isinstance(row[4], str) else row[4], *row[5:]] for row in rows]
     shown_names = {n: n for of_field in names.values() for n in of_field.values()}
     cols = [replace(c, labels=shown_names) if c.key == "value" and shown_names else c for c in _fixed(_DP_KEYS)]
-    return cols, _zip_rows([c.key for c in cols], rows, link, lambda d: f"{d['item_id']}:{d['field']}")
+    # 264 (plan E, F5): the value column holds every field's values, so each row says its field's kind (`_kind`) and
+    # the interface shows an amount as an amount and a date as a date (the column's `kind_from`)
+    cols = [replace(c, extra={**c.extra, "kind_from": "_kind"}) if c.key == "value" else c for c in cols]
+    kinds = {r["item_id"]: r.get("kinds") or {} for r in records}
+    out = _zip_rows([c.key for c in cols], rows, link, lambda d: f"{d['item_id']}:{d['field']}")
+    for d in out:
+        d["_kind"] = _field_kind(kinds.get(d["item_id"], {}).get(d["field"]))
+    return cols, out
 
 
 def _native_facts(scope: dict[str, str]) -> Rows:
@@ -797,7 +815,7 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("calls", "Call log", ("run_id",), _calls, _calls_fingerprint),
     Dataset("activity", "Activity log", ("actor",), _activity, optional_scope=("day",)),
     Dataset("waiting", "Waiting for me", ("actor",), _waiting, optional_scope=("all",)),  # 216
-    Dataset("rules", "Rules", (), _rules),  # 218 (P3e)
+    Dataset("rules", "Decision points", (), _rules),  # 218 (P3e); 264 (F5): one name with its page's table
     Dataset("started_cases", "Started cases", ("case_id",), _started_cases),  # 261 (B1f): a case's, by the data table
 ]}
 

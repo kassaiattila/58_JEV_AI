@@ -48,8 +48,8 @@ const SHARED: SettingsSectionSpec[] = [
   // 231 (U3f; the owner's decision of 2026-10-28): the letter frames, edited as versions
   { key: "letters", label: "Letter frames", hint: "The texts of the letters that go with a printed document: a changed text is a draft until it is made active, and a case keeps the text it started with", group: "library", order: 250 },
   { key: "users", label: "Users", hint: "The options of “Who is working?”", group: "system", order: 300 },
-  { key: "appearance", label: "Appearance", hint: "The theme: light, dark or as the system is set", group: "system", order: 310 },
-  { key: "language", label: "Language", hint: "Interface language: Hungarian or English", group: "system", order: 320 },
+  // 264 (F5): the language is chosen with the theme (its own page only repeated the header's switch)
+  { key: "appearance", label: "Appearance and language", hint: "The theme and the interface language", group: "system", order: 310 },
   { key: "folders", label: "Work folders", hint: "Watched folders: new documents automatically become a document batch", group: "system", order: 330 },
   { key: "recipes", label: "Processing", hint: "How the system processes documents and emails, what the settings mean, what they cost", group: "system", order: 350 },
   // 218 (plan G-process-core P3e, DECISIONS 222): how the system decides on its own

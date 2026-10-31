@@ -16,7 +16,7 @@ import { VersionState } from "../../components/VersionState";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { numText, when } from "../../labels";
-import { routeHash } from "../../route";
+import { routeHash, settingsHash } from "../../route";
 import { useSettingsTitle } from "./settingsTree";
 
 const LIST = "settings_processes";
@@ -53,7 +53,7 @@ const TABS = [["about", "Description"], ["uses", "What it uses"], ["values", "Ru
   ["examples", "Examples"]] as const;
 type Tab = (typeof TABS)[number][0];
 
-export function ProcessSettingsPanel({ pack, tab }: { pack?: string; tab?: string }) {
+export function ProcessSettingsPanel({ pack, tab, open }: { pack?: string; tab?: string; open?: string }) {
   useLocale();
   const list = useLoad("processes", api.processes);
   const packs = list.data?.processes ?? [];
@@ -64,13 +64,26 @@ export function ProcessSettingsPanel({ pack, tab }: { pack?: string; tab?: strin
   // 263 (E1): the processes in the one list; a process opens its own page
   if (!chosen) return <DataTable dataset={LIST} label={t("Processes")} storageId={LIST} persist={LIST} />;
   const current: Tab = TABS.some(([key]) => key === tab) ? (tab as Tab) : "about";
-  return <ProcessPage key={chosen.id} pack={chosen.id} tab={current} />;
+  return <ProcessPage key={chosen.id} pack={chosen.id} tab={current} initial={openOf(open)} />;
 }
 
-function ProcessPage({ pack, tab }: { pack: string; tab: Tab }) {
+/** 264 (F5): the setting the address opens (`?open=<kind>:<key>`). */
+function openOf(open?: string): Open {
+  const at = open ? open.indexOf(":") : -1;
+  const kind = at > 0 ? open!.slice(0, at) : "";
+  return kind === "settings" || kind === "rules" ? { kind, key: open!.slice(at + 1) } : null;
+}
+
+function ProcessPage({ pack, tab, initial }: { pack: string; tab: Tab; initial: Open }) {
   useLocale();
   const loaded = useLoad(`process-settings:${pack}`, () => api.processSettings(pack));
-  const [open, setOpen] = useState<Open>(null);
+  const [open, setOpenState] = useState<Open>(initial);
+  // 264 (F5): the opened setting is in the address, so a reload or a link sent on opens it again (opening one is no
+  // step of its own in the history)
+  const setOpen = (o: Open) => {
+    setOpenState(o);
+    window.history.replaceState(null, "", settingsHash("processes", pack, tab, o ? `${o.kind}:${o.key}` : null));
+  };
   const page = loaded.data;
   useSettingsTitle(page ? t(page.pack.title) : null);
   if (loaded.error) return <p className="notice error" role="alert">{loaded.error.message}</p>;

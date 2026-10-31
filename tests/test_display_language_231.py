@@ -66,7 +66,9 @@ def test_a_caption_is_searched_sorted_and_offered_in_the_request_s_language():
         assert facets([col], rows)["state"] == ["d", "r"]
 
 
-DATASET_MODULES = ("jav/app/datasets.py", "jav/domains/email/email_datasets.py", "jav/domains/finance/finance_datasets.py")
+# 264 (F6): Settings' lists too (until then their captions were not checked)
+DATASET_MODULES = ("jav/app/datasets.py", "jav/domains/email/email_datasets.py", "jav/domains/finance/finance_datasets.py",
+                   "jav/app/settings_lists.py")
 
 
 def test_every_dataset_caption_is_an_english_source_the_dictionary_shows_in_hungarian():

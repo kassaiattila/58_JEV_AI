@@ -7,6 +7,7 @@
 import { useMemo, useState } from "react";
 import { api } from "../../api";
 import type { RoutingBlocker, RoutingItem, RoutingNote, RoutingView } from "./api";
+import { DataTable, linkOf } from "../../components/DataTable";
 import { useAction, useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { docTypeLabel } from "../../labels";
@@ -38,11 +39,6 @@ function emailText(item: RoutingItem): string {
   if (!e) return "";
   const parts = [e.folder === "sent" ? t("sent") : null, e.received_at?.slice(0, 10) ?? null, e.sender, e.subject].filter(Boolean);
   return parts.join(" · ");
-}
-
-function placementText(item: RoutingItem): string {
-  const p = item.placement;
-  return [p.role_title ? t(p.role_title) : null, p.party, p.day].filter(Boolean).join(" · ");
 }
 
 function Sources({ view }: { view: RoutingView }) {
@@ -79,39 +75,53 @@ function Decide({ wpId, view, onChanged }: { wpId: string; view: RoutingView; on
         </button>
       </div>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
+      {/* 264 (plan E, F6; the owner's decision of 2026-10-31: the small lists the one list too): the one list of the
+          service (search, sort, grouped by role, party, what holds a document or its decision); a row's proposal,
+          decision and actions are drawn from the attachment it carries, and the rows are read again after a decision */}
       {routable.length ? (
-        <div className="table-scroll">
-        <table className="table compact rt-table" aria-label={t("Documents to route")}>
-          <thead><tr><th>{t("Document")}</th><th>{t("What it is")}</th><th>{t("Proposal")}</th><th>{t("Decision")}</th></tr></thead>
-          <tbody>
-            {routable.map((i) => (
-              <tr key={i.item_id}>
-                <td><strong>{i.file}</strong><div className="small muted">{emailText(i)}</div></td>
-                <td>{placementText(i) || <span className="muted">—</span>}</td>
-                <td><ProposalCell item={i} /></td>
-                <td>
-                  {i.decision ? (
-                    <span className="inline small">
-                      <DecisionMark item={i} />
-                      <button type="button" className="quiet small-btn" disabled={busy} onClick={() => void act(() => api.routingUndo(wpId, i.item_id, i.decision_state))}>{t("Undo")}</button>
-                    </span>
-                  ) : choosing === i.item_id ? (
-                    <ChooseTarget item={i} busy={busy} onPick={(target) => void act(() => api.routingAccept(wpId, [i.item_id], target, undefined, stateOf(i)))}
-                      onCancel={() => setChoosing(null)} />
-                  ) : (
-                    <span className="rt-actions small">
-                      {i.proposal ? <button type="button" className="secondary small-btn" disabled={busy}
-                        onClick={() => void act(() => api.routingAccept(wpId, [i.item_id], undefined, titles, stateOf(i)))}>{t("Accept")}</button> : null}
-                      {i.placement.role ? <button type="button" className="secondary small-btn" disabled={busy} onClick={() => setChoosing(i.item_id)}>{t("Choose a package…")}</button> : null}
-                      <button type="button" className="quiet small-btn" disabled={busy} onClick={() => void act(() => api.routingReject(wpId, [i.item_id], stateOf(i)))}>{t("Do not route")}</button>
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
+        <DataTable dataset="routing_items" scope={{ workpackage_id: wpId }} label={t("Documents to route")} storageId="routing_items"
+          refreshKey={view.items.map((i) => `${i.item_id}:${i.decision_state ?? 0}`).join("|")}
+          cell={(col, row) => {
+            const i = row._item as RoutingItem | undefined;
+            if (!i) return undefined;
+            if (col.key === "file") return <><a href={linkOf(col, row) ?? undefined}><strong>{i.file}</strong></a><div className="small muted">{emailText(i)}</div></>;
+            if (col.key === "proposal") return <ProposalCell item={i} />;
+            if (col.key === "decision" && i.decision) return <DecisionMark item={i} />;
+            return undefined;
+          }}
+          actionsLabel={t("Decide")}
+          actions={(row) => {
+            const i = row._item as RoutingItem;
+            if (i.decision) return <button type="button" className="quiet small-btn" disabled={busy} onClick={() => void act(() => api.routingUndo(wpId, i.item_id, i.decision_state))}>{t("Undo")}</button>;
+            if (choosing === i.item_id) {
+              return <ChooseTarget item={i} busy={busy} onPick={(target) => void act(() => api.routingAccept(wpId, [i.item_id], target, undefined, stateOf(i)))}
+                onCancel={() => setChoosing(null)} />;
+            }
+            return (
+              <span className="rt-actions small">
+                {i.proposal ? <button type="button" className="secondary small-btn" disabled={busy}
+                  onClick={() => void act(() => api.routingAccept(wpId, [i.item_id], undefined, titles, stateOf(i)))}>{t("Accept")}</button> : null}
+                {i.placement.role ? <button type="button" className="secondary small-btn" disabled={busy} onClick={() => setChoosing(i.item_id)}>{t("Choose a package…")}</button> : null}
+                <button type="button" className="quiet small-btn" disabled={busy} onClick={() => void act(() => api.routingReject(wpId, [i.item_id], stateOf(i)))}>{t("Do not route")}</button>
+              </span>
+            );
+          }}
+          selectable
+          selectionActions={(rows, clear) => {
+            const open = rows.map((r) => r._item as RoutingItem).filter((i) => i && !i.decision);
+            const states = Object.assign({}, ...open.map((i) => stateOf(i) ?? {})) as Record<string, number>;
+            const proposed = open.filter((i) => i.proposal);
+            return (
+              <>
+                <button type="button" className="secondary small-btn" disabled={busy || !proposed.length}
+                  onClick={() => void act(() => api.routingAccept(wpId, proposed.map((i) => i.item_id), undefined, titles, states)).then(clear)}>
+                  {t("Accept the proposals ({{n}})", { n: proposed.length })}</button>
+                <button type="button" className="quiet small-btn" disabled={busy || !open.length}
+                  onClick={() => void act(() => api.routingReject(wpId, open.map((i) => i.item_id), states)).then(clear)}>
+                  {t("Do not route ({{n}})", { n: open.length })}</button>
+              </>
+            );
+          }} />
       ) : <p className="muted">{t("No attachment of these email packages is an invoice or a bank statement.")}</p>}
       {others.length ? (
         <details className="details">
@@ -187,19 +197,21 @@ function Routed({ view }: { view: RoutingView }) {
       <h3>{t("Routed documents")}</h3>
       {accepted.length ? (
         <table className="table compact rt-table rt-routed" aria-label={t("Routed documents")}>
-          <thead><tr><th>{t("Package")}</th><th>{t("Documents")}</th></tr></thead>
+          <thead><tr><th>{t("Package")}</th><th>{t("Documents")}</th><th>{t("Its next run")}</th></tr></thead>
           <tbody>
             {[...byTarget.entries()].map(([target, items]) => (
               <tr key={target}>
                 <td><a href={`#/workpackages/${encodeURIComponent(target)}`}>{items[0].decision!.target_name ?? target}</a></td>
                 <td>{items.map((i) => i.file).join(", ")}</td>
+                {/* 264 (F5): the way to the batch's run instead of a sentence that says to start it there */}
+                <td><a href={`#/workpackages/${encodeURIComponent(target)}/process`}>{t("To its Processing")}</a></td>
               </tr>
             ))}
           </tbody>
         </table>
       ) : <p className="muted">{t("Nothing routed yet.")}</p>}
       {rejected ? <p className="small muted">{t("{{n}} document(s) not routed.", { n: rejected })}</p> : null}
-      <p className="small muted">{t("A routed document is processed by its package's next run; start it there.")}</p>
+      {accepted.length ? <p className="small muted">{t("A routed document is processed by its batch's next run.")}</p> : null}
     </section>
   );
 }

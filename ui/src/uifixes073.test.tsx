@@ -57,9 +57,10 @@ describe("one-click deletions ask for confirmation (073)", () => {
     vi.spyOn(api, "users").mockResolvedValue({ users: ["Minta Anna", "Teszt Elek"] });
     const save = vi.spyOn(api, "saveUsers").mockImplementation(async (users) => ({ users }));
     const user = userEvent.setup();
-    render(<UsersPanel />);
-    await screen.findByText("Minta Anna");
-    await user.click(screen.getByRole("button", { name: "Minta Anna törlése a listából" }));
+    vi.spyOn(api, "datasetQuery").mockResolvedValue({ dataset: { name: "settings_users", label: "", scope: [], optional_scope: [] },
+      columns: [], rows: [], total: 0, matched: 0, offset: 0, limit: 1, facets: {} });
+    render(<UsersPanel item="Minta Anna" />);  // 264 (F6): a name is removed on its own page
+    await user.click(await screen.findByRole("button", { name: "Minta Anna törlése a listából" }));
     expect(save).not.toHaveBeenCalled();
     await user.click(confirmAction());
     expect(save).toHaveBeenLastCalledWith(["Teszt Elek"]);

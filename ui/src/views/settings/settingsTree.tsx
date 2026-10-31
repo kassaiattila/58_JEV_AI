@@ -74,3 +74,17 @@ export function useSettingsTitle(title: string | null | undefined): void {
     return () => set(null);
   }, [title, set]);
 }
+
+/** 264 (F5): a thing's sub-page (a new version of it) puts the thing among the header's crumbs, after its list. */
+export interface SettingsCrumb { label: string; href: string }
+const CrumbSlot = createContext<(crumb: SettingsCrumb | null) => void>(() => undefined);
+export const SettingsCrumbSlot = CrumbSlot.Provider;
+export function useSettingsCrumb(crumb: SettingsCrumb | null | undefined): void {
+  const set = useContext(CrumbSlot);
+  const label = crumb?.label;
+  const href = crumb?.href;
+  useEffect(() => {
+    set(label && href ? { label, href } : null);
+    return () => set(null);
+  }, [label, href, set]);
+}

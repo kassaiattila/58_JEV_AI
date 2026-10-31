@@ -6,10 +6,12 @@
 // package uses them (`AddStatements.tsx`).
 import { api, type StatementRef } from "../../api";
 import type { StatementPackageSurvey, StatementPackageView, StatementSurveyRow } from "./api";
+import { DataTable } from "../../components/DataTable";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { tmap } from "../../labels";
 import { MonthGrid } from "./MonthStatus";
+import { wpHash } from "../../route";
 
 export const RANK: Record<string, string> = tmap({
   code_checked: "read by code, balances check out", extracted_checked: "extracted by AI, balances check out",
@@ -150,40 +152,28 @@ export function PartyMonths({ partyId, start, end }: { partyId: string; start: s
 }
 
 
-const STATE: Record<string, string> = tmap({
-  valid: "valid", replaced: "replaced by a better statement",
-  conflict: "books the same days as another statement: choose the valid one on the review page",
-  pending: "no statement from it yet",
-});
-const TONE: Record<string, string> = { valid: "ok", replaced: "muted", conflict: "warn-text", pending: "muted" };
 
 export function StatementPackagePanel({ view }: { view: StatementPackageView }) {
   useLocale();
   const { scope, statements } = view;
   const count = (state: string) => statements.filter((s) => s.state === state).length;
   return (
-    <section className="card rc-stack" aria-label={t("Statements of the package")}>
+    <section className="card wide rc-stack" aria-label={t("Statements of the package")}>
       <h3>{t("{{party}}'s statements, {{from}} – {{to}}", { party: scope.party.name, from: scope.period_start, to: scope.period_end })}</h3>
       <p className="small">
         {t("{{valid}} valid, {{replaced}} replaced, {{conflict}} to choose, {{pending}} without a statement yet", {
           valid: count("valid"), replaced: count("replaced"), conflict: count("conflict"), pending: count("pending") })}
       </p>
-      <table className="table compact" aria-label={t("Statements of the package")}>
-        <thead>
-          <tr><th>{t("File")}</th><th>{t("Account")}</th><th>{t("Period")}</th><th>{t("Checks")}</th><th>{t("State")}</th></tr>
-        </thead>
-        <tbody>
-          {statements.map((s) => (
-            <tr key={s.item_id}>
-              <td><span className="mono">{s.file}</span></td>
-              <td>{s.account ? <><span className="mono">{s.account}</span> {s.currency}</> : "–"}</td>
-              <td className="tnum">{s.period_start ? `${s.period_start} – ${s.period_end ?? "?"}` : "–"}</td>
-              <td>{s.rank ? RANK[s.rank] ?? s.rank : "–"}</td>
-              <td className={TONE[s.state]}>{STATE[s.state] ?? s.state}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* 264 (plan E, F6): the one list of the service; a statement booking the same days as another leads to its
+          review page, where a person chooses the valid one */}
+      <DataTable dataset="statement_package_statements" scope={{ workpackage_id: scope.workpackage_id }} label={t("Statements of the package")}
+        storageId="statement_package_statements" emptyText={t("No statement in the package yet.")}
+        cell={(col, row) => (col.key === "state" && row.state === "conflict" ? (
+          <>
+            <span className="status s-review">{t("books the same days as another statement")}</span>{" "}
+            <a href={`${wpHash(scope.workpackage_id)}/review/${encodeURIComponent(String(row._key))}`}>{t("Choose the valid one")} →</a>
+          </>
+        ) : undefined)} />
       <details open>
         <summary className="small">{t("{{party}}'s months", { party: scope.party.name })}</summary>
         <PartyMonths partyId={scope.party.id} start={scope.period_start} end={scope.period_end} />

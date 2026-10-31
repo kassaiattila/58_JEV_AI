@@ -15,9 +15,9 @@ import { PageActionsSlot } from "../components/PageActions";
 import { PageHeader } from "../components/PageHeader";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import type { SettingsSection } from "../route";
+import { settingsHash, type SettingsSection } from "../route";
 import { SETTINGS_GROUPS, settingsParts, settingsSections } from "../logic/settingsSections";
-import { groupKey, isThing, sectionKey, selectedKey, SettingsTitleSlot, useSettingsTree } from "./settings/settingsTree";
+import { groupKey, isThing, sectionKey, selectedKey, SettingsCrumbSlot, SettingsTitleSlot, useSettingsTree, type SettingsCrumb } from "./settings/settingsTree";
 import { RecipesPanel } from "./RecipeInfo";
 import { RunList } from "./Runs";
 import { AppearancePanel } from "./settings/AppearancePanel";
@@ -26,7 +26,6 @@ import { DepsAuditPanel } from "./settings/DepsAuditPanel";
 import { JevVersionPanel } from "./settings/JevVersionPanel";
 import { EnginePanel } from "./settings/EnginePanel";
 import { FoldersPanel } from "./settings/FoldersPanel";
-import { LanguagePanel } from "./settings/LanguagePanel";
 import { LetterFramesPanel } from "./settings/LetterFramesPanel";
 import { OutputTemplatesPanel } from "./settings/OutputTemplatesPanel";
 import { PartnersPanel } from "./settings/PartnersPanel";
@@ -59,6 +58,7 @@ export function Settings({ section, item, tab, open: part }: { section: Settings
   const [slot, setSlot] = useState<HTMLDivElement | null>(null);
   const [open, setOpen] = useState<Set<string>>(loadOpen);
   const [thingTitle, setThingTitle] = useState<string | null>(null);
+  const [thingCrumb, setThingCrumb] = useState<SettingsCrumb | null>(null);  // 264: a sub-page's thing
   // 231 (C3e): the shared sections and the domains' own (`logic/settingsSections.ts`), in their order
   const sections = settingsSections();
   const current = sections.find((s) => s.key === section) ?? sections[0];
@@ -77,8 +77,22 @@ export function Settings({ section, item, tab, open: part }: { section: Settings
   const way = pathTo(tree, chosen).map((k) => findNode(tree, k)).filter((n): n is NavNode => n !== null);
   const node = findNode(tree, chosen);
   const crumbs = [{ label: t("Settings"), href: "#/settings" }, ...way.map((n) => ({ label: n.label, href: n.href })),
-    ...(thing && node ? [{ label: node.label, href: node.href }] : [])];
+    ...(thing && node ? [{ label: node.label, href: node.href }] : []), ...(thing && thingCrumb ? [thingCrumb] : [])];
   const Own = current.Panel;
+  // 264 (F5): the bare address (the Settings crumb) is Settings' own page: its groups and sections, each with what it is for
+  if (!section) {
+    return (
+      <div className="settings-layout">
+        <SidePanel id="settings" label={t("Contents")}>
+          <Navigator nodes={tree} selected="" open={open} onToggle={toggle} label={t("Settings")} />
+        </SidePanel>
+        <div className="settings-page">
+          <PageHeader crumbs={[]} title={t("Settings")} compact summary={t("What each part of Settings is for")} />
+          <div className="settings-body"><SettingsOverview /></div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="settings-layout">
       <SidePanel id="settings" label={t("Contents")}>
@@ -88,12 +102,13 @@ export function Settings({ section, item, tab, open: part }: { section: Settings
         <PageHeader crumbs={crumbs} title={(thing ? thingTitle : null) ?? node?.label ?? t(current.label)} compact
           summary={!thing && chosen === sectionKey(current.key) && !OWN_INTRO.has(current.key) ? t(current.hint) : undefined} actionsSlot={setSlot} />
         <SettingsTitleSlot value={setThingTitle}>
+        <SettingsCrumbSlot value={setThingCrumb}>
         <PageActionsSlot value={slot}>
           <div className="settings-body">
             {Own ? <Own item={item} tab={tab} open={part} /> : null}
-            {current.key === "folders" ? <FoldersPanel /> : null}
+            {current.key === "folders" ? <FoldersPanel item={item} /> : null}
             {current.key === "partners" ? <PartnersPanel item={item} /> : null}
-            {current.key === "processes" ? <ProcessSettingsPanel pack={item} tab={tab} /> : null}
+            {current.key === "processes" ? <ProcessSettingsPanel pack={item} tab={tab} open={part} /> : null}
             {current.key === "products" ? <ProductsPanel list={item} ident={tab} open={part} /> : null}
             {current.key === "recipes" ? (
               <>
@@ -104,17 +119,43 @@ export function Settings({ section, item, tab, open: part }: { section: Settings
             {current.key === "rules" ? <RulesPanel item={item} /> : null}
             {current.key === "outputs" ? <OutputTemplatesPanel item={item} tab={tab} /> : null}
             {current.key === "letters" ? <LetterFramesPanel item={item} tab={tab} /> : null}
-            {current.key === "users" ? <UsersPanel /> : null}
+            {current.key === "users" ? <UsersPanel item={item} /> : null}
             {current.key === "appearance" ? <AppearancePanel /> : null}
-            {current.key === "language" ? <LanguagePanel /> : null}
             {current.key === "system" ? <SystemPanel /> : null}
             {settingsParts(current.key).map(({ title, Panel }) => (  // 231 (C3e): what the domains add to a shared section
               <Fragment key={title}><h2>{t(title)}</h2><Panel /></Fragment>
             ))}
           </div>
         </PageActionsSlot>
+        </SettingsCrumbSlot>
         </SettingsTitleSlot>
       </div>
+    </div>
+  );
+}
+
+/** 264 (F5): Settings' own page - each group with its sections, every section with the sentence that says what it is for. */
+function SettingsOverview() {
+  useLocale();
+  const sections = settingsSections();
+  return (
+    <div className="stage-stack">
+      {SETTINGS_GROUPS.map((g) => {
+        const own = sections.filter((s) => s.group === g.key);
+        return own.length ? (
+          <section key={g.key} className="card wide" aria-label={t(g.label)}>
+            <h2>{t(g.label)}</h2>
+            <dl className="settings-overview">
+              {own.map((s) => (
+                <Fragment key={s.key}>
+                  <dt><a href={settingsHash(s.key)}>{t(s.navLabel ?? s.label)}</a></dt>
+                  <dd>{t(s.hint)}</dd>
+                </Fragment>
+              ))}
+            </dl>
+          </section>
+        ) : null;
+      })}
     </div>
   );
 }

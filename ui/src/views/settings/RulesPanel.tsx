@@ -9,8 +9,8 @@
 // Defaults: a value on a decision's sheet may be given the installation's own value (`DefaultEditor`). 263 (plan E, E1;
 // the owner's decisions of 2026-10-30): the section's page is the table; a decision's sheet is a page of its own (in the
 // address and in the Settings table of contents), no longer below the table.
-import { Fragment, useState, type ReactNode } from "react";
-import { api, type Defaults, type DsColumn, type DsPage, type DsRow } from "../../api";
+import { Fragment, type ReactNode } from "react";
+import { api, type Defaults, type DsColumn, type DsRow } from "../../api";
 import { DataTable } from "../../components/DataTable";
 import { ItemSteps } from "../../components/ItemSteps";
 import { PageActions } from "../../components/PageActions";
@@ -176,14 +176,7 @@ function RulePage({ item }: { item: string }) {
 /** The section's page: every decision in one table; a decision's title opens its page. */
 function RulesTable() {
   useLocale();
-  const [page, setPage] = useState<DsPage | null>(null);
-  const rows = page?.rows ?? [];
   const cell = (col: DsColumn, row: DsRow): ReactNode | undefined => {
-    if (col.key === "area") { // an area's name heads its group once, in the order shown; a screen reader hears it on each row
-      const name = t(col.labels?.[String(row.area)] ?? String(row.area ?? ""));
-      const i = rows.findIndex((r) => r._key === row._key);
-      return i > 0 && rows[i - 1].area === row.area ? <span className="sr-only">{name}</span> : name;
-    }
     if (col.key === "decisions" && !Number(row.decisions)) return <span className="count-zero">0</span>;
     if (col.key === "decision") {
       const what = t(String(row.what));
@@ -207,7 +200,9 @@ function RulesTable() {
         {t("You edit the price lists and the output templates yourself, on their own pages:")}{" "}
         <a href="#/settings/prices">{t("Price lists")}</a> · <a href="#/settings/outputs">{t("Output templates")}</a>
       </p>
-      <DataTable dataset="rules" scope={NO_SCOPE} label={t("Decision points")} storageId="rules" persist="rules" onPage={setPage} cell={cell}
+      {/* 264 (F5): grouped by their area for real (until now a repeated area's name was blanked) */}
+      <DataTable dataset="rules" scope={NO_SCOPE} label={t("Decision points")} storageId="rules" persist="rules" cell={cell}
+        defaultGroup="area" defaultHidden={["area"]}
         emptyText={t("No decision is described yet.")} />
     </div>
   );

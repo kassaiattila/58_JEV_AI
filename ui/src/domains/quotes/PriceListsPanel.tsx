@@ -25,7 +25,7 @@ import { t, useLocale } from "../../i18n";
 import { editNumber, fold, moneyText, numText, when } from "../../labels";
 import type { SettingsPanelProps } from "../../logic/settingsSections";
 import { go, settingsHash } from "../../route";
-import { settingsChanged, useSettingsTitle } from "../../views/settings/settingsTree";
+import { settingsChanged, useSettingsCrumb, useSettingsTitle } from "../../views/settings/settingsTree";
 
 const LIST = "settings_price_lists";
 const NEW = "new";
@@ -100,7 +100,9 @@ export function PriceListsPanel({ item, tab, open }: SettingsPanelProps) {
   const changed = () => { data.reload(); settingsChanged(); };
   const show = (priceList: string, version?: number) =>
     go({ view: "settings", section: "prices", item: priceList, ...(version ? { open: String(version) } : {}) });
-  useSettingsTitle(item === NEW ? t("Upload a price list") : list ? (tab === UPLOAD ? t("New version of {{name}}", { name: list.name }) : list.name) : null);
+  useSettingsTitle(item === NEW ? t("Upload a price list") : list ? (tab === UPLOAD ? t("New version") : list.name) : null);
+  // 264 (F5): a new version's page has its price list among the crumbs
+  useSettingsCrumb(list && tab === UPLOAD ? { label: list.name, href: settingsHash("prices", list.price_list) } : null);
   if (data.error) return <p className="notice error" role="alert">{data.error.message}</p>;
   if (!data.data) return <p className="muted">{t("Loading…")}</p>;
   if (item === NEW || (list && tab === UPLOAD)) { // an upload, of a new list or of a list's new version

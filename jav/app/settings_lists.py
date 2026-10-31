@@ -12,12 +12,15 @@ The lists are cheap to build and have no cache: a change shows at the next reque
 
 from __future__ import annotations
 
+import hashlib
+import json
+from dataclasses import replace
 from typing import Any
 
-from jav.app import datasets, partners, process_packs, product_rules, rule_proposal_runs
+from jav.app import app_settings, datasets, partners, process_packs, product_rules, rule_proposal_runs
 from jav.app.datasets import Dataset, LabelSet, Rows, col
 from jav.app.tablequery import fold
-from jav.core import display, versions
+from jav.core import display, store, versions
 
 _STATE = {versions.ACTIVE: "Active", versions.DRAFT: "Draft", versions.RETIRED: "Retired"}
 # the state marks of the interface (`ui/src/components/VersionState.tsx`): active green, a draft a ring, retired a dash
@@ -97,6 +100,164 @@ def _partners(_scope: dict[str, str]) -> Rows:
               "roles": display.text("Own party"), "tax_number": o["tax_number"], "email": None, "state": versions.ACTIVE,
               "changed_at": o["changed_at"]} for o in partners.own_listing()]
     return cols, sorted(rows, key=lambda r: fold(r["name"]))  # by name, the own parties among them
+
+
+def _users(_scope: dict[str, str]) -> Rows:
+    """264 (plan E, F6; the owner's decision of 2026-10-31: the small lists the one list too): the names "Who is
+    working?" offers, each opening its own page."""
+    cols = [col("name", "Name", link="settings", section="users"), col("added", "Added", "datetime")]
+    return cols, [{"_key": u["name"], "name": u["name"], "added": u["created_at"]} for u in app_settings.user_rows()]
+
+
+def _folders(_scope: dict[str, str]) -> Rows:
+    """264 (plan E, F6): the watched work folders - the path, whether it is on, the packaging, how often it is checked
+    and how its last check ended (its batch linked) - each opening its own page."""
+    cols = [
+        col("name", "Name", link="settings", section="folders"),
+        col("path", "Full folder path", wrap="anywhere", clamp=2),
+        col("state", "State", "enum", labels="folder_state", badge=True, group=True, marks={"on": "done", "off": "muted"}),
+        col("batch_mode", "Packaging", "enum", labels="folder_batch_mode", group=True),
+        col("recursive", "Include subfolders", "bool", hidden=True),
+        col("interval_min", "Look over", "enum", labels="folder_interval", group=True),
+        col("last_at", "Last check", "datetime"),
+        col("last_status", "Its outcome", "enum", labels="folder_check", badge=True, group=True),
+        col("last_new", "New documents", "number"),
+        col("last_batch", "Batch", "enum", labels="folder_batch", link="workpackage"),
+    ]
+    rows = []
+    for f in app_settings.folders():
+        last = f.get("last_result") or {}
+        rows.append({"_key": f["id"], "_wp": last.get("workpackage"), "name": f["name"], "path": f["path"],
+                     "state": "on" if f["enabled"] else "off", "batch_mode": f["batch_mode"], "recursive": f["recursive"],
+                     "interval_min": str(f["interval_min"]), "last_at": f.get("last_at"), "last_status": f.get("last_status"),
+                     "last_new": last.get("new") if f.get("last_status") == "ok" else None,
+                     "last_batch": "batch" if last.get("workpackage") else None})
+    return cols, rows
+
+
+_FOLDER_LABELS = (
+    ("folder_state", {"on": "Active (state)", "off": "Off (value)"}),
+    ("folder_batch_mode", {"folder": "One shared batch", "daily": "Daily batches"}),
+    ("folder_interval", {"5": "every 5 minutes", "15": "every 15 minutes", "30": "every 30 minutes", "60": "hourly",
+                         "240": "every 4 hours", "1440": "daily"}),
+    ("folder_check", {"ok": "Done", "error": "Failed (value)"}),
+    ("folder_batch", {"batch": "batch"}),
+)
+
+
+def _partner_proposals(_scope: dict[str, str]) -> Rows:
+    """264 (plan E, F6): the partner register's proposals from the data (the domains' sources: an incoming invoice's
+    supplier, an outgoing invoice's buyer) - each party with its tax number, the roles it was seen in, how many
+    documents and when last - grouped by its first role; a row's "Accept" opens the new partner's form from it."""
+    roles = partners.roles()
+    cols = [
+        col("name", "Name"),
+        col("tax_number", "Tax number", "id"),
+        col("role", "First role", "enum", labels="partner_role", group=True),
+        col("roles", "Seen as"),
+        col("seen", "Documents", "number"),
+        col("last", "Last", "date"),
+        col("sources", "Source", hidden=True),
+    ]
+    rows = [{"_key": s["tax_number"] or f"name:{s['name']}", "name": s["name"], "tax_number": s["tax_number"],
+             "role": s["roles"][0] if s["roles"] else None,
+             "roles": " · ".join(display.text(roles[r]["label"]) if r in roles else r for r in s["roles"]),
+             "seen": s["seen"], "last": s["last"], "sources": ", ".join(s["sources"]),
+             "_roles": s["roles"]}  # the new partner's form starts from them
+            for s in partners.suggestions(limit=100_000)]
+    return cols, rows
+
+
+# 264 (F6): what the proposals read - the results and their corrections, the register itself and the own parties
+_PROPOSAL_INPUTS = {"run_items": "MAX(updated_at)", "run_item_corrections": None, "workpackage_items": None,
+                    "partner_versions": "SUM(state='active')", "own_parties": None, "own_party_identities": None,
+                    "duplicate_decisions": None}
+
+
+def _proposals_fingerprint(_scope: dict[str, str]) -> str:
+    """Reading the proposals goes through every invoice, so the list is kept until what it reads changes."""
+    with store.connect() as c:
+        parts = [store.table_marks(c, _PROPOSAL_INPUTS), sorted(partners.suggestion_sources())]
+    return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
+
+
+# the tables of the outputs, by their contract keys (`configs/outputs.json`), as the interface names them
+_TABLE_TITLES = {"native_facts": "Native facts", "native_readings": "Native readings", "emails": "Emails", "tasks": "Tasks",
+                 "documents": "Documents", "datapoints": "Data points", "line_items": "Line items", "utility_cost": "Utility cost",
+                 "utility_sources": "Utility cost sources", "invoices": "Invoices", "lines": "Statement lines"}
+_MARKER_KIND = {"text": "text", "date": "date", "money": "amount", "number": "number", "count": "count",
+                "probability": "probability", "flag": "yes or empty", "json": "structured text", "months": "months"}
+
+
+def _output_markers(scope: dict[str, str]) -> Rows:
+    """264 (plan E, F6): the markers an own template of an output may use (Settings › Output templates › The markers) -
+    each with its label, its kind and the marker of its total - grouped by the table it belongs to (the values first);
+    a table's row count and its months are rows of their own kind in its group."""
+    from jav.app.outputs import samples
+
+    groups = samples.markers(scope["output"])
+    tables: dict[str, str] = {}
+    rows: list[dict[str, Any]] = []
+    for g in groups:
+        key = "values" if g["table"] is None else f"{g['table']}:{g['part']}" if g["part"] else g["table"]
+        title = display.text("Values (each written once)") if g["table"] is None else display.text(_TABLE_TITLES.get(g["table"], g["table"]))
+        tables[key] = f"{title}: {g['label'] or g['part']}" if g["part"] else title
+        extra = ([{"marker": g["count"], "label": display.text("row count"), "kind": "count", "sum": None}] if g["count"] else [])
+        if g["months"]:
+            extra += [{"marker": g["months"]["row"], "label": display.text("months"), "kind": "months", "sum": None},
+                      {"marker": g["months"]["names"], "label": display.text("the months' names"), "kind": "months", "sum": None}]
+        rows += [{"_key": r["marker"], "marker": r["marker"], "label": display.text(r["label"]), "kind": r["kind"], "sum": r["sum"],
+                  "table": key} for r in [*g["rows"], *extra]]
+    cols = [
+        col("marker", "Marker", "id"),
+        col("label", "Label in the built-in template"),
+        col("kind", "Kind", "enum", labels="marker_kind", group=True),
+        col("sum", "Total", "id"),
+        replace(col("table", "Table", "enum", group=True), labels=tables),
+    ]
+    return cols, rows
+
+
+# 264 (F6): a workflow step's state, as the workflow screens say it (`ui/src/views/workflows/labels.ts`), and its mark
+_STEP_STATUS = {"waiting": "waits for its earlier steps", "ready": "ready to start", "starting": "starting…",
+                "pulling": "downloading the emails…", "needs_budget": "waits for a budget", "nothing_new": "nothing new: done",
+                "failed": "did not start", "running": "running", "review": "to-dos in its package", "approve": "awaiting approval",
+                "approved": "approved", "pairing": "pairing in its package", "attention": "needs a person in its package",
+                "missing": "its package is missing", "stale": "out of date"}
+_STEP_MARKS = {"approved": "done", "nothing_new": "done", "failed": "failed", "missing": "failed", "needs_budget": "review",
+               "review": "review", "approve": "review", "attention": "review", "pairing": "review", "running": "running",
+               "pulling": "running", "starting": "queued", "waiting": "waiting", "stale": "waiting", "ready": "startable"}
+_WORKFLOW_STATUS = {"open": "Open", "archived": "Archived"}
+
+
+def _earlier_workflows(_scope: dict[str, str]) -> Rows:
+    """264 (plan E, F6; the owner's decision of 2026-10-31: the small lists the one list too): the workflows made before
+    the processes (Settings › Operations › Earlier workflows) - each with its template, party, period, how many of its
+    steps are done, its next step and its state - each opening its own page; the archived ones among them."""
+    from jav.app import workflow_records
+
+    cols = [
+        col("name", "Name", link="workflow"),
+        col("template", "Template", group=True),
+        col("party", "Own party", group=True),
+        col("period", "Period"),
+        col("done", "Steps done", "number"),
+        col("total", "Steps", "number", hidden=True),
+        col("next_step", "Next"),
+        col("next_status", "Next step's state", "enum", labels="workflow_step_status", badge=True, group=True, marks=_STEP_MARKS),
+        col("status", "State", "enum", labels="workflow_status", badge=True, group=True, marks={"open": "done", "archived": "muted"}),
+        col("updated_at", "Changed", "datetime"),
+    ]
+    rows = []
+    for w in workflow_records.workflows(include_archived=True):
+        nxt = next((s for s in w["steps"] if w["next"] and s["id"] == w["next"]["step"]), None)
+        rows.append({"_key": w["id"], "name": w["name"], "template": display.text(w["template_title"]), "party": w.get("party"),
+                     "period": f"{w['period_start']} – {w['period_end']}" if w.get("period_start") else None,
+                     "done": w["done"], "total": w["total"], "next_step": display.text(nxt["title"]) if nxt else None,
+                     "next_status": w["next"]["status"] if w["next"] else None, "status": w["status"],
+                     "updated_at": w.get("updated_at"),
+                     "_steps": [{"title": display.text(s["title"]), "status": s["status"]} for s in w["steps"]]})
+    return cols, rows
 
 
 def _registry(kind: str) -> list[dict[str, Any]]:
@@ -297,7 +458,8 @@ def library_names() -> dict[str, str]:
 
 _LABEL_SETS = tuple(LabelSet(name, __name__, labels.copy) for name, labels in (
     ("registry_state", _STATE), ("rule_kind", _RULE_KIND), ("document_kind", _DOCUMENT_KIND), ("partner_kind", _PARTNER_KIND),
-    ("proposal_run_state", _RUN_STATE), ("output_name", _OUTPUT), ("frame_state", _FRAME_STATE)))
+    ("proposal_run_state", _RUN_STATE), ("output_name", _OUTPUT), ("frame_state", _FRAME_STATE), *_FOLDER_LABELS,
+    ("marker_kind", _MARKER_KIND), ("workflow_step_status", _STEP_STATUS), ("workflow_status", _WORKFLOW_STATUS)))
 _ROLE_LABELS = LabelSet("partner_role", __name__, lambda: {k: v["label"] for k, v in partners.roles().items()})
 
 DATASETS = (
@@ -310,6 +472,12 @@ DATASETS = (
     Dataset("settings_proposal_runs", "Rule proposals", (), _proposal_runs, natural_sort=(("requested_at", True),)),
     Dataset("settings_output_templates", "Output templates", (), _templates),
     Dataset("settings_letter_frames", "Letter frames", (), _frames),
+    Dataset("settings_users", "Users", (), _users, natural_sort=(("name", False),)),  # 264 (F6)
+    Dataset("settings_folders", "Work folders", (), _folders, natural_sort=(("name", False),)),
+    Dataset("settings_partner_proposals", "Partner proposals", (), _partner_proposals, _proposals_fingerprint,
+            natural_sort=(("seen", True),)),
+    Dataset("output_markers", "Template markers", ("output",), _output_markers),
+    Dataset("earlier_workflows", "Earlier workflows", (), _earlier_workflows, natural_sort=(("updated_at", True),)),
 )
 
 

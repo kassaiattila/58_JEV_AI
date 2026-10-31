@@ -3,7 +3,8 @@ import { downloadPost, enc, request } from "./client";
 import type { FilterOp } from "./types";
 
 export type ColKind = "text" | "number" | "money" | "date" | "datetime" | "enum" | "bool" | "id";
-export type LinkKind = "run" | "workpackage" | "case" | "next" | "reviews" | "review" | "item" | "process" | "settings";
+export type LinkKind = "run" | "workpackage" | "case" | "next" | "reviews" | "review" | "item" | "process" | "settings"
+  | "workflow";  // 264: an earlier workflow's page
 export interface DsColumn {
   key: string; label: string; kind: ColKind; hidden: boolean; labels: Record<string, string> | null; link?: LinkKind; field?: string;
   badge?: boolean; alert?: boolean; // 057: status badge; a value above 0 is highlighted
@@ -15,6 +16,8 @@ export interface DsColumn {
   marks?: Record<string, string>; // 263: a badge's state mark by value (a version's state: active green, a draft a ring)
   /** 263: a link to a thing of Settings: its section, and the list its things stand in (a product's list) */
   section?: string; list?: string;
+  /** 264: the row field that says this row's kind (the data points' value column holds every field's values) */
+  kind_from?: string;
 }
 export interface DsFilter { col: string; op: FilterOp; value?: string | string[] | null }
 export interface DsSort { col: string; desc?: boolean }

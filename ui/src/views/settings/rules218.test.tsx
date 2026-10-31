@@ -91,7 +91,6 @@ describe("Settings › Rules (218)", () => {
     expect(open.getAttribute("href")).toBe("#/settings/rules/detect.doc_type");  // 263: the decision's own page
     const tr = open.closest("tr") as HTMLElement;
     const cells = within(tr);
-    expect(cells.getByText(hu["Document recognition"])).toBeTruthy();
     expect(tr.textContent).toContain(hu[points["detect.doc_type"].what]);
     // a threshold's label reads on into its value; a yes or no after a colon
     expect(tr.textContent).toContain(`${hu[label("detect.doc_type", "bands.default.choice_human_max_conf")]} 60\u00a0%`);
@@ -99,10 +98,9 @@ describe("Settings › Rules (218)", () => {
     expect(tr.textContent).toContain(`${hu[label("detect.doc_type", "bands.default.uncertain_review")]}: nem`);
     expect(tr.textContent).toContain(`${hu["Shared decision thresholds"]} 1.25.0`);
     expect(cells.getByText("13")).toBeTruthy();
-    // the area heads its group once (a screen reader still hears it on each row); no decision yet is a quiet zero
+    // 264: the rows are grouped by their area for real (the service's group); no decision yet is a quiet zero
     const detail = (await screen.findByRole("link", { name: hu[points["detect.detail_type"].title] })).closest("tr") as HTMLElement;
-    expect(detail.querySelector('td[data-col="area"] .sr-only')?.textContent).toBe(hu["Document recognition"]);
-    expect(tr.querySelector('td[data-col="area"] .sr-only')).toBeNull();
+    expect(detail.querySelector('td[data-col="area"]')).toBeNull();  // the group head names the area: its column hidden at first
     expect(detail.querySelector('td[data-col="decisions"] .count-zero')?.textContent).toBe("0");
     // each long cell is clamped, the whole text in its tooltip
     const clamps = [...tr.querySelectorAll<HTMLElement>(".dt-clamp")];

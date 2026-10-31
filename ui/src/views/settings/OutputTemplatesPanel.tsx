@@ -5,9 +5,9 @@
 // cell), each version previewed with made-up data, made active or retired; the markers are listed to copy. A package
 // chooses its template next to each download (`components/TemplateChoice.tsx`); without a choice the built-in template
 // makes the file, as before. 196: the quote's template is a Word document with the same markers.
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
-  api, ApiError, type OutputMarkerGroup, type OutputName, type OutputTemplate, type OutputTemplateCheck,
+  api, ApiError, type OutputName, type OutputTemplate, type OutputTemplateCheck,
   type OutputTemplateIssue, type OutputTemplateVersion,
 } from "../../api";
 import { UsedBy, useUsedBy } from "../../components/UsedBy";
@@ -24,7 +24,7 @@ import { VersionState } from "../../components/VersionState";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { go, settingsHash } from "../../route";
-import { settingsChanged, useSettingsTitle } from "./settingsTree";
+import { settingsChanged, useSettingsCrumb, useSettingsTitle } from "./settingsTree";
 
 const LIST = "settings_output_templates";
 const NEW = "new";
@@ -125,10 +125,12 @@ export function OutputTemplatesPanel({ item, tab }: { item?: string; tab?: strin
   const templates = data.data?.templates ?? [];
   const tpl = item && item !== NEW && item !== MARKERS ? templates.find((x) => x.template === item) : undefined;
   const changed = () => { data.reload(); settingsChanged(); };
-  useSettingsTitle(item === NEW ? t("Upload a template") : item === MARKERS ? t("The markers") : tpl ? (tab === UPLOAD ? t("New version of {{name}}", { name: tpl.name }) : tpl.name) : null);
+  useSettingsTitle(item === NEW ? t("Upload a template") : item === MARKERS ? t("The markers") : tpl ? (tab === UPLOAD ? t("New version") : tpl.name) : null);
+  // 264 (F5): a new version's page has its template among the crumbs
+  useSettingsCrumb(tpl && tab === UPLOAD ? { label: tpl.name, href: settingsHash("outputs", tpl.template) } : null);
   if (data.error) return <p className="notice error" role="alert">{data.error.message}</p>;
   if (!data.data) return <p className="muted">{t("Loading…")}</p>;
-  if (item === MARKERS) return <MarkersCard groups={data.data.outputs} />;
+  if (item === MARKERS) return <MarkersCard />;
   if (item === NEW || (tpl && tab === UPLOAD)) {
     return <UploadCard key={tpl?.template ?? NEW} again={tpl ?? null} onStart={() => undefined}
       onCancel={() => go({ view: "settings", section: "outputs", ...(tpl ? { item: tpl.template } : {}) })}
@@ -319,35 +321,14 @@ function OutputTemplates({ output, templates, onChanged }: { output: OutputName;
   );
 }
 
-// the kinds of a marker's value, in words
-const kindText = (k: string) => ({
-  text: t("text"), date: t("date"), money: t("amount"), number: t("number"), count: t("count"), probability: t("probability"),
-  flag: t("yes or empty"), json: t("structured text"),
-} as Record<string, string>)[k] ?? k;
+// the kinds of a marker's value, in words: the service's `marker_kind` labels (264, F6)
 
-// the tables of the outputs, by their contract keys (`configs/outputs.json`)
-const tableTitle = (key: string) => ({
-  native_facts: t("Native facts"), native_readings: t("Native readings"), emails: t("Emails"), tasks: t("Tasks"),
-  documents: t("Documents"), datapoints: t("Data points"), line_items: t("Line items"), utility_cost: t("Utility cost"),
-  utility_sources: t("Utility cost sources"), invoices: t("Invoices"), lines: t("Statement lines"),
-} as Record<string, string>)[key] ?? key;
-
-const groupKey = (g: OutputMarkerGroup) => (g.table === null ? "values" : g.part ? `${g.table}:${g.part}` : g.table);
-const groupTitle = (g: OutputMarkerGroup) =>
-  g.table === null ? t("Values (each written once)") : g.part ? `${tableTitle(g.table)}: ${g.label ?? g.part}` : tableTitle(g.table);
-const ALL = "*";
-
-/** The markers of an output to copy, searchable, in groups: the values, then each table with its row count and months. */
-function MarkersCard({ groups }: { groups: Record<OutputName, { markers: OutputMarkerGroup[] }> }) {
+/** The markers of an output to copy: the one list of the service (264, plan E, F6: `output_markers`) - searchable,
+ *  grouped by the table they belong to (the values first), a table's row count and its months rows of their own kind;
+ *  a marker and a total copy with one click. */
+function MarkersCard() {
   useLocale();
   const [output, setOutput] = useState<OutputName>("package_result");
-  const [table, setTable] = useState(ALL);
-  const [q, setQ] = useState("");
-  const all = groups[output]?.markers ?? [];
-  const needle = q.trim().toLowerCase();
-  const shown = useMemo(() => all.filter((g) => table === ALL || groupKey(g) === table).map((g) => ({
-    ...g, rows: g.rows.filter((r) => !needle || `${r.marker} ${r.label} ${t(r.label)}`.toLowerCase().includes(needle)),
-  })).filter((g) => g.rows.length || (!needle && (g.count || g.months))), [all, table, needle]);
   return (
     <section className="card wide" aria-label={t("Markers")}>
       <h3>{t("Markers")}</h3>
@@ -361,42 +342,13 @@ function MarkersCard({ groups }: { groups: Record<OutputName, { markers: OutputM
           <li><span className="mono">{"{{utility_cost.months}}"}</span> · <span className="mono">{"{{utility_cost.months:names}}"}</span> {t("one column per month, spreading to the right: its amounts in a table's row, its names in a header row")}</li>
         </ul>
       </details>
-      <div className="form-row marker-filters">
-        <Picker label={t("Output")} value={output} className="template-output"
-          options={OUTPUTS.map((o) => ({ value: o.key, label: t(o.label) }))} onChange={(v) => { setOutput(v as OutputName); setTable(ALL); }} />
-        <Picker label={t("Table")} value={table} className="template-output"
-          options={[{ value: ALL, label: t("Every table") }, ...all.map((g) => ({ value: groupKey(g), label: groupTitle(g) }))]} onChange={setTable} />
-        <label className="block grow">{t("Search")}
-          <input type="search" value={q} spellCheck={false} autoComplete="off" placeholder={t("a marker or its label…")} onChange={(e) => setQ(e.target.value)} />
-        </label>
-      </div>
-      <div className="marker-scroll">
-        <table className="table compact marker-table">
-          <thead>
-            <tr><th>{t("Marker")}</th><th>{t("Label in the built-in template")}</th><th>{t("Kind")}</th><th>{t("Total")}</th></tr>
-          </thead>
-          {shown.map((g) => (
-            <tbody key={groupKey(g)}>
-              <tr className="marker-group">
-                <th colSpan={4} scope="rowgroup">
-                  <span>{groupTitle(g)}</span>
-                  {g.count ? <span className="marker-extra">{t("row count")} <Copyable text={g.count} /></span> : null}
-                  {g.months ? <span className="marker-extra">{t("months")} <Copyable text={g.months.row} /> <Copyable text={g.months.names} /></span> : null}
-                </th>
-              </tr>
-              {g.rows.map((r) => (
-                <tr key={r.marker}>
-                  <td><Copyable text={r.marker} /></td>
-                  <td>{t(r.label)}</td>
-                  <td className="muted">{kindText(r.kind)}</td>
-                  <td>{r.sum ? <Copyable text={r.sum} /> : null}</td>
-                </tr>
-              ))}
-            </tbody>
-          ))}
-        </table>
-        {shown.length === 0 ? <p className="muted small">{t("No marker matches.")}</p> : null}
-      </div>
+      <DataTable key={output} dataset="output_markers" scope={{ output }} label={t("Markers")} storageId="output_markers" defaultGroup="table"
+        defaultHidden={["table"]}
+        emptyText={t("No marker matches.")}
+        toolbar={<Picker label={t("Output")} hideLabel compact value={output} className="template-output"
+          options={OUTPUTS.map((o) => ({ value: o.key, label: t(o.label) }))} onChange={(v) => setOutput(v as OutputName)} />}
+        cell={(col, row) => (col.key === "marker" ? <Copyable text={String(row.marker)} />
+          : col.key === "sum" ? (row.sum ? <Copyable text={String(row.sum)} /> : <span className="muted">–</span>) : undefined)} />
     </section>
   );
 }

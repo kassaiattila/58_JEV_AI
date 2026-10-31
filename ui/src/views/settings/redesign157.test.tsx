@@ -14,9 +14,10 @@ beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer")
 afterEach(() => { cleanup(); vi.restoreAllMocks(); delete document.documentElement.dataset.density; });
 
 describe("appearance (157)", () => {
-  it("offers the theme only, with no density switch", () => {
+  it("offers the theme, with no density switch (264: and the interface language beside it)", () => {
     render(<AppearancePanel />);
-    expect(screen.getAllByRole("radio").map((r) => (r as HTMLInputElement).name)).toEqual(["theme", "theme", "theme"]);
+    expect(screen.getAllByRole("radio").map((r) => (r as HTMLInputElement).name)).toEqual(["theme", "theme", "theme",
+      "language", "language"]);
     expect(screen.queryByText("Density")).toBeNull();
   });
 
@@ -46,7 +47,7 @@ describe("work folders (157)", () => {
 describe("users (157)", () => {
   it("makes the add button solid only once a name is typed", async () => {
     vi.spyOn(api, "users").mockResolvedValue({ users: ["Synthetic reviewer"] });
-    render(<UsersPanel />);
+    render(<UsersPanel item="new" />);  // 264 (F6): a name is added on its own page
     const add = await screen.findByRole("button", { name: "Add" });
     expect(add.classList.contains("primary")).toBe(false);
     fireEvent.change(screen.getByLabelText("New name"), { target: { value: "Second reviewer" } });

@@ -26,7 +26,7 @@ describe("the Settings menu in three groups (231 U3e; 263 E1: the table of conte
     expect(groups).toEqual(["Processes", "Shared library", "System"]);
     expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual([
       "All processes", "Partners", "Own parties", "Products", "Price lists", "Output templates", "Letter frames",
-      "Users", "Appearance", "Language", "Work folders", "Mailboxes", "Processing", "Defaults", "Operations"]);
+      "Users", "Appearance and language", "Work folders", "Mailboxes", "Processing", "Defaults", "Operations"]);  // 264: one page
     expect(within(nav).getByRole("link", { name: "Users" }).getAttribute("aria-current")).toBe("page");
     // the page's title is the section's, Settings the crumb above it
     expect(screen.getByRole("heading", { level: 1, name: "Users" })).toBeTruthy();
