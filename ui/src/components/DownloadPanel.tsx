@@ -59,7 +59,9 @@ export function DownloadPanel(p: Props) {
     setBusy(true);
     setMsg(null);
     try {
-      const query: DsQuery = { q: p.query.q, filters: p.query.filters, sort: p.query.sort, ...(rows === "selected" ? { keys: p.selectedKeys } : {}) };
+      // 265 (code review UI-08): with the list's grouping, so the file's rows come in the order the list shows them
+      const query: DsQuery = { q: p.query.q, filters: p.query.filters, sort: p.query.sort, ...(p.query.group ? { group: p.query.group } : {}),
+        ...(rows === "selected" ? { keys: p.selectedKeys } : {}) };
       const res = await api.datasetExport(p.dataset, p.scope, {
         format, rows, query, columns: cols === "all" ? p.columns.map((c) => c.key) : p.visibleKeys,
       });
