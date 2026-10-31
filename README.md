@@ -61,7 +61,7 @@ python -m jav.cli preflight            # tests (Python + UI) + contract lint + e
 python smoke_test.py                   # the keys; --jev-budget-usd 0.01 adds one live JEV call
 ```
 
-In a fresh clone, without the legacy project (`10_AIFLOW_V4`) and its golden set, the UI, work packages and runs all work; the golden-set measurements and the legacy Outlook bridge need the legacy project. Details: [setup, fresh clone](docs/guides/SETUP.md).
+In a fresh clone, without the legacy project (`10_AIFLOW_V4`) and its golden set, the UI, work packages, runs and the mailbox download all work; the golden-set measurements need the legacy project. Details: [setup, fresh clone](docs/guides/SETUP.md).
 
 ## Main commands
 

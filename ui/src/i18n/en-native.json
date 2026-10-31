@@ -3956,7 +3956,7 @@
   "The opening or closing balance is missing / cannot be parsed": "The opening or closing balance is missing / cannot be parsed",
   "A name may contain only letters, digits, spaces, dots, @ and hyphens (at most 64 characters).": "A name may contain only letters, digits, spaces, dots, @ and hyphens (at most 64 characters).",
   "Sorted as in the table. {{rows}} rows × {{cols}} columns.": "Sorted as in the table. {{rows}} rows × {{cols}} columns.",
-  "The legacy Outlook script was not found in the old project; downloading does not work.": "The legacy Outlook script was not found in the old project; downloading does not work.",
+  "The Outlook script (scripts/outlook_bridge.ps1) is missing from this installation; downloading does not work.": "The Outlook script (scripts/outlook_bridge.ps1) is missing from this installation; downloading does not work.",
   "The run in the old link was not found.": "The run in the old link was not found.",
   "Recognising the detailed type by GPT failed ({{why}}); choose it by hand": "Recognising the detailed type by GPT failed ({{why}}); choose it by hand",
   "The confidence of the detailed type cannot be measured: {{type}}; check it by hand": "The confidence of the detailed type cannot be measured: {{type}}; check it by hand",

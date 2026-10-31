@@ -3995,7 +3995,7 @@
   "The opening or closing balance is missing / cannot be parsed": "A nyitó vagy a záró egyenleg hiányzik / nem értelmezhető",
   "A name may contain only letters, digits, spaces, dots, @ and hyphens (at most 64 characters).": "A név csak betűt, számot, szóközt, pontot, @ jelet és kötőjelet tartalmazhat (legfeljebb 64 karakter).",
   "Sorted as in the table. {{rows}} rows × {{cols}} columns.": "A rendezés a táblázatéval azonos. {{rows}} sor × {{cols}} oszlop.",
-  "The legacy Outlook script was not found in the old project; downloading does not work.": "A régi Outlook-szkript nem található a régi projektben; a letöltés nem működik.",
+  "The Outlook script (scripts/outlook_bridge.ps1) is missing from this installation; downloading does not work.": "Az Outlook-szkript (scripts/outlook_bridge.ps1) hiányzik ebből a telepítésből; a letöltés nem működik.",
   "The run in the old link was not found.": "A régi címben szereplő futás nem található.",
   "Recognising the detailed type by GPT failed ({{why}}); choose it by hand": "A részletes típus GPT-s felismerése nem sikerült ({{why}}); válaszd ki kézzel",
   "The confidence of the detailed type cannot be measured: {{type}}; check it by hand": "A részletes típus bizonyossága nem mérhető: {{type}}; ellenőrizd kézzel",

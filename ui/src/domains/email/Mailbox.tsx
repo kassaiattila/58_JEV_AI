@@ -30,7 +30,7 @@ export function pullSummary(p: Pick<MailboxPull, "status" | "result">): string {
   return parts.join(" · ");
 }
 
-/** Known errors of the legacy Outlook script in the UI language; `undefined` for anything else. */
+/** Known errors of the Outlook script in the UI language; `undefined` for anything else. */
 function knownBridgeError(message: string): string | undefined {
   if (/must match exactly one Outlook account/.test(message)) {
     return t("This address does not match any Outlook account on this computer. Check the address (exactly as it appears in Outlook).");
@@ -106,7 +106,7 @@ export function MailboxRequestFields({ onChange, initial, periods = "both" }: { 
 
   return (
     <div className="rc-stack">
-      {data.data && !data.data.bridge_available ? <p className="notice error" role="alert">{t("The legacy Outlook script was not found in the old project; downloading does not work.")}</p> : null}
+      {data.data && !data.data.bridge_available ? <p className="notice error" role="alert">{t("The Outlook script (scripts/outlook_bridge.ps1) is missing from this installation; downloading does not work.")}</p> : null}
       <label className="block">{t("Mailbox address")} <span className="muted">{t("(several, comma-separated)")}</span>
         <input value={account} onChange={(e) => changed(setAccount)(e.target.value)} placeholder="nev@ceg.hu" required />
       </label>
@@ -232,7 +232,7 @@ function MailboxLists() {
         <a className="button secondary" href="#/cases/new/mailbox">{t("Download once, in a new case")}</a>
         <a className="button primary" href={settingsHash("mailboxes", NEW)}>{t("New schedule")}</a>
       </PageActions>
-      {data.data && !data.data.bridge_available ? <p className="notice error" role="alert">{t("The legacy Outlook script was not found in the old project; downloading does not work.")}</p> : null}
+      {data.data && !data.data.bridge_available ? <p className="notice error" role="alert">{t("The Outlook script (scripts/outlook_bridge.ps1) is missing from this installation; downloading does not work.")}</p> : null}
       <h2>{t("Schedules")}</h2>
       <DataTable dataset="mailbox_schedules" label={t("Mailbox schedules")} storageId={LIST} persist={LIST} pollMs={10000}
         emptyText={t("No schedules yet: “New schedule” saves one.")} cell={scheduleCell} />
