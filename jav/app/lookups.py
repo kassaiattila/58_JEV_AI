@@ -22,7 +22,7 @@ import json
 import time
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from jav.app import capabilities
 from jav.core import calls, connectors
@@ -49,6 +49,16 @@ class Lookup(BaseModel):
         if connectors.of(value).kind != "lookup":  # ConnectorError (a ValueError) when it is not described
             raise ValueError(f"the connector {value!r} is no lookup")
         return value
+
+    @model_validator(mode="after")
+    def _within_what_it_sends(self) -> Lookup:
+        """265 (code review X-19): a lookup sends no more kinds of data than its connector says it sends (`sends` in
+        configs/connectors.json, the owner's list of what may leave the machine)."""
+        declared = connectors.of(self.connector).sends
+        if len(self.asks) + len(self.asks_if_known) > len(declared):
+            raise ValueError(f"the lookup sends {len(self.asks) + len(self.asks_if_known)} kinds of data, its connector "
+                             f"{self.connector!r} says it sends {len(declared)}: {', '.join(declared)}")
+        return self
 
 
 class LookupResult(capabilities.Result):

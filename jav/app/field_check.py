@@ -264,13 +264,20 @@ def _params(case_id: str, step: str, c: Any) -> FieldCheck:
 def view(case_id: str, step: str) -> dict[str, Any]:
     """What a person checks: the units with their sources, the claims and where each went (the conflicts still open:
     the unit's value differs from the claim's), the approval and the state to send back with a freeze."""
-    units = assessed_units.units(case_id, step, include_removed=True)
-    by_id = {u["unit_id"]: u for u in units}
     with store.connect() as c:
-        claims = [dict(r) for r in c.execute("SELECT claim_key, from_step, unit_key, fact, value, placement, unit_id, placed_at,"
-                                             " kept_by, kept_at FROM field_check_claims WHERE case_id=? AND step_id=?"
-                                             " ORDER BY placed_at", (case_id, step))]
+        units = assessed_units.units_in(c, case_id, step, include_removed=True)
+        claims = _claims_in(c, case_id, step, units)
         state = assessed_units.state_in(c, case_id, step)
+    return {"units": units, "claims": claims, "approval": package_release.approval_state(case_id, step=step), "state": state}
+
+
+def _claims_in(c: Any, case_id: str, step: str, units: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The claims and where each went, in the caller's transaction; `open`: a conflict still open (the unit's value
+    differs from the claim's and no person kept it). 265 (code review APPW-03): shared by the view and the freeze."""
+    by_id = {u["unit_id"]: u for u in units}
+    claims = [dict(r) for r in c.execute("SELECT claim_key, from_step, unit_key, fact, value, placement, unit_id, placed_at,"
+                                         " kept_by, kept_at FROM field_check_claims WHERE case_id=? AND step_id=?"
+                                         " ORDER BY placed_at", (case_id, step))]
     for claim in claims:
         claim["value"] = json.loads(claim["value"])
         unit = by_id.get(claim["unit_id"] or "")
@@ -278,7 +285,7 @@ def view(case_id: str, step: str) -> dict[str, Any]:
         claim["kept"] = {"by": kept_by, "at": kept_at} if kept_by else None  # U1: settled by keeping the value shown
         claim["open"] = (claim["placement"] == "conflict" and bool(unit) and unit["facts"].get(claim["fact"]) != claim["value"]
                          and not kept_by)
-    return {"units": units, "claims": claims, "approval": package_release.approval_state(case_id, step=step), "state": state}
+    return claims
 
 
 def keep(case_id: str, step: str, claim_key: str, *, actor: identity.Who) -> None:
@@ -297,7 +304,9 @@ def keep(case_id: str, step: str, claim_key: str, *, actor: identity.Who) -> Non
 def freeze(case_id: str, step: str, *, cover_start: str | date, expected_state: int | None, actor: identity.Who) -> dict[str, Any]:
     """The units as they are now, frozen as the step's next own version: the checked input for the product version the
     case kept and the day cover starts. A page that shows another state of the units is refused (`RevisionConflict`);
-    a fact that does not fit its catalogue is refused with what is wrong (`facts.FactError`)."""
+    a fact that does not fit its catalogue is refused with what is wrong (`facts.FactError`). 265 (code review APPW-03):
+    an open disagreement is refused too, counted in the freeze's own transaction (one placed after the page was loaded
+    is never frozen unseen)."""
     from jav.app import process_runtime
 
     with store.connect() as c:
@@ -307,6 +316,9 @@ def freeze(case_id: str, step: str, *, cover_start: str | date, expected_state: 
             raise explained(decisions.RevisionConflict, "the units changed meanwhile; reload them")
         if not assessed_units.units_in(c, case_id, step):
             raise explained(FieldCheckError, "there is no unit to freeze")
+        if any(claim["open"] for claim in _claims_in(c, case_id, step,
+                                                     assessed_units.units_in(c, case_id, step, include_removed=True))):
+            raise explained(FieldCheckError, "a disagreement is still open; settle it before the facts are frozen")
         checked = assessed_units.checked_input_in(c, case_id, step, params.catalogue, product=params.product,
                                                   cover_start=cover_start)
         content = checked.model_dump(mode="json")

@@ -28,6 +28,7 @@ def guard(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "AUTOPILOT_DIR", folder)
     monkeypatch.setattr(module, "AUTOPILOT_STATE", folder / "state.json")
     monkeypatch.setattr(module, "NEEDS_OWNER", folder / "needs_owner.md")
+    monkeypatch.setattr(module, "DOCS_ROOT", ROOT)  # 265: plans resolve against the documents' root
     return module
 
 
@@ -84,7 +85,7 @@ def test_the_session_start_shows_the_pending_question_and_the_plans_progress(gua
     plan = tmp_path / "plan.md"
     heading = "## Halad" + chr(0xE1) + "s"  # the internal plans' Hungarian heading, spelt without the letter itself
     plan.write_text(f"# Plan\n\n{heading}\n\n- A0 done\n- A1 next\n\n## Other\n\nnot shown\n", encoding="utf-8")
-    monkeypatch.setattr(guard, "ROOT", tmp_path)
+    monkeypatch.setattr(guard, "DOCS_ROOT", tmp_path)
     guard.AUTOPILOT_DIR.mkdir(parents=True)
     guard.NEEDS_OWNER.write_text("Which reminder?\n- (A) a task\n", encoding="utf-8")
     text = "\n".join(guard.autopilot_lines({"enabled": True, "plan": "plan.md", "since": "2026-10-24T20:00:00+02:00"}))

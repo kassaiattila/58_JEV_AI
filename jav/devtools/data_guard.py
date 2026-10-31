@@ -15,8 +15,9 @@ re-check existing lines, so an old, tolerated value does not block an unrelated 
   files; anywhere else it stops the operation.
 - **Denied term** (`deny`): the owner's company name, the user name and the like; matched by the sha256 of word
   fragments, so that the list itself does not carry them.
-- **Key:** known key shapes, and the secret values of the local `.env` verbatim (the output shows only the variable
-  name).
+- **Key:** known key shapes (also a literal value assigned to one of the project's key variables), and the secret
+  values of the checkout's, the main checkout's and the installation's `.env` verbatim (the output shows only the
+  variable name; 265: a linked worktree has no `.env` of its own). Without any `.env` a note says so.
 - **Path:** internal working documents (`jav/core/doc_scope.py`), `.env`, the local data folders, document and image
   files, binary files.
 - **On push**, a branch or tag built on a history listed under `forbidden_history` is also refused.
@@ -39,7 +40,7 @@ from typing import Any
 
 from jav.ai import validators
 from jav.core import card_numbers, cfg, doc_scope, taxid
-from jav.core.config import PROJECT_ROOT, read_env_secrets  # 227: the core's; named here as before
+from jav.core.config import ENV_FILE, PROJECT_ROOT, read_env_secrets  # 227: the core's; named here as before
 
 HOOKS_DIR = "scripts/githooks"
 ZERO_SHA = "0" * 40
@@ -66,7 +67,7 @@ _VALUE_KINDS = frozenset({"hu_tax_id", "eu_vat", "iban", "bank_account", "email"
                           "env_secret", "deny_term"})
 _PATH_KINDS = frozenset({"internal_doc", "blocked_path", "blocked_file", "binary_file"})
 _TOKEN = re.compile(r"\w+")
-_HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+_HUNK = re.compile(r"^@@ -\d+(?:,(?P<old>\d+))? \+(?P<start>\d+)(?:,(?P<new>\d+))? @@")
 
 
 class DataGuardError(RuntimeError):
@@ -121,8 +122,12 @@ def value_hash(kind: str, value: str) -> str:
 
 
 def deny_entry(term: str, why: str = "") -> dict[str, Any]:
-    """A `deny` list entry for a term: the sha256 and length of its lower-case form (for the word-fragment search)."""
-    t = term.lower()
+    """A `deny` list entry for a term: the sha256 and length of its lower-case form (for the word-fragment search). 265
+    (code review TOOL-10): one word of letters and digits only: the search looks inside words, so a term with a space
+    or a point never matched; such a term is refused (give its words one by one)."""
+    t = term.lower().strip()
+    if not t or not _TOKEN.fullmatch(t):
+        raise DataGuardError(f"a denied term is one word of letters and digits (got {len(t)} characters); give its words one by one")
     return {"sha256": hashlib.sha256(t.encode("utf-8")).hexdigest(), "len": len(t), "why": why}
 
 
@@ -178,8 +183,9 @@ def load_config() -> dict[str, Any]:
 class Guard:
     """The patterns, exceptions and denials from one configuration; the search runs per line and per path."""
 
-    def __init__(self, conf: dict[str, Any], *, env_secrets: dict[str, str]) -> None:
+    def __init__(self, conf: dict[str, Any], *, env_secrets: dict[str, str], env_sources: tuple[Path, ...] = ()) -> None:
         self.conf = conf
+        self.env_sources = env_sources  # 265: the `.env` files the secret values were read from
         self.patterns = {k: re.compile(v) for k, v in conf["patterns"].items()}
         self.patterns["card_number"] = card_numbers.CARD  # 167 (review S-3): the masking's own pattern, not a copy
         self.key_patterns = [re.compile(p) for p in conf["api_key_patterns"]]
@@ -265,8 +271,42 @@ class Guard:
         return any(fnmatchcase(path, a) for a in self.conf.get("allowed_binary", []))
 
 
+def _main_checkout(root: Path) -> Path | None:
+    """The main checkout of the repository `root` belongs to (the folder holding the shared `.git`), or None."""
+    proc = _git(root, "rev-parse", "--path-format=absolute", "--git-common-dir", check=False)
+    if proc.returncode != 0:
+        return None
+    common = Path(proc.stdout.decode("utf-8", "replace").strip())
+    return common.parent if common.name == ".git" else None
+
+
+def env_files(root: Path) -> list[Path]:
+    """265 (code review SEC-01): the `.env` files whose secret values the guard looks for, each once: the checkout's
+    own, the main checkout's (a linked worktree has none, the keys stay in the main folder) and the installation's
+    (`config.ENV_FILE`). Before 265 only the first was read, so the check was silently off in every worktree."""
+    main = _main_checkout(root)
+    out: list[Path] = []
+    for candidate in (root / ".env", main / ".env" if main else None, ENV_FILE):
+        if candidate is not None and candidate.is_file() and all(candidate.resolve() != p.resolve() for p in out):
+            out.append(candidate)
+    return out
+
+
 def load_guard(root: Path = PROJECT_ROOT) -> Guard:
-    return Guard(load_config(), env_secrets=read_env_secrets(root / ".env"))
+    files = env_files(root)
+    env_secrets: dict[str, str] = {}
+    for env_file in files:
+        for name, value in read_env_secrets(env_file).items():
+            env_secrets[name if env_secrets.get(name, value) == value else f"{name} ({env_file})"] = value
+    return Guard(load_config(), env_secrets=env_secrets, env_sources=tuple(files))
+
+
+def env_note(guard: Guard) -> str | None:
+    """265: a non-blocking note when no `.env` was found, so a skipped check of the keys' values is visible."""
+    if guard.env_sources:
+        return None
+    return ("data guard: no .env found (the checkout's, the main checkout's or the installation's); "
+            "the keys' values are not checked, only their known shapes")
 
 
 # --- git ------------------------------------------------------------------------------------------------------------
@@ -280,10 +320,26 @@ def _git(root: Path, *args: str, check: bool = True) -> subprocess.CompletedProc
 
 
 def added_lines(diff: str) -> Iterator[tuple[str, int, str]]:
-    """The added lines of a unified diff: (path, line number in the new file, text)."""
+    """The added lines of a unified diff: (path, line number in the new file, text). 265 (code review TOOL-10): inside
+    a hunk its counted lines are content, so an added line whose text starts with "++ " is never read as the next
+    file's header (an added "++ /dev/null" used to switch the check off for the rest of the file)."""
     path: str | None = None
-    lineno = 0
+    lineno = old_left = new_left = 0
     for raw in diff.splitlines():
+        if old_left > 0 or new_left > 0:  # inside a hunk
+            if raw.startswith("\\"):
+                continue  # "\ No newline at end of file"
+            if raw.startswith("+"):
+                if path is not None:
+                    yield path, lineno, raw[1:]
+                lineno += 1
+                new_left -= 1
+            elif raw.startswith("-"):
+                old_left -= 1
+            else:
+                lineno += 1
+                old_left, new_left = old_left - 1, new_left - 1
+            continue
         if raw.startswith("+++ "):
             target = raw[4:]
             path = None if target == "/dev/null" else target[2:] if target.startswith("b/") else target
@@ -293,15 +349,9 @@ def added_lines(diff: str) -> Iterator[tuple[str, int, str]]:
             continue
         m = _HUNK.match(raw)
         if m:
-            lineno = int(m.group(1))
-            continue
-        if path is None:
-            continue
-        if raw.startswith("+"):
-            yield path, lineno, raw[1:]
-            lineno += 1
-        elif raw.startswith(" "):
-            lineno += 1
+            lineno = int(m.group("start"))
+            old_left = 1 if m.group("old") is None else int(m.group("old"))
+            new_left = 1 if m.group("new") is None else int(m.group("new"))
 
 
 def _numstat_binaries(out: bytes) -> list[str]:
@@ -320,16 +370,16 @@ def _scan_change(root: Path, guard: Guard, diff_args: list[str]) -> list[Finding
     file and its whole content is checked under the new path (a pure rename used to have no added line)."""
     diff_args = [*diff_args, "--no-renames"]
     found: list[Finding] = []
-    names = _git(root, *diff_args, "--name-only", "-z", "--diff-filter=ACMR").stdout
+    names = _git(root, *diff_args, "--name-only", "-z", "--diff-filter=ACMRT").stdout  # 265 (TOOL-10): T too
     for name in filter(None, names.decode("utf-8", "replace").split("\0")):
         f = guard.check_path(name)
         if f is not None:
             found.append(f)
     blocked = {f.path for f in found}
-    for name in _numstat_binaries(_git(root, *diff_args, "--numstat", "-z", "--diff-filter=ACMR").stdout):
+    for name in _numstat_binaries(_git(root, *diff_args, "--numstat", "-z", "--diff-filter=ACMRT").stdout):
         if name not in blocked and not guard.binary_allowed(name):
             found.append(Finding(name, 0, "binary_file", "a binary file goes into git only on the exception list"))
-    diff = _git(root, *diff_args, "-p", "-U0", "--no-color", "--no-ext-diff", "--diff-filter=ACMR").stdout
+    diff = _git(root, *diff_args, "-p", "-U0", "--no-color", "--no-ext-diff", "--diff-filter=ACMRT").stdout
     for path, line, text in added_lines(diff.decode("utf-8", "replace")):
         found.extend(guard.scan_line(path, line, text))
     return found
@@ -351,17 +401,52 @@ def _dedupe(findings: Iterable[Finding]) -> list[Finding]:
     return out
 
 
+def unresolved_history(root: Path, guard: Guard) -> list[str]:
+    """265 (code review SEC-03): the `forbidden_history` entries this clone cannot resolve (a tag deleted here): the
+    guard cannot keep their history out, so the push says so."""
+    return [ref for ref in guard.conf.get("forbidden_history", [])
+            if _git(root, "rev-parse", "-q", "--verify", f"{ref}^{{commit}}", check=False).returncode != 0]
+
+
+def _push_refs(guard: Guard, lines: list[list[str]]) -> list[Finding]:
+    """265 (code review SEC-03; CLAUDE.md 2.3): what a push may carry (`push` in configs/data_guard.json): `main`, the
+    release tags and one stage branch; never an archive branch, another tag, a ref that is no branch or tag, or the
+    deletion of `main` or a tag (a stage branch may be deleted). The hook does not see the command line, so `--all`,
+    `--tags` and `--mirror` are refused by the refs they bring (several branches, an old tag, the remote-tracking refs)."""
+    rules = guard.conf.get("push") or {}
+    found: list[Finding] = []
+    branches = []
+    for _local_ref, local_sha, remote_ref, _remote_sha in lines:
+        if not remote_ref.startswith(("refs/heads/", "refs/tags/")):
+            found.append(Finding(remote_ref, 0, "push_ref", "only a branch or a tag goes to GitHub"))
+        elif local_sha == ZERO_SHA:
+            if remote_ref in rules.get("main", []) or remote_ref.startswith("refs/tags/"):
+                found.append(Finding(remote_ref, 0, "push_ref", "a push never deletes main or a tag"))
+        elif any(fnmatchcase(remote_ref, p) for p in rules.get("deny", [])):
+            found.append(Finding(remote_ref, 0, "push_ref", "this branch or tag stays local (configs/data_guard.json push.deny)"))
+        elif remote_ref.startswith("refs/tags/"):
+            if not any(fnmatchcase(remote_ref, p) for p in rules.get("tags", [])):
+                found.append(Finding(remote_ref, 0, "push_ref", "only a release tag goes to GitHub (push.tags)"))
+        elif remote_ref.startswith("refs/heads/") and remote_ref not in rules.get("main", []):
+            branches.append(remote_ref)
+    if len(branches) > int(rules.get("stage_branches", 1)):
+        found += [Finding(ref, 0, "push_ref", "one stage branch at a time (a push of every branch is refused)")
+                  for ref in branches]
+    return found
+
+
 def check_push(root: Path, guard: Guard, ref_lines: Iterable[str], remote: str = "origin") -> list[Finding]:
-    """Before a push (the git `pre-push` input, line by line): forbidden history, then the commits not yet pushed."""
+    """Before a push (the git `pre-push` input, line by line): the refs it carries (265), forbidden history, then the
+    commits not yet pushed."""
     roots = []
     for ref in guard.conf.get("forbidden_history", []):
         proc = _git(root, "rev-parse", "-q", "--verify", f"{ref}^{{commit}}", check=False)
         if proc.returncode == 0:
             roots.append(proc.stdout.decode().strip())
-    found: list[Finding] = []
-    for line in ref_lines:
-        parts = line.split()
-        if len(parts) != 4 or parts[1] == ZERO_SHA:
+    lines = [parts for parts in (line.split() for line in ref_lines) if len(parts) == 4]
+    found: list[Finding] = _push_refs(guard, lines)
+    for parts in lines:
+        if parts[1] == ZERO_SHA:
             continue
         local_ref, local_sha, _remote_ref, remote_sha = parts
         if any(_git(root, "merge-base", "--is-ancestor", r, local_sha, check=False).returncode == 0 for r in roots):
@@ -441,17 +526,22 @@ def main(argv: list[str] | None = None) -> int:
         print(install_hooks(root))
         return 0
     guard = load_guard(root)
+    if cmd in ("pre-commit", "pre-push", "scan") and (note := env_note(guard)):
+        print(note, file=sys.stderr)
     if cmd == "pre-commit":
         findings, action = check_staged(root, guard), "a commit"
     elif cmd == "pre-push":
         remote = args[1] if len(args) > 1 else "origin"
+        for ref in unresolved_history(root, guard):  # 265 (code review SEC-03): never silently
+            print(f"data guard: the forbidden_history entry {ref!r} does not resolve here; its history is not checked",
+                  file=sys.stderr)
         findings, action = check_push(root, guard, sys.stdin.read().splitlines(), remote), "the push"
     elif cmd == "scan":
         findings, action = scan_tracked(root, guard), "the release"
         if not findings:
             print("data guard: no finding in the tracked files")
     else:
-        print(f"ismeretlen parancs: {cmd} (pre-commit | pre-push <remote> | scan | install)", file=sys.stderr)
+        print(f"unknown command: {cmd} (pre-commit | pre-push <remote> | scan | install)", file=sys.stderr)
         return 2
     text = report(findings, action)
     if text:
@@ -464,5 +554,6 @@ if __name__ == "__main__":
 
 
 __all__ = ["HOOKS_DIR", "DataGuardError", "Finding", "Guard", "added_lines", "blocking", "check_push", "deny_entry",
-           "check_staged", "hooks_installed", "install_hooks", "load_config", "load_guard", "main", "normalize",
+           "check_staged", "env_files", "env_note", "hooks_installed", "install_hooks", "load_config", "load_guard",
+           "main", "normalize",
            "read_env_secrets", "report", "scan_tracked", "value_hash"]

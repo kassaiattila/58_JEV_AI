@@ -134,19 +134,29 @@ def _compute(tariff: Tariff, tariff_ref: str, cat: facts.Catalogue, product: str
             blockers.append(said("the tariff does not price the module {{module}}", module=code))
             continue
         module_lines: list[Line] = []
+        held = False  # 265: whether a blocker of this module's own units stopped it (its "prices no unit" would repeat it)
         for unit in units:
-            if unit.level != module.level or module.basis not in unit.seen:
+            if unit.level != module.level:
                 continue
             priced, why = _priced(cat, code, module.only, unit)
             if why:
                 blockers.append(why)
+                held = True
             if not priced:
+                continue
+            if module.basis not in unit.seen:  # 265 (APPR-01): missing data, asked for first (`missing_facts`)
+                blockers.append(said("{{unit}}: the module {{module}} has no basis: the fact {{fact}} is missing",
+                                     unit=unit.unit_id, module=code, fact=module.basis))
+                held = True
                 continue
             basis = unit.seen[module.basis]
             if not isinstance(basis, Money) or basis.currency != tariff.currency:
                 currency = basis.currency if isinstance(basis, Money) else "no currency"
                 blockers.append(said("the tariff is in {{currency}}, the {{fact}} of {{unit}} in {{other}}", currency=tariff.currency,
                                      fact=module.basis, unit=unit.unit_id, other=currency))
+                held = True
+                continue
+            if basis.amount == 0:  # 265: a person's 0, the unit takes no part in the module
                 continue
             amount = base = module.rate.of(basis)
             steps: list[Step] = []
@@ -160,8 +170,11 @@ def _compute(tariff: Tariff, tariff_ref: str, cat: facts.Catalogue, product: str
                 amount = amount.times(value)
                 steps.append(Step(name, value, amount))
             if missing:
+                held = True
                 continue
             module_lines.append(Line(unit.unit_id, code, basis, base, tuple(steps), amount.rounded(tariff.line_rounding)))
+        if not module_lines and not held:  # 265 (APPR-01): a module's minimum is never charged for nothing
+            blockers.append(said("the module {{module}} prices no unit, so its minimum is not charged", module=code))
         lines += module_lines
         summed = sum((line.amount for line in module_lines), Money(amount="0", currency=tariff.currency))
         applied = module.minimum is not None and summed < module.minimum
@@ -212,8 +225,9 @@ def missing_facts(tariff: Tariff, checked: facts.CheckedInput, evaluation: rule_
                   modules: tuple[str, ...]) -> tuple[tuple[str, str], ...]:
     """U-A8 (the walkthrough of 2026-10-28): the facts the premium of the requested modules reads that the input does
     not give, as (unit, fact) in the order the calculation meets them, each on the unit that holds it at its own level:
-    the facts of a module's condition (`only`) on a unit it may price, then, on a unit it prices, every factor's fact
-    (not only the first one missing), and the total factors' facts on the top unit. An outcome a factor reads is the
+    the facts of a module's condition (`only`) on a unit it may price, then, on a unit it prices, its basis (265,
+    APPR-01: a person may answer 0, and the unit then takes no part), then, once the basis is there and not 0, every
+    factor's fact (not only the first one missing), and the total factors' facts on the top unit. An outcome a factor reads is the
     rules' to give, never asked for. A person supplies them before the premium is computed (the missing facts step)."""
     cat = facts.catalogue(checked.catalogue)
     units = _units(checked, evaluation)
@@ -231,12 +245,18 @@ def missing_facts(tariff: Tariff, checked: facts.CheckedInput, evaluation: rule_
         if module is None:
             continue
         for unit in units:
-            if unit.level != module.level or module.basis not in unit.seen:
+            if unit.level != module.level:
                 continue
             unknown = [name for name in module.only if name not in unit.seen]
             for name in unknown:
                 need(unit, name)
             if unknown or not _priced(cat, code, module.only, unit)[0]:
+                continue
+            if module.basis not in unit.seen:  # 265 (APPR-01): the basis first; 0 is an answer (the unit takes no part)
+                need(unit, module.basis)
+                continue
+            basis = unit.seen[module.basis]
+            if isinstance(basis, Money) and basis.amount == 0:
                 continue
             for name in module.factors:
                 fact = tariff.factors[name].fact

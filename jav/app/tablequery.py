@@ -22,9 +22,9 @@ import re
 import unicodedata
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal, InvalidOperation
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from jav.core import display, numbers
 from jav.core.user_messages import explained
@@ -51,13 +51,20 @@ class Column:
         return {**d, **extra}
 
 
+# 265 (code review SEC-10): a list request takes no field it does not know, and a column name has a bound
+_STRICT = ConfigDict(extra="forbid")
+_COL = Field(min_length=1, max_length=80)
+
+
 class Sort(BaseModel):
-    col: str
+    model_config = _STRICT
+    col: str = _COL
     desc: bool = False
 
 
 class Filter(BaseModel):
-    col: str
+    model_config = _STRICT
+    col: str = _COL
     op: Literal["contains", "eq", "neq", "in", "gte", "lte", "empty", "notempty"]
     value: Any = None
 
@@ -65,12 +72,13 @@ class Filter(BaseModel):
 class Query(BaseModel):
     """The interface's unified list request."""
 
+    model_config = _STRICT
     q: str | None = Field(default=None, max_length=200)
     filters: list[Filter] = Field(default_factory=list, max_length=50)
     sort: list[Sort] = Field(default_factory=list, max_length=5)
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=100, ge=1, le=1000)
-    keys: list[str] | None = Field(default=None, max_length=10000)  # only these rows (selection)
+    keys: list[Annotated[str, Field(max_length=200)]] | None = Field(default=None, max_length=10000)  # only these rows
     group: str | None = Field(default=None, max_length=60)  # 263: the column whose values group the rows
 
 

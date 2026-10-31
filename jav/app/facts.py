@@ -62,6 +62,9 @@ class OutcomeDef(_Model):
     options: tuple[str, ...] | None = None  # for `worst`: from the best to the worst
 
 
+UNKNOWN_VERDICT = "unknown"  # the verdict of a rule a missing fact keeps undecided (`rule_evaluation`)
+
+
 class Catalogue(_Model):
     id: str
     version: str
@@ -80,6 +83,9 @@ class Catalogue(_Model):
         for name, o in self.outcomes.items():
             if o.combine == "worst" and not o.options:
                 raise ValueError(f"outcome {name}: the worst of what - it names its options from the best")
+        verdict = self.outcomes.get("verdict")
+        if verdict is not None and UNKNOWN_VERDICT not in (verdict.options or ()):  # 265 (code review APPR-09)
+            raise ValueError(f"outcome verdict: names {UNKNOWN_VERDICT!r} among its options (an undecided rule gives it)")
         return self
 
 

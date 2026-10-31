@@ -132,6 +132,9 @@ _REPLAYED: ContextVar[bool] = ContextVar("jev_replayed", default=False)
 class JevAdapter:
     def __init__(self, client: TypeSafeClient | None = None, cache_dir: Path = CACHE_DIR, model: str = JEV_MODEL) -> None:
         self._client = client
+        # 265 (code review SEC-02, TOOL-04): the client this adapter makes from the environment's key is the paid one; a
+        # client handed over (a test's or a measurement tool's fake) is the caller's
+        self._own_client = client is None
         self.cache_dir = cache_dir
         self.model = model
         self._resolved: dict[str, str] = {}  # alias -> concrete version (once per process)
@@ -278,6 +281,11 @@ class JevAdapter:
 
         ctx = calls.current()
         if ctx is None:
+            if self._own_client:
+                # 265 (code review SEC-02, TOOL-04): outside a run or a budgeted command (`calls.measurement`) only
+                # earlier answers count; the key is checked first (`missing_key` stays what a missing key says)
+                self.client  # noqa: B018
+                raise JevUnavailableError("no_budget")
             return self._sdk_live(request_id, state, questions, model=model, run_id=run_id, config_hash=config_hash)
         self.client  # noqa: B018 - 085: a missing key fails here, before anything is reserved (no request can leave)
         body = json.dumps({"state": state, "questions": {k: q.model_dump(mode="json") for k, q in questions.items()}},

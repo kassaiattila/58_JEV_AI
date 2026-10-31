@@ -26,7 +26,11 @@ if ($running.Count -eq 0) {
 
 $ol = New-Object -ComObject Outlook.Application
 $mail = $ol.CreateItem(0)
-if ($req.to) { $mail.To = [string]$req.to }
+# 265 (code review SEC-09): the addresses the service checked, one recipient each (never a raw text Outlook would parse)
+foreach ($address in @($req.recipients)) {
+    if ($address) { [void]$mail.Recipients.Add([string]$address) }
+}
+if ($mail.Recipients.Count -gt 0) { [void]$mail.Recipients.ResolveAll() }
 $mail.Subject = [string]$req.subject
 $mail.Body = [string]$req.body
 foreach ($path in @($req.attachments)) {

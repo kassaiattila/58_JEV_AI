@@ -5313,5 +5313,20 @@
   "Dismissed: not proposed again until restored.": "Dismissed: not proposed again until restored.",
   "Restored among the proposals.": "Restored among the proposals.",
   "Suggestions from the data ({{n}})": "Suggestions from the data ({{n}})",
-  "The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Record them at once, edit one first, or dismiss what is no partner of yours (a misread name, a one-off seller); nothing is recorded by itself.": "The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Record them at once, edit one first, or dismiss what is no partner of yours (a misread name, a one-off seller); nothing is recorded by itself."
+  "The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Record them at once, edit one first, or dismiss what is no partner of yours (a misread name, a one-off seller); nothing is recorded by itself.": "The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Record them at once, edit one first, or dismiss what is no partner of yours (a misread name, a one-off seller); nothing is recorded by itself.",
+  "{{unit}}: the module {{module}} has no basis: the fact {{fact}} is missing": "{{unit}}: the module {{module}} has no basis: the fact {{fact}} is missing",
+  "the module {{module}} prices no unit, so its minimum is not charged": "the module {{module}} prices no unit, so its minimum is not charged",
+  "Check the new live run first": "Check the new live run first",
+  "its result is not the one shown here and would replace the released one; check and approve it in Processing, then release": "its result is not the one shown here and would replace the released one; check and approve it in Processing, then release",
+  "the result of a live run is not the one this page shows; check and approve it on its own page first": "the result of a live run is not the one this page shows; check and approve it on its own page first",
+  "a disagreement is still open; settle it before the facts are frozen": "a disagreement is still open; settle it before the facts are frozen",
+  "the module {{module}} requires {{required}}, which is not asked for": "the module {{module}} requires {{required}}, which is not asked for",
+  "the module {{module}} excludes {{other}}, which is asked for too": "the module {{module}} excludes {{other}}, which is asked for too",
+  "the condition document {{document}} is not in force on {{date}}": "the condition document {{document}} is not in force on {{date}}",
+  "the number can be read two ways; a person checks it": "the number can be read two ways; a person checks it",
+  "the invoice is excluded from the pairing; the excluded invoices' list says why": "the invoice is excluded from the pairing; the excluded invoices' list says why",
+  "a tariff version is made active by another person than its maker": "a tariff version is made active by another person than its maker",
+  "two watched folders would take in the same documents: {{name}} and {{other}}": "two watched folders would take in the same documents: {{name}} and {{other}}",
+  "a watched folder cannot overlap the application's own data folders (store, inbox, runs)": "a watched folder cannot overlap the application's own data folders (store, inbox, runs)",
+  "the action cannot be sent now; its form says why": "the action cannot be sent now; its form says why"
 }

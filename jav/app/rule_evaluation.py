@@ -33,7 +33,7 @@ __all__ = ["POINT", "UNKNOWN", "Evaluation", "RuleOutcome", "UnitOutcome", "eval
            "plain", "to_json", "trace_in"]
 
 POINT = "rules.outcome"
-UNKNOWN = "unknown"
+UNKNOWN = facts.UNKNOWN_VERDICT  # 265 (APPR-09): the catalogue's verdicts must name it
 
 
 @dataclass(frozen=True)
@@ -133,8 +133,8 @@ def evaluate_rule(rule: Rule, ref: str, seen: dict[str, Any], cat: facts.Catalog
                     fits = False
         if not fits:
             continue  # false whatever the missing facts are
-        if undecided:
-            return RuleOutcome(ref, tuple(matched), outcomes, tuple(dict.fromkeys(undecided)))
+        if undecided:  # 265 (code review APPR-02): what a collect table gathered so far, combined as at its end
+            return RuleOutcome(ref, tuple(matched), _collected(rule, cat, ref, outcomes), tuple(dict.fromkeys(undecided)))
         matched.append(n)
         for name, value in row.then.items():
             got = facts.typed_value(name, cat.outcomes[name], value)
@@ -144,9 +144,14 @@ def evaluate_rule(rule: Rule, ref: str, seen: dict[str, Any], cat: facts.Catalog
                 outcomes.setdefault(name, got)
         if rule.table.hit == "first":
             break
-    if rule.table.hit == "collect":  # several rows' values of one outcome combine as the catalogue says
-        outcomes = {name: _combine(cat.outcomes[name], [(ref, v) for v in values], [])[0] for name, values in outcomes.items()}
-    return RuleOutcome(ref, tuple(matched), outcomes)
+    return RuleOutcome(ref, tuple(matched), _collected(rule, cat, ref, outcomes))
+
+
+def _collected(rule: Rule, cat: facts.Catalogue, ref: str, outcomes: dict[str, Any]) -> dict[str, Any]:
+    """A collect table's rows' values of one outcome combined as the catalogue says; another table's as they are."""
+    if rule.table.hit != "collect":
+        return outcomes
+    return {name: _combine(cat.outcomes[name], [(ref, v) for v in values], [])[0] for name, values in outcomes.items()}
 
 
 def _combine(o: facts.OutcomeDef, given: list[tuple[str, Any]], clashes: list[str]) -> tuple[Any, bool]:

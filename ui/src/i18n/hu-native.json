@@ -5351,5 +5351,20 @@
   "Dismissed: not proposed again until restored.": "Elvetve: visszaállításig nem javasoljuk újra.",
   "Restored among the proposals.": "Visszakerült a javaslatok közé.",
   "Suggestions from the data ({{n}})": "Javaslatok az adatokból ({{n}})",
-  "The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Record them at once, edit one first, or dismiss what is no partner of yours (a misread name, a one-off seller); nothing is recorded by itself.": "A bejövő számlák szállítói és a kimenő számlák vevői, akik még nem partnerek. Rögzítsd őket egyszerre, egyet előbb szerkessz, vagy vesd el, ami nem partnered (egy félreolvasott név, egy egyszeri eladó); magától semmi sem kerül rögzítésre."
+  "The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Record them at once, edit one first, or dismiss what is no partner of yours (a misread name, a one-off seller); nothing is recorded by itself.": "A bejövő számlák szállítói és a kimenő számlák vevői, akik még nem partnerek. Rögzítsd őket egyszerre, egyet előbb szerkessz, vagy vesd el, ami nem partnered (egy félreolvasott név, egy egyszeri eladó); magától semmi sem kerül rögzítésre.",
+  "{{unit}}: the module {{module}} has no basis: the fact {{fact}} is missing": "{{unit}}: a(z) „{{module}}” modulnak nincs díjalapja, mert hiányzik a(z) „{{fact}}” tény",
+  "the module {{module}} prices no unit, so its minimum is not charged": "a(z) „{{module}}” modul egyetlen egységet sem áraz, ezért a minimumdíja sem számítható fel",
+  "Check the new live run first": "Előbb nézd át az új éles futást",
+  "its result is not the one shown here and would replace the released one; check and approve it in Processing, then release": "az eredménye nem az, ami itt látszik, és a kiadottat váltaná fel; nézd át és hagyd jóvá a Feldolgozásban, utána add ki",
+  "the result of a live run is not the one this page shows; check and approve it on its own page first": "egy éles futás eredménye nem az, amit ez a lap mutat; előbb a saját lapján nézd át és hagyd jóvá",
+  "a disagreement is still open; settle it before the facts are frozen": "egy eltérés még nincs rendezve; rendezd, mielőtt a tényeket rögzíted",
+  "the module {{module}} requires {{required}}, which is not asked for": "a(z) „{{module}}” modulhoz a(z) „{{required}}” is kell, de azt nem kérték",
+  "the module {{module}} excludes {{other}}, which is asked for too": "a(z) „{{module}}” modul kizárja a(z) „{{other}}” modult, amelyet szintén kértek",
+  "the condition document {{document}} is not in force on {{date}}": "a(z) „{{document}}” feltételdokumentum nincs hatályban ekkor: {{date}}",
+  "the number can be read two ways; a person checks it": "a szám kétféleképpen olvasható; egy személy ellenőrzi",
+  "the invoice is excluded from the pairing; the excluded invoices' list says why": "a számla ki van zárva a párosításból; az okát a kizárt számlák listája mutatja",
+  "a tariff version is made active by another person than its maker": "a díjtábla változatát nem az élesítheti, aki elkészítette",
+  "two watched folders would take in the same documents: {{name}} and {{other}}": "Két figyelt mappa ugyanazokat az iratokat venné fel: {{name}} és {{other}}",
+  "a watched folder cannot overlap the application's own data folders (store, inbox, runs)": "A figyelt mappa nem fedheti át az alkalmazás saját adatmappáit (store, inbox, runs)",
+  "the action cannot be sent now; its form says why": "a művelet most nem küldhető el; az űrlap mutatja, miért"
 }

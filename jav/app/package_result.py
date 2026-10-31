@@ -31,11 +31,14 @@ TIERS = ("measurement", "trial", "live", "approved")  # in rising order; a measu
 
 # The tier of a finished run item: approved live (2) > live (1) > trial (0). Of equal tiers the run started later
 # counts, and of runs started at the same moment the one stored later (the order `work_runs.item_states` used since 168).
+# 265 (code review APPW-01): `{approving}` names runs counted as if approved (the release's view of the result it will
+# record); empty, it matches none
 _COUNTED = """
 SELECT item_id, final_status, flow_run_id, run_id, mode, approval, created_at FROM (
     SELECT ri.item_id, ri.final_status, ri.flow_run_id, r.run_id, r.mode, r.approval, r.created_at,
            ROW_NUMBER() OVER (PARTITION BY ri.item_id ORDER BY
-               CASE WHEN r.mode <> 'apply' THEN 0 WHEN r.approval = 'approved' THEN 2 ELSE 1 END DESC,
+               CASE WHEN r.mode <> 'apply' THEN 0 WHEN r.approval = 'approved' OR r.run_id IN ({approving}) THEN 2
+                    ELSE 1 END DESC,
                r.created_at DESC, r.rowid DESC) AS pick
     FROM run_items ri JOIN runs r ON r.run_id = ri.run_id
     WHERE r.workpackage_id = ? AND r.status <> 'cancelled' AND ri.status = 'done')
@@ -62,12 +65,18 @@ class Counted:
         return "approved" if self.approval == "approved" else "live"
 
 
-def counted_results(wp_id: str, c: sqlite3.Connection | None = None) -> dict[str, Counted]:
-    """Per item of the package, the result that counts now; an item no run has finished is missing."""
+def counted_results(wp_id: str, c: sqlite3.Connection | None = None, *,
+                    approving: Iterable[str] = ()) -> dict[str, Counted]:
+    """Per item of the package, the result that counts now; an item no run has finished is missing. 265 (APPW-01):
+    with `approving`, the result that would count once those live runs are approved (they read as approved)."""
+    ids = sorted(set(approving))
+
     def read(conn: sqlite3.Connection) -> dict[str, Counted]:
-        return {r["item_id"]: Counted(r["item_id"], r["run_id"], r["mode"], r["approval"], r["created_at"],
+        sql = _COUNTED.format(approving=",".join("?" * len(ids)) or "NULL")
+        return {r["item_id"]: Counted(r["item_id"], r["run_id"], r["mode"],
+                                      "approved" if r["run_id"] in ids else r["approval"], r["created_at"],
                                       r["final_status"], r["flow_run_id"])
-                for r in conn.execute(_COUNTED, (wp_id,))}
+                for r in conn.execute(sql, (*ids, wp_id))}
 
     if c is not None:
         return read(c)

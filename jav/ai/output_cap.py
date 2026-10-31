@@ -64,6 +64,25 @@ def paid(messages: list[Any], exc: BaseException, *, requested: str) -> calls.Ou
                          cost_usd=sum(costs, Decimal(0)))
 
 
+def ledger_failure(messages: list[Any], exc: BaseException, *, run_id: str, step: str, config_hash: str | None,
+                   seconds: float) -> None:
+    """265 (code review AI-06): a failed call's ledger row, at what it certainly cost (`paid`) and with why its last
+    answer was not taken (`retry_reason`); that cost settles the call (`exc.known_outcome`), so the call log does not
+    keep its whole reservation. Shared by the extraction, the GPT choices and every structured answer."""
+    from jav.core import store
+    from jav.core.config import OPENAI_MODEL
+
+    known = paid(messages, exc, requested=OPENAI_MODEL)
+    why = retry_reason(messages)
+    store.ledger_add(run_id=run_id, step=step, provider="openai", model=known.model if known else OPENAI_MODEL,
+                     input_tokens=known.input_tokens if known else None,
+                     output_tokens=known.output_tokens if known else None,
+                     cost_usd=float(known.cost_usd) if known else None, seconds=seconds, config_hash=config_hash,
+                     error=type(exc).__name__ + (f": {why}" if why else ""))
+    if known is not None:
+        exc.known_outcome = known  # type: ignore[attr-defined]
+
+
 def retry_reason(messages: list[Any]) -> str | None:
     """D-h: why the last answer was not taken, as Pydantic AI asked for a retry (its validation errors), cut short; None
     when it asked for none."""
@@ -76,4 +95,4 @@ def retry_reason(messages: list[Any]) -> str | None:
     return None
 
 
-__all__ = ["OutputTruncated", "StopOnTruncation", "paid", "retry_reason"]
+__all__ = ["OutputTruncated", "StopOnTruncation", "ledger_failure", "paid", "retry_reason"]

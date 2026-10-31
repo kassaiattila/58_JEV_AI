@@ -195,8 +195,13 @@ def load_message_dir(folder: str | Path) -> EmailMessage:
     if listed:
         for a in listed:
             name = a["filename"] if isinstance(a, dict) else str(a)
-            p = folder / (a.get("path") if isinstance(a, dict) and a.get("path") else name)
-            atts.append(Attachment(filename=name, path=str(p) if _allowed_attachment(p, folder) else None))
+            # 265 (code review SEC-08): an entry whose path the receiver could not resolve (`path: null`) is missing;
+            # the name the sender gave never stands in for it. An entry naming no path at all is a file of the folder.
+            if isinstance(a, dict) and "path" in a:
+                p = folder / a["path"] if a["path"] else None
+            else:
+                p = folder / name
+            atts.append(Attachment(filename=name, path=str(p) if p is not None and _allowed_attachment(p, folder) else None))
     else:
         for p in sorted(folder.iterdir()):
             if p.is_file() and not _BOOKKEEPING.match(p.name):

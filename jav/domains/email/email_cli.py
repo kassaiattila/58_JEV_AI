@@ -32,7 +32,9 @@ def cmd_email_ingest_server(args: argparse.Namespace) -> int:
 
     from jav.domains.email.ingest_server import INBOX_ROOT, serve
 
-    serve(port=args.port, run_flow=args.run, inbox_root=Path(args.inbox) if args.inbox else INBOX_ROOT, token=args.token)
+    # 265 (code review SEC-02): `--run` asks JEV of every email: under the command's budget, or earlier answers only
+    with under_budget(args, "email-ingest"):
+        serve(port=args.port, run_flow=args.run, inbox_root=Path(args.inbox) if args.inbox else INBOX_ROOT, token=args.token)
     return 0
 
 
@@ -49,4 +51,5 @@ def register(sub) -> None:
     p.add_argument("--inbox", help="the inbox root to write into (default: <project>/inbox)")
     p.add_argument("--run", action="store_true", help="run the M3 graph as soon as an email arrives (synchronously)")
     p.add_argument("--token", help="the Bearer key the bridge must send (default: the JAV_INGEST_TOKEN environment variable; the bridge sends it with -ApiToken)")
+    budget_args(p)  # 265 (code review SEC-02)
     p.set_defaults(fn=cmd_email_ingest_server)

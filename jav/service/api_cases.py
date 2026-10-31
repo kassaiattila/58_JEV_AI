@@ -54,7 +54,8 @@ class Source(In):
     kind: Literal["folder", "files", "mailbox"]
     folder: Annotated[str, Field(min_length=1, max_length=1000)] | None = None
     recursive: bool = False
-    files: Annotated[list[Annotated[str, Field(min_length=1, max_length=1000)]], Field(min_length=1, max_length=10000)] | None = None
+    # 265 (code review X-04): at most 2000 picked files (a folder takes any number); 10 000 paths made a 10 MB request
+    files: Annotated[list[Annotated[str, Field(min_length=1, max_length=1000)]], Field(min_length=1, max_length=2000)] | None = None
     request: dict[str, Any] | None = None
     only_new: bool = False  # 261: a folder or files taking only the documents no live run has processed yet
 

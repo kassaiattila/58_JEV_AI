@@ -282,11 +282,12 @@ SUSPICIOUS_ATTACHMENT = todo_kinds.SUSPICIOUS_ATTACHMENT  # 154 (DECISIONS 154);
 
 def suspicious_email(run_id: str, email_item_id: str) -> bool:
     """154: whether the run's email item was routed by a signal (an injected instruction -> `human:suspicious`,
-    `email.json` `signal_routes`)."""
+    `email.json` `signal_routes`). 265 (code review SEC-05): read from its stored signals through the routing's own
+    band (`email_signal_route`), not from the route its result went to, which another reason can share."""
     from jav.domains.email import email_rules
 
     result = email_store.email_result(work_runs.flow_run_id(run_id, email_item_id))
-    return bool(result) and result.get("next_flow") in set(email_rules.EMAIL_SIGNAL_ROUTES.values())
+    return bool(result) and email_rules.email_signal_route(result.get("signals")) is not None
 
 
 def mark_suspicious_source(run: dict[str, Any], item: dict[str, Any]) -> bool:

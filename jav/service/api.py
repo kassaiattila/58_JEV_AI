@@ -189,7 +189,7 @@ class _Guard:
 
 
 class NormalizeValue(In):
-    doc_type: Annotated[str, Field(min_length=1, max_length=64)]
+    doc_type: Annotated[str, Field(pattern=r"^[a-z0-9_]{1,64}$")]  # 265 (code review SEC-06): a type's name only
     field: Annotated[str, Field(min_length=1, max_length=64)]
     text: Annotated[str, Field(max_length=1000)]
 

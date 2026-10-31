@@ -38,7 +38,7 @@ Copy `.env.example` to `.env` and fill in:
 - `TypeSafeJAV_API_KEY`: the JEV key (the SDK's own `TYPESAFE_API_KEY` name is also accepted);
 - `OPENAI_API_KEY`: for the G path (GPT extraction) and the task proposals.
 
-`.env` never goes into git; the data guard also looks for the secret values from `.env` in the lines being committed. Never write a key value into a log or a document. `python smoke_test.py` checks the environment and the JEV key with one tiny live call (paid, a fraction of a cent); it prints only a masked fragment of the key.
+`.env` never goes into git; the data guard also looks for the secret values from `.env` in the lines being committed. Never write a key value into a log or a document. `python smoke_test.py` checks the environment and that the JEV key is there (it prints only the key's length); with `--jev-budget-usd 0.01` it makes one tiny live call under that budget (paid, a fraction of a cent), recorded in the call log.
 
 Optional environment variables (in `.env` or in the shell):
 

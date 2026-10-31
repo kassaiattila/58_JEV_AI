@@ -200,11 +200,17 @@ def save_folders(items: list[WatchedFolder], *, check_dir: Callable[[str], Path]
     known = {f["id"]: f for f in folders()}
     out = output_folder()
     rows = []
+    seen: list[tuple[Path, WatchedFolder]] = []
     for f in items:
         p = check_dir(f.path)
         if out and _overlaps(p, Path(out)):  # 078: the watcher would take the named copies in again
             raise explained(FolderOverlap, "a watched folder cannot overlap the output folder of the named copies: {{p}}",
                             p=p)
+        _not_internal(p)  # 265 (code review X-17)
+        if f.enabled and (other := next((o for q, o in seen if o.enabled and _reads_twice(p, f, q, o)), None)):
+            raise explained(FolderOverlap, "two watched folders would take in the same documents: {{name}} and {{other}}",
+                            name=repr(" ".join(f.name.split()) or p.name), other=repr(" ".join(other.name.split()) or other.path))
+        seen.append((p, f))
         recipe_id, params = f.recipe_id or None, f.params
         if recipe_id is not None and work_recipes.recipe_status(work_recipes.recipe(recipe_id)) == "retired":  # unknown: ValueError → 422
             # 080: the UI no longer shows the folder's recipe, so a retired one is moved onto the default processing
@@ -399,6 +405,23 @@ class NoOutputFolder(ValueError):
 def _overlaps(a: Path, b: Path) -> bool:
     a, b = a.resolve(), b.resolve()
     return a == b or a.is_relative_to(b) or b.is_relative_to(a)
+
+
+def _reads_twice(a: Path, fa: WatchedFolder, b: Path, fb: WatchedFolder) -> bool:
+    """265 (code review APPR-16): whether two watched folders would take in one document: the same folder, or one inside
+    another that is read with its subfolders."""
+    a, b = a.resolve(), b.resolve()
+    return a == b or (fb.recursive and a.is_relative_to(b)) or (fa.recursive and b.is_relative_to(a))
+
+
+def _not_internal(p: Path) -> None:
+    """265 (code review X-17): a watched folder never lies in the application's own data (the store, the downloaded
+    emails, the runs): a scan would take in the store's files or another source's documents."""
+    from jav.core.config import DATA_ROOT
+
+    for internal in (DATA_ROOT / "store", DATA_ROOT / "inbox", DATA_ROOT / "runs"):
+        if _overlaps(p, internal):
+            raise explained(FolderOverlap, "a watched folder cannot overlap the application's own data folders (store, inbox, runs)")
 
 
 def check_output_folder(p: Path) -> Path:

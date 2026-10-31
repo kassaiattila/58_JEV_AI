@@ -46,10 +46,17 @@ JUNIT = """<?xml version="1.0" encoding="UTF-8" ?>
 VITEST_OUT = " FAIL  src/views/a.test.tsx > the list > opens the card\n Tests  1 failed | 2 passed (3)\n"
 
 
+def _ui_bins(ui: Path) -> None:
+    """265 (TOOL-12): the UI's own tsc and vitest in node_modules/.bin, which the check runs."""
+    (ui / "node_modules" / ".bin").mkdir(parents=True)
+    for name in ("tsc", "vitest"):
+        (ui / "node_modules" / ".bin" / f"{name}.cmd").write_text("", encoding="utf-8")
+
+
 def _fake_ui(seen):
     def run(cmd, **kw):
         seen.append(cmd)
-        if "vitest" in cmd:
+        if Path(cmd[0]).stem == "vitest":  # 265 (TOOL-12): the UI's own binary, not npx
             junit = next(a.split("=", 1)[1] for a in cmd if a.startswith("--outputFile.junit="))
             Path(junit).write_text(JUNIT, encoding="utf-8")
             return SimpleNamespace(stdout=VITEST_OUT, stderr="", returncode=1)
@@ -61,7 +68,7 @@ def test_149_the_ui_test_output_is_kept_and_a_failure_is_named(tmp_path, monkeyp
     """149 (backlog Q-flaky-ui-test): an intermittent UI test failure could not be identified, because the vitest
     output was thrown away. It is now kept next to the pytest log, and the summary names the failed test."""
     seen: list = []
-    (tmp_path / "ui" / "node_modules").mkdir(parents=True)
+    _ui_bins(tmp_path / "ui")
     monkeypatch.setattr(preflight, "UI_DIR", tmp_path / "ui")
     monkeypatch.setattr(preflight, "PREFLIGHT_RUNS", tmp_path / "preflight")
     monkeypatch.setattr(preflight.shutil, "which", lambda name: name)
@@ -77,11 +84,11 @@ def test_149_the_ui_test_output_is_kept_and_a_failure_is_named(tmp_path, monkeyp
 
 def test_149_a_green_ui_run_reports_the_count_only(tmp_path, monkeypatch):
     def run(cmd, **kw):
-        if "vitest" in cmd:
+        if Path(cmd[0]).stem == "vitest":  # 265 (TOOL-12): the UI's own binary, not npx
             return SimpleNamespace(stdout=" Tests  3 passed (3)\n", stderr="", returncode=0)
         return SimpleNamespace(stdout="", stderr="", returncode=0)
 
-    (tmp_path / "ui" / "node_modules").mkdir(parents=True)
+    _ui_bins(tmp_path / "ui")
     monkeypatch.setattr(preflight, "UI_DIR", tmp_path / "ui")
     monkeypatch.setattr(preflight, "PREFLIGHT_RUNS", tmp_path / "preflight")
     monkeypatch.setattr(preflight.shutil, "which", lambda name: name)

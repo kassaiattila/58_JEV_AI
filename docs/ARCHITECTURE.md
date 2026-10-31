@@ -320,9 +320,11 @@ flowchart LR
 | Log, backup | `jav/core/applog.py`, `jav/runtime/backup.py` | permanent, rotating log (`runs/logs/`); store backup even while runs are in progress, with an integrity check (`python -m jav.cli backup`) | `tests/test_stability_063.py` |
 | Daily backup, store thinning | `jav/runtime/backup.py`, `jav/flows/persistence.py`, `jav/runtime/worker.py`, `scripts/backup-task.ps1`, `configs/service.json` `backup` | scheduled daily backup, verified copy to a second location, status file and UI warning; the internal working documents (`internal-docs.zip`) and, since 231, the machine's local settings with the keys (`local-env.zip`, `with_env`) in the backup too; of a closed item's process states only the last one is kept (Burr `load` also reads only that one); `burr-prune` for a one-off thinning and compaction of the old store | `tests/test_ops_064.py`, `tests/test_backup_env_231.py`, `ui/src/ops064.test.tsx` |
 
-**Limits.** The call log and the budget only apply on the path that runs through the worker (`calls.use_run`). The
-command-line measurements (`golden`, `determinism`, `run` …) make their calls outside it, so that measurements stay
-comparable with earlier ones; they do log failed GPT calls. As many workers run as `configs/service.json` `workers` allows (one by default),
+**Limits.** The call log and the budget apply in a worker run (`calls.use_run`) and in a command that names the owner's
+sub-budget (`calls.measurement`, through `under_budget`: `--jev-budget-usd`, `--budget-usd`). Outside both, only earlier
+answers count: the JEV adapter refuses a live call of the client it makes from the environment's key
+(`jev_unavailable:no_budget`) and the Azure recognition is never called (`ocr:escalation_blocked:no_budget`); a client
+a test or a tool hands over stays the caller's. As many workers run as `configs/service.json` `workers` allows (one by default),
 each in a slot guarded by a lock (section 7; several workers: stage E). The email process is part of the same processing (the `processing` recipe chooses the flow per item kind, section 11), and it includes the attachments.
 
 ## 7. Local service

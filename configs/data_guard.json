@@ -1,9 +1,19 @@
 {
   "meta": {
     "name": "data_guard",
-    "version": "1.0.12",
+    "version": "1.0.14",
     "description": "Adatőr (070 terv 2.1 S-adatőr, jav/devtools/data_guard.py): commit és feltöltés előtti személyesadat- és kulcsőr. A mintát ellenőrzőszám szűri (adószám, IBAN, bankszámla); a kitalált és nyilvános céges értékek az allow listán olvashatóan, a 069-es döntés szerint maradó saját adat a known listán csak sha256-tal és fájlhoz kötve, a tiltott kifejezések (saját cégnév, felhasználónév) csak sha256-tal.",
     "changelog": [
+      {
+        "version": "1.0.14",
+        "date": "2026-10-31",
+        "note": "265 (code review SEC-03, SEC-04, TOOL-10): push rules (main, release tags, one stage branch; no deletion, no archive branch); .playwright-mcp/ and the .jsonl and .log files blocked."
+      },
+      {
+        "version": "1.0.13",
+        "date": "2026-10-31",
+        "note": "265 (code review SEC-01): a literal value assigned to one of the project's key variables (TypeSafeJAV_API_KEY, TYPESAFE_API_KEY, OPENAI_API_KEY, AZURE_DI_KEY) is blocked by shape, so a pasted .env line is caught even where no .env is read."
+      },
       {
         "version": "1.0.12",
         "date": "2026-10-23",
@@ -86,7 +96,8 @@
     "store/",
     "inbox/",
     "tools/tessdata/",
-    "data/"
+    "data/",
+    ".playwright-mcp/"
   ],
   "blocked_extensions": [
     ".pdf",
@@ -119,7 +130,9 @@
     ".txt",
     ".sta",
     ".940",
-    ".camt"
+    ".camt",
+    ".jsonl",
+    ".log"
   ],
   "allowed_binary": [],
   "patterns": {
@@ -137,7 +150,8 @@
     "\\bAKIA[0-9A-Z]{16}\\b",
     "\\bAIza[0-9A-Za-z_-]{35}\\b",
     "\\bxox[abprs]-[A-Za-z0-9-]{10,}",
-    "-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----"
+    "-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----",
+    "(?i)\\b(?:TypeSafeJAV_API_KEY|TYPESAFE_API_KEY|OPENAI_API_KEY|AZURE_DI_KEY)['\"]?\\s*[:=]\\s*['\"]?[A-Za-z0-9+/_-]{16,}"
   ],
   "email_reserved_tlds": [
     "test",
@@ -280,5 +294,18 @@
       "len": 6,
       "why": "a felhasználó neve és felhasználóneve"
     }
-  ]
+  ],
+  "push": {
+    "main": [
+      "refs/heads/main"
+    ],
+    "tags": [
+      "refs/tags/v*"
+    ],
+    "stage_branches": 1,
+    "deny": [
+      "refs/heads/archive/*",
+      "refs/tags/archive/*"
+    ]
+  }
 }

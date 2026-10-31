@@ -132,10 +132,12 @@ def test_the_set_installs_as_a_draft_and_goes_again(tmp_path) -> None:
 
 
 @pytest.mark.parametrize("code", ["VIL", "GLASS", "G19", "IAK", "V111", "cold_store"])
-def test_an_extension_requested_without_a_unit_it_prices_costs_its_minimum(code: str) -> None:
+def test_an_extension_requested_without_a_unit_it_prices_gives_no_premium(code: str) -> None:
+    """265 (APPR-01; the owner's decision of 2026-10-31): a module that prices no unit stops the premium; its minimum is
+    never charged for nothing (until then it cost its minimum alone)."""
     result = _priced(_case(interruption=False, groups=(("buildings", "100000000", {}),)), ("property_ar", code))
-    assert result.blockers == ()
-    assert result.modules[code]["minimum_applied"] is True and result.modules[code]["lines"] == HUF(0)
+    assert result.total is None
+    assert result.blockers == (f"the module {code} prices no unit, so its minimum is not charged",)
 
 
 def test_the_process_offers_the_tariff_as_its_example_material_by_its_title(tmp_path) -> None:

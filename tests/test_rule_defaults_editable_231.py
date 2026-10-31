@@ -80,6 +80,12 @@ def test_a_default_of_each_kind_is_checked(db, file, key, value, problem) -> Non
 
 
 def test_a_band_a_route_and_a_list_take_their_defaults(db) -> None:
+    from jav.ai import policy
+    from jav.domains.email import email_rules
+    from jav.domains.finance import duplicates
+
+    a = {"issue_date": "2026-10-01", "gross_total": "100", "currency": "HUF"}
+    assert duplicates.classify(a, {**a, "currency": "EUR"})[0] == "variant"  # read before the default (265, X-21)
     routes = dict(cfg.load("email")["intent_route"])
     routes["quote_request"] = "human:inbox"
     for file, key, value in (("policy", "bands.default.choice_human_max_conf", 0.7), ("email", "intent_route", routes),
@@ -89,3 +95,7 @@ def test_a_band_a_route_and_a_list_take_their_defaults(db) -> None:
     assert cfg.load("policy")["bands"]["default"]["choice_human_max_conf"] == 0.7
     assert cfg.load("email")["intent_route"]["quote_request"] == "human:inbox"
     assert cfg.load("finance")["duplicates"]["compared_fields"] == ["issue_date", "gross_total"]
+    # 265 (code review X-21): and the modules that apply them read them too, not only the loader
+    assert policy.band("no.such.site")["choice_human_max_conf"] == 0.7
+    assert email_rules.INTENT_ROUTE["quote_request"] == "human:inbox"
+    assert duplicates.classify(a, {**a, "currency": "EUR"})[0] == "copy"  # the currency is no longer compared

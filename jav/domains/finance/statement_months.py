@@ -39,7 +39,6 @@ from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from difflib import SequenceMatcher
-from functools import lru_cache
 from typing import Any, Iterable
 
 from jav.core import cfg, decisions, identity, store, type_roles, values
@@ -91,9 +90,9 @@ class Resolution:
         return [s for s in statements if s["id"] not in self.replaced]
 
 
-@lru_cache(maxsize=None)
 def _conf() -> dict[str, Any]:
-    return dict(cfg.load("reconcile")["replacement"])
+    """265 (code review DOM-01): read when the rule applies (see `duplicates._conf`); read only."""
+    return cfg.load("reconcile")["replacement"]
 
 
 def pair_key(a: str, b: str) -> str:

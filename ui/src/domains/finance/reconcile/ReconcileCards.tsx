@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "../../../api";
 import type { ReconcileGroup, ReconcileGroupPair, ReconcileInvoice, ReconcileInvoiceFacts, ReconcileLine, ReconcileList, ReconcileWorkspace } from "../api";
 import { ConfirmButton } from "../../../components/ConfirmButton";
+import { isShortcutTarget } from "../../../components/shortcuts";
 import { errorText, useAction } from "../../../hooks";
 import { t, useLocale } from "../../../i18n";
 import { DocumentPair } from "./DocumentPair";
@@ -35,9 +36,6 @@ const signed = (line: ReconcileLine): bigint | null => {
 };
 const lineTitle = (l: ReconcileLine) => l.counterparty_name || l.description || l.memo || "–";
 const invoiceTitle = (i: ReconcileInvoice) => [i.partner_name ?? i.supplier_name, i.number].filter(Boolean).join(" · ") || i.file || "–";
-const isTyping = (el: EventTarget | null) =>
-  el instanceof HTMLElement && ((el instanceof HTMLInputElement && !["checkbox", "radio", "button"].includes(el.type))
-    || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
 
 /** The text a search looks in: the card's lines and invoices. */
 function searchText(g: ReconcileGroup, lines: Map<string, ReconcileLine>, invoices: Map<string, ReconcileInvoice>): string {
@@ -99,7 +97,8 @@ export function ReconcileCards({ ws, readOnly, onWorkspace, reload, onManual }: 
   const focused = shown.find((g) => g.id === focus) ?? null;
   const keys = useRef<(e: KeyboardEvent) => void>(() => {});
   keys.current = (e: KeyboardEvent) => {
-    if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return;
+    // 265 (code review UI-01): a key a control took (a picker), or Enter on a button, is not the page's
+    if (e.ctrlKey || e.metaKey || e.altKey || !isShortcutTarget(e)) return;
     const onButton = e.target instanceof HTMLElement && (e.target.tagName === "BUTTON" || e.target.tagName === "A");
     const at = focused ? shown.indexOf(focused) : -1;
     if (e.key === "ArrowDown" || e.key === "j" || e.key === "ArrowUp" || e.key === "k") {

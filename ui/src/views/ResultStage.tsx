@@ -147,19 +147,22 @@ function PackageResultStage({ view, table, onChanged }: { view: WorkpackageView;
   );
 }
 
-type PackageLine = "ready" | "released" | "todo" | "running" | "failed" | "trial" | "empty" | "off";
-const PACKAGE_MARK: Record<PackageLine, string> = { ready: "s-review", released: "s-done", todo: "s-needs_review", running: "s-running",
-  failed: "s-failed", trial: "", empty: "", off: "s-warn" };
+type PackageLine = "ready" | "released" | "todo" | "unseen" | "running" | "failed" | "trial" | "empty" | "off";
+const PACKAGE_MARK: Record<PackageLine, string> = { ready: "s-review", released: "s-done", todo: "s-needs_review",
+  unseen: "s-needs_review", running: "s-running", failed: "s-failed", trial: "", empty: "", off: "s-warn" };
 
 /** 172: what the package's release line says (the mark of DESIGN.md §4): a release can be given (orange: a person's
  *  turn), released (green), open to-dos (orange), a live run not finished (blue) or failed (red), only a trial's result
- *  or none (neutral), or partly released / changed since the release with nothing to release now (amber). */
+ *  or none (neutral), or partly released / changed since the release with nothing to release now (amber). 265 (code
+ *  review APPW-01): a live run whose result this page does not show (it would replace an approved one) is checked and
+ *  approved on its own page first (orange: a person's turn). */
 export function packageLine(data: PackageResult, running: boolean): PackageLine {
   const waiting = data.blockers.filter((b) => b.code === "run_not_ready");
   const nothing = data.blockers.some((b) => b.code === "nothing_to_release" || b.code === "own_approval");
   if (waiting.some((b) => b.status === "failed")) return "failed";
   if (waiting.some((b) => (b.open_reasons ?? 0) > 0)) return "todo";
   if (waiting.length || (running && nothing)) return "running";
+  if (data.blockers.some((b) => b.code === "run_result_not_shown")) return "unseen";
   if (!nothing) return "ready";
   if (data.state === "released") return "released";
   if (data.state === "not_released") return data.items.some((i) => i.tier) ? "trial" : "empty";
@@ -215,6 +218,8 @@ function PackageRelease({ wpId, data, running, mark, onReleased, onConflict }: {
     ready: [readyLabel, readyDetail],
     released: [t("Released"), latest ? t("version {{n}} · released by {{who}}, {{when}}", { n: latest.version, who: latest.released_by, when: when(latest.released_at) }) : ""],
     todo: [t("{{n}} open to-dos", { n: todos }), t("settle them in the Review section before the release")],
+    unseen: [t("Check the new live run first"),
+      t("its result is not the one shown here and would replace the released one; check and approve it in Processing, then release")],
     running: [t("Not finished"), t("a live run of the package has not finished yet")],
     failed: [t("Failed"), t("a live run ended with an error; it cannot be released — rerun it in Processing")],
     trial: [t("Trial result"), t("it can be viewed and downloaded but not released; a release needs a live run")],
@@ -255,7 +260,7 @@ function PackageRelease({ wpId, data, running, mark, onReleased, onConflict }: {
             question={<>{t("Approve and release the result?")} {detail}.</>}>{t("Approve and release")}</ConfirmButton>
         </PageActions>
       ) : null}
-      {line === "todo" || line === "running" ? (
+      {line === "todo" || line === "unseen" || line === "running" ? (
         <button type="button" className="secondary" disabled>{t("Approve and release")}</button>
       ) : null}
       {msg ? <span role="status" className={msg.error ? "error-text" : ""}>{msg.text}</span> : null}

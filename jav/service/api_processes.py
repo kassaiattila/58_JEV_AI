@@ -41,7 +41,8 @@ PacketId = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_]{0,63}$")]  # 231 (
 LibraryKind = Annotated[str, PathParam(pattern=r"^[a-z][a-z_]{0,39}$")]  # 231 (U3d): a shared library kind
 FrameId = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_]{0,63}$")]  # 231 (U3f): a letter frame
 DefaultId = Annotated[str, PathParam(pattern=r"^[a-z][a-z0-9_]*\.[A-Za-z0-9_.]{1,159}$")]  # 231 (U4c): <file>.<key>
-DefaultValue = (bool | int | float | Annotated[str, Field(max_length=200)]
+# 265 (code review APPR-06): a number is a finite one ("not a number" passed every bound)
+DefaultValue = (bool | int | Annotated[float, Field(allow_inf_nan=False)] | Annotated[str, Field(max_length=200)]
                 | Annotated[list[Annotated[str, Field(max_length=80)]], Field(max_length=200)]
                 | Annotated[dict[Annotated[str, Field(max_length=80)], Annotated[str, Field(max_length=80)]], Field(max_length=100)])
 

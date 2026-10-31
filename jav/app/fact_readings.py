@@ -18,13 +18,13 @@ Layer: application, code only; it names no business (the units, the codes and th
 from __future__ import annotations
 
 import re
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Any, Callable
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from jav.app import facts
-from jav.core import cfg
+from jav.core import cfg, numbers
 
 __all__ = ["FactSpec", "Readings", "UnitSpec", "claims", "load", "normal"]
 
@@ -108,36 +108,59 @@ def _code(readings: Readings, table: str, value: Any) -> tuple[bool, Any]:
     return (True, known[word]) if word in known else (False, None)
 
 
-def _decimal(value: Any) -> Decimal | None:
-    try:
-        number = Decimal(str(value).replace(" ", "").replace(",", "."))
-    except InvalidOperation:
-        return None
-    return number if number.is_finite() else None
+# 265 (code review APPR-07): the machine's own form of a number - digits, at most two decimals after a point; a
+# thousands group has three digits, so this form reads one way only
+_CANONICAL = re.compile(r"-?\d+(?:\.\d{1,2})?")
+AMBIGUOUS = "the number can be read two ways; a person checks it"
+
+
+def _decimal(value: Any, kind: numbers.Kind = "money") -> tuple[Decimal | None, bool]:
+    """(the number, whether its separators let it be read two ways): a value in the machine's own form as it is, any
+    other through the shared reader (`numbers.read_number`: "1.500" of money is 1 500, never 1.5)."""
+    if isinstance(value, bool):
+        return None, False
+    if isinstance(value, (int, Decimal)):
+        number = Decimal(value)
+        return (number, False) if number.is_finite() else (None, False)
+    text = str(value).strip()
+    if _CANONICAL.fullmatch(text):
+        return Decimal(text), False
+    read = numbers.read_number(text, kind=kind)
+    if read.value is None or not read.value.is_finite():
+        return None, False
+    return read.value, read.ambiguous
 
 
 def _typed(cat: facts.Catalogue, fact: str, raw: Any, currency: Any) -> tuple[Any, str | None]:
     """The raw value as the fact's type takes it, or why it cannot."""
     d = cat.facts[fact]
     if d.type == "money":
-        amount = _decimal(raw)
+        amount, two_ways = _decimal(raw)
         if amount is None:
             return None, "not an amount"
+        if two_ways:
+            return None, AMBIGUOUS
         if not currency:
             return None, "the document states no currency"
         raw = {"amount": str(amount), "currency": str(currency).strip().upper()}
     elif d.type == "quantity":
-        number = _decimal(raw)
+        number, two_ways = _decimal(raw, "number")
         if number is None:
             return None, "not a number"
+        if two_ways:
+            return None, AMBIGUOUS
         raw = {"value": str(number), "unit": d.unit}
     elif d.type in ("percentage", "permille"):
-        number = _decimal(raw)
+        number, two_ways = _decimal(raw, "number")
         if number is None:
             return None, "not a number"
+        if two_ways:
+            return None, AMBIGUOUS
         raw = {"value": str(number)}
     elif d.type == "count":
-        number = _decimal(raw)
+        number, two_ways = _decimal(raw, "number")
+        if number is not None and two_ways:
+            return None, AMBIGUOUS
         if number is None or number != number.to_integral_value() or number < 0:
             return None, "not a whole number"
         raw = int(number)

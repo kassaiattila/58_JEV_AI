@@ -29,6 +29,7 @@ Bridge:   powershell -File <legacy-root>\\scripts\\outlook_bridge.ps1 -Accounts 
 
 from __future__ import annotations
 
+import contextvars
 import hashlib
 import hmac
 import json
@@ -229,6 +230,9 @@ def _run_flow(folder: Path) -> dict[str, Any]:
 class _Handler(BaseHTTPRequestHandler):
     server_version = "jav-ingest/0.2"
     run_flow = False
+    # 265 (code review SEC-02): the context the flow runs in (the command's budget, `under_budget`); a request's thread
+    # does not inherit the serving thread's context, so without it every JEV question would be refused
+    flow_context: contextvars.Context | None = None
     inbox_root = INBOX_ROOT
     token: str | None = None
     on_ingest = None  # 048 T2: the code that starts the download collects the stored messages (set as a staticmethod)
@@ -357,7 +361,7 @@ class _Handler(BaseHTTPRequestHandler):
             # mailbox download this output is the worker's, kept unrotated in runs/dev/worker.log
             if self.run_flow and res["status"] != "duplicate":
                 try:
-                    out = _run_flow(folder)
+                    out = self.flow_context.copy().run(_run_flow, folder) if self.flow_context else _run_flow(folder)
                     record_run(folder, out.get("run_id"))
                     resp.update(out)
                     print(f"[mail] {folder.name} v{res['version']} -> {out.get('intent')} -> {out.get('next_flow')}")
@@ -378,22 +382,25 @@ class _HttpError(Exception):
 
 
 def make_server(port: int = 8901, *, run_flow: bool = False, inbox_root: Path = INBOX_ROOT, token: str | None = None,
-                on_ingest=None) -> ThreadingHTTPServer:
+                on_ingest=None, flow_context: contextvars.Context | None = None) -> ThreadingHTTPServer:
     """`port=0`: a free port (the actual one is in `server_address`). `on_ingest(res, payload)`: after every stored
     message. 066 Á14 (decision of 2026-09-29): the receiver works only with a key; if neither the caller nor the
     environment provides one, it gets a one-off random key (`serve` prints it for the bridge's `-ApiToken` switch)."""
     key = token or os.environ.get(TOKEN_ENV) or secrets.token_urlsafe(24)
     # `timeout`: the socket timeout of every read on the connection, headers included (StreamRequestHandler); a
     # timed-out request line or header closes the connection (076)
-    handler = type("Handler", (_Handler,), {"run_flow": run_flow, "inbox_root": Path(inbox_root), "token": key,
+    handler = type("Handler", (_Handler,), {"run_flow": run_flow, "flow_context": flow_context,
+                                            "inbox_root": Path(inbox_root), "token": key,
                                             "on_ingest": staticmethod(on_ingest) if on_ingest else None,
                                             "timeout": READ_TIMEOUT_S})
     return ThreadingHTTPServer(("127.0.0.1", port), handler)
 
 
 def serve(port: int = 8901, *, run_flow: bool = False, inbox_root: Path = INBOX_ROOT, token: str | None = None) -> None:
+    """265 (code review SEC-02): the flows run in the caller's context (the command's budget, `under_budget`)."""
     configured = token or os.environ.get(TOKEN_ENV)
-    httpd = make_server(port, run_flow=run_flow, inbox_root=inbox_root, token=token)
+    httpd = make_server(port, run_flow=run_flow, inbox_root=inbox_root, token=token,
+                        flow_context=contextvars.copy_context() if run_flow else None)
     auth = "kulccsal (Authorization: Bearer)" if configured else \
         (f"egyszeri kulccsal: a híd -ApiToken kapcsolójának értéke {httpd.RequestHandlerClass.token} "
          f"(állandó kulcs: a {TOKEN_ENV} környezeti változó)")

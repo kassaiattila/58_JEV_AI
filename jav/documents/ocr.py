@@ -105,7 +105,7 @@ class AzureBlocked(OcrUnavailableError):
     is off), `budget_exceeded` (the page reservation does not fit the run's Azure budget) or `uncertain_attempt` (an
     earlier attempt for this document has an unknown outcome; it is not repeated automatically). 121: `unreachable`
     (no direct Azure endpoint and key, and the legacy sidecar cannot see the document); this one is raised outside a
-    worker run too."""
+    worker run too. 265 (code review TOOL-03): `no_budget` (outside a run or a command's budget: never paid for)."""
 
     def __init__(self, reason: str) -> None:
         super().__init__(f"azure_di: {reason}")
@@ -281,7 +281,7 @@ def azure_words(path: Path, *, run_id: str = "jav-ocr") -> tuple[list[list[dict[
 
 AZURE_PROVIDER = "azure_di"
 # 121: `unreachable` (no route to Azure for this document) and `unavailable` (the call failed or its outcome is unknown)
-_ESCALATION_TODO = {"budget_exceeded", "uncertain_attempt", "unreachable", "unavailable"}
+_ESCALATION_TODO = {"budget_exceeded", "uncertain_attempt", "unreachable", "unavailable", "no_budget"}  # 265: no_budget
 
 
 def azure_recognise(path: Path) -> tuple[list[list[dict[str, Any]]], list[float], dict[str, Any]]:
@@ -313,10 +313,9 @@ def azure_recognise(path: Path) -> tuple[list[list[dict[str, Any]]], list[float]
 
     if ctx is not None and ctx.budget_scope is not None and not calls.has_budget(ctx.budget_scope, AZURE_PROVIDER):
         raise AzureBlocked("off")
+    if ctx is None:  # 265 (code review TOOL-03): outside a run or a budgeted command Azure is never paid for
+        raise AzureBlocked("no_budget")
     azure_route(path)  # 121: no route, no call: neither a reservation nor a "failed" call-log row
-    if ctx is None:  # the command-line / measurement path: no run budget (as for JEV and OpenAI there), but ledgered
-        out = physical().response
-        return out["pages"], out["confs"], out["meta"]
     n_pages = len(page_sizes(path)) or pdfmod.input_limits().max_pages
     max_cost = (AZURE_USD_PER_PAGE * n_pages).quantize(Decimal("0.000001"), rounding=ROUND_CEILING)
     sha = _sha256(path)

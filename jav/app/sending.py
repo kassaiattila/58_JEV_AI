@@ -114,11 +114,17 @@ def builder(name: str) -> MessageBuilder:
 # --- the allowlist of the real send ---------------------------------------------------------------------------------
 
 
+def recipients(to: str | None) -> list[str]:
+    """265 (code review SEC-09): the addresses of a recipient text, as the allowlist reads them (lower case, display
+    names dropped); the Outlook script gets these, not the raw text, so what is checked is what is sent to."""
+    return [a.strip().lower() for _, a in getaddresses([to or ""]) if a.strip()]
+
+
 def allowed(to: str | None) -> bool:
     """Whether every recipient is on the real send's allowlist (an address, or `@domain` for a whole domain); no
     recipient is never allowed."""
     allow = {str(a).strip().lower() for a in cfg.load(CONFIG)["outlook_send"]["allow"]}
-    addresses = [a.strip().lower() for _, a in getaddresses([to or ""]) if a.strip()]
+    addresses = recipients(to)
     return bool(addresses) and all(a in allow or "@" + a.rpartition("@")[2] in allow for a in addresses)
 
 

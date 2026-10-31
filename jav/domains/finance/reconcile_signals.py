@@ -94,14 +94,15 @@ def supplier_keys(invoice: dict[str, Any]) -> set[str]:
 def name_words(name: Any) -> list[str]:
     """134: a supplier's name as the signals compare it: cut after its legal form when an address or a remark follows
     (`candidates.trim_after_legal_form`), without numbers, legal forms and filler words."""
-    return list(_name_words(str(name or "")))
+    return list(_name_words(str(name or ""), _ignore_tokens()))
 
 
 @lru_cache(maxsize=16384)
-def _name_words(name: str) -> tuple[str, ...]:
-    """151: memoised, as `_normalized`; one pairing compares each supplier's name with every line in its window."""
+def _name_words(name: str, ignore: frozenset[str]) -> tuple[str, ...]:
+    """151: memoised, as `_normalized`; one pairing compares each supplier's name with every line in its window. 265
+    (code review DOM-01): the ignored words are an argument, so a case's own list is never answered from another's."""
     return tuple(w for w in normalize(trim_after_legal_form(name)).split()
-                 if w not in _ignore_tokens() and not any(ch.isdigit() for ch in w))
+                 if w not in ignore and not any(ch.isdigit() for ch in w))
 
 
 def supplier_words(name: Any) -> list[str]:
@@ -136,17 +137,23 @@ def common_words(invoices: Iterable[dict[str, Any]], lines: Iterable[dict[str, A
     return frozenset({w for w, n in by_supplier.items() if n >= least} | {w for w, n in by_line.items() if n >= line_least})
 
 
+def _fuzzy_rule() -> tuple[int, float, float]:
+    """The `fuzzy_name` thresholds `_fuzzy_word` compares with: (min_chars, min_prefix_share, min_ratio)."""
+    f = reconcile_rules._conf()["signals"]["fuzzy_name"]
+    return int(f["min_chars"]), float(f["min_prefix_share"]), float(f["min_ratio"])
+
+
 @lru_cache(maxsize=65536)
-def _fuzzy_word(word: str, other: str) -> bool:
+def _fuzzy_word(word: str, other: str, rule: tuple[int, float, float]) -> bool:
     """The supplier's word begins the line's word (glued to a suffix), or the line's word begins the supplier's and
     holds `min_prefix_share` of it (a name cut short on a card terminal), or they differ by about a letter. 151:
-    memoised (the configuration is read once per process, `_conf`)."""
-    f = reconcile_rules._conf()["signals"]["fuzzy_name"]
-    least = int(f["min_chars"])
-    if other.startswith(word) or (len(other) >= max(least, float(f["min_prefix_share"]) * len(word)) and word.startswith(other)):
+    memoised; 265 (code review DOM-01): the thresholds are an argument (`_fuzzy_rule`, read when the rule applies), so
+    a case's own values are never answered from the first ones the process read."""
+    least, prefix_share, ratio = rule
+    if other.startswith(word) or (len(other) >= max(least, prefix_share * len(word)) and word.startswith(other)):
         return True
     return (min(len(word), len(other)) >= least and abs(len(word) - len(other)) <= 2
-            and SequenceMatcher(None, word, other).ratio() >= float(f["min_ratio"]))
+            and SequenceMatcher(None, word, other).ratio() >= ratio)
 
 
 def _number_in(value: Any, text: str) -> bool:
@@ -275,7 +282,8 @@ def signals(invoice: dict[str, Any], payment: dict[str, Any], learned: set[tuple
         words = supplier_words(invoice.get("supplier_name"))
         mine = [w for w in words if w not in common]
         theirs = [w for w in line_words(payment) if w not in common]
-        if any((w != o and _fuzzy_word(w, o)) or (w == o and w == words[0]) for w in mine for o in theirs):
+        rule = _fuzzy_rule()
+        if any((w != o and _fuzzy_word(w, o, rule)) or (w == o and w == words[0]) for w in mine for o in theirs):
             found.append("supplier_name_fuzzy")
     if _channel(invoice, payment):
         found.append("payment_channel")

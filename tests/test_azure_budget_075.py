@@ -114,9 +114,19 @@ def test_uncertain_attempt_is_not_repeated_automatically(azure_env):
     assert ocr.escalation_review_reasons(pdf.ocr) == ["ocr:escalation_blocked:uncertain_attempt"]
 
 
-def test_command_line_call_is_ledgered(azure_env):
+def test_outside_a_run_or_a_budgeted_command_azure_is_never_called(azure_env):
+    """265 (code review TOOL-03): without a run context (e.g. `JAV_OCR_ENGINE=azure_di ... recall`) Azure paid with
+    no budget and no call-log row; now it is refused and the weak scan gets its to-do."""
     source, requests = azure_env
-    pdf, escalated = ocr.ocr_with_escalation(source, use_cache=False)  # no run context: the measurement path
+    pdf, escalated = ocr.ocr_with_escalation(source, use_cache=False)
+    assert not escalated and not requests and _rows("SELECT * FROM ledger") == []
+    assert ocr.escalation_review_reasons(pdf.ocr) == ["ocr:escalation_blocked:no_budget"]
+
+
+def test_a_budgeted_command_s_call_is_reserved_and_ledgered(azure_env):
+    source, requests = azure_env
+    with calls.measurement("cli-ocr", {"azure_di": Decimal("0.05")}):
+        pdf, escalated = ocr.ocr_with_escalation(source, use_cache=False)
     assert escalated and len(requests) == 1
     assert tuple(_rows("SELECT provider, step FROM ledger")[0]) == ("azure_di", "ocr_azure")
 
