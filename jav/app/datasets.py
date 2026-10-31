@@ -700,7 +700,14 @@ def _datapoints(scope: dict[str, str]) -> Rows:
     rows = [[*row[:4], names[row[3]].get(row[4], row[4]) if isinstance(row[4], str) else row[4], *row[5:]] for row in rows]
     shown_names = {n: n for of_field in names.values() for n in of_field.values()}
     cols = [replace(c, labels=shown_names) if c.key == "value" and shown_names else c for c in _fixed(_DP_KEYS)]
-    return cols, _zip_rows([c.key for c in cols], rows, link, lambda d: f"{d['item_id']}:{d['field']}")
+    # 264 (plan E, F5): the value column holds every field's values, so each row says its field's kind (`_kind`) and
+    # the interface shows an amount as an amount and a date as a date (the column's `kind_from`)
+    cols = [replace(c, extra={**c.extra, "kind_from": "_kind"}) if c.key == "value" else c for c in cols]
+    kinds = {r["item_id"]: r.get("kinds") or {} for r in records}
+    out = _zip_rows([c.key for c in cols], rows, link, lambda d: f"{d['item_id']}:{d['field']}")
+    for d in out:
+        d["_kind"] = _field_kind(kinds.get(d["item_id"], {}).get(d["field"]))
+    return cols, out
 
 
 def _native_facts(scope: dict[str, str]) -> Rows:

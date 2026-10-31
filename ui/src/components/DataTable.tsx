@@ -129,9 +129,17 @@ export function cellText(col: DsColumn, v: unknown): string {
   return String(v);
 }
 
-function Cell({ col, row, custom }: { col: DsColumn; row: DsRow; custom?: Props["cell"] }) {
-  const own = custom?.(col, row);
+/** 264 (F5): the column as this row shows it - a column whose rows say their kind takes the row's (an amount among
+ *  the data points' values reads as an amount). */
+export function rowColumn(col: DsColumn, row: DsRow): DsColumn {
+  const kind = col.kind_from ? row[col.kind_from] : undefined;
+  return typeof kind === "string" && kind && kind !== col.kind ? { ...col, kind: kind as DsColumn["kind"] } : col;
+}
+
+function Cell({ col: shown, row, custom }: { col: DsColumn; row: DsRow; custom?: Props["cell"] }) {
+  const own = custom?.(shown, row);
   if (own !== undefined) return <>{own}</>;
+  const col = rowColumn(shown, row);
   const raw = row[col.key];
   const text = cellText(col, raw);
   if (!text) return <span className="muted">–</span>;

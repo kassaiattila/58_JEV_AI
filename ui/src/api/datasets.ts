@@ -15,6 +15,8 @@ export interface DsColumn {
   marks?: Record<string, string>; // 263: a badge's state mark by value (a version's state: active green, a draft a ring)
   /** 263: a link to a thing of Settings: its section, and the list its things stand in (a product's list) */
   section?: string; list?: string;
+  /** 264: the row field that says this row's kind (the data points' value column holds every field's values) */
+  kind_from?: string;
 }
 export interface DsFilter { col: string; op: FilterOp; value?: string | string[] | null }
 export interface DsSort { col: string; desc?: boolean }
