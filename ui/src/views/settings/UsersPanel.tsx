@@ -47,7 +47,7 @@ export function UsersPanel() {
         {draft.map((u) => (
           <li key={u}>
             <span>{u}</span>
-            <ConfirmButton className="quiet small-btn" disabled={busy} ariaLabel={t("Remove {{name}} from the list", { name: u })}
+            <ConfirmButton className="quiet small-btn" disabled={busy} danger ariaLabel={t("Remove {{name}} from the list", { name: u })}
               onConfirm={() => void save(draft.filter((x) => x !== u), t("{{name}} removed from the list.", { name: u }))}>{t("Delete")}</ConfirmButton>
           </li>
         ))}

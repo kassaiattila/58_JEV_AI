@@ -8,6 +8,7 @@ import { App } from "./App";
 import { api, getActor, setActor, type DsPage } from "./api";
 import { parseRoute, routeHash } from "./route";
 import { UsersPanel } from "./views/settings/UsersPanel";
+import { confirmAction } from "./confirm.testutil";
 
 const EMPTY: DsPage = {
   dataset: { name: "workpackages", label: "Iratkötegek", scope: [], optional_scope: ["include_archived", "owner"] }, columns: [], rows: [],
@@ -70,7 +71,7 @@ describe("The users' list (061)", () => {
     expect(save).toHaveBeenLastCalledWith(["Minta Anna", "Teszt Elek"]);
     expect(await screen.findByText("Teszt Elek felvéve és mentve.")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Minta Anna törlése a listából" }));
-    await user.click(screen.getByRole("button", { name: "Biztosan? Kattints újra" })); // 073: two-click confirmation
+    await user.click(confirmAction()); // 073: two-click confirmation
     expect(save).toHaveBeenLastCalledWith(["Teszt Elek"]);
     expect(screen.queryByRole("button", { name: "Mentés" })).toBeNull();
     expect(within(screen.getByRole("region", { name: "Felhasználók" })).queryByText("Mentetlen módosítás van.")).toBeNull();

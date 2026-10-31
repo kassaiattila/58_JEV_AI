@@ -165,9 +165,9 @@ function UnitRows({ cat, unit, depth, editing, onEdit, act }: {
         <td className="num">
           {editing ? (
             <span className="button-row end">
-              <button type="button" className={changed ? "primary small-btn" : "secondary small-btn"} disabled={!changed || act.busy}
-                onClick={() => void save()}>{t("Save the unit")}</button>
               <button type="button" className="quiet small-btn" disabled={act.busy} onClick={() => { setDraft(initial); onEdit(false); }}>{t("Cancel")}</button>
+              <button type="button" className="secondary small-btn" disabled={!changed || act.busy}
+                onClick={() => void save()}>{t("Save the unit")}</button>
             </span>
           ) : <button type="button" className="quiet small-btn" onClick={() => onEdit(true)}>{t("Edit")}</button>}
         </td>
@@ -250,9 +250,9 @@ function Reopen({ act }: { act: ReturnType<typeof useAct> }) {
   return (
     <div className="button-row">
       <input aria-label={t("Why it is reopened")} placeholder={t("Why it is reopened")} value={reason} onChange={(e) => setReason(e.target.value)} />
+      <button type="button" className="quiet small-btn" onClick={() => setOpen(false)}>{t("Cancel")}</button>
       <button type="button" className="secondary small-btn" disabled={!reason.trim() || act.busy}
         onClick={() => void act.run("reopen", undefined, reason.trim())}>{t("Reopen")}</button>
-      <button type="button" className="quiet small-btn" onClick={() => setOpen(false)}>{t("Cancel")}</button>
     </div>
   );
 }

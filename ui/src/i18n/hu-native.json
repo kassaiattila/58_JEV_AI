@@ -4086,7 +4086,6 @@
   "Uncertain value: {{field}} (probability {{p}})": "Bizonytalan érték: {{field}} (valószínűség {{p}})",
   "Evidence:": "Bizonyíték:",
   "Delete this batch permanently?": "Biztosan törlöd a köteget?",
-  "Sure? Click again": "Biztosan? Kattints újra",
   "GPT only, without JEV (OpenAI)": "Csak GPT, JEV nélkül (OpenAI)",
   "GPT only, without JEV — type recognition, data extraction and email intent with GPT, checked in code (OpenAI)": "Csak GPT, JEV nélkül — típusfelismerés, adatkinyerés és levélszándék GPT-vel, kódos ellenőrzéssel (OpenAI)",
   "Only my document batches": "Csak a saját kötegeim",
@@ -5242,5 +5241,13 @@
   "Open the documents' processing": "Az iratok feldolgozása",
   "The step's parts": "A lépés részei",
   "Manage case": "Ügy kezelése",
-  "Continue: {{step}}": "Tovább: {{step}}"
+  "Continue: {{step}}": "Tovább: {{step}}",
+  "Accept it as a draft rule? It changes nothing until it is made active.": "Elfogadod vázlat-szabályként? Amíg élesítik, semmit sem változtat.",
+  "Approve and release the result?": "Jóváhagyod és kiadod az eredményt?",
+  "Are you sure?": "Biztosan?",
+  "Confirmation": "Megerősítés",
+  "Delete {{party}}? Its names and accounts are proposed again.": "Törlöd: {{party}}? A nevei és a bankszámlái újra javaslatként jelennek meg.",
+  "Make version {{n}} active? New cases use it from now on; the cases started earlier keep theirs.": "Élesíted a(z) {{n}}. változatot? Mostantól az új ügyek ezt használják; a korábban indult ügyek megtartják a sajátjukat.",
+  "Retire it? New cases no longer use it; a case started with it keeps it.": "Kivezeted? Az új ügyek már nem használják; az ezzel indult ügy megtartja.",
+  "Retire {{name}}? New cases no longer offer it; the earlier ones keep it.": "Kivezeted: {{name}}? Az új ügyek már nem kínálják; a korábbiak megtartják."
 }

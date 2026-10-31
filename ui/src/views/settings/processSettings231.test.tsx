@@ -3,6 +3,7 @@
 // new value is saved as a draft (a rule's whole number within its bounds), tried on the process's earlier decisions
 // and made active; an active own value can be set aside. Synthetic data, a mocked service.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { confirmAction } from "../../confirm.testutil";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type ProcessSettings, type RulePreview } from "../../api";
 import { setLanguage } from "../../i18n";
@@ -115,7 +116,7 @@ describe("a process's own settings (231 B4)", () => {
     const versions = within(card).getByRole("table", { name: "Versions" });
     const aside = within(versions).getByRole("button", { name: "Use the file's value" });
     fireEvent.click(aside);
-    fireEvent.click(within(versions).getByRole("button", { name: /Sure/ }));
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(retire).toHaveBeenCalledWith("invented_quote", "settings", "send_mode"));
   });
 

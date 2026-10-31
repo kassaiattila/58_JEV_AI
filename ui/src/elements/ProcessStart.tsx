@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { api, ApiError, type CaseNextDraft, type CaseSource, type PackageOffer, type ProcessRecord, type StepEstimate,
   type StepSource } from "../api";
 import { BrowseButton } from "../components/BrowseButton";
+import { FormActions } from "../components/FormActions";
 import { Icon } from "../components/Icon";
 import { Picker } from "../components/Picker";
 import { chooserOf } from "./sourceChoosers";
@@ -81,16 +82,20 @@ function useStepEstimates(pack: string, sources: Record<string, CaseSource>, par
  *  reads; 231 C2d: its own party and period; the other parts take their default, e.g. the party's accounts) and its
  *  name; (U2c) for a process whose steps run cases of other processes, each such step's own documents. 261: `after`, the
  *  case whose next period it starts: the form is filled in from it (the service's draft) and the new case follows it. */
-export function ProcessCreate({ pack, onDone, after }: { pack: string; onDone: (wpId: string) => void; after?: string }) {
+export function ProcessCreate({ pack, onDone, after, onCancel }: {
+  pack: string; onDone: (wpId: string) => void; after?: string; onCancel?: () => void;
+}) {
   useLocale();
   const draft = useLoad(after ? `case-next:${after}` : null, () => api.caseNext(after ?? ""));
-  if (!after) return <ProcessForm pack={pack} onDone={onDone} />;
+  if (!after) return <ProcessForm pack={pack} onDone={onDone} onCancel={onCancel} />;
   if (draft.error) return <p className="notice error" role="alert">{draft.error.message}</p>;
   if (!draft.data) return <p className="muted">{t("Loading…")}</p>;
-  return <ProcessForm pack={pack} onDone={onDone} draft={draft.data} />;
+  return <ProcessForm pack={pack} onDone={onDone} onCancel={onCancel} draft={draft.data} />;
 }
 
-function ProcessForm({ pack, onDone, draft }: { pack: string; onDone: (wpId: string) => void; draft?: CaseNextDraft }) {
+function ProcessForm({ pack, onDone, onCancel, draft }: {
+  pack: string; onDone: (wpId: string) => void; onCancel?: () => void; draft?: CaseNextDraft;
+}) {
   useLocale();
   const packs = useLoad("processes", api.processes);
   const list = useLoad("workpackages-brief", api.workpackagesBrief);
@@ -216,14 +221,15 @@ function ProcessForm({ pack, onDone, draft }: { pack: string; onDone: (wpId: str
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
       </label>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
-      <div className="button-row">
+      {/* 263 (F1): the form's foot - "Cancel", then the main button, on the right */}
+      <FormActions onCancel={onCancel} busy={busy}>
         {/* 261 (DESIGN §9): a start that also starts paid runs by themselves carries their caps' sum */}
         <button type="submit" className="primary" disabled={busy || !ready}
           title={capTotal > 0 ? t("Starts the steps' live runs by themselves within their caps: up to {{usd}} in all", { usd: usdBudget(capTotal) }) : undefined}>
           {busy ? t("Creating…") : t("Create")}
           {capTotal > 0 ? <span className="spend" aria-hidden="true">≤ {usdBudget(capTotal)}</span> : null}
         </button>
-      </div>
+      </FormActions>
     </form>
   );
 }
@@ -400,7 +406,7 @@ function PackageOfferCard({ offer: o }: { offer: PackageOffer }) {
   const start = () => run(() => api.startCase({ pack: o.pack, name, sources: o.sources }),
     { then: (made) => go({ view: "cases", caseId: made.case_id }) });
   return (
-    <section className="card rc-stack" aria-label={title}>
+    <section className="card wide rc-stack" aria-label={title}>
       <div className="button-row">
         <p className="small grow"><strong>{title}</strong> · {t("A case of this process reads this package.")}</p>
         <button type="button" className="secondary" disabled={busy} onClick={() => void start()}><Icon name="plus" />{t("Start a case")}</button>

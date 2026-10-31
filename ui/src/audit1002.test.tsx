@@ -6,6 +6,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { api, ApiError, type DsPage, type PackageResult, type RunView, type WorkpackageView } from "./api";
 import { ResultStage } from "./views/ResultStage";
+import { confirmAction } from "./confirm.testutil";
 
 vi.mock("./components/DataTable", async () => {
   const React = await import("react");
@@ -45,7 +46,7 @@ it.each(["datapoints", "native_facts"])("after a conflict only the mark of the %
   const loadsBefore = dataset.mock.calls.length;
   current = "m2"; // someone saves a correction in another tab
   fireEvent.click(button());
-  fireEvent.click(screen.getByRole("button", { name: "Biztosan? Kattints újra" }));
+  fireEvent.click(confirmAction());
   await screen.findByText(/A köteg eredménye a megtekintés óta változott/);
   expect(give.mock.calls[0][1]).toBe("m1");
   // the table is loading again: the new result cannot be released with the old rows on screen
@@ -57,7 +58,7 @@ it.each(["datapoints", "native_facts"])("after a conflict only the mark of the %
   await screen.findByText("NEW");
   await waitFor(() => expect(button().hasAttribute("disabled")).toBe(false));
   fireEvent.click(button());
-  fireEvent.click(screen.getByRole("button", { name: "Biztosan? Kattints újra" }));
+  fireEvent.click(confirmAction());
   await waitFor(() => expect(give).toHaveBeenCalledTimes(2));
   expect(give.mock.calls[1][1]).toBe("m2");
   expect(screen.getByTestId("displayed-result").textContent).toBe("NEW");

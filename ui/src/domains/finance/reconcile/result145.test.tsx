@@ -8,6 +8,7 @@ import { api, setActor } from "../../../api";
 import type { ReconcileStatement, ReconcileStatementCurrent, ReconcileVersionMeta, ReconcileWorkspace } from "../api";
 import { setLanguage } from "../../../i18n";
 import { ReconcileResult } from "./ReconcileResult";
+import { confirmAction } from "../../../confirm.testutil";
 
 const WP = "wp-0000000000ff";
 const DOC = "d".repeat(64);
@@ -78,7 +79,7 @@ describe("the Result stage of a reconciliation package (145)", () => {
     const button = screen.getByRole("button", { name: "Approve the reconciliation (1 open lines listed)" });
     fireEvent.click(button); // the first click asks for a confirmation
     expect(approve).not.toHaveBeenCalled();
-    fireEvent.click(button);
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(approve).toHaveBeenCalledWith(WP, FP));
     expect(await screen.findByText(/Approved: version 1, by Synthetic reviewer/)).toBeTruthy();
     expect(reloadWorkspace).toHaveBeenCalled();
@@ -107,7 +108,7 @@ describe("the Result stage of a reconciliation package (145)", () => {
     expect((screen.getByRole("button", { name: /Approve the reconciliation/ }) as HTMLButtonElement).disabled).toBe(true);
     const button = screen.getByRole("button", { name: "Accept 1 command-line documents as sources" });
     fireEvent.click(button);
-    fireEvent.click(button);
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(accept).toHaveBeenCalledWith(WP, [DOC]));
     expect(await screen.findByText("The documents have been accepted as sources.")).toBeTruthy();
   });
@@ -128,7 +129,7 @@ describe("the Result stage of a reconciliation package (145)", () => {
     expect((button as HTMLButtonElement).disabled).toBe(true); // a reason first
     fireEvent.change(screen.getByLabelText("Reason for reopening"), { target: { value: "a late invoice arrived" } });
     fireEvent.click(button);
-    fireEvent.click(button);
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(reopen).toHaveBeenCalledWith(WP, "a late invoice arrived"));
   });
 

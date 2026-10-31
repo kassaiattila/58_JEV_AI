@@ -10,6 +10,7 @@ import { api, ApiError, setActor, type CaseView } from "../../api";
 import { setLanguage } from "../../i18n";
 import type { QuoteDraftView, QuoteView } from "./api";
 import { Approval, LineEditor } from "./QuoteElements";
+import { confirmAction } from "../../confirm.testutil";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { vi.restoreAllMocks(); });
@@ -78,7 +79,7 @@ describe("a save someone else's save refused", () => {
     await screen.findByText("Not saved: someone else saved it meanwhile");
     rerender(element(LineEditor, draft(9, "5")));
     fireEvent.click(await screen.findByRole("button", { name: "Drop mine, keep theirs" }));
-    fireEvent.click(screen.getByRole("button", { name: "Sure? Click again" }));
+    fireEvent.click(confirmAction());
     expect((screen.getByRole("textbox", { name: "Line 1: quantity" }) as HTMLInputElement).value).toBe("5");
     expect(screen.getByText("Every change is saved at once.")).toBeTruthy();
     expect(save).toHaveBeenCalledTimes(1);

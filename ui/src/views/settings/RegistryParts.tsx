@@ -272,6 +272,7 @@ export function Activation<C>({ kind, thing, version, secondPerson, onDone }: {
         {/* 263 (E1): the activation is the page's main action, at the right end of its title row */}
         <PageActions>
           <ConfirmButton className={blocked ? "secondary" : "primary"} disabled={busy || blocked}
+            question={t("Make version {{n}} active? New cases use it from now on; the cases started earlier keep theirs.", { n: version.version })}
             onConfirm={() => void run(() => api.activateRegistryVersion(kind, thing.ident, version.version))}>
             {t("Make version {{n}} active", { n: version.version })}
           </ConfirmButton>
@@ -284,11 +285,14 @@ export function Activation<C>({ kind, thing, version, secondPerson, onDone }: {
   }
   if (version.state === "active") {
     return (
-      <div className="registry-activation">
-        <PageActions>
-          <ConfirmButton className="secondary" disabled={busy} onConfirm={() => void run(() => api.retireRegistryThing(kind, thing.ident))}>{t("Retire")}</ConfirmButton>
-        </PageActions>
-        <p className="muted small">{t("A retired version stays readable: a case started with it keeps it.")}</p>
+      <div className="registry-activation form-actions">
+        {/* 263 (F1): what retires stands at the left end of the thing's part, not in the title row's main spot */}
+        <div className="form-actions-start">
+          <ConfirmButton className="secondary" disabled={busy} danger
+            question={t("Retire it? New cases no longer use it; a case started with it keeps it.")}
+            onConfirm={() => void run(() => api.retireRegistryThing(kind, thing.ident))}>{t("Retire")}</ConfirmButton>
+          <span className="muted small">{t("A retired version stays readable: a case started with it keeps it.")}</span>
+        </div>
         {failed}
       </div>
     );

@@ -13,6 +13,7 @@ import { setLanguage } from "../../i18n";
 import { UtilityPanel } from "../../domains/finance/UtilityReport";
 import { linkCol, listPage } from "./listPage.testutil";
 import { issueText, OutputTemplatesPanel } from "./OutputTemplatesPanel";
+import { confirmAction } from "../../confirm.testutil";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -120,7 +121,7 @@ describe("Settings › Output templates (179)", () => {
     const r = screen.getByRole("button", { name: "Retire" });
     fireEvent.click(r);
     expect(retire).not.toHaveBeenCalled();
-    fireEvent.click(r);
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(retire).toHaveBeenCalledWith("tpl-0123456789"));
   });
 

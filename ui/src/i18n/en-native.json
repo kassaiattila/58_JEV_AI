@@ -4047,7 +4047,6 @@
   "Uncertain value: {{field}} (probability {{p}})": "Uncertain value: {{field}} (probability {{p}})",
   "Evidence:": "Evidence:",
   "Delete this batch permanently?": "Delete this batch permanently?",
-  "Sure? Click again": "Sure? Click again",
   "GPT only, without JEV (OpenAI)": "GPT only, without JEV (OpenAI)",
   "GPT only, without JEV — type recognition, data extraction and email intent with GPT, checked in code (OpenAI)": "GPT only, without JEV — type recognition, data extraction and email intent with GPT, checked in code (OpenAI)",
   "Only my document batches": "Only my document batches",
@@ -5204,5 +5203,13 @@
   "Open the documents' processing": "Open the documents' processing",
   "The step's parts": "The step's parts",
   "Manage case": "Manage case",
-  "Continue: {{step}}": "Continue: {{step}}"
+  "Continue: {{step}}": "Continue: {{step}}",
+  "Accept it as a draft rule? It changes nothing until it is made active.": "Accept it as a draft rule? It changes nothing until it is made active.",
+  "Approve and release the result?": "Approve and release the result?",
+  "Are you sure?": "Are you sure?",
+  "Confirmation": "Confirmation",
+  "Delete {{party}}? Its names and accounts are proposed again.": "Delete {{party}}? Its names and accounts are proposed again.",
+  "Make version {{n}} active? New cases use it from now on; the cases started earlier keep theirs.": "Make version {{n}} active? New cases use it from now on; the cases started earlier keep theirs.",
+  "Retire it? New cases no longer use it; a case started with it keeps it.": "Retire it? New cases no longer use it; a case started with it keeps it.",
+  "Retire {{name}}? New cases no longer offer it; the earlier ones keep it.": "Retire {{name}}? New cases no longer offer it; the earlier ones keep it."
 }

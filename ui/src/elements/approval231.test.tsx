@@ -8,6 +8,7 @@ import { api, setActor, type ApprovalState, type CaseView } from "../api";
 import { ApprovalPanel } from "../components/ApprovalPanel";
 import { setLanguage } from "../i18n";
 import { elementOf } from "./registry";
+import { confirmAction } from "../confirm.testutil";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { vi.restoreAllMocks(); });
@@ -48,7 +49,7 @@ describe("the approval's state", () => {
     expect(button).toHaveProperty("disabled", true);
     fireEvent.change(screen.getByRole("textbox", { name: "Reason for returning it" }), { target: { value: "Two lines are missing" } });
     fireEvent.click(button);
-    fireEvent.click(screen.getByRole("button", { name: "Sure? Click again" }));
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(onReturn).toHaveBeenCalledWith("Two lines are missing"));
   });
 });
@@ -70,7 +71,7 @@ describe("the shared approval element", () => {
     expect((await screen.findByRole("status")).textContent).toContain("Out of date");
     fireEvent.change(screen.getByRole("textbox", { name: "Reason for returning it" }), { target: { value: "Recheck the table" } });
     fireEvent.click(screen.getByRole("button", { name: "Return it" }));
-    fireEvent.click(screen.getByRole("button", { name: "Sure? Click again" }));
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(back).toHaveBeenCalledWith(CASE, "premium", "Recheck the table"));
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
   });

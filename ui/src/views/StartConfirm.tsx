@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { api, ApiError, type WorkpackageView } from "../api";
 import { BlockerList } from "../components/BlockerList";
+import { FormActions } from "../components/FormActions";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { blockerText, MODE, PARAM_LABEL, providerName, shownParams, shownValue, usdBudget, when } from "../labels";
@@ -119,13 +120,13 @@ export function StartConfirm({ view, mode, rerun, pending = false, onChanged }: 
           {fresh.error ? t("The current cost limit could not be loaded: {{message}}", { message: fresh.error.message }) : t("Refreshing the cost limit…")}
         </p>
       ) : null}
-      <div className="button-row">
+      {/* 263 (F1): the confirmation card's foot - "Cancel", then the start, on the right */}
+      <FormActions onCancel={back} busy={busy}>
         <button type="button" className="primary" disabled={blocked || busy} onClick={() => void confirm()}>
           {busy ? t("Launching…") : pending ? t("Start on the pending items") : rerun ? t("Start rerun")
             : effectiveMode === "apply" ? t("Start live run") : t("Start trial run")}
         </button>
-        <button type="button" className="secondary" disabled={busy} onClick={back}>{t("Cancel")}</button>
-      </div>
+      </FormActions>
       {msg ? <p role="alert" className="notice error">{msg}</p> : null}
     </section>
   );

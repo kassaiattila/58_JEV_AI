@@ -14,6 +14,7 @@ import { UsedBy, useUsedBy } from "../../components/UsedBy";
 import { BlockerList } from "../../components/BlockerList";
 import { BrowseButton } from "../../components/BrowseButton";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { FormActions } from "../../components/FormActions";
 import { DataTable } from "../../components/DataTable";
 import { ItemSteps } from "../../components/ItemSteps";
 import { PageActions } from "../../components/PageActions";
@@ -129,7 +130,8 @@ export function OutputTemplatesPanel({ item, tab }: { item?: string; tab?: strin
   if (!data.data) return <p className="muted">{t("Loading…")}</p>;
   if (item === MARKERS) return <MarkersCard groups={data.data.outputs} />;
   if (item === NEW || (tpl && tab === UPLOAD)) {
-    return <UploadCard key={tpl?.template ?? NEW} again={tpl ?? null} onCancel={() => window.history.back()} onStart={() => undefined}
+    return <UploadCard key={tpl?.template ?? NEW} again={tpl ?? null} onStart={() => undefined}
+      onCancel={() => go({ view: "settings", section: "outputs", ...(tpl ? { item: tpl.template } : {}) })}
       onDone={() => { changed(); go({ view: "settings", section: "outputs", ...(tpl ? { item: tpl.template } : {}) }); }} />;
   }
   if (item && !tpl) return <p className="notice warn">{t("It is not among the templates (any more).")}</p>;
@@ -194,7 +196,6 @@ function UploadCard({ again, onDone, onCancel, onStart }: {
     <section className="card wide template-upload" aria-label={again ? t("New version of {{name}}", { name: again.name }) : t("Upload a template")}>
       <div className="card-head">
         <h3>{again ? t("New version of {{name}}", { name: again.name }) : t("Upload a template")}</h3>
-        {again ? <button type="button" className="quiet small-btn" onClick={onCancel}>{t("Cancel")}</button> : null}
       </div>
       <div className="form-row">
         <Picker label={t("Output")} value={output} disabled={!!again} className="template-output"
@@ -209,12 +210,12 @@ function UploadCard({ again, onDone, onCancel, onStart }: {
         </label>
         <BrowseButton kind="files" initial={path} onPick={([p]) => setPath(p)} />
       </div>
-      <div className="button-row">
+      {/* 263 (F1): "Cancel" and the upload at the foot, on the right (as the price lists') */}
+      <FormActions onCancel={onCancel} busy={busy} note={t("The file is checked before it is stored; a stored version never changes.")}>
         <button type="button" className="primary" disabled={!ready} onClick={() => void upload()}>
           {busy ? t("Checking…") : t("Upload and check")}
         </button>
-        <span className="muted small">{t("The file is checked before it is stored; a stored version never changes.")}</span>
-      </div>
+      </FormActions>
       {refused ? (
         <div role="alert" className="template-refused">
           <p className="error-text">{t("The template was not stored: the check found {{n}} problem(s).", { n: refused.problems.length })}</p>
@@ -295,7 +296,7 @@ function OutputTemplates({ output, templates, onChanged }: { output: OutputName;
                 </td>
                 <td className="template-actions">
                   {v.state === "active" ? (
-                    <ConfirmButton className="quiet small-btn" disabled={busy}
+                    <ConfirmButton className="quiet small-btn" disabled={busy} danger
                       onConfirm={() => void act(() => api.retireOutputTemplate(v.template),
                         () => t("Retired: {{name}}. The packages that chose it are made with the built-in template.", { name: tpl.name }))}>
                       {t("Retire")}

@@ -226,10 +226,11 @@ export function BatchStages({ view, route, onChanged, extra, otherwise, note, bo
 }
 
 /** 263 (E2): a case's step's batch on its case's page: its stages (`BatchStages`), its management at the bar's right
- *  end, asking again while it runs; a person's action on it tells the case's page too. */
-export function EmbeddedBatch({ wpId, route, onChanged, side, otherwise, note, body, level }: {
+ *  end, asking again while it runs; a person's action on it tells the case's page too. 263 (F1): `manage` false - a
+ *  case that is only its batch has one menu, the case's. */
+export function EmbeddedBatch({ wpId, route, onChanged, side, otherwise, note, body, level, manage = true }: {
   wpId: string; route: Extract<Route, { view: "workpackages" }>; onChanged: () => void; side?: ReactNode;
-  otherwise?: ReactNode; note?: ReactNode; body?: ReactNode; level: "main" | "sub";
+  otherwise?: ReactNode; note?: ReactNode; body?: ReactNode; level: "main" | "sub"; manage?: boolean;
 }) {
   useLocale();
   const [poll, setPoll] = useState(false);
@@ -241,6 +242,6 @@ export function EmbeddedBatch({ wpId, route, onChanged, side, otherwise, note, b
   const changed = () => { wp.reload(); onChanged(); };
   return (
     <BatchStages view={wp.data} route={route} onChanged={changed} otherwise={otherwise} note={note} body={body} level={level}
-      extra={<div className="track-side">{side}<WorkpackageActions view={wp.data} onChanged={changed} /></div>} />
+      extra={<div className="track-side">{side}{manage ? <WorkpackageActions view={wp.data} onChanged={changed} /> : null}</div>} />
   );
 }

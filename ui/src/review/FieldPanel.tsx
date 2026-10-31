@@ -403,8 +403,8 @@ export function FieldPanel(p: Props) {
               norm.ok ? (
                 <div className="button-row">
                   <span className="small">→ {fieldLabel(activeField)}: <strong className="mono">{norm.value}</strong></span>
-                  <button type="button" className="primary small-btn" onClick={applySelection}>{t("Enter into field")}</button>
                   <button type="button" className="quiet small-btn" onClick={p.onClearSelection}>{t("Cancel")}</button>
+                  <button type="button" className="secondary small-btn" onClick={applySelection}>{t("Enter into field")}</button>
                 </div>
               ) : norm.twoWayDate
                 ? <div className="error-text small">{t("The day and the month of the selected date can be read two ways. Type it with the year first (2022-12-04).")}</div>
@@ -417,7 +417,7 @@ export function FieldPanel(p: Props) {
       {!fields.length && p.filter ? (
         <div className="pad-s filter-done">
           <p className="muted small">{EMPTY_FILTER[p.filter]}</p>
-          {p.onNextTodo ? <button type="button" className="primary small-btn" onClick={p.onNextTodo}>{t("Next item with to-dos")} →</button> : null}
+          {p.onNextTodo ? <button type="button" className="secondary small-btn" onClick={p.onNextTodo}>{t("Next item with to-dos")} →</button> : null}
         </div>
       ) : null}
       <ol className="fields" aria-label={t("Fields")}>

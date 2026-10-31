@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { api, ApiError, type DefaultKey, type DefaultPreview, type DefaultValue, type FixedWhy } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { FormActions } from "../../components/FormActions";
 import { VersionState } from "../../components/VersionState";
 import { t, useLocale } from "../../i18n";
 import { docTypeLabel, nextFlowText, numText, when } from "../../labels";
@@ -120,7 +121,7 @@ export function DefaultEditor({ v, entry, fixed, onChanged }: {
                 </td>
                 <td className="button-row">
                   {x.state === "draft" || x.state === "superseded" ? (
-                    <button type="button" className={x.state === "draft" ? "primary small-btn" : "secondary small-btn"} disabled={busy}
+                    <button type="button" className="secondary small-btn" disabled={busy}
                       onClick={() => void act(() => api.activateDefault(entry.id, x.version), t("Version {{n}} is active: the cases that start from now on use it.", { n: x.version }))}>
                       {t("Make version {{n}} active", { n: x.version })}
                     </button>
@@ -221,11 +222,10 @@ function DefaultForm({ v, entry, busy, onCancel, onSave }: {
       <label className="block">{t("Note")}
         <input value={note} maxLength={2000} autoComplete="off" onChange={(e) => setNote(e.target.value)} />
       </label>
-      <div className="button-row">
-        <button type="button" className="secondary" disabled={busy || value === null} onClick={() => void tryIt()}>{t("Try it on earlier decisions")}</button>
+      <FormActions onCancel={onCancel} busy={busy}
+        start={<button type="button" className="secondary" disabled={busy || value === null} onClick={() => void tryIt()}>{t("Try it on earlier decisions")}</button>}>
         <button type="submit" className="primary" disabled={busy || value === null}>{t("Save as a draft")}</button>
-        <button type="button" className="quiet" disabled={busy} onClick={onCancel}>{t("Cancel")}</button>
-      </div>
+      </FormActions>
       {tryError ? <p className="notice error" role="alert">{tryError}</p> : null}
       {tried ? (
         <div className="default-tried" role="status">

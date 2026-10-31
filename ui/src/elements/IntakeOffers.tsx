@@ -11,10 +11,12 @@ import { RecordData } from "./RecordData";
 
 export function IntakeOffers({ offers }: { offers: IntakeOffer[] }) {
   if (!offers.length) return null;
-  return <>{offers.map((o) => <Offer key={o.pack} offer={o} />)}</>;
+  // 263 (F1): one solid button per view - the first offer no case was started from yet
+  const lead = offers.find((o) => !o.cases.length)?.pack;
+  return <>{offers.map((o) => <Offer key={o.pack} offer={o} lead={o.pack === lead} />)}</>;
 }
 
-function Offer({ offer: o }: { offer: IntakeOffer }) {
+function Offer({ offer: o, lead }: { offer: IntakeOffer; lead: boolean }) {
   useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +38,7 @@ function Offer({ offer: o }: { offer: IntakeOffer }) {
       <div className="quote-on-email-head">
         <h3>{title}</h3>
         {/* the email's next step: the view's one solid action until a case is started from it */}
-        <button type="button" className={o.cases.length ? "secondary small-btn" : "primary small-btn"} disabled={busy}
+        <button type="button" className={lead ? "primary small-btn" : "secondary small-btn"} disabled={busy}
           onClick={() => void start()}>
           <Icon name="plus" />{o.cases.length ? t("Start another case from this email") : t("Start a case from this email")}
         </button>

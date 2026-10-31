@@ -11,6 +11,7 @@ import { setLanguage } from "../../i18n";
 import { stepLabel } from "../../labels";
 import { Approval, LineEditor, MatchProposal, RecordView } from "./QuoteElements";
 import { quoteStatus } from "./quoteStatus";
+import { confirmAction } from "../../confirm.testutil";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -206,7 +207,7 @@ describe("the quote composed beside its request (192)", () => {
     const button = screen.getByRole("button", { name: "Approve the quote (348,615 HUF gross)" });
     expect(button.className).toContain("primary");
     fireEvent.click(button);
-    fireEvent.click(screen.getByRole("button", { name: "Sure? Click again" }));
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(approve).toHaveBeenCalledWith("wp-000000000195", "f".repeat(64), undefined));
     expect(await screen.findByText("The quote has been approved.")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "The approved quote: version 1" })).toBeTruthy();
@@ -225,7 +226,7 @@ describe("the quote composed beside its request (192)", () => {
     expect(button).toHaveProperty("disabled", true);
     fireEvent.change(screen.getByRole("textbox", { name: "Reason for reopening" }), { target: { value: "Six monitors" } });
     fireEvent.click(button);
-    fireEvent.click(screen.getByRole("button", { name: "Sure? Click again" }));
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(reopen).toHaveBeenCalledWith("wp-000000000195", "Six monitors", undefined));
   });
 

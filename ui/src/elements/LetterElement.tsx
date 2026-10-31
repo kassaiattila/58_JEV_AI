@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type LetterData } from "../api";
 import { ApprovalStateNotes } from "../components/ApprovalPanel";
+import { FormActions } from "../components/FormActions";
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { when } from "../labels";
@@ -94,11 +95,11 @@ export function LetterView(p: ElementProps) {
           {d.document ? (
             <p className="small">{t("Attached")}: {d.document.name} · <Fingerprint sha={d.document.sha256} /></p>
           ) : null}
-          <div className="button-row">
+          <FormActions busy={busy}>
             <button type="button" className={ready ? "primary" : "secondary"} disabled={!ready || busy} onClick={() => void accept()}>
               {t("Accept the letter")}
             </button>
-          </div>
+          </FormActions>
         </div>
       ) : (
         <p className="muted">{t("Written once the document is printed.")}</p>

@@ -501,7 +501,7 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
                   </td>
                   <td className="num tnum quote-net">{p ? amountText(p.net, currency) : <span className="muted">—</span>}</td>
                   <td className="quote-actions">
-                    <ConfirmButton className="quiet small-btn" ariaLabel={t("Remove line {{n}}", { n })} disabled={saving}
+                    <ConfirmButton className="quiet small-btn" danger ariaLabel={t("Remove line {{n}}", { n })} disabled={saving}
                       onConfirm={() => void save((d) => ({ ...d, lines: d.lines.filter((l) => l.id !== line.id) }))}>
                       <Icon name="trash" />
                     </ConfirmButton>

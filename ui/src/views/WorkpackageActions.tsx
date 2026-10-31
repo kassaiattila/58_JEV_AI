@@ -4,6 +4,7 @@
 import { useRef, useState } from "react";
 import { api, ApiError, type WorkpackageView } from "../api";
 import { Popover } from "../components/Popover";
+import { FormActions } from "../components/FormActions";
 import { t, useLocale } from "../i18n";
 import { addsOwnWay, partOf } from "../logic/packageParts";
 import { go } from "../route";
@@ -93,22 +94,20 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
             <label className="block">{t("New name")}
               <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} required autoFocus />
             </label>
-            <div className="button-row">
+            <FormActions onCancel={() => setMode("menu")} busy={busy}>
               <button type="submit" className={name.trim() && name.trim() !== wp.name ? "primary" : "secondary"} disabled={busy || !name.trim() || name.trim() === wp.name}>{t("Save")}</button>
-              <button type="button" className="secondary" onClick={() => setMode("menu")}>{t("Cancel")}</button>
-            </div>
+            </FormActions>
           </form>
         ) : (
           <div className="create">
             <p><strong>{t("Delete this batch permanently?")}</strong></p>
             <p className="small">{t("The batch and its item list are deleted; the files stay where they are. Deletion cannot be undone; the fact of deletion is kept in the log.")}</p>
-            <div className="button-row">
+            <FormActions onCancel={() => setMode("menu")} busy={busy}>
               <button type="button" className="danger" disabled={busy}
                 onClick={() => void act(() => api.deleteWorkpackage(wp.id), () => go({ view: "workpackages" }))}>
                 {t("Delete permanently")}
               </button>
-              <button type="button" className="secondary" onClick={() => setMode("menu")}>{t("Cancel")}</button>
-            </div>
+            </FormActions>
           </div>
         )}
         {error ? <p className="notice error" role="alert">{error}</p> : null}

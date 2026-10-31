@@ -100,7 +100,7 @@ export function DuplicatePanel({ result, readOnly, onDecided }: Props) {
             {readOnly ? null : (
               <div className="duplicate-actions" role="group" aria-label={t("Decision on the pair")}>
                 {(["copy", "variant", "different"] as DuplicateDecision[]).map((d) => (
-                  <button key={d} type="button" className={p.decision === d ? "primary small-btn" : "secondary small-btn"}
+                  <button key={d} type="button" className="secondary small-btn"
                     aria-pressed={p.decision === d} disabled={pending !== null} onClick={() => void decide(p, d)}>
                     {DECISION[d]}
                   </button>

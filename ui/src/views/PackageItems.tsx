@@ -7,6 +7,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { api, ApiError, getActor, type AddSummary, type DsRow, type Workpackage, type WorkpackageView } from "../api";
 import { DataTable } from "../components/DataTable";
+import { FormActions } from "../components/FormActions";
 import { Icon } from "../components/Icon";
 import { nameCell, NameModeSwitch } from "../components/NameCell";
 import { chooserOf } from "../elements/sourceChoosers";
@@ -149,10 +150,11 @@ export function PackageItems({ view, adding, onAddingChange, onChanged, pendingA
             <input value={reason} maxLength={500} required autoFocus onChange={(e) => setReason(e.target.value)}
               placeholder={t("for example: a duplicate scan, another month")} />
           </label>
-          {/* a removal can be undone (restore), so it is not drawn as destructive */}
-          <button type="submit" className="secondary" disabled={busy || !reason.trim()}>{t("Remove from the package")}</button>
-          <button type="button" className="quiet" onClick={() => { setRemoving(null); setReason(""); }}>{t("Cancel")}</button>
           <p className="muted small form-note">{t("The file stays where it is. The item leaves the next runs; a run already started keeps it, and the item can be restored.")}</p>
+          {/* a removal can be undone (restore), so it is not drawn as destructive; 263 (F1): "Cancel" first, on the right */}
+          <FormActions onCancel={() => { setRemoving(null); setReason(""); }} busy={busy}>
+            <button type="submit" className="primary" disabled={busy || !reason.trim()}>{t("Remove from the package")}</button>
+          </FormActions>
         </form>
       ) : null}
       {/* the work package's revision is in the key: after a change the list reloads and the selection clears */}

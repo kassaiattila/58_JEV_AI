@@ -7,6 +7,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api, ApiError, type DsPage, type PackageResult, type RunView, type WorkpackageView } from "./api";
 import { setLanguage } from "./i18n";
 import { ResultStage } from "./views/ResultStage";
+import { confirmAction } from "./confirm.testutil";
 
 vi.mock("./components/DataTable", async () => {
   const React = await import("react");
@@ -67,7 +68,7 @@ it("a release refused as not ready names the reason, not a correction", async ()
   const button = line.querySelector("button") as HTMLButtonElement;
   await waitFor(() => expect(button.disabled).toBe(false));
   fireEvent.click(button);
-  fireEvent.click(button);
+  fireEvent.click(confirmAction());
   await waitFor(() => expect(line.textContent).toContain("The batch cannot be released: a live run of the package is not ready for approval"));
   expect(line.textContent).not.toContain("changed");
 });
@@ -78,7 +79,7 @@ it("a revision conflict still asks to look again", async () => {
   const button = line.querySelector("button") as HTMLButtonElement;
   await waitFor(() => expect(button.disabled).toBe(false));
   fireEvent.click(button);
-  fireEvent.click(button);
+  fireEvent.click(confirmAction());
   await waitFor(() => expect(line.querySelector("[role=status]")?.textContent).toContain("changed since it was shown"));
   expect(line.querySelector("[role=status]")?.textContent).not.toContain("cannot be released");
 });

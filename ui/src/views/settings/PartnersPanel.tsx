@@ -156,10 +156,17 @@ function PartnerCard({ open, roles, onOpen, onChanged }: {
           <button type="button" className="secondary" disabled={busy} onClick={() => void run(() => api.restorePartner(partner.partner_id))}>{t("Restore")}</button>
         ) : (
           <>
+            {/* 263 (F1): what retires at the left end; "Cancel" (drop the changes, or leave a new partner) before the save */}
             {partner ? (
-              <ConfirmButton className="secondary" disabled={busy} onConfirm={() => void run(() => api.retirePartner(partner.partner_id))}>{t("Retire")}</ConfirmButton>
+              <div className="form-actions-start">
+                <ConfirmButton className="secondary" disabled={busy} danger
+                  question={t("Retire {{name}}? New cases no longer offer it; the earlier ones keep it.", { name: partner.name })}
+                  onConfirm={() => void run(() => api.retirePartner(partner.partner_id))}>{t("Retire")}</ConfirmButton>
+              </div>
             ) : null}
             <span className="muted small form-actions-note">{partner ? t("A change is kept as a new version; the earlier ones stay.") : t("A name and at least one role are needed.")}</span>
+            <button type="button" className="secondary" disabled={busy || (partner !== null && !changed)}
+              onClick={() => (partner ? setDraft(null) : go({ view: "settings", section: "partners" }))}>{t("Cancel")}</button>
             <button type="button" className={changed && ready ? "primary" : "secondary"} disabled={busy || !changed || !ready} onClick={() => void save()}>
               {partner ? t("Save as a new version") : t("Record the partner")}
             </button>

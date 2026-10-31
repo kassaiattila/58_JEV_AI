@@ -98,9 +98,9 @@ export function StatementPanel({ result, readOnly, onDecided }: Props) {
             <p className="small">{how(r)}</p>
             {readOnly ? null : (
               <div className="duplicate-actions" role="group" aria-label={t("Which statement is valid")}>
-                <button type="button" className={valid === "this" ? "primary small-btn" : "secondary small-btn"} aria-pressed={valid === "this"}
+                <button type="button" className="secondary small-btn" aria-pressed={valid === "this"}
                   disabled={pending !== null} onClick={() => void choose(r, "this")}>{t("This one is valid")}</button>
-                <button type="button" className={valid === "other" ? "primary small-btn" : "secondary small-btn"} aria-pressed={valid === "other"}
+                <button type="button" className="secondary small-btn" aria-pressed={valid === "other"}
                   disabled={pending !== null} onClick={() => void choose(r, "other")}>{t("The other one is valid")}</button>
                 {r.how === "person" ? (
                   <button type="button" className="quiet small-btn" disabled={pending !== null} onClick={() => void choose(r, "rule")}>

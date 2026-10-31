@@ -17,6 +17,7 @@ import { resultTables } from "../logic/resultTables";
 import { Icon } from "../components/Icon";
 import { EngineMark } from "../components/EngineMark";
 import { ConfirmButton } from "../components/ConfirmButton";
+import { PageActions } from "../components/PageActions";
 import { TemplateChoice } from "../components/TemplateChoice";
 
 // 156: columns a person seldom reads, hidden by default so that a view fits a laptop screen without sideways
@@ -245,9 +246,17 @@ function PackageRelease({ wpId, data, running, mark, onReleased, onConflict }: {
           <span className="release-detail">{t("removed from the package; left out of the released result")}</span>
         </span>
       ) : null}
-      {line === "ready" || line === "todo" || line === "running" ? (
-        <ConfirmButton className={line === "ready" ? "primary" : "secondary"} disabled={busy || line !== "ready" || mark === undefined}
-          onConfirm={() => void release()}>{t("Approve and release")}</ConfirmButton>
+      {/* 263 (F1; the owner's decision of 2026-10-31): the release is the stage's main action, at the right end of the
+          title row, and asks with a confirmation card that says what it records; while it cannot be released, the line
+          shows it greyed */}
+      {line === "ready" ? (
+        <PageActions>
+          <ConfirmButton className="primary" disabled={busy || mark === undefined} onConfirm={() => void release()}
+            question={<>{t("Approve and release the result?")} {detail}.</>}>{t("Approve and release")}</ConfirmButton>
+        </PageActions>
+      ) : null}
+      {line === "todo" || line === "running" ? (
+        <button type="button" className="secondary" disabled>{t("Approve and release")}</button>
       ) : null}
       {msg ? <span role="status" className={msg.error ? "error-text" : ""}>{msg.text}</span> : null}
     </div>

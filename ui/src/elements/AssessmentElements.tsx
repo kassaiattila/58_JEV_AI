@@ -245,8 +245,8 @@ export function MissingInfoView(p: ElementProps) {
           {asking ? (
             <div className="button-row">
               <input aria-label={t("Why they will not come")} placeholder={t("Why they will not come")} value={reason} onChange={(e) => setReason(e.target.value)} />
-              <button type="button" className="secondary small-btn" disabled={!reason.trim() || busy} onClick={() => void giveUp()}>{t("The facts will not come")}</button>
               <button type="button" className="quiet small-btn" onClick={() => setAsking(false)}>{t("Cancel")}</button>
+              <button type="button" className="secondary small-btn" disabled={!reason.trim() || busy} onClick={() => void giveUp()}>{t("The facts will not come")}</button>
             </div>
           ) : <div className="button-row"><button type="button" className="secondary small-btn" onClick={() => setAsking(true)}>{t("The facts will not come")}</button></div>}
         </>

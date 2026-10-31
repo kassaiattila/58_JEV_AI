@@ -170,8 +170,8 @@ function ChooseTarget({ item, busy, onPick, onCancel }: { item: RoutingItem; bus
         <option value="">{t("Choose…")}</option>
         {options.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
       </select>
-      <button type="button" className="secondary small-btn" disabled={busy || !choice} onClick={() => onPick(choice)}>{t("Add")}</button>
       <button type="button" className="quiet small-btn" onClick={onCancel}>{t("Cancel")}</button>
+      <button type="button" className="secondary small-btn" disabled={busy || !choice} onClick={() => onPick(choice)}>{t("Add")}</button>
     </span>
   );
 }

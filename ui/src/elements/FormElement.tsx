@@ -5,6 +5,7 @@
 // freeze in the field review.
 import { useState, type ReactNode } from "react";
 import type { CaseFormSpec } from "../api";
+import { FormActions } from "../components/FormActions";
 import { t, useLocale } from "../i18n";
 import type { ElementProps } from "./registry";
 import { useStepAction } from "./stepAction";
@@ -37,11 +38,10 @@ export function StepForm({ p, action, note, className }: { p: ElementProps; acti
           </div>
         );
       })}
-      <div className="button-row">
+      <FormActions busy={busy} note={spec.blocked ? <span className="todo-text">{t(spec.blocked)}</span>
+        : missing.length ? t("Give: {{fields}}", { fields: missing.map((f) => t(f.label)).join(", ") }) : null}>
         <button type="button" className={ready ? "primary" : "secondary"} disabled={!ready || busy} onClick={() => void send()}>{t(found.label)}</button>
-        {spec.blocked ? <span className="todo-text small">{t(spec.blocked)}</span>
-          : missing.length ? <span className="muted small">{t("Give: {{fields}}", { fields: missing.map((f) => t(f.label)).join(", ") })}</span> : null}
-      </div>
+      </FormActions>
       {note}
       {error ? <p className="notice error small" role="alert">{error}</p> : null}
     </div>

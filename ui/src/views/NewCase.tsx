@@ -56,7 +56,7 @@ export function NewCase({ pack, after }: { pack?: string; after?: string }) {
             ) : null}
             {chosen && !missing.length ? (
               <ProcessCreate key={`${chosen.id}:${material}:${after ?? ""}`} pack={chosen.id} after={after}
-                onDone={(caseId) => go({ view: "cases", caseId })} />
+                onDone={(caseId) => go({ view: "cases", caseId })} onCancel={() => go({ view: "case-list" })} />
             ) : null}
           </section>
         </div>

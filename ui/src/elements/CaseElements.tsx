@@ -5,6 +5,7 @@
 import { useState, type ReactNode } from "react";
 import { api, ApiError, type ApprovalState, type CaseCost, type CaseEvent, type CaseKept, type CasePartnerLink, type HandoverAttempt, type HandoverData, type ReplyData, type SubCaseData } from "../api";
 import { ApprovalStateNotes, EarlierVersions, ReturnControl } from "../components/ApprovalPanel";
+import { FormActions } from "../components/FormActions";
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { fileName, MODE as MODE_OF_RUN, moneyText, providerName, RUN_STATUS, saidText, stepLabel, tmap, when } from "../labels";
@@ -67,9 +68,9 @@ export function HandoverView(p: ElementProps) {
       {step.awaiting_start ? (
         <>
           <p className="muted small">{MODE_HELP[d.mode]}</p>
-          <div className="button-row">
+          <FormActions busy={busy}>
             <button type="button" className="primary" disabled={busy} onClick={() => void send()}>{t("Send")}</button>
-          </div>
+          </FormActions>
         </>
       ) : null}
       {settling ? (
@@ -327,7 +328,7 @@ export function SubWorkTable({ rows }: { rows: ElementProps[] }) {
                   {why ? <div className="small muted">{why}</div> : null}
                 </td>
                 <td className="small">{sub ? <WorkCell sub={sub} main={p.caseId} /> : "–"}</td>
-                {acts ? <td><ActionButtons p={p} primary="retry" /></td> : null}
+                {acts ? <td><ActionButtons p={p} /></td> : null}
               </tr>
             );
           })}

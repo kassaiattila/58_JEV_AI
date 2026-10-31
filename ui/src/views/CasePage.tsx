@@ -388,7 +388,7 @@ export function CasePage({ caseId, tab, sub, of, batch }: { caseId: string; tab?
   let body: ReactNode;
   if (lone) {
     body = (
-      <EmbeddedBatch wpId={lone} route={batch?.route ?? { view: "workpackages", wpId: lone }} onChanged={changed} level="main"
+      <EmbeddedBatch wpId={lone} route={batch?.route ?? { view: "workpackages", wpId: lone }} onChanged={changed} level="main" manage={false}
         otherwise={nextButton} note={<PackageWorkNote data={items[0].elements[0].data as PackageWorkView | null} />}
         side={log ? <LogLink href={href(log.id)} shown={logShown} line={statusOf(log)} /> : null}
         body={logShown ? logBody : undefined} />

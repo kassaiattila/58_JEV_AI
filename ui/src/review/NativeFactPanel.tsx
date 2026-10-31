@@ -92,9 +92,11 @@ export function NativeFactPanel({ result, source, selected, readOnly, onChanged,
       <button type="button" className="secondary small-btn" disabled={conflict && conflictResult.current === result} onClick={() => { rebaseDraft(key, result.correction.revision); setConflict(false); setError(null); }}>{t("I reviewed the refreshed correction")}</button></div> : null}
     {error || resolve.error ? <p className="notice error" role="alert">{error ?? resolve.error}</p> : null}
     {Object.keys(draft?.nativeCitationEdits ?? {}).length ? <p className="notice small">{t("Unchecked citation text is kept in your draft. Check and attach it before saving its source.")}</p> : null}
-    <div className="native-actions"><button type="button" className={hasSave ? "primary" : "secondary"} disabled={disabled || !hasSave} onClick={() => void save()}>{busy ? t("Saving…") : t("Save corrections")}</button>
+    {/* 263 (F1): the save last, on the right */}
+    <div className="native-actions form-actions">
+      <button type="button" className="secondary" disabled={busy} onClick={onChanged}>{t("Reload result")}</button>
       <button type="button" className="secondary" disabled={!isDirty(draft) || busy} onClick={() => clearDraft(key)}>{t("Discard draft")}</button>
-      <button type="button" className="secondary" disabled={busy} onClick={onChanged}>{t("Reload result")}</button></div>
+      <button type="button" className={hasSave ? "primary" : "secondary"} disabled={disabled || !hasSave} onClick={() => void save()}>{busy ? t("Saving…") : t("Save corrections")}</button></div>
     {!result.native_facts.length ? <p className="notice">{result.result_ready ? t("No valid native facts were published. Review the reading and interpretation outcomes.") : t("No native result has been published yet.")}</p> : null}
     {result.native_facts.map((fact) => <NativeFactEditor key={fact.fact_id} fact={fact} result={result} draft={draft} source={source} selected={selected}
       disabled={disabled} onConfirm={() => void save(fact.fact_id)} onCitation={onCitation} onError={setError} />)}

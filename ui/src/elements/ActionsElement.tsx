@@ -19,7 +19,7 @@ export function ActionButtons({ p, primary, only }: { p: ElementProps; primary?:
   if (!step || !actions.length) return null;
   return (
     <>
-      <div className="button-row">
+      <div className="button-row end">
         {actions.map((a) => {
           const cap = a.cap ? usdBudget(total(a.cap)) : null;
           return (

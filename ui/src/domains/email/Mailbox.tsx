@@ -263,7 +263,7 @@ export function Mailbox() {
                 <td className="right">
                   <button type="button" className="secondary small-btn" onClick={() => void api.updateSchedule(s.id, { enabled: !s.enabled }).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))}>
                     {s.enabled ? t("Turn off") : t("Turn on")}</button>{" "}
-                  <ConfirmButton className="quiet small-btn" onConfirm={() => void api.deleteSchedule(s.id).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))}>{t("Delete")}</ConfirmButton>
+                  <ConfirmButton className="quiet small-btn" danger onConfirm={() => void api.deleteSchedule(s.id).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))}>{t("Delete")}</ConfirmButton>
                 </td>
               </tr>
             ))}

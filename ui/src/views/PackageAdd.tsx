@@ -10,6 +10,7 @@
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import { api, ApiError, type AddSummary, type ItemPreview, type ItemSources, type PreviewFile, type Workpackage } from "../api";
 import { BrowseButton } from "../components/BrowseButton";
+import { FormActions } from "../components/FormActions";
 import { t, useLocale } from "../i18n";
 import { tmap } from "../labels";
 
@@ -143,21 +144,19 @@ export function AddDocuments({ wp, source: initial = "files", note, onDone, onCa
         </div>
       )}
       {preview ? null : (
-        <div className="button-row">
-          <button type="button" className="secondary" disabled={busy || !sources} onClick={() => void check()}>
+        <FormActions onCancel={onCancel} busy={busy}>
+          <button type="button" className="primary" disabled={busy || !sources} onClick={() => void check()}>
             {busy ? t("Reading…") : t("Check what would be added")}</button>
-          <button type="button" className="quiet" onClick={onCancel}>{t("Cancel")}</button>
-        </div>
+        </FormActions>
       )}
       {preview ? <PreviewList preview={preview} ticked={ticked} setTicked={setTicked} /> : null}
       {error ? <p className="notice error" role="alert">{error}</p> : null}
       {preview ? (
-        <div className="button-row">
+        <FormActions onCancel={onCancel} busy={busy}
+          note={note ?? t("The new documents wait for processing: the run over the pending items starts from the Run card.")}>
           <button type="submit" className="primary" disabled={busy || !chosen.length}>
             {chosen.length ? t("Add {{n}} document(s)", { n: chosen.length }) : t("Nothing to add")}</button>
-          <button type="button" className="quiet" onClick={onCancel}>{t("Cancel")}</button>
-          <span className="muted small">{note ?? t("The new documents wait for processing: the run over the pending items starts from the Run card.")}</span>
-        </div>
+        </FormActions>
       ) : null}
     </form>
   );

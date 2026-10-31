@@ -11,6 +11,7 @@ import {
   type PartyIdentity, type PartySuggestion,
 } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { FormActions } from "../../components/FormActions";
 import { DataTable } from "../../components/DataTable";
 import { ItemSteps } from "../../components/ItemSteps";
 import { PageActions } from "../../components/PageActions";
@@ -255,10 +256,9 @@ export function AccountForm({ initial, withNumber, busy, onSave, onCancel }: {
         <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
       </label>
       {from && to && from > to ? <p className="small warn-text">{t("The account is closed before it was opened.")}</p> : null}
-      <div className="button-row">
-        <button type="submit" className="secondary" disabled={busy || !valid}>{t("Save")}</button>
-        <button type="button" className="quiet" onClick={onCancel}>{t("Cancel")}</button>
-      </div>
+      <FormActions onCancel={onCancel} busy={busy}>
+        <button type="submit" className="primary" disabled={busy || !valid}>{t("Save")}</button>
+      </FormActions>
     </form>
   );
 }
@@ -332,8 +332,8 @@ function PartyCard({ party, others, busy, act }: { party: OwnParty; others: OwnP
             if (editing.trim()) void act(() => api.renameParty(party.id, editing.trim()), t("The party has been renamed.")).then((ok) => { if (ok) setEditing(null); });
           }}>
             <input value={editing} maxLength={200} autoFocus aria-label={t("New name of {{party}}", { party: party.name })} onChange={(e) => setEditing(e.target.value)} />
-            <button type="submit" className="secondary" disabled={busy || !editing.trim()}>{t("Save")}</button>
             <button type="button" className="quiet" onClick={() => setEditing(null)}>{t("Cancel")}</button>
+            <button type="submit" className="primary" disabled={busy || !editing.trim()}>{t("Save")}</button>
           </form>
         )}
       </div>
@@ -365,7 +365,15 @@ function PartyCard({ party, others, busy, act }: { party: OwnParty; others: OwnP
         <summary>{t("Data status by month")}</summary>
         {monthsOpen ? <MonthStatus partyId={party.id} /> : null}
       </details>
-      <div className="button-row">
+      {/* 263 (F1): what removes at the left end, the merge at the right */}
+      <div className="form-actions">
+        <div className="form-actions-start">
+          <ConfirmButton className="quiet pt-delete" disabled={busy} ariaLabel={t("Delete {{party}}", { party: party.name })} danger
+            question={t("Delete {{party}}? Its names and accounts are proposed again.", { party: party.name })}
+            onConfirm={() => void act(() => api.deleteParty(party.id), t("The party has been deleted; its names and accounts are proposed again."))}>
+            {t("Delete")}
+          </ConfirmButton>
+        </div>
         {others.length ? (
           <span className="pt-move">
             <select value={into} disabled={busy} aria-label={t("Merge {{party}} into", { party: party.name })} onChange={(e) => setInto(e.target.value)}>
@@ -376,11 +384,6 @@ function PartyCard({ party, others, busy, act }: { party: OwnParty; others: OwnP
               onConfirm={() => void act(() => api.mergeParty(party.id, into), t("The parties have been merged."))}>{t("Merge")}</ConfirmButton>
           </span>
         ) : null}
-        <span className="spacer" />
-        <ConfirmButton className="quiet" disabled={busy} ariaLabel={t("Delete {{party}}", { party: party.name })}
-          onConfirm={() => void act(() => api.deleteParty(party.id), t("The party has been deleted; its names and accounts are proposed again."))}>
-          {t("Delete")}
-        </ConfirmButton>
       </div>
     </section>
   );

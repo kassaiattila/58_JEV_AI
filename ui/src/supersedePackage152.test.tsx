@@ -5,6 +5,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setLanguage } from "./i18n";
 import { OlderRunsOffer } from "./views/ProcessStage";
+import { confirmAction } from "./confirm.testutil";
 
 afterEach(async () => { vi.restoreAllMocks(); await setLanguage("hu"); });
 
@@ -25,7 +26,7 @@ describe("152 the package offers its older live runs for superseding", () => {
     const buttons = screen.getAllByRole("button", { name: "Leváltás" });
     fireEvent.click(buttons[1]);
     expect(onSupersede).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Biztosan? Kattints újra" }));
+    fireEvent.click(confirmAction());
     expect(onSupersede).toHaveBeenCalledWith("run-000000000002");
   });
 
