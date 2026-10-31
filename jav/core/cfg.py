@@ -64,14 +64,20 @@ PROCESSES_DIR = CONFIG_DIR / "processes"  # 231 (A4): process packs, one kind of
 
 def path_of(name: str) -> Path:
     """`doc_types` -> configs/doc_types.json; `callsite:detect` -> configs/callsites/detect.json; `type:invoice_hu` -> configs/types/invoice_hu.json;
-    `process:it_quote` -> configs/processes/it_quote.json (231)."""
-    if name.startswith("callsite:"):
-        return CALLSITE_DIR / f"{name.split(':', 1)[1]}.json"
-    if name.startswith("type:"):
-        return TYPES_DIR / f"{name.split(':', 1)[1]}.json"
-    if name.startswith("process:"):
-        return PROCESSES_DIR / f"{name.split(':', 1)[1]}.json"
-    return CONFIG_DIR / f"{name}.json"
+    `process:it_quote` -> configs/processes/it_quote.json (231). 265 (code review SEC-06): a name that would leave its
+    folder (`..`, an absolute path) is refused (`ValueError`): `type:../service` read the service's own settings."""
+    for prefix, folder in (("callsite:", CALLSITE_DIR), ("type:", TYPES_DIR), ("process:", PROCESSES_DIR)):
+        if name.startswith(prefix):
+            return _inside(folder, name.split(":", 1)[1])
+    return _inside(CONFIG_DIR, name)
+
+
+def _inside(folder: Path, name: str) -> Path:
+    path = folder / f"{name}.json"
+    parts = Path(name).parts
+    if not name or Path(name).is_absolute() or ".." in parts or (parts and Path(parts[0]).drive):
+        raise ValueError(f"not a config name: {name!r}")
+    return path
 
 
 # 231 (an incident of 2026-10-25): the configs a long-running process froze at start-up (`freeze`): their names and
@@ -91,7 +97,7 @@ def _file(name: str) -> dict[str, Any]:
 def _disk(name: str) -> dict[str, Any]:
     p = path_of(name)
     if not p.exists():
-        raise FileNotFoundError(f"a config is missing: {p}")
+        raise FileNotFoundError(f"a config is missing: {name}")  # 265 (SEC-06): its name, never the machine's path
     data = json.loads(p.read_text(encoding="utf-8"))
     if "meta" not in data or "version" not in data["meta"]:
         raise ValueError(f"a config has no meta.version: {p}")
