@@ -5290,5 +5290,7 @@
   "A statement batch's statements": "A statement batch's statements",
   "books the same days as another statement": "books the same days as another statement",
   "Choose the valid one": "Choose the valid one",
-  "No statement in the package yet.": "No statement in the package yet."
+  "No statement in the package yet.": "No statement in the package yet.",
+  "Accept the proposals ({{n}})": "Accept the proposals ({{n}})",
+  "Do not route ({{n}})": "Do not route ({{n}})"
 }

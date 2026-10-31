@@ -8,6 +8,7 @@ import type { RoutingItem, RoutingView } from "./api";
 import { setLanguage } from "../../i18n";
 import { elementOf } from "../../elements/registry";
 import { FilePlacement } from "./FilePlacement";
+import { mockRouting } from "./routingItems.testutil";
 
 const EMAIL = { item_id: "e1", subject: "June invoice", sender: "billing@example.com", received_at: "2026-06-20T10:00:00", folder: "inbox" };
 
@@ -58,11 +59,15 @@ describe("181 the email routing package", () => {
     const acceptClear = vi.spyOn(api, "routingAcceptClear").mockResolvedValue(routing(items));
     const reject = vi.spyOn(api, "routingReject").mockResolvedValue(routing(items));
     const onChanged = vi.fn();
+    const query = mockRouting(routing(items));  // 264 (F6): the one list of the service
     render(<FilePlacement caseId="wp-00000000000r" element={element(items)} page={PAGE} onChanged={onChanged} />);
-    const table = screen.getByRole("table", { name: "Documents to route" });
+    const table = await screen.findByRole("table", { name: "Documents to route" });
+    await within(table).findByText("invoice.pdf");
+    expect(query).toHaveBeenCalledWith("routing_items", { workpackage_id: "wp-00000000000r" }, expect.anything());
     const row = (file: string) => within(table).getByText(file).closest("tr") as HTMLElement;
     expect(row("invoice.pdf").textContent).toContain("June incoming");
-    expect(row("invoice.pdf").textContent).toContain("Incoming invoices · Example Kft. · 2026-06-08");
+    expect(row("invoice.pdf").textContent).toContain("Example Kft.");
+    expect(row("invoice.pdf").textContent).toContain("2026-06-08");
     expect(row("sold.pdf").textContent).toContain("sent · 2026-06-20");
     expect(row("sold.pdf").textContent).toContain("New batch: Example Kft. · 2026-06 · Outgoing invoices");
     expect(row("odd.pdf").textContent).toContain("It came with a suspicious email");

@@ -8,6 +8,7 @@ import type { RoutingItem, RoutingView } from "./api";
 import { setLanguage } from "../../i18n";
 import { docTypeLabel } from "../../labels";
 import { FilePlacement } from "./FilePlacement";
+import { mockRouting } from "./routingItems.testutil";
 
 const EMAIL = { item_id: "e1", subject: "Fwd: June invoice", sender: "office@example.com", received_at: "2026-06-20T10:00:00", folder: "sent" };
 
@@ -35,7 +36,7 @@ beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer")
 afterEach(() => { cleanup(); });
 
 describe("183 the email routing after its first real trial", () => {
-  it("proposes a forwarded incoming invoice with a note, names the no-data blocker and lists another kind by its type", () => {
+  it("proposes a forwarded incoming invoice with a note, names the no-data blocker and lists another kind by its type", async () => {
     const items = [
       item("forwarded.pdf", { placement: { ...item("x").placement, note: "sent_incoming" } }),
       item("scanned.pdf", { placement: { ...item("x").placement, role: null, role_title: null, party_id: null, party: null, day: null,
@@ -43,8 +44,10 @@ describe("183 the email routing after its first real trial", () => {
       item("return.pdf", { doc_type: "tax_return", placement: { ...item("x").placement, routable: false, role: null, role_title: null,
         party_id: null, party: null, day: null }, proposal: null }),
     ];
+    mockRouting(routing(items));  // 264 (F6): the one list of the service
     render(<FilePlacement caseId="wp-00000000000r" element={element(items)} page={PAGE} onChanged={() => undefined} />);
-    const table = screen.getByRole("table", { name: "Documents to route" });
+    const table = await screen.findByRole("table", { name: "Documents to route" });
+    await within(table).findByText("forwarded.pdf");
     const row = (file: string) => within(table).getByText(file).closest("tr") as HTMLElement;
     expect(row("forwarded.pdf").textContent).toContain("June incoming");
     expect(row("forwarded.pdf").textContent).toContain("An incoming invoice in a sent email");

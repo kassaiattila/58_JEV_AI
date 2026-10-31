@@ -8,6 +8,7 @@ import type { RoutingView } from "./api";
 import { setLanguage } from "../../i18n";
 import { StartedCases } from "../../elements/CaseElements";
 import { FilePlacement } from "./FilePlacement";
+import { mockRouting } from "./routingItems.testutil";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -35,9 +36,10 @@ describe("the email routing on a case's tabs (231 C1c)", () => {
   it("accepts the clear proposals on the case's own package", async () => {
     const accept = vi.spyOn(api, "routingAcceptClear").mockResolvedValue({} as never);
     const changed = vi.fn();
+    mockRouting(VIEW);  // 264 (F6): the one list of the service
     render(<FilePlacement caseId="wp-000000000231" element={element("decide")} page={PAGE} onChanged={changed} />);
-    const table = screen.getByRole("table", { name: "Documents to route" });
-    expect(within(table).getByText("invoice.pdf")).toBeTruthy();
+    const table = await screen.findByRole("table", { name: "Documents to route" });
+    expect(await within(table).findByText("invoice.pdf")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Accept every clear proposal (1)" }));
     await waitFor(() => expect(accept).toHaveBeenCalledWith("wp-000000000231", { incoming_invoices: "Incoming invoices" }));
     await waitFor(() => expect(changed).toHaveBeenCalled());

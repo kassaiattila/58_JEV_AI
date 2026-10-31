@@ -61,6 +61,9 @@ interface Props {
   persist?: string;
   /** 263: the column the rows are grouped by at first */
   defaultGroup?: string;
+  /** 264: the rows are read again (keeping the search, filters and page) whenever this value changes - e.g. after a
+   *  decision the page made elsewhere */
+  refreshKey?: string;
 }
 
 // --- kept state and the rows' order (263) --------------------------------------------------------------------------
@@ -360,6 +363,13 @@ export function DataTable(p: Props) {
   const query = useMemo(() => ({ q: state.q || undefined, filters: state.filters, sort: state.sort, offset: state.offset, limit: state.limit,
     ...(state.group ? { group: state.group } : {}) }), [state.q, state.filters, state.sort, state.offset, state.limit, state.group]);
   const page = useDataset(p.dataset, scope, query, p.pollMs);
+  // 264: read again when the page says something changed (not on the first render: the rows are being read then)
+  const shownKey = useRef(p.refreshKey);
+  useEffect(() => {
+    if (shownKey.current === p.refreshKey) return;
+    shownKey.current = p.refreshKey;
+    page.reload();
+  }, [p.refreshKey, page]);
   const data = page.data;
   useEffect(() => { if (data) p.onPage?.(data); }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { // 263: the order of the rows' pages, for a thing's previous and next

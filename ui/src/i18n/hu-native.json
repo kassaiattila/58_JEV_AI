@@ -5328,5 +5328,7 @@
   "A statement batch's statements": "Kivonat-köteg kivonatai",
   "books the same days as another statement": "ugyanazokat a napokat könyveli, mint egy másik kivonat",
   "Choose the valid one": "A helyes kiválasztása",
-  "No statement in the package yet.": "A kötegben még nincs kivonat."
+  "No statement in the package yet.": "A kötegben még nincs kivonat.",
+  "Accept the proposals ({{n}})": "A javaslatok elfogadása ({{n}})",
+  "Do not route ({{n}})": "Nem csatornázom be ({{n}})"
 }

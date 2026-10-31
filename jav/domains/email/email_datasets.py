@@ -12,6 +12,7 @@ Layer: application operation (a read view) → `jav.domains.email.email_export`,
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 from jav.app import datasets
@@ -144,6 +145,57 @@ def mailbox_schedules(_scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
+# 264 (F6): what holds an attachment from its proposal, as the routing's page says it (`ui/src/domains/email/FilePlacement.tsx`)
+_ROUTING_PROBLEM = {
+    "no_result": "Not processed yet: its email package's run has not read it",
+    "no_data": "Read, but it has no data: see its to-dos in its email package",
+    "unknown_party": "No own party: neither its buyer nor its supplier is an own party's",
+    "unclear_direction": "Unclear whether it is incoming or outgoing",
+    "internal": "An invoice between two own parties: choose its package",
+    "not_own": "Neither side is an own party",
+    "no_day": "No date to place it in a period",
+    "suspicious": "It came with a suspicious email",
+}
+_ROUTING_DECISION = {"open": "To decide", "accepted": "added", "rejected": "not routed"}
+
+
+def routing_items(scope: dict[str, str]) -> Rows:
+    """264 (plan E, F6; the owner's decision of 2026-10-31: the small lists the one list too): an email routing's
+    documents to route - each attachment with its email, what it is (role, party, day), the proposal or what holds it,
+    and the decision - grouped by any of them; a row carries its attachment (`_item`), from which the interface draws
+    its proposal, its decision and its actions. An attachment of another kind is not routed and not listed here."""
+    from jav.domains.email import email_routing
+
+    items = [i for i in email_routing.view(scope["workpackage_id"])["items"] if i["placement"]["routable"]]
+    roles = {i["placement"]["role"]: display.text(i["placement"]["role_title"]) for i in items
+             if i["placement"]["role"] and i["placement"]["role_title"]}
+    cols = [
+        col("file", "Document", link="item"),
+        col("received_at", "Received", "datetime", hidden=True),  # the interface writes the email under the document
+        col("sender", "Sender", group=True, hidden=True),
+        col("subject", "Subject", clamp=1, hidden=True),
+        replace(col("role", "Role", "enum", group=True), labels=roles),
+        col("party", "Party", group=True),
+        col("day", "Day", "date"),
+        col("proposal", "Proposal"),
+        col("problem", "What holds it", "enum", labels="routing_problem", badge=True, group=True, hidden=True),
+        col("decision", "Decision", "enum", labels="routing_decision", badge=True, group=True,
+            marks={"open": "waiting", "accepted": "done", "rejected": "muted"}),
+    ]
+    rows = []
+    for i in items:
+        email, place, prop, dec = i.get("email") or {}, i["placement"], i.get("proposal"), i.get("decision")
+        target = (prop or {}).get("target")
+        rows.append({"_key": i["item_id"], "_wp": i["package"], "item_id": i["item_id"], "file": i["file"],
+                     "received_at": email.get("received_at"), "sender": email.get("sender"), "subject": email.get("subject"),
+                     "role": place.get("role"), "party": place.get("party"), "day": place.get("day"),
+                     "proposal": target["name"] if target else ((prop or {}).get("new") or {}).get("name"),
+                     "problem": place.get("problem") if not dec else None,
+                     "decision": dec["decision"] if dec else "open",
+                     "_item": i})  # the interface draws the proposal, the decision and the actions from it
+    return cols, rows
+
+
 def mailbox_intervals() -> dict[str, str]:
     """264 (F6): a schedule's frequencies (the interface's own words)."""
     return {"15": "every 15 minutes", "30": "every 30 minutes", "60": "hourly", "240": "every 4 hours", "1440": "daily"}
@@ -180,6 +232,7 @@ DATASETS = (
     (datasets.Dataset("mailbox_pulls", "Mailbox downloads", (), mailbox_pulls, optional_scope=("schedule_id",)), "calls"),
     (datasets.Dataset("mailbox_schedules", "Mailbox schedules", (), mailbox_schedules,
                       natural_sort=(("label", False),)), "mailbox_pulls"),  # 264 (F6)
+    (datasets.Dataset("routing_items", "Documents to route", ("workpackage_id",), routing_items), "mailbox_schedules"),
 )
 LABELS = (
     datasets.LabelSet("intent", __name__, intent_labels),
@@ -187,8 +240,10 @@ LABELS = (
     datasets.LabelSet("next_flow", __name__, next_flow_labels),
     datasets.LabelSet("mailbox_interval", __name__, mailbox_intervals),  # 264 (F6)
     datasets.LabelSet("schedule_state", __name__, schedule_states),
+    datasets.LabelSet("routing_problem", __name__, _ROUTING_PROBLEM.copy),  # 264 (F6)
+    datasets.LabelSet("routing_decision", __name__, _ROUTING_DECISION.copy),
 )
 
 
 __all__ = ["DATASETS", "LABELS", "email_tasks", "emails", "intent_labels", "mailbox_intervals", "mailbox_pulls",
-           "mailbox_schedules", "next_flow_labels", "schedule_states", "task_action_labels"]
+           "mailbox_schedules", "next_flow_labels", "routing_items", "schedule_states", "task_action_labels"]
