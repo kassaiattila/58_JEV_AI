@@ -307,11 +307,17 @@ def _save(state: DetectState, c: Any) -> None:
         detail_type=d.key if d else None, detail_conf=d.confidence if d else None, detail_method=d.method if d else None,
     )
     store.review_close(subject_kind="document", subject_id=state.doc_id, producer=policy.OCR_REVIEW_PRODUCER, run_id=state.run_id)  # 066: there is text now
-    # 047: the detailed type has its own producer (closed independently of the coarse type's reasons)
+    # Partial OCR (F07): the type may be certain, but the skipped pages are still to-dos; a separate producer so that
+    # closing detect does not close it. 167 (AI-3): so are the pages without a text layer of their own. 222 (the owner's
+    # decision): and an escalation the run's budget blocked (075), which only the extraction kept before
+    coverage = [x for x in state.review_reasons
+                if x.startswith(("ocr:partial_pages:", "pdf:pages_without_text:", "ocr:escalation_blocked:"))]
+    # 047: the detailed type has its own producer (closed independently of the coarse type's reasons); 265 (code review
+    # AI-12): closed too when a rerun has no detail at all (an unknown type), not only when it found one
     if state.detail_reasons:
         store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer="detect_detail",
                              reasons=state.detail_reasons, payload={"detail": d.model_dump() if d else None})
-    elif d is not None:
+    else:
         store.review_close(subject_kind="document", subject_id=state.doc_id, producer="detect_detail", run_id=state.run_id)
     if state.uncertain and r is not None:
         # 086: a GPT answer without log-probabilities has no measured confidence: say so, do not report a low one
@@ -322,17 +328,12 @@ def _save(state: DetectState, c: Any) -> None:
             payload={"probabilities": r.probabilities, "issuer_hu": r.issuer_hu, "language": r.language,
                      "parent": policy.parent_fallback(r.confidence, r.parent, r.parent_prob, "detect.doc_type", r.probabilities), "parent_prob": r.parent_prob},
         )
-    elif r is None:
+    elif r is None:  # 265 (AI-12): the coverage reasons go under their own producer only, not twice
         store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer="detect",
-                             reasons=list(state.review_reasons) or ["detect:no_result"])
+                             reasons=[x for x in state.review_reasons if x not in coverage] or ["detect:no_result"])
     else:
         # after a rerun the type is certain: detect's own earlier reasons (errors too) are obsolete; others' stay open
         store.review_close(subject_kind="document", subject_id=state.doc_id, producer="detect", run_id=state.run_id)
-    # Partial OCR (F07): the type may be certain, but the skipped pages are still to-dos; a separate producer so that
-    # closing detect does not close it. 167 (AI-3): so are the pages without a text layer of their own. 222 (the owner's
-    # decision): and an escalation the run's budget blocked (075), which only the extraction kept before
-    coverage = [x for x in state.review_reasons
-                if x.startswith(("ocr:partial_pages:", "pdf:pages_without_text:", "ocr:escalation_blocked:"))]
     if coverage:
         store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer="ocr_coverage", reasons=coverage)
     else:
