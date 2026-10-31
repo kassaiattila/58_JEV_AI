@@ -49,4 +49,10 @@ describe("the versions a case keeps from its start", () => {
     expect(await screen.findByText("The case started")).toBeTruthy();
     expect(screen.queryByText(/^It keeps from its start/)).toBe(null);
   });
+
+  it("263 (F4): are not named when its process uses nothing that keeps a version (no line ending in a colon)", async () => {
+    history([started({ kept: { resources: [], rules: [] } })]);
+    expect(await screen.findByText("The case started")).toBeTruthy();
+    expect(screen.queryByText(/^It keeps from its start/)).toBe(null);
+  });
 });

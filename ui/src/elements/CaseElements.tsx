@@ -211,6 +211,8 @@ function KeptLine({ kept }: { kept: CaseKept }) {
   if (kept.rules.length) {
     parts.push(t("rule files: {{files}}", { files: kept.rules.map((f) => `${f.file} ${f.version ?? ""}`.trim()).join(", ") }));
   }
+  // 263 (F4): a process that uses nothing with a version keeps nothing to name (the line ended in a bare colon)
+  if (!parts.length) return null;
   return <div className="muted small">{t("It keeps from its start: {{what}}", { what: parts.join(" · ") })}</div>;
 }
 
