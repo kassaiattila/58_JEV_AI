@@ -103,13 +103,21 @@ def _table_lines(response: dict) -> list[str]:
 
 def read_file(path: str | Path) -> str:
     """The text of a text or table file: a `.txt` file as it is (UTF-8), a table's rows as lines. The table goes
-    through the isolated native reader with its default limits (`jav.documents.readers.isolation`)."""
+    through the isolated native reader with its default limits (`jav.documents.readers.isolation`). 265 (code review
+    AI-03): the input size limit is checked before the file is read (`pdf.DocumentTooLarge`, as for a PDF), and a text
+    that is not UTF-8 is a named error, not a general failure."""
+    from jav.documents.pdf import check_document_size
+
     path = Path(path)
     kind = input_kind(path)
-    if kind == "text":
-        return path.read_bytes().decode("utf-8-sig")
-    if kind != "table":
+    if kind not in ("text", "table"):
         raise TextDocumentError(f"{path.name}: not a text or table file")
+    check_document_size(path)
+    if kind == "text":
+        try:
+            return path.read_bytes().decode("utf-8-sig")
+        except UnicodeDecodeError:
+            raise TextDocumentError(f"{path.name}: the text is not UTF-8; save it as UTF-8 and add it again") from None
     from jav.documents.readers.isolation import run
     from jav.documents.readers.limits import DEFAULT_LIMITS, ReadFailure
 
