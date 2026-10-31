@@ -50,6 +50,7 @@ from __future__ import annotations
 import dataclasses
 import inspect
 import json
+import math
 import re
 import time
 import types
@@ -312,7 +313,8 @@ class RuleKey:
       231 (U4b): an installation default may be of more kinds (a capability's keys stay these two): `number` (a number
       between `least` and `most`, a probability's band), `bool` (yes or no), `amount` (a decimal number written as
       text, at least `least`), `set` (a list of distinct `options`, at least `least` of them), `map` (the file's keys,
-      each one of `options`) and `list` (an ordered list of distinct codes, at least `least` of them).
+      each one of `options`) and `list` (an ordered list of distinct codes, at least `least` of them). 265 (code review
+      APPR-09): a `set` or a `list` may name codes it `keeps` (the verdicts keep "unknown").
     - `what`: one English line (the interface translates it).
 
     A key that would change what is asked from a paid service, or a budget, is never one: those stay changes of the
@@ -326,6 +328,7 @@ class RuleKey:
     least: float | None = None
     most: float | None = None
     options: tuple[str, ...] = ()
+    keeps: tuple[str, ...] = ()
 
     @property
     def id(self) -> str:
@@ -348,7 +351,8 @@ class RuleKey:
                 return [f"{self.id} is between {self.least} and {self.most}"]
             return []
         if self.kind == "number":
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
+            # 265 (code review APPR-06): "not a number" passes every bound (each comparison with it is false)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
                 return [f"{self.id} is a number"]
             if (self.least is not None and value < self.least) or (self.most is not None and value > self.most):
                 return [f"{self.id} is between {self.least} and {self.most}"]
@@ -368,13 +372,17 @@ class RuleKey:
                 return [f"{self.id} is a list of distinct values"]
             if unknown := [v for v in value if v not in self.options]:
                 return [f"{self.id} takes no {', '.join(map(str, unknown))}"]
-            return [] if self.least is None or len(value) >= self.least else [f"{self.id} holds at least {int(self.least)}"]
+            if self.least is not None and len(value) < self.least:
+                return [f"{self.id} holds at least {int(self.least)}"]
+            return [f"{self.id} keeps {', '.join(dropped)}"] if (dropped := [k for k in self.keeps if k not in value]) else []
         if self.kind == "list":
             if not isinstance(value, list) or len(set(map(str, value))) != len(value):
                 return [f"{self.id} is a list of distinct codes"]
             if wrong := [str(v) for v in value if not isinstance(v, str) or not _NAME.match(v)]:
                 return [f"{self.id}: {', '.join(wrong)} is not a code (lowercase letters, digits and _)"]
-            return [] if self.least is None or len(value) >= self.least else [f"{self.id} holds at least {int(self.least)}"]
+            if self.least is not None and len(value) < self.least:
+                return [f"{self.id} holds at least {int(self.least)}"]
+            return [f"{self.id} keeps {', '.join(dropped)}"] if (dropped := [k for k in self.keeps if k not in value]) else []
         if self.kind == "map":
             keys = set(self.file_value())
             if not isinstance(value, dict) or set(value) != keys:

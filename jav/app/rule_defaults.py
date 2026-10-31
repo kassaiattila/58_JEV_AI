@@ -172,7 +172,7 @@ def _declared_from(points: dict[str, Any]) -> tuple[list[capabilities.RuleKey], 
                 found = set(edit.get("options") or ()) | (_options_from(edit["options_from"]) if "options_from" in edit else set())
                 options = tuple(sorted(found | set(_members(_file_value(file, key)))))
             keys.append(capabilities.RuleKey(file, key, edit["kind"], v["label"], least=edit.get("least"),
-                                             most=edit.get("most"), options=options))
+                                             most=edit.get("most"), options=options, keeps=tuple(edit.get("keeps") or ())))
     return keys, kept
 
 
