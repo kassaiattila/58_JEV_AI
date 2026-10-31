@@ -35,6 +35,7 @@ BUSINESS = sorted(frozenset().union(*MODULES.values())
 # the keys `measure --list` printed before the move (commit 1dbf395, with the legacy golden set in place), in its order;
 # a golden set added later is added here on purpose
 BEFORE = [
+    "datapoints:altalanos_szerzodesi_feltetelek:S",  # 231: the terms' S path (only where the legacy golden set is)
     "datapoints:altalanos_szerzodesi_feltetelek:G", "datapoints:belepo_jegy:G", "datapoints:csatorna_szamla:S",
     "datapoints:csatorna_szamla:G", "datapoints:foldgaz_szamla:S", "datapoints:foldgaz_szamla:G",
     "datapoints:invoice_foreign:S", "datapoints:invoice_foreign:G", "datapoints:invoice_foreign:S:synthetic",
