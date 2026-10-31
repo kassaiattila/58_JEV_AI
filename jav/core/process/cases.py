@@ -329,9 +329,11 @@ def holding_in(c: sqlite3.Connection, texts: list[str]) -> list[str]:
 
 def marks() -> list[Any]:
     """231 (A3d): a mark that changes whenever a case, a step or a human task changes (a list built from them is built
-    again only then)."""
+    again only then). 265 (code review APPW-04): with the history's last row, which every change writes in its own
+    transaction: the times are to the second, so a step that changed twice within one second kept its mark."""
     with store.connect() as c:
-        return [tuple(c.execute("SELECT COUNT(*), MAX(updated_at) FROM process_cases").fetchone()),
+        return [c.execute("SELECT MAX(id) FROM process_history").fetchone()[0],
+                tuple(c.execute("SELECT COUNT(*), MAX(updated_at) FROM process_cases").fetchone()),
                 tuple(c.execute("SELECT COUNT(*), MAX(updated_at) FROM process_steps").fetchone()),
                 tuple(c.execute("SELECT SUM(status='open'), MAX(opened_at), MAX(closed_at) FROM process_tasks").fetchone())]
 

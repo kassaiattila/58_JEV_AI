@@ -167,7 +167,9 @@ def _cases(scope: dict[str, str]) -> Rows:
 
 # H25: what the case list reads - the cases' containers and their scope, the own parties' names - beside the process
 # core's own marks (`cases.marks`)
-_LIST_INPUTS = {"workpackages": "MAX(updated_at)", "workpackage_scopes": "MAX(set_at)", "own_parties": "MAX(updated_at)"}
+# 265 (code review APPW-04): a change in place counts by its revision too (the times are to the second)
+_LIST_INPUTS = {"workpackages": "MAX(updated_at), SUM(revision)", "workpackage_scopes": "MAX(set_at), SUM(revision)",
+                "own_parties": "MAX(updated_at)"}
 
 
 def _fingerprint(_scope: dict[str, str]) -> str:
