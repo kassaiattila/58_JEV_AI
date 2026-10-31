@@ -38,7 +38,8 @@ export function LanguageChoice() {
         ))}
       </fieldset>
       {failed ? <p className="notice error" role="alert">{t("Loading the English labels failed; the interface stays in Hungarian. Please try again.")}</p> : null}
-      <p className="muted small">{t("The language only changes the interface labels; document data, names and file names stay unchanged. The setting is remembered in this browser.")}</p>
+      {/* 264 (F5): that the setting is remembered is said once, below the theme and the language */}
+      <p className="muted small">{t("The language only changes the interface labels; document data, names and file names stay unchanged.")}</p>
     </>
   );
 }

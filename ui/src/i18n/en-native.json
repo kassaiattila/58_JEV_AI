@@ -5293,5 +5293,6 @@
   "No statement in the package yet.": "No statement in the package yet.",
   "Accept the proposals ({{n}})": "Accept the proposals ({{n}})",
   "Do not route ({{n}})": "Do not route ({{n}})",
-  "Next step's state": "Next step's state"
+  "Next step's state": "Next step's state",
+  "The language only changes the interface labels; document data, names and file names stay unchanged.": "The language only changes the interface labels; document data, names and file names stay unchanged."
 }
