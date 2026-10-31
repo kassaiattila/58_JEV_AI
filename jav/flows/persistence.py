@@ -108,7 +108,7 @@ class ClosingSQLitePersister(SQLitePersister):
         own = connection is None
         if own:
             connection = sqlite3.connect(db_path, **{"timeout": BUSY_TIMEOUT_S, **(connect_kwargs or {})})
-            connection.execute("PRAGMA journal_mode=WAL")
+            store.ensure_wal(connection)  # 265 (code review CORE-14): with the main store's retry on a busy file
             store.tune(connection)  # 189: the test suite's setting; the application keeps SQLite's own
         super().__init__(db_path, table_name, serde_kwargs, connect_kwargs, connection=connection)
 
