@@ -3,7 +3,7 @@
 Plain-language summary: a cache file is written to a temporary file next to it and then put in place in one step, so
 a reader never sees half of it (a crash or a full disk mid-write left a truncated file before). A file that cannot be
 read (truncated, not JSON) is reported once and treated as missing, so the work asks again and a new, intact file
-takes its place, instead of failing every later item. The JEV cache did this since 066 (Á37); the OCR cache now
+takes its place, instead of failing every later item. The JEV cache did this since 066 (item 37); the OCR cache now
 shares it.
 
 Layer: core (no application code).
