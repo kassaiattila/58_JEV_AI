@@ -3,6 +3,7 @@ import { api, type Alternative, type ItemResult, type Provenance, type RunItem, 
 import { DatasetPicker, runOption } from "../components/DatasetPicker";
 import { EngineMark } from "../components/EngineMark";
 import { NameModeSwitch, NameWarning } from "../components/NameCell";
+import { isShortcutTarget } from "../components/shortcuts";
 import { useDataset, useFitToScreen, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { FIELD, fieldLabel, fold, ITEM_STATUS, itemName, when } from "../labels";
@@ -343,6 +344,8 @@ function PdfItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPre
         return;
       }
       if (typing || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      // 265 (code review UI-01): a picker's arrow, search letter or Enter is the picker's, not the page's
+      if (!isShortcutTarget(e)) return;
       if (onList && e.key !== "n" && e.key !== "p") return; // on the line list tab only item switching works
       const i = active ? fields.indexOf(active) : -1;
       if (e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); if (fields.length) focusField(fields[Math.min(fields.length - 1, i + 1)]); }

@@ -24,6 +24,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "../../../api";
 import { OPEN_LINE_STATES, type ReconcileCandidate, type ReconcileInvoice, type ReconcileLine, type ReconcileLineState, type ReconcileMatch, type ReconcileWorkspace } from "../api";
 import { ConfirmButton } from "../../../components/ConfirmButton";
+import { isShortcutTarget } from "../../../components/shortcuts";
 import { FormActions } from "../../../components/FormActions";
 import { errorText, useAction } from "../../../hooks";
 import { t, useLocale } from "../../../i18n";
@@ -65,10 +66,6 @@ const signed = (line: ReconcileLine): bigint | null => {
 };
 const lineTitle = (l: ReconcileLine) => l.counterparty_name || l.description || l.memo || "–";
 const invoiceTitle = (i: ReconcileInvoice) => [i.partner_name ?? i.supplier_name, i.number].filter(Boolean).join(" · ") || i.file || "–";
-/** Whether the key goes into a text field (a checkbox or a radio button with the focus does not take letters). */
-const isTyping = (el: EventTarget | null) =>
-  el instanceof HTMLElement && ((el instanceof HTMLInputElement && !["checkbox", "radio", "button"].includes(el.type))
-    || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
 
 function filterLabel(f: LineFilter): string {
   if (f === "todo") return t("To decide");
@@ -249,7 +246,7 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
       else { setSelLines(active ? [active] : []); setSelInvoices([]); }
       return;
     }
-    if (isTyping(e.target)) return;
+    if (!isShortcutTarget(e)) return;  // 265 (code review UI-01): a picker's keys never clear the ticked invoices
     // Enter and Space keep their own meaning on a button or a link; Space also toggles a focused checkbox itself
     const onButton = e.target instanceof HTMLElement && (e.target.tagName === "BUTTON" || e.target.tagName === "A");
     const onCheckbox = e.target instanceof HTMLInputElement;
