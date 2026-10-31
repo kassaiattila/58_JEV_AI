@@ -152,7 +152,8 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
 /** 263 (E2): a batch's three stages - the bar with each stage's state, and the chosen stage's work - the same on a
  *  batch's own page and under its case's step. Its next step is the page's main action (`PageActions`), at the right
  *  end of the title row, when it is done on another stage; on its own stage the stage's own solid button is the action,
- *  and `otherwise` (the case's next step, done elsewhere) is the page's. `extra` stands at the bar's right end (the
+ *  and only when the batch has nothing for a person to do (it runs, or it is released) is `otherwise` (the case's next
+ *  step, done elsewhere) the page's. `extra` stands at the bar's right end (the
  *  batch's management and the step's log, under a case); `note` above the Processing stage's work (what the case's step
  *  says of the batch's run: the cost cap a person approved); `body` in place of a stage's work, with no stage chosen
  *  (the step's log). `level`: "sub" under a case's track, quieter; "main" when the stages are the page's track. */
@@ -173,7 +174,7 @@ export function BatchStages({ view, route, onChanged, extra, otherwise, note, bo
         <PageActions>
           <button type="button" className="primary" onClick={() => go({ view: "workpackages", wpId, stage: next.stage })}>{nextStepText(view)} →</button>
         </PageActions>
-      ) : otherwise ? <PageActions>{otherwise}</PageActions> : null}
+      ) : otherwise && (next.code === "running" || next.code === "done") ? <PageActions>{otherwise}</PageActions> : null}
       {workpackage.status === "archived" ? (
         <p className="notice">{t("This batch is hidden from the list; its runs and results are kept. Use “Manage batch” to bring it back.")}</p>
       ) : null}

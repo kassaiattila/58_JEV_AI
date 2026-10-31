@@ -5240,5 +5240,7 @@
   "An earlier case of this step, kept as it closed.": "A lépés egy korábbi ügye, úgy, ahogy lezárult.",
   "Log": "Napló",
   "Open the documents' processing": "Az iratok feldolgozása",
-  "The step's parts": "A lépés részei"
+  "The step's parts": "A lépés részei",
+  "Manage case": "Ügy kezelése",
+  "Continue: {{step}}": "Tovább: {{step}}"
 }

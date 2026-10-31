@@ -118,6 +118,31 @@ describe("one case, one track (263 E2)", () => {
     expect(within(holds).getByRole("link", { name: "Incoming invoices" }).getAttribute("href")).toBe(`#/cases/${MAIN}/invoices`);
   });
 
+  it("has one main action: a step's batch with its own work here keeps the case's next step out of the title row", async () => {
+    const view = main(sub({ case: { id: INVOICES, name: "x", status: "open", outcome: null,
+      next: { code: "case_package_review", label: "Review the to-dos", stage: "review", tab: "documents" } } }), sub({ state: "waiting" }));
+    view.steps.statements = step("Bank statements", "running");
+    view.tabs[0].elements.push({ type: "sub_case", step: "statements", data: sub({ pack: "bank_statements",
+      case: { id: PAIRING, name: "y", status: "open", outcome: null, next: null } }) });
+    const statements: CaseView = {
+      case: { id: PAIRING, pack: "bank_statements", version: "1.0.0", title: "Bank statements", name: "y", status: "open" },
+      steps: {}, next: null, tabs: [{ id: "documents", label: "Statements", elements: [{ type: "package_work", step: "process",
+        data: { package: { id: BATCH, name: "March statements", items: 1, kind: "statements" }, runs: [], can_start: false } }] }, LOG],
+    };
+    vi.spyOn(api, "casePage").mockImplementation(async (id: string) => (id === MAIN ? view : statements));
+    vi.spyOn(api, "workpackage").mockImplementation(async (id: string) => (id === BATCH
+      ? { ...batch(), next: { code: "start", label: "Start trial run", stage: "process" }, owner_case: undefined }
+      : { ...batch(), workpackage: { ...batch().workpackage, id }, owner_case: undefined }));
+    vi.spyOn(api, "users").mockResolvedValue({ users: [] });
+    vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [] });
+    vi.spyOn(api, "datasetQuery").mockResolvedValue(EMPTY);
+    render(<CasePage caseId={MAIN} tab="statements" />);
+    const stages = await screen.findByRole("tablist", { name: "Document batch stages" });
+    expect(within(stages).getByRole("tab", { name: /Processing/ }).getAttribute("aria-selected")).toBe("true");
+    const head = screen.getByRole("heading", { level: 1, name: "Invented March" }).closest("header")!;
+    expect(within(head).queryByRole("button", { name: /→$/ })).toBeNull();
+  });
+
   it("shows a case that is only its batch with the batch's stages as its track, and its log and settings apart", async () => {
     const docs: CaseView = {
       case: { id: INVOICES, pack: "documents", version: "1.4.0", title: "Documents", name: "Invented April", status: "open" },

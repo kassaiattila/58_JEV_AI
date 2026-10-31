@@ -5202,5 +5202,7 @@
   "An earlier case of this step, kept as it closed.": "An earlier case of this step, kept as it closed.",
   "Log": "Log",
   "Open the documents' processing": "Open the documents' processing",
-  "The step's parts": "The step's parts"
+  "The step's parts": "The step's parts",
+  "Manage case": "Manage case",
+  "Continue: {{step}}": "Continue: {{step}}"
 }

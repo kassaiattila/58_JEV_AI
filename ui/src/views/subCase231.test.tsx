@@ -78,7 +78,7 @@ describe("a step that runs a sub-case (231 U2c)", () => {
     render(<CasePage caseId={CHAIN} tab="overview" />);
     const card = await screen.findByRole("row", { name: "Beérkező számlák" });
     expect(within(card).getByText("A részügy kész")).toBeTruthy();
-    expect(await screen.findByRole("button", { name: "Tovább a részügyben →" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Tovább: Beérkező számlák →" })).toBeTruthy();
   });
 
   it("says each sub-case's work: its documents, open to-dos and its live run", async () => {

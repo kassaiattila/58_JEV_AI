@@ -63,7 +63,8 @@ export function itemOfBatch(items: TrackItem[], wpId: string): TrackItem | undef
 }
 
 /** 263 (E2): where the case's next step is done - its track's item and, for a step that runs a sub-case, the sub-case's
- *  item - and its name: a sub-case's own next step, not "Continue in its sub-case". */
+ *  item - and its name: a sub-case's own next step, or the step's own name ("Continue: Incoming invoices"), not
+ *  "Continue in its sub-case". */
 export function nextAt(view: CaseView, items: TrackItem[]): { item: string; sub?: string; label: string } | null {
   const next = view.next;
   if (!next) return null;
@@ -73,7 +74,7 @@ export function nextAt(view: CaseView, items: TrackItem[]): { item: string; sub?
       if (d?.state !== "running" || !d.case) continue;
       const own = d.case.next;
       return own ? { item: x.id, sub: own.tab, label: stepLabel(own.code, own.params, own.label) }
-        : { item: x.id, label: stepLabel(next.code, next.params, next.label) };
+        : { item: x.id, label: t("Continue: {{step}}", { step: t(x.label) }) };
     }
   }
   return { item: next.tab, label: stepLabel(next.code, next.params, next.label) };
@@ -222,7 +223,7 @@ function StepWaiting({ p, d, title }: { p: ElementProps; d: SubCaseData | null; 
         <h2>{title}</h2>
         {state ? <span className={`status ${state.mark}`}>{state.text}</span> : null}
       </div>
-      {d?.process ? <p className="small muted">{t(d.process)}</p> : null}
+      {d?.process && t(d.process) !== title ? <p className="small muted">{t(d.process)}</p> : null}
       {why ? <p className="small">{why}</p> : null}
       <EarlierCases p={p} d={d} />
       <ActionButtons p={p} primary="retry" />
@@ -260,8 +261,12 @@ function StepWork({ main, item, sub, of, batch, otherwise, onChanged }: {
   const page = useLoad(subId ? `case:${subId}` : null, () => api.casePage(subId!), poll ? 3000 : undefined);
   const active = page.data ? moving(page.data) : false;
   useEffect(() => setPoll(active), [active]);
+  useEffect(() => {  // the step's current sub-case named in the address is the step's own: the address drops it
+    if (of && of === current) window.history.replaceState(null, "", routeHash({ view: "cases", caseId: main.caseId, tab: item.id, ...(sub ? { sub } : {}) }));
+  }, [of, current, main.caseId, item.id, sub]);
   const title = t(item.label);
-  if (!subId) return <><StepWaiting p={main} d={d} title={title} />{otherwise ? <PageActions>{otherwise}</PageActions> : null}</>;
+  // a stopped step's retry is its own solid button; only a step that waits has the case's next step as the page's
+  if (!subId) return <><StepWaiting p={main} d={d} title={title} />{otherwise && d?.state !== "failed" ? <PageActions>{otherwise}</PageActions> : null}</>;
   if (page.error) return <p className="notice error" role="alert">{page.error.message}</p>;
   if (!page.data) return <p className="muted">{t("Loading…")}</p>;
   const view = page.data;
@@ -295,10 +300,12 @@ function StepWork({ main, item, sub, of, batch, otherwise, onChanged }: {
   }
   const shown = logShown ? null : items.find((x) => x.id === sub) ?? defaultItem(view, items) ?? null;
   const own = view.next && !earlier ? view.next.tab : null;
-  const nextButton = own && own !== shown?.id && view.next ? (
+  // the sub-case's own next step where it is done; on its own part, that part's solid button (none here); the case's
+  // next step only while the sub-case has none
+  const nextButton = own && view.next ? (own !== shown?.id ? (
     <button type="button" className="primary" onClick={() => go({ view: "cases", caseId: main.caseId, tab: item.id, sub: own })}>
       {stepLabel(view.next.code, view.next.params, view.next.label)} →</button>
-  ) : otherwise;
+  ) : null) : otherwise;
   const shownBatch = shown ? batchOf(shown.elements) : null;
   return (
     <>
