@@ -2,17 +2,18 @@
 // (every invoice and line with its result), what blocks or only warns its approval, accepting a command-line source, the
 // download as an Excel workbook, the approval as a version that locks the lines, reopening with a reason, and the
 // earlier versions. The service computes and checks everything (jav/domains/finance/reconcile_statement.py); this page shows it.
-import { useEffect, useMemo, useState } from "react";
-import { api, ApiError } from "../../../api";
+import { useEffect, useState } from "react";
+import { api, ApiError, type DsRow } from "../../../api";
 import type { ReconcileStatement, ReconcileStatementCurrent, ReconcileWorkspace } from "../api";
 import { ApprovalPanel, EarlierVersions } from "../../../components/ApprovalPanel";
 import { BlockerList } from "../../../components/BlockerList";
 import { ConfirmButton } from "../../../components/ConfirmButton";
+import { DataTable } from "../../../components/DataTable";
 import { Icon } from "../../../components/Icon";
 import { TemplateChoice } from "../../../components/TemplateChoice";
 import { errorText, useAction, useLoad } from "../../../hooks";
 import { t, useLocale } from "../../../i18n";
-import { blockerItems, INVOICE_RESULT, LINE_RESULT, MARK, EXCLUDED, warningText } from "./labels";
+import { blockerItems, MARK, EXCLUDED, warningText } from "./labels";
 import { show } from "./money";
 
 export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
@@ -100,7 +101,8 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
       </ApprovalPanel>
 
       {/* 167 (review 160 U-11): the approved version that failed to load says so */}
-      {shown ? <StatementTables statement={shown} buyers={buyers(ws)} /> : approved.error ? <p className="notice error" role="alert">{approved.error.message}</p>
+      {shown ? <StatementTables wpId={wpId} version={active?.version} stamp={`${active?.version ?? "now"}:${current.fingerprint}`} />
+        : approved.error ? <p className="notice error" role="alert">{approved.error.message}</p>
         : <p className="muted">{t("Loading…")}</p>}
 
       <EarlierVersions versions={current.approval.versions}
@@ -111,77 +113,37 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
 
 const REASON = (code: string | null): string => (code ? MARK[code] ?? EXCLUDED[code] ?? code : "");
 
-/** U1 (the walkthrough): an own party's outgoing invoice is shown by its buyer, as the pairing shows it (148); the
- *  statement itself keeps its supplier. */
-const buyers = (ws: ReconcileWorkspace): Record<string, string> =>
-  Object.fromEntries((ws.invoices ?? []).filter((i) => i.outgoing && i.partner_name).map((i) => [i.id, i.partner_name as string]));
-
-/** The statement's two tables: the invoices with their results and payments, the lines with their results. */
-function StatementTables({ statement: st, buyers: buyerOf = {} }: { statement: ReconcileStatement; buyers?: Record<string, string> }) {
+/** 263 (plan E, F3; the owner's decision of 2026-10-30: every list the one list): the statement's two tables - the
+ *  invoices with their results and payments, the lines with their results - are the one list (search, sort, filters,
+ *  grouped by their result at first), read by the service from the statement as it stands now or from its approved
+ *  `version`; an own party's outgoing invoice is shown by its buyer (148). */
+function StatementTables({ wpId, version, stamp }: { wpId: string; version?: number; stamp: string }) {
   useLocale();
-  const [lineFilter, setLineFilter] = useState<string>("");
-  const lines = useMemo(() => st.lines.filter((ln) => !lineFilter || ln.result === lineFilter), [st.lines, lineFilter]);
+  const scope = { workpackage_id: wpId, ...(version ? { version: String(version) } : {}) };
+  const money = (row: DsRow, key: string, sign = "") => (row[key] == null ? "" : `${sign}${show(String(row[key]), String(row.currency ?? ""))}`);
   return (
     <>
-      <section className="card" aria-label={t("Invoices")}>
+      <section className="card wide" aria-label={t("Invoices")}>
         <h2>{t("Invoices")}</h2>
-        <p className="rc-counts">
-          {Object.entries(st.counts.invoices).map(([k, n]) => <span key={k} className={`rc-state s-${k}`}>{INVOICE_RESULT[k as keyof typeof INVOICE_RESULT] ?? k}: {n}</span>)}
-        </p>
-        <div className="dt-scroll">
-          <table className="table compact">
-            <thead><tr>
-              <th>{t("Invoice number")}</th><th>{t("Counterparty")}</th><th>{t("Due date")}</th><th className="num">{t("Amount")}</th>
-              <th>{t("Result")}</th><th className="num">{t("Left")}</th><th>{t("Paid on")}</th><th className="num">{t("Days late")}</th>
-            </tr></thead>
-            <tbody>
-              {st.invoices.map((i) => (
-                <tr key={i.id}>
-                  <td>{i.number ?? "–"}</td>
-                  <td>{buyerOf[i.id] ? <>{buyerOf[i.id]} <span className="muted small">· {t("buyer of an outgoing invoice")}</span></>
-                    : i.supplier_name ?? "–"}{i.other_party ? <span className="muted small"> · {t("another party's: {{name}}", { name: i.other_party })}</span> : null}</td>
-                  <td>{i.due_date ?? "–"}</td>
-                  <td className="num">{show(i.amount, i.currency)}</td>
-                  <td>{INVOICE_RESULT[i.result] ?? i.result}</td>
-                  <td className="num">{i.result === "paid" ? "" : show(i.rest, i.currency)}</td>
-                  <td>{i.paid_on ?? ""}</td>
-                  <td className="num">{i.days_from_due && i.days_from_due > 0 ? i.days_from_due : i.overdue_days ? t("{{n}} overdue", { n: i.overdue_days }) : ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable key={`inv:${stamp}`} dataset="reconcile_statement_invoices" scope={scope} label={t("Invoices")}
+          persist={`rc-invoices:${wpId}`} defaultGroup="result" storageId="rc-invoices"
+          cell={(col, row) => {
+            if (col.key === "amount" || col.key === "rest") return money(row, col.key);
+            if (col.key === "counterparty" && row.buyer) return <>{String(row.counterparty ?? "–")} <span className="muted small">· {t("buyer of an outgoing invoice")}</span></>;
+            if (col.key === "counterparty" && row.other_party) return <>{String(row.counterparty ?? "–")} <span className="muted small"> · {t("another party's: {{name}}", { name: String(row.other_party) })}</span></>;
+            if (col.key === "days_late" && !row.days_late && row.overdue_days) return t("{{n}} overdue", { n: Number(row.overdue_days) });
+            return undefined;
+          }} />
       </section>
-      <section className="card" aria-label={t("Statement lines")}>
-        <div className="card-head">
-          <h2>{t("Statement lines")}</h2>
-          <label className="small">{t("Show")}{" "}
-            <select value={lineFilter} onChange={(e) => setLineFilter(e.target.value)}>
-              <option value="">{t("every line")}</option>
-              {Object.entries(st.counts.lines).map(([k, n]) => <option key={k} value={k}>{LINE_RESULT[k as keyof typeof LINE_RESULT] ?? k} ({n})</option>)}
-            </select>
-          </label>
-        </div>
-        <div className="dt-scroll">
-          <table className="table compact">
-            <thead><tr>
-              <th>{t("Booking date")}</th><th>{t("Counterparty")}</th><th>{t("Remittance info")}</th><th className="num">{t("Amount")}</th>
-              <th>{t("Result")}</th><th>{t("Reason or invoice")}</th>
-            </tr></thead>
-            <tbody>
-              {lines.map((ln) => (
-                <tr key={ln.id}>
-                  <td>{ln.booking_date ?? "–"}</td>
-                  <td>{ln.counterparty_name ?? "–"}</td>
-                  <td className="small">{ln.memo ?? ln.description ?? ""}</td>
-                  <td className="num">{ln.direction === "credit" ? "+" : "−"}{show(ln.amount, ln.currency)}</td>
-                  <td>{LINE_RESULT[ln.result] ?? ln.result}</td>
-                  <td className="small">{ln.pays.length ? ln.pays.map((p) => p.number ?? p.supplier_name ?? "").join(", ") : REASON(ln.reason)}{ln.note ? ` · ${ln.note}` : ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <section className="card wide" aria-label={t("Statement lines")}>
+        <h2>{t("Statement lines")}</h2>
+        <DataTable key={`lines:${stamp}`} dataset="reconcile_statement_lines" scope={scope} label={t("Statement lines")}
+          persist={`rc-lines:${wpId}`} defaultGroup="result" storageId="rc-lines"
+          cell={(col, row) => {
+            if (col.key === "amount") return money(row, "amount", row.direction === "credit" ? "+" : "−");
+            if (col.key === "pays" && !row.pays) return `${REASON(row.reason as string | null)}${row.note ? ` · ${String(row.note)}` : ""}` || "–";
+            return undefined;
+          }} />
       </section>
     </>
   );

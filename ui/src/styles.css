@@ -548,6 +548,17 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .stage-tabs.sub-track .stage-tab { min-height: 36px; border-right: 0; }
 .stage-tabs.sub-track .stage-tab[aria-selected="true"] { background: transparent; }
 .track-row:has(> .sub-track) .track-log { min-height: 36px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+/* 263 (F3): a case's steps in the case list - the state marks alone, each named in its tooltip */
+.track-marks { display: inline-flex; gap: 4px; align-items: center; }
+.track-mark { display: inline-flex; }
+.track-mark::before { content: ""; width: 8px; height: 8px; border-radius: var(--r-full); background: var(--faint); }
+.track-mark.s-done::before { background: var(--ok); }
+.track-mark.s-running::before { background: var(--run); }
+.track-mark.s-failed::before { background: var(--error); border-radius: 0; }
+.track-mark.s-waiting::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--faint); }
+/* 263 (F3): a process repeated by period - its period grid */
+.period-grid td a.status { text-decoration: none; }
+.period-grid td a.status + a.status { margin-left: var(--sp-2); }
 .stage-grid, .stage-stack { display: grid; gap: 16px; }
 .stage-grid .card, .stage-stack .card { max-width: none; margin: 0; }
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }

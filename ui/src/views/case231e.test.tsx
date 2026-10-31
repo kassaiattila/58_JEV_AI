@@ -4,10 +4,11 @@
 // shows the handovers to check above the cases only while there are some. Synthetic data, a mocked service.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setActor, type CaseView, type DsPage } from "../api";
+import { api, type CaseEvent, setActor, type CaseView, type DsPage } from "../api";
 import { setLanguage } from "../i18n";
 import { CaseList } from "./CaseList";
 import { CasePage } from "./CasePage";
+import { mockEvents } from "../elements/caseEvents.testutil";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -92,10 +93,14 @@ describe("a case's send, follow-up and history (231 A7e)", () => {
   });
 
   it("shows the case's events and what its steps spent on the History tab", async () => {
-    vi.spyOn(api, "casePage").mockResolvedValue(page({ status: "closed", next: null, send: { state: "done" }, follow: { state: "done" } }));
+    const shown = page({ status: "closed", next: null, send: { state: "done" }, follow: { state: "done" } });
+    vi.spyOn(api, "casePage").mockResolvedValue(shown);
+    // 263 (F3): the events are the service's list, the element's own the same
+    const log = shown.tabs.find((x) => x.id === "history")!.elements.find((e) => e.type === "timeline")!;
+    mockEvents((log.data as { events: CaseEvent[] }).events);
     render(<CasePage caseId={CASE} tab="history" />);
     const events = await screen.findByRole("region", { name: "Events" });
-    expect(within(events).getByText("The case started")).toBeTruthy();
+    expect(await within(events).findByText("The case started")).toBeTruthy();
     expect(within(events).getByText("Said whether it arrived — it arrived")).toBeTruthy();
     const cost = screen.getByRole("region", { name: "Cost" });
     expect(within(cost).getByText("JEV")).toBeTruthy();
@@ -113,9 +118,11 @@ describe("the case list (231 A7e)", () => {
   it("shows the handovers to check above the cases only while there are some", async () => {
     const query = vi.spyOn(api, "datasetQuery").mockImplementation(async (name) =>
       name === "handovers" ? ds("handovers", [{ name: "Quote A", _key: "h1", _wp: CASE }]) : ds("cases", [{ name: "Quote A", _key: CASE, _wp: CASE }]));
+    vi.spyOn(api, "caseViews").mockResolvedValue({ views: { waiting: 0, mine: 0, open: 1, closed: 0 }, processes: [] });
     render(<CaseList />);
     expect(await screen.findByRole("heading", { name: "Handovers to check" })).toBeTruthy();
-    expect(query).toHaveBeenCalledWith("cases", {}, expect.anything());
+    // 263 (F3): every open case is the list's first view
+    expect(query).toHaveBeenCalledWith("cases", expect.objectContaining({ view: "open" }), expect.anything());
     cleanup();
     query.mockImplementation(async (name) => ds(name, name === "handovers" ? [] : [{ name: "Quote A", _key: CASE, _wp: CASE }]));
     render(<CaseList />);

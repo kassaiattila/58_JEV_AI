@@ -273,7 +273,7 @@ export function Mailbox() {
       <p className="muted small">{t("Schedules only run while the worker is running and Outlook is open on this computer.")}</p>
 
       <h2 className="mt">{t("Downloads")}</h2>
-      <DataTable dataset="mailbox_pulls" label={t("Mailbox downloads")} pollMs={5000} emptyText={t("No downloads yet.")}
+      <DataTable dataset="mailbox_pulls" label={t("Mailbox downloads")} pollMs={5000} emptyText={t("No downloads yet.")} persist="mailbox-pulls"
         cell={(col, row) => (col.key === "workpackage" && row.workpackage
           ? <a href={`#/workpackages/${encodeURIComponent(String(row.workpackage))}`}>{t("document batch")}</a>
           : col.key === "error" && row.error ? pullErrorText(String(row.error))

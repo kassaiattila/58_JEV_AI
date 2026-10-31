@@ -70,6 +70,17 @@ Before you download, the panel shows the number of rows and columns; the row ord
 
 ## 4. Starting work
 
+**The case list** (*Ügyek*, 263): a row for each main case - its process, its own party (*Gazdálkodó*), its period
+(*Időszak*), its steps as small marks (done, in progress, not started, failed; each named when you point at it), the
+step it is at and what that waits for. A sub-case is its main case's step, not a row of its own: the row names its step
+(for example ‘Incoming invoices › Processing’), and the step a person must act on comes first. The views stand in the left
+panel with their counts: **Cases waiting for me** (*Rám váró ügyek*: an open case waiting for a person's start, decision
+or a failed step's retry, yours or no one's), **My cases** (*Saját ügyeim*), **Every open case** (*Minden nyitott ügy*),
+**Closed cases** (*Lezárt ügyek*), and **By process** (*Folyamatonként*). The list is grouped by process at first
+(**Group by**, *Csoport*, changes it) and keeps its search, filters and sorting when you come back. A process repeated by
+period (the monthly reconciliation) also shows its **Period grid** (*Időszak-tábla*): a row for each party, a column for
+each month, the case's state in the cell, linked to it.
+
 Work starts as a case: **Cases › New case** (*Ügyek › Új ügy*, section 4.2) lists the processes a person may start, and each process's form asks what its case needs. The new work wizard (*Új munka*) is gone since 2026-10-28: its single kinds are processes of their own, and its workflows are multi-step processes (section 4.1). What the forms of the most used processes ask:
 
 - **Documents** (*Iratok*): each document's type is recognised and its data extracted. Three sources:
@@ -93,7 +104,7 @@ A **multi-step process** (*többlépéses folyamat*; until 2026-10-28 a workflow
 
 - **Starting one:** the form asks the own party and the period once, then each step's own documents with the same fields as a one-step process (a folder, chosen files, the invented documents of the sub-case's process, or a mailbox download). **Create** can be pressed once every step has its documents.
 - **Its page:** the **Overview** (*Áttekintés*) shows what holds the case and one card per step: its sub-case, linked, with its state (‘Not started yet’, *Még nem indult*; ‘Its case is in progress’, *A részügy folyamatban*; ‘Its case is done’, *A részügy kész*; ‘Did not finish’, *Nem futott le*) and the sub-case's own next step, which opens the sub-case on the tab where it is done. A step not started yet says that it starts once the steps before it are done.
-- **The sub-cases:** each is a case like any other: it is in the case list under the same name (its process in the Process column), its paid run waits for a person's start with its cost cap shown, and its page leads back to the step that runs it. Once a sub-case is done, the steps after it start by themselves; the reconciliation's sub-case takes the party, the period and the party's accounts.
+- **The sub-cases:** each is a case of its own process, named after its step (‘… · Incoming invoices’); since 263 it opens under its step on the main case's page and has no row of its own in the case list (the main case's row names its step). Its paid run waits for a person's start with its cost cap shown. Once a sub-case is done, the steps after it start by themselves; the reconciliation's sub-case takes the party, the period and the party's accounts.
 - **A sub-case closed otherwise** (cancelled, or its batch deleted): its step stops with why, and **Try again** (*Újrapróbálás*) starts a new sub-case; the earlier one stays linked.
 - **The cost:** the History tab adds up what the sub-cases spent, step by step.
 - **The workflows made before** are under Settings › Operations › **Earlier workflows** (*Korábbi munkafolyamatok*): each one's page shows its chain as it stood; no new one is made there and none is repeated, and an open one may still be archived. The old address of a new workflow opens New case.

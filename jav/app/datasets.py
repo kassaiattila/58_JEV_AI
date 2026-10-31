@@ -302,8 +302,8 @@ def _activity(scope: dict[str, str]) -> Rows:
 
     cols = [
         col("at", "Time", "datetime"),
-        col("action", "Action", "enum", labels="activity_action"),
-        col("workpackage_name", "Case or batch", link="workpackage"),  # 231 (U2d): a case is its container
+        col("action", "Action", "enum", labels="activity_action", group=True),  # 263 (F3): grouped by its kind
+        col("workpackage_name", "Case or batch", link="workpackage", group=True),  # 231 (U2d): a case is its container
         col("detail", "Detail"),
         col("run_id", "Run (column)", "id", link="run"),
     ]
@@ -321,12 +321,12 @@ def _waiting(scope: dict[str, str]) -> Rows:
     from jav.app import waiting
 
     cols = [
-        col("kind", "Kind", "enum", labels="task_kind"),
+        col("kind", "Kind", "enum", labels="task_kind", group=True),  # 263 (F3): grouped by its kind, its case or batch
         col("what", "What", link="next", wrap="anywhere", clamp=2),
-        col("workpackage_name", "Work package", link="workpackage"),
+        col("workpackage_name", "Case or batch", link="workpackage", group=True),  # 263 (F4): one name, as My work today
         col("opened_at", "Waiting since", "datetime"),
-        col("origin", "Origin", "enum", labels="task_origin"),
-        col("assignee", "For", "enum", labels="task_assignee"),
+        col("origin", "Origin", "enum", labels="task_origin", group=True),
+        col("assignee", "For", "enum", labels="task_assignee", group=True),
         col("reason", "First to-do", clamp=2),
         col("reasons", "Open to-dos", "number"),
     ]

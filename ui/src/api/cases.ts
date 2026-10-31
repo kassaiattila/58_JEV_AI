@@ -81,6 +81,11 @@ export interface CaseStep {
 /** One element of a tab: its registered type, the step it shows and its data. */
 export interface CaseElement { type: string; step: string | null; data: unknown; [setting: string]: unknown }
 export interface CaseTab { id: string; label: string; elements: CaseElement[] }
+/** 263 (F3): the case list's views' counts (`jav/app/case_lists.py` `view_counts`). */
+export interface CaseViewCounts {
+  views: { waiting: number; mine: number; open: number; closed: number };
+  processes: { pack: string; title: string; open: number; all: number; repeats: boolean }[];
+}
 export interface CaseView {
   /** U-A8: `due`, whether the worker has something to do for the case now (the page asks again while it has) */
   case: { id: string; pack: string; version: string; title: string; name: string | null; status: string; due?: boolean;
@@ -266,6 +271,8 @@ export const casesApi = {
   caseNext: (caseId: string) => request<CaseNextDraft>("GET", `/cases/${enc(caseId)}/next`),
   /** 261 (B2b): what the case keeps from its start, beside what a case started now would use */
   caseSettings: (caseId: string) => request<CaseSettings>("GET", `/cases/${enc(caseId)}/settings`),
+  /** 263 (F3): the case list's views' counts for the person, and the open cases of each process */
+  caseViews: (actor?: string) => request<CaseViewCounts>("GET", `/case-views${actor ? `?actor=${enc(actor)}` : ""}`),
   casePage: (caseId: string) => request<CaseView>("GET", `/cases/${enc(caseId)}`),
   /** 231 (U1): a case of the process that follows the closed case, started from its documents */
   caseFollowUp: (caseId: string, pack: string) => request<{ case_id: string }>("POST", `/cases/${enc(caseId)}/follow-ups`, { pack }),

@@ -3,8 +3,9 @@
 // spent (cost). Each renders the data its step's capability gives (jav/app/sending.py, jav/app/replies.py,
 // jav/app/case_views.py); a person's actions are the step's own (`actions`), and the send itself is the step's start.
 import { useState, type ReactNode } from "react";
-import { api, ApiError, type ApprovalState, type CaseCost, type CaseEvent, type CaseKept, type CasePartnerLink, type HandoverAttempt, type HandoverData, type ReplyData, type SubCaseData } from "../api";
+import { api, ApiError, type ApprovalState, type CaseCost, type DsColumn, type DsRow, type CaseEvent, type CaseKept, type CasePartnerLink, type HandoverAttempt, type HandoverData, type ReplyData, type SubCaseData } from "../api";
 import { ApprovalStateNotes, EarlierVersions, ReturnControl } from "../components/ApprovalPanel";
+import { DataTable } from "../components/DataTable";
 import { FormActions } from "../components/FormActions";
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
@@ -213,29 +214,28 @@ function KeptLine({ kept }: { kept: CaseKept }) {
   return <div className="muted small">{t("It keeps from its start: {{what}}", { what: parts.join(" · ") })}</div>;
 }
 
+/** 263 (plan E, F3; the owner's decision of 2026-10-30: every list the one list): the case's events are the one list
+ *  (dataset `case_events`: search, sort, filters, grouped by the step or by who); a row's "what happened" is worded
+ *  here from its kind and detail. */
 export function Timeline(p: ElementProps) {
   useLocale();
   const d = p.element.data as { events: CaseEvent[] } | null;
   if (!d) return loading;
+  const cell = (col: DsColumn, row: DsRow): ReactNode | undefined => {
+    if (col.key === "step_title") return row.step_title ? t(String(row.step_title)) : "–";
+    if (col.key === "who") return row.who ? String(row.who) : <span className="muted">{t("The system")}</span>;
+    if (col.key !== "kind" || !row._detail) return undefined;
+    const e = { kind: String(row.kind), detail: row._detail } as CaseEvent;
+    return <>{eventText(e)}{e.detail.reasons?.length
+      ? <div className="muted small">{e.detail.reasons.map(saidText).join("; ")}</div>
+      : e.detail.note ? <div className="muted small">{noteText(e.detail.note)}</div> : null}
+      {e.detail.kept ? <KeptLine kept={e.detail.kept} /> : null}</>;
+  };
   return (
     <section className="card wide" aria-label={t("Events")}>
       <div className="card-head"><h2>{t("Events")}</h2><span className="muted small tnum">{t("{{n}} event(s)", { n: d.events.length })}</span></div>
-      <table className="table compact">
-        <thead><tr><th>{t("When")}</th><th>{t("Step")}</th><th>{t("What happened")}</th><th>{t("Who")}</th></tr></thead>
-        <tbody>
-          {d.events.map((e, i) => (
-            <tr key={`${e.at}-${i}`}>
-              <td className="tnum">{when(e.at)}</td>
-              <td>{e.step_title ? t(e.step_title) : "–"}</td>
-              <td>{eventText(e)}{e.detail.reasons?.length
-                ? <div className="muted small">{e.detail.reasons.map(saidText).join("; ")}</div>
-                : e.detail.note ? <div className="muted small">{noteText(e.detail.note)}</div> : null}
-                {e.detail.kept ? <KeptLine kept={e.detail.kept} /> : null}</td>
-              <td>{e.who ?? <span className="muted">{t("The system")}</span>}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable key={`${p.caseId}:${d.events.length}`} dataset="case_events" scope={{ case_id: p.caseId }} label={t("Events")}
+        storageId="case-events" cell={cell} emptyText={t("No event yet.")} />
     </section>
   );
 }

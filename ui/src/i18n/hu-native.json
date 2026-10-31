@@ -5255,5 +5255,16 @@
   "The run cannot be shown": "A futás nem jeleníthető meg",
   "The workflow cannot be shown": "A munkafolyamat nem jeleníthető meg",
   "There is no such page": "Nincs ilyen lap",
-  "no page of the workspace has this address. Choose one from the menu.": "a munkafelületnek nincs ilyen című lapja. Válassz a menüből."
+  "no page of the workspace has this address. Choose one from the menu.": "a munkafelületnek nincs ilyen című lapja. Válassz a menüből.",
+  "By process": "Folyamatonként",
+  "No case is closed yet.": "Még nincs lezárt ügy.",
+  "No case waits for you.": "Egy ügy sem vár rád.",
+  "Period grid": "Időszak-tábla",
+  "Views": "Nézetek",
+  "Cases waiting for me": "Rám váró ügyek",
+  "My cases": "Saját ügyeim",
+  "Every open case": "Minden nyitott ügy",
+  "Closed cases": "Lezárt ügyek",
+  "in progress": "folyamatban",
+  "No event yet.": "Még nincs esemény."
 }

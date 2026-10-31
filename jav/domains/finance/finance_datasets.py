@@ -188,6 +188,81 @@ def own_parties(_scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
+def _statement(scope: dict[str, str]) -> tuple[dict[str, Any], dict[str, str]]:
+    """263 (F3): a reconciliation's statement as it stands now, or its approved `version`, and the buyer of each own
+    party's outgoing invoice (shown by its buyer, as the pairing shows it; the statement keeps its supplier)."""
+    from jav.domains.finance import reconcile_package, reconcile_statement
+
+    wp_id = scope["workpackage_id"]
+    ws = reconcile_package.kept_workspace(wp_id)
+    buyers = {i["id"]: i["partner_name"] for i in ws["invoices"] if i.get("outgoing") and i.get("partner_name")}
+    version = scope.get("version")
+    statement = (reconcile_statement.approved_version(wp_id, int(version))["statement"] if version and version.isdigit()
+                 else reconcile_statement.build(ws, work.get(wp_id)["name"]))
+    return statement, buyers
+
+
+def statement_invoices(scope: dict[str, str]) -> Rows:
+    """263 (plan E, F3; the owner's decision of 2026-10-30: every list the one list): the invoices of a reconciliation's
+    statement with their results, payments and lateness - searchable, sortable and grouped by their result."""
+    statement, buyers = _statement(scope)
+    cols = [
+        col("number", "Invoice number"),
+        col("counterparty", "Counterparty", group=True),
+        col("due_date", "Due date", "date"),
+        col("amount", "Amount", "money"),
+        col("currency", "Currency", hidden=True),
+        col("result", "Result", "enum", labels="reconcile_invoice_result", group=True),
+        col("rest", "Left", "money"),
+        col("paid_on", "Paid on", "date"),
+        col("days_late", "Days late", "number"),
+        col("overdue_days", "Days overdue", "number", hidden=True),
+        col("other_party", "Another party's", hidden=True),
+        col("file", "File", hidden=True),
+    ]
+    rows = [{"_key": i["id"], "number": i.get("number"), "counterparty": buyers.get(i["id"]) or i.get("supplier_name"),
+             "buyer": i["id"] in buyers, "due_date": i.get("due_date"), "amount": i.get("amount"), "currency": i.get("currency"),
+             "result": i["result"], "rest": None if i["result"] == "paid" else i.get("rest"), "paid_on": i.get("paid_on"),
+             "days_late": i.get("days_from_due") if (i.get("days_from_due") or 0) > 0 else None,
+             "overdue_days": i.get("overdue_days"), "other_party": i.get("other_party"), "file": i.get("file")}
+            for i in statement["invoices"]]
+    return cols, rows
+
+
+def statement_lines(scope: dict[str, str]) -> Rows:
+    """263 (F3): the lines of a reconciliation's statement with their results and what they paid or why they need no
+    invoice - searchable, sortable and grouped by their result (a person filters to the open ones)."""
+    statement, _buyers = _statement(scope)
+    cols = [
+        col("booking_date", "Booking date", "date"),
+        col("counterparty", "Counterparty", group=True),
+        col("memo", "Remittance info", clamp=2),
+        col("amount", "Amount", "money"),
+        col("currency", "Currency", hidden=True),
+        col("direction", "Direction", "enum", labels="reconcile_direction", group=True),
+        col("result", "Result", "enum", labels="reconcile_line_result", group=True),
+        col("pays", "Reason or invoice", clamp=2),
+        col("account", "Account", group=True, hidden=True),
+    ]
+    rows = [{"_key": ln["id"], "booking_date": ln.get("booking_date"), "counterparty": ln.get("counterparty_name"),
+             "memo": ln.get("memo") or ln.get("description"), "amount": ln.get("amount"), "currency": ln.get("currency"),
+             "direction": ln.get("direction"), "result": ln["result"], "reason": ln.get("reason"), "note": ln.get("note"),
+             "pays": ", ".join(str(x.get("number") or x.get("supplier_name") or "") for x in ln["pays"]) or None,
+             "account": ln.get("account")}
+            for ln in statement["lines"]]
+    return cols, rows
+
+
+_INVOICE_RESULT = {"paid": "Paid", "partly_paid": "Partly paid", "credited": "Settled by a credit note",
+                   "undecided": "Proposal to decide", "no_payment_found": "No payment in the covered period",
+                   "not_covered": "Statements do not cover it"}
+_LINE_RESULT = {"paired": "Paired", "partly_paired": "Partly paired", "needs_no_invoice": "Needs no invoice",
+                "left_out": "Left out", "open": "Open"}
+_DIRECTION = {"credit": "Incoming", "debit": "Outgoing"}
+LABEL_SETS = tuple(datasets.LabelSet(name, __name__, labels.copy) for name, labels in (
+    ("reconcile_invoice_result", _INVOICE_RESULT), ("reconcile_line_result", _LINE_RESULT), ("reconcile_direction", _DIRECTION)))
+
+
 # the tables, each with the table it follows in the catalogue (the order they always had); registered by
 # `jav/domains/finance/__init__.py`
 DATASETS = (
@@ -198,7 +273,12 @@ DATASETS = (
     (datasets.Dataset("utility_sources", "Sources of the utility costs", (), utility_sources, datasets.result_fingerprint,
                       one_of=datasets.RESULT_SCOPE), "utility_cost"),
     (datasets.Dataset("settings_own_parties", "Own parties", (), own_parties), "started_cases"),  # 263 (E1)
+    (datasets.Dataset("reconcile_statement_invoices", "A reconciliation statement's invoices", ("workpackage_id",),
+                      statement_invoices, optional_scope=("version",)), "reconcile_inputs"),  # 263 (F3)
+    (datasets.Dataset("reconcile_statement_lines", "A reconciliation statement's lines", ("workpackage_id",),
+                      statement_lines, optional_scope=("version",)), "reconcile_statement_invoices"),  # 263 (F3)
 )
 
 
-__all__ = ["DATASETS", "own_parties", "reconcile_inputs", "utility_cost", "utility_sources"]
+__all__ = ["DATASETS", "LABEL_SETS", "own_parties", "reconcile_inputs", "statement_invoices", "statement_lines", "utility_cost",
+           "utility_sources"]

@@ -18,7 +18,7 @@ const ACTIVE = new Set(["queued", "running"]);
  *  them. */
 export function RunList() {
   useLocale();
-  return <DataTable dataset="runs" label={t("Runs")} pollMs={5000} emptyText={t("No runs yet.")} storageId="all-runs" />;
+  return <DataTable dataset="runs" label={t("Runs")} pollMs={5000} emptyText={t("No runs yet.")} storageId="all-runs" persist="all-runs" />;
 }
 
 export function RunDetail({ runId }: { runId: string }) {

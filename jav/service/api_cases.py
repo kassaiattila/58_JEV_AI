@@ -13,11 +13,11 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import Depends, FastAPI, Response
+from fastapi import Depends, FastAPI, Query, Response
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav.app import case_views, process_runtime, process_settings, work_views
+from jav.app import case_lists, case_views, process_runtime, process_settings, work_views
 from jav.core import identity
 from jav.service.service_shared import Empty, In, IsoDay, PartyId, attachment_header, checked_path, human_actor
 
@@ -114,6 +114,12 @@ def routes(app: FastAPI, r: str) -> None:
             return {"case_id": process_runtime.start_next(body.follows, body.pack, scope, name=body.name, actor=who)}
         case_id = process_runtime.start_case(body.pack, scope, name=body.name, actor=who)
         return {"case_id": case_id}
+
+    @app.get(r + "/case-views")
+    def case_view_counts(actor: Annotated[str | None, Query(max_length=200)] = None) -> dict[str, Any]:
+        """263 (plan E, F3): how many cases each view of the case list holds for the person (`actor`: waiting for them,
+        their own), and the open ones of each process."""
+        return case_lists.view_counts(actor)
 
     @app.get(r + "/cases/{case_id}/next")
     def next_period(case_id: CaseId) -> dict[str, Any]:

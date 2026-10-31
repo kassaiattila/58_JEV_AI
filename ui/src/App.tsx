@@ -80,7 +80,7 @@ export function App() {
             {route.view === "run" ? <RunDetail runId={route.runId} /> : null}
             {route.view === "workflows" ? <Workflows route={route} /> : null}
             {casePage ? <CasePage {...casePage} /> : null}
-            {route.view === "case-list" && !route.create ? <CaseList /> : null}
+            {route.view === "case-list" && !route.create ? <CaseList shown={route.shown} process={route.process} /> : null}
             {route.view === "case-list" && route.create ? <NewCase pack={route.pack} after={route.after} /> : null}
             {route.view === "settings" ? <Settings section={route.section} item={route.item} tab={route.tab} open={route.open} /> : null}
             {route.view === "legacy-result" ? <LegacyResult runId={route.runId} table={route.table} /> : null}
