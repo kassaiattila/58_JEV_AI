@@ -129,19 +129,21 @@ describe("Settings › Output templates (179)", () => {
     vi.spyOn(api, "outputTemplates").mockResolvedValue(listing([]));
     const write = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText: write }, configurable: true });
+    // 264 (F6): the markers are the one list of the service, grouped by their table; the search is the service's
+    const query = vi.spyOn(api, "datasetQuery").mockResolvedValue(listPage("output_markers", [
+      { key: "marker", label: "Marker", kind: "id", hidden: false, labels: null },
+      { key: "sum", label: "Total", kind: "id", hidden: false, labels: null },
+    ], [{ _key: "{{invoice_hu.gross_total}}", marker: "{{invoice_hu.gross_total}}", sum: "{{invoice_hu.gross_total:sum}}" },
+      { _key: "{{invoice_hu:count}}", marker: "{{invoice_hu:count}}", sum: null }]));
     render(<OutputTemplatesPanel item="markers" />);  // 263: the markers' own page
     const card = await screen.findByRole("region", { name: "Markers" });
-    const table = card.querySelector(".marker-table") as HTMLElement; // the help above it shows examples too
-    for (const m of ["{{package}}", "{{invoice_hu.gross_total}}", "{{invoice_hu.gross_total:sum}}", "{{invoice_hu:count}}",
-      "{{utility_cost.months}}", "{{utility_cost.months:names}}"]) {
+    const table = await within(card).findByRole("table", { name: "Markers" });
+    for (const m of ["{{invoice_hu.gross_total}}", "{{invoice_hu.gross_total:sum}}", "{{invoice_hu:count}}"]) {
       expect(within(table).getByText(m)).toBeTruthy();
     }
-    expect(within(table).getByText("Documents: Synthetic invoice")).toBeTruthy();
+    expect(query).toHaveBeenLastCalledWith("output_markers", { output: "package_result" }, expect.objectContaining({ group: "table" }));
     fireEvent.click(within(table).getByRole("button", { name: "Copy {{invoice_hu.gross_total}}" }));
     await waitFor(() => expect(write).toHaveBeenCalledWith("{{invoice_hu.gross_total}}"));
-    fireEvent.change(within(card).getByLabelText("Search"), { target: { value: "gross" } });
-    expect(within(table).queryByText("{{package}}")).toBeNull();
-    expect(within(table).getByText("{{invoice_hu.gross_total}}")).toBeTruthy();
   });
 });
 

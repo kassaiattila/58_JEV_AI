@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from typing import Any
 
 from jav.app import app_settings, datasets, partners, process_packs, product_rules, rule_proposal_runs
@@ -178,6 +179,43 @@ def _proposals_fingerprint(_scope: dict[str, str]) -> str:
     with store.connect() as c:
         parts = [store.table_marks(c, _PROPOSAL_INPUTS), sorted(partners.suggestion_sources())]
     return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
+
+
+# the tables of the outputs, by their contract keys (`configs/outputs.json`), as the interface names them
+_TABLE_TITLES = {"native_facts": "Native facts", "native_readings": "Native readings", "emails": "Emails", "tasks": "Tasks",
+                 "documents": "Documents", "datapoints": "Data points", "line_items": "Line items", "utility_cost": "Utility cost",
+                 "utility_sources": "Utility cost sources", "invoices": "Invoices", "lines": "Statement lines"}
+_MARKER_KIND = {"text": "text", "date": "date", "money": "amount", "number": "number", "count": "count",
+                "probability": "probability", "flag": "yes or empty", "json": "structured text", "months": "months"}
+
+
+def _output_markers(scope: dict[str, str]) -> Rows:
+    """264 (plan E, F6): the markers an own template of an output may use (Settings › Output templates › The markers) -
+    each with its label, its kind and the marker of its total - grouped by the table it belongs to (the values first);
+    a table's row count and its months are rows of their own kind in its group."""
+    from jav.app.outputs import samples
+
+    groups = samples.markers(scope["output"])
+    tables: dict[str, str] = {}
+    rows: list[dict[str, Any]] = []
+    for g in groups:
+        key = "values" if g["table"] is None else f"{g['table']}:{g['part']}" if g["part"] else g["table"]
+        title = display.text("Values (each written once)") if g["table"] is None else display.text(_TABLE_TITLES.get(g["table"], g["table"]))
+        tables[key] = f"{title}: {g['label'] or g['part']}" if g["part"] else title
+        extra = ([{"marker": g["count"], "label": display.text("row count"), "kind": "count", "sum": None}] if g["count"] else [])
+        if g["months"]:
+            extra += [{"marker": g["months"]["row"], "label": display.text("months"), "kind": "months", "sum": None},
+                      {"marker": g["months"]["names"], "label": display.text("the months' names"), "kind": "months", "sum": None}]
+        rows += [{"_key": r["marker"], "marker": r["marker"], "label": display.text(r["label"]), "kind": r["kind"], "sum": r["sum"],
+                  "table": key} for r in [*g["rows"], *extra]]
+    cols = [
+        col("marker", "Marker", "id"),
+        col("label", "Label in the built-in template"),
+        col("kind", "Kind", "enum", labels="marker_kind", group=True),
+        col("sum", "Total", "id"),
+        replace(col("table", "Table", "enum", group=True), labels=tables),
+    ]
+    return cols, rows
 
 
 def _registry(kind: str) -> list[dict[str, Any]]:
@@ -378,7 +416,8 @@ def library_names() -> dict[str, str]:
 
 _LABEL_SETS = tuple(LabelSet(name, __name__, labels.copy) for name, labels in (
     ("registry_state", _STATE), ("rule_kind", _RULE_KIND), ("document_kind", _DOCUMENT_KIND), ("partner_kind", _PARTNER_KIND),
-    ("proposal_run_state", _RUN_STATE), ("output_name", _OUTPUT), ("frame_state", _FRAME_STATE), *_FOLDER_LABELS))
+    ("proposal_run_state", _RUN_STATE), ("output_name", _OUTPUT), ("frame_state", _FRAME_STATE), *_FOLDER_LABELS,
+    ("marker_kind", _MARKER_KIND)))
 _ROLE_LABELS = LabelSet("partner_role", __name__, lambda: {k: v["label"] for k, v in partners.roles().items()})
 
 DATASETS = (
@@ -395,6 +434,7 @@ DATASETS = (
     Dataset("settings_folders", "Work folders", (), _folders, natural_sort=(("name", False),)),
     Dataset("settings_partner_proposals", "Partner proposals", (), _partner_proposals, _proposals_fingerprint,
             natural_sort=(("seen", True),)),
+    Dataset("output_markers", "Template markers", ("output",), _output_markers),
 )
 
 
