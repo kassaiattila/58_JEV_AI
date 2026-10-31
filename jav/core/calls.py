@@ -237,8 +237,8 @@ def scope_calls(scope: str) -> dict[str, Any]:
     """160-D: the calls of a budget scope: the live ones with what they cost, and the reused answers (090)."""
     with store.connect() as c:
         rows = c.execute("SELECT note, cost_usd FROM invocations WHERE budget_scope=?", (scope,)).fetchall()
-    reused = [r for r in rows if (r["note"] or "").startswith(f"{REUSED_NOTE}:")]
-    live = [r for r in rows if not (r["note"] or "").startswith(f"{REUSED_NOTE}:")]
+    reused = [r for r in rows if is_reused(r["note"])]
+    live = [r for r in rows if not is_reused(r["note"])]
     cost = sum((Decimal(str(r["cost_usd"])) for r in live if r["cost_usd"] is not None), Decimal("0"))
     return {"live": len(live), "live_cost_usd": cost, "reused": len(reused)}
 
@@ -403,6 +403,12 @@ def budget_usage(scope: str) -> dict[str, Any]:
 
 
 REUSED_NOTE = "reused_answer"  # 090: `reused_answer:<id of the call whose answer was reused>`
+
+
+def is_reused(note: str | None) -> bool:
+    """265 (code review APPW-11): whether a call-log row is an earlier answer reused (090: free, not a paid call); the
+    one test every cost view uses."""
+    return (note or "").startswith(f"{REUSED_NOTE}:")
 
 
 def answer_key(provider: str, model: str | None, *parts: str) -> str:
