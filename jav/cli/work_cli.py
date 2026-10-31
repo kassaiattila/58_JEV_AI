@@ -217,10 +217,18 @@ def cmd_run_names(args):
     return _out(args, data, "\n".join(lines))
 
 
+def worker_log_name(slot: int | None) -> str:
+    """265 (code review CORE-02): the log of the worker of `slot` (1-based): `worker` for the first (or an unnamed one),
+    `worker-<n>` for a further one."""
+    return "worker" if slot in (None, 1) else f"worker-{slot}"
+
+
 def cmd_worker(args):
     from jav.runtime import worker
     from jav.core import applog, lock
-    applog.setup("worker")  # 063: persistent rotating log (runs/logs/worker.log): start, errors with traceback, stop
+    # 063: persistent rotating log (runs/logs/worker.log): start, errors with traceback, stop; 265 (code review CORE-02):
+    # a further slot's worker its own (`worker-<n>.log`): two processes rotating one file lost entries on Windows
+    applog.setup(worker_log_name(args.slot))
     try:
         info = worker.run_worker(once=args.once, max_jobs=args.max_jobs,
                                  slot=args.slot - 1 if args.slot is not None else None)
