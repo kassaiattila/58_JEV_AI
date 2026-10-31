@@ -20,7 +20,7 @@ import sys
 import threading
 from pathlib import Path
 
-from jav.core import cfg
+from jav.core import cfg, path_text
 from jav.core.config import PROJECT_ROOT
 
 log = logging.getLogger("jav.service.local_picker")
@@ -49,8 +49,12 @@ def pick_files(*, title: str, initial: str | None = None) -> list[str]:
 
 
 def _start_folder(initial: str | None) -> str | None:
-    """Where the dialog opens: the given folder, or the folder of a given file; nothing for a missing path."""
+    """Where the dialog opens: the given folder, or the folder of a given file; nothing for a missing path. 265 (code
+    review X-02): nothing for a network path either: checking it (or the dialog opening there) would contact the host
+    before the person asked for it; a network folder the person chooses in the dialog stays allowed (a NAS backup)."""
     if not initial or not initial.strip():
+        return None
+    if path_text.reaches_another_host(initial.strip().strip('"')):
         return None
     p = Path(initial.strip().strip('"'))
     try:
