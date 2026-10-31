@@ -61,7 +61,7 @@ from jav.domains.finance import own_parties
 from jav.ai import grounding, typepack
 from jav.core import activity_kinds, cfg, decisions, identity, store, values
 from jav.domains.finance import reconcile, reconcile_overview
-from jav.domains.finance import reconcile_store
+from jav.domains.finance import reconcile_rules, reconcile_store
 from jav.domains.finance.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
@@ -672,6 +672,10 @@ def _workspace(wp_id: str) -> dict[str, Any]:
     currencies = {str(st.get("currency")) for st in statements}
     cards = any(reconcile.fx_capable({"currency": st.get("currency"), "statement_type": st.get("statement_type")})
                 or any(reconcile.original(ln) for ln in st["lines"]) for st in statements)  # 137: card purchases' originals
+    # 265 (code review DOM-03): a statement in the line currency (forint) may pay an invoice of another currency at the
+    # bank's rate too (149), so its scope shows those invoices, as a card statement's does; before, a scope of forint
+    # bank accounts only left them off the page and they could not be paired even by hand
+    cards = cards or reconcile_rules._conf()["fx"]["line_currency"] in currencies
     start, end = date.fromisoformat(sc["period_start"]), date.fromisoformat(sc["period_end"])
     wanted = {c["invoice_id"] for lid in line_ids for c in by_line.get(lid, [])}
     wanted |= {s["invoice_id"] for lid in line_ids for s in shares_line.get(lid, [])}
