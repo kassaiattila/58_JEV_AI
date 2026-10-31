@@ -315,6 +315,16 @@ def outcome_unknown(exc: BaseException) -> bool:
     return not names & NOT_SENT and bool(names & OUTCOME_UNKNOWN)
 
 
+def never_sent(exc: BaseException) -> bool:
+    """265 (code review X-12): whether the request certainly never reached the provider (a connection that could not
+    be made); an error response (urllib's `HTTPError`, a `URLError` too) is an answer, not this. httpx's errors have a
+    base of the same name, so urllib's is told by its type."""
+    from urllib.error import HTTPError
+
+    names = {cls.__name__ for e in _chain(exc) for cls in type(e).__mro__}
+    return bool(names & NOT_SENT) and not any(isinstance(e, HTTPError) for e in _chain(exc))
+
+
 def known_outcome(exc: BaseException) -> Outcome | None:
     """202 (backlog Q-elutasitott-hivas-foglalas, the owner's decision of 2026-10-22): the certain cost of a failed
     call, which its caller attached to the error as `known_outcome` (an `Outcome` with `cost_usd`): a request the
@@ -595,8 +605,11 @@ def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_c
         if status == "uncertain":
             log.warning("call %s/%s may have been processed (%s); its maximum stays reserved until settled by hand",
                         run_id, step_id, _error_text(exc))
-        # 202: a definite failure whose cost is certain is settled at that cost, not at its reserved maximum
+        # 202: a definite failure whose cost is certain is settled at that cost, not at its reserved maximum; 265 (code
+        # review X-12): a request that never reached the provider is certain too, at 0
         known = known_outcome(exc) if status == "failed" else None
+        if known is None and status == "failed" and never_sent(exc):
+            known = Outcome(response=None, cost_usd=Decimal(0))
         with store.connect() as c:
             if known is None:
                 c.execute(f"UPDATE invocations SET status=?, error=?, finished_at=? WHERE id=? AND status IN {_OPEN}",
