@@ -23,10 +23,10 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 from jav.core import cfg, devstate
-from jav.devtools.admin import STATE_PATH, flow_lint_summary, write_state
+from jav.devtools.admin import flow_lint_summary, write_state
 from jav.core.config import PROJECT_ROOT
 
-HANDOFFS = PROJECT_ROOT / "docs" / "handoffs"
+HANDOFFS = devstate.docs_root() / "docs" / "handoffs"  # 265 (code review TOOL-18): the main checkout's from a worktree
 UI_DIR = PROJECT_ROOT / "ui"
 WATCH = [PROJECT_ROOT / "jav", PROJECT_ROOT / "tests", PROJECT_ROOT / "configs", UI_DIR / "src"]
 _NUM = re.compile(r"^(\d{3})-\d{4}-\d{2}-\d{2}-handoff\.md$")
@@ -232,7 +232,7 @@ def handoff_status() -> tuple[bool, str]:
     if handoff is None:  # 070: the handoff is an internal document, absent in a fresh clone - a notice, not an error
         return True, "no local handoff under docs/handoffs/ (internal working documents; a fresh clone?)"
     minutes = (newest_watched_mtime() - handoff.stat().st_mtime) / 60
-    rel = handoff.relative_to(PROJECT_ROOT).as_posix()
+    rel = devstate.shown_path(handoff)
     if minutes > 60:  # decision 040/4: a handoff is due only at session end / stage close, so a notice, not an error
         return True, f"{rel} - the code is {minutes:.0f} minute(s) newer; write {num + 1:03d} at the end of the session"
     return True, f"{rel} (fresh; next number: {num + 1:03d})"
@@ -332,10 +332,10 @@ def preflight(*, skip_pytest: bool = False) -> int:
     results.append(("ruff", ok, msg))
 
     path = write_state()
-    results.append(("STATE.md", True, path.relative_to(PROJECT_ROOT).as_posix()))
+    results.append(("STATE.md", True, devstate.shown_path(path)))
 
     print(f"# preflight ({time.perf_counter() - t0:.1f} s)\n")
     for name, ok, detail in results:
         print(f"- {'OK  ' if ok else 'FAIL'} {name}: {detail}")
-    print(f"\nState snapshot: {STATE_PATH.relative_to(PROJECT_ROOT).as_posix()} · backlog: docs/BACKLOG.md · decisions: docs/DECISIONS.md")
+    print(f"\nState snapshot: {devstate.shown_path(path)} · backlog: docs/BACKLOG.md · decisions: docs/DECISIONS.md")
     return 0 if all(ok for _, ok, _ in results) else 1

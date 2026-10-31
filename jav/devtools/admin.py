@@ -13,10 +13,15 @@ from typing import Any
 
 from jav.flows import contract
 from jav.core import cfg, config, store, values
-from jav.core.config import PROJECT_ROOT, RUNS_DIR
+from jav.core.config import RUNS_DIR
 from jav.evals.eval_report import LEGACY_DOC_TYPE
 
-STATE_PATH = PROJECT_ROOT / "docs" / "STATE.md"  # generated state snapshot; the handoff links to it, never copies it
+def state_path() -> Path:
+    """The generated state snapshot (the handoff links to it, never copies it); 265 (code review TOOL-18): the main
+    checkout's, seen from a worktree (`devstate.docs_root`), not a worktree's own."""
+    from jav.core import devstate
+
+    return devstate.docs_root() / "docs" / "STATE.md"
 
 
 def score_text(ok: int, scored: int) -> str:
@@ -235,7 +240,7 @@ def trace_line() -> str:
     return f"- decision trace (218): {points or '-'}"
 
 
-def write_state(path: Path = STATE_PATH) -> Path:
+def write_state(path: Path | None = None) -> Path:
     """Writes the control screen to a file (`docs/STATE.md`): a generated state snapshot, never edited by hand.
 
     The `preflight` command and the Stop hook refresh it; the handoff and the BACKLOG refer to it, so the state
@@ -251,6 +256,7 @@ def write_state(path: Path = STATE_PATH) -> Path:
         f"<!-- git: {g.line() if g else 'nem elérhető'} -->",
         "",
     ]
+    path = path or state_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(("\n".join(head) + admin_report()).encode("utf-8"))  # LF line endings (040: .gitattributes)
     return path
