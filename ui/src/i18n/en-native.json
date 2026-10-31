@@ -5241,5 +5241,9 @@
   "{{mode}} run": "{{mode}} run",
   "Open the tariff": "Open the tariff",
   "There is none yet. A process's example material installs an invented one (Cases › New case, then the process).": "There is none yet. A process's example material installs an invented one (Cases › New case, then the process).",
-  "The recipe's details": "The recipe's details"
+  "The recipe's details": "The recipe's details",
+  "A reconciliation statement's invoices": "A reconciliation statement's invoices",
+  "A reconciliation statement's lines": "A reconciliation statement's lines",
+  "Another party's": "Another party's",
+  "Days overdue": "Days overdue"
 }

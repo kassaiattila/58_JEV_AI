@@ -5279,5 +5279,9 @@
   "{{mode}} run": "{{mode}} futás",
   "Open the tariff": "A díjtábla megnyitása",
   "There is none yet. A process's example material installs an invented one (Cases › New case, then the process).": "Még nincs egy sem. Egy folyamat példaanyaga kitalált példát telepít (Ügyek › Új ügy, majd a folyamat).",
-  "The recipe's details": "A recept részletei"
+  "The recipe's details": "A recept részletei",
+  "A reconciliation statement's invoices": "Egyeztetési kimutatás: számlák",
+  "A reconciliation statement's lines": "Egyeztetési kimutatás: kivonattételek",
+  "Another party's": "Más gazdálkodóé",
+  "Days overdue": "Lejárt, fizetés nélkül (nap)"
 }
