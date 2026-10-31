@@ -130,12 +130,14 @@ _REPLAYED: ContextVar[bool] = ContextVar("jev_replayed", default=False)
 
 
 class JevAdapter:
-    def __init__(self, client: TypeSafeClient | None = None, cache_dir: Path = CACHE_DIR, model: str = JEV_MODEL) -> None:
+    def __init__(self, client: TypeSafeClient | None = None, cache_dir: Path | None = None, model: str = JEV_MODEL) -> None:
         self._client = client
         # 265 (code review SEC-02, TOOL-04): the client this adapter makes from the environment's key is the paid one; a
         # client handed over (a test's or a measurement tool's fake) is the caller's
         self._own_client = client is None
-        self.cache_dir = cache_dir
+        # 265 (code review X-28): the folder read when the adapter is made, not when the module was, so the tests'
+        # temporary folder (tests/conftest.py) holds for an adapter made without one
+        self.cache_dir = cache_dir if cache_dir is not None else CACHE_DIR
         self.model = model
         self._resolved: dict[str, str] = {}  # alias -> concrete version (once per process)
         # After a live call the answer goes into the cache by default (reference refresh). The determinism
