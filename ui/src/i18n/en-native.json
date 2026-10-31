@@ -2864,6 +2864,8 @@
   "module {{module}} requires {{required}}, which the product does not have": "module {{module}} requires {{required}}, which the product does not have",
   "reads the catalogue {{catalogue}}, not the product's {{product_catalogue}}": "reads the catalogue {{catalogue}}, not the product's {{product_catalogue}}",
   "module {{module}} is not the product's": "module {{module}} is not the product's",
+  "prices by {{fact}}, which is not an amount in {{currency}}": "prices by {{fact}}, which is not an amount in {{currency}}",
+  "reads the outcome {{outcome}}, which the catalogue {{catalogue}} does not have": "reads the outcome {{outcome}}, which the catalogue {{catalogue}} does not have",
   "a manifest names an exact version": "a manifest names an exact version",
   "no such version": "no such version",
   "still a draft": "still a draft",

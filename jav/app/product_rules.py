@@ -41,7 +41,7 @@ from jav.core.user_messages import Said, explained, inside, said, said_fields, s
 
 __all__ = ["KINDS", "Citation", "ConditionDocument", "Factor", "ManifestRefused", "Product", "ProductAt", "Rule",
            "SecondPersonNeeded", "Tariff", "TariffModule", "activate", "add", "add_in", "choices", "get", "keeper", "kept", "latest",
-           "listing", "made_by_ids_in", "named", "overview", "problems_of", "product_at", "product_tariff", "remove_in", "resolve", "retire",
+           "listing", "made_by_ids_in", "named", "overview", "problems_of", "product_at", "product_tariff", "remove_in", "tariff_problems", "resolve", "retire",
            "rule_problems"]
 
 KINDS = ("document", "rule", "product", "tariff")
@@ -219,6 +219,22 @@ class Tariff(_Model):
         named = [f for m in self.modules.values() for f in m.factors] + list(self.total_factors)
         if unknown := sorted({f for f in named if f not in self.factors}):
             raise ValueError(f"the tariff names factors it does not define: {', '.join(unknown)}")
+        return self
+
+    @model_validator(mode="after")
+    def _sound_amounts(self) -> Tariff:
+        """265 (code review APPR-08): every minimum in the tariff's currency (a premium in another one cannot be compared
+        with it), and no rate, factor or minimum below zero."""
+        minimums = {f"module {code}": m.minimum for code, m in self.modules.items() if m.minimum is not None}
+        if self.policy_minimum is not None:
+            minimums["the policy"] = self.policy_minimum
+        if other := sorted(k for k, m in minimums.items() if m.currency != self.currency):
+            raise ValueError(f"the minimum of {', '.join(other)} is not in the tariff's currency {self.currency}")
+        negative = sorted([k for k, m in minimums.items() if m.amount < 0]
+                          + [f"the rate of module {code}" for code, m in self.modules.items() if m.rate.value < 0]
+                          + [f"factor {name}" for name, f in self.factors.items() if any(r.factor < 0 for r in f.table)])
+        if negative:
+            raise ValueError(f"below zero: {', '.join(negative)}")
         return self
 
 
@@ -443,6 +459,43 @@ def rule_problems(rule: Rule, documents: dict[str, ConditionDocument] | None = N
     return problems
 
 
+def tariff_problems(tariff: Tariff, product: Product) -> list[Said]:
+    """265 (code review APPR-08): what keeps a tariff from pricing a product's units: a module the product does not
+    have, a level, a fact or an outcome its catalogue does not have, a basis that is not a money fact in the tariff's
+    currency. Each a sentence in the interface's language (D-c6)."""
+    try:
+        cat = facts.catalogue(product.catalogue)
+    except FileNotFoundError:
+        return [said("no fact catalogue {{catalogue}}", catalogue=product.catalogue)]
+    codes = {m.code for m in product.modules}
+    problems: list[Said] = []
+
+    def fact(name: str) -> None:
+        if name not in cat.facts:
+            problems.append(said("reads {{fact}}, which the catalogue {{catalogue}} does not have", fact=name, catalogue=cat.id))
+
+    for code, m in tariff.modules.items():
+        if code not in codes:
+            problems.append(said("module {{module}} is not the product's", module=code))
+        if m.level not in cat.levels:
+            problems.append(said("no level {{level}} in the catalogue {{catalogue}}", level=m.level, catalogue=cat.id))
+        basis = cat.facts.get(m.basis)
+        if basis is None:
+            fact(m.basis)
+        elif basis.type != "money" or basis.currency != tariff.currency:
+            problems.append(said("prices by {{fact}}, which is not an amount in {{currency}}", fact=m.basis,
+                                 currency=tariff.currency))
+        for name in m.only:
+            fact(name)
+    for f in tariff.factors.values():
+        if f.fact is not None:
+            fact(f.fact)
+        elif f.outcome not in cat.outcomes:
+            problems.append(said("reads the outcome {{outcome}}, which the catalogue {{catalogue}} does not have",
+                                 outcome=f.outcome, catalogue=cat.id))
+    return problems
+
+
 def _manifest_problems(c: Any, product: Product) -> list[Said]:
     problems: list[Said] = []
     documents: dict[str, ConditionDocument] = {}
@@ -452,9 +505,14 @@ def _manifest_problems(c: Any, product: Product) -> list[Said]:
             documents[ref] = ConditionDocument.model_validate(json.loads(found["content"]))
     codes = {m.code for m in product.modules}
     if product.tariff is not None:  # D-c3: the tariff it is priced by is there (a case keeps its version at start)
-        with_versions = c.execute("SELECT COUNT(*) FROM tariffs WHERE ident=? AND state != ?", (product.tariff, versions.DRAFT)).fetchone()[0]
-        if not with_versions:
+        # 265 (code review APPR-08): and it fits the product (its active version, else its latest one in use)
+        row = c.execute("SELECT content FROM tariffs WHERE ident=? AND state != ? ORDER BY state = 'active' DESC, version DESC"
+                        " LIMIT 1", (product.tariff, versions.DRAFT)).fetchone()
+        if row is None:
             problems.append(said("no version that is not a draft", within=_thing("tariff", product.tariff)))
+        else:
+            problems += [inside(_thing("tariff", product.tariff), p)
+                         for p in tariff_problems(Tariff.model_validate(json.loads(row["content"])), product)]
     for m in product.modules:
         problems += [said("module {{module}} requires {{required}}, which the product does not have", module=m.code, required=r)
                      for r in m.requires if r not in codes]

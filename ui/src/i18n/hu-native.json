@@ -2869,6 +2869,8 @@
   "module {{module}} requires {{required}}, which the product does not have": "{{module}} modul: kell hozzá {{required}} modul, de a termékben nincs",
   "reads the catalogue {{catalogue}}, not the product's {{product_catalogue}}": "katalógusa {{catalogue}}, a terméké {{product_catalogue}}",
   "module {{module}} is not the product's": "{{module}} modul nem a terméké",
+  "prices by {{fact}}, which is not an amount in {{currency}}": "a díjat a(z) {{fact}} tényre számolja, amely nem {{currency}} összeg",
+  "reads the outcome {{outcome}}, which the catalogue {{catalogue}} does not have": "olyan eredményt olvas, amely nincs a(z) {{catalogue}} katalógusban: {{outcome}}",
   "a manifest names an exact version": "a kiadási jegyzék pontos változatot nevez meg",
   "no such version": "nincs ilyen változat",
   "still a draft": "még vázlat",
