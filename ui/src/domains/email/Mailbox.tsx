@@ -279,9 +279,9 @@ function NewSchedule() {
     failed: (e) => (e instanceof ApiError && e.code === "mailbox_unavailable" ? bridgeErrorText(e.message) : errorText(e)),
   });
   return (
-    <section className="sheet" aria-label={t("New schedule")}>
+    <section className="sheet sheet-narrow" aria-label={t("New schedule")}>
       <MailboxRequestFields onChange={setRequest} periods="days" />
-      <FrequencyPicker value={interval} onChange={setIntervalMin} />
+      <div className="form-row"><FrequencyPicker value={interval} onChange={setIntervalMin} /></div>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
       <FormActions busy={busy} onCancel={() => go({ view: "settings", section: "mailboxes" })}
         note={!actor ? t("Cannot start: {{reason}}.", { reason: t(NO_ACTOR) }) : !request ? t("Give a mailbox address.") : undefined}>
@@ -325,7 +325,7 @@ function SchedulePage({ id }: { id: string }) {
           <dd>{s.last_at ? <><span className={s.last_status === "error" ? "error-text" : ""}>{pullSummary({ status: s.last_status ?? "ok", result: s.last_result })}</span>
             {" "}<span className="muted small">{when(s.last_at)}</span></> : <span className="muted">{t("not run yet")}</span>}</dd>
         </dl>
-        <FrequencyPicker value={iv} onChange={setIntervalMin} />
+        <div className="form-row"><FrequencyPicker value={iv} onChange={setIntervalMin} /></div>
         <label className="check"><input type="checkbox" checked={on} onChange={(e) => setEnabled(e.target.checked)} /> {t("On: it downloads by itself")}</label>
         {error ? <p className="notice error" role="alert">{error}</p> : null}
         {notice ? <p className="small ok" role="status">{notice}</p> : null}

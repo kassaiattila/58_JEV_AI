@@ -244,7 +244,7 @@ def _earlier_workflows(_scope: dict[str, str]) -> Rows:
         col("done", "Steps done", "number"),
         col("total", "Steps", "number", hidden=True),
         col("next_step", "Next"),
-        col("next_status", "Its state", "enum", labels="workflow_step_status", badge=True, group=True, marks=_STEP_MARKS),
+        col("next_status", "Next step's state", "enum", labels="workflow_step_status", badge=True, group=True, marks=_STEP_MARKS),
         col("status", "State", "enum", labels="workflow_status", badge=True, group=True, marks={"open": "done", "archived": "muted"}),
         col("updated_at", "Changed", "datetime"),
     ]

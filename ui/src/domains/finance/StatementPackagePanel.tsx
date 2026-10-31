@@ -158,7 +158,7 @@ export function StatementPackagePanel({ view }: { view: StatementPackageView }) 
   const { scope, statements } = view;
   const count = (state: string) => statements.filter((s) => s.state === state).length;
   return (
-    <section className="card rc-stack" aria-label={t("Statements of the package")}>
+    <section className="card wide rc-stack" aria-label={t("Statements of the package")}>
       <h3>{t("{{party}}'s statements, {{from}} – {{to}}", { party: scope.party.name, from: scope.period_start, to: scope.period_end })}</h3>
       <p className="small">
         {t("{{valid}} valid, {{replaced}} replaced, {{conflict}} to choose, {{pending}} without a statement yet", {

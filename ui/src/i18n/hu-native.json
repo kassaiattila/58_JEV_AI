@@ -5330,5 +5330,6 @@
   "Choose the valid one": "A helyes kiválasztása",
   "No statement in the package yet.": "A kötegben még nincs kivonat.",
   "Accept the proposals ({{n}})": "A javaslatok elfogadása ({{n}})",
-  "Do not route ({{n}})": "Nem csatornázom be ({{n}})"
+  "Do not route ({{n}})": "Nem csatornázom be ({{n}})",
+  "Next step's state": "A következő lépés állapota"
 }

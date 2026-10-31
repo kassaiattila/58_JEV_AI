@@ -202,7 +202,7 @@ function RulesTable() {
       </p>
       {/* 264 (F5): grouped by their area for real (until now a repeated area's name was blanked) */}
       <DataTable dataset="rules" scope={NO_SCOPE} label={t("Decision points")} storageId="rules" persist="rules" cell={cell}
-        defaultGroup="area"
+        defaultGroup="area" defaultHidden={["area"]}
         emptyText={t("No decision is described yet.")} />
     </div>
   );

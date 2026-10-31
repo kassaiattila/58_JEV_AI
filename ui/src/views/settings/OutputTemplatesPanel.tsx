@@ -343,8 +343,9 @@ function MarkersCard() {
         </ul>
       </details>
       <DataTable key={output} dataset="output_markers" scope={{ output }} label={t("Markers")} storageId="output_markers" defaultGroup="table"
+        defaultHidden={["table"]}
         emptyText={t("No marker matches.")}
-        toolbar={<Picker label={t("Output")} value={output} className="template-output"
+        toolbar={<Picker label={t("Output")} hideLabel compact value={output} className="template-output"
           options={OUTPUTS.map((o) => ({ value: o.key, label: t(o.label) }))} onChange={(v) => setOutput(v as OutputName)} />}
         cell={(col, row) => (col.key === "marker" ? <Copyable text={String(row.marker)} />
           : col.key === "sum" ? (row.sum ? <Copyable text={String(row.sum)} /> : <span className="muted">–</span>) : undefined)} />

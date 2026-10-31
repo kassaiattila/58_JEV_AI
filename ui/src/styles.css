@@ -775,6 +775,7 @@ button.nav-twist:hover { color: var(--ink); background: var(--hover); }
 .sheet > h4 { margin: var(--sp-2) 0 0; }
 /* a thing's form keeps a readable width; its tables use the page's */
 .sheet .form-row, .sheet > label.block, .sheet > fieldset, .sheet > .form-actions { max-width: 920px; }
+.sheet-narrow { max-width: 920px; }  /* 264: a form page of fields only keeps a readable width */
 .sheet-bar { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .table tr.row-detail > td { background: var(--soft); padding: var(--sp-3) var(--sp-4) var(--sp-4); }
 a.seg { text-decoration: none; }
