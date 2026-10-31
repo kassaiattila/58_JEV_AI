@@ -87,23 +87,25 @@ def email_tasks(scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
-def mailbox_pulls(_scope: dict[str, str]) -> Rows:
+def mailbox_pulls(scope: dict[str, str]) -> Rows:
+    """The mailbox downloads, newest first; 264 (F6): a schedule's own (`schedule_id`, its page), grouped by their state
+    or by who started them."""
     from jav.domains.email import mailbox
 
     cols = [
         col("created_at", "Started (column)", "datetime"),
         col("label", "Mailbox / period"),
-        col("status", "Status", "enum", labels="pull_status", badge=True),
+        col("status", "Status", "enum", labels="pull_status", badge=True, group=True),
         col("new", "New emails", "number"),
         col("changed", "Changed (column)", "number", hidden=True),
         col("duplicate", "Already fetched", "number", hidden=True),
         col("workpackage", "Work package (column)", "id", link="workpackage"),
-        col("actor", "Started by"),
+        col("actor", "Started by", group=True),
         col("error", "Error"),
         col("finished_at", "Finished", "datetime", hidden=True),
     ]
     rows = []
-    for p in mailbox.pulls(limit=cfg.load("datasets")["export_max_rows"]):
+    for p in mailbox.pulls(limit=cfg.load("datasets")["export_max_rows"], schedule_id=scope.get("schedule_id") or None):
         res = p.get("result") or {}
         rows.append({"_key": p["id"], "_wp": res.get("workpackage"), "created_at": p["created_at"], "label": p["label"],
                      "status": p["status"], "new": res.get("new"), "changed": res.get("changed"), "duplicate": res.get("duplicate"),
@@ -111,6 +113,44 @@ def mailbox_pulls(_scope: dict[str, str]) -> Rows:
                      "finished_at": p.get("finished_at"),
                      "_request": p["request"]})  # 183: the interface writes the label in its own language from it
     return cols, rows
+
+
+def mailbox_schedules(_scope: dict[str, str]) -> Rows:
+    """264 (plan E, F6; the owner's decision of 2026-10-31: the small lists the one list too): the mailbox schedules -
+    what each reads, how often, whether it is on, when it runs next and how its last download ended - each opening its
+    own page (Settings › Mailboxes)."""
+    from jav.domains.email import mailbox
+
+    cols = [
+        col("label", "Reads", link="settings", section="mailboxes"),
+        col("interval_min", "Frequency", "enum", labels="mailbox_interval", group=True),
+        col("state", "State", "enum", labels="schedule_state", badge=True, group=True, marks={"on": "done", "off": "muted"}),
+        col("next_at", "Next", "datetime"),
+        col("last_at", "Most recently", "datetime"),
+        col("last_status", "Last download", "enum", labels="pull_status", badge=True, group=True),
+        col("last_new", "New emails", "number"),
+        col("actor", "Saved by", group=True, hidden=True),
+        col("changed_at", "Changed", "datetime", hidden=True),
+    ]
+    rows = []
+    for s in mailbox.schedules():
+        last = s.get("last_result") or {}
+        rows.append({"_key": s["id"], "label": s["label"], "interval_min": str(s["interval_min"]),
+                     "state": "on" if s["enabled"] else "off", "next_at": s["next_at"] if s["enabled"] else None,
+                     "last_at": s.get("last_at"), "last_status": s.get("last_status"),
+                     "last_new": (last.get("new") or 0) + (last.get("changed") or 0) if s.get("last_status") == "ok" else None,
+                     "actor": s.get("actor"), "changed_at": s.get("changed_at") or s.get("created_at"),
+                     "_request": s["request"]})  # the interface writes the label in its own language from it
+    return cols, rows
+
+
+def mailbox_intervals() -> dict[str, str]:
+    """264 (F6): a schedule's frequencies (the interface's own words)."""
+    return {"15": "every 15 minutes", "30": "every 30 minutes", "60": "hourly", "240": "every 4 hours", "1440": "daily"}
+
+
+def schedule_states() -> dict[str, str]:
+    return {"on": "On (value)", "off": "Off (value)"}
 
 
 def intent_labels() -> dict[str, str]:
@@ -137,14 +177,18 @@ DATASETS = (
     (datasets.Dataset("emails", "Emails", (), emails, datasets.result_fingerprint, one_of=datasets.RESULT_SCOPE), "package_costs"),
     (datasets.Dataset("email_tasks", "Task proposals", (), email_tasks, datasets.result_fingerprint,
                       one_of=datasets.RESULT_SCOPE), "emails"),
-    (datasets.Dataset("mailbox_pulls", "Mailbox downloads", (), mailbox_pulls), "calls"),
+    (datasets.Dataset("mailbox_pulls", "Mailbox downloads", (), mailbox_pulls, optional_scope=("schedule_id",)), "calls"),
+    (datasets.Dataset("mailbox_schedules", "Mailbox schedules", (), mailbox_schedules,
+                      natural_sort=(("label", False),)), "mailbox_pulls"),  # 264 (F6)
 )
 LABELS = (
     datasets.LabelSet("intent", __name__, intent_labels),
     datasets.LabelSet("task_action", __name__, task_action_labels),
     datasets.LabelSet("next_flow", __name__, next_flow_labels),
+    datasets.LabelSet("mailbox_interval", __name__, mailbox_intervals),  # 264 (F6)
+    datasets.LabelSet("schedule_state", __name__, schedule_states),
 )
 
 
-__all__ = ["DATASETS", "LABELS", "email_tasks", "emails", "intent_labels", "mailbox_pulls", "next_flow_labels",
-           "task_action_labels"]
+__all__ = ["DATASETS", "LABELS", "email_tasks", "emails", "intent_labels", "mailbox_intervals", "mailbox_pulls",
+           "mailbox_schedules", "next_flow_labels", "schedule_states", "task_action_labels"]

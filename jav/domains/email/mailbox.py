@@ -232,9 +232,12 @@ def pull(pull_id: str) -> dict[str, Any]:
     return _pull_row(row)
 
 
-def pulls(limit: int = 20) -> list[dict[str, Any]]:
+def pulls(limit: int = 20, *, schedule_id: str | None = None) -> list[dict[str, Any]]:
+    """The newest downloads; 264 (F6): `schedule_id`, only that schedule's (its page lists them)."""
+    where, args = ("WHERE schedule_id=? ", (schedule_id,)) if schedule_id else ("", ())
     with store.connect() as c:
-        return [_pull_row(r) for r in c.execute("SELECT * FROM mailbox_pulls ORDER BY created_at DESC, rowid DESC LIMIT ?", (limit,))]
+        return [_pull_row(r) for r in c.execute(f"SELECT * FROM mailbox_pulls {where}ORDER BY created_at DESC, rowid DESC LIMIT ?",
+                                                (*args, limit))]
 
 
 def known_accounts() -> list[str]:

@@ -5252,5 +5252,19 @@
   "Appearance and language": "Appearance and language",
   "As the system is set": "As the system is set",
   "The theme and the interface language": "The theme and the interface language",
-  "What each part of Settings is for": "What each part of Settings is for"
+  "What each part of Settings is for": "What each part of Settings is for",
+  "New schedule": "New schedule",
+  "Download once, in a new case": "Download once, in a new case",
+  "Mailbox schedules": "Mailbox schedules",
+  "Its downloads": "Its downloads",
+  "On (value)": "On (value)",
+  "Off (value)": "Off (value)",
+  "Last download": "Last download",
+  "On: it downloads by itself": "On: it downloads by itself",
+  "Schedule": "Schedule",
+  "Delete this schedule? Its downloads so far stay in the log.": "Delete this schedule? Its downloads so far stay in the log.",
+  "No schedules yet: “New schedule” saves one.": "No schedules yet: “New schedule” saves one.",
+  "Give a mailbox address.": "Give a mailbox address.",
+  "The schedule has been saved.": "The schedule has been saved.",
+  "It is not among the schedules (any more).": "It is not among the schedules (any more)."
 }

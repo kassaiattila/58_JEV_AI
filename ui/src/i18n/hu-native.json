@@ -5290,5 +5290,19 @@
   "Appearance and language": "Megjelenés és nyelv",
   "As the system is set": "A rendszer szerint",
   "The theme and the interface language": "A téma és a felület nyelve",
-  "What each part of Settings is for": "A Beállítások részei, és mire valók"
+  "What each part of Settings is for": "A Beállítások részei, és mire valók",
+  "New schedule": "Új ütemezés",
+  "Download once, in a new case": "Egyszeri letöltés új ügyben",
+  "Mailbox schedules": "Postafiók-ütemezések",
+  "Its downloads": "A letöltései",
+  "On (value)": "Be",
+  "Off (value)": "Ki",
+  "Last download": "Utolsó letöltés",
+  "On: it downloads by itself": "Bekapcsolva: magától letölt",
+  "Schedule": "Ütemezés",
+  "Delete this schedule? Its downloads so far stay in the log.": "Törlöd ezt az ütemezést? Az eddigi letöltései a naplóban maradnak.",
+  "No schedules yet: “New schedule” saves one.": "Még nincs ütemezés: az „Új ütemezés” ment egyet.",
+  "Give a mailbox address.": "Adj meg egy postafiókcímet.",
+  "The schedule has been saved.": "Az ütemezés mentve.",
+  "It is not among the schedules (any more).": "Nincs (már) az ütemezések között."
 }
