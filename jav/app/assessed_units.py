@@ -63,6 +63,11 @@ class UnitRemoved(ValueError):
     """The unit was removed: it stays visible and takes no correction."""
 
 
+class UnitHasParts(ValueError):
+    """265 (code review APPR-10): the unit still has sub-units in place; they are removed first (a removed parent left
+    them without one, and a later correction of one was refused with a message about a missing parent)."""
+
+
 def _key(case_id: str, step_id: str, unit_id: str) -> str:
     return f"{case_id}:{step_id}:{unit_id}"
 
@@ -147,7 +152,8 @@ def save(case_id: str, step_id: str, catalogue_id: str, unit_id: str, *, facts: 
 
 
 def remove(case_id: str, step_id: str, unit_id: str, *, reason: str, actor: identity.Who, expected_state: int | None) -> None:
-    """The unit removed with a reason; it stays visible."""
+    """The unit removed with a reason; it stays visible. 265 (code review APPR-10): refused while it has sub-units in
+    place (`UnitHasParts`)."""
     if not reason.strip():
         raise ValueError("removing a unit needs a reason")
     with store.connect() as c:
@@ -155,6 +161,10 @@ def remove(case_id: str, step_id: str, unit_id: str, *, reason: str, actor: iden
         if _row(c, case_id, step_id, unit_id) is None:
             raise UnknownUnit(unit_id)
         decisions.check(c, KIND, _key(case_id, step_id, unit_id), expected_state)
+        parts = c.execute("SELECT COUNT(*) FROM assessed_units WHERE case_id=? AND step_id=? AND parent_id=? AND removed=0",
+                          (case_id, step_id, unit_id)).fetchone()[0]
+        if parts:
+            raise explained(UnitHasParts, "the unit has {{n}} sub-unit(s); remove them first", n=parts)
         c.execute("UPDATE assessed_units SET removed=1, updated_at=? WHERE case_id=? AND step_id=? AND unit_id=?",
                   (_now(), case_id, step_id, unit_id))
         decisions.record(c, KIND, _key(case_id, step_id, unit_id), "remove", actor=actor, workpackage_id=case_id, note=reason)

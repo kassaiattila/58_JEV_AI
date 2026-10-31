@@ -156,7 +156,7 @@ def test_reopened_the_check_waits_for_a_new_freeze(case) -> None:
 
 
 def test_nothing_to_freeze_is_refused(monkeypatch, case) -> None:
-    for u in assessed_units.units(case, "check"):
+    for u in reversed(assessed_units.units(case, "check")):  # 265 (APPR-10): the sub-units first
         assessed_units.remove(case, "check", u["unit_id"], reason="invented", actor=ANNA, expected_state=u["state"])
     with pytest.raises(field_check.FieldCheckError, match="no unit to freeze"):
         field_check.freeze(case, "check", cover_start="2027-01-01", expected_state=None, actor=ANNA)
