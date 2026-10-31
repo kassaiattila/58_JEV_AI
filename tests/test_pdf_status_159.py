@@ -53,7 +53,7 @@ def test_a_report_that_stays_blocked_is_logged_and_does_not_stop_the_worker(tmp_
     with caplog.at_level(logging.ERROR, logger="jav.runtime.pdf_status"), pdf_status.publish(path):
         assert pdf_status.worker_status(path, running=True)["state"] == "unknown"
     assert [r for r in caplog.records if "could not publish" in r.getMessage()]
-    assert not list(tmp_path.glob("worker-pdf-status.*.tmp"))
+    assert not list((tmp_path / "pdf-status").glob("*.tmp"))
 
 
 def test_the_instance_lock_file_is_removed_when_the_worker_stops(tmp_path):
