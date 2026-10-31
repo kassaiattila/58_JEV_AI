@@ -26,8 +26,8 @@ REASON = "attachment:suspicious_email"
 
 
 def _run(env, monkeypatch, *, suspicious: bool) -> tuple[str, dict, dict]:  # noqa: F811 - the fixture's name
-    if suspicious:
-        monkeypatch.setattr(email_rules, "email_next_flow", lambda *a, **k: "human:suspicious")
+    if suspicious:  # 265 (SEC-05): an injected-instruction signal in its yes band, which routes and marks the email
+        monkeypatch.setattr(email_rules, "email_signal_route", lambda signals: "human:suspicious")
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge([_mail_with_pdf(env), MAILS[1]]), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
     work_recipes.assign_recipe(wp_id, "processing", params={"arm": "S"}, expected_revision=1, actor="t")
