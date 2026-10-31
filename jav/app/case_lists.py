@@ -18,6 +18,8 @@ Layer: application view, read only; it uses the process core's public reads, the
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -83,23 +85,33 @@ def _case_rows(c: Any, *, closed: bool) -> list[dict[str, Any]]:
     """263 (F3): each main case's row, newest first: its party and period, its steps' states, and the step it is at - a
     sub-case's step shows in its main case's row as the main case's step's own ("Incoming invoices › Processing")."""
     party_names = {pid: row["name"] for pid, row in parties.party_rows(c).items()}
+    # H25: every case, its steps and its scope read at once; a pack once per version
+    all_cases, all_steps, all_scopes = cases.all_in(c), cases.all_step_states_in(c), package_scope.stored_all(c)
+    packs: dict[tuple[str, str], Any] = {}
     found: dict[str, dict[str, Any]] = {}
     subs: dict[tuple[str, str], str] = {}  # (main case, its step) -> the sub-case running it now
     for wp in _containers(c, closed=True):  # a closed main case may hold an open sub-case's place
-        case = cases.find_case_in(c, wp["id"])
-        pack = process_runtime.pack_for(wp["id"]) if case is not None else None
-        if case is None or pack is None:
+        case = all_cases.get(wp["id"])
+        data = (case or {}).get("data") or {}
+        if case is None or "pack" not in data:
             continue
-        steps = cases.step_rows(c, wp["id"])
+        key = (data["pack"], data["pack_version"])
+        if key not in packs:
+            packs[key] = process_runtime.pack_for(wp["id"])
+        pack = packs[key]
+        if pack is None:
+            continue
+        steps = all_steps.get(wp["id"], {})
         order = [(st.id, st.title or st.id, capabilities.of(st.uses).waits) for st in pack.steps]
-        parent = (case.get("data") or {}).get(process_runtime.PARENT)
+        parent = data.get(process_runtime.PARENT)
         if parent:
             subs.setdefault((parent["case"], parent["step"]), wp["id"])  # newest first: the step's current one
-        scope = package_scope.stored(wp["id"], c) or {}
+        scope = all_scopes.get(wp["id"]) or {}
         start, end = scope.get("period_start"), scope.get("period_end")
         found[wp["id"]] = {
             "wp": wp, "case": case, "pack": pack, "parent": parent, "open": _open_steps(case, steps, order),
             "row": {"id": wp["id"], "name": wp["name"], "process": pack.title, "version": pack.version, "pack": pack.id,
+                    "_repeats": pack.repeats,
                     "status": case["status"], "owner": wp["owner"], "created_at": wp["created_at"],
                     "updated_at": case["updated_at"],
                     "party": party_names.get(scope.get("party_id") or "") if scope.get("party_id") else None,
@@ -152,6 +164,19 @@ def _cases(scope: dict[str, str]) -> Rows:
     return cols, [r for r in rows if _in_view(r, view if not every else "all", scope.get("actor"), scope.get("pack"))]
 
 
+# H25: what the case list reads - the cases' containers and their scope, the own parties' names - beside the process
+# core's own marks (`cases.marks`)
+_LIST_INPUTS = {"workpackages": "MAX(updated_at)", "workpackage_scopes": "MAX(set_at)", "own_parties": "MAX(updated_at)"}
+
+
+def _fingerprint(_scope: dict[str, str]) -> str:
+    """263 (F3, H25): the case list is built again only when what it shows may have changed (its scope is applied to the
+    rows built once): the process core's cases, steps and tasks, the containers, their scope and the parties' names."""
+    with store.connect() as c:
+        parts = [store.table_marks(c, _LIST_INPUTS), cases.marks()]
+    return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
+
+
 def _in_view(row: dict[str, Any], view: str, actor: str | None, pack: str | None) -> bool:
     if pack and row["pack"] != pack:
         return False
@@ -172,21 +197,13 @@ def _in_view(row: dict[str, Any], view: str, actor: str | None, pack: str | None
 def view_counts(actor: str | None) -> dict[str, Any]:
     """263 (F3): how many cases each view of the case list holds for the person, and the open ones of each process
     (with whether it repeats by period, which gives it a period grid)."""
-    with store.connect() as c:
-        rows = _case_rows(c, closed=True)
+    rows = datasets.rows("cases", {"include_closed": "1"})[1]  # H25: the list's own rows, built once per change
     counts = {v: sum(1 for r in rows if _in_view(r, v, actor, None)) for v in VIEWS}
     by: dict[str, dict[str, Any]] = {}
     for r in rows:
-        entry = by.setdefault(r["pack"], {"pack": r["pack"], "title": r["process"], "open": 0, "all": 0, "repeats": False})
+        entry = by.setdefault(r["pack"], {"pack": r["pack"], "title": r["process"], "open": 0, "all": 0, "repeats": r["_repeats"]})
         entry["all"] += 1
         entry["open"] += r["status"] == cases.OPEN
-    from jav.app import process_packs  # lazy: the packs read their files once
-
-    for entry in by.values():
-        try:
-            entry["repeats"] = process_packs.load(entry["pack"]).repeats
-        except process_packs.PackError:
-            entry["repeats"] = False
     return {"views": counts, "processes": sorted(by.values(), key=lambda e: e["title"])}
 
 
@@ -252,7 +269,7 @@ _LABEL_SETS = tuple(LabelSet(name, __name__, labels.copy) for name, labels in (
 def register() -> None:
     for labels in _LABEL_SETS:
         datasets.register_labels(labels)
-    datasets.register(Dataset("cases", "Cases", (), _cases, optional_scope=("include_closed", "view", "actor", "pack"),
+    datasets.register(Dataset("cases", "Cases", (), _cases, _fingerprint, optional_scope=("include_closed", "view", "actor", "pack"),
                               natural_sort=(("created_at", True),)), after="waiting", module=__name__)
     datasets.register(Dataset("handovers", "Handovers to check", (), _handovers), after="cases", module=__name__)
     datasets.register(Dataset("case_events", "A case's events", ("case_id",), _events, natural_sort=(("at", False),)),

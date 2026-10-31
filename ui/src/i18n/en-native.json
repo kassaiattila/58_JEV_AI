@@ -5228,5 +5228,8 @@
   "Every open case": "Every open case",
   "Closed cases": "Closed cases",
   "in progress": "in progress",
-  "No event yet.": "No event yet."
+  "No event yet.": "No event yet.",
+  "Search the processes…": "Search the processes…",
+  "Search the processes": "Search the processes",
+  "No process matches the search.": "No process matches the search."
 }

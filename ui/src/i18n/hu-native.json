@@ -5266,5 +5266,8 @@
   "Every open case": "Minden nyitott ügy",
   "Closed cases": "Lezárt ügyek",
   "in progress": "folyamatban",
-  "No event yet.": "Még nincs esemény."
+  "No event yet.": "Még nincs esemény.",
+  "Search the processes…": "Keresés a folyamatok között…",
+  "Search the processes": "Keresés a folyamatok között",
+  "No process matches the search.": "Egy folyamat sem felel meg a keresésnek."
 }

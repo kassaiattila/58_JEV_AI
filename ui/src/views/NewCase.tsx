@@ -17,6 +17,8 @@ export function NewCase({ pack, after }: { pack?: string; after?: string }) {
   useLocale();
   const processes = useLoad("processes:new-case", api.processes);
   const startable = (processes.data?.processes ?? []).filter((p) => p.manual);
+  const [query, setQuery] = useState("");
+  const shownProcesses = startable.filter((p) => !query.trim() || `${t(p.title)} ${p.summary ? t(p.summary) : ""}`.toLowerCase().includes(query.trim().toLowerCase()));
   const chosen = startable.find((p) => p.id === pack) ?? null;
   const missing = chosen?.missing_at_start ?? [];
   const [material, setMaterial] = useState(0);
@@ -29,16 +31,19 @@ export function NewCase({ pack, after }: { pack?: string; after?: string }) {
       {!processes.data && !processes.error ? <p className="muted">{t("Loading…")}</p> : null}
       {processes.data ? (
         <div className="new-case">
+          {/* 263 (F3, H26): one line a process, with a search, so the processes fit on the screen; the chosen one's
+              description stands beside it, above its form */}
           <section className="card new-case-list" aria-label={t("Which process?")}>
-            <fieldset className="wizard-choices">
+            <input className="new-case-search" type="search" value={query} placeholder={t("Search the processes…")}
+              aria-label={t("Search the processes")} onChange={(e) => setQuery(e.target.value)} />
+            <fieldset className="wizard-choices compact">
               <legend>{t("Which process?")}</legend>
-              {startable.map((p) => (
+              {shownProcesses.map((p) => (
                 <label key={p.id} className="wizard-choice">
                   <input type="radio" name="new-case-process" checked={p.id === chosen?.id} aria-label={t(p.title)}
                     onChange={() => go({ view: "case-list", create: true, pack: p.id })} />
                   <span>
                     <strong>{t(p.title)}</strong>
-                    {p.summary ? <span className="muted small">{t(p.summary)}</span> : null}
                     {p.missing_at_start?.length ? (
                       <span className="todo-text small">{t("Before a case can start: {{what}} needs an active version.",
                         { what: p.missing_at_start.map((m) => t(m.label)).join(", ") })}</span>
@@ -46,10 +51,12 @@ export function NewCase({ pack, after }: { pack?: string; after?: string }) {
                   </span>
                 </label>
               ))}
+              {!shownProcesses.length ? <p className="muted small">{t("No process matches the search.")}</p> : null}
             </fieldset>
           </section>
           <section className="card new-case-form" aria-label={chosen ? t(chosen.title) : t("New case")}>
             {chosen ? <h2>{t(chosen.title)}</h2> : <p className="muted">{t("Choose a process on the left: its form opens here.")}</p>}
+            {chosen?.summary ? <p className="small muted">{t(chosen.summary)}</p> : null}
             {chosen?.examples ? <ExampleMaterial pack={chosen.id} needed={missing.length > 0} onChanged={materialChanged} /> : null}
             {chosen && missing.length && !chosen.examples ? (
               <p className="small">{t("Make them active first:")} <a href="#/settings/processes">{t("Settings › Processes")}</a></p>
