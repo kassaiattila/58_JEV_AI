@@ -238,3 +238,16 @@ def test_the_exchange_rates_are_asked_through_their_connector(db):
     [row] = _calls()
     assert (row["provider"], row["run_id"], row["status"]) == ("mnb_rates", "connector:mnb_rates", "succeeded")
     assert row["step_id"].startswith("fx_fetch:")
+
+
+def test_a_lookup_sends_no_more_kinds_of_data_than_its_connector_says() -> None:
+    """265 (code review X-19): the connector's `sends` lists what may leave; a lookup asking with more is refused."""
+    from pydantic import ValidationError
+
+    from jav.app import lookups
+
+    ok = {"connector": "invented_company_register", "from_step": "read", "asks": {"tax_number": "tax_number"},
+          "answers": {"status": "company_status"}}
+    assert lookups.Lookup.model_validate(ok)
+    with pytest.raises(ValidationError, match="says it sends 1"):
+        lookups.Lookup.model_validate({**ok, "asks_if_known": {"name": "company_name"}})
