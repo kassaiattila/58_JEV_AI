@@ -5315,5 +5315,8 @@
   "Suggestions from the data ({{n}})": "Suggestions from the data ({{n}})",
   "The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Record them at once, edit one first, or dismiss what is no partner of yours (a misread name, a one-off seller); nothing is recorded by itself.": "The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Record them at once, edit one first, or dismiss what is no partner of yours (a misread name, a one-off seller); nothing is recorded by itself.",
   "{{unit}}: the module {{module}} has no basis: the fact {{fact}} is missing": "{{unit}}: the module {{module}} has no basis: the fact {{fact}} is missing",
-  "the module {{module}} prices no unit, so its minimum is not charged": "the module {{module}} prices no unit, so its minimum is not charged"
+  "the module {{module}} prices no unit, so its minimum is not charged": "the module {{module}} prices no unit, so its minimum is not charged",
+  "Check the new live run first": "Check the new live run first",
+  "its result is not the one shown here and would replace the released one; check and approve it in Processing, then release": "its result is not the one shown here and would replace the released one; check and approve it in Processing, then release",
+  "the result of a live run is not the one this page shows; check and approve it on its own page first": "the result of a live run is not the one this page shows; check and approve it on its own page first"
 }

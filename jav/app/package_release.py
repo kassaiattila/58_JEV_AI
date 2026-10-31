@@ -53,7 +53,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -212,12 +212,33 @@ def _releasable(wp: dict[str, Any], counted: dict[str, package_result.Counted],
     return out
 
 
-def _mark(wp: dict[str, Any], counted: dict[str, package_result.Counted], versions: dict[str, str]) -> str:
+def _mark(wp: dict[str, Any], counted: dict[str, package_result.Counted], versions: dict[str, str],
+          open_runs: Iterable[str] = ()) -> str:
     """What a person sees of the package's result: each item in use with the run, tier and reviewed version of its
-    counted result (a pending item with none). A changed correction, a new run or a new item changes it."""
+    counted result (a pending item with none). A changed correction, a new run or a new item changes it. 265 (code
+    review APPW-01): and each open live run with its reviewed version, as the release approves them all: a live run
+    finished after the page was shown, or a correction in one, changes it although no counted result changed."""
     parts = sorted([i["item_id"], *((c.run_id, c.tier, versions[c.run_id]) if (c := counted.get(i["item_id"])) else ())]
                    for i in wp["items"])
+    parts += [["open", rid, versions[rid]] for rid in open_runs]
     return hashlib.sha256(json.dumps(parts).encode("utf-8")).hexdigest()[:16]
+
+
+def _seen(wp: dict[str, Any], c: sqlite3.Connection) -> tuple[dict[str, package_result.Counted], dict[str, dict[str, Any]],
+                                                              dict[str, str], list[str], list[str]]:
+    """(counted results, their runs, reviewed versions, open live runs, open runs whose result the page does not show)
+    of the package now. 265 (APPW-01): every open live run has its reviewed version (a native item's approval needs
+    it); a run is not shown when approving the open runs would make it count for an item another run counts for now
+    (a live run after an approved one: the approved one outranks it until it is approved too)."""
+    counted = package_result.counted_results(wp["id"], c)
+    open_runs = work_runs.open_live_runs(wp["id"]) if logic_packs.has_runs(wp["source_kind"]) else []
+    runs = {rid: work_runs.get_run(rid) for rid in sorted({x.run_id for x in counted.values()})}
+    reviewed = {rid: corrections.review_version(rid, c) for rid in sorted(set(runs) | set(open_runs))}
+    in_use = {i["item_id"] for i in wp["items"]}
+    after = package_result.counted_results(wp["id"], c, approving=open_runs) if open_runs else counted
+    hidden = sorted({x.run_id for item, x in after.items()
+                     if item in in_use and (counted.get(item) is None or counted[item].run_id != x.run_id)})
+    return counted, runs, reviewed, open_runs, hidden
 
 
 def _versions(wp_id: str, c: sqlite3.Connection) -> list[dict[str, Any]]:
@@ -249,10 +270,7 @@ def view(wp_id: str) -> dict[str, Any]:
     wp = work.get(wp_id)
     has_runs = logic_packs.has_runs(wp["source_kind"])  # 176: a logic pack without runs is approved its own way
     with store.session(), store.connect() as c:
-        counted = package_result.counted_results(wp_id, c)
-        runs = {rid: work_runs.get_run(rid) for rid in sorted({x.run_id for x in counted.values()})}
-        reviewed = {rid: corrections.review_version(rid, c) for rid in runs}
-        open_runs = work_runs.open_live_runs(wp_id) if has_runs else []
+        counted, runs, reviewed, open_runs, hidden = _seen(wp, c)
         versions = _versions(wp_id, c)
     releasable = _releasable(wp, counted, runs)
     latest = versions[0] if versions else None
@@ -266,6 +284,7 @@ def view(wp_id: str) -> dict[str, Any]:
             blockers.append({"code": "run_not_ready", "run_id": rid, "status": run["status"],
                              "open_reasons": work_runs.open_reasons_for_run(rid)})
         removed += len(work_runs.excluded_items(run))
+    blockers += [{"code": "run_result_not_shown", "run_id": rid} for rid in hidden]  # 265 (APPW-01)
     if not has_runs:
         blockers.append({"code": "own_approval"})
     elif not open_runs and (not releasable or releasable == released):
@@ -275,7 +294,7 @@ def view(wp_id: str) -> dict[str, Any]:
               "final_status": x.final_status if x else None,
               "released": released.get(i["item_id"]) == (x.run_id if x else None) and i["item_id"] in released}
              for i in wp["items"]]
-    return {"workpackage_id": wp_id, "items": items, "mark": _mark(wp, counted, reviewed),
+    return {"workpackage_id": wp_id, "items": items, "mark": _mark(wp, counted, reviewed, open_runs),
             "open_live_runs": open_runs, "reviewed": {rid: reviewed[rid] for rid in open_runs if rid in reviewed},
             "removed_items": removed, "blockers": blockers,
             "state": _state(latest, releasable, in_use), "versions": versions}
@@ -400,6 +419,9 @@ def release(wp_id: str, *, actor: identity.Who, expected_mark: str, confirm_remo
     if waiting := [b for b in current["blockers"] if b["code"] == "run_not_ready"]:
         raise explained(work.NotReady, "a live run of the package is not ready for approval",
                         [{"code": "run_not_ready", "message": b["run_id"]} for b in waiting])
+    if unseen := [b for b in current["blockers"] if b["code"] == "run_result_not_shown"]:  # 265 (APPW-01)
+        raise explained(work.NotReady, "the result of a live run is not the one this page shows; check and approve it on "
+                        "its own page first", [{"code": "run_result_not_shown", "message": b["run_id"]} for b in unseen])
     if current["removed_items"] and confirm_removed != current["removed_items"]:
         raise explained(work.NotReady, "{{removed}} of the runs' items were removed from the package; their results are not released. Confirm the count to release the rest.",
                         [{"code": "removed_items", "message": "Items were removed from the package after the run started",
@@ -478,10 +500,8 @@ def _result(wp: dict[str, Any], c: sqlite3.Connection | None = None) -> tuple[st
     if c is None:
         with store.connect() as own:
             return _result(wp, own)
-    counted = package_result.counted_results(wp["id"], c)
-    runs = {rid: work_runs.get_run(rid) for rid in sorted({x.run_id for x in counted.values()})}
-    mark = _mark(wp, counted, {rid: corrections.review_version(rid, c) for rid in runs})
-    return mark, _releasable(wp, counted, runs), _versions(wp["id"], c)
+    counted, runs, reviewed, open_runs, _hidden = _seen(wp, c)
+    return _mark(wp, counted, reviewed, open_runs), _releasable(wp, counted, runs), _versions(wp["id"], c)
 
 
 def version_file(wp_id: str, version: int, name: str) -> tuple[bytes, str, str]:

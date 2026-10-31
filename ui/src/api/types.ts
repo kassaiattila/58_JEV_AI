@@ -85,7 +85,7 @@ export interface PackageResultItem {
   item_id: string; kind: string | null; file: string; tier: "trial" | "live" | "approved" | null; run_id: string | null;
   final_status: string | null; released: boolean;
 }
-export interface PackageBlocker { code: "run_not_ready" | "own_approval" | "nothing_to_release"; run_id?: string; status?: string; open_reasons?: number }
+export interface PackageBlocker { code: "run_not_ready" | "run_result_not_shown" | "own_approval" | "nothing_to_release"; run_id?: string; status?: string; open_reasons?: number }
 /** 178: `template` and `template_version` name the template that made a workbook (null: before 178, the built-in). */
 export interface PackageVersionFile { name: string; media: string; rows: number; sha256: string; template?: string | null; template_version?: string | null }
 export interface PackageVersion {
