@@ -10,11 +10,13 @@ from __future__ import annotations
 
 from jav.service import local_picker
 
+NETWORK = ("\\\\nas\\backup", "//nas/backup", "\\\\?\\UNC\\nas\\x", "C:relative")
+
 
 def test_a_network_start_folder_is_left_out(tmp_path, monkeypatch) -> None:
     touched: list[str] = []
     monkeypatch.setattr(local_picker.Path, "is_dir", lambda self: touched.append(str(self)) or True)
-    for network in (r"\nas\backup", "//nas/backup", r"\?\UNC\nas\x", "C:relative"):
-        assert local_picker._start_folder(network) is None
+    for network in NETWORK:
+        assert local_picker._start_folder(network) is None, network
     assert touched == []  # never looked at
     assert local_picker._start_folder(str(tmp_path)) == str(tmp_path)
