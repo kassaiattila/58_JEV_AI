@@ -7,6 +7,12 @@ import { t, useLocale } from "../i18n";
 import { FormActions } from "./FormActions";
 import { Popover } from "./Popover";
 
+/** 263 (F4): the side the card aligns to - a button in the left half of the window opens its card to the right of
+ *  its left edge, one in the right half to the left of its right edge, so the card stays beside its button. */
+export function cardSide(rect: { left: number; width: number }, viewport: number): "left" | "right" {
+  return rect.left + rect.width / 2 < viewport / 2 ? "left" : "right";
+}
+
 // 073: also used for the other one-click deletions (mail schedule, package item, user). `ariaLabel` names an
 // icon-like button. `danger`: the action removes something, so its button in the card is the danger one; otherwise the
 // card's action is the solid main button.
@@ -22,6 +28,7 @@ export function ConfirmButton({ onConfirm, children, className, disabled, ariaLa
   const anchor = useRef<HTMLButtonElement>(null);
   const action = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const [side, setSide] = useState<"left" | "right">("right");
   useEffect(() => {
     if (!open) return;
     const frame = window.requestAnimationFrame(() => action.current?.focus());
@@ -30,10 +37,14 @@ export function ConfirmButton({ onConfirm, children, className, disabled, ariaLa
   return (
     <>
       <button ref={anchor} type="button" className={className} disabled={disabled} aria-label={ariaLabel}
-        aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        aria-haspopup="dialog" aria-expanded={open} onClick={() => {
+          const rect = anchor.current?.getBoundingClientRect();
+          if (rect) setSide(cardSide(rect, window.innerWidth));
+          setOpen((o) => !o);
+        }}>
         {children}
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} label={t("Confirmation")} align="right" className="confirm-card">
+      <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} label={t("Confirmation")} align={side} className="confirm-card">
         <p className="confirm-question">{question ?? t("Are you sure?")}</p>
         <FormActions onCancel={() => { setOpen(false); anchor.current?.focus(); }}>
           <button ref={action} type="button" className={danger ? "danger" : "primary"}
