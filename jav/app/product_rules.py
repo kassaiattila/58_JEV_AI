@@ -296,17 +296,23 @@ def listing(kind: str) -> list[dict[str, Any]]:
     return _VERSIONS[kind].grouped(rows, lambda r: {"ident": r["ident"], "name": r["name"]}, _view)
 
 
+SECOND_PERSON = {"product": "a product version is made active by another person than its maker",
+                 "tariff": "a tariff version is made active by another person than its maker"}  # 265 (APPR-05)
+
+
 def activate(kind: str, ident: str, version: int, *, actor: identity.Who) -> dict[str, Any]:
     """The version made active (the active one before it is superseded). A rule's own checks against its catalogue run
-    first; a product's manifest too, and it is made active only by another person than its maker."""
+    first; a product's manifest too, and it is made active only by another person than its maker. 265 (code review
+    APPR-05; the owner's decision of 2026-10-31): a tariff's version too (a product names its tariff's active version)."""
     with store.connect() as c:
         store.begin_immediate(c)
         row = _VERSIONS[_kind(kind)].row(c, ident, version)
         if kind == "rule" and (problems := rule_problems(Rule.model_validate(json.loads(row["content"])))):
             raise ManifestRefused(problems)
+        maker = row["made_by_id"] or row["made_by"]
+        if kind in SECOND_PERSON and maker == (identity.id_of(actor) or identity.name_of(actor)):
+            raise explained(SecondPersonNeeded, SECOND_PERSON[kind])
         if kind == "product":
-            if (row["made_by_id"] or row["made_by"]) == (identity.id_of(actor) or identity.name_of(actor)):
-                raise explained(SecondPersonNeeded, "a product version is made active by another person than its maker")
             if problems := _manifest_problems(c, Product.model_validate(json.loads(row["content"]))):
                 raise ManifestRefused(problems)
         _VERSIONS[kind].activate(c, ident, version, actor=actor)

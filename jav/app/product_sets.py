@@ -167,9 +167,11 @@ def install(product_set: ProductSet, *, maker: identity.Who, approver: identity.
     already there with the same content is kept as it is. Its references (`<kind>:<id>@1`)."""
     if found := problems(product_set):
         raise SetRefused(found)
-    if approver is not None and product_set.products and \
-            (identity.id_of(approver) or identity.name_of(approver)) == (identity.id_of(maker) or identity.name_of(maker)):
-        raise explained(product_rules.SecondPersonNeeded, "a product version is made active by another person than its maker")
+    same = approver is not None and \
+        (identity.id_of(approver) or identity.name_of(approver)) == (identity.id_of(maker) or identity.name_of(maker))
+    for kind, things in (("product", product_set.products), ("tariff", product_set.tariffs)):  # 265 (APPR-05): a tariff too
+        if same and things:  # refused before anything is stored, so no draft of the maker's is left behind
+            raise explained(product_rules.SecondPersonNeeded, product_rules.SECOND_PERSON[kind])
     things = _things(product_set)
     clashes = []
     for kind, ident, content in things:

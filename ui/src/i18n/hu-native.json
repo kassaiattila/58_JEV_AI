@@ -5362,5 +5362,6 @@
   "the module {{module}} excludes {{other}}, which is asked for too": "a(z) „{{module}}” modul kizárja a(z) „{{other}}” modult, amelyet szintén kértek",
   "the condition document {{document}} is not in force on {{date}}": "a(z) „{{document}}” feltételdokumentum nincs hatályban ekkor: {{date}}",
   "the number can be read two ways; a person checks it": "a szám kétféleképpen olvasható; egy személy ellenőrzi",
-  "the invoice is excluded from the pairing; the excluded invoices' list says why": "a számla ki van zárva a párosításból; az okát a kizárt számlák listája mutatja"
+  "the invoice is excluded from the pairing; the excluded invoices' list says why": "a számla ki van zárva a párosításból; az okát a kizárt számlák listája mutatja",
+  "a tariff version is made active by another person than its maker": "a díjtábla változatát nem az élesítheti, aki elkészítette"
 }
