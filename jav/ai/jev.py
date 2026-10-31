@@ -263,11 +263,11 @@ class JevAdapter:
         os.replace(tmp, path)
 
     def _write_cached(self, path: Path, response: SystemOneResponse) -> None:
-        """Atomic write (066 Á37): to a temporary file, then a replace, so a reader never sees a half-written file."""
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(f".{os.getpid()}.tmp")
-        tmp.write_text(json.dumps(response.model_dump(mode="json"), ensure_ascii=False), encoding="utf-8")
-        os.replace(tmp, path)
+        """Atomic write (066 Á37): to a temporary file, then a replace, so a reader never sees a half-written file (265:
+        the shared helper the OCR cache uses too)."""
+        from jav.core import jsonfile
+
+        jsonfile.write_atomic(path, response.model_dump(mode="json"))
 
 
     def _live(
