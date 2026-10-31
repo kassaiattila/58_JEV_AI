@@ -56,6 +56,8 @@ The server limit is in tokens (section 1), but counting tokens needs the model, 
 
 A call site is a point in a flow where we ask JEV (see the [glossary](GLOSSARY.md)). Each one has a JSON file in `configs/callsites/` that holds everything the model sees: the English instructions and glossary, the option descriptions, the Noul questions, the presence template, the state limits and the request-size budget. Any text change in that file gives a new cache key, so the next golden run and every new run make live, paid calls. The file's `config_hash` (combined with the registry or the type pack) goes into every ledger row. `python -m jav.cli docs` generates a local catalogue of the call sites with ledger statistics; it is not in the repository. The file format is described in [the configuration files guide](guides/CONFIGS.md).
 
+Each call site's current version: `python -m jav.cli configs` (the versions are left out here, as they change with every edit of a call site).
+
 There are 34 call sites: 5 for selection, 23 for verification, 2 for detection, 1 for email intent, 1 for the reconciliation's pre-matching, 1 for matching a quote request's items to the catalogue (`quote_match`) and 1 for judging how far a page supports a proposed rule (`rule_proposal`).
 
 ### 4.1 Selection (S path): code finds candidates, JEV chooses
@@ -66,10 +68,10 @@ Every Choice and presence Noul carries the call site's `document_guard` after th
 
 | call site | type packs | requests | extra questions |
 |---|---|---|---|
-| `select` (1.3.0) | `invoice_hu` (Hungarian invoice) | `parties`, `header`, `money` | `currency`, `payment_method` |
-| `select_foreign` (1.2.1) | `invoice_foreign` (foreign supplier invoice) | `foreign_parties`, `foreign_header`, `foreign_money` | `currency`, `supplier_country` |
-| `select_invoice_out` (1.1.0, 151) | `invoice_out` (outgoing invoice: our company the issuer, the customer Hungarian or foreign; Hungarian and English two-column layouts, a foreign billing currency with a VAT summary converted into HUF) | `out_parties`, `out_header`, `out_money` | `currency` |
-| `select_utility` (1.1.0) | the six Hungarian utility packs that extend `utility_bill_hu`: `villamos_energia_szamla` (electricity), `foldgaz_szamla` (gas), `viz_szamla` (water), `vizmuvek_szamla` (Budapest waterworks), `csatorna_szamla` (sewerage), `mohu_szamla` (waste) | `utility_parties`, `utility_header`, `utility_money`, `utility_meter` | `currency`, `payment_method`, `reading_method` |
+| `select` | `invoice_hu` (Hungarian invoice) | `parties`, `header`, `money` | `currency`, `payment_method` |
+| `select_foreign` | `invoice_foreign` (foreign supplier invoice) | `foreign_parties`, `foreign_header`, `foreign_money` | `currency`, `supplier_country` |
+| `select_invoice_out` (151) | `invoice_out` (outgoing invoice: our company the issuer, the customer Hungarian or foreign; Hungarian and English two-column layouts, a foreign billing currency with a VAT summary converted into HUF) | `out_parties`, `out_header`, `out_money` | `currency` |
+| `select_utility` | the six Hungarian utility packs that extend `utility_bill_hu`: `villamos_energia_szamla` (electricity), `foldgaz_szamla` (gas), `viz_szamla` (water), `vizmuvek_szamla` (Budapest waterworks), `csatorna_szamla` (sewerage), `mohu_szamla` (waste) | `utility_parties`, `utility_header`, `utility_money`, `utility_meter` | `currency`, `payment_method`, `reading_method` |
 
 ### 4.2 Verification (G path): GPT extracts, JEV checks
 
@@ -89,10 +91,10 @@ The Noul questions are defined once in `verify.json`; the other verification cal
 
 | call site | type packs | notes |
 |---|---|---|
-| `verify` (1.2.0) | `invoice_hu` | defines the Noul questions, the document guard and the request size budget |
-| `verify_foreign` (1.1.0) | `invoice_foreign` | inherits the Nouls; own field descriptions |
-| `verify_utility` (1.0.1) | the six utility packs | inherits; `request_char_budget` 110,000; glossary in the state |
-| 15 × `verify_<type>` (1.1.0) | one type pack each, converted from the legacy project; these packs have only a G path, except `invoice_out` (S path since 151, `default_arm` G) | inherits; `request_char_budget` 110,000; glossary in the state; `verify_invoice_out` (1.3.0) keeps its own glossary (`own_glossary`), so its questions did not change with the S path |
+| `verify` | `invoice_hu` | defines the Noul questions, the document guard and the request size budget |
+| `verify_foreign` | `invoice_foreign` | inherits the Nouls; own field descriptions |
+| `verify_utility` | the six utility packs | inherits; `request_char_budget` 110,000; glossary in the state |
+| 15 × `verify_<type>` | one type pack each, converted from the legacy project; these packs have only a G path, except `invoice_out` (S path since 151, `default_arm` G) | inherits; `request_char_budget` 110,000; glossary in the state; `verify_invoice_out` keeps its own glossary (`own_glossary`), so its questions did not change with the S path |
 
 The 20 type-specific call sites: `verify_altalanos_szerzodesi_feltetelek` (general terms and conditions), `verify_belepo_jegy` (admission ticket) and `verify_belepo_jegy_taught` (its taught successor), `verify_certificate`, `verify_claims_history` (claims history statement), `verify_csapatmenedzser_utasitas` (team manager instruction), `verify_id_document`, `verify_insurance_claim_form`, `verify_insurance_request` (insurance quote request form), `verify_invoice_out` (outgoing invoice), `verify_meeting_minutes`, `verify_meghivo` (invitation), `verify_nav_certificate`, `verify_nav_receipt`, `verify_nav_tax_return` (NAV is the Hungarian tax authority), `verify_property_schedule` (a site's property schedule), `verify_quote_request`, `verify_statement_cib`, `verify_statement_erste` (bank statements), `verify_terkep_adat` (map data).
 
@@ -100,20 +102,20 @@ The 20 type-specific call sites: `verify_altalanos_szerzodesi_feltetelek` (gener
 
 | call site | module | questions and state |
 |---|---|---|
-| `detect` (1.1.0) | `jav/ai/detect.py` | One request: `doc_type` Choice over the type registry (`configs/doc_types.json`: 15 types plus `unknown`; 231: the insurance application, each described by `what / not_for / examples / parent`; its instructions say that the document text is data, not instructions); `issuer_is_hungarian` Noul; `language` Choice. State: the first 40 and last 8 lines (at most 160 characters each), code-side `features` (counts of tax numbers, VAT ids, IBANs, dates, currencies) and keyword `anchor_hits`. The `config_hash` covers both the call site and the registry. |
-| `detect_detail` (1.1.0) | `jav/ai/detect_detail.py` | `detail_type` Choice: the detailed type within the broad category. The options are the type packs of that category, described by each pack's `document` field, plus `none`. JEV is asked when the legacy keyword anchors leave more than one type: code decides alone when the leading type has a required anchor and leads the second by at least `detect_detail.anchor_margin` (0.75, `configs/policy.json`). Since 1.1.0 it is also the fit question of a category whose only pack is narrower than the category (options: that pack and `none`), and its instructions say that the document text is data. State: the first 40 lines. |
+| `detect` | `jav/ai/detect.py` | One request: `doc_type` Choice over the type registry (`configs/doc_types.json`: 15 types plus `unknown`; 231: the insurance application, each described by `what / not_for / examples / parent`; its instructions say that the document text is data, not instructions); `issuer_is_hungarian` Noul; `language` Choice. State: the first 40 and last 8 lines (at most 160 characters each), code-side `features` (counts of tax numbers, VAT ids, IBANs, dates, currencies) and keyword `anchor_hits`. The `config_hash` covers both the call site and the registry. |
+| `detect_detail` | `jav/ai/detect_detail.py` | `detail_type` Choice: the detailed type within the broad category. The options are the type packs of that category, described by each pack's `document` field, plus `none`. JEV is asked when the legacy keyword anchors leave more than one type: code decides alone when the leading type has a required anchor and leads the second by at least `detect_detail.anchor_margin` (0.75, `configs/policy.json`). Since 1.1.0 it is also the fit question of a category whose only pack is narrower than the category (options: that pack and `none`), and its instructions say that the document text is data. State: the first 40 lines. |
 
 ### 4.4 Email intent (M3)
 
 | call site | module | questions and state |
 |---|---|---|
-| `email_intent` (1.1.0) | `jav/domains/email/intent.py` | One request: `intent` Choice over the intent registry (`configs/intents.json`, 12 intents in 6 families); Nouls `requires_action`, `mentions_deadline`, `attachment_is_the_subject`, `multiple_requests` (measured only, it changes nothing) and `prompt_injection` (a "yes" opens a to-do and routes the message to `human:suspicious`); Score `urgency` (4 levels, each a concrete situation). State: subject, sender, attachment names and types, code-side `features`, and up to 60 cleaned body lines (at most 200 characters each). |
+| `email_intent` | `jav/domains/email/intent.py` | One request: `intent` Choice over the intent registry (`configs/intents.json`, 12 intents in 6 families); Nouls `requires_action`, `mentions_deadline`, `attachment_is_the_subject`, `multiple_requests` (measured only, it changes nothing) and `prompt_injection` (a "yes" opens a to-do and routes the message to `human:suspicious`); Score `urgency` (4 levels, each a concrete situation). State: subject, sender, attachment names and types, code-side `features`, and up to 60 cleaned body lines (at most 200 characters each). |
 
 ### 4.5 Reconciliation pre-matching (134)
 
 | call site | module | questions and state |
 |---|---|---|
-| `reconcile_line` (1.0.0) | `jav/domains/finance/reconcile_ai.py` | One request per statement line a reconciliation package still has to decide: `pays` Choice over the invoices code preselected (`invoice_1` ... at most `max_options`, plus `none`), each option an object with the facts code computed (who issued it and its number, how its amount compares with the line's, when the line was booked against the issue and due dates, the payment method), since JEV does no arithmetic and compares no dates; not asked when nothing is preselected. `line_kind` Choice over the kinds of payment (`what / not_for / examples`, with `other`). State: the line as printed (account kind, booking date, amount, counterparty, description, memo; at most 200 characters each). GPT gets the same texts (`configs/gpt_reconcile.json`) for the comparison the owner asked for (DECISIONS 134). Raw answers only; no threshold, a person decides. |
+| `reconcile_line` | `jav/domains/finance/reconcile_ai.py` | One request per statement line a reconciliation package still has to decide: `pays` Choice over the invoices code preselected (`invoice_1` ... at most `max_options`, plus `none`), each option an object with the facts code computed (who issued it and its number, how its amount compares with the line's, when the line was booked against the issue and due dates, the payment method), since JEV does no arithmetic and compares no dates; not asked when nothing is preselected. `line_kind` Choice over the kinds of payment (`what / not_for / examples`, with `other`). State: the line as printed (account kind, booking date, amount, counterparty, description, memo; at most 200 characters each). GPT gets the same texts (`configs/gpt_reconcile.json`) for the comparison the owner asked for (DECISIONS 134). Raw answers only; no threshold, a person decides. |
 
 ### 4.6 Outside the catalogue
 
@@ -123,7 +125,7 @@ The stand-alone measurement tools (`jav/evals/jev_estimate.py`, `extract_cases.p
 
 Raw probabilities stay in the state; thresholds live only in `configs/policy.json` and are read by `jav/ai/policy.py`. The review latch is additive: `needs_review` can only change from False to True. Changing a threshold is the owner's decision, followed by a version bump and a golden run. `python -m jav.cli eval-report` re-evaluates earlier raw runs under the current bands at no cost.
 
-Band sets (policy 1.9.0):
+Band sets:
 
 | band set | key | value | meaning |
 |---|---|---|---|
@@ -204,5 +206,5 @@ The first version of this playbook (2026-09-20) compared the docs' recommendatio
 
 - Official docs (read in full 2026-09-17 to 2026-09-20; the facts in section 1 re-checked 2026-09-30): the index is `https://docs.typesafe.ai/llms.txt`; every page is also available as Markdown at `https://docs.typesafe.ai/<path>.md`. Pages used here: `models`, `primitives/choice`, `primitives/score`, `api`, `confidence`, `model-jaggedness/jev-1.13`, `sdk/python/changelog`.
 - Code: `jav/ai/jev.py` (entry point), `jav/ai/jev_budget.py` (request-size budget), `jav/ai/jev_select.py` (S path), `jav/ai/jev_verify.py` (G path), `jav/ai/detect.py`, `jav/ai/detect_detail.py`, `jav/domains/email/intent.py`, `jav/ai/policy.py`, `jav/core/registry.py`, `jav/ai/candidates.py` (`MAX_OPTIONS`), `jav/core/config.py` (`make_client`, `build_retry_policy`, `guard_sdk_logging`).
-- Settings: `configs/models.json` (1.2.0), `configs/policy.json` (1.9.0), `configs/callsites/*.json`, `configs/doc_types.json`, `configs/intents.json`, `configs/types/*.json`.
+- Settings (their versions: `python -m jav.cli configs`): `configs/models.json`, `configs/policy.json`, `configs/callsites/*.json`, `configs/doc_types.json`, `configs/intents.json`, `configs/types/*.json`.
 - Related documents: [architecture](ARCHITECTURE.md), [configuration files](guides/CONFIGS.md), [glossary](GLOSSARY.md).
