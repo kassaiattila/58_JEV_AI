@@ -94,7 +94,14 @@ def transport(*, down: frozenset[str] = frozenset()) -> Callable[[str, bytes | N
     return send
 
 
+READ_TIMEOUT_S = 10.0  # 265 (code review X-01): per socket read; a question is a few bytes from this machine
+
+
 class _Handler(http.server.BaseHTTPRequestHandler):
+    # 265 (code review X-01): the live start runs these registers beside the service (the insurance cases ask them),
+    # so a connection that sends nothing is closed after this many seconds instead of holding a thread for good
+    timeout = READ_TIMEOUT_S
+
     def do_POST(self) -> None:  # noqa: N802 - the standard library's name
         length = int(self.headers.get("Content-Length") or 0)
         status, data = answer(self.path, self.rfile.read(min(length, MAX_QUESTION)))
