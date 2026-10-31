@@ -105,6 +105,14 @@ class ConditionDocument(_Model):
     sections: tuple[Section, ...] = ()
     references: tuple[str, ...] = ()
 
+    @model_validator(mode="after")
+    def _in_order(self) -> ConditionDocument:
+        self.validity()  # 265 (code review APPR-04): it ends on or after its start
+        return self
+
+    def validity(self) -> Validity:
+        return Validity(valid_from=self.valid_from, valid_to=self.valid_to)
+
 
 class Citation(_Model):
     document: str = Field(pattern=_REF)

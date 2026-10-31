@@ -37,7 +37,7 @@ from jav.core import store, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.measures import Money
 from jav.core.process import kinds
-from jav.core.user_messages import Said, explained, said_back, said_fields
+from jav.core.user_messages import Said, explained, said, said_back, said_fields
 
 __all__ = ["EVALUATION", "RATING", "EvaluationResult", "RatingResult", "record", "records", "register", "tariff_missing",
            "unit_names"]
@@ -304,7 +304,11 @@ def _evaluate(ctx: Any, params: RuleEvaluation) -> kinds.StepOutcome:
         sums = _sums(checked, cat, params.sums)
     except facts.FactError as exc:
         return kinds.Fail(str(exc))
+    # 265 (code review APPR-03, APPR-04): the modules asked for and the conditions in force stop a premium too
+    blockers = [*evaluation.blockers, *(_module_blockers(at.product, modules) if said else []),
+                *_condition_blockers(at, checked.cover_start)]
     content = rule_evaluation.to_json(evaluation) | ({"sums": sums} if params.sums else {}) | {
+        "blockers": [str(b) for b in blockers], "blockers_said": [said_fields(b) for b in blockers],
         "modules": list(modules), "modules_said": said, "input_step": params.from_step,
         "verdict": evaluation.verdict if said else _unsaid(cat, evaluation.verdict),
         "missing_named": [{"unit_id": u, "fact": f, "title": cat.facts[f].title if f in cat.facts else f} for u, f in missing]}
@@ -312,6 +316,29 @@ def _evaluate(ctx: Any, params: RuleEvaluation) -> kinds.StepOutcome:
         trace_ids = rule_evaluation.trace_in(c, case_id, evaluation)
         n = _keep(c, case_id, ctx.step.id, EVALUATION_KIND, params.from_step, input_version, content, trace_ids)
     return kinds.Done(_summary(n, input_version, content))
+
+
+def _module_blockers(product: product_rules.Product, asked: tuple[str, ...]) -> list[Said]:
+    """265 (code review APPR-03): a module asked for that requires one not asked for, or excludes one asked for too
+    (until then checked only against the product's own modules: an extension without its base was priced)."""
+    by_code = {m.code: m for m in product.modules}
+    out: list[Said] = []
+    for code in asked:
+        module = by_code.get(code)
+        if module is None:
+            continue  # the product has no such module: the tariff says it does not price it
+        out += [said("the module {{module}} requires {{required}}, which is not asked for", module=code, required=r)
+                for r in module.requires if r not in asked]
+        out += [said("the module {{module}} excludes {{other}}, which is asked for too", module=code, other=x)
+                for x in module.excludes if x in asked]
+    return out
+
+
+def _condition_blockers(at: product_rules.ProductAt, cover_start: Any) -> list[Said]:
+    """265 (code review APPR-04): each condition document of the product not in force on the day cover starts."""
+    return [said("the condition document {{document}} is not in force on {{date}}", document=d.content.title,
+                 date=cover_start.isoformat())
+            for d in at.documents if not d.content.validity().covers(cover_start)]
 
 
 def _name_of(key: str, value: str, cat: facts.Catalogue, tariff: product_rules.Tariff, modules: dict[str, str],
@@ -386,7 +413,9 @@ def _rate(ctx: Any, params: Rating) -> kinds.StepOutcome:
     modules = tuple(ev_content["modules"])
     tariff = product_rules.Tariff.model_validate(found["content"])
     calc = rating.calculate(tariff, found["ref"], checked, evaluation, modules=modules)
-    blockers = [*evaluation.blockers, *calc.blockers]
+    # 265: the evaluation's own blockers keep their sentences (`blockers_said`), so a person reads them in words too
+    kept_said = {s["text"]: said_back(s) for s in ev_content.get("blockers_said") or ()}
+    blockers = [*(kept_said.get(b, b) for b in evaluation.blockers), *calc.blockers]
     names = {m.code: m.name for m in product.modules}
     cat = facts.catalogue(checked.catalogue)
     content = {"tariff_ref": found["ref"], "modules": list(modules), "total": rule_evaluation.plain(calc.total) if calc.total else None,

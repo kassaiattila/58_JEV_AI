@@ -5319,5 +5319,8 @@
   "Check the new live run first": "Check the new live run first",
   "its result is not the one shown here and would replace the released one; check and approve it in Processing, then release": "its result is not the one shown here and would replace the released one; check and approve it in Processing, then release",
   "the result of a live run is not the one this page shows; check and approve it on its own page first": "the result of a live run is not the one this page shows; check and approve it on its own page first",
-  "a disagreement is still open; settle it before the facts are frozen": "a disagreement is still open; settle it before the facts are frozen"
+  "a disagreement is still open; settle it before the facts are frozen": "a disagreement is still open; settle it before the facts are frozen",
+  "the module {{module}} requires {{required}}, which is not asked for": "the module {{module}} requires {{required}}, which is not asked for",
+  "the module {{module}} excludes {{other}}, which is asked for too": "the module {{module}} excludes {{other}}, which is asked for too",
+  "the condition document {{document}} is not in force on {{date}}": "the condition document {{document}} is not in force on {{date}}"
 }
