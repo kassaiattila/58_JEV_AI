@@ -550,6 +550,9 @@ These terms describe planned capabilities; they do not mean that the current app
 | Term | Hungarian | Meaning | Example |
 |---|---|---|---|
 | **Session** | session (munkamenet) | One working session with Claude; it starts with a status review and ends with a handoff. | One day may see several sessions. |
+| **Parallel session** | párhuzamos session | A second Claude session that works at the same time as the main one, in its own folder and on its own branch; the main session merges its work (265). | A code review runs beside a release. |
+| **Worktree** | munkafa | A second working folder of the same git repository, on its own branch; the live service stays on the main folder. | The development worktree beside the main folder. |
+| **Autopilot** | önjáró mód | The working mode in which Claude goes on through an approved plan without stopping, until the owner has to decide; it belongs to the session that switched it on. | The main session releases while the autopilot is on. |
 | **Handoff** | átadó (handoff) | A numbered note written at the end of a session: what was built, what was decided, what was measured, what the open question is. The next session starts from it. It begins with a plain-language summary (Laikus összefoglaló). | A table of what was built, the decisions with their dates, and the commit hash. |
 | **Backlog** | teendőlista (backlog) | The ordered to-do list with status; the order is the priority. | Item 1 = the next piece of work. |
 | **Decisions log** | döntésnapló | The owner's decisions with dates; they are not reopened. | "We will not lower the threshold." |

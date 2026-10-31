@@ -14,6 +14,12 @@ still running (its notification wakes Claude), and after `IDLE_STOPS` stops in a
 session start, after a compaction too, the hook adds the autopilot's state, a pending question and the end of the
 plan's progress section to the context.
 
+265 (the owner's decision of 2026-10-31): a parallel session. The autopilot belongs to one Claude session: the one that
+switched it on (`--session`, or the session the SessionStart hook named in `CLAUDE_ENV_FILE`), or else the first one
+that stops after the switch. Another session's stops go through and leave the state alone, and its session start names
+the autopilot without handing it the plan. A session started in a linked git worktree reads the internal documents
+(handoffs, plans, STATE.md; not in git, 070) from the main checkout, the folder of the shared git directory.
+
 Rule: the handoff is "stale" if a file under jav/, tests/ or configs/ (or docs/ROADMAP.md, README.md) is more than
 STALE_MINUTES minutes newer than it.
 2026-09-27 (040, the owner's decision): the Stop hook NO longer blocks every hour. A handoff is needed only at the end
@@ -28,6 +34,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -36,8 +43,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-HANDOFFS = ROOT / "docs" / "handoffs"
-STATE = ROOT / "docs" / "STATE.md"
 VENV_PY = ROOT / ".venv" / "Scripts" / "python.exe"
 WATCH = [ROOT / "jav", ROOT / "tests", ROOT / "configs", ROOT / "docs" / "ROADMAP.md", ROOT / "README.md"]
 STALE_MINUTES = 60
@@ -49,6 +54,8 @@ NEEDS_OWNER = AUTOPILOT_DIR / "needs_owner.md"
 IDLE_STOPS = 2  # stops in a row with nothing changed before the autopilot lets the stop through
 PROGRESS_LINES = 60  # the end of the plan's progress section shown at a session start
 _PROGRESS = re.compile(r"^##\s+(Haladás|Progress)\b")
+SESSION_ENV = "JAV_CLAUDE_SESSION"  # 265: the session's id, named for its own commands by the SessionStart hook
+_SESSION = re.compile(r"^[A-Za-z0-9-]{1,128}$")  # only a plain token goes into the host's shell file
 BLOCK = ("Autopilot (DECISIONS 231): do not stop yet. Continue with the next step of the approved plan ({plan}) under "
          "the autopilot rules of CLAUDE.md §2: commit each finished slice, run the full suite in the test worktree "
          "before a merge, and record the progress in the plan's progress section. Stop only for a genuine owner "
@@ -93,6 +100,23 @@ def git(*args: str) -> str | None:
     except (OSError, subprocess.SubprocessError):
         return None
     return r.stdout.strip() if r.returncode == 0 else None
+
+
+def docs_root(root: Path, common_dir: str | None) -> Path:
+    """265: where the internal documents are. A linked git worktree has no handoffs, plans or STATE.md of its own (they
+    are not in git, 070), so it reads them from the main checkout, the folder of the shared git directory; the main
+    checkout, and a checkout whose main one has no handoffs, reads its own."""
+    if common_dir:
+        common = Path(common_dir)
+        main = (common if common.is_absolute() else root / common).resolve().parent
+        if main != root.resolve() and (main / "docs" / "handoffs").is_dir():
+            return main
+    return root
+
+
+DOCS_ROOT = docs_root(ROOT, git("rev-parse", "--git-common-dir"))
+HANDOFFS = DOCS_ROOT / "docs" / "handoffs"
+STATE = DOCS_ROOT / "docs" / "STATE.md"
 
 
 def git_summary(handoff: Path | None) -> dict | None:
@@ -171,7 +195,7 @@ def work_fingerprint() -> str:
         except OSError:
             parts.append(line)
     newest = 0
-    for p in (ROOT / "docs").rglob("*"):
+    for p in (DOCS_ROOT / "docs").rglob("*"):
         try:
             newest = max(newest, p.stat().st_mtime_ns)
         except OSError:
@@ -196,13 +220,34 @@ def autopilot_stop(state: dict, payload: dict, *, needs_owner: bool, fingerprint
     return BLOCK.format(plan=state.get("plan") or "the latest handoff"), {**state, "fingerprint": fingerprint, "idle": 0}, None
 
 
+def owns_autopilot(state: dict, session: str | None) -> bool:
+    """265: whether the autopilot is this session's. One that no session has claimed yet is, and so is every session
+    of a host that names none (as before 265)."""
+    owner = state.get("session")
+    return not owner or not session or owner == session
+
+
+def remember_session(session: str | None) -> None:
+    """265: names the session for its own commands, so that `autopilot on` can record who switched it on. The host
+    reads the file `CLAUDE_ENV_FILE` names before each shell command of the session; a plain `NAME=value` line, because
+    on Windows the PowerShell tool takes only such lines. Best-effort: never raises."""
+    target = os.environ.get("CLAUDE_ENV_FILE")
+    if not target or not session or not _SESSION.fullmatch(session):
+        return
+    try:
+        with open(target, "a", encoding="utf-8", newline="\n") as f:
+            f.write(f"{SESSION_ENV}={session}\n")
+    except OSError:
+        pass
+
+
 def plan_progress(plan: str | None) -> list[str]:
     """The end of the plan's progress section (its Hungarian or English heading, `_PROGRESS`), at most
     `PROGRESS_LINES` lines."""
     if not plan:
         return []
     try:
-        lines = (ROOT / plan).read_text(encoding="utf-8").splitlines()
+        lines = (DOCS_ROOT / plan).read_text(encoding="utf-8").splitlines()
     except OSError:
         return []
     start = next((i for i, line in enumerate(lines) if _PROGRESS.match(line)), None)
@@ -212,8 +257,12 @@ def plan_progress(plan: str | None) -> list[str]:
     return lines[start:end][-PROGRESS_LINES:]
 
 
-def autopilot_lines(state: dict) -> list[str]:
-    """What a session start adds while the autopilot is on (after a compaction too)."""
+def autopilot_lines(state: dict, session: str | None = None) -> list[str]:
+    """What a session start adds while the autopilot is on (after a compaction too); another session's autopilot is
+    only named (265)."""
+    if not owns_autopilot(state, session):
+        return ["", f"[autopilot] ON for another Claude session since {state.get('since')} (plan: {state.get('plan')}). "
+                    "This session is not under it: its stops are not blocked, and that plan is not its to continue."]
     lines = ["", f"[autopilot] ON since {state.get('since')}; plan: {state.get('plan')}. Continue the plan without asking; "
                  "stop only through the decision marker (CLAUDE.md §2, autopilot)."]
     if NEEDS_OWNER.exists():
@@ -225,8 +274,20 @@ def autopilot_lines(state: dict) -> list[str]:
     return lines
 
 
+def _relative(path: Path) -> str:
+    """A document's path from the documents' root, or the whole path when it lies elsewhere."""
+    try:
+        return path.relative_to(DOCS_ROOT).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def _option(args: list[str], name: str) -> str | None:
+    return args[args.index(name) + 1] if name in args[:-1] else None
+
+
 def autopilot_command(args: list[str]) -> int:
-    """`autopilot on --plan <path>` | `off` | `status`."""
+    """`autopilot on --plan <path> [--session <id>]` | `off` | `status`."""
     action = args[0] if args else "status"
     raw: dict = {}
     try:
@@ -234,13 +295,14 @@ def autopilot_command(args: list[str]) -> int:
     except (OSError, ValueError):
         pass
     if action == "on":
-        plan = args[args.index("--plan") + 1] if "--plan" in args[:-1] else None
-        if plan is None or not (ROOT / plan).is_file():
+        plan = _option(args, "--plan")
+        if plan is None or not (DOCS_ROOT / plan).is_file():
             print("autopilot on needs --plan <an existing plan file, relative to the project root>", file=sys.stderr)
             return 2
+        session = _option(args, "--session") or os.environ.get(SESSION_ENV) or None
         save_autopilot({"enabled": True, "since": datetime.now().astimezone().isoformat(timespec="seconds"),
-                        "plan": plan, "fingerprint": None, "idle": 0})
-        print(f"autopilot ON; plan: {plan}")
+                        "plan": plan, "fingerprint": None, "idle": 0, "session": session})
+        print(f"autopilot ON; plan: {plan}; session: {session or 'the first one that stops'}")
         return 0
     if action == "off":
         save_autopilot({**raw, "enabled": False})
@@ -249,7 +311,8 @@ def autopilot_command(args: list[str]) -> int:
     if action == "status":
         on = bool(raw.get("enabled"))
         print(f"autopilot {'ON' if on else 'OFF'}; plan: {raw.get('plan')}; since: {raw.get('since')}; "
-              f"idle stops: {raw.get('idle', 0)}; owner decision pending: {'yes' if NEEDS_OWNER.exists() else 'no'}")
+              f"idle stops: {raw.get('idle', 0)}; owner decision pending: {'yes' if NEEDS_OWNER.exists() else 'no'}; "
+              f"session: {raw.get('session') or '-'}")
         return 0
     print(f"unknown autopilot action: {action}", file=sys.stderr)
     return 2
@@ -270,11 +333,13 @@ def main() -> int:
         payload = json.loads(sys.stdin.read() or "{}")
     except (ValueError, OSError):
         payload = {}
+    session = payload.get("session_id") or None
     handoff, num = latest_handoff()
     stale = staleness_minutes(handoff)
-    rel = handoff.relative_to(ROOT).as_posix() if handoff else "(nincs handoff)"
+    rel = _relative(handoff) if handoff else "(nincs handoff)"
 
     if event == "session-start":
+        remember_session(session)
         state_age = f"{(time.time() - STATE.stat().st_mtime) / 60:.0f} minute(s) old" if STATE.exists() else "MISSING"
         lines = [f"[handoff-guard] Latest handoff: {rel} - the next number: {num + 1:03d}. docs/STATE.md: {state_age}.",
                  "Session protocol: read AGENTS.md and the shared CLAUDE.md rules, then the latest handoff below, "
@@ -283,13 +348,17 @@ def main() -> int:
                  "Summarise the current state and unresolved decisions. Continue already authorised work; "
                  "ask only about unresolved scope, policy or budget decisions.",
                  f"[handoff-guard] {format_git_line(git_summary(handoff))}."]
+        if DOCS_ROOT != ROOT:
+            lines.append(f"[handoff-guard] This session runs in the linked worktree {ROOT}. The internal documents "
+                         f"(handoffs, plans, STATE.md, BACKLOG, DECISIONS) are in the main checkout {DOCS_ROOT}: read and "
+                         f"write them there. Python: {DOCS_ROOT / '.venv' / 'Scripts' / 'python.exe'}.")
         if stale > STALE_MINUTES:
             lines.append(f"WARNING: the code is {stale:.0f} minute(s) newer than the handoff - its state may be out of date; check it.")
         if handoff:
             body = handoff.read_text(encoding="utf-8").splitlines()
             lines += ["", f"--- {rel} (whole, {len(body)} line(s)) ---", *body, f"--- end of {rel} ---"]
         if autopilot:
-            lines += autopilot_lines(autopilot)
+            lines += autopilot_lines(autopilot, session)
         print("\n".join(lines))
         return 0
 
@@ -304,7 +373,9 @@ def main() -> int:
         return 0
 
     if event == "stop":
-        if autopilot:
+        if autopilot and owns_autopilot(autopilot, session):
+            if session and not autopilot.get("session"):
+                autopilot = {**autopilot, "session": session}  # 265: the first stop after the switch claims it
             reason, state, message = autopilot_stop(autopilot, payload, needs_owner=NEEDS_OWNER.exists(),
                                                     fingerprint=work_fingerprint())
             save_autopilot(state)

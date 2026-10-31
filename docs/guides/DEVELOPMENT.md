@@ -79,6 +79,18 @@ Types: `feat` (new capability), `fix` (bug), `refactor` (no behaviour change), `
 2. **Work:** on the stage branch, in small commits, test-first wherever code changes.
 3. **Close:** the documentation checklist ([DOCUMENTATION.md](DOCUMENTATION.md) §5), green preflight, commit, then a handoff with the commit hash. The handoff is an internal working document: it stays local and is not committed.
 
+### 4.1 A parallel session (265)
+
+Since 2026-10-31 the owner allows one second Claude session to write beside the main one. Its rules:
+
+- **Its own folder and branch.** It works in its own worktree (`<project>_worktrees/par`, created like the development worktree, with `tools/tessdata` and `ui/node_modules` linked) on its own branch from `main`, and Claude is started in that folder. Its hooks, its autopilot state and its test worktree (`par_worktrees/test-run`) are then its own. The SessionStart hook of a linked worktree reads the internal documents from the main checkout and says so. Run Python with the main checkout's interpreter; in Git Bash put its `Scripts` folder first on `PATH`, so the git hooks find their packages.
+- **Hands off the main session's work.** It never touches the main session's worktree or branch, the main folder's working tree, the live service or the live worker (no restart, no stop). A demonstration service of its own uses another port and a store of its own.
+- **The internal documents are shared.** They exist only in the main checkout. It writes its own plan, adds only its own rows to the backlog and the decisions log, and reads a file again just before each edit. Its handoff takes the next free number when it is written; it never edits another session's handoff.
+- **Memory.** Only one full test run at a time on the machine: before `test-worktree` or a full `preflight`, check that no other full run is going. While the other runs, run only the affected tests.
+- **No paid calls** without a sub-budget of its own from the owner.
+- **Merging and releasing** is the main session's work: the parallel session leaves its branch green (affected tests, `preflight --skip-pytest`) and names it in its plan; the main session merges it into `main` with its own full test run and release.
+- **The autopilot** belongs to the session that switched it on (`autopilot on --plan <plan> --session "$JAV_CLAUDE_SESSION"` in Git Bash, or the first session that stops after the switch). Another session's stops are not blocked, and its session start only names the autopilot.
+
 ## 5. When is a new handoff needed?
 
 Only at the end of a session and when a stage closes. A finished measurement also counts as the close of a stage, and a session also ends when the context is roughly half full. The git log is the fine-grained history, so the handoff can be short: what was done, decisions, open questions, next step, pitfalls. The Stop hook does not force a handoff; it only reminds about uncommitted changes and the number of commits since the last handoff.
