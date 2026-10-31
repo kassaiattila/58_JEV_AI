@@ -367,10 +367,12 @@ def _files(wp: dict[str, Any], meta: dict[str, Any], released: dict[str, str]) -
     body = card_numbers.mask_values(body)
     files.append(("result.json", count,
                   json.dumps(body, ensure_ascii=False, indent=1, default=str).encode("utf-8"), None))
+    # 265 (code review APPW-09): stored as a download shows them (the fixed headers and the data points' marks in the
+    # request's language, `export.shown_table`), never the raw tables' sources and codes
     for table in ("documents", "datapoints", "line_items"):
-        head, rows = export.TABLES[table](records)
+        head, rows = export.shown_table(table, *export.TABLES[table](records))
         files.append((f"{table}.csv", len(rows), export.csv_bytes(head, rows), None))
-    head, rows = export.native_facts_table(native)
+    head, rows = export.shown_table("native_facts", *export.native_facts_table(native))
     files.append(("native_facts.csv", len(rows), export.csv_bytes(head, rows), None))
     return files
 
