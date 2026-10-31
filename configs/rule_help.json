@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "rule_help",
-    "version": "1.9.0",
+    "version": "1.10.0",
     "description": "218 (plan G-process-core P3e, the owner's request and decisions of 2026-10-23): the plain-language description of the rules for the read-only view in Settings › Rules. For every machine decision point of the decision trace (jav/core/trace.py): its area, a short title, what it decides and what it is not for, and the rule values the view shows (file, key, label, format; a percentage's label reads on into its value, as in 'below 60 %'); the values themselves are read from the rule files the running process loaded (jav/app/rules_view.py). Kept apart from the rule files, so their fingerprints and the AI requests do not change. Texts are English; the interface translates them (ui/src/i18n/hu-native.json). A test asks that every decision point has an entry and that every value's key is in a file its point reads. 231 (U4b; the owner's decisions of 2026-10-29): each value's `edit` says whether the installation may keep its own value, a default (jav/app/rule_defaults.py): its kind (number with its bounds, bool, amount, choice, set, map or list (an ordered list of codes), the options given or taken from a registry: doc_types, fields, email_routes, email_signals; capability: the capability's own rule key), or `fixed` with why (cost: it changes a paid request or a budget; structure: the catalogue's structure; format: a property of a number's format).",
     "changelog": [
+      {
+        "version": "1.10.0",
+        "date": "2026-10-31",
+        "note": "265 (code review X-03): an installation default of the warning signs that always wait for a person keeps the injected instruction, so the injection check cannot be switched off."
+      },
       {
         "version": "1.9.0",
         "date": "2026-10-31",
@@ -151,7 +156,7 @@
         {"file": "policy.json", "key": "bands.default.choice_human_max_conf", "label": "Waits for a person when the intent's probability is below", "format": "percent", "edit": {"kind": "number", "least": 0, "most": 1}},
         {"file": "policy.json", "key": "bands.default.choice_second_min_gap", "label": "A second intent counts as close within", "format": "points", "edit": {"kind": "number", "least": 0, "most": 1}},
         {"file": "policy.json", "key": "bands.default.uncertain_review", "label": "A close second intent also waits for a person", "format": "yes_no", "edit": {"kind": "bool"}},
-        {"file": "email.json", "key": "signal_review", "label": "Warning signs that always wait for a person", "format": "labels", "labels": {"prompt_injection": "An instruction hidden in the email"}, "edit": {"kind": "set", "options_from": "email_signals", "least": 0}},
+        {"file": "email.json", "key": "signal_review", "label": "Warning signs that always wait for a person", "format": "labels", "labels": {"prompt_injection": "An instruction hidden in the email"}, "edit": {"kind": "set", "options_from": "email_signals", "least": 0, "keeps": ["prompt_injection"]}},
         {"file": "policy.json", "key": "bands.default.noul_yes_min", "label": "A warning sign counts when its probability is at least", "format": "percent", "edit": {"kind": "number", "least": 0, "most": 1}}
       ]
     },
