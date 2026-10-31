@@ -215,8 +215,13 @@ function ColumnFilter({ col, facets, current, onApply }: {
   const isRange = NUMERIC.has(col.kind) || col.kind === "date" || col.kind === "datetime";
   const isDate = col.kind === "date" || col.kind === "datetime";
 
+  // 265 (code review UI-02): the form starts from the filters when it opens, never again while it is open (a list
+  // refreshing every few seconds gives new filter objects, and the text being typed was wiped)
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (!open) return;
+    const opening = open && !wasOpen.current;
+    wasOpen.current = open;
+    if (!opening) return;
     const get = (op: string) => current.find((f) => f.op === op)?.value;
     setText(String(get("contains") ?? ""));
     setFrom(String(get("gte") ?? ""));
