@@ -85,7 +85,7 @@ def test_a_case_puts_its_message_into_outlook_as_a_draft(builders) -> None:
     assert state["steps"]["send"]["result"]["receipt"] == {"outlook": "draft", "entry_id": "E-1"}
     [call] = script.calls
     assert "-Send" not in call["argv"] and call["argv"][call["argv"].index("-File") + 1] == str(outlook_drafts.SCRIPT)
-    assert call["request"]["to"] == "buyer@example.com" and call["request"]["subject"] == "Our offer"
+    assert call["request"]["recipients"] == ["buyer@example.com"] and call["request"]["subject"] == "Our offer"
     assert call["request"]["body"].replace("\r\n", "\n") == "Dear Buyer,\n\nplease find our offer attached.\n"
     assert call["files"] == {"offer-v1.docx": b"PK invented document"}  # Outlook shows the file's own name
 
@@ -118,3 +118,12 @@ def test_the_real_send_goes_out_only_to_the_allowlist(builders, monkeypatch) -> 
     state = _case("case-outlook-5", script, mode="outlook_send")
     assert state["steps"]["send"]["state"] == "done" and state["steps"]["send"]["result"]["receipt"] == {"outlook": "sent"}
     assert "-Send" in script.calls[-1]["argv"]
+
+
+def test_outlook_gets_the_checked_addresses_one_by_one() -> None:
+    """265 (code review SEC-09): the allowlist checked the parsed addresses, while Outlook got the raw text to parse
+    its own way; now the script gets the checked list and adds each as one recipient."""
+    assert sending.recipients('"Buyer, Anna" <Buyer@Example.com>, other@example.org') == [
+        "buyer@example.com", "other@example.org"]
+    script = (Path(__file__).resolve().parents[1] / "scripts" / "outlook_draft.ps1").read_text(encoding="utf-8")
+    assert "Recipients.Add" in script and "$mail.To =" not in script

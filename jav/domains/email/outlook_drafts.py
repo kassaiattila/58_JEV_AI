@@ -83,7 +83,11 @@ def _deliver(payload: dict[str, Any], *, send: bool) -> dict[str, Any]:
             target.write_bytes(part.get_payload(decode=True) or b"")
             attachments.append(str(target))
         request = Path(tmp) / "request.json"
-        request.write_text(json.dumps({"to": payload.get("to"), "subject": payload.get("subject") or "",
+        # 265 (code review SEC-09): the checked addresses, one by one (`sending.recipients`), never the raw text
+        from jav.app import sending
+
+        request.write_text(json.dumps({"recipients": sending.recipients(payload.get("to")),
+                                       "subject": payload.get("subject") or "",
                                        "body": body.get_content() if body is not None else "",
                                        "attachments": attachments}, ensure_ascii=False), encoding="utf-8")
         argv = ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(SCRIPT),
