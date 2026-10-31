@@ -15,28 +15,26 @@ from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi import Path as PathParam
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from jav.app import partners, work_views
 from jav.core import identity
 from jav.core.user_messages import message_fields
-from jav.service.service_shared import Empty, error, human_actor
+from jav.service.service_shared import Empty, In, error, human_actor
 
 PartnerId = Annotated[str, PathParam(pattern=r"^partner-[0-9a-f]{12}$")]
 
 
-class SuggestionKeys(BaseModel):
-    """264 (G1): the partner proposals an action names, by their keys."""
+class SuggestionKeys(In):
+    """264 (G1): the partner proposals an action names, by their keys (265, SEC-07: the shared request model)."""
 
-    model_config = ConfigDict(extra="forbid")
     keys: list[Annotated[str, Field(min_length=1, max_length=220)]] = Field(min_length=1, max_length=5000)
 
 
-class AcceptSuggestions(BaseModel):
+class AcceptSuggestions(In):
     """264 (G1): the proposals recorded at once - the named ones, or `all` of those shown now - with the names a person
     gave some of them."""
 
-    model_config = ConfigDict(extra="forbid")
     keys: list[Annotated[str, Field(min_length=1, max_length=220)]] | None = Field(default=None, max_length=5000)
     all: bool = False
     names: dict[str, Annotated[str, Field(max_length=200)]] = Field(default_factory=dict, max_length=5000)

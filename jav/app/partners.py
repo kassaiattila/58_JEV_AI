@@ -29,7 +29,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from jav.app import parties
 from jav.core import cfg, completion, identity, store, versions
@@ -377,8 +377,8 @@ def accept_suggestions(keys: list[str] | None, actor: identity.Who, *, names: di
         name = ((names or {}).get(key) or "").strip() or s["name"]
         try:
             made = create(PartnerIn(name=name[:200], tax_number=s["tax_number"], roles=s["roles"]), actor)
-        except PartnerConflict:
-            skipped += 1
+        except (PartnerError, ValidationError):  # 265 (code review SEC-07): a bad proposal (a tax number too long, an
+            skipped += 1  # empty name) is skipped like one recorded meanwhile, so "all" never stops half way
             continue
         created.append(made["partner_id"])
     log.info("%d partner proposal(s) recorded, %d skipped, by %s", len(created), skipped, identity.name_of(actor))
@@ -401,11 +401,14 @@ def dismiss_suggestions(keys: list[str], actor: identity.Who) -> dict[str, Any]:
 
 
 def restore_suggestions(keys: list[str], actor: identity.Who) -> dict[str, Any]:
-    """264 (G1): dismissed proposals proposed again."""
+    """264 (G1): dismissed proposals proposed again; 265 (code review SEC-07): the ones actually restored are named
+    (a key that was not dismissed is not)."""
+    wanted = list(dict.fromkeys(keys))
     with store.connect() as c:
-        c.executemany("DELETE FROM partner_suggestion_dismissals WHERE key=?", [(k,) for k in dict.fromkeys(keys)])
-    log.info("%d partner proposal(s) restored by %s", len(keys), identity.name_of(actor))
-    return {"restored": list(keys)}
+        restored = [k for k in wanted
+                    if c.execute("DELETE FROM partner_suggestion_dismissals WHERE key=?", (k,)).rowcount]
+    log.info("%d partner proposal(s) restored by %s", len(restored), identity.name_of(actor))
+    return {"restored": restored}
 
 
 def dismissed_suggestions() -> list[dict[str, Any]]:
