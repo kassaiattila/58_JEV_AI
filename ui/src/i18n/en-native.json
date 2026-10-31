@@ -5286,5 +5286,9 @@
   "Its state": "Its state",
   "Steps done": "Steps done",
   "Archived": "Archived",
-  "Archive this workflow? It cannot be restored here; its batches stay as they are.": "Archive this workflow? It cannot be restored here; its batches stay as they are."
+  "Archive this workflow? It cannot be restored here; its batches stay as they are.": "Archive this workflow? It cannot be restored here; its batches stay as they are.",
+  "A statement batch's statements": "A statement batch's statements",
+  "books the same days as another statement": "books the same days as another statement",
+  "Choose the valid one": "Choose the valid one",
+  "No statement in the package yet.": "No statement in the package yet."
 }

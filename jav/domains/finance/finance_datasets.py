@@ -253,6 +253,34 @@ def statement_lines(scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
+def package_statements(scope: dict[str, str]) -> Rows:
+    """264 (plan E, F6; the owner's decision of 2026-10-31: the small lists the one list too): a bank statements batch's
+    statements - the file (leading to its review), the account, the period, how it was read and its state - grouped by
+    their state; one booking the same days as another is where a person chooses the valid one."""
+    from jav.domains.finance import statement_package
+
+    wp_id = scope["workpackage_id"]
+    cols = [
+        col("file", "File", link="item"),
+        col("account", "Account", "id"),
+        col("period", "Period"),
+        col("period_start", "From", "date", hidden=True),
+        col("rank", "Checks", "enum", labels="statement_rank", group=True),
+        col("state", "State", "enum", labels="statement_state", badge=True, group=True,
+            marks={"valid": "done", "replaced": "muted", "conflict": "review", "pending": "waiting"}),
+    ]
+    rows = [{"_key": s["item_id"], "_wp": wp_id, "item_id": s["item_id"], "file": s.get("file"),
+             "account": " ".join(x for x in (s.get("account"), s.get("currency")) if x) or None,
+             "period": f"{s['period_start']} – {s.get('period_end') or '?'}" if s.get("period_start") else None,
+             "period_start": s.get("period_start"), "rank": s.get("rank"), "state": s.get("state")}
+            for s in statement_package.package_view(wp_id)["statements"]]
+    return cols, rows
+
+
+_STATEMENT_STATE = {"valid": "valid", "replaced": "replaced by a better statement",
+                    "conflict": "books the same days as another statement", "pending": "no statement from it yet"}
+_STATEMENT_RANK = {"code_checked": "read by code, balances check out", "extracted_checked": "extracted by AI, balances check out",
+                   "unchecked": "balances not checked"}
 _INVOICE_RESULT = {"paid": "Paid", "partly_paid": "Partly paid", "credited": "Settled by a credit note",
                    "undecided": "Proposal to decide", "no_payment_found": "No payment in the covered period",
                    "not_covered": "Statements do not cover it"}
@@ -260,7 +288,8 @@ _LINE_RESULT = {"paired": "Paired", "partly_paired": "Partly paired", "needs_no_
                 "left_out": "Left out", "open": "Open"}
 _DIRECTION = {"credit": "Incoming", "debit": "Outgoing"}
 LABEL_SETS = tuple(datasets.LabelSet(name, __name__, labels.copy) for name, labels in (
-    ("reconcile_invoice_result", _INVOICE_RESULT), ("reconcile_line_result", _LINE_RESULT), ("reconcile_direction", _DIRECTION)))
+    ("reconcile_invoice_result", _INVOICE_RESULT), ("reconcile_line_result", _LINE_RESULT), ("reconcile_direction", _DIRECTION),
+    ("statement_state", _STATEMENT_STATE), ("statement_rank", _STATEMENT_RANK)))
 
 
 # the tables, each with the table it follows in the catalogue (the order they always had); registered by
@@ -277,8 +306,10 @@ DATASETS = (
                       statement_invoices, optional_scope=("version",)), "reconcile_inputs"),  # 263 (F3)
     (datasets.Dataset("reconcile_statement_lines", "A reconciliation statement's lines", ("workpackage_id",),
                       statement_lines, optional_scope=("version",)), "reconcile_statement_invoices"),  # 263 (F3)
+    (datasets.Dataset("statement_package_statements", "A statement batch's statements", ("workpackage_id",),
+                      package_statements), "reconcile_statement_lines"),  # 264 (F6)
 )
 
 
-__all__ = ["DATASETS", "LABEL_SETS", "own_parties", "reconcile_inputs", "statement_invoices", "statement_lines", "utility_cost",
-           "utility_sources"]
+__all__ = ["DATASETS", "LABEL_SETS", "own_parties", "package_statements", "reconcile_inputs", "statement_invoices",
+           "statement_lines", "utility_cost", "utility_sources"]
