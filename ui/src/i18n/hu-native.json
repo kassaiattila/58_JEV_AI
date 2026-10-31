@@ -5356,5 +5356,6 @@
   "the module {{module}} prices no unit, so its minimum is not charged": "a(z) „{{module}}” modul egyetlen egységet sem áraz, ezért a minimumdíja sem számítható fel",
   "Check the new live run first": "Előbb nézd át az új éles futást",
   "its result is not the one shown here and would replace the released one; check and approve it in Processing, then release": "az eredménye nem az, ami itt látszik, és a kiadottat váltaná fel; nézd át és hagyd jóvá a Feldolgozásban, utána add ki",
-  "the result of a live run is not the one this page shows; check and approve it on its own page first": "egy éles futás eredménye nem az, amit ez a lap mutat; előbb a saját lapján nézd át és hagyd jóvá"
+  "the result of a live run is not the one this page shows; check and approve it on its own page first": "egy éles futás eredménye nem az, amit ez a lap mutat; előbb a saját lapján nézd át és hagyd jóvá",
+  "a disagreement is still open; settle it before the facts are frozen": "egy eltérés még nincs rendezve; rendezd, mielőtt a tényeket rögzíted"
 }

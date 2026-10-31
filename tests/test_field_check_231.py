@@ -140,6 +140,8 @@ def test_a_frozen_check_is_the_steps_version_and_a_stale_page_is_refused(case) -
 
 
 def test_reopened_the_check_waits_for_a_new_freeze(case) -> None:
+    [claim] = [c for c in field_check.view(case, "check")["claims"] if c["open"]]
+    field_check.keep(case, "check", claim["claim_key"], actor=ANNA)  # 265 (APPW-03): no freeze with it open
     field_check.freeze(case, "check", cover_start="2027-01-01", expected_state=None, actor=ANNA)
     _later(case)
     assert engine.state(case)["steps"]["check"]["state"] == "done"
