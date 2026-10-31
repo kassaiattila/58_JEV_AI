@@ -5351,5 +5351,7 @@
   "Dismissed: not proposed again until restored.": "Elvetve: visszaállításig nem javasoljuk újra.",
   "Restored among the proposals.": "Visszakerült a javaslatok közé.",
   "Suggestions from the data ({{n}})": "Javaslatok az adatokból ({{n}})",
-  "The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Record them at once, edit one first, or dismiss what is no partner of yours (a misread name, a one-off seller); nothing is recorded by itself.": "A bejövő számlák szállítói és a kimenő számlák vevői, akik még nem partnerek. Rögzítsd őket egyszerre, egyet előbb szerkessz, vagy vesd el, ami nem partnered (egy félreolvasott név, egy egyszeri eladó); magától semmi sem kerül rögzítésre."
+  "The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Record them at once, edit one first, or dismiss what is no partner of yours (a misread name, a one-off seller); nothing is recorded by itself.": "A bejövő számlák szállítói és a kimenő számlák vevői, akik még nem partnerek. Rögzítsd őket egyszerre, egyet előbb szerkessz, vagy vesd el, ami nem partnered (egy félreolvasott név, egy egyszeri eladó); magától semmi sem kerül rögzítésre.",
+  "{{unit}}: the module {{module}} has no basis: the fact {{fact}} is missing": "{{unit}}: a(z) „{{module}}” modulnak nincs díjalapja, mert hiányzik a(z) „{{fact}}” tény",
+  "the module {{module}} prices no unit, so its minimum is not charged": "a(z) „{{module}}” modul egyetlen egységet sem áraz, ezért a minimumdíja sem számítható fel"
 }
