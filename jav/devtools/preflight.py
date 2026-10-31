@@ -99,15 +99,26 @@ def _failed_ui_tests(junit: Path) -> list[str]:
             if case.find("failure") is not None or case.find("error") is not None]
 
 
+def local_bin(ui_dir: Path, name: str) -> Path | None:
+    """265 (code review TOOL-12): a UI tool from the UI's own `node_modules/.bin` (`.cmd` on Windows), or None. `npx`
+    with a partial `node_modules` could fetch an unrelated package of that name from the network, unasked."""
+    for candidate in (ui_dir / "node_modules" / ".bin" / f"{name}.cmd", ui_dir / "node_modules" / ".bin" / name):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def run_ui_checks(folder: Path | None = None, *, ui_dir: Path = UI_DIR) -> tuple[bool, str] | None:
     """The UI (040 K3): `tsc --noEmit` + `vitest run` + (057) translation completeness (`scripts/check-i18n.mjs` and
     `--audit`). Skipped (None) if the Node dependencies are not installed. 149: the vitest output and a JUnit file are
     kept next to the pytest log, and a failure names the failed tests and the folder (an intermittent UI failure could
     not be identified before)."""
-    npx = shutil.which("npx")
-    if npx is None or not (ui_dir / "node_modules").is_dir():
+    if not (ui_dir / "node_modules").is_dir():
         return None
-    tsc = subprocess.run([npx, "tsc", "--noEmit"], cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    tsc_bin, vitest_bin = local_bin(ui_dir, "tsc"), local_bin(ui_dir, "vitest")
+    if tsc_bin is None or vitest_bin is None:
+        return False, "the UI's tsc or vitest is not installed in ui/node_modules (npm ci)"
+    tsc = subprocess.run([str(tsc_bin), "--noEmit"], cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if tsc.returncode != 0:
         first = next((ln for ln in (tsc.stdout or "").splitlines() if ln.strip()), "tsc hiba")
         return False, f"type check: {first[:160]}"
@@ -122,7 +133,7 @@ def run_ui_checks(folder: Path | None = None, *, ui_dir: Path = UI_DIR) -> tuple
     folder = folder or log_folder()
     junit = folder / "vitest-junit.xml"
     r = subprocess.run(
-        [npx, "vitest", "run", "--reporter=default", "--reporter=junit", f"--outputFile.junit={junit}"],
+        [str(vitest_bin), "run", "--reporter=default", "--reporter=junit", f"--outputFile.junit={junit}"],
         cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     (folder / "vitest.txt").write_text((r.stdout or "") + (f"\n--- stderr ---\n{r.stderr}" if r.stderr else ""), encoding="utf-8")
