@@ -41,6 +41,10 @@ export function App() {
   useEffect(() => { document.title = t("JAV workspace"); }, [language]);
   const hash = useHash();
   const route = parseRoute(hash);
+  // 263 (E2; one case, one track): a case's page in one place whether its address names a part of its track or one of
+  // its batches, so moving between them keeps the page
+  const casePage = route.view === "cases" ? { caseId: route.caseId, tab: route.tab, sub: route.sub, of: route.of }
+    : route.view === "workpackages" && route.wpId && route.inCase ? { caseId: route.inCase, batch: { wpId: route.wpId, route } } : null;
   // U2a: the list of every batch belongs to Settings › System; a batch, a run, a chain and an old result address to
   // the Cases (the work they are part of)
   const section = route.view === "settings" || (route.view === "workpackages" && !route.wpId) ? "settings" : "case-list";
@@ -69,10 +73,10 @@ export function App() {
         <main id="main" className="main" tabIndex={-1}>
           {/* 167 (review 160 U-12): a view's error leaves the menu working; another address clears it */}
           <ErrorBoundary view resetKey={hash}>
-            {route.view === "workpackages" ? <Workpackages route={route} /> : null}
+            {route.view === "workpackages" && !casePage ? <Workpackages route={route} /> : null}
             {route.view === "run" ? <RunDetail runId={route.runId} /> : null}
             {route.view === "workflows" ? <Workflows route={route} /> : null}
-            {route.view === "cases" ? <CasePage caseId={route.caseId} tab={route.tab} /> : null}
+            {casePage ? <CasePage {...casePage} /> : null}
             {route.view === "case-list" && !route.create ? <CaseList /> : null}
             {route.view === "case-list" && route.create ? <NewCase pack={route.pack} after={route.after} /> : null}
             {route.view === "settings" ? <Settings section={route.section} item={route.item} tab={route.tab} open={route.open} /> : null}

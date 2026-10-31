@@ -2560,7 +2560,6 @@
   "a case's result is approved on its own page, step by step": "a case's result is approved on its own page, step by step",
   "a case's container is not deleted while its case exists": "a case's container is not deleted while its case exists",
   "Approval of a case's result": "Approval of a case's result",
-  "Next step: {{step}}": "Next step: {{step}}",
   "+ up to {{usd}} not settled": "+ up to {{usd}} not settled",
   "A person decided": "A person decided",
   "A reply arrived": "A reply arrived",
@@ -2751,7 +2750,6 @@
   "Review": "Review",
   "Starts the package's live run, which can spend up to {{usd}}": "Starts the batch's live run, which can spend up to {{usd}}",
   "The package is being made…": "The batch is being made…",
-  "The package's pages": "The batch's pages",
   "The source held no document: the case is done without a package.": "The source held no document: the case is done without a batch.",
   "live run in progress": "live run in progress",
   "no documents": "no documents",
@@ -3467,7 +3465,6 @@
   "Give: {{fields}}": "Give: {{fields}}",
   "Nothing to show yet.": "Nothing to show yet.",
   "{{action}}: it can spend up to {{usd}}": "{{action}}: it can spend up to {{usd}}",
-  "← Back to the main case": "← Back to the main case",
   "Starts once the steps before it are done.": "Starts once the steps before it are done.",
   "Sub-work": "Sub-work",
   "Work": "Work",
@@ -3792,7 +3789,6 @@
   "A case of the process {{process}} starts once the steps before it are done.": "A case of the process {{process}} starts once the steps before it are done.",
   "A case of the process {{process}} starts.": "A case of the process {{process}} starts.",
   "Earlier cases of the step:": "Earlier cases of the step:",
-  "Its case": "Its case",
   "Its case is done": "Its case is done",
   "Its case is in progress": "Its case is in progress",
   "Its next step": "Its next step",
@@ -5202,5 +5198,9 @@
   "Last invoice": "Last invoice",
   "Accounts": "Accounts",
   "Last statement": "Last statement",
-  "The processes of its roles": "The processes of its roles"
+  "The processes of its roles": "The processes of its roles",
+  "An earlier case of this step, kept as it closed.": "An earlier case of this step, kept as it closed.",
+  "Log": "Log",
+  "Open the documents' processing": "Open the documents' processing",
+  "The step's parts": "The step's parts"
 }

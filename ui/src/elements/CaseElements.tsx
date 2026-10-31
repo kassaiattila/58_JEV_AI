@@ -8,7 +8,7 @@ import { ApprovalStateNotes, EarlierVersions, ReturnControl } from "../component
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { fileName, MODE as MODE_OF_RUN, moneyText, providerName, RUN_STATUS, saidText, stepLabel, tmap, when } from "../labels";
-import { batchOfCase, wpHash } from "../route";
+import { batchOfCase, caseUnder, routeHash, wpHash } from "../route";
 import { handoverStatus, replyStatus, subCaseStatus } from "./caseStatus";
 import { ActionButtons } from "./ActionsElement";  // 261 (B1e): the shared actions
 import { DataTableCard } from "./DataTableElement";  // 261 (B1f): the shared data table
@@ -273,11 +273,11 @@ export function StartedCases(p: ElementProps) {
     emptyText={t("No case has been started from these emails yet.")} />;
 }
 
-const OUTCOME = tmap({ done: "done", cancelled: "cancelled", gone: "deleted" });
 
 /** 261 (B1a): a sub-case's work in a few words: its documents, its current run's open to-dos (B1c: leading to their
- *  review, under the sub-case's address) and the run's state. */
-function WorkCell({ sub }: { sub: NonNullable<SubCaseData["case"]> }) {
+ *  review, under the sub-case's address; 263, E2: under the main case's, `main`) and the run's state. */
+function WorkCell({ sub, main }: { sub: NonNullable<SubCaseData["case"]>; main: string }) {
+  caseUnder(sub.id, main);
   const parts: ReactNode[] = (sub.work ?? []).flatMap((w) => {
     if (w.batch) batchOfCase(w.batch, sub.id);
     const todos = w.todos ? t("To-dos: {{n}}", { n: w.todos }) : t("no to-dos");
@@ -291,19 +291,20 @@ function WorkCell({ sub }: { sub: NonNullable<SubCaseData["case"]> }) {
 }
 
 /** 261 (plan B, B1b; the owner's decision of 2026-10-29: one sub-work table): a multi-step case's sub-cases as rows of
- *  one table, each with its step, its state and why, its work and its case (with its own next step), and a stopped
- *  step's retry. */
+ *  one table, each with its step, its state and why, its work and its own next step, and a stopped step's retry. 263
+ *  (plan E, E2; one case, one track): a row's step and its next step open the step on the case's own page, where its
+ *  sub-case's work and earlier cases are. */
 export function SubWorkTable({ rows }: { rows: ElementProps[] }) {
   useLocale();
   if (!rows.length) return null;
-  const at = (id: string, tab?: string) => `#/cases/${encodeURIComponent(id)}${tab ? `/${encodeURIComponent(tab)}` : ""}`;
+  const at = (p: ElementProps, sub?: string) => routeHash({ view: "cases", caseId: p.caseId, tab: p.element.step ?? "", ...(sub ? { sub } : {}) });
   // the actions' column only when a row has a button (a stopped step's retry)
   const acts = rows.some((p) => (p.element.step ? p.page.steps[p.element.step]?.actions ?? [] : []).some((a) => !a.form));
   return (
     <section className="card wide" aria-label={t("Sub-work")}>
       <div className="card-head"><h2>{t("Sub-work")}</h2></div>
       <table className="table compact" aria-label={t("Sub-work")}>
-        <thead><tr><th>{t("Step")}</th><th>{t("State")}</th><th>{t("Work")}</th><th>{t("Its case")}</th>{acts ? <th aria-label={t("Actions")} /> : null}</tr></thead>
+        <thead><tr><th>{t("Step")}</th><th>{t("State")}</th><th>{t("Work")}</th>{acts ? <th aria-label={t("Actions")} /> : null}</tr></thead>
         <tbody>
           {rows.map((p) => {
             const d = p.element.data as SubCaseData | null;
@@ -319,23 +320,13 @@ export function SubWorkTable({ rows }: { rows: ElementProps[] }) {
               : d?.state === "failed" && step?.note ? t(step.note) : null;
             return (
               <tr key={p.element.step ?? title} aria-label={title}>
-                <td><strong>{title}</strong>{d?.process ? <div className="small muted">{t(d.process)}</div> : null}</td>
+                <td><a href={at(p)}><strong>{title}</strong></a>{d?.process ? <div className="small muted">{t(d.process)}</div> : null}</td>
                 <td>
                   {state ? <span className={`status ${state.mark}`}>{state.text}</span> : "–"}
-                  {next && sub ? <div className="small"><a href={at(sub.id, next.tab)}>{stepLabel(next.code, next.params, next.label)}</a></div> : null}
+                  {next && sub ? <div className="small"><a href={at(p, next.tab)}>{stepLabel(next.code, next.params, next.label)}</a></div> : null}
                   {why ? <div className="small muted">{why}</div> : null}
                 </td>
-                <td className="small">{sub ? <WorkCell sub={sub} /> : "–"}</td>
-                <td>
-                  {sub ? <a href={at(sub.id)}>{sub.name}</a> : "–"}
-                  {d?.earlier.length ? (
-                    <div className="small muted">{t("Earlier cases of the step:")}{" "}
-                      {d.earlier.map((e, i) => (
-                        <span key={e.case_id}>{i ? ", " : ""}<a href={at(e.case_id)}>{OUTCOME[e.outcome] ?? e.outcome}</a></span>
-                      ))}
-                    </div>
-                  ) : null}
-                </td>
+                <td className="small">{sub ? <WorkCell sub={sub} main={p.caseId} /> : "–"}</td>
                 {acts ? <td><ActionButtons p={p} primary="retry" /></td> : null}
               </tr>
             );

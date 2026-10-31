@@ -30,8 +30,10 @@ export type Route =
   /** 146: the workflows (the work packages of one job, chained): the list and a control view; 231 (U2c): only the
    *  earlier ones, readable (a new one is a multi-step process's case) */
   | { view: "workflows"; wfId?: string }
-  /** 231 (A6): a process pack's case, on one of its tabs (the tab ids come from its pack) */
-  | { view: "cases"; caseId: string; tab?: string }
+  /** 231 (A6): a process pack's case, on one of its tabs (the tab ids come from its pack). 263 (E2): `tab` is an item of
+   *  its track (a tab, or a step that runs a sub-case), `sub` the item of the sub-case's track under it, and `of` an
+   *  earlier sub-case of that step (a retried step's) */
+  | { view: "cases"; caseId: string; tab?: string; sub?: string; of?: string }
   /** 231 (U0): the case list; `create`: a new case, of the process `pack` when one is chosen */
   | { view: "case-list"; create?: boolean; pack?: string; after?: string }  // 261: `after`, the case whose next period it is
   /** 231 (U3a): `item`, a process of the Processes section (its own page), and `tab`, the page's tab. 263 (E1): a
@@ -70,6 +72,13 @@ function decodePart(part: string): string {
 const CASE_OF_BATCH = new Map<string, string>();
 export function batchOfCase(wpId: string, caseId: string): void {
   CASE_OF_BATCH.set(wpId, caseId);
+}
+
+/** 263 (plan E, E2; the owner's decision of 2026-10-30: one case, one track): the main case of each sub-case shown on
+ *  its page, so a sub-case's batch opens under the main case, where its step is. */
+const MAIN_OF_CASE = new Map<string, string>();
+export function caseUnder(caseId: string, mainId: string): void {
+  MAIN_OF_CASE.set(caseId, mainId);
 }
 
 /** A batch's address after its id (`parts[0]`): its section, item, run start, adding, result table and run. */
@@ -120,7 +129,12 @@ export function parseRoute(hash: string): Route {
         batchOfCase(parts[3], parts[1]);
         return { ...batchRoute(parts.slice(3), params), inCase: parts[1] };
       }
-      return parts[1] ? { view: "cases", caseId: parts[1], tab: parts[2] || undefined } : { view: "case-list" };  // A7e
+      if (!parts[1]) return { view: "case-list" };
+      {  // A7e; 263 (E2): an item of its track, the sub-case's item under it, and an earlier sub-case of the step
+        const of = parts[2] ? params.get("of") : null;
+        return { view: "cases", caseId: parts[1], tab: parts[2] || undefined, ...(parts[2] && parts[3] ? { sub: parts[3] } : {}),
+          ...(of ? { of } : {}) };
+      }
     case "workflows":
       // 231 (U2c): a new workflow is a case of a multi-step process; the repeat's address shows the earlier workflow
       if (parts[1] === "new") return { view: "case-list", create: true };
@@ -146,14 +160,16 @@ export function routeHash(r: Route): string {
     case "activity": return r.day ? `#/activity?day=${r.day}` : "#/activity";
     case "waiting": return r.all ? "#/waiting?all=1" : "#/waiting";
     case "run": return `#/runs/${e(r.runId)}`;
-    case "cases": return r.tab ? `#/cases/${e(r.caseId)}/${e(r.tab)}` : `#/cases/${e(r.caseId)}`;
+    case "cases":
+      return r.tab ? `#/cases/${e(r.caseId)}/${e(r.tab)}${r.sub ? `/${e(r.sub)}` : ""}${r.of ? `?of=${e(r.of)}` : ""}` : `#/cases/${e(r.caseId)}`;
     case "case-list": return r.create ? (r.pack ? `#/cases/new/${e(r.pack)}${r.after ? `?after=${e(r.after)}` : ""}` : "#/cases/new") : "#/cases";
     case "workflows": return r.wfId ? `#/workflows/${e(r.wfId)}` : "#/workflows";
     case "legacy-result": return r.runId ? `#/reports/${e(r.runId)}` : "#/reports";
     case "workpackages": {
       if (!r.wpId) return "#/workpackages";
       // 261 (B1c): a case's step's batch under its case
-      const owner = r.inCase ?? CASE_OF_BATCH.get(r.wpId);
+      const own = r.inCase ?? CASE_OF_BATCH.get(r.wpId);
+      const owner = own ? MAIN_OF_CASE.get(own) ?? own : undefined;  // 263 (E2): a sub-case's under its main case
       const base = owner ? `#/cases/${e(owner)}/batches/${e(r.wpId)}` : `#/workpackages/${e(r.wpId)}`;
       if (!r.stage) return base;
       let h = `${base}/${r.stage}`;

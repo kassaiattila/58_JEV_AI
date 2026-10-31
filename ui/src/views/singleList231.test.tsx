@@ -38,17 +38,24 @@ describe("one work list (231 U2a)", () => {
     expect(within(rail).getByRole("link", { name: "Cases" }).getAttribute("aria-current")).toBe("page");
   });
 
-  it("leads a case step's batch back to its case and step", async () => {
+  it("shows a case step's batch on its case's page, under the case's address", async () => {
     vi.spyOn(api, "workpackage").mockResolvedValue(batch({ owner_case: { id: "wp-00000000c001", name: "April case", step: "process",
       step_title: "Processing", tab: "documents" } }));
+    vi.spyOn(api, "casePage").mockResolvedValue({
+      case: { id: "wp-00000000c001", pack: "documents", version: "1.4.0", title: "Documents", name: "April case", status: "open" },
+      steps: {}, next: null, tabs: [{ id: "documents", label: "Documents", elements: [{ type: "package_work", step: "process",
+        data: { package: { id: "wp-00000000b001", name: "April invoices", items: 0 }, runs: [], can_start: false } }] }] });
+    vi.spyOn(api, "users").mockResolvedValue({ users: [] });
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [] });
     vi.spyOn(api, "datasetQuery").mockResolvedValue(EMPTY);
-    // 261 (B1c): a case's step's batch is shown under its case's address
+    // 261 (B1c): a case's step's batch is shown under its case's address; 263 (E2): on the case's page, whose track
+    // its stages are when the case is only the batch
     render(<WorkpackageDetail wpId="wp-00000000b001" route={{ view: "workpackages", wpId: "wp-00000000b001", inCase: "wp-00000000c001" }} />);
     const crumbs = await screen.findByRole("navigation", { name: "Location" });
     expect(within(crumbs).getByRole("link", { name: "Cases" }).getAttribute("href")).toBe("#/cases");
-    expect(within(crumbs).getByRole("link", { name: "April case" }).getAttribute("href")).toBe("#/cases/wp-00000000c001/documents");
-    expect(crumbs.textContent).toContain("Processing");
+    expect(await screen.findByRole("heading", { level: 1, name: "April case" })).toBeTruthy();
+    const stages = await screen.findByRole("tablist", { name: "Document batch stages" });
+    expect(within(stages).getAllByRole("tab")[0].getAttribute("href")).toBe("#/cases/wp-00000000c001/batches/wp-00000000b001/process");
   });
 
   it("leads any other batch to the list of every batch, and a case row to the case's own address", async () => {

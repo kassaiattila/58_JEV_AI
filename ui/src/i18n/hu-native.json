@@ -2566,7 +2566,6 @@
   "a case's result is approved on its own page, step by step": "Az ügy eredményét a saját oldalán, lépésenként kell jóváhagyni",
   "a case's container is not deleted while its case exists": "Az ügy tárolója nem törölhető, amíg az ügy létezik",
   "Approval of a case's result": "Egy ügy eredményének jóváhagyása",
-  "Next step: {{step}}": "Következő lépés: {{step}}",
   "+ up to {{usd}} not settled": "+ legfeljebb {{usd}} rendezetlen",
   "A person decided": "Egy ember döntött",
   "A reply arrived": "Válasz érkezett",
@@ -2757,7 +2756,6 @@
   "Review": "Ellenőrzés",
   "Starts the package's live run, which can spend up to {{usd}}": "Elindítja a köteg élő futását, legfeljebb {{usd}} költséggel",
   "The package is being made…": "A köteg készül…",
-  "The package's pages": "A köteg oldalai",
   "The source held no document: the case is done without a package.": "A forrásban nem volt irat: az ügy köteg nélkül kész.",
   "live run in progress": "élő futás folyamatban",
   "no documents": "nincs irat",
@@ -3472,7 +3470,6 @@
   "Give: {{fields}}": "Add meg: {{fields}}",
   "Nothing to show yet.": "Még nincs mit mutatni.",
   "{{action}}: it can spend up to {{usd}}": "{{action}}: legfeljebb {{usd}} költhet",
-  "← Back to the main case": "← Vissza a főügyhöz",
   "Starts once the steps before it are done.": "Az előtte lévő lépések után indul.",
   "Sub-work": "Részmunkák",
   "Work": "Munka",
@@ -3797,7 +3794,6 @@
   "A case of the process {{process}} starts once the steps before it are done.": "A részügy ({{process}}) akkor indul, amikor az előtte lévő lépések elkészültek.",
   "A case of the process {{process}} starts.": "A részügy ({{process}}) most indul.",
   "Earlier cases of the step:": "A lépés korábbi részügyei:",
-  "Its case": "Részügye",
   "Its case is done": "A részügy kész",
   "Its case is in progress": "A részügy folyamatban",
   "Its next step": "Következő lépése",
@@ -5240,5 +5236,9 @@
   "Last invoice": "Utolsó számla",
   "Accounts": "Számlaszámok",
   "Last statement": "Utolsó kivonat",
-  "The processes of its roles": "A szerepeit használó folyamatok"
+  "The processes of its roles": "A szerepeit használó folyamatok",
+  "An earlier case of this step, kept as it closed.": "A lépés egy korábbi ügye, úgy, ahogy lezárult.",
+  "Log": "Napló",
+  "Open the documents' processing": "Az iratok feldolgozása",
+  "The step's parts": "A lépés részei"
 }

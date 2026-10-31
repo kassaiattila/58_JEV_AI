@@ -1,7 +1,9 @@
 // One work package (057): a header with the next-step button, and below it the stages of the work — Feldolgozás ·
 // Ellenőrzés · Eredmény (Processing · Review · Result) —, each with its own status (modelled on the old V4 stage tabs).
 // Without an address the work package opens at the next step's stage; the step is computed in one place by the local
-// service (the list column shows the same).
+// service (the list column shows the same). 263 (plan E, E2; the owner's decisions of 2026-10-30: one case, one track):
+// a case's step's batch opens on its case's page, under the step (`CasePage` with the batch embedded); the stages are a
+// shared part (`BatchStages`), and a batch of no case keeps its own page.
 import { useEffect, useState, type ReactNode } from "react";
 import { api, ApiError, USERS_EVENT, type WorkpackageView } from "../api";
 import { lazyPage } from "../components/LazyPage";
@@ -11,7 +13,8 @@ import { useEvent, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { itemCountText, MODE, RUN_STATUS, stepLabel, tmap, when } from "../labels";
 import { partOf } from "../logic/packageParts";
-import { batchOfCase, go, routeHash, wpHash, type Route, type Stage } from "../route";
+import { PageActions, PageActionsSlot } from "../components/PageActions";
+import { batchOfCase, caseUnder, go, routeHash, wpHash, type Route, type Stage } from "../route";
 import { PackageItemsPanel } from "./PackageItems";
 import { ProcessStage } from "./ProcessStage";
 import { scopeText } from "./PackageScope";
@@ -85,9 +88,11 @@ export function OwnerPicker({ view, onChanged }: { view: WorkpackageView; onChan
 export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { view: "workpackages" }>; wpId: string }) {
   useLocale();
   const [poll, setPoll] = useState(false);
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
   const wp = useLoad(`wp:${wpId}`, () => api.workpackage(wpId), poll ? 4000 : undefined);
   const lastStatus = wp.data?.last_run?.status;
-  useEffect(() => setPoll(lastStatus ? ACTIVE.has(lastStatus) : false), [lastStatus]); // auto-refreshes only during a run
+  const ofCase = Boolean(wp.data?.owner_case || wp.data?.case);  // its case's page asks again itself
+  useEffect(() => setPoll(!ofCase && lastStatus ? ACTIVE.has(lastStatus) : false), [lastStatus, ofCase]); // auto-refreshes only during a run
 
   if (wp.error?.status === 404 || wp.error?.status === 422) {
     // The work package requested in the address does not exist: we say so, and do not open another one instead.
@@ -101,19 +106,22 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   const view = wp.data;
   if (view.case) return <CasePage caseId={view.case.id} />;  // 231 (A6): a case's container shows its case
   // 261 (plan B, B1c; the owner's decision of 2026-10-29): a case's step's batch opens under its case's address, an
-  // older address of it leads there
+  // older address of it leads there. 263 (E2; one case, one track): a sub-case's batch under its main case, on whose
+  // page its step shows it
   const owner = view.owner_case;
-  if (owner) batchOfCase(wpId, owner.id);
-  if (owner && route.inCase !== owner.id) {
-    window.location.replace(routeHash({ ...route, inCase: owner.id }));
-    return <p className="muted">{t("Loading…")}</p>;
+  const main = owner ? owner.parent?.id ?? owner.id : null;
+  if (owner && main) {
+    batchOfCase(wpId, owner.id);
+    if (main !== owner.id) caseUnder(owner.id, main);
+    if (route.inCase !== main) {
+      window.location.replace(routeHash({ ...route, inCase: main }));
+      return <p className="muted">{t("Loading…")}</p>;
+    }
+    return <CasePage caseId={main} batch={{ wpId, route }} />;
   }
-  const { workpackage, next, last_run: last } = view;
-  const stage: Stage = route.stage ?? next.stage;
-  const status = stageStatus(view);
+  const { workpackage, last_run: last } = view;
   // 176: what the package's rule shows (231 C3b5a: by its page part; none for a package of no rule)
   const part = partOf(view);
-  const labels = STAGE_LABEL;
 
   const summary: ReactNode = (
     <>
@@ -130,61 +138,78 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   // 181: the party, period and role a person gave the package (a statement package's own is on its summary already, a
   // workflow step's is the workflow's, linked on the same line)
   const scopeOf: ReactNode = view.scope && view.scope.from === "own" ? <>{" · "}{scopeText(view.scope)}</> : null;
-  // the next-step button; not needed if we are already on that stage's page
-  const nextButton = next.stage !== stage || route.stage === undefined ? (
-    <button type="button" className="primary" onClick={() => go({ view: "workpackages", wpId, stage: next.stage })}>{nextStepText(view)} →</button>
-  ) : <span className="next-hint">{t("Next step: {{step}}", { step: nextStepText(view) })}</span>;
-
-  // U2a (the owner's decision of 2026-10-28: one work list): a case step's batch leads back to its case and step; any
-  // other batch to the list of every batch. 261 (B1c): a sub-case's batch leads back to the main case too, by its name,
-  // and to the sub-case by the main case's step
-  const caseAt = (id: string, tab?: string | null) => routeHash({ view: "cases", caseId: id, tab: tab ?? undefined });
-  const main = owner?.parent;
-  const crumbs = main && owner
-    ? [{ label: t("Cases"), href: "#/cases" }, { label: main.name, href: caseAt(main.id, main.tab) },
-       { label: t(main.step_title), href: caseAt(owner.id, owner.tab) }]
-    : owner
-    ? [{ label: t("Cases"), href: "#/cases" },
-       { label: owner.name, href: caseAt(owner.id, owner.tab) },
-       ...(owner.step_title ? [{ label: t(owner.step_title) }] : [])]
-    : [{ label: t("All document batches"), href: "#/workpackages" }];
-  const back = main ? <a className="button secondary" href={caseAt(main.id, main.tab)}>{t("← Back to the main case")}</a> : null;
+  const crumbs = [{ label: t("All document batches"), href: "#/workpackages" }];
   return (
     <>
       <PageHeader compact crumbs={crumbs} title={workpackage.name}
-        summary={<>{summary}{scopeOf}{workflowOf}</>}
-        actions={<>{back}<OwnerPicker view={view} onChanged={wp.reload} />{nextButton}<WorkpackageActions view={view} onChanged={wp.reload} /></>} />
+        summary={<>{summary}{scopeOf}{workflowOf}</>} actionsSlot={setSlot}
+        actions={<><OwnerPicker view={view} onChanged={wp.reload} /><WorkpackageActions view={view} onChanged={wp.reload} /></>} />
+      <PageActionsSlot value={slot}><BatchStages view={view} route={route} onChanged={wp.reload} /></PageActionsSlot>
+    </>
+  );
+}
+
+/** 263 (E2): a batch's three stages - the bar with each stage's state, and the chosen stage's work - the same on a
+ *  batch's own page and under its case's step. Its next step is the page's main action (`PageActions`), at the right
+ *  end of the title row, when it is done on another stage; on its own stage the stage's own solid button is the action,
+ *  and `otherwise` (the case's next step, done elsewhere) is the page's. `extra` stands at the bar's right end (the
+ *  batch's management and the step's log, under a case); `note` above the Processing stage's work (what the case's step
+ *  says of the batch's run: the cost cap a person approved); `body` in place of a stage's work, with no stage chosen
+ *  (the step's log). `level`: "sub" under a case's track, quieter; "main" when the stages are the page's track. */
+export function BatchStages({ view, route, onChanged, extra, otherwise, note, body, level = "main" }: {
+  view: WorkpackageView; route: Extract<Route, { view: "workpackages" }>; onChanged: () => void; extra?: ReactNode;
+  otherwise?: ReactNode; note?: ReactNode; body?: ReactNode; level?: "main" | "sub";
+}) {
+  useLocale();
+  const { workpackage, next } = view;
+  const wpId = workpackage.id;
+  const stage: Stage | null = body !== undefined ? null : route.stage ?? next.stage;
+  const status = stageStatus(view);
+  const part = partOf(view);
+  const labels = STAGE_LABEL;
+  return (
+    <>
+      {next.stage !== stage ? (
+        <PageActions>
+          <button type="button" className="primary" onClick={() => go({ view: "workpackages", wpId, stage: next.stage })}>{nextStepText(view)} →</button>
+        </PageActions>
+      ) : otherwise ? <PageActions>{otherwise}</PageActions> : null}
       {workpackage.status === "archived" ? (
         <p className="notice">{t("This batch is hidden from the list; its runs and results are kept. Use “Manage batch” to bring it back.")}</p>
       ) : null}
-      <div className="stage-tabs" role="tablist" aria-label={t("Document batch stages")}>
-        {(Object.keys(labels) as Stage[]).map((s, i) => (
-          <a key={s} role="tab" aria-selected={stage === s} className={`stage-tab ${next.stage === s ? "is-next" : ""}`} href={wpHash(wpId, s)}>
-            <span className="stage-no" aria-hidden="true">{i + 1}</span>
-            <span className="stage-text"><strong>{labels[s]}</strong><span className="small">{status[s]}</span></span>
-          </a>
-        ))}
+      <div className="track-row">
+        <div className={`stage-tabs ${level === "sub" ? "sub-track" : "case-track"}`} role="tablist" aria-label={t("Document batch stages")}>
+          {(Object.keys(labels) as Stage[]).map((s, i) => (
+            <a key={s} role="tab" aria-selected={stage === s} className={`stage-tab ${next.stage === s ? "is-next" : ""}`} href={wpHash(wpId, s)}>
+              <span className="stage-no" aria-hidden="true">{i + 1}</span>
+              <span className="stage-text"><strong>{labels[s]}</strong><span className="small">{status[s]}</span></span>
+            </a>
+          ))}
+        </div>
+        {extra}
       </div>
+      {stage === null ? body : (
       <div role="tabpanel" aria-label={labels[stage]}>
-        {stage === "process" && route.start ? <StartConfirm view={view} mode={route.start.mode} rerun={route.start.rerun} pending={route.start.pending} onChanged={wp.reload} /> : null}
-        {stage === "process" && !route.start ? <ProcessStage view={view} adding={!!route.add} onChanged={wp.reload} /> : null}
+        {stage === "process" && !route.start ? note ?? null : null}
+        {stage === "process" && route.start ? <StartConfirm view={view} mode={route.start.mode} rerun={route.start.rerun} pending={route.start.pending} onChanged={onChanged} /> : null}
+        {stage === "process" && !route.start ? <ProcessStage view={view} adding={!!route.add} onChanged={onChanged} /> : null}
         {stage === "review" ? (
           view.runs ? (
             <>
-              <ReviewWorkspace wp={workpackage} itemId={route.itemId} onChanged={wp.reload} currentRunId={view.current_run?.run_id}
+              <ReviewWorkspace wp={workpackage} itemId={route.itemId} onChanged={onChanged} currentRunId={view.current_run?.run_id}
                 openRuns={view.open_runs} />
               <details className="details mt">
                 {/* 167: the title names adding too (the owner did not find it behind "Manage documents"); 168: the same
                     item list as in Processing (DECISIONS 168) */}
                 <summary>{t("The package's items: add, open, download, remove")}</summary>
-                <PackageItemsPanel view={view} onChanged={wp.reload} />
+                <PackageItemsPanel view={view} onChanged={onChanged} />
               </details>
             </>
           ) : (
             <>
               <p className="notice">{t("No processing has run on this batch yet, so there is nothing to review. The documents can be opened and downloaded here; start the processing in the")}{" "}
                 <a href={wpHash(wpId, "process")}>{STAGE_LABEL.process}</a> {t("section.")}</p>
-              <PackageItemsPanel view={view} onChanged={wp.reload} />
+              <PackageItemsPanel view={view} onChanged={onChanged} />
             </>
           )
         ) : null}
@@ -192,8 +217,29 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
         {stage === "result" ? part?.resultPanel?.(view) ?? null : null}
         {/* 231 (C1c): a package offers the cases of the processes that read it (an email package: the email routing) */}
         {stage === "result" && view.intake?.length ? <PackageIntake offers={view.intake} /> : null}
-        {stage === "result" ? <ResultStage view={view} table={route.table} runId={route.runId} onChanged={wp.reload} /> : null}
+        {stage === "result" ? <ResultStage view={view} table={route.table} runId={route.runId} onChanged={onChanged} /> : null}
       </div>
+      )}
     </>
+  );
+}
+
+/** 263 (E2): a case's step's batch on its case's page: its stages (`BatchStages`), its management at the bar's right
+ *  end, asking again while it runs; a person's action on it tells the case's page too. */
+export function EmbeddedBatch({ wpId, route, onChanged, side, otherwise, note, body, level }: {
+  wpId: string; route: Extract<Route, { view: "workpackages" }>; onChanged: () => void; side?: ReactNode;
+  otherwise?: ReactNode; note?: ReactNode; body?: ReactNode; level: "main" | "sub";
+}) {
+  useLocale();
+  const [poll, setPoll] = useState(false);
+  const wp = useLoad(`wp:${wpId}`, () => api.workpackage(wpId), poll ? 4000 : undefined);
+  const lastStatus = wp.data?.last_run?.status;
+  useEffect(() => setPoll(lastStatus ? ACTIVE.has(lastStatus) : false), [lastStatus]);
+  if (wp.error) return <p className="notice error" role="alert">{wp.error.message}</p>;
+  if (!wp.data) return <p className="muted">{t("Loading…")}</p>;
+  const changed = () => { wp.reload(); onChanged(); };
+  return (
+    <BatchStages view={wp.data} route={route} onChanged={changed} otherwise={otherwise} note={note} body={body} level={level}
+      extra={<div className="track-side">{side}<WorkpackageActions view={wp.data} onChanged={changed} /></div>} />
   );
 }

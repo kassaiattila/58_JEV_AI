@@ -512,7 +512,6 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .page-head.compact .page-head-main { gap: 2px; }
 .page-head.compact h1 { font-size: var(--fs-lg); }
 .page-head.compact .page-summary { font-size: var(--fs-xs); }
-.next-hint { font-size: var(--fs-xs); color: var(--muted); }
 /* 155: the three stages as one compact bar: number, name and state on one line */
 .stage-tabs { display: grid; grid-template-columns: repeat(var(--tabs, 3), minmax(0, 1fr)); gap: 0; margin-bottom: var(--sp-3); border: 1px solid var(--line);
   border-radius: var(--radius); background: var(--paper); overflow: hidden; }
@@ -528,6 +527,24 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .stage-text { display: flex; gap: var(--sp-2); align-items: baseline; min-width: 0; }
 .stage-text strong { font-weight: 600; white-space: nowrap; }
 .stage-text .small { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* 263 (E2; one case, one track): a case's page - its title row stays on screen; its track, left to right, with the log
+   apart at the right end; a step's own track under it, quieter: no box, a line under it */
+.case-page { min-width: 0; }
+.case-page > .page-head { position: sticky; top: 0; z-index: 5; background: var(--canvas); }
+.case-links { margin: 0 0 var(--sp-2); color: var(--muted); }
+.track-row { display: flex; gap: var(--sp-2); align-items: stretch; margin-bottom: var(--sp-3); }
+.track-row > .stage-tabs { flex: 1; min-width: 0; margin-bottom: 0; }
+.track-side { display: flex; gap: var(--sp-2); align-items: center; flex: none; }
+.track-log { display: flex; flex-direction: column; justify-content: center; min-width: 96px; min-height: 40px; padding: 4px var(--sp-3);
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); color: var(--ink); text-decoration: none; }
+.track-log:hover { background: var(--soft); color: var(--ink); text-decoration: none; }
+.track-log[aria-current="page"] { background: var(--tint); box-shadow: inset 0 -2px var(--ink); }
+.track-log strong { font-weight: 600; }
+.track-log .small { color: var(--muted); white-space: nowrap; }
+.stage-tabs.sub-track { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+.stage-tabs.sub-track .stage-tab { min-height: 36px; border-right: 0; }
+.stage-tabs.sub-track .stage-tab[aria-selected="true"] { background: transparent; }
+.track-row:has(> .sub-track) .track-log { min-height: 36px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
 .stage-grid, .stage-stack { display: grid; gap: 16px; }
 .stage-grid .card, .stage-stack .card { max-width: none; margin: 0; }
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }

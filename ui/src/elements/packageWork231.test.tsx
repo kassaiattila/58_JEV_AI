@@ -77,7 +77,7 @@ const props = (data: PackageWorkView | null, state = "running") => ({
 });
 
 describe("the case page's document processing element (231 C3b3)", () => {
-  it("starts the package's live run with its cost cap on the button and leads to the package's pages", async () => {
+  it("starts the package's live run with its cost cap on the button and leads to the batch by one link", async () => {
     const act = vi.spyOn(api, "caseStepAction").mockResolvedValue(page("running"));
     const p = props(VIEW);
     render(<PackageWork {...p} />);
@@ -89,10 +89,8 @@ describe("the case page's document processing element (231 C3b3)", () => {
     fireEvent.click(button);
     await waitFor(() => expect(act).toHaveBeenCalledWith(CASE, "process", "start_run"));
     await waitFor(() => expect(p.onChanged).toHaveBeenCalled());
-    const pages = screen.getByRole("navigation", { name: "The batch's pages" });
-    expect([...pages.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(
-      // 261 (B1c): under the case's address
-      [`#/cases/${CASE}/batches/${WP}/process`, `#/cases/${CASE}/batches/${WP}/review`, `#/cases/${CASE}/batches/${WP}/result`]);
+    // 261 (B1c): under the case's address; 263 (E2, H7): one link, the batch opening at its next stage
+    expect(screen.getByRole("link", { name: "Open the documents' processing →" }).getAttribute("href")).toBe(`#/cases/${CASE}/batches/${WP}`);
   });
 
   it("lists the live runs once one has started, and offers no second start", () => {
@@ -139,7 +137,7 @@ describe("the case page's document processing element (231 C3b3)", () => {
   it("has a Hungarian translation for every new label", () => {
     const labels = ["The case's documents", "Chosen files", "The folder's full path", "Its subfolders too",
       "The files' full paths, one a line", "Start the live run", "Starts the package's live run, which can spend up to {{usd}}",
-      "The package is being made…", "The package's pages", "The source held no document: the case is done without a package.",
+      "The package is being made…", "Open the documents' processing", "The source held no document: the case is done without a package.",
       "live run in progress", "no documents", "waiting for its live run", "Processing", "Review", "Result",
       "its live run waits for approval", "its live run has to-dos", "its live run stopped"];
     expect(labels.filter((l) => !(l in hungarian))).toEqual([]);
