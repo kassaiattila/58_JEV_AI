@@ -616,7 +616,8 @@ export function DataTable(p: Props) {
                 </tr>
               ))(line))}
               {padBottom > 0 ? <tr aria-hidden="true"><td colSpan={visibleCount} style={{ height: padBottom, padding: 0 }} /></tr> : null}
-              {rows.length === 0 ? (
+              {/* 265 (code review UI-05): empty only when no row is there at all, not when every group is closed */}
+              {allRows.length === 0 ? (
                 <tr><td colSpan={Math.max(1, visibleCount)} className="muted">{filtered ? t("No rows match the filter.") : p.emptyText ?? t("No data.")}</td></tr>
               ) : null}
             </tbody>
