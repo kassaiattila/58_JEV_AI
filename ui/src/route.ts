@@ -114,6 +114,9 @@ export function parseRoute(hash: string): Route {
   switch (parts[0]) {
     case "settings": {  // 231 (C3e): a section the domains registered too; an unknown one opens the first
       if (parts[1] === "tariffs") return { view: "settings", section: "products", item: "tariffs" };  // U3c: a product's list
+      // 264 (F5): the bare address is Settings' own page (its groups and sections); the language moved to Appearance
+      if (!parts[1]) return { view: "settings", section: "" };
+      if (parts[1] === "language") return { view: "settings", section: "appearance" };
       const keys = settingsSections().map((s) => s.key);
       const section = keys.includes(parts[1]) ? parts[1] : keys[0];
       const open = section === parts[1] && parts[2] ? params.get("open") : null;
@@ -171,7 +174,7 @@ export function parseRoute(hash: string): Route {
 export function routeHash(r: Route): string {
   const e = encodeURIComponent;
   switch (r.view) {
-    case "settings": return `#/settings/${r.section}${r.item ? `/${e(r.item)}${r.tab ? `/${e(r.tab)}` : ""}${r.open ? `?open=${e(r.open)}` : ""}` : ""}`;
+    case "settings": return !r.section ? "#/settings" : `#/settings/${r.section}${r.item ? `/${e(r.item)}${r.tab ? `/${e(r.tab)}` : ""}${r.open ? `?open=${e(r.open)}` : ""}` : ""}`;
     case "activity": return r.day ? `#/activity?day=${r.day}` : "#/activity";
     case "waiting": return r.all ? "#/waiting?all=1" : "#/waiting";
     case "run": return `#/runs/${e(r.runId)}`;

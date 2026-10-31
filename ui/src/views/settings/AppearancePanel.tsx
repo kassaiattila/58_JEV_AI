@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { getAppearance, setAppearance, type Appearance, type Theme } from "../../appearance";
 import { t, useLocale } from "../../i18n";
+import { LanguageChoice } from "./LanguagePanel";
 
-// the labels as Hungarian source; translation at render time (`t()`)
+// the labels as English sources; translation at render time (`t()`)
 const THEMES: { value: Theme; label: string; halves: ("light" | "dark")[] }[] = [
-  { value: "system", label: "A rendszer szerint", halves: ["light", "dark"] },
+  { value: "system", label: "As the system is set", halves: ["light", "dark"] },
   { value: "light", label: "Light", halves: ["light"] },
   { value: "dark", label: "Dark", halves: ["dark"] },
 ];
@@ -20,7 +21,7 @@ export function AppearancePanel() {
     setAppearance(next);
   };
   return (
-    <section className="card wide" aria-label={t("Appearance")}>
+    <section className="card wide" aria-label={t("Appearance and language")}>
       <fieldset className="dl-group">
         <legend>{t("Theme")}</legend>
         <div className="theme-choice">
@@ -34,6 +35,8 @@ export function AppearancePanel() {
           ))}
         </div>
       </fieldset>
+      {/* 264 (F5): the interface language here too (its own page only repeated the header's switch) */}
+      <LanguageChoice />
       <p className="muted small">{t("The setting applies immediately and is remembered in this browser.")}</p>
     </section>
   );

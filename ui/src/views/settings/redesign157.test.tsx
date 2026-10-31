@@ -14,9 +14,10 @@ beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer")
 afterEach(() => { cleanup(); vi.restoreAllMocks(); delete document.documentElement.dataset.density; });
 
 describe("appearance (157)", () => {
-  it("offers the theme only, with no density switch", () => {
+  it("offers the theme, with no density switch (264: and the interface language beside it)", () => {
     render(<AppearancePanel />);
-    expect(screen.getAllByRole("radio").map((r) => (r as HTMLInputElement).name)).toEqual(["theme", "theme", "theme"]);
+    expect(screen.getAllByRole("radio").map((r) => (r as HTMLInputElement).name)).toEqual(["theme", "theme", "theme",
+      "language", "language"]);
     expect(screen.queryByText("Density")).toBeNull();
   });
 

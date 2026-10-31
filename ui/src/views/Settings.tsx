@@ -15,7 +15,7 @@ import { PageActionsSlot } from "../components/PageActions";
 import { PageHeader } from "../components/PageHeader";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import type { SettingsSection } from "../route";
+import { settingsHash, type SettingsSection } from "../route";
 import { SETTINGS_GROUPS, settingsParts, settingsSections } from "../logic/settingsSections";
 import { groupKey, isThing, sectionKey, selectedKey, SettingsTitleSlot, useSettingsTree } from "./settings/settingsTree";
 import { RecipesPanel } from "./RecipeInfo";
@@ -26,7 +26,6 @@ import { DepsAuditPanel } from "./settings/DepsAuditPanel";
 import { JevVersionPanel } from "./settings/JevVersionPanel";
 import { EnginePanel } from "./settings/EnginePanel";
 import { FoldersPanel } from "./settings/FoldersPanel";
-import { LanguagePanel } from "./settings/LanguagePanel";
 import { LetterFramesPanel } from "./settings/LetterFramesPanel";
 import { OutputTemplatesPanel } from "./settings/OutputTemplatesPanel";
 import { PartnersPanel } from "./settings/PartnersPanel";
@@ -79,6 +78,20 @@ export function Settings({ section, item, tab, open: part }: { section: Settings
   const crumbs = [{ label: t("Settings"), href: "#/settings" }, ...way.map((n) => ({ label: n.label, href: n.href })),
     ...(thing && node ? [{ label: node.label, href: node.href }] : [])];
   const Own = current.Panel;
+  // 264 (F5): the bare address (the Settings crumb) is Settings' own page: its groups and sections, each with what it is for
+  if (!section) {
+    return (
+      <div className="settings-layout">
+        <SidePanel id="settings" label={t("Contents")}>
+          <Navigator nodes={tree} selected="" open={open} onToggle={toggle} label={t("Settings")} />
+        </SidePanel>
+        <div className="settings-page">
+          <PageHeader crumbs={[]} title={t("Settings")} compact summary={t("What each part of Settings is for")} />
+          <div className="settings-body"><SettingsOverview /></div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="settings-layout">
       <SidePanel id="settings" label={t("Contents")}>
@@ -106,7 +119,6 @@ export function Settings({ section, item, tab, open: part }: { section: Settings
             {current.key === "letters" ? <LetterFramesPanel item={item} tab={tab} /> : null}
             {current.key === "users" ? <UsersPanel /> : null}
             {current.key === "appearance" ? <AppearancePanel /> : null}
-            {current.key === "language" ? <LanguagePanel /> : null}
             {current.key === "system" ? <SystemPanel /> : null}
             {settingsParts(current.key).map(({ title, Panel }) => (  // 231 (C3e): what the domains add to a shared section
               <Fragment key={title}><h2>{t(title)}</h2><Panel /></Fragment>
@@ -115,6 +127,32 @@ export function Settings({ section, item, tab, open: part }: { section: Settings
         </PageActionsSlot>
         </SettingsTitleSlot>
       </div>
+    </div>
+  );
+}
+
+/** 264 (F5): Settings' own page - each group with its sections, every section with the sentence that says what it is for. */
+function SettingsOverview() {
+  useLocale();
+  const sections = settingsSections();
+  return (
+    <div className="stage-stack">
+      {SETTINGS_GROUPS.map((g) => {
+        const own = sections.filter((s) => s.group === g.key);
+        return own.length ? (
+          <section key={g.key} className="card wide" aria-label={t(g.label)}>
+            <h2>{t(g.label)}</h2>
+            <dl className="settings-overview">
+              {own.map((s) => (
+                <Fragment key={s.key}>
+                  <dt><a href={settingsHash(s.key)}>{t(s.navLabel ?? s.label)}</a></dt>
+                  <dd>{t(s.hint)}</dd>
+                </Fragment>
+              ))}
+            </dl>
+          </section>
+        ) : null;
+      })}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 // Language (057, decision of 2026-09-28: HU / EN the V4 way): the language of the interface labels, remembered per
 // viewer. The language names are in their own language (we do not translate them), with a `lang` attribute for screen
-// readers.
+// readers. 264 (F5): a part of "Appearance and language" (its own page only repeated the header's switch).
 import { useState } from "react";
 import { setLanguage, t, useLocale, type Language } from "../../i18n";
 
@@ -9,7 +9,7 @@ const LANGUAGES: { value: Language; name: string }[] = [
   { value: "en", name: "English" },
 ];
 
-export function LanguagePanel() {
+export function LanguageChoice() {
   const current = useLocale();
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -27,7 +27,7 @@ export function LanguagePanel() {
   }
 
   return (
-    <section className="card wide" aria-label={t("Language")}>
+    <>
       <fieldset className="dl-group" disabled={loading} aria-busy={loading}>
         <legend>{t("Interface language")}</legend>
         {LANGUAGES.map((l) => (
@@ -39,6 +39,6 @@ export function LanguagePanel() {
       </fieldset>
       {failed ? <p className="notice error" role="alert">{t("Loading the English labels failed; the interface stays in Hungarian. Please try again.")}</p> : null}
       <p className="muted small">{t("The language only changes the interface labels; document data, names and file names stay unchanged. The setting is remembered in this browser.")}</p>
-    </section>
+    </>
   );
 }

@@ -41,7 +41,7 @@ The interface starts in Hungarian; the **HU / EN** buttons in the header switch 
 
 ### 2.2 Language
 
-The **HU / EN** buttons switch the interface labels, and what the system makes for you from then on follows the same language (since `v1.63.0`): a download's headers, sheet names and labels (Excel and CSV), and the content-based file names (the type's word, the review subfolder and the manifest; section 8). Document data and original file names do not change, and unsaved corrections are kept. The choice is remembered in this browser. You can set the same on the Settings › Language (*Nyelv*) page.
+The **HU / EN** buttons switch the interface labels, and what the system makes for you from then on follows the same language (since `v1.63.0`): a download's headers, sheet names and labels (Excel and CSV), and the content-based file names (the type's word, the review subfolder and the manifest; section 8). Document data and original file names do not change, and unsaved corrections are kept. The choice is remembered in this browser. You can set the same on the Settings › Appearance and language (*Megjelenés és nyelv*) page.
 
 ## 3. The list of every document batch
 
@@ -589,9 +589,9 @@ The left-hand menu of Settings stands in three groups (since `v1.59.0`), each un
 
 - **Processes** (*Folyamatok*): **All processes** (*Minden folyamat*) and, on its page, each process as an item of its own (section 10.10).
 - **Shared library** (*Közös tár*), what the processes choose from: Partners (*Partnerek*), Own parties (*Saját gazdálkodók*), Products (*Termékek*, with the tariffs), Price lists (*Árlisták*), Output templates (*Kimeneti sablonok*) and Letter frames (*Levélkeretek*). Each element says which processes use it (‘Used by: …’ (*Használja: …*), each a link to the process's page; ‘No process uses it’ (*Egy folyamat sem használja*)): the Products and Tariffs lists in a column, a price list and an own output template under their names, the partner list for the role chosen in its filter.
-- **System** (*Rendszer*): Users, Appearance (*Megjelenés*), Language, Work folders (*Munkamappák*), Mailboxes (*Postafiókok*), Processing (*Feldolgozás*), Defaults (*Alapértékek*, until `v1.60.0` the read-only Rules, section 10.14) and Operations (*Üzemeltetés*, until `v1.59.0` called System).
+- **System** (*Rendszer*): Users, Appearance and language (*Megjelenés és nyelv*, since `v1.70.0` one page), Work folders (*Munkamappák*), Mailboxes (*Postafiókok*), Processing (*Feldolgozás*), Defaults (*Alapértékek*, until `v1.60.0` the read-only Rules, section 10.14) and Operations (*Üzemeltetés*, until `v1.59.0` called System).
 
-An address of a section that does not exist opens the processes.
+The ‘Settings’ (*Beállítások*) crumb and the bare address open Settings' own page (since `v1.70.0`): each group with its sections and a sentence on what each is for. An address of a section that does not exist opens the processes; the old Language page's address opens Appearance and language.
 
 ### 10.1 Mailboxes
 
@@ -642,13 +642,15 @@ Below the processing's description, **Bank files the system reads** (*A rendszer
 
 The names offered by **Who is working?**. Add a new name with the ‘New name’ (*Új név*) field and the **Add** (*Felvétel*) button; delete one with **Delete** (it asks for confirmation). Both are saved immediately. A name may contain letters, digits, spaces, dots, @ and hyphens, up to 64 characters. If the list is not empty, changes can only be made with a name on the list, and the batch owner is also chosen from it.
 
-### 10.6 Appearance
+### 10.6 Appearance and language
 
-‘Theme’ (*Téma*): ‘Follow the system’ (*A rendszer szerint*), ‘Light’ (*Világos*) or ‘Dark’ (*Sötét*); each choice shows a small drawing of the workspace in that theme. The change applies immediately and is remembered in this browser. There is one density for everyone; the earlier ‘Density’ (*Sűrűség*) switch was removed with the 2026 redesign.
+‘Theme’ (*Téma*): ‘As the system is set’ (*A rendszer szerint*), ‘Light’ (*Világos*) or ‘Dark’ (*Sötét*); each choice shows a small drawing of the workspace in that theme. The change applies immediately and is remembered in this browser. There is one density for everyone; the earlier ‘Density’ (*Sűrűség*) switch was removed with the 2026 redesign.
+
+‘Interface language’ (*A felület nyelve*): ‘Magyar’ or ‘English’ (each language name is shown in its own language); this is the same as the HU / EN buttons in the header (section 2.2). Until `v1.70.0` it had a page of its own, Language (*Nyelv*).
 
 ### 10.7 Language
 
-‘Magyar’ or ‘English’ (each language name is shown in its own language); this is the same as the HU / EN buttons in the header (section 2.2).
+Since `v1.70.0` on the Appearance and language page (section 10.6).
 
 ### 10.8 Operations
 

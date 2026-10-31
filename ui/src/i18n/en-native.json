@@ -5248,5 +5248,9 @@
   "Days overdue": "Days overdue",
   "Its next run": "Its next run",
   "To its Processing": "To its Processing",
-  "A routed document is processed by its batch's next run.": "A routed document is processed by its batch's next run."
+  "A routed document is processed by its batch's next run.": "A routed document is processed by its batch's next run.",
+  "Appearance and language": "Appearance and language",
+  "As the system is set": "As the system is set",
+  "The theme and the interface language": "The theme and the interface language",
+  "What each part of Settings is for": "What each part of Settings is for"
 }
