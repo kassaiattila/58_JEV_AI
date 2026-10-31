@@ -8,6 +8,8 @@ adapter (cache + ledger).
 
 from __future__ import annotations
 
+import logging
+
 import re
 import uuid
 from collections.abc import Mapping
@@ -25,6 +27,8 @@ from jav.ai.detect import DetectResult
 from jav.ai.detect_detail import DetailResult
 from jav.ai.engine import with_engine
 from jav.documents.layout import LineLayout
+
+log = logging.getLogger(__name__)
 
 TERMINALS = ["done", "needs_ocr"]
 PARTITION = "doc_detect"  # partition of the durable state store (066 Á08: the worker finds the saved state by it)
@@ -142,6 +146,8 @@ def _detect_gpt(state: DetectState, pdf) -> DetectState:
     try:
         state.result = _detect(pdf, state.source_path, run_id=state.run_id)
     except Exception as exc:  # noqa: BLE001 - an error is a to-do, not the end of the flow (as on the G path)
+        if not isinstance(exc, JevUnavailableError):  # 265 (code review AI-05): a cause beyond the provider, logged
+            log.exception("the type recognition failed on %s", Path(state.source_path).name)
         state.result = None
         state.uncertain = True
         reason = f"jev_unavailable:{exc.reason}" if isinstance(exc, JevUnavailableError) else f"detect:gpt_failed:{type(exc).__name__}"
@@ -272,6 +278,7 @@ def _resolve_detail(state: DetectState, jev, chooser=None) -> None:
     except Exception as exc:  # noqa: BLE001 - only the GPT chooser gets here (no JEV): a to-do, the item goes on
         if chooser is None:
             raise
+        log.exception("the detailed type choice failed")  # 265 (code review AI-05)
         d = DetailResult(broad=broad, key=None, method="gpt")
         state.detail_reasons = [f"detect_detail:gpt_failed:{type(exc).__name__}"]
     state.detail = d

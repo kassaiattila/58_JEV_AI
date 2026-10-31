@@ -188,6 +188,8 @@ def extract_llm(state: FlowState) -> FlowState:
         state.llm_output, state.llm_token_p = None, None
         policy.require_review(state, "llm:truncated")
     except Exception as exc:  # noqa: BLE001 - an error is a review reason, not the end of the flow
+        # 265 (code review AI-05): with its traceback in the log, so the to-do's cause can be found
+        logging.getLogger(__name__).exception("the extraction failed for %s", state.doc_id[:12])
         state.llm_output, state.llm_token_p = None, None
         policy.require_review(state, f"llm:failed:{type(exc).__name__}")
     return state
@@ -316,7 +318,7 @@ def ground(state: FlowState) -> FlowState:
             lists = {f: record.get(f) or [] for f in pack.list_fields}
             state.provenance.update(grounding.ground_lists(layer, lists=lists, kinds={f: dict(v) for f, v in pack.list_fields.items()}))
     except Exception as exc:  # noqa: BLE001 - source location is auxiliary; saving the result must not depend on it
-        logging.getLogger(__name__).warning("grounding failed for %s: %s", state.doc_id[:12], exc)
+        logging.getLogger(__name__).warning("grounding failed for %s: %s", state.doc_id[:12], exc, exc_info=True)
         state.provenance = {f: {"status": "error", "method": None, "error": f"{type(exc).__name__}"} for f in fields}
     return state
 
