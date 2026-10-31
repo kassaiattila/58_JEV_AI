@@ -122,7 +122,8 @@ def test_a_step_runs_a_case_of_another_process_with_its_own_documents_and_the_ch
     assert _data(first)["parent"] == {"case": chain, "step": "first"}
     assert _data(first)["scope"] == {"period": PERIOD, "source": {**_source(db, "a"), "recursive": False}}
     assert _data(second)["scope"] == {"source": {**_source(db, "b"), "recursive": False}}  # it takes no period
-    assert work.get(first)["name"] == "Invented March" and work.get(first)["owner"] == PERSON
+    # 263 (E2): the main case's name and the step's title, so the sub-case and its batch say which part they are
+    assert work.get(first)["name"] == "Invented March · First documents" and work.get(first)["owner"] == PERSON
     assert _step(chain, "first")["waiting_for"] == sub_cases.CLOSED and _step(chain, "third")["state"] == cases.WAITING
     shown = case_views.view(chain)["tabs"][0]["elements"][0]["data"]
     assert shown["case"]["id"] == first and shown["case"]["status"] == cases.OPEN and shown["process"] == "Documents sub_period"

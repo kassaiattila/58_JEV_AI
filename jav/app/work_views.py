@@ -197,9 +197,10 @@ def _owner_case(wp_id: str) -> dict[str, Any]:
     step = next((s for s in pack.steps if s.id == step_id), None) if pack else None
     tab = next((tab.id for tab in pack.screens.tabs for e in tab.elements if e.step == step_id), None) if pack else None
     parent = process_runtime.parent_of(case_id)
+    # 263 (E2): the parent's `step`, which the interface opens the batch under (one case, one track)
     return {"owner_case": {"id": case_id, "name": work.get(case_id)["name"], "step": step_id,
                            "step_title": step.title if step else None, "tab": tab,
-                           "parent": {k: parent[k] for k in ("id", "name", "step_title", "tab")} if parent else None}}
+                           "parent": {k: parent[k] for k in ("id", "name", "step", "step_title", "tab")} if parent else None}}
 
 
 def _workpackage_view(wp_id: str) -> dict[str, Any]:

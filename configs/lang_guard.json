@@ -1,9 +1,19 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.160",
+    "version": "1.0.162",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.162",
+        "date": "2026-10-31",
+        "note": "baseline: 5675 -> 5676 Hungarian lines in 470 files; accepted: ui/src/layout.test.tsx"
+      },
+      {
+        "version": "1.0.161",
+        "date": "2026-10-31",
+        "note": "baseline: 5674 -> 5675 Hungarian lines in 470 files; accepted: docs/GLOSSARY.md"
+      },
       {
         "version": "1.0.160",
         "date": "2026-10-30",
@@ -971,7 +981,7 @@
     "configs/types/vizmuvek_szamla.json": 27,
     "docs/ARCHITECTURE.md": 13,
     "docs/BANK_FILES.md": 2,
-    "docs/GLOSSARY.md": 377,
+    "docs/GLOSSARY.md": 378,
     "docs/SECURITY.md": 2,
     "docs/guides/DOCUMENTATION.md": 6,
     "docs/guides/USER_GUIDE.md": 294,
@@ -1233,7 +1243,7 @@
     "ui/src/jevPath082.test.tsx": 3,
     "ui/src/jevVersion200.test.tsx": 3,
     "ui/src/labels.ts": 5,
-    "ui/src/layout.test.tsx": 39,
+    "ui/src/layout.test.tsx": 40,
     "ui/src/listChecks190.test.ts": 3,
     "ui/src/listRefresh153.test.tsx": 20,
     "ui/src/naming078.test.tsx": 11,

@@ -1,7 +1,7 @@
 // 231 (plan stage A, A6; DECISIONS 231): a process pack's case page: its pack's tabs, each built from registered screen
 // elements; the quote's elements render the quote package's parts from the quote view their data carries, with the
 // quote package's status lines; asking for the proposal starts the case's step. Synthetic data, a mocked service.
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError, setActor, type CaseView } from "../api";
 import type { QuoteView } from "../domains/quotes/api";
@@ -9,7 +9,7 @@ import { setLanguage } from "../i18n";
 import { CasePage, moving, settling } from "./CasePage";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); window.location.hash = ""; });
 
 const QUOTE: QuoteView = {
   request: {
@@ -53,8 +53,16 @@ describe("a process pack's case (231)", () => {
     expect(tabs[0].textContent).toContain("1 part(s), 1 requested item(s)");
     expect(tabs[1].getAttribute("aria-selected")).toBe("true");
     expect(await screen.findByRole("button", { name: /Ask for the proposal/ })).toBeTruthy();
-    // the header's next step, as on a work package's page: a button beside the panel's own, until a tab is chosen
-    await waitFor(() => expect(screen.getAllByRole("button", { name: /Ask for the proposal/ })).toHaveLength(2));
+    // 263 (E2): one main action - on the next step's own tab its panel's button, none in the title row
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /Ask for the proposal/ })).toHaveLength(1));
+  });
+
+  it("leads to the next step's tab by the title row's main button from another tab (263 E2)", async () => {
+    vi.spyOn(api, "casePage").mockResolvedValue(PAGE);
+    render(<CasePage caseId="wp-000000000231" tab="request" />);
+    const head = (await screen.findByRole("heading", { name: "Quote: Invented Buyer Ltd" })).closest("header")!;
+    fireEvent.click(await within(head).findByRole("button", { name: "Ask for the proposal →" }));
+    expect(window.location.hash).toBe("#/cases/wp-000000000231/quote");
   });
 
   it("asks again while the worker has something to do for the case, not only while a step waits for it (U-A8)", () => {
@@ -97,8 +105,6 @@ describe("a process pack's case (231)", () => {
     const start = vi.spyOn(api, "startCaseStep").mockResolvedValue(PAGE);
     const direct = vi.spyOn(api, "requestQuoteProposal");
     render(<CasePage caseId="wp-000000000231" tab="quote" />);
-    // on the next step's own tab the header only names it
-    expect(await screen.findByText(/Ask for the proposal/, { selector: ".next-hint" })).toBeTruthy();
     fireEvent.click(await screen.findByRole("button", { name: /Ask for the proposal/ }));
     await waitFor(() => expect(start).toHaveBeenCalledWith("wp-000000000231", "match"));
     expect(direct).not.toHaveBeenCalled();

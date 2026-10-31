@@ -37,7 +37,9 @@ describe("a document batch's sections", () => {
     const selected = within(tabs).getAllByRole("tab").find((t) => t.getAttribute("aria-selected") === "true");
     expect(selected?.textContent).toContain("Feldolgozás");
     expect(within(tabs).getByRole("tab", { name: /Feldolgozás.*indítható/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Próbafutás indítása/ })).toBeTruthy();
+    // 263 (E2): on the next step's own section its own button is the action; the title row has no second one
+    expect(await screen.findByRole("button", { name: /^Próbafutás/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Próbafutás indítása/ })).toBeNull();
     expect(screen.getByRole("button", { name: "Újrafuttatás…" }).hasAttribute("disabled")).toBe(true); // there is nothing to repeat
   });
 

@@ -83,8 +83,8 @@ def test_a_sub_cases_batch_leads_back_to_its_case_and_the_case_it_is_part_of(db)
         engine.turn(invoices, wake=True)
     owner = work_views.workpackage_view(document_processing.package_of(invoices, "process"))["owner_case"]
     assert owner["id"] == invoices and owner["tab"] == "documents"
-    assert owner["parent"] == {"id": case, "name": "Invented March", "step_title": owner["parent"]["step_title"],
-                               "tab": "overview"}
+    assert owner["parent"] == {"id": case, "name": "Invented March", "step": "invoices",  # 263: the step it opens under
+                               "step_title": owner["parent"]["step_title"], "tab": "overview"}
 
 
 def test_a_steps_start_that_may_spend_names_its_cost_cap_and_the_shared_actions_show_it(db) -> None:

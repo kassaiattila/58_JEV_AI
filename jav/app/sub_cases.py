@@ -32,7 +32,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from jav.app import capabilities, document_processing, process_packs, process_runtime, scopes, work
-from jav.core import cfg, identity, store
+from jav.core import cfg, display, identity, store
 from jav.core.process import cases, kinds
 from jav.core.process.definition import NAME
 from jav.core.process.engine import StepContext
@@ -292,7 +292,11 @@ def _start(ctx: StepContext, params: RunCase, gathered: dict[str, Any]) -> None:
     def note(c: Any, sub: str) -> None:
         cases.set_result(c, ctx.case_id, ctx.step.id, {**gathered, "pack": params.pack, "case_id": sub})
 
-    process_runtime.start_case(params.pack, given, name=str(ctx.data.get("name") or container["name"]), actor=ctx.actor,
+    # 263 (E2; the owner's report of 2026-10-30: a sub-case and its batch bore the main case's name, so a list or a
+    # page did not say which part it was): the main case's name and the step's title
+    base = str(ctx.data.get("name") or container["name"])
+    name = f"{base} · {display.text(ctx.step.title)}" if ctx.step.title else base
+    process_runtime.start_case(params.pack, given, name=name, actor=ctx.actor,
                                owner=work.person_owner(container), parent=(ctx.case_id, ctx.step.id), then=note)
 
 

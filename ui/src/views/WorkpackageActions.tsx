@@ -19,6 +19,8 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
   const adds = wp.source_kind === "case" ? "nothing" : addsOwnWay(view) ? "own" : "documents";  // 231 (C3b5a): its rule's
   const addLabel = partOf(view)?.addLabel;
   const archived = wp.status === "archived";
+  // 263 (E2): a case's container is the case's: its menu says so
+  const label = wp.source_kind === "case" ? t("Manage case") : t("Manage batch");
   const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("menu");
@@ -49,9 +51,9 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
     <>
       <button ref={anchor} type="button" className="secondary" aria-expanded={open} aria-haspopup="dialog"
         onClick={() => { setName(wp.name); setMode("menu"); setError(null); setOpen((o) => !o); }}>
-        <Icon name="manage" />{t("Manage batch")}
+        <Icon name="manage" />{label}
       </button>
-      <Popover open={open} onClose={close} anchor={anchor} label={t("Manage batch")} align="right" className="wp-actions">
+      <Popover open={open} onClose={close} anchor={anchor} label={label} align="right" className="wp-actions">
         {mode === "menu" ? (
           <div className="menu-list">
             {/* 167: adding leads to its form at the top of Processing (176: unless the package's logic pack adds

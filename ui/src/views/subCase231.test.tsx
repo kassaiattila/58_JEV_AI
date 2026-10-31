@@ -2,7 +2,8 @@
 // another process shows its sub-case, linked, with its state and its own next step; a step not started yet says what it
 // waits for; a stopped one offers its retry; a sub-case's page leads back to the case it is part of. 261 (plan B, B1b;
 // the owner's decision of 2026-10-29): a multi-step case's sub-cases are the rows of one sub-work table, each with its
-// work (documents, open to-dos, its run). Synthetic data, a mocked service.
+// work (documents, open to-dos, its run). 263 (plan E, E2; one case, one track): a row leads to its step on the case's
+// own page, and a sub-case's address leads there too. Synthetic data, a mocked service.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type CaseView, type SubCaseData } from "../api";
@@ -10,7 +11,7 @@ import { setLanguage } from "../i18n";
 import { CasePage } from "./CasePage";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); window.location.hash = ""; });
 
 const CHAIN = "wp-00000000c231";
 const SUB = "wp-00000000d231";
@@ -43,14 +44,14 @@ describe("a step that runs a sub-case (231 U2c)", () => {
     expect(screen.getAllByRole("table", { name: "Sub-work" })).toHaveLength(1);  // one table, a row each
     const card = within(table).getByRole("row", { name: "Incoming invoices" });
     expect(within(card).getByText("Its case is in progress")).toBeTruthy();
-    expect(within(card).getByRole("link", { name: "Invented March" }).getAttribute("href")).toBe(`#/cases/${SUB}`);
-    expect(within(card).getByRole("link", { name: "Start the live run" }).getAttribute("href")).toBe(`#/cases/${SUB}/documents`);
+    expect(within(card).getByRole("link", { name: "Incoming invoices" }).getAttribute("href")).toBe(`#/cases/${CHAIN}/invoices`);
+    expect(within(card).getByRole("link", { name: "Start the live run" }).getAttribute("href")).toBe(`#/cases/${CHAIN}/invoices/documents`);
     const later = within(table).getByRole("row", { name: "Reconciliation" });
     expect(within(later).getByText("Not started yet")).toBeTruthy();
     expect(within(later).getByText("Starts once the steps before it are done.")).toBeTruthy();
   });
 
-  it("offers a stopped step's retry, with the earlier sub-case linked", async () => {
+  it("offers a stopped step's retry, with the earlier sub-case opening under the step", async () => {
     const invoices = data({ state: "failed", earlier: [{ case_id: SUB, outcome: "cancelled" }] });
     vi.spyOn(api, "casePage").mockResolvedValue(chain(invoices, data({ state: "waiting" }),
       { state: "failed", note: "the sub-case closed as cancelled", actions: [{ name: "retry", label: "Try again" }] }));
@@ -59,19 +60,25 @@ describe("a step that runs a sub-case (231 U2c)", () => {
     const card = await screen.findByRole("row", { name: "Incoming invoices" });
     expect(within(card).getByText("Did not finish")).toBeTruthy();
     expect(within(card).getByText("the sub-case closed as cancelled")).toBeTruthy();  // why it stopped
-    expect(within(card).getByRole("link", { name: "cancelled" }).getAttribute("href")).toBe(`#/cases/${SUB}`);
     fireEvent.click(within(card).getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(act).toHaveBeenCalledWith(CHAIN, "invoices", "retry"));
+    // the step's own page says it stopped and why, links its earlier case under the step and offers the retry too
+    cleanup();
+    render(<CasePage caseId={CHAIN} tab="invoices" />);
+    const step = await screen.findByRole("region", { name: "Incoming invoices" });
+    expect(within(step).getByText("the sub-case closed as cancelled")).toBeTruthy();
+    expect(within(step).getByRole("link", { name: "cancelled" }).getAttribute("href")).toBe(`#/cases/${CHAIN}/invoices?of=${SUB}`);
+    expect(within(step).getByRole("button", { name: "Try again" })).toBeTruthy();
   });
 
-  it("shows a sub-case closed a moment ago as done, and names the case's next step in Hungarian", async () => {
+  it("shows a sub-case closed a moment ago as done, and leads to the step by the main button, in Hungarian", async () => {
     const invoices = data({ case: { id: SUB, name: "Invented March", status: "closed", outcome: "done", next: null } });
     vi.spyOn(api, "casePage").mockResolvedValue(chain(invoices, data({ state: "waiting" })));
     await setLanguage("hu");
     render(<CasePage caseId={CHAIN} tab="overview" />);
     const card = await screen.findByRole("row", { name: "Beérkező számlák" });
     expect(within(card).getByText("A részügy kész")).toBeTruthy();
-    expect(screen.getByText("Következő lépés: Tovább a részügyben")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Tovább: Beérkező számlák →" })).toBeTruthy();
   });
 
   it("says each sub-case's work: its documents, open to-dos and its live run", async () => {
@@ -82,8 +89,8 @@ describe("a step that runs a sub-case (231 U2c)", () => {
     render(<CasePage caseId={CHAIN} tab="overview" />);
     const card = await screen.findByRole("row", { name: "Incoming invoices" });
     expect(within(card).getAllByRole("cell")[2].textContent).toBe("4 documents · To-dos: 3 · Live: to-dos pending");
-    // 261 (B1c): the open to-dos lead to their review, under the sub-case's address
-    expect(within(card).getByRole("link", { name: "To-dos: 3" }).getAttribute("href")).toBe(`#/cases/${SUB}/batches/wp-00000000e231/review`);
+    // 261 (B1c): the open to-dos lead to their review; 263 (E2): under the main case, on whose page the step shows it
+    expect(within(card).getByRole("link", { name: "To-dos: 3" }).getAttribute("href")).toBe(`#/cases/${CHAIN}/batches/wp-00000000e231/review`);
     const [, , work] = within(screen.getByRole("row", { name: "Reconciliation" })).getAllByRole("cell");
     expect(work.textContent).toBe("–");  // a step not started yet has no work to say
   });
@@ -98,15 +105,14 @@ describe("a step that runs a sub-case (231 U2c)", () => {
     expect(within(later).getByText("The case closed before this step ran.")).toBeTruthy();
   });
 
-  it("leads a sub-case's page back to the case it is part of", async () => {
+  it("leads a sub-case's address to the step of the case it is part of", async () => {
     const view: CaseView = {
       case: { id: SUB, pack: "documents", version: "1.4.0", title: "Documents", name: "Invented March", status: "open",
         parent: { id: CHAIN, name: "Invented March", title: "Monthly reconciliation", step: "invoices", step_title: "Incoming invoices" } },
       steps: {}, tabs: [{ id: "history", label: "History", elements: [] }], next: null,
     };
     vi.spyOn(api, "casePage").mockResolvedValue(view);
-    render(<CasePage caseId={SUB} />);
-    const crumbs = await screen.findByRole("navigation", { name: "Location" });
-    expect(within(crumbs).getByRole("link", { name: "Invented March · Incoming invoices" }).getAttribute("href")).toBe(`#/cases/${CHAIN}`);
+    render(<CasePage caseId={SUB} tab="history" />);
+    await waitFor(() => expect(window.location.hash).toBe(`#/cases/${CHAIN}/invoices/history?of=${SUB}`));
   });
 });

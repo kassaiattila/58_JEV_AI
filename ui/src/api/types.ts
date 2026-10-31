@@ -53,7 +53,7 @@ export interface WorkpackageView {
   /** 231 (U2a): the case and the step a case step's package belongs to, and the case's tab that shows the step */
   owner_case?: { id: string; name: string; step: string; step_title: string | null; tab: string | null;
     /** 261 (B1c): the case that case is a sub-case of, with its tab that shows the step */
-    parent?: { id: string; name: string; step_title: string; tab: string | null } | null };
+    parent?: { id: string; name: string; step: string; step_title: string; tab: string | null } | null };
   /** 152: the older live runs a person can supersede, oldest first */
   supersedable?: SupersedableRun[];
   /** 160-C S3: the open live runs (finished, not approved, not repeated by a later one), oldest first */
