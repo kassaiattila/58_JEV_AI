@@ -25,13 +25,15 @@ from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import BaseModel, create_model
-from pydantic_ai import Agent, NativeOutput
+from pydantic_ai import Agent, NativeOutput, capture_run_messages
 from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.usage import UsageLimits
 
 from jav.core import store
 from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_chat_model, openai_cost, openai_price
+from jav.ai import output_cap
 from jav.ai.models import JevCall
+from jav.ai.output_cap import StopOnTruncation
 from jav.core import calls
 from jav.core import observability  # 231 (E4): the calls are timed through one helper
 
@@ -146,7 +148,8 @@ def _agent(output_model: type[BaseModel], instructions: str, limits: Limits):
     settings = OpenAIChatModelSettings(openai_reasoning_effort=OPENAI_SETTINGS["reasoning_effort"],
                                        temperature=OPENAI_SETTINGS["temperature"], openai_logprobs=True,
                                        openai_top_logprobs=limits.top_logprobs)
-    return Agent(openai_chat_model(), output_type=NativeOutput(output_model), instructions=instructions,
+    # 265 (code review AI-06): an answer cut off at its output cap ends the call at once, as the extraction's does
+    return Agent(StopOnTruncation(openai_chat_model()), output_type=NativeOutput(output_model), instructions=instructions,
                  model_settings=settings, retries=OPENAI_SETTINGS["retries"])
 
 
@@ -160,10 +163,11 @@ def _physical(agent, prompt: str, *, run_id: str, step: str, limits: Limits, lim
     if limited:
         kwargs = {"model_settings": {"max_tokens": limits.max_output_tokens}, "usage_limits": UsageLimits(request_limit=rounds)}
     try:
-        result = agent.run_sync(prompt, **kwargs)
-    except Exception as exc:
-        store.ledger_add(run_id=run_id, step=step, provider="openai", model=OPENAI_MODEL, input_tokens=None, output_tokens=None,
-                         cost_usd=None, seconds=observability.since(t0), config_hash=limits.config_hash, error=type(exc).__name__)
+        with capture_run_messages() as messages:
+            result = agent.run_sync(prompt, **kwargs)
+    except Exception as exc:  # 265 (code review AI-06): settled at what it certainly cost, with why
+        output_cap.ledger_failure(messages, exc, run_id=run_id, step=step, config_hash=limits.config_hash,
+                                  seconds=observability.since(t0))
         raise
     usage = result.usage() if callable(result.usage) else result.usage
     in_tok, out_tok = usage.input_tokens or 0, usage.output_tokens or 0

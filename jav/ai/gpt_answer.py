@@ -87,15 +87,8 @@ def _physical(agent: Any, site: str, prompt: str, *, max_output_tokens: int, run
             result = agent.run_sync(prompt, model_settings={"max_tokens": max_output_tokens},
                                     usage_limits=UsageLimits(request_limit=rounds))
     except Exception as exc:
-        known = output_cap.paid(messages, exc, requested=OPENAI_MODEL)
-        why = output_cap.retry_reason(messages)
-        store.ledger_add(run_id=run_id, step=f"{site}_gpt", provider="openai", model=known.model if known else OPENAI_MODEL,
-                         input_tokens=known.input_tokens if known else None,
-                         output_tokens=known.output_tokens if known else None,
-                         cost_usd=float(known.cost_usd) if known else None, seconds=observability.since(t0),
-                         config_hash=config_hash, error=type(exc).__name__ + (f": {why}" if why else ""))
-        if known is not None:  # its certain cost settles the call
-            exc.known_outcome = known
+        output_cap.ledger_failure(messages, exc, run_id=run_id, step=f"{site}_gpt", config_hash=config_hash,
+                                  seconds=observability.since(t0))  # 265 (AI-06): the shared rule
         raise
     usage = result.usage() if callable(result.usage) else result.usage
     in_tok, out_tok = usage.input_tokens or 0, usage.output_tokens or 0
