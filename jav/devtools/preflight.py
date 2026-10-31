@@ -217,12 +217,24 @@ def lang_guard_status() -> tuple[bool, str]:
     return not over, msg
 
 
+def full_run_lock():
+    """265 (code review TOOL-06): one full test run at a time on this machine (the start-up check's and the test
+    worktree's, from any folder): two at once ran out of memory, and one wiped the other's shared test worktree. A lock
+    file in the system's temporary folder; `lock.AlreadyRunning` when another run holds it."""
+    import tempfile
+
+    from jav.core import lock
+
+    return lock.single_instance(Path(tempfile.gettempdir()) / "jav-full-test-run.lock")
+
+
 def preflight(*, skip_pytest: bool = False) -> int:
     t0 = time.perf_counter()
     results: list[tuple[str, bool, str]] = []
 
     if not skip_pytest:
-        (ok, summary), ui = run_tests(log_folder())
+        with full_run_lock():
+            (ok, summary), ui = run_tests(log_folder())
         results.append(("pytest", ok, summary))
         results.append(("interface", ui[0], ui[1]) if ui else ("interface", True, "skipped (ui/node_modules is not installed)"))
 
