@@ -453,14 +453,25 @@ def shown_final(final_status: str | None, open_reasons: int) -> str | None:
     return "settled" if final_status == "needs_review" and not open_reasons else final_status
 
 
-def _run_items(scope: dict[str, str]) -> Rows:
+def run_item_names(run: dict[str, Any]) -> dict[str, Any]:
+    """264 (plan E, F5): a run's items by their unified names: this run's own, and for an item that did not finish in
+    it (a trial, a stopped or a failed item) the name of the run whose result counts, as the batch's list names it."""
     from jav.app import naming
 
+    names = naming.run_item_names(run["run_id"])
+    if any(n is naming.PENDING for n in names.values()):
+        counted = naming.package_item_names(work.get(run["workpackage_id"]))
+        names = {k: counted[k] if n is naming.PENDING and counted.get(k, naming.PENDING).unified else n
+                 for k, n in names.items()}
+    return names
+
+
+def _run_items(scope: dict[str, str]) -> Rows:
     choice = _name_choice(scope)
     run = work_runs.get_run(scope["run_id"])
     titles = work_views.item_titles(run["input"]["items"], work_views.package_root(work.get(run["workpackage_id"])))
     results = {r["item_id"]: r for r in run["items"]}
-    names = naming.run_item_names(run["run_id"])
+    names = run_item_names(run)
     cols = [
         col("name", "Item", link="review", names=choice),
         *_name_cols(),
