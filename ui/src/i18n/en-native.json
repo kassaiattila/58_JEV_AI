@@ -5245,5 +5245,8 @@
   "A reconciliation statement's invoices": "A reconciliation statement's invoices",
   "A reconciliation statement's lines": "A reconciliation statement's lines",
   "Another party's": "Another party's",
-  "Days overdue": "Days overdue"
+  "Days overdue": "Days overdue",
+  "Its next run": "Its next run",
+  "To its Processing": "To its Processing",
+  "A routed document is processed by its batch's next run.": "A routed document is processed by its batch's next run."
 }

@@ -187,19 +187,21 @@ function Routed({ view }: { view: RoutingView }) {
       <h3>{t("Routed documents")}</h3>
       {accepted.length ? (
         <table className="table compact rt-table rt-routed" aria-label={t("Routed documents")}>
-          <thead><tr><th>{t("Package")}</th><th>{t("Documents")}</th></tr></thead>
+          <thead><tr><th>{t("Package")}</th><th>{t("Documents")}</th><th>{t("Its next run")}</th></tr></thead>
           <tbody>
             {[...byTarget.entries()].map(([target, items]) => (
               <tr key={target}>
                 <td><a href={`#/workpackages/${encodeURIComponent(target)}`}>{items[0].decision!.target_name ?? target}</a></td>
                 <td>{items.map((i) => i.file).join(", ")}</td>
+                {/* 264 (F5): the way to the batch's run instead of a sentence that says to start it there */}
+                <td><a href={`#/workpackages/${encodeURIComponent(target)}/process`}>{t("To its Processing")}</a></td>
               </tr>
             ))}
           </tbody>
         </table>
       ) : <p className="muted">{t("Nothing routed yet.")}</p>}
       {rejected ? <p className="small muted">{t("{{n}} document(s) not routed.", { n: rejected })}</p> : null}
-      <p className="small muted">{t("A routed document is processed by its package's next run; start it there.")}</p>
+      {accepted.length ? <p className="small muted">{t("A routed document is processed by its batch's next run.")}</p> : null}
     </section>
   );
 }

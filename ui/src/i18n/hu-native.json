@@ -5283,5 +5283,8 @@
   "A reconciliation statement's invoices": "Egyeztetési kimutatás: számlák",
   "A reconciliation statement's lines": "Egyeztetési kimutatás: kivonattételek",
   "Another party's": "Más gazdálkodóé",
-  "Days overdue": "Lejárt, fizetés nélkül (nap)"
+  "Days overdue": "Lejárt, fizetés nélkül (nap)",
+  "Its next run": "A következő futása",
+  "To its Processing": "A Feldolgozásához",
+  "A routed document is processed by its batch's next run.": "A szétosztott iratot a köteg következő futása dolgozza fel."
 }
