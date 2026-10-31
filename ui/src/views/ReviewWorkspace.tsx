@@ -58,16 +58,21 @@ function withNote(note: string | null, node: ReactNode): ReactNode {
 /** 153 (review): `onChanged` tells the package page that a to-do or a value changed, so its header and stage tabs
  *  follow (they kept the old count until the browser was reloaded). 160-C S3: the review opens on the run the package's
  *  next step is about (`currentRunId`), and names the other open live runs that have to-dos (`openRuns`). */
-export function ReviewWorkspace({ wp, itemId, onChanged, currentRunId, openRuns }: {
-  wp: Workpackage; itemId?: string; onChanged?: () => void; currentRunId?: string; openRuns?: RunRow[];
+export function ReviewWorkspace({ wp, itemId, runId, onChanged, currentRunId, openRuns }: {
+  wp: Workpackage; itemId?: string; runId?: string; onChanged?: () => void; currentRunId?: string; openRuns?: RunRow[];
 }) {
   useLocale();
   const gridRef = useFitToScreen<HTMLDivElement>();
   const latest = useDataset("runs", { workpackage_id: wp.id }, { limit: 1 });
-  const [runId, setRunId] = useState<string | null>(null);
+  // 265 (code review UI-06): the run chosen is in the address (`?run=`), so a reload or a link keeps it; it was kept
+  // only in the page, and an item of another run then read "the item is not part of the run"
   const chosen = runId ?? currentRunId ?? latest.data?.rows[0]?._key ?? null;
+  const setRunId = (id: string | null) => go({ view: "workpackages", wpId: wp.id, stage: "review", runId: id ?? undefined });
   const names = useNameMode();
   const view = useLoad(chosen ? `run:${chosen}:${names}` : null, () => api.run(chosen!, names));
+  // 265 (code review UI-04): the confidence bands once for the review, not again for every item
+  const settings = useLoad("settings", api.settings);
+  const bands = settings.error ? DEFAULT_BANDS : settings.data?.confidence_bands ?? null;
   // 056 U1: the item list stays manageable even with several hundred items: filtering by name, only those with to-dos
   const [queueQ, setQueueQ] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(false);
@@ -93,7 +98,7 @@ export function ReviewWorkspace({ wp, itemId, onChanged, currentRunId, openRuns 
   // 083: the next item with open to-dos in this run, after the current one (then from the start), for the keyboard and
   // the right panel
   const nextTodo = [...items.slice(index + 1), ...items.slice(0, Math.max(index, 0))].find((i) => (own[i.item_id] ?? []).length > 0);
-  const pick = (id: string) => go({ view: "workpackages", wpId: wp.id, stage: "review", itemId: id });
+  const pick = (id: string) => go({ view: "workpackages", wpId: wp.id, stage: "review", itemId: id, runId });
   const ownTotal = Object.values(own).reduce((n, r) => n + r.length, 0);
   // 150: the switch appears only when trial runs left to-dos on this run's items
   const anyTrial = Object.values(earlier).some((rs) => rs.some((r) => r.trial));
@@ -147,7 +152,7 @@ export function ReviewWorkspace({ wp, itemId, onChanged, currentRunId, openRuns 
           <div className="empty">{t("The requested item ({{id}}) is not part of this run. Choose one from the list.", { id: selectedId?.slice(0, 12) ?? "" })}</div>
         ) : (
           <ItemReview key={`${run.run_id}:${selected.item_id}`} wpId={wp.id} runId={run.run_id} itemId={selected.item_id}
-            approved={Boolean(run.approval)} onChanged={() => itemChanged(wp.id, !itemId, selected.item_id, view.reload, onChanged)}
+            bands={bands} approved={Boolean(run.approval)} onChanged={() => itemChanged(wp.id, !itemId, selected.item_id, view.reload, onChanged, runId)}
             onNext={index < items.length - 1 ? () => pick(items[index + 1].item_id) : undefined}
             onPrev={index > 0 ? () => pick(items[index - 1].item_id) : undefined}
             onNextTodo={nextTodo ? () => pick(nextTodo.item_id) : undefined} />
@@ -181,8 +186,9 @@ function OtherOpenRuns({ runs, onPick }: { runs: RunRow[]; onPick: (runId: strin
 /** 153 (review): after a change on an item. An item the queue chose (no item in the address) is put into the address,
  *  so it stays chosen when its last to-do closes (it jumped to the first item); the run's view reloads, and the package
  *  page is told (its header and stage tabs kept the old count). */
-export function itemChanged(wpId: string, chosenByQueue: boolean, itemId: string, reloadRun: () => void, onChanged?: () => void): void {
-  if (chosenByQueue) window.location.replace(routeHash({ view: "workpackages", wpId, stage: "review", itemId }));
+export function itemChanged(wpId: string, chosenByQueue: boolean, itemId: string, reloadRun: () => void, onChanged?: () => void,
+  runId?: string): void {
+  if (chosenByQueue) window.location.replace(routeHash({ view: "workpackages", wpId, stage: "review", itemId, runId }));
   reloadRun();
   onChanged?.();
 }
@@ -211,6 +217,8 @@ ${tip}` : name}>{warn}{name}</span>
 interface ItemReviewProps {
   wpId: string; runId: string; itemId: string; approved: boolean; onChanged: () => void; onNext?: () => void; onPrev?: () => void;
   onNextTodo?: () => void;
+  /** 265 (code review UI-04): the review's confidence bands (null while they load); without it the item loads them */
+  bands?: Bands | null;
 }
 
 /** Dispatch before mounting any PDF hooks, including when a native item has no publication. */
@@ -229,9 +237,9 @@ export function ItemReview(props: ItemReviewProps) {
   return <PdfItemReview {...props} data={data} onChanged={changed} />;
 }
 
-function PdfItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev, onNextTodo, data }: ItemReviewProps & { data: ItemResult }) {
+function PdfItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev, onNextTodo, data, bands: given }: ItemReviewProps & { data: ItemResult }) {
   useLocale();
-  const settings = useLoad("settings", api.settings);
+  const settings = useLoad(given === undefined ? "settings" : null, api.settings);
   // 083 (the owner's decision): selection on the image is always on when the document has a word layer
   const selectMode = Boolean(data.source);
   const words = useLoad(selectMode ? `words:${runId}:${itemId}` : null, () => api.words(runId, itemId));
@@ -241,7 +249,10 @@ function PdfItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPre
   const [tab, setTabState] = useState(lastTab);
   const setTab = useCallback((next: string) => { lastTab = next; setTabState(next); }, []);
   const onList = tab !== "fields" && Boolean(data?.lists?.[tab]);
-  const bands = settings.data?.confidence_bands ?? DEFAULT_BANDS;
+  // 265 (code review UI-04): the first filter is chosen on the real bands; on the defaults the GPT path's band was
+  // missing at the first drawing, and the item opened on the wrong filter
+  const loaded: Bands | null = given !== undefined ? given : settings.error ? DEFAULT_BANDS : settings.data?.confidence_bands ?? null;
+  const bands = loaded ?? DEFAULT_BANDS;
   const key = draftKey(runId, itemId);
 
   const band = useCallback((f: string) => {
@@ -262,7 +273,7 @@ function PdfItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPre
   // 083: the field filter (Javítandó / Bizonytalan / Mind). The item opens on the filter chosen last while it has
   // fields here, otherwise on the fields to fix, otherwise on all; after that the choice stays on this item even when
   // its last field is confirmed (the panel then says that nothing is left).
-  const groups = useMemo(() => (data ? classifyFields(allFields, data, bands) : null), [data, allFields, bands]);
+  const groups = useMemo(() => (data && loaded ? classifyFields(allFields, data, loaded) : null), [data, allFields, loaded]);
   const counts = groups ? { fix: groups.fix.length, uncertain: groups.uncertain.length, all: groups.all.length } : null;
   const [filter, setFilterState] = useState<FieldFilter | null>(null);
   useEffect(() => {

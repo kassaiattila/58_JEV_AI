@@ -117,7 +117,9 @@ def review(wp_id: str) -> dict[str, Any]:
     lines by their reason, the decided ones counted by state, and the AI threshold used."""
     ws = reconcile_package.kept_workspace(wp_id)  # 153: read only
     sure: dict[str, list[str]] = defaultdict(list)
-    for p in reconcile_package.proposed_pairs(wp_id):
+    # 265 (code review DOM-02): read from the kept workspace itself; `proposed_pairs` refuses an approved package (a
+    # decision path), and the approved statement's quick review tab showed an error instead of its lines
+    for p in reconcile_package.sure_pairs(ws["lines"]):
         sure[p["line_id"]].append(p["invoice_doc_id"])
     threshold = reconcile.ai_sure_probability()
     invoices = {i["id"]: i for i in ws["invoices"]}

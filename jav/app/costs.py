@@ -130,8 +130,10 @@ def _collect(run_id: str) -> dict[str | None, dict[tuple[str, str], Line]]:
         return out[key].setdefault((provider, model), Line(provider, model))
 
     with store.connect() as c:
-        for r in c.execute("SELECT run_id, step_id, provider, model_requested, model_actual, status, max_cost_usd, cost_usd, cost_known"
-                           " FROM invocations WHERE budget_scope=?", (run_id,)):
+        for r in c.execute("SELECT run_id, step_id, provider, model_requested, model_actual, status, max_cost_usd, cost_usd,"
+                           " cost_known, note FROM invocations WHERE budget_scope=?", (run_id,)):
+            if calls.is_reused(r["note"]):
+                continue  # 265 (code review APPW-11): a reused answer (090) is not a paid call; its cached ledger row counts it
             key = _item_of(r["run_id"], prefix)
             if key is None and r["step_id"].startswith(AZURE_STEP):
                 key = r["step_id"][len(AZURE_STEP):][:16]

@@ -27,10 +27,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from jav.core.config import PROJECT_ROOT
+from jav.core.config import PROJECT_ROOT, RUNS_DIR
 from jav.core.clock import utc_now as _now
 
-STATUS_PATH = PROJECT_ROOT / "runs" / "deps-audit.json"
+STATUS_PATH = RUNS_DIR / "deps-audit.json"  # 265 (code review TOOL-17): the data folder's, not the program's
 MAX_AGE_DAYS = 7
 TIMEOUT_S = 600
 RELEASES_URL = "https://endoflife.date/api/v1/products/python/releases/{line}"  # 158: the runtime's version line

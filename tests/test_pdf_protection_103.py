@@ -178,8 +178,10 @@ def test_missing_or_invalid_worker_report_is_unknown(tmp_path, contents):
     from jav.runtime import pdf_status
 
     path = tmp_path / "test.sqlite"
-    if contents is not None:
-        pdf_status.report_path(path).write_text(contents, encoding="utf-8")
+    if contents is not None:  # 265 (X-10): a worker instance's own report
+        target = pdf_status.report_path(path, "0" * 32)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(contents, encoding="utf-8")
     report = pdf_status.worker_status(path, running=True)
     assert report["state"] == "unknown" and report["effective_memory_mb"] is None
 

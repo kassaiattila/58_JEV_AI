@@ -81,11 +81,16 @@ def scan(root: Path, guard: Guard) -> dict[str, int]:
             continue
         try:
             raw = (root / rel).read_bytes()
-            text = raw.decode("utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue  # binary or deleted in the working tree
+        except OSError:
+            continue  # deleted in the working tree
         if b"\0" in raw:
-            continue
+            continue  # binary
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            # 265 (code review TOOL-19): a text file in another encoding is read as Windows-1250 and counted, never
+            # skipped (skipping it let Hungarian text past the guard)
+            text = raw.decode("cp1250", errors="replace")
         n = hungarian_lines(text)
         if n:
             counts[rel] = n

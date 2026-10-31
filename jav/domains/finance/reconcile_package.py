@@ -61,7 +61,7 @@ from jav.domains.finance import own_parties
 from jav.ai import grounding, typepack
 from jav.core import activity_kinds, cfg, decisions, identity, store, values
 from jav.domains.finance import reconcile, reconcile_overview
-from jav.domains.finance import reconcile_store
+from jav.domains.finance import reconcile_rules, reconcile_store
 from jav.domains.finance.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
@@ -672,6 +672,10 @@ def _workspace(wp_id: str) -> dict[str, Any]:
     currencies = {str(st.get("currency")) for st in statements}
     cards = any(reconcile.fx_capable({"currency": st.get("currency"), "statement_type": st.get("statement_type")})
                 or any(reconcile.original(ln) for ln in st["lines"]) for st in statements)  # 137: card purchases' originals
+    # 265 (code review DOM-03): a statement in the line currency (forint) may pay an invoice of another currency at the
+    # bank's rate too (149), so its scope shows those invoices, as a card statement's does; before, a scope of forint
+    # bank accounts only left them off the page and they could not be paired even by hand
+    cards = cards or reconcile_rules._conf()["fx"]["line_currency"] in currencies
     start, end = date.fromisoformat(sc["period_start"]), date.fromisoformat(sc["period_end"])
     wanted = {c["invoice_id"] for lid in line_ids for c in by_line.get(lid, [])}
     wanted |= {s["invoice_id"] for lid in line_ids for s in shares_line.get(lid, [])}
@@ -951,9 +955,14 @@ def _source_state(doc: dict[str, Any], approved: set[str], accepted: set[tuple[s
 
 
 def active_versions(c=None) -> dict[str, dict[str, Any]]:
-    """The approved versions not reopened, per package, with the lines they lock (186: the shared version store's)."""
-    return {wp_id: {**{k: v for k, v in found.items() if k != "locks"}, "line_ids": found["locks"]}
-            for wp_id, found in package_release.active_own(c).items()}
+    """The approved versions not reopened, per package, with the lines they lock (186: the shared version store's). 265
+    (code review APPW-13): a case's approving steps each hold a version; the package shows its latest one and locks the
+    lines of every one of them."""
+    out: dict[str, dict[str, Any]] = {}
+    for (wp_id, _step), found in package_release.active_own(c).items():  # the oldest first
+        locked = [*out.get(wp_id, {}).get("line_ids", []), *found["locks"]]
+        out[wp_id] = {**{k: v for k, v in found.items() if k != "locks"}, "line_ids": list(dict.fromkeys(locked))}
+    return out
 
 
 def approval(wp_id: str, c=None) -> dict[str, Any]:

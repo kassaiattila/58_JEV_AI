@@ -7,6 +7,7 @@ document or contacts a provider.
 from __future__ import annotations
 
 from contextlib import contextmanager
+import contextlib
 import json
 from pathlib import Path, PurePosixPath
 import sqlite3
@@ -524,7 +525,8 @@ def unpublished_state(run_id: str, item_id: str, c=None) -> NativeProgress:
     path = store.current_path().with_name("burr_state.sqlite")
     state = {}
     if path.is_file():
-        with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as burr:
+        # 265 (code review X-09): closed when read (sqlite3's own context ends the transaction, not the connection)
+        with contextlib.closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as burr:
             if burr.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='burr_state'").fetchone():
                 row = burr.execute("SELECT state FROM burr_state WHERE partition_key='native' AND app_id=? ORDER BY sequence_id DESC LIMIT 1", (graph_id,)).fetchone()
                 if row:

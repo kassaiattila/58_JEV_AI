@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python scripts/hooks/handoff_guard.py session-start --host claude",
+            "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/handoff_guard.py\" session-start --host claude",
             "timeout": 20,
             "statusMessage": "handoff-guard: legfrissebb handoff betöltése"
           }
@@ -42,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python scripts/hooks/handoff_guard.py pre-compact --host claude",
+            "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/handoff_guard.py\" pre-compact --host claude",
             "timeout": 20
           }
         ]
@@ -53,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python scripts/hooks/handoff_guard.py stop --host claude",
+            "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/handoff_guard.py\" stop --host claude",
             "timeout": 20
           }
         ]

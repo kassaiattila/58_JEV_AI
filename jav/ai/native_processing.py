@@ -1,6 +1,8 @@
 """Budgeted native interpretation through the existing provider receipt ledger."""
 from __future__ import annotations
 
+import logging
+
 from decimal import Decimal
 import json
 from pathlib import Path
@@ -14,6 +16,8 @@ from jav.documents.readers import providers
 from jav.documents.readers.pipeline import digest, json_bytes
 from jav.documents.readers.receipts import InterpretationRejected
 from jav.core import calls
+
+log = logging.getLogger(__name__)
 
 
 def estimate_limits(params: Mapping[str, Any]) -> NativeLimits:
@@ -166,6 +170,8 @@ def interpret(*, work_run_id: str, item_id: str, graph_id: str, reading_id: str,
     except Exception as exc:
         # This is the explicit terminal application boundary. Keep only a safe
         # error class publicly; the existing call log retains private diagnostics.
+        # 265 (code review AI-05): the traceback goes to the process log (never the item's public outcome)
+        log.exception("the native interpretation failed")
         failure = exc
     receipts = _receipts(graph_id, replayed) + tuple(cached_refs)
     if failure is None:

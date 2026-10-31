@@ -44,7 +44,7 @@ def test_an_approval_writes_its_version_its_files_and_its_log_entry_together(db)
                                         details={"lines": 1})
     assert n == 1 and made == [1]
     assert package_release.own_approval(wp_id)["active"]["fingerprint"] == "f1"
-    assert package_release.active_own()[wp_id]["locks"] == ["line-1"]
+    assert package_release.active_own()[(wp_id, None)]["locks"] == ["line-1"]
     assert _events(wp_id, "reconcile_approve") == [("reconcile_approve", {"version": 1, "fingerprint": "f1", "lines": 1})]
 
 

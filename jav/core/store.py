@@ -372,6 +372,11 @@ def _initialize(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def ensure_wal(conn: sqlite3.Connection) -> None:
+    """265 (code review CORE-14): `_wal` for another store of the application (the flow-state store)."""
+    _wal(conn)
+
+
 def _wal(conn: sqlite3.Connection) -> None:
     """Switches the store to WAL once. 231 (stage E): the switch needs the whole file, and SQLite does not wait for that
     lock the way it waits for a write: processes and threads setting up a fresh store at the same moment (the service's

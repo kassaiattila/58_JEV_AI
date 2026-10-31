@@ -44,7 +44,8 @@ def test_a_reconciliations_approval_is_a_version_in_the_shared_version_store(db)
     assert _meta(v) == {"version": 1, "approved_by": "Reviewer", "reopened_by": None, "reopen_note": None}
     assert v["fingerprint"] == shown["fingerprint"] and v["approved_at"]
     assert package_release.own_version(wp_id, 1)["content"] == rs.approved_version(wp_id, 1)["statement"]
-    assert package_release.active_own()[wp_id]["locks"] == [ln["id"] for ln in shown["statement"]["lines"]]
+    [(key, found)] = package_release.active_own().items()  # 265 (APPW-13): keyed by the package and its approving step
+    assert key[0] == wp_id and found["locks"] == [ln["id"] for ln in shown["statement"]["lines"]]
     assert set(ids) <= set(rp.locks())
     # what the reconciliation shows stays as it was
     approval = rp.approval(wp_id)
@@ -120,7 +121,7 @@ def test_an_older_stores_own_versions_and_files_are_copied_into_the_shared_ones_
         assert [(v["version"], v["fingerprint"], v["reopen_note"]) for v in versions] == [(2, "fp-2", None),
                                                                                             (1, "fp-1", "checked again")]
         assert package_release.own_version("wp-reconcile", 2)["content"] == {"lines": [1]}
-        assert package_release.active_own() == {"wp-reconcile": {**versions[0], "locks": ["line-1", "line-2"]}}
+        assert package_release.active_own() == {("wp-reconcile", None): {**versions[0], "locks": ["line-1", "line-2"]}}
         assert [(f["state"], f["name"], f["template"], f["created_at"], f["backfilled_at"])
                 for f in package_release.own_files("wp-reconcile", 1)] == [
             ("approved", "statement-v1.xlsx", "builtin", "t2", None), ("earlier", "statement-v1.xlsx", "builtin", "t3", None)]

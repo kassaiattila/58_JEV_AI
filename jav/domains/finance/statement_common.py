@@ -89,7 +89,10 @@ def _header(row: list[str], profile: dict[str, Any]) -> dict[str, int] | None:
 
 def _cents(value: Decimal) -> Decimal | None:
     """153 (review A6): an amount in cents, only when no non-zero digit stands beyond them ("10.000" is 10.00); "10.005"
-    is None, so the line is unreadable and said so, instead of rounded without a word."""
+    is None, so the line is unreadable and said so, instead of rounded without a word. 265 (code review DOM-04): an
+    amount of 27 digits or more is unreadable too (its quantising raised, and the whole folder's survey failed)."""
+    if not value.is_finite() or value.adjusted() > 25:
+        return None
     return value.quantize(CENT) if value == value.quantize(CENT) else None
 
 

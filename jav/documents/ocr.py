@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Any
 
 from jav.documents import pdf as pdfmod
-from jav.core import cfg, trace
+from jav.core import cfg, jsonfile, trace
 from jav.documents import azure_di
 from jav.core.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, DATA_ROOT, OLD_DATA_ROOT, PROJECT_ROOT
 from jav.documents.layout import LineLayout
@@ -98,6 +98,10 @@ _TSV_LEVEL_WORD = "5"
 
 class OcrUnavailableError(RuntimeError):
     """No runnable OCR engine (neither native tesseract nor the Docker image)."""
+
+
+class OcrEngineFailed(OcrUnavailableError):
+    """265 (code review AI-02): the OCR engine hung (over its time limit) or failed on a page."""
 
 
 class AzureBlocked(OcrUnavailableError):
@@ -415,8 +419,13 @@ def _run_tesseract(png: Path, out_base: Path, *, psm: int | None = None, eng: st
         cmd = ["docker", "run", "--rm", "-v", f"{work}:/work", "--entrypoint", "tesseract", _CFG["docker"]["image"],
                f"/work/{png.name}", f"/work/{out_base.name}", *_tesseract_args(psm)]
         timeout *= 20  # an order of magnitude slower in the VM
-    subprocess.run(cmd, capture_output=True, timeout=timeout, check=True)
-    return Path(str(out_base) + ".tsv").read_text(encoding="utf-8")
+    try:
+        subprocess.run(cmd, capture_output=True, timeout=timeout, check=True)
+        return Path(str(out_base) + ".tsv").read_text(encoding="utf-8")
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError) as exc:
+        # 265 (code review AI-02): a hung or failed engine is an unavailability (`ocr:unavailable:OcrEngineFailed`, the
+        # item goes on with a to-do), not a general error retried twice
+        raise OcrEngineFailed(f"the OCR engine ({eng}) failed on {png.name}: {type(exc).__name__}") from exc
 
 
 # --- page images ------------------------------------------------------------------------------
@@ -566,8 +575,9 @@ def ocr_pdf(
     wider = max_pages is not None and max_pages > int(_CFG["max_pages"]) and eng != "azure_di"
     key += f"_pages{max_pages}" if wider else ""
     cache_file = CACHE_DIR / f"{key}.json"
-    if use_cache and cache_file.exists():
-        cached = json.loads(cache_file.read_text(encoding="utf-8"))
+    # 265 (code review AI-04): a broken cache file reads as missing (recognised again), never failing every later item
+    cached = jsonfile.read_tolerant(cache_file) if use_cache else None
+    if isinstance(cached, dict):
         if not cached.get("words") and eng != "azure_di":
             cached = _backfill_words(path, cached, cache_file, psm=psm, eng=eng)
         if eng == "azure_di":
@@ -610,7 +620,7 @@ def ocr_pdf(
         "page_sizes": page_sizes(path),
     }
     if use_cache:
-        cache_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        jsonfile.write_atomic(cache_file, data)  # 265 (AI-04): whole or not at all
     return _to_pdftext(path, data, cached=False)
 
 
@@ -623,7 +633,7 @@ def _backfill_words(path: Path, cached: dict[str, Any], cache_file: Path, *, psm
     if fresh.lines != [ln["text"] for ln in cached["layout"]]:
         return cached
     cached = {**cached, "words": fresh.words, "page_sizes": [list(s) for s in fresh.page_sizes], "words_backfilled": True}
-    cache_file.write_text(json.dumps(cached, ensure_ascii=False), encoding="utf-8")
+    jsonfile.write_atomic(cache_file, cached)  # 265 (AI-04)
     return cached
 
 

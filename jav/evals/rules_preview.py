@@ -282,8 +282,7 @@ def text(report: dict[str, Any]) -> list[str]:
 def _child(configs: Path, given: Path, taken: Path) -> int:
     """The process of one side: every rule read from `configs` (set before any rule module is loaded), each row's rule
     run on its stored inputs; a row whose rule raises is reported with its error, not left out."""
-    cfg.CONFIG_DIR, cfg.CALLSITE_DIR, cfg.TYPES_DIR = configs, configs / "callsites", configs / "types"
-    cfg.reload()
+    cfg.use_folder(configs)  # 265 (code review X-08): the process packs too
     from jav.app import registrations
 
     registrations.load_all()
@@ -300,8 +299,7 @@ def _child(configs: Path, given: Path, taken: Path) -> int:
 def _replay_child(configs: Path, baseline: Path, work_dir: Path, out: Path, size: int, jev_cache: Path | None,
                   taken: Path) -> int:
     """The process of one replay: every rule read from `configs` (set before any rule module is loaded)."""
-    cfg.CONFIG_DIR, cfg.CALLSITE_DIR, cfg.TYPES_DIR = configs, configs / "callsites", configs / "types"
-    cfg.reload()
+    cfg.use_folder(configs)  # 265 (code review X-08): the process packs too
     from jav.evals import before_after_replay
 
     result = before_after_replay.running_snapshot(baseline, work_dir, out, size=size, jev_cache=jev_cache)

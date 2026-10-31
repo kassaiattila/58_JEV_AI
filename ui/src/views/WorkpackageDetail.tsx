@@ -204,7 +204,7 @@ export function BatchStages({ view, route, onChanged, extra, otherwise, note, bo
         {stage === "review" ? (
           view.runs ? (
             <>
-              <ReviewWorkspace wp={workpackage} itemId={route.itemId} onChanged={onChanged} currentRunId={view.current_run?.run_id}
+              <ReviewWorkspace wp={workpackage} itemId={route.itemId} runId={route.runId} onChanged={onChanged} currentRunId={view.current_run?.run_id}
                 openRuns={view.open_runs} />
               <details className="details mt">
                 {/* 167: the title names adding too (the owner did not find it behind "Manage documents"); 168: the same

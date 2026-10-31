@@ -340,7 +340,7 @@ def _cost(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict[str, 
             for call in calls.scope_journal(scope):
                 line = by.setdefault(call["provider"], {"calls": 0, "reused": 0, "cost": Decimal("0"),
                                                         "open": Decimal("0")})
-                if (call.get("note") or "").startswith(f"{calls.REUSED_NOTE}:"):
+                if calls.is_reused(call.get("note")):  # 265 (APPW-11): the run's cost view counts it alike
                     line["reused"] += 1
                     continue
                 line["calls"] += 1

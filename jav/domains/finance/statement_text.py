@@ -16,7 +16,7 @@ from typing import Any
 from jav.core import card_numbers
 from jav.core.dates import read_date
 from jav.domains.finance.statement_common import (
-    CENT,
+    _cents,
     LINE_DETAILS,
     Account,
     Reading,
@@ -43,8 +43,7 @@ def _comma_amount(text: str) -> Decimal | None:
     """An amount with a decimal comma and no thousands separator ("1000,000"), when it is a whole number of cents."""
     if not re.fullmatch(r"\d+(?:,\d+)?", text):
         return None
-    value = Decimal(text.replace(",", "."))
-    return value.quantize(CENT) if value == value.quantize(CENT) else None
+    return _cents(Decimal(text.replace(",", ".")))  # 265 (DOM-04): the shared rule, a huge amount unreadable
 
 
 def _text_line(m: re.Match[str], *, expect_name: bool, reference: re.Pattern[str] | None = None) -> dict[str, Any]:

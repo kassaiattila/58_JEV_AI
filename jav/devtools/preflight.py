@@ -17,16 +17,17 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from xml.etree import ElementTree
 
 from jav.core import cfg, devstate
-from jav.devtools.admin import STATE_PATH, flow_lint_summary, write_state
+from jav.devtools.admin import flow_lint_summary, write_state
 from jav.core.config import PROJECT_ROOT
 
-HANDOFFS = PROJECT_ROOT / "docs" / "handoffs"
+HANDOFFS = devstate.docs_root() / "docs" / "handoffs"  # 265 (code review TOOL-18): the main checkout's from a worktree
 UI_DIR = PROJECT_ROOT / "ui"
 WATCH = [PROJECT_ROOT / "jav", PROJECT_ROOT / "tests", PROJECT_ROOT / "configs", UI_DIR / "src"]
 _NUM = re.compile(r"^(\d{3})-\d{4}-\d{2}-\d{2}-handoff\.md$")
@@ -37,6 +38,8 @@ KEEP_LOGS = 20
 _LOG_DIR = re.compile(r"^\d{8}_\d{6}$")
 # 189: pytest-xdist runs the tests in this many processes at most (the full suite took 30 min in one, under 5 in six)
 MAX_TEST_WORKERS = 6
+GB_PER_TEST_WORKER = 1.5  # 265 (code review TOOL-05): what one pytest process may take at its peak
+UI_TEST_WORKERS = 2  # 265 (TOOL-05): the UI's test processes beside the Python ones (vitest took 7 of 8 cores)
 SLOWEST_SHOWN = 25  # the slowest tests listed in the raw output, so a new time sink shows
 
 
@@ -46,7 +49,59 @@ def parallel_workers() -> int:
     if importlib.util.find_spec("xdist") is None:
         return 0
     workers = min(MAX_TEST_WORKERS, (os.cpu_count() or 1) - 2)
+    free = available_memory_gb()
+    if free is not None:  # 265 (code review TOOL-05): no more processes than the free memory holds
+        workers = min(workers, int(free // GB_PER_TEST_WORKER))
     return workers if workers >= 2 else 0
+
+
+def available_memory_gb() -> float | None:
+    """The machine's free physical memory in GB (Windows: `GlobalMemoryStatusEx`; elsewhere `sysconf`), or None."""
+    try:
+        if os.name == "nt":
+            import ctypes
+
+            class _Status(ctypes.Structure):
+                _fields_ = [("length", ctypes.c_ulong), ("load", ctypes.c_ulong), ("total", ctypes.c_ulonglong),
+                            ("avail", ctypes.c_ulonglong), ("total_page", ctypes.c_ulonglong),
+                            ("avail_page", ctypes.c_ulonglong), ("total_virtual", ctypes.c_ulonglong),
+                            ("avail_virtual", ctypes.c_ulonglong), ("avail_ext", ctypes.c_ulonglong)]
+
+            status = _Status()
+            status.length = ctypes.sizeof(_Status)
+            if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+                return None
+            return status.avail / 1e9
+        return os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") / 1e9
+    except (AttributeError, OSError, ValueError):
+        return None
+
+
+PYTEST_TIMEOUT_S = 90 * 60
+UI_STEP_TIMEOUT_S = 30 * 60
+STUCK_TEST_S = 15 * 60
+TIMED_OUT = -9
+"""265 (code review TOOL-11): a check's subprocess is stopped after its time limit and reported as failed (one stuck test
+held the whole check for good); a single test running longer than `STUCK_TEST_S` has every thread's stack written to
+the log (pytest's `faulthandler_timeout`), so the stuck one can be named."""
+
+
+def _bounded(cmd: list[str], *, timeout: int, cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    """`subprocess.run` with the output captured as text and a time limit; a run past it is stopped and returned with
+    the code `TIMED_OUT` and what it printed until then."""
+    try:
+        return subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                              timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        def text(value: str | bytes | None) -> str:
+            return value.decode("utf-8", "replace") if isinstance(value, bytes) else (value or "")
+
+        return subprocess.CompletedProcess(cmd, TIMED_OUT, text(exc.stdout),
+                                           text(exc.stderr) + f"\nstopped after {timeout // 60} minutes without finishing")
+
+
+def _stopped(r: subprocess.CompletedProcess[str], what: str, timeout: int) -> str | None:
+    return f"{what} stopped after {timeout // 60} minutes without finishing" if r.returncode == TIMED_OUT else None
 
 
 def log_folder() -> Path:
@@ -65,15 +120,15 @@ def run_pytest(folder: Path | None = None, *, root: Path = PROJECT_ROOT, env: di
     workers = parallel_workers()
     # 189: in several processes, each free test going to the first idle one, and with the slowest tests listed
     parallel = ["-n", str(workers), "--dist", "worksteal"] if workers else []
-    r = subprocess.run(
+    r = _bounded(
         [sys.executable, "-m", "pytest", "tests/", "-q", "-p", "no:cacheprovider", "-rfE", *parallel,
-         f"--durations={SLOWEST_SHOWN}", f"--junitxml={folder / 'junit.xml'}"],
-        cwd=root, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace",
+         f"--durations={SLOWEST_SHOWN}", f"--junitxml={folder / 'junit.xml'}", "-o", f"faulthandler_timeout={STUCK_TEST_S}"],
+        cwd=root, env=env, timeout=PYTEST_TIMEOUT_S,
     )
     (folder / "pytest.txt").write_text((r.stdout or "") + (f"\n--- stderr ---\n{r.stderr}" if r.stderr else ""), encoding="utf-8")
     _prune_logs(folder.parent)
     lines = [ln for ln in (r.stdout or "").splitlines() if ln.strip()]
-    summary = lines[-1] if lines else (r.stderr or "").strip()[-200:]
+    summary = _stopped(r, "pytest", PYTEST_TIMEOUT_S) or (lines[-1] if lines else (r.stderr or "").strip()[-200:])
     failed = [ln.split(" - ")[0] for ln in lines if ln.startswith(("FAILED ", "ERROR "))]
     if failed:
         summary += "; " + ", ".join(failed[:5]) + (f" (+{len(failed) - 5})" if len(failed) > 5 else "")
@@ -118,27 +173,29 @@ def run_ui_checks(folder: Path | None = None, *, ui_dir: Path = UI_DIR) -> tuple
     tsc_bin, vitest_bin = local_bin(ui_dir, "tsc"), local_bin(ui_dir, "vitest")
     if tsc_bin is None or vitest_bin is None:
         return False, "the UI's tsc or vitest is not installed in ui/node_modules (npm ci)"
-    tsc = subprocess.run([str(tsc_bin), "--noEmit"], cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    tsc = _bounded([str(tsc_bin), "--noEmit"], cwd=ui_dir, timeout=UI_STEP_TIMEOUT_S)
     if tsc.returncode != 0:
-        first = next((ln for ln in (tsc.stdout or "").splitlines() if ln.strip()), "tsc hiba")
-        return False, f"type check: {first[:160]}"
+        first = next((ln for ln in (tsc.stdout or "").splitlines() if ln.strip()), "tsc error")
+        return False, _stopped(tsc, "type check", UI_STEP_TIMEOUT_S) or f"type check: {first[:160]}"
     node = shutil.which("node")
     for extra in (["--audit"], []):
         if node is None:
             break
-        i18n = subprocess.run([node, "scripts/check-i18n.mjs", *extra], cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        i18n = _bounded([node, "scripts/check-i18n.mjs", *extra], cwd=ui_dir, timeout=UI_STEP_TIMEOUT_S)
         if i18n.returncode != 0:
             last = [ln for ln in (i18n.stderr or "").splitlines() if ln.strip()]
-            return False, f"translations: {(last[-1] if last else 'check-i18n error')[:160]}"
+            return False, (_stopped(i18n, "translations", UI_STEP_TIMEOUT_S)
+                           or f"translations: {(last[-1] if last else 'check-i18n error')[:160]}")
     folder = folder or log_folder()
     junit = folder / "vitest-junit.xml"
-    r = subprocess.run(
-        [str(vitest_bin), "run", "--reporter=default", "--reporter=junit", f"--outputFile.junit={junit}"],
-        cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace",
+    r = _bounded(
+        [str(vitest_bin), "run", f"--maxWorkers={UI_TEST_WORKERS}", "--reporter=default", "--reporter=junit",
+         f"--outputFile.junit={junit}"],
+        cwd=ui_dir, timeout=UI_STEP_TIMEOUT_S,
     )
     (folder / "vitest.txt").write_text((r.stdout or "") + (f"\n--- stderr ---\n{r.stderr}" if r.stderr else ""), encoding="utf-8")
     tests = next((ln.strip() for ln in (r.stdout or "").splitlines() if ln.strip().startswith("Tests")), "")
-    summary = f"type check and translations OK; {re.sub(r'\s+', ' ', tests) or 'vitest: no summary'}"
+    summary = f"type check and translations OK; {_stopped(r, 'vitest', UI_STEP_TIMEOUT_S) or re.sub(r'\s+', ' ', tests) or 'vitest: no summary'}"
     if r.returncode != 0:
         failed = _failed_ui_tests(junit)
         if failed:
@@ -176,7 +233,7 @@ def handoff_status() -> tuple[bool, str]:
     if handoff is None:  # 070: the handoff is an internal document, absent in a fresh clone - a notice, not an error
         return True, "no local handoff under docs/handoffs/ (internal working documents; a fresh clone?)"
     minutes = (newest_watched_mtime() - handoff.stat().st_mtime) / 60
-    rel = handoff.relative_to(PROJECT_ROOT).as_posix()
+    rel = devstate.shown_path(handoff)
     if minutes > 60:  # decision 040/4: a handoff is due only at session end / stage close, so a notice, not an error
         return True, f"{rel} - the code is {minutes:.0f} minute(s) newer; write {num + 1:03d} at the end of the session"
     return True, f"{rel} (fresh; next number: {num + 1:03d})"
@@ -217,12 +274,25 @@ def lang_guard_status() -> tuple[bool, str]:
     return not over, msg
 
 
+FULL_RUN_LOCK = Path(tempfile.gettempdir()) / "jav-full-test-run.lock"
+
+
+def full_run_lock():
+    """265 (code review TOOL-06): one full test run at a time on this machine (the start-up check's and the test
+    worktree's, from any folder): two at once ran out of memory, and one wiped the other's shared test worktree. A lock
+    file in the system's temporary folder (`FULL_RUN_LOCK`); `lock.AlreadyRunning` when another run holds it."""
+    from jav.core import lock
+
+    return lock.single_instance(FULL_RUN_LOCK)
+
+
 def preflight(*, skip_pytest: bool = False) -> int:
     t0 = time.perf_counter()
     results: list[tuple[str, bool, str]] = []
 
     if not skip_pytest:
-        (ok, summary), ui = run_tests(log_folder())
+        with full_run_lock():
+            (ok, summary), ui = run_tests(log_folder())
         results.append(("pytest", ok, summary))
         results.append(("interface", ui[0], ui[1]) if ui else ("interface", True, "skipped (ui/node_modules is not installed)"))
 
@@ -264,10 +334,10 @@ def preflight(*, skip_pytest: bool = False) -> int:
     results.append(("ruff", ok, msg))
 
     path = write_state()
-    results.append(("STATE.md", True, path.relative_to(PROJECT_ROOT).as_posix()))
+    results.append(("STATE.md", True, devstate.shown_path(path)))
 
     print(f"# preflight ({time.perf_counter() - t0:.1f} s)\n")
     for name, ok, detail in results:
         print(f"- {'OK  ' if ok else 'FAIL'} {name}: {detail}")
-    print(f"\nState snapshot: {STATE_PATH.relative_to(PROJECT_ROOT).as_posix()} · backlog: docs/BACKLOG.md · decisions: docs/DECISIONS.md")
+    print(f"\nState snapshot: {devstate.shown_path(path)} · backlog: docs/BACKLOG.md · decisions: docs/DECISIONS.md")
     return 0 if all(ok for _, ok, _ in results) else 1

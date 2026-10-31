@@ -150,6 +150,11 @@ python -m jav.cli burr-prune --no-vacuum
 1. `.\scripts\dev.ps1 stop` (stops the local service and the worker);
 2. set the current `store\jav.sqlite` aside, for example as `store\jav.sqlite.broken`; rename the `jav.sqlite-wal` and `jav.sqlite-shm` files next to it as well;
 3. copy the `jav.sqlite` file of the chosen backup back into `store\`;
+   **and the flow-state store from the same moment:** if the backup was made `--with-burr`, copy its
+   `burr_state.sqlite` back too; otherwise set the current `store\burr_state.sqlite` (and its `-wal`, `-shm` files)
+   aside as well, so the worker starts the restored runs' unfinished items afresh. A flow state newer than the
+   restored store would let an item resume past steps the store no longer holds, and it could end "done" without its
+   data and to-dos;
 4. copy the contents of the backup root's `sources\` folder into `store\sources\` (files already there can be kept: a file's name is its content hash);
 5. unpack the backup's `native-artifacts.zip` into `store\` (its names start with `native/`);
 6. if the project folder itself was lost: unpack `internal-docs.zip` and `local-env.zip` into the project root (their names are relative to it; do not overwrite a newer file);

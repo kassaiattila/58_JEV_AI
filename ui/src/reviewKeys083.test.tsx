@@ -163,7 +163,7 @@ describe("083 the keyboard flow in the whole workspace", () => {
 
   it("Enter confirms, goes to the next field to fix, and after the last one to the next item with to-dos", async () => {
     vi.spyOn(api, "run").mockResolvedValue(runView());
-    vi.spyOn(api, "settings").mockReturnValue(new Promise(() => {}));
+    vi.spyOn(api, "settings").mockResolvedValue({ confidence_bands: { confident: 0.9, check: 0.5 } });  // 265: awaited (UI-04)
     vi.spyOn(api, "words").mockReturnValue(new Promise(() => {}));
     const reasons: ItemResult["open_reasons"] = [
       { id: 11, reason: "pick:low_conf:invoice_number:0.5", producer: "flow", run_id: "run-k1:a", field: "invoice_number" },
@@ -185,7 +185,7 @@ describe("083 the keyboard flow in the whole workspace", () => {
 
   it("PageDown and PageUp switch items, in a field's box too", async () => {
     vi.spyOn(api, "run").mockResolvedValue(runView());
-    vi.spyOn(api, "settings").mockReturnValue(new Promise(() => {}));
+    vi.spyOn(api, "settings").mockResolvedValue({ confidence_bands: { confident: 0.9, check: 0.5 } });  // 265: awaited (UI-04)
     vi.spyOn(api, "words").mockReturnValue(new Promise(() => {}));
     vi.spyOn(api, "item").mockResolvedValue(item(0, []));
     window.location.hash = "";

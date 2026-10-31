@@ -9,6 +9,7 @@ there is no "stuck" lock after a crash.
 from __future__ import annotations
 
 import os
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Iterator
@@ -35,6 +36,21 @@ def _try_lock(f: IO[bytes]) -> bool:
     return True
 
 
+TAKE_ATTEMPTS = 3
+TAKE_RETRY_S = 0.05
+"""265 (code review CORE-09): another process's probe (`is_held`) holds a lock for a moment; a lock taken right then is
+tried again a few times before it counts as held by someone else."""
+
+
+def _take(f: IO[bytes]) -> bool:
+    for attempt in range(1, TAKE_ATTEMPTS + 1):
+        if _try_lock(f):
+            return True
+        if attempt < TAKE_ATTEMPTS:
+            time.sleep(TAKE_RETRY_S)
+    return False
+
+
 def _unlock(f: IO[bytes]) -> None:
     if os.name == "nt":
         f.seek(0)
@@ -49,7 +65,7 @@ def single_instance(path: Path) -> Iterator[None]:
     path.parent.mkdir(parents=True, exist_ok=True)
     f = open(path, "a+b")
     try:
-        if not _try_lock(f):
+        if not _take(f):
             raise AlreadyRunning(f"another worker holds {path.name}")
         try:
             f.seek(0)
@@ -85,7 +101,7 @@ def hold(path: Path) -> IO[bytes]:
     process; the operating system releases it when the process dies). `AlreadyRunning` if someone else holds it."""
     path.parent.mkdir(parents=True, exist_ok=True)
     f = open(path, "a+b")
-    if not _try_lock(f):
+    if not _take(f):
         f.close()
         raise AlreadyRunning(f"{path.name} is held by another process")
     return f

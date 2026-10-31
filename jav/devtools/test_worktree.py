@@ -46,7 +46,9 @@ def _git(*args: str, cwd: Path = PROJECT_ROOT) -> str:
 def changed_paths(root: Path = PROJECT_ROOT) -> tuple[list[str], list[str]]:
     """The work beyond the checked-out commit, as paths relative to `root`: (changed or new files, deleted files).
     Ignored files are not part of it."""
-    tracked = [p for p in _git("diff", "--name-only", "-z", "HEAD", cwd=root).split("\0") if p]
+    # 265 (code review TOOL-02): without rename detection, so a renamed file's old path counts as deleted (it stayed in
+    # the test worktree, and the suite could pass on a file the work no longer has)
+    tracked = [p for p in _git("diff", "--name-only", "--no-renames", "-z", "HEAD", cwd=root).split("\0") if p]
     new = [p for p in _git("ls-files", "--others", "--exclude-standard", "-z", cwd=root).split("\0") if p]
     present = sorted({p for p in tracked + new if (root / p).is_file()})
     deleted = sorted({p for p in tracked if not (root / p).exists()})
@@ -97,9 +99,21 @@ def prepare(worktree: Path = WORKTREE, root: Path = PROJECT_ROOT) -> tuple[Path,
 
 
 def run(*, ui: bool = True, worktree: Path = WORKTREE) -> tuple[bool, list[str], Path]:
-    """Runs pytest (and the UI checks) in the refreshed test worktree: (all green, report lines, the log folder)."""
+    """Runs pytest (and the UI checks) in the refreshed test worktree: (all green, report lines, the log folder). 265
+    (code review TOOL-06): one full run at a time on the machine (`preflight.full_run_lock`), each in a log folder of
+    its own (the process id beside the time)."""
+    from jav.core import lock
+
+    try:
+        with preflight.full_run_lock():
+            return _run(ui=ui, worktree=worktree)
+    except lock.AlreadyRunning:
+        raise WorktreeError("another full test run is going on this machine; run one at a time") from None
+
+
+def _run(*, ui: bool, worktree: Path) -> tuple[bool, list[str], Path]:
     path, head, changed = prepare(worktree)
-    folder = RUNS / time.strftime("%Y%m%d_%H%M%S")
+    folder = RUNS / f"{time.strftime('%Y%m%d_%H%M%S')}_{os.getpid()}"
     folder.mkdir(parents=True, exist_ok=True)
     env = {**os.environ, LEGACY_ROOT_ENV: str(OLD_PROJECT_ROOT)}
     if ui:

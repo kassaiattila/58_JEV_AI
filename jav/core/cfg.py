@@ -62,6 +62,15 @@ TYPES_DIR = CONFIG_DIR / "types"  # type packs: all type data of one document ty
 PROCESSES_DIR = CONFIG_DIR / "processes"  # 231 (A4): process packs, one kind of business process each (jav/app/process_packs.py)
 
 
+def use_folder(root: Path) -> None:
+    """265 (code review X-08): every config is read from `root` and its subfolders (call sites, type packs, process
+    packs), for a process that tries another set of rule files (`jav/evals/rules_preview.py`); setting the folders one
+    by one left the process packs read from the real folder."""
+    global CONFIG_DIR, CALLSITE_DIR, TYPES_DIR, PROCESSES_DIR
+    CONFIG_DIR, CALLSITE_DIR, TYPES_DIR, PROCESSES_DIR = root, root / "callsites", root / "types", root / "processes"
+    reload()
+
+
 def path_of(name: str) -> Path:
     """`doc_types` -> configs/doc_types.json; `callsite:detect` -> configs/callsites/detect.json; `type:invoice_hu` -> configs/types/invoice_hu.json;
     `process:it_quote` -> configs/processes/it_quote.json (231). 265 (code review SEC-06): a name that would leave its

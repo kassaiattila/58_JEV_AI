@@ -308,12 +308,18 @@ def _copy(src_dir: Path, target_root: Path, keep: int, *, prune: bool = True, ki
     the latest `keep` backups are kept. On failure the local backup stays valid and the error goes into the manifest.
     090: without `prune` (the local backup misses a referenced source instance) nothing is deleted there."""
     target = target_root / src_dir.name
+    # 265 (code review CORE-03): copied under a `.part` name, checked, then put in place in one step; a failure leaves
+    # no half-copied folder under the backup's own name (whose manifest said "ok" and which the pruning kept as good)
+    part = target_root / f"{src_dir.name}.part"
     try:
         target_root.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(src_dir, target)
-        verified = all(_sha256(f) == _sha256(target / f.name) for f in src_dir.iterdir() if f.is_file())
+        if part.exists():
+            shutil.rmtree(part)
+        shutil.copytree(src_dir, part)
+        verified = all(_sha256(f) == _sha256(part / f.name) for f in src_dir.iterdir() if f.is_file())
         if not verified:
-            raise OSError(f"copy verification failed: {target}")
+            raise OSError(f"copy verification failed: {part}")
+        os.replace(part, target)
         local_sources = src_dir.parent / SOURCES_DIR
         instances = _instance_files(local_sources)
         sources = _sync_sources(instances, local_sources, target_root / SOURCES_DIR) if instances else None
@@ -323,6 +329,7 @@ def _copy(src_dir: Path, target_root: Path, keep: int, *, prune: bool = True, ki
                 "sources": sources}
     except OSError as exc:
         log.warning("backup copy to %s failed: %s", target_root, exc)
+        shutil.rmtree(part, ignore_errors=True)
         return {"dir": str(target), "ok": False, "verified": False, "error": f"{type(exc).__name__}: {exc}"}
 
 

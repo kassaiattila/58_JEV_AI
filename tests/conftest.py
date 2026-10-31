@@ -95,6 +95,18 @@ def _no_real_ocr_cache(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_real_jev_cache(tmp_path_factory, monkeypatch):
+    """265 (code review X-28): a test never reads or writes the real JEV cache (`runs/cache/`: JEV's answers about real
+    documents), as the OCR cache above; an empty temporary folder per test. A test giving its own folder keeps it."""
+    from jav.ai import jev, jev_version
+    from jav.core import config
+
+    folder = tmp_path_factory.mktemp("jev-cache")
+    for module in (jev, jev_version, config):
+        monkeypatch.setattr(module, "CACHE_DIR", folder)
+
+
+@pytest.fixture(autouse=True)
 def _no_live_gpt_choice():
     """089: a test never sends a GPT choice question (type or email intent without JEV) to OpenAI, which would be a paid
     call; a test that needs an answer installs its own stand-in with `gpt_choice.use_agent_factory`."""

@@ -26,16 +26,29 @@ log = logging.getLogger(__name__)
 REPORT_INTERVAL_S = 2.0
 MAX_AGE_S = 10.0
 # 159: on Windows a reader holding the report (the service's status request) makes the replace fail for a moment.
+YOUNG_LOCK_S = 60.0
+"""265 (code review CORE-09): a worker's lock file younger than this is never removed: its worker may be just starting
+(it creates the file, then locks it)."""
 REPLACE_ATTEMPTS = 5
 REPLACE_RETRY_DELAY_S = 0.05
 
 
-def report_path(store_path: Path) -> Path:
-    return store_path.with_name("worker-pdf-status.json")
+_RANK = {"unprotected": 0, "unknown": 1, "stale": 2, "protected": 3}
+"""265 (code review X-10): the weakest live worker's state is the workers' state (every worker reports its own)."""
+
+
+def _folder(store_path: Path) -> Path:
+    return store_path.parent / "pdf-status"
+
+
+def report_path(store_path: Path, instance: str) -> Path:
+    """265 (code review X-10): one worker instance's report, beside its lock file; all the workers wrote one shared
+    report before, so with several workers the last writer's state was everyone's."""
+    return _folder(store_path) / f"{instance}.json"
 
 
 def _owner_path(store_path: Path, instance: str) -> Path:
-    return store_path.parent / "pdf-status" / f"{instance}.lock"
+    return _folder(store_path) / f"{instance}.lock"
 
 
 def _replace(temporary: Path, target: Path) -> None:
@@ -50,14 +63,22 @@ def _replace(temporary: Path, target: Path) -> None:
 
 
 def _remove_ended_instances(folder: Path) -> None:
-    """159: one lock file is left per worker start; remove those whose worker has ended."""
+    """159: one lock file is left per worker start; remove those whose worker has ended. 265 (X-10): with its report."""
     for path in folder.glob("*.lock"):
         try:
+            if time.time() - path.stat().st_mtime < YOUNG_LOCK_S:
+                continue
             if not lock.is_held(path):
                 path.unlink(missing_ok=True)
         except OSError as exc:
             # Someone is probing it right now; the next worker start tries again.
             log.debug("kept the lock file %s: %s", path.name, exc)
+    for path in folder.glob("*.json"):  # an ended worker's report: kept as evidence until it is old
+        try:
+            if time.time() - path.stat().st_mtime >= YOUNG_LOCK_S and not path.with_suffix(".lock").exists():
+                path.unlink(missing_ok=True)
+        except OSError as exc:
+            log.debug("kept the report %s: %s", path.name, exc)
 
 
 @contextmanager
@@ -68,9 +89,13 @@ def publish(store_path: Path) -> Iterator[None]:
     owner_path.parent.mkdir(parents=True, exist_ok=True)
     _remove_ended_instances(owner_path.parent)
     owner = lock.hold(owner_path)
+    try:  # 265 (X-10): the shared report of the workers before; nobody writes it any more
+        store_path.with_name("worker-pdf-status.json").unlink(missing_ok=True)
+    except OSError as exc:
+        log.debug("kept the old shared report: %s", exc)
     stopped = threading.Event()
-    target = report_path(store_path)
-    temporary = target.with_suffix(f".{instance}.tmp")
+    target = report_path(store_path, instance)
+    temporary = target.with_suffix(".tmp")
 
     def write() -> None:
         try:
@@ -105,19 +130,32 @@ def publish(store_path: Path) -> Iterator[None]:
 
 
 def worker_status(store_path: Path, *, running: bool, now: float | None = None) -> dict[str, Any]:
-    """Read-only evidence. Missing/invalid reports are unknown; expired/dead reports stale."""
+    """Read-only evidence. Missing/invalid reports are unknown; expired/dead reports stale. 265 (code review X-10):
+    every worker instance reports in its own file; the state is the weakest of the live workers' (an ended worker's
+    report counts only while no worker is live)."""
     unknown: dict[str, Any] = {
         "state": "unknown", "reason": "report_missing" if running else "worker_not_running",
         "configured": None, "effective_memory_mb": None, "helper_pid": None,
         "process_pid": None, "observed_at": None, "reported_at": None, "max_age_s": MAX_AGE_S,
     }
+    folder = _folder(store_path)
+    found = [_status_of(store_path, path, unknown, running=running, now=now)
+             for path in (sorted(folder.glob("*.json")) if folder.is_dir() else [])]
+    if not found:
+        return unknown
+    live = [r for r in found if r["reason"] != "worker_instance_ended"]
+    return min(live or found, key=lambda r: (_RANK[r["state"]], -(r.get("reported_at") or 0)))
+
+
+def _status_of(store_path: Path, path: Path, unknown: dict[str, Any], *, running: bool, now: float | None) -> dict[str, Any]:
+    """One worker instance's report, checked."""
     try:
-        report = json.loads(report_path(store_path).read_text(encoding="utf-8"))
+        report = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(report, dict) or report.get("schema") != 1:
             raise ValueError("unsupported report")
         instance = report.get("instance")
         stamp = report.get("reported_at")
-        if not isinstance(instance, str) or not re.fullmatch(r"[0-9a-f]{32}", instance):
+        if not isinstance(instance, str) or not re.fullmatch(r"[0-9a-f]{32}", instance) or instance != path.stem:
             raise ValueError("invalid instance")
         if type(stamp) not in (int, float) or not math.isfinite(stamp):
             raise ValueError("invalid time")

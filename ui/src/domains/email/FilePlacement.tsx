@@ -114,10 +114,10 @@ function Decide({ wpId, view, onChanged }: { wpId: string; view: RoutingView; on
             return (
               <>
                 <button type="button" className="secondary small-btn" disabled={busy || !proposed.length}
-                  onClick={() => void act(() => api.routingAccept(wpId, proposed.map((i) => i.item_id), undefined, titles, states)).then(clear)}>
+                  onClick={() => void act(() => api.routingAccept(wpId, proposed.map((i) => i.item_id), undefined, titles, states)).then((ok) => { if (ok) clear(); })}>
                   {t("Accept the proposals ({{n}})", { n: proposed.length })}</button>
                 <button type="button" className="quiet small-btn" disabled={busy || !open.length}
-                  onClick={() => void act(() => api.routingReject(wpId, open.map((i) => i.item_id), states)).then(clear)}>
+                  onClick={() => void act(() => api.routingReject(wpId, open.map((i) => i.item_id), states)).then((ok) => { if (ok) clear(); })}>
                   {t("Do not route ({{n}})", { n: open.length })}</button>
               </>
             );

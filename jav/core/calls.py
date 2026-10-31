@@ -237,8 +237,8 @@ def scope_calls(scope: str) -> dict[str, Any]:
     """160-D: the calls of a budget scope: the live ones with what they cost, and the reused answers (090)."""
     with store.connect() as c:
         rows = c.execute("SELECT note, cost_usd FROM invocations WHERE budget_scope=?", (scope,)).fetchall()
-    reused = [r for r in rows if (r["note"] or "").startswith(f"{REUSED_NOTE}:")]
-    live = [r for r in rows if not (r["note"] or "").startswith(f"{REUSED_NOTE}:")]
+    reused = [r for r in rows if is_reused(r["note"])]
+    live = [r for r in rows if not is_reused(r["note"])]
     cost = sum((Decimal(str(r["cost_usd"])) for r in live if r["cost_usd"] is not None), Decimal("0"))
     return {"live": len(live), "live_cost_usd": cost, "reused": len(reused)}
 
@@ -313,6 +313,16 @@ def outcome_unknown(exc: BaseException) -> bool:
     (a validation error, an error response, a refused budget) is a definite failure."""
     names = {cls.__name__ for e in _chain(exc) for cls in type(e).__mro__}
     return not names & NOT_SENT and bool(names & OUTCOME_UNKNOWN)
+
+
+def never_sent(exc: BaseException) -> bool:
+    """265 (code review X-12): whether the request certainly never reached the provider (a connection that could not
+    be made); an error response (urllib's `HTTPError`, a `URLError` too) is an answer, not this. httpx's errors have a
+    base of the same name, so urllib's is told by its type."""
+    from urllib.error import HTTPError
+
+    names = {cls.__name__ for e in _chain(exc) for cls in type(e).__mro__}
+    return bool(names & NOT_SENT) and not any(isinstance(e, HTTPError) for e in _chain(exc))
 
 
 def known_outcome(exc: BaseException) -> Outcome | None:
@@ -403,6 +413,12 @@ def budget_usage(scope: str) -> dict[str, Any]:
 
 
 REUSED_NOTE = "reused_answer"  # 090: `reused_answer:<id of the call whose answer was reused>`
+
+
+def is_reused(note: str | None) -> bool:
+    """265 (code review APPW-11): whether a call-log row is an earlier answer reused (090: free, not a paid call); the
+    one test every cost view uses."""
+    return (note or "").startswith(f"{REUSED_NOTE}:")
 
 
 def answer_key(provider: str, model: str | None, *parts: str) -> str:
@@ -589,8 +605,11 @@ def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_c
         if status == "uncertain":
             log.warning("call %s/%s may have been processed (%s); its maximum stays reserved until settled by hand",
                         run_id, step_id, _error_text(exc))
-        # 202: a definite failure whose cost is certain is settled at that cost, not at its reserved maximum
+        # 202: a definite failure whose cost is certain is settled at that cost, not at its reserved maximum; 265 (code
+        # review X-12): a request that never reached the provider is certain too, at 0
         known = known_outcome(exc) if status == "failed" else None
+        if known is None and status == "failed" and never_sent(exc):
+            known = Outcome(response=None, cost_usd=Decimal(0))
         with store.connect() as c:
             if known is None:
                 c.execute(f"UPDATE invocations SET status=?, error=?, finished_at=? WHERE id=? AND status IN {_OPEN}",

@@ -53,7 +53,7 @@ def test_a_report_that_stays_blocked_is_logged_and_does_not_stop_the_worker(tmp_
     with caplog.at_level(logging.ERROR, logger="jav.runtime.pdf_status"), pdf_status.publish(path):
         assert pdf_status.worker_status(path, running=True)["state"] == "unknown"
     assert [r for r in caplog.records if "could not publish" in r.getMessage()]
-    assert not list(tmp_path.glob("worker-pdf-status.*.tmp"))
+    assert not list((tmp_path / "pdf-status").glob("*.tmp"))
 
 
 def test_the_instance_lock_file_is_removed_when_the_worker_stops(tmp_path):
@@ -71,6 +71,7 @@ def test_lock_files_of_ended_instances_are_removed_but_a_held_one_is_kept(tmp_pa
     ended = [folder / f"{n:032x}.lock" for n in (1, 2, 3)]
     for p in ended:
         p.write_bytes(b"")
+        os.utime(p, (time.time() - 3600,) * 2)  # 265 (CORE-09): an ended worker's file is not young
     held_path = folder / f"{9:032x}.lock"
     held = lock.hold(held_path)
     try:

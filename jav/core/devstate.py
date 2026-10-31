@@ -28,6 +28,31 @@ def _run(cmd: list[str], timeout: float = 60) -> subprocess.CompletedProcess | N
         return None
 
 
+def docs_root(root: Path = PROJECT_ROOT, common_dir: str | None = None) -> Path:
+    """265 (code review TOOL-18): where the internal documents are (handoffs, plans, STATE.md; not in git, 070). A
+    linked git worktree has none of its own, so it uses the main checkout's, the folder of the shared git directory
+    (`common_dir`, asked from git when not given); the main checkout, and a checkout whose main one has no handoffs, its
+    own. The same rule as the hooks' (`scripts/hooks/handoff_guard.py`, which runs without the package)."""
+    if common_dir is None:
+        r = _run(["git", "rev-parse", "--git-common-dir"], timeout=10)
+        common_dir = r.stdout.strip() if r is not None and r.returncode == 0 else None
+    if common_dir:
+        common = Path(common_dir)
+        main = (common if common.is_absolute() else root / common).resolve().parent
+        if main != root.resolve() and (main / "docs" / "handoffs").is_dir():
+            return main
+    return root
+
+
+def shown_path(path: Path) -> str:
+    """A path as preflight prints it: relative to the repository, or whole when it lies elsewhere (the main checkout's
+    internal documents, seen from a worktree)."""
+    try:
+        return path.relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return str(path)
+
+
 @dataclass(frozen=True)
 class GitState:
     branch: str
