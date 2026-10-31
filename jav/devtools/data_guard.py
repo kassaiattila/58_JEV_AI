@@ -15,8 +15,9 @@ re-check existing lines, so an old, tolerated value does not block an unrelated 
   files; anywhere else it stops the operation.
 - **Denied term** (`deny`): the owner's company name, the user name and the like; matched by the sha256 of word
   fragments, so that the list itself does not carry them.
-- **Key:** known key shapes, and the secret values of the local `.env` verbatim (the output shows only the variable
-  name).
+- **Key:** known key shapes (also a literal value assigned to one of the project's key variables), and the secret
+  values of the checkout's, the main checkout's and the installation's `.env` verbatim (the output shows only the
+  variable name; 265: a linked worktree has no `.env` of its own). Without any `.env` a note says so.
 - **Path:** internal working documents (`jav/core/doc_scope.py`), `.env`, the local data folders, document and image
   files, binary files.
 - **On push**, a branch or tag built on a history listed under `forbidden_history` is also refused.
@@ -39,7 +40,7 @@ from typing import Any
 
 from jav.ai import validators
 from jav.core import card_numbers, cfg, doc_scope, taxid
-from jav.core.config import PROJECT_ROOT, read_env_secrets  # 227: the core's; named here as before
+from jav.core.config import ENV_FILE, PROJECT_ROOT, read_env_secrets  # 227: the core's; named here as before
 
 HOOKS_DIR = "scripts/githooks"
 ZERO_SHA = "0" * 40
@@ -178,8 +179,9 @@ def load_config() -> dict[str, Any]:
 class Guard:
     """The patterns, exceptions and denials from one configuration; the search runs per line and per path."""
 
-    def __init__(self, conf: dict[str, Any], *, env_secrets: dict[str, str]) -> None:
+    def __init__(self, conf: dict[str, Any], *, env_secrets: dict[str, str], env_sources: tuple[Path, ...] = ()) -> None:
         self.conf = conf
+        self.env_sources = env_sources  # 265: the `.env` files the secret values were read from
         self.patterns = {k: re.compile(v) for k, v in conf["patterns"].items()}
         self.patterns["card_number"] = card_numbers.CARD  # 167 (review S-3): the masking's own pattern, not a copy
         self.key_patterns = [re.compile(p) for p in conf["api_key_patterns"]]
@@ -265,8 +267,42 @@ class Guard:
         return any(fnmatchcase(path, a) for a in self.conf.get("allowed_binary", []))
 
 
+def _main_checkout(root: Path) -> Path | None:
+    """The main checkout of the repository `root` belongs to (the folder holding the shared `.git`), or None."""
+    proc = _git(root, "rev-parse", "--path-format=absolute", "--git-common-dir", check=False)
+    if proc.returncode != 0:
+        return None
+    common = Path(proc.stdout.decode("utf-8", "replace").strip())
+    return common.parent if common.name == ".git" else None
+
+
+def env_files(root: Path) -> list[Path]:
+    """265 (code review SEC-01): the `.env` files whose secret values the guard looks for, each once: the checkout's
+    own, the main checkout's (a linked worktree has none, the keys stay in the main folder) and the installation's
+    (`config.ENV_FILE`). Before 265 only the first was read, so the check was silently off in every worktree."""
+    main = _main_checkout(root)
+    out: list[Path] = []
+    for candidate in (root / ".env", main / ".env" if main else None, ENV_FILE):
+        if candidate is not None and candidate.is_file() and all(candidate.resolve() != p.resolve() for p in out):
+            out.append(candidate)
+    return out
+
+
 def load_guard(root: Path = PROJECT_ROOT) -> Guard:
-    return Guard(load_config(), env_secrets=read_env_secrets(root / ".env"))
+    files = env_files(root)
+    env_secrets: dict[str, str] = {}
+    for env_file in files:
+        for name, value in read_env_secrets(env_file).items():
+            env_secrets[name if env_secrets.get(name, value) == value else f"{name} ({env_file})"] = value
+    return Guard(load_config(), env_secrets=env_secrets, env_sources=tuple(files))
+
+
+def env_note(guard: Guard) -> str | None:
+    """265: a non-blocking note when no `.env` was found, so a skipped check of the keys' values is visible."""
+    if guard.env_sources:
+        return None
+    return ("data guard: no .env found (the checkout's, the main checkout's or the installation's); "
+            "the keys' values are not checked, only their known shapes")
 
 
 # --- git ------------------------------------------------------------------------------------------------------------
@@ -441,6 +477,8 @@ def main(argv: list[str] | None = None) -> int:
         print(install_hooks(root))
         return 0
     guard = load_guard(root)
+    if cmd in ("pre-commit", "pre-push", "scan") and (note := env_note(guard)):
+        print(note, file=sys.stderr)
     if cmd == "pre-commit":
         findings, action = check_staged(root, guard), "a commit"
     elif cmd == "pre-push":
@@ -451,7 +489,7 @@ def main(argv: list[str] | None = None) -> int:
         if not findings:
             print("data guard: no finding in the tracked files")
     else:
-        print(f"ismeretlen parancs: {cmd} (pre-commit | pre-push <remote> | scan | install)", file=sys.stderr)
+        print(f"unknown command: {cmd} (pre-commit | pre-push <remote> | scan | install)", file=sys.stderr)
         return 2
     text = report(findings, action)
     if text:
@@ -464,5 +502,6 @@ if __name__ == "__main__":
 
 
 __all__ = ["HOOKS_DIR", "DataGuardError", "Finding", "Guard", "added_lines", "blocking", "check_push", "deny_entry",
-           "check_staged", "hooks_installed", "install_hooks", "load_config", "load_guard", "main", "normalize",
+           "check_staged", "env_files", "env_note", "hooks_installed", "install_hooks", "load_config", "load_guard",
+           "main", "normalize",
            "read_env_secrets", "report", "scan_tracked", "value_hash"]
