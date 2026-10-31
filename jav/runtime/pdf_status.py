@@ -26,6 +26,9 @@ log = logging.getLogger(__name__)
 REPORT_INTERVAL_S = 2.0
 MAX_AGE_S = 10.0
 # 159: on Windows a reader holding the report (the service's status request) makes the replace fail for a moment.
+YOUNG_LOCK_S = 60.0
+"""265 (code review CORE-09): a worker's lock file younger than this is never removed: its worker may be just starting
+(it creates the file, then locks it)."""
 REPLACE_ATTEMPTS = 5
 REPLACE_RETRY_DELAY_S = 0.05
 
@@ -53,6 +56,8 @@ def _remove_ended_instances(folder: Path) -> None:
     """159: one lock file is left per worker start; remove those whose worker has ended."""
     for path in folder.glob("*.lock"):
         try:
+            if time.time() - path.stat().st_mtime < YOUNG_LOCK_S:
+                continue
             if not lock.is_held(path):
                 path.unlink(missing_ok=True)
         except OSError as exc:

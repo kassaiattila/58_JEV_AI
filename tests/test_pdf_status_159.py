@@ -71,6 +71,7 @@ def test_lock_files_of_ended_instances_are_removed_but_a_held_one_is_kept(tmp_pa
     ended = [folder / f"{n:032x}.lock" for n in (1, 2, 3)]
     for p in ended:
         p.write_bytes(b"")
+        os.utime(p, (time.time() - 3600,) * 2)  # 265 (CORE-09): an ended worker's file is not young
     held_path = folder / f"{9:032x}.lock"
     held = lock.hold(held_path)
     try:
