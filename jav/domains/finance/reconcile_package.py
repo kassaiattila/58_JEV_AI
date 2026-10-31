@@ -508,8 +508,16 @@ def _inputs(c) -> list[Any]:
     _input_tables()  # (already imported by the caller before its connection opened; kept for any other caller)
     # 224: and the finance domain's rules (the reconciliation's bands, the duplicate search), until then in policy.json
     return [store.table_marks(c, WORKSPACE_INPUTS), reconcile.config_hash(), parties.config_hash(), cfg.config_hash("fx"),
-            cfg.config_hash("finance"),
+            cfg.config_hash("finance"), _own_values(),
             reconcile.ENGINE_VERSION, date.today().isoformat()]
+
+
+def _own_values() -> str:
+    """265 (code review X-22): the rule values lying over the files where the workspace is built (a case's own values,
+    the installation's defaults), which `config_hash` leaves out: two contexts with other values never share a kept
+    workspace."""
+    over = cfg.current_overlay()
+    return json.dumps({k: dict(v) for k, v in over.values.items()}, sort_keys=True, default=str) if over else ""
 
 
 def _digest(parts: list[Any]) -> str:
@@ -541,7 +549,15 @@ def workspace(wp_id: str) -> dict[str, Any]:
 def kept_workspace(wp_id: str, *, keep_seconds: int = KEEP_SECONDS) -> dict[str, Any]:
     """153 (review B5): the kept workspace itself, for a caller that only reads it (the next step, the quick review,
     the sure pairs, a JSON answer): the copy was 85-93 % of their time. Never change what it returns. 159: kept while
-    its inputs are unchanged and it was built in the caller's current time slot of `keep_seconds`."""
+    its inputs are unchanged and it was built in the caller's current time slot of `keep_seconds`. 265 (code review
+    X-22): built and marked with the case's rules (`capabilities.case_rules`) whoever asks, the case list too."""
+    from jav.app import capabilities  # (the capabilities register the domains' steps, this module among them)
+
+    with capabilities.case_rules(wp_id):
+        return _kept_workspace(wp_id, keep_seconds)
+
+
+def _kept_workspace(wp_id: str, keep_seconds: int) -> dict[str, Any]:
     now = time.time()
     _input_tables()
     with store.connect() as c:
