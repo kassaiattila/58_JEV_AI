@@ -27,8 +27,8 @@ The interface starts in Hungarian; the **HU / EN** buttons in the header switch 
 1. The start script launches the local service and the worker in the background (the exact command is in the Technical details). You only need to start it once: closing the browser or the tab does not stop it, and does not interrupt work in progress either.
 2. Open http://127.0.0.1:8930/ in your browser. The address works only on this computer.
 3. The header holds the two main parts at its left: **Cases** (*Ügyek*) for daily work, and **Settings** (*Beállítások*). An address no page has says so (‘There is no such page’, *Nincs ilyen lap*). Every page is built the same way: its crumbs, its title with the page's main action at the right end of the title row, then its content; a form's buttons stand at its foot on the right, **Cancel** (*Mégse*) first; an action that cannot be undone asks for confirmation in a small card under its button.
-4. On the left of the header is the worker badge: ‘Worker running’ (*Feldolgozó fut*) or ‘Worker not running’ (*Feldolgozó nem fut*), followed by ‘N items waiting’ (*N tétel vár*) when work is queued. A red ‘The local service is not reachable’ (*A helyi szolgáltatás nem érhető el*) badge means the service has stopped (see section 11). Next to it are the **HU / EN** language buttons.
-5. On the right of the header is the **Who is working?** field.
+4. On the right of the header is the worker badge: ‘Worker running’ (*Feldolgozó fut*) or ‘Worker not running’ (*Feldolgozó nem fut*), followed by ‘N items waiting’ (*N tétel vár*) when work is queued. A red ‘The local service is not reachable’ (*A helyi szolgáltatás nem érhető el*) badge means the service has stopped (see section 11). Next to it are the **HU / EN** language buttons.
+5. At the right end of the header is the **Who is working?** field.
 
 ### 2.1 Who is working?
 
@@ -790,10 +790,10 @@ On the sheet each value shows whether the rule file's value counts (‘The file'
 
 | English | Hungarian |
 |---|---|
-| Document batches · Settings | Munkacsomagok · Beállítások |
+| Cases · Settings | Ügyek · Beállítások |
 | Who is working? · My work today | Ki dolgozik? · Mai munkám |
-| New document batch · Manage batch | Új munkacsomag · Csomag kezelése |
+| New case · Manage batch | Új ügy · Köteg kezelése |
 | Processing · Review · Result | Feldolgozás · Ellenőrzés · Eredmény |
 | Trial run · Live run · Rerun | Próbafutás · Éles futás · Újrafuttatás |
-| Resolved · Save correction · Select on image | Rendezve · Javítás mentése · Kijelölés a képen |
+| Resolved · Save correction | Rendezve · Javítás mentése |
 | Approve and release · Back up now | Jóváhagyás és kiadás · Mentés most |
