@@ -5323,5 +5323,6 @@
   "the module {{module}} requires {{required}}, which is not asked for": "the module {{module}} requires {{required}}, which is not asked for",
   "the module {{module}} excludes {{other}}, which is asked for too": "the module {{module}} excludes {{other}}, which is asked for too",
   "the condition document {{document}} is not in force on {{date}}": "the condition document {{document}} is not in force on {{date}}",
-  "the number can be read two ways; a person checks it": "the number can be read two ways; a person checks it"
+  "the number can be read two ways; a person checks it": "the number can be read two ways; a person checks it",
+  "the invoice is excluded from the pairing; the excluded invoices' list says why": "the invoice is excluded from the pairing; the excluded invoices' list says why"
 }

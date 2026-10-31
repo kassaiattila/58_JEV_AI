@@ -1144,6 +1144,8 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
             raise KeyError(iid)
         if iid in ctx["left_out"]:  # 169
             raise explained(PackageError, "the invoice is left out of this reconciliation; restore it first")
+        if iid not in ctx["prepared"]["invoices"]:  # 265 (code review DOM-11): an undecided duplicate is never paid twice
+            raise explained(PackageError, "the invoice is excluded from the pairing; the excluded invoices' list says why")
         line = _scope_line(ctx, lid)
         if not reconcile.pays(line, inv):  # 151: the engine's side rule (148), not a ban on the outgoing type
             raise explained(PackageError, "the line is not on the invoice's side: incoming money pays an outgoing invoice, a payment an incoming one")
