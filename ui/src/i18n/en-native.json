@@ -5327,5 +5327,6 @@
   "the invoice is excluded from the pairing; the excluded invoices' list says why": "the invoice is excluded from the pairing; the excluded invoices' list says why",
   "a tariff version is made active by another person than its maker": "a tariff version is made active by another person than its maker",
   "two watched folders would take in the same documents: {{name}} and {{other}}": "two watched folders would take in the same documents: {{name}} and {{other}}",
-  "a watched folder cannot overlap the application's own data folders (store, inbox, runs)": "a watched folder cannot overlap the application's own data folders (store, inbox, runs)"
+  "a watched folder cannot overlap the application's own data folders (store, inbox, runs)": "a watched folder cannot overlap the application's own data folders (store, inbox, runs)",
+  "the action cannot be sent now; its form says why": "the action cannot be sent now; its form says why"
 }

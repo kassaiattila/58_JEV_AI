@@ -26,5 +26,5 @@ def test_a_freeze_with_an_open_disagreement_is_refused(case) -> None:  # noqa: F
 
 def test_the_shared_form_refuses_an_action_its_start_blocks(case) -> None:  # noqa: F811
     view = field_check.view(case, "check")
-    with pytest.raises(case_views.CaseError, match="Settle the disagreements first"):
+    with pytest.raises(case_views.CaseError, match="cannot be sent now"):
         case_views.act(case, "check", "freeze", ANNA, values={"cover_start": "2027-01-01", "expected_state": view["state"]})

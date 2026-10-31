@@ -261,8 +261,9 @@ def act(case_id: str, step_id: str, name: str, actor: identity.Who, note: str | 
     if action.form is not None:
         if values is None:
             raise explained(CaseError, "the action {{name}} takes values", name=name)
-        if action.prefill is not None and (blocked := action.prefill(case_id, step_id).get("blocked")):
-            raise explained(CaseError, str(blocked))  # 265 (code review APPW-03): what the form says, not only shows
+        if action.prefill is not None and action.prefill(case_id, step_id).get("blocked"):
+            # 265 (code review APPW-03): what the form says, not only shows (its start names why, translated)
+            raise explained(CaseError, "the action cannot be sent now; its form says why")
         assert action.submit is not None
         action.submit(case_id, step_id, actor, action.form.model_validate(values))
         return view(case_id)

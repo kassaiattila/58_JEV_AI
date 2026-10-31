@@ -296,8 +296,11 @@ def listing(kind: str) -> list[dict[str, Any]]:
     return _VERSIONS[kind].grouped(rows, lambda r: {"ident": r["ident"], "name": r["name"]}, _view)
 
 
-SECOND_PERSON = {"product": "a product version is made active by another person than its maker",
-                 "tariff": "a tariff version is made active by another person than its maker"}  # 265 (APPR-05)
+def second_person_needed(kind: str) -> SecondPersonNeeded:
+    """265 (code review APPR-05): the refusal of a product's or a tariff's version made active by its maker."""
+    if kind == "tariff":
+        return explained(SecondPersonNeeded, "a tariff version is made active by another person than its maker")
+    return explained(SecondPersonNeeded, "a product version is made active by another person than its maker")
 
 
 def activate(kind: str, ident: str, version: int, *, actor: identity.Who) -> dict[str, Any]:
@@ -310,8 +313,8 @@ def activate(kind: str, ident: str, version: int, *, actor: identity.Who) -> dic
         if kind == "rule" and (problems := rule_problems(Rule.model_validate(json.loads(row["content"])))):
             raise ManifestRefused(problems)
         maker = row["made_by_id"] or row["made_by"]
-        if kind in SECOND_PERSON and maker == (identity.id_of(actor) or identity.name_of(actor)):
-            raise explained(SecondPersonNeeded, SECOND_PERSON[kind])
+        if kind in ("product", "tariff") and maker == (identity.id_of(actor) or identity.name_of(actor)):
+            raise second_person_needed(kind)
         if kind == "product":
             if problems := _manifest_problems(c, Product.model_validate(json.loads(row["content"]))):
                 raise ManifestRefused(problems)

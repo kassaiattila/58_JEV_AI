@@ -171,7 +171,7 @@ def install(product_set: ProductSet, *, maker: identity.Who, approver: identity.
         (identity.id_of(approver) or identity.name_of(approver)) == (identity.id_of(maker) or identity.name_of(maker))
     for kind, things in (("product", product_set.products), ("tariff", product_set.tariffs)):  # 265 (APPR-05): a tariff too
         if same and things:  # refused before anything is stored, so no draft of the maker's is left behind
-            raise explained(product_rules.SecondPersonNeeded, product_rules.SECOND_PERSON[kind])
+            raise product_rules.second_person_needed(kind)
     things = _things(product_set)
     clashes = []
     for kind, ident, content in things:
