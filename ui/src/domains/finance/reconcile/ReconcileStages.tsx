@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, ApiError, type WorkpackageView } from "../../../api";
 import type { ReconcileLeftOver, ReconcileUnfit, ReconcileWorkspace } from "../api";
 import { BlockerList } from "../../../components/BlockerList";
+import { FormActions } from "../../../components/FormActions";
 import { errorText, useAction, useLoad } from "../../../hooks";
 import { t, useLocale } from "../../../i18n";
 import { go, type Stage } from "../../../route";
@@ -120,6 +121,12 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload, part, toPa
     || start !== ws.scope.period_start || end !== ws.scope.period_end || partyId !== (ws.scope.party_id ?? "");
   const months = [...new Set(ws.coverage.map((c) => c.month))];
   const byKey = new Map((accounts.data?.accounts ?? []).map((a) => [a.key, a]));
+  const resetScope = () => {
+    setPartyId(ws.scope.party_id ?? "");
+    setChosen(ws.scope.accounts);
+    setStart(ws.scope.period_start);
+    setEnd(ws.scope.period_end);
+  };
 
   const act = (fn: () => Promise<ReconcileWorkspace>, done?: string) => run(fn, { then: onWorkspace, done, failed: (e) => {
     if (!(e instanceof ApiError && e.status === 409)) return errorText(e);
@@ -155,15 +162,20 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload, part, toPa
         <div className="rc-period">
           <label className="block">{t("Period from")}<input type="date" value={start} disabled={readOnly} onChange={(e) => setStart(e.target.value)} /></label>
           <label className="block">{t("to")}<input type="date" value={end} disabled={readOnly} onChange={(e) => setEnd(e.target.value)} /></label>
-          {readOnly ? null : (
-            <button type="button" className="secondary" disabled={!dirty || busy || !chosen.length || !start || !end || start > end}
-              onClick={() => void act(() => api.setReconcileScope(ws.workpackage_id, { accounts: chosen, period_start: start, period_end: end, expected_revision: ws.scope.revision, party_id: partyId || null }), t("The scope has been saved."))}>
-              {t("Save the scope")}
-            </button>
-          )}
         </div>
         {error ? <p className="notice error" role="alert">{error}</p> : null}
         {notice ? <p className="small ok" role="status">{notice}</p> : null}
+        {/* 264 (F5): saved from the card's foot - Cancel puts back what is saved; the save is the card's main button
+            while something changed (until then a quiet button in the period's row) */}
+        {readOnly ? null : (
+          <FormActions busy={busy} onCancel={dirty ? resetScope : undefined}>
+            <button type="button" className={dirty ? "primary" : "secondary"}
+              disabled={!dirty || busy || !chosen.length || !start || !end || start > end}
+              onClick={() => void act(() => api.setReconcileScope(ws.workpackage_id, { accounts: chosen, period_start: start, period_end: end, expected_revision: ws.scope.revision, party_id: partyId || null }), t("The scope has been saved."))}>
+              {t("Save the scope")}
+            </button>
+          </FormActions>
+        )}
       </section> : null}
 
       {lines ? <section className="card" aria-label={t("Coverage")}>
