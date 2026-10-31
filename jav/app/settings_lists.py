@@ -158,8 +158,9 @@ def _partner_proposals(_scope: dict[str, str]) -> Rows:
         col("seen", "Documents", "number"),
         col("last", "Last", "date"),
         col("sources", "Source", hidden=True),
+        col("names", "Other spellings", hidden=True),
     ]
-    rows = [{"_key": s["tax_number"] or f"name:{s['name']}", "name": s["name"], "tax_number": s["tax_number"],
+    rows = [{"_key": s["key"], "name": s["name"], "tax_number": s["tax_number"], "names": " · ".join(s["names"]) or None,
              "role": s["roles"][0] if s["roles"] else None,
              "roles": " · ".join(display.text(roles[r]["label"]) if r in roles else r for r in s["roles"]),
              "seen": s["seen"], "last": s["last"], "sources": ", ".join(s["sources"]),
@@ -171,7 +172,15 @@ def _partner_proposals(_scope: dict[str, str]) -> Rows:
 # 264 (F6): what the proposals read - the results and their corrections, the register itself and the own parties
 _PROPOSAL_INPUTS = {"run_items": "MAX(updated_at)", "run_item_corrections": None, "workpackage_items": None,
                     "partner_versions": "SUM(state='active')", "own_parties": None, "own_party_identities": None,
-                    "duplicate_decisions": None}
+                    "duplicate_decisions": None, "partner_suggestion_dismissals": "MAX(dismissed_at)"}
+
+
+def _partner_dismissed(_scope: dict[str, str]) -> Rows:
+    """264 (G1): the partner proposals a person said are no partner, each restorable."""
+    cols = [col("name", "Name"), col("tax_number", "Tax number", "id"), col("dismissed_by", "Dismissed by", group=True),
+            col("dismissed_at", "Dismissed", "datetime")]
+    return cols, [{"_key": d["key"], **{k: d[k] for k in ("name", "tax_number", "dismissed_by", "dismissed_at")}}
+                  for d in partners.dismissed_suggestions()]
 
 
 def _proposals_fingerprint(_scope: dict[str, str]) -> str:
@@ -477,6 +486,8 @@ DATASETS = (
     Dataset("settings_partner_proposals", "Partner proposals", (), _partner_proposals, _proposals_fingerprint,
             natural_sort=(("seen", True),)),
     Dataset("output_markers", "Template markers", ("output",), _output_markers),
+    Dataset("settings_partner_dismissed", "Dismissed partner proposals", (), _partner_dismissed,
+            natural_sort=(("dismissed_at", True),)),  # 264 (G1)
     Dataset("earlier_workflows", "Earlier workflows", (), _earlier_workflows, natural_sort=(("updated_at", True),)),
 )
 

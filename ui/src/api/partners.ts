@@ -36,4 +36,9 @@ export const partnersApi = {
   retirePartner: (id: string) => request<Partner>("POST", `/partners/${enc(id)}/retire`, {}),
   restorePartner: (id: string) => request<Partner>("POST", `/partners/${enc(id)}/restore`, {}),
   partnerSuggestions: () => request<{ suggestions: PartnerSuggestion[] }>("GET", "/partners/suggestions"),
+  /** 264 (G1): proposals recorded at once with their suggested values - the named ones (`null`: all shown now) */
+  acceptPartnerSuggestions: (keys: string[] | null, names: Record<string, string> = {}) =>
+    request<{ created: string[]; skipped: number }>("POST", "/partners/suggestions/accept", keys ? { keys, names } : { all: true, names }),
+  dismissPartnerSuggestions: (keys: string[]) => request<{ dismissed: string[] }>("POST", "/partners/suggestions/dismiss", { keys }),
+  restorePartnerSuggestions: (keys: string[]) => request<{ restored: string[] }>("POST", "/partners/suggestions/restore", { keys }),
 };

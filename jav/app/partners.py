@@ -23,6 +23,7 @@ Layer: application, the shared library; it uses the shared versioning and the ow
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -35,8 +36,10 @@ from jav.core import cfg, completion, identity, store, versions
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
+log = logging.getLogger(__name__)
+
 __all__ = ["CONFIG", "OWN", "PartnerConflict", "PartnerError", "PartnerIn", "SuggestionSource", "UnknownPartner",
-           "VERSIONS", "create", "get", "listing", "match", "own_listing", "register_suggestions", "restore", "retire",
+           "VERSIONS", "accept_suggestions", "create", "dismiss_suggestions", "dismissed_suggestions", "restore_suggestions", "get", "listing", "match", "own_listing", "register_suggestions", "restore", "retire",
            "roles", "suggestions", "update"]
 
 CONFIG = "partners"
@@ -78,6 +81,15 @@ CREATE TABLE IF NOT EXISTS partner_versions (
     PRIMARY KEY (partner_id, version)
 );
 CREATE INDEX IF NOT EXISTS ix_partner_versions_state ON partner_versions(state);
+-- 264 (G1): a proposal a person said is no partner (by its key: the tax number's party key, or "name:" and the name's)
+CREATE TABLE IF NOT EXISTS partner_suggestion_dismissals (
+    key             TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    tax_number      TEXT,
+    dismissed_by    TEXT NOT NULL,
+    dismissed_by_id TEXT,
+    dismissed_at    TEXT NOT NULL
+);
 """)
 
 
@@ -315,11 +327,14 @@ def suggestion_sources() -> list[str]:
 
 def suggestions(limit: int = 200) -> list[dict[str, Any]]:
     """The domains' proposals not yet in the register (no active or retired partner with the same tax number, or the
-    same name without a tax number), one per party with the roles it was seen in, most seen first."""
+    same name without a tax number), one per party with the roles it was seen in, most seen first. 264 (G1): each with
+    its `key` (the tax number's party key, or "name:" and the name's) and its other spellings (`names`); a proposal a
+    person dismissed is left out."""
     completion.complete("partner suggestion sources")
     with store.connect() as c:
         known = c.execute("SELECT tax_key, name_key FROM partner_versions WHERE state IN (?, ?)",
                           (versions.ACTIVE, versions.RETIRED)).fetchall()
+        dismissed = {r["key"] for r in c.execute("SELECT key FROM partner_suggestion_dismissals")}
     taxes = {r["tax_key"] for r in known if r["tax_key"]}
     names = {r["name_key"] for r in known if r["name_key"]}
     merged: dict[str, dict[str, Any]] = {}
@@ -329,8 +344,13 @@ def suggestions(limit: int = 200) -> list[dict[str, Any]]:
             tax, key = parties.tax_key(row.get("tax_number")), parties.name_key(name)
             if not name or (tax and tax in taxes) or (not tax and key in names):
                 continue
-            entry = merged.setdefault(tax or f"name:{key}", {"name": name, "tax_number": row.get("tax_number"),
-                                                              "roles": [], "seen": 0, "sources": [], "last": None})
+            proposal_key = tax or f"name:{key}"
+            if proposal_key in dismissed:
+                continue
+            entry = merged.setdefault(proposal_key, {"key": proposal_key, "name": name, "tax_number": row.get("tax_number"),
+                                                     "names": [], "roles": [], "seen": 0, "sources": [], "last": None})
+            if name != entry["name"] and name not in entry["names"]:
+                entry["names"].append(name)  # 264 (G1): another spelling of the same party
             entry["seen"] += int(row.get("seen") or 1)
             if row.get("role") and row["role"] not in entry["roles"]:
                 entry["roles"].append(row["role"])
@@ -338,3 +358,56 @@ def suggestions(limit: int = 200) -> list[dict[str, Any]]:
                 entry["sources"].append(source.name)
             entry["last"] = max(filter(None, (entry["last"], row.get("last"))), default=None)
     return sorted(merged.values(), key=lambda e: (-e["seen"], e["name"].lower()))[:limit]
+
+
+def accept_suggestions(keys: list[str] | None, actor: identity.Who, *, names: dict[str, str] | None = None) -> dict[str, Any]:
+    """264 (plan G, G1; the owner's decision of 2026-10-31: proposals as the own parties have them): records the named
+    proposals (`keys`; None: every one shown now) as partners with their suggested name, tax number and roles at once;
+    `names` gives a proposal another name. One a partner meanwhile, or without a role, is skipped; returns the partners
+    made and how many were skipped."""
+    shown = {s["key"]: s for s in suggestions(limit=100_000)}
+    wanted = list(shown) if keys is None else [k for k in dict.fromkeys(keys)]
+    created: list[str] = []
+    skipped = 0
+    for key in wanted:
+        s = shown.get(key)
+        if s is None or not s["roles"]:
+            skipped += 1
+            continue
+        name = ((names or {}).get(key) or "").strip() or s["name"]
+        try:
+            made = create(PartnerIn(name=name[:200], tax_number=s["tax_number"], roles=s["roles"]), actor)
+        except PartnerConflict:
+            skipped += 1
+            continue
+        created.append(made["partner_id"])
+    log.info("%d partner proposal(s) recorded, %d skipped, by %s", len(created), skipped, identity.name_of(actor))
+    return {"created": created, "skipped": skipped}
+
+
+def dismiss_suggestions(keys: list[str], actor: identity.Who) -> dict[str, Any]:
+    """264 (G1): the proposals a person says are no partner (a misread name, a one-off seller); they are not proposed
+    again until restored."""
+    shown = {s["key"]: s for s in suggestions(limit=100_000)}
+    with store.connect() as c:
+        for key in dict.fromkeys(keys):
+            if (s := shown.get(key)) is not None:
+                c.execute("INSERT OR REPLACE INTO partner_suggestion_dismissals(key, name, tax_number, dismissed_by, dismissed_by_id,"
+                          " dismissed_at) VALUES (?,?,?,?,?,?)", (key, s["name"], s["tax_number"], identity.name_of(actor),
+                                                                  identity.id_of(actor), _now()))
+    return {"dismissed": [k for k in keys if k in shown]}
+
+
+def restore_suggestions(keys: list[str], actor: identity.Who) -> dict[str, Any]:
+    """264 (G1): dismissed proposals proposed again."""
+    with store.connect() as c:
+        c.executemany("DELETE FROM partner_suggestion_dismissals WHERE key=?", [(k,) for k in dict.fromkeys(keys)])
+    log.info("%d partner proposal(s) restored by %s", len(keys), identity.name_of(actor))
+    return {"restored": list(keys)}
+
+
+def dismissed_suggestions() -> list[dict[str, Any]]:
+    """264 (G1): the dismissed proposals, newest first."""
+    with store.connect() as c:
+        return [dict(r) for r in c.execute("SELECT key, name, tax_number, dismissed_by, dismissed_at"
+                                           " FROM partner_suggestion_dismissals ORDER BY dismissed_at DESC, name")]

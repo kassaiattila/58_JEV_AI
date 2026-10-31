@@ -15,7 +15,7 @@ from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi import Path as PathParam
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from jav.app import partners, work_views
 from jav.core import identity
@@ -23,6 +23,23 @@ from jav.core.user_messages import message_fields
 from jav.service.service_shared import Empty, error, human_actor
 
 PartnerId = Annotated[str, PathParam(pattern=r"^partner-[0-9a-f]{12}$")]
+
+
+class SuggestionKeys(BaseModel):
+    """264 (G1): the partner proposals an action names, by their keys."""
+
+    model_config = ConfigDict(extra="forbid")
+    keys: list[Annotated[str, Field(min_length=1, max_length=220)]] = Field(min_length=1, max_length=5000)
+
+
+class AcceptSuggestions(BaseModel):
+    """264 (G1): the proposals recorded at once - the named ones, or `all` of those shown now - with the names a person
+    gave some of them."""
+
+    model_config = ConfigDict(extra="forbid")
+    keys: list[Annotated[str, Field(min_length=1, max_length=220)]] | None = Field(default=None, max_length=5000)
+    all: bool = False
+    names: dict[str, Annotated[str, Field(max_length=200)]] = Field(default_factory=dict, max_length=5000)
 
 
 class PartnerUpdate(partners.PartnerIn):
@@ -47,6 +64,20 @@ def routes(app: FastAPI, r: str) -> None:
     @app.get(r + "/partners/suggestions")
     def partner_suggestions() -> dict[str, Any]:
         return {"suggestions": partners.suggestions()}
+
+    @app.post(r + "/partners/suggestions/accept")
+    def partner_suggestions_accept(body: AcceptSuggestions, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        if not body.all and not body.keys:  # nothing named: nothing recorded
+            return {"created": [], "skipped": 0}
+        return partners.accept_suggestions(None if body.all else body.keys, who, names=body.names)
+
+    @app.post(r + "/partners/suggestions/dismiss")
+    def partner_suggestions_dismiss(body: SuggestionKeys, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        return partners.dismiss_suggestions(body.keys, who)
+
+    @app.post(r + "/partners/suggestions/restore")
+    def partner_suggestions_restore(body: SuggestionKeys, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        return partners.restore_suggestions(body.keys, who)
 
     @app.get(r + "/partners/{partner_id}")
     def partner_page(partner_id: PartnerId) -> dict[str, Any]:
