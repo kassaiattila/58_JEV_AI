@@ -204,7 +204,7 @@ catalog reads whether a type is active from the same switch.
    for $0; since 200 the configured model is a concrete version (`configs/models.json` `jev.model`, `jev-1.14.0`), so
    the answers do not change by themselves; the provider's moving name (`jev.watch_alias`, `jev-latest`) is only resolved
    with a probe by the daily backup (`runs/cache/_model_versions.json`, 24 h TTL; `jav/ai/jev_version.py`), and the
-   start-up check and the System page say when it points to a newer version (switching is a decision with a
+   start-up check and the Operations page say when it points to a newer version (switching is a decision with a
    measurement). An alias still works as the model and is resolved the same way. If JEV still
    does not answer after the SDK retries, the adapter writes a ledger entry (`error`) and raises `JevUnavailableError`; the flows turn this
    into a `jev_unavailable:<reason>` review (M1/M3 `final_status = jev_unavailable`) instead of crashing. A request refused
@@ -353,7 +353,7 @@ flowchart LR
 | Gateway | `jav/service/api.py`, `jav/service/service_shared.py` (204: the input types, the actor and path checks), `configs/service.json` | loopback address only; `Host` and `Origin` checks; write requests must be JSON; body size limit, also for chunked transfer; Pydantic schemas that reject unknown fields; identifier patterns; folders and files: an existing path (links resolved), anywhere — with the `restrict_paths: true` setting, only under a permitted root | `tests/test_api.py` |
 | Shared entrance (229, plan structure stage 1, SZ2b) | `jav/service/service_shared.py` (`access_guard`, `action_of`, `acting`), the app's dependency in `jav/service/api.py` (`_new_app`), `jav/core/access.py`, `jav/core/identity.py` (`anonymous`) | every address, the service's and every domain's, goes through one entrance: it names the operation (its theme and function, e.g. `workpackages.approve_run`, `finance.reconcile.<function>`, `service.health`; one name per operation), knows who acts (the person `X-Actor` names, or nobody: `anonymous:request`), keeps it on the request and asks the authorisation check, which allows everything today; a refusal is 403 `not_authorised`. It reads the header itself, so the service's description is unchanged; an operation that needs a person still refuses a request without one (`human_actor`), and (SZ2c-3) gets the actor the entrance knows, whose stable id it records | `tests/test_service_access_229.py`, `tests/test_actor_ids_229.py` |
 | Browser security headers | `jav/service/api.py` (`_SecurityHeaders`, the outermost layer) | on every response, including the gateway's rejections: framing forbidden (`X-Frame-Options: DENY`, `frame-ancestors 'none'`), `nosniff`, `Referrer-Policy: no-referrer`, COOP/CORP `same-origin`; on the UI's HTML a content security policy that allows only the app's own origin (`data:` for the embedded font and the favicon, `blob:` for downloads); `/api/` responses are `no-store` (page images included), with a locked-down policy; on the source PDF the policy only forbids framing (because of the browser's PDF viewer) | `tests/test_security_headers_071.py` |
-| Version | `jav/core/version.py`, `pyproject.toml` | a single version source; `/api/health` returns the version and the commit recorded at start-up (`dirty`: uncommitted changes); the **System** (*Rendszer*) page shows it; `ui_build` (`version.ui_build`) fingerprints the UI build served now, and a tab whose commit or UI build differs from those at page load shows a reload banner (`ui/src/components/UpdateBanner.tsx`) | `tests/test_version_071.py`, `ui/src/version071.test.tsx`, `tests/test_version_banner_091.py`, `ui/src/versionBanner091.test.tsx` |
+| Version | `jav/core/version.py`, `pyproject.toml` | a single version source; `/api/health` returns the version and the commit recorded at start-up (`dirty`: uncommitted changes); the **Operations** (*Üzemeltetés*) page shows it; `ui_build` (`version.ui_build`) fingerprints the UI build served now, and a tab whose commit or UI build differs from those at page load shows a reload banner (`ui/src/components/UpdateBanner.tsx`) | `tests/test_version_071.py`, `ui/src/version071.test.tsx`, `tests/test_version_banner_091.py`, `ui/src/versionBanner091.test.tsx` |
 | Shared views | `jav/app/work_views.py` | the command line's `--json` output and the service's response are identical; money as text, not floating point | `tests/test_api.py::test_cli_and_service_give_the_same_answer` |
 | Field correction | `jav/app/corrections.py` | version + 409 on conflict; only fields of the type pack; money and dates checked in code; forbidden on an approved run; the machine data is kept | `tests/test_api.py::test_correction_is_versioned_and_conflict_is_refused` |
 | Verified fields | `jav/app/corrections.py` (`save(confirm=…)`, `reason_field`), `ui/src/review/FieldPanel.tsx`, `ui/src/review/fieldFilter.ts` | the ✓ next to a field saves that field, records it in the version (`confirmed`: field → value, kept while the value does not change) and resolves the document's to-dos on the field (the run's own and the earlier runs'); each to-do of a document item carries its field (`field`: the code's third or first part when it is a simple field of the pack); the panel filter To fix / Uncertain / All | `tests/test_field_verdict_083.py`, `ui/src/fieldVerdict083.test.tsx` |
@@ -394,20 +394,20 @@ are described in section 10 (Reports row).
 ## 8. User interface
 
 **Plain-language summary.** The browser UI opens at the local service's address (`http://127.0.0.1:8930/`), with no
-separate server. The main menu is **Work packages** (*Munkacsomagok*) + **Settings** (*Beállítások*) (section 10, UI structure row).
+separate server. The two main parts, **Cases** (*Ügyek*) and **Settings** (*Beállítások*), are at the left end of the header (section 10, UI structure row); a document batch opens from its case or from its own address.
 The UI contains no business rules. The service makes every decision (version, readiness, approval); the UI only displays
 and forwards. Corrections are made next to the source document and are not lost when a save fails.
 
 | Part | File | What it does | Behavioural guarantee (test) |
 |---|---|---|---|
-| App shell | `ui/src/App.tsx`, `ui/src/styles.css` | sidebar (two menu items), worker status, **Who is working?** (*Ki dolgozik?*) (with a non-empty name list, choosing from the list is mandatory; a **My work today** (*Mai munkám*) link; 216: before it **Waiting for me** (*Rám vár*) with the person's count of open live tasks and anyone's, an attention count above zero, refreshed every 30 s) | `ui/src/users.test.tsx`, `ui/src/waiting216.test.tsx` |
+| App shell | `ui/src/App.tsx`, `ui/src/styles.css` | the header (the two main parts at its left end; the worker status and the language switch at its right end), worker status, **Who is working?** (*Ki dolgozik?*) (with a non-empty name list, choosing from the list is mandatory; a **My work today** (*Mai munkám*) link; 216: before it **Waiting for me** (*Rám vár*) with the person's count of open live tasks and anyone's, an attention count above zero, refreshed every 30 s) | `ui/src/users.test.tsx`, `ui/src/waiting216.test.tsx` |
 | Routing | `ui/src/route.ts`, `ui/src/hooks.ts` | the selected package, run and item are in the URL (bookmarkable) | a package that has disappeared is not replaced by another one; an old response does not overwrite a newer one |
 | Work packages | `ui/src/views/Workpackages.tsx`, `WorkpackageDetail.tsx` | list, creation from a folder or from files, **Items** (*Tételek*), Processing (processing settings, readiness with the pre-start overview, trial or live start) | on a version conflict the view reloads and the settings are kept |
 | To-dos | `ui/src/views/ReviewWorkspace.tsx`, `ui/src/review/FieldPanel.tsx` | item list, source PDF, own and earlier to-dos (a field's to-dos at the field, the document's at the top), resolution per reason, ✓ / ✗ per field, field correction; 150: an earlier reason carries `trial` (`work_runs.items_reasons`: raised by a trial run, `work_runs.trial_runs`), and the review page leaves those out unless the person's switch is on (`ui/src/review/trialReasons.ts`; the run items' hidden earlier count leaves them out too) | the working copy survives network errors and conflicts |
 | Run | `ui/src/views/Runs.tsx` | list, detail view with live updates during a run, budget bar, job queue, call log expanded, stop, approval | – |
 
 **Technology.** React 19, Vite 8, TypeScript 5.9; tests: Vitest 4 + Testing Library (jsdom). 137 npm packages in total (2026-09-30),
-no component library. The font (Geist) comes from a local package, so no internet access is needed. The build goes into `ui/dist/`
+no component library. The typefaces (IBM Plex Sans and IBM Plex Mono) come from local packages, so no internet access is needed. The build goes into `ui/dist/`
 (git-ignored), and the service serves it at the root. The browser always re-requests the entry HTML. For development,
 `npm run dev` (port 5173) forwards `/api` calls to the service. Preflight runs the UI's type check and tests if
 `ui/node_modules` is installed.
@@ -1125,7 +1125,7 @@ proposal and letter jobs keep theirs). A case of 1.0.0 keeps its three tabs (A7a
 first step that is not done, through the elements that show it. A failed step offers its retry (`retry`) among its
 actions. Two datasets (`jav/app/case_lists.py`): `cases` (every open case, the closed ones on request: its process,
 the step it is at and what that step waits for) and `handovers` (the open cases whose step's last handover failed or
-has an unknown outcome). The interface: a "Cases" entry in the side rail (`#/cases`, `ui/src/views/CaseList.tsx`, the
+has an unknown outcome). The interface: "Cases" in the header (`#/cases`, `ui/src/views/CaseList.tsx`, the
 handovers to check above the cases while there are some), and the general elements (`ui/src/elements/CaseElements.tsx`,
 their status lines in `caseStatus.ts`). Tests: `tests/test_case_send_231.py`, `tests/test_quote_case_231.py`,
 `ui/src/views/case231e.test.tsx`.
