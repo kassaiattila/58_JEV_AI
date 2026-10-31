@@ -55,7 +55,7 @@ describe("the Settings menu in three groups (231 U3e; 263 E1: the table of conte
     expect(own.getAttribute("href")).toBe("#/settings/parties");
     expect(within(own.closest("tr")!).getByText("Own party")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Invented Buyer Ltd" }).getAttribute("href")).toBe("#/settings/partners/partner-000000000001");
-    expect(screen.getByRole("link", { name: "Proposals from the documents read →" }).getAttribute("href")).toBe("#/settings/partners/proposals");
+    expect(screen.getByRole("link", { name: "Suggestions from the data →" }).getAttribute("href")).toBe("#/settings/partners/proposals");
   });
 
   it("has its words in Hungarian", () => {

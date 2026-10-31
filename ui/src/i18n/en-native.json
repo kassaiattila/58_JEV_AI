@@ -5231,5 +5231,15 @@
   "No event yet.": "No event yet.",
   "Search the processes…": "Search the processes…",
   "Search the processes": "Search the processes",
-  "No process matches the search.": "No process matches the search."
+  "No process matches the search.": "No process matches the search.",
+  "Backing up…": "Backing up…",
+  "Settings › Products": "Settings › Products",
+  "Decision points": "Decision points",
+  "no AI works on it: code reads its items": "no AI works on it: code reads its items",
+  "No AI works on these items: code reads them.": "No AI works on these items: code reads them.",
+  "To the data check": "To the data check",
+  "{{mode}} run": "{{mode}} run",
+  "Open the tariff": "Open the tariff",
+  "There is none yet. A process's example material installs an invented one (Cases › New case, then the process).": "There is none yet. A process's example material installs an invented one (Cases › New case, then the process).",
+  "The recipe's details": "The recipe's details"
 }

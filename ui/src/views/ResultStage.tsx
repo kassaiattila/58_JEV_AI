@@ -6,7 +6,7 @@
 // 231 (C3e): the views come from their registry (`logic/resultTables.ts`): the shared ones and a domain's (the finance
 // domain's utility cost, with its panel above the table).
 import { useEffect, useRef, useState } from "react";
-import { api, ApiError, getActor, type PackageResult, type PackageVersion, type RuleChanges, type WorkpackageView } from "../api";
+import { api, ApiError, getActor, type PackageResult, type PackageVersion, type RuleChanges, type RunView, type WorkpackageView } from "../api";
 import { DataTable } from "../components/DataTable";
 import { DatasetPicker, runOption } from "../components/DatasetPicker";
 import { ACTIVE_RUN, useLoad, useRunView } from "../hooks";
@@ -263,13 +263,17 @@ function PackageRelease({ wpId, data, running, mark, onReleased, onConflict }: {
   );
 }
 
+/** 263 (F4): whether AI works on a run: a provider has a budget for it (a run read by code has none). */
+const byAi = (run: RunView) => Object.values(run.budget?.providers ?? {}).some((p) => Number(p.limit_usd) > 0);
+
 /** 160-D: the AI engine of an open live run, shown at its approval; 218: and the rules that changed during it. */
 function RunMarks({ runId }: { runId: string }) {
   const run = useRunView(runId);
   if (!run.data) return null;
   return (
     <>
-      <EngineMark engine={run.data.engine} />
+      {/* 263 (F4): no engine is named for a run no AI works on (no budget of any provider) */}
+      <EngineMark engine={byAi(run.data) ? run.data.engine : null} />
       {run.data.rule_changes ? <RuleChangeNote changes={run.data.rule_changes} /> : null}
     </>
   );
@@ -418,7 +422,7 @@ function RunState({ runId, wpId }: { runId: string; wpId: string }) {
     <div className="release-line" data-state={state}>
       <span className={`status ${RUN_MARK[state]}`}>{label}</span>
       <span className="release-detail">{detail}</span>
-      <EngineMark engine={run.data.engine} />
+      <EngineMark engine={byAi(run.data) ? run.data.engine : null} />
       {removed.length && state !== "trial" ? (
         <span className="release-removed">
           <span className="status s-warn">{t("{{n}} removed", { n: removed.length })}</span>

@@ -312,7 +312,7 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
           ))}
         </span>
         <span className="spacer" />
-        {onCards ? <button type="button" className="secondary" onClick={onCards}>{t("Back to the cards")}</button> : null}
+        {onCards ? <button type="button" className="secondary" onClick={onCards}>{t("To the cards")}</button> : null}
         {!readOnly && unambiguous ? (
           <ConfirmButton className="secondary" disabled={busy} onConfirm={() => void act(() => api.reconcileAcceptProposed(wpId), { done: t("The unambiguous proposals have been accepted.") })}>
             {t("Accept the {{n}} unambiguous proposals", { n: unambiguous })}

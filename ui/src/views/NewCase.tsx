@@ -59,7 +59,7 @@ export function NewCase({ pack, after }: { pack?: string; after?: string }) {
             {chosen?.summary ? <p className="small muted">{t(chosen.summary)}</p> : null}
             {chosen?.examples ? <ExampleMaterial pack={chosen.id} needed={missing.length > 0} onChanged={materialChanged} /> : null}
             {chosen && missing.length && !chosen.examples ? (
-              <p className="small">{t("Make them active first:")} <a href="#/settings/processes">{t("Settings › Processes")}</a></p>
+              <p className="small">{t("Make them active first:")} <a href="#/settings/products">{t("Settings › Products")}</a></p>
             ) : null}
             {chosen && !missing.length ? (
               <ProcessCreate key={`${chosen.id}:${material}:${after ?? ""}`} pack={chosen.id} after={after}

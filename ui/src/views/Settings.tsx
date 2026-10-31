@@ -41,6 +41,8 @@ import { UncertainCallsPanel } from "./settings/UncertainCallsPanel";
 
 /** The branches a person opened or closed, kept per browser (every group open at first). */
 const OPEN_KEY = "jav.settings.open";
+// 263 (F4): the sections whose page opens with its own fuller introduction - their title row adds no summary
+const OWN_INTRO = new Set(["outputs", "letters", "prices", "rules", "recipes", "users", "folders"]);
 function loadOpen(): Set<string> {
   try {
     const saved = JSON.parse(localStorage.getItem(OPEN_KEY) ?? "null") as string[] | null;
@@ -84,7 +86,7 @@ export function Settings({ section, item, tab, open: part }: { section: Settings
       </SidePanel>
       <div className="settings-page">
         <PageHeader crumbs={crumbs} title={(thing ? thingTitle : null) ?? node?.label ?? t(current.label)} compact
-          summary={!thing && chosen === sectionKey(current.key) ? t(current.hint) : undefined} actionsSlot={setSlot} />
+          summary={!thing && chosen === sectionKey(current.key) && !OWN_INTRO.has(current.key) ? t(current.hint) : undefined} actionsSlot={setSlot} />
         <SettingsTitleSlot value={setThingTitle}>
         <PageActionsSlot value={slot}>
           <div className="settings-body">
@@ -134,6 +136,8 @@ function SystemPanel() {
   const [cmdBefore, cmdAfter] = t("The worker is started by {{cmd}}; closing the page does not stop the runs.").split("{{cmd}}");
   return (
     <div className="stage-stack">
+      {/* 263 (F4): a person's to-do first - the paid calls whose outcome waits to be settled */}
+      <UncertainCallsPanel when="any" />
       {/* 231 (U2a; the owner's decision of 2026-10-28: one work list, the cases): the lists away from the daily work */}
       <section className="card wide" aria-label={t("Earlier work")}>
         <h3>{t("Earlier work")}</h3>
@@ -166,7 +170,7 @@ function SystemPanel() {
       <BackupPanel />
       <DepsAuditPanel />
       <JevVersionPanel />
-      <UncertainCallsPanel />
+      <UncertainCallsPanel when="none" />
       <section aria-label={t("All runs")}>
         <h3>{t("All runs")}</h3>
         <RunList />

@@ -103,7 +103,8 @@ export function RunDetail({ runId }: { runId: string }) {
       <PageHeader
         crumbs={crumbs}
         title={t("{{mode}} run, {{when}}", { mode: MODE[run.mode], when: when(run.created_at) })} badge={<RunStatus status={run.status} />}
-        summary={<>{run.recipe?.title ? t(run.recipe.title) : run.recipe_id} · {paramsText(run.params)} · {t("started by: {{actor}}", { actor: run.actor })}
+        summary={<>{run.recipe?.title ? t(run.recipe.title) : run.recipe_id} · {Object.values(budget?.providers ?? {}).some((p) => Number(p.limit_usd) > 0)
+          ? paramsText(run.params) : t("no AI works on it: code reads its items")} · {t("started by: {{actor}}", { actor: run.actor })}
           {run.finished_at ? ` · ${t("finished: {{when}}", { when: when(run.finished_at) })}` : ""}</>}
         actions={<div className="button-row">
           {ACTIVE.has(run.status) ? <ConfirmButton className="secondary" disabled={busy} onConfirm={() => void cancel()}><Icon name="stop" />{t("Stop")}</ConfirmButton> : null}
@@ -282,7 +283,8 @@ export function PlanVsActual({ costs }: { costs: RunCostView }) {
   useLocale();
   return (
     <section aria-label={t("Planned and actual")}>
-      <h3 className="mt">{t("Planned and actual")}</h3>
+      {/* 263 (F4): a heading only above what it heads */}
+      {costs.plan_saved || costs.providers.length ? <h3 className="mt">{t("Planned and actual")}</h3> : null}
       {costs.plan_saved ? (
         <dl className="kv cost-kv">
           {costs.providers.map((p) => [

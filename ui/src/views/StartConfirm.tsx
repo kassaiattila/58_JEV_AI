@@ -93,11 +93,14 @@ export function StartConfirm({ view, mode, rerun, pending = false, onChanged }: 
         <dd>
           {!recipe && assignment ? <>{t(recipes.data?.titles?.[assignment.recipe_id] ?? assignment.recipe_id)}: </> : null}
           {readiness.assignment_default ? <span className="muted small">{t("default settings, saved to the batch when the run starts")}</span> : null}
-          <ul className="plain small">
-            {/* 090: the processing path first (the documents' path and the use of JEV as one choice), then the settings
-                that count */}
-            {shownParams(Object.keys(settings), settings, kinds).map((k) => <li key={k}>{PARAM_LABEL[k] ?? k}: {paramValue(k, shownValue(k, settings, kinds))}</li>)}
-          </ul>
+          {/* 263 (F4): a run no AI works on (its maximum cost is none) names no AI settings */}
+          {paid ? (
+            <ul className="plain small">
+              {/* 090: the processing path first (the documents' path and the use of JEV as one choice), then the settings
+                  that count */}
+              {shownParams(Object.keys(settings), settings, kinds).map((k) => <li key={k}>{PARAM_LABEL[k] ?? k}: {paramValue(k, shownValue(k, settings, kinds))}</li>)}
+            </ul>
+          ) : <p className="small muted">{t("No AI works on these items: code reads them.")}</p>}
         </dd>
         <dt>{t("Maximum cost")}</dt>
         <dd>

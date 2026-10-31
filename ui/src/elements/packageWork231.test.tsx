@@ -97,7 +97,7 @@ describe("the case page's document processing element (231 C3b3)", () => {
     const running = { ...VIEW, can_start: false, runs: [{ run_id: "run-1", mode: "apply", status: "running", approval: null }] };
     render(<PackageWork {...props(running)} />);
     expect(screen.queryByRole("button", { name: /Start the live run/ })).toBeNull();
-    expect(screen.getByRole("link", { name: "run-1" }).getAttribute("href")).toBe("#/runs/run-1");
+    expect(screen.getByRole("link", { name: "Live run" }).getAttribute("href")).toBe("#/runs/run-1");  // 263 (F4): by its kind
   });
 
   it("names a finished run's state, not its code (U1)", () => {

@@ -68,7 +68,7 @@ function PartnerTable({ onNew }: { onNew: () => void }) {
     <>
       <PageActions><button type="button" className="primary" onClick={onNew}>{t("New partner")}</button></PageActions>
       <DataTable dataset={LIST} label={t("Partners")} storageId={LIST} persist={LIST}
-        toolbar={<a className="small" href={settingsHash("partners", PARTNER_PROPOSALS)}>{t("Proposals from the documents read")} →</a>}
+        toolbar={<a className="small" href={settingsHash("partners", PARTNER_PROPOSALS)}>{t("Suggestions from the data")} →</a>}
         emptyText={t("No partner yet. Record one, or take one from the proposals.")} />
     </>
   );
@@ -204,9 +204,9 @@ function Suggestions({ roles, onTake }: { roles: PartnerRoles; onTake: (s: Partn
   useLocale();
   const [shown, setShown] = useState(false);
   const found = useLoad(`partner-suggestions:${shown}`, () => (shown ? api.partnerSuggestions() : Promise.resolve(null)));
-  useSettingsTitle(t("Proposals from the documents read"));
+  useSettingsTitle(t("Suggestions from the data"));
   return (
-    <section className="sheet partner-suggestions" aria-label={t("Proposals from the documents read")}>
+    <section className="sheet partner-suggestions" aria-label={t("Suggestions from the data")}>
       {!shown ? <PageActions><button type="button" className="primary" onClick={() => setShown(true)}>{t("Show the proposals")}</button></PageActions> : null}
       <p className="muted small">{t("The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Nothing is recorded by itself.")}</p>
       {shown && !found.data ? <p className="muted">{t("Loading…")}</p> : null}
@@ -222,7 +222,7 @@ function Suggestions({ roles, onTake }: { roles: PartnerRoles; onTake: (s: Partn
                 <td>{roleText(s.roles, roles)}</td>
                 <td className="num">{s.seen}</td>
                 <td className="tnum">{s.last ?? "–"}</td>
-                <td><button type="button" className="secondary small-btn" onClick={() => onTake(s)}>{t("Record it")}</button></td>
+                <td><button type="button" className="secondary small-btn" onClick={() => onTake(s)}>{t("Accept")}</button></td>
               </tr>
             ))}
           </tbody>

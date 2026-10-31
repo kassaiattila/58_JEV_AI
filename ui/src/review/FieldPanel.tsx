@@ -336,7 +336,7 @@ export function FieldPanel(p: Props) {
           {documentReasons.map((r) => (
             <li key={r.id} className="issue">
               <span>{reasonText(r.reason)}</span>
-              <button type="button" className="secondary small-btn" disabled={resolving !== null} onClick={() => void resolve(r)}><Icon name="check" />{t("Resolved")}</button>
+              <button type="button" className="secondary small-btn" disabled={resolving !== null} onClick={() => void resolve(r)}><Icon name="check" />{t("Mark resolved")}</button>
             </li>
           ))}
         </ul>
@@ -518,7 +518,7 @@ export function FieldPanel(p: Props) {
           <ul className="issues">
             {earlierDocument.map((r) => (
               <li key={r.id} className="issue quiet-issue"><span>{reasonText(r.reason)}</span>
-                <button type="button" className="quiet small-btn" disabled={resolving !== null} onClick={() => void resolve(r)}>{t("Resolved")}</button></li>
+                <button type="button" className="quiet small-btn" disabled={resolving !== null} onClick={() => void resolve(r)}>{t("Mark resolved")}</button></li>
             ))}
           </ul>
         </details>
