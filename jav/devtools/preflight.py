@@ -76,6 +76,33 @@ def available_memory_gb() -> float | None:
         return None
 
 
+PYTEST_TIMEOUT_S = 90 * 60
+UI_STEP_TIMEOUT_S = 30 * 60
+STUCK_TEST_S = 15 * 60
+TIMED_OUT = -9
+"""265 (code review TOOL-11): a check's subprocess is stopped after its time limit and reported as failed (one stuck test
+held the whole check for good); a single test running longer than `STUCK_TEST_S` has every thread's stack written to
+the log (pytest's `faulthandler_timeout`), so the stuck one can be named."""
+
+
+def _bounded(cmd: list[str], *, timeout: int, cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    """`subprocess.run` with the output captured as text and a time limit; a run past it is stopped and returned with
+    the code `TIMED_OUT` and what it printed until then."""
+    try:
+        return subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                              timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        def text(value: str | bytes | None) -> str:
+            return value.decode("utf-8", "replace") if isinstance(value, bytes) else (value or "")
+
+        return subprocess.CompletedProcess(cmd, TIMED_OUT, text(exc.stdout),
+                                           text(exc.stderr) + f"\nstopped after {timeout // 60} minutes without finishing")
+
+
+def _stopped(r: subprocess.CompletedProcess[str], what: str, timeout: int) -> str | None:
+    return f"{what} stopped after {timeout // 60} minutes without finishing" if r.returncode == TIMED_OUT else None
+
+
 def log_folder() -> Path:
     """A new timestamped folder under `runs/preflight/` for one full check's raw outputs (092, 149)."""
     folder = PREFLIGHT_RUNS / time.strftime("%Y%m%d_%H%M%S")
@@ -92,15 +119,15 @@ def run_pytest(folder: Path | None = None, *, root: Path = PROJECT_ROOT, env: di
     workers = parallel_workers()
     # 189: in several processes, each free test going to the first idle one, and with the slowest tests listed
     parallel = ["-n", str(workers), "--dist", "worksteal"] if workers else []
-    r = subprocess.run(
+    r = _bounded(
         [sys.executable, "-m", "pytest", "tests/", "-q", "-p", "no:cacheprovider", "-rfE", *parallel,
-         f"--durations={SLOWEST_SHOWN}", f"--junitxml={folder / 'junit.xml'}"],
-        cwd=root, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace",
+         f"--durations={SLOWEST_SHOWN}", f"--junitxml={folder / 'junit.xml'}", "-o", f"faulthandler_timeout={STUCK_TEST_S}"],
+        cwd=root, env=env, timeout=PYTEST_TIMEOUT_S,
     )
     (folder / "pytest.txt").write_text((r.stdout or "") + (f"\n--- stderr ---\n{r.stderr}" if r.stderr else ""), encoding="utf-8")
     _prune_logs(folder.parent)
     lines = [ln for ln in (r.stdout or "").splitlines() if ln.strip()]
-    summary = lines[-1] if lines else (r.stderr or "").strip()[-200:]
+    summary = _stopped(r, "pytest", PYTEST_TIMEOUT_S) or (lines[-1] if lines else (r.stderr or "").strip()[-200:])
     failed = [ln.split(" - ")[0] for ln in lines if ln.startswith(("FAILED ", "ERROR "))]
     if failed:
         summary += "; " + ", ".join(failed[:5]) + (f" (+{len(failed) - 5})" if len(failed) > 5 else "")
@@ -145,28 +172,29 @@ def run_ui_checks(folder: Path | None = None, *, ui_dir: Path = UI_DIR) -> tuple
     tsc_bin, vitest_bin = local_bin(ui_dir, "tsc"), local_bin(ui_dir, "vitest")
     if tsc_bin is None or vitest_bin is None:
         return False, "the UI's tsc or vitest is not installed in ui/node_modules (npm ci)"
-    tsc = subprocess.run([str(tsc_bin), "--noEmit"], cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    tsc = _bounded([str(tsc_bin), "--noEmit"], cwd=ui_dir, timeout=UI_STEP_TIMEOUT_S)
     if tsc.returncode != 0:
-        first = next((ln for ln in (tsc.stdout or "").splitlines() if ln.strip()), "tsc hiba")
-        return False, f"type check: {first[:160]}"
+        first = next((ln for ln in (tsc.stdout or "").splitlines() if ln.strip()), "tsc error")
+        return False, _stopped(tsc, "type check", UI_STEP_TIMEOUT_S) or f"type check: {first[:160]}"
     node = shutil.which("node")
     for extra in (["--audit"], []):
         if node is None:
             break
-        i18n = subprocess.run([node, "scripts/check-i18n.mjs", *extra], cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        i18n = _bounded([node, "scripts/check-i18n.mjs", *extra], cwd=ui_dir, timeout=UI_STEP_TIMEOUT_S)
         if i18n.returncode != 0:
             last = [ln for ln in (i18n.stderr or "").splitlines() if ln.strip()]
-            return False, f"translations: {(last[-1] if last else 'check-i18n error')[:160]}"
+            return False, (_stopped(i18n, "translations", UI_STEP_TIMEOUT_S)
+                           or f"translations: {(last[-1] if last else 'check-i18n error')[:160]}")
     folder = folder or log_folder()
     junit = folder / "vitest-junit.xml"
-    r = subprocess.run(
+    r = _bounded(
         [str(vitest_bin), "run", f"--maxWorkers={UI_TEST_WORKERS}", "--reporter=default", "--reporter=junit",
          f"--outputFile.junit={junit}"],
-        cwd=ui_dir, capture_output=True, text=True, encoding="utf-8", errors="replace",
+        cwd=ui_dir, timeout=UI_STEP_TIMEOUT_S,
     )
     (folder / "vitest.txt").write_text((r.stdout or "") + (f"\n--- stderr ---\n{r.stderr}" if r.stderr else ""), encoding="utf-8")
     tests = next((ln.strip() for ln in (r.stdout or "").splitlines() if ln.strip().startswith("Tests")), "")
-    summary = f"type check and translations OK; {re.sub(r'\s+', ' ', tests) or 'vitest: no summary'}"
+    summary = f"type check and translations OK; {_stopped(r, 'vitest', UI_STEP_TIMEOUT_S) or re.sub(r'\s+', ' ', tests) or 'vitest: no summary'}"
     if r.returncode != 0:
         failed = _failed_ui_tests(junit)
         if failed:
