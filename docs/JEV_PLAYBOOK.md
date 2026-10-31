@@ -56,7 +56,7 @@ The server limit is in tokens (section 1), but counting tokens needs the model, 
 
 A call site is a point in a flow where we ask JEV (see the [glossary](GLOSSARY.md)). Each one has a JSON file in `configs/callsites/` that holds everything the model sees: the English instructions and glossary, the option descriptions, the Noul questions, the presence template, the state limits and the request-size budget. Any text change in that file gives a new cache key, so the next golden run and every new run make live, paid calls. The file's `config_hash` (combined with the registry or the type pack) goes into every ledger row. `python -m jav.cli docs` generates a local catalogue of the call sites with ledger statistics; it is not in the repository. The file format is described in [the configuration files guide](guides/CONFIGS.md).
 
-There are 33 call sites: 4 for selection, 23 for verification, 2 for detection, 1 for email intent, 1 for the reconciliation's pre-matching, 1 for matching a quote request's items to the catalogue (`quote_match`) and 1 for judging how far a page supports a proposed rule (`rule_proposal`).
+There are 34 call sites: 5 for selection, 23 for verification, 2 for detection, 1 for email intent, 1 for the reconciliation's pre-matching, 1 for matching a quote request's items to the catalogue (`quote_match`) and 1 for judging how far a page supports a proposed rule (`rule_proposal`).
 
 ### 4.1 Selection (S path): code finds candidates, JEV chooses
 
@@ -107,7 +107,7 @@ The 20 type-specific call sites: `verify_altalanos_szerzodesi_feltetelek` (gener
 
 | call site | module | questions and state |
 |---|---|---|
-| `email_intent` (1.1.0) | `jav/domains/email/intent.py` | One request: `intent` Choice over the intent registry (`configs/intents.json`, 11 intents in 6 families); Nouls `requires_action`, `mentions_deadline`, `attachment_is_the_subject`, `multiple_requests` (measured only, it changes nothing) and `prompt_injection` (a "yes" opens a to-do and routes the message to `human:suspicious`); Score `urgency` (4 levels, each a concrete situation). State: subject, sender, attachment names and types, code-side `features`, and up to 60 cleaned body lines (at most 200 characters each). |
+| `email_intent` (1.1.0) | `jav/domains/email/intent.py` | One request: `intent` Choice over the intent registry (`configs/intents.json`, 12 intents in 6 families); Nouls `requires_action`, `mentions_deadline`, `attachment_is_the_subject`, `multiple_requests` (measured only, it changes nothing) and `prompt_injection` (a "yes" opens a to-do and routes the message to `human:suspicious`); Score `urgency` (4 levels, each a concrete situation). State: subject, sender, attachment names and types, code-side `features`, and up to 60 cleaned body lines (at most 200 characters each). |
 
 ### 4.5 Reconciliation pre-matching (134)
 

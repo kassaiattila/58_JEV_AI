@@ -1,9 +1,8 @@
-"""Local receiver for the LEGACY `10_AIFLOW_V4/scripts/outlook_bridge.ps1` - the bridge runs unchanged.
+"""Local receiver for the Outlook bridge, `scripts/outlook_bridge.ps1` (148: ported from the legacy project).
 
-The bridge (desktop Outlook COM, read-only) POSTs each message to the legacy orchestrator's `/ingest/email` endpoint and
-saves the document attachments under the legacy `data/inbox/email/<acct>/<eid>/`. This small stdlib HTTP server offers
-the same three endpoints the bridge calls (open batch, ingest per message, seal) and writes the message into the M3
-inbox model: `inbox/<mailbox>/<message_id>/message.json` (body = `body_preview`, which the bridge sends up to 20,000
+The bridge (desktop Outlook COM, read-only) POSTs each message to a receiver's `/ingest/email` endpoint and saves the
+document attachments under its `-RepoRoot` folder. This small stdlib HTTP server offers the three endpoints the bridge
+calls (open batch, ingest per message, seal) and writes the message into the M3 inbox model: `inbox/<mailbox>/<message_id>/message.json` (body = `body_preview`, which the bridge sends up to 20,000
 characters; the attachments point to the host files the bridge has already saved). Afterwards `email-inbox inbox/` runs
 the M3 graph, or with `--run` it runs immediately and synchronously.
 
@@ -23,8 +22,10 @@ Input protection (040 K1, findings F01–F03 of 038):
   connection) instead of holding a thread open.
 
 Start:    python -m jav.cli email-ingest-server [--port 8931] [--run]
-Bridge:   powershell -File <legacy-root>\\scripts\\outlook_bridge.ps1 -Accounts <smtp> -SinceDays 30
-              -MaxItems 50 -AllEmails -ManualRun -NoArchive -WorkflowId email-intent -WorkflowVersion 1 [-ApiToken <key>]
+Bridge:   powershell -File scripts\\outlook_bridge.ps1 -RepoRoot inbox\\.bridge -OrchUrl http://127.0.0.1:8931/ingest/email
+              -Accounts <smtp> -SinceDays 30 -MaxItems 50 -AllEmails -ManualRun -NoArchive -WorkflowId email-intent
+              -WorkflowVersion 1 [-ApiToken <key>]
+The UI's Mailboxes download starts its own receiver with a one-time key (`jav/domains/email/mailbox.py`).
 """
 
 from __future__ import annotations
@@ -50,6 +51,8 @@ from jav.core.config import BRIDGE_DATA_ROOT, OLD_DATA_ROOT, INBOX_ROOT as _INBO
 INBOX_ROOT = _INBOX_ROOT  # 231 (E2): under the start-up description's data folder
 WORKFLOW_HASH = "jav-m3-email-intent"
 TOKEN_ENV = "JAV_INGEST_TOKEN"
+DEFAULT_PORT = 8931  # 265 (code review TOOL-20): 8901 was the legacy Docker receiver's port
+
 MAX_BODY_BYTES = 2 * 1024 * 1024
 READ_TIMEOUT_S = 30.0  # per socket read (headers and body); the bridge sends each message in one go on 127.0.0.1
 BODY_DEADLINE_S = 60.0  # the whole body; 2 MB on the local machine takes milliseconds
@@ -381,7 +384,7 @@ class _HttpError(Exception):
         self.code, self.message = code, message
 
 
-def make_server(port: int = 8901, *, run_flow: bool = False, inbox_root: Path = INBOX_ROOT, token: str | None = None,
+def make_server(port: int = DEFAULT_PORT, *, run_flow: bool = False, inbox_root: Path = INBOX_ROOT, token: str | None = None,
                 on_ingest=None, flow_context: contextvars.Context | None = None) -> ThreadingHTTPServer:
     """`port=0`: a free port (the actual one is in `server_address`). `on_ingest(res, payload)`: after every stored
     message. 066 Á14 (decision of 2026-09-29): the receiver works only with a key; if neither the caller nor the
@@ -396,7 +399,7 @@ def make_server(port: int = 8901, *, run_flow: bool = False, inbox_root: Path = 
     return ThreadingHTTPServer(("127.0.0.1", port), handler)
 
 
-def serve(port: int = 8901, *, run_flow: bool = False, inbox_root: Path = INBOX_ROOT, token: str | None = None) -> None:
+def serve(port: int = DEFAULT_PORT, *, run_flow: bool = False, inbox_root: Path = INBOX_ROOT, token: str | None = None) -> None:
     """265 (code review SEC-02): the flows run in the caller's context (the command's budget, `under_budget`)."""
     configured = token or os.environ.get(TOKEN_ENV)
     httpd = make_server(port, run_flow=run_flow, inbox_root=inbox_root, token=token,

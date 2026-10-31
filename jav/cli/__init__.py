@@ -10,7 +10,7 @@
   detect <pdf> | detect-golden | detect-determinism --n 3 | detect-corpus <folder> | detect-sample <folder>
                               M1 categorisation
   email <folder> | email-inbox <root> | email-golden | email-determinism --n 3   M3 email intent
-  email-ingest-server [--port 8901] [--run]   receiver for the legacy 10_AIFLOW_V4 outlook_bridge.ps1
+  email-ingest-server [--port 8931] [--run]   receiver for the Outlook bridge (scripts/outlook_bridge.ps1)
   eval-report [files]         shared eval report from runs/*.jsonl ($0): bands, calibration, policy re-evaluation,
                               determinism
   configs                     configs/*.json versions + config_hash (config as data)
