@@ -48,7 +48,12 @@ export function ConfirmButton({ onConfirm, children, className, disabled, ariaLa
         <p className="confirm-question">{question ?? t("Are you sure?")}</p>
         <FormActions onCancel={() => { setOpen(false); anchor.current?.focus(); }}>
           <button ref={action} type="button" className={danger ? "danger" : "primary"}
-            onClick={() => { setOpen(false); onConfirm(); }}>{confirmLabel ?? children}</button>
+            onClick={() => {
+              setOpen(false);
+              onConfirm();
+              // 265 (code review UI-15): focus back to the button, unless the action removed it
+              window.requestAnimationFrame(() => { if (anchor.current?.isConnected) anchor.current.focus(); });
+            }}>{confirmLabel ?? children}</button>
         </FormActions>
       </Popover>
     </>

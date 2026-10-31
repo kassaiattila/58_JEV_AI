@@ -35,6 +35,11 @@ export function SidePanel({ id, label, children }: { id: string; label: string; 
   const [open, setOpen] = useState(false); // shown over the page while it is not pinned
   const fit = useFitToScreen<HTMLDivElement>("--panel-offset");
   const box = useRef<HTMLElement>(null);
+  // 265 (code review UI-15): after the panel is closed from the keyboard or its own buttons, focus goes back to the
+  // button that shows it (after pinning, to the button that hides it); it was lost with the panel's buttons
+  const reveal = useRef<HTMLButtonElement>(null);
+  const hide = useRef<HTMLButtonElement>(null);
+  const refocus = useRef<"reveal" | "hide" | null>(null);
   const hash = useHash();
   useEffect(() => setOpen(false), [hash]); // a node chosen: the page shows, the panel steps aside
   const update = (next: Partial<Prefs>) => setPrefs((was) => {
@@ -44,7 +49,7 @@ export function SidePanel({ id, label, children }: { id: string; label: string; 
   });
   useEffect(() => { // over the page: Escape or a click beside it closes it
     if (prefs.pinned || !open) return;
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { refocus.current = "reveal"; setOpen(false); } };
     const click = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false); };
     window.addEventListener("keydown", key);
     window.addEventListener("pointerdown", click);
@@ -71,10 +76,17 @@ export function SidePanel({ id, label, children }: { id: string; label: string; 
   }
 
   const shown = prefs.pinned || open;
+  useEffect(() => {
+    const target = refocus.current === "reveal" ? reveal.current : refocus.current === "hide" ? hide.current : null;
+    if (target) {
+      refocus.current = null;
+      target.focus();
+    }
+  }, [shown, prefs.pinned]);
   return (
     <div ref={fit} className={`side-slot${prefs.pinned ? " pinned" : ""}`} style={prefs.pinned ? { width: prefs.width } : undefined}>
       {!prefs.pinned ? (
-        <button type="button" className="side-reveal" aria-expanded={open} aria-controls={`side-${id}`} title={label}
+        <button ref={reveal} type="button" className="side-reveal" aria-expanded={open} aria-controls={`side-${id}`} title={label}
           onClick={() => setOpen(!open)}>
           <Icon name="panel" /><span className="sr-only">{label}</span>
         </button>
@@ -84,11 +96,14 @@ export function SidePanel({ id, label, children }: { id: string; label: string; 
           <div className="side-head">
             <span className="side-title">{label}</span>
             {prefs.pinned ? (
-              <button type="button" className="quiet small-btn" onClick={() => update({ pinned: false })}>{t("Hide")}</button>
+              <button ref={hide} type="button" className="quiet small-btn"
+                onClick={() => { refocus.current = "reveal"; update({ pinned: false }); }}>{t("Hide")}</button>
             ) : (
               <>
-                <button type="button" className="quiet small-btn" onClick={() => { update({ pinned: true }); setOpen(false); }}>{t("Pin")}</button>
-                <button type="button" className="quiet small-btn" aria-label={t("Close")} onClick={() => setOpen(false)}><Icon name="close" /></button>
+                <button type="button" className="quiet small-btn"
+                  onClick={() => { refocus.current = "hide"; update({ pinned: true }); setOpen(false); }}>{t("Pin")}</button>
+                <button type="button" className="quiet small-btn" aria-label={t("Close")}
+                  onClick={() => { refocus.current = "reveal"; setOpen(false); }}><Icon name="close" /></button>
               </>
             )}
           </div>
