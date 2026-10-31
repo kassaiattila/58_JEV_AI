@@ -238,6 +238,9 @@ def main(argv: list[str] | None = None) -> int:
           f"ceiling: {cfg['budget_usd']}; hard limit: {hard}")
     if not args.live:
         return 0
+    if not hard:  # 265 (code review TOOL-04): a live run spends only under the owner's sub-budget
+        print("a live run needs a hard limit: --budget-usd jev=USD and/or --budget-usd openai=USD")
+        return 2
     from jav.core.devstate import git_state
 
     git = git_state()
