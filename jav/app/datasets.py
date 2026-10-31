@@ -341,7 +341,7 @@ def _rules(scope: dict[str, str]) -> Rows:
     from jav.app import rules_view
 
     cols = [
-        Column("area", "Area", "enum", labels=rules_view.area_labels()),
+        Column("area", "Area", "enum", labels=rules_view.area_labels(), extra={"group": True}),  # 264: grouped for real
         col("decision", "Decision", link="settings", section="rules"),  # 263 (E1): the decision's page
         col("values", "Rule values"),
         col("files", "Rule files"),
@@ -815,7 +815,7 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("calls", "Call log", ("run_id",), _calls, _calls_fingerprint),
     Dataset("activity", "Activity log", ("actor",), _activity, optional_scope=("day",)),
     Dataset("waiting", "Waiting for me", ("actor",), _waiting, optional_scope=("all",)),  # 216
-    Dataset("rules", "Rules", (), _rules),  # 218 (P3e)
+    Dataset("rules", "Decision points", (), _rules),  # 218 (P3e); 264 (F5): one name with its page's table
     Dataset("started_cases", "Started cases", ("case_id",), _started_cases),  # 261 (B1f): a case's, by the data table
 ]}
 
