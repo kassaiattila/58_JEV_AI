@@ -83,14 +83,16 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
     resources = kept.resources
     rules, rule_refs = process_settings.effective_rules(pack)
     definition = process_packs.definition(kept)
-    wp = work.create_workpackage(name=name, source_kind=CONTAINER, source_ref=f"pack:{pack.id}@{pack.version}",
-                                 owner=owner or actor)
-    case_id = wp["id"]
-    data = {"pack": pack.id, "pack_version": pack.version, "container": case_id, "name": wp["name"], "scope": checked,
-            "resources": resources, capabilities.RULES: rules, capabilities.RULE_REFS: rule_refs,
-            capabilities.KEPT_RULES: _kept_rule_files(pack)} | ({"follows": follows} if follows else {}) | (
-        {PARENT: {"case": parent[0], "step": parent[1]}} if parent else {})
+    kept_rule_files = _kept_rule_files(pack)
     with cases.transaction() as c:
+        # 265 (code review APPW-12): the container is made in the start's own transaction, as `adopt_case` does; a
+        # start that fails after it leaves no container without a case
+        case_id = work.create_workpackage_in(c, name=name, source_kind=CONTAINER,
+                                             source_ref=f"pack:{pack.id}@{pack.version}", owner=owner or actor)
+        data = {"pack": pack.id, "pack_version": pack.version, "container": case_id, "name": name.strip(), "scope": checked,
+                "resources": resources, capabilities.RULES: rules, capabilities.RULE_REFS: rule_refs,
+                capabilities.KEPT_RULES: kept_rule_files} | ({"follows": follows} if follows else {}) | (
+            {PARENT: {"case": parent[0], "step": parent[1]}} if parent else {})
         package_scope.save(c, case_id, parts=checked, actor=actor, **_scope_columns(checked))
         cases.start_in(c, case_id, definition, data, identity.who(actor))
         for step_id in _approving(pack, from_start=True):  # C3a-1: it waits for that approval as a person's task

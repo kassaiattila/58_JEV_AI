@@ -276,15 +276,22 @@ def create_workpackage(*, name: str, source_kind: str, source_ref: str | None,
                        owner: identity.Who | None = None) -> dict[str, Any]:
     """`owner` (decision 065): the creator is responsible for the new package; a nameless (automated) creation has no
     owner. 215: a logic pack without runs waits for its own approval as a human task from now on."""
+    with store.connect() as c:
+        wp_id = create_workpackage_in(c, name=name, source_kind=source_kind, source_ref=source_ref, owner=owner)
+    return get(wp_id)
+
+
+def create_workpackage_in(c: Any, *, name: str, source_kind: str, source_ref: str | None,
+                          owner: identity.Who | None = None) -> str:
+    """265 (code review APPW-12): `create_workpackage` in the caller's write transaction; the new package's id."""
     if not name.strip():
         raise explained(ValueError, "name required")
     wp_id = f"wp-{uuid.uuid4().hex[:12]}"
-    with store.connect() as c:
-        c.execute("INSERT INTO workpackages(id, name, source_kind, source_ref, revision, created_at, updated_at, owner, owner_id)"
-                  " VALUES (?,?,?,?,0,?,?,?,?)", (wp_id, name.strip(), source_kind, source_ref, _now(), _now(),
-                                                  identity.name_of(owner), identity.id_of(owner)))
-        human_tasks.package_made(c, wp_id, source_kind)
-    return get(wp_id)
+    c.execute("INSERT INTO workpackages(id, name, source_kind, source_ref, revision, created_at, updated_at, owner, owner_id)"
+              " VALUES (?,?,?,?,0,?,?,?,?)", (wp_id, name.strip(), source_kind, source_ref, _now(), _now(),
+                                              identity.name_of(owner), identity.id_of(owner)))
+    human_tasks.package_made(c, wp_id, source_kind)
+    return wp_id
 
 
 def _bump(c, wp_id: str, expected_revision: int) -> int:
