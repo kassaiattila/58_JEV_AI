@@ -104,7 +104,8 @@ export function PriceListsPanel({ item, tab, open }: SettingsPanelProps) {
   if (data.error) return <p className="notice error" role="alert">{data.error.message}</p>;
   if (!data.data) return <p className="muted">{t("Loading…")}</p>;
   if (item === NEW || (list && tab === UPLOAD)) { // an upload, of a new list or of a list's new version
-    return <UploadCard key={list?.price_list ?? NEW} again={list} listing={data.data} onCancel={() => window.history.back()}
+    return <UploadCard key={list?.price_list ?? NEW} again={list} listing={data.data}
+      onCancel={() => go({ view: "settings", section: "prices", ...(list ? { item: list.price_list } : {}) })}
       onDone={(v) => { changed(); show(v.price_list, v.version); }} />;
   }
   if (item && !list) return <p className="notice warn">{t("It is not among the price lists (any more).")}</p>;
@@ -295,7 +296,7 @@ function PriceListVersions({ list, open, currencies, onChanged, onSaved }: {
                     {t("Open version")}
                   </a>
                   {v.state === "active" ? (
-                    <ConfirmButton className="quiet small-btn" disabled={busy}
+                    <ConfirmButton className="quiet small-btn" disabled={busy} danger
                       onConfirm={() => void act(() => api.retirePriceList(v.price_list),
                         () => t("Retired: {{name}}. No new quote is priced from it.", { name: list.name }))}>
                       {t("Retire")}
@@ -446,8 +447,8 @@ function RulesEditor({ detail, currencies, onSaved }: {
           <p className="muted small">{t("A line of the category from the quantity on costs the percent less; of the rules a line reaches, the largest discount counts.")}</p>
         </>
       )}
-      <div className="button-row">
-        {categories.length ? <button type="button" className="quiet small-btn" onClick={add}><Icon name="plus" />{t("Add a rule")}</button> : null}
+      <div className="form-actions">
+        {categories.length ? <div className="form-actions-start"><button type="button" className="quiet small-btn" onClick={add}><Icon name="plus" />{t("Add a rule")}</button></div> : null}
         <button type="button" className={changed ? "primary" : "secondary"} disabled={!changed || busy} onClick={() => void save()}>
           {busy ? t("Saving…") : t("Save as a new version")}
         </button>

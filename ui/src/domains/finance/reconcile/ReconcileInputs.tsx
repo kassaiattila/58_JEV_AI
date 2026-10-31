@@ -8,6 +8,7 @@ import { useState, type FormEvent } from "react";
 import { api, ApiError, getActor, type AddSummary, type DsRow } from "../../../api";
 import type { ReconcileTarget, ReconcileWorkspace } from "../api";
 import { DataTable } from "../../../components/DataTable";
+import { FormActions } from "../../../components/FormActions";
 import { Icon } from "../../../components/Icon";
 import { useAction, useLoad } from "../../../hooks";
 import { t, useLocale } from "../../../i18n";
@@ -169,10 +170,11 @@ export function ReconcileInputs({ ws, readOnly, onWorkspace, kind }: {
             <input value={reason} maxLength={500} required autoFocus onChange={(e) => setReason(e.target.value)}
               placeholder={t("for example: another company's invoice, a duplicate download")} />
           </label>
-          {/* leaving out can be undone (restore), so it is not drawn as destructive */}
-          <button type="submit" className="secondary" disabled={busy || !reason.trim()}>{t("Leave out of this reconciliation")}</button>
-          <button type="button" className="quiet" onClick={() => { setLeaving(null); setReason(""); }}>{t("Cancel")}</button>
           <p className="muted small form-note">{t("The document stays in its own package and in every other reconciliation, and it can be restored here.")}</p>
+          {/* leaving out can be undone (restore), so it is not drawn as destructive; 263 (F1): "Cancel" first, on the right */}
+          <FormActions onCancel={() => { setLeaving(null); setReason(""); }} busy={busy}>
+            <button type="submit" className="primary" disabled={busy || !reason.trim()}>{t("Leave out of this reconciliation")}</button>
+          </FormActions>
         </form>
       ) : null}
       {/* what the decisions read is in the key: after any change the list reloads and the selection clears */}

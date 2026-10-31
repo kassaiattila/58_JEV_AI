@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { api, ApiError, type FrameContent, type FrameField, type LetterFrame, type LetterFrameKind } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { FormActions } from "../../components/FormActions";
 import { DataTable } from "../../components/DataTable";
 import { ItemSteps } from "../../components/ItemSteps";
 import { PageActions } from "../../components/PageActions";
@@ -118,7 +119,7 @@ function Frame({ kind, frame, onChanged }: { kind: LetterFrameKind; frame: Lette
                 <td>{v.note ?? "–"}</td>
                 <td className="button-row">
                   {v.state === "draft" || v.state === "superseded" ? (
-                    <button type="button" className={v.state === "draft" ? "primary small-btn" : "secondary small-btn"} disabled={busy}
+                    <button type="button" className="secondary small-btn" disabled={busy}
                       onClick={() => void act(() => api.activateLetterFrame(kind.kind, frame.ident, v.version), t("Version {{n}} is active: the cases that start from now on use it.", { n: v.version }))}>
                       {t("Make version {{n}} active", { n: v.version })}
                     </button>
@@ -197,10 +198,9 @@ function FrameForm({ kind, frame, busy, onCancel, onSave }: {
       <label className="block">{t("Note")}
         <input value={note} maxLength={2000} autoComplete="off" onChange={(e) => setNote(e.target.value)} />
       </label>
-      <div className="button-row">
+      <FormActions onCancel={onCancel} busy={busy}>
         <button type="submit" className="primary" disabled={busy || !changed.length}>{t("Save as a draft")}</button>
-        <button type="button" className="quiet" disabled={busy} onClick={onCancel}>{t("Cancel")}</button>
-      </div>
+      </FormActions>
     </form>
   );
 }

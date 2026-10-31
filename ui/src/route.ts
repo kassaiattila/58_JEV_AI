@@ -21,6 +21,10 @@ export type ResultTable = string;
 /** 061: a confirmation page before a run is started (in the Processing section) */
 export interface StartRequest { mode: "shadow" | "apply"; rerun: boolean; pending?: boolean } // 160-C S3: only the pending items
 
+/** 263 (F3): the case list's views */
+export const CASE_LIST_VIEWS = ["waiting", "mine", "open", "closed"] as const;
+export type CaseListView = (typeof CASE_LIST_VIEWS)[number];
+
 export type Route =
   // 167: `add` opens the add form at the top of Processing (the package's actions menu leads there)
   | { view: "workpackages"; wpId?: string; stage?: Stage; itemId?: string; table?: ResultTable; runId?: string; start?: StartRequest; add?: boolean;
@@ -34,8 +38,10 @@ export type Route =
    *  its track (a tab, or a step that runs a sub-case), `sub` the item of the sub-case's track under it, and `of` an
    *  earlier sub-case of that step (a retried step's) */
   | { view: "cases"; caseId: string; tab?: string; sub?: string; of?: string }
-  /** 231 (U0): the case list; `create`: a new case, of the process `pack` when one is chosen */
-  | { view: "case-list"; create?: boolean; pack?: string; after?: string }  // 261: `after`, the case whose next period it is
+  /** 231 (U0): the case list; `create`: a new case, of the process `pack` when one is chosen. 263 (F3): `shown`, the
+   *  list's view (waiting for the person, their own, every open one, the closed ones), `process` one process's cases */
+  | { view: "case-list"; create?: boolean; pack?: string; after?: string  // 261: `after`, the case whose next period it is
+      shown?: CaseListView; process?: string }
   /** 231 (U3a): `item`, a process of the Processes section (its own page), and `tab`, the page's tab. 263 (E1): a
    *  section's chosen thing is its `item` (a partner, a decision; a product's list and its `tab` the chosen one), and
    *  `open` a part opened inside it (a setting of a process, a rule of a product) */
@@ -47,7 +53,9 @@ export type Route =
   | { view: "waiting"; all?: boolean }
   /** an old report or data address: leads to the Result section of the run's package (the package has to be looked up
    *  from the run) */
-  | { view: "legacy-result"; runId?: string; table?: ResultTable };
+  | { view: "legacy-result"; runId?: string; table?: ResultTable }
+  /** 263 (F2): an address no page has; it says so instead of opening another page silently */
+  | { view: "not-found"; path: string };
 
 /** A work package's three sections (057). */
 export const STAGES: Stage[] = ["process", "review", "result"];
@@ -129,7 +137,12 @@ export function parseRoute(hash: string): Route {
         batchOfCase(parts[3], parts[1]);
         return { ...batchRoute(parts.slice(3), params), inCase: parts[1] };
       }
-      if (!parts[1]) return { view: "case-list" };
+      if (!parts[1]) {  // 263 (F3): the list's view and process
+        const shown = params.get("view");
+        const process = params.get("process");
+        return { view: "case-list", ...(shown && CASE_LIST_VIEWS.includes(shown as CaseListView) ? { shown: shown as CaseListView } : {}),
+          ...(process ? { process } : {}) };
+      }
       {  // A7e; 263 (E2): an item of its track, the sub-case's item under it, and an earlier sub-case of the step
         const of = parts[2] ? params.get("of") : null;
         return { view: "cases", caseId: parts[1], tab: parts[2] || undefined, ...(parts[2] && parts[3] ? { sub: parts[3] } : {}),
@@ -145,10 +158,12 @@ export function parseRoute(hash: string): Route {
       return { view: "legacy-result", runId: params.get("run_id") ?? undefined, table: OLD_DATASET[parts[1] ?? ""] };
     case "workpackages":
       return parts[1] ? batchRoute(parts.slice(1), params) : { view: "workpackages" };
-    default: {  // 231 (U2a): an unknown address opens the one work list, the cases
+    default: {  // 231 (U2a): no address opens the one work list, the cases
       // 261: an older address of a settings section (the mailboxes' `#/mailbox`, 057) opens that section
       const aliased = settingsSections().find((s) => parts[0] && s.aliases?.includes(parts[0]));
-      return aliased ? { view: "settings", section: aliased.key } : { view: "case-list" };
+      if (aliased) return { view: "settings", section: aliased.key };
+      // 263 (F2): an address no page has says so
+      return parts[0] ? { view: "not-found", path: parts.join("/") } : { view: "case-list" };
     }
   }
 }
@@ -162,9 +177,14 @@ export function routeHash(r: Route): string {
     case "run": return `#/runs/${e(r.runId)}`;
     case "cases":
       return r.tab ? `#/cases/${e(r.caseId)}/${e(r.tab)}${r.sub ? `/${e(r.sub)}` : ""}${r.of ? `?of=${e(r.of)}` : ""}` : `#/cases/${e(r.caseId)}`;
-    case "case-list": return r.create ? (r.pack ? `#/cases/new/${e(r.pack)}${r.after ? `?after=${e(r.after)}` : ""}` : "#/cases/new") : "#/cases";
+    case "case-list": {
+      if (r.create) return r.pack ? `#/cases/new/${e(r.pack)}${r.after ? `?after=${e(r.after)}` : ""}` : "#/cases/new";
+      const q = [r.shown ? `view=${r.shown}` : "", r.process ? `process=${e(r.process)}` : ""].filter(Boolean).join("&");
+      return q ? `#/cases?${q}` : "#/cases";
+    }
     case "workflows": return r.wfId ? `#/workflows/${e(r.wfId)}` : "#/workflows";
     case "legacy-result": return r.runId ? `#/reports/${e(r.runId)}` : "#/reports";
+    case "not-found": return `#/${r.path}`;
     case "workpackages": {
       if (!r.wpId) return "#/workpackages";
       // 261 (B1c): a case's step's batch under its case

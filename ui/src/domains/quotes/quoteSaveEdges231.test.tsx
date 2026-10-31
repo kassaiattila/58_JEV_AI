@@ -10,6 +10,7 @@ import { api, ApiError, setActor, type CaseView } from "../../api";
 import { setLanguage } from "../../i18n";
 import type { QuoteDraftView, QuoteView } from "./api";
 import { LineEditor } from "./QuoteElements";
+import { confirmAction } from "../../confirm.testutil";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { vi.restoreAllMocks(); });
@@ -88,7 +89,7 @@ describe("a change to a row another person removed", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.getByText("Not saved: someone else saved it meanwhile")).toBeTruthy();  // not settled for them
     fireEvent.click(screen.getByRole("button", { name: "Drop mine, keep theirs" }));
-    fireEvent.click(screen.getByRole("button", { name: "Sure? Click again" }));
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(screen.queryByText(/^Someone else saved this meanwhile/)).toBe(null));
   });
 });

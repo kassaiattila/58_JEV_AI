@@ -24,7 +24,11 @@ import { TemplateChoice } from "../../components/TemplateChoice";
 import { errorText, useAction } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { numText, when } from "../../labels";
-import { wpHash } from "../../route";
+import { routeHash } from "../../route";
+
+/** 263 (F2): the quote's parts are shown on an IT quote case's page: its links lead to the case's own tabs (the
+ *  it_quote pack's `quote` and `approval`), not to a work package's stage, which opened the case's first tab. */
+const caseTab = (caseId: string, tab: "quote" | "approval") => routeHash({ view: "cases", caseId, tab });
 import { QuoteLetterCard } from "./QuoteLetter";
 import { amountText, quoteFieldLabel as fieldLabel } from "./quoteStatus";
 
@@ -318,7 +322,7 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
         ) : null}
         <p className="notice ok-box">
           {t("Approved: version {{n}}, by {{who}}, {{when}}.", { n: locked.version, who: locked.approved_by, when: when(locked.approved_at) })}{" "}
-          <a href={wpHash(wpId, "result")}>{t("To change it, reopen it in Approval.")}</a>
+          <a href={caseTab(wpId, "approval")}>{t("To change it, reopen it in Approval.")}</a>
         </p>
         <p>
           <a className="secondary dl-btn small-btn" href={api.quoteVersionDocxUrl(wpId, locked.version)} download><Icon name="download" />
@@ -353,7 +357,7 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
             changed: Object.keys(edits).length > 0 || Object.keys(header).length > 0 })} savedAt={savedAt} idle={t("Every change is saved at once.")} />
         </div>
         {/* the page header's next step is the view's one solid action (approving once nothing holds it) */}
-        <a className="secondary small-btn" href={wpHash(wpId, "result")}>{t("To the approval")}</a>
+        <a className="secondary small-btn" href={caseTab(wpId, "approval")}>{t("To the approval")}</a>
       </div>
 
       {error ? <p className="notice error" role="alert">{error}</p> : null}
@@ -501,7 +505,7 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
                   </td>
                   <td className="num tnum quote-net">{p ? amountText(p.net, currency) : <span className="muted">—</span>}</td>
                   <td className="quote-actions">
-                    <ConfirmButton className="quiet small-btn" ariaLabel={t("Remove line {{n}}", { n })} disabled={saving}
+                    <ConfirmButton className="quiet small-btn" danger ariaLabel={t("Remove line {{n}}", { n })} disabled={saving}
                       onConfirm={() => void save((d) => ({ ...d, lines: d.lines.filter((l) => l.id !== line.id) }))}>
                       <Icon name="trash" />
                     </ConfirmButton>
@@ -634,7 +638,7 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged, askLetter 
   // D0-g: the approval records what is saved: not while the quote has changes on this page not saved yet
   const unsaved = useHasWork(quoteWorkKey(wpId, dv.step)) && !dv.approval.active;
   const own = !dv.draft
-    ? <p className="small">{t("The quote has not been composed yet.")} <a href={wpHash(wpId, "review")}>{t("Compose it in Quote")}</a></p>
+    ? <p className="small">{t("The quote has not been composed yet.")} <a href={caseTab(wpId, "quote")}>{t("Compose it in Quote")}</a></p>
     : dv.blockers.length ? (
       <ul className="plain">
         {dv.blockers.map((b, i) => (
@@ -642,13 +646,13 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged, askLetter 
             <span className="status long s-review">{b.line ? t("Line {{n}}: {{what}}", { n: lineNo(b.line), what: t(QUOTE_LINE_BLOCKER[b.code]) }) : t(QUOTE_LINE_BLOCKER[b.code])}</span>
           </li>
         ))}
-        <li className="small"><a href={wpHash(wpId, "review")}>{t("Settle them in Quote")}</a></li>
+        <li className="small"><a href={caseTab(wpId, "quote")}>{t("Settle them in Quote")}</a></li>
       </ul>
     ) : null;
   const blockers = unsaved ? (
     <>
       <p className="small"><span className="status long s-review">{t("The quote has changes not saved yet")}</span>{" "}
-        <a href={wpHash(wpId, "review")}>{t("Save them in Quote")}</a></p>
+        <a href={caseTab(wpId, "quote")}>{t("Save them in Quote")}</a></p>
       {own}
     </>
   ) : own;

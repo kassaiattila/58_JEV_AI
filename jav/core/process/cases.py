@@ -59,7 +59,7 @@ __all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest 
     "OPEN", "CLOSED", "WAITING", "READY", "RUNNING", "DONE", "FAILED", "STALE", "STATES", "MIGRATION", "PENDING",
     "IGNORED", "UnknownCase", "CaseConflict", "UnknownEvent", "CaseClosed", "StepStateError", "AdoptionError",
     "Event", "Adopted", "on_leave", "transaction", "definition_of", "find_case_in", "case_row", "find_step_in",
-    "step_rows", "step_row", "without_case_in", "steps_in_phase_in", "get", "marks", "pending_events", "view", "record",
+    "step_rows", "step_row", "without_case_in", "all_in", "all_step_states_in", "steps_in_phase_in", "get", "marks", "pending_events", "view", "record",
     "start", "send_event", "cancel", "override_order", "retry", "reopen", "start_in", "send_event_in",
     "override_order_in", "retry_in", "reopen_in", "adopt", "adopt_phases_in", "set_phase", "set_result", "end_wait",
     "fail", "close", "hold", "resume", "open_ids_in", "holding_in", "history_in", "person_actions_sql",
@@ -242,6 +242,20 @@ def _step(row: sqlite3.Row) -> dict[str, Any]:
 
 def step_rows(c: sqlite3.Connection, case_id: str) -> dict[str, dict[str, Any]]:
     return {r["step_id"]: _step(r) for r in c.execute("SELECT * FROM process_steps WHERE case_id=?", (case_id,))}
+
+
+def all_in(c: sqlite3.Connection) -> dict[str, dict[str, Any]]:
+    """263 (plan E, F3): every case by its id, read at once (a list of cases need not ask for each)."""
+    return {r["case_id"]: {**dict(r), "data": json.loads(r["data"])} for r in c.execute("SELECT * FROM process_cases")}
+
+
+def all_step_states_in(c: sqlite3.Connection) -> dict[str, dict[str, dict[str, Any]]]:
+    """263 (F3): every case's steps' states (its state, what it waits for, its phase) by case and step, read at once;
+    without their results, which a list does not show."""
+    out: dict[str, dict[str, dict[str, Any]]] = {}
+    for r in c.execute("SELECT case_id, step_id, state, waiting_for, phase FROM process_steps"):
+        out.setdefault(r["case_id"], {})[r["step_id"]] = dict(r)
+    return out
 
 
 def find_step_in(c: sqlite3.Connection, case_id: str, step_id: str) -> dict[str, Any] | None:

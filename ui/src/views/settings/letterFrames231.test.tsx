@@ -9,6 +9,7 @@ import { api, setActor, type LetterFrames } from "../../api";
 import { setLanguage } from "../../i18n";
 import hungarian from "../../i18n/hu-native.json";
 import { Settings } from "../Settings";
+import { confirmAction } from "../../confirm.testutil";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -74,7 +75,7 @@ describe("the letter frames (231 U3f)", () => {
     expect(screen.getByText("its own text: version 1")).toBeTruthy();
     fireEvent.click(back);
     expect(retire).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Sure? Click again" }));
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(retire).toHaveBeenCalledWith("letter_frame", "invented_letter"));
   });
 

@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { api, setActor, USERS_EVENT } from "./api";
 import { useActor, useEvent, useHash, useLoad } from "./hooks";
 import { t, useLocale } from "./i18n";
+import { PageHeader } from "./components/PageHeader";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { LanguageSwitch } from "./components/LanguageSwitch";
 import { lazyPage } from "./components/LazyPage";
@@ -47,7 +48,9 @@ export function App() {
     : route.view === "workpackages" && route.wpId && route.inCase ? { caseId: route.inCase, batch: { wpId: route.wpId, route } } : null;
   // U2a: the list of every batch belongs to Settings › System; a batch, a run, a chain and an old result address to
   // the Cases (the work they are part of)
-  const section = route.view === "settings" || (route.view === "workpackages" && !route.wpId) ? "settings" : "case-list";
+  // 263 (F2): the earlier work's lists belong to Settings › Operations; "Waiting for me" and "My work today" to neither
+  const section = route.view === "settings" || route.view === "workflows" || (route.view === "workpackages" && !route.wpId) ? "settings"
+    : route.view === "waiting" || route.view === "activity" || route.view === "not-found" ? null : "case-list";
   return (
     <div className="shell">
       <a className="skip" href="#main">{t("Skip to content")}</a>
@@ -77,12 +80,16 @@ export function App() {
             {route.view === "run" ? <RunDetail runId={route.runId} /> : null}
             {route.view === "workflows" ? <Workflows route={route} /> : null}
             {casePage ? <CasePage {...casePage} /> : null}
-            {route.view === "case-list" && !route.create ? <CaseList /> : null}
+            {route.view === "case-list" && !route.create ? <CaseList shown={route.shown} process={route.process} /> : null}
             {route.view === "case-list" && route.create ? <NewCase pack={route.pack} after={route.after} /> : null}
             {route.view === "settings" ? <Settings section={route.section} item={route.item} tab={route.tab} open={route.open} /> : null}
             {route.view === "legacy-result" ? <LegacyResult runId={route.runId} table={route.table} /> : null}
             {route.view === "activity" ? <Activity day={route.day} /> : null}
             {route.view === "waiting" ? <Waiting all={Boolean(route.all)} /> : null}
+            {route.view === "not-found" ? (
+              <PageHeader crumbs={[{ label: t("Cases"), href: "#/cases" }]} title={t("There is no such page")}
+                summary={<><span className="mono">#/{route.path}</span>: {t("no page of the workspace has this address. Choose one from the menu.")}</>} />
+            ) : null}
           </ErrorBoundary>
         </main>
       </div>

@@ -10,6 +10,7 @@ import type { Catalogue } from "../api/products";
 import { errorText } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { numText, saidText, when } from "../labels";
+import { routeHash } from "../route";
 import { amountText, factTitle, levelLabel, outcomeTitle, Value } from "../views/settings/RegistryParts";
 import { calculationStatus, missingStatus, VERDICT, verdictStatus } from "./caseStatus";
 import type { ElementProps } from "./registry";
@@ -209,6 +210,8 @@ export function MissingInfoView(p: ElementProps) {
   const title = p.element.step ? p.page.steps[p.element.step]?.title : null;
   const state = missingStatus(d);
   const open = d.task?.status === "open";
+  // 263 (F4): the case's tab that shows the data check, which the missing facts are entered in
+  const checkTab = p.page.tabs.find((x) => x.elements.some((e) => e.type === "field_review"))?.id ?? null;
   const giveUp = async () => {
     if (!p.element.step) return;
     setBusy(true);
@@ -241,12 +244,14 @@ export function MissingInfoView(p: ElementProps) {
       {open ? (
         <>
           <p className="small">{t("Get them by {{day}}: enter them in the Data check (reopen it) and freeze it again; the rules are evaluated again.", { day: when(d.task?.due_at) })}</p>
+          {/* 263 (F4): the way there is a button, not only a sentence */}
+          {checkTab ? <p><a className="button secondary small-btn" href={routeHash({ view: "cases", caseId: p.caseId, tab: checkTab })}>{t("To the data check")} →</a></p> : null}
           <p className="muted small">{t("If they do not come by then, the case closes.")}</p>
           {asking ? (
             <div className="button-row">
               <input aria-label={t("Why they will not come")} placeholder={t("Why they will not come")} value={reason} onChange={(e) => setReason(e.target.value)} />
-              <button type="button" className="secondary small-btn" disabled={!reason.trim() || busy} onClick={() => void giveUp()}>{t("The facts will not come")}</button>
               <button type="button" className="quiet small-btn" onClick={() => setAsking(false)}>{t("Cancel")}</button>
+              <button type="button" className="secondary small-btn" disabled={!reason.trim() || busy} onClick={() => void giveUp()}>{t("The facts will not come")}</button>
             </div>
           ) : <div className="button-row"><button type="button" className="secondary small-btn" onClick={() => setAsking(true)}>{t("The facts will not come")}</button></div>}
         </>

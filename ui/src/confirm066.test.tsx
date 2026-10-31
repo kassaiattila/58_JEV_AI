@@ -1,32 +1,39 @@
-// 066 Á36 (decision of 2026-09-29): releasing and stopping are carried out on the second click.
-import { act, render, screen } from "@testing-library/react";
+// 066 Á36 (decision of 2026-09-29): releasing and stopping ask for a confirmation. 263 (plan E, F1; the owner's
+// decision of 2026-10-31: a confirmation card everywhere): the button opens a card that says what happens, with
+// "Cancel" and the action on the right; only the card's action carries it out.
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { CONFIRM_WINDOW_MS, ConfirmButton } from "./components/ConfirmButton";
+import { describe, expect, it, vi } from "vitest";
+import { ConfirmButton } from "./components/ConfirmButton";
+import { confirmAction } from "./confirm.testutil";
 
-afterEach(() => vi.useRealTimers());
-
-describe("Confirmation (066 Á36)", () => {
-  it("the first click only arms, the second acts", async () => {
+describe("Confirmation (066 Á36, 263 F1)", () => {
+  it("the button opens a card that says what happens; its action carries it out", async () => {
     const run = vi.fn();
     const user = userEvent.setup();
-    render(<ConfirmButton onConfirm={run}>Jóváhagyás és kiadás</ConfirmButton>);
+    render(<ConfirmButton onConfirm={run} question="A köteg 4 tétele kiadódik.">Jóváhagyás és kiadás</ConfirmButton>);
     await user.click(screen.getByRole("button", { name: "Jóváhagyás és kiadás" }));
     expect(run).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Biztosan? Kattints újra" }));
+    const card = screen.getByRole("dialog", { name: "Megerősítés" });
+    expect(card.textContent).toContain("A köteg 4 tétele kiadódik.");
+    // "Cancel" first, then the action, the last on the right
+    expect([...card.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Mégse", "Jóváhagyás és kiadás"]);
+    await user.click(confirmAction());
     expect(run).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: "Jóváhagyás és kiadás" })).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("after a few seconds it resets, and two clicks are needed again", async () => {
-    vi.useFakeTimers();
+  it("Cancel and Esc close the card without acting; a removal's action is the danger one", async () => {
     const run = vi.fn();
-    render(<ConfirmButton onConfirm={run}>Leállítás</ConfirmButton>);
-    act(() => screen.getByRole("button").click());
-    expect(screen.getByRole("button").textContent).toBe("Biztosan? Kattints újra");
-    act(() => { vi.advanceTimersByTime(CONFIRM_WINDOW_MS + 10); });
-    expect(screen.getByRole("button").textContent).toBe("Leállítás");
-    act(() => screen.getByRole("button").click());
+    const user = userEvent.setup();
+    render(<ConfirmButton onConfirm={run} danger>Törlés</ConfirmButton>);
+    await user.click(screen.getByRole("button", { name: "Törlés" }));
+    expect(confirmAction().className).toBe("danger");
+    await user.click(screen.getByRole("button", { name: "Mégse" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Törlés" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(run).not.toHaveBeenCalled();
   });
 });

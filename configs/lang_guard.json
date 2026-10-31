@@ -1,9 +1,24 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.162",
+    "version": "1.0.166",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.166",
+        "date": "2026-10-31",
+        "note": "baseline: 5672 -> 5678 Hungarian lines in 470 files; accepted: docs/guides/USER_GUIDE.md"
+      },
+      {
+        "version": "1.0.165",
+        "date": "2026-10-31",
+        "note": "baseline: 5671 -> 5672 Hungarian lines in 470 files; accepted: docs/guides/USER_GUIDE.md"
+      },
+      {
+        "version": "1.0.163",
+        "date": "2026-10-31",
+        "note": "baseline: 5676 -> 5671 Hungarian lines in 470 files; accepted: ui/src/confirm066.test.tsx"
+      },
       {
         "version": "1.0.162",
         "date": "2026-10-31",
@@ -984,7 +999,7 @@
     "docs/GLOSSARY.md": 378,
     "docs/SECURITY.md": 2,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 294,
+    "docs/guides/USER_GUIDE.md": 301,
     "jav/ai/candidates.py": 15,
     "jav/ai/detect.py": 1,
     "jav/ai/detect_detail.py": 2,
@@ -1202,7 +1217,7 @@
     "ui/src/api/client.ts": 1,
     "ui/src/api/system.ts": 2,
     "ui/src/attachment078.test.ts": 2,
-    "ui/src/audit1002.test.tsx": 4,
+    "ui/src/audit1002.test.tsx": 2,
     "ui/src/audit1002N06.test.tsx": 16,
     "ui/src/azure075.test.ts": 1,
     "ui/src/behaviour.test.tsx": 87,
@@ -1210,7 +1225,7 @@
     "ui/src/components/ConfirmButton.tsx": 2,
     "ui/src/components/ErrorBoundary.tsx": 3,
     "ui/src/components/NameCell.tsx": 2,
-    "ui/src/confirm066.test.tsx": 9,
+    "ui/src/confirm066.test.tsx": 11,
     "ui/src/costTotal083.test.tsx": 11,
     "ui/src/costView082.test.tsx": 11,
     "ui/src/cutlist076.test.ts": 2,
@@ -1269,16 +1284,16 @@
     "ui/src/sourceInstance079.test.ts": 6,
     "ui/src/stability063.test.tsx": 1,
     "ui/src/styles.css": 1,
-    "ui/src/supersedePackage152.test.tsx": 6,
-    "ui/src/supersedeRuns151.test.tsx": 6,
+    "ui/src/supersedePackage152.test.tsx": 5,
+    "ui/src/supersedeRuns151.test.tsx": 5,
     "ui/src/supersedeTrial200.test.tsx": 9,
     "ui/src/todoKinds177.test.ts": 11,
     "ui/src/trialTodos150.test.tsx": 2,
-    "ui/src/uifixes073.test.tsx": 8,
-    "ui/src/uncertain076.test.tsx": 13,
+    "ui/src/uifixes073.test.tsx": 7,
+    "ui/src/uncertain076.test.tsx": 12,
     "ui/src/unifiedNames082.test.tsx": 12,
     "ui/src/userMessages167.test.ts": 1,
-    "ui/src/users.test.tsx": 24,
+    "ui/src/users.test.tsx": 23,
     "ui/src/validatorField090.test.ts": 2,
     "ui/src/version071.test.tsx": 2,
     "ui/src/views/Activity.tsx": 2,

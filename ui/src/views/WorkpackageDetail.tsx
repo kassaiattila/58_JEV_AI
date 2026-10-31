@@ -101,7 +101,14 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
         summary={<><span className="mono">{wpId}</span>: {t("no document batch exists with this ID (or it was deleted). Choose one from the list.")}</>} />
     );
   }
-  if (wp.error) return <p className="notice error" role="alert">{wp.error.message}</p>;
+  if (wp.error) {  // 263 (F2): the crumbs stay on an error too
+    return (
+      <>
+        <PageHeader crumbs={[{ label: t("Cases"), href: "#/cases" }]} title={t("The document batch cannot be shown")} />
+        <p className="notice error" role="alert">{wp.error.message}</p>
+      </>
+    );
+  }
   if (!wp.data) return <p className="muted">{t("Loading…")}</p>;
   const view = wp.data;
   if (view.case) return <CasePage caseId={view.case.id} />;  // 231 (A6): a case's container shows its case
@@ -226,10 +233,11 @@ export function BatchStages({ view, route, onChanged, extra, otherwise, note, bo
 }
 
 /** 263 (E2): a case's step's batch on its case's page: its stages (`BatchStages`), its management at the bar's right
- *  end, asking again while it runs; a person's action on it tells the case's page too. */
-export function EmbeddedBatch({ wpId, route, onChanged, side, otherwise, note, body, level }: {
+ *  end, asking again while it runs; a person's action on it tells the case's page too. 263 (F1): `manage` false - a
+ *  case that is only its batch has one menu, the case's. */
+export function EmbeddedBatch({ wpId, route, onChanged, side, otherwise, note, body, level, manage = true }: {
   wpId: string; route: Extract<Route, { view: "workpackages" }>; onChanged: () => void; side?: ReactNode;
-  otherwise?: ReactNode; note?: ReactNode; body?: ReactNode; level: "main" | "sub";
+  otherwise?: ReactNode; note?: ReactNode; body?: ReactNode; level: "main" | "sub"; manage?: boolean;
 }) {
   useLocale();
   const [poll, setPoll] = useState(false);
@@ -241,6 +249,6 @@ export function EmbeddedBatch({ wpId, route, onChanged, side, otherwise, note, b
   const changed = () => { wp.reload(); onChanged(); };
   return (
     <BatchStages view={wp.data} route={route} onChanged={changed} otherwise={otherwise} note={note} body={body} level={level}
-      extra={<div className="track-side">{side}<WorkpackageActions view={wp.data} onChanged={changed} /></div>} />
+      extra={<div className="track-side">{side}{manage ? <WorkpackageActions view={wp.data} onChanged={changed} /> : null}</div>} />
   );
 }

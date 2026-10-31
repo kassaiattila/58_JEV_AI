@@ -7,7 +7,7 @@ import { ACTIVE_RUN, useLoad, useRunView } from "../hooks";
 import { getLocale, t, useLocale } from "../i18n";
 import { MODE, paramsText, providerName, reasonText, tmap, usd, when } from "../labels";
 import { useNameMode } from "../names";
-import { wpHash } from "../route";
+import { batchOfCase, caseUnder, wpHash } from "../route";
 import { RunStatus } from "./Workpackages";
 import { Icon } from "../components/Icon";
 import { ConfirmButton } from "../components/ConfirmButton";
@@ -18,7 +18,7 @@ const ACTIVE = new Set(["queued", "running"]);
  *  them. */
 export function RunList() {
   useLocale();
-  return <DataTable dataset="runs" label={t("Runs")} pollMs={5000} emptyText={t("No runs yet.")} storageId="all-runs" />;
+  return <DataTable dataset="runs" label={t("Runs")} pollMs={5000} emptyText={t("No runs yet.")} storageId="all-runs" persist="all-runs" />;
 }
 
 export function RunDetail({ runId }: { runId: string }) {
@@ -31,11 +31,18 @@ export function RunDetail({ runId }: { runId: string }) {
 
   if (view.error?.status === 404 || view.error?.status === 422) {
     return (
-      <PageHeader crumbs={[{ label: t("Document batches"), href: "#/workpackages" }]} title={t("Run not found")}
+      <PageHeader crumbs={[{ label: t("Cases"), href: "#/cases" }]} title={t("Run not found")}
         summary={<><span className="mono">{runId}</span>: {t("no run exists with this ID.")}</>} />
     );
   }
-  if (view.error) return <p className="notice error" role="alert">{view.error.message}</p>;
+  if (view.error) {
+    return (
+      <>
+        <PageHeader crumbs={[{ label: t("Cases"), href: "#/cases" }]} title={t("The run cannot be shown")} />
+        <p className="notice error" role="alert">{view.error.message}</p>
+      </>
+    );
+  }
   if (!view.data) return <p className="muted">{t("Loading…")}</p>;
   const { run, budget } = view.data;
 
@@ -43,7 +50,25 @@ export function RunDetail({ runId }: { runId: string }) {
   const ownTotal = Object.values(own).reduce((n, r) => n + r.length, 0);
   // 083: a to-do left by a budget stop opens the budget part by itself
   const budgetBlocked = Object.values(own).some((rs) => rs.some((r) => /BudgetExceeded|budget_exceeded/.test(r.reason)));
-  const wpBase = wpHash(run.workpackage_id);  // 261 (B1c): a case's batch under its case
+  // 261 (B1c): a case's batch under its case; 263 (F2): a sub-case's under its main case, whose step shows it
+  const owner = wp.data?.owner_case ?? null;
+  const main = owner?.parent ?? null;
+  if (owner) {
+    batchOfCase(run.workpackage_id, owner.id);
+    if (main) caseUnder(owner.id, main.id);
+  }
+  const wpBase = wpHash(run.workpackage_id);
+  const crumbs = owner
+    ? [{ label: t("Cases"), href: "#/cases" },
+       { label: main ? main.name : owner.name, href: main ? `#/cases/${encodeURIComponent(main.id)}/${encodeURIComponent(main.step)}` : `#/cases/${encodeURIComponent(owner.id)}` },
+       { label: t("Processing"), href: `${wpBase}/process` }]
+    : [{ label: t("Settings"), href: "#/settings" }, { label: t("All document batches"), href: "#/workpackages" },
+       { label: wp.data?.workpackage.name ?? run.workpackage_id, href: `${wpBase}/process` }];
+  // 263 (F2): the page's main action is where the work goes on - the to-dos, or the result and its approval
+  const next = ownTotal
+    ? <a className="button primary" href={`${wpBase}/review`}>{t("Review: {{n}} to-dos", { n: ownTotal })} →</a>
+    : <a className={run.mode === "apply" && !run.approval && !ACTIVE.has(run.status) ? "button primary" : "secondary dl-btn"}
+        href={`${wpBase}/result?run=${encodeURIComponent(run.run_id)}`}>{run.mode === "apply" && !run.approval ? t("Result and approval") : t("Result")}{run.mode === "apply" && !run.approval ? " →" : ""}</a>;
 
   async function supersede() {
     setBusy(true);
@@ -76,14 +101,14 @@ export function RunDetail({ runId }: { runId: string }) {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: t("Document batches"), href: "#/workpackages" }, { label: wp.data?.workpackage.name ?? run.workpackage_id, href: wpBase },
-          { label: t("Processing"), href: `${wpBase}/process` }]}
+        crumbs={crumbs}
         title={t("{{mode}} run, {{when}}", { mode: MODE[run.mode], when: when(run.created_at) })} badge={<RunStatus status={run.status} />}
-        summary={<>{run.recipe?.title ? t(run.recipe.title) : run.recipe_id} · {paramsText(run.params)} · {t("started by: {{actor}}", { actor: run.actor })}
+        summary={<>{run.recipe?.title ? t(run.recipe.title) : run.recipe_id} · {Object.values(budget?.providers ?? {}).some((p) => Number(p.limit_usd) > 0)
+          ? paramsText(run.params) : t("no AI works on it: code reads its items")} · {t("started by: {{actor}}", { actor: run.actor })}
           {run.finished_at ? ` · ${t("finished: {{when}}", { when: when(run.finished_at) })}` : ""}</>}
         actions={<div className="button-row">
           {ACTIVE.has(run.status) ? <ConfirmButton className="secondary" disabled={busy} onConfirm={() => void cancel()}><Icon name="stop" />{t("Stop")}</ConfirmButton> : null}
-          <a className="secondary dl-btn" href={`${wpBase}/result?run=${encodeURIComponent(run.run_id)}`}>{run.mode === "apply" && !run.approval ? t("Result and approval") : t("Result")}</a>
+          {next}
         </div>} />
       {msg ? <p role="status" className={msg.error ? "notice error" : "notice"}>{msg.text}</p> : null}
       {view.data.superseded ? <p className="notice">{run.mode === "shadow"
@@ -94,7 +119,7 @@ export function RunDetail({ runId }: { runId: string }) {
         <a href={`#/runs/${encodeURIComponent(view.data.superseded.by)}`}>{t("The later run")}</a></p> : null}
       {view.data.supersede ? <SupersedeOffer offer={view.data.supersede} trial={run.mode === "shadow"} busy={busy} onConfirm={() => void supersede()} /> : null}
       {run.approval ? <p className="notice ok-box">{t("Released: approved by {{who}}, {{when}}.", { who: run.approved_by, when: when(run.approved_at) })}</p> : null}
-      {ownTotal ? <p className="notice">{t("{{n}} open to-dos.", { n: ownTotal })} <a href={`${wpBase}/review`}>{t("Review")}</a></p> : null}
+      {ownTotal ? <p className="notice">{t("{{n}} open to-dos.", { n: ownTotal })}</p> : null}
 
       <div className="run-grid">
         <section aria-label={t("Item list")}>
@@ -258,7 +283,8 @@ export function PlanVsActual({ costs }: { costs: RunCostView }) {
   useLocale();
   return (
     <section aria-label={t("Planned and actual")}>
-      <h3 className="mt">{t("Planned and actual")}</h3>
+      {/* 263 (F4): a heading only above what it heads */}
+      {costs.plan_saved || costs.providers.length ? <h3 className="mt">{t("Planned and actual")}</h3> : null}
       {costs.plan_saved ? (
         <dl className="kv cost-kv">
           {costs.providers.map((p) => [

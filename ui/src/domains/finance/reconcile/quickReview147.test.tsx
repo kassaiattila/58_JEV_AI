@@ -7,6 +7,7 @@ import { api, ApiError, setActor } from "../../../api";
 import type { QuickReview, QuickReviewLine, ReconcileWorkspace } from "../api";
 import { setLanguage } from "../../../i18n";
 import { ReconcileQuickReview } from "./ReconcileQuickReview";
+import { confirmAction } from "../../../confirm.testutil";
 
 function line(id: string, over: Partial<QuickReviewLine> = {}): QuickReviewLine {
   return { id, statement_id: "stmt", booking_date: "2026-04-14", amount: "13.00", currency: "HUF", direction: "debit",
@@ -75,7 +76,7 @@ describe("the quick review", () => {
     const button = within(look).getByRole("button", { name: "Accept 1 line(s)" });
     fireEvent.click(button);
     expect(accept).not.toHaveBeenCalled();  // the first click only arms it
-    fireEvent.click(button);
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(accept).toHaveBeenCalledWith("wp-00000000000a", "ai_review", ["l-low"]));
     expect(onWorkspace).toHaveBeenCalledWith(WORKSPACE);
     expect(await screen.findByText("1 line(s) decided.")).toBeTruthy();
@@ -89,7 +90,7 @@ describe("the quick review", () => {
     const sure = await screen.findByRole("region", { name: "Sure by AI" });
     const button = within(sure).getByRole("button", { name: "Accept 1 line(s)" });
     fireEvent.click(button);
-    fireEvent.click(button);
+    fireEvent.click(confirmAction());
     expect(await screen.findByText(/changed meanwhile and has been reloaded/)).toBeTruthy();
     await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
     cleanup();

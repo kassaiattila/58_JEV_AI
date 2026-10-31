@@ -45,7 +45,8 @@ describe("the new case page (231 U0)", () => {
     expect(await screen.findByRole("radio", { name: "Insurance quote" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "Documents" })).toBeTruthy();
     expect(screen.queryByRole("radio", { name: "Only by itself" })).toBeNull();
-    expect(screen.getByText("A quote from documents.")).toBeTruthy();
+    // 263 (F3): one line a process; its description stands beside the list once it is chosen
+    expect(screen.queryByText("A quote from documents.")).toBeNull();
     expect(screen.getByText("Before a case can start: Product, Tariff needs an active version.")).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: "Documents" }));
     expect(window.location.hash).toBe("#/cases/new/documents");

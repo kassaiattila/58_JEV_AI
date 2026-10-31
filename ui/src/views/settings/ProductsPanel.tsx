@@ -53,7 +53,9 @@ export function ProductsPanel({ list, ident, open }: { list?: string; ident?: st
   }
   // 263 (E1): a list is the one list: searchable, sortable, grouped; a row opens its thing's page
   if (spec?.key === "proposals") return <ProposalsView registry={r} onChanged={changed} />;
-  if (spec) return <DataTable key={spec.key} dataset={spec.dataset} label={t(spec.label)} storageId={spec.dataset} persist={spec.dataset} />;
+  // 263 (F4): an empty list says how one comes, not only "No data."
+  if (spec) return <DataTable key={spec.key} dataset={spec.dataset} label={t(spec.label)} storageId={spec.dataset} persist={spec.dataset}
+    emptyText={t("There is none yet. A process's example material installs an invented one (Cases › New case, then the process).")} />;
   return ( // the section's page: its lists, each with what it holds and how many
     <table className="table compact registry-table" aria-label={t("Product registry")}>
       <thead><tr><th>{t("List")}</th><th className="num">{t("Count")}</th><th>{t("What it holds")}</th></tr></thead>
@@ -151,7 +153,7 @@ function ProductCard({ registry, thing, open, onChanged }: {
         href={(ref) => settingsHash("products", "products", thing.ident, ref === open ? null : ref)} />
       <h4>{t("Tariff")}</h4>
       <p className="registry-line">
-        {tariff ? <>{current(tariff).content.title ?? tariff.ident} <ThingState thing={tariff} /> <a href={settingsHash("products", "tariffs")}>{t("Open the tariffs")}</a></>
+        {tariff ? <>{current(tariff).content.title ?? tariff.ident} <ThingState thing={tariff} /> <a href={settingsHash("products", "tariffs", tariff.ident)}>{t("Open the tariff")}</a></>
           : product.tariff ? <span className="error-text">{t("The tariff {{tariff}} is not in the registry.", { tariff: product.tariff })}</span>
             : <span className="muted">{t("No tariff: the product's premium is not computed.")}</span>}
       </p>

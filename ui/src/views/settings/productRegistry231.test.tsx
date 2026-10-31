@@ -10,6 +10,7 @@ import { api, ApiError, setActor, type Catalogue, type ProductRegistry, type Reg
 import { setLanguage } from "../../i18n";
 import hungarian from "../../i18n/hu-native.json";
 import { Settings } from "../Settings";
+import { findConfirmAction } from "../../confirm.testutil";
 
 beforeEach(async () => {
   await setLanguage("en");
@@ -121,7 +122,7 @@ describe("the product registry in Settings (231 D-c6)", () => {
     const make = await screen.findByRole("button", { name: "Make version 1 active" }) as HTMLButtonElement;
     expect(make.className).toBe("primary");
     fireEvent.click(make);
-    fireEvent.click(await screen.findByRole("button", { name: "Sure? Click again" }));
+    fireEvent.click(await findConfirmAction());
     await waitFor(() => expect(activate).toHaveBeenCalledWith("product", "invented_property", 1));
     cleanup();
     setActor("Synthetic maker");
@@ -136,7 +137,7 @@ describe("the product registry in Settings (231 D-c6)", () => {
       new ApiError(422, "manifest_refused", "the product cannot be made active", [], { problems: [DRAFT_RULE] }));
     render(<Settings section="products" item="products" tab="invented_property" />);
     fireEvent.click(await screen.findByRole("button", { name: "Make version 1 active" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Sure? Click again" }));
+    fireEvent.click(await findConfirmAction());
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toBe("It was not made active:rule cash_class@1: still a draft");
   });

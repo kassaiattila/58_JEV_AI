@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError, type UncertainCall } from "./api";
 import { UncertainCallsPanel, parseCost } from "./views/settings/UncertainCallsPanel";
+import { confirmAction } from "./confirm.testutil";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -54,7 +55,7 @@ describe("076 uncertain calls on the System page", () => {
     const button = screen.getByRole("button", { name: "Lezárás" });
     fireEvent.click(button);
     expect(resolve).not.toHaveBeenCalled();  // the first click only arms the confirmation
-    fireEvent.click(screen.getByRole("button", { name: "Biztosan? Kattints újra" }));
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(resolve).toHaveBeenCalledWith(7, { cost_usd: "0.07", note: "a konzolon ellenőrizve" }));
   });
 });

@@ -13,6 +13,7 @@ import { settingsSections } from "../../../logic/settingsSections";
 import { linkCol, listPage } from "../../../views/settings/listPage.testutil";
 import { PartiesPanel } from "../PartiesPanel";
 import { ReconcilePairing } from "./ReconcilePairing";
+import { confirmAction } from "../../../confirm.testutil";
 
 const WP = "wp-0000000000bb";
 const STMT = "c".repeat(64);
@@ -106,7 +107,7 @@ describe("the own parties in the settings", () => {
     fireEvent.change(name, { target: { value: "Example Home" } });
     const all = screen.getByRole("button", { name: "Accept all 2" });
     fireEvent.click(all);
-    fireEvent.click(all); // a second click confirms
+    fireEvent.click(confirmAction()); // a second click confirms
     await waitFor(() => expect(accept).toHaveBeenCalledWith(["a".repeat(16), "b".repeat(16)], { ["a".repeat(16)]: "Example Home" }));
     expect((await screen.findByRole("link", { name: "Example Home" })).getAttribute("href")).toBe(`#/settings/parties/${HOME.id}`);
   });
@@ -133,7 +134,7 @@ describe("the own parties in the settings", () => {
       return button;
     });
     fireEvent.click(notOwn);
-    fireEvent.click(notOwn);
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(set).toHaveBeenCalledWith(lonely, "dismiss"));
   });
 });

@@ -186,8 +186,9 @@ def test_a_record_s_words_are_written_in_the_request_s_language():
     assert display.text("Mailbox: {{accounts}} · {{at}}", accounts="a@example.com", at="2026-10-29 10:00") == (
         "Postafiók: a@example.com · 2026-10-29 10:00")
     assert display.text("default settings, saved when the run started") == "alapbeállítás, a futás indításakor mentve"
+    # 263 (F4; the owner's decision of 2026-10-31: one Hungarian word for a batch)
     assert display.text("The download was interrupted ({{error}}); a package was made from the emails that arrived.",
-                        error="JobCancelled") == "A letöltés megszakadt (JobCancelled); a megérkezett levelekből csomag készült."
+                        error="JobCancelled") == "A letöltés megszakadt (JobCancelled); a megérkezett levelekből köteg készült."
     with display.use("en"):
         assert display.text("automatically after a mailbox download (the run is started by hand)") == (
             "automatically after a mailbox download (the run is started by hand)")

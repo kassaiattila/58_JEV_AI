@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError, type Recipe, type RecipeHelp, type RunPlan, type SupersedableRun, type WorkpackageView } from "../api";
 import { BlockerList } from "../components/BlockerList";
+import { FormActions } from "../components/FormActions";
 import { ConfirmButton } from "../components/ConfirmButton";
 import { DataTable } from "../components/DataTable";
 import { Icon } from "../components/Icon";
@@ -120,15 +121,27 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
   return (
     <div className="stage-grid">
       <section className="card wide" aria-label={t("Run")}>
+        {/* 263 (F1): the card's own buttons - the runs - in its head, on the right */}
         <div className="card-head">
           <h2>{t("Run")}</h2>
-          {last ? <a className="small" href={`#/runs/${last.run_id}`}>{t("Details of the latest run")}</a> : null}
+          <div className="button-row end run-buttons">
+            {pendingButtons((m) => btn(`pending-${m}`))}
+            <button type="button" className={btn("shadow")} data-run="shadow" title={withSpend(cap)} disabled={!readiness.ready || busy || active}
+              onClick={() => start("shadow")}><Icon name="trial" />{t("Trial run")}…{spend}</button>
+            {/* the live run is the consequential one: only its result can be released */}
+            <button type="button" className={btn("apply")} data-run="apply" title={withSpend(cap)}
+              disabled={!readiness.ready || busy || active} onClick={() => start("apply")}><Icon name="play" />{t("Live run")}…{spend}</button>
+            <button type="button" className={btn("rerun")} data-run="rerun" disabled={!target || !readiness.ready || busy || active}
+              title={withSpend(cap, target ? t("Again as a new {{mode}} run, on the package's documents as they are now", { mode: MODE[target.mode].toLowerCase() }) : t("No run to repeat yet"))}
+              onClick={() => target && start(target.mode, true)}><Icon name="rerun" />{t("Rerun")}…{spend}</button>
+          </div>
         </div>
         {last ? (
           <div className="run-summary">
             <span className={`status s-${last.status}`}>{RUN_STATUS[last.status] ?? last.status}</span>
             <span>{t("{{mode}} run · {{when}} · {{done}}/{{total}} items", { mode: MODE[last.mode], when: when(last.created_at), done: last.items_done, total: last.items })}</span>
             {last.open_reasons ? <a href={wpHash(wp.id, "review")}>{t("To-dos: {{n}}", { n: last.open_reasons })}</a> : null}
+            <a className="small" href={`#/runs/${last.run_id}`}>{t("Details of the latest run")}</a>
             {active ? (
               <div className="bar wide-bar" role="meter" aria-label={t("Progress")} aria-valuemin={0} aria-valuemax={last.items} aria-valuenow={last.items_done}>
                 <span style={{ width: `${(100 * last.items_done) / Math.max(1, last.items)}%` }} />
@@ -146,17 +159,6 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
               onClick={() => void refreshAssignment()}><Icon name="rerun" />{t("Switch to the current processing")}</button></> : null}</> }))} />
         ) : null}
         <OlderRunsOffer runs={view.supersedable ?? []} busy={busy || active} onSupersede={(id) => void supersede(id)} />
-        <div className="button-row">
-          {pendingButtons((m) => btn(`pending-${m}`))}
-          <button type="button" className={btn("shadow")} data-run="shadow" title={withSpend(cap)} disabled={!readiness.ready || busy || active}
-            onClick={() => start("shadow")}><Icon name="trial" />{t("Trial run")}…{spend}</button>
-          {/* the live run is the consequential one: only its result can be released */}
-          <button type="button" className={btn("apply")} data-run="apply" title={withSpend(cap)}
-            disabled={!readiness.ready || busy || active} onClick={() => start("apply")}><Icon name="play" />{t("Live run")}…{spend}</button>
-          <button type="button" className={btn("rerun")} data-run="rerun" disabled={!target || !readiness.ready || busy || active}
-            title={withSpend(cap, target ? t("Again as a new {{mode}} run, on the package's documents as they are now", { mode: MODE[target.mode].toLowerCase() }) : t("No run to repeat yet"))}
-            onClick={() => target && start(target.mode, true)}><Icon name="rerun" />{t("Rerun")}…{spend}</button>
-        </div>
         <dl className="run-help small">
           <dt>{t("Trial run")}</dt><dd>{t("the result can be viewed and downloaded but not released")}</dd>
           <dt>{t("Live run")}</dt><dd>{t("a person approves the result in the Result stage, with no open to-dos")}</dd>
@@ -329,10 +331,13 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
     <section className="card wide" aria-label={t("Processing settings")}>
       <div className="card-head">
         <h2>{t("Processing settings")}</h2>
-        <button type="button" className="secondary" aria-expanded={open} disabled={!catalogue.length}
-          onClick={() => { setRecipeId(currentRecipe?.id ?? catalogue[0]?.id ?? ""); setOpen((o) => !o); }}>
-          {open ? <><Icon name="close" />{t("Close")}</> : <><Icon name="edit" />{t("Modify")}</>}
-        </button>
+        {/* 263 (F1): the form's exit is its foot's "Cancel" */}
+        {open ? null : (
+          <button type="button" className="secondary" aria-expanded={open} disabled={!catalogue.length}
+            onClick={() => { setRecipeId(currentRecipe?.id ?? catalogue[0]?.id ?? ""); setOpen(true); }}>
+            <Icon name="edit" />{t("Modify")}
+          </button>
+        )}
       </div>
       {recipes.error ? <p className="notice error">{recipes.error.message}</p> : null}
       {!open ? (
@@ -384,7 +389,9 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
           <label className="block">{t("Note")} <span className="muted">{t("(may be omitted)")}</span>
             <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />
           </label>
-          <button type="button" className="primary" disabled={busy} onClick={() => void save()}>{t("Save settings")}</button>
+          <FormActions onCancel={() => setOpen(false)} busy={busy}>
+            <button type="button" className="primary" disabled={busy} onClick={() => void save()}>{t("Save settings")}</button>
+          </FormActions>
         </div>
       ) : null}
       <p className="small"><a href={`#/settings/recipes`}>{t("How the system works and what the settings mean")} ›</a></p>

@@ -4,6 +4,7 @@
 // the neutral tint), and its save is solid only while there is something to save (docs/guides/DESIGN.md).
 import { useEffect, useState } from "react";
 import { api, ApiError, type Engine } from "../../api";
+import { FormActions } from "../../components/FormActions";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { ENGINE, when } from "../../labels";
@@ -63,12 +64,11 @@ export function EnginePanel() {
               </label>
             ))}
           </fieldset>
-          <div className="button-row">
+          <FormActions busy={busy} note={dirty ? t("Packages with saved settings keep their engine; change those in the package's Processing section.") : null}>
             <button type="button" className={dirty ? "primary" : "secondary"} disabled={!dirty || busy} onClick={() => void save()}>
               {busy ? t("Saving…") : t("Save")}
             </button>
-            {dirty ? <span className="small muted">{t("Packages with saved settings keep their engine; change those in the package's Processing section.")}</span> : null}
-          </div>
+          </FormActions>
         </>
       ) : !setting.error ? <p className="muted">{t("Loading…")}</p> : null}
       {msg ? <p className={msg.error ? "notice error" : "muted small"} role={msg.error ? "alert" : "status"}>{msg.text}</p> : null}

@@ -8,6 +8,7 @@ import { setLanguage } from "./i18n";
 import { PackageItemsPanel } from "./views/PackageItems";
 import { ResultStage } from "./views/ResultStage";
 import { ReviewWorkspace } from "./views/ReviewWorkspace";
+import { confirmAction } from "./confirm.testutil";
 
 const rows = vi.hoisted(() => ({ current: [] as Record<string, unknown>[] }));
 
@@ -115,7 +116,7 @@ it("the release of a package with a removed item names it and sends the count", 
   const button = line.querySelector("button") as HTMLButtonElement;
   await waitFor(() => expect(button.disabled).toBe(false));
   fireEvent.click(button);
-  fireEvent.click(button); // the release needs two clicks
+  fireEvent.click(confirmAction()); // the release needs two clicks
   await waitFor(() => expect(give).toHaveBeenCalledWith("wp-1", "m1", 1));
 });
 

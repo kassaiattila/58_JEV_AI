@@ -195,6 +195,12 @@ def stored(wp_id: str, c: sqlite3.Connection | None = None) -> dict[str, Any] | 
     return {k: (json.loads(row[k]) if k == "parts" else row[k]) for k in _COLUMNS if k != "workpackage_id"}
 
 
+def stored_all(c: sqlite3.Connection) -> dict[str, dict[str, Any]]:
+    """263 (plan E, F3): every package's stored party and period by its id, read at once (the case list)."""
+    return {r["workpackage_id"]: dict(r) for r in c.execute(
+        "SELECT workpackage_id, party_id, period_start, period_end FROM workpackage_scopes")}
+
+
 def holders(part: str, keep: Callable[[Any], bool]) -> list[dict[str, Any]]:
     """231 (C1c): the packages whose scope has a part `part` whose value `keep` takes, oldest first: {id, name, value}."""
     with store.connect() as c:

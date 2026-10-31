@@ -10,6 +10,7 @@ import {
 import { BrowseButton } from "../../components/BrowseButton";
 import { DataTable } from "../../components/DataTable";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { FormActions } from "../../components/FormActions";
 import { Picker } from "../../components/Picker";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
@@ -129,13 +130,13 @@ function StartCard({ registry, standIns, onStarted }: { registry: ProductRegistr
           {verify ? <label className="block">{t("JEV budget (USD)")}<input className="tnum" inputMode="decimal" value={jev} maxLength={8} onChange={(e) => setJev(e.target.value)} /></label> : null}
         </div>
       ) : null}
-      <div className="button-row">
+      <FormActions busy={busy}>
         <button type="button" className={ready ? "primary" : "secondary"} disabled={busy || !ready} onClick={() => void start()}
           title={gpt ? t("Can spend up to {{usd}}", { usd: usdBudget(cap) }) : undefined}>
           {busy ? t("Starting…") : t("Propose rules")}
           {gpt && cap > 0 ? <span className="spend" aria-hidden="true">≤ {usdBudget(cap)}</span> : null}
         </button>
-      </div>
+      </FormActions>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
     </section>
   );
@@ -274,11 +275,11 @@ function ProposalDetail({ proposal: p, registry, documents, onDone }: {
               ))}
             </fieldset>
           ) : null}
-          <div className="button-row">
+          <FormActions busy={busy} note={t("A draft rule is made active as usual, by its own checks.")}>
             <ConfirmButton className={canAccept ? "primary" : "secondary"} disabled={busy || !canAccept}
+              question={t("Accept it as a draft rule? It changes nothing until it is made active.")}
               onConfirm={() => void run(() => api.acceptRuleProposal(p.id, p.decision_state, confirmed))}>{t("Accept as a draft rule")}</ConfirmButton>
-            <span className="muted small">{t("A draft rule is made active as usual, by its own checks.")}</span>
-          </div>
+          </FormActions>
           <div className="form-row">
             <label className="block grow">{t("Reason for rejecting")}
               <input value={reason} maxLength={2000} onChange={(e) => setReason(e.target.value)} />

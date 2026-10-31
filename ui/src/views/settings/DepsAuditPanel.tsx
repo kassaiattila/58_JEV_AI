@@ -34,7 +34,7 @@ export function DepsAuditPanel() {
       {d.error ? <p className="notice error">{d.error.message}</p> : null}
       {state ? (
         <p role="status" className={state.level === "ok" ? "" : state.level === "error" ? "notice error" : "notice"}>
-          <span className={`status ${state.level === "ok" ? "s-done" : state.level === "error" ? "s-failed" : "s-needs_review"}`}>
+          <span className={`status ${state.level === "ok" ? "s-done" : state.level === "error" ? "s-failed" : "s-warn"}`}>
             {state.level === "ok" ? t("OK") : state.level === "error" ? t("Error") : t("Attention")}
           </span>{" "}{state.text}
         </p>

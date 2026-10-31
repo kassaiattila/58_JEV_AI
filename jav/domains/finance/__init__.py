@@ -331,6 +331,8 @@ def register() -> None:
     parts.register_sample_type("invoice_hu")  # 229 (MD2): a template preview's made-up rows, by default the invoice's
     parts.register_output_labels(parts.OutputLabels("reconcile_statement", __name__, reconcile_statement.sample_heads,
                                                     reconcile_statement.sample_values))  # 185: for a template's preview
+    for labels in finance_datasets.LABEL_SETS:  # 263 (F3): the statement tables' value labels
+        datasets.register_labels(labels)
     for dataset, after in finance_datasets.DATASETS:  # 185: its tables on the interface
         datasets.register(dataset, after=after, module=__name__)
     parts.register_own_output(parts.OwnOutput("utility_cost", __name__, "utility_cost.xlsx", "utility-cost",

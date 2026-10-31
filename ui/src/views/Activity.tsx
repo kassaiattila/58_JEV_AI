@@ -42,13 +42,14 @@ export function Activity({ day }: { day?: string }) {
   }
   return (
     <>
-      <PageHeader title={title} summary={t("{{name}}'s actions on the day: steps and decisions on the cases, processing settings, starting and approving runs, corrections, closing to-dos, task-proposal decisions, batch changes, mailbox downloads.", { name: actor })}
-        actions={
+      <PageHeader title={title} summary={t("{{name}}'s actions on the day: steps and decisions on the cases, processing settings, starting and approving runs, corrections, closing to-dos, task-proposal decisions, batch changes, mailbox downloads.", { name: actor })} />
+      {/* 263 (F3): the list keeps its state; the day stands in its toolbar */}
+      <DataTable dataset="activity" scope={{ actor, day: d }} label={t("Activity log")} storageId="activity" persist="activity"
+        toolbar={
           <label className="check small">{t("Day")}
             <input type="date" value={d} max={today} onChange={(e) => go({ view: "activity", day: e.target.value && e.target.value !== today ? e.target.value : undefined })} />
           </label>
-        } />
-      <DataTable dataset="activity" scope={{ actor, day: d }} label={t("Activity log")} storageId="activity"
+        }
         emptyText={t("You have no recorded actions on this day.")}
         cell={(col, row) => (col.key === "detail" ? activityDetail(String(row.action), row.detail as string | null) || undefined : undefined)} />
     </>

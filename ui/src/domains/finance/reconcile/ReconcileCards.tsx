@@ -277,8 +277,9 @@ function GroupCard({ group: g, lines, invoices, facts, ws, focused, docs, readOn
         {ls.length && is.length && oneCurrency ? <Difference paid={-lineTotal} invoiced={invoiceTotal} currency={currency} /> : null}
         <span className="spacer" />
         {plan ? (
-          // 156: solid only on the focused card, the one Enter accepts; one solid action per view
-          <button type="button" className={focused ? "primary" : "secondary"} disabled={busy}
+          // 156: solid only on the focused card, the one Enter accepts; one solid action per view (263, F1: quiet while
+          // a panel is open, whose save is the solid one)
+          <button type="button" className={focused && !mode ? "primary" : "secondary"} disabled={busy}
             onClick={() => void act(() => api.reconcileAllocate(wpId, toRequest(plan.pairs)), t("The proposal has been accepted."))}>
             {t("Accept")} <span className="kbd">Enter</span>
           </button>

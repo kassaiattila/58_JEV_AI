@@ -6,7 +6,7 @@
 // 231 (C3e): the views come from their registry (`logic/resultTables.ts`): the shared ones and a domain's (the finance
 // domain's utility cost, with its panel above the table).
 import { useEffect, useRef, useState } from "react";
-import { api, ApiError, getActor, type PackageResult, type PackageVersion, type RuleChanges, type WorkpackageView } from "../api";
+import { api, ApiError, getActor, type PackageResult, type PackageVersion, type RuleChanges, type RunView, type WorkpackageView } from "../api";
 import { DataTable } from "../components/DataTable";
 import { DatasetPicker, runOption } from "../components/DatasetPicker";
 import { ACTIVE_RUN, useLoad, useRunView } from "../hooks";
@@ -17,6 +17,7 @@ import { resultTables } from "../logic/resultTables";
 import { Icon } from "../components/Icon";
 import { EngineMark } from "../components/EngineMark";
 import { ConfirmButton } from "../components/ConfirmButton";
+import { PageActions } from "../components/PageActions";
 import { TemplateChoice } from "../components/TemplateChoice";
 
 // 156: columns a person seldom reads, hidden by default so that a view fits a laptop screen without sideways
@@ -245,14 +246,25 @@ function PackageRelease({ wpId, data, running, mark, onReleased, onConflict }: {
           <span className="release-detail">{t("removed from the package; left out of the released result")}</span>
         </span>
       ) : null}
-      {line === "ready" || line === "todo" || line === "running" ? (
-        <ConfirmButton className={line === "ready" ? "primary" : "secondary"} disabled={busy || line !== "ready" || mark === undefined}
-          onConfirm={() => void release()}>{t("Approve and release")}</ConfirmButton>
+      {/* 263 (F1; the owner's decision of 2026-10-31): the release is the stage's main action, at the right end of the
+          title row, and asks with a confirmation card that says what it records; while it cannot be released, the line
+          shows it greyed */}
+      {line === "ready" ? (
+        <PageActions>
+          <ConfirmButton className="primary" disabled={busy || mark === undefined} onConfirm={() => void release()}
+            question={<>{t("Approve and release the result?")} {detail}.</>}>{t("Approve and release")}</ConfirmButton>
+        </PageActions>
+      ) : null}
+      {line === "todo" || line === "running" ? (
+        <button type="button" className="secondary" disabled>{t("Approve and release")}</button>
       ) : null}
       {msg ? <span role="status" className={msg.error ? "error-text" : ""}>{msg.text}</span> : null}
     </div>
   );
 }
+
+/** 263 (F4): whether AI works on a run: a provider has a budget for it (a run read by code has none). */
+const byAi = (run: RunView) => Object.values(run.budget?.providers ?? {}).some((p) => Number(p.limit_usd) > 0);
 
 /** 160-D: the AI engine of an open live run, shown at its approval; 218: and the rules that changed during it. */
 function RunMarks({ runId }: { runId: string }) {
@@ -260,7 +272,8 @@ function RunMarks({ runId }: { runId: string }) {
   if (!run.data) return null;
   return (
     <>
-      <EngineMark engine={run.data.engine} />
+      {/* 263 (F4): no engine is named for a run no AI works on (no budget of any provider) */}
+      <EngineMark engine={byAi(run.data) ? run.data.engine : null} />
       {run.data.rule_changes ? <RuleChangeNote changes={run.data.rule_changes} /> : null}
     </>
   );
@@ -409,7 +422,7 @@ function RunState({ runId, wpId }: { runId: string; wpId: string }) {
     <div className="release-line" data-state={state}>
       <span className={`status ${RUN_MARK[state]}`}>{label}</span>
       <span className="release-detail">{detail}</span>
-      <EngineMark engine={run.data.engine} />
+      <EngineMark engine={byAi(run.data) ? run.data.engine : null} />
       {removed.length && state !== "trial" ? (
         <span className="release-removed">
           <span className="status s-warn">{t("{{n}} removed", { n: removed.length })}</span>

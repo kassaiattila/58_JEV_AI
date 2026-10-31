@@ -24,6 +24,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "../../../api";
 import { OPEN_LINE_STATES, type ReconcileCandidate, type ReconcileInvoice, type ReconcileLine, type ReconcileLineState, type ReconcileMatch, type ReconcileWorkspace } from "../api";
 import { ConfirmButton } from "../../../components/ConfirmButton";
+import { FormActions } from "../../../components/FormActions";
 import { errorText, useAction } from "../../../hooks";
 import { t, useLocale } from "../../../i18n";
 import { tmap } from "../../../labels";
@@ -311,7 +312,7 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
           ))}
         </span>
         <span className="spacer" />
-        {onCards ? <button type="button" className="secondary" onClick={onCards}>{t("Back to the cards")}</button> : null}
+        {onCards ? <button type="button" className="secondary" onClick={onCards}>{t("To the cards")}</button> : null}
         {!readOnly && unambiguous ? (
           <ConfirmButton className="secondary" disabled={busy} onConfirm={() => void act(() => api.reconcileAcceptProposed(wpId), { done: t("The unambiguous proposals have been accepted.") })}>
             {t("Accept the {{n}} unambiguous proposals", { n: unambiguous })}
@@ -432,7 +433,8 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
             ) : lines.length && invoices.length ? <span className="rc-sum muted">{t("Different currencies: compared through the exchange rate")}</span> : null}
             <span className="spacer" />
             {/* 157: solid only once the selection can be paired (a faded solid button was noise) */}
-            <button type="button" className={plan.ok ? "primary" : "secondary"} disabled={busy || !plan.ok} onClick={pair}>{t("Pair")} <span className="kbd">Enter</span></button>
+            {/* 263 (F1): quiet while a panel is open - that panel's save is the view's one solid button */}
+            <button type="button" className={plan.ok && !mode ? "primary" : "secondary"} disabled={busy || !plan.ok} onClick={pair}>{t("Pair")} <span className="kbd">Enter</span></button>
             <button type="button" className="secondary" disabled={busy || !canReject} aria-expanded={mode === "reject"} onClick={() => setMode(mode === "reject" ? null : "reject")}>
               {t("Not this one")} <span className="kbd">x</span>
             </button>
@@ -667,10 +669,9 @@ function PairPanel({ plan, busy, onSave, onCancel }: {
           <textarea value={note} maxLength={2000} autoFocus onChange={(e) => setNote(e.target.value)} />
         </label>
       ) : null}
-      <div className="button-row">
+      <FormActions onCancel={onCancel} busy={busy}>
         <button type="submit" className="primary" disabled={busy || !live.ok || (needs && !note.trim())}>{t("Save the pairing")}</button>
-        <button type="button" className="quiet" onClick={onCancel}>{t("Cancel")}</button>
-      </div>
+      </FormActions>
     </form>
   );
 }
@@ -685,10 +686,9 @@ export function ReasonPanel({ label, action, busy, onSave, onCancel }: {
       <label className="block small">{label}
         <input type="text" value={note} maxLength={2000} autoFocus onChange={(e) => setNote(e.target.value)} />
       </label>
-      <div className="button-row">
+      <FormActions onCancel={onCancel} busy={busy}>
         <button type="submit" className="primary" disabled={busy || !note.trim()}>{action}</button>
-        <button type="button" className="quiet" onClick={onCancel}>{t("Cancel")}</button>
-      </div>
+      </FormActions>
     </form>
   );
 }
@@ -713,10 +713,9 @@ export function MarkPanel({ count, categories, suggestion, busy, onSave, onCance
       <label className="block small">{needsNote ? t("Note (required)") : t("Note (optional)")}
         <input type="text" value={note} maxLength={2000} onChange={(e) => setNote(e.target.value)} />
       </label>
-      <div className="button-row">
+      <FormActions onCancel={onCancel} busy={busy}>
         <button type="submit" className="primary" disabled={busy || !category || (needsNote && !note.trim())}>{t("Save for {{n}} lines", { n: count })}</button>
-        <button type="button" className="quiet" onClick={onCancel}>{t("Cancel")}</button>
-      </div>
+      </FormActions>
     </form>
   );
 }

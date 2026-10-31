@@ -58,13 +58,13 @@ export function BackupPanel() {
       <div className="card-head">
         <h3>{t("Database backup")}</h3>
         <button type="button" className="secondary small-btn" disabled={busy} onClick={() => void now()}>
-          <Icon name="download" />{busy ? t("Saving…") : t("Back up now")}
+          <Icon name="download" />{busy ? t("Backing up…") : t("Back up now")}
         </button>
       </div>
       {b.error ? <p className="notice error">{b.error.message}</p> : null}
       {state ? (
         <p role="status" className={state.level === "ok" ? "" : state.level === "error" ? "notice error" : "notice"}>
-          <span className={`status ${state.level === "ok" ? "s-done" : state.level === "error" ? "s-failed" : "s-needs_review"}`}>
+          <span className={`status ${state.level === "ok" ? "s-done" : state.level === "error" ? "s-failed" : "s-warn"}`}>
             {state.level === "ok" ? t("OK") : state.level === "error" ? t("Error") : t("Attention")}
           </span>{" "}{state.text}
         </p>

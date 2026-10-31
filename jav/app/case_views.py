@@ -306,9 +306,15 @@ def _detail(detail: Any) -> dict[str, Any]:
 
 
 def _timeline(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict[str, Any]:
+    """The case's events (`events`) for its log's element."""
+    return {"events": events(case_id)}
+
+
+def events(case_id: str) -> list[dict[str, Any]]:
     """The case's events in order: who did what and when, with the step's title; the core's own bookkeeping (a wait
     begun or ended, a handover recorded before it is sent, an event taken) is left out. Stage D0 (D0-e): its start
-    names the versions the case keeps to its end (`process_runtime.kept_of`)."""
+    names the versions the case keeps to its end (`process_runtime.kept_of`). 263 (F3): also the one list's rows
+    (`case_lists`, dataset `case_events`)."""
     pack = process_runtime.pack_for(case_id)
     titles = {s.id: s.title or s.id for s in pack.steps} if pack else {}
     rows = [{"at": _iso(h["at"]), "kind": h["kind"], "step": h["step_id"], "step_title": titles.get(h["step_id"] or ""),
@@ -317,7 +323,7 @@ def _timeline(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict[s
     start = next((r for r in rows if r["kind"] in ("started", "adopted")), None)
     if start is not None and (kept := process_runtime.kept_of(case_id)) is not None:
         start["detail"]["kept"] = kept  # D0-e: the versions the case keeps from its start
-    return {"events": rows}
+    return rows
 
 
 def _cost(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict[str, Any]:

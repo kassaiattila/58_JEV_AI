@@ -42,9 +42,11 @@ describe("the AI engine mark", () => {
 const VIEW = { workpackage: { id: "wp-1", revision: 1 }, last_run: { run_id: "run-1" }, current_run: { run_id: "run-1", status: "done" },
   runs: 1 } as unknown as WorkpackageView;
 
-function release(engine?: string | null, runId?: string) {
+function release(engine?: string | null, runId?: string, byAi = true) {
   vi.spyOn(api, "run").mockResolvedValue({ run: { run_id: "run-1", mode: "apply", status: "done", approval: null },
-    tables: ["datapoints"], open_reasons: {}, review_version: "v1", ...(engine === undefined ? {} : { engine }) } as unknown as RunView);
+    tables: ["datapoints"], open_reasons: {}, review_version: "v1",
+    budget: { providers: byAi ? { openai: { limit_usd: "0.10", committed_usd: "0" } } : {} },
+    ...(engine === undefined ? {} : { engine }) } as unknown as RunView);
   vi.spyOn(api, "datasetQuery").mockResolvedValue({ rows: [], review_version: "v1", result_mark: "m1" } as unknown as DsPage);
   vi.spyOn(api, "packageResult").mockResolvedValue({ workpackage_id: "wp-1", mark: "m1", open_live_runs: ["run-1"], removed_items: 0,
     blockers: [], state: "not_released", versions: [], tables: ["datapoints"],
@@ -68,6 +70,12 @@ describe("the release shows the engine of the run it approves", () => {
     const old = release();
     await waitFor(() => expect(old.querySelector(".release-line")).not.toBeNull());
     expect(old.querySelector(".engine-mark")).toBeNull();
+  });
+
+  it("a run no AI works on (read by code, no budget) names no engine (263 F4)", async () => {
+    const container = release("jev", "run-1", false);
+    await waitFor(() => expect(container.querySelector(".release-line")).not.toBeNull());
+    expect(container.querySelector(".engine-mark")).toBeNull();
   });
 
   it("a run's own line shows its engine", async () => {

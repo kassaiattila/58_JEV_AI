@@ -29,14 +29,15 @@ export function Waiting({ all }: { all: boolean }) {
   return (
     <>
       <PageHeader title={title}
-        summary={t("What waits for {{name}}: the to-dos to check, the runs and reconciliations to approve, the budgets to decide, and the ones no one is assigned to.", { name: actor })}
-        actions={
+        summary={t("What waits for {{name}}: the to-dos to check, the runs and reconciliations to approve, the budgets to decide, and the ones no one is assigned to.", { name: actor })} />
+      {/* 263 (F3): the list keeps its state; its filter stands in its toolbar */}
+      <DataTable dataset="waiting" scope={all ? { actor, all: "true" } : { actor }} label={title} storageId="waiting" persist="waiting"
+        toolbar={
           <label className="check small">
             <input type="checkbox" checked={all} onChange={(e) => go({ view: "waiting", all: e.target.checked || undefined })} />
             {t("Trial runs and measurements too")}
           </label>
-        } />
-      <DataTable dataset="waiting" scope={all ? { actor, all: "true" } : { actor }} label={title} storageId="waiting"
+        }
         emptyText={all ? t("Nothing waits for you.") : t("No live work waits for you.")}
         cell={(col, row) => (col.key === "what" ? waitingWhat(col, row)
           : col.key === "reason" && typeof row.reason === "string" ? reasonText(row.reason) : undefined)} />

@@ -50,7 +50,7 @@ function CallRow({ call, onDone }: { call: UncertainCall; onDone: () => void }) 
           {t("Note (for example what the provider's console showed)")}
           <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
         </label>
-        <ConfirmButton onConfirm={() => void resolve()} disabled={!ready} ariaLabel={t("Settle")}>
+        <ConfirmButton className="secondary" onConfirm={() => void resolve()} disabled={!ready} ariaLabel={t("Settle")}>
           {t("Settle")}
         </ConfirmButton>
       </div>
@@ -60,10 +60,13 @@ function CallRow({ call, onDone }: { call: UncertainCall; onDone: () => void }) 
   );
 }
 
-export function UncertainCallsPanel() {
+/** 263 (F4): `when` - "any": only while calls wait to be settled (a person's to-do, at the top of Operations); "none":
+ *  only while none does (its quiet line in its place). */
+export function UncertainCallsPanel({ when }: { when?: "any" | "none" }) {
   useLocale();
   const d = useLoad("uncertain-calls", api.uncertainCalls, 60000);
   const calls = d.data?.calls ?? [];
+  if (when && (!d.data || (when === "any") !== calls.length > 0)) return null;
   return (
     <section className="card wide" aria-label={t("Calls with an uncertain outcome")}>
       <div className="card-head">

@@ -7,6 +7,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { api, ApiError, type ProcessDescription, type ProcessSettings, type ResourceSetting, type RulePreview, type RuleSetting, type SettingKind } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { FormActions } from "../../components/FormActions";
 import { DataTable } from "../../components/DataTable";
 import { ItemSteps } from "../../components/ItemSteps";
 import { PageActions } from "../../components/PageActions";
@@ -321,18 +322,18 @@ function SettingCard({ page, open, onClose, onChanged }: {
           <input value={note} maxLength={2000} autoComplete="off" placeholder={t("Why it changes…")} onChange={(e) => setNote(e.target.value)} />
         </label>
       </div>
-      <div className="button-row">
-        <button type="button" className="secondary" disabled={busy || !changed || !!ruleProblem}
-          onClick={() => void run(() => api.proposeSetting(page.pack.id, open.kind, open.key, value, note.trim() || null))}>
-          {t("Save as a draft")}
-        </button>
-        {rule ? (
+      {/* 263 (F1): the save last, on the right; solid once there is something to save */}
+      <FormActions busy={busy} note={ruleProblem ?? t("A draft changes nothing until it is made active.")}
+        start={rule ? (
           <button type="button" className="secondary" disabled={busy || !changed || !!ruleProblem} onClick={() => void tryOn(value)}>
             {t("Try it on earlier decisions")}
           </button>
-        ) : null}
-        <span className="muted small">{ruleProblem ?? t("A draft changes nothing until it is made active.")}</span>
-      </div>
+        ) : null}>
+        <button type="button" className={changed && !ruleProblem ? "primary" : "secondary"} disabled={busy || !changed || !!ruleProblem}
+          onClick={() => void run(() => api.proposeSetting(page.pack.id, open.kind, open.key, value, note.trim() || null))}>
+          {t("Save as a draft")}
+        </button>
+      </FormActions>
       </>}
       {error ? <p className="notice error small" role="alert">{error}</p> : null}
       {preview ? <PreviewResult preview={preview.result} /> : null}
@@ -353,7 +354,7 @@ function SettingCard({ page, open, onClose, onChanged }: {
                     <button type="button" className="quiet small-btn" disabled={busy} onClick={() => void tryOn(v.value)}>{t("Preview")}</button>
                   ) : null}
                   {v.state === "draft" ? (
-                    <button type="button" className="primary small-btn" disabled={busy}
+                    <button type="button" className="secondary small-btn" disabled={busy}
                       onClick={() => void run(() => api.activateSetting(page.pack.id, open.kind, open.key, v.version))}>{t("Make active")}</button>
                   ) : null}
                   {v.state === "active" ? (

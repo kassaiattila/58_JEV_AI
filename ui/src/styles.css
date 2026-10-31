@@ -108,8 +108,9 @@ a.secondary:hover, a.quiet:hover { color: var(--ink); }
 .pending-pill::before { background: var(--faint); }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
 .tab { padding: 10px 14px; text-decoration: none; color: var(--muted); font-weight: 600; font-size: 14px; border-bottom: 3px solid transparent; margin-bottom: -1px; }
-.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
-.tab:hover { color: var(--accent); border-bottom-color: var(--tint-line); }
+/* 263 (F1): a chosen tab is a neutral selection - an ink underline, as the stage bar - never the action colour */
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.tab:hover { color: var(--ink); border-bottom-color: var(--tint-line); }
 
 /* table, card, message */
 /* 139: separate borders, so that a sticky header cell keeps its own lines while the table scrolls under it */
@@ -127,7 +128,7 @@ a.secondary:hover, a.quiet:hover { color: var(--ink); }
 .col-resizer { position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; z-index: 1; touch-action: none; }
 .col-resizer::after { content: ""; position: absolute; top: 20%; bottom: 20%; right: 1px; width: 2px; border-radius: var(--r-full); background: transparent; transition: background-color .12s; }
 th:hover > .col-resizer::after { background: var(--line); }
-.col-resizer:hover::after, .col-resizer:focus-visible::after, .col-resizer:active::after { background: var(--accent); }
+.col-resizer:hover::after, .col-resizer:focus-visible::after, .col-resizer:active::after { background: var(--ink); }
 .col-resizer:focus-visible { outline: none; }
 .table th { font-size: var(--fs-xs); color: var(--muted); font-weight: 500; background: var(--soft); }
 .table tr:last-child td { border-bottom: 0; }
@@ -393,14 +394,14 @@ body.dragging { cursor: col-resize; user-select: none; }
 .picker-pop { padding: 6px; min-width: 280px; }
 .picker-search, .filter-form input:not([type="checkbox"]):not([type="radio"]) { width: 100%; border: 1px solid var(--line); border-radius: 6px;
   padding: 7px 9px; background: var(--paper); }
-.picker-search:focus, .filter-form input:focus { border-color: var(--accent); outline: none; }
+.picker-search:focus, .filter-form input:focus { border-color: var(--ink); outline: none; }
 .picker-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow: auto; }
 .picker-opt { display: grid; gap: 1px; padding: 7px 9px; border-radius: 5px; cursor: pointer; }
 .picker-opt.active { background: var(--tint); }
 .picker-opt[aria-selected="true"] { font-weight: 600; }
 /* the tick goes before the label, on one line; as a CSS escape so that the file encoding cannot corrupt it
    (061: „ásm” stood in its place) */
-.picker-opt[aria-selected="true"] > span:first-child::before { content: "\2713\00a0"; color: var(--accent); }
+.picker-opt[aria-selected="true"] > span:first-child::before { content: "\2713\00a0"; color: var(--ink); }
 .picker-opt[aria-disabled="true"] { opacity: .5; cursor: default; }
 .picker-group { padding: var(--sp-2) 10px var(--sp-1); font-size: var(--fs-xs); font-weight: 600; color: var(--muted); } /* 157: no uppercase micro-label */
 .picker-empty { padding: 8px 9px; color: var(--muted); font-size: 12px; }
@@ -451,7 +452,7 @@ body.dragging { cursor: col-resize; user-select: none; }
 .dt-table tbody tr:hover td { background: var(--soft); }
 .dt-table td a { text-decoration: none; }
 .dt-table td a:hover { text-decoration: underline; }
-.dt-table tr.row-selected td { background: var(--run-tint); }
+.dt-table tr.row-selected td { background: var(--tint); }
 /* a date-time value: the time drops under the date when the column is narrow */
 .when { display: inline-flex; flex-wrap: wrap; column-gap: 6px; font-variant-numeric: tabular-nums; }
 .when > span { white-space: nowrap; }
@@ -502,11 +503,13 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .dt-actions { display: inline-flex; gap: 6px; justify-content: flex-end; align-items: center; width: 100%; } /* 160-C: a small button sits on the links' line */
 
 /* 057: unified page header, work package stages, settings */
-.page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--sp-4); padding: var(--sp-5) 0 var(--sp-4); flex-wrap: wrap; }
-.page-head-main { display: grid; gap: var(--sp-1); min-width: 0; }
+/* 263 (F1): the actions keep the title row's right end however long the title is: the title wraps in its own column */
+.page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--sp-4); padding: var(--sp-5) 0 var(--sp-4); }
+.page-head-main { display: grid; gap: var(--sp-1); min-width: 0; flex: 1 1 auto; }
+.page-head h1 { overflow-wrap: anywhere; }
 .page-head .crumb { margin: 0 !important; }
 .page-summary { max-width: 90ch; text-wrap: pretty; }
-.page-actions { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+.page-actions { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; justify-content: flex-end; flex: 0 1 auto; }
 /* 155: a package's working page — the title is a heading of the work, not of the screen */
 .page-head.compact { align-items: center; padding: var(--sp-2) 0 var(--sp-3); gap: var(--sp-2) var(--sp-4); }
 .page-head.compact .page-head-main { gap: 2px; }
@@ -545,6 +548,17 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .stage-tabs.sub-track .stage-tab { min-height: 36px; border-right: 0; }
 .stage-tabs.sub-track .stage-tab[aria-selected="true"] { background: transparent; }
 .track-row:has(> .sub-track) .track-log { min-height: 36px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+/* 263 (F3): a case's steps in the case list - the state marks alone, each named in its tooltip */
+.track-marks { display: inline-flex; gap: 4px; align-items: center; }
+.track-mark { display: inline-flex; }
+.track-mark::before { content: ""; width: 8px; height: 8px; border-radius: var(--r-full); background: var(--faint); }
+.track-mark.s-done::before { background: var(--ok); }
+.track-mark.s-running::before { background: var(--run); }
+.track-mark.s-failed::before { background: var(--error); border-radius: 0; }
+.track-mark.s-waiting::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--faint); }
+/* 263 (F3): a process repeated by period - its period grid */
+.period-grid td a.status { text-decoration: none; }
+.period-grid td a.status + a.status { margin-left: var(--sp-2); }
 .stage-grid, .stage-stack { display: grid; gap: 16px; }
 .stage-grid .card, .stage-stack .card { max-width: none; margin: 0; }
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
@@ -1033,7 +1047,7 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .price-table td { vertical-align: middle; overflow-wrap: anywhere; }
 .price-table .c-version { width: 11%; } .price-table .c-state { width: 12%; } .price-table .c-change { width: 24%; }
 .price-table .c-count { width: 8%; } .price-table .c-uploaded { width: 19%; } .price-table .c-actions { width: 18%; }
-.price-table tr.row-selected td { background: var(--run-tint); }
+.price-table tr.row-selected td { background: var(--tint); }
 .price-table .template-actions { white-space: nowrap; }
 .price-version { display: grid; gap: var(--sp-4); }
 .price-version > .card-head { margin-bottom: 0; }
@@ -1270,6 +1284,11 @@ details.earlier[open] > summary { margin-bottom: var(--sp-2); }
 .new-case { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 720px); gap: var(--sp-4); align-items: start; }
 .new-case .card { max-width: none; margin: 0; }
 .new-case-list .wizard-choices { margin: 0; }
+/* 263 (F3, H26): one line a process; the description beside it, above the form */
+.wizard-choices.compact { gap: 4px; }
+.wizard-choices.compact .wizard-choice { padding: 6px var(--sp-3); align-items: center; }
+.new-case-search { width: 100%; margin-bottom: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); padding: 7px 10px; background: var(--paper); color: var(--ink); font: inherit; }
+.new-case-search:focus { border-color: var(--ink); outline: none; }
 .new-case-form h2 { font-size: var(--fs-lg); font-weight: 600; margin: 0; }
 .example-material:not(:last-child) { padding-bottom: var(--sp-3); border-bottom: 1px solid var(--line-soft); }
 .example-material h3 { font-size: var(--fs-sm); font-weight: 600; margin: 0; }
@@ -1280,8 +1299,12 @@ details.earlier[open] > summary { margin-bottom: var(--sp-2); }
 
 /* an editor's buttons: at its foot, on the right, the save the last; what removes or retires at the left end; inside the
    detail pane they stay in view at its bottom */
-.form-actions { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; padding: var(--sp-3) 0; }
+.form-actions { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; justify-content: flex-end; padding: var(--sp-3) 0 0; }
+.form-actions-start { margin-right: auto; display: flex; gap: var(--sp-2); align-items: center; }
 .form-actions-note { flex: 1 1 200px; text-align: right; }
+/* 263 (F1; the owner's decision of 2026-10-31): the confirmation card under an irreversible action's button */
+.confirm-card { padding: var(--sp-3) var(--sp-4); max-width: 360px; }
+.confirm-question { margin: 0; text-wrap: pretty; }
 /* a chosen row of any table: the neutral selection (until 263 each panel drew its own, some none) */
 .table tr[aria-selected="true"] td { background: var(--tint); }
 .table tr.row-detail .card { border: 0; padding: 0; margin: 0; background: transparent; max-width: none; box-shadow: none; }

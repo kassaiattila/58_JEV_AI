@@ -43,7 +43,7 @@ function WorkflowList() {
   return (
     <>
       <PageHeader title={t("Earlier workflows")} badge={list.data ? <span className="count">{list.data.workflows.length}</span> : null}
-        crumbs={[{ label: t("Settings"), href: "#/settings/system" }]}
+        crumbs={[{ label: t("Settings"), href: "#/settings" }, { label: t("Operations"), href: "#/settings/system" }]}
         summary={t("A workflow of several steps is a process now: start one under Cases › New case. These are the workflows made before; each one's page shows where its chain stands.")}
         actions={<a className="button secondary" href="#/cases/new">{t("New case")}</a>} />
       <div className="toolbar wf-filters">
@@ -126,13 +126,23 @@ function WorkflowControl({ wfId }: { wfId: string }) {
     }
   }
 
-  if (loaded.error) return <p className="notice error" role="alert">{loaded.error.status === 404 ? t("The workflow was not found.") : loaded.error.message}</p>;
+  // 263 (F2): the earlier workflows' crumbs on every state of the page
+  const crumbs = [{ label: t("Settings"), href: "#/settings" }, { label: t("Operations"), href: "#/settings/system" },
+    { label: t("Earlier workflows"), href: "#/workflows" }];
+  if (loaded.error) {
+    return (
+      <>
+        <PageHeader crumbs={crumbs} title={loaded.error.status === 404 ? t("The workflow was not found.") : t("The workflow cannot be shown")} />
+        {loaded.error.status === 404 ? null : <p className="notice error" role="alert">{loaded.error.message}</p>}
+      </>
+    );
+  }
   if (!v) return <p className="muted">{t("Loading…")}</p>;
   const wf = v.workflow;
   const nextStep = v.next ? v.steps.find((s) => s.id === v.next!.step) : null;
   return (
     <>
-      <PageHeader title={wf.name}
+      <PageHeader title={wf.name} crumbs={crumbs}
         summary={wf.party && wf.period_start ? t("{{template}} · {{party}}, {{from}} – {{to}} · {{done}} of {{total}} steps done", {
           template: t(wf.template_title), party: wf.party, from: wf.period_start, to: wf.period_end ?? "", done: v.done, total: v.total })
           // 181: a workflow without a party or a period names what it has
@@ -140,13 +150,14 @@ function WorkflowControl({ wfId }: { wfId: string }) {
             scope: [wf.party, wf.period_start ? `${wf.period_start} – ${wf.period_end}` : null].filter(Boolean).map((x) => `${x} · `).join(""),
             done: v.done, total: v.total })}
         actions={<>
-          <label className="check small"><input type="checkbox" checked={wf.auto} disabled={busy || wf.status !== "open"}
-            onChange={(e) => void act(() => api.updateWorkflow(wf.id, { auto: e.target.checked }))} /> {t("Start the steps by themselves")}</label>
+          {/* 263 (F1): what retires first, at the left */}
           {wf.status === "open" ? (  // 231 (U2c): an earlier workflow is archived, not restored
             <button type="button" className="secondary small-btn" disabled={busy} onClick={() => void act(() => api.updateWorkflow(wf.id, { archived: true }))}>
               {t("Archive")}
             </button>
           ) : null}
+          <label className="check small"><input type="checkbox" checked={wf.auto} disabled={busy || wf.status !== "open"}
+            onChange={(e) => void act(() => api.updateWorkflow(wf.id, { auto: e.target.checked }))} /> {t("Start the steps by themselves")}</label>
         </>} />
       {v.repeat_of || v.repeated_as?.length ? (
         <p className="small wf-repeats">

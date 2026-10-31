@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type ProductRegistry, type Rule, type RuleProposal, type RuleProposalRun } from "../../api";
 import { setLanguage } from "../../i18n";
 import { ProposalsView } from "./ProposalsView";
+import { confirmAction } from "../../confirm.testutil";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -102,7 +103,7 @@ describe("rule proposals (231 D-c7g)", () => {
     fireEvent.click(within(detail).getByRole("checkbox", { name: /0/ }));
     expect(button.disabled).toBe(false);
     fireEvent.click(button);
-    fireEvent.click(within(detail).getByRole("button", { name: "Sure? Click again" }));
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(accept).toHaveBeenCalledWith(2, 0, ["0"]));
   });
 
@@ -118,7 +119,7 @@ describe("rule proposals (231 D-c7g)", () => {
     expect(no.disabled).toBe(true);
     fireEvent.change(within(detail).getByRole("textbox", { name: "Reason for rejecting" }), { target: { value: "not a rule" } });
     fireEvent.click(no);
-    fireEvent.click(within(detail).getByRole("button", { name: "Sure? Click again" }));
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(reject).toHaveBeenCalledWith(3, 0, "not a rule"));
   });
 });

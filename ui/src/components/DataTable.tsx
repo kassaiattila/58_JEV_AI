@@ -562,7 +562,8 @@ export function DataTable(p: Props) {
                     <button type="button" className="dt-group-toggle" aria-expanded={!closed.has(closedKey(line.value))} onClick={() => toggleGroup(line.value)}>
                       <Icon name="chevron" />
                       <span className="dt-group-name">{line.value === null ? t("(not given)") : groupCol?.kind === "bool" ? (line.value === "true" ? t("yes") : t("no"))
-                        : groupCol ? cellText(groupCol, line.value) : line.value}</span>
+                        // 263 (F3): a group's name is shown as its cells show the value (a pack's title translated)
+                        : groupCol ? (p.cell?.(groupCol, { _key: "", [groupCol.key]: line.value }) ?? cellText(groupCol, line.value)) : line.value}</span>
                       <span className="dt-group-count">{groupCount.get(line.value) ?? 0}</span>
                     </button>
                   </td>

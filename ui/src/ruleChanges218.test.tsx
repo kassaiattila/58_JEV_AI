@@ -30,7 +30,7 @@ const FILES = [
 
 function release(changes?: RuleChanges, runId?: string) {
   vi.spyOn(api, "run").mockResolvedValue({ run: { run_id: "run-1", mode: "apply", status: "done", approval: null },
-    tables: ["datapoints"], open_reasons: {}, review_version: "v1", engine: "jev",
+    tables: ["datapoints"], open_reasons: {}, review_version: "v1", engine: "jev", budget: { providers: { jev: { limit_usd: "0.10", committed_usd: "0" } } },
     ...(changes ? { rule_changes: changes } : {}) } as unknown as RunView);
   vi.spyOn(api, "datasetQuery").mockResolvedValue({ rows: [], review_version: "v1", result_mark: "m1" } as unknown as DsPage);
   vi.spyOn(api, "packageResult").mockResolvedValue({ workpackage_id: "wp-1", mark: "m1", open_live_runs: ["run-1"], removed_items: 0,

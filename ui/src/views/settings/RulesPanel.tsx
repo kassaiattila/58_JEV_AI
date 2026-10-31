@@ -207,7 +207,7 @@ function RulesTable() {
         {t("You edit the price lists and the output templates yourself, on their own pages:")}{" "}
         <a href="#/settings/prices">{t("Price lists")}</a> · <a href="#/settings/outputs">{t("Output templates")}</a>
       </p>
-      <DataTable dataset="rules" scope={NO_SCOPE} label={t("Rules")} storageId="rules" persist="rules" onPage={setPage} cell={cell}
+      <DataTable dataset="rules" scope={NO_SCOPE} label={t("Decision points")} storageId="rules" persist="rules" onPage={setPage} cell={cell}
         emptyText={t("No decision is described yet.")} />
     </div>
   );

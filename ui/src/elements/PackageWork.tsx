@@ -8,7 +8,7 @@
 import type { PackageWorkView } from "../api";
 import { t, useLocale } from "../i18n";
 import { batchOfCase, wpHash } from "../route";
-import { RUN_STATUS, usdBudget } from "../labels";
+import { MODE, RUN_STATUS, usdBudget } from "../labels";
 import { ActionButtons } from "./ActionsElement";
 import { PackageIntake } from "./ProcessStart";
 import type { ElementProps } from "./registry";
@@ -48,7 +48,8 @@ export function PackageWork(p: ElementProps) {
         <ul className="plain small">
           {live.map((r) => (
             <li key={r.run_id}>
-              <a href={`#/runs/${encodeURIComponent(r.run_id)}`}>{r.run_id}</a>{" "}
+              {/* 263 (F4): a run is named by its kind, its id only in the tooltip */}
+              <a href={`#/runs/${encodeURIComponent(r.run_id)}`} title={r.run_id}>{t("{{mode}} run", { mode: MODE[r.mode as keyof typeof MODE] ?? r.mode })}</a>{" "}
               <span className="muted">{r.approval ? t("approved") : RUN_STATUS[r.status] ?? t(r.status)}</span>
             </li>
           ))}

@@ -147,7 +147,8 @@ describe("starting a run with a confirmation (061)", () => {
     await waitFor(() => expect(within(page).getByRole("button", { name: "Próbafutás indítása" }).hasAttribute("disabled")).toBe(false));
     await user.click(within(page).getByRole("button", { name: "Próbafutás indítása" }));
     expect(start).toHaveBeenCalledWith("wp-1", { mode: "shadow", expected_revision: 1, input_hash: "0123456789abcdef" });
-    expect(window.location.hash).toBe("#/runs/run-000000000009");
+    // 263 (F2; the owner's decision of 2026-10-31): the start stays on the batch's Processing stage, where the run shows
+    expect(window.location.hash).toBe("#/workpackages/wp-1/process");
   });
 
   it("a batch that cannot start has its start disabled, the blocker shows", async () => {

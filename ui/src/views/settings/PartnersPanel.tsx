@@ -68,7 +68,7 @@ function PartnerTable({ onNew }: { onNew: () => void }) {
     <>
       <PageActions><button type="button" className="primary" onClick={onNew}>{t("New partner")}</button></PageActions>
       <DataTable dataset={LIST} label={t("Partners")} storageId={LIST} persist={LIST}
-        toolbar={<a className="small" href={settingsHash("partners", PARTNER_PROPOSALS)}>{t("Proposals from the documents read")} →</a>}
+        toolbar={<a className="small" href={settingsHash("partners", PARTNER_PROPOSALS)}>{t("Suggestions from the data")} →</a>}
         emptyText={t("No partner yet. Record one, or take one from the proposals.")} />
     </>
   );
@@ -156,10 +156,17 @@ function PartnerCard({ open, roles, onOpen, onChanged }: {
           <button type="button" className="secondary" disabled={busy} onClick={() => void run(() => api.restorePartner(partner.partner_id))}>{t("Restore")}</button>
         ) : (
           <>
+            {/* 263 (F1): what retires at the left end; "Cancel" (drop the changes, or leave a new partner) before the save */}
             {partner ? (
-              <ConfirmButton className="secondary" disabled={busy} onConfirm={() => void run(() => api.retirePartner(partner.partner_id))}>{t("Retire")}</ConfirmButton>
+              <div className="form-actions-start">
+                <ConfirmButton className="secondary" disabled={busy} danger
+                  question={t("Retire {{name}}? New cases no longer offer it; the earlier ones keep it.", { name: partner.name })}
+                  onConfirm={() => void run(() => api.retirePartner(partner.partner_id))}>{t("Retire")}</ConfirmButton>
+              </div>
             ) : null}
             <span className="muted small form-actions-note">{partner ? t("A change is kept as a new version; the earlier ones stay.") : t("A name and at least one role are needed.")}</span>
+            <button type="button" className="secondary" disabled={busy || (partner !== null && !changed)}
+              onClick={() => (partner ? setDraft(null) : go({ view: "settings", section: "partners" }))}>{t("Cancel")}</button>
             <button type="button" className={changed && ready ? "primary" : "secondary"} disabled={busy || !changed || !ready} onClick={() => void save()}>
               {partner ? t("Save as a new version") : t("Record the partner")}
             </button>
@@ -197,9 +204,9 @@ function Suggestions({ roles, onTake }: { roles: PartnerRoles; onTake: (s: Partn
   useLocale();
   const [shown, setShown] = useState(false);
   const found = useLoad(`partner-suggestions:${shown}`, () => (shown ? api.partnerSuggestions() : Promise.resolve(null)));
-  useSettingsTitle(t("Proposals from the documents read"));
+  useSettingsTitle(t("Suggestions from the data"));
   return (
-    <section className="sheet partner-suggestions" aria-label={t("Proposals from the documents read")}>
+    <section className="sheet partner-suggestions" aria-label={t("Suggestions from the data")}>
       {!shown ? <PageActions><button type="button" className="primary" onClick={() => setShown(true)}>{t("Show the proposals")}</button></PageActions> : null}
       <p className="muted small">{t("The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Nothing is recorded by itself.")}</p>
       {shown && !found.data ? <p className="muted">{t("Loading…")}</p> : null}
@@ -215,7 +222,7 @@ function Suggestions({ roles, onTake }: { roles: PartnerRoles; onTake: (s: Partn
                 <td>{roleText(s.roles, roles)}</td>
                 <td className="num">{s.seen}</td>
                 <td className="tnum">{s.last ?? "–"}</td>
-                <td><button type="button" className="secondary small-btn" onClick={() => onTake(s)}>{t("Record it")}</button></td>
+                <td><button type="button" className="secondary small-btn" onClick={() => onTake(s)}>{t("Accept")}</button></td>
               </tr>
             ))}
           </tbody>

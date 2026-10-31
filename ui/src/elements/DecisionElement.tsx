@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { api, type DecisionData } from "../api";
 import { ApprovalStateNotes, ReturnControl } from "../components/ApprovalPanel";
+import { FormActions } from "../components/FormActions";
 import { errorText, useActor } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { numText, when } from "../labels";
@@ -98,11 +99,10 @@ export function DecisionView(p: ElementProps) {
           <label className="block">{picked?.closes ? t("Reason (required)") : t("Note")}
             <input type="text" value={note} maxLength={2000} onChange={(e) => setNote(e.target.value)} />
           </label>
-          <div className="button-row">
+          <FormActions busy={busy} note={mine ? <span className="todo-text">{t("Another person decides above the limit.")}</span>
+            : picked?.closes && !note.trim() ? t("Give the reason.") : null}>
             <button type="button" className={ready ? "primary" : "secondary"} disabled={!ready || busy} onClick={() => void decide()}>{t("Record the decision")}</button>
-            {mine ? <span className="todo-text small">{t("Another person decides above the limit.")}</span>
-              : picked?.closes && !note.trim() ? <span className="muted small">{t("Give the reason.")}</span> : null}
-          </div>
+          </FormActions>
         </div>
       ) : null}
       {!d.decided && d.waits ? <ReturnControl busy={busy} onReturn={(reason) => run(() => api.returnCaseStep(p.caseId, step, reason))} /> : null}

@@ -127,53 +127,57 @@ function RecipeDetails({ recipe, help }: { recipe: Recipe; help?: RecipeHelp }) 
         <span className="muted small">{t("Recipe version: {{version}}", { version: recipe.version })}</span>
       </div>
       <p>{t(details?.when ?? recipe.description)}</p>
-      <dl className="recipe-kv">
-        {inputs.map((input) => <Fragment key={input.label}><dt>{t(input.label)}</dt><dd>{t(input.description)}</dd></Fragment>)}
-        <dt>{t("What it needs")}</dt>
-        <dd><ul className="tight">{recipe.requirements.map((x) => <li key={x}>{t(x)}</li>)}</ul></dd>
-        <dt>{t("Steps")}</dt>
-        <dd><ol className="tight">{recipe.steps.map((x) => <li key={x}>{t(x)}</li>)}</ol></dd>
-        <dt>{t("Result")}</dt><dd>{t(recipe.result)}</dd>
-        <dt>{t("What a person does")}</dt><dd>{t(recipe.manual_action)}</dd>
-        <dt>{t("Cost budget with the default settings")}</dt>
-        <dd>
-          {itemBudgetLines(recipe, defaults).map((line) => <div key={line}>{line}</div>)}
-          <span className="muted small">{t(BUDGET_NOTE)}</span>
-        </dd>
-      </dl>
-      <h4>{t("Settings")}</h4>
-      {/* 090: the processing path as one setting with its four values */}
-      {shownParams(Object.keys(recipe.params), defaults).map((k) => {
-        const isPath = k === PATH;
-        const spec = isPath ? { allowed: pathOptions(recipe.params.arm?.allowed ?? []), default: pathValue(defaults) } : recipe.params[k];
-        const options = spec.allowed ?? [];
-        // the budget per option is only shown where the setting also affects the cost (e.g. path, task proposal)
-        const costs = options.map((o) => itemBudgetLines(recipe, isPath ? applyPath(defaults, o) : { ...defaults, [k]: o }).join("; "));
-        const costVaries = new Set(costs).size > 1;
-        const p = isPath ? pathHelp(scoped) : scoped?.params[k];
-        return (
-          <div key={k} className="param-doc">
-            <p><strong>{PARAM_LABEL[k] ?? k}</strong>{p?.help ? <> — {t(p.help)}</> : null}</p>
-            {k === "doc_type" ? (
-              <details>
-                <summary>{t("{{n}} document types to choose from; default: {{name}}", { n: options.length, name: docTypeLabel(spec.default ?? "") })}</summary>
-                <ul className="tight columns">{options.map((o) => <li key={o}>{docTypeLabel(o)}</li>)}</ul>
-              </details>
-            ) : (
-              <ul className="option-list">
-                {options.map((o, i) => (
-                  <li key={o}>
-                    <strong>{paramShort(k, o)}</strong>
-                    {o === spec.default ? <span className="status s-ok">{t("default")}</span> : null}
-                    {p?.options[o] ? <span className="option-text">{t(p.options[o])}</span> : null}
-                    {costVaries ? <span className="muted small option-text">{t("Cost budget: {{cost}}", { cost: costs[i] })}</span> : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        );
-      })}
+      {/* 263 (F4): what it is for stays in view; its details fold out (the page was eight screens long) */}
+      <details className="details">
+        <summary>{t("The recipe's details")}</summary>
+        <dl className="recipe-kv">
+          {inputs.map((input) => <Fragment key={input.label}><dt>{t(input.label)}</dt><dd>{t(input.description)}</dd></Fragment>)}
+          <dt>{t("What it needs")}</dt>
+          <dd><ul className="tight">{recipe.requirements.map((x) => <li key={x}>{t(x)}</li>)}</ul></dd>
+          <dt>{t("Steps")}</dt>
+          <dd><ol className="tight">{recipe.steps.map((x) => <li key={x}>{t(x)}</li>)}</ol></dd>
+          <dt>{t("Result")}</dt><dd>{t(recipe.result)}</dd>
+          <dt>{t("What a person does")}</dt><dd>{t(recipe.manual_action)}</dd>
+          <dt>{t("Cost budget with the default settings")}</dt>
+          <dd>
+            {itemBudgetLines(recipe, defaults).map((line) => <div key={line}>{line}</div>)}
+            <span className="muted small">{t(BUDGET_NOTE)}</span>
+          </dd>
+        </dl>
+        <h4>{t("Settings")}</h4>
+        {/* 090: the processing path as one setting with its four values */}
+        {shownParams(Object.keys(recipe.params), defaults).map((k) => {
+          const isPath = k === PATH;
+          const spec = isPath ? { allowed: pathOptions(recipe.params.arm?.allowed ?? []), default: pathValue(defaults) } : recipe.params[k];
+          const options = spec.allowed ?? [];
+          // the budget per option is only shown where the setting also affects the cost (e.g. path, task proposal)
+          const costs = options.map((o) => itemBudgetLines(recipe, isPath ? applyPath(defaults, o) : { ...defaults, [k]: o }).join("; "));
+          const costVaries = new Set(costs).size > 1;
+          const p = isPath ? pathHelp(scoped) : scoped?.params[k];
+          return (
+            <div key={k} className="param-doc">
+              <p><strong>{PARAM_LABEL[k] ?? k}</strong>{p?.help ? <> — {t(p.help)}</> : null}</p>
+              {k === "doc_type" ? (
+                <details>
+                  <summary>{t("{{n}} document types to choose from; default: {{name}}", { n: options.length, name: docTypeLabel(spec.default ?? "") })}</summary>
+                  <ul className="tight columns">{options.map((o) => <li key={o}>{docTypeLabel(o)}</li>)}</ul>
+                </details>
+              ) : (
+                <ul className="option-list">
+                  {options.map((o, i) => (
+                    <li key={o}>
+                      <strong>{paramShort(k, o)}</strong>
+                      {o === spec.default ? <span className="status s-ok">{t("default")}</span> : null}
+                      {p?.options[o] ? <span className="option-text">{t(p.options[o])}</span> : null}
+                      {costVaries ? <span className="muted small option-text">{t("Cost budget: {{cost}}", { cost: costs[i] })}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </details>
     </section>
   );
 }

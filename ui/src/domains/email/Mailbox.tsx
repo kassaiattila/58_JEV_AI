@@ -263,7 +263,7 @@ export function Mailbox() {
                 <td className="right">
                   <button type="button" className="secondary small-btn" onClick={() => void api.updateSchedule(s.id, { enabled: !s.enabled }).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))}>
                     {s.enabled ? t("Turn off") : t("Turn on")}</button>{" "}
-                  <ConfirmButton className="quiet small-btn" onConfirm={() => void api.deleteSchedule(s.id).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))}>{t("Delete")}</ConfirmButton>
+                  <ConfirmButton className="quiet small-btn" danger onConfirm={() => void api.deleteSchedule(s.id).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))}>{t("Delete")}</ConfirmButton>
                 </td>
               </tr>
             ))}
@@ -273,7 +273,7 @@ export function Mailbox() {
       <p className="muted small">{t("Schedules only run while the worker is running and Outlook is open on this computer.")}</p>
 
       <h2 className="mt">{t("Downloads")}</h2>
-      <DataTable dataset="mailbox_pulls" label={t("Mailbox downloads")} pollMs={5000} emptyText={t("No downloads yet.")}
+      <DataTable dataset="mailbox_pulls" label={t("Mailbox downloads")} pollMs={5000} emptyText={t("No downloads yet.")} persist="mailbox-pulls"
         cell={(col, row) => (col.key === "workpackage" && row.workpackage
           ? <a href={`#/workpackages/${encodeURIComponent(String(row.workpackage))}`}>{t("document batch")}</a>
           : col.key === "error" && row.error ? pullErrorText(String(row.error))

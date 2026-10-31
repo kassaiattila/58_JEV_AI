@@ -90,20 +90,20 @@ export function QuoteLetterCard({ wpId, letter, archived, onChanged, askLetter }
         <textarea className="quote-letter-body" rows={12} value={body} disabled={archived} maxLength={20000}
           onChange={(e) => { setBody(e.target.value); setEdited(true); }} />
       </label>
-      <div className="button-row">
-        <button type="button" className="primary" disabled={busy || archived || !body.trim() || !changed} onClick={() => void accept()}>
-          {t("Accept the letter")}
-        </button>
+      <div className="form-actions">
         {accepted ? (
-          <a className="secondary dl-btn small-btn" href={api.quoteLetterEmlUrl(wpId, letter.version, letter.step)} download>
-            <Icon name="download" />{t("Download the letter (Outlook)")}</a>
-        ) : null}
-        {accepted ? (
-          <span className="muted small">
+          <span className="muted small form-actions-note">
             {changed ? t("Changed since it was accepted: accept it again to download this text.")
               : t("Accepted by {{who}}, {{when}}.", { who: accepted.by, when: when(accepted.at) })}
           </span>
         ) : null}
+        {accepted ? (
+          <a className="secondary dl-btn small-btn" href={api.quoteLetterEmlUrl(wpId, letter.version, letter.step)} download>
+            <Icon name="download" />{t("Download the letter (Outlook)")}</a>
+        ) : null}
+        <button type="button" className="primary" disabled={busy || archived || !body.trim() || !changed} onClick={() => void accept()}>
+          {t("Accept the letter")}
+        </button>
       </div>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
       {notice ? <p role="status" className="small ok">{notice}</p> : null}

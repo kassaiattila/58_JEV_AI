@@ -79,7 +79,7 @@ describe("the partner register (231 B1; 263 E1: the one list, a partner's own pa
     expect(proposals).not.toHaveBeenCalled();  // reading them goes through every invoice: only on request
     fireEvent.click(show);
     const table = await screen.findByRole("table", { name: "Proposals" });
-    fireEvent.click(within(table).getByRole("button", { name: "Record it" }));
+    fireEvent.click(within(table).getByRole("button", { name: "Accept" }));
     expect(window.location.hash).toBe("#/settings/partners/new");
     rerender(<Settings section="partners" item="new" />);  // the address's new page, the proposal taken
     const card = await screen.findByRole("region", { name: "New partner" });

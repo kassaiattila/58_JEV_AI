@@ -10,6 +10,7 @@ import { reasonText } from "./labels";
 import { pullErrorText, pullSummary } from "./domains/email/Mailbox";
 import { settingsSections } from "./logic/settingsSections";
 import { UsersPanel } from "./views/settings/UsersPanel";
+import { confirmAction } from "./confirm.testutil";
 
 afterEach(async () => {
   vi.restoreAllMocks();
@@ -60,7 +61,7 @@ describe("one-click deletions ask for confirmation (073)", () => {
     await screen.findByText("Minta Anna");
     await user.click(screen.getByRole("button", { name: "Minta Anna törlése a listából" }));
     expect(save).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Biztosan? Kattints újra" }));
+    await user.click(confirmAction());
     expect(save).toHaveBeenLastCalledWith(["Teszt Elek"]);
   });
 });

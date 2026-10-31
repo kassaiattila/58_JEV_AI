@@ -10,6 +10,7 @@ import { setLanguage } from "../../i18n";
 import hungarian from "../../i18n/hu-native.json";
 import { DefaultEditor } from "./DefaultEditor";
 import type { RuleValue } from "./RulesPanel";
+import { confirmAction } from "../../confirm.testutil";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -88,7 +89,7 @@ describe("a rule value's default (231 U4d)", () => {
     expect(screen.getByText(/The installation's own value: version 1/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Back to the file's value" }));
     expect(retire).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Sure? Click again" }));
+    fireEvent.click(confirmAction());
     await waitFor(() => expect(retire).toHaveBeenCalledWith(BAND_KEY.id));
   });
 

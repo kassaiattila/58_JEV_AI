@@ -5,6 +5,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { api, type Workpackage } from "../../api";
 import { BrowseButton } from "../../components/BrowseButton";
+import { FormActions } from "../../components/FormActions";
 import { lazyPage } from "../../components/LazyPage";
 import { t, useLocale } from "../../i18n";
 import { addFailure, AddSteps, pathsOf, type AddSource } from "../../views/PackageAdd";
@@ -91,16 +92,20 @@ export function AddStatements({ wp, source: initial = "folder", onDone, onCancel
           <BrowseButton kind="files" initial={lines[lines.length - 1]} onPick={(picked) => reset(setFiles)([...lines, ...picked].join("\n"))} />
         </div>
       )}
-      <div className="button-row">
-        <button type="button" className="secondary" disabled={busy || !paths.length} onClick={() => void read()}>
-          {busy && !survey ? t("Reading…") : t("Survey the files")}</button>
-        <button type="button" className="quiet" onClick={onCancel}>{t("Cancel")}</button>
-      </div>
+      {survey ? null : (
+        <FormActions onCancel={onCancel} busy={busy}>
+          <button type="button" className="primary" disabled={busy || !paths.length} onClick={() => void read()}>
+            {busy && !survey ? t("Reading…") : t("Survey the files")}</button>
+        </FormActions>
+      )}
       {survey ? <SurveyChoices survey={survey} chosen={chosen} setChosen={setChosen} /> : null}
       {error ? <p className="notice error" role="alert">{error}</p> : null}
+      {/* 263 (F1): one foot, "Cancel" and then the main step, on the right */}
       {survey ? (
-        <button type="submit" className="primary" disabled={busy || !(nStatements + nPdfs)}>
-          {t("Add {{n}} statement(s) and {{m}} PDF(s)", { n: nStatements, m: nPdfs })}</button>
+        <FormActions onCancel={onCancel} busy={busy}>
+          <button type="submit" className="primary" disabled={busy || !(nStatements + nPdfs)}>
+            {t("Add {{n}} statement(s) and {{m}} PDF(s)", { n: nStatements, m: nPdfs })}</button>
+        </FormActions>
       ) : null}
     </form>
   );
