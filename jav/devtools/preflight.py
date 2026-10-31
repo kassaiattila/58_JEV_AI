@@ -17,6 +17,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -273,15 +274,16 @@ def lang_guard_status() -> tuple[bool, str]:
     return not over, msg
 
 
+FULL_RUN_LOCK = Path(tempfile.gettempdir()) / "jav-full-test-run.lock"
+
+
 def full_run_lock():
     """265 (code review TOOL-06): one full test run at a time on this machine (the start-up check's and the test
     worktree's, from any folder): two at once ran out of memory, and one wiped the other's shared test worktree. A lock
-    file in the system's temporary folder; `lock.AlreadyRunning` when another run holds it."""
-    import tempfile
-
+    file in the system's temporary folder (`FULL_RUN_LOCK`); `lock.AlreadyRunning` when another run holds it."""
     from jav.core import lock
 
-    return lock.single_instance(Path(tempfile.gettempdir()) / "jav-full-test-run.lock")
+    return lock.single_instance(FULL_RUN_LOCK)
 
 
 def preflight(*, skip_pytest: bool = False) -> int:

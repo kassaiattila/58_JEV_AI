@@ -34,6 +34,8 @@ def test_a_renamed_file_s_old_path_is_deleted(tmp_path) -> None:
 
 
 def test_a_second_full_run_is_refused_while_one_goes(monkeypatch, tmp_path) -> None:
+    # a lock of its own: this test runs inside a full run, which holds the machine's lock itself
+    monkeypatch.setattr(preflight, "FULL_RUN_LOCK", tmp_path / "full-run.lock")
     monkeypatch.setattr(test_worktree, "_run", lambda **k: pytest.fail("a second run started"))
     with preflight.full_run_lock():
         with pytest.raises(test_worktree.WorktreeError, match="one at a time"):

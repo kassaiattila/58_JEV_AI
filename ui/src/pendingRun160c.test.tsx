@@ -99,10 +99,13 @@ it("the review opens on the current run and names another open live run's to-dos
     run: { run_id: id, approval: null, items: [], input: { items: [{ item_id: "a", source_path: "C:/x/a.pdf" }] } },
     titles: {}, open_reasons: {}, earlier_open_reasons: {}, removed_items: [] } as unknown as RunView));
   vi.spyOn(api, "item").mockReturnValue(new Promise(() => {}));
-  render(<ReviewWorkspace wp={WP} currentRunId="run-1" openRuns={[run("run-1"), later]} />);
+  const { rerender } = render(<ReviewWorkspace wp={WP} currentRunId="run-1" openRuns={[run("run-1"), later]} />);
   await waitFor(() => expect(runView).toHaveBeenCalledWith("run-1", expect.anything()));
   const note = await screen.findByRole("region", { name: "Other open live runs" });
   expect(note.textContent).toContain("2 open to-dos");
   fireEvent.click(screen.getByRole("button", { name: "Review it" }));
+  // 265 (UI-06): the run chosen goes into the address, and the page shows the run its address names
+  expect(parseRoute(window.location.hash)).toMatchObject({ stage: "review", runId: "run-2" });
+  rerender(<ReviewWorkspace wp={WP} runId="run-2" currentRunId="run-1" openRuns={[run("run-1"), later]} />);
   await waitFor(() => expect(runView).toHaveBeenCalledWith("run-2", expect.anything()));
 });
