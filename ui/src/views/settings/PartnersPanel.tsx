@@ -47,7 +47,7 @@ export function PartnersPanel({ item }: { item?: string }) {
   const show = (id: string) => go({ view: "settings", section: "partners", item: id });
   const newPartner = (values?: PartnerValues) => { setFrom(values); show(PARTNER_NEW); };
   const roles = useLoad("partner-roles", () => api.partners()).data?.roles ?? {};
-  if (item === PARTNER_PROPOSALS) return <Suggestions roles={roles} onTake={(s) => newPartner({ ...EMPTY, name: s.name, tax_number: s.tax_number, roles: s.roles })} />;
+  if (item === PARTNER_PROPOSALS) return <Suggestions onTake={(s) => newPartner({ ...EMPTY, name: s.name, tax_number: s.tax_number, roles: s.roles })} />;
   if (item) {
     const open: NonNullable<Open> = item === PARTNER_NEW ? { kind: "new", from } : { kind: "partner", id: item };
     return (
@@ -199,34 +199,24 @@ function PartnerCard({ open, roles, onOpen, onChanged }: {
   );
 }
 
-/** The domains' proposals, on request (reading them goes through every invoice); a person records one. */
-function Suggestions({ roles, onTake }: { roles: PartnerRoles; onTake: (s: PartnerSuggestion) => void }) {
+/** The domains' proposals, on request (reading them goes through every invoice); a person records one. 264 (plan E,
+ *  F6): the one list of the service (search, sort, grouped by the first role, no cap of 200); a row's Accept opens the
+ *  new partner's form from it. */
+function Suggestions({ onTake }: { onTake: (s: Pick<PartnerSuggestion, "name" | "tax_number" | "roles">) => void }) {
   useLocale();
   const [shown, setShown] = useState(false);
-  const found = useLoad(`partner-suggestions:${shown}`, () => (shown ? api.partnerSuggestions() : Promise.resolve(null)));
   useSettingsTitle(t("Suggestions from the data"));
   return (
     <section className="sheet partner-suggestions" aria-label={t("Suggestions from the data")}>
       {!shown ? <PageActions><button type="button" className="primary" onClick={() => setShown(true)}>{t("Show the proposals")}</button></PageActions> : null}
       <p className="muted small">{t("The suppliers of the incoming invoices and the buyers of the outgoing ones that are not yet partners. Nothing is recorded by itself.")}</p>
-      {shown && !found.data ? <p className="muted">{t("Loading…")}</p> : null}
-      {found.data && !found.data.suggestions.length ? <p className="muted small">{t("No proposal: every party read is a partner already.")}</p> : null}
-      {found.data?.suggestions.length ? (
-        <table className="table compact" aria-label={t("Proposals")}>
-          <thead><tr><th>{t("Name")}</th><th>{t("Tax number")}</th><th>{t("Seen as")}</th><th className="num">{t("Documents")}</th><th>{t("Last")}</th><th /></tr></thead>
-          <tbody>
-            {found.data.suggestions.map((s) => (
-              <tr key={`${s.tax_number ?? ""}|${s.name}`}>
-                <td>{s.name}</td>
-                <td className="mono">{s.tax_number ?? "–"}</td>
-                <td>{roleText(s.roles, roles)}</td>
-                <td className="num">{s.seen}</td>
-                <td className="tnum">{s.last ?? "–"}</td>
-                <td><button type="button" className="secondary small-btn" onClick={() => onTake(s)}>{t("Accept")}</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {shown ? (
+        <DataTable dataset="settings_partner_proposals" label={t("Proposals")} storageId="settings_partner_proposals" defaultGroup="role"
+          emptyText={t("No proposal: every party read is a partner already.")} actionsLabel={t("Record it")}
+          actions={(row) => (
+            <button type="button" className="secondary small-btn" onClick={() => onTake({ name: String(row.name),
+              tax_number: (row.tax_number as string | null) ?? null, roles: (row._roles as string[] | undefined) ?? [] })}>{t("Accept")}</button>
+          )} />
       ) : null}
     </section>
   );

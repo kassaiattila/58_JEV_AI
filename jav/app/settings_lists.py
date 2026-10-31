@@ -12,12 +12,14 @@ The lists are cheap to build and have no cache: a change shows at the next reque
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any
 
 from jav.app import app_settings, datasets, partners, process_packs, product_rules, rule_proposal_runs
 from jav.app.datasets import Dataset, LabelSet, Rows, col
 from jav.app.tablequery import fold
-from jav.core import display, versions
+from jav.core import display, store, versions
 
 _STATE = {versions.ACTIVE: "Active", versions.DRAFT: "Draft", versions.RETIRED: "Retired"}
 # the state marks of the interface (`ui/src/components/VersionState.tsx`): active green, a draft a ring, retired a dash
@@ -140,6 +142,42 @@ _FOLDER_LABELS = (
     ("folder_check", {"ok": "Done", "error": "Failed (value)"}),
     ("folder_batch", {"batch": "batch"}),
 )
+
+
+def _partner_proposals(_scope: dict[str, str]) -> Rows:
+    """264 (plan E, F6): the partner register's proposals from the data (the domains' sources: an incoming invoice's
+    supplier, an outgoing invoice's buyer) - each party with its tax number, the roles it was seen in, how many
+    documents and when last - grouped by its first role; a row's "Accept" opens the new partner's form from it."""
+    roles = partners.roles()
+    cols = [
+        col("name", "Name"),
+        col("tax_number", "Tax number", "id"),
+        col("role", "First role", "enum", labels="partner_role", group=True),
+        col("roles", "Seen as"),
+        col("seen", "Documents", "number"),
+        col("last", "Last", "date"),
+        col("sources", "Source", hidden=True),
+    ]
+    rows = [{"_key": s["tax_number"] or f"name:{s['name']}", "name": s["name"], "tax_number": s["tax_number"],
+             "role": s["roles"][0] if s["roles"] else None,
+             "roles": " · ".join(display.text(roles[r]["label"]) if r in roles else r for r in s["roles"]),
+             "seen": s["seen"], "last": s["last"], "sources": ", ".join(s["sources"]),
+             "_roles": s["roles"]}  # the new partner's form starts from them
+            for s in partners.suggestions(limit=100_000)]
+    return cols, rows
+
+
+# 264 (F6): what the proposals read - the results and their corrections, the register itself and the own parties
+_PROPOSAL_INPUTS = {"run_items": "MAX(updated_at)", "run_item_corrections": None, "workpackage_items": None,
+                    "partner_versions": "SUM(state='active')", "own_parties": None, "own_party_identities": None,
+                    "duplicate_decisions": None}
+
+
+def _proposals_fingerprint(_scope: dict[str, str]) -> str:
+    """Reading the proposals goes through every invoice, so the list is kept until what it reads changes."""
+    with store.connect() as c:
+        parts = [store.table_marks(c, _PROPOSAL_INPUTS), sorted(partners.suggestion_sources())]
+    return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
 
 
 def _registry(kind: str) -> list[dict[str, Any]]:
@@ -355,6 +393,8 @@ DATASETS = (
     Dataset("settings_letter_frames", "Letter frames", (), _frames),
     Dataset("settings_users", "Users", (), _users, natural_sort=(("name", False),)),  # 264 (F6)
     Dataset("settings_folders", "Work folders", (), _folders, natural_sort=(("name", False),)),
+    Dataset("settings_partner_proposals", "Partner proposals", (), _partner_proposals, _proposals_fingerprint,
+            natural_sort=(("seen", True),)),
 )
 
 

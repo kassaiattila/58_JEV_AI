@@ -307,6 +307,12 @@ def register_suggestions(source: SuggestionSource) -> None:
     _SOURCES[source.name] = source
 
 
+def suggestion_sources() -> list[str]:
+    """264 (F6): the names of the registered proposal sources (a part of the proposal list's fingerprint)."""
+    completion.complete("partner suggestion sources")
+    return list(_SOURCES)
+
+
 def suggestions(limit: int = 200) -> list[dict[str, Any]]:
     """The domains' proposals not yet in the register (no active or retired partner with the same tax number, or the
     same name without a tax number), one per party with the roles it was seen in, most seen first."""

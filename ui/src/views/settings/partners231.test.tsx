@@ -72,8 +72,12 @@ describe("the partner register (231 B1; 263 E1: the one list, a partner's own pa
 
   it("shows the proposals on request and a person records one", async () => {
     vi.spyOn(api, "partners").mockResolvedValue({ partners: [], roles: ROLES, own: [] });
-    const proposals = vi.spyOn(api, "partnerSuggestions").mockResolvedValue({ suggestions: [
-      { name: "Invented Supplier Kft.", tax_number: "12121216-2-42", roles: ["supplier"], seen: 3, sources: ["invoices"], last: "2026-09-30" }] });
+    // 264 (F6): the proposals are the one list of the service
+    const proposals = vi.spyOn(api, "datasetQuery").mockResolvedValue(listPage("settings_partner_proposals", [
+      { key: "name", label: "Name", kind: "text", hidden: false, labels: null },
+      { key: "role", label: "First role", kind: "enum", hidden: false, labels: { supplier: "Supplier" }, group: true },
+    ], [{ _key: "12121216-2-42", name: "Invented Supplier Kft.", tax_number: "12121216-2-42", role: "supplier", seen: 3,
+      _roles: ["supplier"] }]));
     const { rerender } = render(<Settings section="partners" item="proposals" />);
     const show = await screen.findByRole("button", { name: "Show the proposals" });  // the page's main action
     expect(proposals).not.toHaveBeenCalled();  // reading them goes through every invoice: only on request
