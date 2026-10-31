@@ -188,11 +188,11 @@ def _period_words(value: tuple[str, str]) -> str:
 
 
 def _no_party(error: type[Exception]) -> Exception:
-    return explained(error, "the workflow needs an own party")
+    return explained(error, "an own party is needed")  # 265 (code review APPW-15): a case's scope too, not only a workflow's
 
 
 def _no_period(error: type[Exception]) -> Exception:
-    return explained(error, "the workflow needs a period")
+    return explained(error, "a period is needed")
 
 
 RECORD = "record"  # 231 (A4): the package item a case was started from, read as a record (e.g. a quote request)

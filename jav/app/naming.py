@@ -590,7 +590,7 @@ def write_to_folder(run_id: str, root: Path) -> dict[str, Any]:
 
     r = rules()
     root = app_settings.check_output_folder(root)
-    base = f"{safe_part(work.get(work_runs.get_run(run_id)['workpackage_id'])['name'], limit=60) or 'csomag'}_{run_id}"
+    base = f"{safe_part(work.get(work_runs.get_run(run_id)['workpackage_id'])['name'], limit=60) or display.text('package')}_{run_id}"
     # the names are fitted before anything is created (4: room for the subfolder's own "__NN"), so a too long output
     # path leaves no empty subfolder behind
     copies = plan(run_id, path_budget=r.path_max_chars - len(str(root / base)) - 4 - 1)

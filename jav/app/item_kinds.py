@@ -31,7 +31,7 @@ neither.
 
 An item or a source of a kind the registry does not know is refused (`UnknownItemKind`, `UnknownSourceKind`).
 
-Layer: business module (the registry; no rule of its own). It imports no application module.
+Layer: business module (the registry; no rule of its own). At import it reads only the native results (`jav.documents.native_results`); the registrations (`jav.app.registrations`) are loaded lazily, the first time a domain's part, extra or record part is read, so the registry completes itself.
 """
 
 from __future__ import annotations

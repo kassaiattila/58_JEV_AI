@@ -49,9 +49,9 @@ def test_a_scope_is_checked_part_by_part_with_the_callers_error(db) -> None:
     party = _party()
     assert scopes.check(["party", "period"], {"period": MONTH, "party": party}) == {"party": party, "period": MONTH}
     assert scopes.check([], {"party": None, "period": None}) == {}
-    with pytest.raises(wf.WorkflowError, match="needs an own party"):
+    with pytest.raises(wf.WorkflowError, match="an own party is needed"):
         scopes.check(["party", "period"], {"period": MONTH}, error=wf.WorkflowError)
-    with pytest.raises(wf.WorkflowError, match="needs a period"):
+    with pytest.raises(wf.WorkflowError, match="a period is needed"):
         scopes.check(["period"], {}, error=wf.WorkflowError)
     with pytest.raises(scopes.ScopeError, match="unknown scope part 'client'"):
         scopes.check([], {"client": "x"})
@@ -74,10 +74,10 @@ def test_the_monthly_reconciliation_needs_a_party_and_a_period_as_before(db) -> 
     steps = {"invoices": {"source": {"kind": "folder", "folder": str(folder)}},
              "statements": {"source": {"kind": "folder", "folder": str(folder)}}, "reconcile": {"source": {"kind": "none"}}}
     assert wf.template_needs(wf.template("monthly_reconciliation")) == ["party", "period"]
-    with pytest.raises(wf.WorkflowError, match="needs an own party"):
+    with pytest.raises(wf.WorkflowError, match="an own party is needed"):
         wf.create(template_id="monthly_reconciliation", party_id=None, period_start=MONTH[0], period_end=MONTH[1],
                   steps=steps, actor="tester", advance_now=False)
-    with pytest.raises(wf.WorkflowError, match="needs a period"):
+    with pytest.raises(wf.WorkflowError, match="a period is needed"):
         wf.create(template_id="monthly_reconciliation", party_id=_party(), period_start=None, period_end=None,
                   steps=steps, actor="tester", advance_now=False)
 

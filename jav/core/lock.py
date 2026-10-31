@@ -1,9 +1,10 @@
-"""Single-instance lock (040 K2): only one worker may run on a store at a time.
+"""Single-instance lock (040 K2): one process per lock file. 231 (stage E, E1): a worker takes one numbered slot's lock
+(`worker.lock_path`), so several workers may run on a store, one per slot; the claims they make name their process's
+holder (`calls.holder`), so a worker's recovery frees only a stopped worker's claims.
 
-The work queue's orphan handling (`queue.recover_orphans`) releases every claim at startup; if another worker were
-busy meanwhile, that would lead to a paid call being repeated. So before starting, the worker takes an exclusive
-operating-system lock on a lock file next to the store. The lock is released by itself when the process dies, so
-there is no "stuck" lock after a crash.
+Until 231 the work queue's orphan handling (`queue.recover_orphans`) released every claim at start-up, so a second
+worker busy meanwhile would have repeated a paid call; one lock file next to the store kept to one worker. The lock is
+an exclusive operating-system lock, released by itself when the process dies, so there is no "stuck" lock after a crash.
 """
 
 from __future__ import annotations
