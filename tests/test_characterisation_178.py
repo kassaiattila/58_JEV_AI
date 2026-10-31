@@ -144,8 +144,9 @@ def test_an_emails_only_workbook_is_written_as_before(db):
 
 # The statement's sheets and its filter's name changed on purpose after 5b4ca9c (178, K20): the header row below the
 # heading block is now styled, frozen and filtered, not the empty row above it (`tests/test_outputs_178.py`).
-# 263 (plan E, F4; the owner's decision of 2026-10-31: one word, "köteg"): both sheets' heading names the reconciliation
-# "Egyeztetési köteg", not "Egyeztetési csomag" - with the old word put back, the sheets are the earlier ones bit for bit.
+# 263 (plan E, F4; the owner's decision of 2026-10-31: one Hungarian word for a batch): both sheets' heading names the
+# reconciliation with the batch word ("Reconciliation package" in Hungarian) - with the old word put back, the sheets are
+# the earlier ones bit for bit.
 STATEMENT_DRAFT_PARTS = {
     "[Content_Types].xml": "31376d16cf444bfe",
     "_rels/.rels": "c545941ba36c15fc",
