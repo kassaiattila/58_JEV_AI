@@ -46,11 +46,12 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from jav.core.config import CONFIG_ROOT
 
 log = logging.getLogger(__name__)
+T = TypeVar("T")
 
 CONFIG_DIR = CONFIG_ROOT  # 231 (E2): the start-up description's, by default configs/
 CALLSITE_DIR = CONFIG_DIR / "callsites"
@@ -231,6 +232,26 @@ class Section(Mapping[str, Any]):
 
     def __repr__(self) -> str:
         return f"Section({self.name!r}{''.join(f', {k!r}' for k in self.path)})"
+
+
+# 265: one entry per (config, builder): the data it was built from and the result
+_derived: dict[tuple[str, Callable[..., Any]], tuple[Any, Any]] = {}
+
+
+def derived(name: str, build: Callable[[Any], T]) -> T:
+    """265 (code review DOM-01): `build(load(name))`, built again only when the config read for this context is another
+    object (a case's own values, its kept copy, an installation default, a reload): compiled patterns or sets from a
+    rule file without freezing the file's first value in an `lru_cache`. `build` must be a module-level function (its
+    identity is the key) that does not change its input. The entry keeps the data it was built from, so a reused `id`
+    can never answer for other data."""
+    data = load(name)
+    key = (name, build)
+    hit = _derived.get(key)
+    if hit is not None and hit[0] is data:
+        return hit[1]
+    out = build(data)
+    _derived[key] = (data, out)
+    return out
 
 
 def canonical(data: dict[str, Any]) -> str:

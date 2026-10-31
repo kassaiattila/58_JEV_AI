@@ -18,7 +18,6 @@ are not used here; matching text is code's job.
 """
 from __future__ import annotations
 
-from functools import lru_cache
 import re
 import unicodedata
 from typing import Any
@@ -28,9 +27,13 @@ from jav.core import cfg
 CONFIG = "fact_checks"
 
 
-@lru_cache(maxsize=None)
 def _rules() -> dict[str, Any]:
-    data = cfg.load(CONFIG)
+    """The rules with their patterns compiled; 265 (code review DOM-01): built again when the case at hand reads
+    other values of the file (`cfg.derived`), never frozen at the first read."""
+    return cfg.derived(CONFIG, _compiled)
+
+
+def _compiled(data: dict[str, Any]) -> dict[str, Any]:
     kinds = {}
     for name, kind in data["quantities"]["kinds"].items():
         kinds[name] = {**kind, "value_patterns": [re.compile(p) for p in kind["value_patterns"]],

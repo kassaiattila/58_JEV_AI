@@ -36,7 +36,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
-from functools import lru_cache
 from typing import Any, Iterable
 
 from jav.app import item_kinds, package_result
@@ -73,9 +72,10 @@ class DecisionError(ValueError):
     """A decision that cannot be recorded (unknown decision, the document compared with itself)."""
 
 
-@lru_cache(maxsize=None)
 def _conf() -> dict[str, Any]:
-    return dict(cfg.load("finance")["duplicates"])
+    """265 (code review DOM-01): read when the rule applies, so a case's own values and the installation's defaults
+    reach it (an `lru_cache` froze the first read); read only."""
+    return cfg.load("finance")["duplicates"]
 
 
 def config_hash() -> str:

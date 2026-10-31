@@ -8,7 +8,6 @@ own rule file (`configs/finance.json` `reconcile`). The engine itself is describ
 from __future__ import annotations
 
 from decimal import Decimal
-from functools import lru_cache
 from typing import Any
 
 from jav.core import cfg
@@ -17,9 +16,10 @@ from jav.core import cfg
 # --- the rule readers ----------------------------------------------------------------------------------------------
 
 
-@lru_cache(maxsize=None)
 def _conf() -> dict[str, Any]:
-    return dict(cfg.load("reconcile"))
+    """265 (code review DOM-01): read when the rule applies, so a case's own values, its kept copy and the
+    installation's defaults reach every reader (an `lru_cache` froze the first read); read only."""
+    return cfg.load("reconcile")
 
 
 def _bands() -> dict[str, Any]:
@@ -50,7 +50,11 @@ def ai_sure_probability() -> float:
     return float(_bands()["ai_sure"]["min_jev_probability"])
 
 
-@lru_cache(maxsize=None)
 def _ignore_tokens() -> frozenset[str]:
-    """The legal forms and filler words a party name is compared without (shared with `fact_checks.same_party`)."""
-    return frozenset(cfg.load("fact_checks")["parties"]["ignore_tokens"])
+    """The legal forms and filler words a party name is compared without (shared with `fact_checks.same_party`);
+    265: the same set while the file read for the case at hand stays the same (`cfg.derived`)."""
+    return cfg.derived("fact_checks", _ignore_set)
+
+
+def _ignore_set(data: dict[str, Any]) -> frozenset[str]:
+    return frozenset(data["parties"]["ignore_tokens"])
