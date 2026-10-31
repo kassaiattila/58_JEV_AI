@@ -15,7 +15,7 @@ import { Picker } from "../../components/Picker";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { numText, tmap, usdBudget, when } from "../../labels";
-import { go } from "../../route";
+import { go, settingsHash } from "../../route";
 import { Citation, current, DecisionTable, documentsByRef, levelLabel, RULE_KIND, SaidLines } from "./RegistryParts";
 import { useSettingsTitle } from "./settingsTree";
 
@@ -53,11 +53,13 @@ function Mark({ table, value }: { table: Record<string, [string, string]>; value
 }
 
 /** 263 (E1): the list's page - asking for proposals, then the runs in the one list; or a run's own page (`runId`). */
-export function ProposalsView({ registry, runId, onChanged }: { registry: ProductRegistry; runId?: string; onChanged: () => void }) {
+export function ProposalsView({ registry, runId, open, onChanged }: { registry: ProductRegistry; runId?: string; open?: string | null;
+  onChanged: () => void }) {
   useLocale();
   const list = useLoad("rule-proposals", api.ruleProposalRuns);
   const documents = useMemo(() => documentsByRef(registry.documents), [registry.documents]);
-  if (runId) return <RunCard key={runId} runId={runId} registry={registry} documents={documents} onChanged={onChanged} />;
+  if (runId) return <RunCard key={runId} runId={runId} registry={registry} documents={documents} onChanged={onChanged}
+    initial={open && /^\d+$/.test(open) ? Number(open) : null} />;
   return (
     <>
       <StartCard registry={registry} standIns={list.data?.stand_ins ?? []}
@@ -142,12 +144,17 @@ function StartCard({ registry, standIns, onStarted }: { registry: ProductRegistr
   );
 }
 
-function RunCard({ runId, registry, documents, onChanged }: {
-  runId: string; registry: ProductRegistry; documents: Map<string, ConditionDocument>; onChanged: () => void;
+function RunCard({ runId, registry, documents, onChanged, initial }: {
+  runId: string; registry: ProductRegistry; documents: Map<string, ConditionDocument>; onChanged: () => void; initial: number | null;
 }) {
   useLocale();
   const loaded = useLoad(`rule-proposal-run:${runId}`, () => api.ruleProposalRun(runId), 3000);
-  const [open, setOpen] = useState<number | null>(null);
+  const [open, setOpenState] = useState<number | null>(initial);
+  // 264 (F5): the opened proposal is in the address (`?open=<id>`), so a reload or a link sent on opens it again
+  const setOpen = (id: number | null) => {
+    setOpenState(id);
+    window.history.replaceState(null, "", settingsHash("products", "proposals", runId, id === null ? null : String(id)));
+  };
   const run = loaded.data;
   useSettingsTitle(run ? documents.get(run.document_ref)?.title ?? run.document_ref : null);
   if (!run) return loaded.error ? <p className="notice error" role="alert">{loaded.error.message}</p> : <p className="muted">{t("Loading…")}</p>;

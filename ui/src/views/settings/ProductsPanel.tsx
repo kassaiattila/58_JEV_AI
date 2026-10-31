@@ -78,7 +78,7 @@ function Thing({ registry, list, ident, open, onChanged }: {
 }) {
   useLocale();
   const documents = useMemo(() => documentsByRef(registry.documents), [registry.documents]);
-  if (list === "proposals") return <ProposalsView registry={registry} runId={ident} onChanged={onChanged} />;
+  if (list === "proposals") return <ProposalsView registry={registry} runId={ident} open={open} onChanged={onChanged} />;
   const things: RegistryThing<unknown>[] = list === "products" ? registry.products : list === "tariffs" ? registry.tariffs
     : list === "rules" ? registry.rules : registry.documents;
   const thing = things.find((x) => x.ident === ident);
