@@ -5272,5 +5272,12 @@
   "Remove from the list": "Remove from the list",
   "Remove {{name}} from the list?": "Remove {{name}} from the list?",
   "The name stays on what it did before (corrections, approvals, runs); it is only no longer offered.": "The name stays on what it did before (corrections, approvals, runs); it is only no longer offered.",
-  "It is not on the list (any more).": "It is not on the list (any more)."
+  "It is not on the list (any more).": "It is not on the list (any more).",
+  "No work folder yet: “Add work folder” sets one.": "No work folder yet: “Add work folder” sets one.",
+  "It is not among the work folders (any more).": "It is not among the work folders (any more).",
+  "Remove this work folder? Its batches and documents stay; the worker no longer checks it.": "Remove this work folder? Its batches and documents stay; the worker no longer checks it.",
+  "Last check": "Last check",
+  "Its outcome": "Its outcome",
+  "New documents": "New documents",
+  "every 5 minutes": "every 5 minutes"
 }

@@ -5310,5 +5310,12 @@
   "Remove from the list": "Eltávolítás a listáról",
   "Remove {{name}} from the list?": "Eltávolítod {{name}} nevét a listáról?",
   "The name stays on what it did before (corrections, approvals, runs); it is only no longer offered.": "A név megmarad azon, amit korábban tett (javítások, jóváhagyások, futások); csak többé nem kínáljuk fel.",
-  "It is not on the list (any more).": "Nincs (már) a listán."
+  "It is not on the list (any more).": "Nincs (már) a listán.",
+  "No work folder yet: “Add work folder” sets one.": "Még nincs munkamappa: a „Munkamappa hozzáadása” beállít egyet.",
+  "It is not among the work folders (any more).": "Nincs (már) a munkamappák között.",
+  "Remove this work folder? Its batches and documents stay; the worker no longer checks it.": "Eltávolítod ezt a munkamappát? A kötegei és az iratai megmaradnak; a feldolgozó többé nem nézi át.",
+  "Last check": "Utolsó átnézés",
+  "Its outcome": "Eredménye",
+  "New documents": "Új iratok",
+  "every 5 minutes": "5 percenként"
 }

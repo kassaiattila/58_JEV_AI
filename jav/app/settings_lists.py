@@ -106,6 +106,42 @@ def _users(_scope: dict[str, str]) -> Rows:
     return cols, [{"_key": u["name"], "name": u["name"], "added": u["created_at"]} for u in app_settings.user_rows()]
 
 
+def _folders(_scope: dict[str, str]) -> Rows:
+    """264 (plan E, F6): the watched work folders - the path, whether it is on, the packaging, how often it is checked
+    and how its last check ended (its batch linked) - each opening its own page."""
+    cols = [
+        col("name", "Name", link="settings", section="folders"),
+        col("path", "Full folder path", wrap="anywhere", clamp=2),
+        col("state", "State", "enum", labels="folder_state", badge=True, group=True, marks={"on": "done", "off": "muted"}),
+        col("batch_mode", "Packaging", "enum", labels="folder_batch_mode", group=True),
+        col("recursive", "Include subfolders", "bool", hidden=True),
+        col("interval_min", "Look over", "enum", labels="folder_interval", group=True),
+        col("last_at", "Last check", "datetime"),
+        col("last_status", "Its outcome", "enum", labels="folder_check", badge=True, group=True),
+        col("last_new", "New documents", "number"),
+        col("last_batch", "Batch", "enum", labels="folder_batch", link="workpackage"),
+    ]
+    rows = []
+    for f in app_settings.folders():
+        last = f.get("last_result") or {}
+        rows.append({"_key": f["id"], "_wp": last.get("workpackage"), "name": f["name"], "path": f["path"],
+                     "state": "on" if f["enabled"] else "off", "batch_mode": f["batch_mode"], "recursive": f["recursive"],
+                     "interval_min": str(f["interval_min"]), "last_at": f.get("last_at"), "last_status": f.get("last_status"),
+                     "last_new": last.get("new") if f.get("last_status") == "ok" else None,
+                     "last_batch": "batch" if last.get("workpackage") else None})
+    return cols, rows
+
+
+_FOLDER_LABELS = (
+    ("folder_state", {"on": "Active (state)", "off": "Off (value)"}),
+    ("folder_batch_mode", {"folder": "One shared batch", "daily": "Daily batches"}),
+    ("folder_interval", {"5": "every 5 minutes", "15": "every 15 minutes", "30": "every 30 minutes", "60": "hourly",
+                         "240": "every 4 hours", "1440": "daily"}),
+    ("folder_check", {"ok": "Done", "error": "Failed (value)"}),
+    ("folder_batch", {"batch": "batch"}),
+)
+
+
 def _registry(kind: str) -> list[dict[str, Any]]:
     return product_rules.listing(kind)
 
@@ -304,7 +340,7 @@ def library_names() -> dict[str, str]:
 
 _LABEL_SETS = tuple(LabelSet(name, __name__, labels.copy) for name, labels in (
     ("registry_state", _STATE), ("rule_kind", _RULE_KIND), ("document_kind", _DOCUMENT_KIND), ("partner_kind", _PARTNER_KIND),
-    ("proposal_run_state", _RUN_STATE), ("output_name", _OUTPUT), ("frame_state", _FRAME_STATE)))
+    ("proposal_run_state", _RUN_STATE), ("output_name", _OUTPUT), ("frame_state", _FRAME_STATE), *_FOLDER_LABELS))
 _ROLE_LABELS = LabelSet("partner_role", __name__, lambda: {k: v["label"] for k, v in partners.roles().items()})
 
 DATASETS = (
@@ -318,6 +354,7 @@ DATASETS = (
     Dataset("settings_output_templates", "Output templates", (), _templates),
     Dataset("settings_letter_frames", "Letter frames", (), _frames),
     Dataset("settings_users", "Users", (), _users, natural_sort=(("name", False),)),  # 264 (F6)
+    Dataset("settings_folders", "Work folders", (), _folders, natural_sort=(("name", False),)),
 )
 
 

@@ -106,7 +106,7 @@ export function Settings({ section, item, tab, open: part }: { section: Settings
         <PageActionsSlot value={slot}>
           <div className="settings-body">
             {Own ? <Own item={item} tab={tab} open={part} /> : null}
-            {current.key === "folders" ? <FoldersPanel /> : null}
+            {current.key === "folders" ? <FoldersPanel item={item} /> : null}
             {current.key === "partners" ? <PartnersPanel item={item} /> : null}
             {current.key === "processes" ? <ProcessSettingsPanel pack={item} tab={tab} open={part} /> : null}
             {current.key === "products" ? <ProductsPanel list={item} ident={tab} open={part} /> : null}
