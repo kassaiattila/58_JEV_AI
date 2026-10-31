@@ -127,10 +127,11 @@ Documents in the repository:
 - [Design system](docs/guides/DESIGN.md): the workspace's colours, type, components and the check for a changed screen
 - [Architecture](docs/ARCHITECTURE.md) · [Security notes](docs/SECURITY.md) · [Glossary](docs/GLOSSARY.md) · [JEV playbook](docs/JEV_PLAYBOOK.md)
 - [Documentation standard](docs/guides/DOCUMENTATION.md) · [Development workflow](docs/guides/DEVELOPMENT.md) · [Setup](docs/guides/SETUP.md) · [Configuration files](docs/guides/CONFIGS.md)
+- [Native document processing](docs/guides/NATIVE_PROCESSING.md) · [Native readers](docs/guides/NATIVE_READERS.md) · [Source contracts](docs/guides/SOURCE_CONTRACT.md)
 - [Changelog](CHANGELOG.md): the releases in brief
 - Generated flow descriptions: [docs/flows/](docs/flows/) (`python -m jav.cli flows`)
 - Bank files the system reads (generated): [docs/BANK_FILES.md](docs/BANK_FILES.md) (`python -m jav.cli docs`)
-- [Claude instructions](CLAUDE.md): standing working rules for the development model
+- [Codex entry point](AGENTS.md) · [Claude instructions](CLAUDE.md): standing working rules for the development models
 - Official TypeSafe/JEV documentation: [docs.typesafe.ai](https://docs.typesafe.ai/llms.txt)
 
 The development process also keeps internal working documents (plans, reports, handoffs, the backlog and the decisions log) and a few generated local pages outside git; the [documentation standard](docs/guides/DOCUMENTATION.md) describes how the two groups are kept apart.
