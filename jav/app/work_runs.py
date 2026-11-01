@@ -482,8 +482,9 @@ def _supersedable(c: sqlite3.Connection, run_id: str) -> bool:
 
 def _own_reason_count(c: sqlite3.Connection, run_id: str, status: str) -> int:
     """The run's reasons in `status` (raised under its items' flow identifiers `<run>:<item>[-stage]`)."""
-    return c.execute("SELECT COUNT(*) FROM review_reasons WHERE status=? AND substr(run_id, 1, ?) = ?",
-                     (status, len(run_id) + 1, run_id + ":")).fetchone()[0]
+    # 265 (code review X-05): a range on the flow identifiers, which `ix_review_reasons_status_run` reads
+    return c.execute("SELECT COUNT(*) FROM review_reasons WHERE status=? AND run_id >= ? AND run_id < ?",
+                     (status, run_id + ":", run_id + ";")).fetchone()[0]
 
 
 def supersede_info(run_id: str) -> dict[str, Any] | None:

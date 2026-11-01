@@ -111,6 +111,8 @@ CREATE TABLE IF NOT EXISTS process_history (
     at      REAL NOT NULL                      -- epoch seconds
 );
 CREATE INDEX IF NOT EXISTS ix_process_history_case ON process_history(case_id, id);
+-- 265 (code review X-14): a day's history (My work today) by its time
+CREATE INDEX IF NOT EXISTS ix_process_history_at ON process_history(at);
 CREATE TABLE IF NOT EXISTS process_inbox (
     event_id    TEXT PRIMARY KEY,
     case_id     TEXT NOT NULL,

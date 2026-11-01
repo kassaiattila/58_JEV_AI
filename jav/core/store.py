@@ -220,6 +220,7 @@ CREATE TABLE IF NOT EXISTS review_reasons (
 );
 CREATE INDEX IF NOT EXISTS ix_review_reasons_item ON review_reasons(review_id, status);
 CREATE INDEX IF NOT EXISTS ix_review_reasons_status_run ON review_reasons(status, run_id);  -- 153: a run's open to-dos
+CREATE INDEX IF NOT EXISTS ix_review_reasons_reason ON review_reasons(reason, run_id);  -- 265 (X-06): the runs of a reason
 
 CREATE TABLE IF NOT EXISTS ledger (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -882,8 +883,9 @@ def review_close(
 def close_run_reasons(c: sqlite3.Connection, run_id: str, *, status: str = "superseded") -> int:
     """151: closes every open reason a work run raised (under its items' flow identifiers `<run>:<item>[-stage]`), in
     the caller's transaction; an item left without an open reason closes too. Returns the number of reasons closed."""
-    rows = c.execute("SELECT id, review_id FROM review_reasons WHERE status='open' AND substr(run_id, 1, ?) = ?",
-                     (len(run_id) + 1, run_id + ":")).fetchall()
+    # 265 (code review X-05): a range on the run's flow identifiers ("<run>:" up to "<run>;"), which the index reads
+    rows = c.execute("SELECT id, review_id FROM review_reasons WHERE status='open' AND run_id >= ? AND run_id < ?",
+                     (run_id + ":", run_id + ";")).fetchall()
     for r in rows:
         c.execute("UPDATE review_reasons SET status=?, closed_at=? WHERE id=?", (status, _now(), r["id"]))
     for review_id in dict.fromkeys(r["review_id"] for r in rows):

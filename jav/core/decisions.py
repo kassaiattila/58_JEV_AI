@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS decision_journal (
 );
 CREATE INDEX IF NOT EXISTS decision_journal_key ON decision_journal(kind, key, id);
 CREATE INDEX IF NOT EXISTS decision_journal_run ON decision_journal(run_id, id);
+-- 265 (code review CORE-12): a package's state, read on every decision and page
+CREATE INDEX IF NOT EXISTS decision_journal_package ON decision_journal(workpackage_id, kind, id);
 """)
 
 store.register_migration("decision_journal_actor_ids",

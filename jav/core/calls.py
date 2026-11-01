@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS invocations (
 CREATE INDEX IF NOT EXISTS ix_invocations_step ON invocations(run_id, step_id);
 CREATE INDEX IF NOT EXISTS ix_invocations_scope ON invocations(budget_scope, provider);
 CREATE INDEX IF NOT EXISTS ix_invocations_provider_at ON invocations(provider, created_at);
+-- 265 (code review CORE-05): an earlier answer to the same question, looked up under the write lock
+CREATE INDEX IF NOT EXISTS ix_invocations_answer ON invocations(provider, request_hash, status);
 -- 204 (R1i): the reservation's look for an overrun in its budget (`_reserve`) is one lookup, not a read of its every call
 CREATE INDEX IF NOT EXISTS ix_invocations_scope_note ON invocations(budget_scope, provider, note);
 CREATE TABLE IF NOT EXISTS budgets (
