@@ -540,17 +540,19 @@ def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max
             if p["status"] in ("reserved", "uncertain"):
                 raise UncertainAttempt(f"{run_id}/{step_id} attempt {p['attempt']} is {p['status']}")
         attempt = (prior[-1]["attempt"] + 1) if prior else 1
-        if per_minute is not None:
-            since = (datetime.fromisoformat(_now()) - timedelta(minutes=1)).isoformat(timespec="seconds")
-            asked = c.execute("SELECT COUNT(*) FROM invocations WHERE provider=? AND created_at>=?",
-                              (provider, since)).fetchone()[0]
-            if asked >= per_minute:
-                raise RateLimited(f"{provider}: {asked} calls in the last minute, the limit is {per_minute}")
         if reuse and request_hash:
             reused = _reuse_earlier(c, run_id=run_id, step_id=step_id, attempt=attempt, provider=provider, model=model,
                                     request_hash=request_hash, budget_scope=budget_scope)
             if reused is not None:
                 return None, (reused[0], reused[2], reused[1])
+        # 272 (K2, the rest of CORE-10): after the earlier answer is looked for, so a free reused one is never held back,
+        # and counting only what was sent (a reused answer is a row, not a call)
+        if per_minute is not None:
+            since = (datetime.fromisoformat(_now()) - timedelta(minutes=1)).isoformat(timespec="seconds")
+            asked = c.execute("SELECT COUNT(*) FROM invocations WHERE provider=? AND created_at>=?"
+                              " AND (note IS NULL OR note NOT LIKE ?)", (provider, since, f"{REUSED_NOTE}:%")).fetchone()[0]
+            if asked >= per_minute:
+                raise RateLimited(f"{provider}: {asked} calls in the last minute, the limit is {per_minute}")
         if budget_scope is not None:
             lim = c.execute("SELECT limit_usd FROM budgets WHERE scope=? AND provider=?", (budget_scope, provider)).fetchone()
             if lim is None:

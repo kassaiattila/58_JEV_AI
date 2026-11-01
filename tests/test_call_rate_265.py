@@ -37,3 +37,21 @@ def test_the_limit_is_counted_in_the_reservation(db) -> None:
     with store.connect() as c:
         names = {r["name"] for r in c.execute("SELECT name FROM sqlite_master WHERE type='index'")}
     assert "ix_invocations_provider_at" in names
+
+
+def test_a_reused_answer_is_not_held_back_by_the_limit_nor_counted(db) -> None:
+    """272 (K2, the rest of CORE-10): the limit was counted before an earlier answer was looked for, so a free reused
+    answer could be refused at the limit; and a reused answer counted as a call."""
+    def ask(run: str, step: str) -> calls.Result:
+        return calls.invoke(run_id=run, step_id=step, provider="y", model="m", max_cost_usd=Decimal(0),
+                            fn=lambda: calls.Outcome(response={"n": step}, cost_usd=Decimal(0)), request_hash="same-question",
+                            reusable=True, per_minute=1)
+
+    ask("r1", "a")  # the one call this minute allows
+    with calls.use_run(budget_scope=None, reuse=True):
+        reused = ask("r2", "b")
+        again = ask("r3", "c")
+    assert reused.reused_from is not None and again.reused_from is not None
+    with store.connect() as c:
+        rows = c.execute("SELECT note FROM invocations WHERE provider='y' ORDER BY id").fetchall()
+    assert [calls.is_reused(r["note"]) for r in rows] == [False, True, True]
