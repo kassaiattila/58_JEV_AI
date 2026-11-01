@@ -159,7 +159,7 @@ from jav.ai.models import account_key  # 156: shared with the candidate finder; 
 from jav.domains.finance import reconcile_rules
 from jav.domains.finance.reconcile_rules import fx_tolerance
 from jav.domains.finance.reconcile_signals import (NAMED_SIGNALS, WEAK_SIGNALS, common_words, money, name_key, named,
-    normalize, outgoing, partner_view, pays, signals, statement_account, strength, supplier_keys, through_app)
+    normalize, outgoing, partner_view, pays, signal_rules, signals, statement_account, strength, supplier_keys, through_app)
 from jav.domains.finance.reconcile_amounts import (amount_relation, convert_combined, fx_window, meets, original,
     pair_window, rate_need, window)
 
@@ -616,17 +616,21 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     candidates = []
     # 149: the open invoices with what they have left, sorted once (the rests do not change in the loop); 151: with
     # their payment window and card window, so a line booked outside both is passed over before the costlier checks
-    open_invoices = [(iid, inv_whole, {**inv_whole, "amount": str(rest_invoice[iid])}, window(inv_whole), fx_window(inv_whole))
+    # 265 (code review DOM-06): and each one's side (an own party's outgoing invoice or not), read once, as the rules are
+    open_invoices = [(iid, inv_whole, {**inv_whole, "amount": str(rest_invoice[iid])}, window(inv_whole), fx_window(inv_whole),
+                      outgoing(inv_whole))
                      for iid, inv_whole in sorted(prepared["invoices"].items()) if iid not in paid_invoices]
+    rules = signal_rules()
     for pid, pay_whole in sorted(prepared["payments"].items()):
         if pid in paid_lines or pid in marked or pay_whole["statement_id"] not in scope:
             continue
         pay = {**pay_whole, "amount": str(rest_line[pid])}
         booked = values.stored_day(pay["booking_date"])
-        for iid, inv_whole, inv, pay_span, card_span in open_invoices:
+        incoming = pay_whole.get("direction") == "credit"
+        for iid, inv_whole, inv, pay_span, card_span, out in open_invoices:
             if not (pay_span[0] <= booked <= pay_span[1] or card_span[0] <= booked <= card_span[1]):
                 continue  # 151: in neither window this line could be searched in
-            if (iid, pid) in rejected or not pays(pay_whole, inv_whole):
+            if (iid, pid) in rejected or incoming != out:  # as `pays`: the line is on the invoice's side
                 continue
             how = meets(inv, pay)
             if how is None:
@@ -639,7 +643,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
             relation, conversion = amount_relation(inv, pay, rates)
             if how == "fx_bank" and relation != "fx_within" and not named(inv, pay):
                 continue  # 149: a converted bank line outside its band is listed only when it names the invoice
-            found = signals(inv, pay, learned, common)
+            found = signals(inv, pay, learned, common, rules)
             if found and set(found) <= WEAK_SIGNALS and relation not in ("equal", "fx_within"):
                 continue  # a payment app pays many bills, a loose name is no proof: alone they tie no other amount (131, 134)
             if not found and not (amount_only and relation == "equal"):
