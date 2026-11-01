@@ -8,7 +8,7 @@
 // open one, the closed ones, and each process's - stand in the left panel with their counts; the list is grouped by
 // process at first and keeps its state; a process repeated by period also shows its period grid (a party's row, a
 // month's column, the case's state in the cell).
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { api, type DsColumn, type DsRow, type DsScope } from "../api";
 import { DataTable } from "../components/DataTable";
 import { Icon } from "../components/Icon";
@@ -105,19 +105,34 @@ export function CaseList({ shown, process }: { shown?: CaseListView; process?: s
   );
 }
 
+const GRID_LIMIT = 1000;
+
 /** 263 (F3): a process repeated by period - a party's row, a month's column (the months its cases cover), the case's
  *  state in the cell, linked to it. */
 function PeriodGrid({ pack }: { pack: string }) {
   useLocale();
-  const data = useLoad(`case-grid:${pack}`, () => api.datasetQuery("cases", { pack, include_closed: "1" }, { limit: 1000 }), 30000);
-  const rows = data.data?.rows ?? [];
-  const months = [...new Set(rows.map((r) => String(r.period ?? "").slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m)))].sort().slice(-12);
+  const data = useLoad(`case-grid:${pack}`, () => api.datasetQuery("cases", { pack, include_closed: "1" }, { limit: GRID_LIMIT }), 30000);
+  // 265 (code review UI-10): the cases grouped by party and month once, not filtered again for every cell
+  const { months, parties, byCell } = useMemo(() => {
+    const rows = data.data?.rows ?? [];
+    const months = [...new Set(rows.map((r) => String(r.period ?? "").slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m)))].sort().slice(-12);
+    const parties = [...new Set(rows.map((r) => String(r.party ?? "")))].sort((a, b) => a.localeCompare(b));
+    const byCell = new Map<string, DsRow[]>();
+    for (const r of rows) {
+      const key = `${String(r.party ?? "")}\u0000${String(r.period ?? "").slice(0, 7)}`;
+      byCell.set(key, [...(byCell.get(key) ?? []), r]);
+    }
+    return { months, parties, byCell };
+  }, [data.data]);
   if (!months.length) return null;
-  const parties = [...new Set(rows.map((r) => String(r.party ?? "")))].sort((a, b) => a.localeCompare(b));
-  const at = (party: string, month: string) => rows.filter((r) => String(r.party ?? "") === party && String(r.period ?? "").startsWith(month));
+  const at = (party: string, month: string) => byCell.get(`${party}\u0000${month}`) ?? [];
+  const shown = data.data?.rows.length ?? 0;
+  const matched = data.data?.matched ?? shown;
   return (
     <section className="card wide period-grid" aria-label={t("Period grid")}>
       <div className="card-head"><h2>{t("Period grid")}</h2></div>
+      {/* 265 (code review UI-10): it said nothing when it showed only the first cases */}
+      {matched > shown ? <p className="notice small" role="status">{t("The grid shows {{shown}} of {{matched}} cases.", { shown, matched })}</p> : null}
       <table className="table compact">
         <thead><tr><th>{t("Party")}</th>{months.map((m) => <th key={m} className="num">{m}</th>)}</tr></thead>
         <tbody>

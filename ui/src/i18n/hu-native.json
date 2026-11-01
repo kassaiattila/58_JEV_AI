@@ -5263,6 +5263,7 @@
   "No case is closed yet.": "Még nincs lezárt ügy.",
   "No case waits for you.": "Egy ügy sem vár rád.",
   "Period grid": "Időszak-tábla",
+  "The grid shows {{shown}} of {{matched}} cases.": "Az időszak-tábla {{matched}} ügy közül {{shown}} ügyet mutat.",
   "Views": "Nézetek",
   "Cases waiting for me": "Rám váró ügyek",
   "My cases": "Saját ügyeim",
