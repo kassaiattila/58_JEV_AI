@@ -5,7 +5,7 @@
 // changes the whole body and accepts it; only then does the letter download as a file Outlook opens as an unsent
 // message, the version's Word quote attached. While GPT's paragraph is queued or being written the page asks again
 // every two seconds.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../../api";
 import type { QuoteLetterView } from "./api";
 import { Icon } from "../../components/Icon";
@@ -32,11 +32,15 @@ export function QuoteLetterCard({ wpId, letter, archived, onChanged, askLetter }
   // the body follows the service while the person has not typed (a written paragraph, an acceptance elsewhere)
   useEffect(() => { if (!edited) setBody(letter.body ?? ""); }, [letter.body, edited]);
   const active = letter.state === "queued" || letter.state === "running";
+  // 265 (code review UI-11): the latest `onChanged` read from a ref, so a new function on every render of the page does
+  // not restart the two-second timer (it asked again at every render)
+  const changedRef = useRef(onChanged);
+  changedRef.current = onChanged;
   useEffect(() => {
     if (!active) return undefined;
-    const timer = window.setInterval(onChanged, 2000);
+    const timer = window.setInterval(() => changedRef.current(), 2000);
     return () => window.clearInterval(timer);
-  }, [active, onChanged]);
+  }, [active]);
   if (letter.version === null) return null;
   const cap = Object.values(letter.cap).reduce((s, v) => s + (Number(v) || 0), 0);
   const unused = letter.state === "done" && letter.problems.length > 0;
