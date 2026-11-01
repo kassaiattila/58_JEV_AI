@@ -298,6 +298,12 @@ def _in_order(quote: str, page: str) -> bool:
     return True
 
 
+def _stands_on(quote: str, page: str) -> bool:
+    """Whether a quote (made plain) stands on a page's text: as printed, a broken word joined, or its words in order.
+    265 (code review APPR-15): the one test of `_quoted_on` and `_quote`."""
+    return quote in _plain(page) or _letters(quote) in _letters(page) or _in_order(quote, page)
+
+
 def _quoted_on(rule: Rule, pages: DocumentPages) -> bool:
     """U-A3: whether the rule's quote stands on the page it cites (as printed, a broken word joined, or roughly on a page
     read by text recognition)."""
@@ -305,8 +311,7 @@ def _quoted_on(rule: Rule, pages: DocumentPages) -> bool:
     if not source.quote or source.page not in pages.pages:
         return False
     quote, page = _plain(source.quote), pages.pages[source.page]
-    return (quote in _plain(page) or _letters(quote) in _letters(page) or _in_order(quote, page)
-            or (source.page in pages.ocr_pages and _roughly(_letters(quote), _letters(page))))
+    return _stands_on(quote, page) or (source.page in pages.ocr_pages and _roughly(_letters(quote), _letters(page)))
 
 
 def _quote(rule: Rule, pages: DocumentPages) -> list[Finding]:
@@ -314,9 +319,7 @@ def _quote(rule: Rule, pages: DocumentPages) -> list[Finding]:
     if not source.quote or not source.quote.strip():
         return [Finding("quote", "attention", said("it quotes nothing"))]
     quote = _plain(source.quote)
-    if source.page in pages.pages and (quote in _plain(pages.pages[source.page])
-                                       or _letters(quote) in _letters(pages.pages[source.page])
-                                       or _in_order(quote, pages.pages[source.page])):
+    if source.page in pages.pages and _stands_on(quote, pages.pages[source.page]):
         return []
     if source.page in pages.ocr_pages and source.page in pages.pages and _roughly(_letters(quote), _letters(pages.pages[source.page])):
         return [Finding("quote", "attention", said("its quote matches page {{page}} only roughly (text recognition): a person "

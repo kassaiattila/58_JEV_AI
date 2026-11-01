@@ -468,10 +468,7 @@ def correct(proposal_id: int, rule: dict[str, Any], *, actor: identity.Who, expe
     with store.connect() as c:
         store.begin_immediate(c)
         row, run_row = _open(c, proposal_id, expected_state)
-        pages = page_text.DocumentPages({int(k): v for k, v in json.loads(run_row["pages"] or "{}").items()},
-                                        run_row["page_count"] or 0, run_row["text_source"],
-                                        frozenset(json.loads(run_row["ocr_pages"] or "[]")),
-                                        {int(k): v for k, v in json.loads(run_row["skipped"] or "{}").items()})
+        pages = _stored_pages(run_row)  # 265 (code review APPR-15): with the file's fingerprint, as the run read it
         check = rule_checks.check(corrected, pages, document_ref=run_row["document_ref"], document=_document(run_row["document_ref"]))
         if check.blocking:
             raise ProposalRefused([f.text for f in check.findings if f.severity == "blocking"])
