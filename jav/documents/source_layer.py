@@ -116,6 +116,10 @@ def save(layer: SourceLayer) -> str:
 _loaded: OrderedDict[tuple[str, str], SourceLayer] = OrderedDict()
 _loaded_lock = threading.Lock()
 _LOADED_MAX = 256
+_LOADED_MAX_WORDS = 300_000
+"""265 (code review AI-11): the layers kept are bounded by their words too (about 300 bytes each in memory), not only by
+their count: 256 long scanned documents could hold hundreds of megabytes."""
+_loaded_words = 0
 
 
 def load(layer_id: str) -> SourceLayer | None:
@@ -131,10 +135,15 @@ def load(layer_id: str) -> SourceLayer | None:
         return None
     layer = SourceLayer(layer_id=row["layer_id"], doc_id=row["doc_id"], text_source=row["text_source"], engine=row["engine"],
                         pages=[Page(**p) for p in json.loads(row["pages"])], words=[Word(**w) for w in json.loads(row["words"])])
+    global _loaded_words
     with _loaded_lock:
-        _loaded[key] = layer
-        while len(_loaded) > _LOADED_MAX:
-            _loaded.popitem(last=False)
+        if key not in _loaded:
+            _loaded[key] = layer
+            _loaded_words += len(layer.words)
+        # the newest stays even alone over the words' bound
+        while len(_loaded) > 1 and (len(_loaded) > _LOADED_MAX or _loaded_words > _LOADED_MAX_WORDS):
+            _old_key, old = _loaded.popitem(last=False)
+            _loaded_words -= len(old.words)
     return layer
 
 
