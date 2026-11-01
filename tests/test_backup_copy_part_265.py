@@ -32,3 +32,22 @@ def test_a_failed_copy_leaves_nothing_under_the_backup_s_name(tmp_path, monkeypa
     out = backup._copy(src, tmp_path / "nas", keep=3, prune=False)
     assert not out["ok"] and "verification failed" in out["error"]
     assert not (tmp_path / "nas" / src.name).exists() and not (tmp_path / "nas" / f"{src.name}.part").exists()
+
+
+def test_a_copy_left_half_way_by_a_stopped_run_is_removed_by_the_next_pruning(tmp_path) -> None:
+    """272 (K5, the rest of CORE-03): a run stopped during the copy (the process killed, so no clean-up ran) left its
+    `.part` folder for good; the pruning took only the backups' own names. An old one goes now; a fresh one (a copy
+    that may still be running) and a folder of another name stay."""
+    import os
+    import time
+
+    root = tmp_path / "nas"
+    old, fresh, other = root / "20260101-000000.part", root / "20260102-000000.part", root / "notes.part"
+    for folder in (old, fresh, other):
+        folder.mkdir(parents=True)
+    hour_ago = time.time() - 2 * 3600
+    os.utime(old, (hour_ago, hour_ago))
+    os.utime(other, (hour_ago, hour_ago))
+    removed = backup._prune(root, keep=14)
+    assert not old.exists() and fresh.exists() and other.exists()
+    assert removed == ["20260101-000000.part"]
