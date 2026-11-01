@@ -160,9 +160,24 @@ def _cases(scope: dict[str, str]) -> Rows:
         col("version", "Process version", hidden=True),
         col("id", "Identifier", "id", hidden=True),
     ]
+    rows = _kept_rows(closed, _fingerprint(scope))
+    return cols, [dict(r) for r in rows if _in_view(r, view if not every else "all", scope.get("actor"), scope.get("pack"))]
+
+
+_ROWS_KEPT: dict[tuple[str, bool], tuple[str, list[dict[str, Any]]]] = {}
+
+
+def _kept_rows(closed: bool, fingerprint: str) -> list[dict[str, Any]]:
+    """265 (code review APPW-10): the cases' rows built once per change of what they read (`_fingerprint`) and per
+    store; a view, a person and a process only filter them (each built them anew before). A caller gets copies."""
+    key = (str(store.current_path()), closed)
+    hit = _ROWS_KEPT.get(key)
+    if hit is not None and hit[0] == fingerprint:
+        return hit[1]
     with store.connect() as c:
         rows = _case_rows(c, closed=closed)
-    return cols, [r for r in rows if _in_view(r, view if not every else "all", scope.get("actor"), scope.get("pack"))]
+    _ROWS_KEPT[key] = (fingerprint, rows)
+    return rows
 
 
 # H25: what the case list reads - the cases' containers and their scope, the own parties' names - beside the process
@@ -175,8 +190,8 @@ _LIST_INPUTS = {"workpackages": "MAX(updated_at), SUM(revision)", "workpackage_s
 def _fingerprint(_scope: dict[str, str]) -> str:
     """263 (F3, H25): the case list is built again only when what it shows may have changed (its scope is applied to the
     rows built once): the process core's cases, steps and tasks, the containers, their scope and the parties' names."""
-    with store.connect() as c:
-        parts = [store.table_marks(c, _LIST_INPUTS), cases.marks()]
+    with store.connect() as c:  # 265 (code review APPW-10): the rows read no task, so a task does not count
+        parts = [store.table_marks(c, _LIST_INPUTS), cases.case_marks()]
     return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
 
 
