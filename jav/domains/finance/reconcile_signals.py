@@ -89,17 +89,18 @@ def _name_key(value: str) -> str | None:
 def supplier_keys(invoice: dict[str, Any]) -> set[str]:
     """The keys a learnt name is tied to: the supplier's tax number and its name without legal forms and numbers, so an
     invoice that lacks one of them still finds the name (131)."""
-    return set(_supplier_keys(str(invoice.get("supplier_tax_id") or ""), str(invoice.get("supplier_name") or ""),
-                              _ignore_tokens()))
+    tax = fact_checks.tax_party_key(str(invoice.get("supplier_tax_id") or "") or None)
+    return set(_supplier_keys(tax or "", str(invoice.get("supplier_name") or ""), _ignore_tokens()))
 
 
 @lru_cache(maxsize=16384)
-def _supplier_keys(tax_id: str, name: str, ignore: frozenset[str]) -> frozenset[str]:
+def _supplier_keys(tax_key: str, name: str, ignore: frozenset[str]) -> frozenset[str]:
     """265 (code review DOM-06): memoised; a pairing built an invoice's keys again for every line. The ignored words are
-    an argument, so a case's own list is never answered from another's (as `_name_words`)."""
+    an argument, so a case's own list is never answered from another's (as `_name_words`). 272 (K1b): so is the tax
+    number's party key, made outside by the rules at hand (the compared stem is an editable default)."""
     keys = set()
-    if tax := fact_checks.tax_party_key(tax_id or None):
-        keys.add("tax:" + tax)
+    if tax_key:
+        keys.add("tax:" + tax_key)
     words = [w for w in normalize(name).split() if w not in ignore and not any(ch.isdigit() for ch in w)]
     if words:
         keys.add(" ".join(words))
@@ -323,9 +324,9 @@ def signals(invoice: dict[str, Any], payment: dict[str, Any], learned: set[tuple
     if _channel(invoice, payment, conf["payment_channels"]):
         found.append("payment_channel")
     key = name_key(payment.get("counterparty_name"))
-    if learned and key and any((key, sk) in learned for sk in _supplier_keys(str(invoice.get("supplier_tax_id") or ""),
-                                                                               str(invoice.get("supplier_name") or ""),
-                                                                               ignore)):
+    if learned and key and any((key, sk) in learned for sk in _supplier_keys(
+            fact_checks.tax_party_key(str(invoice.get("supplier_tax_id") or "") or None) or "",
+            str(invoice.get("supplier_name") or ""), ignore)):
         found.append("learned_name")
     return found
 

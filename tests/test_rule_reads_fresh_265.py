@@ -156,3 +156,93 @@ def test_no_memoised_function_reads_a_rule_file() -> None:
 def test_every_allowed_memoised_reader_still_exists() -> None:
     functions = _functions()
     assert [key for key in ALLOWED if key not in functions or not _memoised(functions[key])] == []
+
+
+# 272 (K1b): the guard above follows only private readers by name, so a memoised function that read a rule through a
+# public function of another module (`fact_checks.tax_party_key`, which reads the editable tax-number stem) went
+# unseen; DOM-06's memo of a supplier's keys did. This one resolves the calls through each file's imports and follows
+# public functions too, to a fixed point.
+
+
+def _module_of(dotted: str) -> str | None:
+    path = ROOT / Path(*dotted.split("."))
+    if path.with_suffix(".py").is_file():
+        return path.with_suffix(".py").relative_to(ROOT).as_posix()
+    if (path / "__init__.py").is_file():
+        return (path / "__init__.py").relative_to(ROOT).as_posix()
+    return None
+
+
+def _resolved_calls() -> dict[str, set[str]]:
+    """Per function (`file:name`), the functions it calls that can be told: its own module's by name, an imported
+    function, and `module.function` through an imported module; `cfg.<reader>` as itself."""
+    out: dict[str, set[str]] = {}
+    for path in sorted((ROOT / "jav").rglob("*.py")):
+        rel = path.relative_to(ROOT).as_posix()
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        own = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+        modules: dict[str, str] = {}
+        names: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for a in node.names:
+                    if a.name.startswith("jav.") and (m := _module_of(a.name)):
+                        modules[a.asname or a.name.split(".")[-1]] = m
+            elif isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("jav"):
+                for a in node.names:
+                    if m := _module_of(f"{node.module}.{a.name}"):
+                        modules[a.asname or a.name] = m
+                    elif m := _module_of(node.module):
+                        names[a.asname or a.name] = f"{m}:{a.name}"
+        for fn in ast.walk(tree):
+            if not isinstance(fn, ast.FunctionDef):
+                continue
+            calls = set()
+            for node in ast.walk(fn):
+                if not isinstance(node, ast.Call):
+                    continue
+                f = node.func
+                if isinstance(f, ast.Name):
+                    if f.id in own:
+                        calls.add(f"{rel}:{f.id}")
+                    elif f.id in names:
+                        calls.add(names[f.id])
+                elif isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name):
+                    if f.value.id == "cfg" and f.attr in _READS:
+                        calls.add(f"cfg.{f.attr}")
+                    elif f.value.id in modules:
+                        calls.add(f"{modules[f.value.id]}:{f.attr}")
+            out.setdefault(f"{rel}:{fn.name}", set()).update(calls)
+    return out
+
+
+def test_no_memoised_function_reads_a_rule_file_through_another_module() -> None:
+    functions = _functions()
+    graph = _resolved_calls()
+    readers = {f"cfg.{r}" for r in _READS}
+    while True:
+        more = {key for key, called in graph.items() if called & readers} - readers
+        if not more:
+            break
+        readers |= more
+    found = sorted(key for key, fn in functions.items()
+                   if _memoised(fn) and graph.get(key, set()) & readers and key not in ALLOWED)
+    assert found == [], ("a memoised function reads a config file through another function; pass the rule's value "
+                         "in, or read it when the rule applies")
+
+
+def test_the_supplier_keys_follow_a_case_s_tax_number_stem() -> None:
+    invoice = {"supplier_tax_id": "12345678-2-41", "supplier_name": "Alfa Kft"}
+    assert "tax:domestic:12345678" in reconcile_signals.supplier_keys(invoice)
+    with cfg.overlay(_case({"fact_checks": {"parties.domestic_tax_stem_digits": 6}})):
+        assert "tax:domestic:123456" in reconcile_signals.supplier_keys(invoice)
+    assert "tax:domestic:12345678" in reconcile_signals.supplier_keys(invoice)
+
+
+def test_a_learnt_name_ties_a_line_through_the_supplier_s_tax_number() -> None:
+    invoice = {"supplier_tax_id": "12345678-2-41", "supplier_name": "Other Name Kft", "number": "A-1"}
+    payment = {"counterparty_name": "EXTEL BUDAPEST", "description": ""}
+    learned = {(reconcile_signals.name_key("EXTEL BUDAPEST"), "tax:domestic:12345678")}
+    assert "learned_name" in reconcile_signals.signals(invoice, payment, learned)
+    assert "learned_name" not in reconcile_signals.signals({**invoice, "supplier_tax_id": "87654321-2-41"}, payment,
+                                                           learned)
