@@ -15,6 +15,7 @@ import importlib.util
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -87,17 +88,34 @@ the log (pytest's `faulthandler_timeout`), so the stuck one can be named."""
 
 
 def _bounded(cmd: list[str], *, timeout: int, cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    """`subprocess.run` with the output captured as text and a time limit; a run past it is stopped and returned with
-    the code `TIMED_OUT` and what it printed until then."""
-    try:
-        return subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                              timeout=timeout)
-    except subprocess.TimeoutExpired as exc:
-        def text(value: str | bytes | None) -> str:
-            return value.decode("utf-8", "replace") if isinstance(value, bytes) else (value or "")
+    """The command with its output captured as text and a time limit; a run past it is stopped and returned with the
+    code `TIMED_OUT` and what it printed until then. 272 (K5, the rest of TOOL-11): with every process it started (a
+    `.cmd` wrapper's node kept the output open, so the check waited for it after stopping the wrapper alone)."""
+    with subprocess.Popen(cmd, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                          encoding="utf-8", errors="replace", start_new_session=os.name != "nt") as proc:
+        try:
+            out, err = proc.communicate(timeout=timeout)
+            return subprocess.CompletedProcess(cmd, proc.returncode, out, err)
+        except subprocess.TimeoutExpired:
+            _stop_tree(proc)
+            try:
+                out, err = proc.communicate(timeout=30)
+            except subprocess.TimeoutExpired:  # a process outside the tree still holds the output: give up on it
+                out, err = "", ""
+            return subprocess.CompletedProcess(cmd, TIMED_OUT, out or "",
+                                               (err or "") + f"\nstopped after {timeout // 60} minutes without finishing")
 
-        return subprocess.CompletedProcess(cmd, TIMED_OUT, text(exc.stdout),
-                                           text(exc.stderr) + f"\nstopped after {timeout // 60} minutes without finishing")
+
+def _stop_tree(proc: subprocess.Popen[str]) -> None:
+    """272 (K5): the process and every process it started (Windows: `taskkill /T`; elsewhere its session's group)."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True, check=False)
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass  # it ended meanwhile
+    proc.kill()
 
 
 def _stopped(r: subprocess.CompletedProcess[str], what: str, timeout: int) -> str | None:
