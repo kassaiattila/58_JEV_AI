@@ -31,8 +31,8 @@ def under_budget(args: argparse.Namespace, name: str, *, reuse: bool | None = No
 
 def budget_args(p: argparse.ArgumentParser) -> None:
     """160: the sub-budgets of a command that can make paid calls (`under_budget`)."""
-    p.add_argument("--jev-budget-usd", help="160: hard JEV budget for the command; without any budget only earlier answers count")
-    p.add_argument("--budget-usd", help="160: hard OpenAI budget for the command; Azure is never called from here")
+    p.add_argument("--jev-budget-usd", help="hard JEV budget for the command; without any budget only earlier answers count")
+    p.add_argument("--budget-usd", help="hard OpenAI budget for the command; Azure is never called from here")
 
 
 def engine_args(p: argparse.ArgumentParser, *, measurement: bool) -> None:

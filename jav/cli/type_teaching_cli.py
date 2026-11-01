@@ -94,7 +94,7 @@ def cmd_type_withdraw(args: argparse.Namespace) -> int:
 
 
 def register(sub) -> None:
-    p = sub.add_parser("type-propose", help="197: field proposals for teaching a type from a held-out family's "
+    p = sub.add_parser("type-propose", help="field proposals for teaching a type from a held-out family's "
                                             "development half's general facts (no AI call)")
     p.add_argument("family", help="a family of configs/golden_facts.json (a type pack's key)")
     p.add_argument("--min-documents", type=int, default=3, help="the fewest development documents a name recurs in")
@@ -102,16 +102,16 @@ def register(sub) -> None:
     p.add_argument("--shapes", action="store_true", help="also the written forms of the development half's expected "
                                                          "values (letters and digits masked)")
     p.set_defaults(fn=cmd_type_propose)
-    p = sub.add_parser("type-candidate", help="197: a taught type's candidate pack from its edited draft "
+    p = sub.add_parser("type-candidate", help="A taught type's candidate pack from its edited draft "
                                               "(configs/type_drafts/<key>.json); never detected, no AI call")
     p.add_argument("key", help="the draft's key")
     p.set_defaults(fn=cmd_type_candidate)
-    p = sub.add_parser("type-activate", help="199: detection may pick a type pack in its family (a taught one only "
+    p = sub.add_parser("type-activate", help="detection may pick a type pack in its family (a taught one only "
                                              "with a measurement of its evaluation half); no AI call")
     p.add_argument("key", help="the type pack's key")
     p.add_argument("--replace", help="the family's pack it takes over; detection no longer picks that one")
     p.set_defaults(fn=cmd_type_activate)
-    p = sub.add_parser("type-withdraw", help="199: detection no longer picks a type pack; its files stay; no AI call")
+    p = sub.add_parser("type-withdraw", help="detection no longer picks a type pack; its files stay; no AI call")
     p.add_argument("key", help="the type pack's key")
     p.add_argument("--restore", action="store_true", help="turn the pack it replaced back on")
     p.set_defaults(fn=cmd_type_withdraw)

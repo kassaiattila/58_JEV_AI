@@ -764,23 +764,23 @@ def cmd_ocr_rekey(args: argparse.Namespace) -> int:
 
 
 def register(sub) -> None:
-    p = sub.add_parser("cases-adopt", help="231: the packages made before a process was a process pack, taken over as its cases (the pack's adopts) or wrapped by new ones (its wraps)")
+    p = sub.add_parser("cases-adopt", help="the packages made before a process was a process pack, taken over as its cases (the pack's adopts) or wrapped by new ones (its wraps)")
     p.add_argument("--write", action="store_true", help="take them over (without it: only list them)")
     p.set_defaults(fn=cmd_cases_adopt)
-    p = sub.add_parser("cases-kept", help="231 D0-e: before a release, the open cases whose rule files as they started "
+    p = sub.add_parser("cases-kept", help="before a release, the open cases whose rule files as they started "
                                           "the code here does not read (another main version); read only")
     p.add_argument("--store", help="a store copy to read instead of the active store (read only)")
     p.set_defaults(fn=cmd_cases_kept)
-    p = sub.add_parser("product-set", help="231 D-c5: a product set kept as data (condition documents, rules, products, "
+    p = sub.add_parser("product-set", help="A product set kept as data (condition documents, rules, products, "
                                            "tariffs, reference cases): checked, its cases compared (free); --install puts it into the store")
     p.add_argument("name", nargs="?", default="golden_products", help="the set's config (default: golden_products, the invented insurer)")
     p.add_argument("--install", action="store_true", help="add its things as drafts (a thing there with the same content is kept)")
     p.add_argument("--maker", help="the person adding them")
     p.add_argument("--approver", help="another person, making them active (a product needs a second person)")
     p.add_argument("--store", help="a store file to install into instead of the active store")
-    p.add_argument("--write-pdfs", metavar="DIR", help="231 D-c7a: write the set's condition documents as PDFs into DIR")
+    p.add_argument("--write-pdfs", metavar="DIR", help="write the set's condition documents as PDFs into DIR")
     p.set_defaults(fn=cmd_product_set)
-    p = sub.add_parser("condition-import", help="231 U-A2: a condition document's PDF read into the product registry's form "
+    p = sub.add_parser("condition-import", help="A condition document's PDF read into the product registry's form "
                                                 "by code (its clauses, pages, the day in force; free); --install adds it as a draft")
     p.add_argument("pdf", help="the document's file (local)")
     p.add_argument("--id", required=True, help="the document's identifier in the registry")
@@ -790,29 +790,29 @@ def register(sub) -> None:
     p.add_argument("--list", action="store_true", help="list every clause with its page and title")
     p.add_argument("--install", action="store_true", help="the machine adds it to the registry as a draft")
     p.set_defaults(fn=cmd_condition_import)
-    p = sub.add_parser("product-source", help="231 U-A2: a real product's source: its condition documents read from a folder "
+    p = sub.add_parser("product-source", help="A real product's source: its condition documents read from a folder "
                                               "by code (free), and with --install its documents and product as drafts")
     p.add_argument("name", help="the source (configs/product_source_<name>.json), e.g. allianz_property")
     p.add_argument("--folder", help="the folder holding the documents' files (local)")
     p.add_argument("--install", action="store_true", help="the machine adds the documents and the product as drafts")
     p.add_argument("--assemble", action="store_true",
-                   help="231 U-A4: the machine drafts the product's next version: its documents, the rules a person "
+                   help="the machine drafts the product's next version: its documents, the rules a person "
                         "accepted or corrected from proposals on them, its tariff (no file is read)")
     p.set_defaults(fn=cmd_product_source)
-    p = sub.add_parser("examples", help="231 U0: the example documents a process's cases start on, printed from the golden "
+    p = sub.add_parser("examples", help="the example documents a process's cases start on, printed from the golden "
                                         "set (configs/examples_property_documents.json); checked, --write writes it (free)")
     p.add_argument("--set", default="property_documents",
-                   help="231 U-A6: the documents (configs/golden_<set>.json into configs/examples_<set>.json; default "
+                   help="the documents (configs/golden_<set>.json into configs/examples_<set>.json; default "
                         "property_documents, the invented insurer's); U1e: `documents`, the documents process's invented "
                         "invoices and quote requests (jav/evals/document_examples.py); `bank_statements`, the invented "
                         "parties' statements as camt.053 files (configs/example_parties.json)")
     p.add_argument("--write", action="store_true", help="write the file when it differs")
     p.set_defaults(fn=cmd_examples)
-    p = sub.add_parser("invented-services", help="231 D-d5: the invented company register and sanctions list as a local "
+    p = sub.add_parser("invented-services", help="the invented company register and sanctions list as a local "
                                                  "web service (127.0.0.1), for the trial; the tests answer them inside the process")
     p.add_argument("--port", type=int, default=8941, help="the port the connectors name (default 8941)")
     p.set_defaults(fn=cmd_invented_services)
-    p = sub.add_parser("rule-propose", help="231 D-c7e: rules proposed from a condition document's file (GPT within --budget-usd, "
+    p = sub.add_parser("rule-propose", help="rules proposed from a condition document's file (GPT within --budget-usd, "
                                             "JEV with --verify within --jev-budget-usd; or --stand-in SET, free), kept for a person")
     p.add_argument("document", help="the document version the rules cite (<id>@<n>)")
     p.add_argument("--pdf", required=True, help="the document's file (local)")
@@ -823,17 +823,17 @@ def register(sub) -> None:
     p.add_argument("--maker", required=True, help="the person asking")
     budget_args(p)
     p.set_defaults(fn=cmd_rule_propose)
-    p = sub.add_parser("rule-proposals", help="231 D-c7e: the rule proposal runs, or one run with its proposals")
+    p = sub.add_parser("rule-proposals", help="the rule proposal runs, or one run with its proposals")
     p.add_argument("--document", help="only the runs of this document version")
     p.add_argument("--run", help="one run with its proposals")
     p.set_defaults(fn=cmd_rule_proposals)
-    p = sub.add_parser("rule-proposals-recheck", help="231 U-A3: a finished run's undecided proposals checked again with the "
+    p = sub.add_parser("rule-proposals-recheck", help="A finished run's undecided proposals checked again with the "
                                                       "code as it is now, from its kept answers (free; JEV with a budget)")
     p.add_argument("run", help="the run (rpr-...)")
     p.add_argument("--document", help="a newer version of the run's document (<id>@<n>) the rules cite from now on")
     p.add_argument("--jev-budget-usd", type=float, help="JEV judges the proposals code no longer blocks, within this budget")
     p.set_defaults(fn=cmd_rule_proposals_recheck)
-    p = sub.add_parser("rule-proposal-decide", help="231 D-c7e: accept, correct or reject one proposal (an accepted one becomes a draft rule)")
+    p = sub.add_parser("rule-proposal-decide", help="accept, correct or reject one proposal (an accepted one becomes a draft rule)")
     p.add_argument("proposal", type=int)
     p.add_argument("action", choices=("accept", "correct", "reject"))
     p.add_argument("--maker", required=True, help="the person deciding")
@@ -853,7 +853,7 @@ def register(sub) -> None:
     p = sub.add_parser("preflight", help="the session start check without API calls: pytest, contract lint, configs, handoff freshness, STATE.md")
     p.add_argument("--skip-pytest", action="store_true")
     p.set_defaults(fn=cmd_preflight)
-    p = sub.add_parser("test-worktree", help="231: the full test suite (pytest + UI) in a separate git worktree, with the uncommitted changes, so the main working tree stays free meanwhile")
+    p = sub.add_parser("test-worktree", help="the full test suite (pytest + UI) in a separate git worktree, with the uncommitted changes, so the main working tree stays free meanwhile")
     p.add_argument("--no-ui", action="store_true", help="pytest only")
     p.set_defaults(fn=cmd_test_worktree)
     p = sub.add_parser("data-guard", help="071 data guard: scan the tracked files (personal data, keys, internal material)")
@@ -869,7 +869,7 @@ def register(sub) -> None:
     p = sub.add_parser("deps-audit", help="075: known vulnerabilities in the pinned Python and UI packages (pip-audit, npm audit; needs network)")
     p.add_argument("--show", action="store_true", help="only show the last result (runs/deps-audit.json), without a new audit")
     p.set_defaults(fn=cmd_deps_audit)
-    p = sub.add_parser("before-after-snapshot", help="171: the service's read views on a fresh copy of a backed-up store, "
+    p = sub.add_parser("before-after-snapshot", help="the service's read views on a fresh copy of a backed-up store, "
                                                      "for the before/after comparison of a refactoring step (free)")
     p.add_argument("baseline", help="a backup folder (python -m jav.cli backup) or a store file")
     p.add_argument("--work", required=True, help="the folder of the fresh copy (a new or empty one, or an earlier copy of this tool, which is replaced; outside git)")
@@ -877,7 +877,7 @@ def register(sub) -> None:
     p.add_argument("--no-items", action="store_true", help="leave out the item results of every run (faster)")
     p.add_argument("--matches", action="store_true", help="also the proposed pairs of every reconciliation line (slow)")
     p.set_defaults(fn=cmd_before_after_snapshot)
-    p = sub.add_parser("before-after-replay", help="173: a sample of the backed-up store's items processed again on a fresh copy, "
+    p = sub.add_parser("before-after-replay", help="A sample of the backed-up store's items processed again on a fresh copy, "
                                                    "from earlier answers only, for the before/after comparison (free)")
     p.add_argument("baseline", help="a backup folder (python -m jav.cli backup) or a store file")
     p.add_argument("--work", required=True, help="the folder of the fresh copy (a new or empty one, or an earlier copy of this tool, which is replaced; outside git; the same for both replays)")
@@ -885,13 +885,13 @@ def register(sub) -> None:
     p.add_argument("--size", type=int, default=150, help="about how many units to replay (default 150; every stratum at least once)")
     p.add_argument("--jev-cache", help="the JEV answer cache to read (default: runs/cache)")
     p.set_defaults(fn=cmd_before_after_replay)
-    p = sub.add_parser("before-after-diff", help="171: the views that differ between two snapshots (exit code 1 if any)")
+    p = sub.add_parser("before-after-diff", help="the views that differ between two snapshots (exit code 1 if any)")
     p.add_argument("before")
     p.add_argument("after")
     p.add_argument("--show", type=int, default=30, help="the number of differing views listed (default 30)")
     p.add_argument("--places", type=int, default=8, help="the differing places listed per view (default 8)")
     p.set_defaults(fn=cmd_before_after_diff)
-    p = sub.add_parser("package-versions-backfill", help="171: the first released version of every package approved before"
+    p = sub.add_parser("package-versions-backfill", help="the first released version of every package approved before"
                                                          " v1.20.0, recorded afterwards (idempotent)")
     p.add_argument("--dry-run", action="store_true", help="list the packages, write nothing")
     p.set_defaults(fn=cmd_package_versions_backfill)
@@ -908,7 +908,7 @@ def register(sub) -> None:
     p = sub.add_parser("reground", help="053: compute the source places of a run again (field and line item boxes; no AI call)")
     p.add_argument("runs", nargs="+")
     p.set_defaults(fn=cmd_reground)
-    p = sub.add_parser("snapshot", help="218: calculation snapshots - the code and the rules a run, an item, a case or an"
+    p = sub.add_parser("snapshot", help="calculation snapshots - the code and the rules a run, an item, a case or an"
                                         " approval was computed with (without an option: this process's)")
     p.add_argument("--id", help="a stored snapshot")
     p.add_argument("--run", help="a run's snapshots and what changed during it")
@@ -916,7 +916,7 @@ def register(sub) -> None:
     p.add_argument("--restore", metavar="SHA256", help="write a stored rule file's content (with --out)")
     p.add_argument("--out", help="where --restore writes")
     p.set_defaults(fn=cmd_snapshot)
-    p = sub.add_parser("trace", help="218: the decision trace - which rule decided, with what, in which version (the latest"
+    p = sub.add_parser("trace", help="the decision trace - which rule decided, with what, in which version (the latest"
                                      " 20 rows without a filter)")
     p.add_argument("--points", action="store_true", help="the registered decision points")
     p.add_argument("--point", help="one decision point's rows")
@@ -925,7 +925,7 @@ def register(sub) -> None:
     p.add_argument("--case", help="the rows made in one case")
     p.add_argument("--last", type=int, default=20, help="only the latest this many rows (default 20)")
     p.set_defaults(fn=cmd_trace)
-    p = sub.add_parser("rules-preview", help="224: a rule file's candidate version tried on the decisions the trace holds: "
+    p = sub.add_parser("rules-preview", help="A rule file's candidate version tried on the decisions the trace holds: "
                                              "how many would change, and which to-dos would open or close (free, read only)")
     p.add_argument("file", help="the rule file under configs/ (e.g. policy.json, types/invoice_hu.json)")
     which = p.add_mutually_exclusive_group(required=True)
@@ -948,7 +948,7 @@ def register(sub) -> None:
     p.add_argument("--out", help="the backups' root folder (default: store/backups)")
     p.add_argument("--with-burr", action="store_true", help="the process state store too (store/burr_state.sqlite, large)")
     p.add_argument("--with-docs", action="store_true", help="070: the internal working documents too (jav/core/doc_scope.py), internal-docs.zip")
-    p.add_argument("--with-env", action="store_true", help="231: the local settings (.env, with the keys) too, into local-env.zip")
+    p.add_argument("--with-env", action="store_true", help="the local settings (.env, with the keys) too, into local-env.zip")
     p.add_argument("--keep", type=int, default=None, help="how many of the latest backups stay (default: the daily backup's, configs/service.json backup.keep)")
     p.add_argument("--copy-to", help="064: a checked copy of the backup here too (e.g. a NAS folder); --keep applies there as well")
     p.add_argument("--scheduled", action="store_true", help="064: the daily scheduled backup, by configs/service.json's backup section")
