@@ -18,7 +18,7 @@ vi.mock("./components/DataTable", async () => {
   return { DataTable: ({ scope, toolbar, actions, onPage }: {
     scope?: Record<string, string>; toolbar?: React.ReactNode; actions?: (row: DsRow) => React.ReactNode; onPage?: (p: DsPage) => void;
   }) => {
-    React.useEffect(() => { onPage?.({ rows: [], review_version: "v1" } as unknown as DsPage); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    React.useEffect(() => { onPage?.({ rows: [], review_version: "v1" } as unknown as DsPage); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- the stand-in reports its page once, when it mounts
     return (
       <div data-testid="table" data-scope={JSON.stringify(scope ?? {})}>
         {toolbar}

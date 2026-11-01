@@ -35,7 +35,7 @@ export function LetterView(p: ElementProps) {
     setTo(d.draft.to ?? "");
     setSubject(d.draft.subject);
     setBody(d.draft.body);
-  }, [draftKey]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [draftKey]);  // eslint-disable-line react-hooks/exhaustive-deps -- the text is loaded again only for another draft
   if (!d) return loading;
   const step = p.element.step ?? "";
   const title = p.page.steps[step]?.title;

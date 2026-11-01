@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS watched_folders (
     last_result TEXT,                          -- JSON
     updated_at  TEXT NOT NULL
 );
--- a mappa csomagjai: vödör = 'folder' vagy a nap (ÉÉÉÉ-HH-NN)
+-- a folder's packages: the bucket is 'folder' or the day (YYYY-MM-DD)
 CREATE TABLE IF NOT EXISTS watched_packages (
     folder_id   TEXT NOT NULL,
     bucket      TEXT NOT NULL,
