@@ -1,7 +1,7 @@
 // 146: the words of the workflows' screens: a step's status, what the chain is waiting for, a step's source.
 import type { WorkflowBudget, WorkflowStep, WorkflowStepStatus } from "../../api";
 import { t } from "../../i18n";
-import { tmap } from "../../labels";
+import { providerName, tmap } from "../../labels";
 import { chooserOf } from "../../elements/sourceChoosers";
 
 export const STEP_STATUS: Record<WorkflowStepStatus, string> = tmap({
@@ -24,7 +24,6 @@ export function stepMark(status: WorkflowStepStatus): "done" | "review" | "faile
   return "startable";
 }
 
-export const PROVIDER: Record<string, string> = { jev: "JEV", openai: "OpenAI", azure_di: "Azure" };
 
 /** 157: what a step's run may spend at most: the sum of its services' budgets. */
 export function budgetSum(budget: WorkflowBudget | undefined): number {
@@ -38,7 +37,7 @@ export function centsUp(value: string | number): string {
 }
 
 export function budgetText(budget: WorkflowBudget | undefined): string {
-  const parts = Object.entries(budget ?? {}).filter(([, v]) => v && Number(v) > 0).map(([p, v]) => `${PROVIDER[p] ?? p} ${v} USD`);
+  const parts = Object.entries(budget ?? {}).filter(([, v]) => v && Number(v) > 0).map(([p, v]) => `${providerName(p)} ${v} USD`);  // 274: the registry's names
   return parts.length ? parts.join(" + ") : t("free only");
 }
 

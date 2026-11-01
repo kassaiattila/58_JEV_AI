@@ -948,7 +948,12 @@ button.chip[aria-pressed="true"] { background: var(--tint); border-color: var(--
 .wizard-choice:has(input:checked) { border-color: var(--ink); background: var(--tint); } /* 157: a choice is a selection, not an action */
 .wizard-choice input { accent-color: var(--ink); }
 .wizard-choice > span { display: grid; gap: 3px; }
-.engine-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* 160-D: the two AI engines side by side */
+.engine-choices { grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); } /* 160-D, 274: the AI engines side by side */
+/* 274: a choice that cannot be made here: quieter, no hover, its reason in ink (the owner's decision of 2026-11-01) */
+.wizard-choice:has(input:disabled) { cursor: default; }
+.wizard-choice:has(input:disabled):hover { border-color: var(--line); }
+.wizard-choice:has(input:disabled) strong, .wizard-choice:has(input:disabled) .muted { color: var(--faint); }
+.choice-reason { color: var(--ink); }
 .wz-chain { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px var(--sp-1); }
 .wz-step { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); min-width: 0; overflow-wrap: anywhere; }  /* 154: a fieldset is min-content wide by default */
 .wz-step legend { font-weight: 600; padding: 0 4px; }

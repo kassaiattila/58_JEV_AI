@@ -37,7 +37,7 @@ describe("086 processing without JEV", () => {
   });
 
   it("the setting and the to-dos get plain names", () => {
-    expect(paramShort("engine", "gpt")).toBe("kikapcsolva — csak GPT (OpenAI)");
+    expect(paramShort("engine", "gpt")).toBe("csak GPT (OpenAI)");  // 274: the engine by its name, not a JEV switch
     expect(reasonText("intent:jev_off")).toMatch(/JEV nélküli feldolgozás/);
     expect(reasonText("detect:gpt_failed:BudgetExceeded")).toMatch(/GPT-s típusfelismerés nem sikerült \(BudgetExceeded\)/);
     expect(reasonText("detect:confidence_unavailable:invoice_hu")).toMatch(/bizonyossága nem mérhető/);

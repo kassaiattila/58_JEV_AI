@@ -7,7 +7,7 @@ import intentRegistry from "../../configs/intents.json";
 import emailTasks from "../../configs/email_tasks.json";
 import engineRegistry from "../../configs/engines.json";
 import providerRegistry from "../../configs/providers.json";
-import type { Recipe, RunPlan, Said } from "./api";
+import type { EngineChoice, Recipe, RunPlan, Said } from "./api";
 import { getLocale, t } from "./i18n";
 
 /** A label map that translates on read (`MAP[code]` → in the chosen language). `Object.entries` gives the Hungarian
@@ -16,8 +16,18 @@ export function tmap(source: Record<string, string>): Record<string, string> {
   return new Proxy(source, { get: (o, k) => (typeof k === "string" && typeof o[k] === "string" ? t(o[k]) : Reflect.get(o, k)) });
 }
 
-/** 160-D: the AI engine's short name (Settings › Processing, the workflow wizard and its control view). */
-export const ENGINE: Record<string, string> = tmap({ jev: "JEV and GPT", gpt: "GPT only" });
+/** 160-D: the AI engine's short name (Settings › Processing, the workflow wizard and its control view); 274: every
+ *  engine of the registry (configs/engines.json `label`, a test keeps them equal). */
+export const ENGINE: Record<string, string> = tmap({ jev: "JEV and GPT", decisions: "OpenAI Decisions and GPT", gpt: "GPT only" });
+/** 274: why an engine cannot run here (the service's `choices`, `jav.ai.engine.choices`), in words beside its greyed
+ *  choice (the owner's decision of 2026-11-01: shown with its reason, not offered). */
+const ENGINE_REASON: Record<string, string> = tmap({
+  under_measurement: "Under measurement: it can be chosen after its measurement on the golden sets and a decision",
+  missing_key: "This installation has no {{provider}} key",
+  switched_off: "{{provider}} is switched off in this installation",
+});
+export const engineReason = (reason: string | null | undefined, provider?: string | null): string =>
+  reason ? (ENGINE_REASON[reason] ?? reason).replace("{{provider}}", providerName(provider ?? "")) : "";
 
 export const RUN_STATUS: Record<string, string> = tmap({
   queued: "Waiting in the queue",
@@ -361,6 +371,10 @@ const PROVIDER_LABEL: Record<string, string> = Object.fromEntries(
   Object.entries(providerRegistry.providers).map(([id, p]) => [id, p.label]));
 /** The provider's name in the interface (058: instead of the key; 265: the registry's `label`). */
 export const providerName = (p: string): string => PROVIDER_LABEL[p] ?? p;
+/** 274: the budgets calls reserve from, in the registry's order (a provider spending another's, OpenAI Decisions in
+ *  OpenAI's, has none of its own; the service: `providers.budgets`). */
+export const BUDGET_PROVIDERS: string[] = PROVIDER_ORDER.filter((p) =>
+  (providerRegistry.providers as Record<string, { budget: string }>)[p].budget === p);
 
 /** An item's name: for an email, the subject and the sender (the service's `titles`); for a document, the file name
  *  (048 T2). */
@@ -504,12 +518,14 @@ export const intentLabel = (key: string | null | undefined): string => (key ? IN
 
 /** Labels of the processing settings (058; 080: the path by what it does, the owner's decision of 2026-10-01): a short
  *  value without code names; the long explanation is in the settings editor and on Settings › Processing. */
-export const PARAM_LABEL: Record<string, string> = tmap({ path: "Processing path", arm: "Path", doc_type: "Document type", jev_cache: "Earlier answers", tasks: "Task proposal", azure_ocr: "Azure recognition", engine: "Use of JEV",
+export const PARAM_LABEL: Record<string, string> = tmap({ path: "Processing path", arm: "Path", doc_type: "Document type", jev_cache: "Earlier answers", tasks: "Task proposal", azure_ocr: "Azure recognition", engine: "AI engine",  // 274: not a JEV switch
   unknown_documents: "Unknown PDFs",  // 120
   email_text: "Quote requests from the email's text" });  // 190
 const PARAM_SHORT: Record<string, string> = tmap({
-  "engine:jev": "on",
-  "engine:gpt": "off — GPT only (OpenAI)",
+  // 274: the engine by its name (until 265 a JEV switch, on / off)
+  "engine:jev": "JEV and GPT",
+  "engine:decisions": "OpenAI Decisions and GPT",
+  "engine:gpt": "GPT only (OpenAI)",
   // 090: the path and the use of JEV as one choice (`path`, shown only)
   "path:auto": "Automatic (recommended) — JEV and GPT",
   "path:S": "JEV where possible — cheaper, no line items; GPT elsewhere (S)",
@@ -586,17 +602,38 @@ export const planEngine = (plan: { engine?: string; jev?: boolean }): string =>
 export const PATH = "path";
 const withDocuments = (kinds?: string[]) => !kinds?.length || kinds.includes("document");
 const hasPath = (keys: string[]) => keys.includes("arm") && keys.includes("engine");
+/** 274: a path value naming another judged engine of the registry (`engine:<id>`, OpenAI Decisions): its documents on
+ *  the automatic path. The documents' own paths (automatic, S, G) and "with JEV" are the registry default's, JEV's,
+ *  as their texts say. */
+const ENGINE_PATH = "engine:";
+export const enginePath = (engine: string): string => `${ENGINE_PATH}${engine}`;
+const pathEngine = (path: string): string | null => (path.startsWith(ENGINE_PATH) ? path.slice(ENGINE_PATH.length) : null);
 export function pathValue(params: Record<string, string>, kinds?: string[]): string {
-  if (engineOf(params) === GPT_ONLY) return GPT_ONLY;
+  const engine = engineOf(params);
+  if (engine === GPT_ONLY) return GPT_ONLY;
+  if (engine !== engineRegistry.default) return enginePath(engine);  // 274
   return withDocuments(kinds) ? params.arm ?? "auto" : "jev";
 }
 export const pathOptions = (armAllowed: string[], kinds?: string[]): string[] =>
   withDocuments(kinds) ? [...armAllowed, GPT_ONLY] : ["jev", GPT_ONLY];
-/** 265: a path with a judgement service keeps the settings' own one (JEV after GPT only). */
+/** 274: the processing path's choices for the picker: the registry default's paths, then every other judged engine of
+ *  the service's list (`choices`; one that cannot run here greyed, with its reason: the owner's decision of 2026-11-01),
+ *  then GPT only. */
+export interface PathChoice { value: string; disabled?: boolean; detail?: string }
+export function pathChoices(armAllowed: string[], kinds?: string[], choices?: EngineChoice[]): PathChoice[] {
+  const base = pathOptions(armAllowed, kinds).map((value) => ({ value }));
+  const others = (choices ?? []).filter((c) => c.engine !== engineRegistry.default && c.engine !== GPT_ONLY)
+    .map((c) => ({ value: enginePath(c.engine), disabled: !c.available,
+      detail: c.available ? undefined : engineReason(c.reason, c.provider) }));
+  return [...base.slice(0, -1), ...others, ...base.slice(-1)];
+}
+/** 265: GPT only, or a path of the registry default (JEV), or (274) another judged engine on the automatic path. */
 export function applyPath(params: Record<string, string>, path: string): Record<string, string> {
   const { jev: _legacy, ...rest } = params;  // a setting saved before 265 is written with its engine
-  const judged = engineOf(params) === GPT_ONLY ? "jev" : engineOf(params);
   if (path === GPT_ONLY) return { ...rest, engine: GPT_ONLY };
+  const other = pathEngine(path);
+  if (other) return { ...rest, engine: other, ...("arm" in rest ? { arm: "auto" } : {}) };
+  const judged = engineRegistry.default;
   return path === "jev" ? { ...rest, engine: judged } : { ...rest, engine: judged, arm: path };
 }
 /** The settings shown, in order: the processing path first (for a recipe with both values), then the recipe's other
@@ -612,7 +649,11 @@ export const shownValue = (k: string, saved: Record<string, string>, kinds?: str
   const params = upgradedParams(saved);
   return k === PATH ? pathValue(params, kinds) : params[k] ?? "";
 };
-export const paramShort = (k: string, v: string): string => PARAM_SHORT[`${k}:${v}`] ?? (k === "doc_type" ? docTypeLabel(v) : v);
+export const paramShort = (k: string, v: string): string => {
+  const other = k === PATH ? pathEngine(v) : null;  // 274: another judged engine's automatic path
+  if (other) return ENGINE[other] ?? other;
+  return PARAM_SHORT[`${k}:${v}`] ?? (k === "doc_type" ? docTypeLabel(v) : v);
+};
 export const paramsText = (saved: Record<string, string>): string => {
   const params = upgradedParams(saved);
   return shownParams(Object.keys(params), params).map((k) => `${PARAM_LABEL[k] ?? k}: ${paramShort(k, shownValue(k, params))}`).join(" · ");

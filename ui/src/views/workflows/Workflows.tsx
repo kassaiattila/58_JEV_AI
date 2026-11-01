@@ -15,9 +15,9 @@ import { ItemSteps } from "../../components/ItemSteps";
 import { PageHeader } from "../../components/PageHeader";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
-import { ENGINE, stepLabel, usdBudget } from "../../labels";
+import { BUDGET_PROVIDERS, ENGINE, providerName, stepLabel, usdBudget } from "../../labels";
 import { wpHash, type Route } from "../../route";
-import { budgetSum, budgetText, centsUp, PROVIDER, sourceText, STEP_STATUS, stepMark, stepNote } from "./labels";
+import { budgetSum, budgetText, centsUp, sourceText, STEP_STATUS, stepMark, stepNote } from "./labels";
 
 export function Workflows({ route }: { route: Extract<Route, { view: "workflows" }> }) {
   if (route.wfId) return <WorkflowControl wfId={route.wfId} />;
@@ -222,14 +222,14 @@ function StepCard({ step, steps, open, isNext, busy, onStart, onLink }: {
       ) : null}
       {step.status === "failed" && typeof step.note === "string" ? <div className="small warn-text">{step.note}</div> : null}
       {step.status === "nothing_new" && typeof step.note === "string" ? <div className="small muted">{stepNote(step.note)}</div> : null}
-      {step.engine ? <div className="small">{t("AI engine: {{engine}}", { engine: ENGINE[step.engine] })}</div> : null}
+      {step.engine ? <div className="small">{t("AI engine: {{engine}}", { engine: ENGINE[step.engine] ?? step.engine })}</div> : null}
       {Object.keys(step.budget).length || over ? <div className="small">{t("Budget: {{budget}}", { budget: budgetText(step.budget) })}</div> : null}
       {over ? (
         <div className="wz-budget">
           <span className="small warn-text">{t("Its run would reserve at most {{estimate}}: more than its budget.", { estimate: budgetText(over.estimate) })}</span>
-          {(["jev", "openai", "azure_di"] as const).map((p) => (
-            <label key={p} className="inline small">{PROVIDER[p]}
-              <input type="number" min={0} max={1000} step={0.01} value={budget[p] ?? ""} aria-label={t("{{provider}} budget of {{step}}", { provider: PROVIDER[p], step: t(step.title) })}
+          {BUDGET_PROVIDERS.map((p) => (
+            <label key={p} className="inline small">{providerName(p)}
+              <input type="number" min={0} max={1000} step={0.01} value={budget[p] ?? ""} aria-label={t("{{provider}} budget of {{step}}", { provider: providerName(p), step: t(step.title) })}
                 onChange={(e) => setBudget({ ...budget, [p]: e.target.value })} />
             </label>
           ))}

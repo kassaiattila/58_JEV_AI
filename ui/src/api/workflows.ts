@@ -62,7 +62,7 @@ export interface WorkflowSource {
   /** 147: a documents step takes only the documents no live run has processed yet */
   only_new?: boolean;
 }
-export type WorkflowBudget = Partial<Record<"jev" | "openai" | "azure_di", string>>;
+export type WorkflowBudget = Record<string, string>;  // 274: per budget of the provider registry (`BUDGET_PROVIDERS`)
 export interface WorkflowEstimate {
   items: number | null; usd: WorkflowBudget; note: string | null; statements?: number; pdfs?: number; per_item?: WorkflowBudget;
   left_out?: number;

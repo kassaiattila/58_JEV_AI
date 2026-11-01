@@ -46,13 +46,14 @@ describe("090 the processing path: one choice", () => {
   it("maps the four paths onto the saved values, and back", () => {
     expect(pathValue({ arm: "S", engine: "jev" })).toBe("S");
     expect(pathValue({ arm: "S", engine: "gpt" })).toBe("gpt");
-    expect(pathValue({ arm: "S", engine: "decisions" })).toBe("S");  // 265: another judgement service, the same path
+    expect(pathValue({ arm: "S", engine: "decisions" })).toBe("engine:decisions");  // 274: another judge, its own path
     expect(pathValue({ arm: "S", jev: "off" })).toBe("gpt");  // a setting saved before 265
     expect(pathValue({ arm: "G" })).toBe("G");
     expect(pathValue({})).toBe("auto");
     expect(applyPath({ arm: "S", engine: "jev", tasks: "off" }, "gpt")).toEqual({ arm: "S", engine: "gpt", tasks: "off" });
     expect(applyPath({ arm: "S", engine: "gpt" }, "G")).toEqual({ arm: "G", engine: "jev" });
-    expect(applyPath({ arm: "S", engine: "decisions" }, "G")).toEqual({ arm: "G", engine: "decisions" });  // 265: kept
+    expect(applyPath({ arm: "S", engine: "decisions" }, "G")).toEqual({ arm: "G", engine: "jev" });  // 274: G is JEV's path
+    expect(applyPath({ arm: "S", engine: "jev" }, "engine:decisions")).toEqual({ arm: "auto", engine: "decisions" });
     expect(applyPath({ arm: "S", jev: "on" }, "gpt")).toEqual({ arm: "S", engine: "gpt" });  // saved before 265
     expect(pathOptions(["auto", "S", "G"], ["document"])).toEqual(["auto", "S", "G", "gpt"]);
   });

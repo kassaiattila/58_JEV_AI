@@ -5414,5 +5414,14 @@
   "the invoice is excluded from the pairing: it has no issue date": "a számla ki van zárva a párosításból: nincs kiállítási dátuma",
   "the invoice is excluded from the pairing: its currency is not handled here": "a számla ki van zárva a párosításból: a pénzneme itt nem kezelt",
   "the invoice is excluded from the pairing: it has no positive, readable amount": "a számla ki van zárva a párosításból: nincs pozitív, olvasható összege",
-  "its stored version does not pass the tariff's checks: {{problem}}": "a tárolt változata nem felel meg a díjtábla ellenőrzéseinek: {{problem}}"
+  "its stored version does not pass the tariff's checks: {{problem}}": "a tárolt változata nem felel meg a díjtábla ellenőrzéseinek: {{problem}}",
+  "Under measurement: it can be chosen after its measurement on the golden sets and a decision": "Mérés alatt: a mintákon végzett mérés és a döntés után lesz választható",
+  "This installation has no {{provider}} key": "Ebben a telepítésben nincs {{provider}}-kulcs",
+  "{{provider}} is switched off in this installation": "A(z) {{provider}} ebben a telepítésben ki van kapcsolva",
+  "OpenAI's judgement service answers JEV's questions in its place: it recognises each document's type and each email's intent, and chooses or checks the extracted values; GPT extracts where a type's path needs it. It spends from the OpenAI budget.": "Az OpenAI ítélő szolgáltatása a JEV helyett válaszol a kérdéseire: felismeri az iratok típusát és a levelek szándékát, és választ vagy ellenőriz az adatkinyerésnél; a GPT ott nyeri ki az adatokat, ahol a típus útja ezt kéri. Az OpenAI keretéből költ.",
+  "OpenAI Decisions recognised the type and the intent and chose or checked the values, in JEV's place; GPT extracted where the type's path needs it.": "A típust és a szándékot az OpenAI Decisions ismerte fel a JEV helyett, és az értékeket ő választotta vagy ellenőrizte; a GPT ott nyert ki adatot, ahol a típus útja ezt kéri.",
+  "GPT only (OpenAI)": "csak GPT (OpenAI)",
+  "JEV and GPT: JEV recognises the type and the email's intent, and chooses or checks during extraction": "JEV + GPT: a JEV ismeri fel a típust és a levél szándékát, és választ vagy ellenőriz az adatkinyerésnél",
+  "OpenAI Decisions and GPT: OpenAI's judgement service recognises the type and the email's intent, and chooses or checks during extraction, in JEV's place": "OpenAI Decisions + GPT: az OpenAI ítélő szolgáltatása ismeri fel a típust és a levél szándékát, és választ vagy ellenőriz az adatkinyerésnél, a JEV helyett",
+  "GPT only (OpenAI): type recognition, extraction and email intent by GPT, checked by the code": "Csak GPT (OpenAI): típusfelismerés, adatkinyerés és levélszándék GPT-vel, kódos ellenőrzéssel"
 }
