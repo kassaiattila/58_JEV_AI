@@ -829,6 +829,12 @@ def _signal_inputs() -> dict[str, Any]:
     return built
 
 
+def signal_rates() -> dict[str, Any]:
+    """272 (K4, the rest of DOM-08): the store's exchange rates as the snapshot carries them, from the kept signal
+    inputs (rebuilt when any reconciliation input changes, the rates' last fetch too)."""
+    return _signal_inputs()["rates"]
+
+
 def _compared(row: dict[str, Any]) -> Any:
     """The amount a side is compared on: what is left of it, or the whole when nothing is (a paid invoice may be paid
     again)."""
