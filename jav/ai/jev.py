@@ -378,10 +378,11 @@ class JevAdapter:
         (066 Á16); the return shape (answer, seconds) stays because experimental and test adapters override it."""
         from jav.core import calls, providers  # deferred: the runtime builds on the store, the adapter is the lowest layer
 
-        if not providers.enabled(self.provider):
+        if (off := providers.off_reason(self.provider)) is not None:
             # 274: the installation's switch (configs/providers.json `enabled`, JAV_PROVIDERS_ON / _OFF) is the last
-            # word, whatever asks: a run queued while the provider was on, a command naming it; nothing is sent
-            raise JevUnavailableError(providers.SWITCHED_OFF)
+            # word, whatever asks: a run queued while the provider was on, a command naming it; nothing is sent, and
+            # the to-do says why (`under_measurement`, `switched_off`)
+            raise JevUnavailableError(off)
         ctx = calls.current()
         if ctx is None:
             if self._own_client:

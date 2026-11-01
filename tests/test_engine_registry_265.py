@@ -108,7 +108,7 @@ def test_band_keys_follow_the_engine():
 def test_without_keys_nothing_is_available(bare_env):
     states = {c["engine"]: (c["available"], c["reason"], c["provider"]) for c in engine.choices()}
     assert states == {"jev": (False, "missing_key", "jev"),
-                      "decisions": (False, "switched_off", "openai_decisions"),
+                      "decisions": (False, "under_measurement", "openai_decisions"),
                       "gpt": (False, "missing_key", "openai")}
 
 
@@ -118,7 +118,7 @@ def test_a_key_makes_its_engines_available(bare_env):
     assert not engine.availability("gpt").available
     bare_env.setenv("OPENAI_API_KEY", "synthetic-offline-key")
     assert engine.availability("gpt").available
-    assert engine.availability("decisions").reason == "switched_off"  # off until the owner's decision
+    assert engine.availability("decisions").reason == "under_measurement"  # off until the owner's decision
 
 
 def test_an_installation_switches_a_provider(bare_env):

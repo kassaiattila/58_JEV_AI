@@ -270,6 +270,8 @@ ENGINE_UNAVAILABLE = {
                    "Choose another engine in the batch's settings.",
     "switched_off": "The batch's AI engine ({{engine}}) cannot run here: {{provider}} is switched off in this "
                     "installation. Choose another engine in the batch's settings.",
+    "under_measurement": "The batch's AI engine ({{engine}}) cannot run yet: {{provider}} is being measured before an "
+                         "installation may choose it. Choose another engine in the batch's settings.",
 }
 
 

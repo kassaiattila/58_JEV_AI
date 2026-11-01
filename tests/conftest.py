@@ -176,8 +176,8 @@ def _an_installation_with_its_keys(request):
 
     def availability(engine_id):
         for provider_id in engine.get(engine_id).requires:
-            if not providers.enabled(provider_id):
-                return providers.Availability(False, providers.SWITCHED_OFF, provider_id)
+            if (reason := providers.off_reason(provider_id)) is not None:
+                return providers.Availability(False, reason, provider_id)
         return providers.Availability(True)
 
     with pytest.MonkeyPatch.context() as patch:

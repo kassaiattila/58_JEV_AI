@@ -9,7 +9,9 @@ called to find out.
 A provider's calls are booked under its own name in the call log, but they reserve from the budget of the provider
 named by `budget` (OpenAI Decisions spends from the OpenAI budget, the owner's decision of 2026-11-01). An installation
 switches a provider on or off with `JAV_PROVIDERS_ON` / `JAV_PROVIDERS_OFF` (comma-separated names); the file's
-`enabled` is the default.
+`enabled` is the default. 274: a provider off by the file's default may say why (`off_reason`, e.g. `under_measurement`):
+that is the reason its unavailability gives, and the screens show; switched off by the installation, it is
+`switched_off`.
 """
 
 from __future__ import annotations
@@ -30,6 +32,9 @@ ON_ENV = "JAV_PROVIDERS_ON"
 OFF_ENV = "JAV_PROVIDERS_OFF"
 SWITCHED_OFF = "switched_off"
 MISSING_KEY = "missing_key"
+UNDER_MEASUREMENT = "under_measurement"
+# 274: why a provider is off by the file's default (configs/providers.json `off_reason`); each has its own text on screen
+OFF_REASONS = (UNDER_MEASUREMENT,)
 
 # The environment variables of each kind of key: `any` of them or `all` of them must be set.
 _KEYS: dict[str, tuple[str, tuple[str, ...]]] = {
@@ -51,6 +56,7 @@ class Provider:
     budget: str
     enabled: bool
     off_note: str | None = None
+    off_reason: str | None = None  # 274: why it is off by default (`OFF_REASONS`)
     key_fallback: str | None = None  # 274: how it is reached without its own key
 
 
@@ -77,8 +83,11 @@ def get(provider_id: str) -> Provider:
         raw = _described()[provider_id]
     except KeyError:
         raise UnknownProvider(f"no provider is described as {provider_id!r} in configs/{CONFIG}.json") from None
+    off_reason = raw.get("off_reason")
+    if off_reason is not None and off_reason not in OFF_REASONS:
+        raise ValueError(f"configs/{CONFIG}.json {provider_id}: unknown off_reason {off_reason!r}; expected one of {OFF_REASONS}")
     return Provider(id=provider_id, label=str(raw["label"]), key=raw.get("key"), budget=str(raw["budget"]),
-                    enabled=bool(raw["enabled"]), off_note=raw.get("off_note"),
+                    enabled=bool(raw["enabled"]), off_note=raw.get("off_note"), off_reason=off_reason,
                     key_fallback=raw.get("key_fallback"))
 
 
@@ -166,15 +175,25 @@ def has_key(provider_id: str) -> bool:
     return all(present) if mode == "all" else any(present)
 
 
+def off_reason(provider_id: str) -> str | None:
+    """274: why the provider cannot be called here whatever the keys (None: it is switched on): its `off_reason` when
+    the file's default keeps it off, `switched_off` when the installation switched it off."""
+    if enabled(provider_id):
+        return None
+    return (provider_id not in _listed(OFF_ENV) and get(provider_id).off_reason) or SWITCHED_OFF
+
+
 def availability(provider_id: str) -> Availability:
-    """Whether the provider can be called here: switched on, and its key given. Nothing is called to find out."""
-    if not enabled(provider_id):
-        return Availability(False, SWITCHED_OFF, provider_id)
+    """Whether the provider can be called here: switched on, and its key given. Nothing is called to find out. 274: off
+    by the file's default, the reason is its `off_reason` when it names one (`under_measurement`)."""
+    if (reason := off_reason(provider_id)) is not None:
+        return Availability(False, reason, provider_id)
     if not has_key(provider_id):
         return Availability(False, MISSING_KEY, provider_id)
     return Availability(True, provider=provider_id)
 
 
-__all__ = ["Availability", "BudgetId", "MISSING_KEY", "Provider", "ProviderId", "SWITCHED_OFF", "UnknownProvider",
+__all__ = ["Availability", "BudgetId", "MISSING_KEY", "OFF_REASONS", "Provider", "ProviderId", "SWITCHED_OFF",
+           "UNDER_MEASUREMENT", "UnknownProvider", "off_reason",
            "availability", "budget_of", "budgets", "check_budget", "check_id",
            "enabled", "get", "has_key", "ids", "label", "pooled", "sharing"]

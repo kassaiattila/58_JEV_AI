@@ -265,7 +265,7 @@ def test_a_provider_switched_off_here_is_never_sent(work, monkeypatch):
     service = Service((200, _answer()))
     adapter = service.adapter(work)
     with calls.measurement("measure-265", {"openai": Decimal("0.01")}):
-        with pytest.raises(jev.JevUnavailableError, match="switched_off"):
+        with pytest.raises(jev.JevUnavailableError, match="under_measurement"):
             adapter.ask("select", STATE, QUESTIONS, run_id="run-265")
     assert service.requests == []
 

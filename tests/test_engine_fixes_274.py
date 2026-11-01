@@ -7,6 +7,8 @@
   as a budget skip.
 - A measurement does not say that every Azure DI call would be refused when its key is missing, since Azure DI is
   still reached through the legacy sidecar (`key_fallback`, as before the registry).
+- A provider off by the registry's default says why (`off_reason`): OpenAI Decisions is under measurement; one an
+  installation switched off says so.
 - OpenAI Decisions' reservation bounds its cost: a price per output token is refused without the most output tokens
   a request may produce.
 
@@ -22,7 +24,7 @@ import pytest
 
 from jav.app import app_settings, product_sets, rule_proposal_runs, rule_support
 from jav.ai import decisions
-from jav.core import calls, cfg, queue, store
+from jav.core import calls, cfg, providers, queue, store
 from jav.evals import eval_report
 
 ANNA = "Minta Anna"
@@ -100,3 +102,15 @@ def test_an_output_price_without_its_token_limit_is_refused(monkeypatch):
     monkeypatch.setattr(cfg, "load", with_output_price)
     with pytest.raises(ValueError, match="max_output_tokens"):
         decisions.settings()
+
+
+def test_a_provider_off_by_default_says_why_and_one_switched_off_here_says_so(monkeypatch):
+    monkeypatch.delenv(providers.ON_ENV, raising=False)
+    monkeypatch.delenv(providers.OFF_ENV, raising=False)
+    assert providers.off_reason("openai_decisions") == providers.UNDER_MEASUREMENT
+    assert providers.off_reason("jev") is None
+    monkeypatch.setenv(providers.OFF_ENV, "openai_decisions,jev")
+    assert providers.off_reason("openai_decisions") == providers.off_reason("jev") == providers.SWITCHED_OFF
+    monkeypatch.setenv(providers.OFF_ENV, "")
+    monkeypatch.setenv(providers.ON_ENV, "openai_decisions")
+    assert providers.off_reason("openai_decisions") is None

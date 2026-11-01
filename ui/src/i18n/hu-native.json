@@ -1282,6 +1282,7 @@
   "OpenAI Decisions and GPT": "OpenAI Decisions + GPT",
   "The batch's AI engine ({{engine}}) cannot run here: this installation has no {{provider}} key. Choose another engine in the batch's settings.": "A köteg AI-motorja ({{engine}}) itt nem futhat: ebben a telepítésben nincs {{provider}}-kulcs. Válassz másik motort a köteg beállításainál.",
   "The batch's AI engine ({{engine}}) cannot run here: {{provider}} is switched off in this installation. Choose another engine in the batch's settings.": "A köteg AI-motorja ({{engine}}) itt nem futhat: a(z) {{provider}} ebben a telepítésben ki van kapcsolva. Válassz másik motort a köteg beállításainál.",
+  "The batch's AI engine ({{engine}}) cannot run yet: {{provider}} is being measured before an installation may choose it. Choose another engine in the batch's settings.": "A köteg AI-motorja ({{engine}}) még nem futhat: a(z) {{provider}} mérés alatt áll, és csak a mérés után lesz választható. Válassz másik motort a köteg beállításainál.",
   "the engine {{engine}} cannot run here ({{reason}}: {{provider}})": "a(z) {{engine}} motor itt nem futhat ({{reason}}: {{provider}})",
   "the setting names two AI engines: {{engine}} and {{legacy}}={{value}}": "a beállítás két AI-motort nevez meg: {{engine}} és {{legacy}}={{value}}",
   "AI engine": "AI-motor",

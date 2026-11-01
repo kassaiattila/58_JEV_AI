@@ -143,7 +143,7 @@ def test_a_batch_whose_engine_cannot_run_here_does_not_start(db):
     ready = work_readiness.readiness(wp)
     assert ready["ready"] is False and ready["plan"]["engine"] == "decisions"
     [blocker] = [b for b in ready["blockers"] if b["code"] == "engine_unavailable"]
-    assert blocker["message"] == display.text(work_readiness.ENGINE_UNAVAILABLE["switched_off"],
+    assert blocker["message"] == display.text(work_readiness.ENGINE_UNAVAILABLE["under_measurement"],
                                               engine=display.text(engines.get("decisions").label), provider="OpenAI Decisions")
     with pytest.raises(work.NotReady):
         work_runs.start_run(wp, mode="shadow", expected_assignment_revision=ready["assignment_revision"],
@@ -202,7 +202,7 @@ def test_the_application_engine_can_only_be_one_that_runs_here(db, monkeypatch):
 def test_the_settings_and_the_catalogue_list_the_engines_with_whether_they_run_here(db):
     choices = {c["engine"]: c for c in app_settings.engine_setting()["choices"]}
     assert (choices["jev"]["available"], choices["gpt"]["available"]) == (True, True)
-    assert (choices["decisions"]["available"], choices["decisions"]["reason"]) == (False, providers.SWITCHED_OFF)
+    assert (choices["decisions"]["available"], choices["decisions"]["reason"]) == (False, providers.UNDER_MEASUREMENT)
     assert choices["decisions"]["judge_provider"] == "openai_decisions" and choices["gpt"]["judge_provider"] is None
     processing = next(r for r in work_views.recipe_catalog() if r["id"] == "processing")
     assert [c["engine"] for c in processing["params"]["engine"]["choices"]] == engines.ids()
