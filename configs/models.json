@@ -41,7 +41,7 @@
    {
     "version": "1.6.0",
     "date": "2026-11-01",
-    "note": "265 (plan L, L2): the decisions section, OpenAI Decisions as a judgement service (jav/ai/decisions.py): its one model gpt-6-luna, its prices per token kind (uncached, read from and written to its prompt cache; above 272 000 input tokens twice), no SDK retry (as openai, 075), its prompt cache off by default (a cache write costs 1.25 times an uncached token and our requests rarely share a prefix), the shared input as an input_json part, and the translation's version in the cache key."
+    "note": "265 (plan L, L2): the decisions section, OpenAI Decisions as a judgement service (jav/ai/decisions.py): its one model gpt-6-luna, its prices per token kind (uncached, read from and written to its prompt cache; above 272 000 input tokens twice), no SDK retry (as openai, 075), its prompt cache off by default (a cache write costs 1.25 times an uncached token and our requests rarely share a prefix), the shared input as an input_json part; the cache key is the translated request itself, so a change of the translation is a new question."
    }
   ]
  },
@@ -80,7 +80,6 @@
   },
   "prompt_cache": "off",
   "state": "json",
-  "wire_version": 1,
   "cache_version": 1
  },
  "openai": {
