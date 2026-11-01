@@ -7,7 +7,7 @@
       {
         "version": "1.0.0",
         "date": "2026-10-24",
-        "note": "Moved unchanged from configs/policy.json 1.25.0 (its email section), so a change to the email routes no longer changes the shared rule file's fingerprint. Earlier history: the policy.json changelog (1.4.0: signal_review and signal_routes; 1.21.0, 149: sent_route; 1.25.0, 190: the quote request's route and m2_types entry)."
+        "note": "Moved unchanged from configs/policy.json 1.25.0 (its email section), so a change to the email routes no longer changes the shared rule file's fingerprint. Earlier history: the policy.json changelog (1.4.0: signal_review and signal_routes; 1.21.0: sent_route; 1.25.0: the quote request's route and m2_types entry)."
       }
     ]
   },

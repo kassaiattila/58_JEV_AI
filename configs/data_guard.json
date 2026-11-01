@@ -27,12 +27,12 @@
       {
         "version": "1.0.14",
         "date": "2026-10-31",
-        "note": "Code review SEC-03, SEC-04, TOOL-10: push rules (main, release tags, one stage branch; no deletion, no archive branch); .playwright-mcp/ and the .jsonl and .log files blocked."
+        "note": "Push rules (main, release tags, one stage branch; no deletion, no archive branch); .playwright-mcp/ and the .jsonl and .log files blocked."
       },
       {
         "version": "1.0.13",
         "date": "2026-10-31",
-        "note": "Code review SEC-01: a literal value assigned to one of the project's key variables (TypeSafeJAV_API_KEY, TYPESAFE_API_KEY, OPENAI_API_KEY, AZURE_DI_KEY) is blocked by shape, so a pasted .env line is caught even where no .env is read."
+        "note": "A literal value assigned to one of the project's key variables (TypeSafeJAV_API_KEY, TYPESAFE_API_KEY, OPENAI_API_KEY, AZURE_DI_KEY) is blocked by shape, so a pasted .env line is caught even where no .env is read."
       },
       {
         "version": "1.0.12",

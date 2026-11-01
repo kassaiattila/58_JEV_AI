@@ -12,7 +12,7 @@
       {
         "version": "1.1.1",
         "date": "2026-11-01",
-        "note": "Code review DOM-13: the description names the bands' reader (reconcile_rules.py) and that it reads them when a rule applies; no value changed."
+        "note": "The description names the bands' reader (reconcile_rules.py) and that it reads them when a rule applies; no value changed."
       },
       {
         "version": "1.1.0",
@@ -22,7 +22,7 @@
       {
         "version": "1.0.0",
         "date": "2026-10-24",
-        "note": "Moved unchanged from configs/policy.json 1.25.0 (its duplicates and reconcile sections), so a change to them no longer changes the shared rule file's fingerprint. Not into configs/reconcile.json: its fingerprint is printed on a reconciliation's statement, so moving them there would have shown every approved statement as changed. Earlier history: the policy.json changelog (1.18.0, 126: the duplicate search; 1.19.0, 130: reconcile.fx_tolerance; 1.20.0, 147: reconcile.ai_sure; 1.22.0, 149: reconcile.fx_bank_tolerance)."
+        "note": "Moved unchanged from configs/policy.json 1.25.0 (its duplicates and reconcile sections), so a change to them no longer changes the shared rule file's fingerprint. Not into configs/reconcile.json: its fingerprint is printed on a reconciliation's statement, so moving them there would have shown every approved statement as changed. Earlier history: the policy.json changelog (1.18.0: the duplicate search; 1.19.0: reconcile.fx_tolerance; 1.20.0: reconcile.ai_sure; 1.22.0: reconcile.fx_bank_tolerance)."
       }
     ]
   },

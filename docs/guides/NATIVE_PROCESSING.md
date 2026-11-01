@@ -24,7 +24,7 @@ digest, can be complete. For any other scan the native step asks Azure itself
 before reading (`native_processing.azure_recognition`), but only in a run whose
 budget has an Azure part (the recipe's Azure switch), through the existing call
 log and reservation; an earlier recognition of the same document comes from the
-OCR cache at no cost, while an Azure text cached before 123, kept without its
+OCR cache at no cost, while an older Azure text, kept without its
 original, is neither taken over nor paid for again. Without an Azure budget, or
 when the call is blocked or fails, the scan is read with the reader's local OCR
 under its own reading identity, and such a reading is always `partial` (local OCR
