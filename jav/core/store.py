@@ -396,9 +396,22 @@ def _wal(conn: sqlite3.Connection) -> None:
 
 
 def _run_migrations(conn: sqlite3.Connection) -> None:
+    """The core's migrations, then every registered one. 265 (R4-a): a migration may import a module that registers its
+    own tables and migration; their schema is made and their migration runs in the next round. Iterating the registry
+    while it grew raised "dictionary changed size during iteration" on a process that opened the store before it had
+    loaded every module (the service loads them all at start-up; a stand-alone script need not)."""
     _migrate(conn)
-    for fn in _EXTRA_MIGRATIONS.values():
-        fn(conn)
+    schemas, done = set(_EXTRA_SCHEMAS), set()
+    while True:
+        for name in [n for n in list(_EXTRA_SCHEMAS) if n not in schemas]:
+            conn.executescript(_EXTRA_SCHEMAS[name])
+            schemas.add(name)
+        pending = [(name, fn) for name, fn in list(_EXTRA_MIGRATIONS.items()) if name not in done]
+        if not pending:
+            return
+        for name, fn in pending:
+            done.add(name)
+            fn(conn)
 
 
 def _schema_statements(script: str) -> Iterator[str]:
