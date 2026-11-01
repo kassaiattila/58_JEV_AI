@@ -178,10 +178,31 @@ def unit_names(case_id: str, step: str) -> dict[str, dict[str, Any]]:
     return out
 
 
+_MISSING_KEPT: dict[tuple[str, str, str, int, str], list[dict[str, str]]] = {}
+_MISSING_KEPT_MAX = 512
+
+
 def tariff_missing(case_id: str, step: str, version: int, tariff: str) -> list[dict[str, str]]:
     """U-A8 (the walkthrough of 2026-10-28): the facts the premium by the tariff (a kept reference) reads that the input
     of the step's evaluation record does not give, named as the evaluation names its missing ones ({unit_id, fact,
-    title}); none when the input does not say the modules it asks for (nothing is priced then). KeyError: no record."""
+    title}); none when the input does not say the modules it asks for (nothing is priced then). KeyError: no record.
+
+    265 (code review APPR-11): an evaluation version and a tariff version (`<id>@<n>`) never change, so the answer is
+    kept per both; the missing-facts step asked it every five seconds (about 170 000 times in ten days). A reference
+    without a version is computed each time."""
+    key = (str(store.current_path()), case_id, step, int(version), tariff)  # one store's case is not another's
+    pinned = "@" in tariff
+    if pinned and key in _MISSING_KEPT:
+        return [dict(m) for m in _MISSING_KEPT[key]]
+    out = _tariff_missing(case_id, step, version, tariff)
+    if pinned:
+        if len(_MISSING_KEPT) >= _MISSING_KEPT_MAX:
+            _MISSING_KEPT.pop(next(iter(_MISSING_KEPT)))
+        _MISSING_KEPT[key] = [dict(m) for m in out]
+    return out
+
+
+def _tariff_missing(case_id: str, step: str, version: int, tariff: str) -> list[dict[str, str]]:
     row = record(case_id, step, version)
     content = row["content"]
     if not content.get("modules_said", True):
