@@ -30,6 +30,7 @@ import uuid
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -335,8 +336,25 @@ def scan(folder_id: str, *, now: datetime | None = None, actor: identity.Who = W
         return _scan(folder, now, actor)
 
 
+def _read_first(folder: dict[str, Any]) -> dict[str, Any] | None:
+    """272 (K2, the rest of APPR-16): the enabled folder listed before this one that takes in the same documents, if
+    any. The save refuses such a pair since 265; a list saved earlier keeps it until it is saved again, so the scan
+    leaves the document to the folder listed first."""
+    me = Path(folder["path"])
+    for other in folders():
+        if other["id"] == folder["id"]:
+            return None
+        if other["enabled"] and _reads_twice(me, SimpleNamespace(recursive=folder["recursive"]), Path(other["path"]),
+                                             SimpleNamespace(recursive=other["recursive"])):
+            return other
+    return None
+
+
 def _scan(folder: dict[str, Any], now: datetime, actor: identity.Who) -> dict[str, Any]:
     try:
+        if other := _read_first(folder):
+            raise explained(FolderOverlap, "two watched folders would take in the same documents: {{name}} and {{other}}",
+                            name=repr(folder["name"]), other=repr(other["name"]))
         files, settling, unreadable = _new_files(folder, now)
         bucket = _bucket(folder, now)
         wp_id = _package_for(folder, bucket)
