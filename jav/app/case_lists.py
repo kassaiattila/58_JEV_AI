@@ -180,6 +180,15 @@ def _fingerprint(_scope: dict[str, str]) -> str:
     return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
 
 
+def _handover_fingerprint(scope: dict[str, str]) -> str:
+    """265 (code review APPW-06): the handovers to check are built again only when the cases may have changed (the case
+    list's marks) or a handover did (its rows change in place: their attempts, status and time); the list was built
+    anew every 30 seconds, several queries per open case."""
+    with store.connect() as c:
+        handovers = store.table_marks(c, {"process_outbox": "MAX(updated_at), SUM(attempts)"})
+    return hashlib.sha256(json.dumps([_fingerprint(scope), handovers], default=str).encode("utf-8")).hexdigest()
+
+
 def _in_view(row: dict[str, Any], view: str, actor: str | None, pack: str | None) -> bool:
     if pack and row["pack"] != pack:
         return False
@@ -274,6 +283,7 @@ def register() -> None:
         datasets.register_labels(labels)
     datasets.register(Dataset("cases", "Cases", (), _cases, _fingerprint, optional_scope=("include_closed", "view", "actor", "pack"),
                               natural_sort=(("created_at", True),)), after="waiting", module=__name__)
-    datasets.register(Dataset("handovers", "Handovers to check", (), _handovers), after="cases", module=__name__)
+    datasets.register(Dataset("handovers", "Handovers to check", (), _handovers, _handover_fingerprint), after="cases",
+                      module=__name__)
     datasets.register(Dataset("case_events", "A case's events", ("case_id",), _events, natural_sort=(("at", False),)),
                       after="handovers", module=__name__)  # 263 (F3)
