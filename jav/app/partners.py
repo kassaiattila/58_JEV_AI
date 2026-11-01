@@ -192,15 +192,21 @@ def create(values: PartnerIn, actor: identity.Who) -> dict[str, Any]:
     """A new partner, its first version active. `PartnerConflict` when an active partner has the same tax number or
     name."""
     out = _clean(values)
-    partner_id = f"partner-{uuid.uuid4().hex[:12]}"
     with store.connect() as c:
         store.begin_immediate(c)
-        if (other := _same(c, out, None)) is not None:
-            raise explained(PartnerConflict, "another partner has the same tax number or name", other)
-        c.execute("INSERT INTO partners(partner_id, created_by, created_by_id, created_at) VALUES (?,?,?,?)",
-                  (partner_id, identity.name_of(actor), identity.id_of(actor), _now()))
-        _insert(c, partner_id, 1, out, actor)
+        partner_id = _create_in(c, out, actor)
     return get(partner_id)
+
+
+def _create_in(c: Any, out: dict[str, Any], actor: identity.Who) -> str:
+    """A new partner inside the caller's transaction (`create`, `accept_suggestions`); its id."""
+    if (other := _same(c, out, None)) is not None:
+        raise explained(PartnerConflict, "another partner has the same tax number or name", other)
+    partner_id = f"partner-{uuid.uuid4().hex[:12]}"
+    c.execute("INSERT INTO partners(partner_id, created_by, created_by_id, created_at) VALUES (?,?,?,?)",
+              (partner_id, identity.name_of(actor), identity.id_of(actor), _now()))
+    _insert(c, partner_id, 1, out, actor)
+    return partner_id
 
 
 def update(partner_id: str, values: PartnerIn, actor: identity.Who, *, expected_version: int) -> dict[str, Any]:
@@ -370,23 +376,28 @@ def accept_suggestions(keys: list[str] | None, actor: identity.Who, *, names: di
     """264 (plan G, G1; the owner's decision of 2026-10-31: proposals as the own parties have them): records the named
     proposals (`keys`; None: every one shown now) as partners with their suggested name, tax number and roles at once;
     `names` gives a proposal another name. One a partner meanwhile, or without a role, is skipped; returns the partners
-    made and how many were skipped."""
+    made and how many were skipped. 272 (K4, the rest of APPR-13 and SEC-07): in one transaction, each proposal in a
+    savepoint of its own, so a bad one is rolled back alone and a stop half way records none."""
     shown = {s["key"]: s for s in suggestions(limit=100_000)}
     wanted = list(shown) if keys is None else [k for k in dict.fromkeys(keys)]
     created: list[str] = []
     skipped = 0
-    for key in wanted:
-        s = shown.get(key)
-        if s is None or not s["roles"]:
-            skipped += 1
-            continue
-        name = ((names or {}).get(key) or "").strip() or s["name"]
-        try:
-            made = create(PartnerIn(name=name[:200], tax_number=s["tax_number"], roles=s["roles"]), actor)
-        except (PartnerError, ValidationError):  # 265 (code review SEC-07): a bad proposal (a tax number too long, an
-            skipped += 1  # empty name) is skipped like one recorded meanwhile, so "all" never stops half way
-            continue
-        created.append(made["partner_id"])
+    with store.connect() as c:
+        store.begin_immediate(c)
+        for key in wanted:
+            s = shown.get(key)
+            if s is None or not s["roles"]:
+                skipped += 1
+                continue
+            name = ((names or {}).get(key) or "").strip() or s["name"]
+            c.execute("SAVEPOINT proposal")
+            try:
+                created.append(_create_in(c, _clean(PartnerIn(name=name[:200], tax_number=s["tax_number"],
+                                                              roles=s["roles"])), actor))
+            except (PartnerError, ValidationError):  # 265 (code review SEC-07): a bad proposal (a tax number too long,
+                c.execute("ROLLBACK TO proposal")  # an empty name) is skipped like one recorded meanwhile
+                skipped += 1
+            c.execute("RELEASE proposal")
     log.info("%d partner proposal(s) recorded, %d skipped, by %s", len(created), skipped, identity.name_of(actor))
     return {"created": created, "skipped": skipped}
 
