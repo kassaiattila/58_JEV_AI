@@ -321,8 +321,8 @@ def register(sub) -> None:
     p = sub.add_parser("detect-golden", help="M1 golden: on the legacy doc-triage and doc-extract type labels")
     p.add_argument("--no-cache", action="store_true")
     engine_args(p, measurement=True)  # 086: GPT recognises the type
-    p.add_argument("--keys-only", action="store_true", help="086: with --engine gpt, offer the types by their keys only")
-    p.add_argument("--budget-usd", help="086/122: hard budget for the whole measurement, for the engine that answers "
+    p.add_argument("--keys-only", action="store_true", help="with --engine gpt, offer the types by their keys only")
+    p.add_argument("--budget-usd", help="hard budget for the whole measurement, for the engine that answers "
                                         "(OpenAI with --engine gpt, JEV otherwise); the other providers and Azure get none")
     p.add_argument("--cases", help="A local case list (JSON, outside git) instead of the golden set")
     p.add_argument("--store", help="A separate measurement store (results, to-dos and call log stay out of the work store)")
@@ -352,7 +352,7 @@ def register(sub) -> None:
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--limit", type=int)
     engine_args(p, measurement=True)  # 089: GPT recognises the intent
-    p.add_argument("--budget-usd", help="089: hard OpenAI budget for the whole measurement")
+    p.add_argument("--budget-usd", help="hard OpenAI budget for the whole measurement")
     p.add_argument("--jev-budget-usd", help="hard JEV budget for the whole measurement; with either budget, a provider "
                                             "without one (Azure always) cannot be called")
     p.set_defaults(fn=cmd_email_golden)
@@ -381,7 +381,7 @@ def register(sub) -> None:
     p.add_argument("--limit", type=int, default=8)
     p.add_argument("--no-cache", action="store_true")
     engine_args(p, measurement=True)  # 089: GPT answers the injection question
-    p.add_argument("--budget-usd", help="089: hard OpenAI budget for the whole probe (JEV and Azure get none)")
+    p.add_argument("--budget-usd", help="hard OpenAI budget for the whole probe (JEV and Azure get none)")
     p.set_defaults(fn=cmd_email_injection_probe)
     p = sub.add_parser("verifier-probe", help="a calibration probe of the JEV verifier on the golden extractions (without OpenAI); raw run runs/*_verifier_probe.jsonl")
     p.add_argument("--no-cache", action="store_true")
@@ -394,7 +394,7 @@ def register(sub) -> None:
     p.add_argument("--tracker", action="store_true")
     p.add_argument("--no-cache", action="store_true")
     engine_args(p, measurement=True)  # 086: the G path verified by the code alone (runs/*_golden_G_nojev.jsonl)
-    p.add_argument("--budget-usd", help="086: hard OpenAI budget for the whole measurement")
+    p.add_argument("--budget-usd", help="hard OpenAI budget for the whole measurement")
     p.add_argument("--jev-budget-usd", help="hard JEV budget for the whole measurement; with either budget, a provider "
                                             "without one (Azure always) cannot be called")
     p.add_argument("--synthetic", action="store_true", help="the synthetic golden cases of the type "
