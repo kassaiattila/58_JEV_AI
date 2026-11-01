@@ -91,6 +91,8 @@ LOG_DIR = RUNS_DIR / "logs"  # E2: the long-running processes' rotating logs
 # The golden set and the sample PDFs stay in the legacy project; we only reference them.
 # Location: the JAV_LEGACY_ROOT environment variable (or the .env); default: the `10_AIFLOW_V4` folder next to this
 # repository (076: no machine path in the code).
+# override=False: a real environment variable that is already set wins over the .env (CI / production supplies the key
+# there, not from a file). 265 (code review X-27): loaded once, here, before the first variable is read.
 load_dotenv(ENV_FILE, override=False)
 LEGACY_ROOT_ENV = "JAV_LEGACY_ROOT"
 DEFAULT_OLD_PROJECT_ROOT = PROJECT_ROOT.parent / "10_AIFLOW_V4"
@@ -189,10 +191,6 @@ TRACKER_PROJECTS: dict[str, str] = dict(_MODELS.get("burr", {}).get("tracker_pro
 # 075: Azure DI (through the legacy sidecar) is priced per page for the reservation and the call log
 AZURE_DI_MODEL: str = _MODELS.get("azure_di", {}).get("model", "prebuilt-read")
 AZURE_USD_PER_PAGE: Decimal = Decimal(str(_MODELS.get("azure_di", {}).get("usd_per_page", "0.0015")))
-
-# override=False: a real environment variable that is already set wins over the .env
-# (CI / production supplies the key there, not from a file).
-load_dotenv(ENV_FILE, override=False)
 
 
 class MissingAPIKeyError(RuntimeError):

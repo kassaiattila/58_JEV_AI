@@ -18,7 +18,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode; view?: boole
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("felületi hiba", error, info.componentStack); // i18n-ignore (developer log)
+    console.error("interface error", error, info.componentStack); // a developer's log, not shown to a person
   }
 
   render() {

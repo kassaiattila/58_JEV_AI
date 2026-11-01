@@ -6,22 +6,22 @@
    {
     "version": "1.15.0",
     "date": "2026-10-21",
-    "note": "192 (plan F-quote-package B6c, the owner's decision): with email_text extract, a quote request email's table attachments (an Excel or CSV request list) are read too, each as a part of the email's request in its follow-up (not an item of its own); each table attachment of an email reserves 0.03 USD OpenAI (the email_table extra beside the email's own, counted by the email domain), spent only on a quote request's list."
+    "note": "The owner's decision: with email_text extract, a quote request email's table attachments (an Excel or CSV request list) are read too, each as a part of the email's request in its follow-up (not an item of its own); each table attachment of an email reserves 0.03 USD OpenAI (the email_table extra beside the email's own, counted by the email domain), spent only on a quote request's list."
    },
    {
     "version": "1.14.0",
     "date": "2026-10-21",
-    "note": "190 (plan 189 A2f; the owner's decision of 2026-10-21 'a setting, on by default'): the email_text setting of the processing (version 3) and email-intent (version 5) recipes. extract (the default): an email whose route is a data extraction whose type pack reads text (the quote request) also gets the extraction of its own text, as the item's follow-up stage; each email reserves 0.03 USD OpenAI for it (one request of the extraction; about 0.006 USD is spent on such an email, nothing on the others). off: no extraction from the email's text. A run started before keeps no extraction (its frozen recipe has no such setting)."
+    "note": "The owner's decision of 2026-10-21 'a setting, on by default': the email_text setting of the processing (version 3) and email-intent (version 5) recipes. extract (the default): an email whose route is a data extraction whose type pack reads text (the quote request) also gets the extraction of its own text, as the item's follow-up stage; each email reserves 0.03 USD OpenAI for it (one request of the extraction; about 0.006 USD is spent on such an email, nothing on the others). off: no extraction from the email's text. A run started before keeps no extraction (its frozen recipe has no such setting)."
    },
    {
     "version": "1.13.0",
     "date": "2026-10-10",
-    "note": "136 E4 (DECISIONS 132, 136): the processing recipe also handles the statement_table item kind - an account's statement file derived from a bank's tabular export (jav/statement_table.py) - with the code-only statement_table flow (jav/flow_statement_table.py); no provider is called, so its item budget is empty."
+    "note": "The processing recipe also handles the statement_table item kind - an account's statement file derived from a bank's tabular export (jav/statement_table.py) - with the code-only statement_table flow (jav/flow_statement_table.py); no provider is called, so its item budget is empty."
    },
    {
     "version": "1.12.0",
     "date": "2026-10-06",
-    "note": "120 (the owner's decision of 2026-10-06): the unknown_documents setting of the processing and multi-format-processing recipes (both now version 2). facts (the default): a text PDF whose recognised type has no fitting type pack continues into the native source-bound facts on the G path, within the PDF item budget; review: the earlier stop with a to-do. The recognised type and its uncertainty to-dos are kept."
+    "note": "The owner's decision of 2026-10-06: the unknown_documents setting of the processing and multi-format-processing recipes (both now version 2). facts (the default): a text PDF whose recognised type has no fitting type pack continues into the native source-bound facts on the G path, within the PDF item budget; review: the earlier stop with a to-do. The recognised type and its uncertainty to-dos are kept."
    },
    {
     "version": "1.11.0",
@@ -31,57 +31,57 @@
    {
     "version": "1.10.0",
     "date": "2026-10-02",
-    "note": "089 (owner's decision of 2026-10-02: GPT also recognises the email intent without JEV): with jev off an email gets 0.07 USD OpenAI for the GPT intent question (the worst case of the largest email excerpt is about 0.064 USD; a typical email costs about 0.005 USD); so the routing and the task proposal work without JEV too"
+    "note": "Owner's decision of 2026-10-02: GPT also recognises the email intent without JEV: with jev off an email gets 0.07 USD OpenAI for the GPT intent question (the worst case of the largest email excerpt is about 0.064 USD; a typical email costs about 0.005 USD); so the routing and the task proposal work without JEV too"
    },
    {
     "version": "1.9.0",
     "date": "2026-10-02",
-    "note": "086 (backlog F-jev, K3; owner's decisions of 2026-10-01 and 2026-10-02): `jev` param on the processing (on / off, default on). off = processing without JEV: the run gets no JEV budget, every document runs on the G path with the code's own source check, the type is recognised by GPT (+0.07 USD OpenAI per document: the worst case of the two type questions), an email gets a to-do instead of an intent. `param_item_usd` entries may name providers to `drop` from the item budget"
+    "note": "Owner's decisions of 2026-10-01 and 2026-10-02: `jev` param on the processing (on / off, default on). off = processing without JEV: the run gets no JEV budget, every document runs on the G path with the code's own source check, the type is recognised by GPT (+0.07 USD OpenAI per document: the worst case of the two type questions), an email gets a to-do instead of an intent. `param_item_usd` entries may name providers to `drop` from the item budget"
    },
    {
     "version": "1.8.0",
     "date": "2026-10-01",
-    "note": "080 (owner's decisions of 2026-10-01): one processing for every package. New recipe `processing` chooses the flow per item kind (document: type recognition, then extraction of the recognised type; email: intent + attachments + optional task proposal), with the budgets of the email recipe. `status`: `active` (offered in the UI), `internal` (invoice-extraction: a given type without recognition, command line and tests only), `retired` (document-processing, email-intent: kept for the titles of old runs and for reading old assignments; cannot be assigned again)"
+    "note": "Owner's decisions of 2026-10-01: one processing for every package. New recipe `processing` chooses the flow per item kind (document: type recognition, then extraction of the recognised type; email: intent + attachments + optional task proposal), with the budgets of the email recipe. `status`: `active` (offered in the UI), `internal` (invoice-extraction: a given type without recognition, command line and tests only), `retired` (document-processing, email-intent: kept for the titles of old runs and for reading old assignments; cannot be assigned again)"
    },
    {
     "version": "1.7.0",
     "date": "2026-09-30",
-    "note": "075 (owner's decision of 2026-09-30): the per-item OpenAI budget 0.10 -> 0.15 USD, because the reservation is a real upper bound since 075 and a typical invoice's G path reserves about 0.106 USD; the actual cost does not change"
+    "note": "Owner's decision of 2026-09-30: the per-item OpenAI budget 0.10 -> 0.15 USD, because the reservation is a real upper bound and a typical invoice's G path reserves about 0.106 USD; the actual cost does not change"
    },
    {
     "version": "1.6.0",
     "date": "2026-09-30",
-    "note": "075 (repeated security audit, S01; Azure recipe switch): azure_ocr param (on / off, default on) on every recipe; on = 0.02 USD Azure DI budget per document (about 13 pages at the list price), so a weak scan can escalate to Azure within the run's budget and call log"
+    "note": "Repeated security audit; Azure recipe switch: azure_ocr param (on / off, default on) on every recipe; on = 0.02 USD Azure DI budget per document (about 13 pages at the list price), so a weak scan can escalate to Azure within the run's budget and call log"
    },
    {
     "version": "1.5.0",
     "date": "2026-09-28",
-    "note": "058 K5.2 (decision of 2026-09-28: an automatic chain): the email intent recipe's version 2 handles several item kinds (flows): the intent recognition on the email, the whole document processing on its PDF attachment (a document in the batch pointing to the email); an item budget by kind (max_item_usd_by_kind: email JEV 0.05; attachment JEV 0.07 + OpenAI 0.10 USD). 058 K5.3: a new parameter `tasks` (off / propose, off by default - turned on by the owner's decision): task proposals on the email; when on, +0.006 USD OpenAI budget per email (param_item_usd)"
+    "note": "Decision of 2026-09-28: an automatic chain: the email intent recipe's version 2 handles several item kinds (flows): the intent recognition on the email, the whole document processing on its PDF attachment (a document in the batch pointing to the email); an item budget by kind (max_item_usd_by_kind: email JEV 0.05; attachment JEV 0.07 + OpenAI 0.10 USD). A new parameter `tasks` (off / propose, off by default - turned on by the owner's decision): task proposals on the email; when on, +0.006 USD OpenAI budget per email (param_item_usd)"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-27",
-    "note": "040 K3: the jev_cache parameter (reuse = an earlier JEV answer may be reused; live = without reading the cache, every call through the call log and the budget). Needed for the live trial; the recipe's version 2."
+    "note": "The jev_cache parameter (reuse = an earlier JEV answer may be reused; live = without reading the cache, every call through the call log and the budget). Needed for the live trial; the recipe's version 2."
    },
    {
     "version": "1.0.0",
     "date": "2026-09-27",
-    "note": "040 K1: the catalogue of process recipes (the structure of the V4 flows/business-workflows.json); the first recipe is invoice extraction (decision 040/3)"
+    "note": "The catalogue of process recipes (the structure of the V4 flows/business-workflows.json); the first recipe is invoice extraction (decision 040/3)"
    },
    {
     "version": "1.2.0",
     "date": "2026-09-28",
-    "note": "047 T1.3: a new recipe, document-processing - recognition (broad and detailed type), then extraction with the detailed type's pack; the path the one asked for if the pack supports it (the packs converted from legacy types run G only); an item budget of JEV 0.07 + OpenAI 0.10 USD on both paths, as the G path may run on an S request because of the pack"
+    "note": "A new recipe, document-processing - recognition (broad and detailed type), then extraction with the detailed type's pack; the path the one asked for if the pack supports it (the packs converted from legacy types run G only); an item budget of JEV 0.07 + OpenAI 0.10 USD on both paths, as the G path may run on an S request because of the pack"
    },
    {
     "version": "1.3.0",
     "date": "2026-09-28",
-    "note": "048 T2: a new recipe, email-intent - the email intent (the legacy 11 intents) on the emails downloaded from a mailbox; document recognition on the PDF attachments; an item = the email's message.json; an item budget of JEV 0.05 USD (the intent and the attachments' recognition)"
+    "note": "A new recipe, email-intent - the email intent (the legacy 11 intents) on the emails downloaded from a mailbox; document recognition on the PDF attachments; an item = the email's message.json; an item budget of JEV 0.05 USD (the intent and the attachments' recognition)"
    },
    {
     "version": "1.4.0",
     "date": "2026-09-28",
-    "note": "053 T3.1 (decision of 2026-09-28: option A): the path's default auto = the recommended path of the document type's pack (utility: G, as one GPT call gives the header data and the line items; Hungarian invoice: S); an explicit S or G request stays; the auto path's item budget is the G path's"
+    "note": "Decision of 2026-09-28: option A: the path's default auto = the recommended path of the document type's pack (utility: G, as one GPT call gives the header data and the line items; Hungarian invoice: S); an explicit S or G request stays; the auto path's item budget is the G path's"
    }
   ]
  },

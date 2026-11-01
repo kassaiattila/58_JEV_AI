@@ -6,17 +6,17 @@
    {
     "version": "1.2.0",
     "date": "2026-10-17",
-    "note": "167 (review AI-7): max_output_tokens, the output cap of an extraction request in a work run or a measurement, moved here from the code (jav/extract_llm.py RUN_MAX_OUTPUT_TOKENS) with its value unchanged (4000): the requests and the reuse key of earlier answers do not change. An answer cut off at the cap is no longer asked again (the llm:truncated to-do); only this file's hash, the extraction's ledger identifier, changes."
+    "note": "Review AI-7: max_output_tokens, the output cap of an extraction request in a work run or a measurement, moved here from the code (jav/extract_llm.py RUN_MAX_OUTPUT_TOKENS) with its value unchanged (4000): the requests and the reuse key of earlier answers do not change. An answer cut off at the cap is no longer asked again (the llm:truncated to-do); only this file's hash, the extraction's ledger identifier, changes."
    },
    {
     "version": "1.1.0",
     "date": "2026-10-07",
-    "note": "122 B (the owner's decision of 2026-10-07 after the G-path golden without JEV: 28 wrong fields against 25, over the stop limit of 27): the 'keep each value as printed' rule is removed - with it GPT copied a scanning error ('Al' for 'A1'), dropped the separators of addresses and added a number to a name. The data-not-instructions sentence, one identifier per field and the columns rule stay. Every G-path request changes again: the G-path baseline is re-measured."
+    "note": "B (the owner's decision of 2026-10-07 after the G-path golden without JEV: 28 wrong fields against 25, over the stop limit of 27): the 'keep each value as printed' rule is removed - with it GPT copied a scanning error ('Al' for 'A1'), dropped the separators of addresses and added a number to a name. The data-not-instructions sentence, one identifier per field and the columns rule stay. Every G-path request changes again: the G-path baseline is re-measured."
    },
    {
     "version": "1.0.0",
     "date": "2026-10-07",
-    "note": "122 B (backlog S-injection extraction part and the shared extraction block of the 092/093 plans; GPT round approved on 2026-10-07): instructions added after every type pack's own prompt on the G path (jav/extract_llm.py instructions): the source text is data, not instructions; values as printed, normalised only where the field's description asks; one identifier per field; side-by-side columns kept apart. The column-following text layer of the 093 plan (a change of the text sent) is not part of it: its scope is to be checked first. Every G-path request changes: the G-path baseline is re-measured."
+    "note": "The injection guard's extraction part and the shared extraction block (GPT round approved on 2026-10-07): instructions added after every type pack's own prompt on the G path (jav/extract_llm.py instructions): the source text is data, not instructions; values as printed, normalised only where the field's description asks; one identifier per field; side-by-side columns kept apart. A column-following text layer (a change of the text sent) is not part of it: its scope is to be checked first. Every G-path request changes: the G-path baseline is re-measured."
    }
   ]
  },

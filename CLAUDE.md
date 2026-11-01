@@ -87,7 +87,7 @@ python -m jav.cli reconcile-ai <package> [--engine jev|gpt|both (default: the ap
 python -m jav.cli fx-rates [--fetch FROM TO] [--currency C]             # 130 stored MNB exchange rates (counts) | fetch a span (free; only dates and codes leave)
 python -m jav.cli statement-table <file.xlsx|file.csv|file.pdf|folder>  # 136 a bank statement export read by code (free): its accounts and checks (141: a CIB PDF or text statement, a camt.053 XML too)
 .\scripts\dev.ps1 start|status|stop                     # UI + local service (serve, 127.0.0.1:8930) + the configured workers (one by default)
-cd ui; npm run build | npm test | npm run dev             # UI (ui/): build into ui/dist, vitest, dev server :5173
+cd ui; npm run build | npm test | npm run lint | npm run dev   # UI (ui/): build into ui/dist, vitest, ESLint, dev server :5173
 python -m jav.cli ocr [<pdf>] [--force] [--psm N] [--limit N]   # without a PDF: status of the OCR engine
 python -m jav.cli store | eval-report [runs/*.jsonl] [--out f] | admin [--write] | configs | flows [--check] | docs
 python -m jav.cli snapshot [--id S | --run R | --diff A B | --restore SHA --out F]   # 218 calculation snapshots: the code and the rules a run, item, case or approval was computed with

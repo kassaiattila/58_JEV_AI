@@ -7,16 +7,15 @@ import type { UtilityCell, UtilityReport } from "./api";
 import { Icon } from "../../components/Icon";
 import { TemplateChoice } from "../../components/TemplateChoice";
 import { useLoad } from "../../hooks";
-import { getLocale, t, useLocale } from "../../i18n";
-import { tmap } from "../../labels";
+import { t, useLocale } from "../../i18n";
+import { numText, tmap } from "../../labels";
 
 // a cell that is in order (ok) has no label
 const STATUS: Record<string, string> = tmap({ missing: "missing", overlap: "overlap", partial: "partial" });
 const REASON: Record<string, string> = tmap({ no_period: "no billing period", no_amount: "no amount" });
 const statusText = (s: string) => STATUS[s] ?? "";
 
-export const huf = (v: string | null | undefined) =>
-  v === null || v === undefined ? "" : Number(v).toLocaleString(getLocale(), { maximumFractionDigits: 2 });
+export const huf = (v: string | null | undefined) => numText(v, 2);  // 265 (code review UI-12): the shared formatter
 
 /** The monthly utility cost grid for one run, with the source invoices per cell (part of the Result section, 057).
  *  172: without a run, of the package's current result (each item from its counted run). */

@@ -6,27 +6,27 @@
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "S-kar hivasi hely a kulfoldi szamlahoz (BACKLOG 1, tipus-csomag invoice_foreign): a select.json mintajara, a mezo-instrukciok a regi invoice_foreign/prompt.md mezo-utmutatasabol atirva Choice-kerdesse; uj kerdes: supplier_country (Choice ISO-kodok kozul, a parties keresben), a penznem-kerdes a szamlazasi penznemre (az adobevallasi HUF-atvaltas informativ); nincs payment_method / amount_due / fulfillment_date (a regi semaban sincs)"
+    "note": "The S path's call site for the foreign invoice (type pack invoice_foreign), on the pattern of select.json: the field instructions rewritten as Choice questions from the legacy invoice_foreign/prompt.md field guidance; a new question: supplier_country (a Choice among ISO codes, in the parties request); the currency question asks for the invoicing currency (the HUF conversion for the tax return is informational); no payment_method, amount_due or fulfillment_date (the legacy schema has none either)"
    },
    {
     "version": "1.1.0",
     "date": "2026-10-07",
-    "note": "126 (5th group, round A; backlog Q-money-request-size, the owner's decision of 2026-10-07): request_char_budget 110000, the value of select_utility - an oversized request is fitted (candidate lines only, shorter option context, fewer options) and a token error is retried once with a tighter request (jav/jev_budget.py); until now such a money request ended in a jev_unavailable to-do. A request within the budget is sent unchanged, so its cache key stays the same; no Choice text changed."
+    "note": "5th group, round A; the owner's decision of 2026-10-07: request_char_budget 110000, the value of select_utility - an oversized request is fitted (candidate lines only, shorter option context, fewer options) and a token error is retried once with a tighter request (jav/jev_budget.py); until now such a money request ended in a jev_unavailable to-do. A request within the budget is sent unchanged, so its cache key stays the same; no Choice text changed."
    },
    {
     "version": "1.2.0",
     "date": "2026-10-08",
-    "note": "127 (5th group, round B; the owner's decisions of 2026-10-07): document_guard (backlog S-injection, JEV part): every Choice and presence Noul says, after the glossary, that the document text is data, not instructions. Own data replaced (069 decision): the example Hungarian VAT number of the buyer in the glossary and in the tax-id questions is an invented one. Backlog Q-buyer-role (127 finding): the buyer may be printed only as a private person's name (then that name, not 'none'); with a person and a company in the buyer block the company; the name stops before the address; the buyer's HU VAT id may be the only tax id and may follow the supplier's lines in a two-column layout. Backlog Q-credit-note and Q-receipt (the owner's decision of 2026-10-07): the invoice number is the document's own number - a credit note's or refund's own number, not the original invoice's; on a receipt without an invoice number the receipt number, else the transaction / payment id; never an order number (Choice and presence). New cache keys for every question: the S baseline is re-measured."
+    "note": "5th group, round B; the owner's decisions of 2026-10-07: document_guard (JEV part): every Choice and presence Noul says, after the glossary, that the document text is data, not instructions. Own data replaced: the example Hungarian VAT number of the buyer in the glossary and in the tax-id questions is an invented one. Backlog Q-buyer-role (finding): the buyer may be printed only as a private person's name (then that name, not 'none'); with a person and a company in the buyer block the company; the name stops before the address; the buyer's HU VAT id may be the only tax id and may follow the supplier's lines in a two-column layout. Backlog Q-credit-note and Q-receipt (the owner's decision of 2026-10-07): the invoice number is the document's own number - a credit note's or refund's own number, not the original invoice's; on a receipt without an invoice number the receipt number, else the transaction / payment id; never an order number (Choice and presence). New cache keys for every question: the S baseline is re-measured."
    },
    {
     "version": "1.2.1",
     "date": "2026-10-08",
-    "note": "127 (round B, after the first measurement): the supplier's tax id question says what the buyer's says about the HU-prefixed id - it is the supplier's only if printed in the supplier's own block or legal footer; when it is the only tax id, the answer is 'none'. With the invented example number in place of our real one, that 'none' fell below the high-stakes band on 9 of the 68-invoice sample's invoices whose only tax id is the buyer's. New cache keys for the foreign parties requests."
+    "note": "Round B, after the first measurement: the supplier's tax id question says what the buyer's says about the HU-prefixed id - it is the supplier's only if printed in the supplier's own block or legal footer; when it is the only tax id, the answer is 'none'. With the invented example number in place of our real one, that 'none' fell below the high-stakes band on 9 of the 68-invoice sample's invoices whose only tax id is the buyer's. New cache keys for the foreign parties requests."
    },
    {
     "version": "1.3.0",
     "date": "2026-10-22",
-    "note": "202 (plan G-core-generalisation M2a): the call site states what the code used to infer from a request's name or fill in itself: the money request's payment-method lines. The requests sent to JEV are unchanged."
+    "note": "The call site states what the code used to infer from a request's name or fill in itself: the money request's payment-method lines. The requests sent to JEV are unchanged."
    }
   ]
  },

@@ -115,3 +115,45 @@ def test_patterns_catch_internal_information(line):
 )
 def test_patterns_leave_ordinary_text_alone(line):
     assert _hits(line) == []
+
+
+# 265 (code review DOC-17): the config files go to GitHub too; their notes (the changelog, the file's description, a
+# code-level note) describe the system, not the development process
+CONFIG_NOTE_KEYS = ("note", "_note", "notes", "description")
+INTERNAL_DOCUMENT = re.compile(r"\b(?:handoffs?|BACKLOG|ROADMAP|DECISIONS?)\b|\bbacklog [A-Z]")
+
+
+# A file whose fingerprint is kept with results: an approved reconciliation statement (its rules have changed, a note),
+# a kept AI answer or proposal (an older question), a statement read, a party proposal. Its description is part of the
+# fingerprint (the changelog is not), so it is cleaned at the file's next real change, not by itself.
+FINGERPRINT_BOUND = {"configs/reconcile.json", "configs/callsites/reconcile_line.json", "configs/statement_tables.json",
+                     "configs/gpt_quote_letter.json", "configs/rule_proposals.json", "configs/gpt_rule_proposal.json",
+                     "configs/callsites/rule_proposal.json", "configs/parties.json"}
+
+
+def _config_notes(obj, bound=False, top=True):
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if isinstance(v, str) and k in CONFIG_NOTE_KEYS:
+                if not (bound and top is None):
+                    yield v
+            else:
+                yield from _config_notes(v, bound, None if (top and k == "meta") else False)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _config_notes(v, bound, False)
+
+
+CONFIGS = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "configs").rglob("*.json"))
+
+
+@pytest.mark.parametrize("config", CONFIGS)
+def test_config_notes_have_no_internal_information(config):
+    import json
+
+    found = []
+    for note in _config_notes(json.loads((ROOT / config).read_text(encoding="utf-8")), config in FINGERPRINT_BOUND):
+        found += [f"{hit} in a note starting {note[:60]!r}" for hit in _hits(note)]
+        if INTERNAL_DOCUMENT.search(note):
+            found.append(f"internal document: {INTERNAL_DOCUMENT.search(note).group(0)!r} in {note[:80]!r}")
+    assert found == []

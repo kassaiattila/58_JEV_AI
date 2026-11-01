@@ -144,7 +144,7 @@ def catalogue() -> list[Connector]:
 def _network(limit: int) -> Transport:
     def send(url: str, body: bytes | None, headers: dict[str, str], timeout: float) -> bytes:
         request = urllib.request.Request(url, data=body, headers=headers, method="POST" if body is not None else "GET")
-        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 - a described connector's address
+        with urllib.request.urlopen(request, timeout=timeout) as response:  # a described connector's address
             return response.read(limit + 1)
 
     return send

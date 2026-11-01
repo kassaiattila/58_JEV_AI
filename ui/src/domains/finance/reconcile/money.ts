@@ -40,7 +40,7 @@ export function parseInput(text: string | null | undefined): bigint | null {
 }
 
 function readTyped(text: string | null | undefined): bigint | null {
-  const s = (text ?? "").replace(/[\s  ]/g, "");
+  const s = (text ?? "").replace(/[\s\u00a0\u202f]/g, "");
   if (!/^-?[\d.,]+$/.test(s) || !/\d/.test(s)) return null;
   if (!/[1-9]/.test(s)) return 0n;
   const hu = getLocale() === "hu-HU";

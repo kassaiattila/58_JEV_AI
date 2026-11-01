@@ -1,12 +1,17 @@
 {
   "meta": {
     "name": "case_decisions",
-    "version": "1.2.0",
-    "description": "231 (stage D, D-d4): the limits a case's decision step reads (jav/app/case_decisions.py): above a limit, the decision is made by another person than an earlier decision of the case names (the owner's decision of 2026-10-26: risk, then premium; above a premium limit the second decision is another person's). A pack's decision step names its limit; the case keeps this file as it started. limits.<name>.above: the amount (text, exact) and its currency; an amount in another currency is refused, never converted. The inv_ limits are invented for the tests and the invented product set, the az_ one a plan value of the owner's design; a live limit is the owner's decision.",
+    "version": "1.2.1",
+    "description": "The limits a case's decision step reads (jav/app/case_decisions.py): above a limit, the decision is made by another person than an earlier decision of the case names (the owner's decision of 2026-10-26: risk, then premium; above a premium limit the second decision is another person's). A pack's decision step names its limit; the case keeps this file as it started. limits.<name>.above: the amount (text, exact) and its currency; an amount in another currency is refused, never converted. The inv_ limits are invented for the tests and the invented product set, the az_ one a plan value of the owner's design; a live limit is the owner's decision.",
     "changelog": [
-      {"version": "1.2.0", "date": "2026-10-27", "note": "231 (U-A6): a plan value of the owner's design for the real corporate property product: a case whose total sum insured is above 200 000 000 HUF has its premium decided by another person than the risk."},
-      {"version": "1.1.0", "date": "2026-10-27", "note": "231 (D-g): a second invented limit, the renewal's: a premium above 100 000 HUF."},
-      {"version": "1.0.0", "date": "2026-10-26", "note": "231 (D-d4): the first version: one invented limit, a premium above 300 000 HUF."}
+      {
+        "version": "1.2.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
+      },
+      {"version": "1.2.0", "date": "2026-10-27", "note": "A plan value of the owner's design for the real corporate property product: a case whose total sum insured is above 200 000 000 HUF has its premium decided by another person than the risk."},
+      {"version": "1.1.0", "date": "2026-10-27", "note": "A second invented limit, the renewal's: a premium above 100 000 HUF."},
+      {"version": "1.0.0", "date": "2026-10-26", "note": "The first version: one invented limit, a premium above 300 000 HUF."}
     ]
   },
   "limits": {

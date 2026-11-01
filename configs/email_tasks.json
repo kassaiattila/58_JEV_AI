@@ -6,7 +6,7 @@
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "058 K5.3 (decision of 2026-09-28): the legacy 10_AIFLOW_V4/flows/email-actions-bare task proposals (prompt v1.3.0 verbatim, the action dictionary, an evidence gate in code) as a step of the email flow; only a person accepts a proposal. Unlike the legacy one, the evidence can only be the email's subject and text (the attachment's data come as separate items in the same run); the emails to archive are left out (cost)"
+    "note": "Decision of 2026-09-28: the legacy 10_AIFLOW_V4/flows/email-actions-bare task proposals (prompt v1.3.0 verbatim, the action dictionary, an evidence gate in code) as a step of the email flow; only a person accepts a proposal. Unlike the legacy one, the evidence can only be the email's subject and text (the attachment's data come as separate items in the same run); the emails to archive are left out (cost)"
    }
   ]
  },

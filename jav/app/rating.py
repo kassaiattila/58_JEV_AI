@@ -98,15 +98,11 @@ def _factor(cat: facts.Catalogue, name: str, f: Factor, unit: _Unit) -> tuple[De
     for row in f.table:
         fits = True
         for op, want in row.when.items():
-            if not rule_evaluation.holds(op, value, _typed(cat, name, d, op, want)):  # the same comparisons as the rules
+            if not rule_evaluation.holds(op, value, facts.compared_value(name, d, op, want)):  # the same comparisons as the rules
                 fits = False
         if fits:
             return row.factor, None
     return None, said("{{unit}}: no row of the {{factor}} factor takes {{value}}", unit=unit.unit_id, factor=name, value=value)
-
-
-def _typed(cat: facts.Catalogue, name: str, d: Any, op: str, want: Any) -> Any:
-    return facts.compared_value(name, d, op, want)
 
 
 def _priced(cat: facts.Catalogue, code: str, only: dict[str, dict[str, Any]], unit: _Unit) -> tuple[bool, str | None]:
@@ -116,7 +112,7 @@ def _priced(cat: facts.Catalogue, code: str, only: dict[str, dict[str, Any]], un
             return False, said("{{unit}}: the module {{module}} prices by {{fact}}, which is missing", unit=unit.unit_id,
                                module=code, fact=name)
         for op, want in condition.items():
-            if not rule_evaluation.holds(op, unit.seen[name], _typed(cat, name, cat.facts[name], op, want)):
+            if not rule_evaluation.holds(op, unit.seen[name], facts.compared_value(name, cat.facts[name], op, want)):
                 return False, None
     return True, None
 

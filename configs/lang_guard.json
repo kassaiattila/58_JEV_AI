@@ -1,18 +1,23 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.171",
-    "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
+    "version": "1.0.172",
+    "description": "Language guard (jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.172",
+        "date": "2026-11-01",
+        "note": "baseline: 5634 -> 5641 Hungarian lines in 463 files; accepted: docs/GLOSSARY.md, tests/test_decisions_265.py, tests/test_decisions_estimate_265.py"
+      },
       {
         "version": "1.0.171",
         "date": "2026-11-01",
-        "note": "baseline: 5684 -> 5686 Hungarian lines in 472 files; accepted: tests/test_decisions_265.py, tests/test_decisions_estimate_265.py"
+        "note": "baseline: 5679 -> 5634 Hungarian lines in 461 files"
       },
       {
         "version": "1.0.170",
         "date": "2026-11-01",
-        "note": "baseline: 5679 -> 5684 Hungarian lines in 470 files; accepted: docs/GLOSSARY.md"
+        "note": "The notes and the description without the development process's references; no value changes."
       },
       {
         "version": "1.0.169",
@@ -142,712 +147,712 @@
       {
         "version": "1.0.143",
         "date": "2026-10-29",
-        "note": "231 (stage F, D1): the interface's keys inverted: its own texts have English source keys, the Hungarian comes from hu-native.json; baseline: 6961 -> 6217 Hungarian lines in 471 files"
+        "note": "The interface's keys inverted: its own texts have English source keys, the Hungarian comes from hu-native.json; baseline: 6961 -> 6217 Hungarian lines in 471 files"
       },
       {
         "version": "1.0.142",
         "date": "2026-10-29",
-        "note": "231 (stage F, F3a-d): the commands, the tools and reports, the flow labels, the UI test titles, the configs' changelog notes and the SQL comments in English: 7623 -> 6961 Hungarian lines (525 -> 495 files); from this version every baseline write steps the version"
+        "note": "The commands, the tools and reports, the flow labels, the UI test titles, the configs' changelog notes and the SQL comments in English: 7623 -> 6961 Hungarian lines (525 -> 495 files); from this version every baseline write steps the version"
       },
       {
         "version": "1.0.141",
         "date": "2026-10-26",
-        "note": "231 (plan stage C, C3h): the mailbox module split verbatim with its lines (jav/domains/email/mailbox.py 18 -> 4, jav/domains/email/mailbox_bridge.py 5, jav/domains/email/email_items.py 9); 6063 unchanged."
+        "note": "The mailbox module split verbatim with its lines (jav/domains/email/mailbox.py 18 -> 4, jav/domains/email/mailbox_bridge.py 5, jav/domains/email/email_items.py 9); 6063 unchanged."
       },
       {
         "version": "1.0.140",
         "date": "2026-10-26",
-        "note": "231 (plan stage C, C3e-3): the finance domain's screens moved to its folder with the same lines (ui/src/views/UtilityReport.tsx 20, ui/src/views/bankFiles146.test.tsx 12, ui/src/views/reconcile/blockers153.test.tsx 1, fxBank149.test.tsx 3, unfit153.test.tsx 6, unfit160.test.tsx 11 -> ui/src/domains/finance/...); the Result section's Hungarian source labels moved to the views' registry (ui/src/views/ResultStage.tsx 17 -> 15, ui/src/logic/resultTables.ts 2, the utility cost's label ui/src/domains/finance/index.tsx 1); 6062 -> 6063."
+        "note": "The finance domain's screens moved to its folder with the same lines (ui/src/views/UtilityReport.tsx 20, ui/src/views/bankFiles146.test.tsx 12, ui/src/views/reconcile/blockers153.test.tsx 1, fxBank149.test.tsx 3, unfit153.test.tsx 6, unfit160.test.tsx 11 -> ui/src/domains/finance/...); the Result section's Hungarian source labels moved to the views' registry (ui/src/views/ResultStage.tsx 17 -> 15, ui/src/logic/resultTables.ts 2, the utility cost's label ui/src/domains/finance/index.tsx 1); 6062 -> 6063."
       },
       {
         "version": "1.0.139",
         "date": "2026-10-26",
-        "note": "231 (plan stage C, C3e-1): the mailbox screen moved to the email domain's folder (ui/src/views/Mailbox.tsx 40 -> ui/src/domains/email/Mailbox.tsx 37), and the Settings sections' Hungarian source labels to the sections' registry (ui/src/views/Settings.tsx 18 -> 10, ui/src/logic/settingsSections.ts 6, ui/src/domains/email/index.tsx 1); ui/src/views/DocumentsCreate.tsx (9) went in C3b5a; 6075 -> 6062."
+        "note": "The mailbox screen moved to the email domain's folder (ui/src/views/Mailbox.tsx 40 -> ui/src/domains/email/Mailbox.tsx 37), and the Settings sections' Hungarian source labels to the sections' registry (ui/src/views/Settings.tsx 18 -> 10, ui/src/logic/settingsSections.ts 6, ui/src/domains/email/index.tsx 1); ui/src/views/DocumentsCreate.tsx (9) went in C3b5a; 6075 -> 6062."
       },
       {
         "version": "1.0.138",
         "date": "2026-10-25",
-        "note": "231 (the local settings in the backup): the glossary's Hungarian column for the local settings file (docs/GLOSSARY.md 346 -> 347); merged into the C stage branch after 1.0.137; 6074 -> 6075."
+        "note": "The local settings in the backup: the glossary's Hungarian column for the local settings file (docs/GLOSSARY.md 346 -> 347); merged into the C stage branch after 1.0.137; 6074 -> 6075."
       },
       {
         "version": "1.0.137",
         "date": "2026-10-25",
-        "note": "231 (plan stage C, C1a): tests/test_quote_email_part_192.py became tests/test_email_intake_231.py (the same 2 lines of the service's Hungarian next-step label), and the user guide quotes the email offer's labels (docs/guides/USER_GUIDE.md 264 -> 265); 6073 -> 6074."
+        "note": "Tests/test_quote_email_part_192.py became tests/test_email_intake_231.py (the same 2 lines of the service's Hungarian next-step label), and the user guide quotes the email offer's labels (docs/guides/USER_GUIDE.md 264 -> 265); 6073 -> 6074."
       },
       {
         "version": "1.0.136",
         "date": "2026-10-25",
-        "note": "231 (plan stage B, B4): the glossary's Hungarian column for a process's own value and the rule value (docs/GLOSSARY.md 344 -> 346), and the user guide's Processes section quoting the interface's labels (docs/guides/USER_GUIDE.md 260 -> 264); 6067 -> 6073."
+        "note": "The glossary's Hungarian column for a process's own value and the rule value (docs/GLOSSARY.md 344 -> 346), and the user guide's Processes section quoting the interface's labels (docs/guides/USER_GUIDE.md 260 -> 264); 6067 -> 6073."
       },
       {
         "version": "1.0.135",
         "date": "2026-10-25",
-        "note": "231 (plan stage B, v1.44.0): the user guide's section on the partner register quotes the Hungarian labels of the interface (docs/guides/USER_GUIDE.md 253 -> 260); 6060 -> 6067."
+        "note": "V1.44.0: the user guide's section on the partner register quotes the Hungarian labels of the interface (docs/guides/USER_GUIDE.md 253 -> 260); 6060 -> 6067."
       },
       {
         "version": "1.0.134",
         "date": "2026-10-24",
-        "note": "231 (plan stage A, A7e): the glossary's Hungarian column for the send step, the follow-up and the handover to check (docs/GLOSSARY.md 341 -> 344); 6057 -> 6060."
+        "note": "The glossary's Hungarian column for the send step, the follow-up and the handover to check (docs/GLOSSARY.md 341 -> 344); 6057 -> 6060."
       },
       {
         "version": "1.0.133",
         "date": "2026-10-24",
-        "note": "231 (the autopilot): the Hungarian heading of the internal plans' progress section, which the autopilot hook looks for and CLAUDE.md names (document vocabulary; CLAUDE.md 4 -> 5, scripts/hooks/handoff_guard.py 17 -> 18); 6055 -> 6057."
+        "note": "The autopilot: the Hungarian heading of the internal plans' progress section, which the autopilot hook looks for and CLAUDE.md names (document vocabulary; CLAUDE.md 4 -> 5, scripts/hooks/handoff_guard.py 17 -> 18); 6055 -> 6057."
       },
       {
         "version": "1.0.132",
         "date": "2026-10-24",
-        "note": "231 (the survey and re-plan of the workflows): the glossary's Hungarian column for the capability, the screen description, the shared library and the partner register (docs/GLOSSARY.md 337 -> 341); 6051 -> 6055."
+        "note": "The survey and re-plan of the workflows: the glossary's Hungarian column for the capability, the screen description, the shared library and the partner register (docs/GLOSSARY.md 337 -> 341); 6051 -> 6055."
       },
       {
         "version": "1.0.131",
         "date": "2026-10-24",
-        "note": "229 (plan structure stage 1, SZ2c): the glossary's Hungarian column for the stable id of a person (docs/GLOSSARY.md 336 -> 337); 6050 -> 6051."
+        "note": "The glossary's Hungarian column for the stable id of a person (docs/GLOSSARY.md 336 -> 337); 6050 -> 6051."
       },
       {
         "version": "1.0.130",
         "date": "2026-10-24",
-        "note": "229 (plan structure stage 1): the glossary's Hungarian column for the guard test and the shared entrance (docs/GLOSSARY.md 334 -> 336); 6048 -> 6050."
+        "note": "The glossary's Hungarian column for the guard test and the shared entrance (docs/GLOSSARY.md 334 -> 336); 6048 -> 6050."
       },
       {
         "version": "1.0.129",
         "date": "2026-10-24",
-        "note": "224 (plan G-process-core P3d): the glossary's Hungarian column for the rule file and the rule preview (docs/GLOSSARY.md 332 -> 334); 6046 -> 6048."
+        "note": "The glossary's Hungarian column for the rule file and the rule preview (docs/GLOSSARY.md 332 -> 334); 6046 -> 6048."
       },
       {
         "version": "1.0.128",
         "date": "2026-10-24",
-        "note": "224 (plan G-process-core P3c): three lines naming the moved email rules rewritten in English (the email flow's route step note and its generated map, two consumer notes of the call-site catalogue); 6049 -> 6046."
+        "note": "Three lines naming the moved email rules rewritten in English (the email flow's route step note and its generated map, two consumer notes of the call-site catalogue); 6049 -> 6046."
       },
       {
         "version": "1.0.127",
         "date": "2026-10-23",
-        "note": "218 (plan G-process-core P3e): the glossary's Hungarian column for the rules page (docs/GLOSSARY.md 331 -> 332); 6048 -> 6049."
+        "note": "The glossary's Hungarian column for the rules page (docs/GLOSSARY.md 331 -> 332); 6048 -> 6049."
       },
       {
         "version": "1.0.126",
         "date": "2026-10-23",
-        "note": "214 (plan G-process-core P1b-2): the glossary's Hungarian column for the case adoption and the case on hold (docs/GLOSSARY.md); 6045 -> 6047."
+        "note": "The glossary's Hungarian column for the case adoption and the case on hold (docs/GLOSSARY.md); 6045 -> 6047."
       },
       {
         "version": "1.0.125",
         "date": "2026-10-23",
-        "note": "213 (plan G-process-core P1a): the glossary's Hungarian column for the event inbox, the handover record, the case claim and the result version (docs/GLOSSARY.md 324 -> 328); 6041 -> 6045."
+        "note": "The glossary's Hungarian column for the event inbox, the handover record, the case claim and the result version (docs/GLOSSARY.md 324 -> 328); 6041 -> 6045."
       },
       {
         "version": "1.0.124",
         "date": "2026-10-23",
-        "note": "212 (plan G-process-core P0): the glossary's Hungarian column for the engine trial, the plug-in point and observability (the durable workflow engine's Hungarian name has no accented letter; docs/GLOSSARY.md 321 -> 324); 6038 -> 6041."
+        "note": "The glossary's Hungarian column for the engine trial, the plug-in point and observability (the durable workflow engine's Hungarian name has no accented letter; docs/GLOSSARY.md 321 -> 324); 6038 -> 6041."
       },
       {
         "version": "1.0.123",
         "date": "2026-10-23",
-        "note": "209 (plan G-process-core R2c): the email tables left jav/core/store.py with their comments, now in English in jav/domains/email/email_store.py; its baseline drops 27 -> 19; 6046 -> 6038."
+        "note": "The email tables left jav/core/store.py with their comments, now in English in jav/domains/email/email_store.py; its baseline drops 27 -> 19; 6046 -> 6038."
       },
       {
         "version": "1.0.122",
         "date": "2026-10-23",
-        "note": "209 (plan G-process-core R2b): the models' instructions and output schemas moved from jav/prompts/ to configs/prompts/; their entries follow the path, the counts are unchanged."
+        "note": "The models' instructions and output schemas moved from jav/prompts/ to configs/prompts/; their entries follow the path, the counts are unchanged."
       },
       {
         "version": "1.0.121",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the legacy port's modules moved into jav/legacy/; every module is now in its layer's folder; the paths here follow them, nothing else changed."
+        "note": "The legacy port's modules moved into jav/legacy/; every module is now in its layer's folder; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.120",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the developer tools' modules moved into jav/devtools/; the paths here follow them, nothing else changed."
+        "note": "The developer tools' modules moved into jav/devtools/; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.119",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the measurement's modules moved into jav/evals/, with the three stand-alone tools from jav/experiments/; the paths here follow them, nothing else changed."
+        "note": "The measurement's modules moved into jav/evals/, with the three stand-alone tools from jav/experiments/; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.118",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the command line's modules moved into jav/cli/; the paths here follow them, nothing else changed."
+        "note": "The command line's modules moved into jav/cli/; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.117",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the local service's modules moved into jav/service/, the backup and the dependency audit into jav/runtime/; the paths here follow them, nothing else changed."
+        "note": "The local service's modules moved into jav/service/, the backup and the dependency audit into jav/runtime/; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.116",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the application layer's modules moved into jav/app/; the paths here follow them, nothing else changed."
+        "note": "The application layer's modules moved into jav/app/; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.115",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the flows' modules moved into jav/flows/; the paths here follow them, nothing else changed."
+        "note": "The flows' modules moved into jav/flows/; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.114",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the AI layer's modules moved into jav/ai/; the paths here follow them, nothing else changed."
+        "note": "The AI layer's modules moved into jav/ai/; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.113",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the document reading's modules moved into jav/documents/; the paths here follow them, nothing else changed."
+        "note": "The document reading's modules moved into jav/documents/; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.112",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the shared core's modules moved into jav/core/; the paths here follow them, nothing else changed."
+        "note": "The shared core's modules moved into jav/core/; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.111",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the quotes domain's modules moved into jav/domains/quotes/; the paths here follow them, nothing else changed."
+        "note": "The quotes domain's modules moved into jav/domains/quotes/; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.110",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the finance domain's modules moved into jav/domains/finance/; the paths here follow them, nothing else changed."
+        "note": "The finance domain's modules moved into jav/domains/finance/; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.109",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the email domain's modules moved into jav/domains/email/; the paths here follow them, nothing else changed."
+        "note": "The email domain's modules moved into jav/domains/email/; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.108",
         "date": "2026-10-22",
-        "note": "204 (R1g): moved, not gained - the actor and download-header helpers moved with their four lines (three comments naming a review item of 066, one naming an accented letter as an example) from jav/api.py (9 -> 5) to the new jav/service_shared.py (4); the total stays the same."
+        "note": "Moved, not gained - the actor and download-header helpers moved with their four lines (three comments naming a review item of 066, one naming an accented letter as an example) from jav/api.py (9 -> 5) to the new jav/service_shared.py (4); the total stays the same."
       },
       {
         "version": "1.0.107",
         "date": "2026-10-22",
-        "note": "204 (R1b): the baseline lowered after the experiments, the September learning branches, the long-trial scripts and their tests were archived (local tag archive/kiserletek-204): 6167 -> 6046 Hungarian lines, 490 -> 459 files."
+        "note": "The baseline lowered after the experiments, the September learning branches, the long-trial scripts and their tests were archived (local tag archive/kiserletek-204): 6167 -> 6046 Hungarian lines, 490 -> 459 files."
       },
       {
         "version": "1.0.106",
         "date": "2026-10-22",
-        "note": "204 (framework assessment): the glossary's Hungarian column for the planned process terms (process core, case, process definition, human task, blocking gate, timer, deadline and escalation, rule set, decision trace, calculation snapshot, connector, failed handover list, role and authority limit; docs/GLOSSARY.md 310 -> 321)."
+        "note": "Framework assessment: the glossary's Hungarian column for the planned process terms (process core, case, process definition, human task, blocking gate, timer, deadline and escalation, rule set, decision trace, calculation snapshot, connector, failed handover list, role and authority limit; docs/GLOSSARY.md 310 -> 321)."
       },
       {
         "version": "1.0.105",
         "date": "2026-10-22",
-        "note": "202 (plan G-core-generalisation M3c): no new Hungarian line; the interface's service client's (ui/src/api.ts, 7) moved with their code to ui/src/api/client.ts (5: the person-working messages, translation keys) and ui/src/api/system.ts (2)."
+        "note": "No new Hungarian line; the interface's service client's (ui/src/api.ts, 7) moved with their code to ui/src/api/client.ts (5: the person-working messages, translation keys) and ui/src/api/system.ts (2)."
       },
       {
         "version": "1.0.104",
         "date": "2026-10-22",
-        "note": "202 (plan G-core-generalisation M3): no new Hungarian line, only lines that moved with their code. The command line's help and messages left jav/cli.py (70) for jav/cli_options.py (1), jav/email_cli.py (6), jav/maintenance_cli.py (38) and jav/measure_cli.py (25); jav/work.py (22 -> 10) gave its recipes' (2), readiness' (5) and runs' (5) lines to jav/work_recipes.py, jav/work_readiness.py and jav/work_runs.py. Their translation is backlog N-angol B2."
+        "note": "No new Hungarian line, only lines that moved with their code. The command line's help and messages left jav/cli.py (70) for jav/cli_options.py (1), jav/email_cli.py (6), jav/maintenance_cli.py (38) and jav/measure_cli.py (25); jav/work.py (22 -> 10) gave its recipes' (2), readiness' (5) and runs' (5) lines to jav/work_recipes.py, jav/work_readiness.py and jav/work_runs.py. Their translation is a later step of the English conversion."
       },
       {
         "version": "1.0.103",
         "date": "2026-10-22",
-        "note": "202 (plan G-core-generalisation M2): the S call site test's document vocabulary (tests/test_callsite_declared_202.py, 5): the payment-method line the candidate finder recognises only in Hungarian, and an invented terms-and-conditions document's printed lines."
+        "note": "The S call site test's document vocabulary (tests/test_callsite_declared_202.py, 5): the payment-method line the candidate finder recognises only in Hungarian, and an invented terms-and-conditions document's printed lines."
       },
       {
         "version": "1.0.102",
         "date": "2026-10-22",
-        "note": "200 (the pinned JEV version): the user guide names the System page's new card by its Hungarian labels (docs/guides/USER_GUIDE.md), and its test checks the card's Hungarian wording (ui/src/jevVersion200.test.tsx, 6)."
+        "note": "The pinned JEV version: the user guide names the System page's new card by its Hungarian labels (docs/guides/USER_GUIDE.md), and its test checks the card's Hungarian wording (ui/src/jevVersion200.test.tsx, 6)."
       },
       {
         "version": "1.0.101",
         "date": "2026-10-22",
-        "note": "200: test data. The trial run's supersede offer is checked against its Hungarian UI wording (ui/src/supersedeTrial200.test.tsx, 9), as the 151/152 tests are; a ticket's printed Hungarian lines evidence its event time (tests/test_datetime_evidence_200.py, 6)."
+        "note": "Test data. The trial run's supersede offer is checked against its Hungarian UI wording (ui/src/supersedeTrial200.test.tsx, 9), as the 151/152 tests are; a ticket's printed Hungarian lines evidence its event time (tests/test_datetime_evidence_200.py, 6)."
       },
       {
         "version": "1.0.100",
         "date": "2026-10-22",
-        "note": "199 (plan 197 K2d): the glossary's Hungarian column for the five teaching terms (general data proposal, development / evaluation half, taught type, candidate pack, turning a type on / withdrawing it; docs/GLOSSARY.md 305 -> 310)."
+        "note": "The glossary's Hungarian column for the five teaching terms (general data proposal, development / evaluation half, taught type, candidate pack, turning a type on / withdrawing it; docs/GLOSSARY.md 305 -> 310)."
       },
       {
         "version": "1.0.99",
         "date": "2026-10-22",
-        "note": "197 (plan 197 K2b-c): document vocabulary and test data accepted - the taught ticket candidate's type name (configs/field_labels.json 189 -> 190), its draft's Hungarian labels and the fact names it joins (configs/type_drafts/belepo_jegy_taught.json 10), the same names in the candidate's prompt, schema and verification site made from it (jav/prompts/belepo_jegy_taught_prompt.md 9, jav/prompts/belepo_jegy_taught_schema.json 9, configs/callsites/verify_belepo_jegy_taught.json 9), the invented Hungarian labels of its tests (tests/test_type_teaching_197.py 7 -> 15); 6082 -> 6128."
+        "note": "Document vocabulary and test data accepted - the taught ticket candidate's type name (configs/field_labels.json 189 -> 190), its draft's Hungarian labels and the fact names it joins (configs/type_drafts/belepo_jegy_taught.json 10), the same names in the candidate's prompt, schema and verification site made from it (jav/prompts/belepo_jegy_taught_prompt.md 9, jav/prompts/belepo_jegy_taught_schema.json 9, configs/callsites/verify_belepo_jegy_taught.json 9), the invented Hungarian labels of its tests (tests/test_type_teaching_197.py 7 -> 15); 6082 -> 6128."
       },
       {
         "version": "1.0.98",
         "date": "2026-10-22",
-        "note": "197 (plan 197 K2a): document vocabulary and test data accepted - two Hungarian fact names the field proposal names as examples (jav/type_teaching.py 2), the invented Hungarian fact names of its tests (tests/test_type_teaching_197.py 7); 6073 -> 6082."
+        "note": "Document vocabulary and test data accepted - two Hungarian fact names the field proposal names as examples (jav/type_teaching.py 2), the invented Hungarian fact names of its tests (tests/test_type_teaching_197.py 7); 6073 -> 6082."
       },
       {
         "version": "1.0.97",
         "date": "2026-10-22",
-        "note": "197 (plan 197 K0): document vocabulary and test data accepted - the quote request's own name for a shared field and its changelog line (configs/field_labels.json 187 -> 189), the invented names of the tests of a type's own field names (tests/test_field_names_197.py 13, ui/src/fieldNames197.test.tsx 10); 6048 -> 6073."
+        "note": "Document vocabulary and test data accepted - the quote request's own name for a shared field and its changelog line (configs/field_labels.json 187 -> 189), the invented names of the tests of a type's own field names (tests/test_field_names_197.py 13, ui/src/fieldNames197.test.tsx 10); 6048 -> 6073."
       },
       {
         "version": "1.0.96",
         "date": "2026-10-22",
-        "note": "196 (plan F-Word-output W1-W3): document vocabulary and test data accepted - the built-in quote and reply letter texts (configs/quote_documents.json 25), the Hungarian letters the language estimate counts (jav/quote_document.py 1), the invented injection probe of the letter's golden set (jav/quote_letter.py 3), the invented Hungarian documents and letters of the tests (tests/test_word_output_196.py 20, tests/test_quote_document_196.py 11, tests/test_quote_letter_196.py 21); 5967 -> 6048."
+        "note": "W1-W3: document vocabulary and test data accepted - the built-in quote and reply letter texts (configs/quote_documents.json 25), the Hungarian letters the language estimate counts (jav/quote_document.py 1), the invented injection probe of the letter's golden set (jav/quote_letter.py 3), the invented Hungarian documents and letters of the tests (tests/test_word_output_196.py 20, tests/test_quote_document_196.py 11, tests/test_quote_letter_196.py 21); 5967 -> 6048."
       },
       {
         "version": "1.0.95",
         "date": "2026-10-22",
-        "note": "195 (plan G-tidy R4): moved, not gained - the two comments naming a review item of 066 moved with their endpoints from jav/api.py (11 -> 9) to jav/api_settings.py and jav/api_system.py (1 each); the total stays 5967."
+        "note": "Moved, not gained - the two comments naming a review item moved with their endpoints from jav/api.py (11 -> 9) to jav/api_settings.py and jav/api_system.py (1 each); the total stays 5967."
       },
       {
         "version": "1.0.94",
         "date": "2026-10-21",
-        "note": "192 (plan F-quote-package B6a, B6c): test data - the service's Hungarian next-step label in tests/test_quote_email_part_192.py and the invented Hungarian request list in tests/test_quote_table_part_192.py."
+        "note": "Test data - the service's Hungarian next-step label in tests/test_quote_email_part_192.py and the invented Hungarian request list in tests/test_quote_table_part_192.py."
       },
       {
         "version": "1.0.93",
         "date": "2026-10-21",
-        "note": "192 (plan F-quote-package B6a): the Hungarian name of the next step of a type that reads the email's own text too, in the service's next-step label set (jav/mailbox.py next_flow_labels; that label set is Hungarian and translated by the interface)."
+        "note": "The Hungarian name of the next step of a type that reads the email's own text too, in the service's next-step label set (jav/mailbox.py next_flow_labels; that label set is Hungarian and translated by the interface)."
       },
       {
         "version": "1.0.92",
         "date": "2026-10-21",
-        "note": "192 (plan F-quote-package B5): the Hungarian column of the quote draft, own price and line to check glossary entries (docs/GLOSSARY.md)."
+        "note": "The Hungarian column of the quote draft, own price and line to check glossary entries (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.91",
         "date": "2026-10-21",
-        "note": "191 (plan F-quote-package B3): the Hungarian column of the quote and quote package glossary entries (docs/GLOSSARY.md)."
+        "note": "The Hungarian column of the quote and quote package glossary entries (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.90",
         "date": "2026-10-21",
-        "note": "191 (plan F-quote-package B2): the Hungarian headers a price list file's columns are known by (configs/price_lists.json, document vocabulary)."
+        "note": "The Hungarian headers a price list file's columns are known by (configs/price_lists.json, document vocabulary)."
       },
       {
         "version": "1.0.89",
         "date": "2026-10-21",
-        "note": "190: the Hungarian column of the follow-up stage and text as a document glossary entries (docs/GLOSSARY.md)."
+        "note": "The Hungarian column of the follow-up stage and text as a document glossary entries (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.88",
         "date": "2026-10-21",
-        "note": "190 (plan 189 A2e, A2f): the quote request's document vocabulary (its type pack's keywords, its prompt's Hungarian terms, the detection type, the intent and the field labels) and the Hungarian labels its tests read (tests/test_quote_request_190.py, tests/test_email_text_follow_up_190.py, tests/test_evals_quotes_190.py, ui/src/listChecks190.test.ts, ui/src/emailText190.test.ts)."
+        "note": "The quote request's document vocabulary (its type pack's keywords, its prompt's Hungarian terms, the detection type, the intent and the field labels) and the Hungarian labels its tests read (tests/test_quote_request_190.py, tests/test_email_text_follow_up_190.py, tests/test_evals_quotes_190.py, ui/src/listChecks190.test.ts, ui/src/emailText190.test.ts)."
       },
       {
         "version": "1.0.87",
         "date": "2026-10-21",
-        "note": "189 (plan F-IT-quote-request A1): the invented quote requests and price list (configs/golden_quotes.json, document vocabulary and test data: 142 lines) and the Hungarian column of the quote request and price list glossary entries (docs/GLOSSARY.md)."
+        "note": "The invented quote requests and price list (configs/golden_quotes.json, document vocabulary and test data: 142 lines) and the Hungarian column of the quote request and price list glossary entries (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.86",
         "date": "2026-10-21",
-        "note": "188 (plan 185 T3a): the Hungarian column of the shared measurement command glossary entry (docs/GLOSSARY.md)."
+        "note": "The Hungarian column of the shared measurement command glossary entry (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.85",
         "date": "2026-10-21",
-        "note": "187: the Hungarian column of the decision journal glossary entry (docs/GLOSSARY.md); the task decisions' schema comment in English (jav/store.py)."
+        "note": "The Hungarian column of the decision journal glossary entry (docs/GLOSSARY.md); the task decisions' schema comment in English (jav/store.py)."
       },
       {
         "version": "1.0.84",
         "date": "2026-10-21",
-        "note": "186: the Hungarian column of the data migration glossary entry (docs/GLOSSARY.md)."
+        "note": "The Hungarian column of the data migration glossary entry (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.83",
         "date": "2026-10-20",
-        "note": "185 (plan G-full-move T1e): the email sheets' Hungarian headers and texts moved from jav/export.py to jav/email_export.py, and an email's and an attachment's titles from jav/work_views.py and jav/export.py to jav/mailbox.py (the email domain's); the total is unchanged (document and interface vocabulary)."
+        "note": "The email sheets' Hungarian headers and texts moved from jav/export.py to jav/email_export.py, and an email's and an attachment's titles from jav/work_views.py and jav/export.py to jav/mailbox.py (the email domain's); the total is unchanged (document and interface vocabulary)."
       },
       {
         "version": "1.0.82",
         "date": "2026-10-20",
-        "note": "185 (plan G-full-move T1e): an email item's intent correction moved with its Hungarian resolution note from jav/corrections.py to jav/mailbox.py (the email domain's handler); corrections lowered by the same line."
+        "note": "An email item's intent correction moved with its Hungarian resolution note from jav/corrections.py to jav/mailbox.py (the email domain's handler); corrections lowered by the same line."
       },
       {
         "version": "1.0.81",
         "date": "2026-10-20",
-        "note": "185 (plan G-full-move T1b): the tables of the finance and the email domain moved with their Hungarian column labels from jav/datasets.py to jav/finance_datasets.py and jav/email_datasets.py (interface vocabulary; datasets lowered by the same 60 lines)."
+        "note": "The tables of the finance and the email domain moved with their Hungarian column labels from jav/datasets.py to jav/finance_datasets.py and jav/email_datasets.py (interface vocabulary; datasets lowered by the same 60 lines)."
       },
       {
         "version": "1.0.80",
         "date": "2026-10-20",
-        "note": "183 (backlog N-angol-felulet-maradek): a mailbox download's label is English (\"last N days\"); jav/mailbox.py lowered by one line."
+        "note": "A mailbox download's label is English (\"last N days\"); jav/mailbox.py lowered by one line."
       },
       {
         "version": "1.0.79",
         "date": "2026-10-19",
-        "note": "181 (L5): the glossary's four new entries (Step kind, Scope, Package role, Email routing)."
+        "note": "The glossary's four new entries (Step kind, Scope, Package role, Email routing)."
       },
       {
         "version": "1.0.78",
         "date": "2026-10-19",
-        "note": "180 (plan 170 E7): the utility cost's download labels moved with their tables from jav/export.py to jav/report_utility.py (document vocabulary; export lowered by the same 11 lines), and the glossary's two new entries (Domain module, Output part)."
+        "note": "The utility cost's download labels moved with their tables from jav/export.py to jav/report_utility.py (document vocabulary; export lowered by the same 11 lines), and the glossary's two new entries (Domain module, Output part)."
       },
       {
         "version": "1.0.77",
         "date": "2026-10-19",
-        "note": "178 (L4, second round): accept the download labels the output contract's builders name (jav/export.py: the data points' and line items' headers, the package values and the grand total; document vocabulary) and the marker glossary entry (docs/GLOSSARY.md)."
+        "note": "Second round: accept the download labels the output contract's builders name (jav/export.py: the data points' and line items' headers, the package values and the grand total; document vocabulary) and the marker glossary entry (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.76",
         "date": "2026-10-19",
-        "note": "178 (L4): accept the Hungarian column of the output contract and built-in template glossary entries (docs/GLOSSARY.md)."
+        "note": "Accept the Hungarian column of the output contract and built-in template glossary entries (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.75",
         "date": "2026-10-19",
-        "note": "178 (L4): accept the Hungarian test data of tests/test_characterisation_178.py (made-up invoices, a utility bill, an email and its task, the column labels of a dataset download), so the pinned workbooks also carry accented text."
+        "note": "Accept the Hungarian test data of tests/test_characterisation_178.py (made-up invoices, a utility bill, an email and its task, the column labels of a dataset download), so the pinned workbooks also carry accented text."
       },
       {
         "version": "1.0.74",
         "date": "2026-10-19",
-        "note": "177 (E6): one more expected Hungarian label in ui/src/todoKinds177.test.ts (a value the field does not allow)."
+        "note": "One more expected Hungarian label in ui/src/todoKinds177.test.ts (a value the field does not allow)."
       },
       {
         "version": "1.0.73",
         "date": "2026-10-19",
-        "note": "177 (E6): accept the Hungarian test data of ui/src/todoKinds177.test.ts (the expected Hungarian labels of the eleven to-do kinds and of a package's origin)."
+        "note": "Accept the Hungarian test data of ui/src/todoKinds177.test.ts (the expected Hungarian labels of the eleven to-do kinds and of a package's origin)."
       },
       {
         "version": "1.0.72",
         "date": "2026-10-19",
-        "note": "177 (E6): accept the Hungarian column of the to-do kind glossary entry (docs/GLOSSARY.md)."
+        "note": "Accept the Hungarian column of the to-do kind glossary entry (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.71",
         "date": "2026-10-19",
-        "note": "177: accept the Hungarian column of the item kind and source kind glossary entries (docs/GLOSSARY.md) and the Hungarian test data of tests/test_characterisation_177.py (an email's subject and an attachment's title as the workspace shows them)."
+        "note": "Accept the Hungarian column of the item kind and source kind glossary entries (docs/GLOSSARY.md) and the Hungarian test data of tests/test_characterisation_177.py (an email's subject and an attachment's title as the workspace shows them)."
       },
       {
         "version": "1.0.70",
         "date": "2026-10-19",
-        "note": "175: accept the Hungarian column of the activity registry glossary entry (docs/GLOSSARY.md); lower jav/email_tasks.py to its current count (the duplicated task list and its Hungarian check message are gone)."
+        "note": "Accept the Hungarian column of the activity registry glossary entry (docs/GLOSSARY.md); lower jav/email_tasks.py to its current count (the duplicated task list and its Hungarian check message are gone)."
       },
       {
         "version": "1.0.69",
         "date": "2026-10-19",
-        "note": "175: accept the Hungarian column of the check registry glossary entry (docs/GLOSSARY.md); lower jav/validators.py to its current count (2 -> 1: the unknown-check error is English now)."
+        "note": "Accept the Hungarian column of the check registry glossary entry (docs/GLOSSARY.md); lower jav/validators.py to its current count (2 -> 1: the unknown-check error is English now)."
       },
       {
         "version": "1.0.68",
         "date": "2026-10-19",
-        "note": "175: accept the Hungarian column of the type role glossary entry (docs/GLOSSARY.md)."
+        "note": "Accept the Hungarian column of the type role glossary entry (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.67",
         "date": "2026-10-19",
-        "note": "174: accept the synthetic Revolut export's account title and statement heading in the reconciliation fixes' tests (tests/test_reconcile_fixes_174.py, two constants; document vocabulary)."
+        "note": "Accept the synthetic Revolut export's account title and statement heading in the reconciliation fixes' tests (tests/test_reconcile_fixes_174.py, two constants; document vocabulary)."
       },
       {
         "version": "1.0.66",
         "date": "2026-10-18",
-        "note": "173: accept the Hungarian column of the replay-from-earlier-answers glossary entry (docs/GLOSSARY.md); lower ui/src/views/ResultStage.tsx to its current count (19 -> 17)."
+        "note": "Accept the Hungarian column of the replay-from-earlier-answers glossary entry (docs/GLOSSARY.md); lower ui/src/views/ResultStage.tsx to its current count (19 -> 17)."
       },
       {
         "version": "1.0.65",
         "date": "2026-10-18",
-        "note": "171: accept the Hungarian column of the glossary entries for the package's current result, Approve and release, the released package version and its states, the command-line measurement, the before/after comparison, the logic pack, the input role and the output template (docs/GLOSSARY.md)."
+        "note": "Accept the Hungarian column of the glossary entries for the package's current result, Approve and release, the released package version and its states, the command-line measurement, the before/after comparison, the logic pack, the input role and the output template (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.64",
         "date": "2026-10-18",
-        "note": "169: accept the Hungarian column of the left-out document's glossary entry (docs/GLOSSARY.md) and the Hungarian interface labels the user guide quotes for a reconciliation package's item list, leaving documents out and adding files to another package (docs/guides/USER_GUIDE.md 5.3)."
+        "note": "Accept the Hungarian column of the left-out document's glossary entry (docs/GLOSSARY.md) and the Hungarian interface labels the user guide quotes for a reconciliation package's item list, leaving documents out and adding files to another package (docs/guides/USER_GUIDE.md 5.3)."
       },
       {
         "version": "1.0.63",
         "date": "2026-10-17",
-        "note": "168: accept the Hungarian column of the counted run's glossary entry (docs/GLOSSARY.md) and the Hungarian interface labels the user guide quotes for the package's item list and adding in three steps (docs/guides/USER_GUIDE.md 6.3, 7.9); ui/src/views/DocumentsPanel.tsx is gone (the shared item list is ui/src/views/PackageItems.tsx, in English)."
+        "note": "Accept the Hungarian column of the counted run's glossary entry (docs/GLOSSARY.md) and the Hungarian interface labels the user guide quotes for the package's item list and adding in three steps (docs/guides/USER_GUIDE.md 6.3, 7.9); ui/src/views/DocumentsPanel.tsx is gone (the shared item list is ui/src/views/PackageItems.tsx, in English)."
       },
       {
         "version": "1.0.62",
         "date": "2026-10-17",
-        "note": "167: accept the Hungarian sheet and column names the email run's Excel test checks (tests/test_email_export_167.py, document vocabulary); the baseline is lowered to the current counts after the fix round (the AI, runtime and test fixes moved lines to English)."
+        "note": "Accept the Hungarian sheet and column names the email run's Excel test checks (tests/test_email_export_167.py, document vocabulary); the baseline is lowered to the current counts after the fix round (the AI, runtime and test fixes moved lines to English)."
       },
       {
         "version": "1.0.61",
         "date": "2026-10-17",
-        "note": "167: accept the Hungarian interface label the user guide quotes for a live run that cannot be approved (docs/guides/USER_GUIDE.md 8)."
+        "note": "Accept the Hungarian interface label the user guide quotes for a live run that cannot be approved (docs/guides/USER_GUIDE.md 8)."
       },
       {
         "version": "1.0.60",
         "date": "2026-10-17",
-        "note": "167: accept the Hungarian interface texts the review panel's new tests check (ui/src/fieldVerdict083.test.tsx: a to-do listed once, a corrected field without the machine's confidence; ui/src/layout.test.tsx: the result tab of a stopped live run)."
+        "note": "Accept the Hungarian interface texts the review panel's new tests check (ui/src/fieldVerdict083.test.tsx: a to-do listed once, a corrected field without the machine's confidence; ui/src/layout.test.tsx: the result tab of a stopped live run)."
       },
       {
         "version": "1.0.59",
         "date": "2026-10-17",
-        "note": "167: accept the Hungarian label of the settled to-dos result quoted in the changelog of configs/datasets.json (interface vocabulary)."
+        "note": "Accept the Hungarian label of the settled to-dos result quoted in the changelog of configs/datasets.json (interface vocabulary)."
       },
       {
         "version": "1.0.58",
         "date": "2026-10-17",
-        "note": "167: accept the Hungarian interface labels the user guide quotes for adding documents at the top of Processing (docs/guides/USER_GUIDE.md 6.3); ui/src/views/WorkpackageDetail.tsx has one Hungarian line fewer (the document list's title is English now)."
+        "note": "Accept the Hungarian interface labels the user guide quotes for adding documents at the top of Processing (docs/guides/USER_GUIDE.md 6.3); ui/src/views/WorkpackageDetail.tsx has one Hungarian line fewer (the document list's title is English now)."
       },
       {
         "version": "1.0.57",
         "date": "2026-10-16",
-        "note": "158: accept the Hungarian column of the kind of incoming money glossary entry (docs/GLOSSARY.md)."
+        "note": "Accept the Hungarian column of the kind of incoming money glossary entry (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.56",
         "date": "2026-10-13",
-        "note": "153 (review, second round): accept the Hungarian texts the interface tests of the review's remaining items check."
+        "note": "Review, second round: accept the Hungarian texts the interface tests of the review's remaining items check."
       },
       {
         "version": "1.0.55",
         "date": "2026-10-13",
-        "note": "153: accept the Hungarian texts the interface test of the pairings that no longer fit and of the unregistered own account checks (ui/src/views/reconcile/unfit153.test.tsx), the user guide's Hungarian label of that mark (docs/guides/USER_GUIDE.md), and the Erste rate label a hostile-input test reads (tests/test_statement_hostile_153.py; document vocabulary)."
+        "note": "Accept the Hungarian texts the interface test of the pairings that no longer fit and of the unregistered own account checks (ui/src/views/reconcile/unfit153.test.tsx), the user guide's Hungarian label of that mark (docs/guides/USER_GUIDE.md), and the Erste rate label a hostile-input test reads (tests/test_statement_hostile_153.py; document vocabulary)."
       },
       {
         "version": "1.0.54",
         "date": "2026-10-13",
-        "note": "153: accept the Hungarian texts the interface test of the package list's refresh, its older-runs link and the supersede warnings checks (ui/src/listRefresh153.test.tsx)."
+        "note": "Accept the Hungarian texts the interface test of the package list's refresh, its older-runs link and the supersede warnings checks (ui/src/listRefresh153.test.tsx)."
       },
       {
         "version": "1.0.53",
         "date": "2026-10-12",
-        "note": "152: accept the Hungarian translations the interface test of the package's superseding offer checks (ui/src/supersedePackage152.test.tsx)."
+        "note": "Accept the Hungarian translations the interface test of the package's superseding offer checks (ui/src/supersedePackage152.test.tsx)."
       },
       {
         "version": "1.0.52",
         "date": "2026-10-12",
-        "note": "151: accept the outgoing invoice's S path questions, whose glossary and instructions quote the Hungarian labels printed on the invoices (configs/callsites/select_invoice_out.json, document vocabulary), and the eight invented Hungarian and English outgoing invoices of the synthetic golden set (configs/golden_synthetic.json, test data)."
+        "note": "Accept the outgoing invoice's S path questions, whose glossary and instructions quote the Hungarian labels printed on the invoices (configs/callsites/select_invoice_out.json, document vocabulary), and the eight invented Hungarian and English outgoing invoices of the synthetic golden set (configs/golden_synthetic.json, test data)."
       },
       {
         "version": "1.0.51",
         "date": "2026-10-12",
-        "note": "151: accept the Hungarian column of the glossary entry of superseding a run (docs/GLOSSARY.md), the Hungarian interface label the user guide quotes for it (docs/guides/USER_GUIDE.md) and the Hungarian translations the superseding interface test checks (ui/src/supersedeRuns151.test.tsx)."
+        "note": "Accept the Hungarian column of the glossary entry of superseding a run (docs/GLOSSARY.md), the Hungarian interface label the user guide quotes for it (docs/guides/USER_GUIDE.md) and the Hungarian translations the superseding interface test checks (ui/src/supersedeRuns151.test.tsx)."
       },
       {
         "version": "1.0.50",
         "date": "2026-10-12",
-        "note": "150: accept the Hungarian caption of the next step after a trial with to-dos (jav/work_views.py; the interface translates from the code) and the Hungarian text the two trial to-do tests check (tests/test_trial_todos_150.py, ui/src/trialTodos150.test.tsx)."
+        "note": "Accept the Hungarian caption of the next step after a trial with to-dos (jav/work_views.py; the interface translates from the code) and the Hungarian text the two trial to-do tests check (tests/test_trial_todos_150.py, ui/src/trialTodos150.test.tsx)."
       },
       {
         "version": "1.0.49",
         "date": "2026-10-12",
-        "note": "149: accept the Hungarian text the direction-mismatch interface test checks (ui/src/detailDirection149.test.tsx)."
+        "note": "Accept the Hungarian text the direction-mismatch interface test checks (ui/src/detailDirection149.test.tsx)."
       },
       {
         "version": "1.0.48",
         "date": "2026-10-12",
-        "note": "149: accept the user guide's quoted Hungarian labels of a converted bank pair and the interface test checking them (ui/src/views/reconcile/fxBank149.test.tsx)."
+        "note": "Accept the user guide's quoted Hungarian labels of a converted bank pair and the interface test checking them (ui/src/views/reconcile/fxBank149.test.tsx)."
       },
       {
         "version": "1.0.47",
         "date": "2026-10-12",
-        "note": "149: accept the Hungarian text the sent-message interface test checks (ui/src/review/sentMail149.test.tsx) and the accented company name the memoised normaliser is tested on (tests/test_quick_review_speed_149.py)."
+        "note": "Accept the Hungarian text the sent-message interface test checks (ui/src/review/sentMail149.test.tsx) and the accented company name the memoised normaliser is tested on (tests/test_quick_review_speed_149.py)."
       },
       {
         "version": "1.0.46",
         "date": "2026-10-12",
-        "note": "149: accept the user guide's quoted Hungarian label of a sent message (docs/guides/USER_GUIDE.md)."
+        "note": "Accept the user guide's quoted Hungarian label of a sent message (docs/guides/USER_GUIDE.md)."
       },
       {
         "version": "1.0.45",
         "date": "2026-10-12",
-        "note": "148: accept the Hungarian column of the incoming money glossary entry (docs/GLOSSARY.md)."
+        "note": "Accept the Hungarian column of the incoming money glossary entry (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.44",
         "date": "2026-10-12",
-        "note": "147: accept the Hungarian column of the invoice direction glossary entry (docs/GLOSSARY.md)."
+        "note": "Accept the Hungarian column of the invoice direction glossary entry (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.43",
         "date": "2026-10-12",
-        "note": "147: accept the quick review's Hungarian words: the Hungarian column of its glossary entry (docs/GLOSSARY.md), the interface labels the user guide quotes for it (docs/guides/USER_GUIDE.md 5.3), the Hungarian memos the AI's new salary kind gives as examples (configs/callsites/reconcile_line.json, document vocabulary) and the statement memos the salary rule's tests read (tests/test_reconcile_review_147.py)."
+        "note": "Accept the quick review's Hungarian words: the Hungarian column of its glossary entry (docs/GLOSSARY.md), the interface labels the user guide quotes for it (docs/guides/USER_GUIDE.md 5.3), the Hungarian memos the AI's new salary kind gives as examples (configs/callsites/reconcile_line.json, document vocabulary) and the statement memos the salary rule's tests read (tests/test_reconcile_review_147.py)."
       },
       {
         "version": "1.0.42",
         "date": "2026-10-12",
-        "note": "147: accept the Hungarian translations of the workflow step notes the interface test checks (ui/src/views/workflows/repeat147.test.tsx)."
+        "note": "Accept the Hungarian translations of the workflow step notes the interface test checks (ui/src/views/workflows/repeat147.test.tsx)."
       },
       {
         "version": "1.0.41",
         "date": "2026-10-12",
-        "note": "147: accept the Hungarian interface labels the user guide quotes for repeating a workflow for the next period (docs/guides/USER_GUIDE.md 4.1)."
+        "note": "Accept the Hungarian interface labels the user guide quotes for repeating a workflow for the next period (docs/guides/USER_GUIDE.md 4.1)."
       },
       {
         "version": "1.0.40",
         "date": "2026-10-11",
-        "note": "146: accept the Hungarian interface labels the user guide quotes for the new work wizard and the workflows (docs/guides/USER_GUIDE.md 4, 4.1)."
+        "note": "Accept the Hungarian interface labels the user guide quotes for the new work wizard and the workflows (docs/guides/USER_GUIDE.md 4, 4.1)."
       },
       {
         "version": "1.0.39",
         "date": "2026-10-11",
-        "note": "146: the documents form moved out of the new work package form into its own file (ui/src/views/DocumentsCreate.tsx) with its Hungarian source labels; ui/src/views/Workpackages.tsx has them no more."
+        "note": "The documents form moved out of the new work package form into its own file (ui/src/views/DocumentsCreate.tsx) with its Hungarian source labels; ui/src/views/Workpackages.tsx has them no more."
       },
       {
         "version": "1.0.38",
         "date": "2026-10-11",
-        "note": "146: accept the Hungarian column of the three workflow glossary entries (docs/GLOSSARY.md)."
+        "note": "Accept the Hungarian column of the three workflow glossary entries (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.37",
         "date": "2026-10-11",
-        "note": "146: accept the printed title of the CIB credit card statement, as the bank prints it, in the bank files catalogue (configs/bank_files.json) and its generated document (docs/BANK_FILES.md), the Hungarian column of two glossary entries (docs/GLOSSARY.md), the Hungarian interface labels the user guide quotes for the bank files list (docs/guides/USER_GUIDE.md), the readers' Hungarian document vocabulary in the catalogue's tests (tests/test_bank_files_146.py) and the Hungarian translations the interface test checks (ui/src/views/bankFiles146.test.tsx); jav/cli.py has one Hungarian line fewer (the docs command's help is English now)."
+        "note": "Accept the printed title of the CIB credit card statement, as the bank prints it, in the bank files catalogue (configs/bank_files.json) and its generated document (docs/BANK_FILES.md), the Hungarian column of two glossary entries (docs/GLOSSARY.md), the Hungarian interface labels the user guide quotes for the bank files list (docs/guides/USER_GUIDE.md), the readers' Hungarian document vocabulary in the catalogue's tests (tests/test_bank_files_146.py) and the Hungarian translations the interface test checks (ui/src/views/bankFiles146.test.tsx); jav/cli.py has one Hungarian line fewer (the docs command's help is English now)."
       },
       {
         "version": "1.0.36",
         "date": "2026-10-11",
-        "note": "145: accept the Hungarian column of five glossary entries of the reconciliation result (docs/GLOSSARY.md), the Hungarian interface labels the user guide quotes for the Result stage (docs/guides/USER_GUIDE.md), and the Hungarian sheet and column names the result tests check in the Excel download (tests/test_reconcile_statement_145.py)."
+        "note": "Accept the Hungarian column of five glossary entries of the reconciliation result (docs/GLOSSARY.md), the Hungarian interface labels the user guide quotes for the Result stage (docs/guides/USER_GUIDE.md), and the Hungarian sheet and column names the result tests check in the Excel download (tests/test_reconcile_statement_145.py)."
       },
       {
         "version": "1.0.35",
         "date": "2026-10-11",
-        "note": "145: accept the Hungarian labels of the reconciliation statement's Excel download (configs/reports.json reconcile_statement; display vocabulary, like the field names)."
+        "note": "Accept the Hungarian labels of the reconciliation statement's Excel download (configs/reports.json reconcile_statement; display vocabulary, like the field names)."
       },
       {
         "version": "1.0.34",
         "date": "2026-10-11",
-        "note": "144: accept the Hungarian names of the statement line's new columns (configs/field_labels.json) and the Hungarian bank texts of the new reader tests' synthetic statements (tests/test_statement_fields_144.py)."
+        "note": "Accept the Hungarian names of the statement line's new columns (configs/field_labels.json) and the Hungarian bank texts of the new reader tests' synthetic statements (tests/test_statement_fields_144.py)."
       },
       {
         "version": "1.0.33",
         "date": "2026-10-11",
-        "note": "144: accept the statement readers' new Hungarian document vocabulary (the CIB, Erste and Revolut labels and patterns, configs/statement_tables.json) and the Hungarian column of three glossary entries (docs/GLOSSARY.md)."
+        "note": "Accept the statement readers' new Hungarian document vocabulary (the CIB, Erste and Revolut labels and patterns, configs/statement_tables.json) and the Hungarian column of three glossary entries (docs/GLOSSARY.md)."
       },
       {
         "version": "1.0.32",
         "date": "2026-10-11",
-        "note": "144: accept the Hungarian interface labels the user guide quotes for the documents' statement pane (docs/guides/USER_GUIDE.md)."
+        "note": "Accept the Hungarian interface labels the user guide quotes for the documents' statement pane (docs/guides/USER_GUIDE.md)."
       },
       {
         "version": "1.0.31",
         "date": "2026-10-11",
-        "note": "143: accept the Hungarian column of the glossary entry of the pairing page's finder and the Hungarian interface labels the user guide quotes for it (docs/GLOSSARY.md, docs/guides/USER_GUIDE.md)."
+        "note": "Accept the Hungarian column of the glossary entry of the pairing page's finder and the Hungarian interface labels the user guide quotes for it (docs/GLOSSARY.md, docs/guides/USER_GUIDE.md)."
       },
       {
         "version": "1.0.30",
         "date": "2026-10-11",
-        "note": "142: accept the Hungarian column of the four new glossary entries of the pairing page's cards (card, payment delay, overdue with no payment found, possible double payment) and the Hungarian interface labels the user guide quotes for the cards (docs/GLOSSARY.md, docs/guides/USER_GUIDE.md)."
+        "note": "Accept the Hungarian column of the four new glossary entries of the pairing page's cards (card, payment delay, overdue with no payment found, possible double payment) and the Hungarian interface labels the user guide quotes for the cards (docs/GLOSSARY.md, docs/guides/USER_GUIDE.md)."
       },
       {
         "version": "1.0.29",
         "date": "2026-10-11",
-        "note": "141: accept the bank vocabulary of the CIB card statement profile and of the Erste camt.053 transaction code texts (configs/statement_tables.json), the Hungarian column of the glossary entry of the bank's XML statement (docs/GLOSSARY.md), and the synthetic card and camt.053 statement lines the readers' tests build (tests/test_statement_cib_141.py, tests/test_statement_camt_141.py). All other file limits are unchanged."
+        "note": "Accept the bank vocabulary of the CIB card statement profile and of the Erste camt.053 transaction code texts (configs/statement_tables.json), the Hungarian column of the glossary entry of the bank's XML statement (docs/GLOSSARY.md), and the synthetic card and camt.053 statement lines the readers' tests build (tests/test_statement_cib_141.py, tests/test_statement_camt_141.py). All other file limits are unchanged."
       },
       {
         "version": "1.0.28",
         "date": "2026-10-11",
-        "note": "141: accept the Hungarian column of the two new glossary entries (combined payment, credit note; docs/GLOSSARY.md) and the invoice date labels a test of the two-digit-year dates quotes as document vocabulary (tests/test_reconcile_141.py). All other file limits are unchanged."
+        "note": "Accept the Hungarian column of the two new glossary entries (combined payment, credit note; docs/GLOSSARY.md) and the invoice date labels a test of the two-digit-year dates quotes as document vocabulary (tests/test_reconcile_141.py). All other file limits are unchanged."
       },
       {
         "version": "1.0.27",
         "date": "2026-10-11",
-        "note": "141: accept the CIB statement vocabulary of the new text profile (configs/statement_tables.json: the header labels, table header and memo labels as the bank prints them) and the synthetic CIB statement lines the reader's tests build (tests/test_statement_cib_141.py). All other file limits are unchanged."
+        "note": "Accept the CIB statement vocabulary of the new text profile (configs/statement_tables.json: the header labels, table header and memo labels as the bank prints them) and the synthetic CIB statement lines the reader's tests build (tests/test_statement_cib_141.py). All other file limits are unchanged."
       },
       {
         "version": "1.0.26",
         "date": "2026-10-10",
-        "note": "140: accept the Hungarian interface name of the category suggestion in the user guide (docs/guides/USER_GUIDE.md section 5.3) and the Revolut and Erste category names the category suggestion's tests quote as document vocabulary (tests/test_category_marks_140.py). All other file limits are unchanged."
+        "note": "Accept the Hungarian interface name of the category suggestion in the user guide (docs/guides/USER_GUIDE.md section 5.3) and the Revolut and Erste category names the category suggestion's tests quote as document vocabulary (tests/test_category_marks_140.py). All other file limits are unchanged."
       },
       {
         "version": "1.0.25",
         "date": "2026-10-10",
-        "note": "140: accept the Hungarian interface names quoted in italics in the user guide's passages on the new create form (the goal first) and the statement package (docs/guides/USER_GUIDE.md sections 4 and 5.4), and the synthetic Hungarian PDF statement lines the statement package's tests build (tests/test_statement_package_140.py). All other file limits are unchanged."
+        "note": "Accept the Hungarian interface names quoted in italics in the user guide's passages on the new create form (the goal first) and the statement package (docs/guides/USER_GUIDE.md sections 4 and 5.4), and the synthetic Hungarian PDF statement lines the statement package's tests build (tests/test_statement_package_140.py). All other file limits are unchanged."
       },
       {
         "version": "1.0.24",
         "date": "2026-10-10",
-        "note": "139: accept the Hungarian column of two new glossary terms (valid statement, replaced statement) and the Hungarian interface names in the user guide's passages on the statements of the same days, the replaced mark of the month view and the decisions not carried over. All other file limits are unchanged."
+        "note": "Accept the Hungarian column of two new glossary terms (valid statement, replaced statement) and the Hungarian interface names in the user guide's passages on the statements of the same days, the replaced mark of the month view and the decisions not carried over. All other file limits are unchanged."
       },
       {
         "version": "1.0.23",
         "date": "2026-10-10",
-        "note": "139: accept the Hungarian interface name of the new reset button for column widths in the user guide (docs/guides/USER_GUIDE.md). All other file limits are unchanged."
+        "note": "Accept the Hungarian interface name of the new reset button for column widths in the user guide (docs/guides/USER_GUIDE.md). All other file limits are unchanged."
       },
       {
         "version": "1.0.22",
         "date": "2026-10-10",
-        "note": "138: accept the Hungarian column of three new glossary terms (registered account or card, data status by month, balance break) and the Hungarian interface names in the user guide's passages on registered accounts and the monthly data status. All other file limits are unchanged."
+        "note": "Accept the Hungarian column of three new glossary terms (registered account or card, data status by month, balance break) and the Hungarian interface names in the user guide's passages on registered accounts and the monthly data status. All other file limits are unchanged."
       },
       {
         "version": "1.0.21",
         "date": "2026-10-10",
-        "note": "137: accept the Hungarian interface names of a statement line's two new columns, the original amount and currency of a card purchase (configs/field_labels.json). All other file limits are unchanged."
+        "note": "Accept the Hungarian interface names of a statement line's two new columns, the original amount and currency of a card purchase (configs/field_labels.json). All other file limits are unchanged."
       },
       {
         "version": "1.0.20",
         "date": "2026-10-10",
-        "note": "137: accept the document vocabulary of the Erste ledger profile (the column headers of the XML export and the labels and patterns of its PDF statement, configs/statement_tables.json) and the synthetic Hungarian export and PDF lines the reader's tests build (tests/test_statement_erste_137.py). All other file limits are unchanged."
+        "note": "Accept the document vocabulary of the Erste ledger profile (the column headers of the XML export and the labels and patterns of its PDF statement, configs/statement_tables.json) and the synthetic Hungarian export and PDF lines the reader's tests build (tests/test_statement_erste_137.py). All other file limits are unchanged."
       },
       {
         "version": "1.0.19",
         "date": "2026-10-10",
-        "note": "136: accept the Hungarian column of the new glossary entry (the statement from a table, docs/GLOSSARY.md) and the Hungarian names of the new work package source in the user guide (docs/guides/USER_GUIDE.md); accept the document vocabulary of the tabular statement profiles (the column headers, account labels and total row of the Hungarian Revolut export, configs/statement_tables.json) and the synthetic Hungarian export the reader's tests build (tests/test_statement_table_136.py, tests/test_flow_statement_table_136.py). All other file limits are unchanged."
+        "note": "Accept the Hungarian column of the new glossary entry (the statement from a table, docs/GLOSSARY.md) and the Hungarian names of the new work package source in the user guide (docs/guides/USER_GUIDE.md); accept the document vocabulary of the tabular statement profiles (the column headers, account labels and total row of the Hungarian Revolut export, configs/statement_tables.json) and the synthetic Hungarian export the reader's tests build (tests/test_statement_table_136.py, tests/test_flow_statement_table_136.py). All other file limits are unchanged."
       },
       {
         "version": "1.0.18",
         "date": "2026-10-10",
-        "note": "135: accept the Hungarian names of the pairing page's filter controls in the user guide (docs/guides/USER_GUIDE.md). All other file limits are unchanged."
+        "note": "Accept the Hungarian names of the pairing page's filter controls in the user guide (docs/guides/USER_GUIDE.md). All other file limits are unchanged."
       },
       {
         "version": "1.0.17",
         "date": "2026-10-10",
-        "note": "135: accept the Hungarian column of the partner, earlier reason and invoice expected glossary entries (docs/GLOSSARY.md) and the Hungarian names of two new pairing page controls in the user guide (docs/guides/USER_GUIDE.md). All other file limits are unchanged."
+        "note": "Accept the Hungarian column of the partner, earlier reason and invoice expected glossary entries (docs/GLOSSARY.md) and the Hungarian names of two new pairing page controls in the user guide (docs/guides/USER_GUIDE.md). All other file limits are unchanged."
       },
       {
         "version": "1.0.16",
         "date": "2026-10-10",
-        "note": "134: accept the Hungarian column of the two new glossary entries of the AI pre-matching (the AI proposal and the kind of payment, docs/GLOSSARY.md). All other file limits are unchanged."
+        "note": "Accept the Hungarian column of the two new glossary entries of the AI pre-matching (the AI proposal and the kind of payment, docs/GLOSSARY.md). All other file limits are unchanged."
       },
       {
         "version": "1.0.15",
         "date": "2026-10-10",
-        "note": "134: accept the Hungarian column of the three new glossary entries of the pre-matching (the reference number, the loose name match and a candidate's strength, docs/GLOSSARY.md). All other file limits are unchanged."
+        "note": "Accept the Hungarian column of the three new glossary entries of the pre-matching (the reference number, the loose name match and a candidate's strength, docs/GLOSSARY.md). All other file limits are unchanged."
       },
       {
         "version": "1.0.14",
         "date": "2026-10-10",
-        "note": "133: accept the Hungarian interface labels quoted in italics in the user guide's new section on the own parties (Settings, docs/guides/USER_GUIDE.md section 10.3) and in the reconciliation package's section on choosing the party and the other parties' invoices (sections 4 and 5.3), as in the rest of the guide. All other file limits are unchanged."
+        "note": "Accept the Hungarian interface labels quoted in italics in the user guide's new section on the own parties (Settings, docs/guides/USER_GUIDE.md section 10.3) and in the reconciliation package's section on choosing the party and the other parties' invoices (sections 4 and 5.3), as in the rest of the guide. All other file limits are unchanged."
       },
       {
         "version": "1.0.13",
         "date": "2026-10-10",
-        "note": "133: accept the Hungarian column of the three new glossary entries of the own parties (the own party, the name variant and the dismissed identity, docs/GLOSSARY.md). All other file limits are unchanged."
+        "note": "Accept the Hungarian column of the three new glossary entries of the own parties (the own party, the name variant and the dismissed identity, docs/GLOSSARY.md). All other file limits are unchanged."
       },
       {
         "version": "1.0.12",
         "date": "2026-10-10",
-        "note": "132 E2: accept the Hungarian interface labels quoted in italics in the user guide's new section on the reconciliation package (the stages, filters, buttons and reasons a person sees, docs/guides/USER_GUIDE.md section 5.3), as in the rest of the guide, and the Hungarian column of the two new glossary entries (the pairing and the selection bar, docs/GLOSSARY.md). All other file limits are unchanged."
+        "note": "Accept the Hungarian interface labels quoted in italics in the user guide's new section on the reconciliation package (the stages, filters, buttons and reasons a person sees, docs/guides/USER_GUIDE.md section 5.3), as in the rest of the guide, and the Hungarian column of the two new glossary entries (the pairing and the selection bar, docs/GLOSSARY.md). All other file limits are unchanged."
       },
       {
         "version": "1.0.11",
         "date": "2026-10-09",
-        "note": "131 E1: accept the Hungarian column of the three new glossary entries of the reconciliation package (the package, the allocation and the needs-no-invoice mark, docs/GLOSSARY.md). All other file limits are unchanged."
+        "note": "Accept the Hungarian column of the three new glossary entries of the reconciliation package (the package, the allocation and the needs-no-invoice mark, docs/GLOSSARY.md). All other file limits are unchanged."
       },
       {
         "version": "1.0.10",
         "date": "2026-10-09",
-        "note": "131: accept the reconciliation's new golden cases (the payment method and the purchase line of an invented cheque bill and card statement as document vocabulary, configs/golden_reconcile.json) and the Hungarian column of the three new glossary entries (the payment method, the same amount alone and the learnt name, docs/GLOSSARY.md). All other file limits are unchanged."
+        "note": "Accept the reconciliation's new golden cases (the payment method and the purchase line of an invented cheque bill and card statement as document vocabulary, configs/golden_reconcile.json) and the Hungarian column of the three new glossary entries (the payment method, the same amount alone and the learnt name, docs/GLOSSARY.md). All other file limits are unchanged."
       },
       {
         "version": "1.0.9",
         "date": "2026-10-09",
-        "note": "130: accept the Hungarian column of the three new glossary entries of the card payments in another currency (the MNB exchange rate, the converted amount and the card payment band, docs/GLOSSARY.md). All other file limits are unchanged."
+        "note": "Accept the Hungarian column of the three new glossary entries of the card payments in another currency (the MNB exchange rate, the converted amount and the card payment band, docs/GLOSSARY.md). All other file limits are unchanged."
       },
       {
         "version": "1.0.8",
         "date": "2026-10-08",
-        "note": "129: accept document vocabulary of the party-name tail rule - the Hungarian words for a partner and a branch and the Polish word for a partnership in the candidate finder's name-continuation pattern (jav/candidates.py), and the invented Hungarian and Polish company names of its test (tests/test_name_tail_129.py). All other file limits are unchanged."
+        "note": "Accept document vocabulary of the party-name tail rule - the Hungarian words for a partner and a branch and the Polish word for a partnership in the candidate finder's name-continuation pattern (jav/candidates.py), and the invented Hungarian and Polish company names of its test (tests/test_name_tail_129.py). All other file limits are unchanged."
       },
       {
         "version": "1.0.7",
         "date": "2026-10-08",
-        "note": "129: accept the Hungarian column of the new glossary entry for a person's reconciliation decision (docs/GLOSSARY.md). All other file limits are unchanged."
+        "note": "Accept the Hungarian column of the new glossary entry for a person's reconciliation decision (docs/GLOSSARY.md). All other file limits are unchanged."
       },
       {
         "version": "1.0.6",
         "date": "2026-10-08",
-        "note": "128: accept the reconciliation's golden cases (a Hungarian bank fee line and memo word as document vocabulary, configs/golden_reconcile.json) and the four new glossary entries' Hungarian column (docs/GLOSSARY.md). All other file limits are unchanged."
+        "note": "Accept the reconciliation's golden cases (a Hungarian bank fee line and memo word as document vocabulary, configs/golden_reconcile.json) and the four new glossary entries' Hungarian column (docs/GLOSSARY.md). All other file limits are unchanged."
       },
       {
         "version": "1.0.5",
         "date": "2026-10-08",
-        "note": "127: accept the new round-B data files, which the check saw only once they were committed: the invented golden documents (configs/golden_synthetic.json) and the synthetic test lines of three tests; and the legal-form adjectives of the candidate finder (jav/candidates.py). All other file limits are unchanged."
+        "note": "Accept the new round-B data files, which the check saw only once they were committed: the invented golden documents (configs/golden_synthetic.json) and the synthetic test lines of three tests; and the legal-form adjectives of the candidate finder (jav/candidates.py). All other file limits are unchanged."
       },
       {
         "version": "1.0.4",
         "date": "2026-10-08",
-        "note": "127: accept document vocabulary in the round-B changes - the credit-note, buyer and street words of the candidate patterns (jav/candidates.py), the credit-note glossary line of the Hungarian selection questions (select.json), the pro forma and invoice titles of the type registry (doc_types.json) - and the Hungarian words of three new glossary entries; the data guard config lost six Hungarian lines. All other file limits are unchanged."
+        "note": "Accept document vocabulary in the round-B changes - the credit-note, buyer and street words of the candidate patterns (jav/candidates.py), the credit-note glossary line of the Hungarian selection questions (select.json), the pro forma and invoice titles of the type registry (doc_types.json) - and the Hungarian words of three new glossary entries; the data guard config lost six Hungarian lines. All other file limits are unchanged."
       },
       {
         "version": "1.0.3",
         "date": "2026-10-07",
-        "note": "126: accept the Hungarian word of the new glossary entry (modified version) and the Hungarian interface labels quoted in the user guide's duplicate-invoice text; English definitions and all other file limits are unchanged (the utility report view shrank by one)."
+        "note": "Accept the Hungarian word of the new glossary entry (modified version) and the Hungarian interface labels quoted in the user guide's duplicate-invoice text; English definitions and all other file limits are unchanged (the utility report view shrank by one)."
       },
       {
         "version": "1.0.2",
         "date": "2026-10-07",
-        "note": "124: accept the Hungarian word of the new glossary entry for the taken-over Azure recognition; English definitions and all other file limits are unchanged."
+        "note": "Accept the Hungarian word of the new glossary entry for the taken-over Azure recognition; English definitions and all other file limits are unchanged."
       },
       {
         "version": "1.0.1",
@@ -857,7 +862,7 @@
       {
         "version": "1.0.0",
         "date": "2026-09-30",
-        "note": "073: first version; baseline taken after the documentation step (A) of the English conversion."
+        "note": "First version; baseline taken after the documentation step (A) of the English conversion."
       }
     ]
   },
@@ -866,8 +871,6 @@
   ],
   "baseline": {
     ".claude/settings.json": 5,
-    ".gitattributes": 1,
-    ".gitignore": 13,
     "CHANGELOG.md": 3,
     "CLAUDE.md": 5,
     "configs/bank_files.json": 1,
@@ -877,7 +880,7 @@
     "configs/callsites/select_altalanos_szerzodesi_feltetelek.json": 6,
     "configs/callsites/select_foreign.json": 24,
     "configs/callsites/select_invoice_out.json": 25,
-    "configs/callsites/select_utility.json": 84,
+    "configs/callsites/select_utility.json": 83,
     "configs/callsites/verify.json": 15,
     "configs/callsites/verify_altalanos_szerzodesi_feltetelek.json": 2,
     "configs/callsites/verify_belepo_jegy_taught.json": 9,
@@ -888,9 +891,9 @@
     "configs/callsites/verify_quote_request.json": 2,
     "configs/callsites/verify_utility.json": 35,
     "configs/candidate_profiles.json": 32,
-    "configs/data_guard.json": 11,
+    "configs/data_guard.json": 10,
     "configs/datasets.json": 1,
-    "configs/doc_types.json": 205,
+    "configs/doc_types.json": 204,
     "configs/email_tasks.json": 7,
     "configs/example_mailboxes.json": 10,
     "configs/example_parties.json": 11,
@@ -898,7 +901,7 @@
     "configs/examples_bank_statements.json": 4,
     "configs/examples_documents.json": 185,
     "configs/examples_property_documents.json": 287,
-    "configs/experiments/document_injection.json": 59,
+    "configs/experiments/document_injection.json": 58,
     "configs/fact_readings_allianz_property.json": 53,
     "configs/fact_readings_property.json": 7,
     "configs/facts_allianz_property.json": 1,
@@ -987,7 +990,6 @@
     "configs/recipes.json": 46,
     "configs/reports.json": 1,
     "configs/rule_proposals.json": 4,
-    "configs/service.json": 1,
     "configs/statement_tables.json": 81,
     "configs/type_drafts/belepo_jegy_taught.json": 10,
     "configs/types/_base/utility_bill_hu.json": 2,
@@ -1001,9 +1003,8 @@
     "configs/types/id_document.json": 10,
     "configs/types/insurance_claim_form.json": 9,
     "configs/types/insurance_request.json": 4,
-    "configs/types/invoice_foreign.json": 4,
-    "configs/types/invoice_hu.json": 7,
-    "configs/types/invoice_out.json": 1,
+    "configs/types/invoice_foreign.json": 3,
+    "configs/types/invoice_hu.json": 6,
     "configs/types/meeting_minutes.json": 9,
     "configs/types/meghivo.json": 12,
     "configs/types/mohu_szamla.json": 25,
@@ -1057,7 +1058,6 @@
     "jav/core/taxid.py": 3,
     "jav/core/version.py": 1,
     "jav/devtools/admin.py": 15,
-    "jav/devtools/data_guard.py": 1,
     "jav/devtools/docsgen.py": 47,
     "jav/devtools/lang_guard.py": 1,
     "jav/devtools/preflight.py": 1,
@@ -1092,8 +1092,6 @@
     "jav/service/api_settings.py": 1,
     "jav/service/api_system.py": 1,
     "jav/service/service_shared.py": 4,
-    "pyproject.toml": 5,
-    "requirements.txt": 9,
     "scripts/dev.ps1": 1,
     "scripts/hooks/handoff_guard.py": 1,
     "smoke_test.py": 1,
@@ -1237,7 +1235,6 @@
     "tests/test_word_output_196.py": 20,
     "tests/test_work.py": 11,
     "tests/test_work_cli.py": 5,
-    "ui/index.html": 1,
     "ui/scripts/check-i18n.mjs": 5,
     "ui/src/App.tsx": 1,
     "ui/src/actor066.test.tsx": 2,
@@ -1250,7 +1247,7 @@
     "ui/src/behaviour.test.tsx": 87,
     "ui/src/components/BrowseButton.tsx": 1,
     "ui/src/components/ConfirmButton.tsx": 2,
-    "ui/src/components/ErrorBoundary.tsx": 3,
+    "ui/src/components/ErrorBoundary.tsx": 2,
     "ui/src/components/NameCell.tsx": 2,
     "ui/src/confirm066.test.tsx": 11,
     "ui/src/costTotal083.test.tsx": 11,
@@ -1263,7 +1260,7 @@
     "ui/src/domains/email/EmailReview.tsx": 1,
     "ui/src/domains/email/Mailbox.tsx": 1,
     "ui/src/domains/email/sentMail149.test.tsx": 4,
-    "ui/src/domains/finance/bankFiles146.test.tsx": 12,
+    "ui/src/domains/finance/bankFiles146.test.tsx": 10,
     "ui/src/domains/finance/reconcile/blockers153.test.tsx": 1,
     "ui/src/domains/finance/reconcile/fxBank149.test.tsx": 3,
     "ui/src/domains/finance/reconcile/unfit153.test.tsx": 6,
@@ -1324,7 +1321,7 @@
     "ui/src/validatorField090.test.ts": 2,
     "ui/src/version071.test.tsx": 2,
     "ui/src/views/Activity.tsx": 2,
-    "ui/src/views/ProcessStage.tsx": 2,
+    "ui/src/views/ProcessStage.tsx": 1,
     "ui/src/views/RecipeInfo.tsx": 1,
     "ui/src/views/ResultStage.tsx": 1,
     "ui/src/views/ReviewWorkspace.tsx": 1,
@@ -1335,7 +1332,6 @@
     "ui/src/views/settings/FoldersPanel.tsx": 1,
     "ui/src/views/settings/UsersPanel.tsx": 2,
     "ui/src/views/subCase231.test.tsx": 3,
-    "ui/src/views/workflows/repeat147.test.tsx": 3,
-    "ui/vite.config.ts": 3
+    "ui/src/views/workflows/repeat147.test.tsx": 3
   }
 }

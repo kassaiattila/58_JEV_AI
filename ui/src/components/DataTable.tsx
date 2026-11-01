@@ -35,9 +35,6 @@ interface Props {
   dataset: string;
   scope?: DsScope;
   label: string;
-  /** controlled state (e.g. from the address bar); without it the table keeps it itself */
-  state?: TableState;
-  onStateChange?: (s: TableState) => void;
   initial?: Partial<TableState>;
   selectable?: boolean;
   pollMs?: number;
@@ -349,11 +346,10 @@ function saveVisibility(id: string, v: VisibilityState): void {
 export function DataTable(p: Props) {
   const lang = useLocale();
   const [own, setOwn] = useState<TableState>(() => ({ ...EMPTY_STATE, group: p.defaultGroup, ...p.initial, ...loadState(p.persist) }));
-  const state = p.state ?? own;
+  const state = own;
   const setState = (next: TableState) => {
     if (p.persist) keep(stateKey(p.persist), next);
-    if (p.onStateChange) p.onStateChange(next);
-    else setOwn(next);
+    setOwn(next);
   };
   const patch = (x: Partial<TableState>) => setState({ ...state, offset: 0, ...x });
 

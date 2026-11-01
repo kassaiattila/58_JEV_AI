@@ -167,7 +167,7 @@ def _first_seen(snapshot: rulebook.Snapshot) -> dict[str, str]:
         for n in range(0, len(shas), 500):  # well under every database's limit of bound values
             part = shas[n:n + 500]
             out.update((r["sha256"], r["first_seen_at"]) for r in c.execute(
-                f"SELECT sha256, first_seen_at FROM rule_files WHERE sha256 IN ({','.join('?' * len(part))})", part))  # noqa: S608 - placeholders only
+                f"SELECT sha256, first_seen_at FROM rule_files WHERE sha256 IN ({','.join('?' * len(part))})", part))  # placeholders only
     return out
 
 

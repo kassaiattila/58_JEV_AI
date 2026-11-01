@@ -319,16 +319,12 @@ def carry(rows: Iterable[dict[str, Any]], res: Resolution) -> tuple[list[dict[st
 # --- the store ----------------------------------------------------------------------------------------------------
 
 
-def _has_table(c, name: str) -> bool:
-    return c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
-
-
 def choice_rows(c=None) -> list[dict[str, Any]]:
     """The latest choice per pair."""
     if c is None:
         with store.connect() as own:
             return choice_rows(own)
-    if not _has_table(c, "statement_choices"):
+    if not store.has_table(c, "statement_choices"):
         return []
     return [dict(r) for r in c.execute(
         "SELECT s.* FROM statement_choices s JOIN (SELECT pair_key, MAX(seq) AS m FROM statement_choices GROUP BY pair_key) l"

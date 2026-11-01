@@ -59,7 +59,7 @@ def main(dependencies: Path):
     import docx  # noqa: F401 - trusted imports before filesystem restrictions
     import openpyxl  # noqa: F401
     from PIL import Image
-    import encodings.utf_8_sig  # noqa: F401
+    import encodings.utf_8_sig
     import encodings.cp1252  # noqa: F401
     import socket
     import time
@@ -96,7 +96,7 @@ def main(dependencies: Path):
         output = b'{"failure":{"status":"resource_limited","code":"resource_limit","message":"Worker memory limit exceeded"}}'
     except PermissionError:
         output = b'{"failure":{"status":"excluded","code":"excluded","message":"Worker operation rejected by isolation policy"}}'
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - the isolated reader's last word: any parser failure is the file's, reported
         # Exception type is useful; arbitrary parser messages may expose host paths.
         output = json.dumps({"failure": {"status": "corrupt", "code": "corrupt",
                             "message": f"Native reader rejected input ({type(exc).__name__})"}}).encode()

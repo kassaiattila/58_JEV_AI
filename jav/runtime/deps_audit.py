@@ -1,7 +1,8 @@
 """Regular dependency audit (075): known vulnerabilities in the pinned packages, with a date.
 
 Three checks, all free and read-only (they query public databases, not our data):
-- Python: `pip-audit -r requirements.lock --no-deps` (the installed `pip-audit`, or, when only uv is present,
+- Python: `pip-audit -r requirements-dev.lock --no-deps` (265, code review TOOL-16: the runtime packages and the
+  development tools, every pinned package with its hash) (the installed `pip-audit`, or, when only uv is present,
   `uvx --from pip-audit==<PIP_AUDIT_VERSION> pip-audit`: 265, code review TOOL-01, never the newest one unattended);
 - UI: `npm audit --json` in `ui/` (the pinned `package-lock.json`);
 - runtime (158, review item C7 of 153): the latest patch release of the running Python's version line, from the public
@@ -100,7 +101,7 @@ def _python(root: Path) -> dict[str, Any]:
     if cmd is None:
         return {"ok": False, "error": "pip-audit not found (install it, or install uv for uvx)"}
     try:
-        proc = _run([*cmd, "-r", "requirements.lock", "--no-deps", "--format", "json", "--progress-spinner", "off"], root)
+        proc = _run([*cmd, "-r", "requirements-dev.lock", "--no-deps", "--format", "json", "--progress-spinner", "off"], root)
         count, found = parse_pip_audit(json.loads(proc.stdout or "{}"))
     except (OSError, subprocess.SubprocessError, ValueError) as exc:
         return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:200]}"}
@@ -126,7 +127,7 @@ def _npm(root: Path) -> dict[str, Any]:
 
 def _fetch_json(url: str) -> dict[str, Any]:
     req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "jav-deps-audit"})
-    with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT_S) as res:  # noqa: S310 - a fixed https address
+    with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT_S) as res:  # a fixed https address
         return json.loads(res.read().decode("utf-8"))
 
 

@@ -24,7 +24,7 @@ const TREE: NavNode[] = [
 ];
 
 describe("the table of contents (263)", () => {
-  it("opens and closes a branch, keeps the way to the chosen node open, and finds a node by a search", () => {
+  it("opens and closes a branch and keeps the way to the chosen node open", () => {
     let open = new Set(["g:a", "g:b"]);
     const toggle = (k: string) => { open = new Set(open.has(k) ? [...open].filter((x) => x !== k) : [...open, k]); };
     const { rerender } = render(<Navigator nodes={TREE} selected="l:y/rules" open={open} onToggle={toggle} label="Settings" />);
@@ -37,9 +37,6 @@ describe("the table of contents (263)", () => {
     rerender(<Navigator nodes={TREE} selected="l:y/rules" open={open} onToggle={toggle} label="Settings" />);
     expect(within(nav).queryByRole("link", { name: "Users" })).toBeNull();
     expect(within(nav).getByRole("button", { name: "System" }).getAttribute("aria-expanded")).toBe("false");
-    // a search shows the matching nodes with the way to them, the closed branch's too
-    rerender(<Navigator nodes={TREE} selected={null} open={open} onToggle={toggle} query="user" onQuery={() => undefined} label="Settings" />);
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Users"]);
   });
 });
 

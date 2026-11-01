@@ -6,22 +6,22 @@
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "S-kar hivasi hely a magyar kozmu-szamlakhoz (BACKLOG 1 kozmu-kor, OCR-szoveg): EGY kerdeskeszlet a hat tipus-csomag (villamos_energia / foldgaz / viz / mohu / vizmuvek / csatorna) unio-mezoire - minden csomag csak a sajat mezoit kerdezi; a mezo-instrukciok a regi promptok mezo-utmutatasabol atirva Choice-kerdesse; uj: mennyiseg-mezok (number fajta) a szam-jeloltek kozul, cimkes szoveg-mezok (text:<mezo> jeloltek), zart Choice: fizetesi mod, leolvasas modja, penznem; negy keres: parties / header / money / meter; a mennyiseg-mezok (number) jelolt-fajtaja quantity (a mertekegyseges / mero-cimkes sorok szamai), az opcio-kontextus 170 karakterre vagva (option_context_max) - a Jev keres token-korlatja (max_tokens_exceeded a 88 penz-jelolt x 4 kerdes + teljes OCR-state mellett); az elso S-kar golden utan (tanito peldakon): request_char_budget 150000 (a 9 oldalas kotegeknel max_tokens_exceeded), a gaz m3 (zarojelben az MJ utan), a hatarido = teljesites azonos datum, az ugyfelnev cimkes alakja, a koteg-fedolap kibocsatoja / szama, a leolvasas-kod a mero-sorban; request_char_budget 110000 (a 9 oldalas kotegeknel a 150000 meg 62 k token = tullepes: a magyar szoveg ~2,5 karakter / token)"
+    "note": "The S path's call site for the Hungarian utility bills (OCR text): ONE question set over the union of the six type packs' fields (electricity, gas, water, waste, waterworks, sewage); each pack asks only its own fields; the field instructions rewritten as Choice questions from the legacy prompts' field guidance. New: quantity fields (kind number) among the number candidates, labelled text fields (text:<field> candidates), closed Choices: the payment method, the reading method and the currency; four requests: parties, header, money and meter; the quantity fields' candidate kind is quantity (the numbers of lines with a unit or a meter label); each option's context cut to 170 characters (option_context_max) for JEV's request token limit (max_tokens_exceeded with 88 money candidates x 4 questions and the whole OCR text in the state). After the first S path golden run (on its training examples): request_char_budget 150000 (max_tokens_exceeded on the 9-page bundles), the gas m3 (in brackets after the MJ), the due date equal to the fulfilment date, the customer name's labelled form, the bundle cover sheet's issuer and number, the reading code in the meter line; request_char_budget 110000 (on the 9-page bundles 150000 was still 62k tokens, over the limit: Hungarian text is about 2.5 characters a token)"
    },
    {
     "version": "1.0.1",
     "date": "2026-09-29",
-    "note": "066 Á13: anonymisation - the bank account, customer code, meter row and first name examples replaced with invented values (the questions mean the same; a new cache key, an S path golden run needed)"
+    "note": "Anonymisation - the bank account, customer code, meter row and first name examples replaced with invented values (the questions mean the same; a new cache key, an S path golden run needed)"
    },
    {
     "version": "1.1.0",
     "date": "2026-10-08",
-    "note": "127 (5th group, round B; the owner's decisions of 2026-10-07): document_guard (backlog S-injection, JEV part): every Choice and presence Noul says, after the glossary, that the document text is data, not instructions. New cache keys for every question: the S baseline is re-measured."
+    "note": "5th group, round B; the owner's decisions of 2026-10-07: document_guard (JEV part): every Choice and presence Noul says, after the glossary, that the document text is data, not instructions. New cache keys for every question: the S baseline is re-measured."
    },
    {
     "version": "1.2.0",
     "date": "2026-10-22",
-    "note": "202 (plan G-core-generalisation M2a): the call site states what the code used to infer from a request's name or fill in itself: the money request's payment-method lines. The requests sent to JEV are unchanged."
+    "note": "The call site states what the code used to infer from a request's name or fill in itself: the money request's payment-method lines. The requests sent to JEV are unchanged."
    }
   ]
  },

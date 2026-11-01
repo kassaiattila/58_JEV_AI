@@ -7,17 +7,17 @@
       {
         "version": "1.2.0",
         "date": "2026-10-16",
-        "note": "158 (DECISIONS 152, 158, F-incoming-money-kinds): incoming money (a credit) is asked its own kind question, credit_kind, with the kinds the owner chose (customer_payment, own_transfer, income, interest, refund, owner_contribution, other); its request says the money came in. The lines code left out as not an outgoing payment (preselect.excluded_reasons) are asked the kind only. A line going out is asked exactly as before (the same request and cache key). income suggests the salary reason and interest the fee reason; a customer's payment expects an (outgoing) invoice. Measured on the invented golden set configs/golden_credit_kinds.json, then on the stored packages, within the sub-budget of 0.05 USD JEV + 0.15 USD OpenAI."
+        "note": "Incoming money (a credit) is asked its own kind question, credit_kind, with the kinds the owner chose (customer_payment, own_transfer, income, interest, refund, owner_contribution, other); its request says the money came in. The lines code left out as not an outgoing payment (preselect.excluded_reasons) are asked the kind only. A line going out is asked exactly as before (the same request and cache key). income suggests the salary reason and interest the fee reason; a customer's payment expects an (outgoing) invoice. Measured on the invented golden set configs/golden_credit_kinds.json, then on the stored packages, within the sub-budget of 0.05 USD JEV + 0.15 USD OpenAI."
       },
       {
         "version": "1.1.0",
         "date": "2026-10-12",
-        "note": "147 (DECISIONS 147, the owner's decision 'code and a new AI kind'): the kind of payment gains salary (a wage or salary paid to an employee, or received), which suggests the salary reason (kind_marks). A new option: every line is asked again (a new cache key), within the owner's sub-budget of 0.10 USD JEV + 1.00 USD OpenAI."
+        "note": "The owner's decision 'code and a new AI kind': the kind of payment gains salary (a wage or salary paid to an employee, or received), which suggests the salary reason (kind_marks). A new option: every line is asked again (a new cache key), within the owner's sub-budget of 0.10 USD JEV + 1.00 USD OpenAI."
       },
       {
         "version": "1.0.0",
         "date": "2026-10-10",
-        "note": "134: first version. The amounts and the dates are compared by code and given as facts in each invoice option (JEV does not do arithmetic or compare dates); the preselection takes the package's own and unclaimed invoices not yet paid, in the invoice's payment window, within amount_share of the line's amount or tied by a signal, at most max_options, the code's candidates and the nearest amounts first."
+        "note": "First version. The amounts and the dates are compared by code and given as facts in each invoice option (JEV does not do arithmetic or compare dates); the preselection takes the package's own and unclaimed invoices not yet paid, in the invoice's payment window, within amount_share of the line's amount or tied by a signal, at most max_options, the code's candidates and the nearest amounts first."
       }
     ]
   },

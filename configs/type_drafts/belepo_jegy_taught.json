@@ -6,12 +6,12 @@
    {
     "version": "0.2.0",
     "date": "2026-10-22",
-    "note": "199 (plan 197 K2d): the type is detected now (type-activate); its name no longer says candidate. The pack's files are unchanged."
+    "note": "The type is detected now (type-activate); its name no longer says candidate. The pack's files are unchanged."
    },
    {
     "version": "0.1.0",
     "date": "2026-10-22",
-    "note": "197 (plan 197 K2): the ticket taught from its development half alone: the fields from `type-propose belepo_jegy` (the fact names that recur, the synonyms joined by hand), their meanings and written forms from the development half's labels (`type-propose --shapes`); the legacy pack's prompt and descriptions were not used. Measured on the evaluation half."
+    "note": "The ticket taught from its development half alone: the fields from `type-propose belepo_jegy` (the fact names that recur, the synonyms joined by hand), their meanings and written forms from the development half's labels (`type-propose --shapes`); the legacy pack's prompt and descriptions were not used. Measured on the evaluation half."
    }
   ]
  },

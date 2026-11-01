@@ -6,32 +6,32 @@
    {
     "version": "1.4.0",
     "date": "2026-10-07",
-    "note": "121 (Q-szerepcsere): party_orientation on supplier_tax_id/buyer_tax_id, a to-do at buyer_tax_id when the pair stands the other way round than on most earlier documents of this type (worker runs only; jav/party_history.py). Extraction requests are unchanged."
+    "note": "Party_orientation on supplier_tax_id/buyer_tax_id, a to-do at buyer_tax_id when the pair stands the other way round than on most earlier documents of this type (worker runs only; jav/party_history.py). Extraction requests are unchanged."
    },
    {
     "version": "1.3.0",
     "date": "2026-10-06",
-    "note": "120 (silent content errors): distinct_parties role-pair check(s) supplier_tax_id/buyer_tax_id, supplier_name/buyer_name; a to-do at the second field when both name one party (jav/fact_checks.py). Extraction requests are unchanged."
+    "note": "Silent content errors: distinct_parties role-pair check(s) supplier_tax_id/buyer_tax_id, supplier_name/buyer_name; a to-do at the second field when both name one party (jav/fact_checks.py). Extraction requests are unchanged."
    },
    {
     "version": "1.2.0",
     "date": "2026-09-29",
-    "note": "069 (066 Á05, decision of 2026-09-29): a tax number check for both parties (tax_id, optional): a recognised form (jav/taxid.py), otherwise a to-do; the foreign invoice had no tax number check until now. The extraction unchanged"
+    "note": "Decision of 2026-09-29: a tax number check for both parties (tax_id, optional): a recognised form (jav/taxid.py), otherwise a to-do; the foreign invoice had no tax number check until now. The extraction unchanged"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "047 T1.2: parent and the legacy detect.json's keywords for choosing the detailed type (source: 10_AIFLOW_V4/flows/doc-extract-bare/types/invoice_foreign/detect.json, sha256 dbb231004da3e1e5); the extraction unchanged"
+    "note": "Parent and the legacy detect.json's keywords for choosing the detailed type (source: 10_AIFLOW_V4/flows/doc-extract-bare/types/invoice_foreign/detect.json, sha256 dbb231004da3e1e5); the extraction unchanged"
    },
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "tipus-csomag (BACKLOG 1, regi tipusok atemelese): a kulfoldi szamla a regi projektbol - mezolista a regi schema.json sorrendjeben (16 mezo, supplier_country uj fajta: country), kotelezo mezok es validatorok a regi rules.json-bol verbatim (required: invoice_number, gross_total; named: date_order, iban_check optional; fields: currency ^[A-Z]{3}$, supplier_country ^[A-Z]{2}$), pontozas a regi _compare_contract szerint (payment_iban es a cimek nem pontozottak); magas tetu mezok: a policy alap-keszlete a semaban letezo mezokre szukitve (amount_due nincs a semaban); prompt es sema verbatim; S-kar hivasi hely select_foreign, G-kar verify_foreign; jelolt-profil intl"
+    "note": "Type pack (a legacy type carried over): the foreign invoice from the legacy project - its field list in the legacy schema.json's order (16 fields, supplier_country a new kind: country), required fields and validators verbatim from the legacy rules.json (required: invoice_number, gross_total; named: date_order, iban_check optional; fields: currency ^[A-Z]{3}$, supplier_country ^[A-Z]{2}$), scoring by the legacy _compare_contract (payment_iban and the addresses not scored); the high-stakes fields: the policy's base set narrowed to the fields of the schema (amount_due is not in it); the prompt and the schema verbatim; S path call site select_foreign, G path verify_foreign; candidate profile intl"
    },
    {
     "version": "1.0.1",
     "date": "2026-09-20",
-    "note": "date_order optional: hianyzo hatarido nem hiba (a regi golden 1 esete - Upwork receipt - due_date nelkul; a regi rules.json csak a formatumot koveteli); az elso S-kar golden utan"
+    "note": "date_order optional: a missing due date is no error (one case of the legacy golden set, an Upwork receipt, has no due_date; the legacy rules.json asks only for the format); after the first S path golden run"
    }
   ],
   "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/invoice_foreign (config version 1.0.4, 2026-09-07; prompt sha256 c3909b5bbda10415, schema ca799fad055206a7, rules 30a004c255ec4d9c)"

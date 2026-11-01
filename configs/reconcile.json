@@ -7,77 +7,77 @@
       {
         "version": "1.14.0",
         "date": "2026-10-13",
-        "note": "154 (DECISIONS 154, the 153 review's security item 4): replacement.keep_every_line - the better source replaces the other by rule only when every line of the other has its same line (carry_over) on it, or when it comes from an approved live run (a person has checked it; the lines it lacks are left over as before); otherwise a line the replacement would drop makes the pair a conflict a person decides, so a file nobody approved cannot hide real lines. On the live store 3 of the 20 rule replacements lack a line an unapproved trial run's AI read another way (a swapped date, a credit read as a debit); all 3 replacing statements come from an approved live run, so nothing changes. Engine 1.17.0."
+        "note": "The 153 review's security item 4: replacement.keep_every_line - the better source replaces the other by rule only when every line of the other has its same line (carry_over) on it, or when it comes from an approved live run (a person has checked it; the lines it lacks are left over as before); otherwise a line the replacement would drop makes the pair a conflict a person decides, so a file nobody approved cannot hide real lines. On the live store 3 of the 20 rule replacements lack a line an unapproved trial run's AI read another way (a swapped date, a credit read as a debit); all 3 replacing statements come from an approved live run, so nothing changes. Engine 1.17.0."
       },
       {
         "version": "1.13.0",
         "date": "2026-10-12",
-        "note": "149 (backlog F-outgoing-fx, DECISIONS 149): fx.bank - a forint line of a bank account meets an invoice in another currency at the MNB rate of the invoice's fulfilment day, then of the line's booking day (rate_days), in the invoice's payment window; CHF joins the currencies (11 outgoing invoices in francs). Engine 1.15.0."
+        "note": "Fx.bank - a forint line of a bank account meets an invoice in another currency at the MNB rate of the invoice's fulfilment day, then of the line's booking day (rate_days), in the invoice's payment window; CHF joins the currencies (11 outgoing invoices in francs). Engine 1.15.0."
       },
       {
         "version": "1.12.0",
         "date": "2026-10-12",
-        "note": "147 (DECISIONS 147, the quick review): salary_marks - patterns on a line's normalised memo and description that suggest the salary reason (munkaber, ber, berkifizetes, payroll, salary, wage; not fizetes, which a card payment also says). On the store's 1183 lines only munkaber occurs (8 incoming lines). A suggestion for a person, as category_marks."
+        "note": "The quick review: salary_marks - patterns on a line's normalised memo and description that suggest the salary reason (munkaber, ber, berkifizetes, payroll, salary, wage; not fizetes, which a card payment also says). On the store's 1183 lines only munkaber occurs (8 incoming lines). A suggestion for a person, as category_marks."
       },
       {
         "version": "1.11.0",
         "date": "2026-10-11",
-        "note": "144 (DECISIONS 144; engine 1.11.0): replacement.reread - two statements of the same rank and period whose lines are the same lines (carry_over) are one statement read twice; the later processed reading replaces the earlier (how: reread), with no to-do, and the decisions move to its same lines. A newer reader keeping more of a line's facts reads the statements again for free."
+        "note": "Engine 1.11.0: replacement.reread - two statements of the same rank and period whose lines are the same lines (carry_over) are one statement read twice; the later processed reading replaces the earlier (how: reread), with no to-do, and the decisions move to its same lines. A newer reader keeping more of a line's facts reads the statements again for free."
       },
       {
         "version": "1.10.0",
         "date": "2026-10-11",
-        "note": "142 (DECISIONS 142, the reconciliation result's first part; engine 1.10.0): invoice_fields.fulfillment_date, net_total and vat_total - read into the snapshot only for the pairing page's cards, the pairing does not use them. Without a setting: the possible double payments (repeats) and the day an invoice is checked until (checked_until)."
+        "note": "The reconciliation result's first part; engine 1.10.0: invoice_fields.fulfillment_date, net_total and vat_total - read into the snapshot only for the pairing page's cards, the pairing does not use them. Without a setting: the possible double payments (repeats) and the day an invoice is checked until (checked_until)."
       },
       {
         "version": "1.9.0",
         "date": "2026-10-11",
-        "note": "141 (DECISIONS 141, the sports club's trial; engine 1.9.0): combined.max_invoices - a line whose memo names two or more invoices whose amounts left add up to it exactly proposes them together (amount relation combined, strength.amount.combined), at most this many; proposal.unnamed_days_before_issue - a line booked more than this many days before an invoice's issue date is its candidate only when its memo names the invoice (an advance payment). Without a setting: a credit note that cancels exactly one invoice of its supplier settles it (status credited), and a line whose memo names one invoice proposes no other."
+        "note": "The sports club's trial; engine 1.9.0: combined.max_invoices - a line whose memo names two or more invoices whose amounts left add up to it exactly proposes them together (amount relation combined, strength.amount.combined), at most this many; proposal.unnamed_days_before_issue - a line booked more than this many days before an invoice's issue date is its candidate only when its memo names the invoice (an advance payment). Without a setting: a credit note that cancels exactly one invoice of its supplier settles it (status credited), and a line whose memo names one invoice proposes no other."
       },
       {
         "version": "1.8.0",
         "date": "2026-10-10",
-        "note": "140 (DECISIONS 140, F-category-signal): category_marks - a statement line's own category (its description, accent-free and in lower case, as reconcile.normalize writes it) suggests a needs-no-invoice reason on the pairing page: the Revolut categories of an exchange between own currency accounts and of a top-up are a transfer between own accounts, a cash withdrawal is cash. Document vocabulary, matched as a whole description; a suggestion only, a person saves the mark. The pairing engine is unchanged."
+        "note": "Category_marks - a statement line's own category (its description, accent-free and in lower case, as reconcile.normalize writes it) suggests a needs-no-invoice reason on the pairing page: the Revolut categories of an exchange between own currency accounts and of a top-up are a transfer between own accounts, a cash withdrawal is cash. Document vocabulary, matched as a whole description; a suggestion only, a person saves the mark. The pairing engine is unchanged."
       },
       {
         "version": "1.7.0",
         "date": "2026-10-10",
-        "note": "139 (DECISIONS 139): replacement - one valid statement per own account, currency and day. Of two statements booking the same days, the better source by the order of ranks replaces the other when it covers its whole period; an equal rank or a partial cover is a conflict a person decides (jav/statement_months.py). carry_over: the fields that make a replaced statement's line the same line on the statement replacing it."
+        "note": "Replacement - one valid statement per own account, currency and day. Of two statements booking the same days, the better source by the order of ranks replaces the other when it covers its whole period; an equal rank or a partial cover is a conflict a person decides (jav/statement_months.py). carry_over: the fields that make a replaced statement's line the same line on the statement replacing it."
       },
       {
         "version": "1.6.0",
         "date": "2026-10-10",
-        "note": "136 E4 (DECISIONS 132, 136): statement_types also takes statement_table, an account's statement read by code from a bank's tabular export (jav/statement_table.py, jav/flow_statement_table.py); its lines are paired like an extracted statement's."
+        "note": "Statement_types also takes statement_table, an account's statement read by code from a bank's tabular export (jav/statement_table.py, jav/flow_statement_table.py); its lines are paired like an extracted statement's."
       },
       {
         "version": "1.5.0",
         "date": "2026-10-10",
-        "note": "134 (DECISIONS 134, pre-matching by code): signals.fuzzy_name - a distinctive word of the supplier's name (cut after its legal form, without numbers, min_chars letters at least) that begins a word of the line's name, or the other way round when the line's word holds min_prefix_share of it (a name cut short on a card terminal), or differs from it by about a letter (min_ratio), or is the same whole word leading the supplier's name (its brand), is the weak supplier_name_fuzzy signal; it alone ties only an equal amount; a word in the names of common_min suppliers, or of common_min lines making common_share of the different line names, ties nothing. invoice_fields.references - the customer id, customer code, order and contract number matched in the memo like the invoice number (the reference signal). invoice_fields.payment_account is a list: a utility bill names the supplier's account supplier_bank_account. strength - the weights of a candidate's 0-100 strength (signals, amounts, booked by the due date plus grace_days or only in the window): an order and a reason on the pairing page, not a threshold."
+        "note": "Pre-matching by code: signals.fuzzy_name - a distinctive word of the supplier's name (cut after its legal form, without numbers, min_chars letters at least) that begins a word of the line's name, or the other way round when the line's word holds min_prefix_share of it (a name cut short on a card terminal), or differs from it by about a letter (min_ratio), or is the same whole word leading the supplier's name (its brand), is the weak supplier_name_fuzzy signal; it alone ties only an equal amount; a word in the names of common_min suppliers, or of common_min lines making common_share of the different line names, ties nothing. invoice_fields.references - the customer id, customer code, order and contract number matched in the memo like the invoice number (the reference signal). invoice_fields.payment_account is a list: a utility bill names the supplier's account supplier_bank_account. strength - the weights of a candidate's 0-100 strength (signals, amounts, booked by the due date plus grace_days or only in the window): an order and a reason on the pairing page, not a threshold."
       },
       {
         "version": "1.4.0",
         "date": "2026-10-10",
-        "note": "133 (DECISIONS 133, the own parties): invoice_fields.buyer_name and buyer_tax_id - the buyer side of an invoice, read into the snapshot so a reconciliation package shows its own party's invoices (jav/parties.py); the pairing itself does not use them."
+        "note": "The own parties: invoice_fields.buyer_name and buyer_tax_id - the buyer side of an invoice, read into the snapshot so a reconciliation package shows its own party's invoices (jav/parties.py); the pairing itself does not use them."
       },
       {
         "version": "1.3.0",
         "date": "2026-10-09",
-        "note": "131 E1 (DECISIONS 131, the reconciliation package): line_marks - the reasons a person gives for a statement line that needs no invoice (a private expense, a bank fee or interest, a transfer between own accounts, a tax or contribution, a cash withdrawal, a salary, other with a note)."
+        "note": "The reconciliation package: line_marks - the reasons a person gives for a statement line that needs no invoice (a private expense, a bank fee or interest, a transfer between own accounts, a tax or contribution, a cash withdrawal, a salary, other with a note)."
       },
       {
         "version": "1.2.0",
         "date": "2026-10-09",
-        "note": "131 (DECISIONS 131): invoice_fields.payment_method; payment_channels (the postal cheque: an invoice payable by cheque and a line through a cheque payment app are tied by the payment_channel signal; patterns on the normalised, accent-free text, document vocabulary); amount_only (a line with exactly an invoice's amount in one currency, in its window, without a signal, is listed for a person, never proposed); learning.min_confirmations (a person's confirmation ties the line's counterparty name to the supplier, the learned_name signal; a payment app line teaches nothing)."
+        "note": "Invoice_fields.payment_method; payment_channels (the postal cheque: an invoice payable by cheque and a line through a cheque payment app are tied by the payment_channel signal; patterns on the normalised, accent-free text, document vocabulary); amount_only (a line with exactly an invoice's amount in one currency, in its window, without a signal, is listed for a person, never proposed); learning.min_confirmations (a person's confirmation ties the line's counterparty name to the supplier, the learned_name signal; a payment app line teaches nothing)."
       },
       {
         "version": "1.1.0",
         "date": "2026-10-09",
-        "note": "130 K3: card payments of foreign-currency invoices (DECISIONS 128 variant C, second half). A forint line of a credit card statement and an invoice in another currency form a candidate when a signal ties them and the line falls in fx.window around the issue date; the invoice amount is converted at the MNB rate of the issue date (jav/fx.py) and the pair is proposed when the line is within policy.json reconcile.fx_tolerance. Without a known rate the pair is listed, not proposed (status rate_missing). The card accounts also count in the coverage of a foreign-currency invoice."
+        "note": "Card payments of foreign-currency invoices (variant C, second half). A forint line of a credit card statement and an invoice in another currency form a candidate when a signal ties them and the line falls in fx.window around the issue date; the invoice amount is converted at the MNB rate of the issue date (jav/fx.py) and the pair is proposed when the line is within policy.json reconcile.fx_tolerance. Without a known rate the pair is listed, not proposed (status rate_missing). The card accounts also count in the coverage of a foreign-currency invoice."
       },
       {
         "version": "1.0.0",
         "date": "2026-10-08",
-        "note": "128 K1: first version. Rules ported selectively from the legacy project's orchestrator/framework/payables.py 0.1.1 (10_AIFLOW_V4 HEAD 4256cba): the reason-coded exclusions, the signals and 'an equal amount alone is no candidate'. New: the exact-amount rule, the window's upper end, coverage by verified statements."
+        "note": "First version. Rules ported selectively from the legacy project's orchestrator/framework/payables.py 0.1.1 (10_AIFLOW_V4 HEAD 4256cba): the reason-coded exclusions, the signals and 'an equal amount alone is no candidate'. New: the exact-amount rule, the window's upper end, coverage by verified statements."
       }
     ]
   },

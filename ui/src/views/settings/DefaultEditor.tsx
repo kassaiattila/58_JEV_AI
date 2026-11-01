@@ -29,7 +29,7 @@ const optionText = (v: RuleValue, code: string) => (v.format === "route" || v.fo
 export function defaultText(entry: DefaultKey, v: RuleValue, value: DefaultValue): string {
   if (asPercent(entry, v)) {
     const n = numText(Number(value) * 100, 1);
-    return v.format === "points" ? t("{{n}} percentage points", { n }) : `${n} %`;
+    return v.format === "points" ? t("{{n}} percentage points", { n }) : `${n}\u00a0%`;
   }
   if (entry.kind === "bool") return value ? t("yes") : t("no");
   if (entry.kind === "int" || entry.kind === "amount") return numText(value as number | string);

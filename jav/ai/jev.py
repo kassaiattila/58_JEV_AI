@@ -353,10 +353,10 @@ class JevAdapter:
             if self._own_client:
                 # 265 (code review SEC-02, TOOL-04): outside a run or a budgeted command (`calls.measurement`) only
                 # earlier answers count; the key is checked first (`missing_key` stays what a missing key says)
-                self.client  # noqa: B018
+                self.client
                 raise JevUnavailableError("no_budget")
             return self._sdk_live(request_id, state, questions, model=model, run_id=run_id, config_hash=config_hash)
-        self.client  # noqa: B018 - 085: a missing key fails here, before anything is reserved (no request can leave)
+        self.client  # 085: a missing key fails here, before anything is reserved (no request can leave)
         key = self._request_key(model, state, questions)
         max_cost = self._max_cost(self._request_body(state, questions, model))
         seconds_box: list[float] = []

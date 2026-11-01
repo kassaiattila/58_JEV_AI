@@ -6,17 +6,17 @@
    {
     "version": "1.2.0",
     "date": "2026-10-07",
-    "note": "122 B (the 118 finding): employer_name is the employer or payer of the income, not the tax authority that issues the document (the type pack's prompt_note says the same to GPT). New cache key for this call site's questions."
+    "note": "B (the 118 finding): employer_name is the employer or payer of the income, not the tax authority that issues the document (the type pack's prompt_note says the same to GPT). New cache key for this call site's questions."
    },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "047 T1.5: request_char_budget 110000 (as at the utility call site): on long documents (general terms and conditions) the full-text state gave max_tokens_exceeded"
+    "note": "Request_char_budget 110000 (as at the utility call site): on long documents (general terms and conditions) the full-text state gave max_tokens_exceeded"
    },
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "047 T1.1: the G path's verify call site converted from the legacy type; the Noul questions are inherited from verify.json"
+    "note": "The G path's verify call site converted from the legacy type; the Noul questions are inherited from verify.json"
    }
   ]
  },

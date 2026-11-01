@@ -28,6 +28,7 @@ import re
 import threading
 from collections import OrderedDict
 from collections.abc import Mapping
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -281,6 +282,22 @@ def _safe_text(v: Any) -> str:
     if s.lstrip(" \t\r\n").startswith(prefixes) and not NUMBER.match(s):
         return "'" + s  # guards against formula injection (OWASP CSV injection; the rule of the legacy csv.ts)
     return s
+
+
+_PLAIN_DECIMAL = re.compile(r"^-?\d+\.\d+$")
+
+
+def decimal_commas(numeric: list[bool], rows: list[list[Any]]) -> list[list[Any]]:
+    """265 (code review APPW-14): the rows with a decimal comma in the columns marked `numeric` (a list's number and
+    amount columns), for the Hungarian interface's CSV: the file is made for Hungarian Excel (`;` separator, BOM), which
+    reads "1234.5" as text. A whole number, a text and a value that is not a plain decimal number stay as they are."""
+    def comma(value: Any) -> Any:
+        if isinstance(value, bool) or not isinstance(value, (str, float, Decimal)):
+            return value
+        text = str(value)
+        return text.replace(".", ",") if _PLAIN_DECIMAL.match(text) else value
+
+    return [[comma(v) if numeric[i] else v for i, v in enumerate(row)] for row in rows]
 
 
 def csv_bytes(head: list[str], rows: list[list[Any]]) -> bytes:

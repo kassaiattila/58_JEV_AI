@@ -112,7 +112,7 @@ class EstimatingAdapter(JevAdapter):
         self.requests.append(request)
         return result
 
-    def _live(self, request_id, state, questions, *, model, run_id, config_hash):  # noqa: ANN001 - the parent's signature
+    def _live(self, request_id, state, questions, *, model, run_id, config_hash):  # the parent's signature
         return stand_in(questions, model, len(request_body(state, questions))), 0.0
 
 

@@ -6,12 +6,12 @@
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "053 T3.1 (decision of 2026-09-28: option A): default_arm G - utility bills run on the GPT path with the recipe's automatic path, as one call gives the header data and the line items (the G path's header agreement in measurement 015: 98.7 %); an explicit S request still runs"
+    "note": "Decision of 2026-09-28: option A: default_arm G - utility bills run on the GPT path with the recipe's automatic path, as one call gives the header data and the line items (the G path's header agreement in measurement 015: 98.7 %); an explicit S request still runs"
    },
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "alap-csomag (BACKLOG 1, kozmu-kor): a regi _shared/utility_bill_hu bazis - 19 kozos mezo a regi schema.json sorrendjeben fajtakkal (customer_id / customer_code / payment_method: text), kotelezo mezok es validatorok a regi rules.json-bol (required: invoice_number, amount_due; date_order; hu_tax_id optional; currency ^[A-Z]{3}$) - a date_order optional, mert a regi golden reszszamlain nincs hatarido; nem pontozott: supplier_bank_account, customer_code, customer_id (rules non_scored_fields) + supplier_address (a regi scorer ADDRESS_FIELDS alapja); magas tetu mezok a policy alap-keszlete; jelolt-profil utility (OCR-turo magyar), hivasi helyek select_utility / verify_utility; text_labels a cimkes szoveg-mezokhoz. Onmagaban nem futtathato (nincs prompt), a gyermek-csomagok extends-szel hivatkozzak"
+    "note": "The base pack of the utility bills: the legacy _shared/utility_bill_hu base - 19 shared fields in the legacy schema.json's order with their kinds (customer_id, customer_code, payment_method: text), required fields and validators from the legacy rules.json (required: invoice_number, amount_due; date_order; hu_tax_id optional; currency ^[A-Z]{3}$); date_order is optional because the legacy golden set's partial bills have no due date; not scored: supplier_bank_account, customer_code, customer_id (rules non_scored_fields) and supplier_address (the legacy scorer's ADDRESS_FIELDS); the high-stakes fields are the policy's base set; candidate profile utility (OCR-tolerant Hungarian), call sites select_utility and verify_utility; text_labels for the labelled text fields. It cannot run on its own (it has no prompt); the child packs name it with extends"
    }
   ],
   "source": "10_AIFLOW_V4/flows/doc-extract-bare/_shared/utility_bill_hu (schema sha256 6cba0433890a5af6, rules verbatim)"

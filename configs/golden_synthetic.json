@@ -7,12 +7,12 @@
    {
     "version": "1.1.0",
     "date": "2026-10-12",
-    "note": "151 (backlog F-outgoing-invoice-S-path; DECISIONS 151): eight outgoing invoices (our company the issuer): English and Hungarian two-column layouts, francs to an EU customer with the VAT summary converted into forints, dollars and euros to Hungarian customers, reverse charge, a corrective invoice with negative amounts, an exempt invoice to a private person without a tax number, an order and a contract number beside the invoice number. Built by the measurer, so a result on them is measured on its own examples."
+    "note": "Eight outgoing invoices (our company the issuer): English and Hungarian two-column layouts, francs to an EU customer with the VAT summary converted into forints, dollars and euros to Hungarian customers, reverse charge, a corrective invoice with negative amounts, an exempt invoice to a private person without a tax number, an order and a contract number beside the invoice number. Built by the measurer, so a result on them is measured on its own examples."
    },
    {
     "version": "1.0.0",
     "date": "2026-10-08",
-    "note": "127 (5th group, round B; backlog Q-credit-note and Q-receipt, the owner's decisions of 2026-10-07): a Hungarian and a foreign credit note (the own number, not the referenced original invoice's) and two foreign receipts without an invoice number (receipt number > transaction id; never the order number)."
+    "note": "5th group, round B; the owner's decisions of 2026-10-07: a Hungarian and a foreign credit note (the own number, not the referenced original invoice's) and two foreign receipts without an invoice number (receipt number > transaction id; never the order number)."
    }
   ]
  },

@@ -274,7 +274,8 @@ function PdfItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPre
   // fields here, otherwise on the fields to fix, otherwise on all; after that the choice stays on this item even when
   // its last field is confirmed (the panel then says that nothing is left).
   const groups = useMemo(() => (data && loaded ? classifyFields(allFields, data, loaded) : null), [data, allFields, loaded]);
-  const counts = groups ? { fix: groups.fix.length, uncertain: groups.uncertain.length, all: groups.all.length } : null;
+  const counts = useMemo(() => (groups ? { fix: groups.fix.length, uncertain: groups.uncertain.length, all: groups.all.length } : null),
+    [groups]);
   const [filter, setFilterState] = useState<FieldFilter | null>(null);
   useEffect(() => {
     if (counts && filter === null) setFilterState(initialFilter(counts, lastFilter));

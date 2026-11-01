@@ -126,7 +126,8 @@ def test_every_template_is_a_translated_interface_label() -> None:
     holes = re.compile(r"\{\{\w+\}\}")
     missing = []
     for template, where in _templates().items():
-        if english.get(template) != _shown(template) or template not in hungarian:
+        # 265 (code review UI-03): no identity entry is kept; the English interface shows the source itself
+        if english.get(template, template) != _shown(template) or template not in hungarian:
             missing.append(f"{where}: {template}")
         elif sorted(holes.findall(template)) != sorted(holes.findall(hungarian[template])):
             missing.append(f"{where}: the Hungarian placeholders differ: {template}")

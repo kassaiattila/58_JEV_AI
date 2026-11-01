@@ -4,7 +4,7 @@
     "version": "1.0.0",
     "description": "231 (stage D, D-c7d; jav/app/rule_support.py): how far the page a proposed rule was read from supports it. One JEV request per proposal that code found no blocking problem in, asking three things together. `kind`: a Choice over the rule kinds, which kind of rule the page states where the rule was read, plus none (the page states no rule decidable when making an offer). `row_<n>`: a Noul per row of the rule's decision table, whether the page states that this row's conditions lead to its results. `left_out`: a Noul, whether the page names a further condition, amount or exception for this rule that the rule leaves out. The state is the cited page verbatim (clipped to max_page_chars), the quoted words, and the rule written out by code in English from the catalogue's titles (its kind, level, modules and rows). The answer is a mark beside the proposal (supported, to check, contradicted) on the default policy bands; it never accepts anything: a person decides every proposal, and JEV's support is no proof of correctness.",
     "changelog": [
-      {"version": "1.0.0", "date": "2026-10-26", "note": "231 (D-c7d): first version, written from the TypeSafe Choice guidance (a Choice with none and a companion yes/no question) and the JEV checklist; no example comes from the invented insurer."}
+      {"version": "1.0.0", "date": "2026-10-26", "note": "First version, written from the TypeSafe Choice guidance (a Choice with none and a companion yes/no question) and the JEV checklist; no example comes from the invented insurer."}
     ]
   },
   "request_id": "rule_proposal",

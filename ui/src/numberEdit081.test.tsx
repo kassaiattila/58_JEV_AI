@@ -33,7 +33,7 @@ describe("081 number editing", () => {
   it("names the saved amounts in the message", () => {
     const text = savedValues({ net_total: "28000", invoice_number: "A-1", gross_total: "35560.5" },
       { net_total: "money", gross_total: "money", invoice_number: "invoice_number" });
-    expect(text.replace(/[  ]/g, " ")).toBe("Nettó összeg: 28 000; Bruttó összeg: 35 560,5");
+    expect(text.replace(/[\u00a0\u202f]/g, " ")).toBe("Nettó összeg: 28 000; Bruttó összeg: 35 560,5");
   });
 
   it("explains the safety net's to-do in a sentence", () => {

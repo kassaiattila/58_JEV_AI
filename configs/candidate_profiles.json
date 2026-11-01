@@ -1,17 +1,22 @@
 {
  "meta": {
   "name": "candidate_profiles",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "changelog": [
    {
     "version": "1.0.0",
     "date": "2026-10-29",
-    "note": "231 (stage F, F2; the owner's decisions of 2026-10-29: the full move into a data file): the S path's candidate finder's patterns, limits and profiles, until now constants of jav/ai/candidates.py, moved here unchanged (every pattern's text and flags are pinned in tests/test_candidate_profiles_231.py; the S path's requests and the candidates in tests/test_select_keys_231.py). A profile names its patterns by key; two switches replace a profile name the code used to compare: `name_fallback_combined` (the `hu` profile's combined name fallback limit) and `evidence_intl` (the G path's evidence reads numbers in the international forms). A new profile is data alone; a type pack names it in `candidate_profile`."
+    "note": "The owner's decisions of 2026-10-29: the full move into a data file: the S path's candidate finder's patterns, limits and profiles, until now constants of jav/ai/candidates.py, moved here unchanged (every pattern's text and flags are pinned in tests/test_candidate_profiles_231.py; the S path's requests and the candidates in tests/test_select_keys_231.py). A profile names its patterns by key; two switches replace a profile name the code used to compare: `name_fallback_combined` (the `hu` profile's combined name fallback limit) and `evidence_intl` (the G path's evidence reads numbers in the international forms). A new profile is data alone; a type pack names it in `candidate_profile`."
    },
    {
     "version": "1.1.0",
     "date": "2026-10-29",
-    "note": "231 (F2c; the owner's decision of 2026-10-29: the terms and conditions' S path): the `terms` profile, the international one with the party labels of a seller's terms and conditions (`party_label_terms`). Read only by the terms and conditions' S path (its select call site names it); every other profile is unchanged."
+    "note": "The owner's decision of 2026-10-29: the terms and conditions' S path: the `terms` profile, the international one with the party labels of a seller's terms and conditions (`party_label_terms`). Read only by the terms and conditions' S path (its select call site names it); every other profile is unchanged."
+   },
+   {
+    "version": "1.1.1",
+    "date": "2026-11-01",
+    "note": "The notes and the description without the development process's references; no value changes."
    }
   ]
  },
@@ -48,11 +53,11 @@
   },
   "taxid_eu_intl": {
    "regex": "\\b(?:NO[ ]?\\d{3}[ ]?\\d{3}[ ]?\\d{3}[ ]?MVA|(?:AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|HR|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK|GB|XI|NO|CH|TR|UA|RS|EU)[- ]?\\d{7,12}(?:[A-Z]{1,2}\\d{0,2})?(?: [A-Z]{1,2}(?!\\w))?|IE\\d[A-Z0-9+*]\\d{5}[A-Z]{1,2}|CHE[- ]?\\d{3}\\.?\\d{3}\\.?\\d{3})\\b",
-   "note": "065, 069: a foreign tax number: an EU / UK / Swiss / Norwegian (with MVA) / Turkish / Ukrainian / Serbian form after a real country code, the Irish form with its trailing letter, the EU OSS registration number, the Swiss CHE form; a match is a candidate only as a recognised form (jav/core/taxid.py), in its canonical spelling."
+   "note": "A foreign tax number: an EU / UK / Swiss / Norwegian (with MVA) / Turkish / Ukrainian / Serbian form after a real country code, the Irish form with its trailing letter, the EU OSS registration number, the Swiss CHE form; a match is a candidate only as a recognised form (jav/core/taxid.py), in its canonical spelling."
   },
   "taxid_label_intl": {
    "regex": "(?i)\\b(?:vat\\s*(?:id|no|number|reg)|tax\\s*(?:id|number|no)|(?-i:EIN)|vkn|tckn|nip|ust[-.]?\\s?idnr|steuernummer|abn|gstin|vergi\\s*no|áfaazonosító|adószám)\\b",
-   "note": "069: a tax number label; EIN is a label only in capitals (the German article 'ein' is not)."
+   "note": "A tax number label; EIN is a label only in capitals (the German article 'ein' is not)."
   },
   "taxid_label_token": {
    "regex": "(?<![\\w-])(?:\\d{2}-\\d{7}|\\d{9,11}|\\d{3}[- ]\\d{3}[- ]\\d{3}[- ]\\d{2,3})(?![\\w-])",
@@ -60,15 +65,15 @@
   },
   "invoice_label": {
    "regex": "(?i)számla\\s*sorszám|sorszám|számlaszám|számla\\s*száma|bizonylatszám|invoice\\s*(?:no|number|#)|számla\\s*azonosító|jóváír\\w*\\s*(?:számla\\s*)?(?:száma|sorszáma|dokumentum)|helyesbítő\\s*számla|sztornó\\s*számla|érvénytelenítő\\s*számla",
-   "note": "The invoice number labels of a Hungarian invoice; 127: a credit note's or corrective invoice's own number is labelled by the document's own name."
+   "note": "The invoice number labels of a Hungarian invoice; a credit note's or corrective invoice's own number is labelled by the document's own name."
   },
   "invoice_label_intl": {
    "regex": "(?i)számla\\s*sorszám|sorszám|számlaszám|számla\\s*száma|bizonylatszám|invoice\\s*(?:no|number|#|id)|számla\\s*azonosító|fatura\\s*no|belge\\s*no|bilet\\s*no|rechnungs?-?(?:nr|nummer)|faktura(?:\\s*(?:nr|vat|no))?|document\\s*(?:no|number)|receipt\\s*(?:no|number|#)|invoice\\s*$|\\border\\s*(?:no|number|id)\\b|\\border\\s*#|\\btransaction\\s*id\\b|\\bcredit\\s*note\\b|számlázási\\s*szám|\\bcredit\\s*memo\\b|\\bpayment\\s*id\\b|\\breceipt\\s*id\\b|\\btransaction\\s*(?:no|number)\\b|\\btransaction\\s*#|jóváír\\w*\\s*(?:számla\\s*)?(?:száma|sorszáma|dokumentum)|helyesbítő\\s*számla|sztornó\\s*számla|érvénytelenítő\\s*számla",
-   "note": "065, 066, 127: the invoice number labels in several languages; on a receipt the order, payment, receipt or transaction id is the document number (with word boundaries: an advertising line 'Order now' is not a label)."
+   "note": "The invoice number labels in several languages; on a receipt the order, payment, receipt or transaction id is the document number (with word boundaries: an advertising line 'Order now' is not a label)."
   },
   "invoice_title": {
    "regex": "(?i)^\\s*(?:elektronikus\\s+|e-)?(?:számla|invoice|tax\\s+invoice|receipt|credit\\s+note)\\s*[:：]?\\s*$",
-   "note": "065: a title line ('Elektronikus számla', 'Invoice') with a single identifier below it (the number stands below the title without a label)."
+   "note": "A title line ('Elektronikus számla', 'Invoice') with a single identifier below it (the number stands below the title without a label)."
   },
   "invoice_token": {
    "regex": "(?<![\\w/\\-])[A-Za-z0-9][A-Za-z0-9\\-/._]{1,}(?![\\w/\\-])",
@@ -76,11 +81,11 @@
   },
   "amount_token": {
    "regex": "-?\\d{1,3}(?:[,.  ]\\d{3})*[.,]\\d{2}|-?\\d+[.,]\\d{2}",
-   "note": "066: an amount-shaped token (1 250,00 / 45.00 / 1,250.00) is not an invoice number candidate: the money finder's job."
+   "note": "An amount-shaped token (1 250,00 / 45.00 / 1,250.00) is not an invoice number candidate: the money finder's job."
   },
   "money": {
    "regex": "(?<![\\d.,])(-?\\d{1,3}(?:,\\d{3})+(?:\\.\\d{1,2})?|-?\\d{1,3}(?:[  .]\\d{3})+(?:,\\d{1,2})?|-?\\d+,\\d{1,2}|-?\\d+\\.\\d{1,2}|-?\\d+)(?![\\d.,]\\d)(?!\\d)",
-   "note": "081: a number is matched whole, never a piece of it; the English thousands group is one number in the Hungarian profile too, and no match is followed by a further digit of the same number. The reading itself is jav/core/numbers.py."
+   "note": "A number is matched whole, never a piece of it; the English thousands group is one number in the Hungarian profile too, and no match is followed by a further digit of the same number. The reading itself is jav/core/numbers.py."
   },
   "money_intl": {
    "regex": "(?<![\\d.,])(-?\\d{1,3}(?:,\\d{3})+(?:\\.\\d{1,2})?|-?\\d{1,3}(?:[  .]\\d{3})+(?:,\\d{1,2})?|-?\\d+,\\d{1,2}|-?\\d+\\.\\d{1,2}|-?\\d+)(?![\\d.,]\\d)(?!\\d)",
@@ -88,7 +93,7 @@
   },
   "quantity": {
    "regex": "(?<![\\d.,])(-?\\d{1,3}(?:,\\d{3})+(?:\\.\\d{1,2})?|-?\\d{1,3}(?:[  .]\\d{3})+(?:,\\d{1,2})?|-?\\d+[.,]\\d{3,6}|-?\\d+,\\d{1,2}|-?\\d+\\.\\d{1,2}|-?\\d+)(?![\\d.,]\\d)(?!\\d)",
-   "note": "081: a quantity also takes a fraction of three or more digits ('1.0000' correction factor, '0,9853'), which money never has."
+   "note": "A quantity also takes a fraction of three or more digits ('1.0000' correction factor, '0,9853'), which money never has."
   },
   "percent_after": {
    "regex": "^\\s*%",
@@ -116,7 +121,7 @@
   },
   "party_label": {
    "regex": "(?i)^(?:szállító|eladó|kibocsátó|kiállító|vevő|vásárló|ügyfél|megrendelő|szolgáltató|supplier|seller|buyer|customer|vendor)(?!\\w)\\s*(?:neve|name)?\\s*[:：]?\\s*",
-   "note": "127: a party label is a whole word (a customer-code label is not the buyer label followed by 'code')."
+   "note": "A party label is a whole word (a customer-code label is not the buyer label followed by 'code')."
   },
   "party_label_intl": {
    "regex": "(?i)^(?:szállító|eladó|kibocsátó|kiállító|vevő|vásárló|ügyfél|megrendelő|szolgáltató|számlafizető|supplier|seller|buyer|customer|vendor|client|from|bill(?:ed)?\\s+to|sold\\s+to|ship\\s+to|invoice\\s+to|remit\\s+to|issued\\s+by|sayın)(?!\\w)\\s*(?:neve|name)?\\s*[:：]?\\s*",
@@ -200,11 +205,11 @@
   },
   "greeting": {
    "regex": "(?i)^(?:dear|hello|hi|kedves|tisztelt)\\s+(?=\\S)",
-   "note": "127: a greeting before the addressee's name ('Dear <Name>,') is not part of the name."
+   "note": "A greeting before the addressee's name ('Dear <Name>,') is not part of the name."
   },
   "address_tail": {
    "regex": "^[\\s,;-]*(?:\\d{4}(?!\\d)|(?:[A-ZÁÉÍÓÖŐÚÜŰ][\\w.\\-]*\\s+){1,4}(?:utca|u\\.|út|útja|tér|tere|körút|krt\\.|köz|sor|sétány|fasor|rakpart|street|st\\.|road|rd\\.|avenue|ave\\.)\\s*\\d)",
-   "note": "127: an address after a complete name in the same cell: a postcode or a street with a house number, optionally after a comma."
+   "note": "An address after a complete name in the same cell: a postcode or a street with a house number, optionally after a comma."
   },
   "name_stop": {
    "regex": "[:：]|\\d{4}[ ,]|\\d{8}|adószám|iban|bank|telefon|tel\\.|e-mail|@|www\\.",
@@ -212,19 +217,19 @@
   },
   "incomplete_legal_form": {
    "regex": "(?i)^(?:korlátolt felelősségű|betéti|közkereseti)$",
-   "note": "127: a legal-form adjective that still wants its noun ('társaság') from the next line."
+   "note": "A legal-form adjective that still wants its noun ('társaság') from the next line."
   },
   "name_goes_on": {
    "regex": "(?i)^(?:&|and\\b|és\\s+társa|fióktelep|branch\\b|f\\.\\s?a\\.|v\\.\\s?a\\.|cs\\.\\s?a\\.|kv\\.\\s?a\\.|dba\\b|d/b/a|t/a\\b|trading as\\b|spółka\\b|co\\.|kg\\b)",
-   "note": "129: a continuation that still belongs to a registered name: a partner, a branch, a winding-up state, a trading name."
+   "note": "A continuation that still belongs to a registered name: a partner, a branch, a winding-up state, a trading name."
   },
   "name_tail_separator": {
    "regex": "^\\s*[,\\-–—:|/]",
-   "note": "129: a remark after a name starts after a separator."
+   "note": "A remark after a name starts after a separator."
   },
   "party_label_terms": {
    "regex": "(?i)^(?:szállító|eladó|kibocsátó|kiállító|vevő|vásárló|ügyfél|megrendelő|szolgáltató|számlafizető|supplier|seller|buyer|customer|vendor|client|from|bill(?:ed)?\\s+to|sold\\s+to|ship\\s+to|invoice\\s+to|remit\\s+to|issued\\s+by|sayın|cégnév|cég\\s+neve|üzlet\\s+üzemeltetője|üzemeltetője|üzemeltető)(?!\\w)\\s*(?:neve|name)?\\s*[:：]?\\s*",
-   "note": "231 (F2c): the international party labels and those of a seller's terms and conditions: the company name ('Cégnév:') and the operator of a shop ('Üzlet üzemeltetője:')."
+   "note": "The international party labels and those of a seller's terms and conditions: the company name ('Cégnév:') and the operator of a shop ('Üzlet üzemeltetője:')."
   }
  },
  "currency_tokens": {

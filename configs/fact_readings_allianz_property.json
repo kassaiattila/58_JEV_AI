@@ -1,18 +1,23 @@
 {
  "meta": {
   "name": "fact_readings_allianz_property",
-  "version": "1.1.0",
-  "description": "231 (stage U, U-A6; jav/app/fact_readings.py): how the invented customer documents of the real corporate property product (a quote request, a property schedule per site, a claims history) are read into the facts of configs/facts_allianz_property.json: each type pack's field or row column to a fact of a unit, the printed words to codes (document vocabulary in Hungarian). The schedule's protection class, printed once per site, is each asset group's. A word no table knows is not read.",
+  "version": "1.1.1",
+  "description": "Jav/app/fact_readings.py: how the invented customer documents of the real corporate property product (a quote request, a property schedule per site, a claims history) are read into the facts of configs/facts_allianz_property.json: each type pack's field or row column to a fact of a unit, the printed words to codes (document vocabulary in Hungarian). The schedule's protection class, printed once per site, is each asset group's. A word no table knows is not read.",
   "changelog": [
+   {
+    "version": "1.1.1",
+    "date": "2026-11-01",
+    "note": "The notes and the description without the development process's references; no value changes."
+   },
    {
     "version": "1.1.0",
     "date": "2026-10-28",
-    "note": "231 (U-A7): the protection the product's rules ask for: the rental income cover, the inland water area, the alarm's maintenance and remote signalling, the guarding (each asset group's) and each asset group's insurance basis."
+    "note": "The protection the product's rules ask for: the rental income cover, the inland water area, the alarm's maintenance and remote signalling, the guarding (each asset group's) and each asset group's insurance basis."
    },
    {
     "version": "1.0.0",
     "date": "2026-10-27",
-    "note": "231 (U-A6): the first version."
+    "note": "The first version."
    }
   ]
  },

@@ -45,7 +45,7 @@ describe("a workflow's control view", () => {
   it("names a step's own AI engine and nothing for a step that follows the application", async () => {
     const step = { kind: "documents" as const, after: [] as string[], budget: {}, name: "June · step", state: "started",
       status: "running" as const, done: false, note: null, package: null, run_id: null, pull_id: null,
-      updated_at: "2026-10-17T10:00:00+00:00", source: { kind: "folder" as const, folder: "C:\work\invoices" } };
+      updated_at: "2026-10-17T10:00:00+00:00", source: { kind: "folder" as const, folder: "C:\\work\\invoices" } };
     const view: WorkflowView = {
       workflow: { id: "wf-00000000000a", template: "documents_pair", template_title: "Two folders", name: "June", party_id: PARTY.id,
         party: PARTY.name, period_start: "2026-06-01", period_end: "2026-06-30", auto: true, status: "open", actor: "Synthetic reviewer",

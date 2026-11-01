@@ -1,4 +1,4 @@
-"""Data guard (070 plan 2.1 S-adatőr, 071): a personal-data and key guard before commit and push.
+"""Data guard: a personal-data and key guard before commit and push.
 
 Only code and codebase documentation may reach GitHub; personal data, keys, real documents and internal working
 documents may not. The data guard looks at the **new lines** going into git (on commit, `git diff --cached`; on push,

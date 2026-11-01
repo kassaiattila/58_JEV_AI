@@ -19,7 +19,9 @@ from pathlib import Path
 from jav.core import cfg
 
 JAV = Path(__file__).resolve().parents[1] / "jav"
-SHARED = {"meta", "none_label", "ocr", "bands", "band_for", "detect_detail", "detect_issuer", "gpt_field_confidence"}
+# 265 (code review AI-09): the arithmetic checks' tolerances (validators) are shared rules too
+SHARED = {"meta", "none_label", "ocr", "bands", "band_for", "detect_detail", "detect_issuer", "gpt_field_confidence",
+          "validators"}
 
 
 def _readers(name: str) -> set[str]:
@@ -50,7 +52,8 @@ def test_the_duplicate_rules_are_the_finance_domains_with_their_values():
     from jav.domains.finance import duplicates
 
     f = cfg.load("finance")
-    assert f["meta"]["version"] == "1.1.1"  # 231 (C2c): the AI pairing proposal's cap added; 265 (DOM-13): the description; the moved values unchanged
+    # 231 (C2c): the AI pairing proposal's cap added; 265 (DOM-13, DOC-17): the description; the moved values unchanged
+    assert f["meta"]["version"] == "1.1.2"
     d = f["duplicates"]
     assert list(d["families"]) == ["invoice", "proforma"] and d["families"]["proforma"] == ["proforma_invoice"]
     assert (d["number_field"], d["supplier_tax_field"], d["supplier_name_field"]) == (
@@ -77,7 +80,7 @@ def test_each_domain_file_is_read_by_its_owner_and_the_type_roles_only():
     roles = "jav/core/type_roles.py"
     # 227 (plan R3c): the OCR module reads the shared file's `ocr` section, the OCR quality thresholds, for the rules
     # in the documents layer and for the decision rules alike
-    assert _readers("policy") == {"jav/ai/policy.py", "jav/documents/ocr.py", roles}
+    assert _readers("policy") == {"jav/ai/policy.py", "jav/documents/ocr.py", "jav/ai/validators.py", roles}  # 265 (AI-09)
     assert _readers("email") == {"jav/domains/email/email_rules.py", roles}
     # 231 (C2c): the AI pairing proposal reads its cap (`reconcile.ai_proposal`) there too
     assert _readers("finance") == {"jav/domains/finance/duplicates.py", "jav/domains/finance/reconcile_rules.py",

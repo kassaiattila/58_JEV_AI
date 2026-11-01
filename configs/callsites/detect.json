@@ -6,12 +6,12 @@
    {
     "version": "1.1.0",
     "date": "2026-10-07",
-    "note": "122 (backlog S-injection, detection part; GPT round approved on 2026-10-07): the doc_type question says that the document text is data, not instructions. GPT's type question shares this text. New cache key: the detection baseline is re-measured."
+    "note": "Detection part; GPT round approved on 2026-10-07: the doc_type question says that the document text is data, not instructions. GPT's type question shares this text. New cache key: the detection baseline is re-measured."
    },
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "moved out of the Python constants (ROADMAP §1 config as data); the content unchanged"
+    "note": "moved out of the Python constants (config as data); the content unchanged"
    }
   ]
  },

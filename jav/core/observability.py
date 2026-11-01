@@ -82,7 +82,7 @@ def observe(measurement: Measurement) -> None:
     try:
         _observer(Measurement(measurement.operation, measurement.seconds, measurement.outcome, measurement.attempts,
                               clean(measurement.attributes), measurement.started_at))
-    except Exception:  # noqa: BLE001 - observability never stops the work; the failure is logged
+    except Exception:  # observability never stops the work; the failure is logged
         log.exception("the observability sink failed on %s", measurement.operation)
 
 

@@ -1,29 +1,34 @@
 {
   "meta": {
     "name": "examples_allianz_property_documents",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "date": "2026-10-27",
-    "description": "231 (stage U, U-A6; the owner's decisions of 2026-10-27): the invented documents a case of the real corporate property product can start on, in packets, as its process's example material (`configs/processes/<id>.json` `examples.documents`). Each document is its printed pages, made from the golden set `configs/golden_allianz_property_documents.json` as the measurement prints it (`python -m jav.cli examples --set allianz_property_documents --write`; a test keeps them the same). The packets' titles are the interface's (English source, translated). Every name and number is invented.",
+    "description": "The owner's decisions of 2026-10-27: the invented documents a case of the real corporate property product can start on, in packets, as its process's example material (`configs/processes/<id>.json` `examples.documents`). Each document is its printed pages, made from the golden set `configs/golden_allianz_property_documents.json` as the measurement prints it (`python -m jav.cli examples --set allianz_property_documents --write`; a test keeps them the same). The packets' titles are the interface's (English source, translated). Every name and number is invented.",
     "changelog": [
+      {
+        "version": "1.2.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
+      },
       {
         "version": "1.2.0",
         "date": "2026-10-28",
-        "note": "231 U1: the cold store's own invented tax number (from the golden set 1.2.0)."
+        "note": "The cold store's own invented tax number (from the golden set 1.2.0)."
       },
       {
         "version": "1.1.0",
         "date": "2026-10-28",
-        "note": "231 U-A7: the documents print the protection the product's rules ask for (from the golden set 1.1.0)."
+        "note": "The documents print the protection the product's rules ask for (from the golden set 1.1.0)."
       },
       {
         "version": "1.0.1",
         "date": "2026-10-28",
-        "note": "231 U-A7: the packets named with underscores, as the route of a packet's files takes them."
+        "note": "The packets named with underscores, as the route of a packet's files takes them."
       },
       {
         "version": "1.0.0",
         "date": "2026-10-27",
-        "note": "231 U-A6: the three sets of the golden set as packets."
+        "note": "The three sets of the golden set as packets."
       }
     ]
   },

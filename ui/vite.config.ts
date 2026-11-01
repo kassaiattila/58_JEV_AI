@@ -1,5 +1,5 @@
-// A felület buildje a ui/dist-be kerül; a helyi szolgáltatás (jav/service/api.py) ugyanazon a címen kiszolgálja.
-// Fejlesztéskor (npm run dev) a Vite az /api hívásokat a futó szolgáltatáshoz továbbítja.
+// The interface is built into ui/dist; the local service (jav/service/api.py) serves it on the same address.
+// In development (npm run dev) Vite forwards the /api calls to the running service.
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     host: "127.0.0.1",
     port: 5173,
-    // 056: a felület a configs/ közös fájljait is olvassa; 067 (066 Á34): csak a felület mappája és a configs/, nem a teljes projekt
+    // the interface reads the shared files of configs/ too: only its own folder and configs/, not the whole project
     fs: { allow: [".", "../configs"] },
     proxy: { "/api": { target: "http://127.0.0.1:8930", changeOrigin: true } },
   },

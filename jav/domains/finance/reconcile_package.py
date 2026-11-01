@@ -1366,6 +1366,8 @@ def revoke(wp_id: str, *, kind: str, ref: str, actor: identity.Who, note: str | 
     ctx = _context(wp_id)
     note = (note or "").strip() or None
     table = {"allocation": "reconcile_allocations", "mark": "reconcile_line_marks"}.get(kind)
+    if table and not (ref.isascii() and ref.isdigit()):
+        raise KeyError(ref)  # 265 (code review DOM-12): an allocation's or a mark's id is a number; else not found
     with store.connect() as c:
         row = (c.execute(f"SELECT * FROM {table} WHERE id=? AND revoked_at IS NULL", (int(ref),)).fetchone() if table
                else c.execute("SELECT * FROM reconcile_decisions WHERE pair_key=?", (ref,)).fetchone())

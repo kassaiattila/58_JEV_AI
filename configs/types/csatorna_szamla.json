@@ -6,22 +6,22 @@
    {
     "version": "1.3.0",
     "date": "2026-10-06",
-    "note": "120 (silent content errors): distinct_parties role-pair check(s) supplier_name/customer_name; a to-do at the second field when both name one party (jav/fact_checks.py). Extraction requests are unchanged."
+    "note": "Silent content errors: distinct_parties role-pair check(s) supplier_name/customer_name; a to-do at the second field when both name one party (jav/fact_checks.py). Extraction requests are unchanged."
    },
    {
     "version": "1.2.0",
     "date": "2026-09-28",
-    "note": "053 T3.0/T3.2: invoice line items - the line_items list with the GPT schema's item fields (the prompt and the schema unchanged, the extraction costs no more); line item checks in code: line_items_total (the items' sum = the total) and line_items_arithmetic (per row quantity × unit price ≈ net, net × (1 + VAT rate) ≈ gross)"
+    "note": "Invoice line items - the line_items list with the GPT schema's item fields (the prompt and the schema unchanged, the extraction costs no more); line item checks in code: line_items_total (the items' sum = the total) and line_items_arithmetic (per row quantity × unit price ≈ net, net × (1 + VAT rate) ≈ gross)"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "047 T1.2: parent and the legacy detect.json's keywords for choosing the detailed type (source: 10_AIFLOW_V4/flows/doc-extract-bare/types/csatorna_szamla/detect.json, sha256 199361d0977ae14d); the extraction unchanged"
+    "note": "Parent and the legacy detect.json's keywords for choosing the detailed type (source: 10_AIFLOW_V4/flows/doc-extract-bare/types/csatorna_szamla/detect.json, sha256 199361d0977ae14d); the extraction unchanged"
    },
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "tipus-csomag (BACKLOG 1, kozmu-kor): Fovarosi Csatornazasi Muvek szennyviz (csatorna) szamla - a Dijbeszedo-kotegbol szegmentalt onallo csatorna-szamla - extends utility_bill_hu; gyermek-mezok a regi schema.json sorrendjeben; vat_consistency; nem pontozott (regi rules.json): meter_serial, customer_address, consumption_address; prompt es sema verbatim (a regi prompt magyarul)"
+    "note": "Type pack: the Budapest sewage company's sewage bill, a separate bill cut from the bill collector's bundle - extends utility_bill_hu; the child fields in the legacy schema.json's order; vat_consistency; not scored (legacy rules.json): meter_serial, customer_address, consumption_address; the prompt and the schema verbatim (the legacy prompt is in Hungarian)"
    }
   ],
   "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/csatorna_szamla (config version 1.0.1, 2026-09-07; prompt sha256 2fb3821a91d880b1, schema cd544bacc82de994)"

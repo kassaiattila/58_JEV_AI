@@ -313,17 +313,6 @@ def resolve_prefix(prefix: str) -> str | None:
     return rows[0]["doc_id"] if len(rows) == 1 else None
 
 
-def _file_names(doc_ids: Iterable[str]) -> dict[str, str]:
-    from pathlib import Path
-
-    ids = sorted(set(doc_ids))
-    if not ids:
-        return {}
-    with store.connect() as c:
-        rows = c.execute(f"SELECT doc_id, source_path FROM documents WHERE doc_id IN ({','.join('?' * len(ids))})", ids).fetchall()
-    return {r["doc_id"]: Path(r["source_path"] or "").name for r in rows}
-
-
 # 187 (plan G-full-move T2c): a person's decisions on a pair of documents, in the shared decision journal
 DECISION_KIND = "duplicate"
 decisions.register(decisions.Kind(DECISION_KIND, ("decide",), __name__))
@@ -351,7 +340,7 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor
     if not any(i["item_id"] == item_id and item_kinds.of(i).record for i in run["input"]["items"]):
         raise KeyError(item_id)
     docs = {d.doc_id: d for d in documents() if d.doc_id in (item_id, other_doc_id)}
-    if other_doc_id not in _file_names([other_doc_id]):
+    if other_doc_id not in store.file_names([other_doc_id]):
         raise KeyError(other_doc_id)
     suggested = (classify(docs[item_id].fields, docs[other_doc_id].fields)[0]
                  if item_id in docs and other_doc_id in docs else None)
@@ -402,7 +391,7 @@ def item_pairs(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str
     if not others:
         return []
     docs = {d.doc_id: d for d in documents() if d.doc_id == item_id or d.doc_id in others}
-    names = _file_names([*others, item_id])
+    names = store.file_names([*others, item_id])
     runs = sorted({d.run_id for d in docs.values() if d.run_id})
     with store.connect() as c:
         packages = {r["run_id"]: r["workpackage_id"] for r in c.execute(
@@ -429,7 +418,7 @@ def marks(items: dict[str, list[str]]) -> dict[str, dict[str, Any]]:
     when a person decided so with this document as the repeat, else a suspicion from an open to-do; `different` lists
     the documents a person found not to be the same. A document without any of these has no entry."""
     decisions = decisions_for(items)
-    names = _file_names([d["other_doc_id"] for d in decisions] + [d["doc_id"] for d in decisions])
+    names = store.file_names([d["other_doc_id"] for d in decisions] + [d["doc_id"] for d in decisions])
     out: dict[str, dict[str, Any]] = {}
     for item_id, reasons in items.items():
         mine = [d for d in decisions if item_id in (d["doc_id"], d["other_doc_id"])]
@@ -445,7 +434,7 @@ def marks(items: dict[str, list[str]]) -> dict[str, dict[str, Any]]:
                 full = resolve_prefix(parsed[1]) if parsed else None
                 if parsed and full:
                     mark = {"status": "suspected", "kind": parsed[0], "other_doc_id": full,
-                            "other_file": _file_names([full]).get(full)}
+                            "other_file": store.file_names([full]).get(full)}
                     break
         if mark is not None or different:
             out[item_id] = {**(mark or {}), "different": different}

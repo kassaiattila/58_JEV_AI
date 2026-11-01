@@ -123,7 +123,7 @@ def routes(app: FastAPI, r: str) -> None:
                                                          "X-Content-Type-Options": "nosniff"})
 
     @app.get(r + "/runs/{run_id}/export")
-    def run_export(run_id: RunId, format: Literal["csv", "xlsx", "json"] = "xlsx",  # noqa: A002 - legacy endpoint parameter
+    def run_export(run_id: RunId, format: Literal["csv", "xlsx", "json"] = "xlsx",  # legacy endpoint parameter
                    table: Literal["documents", "datapoints", "line_items", "native_facts"] = "documents") -> Response:
         """054 K4: the run's valid data for download (modelled on the legacy V4 export endpoint: attachment + row-count
         header)."""
@@ -142,7 +142,7 @@ def routes(app: FastAPI, r: str) -> None:
         from jav.app import naming
 
         work_runs.get_run(run_id)  # unknown run: 404
-        fh = tempfile.SpooledTemporaryFile(max_size=32 * 1024 * 1024)  # noqa: SIM115 - closed by the stream below
+        fh = tempfile.SpooledTemporaryFile(max_size=32 * 1024 * 1024)  # closed by the stream below
         try:
             counts = naming.write_zip(run_id, fh)
         except BaseException:

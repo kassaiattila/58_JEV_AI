@@ -184,7 +184,7 @@ def _activity_pairs(store_path: Path) -> list[tuple[str, str]]:
         for table, who, when in _ACTIVITY_TIMES:
             if table not in tables:
                 continue
-            for actor, at in c.execute(f"SELECT {who}, {when} FROM {table} WHERE {who} IS NOT NULL AND {when} IS NOT NULL"):  # noqa: S608 - fixed names
+            for actor, at in c.execute(f"SELECT {who}, {when} FROM {table} WHERE {who} IS NOT NULL AND {when} IS NOT NULL"):  # fixed names
                 try:
                     day = datetime.fromisoformat(str(at)).astimezone().date().isoformat()
                 except ValueError:

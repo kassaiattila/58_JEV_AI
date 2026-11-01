@@ -1,18 +1,23 @@
 {
  "meta": {
   "name": "golden_property_documents",
-  "version": "1.1.0",
-  "description": "231 (stage D, D-e2): invented documents of businesses asking for property insurance (jav/evals/property_documents.py): quote request forms, a property schedule per site and claims history statements, in sets. Each document is kept as what a correct reading of it gives (its type pack's values; a null value is not printed); its printed page is made from them in the layout it names (standard, two_pages). Each set names the facts its documents hold through the fact readings (configs/fact_readings_property.json): the units, the values not read and the facts two documents disagree on. The first five sets hold the invented product set's reference cases (configs/golden_products.json, the case named), so their documents are read into the very facts the rules were measured on; the other three are a policyholder with two sites, a claims statement with another tax number and a schedule with words no code table knows. The printed text is document vocabulary (Hungarian); every name, address and number is invented, the tax numbers are on the data guard's list of invented values.",
+  "version": "1.1.1",
+  "description": "Invented documents of businesses asking for property insurance (jav/evals/property_documents.py): quote request forms, a property schedule per site and claims history statements, in sets. Each document is kept as what a correct reading of it gives (its type pack's values; a null value is not printed); its printed page is made from them in the layout it names (standard, two_pages). Each set names the facts its documents hold through the fact readings (configs/fact_readings_property.json): the units, the values not read and the facts two documents disagree on. The first five sets hold the invented product set's reference cases (configs/golden_products.json, the case named), so their documents are read into the very facts the rules were measured on; the other three are a policyholder with two sites, a claims statement with another tax number and a schedule with words no code table knows. The printed text is document vocabulary (Hungarian); every name, address and number is invented, the tax numbers are on the data guard's list of invented values.",
   "changelog": [
+   {
+    "version": "1.1.1",
+    "date": "2026-11-01",
+    "note": "The notes and the description without the development process's references; no value changes."
+   },
    {
     "version": "1.1.0",
     "date": "2026-10-27",
-    "note": "231 (D-f8): each set's policyholder holds the request form's contact person and email address (the fact readings 1.1.0); nothing else changes."
+    "note": "Each set's policyholder holds the request form's contact person and email address (the fact readings 1.1.0); nothing else changes."
    },
    {
     "version": "1.0.0",
     "date": "2026-10-26",
-    "note": "231 (D-e2): the first version: eight sets, 23 documents."
+    "note": "The first version: eight sets, 23 documents."
    }
   ]
  },

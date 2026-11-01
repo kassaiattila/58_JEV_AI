@@ -1,10 +1,15 @@
 {
   "meta": {
     "name": "example_parties",
-    "version": "1.0.0",
-    "description": "231 (stage U, U1e; the owner's decision of 2026-10-28): the invented own parties the bank statements and the reconciliation are tried on (jav/domains/finance/party_examples.py). Each party has its tax number, its accounts and, per account, the months of its statements: every line's day, kind, amount (credit or debit), partner and memo. The examples' machine makes the party with its accounts; the statements are written as a bank's ISO 20022 camt.053 XML files (configs/examples_bank_statements.json, made by `python -m jav.cli examples --set bank_statements --write`), their balances and totals computed by code. The invented consultancy is the issuer of the invented invoices of golden_synthetic.json (its account is the one they print), so its statements pay some of them. Nothing in it is real: the bank, its BIC and every account are invented (the partners' accounts are the data guard's invented ones).",
+    "version": "1.0.1",
+    "description": "The owner's decision of 2026-10-28: the invented own parties the bank statements and the reconciliation are tried on (jav/domains/finance/party_examples.py). Each party has its tax number, its accounts and, per account, the months of its statements: every line's day, kind, amount (credit or debit), partner and memo. The examples' machine makes the party with its accounts; the statements are written as a bank's ISO 20022 camt.053 XML files (configs/examples_bank_statements.json, made by `python -m jav.cli examples --set bank_statements --write`), their balances and totals computed by code. The invented consultancy is the issuer of the invented invoices of golden_synthetic.json (its account is the one they print), so its statements pay some of them. Nothing in it is real: the bank, its BIC and every account are invented (the partners' accounts are the data guard's invented ones).",
     "changelog": [
-      {"version": "1.0.0", "date": "2026-10-28", "note": "231 (U1e): the invented consultancy, its forint account and four months of statements (March to June 2026): three customers pay three of its invoices, it pays its office rent without an invoice, and the bank charges its monthly fee."}
+      {"version": "1.0.0", "date": "2026-10-28", "note": "The invented consultancy, its forint account and four months of statements (March to June 2026): three customers pay three of its invoices, it pays its office rent without an invoice, and the bank charges its monthly fee."},
+      {
+        "version": "1.0.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
+      }
     ]
   },
   "parties": [

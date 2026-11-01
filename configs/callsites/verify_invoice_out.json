@@ -6,22 +6,22 @@
    {
     "version": "1.3.0",
     "date": "2026-10-12",
-    "note": "151 (backlog F-outgoing-invoice-S-path): own_glossary - the G path keeps this call site's glossary now that the pack has an S path of its own (select_invoice_out); without it the glossary would come from the select call site and every G question would change. The questions sent are the same as before."
+    "note": "Own_glossary - the G path keeps this call site's glossary now that the pack has an S path of its own (select_invoice_out); without it the glossary would come from the select call site and every G question would change. The questions sent are the same as before."
    },
    {
     "version": "1.2.0",
     "date": "2026-10-08",
-    "note": "127 (5th group, round B): own data replaced (069 decision): the supplier_tax_id description no longer names our company; its example tax number is an invented one. The document guard comes from verify 1.2.0."
+    "note": "5th group, round B: own data replaced: the supplier_tax_id description no longer names our company; its example tax number is an invented one. The document guard comes from verify 1.2.0."
    },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "047 T1.5: request_char_budget 110000 (as at the utility call site): on long documents (general terms and conditions) the full-text state gave max_tokens_exceeded"
+    "note": "Request_char_budget 110000 (as at the utility call site): on long documents (general terms and conditions) the full-text state gave max_tokens_exceeded"
    },
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "047 T1.1: the G path's verify call site converted from the legacy type; the Noul questions are inherited from verify.json"
+    "note": "The G path's verify call site converted from the legacy type; the Noul questions are inherited from verify.json"
    }
   ]
  },

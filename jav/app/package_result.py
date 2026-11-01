@@ -134,10 +134,6 @@ def _tier(mode: str, approval: str | None) -> str:
     return "approved" if approval == "approved" else "live"
 
 
-def _has_table(c: sqlite3.Connection, name: str) -> bool:
-    return c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
-
-
 def _only(column: str, ids: list[str] | None) -> tuple[str, list[str]]:
     """An `AND column IN (...)` filter for a few documents (none: every document)."""
     if ids is None:
@@ -159,7 +155,7 @@ def counted_documents(c: sqlite3.Connection, doc_ids: Iterable[str] | None = Non
     where, params = _only("doc_id", ids)
     rows = c.execute(f"SELECT rowid, run_id, doc_id FROM datapoints WHERE 1=1{where} ORDER BY rowid", params).fetchall()
     out: dict[str, CountedDocument] = {}
-    if not _has_table(c, "run_items"):
+    if not store.has_table(c, "run_items"):
         for seq, _flow, doc in rows:  # in rising order: the latest stays
             out[doc] = CountedDocument(doc, int(seq), "measurement", None, None)
         return out
@@ -170,7 +166,7 @@ def counted_documents(c: sqlite3.Connection, doc_ids: Iterable[str] | None = Non
     run_rows = {(r[0], r[1]) for r in c.execute(f"SELECT flow_run_id, item_id FROM run_items WHERE 1=1{where}", params)}
     removed = {r[0] for r in c.execute(
         f"SELECT item_id FROM workpackage_items WHERE 1=1{where} GROUP BY item_id"
-        " HAVING COUNT(removed_revision) = COUNT(*)", params)} if _has_table(c, "workpackage_items") else set()
+        " HAVING COUNT(removed_revision) = COUNT(*)", params)} if store.has_table(c, "workpackage_items") else set()
     counted = set(out)
     for seq, flow, doc in rows:  # the measurements, in rising order: the latest stays
         if doc not in counted and doc not in removed and (flow, doc) not in run_rows:
@@ -207,7 +203,7 @@ def result_rows(c: sqlite3.Connection, counted: Mapping[str, CountedDocument], c
 def latest_corrections(c: sqlite3.Connection) -> dict[tuple[str, str], dict[str, Any]]:
     """The fields of the latest correction of every corrected run item: (run, item) -> fields. A store without the
     corrections table (an evaluation's own store) has none."""
-    if not _has_table(c, "run_item_corrections"):
+    if not store.has_table(c, "run_item_corrections"):
         return {}
     return {(r["run_id"], r["item_id"]): json.loads(r["fields"]) for r in c.execute(
         "SELECT c.run_id, c.item_id, c.fields FROM run_item_corrections c JOIN"

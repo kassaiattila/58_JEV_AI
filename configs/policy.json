@@ -1,107 +1,112 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.26.0",
+  "version": "1.27.0",
   "changelog": [
+   {
+    "version": "1.27.0",
+    "date": "2026-11-01",
+    "note": "Code review AI-09: validators - the arithmetic checks' tolerances, until now constants in jav/ai/validators.py, with the same values: the header totals (net + VAT - gross) within 1 forint, or 0.02 in another currency; the line items' sum within 2 forints or half a forint per item (0.02 or 0.005 per item in another currency); a line's quantity x price and net x (1 + VAT) within 1 or 1% of the printed amount. missing_currency names how a document without a currency is checked, as before: the totals as another currency's, the line items' sum as forints. No result changes."
+   },
    {
     "version": "1.26.0",
     "date": "2026-10-24",
-    "note": "224 (plan G-process-core P3c, DECISIONS 218): the shared rules only. The email flow's routes (email) moved to configs/email.json, the duplicate search's families and fields (duplicates) and the reconciliation's currency bands and its sure AI threshold (reconcile) to configs/finance.json, each read by its domain's own module; the values are unchanged. A domain's rule change no longer changes this file's fingerprint (a data point's config_hash names it)."
+    "note": "The shared rules only. The email flow's routes (email) moved to configs/email.json, the duplicate search's families and fields (duplicates) and the reconciliation's currency bands and its sure AI threshold (reconcile) to configs/finance.json, each read by its domain's own module; the values are unchanged. A domain's rule change no longer changes this file's fingerprint (a data point's config_hash names it)."
    },
    {
     "version": "1.25.0",
     "date": "2026-10-21",
-    "note": "190 (plan 189 A2e): the quote request. email.intent_route: quote_request -> m2:quote_request (the quote request's data extraction, from the email's own text or its request form); email.m2_types: quote_request, so an attached request form decides the route like an invoice does."
+    "note": "The quote request. email.intent_route: quote_request -> m2:quote_request (the quote request's data extraction, from the email's own text or its request form); email.m2_types: quote_request, so an attached request form decides the route like an invoice does."
    },
    {
     "version": "1.24.0",
     "date": "2026-10-17",
-    "note": "164 (the owner's decision of 2026-10-17, after the GPT-only check measurement): gpt_field_confidence.info_only - per type pack, the accounting fields whose GPT confidence only shows (colour and filter) and opens no to-do on the G path without JEV. invoice_out: buyer_address, as an address is on a Hungarian invoice. On 43 real outgoing invoices the buyer address opened a to-do on every one, each on a value that agreed with the earlier result (a long text's token probability is lower as a whole). The pack's scoring, the JEV path and the text GPT is sent are unchanged; the threshold (review_below 0.98) is unchanged."
+    "note": "The owner's decision of 2026-10-17, after the GPT-only check measurement: gpt_field_confidence.info_only - per type pack, the accounting fields whose GPT confidence only shows (colour and filter) and opens no to-do on the G path without JEV. invoice_out: buyer_address, as an address is on a Hungarian invoice. On the outgoing invoices of a trial the buyer address opened a to-do on every one, each on a value that agreed with the earlier result (a long text's token probability is lower as a whole). The pack's scoring, the JEV path and the text GPT is sent are unchanged; the threshold (review_below 0.98) is unchanged."
    },
    {
     "version": "1.23.0",
     "date": "2026-10-12",
-    "note": "149 (backlog F-type-uncertainty-outgoing, the owner's decision of 2026-10-12, DECISIONS 149): detect_detail.direction_sides - when the detailed type was uncertain between an outgoing and an incoming invoice pack (the runner-up on the other side), the direction the own parties alone give the extracted invoice settles it: a match closes the uncertainty to-do, a contradiction is a detect_detail:direction_mismatch to-do. On the store: the 21 uncertain outgoing invoices of one own company are all outgoing by their parties. No threshold changed."
+    "note": "The owner's decision of 2026-10-12: detect_detail.direction_sides - when the detailed type was uncertain between an outgoing and an incoming invoice pack (the runner-up on the other side), the direction the own parties alone give the extracted invoice settles it: a match closes the uncertainty to-do, a contradiction is a detect_detail:direction_mismatch to-do. On the store: the 21 uncertain outgoing invoices of one own company are all outgoing by their parties. No threshold changed."
    },
    {
     "version": "1.22.0",
     "date": "2026-10-12",
-    "note": "149 (backlog F-outgoing-fx, the owner's decision of 2026-10-12, DECISIONS 149): reconcile.fx_bank_tolerance - a forint bank line is proposed as the payment of an invoice in another currency when its amount is within the band of the amount converted at the MNB rate of the invoice's fulfilment day (a Hungarian buyer pays the forint value the invoice states: 5 of 5 named payments to the forint) or of the line's booking day (a bank converts the money: 6 of 6 within 0.6-1.1% below the rate). A proposal only: every pair goes to a person's decision."
+    "note": "The owner's decision of 2026-10-12: reconcile.fx_bank_tolerance - a forint bank line is proposed as the payment of an invoice in another currency when its amount is within the band of the amount converted at the MNB rate of the invoice's fulfilment day (a Hungarian buyer pays the forint value the invoice states: 5 of 5 named payments to the forint) or of the line's booking day (a bank converts the money: 6 of 6 within 0.6-1.1% below the rate). A proposal only: every pair goes to a person's decision."
    },
    {
     "version": "1.21.0",
     "date": "2026-10-12",
-    "note": "149 (backlog F-sent-mail-processing, the owner's decision of 2026-10-12, DECISIONS 149): email.sent_route - a message read from the Sent Items folder is not asked about its intent (the question reads the sender's aim, and the call is paid); its attachments decide the suggested next step as for a document-bearing intent, otherwise it goes to archive:sent. No threshold changed; an Inbox message is routed as before."
+    "note": "The owner's decision of 2026-10-12: email.sent_route - a message read from the Sent Items folder is not asked about its intent (the question reads the sender's aim, and the call is paid); its attachments decide the suggested next step as for a document-bearing intent, otherwise it goes to archive:sent. No threshold changed; an Inbox message is routed as before."
    },
    {
     "version": "1.20.0",
     "date": "2026-10-12",
-    "note": "147 (backlog F-quick-review, the owner's decision of 2026-10-12, DECISIONS 147): reconcile.ai_sure - in a reconciliation package's quick review, the AI's kind of payment counts as sure when both engines (JEV and GPT) give the same kind, that kind suggests a needs-no-invoice reason, and JEV's probability of it is at least min_jev_probability (0.95). GPT's probability is not used: it is about 1 on nearly every line (23 of the 27 agreeing lines at 0.95 or more). On the store's 132 lines with both answers, 27 agree on a reason-giving kind and 15 of them pass. Agreement of the two models, not measured correctness: a person still accepts the group; the rest of the AI's suggestions are a group to look at."
+    "note": "The owner's decision of 2026-10-12: reconcile.ai_sure - in a reconciliation package's quick review, the AI's kind of payment counts as sure when both engines (JEV and GPT) give the same kind, that kind suggests a needs-no-invoice reason, and JEV's probability of it is at least min_jev_probability (0.95). GPT's probability is not used: it is about 1 on nearly every line (23 of the 27 agreeing lines at 0.95 or more). On the store's 132 lines with both answers, 27 agree on a reason-giving kind and 15 of them pass. Agreement of the two models, not measured correctness: a person still accepts the group; the rest of the AI's suggestions are a group to look at."
    },
    {
     "version": "1.19.0",
     "date": "2026-10-09",
-    "note": "130 (backlog F-reconciliation K3, the owner's decision of 2026-10-09, DECISIONS 130): reconcile.fx_tolerance - a forint card line is proposed as the payment of a foreign-currency invoice when its amount is at most 2% below and at most 5% above the invoice amount converted at the MNB rate of the issue date (and a signal ties them, jav/reconcile.py). Asymmetric because a bank's card rate is usually above the MNB middle rate. Live as a proposal only: every pair goes to a person's decision; to be narrowed after the decisions of the real trial (K4)."
+    "note": "The owner's decision of 2026-10-09: reconcile.fx_tolerance - a forint card line is proposed as the payment of a foreign-currency invoice when its amount is at most 2% below and at most 5% above the invoice amount converted at the MNB rate of the issue date (and a signal ties them, jav/reconcile.py). Asymmetric because a bank's card rate is usually above the MNB middle rate. Live as a proposal only: every pair goes to a person's decision; to be narrowed after the decisions of the real trial."
    },
    {
     "version": "1.18.0",
     "date": "2026-10-07",
-    "note": "126 (backlog F-duplicate, the owner's decisions of 2026-10-07, DECISIONS 124 and 126): duplicates - an invoice-like document whose normalised invoice number and supplier (tax-number key, else the name) match an earlier document of the same family gets a duplicate:<kind>:<other document> to-do in a worker run; kind = copy (issue date, gross total and currency all equal), variant (one of them differs) or undecidable (one is missing). A pro forma invoice is its own family, so it is never a copy of a final invoice. No AI call and no threshold change; measurements are unaffected (the store is read only in a worker run)."
+    "note": "The owner's decisions of 2026-10-07: duplicates - an invoice-like document whose normalised invoice number and supplier (tax-number key, else the name) match an earlier document of the same family gets a duplicate:<kind>:<other document> to-do in a worker run; kind = copy (issue date, gross total and currency all equal), variant (one of them differs) or undecidable (one is missing). A pro forma invoice is its own family, so it is never a copy of a final invoice. No AI call and no threshold change; measurements are unaffected (the store is read only in a worker run)."
    },
    {
     "version": "1.17.0",
     "date": "2026-10-07",
-    "note": "122 (backlog Q-upwork-type, the owner's decision of 2026-10-01, DECISIONS 083; GPT round approved on 2026-10-07): detect_detail.foreign_issuer_pack - a receipt whose issuer is not Hungarian (P(issuer is Hungarian) in the no band of the engine's own issuer question) goes to the foreign invoice pack, as the registry already says (invoice_foreign covers a non-Hungarian business's receipt); the only receipt pack is the Hungarian tax authority's. email.m2_types gains proforma_invoice (backlog F-pro-forma): an attached pro forma invoice is extracted like an invoice. No threshold changed."
+    "note": "The owner's decision of 2026-10-01; GPT round approved on 2026-10-07: detect_detail.foreign_issuer_pack - a receipt whose issuer is not Hungarian (P(issuer is Hungarian) in the no band of the engine's own issuer question) goes to the foreign invoice pack, as the registry already says (invoice_foreign covers a non-Hungarian business's receipt); the only receipt pack is the Hungarian tax authority's. email.m2_types gains proforma_invoice: an attached pro forma invoice is extracted like an invoice. No threshold changed."
    },
    {
     "version": "1.16.0",
     "date": "2026-10-06",
-    "note": "120 (the owner's choice of 2026-10-06, silent content errors): band_for native.support = default - JEV's raw support of a Word/Excel fact is read with the existing default Noul band; a no-band answer opens a to-do. No threshold changed; the uncertain band stays without a to-do (uncertain_review false)."
+    "note": "The owner's choice of 2026-10-06, silent content errors: band_for native.support = default - JEV's raw support of a Word/Excel fact is read with the existing default Noul band; a no-band answer opens a to-do. No threshold changed; the uncertain band stays without a to-do (uncertain_review false)."
    },
    {
     "version": "1.15.0",
     "date": "2026-10-02",
-    "note": "092 (the owner's decisions of 2026-10-02 after a trial on real work: 'a to-do below 98%', then 'without the informational fields'): gpt_field_confidence.review_below - on the G path without JEV a field GPT extracted with a token probability below it opens a gpt:low_conf:<field>:<p> to-do, only on the accounting fields (the pack's scored, not informational fields and its high-stakes fields); addresses and other informational fields only show it. A field whose check failed already has its to-do. A run with JEV never gets it, not even on the code's fallback when JEV does not answer. On the 70 golden documents (091 answers) it marks 28 of the 59 accepted ones, 6 of the 13 with an error (5 of the 8 with an error in an accounting field); chosen on the measured documents themselves"
+    "note": "The owner's decisions of 2026-10-02 after a trial: 'a to-do below 98%', then 'without the informational fields': gpt_field_confidence.review_below - on the G path without JEV a field GPT extracted with a token probability below it opens a gpt:low_conf:<field>:<p> to-do, only on the accounting fields (the pack's scored, not informational fields and its high-stakes fields); addresses and other informational fields only show it. A field whose check failed already has its to-do. A run with JEV never gets it, not even on the code's fallback when JEV does not answer. On the 70 golden documents it marks 28 of the 59 accepted ones, 6 of the 13 with an error (5 of the 8 with an error in an accounting field); chosen on the measured documents themselves"
    },
    {
     "version": "1.14.0",
     "date": "2026-10-02",
-    "note": "091 (the paid measurement of 2026-10-02 on the 70 G-path golden documents without JEV, 0.464 USD; the owner's decisions: 'probability only, 0.98' and 'display only, trial first'): gpt_field_confidence.evidence is empty - the source location no longer caps a GPT field (GPT rewrites values, e.g. 'Hungary' for 'Magyarorszag'; with the caps 19 of 25 wrong fields but 112 of 985 right ones fell below 0.98, without them 15 and 33); failed_check stays 0.5; bands - GPT's own display band (confident from 0.98, check from 0.5), served with the settings for the review's colours and its 'uncertain' filter. Still display only: no to-do comes from it. The threshold was chosen on the measured documents themselves"
+    "note": "The paid measurement of 2026-10-02 on the 70 G-path golden documents without JEV, 0.464 USD; the owner's decisions: 'probability only, 0.98' and 'display only, trial first': gpt_field_confidence.evidence is empty - the source location no longer caps a GPT field (GPT rewrites values, e.g. 'Hungary' for 'Magyarorszag'; with the caps 19 of 25 wrong fields but 112 of 985 right ones fell below 0.98, without them 15 and 33); failed_check stays 0.5; bands - GPT's own display band (confident from 0.98, check from 0.5), served with the settings for the review's colours and its 'uncertain' filter. Still display only: no to-do comes from it. The threshold was chosen on the measured documents themselves"
    },
    {
     "version": "1.13.0",
     "date": "2026-10-02",
-    "note": "091 (backlog F-gpt-field-confidence, the owner's decision of 2026-10-02: token probability + code evidence, the weaker counts): gpt_field_confidence - on the G path without JEV a field's confidence is the token probability of its value (measure: joint = the product of the value's token probabilities; min and first are kept for the measurement), capped by the code's evidence: a value not printed on the document (not_found) or printed only next to another field's label (context_rejected), or one that failed its field check (failed_check), is capped at 0.5 (the review's 'check' band). Without a token probability only a cap below 1 is shown. Display only: no to-do comes from it until the band is set after the paid measurement (owner decision). The caps and the measure are starting values, to be set by the measurement"
+    "note": "The owner's decision of 2026-10-02: token probability + code evidence, the weaker counts: gpt_field_confidence - on the G path without JEV a field's confidence is the token probability of its value (measure: joint = the product of the value's token probabilities; min and first are kept for the measurement), capped by the code's evidence: a value not printed on the document (not_found) or printed only next to another field's label (context_rejected), or one that failed its field check (failed_check), is capped at 0.5 (the review's 'check' band). Without a token probability only a cap below 1 is shown. Display only: no to-do comes from it until the band is set after the paid measurement (owner decision). The caps and the measure are starting values, to be set by the measurement"
    },
    {
     "version": "1.12.0",
     "date": "2026-10-02",
-    "note": "090 (backlog F-gpt-type-check, the owner's decision of 2026-10-02): detect_issuer - a code cross-check of the recognised type against the recogniser's own issuer judgement: a type or detailed type in hungarian_types (it presumes a Hungarian issuer) whose P(issuer is Hungarian) is in the no band of detect.issuer_is_hungarian.<engine> is a to-do (detect:issuer_mismatch:<type>); the type is kept. Only for the engines listed (gpt: its type errors are confident, so the confidence band cannot catch them); band_for detect.issuer_is_hungarian.gpt = gpt_detect. Measured on the saved runs: 1 of the 2 silent GPT type errors caught, 0 of the 99 correct types flagged. The reverse direction (a foreign invoice with a Hungarian issuer) is no contradiction: the form decides there (doc_types invoice_foreign)"
+    "note": "The owner's decision of 2026-10-02: detect_issuer - a code cross-check of the recognised type against the recogniser's own issuer judgement: a type or detailed type in hungarian_types (it presumes a Hungarian issuer) whose P(issuer is Hungarian) is in the no band of detect.issuer_is_hungarian.<engine> is a to-do (detect:issuer_mismatch:<type>); the type is kept. Only for the engines listed (gpt: its type errors are confident, so the confidence band cannot catch them); band_for detect.issuer_is_hungarian.gpt = gpt_detect. Measured on the saved runs: 1 of the 2 silent GPT type errors caught, 0 of the 99 correct types flagged. The reverse direction (a foreign invoice with a Hungarian issuer) is no contradiction: the form decides there (doc_types invoice_foreign)"
    },
    {
     "version": "1.11.0",
     "date": "2026-10-02",
-    "note": "089 (GPT email intent without JEV): band_for email.intent.gpt = gpt_intent - the email intent recognised by GPT (processing without JEV) has its own band set, for the same reason as gpt_detect; it starts empty (the default band's values, as for the JEV intent) and is tuned after the paid measurement. Its yes/no signals (P(yes) from the answer's token log-probabilities) use the email.signal band like JEV's"
+    "note": "GPT email intent without JEV: band_for email.intent.gpt = gpt_intent - the email intent recognised by GPT (processing without JEV) has its own band set, for the same reason as gpt_detect; it starts empty (the default band's values, as for the JEV intent) and is tuned after the paid measurement. Its yes/no signals (P(yes) from the answer's token log-probabilities) use the email.signal band like JEV's"
    },
    {
     "version": "1.10.0",
     "date": "2026-10-02",
-    "note": "086 (backlog F-jev, K4): band_for detect.doc_type.gpt and detect.detail_type.gpt = gpt_detect - the type recognised by GPT (processing without JEV) has its own band set, because its confidence comes from token log-probabilities, not from a calibrated JEV probability; the set starts empty (the default band's values, as for the JEV detection) and is tuned after the paid measurement"
+    "note": "Band_for detect.doc_type.gpt and detect.detail_type.gpt = gpt_detect - the type recognised by GPT (processing without JEV) has its own band set, because its confidence comes from token log-probabilities, not from a calibrated JEV probability; the set starts empty (the default band's values, as for the JEV detection) and is tuned after the paid measurement"
    },
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "moved out of the Python constants (ROADMAP §1 config as data); the content unchanged"
+    "note": "moved out of the Python constants (config as data); the content unchanged"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-20",
-    "note": "Jev keret-kor 1 (BACKLOG 2): nevesitett sav-keszletek (bands) hivasi helyenkent (band_for), Noul no/uncertain/yes, Choice auto/uncertain/human masodik-opcio ressel; a regi kuszobok (human_max_conf, auto_min_conf_high_stakes, review_flag_p, detect.low_confidence, intent_human_max_conf) a savokba koltoztek, ertek valtozatlan; uj: email.jev_unavailable_route"
+    "note": "Named band sets (bands) per call site (band_for): a Noul's no / uncertain / yes, a Choice's auto / uncertain / human with the second option's gap; the earlier thresholds (human_max_conf, auto_min_conf_high_stakes, review_flag_p, detect.low_confidence, intent_human_max_conf) moved into the bands with their values unchanged; new: email.jev_unavailable_route"
    },
    {
     "version": "1.2.0",
     "date": "2026-09-20",
-    "note": "parent_min_prob a default savban (0.85): bizonytalan tipus mellett a szulo-csalad (registry parent) akkor hasznalhato cimkekent, ha az osszesitett valoszinusege eleri; a route nem valtozik, a szulo a review-payloadba es a jsonl-be kerul"
+    "note": "parent_min_prob in the default band (0.85): beside an uncertain type, the parent family (the registry's parent) can be used as a label when its summed probability reaches it; the route does not change, the parent goes into the review payload and the jsonl"
    },
    {
     "version": "1.3.0",
@@ -116,27 +121,27 @@
    {
     "version": "1.5.0",
     "date": "2026-09-20",
-    "note": "tipus-csomagok (BACKLOG 1): az invoice.required es invoice.high_stakes listak a configs/types/<tipus>.json csomagokba koltoztek (ertek valtozatlan az invoice_hu-nal); a policy csak a tipus-fuggetlen savokat es az e-mail utvonalakat tartalmazza"
+    "note": "Type packs: the invoice.required and invoice.high_stakes lists moved into the configs/types/<type>.json packs (the values unchanged for invoice_hu); the policy holds only the type-independent bands and the email routes"
    },
    {
     "version": "1.6.0",
     "date": "2026-09-20",
-    "note": "OCR-lanc (BACKLOG 7): ocr blokk - az OCR atlagos szo-bizalma (0-1) es a gyenge szavak aranya ez alatt / folott review-ok (ocr:low_confidence, ocr:low_conf_words); a regi sidecar graded-gate max_low_conf_ratio 0.3-jabol, az elso kozmu-OCR-ek alapjan (mean 0.75-0.85, low 0.12-0.20) lazitva"
+    "note": "The OCR chain: the ocr block - the OCR's mean word confidence (0-1) below, and the share of weak words above, these values are to-dos (ocr:low_confidence, ocr:low_conf_words); from the legacy sidecar graded gate's max_low_conf_ratio 0.3, relaxed by the first utility OCR results (mean 0.75-0.85, weak 0.12-0.20)"
    },
    {
     "version": "1.7.0",
     "date": "2026-09-20",
-    "note": "OCR escalation (the owner's decision, handoff 013 §8): escalate_min_mean_conf 0.9 / escalate_max_low_conf_ratio 0.1 - local tesseract text below / above these escalates to the paid Azure DI (configs/ocr.json escalation); the tesseract signals of the 49 utility golden documents are 0.81-0.92 / 6-19 %, so most escalate - the threshold is data, to be refined after measuring"
+    "note": "OCR escalation (the owner's decision): escalate_min_mean_conf 0.9 / escalate_max_low_conf_ratio 0.1 - local tesseract text below / above these escalates to the paid Azure DI (configs/ocr.json escalation); the tesseract signals of the 49 utility golden documents are 0.81-0.92 / 6-19 %, so most escalate - the threshold is data, to be refined after measuring"
    },
    {
     "version": "1.8.0",
     "date": "2026-09-21",
-    "note": "ocr.escalate_min_mean_conf 0.90 -> 0.93 (a felhasznalo dontese, handoff 015): a 49 kozmu-etalon ujramerese szerint a 0,903-0,920 tesseract-bizalmu 16 szamla 20 mezot veszit a 702-bol az Azure-szoveghez kepest (S 95,6 -> 98,4 %); ezen a korpuszon igy minden szkennelt kozmu-szamla eszkalal (49/49), a kuszob csak jobb szkenneken szamit"
+    "note": "ocr.escalate_min_mean_conf 0.90 -> 0.93 (the owner's decision): by the re-measurement of the 49 utility golden documents, the 16 bills with a tesseract confidence of 0.903-0.920 lose 20 of the 702 fields against the Azure text (S path 95.6% -> 98.4%); on this corpus every scanned utility bill escalates (49 of 49), the threshold matters only on better scans"
    },
    {
     "version": "1.9.0",
     "date": "2026-09-28",
-    "note": "047 T1.2: detect_detail.anchor_margin 0.75 - the lead in the legacy anchor score (required 1 + supporting 0.25 - excluding 0.5, 0-2) at which the code decides the detailed type without JEV; band_for detect.detail_type = default. Tuned on the legacy recognition golden set (102 documents, first 1500 characters): 78 decided by code, 0 different from the legacy label, 24 to JEV (measured on its training examples, runs/20260928_t1/)"
+    "note": "Detect_detail.anchor_margin 0.75 - the lead in the legacy anchor score (required 1 + supporting 0.25 - excluding 0.5, 0-2) at which the code decides the detailed type without JEV; band_for detect.detail_type = default. Tuned on the legacy recognition golden set (102 documents, first 1500 characters): 78 decided by code, 0 different from the legacy label, 24 to JEV (measured on its training examples, runs/20260928_t1/)"
    }
   ]
  },
@@ -198,5 +203,11 @@
   "bands": {"confident": 0.98, "check": 0.5},
   "review_below": 0.98,
   "info_only": {"invoice_out": ["buyer_address"]}
+ },
+ "validators": {
+  "totals": {"huf": "1", "other": "0.02"},
+  "line_sum": {"huf_min": "2", "huf_per_item": "0.5", "other_min": "0.02", "other_per_item": "0.005"},
+  "line_arithmetic": {"min": "1", "percent": "1"},
+  "missing_currency": {"totals": "other", "line_sum": "huf"}
  }
 }

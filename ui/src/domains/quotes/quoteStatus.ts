@@ -2,8 +2,8 @@
 // opened; 231 (A3d): a case's tabs show them, from the quote view its elements carry (`ui/src/elements/registry.tsx`).
 // The amount's form is shared with the quote's editor.
 import type { QuoteView } from "./api";
-import { getLocale, t } from "../../i18n";
-import { fieldLabel } from "../../labels";
+import { t } from "../../i18n";
+import { fieldLabel, groupedAmount } from "../../labels";
 import type { Stage } from "../../route";
 
 /** 197: the request's and the quote's fields by the quote request's own names (its customer is the requester). */
@@ -11,12 +11,7 @@ export const quoteFieldLabel = (f: string) => fieldLabel(f, "quote_request");
 
 /** An amount in the quote's currency: forints whole, others to cents (as the pricing rounds), grouped. */
 export function amountText(v: string | null | undefined, currency: string | null): string {
-  if (v === null || v === undefined || v === "") return "";
-  const n = Number(v);
-  const digits = currency === "HUF" ? 0 : 2;
-  return Number.isFinite(n)
-    ? n.toLocaleString(getLocale(), { minimumFractionDigits: digits, maximumFractionDigits: Math.max(digits, 2), useGrouping: "always" } as unknown as Intl.NumberFormatOptions)
-    : String(v);
+  return groupedAmount(v, currency === "HUF" ? 0 : 2);  // 265 (code review UI-12): the shared formatter
 }
 
 /** The stages' status lines and the case's summary. */

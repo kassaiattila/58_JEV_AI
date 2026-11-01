@@ -1,10 +1,15 @@
 {
   "meta": {
     "name": "golden_credit_kinds",
-    "version": "1.0.0",
-    "description": "158 F-incoming-money-kinds (DECISIONS 152, 158): invented statement lines of incoming money (no real data) with the kind a bookkeeper would give, for the incoming kind question of callsite:reconcile_line (credit_kind). The names are invented; the memo texts are the kind a Hungarian or a foreign bank prints. None of them is one of the question's examples. Measured per engine (JEV, GPT) against these labels; the labels were written for this measurement, so the result says how the question works on such texts, not how it works on real statements.",
+    "version": "1.0.1",
+    "description": "F-incoming-money-kinds: invented statement lines of incoming money (no real data) with the kind a bookkeeper would give, for the incoming kind question of callsite:reconcile_line (credit_kind). The names are invented; the memo texts are the kind a Hungarian or a foreign bank prints. None of them is one of the question's examples. Measured per engine (JEV, GPT) against these labels; the labels were written for this measurement, so the result says how the question works on such texts, not how it works on real statements.",
     "changelog": [
-      {"version": "1.0.0", "date": "2026-10-16", "note": "158: first version, 29 lines over the seven kinds the owner chose (customer payment, own transfer, income, interest, refund, owner's contribution, other)."}
+      {"version": "1.0.0", "date": "2026-10-16", "note": "First version, 29 lines over the seven kinds the owner chose (customer payment, own transfer, income, interest, refund, owner's contribution, other)."},
+      {
+        "version": "1.0.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
+      }
     ]
   },
   "cases": [

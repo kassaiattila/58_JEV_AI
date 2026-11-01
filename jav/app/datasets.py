@@ -54,7 +54,7 @@ from jav.app import costs, logic_packs, work, work_recipes, work_runs, work_view
 from jav.core import activity_kinds, cfg, decisions, display, field_names, store
 from jav.app.outputs import parts
 from jav.core import calls
-from jav.app.tablequery import Column, Query, run_query, select, shown
+from jav.app.tablequery import NUMERIC, Column, Query, run_query, select, shown
 
 Rows = tuple[list[Column], list[dict[str, Any]]]
 
@@ -1082,6 +1082,8 @@ def export_file(name: str, scope: dict[str, str] | None, q: Query, rows_mode: st
     head = [display.text(c.label) for c in cols]  # 231 (D4): in the requesting interface's language
     table = [[shown(c, r.get(c.key)) for c in cols] for r in picked]
     if fmt == "csv":
+        if display.current() == "hu":  # 265 (code review APPW-14): a decimal comma for Hungarian Excel
+            table = export.decimal_commas([c.kind in NUMERIC for c in cols], table)
         data = export.csv_bytes(head, table)
     elif fmt == "xlsx":
         from openpyxl import Workbook

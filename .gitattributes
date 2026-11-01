@@ -1,4 +1,4 @@
-# Egységes sorvég: LF (a meglévő fájlok is így vannak).
+# One line ending: LF (as the existing files have).
 * text=auto eol=lf
 *.png binary
 *.pdf binary

@@ -6,12 +6,12 @@
    {
     "version": "1.1.0",
     "date": "2026-10-06",
-    "note": "120 (silent content errors): distinct_parties role-pair check(s) taxpayer_name/authority; a to-do at the second field when both name one party (jav/fact_checks.py). Extraction requests are unchanged."
+    "note": "Silent content errors: distinct_parties role-pair check(s) taxpayer_name/authority; a to-do at the second field when both name one party (jav/fact_checks.py). Extraction requests are unchanged."
    },
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "047 T1.1: converted from the legacy type copy (jav/typepack_convert.py); the schema and the prompt verbatim; the G path only"
+    "note": "Converted from the legacy type copy (jav/typepack_convert.py); the schema and the prompt verbatim; the G path only"
    }
   ],
   "source": {

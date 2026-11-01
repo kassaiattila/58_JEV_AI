@@ -1,11 +1,11 @@
 """The protection claims must be exercised in real Windows subprocesses."""
+import docx  # noqa: F401 - required: a broken install fails these tests instead of skipping them (265, TOOL-15)
 import pytest
 import os
 
 from jav.documents.readers.isolation import run
 from jav.documents.readers.limits import DEFAULT_LIMITS, ReadFailure
 
-pytest.importorskip("docx", reason="Native reader dependencies await integration")
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows Job Object reader boundary")
 
 

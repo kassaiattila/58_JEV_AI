@@ -1,28 +1,33 @@
 {
  "meta": {
   "name": "golden_allianz_property_documents",
-  "version": "1.2.0",
-  "description": "231 (stage U, U-A6; jav/evals/property_documents.py): invented customers of the real corporate property product asking for a quote: a quote request form, a property schedule per site and a claims history statement each, in sets, as the invented insurer's (golden_property_documents) but on the real product's form (its covers as printed boxes) and terms, read into its facts by configs/fact_readings_allianz_property.json. Each document is kept as what a correct reading gives; its printed page is made from it. Each set names the facts its documents hold. Every name, tax number and amount is invented.",
+  "version": "1.2.1",
+  "description": "Jav/evals/property_documents.py: invented customers of the real corporate property product asking for a quote: a quote request form, a property schedule per site and a claims history statement each, in sets, as the invented insurer's (golden_property_documents) but on the real product's form (its covers as printed boxes) and terms, read into its facts by configs/fact_readings_allianz_property.json. Each document is kept as what a correct reading gives; its printed page is made from it. Each set names the facts its documents hold. Every name, tax number and amount is invented.",
   "changelog": [
+   {
+    "version": "1.2.1",
+    "date": "2026-11-01",
+    "note": "The notes and the description without the development process's references; no value changes."
+   },
    {
     "version": "1.2.0",
     "date": "2026-10-28",
-    "note": "231 (U1; the owner's decision of 2026-10-28): the cold store has an invented tax number of its own (53102467-2-26): 13570008-1-13 was the invented insurer's and the IT quote's invented companies' too, so the invented register gave the cold store for them. Its three documents are measured again."
+    "note": "The owner's decision of 2026-10-28: the cold store has an invented tax number of its own (53102467-2-26): 13570008-1-13 was the invented insurer's and the IT quote's invented companies' too, so the invented register gave the cold store for them. Its three documents are measured again."
    },
    {
     "version": "1.1.0",
     "date": "2026-10-28",
-    "note": "231 (U-A7): each set states the protection the product's rules ask for (the rental income cover, the inland water area, the alarm's maintenance and remote signalling, the guarding, each asset group's insurance basis), with the facts it gives."
+    "note": "Each set states the protection the product's rules ask for (the rental income cover, the inland water area, the alarm's maintenance and remote signalling, the guarding, each asset group's insurance basis), with the facts it gives."
    },
    {
     "version": "1.0.1",
     "date": "2026-10-28",
-    "note": "231 (U-A7): the sets named with underscores (az_metalworks, az_retail, az_cold_store), as the route of an example packet's files takes them."
+    "note": "The sets named with underscores (az_metalworks, az_retail, az_cold_store), as the route of an example packet's files takes them."
    },
    {
     "version": "1.0.0",
     "date": "2026-10-27",
-    "note": "231 (U-A6): three sets of three documents."
+    "note": "Three sets of three documents."
    }
   ]
  },

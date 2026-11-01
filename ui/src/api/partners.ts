@@ -15,7 +15,6 @@ export interface Partner extends PartnerValues { partner_id: string; version: nu
 export type PartnerRoles = Record<string, { label: string; what: string }>;
 /** 231 (U3e): an own party as the partner list shows it, with the role "own"; it is edited in the own parties' register */
 export interface OwnPartnerRow { party_id: string; name: string; tax_number: string | null; changed_at: string | null }
-export const OWN_ROLE = "own";
 export interface PartnerSuggestion { name: string; tax_number: string | null; roles: string[]; seen: number; sources: string[]; last: string | null }
 
 const query = (q: { q?: string; role?: string; retired?: boolean }) => {

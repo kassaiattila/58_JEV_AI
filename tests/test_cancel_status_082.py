@@ -82,8 +82,8 @@ def test_a_running_item_that_fails_after_the_stop_is_cancelled_not_requeued(env)
 def test_a_job_released_after_the_stop_is_cancelled(env):
     running = queue.claim("w1")
     work_runs.cancel_run(env["run_id"])
-    assert queue.release(running.id, delay_s=0) == "cancelled"
-    assert queue.fail(running.id, "late", max_attempts=2, backoff_s=0) == "cancelled"  # a terminal job stays as it is
+    assert queue.fail(running.id, "late", max_attempts=2, backoff_s=0) == "cancelled"
+    assert queue.fail(running.id, "later", max_attempts=2, backoff_s=0) == "cancelled"  # a terminal job stays as it is
 
 
 def test_a_second_stop_while_the_item_is_still_running_keeps_the_run_running(env):
