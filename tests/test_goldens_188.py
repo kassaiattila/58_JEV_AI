@@ -85,7 +85,7 @@ def test_the_flows_and_the_reconciliation_have_their_golden_sets():
     by_key = {g.key: g for g in goldens.sets()}
     assert by_key["types"].layer == "type" and by_key["intents"].layer == "intent"
     assert by_key["reconcile:pairs"].engines == ()  # code only, always free
-    assert by_key["reconcile:credit_kinds"].engines == ("jev", "gpt")
+    assert by_key["reconcile:credit_kinds"].engines == goldens.ENGINES  # 265: every engine of the registry
     # 204 (R1h): described by the finance domain's measurement module, no longer by the logic pack's registration
     assert [g.key for g in reconcile_goldens.GOLDENS] == ["reconcile:pairs", "reconcile:credit_kinds"]
     assert {by_key[k].layer for k in ("reconcile:pairs", "reconcile:credit_kinds")} == {"process_pack"}  # 231 (C3a-2)

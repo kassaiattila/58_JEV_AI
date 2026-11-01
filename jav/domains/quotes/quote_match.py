@@ -33,7 +33,8 @@ from typing import Any
 from typesafe_sdk import Choice, Noul
 
 from jav.ai import policy
-from jav.core import cfg
+from jav.ai import engine as registry
+from jav.core import cfg, providers
 from jav.domains.quotes import price_lists
 from jav.ai.jev import get_adapter
 from jav.ai.jev import disabled as jev_disabled
@@ -44,8 +45,8 @@ from jav.app.tablequery import fold
 REQUEST_ID = "quote_match"
 CALLSITE = "quote.match"  # the policy bands' call site (the default set)
 NONE = "none"
-ENGINES = ("jev", "gpt")
-PROVIDERS = {"jev": "jev", "gpt": "openai"}
+ENGINES = tuple(registry.ids())  # 265: every engine of the registry (until then JEV and GPT)
+PROVIDERS = {e: registry.get(e).answerer for e in ENGINES}  # whose calls answer each engine's question
 _KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 _WORD = re.compile(r"[0-9a-z]+")
 
@@ -162,13 +163,16 @@ def _judged(items: list[price_lists.Item], choice: str | None, dist: dict[str, f
 
 
 def ask_jev(requested: dict[str, Any], context: list[str], items: list[price_lists.Item], *, run_id: str,
-            use_cache: bool = True) -> dict[str, Any]:
-    r = get_adapter().ask(REQUEST_ID, build_state(requested, context, items), build_questions(items), run_id=run_id,
-                          use_cache=use_cache, config_hash=jev_hash())
+            use_cache: bool = True, engine: str = "jev") -> dict[str, Any]:
+    """The engine's judgement service's answer (265: JEV's or OpenAI Decisions', the same question; JEV by default)."""
+    with registry.scope(engine):
+        r = get_adapter().ask(REQUEST_ID, build_state(requested, context, items), build_questions(items), run_id=run_id,
+                              use_cache=use_cache, config_hash=jev_hash())
     ch = r.response.choices["item"]
     out = _judged(items, ch.choice, {str(k): float(v) for k, v in dict(ch.probabilities).items()}, float(ch.confidence),
                   float(r.response.nouls["listed"].noul), float(r.response.nouls["specific"].noul))
-    return {**out, "engine": "jev", "method": "jev", "measured": True, "model": r.call.model, "cost_usd": float(r.call.cost_usd)}
+    return {**out, "engine": engine, "method": engine, "measured": True, "model": r.call.model,
+            "cost_usd": float(r.call.cost_usd)}
 
 
 def _gpt():
@@ -208,8 +212,8 @@ def match(requested: dict[str, Any], context: list[str], prices: price_lists.Pri
                 "candidates": [named.sku], "distribution": {named.sku: 1.0}, "engine": engine, "method": "code",
                 "measured": True, "model": None, "cost_usd": 0.0}
     items = options(str(requested.get("description") or ""), prices)
-    if engine == "jev":
-        return ask_jev(requested, context, items, run_id=run_id, use_cache=use_cache)
+    if registry.get(engine).judged:  # 265: JEV or OpenAI Decisions
+        return ask_jev(requested, context, items, run_id=run_id, use_cache=use_cache, engine=engine)
     with jev_disabled():
         return ask_gpt(requested, context, items, run_id=run_id)
 
@@ -248,7 +252,7 @@ def golden(data: Any, *, engine: str, limits: dict[str, Decimal], use_cache: boo
         if limits:
             raise ValueError("earlier answers only take no budget")
         print(calls.NO_BUDGET_NOTE)
-    elif PROVIDERS[engine] not in limits:
+    elif providers.budget_of(PROVIDERS[engine]) not in providers.pooled(limits):  # 265: Decisions spends OpenAI's
         raise ValueError(f"no budget for: {engine}")
     prices = quote_pricing.golden_price_list(data)
     cases = [c for c in data.cases if c.expected.request is not None]

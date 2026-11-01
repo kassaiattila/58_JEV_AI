@@ -9,6 +9,8 @@ from pathlib import Path
 
 from jav.cli.cli_options import engine_of
 
+BUDGET_FLAGS = "jev: --jev-budget-usd, decisions and gpt: --budget-usd"  # 265: OpenAI Decisions spends OpenAI's
+
 
 def cmd_duplicates(args: argparse.Namespace) -> int:
     """126: the duplicate invoices already in the store (read only; counts and kinds, no values), and with --write the
@@ -75,14 +77,18 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
 
     from jav.domains.finance import reconcile_ai
 
-    # 160-D (Sz7): without --engine the proposals follow the application's AI engine (JEV and GPT: both engines, GPT
-    # only: GPT alone); the golden measurement asks both unless told, as every measurement does. 265: the proposals know
-    # JEV and GPT only (plan L, L4d), so an engine of another judgement service has GPT alone propose
+    # 160-D (Sz7): without --engine the proposals follow the application's AI engine (one with a judgement service:
+    # it and GPT beside it; GPT only: GPT alone); the golden measurement asks JEV and GPT unless told, as every
+    # measurement measures JEV. "both" (265): the application's engine with a judgement service, else JEV, and GPT
     from jav.ai import engine as ai_engines
 
-    engine = args.engine or ("both" if args.golden or ai_engines.get(engine_of(args)).judge in reconcile_ai.ENGINES
-                             else "gpt")
-    engines = list(reconcile_ai.ENGINES) if engine == "both" else [engine]
+    if args.engine is None:
+        engines = reconcile_ai.paired("jev" if args.golden else engine_of(args))
+    elif args.engine == "both":
+        app = engine_of(argparse.Namespace(engine=None))
+        engines = reconcile_ai.paired(app if ai_engines.get(app).judged else "jev")
+    else:
+        engines = [args.engine]
     limits = {}
     if args.jev_budget_usd:
         limits["jev"] = Decimal(args.jev_budget_usd)
@@ -92,7 +98,7 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
         try:
             g = reconcile_ai.golden(engines=engines, limits=limits, use_cache=not args.no_cache)
         except ValueError as exc:
-            print(f"{exc} (jev: --jev-budget-usd, gpt: --budget-usd)")
+            print(f"{exc} ({BUDGET_FLAGS})")
             return 2
         reconcile_ai.print_golden(g)
         return 0
@@ -106,7 +112,8 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
             print(f"{engine}: invoice choice {t['pays']}; kind of payment {t['kind']}")
         return 0
     if not limits:
-        est = reconcile_ai.estimate(args.workpackage_id, redo=args.redo, stale=args.stale, incoming_only=args.incoming)
+        est = reconcile_ai.estimate(args.workpackage_id, redo=args.redo, stale=args.stale, incoming_only=args.incoming,
+                                    engines=engines)
         print(f"lines to ask about: {est['lines']}, with preselected invoices: {est['with_options']} ({est['options']} options)")
         for engine, plan in est["plan"].items():
             print(f"{engine}: answered already {plan['answered']}; requests {plan['requests']} (with invoices {plan['with_options']});"
@@ -114,9 +121,9 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
         print(f"sum of the worst-case reservations (a measurement needs its actual cost plus one): {est['reservations_usd']}")
         print("free estimate only; a measurement needs --jev-budget-usd and/or --budget-usd (the owner's sub-budget)")
         return 0
-    missing = [e for e in engines if {"jev": "jev", "gpt": "openai"}[e] not in limits]
+    missing = reconcile_ai.unbudgeted(engines, limits)
     if missing:
-        print(f"no budget for: {', '.join(missing)} (jev: --jev-budget-usd, gpt: --budget-usd)")
+        print(f"no budget for: {', '.join(missing)} ({BUDGET_FLAGS})")
         return 2
     r = reconcile_ai.run(args.workpackage_id, engines=engines, limits=limits, max_lines=args.max_lines, use_cache=not args.no_cache,
                          redo=args.redo, stale=args.stale, incoming_only=args.incoming)
@@ -198,11 +205,14 @@ def register(sub) -> None:
     p.set_defaults(fn=cmd_reconcile)
     p = sub.add_parser("reconcile-ai", help="AI proposals (JEV / GPT) for a reconciliation package's lines; without a budget only the free estimate")
     p.add_argument("workpackage_id", nargs="?", help="the reconciliation package (wp-...); not with --golden")
-    p.add_argument("--engine", choices=["jev", "gpt", "both"],
-                   help="Default: both with the application's JEV and GPT, gpt with GPT only; --golden: both")
+    from jav.ai import engine as ai_engines
+
+    p.add_argument("--engine", choices=[*ai_engines.ids(), "both"],
+                   help="Default: the application's engine, with GPT beside one with a judgement service (JEV, OpenAI "
+                        "Decisions); both: that engine (else JEV) and GPT; --golden: JEV and GPT")
     p.add_argument("--no-jev", dest="engine", action="store_const", const="gpt", help="the same as --engine gpt")
     p.add_argument("--jev-budget-usd", help="the JEV sub-budget of the measurement (USD)")
-    p.add_argument("--budget-usd", help="the OpenAI sub-budget of the measurement (USD)")
+    p.add_argument("--budget-usd", help="the OpenAI sub-budget of the measurement (USD; GPT's and OpenAI Decisions')")
     p.add_argument("--max-lines", type=int, help="ask only the first N lines")
     p.add_argument("--no-cache", action="store_true", help="JEV: no cached answers (live calls)")
     p.add_argument("--redo", action="store_true", help="ask the lines that have an answer again (default: only the new ones)")

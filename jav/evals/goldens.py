@@ -55,8 +55,6 @@ from jav.core.config import RUNS_DIR
 LAYERS = ("datapoints", "type", "intent", "rules", "logic_pack", "process_pack")  # 231: a process pack's too; D-c7h: the rules
 ENGINES = tuple(engines.ids())  # 265: every engine of the registry (until then "jev", "gpt")
 JUDGED = tuple(e for e in ENGINES if engines.get(e).judged)  # the engines a judgement service answers (the S path's)
-# 265: a set whose code knows only the two engines before the registry (a domain's own pack, plan L L4d)
-ENGINES_BEFORE_265 = ("jev", "gpt")
 SYNTHETIC = "synthetic"
 RECEIPT = "measure"
 
@@ -697,6 +695,6 @@ def latest_results(runs_dir: Path | None = None) -> dict[str, dict[str, Any]]:
     return latest
 
 
-__all__ = ["ENGINES", "ENGINES_BEFORE_265", "FLOW_GOLDENS", "JUDGED", "LAYERS", "QUOTE_GOLDENS", "Golden", "Options", "Outcome", "Result", "Round", "RoundRefused",
+__all__ = ["ENGINES", "FLOW_GOLDENS", "JUDGED", "LAYERS", "QUOTE_GOLDENS", "Golden", "Options", "Outcome", "Result", "Round", "RoundRefused",
            "UnknownGolden", "datapoint_goldens", "get", "latest_results", "logic_pack_goldens", "measure_round",
            "measurement_modules", "select", "sets"]

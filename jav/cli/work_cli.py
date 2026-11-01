@@ -317,7 +317,10 @@ def register(sub) -> None:
     p.add_argument("--arm", choices=["S", "G"])
     p.add_argument("--doc-type")
     p.add_argument("--jev-cache", choices=["reuse", "live"], help="live: without reading the JEV cache (a live trial)")
-    p.add_argument("--engine", choices=["jev", "gpt"], help="gpt = processing without JEV (GPT only); jev = JEV and GPT")
+    from jav.ai import engine as engines
+
+    p.add_argument("--engine", choices=engines.ids(),  # 265: the engine registry's (configs/engines.json)
+                   help="; ".join(f"{e} = {engines.get(e).label}" for e in engines.ids()))
     p.add_argument("--note")
     p.add_argument("--actor", default="cli")
     p = add("run-start", cmd_run_start, "start a run with a fixed input (idempotent)")

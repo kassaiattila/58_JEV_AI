@@ -46,7 +46,8 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator
 
 from typesafe_sdk import Choice
 
-from jav.core import cfg, store, values
+from jav.ai import engine as registry
+from jav.core import cfg, providers, store, values
 from jav.domains.finance import reconcile, reconcile_package
 from jav.ai.jev import JevUnavailableError, get_adapter
 from jav.ai.jev import disabled as jev_disabled
@@ -57,7 +58,8 @@ from jav.core import calls
 if TYPE_CHECKING:
     from jav.ai import gpt_choice
 
-ENGINES = ("jev", "gpt")
+ENGINES = tuple(registry.ids())  # 265: every engine of the registry (until then JEV and GPT)
+GPT_ONLY = next(e for e in ENGINES if not registry.get(e).judged)  # the engine without a judgement service
 NONE = "none"
 REQUEST_ID = "reconcile_line"
 OUTGOING_QUESTION, INCOMING_QUESTION = "line_kind", "credit_kind"
@@ -315,10 +317,13 @@ def _answer(options: list[str], pays: tuple[str | None, dict[str, float]] | None
 
 
 def ask_jev(line: dict[str, Any], invoices: list[dict[str, Any]], facts: list[dict[str, str]], *, run_id: str,
-            use_cache: bool = True) -> dict[str, Any]:
-    """Both questions about one line in one JEV request."""
+            use_cache: bool = True, engine: str = "jev") -> dict[str, Any]:
+    """Both questions about one line in one request to the engine's judgement service (265: JEV's or OpenAI
+    Decisions', the same questions; JEV by default)."""
     questions = build_questions(facts, line)
-    r = get_adapter().ask(REQUEST_ID, build_state(line), questions, run_id=run_id, use_cache=use_cache, config_hash=jev_hash())
+    with registry.scope(engine):
+        r = get_adapter().ask(REQUEST_ID, build_state(line), questions, run_id=run_id, use_cache=use_cache,
+                              config_hash=jev_hash())
     choices = r.response.choices
 
     def picked(key: str) -> tuple[str | None, dict[str, float]]:
@@ -401,7 +406,7 @@ def _walk(engine: str, lines: list[dict[str, Any]], items: list[Item], ask: Call
     given in this run - and only a partner without one gets a call (its earliest line; the next one when it fails).
     147: with `stale` an answer of an older version of the question (another `config_hash`) counts as none: it is
     asked again and never lent. 158: so does an answer of the other direction's kind question."""
-    current = jev_hash() if engine == "jev" else gpt_hash()
+    current = _config_hash(engine)
 
     def kept(answer: dict[str, Any] | None, line: dict[str, Any]) -> bool:
         a = answer or {}
@@ -426,32 +431,55 @@ def _walk(engine: str, lines: list[dict[str, Any]], items: list[Item], ask: Call
             lenders[key] = (line["id"], answer)
 
 
+def _config_hash(engine: str) -> str:
+    """The version of the question an engine's answer was given to: the judgement services' one (265: JEV's and OpenAI
+    Decisions' are the same questions), or GPT's."""
+    return jev_hash() if registry.get(engine).judged else gpt_hash()
+
+
+def paired(engine: str) -> list[str]:
+    """265 (plan L): the engines that propose beside each other with `engine`: an engine with a judgement service and
+    GPT beside it (two independent answers, the quick review's "AI sure"), or GPT alone (until 265: "both" was JEV and
+    GPT)."""
+    e = registry.get(engine)
+    return [e.id, GPT_ONLY] if e.judged else [e.id]
+
+
+def unbudgeted(engines: Iterable[str], limits: dict[str, Decimal]) -> list[str]:
+    """The engines whose calls would find no budget in `limits` (keyed by provider or by budget: OpenAI Decisions
+    spends from OpenAI's)."""
+    budgets = set(providers.pooled(limits))
+    return [e for e in engines if providers.budget_of(PROVIDERS[e]) not in budgets]
+
+
 def _only_incoming(items: list[Item], incoming_only: bool) -> list[Item]:
     """158: with `incoming_only` the incoming money alone (a package whose lines going out were never asked)."""
     return [it for it in items if incoming(it[0])] if incoming_only else items
 
 
-def estimate(wp_id: str, *, redo: bool = False, stale: bool = False, incoming_only: bool = False) -> dict[str, Any]:
+def estimate(wp_id: str, *, redo: bool = False, stale: bool = False, incoming_only: bool = False,
+             engines: Iterable[str] | None = None) -> dict[str, Any]:
     """Free: the lines to decide and, per engine, the plan of a run (`_walk`, every request taken as answered): the
     lines answered already, the requests (those with preselected invoices among them), the lines that would take a
-    partner's answer over, and the sum of the worst-case reservations made before each request. A finished call counts
-    with its actual cost, so a measurement needs its actual cost plus one reservation, not this sum."""
+    partner's answer over, and the sum of the worst-case reservations made before each request, per provider. A
+    finished call counts with its actual cost, so a measurement needs its actual cost plus one reservation, not this
+    sum. 265: `engines` (default: JEV and GPT, `paired("jev")`)."""
+    asked = [e for e in ENGINES if e in set(engines if engines is not None else paired("jev"))]
     lines, items, rates = _lines(wp_id)
     items = _only_incoming(items, incoming_only)
     out: dict[str, Any] = {"lines": len(items), "with_options": sum(1 for _l, inv in items if inv),
                            "options": sum(len(inv) for _l, inv in items), "plan": {}, "reservations_usd": {}}
-    for engine, provider in (("jev", "jev"), ("gpt", "openai")):
-        total = Decimal(0)
+    for engine in asked:
+        provider, total = PROVIDERS[engine], Decimal(0)
 
         def planned(line: dict[str, Any], invoices: list[dict[str, Any]], engine: str = engine) -> dict[str, Any]:
             nonlocal total
             facts = [option_facts(inv, line, rates) for inv in invoices]
-            if engine == "jev":
+            if registry.get(engine).judged:
                 questions = build_questions(facts, line)
                 body = json.dumps({"state": build_state(line), "questions": {k: q.model_dump(mode="json") for k, q in questions.items()}},
                                   ensure_ascii=False)
-                total += calls.estimate_max_cost(input_bytes=calls.utf8_bytes(body), max_output_tokens=0,
-                                                 usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)))
+                total += _judge_max_cost(engine, calls.utf8_bytes(body))
             else:
                 total += _gpt().max_cost_usd(REQUEST_ID, gpt_instructions(facts, line), json.dumps(build_state(line), ensure_ascii=False),
                                               gpt_fields(len(facts), line), _limits())
@@ -464,6 +492,16 @@ def estimate(wp_id: str, *, redo: bool = False, stale: bool = False, incoming_on
         out["plan"][engine] = {"answered": len(items) - plan["requests"] - plan["inherited"], **plan}
         out["reservations_usd"][provider] = str(total.quantize(Decimal("0.000001")))
     return out
+
+
+def _judge_max_cost(engine: str, input_bytes: int) -> Decimal:
+    """The most one request of the engine's judgement service may reserve: JEV's per token of the request as before,
+    another service's by its adapter (265: OpenAI Decisions' prices)."""
+    e = registry.get(engine)
+    if e.judge == "jev":
+        return calls.estimate_max_cost(input_bytes=input_bytes, max_output_tokens=0,
+                                       usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)))
+    return registry.judge_adapter(e.judge)().max_cost_for(input_bytes)
 
 
 def _save(wp_id: str, line: dict[str, Any], engine: str, answer: dict[str, Any], scope: str | None) -> None:
@@ -482,7 +520,7 @@ def _save(wp_id: str, line: dict[str, Any], engine: str, answer: dict[str, Any],
                   (line["id"], engine, line["statement_id"], wp_id, dump(answer.get("options") or []), answer.get("pays"),
                    answer.get("pays_probability"), dump(answer.get("pays_distribution")), answer.get("kind"),
                    answer.get("kind_probability"), dump(answer.get("kind_distribution")), int(bool(answer.get("measured"))),
-                   answer.get("model"), jev_hash() if engine == "jev" else gpt_hash(), scope, answer.get("error"),
+                   answer.get("model"), _config_hash(engine), scope, answer.get("error"),
                    datetime.now(timezone.utc).isoformat(timespec="seconds"), answer.get("asked_line_id"),
                    answer.get("kind_question") or kind_question(line)))
 
@@ -529,8 +567,8 @@ def ask_lines(wp_id: str, *, engines: Iterable[str], scope: str, max_lines: int 
         def ask(line: dict[str, Any], invoices: list[dict[str, Any]]) -> dict[str, Any]:
             facts = [option_facts(inv, line, rates) for inv in invoices]
             try:
-                if engine == "jev":
-                    return ask_jev(line, invoices, facts, run_id=scope, use_cache=use_cache)
+                if registry.get(engine).judged:  # 265: JEV or OpenAI Decisions, the same questions
+                    return ask_jev(line, invoices, facts, run_id=scope, use_cache=use_cache, engine=engine)
                 with jev_disabled():  # 160: the GPT engine cannot ask JEV, not even beside a JEV budget (`--engine both`)
                     return ask_gpt(line, invoices, facts, run_id=scope)
             except (JevUnavailableError, calls.BudgetExceeded, calls.UncertainAttempt) as exc:
@@ -553,7 +591,7 @@ def ask_lines(wp_id: str, *, engines: Iterable[str], scope: str, max_lines: int 
     return {"lines": len(items), "counts": counts}
 
 
-PROVIDERS = {"jev": "jev", "gpt": "openai"}
+PROVIDERS = {e: registry.get(e).answerer for e in ENGINES}  # 265: whose calls answer each engine's questions
 
 
 def _golden_line(case: dict[str, Any]) -> dict[str, Any]:
@@ -576,7 +614,7 @@ def golden(*, engines: Iterable[str], limits: dict[str, Decimal], use_cache: boo
         if limits:
             raise ValueError("earlier answers only take no budget")
         print(calls.NO_BUDGET_NOTE)
-    elif missing := [e for e in engines if PROVIDERS[e] not in limits]:
+    elif missing := unbudgeted(engines, limits):
         raise ValueError(f"no budget for: {', '.join(missing)}")
     cases = cfg.load("golden_credit_kinds")["cases"]
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -592,8 +630,8 @@ def golden(*, engines: Iterable[str], limits: dict[str, Decimal], use_cache: boo
             for case in cases:
                 line = _golden_line(case)
                 try:
-                    if engine == "jev":
-                        answer = ask_jev(line, [], [], run_id=scope, use_cache=use_cache)
+                    if registry.get(engine).judged:
+                        answer = ask_jev(line, [], [], run_id=scope, use_cache=use_cache, engine=engine)
                     else:
                         with jev_disabled():  # 160: the GPT engine cannot ask JEV
                             answer = ask_gpt(line, [], [], run_id=scope)
@@ -658,7 +696,8 @@ def evaluate(wp_id: str) -> dict[str, Any]:
     An engine's failed answer counts as `failed` in both. Agreement with a person is measured here, not between the
     models (DECISIONS 134)."""
     ws = reconcile_package.kept_workspace(wp_id)  # 174 (review 160 M-15): read only
-    tally = {e: {"pays": Counter(), "kind": Counter()} for e in ENGINES}
+    # JEV and GPT always (as before 265), another engine once a line has its answer
+    tally = {e: {"pays": Counter(), "kind": Counter()} for e in paired("jev")}
     rows = []
     for ln in ws["lines"]:
         paid = {a["invoice_id"] for a in ln["allocations"]}
@@ -669,6 +708,7 @@ def evaluate(wp_id: str) -> dict[str, Any]:
         for engine, answer in ln["ai"].items():
             pays, kind = (("failed", "failed") if answer["error"] else
                           (_pays_outcome(answer, paid, bool(marked)), _kind_outcome(answer, marked)))
+            tally.setdefault(engine, {"pays": Counter(), "kind": Counter()})
             tally[engine]["pays"][pays] += 1
             tally[engine]["kind"][kind] += 1
             row[engine] = {"pays": pays, "kind": kind}

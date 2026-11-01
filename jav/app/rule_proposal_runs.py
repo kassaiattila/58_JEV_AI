@@ -33,6 +33,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from jav.ai import engine as engines
 from jav.app import app_settings, facts, product_rules, product_sets, rule_checks, rule_proposals, rule_support
 from jav.app.product_rules import ConditionDocument, Rule
 from jav.core import calls, cfg, decisions, identity, store, versions
@@ -213,13 +214,15 @@ def process(run_id: str) -> dict[str, Any]:
         pages = page_text.read_pages(row["path"], markers(row["file_sha256"]))
         if pages.sha256 != row["file_sha256"]:
             raise explained(ProposalError, "the file changed since the run was asked: {{path}}", path=row["path"])
-        limits = {k: Decimal(v) for k, v in json.loads(row["limits"] or "{}").items()}
+        engine = engines.get(app_settings.engine_default())
+        limits = _judge_limits({k: Decimal(v) for k, v in json.loads(row["limits"] or "{}").items()}, engine)
         name = _stand_in_set(row["proposer"])
         scope = f"rule-proposal-{run_id}"
         with calls.outside_run(scope, limits) as scope:
             proposer = rule_proposals.gpt_proposer(scope) if name is None else rule_proposals.set_proposer(product_sets.load(name))
-            asks_jev = bool(row["verify"]) and app_settings.engine_default() == "jev"
-            verifier = (lambda rule, pages: rule_support.support(rule, pages, run_id=scope)) if asks_jev else None
+            # 265 (plan L): the application engine's judgement service checks (JEV or OpenAI Decisions); GPT only: none
+            verifier = ((lambda rule, pages: rule_support.support(rule, pages, run_id=scope, engine=engine.id))
+                        if row["verify"] and engine.judged else None)
             proposed = rule_proposals.propose(row["document_ref"], pages, row["catalogue"], proposer=proposer,
                                               modules=_modules(row["product"]), document=_document(row["document_ref"]),
                                               verifier=verifier)
@@ -250,12 +253,24 @@ def _stored_pages(row: Any) -> page_text.DocumentPages:
                                    {int(k): v for k, v in json.loads(row["skipped"] or "{}").items()}, row["file_sha256"])
 
 
+JUDGE_LIMIT = "jev"  # the request's cap of the check by a judgement service (the form names it JEV's)
+
+
+def _judge_limits(limits: dict[str, Decimal], engine: engines.Engine) -> dict[str, Decimal]:
+    """265 (plan L): the request's cap of the check by a judgement service (`jev`) is the application engine's service's
+    (OpenAI Decisions' is spent from OpenAI's budget, `calls.outside_run`); an engine without one leaves it as it is."""
+    if JUDGE_LIMIT not in limits or not engine.judged:
+        return limits
+    return {**{k: v for k, v in limits.items() if k != JUDGE_LIMIT}, str(engine.judge_provider): limits[JUDGE_LIMIT]}
+
+
 def recheck(run_id: str, *, document_ref: str | None = None, jev_budget: Decimal | None = None) -> dict[str, Any]:
     """231 (stage U, U-A3): a finished run's undecided proposals checked again with the code as it is now, from the
     answers it keeps (no model is asked again): each record turned into a rule, its clause found on its page, the code's
     check on the pages the run read. `document_ref` names a newer version of the same document (its clauses read again
     from the same file) the rules cite from now on. With a JEV budget, JEV judges the proposals that code no longer
-    blocks and that it has not judged."""
+    blocks and that it has not judged (265: the application engine's judgement service, JEV or OpenAI Decisions, from
+    the same cap; GPT only: none is asked)."""
     with store.connect() as c:
         row = c.execute("SELECT * FROM rule_proposal_runs WHERE run_id=?", (run_id,)).fetchone()
     if row is None:
@@ -270,15 +285,18 @@ def recheck(run_id: str, *, document_ref: str | None = None, jev_budget: Decimal
         rows = c.execute("SELECT * FROM rule_proposals WHERE run_id=? AND state='proposed' ORDER BY n", (run_id,)).fetchall()
     updates = []
     scope = f"rule-proposal-recheck-{run_id}"
-    with calls.outside_run(scope, {"jev": jev_budget} if jev_budget else {}) as scope:
+    engine = engines.get(app_settings.engine_default())
+    judging = bool(jev_budget) and engine.judged
+    with calls.outside_run(scope, {str(engine.judge_provider): jev_budget} if judging else {}) as scope:
         for p in rows:
             record = rule_proposals.ProposedRule.model_validate(json.loads(p["record"]))
             rule, problem = rule_proposals.to_rule(record, row["catalogue"], ref, modules=tuple(modules))
             rule = rule_proposals.on_its_page(rule, document, pages.pages.get(rule.source.page)) if rule is not None else None
             check = rule_checks.check(rule, pages, document_ref=ref, document=document) if rule is not None else None
             support = p["support"]
-            if support is None and jev_budget and rule is not None and check is not None and not check.blocking:
-                support = json.dumps(asdict(rule_support.support(rule, pages, run_id=scope)), ensure_ascii=False)
+            if support is None and judging and rule is not None and check is not None and not check.blocking:
+                support = json.dumps(asdict(rule_support.support(rule, pages, run_id=scope, engine=engine.id)),
+                                     ensure_ascii=False)
             findings, numbers = _check_json(check)
             updates.append((json.dumps(rule.model_dump(mode="json"), ensure_ascii=False) if rule else None,
                             json.dumps(said_fields(problem), ensure_ascii=False) if problem else None, findings, numbers,
