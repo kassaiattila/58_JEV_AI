@@ -65,3 +65,16 @@ def test_the_reference_case_has_no_condition_blocker(packs) -> None:
 def test_a_condition_document_ends_on_or_after_its_start() -> None:
     with pytest.raises(ValidationError, match="ends on or after"):
         product_rules.ConditionDocument(kind="general", title="x", valid_from=date(2026, 2, 1), valid_to=date(2026, 1, 1))
+
+
+def test_a_module_that_excludes_another_asked_for_is_a_blocker() -> None:
+    """272 (K3): the "excludes" side of APPR-03 had no test of its own (only "requires" ran through a case)."""
+    from types import SimpleNamespace
+
+    from jav.app import evaluation_steps
+
+    product = SimpleNamespace(modules=[SimpleNamespace(code="flat_rate", requires=(), excludes=("itemised",)),
+                                       SimpleNamespace(code="itemised", requires=(), excludes=())])
+    assert [str(s) for s in evaluation_steps._module_blockers(product, ("flat_rate", "itemised"))] == [
+        "the module flat_rate excludes itemised, which is asked for too"]
+    assert evaluation_steps._module_blockers(product, ("flat_rate",)) == []
